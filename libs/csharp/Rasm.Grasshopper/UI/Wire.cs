@@ -541,7 +541,22 @@ public readonly record struct GraphIntegrity(Seq<WireSnapshot.ConnectedCase> Dan
 public readonly record struct WireInsertSnapshot(bool CanInsert, Option<Guid> SourceId, Option<Guid> TargetId);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct WireDrawnEntry(Guid SourceId, Guid TargetId, WireKind Kind, RectangleF Bounds);
+public readonly record struct WireDrawnEntry(
+    WireEnds Pair,
+    WireKind Kind,
+    RectangleF Bounds,
+    RectangleF SourceBounds,
+    RectangleF TargetBounds,
+    float Fade,
+    Option<WireRouteTrace> Route) {
+    public Guid SourceId => Pair.Source;
+    public Guid TargetId => Pair.Target;
+}
+
+public enum WireRouteState { Native, Direct, Avoided, Fallback }
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireRouteTrace(WireRouteState State, int Segments, int Obstacles, RectangleF Bounds);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WireDiagnostics(Seq<WireSnapshot.ConnectedCase> Wires, GraphIntegrity Integrity, Option<WireDrawnSnapshot> Drawn);
@@ -566,6 +581,7 @@ public readonly record struct WireOverlayStyle(PaintStyle Style, Option<Func<Wir
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WireDrawnStamp(
+    Guid DocumentId,
     Guid DocumentHash,
     int Modifications,
     PointF ProjectionCentre,
@@ -581,89 +597,119 @@ public readonly record struct WireDrawnSnapshot(Seq<WireDrawnEntry> Entries, Wir
 public readonly record struct WireSelectionDelta(int Selected, int Deselected);
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-// Orthogonal (stepped/taxi) routing: a 3-segment elbow source -> (bendX, source.Y) -> (bendX, target.Y) -> target.
-// Corner radius / split ratio ride the UI-thread-affine WireShapeParams captured at construction, because
-// WireShape.Create builds via Activator.CreateInstance(type, source, target) and admits no extra ctor args.
-// Pick-path geometry (Project/DistanceTo/Intersects) is explicit MathF with zero LINQ/allocation.
+// Orthogonal wire routing: stepped/taxi define the fallback bend; the route owner resolves an N-segment path
+// once and every visual/pick/window operation folds over that same geometry.
 public abstract class WireShapeOrthogonal(PointF source, PointF target) : WireShape(source, target) {
     private readonly float radius = WireShapeParams.CornerRadius;
+    private readonly WireRoutePolicy policy = WireRoutePolicy.Of(cornerRadius: WireShapeParams.CornerRadius, splitRatio: WireShapeParams.SplitRatio);
+    private WireRoutePath? path;
     protected abstract float BendX { get; }
+
+    internal WireRouteTrace Trace => Route.Trace;
+
+    private WireRoutePath Route => path ??= WireRouteSolver.Resolve(source: Source, target: Target, fallbackBendX: BendX, policy: policy);
 
     public override RectangleF Bounds {
         get {
-            float bx = BendX;
-            float left = MathF.Min(MathF.Min(Source.X, bx), Target.X) - radius;
-            float top = MathF.Min(Source.Y, Target.Y) - radius;
-            float right = MathF.Max(MathF.Max(Source.X, bx), Target.X) + radius;
-            float bottom = MathF.Max(Source.Y, Target.Y) + radius;
-            return new RectangleF(x: left, y: top, width: right - left, height: bottom - top);
+            ReadOnlySpan<PointF> points = Route.Points.Span;
+            float left = points[0].X, right = points[0].X, top = points[0].Y, bottom = points[0].Y;
+            for (int i = 1; i < points.Length; i++) {
+                PointF p = points[i];
+                left = MathF.Min(left, p.X);
+                right = MathF.Max(right, p.X);
+                top = MathF.Min(top, p.Y);
+                bottom = MathF.Max(bottom, p.Y);
+            }
+            return RectangleF.Inflate(rectangle: new RectangleF(x: left, y: top, width: right - left, height: bottom - top), width: radius, height: radius);
         }
     }
 
     public override PointF Project(PointF point) {
-        float bx = BendX;
-        (PointF p1, float d1) = NearOn(Source, new(bx, Source.Y), point);
-        (PointF p2, float d2) = NearOn(new(bx, Source.Y), new(bx, Target.Y), point);
-        (PointF p3, float d3) = NearOn(new(bx, Target.Y), Target, point);
-        return d1 <= d2 ? (d1 <= d3 ? p1 : p3) : (d2 <= d3 ? p2 : p3);
+        ReadOnlySpan<PointF> points = Route.Points.Span;
+        PointF best = points[0];
+        float bestDistance = float.PositiveInfinity;
+        for (int i = 1; i < points.Length; i++) {
+            (PointF candidate, float quadrance) = NearOn(points[i - 1], points[i], point);
+            if (quadrance < bestDistance) {
+                best = candidate;
+                bestDistance = quadrance;
+            }
+        }
+        return best;
     }
 
     public override float DistanceTo(PointF point) {
-        float bx = BendX;
-        return MathF.Sqrt(MathF.Min(
-            NearOn(Source, new(bx, Source.Y), point).Quadrance,
-            MathF.Min(
-                NearOn(new(bx, Source.Y), new(bx, Target.Y), point).Quadrance,
-                NearOn(new(bx, Target.Y), Target, point).Quadrance)));
+        ReadOnlySpan<PointF> points = Route.Points.Span;
+        float best = float.PositiveInfinity;
+        for (int i = 1; i < points.Length; i++) {
+            best = MathF.Min(best, NearOn(points[i - 1], points[i], point).Quadrance);
+        }
+        return MathF.Sqrt(best);
     }
 
     public override bool Intersects(RectangleF box) {
-        float bx = BendX;
-        PointF c1 = new(bx, Source.Y), c2 = new(bx, Target.Y);
-        return box.Contains(Source) || box.Contains(Target)
-            || Seg(box, Source, c1) || Seg(box, c1, c2) || Seg(box, c2, Target);
+        ReadOnlySpan<PointF> points = Route.Points.Span;
+        for (int i = 0; i < points.Length; i++) {
+            if (box.Contains(points[i]) || (i > 0 && Seg(box, points[i - 1], points[i]))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public override void Draw(Graphics graphics, Pen edge) {
         // BOUNDARY ADAPTER — GH2 supplies non-null paint args; the guard satisfies CA1062 on this public override.
         ArgumentNullException.ThrowIfNull(graphics);
         ArgumentNullException.ThrowIfNull(edge);
-        float bx = BendX;
-        float r = MathF.Min(radius, MathF.Min(MathF.Abs(Target.Y - Source.Y), MathF.Min(MathF.Abs(bx - Source.X), MathF.Abs(Target.X - bx))) * 0.5f);
-        using GraphicsPath path = new();
-        path.StartFigure();
-        _ = r <= 0f ? StraightElbow(path, bx) : RoundedElbow(path, bx, r);
-        graphics.DrawPath(edge, path);
+        ReadOnlySpan<PointF> points = Route.Points.Span;
+        using GraphicsPath strokePath = new();
+        strokePath.StartFigure();
+        _ = radius <= policy.Tolerance || points.Length <= 2 ? StraightPolyline(strokePath, points) : RoundedPolyline(strokePath, points, radius);
+        graphics.DrawPath(edge, strokePath);
     }
 
-    private Unit StraightElbow(GraphicsPath path, float bendX) {
-        path.MoveTo(Source.X, Source.Y);
-        path.LineTo(bendX, Source.Y);
-        path.LineTo(bendX, Target.Y);
-        path.LineTo(Target.X, Target.Y);
+    private static Unit StraightPolyline(GraphicsPath path, ReadOnlySpan<PointF> points) {
+        path.MoveTo(points[0].X, points[0].Y);
+        for (int i = 1; i < points.Length; i++) {
+            path.LineTo(points[i].X, points[i].Y);
+        }
         return unit;
     }
 
-    private Unit RoundedElbow(GraphicsPath path, float bendX, float r) {
-        PointF c1 = new(bendX, Source.Y), c2 = new(bendX, Target.Y);
-        float sx = MathF.Sign(bendX - Source.X), sy = MathF.Sign(Target.Y - Source.Y), tx = MathF.Sign(Target.X - bendX);
-        const float k = 0.5522847498f; // kappa = 4/3 * (sqrt(2)-1): quarter-circle Bezier, max radial error < 0.05%.
-        float kr = k * r;
-        path.MoveTo(Source.X, Source.Y);
-        path.LineTo(c1.X - (sx * r), c1.Y);
-        path.AddBezier(
-            new PointF(c1.X - (sx * r), c1.Y),
-            new PointF(c1.X - (sx * (r - kr)), c1.Y),
-            new PointF(c1.X, c1.Y + (sy * (r - kr))),
-            new PointF(c1.X, c1.Y + (sy * r)));
-        path.LineTo(c2.X, c2.Y - (sy * r));
-        path.AddBezier(
-            new PointF(c2.X, c2.Y - (sy * r)),
-            new PointF(c2.X, c2.Y - (sy * (r - kr))),
-            new PointF(c2.X + (tx * (r - kr)), c2.Y),
-            new PointF(c2.X + (tx * r), c2.Y));
-        path.LineTo(Target.X, Target.Y);
+    private static Unit RoundedPolyline(GraphicsPath path, ReadOnlySpan<PointF> points, float requestedRadius) {
+        const float k = 0.5522847498f;
+        path.MoveTo(points[0].X, points[0].Y);
+        for (int i = 1; i < points.Length - 1; i++) {
+            PointF previous = points[i - 1], corner = points[i], next = points[i + 1];
+            float before = Distance(a: previous, b: corner);
+            float after = Distance(a: corner, b: next);
+            float r = MathF.Min(requestedRadius, MathF.Min(before, after) * 0.5f);
+            if (r <= 0f || before <= 0f || after <= 0f) {
+                path.LineTo(corner.X, corner.Y);
+                continue;
+            }
+            PointF entry = MoveToward(from: corner, to: previous, distance: r);
+            PointF exit = MoveToward(from: corner, to: next, distance: r);
+            PointF cin = MoveToward(from: entry, to: corner, distance: k * r);
+            PointF cout = MoveToward(from: exit, to: corner, distance: k * r);
+            path.LineTo(entry.X, entry.Y);
+            path.AddBezier(entry, cin, cout, exit);
+        }
+        PointF last = points[^1];
+        path.LineTo(last.X, last.Y);
         return unit;
+    }
+
+    private static PointF MoveToward(PointF from, PointF to, float distance) {
+        float length = Distance(a: from, b: to);
+        return length <= 0f
+            ? from
+            : new PointF(x: from.X + ((to.X - from.X) * distance / length), y: from.Y + ((to.Y - from.Y) * distance / length));
+    }
+
+    private static float Distance(PointF a, PointF b) {
+        float dx = b.X - a.X, dy = b.Y - a.Y;
+        return MathF.Sqrt((dx * dx) + (dy * dy));
     }
 
     // Nearest point on segment [a,b] to p plus its squared distance — one pass feeds both Project and DistanceTo.
@@ -680,6 +726,239 @@ public abstract class WireShapeOrthogonal(PointF source, PointF target) : WireSh
         && MathF.Max(a.Y, b.Y) >= r.Top && MathF.Min(a.Y, b.Y) <= r.Bottom;
 }
 
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct WireRoutePolicy(float CornerRadius, float SplitRatio, float Clearance, float BendPenalty, float QueryMargin, float Tolerance) {
+    internal const int MaxGridNodes = 4096;
+
+    internal static WireRoutePolicy Of(float cornerRadius, float splitRatio) {
+        float clearance = MathF.Max(4f, cornerRadius * 0.5f);
+        return new WireRoutePolicy(
+            CornerRadius: cornerRadius,
+            SplitRatio: splitRatio,
+            Clearance: clearance,
+            BendPenalty: clearance * 2.5f,
+            QueryMargin: MathF.Max(cornerRadius * 4f, clearance * 8f),
+            Tolerance: 1e-4f);
+    }
+}
+
+internal enum WireRouteDirection { None, Horizontal, Vertical }
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct WireRoutePath(ReadOnlyMemory<PointF> Points, WireRouteTrace Trace);
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct WireRouteKey(PointF Source, PointF Target, float BendX, float Radius, float Split, int ObstacleCount, int ObstacleHash);
+
+internal static class WireRouteSolver {
+    private static readonly BoundedCache<WireRouteKey, WireRoutePath> Cache = new(capacity: 256);
+
+    internal static WireRoutePath Resolve(PointF source, PointF target, float fallbackBendX, WireRoutePolicy policy) {
+        PointF[] fallback = Fallback(source: source, target: target, bendX: fallbackBendX);
+        RectangleF query = RectangleF.Inflate(rectangle: BoundsOf(fallback), width: policy.QueryMargin, height: policy.QueryMargin);
+        RectangleF[] obstacles;
+        try {
+            obstacles = Normalize(source: source, target: target, region: query, policy: policy, raw: WireRouteContext.Obstacles(region: query));
+        } catch (Exception error) when (error is InvalidOperationException or NotSupportedException or ArgumentException) {
+            return Path(points: fallback, state: WireRouteState.Direct, obstacles: 0);
+        }
+
+        int obstacleHash = Hash(obstacles: obstacles);
+        WireRouteKey key = new(Source: source, Target: target, BendX: fallbackBendX, Radius: policy.CornerRadius, Split: policy.SplitRatio, ObstacleCount: obstacles.Length, ObstacleHash: obstacleHash);
+        return Cache.GetOrAdd(key: key, valueFactory: _ => Build(source: source, target: target, bendX: fallbackBendX, fallback: fallback, obstacles: obstacles, policy: policy));
+    }
+
+    private static WireRoutePath Build(PointF source, PointF target, float bendX, PointF[] fallback, RectangleF[] obstacles, WireRoutePolicy policy) {
+        if (obstacles.Length == 0) {
+            return Path(points: fallback, state: WireRouteState.Direct, obstacles: 0);
+        }
+
+        Option<PointF[]> solved = Search(source: source, target: target, bendX: bendX, obstacles: obstacles, policy: policy);
+        return solved.Match(
+            Some: points => Path(points: points, state: WireRouteState.Avoided, obstacles: obstacles.Length),
+            None: () => Path(points: fallback, state: WireRouteState.Fallback, obstacles: obstacles.Length));
+    }
+
+    private static WireRoutePath Path(PointF[] points, WireRouteState state, int obstacles) {
+        PointF[] collapsed = Collapse(points: points);
+        RectangleF bounds = BoundsOf(points: collapsed);
+        return new WireRoutePath(
+            Points: collapsed,
+            Trace: new WireRouteTrace(State: state, Segments: Math.Max(0, collapsed.Length - 1), Obstacles: obstacles, Bounds: bounds));
+    }
+
+    private static PointF[] Fallback(PointF source, PointF target, float bendX) =>
+        Collapse(points: [source, new PointF(bendX, source.Y), new PointF(bendX, target.Y), target]);
+
+    private static RectangleF[] Normalize(PointF source, PointF target, RectangleF region, WireRoutePolicy policy, Seq<RectangleF> raw) =>
+        [.. raw.Filter(rect => rect.Intersects(region))
+            .Map(rect => RectangleF.Inflate(rectangle: rect, width: policy.Clearance, height: policy.Clearance))
+            .Filter(rect => !rect.Contains(source) && !rect.Contains(target))
+            .OrderBy(static rect => rect.Left)
+            .ThenBy(static rect => rect.Top)
+            .ThenBy(static rect => rect.Right)
+            .ThenBy(static rect => rect.Bottom)];
+
+    private static Option<PointF[]> Search(PointF source, PointF target, float bendX, RectangleF[] obstacles, WireRoutePolicy policy) {
+        float[] xs = Axes(policy.Tolerance, source.X, target.X, bendX, obstacles.SelectMany(static r => new[] { r.Left, r.Right }));
+        float[] ys = Axes(policy.Tolerance, source.Y, target.Y, source.Y, obstacles.SelectMany(static r => new[] { r.Top, r.Bottom }));
+        int width = xs.Length, height = ys.Length, nodes = width * height;
+        if (nodes is <= 0 or > WireRoutePolicy.MaxGridNodes) {
+            return Option<PointF[]>.None;
+        }
+
+        int sourceNode = NodeIndex(xs: xs, ys: ys, point: source, tolerance: policy.Tolerance);
+        int targetNode = NodeIndex(xs: xs, ys: ys, point: target, tolerance: policy.Tolerance);
+        if (sourceNode < 0 || targetNode < 0 || Blocked(point: source, obstacles: obstacles) || Blocked(point: target, obstacles: obstacles)) {
+            return Option<PointF[]>.None;
+        }
+
+        int states = nodes * 3;
+        float[] cost = [.. Enumerable.Repeat(float.PositiveInfinity, states)];
+        int[] previous = [.. Enumerable.Repeat(-1, states)];
+        bool[] closed = new bool[states];
+        PriorityQueue<int, float> queue = new();
+        int start = State(node: sourceNode, direction: WireRouteDirection.None);
+        cost[start] = 0f;
+        queue.Enqueue(start, 0f);
+        int found = -1;
+
+        while (queue.TryDequeue(out int current, out _)) {
+            if (closed[current]) {
+                continue;
+            }
+            closed[current] = true;
+            int node = Node(state: current);
+            if (node == targetNode) {
+                found = current;
+                break;
+            }
+
+            PointF here = PointOf(node: node, xs: xs, ys: ys, width: width);
+            foreach ((int Next, WireRouteDirection Direction) in Neighbours(node: node, width: width, height: height)) {
+                PointF there = PointOf(node: Next, xs: xs, ys: ys, width: width);
+                if (Blocked(point: there, obstacles: obstacles) || SegmentBlocked(a: here, b: there, obstacles: obstacles)) {
+                    continue;
+                }
+
+                WireRouteDirection prior = DirectionOf(state: current);
+                float bend = prior != WireRouteDirection.None && prior != Direction ? policy.BendPenalty : 0f;
+                float candidate = cost[current] + Manhattan(a: here, b: there) + bend;
+                int nextState = State(node: Next, direction: Direction);
+                if (candidate + policy.Tolerance >= cost[nextState]) {
+                    continue;
+                }
+
+                cost[nextState] = candidate;
+                previous[nextState] = current;
+                queue.Enqueue(nextState, candidate + Manhattan(a: there, b: target));
+            }
+        }
+
+        return found < 0 ? Option<PointF[]>.None : Some(Reconstruct(found: found, previous: previous, xs: xs, ys: ys, width: width));
+    }
+
+    private static float[] Axes(float tolerance, float first, float second, float third, IEnumerable<float> additional) =>
+        [.. additional.Append(first).Append(second).Append(third)
+            .Where(static x => float.IsFinite(x))
+            .Order()
+            .Aggregate(new List<float>(), (axes, value) => {
+                if (axes.Count == 0 || MathF.Abs(axes[^1] - value) > tolerance) {
+                    axes.Add(value);
+                }
+                return axes;
+            })];
+
+    private static IEnumerable<(int Next, WireRouteDirection Direction)> Neighbours(int node, int width, int height) {
+        int x = node % width, y = node / width;
+        if (x > 0) yield return (node - 1, WireRouteDirection.Horizontal);
+        if (x < width - 1) yield return (node + 1, WireRouteDirection.Horizontal);
+        if (y > 0) yield return (node - width, WireRouteDirection.Vertical);
+        if (y < height - 1) yield return (node + width, WireRouteDirection.Vertical);
+    }
+
+    private static PointF[] Reconstruct(int found, int[] previous, float[] xs, float[] ys, int width) {
+        List<PointF> points = [];
+        for (int cursor = found; cursor >= 0; cursor = previous[cursor]) {
+            points.Add(PointOf(node: Node(state: cursor), xs: xs, ys: ys, width: width));
+        }
+        points.Reverse();
+        return [.. points];
+    }
+
+    private static PointF[] Collapse(PointF[] points) {
+        List<PointF> result = [];
+        foreach (PointF point in points) {
+            if (result.Count > 0 && Same(a: result[^1], b: point)) {
+                continue;
+            }
+            if (result.Count >= 2 && Collinear(a: result[^2], b: result[^1], c: point)) {
+                result[^1] = point;
+            } else {
+                result.Add(point);
+            }
+        }
+        return result.Count switch {
+            0 => [PointF.Empty],
+            1 => [result[0], result[0]],
+            _ => [.. result],
+        };
+    }
+
+    private static RectangleF BoundsOf(PointF[] points) {
+        float left = points[0].X, right = points[0].X, top = points[0].Y, bottom = points[0].Y;
+        for (int i = 1; i < points.Length; i++) {
+            left = MathF.Min(left, points[i].X);
+            right = MathF.Max(right, points[i].X);
+            top = MathF.Min(top, points[i].Y);
+            bottom = MathF.Max(bottom, points[i].Y);
+        }
+        return new RectangleF(x: left, y: top, width: right - left, height: bottom - top);
+    }
+
+    private static bool Blocked(PointF point, RectangleF[] obstacles) =>
+        obstacles.Any(rect => point.X > rect.Left && point.X < rect.Right && point.Y > rect.Top && point.Y < rect.Bottom);
+
+    private static bool SegmentBlocked(PointF a, PointF b, RectangleF[] obstacles) =>
+        obstacles.Any(rect => a.Y == b.Y
+            ? a.Y > rect.Top && a.Y < rect.Bottom && MathF.Min(a.X, b.X) < rect.Right && MathF.Max(a.X, b.X) > rect.Left
+            : a.X > rect.Left && a.X < rect.Right && MathF.Min(a.Y, b.Y) < rect.Bottom && MathF.Max(a.Y, b.Y) > rect.Top);
+
+    private static int NodeIndex(float[] xs, float[] ys, PointF point, float tolerance) {
+        int x = IndexOf(values: xs, value: point.X, tolerance: tolerance);
+        int y = IndexOf(values: ys, value: point.Y, tolerance: tolerance);
+        return x < 0 || y < 0 ? -1 : (y * xs.Length) + x;
+    }
+
+    private static int IndexOf(float[] values, float value, float tolerance) {
+        for (int i = 0; i < values.Length; i++) {
+            if (MathF.Abs(values[i] - value) <= tolerance) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static int State(int node, WireRouteDirection direction) => (node * 3) + (int)direction;
+    private static int Node(int state) => state / 3;
+    private static WireRouteDirection DirectionOf(int state) => (WireRouteDirection)(state % 3);
+    private static PointF PointOf(int node, float[] xs, float[] ys, int width) => new(x: xs[node % width], y: ys[node / width]);
+    private static float Manhattan(PointF a, PointF b) => MathF.Abs(a.X - b.X) + MathF.Abs(a.Y - b.Y);
+    private static bool Same(PointF a, PointF b) => a.X == b.X && a.Y == b.Y;
+    private static bool Collinear(PointF a, PointF b, PointF c) => (a.X == b.X && b.X == c.X) || (a.Y == b.Y && b.Y == c.Y);
+
+    private static int Hash(RectangleF[] obstacles) {
+        HashCode hash = new();
+        foreach (RectangleF rect in obstacles) {
+            hash.Add(BitConverter.SingleToInt32Bits(rect.Left));
+            hash.Add(BitConverter.SingleToInt32Bits(rect.Top));
+            hash.Add(BitConverter.SingleToInt32Bits(rect.Right));
+            hash.Add(BitConverter.SingleToInt32Bits(rect.Bottom));
+        }
+        return hash.ToHashCode();
+    }
+}
+
 public sealed class WireShapeStepped(PointF source, PointF target) : WireShapeOrthogonal(source, target) {
     protected override float BendX => (Source.X + Target.X) * 0.5f;
 }
@@ -694,15 +973,34 @@ public sealed class WireShapeTaxi(PointF source, PointF target) : WireShapeOrtho
 // so a disposed router cannot leak a stale closure onto the slot. The avoidance algorithm is intentionally not built here.
 public static class WireRouteContext {
     [ThreadStatic] internal static Func<RectangleF, Seq<RectangleF>>? Provider;
+    [ThreadStatic] internal static WireDrawnStamp? CurrentStamp;
+    [ThreadStatic] internal static WireEnds? CurrentWire;
 
     public static Seq<RectangleF> Obstacles(RectangleF region) =>
         (Provider ?? (static _ => Seq<RectangleF>()))(region);
 
     // Live document object bounds as obstacles, excluding the routed pair's owners; bounds re-read each query.
     public static Func<RectangleF, Seq<RectangleF>> ObstaclesFrom(GhObjectList objects, IReadOnlySet<Guid> exclude) =>
-        region => toSeq(objects.Forwards)
-            .Filter(o => !exclude.Contains(o.InstanceId) && o.Attributes.AggregateBounds.Intersects(region))
+        region => {
+            LanguageExt.HashSet<Guid> omitted = OwnerExclusions(objects: objects, exclude: exclude);
+            return toSeq(objects.Forwards)
+            .Filter(o => omitted.Find(key: o.InstanceId).IsNone && o.Attributes.AggregateBounds.Intersects(region))
             .Map(static o => o.Attributes.AggregateBounds);
+        };
+
+    private static LanguageExt.HashSet<Guid> OwnerExclusions(GhObjectList objects, IReadOnlySet<Guid> exclude) {
+        LanguageExt.HashSet<Guid> omitted = toHashSet(toSeq(exclude));
+        foreach (IDocumentObject owner in objects.Forwards) {
+            if (exclude.Contains(owner.InstanceId) || (owner is IParameter parameter && exclude.Contains(parameter.InstanceId))) {
+                omitted = omitted.Add(owner.InstanceId);
+                continue;
+            }
+            if (owner.EntireFamily.OfType<IParameter>().Any(param => exclude.Contains(param.InstanceId))) {
+                omitted = omitted.Add(owner.InstanceId);
+            }
+        }
+        return omitted;
+    }
 
     // Use installs ONLY the obstacle provider (shape/geometry unchanged); WireOp.InstallShape/InstallRouting install shape + geometry + provider together.
     public static Fin<Subscription> Use(Func<RectangleF, Seq<RectangleF>> provider) {
@@ -824,10 +1122,16 @@ internal static partial class Wire {
 
     internal static GrasshopperUiIntent<WireSnapshot> Pick(PointF point, PickTolerance tolerance) =>
         GhUi.Document(run: scope =>
-            from pick in UiRail.PickAt(scope: scope, point: point, source: CoordinateSystem.Content, policy: CanvasPickPolicy.Wires, tolerance: tolerance)
+            from canvas in scope.NeedCanvas()
             from objs in scope.NeedObjects()
             from doc in scope.NeedDocument()
-            select pick.WireUnderPick.Match(
+            from native in tolerance.Value > 0f
+                ? WireRepositoryRail.WireAt(canvas: canvas, point: point, radius: tolerance.Value)
+                : Fin.Succ(Option<WireEnds>.None)
+            from picked in native.Match(
+                Some: wire => Fin.Succ(Some(wire)),
+                None: () => UiRail.PickAt(scope: scope, point: point, source: CoordinateSystem.Content, policy: CanvasPickPolicy.Wires, tolerance: tolerance).Map(pick => pick.WireUnderPick))
+            select picked.Match(
                 Some: wireEnds => SnapshotIn(objects: objs, wire: wireEnds, index: WireIndexCache.ConnectedOf(objects: objs, document: doc)),
                 None: () => WireSnapshot.Absent));
 
@@ -882,9 +1186,24 @@ internal static partial class Wire {
                         .Map(static receipts => receipts.Fold(initialState: DocumentMutationReceipt.None, f: static (sum, r) => sum + r)).As()));
 
     internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Route(Seq<Guid> chain) =>
+        GhUi.Document(
+            repaint: RepaintRequest.Canvas,
+            run: scope => UiRail.RunDocumentMutation(
+                scope: scope,
+                op: WireOp.RouteCase.SelfOp,
+                mutate: (methods, objs, actions) => ApplyRouteChain(
+                    methods: methods,
+                    objects: objs,
+                    actions: actions,
+                    chain: chain,
+                    op: WireOp.RouteCase.SelfOp)));
+
+    internal static Fin<DocumentMutationReceipt> ApplyRouteChain(GhDocumentMethods methods, GhObjectList objects, ActionList actions, Seq<Guid> chain, Op op) =>
         chain.Count >= 2 && !chain.Exists(static id => id == Guid.Empty)
-            ? EditBatch(edits: RouteEdits(chain: chain))
-            : GhUi.Document(run: _ => Fin.Fail<Snapshot<DocumentMutationDelta>>(UiFault.InvalidInput(op: WireOp.RouteCase.SelfOp, detail: "wire route requires two or more non-empty parameter ids")));
+            ? RouteEdits(chain: chain)
+                .TraverseM(entry => ApplyEditRow(methods: methods, objs: objects, actions: actions, wire: entry.Wire, edit: entry.Kind, args: entry.Args))
+                .Map(static receipts => receipts.Fold(initialState: DocumentMutationReceipt.None, f: static (sum, r) => sum + r)).As()
+            : Fin.Fail<DocumentMutationReceipt>(error: UiFault.InvalidInput(op: op, detail: "wire route requires two or more non-empty parameter ids"));
 
     // Route: an ordered chain [a,b,c] yields the adjacent-pair Connect edits (a→b, b→c) via Zip(chain.Tail),
     // each carried as a minimal ConnectedCase (Connect's run only reads Source/Target) onto the EditBatch rail.
@@ -1145,12 +1464,16 @@ internal static class WireRepositoryRail {
     internal readonly record struct WireRepositoryAccess(
         PropertyInfo CacheProperty,
         MethodInfo CanInsert,
+        MethodInfo WireAt,
         PropertyInfo RecentlyDrawn,
         PropertyInfo InnerFrame,
+        PropertyInfo OuterFrame,
         FieldInfo Shape,
         FieldInfo Source,
         FieldInfo Target,
-        FieldInfo Kind);
+        FieldInfo Pair,
+        FieldInfo Kind,
+        FieldInfo Fade);
 
     internal static readonly Lazy<Fin<WireRepositoryAccess>> Repository = new(Bootstrap);
 
@@ -1175,27 +1498,41 @@ internal static class WireRepositoryRail {
                        binder: null,
                        types: [typeof(IDocumentObject), typeof(PointF), typeof(IParameter).MakeByRefType(), typeof(IParameter).MakeByRefType()],
                        modifiers: null))
+               from wireAt in Reflect("WireAt", () => repoType.GetMethod(
+                       name: "WireAt",
+                       bindingAttr: BindingFlags.Instance | BindingFlags.Public,
+                       binder: null,
+                       types: [typeof(PointF), typeof(float), typeof(bool)],
+                       modifiers: null))
                from recent in Reflect("MostRecentlyDrawnWires", () => repoType.GetProperty(name: "MostRecentlyDrawnWires", bindingAttr: BindingFlags.Instance | BindingFlags.Public))
                from innerFrame in Reflect("InnerFrame", () => repoType.GetProperty(name: "InnerFrame", bindingAttr: BindingFlags.Instance | BindingFlags.Public))
+               from outerFrame in Reflect("OuterFrame", () => repoType.GetProperty(name: "OuterFrame", bindingAttr: BindingFlags.Instance | BindingFlags.Public))
                from shape in Field(dataType: wireData, memberName: "Shape", expected: typeof(WireShape))
                from source in Field(dataType: wireData, memberName: "Source", expected: typeof(IParameter))
                from target in Field(dataType: wireData, memberName: "Target", expected: typeof(IParameter))
+               from pair in Field(dataType: wireData, memberName: "Pair", expected: typeof(WireEnds))
                from kind in Field(dataType: wireData, memberName: "Kind", expected: typeof(WireKind))
+               from fade in Field(dataType: wireData, memberName: "Fade", expected: typeof(float))
                select new WireRepositoryAccess(
                    CacheProperty: cache,
                    CanInsert: canInsert,
+                   WireAt: wireAt,
                    RecentlyDrawn: recent,
                    InnerFrame: innerFrame,
+                   OuterFrame: outerFrame,
                    Shape: shape,
                    Source: source,
                    Target: target,
-                   Kind: kind);
+                   Pair: pair,
+                   Kind: kind,
+                   Fade: fade);
     }
     internal static WireDrawnStamp StampOf(GhCanvas canvas, object repo, WireRepositoryAccess access) {
         GhDocument? document = canvas.Document;
         (PointF centre, float zoom) = document?.Projection ?? (PointF.Empty, 1f);
         RectangleF innerFrame = (RectangleF)access.InnerFrame.GetValue(obj: repo)!;
         return new WireDrawnStamp(
+            DocumentId: UiDocumentIdentity.Of(document),
             DocumentHash: document?.Hash ?? Guid.Empty,
             Modifications: document?.Modifications ?? 0,
             ProjectionCentre: centre,
@@ -1222,6 +1559,14 @@ internal static class WireRepositoryRail {
                 SourceId: (source?.InstanceId).NonEmpty(),
                 TargetId: (target?.InstanceId).NonEmpty());
         }, what: nameof(CanInsert)));
+
+    internal static Fin<Option<WireEnds>> WireAt(GhCanvas canvas, PointF point, float radius) =>
+        WithRepo(canvas: canvas, body: (access, repo) => RailOp.Attempt(body: () => {
+            object? result = access.WireAt.Invoke(obj: repo, parameters: [point, radius, true]);
+            return result is WireEnds wire && wire.Source != Guid.Empty && wire.Target != Guid.Empty
+                ? Some(wire)
+                : Option<WireEnds>.None;
+        }, what: "WireRepository.WireAt"));
 
     internal static Fin<WireDrawnSnapshot> CaptureDrawn(GhCanvas canvas) =>
         WithRepo(canvas: canvas, body: (access, repo) =>
@@ -1270,12 +1615,21 @@ internal static class WireRepositoryRail {
     private static WireDrawnEntry MapWireData(object wire, WireRepositoryAccess access) {
         IParameter source = (IParameter)access.Source.GetValue(obj: wire)!;
         IParameter target = (IParameter)access.Target.GetValue(obj: wire)!;
+        WireShape shape = (WireShape)access.Shape.GetValue(obj: wire)!;
+        WireEnds pair = (WireEnds)access.Pair.GetValue(obj: wire)!;
         WireKind kind = (WireKind)access.Kind.GetValue(obj: wire)!;
+        float fade = (float)access.Fade.GetValue(obj: wire)!;
+        RectangleF bounds = shape.Bounds;
         return new WireDrawnEntry(
-            SourceId: source.InstanceId,
-            TargetId: target.InstanceId,
+            Pair: pair.Source != Guid.Empty && pair.Target != Guid.Empty
+                ? pair
+                : new WireEnds(source: source.InstanceId, target: target.InstanceId),
             Kind: kind,
-            Bounds: RectangleF.Union(rect1: source.Attributes.AggregateBounds, rect2: target.Attributes.AggregateBounds));
+            Bounds: bounds,
+            SourceBounds: source.Attributes.AggregateBounds,
+            TargetBounds: target.Attributes.AggregateBounds,
+            Fade: fade,
+            Route: shape is WireShapeOrthogonal routeShape ? Some(routeShape.Trace) : Option<WireRouteTrace>.None);
     }
 }
 
@@ -1324,54 +1678,19 @@ file static class WireShapeParams {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 // Shared MRU-bounded cache: Order tracks recency (tail = most recent), Map holds entries; Record promotes the
 // key and evicts the oldest past capacity. WireDrawnCache and WireIndexCache parameterize key/value over it.
-file sealed class MruCache<TKey, TVal>(int capacity = 8) where TKey : notnull {
-    private readonly Atom<(Seq<TKey> Order, HashMap<TKey, TVal> Map)> cell =
-        Atom(value: (Order: Seq<TKey>(), Map: HashMap<TKey, TVal>()));
-
-    internal Option<TVal> Find(TKey key) => cell.Value.Map.Find(key: key);
-
-    // Fresh reads return cache hits or rebuild+record; WireDrawnCache misses stay typed failures, never silent rebuilds.
-    internal TVal GetOrAdd(TKey key, Func<TVal, bool> fresh, Func<TVal> build) =>
-        Find(key: key).Filter(fresh).Match(
-            Some: static hit => hit,
-            None: () => {
-                // BOUNDARY ADAPTER — Atom.Swap cannot return the rebuilt value; local capture bridges build -> Record.
-                TVal rebuilt = build();
-                _ = Record(key: key, value: rebuilt);
-                return rebuilt;
-            });
-
-    internal Unit Record(TKey key, TVal value) {
-        int cap = capacity;
-        _ = cell.Swap(state => {
-            Seq<TKey> merged = state.Order.Filter(k => !EqualityComparer<TKey>.Default.Equals(x: k, y: key)) + Seq(key);
-            int skip = merged.Count > cap ? merged.Count - cap : 0;
-            Seq<TKey> promoted = toSeq(merged.Skip(count: skip));
-            LanguageExt.HashSet<TKey> keep = toHashSet(promoted);
-            return (Order: promoted, Map: state.Map.AddOrUpdate(key: key, value: value).Filter((k, _) => keep.Find(key: k).IsSome));
-        });
-        return unit;
-    }
-
-    internal Unit Invalidate(TKey key) {
-        _ = cell.Swap(state => (Order: state.Order.Filter(k => !EqualityComparer<TKey>.Default.Equals(x: k, y: key)), Map: state.Map.Remove(key: key)));
-        return unit;
-    }
-}
-
 // AfterWires populates; Read matches composite stamp (doc, modifications, projection, inner frame).
-file static class WireDrawnCache {
+internal static class WireDrawnCache {
     [StructLayout(LayoutKind.Auto)]
-    private readonly record struct CacheKey(int CanvasId, Guid DocumentHash);
-    private readonly record struct Entry(WireDrawnStamp Stamp, WireDrawnSnapshot Snapshot);
+    private readonly record struct CacheKey(int CanvasId, WireDrawnStamp Stamp);
+    private readonly record struct Entry(WireDrawnSnapshot Snapshot);
 
-    private static readonly MruCache<CacheKey, Entry> Cache = new();
+    private static readonly BoundedCache<CacheKey, Entry> Cache = new(capacity: 8);
 
     private static CacheKey KeyOf(GhCanvas canvas, WireDrawnStamp stamp) =>
-        new(CanvasId: RuntimeHelpers.GetHashCode(canvas), DocumentHash: stamp.DocumentHash);
+        new(CanvasId: RuntimeHelpers.GetHashCode(canvas), Stamp: stamp);
 
     internal static Unit Record(GhCanvas canvas, WireDrawnSnapshot snapshot) =>
-        Cache.Record(key: KeyOf(canvas: canvas, stamp: snapshot.Stamp), value: new Entry(Stamp: snapshot.Stamp, Snapshot: snapshot));
+        Cache.Record(key: KeyOf(canvas: canvas, stamp: snapshot.Stamp), value: new Entry(Snapshot: snapshot));
 
     // Reflection bootstrap failures no-op drift invalidation; the Option chain keeps AfterWires from throwing.
     internal static Unit InvalidateOnStampDrift(GhCanvas canvas) =>
@@ -1379,7 +1698,7 @@ file static class WireDrawnCache {
          from repo in Optional(access.CacheProperty.GetValue(obj: canvas))
          let current = WireRepositoryRail.StampOf(canvas: canvas, repo: repo, access: access)
          let key = KeyOf(canvas: canvas, stamp: current)
-         from stale in Cache.Find(key: key).Filter(entry => entry.Stamp != current)
+         from stale in Cache.Find(key: key)
          select Cache.Invalidate(key: key))
         .IfNone(unit);
 
@@ -1390,7 +1709,6 @@ file static class WireDrawnCache {
         let current = WireRepositoryRail.StampOf(canvas: canvas, repo: repo, access: access)
         let key = KeyOf(canvas: canvas, stamp: current)
         from entry in Cache.Find(key: key)
-            .Filter(entry => entry.Stamp == current)
             .ToFin(Fail: UiFault.InvalidInput(
                 op: Op.Of(name: nameof(Read)),
                 detail: "wire draw snapshot is missing or stale; subscribe WirePaintObserve or Overlay and schedule repaint before query"))
@@ -1399,15 +1717,14 @@ file static class WireDrawnCache {
 
 // Document-keyed (Source,Target) index. Refreshes on Document.Modifications change; MRU-bounded.
 file static class WireIndexCache {
-    private readonly record struct Entry(int Stamp, LanguageExt.HashSet<(Guid Source, Guid Target)> Connected);
-    private static readonly MruCache<Guid, Entry> Cache = new();
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct CacheKey(Guid DocumentId, int Modifications);
+    private static readonly BoundedCache<CacheKey, LanguageExt.HashSet<(Guid Source, Guid Target)>> Cache = new(capacity: 8);
 
     internal static LanguageExt.HashSet<(Guid Source, Guid Target)> ConnectedOf(GhObjectList objects, GhDocument document) {
-        int stamp = document.Modifications;
         return Cache.GetOrAdd(
-            key: document.Hash,
-            fresh: entry => entry.Stamp == stamp,
-            build: () => new Entry(Stamp: stamp, Connected: BuildConnected(objects: objects))).Connected;
+            key: new CacheKey(DocumentId: UiDocumentIdentity.Of(document), Modifications: document.Modifications),
+            valueFactory: _ => BuildConnected(objects: objects));
     }
 
     internal static LanguageExt.HashSet<(Guid Source, Guid Target)> BuildConnected(GhObjectList objects) =>

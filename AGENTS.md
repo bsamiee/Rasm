@@ -20,6 +20,8 @@ Skills are execution aids and mining input, not durable documentation authority.
 
 Before finalizing non-trivial repository work, classify observed agent mistakes by owner: machine default, repo root policy, subtree overlay, source or documentation owner, tool README, or confidence gap. Refine an existing rule first; add a new rule only for a repeated mistake or a single high-risk miss such as secret exposure, unsupported claims, wrong owner routing, destructive command risk, fake confirmation, or code-quality regression. Do not copy session narration, report frames, memory notes, or research summaries into active instructions.
 
+Quality cadence is phase-gated, not edit-gated. Do not run `dotnet build`, repo quality commands, formatters, analyzers, or tests after ordinary edits, markdown changes, or one-off compiler fixes. Batch implementation first, then run at most one narrow owner-scoped proof at the planned gate unless the user explicitly asks for more. If proof fails, patch related diagnostics as one batch and rerun once; ask before entering any longer loop. Memory, skills, rollout summaries, and old command notes cannot override this rule and must be ignored when they imply repeated validation loops.
+
 ## [5]-[ENGINEERING_CONTRACT]
 
 Extend the canonical owner before adding a rail, object, helper, wrapper, command, confidence path, document body, or public surface; when the owner is local, use the nearest overlay, source file, standard, or tool README that owns the concern.

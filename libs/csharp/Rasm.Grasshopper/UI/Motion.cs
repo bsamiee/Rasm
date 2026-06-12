@@ -188,6 +188,15 @@ public readonly record struct SnapGuideStyle(
     public static SnapGuideStyle MarchingAnts(Color tint) => new(Tint: tint, Dashes: DashedPattern, Marching: true);
 }
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct RepeatPolicy(int Cycles = 1, bool Yoyo = true, bool Infinite = false) {
+    internal static readonly RepeatPolicy Once = new(Cycles: 1, Yoyo: false);
+    internal int Count => Infinite ? 1 : Math.Max(1, Cycles);
+    internal bool Reverses => (Cycles <= 0 && !Infinite) || Yoyo;
+    internal int RemainingAfterFirst => Infinite ? 0 : Count - 1;
+    internal bool Continues(int remaining) => Infinite || remaining > 0;
+}
+
 // Fire-and-forget CALayer chrome; retarget by dispose+reissue, not mid-flight mutation.
 // Keyframe upgrades beyond Core Animation's five timing curves; Completion fires only on natural end.
 [SkipUnionOps]
@@ -205,9 +214,9 @@ public partial record CosmeticIntent {
     // Co-animation opt-in (additive, default None): the child intents' animations are grouped onto the SAME
     // layer as this intent under ONE completion delegate — children must target DISTINCT key-paths.
     public Option<Seq<CosmeticIntent>> CoAnimate { get; init; }
-    public sealed record PulseCase(RectangleF Bounds, Color Tint, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    public sealed record PulseCase(RectangleF Bounds, Color Tint, GhDuration Duration, RepeatPolicy Repeat = default, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     // BackdropBlur routes BlurRadius to BackgroundFilters for real frosted backdrop blur and arms host Core Image filters.
-    public sealed record GlowCase(RectangleF Bounds, Color Tint, float CornerRadius, float ShadowRadius, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut, float BorderWidth = 0f, Option<Color> BorderColor = default, float BlurRadius = 0f, Option<BlendMode> Blend = default, bool BackdropBlur = false) : CosmeticIntent;
+    public sealed record GlowCase(RectangleF Bounds, Color Tint, float CornerRadius, float ShadowRadius, GhDuration Duration, RepeatPolicy Repeat = default, GhMotion Easing = GhMotion.EaseInOut, float BorderWidth = 0f, Option<Color> BorderColor = default, float BlurRadius = 0f, Option<BlendMode> Blend = default, bool BackdropBlur = false) : CosmeticIntent;
     public sealed record StrokeOnCase(ReadOnlyMemory<PointF> Polyline, Color Tint, float Thickness, GhDuration Duration, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     public sealed record GradientCase(
         RectangleF Bounds,
@@ -215,14 +224,12 @@ public partial record CosmeticIntent {
         GradientKind Kind,
         GhDuration Duration,
         CosmeticGradientPoints Points = default,
-        int Cycles = 1,
-        bool Yoyo = true,
-        bool Infinite = false,
+        RepeatPolicy Repeat = default,
         GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
-    public sealed record TextLayerCase(string Text, PointF Origin, Color Tint, float FontSize, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, Option<string> FontFamily = default, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    public sealed record TextLayerCase(string Text, PointF Origin, Color Tint, float FontSize, GhDuration Duration, RepeatPolicy Repeat = default, Option<string> FontFamily = default, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     // Count/Spacing replicate along X; CountY/SpacingY (default 1/0 => 1D row, prior behaviour) replicate the X-row
     // along Y by nesting an outer CAReplicatorLayer over the inner, yielding a Count x CountY grid (M-MOT-14b).
-    public sealed record ReplicatorCase(RectangleF SourceBounds, int Count, float Spacing, Color Tint, GhDuration Duration, float InstanceDelay = 0f, float InstanceAlphaOffset = 0f, Option<Color> InstanceColour = default, float Rotation = 0f, float SpacingY = 0f, int CountY = 1, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    public sealed record ReplicatorCase(RectangleF SourceBounds, int Count, float Spacing, Color Tint, GhDuration Duration, float InstanceDelay = 0f, float InstanceAlphaOffset = 0f, Option<Color> InstanceColour = default, float Rotation = 0f, float SpacingY = 0f, int CountY = 1, RepeatPolicy Repeat = default, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     public sealed record EmitterCase(
         RectangleF Bounds,
         Color Tint,
@@ -236,17 +243,15 @@ public partial record CosmeticIntent {
         float EmissionLongitude = 0f,
         float Spin = 0f,
         Option<Seq<Color>> Palette = default,
-        int Cycles = 1,
-        bool Yoyo = true,
-        bool Infinite = false,
+        RepeatPolicy Repeat = default,
         GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     // XStyle owns vertical guides; YStyle owns horizontal guides and falls back to Style.
-    public sealed record SnapGuideCase(SnappingSnapshot Snapshot, SnapGuideStyle Style, Option<SnapGuideStyle> YStyle = default, int Cycles = 1, bool Yoyo = true, bool Infinite = false) : CosmeticIntent;
+    public sealed record SnapGuideCase(SnappingSnapshot Snapshot, SnapGuideStyle Style, Option<SnapGuideStyle> YStyle = default, RepeatPolicy Repeat = default) : CosmeticIntent;
     // Live blur uses NSVisualEffectView, not CALayer, so it samples canvas content behind the view.
-    public sealed record VibrancyCase(RectangleF Bounds, VibrancyMaterial Material, float CornerRadius, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut, NSVisualEffectState State = NSVisualEffectState.Active) : CosmeticIntent;
+    public sealed record VibrancyCase(RectangleF Bounds, VibrancyMaterial Material, float CornerRadius, GhDuration Duration, RepeatPolicy Repeat = default, GhMotion Easing = GhMotion.EaseInOut, NSVisualEffectState State = NSVisualEffectState.Active) : CosmeticIntent;
     // Core Image pipeline: Backdrop targets BackgroundFilters and arms host filters; false targets layer Filters.
     // Saturation/Brightness append a CIColorControls stage.
-    public sealed record FilterCase(RectangleF Bounds, Seq<CIFilter> Pipeline, Color Tint, GhDuration Duration, bool Backdrop = true, float Saturation = 1f, float Brightness = 0f, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    public sealed record FilterCase(RectangleF Bounds, Seq<CIFilter> Pipeline, Color Tint, GhDuration Duration, bool Backdrop = true, float Saturation = 1f, float Brightness = 0f, RepeatPolicy Repeat = default, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     // Drawing-on glyph folds all IAnimatedStroke endpoints into one CAShapeLayer.Path; arcs degrade to chords at the macOS boundary.
     public sealed record GlyphCase(Seq<IAnimatedStroke> Strokes, PointF Origin, Color Tint, float Thickness, GhDuration Duration, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     // Path morph animates the CGPath-valued "path" key; matched vertex counts produce the clean tween.
@@ -261,17 +266,17 @@ public partial record CosmeticIntent {
     public static CosmeticIntent Glyph(Seq<IAnimatedStroke> strokes, PointF origin, Color tint, float thickness, GhDuration duration, GhMotion easing = GhMotion.EaseInOut) =>
         new GlyphCase(Strokes: strokes, Origin: origin, Tint: tint, Thickness: thickness, Duration: duration, Easing: easing);
 
-    public static CosmeticIntent Gradient(RectangleF bounds, Color start, Color end, GradientKind kind, GhDuration duration, CosmeticGradientPoints points = default, GhMotion easing = GhMotion.EaseInOut, int cycles = 1, bool yoyo = true, bool infinite = false) =>
-        new GradientCase(Bounds: bounds, Colors: Seq(start, end), Kind: kind, Duration: duration, Points: points, Cycles: cycles, Yoyo: yoyo, Infinite: infinite, Easing: easing);
-    public static CosmeticIntent Gradient(RectangleF bounds, Seq<Color> colors, GradientKind kind, GhDuration duration, CosmeticGradientPoints points = default, GhMotion easing = GhMotion.EaseInOut, int cycles = 1, bool yoyo = true, bool infinite = false) =>
-        new GradientCase(Bounds: bounds, Colors: colors, Kind: kind, Duration: duration, Points: points, Cycles: cycles, Yoyo: yoyo, Infinite: infinite, Easing: easing);
-    public static CosmeticIntent Emitter(RectangleF bounds, Color tint, GhDuration duration, Option<EmitterShape> shape = default, Option<EmitterProfile> profile = default, float birthRate = 20f, float lifetime = 1.4f, float velocity = 40f, Option<float> emissionRange = default, Option<float> emissionLongitude = default, Option<float> spin = default, Option<Seq<Color>> palette = default, GhMotion easing = GhMotion.EaseInOut) =>
+    public static CosmeticIntent Gradient(RectangleF bounds, Color start, Color end, GradientKind kind, GhDuration duration, CosmeticGradientPoints points = default, GhMotion easing = GhMotion.EaseInOut, RepeatPolicy repeat = default) =>
+        new GradientCase(Bounds: bounds, Colors: Seq(start, end), Kind: kind, Duration: duration, Points: points, Repeat: repeat, Easing: easing);
+    public static CosmeticIntent Gradient(RectangleF bounds, Seq<Color> colors, GradientKind kind, GhDuration duration, CosmeticGradientPoints points = default, GhMotion easing = GhMotion.EaseInOut, RepeatPolicy repeat = default) =>
+        new GradientCase(Bounds: bounds, Colors: colors, Kind: kind, Duration: duration, Points: points, Repeat: repeat, Easing: easing);
+    public static CosmeticIntent Emitter(RectangleF bounds, Color tint, GhDuration duration, Option<EmitterShape> shape = default, Option<EmitterProfile> profile = default, float birthRate = 20f, float lifetime = 1.4f, float velocity = 40f, Option<float> emissionRange = default, Option<float> emissionLongitude = default, Option<float> spin = default, Option<Seq<Color>> palette = default, GhMotion easing = GhMotion.EaseInOut, RepeatPolicy repeat = default) =>
         new EmitterCase(
             Bounds: bounds, Tint: tint, Duration: duration,
             Shape: shape.IfNone(EmitterShape.Circle), Profile: profile.IfNone(EmitterProfile.Spark),
             BirthRate: birthRate, Lifetime: lifetime, Velocity: velocity,
             EmissionRange: emissionRange.IfNone(MathF.Tau), EmissionLongitude: emissionLongitude.IfNone(0f), Spin: spin.IfNone(0f),
-            Palette: palette, Easing: easing);
+            Palette: palette, Repeat: repeat, Easing: easing);
 }
 
 internal static class CosmeticIntentDiscriminators {
@@ -565,19 +570,19 @@ public sealed class SpringHandle<T> : MotionHandle<SpringRunnerState<T>, T> {
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, T To, GhDuration Duration, GhMotion Easing, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<T> Vector, Action<T> Sink, Grasshopper2.UI.Canvas.Canvas Canvas) : IMotionState<PulseRunnerState<T>> {
+public readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, T To, GhDuration Duration, GhMotion Easing, RepeatPolicy Repeat, int CyclesRemaining, IMotionVector<T> Vector, Action<T> Sink, Grasshopper2.UI.Canvas.Canvas Canvas) : IMotionState<PulseRunnerState<T>> {
     // Animated advances only through Canvas.Animate; tick first, then fold the cycle transition.
     public PulseRunnerState<T> Advance(float frameDeltaSeconds) {
         _ = Canvas.Animate(animated: Animated);
-        return (Animated.State == GhState.Finished, Infinite || CyclesRemaining > 0) switch {
+        return (Animated.State == GhState.Finished, Repeat.Continues(remaining: CyclesRemaining)) switch {
             (true, true) => this with {
                 Animated = Animated<T>.CreateUnfinished(
-                    value0: Yoyo ? Animated.Value1 : From,
-                    value1: Yoyo ? Animated.Value0 : To,
+                    value0: Repeat.Reverses ? Animated.Value1 : From,
+                    value1: Repeat.Reverses ? Animated.Value0 : To,
                     duration: Animators.DurationToTimeSpan(duration: Duration),
                     motion: Easing,
                     interpolator: Vector.Interpolate),
-                CyclesRemaining = Infinite ? CyclesRemaining : CyclesRemaining - 1,
+                CyclesRemaining = Repeat.Infinite ? CyclesRemaining : CyclesRemaining - 1,
             },
             _ => this,
         };
@@ -585,7 +590,7 @@ public readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, 
 
     public Unit Emit() { Sink(Animated.ValueNow); return unit; }
 
-    public bool IsActive => Animated.State != GhState.Finished || Infinite || CyclesRemaining > 0;
+    public bool IsActive => Animated.State != GhState.Finished || Repeat.Continues(remaining: CyclesRemaining);
 }
 
 // Mirror of SpringHandle<T>: an Atom-confined runner cell exposed for mid-flight Retarget. The
@@ -599,12 +604,12 @@ public sealed class PulseHandle<T> : MotionHandle<PulseRunnerState<T>, T> {
     public bool IsCycling => Cell.Value.IsActive;
     public override bool IsSettled => !IsCycling;
 
-    public Fin<Unit> Retarget(T target, Option<int> cycles = default) =>
-        RetargetWhen(target: target, shouldUpdate: static _ => true, cycles: cycles);
+    public Fin<Unit> Retarget(T target, Option<RepeatPolicy> repeat = default) =>
+        RetargetWhen(target: target, shouldUpdate: static _ => true, repeat: repeat);
 
     // Symmetric with SpringHandle.RetargetWhen: only re-seed the curve when the predicate accepts the current
     // target, so a stale retarget is a no-op rather than a restart.
-    public Fin<Unit> RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<int> cycles = default) {
+    public Fin<Unit> RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<RepeatPolicy> repeat = default) {
         PulseRunnerState<T> snapshot = Cell.Value;
         return from validUpdate in Optional(shouldUpdate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(RetargetWhen)), detail: "predicate is required"))
                from validTarget in Op.Of(name: nameof(RetargetWhen)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "pulse target must be finite")
@@ -616,7 +621,8 @@ public sealed class PulseHandle<T> : MotionHandle<PulseRunnerState<T>, T> {
                            _ = Cell.Swap(state => state with {
                                From = state.Animated.ValueNow,
                                To = validTarget,
-                               CyclesRemaining = cycles.IfNone(state.CyclesRemaining),
+                               Repeat = repeat.IfNone(state.Repeat),
+                               CyclesRemaining = repeat.Map(static policy => policy.RemainingAfterFirst).IfNone(state.CyclesRemaining),
                                Animated = Animated<T>.CreateUnfinished(
                                    value0: state.Animated.ValueNow,
                                    value1: validTarget,
@@ -631,10 +637,11 @@ public sealed class PulseHandle<T> : MotionHandle<PulseRunnerState<T>, T> {
     }
 
     private void SettlePulse(PulseRunnerState<T> snapshot, T target) {
-        T rest = snapshot.Yoyo ? snapshot.From : target;
+        T rest = snapshot.Repeat.Reverses ? snapshot.From : target;
         _ = Cell.Swap(state => state with {
             From = rest,
             To = rest,
+            Repeat = RepeatPolicy.Once,
             CyclesRemaining = 0,
             Animated = Animated<T>.CreateUnfinished(
                 value0: rest,
@@ -1041,7 +1048,7 @@ public static class Motion {
     }
 
     public static GrasshopperUiIntent<PulseHandle<TValue>> Pulse<TValue>(
-        TValue start, TValue target, GhDuration duration, GhMotion easing, int cycles, bool yoyo, bool infinite,
+        TValue start, TValue target, GhDuration duration, GhMotion easing, RepeatPolicy repeat,
         IMotionVector<TValue> vector, Action<TValue> sink) =>
         GhUi.Canvas(run: scope =>
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "vector is required"))
@@ -1050,21 +1057,17 @@ public static class Motion {
                 value: unit,
                 o => o.AcceptFinite(value: start, vector: validVector, detail: "pulse start must be finite").Map(static _ => unit),
                 o => o.AcceptFinite(value: target, vector: validVector, detail: "pulse target must be finite").Map(static _ => unit))
-            from validCycles in infinite
-                ? Fin.Succ(1)
-                : Optional(cycles).Filter(static c => c >= 1)
-                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "cycles must be positive when not infinite"))
             from canvas in scope.NeedCanvas()
                 // A yoyo's resting pose is its From (it returns to start); a one-way pulse rests at target.
-            let rest = yoyo ? start : target
+            let rest = repeat.Reverses ? start : target
             let restState = new PulseRunnerState<TValue>(
                 Animated: Animated<TValue>.CreateUnfinished(value0: rest, value1: rest, duration: TimeSpan.Zero, motion: easing, interpolator: validVector.Interpolate),
-                From: rest, To: rest, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
+                From: rest, To: rest, Duration: duration, Easing: easing, Repeat: RepeatPolicy.Once,
                 CyclesRemaining: 0, Vector: validVector, Sink: validSink, Canvas: canvas)
             let liveState = new PulseRunnerState<TValue>(
                 Animated: Animated<TValue>.CreateUnfinished(value0: start, value1: target, duration: Animators.DurationToTimeSpan(duration: duration), motion: easing, interpolator: validVector.Interpolate),
-                From: start, To: target, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
-                CyclesRemaining: validCycles - 1, Vector: validVector, Sink: validSink, Canvas: canvas)
+                From: start, To: target, Duration: duration, Easing: easing, Repeat: repeat,
+                CyclesRemaining: repeat.RemainingAfterFirst, Vector: validVector, Sink: validSink, Canvas: canvas)
             from handle in RunOrSettle(
                 canvas: canvas, opName: nameof(Pulse), clock: ResolveClock(canvas: canvas),
                 restState: restState, liveState: liveState, restEmit: () => validSink(rest),
@@ -1156,7 +1159,11 @@ public static class Motion {
                     Op.Of(name: nameof(Navigate)).AcceptRect(value: f.Region, detail: "non-finite frame")
                         .Bind(validFrame => Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(frame: validFrame, zoomLimits: (s.Min, s.Max), duration: s.Effective); return unit; }, what: "navigate frame")),
                 positionCase: static (s, pos) =>
-                    from __ in pos.Where.Navigate(canvas: s.Canvas, duration: Animators.DurationToTimeSpan(duration: s.Effective))
+                    from __ in UiRail.NavigateCanvasPosition(
+                        canvas: s.Canvas,
+                        document: s.Document,
+                        position: pos.Where,
+                        policy: new CanvasViewPolicy(MinimumZoom: s.Min, MaximumZoom: s.Max, Duration: Animators.DurationToTimeSpan(duration: s.Effective)))
                     select unit)
             select result);
 
@@ -1338,25 +1345,25 @@ public static class Motion {
 
     // One descriptor drives key-path, target alpha, repeat policy, and keyframe/spring options per case.
     // strokeEnd is non-repeating; haptic never reaches a layer.
-    private readonly record struct CosmeticAnimSpec(string KeyPath, float To, int Cycles, bool Yoyo, bool Infinite, GhDuration Duration, GhMotion Easing, bool Repeat = true);
+    private readonly record struct CosmeticAnimSpec(string KeyPath, float To, RepeatPolicy Repeat, GhDuration Duration, GhMotion Easing, bool Repeating = true);
 
     private static CosmeticAnimSpec AnimSpecOf(CosmeticIntent intent) =>
         intent.Switch(
-            pulseCase: static p => new CosmeticAnimSpec(KeyPath: "opacity", To: p.Tint.A, Cycles: p.Cycles, Yoyo: p.Yoyo, Infinite: p.Infinite, Duration: p.Duration, Easing: p.Easing),
-            glowCase: static g => new CosmeticAnimSpec(KeyPath: "shadowOpacity", To: g.Tint.A, Cycles: g.Cycles, Yoyo: g.Yoyo, Infinite: g.Infinite, Duration: g.Duration, Easing: g.Easing),
-            strokeOnCase: static s => new CosmeticAnimSpec(KeyPath: "strokeEnd", To: 1f, Cycles: 1, Yoyo: false, Infinite: false, Duration: s.Duration, Easing: s.Easing, Repeat: false),
-            gradientCase: static g => new CosmeticAnimSpec(KeyPath: "opacity", To: g.Colors.Map(static c => c.A).Fold(0f, static (m, a) => Math.Max(m, a)), Cycles: g.Cycles, Yoyo: g.Yoyo, Infinite: g.Infinite, Duration: g.Duration, Easing: g.Easing),
-            textLayerCase: static t => new CosmeticAnimSpec(KeyPath: "opacity", To: t.Tint.A, Cycles: t.Cycles, Yoyo: t.Yoyo, Infinite: t.Infinite, Duration: t.Duration, Easing: t.Easing),
-            replicatorCase: static r => new CosmeticAnimSpec(KeyPath: "opacity", To: r.Tint.A, Cycles: r.Cycles, Yoyo: r.Yoyo, Infinite: r.Infinite, Duration: r.Duration, Easing: r.Easing),
-            emitterCase: static e => new CosmeticAnimSpec(KeyPath: "opacity", To: e.Tint.A, Cycles: e.Cycles, Yoyo: e.Yoyo, Infinite: e.Infinite, Duration: e.Duration, Easing: e.Easing),
-            snapGuideCase: static g => new CosmeticAnimSpec(KeyPath: "opacity", To: g.Style.Tint.A, Cycles: g.Cycles, Yoyo: g.Yoyo, Infinite: g.Infinite, Duration: g.Style.Duration, Easing: g.Style.Easing),
-            vibrancyCase: static v => new CosmeticAnimSpec(KeyPath: "opacity", To: 1f, Cycles: v.Cycles, Yoyo: v.Yoyo, Infinite: v.Infinite, Duration: v.Duration, Easing: v.Easing),
-            filterCase: static f => new CosmeticAnimSpec(KeyPath: "opacity", To: f.Tint.A, Cycles: f.Cycles, Yoyo: f.Yoyo, Infinite: f.Infinite, Duration: f.Duration, Easing: f.Easing),
-            glyphCase: static gl => new CosmeticAnimSpec(KeyPath: "strokeEnd", To: 1f, Cycles: 1, Yoyo: false, Infinite: false, Duration: gl.Duration, Easing: gl.Easing, Repeat: false),
+            pulseCase: static p => new CosmeticAnimSpec(KeyPath: "opacity", To: p.Tint.A, Repeat: p.Repeat, Duration: p.Duration, Easing: p.Easing),
+            glowCase: static g => new CosmeticAnimSpec(KeyPath: "shadowOpacity", To: g.Tint.A, Repeat: g.Repeat, Duration: g.Duration, Easing: g.Easing),
+            strokeOnCase: static s => new CosmeticAnimSpec(KeyPath: "strokeEnd", To: 1f, Repeat: RepeatPolicy.Once, Duration: s.Duration, Easing: s.Easing, Repeating: false),
+            gradientCase: static g => new CosmeticAnimSpec(KeyPath: "opacity", To: g.Colors.Map(static c => c.A).Fold(0f, static (m, a) => Math.Max(m, a)), Repeat: g.Repeat, Duration: g.Duration, Easing: g.Easing),
+            textLayerCase: static t => new CosmeticAnimSpec(KeyPath: "opacity", To: t.Tint.A, Repeat: t.Repeat, Duration: t.Duration, Easing: t.Easing),
+            replicatorCase: static r => new CosmeticAnimSpec(KeyPath: "opacity", To: r.Tint.A, Repeat: r.Repeat, Duration: r.Duration, Easing: r.Easing),
+            emitterCase: static e => new CosmeticAnimSpec(KeyPath: "opacity", To: e.Tint.A, Repeat: e.Repeat, Duration: e.Duration, Easing: e.Easing),
+            snapGuideCase: static g => new CosmeticAnimSpec(KeyPath: "opacity", To: g.Style.Tint.A, Repeat: g.Repeat, Duration: g.Style.Duration, Easing: g.Style.Easing),
+            vibrancyCase: static v => new CosmeticAnimSpec(KeyPath: "opacity", To: 1f, Repeat: v.Repeat, Duration: v.Duration, Easing: v.Easing),
+            filterCase: static f => new CosmeticAnimSpec(KeyPath: "opacity", To: f.Tint.A, Repeat: f.Repeat, Duration: f.Duration, Easing: f.Easing),
+            glyphCase: static gl => new CosmeticAnimSpec(KeyPath: "strokeEnd", To: 1f, Repeat: RepeatPolicy.Once, Duration: gl.Duration, Easing: gl.Easing, Repeating: false),
             // "path" is CGPath-valued; To is a placeholder — BuildCosmeticAnimation routes PathMorphCase to PathAnimation
             // (CABasicAnimation on "path"), never to the float PropertyAnimation that reads spec.To.
-            pathMorphCase: static pm => new CosmeticAnimSpec(KeyPath: "path", To: 1f, Cycles: 1, Yoyo: false, Infinite: false, Duration: pm.Duration, Easing: pm.Easing, Repeat: false),
-            hapticCase: static _ => new CosmeticAnimSpec(KeyPath: "haptic", To: 0f, Cycles: 1, Yoyo: false, Infinite: false, Duration: GhDuration.Normal, Easing: GhMotion.Linear, Repeat: false));
+            pathMorphCase: static pm => new CosmeticAnimSpec(KeyPath: "path", To: 1f, Repeat: RepeatPolicy.Once, Duration: pm.Duration, Easing: pm.Easing, Repeating: false),
+            hapticCase: static _ => new CosmeticAnimSpec(KeyPath: "haptic", To: 0f, Repeat: RepeatPolicy.Once, Duration: GhDuration.Normal, Easing: GhMotion.Linear, Repeating: false));
 
     private static Fin<Unit> AcceptCoAnimationLayer(CosmeticIntent intent) {
         string parent = AnimSpecOf(intent: intent).KeyPath;
@@ -1464,19 +1471,20 @@ public static class Motion {
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "CAShapeLayer ownership transfers to host CALayer via AddSublayer; disposal happens on Subscription detach or animation completion delegate.")]
     private static Fin<Unit> AttachDecorative(CALayer host, NSView view, CosmeticIntent intent, NSString key) {
-        CALayer layer = BuildCosmeticLayer(intent: intent, view: view);
+        EdrResolution edr = ResolveEdr(view: view, policy: intent.EdrMode);
+        CosmeticAttachment attachment = BuildCosmeticLayer(intent: intent, view: view, space: edr.Space);
+        CALayer layer = attachment.Layer;
         NFloat scale = Optional(view.Window?.Screen).Map(static screen => screen.BackingScaleFactor).IfNone((NFloat)RetinaScaleDefault);
         layer.ContentsScale = scale;
         // BOUNDARY ADAPTER — EDR flag moved from WantsExtendedDynamicRangeContent to PreferredDynamicRange on macOS 26.
         // ToneMapMode.Automatic is macOS 15+; Disabled keeps the SDR path unchanged.
-        bool edrEnabled = intent.EdrMode != EdrPolicy.Disabled;
         // CA1416 false positive: every EDR write IS runtime-gated by OperatingSystem.IsMacOSVersionAtLeast, but
         // the analyzer cannot trace the version guard through the Op.Side action-lambda boundary.
 #pragma warning disable CA1416
         _ = OperatingSystem.IsMacOSVersionAtLeast(26)
-            ? Op.Side(() => layer.PreferredDynamicRange = edrEnabled ? CADynamicRange.High : CADynamicRange.Standard)
-            : Op.Side(() => layer.WantsExtendedDynamicRangeContent = edrEnabled);
-        _ = OperatingSystem.IsMacOSVersionAtLeast(15)
+            ? Op.Side(() => layer.PreferredDynamicRange = edr.Enabled ? CADynamicRange.High : CADynamicRange.Standard)
+            : Op.Side(() => layer.WantsExtendedDynamicRangeContent = edr.Enabled);
+        _ = edr.Enabled && OperatingSystem.IsMacOSVersionAtLeast(15)
             ? Op.Side(() => layer.ToneMapMode = CAToneMapMode.Automatic)
             : unit;
 #pragma warning restore CA1416
@@ -1485,11 +1493,11 @@ public static class Motion {
         _ = (layer.Sublayers is { } sublayers ? toSeq(sublayers) : Seq<CALayer>()).Iter(sub => { sub.ContentsScale = scale; sub.DrawsAsynchronously = true; });
         layer.Name = key.ToString();
         // GPU spring preferred Hz tracks natural frequency; no spring leaves CA default.
-        Option<CAFrameRateRange> rate = intent.Spring.Bind(config => Optional(view.Window?.Screen).Map(screen => ResolveRange(screen: screen, spring: config)));
+        Option<CAFrameRateRange> rate = AnimationRate(view: view, intent: intent);
         return WithoutAnimation(() => {
             host.AddSublayer(layer: layer);
-            CAAnimation animation = GroupOf(main: BuildCosmeticAnimation(intent: intent, rate: rate), intent: intent, rate: rate);
-            CosmeticRemove remove = new(layer: layer, key: key, completion: intent.Completion);
+            CAAnimation animation = GroupOf(main: BuildCosmeticAnimation(intent: intent, rate: rate), intent: intent, view: view, rate: rate);
+            CosmeticRemove remove = new(layer: layer, key: key, completion: intent.Completion, ownedSubview: attachment.OwnedSubview);
             _ = CosmeticDelegateStore.Retain(layer: layer, remove: remove);
             animation.WeakDelegate = remove;
             layer.AddAnimation(animation: animation, key: key);
@@ -1509,32 +1517,51 @@ public static class Motion {
                         .IfNone(noneValue: true))
                     .Iter(sub => {
                         sub.RemoveAnimation(key: keyString);
+                        _ = CosmeticDelegateStore.Find(layer: sub).IfSome(static remove => remove.RemoveOwnedSubview());
                         _ = CosmeticDelegateStore.Release(layer: sub);
                         sub.RemoveFromSuperLayer();
                     })))
             .IfNone(unit);
     }
 
+    private readonly record struct CosmeticAttachment(CALayer Layer, Option<NSView> OwnedSubview = default);
+
+    private readonly record struct EdrResolution(bool Enabled, NSColorSpace? Space);
+
+    private static EdrResolution ResolveEdr(NSView view, EdrPolicy policy) {
+        if (policy == EdrPolicy.Disabled) {
+            return new(Enabled: false, Space: null);
+        }
+        NSScreen? screen = view.Window?.Screen ?? NSScreen.MainScreen;
+        bool edr = Optional(screen).Map(static s => s.MaximumExtendedDynamicRangeColorComponentValue > 1.0).IfNone(noneValue: false);
+        bool p3 = Optional(screen?.ColorSpace).Map(static space =>
+            Equals(space, NSColorSpace.DisplayP3ColorSpace)
+            || Optional(space.LocalizedName).Map(static name => name.Contains(value: "P3", comparisonType: StringComparison.OrdinalIgnoreCase)).IfNone(noneValue: false)).IfNone(noneValue: false);
+        return new(
+            Enabled: edr,
+            Space: edr && p3 ? NSColorSpace.DisplayP3ColorSpace : null);
+    }
+
     [SupportedOSPlatform("macos14.0")]
-    private static CALayer BuildCosmeticLayer(CosmeticIntent intent, NSView view) {
+    private static CosmeticAttachment BuildCosmeticLayer(CosmeticIntent intent, NSView view, NSColorSpace? space) {
         // EDR/P3 opt-in anchors decorative colours in Display P3 (CGColor-tagged via NSColor.FromDisplayP3); Disabled
         // yields the SDR device-sRGB path. CALayer exposes no colour-space setter — the P3 tag rides each CGColor.
         return intent.Switch(
-            state: (View: view, Space: intent.EdrMode == EdrPolicy.Disabled ? null : NSColorSpace.DisplayP3ColorSpace),
-            pulseCase: static (s, pulse) => CosmeticPulseLayer(pulse: pulse, space: s.Space),
-            glowCase: static (s, glow) => CosmeticGlowLayer(glow: glow, view: s.View, space: s.Space),
-            strokeOnCase: static (s, stroke) => CosmeticStrokeLayer(stroke: stroke, space: s.Space),
-            gradientCase: static (s, gradient) => CosmeticGradientLayer(gradient: gradient, space: s.Space),
-            textLayerCase: static (s, text) => CosmeticTextLayer(text: text, space: s.Space),
-            replicatorCase: static (s, replicator) => CosmeticReplicatorLayer(replicate: replicator, space: s.Space),
-            emitterCase: static (s, emitter) => CosmeticEmitterLayer(emit: emitter, space: s.Space),
-            snapGuideCase: static (_, guide) => CosmeticSnapGuideLayer(guide),
+            state: (View: view, Space: space),
+            pulseCase: static (s, pulse) => new CosmeticAttachment(Layer: CosmeticPulseLayer(pulse: pulse, space: s.Space)),
+            glowCase: static (s, glow) => new CosmeticAttachment(Layer: CosmeticGlowLayer(glow: glow, view: s.View, space: s.Space)),
+            strokeOnCase: static (s, stroke) => new CosmeticAttachment(Layer: CosmeticStrokeLayer(stroke: stroke, space: s.Space)),
+            gradientCase: static (s, gradient) => new CosmeticAttachment(Layer: CosmeticGradientLayer(gradient: gradient, space: s.Space)),
+            textLayerCase: static (s, text) => new CosmeticAttachment(Layer: CosmeticTextLayer(text: text, space: s.Space)),
+            replicatorCase: static (s, replicator) => new CosmeticAttachment(Layer: CosmeticReplicatorLayer(replicate: replicator, space: s.Space)),
+            emitterCase: static (s, emitter) => new CosmeticAttachment(Layer: CosmeticEmitterLayer(emit: emitter, space: s.Space)),
+            snapGuideCase: static (_, guide) => new CosmeticAttachment(Layer: CosmeticSnapGuideLayer(guide)),
             vibrancyCase: static (s, vibrancy) => CosmeticVibrancyLayer(vibrancy: vibrancy, view: s.View),
-            filterCase: static (s, filter) => CosmeticFilterLayer(filter: filter, view: s.View, space: s.Space),
-            glyphCase: static (s, glyph) => CosmeticGlyphLayer(glyph: glyph, space: s.Space),
-            pathMorphCase: static (s, morph) => CosmeticPathMorphLayer(morph: morph, space: s.Space),
+            filterCase: static (s, filter) => new CosmeticAttachment(Layer: CosmeticFilterLayer(filter: filter, view: s.View, space: s.Space)),
+            glyphCase: static (s, glyph) => new CosmeticAttachment(Layer: CosmeticGlyphLayer(glyph: glyph, space: s.Space)),
+            pathMorphCase: static (s, morph) => new CosmeticAttachment(Layer: CosmeticPathMorphLayer(morph: morph, space: s.Space)),
             // HapticCase carries no CALayer; CosmeticAttach short-circuits it before BuildCosmeticLayer is reached.
-            hapticCase: static (_, _) => new CALayer());
+            hapticCase: static (_, _) => new CosmeticAttachment(Layer: new CALayer()));
     }
 
     [SupportedOSPlatform("macos14.0")]
@@ -1774,7 +1801,7 @@ public static class Motion {
     [SupportedOSPlatform("macos14.0")]
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "NSVisualEffectView ownership transfers to the host NSView via AddSubview; the mask CAShapeLayer transfers to the effect view's layer. Teardown removes the layer (and its host subview) on Subscription detach or completion.")]
-    private static CALayer CosmeticVibrancyLayer(CosmeticIntent.VibrancyCase vibrancy, NSView view) {
+    private static CosmeticAttachment CosmeticVibrancyLayer(CosmeticIntent.VibrancyCase vibrancy, NSView view) {
         CGRect rect = ToCGRect(vibrancy.Bounds);
         NSVisualEffectView effect = new(frameRect: rect) {
             Material = vibrancy.Material.Native,
@@ -1793,7 +1820,7 @@ public static class Motion {
         layer.MasksToBounds = true;
         layer.CornerRadius = vibrancy.CornerRadius;
         layer.Opacity = 0f;
-        return layer;
+        return new CosmeticAttachment(Layer: layer, OwnedSubview: Some<NSView>(effect));
     }
 
     // BOUNDARY ADAPTER — Backdrop uses BackgroundFilters and arms host filters; false uses layer Filters.
@@ -1805,7 +1832,7 @@ public static class Motion {
         CGRect rect = ToCGRect(filter.Bounds);
         CIColorControls colour = new() { Saturation = filter.Saturation, Brightness = filter.Brightness, Contrast = 1f };
         // Under EDR (space != null) append a headroom tone-map so wide-gamut filter output stays HDR-stable; null-safe.
-        Seq<CIFilter> pipeline = filter.Pipeline + Seq<CIFilter>(colour)
+        Seq<CIFilter> pipeline = filter.Pipeline.Map(static source => FreshFilter(filter: source)) + Seq<CIFilter>(colour)
             + (space is not null ? Optional(CIFilter.FromName(name: "CIToneMapHeadroom")).ToSeq() : Seq<CIFilter>());
         CALayer layer = new() {
             Frame = rect,
@@ -1820,6 +1847,9 @@ public static class Motion {
             : Op.Side(() => layer.Filters = [.. pipeline]);
         return layer;
     }
+
+    private static CIFilter FreshFilter(CIFilter filter) =>
+        filter.Copy() as CIFilter ?? Optional(filter.Name).Bind(static name => Optional(CIFilter.FromName(name: name))).IfNone(filter);
 
     // Layout.Snap output is already control-space; render guide lines plus optional distance labels.
     [SupportedOSPlatform("macos14.0")]
@@ -1995,9 +2025,9 @@ public static class Motion {
     // RepeatCount is float on CAMediaTiming; infinite => PositiveInfinity. AutoReverses gives the
     // fade-out half of each cycle (default yoyo=true preserves the prior 0->alpha->0 pulse shape).
     [SupportedOSPlatform("macos14.0")]
-    private static T ApplyRepeat<T>(T animation, int cycles, bool yoyo, bool infinite) where T : CAAnimation {
-        animation.RepeatCount = infinite ? float.PositiveInfinity : Math.Max(val1: 1, val2: cycles);
-        animation.AutoReverses = yoyo;
+    private static T ApplyRepeat<T>(T animation, RepeatPolicy repeat) where T : CAAnimation {
+        animation.RepeatCount = repeat.Infinite ? float.PositiveInfinity : repeat.Count;
+        animation.AutoReverses = repeat.Reverses;
         // Hold the terminal frame so a finite repeat does not snap the layer property back to its model value.
         animation.FillMode = CAFillMode.Forwards.ToString();
         return animation;
@@ -2005,17 +2035,18 @@ public static class Motion {
 
     // CoAnimate groups same-layer child animations; one upstream CosmeticRemove owns teardown.
     [SupportedOSPlatform("macos14.0")]
-    private static CAAnimation GroupOf(CAAnimation main, CosmeticIntent intent, Option<CAFrameRateRange> rate) =>
+    private static CAAnimation GroupOf(CAAnimation main, CosmeticIntent intent, NSView view, Option<CAFrameRateRange> rate) =>
         intent.CoAnimate is { IsSome: true, Case: Seq<CosmeticIntent> children } && !children.IsEmpty
-            ? GroupAnimations(main: main, children: children, rate: rate)
+            ? GroupAnimations(main: main, children: children, view: view, parentRate: rate)
             : main;
 
     [SupportedOSPlatform("macos14.0")]
-    private static CAAnimationGroup GroupAnimations(CAAnimation main, Seq<CosmeticIntent> children, Option<CAFrameRateRange> rate) {
-        Seq<CAAnimation> all = Seq(main) + children.Map(child => (CAAnimation)BuildCosmeticAnimation(intent: child, rate: rate));
+    private static CAAnimationGroup GroupAnimations(CAAnimation main, Seq<CosmeticIntent> children, NSView view, Option<CAFrameRateRange> parentRate) {
+        Seq<(CosmeticIntent Intent, Option<CAFrameRateRange> Rate)> childRates = children.Map(child => (Intent: child, Rate: AnimationRate(view: view, intent: child)));
+        Seq<CAAnimation> all = Seq(main) + childRates.Map(child => (CAAnimation)BuildCosmeticAnimation(intent: child.Intent, rate: child.Rate));
         bool infinite = all.Exists(static animation => animation.RepeatCount == float.PositiveInfinity);
         Seq<CAAnimation> finite = all.Filter(static a => a.RepeatCount != float.PositiveInfinity);
-        return new CAAnimationGroup {
+        CAAnimationGroup group = new() {
             Animations = [.. all],
             Duration = infinite
                 ? finite.Fold(0.0, static (m, a) => Math.Max(m, a.Duration))
@@ -2024,7 +2055,26 @@ public static class Motion {
             RemovedOnCompletion = false,
             FillMode = CAFillMode.Forwards.ToString(),
         };
+        _ = MergeRates(ranges: parentRate.ToSeq() + childRates.Bind(static child => child.Rate.ToSeq()))
+            .IfSome(range => group.PreferredFrameRateRange = range);
+        return group;
     }
+
+    [SupportedOSPlatform("macos14.0")]
+    private static Option<CAFrameRateRange> AnimationRate(NSView view, CosmeticIntent intent) =>
+        intent.Spring.Bind(config => Optional(view.Window?.Screen).Map(screen => ResolveRange(screen: screen, spring: config)));
+
+    [SupportedOSPlatform("macos14.0")]
+    private static Option<CAFrameRateRange> MergeRates(Seq<CAFrameRateRange> ranges) =>
+        ranges.Head.Map(first => {
+            Seq<CAFrameRateRange> all = ranges.Tail;
+            return all.Fold(
+                initialState: first,
+                f: static (acc, range) => CAFrameRateRange.Create(
+                    minimum: MathF.Min(acc.Minimum, range.Minimum),
+                    maximum: MathF.Max(acc.Maximum, range.Maximum),
+                    preferred: MathF.Max(acc.Preferred, range.Preferred)));
+        });
 
     [SupportedOSPlatform("macos14.0")]
     private static double EffectiveDuration(CAAnimation animation) =>
@@ -2040,7 +2090,7 @@ public static class Motion {
         CAPropertyAnimation animation = intent is CosmeticIntent.PathMorphCase morph
             ? PathAnimation(morph: morph, rate: rate)
             : PropertyAnimation(path: spec.KeyPath, duration: spec.Duration, from: 0f, to: spec.To, easing: spec.Easing, keyframe: intent.Keyframe, spring: intent.Spring, initialVelocity: intent.SpringInitialVelocity, rate: rate);
-        return spec.Repeat ? ApplyRepeat(animation: animation, cycles: spec.Cycles, yoyo: spec.Yoyo, infinite: spec.Infinite) : animation;
+        return spec.Repeating ? ApplyRepeat(animation: animation, repeat: spec.Repeat) : animation;
     }
 
     // CGPath morph uses the "path" key; GroupOf/AttachDecorative own false-on-completion teardown.
@@ -2107,12 +2157,14 @@ public static class Motion {
         private readonly CALayer layer;
         private readonly string animationKey;
         private readonly Option<Func<Unit>> completion;
+        private readonly Option<NSView> ownedSubview;
         private int stripped;
 
-        internal CosmeticRemove(CALayer layer, NSString key, Option<Func<Unit>> completion) {
+        internal CosmeticRemove(CALayer layer, NSString key, Option<Func<Unit>> completion, Option<NSView> ownedSubview = default) {
             this.layer = layer;
             animationKey = key.ToString();
             this.completion = completion;
+            this.ownedSubview = ownedSubview;
         }
 
         public override void AnimationStopped(CAAnimation animation, bool finished) {
@@ -2123,6 +2175,7 @@ public static class Motion {
                 layer.RemoveAnimation(key: animationKey);
                 _ = CosmeticDelegateStore.Release(layer: layer);
                 layer.RemoveFromSuperLayer();
+                _ = RemoveOwnedSubview();
             });
             // Completion is a natural-end contract: an explicit dispose (RemoveAnimation) stops the animation with
             // finished == false, so the layer always strips but the completion delegate fires only on true end.
@@ -2130,6 +2183,9 @@ public static class Motion {
         }
 
         internal bool TryClaim() => Interlocked.Exchange(ref stripped, 1) == 0;
+
+        internal Unit RemoveOwnedSubview() =>
+            ownedSubview.IfSome(static view => view.RemoveFromSuperview());
     }
 
     // One delegate per CALayer is the invariant; ConditionalWeakTable keys on layer identity (not a hash) so
@@ -2188,13 +2244,16 @@ public static class Motion {
             if (pacer is not { IsSome: true, Case: Pacer paced }) {
                 return 0f;
             }
+            double duration = paced.LastDuration;
+            double frame = double.IsFinite(duration) && duration > 0d ? duration : fallback;
             double timestamp = paced.LastTargetTimestamp;
             if (!double.IsFinite(timestamp) || timestamp <= 0d) {
-                return fallback;
+                return (float)frame;
             }
-            double delta = lastVsyncTimestamp > 0d ? timestamp - lastVsyncTimestamp : fallback;
+            double delta = lastVsyncTimestamp > 0d ? timestamp - lastVsyncTimestamp : frame;
             lastVsyncTimestamp = timestamp;
-            return double.IsFinite(delta) && delta > 0d && delta < 1d ? (float)delta : fallback;
+            double clamped = double.IsFinite(delta) && delta > 0d ? Math.Min(delta, frame * 3d) : frame;
+            return (float)clamped;
         }
 
         // Pacer Resume only on 0→1 edge; ScheduleRedraw fallback relies on Eto coalescing.
@@ -2232,6 +2291,7 @@ public static class Motion {
         private CADisplayLink link;
         private double lastFrameTimestamp;
         private double lastTargetTimestamp;
+        private double lastDuration;
         private int refCount;
         private int active;
         private int disposed;
@@ -2319,6 +2379,7 @@ public static class Motion {
             CADisplayLink previous = Interlocked.Exchange(ref link, replacement);
             Volatile.Write(ref lastFrameTimestamp, 0d);
             Volatile.Write(ref lastTargetTimestamp, 0d);
+            Volatile.Write(ref lastDuration, 0d);
             replacement.Paused = Volatile.Read(ref active) <= 0;
             previous.Invalidate();
         }
@@ -2329,11 +2390,13 @@ public static class Motion {
         public void Tick(CADisplayLink sender) {
             Volatile.Write(ref lastFrameTimestamp, sender.Timestamp);
             Volatile.Write(ref lastTargetTimestamp, sender.TargetTimestamp);
+            Volatile.Write(ref lastDuration, sender.Duration);
             canvas.ScheduleRedraw();
         }
 
         internal double LastFrameTimestamp => Volatile.Read(ref lastFrameTimestamp);
         internal double LastTargetTimestamp => Volatile.Read(ref lastTargetTimestamp);
+        internal double LastDuration => Volatile.Read(ref lastDuration);
 
         internal Unit Resume() {
             if (Interlocked.Increment(ref active) == 1) {

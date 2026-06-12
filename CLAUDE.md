@@ -13,15 +13,18 @@ Operate as a senior developer in a bleeding-edge monorepo; use the newest viable
 
 If reviewing, refining, editing, creating, or modifying X file type, use skill Y (required):
 
-| [INDEX] | [FILE_TYPE]                         | [REQUIRED_SKILL]            |
-| :-----: | ----------------------------------- | --------------------------- |
-|   [1]   | TypeScript (`.ts`, `.tsx`)          | `coding-ts`                 |
-|   [2]   | C# production (`.cs`)               | `coding-csharp`             |
-|   [3]   | C# tests (`.spec.cs`)               | `testing-cs`                |
-|   [4]   | RhinoCode scenarios (`.verify.csx`) | `testing-cs`                |
-|   [5]   | Python (`.py`)                      | `coding-python`             |
-|   [6]   | Bash/sh (`.sh`, `.bash`)            | `coding-bash`               |
-|   [7]   | SQL (`.sql`)                        | `coding-pg`                 |
+| [INDEX] | [FILE_TYPE]                         | [REQUIRED_SKILL]     |
+| :-----: | ----------------------------------- | -------------------- |
+|   [1]   | TypeScript (`.ts`, `.tsx`)          | `coding-ts`          |
+|   [2]   | C# production (`.cs`)               | `docs/stacks/csharp` |
+|   [3]   | C# tests (`.spec.cs`)               | `testing-cs`         |
+|   [4]   | RhinoCode scenarios (`.verify.csx`) | `testing-cs`         |
+|   [5]   | Python (`.py`)                      | `coding-python`      |
+|   [6]   | Bash/sh (`.sh`, `.bash`)            | `coding-bash`        |
+|   [7]   | SQL (`.sql`)                        | `coding-pg`          |
+
+- Treat `docs/stacks/csharp` as the only source of truth for csharp coding standards, and as a skill. All code MUST adhere to the doctrine stated in `docs/stacks/csharp/README.md`. All code is built on the standards of: `docs/stacks/csharp/language.md` + `docs/stacks/csharp/shapes.md` + `docs/stacks/csharp/surfaces-and-dispatch.md` + `docs/stacks/csharp/rails-and-effects.md` + `docs/stacks/csharp/boundaries.md` + `docs/stacks/csharp/algorithms.md` + `docs/stacks/csharp/system-apis.md`
+- Use `docs/stacks/csharp/domain` for specialized `.cs` file functionality and concers, file routing: `docs/stacks/csharp/domain/README.md`
 
 ## [2]-[BEHAVIOR]
 

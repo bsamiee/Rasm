@@ -53,7 +53,6 @@ public readonly record struct CanvasWindow(PointF Start, PointF End) {
     }
 }
 
-// ContentPosition navigation only accepts GH2 Duration; point/frame overloads own zoom limits.
 public sealed record CanvasPosition(ContentPosition Position) {
     public static readonly CanvasPosition Top = new(Position: ContentPosition.Top);
     public static readonly CanvasPosition Bottom = new(Position: ContentPosition.Bottom);
@@ -67,21 +66,6 @@ public sealed record CanvasPosition(ContentPosition Position) {
     public static readonly CanvasPosition Fit = new(Position: ContentPosition.Fit);
     public static readonly CanvasPosition HundredPercent = new(Position: ContentPosition.HundredPercent);
 
-    // Duration enum values are milliseconds; nearest-member folding preserves TimeSpan intent.
-    private static readonly Seq<GhDuration> Durations = Seq(
-        GhDuration.Abrupt, GhDuration.Brief, GhDuration.Fast, GhDuration.Normal,
-        GhDuration.Slow, GhDuration.Tedious, GhDuration.Torpid, GhDuration.Ĝlāçïāľ);
-
-    internal Fin<Unit> Navigate(GhCanvas canvas, TimeSpan duration) {
-        ContentPosition position = Position;
-        double milliseconds = duration.TotalMilliseconds;
-        GhDuration mapped = Durations.Fold(
-            initialState: GhDuration.Normal,
-            f: (best, candidate) =>
-                Math.Abs(milliseconds - (int)candidate) < Math.Abs(milliseconds - (int)best) ? candidate : best);
-        return Op.Of(name: nameof(CanvasPosition))
-            .Attempt(body: () => { canvas.Navigate(position: position, duration: mapped); return unit; }, what: "FlexControl.Navigate(ContentPosition, Duration)");
-    }
 }
 
 [SkipUnionOps]
@@ -382,7 +366,7 @@ public readonly record struct CanvasDetailSnapshot(bool ShowUndoHistory, float Z
 public readonly record struct CanvasSnapFeedbackSnapshot(Option<SnappingSnapshot> Snap);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasBitmap(int Width, int Height, ReadOnlyMemory<byte> Png);
+public readonly record struct CanvasBitmap(int Width, int Height, ReadOnlyMemory<byte> Png, Option<WireDrawnSnapshot> Wires = default);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasRenderPolicy(
@@ -525,12 +509,13 @@ internal static partial class UiRail {
                         .Filter(p => p.Width <= limit && p.Height > 0 && p.Height <= limit)
                         .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: $"dimensions out of [1, {limit}]"))
                         .Bind(valid =>
-                            from bitmap in RenderBitmap(canvas: canvas, policy: valid)
+                            from frame in RenderBitmap(canvas: canvas, policy: valid)
                             from encoded in EncodeBitmap(
-                                bitmap: bitmap,
+                                bitmap: frame.Bitmap,
                                 width: 0,
                                 height: 0,
-                                op: Op.Of(name: nameof(CanvasOp.Render)))
+                                op: Op.Of(name: nameof(CanvasOp.Render)),
+                                wires: frame.Wires)
                             select encoded);
                 })),
             pickMapCase: static _ => GhUi.Document(run: static scope =>
@@ -748,8 +733,71 @@ internal static partial class UiRail {
             what: "Canvas.Projection assign")
         select unit;
 
+    internal static Fin<Unit> NavigateCanvasPosition(GhCanvas canvas, GhDocument document, CanvasPosition position, CanvasViewPolicy policy) =>
+        NavigatePositionCore(canvas: canvas, document: document, position: position, policy: policy);
+
     private static Fin<Unit> NavigatePosition(ViewTarget target, CanvasPosition position, CanvasViewPolicy policy) =>
-        position.Navigate(canvas: target.Canvas, duration: ResolveView(raw: policy, defaultPadding: CanvasViewPolicy.DefaultPadding).Duration);
+        NavigatePositionCore(canvas: target.Canvas, document: target.Document, position: position, policy: policy);
+
+    private static Fin<Unit> NavigatePositionCore(GhCanvas canvas, GhDocument document, CanvasPosition position, CanvasViewPolicy policy) =>
+        Optional(position)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Position)), detail: "canvas position is required"))
+            .Bind(valid => {
+                CanvasViewPolicy resolved = ResolveView(raw: policy, defaultPadding: CanvasViewPolicy.DefaultPadding);
+                return valid.Position switch {
+                    ContentPosition.Fit =>
+                        from plan in CanvasViewPlanOf(frame: canvas.ContentBounds, limits: (resolved.MinimumZoom, resolved.MaximumZoom), op: Op.Of(name: nameof(CanvasViewOp.Position)))
+                        from _ in plan.Apply(canvas: canvas, duration: resolved.Duration, what: "FlexControl.Navigate(RectangleF)")
+                        select unit,
+                    ContentPosition.HundredPercent => NavigatePoint(
+                        canvas: canvas,
+                        point: document.Projection.centre,
+                        limits: (1f, 1f),
+                        duration: resolved.Duration,
+                        op: Op.Of(name: nameof(CanvasViewOp.Position)),
+                        what: "FlexControl.Navigate(PointF)"),
+                    _ => NavigatePoint(
+                        canvas: canvas,
+                        point: PositionAnchor(position: valid.Position, content: canvas.ContentBounds, viewport: ContentViewport(canvas: canvas, document: document).Size),
+                        limits: CurrentZoomLimits(document: document, policy: resolved),
+                        duration: resolved.Duration,
+                        op: Op.Of(name: nameof(CanvasViewOp.Position)),
+                        what: "FlexControl.Navigate(PointF)"),
+                };
+            });
+
+    private static Fin<Unit> NavigatePoint(GhCanvas canvas, PointF point, (float Minimum, float Maximum) limits, TimeSpan duration, Op op, string what) =>
+        op.AcceptPoint(value: point, detail: "non-finite navigation point")
+            .Bind(valid => limits.Maximum >= limits.Minimum && limits.Minimum > 0f
+                ? op.Attempt(body: () => {
+                    canvas.Navigate(point: valid, zoomLimits: limits, duration: duration <= TimeSpan.Zero ? GhDuration.Abrupt : GhDuration.Normal);
+                    return unit;
+                }, what: what)
+                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: "invalid zoom range")));
+
+    private static (float Minimum, float Maximum) CurrentZoomLimits(GhDocument document, CanvasViewPolicy policy) {
+        float zoom = float.IsFinite(document.Projection.zoom)
+            ? Math.Clamp(value: document.Projection.zoom, min: policy.MinimumZoom, max: policy.MaximumZoom)
+            : Math.Clamp(value: 1f, min: policy.MinimumZoom, max: policy.MaximumZoom);
+        return (zoom, zoom);
+    }
+
+    private static PointF PositionAnchor(ContentPosition position, RectangleF content, SizeF viewport) {
+        RectangleF frame = content == RectangleF.Empty ? RectangleF.FromCenter(center: PointF.Empty, size: viewport) : content;
+        float halfWidth = Math.Max(0f, viewport.Width) * 0.5f;
+        float halfHeight = Math.Max(0f, viewport.Height) * 0.5f;
+        float x = position switch {
+            ContentPosition.Left or ContentPosition.TopLeft or ContentPosition.BottomLeft => frame.Left + halfWidth,
+            ContentPosition.Right or ContentPosition.TopRight or ContentPosition.BottomRight => frame.Right - halfWidth,
+            _ => frame.Center.X,
+        };
+        float y = position switch {
+            ContentPosition.Top or ContentPosition.TopLeft or ContentPosition.TopRight => frame.Top + halfHeight,
+            ContentPosition.Bottom or ContentPosition.BottomLeft or ContentPosition.BottomRight => frame.Bottom - halfHeight,
+            _ => frame.Center.Y,
+        };
+        return new PointF(x: x, y: y);
+    }
 
     // BOUNDARY ADAPTER — re-centre content on the control point so Navigate zooms about the cursor.
     private static Fin<Unit> ZoomAround(ViewTarget target, PointF controlPoint, float factor, CanvasViewPolicy policy) =>
@@ -786,15 +834,18 @@ internal static partial class UiRail {
                 ? Fin.Succ(value: new CanvasViewPlan(Region: valid, Limits: limits))
                 : Fin.Fail<CanvasViewPlan>(error: UiFault.InvalidInput(op: op, detail: "invalid zoom range")));
 
-    private static RectangleF ContentViewport(ViewTarget target) {
-        RectangleF inner = target.Canvas.InnerBounds;
+    private static RectangleF ContentViewport(ViewTarget target) =>
+        ContentViewport(canvas: target.Canvas, document: target.Document);
+
+    private static RectangleF ContentViewport(GhCanvas canvas, GhDocument document) {
+        RectangleF inner = canvas.InnerBounds;
         if (inner.IsEmpty) {
-            return target.Canvas.VisibleFrame;
+            return canvas.VisibleFrame;
         }
 
-        float zoom = Math.Max(val1: target.Document.Projection.zoom, val2: CanvasViewPolicy.DefaultMinimumZoom);
+        float zoom = Math.Max(val1: document.Projection.zoom, val2: CanvasViewPolicy.DefaultMinimumZoom);
         return RectangleF.FromCenter(
-            center: target.Canvas.VisibleFrame.Center,
+            center: canvas.VisibleFrame.Center,
             size: new SizeF(width: inner.Width / zoom, height: inner.Height / zoom));
     }
 
@@ -949,8 +1000,8 @@ internal static partial class UiRail {
 
     private static Fin<Unit> ShowValueEditor(GhCanvas canvas, AbstractParameter parameter, Option<Control> control) =>
         from method in ShowValueEditorPopup.Value
+        from editor in control.ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.ValueEditor)), detail: "value editor control is required"))
         from _ in Op.Of(name: nameof(CanvasOp.ValueEditor)).Attempt(body: () => {
-            Control editor = control.IfNone(() => new Panel { Size = new Size(width: 320, height: 180) });
             _ = method.Invoke(obj: canvas, parameters: [parameter, editor]);
             return unit;
         }, what: "Canvas.ShowValueEditorPopup")
@@ -964,19 +1015,33 @@ internal static partial class UiRail {
             Height: Math.Clamp(value: (int)(policy.Height * scale), min: 1, max: limit));
     }
 
-    private static Fin<Bitmap> RenderBitmap(GhCanvas canvas, CanvasRenderPolicy policy) =>
+    private readonly record struct CanvasRenderFrame(Bitmap Bitmap, Option<WireDrawnSnapshot> Wires);
+
+    private static Fin<CanvasRenderFrame> RenderBitmap(GhCanvas canvas, CanvasRenderPolicy policy) =>
         // BOUNDARY ADAPTER — AfterObjects has no return rail; capture overlay faults in Atom, then detach symmetrically.
         Op.Of(name: nameof(CanvasOp.Render)).Attempt(body: () => {
             Atom<Option<Error>> overlayFault = Atom(value: Option<Error>.None);
+            Atom<Option<WireDrawnSnapshot>> wires = Atom(value: Option<WireDrawnSnapshot>.None);
             CanvasBitmapLayers layers = policy.EffectiveLayers;
             (int Width, int Height) = EffectiveRenderDimensions(canvas: canvas, policy: policy);
+            CanvasPaintPhase overlayPhase = policy.Overlay.Phase.IfNone(CanvasPaintPhase.AfterObjects);
             EventHandler<CanvasPaintEventArgs>? handler = policy.Overlay.Marks.IsEmpty
                 ? null
                 : (_, args) => _ = policy.Overlay.Apply(scope: new PaintScope(
-                    Phase: CanvasPaintPhase.AfterObjects,
+                    Phase: overlayPhase,
                     Graphics: args.Graphics,
                     Skin: args.Skin)).IfFail(error => { _ = overlayFault.Swap(_ => Some(error)); return unit; });
-            _ = Optional(handler).Iter(h => CanvasPaintPhase.AfterObjects.Attach(canvas: canvas, handler: h));
+            EventHandler<CanvasPaintEventArgs>? wireCapture = (layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires
+                ? (_, _) => _ = WireRepositoryRail.CaptureDrawn(canvas: canvas)
+                    .Map(snapshot => {
+                        _ = WireDrawnCache.Record(canvas: canvas, snapshot: snapshot);
+                        _ = wires.Swap(_ => Some(snapshot));
+                        return unit;
+                    })
+                    .IfFail(_ => unit)
+                : null;
+            _ = Optional(handler).Iter(h => overlayPhase.Attach(canvas: canvas, handler: h));
+            _ = Optional(wireCapture).Iter(h => CanvasPaintPhase.AfterWires.Attach(canvas: canvas, handler: h));
             try {
                 Bitmap bitmap = canvas.DrawToBitmap(
                     width: Width,
@@ -986,22 +1051,21 @@ internal static partial class UiRail {
                     drawMessages: (layers & CanvasBitmapLayers.Messages) == CanvasBitmapLayers.Messages);
                 return overlayFault.Value is { IsSome: true, Case: Error error }
                     ? throw new InvalidOperationException(message: error.Message)
-                    : bitmap;
+                    : new CanvasRenderFrame(Bitmap: bitmap, Wires: wires.Value);
             } finally {
-                _ = Optional(handler).Iter(h => CanvasPaintPhase.AfterObjects.Detach(canvas: canvas, handler: h));
+                _ = Optional(wireCapture).Iter(h => CanvasPaintPhase.AfterWires.Detach(canvas: canvas, handler: h));
+                _ = Optional(handler).Iter(h => overlayPhase.Detach(canvas: canvas, handler: h));
             }
         }, what: "Canvas.DrawToBitmap");
 
-    private static Fin<CanvasResult> EncodeBitmap(Bitmap? bitmap, int width, int height, Op op) =>
+    private static Fin<CanvasResult> EncodeBitmap(Bitmap? bitmap, int width, int height, Op op, Option<WireDrawnSnapshot> wires = default) =>
         Optional(bitmap)
             .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "DrawToBitmap returned null — GH2 swallowed a paint exception — see Grasshopper Logger / Rhino command line"))
             .Bind(owned => Try.lift<CanvasResult>(f: () => {
                 using Bitmap image = owned;
-                using MemoryStream stream = new();
-                image.Save(stream: stream, format: ImageFormat.Png);
                 int w = width > 0 ? width : image.Width;
                 int h = height > 0 ? height : image.Height;
-                return new CanvasResult.BitmapResult(Bitmap: new CanvasBitmap(Width: w, Height: h, Png: stream.ToArray()));
+                return new CanvasResult.BitmapResult(Bitmap: new CanvasBitmap(Width: w, Height: h, Png: image.ToByteArray(ImageFormat.Png), Wires: wires));
             }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: $"PNG encode failed: {error.Message}")));
 
     internal static Option<SnappingSnapshot> SnapChannels(Option<SnappingAction> x, Option<SnappingAction> y) =>
@@ -1130,8 +1194,7 @@ internal static partial class UiRail {
             _ => Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"count={mutation.Receipt.Changed}"))),
         }
         from _ in CommitActions(scope: scope, document: document, name: VerbNounOf(op: op), actions: actions)
-            // [ASSUMED] document.Hash as OwnerId until GrasshopperUi.Scope exposes a stable per-scope document identity.
-        select new Snapshot<TDelta>(OwnerId: Some(document.Hash), Payload: mutation.Payload);
+        select new Snapshot<TDelta>(OwnerId: Some(UiDocumentIdentity.Of(document: document)), Payload: mutation.Payload);
 
     internal static Fin<Unit> CommitActions(GrasshopperUi.Scope scope, GhDocument document, VerbNoun name, ActionList actions) =>
         actions.Count <= 0

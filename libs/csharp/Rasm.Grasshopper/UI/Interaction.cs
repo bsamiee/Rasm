@@ -738,10 +738,11 @@ internal static class Interaction {
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from view in Optional(canvas.ControlObject as NSView).ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(Gesture)), detail: "canvas.ControlObject is not an NSView"))
+            from window in Optional(view.Window).ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(Gesture)), detail: "canvas view has no owning NSWindow"))
             from validRecognizer in Optional(recognizer).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Gesture)), detail: "recognizer is required"))
             from validHandle in Optional(handle).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Gesture)), detail: "handle is required"))
             let onGesture = (LocalEventHandler)(gestureEvent => {
-                _ = states.Exists(state => state == validRecognizer.State)
+                _ = GestureOwns(gestureEvent: gestureEvent, view: view, window: window) && states.Exists(state => state == validRecognizer.State)
                     ? GrasshopperUi.Handler(valid: () => validHandle(arg: new GestureSnapshot(Recognizer: validRecognizer, State: validRecognizer.State, Location: GestureLocation(recognizer: validRecognizer, view: view))))
                     : unit;
                 return gestureEvent;
@@ -807,6 +808,16 @@ internal static class Interaction {
     private static PointF GestureLocation(NSGestureRecognizer recognizer, NSView view) {
         CGPoint point = recognizer.LocationInView(view: view);
         return new PointF(x: (float)point.X, y: (float)point.Y);
+    }
+
+    private static bool GestureOwns(NSEvent gestureEvent, NSView view, NSWindow window) {
+        if (!Equals(gestureEvent.Window, window)) {
+            return false;
+        }
+        NSView? sourceView = null;
+        CGPoint local = view.ConvertPointFromView(gestureEvent.LocationInWindow, sourceView);
+        CGRect bounds = view.Bounds;
+        return local.X >= bounds.X && local.X <= bounds.X + bounds.Width && local.Y >= bounds.Y && local.Y <= bounds.Y + bounds.Height;
     }
 }
 

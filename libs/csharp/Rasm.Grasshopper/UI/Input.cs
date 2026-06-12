@@ -63,14 +63,20 @@ public sealed partial class DialogPresentation {
     public static readonly DialogPresentation Modal = new(key: 0);
     public static readonly DialogPresentation AttachedSheet = new(key: 1);
 
-    internal Option<TResult> Show<TResult>(Dialog<Option<TResult>> dialog, Control? parent) =>
+    internal Fin<Option<TResult>> Show<TResult>(Dialog<Option<TResult>> dialog, Control? parent) =>
         Switch(
             (Dialog: dialog, Parent: parent),
-            modal: static s => s.Dialog.ShowModal(owner: s.Parent),
-            attachedSheet: static s => {
-                s.Dialog.DisplayMode = DialogDisplayMode.Attached;
-                return s.Dialog.ShowModal(owner: s.Parent);
-            });
+            modal: static s => Fin.Succ(value: s.Dialog.ShowModal(owner: s.Parent)),
+            attachedSheet: static s =>
+                ParentWindowOf(parent: s.Parent)
+                    .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(AttachedSheet)), detail: "attached sheet presentation requires a parent window"))
+                    .Map(_ => {
+                        s.Dialog.DisplayMode = DialogDisplayMode.Attached;
+                        return s.Dialog.ShowModal(owner: s.Parent);
+                    }));
+
+    private static Option<Window> ParentWindowOf(Control? parent) =>
+        Optional(parent).Bind(static control => control is Window window ? Some(window) : Optional(control.ParentWindow));
 }
 
 [SmartEnum<int>]
@@ -271,10 +277,12 @@ public abstract partial record FormField {
         internal override Control Render() {
             DropDown control = new();
             _ = Options.Iter(control.Items.Add);
-            control.SelectedIndex = Math.Clamp(value: Selected, min: 0, max: Math.Max(val1: control.Items.Count - 1, val2: 0));
+            control.SelectedIndex = control.Items.Count == 0
+                ? -1
+                : Math.Clamp(value: Selected, min: 0, max: control.Items.Count - 1);
             return control;
         }
-        internal override object Capture(Control control) => control is DropDown drop && drop.SelectedIndex >= 0 ? Options[drop.SelectedIndex] : string.Empty;
+        internal override object Capture(Control control) => control is DropDown drop && drop.SelectedIndex >= 0 && drop.SelectedIndex < Options.Count ? Options[drop.SelectedIndex] : string.Empty;
     }
     public sealed record Color(string Key, string Label, Eto.Drawing.Color Value = default, bool AllowAlpha = false) : FormField(Key, Label) {
         internal override Control Render() => new ColorPicker { Value = Value, AllowAlpha = AllowAlpha };
@@ -636,7 +644,6 @@ public readonly record struct FormPlan<TResult>(
     Seq<FormField> Fields,
     Func<FormSnapshot, Fin<TResult>> Submit,
     PresentationPolicy Presentation = default,
-    CommandPlan Commands = default,
     string AcceptText = "OK",
     string CancelText = "Cancel");
 
@@ -787,9 +794,7 @@ public static partial class Input {
                     }),
                 controlContentCase: c => Optional(c.Control)
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null control"))
-                    .Bind(control => from app in GrasshopperUi.NeedApplication(op: Op.Of(name: nameof(PopupPanel)))
-                                     from hosted in ControlPopupSubscription(app: app, control: control, owner: validOwner, location: clamped)
-                                     select hosted))
+                    .Bind(control => ControlPopupSubscription(control: control, owner: validOwner, location: clamped)))
             select sub);
 
     private static Fin<Subscription> PopupSubscription(InputPanel panel, Control owner, PointF location, RectangleF screen) {
@@ -805,13 +810,13 @@ public static partial class Input {
             detachOnce: true);
     }
 
-    private static Fin<Subscription> ControlPopupSubscription(Application app, Control control, Control owner, PointF location) {
+    private static Fin<Subscription> ControlPopupSubscription(Control control, Control owner, PointF location) {
         Option<Window> ownerWindow = Optional(owner.ParentWindow);
         FloatingForm? form = null;
         return Subscription.Bind(
             // BOUNDARY ADAPTER - borderless, non-focusing FloatingForm at the clamped canvas point.
             attach: () => {
-                form = new FloatingForm(app: app, owner: ownerWindow) {
+                form = new FloatingForm(owner: ownerWindow) {
                     Content = control,
                     WindowStyle = WindowStyle.None,
                     CanFocus = false,
@@ -957,7 +962,7 @@ public static partial class Input {
         Try.lift<Fin<Option<TResult>>>(f: () => {
             using Dialog<Option<TResult>> dialog = new() { Title = title };
             Rhino.UI.EtoExtensions.UseRhinoStyle(dialog);
-            return configure(arg: dialog).Map(_ => presentation.Show(dialog: dialog, parent: DialogParent(scope: scope)));
+            return configure(arg: dialog).Bind(_ => presentation.Show(dialog: dialog, parent: DialogParent(scope: scope)));
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Dialog)), detail: $"Dialog<T> threw: {error.Message}")).Bind(static r => r);
 
     public static GrasshopperUiIntent<Option<TResult>> Form<TResult>(FormPlan<TResult> plan) =>
@@ -989,7 +994,7 @@ public static partial class Input {
                 dialog.AbortButton = cancel;
                 dialog.Content = layout;
                 Rhino.UI.EtoExtensions.UseRhinoStyle(dialog);
-                return Fin.Succ(plan.Presentation.DialogPresentation.Show(dialog: dialog, parent: DialogParent(scope: scope)));
+                return plan.Presentation.DialogPresentation.Show(dialog: dialog, parent: DialogParent(scope: scope));
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Form)), detail: $"Form<T> threw: {error.Message}")).Bind(static value => value));
 
     private static FormSnapshot CaptureForm(Seq<(FormField Field, Control Control)> controls) =>
@@ -1001,7 +1006,8 @@ public static partial class Input {
     public static GrasshopperUiIntent<Option<Color>> PickColor(Color initial, bool allowAlpha = true) =>
         GhUi.Read(run: scope =>
             Try.lift(f: () => {
-                using ColorDialog dialog = new() { Color = initial, AllowAlpha = allowAlpha };
+                using ColorDialog dialog = new() { Color = initial };
+                dialog.AllowAlpha = allowAlpha && dialog.SupportsAllowAlpha;
                 return dialog.ShowDialog(parent: DialogParent(scope: scope)) == DialogResult.Ok
                     ? Some(dialog.Color)
                     : Option<Color>.None;
@@ -1089,7 +1095,11 @@ public static partial class Input {
                 // BOUNDARY ADAPTER - explicit virtual size disables Eto content expansion.
                 Scrollable scrollable = new() { Content = valid };
                 _ = Optional(virtualSize).Filter(static size => size.Width > 0 && size.Height > 0)
-                    .Iter(size => { scrollable.ExpandContentWidth = false; scrollable.ExpandContentHeight = false; });
+                    .Iter(size => {
+                        scrollable.ExpandContentWidth = false;
+                        scrollable.ExpandContentHeight = false;
+                        scrollable.ScrollSize = size;
+                    });
                 return (Control)scrollable;
             }, what: "new Scrollable")
             select built);
@@ -1135,7 +1145,7 @@ public static partial class Input {
     private static Control? DialogParent(GrasshopperUi.Scope scope) =>
         scope.Editor.Map(static _ => (Control?)Grasshopper2.UI.Editor.ThisOrRhino).IfNone(() =>
             scope.Canvas.Map(static c => (Control?)c.ControlObject)
-                .IfNone(() => (Control?)(Rhino.UI.RhinoEtoApp.MainWindowForOwner ?? Rhino.UI.RhinoEtoApp.MainWindow)));
+                .IfNone((Control?)null));
 
     internal static PathDialogSnapshot RunFileDialog(FileDialog dialog, Control? parent, PathDialogSpec spec) {
         using FileDialog owned = dialog;
@@ -1163,9 +1173,7 @@ public static partial class Input {
         return new PathDialogSnapshot(
             Paths: paths,
             FilterIndex: owned.CurrentFilterIndex,
-            FilterName: owned.CurrentFilterIndex >= 0
-                ? toSeq(spec.Filters).Skip(owned.CurrentFilterIndex).Head.Map(static f => f.Name)
-                : Option<string>.None,
+            FilterName: Optional(owned.CurrentFilter?.Name),
             Accepted: result == DialogResult.Ok);
     }
 

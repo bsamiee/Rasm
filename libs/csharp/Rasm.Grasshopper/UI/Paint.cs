@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
@@ -157,19 +156,17 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
                 : DoClip(scope: self, graphics: graphics, body: body, setClip: () => graphics.SetClip(path: validPath)));
     }
 
-    // Rect clips can intersect active ClipBounds; path clips cannot, so nested path clips still reject.
+    // Eto exposes ResetClip but no clip-stack restore, so even intersecting rectangle clips must stay single-depth.
     public Fin<Unit> Clip(RectangleF rect, Func<PaintScope, Fin<Unit>> body, bool intersect = false) {
         PaintScope self = this;
         Graphics graphics = self.Graphics.Content;
-        return self.ClipActive && !intersect
+        return self.ClipActive
             ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "nested clipped draw marks are not supported by Eto clip restoration"))
             : DoClip(
                 scope: self,
                 graphics: graphics,
                 body: body,
-                setClip: () => graphics.SetClip(rectangle: self.ClipActive && intersect
-                    ? RectangleF.Intersect(graphics.ClipBounds, rect)
-                    : rect));
+                setClip: () => graphics.SetClip(rectangle: intersect ? RectangleF.Intersect(graphics.ClipBounds, rect) : rect));
     }
 
     // One cull predicate: culling disabled, degenerate bounds, or in-viewport runs the draw; otherwise succeeds idle.
@@ -309,7 +306,7 @@ public partial record UiFont {
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct SystemFontKey(SystemFont Kind, float? Size, FontDecoration Decoration);
 
-    private static readonly BoundedCache<SystemFontKey, Font> SystemFontCache = new(capacity: 128);
+    private static readonly BoundedCache<SystemFontKey, Font> SystemFontCache = new(capacity: 128, evict: static font => font.Dispose());
 
     private static Font CachedSystem(SystemFont systemFont, float? size, FontDecoration decoration) =>
         SystemFontCache.GetOrAdd(
@@ -348,6 +345,7 @@ public partial record FillSource {
     // Per-frame fill reuses one inert Eto brush per FillSource; texture keys use image identity, other cases use structural keys.
     private static readonly BoundedCache<FillSource, Brush> BrushCache = new(
         capacity: 256,
+        evict: static brush => brush.Dispose(),
         comparer: EqualityComparer<FillSource>.Create(
             equals: static (x, y) => (x, y) switch {
                 (TextureCase a, TextureCase b) => ReferenceEquals(a.Source, b.Source) && a.Opacity == b.Opacity,
@@ -821,12 +819,11 @@ public static partial class Paint {
             from validPlan in Optional(plan).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(FloatingDrawable)), detail: "null draw plan"))
             from validWidth in Op.Of(name: nameof(FloatingDrawable)).AcceptFinite(value: size.Width, detail: "width must be finite and positive", requirePositive: true)
             from validHeight in Op.Of(name: nameof(FloatingDrawable)).AcceptFinite(value: size.Height, detail: "height must be finite and positive", requirePositive: true)
-            from app in GrasshopperUi.NeedApplication(op: Op.Of(name: nameof(FloatingDrawable)))
             let validSize = new Size(width: (int)Math.Ceiling(validWidth), height: (int)Math.Ceiling(validHeight))
             let owner = Optional(canvas.ControlObject as Control).Bind(static control => Optional(control.ParentWindow))
             let screenScale = UiRail.PixelScale(canvas: canvas).LogicalPixelSize
             let drawable = new Drawable { Size = validSize }
-            let form = new FloatingForm(app: app, owner: owner) {
+            let form = new FloatingForm(owner: owner) {
                 Content = drawable,
                 Size = validSize,
                 Title = title.IfNone(string.Empty),
@@ -849,62 +846,13 @@ public static partial class Paint {
                 detach: () => {
                     drawable.Paint -= paintHandler;
                     form.Close();
+                    form.Dispose();
                 },
                 marshalToUi: true)
             select sub);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-// Canonical LRU: Dictionary + doubly-linked list. All ops O(1) -- head is LRU, tail is MRU.
-internal sealed class BoundedCache<TKey, TValue> where TKey : notnull {
-    private readonly Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>> entries;
-    private readonly LinkedList<KeyValuePair<TKey, TValue>> order = new();
-    private readonly Lock gate = new();
-    private readonly int capacity;
-
-    internal BoundedCache(int capacity, IEqualityComparer<TKey>? comparer = null) {
-        this.capacity = capacity;
-        entries = new Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>>(capacity: capacity, comparer: comparer);
-    }
-
-    // BOUNDARY ADAPTER -- double-checked compute-outside-lock: the Dictionary/LinkedList backing is not concurrent, so
-    // every structural access stays gated, but valueFactory runs UNLOCKED between the two checks. The second check
-    // discards the speculatively computed value when a racing caller already inserted the key.
-    internal TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory) {
-        using (gate.EnterScope()) {
-            if (Touch(key: key, value: out TValue? cached)) {
-                return cached;
-            }
-        }
-        TValue fresh = valueFactory(arg: key);
-        using (gate.EnterScope()) {
-            if (Touch(key: key, value: out TValue? raced)) {
-                return raced;
-            }
-            if (entries.Count >= capacity && order.First is LinkedListNode<KeyValuePair<TKey, TValue>> evict) {
-                order.RemoveFirst();
-                _ = entries.Remove(key: evict.Value.Key);
-            }
-            LinkedListNode<KeyValuePair<TKey, TValue>> node = new(value: new KeyValuePair<TKey, TValue>(key: key, value: fresh));
-            order.AddLast(node: node);
-            entries.Add(key: key, value: node);
-            return fresh;
-        }
-    }
-
-    // BOUNDARY ADAPTER -- gated LRU touch: caller holds the lock; promotes a hit to MRU and surfaces its value, else miss.
-    private bool Touch(TKey key, [MaybeNullWhen(returnValue: false)] out TValue value) {
-        if (entries.TryGetValue(key: key, value: out LinkedListNode<KeyValuePair<TKey, TValue>>? hit)) {
-            order.Remove(node: hit);
-            order.AddLast(node: hit);
-            value = hit.Value.Value;
-            return true;
-        }
-        value = default;
-        return false;
-    }
-}
-
 // Key includes FontDecoration explicitly -- Eto.Drawing.Font equality excludes it. AppKit text APIs
 // are main-thread-only; [ThreadStatic] scratch FormattedText avoids cross-thread reuse.
 file static class TextMeasure {

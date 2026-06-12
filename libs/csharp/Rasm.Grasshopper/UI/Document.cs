@@ -1180,8 +1180,8 @@ public abstract partial record DocumentMutation {
             },
             splitWireCase: static (s, split) => {
                 Op op = Op.Of(name: nameof(SplitWire));
-                return from name in op.AcceptText(value: split.Name)
-                       from location in op.AcceptPoint(value: split.Location, detail: "non-finite location")
+                return from location in op.AcceptPoint(value: split.Location, detail: "non-finite location")
+                       let name = split.Name ?? string.Empty
                        from source in Optional(s.objects.FindParameter(instanceId: split.Source))
                            .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"source parameter {split.Source} not found"))
                        from target in Optional(s.objects.FindParameter(instanceId: split.TargetId))
@@ -1197,14 +1197,7 @@ public abstract partial record DocumentMutation {
             },
             wireRouteCase: static (s, route) => {
                 Op op = Op.Of(name: nameof(WireRoute));
-                return route.Chain.Count >= 2 && !route.Chain.Exists(static id => id == Guid.Empty)
-                    // Shared ActionList keeps adjacent-pair routing inside the caller's undo record.
-                    ? route.Chain.Zip(route.Chain.Tail).TraverseM(pair =>
-                        from source in Optional(s.objects.FindParameter(instanceId: pair.First)).ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"route source {pair.First} not found"))
-                        from target in Optional(s.objects.FindParameter(instanceId: pair.Second)).ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"route target {pair.Second} not found"))
-                        from changed in WireEdit.Connect.Apply(op: op, methods: s.methods, objects: s.objects, source: source, target: target, actions: s.actions, args: default)
-                        select changed).As().Map(static counts => DocumentMutationReceipt.Count(changed: Enumerable.Sum(counts)))
-                    : Fin.Fail<DocumentMutationReceipt>(error: UiFault.InvalidInput(op: op, detail: "wire route requires two or more non-empty parameter ids"));
+                return Wire.ApplyRouteChain(methods: s.methods, objects: s.objects, actions: s.actions, chain: route.Chain, op: op);
             },
             mergeCase: static (s, merge) => Op.Of(name: nameof(Merge)).Attempt(
                 body: () => {
@@ -1515,7 +1508,7 @@ internal static partial class Document {
                 Changed: receipt.Changed,
                 After: UiRail.DocumentSnapshotOf(document: document, objects: objects),
                 Created: receipt.Created),
-            OwnerId: Some(document.Hash));
+            OwnerId: Some(UiDocumentIdentity.Of(document: document)));
 
     private static Fin<Seq<DocumentObjectSnapshot>> Find(GhObjectList objects, FindCriterion criterion) =>
         criterion.Switch(

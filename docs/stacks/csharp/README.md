@@ -1,12 +1,12 @@
 # [STACKS_CSHARP]
 
-This folder is the C# stack decision atlas. It routes language, shape, surface, rail, boundary, algorithm, system-API, and quality-rail decisions to the concept page that owns the coding choice. The atlas builds one admission-first paradigm: raw input is admitted once through generated owners, admitted values travel typed rails, behavior lives on generated dispatch surfaces, and projections leave at explicit boundaries.
+This folder is the C# stack router. It routes language, shape, surface, rail, boundary, algorithm, system-API, domain, and quality-rail decisions to the concept page that owns the coding choice. The router builds one admission-first paradigm: raw input is admitted once through generated owners, admitted values travel typed rails, behavior lives on generated dispatch surfaces, and projections leave at explicit boundaries.
 
-The atlas is also a build order: pages are layers of one cumulative body, and every page is authored from the full established law of the pages finalized before it. Pages carry no external references, release narration, origin, process state, project anchors, or tool context; verification happens before authoring, and the page states law as fact.
+Pages carry no external references, release narration, origin, process state, project anchors, or tool context; verification happens before authoring, and the page states law as fact.
 
 ## [1]-[ATLAS]
 
-This table is a lookup by reader decision.
+This table is the lookup by reader decision.
 
 | [INDEX] | [DECISION]              | [READ]                                            | [STATE]   |
 | :-----: | :---------------------- | :------------------------------------------------ | :-------- |
@@ -18,18 +18,24 @@ This table is a lookup by reader decision.
 |   [6]   | numeric approach        | [algorithms](algorithms.md)                       | finalized |
 |   [7]   | system API replacement  | [system APIs](system-apis.md)                     | finalized |
 |   [8]   | quality rail            | [testing](testing/README.md)                      | finalized |
-|   [9]   | hosting and runtime     | `domain/runtime.md`                               | target    |
-|  [10]   | concurrency and streams | `domain/concurrency.md`                           | target    |
-|  [11]   | telemetry signal        | `domain/diagnostics.md`                           | target    |
-|  [12]   | boundary validation     | `domain/validation.md`                            | target    |
-|  [13]   | resilience policy       | `domain/resilience.md`                            | target    |
-|  [14]   | data persistence        | `domain/persistence.md`                           | target    |
-|  [15]   | compute lane            | `domain/compute.md`                               | target    |
-|  [16]   | retained interaction    | `domain/interaction.md`                           | target    |
+|   [9]   | domain routing          | [domain](domain/README.md)                        | finalized |
+|  [10]   | hosting and runtime     | [runtime](domain/runtime.md)                      | finalized |
+|  [11]   | concurrency and streams | [concurrency](domain/concurrency.md)              | finalized |
+|  [12]   | telemetry signal        | [diagnostics](domain/diagnostics.md)              | finalized |
+|  [13]   | boundary validation     | [validation](domain/validation.md)                | finalized |
+|  [14]   | resilience policy       | [resilience](domain/resilience.md)                | finalized |
+|  [15]   | wire transport          | [transport](domain/transport.md)                  | finalized |
+|  [16]   | data persistence        | [persistence](domain/persistence.md)              | finalized |
+|  [17]   | embedded durability     | [durability](domain/durability.md)                | finalized |
+|  [18]   | postgres surface        | [postgres](domain/postgres.md)                    | finalized |
+|  [19]   | data interchange        | [data interchange](domain/data-interchange.md)    | finalized |
+|  [20]   | compute lane            | [compute](domain/compute.md)                      | finalized |
+|  [21]   | render and visuals      | [visuals](domain/visuals.md)                      | finalized |
+|  [22]   | retained interaction    | [interaction](domain/interaction.md)              | finalized |
 
 ## [2]-[DOCTRINE]
 
-Fifteen laws in five groups govern every C# decision in this stack. Concept pages instantiate them; no page restates them. The laws exist so correctness is structural rather than disciplinary: admission-once makes the interior total over valid values; closed families convert change into compile-time pressure; policy-as-values makes behavior recoverable from declarations alone; derivation makes every secondary surface provably consistent with its primary. Density is the consequence, not the goal — when one declaration carries the family, every remaining line is load-bearing. The atlas is sized for large systems: total lines and public surface grow sublinearly with capability because every owner is declared with the capacity to absorb the family it anchors — growth lands as cases, rows, and policy values inside existing owners, never as new surfaces beside them. Enforcement is doctrine-first: `.editorconfig` severities, build-injected analyzers, and the repository's own analyzer encode these laws — the doctrine authors the tool, never the reverse. Analyzer findings against these laws are architecture pressure: fix the shape, not the diagnostic.
+Sixteen laws in five groups govern every C# decision in this stack. Concept pages instantiate them; no page restates them. The laws exist so correctness is structural rather than disciplinary: admission-once makes the interior total over valid values; closed families convert change into compile-time pressure; policy-as-values makes behavior recoverable from declarations alone; derivation makes every secondary surface provably consistent with its primary. Density is the consequence, not the goal — when one declaration carries the family, every remaining line is load-bearing. The atlas is sized for large systems: total lines and public surface grow sublinearly with capability because every owner is declared with the capacity to absorb the family it anchors — growth lands as cases, rows, and policy values inside existing owners, never as new surfaces beside them. Enforcement is doctrine-first: `.editorconfig` severities, build-injected analyzers, and the repository's own analyzer encode these laws — the doctrine authors the tool, never the reverse. Analyzer findings against these laws are architecture pressure: fix the shape, not the diagnostic.
 
 [FLOW]:
 - `EXPRESSION_SPINE` — all domain logic is expression-shaped; dependent steps compose monadically and independent computations compose applicatively — dependence licenses sequence, independence licenses accumulation, and the carrier, never a flag, selects the combination algebra. Statements survive only inside measured kernels and platform-forced boundaries, and any page that shows one names the exemption. Composition runs through `Bind`, `Map`, query expressions, switch expressions, and generated `Switch` dispatch; `ref struct` fold kernels and span loops are the named kernel exemption.
@@ -46,6 +52,7 @@ Fifteen laws in five groups govern every C# decision in this stack. Concept page
 - `DERIVED_LOGIC` — when cases share generative structure, the logic is derived — state-threaded `Switch`, a `Fold` algebra, or a table — never enumerated arms. One primary correspondence is declared and every secondary map derives from it; a derived form is replaced only where a structurally cheaper primitive exists, and the replacement preserves the law the derivation encodes — the derivation is the executable specification.
 - `DERIVED_TYPES` — types are computed where the language allows so one declaration yields the family: generic math constraints, type parameters with semantic payload, `K<F,A>` carrier-polymorphic arrows, and source-generated owners replace rank-specific or per-carrier copies.
 - `SYMBOLIC_REFERENCE` — names, paths, discriminants, and correspondences travel as symbols and derived values — `nameof` including unbound generics, smart-enum keys, vocabulary tables — never as string literals that restate something the program already knows.
+- `SEMANTIC_NAMING` — every file, namespace, type, method, local function, parameter, field, property, case, test, artifact, and region name uses the bounded context's canonical term, grammatical role, and tense. One semantic word is the default; two words are allowed when owner plus action, result, axis, or boundary is load-bearing; three words are the ceiling unless a generated contract, external API, or ambiguity proof requires more. Operations use action verbs, values and receipts use result nouns, policies and vocabularies use stable noun or adjective rows, and boundary adapters preserve foreign names only at the seam. Renaming for variety, tense drift, abbreviations, prefix/suffix families, and parallel file/member/type labels for one concept are rejected.
 
 [MATERIAL]:
 - `LIBRARY_DEPTH` — admitted packages are the standard library: LanguageExt owns rails, effects, schedules, and immutable collections; Thinktecture owns generated domain shape; MathNet and CSparse own numeric algorithms; quality packages own their rails. Use the deepest operator, combinator, or generated surface the package itself reaches for; wrappers, rename adapters, and BCL-first reflexes are rejected. BCL primitives remain owners only when they carry the invariant directly.
@@ -88,7 +95,7 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 - Altitude routing: when two pages touch one fact, the ledger records the split — mechanics at the owning page, consequence at the consumer; prose re-teaching an owned mechanic is repaired by routing to the owner, while composing owned surfaces inside a snippet is supporting material and owns nothing.
 - Reject columns are load-bearing: every `Use` names the spelling, wrapper, or local pattern it deletes.
 - Tables enumerate, cards legislate: rows stay atomic and narrow — no prose cramming, no links inside cells; nuance moves to a card.
-- Target order is README-local: build order, target-page scopes, and conflict rules live only in README files — this roadmap tail and a target subfolder's own README; concept pages never carry them.
+- Route scope is README-local: lookup rows and conflict rules live in README files; concept pages carry only the law they own.
 - Manifest truth: package versions, references, injected globals, tools, and graph admission live in `Directory.Packages.props` and `Directory.Build.props`; no package-named pages; a package is named only where it changes the implementation choice.
 
 ## [5]-[CORPUS_LAW]
@@ -101,50 +108,3 @@ How the corpus accretes. The atlas `[STATE]` column is the law registry: a `fina
 - Snippet stacking: code fully captures the card it proves, then composes on earlier layers' law at full doctrine depth — the new surface in the spotlight, established surfaces as supporting material, every touched concern built at the standard its owning finalized page legislates.
 - Region ledger: the workspace root keeps one ledger of owned regions — page concerns at card altitude, snippet demonstrations at fence altitude. Snippet rows are written before code exists, page rows at finalization, and a duplicated region is repaired by routing to its owner, never by re-teaching — the ledger is what makes ownership checkable without re-reading the corpus.
 - Purpose: the corpus is loaded as the operative standard in place of weaker context; zero-meta, zero-anchor, and stated-as-fact are absolute because any origin, hedge, or stale claim poisons every downstream generation that loads the page.
-
-## [6]-[TARGET_ORDER]
-
-Target pages in build order. Each entry states what the page must decide; the scope moves into the page when it is authored and leaves this tail.
-
-The `domain/` pages build in strict dependency order: runtime -> concurrency -> diagnostics -> validation -> resilience -> persistence -> compute -> interaction — after every root page is finalized through the corpus sweep, so each later page implicitly carries the earlier law. Package admission to the central manifest happens at each page's research start, the docs lead admission, and the full build charter lives in [domain](domain/README.md).
-
-[DOMAIN_RUNTIME]:
-- Owns: hosting lifecycle, dependency composition with assembly scanning, decoration, and keyed services, options and configuration with AOT-safe validation, hybrid caching, the process cancellation spine, and time — clock abstraction plus calendar vocabulary.
-- Composition law: one composition root per process owns scanning, decoration, and keyed registration; modules contribute registrations and never resolve services themselves.
-- Options law: configuration binds and validates once at startup and travels as policy values; an ambient configuration read inside domain flow marks a seam violation.
-- Assumes: boundary state law and effect rails from prior pages; never re-teaches state cells or carrier choice.
-
-[DOMAIN_CONCURRENCY]:
-- Owns: threading law, structured concurrency, channel-based producer-consumer flow, reactive streams where they change the design choice, atomic state cells at concurrency scope, and parallelism policy.
-- Stream law: channels own producer-consumer seams; reactive streams are admitted only where operator composition changes the design, never as a second effect system beside the rails.
-- Disjoint: the boundaries page owns host-thread marshaling; the rails page owns the effect rails concurrency composes.
-
-[DOMAIN_DIAGNOSTICS]:
-- Owns: structured logging, traces and metrics, sampling and enrichment governance, sensitive-data redaction, and one correlation spine across every signal.
-- Signal law: one correlation identifier crosses logs, traces, and metrics unchanged; sampling and enrichment are root-governed policy, never per-call-site choices.
-- Redaction law: sensitive shapes are redacted at definition time through annotated types; an unredacted sensitive value reaching any exporter is a seam violation.
-
-[DOMAIN_VALIDATION]:
-- Owns: wire-DTO, options, and input validation at boundaries, and the law of which validator owns which seam: generated partials admit value objects, functional validation rails own domain accumulation, the boundary validator owns wire shapes.
-- Boundary: external input crosses one seam in one order — raw shape, boundary validator, typed rail, domain owner; folding an unvalidated external shape straight into a domain model skips the law.
-- Assumes: domain shape and rail law from prior pages; never re-teaches them.
-
-[DOMAIN_RESILIENCE]:
-- Owns: transport and boundary resilience pipelines for remote and external hops.
-- Law: domain-internal retry and repeat is schedule policy on effect rails; transport resilience is a pipeline at the seam — never both on one seam.
-- Ownership: exactly one retry owner per outbound hop, held at the composition root; a lower layer detecting a second owner emits conflict evidence instead of stacking a loop.
-
-[DOMAIN_PERSISTENCE]:
-- Owns: relational persistence doctrine, provider-polymorphic across embedded and server engines as one case axis inside one doctrine: compiled models, document columns, complex types, interceptors, migrations, bulk movement, integrity, snapshots, and retention.
-- Provider law: provider variance selects through one policy value; temporal values persist through one calendar vocabulary, and platform date sentinels never enter persisted shapes.
-- Schema law: a store whose schema is newer than the compiled model is a typed rejection, never a best-effort open; partially applied migrations surface as operator-visible receipts.
-
-[DOMAIN_COMPUTE]:
-- Owns: tensor primitives at application scope, measured dispatch with receipts, remote compute lanes over typed contracts, and a model-inference lane scoped to verified surfaces.
-- Receipt law: every measured dispatch emits typed evidence — route, elapsed, capability — beside its result; remote lanes carry schema-derived contracts proven at compile time, with payloads outside generator coverage projected to attributed records at the boundary.
-- Disjoint: the algorithms page owns numeric route law; this page owns application-scope compute composition.
-
-[DOMAIN_INTERACTION]:
-- Owns: retained shell and screen composition, navigation, reactive view state, command flow, live collection projection, visual assets, control/dialog/inspection surfaces, validation projection, and UI thread-affinity boundaries.
-- Interaction law: one retained interaction spine owns shell, screen, route, command, live state, validation projection, theme, asset, control, dialog, and inspector seams; provider vocabulary enters as package policy and never becomes domain vocabulary.
-- Disjoint: concurrency owns observable-stream mechanics; validation owns boundary-shape validation; diagnostics owns signal capture; interaction owns user-facing composition over those laws.

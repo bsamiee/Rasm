@@ -61,6 +61,11 @@
         <PackageVersion Include="Polly.RateLimiting" Version="8.7.0" />
         <PackageVersion Include="Scrutor" Version="7.0.0" />
         <PackageVersion Include="Serilog" Version="4.3.1" />
+        <!-- Serilog sits BEHIND the MEL seam as a provider: hosting bridge + operator-local sinks
+             (file/console). The Serilog OTLP sink is rejected — OTLP export has one owner (OTel). -->
+        <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+        <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
+        <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
         <PackageVersion Include="System.Threading.Tasks.Dataflow" Version="10.0.9" />
     </ItemGroup>
 
@@ -182,6 +187,9 @@
         <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="3.119.4" />
         <PackageVersion Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4" />
         <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.11" />
+        <!-- Direct engine pin: headless document/export processes compose SKSvg without the
+             Avalonia closure; 5.0.0 is exactly the floor the Avalonia-coupled package declares. -->
+        <PackageVersion Include="Svg.Skia" Version="5.0.0" />
         <PackageVersion Include="System.Reactive" Version="6.1.0" />
         <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.1" />
         <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="12.0.0.1" />

@@ -6,6 +6,7 @@ using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.Undo;
 using Rhino;
+using Rhino.UI;
 using Expected = Rasm.Domain.Expected;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 using GhDocument = Grasshopper2.Doc.Document;
@@ -550,10 +551,10 @@ public sealed partial record GrasshopperUi {
                 RhinoApp.IsOnMainThread
                     ? Protect(valid: () => { valid(); return Fin.Succ(value: unit); })
                     : from app in NeedApplication(op: Op.Of(name: nameof(DetachOnUiThread)))
-                      from result in Try.lift(f: () => {
-                          app.AsyncInvoke(action: () => Handler(valid: () => Protect(valid: () => { valid(); return Fin.Succ(value: unit); })));
-                          return unit;
-                      }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"AsyncInvoke threw: {error.Message}"))
+                      from result in Try.lift<Fin<Unit>>(f: () => app.Invoke(func: () => Protect(valid: () => { valid(); return Fin.Succ(value: unit); })))
+                          .Run()
+                          .MapFail(error => UiFault.ThreadMarshal(detail: $"Application.Invoke threw: {error.Message}"))
+                          .Bind(static result => result)
                       select result);
 
     internal static Fin<Application> NeedApplication(Op op) =>
@@ -571,15 +572,122 @@ public sealed partial record GrasshopperUi {
 
 // Lightweight Eto panel host for DrawPlan outside the GH canvas paint cycle.
 internal sealed class FloatingForm : Form {
-    internal FloatingForm(Application app, Option<Window> owner) {
+    internal FloatingForm(Option<Window> owner) {
         ShowInTaskbar = false;
         Resizable = false;
         WindowStyle = WindowStyle.Default;
-        Owner = owner.IfNone(() => app.MainForm);
+        _ = owner.Iter(window => Owner = window);
+        this.UseRhinoStyle();
     }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
+internal static class UiDocumentIdentity {
+    private sealed class IdBox {
+        internal readonly Guid Value = Guid.NewGuid();
+    }
+
+    private static readonly ConditionalWeakTable<GhDocument, IdBox> Ids = [];
+
+    internal static Guid Of(GhDocument? document) =>
+        document is null ? Guid.Empty : Ids.GetValue(document, static _ => new IdBox()).Value;
+}
+
+// Canonical bounded-recency cache for UI state. Value factories run outside the lock; evict owns discarded values.
+internal sealed class BoundedCache<TKey, TValue> where TKey : notnull {
+    private readonly Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>> entries;
+    private readonly LinkedList<KeyValuePair<TKey, TValue>> order = new();
+    private readonly Lock gate = new();
+    private readonly int capacity;
+    private readonly Action<TValue>? evict;
+
+    internal BoundedCache(int capacity, IEqualityComparer<TKey>? comparer = null, Action<TValue>? evict = null) {
+        this.capacity = capacity;
+        this.evict = evict;
+        entries = new Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>>(capacity: capacity, comparer: comparer);
+    }
+
+    internal Option<TValue> Find(TKey key) {
+        using (gate.EnterScope()) {
+            return Touch(key: key, value: out TValue? cached)
+                ? Some(cached)
+                : Option<TValue>.None;
+        }
+    }
+
+    internal TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory) {
+        using (gate.EnterScope()) {
+            if (Touch(key: key, value: out TValue? cached)) {
+                return cached;
+            }
+        }
+
+        TValue fresh = valueFactory(arg: key);
+        using (gate.EnterScope()) {
+            if (Touch(key: key, value: out TValue? raced)) {
+                evict?.Invoke(fresh);
+                return raced;
+            }
+
+            if (entries.Count >= capacity && order.First is LinkedListNode<KeyValuePair<TKey, TValue>> lru) {
+                order.RemoveFirst();
+                _ = entries.Remove(key: lru.Value.Key);
+                evict?.Invoke(lru.Value.Value);
+            }
+
+            LinkedListNode<KeyValuePair<TKey, TValue>> node = new(value: new KeyValuePair<TKey, TValue>(key: key, value: fresh));
+            order.AddLast(node: node);
+            entries.Add(key: key, value: node);
+            return fresh;
+        }
+    }
+
+    internal Unit Record(TKey key, TValue value) {
+        using (gate.EnterScope()) {
+            if (entries.TryGetValue(key: key, value: out LinkedListNode<KeyValuePair<TKey, TValue>>? existing)) {
+                order.Remove(node: existing);
+                evict?.Invoke(existing.Value.Value);
+                existing.Value = new KeyValuePair<TKey, TValue>(key: key, value: value);
+                order.AddLast(node: existing);
+                return unit;
+            }
+
+            if (entries.Count >= capacity && order.First is LinkedListNode<KeyValuePair<TKey, TValue>> lru) {
+                order.RemoveFirst();
+                _ = entries.Remove(key: lru.Value.Key);
+                evict?.Invoke(lru.Value.Value);
+            }
+
+            LinkedListNode<KeyValuePair<TKey, TValue>> node = new(value: new KeyValuePair<TKey, TValue>(key: key, value: value));
+            order.AddLast(node: node);
+            entries.Add(key: key, value: node);
+            return unit;
+        }
+    }
+
+    internal Unit Invalidate(TKey key) {
+        using (gate.EnterScope()) {
+            if (entries.Remove(key: key, value: out LinkedListNode<KeyValuePair<TKey, TValue>>? node)) {
+                order.Remove(node: node);
+                evict?.Invoke(node.Value.Value);
+            }
+        }
+        return unit;
+    }
+
+    private bool Touch(TKey key, [MaybeNullWhen(returnValue: false)] out TValue value) {
+        if (entries.TryGetValue(key: key, value: out LinkedListNode<KeyValuePair<TKey, TValue>>? hit)) {
+            order.Remove(node: hit);
+            order.AddLast(node: hit);
+            value = hit.Value.Value;
+            return true;
+        }
+
+        value = default;
+        return false;
+    }
+}
+
 public static partial class OpUiExtensions {
     [BoundaryAdapter, MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Fin<PointF> AcceptPoint(this Op op, PointF value, string detail = "non-finite point") =>

@@ -544,11 +544,10 @@ public static class DocumentEventKind {
         Build: static (kind, owner, handler) => DocumentEventHandlers.Empty with {
             Id = (_, e) => PipeOf(owner: owner, handler: handler).PublishObject(kind: kind, changed: Optional(e.Object), detail: Some($"{e.OldId}->{e.NewId}")),
         });
-    // UndoTopologyChanged is excluded because undo/redo already re-fires Modified.
     public static readonly DocumentEvent AnyChanged = DocumentEvent.Composite(
         name: nameof(AnyChanged),
         combine: DocumentEventHandlers.Combine,
-        Modified, StateChanged, ParentChanged, ObjectAdded, ObjectRemoved, ObjectExpired, ObjectName, Selection,
+        Modified, StateChanged, ParentChanged, UndoTopologyChanged, ObjectAdded, ObjectRemoved, ObjectExpired, ObjectName, Selection,
         ObjectEnabled, ObjectRelevance, ObjectLayout, ObjectDisplay, ObjectInstanceId);
 
     private static DocumentEventPipe PipeOf((GhDocument Doc, GhObjectList Objs) owner, Func<DocumentEventSnapshot, Fin<Unit>> handler) =>
@@ -931,21 +930,23 @@ internal static partial class Events {
             from sub in validKind.Subscribe(window: validWindow, handler: valid)
             select sub);
 
-    private static GrasshopperUiIntent<Subscription> SubscribeNativeInput(Func<NativeInputSnapshot, Fin<Unit>> handler, NSEventMask mask) {
-        NSObject? monitor = null;
-        return GhUi.Read(run: _scope =>
+    private static GrasshopperUiIntent<Subscription> SubscribeNativeInput(Func<NativeInputSnapshot, Fin<Unit>> handler, NSEventMask mask) =>
+        GhUi.Read(run: _scope => {
+            NSObject? monitor = null;
+            return
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeNativeInput)), detail: "null handler"))
             from sub in BindMarshaled(
                 attach: () => monitor = NSEvent.AddLocalMonitorForEventsMatchingMask(mask, e =>
                     Optional(e).Map(evt => UiEvent.Publish(handler: valid, snapshot: NativeInputSnapshot.Of(e: evt))).Map(_ => e).IfNone(e)),
                 detach: () => Optional(monitor).Iter(NSEvent.RemoveMonitor),
                 detachOnce: true)
-            select sub);
-    }
+            select sub;
+        });
 
-    private static GrasshopperUiIntent<Subscription> SubscribeAccessibilityPrefs(Func<AccessibilityPrefsSnapshot, Fin<Unit>> handler) {
-        NSObject? observer = null;
-        return GhUi.Read(run: _scope =>
+    private static GrasshopperUiIntent<Subscription> SubscribeAccessibilityPrefs(Func<AccessibilityPrefsSnapshot, Fin<Unit>> handler) =>
+        GhUi.Read(run: _scope => {
+            NSObject? observer = null;
+            return
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeAccessibilityPrefs)), detail: "null handler"))
             from sub in BindMarshaled(
                 attach: () => observer = NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(
@@ -954,8 +955,8 @@ internal static partial class Events {
                     fromObject: null),
                 detach: () => Optional(observer).Iter(o => NSWorkspace.SharedWorkspace.NotificationCenter.RemoveObserver(o)),
                 detachOnce: true)
-            select sub);
-    }
+            select sub;
+        });
 
     private static GrasshopperUiIntent<Subscription> SubscribeMany(Seq<UiEvent> events) =>
         new(
