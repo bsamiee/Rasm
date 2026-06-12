@@ -101,7 +101,7 @@ detachers composed LIFO.
 ## [4]-[CROSS_PACKAGE_SEAMS]
 
 Altitude splits per the suite ledger SEAM_SPLITS
-([_region-map](../.planning/_region-map.md)); mechanics live at the named AppHost cluster,
+([_region-map](../.planning/region-map/)); mechanics live at the named AppHost cluster,
 consequences land at the consumer.
 
 | [INDEX] | [SEAM]                 | [MECHANICS_AT]                               | [CONSEQUENCE_AT]                                                               |
@@ -124,7 +124,7 @@ consequences land at the consumer.
 ## [5]-[PACKAGE_API_MAP]
 
 Axis-to-package ownership; member facts live in the catalogues under
-[.reports/api](.reports/api/README.md). LanguageExt.Core and Thinktecture.Runtime.Extensions
+[.api](.api/README.md). LanguageExt.Core and Thinktecture.Runtime.Extensions
 arrive as workspace substrate on every row.
 
 | [INDEX] | [AXIS_OR_CONCERN]      | [OWNING_PACKAGES]                                                                                                                                                                                 |

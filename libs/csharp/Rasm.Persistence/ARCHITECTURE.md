@@ -25,7 +25,7 @@ lanes, operations, codecs, and policies; it never selects provider packages.
 ## [2]-[CROSS_PACKAGE_MATRIX]
 
 Seam altitudes record in the suite ledger
-[SEAM_SPLITS](../.planning/_region-map.md); this matrix is the Persistence cut.
+[SEAM_SPLITS](../.planning/region-map/); this matrix is the Persistence cut.
 
 | [INDEX] | [SEAM]                   | [MECHANICS_OWNER]                                              | [PERSISTENCE_SIDE]                                                                                            |
 | :-----: | :----------------------- | :------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------ |
@@ -91,7 +91,7 @@ feeds the sync pump.
 |  [10]   | Sync transports              | Npgsql (logical replication) · NodaTime                                                                                                                                                                                 |
 |  [11]   | Redaction + retention        | Microsoft.Extensions.Compliance.Redaction · NodaTime                                                                                                                                                                    |
 
-Package API facts live in [.reports/api](.reports/api/README.md); this map
+Package API facts live in [.api](.api/README.md); this map
 names ownership only and never repeats member tables.
 
 ## [5]-[BOUNDARIES]

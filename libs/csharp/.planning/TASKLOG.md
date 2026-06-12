@@ -2,20 +2,7 @@
 
 Every remaining open item across all ledgers, agent findings, and ROADMAP gates — the suite-level index of work not closed by the planning campaign. Per-folder detail lives in each `ROADMAP.md` (START_GATES / RESEARCH_PROBES tables); this log aggregates and adds the cross-folder and infrastructure rows no single folder owns. Closed items do not appear.
 
-## [1]-[BRIDGE_PROOFED_SPIKES]
-
-| [INDEX] | [ITEM] | [OWNER] |
-| :-----: | ------ | ------- |
-| [1] | Generic Host boot + unload inside the RhinoWIP plugin ALC without process exit | AppHost ROADMAP |
-| [2] | Kestrel + Grpc.AspNetCore hosting inside the plugin ALC (gRPC loopback from the Rhino host) | AppHost ROADMAP |
-| [3] | Avalonia-12-in-Rhino NSView embedding (pump coexistence, resize sync, render-backend contention scenarios) | AppUi ROADMAP |
-| [4] | ONNX dylib load inside the RhinoWIP ALC; libortextensions versioned-RID resolution | Compute ROADMAP |
-| [5] | Hardened-runtime dlopen of extension dylibs inside the signed Rhino host (extension-load.verify.csx) | Persistence ROADMAP |
-| [6] | Embedded-TopLevel service resolution (toasts, storage pickers) inside the rhino-panel root | AppUi ROADMAP |
-| [7] | Host-object drag across the NSView boundary; VoiceOver reach across the embedding | AppUi ROADMAP |
-| [8] | Drain-deadline conformance scenario under live plugin unload | AppHost ROADMAP |
-
-## [2]-[NATIVE_AND_SERVER_PROBES]
+## [1]-[NATIVE_AND_SERVER_PROBES]
 
 | [INDEX] | [ITEM] | [OWNER] |
 | :-----: | ------ | ------- |
@@ -34,7 +21,7 @@ Every remaining open item across all ledgers, agent findings, and ROADMAP gates 
 | [13] | CoreML option value domains (MLComputeUnits, SpecializationStrategy); Terminate-latch latency cadence | Compute ROADMAP |
 | [14] | GH2 async result readback ceiling (solver idle-loop) | Compute ROADMAP |
 
-## [3]-[SPEC_PROOFS_AT_IMPLEMENTATION]
+## [2]-[SPEC_PROOFS_AT_IMPLEMENTATION]
 
 | [INDEX] | [ITEM] | [OWNER] |
 | :-----: | ------ | ------- |
@@ -47,7 +34,7 @@ Every remaining open item across all ledgers, agent findings, and ROADMAP gates 
 | [7] | LiveCharts net8-asset render fidelity on Avalonia 12; heat-land geo payload | AppUi |
 | [8] | UnitsNet next-major QuantityInfo reshape staged-restore check | Compute |
 
-## [4]-[ADMISSION_DECISIONS_PENDING]
+## [3]-[ADMISSION_DECISIONS_PENDING]
 
 | [INDEX] | [ITEM] | [GATE] |
 | :-----: | ------ | ------ |
@@ -61,7 +48,7 @@ Every remaining open item across all ledgers, agent findings, and ROADMAP gates 
 | [8] | dotnet-counters/trace/gcdump tool-manifest admission (9.0.661903 line, re-verify) | AppHost implementation start |
 | [9] | TimescaleDB / pg_partman / pg_repack / HypoPG / pgaudit operator provisioning | self-provisioned server era |
 
-## [5]-[ASSAY_AND_INFRA_INTEGRATION] (assay changes are their own work, not page edits)
+## [4]-[ASSAY_AND_INFRA_INTEGRATION] (assay changes are their own work, not page edits)
 
 | [INDEX] | [ITEM] |
 | :-----: | ------ |
@@ -75,7 +62,7 @@ Every remaining open item across all ledgers, agent findings, and ROADMAP gates 
 | [8] | DOTNET_* env triple replication into CI when a CI executor lands; lock-law note already in NuGet.config/global.json |
 | [9] | coverlet.MTP NuGet listing stability watch at next admission sweep |
 
-## [6]-[CROSS_FOLDER_CONSEQUENCES]
+## [5]-[CROSS_FOLDER_CONSEQUENCES]
 
 | [INDEX] | [ITEM] | [OWNER] |
 | :-----: | ------ | ------- |
@@ -84,12 +71,28 @@ Every remaining open item across all ledgers, agent findings, and ROADMAP gates 
 | [3] | DATAS GC knobs stay claim-gated behind a losing benchmark | AppHost host-profiles at benchmark lane |
 | [4] | Package atlas anchor-column header harmonization on [ANCHORS] (cosmetic) | suite root |
 
-## [7]-[TS_CAMPAIGN] (entry: `libs/typescript/.planning/README.md`)
+## [6]-[TS_CAMPAIGN] (entry: `libs/typescript/.planning/README.md`)
 
 | [INDEX] | [ITEM] |
 | :-----: | ------ |
 | [1] | Stage A: root TS infra finalization (catalog refresh to newest stable incl. TS 7, knip truth, lock law, engine pins) |
 | [2] | Stage B: lib scaffolding as a real workspace package, Effect rails, wire-contract-only integration |
-| [3] | Stage C: TS dependency catalogue extraction (the .reports/api equivalent) |
-| [4] | Stage D: planning corpus completion to the C01-C23 bar with a TS region ledger; register the five TS service owners (WireClients, SnapshotFeed, RuntimeFeed, CommandGateway, EvidenceFeed) |
+| [3] | Stage C: TS dependency catalogue extraction (the .api equivalent) |
+| [4] | Stage D: planning corpus completion to the suite review-law bar with a TS region ledger; register the five TS service owners (WireClients, SnapshotFeed, RuntimeFeed, CommandGateway, EvidenceFeed) |
 | [5] | Pin @bufbuild/buf + remaining unpinned rows at catalogue truth; the connect peer set moves in one resolve |
+
+## [7]-[PLANNING_CLOSE_OUT_SPIKES]
+
+The total planning-phase close-out: these bridge-proofed spikes run ONLY after every other TASKLOG section is done — including rows added by later sessions — as the final gate before implementation. They are not per-folder work and never run incrementally while planning is still moving.
+
+| [INDEX] | [ITEM] | [OWNER] |
+| :-----: | ------ | ------- |
+| [1] | Generic Host boot + unload inside the RhinoWIP plugin ALC without process exit | AppHost ROADMAP |
+| [2] | Kestrel + Grpc.AspNetCore hosting inside the plugin ALC (gRPC loopback from the Rhino host) | AppHost ROADMAP |
+| [3] | Avalonia-12-in-Rhino NSView embedding (pump coexistence, resize sync, render-backend contention scenarios) | AppUi ROADMAP |
+| [4] | ONNX dylib load inside the RhinoWIP ALC; libortextensions versioned-RID resolution | Compute ROADMAP |
+| [5] | Hardened-runtime dlopen of extension dylibs inside the signed Rhino host (extension-load.verify.csx) | Persistence ROADMAP |
+| [6] | Embedded-TopLevel service resolution (toasts, storage pickers) inside the rhino-panel root | AppUi ROADMAP |
+| [7] | Host-object drag across the NSView boundary; VoiceOver reach across the embedding | AppUi ROADMAP |
+| [8] | Drain-deadline conformance scenario under live plugin unload | AppHost ROADMAP |
+

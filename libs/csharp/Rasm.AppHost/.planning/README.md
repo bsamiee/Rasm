@@ -149,7 +149,7 @@ app-root creation.
 | [GATE] | [COMMAND]                                                           | [EVIDENCE]                                                                                               |
 | :----: | :------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------- |
 |  [G1]  | `dotnet restore --locked-mode`                                      | closure restores clean; `packages.lock.json` unchanged                                                   |
-|  [G2]  | `uv run python -m tools.assay api doctor` + `api resolve <key>`     | every fence member resolves in `.reports/api` or doctrine pages                                          |
+|  [G2]  | `uv run python -m tools.assay api doctor` + `api resolve <key>`     | every fence member resolves in `.api` or doctrine pages                                          |
 |  [G3]  | `uv run python -m tools.assay static plan` + `static build`         | routing proven; zero `': error '` lines on the touched closure                                           |
 |  [G4]  | `uv run python -m tools.assay test run --target Rasm.AppHost.Tests` | law-matrix specs green per `testing-cs`                                                                  |
 |  [G5]  | `uv run python -m tools.assay bridge verify --pattern <scenario>`   | host-seam scenarios pass under live RhinoWIP                                                             |
@@ -192,7 +192,7 @@ app-root creation.
 ## [10]-[ADMISSIONS_RECORD]
 
 The executed admissions ledger — the only planning location where versions are written. PAGE
-names the primary consuming page; CATALOGUE is the `.reports/api` file.
+names the primary consuming page; CATALOGUE is the `.api` file.
 
 | [PACKAGE]                                               | [VERSION] | [PAGE]                    | [CATALOGUE]                   |
 | :------------------------------------------------------ | :-------- | :------------------------ | :---------------------------- |

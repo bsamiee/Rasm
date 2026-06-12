@@ -117,7 +117,7 @@ Rail surfaces (one entrypoint family per rail):
 
 ## [6]-[BUILD_ORDER]
 
-Vocabulary owners first, then shapes, rails, dispatch, boundaries, composition. Seam notes honored: the intent/dispatch spine composes its axis vocabularies (C19 package-cumulative ruling), so axis files land before `Intent.cs`; `SelectionContext` carries the host fingerprint as a bare string with the typed `HostFingerprint` owner landing in `Receipts.cs` (fingerprint-slot ordering, no forward reference); the `WorkLane` accessor is `ComputeKeyPolicy`; TS_PROJECTION clusters transcribe at the TS workspace, never as package source.
+Vocabulary owners first, then shapes, rails, dispatch, boundaries, composition. Seam notes honored: the intent/dispatch spine composes its axis vocabularies (package-cumulative resolution ruling), so axis files land before `Intent.cs`; `SelectionContext` carries the host fingerprint as a bare string with the typed `HostFingerprint` owner landing in `Receipts.cs` (fingerprint-slot ordering, no forward reference); the `WorkLane` accessor is `ComputeKeyPolicy`; TS_PROJECTION clusters transcribe at the TS workspace, never as package source.
 
 | [INDEX] | [FILE]                  | [TRANSCRIBES]                                                                                                                                                  | [GATE]                 |
 | :-----: | :---------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------- |

@@ -12,7 +12,7 @@ The package has zero consumers; implementation is full-capability with no holdin
 |   [2]   | implementation tasks, start gates, proof routes       | [roadmap](ROADMAP.md)                             |
 |   [3]   | capability atlas keyed to planning clusters           | [features](FEATURES.md)                           |
 |   [4]   | charter: page index, density bar, build order, gates  | [planning charter](.planning/README.md)           |
-|   [5]   | package API catalogues per admitted surface           | [API catalogues](.reports/api/README.md)          |
+|   [5]   | package API catalogues per admitted surface           | [API catalogues](.api/README.md)          |
 |   [6]   | C# stack doctrine and decision routing                | [C# stack](../../../docs/stacks/csharp/README.md) |
 
 ## [2]-[SCOPE]

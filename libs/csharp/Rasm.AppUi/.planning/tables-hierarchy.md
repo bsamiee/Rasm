@@ -74,7 +74,7 @@ public static class TableSurface {
 - Auto: `DeferRefresh` collapses every multi-descriptor write into one refresh; apply-on-activate and capture-on-deactivate ride the screen-state snapshot rows.
 - Packages: Avalonia.Controls.DataGrid; LanguageExt.Core; BCL inbox.
 - Growth: one snapshot field per view-state axis; a page-size or group change is one policy value; zero new surface.
-- Boundary: boundary capsule (C11 carve-out) — `DataGridCollectionView` is package-owned mutable state, so `Apply` carries language-owned statement forms writing filter, sort, group, page, and current-row descriptors inside one `DeferRefresh` scope; the snapshot is built from screen control state and never read back from the view; a second collection-view state holder is the deleted form.
+- Boundary: boundary capsule (statement carve-out) — `DataGridCollectionView` is package-owned mutable state, so `Apply` carries language-owned statement forms writing filter, sort, group, page, and current-row descriptors inside one `DeferRefresh` scope; the snapshot is built from screen control state and never read back from the view; a second collection-view state holder is the deleted form.
 
 ```csharp signature
 public sealed record TableViewState(

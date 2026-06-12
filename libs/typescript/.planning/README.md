@@ -56,17 +56,17 @@ The Effect-first doctrine is binding on every module:
 
 ### [2.C]-[API_EXTRACTION]
 
-Catalogue truth for every TS dependency — the TS analog of the C# per-package `.reports/api` catalogues.
+Catalogue truth for every TS dependency — the TS analog of the C# per-package `.api` catalogues.
 
 - Admission-pending rows land in the catalog here; the connect line moves together in one resolve with exact peer pins: `@connectrpc/connect`, `@connectrpc/connect-web`, `@bufbuild/protobuf`, `@bufbuild/protoc-gen-es`, `@bufbuild/buf`, plus `@msgpack/msgpack`.
-- Extraction route: per admitted package, the surface catalogue derives from installed package source — the `node_modules/<pkg>` `exports` map resolved to its types entries, with extraction probes over the published `.d.ts` rollups. One catalogue page per package lands at `libs/typescript/<pkg>/.reports/api/`.
+- Extraction route: per admitted package, the surface catalogue derives from installed package source — the `node_modules/<pkg>` `exports` map resolved to its types entries, with extraction probes over the published `.d.ts` rollups. One catalogue page per package lands at `libs/typescript/<pkg>/.api/`.
 - Resolution law: every API member written into a later planning fence resolves against a catalogue page; an unresolvable member becomes a RESEARCH row with an executable probe route, never prose.
 - The ADMISSIONS_RECORD discharges every PIN cell at this stage and stage [2.A]; the testing stack is admitted and pinned here as well, derived from catalogue truth rather than carried forward.
 
 ### [2.D]-[PLANNING_CORPUS_COMPLETION]
 
-- Deep pages author by the campaign method at `libs/csharp/.planning/campaign-method.md` to the machine-check bar of the suite planning standard at `libs/csharp/.planning/README.md` — the C01-C23 grammar with TS overlays: `ts contract` fences are the signature law; package resolution routes to the stage [2.C] catalogues; the comment law, hedge law, and version law apply unchanged.
-- The TS region ledger `libs/typescript/.planning/_region-map.md` is created when deep-page authoring starts, mirroring the suite ledger protocol: provisional rows before authoring, an owner-symbol registry, FINAL flips on the cold all-PASS sweep.
+- Deep pages author by the campaign method at `libs/csharp/.planning/campaign-method.md` to the review-law bar of the suite planning standard at `libs/csharp/.planning/README.md` — the suite review law with TS overlays: `ts contract` fences are the signature law; package resolution routes to the stage [2.C] catalogues; the comment law, hedge law, and version law apply unchanged.
+- The TS region ledger `libs/typescript/.planning/region-map/` is created when deep-page authoring starts, mirroring the suite ledger protocol: provisional rows before authoring, an owner-symbol registry, FINAL flips on the cold all-PASS sweep.
 - Ideation-first refinement: per-page blueprint decisions — owner, axis, store, and layer assignments — precede authoring; the two wire pages of this corpus are the settled vocabulary every deep page composes.
 - Review-repair waves: a cold grader sweeps each page; the page repairs and re-sweeps until zero accepted findings; only an all-PASS sweep flips a PAGE_INDEX row to finalized.
 

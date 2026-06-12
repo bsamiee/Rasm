@@ -1,10 +1,10 @@
 # [SUITE_PLANNING_STANDARD]
 
-This file is the binding authoring standard for the four app-package planning corpora under `libs/csharp/Rasm.{AppHost,Persistence,Compute,AppUi}/.planning/`. Every authoring agent loads this standard and the suite ledger `_region-map.md` before writing a page; every reviewing agent runs the machine checks in section [5] cold. Binding precedence when sources conflict: locked campaign decisions, then adversarial-verifier and attack corrections, then synthesis closures, then design JSON. Authoring order across the suite is AppHost, then Persistence, then Compute, then AppUi; within a package, position equals the charter PAGE_INDEX order, and the charter is authored before its pages.
+This file is the binding authoring standard for the four app-package planning corpora under `libs/csharp/Rasm.{AppHost,Persistence,Compute,AppUi}/.planning/`. Every authoring agent loads this standard and the suite ledger `region-map/` before writing a page; every reviewing agent grades cold against the review law in section [5]. Binding precedence when sources conflict: locked campaign decisions, then adversarial-verifier and attack corrections, then synthesis closures, then design JSON. Authoring order across the suite is AppHost, then Persistence, then Compute, then AppUi; within a package, position equals the charter PAGE_INDEX order, and the charter is authored before its pages.
 
 ## [1]-[CORPUS_SHAPE]
 
-- Planning home: `libs/csharp/Rasm.<Pkg>/.planning/`, sibling to `.reports/`. The suite home `libs/csharp/.planning/` holds this standard, `_region-map.md`, and the campaign working set (`plan-binding.md`, design payloads, `probes/`); the standard and the ledger are the only durable law.
+- Planning home: `libs/csharp/Rasm.<Pkg>/.planning/`, sibling to `.api/`. The suite home `libs/csharp/.planning/` holds this standard, `region-map/`, and the campaign working set (`plan-binding.md`, design payloads, `probes/`); the standard and the ledger are the only durable law.
 - Per package: one charter (`README.md`, the only linking file) plus self-contained domain pages. Pages are decision-complete blueprints an implementation agent transcribes; they are not narratives, reports, or research logs.
 - Package-local planning docs are repo-concrete: they name Rasm projects, admitted packages, and decided policy values. Stack doctrine (`docs/stacks/csharp/`) is never restated; its vocabulary arrives settled and is composed as given.
 - A page over the size cap splits along its index into axis-led siblings; signatures are never truncated to fit.
@@ -51,41 +51,17 @@ This file is the binding authoring standard for the four app-package planning co
 - Where a card or axis names a use, it names the spelling, wrapper, or local pattern it deletes.
 - Prose budget: vocabulary, owners, rails, and policy values from earlier pages and the doctrine arrive settled and are never re-taught.
 
-## [5]-[MACHINE_CHECKS]
+## [5]-[REVIEW_LAW]
 
-The reviewing agent runs C01-C23 cold (no producer context), reports one [PASS]/[FAIL] line per check per page, and a page flips to finalized only on an all-[PASS] sweep converging to zero accepted findings.
-
-- [C01] H1 matches `^# \[(APPHOST|PERSISTENCE|COMPUTE|APPUI)_[A-Z0-9_]+\]$` and the page token equals the file stem upper-snaked.
-- [C02] Exactly one paragraph between H1 and `## [1]-[INDEX]`; no list, table, fence, or heading inside it; at most 6 source lines.
-- [C03] All section headings match `## [k]-[A-Z0-9_]+` with k strictly sequential from 1; section 1 token is INDEX.
-- [C04] Index-table row count equals cluster-section count; row k's CLUSTER cell equals section k+1's heading token verbatim, in order.
-- [C05] Every cluster section contains exactly one card (contiguous `- Field:` block) and at least one fence, card first. Carve-out: a TS_PROJECTION cluster carries a `ts contract` fence instead of a `csharp signature` fence.
-- [C06] Card field lines are drawn only from {Owner, Cases, Entry, Auto, Receipt, Packages, Growth, Boundary}, appear in that order, and Owner, Packages, Growth are present on every card.
-- [C07] Every Packages entry resolves: the package id greps in `Directory.Packages.props`, OR ends with `(project)` naming an existing Rasm project, OR is `BCL inbox`.
-- [C08] Every Growth line contains at least one unit-cost token of the genericized form `one <unit> row` (or `one case`, `one policy value`, `carrier swap`) and either the phrase `zero new surface` or the named surface the unit extends.
-- [C09] Every Entry line's signature head appears verbatim (modulo whitespace) inside the same cluster's fence.
-- [C10] Fence info strings are only {csharp signature, ts contract, mermaid}; mermaid first lines are only {stateDiagram-v2, flowchart, sequenceDiagram}; at most one mermaid per cluster.
-- [C11] csharp/ts fences contain zero comment markers, `TODO`/`FIXME`, ellipsis outside string literals, `NotImplementedException`, `throw new`, or statement-form control keywords (`if (`, `else`, `for (`, `foreach (`, `while (`). Named carve-out: a fence whose card Boundary line declares a boundary capsule MAY carry language-owned statement forms inside that capsule's body; the carve-out is per-fence and the Boundary line names it.
-- [C12] Every `<placeholder>` token in a fence sits inside a string literal.
-- [C13] Zero hedge-token hits page-wide, including the synonym forms in section [4]; the bare word `future` appears only on Growth lines and RESEARCH rows. The token list is the floor, not the bar: the cold grader also sweeps for novel hedge synonyms and judges them as hits.
-- [C14] Zero meta hits: no `http`, `www.`, markdown links `](`, `this page`, `this document`, `see `, `refer`; no `<package-id> <semver>` pattern outside the charter.
-- [C15] Every table has at most 8 columns and 20 rows and no links inside cells; no cluster-body table restates row identifiers already declared in a fence on the same page.
-- [C16] Page is at most 400 lines; outside the 150-300 target is a flag, over 400 is a fail.
-- [C17] Every mermaid node/state/participant label appears as a declared symbol in one of the page's fences, and every diagram passes Mermaid render validation through the available renderer.
-- [C18] Every package-owned attribute, type, or invoked member named in a fence resolves by one of the named routes: (a) greps in the owning package's `.reports/api/*.md` catalogue; (b) for doctrine-owned packages (Thinktecture.Runtime.Extensions, LanguageExt.Core) resolves against `docs/stacks/csharp/` doctrine pages or the installed package source; (c) for repo projects (Rasm, Rasm.Rhino, Rasm.Grasshopper, Rasm.Materials) resolves against project source or an `assay api query` probe; (d) a RESEARCH row on the same page names its decompile/spike route.
-- [C19] Every consumed-but-not-declared domain PascalCase type in the page's fences resolves in the ledger OWNER_SYMBOLS at an earlier authoring position (suite order AppHost, Persistence, Compute, AppUi; charter PAGE_INDEX order within a package).
-- [C20] Anchor uniqueness: every cluster token is absent from the package's other planning pages (TS_PROJECTION and RESEARCH exempt); every owner type declared in this page's fences is absent from OWNER_SYMBOLS before this page's own rows.
-- [C21] RESEARCH table is 4 columns; every PROOF cell begins with an executable token (`uv run`, `dotnet`, `git`, `curl`, a bridge scenario path, or a named spec route); every GATE cell names a cluster anchor that exists in the suite.
-- [C22] Wire-relevant pages (charter-listed) contain exactly one TS_PROJECTION cluster with exactly one `ts contract` fence containing zero `import` statements; non-wire pages contain zero ts fences.
-- [C23] Designed-growth admission guard: no fence consumes a type from a package absent from `Directory.Packages.props` (a designed-only growth case carries no payload types from unadmitted packages).
+Review is judgment against the established law, not checklist pedantry. A reviewing agent reads this standard's sections [1]-[4], the page-craft and code doctrine in `docs/stacks/csharp/`, and `docs/standards/style-guide.md` + `formatting.md` + `information-structure.md`, then grades the page cold against them: grammar and card shape, signature truthfulness against the catalogues and the ledger, language and zero-meta discipline, anchor and link integrity, doctrine-true fences, traceable literals. Findings are repaired in the same pass; a page is finalized when a cold read surfaces nothing.
 
 ## [6]-[LEDGER_PROTOCOL]
 
-The suite ledger is `libs/csharp/.planning/_region-map.md`. Authors append provisional rows BEFORE writing a page; collisions resolve before authoring; the reviewing agent flips rows to FINAL.
+The suite ledger is `libs/csharp/.planning/region-map/`. Authors append provisional rows BEFORE writing a page; collisions resolve before authoring; the reviewing agent flips rows to FINAL.
 
 - [1]-[PAGE_REGIONS]: per-package blocks; row shape `- <page>.md [PROVISIONAL|FINAL]: <one-sentence concern law>`. Cluster tokens reside once, on the page's SIGNATURE_REGIONS keys.
 - [2]-[SIGNATURE_REGIONS]: one row per signature-fence region, keyed `<AH|PS|CP|AU>-<NN> <CLUSTER_TOKEN>:` followed by the owner symbols the fence declares and its spotlight.
-- [3]-[OWNER_SYMBOLS]: the suite symbol registry — `- <TypeName> — <pkg>/<page>#<CLUSTER> [<kind>]`, append-ordered by authoring position. This registry backs C19/C20.
+- [3]-[OWNER_SYMBOLS]: the suite symbol registry — `- <TypeName> — <pkg>/<page>#<CLUSTER> [<kind>]`, append-ordered by authoring position. This registry backs cross-package symbol resolution and uniqueness review.
 - [4]-[SEAM_SPLITS]: every two-package fact records its altitude split — `- <fact>: mechanics at <owner pkg/page#CLUSTER>; consequence at <consumer pkg/page#CLUSTER>.`
 - Duplicate-region repair: route to the owner — the later/consumer page deletes its re-teaching and consumes the owner's symbol as settled vocabulary.
 
@@ -109,5 +85,5 @@ Per-package `libs/csharp/Rasm.<Pkg>/.planning/README.md`, the only linking file 
 
 - `.config/dotnet-tools.json` is the sole CLI tool pin surface; agents never install global tools or invoke unpinned tool versions.
 - Central version bump law: edit `Directory.Packages.props`, run `dotnet restore --force-evaluate`, and commit every regenerated `packages.lock.json` in the same change. A transitive-pin conflict gets a named Transitive Floors row, never a NoWarn.
-- Mermaid render validation runs through the local `@mermaid-js/mermaid-cli` route (the MCP renderer is permission-blocked for planning content); a diagram that fails render is a [C17] fail.
+- Mermaid render validation runs through the local `@mermaid-js/mermaid-cli` route (the MCP renderer is permission-blocked for planning content); a diagram that fails render is a finding.
 - Decompile probes run through `uv run python -m tools.assay api query` with fuzzy package keys; probe results answer research items at authoring time when the surface is local.

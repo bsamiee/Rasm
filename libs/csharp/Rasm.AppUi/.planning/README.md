@@ -141,7 +141,7 @@ Vocabulary owners land first, then shapes, rails, dispatch surfaces, boundaries,
 | [GATE] | [COMMAND] | [EVIDENCE] |
 | ------ | --------- | ---------- |
 | restore | `dotnet restore --force-evaluate` | regenerated `packages.lock.json` committed; zero NU1004 |
-| catalogue | `uv run python -m tools.assay api doctor` + `api resolve <key>` | every fence member greps in its `.reports/api` page |
+| catalogue | `uv run python -m tools.assay api doctor` + `api resolve <key>` | every fence member greps in its `.api` page |
 | static | `uv run python -m tools.assay static plan` / `static fix` / `static build` | zero `': error '` lines on the Rasm.AppUi closure |
 | specs | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` | law specs plus the derived ProofEngine matrix green |
 | bridge | `uv run python -m tools.assay bridge verify --pattern <scenario>` | per-scenario facts green under live RhinoWIP |
@@ -171,7 +171,7 @@ Vocabulary owners land first, then shapes, rails, dispatch surfaces, boundaries,
 
 ## [10]-[ADMISSIONS_RECORD]
 
-The executed admissions ledger — the only planning location where versions are written. Versions transcribe `Directory.Packages.props`; catalogue cells name the `.reports/api` page proving the surface.
+The executed admissions ledger — the only planning location where versions are written. Versions transcribe `Directory.Packages.props`; catalogue cells name the `.api` page proving the surface.
 
 | [PACKAGE] | [VERSION] | [PAGE] | [CATALOGUE] |
 | --------- | --------- | ------ | ----------- |

@@ -152,38 +152,38 @@ Seam ordering law:
 
 | [PACKAGE]                                              | [VERSION]     | [PAGE]          | [CATALOGUE]                                                                         |
 | ------------------------------------------------------ | ------------- | --------------- | ----------------------------------------------------------------------------------- |
-| DuckDB.NET.Data.Full                                   | 1.5.3         | data-lanes      | [api-duckdb](../.reports/api/api-duckdb.md)                                         |
-| EFCore.NamingConventions                               | 10.0.1        | schema-rail     | [api-ef-naming](../.reports/api/api-ef-naming.md)                                   |
-| linq2db.EntityFrameworkCore                            | 10.4.0        | query-rail      | [api-linq2db-ef](../.reports/api/api-linq2db-ef.md)                                 |
-| Microsoft.Data.Sqlite                                  | 10.0.9        | native-sqlite   | [api-sqlite](../.reports/api/api-sqlite.md)                                         |
-| Microsoft.EntityFrameworkCore.Design                   | 10.0.9        | schema-rail     | [api-ef-design](../.reports/api/api-ef-design.md)                                   |
-| Microsoft.EntityFrameworkCore.Sqlite                   | 10.0.9        | store-profiles  | [api-ef-sqlite](../.reports/api/api-ef-sqlite.md)                                   |
-| NetTopologySuite.IO.GeoJSON4STJ                        | 4.0.0         | snapshot-codecs | [api-nts-io](../.reports/api/api-nts-io.md)                                         |
-| NetTopologySuite.IO.GeoPackage                         | 2.0.0         | data-lanes      | [api-nts-io](../.reports/api/api-nts-io.md)                                         |
-| Npgsql                                                 | 10.0.3        | store-profiles  | [api-npgsql](../.reports/api/api-npgsql.md)                                         |
-| Npgsql.EntityFrameworkCore.PostgreSQL                  | 10.0.2        | store-profiles  | [api-npgsql-ef](../.reports/api/api-npgsql-ef.md)                                   |
-| Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite | 10.0.2        | data-lanes      | [api-nts-ef](../.reports/api/api-nts-ef.md)                                         |
-| Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime         | 10.0.2        | data-lanes      | [api-npgsql-ef-nodatime](../.reports/api/api-npgsql-ef-nodatime.md)                 |
-| Npgsql.OpenTelemetry                                   | 10.0.3        | query-rail      | [api-npgsql-otel](../.reports/api/api-npgsql-otel.md)                               |
-| Pgvector.EntityFrameworkCore                           | 0.3.0         | data-lanes      | [api-pgvector-ef](../.reports/api/api-pgvector-ef.md)                               |
-| SQLitePCLRaw.bundle_e_sqlite3                          | 3.0.3         | native-sqlite   | [api-sqlitepcl](../.reports/api/api-sqlitepcl.md)                                   |
-| Thinktecture.Runtime.Extensions.EntityFrameworkCore10  | 10.2.0-beta01 | schema-rail     | [api-thinktecture-serialization](../.reports/api/api-thinktecture-serialization.md) |
+| DuckDB.NET.Data.Full                                   | 1.5.3         | data-lanes      | [api-duckdb](../.api/api-duckdb.md)                                         |
+| EFCore.NamingConventions                               | 10.0.1        | schema-rail     | [api-ef-naming](../.api/api-ef-naming.md)                                   |
+| linq2db.EntityFrameworkCore                            | 10.4.0        | query-rail      | [api-linq2db-ef](../.api/api-linq2db-ef.md)                                 |
+| Microsoft.Data.Sqlite                                  | 10.0.9        | native-sqlite   | [api-sqlite](../.api/api-sqlite.md)                                         |
+| Microsoft.EntityFrameworkCore.Design                   | 10.0.9        | schema-rail     | [api-ef-design](../.api/api-ef-design.md)                                   |
+| Microsoft.EntityFrameworkCore.Sqlite                   | 10.0.9        | store-profiles  | [api-ef-sqlite](../.api/api-ef-sqlite.md)                                   |
+| NetTopologySuite.IO.GeoJSON4STJ                        | 4.0.0         | snapshot-codecs | [api-nts-io](../.api/api-nts-io.md)                                         |
+| NetTopologySuite.IO.GeoPackage                         | 2.0.0         | data-lanes      | [api-nts-io](../.api/api-nts-io.md)                                         |
+| Npgsql                                                 | 10.0.3        | store-profiles  | [api-npgsql](../.api/api-npgsql.md)                                         |
+| Npgsql.EntityFrameworkCore.PostgreSQL                  | 10.0.2        | store-profiles  | [api-npgsql-ef](../.api/api-npgsql-ef.md)                                   |
+| Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite | 10.0.2        | data-lanes      | [api-nts-ef](../.api/api-nts-ef.md)                                         |
+| Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime         | 10.0.2        | data-lanes      | [api-npgsql-ef-nodatime](../.api/api-npgsql-ef-nodatime.md)                 |
+| Npgsql.OpenTelemetry                                   | 10.0.3        | query-rail      | [api-npgsql-otel](../.api/api-npgsql-otel.md)                               |
+| Pgvector.EntityFrameworkCore                           | 0.3.0         | data-lanes      | [api-pgvector-ef](../.api/api-pgvector-ef.md)                               |
+| SQLitePCLRaw.bundle_e_sqlite3                          | 3.0.3         | native-sqlite   | [api-sqlitepcl](../.api/api-sqlitepcl.md)                                   |
+| Thinktecture.Runtime.Extensions.EntityFrameworkCore10  | 10.2.0-beta01 | schema-rail     | [api-thinktecture-serialization](../.api/api-thinktecture-serialization.md) |
 
 [SNAPSHOTS_AND_SUPPORT]:
 
 | [PACKAGE]                                   | [VERSION] | [PAGE]              | [CATALOGUE]                                                                         |
 | ------------------------------------------- | --------- | ------------------- | ----------------------------------------------------------------------------------- |
-| K4os.Compression.LZ4                        | 1.3.8     | snapshot-codecs     | [api-lz4](../.reports/api/api-lz4.md)                                               |
-| MessagePack                                 | 3.1.7     | snapshot-codecs     | [api-messagepack](../.reports/api/api-messagepack.md)                               |
-| MessagePackAnalyzer                         | 3.1.7     | snapshot-codecs     | [api-messagepack-analyzer](../.reports/api/api-messagepack-analyzer.md)             |
-| Microsoft.Extensions.Caching.Hybrid         | 10.7.0    | cache-indexes       | [api-hybrid-cache (AppHost)](../../Rasm.AppHost/.reports/api/api-hybrid-cache.md)   |
-| Microsoft.Extensions.Compliance.Redaction   | 10.7.0    | redaction-retention | [api-redaction](../.reports/api/api-redaction.md)                                   |
-| NodaTime                                    | 3.3.2     | store-profiles      | [api-nodatime](../.reports/api/api-nodatime.md)                                     |
-| NodaTime.Serialization.SystemTextJson       | 1.4.0     | snapshot-codecs     | [api-nodatime-json](../.reports/api/api-nodatime-json.md)                           |
-| Sep                                         | 0.14.1    | data-lanes          | [api-sep](../.reports/api/api-sep.md)                                               |
-| System.IO.Hashing                           | 10.0.9    | schema-rail         | [api-hashing](../.reports/api/api-hashing.md)                                       |
-| Thinktecture.Runtime.Extensions.Json        | 10.2.0    | snapshot-codecs     | [api-thinktecture-serialization](../.reports/api/api-thinktecture-serialization.md) |
-| Thinktecture.Runtime.Extensions.MessagePack | 10.2.0    | snapshot-codecs     | [api-thinktecture-serialization](../.reports/api/api-thinktecture-serialization.md) |
+| K4os.Compression.LZ4                        | 1.3.8     | snapshot-codecs     | [api-lz4](../.api/api-lz4.md)                                               |
+| MessagePack                                 | 3.1.7     | snapshot-codecs     | [api-messagepack](../.api/api-messagepack.md)                               |
+| MessagePackAnalyzer                         | 3.1.7     | snapshot-codecs     | [api-messagepack-analyzer](../.api/api-messagepack-analyzer.md)             |
+| Microsoft.Extensions.Caching.Hybrid         | 10.7.0    | cache-indexes       | [api-hybrid-cache (AppHost)](../../Rasm.AppHost/.api/api-hybrid-cache.md)   |
+| Microsoft.Extensions.Compliance.Redaction   | 10.7.0    | redaction-retention | [api-redaction](../.api/api-redaction.md)                                   |
+| NodaTime                                    | 3.3.2     | store-profiles      | [api-nodatime](../.api/api-nodatime.md)                                     |
+| NodaTime.Serialization.SystemTextJson       | 1.4.0     | snapshot-codecs     | [api-nodatime-json](../.api/api-nodatime-json.md)                           |
+| Sep                                         | 0.14.1    | data-lanes          | [api-sep](../.api/api-sep.md)                                               |
+| System.IO.Hashing                           | 10.0.9    | schema-rail         | [api-hashing](../.api/api-hashing.md)                                       |
+| Thinktecture.Runtime.Extensions.Json        | 10.2.0    | snapshot-codecs     | [api-thinktecture-serialization](../.api/api-thinktecture-serialization.md) |
+| Thinktecture.Runtime.Extensions.MessagePack | 10.2.0    | snapshot-codecs     | [api-thinktecture-serialization](../.api/api-thinktecture-serialization.md) |
 
 ## [11]-[REFINEMENT_HORIZON]
 

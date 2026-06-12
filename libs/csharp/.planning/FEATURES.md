@@ -52,4 +52,4 @@ Higher-order feature atlas for the four app-grade packages. Each row is a produc
 - Implementation charters: `Rasm.<Pkg>/.planning/README.md`; implementation-start gates and research probes: `Rasm.<Pkg>/ROADMAP.md`.
 - Server topologies (service, hub, web-fed): operator provisioning rows at `Rasm.Persistence/.planning/store-profiles.md#PROVISIONING_ROWS`; physical deploy assets (postgresql.conf and pg_hba fragments, role grants) gate at the first headless/web app root per the ROADMAP tables.
 - TS web layer: `libs/typescript/.planning/` (`architecture-posture.md`, `wire-consumption.md`) consumes the TS_PROJECTION clusters listed in each package charter WIRE_PAGES.
-- Suite authoring law: `libs/csharp/.planning/README.md`; ownership ledger: `libs/csharp/.planning/_region-map.md`.
+- Suite authoring law: `libs/csharp/.planning/README.md`; ownership ledger: `libs/csharp/.planning/region-map/`.

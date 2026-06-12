@@ -101,7 +101,7 @@ Every sibling receipt folds into the one evidence union, seals through the HLC e
 | [16] | evidence + dev loop | Avalonia.Headless, Avalonia.Headless.XUnit, HotAvalonia |
 | [17] | rails + vocabulary | LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime |
 
-Member-level facts live in the [API catalogues](.reports/api/README.md); versions live only in the charter [ADMISSIONS_RECORD](.planning/README.md).
+Member-level facts live in the [API catalogues](.api/README.md); versions live only in the charter [ADMISSIONS_RECORD](.planning/README.md).
 
 ## [5]-[BOUNDARIES]
 
