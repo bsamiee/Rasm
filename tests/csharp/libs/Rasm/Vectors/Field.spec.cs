@@ -167,7 +167,7 @@ public sealed class FieldReconstructionAndSdfLaws {
             Assert.Equal(expected: plane.Count, actual: sample.Receipt.NeighborhoodCount);
             Assert.True(condition: sample.Receipt.Rank >= 2);
             Assert.True(condition: sample.Receipt.WeightSum > 0.0);
-        Spec.Equal(left: sample.Receipt.GradientNorm.IfNone(double.NaN), right: 1.0, tolerance: 1.0e-12, what: "mls gradient norm");
+            Spec.Equal(left: sample.Receipt.GradientNorm.IfNone(double.NaN), right: 1.0, tolerance: 1.0e-12, what: "mls gradient norm");
         });
         Spec.Succ(ExtractionProbe.Scalar(source: result.Field).Project<double>(sample: new Point3d(x: 0.0, y: 0.0, z: -0.25), context: FieldGens.Model, key: FieldGens.Key),
             then: value => Spec.Equal(left: value, right: -0.25, tolerance: 1.0e-12, what: "mls scalar rail"));

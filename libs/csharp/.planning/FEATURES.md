@@ -4,15 +4,15 @@ Higher-order feature atlas for the four app-grade packages. Each concept is a pr
 
 ## [1]-[TOPOLOGY_VOCABULARY]
 
-| [INDEX] | [TOPOLOGY] | [SHAPE] |
-| :-----: | :--------- | :------ |
-| [1] | in-process | one host, all four packages composed in one ALC |
-| [2] | paired | standalone discovers a running Rhino host over UDS; single-writer store lease |
-| [3] | companion | host dials out to N spawned/attached service processes over UDS/HTTP2 |
-| [4] | sidecar | memory-scratch process; durable access remote-only through its owner |
-| [5] | hub | N peers sync through one durable hub (op-log changefeed + delta transports) |
-| [6] | service | headless/web roots on PostgresServer with migration bundles at deploy |
-| [7] | web-fed | web-service co-hosts the TS SPA; browser consumes grpc-web unary + server-stream |
+| [INDEX] | [TOPOLOGY] | [SHAPE]                                                                          |
+| :-----: | :--------- | :------------------------------------------------------------------------------- |
+|   [1]   | in-process | one host, all four packages composed in one ALC                                  |
+|   [2]   | paired     | standalone discovers a running Rhino host over UDS; single-writer store lease    |
+|   [3]   | companion  | host dials out to N spawned/attached service processes over UDS/HTTP2            |
+|   [4]   | sidecar    | memory-scratch process; durable access remote-only through its owner             |
+|   [5]   | hub        | N peers sync through one durable hub (op-log changefeed + delta transports)      |
+|   [6]   | service    | headless/web roots on PostgresServer with migration bundles at deploy            |
+|   [7]   | web-fed    | web-service co-hosts the TS SPA; browser consumes grpc-web unary + server-stream |
 
 ## [2]-[CONCERT_CONCEPTS]
 

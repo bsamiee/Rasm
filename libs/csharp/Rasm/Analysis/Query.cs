@@ -101,7 +101,7 @@ public static partial class Analyze {
         request switch {
             GeometryRequest.KindCase => Kind<TGeometry, TOut>(),
             GeometryRequest.CoerceCase coerce when coerce.Output == typeof(TOut) => GeometryCoerce<TGeometry, TOut>(key: key),
-            GeometryRequest.BoundsCase => Analysis.Bounds.AxisAligned.Operation<TGeometry, TOut>(),
+            GeometryRequest.BoundsCase => Bounds.AxisAligned.Operation<TGeometry, TOut>(),
             GeometryRequest.CurveFormCase when typeof(TOut) == typeof(CurveForm) => GeometryCurveForm<TGeometry, TOut>(key: key),
             GeometryRequest.SurfaceFormCase when typeof(TOut) == typeof(Surface) => GeometryCoerce<TGeometry, TOut>(key: key),
             GeometryRequest.BrepFormCase when typeof(TOut) == typeof(Brep) => GeometryCoerce<TGeometry, TOut>(key: key),

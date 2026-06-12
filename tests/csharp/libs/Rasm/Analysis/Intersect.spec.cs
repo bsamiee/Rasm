@@ -147,13 +147,14 @@ public sealed class RelationQuerySupportLaws {
 
     [Fact]
     public void QueryRailOwnsSingleGeometryRelationCapabilitiesAndInvalidRayInput() {
+        using Mesh mesh = new();
         Spec.SupportMatrix(
             ("Self Curve→IntersectionHit", static () => Analyze.Query<Curve, IntersectionHit>(AnalysisQuery.Relation(RelationQuery.SelfIntersection)).IsSupported, true),
             ("Self Brep→IntersectionHit", static () => Analyze.Query<Brep, IntersectionHit>(AnalysisQuery.Relation(RelationQuery.SelfIntersection)).IsSupported, false),
             ("Ray Mesh→Point3d", static () => Analyze.Query<Mesh, Point3d>(AnalysisQuery.Relation(RelationQuery.Ray(ForwardRay))).IsSupported, true),
             ("Ray Mesh→string", static () => Analyze.Query<Mesh, string>(AnalysisQuery.Relation(RelationQuery.Ray(ForwardRay))).IsSupported, false));
         Spec.Invalid(
-            result: Analyze.Run<Mesh, Point3d>(query: AnalysisQuery.Relation(RelationQuery.Ray(RayQuery.Of(new Ray3d(position: Point3d.Origin, direction: Vector3d.Unset)))), input: new Mesh()),
+            result: Analyze.Run<Mesh, Point3d>(query: AnalysisQuery.Relation(RelationQuery.Ray(RayQuery.Of(new Ray3d(position: Point3d.Origin, direction: Vector3d.Unset)))), input: mesh),
             then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
     }
 }

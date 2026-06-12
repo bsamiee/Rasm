@@ -302,9 +302,10 @@
         </AssemblyAttribute>
     </ItemGroup>
 
-    <!-- AppUi ships cross-platform (Win32/Linux Skia natives); platform guards live in its
+    <!-- AppUi ships cross-platform (Win32/Linux Skia natives), and TestKit exports neutral
+         test helpers consumed by ordinary test assemblies; platform guards live in their
          host-boundary capsules, not in an assembly-wide macOS attribute. -->
-    <ItemGroup Label="macOS Host Platform Metadata" Condition="'$(NeedsRhinoHostUiSurface)' == 'true' and '$(IsAppUiProject)' != 'true'">
+    <ItemGroup Label="macOS Host Platform Metadata" Condition="'$(NeedsRhinoHostUiSurface)' == 'true' and '$(IsAppUiProject)' != 'true' and '$(IsTestKitProject)' != 'true'">
         <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
             <_Parameter1>macos15.0</_Parameter1>
         </AssemblyAttribute>
