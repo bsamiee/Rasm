@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_REACTIVEUI_AVALONIA]
 
-`ReactiveUI.Avalonia` supplies Avalonia view bases and activation bindings for ReactiveUI screens.
+`ReactiveUI.Avalonia` supplies Avalonia view bases, builder registration, activation binding, command binding, property observation, routing, and scheduling.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -13,34 +13,82 @@
 
 ## [2]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: view family
+[VIEW_TYPES]: typed view and host controls
 - rail: reactive-ui
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]              |
-| :-----: | :-------------------------------- | :--------------- | :------------------------ |
-|   [1]   | `ReactiveUserControl<TViewModel>` | UI surface       | renders product surface   |
-|   [2]   | `ReactiveWindow<TViewModel>`      | UI surface       | renders product surface   |
-|   [3]   | `ReactiveView<TViewModel>`        | UI surface       | renders product surface   |
-|   [4]   | `IViewFor<TViewModel>`            | contract surface | defines boundary contract |
+| [INDEX] | [SYMBOL]                          | [RAIL]          |
+| :-----: | :-------------------------------- | :-------------- |
+|   [1]   | `ReactiveUserControl<TViewModel>` | screen control  |
+|   [2]   | `ReactiveWindow<TViewModel>`      | window surface  |
+|   [3]   | `RoutedViewHost`                  | routed host     |
+|   [4]   | `ViewModelViewHost`               | view-model host |
+
+[INFRASTRUCTURE_TYPES]: Avalonia integration infrastructure
+- rail: reactive-ui
+
+| [INDEX] | [SYMBOL]                              | [RAIL]               |
+| :-----: | :------------------------------------ | :------------------- |
+|   [1]   | `AppBuilderExtensions`                | builder admission    |
+|   [2]   | `AvaloniaActivationForViewFetcher`    | activation lookup    |
+|   [3]   | `AvaloniaCreatesCommandBinding`       | command binding      |
+|   [4]   | `AvaloniaObjectObservableForProperty` | property observation |
+|   [5]   | `AvaloniaObjectReactiveExtensions`    | property subjects    |
+|   [6]   | `AvaloniaScheduler`                   | UI scheduler         |
+|   [7]   | `AutoSuspendHelper`                   | lifetime suspension  |
+|   [8]   | `AutoDataTemplateBindingHook`         | template binding     |
 
 ## [3]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: binding operations
+[BUILDER_ENTRYPOINTS]: builder and registration operations
 - rail: reactive-ui
 
-| [INDEX] | [SURFACE]       | [CALL_SHAPE]    | [CAPABILITY]                |
-| :-----: | :-------------- | :-------------- | :-------------------------- |
-|   [1]   | `WhenActivated` | member surface  | drives reactive-ui behavior |
-|   [2]   | `Bind`          | mutation call   | admits configured surface   |
-|   [3]   | `OneWayBind`    | member surface  | drives reactive-ui behavior |
-|   [4]   | `BindCommand`   | command binding | binds command intent        |
-|   [5]   | `DisposeWith`   | member surface  | drives reactive-ui behavior |
+| [INDEX] | [SURFACE]                                  | [SURFACE_ROOT]         | [RAIL]            |
+| :-----: | :----------------------------------------- | :--------------------- | :---------------- |
+|   [1]   | `UseReactiveUI`                            | `AppBuilderExtensions` | builder admission |
+|   [2]   | `RegisterReactiveUIViews`                  | `AppBuilderExtensions` | view registration |
+|   [3]   | `RegisterReactiveUIViewsFromAssemblyOf<T>` | `AppBuilderExtensions` | assembly scan     |
+|   [4]   | `RegisterReactiveUIViewsFromEntryAssembly` | `AppBuilderExtensions` | entry assembly    |
+|   [5]   | `UseReactiveUIWithDIContainer<T>`          | `AppBuilderExtensions` | DI admission      |
+|   [6]   | `WithAvalonia`                             | `AppBuilderExtensions` | builder bridge    |
+
+[BINDING_ENTRYPOINTS]: Avalonia reactive binding operations
+- rail: reactive-ui
+
+| [INDEX] | [SURFACE]                    | [SURFACE_ROOT]                        | [RAIL]             |
+| :-----: | :--------------------------- | :------------------------------------ | :----------------- |
+|   [1]   | `GetActivationForView`       | `AvaloniaActivationForViewFetcher`    | activation lookup  |
+|   [2]   | `GetActivationForControl`    | `AvaloniaActivationForViewFetcher`    | control activation |
+|   [3]   | `BindCommandToObject`        | `AvaloniaCreatesCommandBinding`       | command binding    |
+|   [4]   | `FindRoutedEvent`            | `AvaloniaCreatesCommandBinding`       | event lookup       |
+|   [5]   | `GetNotificationForProperty` | `AvaloniaObjectObservableForProperty` | property stream    |
+|   [6]   | `GetAvaloniaProperty`        | `AvaloniaObjectObservableForProperty` | property lookup    |
+|   [7]   | `GetSubject`                 | `AvaloniaObjectReactiveExtensions`    | property subject   |
+|   [8]   | `GetBindingSubject`          | `AvaloniaObjectReactiveExtensions`    | binding subject    |
+
+[VIEW_HOST_ENTRYPOINTS]: view host operations
+- rail: reactive-ui
+
+| [INDEX] | [SURFACE]             | [SURFACE_ROOT]                    | [RAIL]        |
+| :-----: | :-------------------- | :-------------------------------- | :------------ |
+|   [1]   | `ViewModel`           | `ReactiveUserControl<TViewModel>` | view model    |
+|   [2]   | `ViewModel`           | `ReactiveWindow<TViewModel>`      | view model    |
+|   [3]   | `Router`              | `RoutedViewHost`                  | router source |
+|   [4]   | `ViewContract`        | `RoutedViewHost`                  | view contract |
+|   [5]   | `DefaultContent`      | `RoutedViewHost`                  | fallback view |
+|   [6]   | `NavigateToViewModel` | `RoutedViewHost`                  | route view    |
+|   [7]   | `NavigateToViewModel` | `ViewModelViewHost`               | model view    |
+|   [8]   | `Schedule`            | `AvaloniaScheduler`               | UI scheduling |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
-[RAIL_LAW]:
+[REACTIVE_AVALONIA_LAW]:
 - Package: `ReactiveUI.Avalonia`
-- Owns: Avalonia reactive binding
-- Accept: bindings terminate at view activation
+- Owns: Avalonia builder admission, activation, command binding, property observation, routing, and UI scheduling
+- Accept: bindings terminate at activated Avalonia views and typed view hosts
 - Reject: undisposed subscriptions
 
+[HOST_LAW]:
+- Package: `ReactiveUI.Avalonia`
+- Owns: common reactive binding rail for panels, companion windows, sidecars, diagnostics, and downstream shells
+- Accept: routed screens and direct view-model hosts share one binding contract
+- Reject: per-host reactive binding stacks

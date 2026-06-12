@@ -7,36 +7,59 @@
 [PACKAGE_SURFACE]: `Avalonia.Fonts.Inter`
 - package: `Avalonia.Fonts.Inter`
 - assembly: `Avalonia.Fonts.Inter`
+- namespace: `Avalonia.Fonts.Inter`
 - namespace: `Avalonia.Media`
-- asset: asset package
+- namespace: `Avalonia.Media.Fonts`
+- asset: runtime library
+- asset: embedded TTF resources
 - rail: typography
 
 ## [2]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: font family
+[FONT_TYPES]: font collection surface
 - rail: typography
 
-| [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]       | [CAPABILITY]              |
-| :-----: | :----------------------- | :------------------- | :------------------------ |
-|   [1]   | `InterFontCollection`    | font collection      | supplies Inter font faces |
-|   [2]   | `EmbeddedFontCollection` | font collection base | loads embedded font data  |
-|   [3]   | `IFontCollection`        | font contract        | admits collection surface |
+| [INDEX] | [SYMBOL]                 | [RAIL]           |
+| :-----: | :----------------------- | :--------------- |
+|   [1]   | `InterFontCollection`    | Inter assets     |
+|   [2]   | `EmbeddedFontCollection` | embedded loading |
+|   [3]   | `IFontCollection`        | font contract    |
+|   [4]   | `FontManager`            | font registry    |
+
+[FONT_ASSETS]: embedded Inter faces
+- rail: typography
+
+| [INDEX] | [SYMBOL]             | [RAIL]        |
+| :-----: | :------------------- | :------------ |
+|   [1]   | `Inter-Thin.ttf`     | lightest face |
+|   [2]   | `Inter-Light.ttf`    | light face    |
+|   [3]   | `Inter-Regular.ttf`  | regular face  |
+|   [4]   | `Inter-Medium.ttf`   | medium face   |
+|   [5]   | `Inter-SemiBold.ttf` | semibold face |
+|   [6]   | `Inter-Bold.ttf`     | bold face     |
 
 ## [3]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: font operations
+[FONT_ENTRYPOINTS]: font admission operations
 - rail: typography
 
-| [INDEX] | [SURFACE]           | [CALL_SHAPE]       | [CAPABILITY]              |
-| :-----: | :------------------ | :----------------- | :------------------------ |
-|   [1]   | `WithInterFont`     | builder extension  | admits Inter collection   |
-|   [2]   | `ConfigureFonts`    | font configuration | registers font collection |
-|   [3]   | `AddFontCollection` | collection call    | adds embedded fonts       |
+| [INDEX] | [SURFACE]           | [SURFACE_ROOT]          | [RAIL]             |
+| :-----: | :------------------ | :---------------------- | :----------------- |
+|   [1]   | `WithInterFont`     | builder extension       | Inter admission    |
+|   [2]   | `ConfigureFonts`    | `FontManager`           | font configuration |
+|   [3]   | `AddFontCollection` | font collection manager | collection load    |
+|   [4]   | constructor         | `InterFontCollection`   | asset collection   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
-[RAIL_LAW]:
+[TYPOGRAPHY_LAW]:
 - Package: `Avalonia.Fonts.Inter`
 - Owns: embedded font family assets
-- Accept: typography roles resolve font assets
+- Accept: typography roles resolve through the embedded Inter collection
 - Reject: system font assumptions
+
+[ASSET_LAW]:
+- Package: `Avalonia.Fonts.Inter`
+- Owns: deterministic font resource admission for every AppUi modality
+- Accept: host panels, companion windows, sidecars, diagnostics, and support views share one font rail
+- Reject: per-host font fallbacks as public package behavior

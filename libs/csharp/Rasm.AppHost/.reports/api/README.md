@@ -40,7 +40,7 @@
 ## [2]-[CATALOGUE_LAW]
 
 [PACKAGE_SCOPE]:
-- Package pages carry external package API facts.
-- Architecture pages carry local package law and dependency direction.
+- Package pages carry external package API facts and package-rail admission records.
+- Architecture pages carry package boundaries and dependency direction.
 - README pages route catalogues without duplicating member tables.
 - Stack doctrine packages stay in the C# stack atlas, not package-local reports.

@@ -160,9 +160,9 @@ disallow_any_unimported = false
 warn_unreachable =        false
 disable_error_code =      ["func-returns-value", "attr-defined", "type-arg", "override", "arg-type"]
 
-# fsspec ships no py.typed marker.
+# fsspec ships no py.typed marker (the backend laws import fsspec.implementations.* directly).
 [[tool.mypy.overrides]]
-module =                 "fsspec"
+module =                 ["fsspec", "fsspec.*"]
 ignore_missing_imports = true
 
 # --- [PYTEST] --------------------------------------------------------------
@@ -172,7 +172,8 @@ ignore_missing_imports = true
 # `pytest_benchmark.logger.PytestBenchmarkWarning: Benchmarks are automatically disabled because xdist plugin is
 # active...` escalated to error by the filter). `-n` is deliberately NOT in addopts; the main suite runs serially
 # and benchmarks run in their own session via `-m benchmark --benchmark-only`. Keep these invocations separate; do not
-# add `-n` here. Parallel runs must opt in per-invocation AND exclude benchmarks (e.g. `-n auto -m "not benchmark"`).
+# add `-n` here. Parallel runs must opt in per-invocation AND unload the benchmark PLUGIN — the escalated warning
+# fires at configure time when both plugins load, so `-m "not benchmark"` does NOT help: use `-n auto -p no:benchmark`.
 [tool.pytest]
 minversion =               "9.0"
 strict =                   true
@@ -284,11 +285,15 @@ output = ".artifacts/python/coverage/coverage.lcov"
 #   PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 PATH=$HOME/.cargo/bin:$PATH \
 #       uv pip install --python .cache/mut-venv -r .cache/mutation-requirements.txt
 #
-# SUPPORTED RUNNER (one posture only). `COVERAGE_RCFILE=.config/coverage-mutmut.ini` is mandatory — see the
-# `mutate_only_covered_lines` note below for why mutmut's coverage map is poisoned without it:
-#   COVERAGE_RCFILE=.config/coverage-mutmut.ini PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 PATH=$HOME/.cargo/bin:$PATH \
-#       .cache/mut-venv/bin/python -m mutmut run
-#   .cache/mut-venv/bin/python -m tools.assay.rails.mutation_gate   # kill-rate gate (floor 0.80 built in); mutmut owns none
+# SUPPORTED RUNNER (one posture only): the RAIL — `uv run python -m tools.assay test run --mutation full|changed`.
+# It stages the project into `.artifacts/python/mutmut/work` (mutmut hard-codes `./mutants` relative to its cwd, so
+# the staged cwd is what keeps the repo root litter-free; the testkit litter law forbids root `mutants/`), splices
+# `--max-children` from `mutation_max_cpu`, injects `COVERAGE_RCFILE` from the catalog row env (see the
+# `mutate_only_covered_lines` note below for why the coverage map is poisoned without it), and rides the kill-rate
+# gate (floor 0.80) on the same lease over the staged cache. Manual fallback (debugging only) runs FROM the staged
+# work dir, never the repo root:
+#   cd .artifacts/python/mutmut/work && COVERAGE_RCFILE=.config/coverage-mutmut.ini uv run mutmut run
+#   cd .artifacts/python/mutmut/work && uv run python -m tools.assay.rails.mutation_gate
 #
 # `-o required_plugins=` below waives the required-plugins guard for the mutation invocation only: mutmut disables
 # pytest-randomly (`-p no:randomly`, its own default) for deterministic kill verdicts, which would otherwise trip the
@@ -324,10 +329,6 @@ pytest_add_cli_args = [
     "tests/python/tools/assay/test_main.py::test_main_subprocess_failing_rail_channel_separation",
     "--deselect",
     "tests/python/tools/assay/test_main.py::test_main_subprocess_human_renderer_console_stderr",
-    # hypothesis stateful draws diverge under the stats phase's in-process trampoline + coverage collection
-    # (FlakyStrategyDefinition, reproduced twice 2026-06-10); deselected for mutation runs only.
-    "--deselect",
-    "tests/python/tools/assay/composition/test_settings.py::test_history_retention_state_machine",
 ]
 do_not_mutate = ["tools/assay/__init__.py", "tools/assay/rails/mutation_gate.py"]
 # Coverage-to-mutant map (Rank 13/14). With `mutate_only_covered_lines = true`, mutmut's `gather_coverage`
@@ -335,13 +336,12 @@ do_not_mutate = ["tools/assay/__init__.py", "tools/assay/rails/mutation_gate.py"
 # `CoverageData.lines(abs)`. The project's `[tool.coverage.run] relative_files = true` makes coverage store RELATIVE keys,
 # so `lines(abs)` returns `None`, every covered set collapses to empty, and the run aborts at "no covered mutants" before a
 # single mutant is tested (reproduced live on coverage 7.14.x: relative-keyed data yields `lines(abspath)=None`,
-# `lines(rel)=[1,2,3]`). The supported runner exports `COVERAGE_RCFILE=.config/coverage-mutmut.ini` (`relative_files = false`) to
-# restore absolute keys for the mutmut invocation ONLY — the main suite + the coverage gate keep `relative_files = true`
-# untouched. `false` here is the robust default: it sidesteps the brittle map entirely (full-scope over `tools/assay`;
-# survivors on genuinely-uncovered lines surface as explicit triage), correct even if a future coverage core regresses the
-# path keying. Flip to `true` (with the `COVERAGE_RCFILE` override, proven sufficient at the coverage gate) only to scope
-# mutation to covered lines for speed.
-mutate_only_covered_lines = false
+# `lines(rel)=[1,2,3]`). The `COVERAGE_RCFILE=.config/coverage-mutmut.ini` override (`relative_files = false`) restores
+# absolute keys for the mutmut invocation ONLY — it is row-owned (mutation catalog row `env`) and exported by the manual
+# card; the main suite + the coverage gate keep `relative_files = true` untouched. Flipped to `true` 2026-06-11: scopes
+# the mutant population to covered lines and cuts wall-clock; uncovered lines are the coverage gate's jurisdiction, so
+# losing their survivors costs no signal the gates do not already own.
+mutate_only_covered_lines = true
 # -1 (upstream default) disables the trampoline stack walk. Any other value makes `record_trampoline_hit`
 # (`mutmut/__main__.py:130`) call `Path(frame.co_filename).resolve(strict=True)` on every caller frame; module-level calls
 # into mutated code during conftest import put `<frozen importlib._bootstrap>` pseudo-filenames on that stack, the strict

@@ -1,46 +1,57 @@
 # [RASM_PERSISTENCE_API_SQLITEPCL]
 
-`SQLitePCLRaw.bundle_e_sqlite3` supplies bundled native SQLite initialization and provider identity.
+`SQLitePCLRaw.bundle_e_sqlite3` admits the bundled SQLite native provider used
+by the embedded SQLite store profile.
 
 ## [1]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SQLitePCLRaw.bundle_e_sqlite3`
 - package: `SQLitePCLRaw.bundle_e_sqlite3`
-- assembly: native/bootstrap assets
+- assembly: package admission asset
 - namespace: `SQLitePCL`
-- asset: native assets
-- rail: native-store
+- asset: native provider bundle
+- rail: store-provider
 
 ## [2]-[PACKAGE_ASSETS]
 
-[PACKAGE_ASSET_SCOPE]: native SQLite family
-- rail: native-store
+[PACKAGE_ASSET_SCOPE]: bundle assets
+- rail: store-provider
 
-| [INDEX] | [ASSET]                         | [PACKAGE_ROLE]     | [CAPABILITY]             |
-| :-----: | :------------------------------ | :----------------- | :----------------------- |
-|   [1]   | `SQLitePCLRaw.bundle_e_sqlite3` | bundle package     | admits SQLite bundle     |
-|   [2]   | `SQLitePCLRaw.config.e_sqlite3` | provider config    | selects bundled provider |
-|   [3]   | `SourceGear.sqlite3`            | native asset owner | supplies native library  |
-|   [4]   | `e_sqlite3` native library      | native library     | loads bundled SQLite     |
-|   [5]   | runtime native assets           | runtime assets     | declares native payload  |
-|   [6]   | build-transitive targets        | build assets       | declares build input     |
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]             |
+| :-----: | :-------------------------------- | :------------------ | :----------------------- |
+|   [1]   | `SQLitePCLRaw.bundle_e_sqlite3`   | bundle package      | admits native provider   |
+|   [2]   | `SQLitePCLRaw.core`               | core dependency     | exposes raw SQLite API   |
+|   [3]   | `SQLitePCLRaw.provider.e_sqlite3` | provider dependency | supplies native provider |
+|   [4]   | `SQLitePCLRaw.lib.e_sqlite3`      | native dependency   | supplies SQLite library  |
+|   [5]   | `Batteries_V2`                    | initializer         | initializes provider     |
 
 ## [3]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: native operations
-- rail: native-store
+[ENTRYPOINT_SCOPE]: provider initialization
+- rail: store-provider
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]        | [CAPABILITY]                |
-| :-----: | :-------------------- | :------------------ | :-------------------------- |
-|   [1]   | `Batteries_V2.Init`   | bootstrap call      | initializes native provider |
-|   [2]   | `SQLitePCL.raw`       | transitive contract | anchors raw provider API    |
-|   [3]   | provider registration | provider selection  | selects SQLite provider     |
-|   [4]   | native library load   | native load         | loads bundled SQLite        |
+| [INDEX] | [SURFACE]        | [CALL_SHAPE]     | [CAPABILITY]          |
+| :-----: | :--------------- | :--------------- | :-------------------- |
+|   [1]   | `Batteries.Init` | initializer call | initializes SQLitePCL |
+|   [2]   | `Batteries_V2`   | initializer type | binds provider bundle |
+|   [3]   | native library   | runtime asset    | executes SQLite calls |
+|   [4]   | provider factory | runtime asset    | connects raw provider |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
+[NATIVE_ADMISSION]:
+- package role: SQLite native provider admission
+- runtime root: bundled e_sqlite3 provider
+- initializer root: SQLitePCL batteries
+- store root: embedded SQLite profile only
+
+[LOCAL_ADMISSION]:
+- Native SQLite provider setup belongs to the SQLite store profile.
+- Initialization is explicit and cannot hide in unrelated startup code.
+- Provider bundle facts stay in the store-profile rail and do not define public Persistence vocabulary.
+
 [RAIL_LAW]:
 - Package: `SQLitePCLRaw.bundle_e_sqlite3`
-- Owns: SQLite native provider
-- Accept: store open records native identity
-- Reject: ambient system SQLite
+- Owns: SQLite native provider admission
+- Accept: embedded SQLite runtime
+- Reject: SQLCipher bundle

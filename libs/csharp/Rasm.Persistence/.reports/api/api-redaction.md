@@ -1,6 +1,8 @@
 # [RASM_PERSISTENCE_API_REDACTION]
 
-`Microsoft.Extensions.Compliance.Redaction` supplies classifications, redactors, providers, and support-export redaction policies.
+`Microsoft.Extensions.Compliance.Redaction` supplies redactors, redactor
+providers, redaction builders, HMAC options, erasing redaction, and dependency
+injection registration for support bundles and retained snapshot projections.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -13,50 +15,52 @@
 
 ## [2]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: redaction family
+[REDACTION_TYPES]: redactor and provider surfaces
 - rail: redaction
 
-| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]    | [CAPABILITY]              |
-| :-----: | :------------------------ | :---------------- | :------------------------ |
-|   [1]   | `ErasingRedactor`         | runtime redactor  | redacts sensitive value   |
-|   [2]   | `HmacRedactor`            | runtime redactor  | redacts sensitive value   |
-|   [3]   | `HmacRedactorOptions`     | policy object     | carries policy input      |
-|   [4]   | `RedactionBuilder`        | builder surface   | admits redaction policy   |
-|   [5]   | `RedactionExtensions`     | extension surface | admits configured surface |
-|   [6]   | `RedactorProviderOptions` | provider options  | binds redactor map        |
-
-[ABSTRACTION_CONTRACTS]:
-- rail: redaction
-
-| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]         | [CAPABILITY]                |
-| :-----: | :---------------------- | :--------------------- | :-------------------------- |
-|   [1]   | `DataClassification`    | classification value   | anchors redaction contract  |
-|   [2]   | `DataClassificationSet` | classification set     | anchors redaction contract  |
-|   [3]   | `IRedactionBuilder`     | builder contract       | admits redaction policy     |
-|   [4]   | `IRedactorProvider`     | provider contract      | resolves redactor           |
-|   [5]   | `NullRedactor`          | null redactor contract | defines null redaction path |
-|   [6]   | `Redactor`              | redactor base contract | anchors redaction contract  |
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]    | [CAPABILITY]             |
+| :-----: | :----------------------------- | :---------------- | :----------------------- |
+|   [1]   | `Redactor`                     | redactor contract | redacts values           |
+|   [2]   | `RedactorProvider`             | provider root     | resolves redactors       |
+|   [3]   | `RedactorProviderOptions`      | provider options  | maps data classes        |
+|   [4]   | `RedactionBuilder`             | builder root      | configures redaction     |
+|   [5]   | `ErasingRedactor`              | redactor          | erases sensitive values  |
+|   [6]   | `HmacRedactor`                 | redactor          | hashes sensitive values  |
+|   [7]   | `HmacRedactorOptions`          | redactor options  | configures HMAC redactor |
+|   [8]   | `HmacRedactorOptionsValidator` | option validator  | validates HMAC options   |
 
 ## [3]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: redaction operations
+[ENTRYPOINT_SCOPE]: registration and policy operations
 - rail: redaction
 
-| [INDEX] | [SURFACE]                | [CALL_SHAPE]      | [CAPABILITY]              |
-| :-----: | :----------------------- | :---------------- | :------------------------ |
-|   [1]   | `AddRedaction`           | DI extension      | admits configured surface |
-|   [2]   | `SetHmacRedactor`        | builder extension | admits redaction policy   |
-|   [3]   | `SetRedactor<T>`         | builder extension | admits redaction policy   |
-|   [4]   | `SetFallbackRedactor<T>` | builder extension | admits fallback policy    |
-|   [5]   | `GetRedactor`            | lookup call       | resolves redactor         |
-|   [6]   | `Redact`                 | redaction method  | redacts sensitive value   |
-|   [7]   | `TryRedact`              | redaction method  | redacts sensitive value   |
-|   [8]   | `GetRedactedLength`      | length query      | sizes redacted output     |
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]      | [CAPABILITY]             |
+| :-----: | :----------------------- | :---------------- | :----------------------- |
+|   [1]   | `AddRedaction`           | service extension | registers redaction      |
+|   [2]   | `SetRedactor<T>`         | builder call      | maps redactor            |
+|   [3]   | `SetHmacRedactor`        | builder call      | maps HMAC redactor       |
+|   [4]   | `SetFallbackRedactor<T>` | builder call      | sets fallback redactor   |
+|   [5]   | `GetRedactor`            | provider call     | resolves redactor        |
+|   [6]   | `Redact`                 | redactor call     | redacts value            |
+|   [7]   | `GetRedactedLength`      | redactor call     | measures redacted output |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
+[REDACTION_POLICY]:
+- namespace: `Microsoft.Extensions.Compliance.Redaction`
+- provider root: `RedactorProvider`
+- builder root: `RedactionBuilder`
+- class root: data classification mapping
+- redactor root: erasing and HMAC redactors
+
+[LOCAL_ADMISSION]:
+- Redaction class is part of snapshot, support bundle, log, and receipt projection.
+- Redactor selection is policy data and cannot hide in serializers.
+- HMAC redaction requires declared key identity and output length policy in local receipts.
+- Unclassified persisted data is rejected before it reaches a support bundle.
+
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Compliance.Redaction`
-- Owns: support export redaction
-- Accept: redaction class is profile data
-- Reject: manual string masking
+- Owns: redaction provider and redactor surfaces
+- Accept: declared redaction classes
+- Reject: ad hoc string masking

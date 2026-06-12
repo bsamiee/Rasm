@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_DYNAMICDATA]
 
-`DynamicData` supplies change-set collections, live filtering, sorting, grouping, binding, and cache projection.
+`DynamicData` supplies change-set caches, lists, live filtering, sorting, grouping, binding, aggregation, paging, virtualisation, and projection.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -8,47 +8,140 @@
 - package: `DynamicData`
 - assembly: `DynamicData`
 - namespace: `DynamicData`
+- namespace: `DynamicData.Binding`
+- namespace: `DynamicData.Aggregation`
+- namespace: `DynamicData.Diagnostics`
 - asset: runtime library
 - rail: live-data
 
 ## [2]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: live collection family
+[CACHE_AND_LIST_TYPES]: mutable live data sources
 - rail: live-data
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]       | [CAPABILITY]              |
-| :-----: | :-------------------------------- | :------------------- | :------------------------ |
-|   [1]   | `SourceCache<TObject,TKey>`       | keyed change store   | projects live state       |
-|   [2]   | `SourceList<T>`                   | ordered change store | projects live state       |
-|   [3]   | `IChangeSet<T>`                   | contract surface     | defines boundary contract |
-|   [4]   | `IChangeSet<TObject,TKey>`        | contract surface     | defines boundary contract |
-|   [5]   | `Change<T>`                       | change record        | projects live state       |
-|   [6]   | `ChangeReason`                    | change reason        | projects live state       |
-|   [7]   | `SortExpressionComparer<T>`       | sort expression      | projects live state       |
-|   [8]   | `ReadOnlyObservableCollection<T>` | bound collection     | projects live state       |
+| [INDEX] | [SYMBOL]                           | [RAIL]             |
+| :-----: | :--------------------------------- | :----------------- |
+|   [1]   | `SourceCache<TObject,TKey>`        | keyed source       |
+|   [2]   | `SourceList<T>`                    | ordered source     |
+|   [3]   | `ISourceCache<TObject,TKey>`       | cache contract     |
+|   [4]   | `ISourceList<T>`                   | list contract      |
+|   [5]   | `IObservableCache<TObject,TKey>`   | observable cache   |
+|   [6]   | `IObservableList<T>`               | observable list    |
+|   [7]   | `IIntermediateCache<TObject,TKey>` | intermediate cache |
+|   [8]   | `ChangeAwareCache<TObject,TKey>`   | change cache       |
+
+[CHANGE_SET_TYPES]: change records and stream contracts
+- rail: live-data
+
+| [INDEX] | [SYMBOL]                               | [RAIL]          |
+| :-----: | :------------------------------------- | :-------------- |
+|   [1]   | `IChangeSet<T>`                        | list changes    |
+|   [2]   | `IChangeSet<TObject,TKey>`             | cache changes   |
+|   [3]   | `Change<T>`                            | list change     |
+|   [4]   | `Change<TObject,TKey>`                 | cache change    |
+|   [5]   | `ChangeReason`                         | cache reason    |
+|   [6]   | `ListChangeReason`                     | list reason     |
+|   [7]   | `ISortedChangeSet<TObject,TKey>`       | sorted changes  |
+|   [8]   | `IGroupChangeSet<TObject,TKey,TGroup>` | grouped changes |
+|   [9]   | `IPagedChangeSet<TObject,TKey>`        | paged changes   |
+|  [10]   | `IVirtualChangeSet<TObject,TKey>`      | virtual changes |
+
+[BINDING_TYPES]: UI binding targets and adaptors
+- rail: live-data
+
+| [INDEX] | [SYMBOL]                                          | [RAIL]              |
+| :-----: | :------------------------------------------------ | :------------------ |
+|   [1]   | `ObservableCollectionExtended<T>`                 | bound collection    |
+|   [2]   | `IObservableCollection<T>`                        | collection contract |
+|   [3]   | `ObservableCollectionAdaptor<T>`                  | list adaptor        |
+|   [4]   | `ObservableCollectionAdaptor<TObject,TKey>`       | cache adaptor       |
+|   [5]   | `SortedObservableCollectionAdaptor<TObject,TKey>` | sorted adaptor      |
+|   [6]   | `BindingOptions`                                  | binding options     |
+|   [7]   | `SortAndBindOptions`                              | sorted binding      |
+
+[QUERY_TYPES]: sort, page, virtual, aggregate, and diagnostic model
+- rail: live-data
+
+| [INDEX] | [SYMBOL]                    | [RAIL]            |
+| :-----: | :-------------------------- | :---------------- |
+|   [1]   | `SortExpressionComparer<T>` | sort comparer     |
+|   [2]   | `SortExpression<T>`         | sort expression   |
+|   [3]   | `PageRequest`               | page request      |
+|   [4]   | `PageContext<T>`            | page context      |
+|   [5]   | `VirtualRequest`            | virtual request   |
+|   [6]   | `VirtualResponse`           | virtual response  |
+|   [7]   | `IAggregateChangeSet<T>`    | aggregate changes |
+|   [8]   | `ChangeStatistics`          | diagnostics       |
+|   [9]   | `ChangeSummary`             | diagnostics       |
 
 ## [3]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: change-set operations
+[CACHE_ENTRYPOINTS]: cache mutation and connection operations
 - rail: live-data
 
-| [INDEX] | [SURFACE]     | [CALL_SHAPE]      | [CAPABILITY]              |
-| :-----: | :------------ | :---------------- | :------------------------ |
-|   [1]   | `Connect`     | change-set source | opens change stream       |
-|   [2]   | `Edit`        | mutation scope    | batches mutations         |
-|   [3]   | `AddOrUpdate` | cache mutation    | upserts keyed item        |
-|   [4]   | `RemoveKey`   | key removal       | removes keyed item        |
-|   [5]   | `Filter`      | query operator    | projects stream state     |
-|   [6]   | `Sort`        | query operator    | projects stream state     |
-|   [7]   | `Group`       | query operator    | projects stream state     |
-|   [8]   | `Transform`   | query operator    | projects stream state     |
-|   [9]   | `Bind`        | mutation call     | admits configured surface |
-|  [10]   | `DisposeMany` | disposal operator | disposes removed items    |
+| [INDEX] | [SURFACE]              | [SURFACE_ROOT]                      | [RAIL]          |
+| :-----: | :--------------------- | :---------------------------------- | :-------------- |
+|   [1]   | `Connect`              | `SourceCache<TObject,TKey>`         | cache stream    |
+|   [2]   | `Connect`              | `SourceList<T>`                     | list stream     |
+|   [3]   | `Edit`                 | `ISourceCache<TObject,TKey>`        | cache mutation  |
+|   [4]   | `Edit`                 | `ISourceList<T>`                    | list mutation   |
+|   [5]   | `AddOrUpdate`          | `ISourceUpdater<TObject,TKey>`      | keyed upsert    |
+|   [6]   | `RemoveKey`            | `ICacheUpdater<TObject,TKey>`       | keyed removal   |
+|   [7]   | `Load`                 | `IObservableCollection<T>`          | collection load |
+|   [8]   | `SuspendNotifications` | `INotifyCollectionChangedSuspender` | batch bind      |
+
+[QUERY_ENTRYPOINTS]: change-set query operations
+- rail: live-data
+
+| [INDEX] | [SURFACE]     | [SURFACE_ROOT]      | [RAIL]             |
+| :-----: | :------------ | :------------------ | :----------------- |
+|   [1]   | `Filter`      | `ObservableCacheEx` | predicate filter   |
+|   [2]   | `Sort`        | `ObservableCacheEx` | comparer sort      |
+|   [3]   | `Group`       | `ObservableCacheEx` | key grouping       |
+|   [4]   | `Transform`   | `ObservableCacheEx` | projection         |
+|   [5]   | `AutoRefresh` | `ObservableCacheEx` | refresh stream     |
+|   [6]   | `MergeMany`   | `ObservableCacheEx` | child stream merge |
+|   [7]   | `ExpireAfter` | `ObservableCacheEx` | timed expiry       |
+|   [8]   | `LimitSizeTo` | `ObservableCacheEx` | size bound         |
+|   [9]   | `Page`        | `ObservableCacheEx` | paging             |
+|  [10]   | `Virtualise`  | `ObservableCacheEx` | virtualisation     |
+
+[BINDING_ENTRYPOINTS]: UI binding and disposal operations
+- rail: live-data
+
+| [INDEX] | [SURFACE]                  | [SURFACE_ROOT]            | [RAIL]            |
+| :-----: | :------------------------- | :------------------------ | :---------------- |
+|   [1]   | `Bind`                     | `ObservableCacheEx`       | collection bind   |
+|   [2]   | `Bind`                     | `ObservableListEx`        | list bind         |
+|   [3]   | `ToObservableChangeSet`    | `ObservableCollectionEx`  | change conversion |
+|   [4]   | `BindToObservableList`     | `IObservableListEx`       | list target       |
+|   [5]   | `DisposeMany`              | `ObservableCacheEx`       | disposal          |
+|   [6]   | `AsyncDisposeMany`         | `ObservableCacheEx`       | async disposal    |
+|   [7]   | `ObserveCollectionChanges` | `ObservableCollectionEx`  | collection events |
+|   [8]   | `WhenValueChanged`         | `NotifyPropertyChangedEx` | property stream   |
+
+[AGGREGATE_ENTRYPOINTS]: computed stream summaries
+- rail: live-data
+
+| [INDEX] | [SURFACE] | [SURFACE_ROOT]            | [RAIL]    |
+| :-----: | :-------- | :------------------------ | :-------- |
+|   [1]   | `Count`   | `DynamicData.Aggregation` | count     |
+|   [2]   | `Sum`     | `DynamicData.Aggregation` | sum       |
+|   [3]   | `Avg`     | `DynamicData.Aggregation` | average   |
+|   [4]   | `Min`     | `DynamicData.Aggregation` | minimum   |
+|   [5]   | `Max`     | `DynamicData.Aggregation` | maximum   |
+|   [6]   | `StdDev`  | `DynamicData.Aggregation` | deviation |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
-[RAIL_LAW]:
+[LIVE_DATA_LAW]:
 - Package: `DynamicData`
-- Owns: live projection collections
-- Accept: state updates flow through change sets
+- Owns: keyed cache, ordered list, binding, query, aggregate, page, virtual, and diagnostic change-set rails
+- Accept: state updates flow through change sets before they reach screens
 - Reject: manual observable collection mutation
+
+[PROJECTION_LAW]:
+- Package: `DynamicData`
+- Owns: filter, sort, group, transform, bind, dispose, aggregate, page, and virtualise operations
+- Accept: host panels, companion windows, sidecars, diagnostics, and downstream shells share one live projection rail
+- Reject: separate collection mutation paths per view modality

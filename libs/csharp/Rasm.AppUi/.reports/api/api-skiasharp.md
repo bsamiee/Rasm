@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_SKIASHARP]
 
-`SkiaSharp` supplies raster surfaces, paths, paints, images, color, typefaces, and offscreen drawing primitives.
+`SkiaSharp` supplies raster surfaces, canvases, paths, paints, images, codecs, streams, text, colors, shaders, and GPU drawing primitives.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -8,49 +8,158 @@
 - package: `SkiaSharp`
 - assembly: `SkiaSharp`
 - namespace: `SkiaSharp`
-- asset: runtime library
+- asset: neutral runtime library
+- asset: platform runtime libraries
 - rail: visuals
 
 ## [2]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: drawing family
+[DRAWING_TYPES]: canvas, paint, and geometry
 - rail: visuals
 
-| [INDEX] | [SYMBOL]     | [PACKAGE_ROLE]  | [CAPABILITY]             |
-| :-----: | :----------- | :-------------- | :----------------------- |
-|   [1]   | `SKCanvas`   | drawing surface | draws visual evidence    |
-|   [2]   | `SKPaint`    | drawing surface | draws visual evidence    |
-|   [3]   | `SKPath`     | drawing surface | draws visual evidence    |
-|   [4]   | `SKBitmap`   | drawing surface | draws visual evidence    |
-|   [5]   | `SKImage`    | drawing surface | draws visual evidence    |
-|   [6]   | `SKSurface`  | draw target     | anchors visuals contract |
-|   [7]   | `SKColor`    | drawing surface | draws visual evidence    |
-|   [8]   | `SKTypeface` | font face       | anchors visuals contract |
-|   [9]   | `SKData`     | encoded bytes   | anchors visuals contract |
-|  [10]   | `SKRect`     | draw bounds     | anchors visuals contract |
+| [INDEX] | [SYMBOL]        | [RAIL]          |
+| :-----: | :-------------- | :-------------- |
+|   [1]   | `SKCanvas`      | drawing surface |
+|   [2]   | `SKPaint`       | paint state     |
+|   [3]   | `SKPath`        | vector path     |
+|   [4]   | `SKPathMeasure` | path measure    |
+|   [5]   | `SKRect`        | bounds value    |
+|   [6]   | `SKRoundRect`   | rounded bounds  |
+|   [7]   | `SKPoint`       | point value     |
+|   [8]   | `SKMatrix`      | transform value |
+
+[SURFACE_AND_IMAGE_TYPES]: pixel and image ownership
+- rail: visuals
+
+| [INDEX] | [SYMBOL]      | [RAIL]          |
+| :-----: | :------------ | :-------------- |
+|   [1]   | `SKSurface`   | draw target     |
+|   [2]   | `SKImage`     | immutable image |
+|   [3]   | `SKBitmap`    | mutable bitmap  |
+|   [4]   | `SKPixmap`    | pixel map       |
+|   [5]   | `SKImageInfo` | image metadata  |
+|   [6]   | `SKCodec`     | decode codec    |
+|   [7]   | `SKData`      | byte buffer     |
+|   [8]   | `SKDocument`  | document output |
+
+[TEXT_AND_FONT_TYPES]: text and typeface surface
+- rail: visuals
+
+| [INDEX] | [SYMBOL]            | [RAIL]          |
+| :-----: | :------------------ | :-------------- |
+|   [1]   | `SKFont`            | font object     |
+|   [2]   | `SKTypeface`        | typeface object |
+|   [3]   | `SKFontManager`     | font registry   |
+|   [4]   | `SKFontMetrics`     | font metrics    |
+|   [5]   | `SKTextBlob`        | shaped text     |
+|   [6]   | `SKTextBlobBuilder` | text builder    |
+
+[PAINT_PIPELINE_TYPES]: color, shader, filter, and runtime render surfaces
+- rail: visuals
+
+| [INDEX] | [SYMBOL]          | [RAIL]          |
+| :-----: | :---------------- | :-------------- |
+|   [1]   | `SKColor`         | byte color      |
+|   [2]   | `SKColorF`        | float color     |
+|   [3]   | `SKColors`        | color constants |
+|   [4]   | `SKColorSpace`    | color space     |
+|   [5]   | `SKShader`        | shader object   |
+|   [6]   | `SKImageFilter`   | image filter    |
+|   [7]   | `SKColorFilter`   | color filter    |
+|   [8]   | `SKPathEffect`    | path effect     |
+|   [9]   | `SKMaskFilter`    | mask filter     |
+|  [10]   | `SKRuntimeEffect` | runtime shader  |
+
+[GPU_TYPES]: GPU context and backend surface
+- rail: visuals
+
+| [INDEX] | [SYMBOL]                | [RAIL]           |
+| :-----: | :---------------------- | :--------------- |
+|   [1]   | `GRContext`             | GPU context      |
+|   [2]   | `GRRecordingContext`    | GPU recording    |
+|   [3]   | `GRBackendRenderTarget` | backend target   |
+|   [4]   | `GRBackendTexture`      | backend texture  |
+|   [5]   | `GRGlInterface`         | OpenGL interface |
+|   [6]   | `GRMtlBackendContext`   | Metal backend    |
+|   [7]   | `GRVkBackendContext`    | Vulkan backend   |
+|   [8]   | `GRD3DBackendContext`   | Direct3D backend |
 
 ## [3]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: drawing operations
+[CANVAS_ENTRYPOINTS]: drawing and transform operations
 - rail: visuals
 
-| [INDEX] | [SURFACE]   | [CALL_SHAPE]   | [CAPABILITY]              |
-| :-----: | :---------- | :------------- | :------------------------ |
-|   [1]   | `DrawPath`  | rendering call | renders evidence          |
-|   [2]   | `DrawText`  | rendering call | renders evidence          |
-|   [3]   | `DrawImage` | rendering call | renders evidence          |
-|   [4]   | `Encode`    | operation call | executes operation        |
-|   [5]   | `Decode`    | operation call | executes operation        |
-|   [6]   | `Create`    | factory call   | creates configured handle |
-|   [7]   | `Save`      | save method    | writes image output       |
-|   [8]   | `Restore`   | member surface | drives visuals behavior   |
-|   [9]   | `Dispose`   | operation call | executes operation        |
+| [INDEX] | [SURFACE]       | [SURFACE_ROOT] | [RAIL]          |
+| :-----: | :-------------- | :------------- | :-------------- |
+|   [1]   | `DrawPath`      | `SKCanvas`     | path draw       |
+|   [2]   | `DrawText`      | `SKCanvas`     | text draw       |
+|   [3]   | `DrawImage`     | `SKCanvas`     | image draw      |
+|   [4]   | `DrawRect`      | `SKCanvas`     | rectangle draw  |
+|   [5]   | `DrawRoundRect` | `SKCanvas`     | round rect draw |
+|   [6]   | `DrawCircle`    | `SKCanvas`     | circle draw     |
+|   [7]   | `DrawLine`      | `SKCanvas`     | line draw       |
+|   [8]   | `DrawColor`     | `SKCanvas`     | fill draw       |
+|   [9]   | `ClipPath`      | `SKCanvas`     | clip path       |
+|  [10]   | `Save`          | `SKCanvas`     | state save      |
+|  [11]   | `Restore`       | `SKCanvas`     | state restore   |
+|  [12]   | `Translate`     | `SKCanvas`     | transform       |
+|  [13]   | `Scale`         | `SKCanvas`     | transform       |
+|  [14]   | `RotateDegrees` | `SKCanvas`     | transform       |
+
+[IMAGE_ENTRYPOINTS]: image, bitmap, codec, and pixel operations
+- rail: visuals
+
+| [INDEX] | [SURFACE]           | [SURFACE_ROOT] | [RAIL]         |
+| :-----: | :------------------ | :------------- | :------------- |
+|   [1]   | `Create`            | `SKSurface`    | surface create |
+|   [2]   | `MakeImageSnapshot` | `SKSurface`    | snapshot image |
+|   [3]   | `Decode`            | `SKBitmap`     | bitmap decode  |
+|   [4]   | `Encode`            | `SKBitmap`     | bitmap encode  |
+|   [5]   | `Decode`            | `SKCodec`      | codec decode   |
+|   [6]   | `FromBitmap`        | `SKImage`      | image create   |
+|   [7]   | `ReadPixels`        | `SKImage`      | pixel read     |
+|   [8]   | `ReadPixels`        | `SKPixmap`     | pixel read     |
+|   [9]   | `WritePixels`       | `SKBitmap`     | pixel write    |
+|  [10]   | `Encode`            | `SKImage`      | image encode   |
+
+[TEXT_AND_PAINT_ENTRYPOINTS]: text, color, shader, and render operations
+- rail: visuals
+
+| [INDEX] | [SURFACE]              | [SURFACE_ROOT]    | [RAIL]          |
+| :-----: | :--------------------- | :---------------- | :-------------- |
+|   [1]   | `MeasureText`          | `SKFont`          | text measure    |
+|   [2]   | `CreateTypeface`       | `SKFontManager`   | typeface lookup |
+|   [3]   | `Create`               | `SKTextBlob`      | shaped text     |
+|   [4]   | `Parse`                | `SKColor`         | color parse     |
+|   [5]   | `CreateColor`          | `SKShader`        | color shader    |
+|   [6]   | `CreateLinearGradient` | `SKShader`        | gradient shader |
+|   [7]   | `CreateBlur`           | `SKImageFilter`   | blur filter     |
+|   [8]   | `CreateDash`           | `SKPathEffect`    | dashed stroke   |
+|   [9]   | `Create`               | `SKRuntimeEffect` | runtime shader  |
+
+[GPU_ENTRYPOINTS]: GPU context creation
+- rail: visuals
+
+| [INDEX] | [SURFACE]                | [SURFACE_ROOT]   | [RAIL]           |
+| :-----: | :----------------------- | :--------------- | :--------------- |
+|   [1]   | `Create`                 | `GRContext`      | backend context  |
+|   [2]   | `CreateGl`               | `GRContext`      | OpenGL context   |
+|   [3]   | `CreateMetal`            | `GRContext`      | Metal context    |
+|   [4]   | `CreateVulkan`           | `GRContext`      | Vulkan context   |
+|   [5]   | `CreateDirect3D`         | `GRContext`      | Direct3D context |
+|   [6]   | `CreateDefaultInterface` | `GRGlInterface`  | GL interface     |
+|   [7]   | `Dispose`                | `SKNativeObject` | native release   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
-[RAIL_LAW]:
+[VISUALS_LAW]:
 - Package: `SkiaSharp`
-- Owns: custom raster visuals
-- Accept: offscreen visuals emit evidence
+- Owns: raster drawing, offscreen surfaces, image codecs, text, colors, effects, and GPU context primitives
+- Accept: custom visuals emit deterministic bitmap, encoded image, and diagnostic evidence
 - Reject: GDI public vocabulary
 
+[ASSET_LAW]:
+- Package: `SkiaSharp`
+- Owns: native-backed disposable objects and explicit pixel ownership
+- Accept: every surface, image, codec, stream, and context is lifecycle-scoped
+- Reject: ambient unmanaged resource ownership
