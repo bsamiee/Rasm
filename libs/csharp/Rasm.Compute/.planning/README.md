@@ -200,3 +200,7 @@ Vocabulary owners first, then shapes, rails, dispatch, boundaries, composition. 
 | System.Numerics.Tensors              | 10.0.9    | tensor-lane                                   | api-tensors.md           |
 | Thinktecture.Runtime.Extensions.Json | 10.2.0    | receipts-and-benchmarks                       | doctrine (stack atlas)   |
 | UnitsNet                             | 5.75.0    | units-boundary                                | api-unitsnet.md          |
+
+## [11]-[REFINEMENT_HORIZON]
+
+Entry for the next deepening session: `libs/csharp/.planning/campaign-method.md` then `TASKLOG.md` then this charter. Folder-specific deepening targets: geometry-to-tensor encoding widened against real model zoos; the compute farm topology (node affinity, warm-start artifacts) rehearsed end-to-end; load/offload choreography between Rhino-hosted and companion processes proven over the wire vocabulary; the ALC spikes (ONNX dylib, Kestrel) executed from TASKLOG. The bar: apps move compute between host, companion, and farm rows without new surfaces, with receipts proving every hop.

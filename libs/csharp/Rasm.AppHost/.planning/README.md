@@ -243,3 +243,7 @@ Substrate, pending, and test-only admissions:
 | Microsoft.Extensions.TimeProvider.Testing | 10.7.0        | time-and-deadlines        | api-testing-seams.md (tests-only)                      |
 | NodaTime.Testing                          | 3.3.2         | time-and-deadlines        | api-testing-seams.md (tests-only)                      |
 | Microsoft.Extensions.Diagnostics.Testing  | 10.7.0        | diagnostics-and-telemetry | api-testing-seams.md (tests-only)                      |
+
+## [11]-[REFINEMENT_HORIZON]
+
+Entry for the next deepening session: `libs/csharp/.planning/campaign-method.md` then `TASKLOG.md` then this charter. Folder-specific deepening targets beyond the closed corpus: the operational control surface (ControlService consequence rows) exercised against every service modality; watchdog/heartbeat receipts composed with the support pipeline end-to-end; the discovery/attach choreography rehearsed against the paired and companion topologies in `../../FEATURES.md`; keychain secrets-store and SIGHUP routes resolved from their TASKLOG probes into settled rows. The bar: any host modality boots, degrades, drains, and reports through this spine with zero app-side ceremony.

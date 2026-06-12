@@ -184,3 +184,7 @@ Seam ordering law:
 | System.IO.Hashing                           | 10.0.9    | schema-rail         | [api-hashing](../.reports/api/api-hashing.md)                                       |
 | Thinktecture.Runtime.Extensions.Json        | 10.2.0    | snapshot-codecs     | [api-thinktecture-serialization](../.reports/api/api-thinktecture-serialization.md) |
 | Thinktecture.Runtime.Extensions.MessagePack | 10.2.0    | snapshot-codecs     | [api-thinktecture-serialization](../.reports/api/api-thinktecture-serialization.md) |
+
+## [11]-[REFINEMENT_HORIZON]
+
+Entry for the next deepening session: `libs/csharp/.planning/campaign-method.md` then `TASKLOG.md` then this charter. Folder-specific deepening targets: the GIS lanes pushed to full pipeline capability (heterogeneous source ingestion through GeoPackage/GeoJSON/PostGIS rows into the analytical lane); sync topologies rehearsed against the hub and collaboration concepts; the extension gates (vec0, SQLCipher, sqlean) resolved from probes into settled rows; server self-provisioning rows exercised when the first server root lands. The bar: any data product — offline-first field store, telemetry lake, geospatial sync hub — composes from rows with zero app-side persistence code.

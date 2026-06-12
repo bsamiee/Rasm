@@ -214,3 +214,7 @@ The executed admissions ledger — the only planning location where versions are
 | HotAvalonia | 3.1.1 (Debug self-gating, PrivateAssets=all) | diagnostics-evidence | api-hotavalonia.md |
 | Avalonia.Headless | 12.0.4 (tests) | diagnostics-evidence · accessibility | api-headless.md |
 | Avalonia.Headless.XUnit | 12.0.4 (tests) | diagnostics-evidence | api-headless.md |
+
+## [11]-[REFINEMENT_HORIZON]
+
+Entry for the next deepening session: `libs/csharp/.planning/campaign-method.md` then `TASKLOG.md` then this charter. Folder-specific deepening targets: the embedding capsule proven by the NSView bridge spike and extended with the Win32 route; viewport-in-panel and host-data-in-shell compositions rehearsed as concept rows (rhino panels, viewports, and host documents inside the same shell that runs standalone); every element family re-swept after the embedding spike answers its research rows. The bar already set here is the suite bar: any app UI — panel, modal, standalone, companion console — composes from rows with dynamic sourcing and zero host-coupled code.
