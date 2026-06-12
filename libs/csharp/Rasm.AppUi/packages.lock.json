@@ -942,6 +942,14 @@
         "resolved": "2.6.0",
         "contentHash": "1B1OTacTd4QtFyBeuIOcThwSSLUdRZU3bSFIwM8vk36XiZlBMi3K36u74e4OqwwHRHUuJC1PhbDx4hyI266X1Q=="
       },
+      "NetTopologySuite.Features": {
+        "type": "Transitive",
+        "resolved": "2.1.0",
+        "contentHash": "Iq+Ie9WZJj8Pyu3asHZ/UwZLim786QzWC0DmLEzFK2u3BeLHDK7iWfsYBLDb/RCBUql8VBmW6LMlsJ+LKUHduA==",
+        "dependencies": {
+          "NetTopologySuite": "[2.0.0, 3.0.0-A)"
+        }
+      },
       "NetTopologySuite.IO.PostGis": {
         "type": "Transitive",
         "resolved": "2.1.0",
@@ -1242,6 +1250,7 @@
       "rasm.apphost": {
         "type": "Project",
         "dependencies": {
+          "Cronos": "[0.13.0, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
@@ -1320,6 +1329,8 @@
           "Microsoft.EntityFrameworkCore.Sqlite": "[10.0.9, )",
           "Microsoft.Extensions.Caching.Hybrid": "[10.7.0, )",
           "Microsoft.Extensions.Compliance.Redaction": "[10.7.0, )",
+          "NetTopologySuite.IO.GeoJSON4STJ": "[4.0.0, )",
+          "NetTopologySuite.IO.GeoPackage": "[2.0.0, )",
           "NodaTime": "[3.3.2, )",
           "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
           "Npgsql": "[10.0.3, )",
@@ -1374,6 +1385,12 @@
         "requested": "[8.4.2, )",
         "resolved": "8.4.2",
         "contentHash": "2hmtrrU18x6NL3mbuAqwy0KpnoEEJOuK6sH5RKQfD/jHijn2pqvqBUC7WGy9dgNBL9BDA7eOC0kirsNPMp2f4Q=="
+      },
+      "Cronos": {
+        "type": "CentralTransitive",
+        "requested": "[0.13.0, )",
+        "resolved": "0.13.0",
+        "contentHash": "Nkve+Yi0+ol3ntSBRHeW0ka9cJQ8vndSUvvkXqF9LVqwpoqWueyxu/HS275r98RDOmF7/mzRnZW5XXUBXob+TA=="
       },
       "CSparse": {
         "type": "CentralTransitive",
@@ -1819,6 +1836,25 @@
         "requested": "[18.7.1, )",
         "resolved": "18.7.1",
         "contentHash": "OhuO9c4ZqYBaqB7INwOpDLa7wX0VkR2T3MhjUSsPebLvZi0/Z7QzeeD5uiINd9L9Wev+EwvNUiF3N2hWVtdFPQ=="
+      },
+      "NetTopologySuite.IO.GeoJSON4STJ": {
+        "type": "CentralTransitive",
+        "requested": "[4.0.0, )",
+        "resolved": "4.0.0",
+        "contentHash": "Jdm9qBVDcHkrVn3fm3knw6pGu3Ggn31tGVRyIP1/5HSL+8EDPfUnEZF0+oVFBkOKR9tqu9aV2jmEX42Kq8F2Yw==",
+        "dependencies": {
+          "NetTopologySuite": "[2.0.0, 3.0.0-A)",
+          "NetTopologySuite.Features": "[2.1.0, 3.0.0-A)"
+        }
+      },
+      "NetTopologySuite.IO.GeoPackage": {
+        "type": "CentralTransitive",
+        "requested": "[2.0.0, )",
+        "resolved": "2.0.0",
+        "contentHash": "Ozy3Yv3kLe8hQ3L2a/6kKJYqlxUPQDeN3vs9/o9Sw8M36TImWrVtpfAJ+bYIdCoufmO0hWPi0cfSYrlJCdPiDw==",
+        "dependencies": {
+          "NetTopologySuite": "[2.0.0, 3.0.0-A)"
+        }
       },
       "NodaTime": {
         "type": "CentralTransitive",

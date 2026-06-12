@@ -514,6 +514,7 @@
       "rasm.apphost": {
         "type": "Project",
         "dependencies": {
+          "Cronos": "[0.13.0, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
@@ -567,6 +568,12 @@
           "System.Drawing.Common": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
+      },
+      "Cronos": {
+        "type": "CentralTransitive",
+        "requested": "[0.13.0, )",
+        "resolved": "0.13.0",
+        "contentHash": "Nkve+Yi0+ol3ntSBRHeW0ka9cJQ8vndSUvvkXqF9LVqwpoqWueyxu/HS275r98RDOmF7/mzRnZW5XXUBXob+TA=="
       },
       "CSparse": {
         "type": "CentralTransitive",

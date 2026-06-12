@@ -141,6 +141,25 @@
         "resolved": "17.14.15",
         "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
       },
+      "NetTopologySuite.IO.GeoJSON4STJ": {
+        "type": "Direct",
+        "requested": "[4.0.0, )",
+        "resolved": "4.0.0",
+        "contentHash": "Jdm9qBVDcHkrVn3fm3knw6pGu3Ggn31tGVRyIP1/5HSL+8EDPfUnEZF0+oVFBkOKR9tqu9aV2jmEX42Kq8F2Yw==",
+        "dependencies": {
+          "NetTopologySuite": "[2.0.0, 3.0.0-A)",
+          "NetTopologySuite.Features": "[2.1.0, 3.0.0-A)"
+        }
+      },
+      "NetTopologySuite.IO.GeoPackage": {
+        "type": "Direct",
+        "requested": "[2.0.0, )",
+        "resolved": "2.0.0",
+        "contentHash": "Ozy3Yv3kLe8hQ3L2a/6kKJYqlxUPQDeN3vs9/o9Sw8M36TImWrVtpfAJ+bYIdCoufmO0hWPi0cfSYrlJCdPiDw==",
+        "dependencies": {
+          "NetTopologySuite": "[2.0.0, 3.0.0-A)"
+        }
+      },
       "NodaTime": {
         "type": "Direct",
         "requested": "[3.3.2, )",
@@ -640,6 +659,14 @@
         "resolved": "2.6.0",
         "contentHash": "1B1OTacTd4QtFyBeuIOcThwSSLUdRZU3bSFIwM8vk36XiZlBMi3K36u74e4OqwwHRHUuJC1PhbDx4hyI266X1Q=="
       },
+      "NetTopologySuite.Features": {
+        "type": "Transitive",
+        "resolved": "2.1.0",
+        "contentHash": "Iq+Ie9WZJj8Pyu3asHZ/UwZLim786QzWC0DmLEzFK2u3BeLHDK7iWfsYBLDb/RCBUql8VBmW6LMlsJ+LKUHduA==",
+        "dependencies": {
+          "NetTopologySuite": "[2.0.0, 3.0.0-A)"
+        }
+      },
       "NetTopologySuite.IO.PostGis": {
         "type": "Transitive",
         "resolved": "2.1.0",
@@ -758,6 +785,7 @@
       "rasm.apphost": {
         "type": "Project",
         "dependencies": {
+          "Cronos": "[0.13.0, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
@@ -794,6 +822,12 @@
           "Thinktecture.Runtime.Extensions": "[10.2.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.2.0, )"
         }
+      },
+      "Cronos": {
+        "type": "CentralTransitive",
+        "requested": "[0.13.0, )",
+        "resolved": "0.13.0",
+        "contentHash": "Nkve+Yi0+ol3ntSBRHeW0ka9cJQ8vndSUvvkXqF9LVqwpoqWueyxu/HS275r98RDOmF7/mzRnZW5XXUBXob+TA=="
       },
       "FluentValidation": {
         "type": "CentralTransitive",
