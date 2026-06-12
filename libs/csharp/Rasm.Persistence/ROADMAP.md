@@ -1,63 +1,57 @@
 # [RASM_PERSISTENCE_ROADMAP]
 
-`Rasm.Persistence` implementation starts from a manifest-backed store package and proceeds through one store, source, snapshot, redaction, and receipt rail.
+`Rasm.Persistence` implementation transcribes nine finalized planning pages in the
+charter [BUILD_ORDER](.planning/README.md). Every task exits against named page
+clusters and proves through the charter [PROOF_GATES](.planning/README.md);
+nothing below re-designs a finalized page.
 
 ## [1]-[CURRENT_POSITION]
 
-| [INDEX] | [SURFACE]         | [STATE]                              |
-| :-----: | :---------------- | :----------------------------------- |
-|   [1]   | Project graph     | solution node present                |
-|   [2]   | Package graph     | store and snapshot packages admitted |
-|   [3]   | Production source | absent                               |
-|   [4]   | API catalogues    | package lookup pages maintained      |
-|   [5]   | Host references   | none                                 |
+| [INDEX] | [SURFACE]         | [STATE]                                     |
+| :-----: | :---------------- | :------------------------------------------ |
+|   [1]   | Project graph     | solution node present, AppHost referenced   |
+|   [2]   | Planning corpus   | 9 of 9 pages finalized; charter complete    |
+|   [3]   | Package graph     | 27 admissions restored and lock-tracked     |
+|   [4]   | API catalogues    | 23 package pages maintained                 |
+|   [5]   | Production source | absent — transcription not started          |
 
 ## [2]-[IMPLEMENTATION_TASKS]
 
-[PERSISTENCE_FOLDER_ARCHITECTURE]:
-- Status: QUEUED
-- Exit: owner folders, rail entrypoints, generated shapes, store profiles, query shapes, snapshot codecs,
-  redaction classes, receipts, retention policies, and boundaries are planned before production source.
-- Proof: architecture plan consumes every Persistence package API catalogue and names the store rail owners.
+Tasks run in charter BUILD_ORDER; the EXIT cell names the clusters the task transcribes; PROOF names the gate that flips the task done.
 
-[PERSISTENCE_STORE_PROFILE]:
-- Status: QUEUED
-- Exit: store profile carries provider, path, scope, schema identity, retention, and host profile inputs.
-- Proof: profile admission specs and host-free dependency tests.
+| [INDEX] | [TASK]                          | [EXITS_AGAINST]                                                                                  | [PROOF]                                       |
+| :-----: | :------------------------------ | :----------------------------------------------------------------------------------------------- | :--------------------------------------------- |
+|   [1]   | Store profile axis + placement  | store-profiles#PROFILE_AXIS · #PLACEMENT_MATRIX · #CROSS_PROCESS_LAW                              | static build; profile/placement/locality specs |
+|   [2]   | Lifecycle ceremony + provisioning | store-profiles#STORE_LIFECYCLE · #PROVISIONING_ROWS                                              | transition-law specs; open-receipt facts       |
+|   [3]   | Schema rail                     | schema-rail#IDENTITY_POLICY · #MIGRATION_LAW · #GENERATED_COLUMNS · #EXTENSION_DDL · #CONVERTER_RAIL | migration-gate specs; `dotnet ef` probes     |
+|   [4]   | Data lanes                      | data-lanes#LANE_AXIS · #DOCUMENT_LANE · #SEARCH_LANES · #GEO_LANES · #ANALYTICAL_LANE             | lane-admission specs                           |
+|   [5]   | Native SQLite floor             | native-sqlite#PRAGMA_TABLE · #COMPILE_SURFACE · #MAINTENANCE_OPS · #EXTENSION_GATES               | compile-surface probe spec; bridge scenario    |
+|   [6]   | Query rail                      | query-rail#OPERATION_ALGEBRA · #PROJECTION_SHAPES · #BULK_LANE · #INTERCEPTOR_SPINE               | dispatch-totality + fault-conversion specs     |
+|   [7]   | Cache contribution + indexes    | cache-indexes#L2_CONTRIBUTION · #MODEL_RESULT_INDEX · #ARTIFACT_BLOB_INDEX · #BENCHMARK_INDEX     | paired closure gate with task [8]              |
+|   [8]   | Snapshot codecs + protocol      | snapshot-codecs#CODEC_AXIS · #COMPRESSION_HASHING · #SNAPSHOT_PROTOCOL · #RESTORE_AND_DIFF        | round-trip, header, restore specs              |
+|   [9]   | Sync + collaboration            | sync-collaboration#OPLOG_CHANGEFEED · #MERGE_LAW · #TRANSPORT_AXIS · #PRESENCE_AND_BLOB           | merge-law idempotency + adjudication specs     |
+|  [10]   | Redaction + retention           | redaction-retention#CLASSIFICATION_ENFORCEMENT · #RETENTION_SWEEPS · #EXPORT_PROOF · #AUDIT_BINDING | sweep-fold, guard, audit-binding specs       |
 
-[PERSISTENCE_SCHEMA_QUERY]:
-- Status: QUEUED
-- Exit: lifecycle/query dispatch owns migration, lock, downgrade, integrity, projection, compaction, and drain states.
-- Proof: schema lifecycle specs and operation-scoped context tests.
+TS_PROJECTION clusters on snapshot-codecs and sync-collaboration land in the TS workspace under the suite wire law, outside this task table.
 
-[PERSISTENCE_SNAPSHOT_CODEC]:
-- Status: QUEUED
-- Exit: JSON, MessagePack, file snapshot, checksum, compression, and compatibility receipts enter one snapshot rail.
-- Proof: round-trip, hash, size, and compatibility specs.
+## [3]-[IMPLEMENTATION_START_GATES]
 
-[PERSISTENCE_SUPPORT_CACHE]:
-- Status: QUEUED
-- Exit: redaction, support artifact classification, model-result cache, benchmark index, and retention states enter typed receipts.
-- Proof: redaction specs, cache key specs, and support export receipts.
+Research-row resolution probes and bridge-proofed spikes; each gate unblocks the named clusters before or during its BUILD_ORDER task.
 
-## [3]-[CATALOGUE_USE]
-
-[STORE_CATALOGUES]:
-- Status: REQUIRED
-- Action: store design consumes EF SQLite, raw SQLite, SQLitePCL, Npgsql, and EF PostgreSQL catalogues.
-- Exit: store owners name profile axes, provider admission, schema gates, migration ownership, and open receipts.
-
-[SCHEMA_CATALOGUES]:
-- Status: REQUIRED
-- Action: schema design consumes EF design and naming-convention catalogues before source shape selection.
-- Exit: schema owners name migration source, naming policy, downgrade guard, and compiled-model boundaries.
-
-[SNAPSHOT_CATALOGUES]:
-- Status: REQUIRED
-- Action: snapshot design consumes JSON, MessagePack, MessagePack analyzer, hashing, and LZ4 catalogues.
-- Exit: snapshot owners name codec profile, generated formatter seams, hash policy, compression policy, and receipts.
-
-[SUPPORT_CATALOGUES]:
-- Status: REQUIRED
-- Action: support design consumes redaction and NodaTime catalogues before support export design.
-- Exit: support owners name classification, redactor policy, retention policy, semantic time, and export receipts.
+| [INDEX] | [GATE]                                                                  | [PROOF_ROUTE]                                                              | [UNBLOCKS]                                            |
+| :-----: | :----------------------------------------------------------------------- | :--------------------------------------------------------------------------- | :----------------------------------------------------- |
+|   [1]   | Provider option spellings: pooled factory, seeding hooks, pg/sqlite builders | `assay api query` rows on store-profiles#RESEARCH                          | store-profiles#PROFILE_AXIS                            |
+|   [2]   | Two-process WAL first-open race under racing `MigrateAsync`               | `assay test run --target Rasm.Persistence.Tests`                             | store-profiles#CROSS_PROCESS_LAW                       |
+|   [3]   | Migration-lock holder evidence outside `Internal` namespaces              | `assay api query efcore RelationalDatabaseFacadeExtensions`                  | store-profiles#STORE_LIFECYCLE · schema-rail#MIGRATION_LAW |
+|   [4]   | uuidv7 double-generation precedence; snake-case × compiled-model output   | `dotnet ef migrations script` / `dbcontext optimize` spike entities          | schema-rail#IDENTITY_POLICY · #MIGRATION_LAW           |
+|   [5]   | sqlite_scanner WAL visibility; GeoPackage R*Tree window; ToJson parity    | named specs + `assay api query` rows on data-lanes#RESEARCH                  | data-lanes#ANALYTICAL_LANE · #GEO_LANES · #DOCUMENT_LANE |
+|   [6]   | Compile-flag receipt under the central bundle pin + Batteries_V2 round-trip | `assay test run --target Rasm.Persistence.Tests`                           | native-sqlite#COMPILE_SURFACE                          |
+|   [7]   | vec0 sourcing decision + live load; SQLCipher provider + external dylib   | `assay test run --target Rasm.Persistence.Tests`                             | native-sqlite#EXTENSION_GATES                          |
+|   [8]   | Hardened-runtime dlopen of unsigned extension dylibs inside the signed Rhino host | `assay bridge verify scenarios/extension-load.verify.csx`             | native-sqlite#EXTENSION_GATES                          |
+|   [9]   | EF rail spellings: execution strategy, named filters, interceptor payloads | `assay api query` rows on query-rail#RESEARCH                               | query-rail#OPERATION_ALGEBRA · #PROJECTION_SHAPES · #INTERCEPTOR_SPINE |
+|  [10]   | `MergeWithOutput` RETURNING old/new + `BulkCopyOptions` emission          | `assay api query linq2db MergeWithOutput`                                    | query-rail#BULK_LANE                                   |
+|  [11]   | Hybrid cache contract spellings; buffer-cache zero-copy route             | `assay api query microsoft.extensions.caching.hybrid IDistributedCache`      | cache-indexes#L2_CONTRIBUTION                          |
+|  [12]   | APFS rename durability; resolver coverage; GeoJSON factory precedence     | `assay test run --target Rasm.Persistence.Tests`                             | snapshot-codecs#SNAPSHOT_PROTOCOL · #CODEC_AXIS        |
+|  [13]   | PgOutput message hierarchy; live PG18 replication + conflict-stat probes  | `assay api query npgsql LogicalReplicationConnection` + live-server spec     | sync-collaboration#TRANSPORT_AXIS                      |
+|  [14]   | pgaudit category semantics under preload; `Redactor` span overloads       | live `pg_settings` capture spec + `assay api query compliance.redaction`     | redaction-retention#AUDIT_BINDING · #EXPORT_PROOF      |
+|  [15]   | Deploy assets: postgresql.conf + pg_hba fragments, role grants            | physical asset rows at the first headless/web app root                       | store-profiles#PROVISIONING_ROWS                       |

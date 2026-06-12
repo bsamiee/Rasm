@@ -1,57 +1,28 @@
 # [RASM_PERSISTENCE]
 
-`Rasm.Persistence` is the durable-state and source-profile package for app packages.
-It owns store profiles, query shapes, provider stores, schema state, migrations,
-snapshots, codecs, compression, cache metadata, benchmark indexes, support
-artifacts, redaction, retention, and AppHost drain integration as one store rail.
+`Rasm.Persistence` is the durable-state package of the app suite. It owns store
+profiles, data lanes, schema and query rails, native SQLite truth, snapshot
+codecs, cache indexes, sync and collaboration transports, and redaction and
+retention — one rail per concern, consuming AppHost ports (clock, telemetry,
+receipts, drain, classification, cache) as settled vocabulary.
 
-## [1]-[PURPOSE]
+## [1]-[SCOPE_AND_INTENT]
 
-Persistence exposes durable-state operations through typed store, query, snapshot,
-projection, and receipt algebras. SQLite/EF, PostgreSQL/provider stores, JSON
-snapshots, MessagePack snapshots, file snapshots, cache metadata, benchmark
-indexes, companion stores, and support bundles enter the same source rail.
+- Zero consumers exist; the implementation is full-capability with no holding back.
+- Nine finalized planning pages are decision-complete blueprints; implementation transcribes them and never re-designs downstream.
+- Variance is rows, cases, and policy values on budgeted axis owners; a new capability is a row, never a new surface.
+- The package is not an EF wrapper, repository family, serializer wrapper, provider service set, GH solve-path cache, or domain-model replacement.
+- Persistence is RhinoCommon-free; app roots resolve host profile, path, and dsn values before calling in.
 
-It is not an EF wrapper, repository family, serializer wrapper, provider service set, GH solve-path cache, Rhino settings wrapper, or domain model replacement.
+## [2]-[ROUTING]
 
-## [2]-[STACK_DOCTRINE]
-
-| [INDEX] | [READ_FOR]        | [OPEN]                                            |
-| :-----: | :---------------- | :------------------------------------------------ |
-|   [1]   | C# package law    | [C# stack](../../../docs/stacks/csharp/README.md) |
-|   [2]   | package API facts | [.reports/api](.reports/api/README.md)            |
-
-Implementation planning follows the C# stack atlas and finalized concept pages. Package-local documents state Persistence law and package API facts.
-
-## [3]-[STATUS]
-
-| [INDEX] | [SURFACE]         | [STATE]                                       |
-| :-----: | :---------------- | :-------------------------------------------- |
-|   [1]   | Project file      | present in `Workspace.slnx`                   |
-|   [2]   | Package manifest  | store, provider, snapshot, redaction admitted |
-|   [3]   | Project contracts | AppHost                                       |
-|   [4]   | Lockfile          | restored package closure tracked              |
-|   [5]   | Production source | absent                                        |
-|   [6]   | Package law       | documented in this folder                     |
-
-## [4]-[DOCUMENTS]
-
-| [INDEX] | [READ_FOR]              | [OPEN]                                 |
-| :-----: | :---------------------- | :------------------------------------- |
-|   [1]   | current structure       | [architecture](ARCHITECTURE.md)        |
-|   [2]   | implementation sequence | [roadmap](ROADMAP.md)                  |
-|   [3]   | package API catalogues  | [.reports/api](.reports/api/README.md) |
-
-## [5]-[CONSTRAINTS]
-
-- Persistence is RhinoCommon-free. App roots resolve host profile and path values before calling Persistence.
-- Store logic enters through one lifecycle/query dispatch rail. Repository families, ad hoc stores, and per-entity service sets are rejected.
-- SQLite/EF, PostgreSQL/provider stores, JSON snapshots, MessagePack snapshots, file snapshots, cache metadata,
-  benchmark indexes, support bundles, and companion stores are store-profile or snapshot-profile cases.
-- Public concepts are store profile, entity kind, query shape, operation state, projection state,
-  snapshot codec, compression policy, redaction class, retention policy, and receipt evidence.
-- `DbContext` is operation-scoped and disposed through the store rail.
-- Native SQLite, PRAGMA policy, schema gates, and migration locks are proven at open time before normal operations run.
-- Snapshot codecs and compression carry round-trip, size, hash, and compatibility receipts.
-- Redaction is part of support export. Classification, redactor registration, redacted output proof, and failure receipts ship with support bundles.
-- No store operation runs in GH solve hot paths.
+| [INDEX] | [READ_FOR]                                | [OPEN]                                                       |
+| :-----: | :---------------------------------------- | :------------------------------------------------------------ |
+|   [1]   | rails, seams, package ownership           | [architecture](ARCHITECTURE.md)                                |
+|   [2]   | implementation sequence + start gates     | [roadmap](ROADMAP.md)                                          |
+|   [3]   | capability atlas                          | [features](FEATURES.md)                                        |
+|   [4]   | implementation charter + finalized pages  | [.planning](.planning/README.md)                               |
+|   [5]   | package API catalogues                    | [.reports/api](.reports/api/README.md)                         |
+|   [6]   | suite planning standard                   | [suite standard](../.planning/README.md)                       |
+|   [7]   | suite ownership ledger                    | [region map](../.planning/_region-map.md)                      |
+|   [8]   | C# stack doctrine                         | [C# stack](../../../docs/stacks/csharp/README.md)              |
