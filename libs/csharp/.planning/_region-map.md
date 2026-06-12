@@ -32,15 +32,15 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 
 [COMPUTE]:
 
-- intent-and-selection.md [PROVISIONAL]: typed intent family, substrate-selection rail with ordered predicates and declared fallback rows, one total dispatch surface; wasm is a platform predicate.
-- tensor-lane.md [PROVISIONAL]: CpuTensor substrate, verified TensorPrimitives/layout families, shape algebra, geometry-to-tensor encoding rows.
-- model-lane.md [PROVISIONAL]: model identity and provenance, session capsule, EP-parameterized Onnx row (CoreML verified spellings), extension-op admission, warm-start artifact routing.
-- remote-lane.md [PROVISIONAL]: the suite proto vocabulary (ComputeService, DocumentService, ControlService, ArtifactSync frame law, grpc.health.v1, FaultDetail), transport rows with streaming-capability and keepalive and node-affinity columns, CredentialPolicy axis, discovery manifest consumption, descriptor-diff contract evolution.
-- staging-and-streams.md [PROVISIONAL]: AllocationClass rows with rent/return delegates, recyclable stream policy, zero-copy edges.
-- scheduling-and-lanes.md [PROVISIONAL]: WorkLane bounded channels, solve-path guard, backpressure, drain participation.
-- progress-and-observation.md [PROVISIONAL]: monotonic ProgressPhase rows, zero-alloc capsules, scheduler-policy-carrying subscriptions, remote projection.
-- units-boundary.md [PROVISIONAL]: QuantityFamily rows, conversion-at-admission, parse/format edges, unit evidence.
-- receipts-and-benchmarks.md [PROVISIONAL]: 13-case receipt union, fold projections, NodaTime-protobuf stamps, fingerprint-gated benchmark claims, artifact blob routing.
+- intent-and-selection.md [FINAL]: typed intent family, substrate-selection rail with ordered predicates and declared fallback rows, one total dispatch surface; wasm is a platform predicate.
+- tensor-lane.md [FINAL]: CpuTensor substrate, verified TensorPrimitives/layout families, shape algebra, geometry-to-tensor encoding rows.
+- model-lane.md [FINAL]: model identity and provenance, session capsule, EP-parameterized Onnx row (CoreML verified spellings), extension-op admission, warm-start artifact routing.
+- remote-lane.md [FINAL]: the suite proto vocabulary (ComputeService, DocumentService, ControlService, ArtifactSync frame law, grpc.health.v1, FaultDetail), transport rows with streaming-capability and keepalive and node-affinity columns, CredentialPolicy axis, discovery manifest consumption, descriptor-diff contract evolution.
+- staging-and-streams.md [FINAL]: AllocationClass rows with rent/return delegates, recyclable stream policy, zero-copy edges.
+- scheduling-and-lanes.md [FINAL]: WorkLane bounded channels, solve-path guard, backpressure, drain participation.
+- progress-and-observation.md [FINAL]: monotonic ProgressPhase rows, zero-alloc capsules, scheduler-policy-carrying subscriptions, remote projection.
+- units-boundary.md [FINAL]: QuantityFamily rows, conversion-at-admission, parse/format edges, unit evidence.
+- receipts-and-benchmarks.md [FINAL]: 13-case receipt union, fold projections, NodaTime-protobuf stamps, fingerprint-gated benchmark claims, artifact blob routing.
 
 [APPUI]:
 
@@ -84,6 +84,15 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 - PS-07 L2_CONTRIBUTION|MODEL_RESULT_INDEX|ARTIFACT_BLOB_INDEX|BENCHMARK_INDEX: CacheContribution, ModelResultKey, CacheIndexFact, IndexSurface, ArtifactIndexRow, BenchmarkRow — spotlight: L2 cache contribution, result/artifact/benchmark indexes.
 - PS-08 OPLOG_CHANGEFEED|MERGE_LAW|TRANSPORT_AXIS|PRESENCE_AND_BLOB|TS_PROJECTION: SyncKeyPolicy, SyncOpKind, OpLogEntry, SyncCursor, OpLog, ConflictReceipt, ConflictOutcome, SyncApplyReceipt, SyncSession, SyncMerge, SyncTopology, SyncDirection, SyncTransport, SyncPump, PresenceRow, Presence — spotlight: HLC op-log changefeed, merge law, transport axis with M1-M5 fields, presence.
 - PS-09 CLASSIFICATION_ENFORCEMENT|RETENTION_SWEEPS|EXPORT_PROOF|AUDIT_BINDING: ArtifactClassRow, ArtifactClasses, ClassificationGuard, RetentionKeyPolicy, RetentionPolicy, ArtifactFacts, SweepReceipt, RetentionSweep, ExportProof, StoreEvidence, AuditBinding — spotlight: classification enforcement consuming the AppHost taxonomy, receipted sweeps, audit binding.
+- CP-01 INTENT_FAMILY|SUBSTRATE_AXIS|DISPATCH_SPINE: ComputeIntent (+ nested Spec), AdmittedIntent, IntentAdmission, ComputeKeyPolicy, BenchmarkRank, SelectionContext, SubstrateProbes, Substrate, ComputeFault, SelectionHop, SelectionReceipt, SubstrateSelection, DispatchTable — spotlight: typed intent spine composing the package's axis vocabularies; total dispatch.
+- CP-02 TENSOR_VOCABULARY|OPERATION_FAMILIES|LAYOUT_ALGEBRA|GEOMETRY_ENCODING|EQUIVALENCE_INTEROP: TensorKeyPolicy, QuantizationPolicy, TensorDtype, TensorVocabulary, ToleranceClass, TensorOpKind, TensorOpFamily, kernel delegate family (Unary/Binary/Ternary/Shift/Convert/Fold/PairFold/Index), TensorKernels<T>, IntegerKernels<T>, ConvertKernels<TFrom,TTo>, TensorOps, LayoutForm, TensorLayout, EncodingChannel, GeometryEncoding, EncodedTensor, EquivalencePolicy, EquivalenceProof, EquivalenceLaw — spotlight: verified TensorPrimitives families, geometry-to-tensor encoding.
+- CP-03 MODEL_IDENTITY|SESSION_CAPSULE|EP_AXIS|EXTENSION_OPS|INFERENCE_MODES|RESULT_CACHE: ModelSource, ModelIdentity (+ Slot), SessionPolicy, ModelSessions, ModelKeyPolicy, ExecutionProvider, CustomOps, RunOps, CachePolicy, CacheOps — spotlight: session capsule with capture-then-dispose eviction, EP-parameterized Onnx row.
+- CP-04 PROTO_VOCABULARY|CONTRACT_EVOLUTION|FAULT_PROJECTION|TRANSPORT_AXIS|CALL_POLICY|ARTIFACT_FRAMES|TS_PROJECTION: WireServices, ContractDrift, ParseGuard, ContractGuard, WireFault, FaultDetail (proto), WireKeyPolicy, StreamShape, NodeSelection, ComputeEndpoint, RemoteTransport, WireChannels, CredentialPolicy, CallSpine, FrameEdge, ArtifactFrame (proto) — spotlight: the suite wire vocabulary (five services), descriptor-diff evolution, frame law.
+- CP-05 ALLOCATION_AXIS|PLANE_VIEWS|STREAM_POOL: StagingKeyPolicy, AllocationClass, AllocationEvidence, StreamPoolPolicy, StreamPool — spotlight: allocation classes, eleven-event pooled stream evidence.
+- CP-06 LANE_AXIS|SOLVE_GUARD|CPU_BUDGET|DRAIN_CANCEL: WorkLane, LaneHandle, WorkItem, LaneRuntime, CpuBudget, LaneDrain — spotlight: bounded channel lanes, solve-path guard, one linked cancellation chain.
+- CP-07 PHASE_FAMILY|PROGRESS_CELL|OBSERVATION_SEAMS|TS_PROJECTION: ProgressKeyPolicy, ProgressPhase, ProgressMark, SubscriptionPolicy, ProgressCell, ProgressSeams — spotlight: monotonic progress with mechanical no-regress gate.
+- CP-08 QUANTITY_TABLE|DIMENSIONAL_LAW|PARSE_FORMAT: QuantityKeyPolicy, QuantityFamily, UnitPolicy, UnitAlgebra, UnitEvidence — spotlight: conversion-at-admission, three-arity admit.
+- CP-09 RECEIPT_UNION|FOLD_PROJECTIONS|WIRE_STAMPS|BENCHMARK_CLAIMS|TS_PROJECTION: ComputeReceipt, ComputeWireContext, ReceiptSurface, ReceiptFolds, WireStamps, HostFingerprint, BenchmarkClaim — spotlight: 13-case receipt union, NodaTime-protobuf stamps, fingerprint-gated claims.
 
 - AH-04a SOURCE_AXIS: ConfigSource [SmartEnum<string>], ConfigSourceKeyPolicy, ReloadClass [SmartEnum<string>], ConfigLayer — spotlight: the rank+reload-class source axis with per-source factory delegate and precedence fold.
 - AH-04b TYPED_BINDING: PolicyBinding, ConfigError — spotlight: source-generated AOT-safe bind into immutable policy records with fail-closed unknown-key admission folding into Validation<ConfigError,T>.
@@ -315,6 +324,95 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 - StoreEvidence — Persistence/redaction-retention#EXPORT_PROOF [static surface]
 - AuditBinding — Persistence/redaction-retention#AUDIT_BINDING [record]
 
+- ReceiptEnvelopeWire — AppHost/runtime-ports#TS_PROJECTION [ts interface]
+- HlcStampWire — AppHost/runtime-ports#TS_PROJECTION [ts interface]
+- RasmPackage — AppHost/runtime-ports#TS_PROJECTION [ts literal union]
+- ComputeIntent — Compute/intent-and-selection#INTENT_FAMILY [Union + nested Spec]
+- AdmittedIntent — Compute/intent-and-selection#INTENT_FAMILY [record]
+- IntentAdmission — Compute/intent-and-selection#INTENT_FAMILY [static surface]
+- ComputeKeyPolicy — Compute/intent-and-selection#SUBSTRATE_AXIS [comparer accessor]
+- BenchmarkRank — Compute/intent-and-selection#SUBSTRATE_AXIS [record]
+- SelectionContext — Compute/intent-and-selection#SUBSTRATE_AXIS [record]
+- SubstrateProbes — Compute/intent-and-selection#SUBSTRATE_AXIS [static surface]
+- Substrate — Compute/intent-and-selection#SUBSTRATE_AXIS [SmartEnum<string>]
+- ComputeFault — Compute/intent-and-selection#DISPATCH_SPINE [Union fault]
+- SelectionHop — Compute/intent-and-selection#DISPATCH_SPINE [readonly record struct]
+- SelectionReceipt — Compute/intent-and-selection#DISPATCH_SPINE [record]
+- SubstrateSelection — Compute/intent-and-selection#DISPATCH_SPINE [static surface]
+- DispatchTable — Compute/intent-and-selection#DISPATCH_SPINE [record]
+- TensorKeyPolicy — Compute/tensor-lane#TENSOR_VOCABULARY [comparer accessor]
+- QuantizationPolicy — Compute/tensor-lane#TENSOR_VOCABULARY [record]
+- TensorDtype — Compute/tensor-lane#TENSOR_VOCABULARY [SmartEnum<string>]
+- TensorVocabulary — Compute/tensor-lane#TENSOR_VOCABULARY [static surface]
+- ToleranceClass — Compute/tensor-lane#TENSOR_VOCABULARY [SmartEnum<string>]
+- TensorOpKind — Compute/tensor-lane#OPERATION_FAMILIES [SmartEnum<string>]
+- TensorOpFamily — Compute/tensor-lane#OPERATION_FAMILIES [frozen table]
+- TensorKernels<T> — Compute/tensor-lane#OPERATION_FAMILIES [kernel registry + delegate family]
+- TensorOps — Compute/tensor-lane#OPERATION_FAMILIES [static surface]
+- LayoutForm — Compute/tensor-lane#LAYOUT_ALGEBRA [SmartEnum<string>]
+- TensorLayout — Compute/tensor-lane#LAYOUT_ALGEBRA [static surface]
+- EncodingChannel — Compute/tensor-lane#GEOMETRY_ENCODING [SmartEnum<string>]
+- GeometryEncoding — Compute/tensor-lane#GEOMETRY_ENCODING [frozen table]
+- EncodedTensor — Compute/tensor-lane#GEOMETRY_ENCODING [record]
+- EquivalencePolicy — Compute/tensor-lane#EQUIVALENCE_INTEROP [record]
+- EquivalenceProof — Compute/tensor-lane#EQUIVALENCE_INTEROP [record]
+- EquivalenceLaw — Compute/tensor-lane#EQUIVALENCE_INTEROP [static surface]
+- ModelSource — Compute/model-lane#MODEL_IDENTITY [Union]
+- ModelIdentity — Compute/model-lane#MODEL_IDENTITY [record + nested Slot]
+- SessionPolicy — Compute/model-lane#SESSION_CAPSULE [record]
+- ModelSessions — Compute/model-lane#SESSION_CAPSULE [boundary capsule]
+- ModelKeyPolicy — Compute/model-lane#EP_AXIS [comparer accessor]
+- ExecutionProvider — Compute/model-lane#EP_AXIS [SmartEnum<string>]
+- CustomOps — Compute/model-lane#EXTENSION_OPS [static surface]
+- RunOps — Compute/model-lane#INFERENCE_MODES [extension fold]
+- CachePolicy — Compute/model-lane#RESULT_CACHE [SmartEnum<string>]
+- CacheOps — Compute/model-lane#RESULT_CACHE [extension fold]
+- WireServices — Compute/remote-lane#PROTO_VOCABULARY [record capsule]
+- ContractDrift — Compute/remote-lane#CONTRACT_EVOLUTION [Union]
+- ParseGuard — Compute/remote-lane#CONTRACT_EVOLUTION [record]
+- ContractGuard — Compute/remote-lane#CONTRACT_EVOLUTION [static surface]
+- WireFault — Compute/remote-lane#FAULT_PROJECTION [static surface]
+- FaultDetail — Compute/remote-lane#FAULT_PROJECTION [proto message]
+- WireKeyPolicy — Compute/remote-lane#TRANSPORT_AXIS [comparer accessor]
+- StreamShape — Compute/remote-lane#TRANSPORT_AXIS [flags enum]
+- NodeSelection — Compute/remote-lane#TRANSPORT_AXIS [enum]
+- ComputeEndpoint — Compute/remote-lane#TRANSPORT_AXIS [record]
+- RemoteTransport — Compute/remote-lane#TRANSPORT_AXIS [SmartEnum<string>]
+- WireChannels — Compute/remote-lane#TRANSPORT_AXIS [boundary capsule]
+- CredentialPolicy — Compute/remote-lane#CALL_POLICY [SmartEnum<string>]
+- CallSpine — Compute/remote-lane#CALL_POLICY [interceptor capsule]
+- FrameEdge — Compute/remote-lane#ARTIFACT_FRAMES [static surface]
+- ArtifactFrame — Compute/remote-lane#ARTIFACT_FRAMES [proto message]
+- StagingKeyPolicy — Compute/staging-and-streams#ALLOCATION_AXIS [comparer accessor]
+- AllocationClass — Compute/staging-and-streams#ALLOCATION_AXIS [SmartEnum<string>]
+- AllocationEvidence — Compute/staging-and-streams#ALLOCATION_AXIS [record]
+- StreamPoolPolicy — Compute/staging-and-streams#STREAM_POOL [record]
+- StreamPool — Compute/staging-and-streams#STREAM_POOL [boundary capsule]
+- WorkLane — Compute/scheduling-and-lanes#LANE_AXIS [SmartEnum<string>]
+- LaneHandle — Compute/scheduling-and-lanes#LANE_AXIS [record]
+- WorkItem — Compute/scheduling-and-lanes#LANE_AXIS [record]
+- LaneRuntime — Compute/scheduling-and-lanes#LANE_AXIS [boundary capsule]
+- CpuBudget — Compute/scheduling-and-lanes#CPU_BUDGET [record]
+- LaneDrain — Compute/scheduling-and-lanes#DRAIN_CANCEL [static surface]
+- ProgressKeyPolicy — Compute/progress-and-observation#PHASE_FAMILY [comparer accessor]
+- ProgressPhase — Compute/progress-and-observation#PHASE_FAMILY [SmartEnum<string> monotonic rank]
+- ProgressMark — Compute/progress-and-observation#PROGRESS_CELL [readonly record struct]
+- SubscriptionPolicy — Compute/progress-and-observation#PROGRESS_CELL [record]
+- ProgressCell — Compute/progress-and-observation#PROGRESS_CELL [capsule]
+- ProgressSeams — Compute/progress-and-observation#OBSERVATION_SEAMS [static surface]
+- QuantityKeyPolicy — Compute/units-boundary#QUANTITY_TABLE [comparer accessor]
+- QuantityFamily — Compute/units-boundary#QUANTITY_TABLE [SmartEnum<string> + frozen table]
+- UnitPolicy — Compute/units-boundary#DIMENSIONAL_LAW [record]
+- UnitAlgebra — Compute/units-boundary#DIMENSIONAL_LAW [static surface]
+- UnitEvidence — Compute/units-boundary#PARSE_FORMAT [record]
+- ComputeReceipt — Compute/receipts-and-benchmarks#RECEIPT_UNION [Union 13 cases]
+- ComputeWireContext — Compute/receipts-and-benchmarks#RECEIPT_UNION [JsonSerializerContext partial]
+- ReceiptSurface — Compute/receipts-and-benchmarks#FOLD_PROJECTIONS [static surface]
+- ReceiptFolds — Compute/receipts-and-benchmarks#FOLD_PROJECTIONS [extension fold]
+- WireStamps — Compute/receipts-and-benchmarks#WIRE_STAMPS [static surface]
+- HostFingerprint — Compute/receipts-and-benchmarks#BENCHMARK_CLAIMS [record]
+- BenchmarkClaim — Compute/receipts-and-benchmarks#BENCHMARK_CLAIMS [record]
+
 ## [4]-[SEAM_SPLITS]
 
 - Config reload propagation: mechanics at AppHost/configuration-and-options#POLICY_VALUES (reload-class transition + ReloadReceipt); consequence at Persistence user-settings write and the op-log HLC tag-invalidation cursor (cross-process peer observation); frozen reload-class requires process restart.
@@ -338,3 +436,7 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 - Fault-code projection: query-rail StoreFault.From projects schema-rail SchemaFault 530x codes into StoreFault.NewerSchema 7005 — single projection site, verified at the final pass.
 - Compiled-model fingerprint slot: store-profiles StoreOpenReceipt carries the fingerprint as bare ulong (no forward reference); schema-rail SchemaFingerprint is the typed owner; BUILD_ORDER places vocabulary owners first.
 - Drain ranks: Persistence store rows rank 310-350 inside the AppHost Stores band (300s); Compute and AppUi registrations rank inside their own bands, never copying these literals.
+- Model-result cache: mechanics at Persistence/cache-indexes#MODEL_RESULT_INDEX (IndexSurface HybridCache extension); consequence at Compute/model-lane#RESULT_CACHE (cache.Result read path) — never a direct AppHost CacheSurface read.
+- C19 package-cumulative ruling: within a package, fences resolve against the package's full FINAL symbol set (the intent/dispatch spine composes its axis vocabularies by design); strict earlier-position order applies across packages only.
+- Key-policy posture: one comparer accessor per axis owner, package-local; cross-package accessor reuse is a defect (scheduling-and-lanes WorkLane accessor routes to ComputeKeyPolicy at the final pass, not AppHost LaneKeyPolicy).
+- Grpc.Core.Api C18 route: transitive package without an assay key — proofs route through the spec-compile rail until the assay source map registers it (charter PROOF_GATES row).
