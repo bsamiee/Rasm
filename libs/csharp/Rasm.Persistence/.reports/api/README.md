@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_CATALOGUE]
 
-`Rasm.Persistence` package API catalogues state external package facts for store-providers, schema tooling, snapshots, interchange, redaction, time, hashing, and telemetry.
+`Rasm.Persistence` package API catalogues state external package facts for store-providers, spatial values, schema tooling, snapshots, interchange, redaction, time, hashing, and telemetry.
 
 ## [1]-[PACKAGE_PAGES]
 
@@ -19,6 +19,11 @@
   - [api-pgvector-ef.md](api-pgvector-ef.md)
   - [api-linq2db-ef.md](api-linq2db-ef.md)
   - [api-duckdb.md](api-duckdb.md)
+
+[SPATIAL_VALUES]:
+- rail: spatial-values
+- pages:
+  - [api-nts-io.md](api-nts-io.md)
 
 [SNAPSHOTS]:
 - rail: snapshots

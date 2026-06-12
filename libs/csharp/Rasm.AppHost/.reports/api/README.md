@@ -10,6 +10,7 @@
   - [api-hybrid-cache.md](api-hybrid-cache.md)
   - [api-logging.md](api-logging.md)
   - [api-nodatime.md](api-nodatime.md)
+  - [api-cronos.md](api-cronos.md)
   - [api-dataflow.md](api-dataflow.md)
   - [api-objectpool.md](api-objectpool.md)
   - [api-thinktecture-json.md](api-thinktecture-json.md)
