@@ -1,0 +1,270 @@
+# [APPUI_TABLES_HIERARCHY]
+
+Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColumnRow` metadata family drives column generation, filter admission, group descriptors, edit admission, and export; the `TableProjection` union folds flat, tree, grouped, paged, and windowed shapes into one virtualized `TreeRow` stream on the free `DataGrid`; the `TableViewState` snapshot keeps collection-view state explicit; and the `TableCommit` row bridges grid edits onto the CommandIntent rail, `StoreOp.Upsert` persistence, and `DocumentTransaction` host routing. Live-data change-set streams, screen-state snapshot rows, density and typography tokens, the AppHost `DataClassification` taxonomy, and the Persistence Sep lane arrive as settled vocabulary.
+
+## [1]-[INDEX]
+
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                |
+| :-----: | :------------- | :-------------------------------------------------------------------- |
+|   [1]   | GRID_SUBSTRATE | One column metadata family drives columns, filter, masking, export    |
+|   [2]   | VIEW_STATE     | Serializable collection-view snapshot applied in one DeferRefresh     |
+|   [3]   | TREE_FLATTEN   | Five projection cases fold to one flat virtualized TreeRow stream     |
+|   [4]   | GRID_COMMIT    | Edit commits ride CommandIntent rails; exports ride one spec record   |
+
+## [2]-[GRID_SUBSTRATE]
+
+- Owner: `TableColumnRow<TRow>` — the one row-model metadata record; `TableSurface` attaches the column and filter folds as one extension block; `TableCellKind` closes the cell vocabulary.
+- Cases: `Text`, `CheckBox`, `Template`.
+- Entry: `DataGridColumn Column()`.
+- Auto: one row family derives columns, group descriptors, quick-filter admission, edit admission, and export admission — five concerns, one owner; `AutoGenerateColumns` stays false and `Columns` is populated by the `Column()` fold.
+- Packages: Avalonia.Controls.DataGrid; Avalonia; LanguageExt.Core.
+- Growth: one column row per field; a sizing, visibility, or classification change is one policy value; zero new surface.
+- Boundary: a classified row rides the AppHost `DataClassification` consequence — its cells render the redacted presentation template from theme tokens and the column never enters filter or export admission; row height and cell spacing arrive as density-token values, and `Numeric` columns consume the tabular-figure typography role; per-column control subclasses are the deleted form.
+
+```csharp signature
+public enum TableCellKind { Text, CheckBox, Template }
+
+public sealed record TableColumnRow<TRow>(
+    string Key,
+    string Header,
+    TableCellKind Kind,
+    BindingBase Cell,
+    Func<TRow, string> Export,
+    DataGridLength Width,
+    bool Sortable,
+    bool Editable,
+    bool Numeric,
+    bool Visible,
+    Option<DataClassification> Classification = default,
+    Option<DataTemplate> Template = default);
+
+public static class TableSurface {
+    extension<TRow>(TableColumnRow<TRow> row) {
+        public DataGridColumn Column() => (row.Kind, row.Template) switch {
+            (TableCellKind.Template, { IsSome: true, Case: DataTemplate template }) =>
+                new DataGridTemplateColumn { Header = row.Header, Width = row.Width, CellTemplate = template, IsReadOnly = !row.Editable },
+            (TableCellKind.CheckBox, _) =>
+                new DataGridCheckBoxColumn { Header = row.Header, Width = row.Width, Binding = row.Cell, IsReadOnly = !row.Editable },
+            _ =>
+                new DataGridTextColumn { Header = row.Header, Width = row.Width, Binding = row.Cell, IsReadOnly = !row.Editable },
+        };
+    }
+
+    extension<TRow>(Seq<TableColumnRow<TRow>> rows) {
+        public Func<object, bool> Matches(string text) =>
+            item => item is TreeRow<TRow> tree && rows.Exists(column =>
+                column.Visible && column.Classification.IsNone && column.Export(tree.Item).Contains(text, StringComparison.OrdinalIgnoreCase));
+    }
+}
+```
+
+| [INDEX] | [LAW]           | [RULING]                                                                                                                                  |
+| :-----: | :-------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | virtualization  | the free `DataGrid` virtualizes rows over the one flat bound collection; a fixed density-token row height keeps the scroll math exact      |
+|   [2]   | materialization | `LoadingRow` stamps row-state pseudo-classes from theme tokens; `LoadingRowDetails` materializes the single per-screen details template on demand |
+|   [3]   | selection       | selection mode is a per-screen policy value; `SelectedItems` and the current row project into the screen-state snapshot                    |
+|   [4]   | quick filter    | `Matches` is an ordinal case-insensitive scan over visible unclassified column projections; classified columns never match                  |
+|   [5]   | footers         | aggregate footer values arrive from the live-data aggregation rows (`Count`, `Sum`, `Avg`); the grid renders totals, never computes them    |
+|   [6]   | column posture  | user reorder, resize, and sort-toggle flags are per-screen policy values; their member spellings ride the research table                    |
+
+## [3]-[VIEW_STATE]
+
+- Owner: `TableViewState` — the serializable collection-view snapshot; `ViewStateSurface` applies it against `DataGridCollectionView`, the only collection-view state holder.
+- Entry: `Unit Apply<TRow>(TableViewState state, Seq<TableColumnRow<TRow>> columns, Option<object> current = default)`.
+- Auto: `DeferRefresh` collapses every multi-descriptor write into one refresh; apply-on-activate and capture-on-deactivate ride the screen-state snapshot rows.
+- Packages: Avalonia.Controls.DataGrid; LanguageExt.Core; BCL inbox.
+- Growth: one snapshot field per view-state axis; a page-size or group change is one policy value; zero new surface.
+- Boundary: boundary capsule (C11 carve-out) — `DataGridCollectionView` is package-owned mutable state, so `Apply` carries language-owned statement forms writing filter, sort, group, page, and current-row descriptors inside one `DeferRefresh` scope; the snapshot is built from screen control state and never read back from the view; a second collection-view state holder is the deleted form.
+
+```csharp signature
+public sealed record TableViewState(
+    Option<string> Filter,
+    Seq<(string ColumnKey, bool Descending)> Sort,
+    Seq<string> Groups,
+    Option<int> PageSize,
+    Option<string> CurrentKey,
+    Seq<string> Expanded);
+
+public static class ViewStateSurface {
+    extension(DataGridCollectionView view) {
+        public Unit Apply<TRow>(TableViewState state, Seq<TableColumnRow<TRow>> columns, Option<object> current = default) {
+            using IDisposable batch = view.DeferRefresh();
+            view.Filter = state.Filter is { IsSome: true, Case: string text } ? columns.Matches(text) : null;
+            view.SortDescriptions.Clear();
+            state.Sort.Iter(sort => view.SortDescriptions.Add(DataGridSortDescription.FromPath(sort.ColumnKey, sort.Descending ? ListSortDirection.Descending : ListSortDirection.Ascending)));
+            view.GroupDescriptions.Clear();
+            state.Groups.Iter(group => view.GroupDescriptions.Add(new DataGridPathGroupDescription(group)));
+            view.PageSize = state.PageSize.IfNone(0);
+            current.Iter(item => view.MoveCurrentTo(item));
+            return unit;
+        }
+    }
+}
+```
+
+| [INDEX] | [LAW]        | [RULING]                                                                                                                                   |
+| :-----: | :----------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | batching     | every multi-descriptor write lands inside one `DeferRefresh` scope; per-descriptor refresh churn is the deleted form                       |
+|   [2]   | paging       | `PageSize` value `0` reads as unpaged; a paged projection writes its window through the snapshot field, never a second paging surface      |
+|   [3]   | transactions | `AddNew` and `EditItem` fire only as CommandIntent executions; page and current transitions surface through `PageChangingEventArgs` and `DataGridCurrentChangingEventArgs` into screen state |
+|   [4]   | restore      | `CurrentKey` resolves against the keyed live-data cache on the screen; `Apply` receives the resolved item as the `current` value           |
+
+## [4]-[TREE_FLATTEN]
+
+- Owner: `TableProjection<TRow, TKey>` `[Union]` with `TreeRow<TRow>` as the flat indent row and `ExpansionState<TKey>` as the expansion cell; `ProjectionFold` dispatches the union to one flat row stream.
+- Cases: `Flat`, `TreeFlattened(Func<TRow, TKey> ParentKey, Option<IComparer<TRow>> Order, Option<Func<TKey, IObservable<IChangeSet<TRow, TKey>>>> LoadChildren)`, `Grouped(string GroupColumnKey)`, `Paged(IObservable<PageRequest> Pages)`, `Virtualized(IObservable<VirtualRequest> Window)`.
+- Entry: `IObservable<IChangeSet<TreeRow<TRow>, TKey>> Project(TableProjection<TRow, TKey> projection, ExpansionState<TKey> expansion, Func<TRow, TKey> key)`.
+- Auto: an expansion toggle re-emits the flattened stream through the change-set diff; expansion keys persist on the `Expanded` snapshot field through the row key's string projection, and restore mints the expansion cell before the first projection subscription.
+- Packages: DynamicData; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core.
+- Growth: one projection case; an ordering or depth change is one policy value; zero new surface — the closed five-case family is the axis.
+- Boundary: `TreeDataGrid` stays rejected — every hierarchy renders as `TreeRow` indent rows on the flat virtualized `DataGrid`, which is the absorbing fold; grouped virtualization stability rides the live-data immutable-group projection-policy row; the expansion cell disposes inside the activation scope with its `DisposalReceipt`.
+
+```csharp signature
+public readonly record struct TreeRow<TRow>(TRow Item, int Level, bool HasChildren, bool IsExpanded) {
+    public static TreeRow<TRow> Leaf(TRow item) => new(item, Level: 0, HasChildren: false, IsExpanded: false);
+}
+
+public sealed record ExpansionState<TKey>(BehaviorSubject<Set<TKey>> Cell) where TKey : notnull {
+    public static ExpansionState<TKey> Of(Seq<TKey> expanded) => new(new BehaviorSubject<Set<TKey>>(toSet(expanded)));
+
+    public bool IsExpanded(TKey key) => Cell.Value.Contains(key);
+
+    public Unit Toggle(TKey key) => fun(() => Cell.OnNext(Cell.Value.Contains(key) ? Cell.Value.Remove(key) : Cell.Value.Add(key)))();
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TableProjection<TRow, TKey> where TRow : notnull where TKey : notnull {
+    private TableProjection() { }
+
+    public sealed record Flat : TableProjection<TRow, TKey>;
+
+    public sealed record TreeFlattened(Func<TRow, TKey> ParentKey, Option<IComparer<TRow>> Order = default, Option<Func<TKey, IObservable<IChangeSet<TRow, TKey>>>> LoadChildren = default) : TableProjection<TRow, TKey>;
+
+    public sealed record Grouped(string GroupColumnKey) : TableProjection<TRow, TKey>;
+
+    public sealed record Paged(IObservable<PageRequest> Pages) : TableProjection<TRow, TKey>;
+
+    public sealed record Virtualized(IObservable<VirtualRequest> Window) : TableProjection<TRow, TKey>;
+}
+
+public static class ProjectionFold {
+    extension<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> source) where TRow : notnull where TKey : notnull {
+        public IObservable<IChangeSet<TreeRow<TRow>, TKey>> Project(TableProjection<TRow, TKey> projection, ExpansionState<TKey> expansion, Func<TRow, TKey> key) =>
+            projection.Switch(
+                state: (source, expansion, key),
+                flat: static (s, _) => s.source.Transform(TreeRow<TRow>.Leaf),
+                treeFlattened: static (s, tree) => s.expansion.Cell
+                    .Select(expanded => s.source
+                        .TransformToTree(tree.ParentKey)
+                        .TransformMany(node => node.Rows(expanded, s.key, tree.Order), row => s.key(row.Item)))
+                    .Switch(),
+                grouped: static (s, _) => s.source.Transform(TreeRow<TRow>.Leaf),
+                paged: static (s, paged) => s.source.Page(paged.Pages).Transform(TreeRow<TRow>.Leaf),
+                virtualized: static (s, virtualized) => s.source.Virtualise(virtualized.Window).Transform(TreeRow<TRow>.Leaf));
+    }
+
+    extension<TRow, TKey>(Node<TRow, TKey> node) where TRow : notnull where TKey : notnull {
+        public Seq<TreeRow<TRow>> Rows(Set<TKey> expanded, Func<TRow, TKey> key, Option<IComparer<TRow>> order) =>
+            new TreeRow<TRow>(node.Item, node.Depth, node.Children.Count > 0, expanded.Contains(key(node.Item)))
+                .Cons(expanded.Contains(key(node.Item))
+                    ? (order is { IsSome: true, Case: IComparer<TRow> comparer }
+                        ? node.Children.Items.OrderBy(static child => child.Item, comparer)
+                        : node.Children.Items)
+                        .ToSeq()
+                        .Bind(child => child.Rows(expanded, key, order))
+                    : Seq<TreeRow<TRow>>());
+    }
+}
+```
+
+| [INDEX] | [LAW]          | [RULING]                                                                                                                                  |
+| :-----: | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | one stream     | every case lands as `IChangeSet<TreeRow<TRow>, TKey>`; the grid binds one flat collection, so row virtualization covers every projection   |
+|   [2]   | tree order     | view sort descriptors stay empty on a tree projection; sibling order is the case's `Order` comparer — sorting flat indent rows is the deleted form |
+|   [3]   | lazy children  | `LoadChildren` materializes a child stream on first expansion; loaded children merge into the upstream keyed cache, never a side collection |
+|   [4]   | grouped        | a grouped projection folds identity at the change-set altitude; its `GroupColumnKey` lands on the snapshot's group field so the collection view owns group materialization |
+
+## [5]-[GRID_COMMIT]
+
+- Owner: `TableCommit<TRow>` — the one edit-commit row; `TableExportSpec` with the `ExportDestination` union owns the export path; `CommitSurface` bridges grid edit events to the intent rail and folds rows to delimited text.
+- Cases: `Clipboard`, `File`, `BlobLane`.
+- Entry: `IDisposable Attach(DataGrid grid, Action<string, TRow> invoke)`.
+- Auto: every commit and export executes as a CommandIntent, so availability gating, re-entrancy suppression, and `CommandReceipt` emission arrive with zero local receipt code.
+- Receipt: the CommandReceipt rail carries intent key, surface, elapsed, outcome, and `CorrelationId`; host-routed commits project the `DocumentTransaction` receipt into the same rail.
+- Packages: Avalonia.Controls.DataGrid; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core.
+- Growth: one destination case or one export policy value; a new commit target is one `Persist` delegate binding; zero new surface.
+- Boundary: store rows bind `Persist` to `StoreOp.Upsert` through the Persistence port; host-object rows bind the same column to the Rasm.Rhino `DocumentTransaction` commit; `File` and `BlobLane` destinations hand the spec to the Persistence Sep lane with the file path arriving as a value from the storage-pick DialogIntent row; the `Clipboard` case hands its text to the input rail's typed clipboard row — a bespoke CSV writer is the deleted form.
+
+```csharp signature
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ExportDestination {
+    private ExportDestination() { }
+
+    public sealed record Clipboard : ExportDestination;
+
+    public sealed record File(string Path) : ExportDestination;
+
+    public sealed record BlobLane(string Key) : ExportDestination;
+}
+
+public sealed record TableExportSpec(Seq<string> ColumnKeys, bool HeaderRow, char Delimiter, ExportDestination Destination);
+
+public sealed record TableCommit<TRow>(
+    string IntentKey,
+    Func<TRow, Fin<TRow>> Gate,
+    Func<TRow, CancellationToken, ValueTask<Fin<Unit>>> Persist);
+
+public static class CommitSurface {
+    extension<TRow>(TableCommit<TRow> commit) {
+        public Func<TRow, CancellationToken, ValueTask<Fin<Unit>>> Execution =>
+            (row, token) => commit.Gate(row).Match(
+                Succ: valid => commit.Persist(valid, token),
+                Fail: static error => ValueTask.FromResult<Fin<Unit>>(error));
+
+        public IDisposable Attach(DataGrid grid, Action<string, TRow> invoke) => Observable
+            .FromEventPattern<EventHandler<DataGridRowEditEndingEventArgs>, DataGridRowEditEndingEventArgs>(handler => grid.RowEditEnding += handler, handler => grid.RowEditEnding -= handler)
+            .Where(static pattern => pattern.EventArgs.EditAction is DataGridEditAction.Commit)
+            .Select(static pattern => pattern.EventArgs.Row.DataContext)
+            .Where(static context => context is TreeRow<TRow>)
+            .Select(static context => ((TreeRow<TRow>)context!).Item)
+            .Subscribe(item => invoke(commit.IntentKey, item));
+    }
+
+    extension<TRow>(Seq<TableColumnRow<TRow>> rows) {
+        public Seq<TableColumnRow<TRow>> Admitted(TableExportSpec spec) =>
+            rows.Filter(row => spec.ColumnKeys.Contains(row.Key) && row.Classification.IsNone);
+
+        public string Delimited(TableExportSpec spec, Seq<TRow> items) =>
+            string.Join(Environment.NewLine,
+                (spec.HeaderRow ? string.Join(spec.Delimiter, rows.Admitted(spec).Map(static row => row.Header)).Cons(Seq<string>()) : Seq<string>())
+                + items.Map(item => string.Join(spec.Delimiter, rows.Admitted(spec).Map(row => row.Export(item)))));
+    }
+}
+```
+
+```mermaid
+flowchart LR
+    DataGrid -->|RowEditEnding| Attach
+    Attach -->|IntentKey| Execution
+    Execution --> Gate
+    Gate --> Persist
+    Persist --> Fin
+```
+
+| [INDEX] | [LAW]             | [RULING]                                                                                                                                |
+| :-----: | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | commit rail       | `BeginEdit`, `CommitEdit`, and `CancelEdit` drive the programmatic edit lifecycle; only a committing row passes the `EditAction` filter into the gate |
+|   [2]   | gate altitude     | `Gate` receives the screen validation seam's folded `Fin` rail; a failing gate aborts before `Persist` and surfaces on the screen fault state |
+|   [3]   | persistence split | the `Persist` column is the host-agnostic parameter: store rows, host-object rows, and fake-deterministic rows differ only in the bound delegate |
+|   [4]   | clipboard         | the `Clipboard` destination fixes `Delimiter` at tab with `HeaderRow` true — the rows-as-TSV case                                        |
+|   [5]   | export admission  | classified columns never pass `Admitted`; the delimited projection is the single text-shaping fold for clipboard and Sep destinations    |
+
+## [6]-[RESEARCH]
+
+| [INDEX] | [ITEM]                                                                                                                       | [PROOF]                                                                                  | [GATE]         |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ | :------------- |
+|   [1]   | `TransformToTree`/`TransformMany` operator signatures, `Node<TObject,TKey>` member spellings (`Item`, `Depth`, `Children` enumeration), and root-emission semantics | `uv run python -m tools.assay api query dynamicdata DynamicData.Node`                       | TREE_FLATTEN   |
+|   [2]   | `DataGridSortDescription.FromPath` factory, the concrete path group-description type, descriptor-collection mutation members, and `PageSize` zero-as-unpaged semantics | `uv run python -m tools.assay api query avalonia.datagrid Avalonia.Collections.DataGridSortDescription` | VIEW_STATE     |
+|   [3]   | `DataGridColumn` and `DataGrid` policy-member spellings (header, width, read-only, cell template, reorder/resize/sort flags, selection mode, row height, row-details template, frozen columns) | `uv run python -m tools.assay api query avalonia.datagrid Avalonia.Controls.DataGrid`       | GRID_SUBSTRATE |
+|   [4]   | `DataGridRow` pseudo-class state names backing row-state styling rows                                                          | `uv run python -m tools.assay api query avalonia.datagrid Avalonia.Controls.DataGridRow`    | GRID_SUBSTRATE |
+|   [5]   | DataGrid edit-event member spellings (`RowEditEnding`/row-edit-ended pair, `DataGridEditAction` discrimination, `Row.DataContext` payload access) | `uv run python -m tools.assay api query avalonia.datagrid Avalonia.Controls.DataGrid`       | GRID_COMMIT    |

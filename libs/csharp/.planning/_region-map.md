@@ -44,24 +44,24 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 
 [APPUI]:
 
-- surface-hosts.md [PROVISIONAL]: SurfaceHost axis with marshal rows, mount transaction, embedding gates; web-browser designed-only.
-- shell-navigation.md [PROVISIONAL]: shell composition, routing, dock layouts with checkpoint and crash-restore columns.
-- screens-activation.md [PROVISIONAL]: screen family, activation scopes, lifecycle binding.
-- commands-availability.md [PROVISIONAL]: one CommandIntent table; derived menus/toolbars/palette/deep-links/remote; fuzzy-search index; hotkeys.
-- live-data.md [PROVISIONAL]: DataSource axis, change-set engine depth, the live-data spine composite, IdentityPolicy-keyed caches.
-- tables-hierarchy.md [PROVISIONAL]: TableProjection rows, virtualization, tree-flatten fold, grid-edit commit path.
-- inspector-editing.md [PROVISIONAL]: EditorFactory rows, validation-to-save gate, options inspector, value-object and quantity editors, conflict-resolution row.
-- charts-dashboards.md [PROVISIONAL]: ChartSeriesSpec rows incl. geo/map, dashboard composition, benchmark and timeline dashboards.
-- visuals-offscreen.md [PROVISIONAL]: offscreen rendering, render-hash proof, DocumentExport cluster.
-- theme-tokens.md [PROVISIONAL]: orthogonal ThemeVariant and Density families, token resolution, host-matched probing, switch atomicity.
-- typography-shaping.md [PROVISIONAL]: TypographyRole rows, shaping pipeline, MarkdownProjection fold.
-- icons-assets.md [PROVISIONAL]: IconSource rows with fallback ranks, asset loading, geo asset routing.
-- dialogs-notifications.md [PROVISIONAL]: DialogIntent rows, session algebra, notification policy incl. drain suppression.
-- input-interaction.md [PROVISIONAL]: pointer/keyboard/gesture rows, pan-zoom canvases.
-- motion-tokens.md [PROVISIONAL]: MotionToken rows with reduced pairs, phase mapping, perceptual color interpolation.
-- accessibility.md [PROVISIONAL]: automation peers, contrast governance, reduced-motion law.
-- localization-culture.md [PROVISIONAL]: LocaleRow on inbox resx/ICU/NodaTime, culture composition.
-- diagnostics-evidence.md [PROVISIONAL]: EvidenceReceipt union, correlation join fold, headless proof derivation, provenance projection.
+- surface-hosts.md [FINAL]: SurfaceHost axis with marshal rows, mount transaction, embedding gates; web-browser designed-only.
+- shell-navigation.md [FINAL]: shell composition, routing, dock layouts with checkpoint and crash-restore columns.
+- screens-activation.md [FINAL]: screen family, activation scopes, lifecycle binding.
+- commands-availability.md [FINAL]: one CommandIntent table; derived menus/toolbars/palette/deep-links/remote; fuzzy-search index; hotkeys.
+- live-data.md [FINAL]: DataSource axis, change-set engine depth, the live-data spine composite, IdentityPolicy-keyed caches.
+- tables-hierarchy.md [FINAL]: TableProjection rows, virtualization, tree-flatten fold, grid-edit commit path.
+- inspector-editing.md [FINAL]: EditorFactory rows, validation-to-save gate, options inspector, value-object and quantity editors, conflict-resolution row.
+- charts-dashboards.md [FINAL]: ChartSeriesSpec rows incl. geo/map, dashboard composition, benchmark and timeline dashboards.
+- visuals-offscreen.md [FINAL]: offscreen rendering, render-hash proof, DocumentExport cluster.
+- theme-tokens.md [FINAL]: orthogonal ThemeVariant and Density families, token resolution, host-matched probing, switch atomicity.
+- typography-shaping.md [FINAL]: TypographyRole rows, shaping pipeline, MarkdownProjection fold.
+- icons-assets.md [FINAL]: IconSource rows with fallback ranks, asset loading, geo asset routing.
+- dialogs-notifications.md [FINAL]: DialogIntent rows, session algebra, notification policy incl. drain suppression.
+- input-interaction.md [FINAL]: pointer/keyboard/gesture rows, pan-zoom canvases.
+- motion-tokens.md [FINAL]: MotionToken rows with reduced pairs, phase mapping, perceptual color interpolation.
+- accessibility.md [FINAL]: automation peers, contrast governance, reduced-motion law.
+- localization-culture.md [FINAL]: LocaleRow on inbox resx/ICU/NodaTime, culture composition.
+- diagnostics-evidence.md [FINAL]: EvidenceReceipt union, correlation join fold, headless proof derivation, provenance projection.
 
 ## [2]-[SIGNATURE_REGIONS]
 
@@ -93,6 +93,24 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 - CP-07 PHASE_FAMILY|PROGRESS_CELL|OBSERVATION_SEAMS|TS_PROJECTION: ProgressKeyPolicy, ProgressPhase, ProgressMark, SubscriptionPolicy, ProgressCell, ProgressSeams — spotlight: monotonic progress with mechanical no-regress gate.
 - CP-08 QUANTITY_TABLE|DIMENSIONAL_LAW|PARSE_FORMAT: QuantityKeyPolicy, QuantityFamily, UnitPolicy, UnitAlgebra, UnitEvidence — spotlight: conversion-at-admission, three-arity admit.
 - CP-09 RECEIPT_UNION|FOLD_PROJECTIONS|WIRE_STAMPS|BENCHMARK_CLAIMS|TS_PROJECTION: ComputeReceipt, ComputeWireContext, ReceiptSurface, ReceiptFolds, WireStamps, HostFingerprint, BenchmarkClaim — spotlight: 13-case receipt union, NodaTime-protobuf stamps, fingerprint-gated claims.
+- AU-01 HOST_AXIS|EMBED_CAPSULE|SCHEDULER_BOUNDARY|NATIVE_ASSETS|SCALE_FOCUS: SurfaceHost, SurfaceFault, SurfaceSeam, SurfaceRow, SurfaceReceipt, SurfaceSession, Surfaces, EmbedOptions, EmbedCapsule, SurfaceScheduler, NativeAssetReceipt, NativeAssetRow, NativeAssets, SurfaceFact
+- AU-02 ROUTING_SPINE|DOCK_LAYOUTS|SHELL_CHROME|ADAPTIVE_LAYOUT: NavRequest, ShellRoot, DockableRow, ShellDockFactory, ShellPolicy, LayoutCheckpoint, LayoutPersistence, LayoutLedger, ChromeKeyPolicy, ChromeSlot, ChromeRow, ShellChrome, BreakpointRow, AdaptiveLayout
+- AU-03 SCREEN_CATALOG|ACTIVATION_SCOPES|DERIVED_STATE|VALIDATION_UX|SCREEN_STATE: ScreenCatalogRow, ScreenCatalog, ScreenRuntime, ScreenBase, ScreenFault, DerivedOps, AdmissionState, ScreenValidation, ScreenStatePolicy, ScreenState, ScreenStateOps
+- AU-04 INTENT_TABLE|AVAILABILITY_ALGEBRA|EXECUTION_RECEIPTS|PALETTE_AND_REMOTE|TS_PROJECTION: CommandIntent, CommandPayload, CommandDeck, CommandGate, CommandOutcome, CommandReceipt, CommandExecution, CommandProjections, CommandIntentWire, CommandAvailabilityWire, CommandInvocationWire, CommandPayloadWire, CommandOutcomeWire, CommandReceiptWire
+- AU-05 DATA_SOURCES|CHANGE_PIPELINES|BINDING_CAPSULE|AGGREGATION_SPINE: HostDocumentFact, SourcePolicy, DataSource<TRow,TKey>, PipelineInputs<TRow>, BindingCapsule, LiveDataOps
+- AU-06 GRID_SUBSTRATE|VIEW_STATE|TREE_FLATTEN|GRID_COMMIT: TableCellKind, TableColumnRow<TRow>, TableSurface, TableViewState, ViewStateSurface, TreeRow<TRow>, ExpansionState<TKey>, TableProjection<TRow,TKey>, ProjectionFold, ExportDestination, TableExportSpec, TableCommit<TRow>, CommitSurface
+- AU-07 INSPECTOR_SURFACE|EDITOR_FACTORIES|COMMIT_VALIDATION|OPTIONS_INSPECTOR|CONFLICT_RESOLUTION|CODE_EDITING: InspectorPolicy, InspectorSurface, EditorKeyPolicy, EditorFactory, EditFault, EditOutcome, EditReceipt, EditGate, OptionsInspector<T>, ConflictPane<TReceipt>, CodePane, CompletionRow
+- AU-08 SERIES_TABLE|AXES_SECTIONS|CHART_INTERACTION|STREAM_BINDING|DASHBOARD_TILES: ChartKeyPolicy, ChartCanvas, ChartSeriesSpec, ChartAxisKind, ChartSection, ChartAnchor, ChartPolicy, ChartStream, ChartFolds, DashboardTile, TilePlacement, DashboardLayout, DashboardSurface
+- AU-09 DRAW_CAPSULE|THUMBNAIL_PIPELINE|PREVIEW_SURFACES|ENCODE_IDENTITY|DOCUMENT_EXPORT: DrawSource, Offscreen, VisualRuntime, ThumbnailRow, Thumbnails, PreviewRow<TReceipt>, RenderReceipt, NativeAssetFact, VisualCodec, VisualCodec.EncodeRow, VisualDestination, VisualExportSpec, VisualExport
+- AU-10 TOKEN_CATALOG|VARIANT_AXIS|DENSITY_AXIS|CONTROL_THEMES: TokenRow, ResolvedTheme, ThemeCatalog, ThemeKeyPolicy, ThemeVariantRow, DensityRow, ThemeSwitchReceipt, ThemeCell, ThemeRail
+- AU-11 ROLE_AXIS|FONT_ADMISSION|SHAPING_RAIL|MARKDOWN_PROJECTION|TEXT_METRICS: TypographyKeyPolicy, TypographyRole, TextStyleRow, FontChain, FontAdmission, ShapingSurface, MarkdownRow, InlineRun, MarkdownProjection, TextMetricsPolicy
+- AU-12 ICON_AXIS|SVG_PIPELINE|RASTER_ASSETS|ASSET_CATALOG: AssetFault, IconSource, IconRow, IconSurface, SvgPipeline, RasterRow, RasterAssets, AssetKeyPolicy, AssetKey, AssetKind, AssetRow, AssetReceipt, AssetKeys, AssetCatalog
+- AU-13 DIALOG_INTENTS|SESSION_ALGEBRA|NOTIFICATIONS|PICKERS_HOST_MODALITY: DialogIntent, DialogFault, DialogTopology, DialogSurface, NoticeKeyPolicy, ToastRow, ToastOutcome, ToastReceipt, ToastGate, PickKind, PickFilter, PickOps
+- AU-14 HOTKEY_DERIVATION|BEHAVIOR_RAIL|POINTER_GESTURES|DRAG_CLIPBOARD: GesturePolicy, BehaviorRail, PanZoomRow, DragPayload, ClipboardRow
+- AU-15 MOTION_AXIS|MOTION_APPLICATION|PHASE_MAPPING|REDUCED_MOTION: MotionKeyPolicy, SpringValue, MotionToken, MotionPlan, MotionApplication, PhaseMotion, MotionProbeRow, MotionReceipt, ReducedMotion
+- AU-16 AUTOMATION_PEERS|KEYBOARD_NAV|CONTRAST_GATE|COMPLIANCE_PROOF: AnnouncementRow, AccessOps, FocusOps, ContrastReceipt, ContrastGate, AccessAudit, AccessProof
+- AU-17 LOCALE_AXIS|STRING_TABLES|CULTURE_COMPOSITION|RTL_MIRRORING: LocaleKeyPolicy, LocaleRow, LocaleStrings, LocalePolicy, ResolvedLocale, LocaleRuntime, MirrorPolicy
+- AU-18 RECEIPT_UNION|CORRELATION_JOIN|CAPTURE_LANES|HEADLESS_DERIVATION|DEV_LOOP|TS_PROJECTION: EvidenceReceipt, EvidenceOps, AppUiWireContext, SkewBand, EvidenceRow, EvidenceTimeline, EvidenceJoin, CaptureRow, Captures, EvidenceKeyPolicy, ProofCheck, ProofSpec, ProofEngine, DevLoop, EvidenceReceiptWire, SurfaceReceiptWire, NativeAssetFactWire, SkewBandWire, EvidenceRowWire, EvidenceTimelineWire
 
 - AH-04a SOURCE_AXIS: ConfigSource [SmartEnum<string>], ConfigSourceKeyPolicy, ReloadClass [SmartEnum<string>], ConfigLayer — spotlight: the rank+reload-class source axis with per-source factory delegate and precedence fold.
 - AH-04b TYPED_BINDING: PolicyBinding, ConfigError — spotlight: source-generated AOT-safe bind into immutable policy records with fail-closed unknown-key admission folding into Validation<ConfigError,T>.
@@ -413,6 +431,210 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 - HostFingerprint — Compute/receipts-and-benchmarks#BENCHMARK_CLAIMS [record]
 - BenchmarkClaim — Compute/receipts-and-benchmarks#BENCHMARK_CLAIMS [record]
 
+- SurfaceHost — AppUi/surface-hosts [declared owner]
+- SurfaceFault — AppUi/surface-hosts [declared owner]
+- SurfaceSeam — AppUi/surface-hosts [declared owner]
+- SurfaceRow — AppUi/surface-hosts [declared owner]
+- SurfaceReceipt — AppUi/surface-hosts [declared owner]
+- SurfaceSession — AppUi/surface-hosts [declared owner]
+- Surfaces — AppUi/surface-hosts [declared owner]
+- EmbedOptions — AppUi/surface-hosts [declared owner]
+- EmbedCapsule — AppUi/surface-hosts [declared owner]
+- SurfaceScheduler — AppUi/surface-hosts [declared owner]
+- NativeAssetReceipt — AppUi/surface-hosts [declared owner]
+- NativeAssetRow — AppUi/surface-hosts [declared owner]
+- NativeAssets — AppUi/surface-hosts [declared owner]
+- SurfaceFact — AppUi/surface-hosts [declared owner]
+- NavRequest — AppUi/shell-navigation [declared owner]
+- ShellRoot — AppUi/shell-navigation [declared owner]
+- DockableRow — AppUi/shell-navigation [declared owner]
+- ShellDockFactory — AppUi/shell-navigation [declared owner]
+- ShellPolicy — AppUi/shell-navigation [declared owner]
+- LayoutCheckpoint — AppUi/shell-navigation [declared owner]
+- LayoutPersistence — AppUi/shell-navigation [declared owner]
+- LayoutLedger — AppUi/shell-navigation [declared owner]
+- ChromeKeyPolicy — AppUi/shell-navigation [declared owner]
+- ChromeSlot — AppUi/shell-navigation [declared owner]
+- ChromeRow — AppUi/shell-navigation [declared owner]
+- ShellChrome — AppUi/shell-navigation [declared owner]
+- BreakpointRow — AppUi/shell-navigation [declared owner]
+- AdaptiveLayout — AppUi/shell-navigation [declared owner]
+- ScreenCatalogRow — AppUi/screens-activation [declared owner]
+- ScreenCatalog — AppUi/screens-activation [declared owner]
+- ScreenRuntime — AppUi/screens-activation [declared owner]
+- ScreenBase — AppUi/screens-activation [declared owner]
+- ScreenFault — AppUi/screens-activation [declared owner]
+- DerivedOps — AppUi/screens-activation [declared owner]
+- AdmissionState — AppUi/screens-activation [declared owner]
+- ScreenValidation — AppUi/screens-activation [declared owner]
+- ScreenStatePolicy — AppUi/screens-activation [declared owner]
+- ScreenState — AppUi/screens-activation [declared owner]
+- ScreenStateOps — AppUi/screens-activation [declared owner]
+- CommandIntent — AppUi/commands-availability [declared owner]
+- CommandPayload — AppUi/commands-availability [declared owner]
+- CommandDeck — AppUi/commands-availability [declared owner]
+- CommandGate — AppUi/commands-availability [declared owner]
+- CommandOutcome — AppUi/commands-availability [declared owner]
+- CommandReceipt — AppUi/commands-availability [declared owner]
+- CommandExecution — AppUi/commands-availability [declared owner]
+- CommandProjections — AppUi/commands-availability [declared owner]
+- CommandIntentWire — AppUi/commands-availability [declared owner]
+- CommandAvailabilityWire — AppUi/commands-availability [declared owner]
+- CommandInvocationWire — AppUi/commands-availability [declared owner]
+- CommandPayloadWire — AppUi/commands-availability [declared owner]
+- CommandOutcomeWire — AppUi/commands-availability [declared owner]
+- CommandReceiptWire — AppUi/commands-availability [declared owner]
+- HostDocumentFact — AppUi/live-data [declared owner]
+- SourcePolicy — AppUi/live-data [declared owner]
+- DataSource<TRow,TKey> — AppUi/live-data [declared owner]
+- PipelineInputs<TRow> — AppUi/live-data [declared owner]
+- BindingCapsule — AppUi/live-data [declared owner]
+- LiveDataOps — AppUi/live-data [declared owner]
+- TableCellKind — AppUi/tables-hierarchy [declared owner]
+- TableColumnRow<TRow> — AppUi/tables-hierarchy [declared owner]
+- TableSurface — AppUi/tables-hierarchy [declared owner]
+- TableViewState — AppUi/tables-hierarchy [declared owner]
+- ViewStateSurface — AppUi/tables-hierarchy [declared owner]
+- TreeRow<TRow> — AppUi/tables-hierarchy [declared owner]
+- ExpansionState<TKey> — AppUi/tables-hierarchy [declared owner]
+- TableProjection<TRow,TKey> — AppUi/tables-hierarchy [declared owner]
+- ProjectionFold — AppUi/tables-hierarchy [declared owner]
+- ExportDestination — AppUi/tables-hierarchy [declared owner]
+- TableExportSpec — AppUi/tables-hierarchy [declared owner]
+- TableCommit<TRow> — AppUi/tables-hierarchy [declared owner]
+- CommitSurface — AppUi/tables-hierarchy [declared owner]
+- InspectorPolicy — AppUi/inspector-editing [declared owner]
+- InspectorSurface — AppUi/inspector-editing [declared owner]
+- EditorKeyPolicy — AppUi/inspector-editing [declared owner]
+- EditorFactory — AppUi/inspector-editing [declared owner]
+- EditFault — AppUi/inspector-editing [declared owner]
+- EditOutcome — AppUi/inspector-editing [declared owner]
+- EditReceipt — AppUi/inspector-editing [declared owner]
+- EditGate — AppUi/inspector-editing [declared owner]
+- OptionsInspector<T> — AppUi/inspector-editing [declared owner]
+- ConflictPane<TReceipt> — AppUi/inspector-editing [declared owner]
+- CodePane — AppUi/inspector-editing [declared owner]
+- CompletionRow — AppUi/inspector-editing [declared owner]
+- ChartKeyPolicy — AppUi/charts-dashboards [declared owner]
+- ChartCanvas — AppUi/charts-dashboards [declared owner]
+- ChartSeriesSpec — AppUi/charts-dashboards [declared owner]
+- ChartAxisKind — AppUi/charts-dashboards [declared owner]
+- ChartSection — AppUi/charts-dashboards [declared owner]
+- ChartAnchor — AppUi/charts-dashboards [declared owner]
+- ChartPolicy — AppUi/charts-dashboards [declared owner]
+- ChartStream — AppUi/charts-dashboards [declared owner]
+- ChartFolds — AppUi/charts-dashboards [declared owner]
+- DashboardTile — AppUi/charts-dashboards [declared owner]
+- TilePlacement — AppUi/charts-dashboards [declared owner]
+- DashboardLayout — AppUi/charts-dashboards [declared owner]
+- DashboardSurface — AppUi/charts-dashboards [declared owner]
+- DrawSource — AppUi/visuals-offscreen [declared owner]
+- Offscreen — AppUi/visuals-offscreen [declared owner]
+- VisualRuntime — AppUi/visuals-offscreen [declared owner]
+- ThumbnailRow — AppUi/visuals-offscreen [declared owner]
+- Thumbnails — AppUi/visuals-offscreen [declared owner]
+- PreviewRow<TReceipt> — AppUi/visuals-offscreen [declared owner]
+- RenderReceipt — AppUi/visuals-offscreen [declared owner]
+- NativeAssetFact — AppUi/visuals-offscreen [declared owner]
+- VisualCodec — AppUi/visuals-offscreen [declared owner]
+- VisualCodec.EncodeRow — AppUi/visuals-offscreen [declared owner]
+- VisualDestination — AppUi/visuals-offscreen [declared owner]
+- VisualExportSpec — AppUi/visuals-offscreen [declared owner]
+- VisualExport — AppUi/visuals-offscreen [declared owner]
+- TokenRow — AppUi/theme-tokens [declared owner]
+- ResolvedTheme — AppUi/theme-tokens [declared owner]
+- ThemeCatalog — AppUi/theme-tokens [declared owner]
+- ThemeKeyPolicy — AppUi/theme-tokens [declared owner]
+- ThemeVariantRow — AppUi/theme-tokens [declared owner]
+- DensityRow — AppUi/theme-tokens [declared owner]
+- ThemeSwitchReceipt — AppUi/theme-tokens [declared owner]
+- ThemeCell — AppUi/theme-tokens [declared owner]
+- ThemeRail — AppUi/theme-tokens [declared owner]
+- TypographyKeyPolicy — AppUi/typography-shaping [declared owner]
+- TypographyRole — AppUi/typography-shaping [declared owner]
+- TextStyleRow — AppUi/typography-shaping [declared owner]
+- FontChain — AppUi/typography-shaping [declared owner]
+- FontAdmission — AppUi/typography-shaping [declared owner]
+- ShapingSurface — AppUi/typography-shaping [declared owner]
+- MarkdownRow — AppUi/typography-shaping [declared owner]
+- InlineRun — AppUi/typography-shaping [declared owner]
+- MarkdownProjection — AppUi/typography-shaping [declared owner]
+- TextMetricsPolicy — AppUi/typography-shaping [declared owner]
+- AssetFault — AppUi/icons-assets [declared owner]
+- IconSource — AppUi/icons-assets [declared owner]
+- IconRow — AppUi/icons-assets [declared owner]
+- IconSurface — AppUi/icons-assets [declared owner]
+- SvgPipeline — AppUi/icons-assets [declared owner]
+- RasterRow — AppUi/icons-assets [declared owner]
+- RasterAssets — AppUi/icons-assets [declared owner]
+- AssetKeyPolicy — AppUi/icons-assets [declared owner]
+- AssetKey — AppUi/icons-assets [declared owner]
+- AssetKind — AppUi/icons-assets [declared owner]
+- AssetRow — AppUi/icons-assets [declared owner]
+- AssetReceipt — AppUi/icons-assets [declared owner]
+- AssetKeys — AppUi/icons-assets [declared owner]
+- AssetCatalog — AppUi/icons-assets [declared owner]
+- DialogIntent — AppUi/dialogs-notifications [declared owner]
+- DialogFault — AppUi/dialogs-notifications [declared owner]
+- DialogTopology — AppUi/dialogs-notifications [declared owner]
+- DialogSurface — AppUi/dialogs-notifications [declared owner]
+- NoticeKeyPolicy — AppUi/dialogs-notifications [declared owner]
+- ToastRow — AppUi/dialogs-notifications [declared owner]
+- ToastOutcome — AppUi/dialogs-notifications [declared owner]
+- ToastReceipt — AppUi/dialogs-notifications [declared owner]
+- ToastGate — AppUi/dialogs-notifications [declared owner]
+- PickKind — AppUi/dialogs-notifications [declared owner]
+- PickFilter — AppUi/dialogs-notifications [declared owner]
+- PickOps — AppUi/dialogs-notifications [declared owner]
+- GesturePolicy — AppUi/input-interaction [declared owner]
+- BehaviorRail — AppUi/input-interaction [declared owner]
+- PanZoomRow — AppUi/input-interaction [declared owner]
+- DragPayload — AppUi/input-interaction [declared owner]
+- ClipboardRow — AppUi/input-interaction [declared owner]
+- MotionKeyPolicy — AppUi/motion-tokens [declared owner]
+- SpringValue — AppUi/motion-tokens [declared owner]
+- MotionToken — AppUi/motion-tokens [declared owner]
+- MotionPlan — AppUi/motion-tokens [declared owner]
+- MotionApplication — AppUi/motion-tokens [declared owner]
+- PhaseMotion — AppUi/motion-tokens [declared owner]
+- MotionProbeRow — AppUi/motion-tokens [declared owner]
+- MotionReceipt — AppUi/motion-tokens [declared owner]
+- ReducedMotion — AppUi/motion-tokens [declared owner]
+- AnnouncementRow — AppUi/accessibility [declared owner]
+- AccessOps — AppUi/accessibility [declared owner]
+- FocusOps — AppUi/accessibility [declared owner]
+- ContrastReceipt — AppUi/accessibility [declared owner]
+- ContrastGate — AppUi/accessibility [declared owner]
+- AccessAudit — AppUi/accessibility [declared owner]
+- AccessProof — AppUi/accessibility [declared owner]
+- LocaleKeyPolicy — AppUi/localization-culture [declared owner]
+- LocaleRow — AppUi/localization-culture [declared owner]
+- LocaleStrings — AppUi/localization-culture [declared owner]
+- LocalePolicy — AppUi/localization-culture [declared owner]
+- ResolvedLocale — AppUi/localization-culture [declared owner]
+- LocaleRuntime — AppUi/localization-culture [declared owner]
+- MirrorPolicy — AppUi/localization-culture [declared owner]
+- EvidenceReceipt — AppUi/diagnostics-evidence [declared owner]
+- EvidenceOps — AppUi/diagnostics-evidence [declared owner]
+- AppUiWireContext — AppUi/diagnostics-evidence [declared owner]
+- SkewBand — AppUi/diagnostics-evidence [declared owner]
+- EvidenceRow — AppUi/diagnostics-evidence [declared owner]
+- EvidenceTimeline — AppUi/diagnostics-evidence [declared owner]
+- EvidenceJoin — AppUi/diagnostics-evidence [declared owner]
+- CaptureRow — AppUi/diagnostics-evidence [declared owner]
+- Captures — AppUi/diagnostics-evidence [declared owner]
+- EvidenceKeyPolicy — AppUi/diagnostics-evidence [declared owner]
+- ProofCheck — AppUi/diagnostics-evidence [declared owner]
+- ProofSpec — AppUi/diagnostics-evidence [declared owner]
+- ProofEngine — AppUi/diagnostics-evidence [declared owner]
+- DevLoop — AppUi/diagnostics-evidence [declared owner]
+- EvidenceReceiptWire — AppUi/diagnostics-evidence [declared owner]
+- SurfaceReceiptWire — AppUi/diagnostics-evidence [declared owner]
+- NativeAssetFactWire — AppUi/diagnostics-evidence [declared owner]
+- SkewBandWire — AppUi/diagnostics-evidence [declared owner]
+- EvidenceRowWire — AppUi/diagnostics-evidence [declared owner]
+- EvidenceTimelineWire — AppUi/diagnostics-evidence [declared owner]
+
 ## [4]-[SEAM_SPLITS]
 
 - Config reload propagation: mechanics at AppHost/configuration-and-options#POLICY_VALUES (reload-class transition + ReloadReceipt); consequence at Persistence user-settings write and the op-log HLC tag-invalidation cursor (cross-process peer observation); frozen reload-class requires process restart.
@@ -440,3 +662,11 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 - C19 package-cumulative ruling: within a package, fences resolve against the package's full FINAL symbol set (the intent/dispatch spine composes its axis vocabularies by design); strict earlier-position order applies across packages only.
 - Key-policy posture: one comparer accessor per axis owner, package-local; cross-package accessor reuse is a defect (scheduling-and-lanes WorkLane accessor routes to ComputeKeyPolicy at the final pass, not AppHost LaneKeyPolicy).
 - Grpc.Core.Api C18 route: transitive package without an assay key — proofs route through the spec-compile rail until the assay source map registers it (charter PROOF_GATES row).
+- Gesture-conflict evidence: mechanics at AppUi/commands-availability#INTENT_TABLE (CommandDeck.GestureConflicts + ConflictKind at deck freeze); consequence at AppUi/input-interaction#HOTKEY_DERIVATION (Bindings consumes the frozen deck, first-wins).
+- Focus-walk: execution at AppUi/diagnostics-evidence#HEADLESS_DERIVATION (ProofCheck.FocusWalk); audit law at AppUi/accessibility#COMPLIANCE_PROOF (AccessAudit.FocusWalk folds the engine result) — homonym is a seam, not a duplicate.
+- Export-union medium split RATIFIED: tables-hierarchy ExportDestination owns tabular text egress (Clipboard/File/BlobLane); visuals-offscreen VisualDestination owns rendered visual egress (FilePath/BlobLane/Bundle) — distinct media, two owners.
+- Asset-key law: icons-assets AssetKeys is nameof-derived; every cross-page asset reference uses the nameof spelling, never kebab-case.
+- Phase-set coupling guard: motion-tokens PHASE_MAPPING keys mirror the Compute ProgressPhase nine-case set; the headless conformance sweep (Map keys == ProgressPhase.Items) fails the AppUi proof lane on any Compute phase change by design.
+- Clock-seam conformance (P3 must-fix): surface-hosts Mount carries bare IClock — retype to ClockPolicy per the AppHost one-clock-seam law (same fix already applied at theme-tokens ThemeCell).
+- Theme-grid typing: AccessProof.Sweep and ProofEngine.Derive share the typed (ThemeVariantRow, DensityRow) grid; theme-tokens row key literals stay string-stable.
+- Mermaid render route: the MCP renderer is permission-blocked for planning content; C17 validation runs locally via @mermaid-js/mermaid-cli.
