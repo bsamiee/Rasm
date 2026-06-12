@@ -102,6 +102,7 @@ public abstract partial record PdfStamp {
 public abstract partial record FileViewSource {
     private FileViewSource() { }
     public sealed record Pages(SheetQuery Query = default) : FileViewSource;
+    public sealed record Details(SheetQuery Query = default, DetailQuery Detail = default) : FileViewSource;
     public sealed record Named(
         Seq<string> Names,
         ViewportTarget Target,
@@ -113,6 +114,7 @@ public abstract partial record FileViewSource {
         Switch(
             (Doc: document, Spec: spec, Op: op),
             pages: static (ctx, source) => ResolvePages(document: ctx.Doc, source: source, spec: ctx.Spec, op: ctx.Op),
+            details: static (ctx, source) => ResolveDetails(document: ctx.Doc, source: source, spec: ctx.Spec, op: ctx.Op),
             named: static (ctx, source) => ResolveNamed(document: ctx.Doc, source: source, spec: ctx.Spec, op: ctx.Op),
             viewport: static (ctx, source) => source.Target.Resolve(document: ctx.Doc, op: ctx.Op)
                 .Map(scopes => scopes.Map(scope => FileViewPage.Model(view: scope.View, viewport: Some(scope.Viewport), spec: ctx.Spec))));
@@ -121,6 +123,16 @@ public abstract partial record FileViewSource {
         from pages in source.Query.Resolve(document: document, op: op)
         from matched in guard(!pages.IsEmpty, op.InvalidInput()).ToFin().Map(_ => pages)
         select matched.Map(page => FileViewPage.Layout(page: page, spec: spec));
+
+    private static Fin<Seq<FileViewPage>> ResolveDetails(RhinoDoc document, Details source, FileView spec, Op op) =>
+        from pages in source.Query.Resolve(document: document, op: op)
+        from matched in guard(!pages.IsEmpty, op.InvalidInput()).ToFin().Map(_ => pages)
+        from detailPages in matched.TraverseM(page => source.Detail.Resolve(page: page, op: op)
+            .Map(details => details.Map(detail => FileViewPage.LayoutDetail(page: page, detail: detail, spec: spec)))).As()
+        let resolved = detailPages.Bind(static pages => pages)
+        from _details in guard(!resolved.IsEmpty, op.InvalidInput()).ToFin()
+        select resolved;
+
     private static Fin<Seq<FileViewPage>> ResolveNamed(RhinoDoc document, Named source, FileView spec, Op op) =>
         from _ in guard(!source.Names.IsEmpty, op.InvalidInput())
         from scopes in source.Target.Resolve(document: document, op: op)
@@ -467,9 +479,12 @@ internal sealed record FileNamedViewCapture(CameraScope Scope, string Name, Opti
             .Bind(outcome => outcome.Redraw.ApplyTo(scope: Scope).Map(_ => outcome.Value));
 }
 
-internal sealed record FileViewPage(RhinoView Target, Option<RhinoViewport> Viewport, FileView Spec, Option<FileNamedViewCapture> Named = default) {
+internal sealed record FileViewPage(RhinoView Target, Option<RhinoViewport> Viewport, FileView Spec, Option<FileNamedViewCapture> Named = default, Option<DetailViewObject> Detail = default) {
     internal static FileViewPage Layout(RhinoPageView page, FileView spec) =>
         new(Target: page, Viewport: Option<RhinoViewport>.None, Spec: spec);
+
+    internal static FileViewPage LayoutDetail(RhinoPageView page, DetailViewObject detail, FileView spec) =>
+        new(Target: page, Viewport: Some(detail.Viewport), Spec: spec, Detail: Some(detail));
 
     internal static FileViewPage Model(RhinoView view, Option<RhinoViewport> viewport, FileView spec, Option<FileNamedViewCapture> named = default) =>
         new(Target: view, Viewport: viewport, Spec: spec, Named: named);
@@ -493,6 +508,14 @@ internal sealed record FileViewPage(RhinoView Target, Option<RhinoViewport> View
                 scale: scales.IsEmpty ? Option<string>.None : Some(string.Join(separator: ", ", values: scales.AsIterable())),
                 detailCount: details.Length, s: s, raw: Option<double>.None);
         }
+        static FileViewReport LayoutDetail(DetailViewObject detail, ViewCaptureSettings s) =>
+            Build(
+                name: DetailQuery.NameOf(detail: detail).IfNone(detail.Viewport.Name ?? string.Empty),
+                scale: FileScale.Format(detail: detail),
+                detailCount: 1,
+                s: s,
+                raw: Option<double>.None);
+
         FileViewReport Model(RhinoView view) {
             double raw = settings.GetModelScale(pageUnits: view.Document.PageUnitSystem, modelUnits: view.Document.ModelUnitSystem);
             string viewName = Viewport.Map(static vp => vp.Name).IfNone(view.MainViewport.Name ?? string.Empty);
@@ -503,9 +526,10 @@ internal sealed record FileViewPage(RhinoView Target, Option<RhinoViewport> View
                 _ => Build(name: viewName, scale: Option<string>.None, detailCount: 0, s: settings, raw: Option<double>.None),
             };
         }
-        return Target switch {
-            RhinoPageView page when Viewport.IsNone => Page(page: page, s: settings),
-            RhinoView view => Model(view: view),
+        return (Detail.Case, Target) switch {
+            (DetailViewObject detail, _) => LayoutDetail(detail: detail, s: settings),
+            (_, RhinoPageView page) when Viewport.IsNone => Page(page: page, s: settings),
+            (_, RhinoView view) => Model(view: view),
             _ => Build(name: string.Empty, scale: Option<string>.None, detailCount: 0, s: settings, raw: Option<double>.None),
         };
     }

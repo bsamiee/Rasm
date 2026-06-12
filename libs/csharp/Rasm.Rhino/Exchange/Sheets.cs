@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Rasm.Rhino.Camera;
 using Rasm.Rhino.Commands;
-using DetailViewGeometry = Rhino.Geometry.DetailView;
 using DrawingColor = System.Drawing.Color;
 
 namespace Rasm.Rhino.Exchange;
@@ -103,6 +102,7 @@ public abstract partial record FileClipOp {
 public abstract partial record FileSheetEdit {
     private FileSheetEdit() { }
     public sealed record Create(FileSheetSpec Spec) : FileSheetEdit;
+    public sealed record Manage(FileSheetPlan Plan) : FileSheetEdit;
     public sealed record Remove(string SheetName) : FileSheetEdit;
     public sealed record Duplicate(string SheetName, bool WithGeometry = true) : FileSheetEdit;
     public sealed record Rename(string SheetName, string NewName) : FileSheetEdit;
@@ -120,6 +120,7 @@ public abstract partial record FileSheetEdit {
     public sealed record FrameDetail(string SheetName, DetailQuery Detail, Seq<CameraEdit> Edits, Option<FileScale> Scale = default, Option<BoundingBox> Clipping = default) : FileSheetEdit;
     public sealed record ComposeDetail(string SheetName, DetailQuery Detail, CameraShot Shot, Option<FileScale> Scale = default) : FileSheetEdit;
     public sealed record Configure(SheetQuery Query, FileSheetConfig Config) : FileSheetEdit;
+    public sealed record ConfigureDetail(string SheetName, DetailQuery Detail, FileDetailConfig Config) : FileSheetEdit;
     public sealed record Number(SheetQuery Query, FileNumbering Numbering) : FileSheetEdit;
     public sealed record ArrangeDetails(SheetQuery Query, FileDetailLayout Layout) : FileSheetEdit;
     public sealed record GroupAssign(SheetQuery Query, string Group, bool RemoveFromOthers = false) : FileSheetEdit;
@@ -231,7 +232,19 @@ public readonly record struct FileSheetConfig(
     Option<FileScale> DetailScale = default,
     Option<UnitSystem> DocumentPageUnits = default,
     Seq<FileUserString> UserStrings = default,
-    Option<string> GroupDescription = default);
+    Option<string> GroupDescription = default) {
+    internal bool Applies =>
+        Size.IsSome || Group.IsSome || Description.IsSome || DetailScale.IsSome || DocumentPageUnits.IsSome
+        || !UserStrings.IsEmpty || GroupDescription.IsSome;
+}
+
+public readonly record struct FileDetailConfig(
+    Option<bool> ProjectionLocked = default,
+    Option<bool> CameraLocked = default,
+    Option<Guid> DisplayMode = default,
+    Option<string> Name = default) {
+    internal bool Applies => ProjectionLocked.IsSome || CameraLocked.IsSome || DisplayMode.IsSome || Name.IsSome;
+}
 
 public readonly record struct FileNumbering(string SheetPattern, int Start = 1, Option<string> DetailPattern = default);
 
@@ -245,6 +258,21 @@ public readonly record struct FileDetailSpec(
     Option<FileScale> Scale = default,
     Seq<CameraEdit> View = default);
 
+public readonly record struct FileDetailPlan(
+    FileDetailSpec Spec,
+    Seq<CameraEdit> Edits = default,
+    Option<FileScale> Scale = default,
+    Option<BoundingBox> Clipping = default,
+    FileDetailConfig Config = default);
+
+public readonly record struct FileSheetPlan(
+    FileSheetSpec Sheet,
+    FileSheetConfig Config = default,
+    Seq<FileDetailPlan> Details = default,
+    Option<FileDetailLayout> Layout = default,
+    Option<FileNumbering> Numbering = default,
+    bool ReplaceExisting = false);
+
 public readonly record struct FileDetailLayout(
     int Columns = 1,
     double SpacingX = 0.0,
@@ -255,7 +283,27 @@ public readonly record struct FileDetailLayout(
     FileDetailLayoutMode Mode = FileDetailLayoutMode.Grid,
     FileDetailAnchor? Anchor = null,
     double Margin = 0.0,
+    Option<CaptureMargins> Margins = default,
     bool Duplicate = false);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FileDetailFrame(double X, double Y, double Width, double Height) {
+    internal bool IsValid =>
+        RhinoMath.IsValidDouble(x: X) && RhinoMath.IsValidDouble(x: Y)
+        && RhinoMath.IsValidDouble(x: Width) && RhinoMath.IsValidDouble(x: Height)
+        && Width > RhinoMath.ZeroTolerance && Height > RhinoMath.ZeroTolerance;
+
+    internal Point2d AnchorPoint(FileDetailAnchor anchor, Point2d offset) =>
+        new(x: X + (anchor.XFactor * Width) + offset.X, y: Y + (anchor.YFactor * Height) + offset.Y);
+
+    internal static Fin<FileDetailFrame> Of(DetailViewObject detail, Op op) =>
+        Optional(detail)
+            .Bind(active => Optional(active.DetailGeometry))
+            .Map(static geometry => geometry.GetBoundingBox(accurate: true))
+            .Filter(static box => box.IsValid && box.Max.X > box.Min.X && box.Max.Y > box.Min.Y)
+            .Map(static box => new FileDetailFrame(X: box.Min.X, Y: box.Min.Y, Width: box.Max.X - box.Min.X, Height: box.Max.Y - box.Min.Y))
+            .ToFin(Fail: op.InvalidResult());
+}
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct FileLayerOverrideSpec(
@@ -298,6 +346,7 @@ public readonly record struct FileDetailReport(
     Option<Guid> ParentViewportId,
     bool Active,
     bool ProjectionLocked,
+    FileDetailFrame Frame,
     double PageToModelRatio,
     Transform WorldToPage,
     Transform PageToWorld,
@@ -336,6 +385,7 @@ internal static partial class SheetOps {
         edit.Switch(
             (Document: document, Op: op),
             create: static (ctx, e) => CreateSheet(document: ctx.Document, spec: e.Spec, op: ctx.Op),
+            manage: static (ctx, e) => Manage(document: ctx.Document, plan: e.Plan, op: ctx.Op),
             remove: static (ctx, e) => RemoveSheet(document: ctx.Document, sheetName: e.SheetName, op: ctx.Op),
             duplicate: static (ctx, e) => DuplicateSheet(document: ctx.Document, sheetName: e.SheetName, withGeometry: e.WithGeometry, op: ctx.Op),
             rename: static (ctx, e) => RenameSheet(document: ctx.Document, sheetName: e.SheetName, newName: e.NewName, op: ctx.Op),
@@ -360,6 +410,7 @@ internal static partial class SheetOps {
             frameDetail: static (ctx, e) => FrameDetail(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, edits: e.Edits, scale: e.Scale, clipping: e.Clipping, op: ctx.Op),
             composeDetail: static (ctx, e) => ComposeDetail(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, shot: e.Shot, scale: e.Scale, op: ctx.Op),
             configure: static (ctx, e) => Configure(document: ctx.Document, query: e.Query, config: e.Config, op: ctx.Op),
+            configureDetail: static (ctx, e) => ConfigureDetail(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, config: e.Config, op: ctx.Op),
             number: static (ctx, e) => Number(document: ctx.Document, query: e.Query, numbering: e.Numbering, op: ctx.Op),
             arrangeDetails: static (ctx, e) => ArrangeDetails(document: ctx.Document, query: e.Query, layout: e.Layout, op: ctx.Op),
             groupAssign: static (ctx, e) => GroupAssign(document: ctx.Document, query: e.Query, label: e.Group, removeFromOthers: e.RemoveFromOthers, op: ctx.Op));
@@ -387,6 +438,36 @@ internal static partial class SheetOps {
         from details in detail.Resolve(page: page, op: op)
         from changed in details.TraverseM(detail => validMutate(arg1: page, arg2: detail)).As()
         select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Attributes, ids: changed.Map(static item => item.Id).Distinct(), resources: Seq(DocumentResourceKind.Layout.Change(name: sheetName)) + changed.Bind(static item => item.Resources).Distinct());
+
+    private static Fin<DocumentReceipt> Manage(RhinoDoc document, FileSheetPlan plan, Op op) =>
+        from name in FileEndpoint.NonBlank(value: plan.Sheet.Name, op: op)
+        let query = new SheetQuery(Name: Some(name))
+        from removed in plan.ReplaceExisting switch {
+            true => toSeq(document.Views.GetPageViews())
+                .Find(view => string.Equals(a: view.PageName, b: name, comparisonType: StringComparison.OrdinalIgnoreCase))
+                .Case switch {
+                    RhinoPageView => RemoveSheet(document: document, sheetName: name, op: op),
+                    _ => Fin.Succ(value: DocumentReceipt.Empty),
+                },
+            false => Fin.Succ(value: DocumentReceipt.Empty),
+        }
+        from created in CreateSheet(document: document, spec: plan.Sheet with { Name = name }, op: op)
+        from configured in plan.Config.Applies
+            ? Configure(document: document, query: query, config: plan.Config, op: op)
+            : Fin.Succ(value: DocumentReceipt.Empty)
+        from createdDetails in plan.Details.TraverseM(detail => AddDetail(document: document, sheetName: name, spec: detail.Spec, op: op)).As()
+        from framedDetails in plan.Details.TraverseM(detail =>
+            !detail.Edits.IsEmpty || detail.Scale.IsSome || detail.Clipping.IsSome
+                ? FrameDetail(document: document, sheetName: name, detail: DetailQuery.Named(name: detail.Spec.Name), edits: detail.Edits, scale: detail.Scale, clipping: detail.Clipping, op: op)
+                : Fin.Succ(value: DocumentReceipt.Empty)).As()
+        from configuredDetails in plan.Details.TraverseM(detail =>
+            detail.Config.Applies
+                ? ConfigureDetail(document: document, sheetName: name, detail: DetailQuery.Named(name: detail.Spec.Name), config: detail.Config, op: op)
+                : Fin.Succ(value: DocumentReceipt.Empty)).As()
+        from arranged in plan.Layout.Map(layout => ArrangeDetails(document: document, query: query, layout: layout, op: op)).IfNone(Fin.Succ(value: DocumentReceipt.Empty))
+        from numbered in plan.Numbering.Map(numbering => Number(document: document, query: query, numbering: numbering, op: op)).IfNone(Fin.Succ(value: DocumentReceipt.Empty))
+        select (Seq(removed, created, configured) + createdDetails + framedDetails + configuredDetails + Seq(arranged, numbered))
+            .Fold(initialState: DocumentReceipt.Empty, f: static (state, receipt) => state + receipt);
 
     private static Fin<DocumentReceipt> CreateSheet(RhinoDoc document, FileSheetSpec spec, Op op) =>
         from name in FileEndpoint.NonBlank(value: spec.Name, op: op)
@@ -568,9 +649,12 @@ internal static partial class SheetOps {
             toggle: static (c, cmd) =>
                 MutateDetails(document: c.Document, sheetName: c.SheetName, detail: c.Detail, op: c.Op, mutate: (_, view) =>
                     from clip in ClipObject(document: c.Document, planeId: cmd.PlaneId, op: c.Op)
-                    from _toggled in c.Op.Confirm(success: cmd.Active
-                        ? clip.AddClipViewport(viewport: view.Viewport, commit: true)
-                        : clip.RemoveClipViewport(viewport: view.Viewport, commit: true))
+                    let attached = toSeq(c.Document.Objects.FindClippingPlanesForViewport(viewport: view.Viewport)).Exists(plane => plane.Id == cmd.PlaneId)
+                    from _toggled in (cmd.Active, attached) switch {
+                        (true, true) or (false, false) => Fin.Succ(value: unit),
+                        (true, false) => c.Op.Confirm(success: clip.AddClipViewport(viewport: view.Viewport, commit: true)),
+                        (false, true) => c.Op.Confirm(success: clip.RemoveClipViewport(viewport: view.Viewport, commit: true)),
+                    }
                     select (view.Id, Resources: Seq(DocumentResourceKind.Object.Change(name: cmd.PlaneId.ToString())))),
             scope: static (c, cmd) =>
                 MutateDetails(document: c.Document, sheetName: c.SheetName, detail: c.Detail, op: c.Op, mutate: (_, view) =>
@@ -587,7 +671,7 @@ internal static partial class SheetOps {
 
     private static Fin<DocumentReceipt> ApplySaveDetailView(RhinoDoc document, string sheetName, DetailQuery detail, string viewName, Op op) =>
         from name in FileEndpoint.NonBlank(value: viewName, op: op)
-        from receipt in MutateDetails(document: document, sheetName: sheetName, detail: detail, op: op, mutate: (_, view) =>
+        from receipt in MutateDetails(document: document, sheetName: sheetName, detail: detail, op: op, mutate: (RhinoPageView _, DetailViewObject view) =>
             from _index in op.Catch(() => document.NamedViews.Add(name: name, viewportId: view.Viewport.Id) switch {
                 int created when created >= 0 => Fin.Succ(value: created),
                 _ => Fin.Fail<int>(error: op.InvalidResult()),
@@ -622,6 +706,50 @@ internal static partial class SheetOps {
             from scaled in scale.Map(value => value.Apply(detail: view, document: document, op: op)).IfNone(Fin.Succ(value: view))
             from changed in ApplyDetailShot(document: document, page: page, detail: scaled, shot: shot)
             select (scaled.Id, changed.Resources))
+        select receipt;
+
+    private static Fin<DocumentReceipt> ConfigureDetail(RhinoDoc document, string sheetName, DetailQuery detail, FileDetailConfig config, Op op) =>
+        from _requested in guard(config.Applies, op.InvalidInput()).ToFin()
+        from displayMode in config.DisplayMode
+            .Map(id => Optional(DisplayModeDescription.GetDisplayMode(id: id)).ToFin(Fail: op.InvalidInput()).Map(Some))
+            .IfNone(Fin.Succ(value: Option<DisplayModeDescription>.None))
+        from name in config.Name.Map(value => FileEndpoint.NonBlank(value: value, op: op).Map(Some)).IfNone(Fin.Succ(value: Option<string>.None))
+        from receipt in MutateDetails(document: document, sheetName: sheetName, detail: detail, op: op, mutate: (RhinoPageView page, DetailViewObject view) =>
+            from geometryViewport in op.Catch(() => {
+                _ = page;
+                bool geometryTouched = false;
+                bool viewportTouched = false;
+                _ = config.ProjectionLocked.Case switch {
+                    bool value => Op.Side(() => {
+                        view.DetailGeometry.IsProjectionLocked = value;
+                        geometryTouched = true;
+                    }),
+                    _ => unit,
+                };
+                _ = config.CameraLocked.Case switch {
+                    bool value => Op.Side(() => {
+                        view.Viewport.LockedProjection = value;
+                        viewportTouched = true;
+                    }),
+                    _ => unit,
+                };
+                _ = displayMode.Case switch {
+                    DisplayModeDescription value => Op.Side(() => {
+                        view.Viewport.DisplayMode = value;
+                        viewportTouched = true;
+                    }),
+                    _ => unit,
+                };
+                return geometryTouched && !view.CommitChanges()
+                    ? Fin.Fail<Unit>(error: op.InvalidResult())
+                    : viewportTouched && !view.CommitViewportChanges() ? Fin.Fail<Unit>(error: op.InvalidResult()) : Fin.Succ(value: unit);
+            })
+            from named in name.Map(value => op.Catch(() => {
+                ObjectAttributes attributes = view.Attributes.Duplicate();
+                attributes.Name = value;
+                return op.Confirm(success: document.Objects.ModifyAttributes(objectId: view.Id, newAttributes: attributes, quiet: true));
+            })).IfNone(Fin.Succ(value: unit))
+            select (view.Id, Resources: name.Map(value => Seq(DocumentResourceKind.Layout.Change(name: value))).IfNone(Seq<DocumentResourceChange>())))
         select receipt;
 
     private static Fin<DocumentReceipt> Configure(RhinoDoc document, SheetQuery query, FileSheetConfig config, Op op) =>
@@ -718,16 +846,8 @@ internal static partial class SheetOps {
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct FitGrid(int Columns, int Rows, double Width, double Height);
 
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct DetailFrame(double X, double Y, double Width, double Height) {
-        internal bool IsValid =>
-            RhinoMath.IsValidDouble(x: X) && RhinoMath.IsValidDouble(x: Y)
-            && RhinoMath.IsValidDouble(x: Width) && RhinoMath.IsValidDouble(x: Height)
-            && Width > RhinoMath.ZeroTolerance && Height > RhinoMath.ZeroTolerance;
-    }
-
     private static Fin<DocumentReceipt> ArrangeDetails(RhinoDoc document, SheetQuery query, FileDetailLayout layout, Op op) =>
-        from _cols in guard(layout.Columns > 0 && layout.SpacingX >= 0.0 && layout.SpacingY >= 0.0 && layout.Margin >= 0.0, op.InvalidInput())
+        from _cols in guard(layout.Columns > 0 && layout.SpacingX >= 0.0 && layout.SpacingY >= 0.0 && (layout.Margins.IsSome || layout.Margin >= 0.0), op.InvalidInput())
         from pages in query.Resolve(document: document, op: op)
         from _valid in guard(!pages.IsEmpty, op.InvalidInput())
         from arranged in pages.TraverseM(page => ArrangePage(document: document, page: page, layout: layout, op: op)).As()
@@ -782,10 +902,11 @@ internal static partial class SheetOps {
 
     private static Fin<Seq<DetailMove>> ArrangePage(RhinoDoc document, RhinoPageView page, FileDetailLayout layout, Op op) =>
         from matched in layout.Detail.Resolve(page: page, op: op)
+        from content in ContentFrame(document: document, page: page, layout: layout, op: op)
         let ordered = OrderedDetails(details: matched)
         from frames in ordered.Map((detail, index) => (Detail: detail, Index: index)).TraverseM(item =>
             from current in FrameOf(detail: item.Detail, op: op)
-            from target in TargetFrame(page: page, current: current, layout: layout, index: item.Index, count: ordered.Count, op: op)
+            from target in TargetFrame(content: content, current: current, layout: layout, index: item.Index, count: ordered.Count, op: op)
             select (item.Detail, current, target)).As()
         from moved in frames.TraverseM(item => MoveDetailFrame(document: document, detail: item.Detail, xform: FrameTransform(current: item.current, target: item.target), duplicate: layout.Duplicate, op: op)).As()
         select moved;
@@ -801,51 +922,74 @@ internal static partial class SheetOps {
                 .Select(static pair => pair.Detail));
     }
 
-    private static Fin<DetailFrame> FrameOf(DetailViewObject detail, Op op) {
-        BoundingBox box = detail.DetailGeometry switch {
-            DetailViewGeometry geometry => geometry.GetBoundingBox(accurate: true),
-            _ => BoundingBox.Empty,
-        };
-        DetailFrame frame = new(X: box.Min.X, Y: box.Min.Y, Width: box.Max.X - box.Min.X, Height: box.Max.Y - box.Min.Y);
-        return frame.IsValid ? Fin.Succ(value: frame) : Fin.Fail<DetailFrame>(error: op.InvalidResult());
-    }
+    private static Fin<FileDetailFrame> FrameOf(DetailViewObject detail, Op op) =>
+        FileDetailFrame.Of(detail: detail, op: op);
 
-    private static Fin<DetailFrame> TargetFrame(RhinoPageView page, DetailFrame current, FileDetailLayout layout, int index, int count, Op op) =>
+    private static Fin<FileDetailFrame> ContentFrame(RhinoDoc document, RhinoPageView page, FileDetailLayout layout, Op op) =>
+        layout.Margins.Case switch {
+            CaptureMargins margins =>
+                from _valid in guard(
+                    margins.Units is not UnitSystem.None and not UnitSystem.Unset and not UnitSystem.CustomUnits
+                    && document.PageUnitSystem is not UnitSystem.None and not UnitSystem.Unset and not UnitSystem.CustomUnits
+                    && RhinoMath.IsValidDouble(x: margins.Left) && margins.Left >= 0.0
+                    && RhinoMath.IsValidDouble(x: margins.Top) && margins.Top >= 0.0
+                    && RhinoMath.IsValidDouble(x: margins.Right) && margins.Right >= 0.0
+                    && RhinoMath.IsValidDouble(x: margins.Bottom) && margins.Bottom >= 0.0,
+                    op.InvalidInput()).ToFin()
+                let scale = RhinoMath.UnitScale(margins.Units, document.PageUnitSystem)
+                let frame = new FileDetailFrame(
+                    X: margins.Left * scale,
+                    Y: margins.Bottom * scale,
+                    Width: page.PageWidth - ((margins.Left + margins.Right) * scale),
+                    Height: page.PageHeight - ((margins.Top + margins.Bottom) * scale))
+                from _frame in guard(RhinoMath.IsValidDouble(x: scale) && scale > 0.0 && frame.IsValid, op.InvalidInput()).ToFin()
+                select frame,
+            _ => new FileDetailFrame(
+                X: layout.Margin,
+                Y: layout.Margin,
+                Width: page.PageWidth - (2.0 * layout.Margin),
+                Height: page.PageHeight - (2.0 * layout.Margin)) switch {
+                    FileDetailFrame frame when frame.IsValid => Fin.Succ(value: frame),
+                    _ => Fin.Fail<FileDetailFrame>(error: op.InvalidInput()),
+                },
+        };
+
+    private static Fin<FileDetailFrame> TargetFrame(FileDetailFrame content, FileDetailFrame current, FileDetailLayout layout, int index, int count, Op op) =>
         from fitGrid in layout.Mode == FileDetailLayoutMode.FitPage
-            ? ComputeFitGrid(page: page, layout: layout, count: count, op: op)
+            ? ComputeFitGrid(content: content, layout: layout, count: count, op: op)
             : Fin.Succ(value: default(FitGrid))
         from size in TargetSize(layout: layout, current: current, fitGrid: fitGrid, op: op)
         let column = index % layout.Columns
         let row = index / layout.Columns
-        let grid = new DetailFrame(
+        let grid = new FileDetailFrame(
             X: layout.Origin.X + (column * layout.SpacingX),
             Y: layout.Origin.Y + (row * layout.SpacingY),
             Width: size.Width,
             Height: size.Height)
         from target in layout.Mode switch {
             FileDetailLayoutMode.Grid => Fin.Succ(value: grid),
-            FileDetailLayoutMode.FitPage => Fin.Succ(value: new DetailFrame(
-                X: layout.Margin + (index % fitGrid.Columns * (size.Width + layout.SpacingX)),
-                Y: layout.Margin + (index / fitGrid.Columns * (size.Height + layout.SpacingY)),
+            FileDetailLayoutMode.FitPage => Fin.Succ(value: new FileDetailFrame(
+                X: content.X + (index % fitGrid.Columns * (size.Width + layout.SpacingX)),
+                Y: content.Y + (index / fitGrid.Columns * (size.Height + layout.SpacingY)),
                 Width: size.Width,
                 Height: size.Height)),
-            FileDetailLayoutMode.Align => Fin.Succ(value: AnchorFrame(origin: layout.Origin, anchor: layout.Anchor, size: size)),
-            FileDetailLayoutMode.DistributeHorizontal => Fin.Succ(value: new DetailFrame(
-                X: count <= 1 ? layout.Margin : layout.Margin + (index * (Math.Max(0.0, page.PageWidth - (2.0 * layout.Margin) - size.Width) / (count - 1))),
+            FileDetailLayoutMode.Align => Fin.Succ(value: AnchorFrame(content: content, layout: layout, size: size)),
+            FileDetailLayoutMode.DistributeHorizontal => Fin.Succ(value: new FileDetailFrame(
+                X: count <= 1 ? content.X : content.X + (index * (Math.Max(val1: 0.0, val2: content.Width - size.Width) / (count - 1))),
                 Y: current.Y,
                 Width: size.Width,
                 Height: size.Height)),
-            FileDetailLayoutMode.DistributeVertical => Fin.Succ(value: new DetailFrame(
+            FileDetailLayoutMode.DistributeVertical => Fin.Succ(value: new FileDetailFrame(
                 X: current.X,
-                Y: count <= 1 ? layout.Margin : layout.Margin + (index * (Math.Max(0.0, page.PageHeight - (2.0 * layout.Margin) - size.Height) / (count - 1))),
+                Y: count <= 1 ? content.Y : content.Y + (index * (Math.Max(val1: 0.0, val2: content.Height - size.Height) / (count - 1))),
                 Width: size.Width,
                 Height: size.Height)),
-            _ => Fin.Fail<DetailFrame>(error: op.InvalidResult()),
+            _ => Fin.Fail<FileDetailFrame>(error: op.InvalidResult()),
         }
-        from valid in target.IsValid ? Fin.Succ(value: target) : Fin.Fail<DetailFrame>(error: op.InvalidResult())
+        from valid in target.IsValid ? Fin.Succ(value: target) : Fin.Fail<FileDetailFrame>(error: op.InvalidResult())
         select valid;
 
-    private static Fin<(double Width, double Height)> TargetSize(FileDetailLayout layout, DetailFrame current, FitGrid fitGrid, Op op) =>
+    private static Fin<(double Width, double Height)> TargetSize(FileDetailLayout layout, FileDetailFrame current, FitGrid fitGrid, Op op) =>
         layout.Mode == FileDetailLayoutMode.FitPage
             ? Fin.Succ(value: (fitGrid.Width, fitGrid.Height))
             : layout.Size.Case switch {
@@ -854,20 +998,21 @@ internal static partial class SheetOps {
                 _ => Fin.Succ(value: (current.Width, current.Height)),
             };
 
-    private static Fin<FitGrid> ComputeFitGrid(RhinoPageView page, FileDetailLayout layout, int count, Op op) {
+    private static Fin<FitGrid> ComputeFitGrid(FileDetailFrame content, FileDetailLayout layout, int count, Op op) {
         int cols = Math.Min(layout.Columns, Math.Max(count, 1));
         int rows = (int)Math.Ceiling(count / (double)cols);
-        double w = (page.PageWidth - (2.0 * layout.Margin) - ((cols - 1) * layout.SpacingX)) / cols;
-        double h = (page.PageHeight - (2.0 * layout.Margin) - ((rows - 1) * layout.SpacingY)) / rows;
+        double w = (content.Width - ((cols - 1) * layout.SpacingX)) / cols;
+        double h = (content.Height - ((rows - 1) * layout.SpacingY)) / rows;
         return guard(w > RhinoMath.ZeroTolerance && h > RhinoMath.ZeroTolerance, op.InvalidInput())
             .ToFin().Map(_ => new FitGrid(Columns: cols, Rows: rows, Width: w, Height: h));
     }
 
-    private static DetailFrame AnchorFrame(Point2d origin, FileDetailAnchor? anchor, (double Width, double Height) size) {
-        FileDetailAnchor a = anchor ?? FileDetailAnchor.TopLeft;
-        return new DetailFrame(
-            X: origin.X - (a.XFactor * size.Width),
-            Y: origin.Y - ((1.0 - a.YFactor) * size.Height),
+    private static FileDetailFrame AnchorFrame(FileDetailFrame content, FileDetailLayout layout, (double Width, double Height) size) {
+        FileDetailAnchor anchor = layout.Anchor ?? FileDetailAnchor.TopLeft;
+        Point2d origin = content.AnchorPoint(anchor: anchor, offset: layout.Origin);
+        return new FileDetailFrame(
+            X: origin.X - (anchor.XFactor * size.Width),
+            Y: origin.Y - (anchor.YFactor * size.Height),
             Width: size.Width,
             Height: size.Height);
     }
@@ -882,7 +1027,7 @@ internal static partial class SheetOps {
                     ? Fin.Succ(value: new DetailMove(SourceId: detail.Id, TargetId: detail.Id, Duplicate: false))
                     : Fin.Fail<DetailMove>(error: op.InvalidResult()));
 
-    private static Transform FrameTransform(DetailFrame current, DetailFrame target) {
+    private static Transform FrameTransform(FileDetailFrame current, FileDetailFrame target) {
         double scaleX = target.Width / current.Width;
         double scaleY = target.Height / current.Height;
         Plane origin = new(new Point3d(x: current.X, y: current.Y, z: 0.0), Vector3d.ZAxis);
@@ -930,6 +1075,7 @@ internal static partial class SheetOps {
             .Filter(layer => !layer.IsDeleted && layer.HasPerViewportSettings(viewportId: viewportId))
             .Map(static layer => layer.FullPath);
         bool hasRange = detail.Viewport.GetFrustum(out _, out _, out _, out _, out double near, out double far);
+        FileDetailFrame frame = FrameOf(detail: detail, op: Op.Of(name: nameof(DetailReportOf))).IfFail(default(FileDetailFrame));
         return new FileDetailReport(
             Name: DetailQuery.NameOf(detail: detail).IfNone(string.Empty),
             DescriptiveTitle: detail.DescriptiveTitle,
@@ -939,6 +1085,7 @@ internal static partial class SheetOps {
             ParentViewportId: Optional(detail.ParentPageView).Map(static page => page.MainViewport.Id),
             Active: detail.IsActive,
             ProjectionLocked: detail.DetailGeometry.IsProjectionLocked,
+            Frame: frame,
             PageToModelRatio: detail.DetailGeometry.PageToModelRatio,
             WorldToPage: detail.WorldToPageTransform,
             PageToWorld: detail.PageToWorldTransform,

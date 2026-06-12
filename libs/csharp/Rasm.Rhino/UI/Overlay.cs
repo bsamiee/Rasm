@@ -813,15 +813,7 @@ public sealed record UiViewportInteraction<TState>(
     }
 }
 
-public sealed record UiViewportRequest<TState, T>(Func<UiPreviewContext, Fin<T>> Run) {
-    internal Fin<T> Apply(UiPreviewContext context) =>
-        Op.Of(name: nameof(UiViewportRequest<,>)).Need(Run).Bind(run => run(arg: context));
-}
-
 public static partial class UiViewportRequest {
-    public static UiViewportRequest<TState, Unit> Paint<TState>(Func<UiPreviewContext, Fin<Unit>> draw) =>
-        new(Run: draw);
-
     public static UiIntent<T> Preview<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default, bool interactive = true) =>
         UiIntent.OfScope(run: scope => UiViewportPreview.Use(document: scope.Document, preview: preview, gumball: gumball, run: run), interactive: interactive);
 

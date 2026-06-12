@@ -653,7 +653,7 @@
           "NodaTime": "[3.3.2, )",
           "OpenTelemetry": "[1.16.0, )",
           "OpenTelemetry.Extensions.Hosting": "[1.16.0, )",
-          "OpenTelemetry.Instrumentation.Http": "[1.15.0, )",
+          "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
           "Polly.Core": "[8.7.0, )",
           "Polly.Extensions": "[8.7.0, )",
@@ -691,7 +691,7 @@
           "Sep": "[0.14.1, )",
           "System.IO.Hashing": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )",
-          "Thinktecture.Runtime.Extensions.EntityFrameworkCore10": "[10.2.0-beta01, )",
+          "Thinktecture.Runtime.Extensions.EntityFrameworkCore10": "[10.2.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.2.0, )",
           "Thinktecture.Runtime.Extensions.MessagePack": "[10.2.0, )",
           "linq2db.EntityFrameworkCore": "[10.4.0, )"
@@ -1262,13 +1262,13 @@
       },
       "OpenTelemetry.Instrumentation.Http": {
         "type": "CentralTransitive",
-        "requested": "[1.15.0, )",
-        "resolved": "1.15.0",
-        "contentHash": "uToc7bUp8IEdb0ny9mKsL6FrrYelINPzxxiSShJgOf4XmQc4Azww6S5RjRj24YhsOn2a1MABOrxfVTZXtDk4Eg==",
+        "requested": "[1.15.1, )",
+        "resolved": "1.15.1",
+        "contentHash": "vFO4Fj/dXkoVNGo/nhoGpO2zYQmZwr4jTID7oRGo+XlQ8LqksyZjUXQ4p39RfUvTID7IzzL8Qe71tW7CcAFymA==",
         "dependencies": {
           "Microsoft.Extensions.Configuration": "10.0.0",
           "Microsoft.Extensions.Options": "10.0.0",
-          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.15.0, 2.0.0)"
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.15.3, 2.0.0)"
         }
       },
       "OpenTelemetry.Instrumentation.Runtime": {
@@ -1375,12 +1375,12 @@
       },
       "Thinktecture.Runtime.Extensions.EntityFrameworkCore10": {
         "type": "CentralTransitive",
-        "requested": "[10.2.0-beta01, )",
-        "resolved": "10.2.0-beta01",
-        "contentHash": "rWxDD4kSoL2klHgns+uioB8UUqZGOaFudh0/OUD+yGU7n260TTW2Fjk99px+PdCz2K0z28eMRJ0uEvUQoccclQ==",
+        "requested": "[10.2.0, )",
+        "resolved": "10.2.0",
+        "contentHash": "PAZZx2BxdN/AV4Q6dHMN/4lKDxlQngLrOBBiJfM+uXeoEEqG5M3FeKCoWB7kNcwU71rnj2v2OPiTFWHIw6tbHA==",
         "dependencies": {
           "Microsoft.EntityFrameworkCore.Relational": "10.0.1",
-          "Thinktecture.Runtime.Extensions": "10.2.0-beta01"
+          "Thinktecture.Runtime.Extensions": "10.2.0"
         }
       },
       "Thinktecture.Runtime.Extensions.Json": {

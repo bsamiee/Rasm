@@ -31,7 +31,7 @@ public sealed partial class ArchiveSlice {
               | TableTypeFilter.TextureMapping | TableTypeFilter.Material | TableTypeFilter.Linetype
               | TableTypeFilter.Layer | TableTypeFilter.Group | TableTypeFilter.Dimstyle
               | TableTypeFilter.Hatchpattern | TableTypeFilter.InstanceDefinition | TableTypeFilter.ObjectTable
-              | TableTypeFilter.UserTable,
+              | TableTypeFilter.PageViewGroup | TableTypeFilter.UserTable,
         objectFilter: ObjectTypeFilter.Any,
         filtered: true);
 

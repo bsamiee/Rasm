@@ -699,9 +699,10 @@ internal static class FileArchiveOps {
             Source: Some("ReadPageViews")));
 
     private static Seq<FileIssue> LayoutIssues(FileArchiveSource source) =>
-        source is FileArchiveSource.Path
+        Seq(FileIssue.Native(message: "File3dm.ReadPageViews returns layout view records only; live page/detail/page-view-group membership is not reconstructed through public RhinoCommon."))
+        + (source is FileArchiveSource.Path
             ? Seq<FileIssue>()
-            : Seq(FileIssue.Native(message: "File3dm.ReadPageViews requires a file path; byte archive layout manifests and page-view counts are unavailable through public RhinoCommon."));
+            : Seq(FileIssue.Native(message: "File3dm.ReadPageViews requires a file path; byte archive layout manifests and page-view counts are unavailable through public RhinoCommon.")));
 
     private static Seq<FileObjectManifest> Objects(File3dmModel model, Seq<File3dmObject> objects, Seq<Layer> layers, Seq<Material> materials) =>
         objects.Map(fileObject => {

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Rasm.Vectors;
 using DrawingRectangle = System.Drawing.Rectangle;
 using DrawingSize = System.Drawing.Size;
 
@@ -127,6 +128,18 @@ public readonly record struct CameraFrame(Plane Frame, Point3d Target) {
                 false => Fin.Fail<CameraFrame>(error: OfKey.InvalidResult()),
             });
 
+    internal static Fin<CameraFrame> Of(ViewportInfo projection, Op op) =>
+        from valid in Optional(projection).ToFin(Fail: op.InvalidInput())
+        let direction = valid.CameraDirection
+        let distance = valid.TargetDistance(useFrustumCenterFallback: true)
+        from _valid in guard(
+            valid.CameraLocation.IsValid && direction.IsValid && direction.Length > RhinoMath.ZeroTolerance
+            && RhinoMath.IsValidDouble(x: distance) && distance > RhinoMath.ZeroTolerance,
+            op.InvalidResult()).ToFin()
+        from frame in LookAt(location: valid.CameraLocation, target: valid.CameraLocation + (direction * distance), up: Some(valid.CameraUp))
+            .MapFail(_ => op.InvalidResult())
+        select frame;
+
     public static Fin<CameraFrame> LookAt(Point3d location, Point3d target, Option<Vector3d> up = default) =>
         from direction in (location.IsValid, target.IsValid, target - location) switch {
             (true, true, Vector3d d) when d.Length > RhinoMath.ZeroTolerance => Fin.Succ(value: d),
@@ -137,6 +150,14 @@ public readonly record struct CameraFrame(Plane Frame, Point3d Target) {
         let plane = new Plane(origin: location, xDirection: Vector3d.CrossProduct(direction, resolved), yDirection: resolved)
         from _ in guard(plane.IsValid, LookAtKey.InvalidResult())
         select new CameraFrame(Frame: plane, Target: target);
+
+    internal static Fin<CameraFrame> LookAt(Point3d location, Point3d target, Context context, Option<Vector3d> up, Op op) {
+        Vector3d look = target - location;
+        Option<Vector3d> xHint = up.Map(value => Vector3d.CrossProduct(a: look, b: value));
+        return from _valid in guard(location.IsValid && target.IsValid && look.IsValid && look.Length > RhinoMath.ZeroTolerance, op.InvalidInput()).ToFin()
+               from frame in VectorFrame.Of(origin: location, normal: -look, xHint: xHint, context: context, key: op)
+               select new CameraFrame(Frame: frame.Value, Target: target);
+    }
 
     public Point3d Location => Frame.Origin;
     public Vector3d Direction => -Frame.ZAxis;
@@ -171,12 +192,131 @@ public readonly record struct CameraFrustum(
                 false => Fin.Fail<CameraFrustum>(error: op.InvalidResult()),
             });
 
+    internal static Fin<CameraFrustum> Of(ViewportInfo projection, Op op) =>
+        Optional(projection).ToFin(Fail: op.InvalidInput()).Bind(valid =>
+            valid.GetFrustum(left: out double left, right: out double right, bottom: out double bottom, top: out double top, nearDistance: out double near, farDistance: out double far) switch {
+                true => op.Catch(() => {
+                    Point3d[] nearCorners = valid.GetFramePlaneCorners(depth: near);
+                    Point3d[] farCorners = valid.GetFramePlaneCorners(depth: far);
+                    BoundingBox bounds = nearCorners.Length == 4 && farCorners.Length == 4
+                        ? new BoundingBox(points: nearCorners.Concat(farCorners))
+                        : BoundingBox.Empty;
+                    return bounds.IsValid
+                        ? Fin.Succ(value: new CameraFrustum(Left: left, Right: right, Bottom: bottom, Top: top, Near: near, Far: far, Aspect: valid.FrustumAspect, Bounds: bounds))
+                        : Fin.Fail<CameraFrustum>(error: op.InvalidResult());
+                }),
+                false => Fin.Fail<CameraFrustum>(error: op.InvalidResult()),
+            });
+
     internal Fin<ViewportInfo> Apply(ViewportInfo projection, Op op) {
         CameraFrustum self = this;
         return from valid in Optional(projection).ToFin(Fail: op.InvalidInput())
                from _ in op.Confirm(success: valid.SetFrustum(left: self.Left, right: self.Right, bottom: self.Bottom, top: self.Top, nearDistance: self.Near, farDistance: self.Far))
                select valid;
     }
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CameraViewState(
+    CameraFrame Frame,
+    CameraFrustum Frustum,
+    CameraMode Mode,
+    double LensLength,
+    double CameraAngle,
+    CameraDof Dof,
+    DrawingRectangle ScreenPort,
+    (double X, double Y, double Z) ViewScale) {
+    public double TargetDistance => Frame.Location.DistanceTo(other: Frame.Target);
+
+    internal Fin<ViewportInfo> Projection(Op op) {
+        CameraViewState self = this;
+        return op.Catch(() => {
+            ViewportInfo projection = new();
+            bool handedOff = false;
+            try {
+                Fin<ViewportInfo> state =
+                    from _screen in op.Confirm(success: projection.SetScreenPort(self.ScreenPort))
+                    from _mode in self.Mode switch {
+                        CameraMode.TwoPointPerspective => op.Confirm(success: projection.ChangeToTwoPointPerspectiveProjection(lensLength: self.LensLength, up: self.Frame.Up, targetDistance: self.TargetDistance)),
+                        CameraMode.Perspective => op.Confirm(success: projection.ChangeToPerspectiveProjection(targetDistance: self.TargetDistance, symmetricFrustum: false, lensLength: self.LensLength)),
+                        _ => op.Confirm(success: projection.ChangeToParallelProjection(symmetricFrustum: false)),
+                    }
+                    from _location in op.Confirm(success: projection.SetCameraLocation(self.Frame.Location))
+                    from _direction in op.Confirm(success: projection.SetCameraDirection(self.Frame.Direction))
+                    from _up in op.Confirm(success: projection.SetCameraUp(self.Frame.Up))
+                    from _frustum in self.Frustum.Apply(projection: projection, op: op)
+                    from _angle in Fin.Succ(value: Op.Side(() => projection.CameraAngle = self.CameraAngle))
+                    from _scale in Fin.Succ(value: Op.Side(() => projection.SetViewScale(scaleX: self.ViewScale.X, scaleY: self.ViewScale.Y, scaleZ: self.ViewScale.Z)))
+                    select projection;
+                return state.BiBind(
+                    Succ: value => {
+                        handedOff = true;
+                        return Fin.Succ(value: value);
+                    },
+                    Fail: error => Fin.Fail<ViewportInfo>(error: error));
+            } finally {
+                if (!handedOff) {
+                    projection.Dispose();
+                }
+            }
+        });
+    }
+
+    internal static Fin<CameraViewState> Of(RhinoViewport viewport, Op op) =>
+        from active in Optional(viewport).ToFin(Fail: op.InvalidInput())
+        from state in op.Catch(() => {
+            using ViewportInfo projection = new(rhinoViewport: active);
+            return Of(projection: projection, op: op);
+        })
+        from dof in op.Catch(() => {
+            using ViewInfo info = new(active);
+            return Fin.Succ(value: CameraDof.Read(view: info));
+        })
+        select state with { Dof = dof };
+
+    internal static Fin<CameraViewState> Of(ViewportInfo projection, Op op) =>
+        Optional(projection).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
+            using ViewportInfo copy = new(active);
+            return from frame in CameraFrame.Of(projection: copy, op: op)
+                   from frustum in CameraFrustum.Of(projection: copy, op: op)
+                   select new CameraViewState(
+                       Frame: frame,
+                       Frustum: frustum,
+                       Mode: ModeOf(projection: copy),
+                       LensLength: copy.Camera35mmLensLength,
+                       CameraAngle: copy.CameraAngle,
+                       Dof: default,
+                       ScreenPort: copy.ScreenPort,
+                       ViewScale: ViewScaleOf(projection: copy));
+        }));
+
+    internal static Fin<CameraViewState> Of(ViewInfo view, Op op) =>
+        from active in Optional(view).ToFin(Fail: op.InvalidInput())
+        from state in op.Catch(() => {
+            using ViewportInfo projection = new(active.Viewport);
+            return Of(projection: projection, op: op);
+        })
+        select state with { Dof = CameraDof.Read(view: active) };
+
+    private static CameraMode ModeOf(RhinoViewport viewport) =>
+        viewport switch {
+            { IsTwoPointPerspectiveProjection: true } => CameraMode.TwoPointPerspective,
+            { IsPerspectiveProjection: true } => CameraMode.Perspective,
+            _ => CameraMode.Parallel,
+        };
+
+    private static CameraMode ModeOf(ViewportInfo projection) =>
+        projection switch {
+            { IsTwoPointPerspectiveProjection: true } => CameraMode.TwoPointPerspective,
+            { IsPerspectiveProjection: true } => CameraMode.Perspective,
+            _ => CameraMode.Parallel,
+        };
+
+    private static (double X, double Y, double Z) ViewScaleOf(ViewportInfo projection) =>
+        projection.GetViewScale() switch {
+            [double x, double y, double z, ..] => (x, y, z),
+            _ => (1.0, 1.0, 1.0),
+        };
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -521,8 +661,8 @@ public sealed record CameraSnapshot : IDisposable {
         Op op = Op.Of(name: nameof(Restore));
         return UI.RhinoUi.Protect(valid: () =>
             from _ in guard(self.Scope.Document.RuntimeSerialNumber == self.DocumentSerial, op.InvalidInput())
-            // A live scale-locked detail viewport silently no-ops CRhinoViewport_SetVP; clear the lock
-            // first, then the final Op.Side restores the snapshotted lock state exactly.
+                // A live scale-locked detail viewport silently no-ops CRhinoViewport_SetVP; clear the lock
+                // first, then the final Op.Side restores the snapshotted lock state exactly.
             from _unlock in Fin.Succ(value: Op.Side(() => self.Scope.Viewport.LockedProjection = false))
             from restored in op.Confirm(success: self.Scope.Viewport.SetViewProjection(projection: self.Projection, updateTargetLocation: updateTarget))
             from applied in Fin.Succ(value: Op.Side(() => {
