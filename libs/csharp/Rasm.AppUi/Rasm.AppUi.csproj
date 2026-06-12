@@ -57,6 +57,7 @@
         <PackageReference Include="Dock.Model.ReactiveUI" />
         <PackageReference Include="FluentIcons.Avalonia" />
         <PackageReference Include="Markdig" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
     <!-- HotAvalonia self-gates to Debug via its buildTransitive props; the reference stays

@@ -1101,6 +1101,7 @@
           "System.Drawing.Common": "[10.0.9, )",
           "System.Reactive": "[6.1.0, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )",
+          "Thinktecture.Runtime.Extensions.Json": "[10.2.0, )",
           "Xaml.Behaviors.Avalonia": "[12.0.0.1, )",
           "bodong.Avalonia.PropertyGrid": "[12.0.4.1, )"
         }
@@ -1122,6 +1123,7 @@
           "Rasm.Persistence": "[1.0.0, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )",
+          "Thinktecture.Runtime.Extensions.Json": "[10.2.0, )",
           "UnitsNet": "[5.75.0, )"
         }
       },

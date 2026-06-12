@@ -102,6 +102,15 @@
           "Thinktecture.Runtime.Extensions.SourceGenerator": "10.2.0"
         }
       },
+      "Thinktecture.Runtime.Extensions.Json": {
+        "type": "Direct",
+        "requested": "[10.2.0, )",
+        "resolved": "10.2.0",
+        "contentHash": "ij6WM33qRNwEHDIf4uQ/YEleR8KptTGv9G7EWi+C4ZVzGbpJqRhAp95qY8qu6VJoXYMSR27WMIafm3h4lX0soA==",
+        "dependencies": {
+          "Thinktecture.Runtime.Extensions": "10.2.0"
+        }
+      },
       "UnitsNet": {
         "type": "Direct",
         "requested": "[5.75.0, )",
@@ -1314,15 +1323,6 @@
         "dependencies": {
           "Microsoft.EntityFrameworkCore.Relational": "10.0.1",
           "Thinktecture.Runtime.Extensions": "10.2.0-beta01"
-        }
-      },
-      "Thinktecture.Runtime.Extensions.Json": {
-        "type": "CentralTransitive",
-        "requested": "[10.2.0, )",
-        "resolved": "10.2.0",
-        "contentHash": "ij6WM33qRNwEHDIf4uQ/YEleR8KptTGv9G7EWi+C4ZVzGbpJqRhAp95qY8qu6VJoXYMSR27WMIafm3h4lX0soA==",
-        "dependencies": {
-          "Thinktecture.Runtime.Extensions": "10.2.0"
         }
       },
       "Thinktecture.Runtime.Extensions.MessagePack": {

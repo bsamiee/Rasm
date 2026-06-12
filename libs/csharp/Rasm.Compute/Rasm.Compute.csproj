@@ -19,6 +19,7 @@
         <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
