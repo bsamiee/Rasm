@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <IsBenchmarkProject>true</IsBenchmarkProject>
-        <IsTestProject>false</IsTestProject>
-        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
+        <!-- BenchmarkDotNet rejects unoptimized benchmark assemblies; holds until the assay rail
+             routes benchmarks through a Release-configuration closure. -->
+        <Optimize>true</Optimize>
         <NoWarn>$(NoWarn);CA1515</NoWarn>
     </PropertyGroup>
     <ItemGroup>

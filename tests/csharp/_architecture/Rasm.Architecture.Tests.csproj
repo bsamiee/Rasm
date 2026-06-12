@@ -2,7 +2,6 @@
     <PropertyGroup>
         <SolutionDir>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..'))</SolutionDir>
         <SolutionName>Workspace</SolutionName>
-        <Optimize>false</Optimize>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="TngTech.ArchUnitNET.xUnitV3" PrivateAssets="all" />

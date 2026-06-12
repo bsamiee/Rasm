@@ -31,7 +31,6 @@ catalog:
   '@nx-extend/pulumi': 12.0.2
   '@nx-tools/nx-container': 7.2.3
   '@nx/docker': 22.7.1
-  '@nx/dotnet': 22.7.1
   '@nx/js': 22.7.1
   '@nx/playwright': 22.7.1
   '@nx/react': 22.7.1

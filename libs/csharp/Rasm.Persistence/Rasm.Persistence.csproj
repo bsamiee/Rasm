@@ -1,11 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Local durable-state package setup and doctrine for projection, migration, snapshots, redaction, cache, and support artifacts.</Description>
-        <NoWarn>$(NoWarn);NU1608</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" PrivateAssets="all" />
+        <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="SQLite Store">

@@ -1,22 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <NoWarn>$(NoWarn);CA1416</NoWarn>
-    </PropertyGroup>
-
     <ItemGroup>
         <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
         <ProjectReference Include="../../../tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-        <Reference Include="Rhino.UI">
-            <HintPath>$(RhinoUiReferencePath)</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="System.Drawing.Common">
-            <HintPath>$(SystemDrawingCommonReferencePath)</HintPath>
-            <Private>false</Private>
-        </Reference>
-    </ItemGroup>
-
 </Project>
