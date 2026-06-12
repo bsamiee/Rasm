@@ -1,3 +1,4 @@
+using Grasshopper2.UI.Canvas;
 using Rasm.Grasshopper.UI;
 using Rasm.TestKit;
 
@@ -174,8 +175,8 @@ public sealed class WireOverlayStyleLaws {
     [Fact]
     public void EntrySpecificStyleSelectorOverridesFallback() {
         Guid selectedId = Guid.NewGuid();
-        WireDrawnEntry selected = new(SourceId: selectedId, TargetId: Guid.NewGuid(), Kind: default, Bounds: RectangleF.Empty);
-        WireDrawnEntry normal = selected with { SourceId = Guid.NewGuid() };
+        WireDrawnEntry selected = new(Pair: new WireEnds(source: selectedId, target: Guid.NewGuid()), Kind: default, Bounds: RectangleF.Empty, SourceBounds: RectangleF.Empty, TargetBounds: RectangleF.Empty, Fade: 1f, Route: default);
+        WireDrawnEntry normal = selected with { Pair = new WireEnds(source: Guid.NewGuid(), target: selected.TargetId) };
         PaintStyle fallback = PaintStyle.Style(edge: Colors.Transparent);
         PaintStyle highlight = PaintStyle.Style(edge: Colors.Red, thickness: 4f);
         WireOverlayStyle style = new(Style: fallback, Select: Some<Func<WireDrawnEntry, PaintStyle>>(entry => entry.SourceId == selectedId ? highlight : fallback));
@@ -188,7 +189,7 @@ public sealed class WireOverlayStyleLaws {
     public void DrawnSnapshotProjectsDocumentModificationStamp() {
         WireDrawnSnapshot snapshot = new(
             Entries: Seq<WireDrawnEntry>(),
-            Stamp: new WireDrawnStamp(DocumentHash: Guid.NewGuid(), Modifications: 42, ProjectionCentre: PointF.Empty, ProjectionZoom: 1f, DrawInnerFrame: RectangleF.Empty),
+            Stamp: new WireDrawnStamp(DocumentId: Guid.NewGuid(), DocumentHash: Guid.NewGuid(), Modifications: 42, ProjectionCentre: PointF.Empty, ProjectionZoom: 1f, DrawInnerFrame: RectangleF.Empty),
             FreshFromWirePaint: true);
         Assert.Equal(expected: 42, actual: snapshot.DocumentModifications);
     }

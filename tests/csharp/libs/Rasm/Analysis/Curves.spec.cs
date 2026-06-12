@@ -20,6 +20,10 @@ internal static class CurvesGens {
 // --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class CurvesUnionCatalogLaws {
     [Fact]
+    public void CurveFeatureCatalogIsGeneratedOwner() =>
+        Spec.SmartEnumCatalogMatches(production: CurveFeature.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], key: static feature => feature.Key);
+
+    [Fact]
     public void FactoriesProjectBoundedCasesAndCarryDistinctPayloads() {
         Assert.Equal(expected: 6, actual: CurvesGens.Cases.Select(static c => c.Aspect.GetType()).Distinct().Count());
         Assert.Equal(expected: 8, actual: CurvesGens.Cases.Count(static c => c.Aspect is Curves.EdgesCase));

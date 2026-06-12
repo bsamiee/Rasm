@@ -247,6 +247,8 @@ internal static class GeometryKernel {
     internal static bool CanDecomposeFaces(Type type) => typeof(BrepFace).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.CanCoerceTo(target: typeof(Brep)));
     internal static bool CanEvaluateTopology(Type type) => typeof(Mesh).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Mesh || kind.Topology == Topology.Brep || kind.CanCoerceTo(target: typeof(Brep)));
     internal static bool CanEvaluateSolidTopology(Type type) => typeof(Mesh).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Mesh || kind.Topology == Topology.Brep || kind.CanCoerceTo(target: typeof(Brep)));
+    internal static bool CanNativeTopology(Type type, Topology topology, params ReadOnlySpan<(Topology Topology, Type Native)> candidates) =>
+        candidates.ToArray().Any(candidate => candidate.Topology.Equals(topology) && candidate.Native.IsAssignableFrom(type));
     internal static bool CanClosest(Type type) =>
         Universal(type: type) || type == typeof(Point3d) || type == typeof(Point) || typeof(PointCloud).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || type == typeof(Box) || type == typeof(BoundingBox) || CanCurveForm(type: type) || CanSurfaceForm(type: type);
     internal static bool CanClosestNormal(Type type) => Universal(type: type) || CanSurfaceForm(type: type) || typeof(PointCloud).IsAssignableFrom(c: type) || typeof(BrepFace).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type);

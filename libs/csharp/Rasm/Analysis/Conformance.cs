@@ -5,18 +5,20 @@ namespace Rasm.Analysis;
 
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class ConformanceMetric {
-    public static readonly ConformanceMetric Distance = new(key: 0, output: typeof(double), isSigned: false, isContainment: false, exactCurveDeviation: false);
-    public static readonly ConformanceMetric Rms = new(key: 1, output: typeof(double), isSigned: false, isContainment: false, exactCurveDeviation: false);
-    public static readonly ConformanceMetric WithinTolerance = new(key: 2, output: typeof(bool), isSigned: false, isContainment: false, exactCurveDeviation: true);
-    public static readonly ConformanceMetric Summary = new(key: 3, output: typeof(Stat), isSigned: false, isContainment: false, exactCurveDeviation: false);
-    public static readonly ConformanceMetric Maximum = new(key: 4, output: typeof(ResidualSample), isSigned: false, isContainment: false, exactCurveDeviation: true);
-    public static readonly ConformanceMetric SignedResidual = new(key: 5, output: typeof(ResidualSample), isSigned: true, isContainment: false, exactCurveDeviation: false);
-    public static readonly ConformanceMetric Containment = new(key: 6, output: typeof(ResidualSample), isSigned: true, isContainment: true, exactCurveDeviation: false);
-    public static readonly ConformanceMetric Distribution = new(key: 7, output: typeof(Distribution), isSigned: false, isContainment: false, exactCurveDeviation: false);
+    public static readonly ConformanceMetric Distance = new(key: 0, output: typeof(double), isSigned: false, isContainment: false, exactCurveDeviation: false, projection: static (residuals, _, _, key) => Analyze.ConformanceResidualDistances(samples: residuals, key: key).Map(static values => values.Map(static value => (object)value)));
+    public static readonly ConformanceMetric Rms = new(key: 1, output: typeof(double), isSigned: false, isContainment: false, exactCurveDeviation: false, projection: static (residuals, _, context, key) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: context.Absolute.Value, key: key).Map(static stat => Seq((object)stat.Rms)));
+    public static readonly ConformanceMetric WithinTolerance = new(key: 2, output: typeof(bool), isSigned: false, isContainment: false, exactCurveDeviation: true, projection: static (residuals, _, context, key) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: context.Absolute.Value, key: key).Map(static stat => Seq((object)stat.WithinTolerance)));
+    public static readonly ConformanceMetric Summary = new(key: 3, output: typeof(Stat), isSigned: false, isContainment: false, exactCurveDeviation: false, projection: static (residuals, _, context, key) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: context.Absolute.Value, key: key).Map(static stat => Seq((object)stat)));
+    public static readonly ConformanceMetric Maximum = new(key: 4, output: typeof(ResidualSample), isSigned: false, isContainment: false, exactCurveDeviation: true, projection: static (residuals, _, _, key) => Analyze.ConformanceResidualMaximum(samples: residuals, key: key).Map(static sample => Seq((object)sample)));
+    public static readonly ConformanceMetric SignedResidual = new(key: 5, output: typeof(ResidualSample), isSigned: true, isContainment: false, exactCurveDeviation: false, projection: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample)));
+    public static readonly ConformanceMetric Containment = new(key: 6, output: typeof(ResidualSample), isSigned: true, isContainment: true, exactCurveDeviation: false, projection: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample)));
+    public static readonly ConformanceMetric Distribution = new(key: 7, output: typeof(Distribution), isSigned: false, isContainment: false, exactCurveDeviation: false, projection: static (residuals, percentiles, _, key) => Analyze.ConformanceResidualDistribution(samples: residuals, percentiles: percentiles, key: key).Map(static result => Seq((object)result)));
+    internal delegate Fin<Seq<object>> ConformanceProjection(Seq<ResidualSample> residuals, Seq<double> percentiles, Context context, Op key);
     public Type Output { get; }
     internal bool IsSigned { get; }
     internal bool IsContainment { get; }
     internal bool ExactCurveDeviation { get; }
+    internal ConformanceProjection Projection { get; }
     internal bool AcceptsTarget(Type target, bool curveSource) =>
         (IsContainment && (target == typeof(Brep) || target == typeof(Mesh)))
         || (IsSigned && !IsContainment && GeometryKernel.CanSignedDistance(type: target))
@@ -24,16 +26,9 @@ public sealed partial class ConformanceMetric {
             || (curveSource && (target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Polyline) || GeometryKernel.CanCurveForm(type: target)))));
     internal Requirement TargetRequirement(Kind kind) => IsContainment && (kind.Topology == Topology.Brep || kind.Topology == Topology.Mesh) ? Requirement.SolidTopology : Requirement.None;
     internal Fin<Seq<TOut>> Project<TOut>(Seq<ResidualSample> residuals, Seq<double> percentiles, Context context, Op key) =>
-        this switch {
-            ConformanceMetric metric when metric.Equals(Distance) => Analyze.ConformanceResidualDistances(samples: residuals, key: key).Bind(values => new AnalysisOutput<TOut>(key).Many(values: values)),
-            ConformanceMetric metric when metric.Equals(Rms) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: context.Absolute.Value, key: key).Bind(stat => new AnalysisOutput<TOut>(key).Many(values: Seq(stat.Rms))),
-            ConformanceMetric metric when metric.Equals(WithinTolerance) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: context.Absolute.Value, key: key).Bind(stat => new AnalysisOutput<TOut>(key).Many(values: Seq(stat.WithinTolerance))),
-            ConformanceMetric metric when metric.Equals(Summary) => Analyze.ConformanceResidualSummary(samples: residuals, tolerance: context.Absolute.Value, key: key).Bind(stat => new AnalysisOutput<TOut>(key).Many(values: Seq(stat))),
-            ConformanceMetric metric when metric.Equals(Maximum) => Analyze.ConformanceResidualMaximum(samples: residuals, key: key).Bind(sample => new AnalysisOutput<TOut>(key).Many(values: Seq(sample))),
-            ConformanceMetric metric when metric.Equals(SignedResidual) || metric.Equals(Containment) => new AnalysisOutput<TOut>(key).Many(values: residuals),
-            ConformanceMetric metric when metric.Equals(Distribution) => Analyze.ConformanceResidualDistribution(samples: residuals, percentiles: percentiles, key: key).Bind(result => new AnalysisOutput<TOut>(key).Many(values: Seq(result))),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(ConformanceMetric), outputType: typeof(TOut))),
-        };
+        Output == typeof(TOut)
+            ? Projection(residuals: residuals, percentiles: percentiles, context: context, key: key).Bind(values => new AnalysisOutput<TOut>(key).Objects(values: values, sourceType: Output))
+            : Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(ConformanceMetric), outputType: typeof(TOut)));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------

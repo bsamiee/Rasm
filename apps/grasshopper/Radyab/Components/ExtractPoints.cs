@@ -16,7 +16,7 @@ public sealed class ExtractPoints : Component<ExtractPoints>, IComponentDefiniti
         .Output<Point3d>(input: Geometry, query: AnalysisQuery.MeshPointSpatial(Points.EdgeMidpoints), name: "Edge Midpoints", code: "EM", info: "Length midpoints of curves and edges; per-segment for polylines and box-like geometry.", access: Access.Tree)
         .Output<Point3d>(input: Geometry, query: AnalysisQuery.MeshPointSpatial(Points.Quadrants), name: "Quadrants", code: "Q", info: "World-cardinal extrema (top/bottom/left/right + Z) of a curve. Curve-only output.", access: Access.Tree)
         .Output<Point3d>(input: Geometry, query: AnalysisQuery.Measure(Measure.SpatialMidpoint), name: "Centroid", code: "C", info: "Mass-weighted center where native mass exists; bbox center for bounded primitives.", access: Access.Tree)
-        .Output<Point3d>(input: Geometry, query: AnalysisQuery.Measure(Bounds.Center), name: "BBox Center", code: "B", info: "Axis-aligned bounding box center for bounded geometry and primitives.", access: Access.Tree)
-        .Output<Point3d>(input: Geometry, query: AnalysisQuery.Measure(Bounds.Corners(unique: true)), name: "Bounding Corners", code: "BX", info: "Unique axis-aligned bounding-box corners: 8 for full 3D, 4 for planar, 2 for linear, 1 for point.", access: Access.Tree));
+        .Output<Point3d>(input: Geometry, query: AnalysisQuery.Bounds(Bounds.Center), name: "BBox Center", code: "B", info: "Axis-aligned bounding box center for bounded geometry and primitives.", access: Access.Tree)
+        .Output<Point3d>(input: Geometry, query: AnalysisQuery.Bounds(Bounds.Corners(unique: true)), name: "Bounding Corners", code: "BX", info: "Unique axis-aligned bounding-box corners: 8 for full 3D, 4 for planar, 2 for linear, 1 for point.", access: Access.Tree));
     public ExtractPoints() { }
 }

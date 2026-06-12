@@ -221,15 +221,15 @@ public static class SchemaGate {
 - Law: the backfill between waves is bulk-rail data work, never schema-rail — a row-mass backfill squats on the fleet-wide lock past the health-probe window.
 - Law: a destructive `Up` whose `Down` cannot restore data declares irreversibility — a fabricated lossy `Down` is a second destructive operation in disguise.
 
-| [INDEX] | [UP_OPERATION]                                  | [PHYSICAL_CLASS] | [DISPOSITION]          |
-| :-----: | :---------------------------------------------- | :--------------- | :--------------------- |
-|   [1]   | `AddColumnOperation` nullable or defaulted      | additive         | expand                 |
-|   [2]   | `AddColumnOperation` required, no default       | destructive      | rejected expand        |
-|   [3]   | `RenameTableOperation`, `RenameColumnOperation` | rename           | forbidden middle       |
-|   [4]   | `AlterColumnOperation` on a rebuilding engine   | rebuild          | gated as full rewrite  |
-|   [5]   | `AlterColumnOperation` tightening nullability   | destructive      | contract               |
-|   [6]   | `DropTableOperation`, `DropColumnOperation`     | destructive      | contract               |
-|   [7]   | `SqlOperation` without a class token            | destructive      | worst-case default     |
+| [INDEX] | [UP_OPERATION]                                  | [PHYSICAL_CLASS] | [DISPOSITION]         |
+| :-----: | :---------------------------------------------- | :--------------- | :-------------------- |
+|   [1]   | `AddColumnOperation` nullable or defaulted      | additive         | expand                |
+|   [2]   | `AddColumnOperation` required, no default       | destructive      | rejected expand       |
+|   [3]   | `RenameTableOperation`, `RenameColumnOperation` | rename           | forbidden middle      |
+|   [4]   | `AlterColumnOperation` on a rebuilding engine   | rebuild          | gated as full rewrite |
+|   [5]   | `AlterColumnOperation` tightening nullability   | destructive      | contract              |
+|   [6]   | `DropTableOperation`, `DropColumnOperation`     | destructive      | contract              |
+|   [7]   | `SqlOperation` without a class token            | destructive      | worst-case default    |
 
 ## [6]-[IDENTITY_AXIS]
 

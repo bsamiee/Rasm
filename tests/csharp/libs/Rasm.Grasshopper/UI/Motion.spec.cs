@@ -18,8 +18,8 @@ internal static class HandleGens {
     public static PulseHandle<float> Pulse(int cyclesRemaining, bool infinite) =>
         new(cell: Atom(new PulseRunnerState<float>(
                 Animated: Animated<float>.CreateFinished(0f, MotionVector.Float.Interpolate),
-                From: 0f, To: 1f, Duration: GhDuration.Fast, Easing: GhMotion.Linear, Yoyo: false,
-                Infinite: infinite, CyclesRemaining: cyclesRemaining, Vector: MotionVector.Float, Sink: static _ => { },
+                From: 0f, To: 1f, Duration: GhDuration.Fast, Easing: GhMotion.Linear, Repeat: new RepeatPolicy(Cycles: cyclesRemaining + 1, Yoyo: false, Infinite: infinite),
+                CyclesRemaining: cyclesRemaining, Vector: MotionVector.Float, Sink: static _ => { },
                 Canvas: null!)),
             subscription: Subscription.Empty,
             wake: static () => { });

@@ -6,20 +6,20 @@ Every visual output — interactive frame, thumbnail, chart, vector export, docu
 
 This table routes a visual concern to its owning surface; the most specific row wins.
 
-| [INDEX] | [CONCERN]           | [OWNER]                                 | [REJECTED_FORM]             |
-| :-----: | :------------------ | :-------------------------------------- | :-------------------------- |
-|   [1]   | output target       | target row over one render capsule      | bespoke pipeline per target |
-|   [2]   | retained scene      | one gated recorded `SKPicture`          | `SKBitmap` working surface  |
-|   [3]   | frame identity      | pinned-projection hash receipt          | encoded-artifact hash       |
-|   [4]   | document artifact   | page-protocol fold + dual receipt       | dispose-only export         |
-|   [5]   | text on any surface | shaped run via the role grid            | paint-carried font state    |
-|   [6]   | font fallback       | frozen role × script grid               | host registry probe at draw |
-|   [7]   | vector asset        | admitted owner + variant matrix         | draw-time tint filter       |
-|   [8]   | icon                | (`Symbol`, `IconVariant`) catalog row   | string-keyed registry       |
-|   [9]   | raster asset        | codec admission + two-key receipt       | eager whole-image decode    |
-|  [10]   | chart               | series-spec table + headless twin       | per-chart code-behind       |
-|  [11]   | styling values      | one frozen token algebra                | call-site literals          |
-|  [12]   | color motion        | perceptual tween row                    | componentwise sRGB lerp     |
+| [INDEX] | [CONCERN]           | [OWNER]                               | [REJECTED_FORM]             |
+| :-----: | :------------------ | :------------------------------------ | :-------------------------- |
+|   [1]   | output target       | target row over one render capsule    | bespoke pipeline per target |
+|   [2]   | retained scene      | one gated recorded `SKPicture`        | `SKBitmap` working surface  |
+|   [3]   | frame identity      | pinned-projection hash receipt        | encoded-artifact hash       |
+|   [4]   | document artifact   | page-protocol fold + dual receipt     | dispose-only export         |
+|   [5]   | text on any surface | shaped run via the role grid          | paint-carried font state    |
+|   [6]   | font fallback       | frozen role × script grid             | host registry probe at draw |
+|   [7]   | vector asset        | admitted owner + variant matrix       | draw-time tint filter       |
+|   [8]   | icon                | (`Symbol`, `IconVariant`) catalog row | string-keyed registry       |
+|   [9]   | raster asset        | codec admission + two-key receipt     | eager whole-image decode    |
+|  [10]   | chart               | series-spec table + headless twin     | per-chart code-behind       |
+|  [11]   | styling values      | one frozen token algebra              | call-site literals          |
+|  [12]   | color motion        | perceptual tween row                  | componentwise sRGB lerp     |
 
 ## [2]-[RENDER_LAW]
 

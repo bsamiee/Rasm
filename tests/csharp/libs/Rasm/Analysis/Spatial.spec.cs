@@ -6,7 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [MODELS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED: native Tree.*; static owns SpatialProbe catalog, ValidatePoints, and PointPairs vs an independent sorted oracle.
+// BRIDGE-DEFERRED: native SpatialIndex.*; static owns SpatialProbe catalog, ValidatePoints, and PointPairs vs an independent sorted oracle.
 internal static class SpatialGens {
     public static readonly Op Key = Op.Of(name: "spatial-test");
     public static readonly Point3d[] InvalidPoints =
@@ -16,10 +16,10 @@ internal static class SpatialGens {
     public static readonly Gen<int[][]> NeighborRows =
         Gen.Int[0, 16].Array[0, 12].Select(static (int[] counts) =>
             counts.Select(static (int n, int needle) => Enumerable.Range(start: needle, count: n % 6).ToArray()).ToArray());
-    public static Tree TreeOf(params Point3d[] points) =>
-        Tree.Points(points: points).Match(Succ: static tree => tree, Fail: error => throw new InvalidOperationException(error.Message));
+    public static SpatialIndex IndexOf(params Point3d[] points) =>
+        SpatialIndex.Points(points: points).Match(Succ: static tree => tree, Fail: error => throw new InvalidOperationException(error.Message));
     public static Validation<Error, Seq<SpatialPair>> PointPairs(Point3d[] points, Point3d[] needles, SpatialProbe probe) =>
-        Analyze.Run<SpatialPair>(query: AnalysisQuery.Spatial(SpatialQuery.PointPairs(points: points, needles: needles, probe: probe)));
+        Analyze.Run<SpatialPair>(query: AnalysisQuery.PointPairs(points: points, needles: needles, probe: probe));
     public static Seq<SpatialPair> ExpandSorted(int[][] rows) =>
         toSeq(rows.SelectMany(static (int[] ids, int needle) => ids.Select(source => new SpatialPair(A: needle, B: source)))
             .OrderBy(static c => c.A).ThenBy(static c => c.B));
@@ -65,24 +65,24 @@ public sealed class SpatialProbeValidationLaws {
     }
 }
 
-public sealed class SpatialQueryExecutionLaws {
+public sealed class AnalysisQuerySpatialExecutionLaws {
     [Fact]
-    public void TreeSearchByBoxAndSphereReturnsSortedHitIdsThroughServiceQuery() {
-        using Tree tree = SpatialGens.TreeOf(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0), new Point3d(x: 4.0, y: 0.0, z: 0.0));
+    public void SpatialIndexSearchByBoxAndSphereReturnsSortedHitIdsThroughServiceQuery() {
+        using SpatialIndex tree = SpatialGens.IndexOf(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0), new Point3d(x: 4.0, y: 0.0, z: 0.0));
         Spec.Valid(
-            result: Analyze.Run<SpatialHit>(query: AnalysisQuery.Spatial(SpatialQuery.Search(index: tree, box: new BoundingBox(min: new Point3d(x: -0.5, y: -0.5, z: -0.5), max: new Point3d(x: 2.5, y: 0.5, z: 0.5))))),
+            result: Analyze.Run<SpatialHit>(query: AnalysisQuery.Search(index: tree, box: new BoundingBox(min: new Point3d(x: -0.5, y: -0.5, z: -0.5), max: new Point3d(x: 2.5, y: 0.5, z: 0.5)))),
             then: static hits => Assert.Equal(expected: Seq(new SpatialHit(Id: 0), new SpatialHit(Id: 1)), actual: hits));
         Spec.Valid(
-            result: Analyze.Run<SpatialHit>(query: AnalysisQuery.Spatial(SpatialQuery.Search(index: tree, sphere: new Sphere(center: new Point3d(x: 4.0, y: 0.0, z: 0.0), radius: 0.25)))),
+            result: Analyze.Run<SpatialHit>(query: AnalysisQuery.Search(index: tree, sphere: new Sphere(center: new Point3d(x: 4.0, y: 0.0, z: 0.0), radius: 0.25))),
             then: static hits => Assert.Equal(expected: Seq(new SpatialHit(Id: 2)), actual: hits));
     }
 
     [Fact]
-    public void TreeOverlapAndNearestPointPairsReturnSortedPairsThroughServiceQuery() {
-        using Tree left = SpatialGens.TreeOf(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0));
-        using Tree right = SpatialGens.TreeOf(new Point3d(x: 0.1, y: 0.0, z: 0.0), new Point3d(x: 2.2, y: 0.0, z: 0.0));
+    public void SpatialIndexOverlapAndNearestPointPairsReturnSortedPairsThroughServiceQuery() {
+        using SpatialIndex left = SpatialGens.IndexOf(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0));
+        using SpatialIndex right = SpatialGens.IndexOf(new Point3d(x: 0.1, y: 0.0, z: 0.0), new Point3d(x: 2.2, y: 0.0, z: 0.0));
         Spec.Valid(
-            result: Analyze.Run<SpatialPair>(query: AnalysisQuery.Spatial(SpatialQuery.Overlaps(left: left, right: right, tolerance: 0.25))),
+            result: Analyze.Run<SpatialPair>(query: AnalysisQuery.Overlaps(left: left, right: right, tolerance: 0.25)),
             then: static pairs => Assert.Equal(expected: Seq(new SpatialPair(A: 0, B: 0), new SpatialPair(A: 1, B: 1)), actual: pairs));
         Spec.Valid(
             result: SpatialGens.PointPairs(
@@ -98,10 +98,10 @@ public sealed class SpatialQueryExecutionLaws {
         source.Cancel();
         Spec.Invalid(
             result: Analyze.In(context: ContextFixtureValue).With(cancellation: source.Token).Run(
-                operation: Analyze.Query<SpatialPair>(query: AnalysisQuery.Spatial(SpatialQuery.PointPairs(
+                operation: Analyze.Query<SpatialPair>(query: AnalysisQuery.PointPairs(
                     points: [Point3d.Origin],
                     needles: [Point3d.Origin],
-                    probe: SpatialProbe.Nearest(count: 1)))),
+                    probe: SpatialProbe.Nearest(count: 1))),
                 input: Unit.Default),
             then: static error => Assert.Equal(expected: "Cancelled", actual: error.Category()));
     }
@@ -114,31 +114,31 @@ public sealed class ValidatePointsGuardLaws {
     [Fact]
     public void AllValidPointsProjectSameArityAndSequenceVerbatim() =>
         Spec.ForAll(SpatialGens.ValidPoints, static points =>
-            Spec.Succ(result: Tree.ValidatePoints(points: points), then: validated => {
+            Spec.Succ(result: SpatialIndex.ValidatePoints(points: points), then: validated => {
                 Assert.Equal(expected: points.Length, actual: validated.Length);
                 Assert.Equal(expected: points, actual: validated);
             }));
     [Fact]
     public void FirstInvalidPointShortCircuitsWithInputCategory() {
         Spec.Cases(items: [.. SpatialGens.InvalidPoints.Select(static (Point3d p, int i) => (Index: i, Point: p))], key: static c => c.Index, law: static c =>
-            Spec.FailCategory(result: Tree.ValidatePoints(points: [c.Point]), category: "Input"));
-        Spec.FailCategory(result: Tree.ValidatePoints(points: [Point3d.Origin, Point3d.Unset, new(x: 1.0, y: 1.0, z: 1.0)]), category: "Input");
+            Spec.FailCategory(result: SpatialIndex.ValidatePoints(points: [c.Point]), category: "Input"));
+        Spec.FailCategory(result: SpatialIndex.ValidatePoints(points: [Point3d.Origin, Point3d.Unset, new(x: 1.0, y: 1.0, z: 1.0)]), category: "Input");
     }
     [Fact]
     public void EmptySpanProjectsEmptyArray() =>
-        Spec.Succ(result: Tree.ValidatePoints(points: []), then: static validated => Assert.Empty(collection: validated));
+        Spec.Succ(result: SpatialIndex.ValidatePoints(points: []), then: static validated => Assert.Empty(collection: validated));
 }
 
 public sealed class PointPairsAlgebraLaws {
     [Fact]
     public void ExpandsNeedleSourcePairsMatchingIndependentSortedOracle() =>
         Spec.ForAll(SpatialGens.NeighborRows, static rows =>
-            Spec.Succ(result: Tree.PointPairs(values: rows), then: pairs =>
+            Spec.Succ(result: SpatialIndex.PointPairs(values: rows), then: pairs =>
                 Assert.Equal(expected: SpatialGens.ExpandSorted(rows: rows), actual: pairs)));
     [Fact]
     public void OutputIsSortedByAThenBAndConservesPairCount() =>
         Spec.ForAll(SpatialGens.NeighborRows, static rows =>
-            Spec.Succ(result: Tree.PointPairs(values: rows), then: pairs => {
+            Spec.Succ(result: SpatialIndex.PointPairs(values: rows), then: pairs => {
                 Assert.Equal(expected: rows.Sum(static ids => ids.Length), actual: pairs.Count);
                 _ = toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: pairs.Count - 1))).Iter(i =>
                     Spec.Holds(condition: (pairs[index: i - 1].A, pairs[index: i - 1].B).CompareTo((pairs[index: i].A, pairs[index: i].B)) <= 0,
@@ -146,5 +146,5 @@ public sealed class PointPairsAlgebraLaws {
             }));
     [Fact]
     public void NullSourceCollapsesToResultFault() =>
-        Spec.FailCategory(result: Tree.PointPairs(values: null!), category: "Result");
+        Spec.FailCategory(result: SpatialIndex.PointPairs(values: null!), category: "Result");
 }

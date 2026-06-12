@@ -1468,8 +1468,6 @@ public static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
-        Justification = "CAShapeLayer ownership transfers to host CALayer via AddSublayer; disposal happens on Subscription detach or animation completion delegate.")]
     private static Fin<Unit> AttachDecorative(CALayer host, NSView view, CosmeticIntent intent, NSString key) {
         EdrResolution edr = ResolveEdr(view: view, policy: intent.EdrMode);
         CosmeticAttachment attachment = BuildCosmeticLayer(intent: intent, view: view, space: edr.Space);

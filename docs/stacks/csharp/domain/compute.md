@@ -6,18 +6,18 @@ Compute is one measured engine. A typed intent admits once — shape, dtype row,
 
 This table routes a compute concern to its owning surface; the most specific row wins.
 
-| [INDEX] | [CONCERN]                     | [OWNER]                              | [REJECTED_FORM]                |
-| :-----: | :---------------------------- | :----------------------------------- | :----------------------------- |
-|   [1]   | rank-N numeric payload        | `Tensor<T>` + span views             | local NDArray wrapper          |
-|   [2]   | flat numeric kernel           | `TensorPrimitives` kernel row        | element loop                   |
-|   [3]   | scratch and staging buffers   | five-class allocation row            | `new T[]` per request          |
-|   [4]   | byte payloads across IO seams | one process stream pool              | raw growable `MemoryStream`    |
-|   [5]   | model execution               | fingerprinted session + `OrtValue`   | per-call dictionary marshal    |
-|   [6]   | repeated same-shape inference | `OrtIoBinding` loop posture          | name-array re-marshal per call |
-|   [7]   | route selection               | substrate fold + claim gate          | literal fast-path branch       |
-|   [8]   | parallel kernel               | `ParallelHelper` behind a claim      | unbudgeted parallel loop       |
-|   [9]   | compute evidence              | typed route receipt                  | generic ledger                 |
-|  [10]   | physical numerics             | quantity admission + dual evidence   | literal conversion factor      |
+| [INDEX] | [CONCERN]                     | [OWNER]                            | [REJECTED_FORM]                |
+| :-----: | :---------------------------- | :--------------------------------- | :----------------------------- |
+|   [1]   | rank-N numeric payload        | `Tensor<T>` + span views           | local NDArray wrapper          |
+|   [2]   | flat numeric kernel           | `TensorPrimitives` kernel row      | element loop                   |
+|   [3]   | scratch and staging buffers   | five-class allocation row          | `new T[]` per request          |
+|   [4]   | byte payloads across IO seams | one process stream pool            | raw growable `MemoryStream`    |
+|   [5]   | model execution               | fingerprinted session + `OrtValue` | per-call dictionary marshal    |
+|   [6]   | repeated same-shape inference | `OrtIoBinding` loop posture        | name-array re-marshal per call |
+|   [7]   | route selection               | substrate fold + claim gate        | literal fast-path branch       |
+|   [8]   | parallel kernel               | `ParallelHelper` behind a claim    | unbudgeted parallel loop       |
+|   [9]   | compute evidence              | typed route receipt                | generic ledger                 |
+|  [10]   | physical numerics             | quantity admission + dual evidence | literal conversion factor      |
 
 ## [2]-[TENSOR_LAW]
 

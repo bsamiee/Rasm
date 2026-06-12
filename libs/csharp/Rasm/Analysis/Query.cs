@@ -1,42 +1,5 @@
 namespace Rasm.Analysis;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-[SkipUnionOps]
-[Union]
-public abstract partial record RelationQuery {
-    private RelationQuery() { }
-    public sealed record IntersectionCase : RelationQuery { internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationIntersection<TA, TB, TOut>(key: key); }
-    public sealed record ClassificationCase : RelationQuery { internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationClassification<TA, TB, TOut>(key: key); }
-    public sealed record DeviationCase : RelationQuery { internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationDeviation<TA, TB, TOut>(key: key); }
-    public sealed record SelfIntersectionCase : RelationQuery { internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Analyze.RelationSelfIntersection<TGeometry, TOut>(key: key); }
-    public sealed record RayCase(RayQuery Query) : RelationQuery { internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Analyze.RelationRay<TGeometry, TOut>(query: Query, key: key); }
-    public sealed record ConformanceCase(ConformanceMetric Metric, int Count, Seq<double> Percentiles) : RelationQuery { internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationConformance<TA, TB, TOut>(metric: Metric, count: Count, percentiles: Percentiles, key: key); }
-    public static RelationQuery Intersections => new IntersectionCase();
-    public static RelationQuery Classification => new ClassificationCase();
-    public static RelationQuery CurveDeviation => new DeviationCase();
-    public static RelationQuery SelfIntersection => new SelfIntersectionCase();
-    public static RelationQuery Ray(RayQuery query) => new RayCase(Query: query);
-    public static RelationQuery Conformance(ConformanceMetric metric, int count, params double[] percentiles) =>
-        new ConformanceCase(Metric: metric, Count: count, Percentiles: Optional(metric).Bind(m => m.Equals(ConformanceMetric.Distribution) ? Some(toSeq(percentiles)) : Option<Seq<double>>.None).IfNone(Seq<double>()));
-    internal virtual Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) where TGeometry : notnull where TOut : notnull => key.Unsupported<TGeometry, TOut>();
-    internal virtual Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull where TOut : notnull => key.Unsupported<(TA A, TB B), TOut>();
-}
-
-[SkipUnionOps]
-[Union]
-public abstract partial record SpatialQuery {
-    private SpatialQuery() { }
-    public sealed record SearchBoxCase(Tree Index, BoundingBox Box) : SpatialQuery { internal override Operation<Unit, TOut> Service<TOut>(Op key) => Analyze.SpatialSearch<TOut>(index: Index, box: Box, key: key); }
-    public sealed record SearchSphereCase(Tree Index, Sphere Sphere) : SpatialQuery { internal override Operation<Unit, TOut> Service<TOut>(Op key) => Analyze.SpatialSearch<TOut>(index: Index, sphere: Sphere, key: key); }
-    public sealed record OverlapCase(Tree Left, Tree Right, double Tolerance) : SpatialQuery { internal override Operation<Unit, TOut> Service<TOut>(Op key) => Analyze.SpatialOverlaps<TOut>(left: Left, right: Right, tolerance: Tolerance, key: key); }
-    public sealed record PointPairsCase(Seq<Point3d> Points, Seq<Point3d> Needles, SpatialProbe Probe) : SpatialQuery { internal override Operation<Unit, TOut> Service<TOut>(Op key) => Analyze.SpatialPointPairs<TOut>(points: Points, needles: Needles, probe: Probe, key: key); }
-    public static SpatialQuery Search(Tree index, BoundingBox box) => new SearchBoxCase(Index: index, Box: box);
-    public static SpatialQuery Search(Tree index, Sphere sphere) => new SearchSphereCase(Index: index, Sphere: sphere);
-    public static SpatialQuery Overlaps(Tree left, Tree right, double tolerance = 0.0) => new OverlapCase(Left: left, Right: right, Tolerance: tolerance);
-    public static SpatialQuery PointPairs(ReadOnlySpan<Point3d> points, ReadOnlySpan<Point3d> needles, SpatialProbe probe) => new PointPairsCase(Points: Seq(points), Needles: Seq(needles), Probe: probe);
-    internal abstract Operation<Unit, TOut> Service<TOut>(Op key) where TOut : notnull;
-}
-
 [SkipUnionOps]
 [Union]
 public abstract partial record AnalysisQuery {
@@ -50,13 +13,18 @@ public abstract partial record AnalysisQuery {
     public sealed record TopologyCase(Topologies Query) : AnalysisQuery { internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>(); }
     public sealed record MeshesCase(Meshes Query) : AnalysisQuery { internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>(); }
     public sealed record PointsCase(Points Query) : AnalysisQuery { internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Query.Operation<TGeometry, TOut>(); }
-    public sealed record RelationCase(RelationQuery Query) : AnalysisQuery {
-        internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Query.Single<TGeometry, TOut>(key: key);
-        internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Query.Pair<TA, TB, TOut>(key: key);
-    }
-    public sealed record SpatialCase(SpatialQuery Query) : AnalysisQuery { internal override Operation<Unit, TOut> Service<TOut>(Op key) => Query.Service<TOut>(key: key); }
+    public sealed record IntersectionsCase : AnalysisQuery { internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationIntersection<TA, TB, TOut>(key: key); }
+    public sealed record ClassificationCase : AnalysisQuery { internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationClassification<TA, TB, TOut>(key: key); }
+    public sealed record CurveDeviationCase : AnalysisQuery { internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationDeviation<TA, TB, TOut>(key: key); }
+    public sealed record SelfIntersectionCase : AnalysisQuery { internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Analyze.RelationSelfIntersection<TGeometry, TOut>(key: key); }
+    public sealed record RayCase(RayQuery Query) : AnalysisQuery { internal override Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) => Analyze.RelationRay<TGeometry, TOut>(query: Query, key: key); }
+    public sealed record ConformanceCase(ConformanceMetric Metric, int Count, Seq<double> Percentiles) : AnalysisQuery { internal override Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) => Analyze.RelationConformance<TA, TB, TOut>(metric: Metric, count: Count, percentiles: Percentiles, key: key); }
+    public sealed record SearchBoxCase(SpatialIndex Index, BoundingBox Box) : AnalysisQuery { internal override Operation<Unit, TOut> Service<TOut>(Op key) => Analyze.SpatialSearch<TOut>(index: Index, box: Box, key: key); }
+    public sealed record SearchSphereCase(SpatialIndex Index, Sphere Sphere) : AnalysisQuery { internal override Operation<Unit, TOut> Service<TOut>(Op key) => Analyze.SpatialSearch<TOut>(index: Index, sphere: Sphere, key: key); }
+    public sealed record OverlapCase(SpatialIndex Left, SpatialIndex Right, double Tolerance) : AnalysisQuery { internal override Operation<Unit, TOut> Service<TOut>(Op key) => Analyze.SpatialOverlaps<TOut>(left: Left, right: Right, tolerance: Tolerance, key: key); }
+    public sealed record PointPairsCase(Seq<Point3d> Points, Seq<Point3d> Needles, SpatialProbe Probe) : AnalysisQuery { internal override Operation<Unit, TOut> Service<TOut>(Op key) => Analyze.SpatialPointPairs<TOut>(points: Points, needles: Needles, probe: Probe, key: key); }
     public static AnalysisQuery Geometry(GeometryRequest request) => new GeometryCase(Request: request);
-    public static AnalysisQuery Measure(Bounds query) => new BoundsCase(Query: query);
+    public static AnalysisQuery Bounds(Bounds query) => new BoundsCase(Query: query);
     public static AnalysisQuery Measure(Measure query) => new MeasureCase(Query: query);
     public static AnalysisQuery Location(Location query) => new LocationCase(Query: query);
     public static AnalysisQuery Selection(Curves query) => new CurvesCase(Query: query);
@@ -64,8 +32,17 @@ public abstract partial record AnalysisQuery {
     public static AnalysisQuery Selection(Topologies query) => new TopologyCase(Query: query);
     public static AnalysisQuery MeshPointSpatial(Meshes query) => new MeshesCase(Query: query);
     public static AnalysisQuery MeshPointSpatial(Points query) => new PointsCase(Query: query);
-    public static AnalysisQuery Relation(RelationQuery query) => new RelationCase(Query: query);
-    public static AnalysisQuery Spatial(SpatialQuery query) => new SpatialCase(Query: query);
+    public static AnalysisQuery Intersections => new IntersectionsCase();
+    public static AnalysisQuery Classification => new ClassificationCase();
+    public static AnalysisQuery CurveDeviation => new CurveDeviationCase();
+    public static AnalysisQuery SelfIntersection => new SelfIntersectionCase();
+    public static AnalysisQuery Ray(RayQuery query) => new RayCase(Query: query);
+    public static AnalysisQuery Conformance(ConformanceMetric metric, int count, params double[] percentiles) =>
+        new ConformanceCase(Metric: metric, Count: count, Percentiles: Optional(metric).Bind(m => m.Equals(ConformanceMetric.Distribution) ? Some(toSeq(percentiles)) : Option<Seq<double>>.None).IfNone(Seq<double>()));
+    public static AnalysisQuery Search(SpatialIndex index, BoundingBox box) => new SearchBoxCase(Index: index, Box: box);
+    public static AnalysisQuery Search(SpatialIndex index, Sphere sphere) => new SearchSphereCase(Index: index, Sphere: sphere);
+    public static AnalysisQuery Overlaps(SpatialIndex left, SpatialIndex right, double tolerance = 0.0) => new OverlapCase(Left: left, Right: right, Tolerance: tolerance);
+    public static AnalysisQuery PointPairs(ReadOnlySpan<Point3d> points, ReadOnlySpan<Point3d> needles, SpatialProbe probe) => new PointPairsCase(Points: Seq(points), Needles: Seq(needles), Probe: probe);
     internal virtual Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) where TGeometry : notnull where TOut : notnull => key.Unsupported<TGeometry, TOut>();
     internal virtual Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull where TOut : notnull => key.Unsupported<(TA A, TB B), TOut>();
     internal virtual Operation<Unit, TOut> Service<TOut>(Op key) where TOut : notnull => key.Unsupported<Unit, TOut>();

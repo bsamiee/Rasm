@@ -7,17 +7,17 @@ Embedded durability is one store law with four layers under one epoch fence. Eve
 This table routes a durability concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]                 | [OWNER]                                | [REJECTED_FORM]                         |
-| :-----: | :------------------------ | :------------------------------------- | :--------------------------------------- |
-|   [1]   | store open and migration  | one idempotent ritual fold              | per-process bootstrap branches            |
-|   [2]   | write transactions        | IMMEDIATE begin + savepoint units       | deferred-then-write                       |
-|   [3]   | cross-process change      | `data_version` register probe           | notification bus, table polling           |
-|   [4]   | store maintenance         | receipted schedule verb table           | ad-hoc vacuum, best-effort backup         |
-|   [5]   | binary contract           | dense keys + generated resolver         | typeless payloads, map-mode insurance     |
-|   [6]   | codec policy              | one frozen profile row per store class  | call-site serializer options              |
-|   [7]   | artifact commit           | sealed header + atomic rename           | in-place write, verify-by-success         |
-|   [8]   | restore                   | seven-step receipted choreography       | best-effort file copy                     |
-|   [9]   | durable mutation and sync | one op-log + guarded set adjudication   | per-kind logs, local fast path            |
-|  [10]   | deletion and preservation | class rows + hold-first sweep fold      | unreceipted cleanup, export-to-preserve   |
+| :-----: | :------------------------ | :------------------------------------- | :-------------------------------------- |
+|   [1]   | store open and migration  | one idempotent ritual fold             | per-process bootstrap branches          |
+|   [2]   | write transactions        | IMMEDIATE begin + savepoint units      | deferred-then-write                     |
+|   [3]   | cross-process change      | `data_version` register probe          | notification bus, table polling         |
+|   [4]   | store maintenance         | receipted schedule verb table          | ad-hoc vacuum, best-effort backup       |
+|   [5]   | binary contract           | dense keys + generated resolver        | typeless payloads, map-mode insurance   |
+|   [6]   | codec policy              | one frozen profile row per store class | call-site serializer options            |
+|   [7]   | artifact commit           | sealed header + atomic rename          | in-place write, verify-by-success       |
+|   [8]   | restore                   | seven-step receipted choreography      | best-effort file copy                   |
+|   [9]   | durable mutation and sync | one op-log + guarded set adjudication  | per-kind logs, local fast path          |
+|  [10]   | deletion and preservation | class rows + hold-first sweep fold     | unreceipted cleanup, export-to-preserve |
 
 ## [2]-[EMBEDDED_STORE]
 

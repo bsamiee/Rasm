@@ -86,16 +86,16 @@ public static class StoreProfile {
 - Law: parameter-collection membership translates to `= ANY(@array)` — one parameter for any element count, so statement text and cached plans survive collection-size change, which is also what keeps auto-prepared generic plans valid.
 - Law: identifiers parameterize in neither lane — dynamic identifiers ride quoted interpolation at one declared seam over a closed vocabulary — and DDL routes through neither door: schema statements live in migration artifacts, and the deploy credential split makes a runtime DDL string fail on privilege, not on review.
 
-| [INDEX] | [CONSTRUCT_FAMILY]                                   | [DOOR]    |
-| :-----: | :--------------------------------------------------- | :-------- |
-|   [1]   | array, range, network, KNN, temporal aggregates      | LINQ      |
-|   [2]   | full-text, trigram, phonetic, `ILike`                | LINQ      |
-|   [3]   | JSON traversal, containment, `jsonb_set` updates     | LINQ      |
-|   [4]   | `ArrayAgg`/`JsonbAgg` grouped projections, ltree     | LINQ      |
-|   [5]   | `MERGE`, `ON CONFLICT`, `RETURNING old/new`, COPY    | typed SQL |
+| [INDEX] | [CONSTRUCT_FAMILY]                                    | [DOOR]    |
+| :-----: | :---------------------------------------------------- | :-------- |
+|   [1]   | array, range, network, KNN, temporal aggregates       | LINQ      |
+|   [2]   | full-text, trigram, phonetic, `ILike`                 | LINQ      |
+|   [3]   | JSON traversal, containment, `jsonb_set` updates      | LINQ      |
+|   [4]   | `ArrayAgg`/`JsonbAgg` grouped projections, ltree      | LINQ      |
+|   [5]   | `MERGE`, `ON CONFLICT`, `RETURNING old/new`, COPY     | typed SQL |
 |   [6]   | `JSON_TABLE`, `LATERAL`, `DISTINCT ON`, recursive CTE | typed SQL |
-|   [7]   | translated construct re-spelled as raw SQL           | rejected  |
-|   [8]   | DDL text in either query lane                        | rejected  |
+|   [7]   | translated construct re-spelled as raw SQL            | rejected  |
+|   [8]   | DDL text in either query lane                         | rejected  |
 
 ## [4]-[FAULT_DISPOSITION]
 

@@ -28,21 +28,21 @@ public readonly record struct SpatialHit(int Id) { public bool IsValid => Id >= 
 public readonly record struct SpatialPair(int A, int B) { public bool IsValid => A >= 0 && B >= 0 && A != B; }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-public sealed class Tree : IDisposable {
-    internal static readonly Op Key = Op.Of(name: nameof(Tree));
+public sealed class SpatialIndex : IDisposable {
+    internal static readonly Op Key = Op.Of(name: nameof(SpatialIndex));
     private readonly RTree tree;
     private bool disposed;
-    private Tree(RTree tree) => this.tree = tree;
-    public static Validation<Error, Tree> Points(params ReadOnlySpan<Point3d> points) =>
+    private SpatialIndex(RTree tree) => this.tree = tree;
+    public static Validation<Error, SpatialIndex> Points(params ReadOnlySpan<Point3d> points) =>
         ValidatePoints(points: points)
             .Bind(static values => Optional(RTree.CreateFromPointArray(points: values)).ToFin(Key.InvalidResult()))
-            .Map(static tree => new Tree(tree: tree))
+            .Map(static tree => new SpatialIndex(tree: tree))
             .ToValidation();
-    public static Validation<Error, Tree> PointCloud(PointCloud cloud) =>
+    public static Validation<Error, SpatialIndex> PointCloud(PointCloud cloud) =>
         FromValid(input: cloud, isValid: static c => c.IsValid, create: static c => RTree.CreatePointCloudTree(cloud: c));
-    public static Validation<Error, Tree> MeshFaces(Mesh mesh) =>
+    public static Validation<Error, SpatialIndex> MeshFaces(Mesh mesh) =>
         FromValid(input: mesh, isValid: static m => m.IsValid, create: static m => RTree.CreateMeshFaceTree(mesh: m));
-    public static Validation<Error, Tree> FromBounds<TGeometry>(params ReadOnlySpan<TGeometry> items) where TGeometry : GeometryBase =>
+    public static Validation<Error, SpatialIndex> FromBounds<TGeometry>(params ReadOnlySpan<TGeometry> items) where TGeometry : GeometryBase =>
         ValidateBounds(items: items)
             .Bind(static boxes => toSeq(boxes)
                 .Map(static (box, index) => (Box: box, Index: index))
@@ -52,16 +52,16 @@ public sealed class Tree : IDisposable {
                         true => Fin.Succ(tree),
                         false => new Lease<RTree>.Owned(Value: tree).Use(static _ => Fin.Fail<RTree>(Key.InvalidResult())),
                     })))
-            .Map(static tree => new Tree(tree: tree))
+            .Map(static tree => new SpatialIndex(tree: tree))
             .ToValidation();
-    private static Validation<Error, Tree> FromValid<TInput>(TInput input, Func<TInput, bool> isValid, Func<TInput, RTree?> create) where TInput : class =>
+    private static Validation<Error, SpatialIndex> FromValid<TInput>(TInput input, Func<TInput, bool> isValid, Func<TInput, RTree?> create) where TInput : class =>
         Optional(input)
             .ToFin(new Fault.MissingGeometry())
             .Bind(candidate => isValid(arg: candidate) switch {
                 true => Optional(create(arg: candidate)).ToFin(Key.InvalidResult()),
                 false => Fin.Fail<RTree>(Key.InvalidInput()),
             })
-            .Map(static tree => new Tree(tree: tree))
+            .Map(static tree => new SpatialIndex(tree: tree))
             .ToValidation();
     internal Eff<Env, Seq<SpatialHit>> Hits(BoundingBox box) =>
         RunSearch(shape: box, run: static (index, bounds, callback) => index.Search(box: bounds, callback: callback), isValid: static b => b.IsValid);
@@ -74,7 +74,7 @@ public sealed class Tree : IDisposable {
             ? Search(tree: active, shape: shape, run: run, cancel: runtime.Cancellation)
             : Fin.Fail<Seq<SpatialHit>>(Key.InvalidInput())).ToEff()
         select result;
-    internal Eff<Env, Seq<SpatialPair>> OverlapPairsWith(Tree other, double tolerance = 0.0) =>
+    internal Eff<Env, Seq<SpatialPair>> OverlapPairsWith(SpatialIndex other, double tolerance = 0.0) =>
         from runtime in Env.EnvAsks
         from state in (
             Ready(),
@@ -145,38 +145,38 @@ public sealed class Tree : IDisposable {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    internal static Operation<Unit, TOut> SpatialSearch<TOut>(Tree index, BoundingBox box, Op key) where TOut : notnull => SpatialSearch<TOut, BoundingBox>(index: index, shape: box, key: key, search: static (tree, bounds) => tree.Hits(box: bounds));
-    internal static Operation<Unit, TOut> SpatialSearch<TOut>(Tree index, Sphere sphere, Op key) where TOut : notnull => SpatialSearch<TOut, Sphere>(index: index, shape: sphere, key: key, search: static (tree, ball) => tree.Hits(sphere: ball));
-    private static Operation<Unit, TOut> SpatialSearch<TOut, TShape>(Tree index, TShape shape, Op key, Func<Tree, TShape, Eff<Env, Seq<SpatialHit>>> search) where TOut : notnull =>
-        Operation<Unit, SpatialHit>.Build(key: key, requiresContext: true, state: (Index: index, Shape: shape, Search: search, Key: key),
-            evaluator: static (state, _) =>
-                from tree in Optional(state.Index).ToFin(state.Key.InvalidInput()).ToEff()
-                from hits in state.Search(arg1: tree, arg2: state.Shape)
-                from output in new AnalysisOutput<SpatialHit>(state.Key).Many(values: hits).ToEff()
+    internal static Operation<Unit, TOut> SpatialSearch<TOut>(SpatialIndex index, BoundingBox box, Op key) where TOut : notnull => SpatialSearch<TOut, BoundingBox>(index: index, shape: box, key: key, search: static (tree, bounds) => tree.Hits(box: bounds));
+    internal static Operation<Unit, TOut> SpatialSearch<TOut>(SpatialIndex index, Sphere sphere, Op key) where TOut : notnull => SpatialSearch<TOut, Sphere>(index: index, shape: sphere, key: key, search: static (tree, ball) => tree.Hits(sphere: ball));
+    private static Operation<Unit, TOut> SpatialSearch<TOut, TShape>(SpatialIndex index, TShape shape, Op key, Func<SpatialIndex, TShape, Eff<Env, Seq<SpatialHit>>> search) where TOut : notnull =>
+        Operation<Unit, SpatialHit>.Service(key: key,
+            evaluate: () =>
+                from tree in Optional(index).ToFin(key.InvalidInput()).ToEff()
+                from hits in search(arg1: tree, arg2: shape)
+                from output in new AnalysisOutput<SpatialHit>(key).Many(values: hits).ToEff()
                 select output)
             .As<Unit, TOut>(key: key);
 
-    internal static Operation<Unit, TOut> SpatialOverlaps<TOut>(Tree left, Tree right, double tolerance, Op key) where TOut : notnull =>
-        Operation<Unit, SpatialPair>.Build(key: key, requiresContext: true, state: (Left: left, Right: right, Tolerance: tolerance, Key: key),
-            evaluator: static (state, _) =>
-                from tree in Optional(state.Left).ToFin(state.Key.InvalidInput()).ToEff()
-                from pairs in tree.OverlapPairsWith(other: state.Right, tolerance: state.Tolerance)
-                from output in new AnalysisOutput<SpatialPair>(state.Key).Many(values: pairs).ToEff()
+    internal static Operation<Unit, TOut> SpatialOverlaps<TOut>(SpatialIndex left, SpatialIndex right, double tolerance, Op key) where TOut : notnull =>
+        Operation<Unit, SpatialPair>.Service(key: key,
+            evaluate: () =>
+                from tree in Optional(left).ToFin(key.InvalidInput()).ToEff()
+                from pairs in tree.OverlapPairsWith(other: right, tolerance: tolerance)
+                from output in new AnalysisOutput<SpatialPair>(key).Many(values: pairs).ToEff()
                 select output)
             .As<Unit, TOut>(key: key);
 
     internal static Operation<Unit, TOut> SpatialPointPairs<TOut>(Seq<Point3d> points, Seq<Point3d> needles, SpatialProbe probe, Op key) where TOut : notnull =>
-        Operation<Unit, SpatialPair>.Build(key: key, state: (Points: points, Needles: needles, Probe: probe, Key: key),
-            evaluator: static (state, _) =>
+        Operation<Unit, SpatialPair>.Service(key: key,
+            evaluate: () =>
                 from runtime in Env.EnvAsks
                 from validated in (
-                    Tree.ValidatePoints(points: state.Points.ToArray()),
-                    Tree.ValidatePoints(points: state.Needles.ToArray()),
-                    Optional(state.Probe).ToFin(state.Key.InvalidInput()).Bind(probe => probe.Validate(key: state.Key))
+                    SpatialIndex.ValidatePoints(points: points.ToArray()),
+                    SpatialIndex.ValidatePoints(points: needles.ToArray()),
+                    Optional(probe).ToFin(key.InvalidInput()).Bind(active => active.Validate(key: key))
                 ).Apply(static (hay, needles, valid) => (Hay: hay, Needles: needles, Probe: valid)).As().ToEff()
                 from notCancelled in (runtime.Cancellation.IsCancellationRequested ? Fin.Fail<Unit>(new Fault.Cancelled()) : Fin.Succ(unit)).ToEff()
-                from pairs in Tree.PointPairs(values: validated.Probe.Neighbors(hay: validated.Hay, needles: validated.Needles)).ToEff()
-                from output in new AnalysisOutput<SpatialPair>(state.Key).Many(values: pairs).ToEff()
+                from pairs in SpatialIndex.PointPairs(values: validated.Probe.Neighbors(hay: validated.Hay, needles: validated.Needles)).ToEff()
+                from output in new AnalysisOutput<SpatialPair>(key).Many(values: pairs).ToEff()
                 select output)
             .As<Unit, TOut>(key: key);
 }

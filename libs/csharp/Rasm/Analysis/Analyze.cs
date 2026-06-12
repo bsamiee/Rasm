@@ -18,6 +18,7 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         internal sealed record Rejected(Error Fault) : Body;
         internal sealed record PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>> Evaluate) : Body;
         internal sealed record Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate) : Body;
+        internal sealed record Service(Func<Eff<Env, Seq<TOut>>> Evaluate) : Body;
     }
     private Operation(Op key, Requirement requirement, bool requiresContext, Body body) {
         Key = key;
@@ -54,11 +55,14 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
     }
     internal static Operation<TGeometry, TOut> Reject(Op key, Error fault) =>
         new(key: key, requirement: Requirement.None, requiresContext: false, body: new Body.Rejected(Fault: fault));
+    internal static Operation<TGeometry, TOut> Service(Op key, Func<Eff<Env, Seq<TOut>>> evaluate, bool requiresContext = false) =>
+        new(key: key, requirement: Requirement.None, requiresContext: requiresContext, body: new Body.Service(Evaluate: evaluate));
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
         Execution.Switch(
             rejected: r => Fin.Fail<Seq<TOut>>(r.Fault).ToEff(),
             perItem: i => geometry.TraverseM(i.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
-            aggregate: a => a.Evaluate(arg: geometry));
+            aggregate: a => a.Evaluate(arg: geometry),
+            service: s => s.Evaluate());
     internal Fin<Operation<TGeometry, TOut>> Supported() =>
         Execution switch {
             Body.Rejected rejected => Fin.Fail<Operation<TGeometry, TOut>>(rejected.Fault),

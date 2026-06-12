@@ -4,20 +4,25 @@ namespace Rasm.Analysis;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct AnalysisOutput<TOut>(Op Key) {
+internal readonly record struct AnalysisOutput<TOut>(Op Key) {
     public Fin<Seq<TOut>> One<TValue>(TValue value) =>
         Many(values: Seq(value));
 
-    public Fin<Seq<TOut>> Many<TValue>(Seq<TValue> values) {
-        Op key = Key;
-        return ProjectMany(key: key, values: values);
-    }
+    public Fin<Seq<TOut>> Many<TValue>(Seq<TValue> values) =>
+        ProjectMany(key: Key, values: values);
 
     public Fin<Seq<TOut>> Many<TValue>(IEnumerable<TValue> values) {
         Op key = Key;
         return Optional(values)
             .ToFin(key.InvalidResult())
             .Bind(found => ProjectMany(key: key, values: found.AsIterable().ToSeq()));
+    }
+
+    public Fin<Seq<TOut>> Objects(Seq<object> values, Type sourceType) {
+        Op key = Key;
+        return typeof(TOut) == sourceType
+            ? values.TraverseM(value => AnalysisAcceptance.AcceptValue(key: key, value: (TOut)value)).As()
+            : Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: sourceType, outputType: typeof(TOut)));
     }
 
     public Fin<Seq<TOut>> Unsupported<TValue>() =>

@@ -4,21 +4,21 @@ The domain stack routes specialized C# implementation decisions after the root s
 
 ## [1]-[ROUTER]
 
-| [INDEX] | [DECISION]              | [READ]                                      |
-| :-----: | :---------------------- | :------------------------------------------ |
-|   [1]   | hosting and runtime     | [runtime](runtime.md)                       |
-|   [2]   | concurrency and streams | [concurrency](concurrency.md)               |
-|   [3]   | telemetry signal        | [diagnostics](diagnostics.md)               |
-|   [4]   | boundary validation     | [validation](validation.md)                 |
-|   [5]   | resilience policy       | [resilience](resilience.md)                 |
-|   [6]   | wire transport          | [transport](transport.md)                   |
-|   [7]   | data persistence        | [persistence](persistence.md)               |
-|   [8]   | embedded durability     | [durability](durability.md)                 |
-|   [9]   | postgres surface        | [postgres](postgres.md)                     |
-|  [10]   | data interchange        | [data interchange](data-interchange.md)     |
-|  [11]   | compute lane            | [compute](compute.md)                       |
-|  [12]   | render and visuals      | [visuals](visuals.md)                       |
-|  [13]   | retained interaction    | [interaction](interaction.md)               |
+| [INDEX] | [DECISION]              | [READ]                                  |
+| :-----: | :---------------------- | :-------------------------------------- |
+|   [1]   | hosting and runtime     | [runtime](runtime.md)                   |
+|   [2]   | concurrency and streams | [concurrency](concurrency.md)           |
+|   [3]   | telemetry signal        | [diagnostics](diagnostics.md)           |
+|   [4]   | boundary validation     | [validation](validation.md)             |
+|   [5]   | resilience policy       | [resilience](resilience.md)             |
+|   [6]   | wire transport          | [transport](transport.md)               |
+|   [7]   | data persistence        | [persistence](persistence.md)           |
+|   [8]   | embedded durability     | [durability](durability.md)             |
+|   [9]   | postgres surface        | [postgres](postgres.md)                 |
+|  [10]   | data interchange        | [data interchange](data-interchange.md) |
+|  [11]   | compute lane            | [compute](compute.md)                   |
+|  [12]   | render and visuals      | [visuals](visuals.md)                   |
+|  [13]   | retained interaction    | [interaction](interaction.md)           |
 
 ## [2]-[CODE_DOCTRINE]
 

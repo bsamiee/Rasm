@@ -9,7 +9,10 @@ public sealed partial class IntersectionKind {
     public static readonly IntersectionKind Unknown = new(key: 0), Point = new(key: 1), Overlap = new(key: 2), Curve = new(key: 3);
 }
 
-public enum IntersectionTangency { Unknown = 0, Transversal = 1, Tangent = 2 }
+[SmartEnum<int>]
+public sealed partial class IntersectionTangency {
+    public static readonly IntersectionTangency Unknown = new(key: 0), Transversal = new(key: 1), Tangent = new(key: 2);
+}
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) {
@@ -40,19 +43,19 @@ public readonly record struct CurveDeviation(
 [Union]
 public abstract partial record IntersectionHit {
     private IntersectionHit() { }
-    public sealed record PointCase(Point3d Point, IntersectionTangency Tangency = IntersectionTangency.Unknown) : IntersectionHit;
+    public sealed record PointCase(Point3d Point, IntersectionTangency Tangency) : IntersectionHit;
     public sealed record CurveCase(Curve Curve, IntersectionKind CurveKind) : IntersectionHit;
     public sealed record OverlapCase(Point3d Start, Point3d End, Interval OverlapA, Interval OverlapB, Option<Curve> Curve) : IntersectionHit;
     public IntersectionKind Kind => Switch(pointCase: static _ => IntersectionKind.Point, curveCase: static c => c.CurveKind, overlapCase: static _ => IntersectionKind.Overlap);
     public Seq<Curve> Curves => Switch(pointCase: static _ => Seq<Curve>(), curveCase: static c => Seq(c.Curve), overlapCase: static o => o.Curve.ToSeq());
     public Seq<Point3d> Points => Switch(pointCase: static p => Seq(p.Point), curveCase: static _ => Seq<Point3d>(), overlapCase: static o => Seq(o.Start, o.End));
     public Seq<Interval> Intervals => Switch(pointCase: static _ => Seq<Interval>(), curveCase: static _ => Seq<Interval>(), overlapCase: static o => Seq(o.OverlapA, o.OverlapB));
-    public static IntersectionHit At(Point3d point, IntersectionTangency tangency = IntersectionTangency.Unknown) => new PointCase(point, tangency);
+    public static IntersectionHit At(Point3d point, IntersectionTangency? tangency = null) => new PointCase(point, tangency ?? IntersectionTangency.Unknown);
     public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new CurveCase(curve, kind);
     public static IntersectionHit Overlap(Point3d start, Point3d end, Interval overlapA, Interval overlapB, Option<Curve> curve = default) => new OverlapCase(start, end, overlapA, overlapB, curve);
     internal bool IsValid => Switch(
         pointCase: static p => p.Point.IsValid,
-        curveCase: static c => (c.CurveKind == IntersectionKind.Curve || c.CurveKind == IntersectionKind.Overlap) && Optional(c.Curve).Map(static curve => curve.IsValid).IfNone(noneValue: false),
+        curveCase: static c => (c.CurveKind.Equals(IntersectionKind.Curve) || c.CurveKind.Equals(IntersectionKind.Overlap)) && Optional(c.Curve).Map(static curve => curve.IsValid).IfNone(noneValue: false),
         overlapCase: static o => o.Start.IsValid && o.End.IsValid && o.OverlapA.IsValid && o.OverlapB.IsValid && o.Curve.Map(static c => c.IsValid).IfNone(noneValue: true));
     internal Unit Dispose() => Curves.Iter(static curve => curve.Dispose());
     internal static bool CanProjectTo(Type output) =>
@@ -386,7 +389,7 @@ public static partial class Analyze {
             GeometryKernel.CurveForm(source: right, op: op).Bind(rightLease =>
                 leftLease.Use(lc => rightLease.Use(rc =>
                     hits.TraverseM(hit => hit switch {
-                        IntersectionHit.PointCase pc when pc.Tangency == IntersectionTangency.Unknown =>
+                        IntersectionHit.PointCase pc when pc.Tangency.Equals(IntersectionTangency.Unknown) =>
                             TangencyAt(left: lc, right: rc, point: pc.Point, context: context)
                                 .Map(tangency => IntersectionHit.At(point: pc.Point, tangency: tangency)),
                         _ => Fin.Succ(hit),

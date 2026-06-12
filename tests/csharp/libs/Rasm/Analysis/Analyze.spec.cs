@@ -31,6 +31,8 @@ internal static class AnalyzeGens {
             key: Key,
             state: Unit.Default,
             evaluator: static (_, value) => Fin.Succ(value: Seq(value.Length)).ToEff());
+    public static Operation<Unit, int> Service() =>
+        Operation<Unit, int>.Service(key: Key, evaluate: static () => Fin.Succ(value: Seq(42)).ToEff());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------------
@@ -50,6 +52,11 @@ public sealed class AnalyzeExecutionLaws {
             Spec.Valid(Analyze.In(absolute: 0.25, relative: 1.0e-8, angle: 0.01, units: UnitSystem.Millimeters)
                 .Run(operation: AnalyzeGens.Aggregate(), input: values), then: actual =>
                 Assert.Equal(expected: Seq(values.Sum()), actual: actual)));
+
+    [Fact]
+    public void ServiceOperationsIgnorePlaceholderInputAndRunOnce() =>
+        Spec.Valid(Analyze.Run(operation: AnalyzeGens.Service(), input: [Unit.Default, Unit.Default]),
+            then: static actual => Assert.Equal(expected: Seq(42), actual: actual));
 
     [Fact]
     public void ScopedContextSatisfiesContextRequiringOperations() =>
