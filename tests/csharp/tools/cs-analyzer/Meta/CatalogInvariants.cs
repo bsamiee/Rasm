@@ -11,9 +11,8 @@ namespace Rasm.Csp.Tests.Meta;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Catalog meta-invariants (a)-(h) plus docs-sync (i). All are vacuous-green at zero rules
-// except band parity (g), which arms via dynamic skip when the first rule lands, and the
-// pin mirror (h), which is rule-independent.
+// Catalog meta-invariants (a)-(h) plus docs-sync (i). Empty catalog state is intentional:
+// rule-owned checks go vacuous, but central CSP bands and docs must also stay empty.
 public sealed class CatalogInvariants {
     private static readonly string[] BannedEverywhere = [
         "CultureInfo.CurrentCulture",
@@ -26,7 +25,7 @@ public sealed class CatalogInvariants {
         "Environment.GetEnvironmentVariable",
     ];
 
-    private static readonly string[] ReservedIds = ["CSP0016", "CSP0716", "CSP0721", "CSP0722"];
+    private static readonly string[] ReservedIds = [];
 
     private static readonly string RepoRoot = typeof(CatalogInvariants).Assembly
         .GetCustomAttributes<AssemblyMetadataAttribute>()
@@ -140,8 +139,8 @@ public sealed class CatalogInvariants {
     }
 
     // (e) Release tracking rides the REAL RS2000-RS2008 rail (AnalyzerReleases md as
-    // AdditionalFiles); here: every rule has a Shipped/Unshipped row, and the four reserved IDs
-    // appear in neither the catalog, the emitted descriptors, nor the release tracking.
+    // AdditionalFiles); here: every rule has a Shipped/Unshipped row, and reserved IDs appear in
+    // neither the catalog, the emitted descriptors, nor the release tracking.
     [Fact]
     public void ReleaseTracking() {
         string analyzerRoot = Path.Combine(RepoRoot, "tools", "cs-analyzer");
@@ -179,11 +178,9 @@ public sealed class CatalogInvariants {
     }
 
     // (g) The Directory.Build.props <WarningsNotAsErrors> CSP band EXACTLY equals the catalog's
-    // Pressure-tier IDs, both directions: a Pressure rule without a band entry would silently
-    // promote to error under repo-wide TreatWarningsAsErrors.
+    // Pressure-tier IDs, both directions. Empty catalog state requires an empty central CSP band.
     [Fact]
     public void PressureBandParity() {
-        Assert.SkipWhen(condition: Catalog.All.IsEmpty, reason: "kernel-skeleton state: parity arms when the first rule lands");
         XDocument props = XDocument.Load(Path.Combine(RepoRoot, "Directory.Build.props"));
         string joined = string.Join(separator: ';', values: props.Descendants("WarningsNotAsErrors").Select(selector: static element => element.Value));
         string[] band = [.. joined

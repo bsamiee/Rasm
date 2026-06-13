@@ -5,8 +5,7 @@ namespace Rasm.Csp.Kernel;
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
 // Rule vocabulary as code: DocumentationCommentId rows resolved per compilation by CompilationFacts
-// (unresolvable rows are inert). Section -> rule: mutable-collections=CSP0011, time=CSP0911,
-// ambient-state=CSP0723, admission-gate + admissible-types=CSP0742; prefixes=CSP0708.
+// (unresolvable rows are inert). Catalog rows decide whether a vocabulary section is active.
 internal static class Vocabulary {
     public static readonly ImmutableArray<string> Prefixes = ["Get", "TryGet", "GetOr"];
 

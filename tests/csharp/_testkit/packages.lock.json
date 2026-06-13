@@ -109,14 +109,6 @@
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
       },
-      "rasm.rhinobridge.protocol": {
-        "type": "Project",
-        "dependencies": {
-          "Csp.Contracts": "[1.0.0, )",
-          "LanguageExt.Core": "[5.0.0-beta-77, )",
-          "Thinktecture.Runtime.Extensions": "[10.2.0, )"
-        }
-      },
       "CSparse": {
         "type": "CentralTransitive",
         "requested": "[4.4.0, )",

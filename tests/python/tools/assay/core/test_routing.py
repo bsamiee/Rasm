@@ -3,11 +3,11 @@
 Covers Scope StrEnum identity and validity, Source Protocol runtime-checkability,
 Routed structural invariants and scope-consistency, ProjectIndex and RoutePaths
 type contracts, route() language-table dispatch / determinism / fault propagation /
-normalisation, place() Input-arm projection / solution arm / determinism / proportionality
-/ probe-fixture stripping, and routable_files() prefix filtering.
+normalisation, target_files() partitioning, place() Input-arm projection / solution arm /
+determinism / proportionality / probe-fixture stripping, and routable_files() prefix filtering.
 
 Symbols under test: route, place, routable_files, Routed, RoutePaths, ProjectIndex,
-Scope, Source.
+Scope, Source, TargetFiles, target_files.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -37,6 +37,8 @@ from tools.assay.core.routing import (  # private probes: read/parse degradation
     Routed,
     Scope,
     Source,
+    target_files,
+    TargetFiles,
 )
 from tools.assay.core.status import RailStatus
 
@@ -203,6 +205,36 @@ def test_source_protocol_support_matrix() -> None:
         ("faulting_source_conforms", lambda: isinstance(_FaultingSource(), Source), True),
         ("plain_object_rejected", lambda: isinstance(object(), Source), False),
         ("dict_rejected", lambda: isinstance({}, Source), False),
+    )
+
+
+# --- [TARGETFILES_LAWS]
+
+register_law(TargetFiles, "targetfiles_defaults_are_empty_tuples")
+
+
+def test_targetfiles_defaults_are_empty_tuples() -> None:
+    """TargetFiles defaults are tuple-shaped so static detail can serialize without None repair."""
+    targets = TargetFiles()
+    assert targets.targets == ()
+    assert targets.files == ()
+    assert targets.rejected == ()
+    assert targets.changed is False
+
+
+register_law(target_files, "target_files_partitions_unsupported_inputs")
+
+
+def test_target_files_partitions_unsupported_inputs(assay_root: AssayHarness) -> None:
+    """target_files keeps supported source rows and rejects project, solution, and root-trigger rows."""
+    source = _StubSource((), universe=("src/App/App.csproj", "src/App/a.cs", "Directory.Build.props"))
+    targets = assert_ok(target_files(("src/App",), ("Workspace.slnx", "single.py"), source=source, settings=assay_root.settings))
+    assert targets.targets == (("folder", "src/App"), ("file", "Workspace.slnx"), ("file", "single.py"))
+    assert targets.files == ("single.py", "src/App/a.cs")
+    assert targets.rejected == (
+        ("folder", "Directory.Build.props", "full-trigger"),
+        ("folder", "src/App/App.csproj", "project-or-solution"),
+        ("file", "Workspace.slnx", "project-or-solution"),
     )
 
 
@@ -462,14 +494,14 @@ def test_routable_files_custom_prefixes(assay_root: AssayHarness) -> None:
     assert "tools/assay/core/routing.py" in result
 
 
-# --- [LAWS_INFER_LANGUAGES] ---------------------------------------------------------------
+# --- [LAWS_INFER_LANGUAGES]
 
 register_law(infer_languages, "infer_languages_narrows_by_suffix")
 
 
 def test_infer_languages_narrows_by_suffix() -> None:
     """infer_languages keeps only available languages whose suffix sets intersect the given paths."""
-    assert infer_languages(("tests/tools/assay/core/test_routing.py",), tuple(Language)) == (Language.PYTHON,)
+    assert infer_languages(("tests/python/tools/assay/core/test_routing.py",), tuple(Language)) == (Language.PYTHON,)
 
 
 register_law(infer_languages, "infer_languages_fallback_all_available")
@@ -528,7 +560,7 @@ def test_local_source_read_and_refs_degrade_isolated(tmp_path: Path) -> None:
     assert _refs("bad.csproj", src) == frozenset()
 
 
-# --- [CLOSURE_GRAPH_LAWS] -----------------------------------------------------------------
+# --- [CLOSURE_GRAPH_LAWS]
 
 register_law(_refs, "refs_resolves_project_references")
 
@@ -640,7 +672,7 @@ def test_route_escalation_honours_settings_triggers(
     assert routed.scope is expected_scope
 
 
-# --- [HOST_BOUND_LAWS] ----------------------------------------------------------------------
+# --- [HOST_BOUND_LAWS]
 
 register_law(route, "route_classifies_host_bound_by_marker_only")
 

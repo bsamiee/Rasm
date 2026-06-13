@@ -86,7 +86,7 @@ PY, TS, CS, BASH, SQL, DOCS = (Language.PYTHON, Language.TYPESCRIPT, Language.CS
 
 TOOLS: tuple[Tool, ...] = (
     # --- [PYTHON]
-    Tool("validate-pyproject", UV, ("validate-pyproject", "pyproject.toml"), PROJECT, PY, Claim.STATIC),
+    Tool("validate-pyproject", UV, ("validate-pyproject", "pyproject.toml"), OWNED, PY, Claim.STATIC),
     Tool("ruff", UV, ("ruff", "check"), FILES, PY, Claim.STATIC),
     Tool("ruff", UV, ("ruff", "check", "--fix"), FILES, PY, Claim.STATIC, mode=Mode.WRITE),
     Tool("ruff-format", UV, ("ruff", "format", "--check"), FILES, PY, Claim.STATIC),
@@ -141,6 +141,7 @@ TOOLS: tuple[Tool, ...] = (
     # --- [TYPESCRIPT]
     Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.base.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD),
     Tool("biome", PNPM, ("biome", "ci", "--files-ignore-unknown=true"), NONE, TS, Claim.STATIC),
+    Tool("biome", PNPM, ("biome", "check", "--write", "--files-ignore-unknown=true"), FILES, TS, Claim.STATIC, mode=Mode.WRITE),
     Tool("ast-grep-ts", PNPM, ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^ts-domain-", "--error"), FILES, TS, Claim.STATIC),
     Tool(
         "ast-grep-ts",
@@ -159,7 +160,7 @@ TOOLS: tuple[Tool, ...] = (
     # Effective argv gains two ArtifactScope-templated surfaces: the engine splices --artifacts-path from the
     # build-closure scope, and the static rail pins -p:CspSarifDir=<run-scope>/sarif (inert until the conditioned
     # ErrorLog lands in Directory.Build.props); fold() decodes the SARIF drops as evidence rows, never exit-code input.
-    Tool("dotnet-build", DOTNET, ("build", "--no-restore", "-v:quiet", "/clp:ErrorsOnly"), PROJECT, CS, Claim.STATIC, mode=Mode.BUILD),
+    Tool("dotnet-build", DOTNET, ("build", "--no-restore", "-tl:off", "-v:quiet", "/clp:ErrorsOnly"), PROJECT, CS, Claim.STATIC, mode=Mode.BUILD),
     Tool("dotnet-test", DOTNET, ("test", "--minimum-expected-tests", "1"), PROJECT, CS, Claim.TEST, mode=Mode.RUN),
     Tool("dotnet-test", DOTNET, ("test", "--list-tests"), PROJECT, CS, Claim.TEST, mode=Mode.LIST),
     Tool(

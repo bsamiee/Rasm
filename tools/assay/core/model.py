@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+import shlex
 from typing import Annotated, Literal, Self
 
 from cyclopts import Parameter
@@ -75,7 +76,7 @@ class Language(StrEnum):
 
     strategy: Literal["closure", "glob"]  # closed route discriminant; typos cannot silently route as glob
     suffixes: frozenset[str]
-    CSHARP = "csharp", "closure", frozenset((".cs", ".csproj", ".props", ".targets"))
+    CSHARP = "csharp", "closure", frozenset((".cs", ".csproj", ".props", ".targets", ".slnx"))
     PYTHON = "python", "glob", frozenset((".py", ".pyi"))
     TYPESCRIPT = "typescript", "glob", frozenset((".ts", ".tsx", ".cts", ".mts"))
     BASH = "bash", "glob", frozenset((".sh", ".bash"))
@@ -167,7 +168,7 @@ type InprocThunk = Callable[[Check], Completed]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _RESULT_CAP: int = 1000
-_DEFECT_TAIL: int = 400
+_DEFECT_TAIL: int = 4096
 # SARIF 2.1 result levels -> assay severities; analyzer notes (e.g. CSP0903) surface as info-grade evidence.
 _SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
 
@@ -264,7 +265,7 @@ class Match(Base, frozen=True):
 
     id: str
     kind: ArtifactKind
-    text: Annotated[str, msgspec.Meta(max_length=400)]
+    text: Annotated[str, msgspec.Meta(max_length=4096)]
     line: Annotated[int, msgspec.Meta(ge=0)] = 0
     score: int = 0
     severity: str | None = None
@@ -403,6 +404,18 @@ class RunDelta(Detail, frozen=True, tag="delta"):
     removed: int = 0
 
 
+class StaticRun(Detail, frozen=True, tag="static"):
+    """Static route, check, skip, artifact, and resource detail."""
+
+    targets: tuple[tuple[str, str], ...] = ()
+    routes: tuple[tuple[str, ...], ...] = ()
+    planned: tuple[tuple[str, str, str], ...] = ()
+    skipped: tuple[tuple[str, str, str], ...] = ()
+    phases: tuple[str, ...] = ()
+    resources: tuple[tuple[str, float], ...] = ()
+    artifacts: tuple[str, ...] = ()
+
+
 class TestRun(Detail, frozen=True, tag="test"):
     """Test run detail."""
 
@@ -429,7 +442,7 @@ class VerifySummary(Detail, frozen=True, tag="verify"):
     captures: tuple[tuple[str, str], ...] = ()
 
 
-type AnyDetail = ApiSource | ApiSurface | VerifySummary | TestRun | PackageRun | ApiResolution | Diagnostic | RunDelta
+type AnyDetail = ApiSource | ApiSurface | VerifySummary | TestRun | StaticRun | PackageRun | ApiResolution | Diagnostic | RunDelta
 
 
 class Report(Base, frozen=True):
@@ -620,7 +633,7 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
     ok_n, fail_n = (sum(a) for a in zip(*pairs, strict=True)) if pairs else (0, 0)
     defects = tuple(
         Match(
-            id=o.argv[0] if o.argv else claim.value,
+            id=shlex.join(o.argv) if o.argv else claim.value,
             kind=ArtifactKind.PROCESS,
             text=(o.stderr or o.stdout)[-_DEFECT_TAIL:].decode(errors="replace").strip(),
             severity="failed",
@@ -710,6 +723,7 @@ __all__ = [
     "Runner",
     "SourceKind",
     "Stage",
+    "StaticRun",
     "SymbolShape",
     "TestRun",
     "Tool",

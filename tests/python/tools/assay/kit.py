@@ -70,6 +70,7 @@ from tools.assay.core.model import (
     RunDelta,
     RunSnapshot,
     Stage,
+    StaticRun,
     TestRun,
     Tool,
     VerifySummary,
@@ -144,6 +145,7 @@ test_run_st: st.SearchStrategy[TestRun] = resolve(TestRun)
 package_run_st: st.SearchStrategy[PackageRun] = resolve(PackageRun)
 diagnostic_st: st.SearchStrategy[Diagnostic] = resolve(Diagnostic)
 run_delta_st: st.SearchStrategy[RunDelta] = resolve(RunDelta)
+static_run_st: st.SearchStrategy[StaticRun] = resolve(StaticRun)
 
 # `binds_st` samples the live registry; `envelope_st` composes via the canonical projection — neither maps to a single `resolve(T)`.
 binds_st = st.sampled_from(REGISTRY)

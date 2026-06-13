@@ -8,8 +8,8 @@
         <CspScope>Tooling</CspScope>
         <!-- CA1008: the closed vocabularies (CspScope/Tier/Category/ScopeGate) carry semantic zero
              members; a `None` row would be an invalid scope/tier value.
-             CA1812: RuleRow/RuleBinding instances are constructed only by per-rule catalog files;
-             the kernel ships with an empty catalog. -->
+             CA1812: RuleRow/RuleBinding instances are catalog data shapes; the kernel ships with
+             an empty catalog this session. -->
         <NoWarn>$(NoWarn);CA1008;CA1812</NoWarn>
     </PropertyGroup>
 

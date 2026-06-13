@@ -122,13 +122,10 @@ catalog:
   clsx: 2.1.1
   cmdk: 1.1.1
   colorjs.io: 0.6.1
-  date-fns: 4.4.0
   effect: 3.21.3
   exceljs: 4.4.0
   fast-check: 4.8.0
   happy-dom: 20.10.3
-  idb-keyval: 6.2.5
-  immer: 11.1.8
   ioredis: 5.11.1
   isomorphic-dompurify: 3.16.0
   jsdom: 29.1.1
@@ -173,9 +170,6 @@ catalog:
   workbox-build: 7.4.1
   workbox-window: 7.4.1
   yaml: 2.9.0
-  zundo: 2.3.2
-  zustand: 5.0.14
-  zustand-computed: 2.1.4
 
 catalogMode: strict
 

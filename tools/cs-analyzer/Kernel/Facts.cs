@@ -37,7 +37,7 @@ internal sealed class CompilationFacts {
         _wellKnown.GetOrAdd(metadataName, _compilation.GetTypeByMetadataName);
 
     // Priority: type [CspScope] -> per-tree csp.scope -> build_property.CspScope / assembly [CspScope].
-    // Undeclared scope fails closed to Domain; CSP0901 surfaces the omission.
+    // Undeclared scope fails closed to Domain.
     public CspScope ScopeOf(SyntaxTree tree, ISymbol? symbol) {
         _ = tree ?? throw new ArgumentNullException(paramName: nameof(tree));
         return TypeScope(symbol, WellKnown(ScopeAttributeMetadataName)) switch {
@@ -49,7 +49,6 @@ internal sealed class CompilationFacts {
         };
     }
 
-    // CSP0901 config-absence integrity: a data-driven rule without its section is an error.
     public bool HasSection(string section) => _banned.ContainsKey(section);
 
     public bool IsBanned(string section, ISymbol symbol) =>

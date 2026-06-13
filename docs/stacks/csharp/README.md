@@ -2,7 +2,7 @@
 
 This folder is the C# stack router. It routes language, shape, surface, rail, boundary, algorithm, system-API, domain, and quality-rail decisions to the concept page that owns the coding choice. The router builds one admission-first paradigm: raw input is admitted once through generated owners, admitted values travel typed rails, behavior lives on generated dispatch surfaces, and projections leave at explicit boundaries.
 
-Pages carry no external references, release narration, origin, process state, project anchors, or tool context; verification happens before authoring, and the page states law as fact.
+Pages carry no outside-source blocks, release narration, provenance, process state, project anchors, tool context, source-footnote blocks, or meta commentary. Pages name exact code, package, operator, generated-surface, and command spellings in code spans; verification happens before authoring, and the page states doctrine as fact.
 
 ## [1]-[ATLAS]
 
@@ -61,7 +61,7 @@ Sixteen laws in five groups govern every C# decision in this stack. Concept page
 [INTEGRATION]:
 - `ROOT_REBUILD` — new capability is woven into the owning shape as if it had always existed; reshape the owner rather than appending beside it. No shims, compat aliases, `[Obsolete]` layers, or migration surfaces — break the API when the collapse improves the system.
 - `ONE_HOP_RESOLUTION` — a name resolves to its semantics in one hop: no alias-to-constant-to-enum-to-class chains, no forwarding helpers, no helper or util shells, no convenience wrappers. A value that takes two jumps to trace marks a layer to delete.
-- `COMPOSED_IMPLEMENTATION` — a feature of any complexity is implemented by composing the page owners — admitted shapes, typed rails, dispatch surfaces, boundary projections, numeric routes — never by scaffolding beside them; the pages are one body, and the same concern resolves identically wherever it appears. A need with no composed spelling marks a missing case in an owning page's law: the law extends first, the feature lands second. Flat code — logic below the operator depth the admitted packages reach — is surface sprawl in time: it re-derives, line by line, what a deeper composed form states once.
+- `COMPOSED_IMPLEMENTATION` — a feature of any complexity is implemented by composing the page owners — admitted shapes, typed rails, dispatch surfaces, boundary projections, numeric routes — before any new scaffold is named. The pages are one body, and the same concern resolves identically wherever it appears. A need with no composed spelling marks a missing case in an owning page's law: the law extends first, the feature lands second. Cards and snippets show this composition at full operator depth. Flat code — logic below the operator depth the admitted packages reach — is surface sprawl in time: it re-derives, line by line, what a deeper composed form states once.
 
 ## [3]-[COLLAPSE_SCAN]
 
@@ -93,14 +93,15 @@ The repository analyzer (`tools/cs-analyzer`) is the doctrine's compiled form: i
 How pages in this folder are authored. The corpus is one body; these laws keep it coherent.
 
 - Atlas law: this README owns doctrine and routing; each concept page owns one disjoint layer; a sibling concern is neither re-shown nor pointed to — cohesion comes from shared law, not linkage. The README is the only file that links.
-- Zero meta: concept pages carry no origin, research trace, release narration, process state, project, tool, or skill context.
+- Zero meta: concept pages carry no provenance, source trace, release narration, process state, project, tool, or skill context.
 - Page grammar: narrow index table, then family cards, then the snippet beside the rule it proves; the page ends at its last card section. Structure is identical across stack folders; content never is.
 - Card fields are earned: `Use / Accept / Reject / Law / Boundary` lines appear on a card only where each one decides something; a field line that decides nothing is deleted, not filled.
 - Snippet law: every snippet compiles under the active surface; identifiers are legal neutral names; placeholder strings such as `"<value-a>"` appear only inside literals; no project, host, or domain concept anchors a snippet.
 - Snippet coverage: each snippet is doctrine-exemplary at full operator depth, roughly 3-4x denser than ordinary code, and exercises a surface region no other snippet in the corpus shows — variety within the doctrine, zero duplicated demonstrations. The region is the snippet's spotlight demonstration; finalized surfaces composed as supporting material occupy no region and duplicate nothing.
 - Scale fidelity: a snippet shows the form at the shape it takes in a large system — admission, dispatch, rail, and policy composed in one fence with the growth axis visible — never an isolated minimum; a statement-bearing snippet sits beside the Exemption line naming its platform-forced seam.
 - Code names before prose: every member a card or snippet names — attribute, knob, operator, generated surface — is verified against the installed package implementation before it is written; an unconfirmable claim is not authored, and a nameable surface spelled as prose is a defect — the code span is the instruction.
-- Card economy: cards are few and deep; near-peer cards merge until each retained card owns a decision cluster, and a card line carries exactly one decision — a thin card deciding one thing is a sibling line, not an owner.
+- Card economy: cards are few, deep, and evidence-dense; near-peer cards merge until each retained card owns a decision cluster, and a card line carries exactly one decision. A thin card deciding one concept is a sibling line, not an owner.
+- Snippet adherence: snippets obey the card they prove, compose finalized laws as supporting material, and reduce lines and surface through parameterization, algorithmic structure, and package depth, never by deleting capability.
 - Altitude routing: when two pages touch one fact, the ledger records the split — mechanics at the owning page, consequence at the consumer; prose re-teaching an owned mechanic is repaired by routing to the owner, while composing owned surfaces inside a snippet is supporting material and owns nothing.
 - Reject columns are load-bearing: every `Use` names the spelling, wrapper, or local pattern it deletes.
 - Tables enumerate, cards legislate: rows stay atomic and narrow — no prose cramming, no links inside cells; nuance moves to a card.
@@ -109,11 +110,11 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 
 ## [6]-[CORPUS_LAW]
 
-How the corpus accretes. The atlas `[STATE]` column is the law registry: a `finalized` page is binding law for every page authored after it; a `partial` page carries no authority and awaits rebuild; a `target` page exists only as roadmap scope. Finalization is a one-way gate — a context-free cold grade of the full page and every snippet, converging to a zero-edit pass, flips the state; the producer's grade admits, the cold grade decides.
+How the corpus accretes. The folder is one cohesive body, not isolated pages; atlas order is implementation order. The atlas `[STATE]` column is the law registry: a `finalized` page is binding law for every page authored after it; a `partial` page carries no authority and awaits rebuild; a `target` page exists only as roadmap scope. Finalization is a one-way gate — a context-free cold grade of the full page and every snippet, converging to a zero-edit pass, flips the state; the producer's grade admits, the cold grade decides.
 
-- Three-layer inheritance: every page is authored under the doctrine, under every finalized page — adhered to, never restated, never referenced, never contradicted — and from its own research reservoir.
+- Three-layer inheritance: every page is authored under the doctrine, under every finalized page — adhered to, never restated, never referenced, never contradicted — and from its own source reservoir.
 - Prose consumes earlier layers as given: vocabulary, owners, rails, and policy values arrive settled, never re-taught, and the page spends its lines only on its own layer.
-- Reservoir residue: a page's research workspace deliberately holds more than the page prints, and it outlives the page — later enrichment and snippet work mine it without citing it; depth beyond one page's budget is corpus capital, never waste.
+- Reservoir residue: a page's source workspace deliberately holds more than the page prints, and it outlives the page — later enrichment and snippet work mine it without source-footnoting it; depth beyond one page's budget is corpus capital, never waste.
 - Snippet stacking: code fully captures the card it proves, then composes on earlier layers' law at full doctrine depth — the new surface in the spotlight, established surfaces as supporting material, every touched concern built at the standard its owning finalized page legislates.
 - Region ledger: the workspace root keeps one ledger of owned regions — page concerns at card altitude, snippet demonstrations at fence altitude. Snippet rows are written before code exists, page rows at finalization, and a duplicated region is repaired by routing to its owner, never by re-teaching — the ledger is what makes ownership checkable without re-reading the corpus.
-- Purpose: the corpus is loaded as the operative standard in place of weaker context; zero-meta, zero-anchor, and stated-as-fact are absolute because any origin, hedge, or stale claim poisons every downstream generation that loads the page.
+- Purpose: the corpus is loaded as the operative standard in place of weaker context; zero-meta, zero-anchor, and stated-as-fact are absolute because any provenance, hedge, or stale claim poisons every downstream generation that loads the page.

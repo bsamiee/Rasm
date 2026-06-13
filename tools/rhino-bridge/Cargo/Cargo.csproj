@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Collectible-ALC cargo for the rebuilt runtime bridge: in-host scenario discovery, capability probes, crash-durable evidence spool, GH2 render lane.</Description>
+        <AssemblyName>Rasm.Bridge.Cargo</AssemblyName>
+        <RootNamespace>Rasm.Bridge.Cargo</RootNamespace>
+        <!-- Cargo is the hot-swappable layer: workspace libraries flow
+             (LanguageExt/Thinktecture ride the cargo ALC as per-swap copies) and the
+             host surface arrives through the root bridge classification. -->
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+        <InformationalVersion>0.1.0-cargo</InformationalVersion>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../Contract/Contract.csproj" />
+        <ProjectReference Include="../../../tests/csharp/_testkit/Rasm.TestKit.csproj" />
+    </ItemGroup>
+</Project>

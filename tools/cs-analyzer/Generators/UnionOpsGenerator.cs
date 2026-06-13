@@ -27,8 +27,7 @@ internal sealed record UnionOpsModel(string Namespace, string Keyword, string Na
 
 /// <summary>
 /// Emits a nested <c>SelfOp</c> provenance anchor (<c>global::Rasm.Domain.Op</c>) for every sealed
-/// record case of a type carrying <c>Rasm.Domain.GenerateUnionOpsAttribute</c>. Caseless targets
-/// emit nothing; CSP0802 owns surfacing them.
+/// record case of a type carrying <c>Rasm.Domain.GenerateUnionOpsAttribute</c>. Caseless targets emit nothing.
 /// </summary>
 [Generator]
 public sealed class UnionOpsGenerator : IIncrementalGenerator {

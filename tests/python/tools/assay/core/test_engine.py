@@ -175,6 +175,7 @@ _LAWS: tuple[tuple[object, str], ...] = (
     (engine_mod._snapshot, "snapshot_and_sys_pressure_pin_exact_metric_projection"),
     (engine_mod._sys_pressure, "snapshot_and_sys_pressure_pin_exact_metric_projection"),
     (engine_mod._guarded, "guarded_projects_argv_scope_and_governed_limiter_into_execute"),
+    (engine_mod._dotnet_slot, "dotnet_slot_surfaces_queue_and_pressure_note"),
     (engine_mod._guarded, "guarded_fault_messages_are_stamped_exactly"),
     (engine_mod._run_process_backend, "local_spawn_arms_honor_check_cwd_and_exit_code"),
     (engine_mod._run_process_backend, "run_process_backend_routes_on_exec_target"),
@@ -739,6 +740,21 @@ async def test_run_check_async_is_the_event_loop_boundary(assay_root: AssayHarne
     assert b"hello" in assert_ok(outcome).stdout
 
 
+@pytest.mark.anyio
+async def test_dotnet_slot_surfaces_queue_and_pressure_note(assay_root: AssayHarness) -> None:
+    """The machine-wide dotnet slot pool emits the slot, wait, census, and concurrency decision as receipt notes."""
+    async with engine_mod._dotnet_slot(Check(tool=_REMOTE_TOOL), assay_root.settings, None) as acquired:
+        notes = assert_ok(acquired)
+    joined = " ".join(notes)
+    assert "dotnet.slot" in joined
+    assert "wait_ms=" in joined
+    assert "slots=" in joined
+    assert "foreign_dotnet=" in joined
+    assert "mem_percent=" in joined
+    assert "original_concurrency=" in joined
+    assert "reduced_concurrency=" in joined
+
+
 def test_run_check_retries_transient_spawn_via_rail_probe(
     assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, log_events: list[dict[str, object]]
 ) -> None:
@@ -999,13 +1015,26 @@ def test_streaming_local_tail_clips_while_full_artifact_persists(
     cap = assay_root.settings.stream_tail_bytes
     done = assert_ok(_run(Check(tool=_stream_tool(f"{label}-tool", command, language)), assay_root, scope=scope))
     assert done.stdout == payload[-cap:], f"tail not clipped to {cap}: len={len(done.stdout)}"
-    artifact = next((a for a in done.artifacts if a.id == f"{label}-tool-out"), None)
+    artifact = next((a for a in done.artifacts if a.id.startswith(f"{label}-tool-") and a.id.endswith("-out")), None)
     match scope:
         case None:
             assert done.artifacts == (), f"scope-less stream emitted artifacts: {done.artifacts!r}"
         case _:
             assert artifact is not None, f"no persisted stdout artifact in {done.artifacts!r}"
             assert scope.store.read_path(artifact.path) == payload, "persisted artifact lost the streamed bytes"
+
+
+def test_nonstreaming_scoped_process_persists_output_artifacts(assay_root: AssayHarness) -> None:
+    """Scoped non-streaming tools persist full stdout/stderr artifacts while receipts carry bounded tails."""
+    payload = b"x" * (assay_root.settings.stream_tail_bytes + 8)
+    script = f"import sys; sys.stdout.buffer.write({payload!r}); sys.stderr.buffer.write(b'err-tail')"
+    tool = Tool("nonstream-artifact-law", Runner.DIRECT, (sys.executable, "-c", script), Input.NONE, Language.PYTHON, Claim.STATIC)
+    scope = assay_root.scope(Claim.STATIC)
+    done = assert_ok(_run(Check(tool=tool), assay_root, scope=scope))
+    assert done.stdout == payload[-assay_root.settings.stream_tail_bytes :]
+    artifact = next((a for a in done.artifacts if a.id.startswith("nonstream-artifact-law-") and a.id.endswith("-out")), None)
+    assert artifact is not None, f"non-streaming process emitted no stdout artifact: {done.artifacts!r}"
+    assert scope.store.read_path(artifact.path) == payload
 
 
 # --- [STALL_TELEMETRY]

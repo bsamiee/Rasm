@@ -25,9 +25,10 @@ When owners conflict, choose the repo-local term only when a current route or co
 
 ## [3]-[AGENT_PROSE]
 
-Durable docs, prompts, standards, skills, examples, and templates are agent-facing law. State the rule, contract, route, or gap directly. Do not describe the document, the session, the research process, or the reader’s mental model.
+Durable docs, prompts, standards, skills, examples, and templates are agent-facing law. State the rule, contract, route, or gap directly. Do not describe the artifact, the session, the source-mining process, or the reader's mental model.
 
 [PROSE_LAW]:
+- Treat agent-facing posture as implicit. Do not announce audience, authoring purpose, source provenance, process, or why the artifact exists.
 - Lead with the controlling rule, constraint, or outcome.
 - Keep one controlling idea per paragraph.
 - Keep exceptions next to the rule they modify.
@@ -35,10 +36,12 @@ Durable docs, prompts, standards, skills, examples, and templates are agent-faci
 - Use present tense for durable standards.
 - Use target-sequence language for intended work, not schedule or deferral vocabulary.
 - Use past tense only for a document whose purpose is historical record.
+- State rules, contracts, routes, gaps, and required actions instead of explanatory narration.
+- Name exact code symbols, functions, fields, commands, flags, package IDs, operators, and generated surfaces in backticks instead of paraphrasing behavior.
 
 [NOISE_REMOVAL]:
 - Remove leads that describe the artifact instead of stating the rule.
-- Remove reference, origin, research-history, origin-history, and checklist-tail sections from ordinary docs.
+- Remove source-footnote blocks, outside-source blocks, provenance, source-mining history, freshness disclaimers, source-history commentary, and checklist-tail sections from ordinary docs.
 - Remove hedges that carry no scope: `may`, `might`, `probably`, `generally`, `where possible`, and `if needed`.
 - Preserve scope qualifiers that are part of the contract: `optional`, `if present`, `where supported`, and `when configured`.
 - Replace negative wording with the direct action when meaning is unchanged.
@@ -46,8 +49,9 @@ Durable docs, prompts, standards, skills, examples, and templates are agent-faci
 
 [SELF_REFERENCE]:
 - Do not write ordinary handoff boilerplate in ordinary docs.
+- Do not mention loaded instructions, standards, skills, local prompts, prior passes, review labels, or agent workflow unless the artifact is an instruction route that owns that relationship.
 - Use links only when they change the reader’s action.
-- Route maps, relation records, README indexes, and instruction files may name owner relationships because routing is their job.
+- Route maps, relation records, README indexes, generated/reference handoff surfaces, and instruction files may name owner relationships because routing is their job.
 
 ## [4]-[SENTENCES]
 
@@ -142,7 +146,7 @@ Use link text that describes the destination. Avoid bare URLs unless the URL is 
 
 [LINK_LAW]:
 - Ordinary docs link only where the link changes reader action.
-- Reusable standards, skills, prompts, examples, and templates avoid external references in produced content.
+- Reusable standards, skills, prompts, examples, and templates avoid outside-source references in produced content.
 - README indexes and route maps may link because navigation is their job.
 - Do not put links inside table cells unless the table is a routing table or the link is the cell value.
 

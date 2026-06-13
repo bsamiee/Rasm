@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <ItemGroup>
         <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
-        <ProjectReference Include="../../../tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj" />
     </ItemGroup>
     <ItemGroup>
         <!-- The bridge cargo runner drives the Rasm.Bridge.Scenarios SDK internals (context

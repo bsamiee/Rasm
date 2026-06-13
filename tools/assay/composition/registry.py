@@ -121,7 +121,7 @@ _PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
 # Help-truth usage slots: the claim default names the polymorphic positional surface; verb overrides
 # name the slots that BaseParams.bound projects out of paths (pattern/symbol/key/token stay legal tokens).
 _CLAIM_SLOTS: Final[dict[Claim, str]] = {
-    Claim.STATIC: "[PATHS]...",
+    Claim.STATIC: "[--all | --project PROJECT | --folder F... --file F...]",
     Claim.CODE: "PATTERN [PATHS]...",
     Claim.TEST: "[PATHS]...",
     Claim.BRIDGE: "",
@@ -769,11 +769,9 @@ _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (
 )
 
 REGISTRY: Final[tuple[Bind, ...]] = (
-    Bind(Claim.STATIC, "fix", static_rail.fix, StaticParams, "Format, style, analyzer autofix."),
-    Bind(Claim.STATIC, "report", static_rail.report, StaticParams, "Non-mutating diagnostics."),
-    Bind(Claim.STATIC, "build", static_rail.build, StaticParams, "Closure-leased restore + build + analyzers."),
-    Bind(Claim.STATIC, "full", static_rail.full, StaticParams, "Workspace.slnx parity; Debug+Release."),
-    Bind(Claim.STATIC, "plan", static_rail.plan, StaticParams, "Owners, triggers, closure into notes."),
+    Bind(Claim.STATIC, "check", static_rail.check, StaticParams, "Scoped route and argv preview."),
+    Bind(Claim.STATIC, "build", static_rail.build, StaticParams, "Single-project or whole-workspace diagnostics, restore, and build."),
+    Bind(Claim.STATIC, "fix", static_rail.fix, StaticParams, "Scoped native formatter and autofix."),
     Bind(Claim.CODE, "search", code_rail.search, CodeParams, "Search: $-metavar -> ast-grep structural; literal -> ripgrep content."),
     Bind(Claim.CODE, "query", code_rail.query, CodeParams, "AST query via tree-sitter (in-process)."),
     Bind(Claim.TEST, "run", test_rail.run, TestParams, "Unit + coverage + mutation fold."),

@@ -191,3 +191,29 @@ def test_mutation_rows_own_input_placement() -> None:
 
 
 register_law(select, "mutation_rows_own_input_placement", module=__name__)
+
+# --- [STATIC_INPUT_OWNERSHIP]
+
+
+def test_validate_pyproject_owns_its_single_input() -> None:
+    """validate-pyproject embeds pyproject.toml in its command and must not fan per file/project."""
+    rows = [t for t in select(Claim.STATIC, Language.PYTHON) if t.name == "validate-pyproject"]
+    assert len(rows) == 1
+    assert rows[0].input is Input.OWNED
+
+
+register_law(select, "validate_pyproject_owns_single_input", module=__name__)
+
+
+def test_static_native_fixers_are_scoped_rows() -> None:
+    """Static native fixers stay file/folder-scoped: no solution-wide format row and Biome has a write row."""
+    csharp_format = [t for t in select(Claim.STATIC, Language.CSHARP) if t.name == "dotnet-format"]
+    biome_write = [t for t in select(Claim.STATIC, Language.TYPESCRIPT) if t.name == "biome" and t.mode is Mode.WRITE]
+    assert csharp_format
+    assert all(t.input is Input.INCLUDE for t in csharp_format)
+    assert len(biome_write) == 1
+    assert biome_write[0].command[:2] == ("biome", "check")
+    assert "--write" in biome_write[0].command
+
+
+register_law(select, "static_native_fixers_are_scoped_rows", module=__name__)

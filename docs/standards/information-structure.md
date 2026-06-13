@@ -71,9 +71,19 @@ Use a table only when row-and-column lookup is the reader job. Headers are load-
 [BOUNDS]:
 - Keep tables under 15 columns and 20 rows.
 - Use one trailing prose column at most.
-- Keep each cell atomic: one value, marker, short phrase, inline code span, or link.
+- Keep each cell atomic: one value, marker, short phrase, inline code span, or permitted link value.
 - Keep the stub column short, unique, and scannable: an identifier, command, proper noun, or status token, not a sentence.
 - Use row-owned records when any row needs independent status, detail, omission, update, or retention behavior.
+
+[TABLE_PRESSURE]:
+- Evaluate each row as one cumulative unit: stub value, column headers, cells, and section-local prose together carry the row meaning.
+- Every cell must be load-bearing inside its row. Delete, merge, or promote a cell when it repeats the header, repeats another cell, or adds no row-specific value.
+- Use column headers as compression surfaces. Put shared category, condition, unit, or action semantics in the header so cells stay atomic.
+- Do not duplicate header meaning into every cell. A column whose cells restate the header, share one invariant value, or differ only by prose padding moves to prose or a GroupedRecord before the table.
+- Treat prose before and after a table in the same section as part of the table's information unit. Use that prose for cross-row scope, invariants, reading rules, and shared consequences instead of repeating them in cells.
+- When rows widen, rethink row axis, column axis, lead prose, and row-owned records together. Do not extract text only to reduce width; preserve value by moving cross-row meaning to the section lead or adjacent record.
+- Do not cram prose, reference links, link clusters, or citation trails into table cells. Use prose, a table note, a routing table, or row-owned records.
+- A pre-table GroupedRecord may carry table-level invariants when the record key names the table concept and every field applies across rows.
 
 [DECOMPOSITION]:
 - Split wide or tall tables by the dominant axis.

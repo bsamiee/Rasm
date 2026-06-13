@@ -62,6 +62,7 @@ if TYPE_CHECKING:
 _EXPECTED_CLAIMS: frozenset[Claim] = frozenset(b.claim for b in REGISTRY)
 _REGISTRY_ROOT: Final = f"{registry_mod.__name__}.REGISTRY"
 _ORPHAN_SUBJECT: Final = f"{registry_mod.__name__}.ORPHAN_MIN_AGE_S"
+_STATIC_FIX_BIND = next(b for b in REGISTRY if b.claim is Claim.STATIC and b.verb == "fix")
 
 # --- [HARNESS] --------------------------------------------------------------------------
 
@@ -586,7 +587,7 @@ def test_validated_invalid_detail_raises_into_validation_fault(assay_root: Assay
     with pytest.raises(msgspec.ValidationError, match="coverage"):
         registry_mod._validated(Ok(report))
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    env = _run_fake(REGISTRY[0], assay_root.settings, Ok(report))
+    env = _run_fake(_STATIC_FIX_BIND, assay_root.settings, Ok(report))
     assert env.status is RailStatus.FAULTED
     assert env.error is not None
     assert env.error.message.startswith("validation:")
@@ -620,7 +621,7 @@ def test_rail_runner_emits_ok_and_fault_paths(assay_root: AssayHarness, monkeypa
     Mutants caught: wrong claim/verb on the OK envelope; returning OK status for a fault.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    bind = REGISTRY[0]
+    bind = _STATIC_FIX_BIND
 
     ok_env = _run_fake(bind, assay_root.settings, Ok(fold(Claim.STATIC, bind.verb, (receipt(("dotnet",), 0, status=RailStatus.OK),))))
     assert (ok_env.claim, ok_env.verb, ok_env.status) == (Claim.STATIC, "fix", RailStatus.OK)
@@ -638,7 +639,7 @@ def test_rail_runner_scope_oserror_faults(assay_root: AssayHarness, monkeypatch:
     Mutant caught: not catching OSError → exception propagates to caller.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    bind = REGISTRY[0]
+    bind = _STATIC_FIX_BIND
     monkeypatch.setattr(ArtifactScope, "open", staticmethod(lambda *_: (_ for _ in ()).throw(OSError("permission denied"))))
     env = _run_fake(bind, assay_root.settings, Ok(fold(Claim.STATIC, bind.verb, ())))
     assert env.status is RailStatus.FAULTED
@@ -665,7 +666,7 @@ def test_rail_surplus_dispatch_fault_and_scope_identity(assay_root: AssayHarness
     assert assay_root.settings.store().load_history(assay_root.settings.run_id) is None
 
     seen: list[object] = []
-    ok_bind = msgspec.structs.replace(REGISTRY[0], handler=lambda _s, scope, _p: (seen.append(scope), Ok(fold(Claim.STATIC, "fix", ())))[1])
+    ok_bind = msgspec.structs.replace(_STATIC_FIX_BIND, handler=lambda _s, scope, _p: (seen.append(scope), Ok(fold(Claim.STATIC, "fix", ())))[1])
     rail(ok_bind, settings=assay_root.settings)(StaticParams())
     assert isinstance(seen[0], ArtifactScope)
 
@@ -677,7 +678,7 @@ def test_emit_double_write_guard(assay_root: AssayHarness, capsysbinary: pytest.
     Mutants caught: not guarding the write count (two stdout lines, Invariant 1 violated); doubled-envelope
     verb/claim kwargs nulled; Fault argv=None (wire codec rejects the doubled line); stderr fed wire_encode(None).
     """
-    bind = REGISTRY[0]
+    bind = _STATIC_FIX_BIND
     report = fold(Claim.STATIC, bind.verb, (receipt(("dotnet",), 0, status=RailStatus.OK),))
     writes_token = registry_mod._WRITES.set(iter([1, 2]))  # past 0 so the "second write" arm fires
     ring_token, resource_token = _RING.set(deque(maxlen=16)), _RESOURCE.set(())
@@ -719,7 +720,7 @@ def test_emit_exit_code_duration_and_persistence_matrix(
     arm (FAULTED envelopes exit 0); persist seed or parse-gate forced falsy/inverted (history rows vanish or
     parse faults leak in); write_history called with run_id=None.
     """
-    bind = REGISTRY[0]
+    bind = _STATIC_FIX_BIND
     settings = assay_root.settings.model_copy(update={"run_id": f"{assay_root.settings.run_id}-{label}"})
     tokens = (_RING.set(deque(maxlen=16)), registry_mod._WRITES.set(count()), _RESOURCE.set(()))
     try:
@@ -1055,7 +1056,7 @@ def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 
     at_cap = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(_RESULT_CAP))
-    env = _ok_envelope(REGISTRY[0], assay_root.settings, 1.0, Report(Claim.STATIC, "fix", RailStatus.OK, results=at_cap))
+    env = _ok_envelope(_STATIC_FIX_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "fix", RailStatus.OK, results=at_cap))
     assert env.truncated is False
     assert env.status is RailStatus.OK
     assert env.report is not None
@@ -1067,7 +1068,7 @@ def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness
         Match(id="t2", kind=ArtifactKind.PROCESS, text="bang", severity="failed"),
         Match(id="t3", kind=ArtifactKind.PROCESS, text="fine"),
     )
-    failed_env = _ok_envelope(REGISTRY[0], assay_root.settings, 2.0, Report(Claim.STATIC, "fix", RailStatus.FAILED, results=rows))
+    failed_env = _ok_envelope(_STATIC_FIX_BIND, assay_root.settings, 2.0, Report(Claim.STATIC, "fix", RailStatus.FAILED, results=rows))
     assert failed_env.status is RailStatus.FAILED
     assert failed_env.exit_code == RailStatus.FAILED.exit_code
     ctx = failed_env.error_context
@@ -1090,7 +1091,7 @@ def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, c
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 
     rows = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(_RESULT_CAP + 1))
-    env = _ok_envelope(REGISTRY[0], assay_root.settings, 1.0, Report(Claim.STATIC, "fix", RailStatus.OK, results=rows))
+    env = _ok_envelope(_STATIC_FIX_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "fix", RailStatus.OK, results=rows))
 
     assert env.truncated
     assert env.report is not None
@@ -1117,7 +1118,7 @@ def test_full_report_artifact_oserror_returns_empty(assay_root: AssayHarness, mo
     from tools.assay.composition.registry import _full_report_artifact  # noqa: PLC0415
 
     _patch_store(monkeypatch, "write_full_report")
-    assert _full_report_artifact(assay_root.settings, REGISTRY[0], Report(Claim.STATIC, "fix", RailStatus.OK)) == ()
+    assert _full_report_artifact(assay_root.settings, _STATIC_FIX_BIND, Report(Claim.STATIC, "fix", RailStatus.OK)) == ()
 
 
 @pytest.mark.parametrize(
@@ -1296,7 +1297,7 @@ def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypat
     from tools.assay.composition.registry import _leaf  # noqa: PLC0415
 
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    bind = REGISTRY[0]
+    bind = _STATIC_FIX_BIND
     leaf = _leaf(bind)
     assert isinstance(leaf, FunctionType)
     fn: FunctionType = leaf

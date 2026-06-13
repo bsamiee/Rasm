@@ -78,41 +78,32 @@
   <Folder Name="/tests/csharp/tools/cs-analyzer/">
     <Project Path="tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj" />
   </Folder>
-  <Folder Name="/tests/tools/" />
-  <Folder Name="/tests/tools/rhino-bridge-next/">
-    <Project Path="tests/tools/rhino-bridge-next/Rasm.Bridge.Contract.Tests/Rasm.Bridge.Contract.Tests.csproj" />
-    <Project Path="tests/tools/rhino-bridge-next/Rasm.Bridge.Scenarios.Tests/Rasm.Bridge.Scenarios.Tests.csproj" />
-    <Project Path="tests/tools/rhino-bridge-next/Rasm.Bridge.Supervisor.Tests/Rasm.Bridge.Supervisor.Tests.csproj" />
+  <Folder Name="/tests/csharp/tools/rhino-bridge/">
+    <Project Path="tests/csharp/tools/rhino-bridge/Contract/Contract.csproj" />
+    <Project Path="tests/csharp/tools/rhino-bridge/Scenarios/Scenarios.csproj" />
+    <Project Path="tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj" />
   </Folder>
   <Folder Name="/tools/" />
   <Folder Name="/tools/cs-analyzer/">
     <Project Path="tools/cs-analyzer/Contracts/Csp.Contracts.csproj" />
     <Project Path="tools/cs-analyzer/Csp.Analyzer.csproj" />
   </Folder>
-  <Folder Name="/tools/rhino-bridge/" />
-  <Folder Name="/tools/rhino-bridge/client/">
-    <Project Path="tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj" />
+  <Folder Name="/tools/rhino-bridge/Cargo/">
+    <Project Path="tools/rhino-bridge/Cargo/Cargo.csproj" />
   </Folder>
-  <Folder Name="/tools/rhino-bridge/plugin/">
-    <Project Path="tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj" />
+  <Folder Name="/tools/rhino-bridge/Contract/">
+    <Project Path="tools/rhino-bridge/Contract/Contract.csproj" />
   </Folder>
-  <Folder Name="/tools/rhino-bridge/protocol/">
-    <Project Path="tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj" />
+  <Folder Name="/tools/rhino-bridge/Shell/">
+    <Project Path="tools/rhino-bridge/Shell/Shell.csproj" />
   </Folder>
-  <Folder Name="/tools/rhino-bridge-next/" />
-  <Folder Name="/tools/rhino-bridge-next/Rasm.Bridge.Cargo/">
-    <Project Path="tools/rhino-bridge-next/Rasm.Bridge.Cargo/Rasm.Bridge.Cargo.csproj" />
+  <Folder Name="/tools/rhino-bridge/Stub/">
+    <Project Path="tools/rhino-bridge/Stub/Stub.csproj" />
   </Folder>
-  <Folder Name="/tools/rhino-bridge-next/Rasm.Bridge.Contract/">
-    <Project Path="tools/rhino-bridge-next/Rasm.Bridge.Contract/Rasm.Bridge.Contract.csproj" />
+  <Folder Name="/tools/rhino-bridge/Supervisor/">
+    <Project Path="tools/rhino-bridge/Supervisor/Supervisor.csproj" />
   </Folder>
-  <Folder Name="/tools/rhino-bridge-next/Rasm.Bridge.Shell/">
-    <Project Path="tools/rhino-bridge-next/Rasm.Bridge.Shell/Rasm.Bridge.Shell.csproj" />
-  </Folder>
-  <Folder Name="/tools/rhino-bridge-next/Rasm.Bridge.Stub/">
-    <Project Path="tools/rhino-bridge-next/Rasm.Bridge.Stub/Rasm.Bridge.Stub.csproj" />
-  </Folder>
-  <Folder Name="/tools/rhino-bridge-next/Rasm.Bridge.Supervisor/">
-    <Project Path="tools/rhino-bridge-next/Rasm.Bridge.Supervisor/Rasm.Bridge.Supervisor.csproj" />
+  <Folder Name="/tools/rhino-bridge/Gate/">
+    <Project Path="tools/rhino-bridge/Gate/Gate.csproj" />
   </Folder>
 </Solution>

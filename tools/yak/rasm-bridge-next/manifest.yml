@@ -1,9 +1,0 @@
-name: rasm-bridge-next
-version: $version
-authors:
-- Rasm
-description: RhinoWIP macOS package for the rebuilt runtime bridge (dual-run beside rasm-bridge).
-keywords:
-- rhino-wip
-- rhinocommon
-- bridge

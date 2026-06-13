@@ -36,6 +36,7 @@ from tests.python.tools.assay.kit import (
     run_delta_st,
     run_snapshot_st,
     stage_st,
+    static_run_st,
     test_run_st,
     tool_st,
     verify_summary_st,
@@ -75,6 +76,7 @@ from tools.assay.core.model import (
     RunSnapshot,
     SourceKind,
     Stage,
+    StaticRun,
     SymbolShape,
     TestRun,
     Tool,
@@ -110,6 +112,7 @@ _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
     (ApiSurface, api_surface_st),
     (VerifySummary, verify_summary_st),
     (TestRun, test_run_st),
+    (StaticRun, static_run_st),
     (PackageRun, package_run_st),
     (ApiResolution, api_resolution_st),
     (Diagnostic, diagnostic_st),
@@ -210,6 +213,15 @@ def test_fold_failed_stderr_reaches_results_text() -> None:
     report = fold(Claim.STATIC, "check", (receipt(("tool",), 1, stderr=marker),))
     assert report.results
     assert marker.decode() in report.results[0].text
+
+
+def test_fold_failed_result_identifies_full_argv_and_long_tail() -> None:
+    """Failed process evidence carries the shell-rendered argv and a 4 KiB stderr tail."""
+    payload = b"x" * 5000
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "format", "src/App.csproj"), 1, stderr=payload),))
+    assert report.results
+    assert report.results[0].id == "dotnet format src/App.csproj"
+    assert report.results[0].text == payload[-4096:].decode()
 
 
 # --- [SARIF_FOLD]

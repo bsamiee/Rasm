@@ -92,6 +92,8 @@ _TRIGGER_FILES: frozenset[str] = frozenset((
 _TRIGGER_PREFIXES: tuple[str, ...] = ("tools/cs-analyzer/",)
 
 _CSPROJ: str = ".csproj"
+_PROJECT_INPUT_SUFFIXES: frozenset[str] = frozenset((".csproj", ".sln", ".slnx"))
+_TRIGGER_INPUT_SUFFIXES: frozenset[str] = frozenset((".props", ".targets"))
 _TIMEOUT: float = 30.0
 _DIFF: tuple[str, ...] = ("git", "diff", "--name-only", "--diff-filter=ACDMRTUXB")
 _CACHED: tuple[str, ...] = ("git", "diff", "--cached", "--name-only", "--diff-filter=ACDMRTUXB")
@@ -100,6 +102,16 @@ _FD: tuple[str, ...] = ("fd", "-H", "-t", "f", ".")
 _FD_EXCLUDE: tuple[str, ...] = ("--exclude", ".git", "--exclude", "bin", "--exclude", "obj")
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class TargetFiles:
+    """Expanded static target projection."""
+
+    targets: tuple[tuple[str, str], ...] = ()
+    files: tuple[str, ...] = ()
+    rejected: tuple[tuple[str, str, str], ...] = ()
+    changed: bool = False
 
 
 class Routed(Base, frozen=True):
@@ -186,6 +198,17 @@ def _git(argv: tuple[str, ...], *, root: UPath) -> Result[tuple[str, ...], Fault
 
 def _norm(paths: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(sorted({PurePosixPath(p).as_posix() for p in paths}))
+
+
+def _unsupported_target(rel: str, settings: AssaySettings) -> str:
+    suffix = PurePosixPath(rel).suffix
+    match rel in settings.trigger_files or suffix in _TRIGGER_INPUT_SUFFIXES:
+        case _ if suffix in _PROJECT_INPUT_SUFFIXES:
+            return "project-or-solution"
+        case True:
+            return "full-trigger"
+        case False:
+            return ""
 
 
 def _owner(rel: str, index: ProjectIndex) -> str | None:
@@ -324,6 +347,43 @@ def route(
     return enumerated.bind(lambda files: _closure(language, files, src, settings) if language.strategy == "closure" else _glob(language, files))
 
 
+def target_files(
+    folders: RoutePaths = (), files: RoutePaths = (), *, source: Source | None = None, settings: AssaySettings | None = None, changed: bool = False
+) -> Result[TargetFiles, Fault]:
+    """Expand static folder/file targets and partition unsupported full-build inputs.
+
+    Args:
+        folders: Explicit folder targets from ``--folder``.
+        files: Explicit file targets from ``--file``.
+        source: Optional source provider; defaults to local git-backed source.
+        settings: Active routing settings.
+        changed: True means no explicit target was supplied and the changed-file set owns input.
+
+    Returns:
+        Expanded file projection with unsupported project/solution/root-trigger files removed.
+    """
+    active = settings or AssaySettings()
+    src = source if source is not None else _LocalSource(root=UPath(active.root))
+    target_rows = (*(("folder", PurePosixPath(p).as_posix()) for p in folders), *(("file", PurePosixPath(p).as_posix()) for p in files))
+    seed = src.changed() if changed else Ok(())
+    return seed.bind(
+        lambda changed_files: src.enumerate(folders).map(lambda folder_files: (_norm(changed_files), _norm(folder_files), _norm(files)))
+    ).map(
+        lambda rows: TargetFiles(
+            targets=target_rows or (("changed", ""),) if changed else target_rows,
+            files=_norm(tuple(path for paths in rows for path in paths if not _unsupported_target(path, active))),
+            rejected=tuple(
+                (kind, path, reason)
+                for kind, paths in (("changed" if changed else "folder", (*rows[0], *rows[1])), ("file", rows[2]))
+                for path in paths
+                for reason in (_unsupported_target(path, active),)
+                if reason
+            ),
+            changed=changed,
+        )
+    )
+
+
 def routable_files(files: RoutePaths, settings: AssaySettings) -> RoutePaths:
     """Filter probe-fixture paths from an explicit file list.
 
@@ -407,4 +467,18 @@ def expand(checks: tuple[Check, ...], routed: Routed, *, settings: AssaySettings
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ProjectIndex", "RoutePaths", "Routed", "Scope", "Source", "expand", "infer_languages", "parse_csproj", "place", "routable_files", "route"]
+__all__ = [
+    "ProjectIndex",
+    "RoutePaths",
+    "Routed",
+    "Scope",
+    "Source",
+    "TargetFiles",
+    "expand",
+    "infer_languages",
+    "parse_csproj",
+    "place",
+    "routable_files",
+    "route",
+    "target_files",
+]

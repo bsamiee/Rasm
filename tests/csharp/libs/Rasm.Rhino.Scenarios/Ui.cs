@@ -29,7 +29,7 @@ internal static class UiScenarios {
         from springChecked in SpringProbe(ctx: ctx, ui: ui, view: view)
         let composed = new OverlayFilter(Geometry: Some(ObjectType.Curve)) + new OverlayFilter(Space: Some(ActiveSpace.ModelSpace))
         let filterFact = Note(ctx: ctx, key: "filter.geometry", value: Text(value: composed.Geometry))
-        from filtered in ctx.Expect(label: "overlay filter compose + reset", projection: ui.Use(UiViewportRequest.Preview<Unit>(
+        from filtered in ctx.Expect(label: "overlay filter compose + reset", projection: ui.Use(UiViewportRequest.Preview(
             preview: UiViewportPreview.Empty,
             run: previewScope =>
                 from bound in previewScope.Overlay.Filter(filter: composed, document: scope.Doc)
@@ -38,7 +38,7 @@ internal static class UiScenarios {
             interactive: false)))
         let applyFact = Note(ctx: ctx, key: "filter.apply.ok", value: true)
         let region = new BoundingBox(new Point3d(0.0, 0.0, 0.0), new Point3d(8.0, 5.0, 3.0))
-        from changed in ctx.Expect(label: "gumball frame update", projection: ui.Use(UiIntent.Gumball<bool>(
+        from changed in ctx.Expect(label: "gumball frame update", projection: ui.Use(UiIntent.Gumball(
             spec: UiGumballSpec.Of(source: region),
             run: gumball => gumball.Update(frame: new Plane(origin: new Point3d(1.0, 1.0, 0.0), normal: Vector3d.ZAxis)),
             interactive: false)))
@@ -55,12 +55,12 @@ internal static class UiScenarios {
         from context in ctx.Expect(label: "context", projection: RhinoCommandContext.Of(doc: scope.Doc, mode: RunMode.Scripted))
         let ui = context.Ui
         let hudPreview = UiViewportPreview.Hud(hud: layout => Fin.Succ(value: hud))
-        from hudRendered in ctx.Expect(label: "hud overlay render (text+stroke+box+curve+radial)", projection: ui.Use(UiViewportRequest.Preview<Unit>(
+        from hudRendered in ctx.Expect(label: "hud overlay render (text+stroke+box+curve+radial)", projection: ui.Use(UiViewportRequest.Preview(
             preview: hudPreview,
             run: previewScope => HudCapture(ctx: ctx, doc: scope.Doc),
             interactive: false)))
         let hudFact = Note(ctx: ctx, key: "hud.render.ok", value: true)
-        from dottedRendered in ctx.Expect(label: "dotted curve preview render", projection: ui.Use(UiViewportRequest.Preview<Unit>(
+        from dottedRendered in ctx.Expect(label: "dotted curve preview render", projection: ui.Use(UiViewportRequest.Preview(
             preview: DottedPreview(),
             run: previewScope => RedrawFin(doc: scope.Doc),
             interactive: false)))
@@ -75,7 +75,7 @@ internal static class UiScenarios {
         let region = new BoundingBox(new Point3d(0.0, 0.0, 0.0), new Point3d(10.0, 6.0, 4.0))
         let spec0 = UiGumballSpec.Of(source: region)
         let spec1 = UiGumballSpec.Of(source: region, frame: Some(new Plane(origin: new Point3d(2.0, 2.0, 0.0), normal: Vector3d.ZAxis)))
-        from reconfigured in ctx.Expect(label: "gumball reconfigure", projection: ui.Use(UiIntent.Gumball<Unit>(
+        from reconfigured in ctx.Expect(label: "gumball reconfigure", projection: ui.Use(UiIntent.Gumball(
             spec: spec0,
             run: gumball => gumball.Reconfigure(spec: spec1),
             interactive: false)))
@@ -157,8 +157,8 @@ internal static class UiScenarios {
         double decaySunk = double.NaN;
         Fin<MotionHandle<double, double>> acquired = ctx.Expect(
             label: "decay animate handle",
-            projection: ui.Use(UiViewportRequest.Animate<double, double>(
-                spec: MotionSpec.Decay<double, double>(from: 0.0, velocity: 10.0, friction: 5.0, vector: MotionVector.Double),
+            projection: ui.Use(UiViewportRequest.Animate(
+                spec: MotionSpec.Decay(from: 0.0, velocity: 10.0, friction: 5.0, vector: MotionVector.Double),
                 view: view,
                 sink: value => decaySunk = value,
                 timeSource: TimeProvider.System)));
@@ -240,8 +240,8 @@ internal static class UiScenarios {
     private static Fin<Unit> SpringProbe(ScenarioContext ctx, RhinoUi ui, RhinoView view) {
         Fin<MotionHandle<double, double>> acquired = ctx.Expect(
             label: "spring animate handle",
-            projection: ui.Use(UiViewportRequest.Animate<double, double>(
-                spec: MotionSpec.Spring<double, double>(from: 0.0, to: 100.0, config: SpringPreset.Snappy.Config, vector: MotionVector.Double),
+            projection: ui.Use(UiViewportRequest.Animate(
+                spec: MotionSpec.Spring(from: 0.0, to: 100.0, config: SpringPreset.Snappy.Config, vector: MotionVector.Double),
                 view: view,
                 sink: value => { },
                 timeSource: TimeProvider.System)));

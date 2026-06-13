@@ -58,9 +58,9 @@ _FAULT_CASES: list[tuple[str, Trigger, Action, Claim, str, tuple[str, ...]]] = [
     (
         "test_drive_setup_error_emits_faulted_envelope",
         Schedule(cron="* * * * *", timezone="Invalid/Zone"),
-        Rail(claim=Claim.STATIC, verb="plan"),
+        Rail(claim=Claim.STATIC, verb="check"),
         Claim.STATIC,
-        "plan",
+        "check",
         ("automation setup",),
     ),
     # _program_outcome empty-argv guard → domain Fault instead of an empty-command spawn OSError.
@@ -78,9 +78,9 @@ _FAULT_CASES: list[tuple[str, Trigger, Action, Claim, str, tuple[str, ...]]] = [
     (
         "test_drive_rail_param_decode_failure_folds_to_fault",
         Manual(),
-        Rail(claim=Claim.STATIC, verb="plan", params=msgspec.Raw(b"{not json")),
+        Rail(claim=Claim.STATIC, verb="check", params=msgspec.Raw(b"{not json")),
         Claim.STATIC,
-        "plan",
+        "check",
         (),
     ),
     # _label recurses through the Debounce wrapper into the inner Rail(CODE, search) under an except* setup fault.
@@ -330,14 +330,14 @@ register_law(_eng.drive, "test_drive_program_status_projection")
 def test_drive_rail_resolves_bind_and_emits_canned_envelope(
     assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A bound Rail resolves ``STATIC:plan``, decodes default params, and threads the rail's own ``emitted=True`` Envelope (no double-emit).
+    """A bound Rail resolves ``STATIC:check``, decodes default params, and threads the rail's own ``emitted=True`` Envelope (no double-emit).
 
     Falsified by: ``_emit_leaf`` re-emitting an already-written rail Envelope, or ``_rail_outcome`` failing to resolve a registered claim/verb pair.
     """
-    rail_env = envelope(fold(Claim.STATIC, "plan", (receipt(("plan",), 0, status=RailStatus.OK),)), claim=Claim.STATIC, verb="plan")
+    rail_env = envelope(fold(Claim.STATIC, "check", (receipt(("check",), 0, status=RailStatus.OK),)), claim=Claim.STATIC, verb="check")
     rail_probe.install(monkeypatch, _eng, "rail", rail_env)
 
-    anyio.run(_eng.drive, Manual(), Rail(claim=Claim.STATIC, verb="plan"), assay_root.settings)
+    anyio.run(_eng.drive, Manual(), Rail(claim=Claim.STATIC, verb="check"), assay_root.settings)
 
     # The factory recorded a ("rail.run", (params,), {}) row → the registry runner ran with decoded params.
     assert [c for c in rail_probe.calls if c[0] == "rail.run"], "the registry runner must be invoked with decoded params"

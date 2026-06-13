@@ -69,7 +69,7 @@ This table is a lookup by command surface and verb set:
 | [INDEX] | [SURFACE] | [VERBS]                                                         |
 | :-----: | :-------- | :-------------------------------------------------------------- |
 |   [1]   | root      | `self-test`, `delta`                                            |
-|   [2]   | `static`  | `fix`, `report`, `build`, `full`, `plan`                        |
+|   [2]   | `static`  | `check`, `build`, `fix`                                         |
 |   [3]   | `code`    | `search`, `query`                                               |
 |   [4]   | `test`    | `run`, `list`, `coverage`                                       |
 |   [5]   | `bridge`  | `verify`, `doctor`, `launch`, `quit`, `check`, `clean`, `build` |
@@ -85,11 +85,13 @@ This table is a lookup by command surface and verb set:
 - Example: `uv run python -m tools.assay delta <run_id> --against <run_id>`
 
 [STATIC_COMMANDS]:
-- Verbs: `fix`, `report`, `build`, `full`, `plan`
-- Inputs: `[paths...]`, `--language`
-- Output: shared `Report`; `plan` emits route/build-scope artifacts.
-- Use: `fix` mutates under lease; `report` diagnoses; `build` compiles the routed restore/build closure; `full` runs the build-shaped closure for Debug and Release.
-- Example: `uv run python -m tools.assay static plan --language csharp libs/csharp/Rasm`
+- Verbs: `check`, `build`, `fix`
+- Inputs: `--all`, `--project <project.csproj>`, `--folder <path>...`, `--file <path>...`
+- Target binding: each flag consumes space-separated values until the next option; the flag may also be repeated. Commas are literal path characters.
+- Output: shared `Report`; `StaticRun` detail carries targets, routes, planned checks, skipped checks, phase order, resource telemetry, and artifact scopes.
+- Use: `check` previews routes and argv without spawning tools; `build` runs C# diagnostics, restore, and compile proof for one `--project` or explicit `--all`; `fix` runs native formatters and autofixers for folder/file/project/all targets. Public folder/file build targets are rejected instead of deriving a multi-project compile fan.
+- Example: `uv run python -m tools.assay static check --folder tools/assay tests/python --file tools/assay/rails/static.py`
+- Build example: `uv run python -m tools.assay static build --project tools/rhino-bridge/Supervisor/Supervisor.csproj`
 
 [CODE_COMMANDS]:
 - Verbs: `search`, `query`

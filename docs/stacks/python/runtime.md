@@ -1,6 +1,6 @@
 # [PYTHON_RUNTIME]
 
-Python `>=3.15` is the active runtime surface. This page is the primitive-selection law for execution, transport, and observation: concurrency and interpreter isolation, binary payloads and numeric invariants, and diagnostics and exception flow. Each section owns one concern family: the chooser table names the form and the spelling it replaces, and the family card states the placement law and names the PEPs that canonize its rows once.
+This page is the primitive-selection law for execution, transport, and observation: concurrency and interpreter isolation, binary payloads and numeric invariants, and diagnostics and exception flow. Each section owns one concern family: the chooser table names the form and the spelling it replaces, and the family card states the placement law and names the PEPs that canonize its rows once.
 
 ## [1]-[CONCURRENCY_AND_INTERPRETERS]
 
@@ -28,8 +28,6 @@ Mutation ownership and context propagation are explicit before code relies on sc
 |  [18]   | process-pool stop          | `terminate_workers()` or `kill_workers()`              | private worker traversal        |
 |  [19]   | process interrupt          | `multiprocessing.Process.interrupt()`                  | cleanup-hostile `terminate()`   |
 |  [20]   | iterator sharing           | `threading.serialize_iterator()` or `concurrent_tee()` | generator lock wrappers         |
-|  [21]   | real timeout value         | real-number timeout arguments                          | int/float-only gates            |
-|  [22]   | shared mutation            | explicit synchronization                               | implicit GIL serialization      |
 
 [FREE_THREADING]:
 - PEPs: 779, 703, 567.
@@ -145,20 +143,17 @@ Diagnostics use runtime-owned observation surfaces; exception flow preserves the
 | :-----: | :------------------- | :------------------------------------ | :--------------------------------- |
 |   [1]   | execution monitoring | `sys.monitoring`                      | `settrace()` event scrapers        |
 |   [2]   | sampling profiler    | `profiling.sampling`                  | handwritten timers or `profile`    |
-|   [3]   | native profiling     | default frame pointers                | opaque native-extension stacks     |
-|   [4]   | C-stack dump         | `faulthandler.dump_c_stack()`         | external native stack probes       |
-|   [5]   | live debug attach    | `sys.remote_exec()`                   | debugger injection hooks           |
-|   [6]   | runtime auditing     | audit hooks                           | monkeypatch security probes        |
-|   [7]   | ABI reflection       | `sys.abi_info`                        | parsed SOABI strings               |
-|   [8]   | debug line tables    | `co_lines()`                          | `co_lnotab` decoding               |
-|   [9]   | traceback locations  | fine-grained code positions           | line-only diagnostics              |
-|  [10]   | grouped exceptions   | `except*` handlers                    | single-error collapse              |
-|  [11]   | exception context    | `BaseException.add_note()`            | message concatenation              |
-|  [12]   | active exception     | `sys.exception()`                     | `sys.exc_info()[1]`                |
-|  [13]   | exception syntax     | unparenthesized `except` without `as` | tuple wrapper noise                |
-|  [14]   | finally control flow | exits kept out of `finally`           | `finally` control-flow exits       |
-|  [15]   | deprecation marker   | `@warnings.deprecated()`              | docstring-only deprecation notices |
-|  [16]   | warnings filter      | `/regex/` warning filters             | literal-only warning fields        |
+|   [3]   | C-stack dump         | `faulthandler.dump_c_stack()`         | external native stack probes       |
+|   [4]   | live debug attach    | `sys.remote_exec()`                   | debugger injection hooks           |
+|   [5]   | ABI reflection       | `sys.abi_info`                        | parsed SOABI strings               |
+|   [6]   | debug line tables    | `co_lines()`                          | `co_lnotab` decoding               |
+|   [7]   | grouped exceptions   | `except*` handlers                    | single-error collapse              |
+|   [8]   | exception context    | `BaseException.add_note()`            | message concatenation              |
+|   [9]   | active exception     | `sys.exception()`                     | `sys.exc_info()[1]`                |
+|  [10]   | exception syntax     | unparenthesized `except` without `as` | tuple wrapper noise                |
+|  [11]   | finally control flow | exits kept out of `finally`           | `finally` control-flow exits       |
+|  [12]   | deprecation marker   | `@warnings.deprecated()`              | docstring-only deprecation notices |
+|  [13]   | warnings filter      | `/regex/` warning filters             | literal-only warning fields        |
 
 [RUNTIME_EVIDENCE]:
 - PEPs: 831, 799, 768, 669, 578, 626, 657.

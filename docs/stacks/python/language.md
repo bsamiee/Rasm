@@ -1,6 +1,6 @@
 # [PYTHON_LANGUAGE]
 
-Python `>=3.15` is the active language surface. This page is the language and standards law for choosing syntax, expression, value, text, template, module, import, filesystem, and project-surface primitive forms before adding a local abstraction. Each section owns one concern family: the chooser table names the form and the spelling it replaces, the family card states the placement law and names the PEPs that canonize its rows once, and the snippet proves the rule.
+Python `>=3.15` is the active language surface. This page is the version-feature law for choosing syntax, type-expression, annotation, import/export, template, and standard-library primitive forms before adding a local abstraction.
 
 `pyproject.toml` owns the interpreter floor, `uv`, and tool configuration facts. This page names those facts only when they change the language form a Python file may assume.
 
@@ -18,45 +18,294 @@ Python `>=3.15` is the active language surface. This page is the language and st
 
 Treat source files as modern Python, not compatibility layers. Remove old imports, shims, typing spellings, package markers, and tool bypasses when the active surface carries the concept directly.
 
-## [2]-[EXPRESSIONS_AND_VALUES]
+## [2]-[CANONICAL_CHOOSER]
 
-Invariants live where the primitive executes; values carry their own semantics without prose.
+Use the active Python surface directly. Replace older spellings and local machinery when syntax, typing, or the standard library owns the behavior.
 
-| [INDEX] | [CONCERN]           | [USE]                                   | [REPLACE]                         |
-| :-----: | :------------------ | :-------------------------------------- | :-------------------------------- |
-|   [1]   | closed dispatch     | `match` with pattern narrowing          | tag `if` chains                   |
-|   [2]   | exhaustiveness      | `Never` and `assert_never()`            | default-arm raises                |
-|   [3]   | conditional binding | assignment expressions (`:=`)           | precondition temporary variables  |
-|   [4]   | sentinel value      | `sentinel()`                            | `object()` or string sentinels    |
-|   [5]   | immutable map       | `frozendict`                            | tuple-pair pseudo-maps            |
-|   [6]   | dict merge          | dict union operators                    | copy/update merge ladders         |
-|   [7]   | immutable update    | `copy.replace()` or `__replace__()`     | mutate-then-freeze copies         |
-|   [8]   | string enum         | `enum.StrEnum`                          | `str, Enum` mixins                |
-|   [9]   | enum invariant      | `enum.verify()` and `EnumCheck`         | local enum validation loops       |
-|  [10]   | invariant arity     | `zip(strict=True)`                      | post-truncation asserts           |
-|  [11]   | mapped arity        | `map(strict=True)`                      | post-truncation asserts           |
-|  [12]   | flattening          | unpacking comprehensions                | nested flattening loops           |
-|  [13]   | comprehension speed | direct comprehensions                   | loop rewrites for speed           |
-|  [14]   | affix removal       | `removeprefix()` and `removesuffix()`   | slice/strip affix hacks           |
-|  [15]   | iterable batching   | `itertools.batched()`                   | local chunk helper loops          |
-|  [16]   | max heap            | max-heap `heapq` APIs                   | negated-priority heap wrappers    |
-|  [17]   | dot product         | `math.sumprod()`                        | `zip()` product folds             |
-|  [18]   | partial holes       | `functools.Placeholder`                 | lambda wrappers for partial gaps  |
-|  [19]   | none predicate      | `operator.is_none()`                    | one-off `lambda x: x is None`     |
-|  [20]   | multiset XOR        | `Counter` XOR                           | manual count-difference folds     |
-|  [21]   | signed zero         | `z` format specifier                    | post-format negative-zero cleanup |
-|  [22]   | target date parsing | `date.strptime()` and `time.strptime()` | `datetime.strptime()` slicing     |
+| [INDEX] | [CONCERN]                | [USE]                                                        | [REPLACE]                           |
+| :-----: | :----------------------- | :----------------------------------------------------------- | :---------------------------------- |
+|   [1]   | runtime annotations      | `annotationlib.get_annotations()`                            | direct `__annotations__` reads      |
+|   [2]   | conditional binding      | assignment expressions (`:=`)                                | precondition temporary variables    |
+|   [3]   | callable shape           | parameter-preserving decorators                              | `Callable[..., T]` erasure          |
+|   [4]   | generic shape            | inline type parameters and `type` aliases                    | `TypeVar`, `ParamSpec`, `TypeAlias` |
+|   [5]   | type predicates          | `TypeIs`                                                     | one-way `TypeGuard` predicates      |
+|   [6]   | type expressions         | `TypeForm`                                                   | `type[T]` or `object` forms         |
+|   [7]   | kwargs payload           | `Unpack[TypedDict]`                                          | homogeneous `**kwargs`              |
+|   [8]   | typed dict closure       | `closed=` and `extra_items=`                                 | open payload prose                  |
+|   [9]   | immutable keys           | `ReadOnly[T]` in `TypedDict`                                 | prose-only immutable key contracts  |
+|  [10]   | required keys            | `Required[]` and `NotRequired[]`                             | split `TypedDict` inheritance       |
+|  [11]   | method override          | `@typing.override`                                           | unmarked subclass overrides         |
+|  [12]   | self type                | `typing.Self`                                                | bound `TypeVar` self boilerplate    |
+|  [13]   | generic defaults         | type parameter defaults and `NoDefault`                      | overload families for defaults      |
+|  [14]   | typed disjointness       | `@typing.disjoint_base`                                      | prose-only disjointness             |
+|  [15]   | variadic generic options | `TypeVarTuple` bound, variance, and infer_variance args      | asymmetric variadic-generic shims   |
+|  [16]   | closed dispatch          | `match` with pattern narrowing                               | tag `if` chains                     |
+|  [17]   | exhaustiveness proof     | `Never` and `assert_never()`                                 | default-arm raises                  |
+|  [18]   | sentinel value           | `sentinel()`                                                 | `object()` or string sentinels      |
+|  [19]   | immutable update         | `copy.replace()` or `__replace__()`                          | mutate-then-freeze copies           |
+|  [20]   | immutable map            | `frozendict`                                                 | tuple-pair pseudo-maps              |
+|  [21]   | invariant arity          | `zip(strict=True)`                                           | post-truncation asserts             |
+|  [22]   | mapped arity             | `map(strict=True)`                                           | post-truncation asserts             |
+|  [23]   | string enum              | `enum.StrEnum`                                               | `str, Enum` mixins                  |
+|  [24]   | enum invariant           | `enum.verify()` and `EnumCheck`                              | local enum validation loops         |
+|  [25]   | literal text boundary    | `LiteralString`                                              | untyped sensitive `str`             |
+|  [26]   | safe templates           | t-strings and processors                                     | f-string pre-parsing                |
+|  [27]   | template AST             | `ast.TemplateStr`                                            | f-string AST rewrites               |
+|  [28]   | f-string expression      | full-expression f-strings                                    | quote juggling temporaries          |
+|  [29]   | signature annotations    | `inspect.signature(annotation_format=...)`                   | annotation string post-processing   |
+|  [30]   | static reflection        | `inspect.getmembers_static()`                                | descriptor-triggering scans         |
+|  [31]   | union introspection      | `typing.get_origin()` and `get_args()`                       | private union implementation checks |
+|  [32]   | protocol introspection   | `typing.get_protocol_members()` and `typing.is_protocol()`   | private protocol probes             |
+|  [33]   | generic bases            | `types.get_original_bases()`                                 | direct `__orig_bases__` reads       |
+|  [34]   | execution locals         | explicit `locals=` and `frame.f_locals`                      | mutating `locals()` snapshots       |
+|  [35]   | frame locals type        | `types.FrameLocalsProxyType`                                 | private frame-locals proxy checks   |
+|  [36]   | AST field schema         | `ast.AST._field_types`                                       | hand-maintained ASDL maps           |
+|  [37]   | AST equality             | `ast.compare()`                                              | `ast.dump()` string comparison      |
+|  [38]   | optimized AST            | `ast.parse(optimize=...)`                                    | local AST pruning                   |
+|  [39]   | source module name       | `module=` compile APIs                                       | filename-only warning filters       |
+|  [40]   | cold import              | tool-admitted module-scope `lazy import` or `lazy from`      | local-import startup hacks          |
+|  [41]   | startup hook             | `.start` entries                                             | executable `.pth` import lines      |
+|  [42]   | UTF-8 default            | UTF-8 default; `encoding="locale"`                           | locale-dependent implicit text I/O  |
+|  [43]   | I/O protocol             | `io.Reader` and `io.Writer`                                  | `typing.IO` pseudo-protocols        |
+|  [44]   | buffer protocol          | `collections.abc.Buffer`                                     | `ByteString` or bytes prose         |
+|  [45]   | generic slice            | `slice[T]`                                                   | unparameterized slice contracts     |
+|  [46]   | buffer flags             | `inspect.BufferFlags`                                        | magic integer buffer flags          |
+|  [47]   | resource materialization | `importlib.resources.as_file()`                              | `__file__` extraction loops         |
+|  [48]   | TOML parse               | `tomllib` TOML 1.1.0                                         | `tomli` or parser shims             |
+|  [49]   | file traversal           | `Path.walk()`                                                | stringly `os.walk()` flow           |
+|  [50]   | file tree transfer       | `Path.copy()` and `Path.move()`                              | `shutil` transfer wrappers          |
+|  [51]   | file type cache          | `Path.info`                                                  | repeated `stat()` probes            |
+|  [52]   | path glob match          | `PurePath.full_match()`                                      | ad hoc recursive glob predicates    |
+|  [53]   | symlink traversal        | `recurse_symlinks=` and `follow_symlinks=`                   | manual symlink branch logic         |
+|  [54]   | missing canonical path   | `os.path.realpath(strict=os.path.ALLOW_MISSING)`             | symlink-prefix resolution loops     |
+|  [55]   | path root split          | `os.path.splitroot()`                                        | drive/root string slicing           |
+|  [56]   | path subclassing         | `PurePath.with_segments()`                                   | path wrapper propagation            |
+|  [57]   | file URI path            | `Path.from_uri()`                                            | hand-parsed `file:` URLs            |
+|  [58]   | file MIME type           | `mimetypes.guess_file_type()`                                | path use of `guess_type()`          |
+|  [59]   | URL component presence   | `missing_as_none=` and `keep_empty=`                         | empty-string sentinel logic         |
+|  [60]   | temporary file reopen    | `NamedTemporaryFile(delete_on_close=...)`                    | `mkstemp()` unlink ladders          |
+|  [61]   | tree removal errors      | `shutil.rmtree(onexc=...)`                                   | `onerror` tuple handlers            |
+|  [62]   | Windows reserved path    | `os.path.isreserved()`                                       | reserved-name tables                |
+|  [63]   | context variable scope   | `ContextVar.set()` token context manager                     | `reset(token)` `finally` blocks     |
+|  [64]   | queue lifecycle          | `queue.Queue.shutdown()`                                     | sentinel queue items                |
+|  [65]   | worker sizing            | `os.process_cpu_count()`                                     | `os.cpu_count()` worker counts      |
+|  [66]   | interpreter isolation    | `concurrent.interpreters`                                    | process-only isolation wrappers     |
+|  [67]   | subinterpreter pool      | `concurrent.futures.InterpreterPoolExecutor`                 | process-only CPU pools              |
+|  [68]   | process interrupt        | `multiprocessing.Process.interrupt()`                        | cleanup-hostile `terminate()`       |
+|  [69]   | iterator sharing         | `threading.serialize_iterator()` or `.concurrent_tee()`      | generator lock wrappers             |
+|  [70]   | execution monitoring     | `sys.monitoring`                                             | `settrace()` event scrapers         |
+|  [71]   | sampling profiler        | `profiling.sampling`                                         | handwritten timers or `profile`     |
+|  [72]   | C-stack dump             | `faulthandler.dump_c_stack()`                                | external native stack probes        |
+|  [73]   | live debug attach        | `sys.remote_exec()`                                          | debugger injection hooks            |
+|  [74]   | ABI reflection           | `sys.abi_info`                                               | parsed SOABI strings                |
+|  [75]   | iterable batching        | `itertools.batched()`                                        | local chunk helper loops            |
+|  [76]   | partial holes            | `functools.Placeholder`                                      | lambda wrappers for partial gaps    |
+|  [77]   | none predicate           | `operator.is_none()`                                         | one-off `lambda x: x is None`       |
+|  [78]   | max heap                 | max-heap `heapq` APIs                                        | negated-priority heap wrappers      |
+|  [79]   | dot product              | `math.sumprod()`                                             | `zip()` product folds               |
+|  [80]   | multiset XOR             | `Counter` XOR                                                | manual count-difference folds       |
+|  [81]   | ordered identifiers      | `uuid.uuid7()`                                               | timestamp-prefixed UUID wrappers    |
+|  [82]   | UUID boundaries          | `uuid.NIL` and `uuid.MAX`                                    | magic UUID boundary literals        |
+|  [83]   | active exception         | `sys.exception()`                                            | `sys.exc_info()[1]`                 |
+|  [84]   | exception context        | `BaseException.add_note()`                                   | message concatenation               |
+|  [85]   | regex prefix             | `re.prefixmatch()`                                           | ambiguous `re.match()`              |
+|  [86]   | regex parse error        | `re.PatternError`                                            | generic `re.error` catches          |
+|  [87]   | target date parsing      | `datetime.date.strptime()` and `datetime.time.strptime()`    | `datetime.strptime()` slicing       |
+|  [88]   | file digest              | `hashlib.file_digest()`                                      | manual chunked hash loops           |
+|  [89]   | Zstandard payload        | `compression.zstd`                                           | subprocess or bespoke zstd adapters |
+|  [90]   | Z85 payload              | `base64.z85encode()` and `z85decode()`                       | local Z85 codecs                    |
+|  [91]   | base-N canonical         | `canonical=True` decoders                                    | padding-bit postchecks              |
+|  [92]   | base-N format control    | `padded=`, `wrapcol=`, `ignorechars=`                        | pre/post encode formatting          |
+|  [93]   | checksum combine         | `zlib.adler32_combine()` and `zlib.crc32_combine()`          | recompress-to-checksum loops        |
+|  [94]   | fd buffer read           | `os.readinto()`                                              | `os.read()` copy slices             |
+|  [95]   | byte buffer drain        | `bytearray.take_bytes()`                                     | `bytes(buffer)` plus `clear()`      |
+|  [96]   | FFI memory view          | `ctypes.memoryview_at()`                                     | `string_at()` copy scaffolds        |
+|  [97]   | binary numeric views     | `array` and `memoryview` complex codes                       | struct-packed numeric buffers       |
+|  [98]   | integer math             | `math.integer`                                               | float math for integers             |
+|  [99]   | fused multiply-add       | `math.fma()`                                                 | rounded multiply-add                |
+|  [100]  | float extrema            | `math.fmax()` and `math.fmin()`                              | NaN-aware min/max wrappers          |
+|  [101]  | float classification     | `math.isnormal()`, `math.issubnormal()`, `math.signbit()`    | bit-level float probes              |
+|  [102]  | fraction conversion      | `Fraction.from_number()`                                     | constructor branch ladders          |
+|  [103]  | Unicode identifier       | `unicodedata.isxidstart()` and `unicodedata.isxidcontinue()` | regex identifier tables             |
+|  [104]  | grapheme iteration       | `unicodedata.iter_graphemes()`                               | codepoint loops                     |
+|  [105]  | Unicode block            | `unicodedata.block()`                                        | block range tables                  |
+|  [106]  | XML text validity        | `xml.is_valid_name()` and `xml.is_valid_text()`              | XML character tables                |
 
-[CLOSED_MATCH]:
-- PEPs: 634.
-- Use when: a closed domain must project every case through one operation-local `match` statement.
-- Accept: pattern narrowing over the closed variant owner, one operation-local projection, and `case _ as unreachable: assert_never(unreachable)` when the static checker needs an exhaustiveness witness.
-- Reject: tag `if` chains, guarded matches that leave cases unproved, catch-all raises, default arms that hide a missing case, and pre-match normalization that erases the discriminant.
-- Boundary: variant ownership, error rail shape, and cross-module dispatch architecture belong to the owning shape or surface page.
+## [3]-[LANGUAGE_FORM_CONTRACTS]
+
+Use these contracts when the chooser names the primitive but code still needs a placement rule.
+
+[TYPE_DECLARATION_SITE]:
+- Use when: the defining declaration can carry type evidence that callers would otherwise repair downstream.
+- Accept: inline type parameters, `type` aliases, `TypeForm` for type-expression values, parameter-preserving callable signatures, type parameter defaults, `NoDefault`, `@typing.override`, `typing.Self`, `@typing.disjoint_base`, and `TypeVarTuple` `bound`, `covariant`, `contravariant`, and `infer_variance` arguments.
+- Reject: erased `Callable[..., T]`, imported `ParamSpec` where inline `**P` can express the decorator, remote alias repair, broad `type[T]` or `object` placeholders for type-form values, unmarked overrides, prose-only disjointness, bound-self boilerplate, and protocol shells created only to type an existing object.
+- Boundary: `TypeForm`, disjointness, and override evidence are static typing contracts; runtime validation, object-family policy, decorator architecture, protocol ports, and package-backed typing decisions belong to the owning concept page.
+
+[TYPE_PREDICATE_SITE]:
+- Use when: a reusable predicate proves exact type membership that inline narrowing cannot express.
+- Accept: `TypeIs[T]` over the concrete target or owned structural target, where `T` is compatible with the input type and the predicate is true exactly for `T`.
+- Reject: subtype-compatible predicates written as `TypeGuard`, subset predicates disguised as membership proofs, bool helpers followed by `cast`, and runtime-checkable protocols created only to satisfy `isinstance`.
+- Soundness: `TypeIs[T]` is a biconditional type-membership proof, not a validation rail for valid, non-empty, active, normalized, positive, or otherwise filtered `T` values.
+- Consumption: keep predicate use at ingress, dispatch, or projection boundaries; fold the narrowed value through one expression or the owning result rail instead of spreading branch bodies.
+- Boundary: untyped package gaps enter as `object` at the boundary; typed object-shape ownership, validation, and provider adoption belong to the owning concept page.
+
+Disjoint nominal owner: use when runtime class membership owns the variant split and the predicate replaces protocol or cast repair.
+
+```python conceptual
+from typing import TypeIs, assert_type, final
+from typing_extensions import disjoint_base
+
+
+class Shape:
+    @disjoint_base
+    class _Seal: ...
+
+
+    class RefinedShape(_Seal): ...
+
+
+    @final
+    class OtherShape(_Seal): ...
+
+
+type Member = Shape.RefinedShape | Shape.OtherShape
+
+
+def is_refined(value: Member) -> TypeIs[Shape.RefinedShape]:
+    return isinstance(value, Shape.RefinedShape)
+
+
+def projected(value: Member) -> Member:
+    return (
+        assert_type(value, Shape.RefinedShape)
+        if is_refined(value)
+        else assert_type(value, Shape.OtherShape)
+    )
+```
+
+Tagged generic owner: use when one parameterized model owns the family and literal state proves the narrower member.
 
 ```python conceptual
 from dataclasses import dataclass
-from typing import assert_never, disjoint_base
+from typing import Literal, TypeIs, assert_type
+
+
+type RefinedTag = Literal["<refined>"]
+type OtherTag = Literal["<other>"]
+type Tag = RefinedTag | OtherTag
+
+
+@dataclass(frozen=True, slots=True)
+class Shape[T: Tag]:
+    tag: T
+
+
+type Member = Shape[RefinedTag] | Shape[OtherTag]
+
+
+def is_refined(value: Member) -> TypeIs[Shape[RefinedTag]]:
+    return value.tag == "<refined>"
+
+
+def projected(value: Member) -> Member:
+    return (
+        assert_type(value, Shape[RefinedTag])
+        if is_refined(value)
+        else assert_type(value, Shape[OtherTag])
+    )
+```
+
+[TYPED_DICT_PAYLOAD_SITE]:
+- Use when: keyword or dictionary payload shape is part of the callable contract.
+- Accept: `Unpack[TypedDict]` for keyword payloads, `closed=` for static exact-key constraints, `extra_items=` for typed extension slots, `Required[]`, `NotRequired[]`, and `ReadOnly[T]` on individual keys.
+- Reject: homogeneous `**kwargs`, open payload prose, split `TypedDict` inheritance for required-key bookkeeping, mutable-key promises in comments, `Mapping[str, object]` bags, and runtime validation used to repair erased static payload shape.
+- Boundary: `TypedDict` shapes static payload compatibility; rich domain objects, ingress validation, serialization policy, and provider payload mapping belong to the owning boundary or domain concept page.
+
+```python conceptual
+from enum import StrEnum
+from typing import NotRequired, ReadOnly, Required, TypedDict, Unpack
+
+from expression import Option
+
+
+class Field(StrEnum):
+    KEY = "<field-a>"
+    VALUE = "<field-b>"
+
+
+class Row(TypedDict, total=False, closed=True):
+    key: Required[ReadOnly[str]]
+    field: NotRequired[ReadOnly[Field]]
+
+
+def selected(**row: Unpack[Row]) -> str:
+    key = row["key"]
+    return Option.of_optional(row.get("field")).map(
+        lambda field: f"<result-a>:{key}:{field}"
+    ).default_with(lambda: f"<result-b>:{key}")
+
+
+SELECTED_RESULT = selected(key="<key-a>", field=Field.KEY)
+```
+
+[MODULE_BOUNDARY_SITE]:
+- Use when: a module declares its public names or imports another module surface.
+- Accept: named imports, end-of-file `__all__`, and `__init__.py` only when it owns real package initialization or a public package contract.
+- Reject: wildcard imports, barrel files, facade-only exports, empty `__init__.py` package markers, re-export files that hide the real owner, and package markers that exist only to make traversal or imports look tidy.
+- Boundary: package topology, generated API documentation, public package contracts, and source-symbol documentation belong to their owning platform, architecture, or code-documentation surface.
+
+[LAZY_IMPORT_SITE]:
+- Use when: a cold dependency should remain declared at the module boundary without paying import cost until first use.
+- Accept: module-scope `lazy import` and `lazy from` statements for named modules or named imported members only when formatter, linter, type checker, and runtime configuration admit the syntax.
+- Reject: function-local import hiding, `importlib` laziness scattered through call sites, `lazy` inside functions, classes, or `try` blocks, lazy star imports, lazy future imports, and `__lazy_modules__` in target-only code where direct `lazy` imports can state the boundary.
+- Boundary: global lazy-import modes, startup policy, dependency graph costs, and tool graph truth belong to the runtime or platform owner.
+
+[STARTUP_ENTRY_SITE]:
+- Use when: interpreter startup code must be declared as an auditable startup entry point.
+- Accept: `.start` entries in mandatory `pkg.mod:callable` form for zero-argument startup hooks.
+- Reject: executable `.pth` import lines, implicit import side effects, wildcard startup modules, and startup code hidden in package marker files.
+- Boundary: package installation layout, site processing, startup ordering, and command behavior belong to the runtime or platform owner.
+
+[TEMPLATE_STRUCTURE_SITE]:
+- Use when: dynamic text must preserve template structure for processing, policy, or AST analysis before rendering.
+- Accept: t-string processors, `string.templatelib.Template` and `Interpolation`, `ast.TemplateStr`, and `ast.Interpolation` where code needs static segments, interpolation values, expression text, conversion, or format-spec structure.
+- Reject: f-string pre-parsing, rendered-string reparsing, regex extraction from formatted text, hand-built interpolation tuples, and string concatenation used to hide template policy.
+- Boundary: t-string processors decide whether to apply conversions and format specs; template security, localization, escaping, rendering, and AST rewrite policy belong to the owning boundary or text-processing concept page.
+
+```python conceptual
+from string.templatelib import Template
+from typing import Literal
+
+
+type Conversion = Literal["a", "r", "s"] | None
+type InterpolationParts = tuple[object, str, Conversion, str]
+type TemplateParts = tuple[tuple[str, ...], tuple[InterpolationParts, ...]]
+
+
+def selected(template: Template) -> TemplateParts:
+    return (
+        template.strings,
+        tuple(
+            (field.value, field.expression, field.conversion, field.format_spec)
+            for field in template.interpolations
+        ),
+    )
+
+
+VALUE = "<value-a>"
+SELECTED_RESULT = selected(t"<field-a>{VALUE!r:<field-b>}")
+```
+
+[CLOSED_MATCH_SITE]:
+- Use when: a closed domain must project every case through one operation-local `match` statement.
+- Accept: pattern narrowing over the closed variant owner, one operation-local projection, and `case _ as unreachable: assert_never(unreachable)` when the static checker needs an exhaustiveness witness.
+- Reject: tag `if` chains, guarded matches that leave cases unproved, catch-all raises, default arms that hide a missing case, and pre-match normalization that erases the discriminant.
+- Boundary: variant ownership, error rail shape, and cross-module dispatch architecture belong to the owning domain or surface concept page.
+
+```python conceptual
+from dataclasses import dataclass
+from typing import assert_never
+from typing_extensions import disjoint_base
 
 
 class Variant:
@@ -80,17 +329,19 @@ def selected(variant: Variant.A | Variant.B) -> str:
             return f"<result-b>:{value}"
         case _ as unreachable:
             assert_never(unreachable)
+
+
+VARIANT_A = Variant.A(value="<value-a>")
+SELECTED_RESULT = selected(VARIANT_A)
 ```
 
-[SENTINEL_DEFAULT]:
-- PEPs: 661.
+[SENTINEL_DEFAULT_SITE]:
 - Use when: omission or inherited selection must be distinct from every valid domain value, including `None`.
 - Accept: module-global `NAME = sentinel("NAME")` values whose variable name matches the sentinel name, reused by `is`, and carried directly in the union type.
-- Reject: repeated `sentinel("<name>")` calls for one semantic value, `object()` defaults, `None` defaults when `None` is domain-valid, string tokens, omitted-vs-supplied overloads with no return-shape change, and bool flags that split one option shape.
+- Reject: repeated `sentinel("<name>")` calls for the same semantic value, `object()` defaults, `None` defaults when `None` is domain-valid, string tokens, omitted-vs-supplied overloads with no return-shape change, and bool flags that split one option shape.
 - Boundary: queue or task lifecycle, wire payload tags, and protocol tokens use the owning lifecycle API or explicit domain value instead of sentinel payloads.
 
-[FROZENDICT_TABLE]:
-- PEPs: 814.
+[FROZENDICT_TABLE_SITE]:
 - Use when: immutable mapping rows or nested policy tables need mapping semantics, language-level immutability, and order-insensitive equality or hashing of the `frozendict` value.
 - Accept: `frozendict[K, V]` rows with hashable keys; values must also be hashable when the row itself is hashed or used as an outer key.
 - Reject: tuple-pair pseudo-maps, sorted-item key normalizers, module-level dictionaries used as immutable policy tables, `MappingProxyType` views over mutable storage, frozen shells around dictionaries, and mutate-then-freeze copy ladders.
@@ -117,250 +368,31 @@ TABLE: frozendict[Row, str] = frozendict({
 SELECTED_RESULT: str = TABLE[frozendict({Field.VALUE: "<value-a>", Field.KEY: "<key-a>"})]
 ```
 
-[PRIMITIVE_INVARIANTS]:
-- PEPs: 584, 616, 572, 798, 618, 709, 682.
-- Use when: a language primitive carries an invariant for values, mappings, numeric formatting, iteration, or collection composition.
-- Accept: assignment expressions, dict union, affix removers, unpacking comprehensions, `zip(strict=True)`, `map(strict=True)`, direct comprehensions, and `z` formatting at display sinks.
-- Reject: precondition temporaries, copy/update ladders, slice/strip hacks, chain adapters, post-truncation asserts, loop rewrites for comprehension speed, and post-format negative-zero cleanup.
-- Law: keep the invariant where the primitive executes; the expression form is the record of the invariant.
+## [4]-[ABSTRACTION_COLLAPSE_TESTS]
 
-```python conceptual
-from builtins import frozendict, sentinel
-import math.integer as integer
+Use these tests before keeping a local abstraction beside a language primitive.
 
+[TYPE_EVIDENCE_REPAIR]:
+- Smell: a cast, alias, erased callable, fake protocol, runtime-checkable shell, or bool predicate exists only to recover type evidence that the declaration could have preserved.
+- Collapse: move evidence into the owner declaration, `TypeIs` predicate, `TypedDict` payload, `TypeForm`, parameter-preserving callable, or real structural owner.
+- Done when: callers narrow, call, unpack, or inspect the value without `cast`, wildcard protocols, post-check repair code, or duplicated declaration aliases.
 
-MISSING = sentinel("MISSING")
+[STRING_RECOVERY]:
+- Smell: code parses rendered strings, paths, URLs, annotations, regex intent, warning filters, template fields, AST structure, or source names by hand.
+- Collapse: ask the language API for the structured form.
+- Done when: the implementation consumes typed components instead of reconstructed text.
 
-type FrozenRow = frozendict[str, str]
+[CEREMONY_WRAPPER]:
+- Smell: a helper only hides a modern expression, iterator, update, predicate, or primitive operation from the use site.
+- Collapse: inline the language form where the invariant executes, or deepen the owning operation if the helper carries real policy.
+- Done when: the call site shows the language-owned invariant directly and no one-use helper remains.
 
-BASE: FrozenRow = frozendict({"<field-a>": "<value-a>"})
+[SURFACE_FACADE]:
+- Smell: a file exists only to re-export another module, mark a package, or collect names from several owners.
+- Collapse: import the real owner by name and publish the module's own `__all__` only where the module owns the public surface.
+- Done when: readers can find the implementation owner without traversing wildcard imports, barrels, or empty package files.
 
-
-def normalized(
-    fields: tuple[str, ...],
-    values: tuple[str, ...],
-    weights: tuple[int, ...],
-    /,
-    *,
-    fallback: str | MISSING = MISSING,
-    overlay: FrozenRow = frozendict(),
-) -> FrozenRow:
-    names = tuple(
-        *field.removeprefix("<prefix>").removesuffix("<suffix>").split(":")
-        for field in map(str.strip, fields, strict=True)
-        if field
-    )
-    measured = frozendict(
-        (
-            name,
-            f"{float(integer.gcd(weight, len(value))):z.1f}:{value}",
-        )
-        for name, raw, weight in zip(names, map(str.strip, values, strict=True), weights, strict=True)
-        if (value := raw.removeprefix("<value-a>:").removesuffix(":<value-b>"))
-    )
-    return (
-        BASE
-        | (frozendict({"<fallback>": fallback}) if fallback is not MISSING else frozendict())
-        | overlay
-        | measured
-    )
-```
-
-## [3]-[TEXT_AND_TEMPLATES]
-
-Policy consumes structured material, not reconstructed text or trusted transport names.
-
-| [INDEX] | [CONCERN]             | [USE]                                            | [REPLACE]                          |
-| :-----: | :-------------------- | :----------------------------------------------- | :--------------------------------- |
-|   [1]   | safe templates        | t-strings and processors                         | f-string pre-parsing               |
-|   [2]   | template AST          | `ast.TemplateStr`                                | f-string AST rewrites              |
-|   [3]   | literal text boundary | `LiteralString`                                  | untyped sensitive `str`            |
-|   [4]   | f-string expression   | full-expression f-strings                        | quote juggling temporaries         |
-|   [5]   | UTF-8 default         | UTF-8 default; `encoding="locale"`               | locale-dependent implicit text I/O |
-|   [6]   | persisted encodings   | explicit text encodings                          | implicit locale I/O                |
-|   [7]   | regex backtracking    | atomic groups and possessive quantifiers         | scanner split workarounds          |
-|   [8]   | regex prefix          | `re.prefixmatch()`                               | ambiguous `re.match()`             |
-|   [9]   | regex parse error     | `re.PatternError`                                | generic `re.error` catches         |
-|  [10]   | Unicode identifier    | `unicodedata.isxidstart()` and `isxidcontinue()` | regex identifier tables            |
-|  [11]   | grapheme iteration    | `unicodedata.iter_graphemes()`                   | codepoint loops                    |
-|  [12]   | Unicode block         | `unicodedata.block()`                            | block range tables                 |
-|  [13]   | XML text validity     | `xml.is_valid_name()` and `xml.is_valid_text()`  | XML character tables               |
-|  [14]   | TOML parse            | `tomllib` TOML 1.1.0                             | `tomli` or parser shims            |
-|  [15]   | time zones            | `zoneinfo.ZoneInfo`                              | `pytz`-style adapters              |
-|  [16]   | tar extraction        | tar extraction filters                           | trusting archive member paths      |
-|  [17]   | sdist extraction      | `data_filter` extraction                         | unfiltered source archives         |
-
-[TEMPLATE_STRUCTURE]:
-- PEPs: 750.
-- Use when: dynamic text must preserve template structure for processing, policy, or AST analysis before rendering.
-- Accept: t-string processors, `string.templatelib.Template` and `Interpolation`, `ast.TemplateStr`, and `ast.Interpolation` where code needs static segments, interpolation values, expression text, conversion, or format-spec structure.
-- Reject: f-string pre-parsing, rendered-string reparsing, regex extraction from formatted text, hand-built interpolation tuples, and string concatenation used to hide template policy.
-- Boundary: t-string processors decide whether to apply conversions and format specs; template security, localization, escaping, rendering, and AST rewrite policy belong to the owning boundary or text-processing page.
-
-[TEXT_POLICY]:
-- PEPs: 675, 686, 597, 701, 706, 721, 680, 615.
-- Use when: text, archives, project data, or time zones must be structured before policy runs.
-- Accept: `LiteralString` at literal-only sinks, UTF-8 defaults with explicit persisted-text encodings, normal f-string grammar, tar and sdist filters, `tomllib`, and `zoneinfo.ZoneInfo`.
-- Reject: parsing rendered strings, untyped sensitive `str`, locale-dependent persisted I/O, archive path trust, `tomli` shims, `pytz` adapters, and stringly timezone policy.
-
-```python conceptual
-from pathlib import Path
-from string.templatelib import Template
-from typing import LiteralString
-from zoneinfo import ZoneInfo
-import tarfile, tomllib
-
-
-type PolicyMaterial = tuple[Template, dict[str, object], tuple[str, ...], ZoneInfo]
-
-
-def materialized_policy(policy: LiteralString, root: Path, zone: LiteralString, /) -> PolicyMaterial:
-    data = tomllib.loads((root / "<file>.toml").read_text(encoding="utf-8"))
-    zone_info = ZoneInfo(zone)
-    view = t"{policy=}:{data['<field>']=}:{zone_info.key=}"
-    with tarfile.open(root / "<archive>.tar.gz") as archive:
-        safe = tuple(item for member in archive if (item := tarfile.data_filter(member, root / "<folder>")))
-        archive.extractall(root / "<folder>", members=safe, filter="data")
-    return view, data, tuple(member.name for member in safe), zone_info
-```
-
-## [4]-[MODULES_AND_REFLECTION]
-
-Evaluation, startup, and annotation boundaries are visible where the module declares them; annotation consumers ask the runtime for structured values.
-
-| [INDEX] | [CONCERN]                | [USE]                                           | [REPLACE]                           |
-| :-----: | :----------------------- | :---------------------------------------------- | :---------------------------------- |
-|   [1]   | module exports           | end-of-file `__all__`                           | wildcard imports and barrel files   |
-|   [2]   | package markers          | `__init__.py` only with a real package contract | empty package markers               |
-|   [3]   | cold import              | tool-admitted module-scope `lazy import`        | local-import startup hacks          |
-|   [4]   | startup hook             | `.start` entries                                | executable `.pth` import lines      |
-|   [5]   | annotation deferral      | unquoted annotations                            | quoted annotation strings           |
-|   [6]   | runtime annotations      | `annotationlib.get_annotations()`               | direct `__annotations__` reads      |
-|   [7]   | annotation metadata      | `Annotated` metadata                            | parallel metadata maps              |
-|   [8]   | signature annotations    | `inspect.signature(annotation_format=...)`      | annotation string post-processing   |
-|   [9]   | static reflection        | `inspect.getmembers_static()`                   | descriptor-triggering scans         |
-|  [10]   | union introspection      | `typing.get_origin()` and `get_args()`          | private union implementation checks |
-|  [11]   | protocol introspection   | `get_protocol_members()` and `is_protocol()`    | private protocol probes             |
-|  [12]   | generic bases            | `types.get_original_bases()`                    | direct `__orig_bases__` reads       |
-|  [13]   | execution locals         | explicit `locals=` and `frame.f_locals`         | mutating `locals()` snapshots       |
-|  [14]   | frame locals type        | `types.FrameLocalsProxyType`                    | private frame-locals proxy checks   |
-|  [15]   | AST field schema         | `ast.AST._field_types`                          | hand-maintained ASDL maps           |
-|  [16]   | AST equality             | `ast.compare()`                                 | `ast.dump()` string comparison      |
-|  [17]   | optimized AST            | `ast.parse(optimize=...)`                       | local AST pruning                   |
-|  [18]   | source module name       | `module=` compile APIs                          | filename-only warning filters       |
-|  [19]   | resource materialization | `importlib.resources.as_file()`                 | `__file__` extraction loops         |
-
-[MODULE_BOUNDARY]:
-- Use when: a module declares its public names or imports another module surface.
-- Accept: named imports, end-of-file `__all__`, and `__init__.py` only when it owns real package initialization or a public package contract.
-- Reject: wildcard imports, barrel files, facade-only exports, empty `__init__.py` package markers, re-export files that hide the real owner, and package markers that exist only to make traversal or imports look tidy.
-- Boundary: package topology, generated API documentation, and public package contracts belong to the owning platform or architecture surface.
-
-[IMPORT_AND_STARTUP]:
-- PEPs: 810, 829, 667.
-- Use when: imports, startup hooks, or locals views become runtime values.
-- Accept: module-scope `lazy import` and `lazy from` for named modules or members only when formatter, linter, type checker, and runtime configuration admit the syntax; `.start` entries in mandatory `pkg.mod:callable` form for zero-argument startup hooks; `locals()` snapshots and `frame.f_locals` proxies.
-- Reject: function-local import hiding, `importlib` laziness scattered through call sites, `lazy` inside functions, classes, or `try` blocks, lazy star or future imports, executable `.pth` import lines, implicit import side effects, startup code hidden in package markers, and assumed `locals()` write-through.
-- Boundary: global lazy-import modes, startup ordering, dependency graph costs, and site processing belong to the platform owner.
-
-```python conceptual
-# <distribution>.start: <module>:startup
-from collections.abc import Callable, Mapping
-from types import FrameType, MappingProxyType
-lazy import cold_surface
-
-STARTUP_FIELDS = ("<field-a>", "<field-b>")
-DECLARED = MappingProxyType(dict(locals()))
-type StartupSink[T] = Callable[[Mapping[str, object], Mapping[str, object]], T]
-
-def startup[T](frame: FrameType, /, sink: StartupSink[T] = cold_surface.activate) -> T:
-    frame_view = frame.f_locals
-    captured = MappingProxyType({name: frame_view[name] for name in STARTUP_FIELDS if name in frame_view})
-    return sink(DECLARED, captured)
-```
-
-[ANNOTATION_RUNTIME]:
-- PEPs: 649, 749, 593.
-- Use when: annotations or annotation metadata must become runtime material without string evaluation.
-- Accept: unquoted deferred annotations, `annotationlib`, and `Annotated` metadata.
-- Reject: raw `__annotations__` reads, annotation-string evaluation, annotation regexes, and parallel metadata maps.
-- Law: annotation consumers ask the annotation runtime for structured values; they do not reconstruct meaning from strings.
-
-```python conceptual
-import annotationlib
-from builtins import frozendict
-from collections.abc import Callable
-from typing import Annotated, get_args, get_origin
-
-
-type Policy = frozendict[str, str]
-type Tagged = Annotated[str, frozendict({"<prefix>": "<field-a>", "<suffix>": "<field-b>"})]
-type AnnotationPolicies = frozendict[str, tuple[Policy, ...]]
-
-
-def annotation_policies[**P, R](operation: Callable[P, R], /) -> AnnotationPolicies:
-    return frozendict({
-        name: tuple(
-            policy
-            for policy in get_args(annotation)[1:]
-            if isinstance(policy, frozendict)
-        )
-        for name, annotation in annotationlib.get_annotations(
-            operation,
-            format=annotationlib.Format.VALUE,
-        ).items()
-        if get_origin(annotation) is Annotated
-    })
-
-
-def selected_policy(field: Tagged, /) -> str:
-    return field.removeprefix("<field-a>:")
-
-
-SELECTED_POLICY = annotation_policies(selected_policy)
-```
-
-## [5]-[FILESYSTEM_AND_OS]
-
-Ask the platform API for the structured form; never reconstruct path, URL, or environment semantics from strings.
-
-| [INDEX] | [CONCERN]              | [USE]                                            | [REPLACE]                        |
-| :-----: | :--------------------- | :----------------------------------------------- | :------------------------------- |
-|   [1]   | file traversal         | `Path.walk()`                                    | stringly `os.walk()` flow        |
-|   [2]   | file tree transfer     | `Path.copy()` and `Path.move()`                  | `shutil` transfer wrappers       |
-|   [3]   | file type cache        | `Path.info`                                      | repeated `stat()` probes         |
-|   [4]   | path glob match        | `PurePath.full_match()`                          | ad hoc recursive glob predicates |
-|   [5]   | symlink traversal      | `recurse_symlinks=` and `follow_symlinks=`       | manual symlink branch logic      |
-|   [6]   | missing canonical path | `os.path.realpath(strict=os.path.ALLOW_MISSING)` | symlink-prefix resolution loops  |
-|   [7]   | path root split        | `os.path.splitroot()`                            | drive/root string slicing        |
-|   [8]   | path subclassing       | `PurePath.with_segments()`                       | path wrapper propagation         |
-|   [9]   | file URI path          | `Path.from_uri()`                                | hand-parsed `file:` URLs         |
-|  [10]   | file MIME type         | `mimetypes.guess_file_type()`                    | path use of `guess_type()`       |
-|  [11]   | Windows reserved path  | `os.path.isreserved()`                           | reserved-name tables             |
-|  [12]   | URL component presence | `missing_as_none=` and `keep_empty=`             | empty-string sentinel logic      |
-|  [13]   | temporary file reopen  | `NamedTemporaryFile(delete_on_close=...)`        | `mkstemp()` unlink ladders       |
-|  [14]   | tree removal errors    | `shutil.rmtree(onexc=...)`                       | `onerror` tuple handlers         |
-|  [15]   | environment reload     | `os.reload_environ()`                            | manual environment cache repair  |
-
-[STRUCTURED_PATHS]:
-- Use when: filesystem, URL, or environment structure becomes program material.
-- Accept: `Path` algebra for traversal, transfer, matching, and URI projection; structured component flags for URLs; lifecycle keywords for temporary files and tree removal.
-- Reject: string slicing for roots and drives, hand-parsed `file:` URLs, manual symlink branches, reserved-name tables, and environment cache repair loops.
-- Law: a path is a value with algebra, never a string with conventions.
-
-## [6]-[PROJECT_SURFACE]
-
-Static project facts stay visible in the metadata surface that declares them; removed surfaces are replacement targets, not compatibility baselines.
-
-| [INDEX] | [CONCERN]         | [USE]                                     | [REPLACE]                      |
-| :-----: | :---------------- | :---------------------------------------- | :----------------------------- |
-|   [1]   | dependency groups | `[dependency-groups]`                     | requirements-file group sprawl |
-|   [2]   | additive metadata | static list/table metadata in `[project]` | backend shadow metadata fields |
-|   [3]   | removed batteries | maintained replacements                   | dead-battery imports           |
-|   [4]   | packaging removal | non-`distutils` build surfaces            | `distutils` builds             |
-
-[METADATA_AND_REMOVALS]:
-- PEPs: 735, 808, 594, 632.
-- Use when: project metadata shape changes how dependency groups or additive dynamic values are represented, or a removed standard-library or packaging surface still appears in code or build policy.
-- Accept: `[dependency-groups]`, static list/table metadata in `[project]` when the backend only adds entries, and maintained replacements for removed surfaces.
-- Reject: requirements-file group sprawl, backend shadow metadata fields, sidecar notes that hide dependency values, dead-battery imports, `distutils` builds, compatibility aliases, and wrapper facades around removed modules.
+[MAGIC_VALUE]:
+- Smell: absence, boundary, ordering, identifier limits, UUID limits, base-encoding policy, or buffer flags are represented by strings, objects, numeric sentinels, or literal UUIDs.
+- Collapse: use the named sentinel, boundary value, enum, flag, or standard primitive that carries the value semantics.
+- Done when: the value carries its own semantics without prose.

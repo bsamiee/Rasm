@@ -15,6 +15,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, replace
 import fcntl
 from functools import cache
+from hashlib import sha256
 import os
 from pathlib import Path
 import shlex
@@ -104,6 +105,7 @@ _SSH_KEEPALIVE_COUNT_MAX: int = 3
 _SSH_SIGNAL_STATUS: int = 255
 _DOTNET_PROBE_TIMEOUT_S: float = 15.0
 _DOTNET_SHARED_RUNTIME: tuple[str, str] = ("shared", "Microsoft.NETCore.App")
+_DOTNET_SLOT_POLL_S: float = 0.25
 _RETRY_MIN_REMAINING: float = 0.05
 # A zombie or dead holder can never release its flock; both statuses are stale regardless of create-time match.
 _DEAD_STATUSES: frozenset[str] = frozenset({psutil.STATUS_DEAD, psutil.STATUS_ZOMBIE})
@@ -167,6 +169,37 @@ class _ExecPlan:
     tail_cap: int
     chunk: int
     thread_limiter: anyio.CapacityLimiter | None
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedExec:
+    check: Check
+    argv: tuple[str, ...]
+    cwd: str
+    env: Mapping[str, str]
+    bound: float | None
+    thread_limiter: anyio.CapacityLimiter
+
+
+@dataclass(frozen=True, slots=True)
+class _ConcurrencyPressure:
+    slots: int
+    original: int
+    reduced: int
+    foreign_dotnet: int
+    mem_percent: float
+    mem_pressure: bool
+    dotnet_pressure: bool
+
+    def slot_note(self, index: int, started: float) -> tuple[str, ...]:
+        wait_ms = (time.monotonic() - started) * 1000.0
+        return (
+            (
+                f"dotnet.slot index={index} wait_ms={wait_ms:.0f} slots={self.slots} "
+                f"foreign_dotnet={self.foreign_dotnet} mem_percent={self.mem_percent:.1f} "
+                f"original_concurrency={self.original} reduced_concurrency={self.reduced}"
+            ),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -596,7 +629,14 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:
                         await _reap(proc, plan.thread_limiter)
                 case False:
                     done = await anyio.run_process(list(plan.argv), cwd=plan.cwd, env=plan.env, check=False, start_new_session=True)
-                    return receipt(plan.argv, done.returncode, stdout=done.stdout, stderr=done.stderr)
+                    streams = _captured_outputs(plan, done.stdout, done.stderr)
+                    return receipt(
+                        plan.argv,
+                        done.returncode,
+                        stdout=streams.get("out", Captured()).tail,
+                        stderr=streams.get("err", Captured()).tail,
+                        artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
+                    )
         case target:
             # Row env keys are a deliberate per-tool declaration: forward them across the SSH boundary explicitly
             # while the allowlist keeps gating ambient host env the tool never declared.
@@ -611,10 +651,39 @@ def _stream_artifacts(scope: ArtifactScope | None, settings: AssaySettings, chec
             return ()
         case ArtifactScope():
             return tuple(
-                Artifact(id=f"{check.tool.name}-{name}", kind=ArtifactKind.PROCESS, path=captured.path, bytes=captured.size, lines=captured.lines)
+                Artifact(
+                    id=f"{check.tool.name}-{Path(captured.path).parent.name}-{name}",
+                    kind=ArtifactKind.PROCESS,
+                    path=captured.path,
+                    bytes=captured.size,
+                    lines=captured.lines,
+                )
                 for name, captured in streams.items()
                 if captured.path and captured.size
             )
+
+
+def _captured_outputs(plan: _ExecPlan, stdout: bytes, stderr: bytes) -> dict[str, Captured]:
+    return {name: _capture_payload(plan, name, payload) for name, payload in (("out", stdout), ("err", stderr)) if payload}
+
+
+def _capture_payload(plan: _ExecPlan, name: str, payload: bytes) -> Captured:
+    path = ""
+    match plan.scope:
+        case ArtifactScope(store=store):
+            path = store.write_bytes(payload, *_process_parts(plan, name))
+        case None:
+            pass
+    return Captured(tail=payload[-plan.tail_cap :], path=path, size=len(payload), lines=_line_count(payload))
+
+
+def _line_count(payload: bytes) -> int:
+    return payload.count(b"\n") + (1 if payload and not payload.endswith(b"\n") else 0)
+
+
+def _process_parts(plan: _ExecPlan, name: str) -> tuple[str, str, str, str, str]:
+    digest = sha256(b"\0".join(part.encode(errors="surrogateescape") for part in plan.argv)).hexdigest()[:16]
+    return ArtifactKind.PROCESS.value, plan.settings.run_id, plan.check.tool.name, digest, f"{name}.log"
 
 
 def _stream_writer(plan: _ExecPlan, name: str) -> tuple[str, _WriteContext | None]:
@@ -622,7 +691,7 @@ def _stream_writer(plan: _ExecPlan, name: str) -> tuple[str, _WriteContext | Non
         case None:
             return "", None
         case ArtifactScope(store=store):
-            path, handle = store.open_write(ArtifactKind.PROCESS.value, plan.settings.run_id, plan.check.tool.name, f"{name}.log")
+            path, handle = store.open_write(*_process_parts(plan, name))
             match handle:
                 case _WriteContext() as writer:
                     return path, writer
@@ -657,7 +726,15 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
             case False:
                 done = await conn.run(command, encoding=None, check=False)
                 code, notes = ssh_outcome(done.exit_status, getattr(done, "exit_signal", None))
-                return receipt(plan.argv, code, stdout=_as_bytes(done.stdout), stderr=_as_bytes(done.stderr), notes=notes)
+                streams = _captured_outputs(plan, _as_bytes(done.stdout), _as_bytes(done.stderr))
+                return receipt(
+                    plan.argv,
+                    code,
+                    stdout=streams.get("out", Captured()).tail,
+                    stderr=streams.get("err", Captured()).tail,
+                    notes=notes,
+                    artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
+                )
 
 
 @contextlib.asynccontextmanager
@@ -799,11 +876,33 @@ def _diagnose(exc: BaseException) -> None:
     span.add_event(_RING_SNAPSHOT, attributes={"events": ring_recent()})
 
 
-async def _guarded(  # noqa: PLR0912, PLR0914  # the materialize/argv Result rails plus the closed spawn-fault fold own every branch; locals are sequential pipeline stages
+async def _guarded(
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[Completed, Fault]:
     import asyncssh  # noqa: PLC0415  # lazy: must bind before the try frame whose except evaluates asyncssh.Error (not an OSError subclass)
 
+    t0 = time.monotonic()
+    attempts = [1]
+    argv: tuple[str, ...] = (check.tool.name,)
+
+    try:
+        match await _prepare_exec(check, settings, scope, routed, deadline):
+            case Result(tag="ok", ok=prepared):
+                argv = prepared.argv
+                return (await _run_prepared(prepared, settings, scope, attempts)).map(
+                    lambda done: msgspec.structs.replace(done, duration_ms=(time.monotonic() - t0) * 1000.0)
+                )
+            case Result(error=fault):
+                return Error(fault)
+    except (TimeoutError, FileNotFoundError, ValueError, OSError) as exc:
+        return Error(_spawn_fault(argv, exc, attempts[0]))
+    except asyncssh.Error as exc:
+        return Error(_spawn_fault(argv, exc, attempts[0]))
+
+
+async def _prepare_exec(
+    check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
+) -> Result[_PreparedExec, Fault]:
     # Staging rmtree/copytree are filesystem-bound; the thread hop keeps them off the event loop.
     match await to_thread.run_sync(_materialize, check, settings):
         case Result(tag="ok", ok=prepared):
@@ -811,45 +910,63 @@ async def _guarded(  # noqa: PLR0912, PLR0914  # the materialize/argv Result rai
         case Result(error=fault):
             return Error(fault)
     match _argv(check, routed, settings=settings, scope=scope):
-        case Result(tag="ok", ok=composed):
-            argv = composed
+        case Result(tag="ok", ok=argv):
+            pass
         case Result(error=fault):
             return Error(fault)
     bound = deadline if deadline is not None else (time.monotonic() + check.tool.timeout if check.tool.timeout is not None else None)
-    t0 = time.monotonic()
-    attempts = [1]
-
-    def _stamped(message: str) -> str:
-        return f"{message} [attempts={attempts[0]}]" if attempts[0] > 1 else message
-
-    try:
-        cwd = str(UPath(check.cwd or settings.local_root).path)
-        # The probe behind _apphost is sync + cached; the thread hop keeps the first `dotnet --list-runtimes` off the loop.
-        env = await to_thread.run_sync(_apphost, check.tool, _overlay(check.tool, settings, scope), abandon_on_cancel=True)
-        propagate.inject(env)
-        trace.get_current_span().set_attribute("exec.target", settings.exec_target)
-        done = await _execute_retrying(
-            check,
-            settings,
-            scope,
+    cwd = str(UPath(check.cwd or settings.local_root).path)
+    env = await to_thread.run_sync(_apphost, check.tool, _overlay(check.tool, settings, scope), abandon_on_cancel=True)
+    propagate.inject(env)
+    trace.get_current_span().set_attribute("exec.target", settings.exec_target)
+    return Ok(
+        _PreparedExec(
+            check=check,
             argv=argv,
             cwd=cwd,
             env=env,
+            bound=bound,
             thread_limiter=_FAN_LIMITER.get() or anyio.CapacityLimiter(governed_concurrency(settings, (check,))),
-            deadline=bound,
-            attempts=attempts,
         )
-        return Ok(msgspec.structs.replace(done, duration_ms=(time.monotonic() - t0) * 1000.0))
-    except (TimeoutError, FileNotFoundError, OSError, ValueError, asyncssh.Error) as exc:
-        # Spawn-fault fold: deadline → TIMEOUT; missing capability (never retried) → UNSUPPORTED; NUL-in-argv / transport → FAULTED.
-        _diagnose(exc)
-        match exc:
-            case TimeoutError():
-                return Error(Fault(argv, status=RailStatus.TIMEOUT, message=_stamped("deadline exceeded")))
-            case FileNotFoundError():
-                return Error(Fault(argv, status=RailStatus.UNSUPPORTED, message=_stamped(str(exc))))
-            case _:
-                return Error(Fault(argv, status=RailStatus.FAULTED, message=_stamped(str(exc))))
+    )
+
+
+async def _run_prepared(
+    prepared: _PreparedExec, settings: AssaySettings, scope: ArtifactScope | None, attempts: list[int]
+) -> Result[Completed, Fault]:
+    async with _dotnet_slot(prepared.check, settings, prepared.bound) as slot:
+        match slot:
+            case Result(tag="error", error=fault):
+                return Error(fault)
+            case Result(tag="ok", ok=slot_notes):
+                done = await _execute_retrying(
+                    prepared.check,
+                    settings,
+                    scope,
+                    argv=prepared.argv,
+                    cwd=prepared.cwd,
+                    env=prepared.env,
+                    thread_limiter=prepared.thread_limiter,
+                    deadline=prepared.bound,
+                    attempts=attempts,
+                )
+                return Ok(msgspec.structs.replace(done, notes=(*slot_notes, *done.notes)) if slot_notes else done)
+            case never:  # pragma: no cover
+                return Error(Fault(prepared.argv, status=RailStatus.FAULTED, message=str(never)))
+
+
+def _spawn_fault(argv: tuple[str, ...], exc: BaseException, attempts: int) -> Fault:
+    # Spawn-fault fold: deadline -> TIMEOUT; missing capability (never retried) -> UNSUPPORTED; NUL-in-argv / transport -> FAULTED.
+    _diagnose(exc)
+    message = "deadline exceeded" if isinstance(exc, TimeoutError) else str(exc)
+    stamped = f"{message} [attempts={attempts}]" if attempts > 1 else message
+    match exc:
+        case TimeoutError():
+            return Fault(argv, status=RailStatus.TIMEOUT, message=stamped)
+        case FileNotFoundError():
+            return Fault(argv, status=RailStatus.UNSUPPORTED, message=stamped)
+        case _:
+            return Fault(argv, status=RailStatus.FAULTED, message=stamped)
 
 
 async def _execute_retrying(  # noqa: PLR0913  # all params are load-bearing across the retry body; no grouping reduces the count
@@ -1097,15 +1214,64 @@ def _total(slot: Result[Completed, Fault] | None) -> Result[Completed, Fault]:
             return r
 
 
+@contextlib.asynccontextmanager
+async def _dotnet_slot(  # noqa: PLR0912  # closed resource-state ladder; static rail work only surfaces its receipts
+    check: Check, settings: AssaySettings, deadline: float | None
+) -> AsyncIterator[Result[tuple[str, ...], Fault]]:
+    if check.tool.runner is not Runner.DOTNET:
+        yield Ok(())
+        return
+    started = time.monotonic()
+    while True:
+        pressure = _concurrency_pressure(settings, (check,))
+        for index in range(pressure.slots):
+            stack = contextlib.ExitStack()
+            held = stack.enter_context(
+                exclusive_lease(f"dotnet-slot-{index}", settings.run_id, settings=settings, project=check.tool.name, mode="dotnet-slot")
+            )
+            match held:
+                case Result(tag="ok"):
+                    try:
+                        yield Ok(pressure.slot_note(index, started))
+                    finally:
+                        stack.close()
+                    return
+                case _:
+                    stack.close()
+        remaining = _remaining(deadline)
+        if remaining is not None and remaining <= _DOTNET_SLOT_POLL_S:
+            yield Error(Fault((check.tool.name,), status=RailStatus.TIMEOUT, message="dotnet slot wait deadline exceeded"))
+            return
+        await anyio.sleep(min(_DOTNET_SLOT_POLL_S, remaining or _DOTNET_SLOT_POLL_S))
+
+
+def _concurrency_pressure(settings: AssaySettings, checks: tuple[Check, ...]) -> _ConcurrencyPressure:
+    has_dotnet = any(c.tool.runner is Runner.DOTNET for c in checks)
+    slots = max(1, min(settings.dotnet_max_cpu, settings.cpu_count))
+    runner_cap = settings.dotnet_max_cpu if has_dotnet else settings.max_checks
+    mode_cap = min(runner_cap, settings.mutation_max_cpu) if any(c.tool.mode is Mode.MUTATION for c in checks) else runner_cap
+    original = max(1, min(settings.max_checks, mode_cap, settings.cpu_count))
+    foreign = _foreign_dotnet_count() if has_dotnet else 0
+    mem_percent = _safe_call(lambda: float(psutil.virtual_memory().percent), 0.0)
+    mem_pressure = mem_percent >= _MEM_PRESSURE_PERCENT
+    dotnet_pressure = has_dotnet and foreign >= settings.cpu_count
+    return _ConcurrencyPressure(
+        slots=slots,
+        original=original,
+        reduced=max(1, original // 2) if mem_pressure or dotnet_pressure else original,
+        foreign_dotnet=foreign,
+        mem_percent=mem_percent,
+        mem_pressure=mem_pressure,
+        dotnet_pressure=dotnet_pressure,
+    )
+
+
 def _foreign_dotnet_count() -> int:
     # The contended machine resource is dotnet-family processes; counting them is the honest cross-invocation
     # pressure unit (load1 stays rejected). Own subtree is excluded so an invocation never throttles on its own fan.
-    own = _safe_call(lambda: {p.pid for p in psutil.Process().children(recursive=True)} | {os.getpid()}, {os.getpid()})
-    return sum(
-        1
-        for proc in _safe_call(lambda: list(psutil.process_iter(["name", "pid"])), [])
-        if (proc.info.get("name") or "") in _DOTNET_PROC_NAMES and proc.info.get("pid") not in own
-    )
+    own: set[int] = _safe_call(lambda: {p.pid for p in psutil.Process().children(recursive=True)} | {os.getpid()}, {os.getpid()})
+    processes: list[psutil.Process] = _safe_call(lambda: list(psutil.process_iter(["name", "pid"])), [])
+    return sum(1 for proc in processes if (proc.info.get("name") or "") in _DOTNET_PROC_NAMES and proc.info.get("pid") not in own)
 
 
 def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()) -> int:
@@ -1119,30 +1285,22 @@ def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()
     Returns:
         The concurrency limit, at least 1, bounded by ``max_checks``, the mode cap, and ``settings.cpu_count``.
     """
-    runner_cap = settings.dotnet_max_cpu if any(c.tool.runner is Runner.DOTNET for c in checks) else settings.max_checks
-    # Mixed DOTNET+MUTATION batches must honour both ceilings; intersect so neither shadows the other.
-    mode_cap = min(runner_cap, settings.mutation_max_cpu) if any(c.tool.mode is Mode.MUTATION for c in checks) else runner_cap
-    limit = max(1, min(settings.max_checks, mode_cap, settings.cpu_count))
     # Load-average backpressure rejected: macOS load1 counts uninterruptible waits, far too noisy a halving signal.
-    mem_percent = _safe_call(lambda: float(psutil.virtual_memory().percent), 0.0)
-    foreign = _foreign_dotnet_count() if any(c.tool.runner is Runner.DOTNET for c in checks) else 0
-    mem_hot = mem_percent >= _MEM_PRESSURE_PERCENT
-    dotnet_hot = foreign >= settings.cpu_count
-    match mem_hot or dotnet_hot:
-        case False:
-            return limit
+    pressure = _concurrency_pressure(settings, checks)
+    match pressure.mem_pressure or pressure.dotnet_pressure:
         case True:
-            halved = max(1, limit // 2)
             _LOG.warning(
                 "concurrency.backpressure",
-                sys_mem_percent=mem_percent,
-                foreign_dotnet=foreign,
-                mem_pressure=mem_hot,
-                dotnet_pressure=dotnet_hot,
-                limit=limit,
-                backpressure_limit=halved,
+                sys_mem_percent=pressure.mem_percent,
+                foreign_dotnet=pressure.foreign_dotnet,
+                mem_pressure=pressure.mem_pressure,
+                dotnet_pressure=pressure.dotnet_pressure,
+                limit=pressure.original,
+                backpressure_limit=pressure.reduced,
             )
-            return halved
+            return pressure.reduced
+        case False:
+            return pressure.original
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

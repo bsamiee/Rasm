@@ -1,5 +1,0 @@
-# The bridge scenario SDK (Scenario.cs, Scope.cs) is contract-owned vocabulary: its namespace is
-# Rasm.Bridge.Scenarios — wire-stable, owned by the bridge contract family, never derived from the
-# hosting testkit folder path. IDE0130 stays live for the testkit's own Rasm.TestKit.Scenarios types.
-[{Scenario,Scope}.cs]
-dotnet_diagnostic.IDE0130.severity = none

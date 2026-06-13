@@ -88,7 +88,7 @@ def test_main_parse_fault_matrix(cli: VerbRunner, row: _ParseFault) -> None:
 
 def test_main_channel_separation(cli: VerbRunner) -> None:
     """The Envelope wire line is confined to stdout; schema_version never leaks to stderr."""
-    res = cli("static", "plan")
+    res = cli("static", "check")
     assert len(res.stdout.splitlines()) == 1
     assert b'"schema_version"' not in res.stderr
     decoded = read_one_envelope_from_bytes(res.stdout)
@@ -149,7 +149,7 @@ def test_main_subprocess_exit_code(cli: VerbRunner) -> None:
 
 def test_main_config_env_fault_surfaces_as_config_step(cli: VerbRunner) -> None:
     """A verb that builds AssaySettings under a malformed ASSAY_* env emits one FAULTED Envelope, failing_step='config'."""
-    res = cli("static", "plan", extra_env={"ASSAY_MAX_CHECKS": "999"})
+    res = cli("static", "check", extra_env={"ASSAY_MAX_CHECKS": "999"})
     assert res.exit_code == _FAULTED_EXIT
     assert res.envelope.status is RailStatus.FAULTED
     assert res.envelope.error_context is not None
@@ -228,7 +228,7 @@ def test_main_install_tracing_swallows_settings_validation(monkeypatch: pytest.M
 
 def test_main_subprocess_bootstrap_error_config_fault(cli: VerbRunner) -> None:
     """A malformed ASSAY_* env survives real interpreter startup (import-time bootstrap fallback) and folds to one config-fault Envelope."""
-    res = cli("static", "plan", isolate=True, extra_env={"ASSAY_MAX_CHECKS": "999"})
+    res = cli("static", "check", isolate=True, extra_env={"ASSAY_MAX_CHECKS": "999"})
     assert res.exit_code == _FAULTED_EXIT
     assert res.envelope.status is RailStatus.FAULTED
     assert res.envelope.error_context is not None

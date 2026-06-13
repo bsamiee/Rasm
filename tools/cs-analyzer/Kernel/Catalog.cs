@@ -24,19 +24,18 @@ internal enum ScopeGate : byte {
 // --- [TABLES] --------------------------------------------------------------------------
 
 internal static class Catalog {
-    // Ecosystem-standard per-rule docs (Meziantou/xunit.analyzers shape): one file per rule under the
-    // analyzer, catalog<->docs sync meta-tested. Monolithic prose catalogs are rejected (user decision
-    // 2026-06-12); doctrine purpose law lives in docs/stacks/csharp/README.md [RULE_ENFORCEMENT].
+    // Per-rule docs live beside the analyzer only when a real catalog row exists; docs sync is
+    // meta-tested so the empty catalog carries no orphan rule prose.
     private const string HelpBase = "tools/cs-analyzer/docs/rules/";
 
     // The ONLY registry; the meta-test reflects assembly RuleRow statics into it.
     public static readonly ImmutableArray<RuleRow> All = [];
 
     // Never emitted, never reused.
-    public static readonly ImmutableArray<string> Reserved = ["CSP0016", "CSP0716", "CSP0721", "CSP0722"];
+    public static readonly ImmutableArray<string> Reserved = [];
 
-    // Replaces the old Error-only `Err` factory: Description = doctrine page#section;
-    // messageFormat in the fact/fix/exempt grammar; helpLinkUri = the rule's own doc file.
+    // Description = doctrine page#section; messageFormat carries the fact/fix/exempt grammar;
+    // helpLinkUri points at the rule's own doc file.
     internal static DiagnosticDescriptor Describe(
         string id,
         string title,

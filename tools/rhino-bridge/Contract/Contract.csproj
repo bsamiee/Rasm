@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!-- Frozen wire assembly: no LanguageExt anywhere in the shell ALC; Fin rails begin
+             cargo-side and supervisor-side. Thinktecture arrives as DIRECT references because the
+             wire vocabulary binds to generated owners (smart enums, value objects). -->
+        <AssemblyName>Rasm.Bridge.Contract</AssemblyName>
+        <!-- CA1819: the wire DTO family carries arrays by design; STJ source-gen owns the codec and
+             every consumer folds, never mutates. StreamJsonRpc0008 asks for PolyType [GenerateShape]
+             rows that only serve the MessagePack-family formatters; SystemTextJsonFormatter is the
+             pinned wire formatter and the MessagePack branch never loads. -->
+        <NoWarn>$(NoWarn);CA1819;StreamJsonRpc0008</NoWarn>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="StreamJsonRpc" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+</Project>
