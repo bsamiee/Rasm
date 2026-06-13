@@ -11,10 +11,11 @@ from expression import Error, Ok, Result
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
+import structlog
 
 from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # runtime: public rail signatures are inspected
-from tools.assay.core.engine import _concurrency_pressure, argv_for, fan_out, leased  # noqa: PLC2701
+from tools.assay.core.engine import argv_for, fan_out, leased, resource_projection
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
@@ -49,7 +50,6 @@ type SkipRows = tuple[tuple[str, str, str], ...]
 
 _BUILD_MODES: tuple[Mode, ...] = (Mode.CHECK, Mode.RESTORE, Mode.BUILD)
 _FIX_MODES: tuple[Mode, ...] = (Mode.WRITE,)
-_PREVIEW: tuple[tuple[str, tuple[Mode, ...]], ...] = (("build", _BUILD_MODES), ("fix", _FIX_MODES))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -59,7 +59,8 @@ class StaticParams:
     """Parameters for static check/build/fix."""
 
     all: Annotated[
-        bool, Parameter(name="--all", show_default=False, help="Whole-workspace C# target; explicit because it may build the full solution.")
+        bool,
+        Parameter(name="--all", negative="", show_default=False, help="Whole-workspace C# target; explicit because it may build the full solution."),
     ] = False
     project: Annotated[str, Parameter(name="--project", show_default=False, help="Single C# project target.")] = ""
     folders: Annotated[
@@ -84,6 +85,17 @@ class StaticParams:
             help="File target(s); consumes values until the next option.",
         ),
     ] = ()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StaticBuildParams:
+    """Parameters for static build."""
+
+    all: Annotated[
+        bool,
+        Parameter(name="--all", negative="", show_default=False, help="Whole-workspace C# target; explicit because it may build the full solution."),
+    ] = False
+    project: Annotated[str, Parameter(name="--project", show_default=False, help="Single C# project target.")] = ""
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -126,6 +138,15 @@ def _sarif_pin(tool: Tool, scope: ArtifactScope) -> Tool:
             return tool
 
 
+def _dotnet_policy(tool: Tool, settings: AssaySettings, scope: ArtifactScope) -> Tool:
+    pinned = _sarif_pin(tool, scope)
+    match (pinned.runner, pinned.mode, any(part.startswith("-maxCpuCount:") for part in pinned.command)):
+        case (Runner.DOTNET, Mode.BUILD, False):
+            return msgspec.structs.replace(pinned, command=(*pinned.command, f"-maxCpuCount:{settings.dotnet_max_cpu}"))
+        case _:
+            return pinned
+
+
 def _routed_tool(tool: Tool, routed: Routed) -> Tool:
     match (routed.language, routed.scope, tool.input, bool(routed.projects)):
         case (Language.CSHARP, Scope.FULL, Input.INCLUDE | Input.PROJECT, _):
@@ -154,7 +175,7 @@ def _phase_checks(routed: Routed, modes: tuple[Mode, ...], settings: AssaySettin
         if tool.mode is active
         for projected in (_routed_tool(tool, routed),)
     )
-    selected = tuple((phase, Check(tool=_sarif_pin(tool, scope), paths=routed.files)) for phase, tool, reason in rows if not reason)
+    selected = tuple((phase, Check(tool=_dotnet_policy(tool, settings, scope), paths=routed.files)) for phase, tool, reason in rows if not reason)
     skipped = tuple((phase, tool.name, reason) for phase, tool, reason in rows if reason)
     expanded = tuple((phase, clone) for phase, check in selected for clone in expand((check,), routed, settings=settings))
     phases = tuple(dict.fromkeys(_phase(mode) for mode in modes))
@@ -170,41 +191,18 @@ def _argv(check: Check, routed: Routed, settings: AssaySettings, scope: Artifact
 
 
 def _planned(verb: str, routed: Routed, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope) -> tuple[tuple[str, str, str], ...]:
-    active_scope = ArtifactScope.build(settings, _build_sha(routed)) if verb == "build" and _builds_closure(routed) else scope
+    active_scope = (
+        ArtifactScope.build(settings, _build_sha(routed), disable_build_servers=False) if verb == "build" and _builds_closure(routed) else scope
+    )
     return tuple((phase, check.tool.name, _argv(check, routed, settings, active_scope)) for phase, checks in phases for check in checks)
 
 
 def _artifacts(settings: AssaySettings, routed: tuple[Routed, ...]) -> tuple[Artifact, ...]:
     return tuple(
-        Artifact(id=f"build-{sha}", kind=ArtifactKind.SCOPE, path=ArtifactScope.build(settings, sha).path)
+        Artifact(id=f"build-{sha}", kind=ArtifactKind.SCOPE, path=ArtifactScope.build(settings, sha, disable_build_servers=False).path)
         for route_row in routed
         for sha in (_build_sha(route_row),)
         if _builds_closure(route_row)
-    )
-
-
-def _slot_waits(notes: tuple[str, ...]) -> tuple[float, ...]:
-    return tuple(
-        float(part.removeprefix("wait_ms="))
-        for note in notes
-        if note.startswith("dotnet.slot ")
-        for part in note.split()
-        if part.startswith("wait_ms=") and part.removeprefix("wait_ms=").replace(".", "", 1).isdigit()
-    )
-
-
-def _resources(settings: AssaySettings, checks: tuple[Check, ...], notes: tuple[str, ...] = ()) -> tuple[tuple[str, float], ...]:
-    pressure = _concurrency_pressure(settings, checks)
-    waits = _slot_waits(notes)
-    return (
-        ("dotnet.slots", float(pressure.slots)),
-        ("dotnet.foreign", float(pressure.foreign_dotnet)),
-        ("memory.percent", pressure.mem_percent),
-        ("concurrency.original", float(pressure.original)),
-        ("concurrency.reduced", float(pressure.reduced)),
-        ("dotnet.pressure", float(pressure.dotnet_pressure)),
-        ("memory.pressure", float(pressure.mem_pressure)),
-        ("dotnet.slot_wait_ms.max", max(waits, default=0.0)),
     )
 
 
@@ -251,24 +249,45 @@ def _detail(
     artifacts: tuple[Artifact, ...],
     settings: AssaySettings,
     checks: tuple[Check, ...],
-    notes: tuple[str, ...] = (),
+    done: tuple[Completed, ...] = (),
 ) -> StaticRun:
+    notes = tuple(note for item in done for note in item.notes)
     return StaticRun(
         targets=targets.targets,
         routes=_route_rows(routed),
         planned=planned,
         skipped=(*targets.rejected, *skipped),
         phases=tuple(dict.fromkeys(row[0] for row in planned)),
-        resources=_resources(settings, checks, notes),
+        resources=resource_projection(settings, checks, notes=notes, receipts=done),
         artifacts=tuple(artifact.path for artifact in artifacts),
     )
 
 
+def _static_params(params: StaticParams | StaticBuildParams) -> StaticParams:
+    match params:
+        case StaticParams() as full:
+            return full
+        case StaticBuildParams() as build_params:
+            return StaticParams(all=build_params.all, project=build_params.project)
+
+
+def _params_argv(params: StaticParams, verb: str) -> tuple[str, ...]:
+    return (
+        "static",
+        verb,
+        *(("--all",) if params.all else ()),
+        *(("--project", params.project) if params.project else ()),
+        *(("--folder", *params.folders) if params.folders else ()),
+        *(("--file", *params.files) if params.files else ()),
+    )
+
+
 def _target_result(settings: AssaySettings, params: StaticParams, verb: str) -> Result[TargetFiles, Fault]:
+    argv = _params_argv(params, verb)
     path_targets = bool(params.folders or params.files)
     direct_targets = int(params.all) + int(bool(params.project)) + int(path_targets)
     if direct_targets > 1:
-        result = Error(Fault((), RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: choose only one of --all, --project, or folder/file targets"))
+        result = Error(Fault(argv, RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: choose only one of --all, --project, or folder/file targets"))
     elif params.all:
         result = Ok(TargetFiles(targets=(("all", str(settings.solution)),)))
     elif params.project:
@@ -282,7 +301,7 @@ def _target_result(settings: AssaySettings, params: StaticParams, verb: str) -> 
             if verb == "build"
             else f"{Step.PARSE}: {verb}: requires --folder, --file, --project, or --all"
         )
-        result = Error(Fault((), status, message))
+        result = Error(Fault(argv, status, message))
     else:
         result = target_files(params.folders, params.files, settings=settings).bind(lambda targets: _execution_targets(targets, verb))
     return result
@@ -290,13 +309,14 @@ def _target_result(settings: AssaySettings, params: StaticParams, verb: str) -> 
 
 def _project_target(settings: AssaySettings, project: str, verb: str) -> Result[TargetFiles, Fault]:
     rel = PurePosixPath(project).as_posix()
+    argv = ("static", verb, "--project", rel)
     match (PurePosixPath(rel).suffix, (settings.root / rel).is_file()):
         case (".csproj", True):
             return Ok(TargetFiles(targets=(("project", rel),)))
         case (".csproj", False):
-            return Error(Fault((), RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: project not found: {rel}"))
+            return Error(Fault(argv, RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: project not found: {rel}"))
         case _:
-            return Error(Fault((), RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: --project requires a .csproj path: {rel}"))
+            return Error(Fault(argv, RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: --project requires a .csproj path: {rel}"))
 
 
 def _execution_targets(targets: TargetFiles, verb: str) -> Result[TargetFiles, Fault]:
@@ -391,7 +411,7 @@ def _skipped(checks: tuple[Check, ...], routed: Routed, settings: AssaySettings,
 
 def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> tuple[Result[Completed, Fault], ...]:
     closure = _build_sha(routed)
-    active_scope = ArtifactScope.build(settings, closure)
+    active_scope = ArtifactScope.build(settings, closure, disable_build_servers=False)
     resource = f"build-{closure}-{settings.configuration.value}"
     project = f"{settings.configuration.value}:{','.join(routed.projects or routed.files)}"
 
@@ -399,13 +419,16 @@ def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> 
         rows: tuple[Result[Completed, Fault], ...] = ()
         blocked = False
         for phase, checks in phases:
+            _LOG.info("phase.start", phase=phase, checks=len(checks), run_id=settings.run_id, route=routed.language.value)
             phase_rows = (
                 _skipped(checks, routed, settings, active_scope)
                 if phase == "build" and blocked
                 else fan_out(checks, settings=settings, scope=active_scope, routed=routed)
             )
             rows = (*rows, *phase_rows)
-            blocked = blocked or (phase == "restore" and _phase_failed(phase_rows))
+            failed = _phase_failed(phase_rows)
+            _LOG.info("phase.end", phase=phase, checks=len(checks), failed=failed, run_id=settings.run_id, route=routed.language.value)
+            blocked = blocked or (phase == "restore" and failed)
         return rows
 
     return _leased_run(resource, project, run, settings)
@@ -414,7 +437,14 @@ def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> 
 def _write_fan(checks: tuple[Check, ...], routed: Routed, settings: AssaySettings, scope: ArtifactScope) -> tuple[Result[Completed, Fault], ...]:
     resource = f"write-{routed.language.value}-{_route_sha(routed)}"
     project = ",".join((*routed.projects, *routed.files))
-    return _leased_run(resource, project, lambda: fan_out(checks, settings=settings, scope=scope, routed=routed), settings)
+
+    def run() -> tuple[Result[Completed, Fault], ...]:
+        _LOG.info("phase.start", phase="fix", checks=len(checks), run_id=settings.run_id, route=routed.language.value)
+        rows = fan_out(checks, settings=settings, scope=scope, routed=routed)
+        _LOG.info("phase.end", phase="fix", checks=len(checks), failed=_phase_failed(rows), run_id=settings.run_id, route=routed.language.value)
+        return rows
+
+    return _leased_run(resource, project, run, settings)
 
 
 def _dispatch(
@@ -467,11 +497,10 @@ def _fold(
     matches = _matches(targets, routed, skipped)
 
     def executed(done: tuple[Completed, ...]) -> Report:
-        notes = tuple(note for item in done for note in item.notes)
         report = fold(
-            Claim.STATIC, verb, done, detail=_detail(targets, routed, planned, skipped, artifacts, settings, checks, notes), sarif_dir=scope.sarif_dir
+            Claim.STATIC, verb, done, detail=_detail(targets, routed, planned, skipped, artifacts, settings, checks, done), sarif_dir=scope.sarif_dir
         )
-        return _closure_notes(msgspec.structs.replace(report, results=(*matches, *report.results), artifacts=(*artifacts, *report.artifacts)), routed)
+        return _closure_notes(msgspec.structs.replace(report, results=(*report.results, *matches), artifacts=(*artifacts, *report.artifacts)), routed)
 
     match execute:
         case False:
@@ -507,7 +536,7 @@ def check(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -
 
 
 def _check_report(settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...]) -> Report:
-    preview = _PREVIEW if _build_target(targets) else (("fix", _FIX_MODES),)
+    preview = (("build", _BUILD_MODES),) if _build_target(targets) else (("fix", _FIX_MODES),)
     phase_sets = tuple((verb, route_row, *_phase_checks(route_row, modes, settings, scope)) for route_row in routed for verb, modes in preview)
     planned = tuple(row for verb, route_row, phases, _ in phase_sets for row in _planned(verb, route_row, phases, settings, scope))
     checks = tuple(check for _, _, phases, _ in phase_sets for check in _all_checks(phases))
@@ -521,13 +550,13 @@ def _check_report(settings: AssaySettings, scope: ArtifactScope, targets: Target
     )
 
 
-def build(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
+def build(settings: AssaySettings, scope: ArtifactScope, params: StaticParams | StaticBuildParams) -> Result[Report, Fault]:
     """Run scoped non-mutating diagnostics, restore, and build.
 
     Returns:
         Static report carrying process receipts, diagnostics, route detail, resources, and artifacts.
     """
-    return _rail(settings, scope, params, verb="build", modes=_BUILD_MODES, execute=True)
+    return _rail(settings, scope, _static_params(params), verb="build", modes=_BUILD_MODES, execute=True)
 
 
 def fix(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
@@ -541,4 +570,6 @@ def fix(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__: list[str] = ["StaticParams", "build", "check", "fix"]
+_LOG = structlog.get_logger("assay.static")
+
+__all__: list[str] = ["StaticBuildParams", "StaticParams", "build", "check", "fix"]

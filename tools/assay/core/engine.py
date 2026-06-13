@@ -116,6 +116,7 @@ _DISK_WAIT_STATUS: str = psutil.STATUS_DISK_SLEEP
 # Fixed stall thresholds: a silent child is diagnosed once after 30s over a 5s sample window; predictability beats adaptive tuning.
 _STALL_AFTER_S: float = 30.0
 _STALL_SAMPLE_S: float = 5.0
+_RESOURCE_SAMPLE_S: float = 5.0
 _STALL_CPU_PCT: float = 25.0  # of one core across the sample window
 _STALL_CTX_RATE_HZ: float = 100.0  # involuntary context switches per second across the tree
 
@@ -600,16 +601,66 @@ async def _stall_monitor(pid: int, last_output: list[float], notes: list[str]) -
                 trace.get_current_span().add_event("proc.stall", attributes={"proc.pid": pid, "proc.silent_s": silent_s, "proc.verdict": verdict})
 
 
-async def _run_process_backend(plan: _ExecPlan) -> Completed:
+def _resource_sample(pid: int, last_output: float) -> tuple[tuple[str, float], ...]:
+    def _tree() -> tuple[psutil.Process, ...]:
+        root = psutil.Process(pid)
+        return (root, *root.children(recursive=True))
+
+    def _rss(proc: psutil.Process) -> float:
+        return _safe_call(lambda: float(proc.memory_info().rss), 0.0)
+
+    def _name(proc: psutil.Process) -> str:
+        return _safe_call(proc.name, "")
+
+    tree: tuple[psutil.Process, ...] = _safe_call(_tree, ())
+    children = tree[1:]
+    names = tuple(_name(proc) for proc in tree)
+    dotnet = sum(1 for name in names if name in _DOTNET_PROC_NAMES)
+    csc = sum(1 for name in names if name.lower() in {"csc", "csc.exe", "vbc", "vbc.exe"})
+    sample = {
+        "proc.pid": float(pid),
+        "proc.children": float(len(children)),
+        "proc.children_rss_bytes": float(sum(_rss(proc) for proc in children)),
+        "proc.tree_rss_bytes": float(sum(_rss(proc) for proc in tree)),
+        "proc.dotnet.count": float(dotnet),
+        "proc.csc.count": float(csc),
+        "proc.last_output_age_s": max(0.0, time.monotonic() - last_output),
+        **_sys_pressure(),
+    }
+    return tuple(sample.items())
+
+
+async def _resource_monitor(pid: int, last_output: list[float], samples: list[tuple[tuple[str, float], ...]], tool: str) -> None:
+    while True:
+        sample = await to_thread.run_sync(_resource_sample, pid, last_output[0], abandon_on_cancel=True)
+        samples.append(sample)
+        _LOG.info("resource.sample", tool=tool, pid=pid, **dict(sample))
+        await anyio.sleep(_RESOURCE_SAMPLE_S)
+
+
+def _max_resources(samples: tuple[tuple[tuple[str, float], ...], ...]) -> tuple[tuple[str, float], ...]:
+    folded: dict[str, float] = {}
+    for sample in samples:
+        for key, value in sample:
+            folded[key] = max(folded.get(key, value), value)
+    return tuple(sorted(folded.items()))
+
+
+async def _run_process_backend(plan: _ExecPlan) -> Completed:  # noqa: PLR0914  # closed local/remote backend branches keep telemetry state local
+    started = time.monotonic()
+    _LOG.info(
+        "process.start", tool=plan.check.tool.name, argv=plan.argv, cwd=plan.cwd, streaming=plan.streaming, remote=bool(plan.settings.exec_target)
+    )
     match plan.settings.exec_target:
         case "":
             match plan.streaming:
                 case True:
                     proc = await anyio.open_process(list(plan.argv), cwd=plan.cwd, env=plan.env, start_new_session=True)
                     try:
-                        last_output, stall = [time.monotonic()], list[str]()
+                        last_output, stall, samples = [time.monotonic()], list[str](), list[tuple[tuple[str, float], ...]]()
                         async with anyio.create_task_group() as tg:
                             tg.start_soon(_stall_monitor, proc.pid, last_output, stall)
+                            tg.start_soon(_resource_monitor, proc.pid, last_output, samples, plan.check.tool.name)
                             streams = await _drain_pair(
                                 plan,
                                 _touched(_recv_anyio(proc.stdout, plan.chunk), last_output),
@@ -617,31 +668,66 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:
                                 proc.wait,
                             )
                             tg.cancel_scope.cancel()
-                        return receipt(
-                            plan.argv,
-                            proc.returncode or 0,
-                            stdout=streams.get("out", Captured()).tail,
-                            stderr=streams.get("err", Captured()).tail,
-                            notes=tuple(stall),
-                            artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
+                        resources = _max_resources(tuple(samples) or (_resource_sample(proc.pid, last_output[0]),))
+                        duration_ms = (time.monotonic() - started) * 1000.0
+                        _LOG.info(
+                            "process.end",
+                            tool=plan.check.tool.name,
+                            argv=plan.argv,
+                            returncode=proc.returncode or 0,
+                            duration_ms=round(duration_ms, 1),
+                            **dict(resources),
+                        )
+                        return msgspec.structs.replace(
+                            receipt(
+                                plan.argv,
+                                proc.returncode or 0,
+                                stdout=streams.get("out", Captured()).tail,
+                                stderr=streams.get("err", Captured()).tail,
+                                notes=tuple(stall),
+                                artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
+                            ),
+                            resources=(*resources, ("process.duration_ms", duration_ms)),
                         )
                     finally:
                         await _reap(proc, plan.thread_limiter)
                 case False:
                     done = await anyio.run_process(list(plan.argv), cwd=plan.cwd, env=plan.env, check=False, start_new_session=True)
                     streams = _captured_outputs(plan, done.stdout, done.stderr)
-                    return receipt(
-                        plan.argv,
-                        done.returncode,
-                        stdout=streams.get("out", Captured()).tail,
-                        stderr=streams.get("err", Captured()).tail,
-                        artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
+                    resources = tuple(sorted(_snapshot().items()))
+                    duration_ms = (time.monotonic() - started) * 1000.0
+                    _LOG.info(
+                        "process.end",
+                        tool=plan.check.tool.name,
+                        argv=plan.argv,
+                        returncode=done.returncode,
+                        duration_ms=round(duration_ms, 1),
+                        **dict(resources),
+                    )
+                    return msgspec.structs.replace(
+                        receipt(
+                            plan.argv,
+                            done.returncode,
+                            stdout=streams.get("out", Captured()).tail,
+                            stderr=streams.get("err", Captured()).tail,
+                            artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
+                        ),
+                        resources=(*resources, ("process.duration_ms", duration_ms)),
                     )
         case target:
             # Row env keys are a deliberate per-tool declaration: forward them across the SSH boundary explicitly
             # while the allowlist keeps gating ambient host env the tool never declared.
             row_env = frozenset(key for key, _ in plan.check.tool.env)
-            return await _run_remote(replace(plan, env=plan.settings.remote_env(dict(plan.env), forward=row_env)), target)
+            done = await _run_remote(replace(plan, env=plan.settings.remote_env(dict(plan.env), forward=row_env)), target)
+            _LOG.info(
+                "process.end",
+                tool=plan.check.tool.name,
+                argv=plan.argv,
+                returncode=done.returncode,
+                duration_ms=round((time.monotonic() - started) * 1000.0, 1),
+                remote=True,
+            )
+            return done
 
 
 def _stream_artifacts(scope: ArtifactScope | None, settings: AssaySettings, check: Check, streams: Mapping[str, Captured]) -> tuple[Artifact, ...]:
@@ -1264,6 +1350,56 @@ def _concurrency_pressure(settings: AssaySettings, checks: tuple[Check, ...]) ->
         mem_pressure=mem_pressure,
         dotnet_pressure=dotnet_pressure,
     )
+
+
+def _slot_waits(notes: tuple[str, ...]) -> tuple[float, ...]:
+    return tuple(
+        float(part.removeprefix("wait_ms="))
+        for note in notes
+        if note.startswith("dotnet.slot ")
+        for part in note.split()
+        if part.startswith("wait_ms=") and part.removeprefix("wait_ms=").replace(".", "", 1).isdigit()
+    )
+
+
+def resource_projection(
+    settings: AssaySettings, checks: tuple[Check, ...] = (), *, notes: tuple[str, ...] = (), receipts: tuple[Completed, ...] = ()
+) -> tuple[tuple[str, float], ...]:
+    """Project static resource telemetry from engine pressure, receipts, and process notes.
+
+    Returns:
+        Sorted key/value telemetry rows suitable for ``StaticRun.resources`` and fault diagnostics.
+    """
+    pressure = _concurrency_pressure(settings, checks)
+    waits = _slot_waits(notes)
+    resources = {
+        "dotnet.slots": float(pressure.slots),
+        "dotnet.foreign": float(pressure.foreign_dotnet),
+        "memory.percent": pressure.mem_percent,
+        "concurrency.original": float(pressure.original),
+        "concurrency.reduced": float(pressure.reduced),
+        "dotnet.pressure": float(pressure.dotnet_pressure),
+        "memory.pressure": float(pressure.mem_pressure),
+        "dotnet.slot_wait_ms.max": max(waits, default=0.0),
+        "proc.stall.count": float(sum(1 for note in notes if note.startswith("proc.stall "))),
+        "process.duration_ms.total": float(sum(done.duration_ms for done in receipts)),
+        "process.duration_ms.max": max((done.duration_ms for done in receipts), default=0.0),
+    }
+    for key in (
+        "proc.children",
+        "proc.children_rss_bytes",
+        "proc.tree_rss_bytes",
+        "proc.dotnet.count",
+        "proc.csc.count",
+        "proc.last_output_age_s",
+        "sys.mem_percent",
+        "sys.swap_percent",
+        "sys.load1_percent",
+    ):
+        values = tuple(value for done in receipts for name, value in done.resources if name == key)
+        if values:
+            resources[f"{key}.max"] = max(values)
+    return tuple(sorted(resources.items()))
 
 
 def _foreign_dotnet_count() -> int:

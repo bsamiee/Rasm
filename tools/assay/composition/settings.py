@@ -794,9 +794,10 @@ class ArtifactScope:
     store: ArtifactStore
     path: str
     dotnet_flags: tuple[str, ...]
+    disable_build_servers: bool = True
 
     @classmethod
-    def open(cls, settings: AssaySettings, claim: Claim) -> ArtifactScope:
+    def open(cls, settings: AssaySettings, claim: Claim, *, disable_build_servers: bool = True) -> ArtifactScope:
         """Open a per-run artifact scope for a claim.
 
         Returns:
@@ -806,10 +807,13 @@ class ArtifactScope:
         # Lazy: compute the path without makedirs — writers makedirs(parent) on first write, and dotnet creates
         # its own --artifacts-path, so an opened-but-unused scope leaves no empty directory behind.
         path = store.path(claim.value, settings.run_id)
-        return cls(store, path, (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS))
+        flags = (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS) if disable_build_servers else (_ARTIFACTS_PATH_FLAG, path)
+        return cls(store, path, flags, disable_build_servers)
 
     @classmethod
-    def build(cls, settings: AssaySettings, closure: str, configuration: Configuration | str | None = None) -> ArtifactScope:
+    def build(
+        cls, settings: AssaySettings, closure: str, configuration: Configuration | str | None = None, *, disable_build_servers: bool = True
+    ) -> ArtifactScope:
         """Open a stable build-closure artifact scope.
 
         Returns:
@@ -818,7 +822,8 @@ class ArtifactScope:
         store = settings.store()
         config = configuration.value if isinstance(configuration, Configuration) else configuration or settings.configuration.value
         path = store.ensure(_BUILD, closure, config)
-        return cls(store, path, (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS))
+        flags = (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS) if disable_build_servers else (_ARTIFACTS_PATH_FLAG, path)
+        return cls(store, path, flags, disable_build_servers)
 
     def ensure(self) -> str:
         """Materialize this scope's directory through the store boundary.
@@ -834,7 +839,8 @@ class ArtifactScope:
     @property
     def dotnet_env(self) -> dict[str, str]:
         """Build .NET command environment isolation variables."""
-        return {"DOTNET_CLI_HOME": f"{self.path}/dotnet-cli", "MSBUILDDISABLENODEREUSE": "1"}
+        env = {"DOTNET_CLI_HOME": f"{self.path}/dotnet-cli"}
+        return {**env, "MSBUILDDISABLENODEREUSE": "1"} if self.disable_build_servers else env
 
     @property
     def sarif_dir(self) -> str:

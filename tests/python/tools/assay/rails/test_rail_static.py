@@ -2,6 +2,7 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from expression import Error
@@ -14,7 +15,7 @@ from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, R
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 import tools.assay.rails.static as static_rail
-from tools.assay.rails.static import build, check, fix, StaticParams
+from tools.assay.rails.static import build, check, fix, StaticBuildParams, StaticParams
 
 
 if TYPE_CHECKING:
@@ -48,6 +49,18 @@ def test_staticparams_defaults() -> None:
 register_law(StaticParams, "defaults_are_folder_file_only")
 
 
+def test_staticbuildparams_surface_is_build_only() -> None:
+    """Build params expose only the explicit all/project target shape."""
+    params = StaticBuildParams()
+    assert params.all is False
+    assert not params.project
+    assert not hasattr(params, "folders")
+    assert not hasattr(params, "files")
+
+
+register_law(StaticBuildParams, "surface_is_build_only")
+
+
 def test_registry_exposes_only_scoped_static_verbs() -> None:
     """Static registry surface is exactly check/build/fix, with no compatibility verbs."""
     assert tuple(row.verb for row in REGISTRY if row.claim is Claim.STATIC) == ("check", "build", "fix")
@@ -70,6 +83,25 @@ def test_cli_consumes_grouped_folder_and_file_targets(cli: VerbRunner, assay_roo
 
 
 register_law(StaticParams, "grouped_folder_file_cli_consumption")
+
+
+def test_static_build_help_excludes_scoped_file_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
+    """Static build help advertises only --all/--project and suppresses Cyclopts' negative --all form."""
+    from tools.assay import __main__ as main_mod  # noqa: PLC0415
+
+    neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
+    monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
+    code = main_mod.main(["static", "build", "--help"])
+    cap = capsysbinary.readouterr()
+    assert code == 0
+    assert b"--all" in cap.out
+    assert b"--project" in cap.out
+    assert b"--folder" not in cap.out
+    assert b"--file" not in cap.out
+    assert b"--no-all" not in cap.out
+
+
+register_law(build, "help_excludes_scoped_file_flags")
 
 
 # --- [CHECK_LAWS]
@@ -97,9 +129,23 @@ def test_check_project_preview_uses_single_project_build(assay_root: AssayHarnes
     assert isinstance(report.detail, StaticRun)
     assert any(row[0] == "csharp" and row[3] == "1" for row in report.detail.routes)
     assert any("dotnet build" in argv and "src/App/App.csproj" in argv for _, _, argv in report.detail.planned)
+    assert report.detail.phases == ("diagnostic", "restore", "build")
+    assert all(phase != "fix" for phase, _, _ in report.detail.planned)
 
 
 register_law(check, "project_preview_uses_single_project_build")
+
+
+def test_check_folder_preview_uses_fix_only(assay_root: AssayHarness) -> None:
+    """Folder/file check previews the native scoped fix path only, not an impossible build phase."""
+    assay_root.write("src/App/a.py", "")
+    report = assert_ok(check(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src/App",))))
+    assert isinstance(report.detail, StaticRun)
+    assert report.detail.phases == ("fix",)
+    assert all(phase == "fix" for phase, _, _ in report.detail.planned)
+
+
+register_law(check, "folder_preview_uses_fix_only")
 
 
 def test_check_folder_filters_project_files_but_routes_sources(assay_root: AssayHarness) -> None:
@@ -139,6 +185,7 @@ def test_build_rejects_folder_file_targets(assay_root: AssayHarness) -> None:
         build(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src/App",))), RailStatus.UNSUPPORTED
     )
     assert "build: requires --project or --all" in fault.message
+    assert fault.argv == ("static", "build", "--folder", "src/App")
 
 
 register_law(build, "rejects_folder_file_targets")
@@ -204,6 +251,8 @@ def test_csharp_workspace_format_uses_solution_placement(assay_root: AssayHarnes
     planned = static_rail._planned("build", routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
     assert skipped == ()
     assert all(str(assay_root.settings.solution) in argv for _, name, argv in planned if name.startswith("dotnet-"))
+    assert any(f"-maxCpuCount:{assay_root.settings.dotnet_max_cpu}" in argv for _, name, argv in planned if name == "dotnet-build")
+    assert all("--disable-build-servers" not in argv for _, _, argv in planned)
 
 
 register_law(static_rail._phase_checks, "csharp_workspace_uses_solution_placement")

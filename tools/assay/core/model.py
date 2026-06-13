@@ -11,15 +11,19 @@ routes through wire_encode and validate_detail to guarantee deterministic
 ordering and tag enforcement.
 """
 
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+import re
 import shlex
 from typing import Annotated, Literal, Self
+from urllib.parse import unquote, urlparse
 
 from cyclopts import Parameter
 import msgspec
+import structlog
 
 from tools.assay.core.status import fold as rail_fold, RailStatus, Step
 
@@ -171,6 +175,12 @@ _RESULT_CAP: int = 1000
 _DEFECT_TAIL: int = 4096
 # SARIF 2.1 result levels -> assay severities; analyzer notes (e.g. CSP0903) surface as info-grade evidence.
 _SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
+_DIAGNOSTIC_SEVERITY_RANK: dict[str, int] = {"error": 0, "warning": 1, "info": 2, "failed": 3}
+_CS_DIAGNOSTIC = re.compile(
+    r"^(?P<path>.*?\.(?:cs|csproj|props|targets|slnx))\((?P<line>\d+),(?P<column>\d+)\):\s*"
+    r"(?P<severity>error|warning|info)\s+(?P<rule>[A-Z][A-Z0-9]*\d+):\s*(?P<message>.*?)(?:\s+\[(?P<project>[^\]]+)\])?$",
+    re.IGNORECASE,
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -242,6 +252,7 @@ class Completed(Base, frozen=True):
     status: RailStatus = RailStatus.EMPTY
     notes: tuple[str, ...] = ()
     artifacts: tuple[Artifact, ...] = ()
+    resources: tuple[tuple[str, float], ...] = ()
 
 
 class Counts(Base, frozen=True):
@@ -270,6 +281,11 @@ class Match(Base, frozen=True):
     score: int = 0
     severity: str | None = None
     confidence: Annotated[int, msgspec.Meta(ge=0, le=100)] = 100
+    count: Annotated[int, msgspec.Meta(ge=0)] = 0
+    column: Annotated[int, msgspec.Meta(ge=0)] = 0
+    path: Annotated[str, msgspec.Meta(max_length=1024)] = ""
+    project: Annotated[str, msgspec.Meta(max_length=1024)] = ""
+    message: Annotated[str, msgspec.Meta(max_length=4096)] = ""
 
 
 # SARIF wire subset stays off the shared Base policy: SARIF documents carry tool/version/schema
@@ -280,6 +296,7 @@ class _SarifMessage(msgspec.Struct, frozen=True, gc=False):
 
 class _SarifRegion(msgspec.Struct, frozen=True, gc=False, rename="camel"):
     start_line: int = 0
+    start_column: int = 0
 
 
 class _SarifArtifactLocation(msgspec.Struct, frozen=True, gc=False):
@@ -601,22 +618,119 @@ def _sarif_log(path: Path) -> _SarifLog:
         return _SarifLog()
 
 
+def _sarif_match(result: _SarifResult) -> Match:
+    uri = next((loc.physical_location.artifact_location.uri for loc in result.locations), "")
+    line = next((loc.physical_location.region.start_line for loc in result.locations), 0)
+    column = next((loc.physical_location.region.start_column for loc in result.locations), 0)
+    parsed = urlparse(uri)
+    path = unquote(parsed.path if parsed.scheme == "file" else uri)
+    message = result.message.text.strip()
+    return Match(
+        id=result.rule_id.lower(),
+        kind=ArtifactKind.CODE,
+        text=f"{path}({line},{column}): {message}"[:_MATCH_TEXT_CAP],
+        line=line,
+        column=column,
+        score=column,
+        severity=_SARIF_SEVERITY.get(result.level, "warning"),
+        path=path,
+        message=message,
+    )
+
+
 def _sarif_rows(sarif_dir: str | None) -> tuple[Match, ...]:
     files = sorted(Path(sarif_dir).glob("*.sarif")) if sarif_dir else ()
+    return tuple(_sarif_match(result) for path in files for run in _sarif_log(path).runs for result in run.results)
+
+
+def _csharp_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
+    rows = tuple(
+        Match(
+            id=found.group("rule").lower(),
+            kind=ArtifactKind.CODE,
+            text=(
+                f"{found.group('path')}({found.group('line')},{found.group('column')}): {found.group('message').strip()}"
+                + (f" [project={project}]" if (project := (found.group("project") or "").strip()) else "")
+            )[:_MATCH_TEXT_CAP],
+            line=int(found.group("line")),
+            column=int(found.group("column")),
+            score=int(found.group("column")),
+            severity=found.group("severity").lower(),
+            path=found.group("path"),
+            project=project,
+            message=found.group("message").strip(),
+        )
+        for done in outcomes
+        for line in (done.stdout + b"\n" + done.stderr).decode(errors="replace").splitlines()
+        for found in (_CS_DIAGNOSTIC.search(line.strip()),)
+        if found is not None
+    )
+    if rows:
+        _LOG.info(
+            "diagnostic.discovered",
+            count=len(rows),
+            source=sum(1 for row in rows if not _generated(row)),
+            generated=sum(1 for row in rows if _generated(row)),
+        )
+    return rows
+
+
+def _generated(row: Match) -> bool:
+    path = (row.path or row.text.split(": ", 1)[0]).replace("\\", "/").lower()
+    return "/obj/" in path or "/.artifacts/assay/" in path or path.endswith(".g.cs")
+
+
+def _diagnostic_body(row: Match) -> str:
+    return row.message or (row.text.split(": ", 1)[1] if ": " in row.text else row.text)
+
+
+def _dedupe(rows: tuple[Match, ...]) -> tuple[Match, ...]:
+    seen: set[tuple[str, str | None, str, int, int, str]] = set()
+    out: list[Match] = []
+    for row in rows:
+        path = row.path.replace("\\", "/").lower()
+        key = (row.id, row.severity, path, row.line, row.column, "" if path and row.line and row.column else row.message or row.text)
+        if key not in seen:
+            seen.add(key)
+            out.append(row)
+    return tuple(out)
+
+
+def _group_generated(rows: tuple[Match, ...]) -> tuple[Match, ...]:
+    grouped: dict[tuple[str, str | None, str, str], int] = {}
+    for row in rows:
+        key = (row.id, row.severity, row.project.replace("\\", "/").lower(), _diagnostic_body(row))
+        grouped[key] = grouped.get(key, 0) + 1
     return tuple(
         Match(
-            id=result.rule_id.lower(),
+            id=rule,
             kind=ArtifactKind.PROCESS,
-            text=": ".join(
-                part for part in (next((loc.physical_location.artifact_location.uri for loc in result.locations), ""), result.message.text) if part
-            )[:_MATCH_TEXT_CAP],
-            line=next((loc.physical_location.region.start_line for loc in result.locations), 0),
-            severity=_SARIF_SEVERITY.get(result.level, "warning"),
+            text=f"generated diagnostics grouped count={count}: {body}"[:_MATCH_TEXT_CAP],
+            severity=severity,
+            project=project,
+            message=body,
+            count=count,
         )
-        for path in files
-        for run in _sarif_log(path).runs
-        for result in run.results
+        for (rule, severity, project, body), count in sorted(
+            grouped.items(), key=lambda item: (_DIAGNOSTIC_SEVERITY_RANK.get(item[0][1] or "", 9), item[0])
+        )
     )
+
+
+def _rank(rows: tuple[Match, ...]) -> tuple[Match, ...]:
+    return tuple(
+        sorted(rows, key=lambda row: (_DIAGNOSTIC_SEVERITY_RANK.get(row.severity or "", 9), row.id, row.path, row.line, row.column, row.text))
+    )
+
+
+def _result_rows(claim: Claim, outcomes: tuple[Completed, ...], defects: tuple[Match, ...], sarif_dir: str | None) -> tuple[Match, ...]:
+    sarif = _sarif_rows(sarif_dir)
+    diagnostics = (*_csharp_rows(outcomes), *sarif)
+    if claim is not Claim.STATIC:
+        return (*defects, *sarif)
+    source = _rank(_dedupe(tuple(row for row in diagnostics if not _generated(row))))
+    generated = _group_generated(tuple(row for row in diagnostics if _generated(row)))
+    return (*source, *generated, *defects)
 
 
 def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None, sarif_dir: str | None = None) -> Report:
@@ -641,14 +755,37 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
         for o, p in zip(outcomes, pairs, strict=True)
         if p == (0, 1)
     )
+    results = _result_rows(claim, outcomes, defects, sarif_dir)
+    diagnostic_rows = tuple(m for m in results if m.severity in _SARIF_SEVERITY.values() and m.id)
+    weights = tuple((m, m.count or 1) for m in diagnostic_rows)
+    rule_counts: Counter[str] = Counter()
+    for row, count in weights:
+        rule_counts[row.id] += count
+    diagnostic_notes = (
+        (
+            (
+                "diagnostics: "
+                f"total={sum(count for _, count in weights)} "
+                f"source={sum(count for row, count in weights if row.kind is ArtifactKind.CODE)} "
+                f"generated={sum(count for row, count in weights if row.kind is ArtifactKind.PROCESS and row.count)} "
+                f"error={sum(count for row, count in weights if row.severity == 'error')} "
+                f"warning={sum(count for row, count in weights if row.severity == 'warning')} "
+                f"info={sum(count for row, count in weights if row.severity == 'info')}"
+            ),
+            "diagnostics.rules: "
+            + " ".join(f"{rule}={count}" for rule, count in sorted(rule_counts.items(), key=lambda item: (-item[1], item[0]))[:16]),
+        )
+        if claim is Claim.STATIC and diagnostic_rows
+        else ()
+    )
     return Report(
         claim,
         verb,
         rail_fold(*(o.status for o in outcomes)),
         Counts(ok_n, fail_n, ok_n + fail_n),
-        results=(*defects, *_sarif_rows(sarif_dir)),
+        results=results,
         artifacts=tuple(artifact for o in outcomes for artifact in o.artifacts),
-        notes=tuple(n for o in outcomes for n in o.notes),
+        notes=(*tuple(n for o in outcomes for n in o.notes), *diagnostic_notes),
         detail=detail,
     )
 
@@ -689,6 +826,7 @@ def wire_safe(text: str) -> str:
 
 _ENCODER = msgspec.json.Encoder(order="deterministic")
 _SARIF_LOG: msgspec.json.Decoder[_SarifLog] = msgspec.json.Decoder(_SarifLog)
+_LOG = structlog.get_logger("assay.model")
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

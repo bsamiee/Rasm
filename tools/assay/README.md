@@ -86,7 +86,7 @@ This table is a lookup by command surface and verb set:
 
 [STATIC_COMMANDS]:
 - Verbs: `check`, `build`, `fix`
-- Inputs: `--all`, `--project <project.csproj>`, `--folder <path>...`, `--file <path>...`
+- Inputs: `check` and `fix` accept `--all`, `--project <project.csproj>`, `--folder <path>...`, and `--file <path>...`; `build` accepts only `--all` or `--project <project.csproj>`.
 - Target binding: each flag consumes space-separated values until the next option; the flag may also be repeated. Commas are literal path characters.
 - Output: shared `Report`; `StaticRun` detail carries targets, routes, planned checks, skipped checks, phase order, resource telemetry, and artifact scopes.
 - Use: `check` previews routes and argv without spawning tools; `build` runs C# diagnostics, restore, and compile proof for one `--project` or explicit `--all`; `fix` runs native formatters and autofixers for folder/file/project/all targets. Public folder/file build targets are rejected instead of deriving a multi-project compile fan.
@@ -157,8 +157,8 @@ Assay output is machine-first. The stable consumer rule is simple: parse stdout 
 - Do not parse: stderr for result data.
 
 [STDERR]:
-- Carries: structlog events, subprocess stderr, and operator diagnostics.
-- Consumer rule: read for human diagnosis.
+- Carries: structlog events, structured phase/process/resource progress records, subprocess stderr, and operator diagnostics.
+- Consumer rule: read for operational progress and human diagnosis.
 - Do not parse: stderr as the machine result channel.
 
 [AUTOMATION_STDOUT]:

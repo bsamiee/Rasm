@@ -44,6 +44,7 @@ from tools.assay.core.model import (
     receipt,
     Report,
     RunDelta,
+    StaticRun,
     TestRun,
     wire_encode,
 )
@@ -63,6 +64,7 @@ _EXPECTED_CLAIMS: frozenset[Claim] = frozenset(b.claim for b in REGISTRY)
 _REGISTRY_ROOT: Final = f"{registry_mod.__name__}.REGISTRY"
 _ORPHAN_SUBJECT: Final = f"{registry_mod.__name__}.ORPHAN_MIN_AGE_S"
 _STATIC_FIX_BIND = next(b for b in REGISTRY if b.claim is Claim.STATIC and b.verb == "fix")
+_STATIC_BUILD_BIND = next(b for b in REGISTRY if b.claim is Claim.STATIC and b.verb == "build")
 
 # --- [HARNESS] --------------------------------------------------------------------------
 
@@ -336,6 +338,15 @@ def test_parse_fault_diagnostic_context_present() -> None:
     assert any("dispatch=static" in ev for ev in env.error_context.recent_events)
 
 
+def test_parse_fault_preserves_rejected_argv() -> None:
+    """Parse faults retain the exact rejected argv tokens for agent-facing repair hints."""
+    env = parse_fault(("static", "build", "--folder", "src/App"), "unexpected option")
+    assert env.error is not None
+    assert env.error.argv == ("static", "build", "--folder", "src/App")
+    assert env.error_context is not None
+    assert "static build --folder src/App" in env.error_context.recent_events
+
+
 def test_parse_fault_never_persisted(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """parse_fault emits to stdout only — the FAULTED Envelope never lands in the history store.
 
@@ -410,6 +421,22 @@ def test_distill_explicit_events_and_dispatch_none() -> None:
     assert none_diag.dispatched is False
 
 
+def test_ok_envelope_static_failed_context_uses_source_diagnostics_and_resources(assay_root: AssayHarness) -> None:
+    """FAILED static reports distill top source diagnostics and StaticRun.resources into error_context."""
+    resources = (("proc.tree_rss_bytes.max", 123.0), ("dotnet.slot_wait_ms.max", 4.0))
+    report = Report(
+        Claim.STATIC,
+        "build",
+        RailStatus.FAILED,
+        results=(Match(id="ma0006", kind=ArtifactKind.CODE, text="tools/rhino-bridge/Shell/ShellHost.cs(297,22): message", severity="error"),),
+        detail=StaticRun(resources=resources),
+    )
+    env = registry_mod._ok_envelope(_STATIC_BUILD_BIND, assay_root.settings, 12.0, report)
+    assert env.error_context is not None
+    assert env.error_context.resource == resources
+    assert env.error_context.recent_events == ("ma0006: tools/rhino-bridge/Shell/ShellHost.cs(297,22): message",)
+
+
 def test_parse_fault_config_error_path(monkeypatch: pytest.MonkeyPatch) -> None:
     """parse_fault catches ValidationError from AssaySettings() and emits a 'config:' Fault.
 
@@ -469,11 +496,13 @@ register_laws((
         "parse_fault_empty_tokens_fallback",
         "parse_fault_status_always_faulted",
         "parse_fault_diagnostic_context_present",
+        "parse_fault_preserves_rejected_argv",
         "seed_parse_ring_extends_existing_ring",
         "seed_parse_ring_creates_ring_when_none",
         "failing_step_classification",
         "distill_with_explicit_events_and_resource",
         "distill_dispatch_none_marks_not_dispatched",
+        "ok_envelope_static_failed_context_uses_source_diagnostics_and_resources",
         "parse_fault_never_persisted",
         "parse_fault_config_error_path",
         "validation_message_formats_pydantic_errors",
@@ -952,11 +981,11 @@ def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: p
 
 @pytest.mark.parametrize("probe", ["_census", "_composes"])
 def test_self_test_unhealthy_when_composition_breaks(probe: str, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """self_test folds healthy as a strict conjunction: one failing probe forces FAILED status/exit, healthy=False, and an 'assay' defect row.
+    """self_test folds healthy as a strict conjunction: one failing probe forces FAILED status/exit, healthy=False, and a full-argv defect row.
 
     Mutants caught: `and _census()` flipped to `or` (one green probe masks the other's failure); receipt argv
-    corrupted (defect row id drifts from 'assay'); status decoupled from the healthy fold; exit code decoupled
-    from status.
+    corrupted (defect row id drifts from 'assay self-test'); status decoupled from the healthy fold; exit code
+    decoupled from status.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     monkeypatch.setattr(registry_mod, probe, lambda: False)
@@ -966,7 +995,7 @@ def test_self_test_unhealthy_when_composition_breaks(probe: str, assay_root: Ass
     assert env.exit_code == RailStatus.FAILED.exit_code
     assert "healthy=False" in env.notes[0]
     assert env.report is not None
-    assert any(m.id == "assay" and m.severity == "failed" for m in env.report.results)
+    assert any(m.id == "assay self-test" and m.severity == "failed" for m in env.report.results)
 
 
 def test_self_test_unhealthy_when_claim_loses_its_last_row(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1075,7 +1104,7 @@ def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness
     assert ctx is not None
     assert ctx.failing_step == "defects"
     assert ctx.recent_events == ("t1: boom", "t2: bang")
-    assert "2 tool(s) failed" in ctx.hint
+    assert "2 diagnostic(s) failed" in ctx.hint
 
 
 def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes]) -> None:

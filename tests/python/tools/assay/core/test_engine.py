@@ -73,6 +73,7 @@ from tools.assay.core.engine import (
     leased,
     proc_dead,
     remote_command,
+    resource_projection,
     retry_predicate,
     run_check,
     run_check_async,
@@ -144,6 +145,7 @@ _LAWS: tuple[tuple[object, str], ...] = (
     (proc_dead, "proc_dead_truth_table"),
     (proc_dead, "proc_dead_access_denied_defers_to_pid_exists"),
     (governed_concurrency, "governed_concurrency_cap_table"),
+    (resource_projection, "resource_projection_aggregates_receipts_and_notes"),
     (retry_predicate, "retry_predicate_decision_table"),
     (splice_command, "splice_command_injects_scope_flags_for_dotnet_build_verbs"),
     (argv_for, "argv_for_composes_runner_prefix_scope_and_routed_tails"),
@@ -1151,6 +1153,35 @@ def test_stall_monitor_shrunk_constant_matrix(
             assert (notes, events, span_hits) == ((), (), ()), f"fast child produced spurious stall telemetry: {done.notes!r} {events!r}"
 
 
+def test_resource_projection_aggregates_receipts_and_notes(assay_root: AssayHarness) -> None:
+    """resource_projection folds pressure, slot waits, stalls, durations, and receipt child metrics into StaticRun-ready rows."""
+    check = Check(tool=msgspec.structs.replace(_REMOTE_TOOL, mode=Mode.BUILD))
+    done = msgspec.structs.replace(
+        receipt(("dotnet", "build"), 1, status=RailStatus.FAILED, duration_ms=42.0, notes=("proc.stall silent=30s io-or-lock-wait",)),
+        resources=(("proc.children_rss_bytes", 128.0), ("proc.dotnet.count", 2.0), ("proc.last_output_age_s", 7.0)),
+    )
+    rows = dict(resource_projection(assay_root.settings, (check,), notes=("dotnet.slot index=0 wait_ms=17", *done.notes), receipts=(done,)))
+    assert rows["dotnet.slot_wait_ms.max"] == pytest.approx(17.0)
+    assert rows["proc.stall.count"] == pytest.approx(1.0)
+    assert rows["process.duration_ms.max"] == pytest.approx(42.0)
+    assert rows["proc.children_rss_bytes.max"] == pytest.approx(128.0)
+    assert rows["proc.dotnet.count.max"] == pytest.approx(2.0)
+    assert rows["proc.last_output_age_s.max"] == pytest.approx(7.0)
+
+
+def test_streaming_process_emits_progress_and_receipt_resources(assay_root: AssayHarness, log_events: list[dict[str, object]]) -> None:
+    """Streaming local processes emit process/resource events and persist sampled resource rows on the receipt."""
+    tool = _stream_tool(
+        "resource-stream-law", (sys.executable, "-c", "import sys,time; print('ready'); sys.stdout.flush(); time.sleep(0.05)"), Language.PYTHON
+    )
+    done = assert_ok(_run(Check(tool=tool), assay_root))
+    events = tuple(event.get("event") for event in log_events)
+    assert "process.start" in events
+    assert "resource.sample" in events
+    assert "process.end" in events
+    assert any(name == "proc.children" for name, _ in done.resources)
+
+
 # --- [STAGE_MATERIALIZE]
 
 
@@ -1513,7 +1544,7 @@ async def test_run_check_remote_streaming_round_trips(
         case None:
             pass
         case _:
-            artifact = next((a for a in done.artifacts if a.id == f"{name}-out"), None)
+            artifact = next((a for a in done.artifacts if a.id.startswith(f"{name}-") and a.id.endswith("-out")), None)
             assert artifact is not None, f"scoped remote stream emitted no artifact: {done.artifacts!r}"
             assert b"remote-ok:" in scope.store.read_path(artifact.path), "persisted remote artifact lost the ssh double reply"
 

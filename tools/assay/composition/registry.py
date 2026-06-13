@@ -60,6 +60,7 @@ from tools.assay.core.model import (
     RunDelta,
     Runner,
     RunSnapshot,
+    StaticRun,
     Tool,
     validate_detail,
     wire_encode,
@@ -81,7 +82,7 @@ from tools.assay.rails.bridge import BridgeParams
 from tools.assay.rails.code import _cap_note, CodeParams  # noqa: PLC2701  # _cap_note: single truncation-note grammar owner
 from tools.assay.rails.docs import DocsParams, FaultedPromotion
 from tools.assay.rails.package import PackageParams
-from tools.assay.rails.static import StaticParams
+from tools.assay.rails.static import StaticBuildParams, StaticParams
 from tools.assay.rails.test import TestParams
 
 
@@ -130,6 +131,7 @@ _CLAIM_SLOTS: Final[dict[Claim, str]] = {
     Claim.DOCS: "[PATHS]...",
 }
 _VERB_SLOTS: Final[dict[tuple[Claim, str], str]] = {
+    (Claim.STATIC, "build"): "[--all | --project PROJECT]",
     (Claim.BRIDGE, "verify"): "[PATTERN]",
     (Claim.API, "resolve"): "[KEY [KIND]]",
     (Claim.API, "query"): "[SYMBOL]",
@@ -268,12 +270,22 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
         artifact = _full_report_artifact(settings, bind, report)
         artifacts = ((*artifact, *report.artifacts) if artifact else report.artifacts)[:_ARTIFACT_CAP]
         cap, total = (_RESULT_CAP, len(report.results)) if len(report.results) > _RESULT_CAP else (_ARTIFACT_CAP, len(report.artifacts))
-        note = _cap_note(cap, total, cap, tail=f"full report artifact under {settings.run_id}")
-        report = msgspec.structs.replace(report, results=report.results[:_RESULT_CAP], artifacts=artifacts, notes=(*report.notes, *note))
-    failed = tuple(m for m in report.results if m.severity == "failed")
-    defect_events = tuple(f"{m.id}: {m.text[:120]}" for m in failed)
+        report = msgspec.structs.replace(
+            report,
+            results=report.results[:_RESULT_CAP],
+            artifacts=artifacts,
+            notes=(*report.notes, *_cap_note(cap, total, cap, tail=f"full report artifact under {settings.run_id}")),
+        )
+    defect_rows = tuple(m for m in report.results if m.severity in {"error", "failed"})
+    defect_events = tuple(f"{m.id}: {m.text[:120]}" for m in defect_rows[:16])
     ctx = (
-        _distill(Fault((), RailStatus.FAILED, f"{len(failed)} tool(s) failed"), ms, events=defect_events, step=Step.DEFECTS)[0]
+        _distill(
+            Fault((), RailStatus.FAILED, f"{len(defect_rows)} diagnostic(s) failed"),
+            ms,
+            events=defect_events,
+            resource=report.detail.resources if isinstance(report.detail, StaticRun) else (),
+            step=Step.DEFECTS,
+        )[0]
         if report.status is RailStatus.FAILED
         else None
     )
@@ -518,13 +530,15 @@ def parse_fault(tokens: tuple[str, ...], message: str, *, step: Step = Step.PARS
     try:
         settings = AssaySettings()
         fault_message = f"{step}: {message}"
+        fault_step = step
     except ValidationError as config_error:
         settings = AssaySettings.model_construct()
         fault_message = f"{Step.CONFIG}: {_validation_message(config_error)}"
+        fault_step = Step.CONFIG
     claim, verb, dispatch = _parse_dispatch(tokens)
-    fault = Fault((), RailStatus.FAULTED, fault_message[:_MESSAGE_CAP])
+    fault = Fault(tuple(wire_safe(token) for token in tokens), RailStatus.FAULTED, fault_message[:_MESSAGE_CAP])
     _seed_parse_ring(dispatch, tokens)
-    diagnostic, truncated = _distill(fault, 0.0)
+    diagnostic, truncated = _distill(fault, 0.0, step=fault_step)
     env = msgspec.structs.replace(envelope(fault, claim=claim, verb=verb, run_id=settings.run_id, error_context=diagnostic), truncated=truncated)
     return _emit_envelope(settings, env, persist=False)
 
@@ -770,7 +784,7 @@ _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (
 
 REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.STATIC, "check", static_rail.check, StaticParams, "Scoped route and argv preview."),
-    Bind(Claim.STATIC, "build", static_rail.build, StaticParams, "Single-project or whole-workspace diagnostics, restore, and build."),
+    Bind(Claim.STATIC, "build", static_rail.build, StaticBuildParams, "Single-project or whole-workspace diagnostics, restore, and build."),
     Bind(Claim.STATIC, "fix", static_rail.fix, StaticParams, "Scoped native formatter and autofix."),
     Bind(Claim.CODE, "search", code_rail.search, CodeParams, "Search: $-metavar -> ast-grep structural; literal -> ripgrep content."),
     Bind(Claim.CODE, "query", code_rail.query, CodeParams, "AST query via tree-sitter (in-process)."),

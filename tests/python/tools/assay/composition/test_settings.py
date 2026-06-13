@@ -662,6 +662,19 @@ def test_artifact_scope_dotnet_env_isolation(assay_root: AssayHarness) -> None:
 
 register_law(ArtifactScope, "artifact_scope_dotnet_env_isolation")
 
+
+def test_artifact_scope_can_leave_build_servers_enabled(assay_root: AssayHarness) -> None:
+    """Static build scopes can route artifacts without forcing build-server isolation."""
+    scope = ArtifactScope.build(assay_root.settings, "static-closure", disable_build_servers=False)
+    assert "--artifacts-path" in scope.dotnet_flags
+    assert scope.path in scope.dotnet_flags
+    assert "--disable-build-servers" not in scope.dotnet_flags
+    assert scope.dotnet_env == IsPartialDict({"DOTNET_CLI_HOME": IsStr(regex=rf"{scope.path}.*")})
+    assert "MSBUILDDISABLENODEREUSE" not in scope.dotnet_env
+
+
+register_law(ArtifactScope, "can_leave_build_servers_enabled")
+
 # --- [PROTOCOL]
 
 

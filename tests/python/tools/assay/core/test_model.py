@@ -255,13 +255,15 @@ def test_fold_sarif_level_maps_to_assay_severity(level: str | None, severity: st
     """SARIF levels map error/warning verbatim, note and none to info (CSP0903 rides note), absent to the SARIF default warning."""
     sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0903", level, 12, "tone probe")))
     report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
-    assert [(m.id, m.severity, m.line) for m in report.results] == [("csp0903", severity, 12)]
+    assert [(m.id, m.kind, m.severity, m.path, m.line, m.column, m.message) for m in report.results] == [
+        ("csp0903", ArtifactKind.CODE, severity, "src/Probe.cs", 12, 1, "tone probe")
+    ]
     assert "src/Probe.cs" in report.results[0].text
     assert "tone probe" in report.results[0].text
 
 
 def test_fold_sarif_rows_are_evidence_only(tmp_path: Path) -> None:
-    """SARIF rows ride results across files and runs without touching status, counts, or exit code; malformed drops fold silently."""
+    """SARIF rows ride results without touching status/counts/exit; exact duplicate source diagnostics dedupe before capping."""
     sarif_dir = _sarif_drop(
         tmp_path,
         a=_sarif_doc(_sarif_result("CSP0101", "error", 3, "alpha"), _sarif_result("CSP0202", "warning", 7, "beta")),
@@ -269,19 +271,85 @@ def test_fold_sarif_rows_are_evidence_only(tmp_path: Path) -> None:
         broken=b"{ not sarif",
     )
     report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
-    assert [m.id for m in report.results] == ["csp0101", "csp0202", "csp0903", "csp0903"]
+    assert [m.id for m in report.results] == ["csp0101", "csp0202", "csp0903"]
     assert report.status is RailStatus.OK, "error-level SARIF evidence must not flip the rail status"
     assert report.counts == Counts(ok=1, failed=0, total=1)
     assert envelope(report, claim=Claim.STATIC, verb="build").exit_code == 0
 
 
-def test_fold_sarif_rows_follow_defect_rows(tmp_path: Path) -> None:
-    """Defect tail rows precede SARIF evidence rows in one results stream; exit code derives from outcomes alone."""
+def test_fold_static_source_diagnostics_precede_defect_rows(tmp_path: Path) -> None:
+    """Static folds rank source diagnostics ahead of process-tail fallback rows; exit code derives from outcomes alone."""
     sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0101", "error", 3, "alpha")))
     report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 1, stderr=b"CS0103: boom"),), sarif_dir=sarif_dir)
-    assert [(m.id, m.severity) for m in report.results] == [("dotnet", "failed"), ("csp0101", "error")]
+    assert [(m.id, m.severity) for m in report.results] == [("csp0101", "error"), ("dotnet", "failed")]
     assert report.status is RailStatus.FAILED
     assert report.counts == Counts(ok=0, failed=1, total=1)
+
+
+def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> None:
+    """Dotnet format/build output becomes source Match rows before fallback tails, with exact duplicates collapsed."""
+    line = b"src/App/HostControl.cs(148,71): error VSTHRD002: Synchronously waiting on tasks may deadlock [src/App/App.csproj]"
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 1, stdout=line + b"\n" + line),))
+    assert [(m.id, m.kind, m.severity, m.path, m.line, m.column, m.score, m.project) for m in report.results[:2]] == [
+        ("vsthrd002", ArtifactKind.CODE, "error", "src/App/HostControl.cs", 148, 71, 71, "src/App/App.csproj"),
+        ("dotnet build", ArtifactKind.PROCESS, "failed", "", 0, 0, 0, ""),
+    ]
+    assert report.results[0].message == "Synchronously waiting on tasks may deadlock"
+    assert "HostControl.cs(148,71)" in report.results[0].text
+
+
+def test_fold_static_dedupes_process_and_sarif_source_diagnostics(tmp_path: Path) -> None:
+    """The same source diagnostic from compiler text and SARIF collapses to one normalized Match row."""
+    source = str(tmp_path / "src" / "App" / "HostControl.cs")
+    project = str(tmp_path / "src" / "App" / "App.csproj")
+    line = f"{source}(148,71): error VSTHRD002: Synchronously waiting on tasks may deadlock [{project}]".encode()
+    sarif_dir = _sarif_drop(
+        tmp_path,
+        probe=msgspec.json.encode({
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "results": [
+                        {
+                            "ruleId": "VSTHRD002",
+                            "level": "error",
+                            "message": {"text": "Synchronously waiting on tasks may deadlock"},
+                            "locations": [
+                                {
+                                    "physicalLocation": {
+                                        "artifactLocation": {"uri": f"file://{source}"},
+                                        "region": {"startLine": 148, "startColumn": 71},
+                                    }
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ],
+        }),
+    )
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 1, stdout=line),), sarif_dir=sarif_dir)
+    assert [(m.id, m.path, m.line, m.column) for m in report.results[:2]] == [("vsthrd002", source, 148, 71), ("dotnet build", "", 0, 0)]
+    assert "diagnostics: total=1 source=1 generated=0 error=1 warning=0 info=0" in report.notes
+    assert "diagnostics.rules: vsthrd002=1" in report.notes
+
+
+def test_fold_static_groups_generated_diagnostics_after_source_rows() -> None:
+    """Generated obj diagnostics are grouped so repeated CS0436 rows cannot crowd source errors out of the cap."""
+    source = b"tools/rhino-bridge/Shell/ShellHost.cs(297,22): error MA0006: Use string.Equals instead of Equals operator"
+    generated = (
+        b".artifacts/assay/build/abc/Release/obj/Debug/net10.0/Scenarios.GlobalUsings.g.cs(18,25): "
+        b"warning CS0436: The type conflicts with imported type [tools/rhino-bridge/Scenarios.csproj]"
+    )
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 1, stdout=b"\n".join((generated, source, generated))),))
+    assert [(m.id, m.kind, m.severity, m.count) for m in report.results[:3]] == [
+        ("ma0006", ArtifactKind.CODE, "error", 0),
+        ("cs0436", ArtifactKind.PROCESS, "warning", 2),
+        ("dotnet build", ArtifactKind.PROCESS, "failed", 0),
+    ]
+    assert report.results[1].text.startswith("generated diagnostics grouped count=2:")
+    assert "diagnostics: total=3 source=1 generated=2 error=1 warning=2 info=0" in report.notes
+    assert "diagnostics.rules: cs0436=2 ma0006=1" in report.notes
 
 
 def test_fold_sarif_absent_or_empty_dir_is_silent(tmp_path: Path) -> None:
@@ -366,7 +434,7 @@ def test_receipt_status_derivation(rc: int, explicit: RailStatus | None, expecte
     [
         (Fault, "message", 0, 1024),
         (Diagnostic, "hint", 0, 256),
-        (Match, "text", 0, 400),
+        (Match, "text", 0, 4096),
         (VerifySummary, "first_fault_output", 0, 256),
         (Fault, "argv", 42, 42),
         (Counts, "absent", 7, 7),
@@ -513,7 +581,18 @@ register_laws(
     (AnyDetail, ("variant_round_trip", "tags_injective")),
     (Detail, ("variant_is_subclass",)),
     (Base, ("forbid_unknown_fields",)),
-    (fold, ("count_oracle", "defect_row_per_failed", "empty_report", "failed_stderr_in_text")),
+    (
+        fold,
+        (
+            "count_oracle",
+            "defect_row_per_failed",
+            "empty_report",
+            "failed_stderr_in_text",
+            "static_source_diagnostics_precede_defect_rows",
+            "csharp_process_output_parses_and_dedupes_source_diagnostics",
+            "static_groups_generated_diagnostics_after_source_rows",
+        ),
+    ),
     (Report, ("counts_consistent", "envelope_source")),
     (Counts, ("fold_arithmetic",)),
     (Match, ("defect_row_severity",)),
