@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Unified product UI rail for Rasm host surfaces, retained app panels, live projections, visuals, charts, and diagnostics.</Description>
+        <CspScope>Boundary</CspScope>
     </PropertyGroup>
 
     <ItemGroup>

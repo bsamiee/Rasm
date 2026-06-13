@@ -45,6 +45,9 @@
         "type": "Transitive",
         "resolved": "10.2.0",
         "contentHash": "dakjsj9+k/faX/Ff0Ez+jcV6bqdJ+6fem4sXkNZDL3qZwtyp4SGfZgRHDiOEWrkgq/WBoZWiE+MOaBoXiXObbw=="
+      },
+      "csp.contracts": {
+        "type": "Project"
       }
     },
     "net10.0/osx-arm64": {}

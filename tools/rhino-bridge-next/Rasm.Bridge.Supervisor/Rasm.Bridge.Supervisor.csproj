@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Workstation session owner for the rebuilt runtime bridge: verb surface, session state machine, policy rows, terminal envelope fold.</Description>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Rasm.Bridge.Supervisor</RootNamespace>
+        <!-- tools/rhino-bridge-next sits outside the path-derived classification roots; posture is
+             declared explicitly. The supervisor is the workstation process-control boundary: it
+             never loads host assemblies, so workspace globals (LanguageExt/Thinktecture) flow via
+             the UseWorkspaceLibraries default. -->
+        <CspScope>Boundary</CspScope>
+        <!-- StreamJsonRpc0008: SystemTextJsonFormatter is the pinned wire formatter; PolyType shape
+             rows would only serve the MessagePack-family formatter branches that never load. -->
+        <NoWarn>$(NoWarn);StreamJsonRpc0008</NoWarn>
+        <!-- D-7 kqueue NOTE_EXIT P/Invoke kernel: LibraryImport marshalling emits unsafe blocks. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+    <ItemGroup>
+        <InternalsVisibleTo Include="Rasm.Bridge.Supervisor.Gate" />
+        <InternalsVisibleTo Include="Rasm.Bridge.Supervisor.Tests" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
+        <PackageReference Include="StreamJsonRpc" />
+        <PackageReference Include="System.IO.Hashing" />
+        <ProjectReference Include="../Rasm.Bridge.Contract/Rasm.Bridge.Contract.csproj" />
+    </ItemGroup>
+</Project>

@@ -41,6 +41,17 @@ class _AsyncServer(Protocol):
     async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> object: ...
 
 
+class KitFactory[S](Protocol):
+    """Per-suite kit constructor: project a tmp root into the suite's settings/harness payload.
+
+    The single injection seam every suite kit shares — one suite binds its settings model, another binds
+    ``None`` for a bare module-tree kit — so ``tmp_root`` and everything built on ``TmpRoot`` never import
+    a project type.
+    """
+
+    def __call__(self, root: Path, /) -> S: ...
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 # --- [RECORDING_PATCH]
@@ -240,7 +251,7 @@ class TmpRoot[S](msgspec.Struct, frozen=True, gc=False):
         return path
 
 
-def tmp_root[S](root: Path, make_settings: Callable[[Path], S]) -> TmpRoot[S]:
+def tmp_root[S](root: Path, make_settings: KitFactory[S]) -> TmpRoot[S]:
     """Build a ``TmpRoot`` rooted at ``root``; ``make_settings`` is the sole project-settings injection seam.
 
     Returns:
@@ -335,6 +346,7 @@ __all__ = [
     "Async",
     "Factory",
     "FanOut",
+    "KitFactory",
     "Loopback",
     "NdjsonOracle",
     "SeamProbe",

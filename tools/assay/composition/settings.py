@@ -18,7 +18,7 @@ from enum import StrEnum
 import os
 from pathlib import Path
 import sys
-from typing import Annotated, Final, Literal, override, Protocol, runtime_checkable
+from typing import Annotated, Final, Literal, override, Protocol, runtime_checkable, TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import fsspec  # fsspec ships no py.typed marker (declared in [[tool.mypy.overrides]])
@@ -39,6 +39,10 @@ from tools.assay.core.model import (  # noqa: TC001  # pydantic_settings and Art
     wire_encode,
     wire_safe,
 )
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -301,7 +305,7 @@ class AssaySettings(BaseSettings):
         "global.json",
     ))
     trigger_prefixes: tuple[str, ...] = ("tools/cs-analyzer/",)
-    probe_fixture_prefixes: tuple[str, ...] = ("tests/tools/ast-grep/", "tests/python/tools/py_analyzer/")
+    probe_fixture_prefixes: tuple[str, ...] = ("tests/ast-grep/", "tests/python/tools/py_analyzer/")
     test_target: ExpandedPath = UPath("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
     mutation_python: str = "3.14.5"
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)
@@ -530,11 +534,6 @@ class ArtifactStore:
 
     def _normalize_backend_path(self, path: str) -> str:
         return path.removeprefix("/") if not self.root.startswith("/") else path
-
-    @staticmethod
-    def _fileish(info: dict[str, object]) -> bool:
-        kind = str(info.get("type", "")).casefold()
-        return kind not in {"directory", "folder"}
 
     def exists(self, *parts: str) -> bool:
         """Return whether a store-relative path exists."""
@@ -769,29 +768,22 @@ class ArtifactStore:
         if direct and self.exists_path(direct):
             return (direct,)
         if latest:
-            for root in roots:
-                matches = tuple(row for row in self._walk_details(root) if self._fileish(row[1]))
-                if matches:
-                    return self._ranked_paths(matches)
-            return ()
+            return next((ranked for root in roots if (ranked := self._ranked_files(root))), ())
         if not token.strip():
             return ()
         stem = token.rsplit("/", 1)[-1]
-        matches = tuple(
-            (path, info)
-            for root in roots
-            for path, info in self._walk_details(root)
-            if self._fileish(info) and (token in {path, stem} or token in path)
-        )
-        return self._ranked_paths(matches)
+        return self._ranked_files(*roots, accept=lambda path: token in {path, stem} or token in path)
 
-    def _walk_details(self, root: str) -> tuple[tuple[str, dict[str, object]], ...]:
-        rows = self.walk(*_root_parts(root), recursive=True, detail=True)
-        # walk union; the isinstance guard narrows detail rows
-        return tuple((path, info) for path, info in rows if isinstance(info, dict))  # type: ignore[str-unpack]
+    def _ranked_files(self, *roots: str, accept: Callable[[str], bool] = lambda _path: True) -> tuple[str, ...]:
+        # fs.find walks files only (withdirs defaults False), replacing the former walk-union + directory filter.
+        def rows(root: str) -> tuple[tuple[str, dict[str, object]], ...]:
+            try:
+                found = self.fs.find(self.path(*_root_parts(root)), detail=True)
+            except FileNotFoundError:
+                return ()
+            return tuple((self._normalize_backend_path(str(path)), dict(info)) for path, info in (found.items() if isinstance(found, dict) else ()))
 
-    @staticmethod
-    def _ranked_paths(matches: tuple[tuple[str, dict[str, object]], ...]) -> tuple[str, ...]:
+        matches = tuple((path, info) for root in roots for path, info in rows(root) if accept(path))
         return tuple(path for path, _ in sorted(matches, key=lambda row: (-mtime_from_info(row[1]), row[0])))
 
 
@@ -843,6 +835,15 @@ class ArtifactScope:
     def dotnet_env(self) -> dict[str, str]:
         """Build .NET command environment isolation variables."""
         return {"DOTNET_CLI_HOME": f"{self.path}/dotnet-cli", "MSBUILDDISABLENODEREUSE": "1"}
+
+    @property
+    def sarif_dir(self) -> str:
+        """Scope-local SARIF drop directory consumed by the CspSarifDir-conditioned analyzer ErrorLog.
+
+        Materialized eagerly: the Roslyn ``/errorlog`` writer does not create parent directories,
+        so an absent drop directory fails every build row with a path error instead of emitting SARIF.
+        """
+        return self.store.ensure_path(f"{self.path}/sarif")
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

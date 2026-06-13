@@ -54,7 +54,7 @@ from tools.assay.core.model import (
     Runner,
     Tool,
 )
-from tools.assay.core.routing import Routed, Scope
+from tools.assay.core.routing import parse_csproj, Routed, Scope
 from tools.assay.core.status import join, RailStatus
 from tools.assay.rails.bridge import bridge_lease, client_run
 
@@ -340,7 +340,7 @@ def _lone_match(slug: str, pairs: tuple[tuple[str, str], ...]) -> Result[str, Fa
 
 
 def _csproj_slug(settings: AssaySettings, project: str) -> Result[str, Fault]:
-    return _read_bytes(Path(str(settings.root / project))).map(_slug_from_bytes)
+    return _read_bytes(Path(str(settings.root / project))).map(lambda raw: next(iter(parse_csproj(raw, _YAK_SLUG_PROP)), ""))
 
 
 def _read_bytes(path: Path) -> Result[bytes, Fault]:
@@ -350,17 +350,6 @@ def _read_bytes(path: Path) -> Result[bytes, Fault]:
         return Ok(b"")
     except OSError as exc:
         return Error(Fault(("read", str(path)), message=str(exc)[:1024]))
-
-
-def _slug_from_bytes(raw: bytes) -> str:
-    import xml.etree.ElementTree as ET  # noqa: PLC0415, S405  # trusted local .csproj XML, parsed at the slug-read boundary only
-
-    try:
-        tree = ET.fromstring(raw or b"<Project/>")  # noqa: S314  # trusted local .csproj XML, never network-sourced
-    except ET.ParseError:
-        return ""
-    found = next((el.text for el in tree.iter() if el.tag.rpartition("}")[2] == _YAK_SLUG_PROP and el.text), None)
-    return (found or "").strip()
 
 
 def _stage_artifacts(meta: YakMeta, staged: Path) -> Result[Path, Fault]:

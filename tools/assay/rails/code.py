@@ -72,7 +72,9 @@ _METAVAR: re.Pattern[str] = re.compile(r"\$[A-Z_$]")
 class CodeParams(BaseParams):
     """Parameters shared by code verbs."""
 
-    pattern: Annotated[str, Parameter(allow_leading_hyphen=True)] = ""
+    pattern: Annotated[
+        str, Parameter(allow_leading_hyphen=True, help="Pattern; the leading positional fills this slot when the flag is omitted.")
+    ] = ""
     max_results: NonNegativeInt = 1000
 
     @override
@@ -371,11 +373,12 @@ def _ag_normalize(completeds: tuple[Completed, ...]) -> tuple[Completed, ...]:
     )
 
 
-def _cap_note(shown: int, total: int, cap: int, *, saturated: bool = False) -> tuple[str, ...]:
+def _cap_note(shown: int, total: int, cap: int, *, saturated: bool = False, tail: str = "full listing in artifact") -> tuple[str, ...]:
     # Truncation visibility: agents must always know what they are NOT seeing. `saturated`
     # marks a source-level match-limit cut where `total` is a floor, not the true cardinality.
+    # `tail` names where the full payload lives; the registry passes its full-report suffix.
     detail = f"cap={cap}, match-limit saturated" if saturated else f"cap={cap}"
-    return (f"results: {shown} of {total} ({detail}); full listing in artifact",) if total > shown or saturated else ()
+    return (f"results: {shown} of {total} ({detail}); {tail}",) if total > shown or saturated else ()
 
 
 def _report(

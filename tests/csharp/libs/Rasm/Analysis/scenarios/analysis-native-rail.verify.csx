@@ -5,8 +5,8 @@ using Rhino;
 using Rhino.Geometry;
 using TestProbe = Rasm.TestKit.Scenarios.Probe;
 
-static T RunOne<TGeometry, T>(Operation<TGeometry, T> operation, Analyze.Scope scope, TGeometry geometry, string label) where TGeometry : notnull =>
-    scope.Run(operation: operation, input: new TGeometry[] { geometry }).Match(
+static T RunOne<TGeometry, T>(AnalysisQuery query, Analyze.Scope scope, TGeometry geometry, string label) where TGeometry : notnull where T : notnull =>
+    scope.Run(operation: Analyze.Query<TGeometry, T>(query: query), input: new TGeometry[] { geometry }).Match(
         Succ: values => values[0],
         Fail: error => throw new InvalidOperationException(message: $"{label}: {error.Message}"));
 
@@ -20,10 +20,10 @@ Scenario.Run("analysis-native-rail", CAPTURE_PATH, (key, facts) => {
         new Point3d(x: 3.0, y: 0.0, z: 0.0),
         new Point3d(x: 3.0, y: 4.0, z: 0.0),
     }));
-    double segmentLength = RunOne(operation: Measure.Length.Operation<Curve, double>(), scope: scope, geometry: segment, label: "segment length");
-    double polylineLength = RunOne(operation: Measure.Length.Operation<Curve, double>(), scope: scope, geometry: polyline, label: "polyline length");
-    Point3d segmentMidpoint = RunOne(operation: Measure.SpatialMidpoint.Operation<Curve, Point3d>(), scope: scope, geometry: segment, label: "segment midpoint");
-    Curve boundary = RunOne(operation: Curves.Boundary.Operation<Curve, Curve>(), scope: scope, geometry: segment, label: "curve boundary");
+    double segmentLength = RunOne<Curve, double>(query: AnalysisQuery.Measure(query: Measure.Length), scope: scope, geometry: segment, label: "segment length");
+    double polylineLength = RunOne<Curve, double>(query: AnalysisQuery.Measure(query: Measure.Length), scope: scope, geometry: polyline, label: "polyline length");
+    Point3d segmentMidpoint = RunOne<Curve, Point3d>(query: AnalysisQuery.Measure(query: Measure.SpatialMidpoint), scope: scope, geometry: segment, label: "segment midpoint");
+    Curve boundary = RunOne<Curve, Curve>(query: AnalysisQuery.Selection(query: Curves.Boundary), scope: scope, geometry: segment, label: "curve boundary");
 
     TestProbe.Require(condition: Math.Abs(segmentLength - 5.0) <= 1.0e-8, message: $"segment.length={segmentLength:R}");
     TestProbe.Require(condition: Math.Abs(polylineLength - 7.0) <= 1.0e-8, message: $"polyline.length={polylineLength:R}");

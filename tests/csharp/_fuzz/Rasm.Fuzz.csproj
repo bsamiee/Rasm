@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <OutputType>Exe</OutputType>
-    </PropertyGroup>
-    <ItemGroup>
-        <PackageReference Include="SharpFuzz" PrivateAssets="all" />
-        <ProjectReference Include="../../../libs/csharp/Rasm.Materials/Rasm.Materials.csproj" />
-    </ItemGroup>
-</Project>

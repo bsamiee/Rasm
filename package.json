@@ -101,7 +101,7 @@
         "workspaces": {
             ".": {
                 "ignoreFiles": [
-                    "tests/tools/ast-grep/**/*.{ts,tsx,mts,cts}"
+                    "tests/ast-grep/**/*.{ts,tsx,mts,cts}"
                 ],
                 "ignoreDependencies": [
                     "^@anthropic-ai/tokenizer$",

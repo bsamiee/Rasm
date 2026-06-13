@@ -97,7 +97,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "ast-grep-py",
         PNPM,
-        ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^no-", "--error", "tests/tools/ast-grep/fail", "--no-color"),
+        ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^no-", "--error", "tests/ast-grep/fail", "--no-color"),
         FILES,
         PY,
         Claim.TEST,
@@ -128,6 +128,7 @@ TOOLS: tuple[Tool, ...] = (
         Claim.TEST,
         mode=Mode.MUTATION,
         groups=("mutation",),
+        timeout=3600.0,
         stage=Stage(
             root=".artifacts/python/mutmut/work",
             inputs=("pyproject.toml", ".gitignore", ".config/coverage-mutmut.ini", "tools/assay", "tests/python"),
@@ -146,7 +147,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "ast-grep-ts",
         PNPM,
-        ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^ts-domain-", "--error", "tests/tools/ast-grep/fail", "--no-color"),
+        ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^ts-domain-", "--error", "tests/ast-grep/fail", "--no-color"),
         FILES,
         TS,
         Claim.TEST,
@@ -157,6 +158,9 @@ TOOLS: tuple[Tool, ...] = (
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error", "--verify-no-changes"), INCLUDE, CS, Claim.STATIC),
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error"), INCLUDE, CS, Claim.STATIC, mode=Mode.WRITE),
     Tool("dotnet-restore", DOTNET, ("restore", "--locked-mode"), PROJECT, CS, Claim.STATIC, mode=Mode.RESTORE),
+    # Effective argv gains two ArtifactScope-templated surfaces: the engine splices --artifacts-path from the
+    # build-closure scope, and the static rail pins -p:CspSarifDir=<run-scope>/sarif (inert until the conditioned
+    # ErrorLog lands in Directory.Build.props); fold() decodes the SARIF drops as evidence rows, never exit-code input.
     Tool("dotnet-build", DOTNET, ("build", "--no-restore", "-v:quiet", "/clp:ErrorsOnly"), PROJECT, CS, Claim.STATIC, mode=Mode.BUILD),
     Tool("dotnet-test", DOTNET, ("test", "--minimum-expected-tests", "1"), PROJECT, CS, Claim.TEST, mode=Mode.RUN),
     Tool("dotnet-test", DOTNET, ("test", "--list-tests"), PROJECT, CS, Claim.TEST, mode=Mode.LIST),

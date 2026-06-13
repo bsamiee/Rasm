@@ -1,0 +1,12 @@
+{
+  "bracket": "poison",
+  "poisonedEndpoint": {
+    "pipeName": "",
+    "rhinoPid": 40344,
+    "rhinoStartedAtUnixMs": 1781298555093,
+    "contractVersion": 0,
+    "shellVersion": "",
+    "rhinoVersion": "9.0.26160.12306",
+    "fault": "shell assembly absent at '/Users/bardiasamiee/Library/Application Support/McNeel/Rhinoceros/packages/9.0/rasm-bridge-next/1.0.0/Rasm.Bridge.Shell.dll'"
+  }
+}

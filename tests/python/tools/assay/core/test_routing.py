@@ -24,11 +24,12 @@ from upath import UPath
 
 from tests.python._testkit.laws import register_law, spec
 from tests.python._testkit.spec import assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
-from tools.assay.core.model import Claim, Fault, Input, Language, Mode, Runner, Tool
+from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, Runner, Tool
 from tools.assay.core.routing import (  # private probes: read/parse degradation arms are unreachable through public route fixtures
     _LocalSource,
     _owner,
     _refs,
+    expand,
     infer_languages,
     place,
     routable_files,
@@ -123,14 +124,28 @@ class _GraphSource(Source):
         return Ok(self._CSPROJ.get(rel, b"<Project />"))
 
 
+class _HostGraphSource(_GraphSource):
+    """_GraphSource variant where App alone carries the explicit AssayHostBound marker."""
+
+    _CSPROJ: ClassVar[dict[str, bytes]] = {
+        **_GraphSource._CSPROJ,
+        "src/App/App.csproj": (
+            b"<Project><PropertyGroup><AssayHostBound>true</AssayHostBound></PropertyGroup>"
+            b'<ItemGroup><ProjectReference Include="..\\Lib\\Lib.csproj" /></ItemGroup></Project>'
+        ),
+    }
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
+
+_HOST_ROUTED = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"), host_bound=("src/App/App.csproj",))
 
 _PY_TOOL = Tool(
     name="py-check", runner=Runner.UV, command=("ruff", "check"), input=Input.FILES, language=Language.PYTHON, claim=Claim.CODE, mode=Mode.CHECK
 )
 
 # Mirrors AssaySettings.probe_fixture_prefixes — keeps prefix-stripping law parametrization in sync with settings.
-_DEFAULT_PREFIXES: tuple[str, ...] = ("tests/tools/ast-grep/", "tests/python/tools/py_analyzer/")
+_DEFAULT_PREFIXES: tuple[str, ...] = ("tests/ast-grep/", "tests/python/tools/py_analyzer/")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -623,6 +638,97 @@ def test_route_escalation_honours_settings_triggers(
     settings = assay_root.settings.model_copy(update=update)
     routed = assert_ok(route(Language.CSHARP, source=_GraphSource(changed), settings=settings))
     assert routed.scope is expected_scope
+
+
+# --- [HOST_BOUND_LAWS] ----------------------------------------------------------------------
+
+register_law(route, "route_classifies_host_bound_by_marker_only")
+
+
+def test_route_classifies_host_bound_by_marker_only(assay_root: AssayHarness) -> None:
+    """ONLY the explicit AssayHostBound marker classifies; the closure itself is unaffected (BUILD-lane keep).
+
+    Core changes; the closure is {Core, Lib, App}; App alone carries ``<AssayHostBound>true</AssayHostBound>``.
+    ``host_bound`` must be exactly (App,) while ``projects`` still carries the full closure, and the unmarked
+    graph yields an empty partition. Falsifies: deriving the partition from path shape or host-assembly
+    awareness (no path or reference in the graph distinguishes App), dropping host projects from ``projects``
+    (BUILD lanes would lose them), and a marker read that is case-sensitive or matches non-``true`` text.
+    """
+    marked = assert_ok(route(Language.CSHARP, source=_HostGraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
+    assert marked.projects == ("src/App/App.csproj", "src/Core/Core.csproj", "src/Lib/Lib.csproj")
+    assert marked.host_bound == ("src/App/App.csproj",)
+    unmarked = assert_ok(route(Language.CSHARP, source=_GraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
+    assert unmarked.host_bound == ()
+
+
+register_law(place, "place_host_bound_lane_partition")
+
+
+@pytest.mark.parametrize(
+    "mode,expected",
+    [
+        (Mode.RUN, (("src/Lib/Lib.csproj",),)),
+        (Mode.LIST, (("src/Lib/Lib.csproj",),)),
+        (Mode.RESTORE, (("src/App/App.csproj",), ("src/Lib/Lib.csproj",))),
+        (Mode.BUILD, (("src/App/App.csproj",), ("src/Lib/Lib.csproj",))),
+    ],
+    ids=["run-drops", "list-drops", "restore-keeps", "build-keeps"],
+)
+def test_place_host_bound_lane_partition(mode: Mode, expected: tuple[tuple[str, ...], ...], assay_root: AssayHarness) -> None:
+    """TEST lanes (RUN/LIST) drop host-bound projects from PROJECT placement; RESTORE/BUILD lanes keep them.
+
+    Falsifies the lane discriminant cluster: filtering on RESTORE/BUILD (host projects stop compiling),
+    keeping on RUN/LIST (managed ``dotnet test`` executes a native P/Invoke and dies at runtime), and
+    membership tested against ``projects`` instead of ``host_bound``.
+    """
+    tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=mode)
+    assert place(_HOST_ROUTED, tool, settings=assay_root.settings) == expected
+
+
+register_law(place, "place_host_emptied_never_resurrects_fallback")
+register_law(expand, "expand_drops_host_emptied_project_check")
+
+
+def test_host_emptied_placement_drops_check(assay_root: AssayHarness) -> None:
+    """An all-host-bound closure yields zero TEST invocations: no fallback resurrection, no bare unpinned check.
+
+    place(LIST) must NOT fall back to ``settings.test_target`` when the route HAD projects — the fallback
+    exists for empty routes only; expand must remove the RUN check entirely, because an unpinned zero-tail
+    PROJECT check composes a bare ``dotnet test`` against the whole tree. The BUILD check survives untouched,
+    and the empty-route fallback (pinned by place_project_list_fallback_to_test_target) stays intact.
+    """
+    routed = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj",), host_bound=("src/App/App.csproj",))
+    run_tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=Mode.RUN)
+    list_tool = msgspec.structs.replace(run_tool, mode=Mode.LIST)
+    build_tool = msgspec.structs.replace(run_tool, mode=Mode.BUILD)
+    assert place(routed, list_tool, settings=assay_root.settings) == ()
+    assert expand((Check(tool=run_tool), Check(tool=build_tool)), routed, settings=assay_root.settings) == (Check(tool=build_tool),)
+
+
+register_law(Routed, "closure_note_names_host_routed")
+
+
+def test_closure_note_names_host_routed() -> None:
+    """closure_note emits a partition head row, plus a names row exactly when host-routed projects exist."""
+    support_matrix(
+        ("no projects yields empty", lambda: Routed(Language.CSHARP, Scope.CHANGED).closure_note() == (), True),
+        (
+            "managed-only yields single head row",
+            lambda: (
+                Routed(Language.CSHARP, Scope.CHANGED, projects=("a.csproj",)).closure_note()
+                == ("closure[csharp]: included=1 excluded=0 cached=0 host-routed=0",)
+            ),
+            True,
+        ),
+        (
+            "host subset yields head plus names rows",
+            lambda: (
+                _HOST_ROUTED.closure_note()
+                == ("closure[csharp]: included=1 excluded=0 cached=0 host-routed=1", "host-routed[csharp]: src/App/App.csproj")
+            ),
+            True,
+        ),
+    )
 
 
 register_law(place, "place_project_list_fallback_to_test_target")

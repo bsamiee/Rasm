@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <AssemblyName>Csp.Contracts</AssemblyName>
+        <RootNamespace>Rasm.Csp</RootNamespace>
+        <CspScope>Tooling</CspScope>
+        <!-- Zero-dependency contract assembly referenced normally by every project: skip workspace
+             runtime-library/using injection and the analyzer reference (tooling self-skip). -->
+        <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
+        <SkipLocalCSharpAnalyzerReference>true</SkipLocalCSharpAnalyzerReference>
+        <!-- CA1008: CspScope is a closed vocabulary; a `None` row would be an
+             invalid scope. IDE0130: BoundaryContracts.cs keeps its consumed legacy namespace
+             (Foundation.CSharp.Analyzers.Contracts) so production call sites resolve through
+             this assembly unchanged. -->
+        <NoWarn>$(NoWarn);CA1008;IDE0130</NoWarn>
+    </PropertyGroup>
+</Project>

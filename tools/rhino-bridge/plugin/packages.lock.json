@@ -29,9 +29,13 @@
         "resolved": "10.2.0",
         "contentHash": "dakjsj9+k/faX/Ff0Ez+jcV6bqdJ+6fem4sXkNZDL3qZwtyp4SGfZgRHDiOEWrkgq/WBoZWiE+MOaBoXiXObbw=="
       },
+      "csp.contracts": {
+        "type": "Project"
+      },
       "rasm.rhinobridge.protocol": {
         "type": "Project",
         "dependencies": {
+          "Csp.Contracts": "[1.0.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }

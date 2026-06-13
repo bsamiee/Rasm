@@ -5,6 +5,8 @@
         <RootNamespace>Rasm.RhinoBridge</RootNamespace>
         <RhinoPluginAssemblyGuid>c6a6b65c-4c58-485e-bd50-f805d14abe42</RhinoPluginAssemblyGuid>
         <YakPackageSlug>rasm-bridge</YakPackageSlug>
+        <!-- Load-identity stamp: doctor surfaces bridgeAssemblyInformationalVersion; proves which build the host loaded. -->
+        <InformationalVersion>1.0.3-langreg</InformationalVersion>
     </PropertyGroup>
 
     <ItemGroup>

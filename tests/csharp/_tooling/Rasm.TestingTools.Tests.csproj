@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <SolutionDir>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..'))</SolutionDir>
-        <SolutionName>Workspace</SolutionName>
-    </PropertyGroup>
-    <ItemGroup>
-        <PackageReference Include="Verify.XunitV3" PrivateAssets="all" />
-    </ItemGroup>
-</Project>

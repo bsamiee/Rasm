@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Local durable-state package setup and doctrine for projection, migration, snapshots, redaction, cache, and support artifacts.</Description>
+        <CspScope>Boundary</CspScope>
     </PropertyGroup>
 
     <ItemGroup>
@@ -19,7 +20,6 @@
         <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" />
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" />
         <PackageReference Include="Npgsql.OpenTelemetry" />
         <PackageReference Include="Pgvector.EntityFrameworkCore" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
@@ -32,8 +32,6 @@
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="Sep" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />

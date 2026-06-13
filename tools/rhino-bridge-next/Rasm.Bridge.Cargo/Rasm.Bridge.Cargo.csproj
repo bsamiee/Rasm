@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Collectible-ALC cargo for the rebuilt runtime bridge: in-host scenario discovery, capability probes, crash-durable evidence spool, GH2 render lane.</Description>
+        <RootNamespace>Rasm.Bridge.Cargo</RootNamespace>
+        <!-- tools/rhino-bridge-next sits outside the path-derived classification roots; posture is
+             declared explicitly. Cargo is the hot-swappable layer: workspace libraries flow
+             (LanguageExt/Thinktecture ride the cargo ALC as per-swap copies) and the
+             RhinoCommon/GH2/Eto host surface arrives via the bundle HintPaths (Private=false).
+             EnableDynamicLoading ships the full restored closure + deps.json the shell's
+             CargoLoadContext resolver consumes. -->
+        <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>
+        <IsRhinoUiAwareProject>true</IsRhinoUiAwareProject>
+        <!-- NeedsRhinoHostUiSurface and the CA1416 NoWarn are DERIVED in Directory.Build.props
+             before this file's classification overrides exist; both are restated here so the
+             Eto/Rhino.UI/System.Drawing reference groups and the platform-annotation posture
+             match the path-classified host-aware projects. -->
+        <NeedsRhinoHostUiSurface>true</NeedsRhinoHostUiSurface>
+        <NoWarn>$(NoWarn);CA1416</NoWarn>
+        <CspScope>Boundary</CspScope>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+        <InformationalVersion>0.1.0-cargo</InformationalVersion>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../Rasm.Bridge.Contract/Rasm.Bridge.Contract.csproj" />
+        <ProjectReference Include="../../../tests/csharp/_testkit/Rasm.TestKit.csproj" />
+    </ItemGroup>
+</Project>

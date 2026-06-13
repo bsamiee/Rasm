@@ -78,7 +78,7 @@ from tools.assay.rails import (
 )
 from tools.assay.rails.api import ApiParams
 from tools.assay.rails.bridge import BridgeParams
-from tools.assay.rails.code import CodeParams
+from tools.assay.rails.code import _cap_note, CodeParams  # noqa: PLC2701  # _cap_note: single truncation-note grammar owner
 from tools.assay.rails.docs import DocsParams, FaultedPromotion
 from tools.assay.rails.package import PackageParams
 from tools.assay.rails.static import StaticParams
@@ -118,6 +118,23 @@ _PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
     (Runner.UV.prefix, "uv.lock"),
     (Runner.PNPM.prefix, "pnpm-lock.yaml"),
 )
+# Help-truth usage slots: the claim default names the polymorphic positional surface; verb overrides
+# name the slots that BaseParams.bound projects out of paths (pattern/symbol/key/token stay legal tokens).
+_CLAIM_SLOTS: Final[dict[Claim, str]] = {
+    Claim.STATIC: "[PATHS]...",
+    Claim.CODE: "PATTERN [PATHS]...",
+    Claim.TEST: "[PATHS]...",
+    Claim.BRIDGE: "",
+    Claim.PACKAGE: "",
+    Claim.API: "",
+    Claim.DOCS: "[PATHS]...",
+}
+_VERB_SLOTS: Final[dict[tuple[Claim, str], str]] = {
+    (Claim.BRIDGE, "verify"): "[PATTERN]",
+    (Claim.API, "resolve"): "[KEY [KIND]]",
+    (Claim.API, "query"): "[SYMBOL]",
+    (Claim.API, "show"): "[TOKEN]",
+}
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -242,27 +259,17 @@ def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -
     return (Artifact(id="full-report", kind=ArtifactKind.HISTORY, path=path, bytes=size, lines=0),)
 
 
-def _cap_note(report: Report, run_id: str) -> str:
-    # In-band N-of-M note replaces the former stderr side-channel; converges on the rails/code.py _cap_note grammar
-    # (results: {shown} of {total} (cap={cap})) with the registry's full-report suffix. The cap that fired (results
-    # before artifacts) owns the (shown, total, cap) triple; the full report rides the persisted HISTORY artifact.
-    shown, total, cap = (
-        (_RESULT_CAP, len(report.results), _RESULT_CAP)
-        if len(report.results) > _RESULT_CAP
-        else (_ARTIFACT_CAP, len(report.artifacts), _ARTIFACT_CAP)
-    )
-    return f"results: {shown} of {total} (cap={cap}); full report artifact under {run_id}"
-
-
 def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report) -> Envelope:
     # FAILED reports carry a Diagnostic built from defect result rows, matching the fault-rail shape.
+    # The in-band N-of-M note rides the rails/code.py _cap_note grammar with the registry's full-report
+    # suffix; the cap that fired (results before artifacts) owns the (shown, total) pair.
     truncated = len(report.results) > _RESULT_CAP or len(report.artifacts) > _ARTIFACT_CAP
     if truncated:
         artifact = _full_report_artifact(settings, bind, report)
         artifacts = ((*artifact, *report.artifacts) if artifact else report.artifacts)[:_ARTIFACT_CAP]
-        report = msgspec.structs.replace(
-            report, results=report.results[:_RESULT_CAP], artifacts=artifacts, notes=(*report.notes, _cap_note(report, settings.run_id))
-        )
+        cap, total = (_RESULT_CAP, len(report.results)) if len(report.results) > _RESULT_CAP else (_ARTIFACT_CAP, len(report.artifacts))
+        note = _cap_note(cap, total, cap, tail=f"full report artifact under {settings.run_id}")
+        report = msgspec.structs.replace(report, results=report.results[:_RESULT_CAP], artifacts=artifacts, notes=(*report.notes, *note))
     failed = tuple(m for m in report.results if m.severity == "failed")
     defect_events = tuple(f"{m.id}: {m.text[:120]}" for m in failed)
     ctx = (
@@ -827,21 +834,26 @@ def _leaf(bind: Bind) -> Callable[[object], Envelope]:
     return command
 
 
+def _usage(bind: Bind) -> str:
+    slots = _VERB_SLOTS.get((bind.claim, bind.verb), _CLAIM_SLOTS[bind.claim])
+    return " ".join(part for part in ("Usage: assay", bind.claim.value, bind.verb, slots, "[OPTIONS]") if part)
+
+
 def _register[**P](
     app: App,
     obj: App | Callable[P, object],
     *,
     name: str | None = None,
     help: str = "",  # noqa: A002  # cyclopts names this kwarg "help"; intentional shadow
+    usage: str | None = None,
 ) -> App:
     # App.command returns the registered sub-app, not the parent; returning app keeps reduce folds linear.
-    match (name, help):
-        case (None, _):
+    extras: dict[str, str] = {key: value for key, value in (("help", help), ("usage", usage)) if value}
+    match name:
+        case None:
             app.command(obj)
-        case (verb, ""):
-            app.command(obj, name=verb)
-        case (verb, text):
-            app.command(obj, name=verb, help=text)
+        case verb:
+            app.command(obj, name=verb, **extras)
     return app
 
 
@@ -876,7 +888,11 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     )
     keyed = sorted(registry, key=lambda b: b.claim.value)
     subs = tuple(
-        reduce(lambda app, row: _register(app, _leaf(row), name=row.verb, help=row.help), tuple(rows), App(name=claim.value, version_flags=()))
+        reduce(
+            lambda app, row: _register(app, _leaf(row), name=row.verb, help=row.help, usage=_usage(row)),
+            tuple(rows),
+            App(name=claim.value, version_flags=(), usage=f"Usage: assay {claim.value} COMMAND"),
+        )
         for claim, rows in groupby(keyed, key=attrgetter("claim"))
     )
     app = reduce(_register, subs, root)

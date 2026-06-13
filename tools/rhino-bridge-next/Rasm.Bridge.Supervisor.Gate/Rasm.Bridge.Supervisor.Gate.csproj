@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Phase-2 fault-injection gate harness for the rebuilt supervisor: drives HostControl/Evidence kernels against live processes (stand-ins plus a Rhino it launches itself) and prints a matrix row->outcome table. Scaffolding: never enters Workspace.slnx; superseded by the spec suite at closeout.</Description>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Rasm.Bridge.Supervisor.Gate</RootNamespace>
+        <CspScope>Boundary</CspScope>
+        <!-- Gate scaffolding: fault-injection choreography is statement-shaped by nature; style
+             escalation stays off here so the matrix reads as the sequence it is. -->
+        <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <NoWarn>$(NoWarn);StreamJsonRpc0008;IDE0058;CA1303;CA1031;CA2007;MA0004;MA0051;CA1849;MA0042;CA1859;MA0003;MA0006;MA0020;MA0032;MA0078</NoWarn>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../Rasm.Bridge.Supervisor/Rasm.Bridge.Supervisor.csproj" />
+    </ItemGroup>
+</Project>

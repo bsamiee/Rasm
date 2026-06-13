@@ -7,7 +7,7 @@ falsifiable law. The fold count invariant and Report arithmetic are asserted via
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from typing import get_args
+from typing import get_args, TYPE_CHECKING
 
 from hypothesis import example, given, strategies as st, target
 import msgspec
@@ -84,6 +84,10 @@ from tools.assay.core.model import (
     wire_safe,
 )
 from tools.assay.core.status import RailStatus
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -206,6 +210,74 @@ def test_fold_failed_stderr_reaches_results_text() -> None:
     report = fold(Claim.STATIC, "check", (receipt(("tool",), 1, stderr=marker),))
     assert report.results
     assert marker.decode() in report.results[0].text
+
+
+# --- [SARIF_FOLD]
+
+
+def _sarif_result(rule: str, level: str | None, line: int, message: str) -> dict[str, object]:
+    location = {"physicalLocation": {"artifactLocation": {"uri": "src/Probe.cs"}, "region": {"startLine": line, "startColumn": 1}}}
+    base: dict[str, object] = {"ruleId": rule, "message": {"text": message}, "locations": [location]}
+    return base if level is None else {**base, "level": level}
+
+
+def _sarif_doc(*results: dict[str, object], runs: int = 1) -> bytes:
+    run = {"tool": {"driver": {"name": "Microsoft (R) Visual C# Compiler", "rules": []}}, "columnKind": "utf16CodeUnits", "results": list(results)}
+    return msgspec.json.encode({"$schema": "https://json.schemastore.org/sarif-2.1.0.json", "version": "2.1.0", "runs": [run] * runs})
+
+
+def _sarif_drop(tmp_path: Path, **files: bytes) -> str:
+    sarif_dir = tmp_path / "sarif"
+    sarif_dir.mkdir(exist_ok=True)
+    for name, payload in files.items():
+        (sarif_dir / f"{name}.sarif").write_bytes(payload)
+    return str(sarif_dir)
+
+
+@pytest.mark.parametrize(
+    "level, severity",
+    [("error", "error"), ("warning", "warning"), ("note", "info"), ("none", "info"), (None, "warning")],
+    ids=["error", "warning", "note_rides_info", "none_rides_info", "absent_defaults_warning"],
+)
+def test_fold_sarif_level_maps_to_assay_severity(level: str | None, severity: str, tmp_path: Path) -> None:
+    """SARIF levels map error/warning verbatim, note and none to info (CSP0903 rides note), absent to the SARIF default warning."""
+    sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0903", level, 12, "tone probe")))
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
+    assert [(m.id, m.severity, m.line) for m in report.results] == [("csp0903", severity, 12)]
+    assert "src/Probe.cs" in report.results[0].text
+    assert "tone probe" in report.results[0].text
+
+
+def test_fold_sarif_rows_are_evidence_only(tmp_path: Path) -> None:
+    """SARIF rows ride results across files and runs without touching status, counts, or exit code; malformed drops fold silently."""
+    sarif_dir = _sarif_drop(
+        tmp_path,
+        a=_sarif_doc(_sarif_result("CSP0101", "error", 3, "alpha"), _sarif_result("CSP0202", "warning", 7, "beta")),
+        b=_sarif_doc(_sarif_result("CSP0903", "note", 1, "gamma"), runs=2),
+        broken=b"{ not sarif",
+    )
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
+    assert [m.id for m in report.results] == ["csp0101", "csp0202", "csp0903", "csp0903"]
+    assert report.status is RailStatus.OK, "error-level SARIF evidence must not flip the rail status"
+    assert report.counts == Counts(ok=1, failed=0, total=1)
+    assert envelope(report, claim=Claim.STATIC, verb="build").exit_code == 0
+
+
+def test_fold_sarif_rows_follow_defect_rows(tmp_path: Path) -> None:
+    """Defect tail rows precede SARIF evidence rows in one results stream; exit code derives from outcomes alone."""
+    sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0101", "error", 3, "alpha")))
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 1, stderr=b"CS0103: boom"),), sarif_dir=sarif_dir)
+    assert [(m.id, m.severity) for m in report.results] == [("dotnet", "failed"), ("csp0101", "error")]
+    assert report.status is RailStatus.FAILED
+    assert report.counts == Counts(ok=0, failed=1, total=1)
+
+
+def test_fold_sarif_absent_or_empty_dir_is_silent(tmp_path: Path) -> None:
+    """A None, missing, or empty sarif directory contributes no rows and leaves the fold untouched."""
+    for sarif_dir in (None, str(tmp_path / "missing" / "sarif"), _sarif_drop(tmp_path)):
+        report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
+        assert report.results == ()
+        assert report.status is RailStatus.OK
 
 
 # --- [ENVELOPE]

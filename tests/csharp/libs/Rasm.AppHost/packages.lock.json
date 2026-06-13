@@ -75,15 +75,6 @@
         "resolved": "17.14.15",
         "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
       },
-      "NodaTime.Testing": {
-        "type": "Direct",
-        "requested": "[3.3.2, )",
-        "resolved": "3.3.2",
-        "contentHash": "QtluHon9TOnmcgzMUvViyroYdnyZ7fTi1rdInOb6kYXTLaoEicpZf/XCoqM61whI3blABphjIUNTac4Ea1aOMg==",
-        "dependencies": {
-          "NodaTime": "3.3.2"
-        }
-      },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
         "requested": "[10.2.0, )",
@@ -120,14 +111,6 @@
         "type": "Transitive",
         "resolved": "10.0.9",
         "contentHash": "jCmHpoCeNbyjj71mnex2+fsCWtQINKrv8IL5xnuskQN8vQb5UA8ac+rWbt/jHeiSoH5gVlA8o20+XmWRKJuJWQ=="
-      },
-      "Microsoft.Diagnostics.NETCore.Client": {
-        "type": "Transitive",
-        "resolved": "0.2.607501",
-        "contentHash": "17Yxzao41A1oZZ5lCCAnnXOy9up5i/GVEGazBjJAUZ4UISsNAotUt6h7zvCDgfKIC46CD7jszgLzLZoscSIJQA==",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "6.0.4"
-        }
       },
       "Microsoft.Extensions.AmbientMetadata.Application": {
         "type": "Transitive",
@@ -501,10 +484,14 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
+      "csp.contracts": {
+        "type": "Project"
+      },
       "rasm": {
         "type": "Project",
         "dependencies": {
           "CSparse": "[4.4.0, )",
+          "Csp.Contracts": "[1.0.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "MathNet.Symbolics": "[0.25.0, )",
@@ -515,6 +502,7 @@
         "type": "Project",
         "dependencies": {
           "Cronos": "[0.13.0, )",
+          "Csp.Contracts": "[1.0.0, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
@@ -538,7 +526,6 @@
           "Microsoft.Extensions.Options": "[10.0.9, )",
           "Microsoft.Extensions.Telemetry": "[10.7.0, )",
           "Microsoft.Extensions.Telemetry.Abstractions": "[10.7.0, )",
-          "NodaTime": "[3.3.2, )",
           "OpenTelemetry": "[1.16.0, )",
           "OpenTelemetry.Extensions.Hosting": "[1.16.0, )",
           "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
@@ -555,6 +542,7 @@
       "rasm.rhinobridge.protocol": {
         "type": "Project",
         "dependencies": {
+          "Csp.Contracts": "[1.0.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
@@ -562,6 +550,7 @@
       "rasm.testkit": {
         "type": "Project",
         "dependencies": {
+          "Csp.Contracts": "[1.0.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Rasm": "[1.0.0, )",
           "Rasm.RhinoBridge.Protocol": "[1.0.0, )",
@@ -638,6 +627,15 @@
           "FSharp.Core": "8.0.100",
           "MathNet.Numerics": "6.0.0-beta1",
           "MathNet.Numerics.FSharp": "6.0.0-beta1"
+        }
+      },
+      "Microsoft.Diagnostics.NETCore.Client": {
+        "type": "CentralTransitive",
+        "requested": "[0.2.661903, )",
+        "resolved": "0.2.661903",
+        "contentHash": "3ISv5jXar4dHBt/7Rz3YdnR3VpnC94BhSdSvuq8ZuKgCOcVuTdmgRnq0hUzJyL/z8Ge4VekFjhui2aufUXPdvg==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.3"
         }
       },
       "Microsoft.Extensions.Caching.Hybrid": {
@@ -913,12 +911,6 @@
         "dependencies": {
           "Microsoft.Testing.Platform": "2.2.3"
         }
-      },
-      "NodaTime": {
-        "type": "CentralTransitive",
-        "requested": "[3.3.2, )",
-        "resolved": "3.3.2",
-        "contentHash": "8hI5b1ENTKQCaPyU6YHpYiMwj5aJKZ4Mnv0bLbhk65Dd44gQsXenUohMzyiIphANa8LdW6vcOvpY/l1urvx4dw=="
       },
       "OpenTelemetry": {
         "type": "CentralTransitive",

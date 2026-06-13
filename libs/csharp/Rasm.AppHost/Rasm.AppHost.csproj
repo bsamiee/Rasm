@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Runtime spine package setup and neutral composition doctrine for Rasm app packages.</Description>
+        <CspScope>Composition</CspScope>
     </PropertyGroup>
 
     <ItemGroup Label="Runtime Spine">
@@ -27,7 +28,6 @@
         <PackageReference Include="Microsoft.Extensions.Options" />
         <PackageReference Include="Microsoft.Extensions.Telemetry" />
         <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
-        <PackageReference Include="NodaTime" />
         <PackageReference Include="OpenTelemetry" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Http" />

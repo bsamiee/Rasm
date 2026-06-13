@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Measured execution package setup and lane doctrine for vector, tensor, model, and remote compute work.</Description>
+        <CspScope>Application</CspScope>
     </PropertyGroup>
 
     <ItemGroup>
@@ -17,7 +18,6 @@
         <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" />
-        <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UnitsNet" />

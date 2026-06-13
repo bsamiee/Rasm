@@ -60,7 +60,7 @@ from tools.assay.core.model import (
     SymbolShape,
     Tool,
 )
-from tools.assay.core.routing import Routed, Scope
+from tools.assay.core.routing import parse_csproj, Routed, Scope
 from tools.assay.core.status import RailStatus
 from tools.assay.rails.code import _cap_note, _node_text, ts_language, ts_query  # noqa: PLC2701  # shared rail primitives owned by code.py
 
@@ -348,16 +348,10 @@ def _frameworks(root: Path) -> tuple[str, ...]:
 
 def _project_references(path: Path) -> tuple[str, ...]:
     try:
-        root = ET.fromstring(path.read_bytes())  # noqa: S314  # trusted local project XML
-    except OSError, ET.ParseError:
+        raw = path.read_bytes()
+    except OSError:
         return ()
-    return tuple(
-        ref
-        for node in root.iter()
-        for ref in ((node.get("Include") or node.get("Update") or "").casefold(),)
-        if node.tag.rpartition("}")[2] == "PackageReference"
-        if ref
-    )
+    return tuple(ref.casefold() for ref in parse_csproj(raw, "PackageReference", "Include", "Update"))
 
 
 @lru_cache(maxsize=8)

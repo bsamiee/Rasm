@@ -107,6 +107,8 @@ _DOTNET_SHARED_RUNTIME: tuple[str, str] = ("shared", "Microsoft.NETCore.App")
 _RETRY_MIN_REMAINING: float = 0.05
 # A zombie or dead holder can never release its flock; both statuses are stale regardless of create-time match.
 _DEAD_STATUSES: frozenset[str] = frozenset({psutil.STATUS_DEAD, psutil.STATUS_ZOMBIE})
+# Foreign-process census names: the dotnet-family processes that contend for the machine across invocations.
+_DOTNET_PROC_NAMES: frozenset[str] = frozenset({"dotnet", "MSBuild", "VBCSCompiler"})
 # Bound at import so a patched psutil module double cannot skew the verdict comparison.
 _DISK_WAIT_STATUS: str = psutil.STATUS_DISK_SLEEP
 # Fixed stall thresholds: a silent child is diagnosed once after 30s over a 5s sample window; predictability beats adaptive tuning.
@@ -227,20 +229,29 @@ def _overlay(tool: Tool, settings: AssaySettings, scope: ArtifactScope | None) -
             return base
 
 
-def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: ArtifactScope | None) -> tuple[str, ...]:
+def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: ArtifactScope | None) -> Result[tuple[str, ...], Fault]:
     tool = check.tool
     body = splice_command(tool.runner, tool.command, scope, settings.scoped_verbs, tool.mode)
     body = (*(part for group in tool.groups for part in ("--group", group)), *body) if tool.runner is Runner.UV else body
     body = ("--project", str(settings.root), *body) if tool.runner is Runner.UV and tool.stage.project else body
-    tails = place(routed, tool, settings=settings)
-    return (*tool.runner.prefix, *body, *(part for tail in tails for part in tail))
+    match check.tail:
+        case tuple() as pinned:
+            return Ok((*tool.runner.prefix, *body, *pinned))
+        case None:
+            tails = place(routed, tool, settings=settings)
+            match tails:
+                case () | (_,):
+                    return Ok((*tool.runner.prefix, *body, *(part for tail in tails for part in tail)))
+                case _:
+                    return Error(Fault((tool.name,), message=f"incoherent closure: {len(tails)} tails for one check"))
 
 
-def argv_for(check: Check, routed: Routed, *, settings: AssaySettings, scope: ArtifactScope | None) -> tuple[str, ...]:
+def argv_for(check: Check, routed: Routed, *, settings: AssaySettings, scope: ArtifactScope | None) -> Result[tuple[str, ...], Fault]:
     """Project the exact argv the engine would execute for a check.
 
     Returns:
-        Command argv after runner, scope, stage, and routed inputs are applied.
+        Command argv after runner, scope, stage, pinned tail, and routed inputs are applied;
+        a Fault when an unpinned check resolves to a multi-tail placement.
     """
     return _argv(check, routed, settings=settings, scope=scope)
 
@@ -491,19 +502,11 @@ def _signal_phase(procs: tuple[psutil.Process, ...], pgid: int | None, sig: sign
 def _child_pgid(pid: int) -> int | None:
     # start_new_session=True makes every spawned child a session leader owning its own group; a pgid
     # matching the engine's own group means killpg would take the engine down with the child.
-    try:
-        pgid = _GETPGID(pid)
-    except ProcessLookupError, PermissionError:
-        return None
-    return pgid if pgid != _GETPGID(0) else None
+    return _safe_call(lambda: pgid if (pgid := _GETPGID(pid)) != _GETPGID(0) else None, None)
 
 
 def _reap_tree(pid: int) -> None:
-    try:
-        root = psutil.Process(pid)
-        _terminate_process_tree((root, *root.children(recursive=True)), _child_pgid(pid))
-    except psutil.Error, ValueError:
-        return
+    _safe_call(lambda: _terminate_process_tree(((root := psutil.Process(pid)), *root.children(recursive=True)), _child_pgid(pid)), None)
 
 
 def _stall_sample(pid: int) -> _StallSample:
@@ -779,11 +782,11 @@ def _children(proc: psutil.Process) -> dict[str, float]:
     def _rss(child: psutil.Process) -> float:
         return _safe_call(lambda: float(child.memory_info().rss), 0.0)
 
-    try:
+    def _walk() -> dict[str, float]:
         kids = tuple(proc.children(recursive=True))
         return {"proc.children": float(len(kids)), "proc.children_rss_bytes": float(sum(_rss(child) for child in kids))}
-    except psutil.Error, TypeError, ValueError, AttributeError:
-        return {}
+
+    return _safe_call(_walk, {})
 
 
 def _diagnose(exc: BaseException) -> None:
@@ -796,7 +799,7 @@ def _diagnose(exc: BaseException) -> None:
     span.add_event(_RING_SNAPSHOT, attributes={"events": ring_recent()})
 
 
-async def _guarded(
+async def _guarded(  # noqa: PLR0912, PLR0914  # the materialize/argv Result rails plus the closed spawn-fault fold own every branch; locals are sequential pipeline stages
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[Completed, Fault]:
     import asyncssh  # noqa: PLC0415  # lazy: must bind before the try frame whose except evaluates asyncssh.Error (not an OSError subclass)
@@ -807,7 +810,11 @@ async def _guarded(
             check = prepared
         case Result(error=fault):
             return Error(fault)
-    argv = _argv(check, routed, settings=settings, scope=scope)
+    match _argv(check, routed, settings=settings, scope=scope):
+        case Result(tag="ok", ok=composed):
+            argv = composed
+        case Result(error=fault):
+            return Error(fault)
     bound = deadline if deadline is not None else (time.monotonic() + check.tool.timeout if check.tool.timeout is not None else None)
     t0 = time.monotonic()
     attempts = [1]
@@ -1090,11 +1097,24 @@ def _total(slot: Result[Completed, Fault] | None) -> Result[Completed, Fault]:
             return r
 
 
+def _foreign_dotnet_count() -> int:
+    # The contended machine resource is dotnet-family processes; counting them is the honest cross-invocation
+    # pressure unit (load1 stays rejected). Own subtree is excluded so an invocation never throttles on its own fan.
+    own = _safe_call(lambda: {p.pid for p in psutil.Process().children(recursive=True)} | {os.getpid()}, {os.getpid()})
+    return sum(
+        1
+        for proc in _safe_call(lambda: list(psutil.process_iter(["name", "pid"])), [])
+        if (proc.info.get("name") or "") in _DOTNET_PROC_NAMES and proc.info.get("pid") not in own
+    )
+
+
 def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()) -> int:
     """Fold the usable-CPU, DOTNET-runner, and MUTATION-mode ceilings into one concurrency floor.
 
-    Memory-only backpressure: at or above ``_MEM_PRESSURE_PERCENT`` system RAM the folded limit is
-    halved (floor 1) and a ``concurrency.backpressure`` event is emitted.
+    Backpressure halves the folded limit (floor 1) and emits a ``concurrency.backpressure`` event on
+    either signal: system RAM at or above ``_MEM_PRESSURE_PERCENT``, or a foreign dotnet-family process
+    census (dotnet/MSBuild/VBCSCompiler outside this invocation's tree) at or above ``settings.cpu_count``
+    — sibling invocations and direct agent builds share one machine, and the census is the contended unit.
 
     Returns:
         The concurrency limit, at least 1, bounded by ``max_checks``, the mode cap, and ``settings.cpu_count``.
@@ -1105,13 +1125,24 @@ def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()
     limit = max(1, min(settings.max_checks, mode_cap, settings.cpu_count))
     # Load-average backpressure rejected: macOS load1 counts uninterruptible waits, far too noisy a halving signal.
     mem_percent = _safe_call(lambda: float(psutil.virtual_memory().percent), 0.0)
-    match mem_percent >= _MEM_PRESSURE_PERCENT:
-        case True:
-            halved = max(1, limit // 2)
-            _LOG.warning("concurrency.backpressure", sys_mem_percent=mem_percent, limit=limit, backpressure_limit=halved)
-            return halved
+    foreign = _foreign_dotnet_count() if any(c.tool.runner is Runner.DOTNET for c in checks) else 0
+    mem_hot = mem_percent >= _MEM_PRESSURE_PERCENT
+    dotnet_hot = foreign >= settings.cpu_count
+    match mem_hot or dotnet_hot:
         case False:
             return limit
+        case True:
+            halved = max(1, limit // 2)
+            _LOG.warning(
+                "concurrency.backpressure",
+                sys_mem_percent=mem_percent,
+                foreign_dotnet=foreign,
+                mem_pressure=mem_hot,
+                dotnet_pressure=dotnet_hot,
+                limit=limit,
+                backpressure_limit=halved,
+            )
+            return halved
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

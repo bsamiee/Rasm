@@ -160,21 +160,6 @@
           "NetTopologySuite": "[2.0.0, 3.0.0-A)"
         }
       },
-      "NodaTime": {
-        "type": "Direct",
-        "requested": "[3.3.2, )",
-        "resolved": "3.3.2",
-        "contentHash": "8hI5b1ENTKQCaPyU6YHpYiMwj5aJKZ4Mnv0bLbhk65Dd44gQsXenUohMzyiIphANa8LdW6vcOvpY/l1urvx4dw=="
-      },
-      "NodaTime.Serialization.SystemTextJson": {
-        "type": "Direct",
-        "requested": "[1.4.0, )",
-        "resolved": "1.4.0",
-        "contentHash": "jGe0WLNAoRb3efOgsa5iecmMuzP+LNdtw2Rs4N9+2pS4YN+kg8e9Z48Jk47WWebcpqF81YdWT2KNInbXZXTS7w==",
-        "dependencies": {
-          "NodaTime": "[3.0.0, 4.0.0)"
-        }
-      },
       "Npgsql": {
         "type": "Direct",
         "requested": "[10.0.3, )",
@@ -203,16 +188,6 @@
         "dependencies": {
           "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.2",
           "Npgsql.NetTopologySuite": "10.0.3"
-        }
-      },
-      "Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime": {
-        "type": "Direct",
-        "requested": "[10.0.2, )",
-        "resolved": "10.0.2",
-        "contentHash": "FtWhOBjhHGOh+oZpuht5cOC/SzfKR/ECX+/l1taj++cqeBLiLn6HzyimtNDG6eRkze+IRjUf74NkDv1GWI/vxQ==",
-        "dependencies": {
-          "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.2",
-          "Npgsql.NodaTime": "10.0.3"
         }
       },
       "Npgsql.OpenTelemetry": {
@@ -675,15 +650,6 @@
           "NetTopologySuite": "[2.0.0, 3.0.0-A)"
         }
       },
-      "Npgsql.NodaTime": {
-        "type": "Transitive",
-        "resolved": "10.0.3",
-        "contentHash": "6ba1CM/zAoI7bTuBV7cFhTR3qqUsY5FqqqNoOh7dHoFHcyEEpIsMui3mC3Swyc+oyAJG0Zf8DCiXPnAf+sW09A==",
-        "dependencies": {
-          "NodaTime": "3.2.2",
-          "Npgsql": "10.0.3"
-        }
-      },
       "OpenTelemetry.Api": {
         "type": "Transitive",
         "resolved": "1.16.0",
@@ -782,10 +748,14 @@
         "resolved": "10.2.0",
         "contentHash": "dakjsj9+k/faX/Ff0Ez+jcV6bqdJ+6fem4sXkNZDL3qZwtyp4SGfZgRHDiOEWrkgq/WBoZWiE+MOaBoXiXObbw=="
       },
+      "csp.contracts": {
+        "type": "Project"
+      },
       "rasm.apphost": {
         "type": "Project",
         "dependencies": {
           "Cronos": "[0.13.0, )",
+          "Csp.Contracts": "[1.0.0, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
@@ -809,7 +779,6 @@
           "Microsoft.Extensions.Options": "[10.0.9, )",
           "Microsoft.Extensions.Telemetry": "[10.7.0, )",
           "Microsoft.Extensions.Telemetry.Abstractions": "[10.7.0, )",
-          "NodaTime": "[3.3.2, )",
           "OpenTelemetry": "[1.16.0, )",
           "OpenTelemetry.Extensions.Hosting": "[1.16.0, )",
           "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",

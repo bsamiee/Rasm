@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <AssemblyName>Csp.Analyzer</AssemblyName>
+        <RootNamespace>Rasm.Csp</RootNamespace>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <CspScope>Tooling</CspScope>
+        <!-- CA1008: the closed vocabularies (CspScope/Tier/Category/ScopeGate) carry semantic zero
+             members; a `None` row would be an invalid scope/tier value.
+             CA1812: RuleRow/RuleBinding instances are constructed only by per-rule catalog files;
+             the kernel ships with an empty catalog. -->
+        <NoWarn>$(NoWarn);CA1008;CA1812</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Remove="Contracts/**" />
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+        <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+        <InternalsVisibleTo Include="Csp.Analyzer.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="PolySharp" PrivateAssets="all" />
+    </ItemGroup>
+</Project>

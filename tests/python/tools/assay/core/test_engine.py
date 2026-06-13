@@ -3,7 +3,7 @@
 Pure-function laws are oracle-driven via ``tests.python._testkit.spec`` (inverse / monotone / validity_matrix /
 projection_matrix / support_matrix / assert_ok / assert_error_status). The synchronous ``exclusive_lease``
 mutual-exclusion contract is held by the ported ``LeaseStateMachine`` RBSM. ``run_check`` / ``fan_out`` /
-``discover`` are exercised through real subprocess / loopback / psutil-double seams (no mocks of the boundary).
+``discover`` are exercised through real subprocess / socketpair-ssh / psutil-double seams (no mocks of the boundary).
 ``ByteRecv`` / ``WriteSink`` (Callable / Protocol aliases) and ``_RESOURCE`` (the resource ContextVar seam)
 are law-less by nature and are carried as exemptions in the assay conftest ``_EXEMPT`` set.
 
@@ -54,9 +54,9 @@ from tests.python._testkit.spec import (
     validity_matrix,
 )
 
-# AssayHarness/SshLoopback are runtime (not TYPE_CHECKING) imports: hypothesis evaluates @given fixture
-# annotations under PEP 649 eval_str, so they must resolve at module runtime though they appear only in annotations.
-from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness, fault_st, SshLoopback  # noqa: TC001
+# AssayHarness is a runtime (not TYPE_CHECKING) import: hypothesis evaluates @given fixture
+# annotations under PEP 649 eval_str, so it must resolve at module runtime though it appears only in annotations.
+from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness, fault_st  # noqa: TC001
 from tools.assay.composition.settings import AssaySettings
 from tools.assay.core.aspect import _RING  # co-owned ring seam; seeded directly for ring-content assertions
 import tools.assay.core.engine as engine_mod
@@ -86,13 +86,17 @@ from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping, Sequence
+    from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
     from pathlib import Path
 
+    import asyncssh
     from expression import Result
 
+    from tests.python._testkit.env import Provisioned
     from tools.assay.composition.settings import ArtifactScope
     from tools.assay.core.model import Completed
+
+    type SshEnv = Provisioned[Awaitable[asyncssh.SSHClientConnection]]
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -343,8 +347,9 @@ def test_governed_concurrency_cap_table(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``governed_concurrency`` folds the cpu / dotnet-runner / mutation-mode ceilings into one floor ≥ 1."""
-    # Pin system RAM below the backpressure ceiling so the cap table stays deterministic on a loaded host.
+    # Pin system RAM and the foreign-dotnet census below their ceilings so the cap table stays deterministic on a loaded host.
     monkeypatch.setattr(engine_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
+    monkeypatch.setattr(engine_mod, "_foreign_dotnet_count", lambda: 0)
     settings = assay_root.settings.model_copy(
         update={"cpu_count": cpu_count, "max_checks": max_checks, "dotnet_max_cpu": dotnet, "mutation_max_cpu": mutation}
     )
@@ -366,6 +371,26 @@ def test_governed_concurrency_halves_under_memory_pressure(
     events = tuple(e for e in log_events if e.get("event") == "concurrency.backpressure")
     assert len(events) == 2, f"backpressure telemetry not emitted once per pressured fold: {events!r}"
     assert (events[0].get("limit"), events[0].get("backpressure_limit"), events[0].get("sys_mem_percent")) == (8, 4, 92.5)
+
+
+def test_governed_concurrency_halves_under_foreign_dotnet_census(
+    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, log_events: list[dict[str, object]]
+) -> None:
+    """A foreign dotnet-family census at/above ``cpu_count`` halves DOTNET batches only; non-DOTNET batches never census.
+
+    Kills the gate flips: census applied to non-DOTNET batches (the `if any(...DOTNET...)` guard),
+    the `>=` -> `>` threshold mutation, and dropped telemetry fields on the census arm.
+    """
+    monkeypatch.setattr(engine_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
+    monkeypatch.setattr(engine_mod, "_foreign_dotnet_count", lambda: 8)
+    settings = assay_root.settings.model_copy(update={"cpu_count": 8, "max_checks": 8, "dotnet_max_cpu": 8})
+    dotnet_batch = (Check(tool=msgspec.structs.replace(_ECHO_TOOL, runner=Runner.DOTNET)),)
+    assert governed_concurrency(settings, dotnet_batch) == 4, "census at cpu_count did not halve a DOTNET batch"
+    assert governed_concurrency(settings, ()) == 8, "census must not throttle a batch with no DOTNET runner"
+    monkeypatch.setattr(engine_mod, "_foreign_dotnet_count", lambda: 7)
+    assert governed_concurrency(settings, dotnet_batch) == 8, "sub-threshold census must not halve"
+    event = next(e for e in log_events if e.get("event") == "concurrency.backpressure")
+    assert (event.get("foreign_dotnet"), event.get("dotnet_pressure"), event.get("mem_pressure")) == (8, True, False)
 
 
 # assay_root is read-only (model_copy only), so function_scoped_fixture is suppressed.
@@ -464,7 +489,7 @@ def test_argv_for_composes_runner_prefix_scope_and_routed_tails(assay_root: Assa
     scope = assay_root.scope(Claim.STATIC)
     tool = msgspec.structs.replace(_ECHO_TOOL, runner=Runner.UV, command=("ruff", "check"), input=Input.FILES)
     routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED, files=("a.py", "b.py"))
-    argv = argv_for(Check(tool=tool), routed, settings=assay_root.settings, scope=scope)
+    argv = assert_ok(argv_for(Check(tool=tool), routed, settings=assay_root.settings, scope=scope))
     assert argv[:2] == Runner.UV.prefix, f"runner prefix not leading argv: {argv!r}"
     assert {"ruff", "check", "a.py", "b.py"} <= set(argv), f"command body or routed tails lost in {argv!r}"
 
@@ -1429,14 +1454,13 @@ def test_steal_yields_busy_on_lost_toctou_race(assay_root: AssayHarness) -> None
 
 
 @pytest.mark.anyio
-async def test_run_check_remote_round_trips_through_loopback(assay_root: AssayHarness, ssh_loopback: SshLoopback, socket_enabled: None) -> None:
-    """The remote arm shell-quotes argv through ``remote_command`` and returns the loopback reply (non-streaming ``conn.run`` arm)."""
-    _ = socket_enabled
-    remote = assay_root.remote(ssh_loopback.exec_target)
+async def test_run_check_remote_round_trips_through_ssh_double(assay_root: AssayHarness, ssh_env: SshEnv) -> None:
+    """The remote arm shell-quotes argv through ``remote_command`` and returns the ssh double's reply (non-streaming ``conn.run`` arm)."""
+    remote = assay_root.remote(ssh_env.url)
     check = Check(tool=_ECHO_TOOL, cwd=assay_root.root)
     # run_check drives its own anyio.run loop; bridge to a thread to avoid nested event loops under anyio.
     done = assert_ok(await anyio.to_thread.run_sync(lambda: run_check(check, settings=remote, scope=None, routed=_ROUTED_CHANGED)))  # ty: ignore[unresolved-attribute]
-    assert (b"remote-ok:" in done.stdout, done.returncode) == (True, 0), f"loopback reply missing from {done.stdout!r}"
+    assert (b"remote-ok:" in done.stdout, done.returncode) == (True, 0), f"ssh double reply missing from {done.stdout!r}"
 
 
 @pytest.mark.anyio
@@ -1444,15 +1468,13 @@ async def test_run_check_remote_round_trips_through_loopback(assay_root: AssayHa
 async def test_run_check_remote_streaming_round_trips(
     scoped: bool,  # noqa: FBT001
     assay_root: AssayHarness,
-    ssh_loopback: SshLoopback,
-    socket_enabled: None,
+    ssh_env: SshEnv,
 ) -> None:
-    """The remote streaming arm tees the loopback reply through ``_recv_ssh`` + ``drain_stream`` and tail-caps the receipt.
+    """The remote streaming arm tees the ssh double's reply through ``_recv_ssh`` + ``drain_stream`` and tail-caps the receipt.
 
     The scoped row drives the with-handle arm: ``_stream_writer`` sink + ``_stream_artifacts`` persist.
     """
-    _ = socket_enabled
-    remote = assay_root.remote(ssh_loopback.exec_target)
+    remote = assay_root.remote(ssh_env.url)
     scope = assay_root.scope(Claim.STATIC) if scoped else None
     name = "remote-scoped-stream-law" if scoped else "remote-stream-law"
     check = Check(tool=_stream_tool(name, ("/bin/echo", "stream-ok")), cwd=assay_root.root)
@@ -1464,17 +1486,16 @@ async def test_run_check_remote_streaming_round_trips(
         case _:
             artifact = next((a for a in done.artifacts if a.id == f"{name}-out"), None)
             assert artifact is not None, f"scoped remote stream emitted no artifact: {done.artifacts!r}"
-            assert b"remote-ok:" in scope.store.read_path(artifact.path), "persisted remote artifact lost the loopback reply"
+            assert b"remote-ok:" in scope.store.read_path(artifact.path), "persisted remote artifact lost the ssh double reply"
 
 
 @pytest.mark.anyio
-async def test_fan_out_remote_pools_ssh_connection(assay_root: AssayHarness, ssh_loopback: SshLoopback, socket_enabled: None) -> None:
+async def test_fan_out_remote_pools_ssh_connection(assay_root: AssayHarness, ssh_env: SshEnv) -> None:
     """``fan_out`` over a remote runner pools one ssh connection across workers and ``_pooled_ssh`` closes it on scope exit.
 
-    First opens, second reuses the ``_SshCache`` arm; both slots round-trip the loopback reply (pooled-reuse + close-loop path).
+    First opens, second reuses the ``_SshCache`` arm; both slots round-trip the double's reply (pooled-reuse + close-loop path).
     """
-    _ = socket_enabled
-    remote = assay_root.remote(ssh_loopback.exec_target)
+    remote = assay_root.remote(ssh_env.url)
     base = Tool("remote-fan-law", Runner.DIRECT, ("/bin/echo", "hi"), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.CHECK)
     checks = tuple(Check(tool=msgspec.structs.replace(base, name=f"remote-fan-{i}"), cwd=assay_root.root) for i in range(2))
 
@@ -1484,7 +1505,7 @@ async def test_fan_out_remote_pools_ssh_connection(assay_root: AssayHarness, ssh
     results = await anyio.to_thread.run_sync(_sync)  # ty: ignore[unresolved-attribute]
     assert len(results) == 2, f"fan_out lost a remote slot: {results!r}"
     for index, result in enumerate(results):
-        assert b"remote-ok:" in assert_ok(result).stdout, f"remote slot {index} missing loopback reply"
+        assert b"remote-ok:" in assert_ok(result).stdout, f"remote slot {index} missing ssh double reply"
 
 
 @pytest.mark.anyio
@@ -1702,11 +1723,12 @@ def test_guarded_projects_argv_scope_and_governed_limiter_into_execute(assay_roo
 
     monkeypatch.setattr(engine_mod, "_execute", capture)
     monkeypatch.setattr(engine_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
+    monkeypatch.setattr(engine_mod, "_foreign_dotnet_count", lambda: 0)
     settings = assay_root.settings.model_copy(update={"cpu_count": 4, "max_checks": 8, "dotnet_max_cpu": 2, "mutation_max_cpu": 8})
     scope = assay_root.scope(Claim.STATIC)
     tool = Tool("argv-proj-law", Runner.DOTNET, ("build", "Workspace.slnx"), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
     check = Check(tool=tool)
-    expected = argv_for(check, _ROUTED_CHANGED, settings=settings, scope=scope)
+    expected = assert_ok(argv_for(check, _ROUTED_CHANGED, settings=settings, scope=scope))
     assert set(scope.dotnet_flags) <= set(expected), "law vacuous: scope flags absent from the projected argv"
     assert_ok(run_check(check, settings=settings, scope=scope, routed=_ROUTED_CHANGED))
     assert governed_concurrency(settings, (check,)) == 2, "law vacuous: governed cap must differ from the empty-batch cap"
@@ -1730,7 +1752,7 @@ def test_guarded_fault_messages_are_stamped_exactly(assay_root: AssayHarness) ->
     check = Check(tool=deadline_tool)
     fault = assert_error_status(run_check(check, settings=assay_root.settings, scope=None, routed=_PY_CHANGED), RailStatus.TIMEOUT)
     assert fault.message == "deadline exceeded", f"deadline message not exact/unstamped: {fault.message!r}"
-    assert fault.argv == argv_for(check, _PY_CHANGED, settings=assay_root.settings, scope=None), f"deadline fault lost its argv: {fault!r}"
+    assert fault.argv == assert_ok(argv_for(check, _PY_CHANGED, settings=assay_root.settings, scope=None)), f"deadline fault lost its argv: {fault!r}"
     absent = Tool("msg-absent", Runner.DIRECT, ("/nonexistent/assay-message-law",), Input.NONE, Language.PYTHON, Claim.TEST)
     fault = assert_error_status(run_check(Check(tool=absent), settings=assay_root.settings, scope=None, routed=_PY_CHANGED), RailStatus.UNSUPPORTED)
     assert "/nonexistent/assay-message-law" in fault.message, f"UNSUPPORTED message lost the missing binary: {fault.message!r}"
@@ -1762,10 +1784,10 @@ def test_local_spawn_arms_honor_check_cwd_and_exit_code(mode: Mode, assay_root: 
 def test_run_process_backend_routes_on_exec_target(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """``_run_process_backend`` dispatches to ``_run_remote`` exactly when ``exec_target`` is set — no real SSH.
 
-    Kills the whole remote-dispatch arm: deleting ``case target`` (or flipping the match) makes a remote
-    target silently run locally, which the network-marked loopback laws never exercise under ``-m 'not
-    network'``. The recorder also pins item-4's row-env forwarding: ``tool.env`` keys cross into the
-    remote env projection while the ambient allowlist still gates undeclared host env.
+    Kills the whole remote-dispatch arm at the seam itself: deleting ``case target`` (or flipping the match)
+    makes a remote target silently run locally — pinned here without any ssh handshake, complementing the
+    socketpair-double round-trip laws. The recorder also pins item-4's row-env forwarding: ``tool.env`` keys
+    cross into the remote env projection while the ambient allowlist still gates undeclared host env.
     """
     recorded: list[tuple[str, dict[str, str]]] = []
 
@@ -1821,14 +1843,14 @@ def test_argv_for_pins_uv_group_project_segments_and_query_passthrough(assay_roo
     uv_tool = Tool(
         "uv-argv-law", Runner.UV, ("ruff", "check"), Input.NONE, Language.PYTHON, Claim.TEST, groups=("mutation",), stage=Stage(project=True)
     )
-    uv_argv = argv_for(Check(tool=uv_tool), _PY_CHANGED, settings=settings, scope=None)
+    uv_argv = assert_ok(argv_for(Check(tool=uv_tool), _PY_CHANGED, settings=settings, scope=None))
     assert uv_argv == ("uv", "run", "--project", str(settings.root), "--group", "mutation", "ruff", "check"), f"uv argv drifted: {uv_argv!r}"
     direct = msgspec.structs.replace(uv_tool, runner=Runner.DIRECT)
-    direct_argv = argv_for(Check(tool=direct), _PY_CHANGED, settings=settings, scope=None)
+    direct_argv = assert_ok(argv_for(Check(tool=direct), _PY_CHANGED, settings=settings, scope=None))
     assert direct_argv == ("ruff", "check"), f"non-UV runner leaked uv segments: {direct_argv!r}"
     scope = assay_root.scope(Claim.STATIC)
     query = Tool("query-argv-law", Runner.DOTNET, ("build", "Workspace.slnx"), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.QUERY)
-    query_argv = argv_for(Check(tool=query), _ROUTED_CHANGED, settings=settings, scope=scope)
+    query_argv = assert_ok(argv_for(Check(tool=query), _ROUTED_CHANGED, settings=settings, scope=scope))
     assert query_argv == ("dotnet", "build", "Workspace.slnx"), f"QUERY mode must never splice scope flags: {query_argv!r}"
 
 

@@ -6,10 +6,10 @@ This module owns the assay PAYLOAD that test modules import directly: the explic
 globals (each a typed ``resolve(Pascal)`` so ``@given(X_st)`` resolves the overload), the bespoke ``binds_st``/
 ``detail_st``/``envelope_st`` strategies, and the thin assay specializations of each engine abstraction —
 ``RailProbe(SeamProbe[Check])`` + the Result builders, the ``_proc``/``_make_psutil_module``/
-``install_cpu_double`` partials, ``SshLoopback`` over ``loopback_server``, ``BridgeResult`` over
-``VariantWriter[str]``, ``AssayHarness`` over ``TmpRoot[AssaySettings]``, ``YakShape`` over ``TmpRoot.write``,
-and the envelope/history oracles over ``NdjsonOracle``. The sibling ``conftest.py`` owns only pytest wiring:
-SUT registration, fixtures, and the ``log_processors`` override.
+``install_cpu_double`` partials, ``assay_settings`` as the suite's ``KitFactory[AssaySettings]``,
+``BridgeResult`` over ``VariantWriter[str]``, ``AssayHarness`` over ``TmpRoot[AssaySettings]``, ``YakShape``
+over ``TmpRoot.write``, and the envelope/history oracles over ``NdjsonOracle``. The sibling ``conftest.py``
+owns only pytest wiring: SUT registration, fixtures, and the ``log_processors`` override.
 
 Prefer ``resolve(X)`` over a hand-rolled strategy and the ``tests.python._testkit.spec`` oracles over
 hand-rolled ``assert x.is_ok()``.
@@ -30,6 +30,7 @@ from expression import Error, Ok  # Error/Ok are runtime in the RailProbe canned
 from hypothesis import strategies as st
 import msgspec
 import psutil as _psutil
+from upath import UPath
 
 from tests.python._testkit.seams import (
     Async as _Async,
@@ -182,6 +183,17 @@ class CliResult(msgspec.Struct, frozen=True, gc=False):
     stderr: bytes
 
 
+def assay_settings(root: Path) -> AssaySettings:
+    """The assay suite's ``KitFactory[AssaySettings]``: stub a ``Workspace.slnx`` and bind tmp-rooted settings.
+
+    Returns:
+        AssaySettings rooted at ``root`` with ``exec_target=""`` and no known-hosts constraint, so nothing
+        the harness runs can mutate state outside the tmp tree.
+    """
+    (root / "Workspace.slnx").write_text("", encoding="utf-8")
+    return AssaySettings(root=UPath(root), exec_target="", exec_known_hosts=None)
+
+
 class AssayHarness(TmpRoot[AssaySettings], frozen=True, gc=False):
     """Isolated tmp-tree capsule over ``TmpRoot`` whose ``exec_target=""`` settings mutate nothing outside ``root``."""
 
@@ -277,20 +289,6 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
     @staticmethod
     def error(argv: tuple[str, ...], message: str, *, status: RailStatus = RailStatus.FAULTED) -> Result[Completed, Fault]:
         return Error(Fault(argv, status, message))
-
-
-class SshLoopback(msgspec.Struct, frozen=True, gc=False):
-    """A live loopback asyncssh server's bound port + ssh ``exec_target`` projection.
-
-    ``exec_target`` includes a username because asyncssh ``saslprep`` rejects ``None`` at connect.
-    """
-
-    port: int
-
-    @property
-    def exec_target(self) -> str:
-        """SSH exec_target URI with an explicit username required by asyncssh saslprep."""
-        return f"ssh://x@127.0.0.1:{self.port}"
 
 
 class BridgeResult(msgspec.Struct, frozen=True, gc=False):

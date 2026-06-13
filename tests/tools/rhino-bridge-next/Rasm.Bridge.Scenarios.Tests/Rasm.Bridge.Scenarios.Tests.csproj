@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!-- tests/tools sits outside the path-derived RhinoCommon-aware roots; the SDK under law
+             surfaces RhinoDoc/RhinoView, so the host compile reference is declared explicitly. -->
+        <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../../../../tests/csharp/_testkit/Rasm.TestKit.csproj" />
+    </ItemGroup>
+</Project>

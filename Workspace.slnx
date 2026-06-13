@@ -41,12 +41,6 @@
   <Folder Name="/tests/csharp/_benchmarks/">
     <Project Path="tests/csharp/_benchmarks/Rasm.Benchmarks.csproj" />
   </Folder>
-  <Folder Name="/tests/csharp/_fuzz/">
-    <Project Path="tests/csharp/_fuzz/Rasm.Fuzz.csproj" />
-  </Folder>
-  <Folder Name="/tests/csharp/_tooling/">
-    <Project Path="tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj" />
-  </Folder>
   <Folder Name="/tests/csharp/libs/" />
   <Folder Name="/tests/csharp/libs/Rasm.AppHost/">
     <Project Path="tests/csharp/libs/Rasm.AppHost/Rasm.AppHost.Tests.csproj" />
@@ -66,19 +60,34 @@
   <Folder Name="/tests/csharp/libs/Rasm.Grasshopper/">
     <Project Path="tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Grasshopper.Scenarios/">
+    <Project Path="tests/csharp/libs/Rasm.Grasshopper.Scenarios/Rasm.Grasshopper.Scenarios.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Scenarios/">
+    <Project Path="tests/csharp/libs/Rasm.Scenarios/Rasm.Scenarios.csproj" />
+  </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.Materials/">
     <Project Path="tests/csharp/libs/Rasm.Materials/Rasm.Materials.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.Rhino/">
     <Project Path="tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Rhino.Scenarios/">
+    <Project Path="tests/csharp/libs/Rasm.Rhino.Scenarios/Rasm.Rhino.Scenarios.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/tools/cs-analyzer/">
+    <Project Path="tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/tools/" />
-  <Folder Name="/tests/tools/cs-analyzer/">
-    <Project Path="tests/tools/cs-analyzer/CsAnalyzer.Tests.csproj" />
+  <Folder Name="/tests/tools/rhino-bridge-next/">
+    <Project Path="tests/tools/rhino-bridge-next/Rasm.Bridge.Contract.Tests/Rasm.Bridge.Contract.Tests.csproj" />
+    <Project Path="tests/tools/rhino-bridge-next/Rasm.Bridge.Scenarios.Tests/Rasm.Bridge.Scenarios.Tests.csproj" />
+    <Project Path="tests/tools/rhino-bridge-next/Rasm.Bridge.Supervisor.Tests/Rasm.Bridge.Supervisor.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/" />
   <Folder Name="/tools/cs-analyzer/">
-    <Project Path="tools/cs-analyzer/CsAnalyzer.csproj" />
+    <Project Path="tools/cs-analyzer/Contracts/Csp.Contracts.csproj" />
+    <Project Path="tools/cs-analyzer/Csp.Analyzer.csproj" />
   </Folder>
   <Folder Name="/tools/rhino-bridge/" />
   <Folder Name="/tools/rhino-bridge/client/">
@@ -89,5 +98,21 @@
   </Folder>
   <Folder Name="/tools/rhino-bridge/protocol/">
     <Project Path="tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj" />
+  </Folder>
+  <Folder Name="/tools/rhino-bridge-next/" />
+  <Folder Name="/tools/rhino-bridge-next/Rasm.Bridge.Cargo/">
+    <Project Path="tools/rhino-bridge-next/Rasm.Bridge.Cargo/Rasm.Bridge.Cargo.csproj" />
+  </Folder>
+  <Folder Name="/tools/rhino-bridge-next/Rasm.Bridge.Contract/">
+    <Project Path="tools/rhino-bridge-next/Rasm.Bridge.Contract/Rasm.Bridge.Contract.csproj" />
+  </Folder>
+  <Folder Name="/tools/rhino-bridge-next/Rasm.Bridge.Shell/">
+    <Project Path="tools/rhino-bridge-next/Rasm.Bridge.Shell/Rasm.Bridge.Shell.csproj" />
+  </Folder>
+  <Folder Name="/tools/rhino-bridge-next/Rasm.Bridge.Stub/">
+    <Project Path="tools/rhino-bridge-next/Rasm.Bridge.Stub/Rasm.Bridge.Stub.csproj" />
+  </Folder>
+  <Folder Name="/tools/rhino-bridge-next/Rasm.Bridge.Supervisor/">
+    <Project Path="tools/rhino-bridge-next/Rasm.Bridge.Supervisor/Rasm.Bridge.Supervisor.csproj" />
   </Folder>
 </Solution>

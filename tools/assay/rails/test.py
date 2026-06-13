@@ -41,7 +41,7 @@ from tools.assay.core.model import (
     TestRun,
     Tool,
 )
-from tools.assay.core.routing import infer_languages, route
+from tools.assay.core.routing import expand, infer_languages, route
 from tools.assay.core.status import RailStatus
 
 
@@ -208,9 +208,10 @@ def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: M
             case _:
                 return tool
 
-    return tuple(
+    selected = tuple(
         Check(tool=spliced, paths=routed.files) for t in _rows(routed.language, params, mode) for spliced in (_splice(t),) if spliced is not None
     )
+    return expand(selected, routed, settings=settings)
 
 
 def _unsupported_scope(routed: Routed, params: TestParams, mode: Mode) -> tuple[Result[Completed, Fault], ...]:
@@ -382,19 +383,23 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
             pass
 
     def _work(_held: object = None) -> Result[Report, Fault]:
-        def _settle(done: Block[Completed]) -> Report:
+        def _settle(done: Block[Completed], selected: tuple[Routed, ...]) -> Report:
             outcomes = tuple(done)
             base = fold(claim, verb, outcomes, detail=_detail(outcomes, params, Path(str(settings.root))))
             return msgspec.structs.replace(
                 base,
                 artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, scope, outcomes)),
-                notes=(*base.notes, *((_GAP_NOTE,) if gap else ())),
+                notes=(*base.notes, *(note for r in selected for note in r.closure_note()), *((_GAP_NOTE,) if gap else ())),
             )
 
-        return _routed(languages, params.paths, settings).bind(
-            lambda routed: sequence(
-                routed.collect(lambda r: block.of_seq(_dispatch_all(_select(r, params, settings), params, settings=settings, scope=scope, mode=mode)))
-            ).map(_settle)
+        return (
+            _routed(languages, params.paths, settings)
+            .map(lambda routed: tuple(_select(r, params, settings) for r in routed))
+            .bind(
+                lambda selected: sequence(
+                    block.of_seq(row for r in selected for row in _dispatch_all(r, params, settings=settings, scope=scope, mode=mode))
+                ).map(lambda done: _settle(done, selected))
+            )
         )
 
     # Per-language mutation leases (mutation-python / mutation-csharp) let mutmut and Stryker run in parallel
@@ -435,7 +440,7 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
     languages = _languages(params.language, params.paths)
     needle = params.grep.strip().lower()
 
-    def _settle(done: block.Block[Completed]) -> Report:
+    def _settle(done: block.Block[Completed], selected: tuple[Routed, ...]) -> Report:
         outcomes = tuple(done)
         base = fold(Claim.TEST, "list", outcomes)
         discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
@@ -452,7 +457,7 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
             if c.status.severity > RailStatus.OK.severity
             for tail in ((c.stderr or c.stdout)[-256:].decode(errors="replace").strip(),)
         )
-        notes = (*base.notes, *note, *diagnostics)
+        notes = (*base.notes, *(n for r in selected for n in r.closure_note()), *note, *diagnostics)
         return (
             msgspec.structs.replace(
                 base,
@@ -467,10 +472,14 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
             else msgspec.structs.replace(base, artifacts=artifacts, notes=notes, detail=detail)
         )
 
-    return _routed(languages, params.paths, settings).bind(
-        lambda routed: sequence(
-            routed.collect(lambda r: block.of_seq(_dispatch(_select(r, params, settings), params, settings=settings, scope=scope, mode=Mode.LIST)))
-        ).map(_settle)
+    return (
+        _routed(languages, params.paths, settings)
+        .map(lambda routed: tuple(_select(r, params, settings) for r in routed))
+        .bind(
+            lambda selected: sequence(
+                block.of_seq(row for r in selected for row in _dispatch(r, params, settings=settings, scope=scope, mode=Mode.LIST))
+            ).map(lambda done: _settle(done, selected))
+        )
     )
 
 

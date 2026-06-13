@@ -7,44 +7,45 @@ this module owns only what pytest itself consumes.
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
+from contextlib import ExitStack
 import functools
 from itertools import starmap
 import operator
 import os
 import shutil
 from types import SimpleNamespace
-from typing import Final, override, TYPE_CHECKING
+from typing import Final, TYPE_CHECKING
 
 import anyio
 import pytest
-from upath import UPath
 
+from tests.python._testkit.env import provision, SshHost
 from tests.python._testkit.laws import register_sut
-from tests.python._testkit.runtime import REPO_ROOT
-from tests.python._testkit.seams import loopback_server, SeamProbe, Sync
+from tests.python._testkit.runtime import isolate, REPO_ROOT
+from tests.python._testkit.seams import SeamProbe, Sync
 from tests.python.tools.assay.kit import (
+    assay_settings,
     AssayHarness,
     BridgeResult,
     CliResult,
     install_cpu_double,
     RailProbe,
     read_one_envelope_from_bytes,
-    SshLoopback,
     YakShape,
 )
-from tools.assay.composition.settings import AssaySettings
 
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
-    from contextvars import ContextVar
+    from collections.abc import Awaitable, Generator
     from pathlib import Path
     from unittest.mock import MagicMock
 
+    import asyncssh
     from structlog.types import Processor
 
+    from tests.python._testkit.env import Provisioned
     from tests.python.tools.assay.kit import CpuDoubleInstaller, CpuSampler, VerbRunner
-    from tools.assay.composition.settings import ArtifactStore
+    from tools.assay.composition.settings import ArtifactStore, AssaySettings
     from tools.assay.core.model import Envelope
 
 
@@ -78,9 +79,9 @@ def _isolate_sut_state() -> Generator[None]:
 
     The CLI/``@logged``/``@checked``/engine seams bind into ContextVars (aspect ``_RING``, automation
     ``_CPU_PRIMED``, engine ``_RESOURCE``/``_SSH_CACHE``) and structlog's bound context that persist within
-    the test process; forcing each to its declared default at test start keeps every ring / governor /
-    resource / history law order-independent under pytest-randomly. One shared seam — the universal isolation
-    the whole suite relies on (``_WRITES`` has no default and is owned per-invocation, so it is left alone).
+    the test process; pinning each to its declared default via the testkit ``isolate`` seam keeps every ring /
+    governor / resource / history law order-independent under pytest-randomly. One shared seam — the universal
+    isolation the whole suite relies on (``_WRITES`` has no default and is owned per-invocation, so it is left alone).
     """
     import structlog  # noqa: PLC0415
 
@@ -88,27 +89,24 @@ def _isolate_sut_state() -> Generator[None]:
     from tools.assay.core.aspect import _RING  # noqa: PLC0415
     from tools.assay.core.engine import _RESOURCE, _SSH_CACHE  # noqa: PLC0415
 
-    def _arm[T](var: ContextVar[T], *, default: T) -> Callable[[], None]:
-        token = var.set(default)
-        return lambda: var.reset(token)
-
     structlog.contextvars.clear_contextvars()
-    undo = (_arm(_RING, default=None), _arm(_CPU_PRIMED, default=False), _arm(_RESOURCE, default=()), _arm(_SSH_CACHE, default=None))
-    yield
-    [reset() for reset in undo]
+    with ExitStack() as seams:
+        seams.enter_context(isolate(_RING, None))
+        seams.enter_context(isolate(_CPU_PRIMED, value=False))
+        seams.enter_context(isolate(_RESOURCE, ()))
+        seams.enter_context(isolate(_SSH_CACHE, None))
+        yield
     structlog.contextvars.clear_contextvars()
 
 
 @pytest.fixture
 def assay_root(tmp_path: Path) -> AssayHarness:
-    """Isolated AssayHarness rooted at tmp_path with exec_target="" and a stub Workspace.slnx.
+    """Isolated AssayHarness rooted at tmp_path via the suite's ``KitFactory[AssaySettings]`` seam.
 
     Returns:
         AssayHarness capsule wrapping the isolated tmp settings tree.
     """
-    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
-    settings = AssaySettings(root=UPath(tmp_path), exec_target="", exec_known_hosts=None)
-    return AssayHarness(root=tmp_path, settings=settings)
+    return AssayHarness(root=tmp_path, settings=assay_settings(tmp_path))
 
 
 @pytest.fixture
@@ -228,42 +226,26 @@ def captured_emits(monkeypatch: pytest.MonkeyPatch) -> list[Envelope]:
 
 
 @pytest.fixture
-async def ssh_loopback(socket_enabled: None) -> AsyncGenerator[SshLoopback]:
-    """Live loopback asyncssh server (network-marked): yields the ssh ``exec_target`` capsule.
+def ssh_env(monkeypatch: pytest.MonkeyPatch) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]]:
+    """Socketpair-backed SSH double pinned onto the engine's connect seam — no TCP, default-lane safe.
 
-    Wraps ``asyncssh.listen`` in the engine's ``loopback_server`` async-context lifecycle — no daemon threads,
-    no manual teardown, no ResourceWarning under ``filterwarnings=["error"]``. ``asyncssh`` is imported lazily
-    so the ~194ms import tax is paid only on network runs.
+    ``provision(SshHost())`` defers the asyncssh handshake to the factory, which runs it over an AF_UNIX
+    socketpair INSIDE whichever event loop awaits it — so the engine's remote/pooling/streaming arms execute
+    unchanged in their own ``anyio.run`` loop while ``_connect_once`` is the one boundary re-bound.
 
-    Yields:
-        ``SshLoopback`` carrying the bound port and ``ssh://x@127.0.0.1:<port>`` ``exec_target``.
+    Returns:
+        ``Provisioned`` whose ``url`` routes the remote arm and whose factory feeds the patched connect seam.
     """
-    _ = socket_enabled
-    import asyncssh  # noqa: PLC0415  # lazy: keep the import off the non-network collection path
+    from tools.assay.core import engine as engine_mod  # noqa: PLC0415  # patch target re-imported here
 
-    class _Server(asyncssh.SSHServer):
-        @override
-        def begin_auth(self, username: str) -> bool:
-            _ = username
-            return False
+    provisioned = provision(SshHost())
 
-    async def _handler(process: asyncssh.SSHServerProcess[str]) -> None:  # noqa: RUF029  # no await; asyncssh drives the handler synchronously
-        command = process.command or ""
-        process.stdout.write(f"remote-ok:{command}\n")
-        process.exit(0)
+    def _connect(target: str, settings: AssaySettings) -> Awaitable[asyncssh.SSHClientConnection]:
+        _ = target, settings
+        return provisioned.client_factory()
 
-    key = asyncssh.generate_private_key("ssh-ed25519")
-
-    def _listen() -> Awaitable[asyncssh.SSHAcceptor]:
-        # asyncssh.listen returns an _ACMWrapper (Awaitable, not Coroutine); SSHAcceptor is its awaited type.
-        return asyncssh.listen("127.0.0.1", 0, server_host_keys=[key], server_factory=_Server, process_factory=_handler)
-
-    def _port(server: asyncssh.SSHAcceptor) -> int:
-        return server.get_port()
-
-    # ty cannot resolve loopback_server's S typevar through @asynccontextmanager; runtime is sound.
-    async with loopback_server(_listen, _port) as lb:  # ty: ignore[invalid-argument-type]
-        yield SshLoopback(port=lb.port)
+    monkeypatch.setattr(engine_mod, "_connect_once", _connect)
+    return provisioned
 
 
 @pytest.fixture

@@ -168,6 +168,8 @@ type InprocThunk = Callable[[Check], Completed]
 
 _RESULT_CAP: int = 1000
 _DEFECT_TAIL: int = 400
+# SARIF 2.1 result levels -> assay severities; analyzer notes (e.g. CSP0903) surface as info-grade evidence.
+_SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -206,11 +208,16 @@ class Tool(Base, frozen=True, cache_hash=True):
 
 
 class Check(Base, frozen=True, cache_hash=True):
-    """Tool bound to a concrete input scope."""
+    """Tool bound to a concrete input scope.
+
+    ``tail`` pins one ``place()``-projected argument tail to this check; ``None`` defers
+    placement to argv composition, which requires the routed placement to be single-tail.
+    """
 
     tool: Tool
     paths: tuple[str, ...] = ()
     cwd: Path | None = None
+    tail: tuple[str, ...] | None = None
 
 
 class Artifact(Base, frozen=True):
@@ -262,6 +269,46 @@ class Match(Base, frozen=True):
     score: int = 0
     severity: str | None = None
     confidence: Annotated[int, msgspec.Meta(ge=0, le=100)] = 100
+
+
+# SARIF wire subset stays off the shared Base policy: SARIF documents carry tool/version/schema
+# fields the assay wire contract does not model, so unknown fields must pass, not fault.
+class _SarifMessage(msgspec.Struct, frozen=True, gc=False):
+    text: str = ""
+
+
+class _SarifRegion(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    start_line: int = 0
+
+
+class _SarifArtifactLocation(msgspec.Struct, frozen=True, gc=False):
+    uri: str = ""
+
+
+class _SarifPhysicalLocation(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    artifact_location: _SarifArtifactLocation = msgspec.field(default_factory=_SarifArtifactLocation)
+    region: _SarifRegion = msgspec.field(default_factory=_SarifRegion)
+
+
+class _SarifLocation(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    physical_location: _SarifPhysicalLocation = msgspec.field(default_factory=_SarifPhysicalLocation)
+
+
+class _SarifResult(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    rule_id: str = ""
+    level: str = ""
+    message: _SarifMessage = msgspec.field(default_factory=_SarifMessage)
+    locations: tuple[_SarifLocation, ...] = ()
+
+
+class _SarifRun(msgspec.Struct, frozen=True, gc=False):
+    results: tuple[_SarifResult, ...] = ()
+
+
+class _SarifLog(msgspec.Struct, frozen=True, gc=False):
+    """Roslyn-shaped SARIF 2.1 subset: runs[].results[] with ruleId/level/message/locations."""
+
+    runs: tuple[_SarifRun, ...] = ()
 
 
 class ApiResolution(Detail, frozen=True, tag="resolution"):
@@ -451,6 +498,7 @@ def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
 
 # Reserve headroom within the hint cap so surplus-token text does not sever the diagnostic suffix framing.
 _HINT_CAP: int = field_cap(Diagnostic, "hint", default=1 << 62)
+_MATCH_TEXT_CAP: int = field_cap(Match, "text", default=400)
 _SURPLUS_TOKEN_CAP: int = _HINT_CAP - 76
 
 
@@ -459,7 +507,10 @@ _SURPLUS_TOKEN_CAP: int = _HINT_CAP - 76
 class BaseParams:
     """Shared CLI params base."""
 
-    paths: tuple[str, ...] = ()
+    paths: Annotated[
+        tuple[str, ...],
+        Parameter(name="paths", help="Positional tokens: paths plus the verb's leading slots (pattern, symbol, key, token); surplus tokens fault."),
+    ] = ()
     # show_default stays False: cyclopts 4.16.1 help renders Enum-hinted defaults via default_val.name
     # BEFORE consulting any show_default callable (cyclopts/help/help.py Enum branch), so a None default
     # crashes --help with AttributeError regardless of the callable form. Upstream bug; revisit on bump.
@@ -529,11 +580,41 @@ def _count(done: Completed) -> tuple[int, int]:
             return 0, 0
 
 
-def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None) -> Report:
+def _sarif_log(path: Path) -> _SarifLog:
+    # SARIF rows are evidence only: unreadable or malformed documents fold to the empty log, never a fault.
+    try:
+        return _SARIF_LOG.decode(path.read_bytes())
+    except OSError, msgspec.MsgspecError:
+        return _SarifLog()
+
+
+def _sarif_rows(sarif_dir: str | None) -> tuple[Match, ...]:
+    files = sorted(Path(sarif_dir).glob("*.sarif")) if sarif_dir else ()
+    return tuple(
+        Match(
+            id=result.rule_id.lower(),
+            kind=ArtifactKind.PROCESS,
+            text=": ".join(
+                part for part in (next((loc.physical_location.artifact_location.uri for loc in result.locations), ""), result.message.text) if part
+            )[:_MATCH_TEXT_CAP],
+            line=next((loc.physical_location.region.start_line for loc in result.locations), 0),
+            severity=_SARIF_SEVERITY.get(result.level, "warning"),
+        )
+        for path in files
+        for run in _sarif_log(path).runs
+        for result in run.results
+    )
+
+
+def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None, sarif_dir: str | None = None) -> Report:
     """Fold outcomes into a Report: aggregate status, ok/fail counts, defect tail rows, and notes.
 
+    ``sarif_dir`` decodes any ``*.sarif`` documents under the run scope into per-diagnostic
+    evidence rows (id, severity, line, text); SARIF rows never alter status, counts, or exit
+    codes, and absent or empty directories fold silently to no rows.
+
     Returns:
-        Report carrying folded status, ok/fail counts, defect tail rows, collected artifacts, notes, and optional detail.
+        Report carrying folded status, ok/fail counts, defect and SARIF evidence rows, collected artifacts, notes, and optional detail.
     """
     pairs = tuple(map(_count, outcomes))
     ok_n, fail_n = (sum(a) for a in zip(*pairs, strict=True)) if pairs else (0, 0)
@@ -552,7 +633,7 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
         verb,
         rail_fold(*(o.status for o in outcomes)),
         Counts(ok_n, fail_n, ok_n + fail_n),
-        results=defects,
+        results=(*defects, *_sarif_rows(sarif_dir)),
         artifacts=tuple(artifact for o in outcomes for artifact in o.artifacts),
         notes=tuple(n for o in outcomes for n in o.notes),
         detail=detail,
@@ -594,6 +675,7 @@ def wire_safe(text: str) -> str:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _ENCODER = msgspec.json.Encoder(order="deterministic")
+_SARIF_LOG: msgspec.json.Decoder[_SarifLog] = msgspec.json.Decoder(_SarifLog)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

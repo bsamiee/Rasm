@@ -164,6 +164,26 @@ register_law(test_rail.list, "list_status_ok_even_with_zero_roster")
 register_law(test_rail.list, "list_roster_artifact_written_to_scope")
 register_law(test_rail.list, "list_detail_selected_is_pre_limit_discovered_total")
 
+register_law(test_rail.run, "run_envelope_names_host_routed_projects")
+
+
+def test_run_envelope_names_host_routed(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """The run verb's notes carry the closure partition and name the host-routed projects the TEST lane dropped.
+
+    The TEST envelope is where an agent learns a project was host-routed instead of silently skipped:
+    the head row counts included vs host-routed and the names row lists the dropped csprojs. Falsifies
+    the selected-routed threading through ``_settle`` (notes vanish) and a partition computed from
+    ``projects`` instead of ``host_bound``.
+    """
+    routed = Routed(
+        language=Language.CSHARP, scope=Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"), host_bound=("src/App/App.csproj",)
+    )
+    _wire(monkeypatch, _ok(("dotnet", "test")), routed=routed, seam="_dispatch_all")
+    report = assert_ok(test_rail.run(assay_root.settings, assay_root.scope(Claim.TEST), TestParams(language=Language.CSHARP)))
+    assert "closure[csharp]: included=1 excluded=0 cached=0 host-routed=1" in report.notes
+    assert "host-routed[csharp]: src/App/App.csproj" in report.notes
+
+
 register_law(test_rail.run, "run_ok_report_from_dispatch")
 register_law(test_rail.run, "run_mutation_gap_note_emitted")
 register_law(test_rail.run, "run_coverage_percent_populates_detail")

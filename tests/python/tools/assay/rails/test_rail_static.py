@@ -18,6 +18,7 @@ from dataclasses import replace as dc_replace
 from typing import TYPE_CHECKING
 
 from expression import Error, Ok
+from expression.collections import block
 from hypothesis import given
 import pytest
 
@@ -217,6 +218,20 @@ register_law(plan, "notes_contain_argv_previews")
 register_law(plan, "match_rows_carry_scope_text")
 
 
+def test_plan_build_preview_pins_run_scope_sarif_dir(assay_root: AssayHarness) -> None:
+    """The dotnet-build STATIC row pins -p:CspSarifDir=<run-scope>/sarif while restore stays unpinned (falsifiable: drop _sarif_pin)."""
+    scope = assay_root.scope(Claim.STATIC)
+    r = assert_ok(plan(assay_root.settings, scope, StaticParams(paths=("Workspace.slnx",))))
+    build_notes = [n for n in r.notes if "csharp build:" in n]
+    assert build_notes, f"expected a csharp build preview note, got: {r.notes!r}"
+    assert all(f"-p:CspSarifDir={scope.sarif_dir}" in n for n in build_notes)
+    restore_segments = [seg for n in build_notes for seg in n.split(" ; ") if " restore " in f" {seg} "]
+    assert all("-p:CspSarifDir=" not in seg for seg in restore_segments), "the SARIF pin targets only the dotnet-build row"
+
+
+register_law(plan, "build_preview_pins_run_scope_sarif_dir")
+
+
 def test_plan_artifacts_carry_build_scope_sha_for_csharp(assay_root: AssayHarness) -> None:
     """_plan_report emits a build-scope Artifact when Routed.projects is non-empty (falsifiable: drop artifact emit)."""
     from tools.assay.core.model import ArtifactKind  # noqa: PLC0415
@@ -345,6 +360,25 @@ def test_dispatch_arm(mode: Mode, routed: Routed, prefix: str | None, monkeypatc
 register_law(build, "dispatch_build_projects_routes_build_fan")
 register_law(fix, "dispatch_write_mode_routes_write_fan")
 
+
+def test_build_envelope_names_host_routed(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """The build verb's report notes carry the closure partition row and name every host-routed project.
+
+    BUILD lanes keep host-bound projects in the closure, so the envelope must still surface the partition:
+    a head row counting included vs host-routed and a names row listing the host-routed projects. Falsifies
+    the _closure_notes fold (dropped rows), the hardcoded host-routed=0 regression, and a names row that
+    leaks only counts.
+    """
+    routed = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"), host_bound=("src/App/App.csproj",))
+    monkeypatch.setattr(static_rail, "_routed", lambda *_a, **_k: Ok(block.of_seq((routed,))))
+    monkeypatch.setattr(static_rail, "_dispatch", lambda *_a, **_k: (Ok(receipt(("dotnet", "build"), 0, status=RailStatus.OK)),))
+    out = assert_ok(build(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(language=Language.CSHARP)))
+    assert "closure[csharp]: included=1 excluded=0 cached=0 host-routed=1" in out.notes
+    assert "host-routed[csharp]: src/App/App.csproj" in out.notes
+
+
+register_law(build, "envelope_names_host_routed_projects")
+
 # --- [FAN_LEASED_LAWS]
 
 
@@ -374,7 +408,7 @@ def test_fan_leased_ok_and_error(
     ok_rows: tuple[object, ...] = (Ok(completed),)
     scope = assay_root.scope(Claim.STATIC)
     mode = Mode.BUILD if fan == "_build_fan" else Mode.WRITE
-    checks = static_rail._checks(routed, mode)
+    checks = static_rail._checks(routed, mode, assay_root.settings, scope)
     fn = getattr(static_rail, fan)
 
     monkeypatch.setattr(static_rail, "leased", lambda *_a, **_kw: Ok(ok_rows))
@@ -407,8 +441,8 @@ def test_write_fan_route_sha_prefix(monkeypatch: pytest.MonkeyPatch, assay_root:
 
     monkeypatch.setattr(static_rail, "leased", _fake)
     routed = Routed(Language.PYTHON, Scope.FULL, files=("tools/assay/__init__.py",), projects=())
-    checks = static_rail._checks(routed, Mode.WRITE)
     scope = assay_root.scope(Claim.STATIC)
+    checks = static_rail._checks(routed, Mode.WRITE, assay_root.settings, scope)
     result = static_rail._write_fan(checks, routed, assay_root.settings, scope)
     assert len(captured) == 1, f"leased not called exactly once: {captured!r}"
     assert captured[0].startswith("write-python-"), f"_route_sha not invoked: {captured!r}"

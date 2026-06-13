@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>GH2 plugin boundary for Radyab on RhinoWIP.</Description>
+        <CspScope>Boundary</CspScope>
         <RhinoPluginAssemblyGuid>694d39bb-086a-400d-9a31-ef71e0d7b8fe</RhinoPluginAssemblyGuid>
         <RhinoPluginIconResource>Radyab.Icons.plugin.ico</RhinoPluginIconResource>
         <YakPackageSlug>radyab</YakPackageSlug>

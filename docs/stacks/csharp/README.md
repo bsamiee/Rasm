@@ -79,7 +79,16 @@ Run this scan on every edit. Any signal triggers the move; three or more instanc
 |   [8]   | wrapper renames a package API                     | use the package surface directly         |
 |   [9]   | the same 2-4 wrappers recur together              | one parameterized aspect                 |
 
-## [4]-[PAGE_CRAFT]
+## [4]-[RULE_ENFORCEMENT]
+
+The repository analyzer (`tools/cs-analyzer`) is the doctrine's compiled form: it turns doctrine violations into build errors. Its loop is one-directional — a doctrine page legislates, the analyzer enforces; a rule never introduces law of its own.
+
+- Promotion law: when an anti-pattern is identified that is doctrine-breaking yet not inherently an error — nothing in the compiler, `.editorconfig`, or shipped analyzers rejects it — its logic is captured as an analyzer rule and promoted to error. Style preferences, one-off review notes, and anything an existing mechanical gate already rejects are not rules.
+- Shape law: a rule describes the semantic shape of the anti-pattern — trigger, predicate, exemption routes — never namespaces, paths, or one-off symbols; every rule ships with positive spans that fire and valid compact code that must not.
+- Register law: the rule inventory is the code — the catalog, the release ledger, and the `AdditionalFiles` vocabulary data. No prose catalog of rules exists anywhere; arguing a rule's gate or semantics happens at its row and tests.
+- Finding law: a true positive is architecture pressure — fix the shape in the product; a false positive, or a fix that adds ceremony without improving the system, is rule pressure — refine the rule. Suppression is neither.
+
+## [5]-[PAGE_CRAFT]
 
 How pages in this folder are authored. The corpus is one body; these laws keep it coherent.
 
@@ -98,7 +107,7 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 - Route scope is README-local: lookup rows and conflict rules live in README files; concept pages carry only the law they own.
 - Manifest truth: package versions, references, injected globals, tools, and graph admission live in `Directory.Packages.props` and `Directory.Build.props`; no package-named pages; a package is named only where it changes the implementation choice.
 
-## [5]-[CORPUS_LAW]
+## [6]-[CORPUS_LAW]
 
 How the corpus accretes. The atlas `[STATE]` column is the law registry: a `finalized` page is binding law for every page authored after it; a `partial` page carries no authority and awaits rebuild; a `target` page exists only as roadmap scope. Finalization is a one-way gate — a context-free cold grade of the full page and every snippet, converging to a zero-edit pass, flips the state; the producer's grade admits, the cold grade decides.
 

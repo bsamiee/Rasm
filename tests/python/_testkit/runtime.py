@@ -26,6 +26,7 @@ os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # n
 if os.environ.get("TESTS_OBSERVABILITY"):  # noqa: TID251
     os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # noqa: TID251  # must precede observability module import
 
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import anyio
@@ -46,6 +47,7 @@ from structlog.testing import capture_logs
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from contextvars import ContextVar
 
     from hypothesis.database import ExampleDatabase
     from structlog.types import EventDict, Processor
@@ -69,6 +71,23 @@ PROFILE_STATEFUL = "rasm-stateful"
 _log = structlog.get_logger(__name__)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+@contextmanager
+def isolate[T](var: ContextVar[T], value: T) -> Generator[None]:
+    """Pin ``var`` to ``value`` for the enclosed block, restoring the prior binding on exit.
+
+    The universal ContextVar isolation seam: suite conftests stack one ``isolate`` per module-level
+    seam so every test observes the declared default regardless of execution order.
+
+    Yields:
+        None; the pinned binding holds until the with-block exits.
+    """
+    token = var.set(value)
+    try:
+        yield
+    finally:
+        var.reset(token)
 
 
 def _build_profiler_argv(artifact_dir: Path, secs: str) -> list[str]:
@@ -302,4 +321,4 @@ def log_events(log_processors: tuple[Processor, ...]) -> Generator[list[EventDic
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["REPO_ROOT", "HYPOTHESIS_HOME", "HYPOTHESIS_EXAMPLES", "PROFILE_DEFAULT", "PROFILE_MUTATION", "PROFILE_STATEFUL"]
+__all__ = ["REPO_ROOT", "HYPOTHESIS_HOME", "HYPOTHESIS_EXAMPLES", "PROFILE_DEFAULT", "PROFILE_MUTATION", "PROFILE_STATEFUL", "isolate"]

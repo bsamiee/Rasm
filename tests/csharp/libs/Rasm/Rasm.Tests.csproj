@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!-- Specs P/Invoke rhcommon_c at runtime (Intersect.spec.cs ray-validity rail); assay routes test lanes to the host. -->
+        <AssayHostBound>true</AssayHostBound>
+    </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="../../../../libs/csharp/Rasm/Rasm.csproj" />
         <ProjectReference Include="../../_testkit/Rasm.TestKit.csproj" />

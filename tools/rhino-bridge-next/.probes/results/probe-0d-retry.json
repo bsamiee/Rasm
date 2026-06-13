@@ -1,0 +1,254 @@
+{
+  "command": "check",
+  "status": "failed",
+  "reportPath": "/Users/bardiasamiee/Documents/99.Github/Rasm/tools/rhino-bridge-next/.probes/results/probe-0d-retry.json",
+  "phases": [
+    {
+      "phase": "resolve",
+      "status": "ok",
+      "durationMs": 0,
+      "data": {
+        "projectPath": "/Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_testkit/Rasm.TestKit.csproj",
+        "workspaceRoot": "/Users/bardiasamiee/Documents/99.Github/Rasm"
+      },
+      "outputs": [],
+      "diagnostics": []
+    },
+    {
+      "phase": "build",
+      "status": "ok",
+      "durationMs": 1539,
+      "data": {
+        "projectPath": "/Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_testkit/Rasm.TestKit.csproj",
+        "configuration": "Release",
+        "targetFramework": "net10.0",
+        "assemblyName": "Rasm.TestKit",
+        "targetPath": "/Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_testkit/bin/Release/net10.0/Rasm.TestKit.dll",
+        "targetDir": "/Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_testkit/bin/Release/net10.0/",
+        "targetExt": ".dll",
+        "packageCacheRoot": "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages",
+        "langVersion": "14.0",
+        "isGrasshopperAwareProject": "false",
+        "references": [
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_testkit/bin/Release/net10.0/Rasm.TestKit.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/libs/csharp/Rasm/bin/Release/net10.0/Rasm.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/tools/rhino-bridge/protocol/bin/Release/net10.0/Rasm.RhinoBridge.Protocol.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/cscheck/4.7.0/lib/net8.0/CsCheck.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/csparse/4.4.0/lib/net10.0/CSparse.dll",
+          "/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/Eto.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/fparsec/2.0.0-beta2/lib/netstandard2.1/FParsec.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/fparsec/2.0.0-beta2/lib/netstandard2.1/FParsecCS.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/fsharp.core/10.1.301/lib/netstandard2.1/FSharp.Core.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/languageext.core/5.0.0-beta-77/lib/net10.0/LanguageExt.Core.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/mathnet.numerics/6.0.0-beta2/lib/net8.0/MathNet.Numerics.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/mathnet.numerics.fsharp/6.0.0-beta2/lib/net8.0/MathNet.Numerics.FSharp.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/mathnet.symbolics/0.25.0/lib/net8.0/MathNet.Symbolics.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/microsoft.bcl.asyncinterfaces/6.0.0/lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll",
+          "/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/Microsoft.macOS.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/microsoft.win32.systemevents/10.0.9/lib/net10.0/Microsoft.Win32.SystemEvents.dll",
+          "/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/Rhino.UI.dll",
+          "/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/RhinoCommon.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/system.drawing.common/10.0.9/lib/net10.0/System.Drawing.Common.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/system.drawing.common/10.0.9/lib/net10.0/System.Private.Windows.Core.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/system.drawing.common/10.0.9/lib/net10.0/System.Private.Windows.GdiPlus.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/thinktecture.runtime.extensions/10.2.0/lib/net9.0/Thinktecture.Runtime.Extensions.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/xunit.v3.assert/3.2.2/lib/net8.0/xunit.v3.assert.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/xunit.v3.common/3.2.2/lib/netstandard2.0/xunit.v3.common.dll",
+          "/Users/bardiasamiee/Documents/99.Github/Rasm/.cache/nuget/packages/xunit.v3.extensibility.core/3.2.2/lib/netstandard2.0/xunit.v3.core.dll"
+        ]
+      },
+      "outputs": [
+        {
+          "source": "process.stdout",
+          "text": "  Determining projects to restore...\n  All projects are up-to-date for restore.\n",
+          "truncated": false,
+          "length": 80,
+          "limit": 16384
+        },
+        {
+          "source": "process.stderr",
+          "text": "",
+          "truncated": false,
+          "length": 0,
+          "limit": 16384
+        },
+        {
+          "source": "process.stdout",
+          "text": "  CsAnalyzer -\u003E /Users/bardiasamiee/Documents/99.Github/Rasm/tools/cs-analyzer/bin/Release/netstandard2.0/Foundation.CSharp.Analyzers.dll\n  Rasm.RhinoBridge.Protocol -\u003E /Users/bardiasamiee/Documents/99.Github/Rasm/tools/rhino-bridge/protocol/bin/Release/net10.0/Rasm.RhinoBridge.Protocol.dll\n  Rasm -\u003E /Users/bardiasamiee/Documents/99.Github/Rasm/libs/csharp/Rasm/bin/Release/net10.0/Rasm.dll\n  Rasm.TestKit -\u003E /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_testkit/bin/Release/net10.0/Rasm.TestKit.dll\n\nBuild succeeded.\n    0 Warning(s)\n    0 Error(s)\n\nTime Elapsed 00:00:00.40\n",
+          "truncated": false,
+          "length": 591,
+          "limit": 16384
+        },
+        {
+          "source": "process.stderr",
+          "text": "",
+          "truncated": false,
+          "length": 0,
+          "limit": 16384
+        }
+      ],
+      "diagnostics": []
+    },
+    {
+      "phase": "launch",
+      "status": "skipped",
+      "durationMs": 60,
+      "data": {
+        "reason": "Existing bridge endpoint answered.",
+        "endpoint": {
+          "pipeName": "rb-10030-d7529de9",
+          "rhinoPid": 10030,
+          "rhinoStartedAt": "2026-06-12T17:46:31.137163\u002B00:00",
+          "startedAt": "2026-06-12T17:46:35.791235\u002B00:00",
+          "bridgeAssemblyName": "rasm-bridge",
+          "bridgeAssemblyVersion": "0.0.1.0",
+          "bridgeAssemblyInformationalVersion": "0.0.1-dev4",
+          "rhinoVersion": "9.0.26160.12306"
+        }
+      },
+      "outputs": [],
+      "diagnostics": []
+    },
+    {
+      "phase": "connect",
+      "status": "ok",
+      "durationMs": 94,
+      "data": {
+        "pipeName": "rb-10030-d7529de9",
+        "rhinoPid": 10030,
+        "rhinoStartedAt": "2026-06-12T17:46:31.137163\u002B00:00",
+        "startedAt": "2026-06-12T17:46:35.791235\u002B00:00",
+        "bridgeAssemblyName": "rasm-bridge",
+        "bridgeAssemblyVersion": "0.0.1.0",
+        "bridgeAssemblyInformationalVersion": "0.0.1-dev4",
+        "rhinoVersion": "9.0.26160.12306"
+      },
+      "outputs": [],
+      "diagnostics": []
+    },
+    {
+      "phase": "execute",
+      "status": "failed",
+      "durationMs": 0,
+      "data": {
+        "status": "failed",
+        "fault": {
+          "category": "execute",
+          "message": "Can not find language *.*.*@*.* for \u00221de5843e-54e8-4b80-9944-f979890a1002\u0022",
+          "type": "Rhino.Runtime.Code.Languages.LanguageMissingException",
+          "stackTrace": "   at Rhino.Runtime.Code.ICodeExtensions.GetLanguage(ICode icode) in /Users/bozo/TeamCity/buildAgent/work/96e64af5b81c6f85/src4/DotNetSDK/RhinoCode/src/Rhino.Runtime.Code/_Base/ICode.cs:line 175\n   at Rhino.Runtime.Code.Execution.SourceCode.CreateCode() in /Users/bozo/TeamCity/buildAgent/work/96e64af5b81c6f85/src4/DotNetSDK/RhinoCode/src/Rhino.Runtime.Code/Execution/SourceCode.cs:line 83\n   at Rhino.Runtime.Code.RhinoCode.CreateCode(String text) in /Users/bozo/TeamCity/buildAgent/work/96e64af5b81c6f85/src4/DotNetSDK/RhinoCode/src/Rhino.Runtime.Code/RhinoCode.cs:line 670\n   at Rasm.RhinoBridge.Rhino.CodeEngine.TryRunScript(BridgeExecuteRequest request, RunContext context)"
+        },
+        "durationMs": 0,
+        "serverExecutionCancelable": false,
+        "bridgeAssemblyName": "rasm-bridge",
+        "bridgeAssemblyVersion": "0.0.1.0",
+        "bridgeAssemblyInformationalVersion": "0.0.1-dev4",
+        "rhinoVersion": "9.0.26160.12306",
+        "rhinoCode": {
+          "cachePolicy": "NeverCache",
+          "resolverIsolated": true,
+          "preferBasePathResolution": false
+        },
+        "document": {
+          "active": true,
+          "runtimeSerialNumber": 268435457,
+          "modified": false,
+          "modelAbsoluteTolerance": 0.001,
+          "modelUnitSystem": "Feet"
+        },
+        "references": [
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/FSharp.Core.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/LanguageExt.Core.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/Thinktecture.Runtime.Extensions.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/CsCheck.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/CSparse.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/FParsecCS.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/FParsec.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/MathNet.Numerics.FSharp.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/MathNet.Numerics.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/MathNet.Symbolics.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/Microsoft.Bcl.AsyncInterfaces.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/Microsoft.Win32.SystemEvents.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/System.Private.Windows.Core.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/System.Private.Windows.GdiPlus.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/xunit.v3.assert.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/xunit.v3.common.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/xunit.v3.core.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/Rasm.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/Rasm.RhinoBridge.Protocol.dll",
+          "tools/rhino-bridge-next/.probes/results/refs/7AAB596ACBCD805D90A3725AE62FAC6D/Rasm.TestKit.dll"
+        ],
+        "diagnostics": {
+          "commandWindow": [],
+          "exceptionReports": []
+        }
+      },
+      "outputs": [
+        {
+          "source": "stdout",
+          "text": "",
+          "truncated": false,
+          "length": 0,
+          "limit": 32768
+        },
+        {
+          "source": "stderr",
+          "text": "",
+          "truncated": false,
+          "length": 0,
+          "limit": 32768
+        },
+        {
+          "source": "rhino.command",
+          "text": "",
+          "truncated": false,
+          "length": 0,
+          "limit": 32768
+        }
+      ],
+      "diagnostics": [],
+      "fault": {
+        "category": "execute",
+        "message": "Can not find language *.*.*@*.* for \u00221de5843e-54e8-4b80-9944-f979890a1002\u0022",
+        "type": "Rhino.Runtime.Code.Languages.LanguageMissingException",
+        "stackTrace": "   at Rhino.Runtime.Code.ICodeExtensions.GetLanguage(ICode icode) in /Users/bozo/TeamCity/buildAgent/work/96e64af5b81c6f85/src4/DotNetSDK/RhinoCode/src/Rhino.Runtime.Code/_Base/ICode.cs:line 175\n   at Rhino.Runtime.Code.Execution.SourceCode.CreateCode() in /Users/bozo/TeamCity/buildAgent/work/96e64af5b81c6f85/src4/DotNetSDK/RhinoCode/src/Rhino.Runtime.Code/Execution/SourceCode.cs:line 83\n   at Rhino.Runtime.Code.RhinoCode.CreateCode(String text) in /Users/bozo/TeamCity/buildAgent/work/96e64af5b81c6f85/src4/DotNetSDK/RhinoCode/src/Rhino.Runtime.Code/RhinoCode.cs:line 670\n   at Rasm.RhinoBridge.Rhino.CodeEngine.TryRunScript(BridgeExecuteRequest request, RunContext context)"
+      }
+    },
+    {
+      "phase": "liveness",
+      "status": "skipped",
+      "durationMs": 0,
+      "data": {
+        "reason": "Execute did not complete; host liveness not assessed."
+      },
+      "outputs": [],
+      "diagnostics": []
+    },
+    {
+      "phase": "diagnostics",
+      "status": "skipped",
+      "durationMs": 0,
+      "data": {
+        "reason": "No RhinoCode diagnostics were reported."
+      },
+      "outputs": [],
+      "diagnostics": []
+    },
+    {
+      "phase": "lifecycle",
+      "status": "skipped",
+      "durationMs": 0,
+      "data": {
+        "reason": "No lifecycle action was requested."
+      },
+      "outputs": [],
+      "diagnostics": []
+    }
+  ],
+  "fault": {
+    "category": "execute",
+    "message": "Can not find language *.*.*@*.* for \u00221de5843e-54e8-4b80-9944-f979890a1002\u0022",
+    "type": "Rhino.Runtime.Code.Languages.LanguageMissingException",
+    "stackTrace": "   at Rhino.Runtime.Code.ICodeExtensions.GetLanguage(ICode icode) in /Users/bozo/TeamCity/buildAgent/work/96e64af5b81c6f85/src4/DotNetSDK/RhinoCode/src/Rhino.Runtime.Code/_Base/ICode.cs:line 175\n   at Rhino.Runtime.Code.Execution.SourceCode.CreateCode() in /Users/bozo/TeamCity/buildAgent/work/96e64af5b81c6f85/src4/DotNetSDK/RhinoCode/src/Rhino.Runtime.Code/Execution/SourceCode.cs:line 83\n   at Rhino.Runtime.Code.RhinoCode.CreateCode(String text) in /Users/bozo/TeamCity/buildAgent/work/96e64af5b81c6f85/src4/DotNetSDK/RhinoCode/src/Rhino.Runtime.Code/RhinoCode.cs:line 670\n   at Rasm.RhinoBridge.Rhino.CodeEngine.TryRunScript(BridgeExecuteRequest request, RunContext context)"
+  }
+}

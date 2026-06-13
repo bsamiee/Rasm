@@ -5,8 +5,9 @@ and drains the OpenTelemetry span buffer before process exit.
 """
 
 import sys
-from typing import Final
+from typing import Annotated, Final
 
+from cyclopts import Parameter
 from cyclopts.exceptions import CycloptsError
 from opentelemetry.trace import get_tracer_provider
 from pydantic import ValidationError
@@ -70,7 +71,7 @@ _HELP_TOKENS: Final[frozenset[str]] = frozenset((*app.help_flags, *app.version_f
 
 
 @app.meta.default
-def meta(*tokens: str) -> int:
+def meta(*tokens: Annotated[str, Parameter(show=False)]) -> int:
     """Resolve CLI tokens to the returned Envelope exit code.
 
     Returns:

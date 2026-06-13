@@ -17,6 +17,7 @@ from tests.python._testkit.spec import assert_error, assert_error_status, assert
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
 from tools.assay.core.engine import exclusive_lease
 from tools.assay.core.model import ArtifactKind, Claim, Fault, fold, Mode, PackageRun, receipt, Report
+from tools.assay.core.routing import parse_csproj
 from tools.assay.core.status import RailStatus
 from tools.assay.rails import package as _pkg_mod
 from tools.assay.rails.package import (
@@ -28,7 +29,6 @@ from tools.assay.rails.package import (
     _read_bytes,
     _resolve_package_file,
     _safe_package_pattern,
-    _slug_from_bytes,
     _stamp_version,
     deploy,
     evaluate_meta,
@@ -132,7 +132,7 @@ def test_safe_package_pattern_truth_table(label: str, pattern: str, expected: bo
 
 # --- [SLUG_FROM_BYTES]
 
-register_law(_slug_from_bytes, "extraction_cases")
+register_law(parse_csproj, "extraction_cases")
 
 
 @pytest.mark.parametrize(
@@ -140,8 +140,8 @@ register_law(_slug_from_bytes, "extraction_cases")
     [(_PLAIN_XML, "rasm-bridge"), (_NAMESPACED_XML, "rasm-bridge"), (_NO_SLUG_XML, ""), (b"{not xml", ""), (b"", ""), (b"<Project/>", "")],
 )
 def test_slug_from_bytes_cases(raw: bytes, expected: str) -> None:
-    """_slug_from_bytes extracts YakPackageSlug, strips XML namespaces, returns '' on absence/malformed."""
-    assert _slug_from_bytes(raw) == expected
+    """parse_csproj text extraction pins the slug projection: YakPackageSlug text, namespace-suffix tag match, '' on absence/malformed."""
+    assert next(iter(parse_csproj(raw, "YakPackageSlug")), "") == expected
 
 
 # --- [LONE_MATCH]

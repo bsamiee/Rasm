@@ -34,6 +34,7 @@ dev = [
     "dirty-equals",
     "hypothesis>=6.155.2",
     "inline-snapshot",
+    "moto[server]>=5.2.2",
     "mypy>=2.1.0",
     "pytest>=9.0.3",
     "pytest-benchmark>=5.2.3",
@@ -82,8 +83,8 @@ exclude = [
     "mutants",
     "node_modules",
     "test-results",
-    "tests/tools/ast-grep/fail/**",
-    "tests/tools/ast-grep/pass/**",  # ast-grep probes; excluded from ty/mypy/ruff — negative verification is the ast-grep VERIFY catalog row
+    "tests/ast-grep/fail/**",
+    "tests/ast-grep/pass/**",  # ast-grep probes; excluded from ty/mypy/ruff — negative verification is the ast-grep VERIFY catalog row
     "tmp",
 ]
 
@@ -137,8 +138,8 @@ exclude = [
     "^mutants/",
     "^test-results/",
     "^node_modules/",
-    "^tests/tools/ast-grep/fail/",
-    "^tests/tools/ast-grep/pass/",
+    "^tests/ast-grep/fail/",
+    "^tests/ast-grep/pass/",
     "^tmp/",
 ]
 
@@ -162,7 +163,7 @@ disable_error_code =      ["func-returns-value", "attr-defined", "type-arg", "ov
 
 # fsspec ships no py.typed marker (the backend laws import fsspec.implementations.* directly).
 [[tool.mypy.overrides]]
-module =                 ["fsspec", "fsspec.*"]
+module =                 ["fsspec", "fsspec.*", "boto3", "boto3.*"]
 ignore_missing_imports = true
 
 # --- [PYTEST] --------------------------------------------------------------
@@ -218,7 +219,7 @@ required_plugins = [
 markers = [
     "benchmark: benchmark measurement tests",
     "mutation: mutation-testing acceptance and survivor-triage tests",
-    "network: tests that intentionally use external network sockets",
+    "network: tests that need real INET sockets lifted (loopback servers or egress); excluded from mutation lanes",
     "property: property-based tests",
 ]
 
@@ -367,7 +368,7 @@ extend-exclude = [
     "**/coverage/**",
     "**/mutants/**",
     "**/.history/**",
-    "**/tests/tools/ast-grep/**",
+    "**/tests/ast-grep/**",
 ]
 
 [tool.ruff.format]

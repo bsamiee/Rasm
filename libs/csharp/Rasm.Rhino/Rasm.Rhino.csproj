@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>RhinoCommon command, document, and UI interop boundary for Rasm.</Description>
+        <CspScope>Boundary</CspScope>
     </PropertyGroup>
 
     <ItemGroup>

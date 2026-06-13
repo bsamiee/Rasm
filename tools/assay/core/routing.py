@@ -16,11 +16,20 @@ from typing import assert_never, Protocol, runtime_checkable
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local .csproj XML from source.read, never network-sourced
 
 from expression import Error, Ok, Result
+import msgspec
 import structlog
 from upath import UPath
 
 from tools.assay.composition.settings import AssaySettings
-from tools.assay.core.model import Base, Fault, Input, Language, Mode, Tool  # noqa: TC001  # msgspec needs Language/Tool annotations at runtime
+from tools.assay.core.model import (  # noqa: TC001  # msgspec needs Language/Tool annotations at runtime
+    Base,
+    Check,
+    Fault,
+    Input,
+    Language,
+    Mode,
+    Tool,
+)
 from tools.assay.core.status import RailStatus
 
 
@@ -83,7 +92,6 @@ _TRIGGER_FILES: frozenset[str] = frozenset((
 _TRIGGER_PREFIXES: tuple[str, ...] = ("tools/cs-analyzer/",)
 
 _CSPROJ: str = ".csproj"
-_PROJECT_REF: str = ".//ProjectReference"
 _TIMEOUT: float = 30.0
 _DIFF: tuple[str, ...] = ("git", "diff", "--name-only", "--diff-filter=ACDMRTUXB")
 _CACHED: tuple[str, ...] = ("git", "diff", "--cached", "--name-only", "--diff-filter=ACDMRTUXB")
@@ -100,7 +108,10 @@ class Routed(Base, frozen=True):
     ``scope`` is FULL when trigger files are present; CHANGED otherwise.
     ``projects`` carries the transitive project-graph closure for closure-strategy
     languages; ``groups`` pairs each seed project with the changed files it owns.
-    Glob-strategy languages populate only ``files``.
+    ``host_bound`` is the closure subset whose project file carries an explicit
+    ``<AssayHostBound>true</AssayHostBound>`` marker: those projects execute native
+    host P/Invokes at test runtime, so TEST lanes drop them while BUILD lanes keep
+    them. Glob-strategy languages populate only ``files``.
     """
 
     language: Language
@@ -109,6 +120,20 @@ class Routed(Base, frozen=True):
     projects: tuple[str, ...] = ()
     groups: tuple[tuple[str, tuple[str, ...]], ...] = ()
     full_triggers: tuple[str, ...] = ()
+    host_bound: tuple[str, ...] = ()
+
+    def closure_note(self) -> tuple[str, ...]:
+        """Project-closure partition rows for report envelopes; empty when no projects routed.
+
+        Returns:
+            A head row counting included vs host-routed projects, plus one row naming the
+            host-routed projects when any exist, so the envelope states exactly what TEST
+            lanes dropped.
+        """
+        managed, host = len(self.projects) - len(self.host_bound), len(self.host_bound)
+        head = f"closure[{self.language!s}]: included={managed} excluded=0 cached=0 host-routed={host}"
+        names = (f"host-routed[{self.language!s}]: {', '.join(self.host_bound)}",) if self.host_bound else ()
+        return (head, *names) if self.projects else ()
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -174,19 +199,46 @@ def _refs(rel: str, source: Source) -> frozenset[str]:
     match source.read(rel):
         case Result(tag="ok", ok=raw):
             base = PurePosixPath(rel).parent
-            tree = _parse(raw)
-            return frozenset(
-                normpath(str(base / inc.replace("\\", "/"))) for ref in tree.iterfind(_PROJECT_REF) if (inc := ref.get("Include")) is not None
-            )
+            return frozenset(normpath(str(base / inc.replace("\\", "/"))) for inc in parse_csproj(raw, "ProjectReference", "Include"))
         case _:
             return frozenset()
 
 
-def _parse(raw: bytes) -> ET.Element:
+def parse_csproj(raw: bytes, tag: str, *attrs: str) -> tuple[str, ...]:
+    """Extract values from namespace-suffix-matched elements of trusted local MSBuild project XML.
+
+    With ``attrs``, each matching element contributes its first non-empty attribute value among
+    ``attrs``; without ``attrs``, each contributes its stripped non-empty text. Empty and
+    malformed payloads fold to ``()`` so a bad project file never faults the caller.
+
+    Args:
+        raw: Project file bytes; never network-sourced.
+        tag: Element tag matched by namespace-stripped suffix (e.g. ``ProjectReference``).
+        attrs: Attribute names tried in order per element; empty means element text.
+
+    Returns:
+        Extracted values in document order, empties dropped.
+    """
     try:
-        return ET.fromstring(raw)  # noqa: S314  # trusted local .csproj XML from source.read, never network-sourced
+        tree = ET.fromstring(raw or b"<Project/>")  # noqa: S314  # trusted local MSBuild XML, never network-sourced
     except ET.ParseError:
-        return ET.Element("Project")
+        return ()
+    nodes = tuple(el for el in tree.iter() if el.tag.rpartition("}")[2] == tag)
+    match attrs:
+        case ():
+            return tuple(text.strip() for el in nodes if (text := el.text) and text.strip())
+        case _:
+            return tuple(value for el in nodes if (value := next((v for a in attrs if (v := el.get(a))), "")))
+
+
+def _host_bound(rel: str, source: Source) -> bool:
+    # ONLY the explicit <AssayHostBound>true</AssayHostBound> marker classifies a project as host-bound;
+    # path shape and RhinoCommon-awareness are non-signals (GH specs are aware yet managed-runnable).
+    match source.read(rel):
+        case Result(tag="ok", ok=raw):
+            return any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound"))
+        case _:
+            return False
 
 
 def _dependents(seeds: frozenset[str], index: ProjectIndex, source: Source) -> frozenset[str]:
@@ -223,7 +275,9 @@ def _resolve(language: Language, changed: tuple[str, ...], universe: tuple[str, 
     seeds = frozenset(index[owner] for owner in owned.values())
     closure = _dependents(seeds, index, source)
     groups = tuple((owner_proj, tuple(sorted(f for f, owner in owned.items() if index[owner] == owner_proj))) for owner_proj in sorted(seeds))
-    return Ok(Routed(language=language, scope=Scope.CHANGED, files=_norm(tuple(owned.keys())), projects=tuple(sorted(closure)), groups=groups))
+    host = tuple(sorted(p for p in closure if _host_bound(p, source)))
+    files = _norm(tuple(owned.keys()))
+    return Ok(Routed(language=language, scope=Scope.CHANGED, files=files, projects=tuple(sorted(closure)), groups=groups, host_bound=host))
 
 
 def infer_languages(paths: RoutePaths, available: tuple[Language, ...]) -> tuple[Language, ...]:
@@ -306,7 +360,10 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
         case Input.INCLUDE:
             return tuple((project, *Input.INCLUDE.flag, *files) for project, files in routed.groups)
         case Input.PROJECT:
-            projects = routed.projects or ((str(settings.test_target),) if tool.mode is Mode.LIST else ())
+            # TEST lanes (RUN/LIST) drop host-bound projects: they P/Invoke the host runtime at test time and
+            # cannot run managed; RESTORE/BUILD lanes keep them because compilation is managed-safe.
+            kept = routed.projects if tool.mode in {Mode.RESTORE, Mode.BUILD} else tuple(p for p in routed.projects if p not in routed.host_bound)
+            projects = kept or ((str(settings.test_target),) if tool.mode is Mode.LIST and not routed.projects else ())
             return tuple((project,) for project in projects)
         case Input.SOLUTION:
             return ((str(settings.solution),),)
@@ -320,6 +377,34 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
             assert_never(never)
 
 
+def expand(checks: tuple[Check, ...], routed: Routed, *, settings: AssaySettings) -> tuple[Check, ...]:
+    """Clone one ``Check`` per ``place()`` argument tail so multi-tail placements fan one invocation each.
+
+    Placements of zero or one tail pass through unpinned; argv composition resolves them
+    identically, so single-invocation tools keep their original check identity.
+
+    Args:
+        checks: Checks produced by a rail's tool selection.
+        routed: Resolved routing result the tails are projected from.
+        settings: Active assay configuration forwarded to ``place``.
+
+    Returns:
+        Checks with per-invocation pinned tails, in placement order.
+    """
+
+    def per_check(check: Check) -> tuple[Check, ...]:
+        tails = place(routed, check.tool, settings=settings)
+        match (tails, check.tool.input):
+            case ((), Input.PROJECT) if routed.projects:
+                # Host-routing emptied the placement: the route HAD projects and the lane dropped every one;
+                # the check must vanish, or the unpinned tail would run the tool bare against the whole tree.
+                return ()
+            case _:
+                return (check,) if len(tails) <= 1 else tuple(msgspec.structs.replace(check, tail=tail) for tail in tails)
+
+    return tuple(clone for check in checks for clone in per_check(check))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ProjectIndex", "RoutePaths", "Routed", "Scope", "Source", "infer_languages", "place", "routable_files", "route"]
+__all__ = ["ProjectIndex", "RoutePaths", "Routed", "Scope", "Source", "expand", "infer_languages", "parse_csproj", "place", "routable_files", "route"]

@@ -9,7 +9,7 @@ files:
   - libs/**/src/**/application/**/*.{ts,tsx,mts,cts}
   - tools/**/src/**/domain/**/*.{ts,tsx,mts,cts}
   - tools/**/src/**/application/**/*.{ts,tsx,mts,cts}
-  - tests/tools/ast-grep/**/*.{ts,tsx,mts,cts}
+  - tests/ast-grep/**/*.{ts,tsx,mts,cts}
 rule:
   any:
     - kind: if_statement

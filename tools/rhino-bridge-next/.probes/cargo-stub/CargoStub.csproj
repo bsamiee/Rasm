@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>U4 acceptance artifact: trivial IBridgeCargo implementation staged for CargoGate live proof. Not production code; not in Workspace.slnx.</Description>
+        <AssemblyName>Rasm.Bridge.Cargo</AssemblyName>
+        <RootNamespace>Rasm.Bridge.Cargo</RootNamespace>
+        <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <SkipLocalCSharpAnalyzerReference>true</SkipLocalCSharpAnalyzerReference>
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+        <AnalysisLevel>none</AnalysisLevel>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../../Rasm.Bridge.Contract/Rasm.Bridge.Contract.csproj" />
+    </ItemGroup>
+</Project>

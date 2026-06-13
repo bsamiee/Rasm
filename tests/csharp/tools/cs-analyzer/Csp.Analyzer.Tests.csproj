@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <RootNamespace>Rasm.Csp.Tests</RootNamespace>
+        <!-- Verify.props auto-discovery only climbs two parents; point it at the workspace root. -->
+        <SolutionDir Condition="'$(SolutionDir)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', '..', '..', '..'))</SolutionDir>
+        <SolutionName Condition="'$(SolutionName)' == ''">Workspace</SolutionName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../../tools/cs-analyzer/Csp.Analyzer.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" />
+        <PackageReference Include="Verify.XunitV3" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Meta invariants read Directory.Build.props / Directory.Packages.props / analyzer source
+             relative to the workspace root; baked here so tests never directory-walk at runtime. -->
+        <AssemblyMetadata Include="RepoRoot" Value="$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', '..', '..', '..'))" />
+        <Using Include="Microsoft.CodeAnalysis.CSharp.Testing.CSharpAnalyzerVerifier&lt;Rasm.Csp.Kernel.Driver, Microsoft.CodeAnalysis.Testing.DefaultVerifier&gt;" Alias="Verify" />
+    </ItemGroup>
+</Project>

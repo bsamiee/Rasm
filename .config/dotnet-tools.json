@@ -17,6 +17,14 @@
         "ilspycmd": {
             "version": "10.1.0.8386",
             "commands": ["ilspycmd"]
+        },
+        "dotnet-gcdump": {
+            "version": "9.0.661903",
+            "commands": ["dotnet-gcdump"]
+        },
+        "dotnet-counters": {
+            "version": "9.0.661903",
+            "commands": ["dotnet-counters"]
         }
     }
 }
