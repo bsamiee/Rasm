@@ -10,7 +10,7 @@
         "isolatedDeclarations": false,
         "isolatedModules": true,
         "jsx": "react-jsx",
-        "lib": ["esnext", "dom", "dom.iterable"],
+        "lib": ["esnext", "dom"],
         "module": "preserve",
         "moduleDetection": "force",
         "moduleResolution": "bundler",
@@ -29,9 +29,10 @@
         "strict": true,
         "strictBuiltinIteratorReturn": true,
         "target": "esnext",
-        "verbatimModuleSyntax": true
+        "verbatimModuleSyntax": true,
+        "noEmit": true,
+        "types": ["node", "vite/client", "vitest"]
     },
-    "ignoreDeprecations": "6.0",
     "watchOptions": {
         "excludeDirectories": [
             "**/node_modules",

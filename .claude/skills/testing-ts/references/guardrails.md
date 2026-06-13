@@ -21,7 +21,7 @@ The PostToolUse hook (`.claude/hooks/validate-spec.sh`) validates every `*.spec.
 |   [9]   | No default exports | `export default`                                               | Named exports only                                  |
 |  [10]   | No Object.freeze   | `Object.freeze(`                                               | `as const` for immutability                         |
 |  [11]   | Block syntax       | `Effect.sync/tap(() => expect(...)` without `=> {`             | `=> { expect(...); }` (returns void, not Assertion) |
-|  [12]   | Import order       | @effect/vitest -> ${WORKSPACE_SCOPE}/* -> effect -> vitest                | Reorder to match sequence                           |
+|  [12]   | Import order       | @effect/vitest -> ${WORKSPACE_SCOPE}/* -> effect -> vitest     | Reorder to match sequence                           |
 |  [13]   | Forbidden labels   | `[HELPERS]`, `[HANDLERS]`, `[UTILS]`, `[CONFIG]`, `[DISPATCH]` | Use CONSTANTS, LAYER, ALGEBRAIC, EDGE_CASES         |
 
 ### [1.2]-[MUTATION_THRESHOLDS]
@@ -52,7 +52,7 @@ Hook rules catch syntactic violations. These anti-patterns catch **semantic** is
 |   [1]   | Hardcoded test arrays                                                | `it.each(CONSTANT_TABLE)` or `Effect.forEach(VECTORS)`                            |
 |   [2]   | Magic numbers                                                        | Named constants with `as const`                                                   |
 |   [3]   | Re-deriving source logic                                             | Algebraic law or external oracle                                                  |
-|   [4]   | Hand-rolled arbitraries                                              | `Arbitrary.make(Schema)` from @effect/schema                                      |
+|   [4]   | Hand-rolled arbitraries                                              | Schema-derived arbitrary from `effect`                                            |
 |   [5]   | Mock call-count assertions (`toHaveBeenCalledWith`) as primary test  | Test observable output or algebraic property                                      |
 |   [6]   | Deep `vi.mock` of internal modules (>10 lines of mock setup)         | `layer()` with `Layer.succeed(Tag, stub)` or integration test with testcontainers |
 |   [7]   | Testing mock wiring (did fn get called?)                             | Test return value shape, error tag, or behavioral property                        |

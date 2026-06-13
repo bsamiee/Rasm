@@ -4,15 +4,12 @@
  * Import this in app/package configs. Root vite.config.ts imports and executes.
  */
 
-// --- [IMPORTS: node] ---------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------
 import { dirname, resolve as pathResolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import babel from '@rolldown/plugin-babel';
-// --- [IMPORTS: vite-ecosystem] -----------------------------------------------
-import typescript from '@rollup/plugin-typescript';
 import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
-// --- [IMPORTS: external] -----------------------------------------------------
 import { Effect, Option, pipe, Schema as S } from 'effect';
 import { visualizer } from 'rollup-plugin-visualizer';
 import type { Plugin, UserConfig, ViteBuilder } from 'vite';
@@ -23,7 +20,6 @@ import Inspect from 'vite-plugin-inspect';
 import { VitePWA } from 'vite-plugin-pwa';
 import svgr from 'vite-plugin-svgr';
 import webfontDownload from 'vite-plugin-webfont-dl';
-import tsconfigPaths from 'vite-tsconfig-paths';
 
 // --- [TYPES] -----------------------------------------------------------------
 
@@ -36,7 +32,7 @@ type BuildRuntimeEnv = NodeJS.ProcessEnv & {
 type Cfg = S.Schema.Type<typeof CfgSchema>;
 type Mode = Cfg['mode'];
 
-// --- [SCHEMA] ----------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------
 
 const CfgSchema = S.Union(
     S.Struct({
@@ -60,7 +56,6 @@ const CfgSchema = S.Union(
     }),
     S.Struct({
         css: S.optional(S.String),
-        declaration: S.optional(S.Boolean),
         entry: S.Union(S.String, S.Record({ key: S.String, value: S.String })),
         external: S.optional(S.Array(S.String)),
         mode: S.Literal('library'),
@@ -118,7 +113,6 @@ const B = Object.freeze({
     svgr: { exportType: 'default', memo: true, ref: true, svgo: true, titleProp: true, typescript: true },
     treeshake: {
         moduleSideEffects: 'no-external' as const,
-        preset: 'smallest' as const,
         propertyReadSideEffects: false,
         tryCatchDeoptimization: false,
         unknownGlobalSideEffects: false,
@@ -135,7 +129,7 @@ const B = Object.freeze({
     },
 } as const);
 
-// --- [PURE_FUNCTIONS] --------------------------------------------------------
+// --- [OPERATIONS] ------------------------------------------------------------
 
 const chunk = (id: string) =>
     id.includes('node_modules')
@@ -150,27 +144,6 @@ const css = (dev = false) => ({
     devSourcemap: dev,
     transformer: 'lightningcss' as const,
 });
-const esbuild = (app: boolean, prod = false) => ({
-    ...(app
-        ? {
-              drop: (prod ? ['console', 'debugger'] : []) as ('console' | 'debugger')[],
-              jsx: 'automatic' as const,
-              legalComments: 'none' as const,
-              logLevel: 'error' as const,
-              pure: ['console.log', 'console.debug'],
-              supported: { 'dynamic-import': true, 'import-meta': true },
-          }
-        : {}),
-    format: 'esm' as const,
-    keepNames: true,
-    minifyIdentifiers: app,
-    minifySyntax: true,
-    minifyWhitespace: true,
-    target: 'esnext' as const,
-    treeShaking: true,
-});
-const toPolicy = (p: Record<string, ReadonlyArray<string>> | undefined) =>
-    Object.fromEntries(Object.entries(p ?? B.csp).map(([k, v]) => [k, [...v]]));
 const compress = (alg: 'brotliCompress' | 'gzip', ext: string, t: number) =>
     viteCompression({ algorithm: alg, deleteOriginFile: false, ext, filter: B.comp.f, threshold: t, verbose: true });
 const cache = <H extends 'CacheFirst' | 'NetworkFirst'>(h: H, n: string, s: number, u: RegExp) => ({
@@ -183,35 +156,17 @@ const output = (p = '') => ({
     chunkFileNames: `${p}chunks/[name]-[hash].js`,
     entryFileNames: `${p}${p ? '' : 'entries/'}[name]-[hash].js`,
 });
-const icons = () => [
-    ...[192, 512].map((s) => ({
-        purpose: 'any' as const,
-        sizes: `${s}x${s}`,
-        src: `/icon-${s}.png`,
-        type: 'image/png',
-    })),
-    { purpose: 'maskable' as const, sizes: '512x512', src: '/icon-maskable.png', type: 'image/png' },
-];
-const imgOpt = (q: { readonly avif: number; readonly jpeg: number; readonly png: number; readonly webp: number }) => ({
-    avif: { lossless: false, quality: q.avif },
-    exclude: /^(?:virtual:|node_modules)/,
-    includePublic: true,
-    jpeg: { progressive: true, quality: q.jpeg },
-    logStats: true,
-    png: { quality: q.png },
-    test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
-    webp: { lossless: false, quality: q.webp },
-});
 const resolve = (browser = false) => ({
     conditions: browser ? ['import', 'module', 'browser', 'default'] : ['import', 'module', 'default'],
     ...(browser ? { dedupe: ['react', 'react-dom'], extensions: [...B.exts] } : {}),
+    tsconfigPaths: true,
 });
 const clientOnly = (plugin: Plugin): Plugin => ({
     ...plugin,
     applyToEnvironment: (environment: EnvironmentConsumer) => environment.config.consumer === 'client',
 });
 
-// --- [DISPATCH_TABLES] -------------------------------------------------------
+// --- [COMPOSITION] -----------------------------------------------------------
 
 const buildApp = ({ build, environments: { client } }: ViteBuilder): Promise<void> =>
     pipe(
@@ -223,7 +178,6 @@ const buildApp = ({ build, environments: { client } }: ViteBuilder): Promise<voi
     );
 const plugins = {
     app: (c: Extract<Cfg, { mode: 'app' }>, prod: boolean) => [
-        tsconfigPaths({ root: c.root ?? ROOT_DIR }),
         react(),
         babel({ presets: [reactCompilerPreset()] }),
         tailwindcss({ optimize: { minify: true } }),
@@ -235,7 +189,15 @@ const plugins = {
                       background_color: B.pwa.bg,
                       description: c.pwa.description,
                       display: 'standalone' as const,
-                      icons: icons(),
+                      icons: [
+                          ...[192, 512].map((s) => ({
+                              purpose: 'any' as const,
+                              sizes: `${s}x${s}`,
+                              src: `/icon-${s}.png`,
+                              type: 'image/png',
+                          })),
+                          { purpose: 'maskable' as const, sizes: '512x512', src: '/icon-maskable.png', type: 'image/png' },
+                      ],
                       name: c.pwa.name,
                       scope: '/',
                       short_name: c.pwa.shortName,
@@ -255,7 +217,18 @@ const plugins = {
               }).map((p) => clientOnly(p))
             : []),
         svgr({ exclude: '', include: '**/*.svg?react', svgrOptions: B.svgr }),
-        clientOnly(ViteImageOptimizer(imgOpt(c.imageQuality ?? B.img))),
+        clientOnly(
+            ViteImageOptimizer({
+                avif: { lossless: false, quality: (c.imageQuality ?? B.img).avif },
+                exclude: /^(?:virtual:|node_modules)/,
+                includePublic: true,
+                jpeg: { progressive: true, quality: (c.imageQuality ?? B.img).jpeg },
+                logStats: true,
+                png: { quality: (c.imageQuality ?? B.img).png },
+                test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
+                webp: { lossless: false, quality: (c.imageQuality ?? B.img).webp },
+            }),
+        ),
         clientOnly(webfontDownload([...(c.webfonts ?? [])])),
         clientOnly({
             ...visualizer({ ...B.viz, exclude: [...B.viz.exclude], projectRoot: process.cwd() }),
@@ -276,24 +249,20 @@ const plugins = {
                     'style-src-attr': false,
                 },
                 hashingMethod: 'sha256',
-                policy: toPolicy(c.cspPolicy),
+                policy: Object.fromEntries(Object.entries(c.cspPolicy ?? B.csp).map(([k, v]) => [k, [...v]])),
             }) as Plugin,
         ),
         // Inspect disabled in dev due to EEXIST race condition on HMR restart
-        ...(prod ? [Inspect({ build: true, dev: false, outputDir: '.vite-inspect' })] : []),
+        ...(prod ? [Inspect({ build: true, dev: false, outputDir: pathResolve(c.root ?? ROOT_DIR, '.cache/vite-inspect') })] : []),
     ],
     library: (c: Extract<Cfg, { mode: 'library' }>) => [
-        tsconfigPaths({ projects: ['./tsconfig.json'] }),
         ...(c.react === true ? [react(), babel({ presets: [reactCompilerPreset()] })] : []),
         ...(c.css === undefined ? [] : [tailwindcss({ optimize: { minify: true } })]),
     ],
-    server: () => [tsconfigPaths({ projects: ['./tsconfig.json'] })],
+    server: () => [],
 } as const;
 const config: {
-    readonly [M in Mode]: (
-        c: Extract<Cfg, { mode: M }>,
-        env: { prod: boolean; time: string; ver: string },
-    ) => UserConfig;
+    readonly [M in Mode]: (c: Extract<Cfg, { mode: M }>, env: { prod: boolean; time: string; ver: string }) => UserConfig;
 } = {
     app: (c, { prod, time, ver }) => ({
         appType: 'spa',
@@ -304,11 +273,10 @@ const config: {
             cssMinify: 'lightningcss',
             emptyOutDir: true,
             manifest: true,
-            minify: 'esbuild',
             modulePreload: { polyfill: true },
             outDir: 'dist',
             reportCompressedSize: false,
-            rollupOptions: {
+            rolldownOptions: {
                 output: { ...output(), manualChunks: chunk },
                 treeshake: B.treeshake,
             },
@@ -334,10 +302,8 @@ const config: {
             'import.meta.env.BUILD_TIME': JSON.stringify(time),
             'import.meta.env.VITE_API_URL': JSON.stringify(_ENV.VITE_API_URL ?? '/api'),
         },
-        esbuild: esbuild(true, prod),
         json: { namedExports: true, stringify: 'auto' },
         optimizeDeps: {
-            esbuildOptions: { supported: { 'top-level-await': true }, target: 'esnext' },
             exclude: [...B.ssr.noExt],
             force: false,
             holdUntilCrawlEnd: true,
@@ -363,7 +329,6 @@ const config: {
                     // Caches
                     '**/.nx/**',
                     '**/.vite/**',
-                    '**/.vite-inspect/**',
                     '**/.cache/**',
                     '**/.turbo/**',
                     '**/coverage/**',
@@ -393,12 +358,8 @@ const config: {
         },
         worker: {
             format: 'es',
-            plugins: () => [
-                tsconfigPaths({ root: c.root ?? ROOT_DIR }),
-                react(),
-                babel({ presets: [reactCompilerPreset()] }),
-            ],
-            rollupOptions: { output: output('workers/') },
+            plugins: () => [react(), babel({ presets: [reactCompilerPreset()] })],
+            rolldownOptions: { output: output('workers/') },
         },
     }),
     library: (c) => ({
@@ -410,35 +371,17 @@ const config: {
                 formats: ['es', 'cjs'],
                 name: c.name,
             },
-            rollupOptions: {
+            rolldownOptions: {
                 external: [/^node:/, ...(c.external ?? [])],
                 output: {
                     exports: 'named',
-                    generatedCode: {
-                        arrowFunctions: true,
-                        constBindings: true,
-                        objectShorthand: true,
-                        preset: 'es2015',
-                    },
                     preserveModules: false,
                 },
-                plugins:
-                    c.declaration === false
-                        ? []
-                        : [
-                              typescript({
-                                  compilerOptions: { rewriteRelativeImportExtensions: true },
-                                  declaration: true,
-                                  declarationDir: 'dist',
-                                  outputToFilesystem: true,
-                              }),
-                          ],
             },
             sourcemap: true,
             target: 'esnext',
         },
         css: css(c.css !== undefined),
-        esbuild: esbuild(c.react === true),
         plugins: plugins.library(c),
         resolve: resolve(c.react === true),
         ssr: { target: 'node' as const },
@@ -446,7 +389,7 @@ const config: {
     server: (c) => ({
         build: {
             lib: { entry: c.entry, fileName: 'main', formats: ['es'] as const, name: c.name },
-            rollupOptions: {
+            rolldownOptions: {
                 external: [
                     /^node:/,
                     /^@effect/,
@@ -469,8 +412,6 @@ const config: {
     }),
 };
 
-// --- [EFFECT_PIPELINE] -------------------------------------------------------
-
 const createConfig = (input: unknown): Effect.Effect<UserConfig, never, never> =>
     pipe(
         Effect.try(() => S.decodeUnknownSync(CfgSchema)(input)),
@@ -487,6 +428,6 @@ const createConfig = (input: unknown): Effect.Effect<UserConfig, never, never> =
         ),
     );
 
-// --- [EXPORT] ----------------------------------------------------------------
+// --- [EXPORTS] ---------------------------------------------------------------
 
 export { B, createConfig };

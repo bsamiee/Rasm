@@ -141,8 +141,6 @@ TOOLS: tuple[Tool, ...] = (
     # --- [TYPESCRIPT]
     Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.base.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD),
     Tool("biome", PNPM, ("biome", "ci", "--files-ignore-unknown=true"), NONE, TS, Claim.STATIC),
-    Tool("knip", PNPM, ("knip", "--exclude", "catalog", "--no-config-hints"), PROJECT, TS, Claim.STATIC),
-    Tool("sherif", PNPM, ("sherif",), PROJECT, TS, Claim.STATIC),
     Tool("ast-grep-ts", PNPM, ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^ts-domain-", "--error"), FILES, TS, Claim.STATIC),
     Tool(
         "ast-grep-ts",

@@ -44,6 +44,9 @@ venv/
 ENV/
 env/
 .uv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # --- [TEST_COVERAGE] ----------------------------------------------------------
 
@@ -70,9 +73,11 @@ mutants/
 **/.artifacts/
 /.remember/
 .nx/*
+.parcel-cache/
+.pulumi/
+.swc/
 .stryker-tmp/
 test-results/mutation/stryker-incremental.json
-.vite-inspect/
 .vite/
 .scannerwork/
 

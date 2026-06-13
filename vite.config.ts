@@ -6,16 +6,31 @@
 
 import { Effect } from 'effect';
 import { defineConfig } from 'vite';
-import { B, createConfig } from './vite.factory.ts';
+import { createConfig } from './vite.factory.ts';
 
-// --- [EXPORT] ----------------------------------------------------------------
+// --- [EXPORTS] ---------------------------------------------------------------
 
 export default defineConfig(
     Effect.runSync(
         createConfig({
-            mode: 'app',
-            name: 'Workspace',
-            pwa: { description: B.pwa.desc, name: B.pwa.name, shortName: B.pwa.short, themeColor: B.pwa.theme },
+            entry: './vite.factory.ts',
+            external: [
+                '@rolldown/plugin-babel',
+                '@tailwindcss/vite',
+                '@vitejs/plugin-react',
+                'effect',
+                'rollup-plugin-visualizer',
+                'vite',
+                'vite-plugin-compression',
+                'vite-plugin-csp',
+                'vite-plugin-image-optimizer',
+                'vite-plugin-inspect',
+                'vite-plugin-pwa',
+                'vite-plugin-svgr',
+                'vite-plugin-webfont-dl',
+            ],
+            mode: 'library',
+            name: 'WorkspaceFoundation',
         }),
     ),
 );

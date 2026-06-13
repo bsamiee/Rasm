@@ -1,0 +1,87 @@
+{
+    "$schema": "./node_modules/nx/schemas/nx-schema.json",
+    "defaultBase": "main",
+    "workspaceLayout": {
+        "appsDir": "apps",
+        "libsDir": "libs/typescript"
+    },
+    "namedInputs": {
+        "default": ["{projectRoot}/**/*", "sharedGlobals"],
+        "production": [
+            "default",
+            "!{projectRoot}/**/*.spec.{ts,tsx,mts,cts}",
+            "!{projectRoot}/**/*.test.{ts,tsx,mts,cts}",
+            "!{projectRoot}/coverage",
+            "!{projectRoot}/dist",
+            "!{projectRoot}/test-results"
+        ],
+        "sharedGlobals": [
+            "{workspaceRoot}/biome.json",
+            "{workspaceRoot}/package.json",
+            "{workspaceRoot}/pnpm-lock.yaml",
+            "{workspaceRoot}/pnpm-workspace.yaml",
+            "{workspaceRoot}/tsconfig.base.json",
+            "{workspaceRoot}/vite.factory.ts",
+            "{workspaceRoot}/vitest.config.ts"
+        ]
+    },
+    "targetDefaults": {
+        "build": {
+            "cache": true,
+            "inputs": ["production", "^production"],
+            "outputs": ["{projectRoot}/dist"]
+        },
+        "typecheck": {
+            "cache": true,
+            "inputs": ["default", "^production"]
+        },
+        "test": {
+            "cache": true,
+            "inputs": ["default", "^production"],
+            "outputs": ["{workspaceRoot}/coverage", "{workspaceRoot}/test-results"]
+        },
+        "lint": {
+            "cache": true,
+            "inputs": ["default", "^production"]
+        },
+        "e2e": {
+            "cache": true,
+            "inputs": ["default", "^production"],
+            "outputs": ["{workspaceRoot}/test-results"]
+        }
+    },
+    "plugins": [
+        {
+            "plugin": "@nx/js/typescript",
+            "options": {
+                "compiler": "tsgo",
+                "typecheck": {
+                    "targetName": "typecheck",
+                    "configName": "tsconfig.json"
+                },
+                "build": false
+            }
+        },
+        {
+            "plugin": "@nx/vite/plugin",
+            "options": {
+                "buildTargetName": "build",
+                "ciGroupName": "vitest",
+                "ciTargetName": "test-ci",
+                "compiler": "tsgo",
+                "testTargetName": "test",
+                "typecheckTargetName": "typecheck"
+            }
+        },
+        {
+            "plugin": "@nx/playwright/plugin",
+            "options": {
+                "ciTargetName": "e2e-ci",
+                "targetName": "e2e"
+            }
+        }
+    ],
+    "tui": {
+        "enabled": true
+    }
+}

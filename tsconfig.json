@@ -1,5 +1,5 @@
 {
     "extends": "./tsconfig.base.json",
-    "files": [],
+    "files": ["./vite.config.ts", "./vite.factory.ts", "./vitest.config.ts"],
     "references": []
 }

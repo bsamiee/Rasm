@@ -1,26 +1,37 @@
 {
-    "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+    "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
     "vcs": {
-        "enabled": false,
+        "enabled": true,
         "clientKind": "git",
         "useIgnoreFile": true
     },
     "files": {
+        "ignoreUnknown": true,
         "includes": [
             "**",
-            "!**/node_modules",
-            "!**/.cache",
-            "!**/.artifacts",
-            "!**/.claude/skills/**/.cache",
-            "!**/.claude/worktrees",
-            "!**/.nx",
-            "!**/.venv",
-            "!**/bin",
-            "!**/obj",
-            "!**/coverage",
-            "!**/dist",
-            "!**/packages.lock.json",
-            "!**/test-results"
+            "!!**/node_modules",
+            "!!**/.cache",
+            "!!**/.artifacts",
+            "!!**/.claude/skills/**/.cache",
+            "!!**/.claude/worktrees",
+            "!!**/.mypy_cache",
+            "!!**/.nx",
+            "!!**/.parcel-cache",
+            "!!**/.probes",
+            "!!**/.pulumi",
+            "!!**/.pytest_cache",
+            "!!**/.ruff_cache",
+            "!!**/.swc",
+            "!!**/.venv",
+            "!!**/bin",
+            "!!**/obj",
+            "!!**/coverage",
+            "!!**/dist",
+            "!!**/build",
+            "!!**/packages.lock.json",
+            "!!**/test-results",
+            "!!**/pnpm-lock.yaml",
+            "!!**/uv.lock"
         ]
     },
     "formatter": {
@@ -32,7 +43,7 @@
     "linter": {
         "enabled": true,
         "rules": {
-            "recommended": true
+            "preset": "recommended"
         }
     },
     "javascript": {
@@ -40,6 +51,14 @@
             "quoteStyle": "single",
             "semicolons": "always",
             "trailingCommas": "all"
+        }
+    },
+    "assist": {
+        "enabled": true,
+        "actions": {
+            "source": {
+                "organizeImports": "on"
+            }
         }
     }
 }

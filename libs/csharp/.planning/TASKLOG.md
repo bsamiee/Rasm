@@ -79,7 +79,7 @@ Entry: `libs/typescript/.planning/README.md`.
 
 | [INDEX] | [ITEM] |
 | :-----: | ------ |
-| [1] | Stage A: root TS infra finalization (catalog refresh to newest stable incl. TS 7, knip truth, lock law, engine pins) |
+| [1] | Stage A: root TS infra finalization (catalog refresh to newest stable incl. TS 7, dependency-usage truth, lock law, engine pins) |
 | [2] | Stage B: lib scaffolding as a real workspace package, Effect rails, wire-contract-only integration |
 | [3] | Stage C: TS dependency catalogue extraction (the .api equivalent) |
 | [4] | Stage D: planning corpus completion to the suite review-law bar with a TS region ledger; register the five TS service owners (WireClients, SnapshotFeed, RuntimeFeed, CommandGateway, EvidenceFeed) |
@@ -99,4 +99,3 @@ The total planning-phase close-out: these bridge-proofed spikes run ONLY after e
 | [6] | Embedded-TopLevel service resolution (toasts, storage pickers) inside the rhino-panel root | AppUi ROADMAP |
 | [7] | Host-object drag across the NSView boundary; VoiceOver reach across the embedding | AppUi ROADMAP |
 | [8] | Drain-deadline conformance scenario under live plugin unload | AppHost ROADMAP |
-

@@ -102,7 +102,7 @@ const _CONFIG = {
     timeouts: { hook: 10_000, slow: 5_000, test: 10_000 },
 } as const;
 
-// --- [EXPORT] ----------------------------------------------------------------
+// --- [EXPORTS] ---------------------------------------------------------------
 
 export default defineConfig({
     cacheDir: _CONFIG.cacheDir,
@@ -143,7 +143,7 @@ export default defineConfig({
         isolate: true,
         onConsoleLog: (log, type) => !log.includes('Download the React DevTools') && type !== 'stderr',
         outputFile: { ..._CONFIG.output.outputFile },
-        passWithNoTests: true,
+        passWithNoTests: false,
         pool: 'threads',
         printConsoleTrace: false,
         projects: [
@@ -197,16 +197,7 @@ export default defineConfig({
         slowTestThreshold: _CONFIG.timeouts.slow,
         snapshotFormat: { ..._CONFIG.snapshot.format },
         testTimeout: _CONFIG.timeouts.test,
-        typecheck: {
-            checker: 'tsc',
-            enabled: false,
-            ignoreSourceErrors: false,
-            include: ['**/*.{test,spec}-d.{ts,tsx}'],
-            tsconfig: './tsconfig.base.json',
-        },
         unstubEnvs: true,
         unstubGlobals: true,
     },
 });
-
-export { _CONFIG as VITEST_TUNING };

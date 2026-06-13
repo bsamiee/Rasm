@@ -196,7 +196,7 @@ Integrations are grouped by the reader action they change. They are capability n
 - Mutation lane: the staged rail posture is the only Python mutation runner. mutmut runs with `cwd=.artifacts/python/mutmut/work` (a copy-staged worktree); a root `mutants/` directory is forbidden by the litter-law policy. `--max-children` is spliced from `mutation_max_cpu` to bind mutmut's second-tier fork fan, and `COVERAGE_RCFILE` (=`.config/coverage-mutmut.ini`) is carried as a row-owned `Tool.env` entry so the covered-lines flip does not abort. The `changed` lane maps changed `.py` files to module-dotted mutant-name globs (`tools.assay.rails.docs.*`), never file paths, because mutmut filters by mutant name.
 
 [TYPESCRIPT_TOOLS]:
-- Enables: `tsc`, Biome, Knip, Sherif, Vitest, and ast-grep proof.
+- Enables: `tsc`, Biome, Vitest, and ast-grep proof.
 - Boundary: selected by claim and language rows.
 
 [BASH_SQL_TOOLS]:
