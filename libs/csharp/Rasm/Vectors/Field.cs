@@ -870,7 +870,7 @@ public abstract partial record ScalarField {
                          let support = weightArray.Count(static weight => Math.Abs(value: weight) > RhinoMath.SqrtEpsilon)
                          let weightSum = weightArray.Sum()
                          from value in weightArray.Length == r.Samples.Count && r.Coefficients.Count == r.Samples.Count
-                             ? key.OrDefault().AcceptValue<double>(value: Enumerable.Range(start: 0, count: weightArray.Length).Sum((int i) => weightArray[i] * r.Coefficients[i]))
+                             ? key.OrDefault().AcceptValue(value: Enumerable.Range(start: 0, count: weightArray.Length).Sum(i => weightArray[i] * r.Coefficients[i]))
                              : Fin.Fail<double>(key.OrDefault().InvalidResult())
                          from solve in r.Receipt.Solve.ToFin(key.OrDefault().InvalidResult())
                          select new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: r.Receipt.Mode, Status: r.Receipt.Interpolation ? ReconstructionStatus.ExactInterpolation : ReconstructionStatus.ApproximateSdf, Kernel: r.Kernel, Radius: r.Radius.Value, SampleCount: r.Samples.Count, NeighborhoodCount: support, RejectedWeightCount: r.Samples.Count - support, WeightSum: weightSum, Rank: solve.IsUsable ? solve.Solution.Count : 0, Condition: Option<double>.None, NormalAgreement: Option<double>.None, GradientNorm: Option<double>.None, Solve: solve)),

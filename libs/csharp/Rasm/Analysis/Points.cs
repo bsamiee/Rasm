@@ -43,9 +43,9 @@ public partial record Points {
                     from points in lease.Use((Curve curve) => curve.IsValid switch {
                         false => Fin.Fail<Seq<Point3d>>(state.Key.InvalidInput()),
                         true => DirectionsFor(custom: state.Directions, planar: curve.IsPlanar(tolerance: context.Absolute.Value), context: context, key: state.Key)
-                            .Bind((Seq<Vector3d> directions) => directions.TraverseM((Vector3d direction) => Stat.Extrema<Point3d>(
+                            .Bind((Seq<Vector3d> directions) => directions.TraverseM((Vector3d direction) => Stat.Extrema(
                                     items: toSeq(curve.ExtremeParameters(direction: direction)).Map(curve.PointAt),
-                                    projection: (Point3d p) => (Vector3d)p * direction,
+                                    projection: p => (Vector3d)p * direction,
                                     tolerance: 0.0,
                                     direction: ExtremumDirection.Maximum)
                                 .Head.ToFin(state.Key.InvalidResult()))

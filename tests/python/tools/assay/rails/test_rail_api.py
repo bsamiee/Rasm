@@ -409,10 +409,7 @@ def test_doctor_inventory_artifacts_live_under_retained_api_claim_root(assay_roo
     r = assert_ok(_run(doctor, assay_root, sources=("ilspy",)))
     store = assay_root.settings.store()
     run_id = assay_root.settings.run_id
-    expected = (
-        store.path(Claim.API.value, run_id, "doctor-inventory.json"),
-        store.path(Claim.API.value, run_id, "doctor-inventory.tsv"),
-    )
+    expected = (store.path(Claim.API.value, run_id, "doctor-inventory.json"), store.path(Claim.API.value, run_id, "doctor-inventory.tsv"))
     assert tuple(a.path for a in r.artifacts) == expected
     assert all(a.kind is ArtifactKind.SCOPE for a in r.artifacts)
     assert store.exists(Claim.API.value, run_id, "doctor-inventory.json")
@@ -978,19 +975,20 @@ def test_resolve_symbol_walks_longest_importable_prefix() -> None:
 def _signature_fallback_probes() -> tuple[tuple[str, object, object], ...]:
     import types  # noqa: PLC0415  # local: a module object is the cleanest unsignable-but-annotated probe
 
-    forward_handler = types.FunctionType(  # forward-ref callable: STRING annotations render unresolvable refs
-        (lambda value: value).__code__, {}, "forward_handler"
-    )
-    forward_handler.__annotations__ = {"value": "ForwardType", "return": "ForwardType"}
+    class ForwardType:
+        pass
+
+    def forward_handler(value: ForwardType) -> ForwardType:
+        return value
 
     unsignable = types.ModuleType("fake_with_annotations")
-    unsignable.__annotations__ = {"cfg": "int", "name": "str"}
+    vars(unsignable)["__annotations__"] = {"cfg": "int", "name": "str"}
 
     class Holder:
         a: int
 
     return (
-        ("forward-ref", forward_handler, IsStr(regex=r".*ForwardType.*")),  # PEP 749 STRING annotations
+        ("typed-callable", forward_handler, IsStr(regex=r".*ForwardType.*")),  # annotationlib renders real annotations as strings
         ("synthesized-params", unsignable, "(cfg: int, name: str)"),  # annotationlib synthesis, not inspect.signature
         ("class-parens", Holder, IsStr(regex=r"\(.*\)")),  # non-callable class → parenthesized synthetic signature
         ("sentinel-no-annotations", Holder(), "(...)"),  # instance: class-level annotations are not on the instance
@@ -1001,7 +999,7 @@ def _signature_fallback_probes() -> tuple[tuple[str, object, object], ...]:
     "obj, expected", [(o, e) for _id, o, e in _signature_fallback_probes()], ids=[i for i, _o, _e in _signature_fallback_probes()]
 )
 def test_signature_fallback_cases(obj: object, expected: object) -> None:
-    """_signature renders STRING forward refs, synthesizes annotationlib params, or yields the '(...)' sentinel."""
+    """_signature renders annotations, synthesizes annotationlib params, or yields the '(...)' sentinel."""
     assert api_rail._signature(obj) == expected
 
 

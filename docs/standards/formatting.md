@@ -25,7 +25,7 @@ Render an inline status, result, change, or compact state as a bracketed token s
 |   [1]   | Result           | `[PASS]`, `[FAIL]`, `[SKIP]`, `[PARTIAL]`, `[N/A]`                          |
 |   [2]   | Change           | `[ADDED]`, `[REMOVED]`, `[CHANGED]`, `[UNCHANGED]`                          |
 |   [3]   | Lifecycle marker | `[QUEUED]`, `[ACTIVE]`, `[BLOCKED]`, `[COMPLETE]`, `[DROPPED]`, `[RETIRED]` |
-|   [4]   | Compact glyph    | `[o]`, `[x]`, `[!]`, `[?]`, `[+]`, `[-]`, `[=]`, `[/]`, `[~]`, `[$]`        |
+|   [4]   | Compact glyph    | `[O]`, `[X]`, `[!]`, `[?]`, `[+]`, `[-]`, `[=]`, `[/]`, `[~]`, `[$]`        |
 |   [5]   | Explicit state   | `[OK]`, `[ERROR]`, `[WARNING]`, `[CAUTION]`, `[PENDING]`, `[UNKNOWN]`       |
 |   [6]   | Explicit state   | `[NEW]`, `[DELETED]`, `[SAME]`, `[NULL]`, `[APPROX]`, `[CACHED]`, `[SAVED]` |
 
@@ -43,8 +43,8 @@ Token use is separate from the closed set so the table remains scannable:
 
 | [INDEX] | [GLYPH] | [MEANING]                                        | [TEXT_EQUIVALENT]          | [REJECT]                     |
 | :-----: | :------ | :----------------------------------------------- | :------------------------- | :--------------------------- |
-|   [1]   | `[o]`   | passed, available, or affirmative compact result | `pass` or `available`      | lifecycle `COMPLETE`         |
-|   [2]   | `[x]`   | failed, unavailable, or negative compact result  | `fail` or `unavailable`    | checkbox completion          |
+|   [1]   | `[O]`   | passed, available, or affirmative compact result | `pass` or `available`      | lifecycle `COMPLETE`         |
+|   [2]   | `[X]`   | failed, unavailable, or negative compact result  | `fail` or `unavailable`    | checkbox completion          |
 |   [3]   | `[!]`   | attention, warning, or risk marker               | `attention`                | claim-confidence gap         |
 |   [4]   | `[?]`   | input value unknown                              | `unknown`                  | missing claim detail         |
 |   [5]   | `[+]`   | added, new, enabled, or increased                | `added`                    | positive sentiment           |
@@ -72,9 +72,9 @@ Token use is separate from the closed set so the table remains scannable:
 - Use compact glyphs only where density matters, such as checked lists, delta summaries, or table cells, and only with the global meanings above.
 - Use explicit states when clarity matters more than width.
 - Reserve these tokens for status, result, change, and state reporting; do not scatter bracketed tokens through ordinary prose or duplicate a definition-block field or checkbox state.
-- Use a checkbox when completion is asserted; use `[x]` only as a compact fail marker, never as a replacement for `- [x]`.
+- Use a checkbox when completion is asserted; use `[X]` only as a compact fail marker, never as a replacement for `- [X]`.
 
-Bracketed tokens have distinct jobs. Invocation markers (`[IMPORTANT]`, `[CRITICAL]`, `[ALWAYS]`, `[NEVER]`) belong only to instruction surfaces. Group labels (`[FACTS]:`) introduce a list or table. GitHub alerts (`> [!WARNING]`) interrupt the rendered reading path. Compact glyphs (`[o]`, `[x]`) are dense table or list cells. Lifecycle tokens (`[ACTIVE]`) mirror the default record `Status` vocabulary inline. Do not use one family as a substitute for another.
+Bracketed tokens have distinct jobs. Invocation markers (`[IMPORTANT]`, `[CRITICAL]`, `[ALWAYS]`, `[NEVER]`) belong only to instruction surfaces. Group labels (`[FACTS]:`) introduce a list or table. GitHub alerts (`> [!WARNING]`) interrupt the rendered reading path. Compact glyphs (`[O]`, `[X]`) are dense table or list cells. Lifecycle tokens (`[ACTIVE]`) mirror the default record `Status` vocabulary inline. Do not use one family as a substitute for another.
 
 Render progress as a bar only after [information-structure.md](information-structure.md) defines the maintained actor, numerator, denominator, closure rule, and basis surface. The rendered line is only the label, bracketed bar, and percentage.
 
@@ -160,7 +160,7 @@ Table styling uses these groups:
 - Every enumerable Markdown table starts with `[INDEX]`, center-aligned, with body rows numbered `[1]` through `[n]`.
 - A non-enumerable matrix may use a short bracketed stub rubric instead only when row order or row identity is not enumerable.
 - Align the first column left, or, when it is a pure index, center it; the form standard sets what the stub column may contain.
-- A centered non-index cell must be a compact marker or a value whose visible text is three letters or fewer, such as `yes`, `no`, `n/a`, `—`, `[o]`, or `[x]`. Do not center whole words such as `accepted`, `Supported`, `Standard`, `Contract`, or `Required`.
+- A centered non-index cell must be a compact marker or a value whose visible text is three letters or fewer, such as `yes`, `no`, `n/a`, `—`, `[O]`, or `[X]`. Do not center whole words such as `accepted`, `Supported`, `Standard`, `Contract`, or `Required`.
 
 [SAFETY]:
 
@@ -178,7 +178,7 @@ The GFM separator row encodes the four alignment classes — left-align with `:-
 ```markdown template
 | [INDEX] | [ITEM] | [COUNT] | [RESULT] | [CHECK] |
 | :-----: | :----- | ------: | :------- | :-----: |
-|   [1]   | Mesh   |      42 | [PASS]   |   [o]   |
+|   [1]   | Mesh   |      42 | [PASS]   |   [O]   |
 |   [2]   | Solver |       — | [N/A]    |    —    |
 ```
 
@@ -201,7 +201,7 @@ The index column is centered, the text column (`[ITEM]`) is left-aligned, the nu
 - Do not stack bracketed set labels. If a second label appears before the first label's list or table, remove the outer label or promote the outer category to prose or a heading.
 - A bracketed `[RECORD_KEY]:` or `[CONTRAST_KEY]:` label must be followed by a bullet list on the next line; never bare indented `Field: value` lines after the label.
 - Use a nested list only when every child item qualifies one parent item. Indent child bullets and ordered-list continuations with four spaces; field content under a group label is always a bullet, not a bare indented line.
-- Roadmap active trees are the type-local nesting exception. Render phase rows with `- P-0010: <outcome>`, task rows with `- [ ] T-0010 [QUEUED] <title>` or `- [x] T-0010 [COMPLETE] <title>`, and task fields as nested `- Label: value` rows. Keep four-space indentation for every child level and no blank lines inside one milestone tree.
+- Roadmap active trees are the type-local nesting exception. Render phase rows with `- P-0010: <outcome>`, task rows with `- [ ] T-0010 [QUEUED] <title>` or `- [X] T-0010 [COMPLETE] <title>`, and task fields as nested `- Label: value` rows. Keep four-space indentation for every child level and no blank lines inside one milestone tree.
 
 [FIELD_LINES]:
 - Keep short checklist fields inline after an em dash. Promote larger checklist state to the record form defined by `information-structure.md`.

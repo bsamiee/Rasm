@@ -267,7 +267,9 @@ public readonly record struct UnloadReceipt(bool Confirmed, bool DebuggerAttache
 // Ownership: the per-session carrier. SessionId + ReportDir give every in-host writer its evidence
 // destination (spool JSONL, capture PNG) and EventStamp.SessionId its source. LoadCargoAsync runs
 // EVERY session — ContentHash equality short-circuits the swap inside the shell, never the call.
-public sealed record CargoManifest(Guid SessionId, string ReportDir, string ContentHash, string StagePath, Guid[] HostPlugins, HostFingerprint BuiltAgainst);
+public sealed record CargoManifest(
+    Guid SessionId, string ReportDir, string ContentHash, string StagePath,
+    Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies);
 public sealed record CargoReceipt(string ContentHash, double SwapMs, ScenarioEntry[] Scenarios, CapabilityEntry[] Capabilities);
 
 // Ownership: the one frozen-forever negotiation shape, both directions. Fingerprint/endpoint are
@@ -280,6 +282,7 @@ public sealed record Handshake(
     // THE one contract-version declaration: both sides send it in ContractVersion and the
     // supervisor projects skew to BridgeFault.ShellSkew. Bumps ride the additive-evolution law.
     public const int CurrentVersion = 1;
+    public const string ShellContentCapability = "shell.content.sha256";
 }
 
 // Ownership: selection on the wire — discrimination by value shape (one union parameter), never

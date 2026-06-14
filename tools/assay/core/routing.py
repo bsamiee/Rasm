@@ -425,7 +425,9 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
             # cannot run managed; RESTORE/BUILD lanes keep them because compilation is managed-safe.
             kept = routed.projects if tool.mode in {Mode.RESTORE, Mode.BUILD} else tuple(p for p in routed.projects if p not in routed.host_bound)
             projects = kept or ((str(settings.test_target),) if tool.mode is Mode.LIST and not routed.projects else ())
-            return tuple(("--project", project) if tool.runner is Runner.DOTNET and tool.command[:1] == ("test",) else (project,) for project in projects)
+            return tuple(
+                ("--project", project) if tool.runner is Runner.DOTNET and tool.command[:1] == ("test",) else (project,) for project in projects
+            )
         case Input.SOLUTION:
             return ((str(settings.solution),),)
         case Input.NONE:

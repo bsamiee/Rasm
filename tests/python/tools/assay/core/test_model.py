@@ -303,6 +303,14 @@ def test_fold_static_green_executed_rows_are_ok() -> None:
     assert report.counts == Counts(ok=1, failed=0, total=1)
 
 
+def test_fold_process_backed_empty_status_promotes_to_ok() -> None:
+    """Every claim with process evidence and no defects reports ok rather than an empty top-level status."""
+    for claim in (Claim.BRIDGE, Claim.PACKAGE, Claim.TEST):
+        report = fold(claim, "check", (receipt((claim.value,), 0, status=RailStatus.EMPTY),))
+        assert report.status is RailStatus.OK
+        assert report.counts == Counts(ok=1, failed=0, total=1)
+
+
 def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> None:
     """Dotnet format/build output becomes source Match rows before fallback tails, with exact duplicates collapsed."""
     line = b"src/App/HostControl.cs(148,71): error VSTHRD002: Synchronously waiting on tasks may deadlock [src/App/App.csproj]"
@@ -313,6 +321,86 @@ def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> N
     ]
     assert report.results[0].message == "Synchronously waiting on tasks may deadlock"
     assert "HostControl.cs(148,71)" in report.results[0].text
+
+
+@pytest.mark.parametrize(
+    "argv, payload, expected",
+    [
+        (
+            ("uv", "run", "ruff", "check"),
+            b"error[F401]: unused import\n --> pkg/a.py:1:1\n",
+            ("ruff:f401", "error", "pkg/a.py", 1, 1, "unused import"),
+        ),
+        (
+            ("uv", "run", "ty", "check"),
+            b"error[unresolved-attribute]: object has no member\n --> pkg/a.py:2:9\n",
+            ("ty:unresolved-attribute", "error", "pkg/a.py", 2, 9, "object has no member"),
+        ),
+        (
+            ("uv", "run", "mypy"),
+            b"pkg/a.py:3:5: error: Incompatible types in assignment [assignment]\n",
+            ("mypy:assignment", "error", "pkg/a.py", 3, 5, "Incompatible types in assignment"),
+        ),
+        (
+            ("pnpm", "exec", "tsc"),
+            b"src/a.ts(4,7): error TS2322: Type 'number' is not assignable to type 'string'.\n",
+            ("tsc:ts2322", "error", "src/a.ts", 4, 7, "Type 'number' is not assignable to type 'string'."),
+        ),
+        (
+            ("uv", "run", "ruff", "format", "--check"),
+            b"Would reformat: pkg/a.py\n",
+            ("ruff-format:format", "error", "pkg/a.py", 0, 0, "file would be reformatted"),
+        ),
+    ],
+    ids=["ruff", "ty", "mypy", "tsc", "ruff-format"],
+)
+def test_fold_static_text_tools_emit_structured_diagnostics(
+    argv: tuple[str, ...], payload: bytes, expected: tuple[str, str, str, int, int, str]
+) -> None:
+    """Text diagnostics from Python and TypeScript tools become first-class source Match rows."""
+    report = fold(Claim.STATIC, "check", (receipt(argv, 1, stdout=payload),))
+    row = report.results[0]
+    assert (row.id, row.severity, row.path, row.line, row.column, row.message) == expected
+
+
+def test_fold_static_json_tools_emit_structured_diagnostics() -> None:
+    """JSON diagnostics from py-analyzer and Biome become first-class source Match rows."""
+    py_payload = msgspec.json.encode((
+        {"rule_id": "PY001", "severity": "warning", "path": "pkg/a.py", "line": 5, "column": 2, "title": "strict", "message": ""},
+    ))
+    biome_payload = msgspec.json.encode({
+        "diagnostics": [
+            {
+                "severity": "warning",
+                "message": "unused variable",
+                "category": "lint/correctness/noUnusedVariables",
+                "location": {"path": "src/a.ts", "start": {"line": 6, "column": 3}},
+            }
+        ]
+    })
+    report = fold(
+        Claim.STATIC,
+        "check",
+        (
+            receipt(("uv", "run", "-m", "tools.py_analyzer"), 1, stdout=py_payload),
+            receipt(("pnpm", "exec", "biome"), 1, stdout=b"Checked 1 file\n" + biome_payload + b"\nFound 1 error.\n"),
+        ),
+    )
+    assert [(row.id, row.severity, row.path, row.line, row.column, row.message) for row in report.results[:2]] == [
+        ("biome:lint/correctness/nounusedvariables", "warning", "src/a.ts", 6, 3, "unused variable"),
+        ("py-analyzer:py001", "warning", "pkg/a.py", 5, 2, "strict"),
+    ]
+
+
+def test_fold_csharp_same_location_distinct_messages_are_distinct() -> None:
+    """Same-location compiler rows with different messages remain separate structured diagnostics."""
+    first = b"src/App/Probe.cs(30,35): error CS0736: ShellStub.PingAsync cannot implement static member"
+    second = b"src/App/Probe.cs(30,35): error CS0736: ShellStub.PrepareQuitAsync cannot implement static member"
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 1, stdout=b"\n".join((first, second))),))
+    assert [row.message for row in report.results[:2]] == [
+        "ShellStub.PingAsync cannot implement static member",
+        "ShellStub.PrepareQuitAsync cannot implement static member",
+    ]
 
 
 def test_fold_static_dedupes_process_and_sarif_source_diagnostics(tmp_path: Path) -> None:
@@ -367,6 +455,18 @@ def test_fold_static_groups_generated_diagnostics_after_source_rows() -> None:
     assert report.results[1].text.startswith("generated diagnostics grouped count=2:")
     assert "diagnostics: total=3 source=1 generated=2 error=1 warning=2 info=0" in report.notes
     assert "diagnostics.rules: cs0436=2 ma0006=1" in report.notes
+
+
+def test_fold_static_generated_errors_are_evidence_not_failure() -> None:
+    """Generated ``obj`` diagnostics stay visible without making an otherwise successful static fold fail."""
+    generated = (
+        b".artifacts/assay/build/abc/Release/obj/Debug/net10.0/Scenarios.GlobalUsings.g.cs(18,25): "
+        b"error CS0436: The type conflicts with imported type [tools/rhino-bridge/Scenarios.csproj]"
+    )
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 0, status=RailStatus.EMPTY, stdout=generated),))
+    assert [(m.id, m.kind, m.severity, m.count) for m in report.results] == [("cs0436", ArtifactKind.PROCESS, "error", 1)]
+    assert report.status is RailStatus.OK
+    assert "diagnostics: total=1 source=0 generated=1 error=1 warning=0 info=0" in report.notes
 
 
 def test_fold_sarif_absent_or_empty_dir_is_silent(tmp_path: Path) -> None:

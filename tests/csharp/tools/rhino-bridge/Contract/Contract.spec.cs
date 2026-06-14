@@ -41,8 +41,8 @@ internal sealed class ShellStub : IBridgeShell {
             Status: PhaseStatus.Ok, DurationMs: 1.0, Fault: null)]);
     public Task<UnloadReceipt> UnloadCargoAsync(CancellationToken ct) =>
         Task.FromResult(result: new UnloadReceipt(Confirmed: true, DebuggerAttached: false, GcRetries: 0, ElapsedMs: 2.5));
-    public static Task<long> PingAsync(CancellationToken ct) => Task.FromResult(result: 42L);
-    public static Task PrepareQuitAsync(CancellationToken ct) => Task.CompletedTask;
+    public Task<long> PingAsync(CancellationToken ct) => Task.FromResult(result: 42L);
+    public Task PrepareQuitAsync(CancellationToken ct) => Task.CompletedTask;
 }
 
 // A "newer supervisor" contract: one method the v1 shell does not implement (-32601 law).
@@ -80,7 +80,7 @@ internal static class RpcPair {
 // Contract payloads over SystemTextJsonFormatter.
 public sealed class RpcProxyLaws {
     [Fact]
-    public async Task ProxyIsSourceGeneratedNotDynamic() =>
+    public async Task ProxyIsSourceGeneratedNotDynamicAsync() =>
         _ = await RpcPair.WithClientAsync(target: new ShellStub(), law: static client => {
             IBridgeShell proxy = client.Attach<IBridgeShell>();
             Assert.False(condition: proxy.GetType().Assembly.IsDynamic);
@@ -90,7 +90,7 @@ public sealed class RpcProxyLaws {
         }).ConfigureAwait(continueOnCapturedContext: true);
 
     [Fact]
-    public async Task VerbSurfaceRoundTrips() =>
+    public async Task VerbSurfaceRoundTripsAsync() =>
         _ = await RpcPair.WithClientAsync(target: new ShellStub(), law: static async client => {
             IBridgeShell proxy = client.Attach<IBridgeShell>();
             CancellationToken ct = TestContext.Current.CancellationToken;
@@ -98,7 +98,7 @@ public sealed class RpcProxyLaws {
             Assert.Equal(expected: "shell", actual: reply.SenderVersion);
             Assert.Equal(expected: WireGens.Endpoint, actual: reply.Endpoint);
             Assert.Equal(expected: WireGens.Host, actual: reply.Fingerprint);
-            CargoReceipt cargo = await proxy.LoadCargoAsync(manifest: new CargoManifest(SessionId: WireGens.Stamp.SessionId, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage", HostPlugins: [Guid.Parse(input: "b45a29b1-4343-4035-989e-044e8580d9cf")], BuiltAgainst: WireGens.Host), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            CargoReceipt cargo = await proxy.LoadCargoAsync(manifest: new CargoManifest(SessionId: WireGens.Stamp.SessionId, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage", HostPlugins: [Guid.Parse(input: "b45a29b1-4343-4035-989e-044e8580d9cf")], BuiltAgainst: WireGens.Host, ScenarioAssemblies: ["Rasm.Rhino.Tests.dll"]), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
             Assert.Equal(expected: "xx64:abc", actual: cargo.ContentHash);
             ScenarioReceipt[] receipts = await proxy.RunAsync(selection: new ScenarioSelection.ThemesCase(Themes: ["blocks", "vectors"]), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
             Assert.Equal(expected: "themes:blocks,vectors", actual: receipts[0].Scenario);
@@ -273,7 +273,7 @@ public sealed class ToleranceLaws {
     }
 
     [Fact]
-    public async Task MissingMethodSurfacesAsMethodNotFound() =>
+    public async Task MissingMethodSurfacesAsMethodNotFoundAsync() =>
         _ = await RpcPair.WithClientAsync(target: new ShellStub(), law: static async client => {
             IFutureShell future = client.Attach<IFutureShell>();
             RemoteMethodNotFoundException missing = await Assert.ThrowsAsync<RemoteMethodNotFoundException>(testCode: async () =>

@@ -1,7 +1,7 @@
 using Rasm.TestKit;
 using Rasm.TestKit.Scenarios;
 
-namespace Rasm.Bridge.Scenarios.Tests;
+namespace Scenarios;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
 

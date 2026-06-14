@@ -719,16 +719,16 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:  # noqa: PLR0914  
             # Row env keys are a deliberate per-tool declaration: forward them across the SSH boundary explicitly
             # while the allowlist keeps gating ambient host env the tool never declared.
             row_env = frozenset(key for key, _ in plan.check.tool.env)
-            done = await _run_remote(replace(plan, env=plan.settings.remote_env(dict(plan.env), forward=row_env)), target)
+            remote_done = await _run_remote(replace(plan, env=plan.settings.remote_env(dict(plan.env), forward=row_env)), target)
             _LOG.info(
                 "process.end",
                 tool=plan.check.tool.name,
                 argv=plan.argv,
-                returncode=done.returncode,
+                returncode=remote_done.returncode,
                 duration_ms=round((time.monotonic() - started) * 1000.0, 1),
                 remote=True,
             )
-            return done
+            return remote_done
 
 
 def _stream_artifacts(scope: ArtifactScope | None, settings: AssaySettings, check: Check, streams: Mapping[str, Captured]) -> tuple[Artifact, ...]:

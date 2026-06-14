@@ -18,7 +18,7 @@ from datetime import datetime, UTC
 import operator
 import tempfile
 from typing import Final, override, Self, TYPE_CHECKING
-import uuid  # noqa: TC003  # runtime import: open_store's annotation is evaluated eagerly (no `from __future__ import annotations`)
+import uuid  # noqa: TC003  # runtime: Hypothesis draws uuid.UUID values for the state-machine store identity
 
 from dirty_equals import IsPartialDict, IsStr, IsTuple
 import fsspec

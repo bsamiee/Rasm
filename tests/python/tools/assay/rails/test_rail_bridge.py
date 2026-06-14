@@ -235,18 +235,23 @@ def test_closure_index_and_aggregate_selected_corpus(assay_root: AssayHarness) -
     root = Path(scope.ensure())
     _closure(root / "rasm" / "bridge-closure.json", "Rasm.Tests.dll", "Core.dll")
     _closure(root / "rhino" / "bridge-closure.json", "Rasm.Rhino.Tests.dll", "Rhino.dll")
+    cargo = root / "bin" / "Cargo" / assay_root.settings.configuration.value.lower()
+    cargo.mkdir(parents=True)
+    (cargo / "Cargo.dll").write_bytes(b"")
 
     index = assert_ok(_closure_index(scope))
     assert set(index) == {"Rasm.Tests.dll", "Rasm.Rhino.Tests.dll"}
 
-    target = assert_ok(_aggregate_closure(scope, assert_ok(_plan("blocks")), index))
+    target = assert_ok(_aggregate_closure(assay_root.settings, scope, assert_ok(_plan("blocks")), index))
     payload = msgspec.json.decode(target.read_bytes())
-    assert {Path(row).name for row in payload["assemblies"]} == {"Rasm.Rhino.Tests.dll", "Rhino.dll"}
+    assert {Path(row).name for row in payload["assemblies"]} == {"Rasm.Rhino.Tests.dll", "Rhino.dll", "Cargo.dll"}
     assert payload["hostPlugins"] == ["b45a29b1-4343-4035-989e-044e8580d9cf"]
 
 
 def test_aggregate_missing_selected_closure_faults(assay_root: AssayHarness) -> None:
-    fault = assert_error_status(_aggregate_closure(assay_root.scope(Claim.BRIDGE), assert_ok(_plan("analysis")), {}), RailStatus.FAULTED)
+    fault = assert_error_status(
+        _aggregate_closure(assay_root.settings, assay_root.scope(Claim.BRIDGE), assert_ok(_plan("analysis")), {}), RailStatus.FAULTED
+    )
     assert "Rasm.Tests.dll" in fault.message
 
 
@@ -315,7 +320,7 @@ def test_verify_folds_session_summary(assay_root: AssayHarness, monkeypatch: pyt
     monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
     monkeypatch.setattr(_bridge_mod, "_build_closure", lambda _settings: Ok(receipt(("rasm-bridge-build",), 0, status=RailStatus.OK)))
     monkeypatch.setattr(_bridge_mod, "_closure_index", lambda _scope: Ok({"Rasm.Rhino.Tests.dll": (closure, _ClosureManifest())}))
-    monkeypatch.setattr(_bridge_mod, "_aggregate_closure", lambda _scope, _plan, _index: Ok(closure))
+    monkeypatch.setattr(_bridge_mod, "_aggregate_closure", lambda _settings, _scope, _plan, _index: Ok(closure))
     monkeypatch.setattr(
         _bridge_mod,
         "client_run",

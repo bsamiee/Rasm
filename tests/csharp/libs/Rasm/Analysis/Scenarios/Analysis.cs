@@ -1,6 +1,6 @@
 using Rasm.Analysis;
-using Rasm.TestKit.Scenarios;
 using Rasm.Domain;
+using Rasm.TestKit.Scenarios;
 using Rhino;
 using Rhino.Geometry;
 

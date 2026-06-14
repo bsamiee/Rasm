@@ -38,13 +38,12 @@ from tools.assay.core.model import (
     Counts,
     Fault,  # unconditional: @checked resolves the `-> Result[Report, Fault]` forward-ref under PEP 649
     fold,
-    language_choice,
     Language,
+    language_choice,
     Match,
     Mode,
     receipt,
     Report,
-    Tool,
 )
 from tools.assay.core.routing import infer_languages, route, Routed, Scope
 from tools.assay.core.status import RailStatus, Step
@@ -57,7 +56,7 @@ if TYPE_CHECKING:
     from tree_sitter import Node
 
     from tools.assay.composition.catalog import AstMatch, RgEvent
-    from tools.assay.core.model import InprocThunk
+    from tools.assay.core.model import InprocThunk, Tool
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -182,9 +181,9 @@ def _fan(
     # Routing, spawn, and timeout Faults short-circuit; non-zero tool exits stay on Completed.
     return _languages(_selected(params, verb), params.paths).bind(
         lambda languages: _routed(languages, params.paths, settings).bind(
-            lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice)))).map(
-                tuple
-            )
+            lambda routed: sequence(
+                routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice)))
+            ).map(tuple)
         )
     )
 
@@ -489,9 +488,7 @@ def _project_rows[M](
 def _content_splice(tool: Tool, params: CodeParams, root: Path) -> Tool:
     # --glob narrows to language suffixes; missing paths drop to the default target, matching _targets behavior in ast-grep splices.
     selected = _selected(params, "search")
-    globs = tuple(
-        arg for suffix in (selected.suffixes if isinstance(selected, Language) else ()) for arg in ("--glob", f"*{suffix}")
-    )
+    globs = tuple(arg for suffix in (selected.suffixes if isinstance(selected, Language) else ()) for arg in ("--glob", f"*{suffix}"))
     return msgspec.structs.replace(tool, command=(*tool.command, *globs, "-e", params.pattern, "--", *_targets(params.paths, root)))
 
 
@@ -540,15 +537,15 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
 def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
     # A synthetic Routed with no language files satisfies run_check's spawn shape; ripgrep
     # is grammar-blind so no actual file routing is needed before the check is dispatched.
-    match (_selected(params, "search"), next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None)):
-        case (Fault() as fault, _):
-            return Error(fault)
-        case (_, None):
-            return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
-        case (_, Tool() as tool):  # pragma: no cover — exhaustive match(Tool|None); sysmon arc to implicit exit unreachable
-            check = Check(tool=_content_splice(tool, params, Path(str(settings.root))), paths=tuple(params.paths or _DEFAULT_TARGET))
-            routed = Routed(language=tool.language, scope=Scope.CHANGED)
-            return run_check(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, scope, params, done))
+    choice = _selected(params, "search")
+    if isinstance(choice, Fault):
+        return Error(choice)
+    tool = next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None)
+    if tool is None:
+        return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
+    check = Check(tool=_content_splice(tool, params, Path(str(settings.root))), paths=tuple(params.paths or _DEFAULT_TARGET))
+    routed = Routed(language=tool.language, scope=Scope.CHANGED)
+    return run_check(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, scope, params, done))
 
 
 def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, done: Completed) -> Report:

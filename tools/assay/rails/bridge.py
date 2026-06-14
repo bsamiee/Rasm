@@ -110,6 +110,7 @@ class _HostFingerprint(msgspec.Struct, frozen=True, gc=False, omit_defaults=True
 
 class _ClosureManifest(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
     assemblies: tuple[str, ...] = ()
+    scenario_assemblies: tuple[str, ...] = ()
     host_plugins: tuple[str, ...] = ()
     built_against: _HostFingerprint = msgspec.field(default_factory=_HostFingerprint)
 
@@ -202,6 +203,7 @@ _SCENARIO_CORPORA: Final[tuple[_ScenarioCorpus, ...]] = (
         ),
         theme_names=(
             ("blocks", "CoreRail"),
+            ("blocks", "CommandHistoryRail"),
             ("blocks", "Stats"),
             ("blocks", "GraphPlan"),
             ("blocks", "Author"),
@@ -221,10 +223,7 @@ _SCENARIO_CORPORA: Final[tuple[_ScenarioCorpus, ...]] = (
     _ScenarioCorpus(
         project="tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
         assembly="Rasm.Grasshopper.Tests.dll",
-        paths=(
-            "tests/csharp/libs/Rasm.Grasshopper/UI",
-            "tests/csharp/libs/Rasm.Grasshopper/UI/Scenarios",
-        ),
+        paths=("tests/csharp/libs/Rasm.Grasshopper/UI", "tests/csharp/libs/Rasm.Grasshopper/UI/Scenarios"),
         theme_names=(("gh-ui", "MotionLayout"),),
     ),
 )
@@ -293,13 +292,19 @@ def _decode_envelope(run: Completed) -> _SessionEnvelope:
     try:
         return _ENVELOPE_DECODER.decode(raw or b"{}")
     except msgspec.MsgspecError:
-        for path in tuple(Path(artifact.path) for artifact in run.artifacts if artifact.kind is ArtifactKind.PROCESS and Path(artifact.path).name == "out.log"):
+        failures: list[str] = []
+        paths = tuple(
+            Path(artifact.path) for artifact in run.artifacts if artifact.kind is ArtifactKind.PROCESS and Path(artifact.path).name == "out.log"
+        )
+        for path in paths:
             try:
                 return _ENVELOPE_DECODER.decode(path.read_bytes().strip() or b"{}")
-            except OSError, msgspec.MsgspecError:
-                pass
+            except (OSError, msgspec.MsgspecError) as exc:
+                failures.append(f"{path}: {str(exc)[:120]}")
         text = (run.stderr or run.stdout).decode(errors="replace").strip()
-        return _SessionEnvelope(status=RailStatus.FAILED, first_failure=text[:256] or "supervisor emitted no SessionEnvelope")
+        return _SessionEnvelope(
+            status=RailStatus.FAILED, first_failure=text[:256] or "; ".join(failures)[:256] or "supervisor emitted no SessionEnvelope"
+        )
 
 
 def _completed_from_stdout(run: Completed) -> Completed:
@@ -403,28 +408,34 @@ def _read_closure(path: Path) -> _ClosureManifest:
         return _ClosureManifest()
 
 
-def _aggregate_closure(settings: AssaySettings, scope: ArtifactScope, plan: _SelectionPlan, index: dict[str, tuple[Path, _ClosureManifest]]) -> Result[Path, Fault]:
+def _aggregate_closure(
+    settings: AssaySettings, scope: ArtifactScope, plan: _SelectionPlan, index: dict[str, tuple[Path, _ClosureManifest]]
+) -> Result[Path, Fault]:
     missing = tuple(corpus.assembly for corpus in plan.corpora if corpus.assembly not in index)
     if missing:
         return Error(Fault(("bridge", "closure-index"), RailStatus.FAULTED, f"missing bridge closure(s): {', '.join(missing)}"))
-    try:
-        target = Path(scope.ensure()) / _AGGREGATE_CLOSURE_FILE
-        selected = tuple(index[corpus.assembly] for corpus in plan.corpora)
-        cargo_root = Path(scope.path) / "bin" / "Cargo" / settings.configuration.value.lower()
-        cargo_assemblies = tuple(sorted(cargo_root.glob("*.dll")))
-        if not cargo_assemblies:
-            return Error(Fault(("bridge", "closure-aggregate"), RailStatus.FAULTED, f"missing cargo output assemblies under {cargo_root}"))
-        payload = _ClosureManifest(
-            assemblies=tuple(
-                sorted({
+    target = Path(scope.ensure()) / _AGGREGATE_CLOSURE_FILE
+    selected = tuple(index[corpus.assembly] for corpus in plan.corpora)
+    cargo_root = Path(scope.path) / "bin" / "Cargo" / settings.configuration.value.lower()
+    cargo_assemblies = tuple(sorted(cargo_root.glob("*.dll")))
+    if not cargo_assemblies:
+        return Error(Fault(("bridge", "closure-aggregate"), RailStatus.FAULTED, f"missing cargo output assemblies under {cargo_root}"))
+    payload = _ClosureManifest(
+        assemblies=tuple(
+            sorted(
+                {
                     str((path.parent / assembly).resolve()) if not Path(assembly).is_absolute() else str(Path(assembly).resolve())
                     for path, closure in selected
                     for assembly in closure.assemblies
-                } | {str(path.resolve()) for path in cargo_assemblies})
-            ),
-            host_plugins=tuple(sorted({plugin for _, closure in selected for plugin in closure.host_plugins})),
-            built_against=next((closure.built_against for _, closure in selected if closure.built_against != _HostFingerprint()), _HostFingerprint()),
-        )
+                }
+                | {str(path.resolve()) for path in cargo_assemblies}
+            )
+        ),
+        scenario_assemblies=tuple(sorted({corpus.assembly for corpus in plan.corpora})),
+        host_plugins=tuple(sorted({plugin for _, closure in selected for plugin in closure.host_plugins})),
+        built_against=next((closure.built_against for _, closure in selected if closure.built_against != _HostFingerprint()), _HostFingerprint()),
+    )
+    try:
         target.write_bytes(msgspec.json.encode(payload))
         return Ok(target)
     except OSError as exc:
@@ -477,22 +488,12 @@ def _sarif_artifacts(scope: ArtifactScope) -> tuple[Artifact, ...]:
         paths = tuple(sorted(Path(scope.path).rglob("*.sarif")))
     except OSError:
         return ()
-    return tuple(
-        Artifact(
-            id=path.stem,
-            kind=ArtifactKind.PROCESS,
-            path=str(path),
-            bytes=_size(path),
-            lines=_lines(path),
-        )
-        for path in paths
-    )
+    return tuple(Artifact(id=path.stem, kind=ArtifactKind.PROCESS, path=str(path), bytes=_size(path), lines=_lines(path)) for path in paths)
 
 
 def _build_project(settings: AssaySettings, scope: ArtifactScope, project: str) -> Result[Completed, Fault]:
     tool = msgspec.structs.replace(
-        _BUILD_TOOL,
-        command=(*_BUILD_TOOL.command, "--configuration", settings.configuration.value, str(settings.root / project)),
+        _BUILD_TOOL, command=(*_BUILD_TOOL.command, "--configuration", settings.configuration.value, str(settings.root / project))
     )
     return run_check(Check(tool=tool, cwd=Path(str(settings.root))), settings=settings, scope=scope, routed=_routed(), deadline=None)
 
@@ -525,8 +526,9 @@ def _build_closure(settings: AssaySettings) -> Result[Completed, Fault]:
         for project in _BUILD_PROJECTS:
             match _build_project(settings, scope, project):
                 case Result(tag="ok", ok=done):
-                    rows.append(done)
-                    if not _build_ready(done):
+                    row = msgspec.structs.replace(done, status=RailStatus.OK) if done.status is RailStatus.EMPTY and done.returncode == 0 else done
+                    rows.append(row)
+                    if not _build_ready(row):
                         break
                 case Result(error=fault):
                     return Error(fault)
@@ -544,10 +546,7 @@ def _build_closure(settings: AssaySettings) -> Result[Completed, Fault]:
                     *tuple(f"build.{Path(project).name}={row.status.value}" for project, row in zip(_BUILD_PROJECTS, rows, strict=False)),
                     *((f"bridge.firstDiagnostic={first}",) if (first := _first_diagnostic(tuple(rows))) else ()),
                 ),
-                artifacts=(
-                    *tuple(artifact for row in rows for artifact in row.artifacts),
-                    *_sarif_artifacts(scope),
-                ),
+                artifacts=(*tuple(artifact for row in rows for artifact in row.artifacts), *_sarif_artifacts(scope)),
             )
         )
 
@@ -585,7 +584,13 @@ def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: Bridge
     _expire_stale(Path(str(settings.root)).joinpath(*_BRIDGE_REPORT_ROOT), _VERIFY_TTL_S)
     prelude = (
         _build_closure(settings)
-        .bind(lambda built: _plan(params.pattern) if _build_ready(built) else Error(Fault(built.argv, built.status, _first_diagnostic((built,)) or "bridge build failed")))
+        .bind(
+            lambda built: (
+                _plan(params.pattern)
+                if _build_ready(built)
+                else Error(Fault(built.argv, built.status, _first_diagnostic((built,)) or "bridge build failed"))
+            )
+        )
         .bind(
             lambda plan: _closure_index(build_scope).bind(
                 lambda index: _aggregate_closure(settings, build_scope, plan, index).map(lambda closure: (plan, closure))
@@ -694,13 +699,7 @@ def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -
     """
     _ = (scope, params)
     return _build_closure(settings).map(
-        lambda done: fold(
-            Claim.BRIDGE,
-            "build",
-            (done,),
-            detail=_build_detail(done),
-            sarif_dir=str(ArtifactScope.build(settings, "bridge").path),
-        )
+        lambda done: fold(Claim.BRIDGE, "build", (done,), detail=_build_detail(done), sarif_dir=str(ArtifactScope.build(settings, "bridge").path))
     )
 
 

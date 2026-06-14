@@ -12,8 +12,6 @@ Scope, Source, TargetFiles, target_files.
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from __future__ import annotations
-
 from typing import ClassVar, override, TYPE_CHECKING
 
 from expression import Error, Ok

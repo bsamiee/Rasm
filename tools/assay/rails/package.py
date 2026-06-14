@@ -293,6 +293,7 @@ def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, s
         "msbuild",
         project,
         f"-p:Configuration={settings.configuration.value}",
+        f"-p:Version={version}",
         f"-p:YakVersion={version}",
         *(f"-getProperty:{name}" for name in _META_PROPS),
         "-nologo",
@@ -464,7 +465,9 @@ def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, sl
 
     def staged_build() -> Result[Report, Fault]:
         staged = Path(mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent))
-        outcome = _build_outputs(meta, settings, scope, slug).bind(lambda built: _copy_after_build(meta, staged, slug, version, built, settings, scope))
+        outcome = _build_outputs(meta, settings, scope, slug, version).bind(
+            lambda built: _copy_after_build(meta, staged, slug, version, built, settings, scope)
+        )
         match outcome:
             case Result(tag="error"):
                 rmtree(staged, ignore_errors=True)
@@ -479,32 +482,39 @@ def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, sl
     return leased(resource, locked, settings=settings, run_id=settings.run_id, project=slug, mode="exclusive")
 
 
-def _build_outputs(meta: YakMeta, settings: AssaySettings, scope: ArtifactScope, slug: str) -> Result[Completed, Fault]:
+def _build_outputs(meta: YakMeta, settings: AssaySettings, scope: ArtifactScope, slug: str, version: str) -> Result[Completed, Fault]:
     projects = (_RASM_BRIDGE_SHELL_PROJECT, meta.project) if slug == _RASM_BRIDGE_SLUG else (meta.project,)
 
     def run_project(project: str) -> Result[Completed, Fault]:
         tool = Tool(
             "dotnet-build",
             Runner.DOTNET,
-            ("build", project, "-c", settings.configuration.value, "-v:quiet", "/clp:ErrorsOnly"),
+            ("build", project, "-c", settings.configuration.value, f"-p:Version={version}", "-v:quiet", "/clp:ErrorsOnly"),
             Input.NONE,
             Language.CSHARP,
             Claim.PACKAGE,
             mode=Mode.BUILD,
         )
         return run_check(
-            Check(tool=tool, cwd=Path(str(settings.root))), settings=settings, scope=scope, routed=Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+            Check(tool=tool, cwd=Path(str(settings.root))),
+            settings=settings,
+            scope=scope,
+            routed=Routed(language=Language.CSHARP, scope=Scope.CHANGED),
         )
 
-    rows = reduce(lambda acc, project: acc.bind(lambda done: run_project(project).map(lambda row: (*done, row))), projects, Ok(()))
-    return rows.map(
-        lambda done: msgspec.structs.replace(
-            next((row for row in done if row.status in {RailStatus.FAILED, RailStatus.FAULTED, RailStatus.TIMEOUT}), done[-1]),
+    def combined(done: tuple[Completed, ...]) -> Completed:
+        terminal = next((row for row in done if row.status in {RailStatus.FAILED, RailStatus.FAULTED, RailStatus.TIMEOUT}), done[-1])
+        return msgspec.structs.replace(
+            terminal,
             status=reduce(lambda status, row: join(status, row.status), done, RailStatus.OK),
             notes=tuple(chain.from_iterable(row.notes for row in done)),
             artifacts=tuple(chain.from_iterable(row.artifacts for row in done)),
         )
+
+    rows: Result[tuple[Completed, ...], Fault] = reduce(
+        lambda acc, project: acc.bind(lambda done: run_project(project).map(lambda row: (*done, row))), projects, Ok(())
     )
+    return rows.map(combined)
 
 
 def _copy_after_build(

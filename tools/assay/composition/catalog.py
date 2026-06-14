@@ -140,7 +140,7 @@ TOOLS: tuple[Tool, ...] = (
     ),
     # --- [TYPESCRIPT]
     Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.base.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD),
-    Tool("biome", PNPM, ("biome", "ci", "--files-ignore-unknown=true"), NONE, TS, Claim.STATIC),
+    Tool("biome", PNPM, ("biome", "ci", "--files-ignore-unknown=true", "--colors=off", "--reporter=json"), NONE, TS, Claim.STATIC),
     Tool("biome", PNPM, ("biome", "check", "--write", "--files-ignore-unknown=true"), FILES, TS, Claim.STATIC, mode=Mode.WRITE),
     Tool("ast-grep-ts", PNPM, ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^ts-domain-", "--error"), FILES, TS, Claim.STATIC),
     Tool(

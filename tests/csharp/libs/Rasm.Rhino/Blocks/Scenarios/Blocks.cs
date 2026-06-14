@@ -1,9 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
-using Rasm.TestKit.Scenarios;
 using Rasm.Domain;
 using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Exchange;
+using Rasm.TestKit.Scenarios;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
@@ -38,6 +38,21 @@ internal static class BlocksScenarios {
         from result in As<BlockOutcome.MembersResult>(outcome: outcome)
         let runMembers = Note(ctx: ctx, key: "run.members", value: result.Values.Count)
         from graphMembers in ctx.Require(label: "graph members", observed: runMembers >= 1)
+        select Done(scope: scope);
+
+    [RhinoScenario(theme: "blocks")]
+    internal static Fin<Unit> CommandHistoryRail(ScenarioContext ctx) =>
+        from scope in DocumentScope.Open(ctx: ctx)
+        let captureEnabled = Note(ctx: ctx, key: "command.capture.enabled", value: RhinoApp.CommandWindowCaptureEnabled = true)
+        let cleared = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true)
+        let ran = RhinoApp.RunScript(script: "_SelNone", echo: true)
+        let captured = RhinoApp.CapturedCommandWindowStrings(clearBuffer: false)
+        let history = RhinoApp.CommandHistoryWindowText ?? string.Empty
+        let clearedFact = Note(ctx: ctx, key: "command.capture.cleared", value: cleared.Length)
+        let captureFact = Note(ctx: ctx, key: "command.capture.count", value: captured.Length)
+        let historyFact = Note(ctx: ctx, key: "command.history.length", value: history.Length)
+        from runLaw in ctx.Require(label: "run harmless command", observed: ran)
+        from captureLaw in ctx.Require(label: "command capture/history non-empty", observed: captured.Length > 0 || !string.IsNullOrWhiteSpace(value: history))
         select Done(scope: scope);
 
     [RhinoScenario(theme: "blocks")]

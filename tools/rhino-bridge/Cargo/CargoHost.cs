@@ -319,7 +319,7 @@ public sealed class CargoHost : IBridgeCargo {
                 AssemblyLoadContext context = AssemblyLoadContext.GetLoadContext(assembly: typeof(CargoHost).Assembly) ?? AssemblyLoadContext.Default;
                 List<(ScenarioEntry Entry, MethodInfo Method)> entries = [];
                 List<(string Key, string Value)> facts = [];
-                foreach (string path in Directory.EnumerateFiles(path: manifest.StagePath, searchPattern: "*.dll").Order(comparer: StringComparer.Ordinal)) {
+                foreach (string path in ScenarioAssemblyPaths().Order(comparer: StringComparer.Ordinal)) {
                     Assembly? assembly = null;
                     try {
                         assembly = context.LoadFromAssemblyPath(assemblyPath: path);
@@ -350,7 +350,9 @@ public sealed class CargoHost : IBridgeCargo {
                     }
                     int added = entries.Count - before;
                     if (added > 0) {
-                        facts.Add(item: ("discovery.assembly.scenarios", $"{assembly.GetName().Name}:{added}"));
+                        facts.Add(item: (
+                            "discovery.assembly.scenarios",
+                            string.Create(provider: CultureInfo.InvariantCulture, $"{assembly.GetName().Name}:{added}")));
                     }
                 }
                 corpus = toSeq(entries);
@@ -453,6 +455,13 @@ public sealed class CargoHost : IBridgeCargo {
             return partial.Types.Where(predicate: static type => type is not null)!;
         }
     }
+
+    private IEnumerable<string> ScenarioAssemblyPaths() =>
+        manifest.ScenarioAssemblies is { Length: > 0 } rows
+            ? rows
+                .Select(selector: name => Path.Combine(path1: manifest.StagePath, path2: name))
+                .Where(predicate: File.Exists)
+            : Directory.EnumerateFiles(path: manifest.StagePath, searchPattern: "*.Tests.dll");
 
     private static HostFingerprint RunningFingerprint() => new(
         BundleVersion: RhinoApp.Version.ToString(),

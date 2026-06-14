@@ -163,6 +163,16 @@ internal static class SessionKernel {
                     Phase(SessionPhase.Hello, fault.Status, fault: fault);
                     return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Hello), SpoolTail: (0L, 0L));
                 }
+                CapabilityEntry shellContent = peer.Capabilities.FirstOrDefault(predicate: static entry =>
+                    string.Equals(a: entry.Key, b: Handshake.ShellContentCapability, comparisonType: StringComparison.Ordinal));
+                if (shellContent.Key is null || shellContent.Outcome != PhaseStatus.Ok) {
+                    BridgeFault fault = new BridgeFault.HostDrift(
+                        MissingMember: shellContent.Key is null ? Handshake.ShellContentCapability : $"{Handshake.ShellContentCapability}:{shellContent.Receipt}",
+                        BuiltAgainst: live.Fingerprint,
+                        Running: negotiated.Fingerprint);
+                    Phase(SessionPhase.Hello, fault.Status, fault: fault);
+                    return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Hello), SpoolTail: (0L, 0L));
+                }
                 Phase(SessionPhase.Hello, PhaseStatus.Ok);
                 Fin<CargoManifest> staged = Evidence.Stage(
                     closureManifest: verify.ClosureManifest, sessionId: sessionId, reportDir: reportDir,
@@ -180,7 +190,12 @@ internal static class SessionKernel {
                 UnloadReceipt unload = await connection.UnloadAsync(ct: runtime.Root).ConfigureAwait(false);
                 stream.Add(item: Fact(
                     unload.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked",
-                    $"gcRetries={unload.GcRetries};elapsedMs={unload.ElapsedMs:F0};debugger={unload.DebuggerAttached}"));
+                    string.Create(
+                        provider: CultureInfo.InvariantCulture,
+                        $"gcRetries={unload.GcRetries};elapsedMs={unload.ElapsedMs:F0};debugger={unload.DebuggerAttached}")));
+                if (!unload.Confirmed && !unload.DebuggerAttached) {
+                    stream.Add(item: Fact("cargo.recycle.after-leak", "quit-ladder"));
+                }
                 Phase(SessionPhase.Unload, PhaseStatus.Ok, durationMs: unload.ElapsedMs);
                 await connection.PrepareQuitAsync(ct: runtime.Root).ConfigureAwait(false);
                 _ = QuitLadder.Run(host: negotiated, sessionId: sessionId, publish: stream.Add).Run(runtime);
@@ -307,7 +322,8 @@ internal static class SessionKernel {
 
         private (long Count, long LastSequence) SpoolTail(ScenarioReceipt[] receipts) {
             Seq<BridgeEvent> harvested = toSeq(receipts.Select(selector: static receipt => receipt.Scenario).Prepend("probe"))
-                .Bind(f: scenario => Evidence.HarvestSpool(reportDir: reportDir, scenario: scenario));
+                .Bind(f: scenario => Evidence.HarvestSpool(reportDir: reportDir, scenario: scenario))
+                .Filter(f: static evt => evt is BridgeEvent.FactCase or BridgeEvent.CaptureCase);
             return (harvested.Count, harvested.Map(f: static evt => evt.Stamp.Sequence)
                 .Fold(initialState: 0L, f: static (max, observed) => Math.Max(val1: max, val2: observed)));
         }
@@ -496,8 +512,8 @@ internal static class SessionDispatch {
 // skip signal is receipt-level, never the root). FirstFailure + FirstFaultPhase = the first-non-ok
 // projection in wire order, with the session fault outranking phase evidence. Evidence carries
 // fact/capture cases only (phase/progress history lives in receipts + the on-disk spool). Spool
-// reconciliation compares the relayed in-host tally against the spool tail and emits an
-// `evidence.divergence` fact on mismatch.
+// reconciliation compares scenario-stamped in-host events against the spool tail; session-scoped
+// lifecycle metadata is relay-only by contract and must not manufacture `evidence.divergence`.
 internal static class SessionFold {
     private const int FirstFailureCap = 256;
 
@@ -519,9 +535,11 @@ internal static class SessionFold {
         PhaseStatus status = (phases.Map(f: static phase => phase.Status) + receipts.Map(f: static receipt => receipt.Status) + (fault is null ? Seq<PhaseStatus>() : Seq(value: fault.Status)))
             .Fold(initialState: PhaseStatus.Ok, f: static (accumulator, observed) => accumulator.Worst(other: observed));
         (string firstFailure, SessionPhase? firstPhase) = FirstNonOk(final: final, fault: fault, phases: phases, receipts: receipts);
-        long relayed = ordered.Filter(f: evt => evt.Stamp.Sequence <= spoolTail.LastSequence).Count;
+        long relayed = ordered.Filter(f: static evt =>
+            (evt is BridgeEvent.FactCase or BridgeEvent.CaptureCase)
+            && evt.Stamp.Scenario is { Length: > 0 }).Count;
         Seq<BridgeEvent> evidence = ordered.Filter(f: static evt => evt is BridgeEvent.FactCase or BridgeEvent.CaptureCase);
-        Seq<BridgeEvent> carried = spoolTail.Count == relayed
+        Seq<BridgeEvent> carried = spoolTail.Count >= relayed
             ? evidence
             : evidence + Seq<BridgeEvent>(value: Divergence(runId: runId, ordered: ordered, spoolTail: spoolTail, relayed: relayed));
         double duration = ordered.Head.Case is BridgeEvent head && ordered.Last.Case is BridgeEvent tail

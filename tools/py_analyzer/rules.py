@@ -1,7 +1,5 @@
 """Rule catalog and diagnostic wire shape for the Rasm Python analyzer."""
 
-from __future__ import annotations
-
 from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType

@@ -82,7 +82,7 @@ from tools.assay.rails.bridge import BridgeParams
 from tools.assay.rails.code import _cap_note, CodeParams  # noqa: PLC2701  # _cap_note: single truncation-note grammar owner
 from tools.assay.rails.docs import DocsParams, FaultedPromotion
 from tools.assay.rails.package import PackageParams
-from tools.assay.rails.static import StaticBuildParams, StaticParams
+from tools.assay.rails.static import StaticParams
 from tools.assay.rails.test import TestParams
 
 
@@ -784,7 +784,7 @@ _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (
 
 REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.STATIC, "check", static_rail.check, StaticParams, "Scoped non-mutating static execution."),
-    Bind(Claim.STATIC, "build", static_rail.build, StaticBuildParams, "Single-project or whole-workspace diagnostics, restore, and build."),
+    Bind(Claim.STATIC, "build", static_rail.build, StaticParams, "Scoped or whole-workspace diagnostics, restore, and build."),
     Bind(Claim.STATIC, "fix", static_rail.fix, StaticParams, "Scoped native formatter and autofix."),
     Bind(Claim.CODE, "search", code_rail.search, CodeParams, "Search: $-metavar -> ast-grep structural; literal -> ripgrep content."),
     Bind(Claim.CODE, "query", code_rail.query, CodeParams, "AST query via tree-sitter (in-process)."),

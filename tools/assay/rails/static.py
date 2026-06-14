@@ -88,17 +88,6 @@ class StaticParams:
     ] = ()
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class StaticBuildParams:
-    """Parameters for static build."""
-
-    all: Annotated[
-        bool,
-        Parameter(name="--all", negative="", show_default=False, help="Whole-workspace C# target; explicit because it may build the full solution."),
-    ] = False
-    project: Annotated[str, Parameter(name="--project", show_default=False, help="Single C# project target.")] = ""
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -151,7 +140,7 @@ def _dotnet_policy(tool: Tool, settings: AssaySettings, scope: ArtifactScope) ->
 def _routed_tool(tool: Tool, routed: Routed) -> Tool:
     match (routed.language, routed.scope, tool.input, bool(routed.projects)):
         case (Language.TYPESCRIPT, Scope.FULL, Input.PROJECT, _):
-            return msgspec.structs.replace(tool, input=Input.NONE)
+            return msgspec.structs.replace(tool, input=Input.OWNED)
         case (Language.CSHARP, Scope.FULL, Input.INCLUDE | Input.PROJECT, _):
             return msgspec.structs.replace(tool, input=Input.SOLUTION)
         case (Language.CSHARP, Scope.CHANGED, Input.INCLUDE, True) if not routed.groups:
@@ -193,7 +182,7 @@ def _argv(check: Check, routed: Routed, settings: AssaySettings, scope: Artifact
     return argv_for(check, routed, settings=settings, scope=scope).map(" ".join).default_value(f"{check.tool.name}:<unplaced>")
 
 
-def _planned(verb: str, routed: Routed, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope) -> tuple[tuple[str, str, str], ...]:
+def _planned(_verb: str, routed: Routed, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope) -> tuple[tuple[str, str, str], ...]:
     active_scope = ArtifactScope.build(settings, _build_sha(routed), disable_build_servers=False) if _uses_build_scope(routed, phases) else scope
     return tuple((phase, check.tool.name, _argv(check, routed, settings, active_scope)) for phase, checks in phases for check in checks)
 
@@ -264,14 +253,6 @@ def _detail(
     )
 
 
-def _static_params(params: StaticParams | StaticBuildParams) -> StaticParams:
-    match params:
-        case StaticParams() as full:
-            return full
-        case StaticBuildParams() as build_params:
-            return StaticParams(all=build_params.all, project=build_params.project)
-
-
 def _params_argv(params: StaticParams, verb: str) -> tuple[str, ...]:
     return (
         "static",
@@ -295,16 +276,11 @@ def _target_result(settings: AssaySettings, params: StaticParams, verb: str) -> 
         result = _project_target(settings, params.project, verb)
     elif verb == "check":
         result = target_files(params.folders, params.files, settings=settings, changed=not path_targets)
-    elif verb == "build" or not path_targets:
-        status = RailStatus.UNSUPPORTED if verb == "build" else RailStatus.FAULTED
-        message = (
-            f"{Step.PARSE}: build: requires --project or --all"
-            if verb == "build"
-            else f"{Step.PARSE}: {verb}: requires --folder, --file, --project, or --all"
-        )
-        result = Error(Fault(argv, status, message))
-    else:
+    elif path_targets:
         result = target_files(params.folders, params.files, settings=settings).bind(lambda targets: _execution_targets(targets, verb))
+    else:
+        status = RailStatus.UNSUPPORTED if verb == "build" else RailStatus.FAULTED
+        result = Error(Fault(argv, status, f"{Step.PARSE}: {verb}: requires --folder, --file, --project, or --all"))
     return result
 
 
@@ -373,6 +349,16 @@ def _static_route(routed: Routed) -> Routed:
             )
         case _:
             return routed
+
+
+def _build_route(routed: Routed) -> Routed:
+    return (
+        msgspec.structs.replace(routed, scope=Scope.FULL)
+        if routed.scope is Scope.CHANGED
+        and routed.language.strategy == "glob"
+        and any(tool.mode is Mode.BUILD and tool.input is Input.PROJECT for tool in select(Claim.STATIC, routed.language))
+        else routed
+    )
 
 
 def _empty_route(routed: Routed) -> bool:
@@ -480,21 +466,14 @@ def _closure_notes(report: Report, routed: tuple[Routed, ...]) -> Report:
 
 def _rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParams, *, verb: str, modes: tuple[Mode, ...]) -> Result[Report, Fault]:
     return _target_result(settings, params, verb).bind(
-        lambda targets: _routed(targets, settings).bind(
-            lambda routed: _fold(settings, scope, targets, routed, verb=verb, modes=modes)
-        )
+        lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed, verb=verb, modes=modes))
     )
 
 
 def _fold(
-    settings: AssaySettings,
-    scope: ArtifactScope,
-    targets: TargetFiles,
-    routed: tuple[Routed, ...],
-    *,
-    verb: str,
-    modes: tuple[Mode, ...],
+    settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...], *, verb: str, modes: tuple[Mode, ...]
 ) -> Result[Report, Fault]:
+    routed = tuple(_build_route(route_row) for route_row in routed) if Mode.BUILD in modes else routed
     phase_sets = tuple((route_row, *_phase_checks(route_row, modes, settings, scope)) for route_row in routed)
     planned = tuple(row for route_row, phases, _ in phase_sets for row in _planned(verb, route_row, phases, settings, scope))
     checks = tuple(check for _, phases, _ in phase_sets for check in _all_checks(phases))
@@ -516,9 +495,8 @@ def _fold(
             routed,
         )
 
-    return sequence(
-        block.of_seq(row for route_row, phases, _ in phase_sets for row in _dispatch(route_row, phases=phases, settings=settings, scope=scope, verb=verb))
-    ).map(lambda done: executed(tuple(done)))
+    rows = (row for route_row, phases, _ in phase_sets for row in _dispatch(route_row, phases=phases, settings=settings, scope=scope, verb=verb))
+    return sequence(block.of_seq(rows)).map(lambda done: executed(tuple(done)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -533,13 +511,13 @@ def check(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -
     return _rail(settings, scope, params, verb="check", modes=_CHECK_MODES)
 
 
-def build(settings: AssaySettings, scope: ArtifactScope, params: StaticParams | StaticBuildParams) -> Result[Report, Fault]:
+def build(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
     """Run scoped non-mutating diagnostics, restore, and build.
 
     Returns:
         Static report carrying process receipts, diagnostics, route detail, resources, and artifacts.
     """
-    return _rail(settings, scope, _static_params(params), verb="build", modes=_BUILD_MODES)
+    return _rail(settings, scope, params, verb="build", modes=_BUILD_MODES)
 
 
 def fix(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
@@ -555,4 +533,4 @@ def fix(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> 
 
 _LOG = structlog.get_logger("assay.static")
 
-__all__: list[str] = ["StaticBuildParams", "StaticParams", "build", "check", "fix"]
+__all__: list[str] = ["StaticParams", "build", "check", "fix"]

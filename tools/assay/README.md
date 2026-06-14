@@ -86,10 +86,10 @@ This table is a lookup by command surface and verb set:
 
 [STATIC_COMMANDS]:
 - Verbs: `check`, `build`, `fix`
-- Inputs: `check` and `fix` accept `--all`, `--project <project.csproj>`, `--folder <path>...`, and `--file <path>...`; `build` accepts only `--all` or `--project <project.csproj>`.
+- Inputs: `check`, `build`, and `fix` accept `--all`, `--project <project.csproj>`, `--folder <path>...`, and `--file <path>...`.
 - Target binding: each flag consumes space-separated values until the next option; the flag may also be repeated. Commas are literal path characters.
 - Output: shared `Report`; `StaticRun` detail carries targets, routes, planned checks, skipped checks, phase order, resource telemetry, and artifact scopes.
-- Use: `check` runs non-mutating static rows for the resolved targets; `build` runs build-capable rows for one `--project` or explicit `--all`; `fix` runs native formatters and autofixers for folder/file/project/all targets. Public folder/file build targets are rejected instead of deriving a multi-project compile fan.
+- Use: `check` runs non-mutating static rows for the resolved targets; `build` runs build-capable rows for the resolved language targets; `fix` runs native formatters and autofixers for folder/file/project/all targets.
 - Example: `uv run python -m tools.assay static check --folder tools/assay tests/python --file tools/assay/rails/static.py`
 - Build example: `uv run python -m tools.assay static build --project tools/rhino-bridge/Supervisor/Supervisor.csproj`
 

@@ -1,7 +1,5 @@
 """Command-line boundary for the Rasm Python semantic analyzer."""
 
-from __future__ import annotations
-
 import argparse
 from pathlib import Path
 import sys

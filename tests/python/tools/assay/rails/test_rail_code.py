@@ -506,9 +506,7 @@ def test_query_forced_cap_emits_saturation_note(assay_root: AssayHarness) -> Non
 def test_query_public(assay_root: AssayHarness, content: str, pattern: str, check_fn: Callable) -> None:
     """query() returns Ok Report matching expected status and count predicate."""
     assay_root.write("pkg/mod.py", content)
-    report = assert_ok(
-        query(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, python=True, paths=("pkg/mod.py",)))
-    )
+    report = assert_ok(query(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, python=True, paths=("pkg/mod.py",))))
     check_fn(report)
 
 

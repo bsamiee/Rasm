@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using GhEditor = Grasshopper2.UI.Editor;
 
 namespace Rasm.Bridge.Cargo;
@@ -27,8 +26,6 @@ internal sealed class Gh2Lane : IDisposable {
 
     private Gh2Lane(GhEditor editor) => this.editor = editor;
 
-    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope",
-        Justification = "GH2's Editor is the host's process-static singleton (Editor.Instance); headless construction transfers ownership to the host for the process lifetime — disposing it would tear down the live canvas.")]
     internal static Gh2Lane Acquire() => new(editor: GhEditor.Instance ?? new GhEditor());
 
     internal Fin<CaptureFile> DrawCanvas(string path) {

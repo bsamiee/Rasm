@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO.Pipes;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Channels;
 using Rasm.Bridge.Contract;
@@ -43,6 +44,7 @@ public sealed class ShellHost : IDisposable {
     private readonly EventHandler closingTap;
     private readonly EndpointRecord endpoint;
     private readonly HostFingerprint fingerprint;
+    private readonly CapabilityEntry shellContent;
     private readonly IdlePump pump;
     private readonly CargoGate gate;
     private readonly Task[] acceptLoops;
@@ -53,7 +55,7 @@ public sealed class ShellHost : IDisposable {
     private long sequence;
     private bool disposed;
 
-    private ShellHost(int rhinoPid) {
+    private ShellHost(string deployDir, int rhinoPid) {
         endpoint = EndpointRecord.Create(
             pipeName: string.Create(provider: CultureInfo.InvariantCulture, $"{EndpointRecord.PipePrefix}{rhinoPid}-{Guid.NewGuid().ToString(format: "N")[..8]}"),
             rhinoPid: rhinoPid,
@@ -66,6 +68,7 @@ public sealed class ShellHost : IDisposable {
             RhinoCommonVersion: typeof(RhinoApp).Assembly.GetName().Version?.ToString() ?? string.Empty,
             Grasshopper2Version: LoadedAssemblyVersion(simpleName: "Grasshopper2"),
             RuntimeVersion: Environment.Version.ToString());
+        shellContent = ShellContent(deployDir: deployDir);
         resolvingTap = (_, name) => RecordDefaultResolve(assemblyName: name);
         reportTap = (source, error) => Publish(evt: new BridgeEvent.HostExceptionCase(Report: $"{source}: {error.GetType().Name}: {error.Message}") { Stamp = default });
         closingTap = (_, _) => Publish(evt: new BridgeEvent.PhaseCase(Phase: SessionPhase.QuitAe, Status: PhaseStatus.Ok, DurationMs: 0.0, Fault: null) { Stamp = default });
@@ -90,9 +93,8 @@ public sealed class ShellHost : IDisposable {
     public static ShellHost? Start(string deployDir, int rhinoPid) {
         // BOUNDARY ADAPTER — pipe creation, endpoint IO, and tap subscription can all throw during
         // host idle; the failure becomes one poisoned endpoint record, never a host fault.
-        _ = deployDir;
         try {
-            return new ShellHost(rhinoPid: rhinoPid);
+            return new ShellHost(deployDir: deployDir, rhinoPid: rhinoPid);
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException
             or ArgumentException or NotSupportedException or System.ComponentModel.DataAnnotations.ValidationException) {
             WritePoisoned(rhinoPid: rhinoPid, fault: error.GetBaseException().Message);
@@ -161,6 +163,7 @@ public sealed class ShellHost : IDisposable {
             Capabilities: [
                 new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: RpcAssemblyVersion),
                 new CapabilityEntry(Key: "alc.default.resolving", Outcome: PhaseStatus.Ok, Receipt: DefaultResolveReceipt()),
+                shellContent,
                 McpListener(),
                 McpPlatform(),
             ],
@@ -325,6 +328,18 @@ public sealed class ShellHost : IDisposable {
             : new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Ok, Receipt: string.Join(separator: ',', value: loaded));
     }
 
+    private static CapabilityEntry ShellContent(string deployDir) {
+        string path = Path.Combine(path1: deployDir, path2: "Rasm.Bridge.Shell.dll");
+        try {
+            return File.Exists(path: path)
+                ? new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Ok,
+                    Receipt: Convert.ToHexStringLower(inArray: SHA256.HashData(source: File.ReadAllBytes(path: path))))
+                : new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Failed, Receipt: $"missing:{path}");
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) {
+            return new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Failed, Receipt: $"{error.GetType().Name}: {error.Message}");
+        }
+    }
+
     private void PreloadHostPlugins(Guid[] plugins) {
         // Proof 10 evidence: the absent/repackaged-plugin failure mode (return-false vs throw) is
         // recorded per GUID; both outcomes map to the same capability-absent reading downstream.
@@ -355,20 +370,16 @@ public sealed class ShellHost : IDisposable {
 
     private static string CleanGrasshopper2() {
         try {
-            Type? editorType = AppDomain.CurrentDomain.GetAssemblies()
+            Type? documentType = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(selector: static assembly => SafeTypes(assembly: assembly))
-                .FirstOrDefault(predicate: static type => string.Equals(a: type.FullName, b: "Grasshopper2.UI.Editor", comparisonType: StringComparison.Ordinal));
-            object? editor = editorType?.GetProperty(name: "Instance", bindingAttr: BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null);
-            object? bag = editorType?.GetProperty(name: "Documents", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: editor);
-            object? unsaved = bag?.GetType().GetProperty(name: "Unsaved", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: bag);
-            object[] documents = [.. Enumerate(value: unsaved)];
+                .FirstOrDefault(predicate: static type => string.Equals(a: type.FullName, b: "Grasshopper2.Doc.Document", comparisonType: StringComparison.Ordinal));
+            object? all = documentType?.GetProperty(name: "AllDocuments", bindingAttr: BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null);
+            object[] documents = [.. Enumerate(value: all)];
             int unmodified = 0;
-            int closed = 0;
             foreach (object document in documents) {
                 unmodified += Invoke(document, methodName: "Unmodify") ? 1 : 0;
-                closed += PopOrClose(bag: bag, document: document) ? 1 : 0;
             }
-            return editorType is null ? "not-loaded" : $"unsaved={documents.Length};unmodified={unmodified};closed={closed}";
+            return documentType is null ? "not-loaded" : $"documents={documents.Length};unmodified={unmodified}";
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
             return $"cleanup-failed:{error.GetType().Name}:{error.Message}";
         }
@@ -390,19 +401,6 @@ public sealed class ShellHost : IDisposable {
                 }
             }
         }
-    }
-
-    private static bool PopOrClose(object? bag, object document) {
-        MethodInfo? pop = bag?.GetType().GetMethods(bindingAttr: BindingFlags.Public | BindingFlags.Instance)
-            .FirstOrDefault(predicate: method => string.Equals(a: method.Name, b: "Pop", comparisonType: StringComparison.Ordinal)
-                && method.GetParameters() is { Length: 2 } parameters
-                && parameters[0].ParameterType.IsInstanceOfType(o: document)
-                && parameters[1].ParameterType == typeof(bool));
-        if (pop is not null) {
-            _ = pop.Invoke(obj: bag, parameters: [document, true]);
-            return true;
-        }
-        return Invoke(target: document, methodName: "Close");
     }
 
     private static bool Invoke(object target, string methodName) {

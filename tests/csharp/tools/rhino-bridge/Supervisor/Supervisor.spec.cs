@@ -13,7 +13,7 @@ internal static class SessionGens {
     public static readonly LiveHost Host = new(Pid: 4242, StartedAtUnixMs: 1_765_432_000_000, Endpoint: Endpoint, Fingerprint: Fingerprint);
     public static readonly Handshake Ours = new(ContractVersion: 1, SenderVersion: "supervisor", Capabilities: [], Fingerprint: null, Endpoint: null);
     public static readonly Handshake Peer = new(ContractVersion: 1, SenderVersion: "shell", Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: "2.25.25")], Fingerprint: Fingerprint, Endpoint: Endpoint);
-    public static readonly CargoManifest Manifest = new(SessionId: Sid, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage", HostPlugins: [], BuiltAgainst: Fingerprint);
+    public static readonly CargoManifest Manifest = new(SessionId: Sid, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage", HostPlugins: [], BuiltAgainst: Fingerprint, ScenarioAssemblies: ["Rasm.Rhino.Tests.dll"]);
     public static readonly CargoReceipt Cargo = new(ContentHash: "xx64:abc", SwapMs: 100.0, Scenarios: [], Capabilities: [new CapabilityEntry(Key: "gh2.dataflow", Outcome: PhaseStatus.Unsupported, Receipt: "0b render-only")]);
     public static readonly SessionState.Ready Ready = new(Host: Host, Peer: Peer);
     public static readonly SessionState.Running Running = new(Host: Host, Cargo: Cargo, Done: Seq(value: Receipt(name: "blocks.baseline", status: PhaseStatus.Ok)), Remaining: Seq(value: Entry(name: "blocks.next")), RestartBudget: SessionPolicy.Default.RestartBudget);
@@ -34,8 +34,8 @@ internal static class SessionGens {
 
     public static ScenarioEntry Entry(string name) => new(Theme: "blocks", Name: name, Requires: [], BudgetMs: 30_000);
 
-    public static BridgeEvent.FactCase Fact(long sequence, string key) =>
-        new(Key: key, Value: JsonSerializer.SerializeToElement(value: 1.0, jsonTypeInfo: BridgeJsonContext.Default.Double)) { Stamp = Stamp(sequence: sequence) };
+    public static BridgeEvent.FactCase Fact(long sequence, string key, string? scenario = null) =>
+        new(Key: key, Value: JsonSerializer.SerializeToElement(value: 1.0, jsonTypeInfo: BridgeJsonContext.Default.Double)) { Stamp = Stamp(sequence: sequence, scenario: scenario) };
 
     public static SessionEnvelope Fold(SessionState final, Seq<BridgeEvent> stream = default, (long Count, long LastSequence) spoolTail = default) =>
         SessionFold.Run(runId: Sid.ToString(format: "n"), verb: new SupervisorVerb.Doctor(), final: final, stream: stream, spoolTail: spoolTail, reportDir: "/tmp/rbx");
@@ -46,8 +46,8 @@ internal static class SessionGens {
     public static ScenarioReceipt Receipt(string name, PhaseStatus status, BridgeFault? fault = null) =>
         new(Scenario: name, Status: status, DurationMs: 1.0, Fault: fault);
 
-    public static EventStamp Stamp(long sequence) =>
-        new(SessionId: Sid, Sequence: sequence, AtUnixMs: 1_765_432_100_000 + sequence, Scenario: null);
+    public static EventStamp Stamp(long sequence, string? scenario = null) =>
+        new(SessionId: Sid, Sequence: sequence, AtUnixMs: 1_765_432_100_000 + sequence, Scenario: scenario);
 }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
@@ -282,14 +282,14 @@ public sealed class FoldLaws {
                 SessionGens.Phase(sequence: 3, phase: SessionPhase.Execute, status: PhaseStatus.Ok),
                 new BridgeEvent.ProgressCase(Done: 1, Total: 2) { Stamp = SessionGens.Stamp(sequence: 4) },
                 new BridgeEvent.HostExceptionCase(Report: "swallowed") { Stamp = SessionGens.Stamp(sequence: 5) }),
-            spoolTail: (5L, 5L));
+            spoolTail: (0L, 5L));
         Assert.Equal(expected: 2, actual: envelope.Evidence.Length);
         Assert.All(collection: envelope.Evidence, action: static evt => Assert.True(condition: evt is BridgeEvent.FactCase or BridgeEvent.CaptureCase));
     }
 
     [Fact]
     public void SpoolDivergenceEmitsTheReconciliationFact() {
-        Seq<BridgeEvent> stream = Seq<BridgeEvent>(a: SessionGens.Fact(sequence: 1, key: "a"), b: SessionGens.Fact(sequence: 2, key: "b"));
+        Seq<BridgeEvent> stream = Seq<BridgeEvent>(a: SessionGens.Fact(sequence: 1, key: "a", scenario: "probe"), b: SessionGens.Fact(sequence: 2, key: "b", scenario: "probe"));
         SessionEnvelope diverged = SessionGens.Fold(final: SessionGens.Faulted, stream: stream, spoolTail: (4L, 2L));
         BridgeEvent.FactCase reconciliation = Assert.IsType<BridgeEvent.FactCase>(@object: diverged.Evidence[^1]);
         Assert.Equal(expected: "evidence.divergence", actual: reconciliation.Key);
@@ -297,6 +297,15 @@ public sealed class FoldLaws {
         Assert.Equal(expected: 2L, actual: reconciliation.Value.GetProperty(propertyName: "relayed").GetInt64());
         Assert.Equal(expected: 3L, actual: reconciliation.Stamp.Sequence);
         SessionEnvelope reconciled = SessionGens.Fold(final: SessionGens.Faulted, stream: stream, spoolTail: (2L, 2L));
+        Assert.DoesNotContain(collection: reconciled.Evidence, filter: static evt => evt is BridgeEvent.FactCase { Key: "evidence.divergence" });
+    }
+
+    [Fact]
+    public void RelayOnlyLifecycleFactsDoNotTriggerSpoolDivergence() {
+        Seq<BridgeEvent> stream = Seq<BridgeEvent>(
+            a: SessionGens.Fact(sequence: 1, key: "cargo.swapped"),
+            b: SessionGens.Fact(sequence: 2, key: "blocks.fact", scenario: "blocks.baseline"));
+        SessionEnvelope reconciled = SessionGens.Fold(final: SessionGens.Faulted, stream: stream, spoolTail: (1L, 2L));
         Assert.DoesNotContain(collection: reconciled.Evidence, filter: static evt => evt is BridgeEvent.FactCase { Key: "evidence.divergence" });
     }
 

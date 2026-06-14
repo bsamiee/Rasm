@@ -176,6 +176,24 @@ _DEFECT_TAIL: int = 4096
 # SARIF 2.1 result levels -> assay severities; analyzer notes (e.g. CSP0903) surface as info-grade evidence.
 _SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
 _DIAGNOSTIC_SEVERITY_RANK: dict[str, int] = {"error": 0, "warning": 1, "info": 2, "failed": 3}
+_PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE)
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+_HEADER_DIAGNOSTIC = re.compile(r"^(?P<severity>error|warning|warn|info|note)(?:\[(?P<rule>[^\]]+)])?:\s*(?P<message>.+)$", re.IGNORECASE)
+_ARROW_LOCATION = re.compile(r"^\s*-->\s*(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)$")
+_MYPY_DIAGNOSTIC = re.compile(
+    r"^(?P<path>.+?):(?P<line>\d+)(?::(?P<column>\d+))?:\s*(?P<severity>error|warning|note):\s*"
+    r"(?P<message>.*?)(?:\s+\[(?P<rule>[a-z0-9_.-]+)])?$",
+    re.IGNORECASE,
+)
+_TSC_DIAGNOSTIC = re.compile(
+    r"^(?P<path>.+?)(?:\((?P<line1>\d+),(?P<column1>\d+)\):?|:(?P<line2>\d+):(?P<column2>\d+)\s+-)\s*"
+    r"(?P<severity>error|warning)\s+(?P<rule>TS\d+):\s*(?P<message>.+)$",
+    re.IGNORECASE,
+)
+_BIOME_TEXT_DIAGNOSTIC = re.compile(
+    r"^(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)\s+(?P<rule>(?:lint|assist|parse|format)[/\w.-]*)\s*(?P<message>.*)$", re.IGNORECASE
+)
+_FORMAT_DIAGNOSTIC = re.compile(r"^(?:Would reformat:\s*(?P<path>.+)|(?P<path2>.+?)\s+would be reformatted)$", re.IGNORECASE)
 _CS_DIAGNOSTIC = re.compile(
     r"^(?P<path>.*?\.(?:cs|csproj|props|targets|slnx))\((?P<line>\d+),(?P<column>\d+)\):\s*"
     r"(?P<severity>error|warning|info)\s+(?P<rule>[A-Z][A-Z0-9]*\d+):\s*(?P<message>.*?)(?:\s+\[(?P<project>[^\]]+)\])?$",
@@ -327,6 +345,77 @@ class _SarifLog(msgspec.Struct, frozen=True, gc=False):
     """Roslyn-shaped SARIF 2.1 subset: runs[].results[] with ruleId/level/message/locations."""
 
     runs: tuple[_SarifRun, ...] = ()
+
+
+class _PyAnalyzerDiagnostic(msgspec.Struct, frozen=True, gc=False):
+    rule_id: str = ""
+    severity: str = ""
+    path: str = ""
+    line: int = 0
+    column: int = 0
+    title: str = ""
+    message: str = ""
+
+
+class _BiomePoint(msgspec.Struct, frozen=True, gc=False):
+    line: int = 0
+    column: int = 0
+
+
+class _BiomeLocation(msgspec.Struct, frozen=True, gc=False):
+    path: str = ""
+    start: _BiomePoint = msgspec.field(default_factory=_BiomePoint)
+
+
+class _BiomeDiagnostic(msgspec.Struct, frozen=True, gc=False):
+    severity: str = ""
+    message: str = ""
+    category: str = ""
+    location: _BiomeLocation = msgspec.field(default_factory=_BiomeLocation)
+
+
+class _BiomeReport(msgspec.Struct, frozen=True, gc=False):
+    diagnostics: tuple[_BiomeDiagnostic, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class _TextPolicy:
+    pattern: re.Pattern[str]
+    tools: frozenset[str]
+    rule: str = ""
+    severity: str = ""
+    message: str = ""
+    rule_groups: tuple[str, ...] = ("rule",)
+    severity_groups: tuple[str, ...] = ("severity",)
+    path_groups: tuple[str, ...] = ("path",)
+    line_groups: tuple[str, ...] = ("line",)
+    column_groups: tuple[str, ...] = ("column",)
+    message_groups: tuple[str, ...] = ("message",)
+
+    def match(self, tool: str, line: str) -> Match | None:
+        return (
+            _diagnostic_match(
+                tool,
+                self.value(found, self.rule, self.rule_groups, tool),
+                self.value(found, self.severity, self.severity_groups, "error"),
+                self.value(found, "", self.path_groups, ""),
+                self.value(found, "", self.line_groups, "0"),
+                self.value(found, "", self.column_groups, "0"),
+                self.value(found, self.message, self.message_groups, ""),
+            )
+            if (not self.tools or tool in self.tools) and (found := self.pattern.match(line)) is not None
+            else None
+        )
+
+    @staticmethod
+    def value(found: re.Match[str], literal: str, groups: tuple[str, ...], fallback: str) -> str:
+        return literal or next((value for group in groups if (value := found.groupdict().get(group))), fallback)
+
+
+@dataclass(frozen=True, slots=True)
+class _PayloadPolicy:
+    accepts: Callable[[tuple[str, ...]], bool]
+    parse: Callable[[str], tuple[Match, ...]]
 
 
 class ApiResolution(Detail, frozen=True, tag="resolution"):
@@ -563,15 +652,13 @@ class BaseParams:
 
 
 def language_choice(verb: str, *, csharp: bool = False, python: bool = False, typescript: bool = False) -> Language | Fault | None:
-    """Project mutually-exclusive CLI language flags into the internal language axis."""
+    """Project mutually-exclusive CLI language flags into the internal language axis.
+
+    Returns:
+        Selected language, None when unrestricted, or a parse Fault when flags conflict.
+    """
     selected = tuple(
-        language
-        for language, active in (
-            (Language.CSHARP, csharp),
-            (Language.PYTHON, python),
-            (Language.TYPESCRIPT, typescript),
-        )
-        if active
+        language for language, active in ((Language.CSHARP, csharp), (Language.PYTHON, python), (Language.TYPESCRIPT, typescript)) if active
     )
     match selected:
         case ():
@@ -692,6 +779,130 @@ def _csharp_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
     return rows
 
 
+def _rows_of(done: Completed) -> tuple[Match, ...]:
+    payload = (done.stdout + b"\n" + done.stderr).decode(errors="replace")
+    return next((policy.parse(payload) for policy in _PAYLOAD_POLICIES if policy.accepts(done.argv)), ())
+
+
+def _text_rows(tool: str, payload: str) -> tuple[Match, ...]:
+    rows: list[Match] = []
+    pending: tuple[str, str, str] | None = None
+    for raw in payload.splitlines():
+        line = _ANSI_ESCAPE.sub("", raw).strip()
+        if not line:
+            continue
+        row = next((match for policy in _TEXT_POLICIES if (match := policy.match(tool, line)) is not None), None)
+        if row is not None:
+            rows.append(row)
+            continue
+        if (found := _HEADER_DIAGNOSTIC.match(line)) is not None:
+            pending = (_severity(found.group("severity")), found.group("rule") or tool, found.group("message").strip())
+            continue
+        if pending is not None and (found := _ARROW_LOCATION.match(line)) is not None:
+            severity, rule, message = pending
+            rows.append(_diagnostic_match(tool, rule, severity, found.group("path"), found.group("line"), found.group("column"), message))
+            pending = None
+    return tuple(rows)
+
+
+def _py_analyzer_rows(payload: str) -> tuple[Match, ...]:
+    try:
+        diagnostics = _PY_ANALYZER_LOG.decode(payload.encode())
+    except msgspec.MsgspecError:
+        return ()
+    return tuple(
+        _diagnostic_match("py-analyzer", row.rule_id, row.severity, row.path, str(row.line), str(row.column), row.message or row.title)
+        for row in diagnostics
+    )
+
+
+def _biome_rows(payload: str) -> tuple[Match, ...]:
+    json_payload = _json_object(payload)
+    if json_payload:
+        try:
+            decoded = _BIOME_LOG.decode(json_payload.encode())
+        except msgspec.MsgspecError:
+            decoded = _BiomeReport()
+        rows = tuple(
+            _diagnostic_match(
+                "biome",
+                row.category or "biome",
+                row.severity,
+                row.location.path,
+                str(row.location.start.line),
+                str(row.location.start.column),
+                row.message,
+            )
+            for row in decoded.diagnostics
+        )
+        if rows:
+            return rows
+    return _text_rows(tool="biome", payload=payload)
+
+
+def _json_object(payload: str) -> str:
+    start = payload.find("{")
+    end = payload.rfind("}") + 1
+    if start < 0 or end <= start:
+        return ""
+    try:
+        candidate = payload[start:end]
+        _ = _BIOME_LOG.decode(candidate.encode())
+    except msgspec.MsgspecError:
+        return ""
+    return candidate
+
+
+def _severity(raw: str) -> str:
+    return {"warn": "warning", "warning": "warning", "note": "info", "info": "info", "error": "error"}.get(raw.lower(), "error")
+
+
+def _diagnostic_match(tool: str, rule: str, severity: str, path: str, line: str, column: str, message: str) -> Match:
+    line_number = int(line)
+    column_number = int(column)
+    rule_id = rule.lower()
+    return Match(
+        id=f"{tool}:{rule_id}",
+        kind=ArtifactKind.CODE,
+        text=f"{tool}: {path}:{line_number}:{column_number}: {rule_id}: {message}"[:_MATCH_TEXT_CAP],
+        line=line_number,
+        column=column_number,
+        score=column_number,
+        severity=_severity(severity),
+        path=path,
+        project=tool,
+        message=message,
+    )
+
+
+_TEXT_POLICIES: tuple[_TextPolicy, ...] = (
+    _TextPolicy(_MYPY_DIAGNOSTIC, frozenset(("mypy",))),
+    _TextPolicy(_TSC_DIAGNOSTIC, frozenset(("tsc",)), line_groups=("line1", "line2"), column_groups=("column1", "column2")),
+    _TextPolicy(_BIOME_TEXT_DIAGNOSTIC, frozenset(("biome",)), severity="error"),
+    _TextPolicy(
+        _FORMAT_DIAGNOSTIC,
+        frozenset(("ruff-format",)),
+        rule="format",
+        severity="error",
+        message="file would be reformatted",
+        path_groups=("path", "path2"),
+    ),
+)
+
+_PAYLOAD_POLICIES: tuple[_PayloadPolicy, ...] = (
+    _PayloadPolicy(
+        lambda argv: any(arg == "ruff" and index + 1 < len(argv) and argv[index + 1] == "format" for index, arg in enumerate(argv)),
+        lambda payload: _text_rows("ruff-format", payload),
+    ),
+    _PayloadPolicy(lambda argv: "ruff" in argv, lambda payload: _text_rows("ruff", payload)),
+    _PayloadPolicy(lambda argv: "ty" in argv, lambda payload: _text_rows("ty", payload)),
+    _PayloadPolicy(lambda argv: "mypy" in argv, lambda payload: _text_rows("mypy", payload)),
+    _PayloadPolicy(lambda argv: "tools.py_analyzer" in argv, _py_analyzer_rows),
+    _PayloadPolicy(lambda argv: "biome" in argv, _biome_rows),
+    _PayloadPolicy(lambda argv: "tsc" in argv, lambda payload: _text_rows("tsc", payload)),
+)
+
+
 def _generated(row: Match) -> bool:
     path = (row.path or row.text.split(": ", 1)[0]).replace("\\", "/").lower()
     return "/obj/" in path or "/.artifacts/assay/" in path or path.endswith(".g.cs")
@@ -706,7 +917,7 @@ def _dedupe(rows: tuple[Match, ...]) -> tuple[Match, ...]:
     out: list[Match] = []
     for row in rows:
         path = row.path.replace("\\", "/").lower()
-        key = (row.id, row.severity, path, row.line, row.column, "" if path and row.line and row.column else row.message or row.text)
+        key = (row.id, row.severity, path, row.line, row.column, row.message or row.text)
         if key not in seen:
             seen.add(key)
             out.append(row)
@@ -742,7 +953,7 @@ def _rank(rows: tuple[Match, ...]) -> tuple[Match, ...]:
 
 def _result_rows(claim: Claim, outcomes: tuple[Completed, ...], defects: tuple[Match, ...], sarif_dir: str | None) -> tuple[Match, ...]:
     sarif = _sarif_rows(sarif_dir)
-    diagnostics = (*_csharp_rows(outcomes), *sarif)
+    diagnostics = (*tuple(row for done in outcomes for row in _rows_of(done)), *_csharp_rows(outcomes), *sarif)
     if claim is not Claim.STATIC:
         return (*defects, *sarif)
     source = _rank(_dedupe(tuple(row for row in diagnostics if not _generated(row))))
@@ -750,19 +961,39 @@ def _result_rows(claim: Claim, outcomes: tuple[Completed, ...], defects: tuple[M
     return (*source, *generated, *defects)
 
 
+def _diagnostic_notes(rows: tuple[Match, ...]) -> tuple[str, ...]:
+    weights = tuple((m, m.count or 1) for m in rows)
+    rule_counts: Counter[str] = Counter()
+    for row, count in weights:
+        rule_counts[row.id] += count
+    summary = (
+        f"diagnostics: total={sum(count for _, count in weights)} "
+        f"source={sum(count for row, count in weights if row.kind is ArtifactKind.CODE)} "
+        f"generated={sum(count for row, count in weights if row.kind is ArtifactKind.PROCESS and row.count)} "
+        f"error={sum(count for row, count in weights if row.severity == 'error')} "
+        f"warning={sum(count for row, count in weights if row.severity == 'warning')} "
+        f"info={sum(count for row, count in weights if row.severity == 'info')}"
+    )
+    return (
+        summary,
+        "diagnostics.rules: " + " ".join(f"{rule}={count}" for rule, count in sorted(rule_counts.items(), key=lambda item: (-item[1], item[0]))[:16]),
+    )
+
+
 def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None, sarif_dir: str | None = None) -> Report:
     """Fold outcomes into a Report: aggregate status, ok/fail counts, defect tail rows, and notes.
 
     ``sarif_dir`` decodes any ``*.sarif`` documents under the run scope into per-diagnostic
-    evidence rows (id, severity, line, text). Static diagnostics participate in the verdict:
-    error rows fail, non-error rows promote a ran-empty receipt to ok, and absent or empty
-    directories fold silently to no rows.
+    evidence rows (id, severity, line, text). Static source diagnostics participate in the verdict:
+    source error rows fail, non-error rows promote a ran-empty receipt to ok, generated diagnostics
+    remain evidence, and absent or empty directories fold silently to no rows.
 
     Returns:
         Report carrying folded status, ok/fail counts, defect and SARIF evidence rows, collected artifacts, notes, and optional detail.
     """
     pairs = tuple(map(_count, outcomes))
-    ok_n, fail_n = (sum(a) for a in zip(*pairs, strict=True)) if pairs else (0, 0)
+    ok_n = sum(ok for ok, _ in pairs)
+    fail_n = sum(failed for _, failed in pairs)
     defects = tuple(
         Match(
             id=shlex.join(o.argv) if o.argv else claim.value,
@@ -775,33 +1006,13 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
     )
     results = _result_rows(claim, outcomes, defects, sarif_dir)
     diagnostic_rows = tuple(m for m in results if m.severity in _SARIF_SEVERITY.values() and m.id)
-    weights = tuple((m, m.count or 1) for m in diagnostic_rows)
-    rule_counts: Counter[str] = Counter()
-    for row, count in weights:
-        rule_counts[row.id] += count
-    diagnostic_notes = (
-        (
-            (
-                "diagnostics: "
-                f"total={sum(count for _, count in weights)} "
-                f"source={sum(count for row, count in weights if row.kind is ArtifactKind.CODE)} "
-                f"generated={sum(count for row, count in weights if row.kind is ArtifactKind.PROCESS and row.count)} "
-                f"error={sum(count for row, count in weights if row.severity == 'error')} "
-                f"warning={sum(count for row, count in weights if row.severity == 'warning')} "
-                f"info={sum(count for row, count in weights if row.severity == 'info')}"
-            ),
-            "diagnostics.rules: "
-            + " ".join(f"{rule}={count}" for rule, count in sorted(rule_counts.items(), key=lambda item: (-item[1], item[0]))[:16]),
-        )
-        if claim is Claim.STATIC and diagnostic_rows
-        else ()
-    )
+    source_error = any(row.kind is ArtifactKind.CODE and row.severity == "error" for row in diagnostic_rows)
     folded_status = rail_fold(*(o.status for o in outcomes))
     status = (
         RailStatus.FAILED
-        if claim is Claim.STATIC and any(row.severity == "error" for row in diagnostic_rows)
+        if claim is Claim.STATIC and source_error
         else RailStatus.OK
-        if claim is Claim.STATIC and folded_status is RailStatus.EMPTY and (outcomes or diagnostic_rows)
+        if claim in _PROCESS_BACKED_OK_CLAIMS and folded_status is RailStatus.EMPTY and bool(outcomes) and not defects
         else folded_status
     )
     return Report(
@@ -811,7 +1022,10 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
         Counts(ok_n, fail_n, ok_n + fail_n),
         results=results,
         artifacts=tuple(artifact for o in outcomes for artifact in o.artifacts),
-        notes=(*tuple(n for o in outcomes for n in o.notes), *diagnostic_notes),
+        notes=(
+            *tuple(n for o in outcomes for n in o.notes),
+            *((_diagnostic_notes(diagnostic_rows)) if claim is Claim.STATIC and diagnostic_rows else ()),
+        ),
         detail=detail,
     )
 
@@ -852,6 +1066,8 @@ def wire_safe(text: str) -> str:
 
 _ENCODER = msgspec.json.Encoder(order="deterministic")
 _SARIF_LOG: msgspec.json.Decoder[_SarifLog] = msgspec.json.Decoder(_SarifLog)
+_PY_ANALYZER_LOG: msgspec.json.Decoder[tuple[_PyAnalyzerDiagnostic, ...]] = msgspec.json.Decoder(tuple[_PyAnalyzerDiagnostic, ...])
+_BIOME_LOG: msgspec.json.Decoder[_BiomeReport] = msgspec.json.Decoder(_BiomeReport)
 _LOG = structlog.get_logger("assay.model")
 
 # --- [EXPORTS] --------------------------------------------------------------------------

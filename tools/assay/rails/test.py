@@ -3,11 +3,11 @@
 from collections.abc import Callable  # noqa: TC003  # _MUTATION_SCOPE binds the projection type at import time
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Annotated, TYPE_CHECKING
+from typing import Annotated, override, TYPE_CHECKING
 
 from cyclopts import Parameter
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # cyclopts resolves Param-annotated dataclass fields at runtime
-from expression import Error, Ok, Result  # noqa: TC002  # beartype @checked resolves the handler forward-ref (PEP 649)
+from expression import Error, Ok, Result  # beartype @checked resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
@@ -28,11 +28,11 @@ from tools.assay.core.model import (
     Claim,
     Completed,  # noqa: TC001  # _roster_matches uses Completed as a runtime type in the tuple annotation
     Counts,
-    Fault,  # noqa: TC001  # beartype @checked resolves the rail's forward-ref (PEP 649)
+    Fault,  # beartype @checked resolves the rail's forward-ref (PEP 649)
     fold,
     Input,
-    language_choice,
     Language,
+    language_choice,
     Match,
     Mode,
     MutationLane,
@@ -112,8 +112,13 @@ class TestParams(BaseParams):
     limit: NonNegativeInt = 0
     grep: str = ""
 
+    @override
     def bound(self, verb: str) -> TestParams | Fault:
-        """Validate mutually-exclusive language flags while preserving variadic targets."""
+        """Validate mutually-exclusive language flags while preserving variadic targets.
+
+        Returns:
+            Bound params, or a parse Fault when language flags conflict.
+        """
         match language_choice(verb, csharp=self.csharp, python=self.python, typescript=self.typescript):
             case Fault() as fault:
                 return fault
@@ -401,6 +406,8 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
             return Error(fault)
         case Result(tag="ok", ok=languages):
             pass
+        case unreachable:
+            return Error(Fault(("test", verb), status=RailStatus.FAULTED, message=f"language selection unresolved: {unreachable!r}"))
     eligible = tuple(t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation is not MutationLane.OFF else mode))
     gap = _mutation_gap(params, eligible)
     match gap:
@@ -470,6 +477,8 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
             return Error(fault)
         case Result(tag="ok", ok=languages):
             pass
+        case unreachable:
+            return Error(Fault(("test", "list"), status=RailStatus.FAULTED, message=f"language selection unresolved: {unreachable!r}"))
     needle = params.grep.strip().lower()
 
     def _settle(done: block.Block[Completed], selected: tuple[Routed, ...]) -> Report:

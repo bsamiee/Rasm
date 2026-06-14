@@ -15,7 +15,7 @@ from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, r
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 import tools.assay.rails.static as static_rail
-from tools.assay.rails.static import build, check, fix, StaticBuildParams, StaticParams
+from tools.assay.rails.static import build, check, fix, StaticParams
 
 
 if TYPE_CHECKING:
@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 def _ok_static_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
     return tuple(Ok(receipt((check.tool.name,), 0, status=RailStatus.OK)) for check in checks)
 
+
 # --- [STATICPARAMS_LAWS]
 
 
@@ -53,18 +54,6 @@ def test_staticparams_defaults() -> None:
 register_law(StaticParams, "defaults_are_folder_file_only")
 
 
-def test_staticbuildparams_surface_is_build_only() -> None:
-    """Build params expose only the explicit all/project target shape."""
-    params = StaticBuildParams()
-    assert params.all is False
-    assert not params.project
-    assert not hasattr(params, "folders")
-    assert not hasattr(params, "files")
-
-
-register_law(StaticBuildParams, "surface_is_build_only")
-
-
 def test_registry_exposes_only_scoped_static_verbs() -> None:
     """Static registry surface is exactly check/build/fix, with no compatibility verbs."""
     assert tuple(row.verb for row in REGISTRY if row.claim is Claim.STATIC) == ("check", "build", "fix")
@@ -73,9 +62,7 @@ def test_registry_exposes_only_scoped_static_verbs() -> None:
 register_law(REGISTRY, "static_verbs_are_collapsed")
 
 
-def test_cli_consumes_grouped_folder_and_file_targets(
-    cli: VerbRunner, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cli_consumes_grouped_folder_and_file_targets(cli: VerbRunner, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """One ``--folder`` consumes multiple folders until ``--file``; one ``--file`` consumes multiple files."""
     assay_root.write("src/a.py", "")
     assay_root.write("pkg/b.py", "")
@@ -92,8 +79,8 @@ def test_cli_consumes_grouped_folder_and_file_targets(
 register_law(StaticParams, "grouped_folder_file_cli_consumption")
 
 
-def test_static_build_help_excludes_scoped_file_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
-    """Static build help advertises only --all/--project and suppresses Cyclopts' negative --all form."""
+def test_static_build_help_admits_scoped_file_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
+    """Static build help admits the same target surface as the other static verbs."""
     from tools.assay import __main__ as main_mod  # noqa: PLC0415
 
     neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
@@ -103,12 +90,12 @@ def test_static_build_help_excludes_scoped_file_flags(monkeypatch: pytest.Monkey
     assert code == 0
     assert b"--all" in cap.out
     assert b"--project" in cap.out
-    assert b"--folder" not in cap.out
-    assert b"--file" not in cap.out
+    assert b"--folder" in cap.out
+    assert b"--file" in cap.out
     assert b"--no-all" not in cap.out
 
 
-register_law(build, "help_excludes_scoped_file_flags")
+register_law(build, "help_admits_scoped_file_flags")
 
 
 # --- [CHECK_LAWS]
@@ -219,6 +206,17 @@ def test_full_static_route_keeps_typescript_build_row(assay_root: AssayHarness) 
 register_law(static_rail._phase_checks, "full_typescript_keeps_build_row")
 
 
+def test_full_typescript_tsc_has_no_file_tail(assay_root: AssayHarness) -> None:
+    """Full TypeScript build invokes the project owner once; it never mixes ``-p`` with file tails."""
+    routed = Routed(Language.TYPESCRIPT, Scope.FULL, files=("vite.config.ts", "vitest.config.ts"))
+    phases, _ = static_rail._phase_checks(routed, (Mode.BUILD,), assay_root.settings, assay_root.scope(Claim.STATIC))
+    planned = static_rail._planned("build", routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
+    assert ("build", "tsc", "pnpm exec tsc --noEmit -p tsconfig.base.json") in planned
+
+
+register_law(static_rail._phase_checks, "full_typescript_tsc_has_no_file_tail")
+
+
 def test_fix_executes_mutating_rows_only(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
     """Fix executes write-mode formatter/fixer rows without smuggling build/check work into the write lane."""
     assay_root.write("src/pkg/a.py", "")
@@ -250,22 +248,54 @@ def test_execution_verbs_require_explicit_targets(verb: str, fn: _VerbFn, status
     assert f"{verb}: requires" in fault.message
 
 
-register_law(build, "requires_explicit_project_or_all_target")
+register_law(build, "requires_explicit_target")
 register_law(fix, "requires_explicit_targets")
 
 
-def test_build_rejects_folder_file_targets(assay_root: AssayHarness) -> None:
-    """Build rejects folder/file expansion; C# compile is one project or explicit workspace only."""
+def test_build_folder_routes_csharp_owner_project(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """Folder build derives the C# owner project and runs restore/build through that project."""
     assay_root.write("src/App/App.csproj", "<Project />")
     assay_root.write("src/App/a.cs", "class A {}")
-    fault = assert_error_status(
-        build(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src/App",))), RailStatus.UNSUPPORTED
-    )
-    assert "build: requires --project or --all" in fault.message
-    assert fault.argv == ("static", "build", "--folder", "src/App")
+    monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
+    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
+    report = assert_ok(build(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src/App",))))
+    assert isinstance(report.detail, StaticRun)
+    assert any(route[0] == "csharp" and route[3] == "1" for route in report.detail.routes)
+    assert report.detail.phases == ("restore", "build")
+    assert any(name == "dotnet-restore" and argv.endswith("src/App/App.csproj") for _, name, argv in report.detail.planned)
+    assert any(name == "dotnet-build" and "src/App/App.csproj" in argv for _, name, argv in report.detail.planned)
 
 
-register_law(build, "rejects_folder_file_targets")
+register_law(build, "folder_routes_csharp_owner_project")
+
+
+def test_build_cli_runs_folder_targets(cli: VerbRunner, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """CLI parsing sends folder/file build targets through the static route owner."""
+    assay_root.write("src/App/App.csproj", "<Project />")
+    assay_root.write("src/App/a.cs", "class A {}")
+    monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
+    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
+    result = cli("static", "build", "--folder", "src/App")
+    assert result.exit_code == 0
+    assert result.envelope.report is not None
+    assert isinstance(result.envelope.report.detail, StaticRun)
+    assert any(row[1] == "dotnet-build" and "src/App/App.csproj" in row[2] for row in result.envelope.report.detail.planned)
+
+
+register_law(build, "cli_folder_targets_route")
+
+
+def test_build_file_routes_typescript_project_owner(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """TypeScript file build runs the project-owned tsc row once, without adding file tails to ``-p``."""
+    assay_root.write("src/web/a.ts", "export const x = 1;")
+    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
+    report = assert_ok(build(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(files=("src/web/a.ts",))))
+    assert isinstance(report.detail, StaticRun)
+    assert any(route[0] == "typescript" and route[1] == "full" for route in report.detail.routes)
+    assert ("build", "tsc", "pnpm exec tsc --noEmit -p tsconfig.base.json") in report.detail.planned
+
+
+register_law(build, "file_routes_typescript_project_owner")
 
 
 @pytest.mark.parametrize("path", ["src/App/App.csproj", "Workspace.slnx", "Directory.Build.props"], ids=["csproj", "slnx", "props"])

@@ -398,12 +398,21 @@ def _flow_run_check(
         A callable accepting a Check that dispatches on tool.mode.
     """
 
-    def fake(check: Check, **_kwargs: object) -> Result[Completed, Fault]:
+    def fake(check: Check, **kwargs: object) -> Result[Completed, Fault]:
         mode = check.tool.mode
         match mode:
             case Mode.QUERY:
                 return Ok(receipt(check.tool.command, 0, stdout=_props_stdout(yak_shape, meta), status=RailStatus.OK))
             case Mode.BUILD:
+                scope = kwargs["scope"]
+                settings = kwargs["settings"]
+                assert isinstance(scope, ArtifactScope)
+                assert isinstance(settings, AssaySettings)
+                project = Path(check.tool.command[1])
+                target = Path(scope.path) / "bin" / project.stem / settings.configuration.value.lower()
+                target.mkdir(parents=True, exist_ok=True)
+                (target / f"{meta.assembly_name}{meta.target_ext}").write_bytes(b"rhp")
+                (target / f"{meta.assembly_name}.dll").write_bytes(b"dll")
                 return Error(build_fault) if build_fault is not None else Ok(receipt(("dotnet", "build"), 0, status=build_status))
             case Mode.STAGE:
                 (Path(str(check.cwd)) / meta.package_pattern).write_bytes(b"PK\x03\x04yak")
@@ -611,7 +620,7 @@ def test_stage_artifacts_missing_inputs_fault(drop: str, assay_root: AssayHarnes
     target = {"manifest": meta.manifest_dir / "manifest.yml", "primary": meta.target_dir / f"{meta.assembly_name}{meta.target_ext}"}[drop]
     target.unlink()
     staged = Path(assay_root.write("staged-x/.keep", "")).parent
-    e = assert_error_status(_pkg_mod._stage_artifacts(meta, staged), RailStatus.FAULTED)
+    e = assert_error_status(_pkg_mod._stage_artifacts(meta, staged, meta.target_dir, ()), RailStatus.FAULTED)
     assert ("missing yak manifest" if drop == "manifest" else "missing primary artifact") in e.message
 
 
@@ -620,7 +629,7 @@ def test_copy_tree_oserror_faults(assay_root: AssayHarness, yak_shape: YakShape,
     meta = yak_shape.materialize(assay_root)
     staged = Path(assay_root.write("staged-c/.keep", "")).parent
     monkeypatch.setattr(_pkg_mod, "copy2", lambda *_a, **_kw: (_ for _ in ()).throw(OSError("disk full")))
-    e = assert_error_status(_pkg_mod._copy_tree(meta, staged), RailStatus.FAULTED)
+    e = assert_error_status(_pkg_mod._copy_tree(meta, staged, meta.target_dir, ()), RailStatus.FAULTED)
     assert "disk full" in e.message
 
 

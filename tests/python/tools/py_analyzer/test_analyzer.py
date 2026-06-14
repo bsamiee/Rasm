@@ -2,8 +2,6 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from __future__ import annotations
-
 from pathlib import Path
 import tomllib
 from typing import TYPE_CHECKING
@@ -461,9 +459,7 @@ def test_excluded_directories_are_pruned_before_parse(kit: TmpRoot[None]) -> Non
 
 
 def test_ast_grep_fixture_tree_is_pruned_before_semantic_analysis(kit: TmpRoot[None]) -> None:
-    path = kit.write(
-        "tests/ast-grep/pass/flow.py", "def run(value: Input) -> Output:\n    if value:\n        return Output()\n    return Output()\n"
-    )
+    path = kit.write("tests/ast-grep/pass/flow.py", "def run(value: Input) -> Output:\n    if value:\n        return Output()\n    return Output()\n")
     assert analyze_paths(kit.root, (path,)) == ()
 
 

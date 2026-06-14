@@ -16,7 +16,7 @@ internal sealed record CrashSummary(string Thread, string ExceptionType, string 
 // Ownership: the decode shape of the build-time `bridge-closure.json` target (assembly list +
 // host-plugin GUIDs + built-against fingerprint). The supervisor READS the closure — zero MSBuild
 // evaluation, zero `dotnet build` children at invoke time.
-internal sealed record ClosureManifest(string[] Assemblies, Guid[] HostPlugins, HostFingerprint BuiltAgainst);
+internal sealed record ClosureManifest(string[] Assemblies, Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 
@@ -88,7 +88,8 @@ internal static class Evidence {
             _ = assemblies.Iter(f: source => CopyFresh(source: source, stagePath: stagePath));
             return Fin.Succ(value: new CargoManifest(
                 SessionId: sessionId, ReportDir: reportDir, ContentHash: contentHash, StagePath: stagePath,
-                HostPlugins: closure.HostPlugins ?? [], BuiltAgainst: closure.BuiltAgainst));
+                HostPlugins: closure.HostPlugins ?? [], BuiltAgainst: closure.BuiltAgainst,
+                ScenarioAssemblies: closure.ScenarioAssemblies ?? []));
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException) {
             return Fin.Fail<CargoManifest>(error: Error.New(message: $"closure staging failed: {error.Message}"));
         }
