@@ -1,12 +1,8 @@
-"""Multi-source structlog owner: one process-global config for every Assay entrypoint.
+"""Own process-wide structlog and stdlib logging configuration.
 
-CLI dispatch, pytest sessions, and embedded callers all converge on `configure_logging`;
-a lock-guarded first-caller-wins latch makes concurrent implicit configuration race-free,
-while an explicit format always reconfigures. `_StderrLogger` resolves `sys.stderr` per
-write (structlog ships no lazy-stream logger factory), so a sibling suite's pytest-closed
-capture fd can never strand a logger on a dead stream. A stdlib root-handler bridge routes
-third-party `logging` records (asyncssh, fsspec) through the same processor chain to
-stderr; stdout stays reserved for the Envelope wire.
+`configure_logging` is the single entrypoint for CLI, tests, and embedded callers.
+Stderr resolves per write so capture lifecycles cannot strand loggers on closed
+streams; stdout stays reserved for the Envelope wire.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -42,11 +38,11 @@ _LEVELS: Final[dict[str, int]] = {
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-_LOG_ENCODER: Final = msgspec.json.Encoder(enc_hook=str)  # telemetry degrades unencodable values to str; core.model's wire encoder stays strict
+_LOG_ENCODER: Final = msgspec.json.Encoder(enc_hook=str)  # telemetry coerces unencodable fields; Envelope encoding stays strict
 
 
 class _StderrLogger:
-    """Resolve `sys.stderr` per write; the stream is never captured at configure time."""
+    """Write each event to the current ``sys.stderr``."""
 
     _lock = threading.Lock()
 
@@ -56,7 +52,7 @@ class _StderrLogger:
             stream.write(message + "\n")
             stream.flush()
 
-    debug = info = warning = error = critical = msg  # FilteringBoundLogger._proxy_to_logger resolves all level names by attribute
+    debug = info = warning = error = critical = msg  # FilteringBoundLogger resolves levels by attribute
     log = warn = fatal = failure = err = exception = msg
 
 
@@ -64,11 +60,10 @@ _STDERR = _StderrLogger()
 
 
 class _StderrBridgeHandler(logging.Handler):
-    """Route stdlib `logging` records through the shared processor chain to per-write-resolved `sys.stderr`."""
+    """Route stdlib records through the shared processor chain."""
 
     @override
     def emit(self, record: logging.LogRecord) -> None:
-        """Render one stdlib record via the attached ProcessorFormatter and write it to the live stderr."""
         _STDERR.msg(self.format(record))
 
 
@@ -80,10 +75,10 @@ _LATCH: dict[str, bool] = {"configured": False}  # dict cell avoids a module-lev
 
 def _chain() -> tuple[Processor, ...]:
     return (
-        merge_contextvars,  # must be first; binds contextvars before any processor reads the event dict
+        merge_contextvars,  # contextvars must bind before processors inspect event data
         ring_processor,
         add_log_level,
-        CallsiteParameterAdder(  # MODULE rides foreign stdlib records (record.module); QUAL_MODULE has no _record_attribute_map entry
+        CallsiteParameterAdder(  # MODULE is the portable foreign-record fallback for callsite metadata
             parameters=(CallsiteParameter.QUAL_MODULE, CallsiteParameter.MODULE, CallsiteParameter.FUNC_NAME, CallsiteParameter.LINENO)
         ),
         dict_tracebacks,
@@ -100,12 +95,11 @@ def _renderer(fmt: LogFormat) -> Processor:
 
 
 def configure_logging(log_format: LogFormat | None = None) -> None:
-    """Install the process-global structlog config and stdlib root-logger bridge; first caller wins.
+    """Install process-global structlog and stdlib bridge configuration.
 
     Args:
-        log_format: Renderer format. ``None`` reads ``AssaySettings().log_format`` lazily and is a
-            no-op once configured, so later implicit callers inherit the first configuration; an
-            explicit format always reconfigures and re-resolves ``ASSAY_LOG_LEVEL``.
+        log_format: Explicit renderer format. ``None`` lazily reads settings and becomes a
+            no-op after first configuration; explicit values reconfigure and refresh log level.
     """
     with _LOCK:
         if _LATCH["configured"] and log_format is None:
@@ -113,7 +107,7 @@ def configure_logging(log_format: LogFormat | None = None) -> None:
         try:
             settings = AssaySettings()
         except ValidationError:
-            settings = AssaySettings.model_construct()  # broken env surfaces at dispatch (bootstrap_error); logging falls back to field defaults
+            settings = AssaySettings.model_construct()  # invalid env surfaces at dispatch; logging uses defaults
         fmt = log_format if log_format is not None else settings.log_format
         chain = _chain()
         renderer = _renderer(fmt)
@@ -122,12 +116,12 @@ def configure_logging(log_format: LogFormat | None = None) -> None:
             processors=[*chain, renderer],
             wrapper_class=make_filtering_bound_logger(level),
             logger_factory=lambda *_a: _STDERR,  # stdout belongs to the Envelope wire
-            cache_logger_on_first_use=False,  # caching would freeze processors; capture_logs() and import-time loggers must see the final chain
+            cache_logger_on_first_use=False,  # capture_logs() and import-time loggers must see the final chain
         )
         bridge = _StderrBridgeHandler(level=level)
         bridge.setFormatter(ProcessorFormatter(foreign_pre_chain=chain, processors=[ProcessorFormatter.remove_processors_meta, renderer]))
         root = logging.getLogger()  # noqa: TID251  # the bridge owner is the one sanctioned root-logger touchpoint
-        root.handlers[:] = [bridge]  # replaced, never stacked: reconfiguring swaps the bridge; third-party stdlib records flow structured to stderr
+        root.handlers[:] = [bridge]  # replace rather than stack bridges on reconfiguration
         root.setLevel(level)
         _LATCH["configured"] = True
 

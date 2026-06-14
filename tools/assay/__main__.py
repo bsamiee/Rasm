@@ -1,8 +1,10 @@
-"""CLI entrypoint that wires the Assay command registry into a Cyclopts meta-app.
+"""Expose the Assay command registry as the process entrypoint.
 
-Constructs the application at import time, routes argv through the meta dispatcher,
-and drains the OpenTelemetry span buffer before process exit.
+The entrypoint preserves one stdout Envelope for parse, config, dispatch, and
+unexpected faults, then drains tracing outside the command result channel.
 """
+
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import sys
 from typing import Annotated, Final
@@ -13,7 +15,7 @@ from opentelemetry.trace import get_tracer_provider
 from pydantic import ValidationError
 
 from tools.assay import (
-    _DRAIN_MS,  # noqa: PLC2701  # cross-module private: flush budget must match BatchSpanProcessor cadence
+    _DRAIN_MS,  # noqa: PLC2701  # shared trace budget owned by the package runtime hook
     configure_logging,
     install_tracing,
 )
@@ -27,7 +29,7 @@ from tools.assay.core.status import Step
 
 
 def _no_command(tokens: tuple[str, ...]) -> bool:
-    # Cyclopts routes bare or incomplete argv to `help_print`/`version_print` (return None); a flag token marks deliberate intent.
+    # Cyclopts maps incomplete commands to help/version callbacks; flags mark deliberate help/version intent.
     try:
         command, _bound, _ignored = app.parse_args(tokens, exit_on_error=False, print_error=False)
     except CycloptsError:
@@ -36,7 +38,7 @@ def _no_command(tokens: tuple[str, ...]) -> bool:
 
 
 def _returncode(result: object) -> int:
-    # Load-bearing: cyclopts result_action="return_value" returns the result verbatim and never invokes __cyclopts_returncode__ itself.
+    # Cyclopts returns values verbatim; exit hooks must be invoked here.
     match result:
         case int() as code:
             return code
@@ -53,12 +55,11 @@ def _dispatch(tokens: tuple[str, ...]) -> object:
         case _:
             try:
                 return app(tokens, result_action="return_value", backend="asyncio", exit_on_error=False, print_error=False)
-            # Load-bearing: cyclopts error_formatter only console-prints (gated on print_error=True) and the error re-raises regardless,
-            # so this catch is the sole path that can fold a parse failure into the single stdout Envelope.
+            # Cyclopts only formats when printing; stdout Envelope folding lives at this boundary.
             except CycloptsError as parse_error:
                 return parse_fault(tokens, str(parse_error))
             except ValidationError as config_error:
-                # Malformed ASSAY_* env var raises at AssaySettings() construction; fold to a config-step Envelope.
+                # Settings construction faults become config-step Envelopes.
                 return parse_fault(tokens, str(config_error), step=Step.CONFIG)
             except Exception as exc:  # noqa: BLE001  # CLI boundary: preserve single-Envelope stdout contract for unexpected dispatch faults
                 return parse_fault(tokens, f"{type(exc).__name__}: {exc}", step=Step.DISPATCH)
@@ -83,11 +84,14 @@ def meta(*tokens: Annotated[str, Parameter(show=False)]) -> int:
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI, then force-flush and shut down the tracer provider before exit.
 
+    Args:
+        argv: Explicit token vector; ``None`` reads the current process arguments.
+
     Returns:
-        Process exit code derived from the dispatched command's Envelope.
+        Process exit code derived from the dispatched Envelope.
     """
-    configure_logging()  # explicit call: do not rely on import-time side effects for log configuration
-    # Scrub lone surrogates (os.fsdecode surrogateescape from invalid-UTF-8 argv) so untrusted tokens cannot crash the wire encoder.
+    configure_logging()  # explicit call aligns subprocess and import-time logging state
+    # Scrub surrogateescape tokens so untrusted argv cannot crash the wire encoder.
     tokens = tuple(wire_safe(token) for token in (sys.argv[1:] if argv is None else argv))
 
     def _install() -> None:
@@ -97,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
             _ = exc
 
     def _drain(provider: object) -> None:
-        # Budgets flush at _DRAIN_MS to avoid blocking exit under a slow OTLP endpoint, then releases SDK workers.
+        # Bound flush before releasing SDK workers so a slow OTLP endpoint cannot stall exit.
         match getattr(provider, "force_flush", None):
             case flush if callable(flush):
                 try:

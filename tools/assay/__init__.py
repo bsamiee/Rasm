@@ -1,13 +1,12 @@
-"""Assay package initializer: installs beartype claw hook, bootstraps settings, configures logging, and exposes the tracing installer.
+"""Install package-wide runtime hooks before downstream Assay imports.
 
-The beartype claw hook must be installed before any other Assay submodule is imported; the
-``ASSAY_CLAW`` environment variable gates activation so integration tests can opt out.
-Settings bootstrap errors are captured and deferred to dispatch time rather than raising at import.
+The beartype claw hook must run before ordinary submodules load. Settings faults are
+captured for dispatch-time reporting so import stays usable for CLI fault envelopes.
 """
-# ruff: noqa: RUF067  # claw hook must install before any Assay module is imported.
+# ruff: noqa: RUF067  # claw hook installs before ordinary package imports.
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-# core.aspect uses PEP 695 ParamSpec aliases incompatible with beartype_this_package; must be imported before the claw hook installs.
+# aspect uses PEP 695 aliases beartype_this_package cannot decorate.
 import os
 import sys
 
@@ -19,19 +18,20 @@ from pydantic import ValidationError
 import tools.assay.core.aspect
 
 
-match os.environ.get("ASSAY_CLAW", ""):  # noqa: TID251  # import-time claw gate cannot route through AssaySettings, which is loaded after the hook
+# AssaySettings loads after claw; the import-time gate must read the environment directly.
+match os.environ.get("ASSAY_CLAW", ""):  # noqa: TID251
     case "1":
         beartype_this_package(conf=BeartypeConf(is_pep484_tower=True, warning_cls_on_decorator_exception=None))
     case _:
         pass
 
-from tools.assay._logging import configure_logging  # noqa: PLC2701  # re-exported; callers must not import from the private submodule directly
+from tools.assay._logging import configure_logging  # noqa: PLC2701  # package re-export keeps the private logging owner internal
 from tools.assay.composition.settings import AssaySettings
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_DRAIN_MS: int = 1500  # BatchSpanProcessor schedule cadence; must match the exit-time force_flush budget in __main__.main.
+_DRAIN_MS: int = 1500  # shared trace flush budget; keep in sync with exit drain
 _SERVICE: dict[str, str | int] = {
     "service.name": "assay",
     "service.namespace": "rasm",
@@ -44,7 +44,7 @@ _SERVICE: dict[str, str | int] = {
 
 
 def _install_tracing(endpoint: str) -> None:
-    # OTLP import chain (~50 ms) deferred to the endpoint-set path to avoid startup cost when tracing is disabled.
+    # OTLP imports stay on the endpoint-set path to keep tracing-disabled startup lean.
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: PLC0415
     from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
     from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: PLC0415
@@ -57,13 +57,10 @@ def _install_tracing(endpoint: str) -> None:
 
 
 def install_tracing(endpoint: str) -> None:
-    """Install the OTLP trace provider and register it as the global tracer provider.
-
-    Defers the OTLP import chain to avoid startup cost when tracing is disabled.
-    When endpoint is empty no provider is installed and the call is a no-op.
+    """Install the global OTLP tracer when an endpoint is configured.
 
     Args:
-        endpoint: OTLP HTTP endpoint URL; empty string disables tracing.
+        endpoint: OTLP HTTP endpoint; empty string disables tracing.
     """
     match endpoint:
         case "":
@@ -73,7 +70,7 @@ def install_tracing(endpoint: str) -> None:
 
 
 def bootstrap_error() -> ValidationError | None:
-    """Return the import-time settings validation fault, or None when settings bootstrapped cleanly."""
+    """Return the deferred settings fault captured during package bootstrap."""
     return _BOOTSTRAP_ERROR
 
 
@@ -81,7 +78,7 @@ try:
     _SETTINGS = AssaySettings()
     _BOOTSTRAP_ERROR: ValidationError | None = None
 except ValidationError as exc:
-    # Logging falls back to field defaults; the fault surfaces as FAULTED at dispatch (registry._dispatch / parse_fault).
+    # Settings faults surface at dispatch; logging falls back to field defaults.
     _BOOTSTRAP_ERROR = exc
     _SETTINGS = AssaySettings.model_construct()
 
