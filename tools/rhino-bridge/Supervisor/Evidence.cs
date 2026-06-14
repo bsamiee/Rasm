@@ -8,22 +8,16 @@ namespace Rasm.Bridge.Supervisor;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 
-// Ownership: supervisor-private parse result feeding the RhinoCrash fault case; unparseable
-// reports degrade to raw paths ("unknown" fields carry the forensics-degraded signal at the
-// fold), never a throw.
+// Ownership: supervisor-private crash summary; unparseable reports degrade to raw paths.
 internal sealed record CrashSummary(string Thread, string ExceptionType, string ReportPath);
 
-// Ownership: the decode shape of the build-time `bridge-closure.json` target (assembly list +
-// host-plugin GUIDs + built-against fingerprint). The supervisor READS the closure — zero MSBuild
-// evaluation, zero `dotnet build` children at invoke time.
+// Ownership: build-time closure manifest; supervisor reads it without invoking build tooling.
 internal sealed record ClosureManifest(string[] Assemblies, Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 
-// Ownership: every workstation-side evidence producer outside the session fold — content-hash
-// staging (XxHash3 into refs/<hash>/), .ips snapshot/diff (RhinoCrashReportFinder port: crash
-// thread + exception type from the macOS JSON report body), per-scenario spool harvest, and the
-// dotnet-gcdump trigger for the unload-leak proof.
+// Ownership: workstation-side evidence outside the session fold: staged refs, .ips summaries,
+// spool harvest, and unload-leak gcdumps.
 internal static class Evidence {
     internal static Option<string> GcDump(int pid, string reportDir, TimeSpan deadline) {
         string artifact = Path.Combine(path1: reportDir, path2: string.Create(provider: CultureInfo.InvariantCulture, $"{pid}.gcdump"));
@@ -35,8 +29,7 @@ internal static class Evidence {
     }
 
     internal static Seq<BridgeEvent> HarvestSpool(string reportDir, string scenario) {
-        // BOUNDARY ADAPTER — the spool is crash-durable JSONL; a truncated tail line (host died
-        // mid-append) decodes to nothing and the facts-to-point-of-death before it survive.
+        // BOUNDARY ADAPTER: truncated JSONL tails drop while prior spool facts survive.
         string path = Path.Combine(path1: reportDir, path2: scenario + ".jsonl");
         try {
             return !File.Exists(path: path)
@@ -49,7 +42,7 @@ internal static class Evidence {
 
     internal static Seq<string> IpsBaseline(BundleInfo bundle) {
         ArgumentNullException.ThrowIfNull(argument: bundle);
-        // BOUNDARY ADAPTER — pre-launch snapshot; absence or denial is an empty baseline.
+        // BOUNDARY ADAPTER: absent or denied crash-report access yields an empty baseline.
         try {
             return Directory.Exists(path: ReportsDirectory)
                 ? toSeq(value: Directory.GetFiles(path: ReportsDirectory, searchPattern: bundle.CrashReportPattern))
@@ -67,8 +60,7 @@ internal static class Evidence {
     }
 
     internal static Fin<CargoManifest> Stage(string closureManifest, Guid sessionId, string reportDir, string refsRoot) {
-        // BOUNDARY ADAPTER — closure read + hash + copy is one IO transaction; any miss is one
-        // typed failure naming the missing precondition.
+        // BOUNDARY ADAPTER: closure read, hash, and copy fail as one typed precondition.
         try {
             ClosureManifest? closure = JsonSerializer.Deserialize(
                 json: File.ReadAllText(path: closureManifest), jsonTypeInfo: SupervisorJsonContext.Default.ClosureManifest);
@@ -99,7 +91,7 @@ internal static class Evidence {
         Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: "Library", path3: "Logs", path4: "DiagnosticReports");
 
     private static void CopyFresh(string source, string stagePath) {
-        // Content-addressed: an existing staged file under the same hash is byte-identical.
+        // Existing staged files under the same hash must be byte-identical.
         Seq<string> sources = string.Equals(a: Path.GetExtension(path: source), b: ".dll", comparisonType: StringComparison.OrdinalIgnoreCase)
             ? toSeq(value: [source, Path.ChangeExtension(path: source, extension: ".deps.json"), Path.ChangeExtension(path: source, extension: ".runtimeconfig.json"), Path.ChangeExtension(path: source, extension: ".pdb"), Path.ChangeExtension(path: source, extension: ".xml")])
             : Seq(source);
@@ -143,8 +135,7 @@ internal static class Evidence {
     private static Option<JsonElement> Member(JsonElement root, string name) =>
         root.TryGetProperty(propertyName: name, value: out JsonElement member) ? Some(value: member) : Option<JsonElement>.None;
 
-    // RhinoCrashReportFinder port: a macOS .ips is one summary-header line then a JSON body
-    // carrying faultingThread + exception/termination taxonomy + per-thread frames.
+    // macOS .ips files have a summary-header line followed by JSON crash details.
     private static CrashSummary Parse(string path) {
         try {
             string raw = File.ReadAllText(path: path);
@@ -162,7 +153,7 @@ internal static class Evidence {
                 : "unknown";
             return new CrashSummary(Thread: crashThread, ExceptionType: exceptionType, ReportPath: path);
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentOutOfRangeException) {
-            // forensics-degraded: the raw path still attaches; the fold names the degradation.
+            // Preserve the raw report path even when structured forensics degrade.
             return new CrashSummary(Thread: "unknown", ExceptionType: "unknown", ReportPath: path);
         }
     }

@@ -9,10 +9,8 @@ namespace Rasm.Bridge.Stub;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// Ownership: the shell-private resolution scope. Non-collectible, AssemblyDependencyResolver
-// over the shell deploy dir; constructed once per host process. Names the resolver cannot map
-// (RhinoCommon and other Private=false host references) fall through to the default context,
-// so host types keep single identity while the StreamJsonRpc closure stays shell-private.
+// Ownership: shell-private resolution scope. Host assemblies fall through to the default context;
+// shell dependencies stay isolated from co-resident plugin closures.
 file sealed class ShellLoadContext(string shellAssemblyPath) : AssemblyLoadContext(name: "Rasm.Bridge.Shell", isCollectible: false) {
     private readonly AssemblyDependencyResolver resolver = new(componentAssemblyPath: shellAssemblyPath);
 
@@ -25,19 +23,18 @@ file sealed class ShellLoadContext(string shellAssemblyPath) : AssemblyLoadConte
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Ownership: the one reflective activation hop into the shell ALC — the named exemption to
-// ONE_HOP_RESOLUTION, forced by the zero-dependency requirement (D-5). A failed start writes a
-// poisoned endpoint record naming the load fault so doctor discriminates poisoned-start in one
-// read; the record is evidence and is never deleted here.
+// Ownership: the zero-dependency reflective activation hop into the shell ALC. Failed starts write
+// poisoned endpoint evidence because no shell code exists yet to own that path.
 file static class ShellSeam {
+    // BOUNDARY EXEMPTION: EndpointRecord shape is mirrored here to keep the stub dependency-zero;
+    // referencing Contract would pin bridge dependencies into the host default ALC before shell load.
     private const string EndpointFileName = "rhino-bridge-rbx.json";
     private const string ShellAssemblyFile = "Rasm.Bridge.Shell.dll";
     private const string ShellEntryMethod = "Start";
     private const string ShellEntryType = "Rasm.Bridge.Shell.ShellHost";
 
     internal static object? Activate() {
-        // BOUNDARY ADAPTER — assembly load, reflection, and endpoint IO can all throw during
-        // host idle; every failure becomes one poisoned endpoint record, never a host fault.
+        // BOUNDARY ADAPTER: load, reflection, and endpoint failures become poisoned endpoint records.
         string deployDir = Path.GetDirectoryName(path: typeof(ShellLoadContext).Assembly.Location) ?? string.Empty;
         string shellPath = Path.Combine(path1: deployDir, path2: ShellAssemblyFile);
         try {
@@ -61,7 +58,7 @@ file static class ShellSeam {
     }
 
     private static object? Poison(string fault) {
-        // BOUNDARY ADAPTER — last-resort console line only when the evidence write itself fails.
+        // BOUNDARY ADAPTER: console output is only the fallback when endpoint evidence cannot write.
         try {
             string directory = Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm");
             _ = Directory.CreateDirectory(path: directory);
@@ -88,9 +85,8 @@ file static class ShellSeam {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-// Ownership: the only type Rhino's shared plugin context ever sees. References RhinoCommon and
-// nothing else: immune to host bundle churn and co-resident plugin closures. OnLoad defers the
-// activation hop to the first RhinoApp.Idle pulse so plugin load never blocks host startup.
+// Ownership: the only type Rhino's shared plugin context sees. OnLoad defers shell activation to
+// idle so plugin load stays dependency-light and non-blocking.
 public sealed class RasmBridgePlugin : PlugIn {
     private object? shell;
 

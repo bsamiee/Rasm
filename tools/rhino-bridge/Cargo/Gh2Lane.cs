@@ -4,20 +4,14 @@ namespace Rasm.Bridge.Cargo;
 
 // --- [MODELS] -------------------------------------------------------------------------------
 
-// Ownership: the lane's typed capture receipt — scenarios and the runner speak this vocabulary,
-// never raw GH2 object graphs.
+// Ownership: scenarios and the runner exchange typed capture receipts, never raw GH2 graphs.
 internal readonly record struct CaptureFile(string Path, int Width, int Height);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 
-// Ownership: the M2 choke point — the ONLY file in the rebuilt tool that names Grasshopper2.*
-// types; a GH2 break has a one-file fix radius by construction. This build ships the render lane
-// only: probe 0b pinned the dataflow lane Unsupported (Start(SolutionMode.Headless) blocked under
-// the execute lane), so the solve and archive-diff vocabularies land here when their probes admit
-// them. Acquire is ctor-never-Show, the StatusBar-SIGABRT root fix ported verbatim: ShowEditor
-// always Form.Show()s (even createVisible:false) and schedules the fatal DrawRect against GH2's
-// un-warmed icon subsystem; the bare ctor builds Canvas + Documents.Current with no NSView
-// realization, and DrawToBitmap rasterizes offscreen independent of visibility.
+// Ownership: the only Grasshopper2 type boundary. The render lane uses the editor constructor,
+// never ShowEditor, so offscreen DrawToBitmap avoids NSView realization while keeping GH2 breakage
+// local to this file.
 internal sealed class Gh2Lane : IDisposable {
     private const int FallbackHeight = 720;
     private const int FallbackWidth = 1280;
@@ -29,8 +23,7 @@ internal sealed class Gh2Lane : IDisposable {
     internal static Gh2Lane Acquire() => new(editor: GhEditor.Instance ?? new GhEditor());
 
     internal Fin<CaptureFile> DrawCanvas(string path) {
-        // BOUNDARY ADAPTER — GH2 paint can throw or swallow into a null bitmap; both project to
-        // the typed rail, never a host crash.
+        // BOUNDARY ADAPTER: GH2 paint failures and null bitmaps stay on the typed rail.
         if (editor is not { Canvas: { } canvas }) {
             return Fin.Fail<CaptureFile>(error: Error.New(message: "Gh2Lane: editor canvas absent"));
         }
@@ -48,5 +41,5 @@ internal sealed class Gh2Lane : IDisposable {
         }
     }
 
-    public void Dispose() => editor = null;  // the host owns the editor singleton; the lane drops its reference only
+    public void Dispose() => editor = null;
 }

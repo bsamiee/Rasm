@@ -17,12 +17,8 @@ namespace Rasm.Bridge.Supervisor;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 
-// Ownership: host-bundle identity. Discovery is by bundle metadata (newest Rhino*.app by
-// CFBundleVersion); reconcile marker names DERIVE from CFBundleName/CFBundleExecutable so no
-// host-name literal exists anywhere. RHINO_WIP_APP_PATH narrows discovery; it is not required.
-// Launch wires the MCP coexistence rule at the call site: the verification host suppresses the
-// rhinomcp auto-listener via the launch environment (the env var is belt; the doctor probe is
-// truth).
+// Ownership: host-bundle identity. Discovery and marker names derive from bundle metadata, while
+// RHINO_WIP_APP_PATH only narrows candidates and launch suppresses MCP autostart.
 internal sealed record BundleInfo(string AppPath, string CFBundleName, string CFBundleExecutable,
                                 string CFBundleVersion) {
     public string AutosaveMarker => $"Unsaved {CFBundleName} Document.3dm";
@@ -46,7 +42,7 @@ internal sealed record BundleInfo(string AppPath, string CFBundleName, string CF
                 : Fin.Fail<Unit>(error: Error.New(message: string.Create(provider: CultureInfo.InvariantCulture, $"open '{AppPath}' exited {result.ExitCode}: {result.StdErr.Trim()}"))));
 
     private static Seq<string> Candidates() {
-        // BOUNDARY ADAPTER — bundle enumeration is filesystem IO; absence yields an empty set.
+        // BOUNDARY ADAPTER: bundle enumeration absence yields an empty set.
         try {
             return toSeq(value: Directory.GetDirectories(path: "/Applications", searchPattern: "Rhino*.app"));
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
@@ -61,7 +57,7 @@ internal sealed record BundleInfo(string AppPath, string CFBundleName, string CF
             : Option<BundleInfo>.None;
 
     private static Option<BundleInfo> Decode(string appPath, string json) {
-        // BOUNDARY ADAPTER — a malformed Info.plist disqualifies the candidate, never throws.
+        // BOUNDARY ADAPTER: malformed Info.plist data disqualifies the candidate.
         try {
             using JsonDocument plist = JsonDocument.Parse(json: json);
             return Some(value: new BundleInfo(
@@ -78,10 +74,8 @@ internal sealed record BundleInfo(string AppPath, string CFBundleName, string CF
         root.TryGetProperty(propertyName: name, value: out JsonElement member) ? member.GetString() ?? string.Empty : string.Empty;
 }
 
-// Ownership: one live supervised host instance — pid + start-time identity plus the admitted
-// endpoint record. Admit is the staleness discrimination site: a dead pid and a start-time drift
-// are DISTINCT typed rejections (the endpoint file is evidence either way and is never deleted
-// here).
+// Ownership: live supervised host identity. Admit distinguishes dead pids from start-time drift
+// and leaves endpoint files as evidence.
 internal sealed record LiveHost(int Pid, long StartedAtUnixMs, EndpointRecord Endpoint,
                               HostFingerprint Fingerprint) {
     public static Fin<LiveHost> Admit(EndpointRecord endpoint, HostFingerprint fingerprint) {
@@ -96,8 +90,7 @@ internal sealed record LiveHost(int Pid, long StartedAtUnixMs, EndpointRecord En
     }
 }
 
-// Ownership: workstation pipe admission and JSON-RPC shell binding. Session orchestration owns
-// when to connect; this boundary owns how the pipe is framed, versioned, and disposed.
+// Ownership: workstation pipe admission and JSON-RPC shell binding.
 internal sealed class SupervisorConnection : IAsyncDisposable {
     private const string SupervisorVersion = "supervisor";
 
@@ -209,25 +202,19 @@ internal sealed class SupervisorConnection : IAsyncDisposable {
     }
 }
 
-// Ownership: the SupervisorRuntime.Lease cell payload; token-gated singleton ownership at the
-// resource. LeaseClaim is the on-disk shape: holder start time rides beside the pid so staleness
-// uses the same pid+start-time validation as EndpointRecord.
+// Ownership: lease payloads; holder pid plus start time gives leases the same staleness test as endpoints.
 internal sealed record LeaseToken(int HolderPid, long AcquiredAtUnixMs, string Path);
 internal sealed record LeaseClaim(int HolderPid, long HolderStartedAtUnixMs, long AcquiredAtUnixMs);
 
-// Ownership: one retired supervised instance — the [launch, kill] window reconcile matches crash
-// markers against. Foreign markers (a human-operated Rhino, a router-killed MCP session) fall
-// outside every window and are skipped, never deleted.
+// Ownership: retired supervised host windows for reconcile; foreign markers are reported, not deleted.
 internal sealed record QuitJournalEntry(int Pid, long StartedAtUnixMs, long RetiredAtUnixMs, string Rung, string PipeName);
 
 internal readonly record struct ExecResult(int ExitCode, string StdOut, string StdErr);
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 
-// Ownership: the libc syscall boundary — kqueue/kevent NOTE_EXIT (charter D-7 named P/Invoke
-// kernel), kill(2) for the SIGKILL rung and pid liveness, process start-time projection.
-// SIGTERM IS BANNED AT EVERY CALL SITE: RhinoApp.Exit(false) and SIGTERM both self-SIGABRT via
-// RhMacSignalHandler and manufacture the very crash markers reconcile exists to clear.
+// Ownership: libc process boundary: kqueue/kevent NOTE_EXIT, kill(2), pid liveness, and start time.
+// SIGTERM is banned because Rhino turns it into crash markers reconcile would then need to clear.
 internal static partial class Posix {
     internal const short EvFiltProc = -5;
     internal const ushort EvAdd = 0x0001;
@@ -258,7 +245,7 @@ internal static partial class Posix {
     internal static bool Kill(int pid) => KillCall(pid: pid, signal: SigKill) == 0;
 
     internal static Option<long> StartedAtUnixMs(int pid) {
-        // BOUNDARY ADAPTER — a dead or inaccessible pid projects to None, never an exception inland.
+        // BOUNDARY ADAPTER: dead or inaccessible pids project to None.
         try {
             using Process process = Process.GetProcessById(processId: pid);
             return Some(value: new DateTimeOffset(dateTime: process.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds());
@@ -288,12 +275,11 @@ internal static partial class Posix {
     private static partial int KillCall(int pid, int signal);
 }
 
-// Ownership: the subprocess boundary capsule every workstation effect rides (open, osascript,
-// plutil, dotnet-gcdump). Deadline overrun kills the child tree and fails typed; outputs are
-// captured event-driven so no pipe buffer can deadlock the wait.
+// Ownership: subprocess boundary for workstation effects. Deadline overruns kill the child tree,
+// and event-driven output capture prevents pipe-buffer deadlock.
 internal static class Exec {
     internal static Fin<ExecResult> Run(string file, string[] args, TimeSpan deadline) {
-        // BOUNDARY ADAPTER — process spawn/IO failures become one typed Fin failure.
+        // BOUNDARY ADAPTER: process spawn and IO failures become one typed Fin failure.
         try {
             using Process process = new();
             process.StartInfo.FileName = file;
@@ -324,11 +310,8 @@ internal static class Exec {
         _ = line is null ? buffer : buffer.AppendLine(value: line);
 }
 
-// Ownership: the bounded-liveness-poll capsule every host-control wait rides (endpoint appearance,
-// quit-rung exit, degraded host-exit watch). One named statement kernel collapses the hand-rolled
-// connect/quit/watch loops onto one policy-driven shape; the synchronous native probe
-// (File.Exists / Posix.Alive) is the platform-forced statement seam, and the deadline value
-// discriminates the bounded session poll from the unbounded background watch (InfiniteTimeSpan).
+// Ownership: bounded liveness polling for endpoint appearance, quit-rung exit, and degraded host
+// watch. The deadline selects bounded session waits versus unbounded background watches.
 internal static class Poll {
     internal static Fin<T> Until<T>(Func<Option<T>> probe, TimeSpan deadline, TimeSpan cadence, CancellationToken ct) {
         ArgumentNullException.ThrowIfNull(argument: probe);
@@ -347,10 +330,8 @@ internal static class Poll {
     }
 }
 
-// Ownership: instant host-exit detection — the charter D-7 kqueue NOTE_EXIT kernel with the
-// 250 ms PID-poll swap-in fallback. Mode reports which lane attached so the degradation itself
-// becomes a fact at the session fold. The wait loop wakes at WatchPoll granularity solely so
-// Dispose can stop the watcher; NOTE_EXIT delivery stays kernel-instant.
+// Ownership: host-exit detection through kqueue NOTE_EXIT with PID-poll fallback. Mode reports the
+// attached lane so degraded watch behavior remains observable.
 internal sealed class HostWatch : IDisposable {
     private readonly int kq;
     private readonly Thread watcher;
@@ -365,8 +346,7 @@ internal sealed class HostWatch : IDisposable {
 
     internal string Mode { get; }
 
-    // Total: kernel refusal degrades to the poll lane instead of failing, so the factory returns
-    // the capsule directly (ownership transfers through the return).
+    // Kernel refusal degrades to the poll lane instead of failing attachment.
     internal static HostWatch Attach(int pid, Action<SessionSignal> raise, TimeSpan poll, TimeProvider clock) {
         ArgumentNullException.ThrowIfNull(argument: raise);
         ArgumentNullException.ThrowIfNull(argument: clock);
@@ -384,8 +364,7 @@ internal sealed class HostWatch : IDisposable {
         };
         if (Posix.KEventRegister(kq: queue, changeList: in change, changes: 1, eventList: 0, events: 0, timeout: 0) == 0)
             return (queue, "kqueue");
-        // Registration refused (a dead pid races here too): degrade to PID polling, which converts
-        // an already-dead pid into an immediate HostExited on the first poll tick.
+        // Registration refusal degrades to PID polling, including already-dead pid races.
         _ = Posix.Close(fd: queue);
         return (-1, "poll");
     }
@@ -398,9 +377,7 @@ internal sealed class HostWatch : IDisposable {
         life.Dispose();
     }
 
-    // The kqueue NOTE_EXIT wait is the D-7 named statement kernel (the one place a blocking syscall
-    // wait lives), woken at WatchPoll granularity solely so Dispose can stop it; the degraded lane
-    // (kqueue refused) rides the shared Poll.Until liveness cadence, unbounded until exit or disposal.
+    // Blocking kqueue wait wakes at WatchPoll cadence only so Dispose can stop the watcher.
     private void Watch(int pid, Action<SessionSignal> raise, TimeSpan poll, TimeProvider clock) {
         if (kq < 0) {
             if (Poll.Until(probe: () => Posix.Alive(pid: pid) ? Option<Unit>.None : Some(value: unit),
@@ -426,10 +403,8 @@ internal sealed class HostWatch : IDisposable {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 
-// Ownership: the supervisor singleton gate at the resource. O_EXCL claim file under ~/.rasm/;
-// busy projects the typed BusyHeld fault (exit 5) naming holder pid + age. Staleness admission:
-// a claim whose holder pid is dead or start-time-drifted is reclaimed with a `lease.reclaimed`
-// fact — a crashed supervisor cannot wedge the next run.
+// Ownership: singleton lease gate. O_EXCL claims serialize sessions; stale holders are reclaimed
+// with evidence, and live holders fail as BusyHeld.
 internal static class Lease {
     internal static string CanonicalPath =>
         Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm", path3: "rhino-bridge-rbx.lease");
@@ -450,7 +425,7 @@ internal static class Lease {
 
     internal static Unit Release(LeaseToken token) {
         ArgumentNullException.ThrowIfNull(argument: token);
-        // BOUNDARY ADAPTER — best-effort release; only our own claim is removed.
+        // BOUNDARY ADAPTER: release removes only this process's claim.
         try {
             if (Holder(path: token.Path).Case is LeaseClaim held && held.HolderPid == token.HolderPid)
                 File.Delete(path: token.Path);
@@ -465,7 +440,7 @@ internal static class Lease {
     }
 
     private static Fin<LeaseToken> Claim(string path, long now) {
-        // BOUNDARY ADAPTER — FileMode.CreateNew is the O_EXCL claim; the loser reads the winner.
+        // BOUNDARY ADAPTER: FileMode.CreateNew is the O_EXCL claim.
         try {
             _ = Directory.CreateDirectory(path: Path.GetDirectoryName(path: path) ?? ".");
             using FileStream stream = new(path: path, mode: FileMode.CreateNew, access: FileAccess.Write, share: FileShare.Read);
@@ -480,7 +455,7 @@ internal static class Lease {
     }
 
     private static Option<LeaseClaim> Holder(string path) {
-        // BOUNDARY ADAPTER — an unreadable or corrupt claim reads as absent (stale by definition).
+        // BOUNDARY ADAPTER: unreadable or corrupt claims read as absent.
         try {
             return JsonSerializer.Deserialize(json: File.ReadAllText(path: path), jsonTypeInfo: SupervisorJsonContext.Default.LeaseClaim) is { } held
                 ? Some(value: held)
@@ -491,8 +466,7 @@ internal static class Lease {
     }
 
     private static Fin<LeaseToken> Reclaim(string path, LeaseClaim held, Guid sessionId, long now, Action<BridgeEvent> publish) {
-        // BOUNDARY ADAPTER — TOCTOU honest: a revived holder wins the re-claim race and the retry
-        // surfaces as busy on the next read.
+        // BOUNDARY ADAPTER: if a holder revives during reclaim, the retry reports busy.
         try {
             File.Delete(path: path);
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
@@ -504,9 +478,7 @@ internal static class Lease {
     }
 }
 
-// Ownership: workstation-side fact materialization — JsonObject carries the open payload, the
-// stamp rides sequence 0 (the terminal fold owns workstation sequence assignment, seeded above
-// the last relayed in-host value).
+// Ownership: workstation-side fact materialization; terminal fold assigns final sequence ordering.
 internal static class HostEvents {
     internal static BridgeEvent.FactCase Fact(string key, Guid sessionId, long atUnixMs, JsonObject payload) {
         ArgumentNullException.ThrowIfNull(argument: payload);
@@ -517,16 +489,14 @@ internal static class HostEvents {
     }
 }
 
-// Ownership: the retired-instance journal (~/.rasm/rhino-bridge-quits.jsonl) — QuitLadder writes
-// a window on every confirmed close; Reconcile reads windows to scope marker matching. Corrupt
-// lines decode to nothing (the journal is evidence, not a contract).
+// Ownership: retired-instance journal. QuitLadder writes confirmed windows; Reconcile reads them
+// to scope marker cleanup, and corrupt lines decode to no window.
 internal static class QuitJournal {
     internal static string CanonicalPath =>
         Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm", path3: "rhino-bridge-quits.jsonl");
 
     internal static Unit Append(string path, QuitJournalEntry entry) {
-        // BOUNDARY ADAPTER — append-only JSONL, write-through; a journal write failure must never
-        // fail the quit that just succeeded.
+        // BOUNDARY ADAPTER: journal write failures cannot fail a completed quit.
         try {
             _ = Directory.CreateDirectory(path: Path.GetDirectoryName(path: path) ?? ".");
             File.AppendAllText(path: path, contents: JsonSerializer.Serialize(value: entry, jsonTypeInfo: SupervisorJsonContext.Default.QuitJournalEntry) + Environment.NewLine);
@@ -536,7 +506,7 @@ internal static class QuitJournal {
     }
 
     internal static Seq<QuitJournalEntry> Read(string path) {
-        // BOUNDARY ADAPTER — an absent journal is an empty window set.
+        // BOUNDARY ADAPTER: absent journal means no supervised windows.
         try {
             return !File.Exists(path: path)
                 ? Seq<QuitJournalEntry>()
@@ -557,12 +527,8 @@ internal static class QuitJournal {
     }
 }
 
-// Ownership: the quit ladder, PORT VERBATIM with rungs DEFINED — quit.ae = Apple Event terminate
-// (NSRunningApplication.terminate via osascript JXA, the only clean exit); quit.force =
-// NSRunningApplication.forceTerminate (Cocoa-mediated SIGKILL, requires the live handle);
-// quit.kill = kill(2) SIGKILL by pid (handle-free floor). SIGTERM IS BANNED AT EVERY RUNG.
-// Each rung emits a typed PhaseCase; closed:false FAILS its rung and escalates. A confirmed
-// close journals the instance window for instance-scoped reconcile.
+// Ownership: quit ladder. Rungs are AE terminate, Cocoa forceTerminate, then kill(2) SIGKILL;
+// SIGTERM is banned. Each rung emits a PhaseCase, and confirmed closes journal reconcile windows.
 internal static class QuitLadder {
     internal static Eff<SupervisorRuntime, PhaseStatus> Run(LiveHost host, Guid sessionId, Action<BridgeEvent> publish) {
         ArgumentNullException.ThrowIfNull(argument: host);
@@ -602,11 +568,8 @@ internal static class QuitLadder {
     }
 }
 
-// Ownership: pre-launch crash-marker reconcile — INSTANCE-SCOPED. macOS writes .ips ASYNC after a
-// kill, so only the before-launch clear beats the race; markers are matched against SUPERVISED
-// instances' [launch, kill] journal windows only. A human-operated Rhino's recovery state is
-// structurally untouchable: foreign markers are skipped AND reported as evidence. Deletion stays
-// a boundary IO effect; every disposition is a fact.
+// Ownership: pre-launch crash-marker reconcile. Only markers inside supervised journal windows are
+// cleared; foreign recovery state is reported and preserved.
 internal static class Reconcile {
     internal static Eff<SupervisorRuntime, Seq<BridgeEvent>> Run(BundleInfo bundle, Guid sessionId) {
         ArgumentNullException.ThrowIfNull(argument: bundle);
@@ -639,7 +602,7 @@ internal static class Reconcile {
     }
 
     private static Seq<string> Reports(string directory, string pattern) {
-        // BOUNDARY ADAPTER — absence or permission denial yields an empty set.
+        // BOUNDARY ADAPTER: absence or permission denial yields an empty set.
         try {
             return Directory.Exists(path: directory) ? toSeq(value: Directory.GetFiles(path: directory, searchPattern: pattern)) : Seq<string>();
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
@@ -648,7 +611,7 @@ internal static class Reconcile {
     }
 
     private static bool TryDelete(string path) {
-        // BOUNDARY ADAPTER — best-effort marker clear; the disposition fact carries the outcome.
+        // BOUNDARY ADAPTER: marker deletion is best-effort and facts carry disposition.
         try {
             File.Delete(path: path);
             return true;
@@ -660,8 +623,7 @@ internal static class Reconcile {
 
 // --- [COMPOSITION] ------------------------------------------------------------------------
 
-// Ownership: the supervisor-private file codec (lease claims, quit journal, closure manifest) —
-// never wire shapes; BridgeJsonContext owns the wire.
+// Ownership: supervisor-private file codec; BridgeJsonContext owns wire shapes.
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(LeaseClaim))]
 [JsonSerializable(typeof(QuitJournalEntry))]

@@ -1,15 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Workstation session owner for the rebuilt runtime bridge: verb surface, session state machine, policy rows, terminal envelope fold.</Description>
+        <Description>Workstation session owner for bridge verbs, session state, policy rows, and terminal envelope folding.</Description>
         <OutputType>Exe</OutputType>
         <AssemblyName>Rasm.Bridge.Supervisor</AssemblyName>
         <RootNamespace>Rasm.Bridge.Supervisor</RootNamespace>
-        <!-- The supervisor is the workstation process-control boundary: it never loads host
-             assemblies, so workspace globals flow via the root defaults. -->
-        <!-- StreamJsonRpc0008: SystemTextJsonFormatter is the pinned wire formatter; PolyType shape
-             rows would only serve the MessagePack-family formatter branches that never load. -->
+        <!-- Supervisor is the workstation process boundary and never loads host assemblies. -->
+        <!-- StreamJsonRpc0008 targets MessagePack shape rows unused by SystemTextJsonFormatter. -->
         <NoWarn>$(NoWarn);StreamJsonRpc0008</NoWarn>
-        <!-- kqueue NOTE_EXIT P/Invoke kernel: LibraryImport marshalling emits unsafe blocks. -->
+        <!-- LibraryImport marshalling for kqueue NOTE_EXIT emits unsafe blocks. -->
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
     <ItemGroup>

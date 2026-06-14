@@ -8,11 +8,8 @@ namespace Rasm.Bridge.Supervisor;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 
-// Ownership: argv -> SupervisorVerb [Union] -> SessionEnvelope -> ONE terminal collapse at Main.
-// `verify` is modality-polymorphic on input shape: assay passes a
-// ScenarioSelection union case + the staged closure manifest path; no flags, no modes. Key and
-// EntryPhase are derived projections — help, report routing, and fault attribution all read this
-// single declaration.
+// Ownership: argv admits into SupervisorVerb and collapses to one SessionEnvelope at Main. Verify
+// is shaped by ScenarioSelection plus closure manifest, not flags or sibling verbs.
 [Union]
 internal abstract partial record SupervisorVerb {
     private SupervisorVerb() { }
@@ -36,18 +33,14 @@ internal abstract partial record SupervisorVerb {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 
-// Ownership: the composition-edge dependency surface, constructed once at Main. Schedule values
-// come from Policy rows, never call-site literals; the ~/.rasm lease + quit-journal paths are
-// composed here once so fault-injection harnesses can re-root them.
+// Ownership: composition-edge runtime surface; policy rows and storage paths are composed once.
 internal sealed record SupervisorRuntime(
     Atom<Option<LeaseToken>> Lease, TimeProvider Clock, SessionPolicy Policy,
     string ArtifactRoot, string LeasePath, string JournalPath, BundleInfo Bundle, CancellationToken Root);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 
-// Ownership: the verb surface — argv admission, runtime-rendered help, and the per-verb session
-// pipelines. Help derives from the SupervisorVerb union metadata and the PhaseStatus rows at
-// runtime: one declaration, zero generated artifacts to drift.
+// Ownership: verb admission, derived help, and per-verb session pipelines.
 internal static class Verbs {
     internal const int UsageExitCode = 2;
 
@@ -107,9 +100,8 @@ internal static class Verbs {
 
 // --- [ENTRY] ------------------------------------------------------------------------------
 
-// Ownership: the one terminal collapse. stdout carries exactly one JSON document (the assay
-// decode contract); structlog-style diagnostics ride stderr; the exit code derives from
-// PhaseStatus rows.
+// Ownership: terminal process collapse; stdout carries one envelope, stderr diagnostics, and
+// status rows derive exit codes.
 internal static class Program {
     internal static async Task<int> Main(string[] args) {
         if (args.Length == 0 || args[0] is "--help" or "-h" or "help") {
@@ -141,8 +133,7 @@ internal static class Program {
     }
 
     private static SupervisorRuntime Compose(CancellationToken root) {
-        // CFBundle discovery (env narrows, never required); a discovery miss degrades to the
-        // path-derived stem so doctor can still report the named missing precondition.
+        // Discovery misses degrade to the narrowed path stem so doctor can name the precondition.
         string appPath = Environment.GetEnvironmentVariable(variable: "RHINO_WIP_APP_PATH") ?? "/Applications/RhinoWIP.app";
         string stem = Path.GetFileNameWithoutExtension(path: appPath);
         BundleInfo bundle = BundleInfo.Discover(toolDeadline: SessionPolicy.Default.ToolDeadline) is Fin<BundleInfo>.Succ(BundleInfo discovered)

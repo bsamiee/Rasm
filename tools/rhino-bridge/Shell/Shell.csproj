@@ -1,11 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Shell-private ALC resident for the rebuilt runtime bridge: pipe server, StreamJsonRpc target, idle-pump UI marshal, collectible cargo gate.</Description>
+        <Description>Shell-private ALC resident for pipe serving, StreamJsonRpc targeting, idle-pump UI marshaling, and collectible cargo gating.</Description>
         <AssemblyName>Rasm.Bridge.Shell</AssemblyName>
         <RootNamespace>Rasm.Bridge.Shell</RootNamespace>
-        <!-- The shell is NOT a plugin project (the stub owns the .rhp): it is loaded by the
-             stub's ShellLoadContext from the deploy dir and ships its full restored closure as
-             the deploy set. -->
+        <!-- The stub owns the .rhp; ShellLoadContext loads the shell and its restored deploy set. -->
         <EnableDynamicLoading>true</EnableDynamicLoading>
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <InformationalVersion>0.1.0-shell</InformationalVersion>

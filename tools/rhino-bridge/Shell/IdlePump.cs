@@ -5,12 +5,8 @@ namespace Rasm.Bridge.Shell;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 
-// Ownership: the D-1 UI-marshal kernel. ALL host mutation marshals through here; one job per
-// RhinoApp.Idle pulse keeps the host responsive between bridge frames. Failure is captured per
-// job and surfaces as the awaiting caller's typed fault data — raw InvokeOnUiThread is forbidden
-// (it routes throws through HostUtils.ExceptionReport silently). The cancellation token abandons
-// the WAIT only: a queued job always runs on the host thread once dequeued (host law — UI work is
-// never aborted mid-flight).
+// Ownership: host UI marshal. One job per RhinoApp.Idle pulse keeps the host responsive; failures
+// return to the awaiting caller, and cancellation abandons only the wait, never queued UI work.
 internal sealed class IdlePump : IDisposable {
     private readonly ConcurrentQueue<IdleJob> jobs = new();
     private readonly EventHandler pulse;
@@ -53,8 +49,7 @@ internal sealed class IdlePump : IDisposable {
     }
 
     private static Task<T> InlineAsync<T>(Func<T> job) {
-        // BOUNDARY ADAPTER — callers already on the host thread (Closing-driven work) run inline;
-        // queueing here would deadlock the frame against its own pump.
+        // BOUNDARY ADAPTER: host-thread callers run inline to avoid self-pump deadlock.
         try {
             return Task.FromResult(result: job());
         } catch (Exception error) when (NonFatal(error: error)) {
@@ -63,8 +58,7 @@ internal sealed class IdlePump : IDisposable {
     }
 
     private static void Invoke<T>(Func<T> job, TaskCompletionSource<T> completion) {
-        // BOUNDARY ADAPTER — per-job capture: the failure becomes the awaiting caller's exception,
-        // never a swallowed host report.
+        // BOUNDARY ADAPTER: job failures become awaiting caller exceptions.
         try {
             _ = completion.TrySetResult(result: job());
         } catch (Exception error) when (NonFatal(error: error)) {

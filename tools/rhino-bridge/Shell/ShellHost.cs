@@ -17,20 +17,9 @@ namespace Rasm.Bridge.Shell;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 
-// Ownership: composition root + RPC target seam. Pipe server lifecycle, StreamJsonRpc attach,
-// endpoint file write/heal, host event subscriptions (symmetric detachers), readiness facts.
-// Method bodies are one-hop boundary adapters — admit Contract payload, dispatch to
-// CargoGate/IdlePump, project the Contract outcome; no rail types in the shell ALC.
-//
-// Busy admission (one generation token, no semaphore queueing): Hello/Ping answer normally while a
-// session is live; LoadCargo/Run/Unload/PrepareQuit from a second connection fail fast with
-// BridgeFault.BusyHeld carried as LocalRpcException.ErrorData (serialized as BridgeFault so the
-// `$type` discriminator survives; the supervisor folds on the data, not the code). The per-call
-// connection identity the admission needs is what forces the nested per-connection target.
-//
-// Endpoint poisoning: a failed Start writes the endpoint file with a `fault` member naming the
-// load exception instead of deleting it — doctor discriminates poisoned-start in one read; the
-// record is evidence and is never deleted by the shell.
+// Ownership: shell composition root and RPC target seam. It owns pipe lifecycle, endpoint
+// write/heal, host event taps, busy admission, and Contract payload projection through CargoGate
+// and IdlePump. Failed starts poison the endpoint record instead of deleting evidence.
 public sealed class ShellHost : IDisposable {
     private const int FaultErrorCode = -32050;
     private const int PipeInstances = 4;
@@ -62,7 +51,8 @@ public sealed class ShellHost : IDisposable {
             rhinoStartedAtUnixMs: HostStartedAtUnixMs(),
             contractVersion: Handshake.CurrentVersion,
             shellVersion: ShellVersion,
-            rhinoVersion: RhinoApp.Version.ToString());
+            rhinoVersion: RhinoApp.Version.ToString(),
+            fault: string.Empty);
         fingerprint = new HostFingerprint(
             BundleVersion: RhinoApp.Version.ToString(),
             RhinoCommonVersion: typeof(RhinoApp).Assembly.GetName().Version?.ToString() ?? string.Empty,
@@ -91,8 +81,7 @@ public sealed class ShellHost : IDisposable {
         ?? "unknown";
 
     public static ShellHost? Start(string deployDir, int rhinoPid) {
-        // BOUNDARY ADAPTER — pipe creation, endpoint IO, and tap subscription can all throw during
-        // host idle; the failure becomes one poisoned endpoint record, never a host fault.
+        // BOUNDARY ADAPTER: startup failures become poisoned endpoint records, never host faults.
         try {
             return new ShellHost(deployDir: deployDir, rhinoPid: rhinoPid);
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException
@@ -117,16 +106,13 @@ public sealed class ShellHost : IDisposable {
             pump.Dispose();
             gate.Dispose();
             lifetime.Dispose();
-            // The endpoint file stays in place: staleness is discriminated by pid/start-time
-            // liveness, and a surviving record is doctor evidence, never garbage.
+            // Endpoint records stay as staleness evidence after shell disposal.
         }
     }
 
-    // --- [CONNECTION_TARGET] ------------------------------------------------------------------
+    // --- [CONNECTION_TARGET]
 
-    // Ownership: the per-connection RPC target — one instance per accepted pipe, carrying the
-    // connection identity the busy admission discriminates on. Pure forwarding, no state beyond
-    // the hello-declared client pid.
+    // Ownership: per-connection RPC target carrying the busy-admission identity.
     private sealed class Connection(ShellHost host, JsonRpc rpc, IBridgeEvents events) : IBridgeShell {
         internal IBridgeEvents Events { get; } = events;
         internal int ClientPid { get; set; }
@@ -151,7 +137,7 @@ public sealed class ShellHost : IDisposable {
             host.PrepareQuitAsync(connection: this, ct: ct);
     }
 
-    // --- [VERBS] --------------------------------------------------------------------------------
+    // --- [VERBS]
 
     private Handshake Hello(Connection connection, Handshake supervisor) {
         ArgumentNullException.ThrowIfNull(argument: supervisor);
@@ -227,7 +213,7 @@ public sealed class ShellHost : IDisposable {
         Publish(evt: Fact(key: "quit.prepared", value: $"{(hadModified ? "rhino-docs-marked-clean" : "rhino-docs-already-clean")}; gh2={gh2}"));
     }
 
-    // --- [ADMISSION] ----------------------------------------------------------------------------
+    // --- [ADMISSION]
 
     private void Admit(Connection connection) {
         lock (sync) {
@@ -254,10 +240,9 @@ public sealed class ShellHost : IDisposable {
         }
     }
 
-    // --- [EVIDENCE] -----------------------------------------------------------------------------
+    // --- [EVIDENCE]
 
-    // Single in-host writer: the shell stamps SessionId + Sequence for EVERY in-host event at
-    // publish (cargo publishes through this delegate), preserving the author's Scenario slot.
+    // Single in-host writer: shell stamps every event while preserving the author's scenario slot.
     private void Publish(BridgeEvent evt) {
         EventStamp stamp = new(
             SessionId: activeManifest?.SessionId ?? Guid.Empty,
@@ -274,8 +259,7 @@ public sealed class ShellHost : IDisposable {
     }
 
     private async Task ForwardLoopAsync(CancellationToken token) {
-        // BOUNDARY ADAPTER — one ordered forwarder; a dead peer drops events instead of faulting
-        // the publisher (the spool, not the wire, is the crash-durable evidence rail).
+        // BOUNDARY ADAPTER: dead peers drop forwarded events; spool remains the durable rail.
         try {
             await foreach (BridgeEvent evt in outbox.Reader.ReadAllAsync(cancellationToken: token).ConfigureAwait(continueOnCapturedContext: false)) {
                 if (CurrentOwner() is { Events: { } events }) {
@@ -297,8 +281,7 @@ public sealed class ShellHost : IDisposable {
     }
 
     private Assembly? RecordDefaultResolve(AssemblyName assemblyName) {
-        // Proof 13 evidence: every name that falls through to default-ALC Resolving during a live
-        // session — the deploy-set trim decision reads this row from hello.
+        // Default-ALC fallthrough names are reported through hello for deploy-set trimming.
         defaultResolves.Enqueue(item: assemblyName.Name ?? "unknown");
         return null;
     }
@@ -341,8 +324,7 @@ public sealed class ShellHost : IDisposable {
     }
 
     private void PreloadHostPlugins(Guid[] plugins) {
-        // Proof 10 evidence: the absent/repackaged-plugin failure mode (return-false vs throw) is
-        // recorded per GUID; both outcomes map to the same capability-absent reading downstream.
+        // Host plugin preload records false returns and throws under the same capability reading.
         foreach (Guid id in plugins) {
             string outcome;
             try {
@@ -423,11 +405,10 @@ public sealed class ShellHost : IDisposable {
         capabilities.FirstOrDefault(predicate: static entry => string.Equals(a: entry.Key, b: "client.pid", comparisonType: StringComparison.Ordinal))
             is { Receipt: { Length: > 0 } receipt } && int.TryParse(s: receipt, provider: CultureInfo.InvariantCulture, result: out int pid) ? pid : 0;
 
-    // --- [TRANSPORT] ----------------------------------------------------------------------------
+    // --- [TRANSPORT]
 
     private async Task AcceptLoopAsync(CancellationToken token) {
-        // BOUNDARY ADAPTER — NamedPipeServerStream IO surface; cancellation and transient IO must
-        // not kill the loop.
+        // BOUNDARY ADAPTER: pipe cancellation and transient IO do not kill the accept loop.
         while (!token.IsCancellationRequested) {
             try {
                 NamedPipeServerStream pipe = new(
@@ -448,12 +429,8 @@ public sealed class ShellHost : IDisposable {
 
     private async Task ServeAsync(NamedPipeServerStream pipe, CancellationToken token) {
         using SystemTextJsonFormatter formatter = new();
-        // The formatter options DERIVE from the Contract context options (camelCase naming +
-        // unmapped-member skip travel WITH the options: metadata-mode resolution applies the
-        // runtime options' naming policy, not the baked context names). The default-resolver tail
-        // is mandatory: a context-only chain drops the implicit reflection fallback, making
-        // protocol-owned CommonErrorData on any error response undecodable — the peer then fatals
-        // the connection on the first faulted call.
+        // Formatter options derive from Contract; the default resolver tail preserves protocol
+        // error payloads that the generated context does not own.
         formatter.JsonSerializerOptions = new JsonSerializerOptions(BridgeJsonContext.Default.Options) {
             TypeInfoResolver = System.Text.Json.Serialization.Metadata.JsonTypeInfoResolver.Combine(
                 BridgeJsonContext.Default, new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver()),
@@ -472,11 +449,10 @@ public sealed class ShellHost : IDisposable {
         }
     }
 
-    // --- [ENDPOINT] -----------------------------------------------------------------------------
+    // --- [ENDPOINT]
 
     private void EnsureEndpoint() {
-        // BOUNDARY ADAPTER — the endpoint file heals on every hello: a missing, foreign, or
-        // poisoned record is rewritten from the live truth.
+        // BOUNDARY ADAPTER: hello heals missing, foreign, or poisoned endpoint records.
         try {
             EndpointRecord? onDisk = File.Exists(path: EndpointRecord.EndpointPath)
                 ? JsonSerializer.Deserialize(json: File.ReadAllText(path: EndpointRecord.EndpointPath), jsonTypeInfo: BridgeJsonContext.Default.EndpointRecord)
@@ -496,22 +472,16 @@ public sealed class ShellHost : IDisposable {
     }
 
     private static void WritePoisoned(int rhinoPid, string fault) {
-        // BOUNDARY ADAPTER — the poisoned record cannot be an EndpointRecord (no live pipe to
-        // admit), so it is written field-for-field with the extra `fault` member; last-resort
-        // console line only when the evidence write itself fails.
+        // BOUNDARY ADAPTER: poisoned endpoint records use the live codec with an empty pipe.
         try {
-            _ = Directory.CreateDirectory(path: EndpointRecord.EndpointDirectory);
-            using FileStream stream = new(path: EndpointRecord.EndpointPath, mode: FileMode.Create, access: FileAccess.Write, share: FileShare.Read);
-            using Utf8JsonWriter writer = new(utf8Json: stream);
-            writer.WriteStartObject();
-            writer.WriteString(propertyName: "pipeName", value: string.Empty);
-            writer.WriteNumber(propertyName: "rhinoPid", value: rhinoPid);
-            writer.WriteNumber(propertyName: "rhinoStartedAtUnixMs", value: HostStartedAtUnixMs());
-            writer.WriteNumber(propertyName: "contractVersion", value: Handshake.CurrentVersion);
-            writer.WriteString(propertyName: "shellVersion", value: ShellVersion);
-            writer.WriteString(propertyName: "rhinoVersion", value: RhinoApp.Version.ToString());
-            writer.WriteString(propertyName: "fault", value: fault);
-            writer.WriteEndObject();
+            WriteEndpoint(record: EndpointRecord.Create(
+                pipeName: string.Empty,
+                rhinoPid: rhinoPid,
+                rhinoStartedAtUnixMs: HostStartedAtUnixMs(),
+                contractVersion: Handshake.CurrentVersion,
+                shellVersion: ShellVersion,
+                rhinoVersion: RhinoApp.Version.ToString(),
+                fault: fault));
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
             RhinoApp.WriteLine(message: $"[rasm-bridge] poisoned endpoint write failed: {error.Message}; fault was: {fault}");
         }

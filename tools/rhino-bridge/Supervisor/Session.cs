@@ -9,9 +9,7 @@ namespace Rasm.Bridge.Supervisor;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 
-// Ownership: the session has ONE owner. Cases carry their evidence; no boolean phase flags, no
-// nullable payload bags. Transitions are one total state-threaded Switch (SessionDispatch); the
-// envelope is the fold of whatever evidence exists when the session leaves the machine.
+// Ownership: session state is one closed owner; cases carry evidence and dispatch owns transitions.
 [Union]
 internal abstract partial record SessionState {
     private SessionState() { }
@@ -29,7 +27,7 @@ internal abstract partial record SessionState {
     internal sealed record Terminal(SessionEnvelope Envelope) : SessionState;
 }
 
-// Ownership: the closed signal vocabulary the watchers produce (supervisor-private; never wire).
+// Ownership: supervisor-private watcher signals, never wire payloads.
 [Union]
 internal abstract partial record SessionSignal {
     private SessionSignal() { }
@@ -42,8 +40,7 @@ internal abstract partial record SessionSignal {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 
-// Ownership: every duration, cadence, budget, and retention value in the tool. One deadline row per
-// state; shell and Python derive these values instead of restating them.
+// Ownership: duration, cadence, budget, and retention policy; other surfaces derive from these rows.
 internal sealed record SessionPolicy(
     TimeSpan ReconcileDeadline, TimeSpan LaunchDeadline, TimeSpan ConnectDeadline, TimeSpan HelloDeadline,
     TimeSpan LoadDeadline, TimeSpan QuitRungDeadline, TimeSpan FaultDeadline, TimeSpan SessionDeadline,
@@ -62,10 +59,9 @@ internal sealed record SessionPolicy(
         SessionDeadline: TimeSpan.FromMinutes(value: 10),
         ScenarioDefaultBudget: TimeSpan.FromSeconds(value: 30),
         HeartbeatWindow: TimeSpan.FromSeconds(value: 10),
-        // WatchPoll is both kqueue wake granularity and degraded PID-poll cadence.
+        // WatchPoll is both kqueue wake cadence and degraded PID-poll cadence.
         WatchPoll: TimeSpan.FromMilliseconds(value: 250),
-        // macOS writes .ips asynchronously after kill; slack retains late crash markers for the
-        // supervised window.
+        // Slack retains macOS crash markers written after the supervised kill window.
         JournalSlack: TimeSpan.FromSeconds(value: 120),
         ToolDeadline: TimeSpan.FromSeconds(value: 15),
         ForensicsDeadline: TimeSpan.FromSeconds(value: 120),
@@ -91,9 +87,8 @@ internal sealed record SessionPolicy(
     }
 }
 
-// Ownership: live host sessions. This is the executable bridge lifecycle that admits one verb,
-// owns one lease, opens one RPC pipe, folds every event into one SessionEnvelope, and emits exactly
-// one terminal value for Assay.
+// Ownership: executable bridge lifecycle from verb admission through lease, RPC, event fold, and
+// terminal envelope.
 internal static class SessionKernel {
     internal static Task<SessionEnvelope> RunAsync(SupervisorVerb verb, SupervisorRuntime runtime) =>
         new SessionRun(verb: verb, runtime: runtime).RunAsync();
@@ -194,7 +189,11 @@ internal static class SessionKernel {
                         provider: CultureInfo.InvariantCulture,
                         $"gcRetries={unload.GcRetries};elapsedMs={unload.ElapsedMs:F0};debugger={unload.DebuggerAttached}")));
                 if (!unload.Confirmed && !unload.DebuggerAttached) {
-                    stream.Add(item: Fact("cargo.recycle.after-leak", "quit-ladder"));
+                    string gcdump = Evidence.GcDump(pid: negotiated.Pid, reportDir: reportDir, deadline: runtime.Policy.ForensicsDeadline).IfNone(string.Empty);
+                    if (gcdump.Length > 0) {
+                        stream.Add(item: Fact("cargo.gcdump", gcdump));
+                    }
+                    stream.Add(item: Fact("cargo.recycle.after-leak", gcdump.Length > 0 ? $"quit-ladder;gcdump={gcdump}" : "quit-ladder"));
                 }
                 Phase(SessionPhase.Unload, PhaseStatus.Ok, durationMs: unload.ElapsedMs);
                 await connection.PrepareQuitAsync(ct: runtime.Root).ConfigureAwait(false);
@@ -333,8 +332,8 @@ internal static class SessionKernel {
                     return Fin.Fail<LiveHost>(error: Error.New(message: $"endpoint absent at '{path}'"));
                 }
                 using JsonDocument raw = JsonDocument.Parse(json: File.ReadAllText(path: path));
-                if (raw.RootElement.TryGetProperty(propertyName: "fault", value: out JsonElement poisoned)) {
-                    return Fin.Fail<LiveHost>(error: Error.New(message: $"poisoned endpoint: {poisoned.GetString()}"));
+                if (raw.RootElement.TryGetProperty(propertyName: "fault", value: out JsonElement poisoned) && poisoned.GetString() is { Length: > 0 } faultMessage) {
+                    return Fin.Fail<LiveHost>(error: Error.New(message: $"poisoned endpoint: {faultMessage}"));
                 }
                 EndpointRecord? endpoint = raw.RootElement.Deserialize(jsonTypeInfo: BridgeJsonContext.Default.EndpointRecord);
                 return endpoint is null
@@ -381,13 +380,9 @@ internal static class SessionKernel {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 
-// Ownership: the one total transition algebra over state x signal. Stuck-state law: every
-// non-terminal state exits on DeadlineHit (Quitting escalates rung-by-rung, everything else
-// faults), so no external event can wedge the machine and Faulted always reaches Terminal through
-// the fold. RpcCompleted outcomes carry typed payloads richer than the signal, so the session
-// pipeline folds them directly; the signal row exists for quit-rung escalation (closed:false
-// FAILS its rung). Host relaunch under the restart budget is runtime choreography over the prior
-// Running state — the pure machine records the crash.
+// Ownership: total transition algebra over state and signal. Deadlines force non-terminal exit,
+// quit signals escalate rung-by-rung, and runtime relaunch choreography remains outside the pure
+// machine.
 internal static class SessionDispatch {
     internal static SessionState Apply(SessionState state, SessionSignal signal, SessionPolicy policy) {
         ArgumentNullException.ThrowIfNull(argument: state);
@@ -428,7 +423,7 @@ internal static class SessionDispatch {
                 host: current.Host, current: current, scenario: InFlight(running: current), done: current.Done,
                 signal: ctx.Signal, policy: ctx.Policy, phase: SessionPhase.Execute, deadline: ctx.Policy.ScenarioDefaultBudget),
             quitting: static (ctx, current) => ctx.Signal switch {
-                // Rung confirmed CLEAN: the ladder effect observes the exit and completes the fold.
+                // The ladder effect observes clean rung exit and completes the fold.
                 SessionSignal.HostExited => current,
                 SessionSignal.HeartbeatSilent silent when silent.SilentFor >= ctx.Policy.HeartbeatWindow =>
                     Escalate(quitting: current, observedMs: silent.SilentFor.TotalMilliseconds),
@@ -475,8 +470,7 @@ internal static class SessionDispatch {
     private static SessionState.Quitting Quit(LiveHost host, long atUnixMs) =>
         new(Host: host, Rung: SessionPhase.QuitAe, RungStartedMs: atUnixMs);
 
-    // The ladder order ae -> force -> kill is law; a deadline past the kill rung means the host
-    // survived SIGKILL observation, which reads as a wedge, never a clean rung.
+    // Rung order is AE, force, kill; surviving the kill observation reads as a wedge.
     private static SessionState Escalate(SessionState.Quitting quitting, double observedMs) {
         Option<SessionPhase> next = quitting.Rung == SessionPhase.QuitAe ? Some(value: SessionPhase.QuitForce)
             : quitting.Rung == SessionPhase.QuitForce ? Some(value: SessionPhase.QuitKill)
@@ -504,14 +498,9 @@ internal static class SessionDispatch {
         running.Remaining.Head.Case is ScenarioEntry entry ? entry.Name : "session";
 }
 
-// Ownership: the terminal fold — SessionEnvelope fields are fold RESULTS over the event stream +
-// receipts. Status = Worst over phase events and receipts seeded Ok (rank ties keep the
-// accumulator, so an all-skipped run reads ok at the root while every receipt reads skipped — the
-// skip signal is receipt-level, never the root). FirstFailure + FirstFaultPhase = the first-non-ok
-// projection in wire order, with the session fault outranking phase evidence. Evidence carries
-// fact/capture cases only (phase/progress history lives in receipts + the on-disk spool). Spool
-// reconciliation compares scenario-stamped in-host events against the spool tail; session-scoped
-// lifecycle metadata is relay-only by contract and must not manufacture `evidence.divergence`.
+// Ownership: terminal envelope fold over event stream and receipts. Status uses Worst, first
+// failure follows wire order, evidence carries facts/captures only, and spool reconciliation only
+// compares scenario-scoped in-host evidence.
 internal static class SessionFold {
     private const int FirstFailureCap = 256;
 
@@ -537,7 +526,8 @@ internal static class SessionFold {
             (evt is BridgeEvent.FactCase or BridgeEvent.CaptureCase)
             && evt.Stamp.Scenario is { Length: > 0 }).Count;
         Seq<BridgeEvent> evidence = ordered.Filter(f: static evt => evt is BridgeEvent.FactCase or BridgeEvent.CaptureCase);
-        Seq<BridgeEvent> carried = spoolTail.Count >= relayed
+        // Divergence means durable spool evidence outlived relay delivery.
+        Seq<BridgeEvent> carried = spoolTail.Count <= relayed
             ? evidence
             : evidence + Seq<BridgeEvent>(value: Divergence(runId: runId, ordered: ordered, spoolTail: spoolTail, relayed: relayed));
         double duration = ordered.Head.Case is BridgeEvent head && ordered.Last.Case is BridgeEvent tail

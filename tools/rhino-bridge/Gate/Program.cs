@@ -6,9 +6,10 @@ using Rasm.Bridge.Contract;
 
 namespace Rasm.Bridge.Supervisor.Gate;
 
-// Phase-2 gate: every matrix row produces its named discriminated outcome. Stand-in rows use
-// processes the gate spawns; --live additionally launches and faults a RhinoWIP the gate owns,
-// guarded by the assay bridge flock so no operator session is ever touched.
+// --- [ENTRY] ------------------------------------------------------------------------------
+
+// Ownership: fault-injection matrix rows produce named discriminated outcomes. Stand-in rows own
+// their spawned processes; live rows acquire the bridge flock before touching RhinoWIP.
 internal static partial class Program {
     private static readonly List<JsonObject> Rows = [];
 
@@ -29,8 +30,8 @@ internal static partial class Program {
             RowSpoolHarvest(scratch);
             RowGcDump(scratch);
             RowIpsParser();
-            Proof7McpSuppression();
-            Proof11MarkerDerivation(policy);
+            RowMcpSuppression();
+            RowMarkerDerivation(policy);
             if (live)
                 LiveLane(policy);
         } finally {
@@ -45,11 +46,9 @@ internal static partial class Program {
     private static void Report(string row, bool pass, JsonObject detail) =>
         Rows.Add(new JsonObject { ["row"] = row, ["pass"] = pass, ["detail"] = detail });
 
-    // --- stand-in process plumbing ---
+    // --- [PROCESS_STAND_INS]
 
-    // Detached double-fork: the stand-in must NOT be a .NET-tracked child — SIGSTOP on a direct
-    // child wedges the runtime's SIGCHLD reaper while it holds the global process lock, which
-    // deadlocks the next Process.Start. sh exits immediately; sleep reparents to launchd.
+    // Detached stand-ins avoid .NET child tracking because SIGSTOP can wedge the SIGCHLD reaper.
     private static int Spawn() {
         Fin<ExecResult> spawned = Exec.Run("/bin/sh", ["-c", "/bin/sleep 300 >/dev/null 2>&1 & echo $!"], TimeSpan.FromSeconds(5));
         return spawned is Fin<ExecResult>.Succ(ExecResult forked) && int.TryParse(forked.StdOut.Trim(), CultureInfo.InvariantCulture, out int pid) ? pid : -1;
@@ -59,15 +58,15 @@ internal static partial class Program {
         long started = Posix.StartedAtUnixMs(pid).IfNone(0L);
         EndpointRecord endpoint = EndpointRecord.Create(
             pipeName: $"{EndpointRecord.PipePrefix}gate-{pid}", rhinoPid: pid, rhinoStartedAtUnixMs: started,
-            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: "gate");
+            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: "gate", fault: "");
         return new LiveHost(Pid: pid, StartedAtUnixMs: started, Endpoint: endpoint, Fingerprint: default);
     }
 
     private static void Signal(int pid, string signal) => _ = Exec.Run(file: "/bin/kill", args: [signal, pid.ToString(CultureInfo.InvariantCulture)], deadline: TimeSpan.FromSeconds(5));
 
-    // --- matrix rows ---
+    // --- [MATRIX_ROWS]
 
-    // bogus bundle -> launch-failed
+    // Bogus bundles must fail through LaunchFailed.
     private static void RowBogusBundle() {
         BundleInfo bogus = new(AppPath: "/tmp/rbx-gate-bogus.app", CFBundleName: "Bogus", CFBundleExecutable: "Bogus", CFBundleVersion: "0.0");
         Fin<Unit> launched = bogus.Launch(toolDeadline: TimeSpan.FromSeconds(10));
@@ -77,7 +76,7 @@ internal static partial class Program {
         });
     }
 
-    // SIGSTOP -> host alive + silent -> dialog-suspected (pre-session) / ui-wedged (running)
+    // SIGSTOP keeps the host alive but silent, discriminating dialog-suspected from ui-wedged.
     private static void RowSigstopDiscrimination(SessionPolicy policy) {
         int child = Spawn();
         try {
@@ -108,8 +107,7 @@ internal static partial class Program {
         }
     }
 
-    // kill -9 mid-connect -> kqueue HostExited -> launch-failed(exited during connect) + .ips check;
-    // the DeadlineHit lane in Connecting is the connect-failed discrimination.
+    // Mid-connect host exit and connect deadline remain separate launch/connect failures.
     private static void RowKillMidConnect(SessionPolicy policy, string scratch) {
         int child = Spawn();
         LiveHost host = StandIn(child);
@@ -138,7 +136,7 @@ internal static partial class Program {
         });
     }
 
-    // dead-PID endpoint -> discriminated (pid dead vs pid recycled/start-time drift)
+    // Dead endpoints distinguish dead pids from recycled start-time drift.
     private static void RowDeadPidEndpoint() {
         int deadPid = Spawn();
         _ = Posix.Kill(deadPid);
@@ -147,11 +145,11 @@ internal static partial class Program {
             Thread.Sleep(50);
         EndpointRecord dead = EndpointRecord.Create(
             pipeName: $"{EndpointRecord.PipePrefix}gate-dead", rhinoPid: deadPid, rhinoStartedAtUnixMs: 1L,
-            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: "gate");
+            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: "gate", fault: "");
         Fin<LiveHost> deadAdmit = LiveHost.Admit(dead, default);
         EndpointRecord drifted = EndpointRecord.Create(
             pipeName: $"{EndpointRecord.PipePrefix}gate-drift", rhinoPid: Environment.ProcessId, rhinoStartedAtUnixMs: 1L,
-            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: "gate");
+            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: "gate", fault: "");
         Fin<LiveHost> driftAdmit = LiveHost.Admit(drifted, default);
         bool pass = deadAdmit is Fin<LiveHost>.Fail(Error gone) && gone.Message.Contains("not alive", StringComparison.Ordinal)
             && driftAdmit is Fin<LiveHost>.Fail(Error recycled) && recycled.Message.Contains("recycled", StringComparison.Ordinal);
@@ -161,7 +159,7 @@ internal static partial class Program {
         });
     }
 
-    // dead lease -> lease.reclaimed fact + successful claim
+    // Dead lease holders must be reclaimed with evidence.
     private static void RowDeadLeaseReclaim(string scratch) {
         string path = Path.Combine(scratch, "dead.lease");
         File.WriteAllText(path, """{"holderPid":4999999,"holderStartedAtUnixMs":1,"acquiredAtUnixMs":1}""");
@@ -176,7 +174,7 @@ internal static partial class Program {
             _ = Lease.Release(held);
     }
 
-    // second supervisor -> busy, exit 5, holder pid + age named
+    // Concurrent supervisors fail with BusyHeld holder evidence.
     private static void RowSecondSupervisorBusy(string scratch) {
         string path = Path.Combine(scratch, "busy.lease");
         Fin<LeaseToken> first = Lease.Acquire(path, Guid.NewGuid(), TimeProvider.System, _ => { });
@@ -193,8 +191,7 @@ internal static partial class Program {
             _ = Lease.Release(winner);
     }
 
-    // quit ladder vs a non-AppKit process: ae rung FAILS (closed:false), force rung FAILS,
-    // kill(2) rung closes -> escalation order + journal write proven; SIGTERM never sent.
+    // Non-AppKit quit proves rung escalation and journal write without SIGTERM.
     private static void RowQuitLadderEscalation(SessionPolicy policy, string scratch) {
         int child = Spawn();
         LiveHost host = StandIn(child);
@@ -217,7 +214,7 @@ internal static partial class Program {
         });
     }
 
-    // instance-scoped reconcile vs synthetic markers: windowed marker cleared, foreign skipped+reported.
+    // Reconcile clears only markers inside supervised instance windows.
     private static void RowReconcileInstanceScoped(SessionPolicy policy, string scratch) {
         string autosave = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Autosave Information");
         _ = Directory.CreateDirectory(autosave);
@@ -294,7 +291,7 @@ internal static partial class Program {
         });
     }
 
-    // RhinoCrashReportFinder port proof against a REAL macOS .ips (read-only).
+    // Read-only .ips parsing keeps raw crash reports as host evidence.
     private static void RowIpsParser() {
         string reports = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Logs", "DiagnosticReports");
         string? sample = Directory.Exists(reports) ? Directory.GetFiles(reports, "*.ips").OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
@@ -312,27 +309,26 @@ internal static partial class Program {
         });
     }
 
-    // Proof 7: RHINO_MCP_AUTOSTART_PORT suppression - env var rides every launch (belt); the
-    // verification profile carries no rhinomcp yak (fallback policy holds as truth).
-    private static void Proof7McpSuppression() {
+    // MCP listener suppression rides the launch environment and is reported as a capability fact.
+    private static void RowMcpSuppression() {
         string packages = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             "Library", "Application Support", "McNeel", "Rhinoceros", "packages", "9.0");
         string[] installed = Directory.Exists(packages) ? [.. Directory.GetDirectories(packages).Select(static path => Path.GetFileName(path) ?? string.Empty)] : [];
         bool mcpPresent = installed.Any(static name => name.Contains("mcp", StringComparison.OrdinalIgnoreCase));
-        Report("proof7-mcp-suppression", !mcpPresent, new JsonObject {
-            ["installedYak"] = new JsonArray(installed.Select(static name => (JsonNode)name!).ToArray()),
+        Report("mcp-suppression", !mcpPresent, new JsonObject {
+            ["installedPackages"] = new JsonArray(installed.Select(static name => (JsonNode)name!).ToArray()),
             ["launchEnv"] = "RHINO_MCP_AUTOSTART_PORT=0 (wired at BundleInfo.Launch)",
-            ["verdict"] = mcpPresent ? "rhinomcp installed: suppression must be re-verified per release" : "fallback policy holds: no Rhino-MCP-Platform yak on this verification profile",
+            ["verdict"] = mcpPresent ? "MCP package present; launch suppression must own listener absence" : "no MCP package loaded on this verification profile",
         });
     }
 
-    // Proof 11: marker names derive from CFBundleName/CFBundleExecutable, reproduced on the GA bundle.
-    private static void Proof11MarkerDerivation(SessionPolicy policy) {
+    // Marker names derive from bundle metadata, not hard-coded host names.
+    private static void RowMarkerDerivation(SessionPolicy policy) {
         Fin<BundleInfo> discovered = BundleInfo.Discover(policy.ToolDeadline);
         Option<BundleInfo> ga = BundleInfo.Discover(policy.ToolDeadline) is Fin<BundleInfo>.Succ ? ReadGa(policy) : Option<BundleInfo>.None;
         string gaMarker = ga.Case is BundleInfo gaBundle ? gaBundle.AutosaveMarker : "no GA bundle";
         string gaObserved = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Autosave Information", gaMarker);
-        Report("proof11-marker-derivation", discovered.IsSucc, new JsonObject {
+        Report("marker-derivation", discovered.IsSucc, new JsonObject {
             ["discovered"] = discovered is Fin<BundleInfo>.Succ(BundleInfo wip)
                 ? $"{wip.CFBundleName} {wip.CFBundleVersion} (exec {wip.CFBundleExecutable})" : "none",
             ["wipMarkers"] = discovered is Fin<BundleInfo>.Succ(BundleInfo w) ? $"{w.AutosaveMarker} / {w.CrashReportPattern}" : "none",
@@ -355,7 +351,7 @@ internal static partial class Program {
         return ga is Fin<BundleInfo>.Succ(BundleInfo bundle) ? Some(bundle) : Option<BundleInfo>.None;
     }
 
-    // --- live lane: a RhinoWIP the gate launches itself, guarded by the assay bridge flock ---
+    // --- [LIVE_LANE]
 
     [LibraryImport("libc", EntryPoint = "flock", SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
@@ -408,11 +404,11 @@ internal static partial class Program {
         long started = Posix.StartedAtUnixMs(pid).IfNone(0L);
         EndpointRecord endpoint = EndpointRecord.Create(
             pipeName: $"{EndpointRecord.PipePrefix}live-{pid}", rhinoPid: pid, rhinoStartedAtUnixMs: started,
-            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: bundle.CFBundleVersion);
+            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: bundle.CFBundleVersion, fault: "");
         return new LiveHost(Pid: pid, StartedAtUnixMs: started, Endpoint: endpoint, Fingerprint: default);
     }
 
-    // Cycle A: launch -> AE-terminate rung closes the host cleanly on the FIRST rung; kqueue confirms.
+    // Clean live quit should close on the AE rung and confirm through host watch.
     private static void LiveCycleCleanQuit(BundleInfo bundle) {
         SessionPolicy policy = SessionPolicy.Default;
         Fin<Unit> launched = bundle.Launch(policy.ToolDeadline);
@@ -421,7 +417,7 @@ internal static partial class Program {
             Report("live-clean-quit", false, new JsonObject { ["outcome"] = launched.IsFail ? "launch failed" : "no pid within deadline" });
             return;
         }
-        Thread.Sleep(8_000); // let AppKit finish booting so the AE terminate lands on a responsive app
+        Thread.Sleep(8_000);
         LiveHost host = RealHost(hostPid, bundle);
         bool exitSeen = false;
         using ManualResetEventSlim raised = new(false);
@@ -443,8 +439,7 @@ internal static partial class Program {
         });
     }
 
-    // Cycle B: launch -> SIGSTOP (silent host, alive) -> SIGCONT -> kill -9 mid-connect -> kqueue
-    // HostExited -> .ips diff -> journal the window -> instance-scoped reconcile clears markers.
+    // Live mid-connect kill exercises silent-host discrimination, host exit, .ips diff, and reconcile.
     private static void LiveCycleKillMidConnect(BundleInfo bundle) {
         SessionPolicy policy = SessionPolicy.Default;
         Seq<string> ipsBaseline = Evidence.IpsBaseline(bundle);
@@ -471,7 +466,7 @@ internal static partial class Program {
         long retiredAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         _ = QuitJournal.Append(QuitJournal.CanonicalPath, new QuitJournalEntry(
             Pid: hostPid, StartedAtUnixMs: launchedAt, RetiredAtUnixMs: retiredAt, Rung: "gate.kill9", PipeName: host.Endpoint.PipeName));
-        Thread.Sleep(4_000); // give macOS its async marker-write window before the pre-launch-placed reconcile
+        Thread.Sleep(4_000);
         Option<CrashSummary> ips = Evidence.IpsDiff(ipsBaseline, bundle);
         SupervisorRuntime runtime = new(
             Lease: Atom(Option<LeaseToken>.None), Clock: TimeProvider.System, Policy: policy,

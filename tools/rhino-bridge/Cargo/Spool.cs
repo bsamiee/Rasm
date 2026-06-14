@@ -7,12 +7,9 @@ namespace Rasm.Bridge.Cargo;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 
-// Ownership: the per-scenario crash-durable JSONL spool at <ReportDir>/<scenario>.jsonl and the
-// PNG capture writer beside it. Append-per-event through one WriteThrough FileStream with no
-// buffering layer — the per-line write IS the durability mechanism; a truncated tail line decodes
-// to nothing at harvest and every line before it survives. Lines carry the BridgeJsonContext
-// encoding, the same codec the RPC notification rides. Disk faults degrade to a counted failure
-// the runner surfaces as a spool.degraded fact — evidence writing never fails a scenario.
+// Ownership: per-scenario JSONL evidence and adjacent PNG captures. WriteThrough JSONL makes each
+// complete line crash-durable, while disk faults degrade to counted spool facts instead of failing
+// the scenario.
 internal sealed class Spool : IDisposable {
     private const int CaptureDpi = 96;
     private const int FallbackHeight = 768;
@@ -23,8 +20,7 @@ internal sealed class Spool : IDisposable {
     private readonly FileStream? stream;
 
     internal Spool(string reportDir, string scenario) {
-        // BOUNDARY ADAPTER — a spool that cannot open keeps the run alive publish-only; the
-        // failure count names the degradation at the footer.
+        // BOUNDARY ADAPTER: an unopened spool keeps the run publish-only and counted as degraded.
         this.reportDir = reportDir;
         this.scenario = scenario;
         try {
@@ -43,8 +39,7 @@ internal sealed class Spool : IDisposable {
     internal int Failures { get; private set; }
 
     internal void Append(BridgeEvent evt) {
-        // BOUNDARY ADAPTER — the crash-durability writer; one JSONL line per event, flushed on
-        // the event.
+        // BOUNDARY ADAPTER: one flushed JSONL line per event is the crash-durability unit.
         try {
             if (stream is { } live) {
                 live.Write(buffer: JsonSerializer.SerializeToUtf8Bytes(value: evt, jsonTypeInfo: BridgeJsonContext.Default.BridgeEvent));
@@ -60,9 +55,7 @@ internal sealed class Spool : IDisposable {
     }
 
     internal Fin<BridgeEvent.CaptureCase> Capture(RhinoView view, string? label, bool onFailure) {
-        // BOUNDARY ADAPTER — ViewCapture on the current idle frame (the failure frame IS the
-        // evidence; no new frame is scheduled), PNG at viewport resolution beside the spool.
-        // The returned case carries a default stamp; the runner stamps at emit.
+        // BOUNDARY ADAPTER: capture the current idle frame beside the spool; the runner stamps it.
         try {
             System.Drawing.Size frame = view.ActiveViewport.Size;
             int width = frame.Width > 0 ? frame.Width : FallbackWidth;

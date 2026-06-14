@@ -18,11 +18,8 @@ internal enum AssemblyOwner {
 
 // --- [TABLES] -------------------------------------------------------------------------------
 
-// Ownership: D-4's forwarding table as data — one declaration. Host-owned family roots resolve in
-// the default ALC (single host type identity; Rhino already loaded them); bridge-owned names
-// (Contract + the StreamJsonRpc closure) resolve in the shell ALC instance (single seam identity —
-// the IBridgeCargo cast across the collectible boundary depends on it); everything else is
-// cargo-first, which is what makes per-swap LanguageExt/Thinktecture copies hot-swappable.
+// Ownership: assembly ownership table. Host families stay in the default ALC, bridge families stay
+// in the shell ALC, and everything else resolves cargo-first for per-swap dependency isolation.
 internal static class HostAssemblyTable {
     internal static readonly FrozenSet<string> HostOwned = new[] {
         "RhinoCommon", "Rhino.UI", "Rhino.Runtime.Code", "RhinoCodePlatform.Rhino3D",
@@ -67,8 +64,7 @@ internal static class HostAssemblyTable {
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 
-// Ownership: the per-swap cargo resolution scope. Load consults HostAssemblyTable: parent-first
-// for bridge-owned names, default-ALC fallthrough for host-owned, cargo-first otherwise.
+// Ownership: per-swap cargo resolution scope over the assembly ownership table.
 internal sealed class CargoLoadContext(string cargoAssemblyPath, int generation) : AssemblyLoadContext(name: $"Rasm.Bridge.Cargo#{generation}", isCollectible: true) {
     private readonly AssemblyDependencyResolver resolver = new(componentAssemblyPath: cargoAssemblyPath);
     private readonly string stagePath = Path.GetDirectoryName(path: cargoAssemblyPath) ?? ".";
@@ -89,13 +85,8 @@ internal sealed class CargoLoadContext(string cargoAssemblyPath, int generation)
         resolver.ResolveUnmanagedDllToPath(unmanagedDllName: unmanagedDllName) is { } path ? LoadUnmanagedDllFromPath(unmanagedDllPath: path) : nint.Zero;
 }
 
-// Ownership: the D-3 collectible-ALC owner. Token-gated single ownership (Lock + generation);
-// Swap runs on the idle frame and hash equality short-circuits the swap, never the LoadCargoAsync
-// call (the reuse is evidenced by the cargo.reused fact). Unload reports the WeakReference +
-// bounded-GC confirmation honestly and NEVER blocks on an unconfirmed unload: per the probe-0a
-// verdict the recovery for a pinned cargo ALC is a SUPERVISED HOST RECYCLE decided workstation-side
-// from UnloadReceipt.Confirmed=false — the fallback lives behind the same IBridgeCargo seam and
-// never leaks into the Contract.
+// Ownership: collectible cargo ALC lifecycle. Hash equality short-circuits swaps inside the gate,
+// while unload reports WeakReference confirmation honestly so workstation policy decides recycle.
 internal sealed class CargoGate : IDisposable {
     private const string CargoAssemblyFile = "Rasm.Bridge.Cargo.dll";
     private const string CargoEntryType = "Rasm.Bridge.Cargo.CargoHost";
@@ -162,9 +153,7 @@ internal sealed class CargoGate : IDisposable {
         try {
             Assembly assembly = context.LoadFromAssemblyPath(assemblyPath: entryPath);
             Type entry = assembly.GetType(name: CargoEntryType, throwOnError: true)!;
-            // The manifest is the per-session carrier: SessionId sources every in-host stamp and
-            // ReportDir roots the spool/capture writers, so activation hands it to the cargo ctor
-            // (CargoManifest resolves shell-ALC-first — one type identity across the seam).
+            // Manifest identity crosses shell-ALC-first so cargo stamps and writes to the session root.
             IBridgeCargo cargo = (IBridgeCargo)Activator.CreateInstance(type: entry, args: [manifest])!;
             return new CargoLease(ContentHash: manifest.ContentHash, Context: context, Cargo: cargo);
         } catch {
@@ -183,8 +172,7 @@ internal sealed class CargoGate : IDisposable {
             GC.Collect();
             GC.WaitForPendingFinalizers();
         }
-        // D-3d: an attached debugger pins collectible ALCs by design; the receipt carries the gate
-        // so the supervisor can discount an unconfirmed unload instead of recycling the host.
+        // Debugger-pinned collectible ALCs report unconfirmed unload without forcing recycle.
         return new UnloadReceipt(
             Confirmed: !probe.IsAlive,
             DebuggerAttached: debugger,
@@ -194,14 +182,11 @@ internal sealed class CargoGate : IDisposable {
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference Release(CargoLease lease) {
-        // D-2 precondition: cargo disposal drains scenario scopes + host-event detachers BEFORE the
-        // ALC unload begins. NoInlining keeps no caller-frame strong reference alive so the
-        // WeakReference probe is the only observer left.
+        // NoInlining keeps caller frames from retaining the ALC after cargo disposal drains hooks.
         try {
             lease.Cargo.Dispose();
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
-            // A throwing cargo Dispose must not block the unload attempt; the leak (if any) is
-            // reported by the receipt, never by an exception on the unload rail.
+            // Dispose failures cannot block unload; the receipt reports any remaining leak.
             Debug.WriteLine(message: $"cargo dispose threw: {error.Message}");
         }
         WeakReference probe = new(target: lease.Context);
