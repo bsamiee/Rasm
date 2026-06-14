@@ -1,9 +1,6 @@
-"""Route changed or explicit paths into language-specific inputs.
+"""Route changed or explicit paths into language-specific tool inputs.
 
-Discriminates between a glob strategy (suffix-only filter, scope always CHANGED) and a
-closure strategy (project-graph walk, escalates to FULL when trigger files are touched).
-The ``route`` entry point is the public surface; ``place`` projects a ``Routed`` result
-into per-tool argument tail groups.
+Closure languages walk project graphs; glob languages filter by suffix and stay changed-scope.
 """
 
 from collections.abc import Mapping
@@ -116,15 +113,9 @@ class TargetFiles:
 
 
 class Routed(Base, frozen=True):
-    """Resolved routing result for one language and one invocation scope.
+    """Resolved routing result for one language and invocation scope.
 
-    ``scope`` is FULL when trigger files are present; CHANGED otherwise.
-    ``projects`` carries the transitive project-graph closure for closure-strategy
-    languages; ``groups`` pairs each seed project with the changed files it owns.
-    ``host_bound`` is the closure subset whose project file carries an explicit
-    ``<AssayHostBound>true</AssayHostBound>`` marker: those projects execute native
-    host P/Invokes at test runtime, so TEST lanes drop them while BUILD lanes keep
-    them. Glob-strategy languages populate only ``files``.
+    Closure routes carry transitive projects, seed-owned file groups, trigger escalation, and explicit host-bound project markers.
     """
 
     language: Language
@@ -136,12 +127,10 @@ class Routed(Base, frozen=True):
     host_bound: tuple[str, ...] = ()
 
     def closure_note(self) -> tuple[str, ...]:
-        """Project-closure partition rows for report envelopes; empty when no projects routed.
+        """Return project-closure partition rows for report envelopes.
 
         Returns:
-            A head row counting included vs host-routed projects, plus one row naming the
-            host-routed projects when any exist, so the envelope states exactly what TEST
-            lanes dropped.
+            Closure summary rows, or ``()`` when no projects routed.
         """
         managed, host = len(self.projects) - len(self.host_bound), len(self.host_bound)
         head = f"closure[{self.language!s}]: included={managed} excluded=0 cached=0 host-routed={host}"
@@ -229,16 +218,14 @@ def _refs(rel: str, source: Source) -> frozenset[str]:
 
 
 def parse_csproj(raw: bytes, tag: str, *attrs: str) -> tuple[str, ...]:
-    """Extract values from namespace-suffix-matched elements of trusted local MSBuild project XML.
+    """Extract trusted local MSBuild XML values by namespace-stripped tag suffix.
 
-    With ``attrs``, each matching element contributes its first non-empty attribute value among
-    ``attrs``; without ``attrs``, each contributes its stripped non-empty text. Empty and
-    malformed payloads fold to ``()`` so a bad project file never faults the caller.
+    Malformed payloads fold to ``()`` so one bad project file cannot fault routing.
 
     Args:
-        raw: Project file bytes; never network-sourced.
-        tag: Element tag matched by namespace-stripped suffix (e.g. ``ProjectReference``).
-        attrs: Attribute names tried in order per element; empty means element text.
+        raw: Project file bytes.
+        tag: Element tag matched by suffix.
+        attrs: Attribute names tried in order; absent means element text.
 
     Returns:
         Extracted values in document order, empties dropped.
@@ -256,8 +243,7 @@ def parse_csproj(raw: bytes, tag: str, *attrs: str) -> tuple[str, ...]:
 
 
 def _host_bound(rel: str, source: Source) -> bool:
-    # ONLY the explicit <AssayHostBound>true</AssayHostBound> marker classifies a project as host-bound;
-    # path shape and RhinoCommon-awareness are non-signals (GH specs are aware yet managed-runnable).
+    # Only the explicit marker is authoritative; path shape and RhinoCommon-awareness are non-signals.
     match source.read(rel):
         case Result(tag="ok", ok=raw):
             return any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound"))
@@ -305,20 +291,14 @@ def _resolve(language: Language, changed: tuple[str, ...], universe: tuple[str, 
 
 
 def infer_languages(paths: RoutePaths, available: tuple[Language, ...]) -> tuple[Language, ...]:
-    """Infer target languages from path suffixes, preserving ``available`` order.
-
-    Smart-default resolution for rails when no explicit language selector is supplied: suffix-set
-    intersection narrows to the languages the given paths actually touch, so explicit
-    paths never fan out to unrelated language toolchains.
+    """Infer target languages from suffixes while preserving candidate order.
 
     Args:
-        paths: Root-relative paths whose suffixes select languages; directories and
-            suffixless paths contribute nothing.
-        available: Candidate languages for the calling rail, in dispatch order.
+        paths: Root-relative path tokens.
+        available: Candidate languages in rail dispatch order.
 
     Returns:
-        Languages from ``available`` whose suffix sets intersect the path suffixes, or
-        all of ``available`` when no path carries a recognized suffix.
+        Matching languages, or all candidates when no suffix selects a language.
     """
     suffixes = frozenset(suffix for p in paths if (suffix := PurePosixPath(p).suffix))
     return tuple(language for language in available if suffixes & language.suffixes) or available
@@ -329,16 +309,13 @@ def route(
 ) -> Result[Routed, Fault]:
     """Resolve paths into routed inputs for one language.
 
-    When ``paths`` is empty, the changed-file set from ``source`` is used.
-    The root is taken from ``settings.root`` (defaulting to ``AssaySettings()``) so that
-    ``ASSAY_ROOT`` can point CI at a worktree other than the process cwd.
+    Empty ``paths`` uses the provider's changed-file set; the default provider roots at ``settings.root``.
 
     Args:
         language: Target language; determines glob vs. closure routing strategy.
-        paths: Explicit root-relative paths to route; uses the change set when empty.
-        source: Provider for changed paths, enumeration, and file reads; defaults to a
-            local git-backed source rooted at ``settings.root``.
-        settings: Active assay configuration; defaults to ``AssaySettings()``.
+        paths: Explicit root-relative paths.
+        source: Provider for changed paths, enumeration, and file reads.
+        settings: Active assay configuration.
 
     Returns:
         Ok with the routed projection, or a Fault propagated from the source provider.
@@ -356,9 +333,9 @@ def target_files(
     Args:
         folders: Explicit folder targets from ``--folder``.
         files: Explicit file targets from ``--file``.
-        source: Optional source provider; defaults to local git-backed source.
+        source: Provider for path expansion.
         settings: Active routing settings.
-        changed: True means no explicit target was supplied and the changed-file set owns input.
+        changed: Whether the changed-file set owns input.
 
     Returns:
         Expanded file projection with unsupported project/solution/root-trigger files removed.
@@ -388,9 +365,7 @@ def target_files(
 def routable_files(files: RoutePaths, settings: AssaySettings) -> RoutePaths:
     """Filter probe-fixture paths from an explicit file list.
 
-    Type checkers honor ``pyproject.toml`` excludes only for project-wide runs; passing
-    probe-fixture paths explicitly would type-check files that are intentionally excluded.
-    Prefixes are governed by ``AssaySettings.probe_fixture_prefixes``.
+    Explicit type-checker file args bypass project excludes; probe fixture prefixes restore the configured exclusion boundary.
 
     Returns:
         File paths with probe-fixture prefixes removed.
@@ -401,15 +376,12 @@ def routable_files(files: RoutePaths, settings: AssaySettings) -> RoutePaths:
 def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:  # noqa: PLR0912  # one arm per Input member; the axis is closed
     """Project routed inputs into command argument tail groups for one tool.
 
-    Each inner tuple is one invocation's argument tail. An empty outer tuple means no
-    invocations are needed. For ``Input.PROJECT`` with no routed projects and
-    ``tool.mode`` is ``Mode.LIST``, falls back to ``settings.test_target``.
+    ``Input.PROJECT`` falls back to ``settings.test_target`` only for list-mode tools with no routed projects.
 
     Args:
         routed: Resolved routing result for the target language.
-        tool: Tool descriptor that determines the input mode and dispatch shape.
-        settings: Active assay configuration; provides solution, test-target, and
-            probe-fixture prefix overrides.
+        tool: Tool descriptor that determines input placement.
+        settings: Active assay configuration.
 
     Returns:
         Tuple of argument tail tuples, one per invocation.
@@ -421,8 +393,7 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
         case Input.INCLUDE:
             return tuple((project, *Input.INCLUDE.flag, *files) for project, files in routed.groups)
         case Input.PROJECT:
-            # TEST lanes (RUN/LIST) drop host-bound projects: they P/Invoke the host runtime at test time and
-            # cannot run managed; RESTORE/BUILD lanes keep them because compilation is managed-safe.
+            # Host-bound projects compile managed-safe but cannot execute outside the host runtime.
             kept = routed.projects if tool.mode in {Mode.RESTORE, Mode.BUILD} else tuple(p for p in routed.projects if p not in routed.host_bound)
             projects = kept or ((str(settings.test_target),) if tool.mode is Mode.LIST and not routed.projects else ())
             return tuple(
@@ -443,8 +414,7 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
 def expand(checks: tuple[Check, ...], routed: Routed, *, settings: AssaySettings) -> tuple[Check, ...]:
     """Clone one ``Check`` per ``place()`` argument tail so multi-tail placements fan one invocation each.
 
-    Placements of zero or one tail pass through unpinned; argv composition resolves them
-    identically, so single-invocation tools keep their original check identity.
+    Zero- or one-tail placements keep the original check identity because argv composition resolves them identically.
 
     Args:
         checks: Checks produced by a rail's tool selection.
@@ -459,8 +429,7 @@ def expand(checks: tuple[Check, ...], routed: Routed, *, settings: AssaySettings
         tails = place(routed, check.tool, settings=settings)
         match (tails, check.tool.input):
             case ((), Input.PROJECT) if routed.projects:
-                # Host-routing emptied the placement: the route HAD projects and the lane dropped every one;
-                # the check must vanish, or the unpinned tail would run the tool bare against the whole tree.
+                # Host routing dropped every project; an unpinned tail would run the tool against the whole tree.
                 return ()
             case _:
                 return (check,) if len(tails) <= 1 else tuple(msgspec.structs.replace(check, tail=tail) for tail in tails)

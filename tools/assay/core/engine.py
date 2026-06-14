@@ -1,12 +1,6 @@
-"""Execution engine for the assay toolchain.
+"""Assay execution engine for local, remote, in-process, and leased checks.
 
-Owns the full check execution surface: local subprocess, SSH remote, in-process thunk,
-and POSIX flock lease runners. Entry points are run_check, run_check_async, and fan_out
-for single and concurrent check dispatch; governed_concurrency folds CPU, DOTNET, and
-mutation ceilings into one concurrency limit. discover and discover_async serve
-read-only discovery commands outside the check lifecycle. exclusive_lease and leased
-provide the non-blocking POSIX lease protocol used by the quality gate bus, and proc_dead
-is the shared dead-process verdict consumed by lease and commit-marker recovery.
+Entry points dispatch checks, discovery probes, concurrency governance, stream capture, remote command construction, and POSIX lease recovery.
 """
 
 from collections.abc import Callable
@@ -98,8 +92,7 @@ _FAULT_SNAPSHOT: str = "fault.resource_snapshot"
 _RING_SNAPSHOT: str = "assay.ring"
 _MEM_PRESSURE_PERCENT: float = 90.0
 _SSH_CONNECT_TIMEOUT: float = 15.0
-# Keepalive probes detect a wedged transport mid-run: 3 unanswered probes at 15s intervals tears the
-# connection down so the retry rail can re-establish it instead of hanging to the check deadline.
+# Keepalive failure tears down wedged SSH transports so the retry rail can re-establish before the check deadline.
 _SSH_KEEPALIVE_INTERVAL_S: float = 15.0
 _SSH_KEEPALIVE_COUNT_MAX: int = 3
 _SSH_SIGNAL_STATUS: int = 255
@@ -113,14 +106,14 @@ _DEAD_STATUSES: frozenset[str] = frozenset({psutil.STATUS_DEAD, psutil.STATUS_ZO
 _DOTNET_PROC_NAMES: frozenset[str] = frozenset({"dotnet", "MSBuild", "VBCSCompiler"})
 # Bound at import so a patched psutil module double cannot skew the verdict comparison.
 _DISK_WAIT_STATUS: str = psutil.STATUS_DISK_SLEEP
-# Fixed stall thresholds: a silent child is diagnosed once after 30s over a 5s sample window; predictability beats adaptive tuning.
+# Fixed stall thresholds make silent-child diagnostics deterministic across runs.
 _STALL_AFTER_S: float = 30.0
 _STALL_SAMPLE_S: float = 5.0
 _RESOURCE_SAMPLE_S: float = 5.0
-_STALL_CPU_PCT: float = 25.0  # of one core across the sample window
-_STALL_CTX_RATE_HZ: float = 100.0  # involuntary context switches per second across the tree
+_STALL_CPU_PCT: float = 25.0
+_STALL_CTX_RATE_HZ: float = 100.0
 
-# ty cannot narrow this module to POSIX, so bind the POSIX-only members once to avoid repeated attribute ignores.
+# POSIX-only bindings localize checker suppressions for fcntl/os/signal members.
 _FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
 _GETPGID, _KILLPG, _SIGKILL = os.getpgid, os.killpg, signal.SIGKILL  # ty: ignore[possibly-missing-attribute]
 
@@ -205,7 +198,7 @@ class _ConcurrencyPressure:
 
 @dataclass(frozen=True, slots=True)
 class Captured:
-    """Aggregate of a drained byte stream: tail window, artifact path, and total size/line counts."""
+    """Drained stream summary with tail bytes, artifact path, and size counters."""
 
     tail: bytes = b""
     path: str = ""
@@ -234,13 +227,10 @@ _DECODER: msgspec.json.Decoder[_LeaseOwner] = msgspec.json.Decoder(_LeaseOwner)
 def splice_command(
     runner: Runner, command: tuple[str, ...], scope: ArtifactScope | None, scoped_verbs: frozenset[str], mode: Mode
 ) -> tuple[str, ...]:
-    """Inject scope flags into a DOTNET build-graph command before any ``--`` argument separator.
-
-    Scope injection is skipped when the runner is not DOTNET, the verb is not in scoped_verbs,
-    scope is absent, or mode is QUERY or LIST.
+    """Inject scope flags into eligible DOTNET build-graph commands.
 
     Returns:
-        The command with scope flags spliced for scoped DOTNET verbs, otherwise the command verbatim.
+        Command with scope flags inserted before ``--``, or the original command when ineligible.
     """
     match (runner, command, scope):
         case (Runner.DOTNET, (verb, *_), ArtifactScope() as s) if verb in scoped_verbs and mode not in {Mode.QUERY, Mode.LIST}:
@@ -252,8 +242,7 @@ def splice_command(
 
 
 def _overlay(tool: Tool, settings: AssaySettings, scope: ArtifactScope | None) -> Mapping[str, str]:
-    # Row env layers on the host base so a catalog Tool can carry per-spawn config (e.g. mutmut's COVERAGE_RCFILE);
-    # scope dotnet_env is runtime-resolved and keeps precedence over the static row env.
+    # Row env carries per-spawn config; scope dotnet_env is runtime-resolved and takes precedence.
     base: MutableMapping[str, str] = dict(os.environ)  # noqa: TID251  # clones the host environment at the spawn boundary
     base.update(settings.python_tool_env)
     base.update(tool.env)
@@ -285,8 +274,7 @@ def argv_for(check: Check, routed: Routed, *, settings: AssaySettings, scope: Ar
     """Project the exact argv the engine would execute for a check.
 
     Returns:
-        Command argv after runner, scope, stage, pinned tail, and routed inputs are applied;
-        a Fault when an unpinned check resolves to a multi-tail placement.
+        Command argv, or a fault when an unpinned check resolves to multiple tails.
     """
     return _argv(check, routed, settings=settings, scope=scope)
 
@@ -327,8 +315,7 @@ def discover(argv: tuple[str, ...], *, root: UPath | Path | str, timeout: float)
 
 @cache
 def _dotnet_root() -> str | None:
-    # nix exports a DOTNET_ROOT wrapper lacking shared/Microsoft.NETCore.App; resolve the real runtime root once per
-    # process (the `dotnet --list-runtimes` probe is process-stable); tests reset via cache_clear.
+    # Nix DOTNET_ROOT can point at a wrapper; resolve the real shared-runtime root once per process.
     def valid(path: str) -> str | None:
         root = Path(path).expanduser()
         return str(root) if path and Path(root, *_DOTNET_SHARED_RUNTIME).is_dir() else None
@@ -356,8 +343,7 @@ def _dotnet_root() -> str | None:
 
 
 def _apphost(tool: Tool, env: Mapping[str, str]) -> Mapping[str, str]:
-    # `dotnet tool run` spawns apphost-deployed tools (ilspycmd, stryker) that resolve the runtime from DOTNET_ROOT;
-    # SDK verbs self-locate via the muxer, so only ("tool", "run") heads receive the resolved-root overlay.
+    # Apphost-deployed dotnet tools need DOTNET_ROOT; SDK verbs self-locate through the muxer.
     match (tool.runner, tool.command[:2]):
         case (Runner.DOTNET, ("tool", "run")):
             match _dotnet_root():
@@ -407,7 +393,7 @@ def _copy_stage_input(check: Check, root: Path, work: Path, rel: str) -> Fault |
 def _contained(root: Path, rel: str) -> Path | ValueError:
     text = rel.replace("\\", "/")
     parts = text.split("/")
-    # "", ".", ".." each split to a single self-part the per-part scan already rejects ("".split("/") == [""]); no standalone disjunct.
+    # The per-part scan rejects empty, self, and parent parts without a standalone path disjunct.
     match text.startswith("/") or "\x00" in text or any(p in {"", ".", ".."} for p in parts):
         case True:
             return ValueError(f"unsafe stage path: {rel!r}")
@@ -417,15 +403,14 @@ def _contained(root: Path, rel: str) -> Path | ValueError:
 
 
 async def drain_stream(recv: ByteRecv, *, tail_cap: int, sink: WriteSink | None = None, path: str = "") -> Captured:
-    """Pump an async byte source to EOF, tee-ing to an optional sink and retaining a bounded tail.
+    """Drain an async byte source to EOF while retaining a bounded tail.
 
-    Line count includes a synthetic final line when the stream ends without a trailing newline,
-    so the count matches the number of logical lines rather than raw newline occurrences.
+    Unterminated final bytes count as one logical line.
 
     Args:
         recv: Async read primitive returning the next chunk, or ``None`` at EOF.
-        tail_cap: Maximum number of trailing bytes retained in the captured tail.
-        sink: Optional byte sink receiving every chunk as it is read.
+        tail_cap: Maximum retained tail bytes.
+        sink: Optional sink receiving every chunk.
         path: Artifact path recorded on the resulting capture.
 
     Returns:
@@ -482,7 +467,7 @@ def _write_sink(sink: WriteSink | None, payload: bytes) -> None:
 
 
 async def _drain_pair(plan: _ExecPlan, out: ByteRecv, err: ByteRecv, wait: Callable[[], Awaitable[object]]) -> dict[str, Captured]:
-    # Shared local/remote streaming pump: tee both channels into bounded tails (+ optional artifact sinks), then await child exit inside the group.
+    # Shared local/remote pump tees both streams before awaiting child exit inside the group.
     streams: dict[str, Captured] = {}
     async with anyio.create_task_group() as tg:
 
@@ -507,8 +492,7 @@ async def _reap(proc: Process, limiter: anyio.CapacityLimiter | None = None) -> 
         match proc.returncode:
             case None:
                 await to_thread.run_sync(_reap_tree, proc.pid, limiter=limiter)
-                # Backstop for a reap-eluding child; the tree reap may already have consumed the
-                # exit via waitpid, so a ProcessLookupError here degrades through _safe_call.
+                # Backstop for a reap-eluding child; waitpid races degrade through _safe_call.
                 _safe_call(proc.kill, None)
             case _:
                 pass
@@ -522,9 +506,7 @@ def _terminate_process_tree(tree: tuple[psutil.Process, ...], pgid: int | None) 
 
 
 def _signal_phase(procs: tuple[psutil.Process, ...], pgid: int | None, sig: signal.Signals) -> tuple[psutil.Process, ...]:
-    # killpg on the child's own group is authoritative: it reaches grandchildren that re-parent out of
-    # the psutil walk; the per-process loop is the fallback and double-covers in-tree stragglers.
-    # A vanished group (ProcessLookupError/PermissionError, both OSError) degrades through _safe_call.
+    # killpg reaches re-parented grandchildren; per-process signaling covers in-tree stragglers.
     _ = _safe_call(lambda: _KILLPG(pgid, sig), None) if pgid is not None else None
     for proc in reversed(procs):
         if proc.is_running():
@@ -535,8 +517,7 @@ def _signal_phase(procs: tuple[psutil.Process, ...], pgid: int | None, sig: sign
 
 
 def _child_pgid(pid: int) -> int | None:
-    # start_new_session=True makes every spawned child a session leader owning its own group; a pgid
-    # matching the engine's own group means killpg would take the engine down with the child.
+    # Never killpg the engine's own process group.
     return _safe_call(lambda: pgid if (pgid := _GETPGID(pid)) != _GETPGID(0) else None, None)
 
 
@@ -570,7 +551,7 @@ def _stall_sample(pid: int) -> _StallSample:
 
 
 def _stall_verdict(first: _StallSample, second: _StallSample) -> str:
-    # Triage for agents watching a silent child: which resource the process tree actually consumed across the sample window.
+    # Silent-child triage reports the resource consumed across the sample window.
     cpu_pct = max(0.0, second.cpu_s - first.cpu_s) * 100.0 / max(_STALL_SAMPLE_S, 1e-6)
     invol_rate = max(0.0, second.invol - first.invol) / max(_STALL_SAMPLE_S, 1e-6)
     match (cpu_pct, second.status, invol_rate):
@@ -585,7 +566,7 @@ def _stall_verdict(first: _StallSample, second: _StallSample) -> str:
 
 
 async def _stall_monitor(pid: int, last_output: list[float], notes: list[str]) -> None:
-    # Armed only after _STALL_AFTER_S of child silence; diagnoses once and exits, so the receipt carries at most one bounded note.
+    # Diagnose once after the silence threshold so receipts carry at most one bounded stall note.
     while not notes:
         await anyio.sleep(_STALL_SAMPLE_S)
         match time.monotonic() - last_output[0] >= _STALL_AFTER_S:
@@ -716,8 +697,7 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:  # noqa: PLR0914  
                         resources=(*resources, ("process.duration_ms", duration_ms)),
                     )
         case target:
-            # Row env keys are a deliberate per-tool declaration: forward them across the SSH boundary explicitly
-            # while the allowlist keeps gating ambient host env the tool never declared.
+            # Forward declared row env across SSH; keep ambient host env behind the allowlist.
             row_env = frozenset(key for key, _ in plan.check.tool.env)
             remote_done = await _run_remote(replace(plan, env=plan.settings.remote_env(dict(plan.env), forward=row_env)), target)
             _LOG.info(
@@ -866,7 +846,7 @@ async def _connect_once(target: str, settings: AssaySettings) -> asyncssh.SSHCli
 
 
 def remote_command(argv: tuple[str, ...], *, cwd: str, env: Mapping[str, str]) -> str:
-    """Build a single shell-quoted remote command line carrying the cwd, env exports, and argv.
+    """Build a shell-quoted remote command line.
 
     Returns:
         A ``cd <cwd> && <exports> <argv>`` line with every segment shell-quoted.
@@ -1043,7 +1023,7 @@ async def _run_prepared(
 
 
 def _spawn_fault(argv: tuple[str, ...], exc: BaseException, attempts: int) -> Fault:
-    # Spawn-fault fold: deadline -> TIMEOUT; missing capability (never retried) -> UNSUPPORTED; NUL-in-argv / transport -> FAULTED.
+    # Spawn-fault status is derived from the boundary class, not message text.
     _diagnose(exc)
     message = "deadline exceeded" if isinstance(exc, TimeoutError) else str(exc)
     stamped = f"{message} [attempts={attempts}]" if attempts > 1 else message
@@ -1070,8 +1050,7 @@ async def _execute_retrying(  # noqa: PLR0913  # all params are load-bearing acr
 ) -> Completed:
     # list[int] cell carries attempt count across stamina's re-raise boundary for fault stamping in _guarded.
     done: Completed | None = None
-    # with_name attributes retry telemetry (stamina's auto-active StructlogOnRetryHook) to the tool
-    # instead of the anonymous "<context block>".
+    # Name the retry context so stamina telemetry attributes attempts to the tool, not "<context block>".
     retrying = stamina.retry_context(on=retry_predicate(check, deadline), attempts=3, timeout=_retry_timeout(deadline))
     async for attempt in retrying.with_name(check.tool.name, (), {}):
         attempts[0] = attempt.num
@@ -1161,8 +1140,7 @@ async def _inproc(check: Check, limiter: anyio.CapacityLimiter | None = None) ->
 
 
 def _spawn(check: Check, settings: AssaySettings) -> _Woven:
-    # compose wraps _guarded at call time so each invocation carries a fresh span; omitting the logged layer is intentional.
-    # compose is Hom-typed; no variance-safe overload for async _Woven — suppression is load-bearing.
+    # Compose per invocation for a fresh span; no variance-safe overload exists for async _Woven.
     span = traced(
         span=check.tool.name,
         attrs=lambda *_a, **_k: {"assay.run_id": settings.run_id, "assay.tool": check.tool.name},
@@ -1203,9 +1181,7 @@ def fan_out(
 ) -> tuple[Result[Completed, Fault], ...]:
     """Run checks concurrently and preserve input order.
 
-    ``deadline`` is an absolute ``time.monotonic()`` ceiling shared across all checks; ``None``
-    means no shared budget, deferring to each check's per-tool timeout. Checks that expire
-    before dispatch yield a TIMEOUT fault in their result slot.
+    ``deadline`` is a shared absolute ``time.monotonic()`` ceiling; expired checks yield timeout faults in their slots.
 
     Returns:
         One completed-or-fault result per input check.
@@ -1404,23 +1380,19 @@ def resource_projection(
 
 
 def _foreign_dotnet_count() -> int:
-    # The contended machine resource is dotnet-family processes; counting them is the honest cross-invocation
-    # pressure unit (load1 stays rejected). Own subtree is excluded so an invocation never throttles on its own fan.
+    # Dotnet-family processes are the cross-invocation pressure unit; exclude this invocation's subtree.
     own: set[int] = _safe_call(lambda: {p.pid for p in psutil.Process().children(recursive=True)} | {os.getpid()}, {os.getpid()})
     processes: list[psutil.Process] = _safe_call(lambda: list(psutil.process_iter(["name", "pid"])), [])
     return sum(1 for proc in processes if (proc.info.get("name") or "") in _DOTNET_PROC_NAMES and proc.info.get("pid") not in own)
 
 
 def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()) -> int:
-    """Fold the usable-CPU, DOTNET-runner, and MUTATION-mode ceilings into one concurrency floor.
+    """Fold CPU, DOTNET-runner, mutation, and pressure ceilings into one limit.
 
-    Backpressure halves the folded limit (floor 1) and emits a ``concurrency.backpressure`` event on
-    either signal: system RAM at or above ``_MEM_PRESSURE_PERCENT``, or a foreign dotnet-family process
-    census (dotnet/MSBuild/VBCSCompiler outside this invocation's tree) at or above ``settings.cpu_count``
-    — sibling invocations and direct agent builds share one machine, and the census is the contended unit.
+    Memory pressure or foreign dotnet-family contention halves the folded limit and emits ``concurrency.backpressure``.
 
     Returns:
-        The concurrency limit, at least 1, bounded by ``max_checks``, the mode cap, and ``settings.cpu_count``.
+        Concurrency limit, at least 1.
     """
     # Load-average backpressure rejected: macOS load1 counts uninterruptible waits, far too noisy a halving signal.
     pressure = _concurrency_pressure(settings, checks)
@@ -1444,12 +1416,10 @@ def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()
 
 
 def proc_dead(pid: int) -> bool:
-    """Decide whether a pid no longer denotes a live owning process.
+    """Decide whether a pid no longer denotes a live owner.
 
     Returns:
-        True when the pid is gone, corrupt (non-positive), or in a dead/zombie status — both can
-        never release a resource they hold; False while the OS still runs (or owns) the process,
-        where ``AccessDenied`` defers the verdict to ``pid_exists``.
+        True when gone, corrupt, dead, or zombie; ``AccessDenied`` falls back to ``pid_exists``.
     """
     try:
         return psutil.Process(pid).status() in _DEAD_STATUSES
@@ -1462,10 +1432,10 @@ def proc_dead(pid: int) -> bool:
 
 
 def is_lease_stale(owner: _LeaseOwner, tolerance: float) -> bool:
-    """Decide whether a lease holder is dead, zombie, or PID-reused and therefore stealable.
+    """Decide whether a lease holder is stealable.
 
     Returns:
-        True when the holder process is gone, zombie/dead, not running, or drifted past ``tolerance``; False when it is live and matching.
+        True when the holder is gone, zombie/dead, not running, or PID-reused beyond ``tolerance``.
     """
     # (pid, create_time) within the drift band guards against PID reuse presenting as a live holder.
     try:
@@ -1489,7 +1459,7 @@ def _claim(
         return _write_owner(fd, resource, run_id=run_id, target=target, cwd=cwd, project=project, mode=mode)
     except BlockingIOError:
         held = os.read(fd, 4096)
-        # b"" under a live flock means the holder is mid-write; a dead holder would have released flock and the success path above would have won.
+        # Empty bytes under a live flock means the holder is mid-write, not dead.
         match held:
             case b"":
                 _stamp_holder(None)
@@ -1531,10 +1501,10 @@ def _stamp_holder(owner: _LeaseOwner | None) -> None:
 
 
 def decode_lease_owner(held: bytes) -> _LeaseOwner | None:
-    """Decode lock-file bytes into a lease owner, treating empty or corrupt content as absent.
+    """Decode lease-owner bytes.
 
     Returns:
-        The decoded owner, or ``None`` when the bytes are empty or fail to decode.
+        Owner block, or ``None`` when bytes are empty or corrupt.
     """
     match held:
         case b"":
@@ -1581,7 +1551,7 @@ def _write_owner(fd: int, resource: str, *, run_id: str, target: str, cwd: str =
 def exclusive_lease(
     resource: str, run_id: str, *, settings: AssaySettings, project: str = "", mode: str = "exclusive"
 ) -> Generator[Result[_Held, Fault]]:
-    """Acquire a non-blocking process lease.
+    """Acquire a non-blocking local POSIX process lease.
 
     Args:
         resource: Lease resource name.

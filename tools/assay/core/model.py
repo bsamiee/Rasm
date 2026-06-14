@@ -1,14 +1,6 @@
-"""Assay domain model: axes, wire structs, evidence details, and fold operations.
+"""Assay wire model, routing axes, evidence details, and report folds.
 
-Defines the complete msgspec wire contract for the Assay quality-gate harness.
-Includes StrEnum axes (Claim, Language, Mode, Runner, Input) that drive tool
-dispatch, a frozen msgspec.Struct hierarchy (Base -> Detail -> typed Detail
-subtypes) for serialized evidence, and the three primary fold operations that
-collapse process outcomes into Reports, Envelopes, and CLI exit codes.
-
-The module-level encoder (_ENCODER) is the composition root; all serialization
-routes through wire_encode and validate_detail to guarantee deterministic
-ordering and tag enforcement.
+All JSON emission routes through the module encoder so envelope order, tagged-detail validation, and exit-code projection stay one contract.
 """
 
 from collections import Counter
@@ -69,7 +61,7 @@ class Input(StrEnum):
     OWNED = "owned", (), True  # command owns its input placement; place() contributes a single empty tail
 
     def __new__(cls, value: str, flag: tuple[str, ...], scoped: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
-        """Bind multi-payload StrEnum fields; StrEnum propagates only the string value, so flag and scoped are assigned manually."""
+        """Attach enum payload fields not represented by the StrEnum value."""
         m = str.__new__(cls, value)
         m._value_, m.flag, m.scoped = value, flag, scoped
         return m
@@ -88,7 +80,7 @@ class Language(StrEnum):
     DOCS = "docs", "glob", frozenset((".md", ".mmd"))
 
     def __new__(cls, value: str, strategy: Literal["closure", "glob"], suffixes: frozenset[str]) -> Self:
-        """Bind multi-payload StrEnum fields; StrEnum propagates only the string value, so strategy and suffixes are assigned manually."""
+        """Attach enum payload fields not represented by the StrEnum value."""
         m = str.__new__(cls, value)
         m._value_, m.strategy, m.suffixes = value, strategy, suffixes
         return m
@@ -115,7 +107,7 @@ class Mode(StrEnum):
     PUBLISH = "publish", False, False
 
     def __new__(cls, value: str, stream: bool, writes: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
-        """Bind multi-payload StrEnum fields; StrEnum propagates only the string value, so stream and writes are assigned manually."""
+        """Attach enum payload fields not represented by the StrEnum value."""
         m = str.__new__(cls, value)
         m._value_, m.stream, m.writes = value, stream, writes
         return m
@@ -141,7 +133,7 @@ class Runner(StrEnum):
     INPROC = "inproc", ()
 
     def __new__(cls, value: str, prefix: tuple[str, ...]) -> Self:
-        """Bind enum payloads; StrEnum only propagates the string value, so extra fields must be assigned manually."""
+        """Attach enum payload fields not represented by the StrEnum value."""
         m = str.__new__(cls, value)
         m._value_, m.prefix = value, prefix
         return m
@@ -239,8 +231,7 @@ class Tool(Base, frozen=True, cache_hash=True):
 class Check(Base, frozen=True, cache_hash=True):
     """Tool bound to a concrete input scope.
 
-    ``tail`` pins one ``place()``-projected argument tail to this check; ``None`` defers
-    placement to argv composition, which requires the routed placement to be single-tail.
+    ``tail=None`` defers placement until argv composition and requires the route to resolve to at most one tail.
     """
 
     tool: Tool
@@ -306,8 +297,7 @@ class Match(Base, frozen=True):
     message: Annotated[str, msgspec.Meta(max_length=4096)] = ""
 
 
-# SARIF wire subset stays off the shared Base policy: SARIF documents carry tool/version/schema
-# fields the assay wire contract does not model, so unknown fields must pass, not fault.
+# SARIF carries tool/schema fields outside the assay wire contract; unknown fields must pass.
 class _SarifMessage(msgspec.Struct, frozen=True, gc=False):
     text: str = ""
 
@@ -535,8 +525,7 @@ class TestRun(Detail, frozen=True, tag="test"):
 class VerifySummary(Detail, frozen=True, tag="verify"):
     """Bridge verification summary detail.
 
-    ``facts`` and ``captures`` carry (scenario_stem, JSON_text) pairs decoded from
-    execute-phase evidence markers; agents filter structurally instead of scanning notes.
+    ``facts`` and ``captures`` carry decoded scenario evidence so consumers avoid note scans.
     """
 
     exceptions: int = 0
@@ -548,7 +537,21 @@ class VerifySummary(Detail, frozen=True, tag="verify"):
     captures: tuple[tuple[str, str], ...] = ()
 
 
-type AnyDetail = ApiSource | ApiSurface | VerifySummary | TestRun | StaticRun | PackageRun | ApiResolution | Diagnostic | RunDelta
+class BridgeLifecycle(Detail, frozen=True, tag="bridge"):
+    """Bridge lifecycle host and capability projection.
+
+    Non-verify lifecycle verbs expose host fingerprints and capability admission rows without requiring the bridge artifact.
+    """
+
+    verb: str = ""
+    report_dir: str = ""
+    host: tuple[tuple[str, str], ...] = ()
+    capabilities: tuple[tuple[str, str, str], ...] = ()
+    first_fault_phase: str = ""
+    first_fault_output: Annotated[str, msgspec.Meta(max_length=256)] = ""
+
+
+type AnyDetail = ApiSource | ApiSurface | VerifySummary | BridgeLifecycle | TestRun | StaticRun | PackageRun | ApiResolution | Diagnostic | RunDelta
 
 
 class Report(Base, frozen=True):
@@ -655,7 +658,7 @@ def language_choice(verb: str, *, csharp: bool = False, python: bool = False, ty
     """Project mutually-exclusive CLI language flags into the internal language axis.
 
     Returns:
-        Selected language, None when unrestricted, or a parse Fault when flags conflict.
+        Selected language, ``None`` when unrestricted, or a parse fault when flags conflict.
     """
     selected = tuple(
         language for language, active in ((Language.CSHARP, csharp), (Language.PYTHON, python), (Language.TYPESCRIPT, typescript)) if active
@@ -695,10 +698,10 @@ def receipt(
 
 
 def validate_detail(detail: AnyDetail | None) -> AnyDetail | None:
-    """Round-trip detail through the tagged-union codec to enforce tag and field constraints.
+    """Round-trip detail through the tagged-union codec.
 
     Returns:
-        The decoded detail, or None when the input is None.
+        Validated detail, or ``None`` when absent.
     """
     value: AnyDetail | None = msgspec.convert(msgspec.to_builtins(detail), AnyDetail | None)
     return value
@@ -981,15 +984,12 @@ def _diagnostic_notes(rows: tuple[Match, ...]) -> tuple[str, ...]:
 
 
 def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None, sarif_dir: str | None = None) -> Report:
-    """Fold outcomes into a Report: aggregate status, ok/fail counts, defect tail rows, and notes.
+    """Fold process outcomes and evidence into a rail report.
 
-    ``sarif_dir`` decodes any ``*.sarif`` documents under the run scope into per-diagnostic
-    evidence rows (id, severity, line, text). Static source diagnostics participate in the verdict:
-    source error rows fail, non-error rows promote a ran-empty receipt to ok, generated diagnostics
-    remain evidence, and absent or empty directories fold silently to no rows.
+    Static source error rows fail the report; generated diagnostics remain evidence-only, and absent SARIF folds to no rows.
 
     Returns:
-        Report carrying folded status, ok/fail counts, defect and SARIF evidence rows, collected artifacts, notes, and optional detail.
+        Report carrying status, counts, artifacts, evidence rows, notes, and optional detail.
     """
     pairs = tuple(map(_count, outcomes))
     ok_n = sum(ok for ok, _ in pairs)
@@ -1031,7 +1031,7 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
 
 
 def envelope(payload: Report | Fault, *, claim: Claim, verb: str, run_id: str = "", error_context: Diagnostic | None = None) -> Envelope:
-    """Return a top-level Envelope carrying either a Report or a Fault with exit-code derived from status."""
+    """Return an envelope with exit code derived from report or fault status."""
     match payload:
         case Report() as r:
             return Envelope(schema_version=1, claim=claim, verb=verb, status=r.status, exit_code=r.status.exit_code, run_id=run_id, report=r)
@@ -1054,10 +1054,10 @@ def wire_encode(value: object) -> bytes:
 
 
 def wire_safe(text: str) -> str:
-    """Replace lone surrogates (PEP 383 surrogateescape from invalid-UTF-8 argv) with U+FFFD so msgspec can encode the result.
+    """Replace lone surrogates so msgspec can UTF-8 encode argv-derived text.
 
     Returns:
-        A string msgspec can UTF-8 encode for the wire.
+        Wire-encodable text.
     """
     return text.encode("utf-8", "replace").decode("utf-8")
 
@@ -1082,6 +1082,7 @@ __all__ = [
     "Base",
     "BaseParams",
     "Bind",
+    "BridgeLifecycle",
     "Check",
     "Claim",
     "Completed",

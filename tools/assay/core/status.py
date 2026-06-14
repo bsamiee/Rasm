@@ -52,13 +52,9 @@ class RailStatus(StrEnum):
 
 
 class Step(StrEnum):
-    """Bounded fault-step taxonomy for rail fault classification.
+    """Fault-step taxonomy whose declaration order drives prefix classification.
 
-    Declaration order is the prefix-scan order used to classify a fault's failing step. Only the
-    ``scan=True`` members are stamped as ``{step}:`` message prefixes and walked by ``_failing_step``'s
-    prefix scan; SPAWN closes that roster as the unprefixed fallback and never appears as a prefix.
-    The trailing classification-only members (TIMEOUT, LEASE_BUSY, DEFECTS) name failing steps derived
-    from rail status rather than message prefixes and stay out of the scan roster.
+    ``scan=True`` members may appear as ``{step}:`` message prefixes; status-derived members stay classification-only.
     """
 
     scan: bool  # bound by __new__; True for the prefix-scan roster, False for status-derived classifications
@@ -90,7 +86,7 @@ def join(left: RailStatus, right: RailStatus) -> RailStatus:
 
 
 def fold(*members: RailStatus) -> RailStatus:
-    """Reduce statuses under `join`, seeded at `EMPTY`.
+    """Reduce statuses under ``join``, seeded at ``EMPTY``.
 
     Returns:
         The highest-severity status among the supplied members.
