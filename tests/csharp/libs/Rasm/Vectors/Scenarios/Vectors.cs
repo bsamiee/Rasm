@@ -1,14 +1,14 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using Rasm.Bridge.Scenarios;
+using Rasm.TestKit.Scenarios;
 using Rasm.Domain;
 using Rasm.Vectors;
 using Rhino;
 using Rhino.Geometry;
 using Dimension = Rasm.Vectors.Dimension;
 
-namespace Rasm.Scenarios;
+namespace Rasm.Tests.Vectors.Scenarios;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 

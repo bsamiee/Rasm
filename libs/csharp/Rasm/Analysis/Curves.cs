@@ -188,7 +188,7 @@ public static partial class Analyze {
     internal static Fin<Option<CurveForm>> ClassifyCurveForm(TopologyProjection projection, Context context, Op op) =>
         projection.As<Curve>()
             .ToFin(op.InvalidResult())
-            .Bind(curve => GeometryKernel.CurveFormOf(curve: curve, context: context, op: op).Map(static form => Some(form)));
+            .Bind(curve => GeometryKernel.CurveFormOf(curve: curve, context: context).Map(static form => Some(form)));
     private static Fin<Seq<TopologyProjection>> CurveInput(object source, Curves aspect, Op op) =>
         GeometryKernel.CurveForm(source: source, op: op).Bind(lease => lease.Use(native => aspect switch {
             Curves candidate when Curves.HasEdgeFeature(candidate, allowNone: true, CurveFeature.Boundary) && native.TryGetPolyline(polyline: out Polyline polyline) && polyline.SegmentCount > 0 =>

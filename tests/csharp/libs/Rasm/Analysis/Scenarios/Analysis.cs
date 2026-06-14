@@ -1,10 +1,10 @@
 using Rasm.Analysis;
-using Rasm.Bridge.Scenarios;
+using Rasm.TestKit.Scenarios;
 using Rasm.Domain;
 using Rhino;
 using Rhino.Geometry;
 
-namespace Rasm.Scenarios;
+namespace Rasm.Tests.Analysis.Scenarios;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 

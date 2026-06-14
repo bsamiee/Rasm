@@ -89,26 +89,26 @@ This table is a lookup by command surface and verb set:
 - Inputs: `check` and `fix` accept `--all`, `--project <project.csproj>`, `--folder <path>...`, and `--file <path>...`; `build` accepts only `--all` or `--project <project.csproj>`.
 - Target binding: each flag consumes space-separated values until the next option; the flag may also be repeated. Commas are literal path characters.
 - Output: shared `Report`; `StaticRun` detail carries targets, routes, planned checks, skipped checks, phase order, resource telemetry, and artifact scopes.
-- Use: `check` previews routes and argv without spawning tools; `build` runs C# diagnostics, restore, and compile proof for one `--project` or explicit `--all`; `fix` runs native formatters and autofixers for folder/file/project/all targets. Public folder/file build targets are rejected instead of deriving a multi-project compile fan.
+- Use: `check` runs non-mutating static rows for the resolved targets; `build` runs build-capable rows for one `--project` or explicit `--all`; `fix` runs native formatters and autofixers for folder/file/project/all targets. Public folder/file build targets are rejected instead of deriving a multi-project compile fan.
 - Example: `uv run python -m tools.assay static check --folder tools/assay tests/python --file tools/assay/rails/static.py`
 - Build example: `uv run python -m tools.assay static build --project tools/rhino-bridge/Supervisor/Supervisor.csproj`
 
 [CODE_COMMANDS]:
 - Verbs: `search`, `query`
-- Inputs: `[paths...]`, `--language`, `--pattern`, `--max-results`
+- Inputs: `[paths...]`, `--csharp`, `--python`, `--typescript`, `--pattern`, `--max-results`
 - Output: `Match` rows and rail artifacts.
 - Use: literal patterns route to ripgrep content search; `$NAME` metavar patterns route to ast-grep structural search; `query` runs an in-process tree-sitter AST query.
 - Grep overlap: the content sub-arm intentionally overlaps the harness Grep tool. It is kept deliberately so a content search produces the same one-`Envelope`, artifact-backed result contract as every other rail rather than raw matcher output.
-- Example: `uv run python -m tools.assay code search --pattern run_check --language python tools/assay`
+- Example: `uv run python -m tools.assay code search --pattern run_check --python tools/assay`
 
 [TEST_COMMANDS]:
 - Verbs: `run`, `list`, `coverage`
-- Inputs: `[paths...]`, `--language`, `--mutation`, `--benchmark`, `--coverage`
+- Inputs: `[paths...]`, `--csharp`, `--python`, `--typescript`, `--mutation`, `--benchmark`, `--coverage`
 - Source-exposed params: `--target`, `--all`, `--filter`, `--limit`, `--grep`
 - Output: `TestRun` detail, or `Match` rows for `list`.
 - Use: mutation is `off`, `changed`, or `full`; `target` and `all` constrain mutation eligibility, while `filter` narrows .NET list/run invocations. `list` emits direct test identity rows and keeps discovery diagnostics separate.
 - List truth: `list` carries `detail.selected` = the pre-limit discovered total (the structured surface an agent reads); the `discovery: total=… returned=…` note tracks discovered vs roster after `--limit`. Any further clip to the wire rows is owned by the result cap and its in-band truncation note (see [5]).
-- Example: `uv run python -m tools.assay test run --language csharp tests/csharp`
+- Example: `uv run python -m tools.assay test run --csharp tests/csharp`
 
 [BRIDGE_COMMANDS]:
 - Verbs: `verify`, `doctor`, `launch`, `quit`, `check`, `clean`, `build`

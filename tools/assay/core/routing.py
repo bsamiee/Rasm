@@ -28,6 +28,7 @@ from tools.assay.core.model import (  # noqa: TC001  # msgspec needs Language/To
     Input,
     Language,
     Mode,
+    Runner,
     Tool,
 )
 from tools.assay.core.status import RailStatus
@@ -306,7 +307,7 @@ def _resolve(language: Language, changed: tuple[str, ...], universe: tuple[str, 
 def infer_languages(paths: RoutePaths, available: tuple[Language, ...]) -> tuple[Language, ...]:
     """Infer target languages from path suffixes, preserving ``available`` order.
 
-    Smart-default resolution for rails when ``--language`` is omitted: suffix-set
+    Smart-default resolution for rails when no explicit language selector is supplied: suffix-set
     intersection narrows to the languages the given paths actually touch, so explicit
     paths never fan out to unrelated language toolchains.
 
@@ -424,7 +425,7 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
             # cannot run managed; RESTORE/BUILD lanes keep them because compilation is managed-safe.
             kept = routed.projects if tool.mode in {Mode.RESTORE, Mode.BUILD} else tuple(p for p in routed.projects if p not in routed.host_bound)
             projects = kept or ((str(settings.test_target),) if tool.mode is Mode.LIST and not routed.projects else ())
-            return tuple((project,) for project in projects)
+            return tuple(("--project", project) if tool.runner is Runner.DOTNET and tool.command[:1] == ("test",) else (project,) for project in projects)
         case Input.SOLUTION:
             return ((str(settings.solution),),)
         case Input.NONE:

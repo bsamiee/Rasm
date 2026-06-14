@@ -90,7 +90,7 @@ public static class Spec {
     public static void None<T>(Option<T> result) =>
         _ = result.Match(Some: value => throw new XunitException(userMessage: $"Expected None; got Some: {value}"), None: static () => unit);
     public static void CountsConserve(int attempted, int emitted, int rejected, string label) {
-        Holds(condition: attempted >= 0 && emitted >= 0 && rejected >= 0, label: $"{label}: negative count (attempted={attempted}, emitted={emitted}, rejected={rejected})");
+        Holds(condition: attempted >= 0 && emitted >= 0 && rejected >= 0, label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}: negative count (attempted={attempted}, emitted={emitted}, rejected={rejected})"));
         Assert.Equal(expected: attempted, actual: emitted + rejected);
     }
     // Order-independent: Error.+ produces ManyErrors on double-fault; flatten + ordinal-sort asserts Applicative commutativity.
@@ -134,42 +134,42 @@ public static class Spec {
     // Facade over Approx.Equal defaulting to absolute tolerance; advanced specs build Tolerance directly (Hybrid/FromContext).
     public static void Equal(double left, double right, double tolerance = 1e-9, string? what = null) =>
         Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)),
-           label: $"{what ?? "Equal"}: |{left:R} - {right:R}| = {Math.Abs(left - right):R} > {tolerance:R}");
+           label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Equal"}: |{left:R} - {right:R}| = {Math.Abs(left - right):R} > {tolerance:R}"));
     public static void Equal(Point3d left, Point3d right, double tolerance = 1e-9, string? what = null) =>
         Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)),
-           label: $"{what ?? "Point3d"}: {left} ≠ {right} (d={left.DistanceTo(other: right):R} > {tolerance:R})");
+           label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Point3d"}: {left} ≠ {right} (d={left.DistanceTo(other: right):R} > {tolerance:R})"));
     public static void Equal(Vector3d left, Vector3d right, double tolerance = 1e-9, string? what = null) =>
         Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)),
-           label: $"{what ?? "Vector3d"}: {left} ≠ {right} (|Δ|={(left - right).Length:R} > {tolerance:R})");
+           label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Vector3d"}: {left} ≠ {right} (|Δ|={(left - right).Length:R} > {tolerance:R})"));
     public static void Equal(Plane left, Plane right, double tolerance = 1e-9, string? what = null) =>
-        Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)), label: $"{what ?? "Plane"} mismatch (tol={tolerance:R})");
+        Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)), label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Plane"} mismatch (tol={tolerance:R})"));
     public static void Equal(Transform left, Transform right, double tolerance = 1e-9, string? what = null) =>
-        Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)), label: $"{what ?? "Transform"} mismatch (tol={tolerance:R})");
+        Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)), label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Transform"} mismatch (tol={tolerance:R})"));
     public static void Equal(Arr<double> left, Arr<double> right, double tolerance = 1e-9, string? what = null) {
         Assert.Equal(expected: left.Count, actual: right.Count);
-        Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)), label: $"{what ?? "Arr"} mismatch (tol={tolerance:R})");
+        Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)), label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Arr"} mismatch (tol={tolerance:R})"));
     }
     public static void Equal(Seq<double> left, Seq<double> right, double tolerance = 1e-9, string? what = null) {
         Assert.Equal(expected: left.Count, actual: right.Count);
-        Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)), label: $"{what ?? "Seq"} mismatch (tol={tolerance:R})");
+        Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)), label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Seq"} mismatch (tol={tolerance:R})"));
     }
     // Sign-ambiguous unit-vector equality — eigenvectors and principal axes have arbitrary sign.
     public static void EqualSignAmbiguous(Vector3d left, Vector3d right, double tolerance = 1e-9, string? what = null) =>
         Eq(ok: Math.Min(val1: (left - right).Length, val2: (left + right).Length) <= tolerance,
-           label: $"{what ?? "UnitVec"} (sign-amb): min(|Δ|, |Σ|)={Math.Min(val1: (left - right).Length, val2: (left + right).Length):R} > {tolerance:R}");
+           label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "UnitVec"} (sign-amb): min(|Δ|, |Σ|)={Math.Min(val1: (left - right).Length, val2: (left + right).Length):R} > {tolerance:R}"));
 
     // --- [POLYMORPHIC_COMBINATORS] -----------------------------------------------------
     public static void MonotoneSeq<T>(Gen<Seq<T>> gen, IComparer<T>? comparer = null, string? seed = null, long? iter = null, int? time = null, int? threads = null) =>
         ForAll(gen: gen, property: values => _ = toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: values.Count - 1))).Iter(i =>
             Holds(condition: (comparer ?? Comparer<T>.Default).Compare(x: values[index: i - 1], y: values[index: i]) <= 0,
-                  label: $"MonotoneSeq[{i}]: {values[index: i - 1]} > {values[index: i]}")), seed: seed, iter: iter, time: time, threads: threads);
+                  label: string.Create(provider: CultureInfo.InvariantCulture, $"MonotoneSeq[{i}]: {values[index: i - 1]} > {values[index: i]}"))), seed: seed, iter: iter, time: time, threads: threads);
     public static void Distributive<T>(Gen<(T A, T B, T C)> gen, Func<T, T, T> mul, Func<T, T, T> add, Func<T, T, bool>? eq = null) =>
         EqLaw(gen: gen, left: t => mul(t.A, add(t.B, t.C)), right: t => add(mul(t.A, t.B), mul(t.A, t.C)), eq: eq);
     public static void Linearity<T>(Gen<(T A, T B, double K)> gen, Func<T, T, T> add, Func<T, double, T> scale, Func<T, T, bool>? eq = null) =>
         EqLaw(gen: gen, left: t => scale(add(t.A, t.B), t.K), right: t => add(scale(t.A, t.K), scale(t.B, t.K)), eq: eq);
     public static void TriangleInequality<T>(Gen<(T A, T B, T C)> gen, Func<T, T, double> distance) =>
         ForAll(gen: gen, property: t => Holds(condition: distance(t.A, t.C) <= distance(t.A, t.B) + distance(t.B, t.C) + 1.0e-9,
-            label: $"TriangleInequality: d(a,c)={distance(t.A, t.C):R} > d(a,b)+d(b,c)={distance(t.A, t.B) + distance(t.B, t.C):R}"));
+            label: string.Create(provider: CultureInfo.InvariantCulture, $"TriangleInequality: d(a,c)={distance(t.A, t.C):R} > d(a,b)+d(b,c)={distance(t.A, t.B) + distance(t.B, t.C):R}")));
     public static void FinChainOrder<T>(Gen<T> gen, Func<T, Fin<T>> first, Func<T, Fin<T>> second, Func<T, T, bool>? eq = null) =>
         ForAll(gen: gen, property: value => {
             (Fin<T> left, Fin<T> right) = (first(value).Bind(second), second(value).Bind(first));
@@ -267,7 +267,7 @@ public static class Spec {
         _ = toSeq(Enumerable.Range(start: 0, count: points.Count)
             .SelectMany(i => Enumerable.Range(start: i + 1, count: points.Count - i - 1).Select(j => (i, j))))
             .Iter(p => Holds(condition: points[index: p.i].DistanceTo(other: points[index: p.j]) >= minDistance - RhinoMath.ZeroTolerance,
-                label: $"{label}[{p.i},{p.j}]: {points[index: p.i].DistanceTo(other: points[index: p.j]):R} < {minDistance:R}"));
+                label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}[{p.i},{p.j}]: {points[index: p.i].DistanceTo(other: points[index: p.j]):R} < {minDistance:R}")));
     public static void Converged<TStop>(TStop actualStop, TStop expectedStop, int iterations, int maxIterations) {
         Assert.Equal(expected: expectedStop, actual: actualStop);
         Assert.InRange(actual: iterations, low: 1, high: maxIterations);

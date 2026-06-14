@@ -262,8 +262,8 @@ def test_fold_sarif_level_maps_to_assay_severity(level: str | None, severity: st
     assert "tone probe" in report.results[0].text
 
 
-def test_fold_sarif_rows_are_evidence_only(tmp_path: Path) -> None:
-    """SARIF rows ride results without touching status/counts/exit; exact duplicate source diagnostics dedupe before capping."""
+def test_fold_sarif_error_rows_fail_static_report(tmp_path: Path) -> None:
+    """Error-level SARIF rows make static folds fail while exact duplicate source diagnostics dedupe before capping."""
     sarif_dir = _sarif_drop(
         tmp_path,
         a=_sarif_doc(_sarif_result("CSP0101", "error", 3, "alpha"), _sarif_result("CSP0202", "warning", 7, "beta")),
@@ -272,18 +272,35 @@ def test_fold_sarif_rows_are_evidence_only(tmp_path: Path) -> None:
     )
     report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
     assert [m.id for m in report.results] == ["csp0101", "csp0202", "csp0903"]
-    assert report.status is RailStatus.OK, "error-level SARIF evidence must not flip the rail status"
+    assert report.status is RailStatus.FAILED
     assert report.counts == Counts(ok=1, failed=0, total=1)
-    assert envelope(report, claim=Claim.STATIC, verb="build").exit_code == 0
+    assert envelope(report, claim=Claim.STATIC, verb="build").exit_code == 1
 
 
 def test_fold_static_source_diagnostics_precede_defect_rows(tmp_path: Path) -> None:
-    """Static folds rank source diagnostics ahead of process-tail fallback rows; exit code derives from outcomes alone."""
+    """Static folds rank source diagnostics ahead of process-tail fallback rows."""
     sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0101", "error", 3, "alpha")))
     report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 1, stderr=b"CS0103: boom"),), sarif_dir=sarif_dir)
     assert [(m.id, m.severity) for m in report.results] == [("csp0101", "error"), ("dotnet", "failed")]
     assert report.status is RailStatus.FAILED
     assert report.counts == Counts(ok=0, failed=1, total=1)
+
+
+def test_fold_static_note_only_sarif_promotes_empty_receipt_to_ok(tmp_path: Path) -> None:
+    """Note-only SARIF diagnostics keep a successful static run ok, not empty."""
+    sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0903", "note", 1, "gamma")))
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.EMPTY),), sarif_dir=sarif_dir)
+    assert [(m.id, m.severity) for m in report.results] == [("csp0903", "info")]
+    assert report.status is RailStatus.OK
+    assert report.counts == Counts(ok=1, failed=0, total=1)
+
+
+def test_fold_static_green_executed_rows_are_ok() -> None:
+    """A static check that ran successfully with no diagnostics reports ok instead of empty."""
+    report = fold(Claim.STATIC, "check", (receipt(("ruff",), 0, status=RailStatus.EMPTY),))
+    assert report.results == ()
+    assert report.status is RailStatus.OK
+    assert report.counts == Counts(ok=1, failed=0, total=1)
 
 
 def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> None:

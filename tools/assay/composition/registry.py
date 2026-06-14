@@ -783,7 +783,7 @@ _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (
 )
 
 REGISTRY: Final[tuple[Bind, ...]] = (
-    Bind(Claim.STATIC, "check", static_rail.check, StaticParams, "Scoped route and argv preview."),
+    Bind(Claim.STATIC, "check", static_rail.check, StaticParams, "Scoped non-mutating static execution."),
     Bind(Claim.STATIC, "build", static_rail.build, StaticBuildParams, "Single-project or whole-workspace diagnostics, restore, and build."),
     Bind(Claim.STATIC, "fix", static_rail.fix, StaticParams, "Scoped native formatter and autofix."),
     Bind(Claim.CODE, "search", code_rail.search, CodeParams, "Search: $-metavar -> ast-grep structural; literal -> ripgrep content."),

@@ -235,11 +235,12 @@ public static partial class Analyze {
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
                 from result in GeometryKernel.SurfaceForm(source: geometry, op: state.Key)
-                    .Bind(lease => lease.Use(surface =>
-                        from uvStart in GeometryKernel.SurfaceUv(surface: surface, uv: state.Start, context: context, key: state.Key)
-                        from uvEnd in GeometryKernel.SurfaceUv(surface: surface, uv: state.End, context: context, key: state.Key)
-                        from path in Optional(surface.ShortPath(start: uvStart, end: uvEnd, tolerance: context.Absolute.Value)).ToFin(state.Key.InvalidResult())
-                        select Seq(path))).ToEff()
+                    .Bind((Lease<Surface> lease) => lease.Use((Surface surface) =>
+                        GeometryKernel.SurfaceUv(surface: surface, uv: state.Start, context: context, key: state.Key)
+                            .Bind((Point2d uvStart) => GeometryKernel.SurfaceUv(surface: surface, uv: state.End, context: context, key: state.Key)
+                                .Bind((Point2d uvEnd) => Optional(surface.ShortPath(start: uvStart, end: uvEnd, tolerance: context.Absolute.Value))
+                                    .ToFin(state.Key.InvalidResult())
+                                    .Map((Curve path) => Seq(path)))))).ToEff()
                 select result);
     internal static Operation<TGeometry, TOut> CurvatureOp<TGeometry, TOut>(int count, CurvatureMode mode, CurvatureAggregation agg) where TGeometry : notnull {
         Op key = Op.Of(name: agg is CurvatureAggregation.ExtremaCase ? "CurvatureExtrema" : "CurvatureAt");

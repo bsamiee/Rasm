@@ -31,7 +31,6 @@ namespace Rasm.Bridge.Shell;
 // load exception instead of deleting it — doctor discriminates poisoned-start in one read; the
 // record is evidence and is never deleted by the shell.
 public sealed class ShellHost : IDisposable {
-    private const string EndpointFileName = "rhino-bridge-rbx.json";
     private const int FaultErrorCode = -32050;
     private const int PipeInstances = 4;
 
@@ -175,7 +174,10 @@ public sealed class ShellHost : IDisposable {
         activeManifest = manifest;
         return await pump.OnUiThreadAsync(job: () => {
             PreloadHostPlugins(plugins: manifest.HostPlugins);
-            return gate.Swap(manifest: manifest, publish: Publish);
+            CargoReceipt receipt = gate.Swap(manifest: manifest, publish: Publish);
+            Publish(evt: Fact(key: "scenario.discovered.count", value: receipt.Scenarios.Length.ToString(provider: CultureInfo.InvariantCulture)));
+            Publish(evt: Fact(key: "scenario.discovered.names", value: string.Join(separator: ',', values: receipt.Scenarios.Select(selector: static scenario => scenario.Name))));
+            return receipt;
         }, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
     }
 
@@ -185,6 +187,17 @@ public sealed class ShellHost : IDisposable {
         IBridgeCargo cargo = gate.Current ?? throw new LocalRpcException(message: "no cargo loaded: LoadCargoAsync precedes RunAsync") { ErrorCode = FaultErrorCode };
         ScenarioEntry[] discovered = await pump.OnUiThreadAsync(job: cargo.Discover, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
         ScenarioEntry[] selected = Select(entries: discovered, selection: selection);
+        Publish(evt: Fact(key: "scenario.selected.count", value: selected.Length.ToString(provider: CultureInfo.InvariantCulture)));
+        Publish(evt: Fact(key: "scenario.selected.names", value: string.Join(separator: ',', values: selected.Select(selector: static scenario => scenario.Name))));
+        if (selected.Length == 0) {
+            BridgeFault fault = new BridgeFault.CapabilityAbsent(
+                Capability: "scenario.selection",
+                ProbeReceipt: $"selection matched zero scenarios; discovered={string.Join(separator: ',', values: discovered.Select(selector: static scenario => scenario.Name))}");
+            throw new LocalRpcException(message: fault.Prescription) {
+                ErrorCode = FaultErrorCode,
+                ErrorData = JsonSerializer.SerializeToElement(value: fault, jsonTypeInfo: BridgeJsonContext.Default.BridgeFault),
+            };
+        }
         ScenarioReceipt[] receipts = new ScenarioReceipt[selected.Length];
         for (int index = 0; index < selected.Length; index++) {
             ScenarioEntry entry = selected[index];
@@ -294,7 +307,10 @@ public sealed class ShellHost : IDisposable {
 
     private static CapabilityEntry McpListener() =>
         new(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
-            Receipt: Environment.GetEnvironmentVariable(variable: "RHINO_MCP_AUTOSTART_PORT") == "0"
+            Receipt: string.Equals(
+                    a: Environment.GetEnvironmentVariable(variable: "RHINO_MCP_AUTOSTART_PORT"),
+                    b: "0",
+                    comparisonType: StringComparison.Ordinal)
                 ? "autostart suppressed by RHINO_MCP_AUTOSTART_PORT=0; bridge did not start a listener"
                 : "bridge did not start a listener");
 
@@ -378,7 +394,7 @@ public sealed class ShellHost : IDisposable {
 
     private static bool PopOrClose(object? bag, object document) {
         MethodInfo? pop = bag?.GetType().GetMethods(bindingAttr: BindingFlags.Public | BindingFlags.Instance)
-            .FirstOrDefault(predicate: method => method.Name == "Pop"
+            .FirstOrDefault(predicate: method => string.Equals(a: method.Name, b: "Pop", comparisonType: StringComparison.Ordinal)
                 && method.GetParameters() is { Length: 2 } parameters
                 && parameters[0].ParameterType.IsInstanceOfType(o: document)
                 && parameters[1].ParameterType == typeof(bool));
@@ -460,17 +476,12 @@ public sealed class ShellHost : IDisposable {
 
     // --- [ENDPOINT] -----------------------------------------------------------------------------
 
-    private static string EndpointDirectory =>
-        Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm");
-
-    private static string EndpointPath => Path.Combine(path1: EndpointDirectory, path2: EndpointFileName);
-
     private void EnsureEndpoint() {
         // BOUNDARY ADAPTER — the endpoint file heals on every hello: a missing, foreign, or
         // poisoned record is rewritten from the live truth.
         try {
-            EndpointRecord? onDisk = File.Exists(path: EndpointPath)
-                ? JsonSerializer.Deserialize(json: File.ReadAllText(path: EndpointPath), jsonTypeInfo: BridgeJsonContext.Default.EndpointRecord)
+            EndpointRecord? onDisk = File.Exists(path: EndpointRecord.EndpointPath)
+                ? JsonSerializer.Deserialize(json: File.ReadAllText(path: EndpointRecord.EndpointPath), jsonTypeInfo: BridgeJsonContext.Default.EndpointRecord)
                 : null;
             if (onDisk is null || onDisk != endpoint) {
                 WriteEndpoint(record: endpoint);
@@ -481,8 +492,8 @@ public sealed class ShellHost : IDisposable {
     }
 
     private static void WriteEndpoint(EndpointRecord record) {
-        _ = Directory.CreateDirectory(path: EndpointDirectory);
-        using FileStream stream = new(path: EndpointPath, mode: FileMode.Create, access: FileAccess.Write, share: FileShare.Read);
+        _ = Directory.CreateDirectory(path: EndpointRecord.EndpointDirectory);
+        using FileStream stream = new(path: EndpointRecord.EndpointPath, mode: FileMode.Create, access: FileAccess.Write, share: FileShare.Read);
         JsonSerializer.Serialize(utf8Json: stream, value: record, jsonTypeInfo: BridgeJsonContext.Default.EndpointRecord);
     }
 
@@ -491,8 +502,8 @@ public sealed class ShellHost : IDisposable {
         // admit), so it is written field-for-field with the extra `fault` member; last-resort
         // console line only when the evidence write itself fails.
         try {
-            _ = Directory.CreateDirectory(path: EndpointDirectory);
-            using FileStream stream = new(path: EndpointPath, mode: FileMode.Create, access: FileAccess.Write, share: FileShare.Read);
+            _ = Directory.CreateDirectory(path: EndpointRecord.EndpointDirectory);
+            using FileStream stream = new(path: EndpointRecord.EndpointPath, mode: FileMode.Create, access: FileAccess.Write, share: FileShare.Read);
             using Utf8JsonWriter writer = new(utf8Json: stream);
             writer.WriteStartObject();
             writer.WriteString(propertyName: "pipeName", value: string.Empty);

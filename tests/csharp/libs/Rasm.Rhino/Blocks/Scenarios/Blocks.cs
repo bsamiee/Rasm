@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using Rasm.Bridge.Scenarios;
+using Rasm.TestKit.Scenarios;
 using Rasm.Domain;
 using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Commands;
@@ -10,7 +10,7 @@ using Rhino.DocObjects;
 using Rhino.FileIO;
 using Rhino.Geometry;
 
-namespace Rasm.Rhino.Scenarios;
+namespace Rasm.Rhino.Tests.Blocks.Scenarios;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 

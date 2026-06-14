@@ -5,13 +5,13 @@
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
-from expression import Error
+from expression import Error, Ok
 import pytest
 
 from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_error_status, assert_ok, support_matrix
 from tools.assay.composition.registry import REGISTRY
-from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, Runner, StaticRun, Tool
+from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, receipt, Runner, StaticRun, Tool
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 import tools.assay.rails.static as static_rail
@@ -31,6 +31,10 @@ if TYPE_CHECKING:
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _ok_static_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
+    return tuple(Ok(receipt((check.tool.name,), 0, status=RailStatus.OK)) for check in checks)
 
 # --- [STATICPARAMS_LAWS]
 
@@ -69,11 +73,14 @@ def test_registry_exposes_only_scoped_static_verbs() -> None:
 register_law(REGISTRY, "static_verbs_are_collapsed")
 
 
-def test_cli_consumes_grouped_folder_and_file_targets(cli: VerbRunner, assay_root: AssayHarness) -> None:
+def test_cli_consumes_grouped_folder_and_file_targets(
+    cli: VerbRunner, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """One ``--folder`` consumes multiple folders until ``--file``; one ``--file`` consumes multiple files."""
     assay_root.write("src/a.py", "")
     assay_root.write("pkg/b.py", "")
     assay_root.write("single/c.py", "")
+    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
     result = cli("static", "check", "--folder", "src", "pkg", "--file", "single/c.py")
     report = result.envelope.report
     assert report is not None
@@ -107,24 +114,33 @@ register_law(build, "help_excludes_scoped_file_flags")
 # --- [CHECK_LAWS]
 
 
-def test_check_preview_does_not_spawn(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
-    """Check previews exact work through StaticRun without entering leased or fan_out execution."""
+def test_check_executes_non_mutating_rows(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """Check executes non-mutating catalog rows and records the same planned shape in StaticRun."""
     assay_root.write("tools/assay/probe.py", "")
-    monkeypatch.setattr(static_rail, "fan_out", lambda *_a, **_k: pytest.fail("check must not spawn fan_out"))
-    monkeypatch.setattr(static_rail, "leased", lambda *_a, **_k: pytest.fail("check must not acquire execution leases"))
+    calls: list[tuple[Mode, ...]] = []
+
+    def fake_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
+        calls.append(tuple(check.tool.mode for check in checks))
+        return _ok_static_fan(checks)
+
+    monkeypatch.setattr(static_rail, "fan_out", fake_fan)
     report = assert_ok(check(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("tools/assay",))))
     assert isinstance(report.detail, StaticRun)
     assert report.status is RailStatus.OK
+    assert calls
+    assert all(mode is not Mode.WRITE for phase in calls for mode in phase)
     assert report.detail.planned
-    assert report.notes == (f"planned={len(report.detail.planned)} skipped={len(report.detail.skipped)}",)
+    assert report.notes[0] == f"planned={len(report.detail.planned)} skipped={len(report.detail.skipped)}"
 
 
-register_law(check, "preview_has_no_execution_side_effect")
+register_law(check, "executes_non_mutating_rows")
 
 
-def test_check_project_preview_uses_single_project_build(assay_root: AssayHarness) -> None:
-    """Project preview plans exactly the selected C# project, never reverse-dependent closure."""
+def test_check_project_uses_single_project_build(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """Project check runs diagnostics plus direct owner restore/build, never reverse-dependent closure."""
     assay_root.write("src/App/App.csproj", "<Project />")
+    monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
+    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
     report = assert_ok(check(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(project="src/App/App.csproj")))
     assert isinstance(report.detail, StaticRun)
     assert any(row[0] == "csharp" and row[3] == "1" for row in report.detail.routes)
@@ -133,34 +149,95 @@ def test_check_project_preview_uses_single_project_build(assay_root: AssayHarnes
     assert all(phase != "fix" for phase, _, _ in report.detail.planned)
 
 
-register_law(check, "project_preview_uses_single_project_build")
+register_law(check, "project_uses_single_project_build")
 
 
-def test_check_folder_preview_uses_fix_only(assay_root: AssayHarness) -> None:
-    """Folder/file check previews the native scoped fix path only, not an impossible build phase."""
+def test_check_folder_uses_non_mutating_diagnostics(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """Folder/file check runs scoped non-mutating diagnostics and leaves mutating fixers to static fix."""
     assay_root.write("src/App/a.py", "")
+    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
     report = assert_ok(check(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src/App",))))
     assert isinstance(report.detail, StaticRun)
-    assert report.detail.phases == ("fix",)
-    assert all(phase == "fix" for phase, _, _ in report.detail.planned)
+    assert report.detail.phases == ("diagnostic",)
+    assert all(phase == "diagnostic" for phase, _, _ in report.detail.planned)
 
 
-register_law(check, "folder_preview_uses_fix_only")
+register_law(check, "folder_uses_non_mutating_diagnostics")
 
 
-def test_check_folder_filters_project_files_but_routes_sources(assay_root: AssayHarness) -> None:
+def test_check_folder_filters_project_files_but_routes_sources(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
     """Folder expansion skips project/config files while C# source files still derive an owner closure."""
     assay_root.write("src/App/App.csproj", "<Project />")
     assay_root.write("src/App/a.cs", "class A {}")
     assay_root.write("src/App/packages.lock.json", "{}")
+    monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
+    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
     report = assert_ok(check(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src/App",))))
     assert isinstance(report.detail, StaticRun)
     assert ("folder", "src/App/App.csproj", "project-or-solution") in report.detail.skipped
     assert any(route[0] == "csharp" and route[3] == "1" for route in report.detail.routes)
     assert all("packages.lock.json" not in argv for _, _, argv in report.detail.planned)
+    assert report.notes[0] == f"planned={len(report.detail.planned)} skipped={len(report.detail.skipped)}"
+    assert any(note.startswith("closure[csharp]:") for note in report.notes)
 
 
 register_law(check, "folder_skips_projects_and_routes_sources")
+
+
+def test_check_includes_python_typescript_and_csharp_catalog_rows(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """Check plans and executes the admitted non-mutating rows for Python, TypeScript, and C# targets."""
+    assay_root.write("src/App/App.csproj", "<Project />")
+    assay_root.write("src/App/a.cs", "class A {}")
+    assay_root.write("src/pkg/a.py", "")
+    assay_root.write("src/web/a.ts", "")
+    monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
+    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
+    report = assert_ok(check(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src",))))
+    assert isinstance(report.detail, StaticRun)
+    planned_names = {name for _, name, _ in report.detail.planned}
+    assert {"ruff", "ruff-format", "ty", "mypy", "ast-grep-py", "py-analyzer"} <= planned_names
+    assert {"biome", "ast-grep-ts"} <= planned_names
+    assert {"dotnet-format", "dotnet-restore", "dotnet-build"} <= planned_names
+    assert report.counts.total == len(report.detail.planned)
+
+
+register_law(check, "includes_python_typescript_and_csharp_catalog_rows")
+
+
+def test_full_static_route_keeps_typescript_build_row(assay_root: AssayHarness) -> None:
+    """Full TypeScript static routes keep the project-wide tsc build row while scoped TS files skip it."""
+    full = Routed(Language.TYPESCRIPT, Scope.FULL, files=(".",))
+    scoped = Routed(Language.TYPESCRIPT, Scope.CHANGED, files=("src/web/a.ts",))
+    full_phases, full_skipped = static_rail._phase_checks(full, (Mode.CHECK, Mode.BUILD), assay_root.settings, assay_root.scope(Claim.STATIC))
+    scoped_phases, scoped_skipped = static_rail._phase_checks(scoped, (Mode.CHECK, Mode.BUILD), assay_root.settings, assay_root.scope(Claim.STATIC))
+    assert any(check.tool.name == "tsc" for _, checks in full_phases for check in checks)
+    assert not any(row[1] == "tsc" for row in full_skipped)
+    assert not any(check.tool.name == "tsc" for _, checks in scoped_phases for check in checks)
+    assert ("build", "tsc", "project-wide tool unsupported by scoped static") in scoped_skipped
+
+
+register_law(static_rail._phase_checks, "full_typescript_keeps_build_row")
+
+
+def test_fix_executes_mutating_rows_only(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """Fix executes write-mode formatter/fixer rows without smuggling build/check work into the write lane."""
+    assay_root.write("src/pkg/a.py", "")
+    calls: list[tuple[Mode, ...]] = []
+
+    def fake_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
+        calls.append(tuple(check.tool.mode for check in checks))
+        return _ok_static_fan(checks)
+
+    monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
+    monkeypatch.setattr(static_rail, "fan_out", fake_fan)
+    report = assert_ok(fix(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(files=("src/pkg/a.py",))))
+    assert isinstance(report.detail, StaticRun)
+    assert report.detail.phases == ("fix",)
+    assert calls
+    assert all(mode is Mode.WRITE for phase in calls for mode in phase)
+
+
+register_law(fix, "executes_mutating_rows_only")
 
 
 # --- [EXECUTION_GUARDS]

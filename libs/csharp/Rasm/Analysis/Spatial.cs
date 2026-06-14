@@ -117,7 +117,11 @@ public sealed class SpatialIndex : IDisposable {
         Seq(items)
             .TraverseM(static geometry => Optional(geometry)
                 .ToFin(new Fault.MissingGeometry())
-                .Bind(static candidate => guard(candidate.IsValid, Key.InvalidInput()).ToFin().Bind(_ => candidate.BoundsOf(op: Key).Bind(static box => guard(box.IsValid, Key.InvalidInput()).ToFin().Map(_ => box)))))
+                .Bind(static (TGeometry candidate) =>
+                    from _ in guard(candidate.IsValid, Key.InvalidInput()).ToFin()
+                    from box in candidate.BoundsOf(op: Key)
+                    from valid in guard(box.IsValid, Key.InvalidInput()).ToFin()
+                    select box))
             .As()
             .Map(static boxes => boxes.ToArray());
     private static Fin<Seq<SpatialHit>> Search<TShape>(RTree tree, TShape shape, Func<RTree, TShape, EventHandler<RTreeEventArgs>, bool> run, CancellationToken cancel) =>

@@ -5,7 +5,7 @@
 ## [1]-[REQUIREMENTS]
 
 - macOS with RhinoWIP installed under `/Applications`, or `RHINO_WIP_APP_PATH` set to one Rhino `.app` bundle.
-- Restored .NET project graph for the bridge projects and typed scenario projects.
+- Restored .NET project graph for the bridge projects and test projects that own typed scenarios.
 - Assay invocation from the repository root.
 - One live RhinoWIP bridge session per machine. Assay serializes bridge, verify, and package lifecycle work through the shared `bridge` lease.
 - Bridge artifacts route under `.artifacts/assay/bridge/<runId>/`; endpoint and lease state route under `~/.rasm/`.
@@ -27,15 +27,15 @@ uv run python -m tools.assay bridge verify blocks
 uv run python -m tools.assay bridge verify blocks,ui
 uv run python -m tools.assay bridge verify CoreRail
 uv run python -m tools.assay bridge verify 'blocks.*'
-uv run python -m tools.assay bridge verify tests/csharp/libs/Rasm.Rhino.Scenarios
+uv run python -m tools.assay bridge verify tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios
 ```
 
 Selection rules:
 - Empty, `all`, or `*` selects every typed scenario corpus.
 - A theme token selects every scenario in that theme.
 - A full scenario name, bare scenario method name, or glob selects matching scenario names.
-- A scenario project path or project parent path selects that corpus.
-- Script-file scenario discovery is absent. Typed `[RhinoScenario]` projects own scenario discovery and emit `bridge-closure.json`.
+- A scenario owner path, project path, or theme-local `Scenarios/` path selects that corpus.
+- Script-file scenario discovery is absent. Test-owned typed `[RhinoScenario]` sources own scenario discovery and emit `bridge-closure.json`.
 
 ## [4]-[COMMAND_SURFACE]
 
@@ -43,7 +43,7 @@ Public Assay bridge verbs map to these effects.
 
 | [INDEX] | [COMMAND]                 | [EFFECT]                                                                         |
 | :-----: | :------------------------ | :------------------------------------------------------------------------------- |
-|   [1]   | `bridge build`            | Compile bridge projects and typed scenario closures.                             |
+|   [1]   | `bridge build`            | Compile bridge projects and test-owned typed scenario closures.                  |
 |   [2]   | `bridge doctor`           | Launch or reuse RhinoWIP; return endpoint, host, RPC, MCP, and capability facts. |
 |   [3]   | `bridge launch`           | Public lifecycle alias for doctor semantics.                                     |
 |   [4]   | `bridge check`            | Public lifecycle alias for doctor semantics.                                     |
@@ -107,7 +107,7 @@ flowchart LR
     Supervisor <--> Pipe["Named pipe + StreamJsonRpc"]
     Pipe <--> Shell
     Shell --> Cargo["Cargo ALC"]
-    Cargo --> Scenarios["Typed [RhinoScenario] assemblies"]
+    Cargo --> Scenarios["Test assemblies with [RhinoScenario] methods"]
     Cargo --> ReportDir[".artifacts/assay/bridge/<runId>"]
 ```
 
@@ -197,7 +197,7 @@ Typed scenario entrypoints carry `[RhinoScenario("<theme>")]` and accept one `Sc
 
 Capability requirements live on the attribute as `Requires`. Cargo probes `cargo.hotswap`, `eventpipe`, `exception.tap`, `gh2.dataflow`, and `gh2.render`, then rejects scenarios whose required capability is not `ok`.
 
-Scenario code does not write `#r`, `#load`, absolute build-output paths, or local report paths. Assay builds typed scenario projects, reads each `bridge-closure.json`, aggregates selected closures, and hands the manifest to the supervisor.
+Scenario code does not write `#r`, `#load`, absolute build-output paths, or local report paths. Assay builds the test projects that own typed scenarios, reads each `bridge-closure.json`, aggregates selected closures, and hands the manifest to the supervisor.
 
 ## [10]-[INTEGRATIONS]
 

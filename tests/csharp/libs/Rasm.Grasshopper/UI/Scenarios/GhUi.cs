@@ -1,8 +1,8 @@
-using Rasm.Bridge.Scenarios;
+using Rasm.TestKit.Scenarios;
 using Rasm.Grasshopper.UI;
 using Rhino;
 
-namespace Rasm.Grasshopper.Scenarios;
+namespace Rasm.Grasshopper.Tests.UI.Scenarios;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 

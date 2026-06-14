@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using Rasm.Bridge.Scenarios;
+using Rasm.TestKit.Scenarios;
 using Rasm.Rhino.Camera;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Exchange;
@@ -11,7 +11,7 @@ using Rhino.Geometry;
 using DrawingColor = System.Drawing.Color;
 using DrawingPointF = System.Drawing.PointF;
 
-namespace Rasm.Rhino.Scenarios;
+namespace Rasm.Rhino.Tests.Exchange.Scenarios;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 

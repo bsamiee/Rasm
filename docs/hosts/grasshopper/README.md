@@ -7,7 +7,7 @@ Grasshopper 2 host behavior comes from local GH2 XML, decompile confirmation whe
 - Member availability: local GH2 XML and the API rail.
 - Missing XML semantics: decompile confirmation or runtime bridge scenario.
 - Boundary design: `Rasm.Grasshopper` and architecture routes.
-- Runtime confirmation: owner-owned `*.verify.csx` scenarios through the bridge rail.
+- Runtime confirmation: owner-owned typed `[RhinoScenario]` sources through the bridge rail.
 
 ## [2]-[BOUNDARIES]
 

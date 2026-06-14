@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using Rasm.Domain;
 using Rasm.Vectors;
 using Rhino;
@@ -213,8 +214,8 @@ public static class Gens {
     // Row-major builder; rows/cols are caller-validated (≥ 1) and throw on invariant break.
     private static VectorMatrix BuildMatrix(int rows, int cols, double[] entries) =>
         VectorMatrix.Of(
-            rows: Dim.TryCreate(rows, out Dim r) ? r : throw new InvalidOperationException($"BuildMatrix rows: {rows}"),
-            cols: Dim.TryCreate(cols, out Dim c) ? c : throw new InvalidOperationException($"BuildMatrix cols: {cols}"),
+            rows: Dim.TryCreate(rows, out Dim r) ? r : throw new InvalidOperationException(string.Create(provider: CultureInfo.InvariantCulture, $"BuildMatrix rows: {rows}")),
+            cols: Dim.TryCreate(cols, out Dim c) ? c : throw new InvalidOperationException(string.Create(provider: CultureInfo.InvariantCulture, $"BuildMatrix cols: {cols}")),
             entries: new Arr<double>(entries))
             .Match(Succ: static m => m, Fail: static e => throw new InvalidOperationException($"BuildMatrix invariant: {e.Message}"));
     public static Gen<(double Theta, VectorMatrix R)> RotationMatrix2D(Gen<double>? angle = null) =>

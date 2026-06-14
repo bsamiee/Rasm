@@ -541,10 +541,6 @@ class BaseParams:
         tuple[str, ...],
         Parameter(name="paths", help="Positional tokens: paths plus the verb's leading slots (pattern, symbol, key, token); surplus tokens fault."),
     ] = ()
-    # show_default stays False: cyclopts 4.16.1 help renders Enum-hinted defaults via default_val.name
-    # BEFORE consulting any show_default callable (cyclopts/help/help.py Enum branch), so a None default
-    # crashes --help with AttributeError regardless of the callable form. Upstream bug; revisit on bump.
-    language: Annotated[Language | None, Parameter(show_default=False)] = None
 
     def _arity(self, verb: str) -> int | None:  # noqa: PLR6301  # polymorphic dispatch point: package/bridge override on self's type to declare 0
         _ = verb
@@ -564,6 +560,27 @@ class BaseParams:
         joined = " ".join(tokens)
         clipped = joined[:_SURPLUS_TOKEN_CAP] + ("…" if len(joined) > _SURPLUS_TOKEN_CAP else "")
         return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: unexpected positional(s): {clipped}")
+
+
+def language_choice(verb: str, *, csharp: bool = False, python: bool = False, typescript: bool = False) -> Language | Fault | None:
+    """Project mutually-exclusive CLI language flags into the internal language axis."""
+    selected = tuple(
+        language
+        for language, active in (
+            (Language.CSHARP, csharp),
+            (Language.PYTHON, python),
+            (Language.TYPESCRIPT, typescript),
+        )
+        if active
+    )
+    match selected:
+        case ():
+            return None
+        case (language,):
+            return language
+        case _:
+            flags = ", ".join(f"--{language.value}" for language in selected)
+            return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: choose one language flag, got {flags}")
 
 
 def receipt(
@@ -737,8 +754,9 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
     """Fold outcomes into a Report: aggregate status, ok/fail counts, defect tail rows, and notes.
 
     ``sarif_dir`` decodes any ``*.sarif`` documents under the run scope into per-diagnostic
-    evidence rows (id, severity, line, text); SARIF rows never alter status, counts, or exit
-    codes, and absent or empty directories fold silently to no rows.
+    evidence rows (id, severity, line, text). Static diagnostics participate in the verdict:
+    error rows fail, non-error rows promote a ran-empty receipt to ok, and absent or empty
+    directories fold silently to no rows.
 
     Returns:
         Report carrying folded status, ok/fail counts, defect and SARIF evidence rows, collected artifacts, notes, and optional detail.
@@ -778,10 +796,18 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
         if claim is Claim.STATIC and diagnostic_rows
         else ()
     )
+    folded_status = rail_fold(*(o.status for o in outcomes))
+    status = (
+        RailStatus.FAILED
+        if claim is Claim.STATIC and any(row.severity == "error" for row in diagnostic_rows)
+        else RailStatus.OK
+        if claim is Claim.STATIC and folded_status is RailStatus.EMPTY and (outcomes or diagnostic_rows)
+        else folded_status
+    )
     return Report(
         claim,
         verb,
-        rail_fold(*(o.status for o in outcomes)),
+        status,
         Counts(ok_n, fail_n, ok_n + fail_n),
         results=results,
         artifacts=tuple(artifact for o in outcomes for artifact in o.artifacts),
@@ -871,6 +897,7 @@ __all__ = [
     "envelope",
     "field_cap",
     "fold",
+    "language_choice",
     "receipt",
     "validate_detail",
     "wire_encode",

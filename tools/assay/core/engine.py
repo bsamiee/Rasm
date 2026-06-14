@@ -245,7 +245,8 @@ def splice_command(
     match (runner, command, scope):
         case (Runner.DOTNET, (verb, *_), ArtifactScope() as s) if verb in scoped_verbs and mode not in {Mode.QUERY, Mode.LIST}:
             cut = command.index("--") if "--" in command else len(command)
-            return (*command[:cut], *s.dotnet_flags, *command[cut:])
+            flags = tuple(flag for flag in s.dotnet_flags if verb != "test" or flag != "--disable-build-servers")
+            return (*command[:cut], *flags, *command[cut:])
         case _:
             return command
 

@@ -625,7 +625,7 @@ public abstract partial record ScalarField {
                                         from basis in FieldNabla.Plane(basis: c.Basis, key: key).Map(static _ => unit)
                                         from strength in FieldNabla.Finite(value: c.Strength, key: key)
                                         select unit,
-            VectorField.CrossFieldCase c => AdmitCrossFieldPayload(field: c, context: context, key: key),
+            VectorField.CrossFieldCase c => AdmitCrossFieldPayload(field: c, key: key),
             VectorField.HodgeCase c => from mesh in FieldNabla.MeshOf(space: c.Space, key: key).Map(static _ => unit)
                                        from source in AdmitVectorSource(source: c.Source, context: context, key: key)
                                        select unit,
@@ -731,7 +731,7 @@ public abstract partial record ScalarField {
                 None: () => receipt.Solve.IsNone),
             key.InvalidResult())
         select unit;
-    private static Fin<Unit> AdmitCrossFieldPayload(VectorField.CrossFieldCase field, Context context, Op key) =>
+    private static Fin<Unit> AdmitCrossFieldPayload(VectorField.CrossFieldCase field, Op key) =>
         from mesh in FieldNabla.MeshOf(space: field.Space, key: key)
         from symmetry in guard(field.Symmetry is 1 or 2 or 4 or 6, key.InvalidInput())
         from constraints in field.Constraints.Match(
@@ -870,7 +870,7 @@ public abstract partial record ScalarField {
                          let support = weightArray.Count(static weight => Math.Abs(value: weight) > RhinoMath.SqrtEpsilon)
                          let weightSum = weightArray.Sum()
                          from value in weightArray.Length == r.Samples.Count && r.Coefficients.Count == r.Samples.Count
-                             ? key.OrDefault().AcceptValue(value: Enumerable.Range(start: 0, count: weightArray.Length).Sum(i => weightArray[i] * r.Coefficients[i]))
+                             ? key.OrDefault().AcceptValue<double>(value: Enumerable.Range(start: 0, count: weightArray.Length).Sum((int i) => weightArray[i] * r.Coefficients[i]))
                              : Fin.Fail<double>(key.OrDefault().InvalidResult())
                          from solve in r.Receipt.Solve.ToFin(key.OrDefault().InvalidResult())
                          select new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: r.Receipt.Mode, Status: r.Receipt.Interpolation ? ReconstructionStatus.ExactInterpolation : ReconstructionStatus.ApproximateSdf, Kernel: r.Kernel, Radius: r.Radius.Value, SampleCount: r.Samples.Count, NeighborhoodCount: support, RejectedWeightCount: r.Samples.Count - support, WeightSum: weightSum, Rank: solve.IsUsable ? solve.Solution.Count : 0, Condition: Option<double>.None, NormalAgreement: Option<double>.None, GradientNorm: Option<double>.None, Solve: solve)),
@@ -1080,18 +1080,18 @@ public abstract partial record ScalarField {
                         0.0, 0.0, 0.0, root,
                     };
                 })]);
-                return Matrix.Of(rows: Dimension.Create(value: 4 * neighborhood.Length), cols: Dimension.Create(value: 4), entries: entries, key: key).Bind(design =>
-                    design.LeastSquaresDetailed(rhs: rhs, key: key).Bind(solve => design.DecomposeSvd(key: key).Bind(svd => {
+                return Matrix.Of(rows: Dimension.Create(value: 4 * neighborhood.Length), cols: Dimension.Create(value: 4), entries: entries, key: key).Bind((Matrix design) =>
+                    design.LeastSquaresDetailed(rhs: rhs, key: key).Bind((SolveReceipt solve) => design.DecomposeSvd(key: key).Bind((SvdResult svd) => {
                         int rank = svd.Rank;
-                        double[] positive = [.. svd.Sigma.AsIterable().Where(static s => s > RhinoMath.SqrtEpsilon)];
+                        double[] positive = [.. svd.Sigma.AsIterable().Where(static (double s) => s > RhinoMath.SqrtEpsilon)];
                         Option<double> condition = positive.Length == 0 ? Option<double>.None : Some(Enumerable.Max(source: positive) / Enumerable.Min(source: positive));
                         double value = solve.Solution.Count > 0 ? solve.Solution[index: 0] : double.NaN;
-                        Vector3d weightedNormal = neighborhood.Aggregate(seed: Vector3d.Zero, func: static (sum, candidate) => sum + (candidate.Profile.Value * candidate.Sample.Normal));
+                        Vector3d weightedNormal = neighborhood.Aggregate(seed: Vector3d.Zero, func: static (Vector3d sum, (MlsSample Sample, Vector3d Offset, KernelProfile Profile) candidate) => sum + (candidate.Profile.Value * candidate.Sample.Normal));
                         Vector3d gradient = solve.Solution.Count >= 4 ? new Vector3d(x: solve.Solution[index: 1], y: solve.Solution[index: 2], z: solve.Solution[index: 3]) : weightedNormal / weightSum;
                         double gradientNorm = gradient.Length;
                         double weightedNorm = weightedNormal.Length;
                         Vector3d direction = gradientNorm > RhinoMath.ZeroTolerance ? gradient / gradientNorm : weightedNorm > RhinoMath.ZeroTolerance ? weightedNormal / weightedNorm : Vector3d.Zero;
-                        double normalAgreement = neighborhood.Average(candidate => Math.Abs(value: candidate.Sample.Normal * direction));
+                        double normalAgreement = neighborhood.Average(((MlsSample Sample, Vector3d Offset, KernelProfile Profile) candidate) => Math.Abs(value: candidate.Sample.Normal * direction));
                         return rank >= 4 && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: gradientNorm) && normalAgreement >= 0.5
                             ? Fin.Succ(new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.MovingLeastSquares, Status: ReconstructionStatus.ApproximateSdf, Kernel: kernel, Radius: radius, SampleCount: samples.Count, NeighborhoodCount: neighborhood.Length, RejectedWeightCount: rejected, WeightSum: weightSum, Rank: rank, Condition: condition, NormalAgreement: Some(normalAgreement), GradientNorm: Some(gradientNorm), Solve: solve)))
                             : Fin.Fail<ReconstructionSample>(key.InvalidResult());
@@ -1589,7 +1589,7 @@ public readonly record struct TetMeshDomain(Seq<Point3d> Vertices, Seq<TetCell> 
         for (int c = 0; c < tets.Length; c++) {
             TetCell cell = tets[c];
             int[] ids = cell.Indices;
-            if (ids.Distinct().Count() != 4 || ids.Any(index => index < 0 || index >= points.Length)) return Fin.Fail<TetMeshDomain>(op.InvalidInput());
+            if (ids.Distinct().Take(count: 5).Count() != 4 || ids.Any(index => index < 0 || index >= points.Length)) return Fin.Fail<TetMeshDomain>(op.InvalidInput());
             double volume = VolumeOf(a: points[cell.A], b: points[cell.B], c: points[cell.C], d: points[cell.D]);
             if (!RhinoMath.IsValidDouble(x: volume) || volume <= RhinoMath.ZeroTolerance) return Fin.Fail<TetMeshDomain>(op.InvalidInput());
             volumes.Add(item: volume);

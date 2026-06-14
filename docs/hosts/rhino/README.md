@@ -7,7 +7,7 @@ Rhino host behavior comes from local RhinoWIP XML, decompile confirmation when X
 - Member availability: local RhinoWIP XML and the API rail.
 - Missing XML semantics: decompile confirmation or runtime bridge scenario.
 - Boundary design: `Rasm.Rhino` and architecture routes.
-- Runtime confirmation: owner-owned `*.verify.csx` scenarios through the bridge rail.
+- Runtime confirmation: owner-owned typed `[RhinoScenario]` sources through the bridge rail.
 
 ## [2]-[BOUNDARIES]
 

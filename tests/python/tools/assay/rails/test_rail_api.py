@@ -34,6 +34,7 @@ from tools.assay.core.model import (
     ApiResolution,
     ApiSource,
     ApiSurface,
+    ArtifactKind,
     Check,
     Claim,
     Fault,
@@ -403,6 +404,26 @@ def test_doctor_inventory_includes_nuget_and_polyglot_rows(assay_root: AssayHarn
 register_law(doctor, "doctor_inventory_population")
 
 
+def test_doctor_inventory_artifacts_live_under_retained_api_claim_root(assay_root: AssayHarness) -> None:
+    """Doctor inventory artifacts live under the API claim root so retain_scopes(Claim.API) owns them."""
+    r = assert_ok(_run(doctor, assay_root, sources=("ilspy",)))
+    store = assay_root.settings.store()
+    run_id = assay_root.settings.run_id
+    expected = (
+        store.path(Claim.API.value, run_id, "doctor-inventory.json"),
+        store.path(Claim.API.value, run_id, "doctor-inventory.tsv"),
+    )
+    assert tuple(a.path for a in r.artifacts) == expected
+    assert all(a.kind is ArtifactKind.SCOPE for a in r.artifacts)
+    assert store.exists(Claim.API.value, run_id, "doctor-inventory.json")
+    assert store.exists(Claim.API.value, run_id, "doctor-inventory.tsv")
+    assert not store.exists(ArtifactKind.SCOPE.value, Claim.API.value, run_id, "doctor-inventory.json")
+    assert not store.exists(ArtifactKind.SCOPE.value, Claim.API.value, run_id, "doctor-inventory.tsv")
+
+
+register_law(doctor, "doctor_inventory_artifacts_retained_api_claim_root")
+
+
 def test_inventory_sources_keep_full_rows_without_pydist_file_expansion(assay_root: AssayHarness) -> None:
     """_inventory_sources keeps full host/NuGet rows yet lists pydist rows without per-file asset expansion."""
     _nuget_fixture(assay_root, owner=False)
@@ -620,6 +641,24 @@ def test_show_latest_prefers_api_scope_artifact(assay_root: AssayHarness) -> Non
 
 
 register_law(show, "show_latest_api_scope_preference")
+
+
+def test_show_latest_prefers_api_claim_root_before_api_scope_cache(assay_root: AssayHarness) -> None:
+    """Show latest selects retained API-claim evidence before reusable API scope cache artifacts."""
+    store = assay_root.settings.store()
+    api_path = store.write_text("api claim artifact\n", Claim.API.value, "run-a", "doctor-inventory.json")
+    store.write_text("api scope cache artifact\n", "scope", "api", "pkg", "surface.txt")
+    store.write_text("newer generic artifact\n", "scope", "zzz", "surface.txt")
+
+    latest_token = "latest"  # noqa: S105  # not a password — artifact lookup keyword per api.py _LATEST_ARTIFACT
+    r = assert_ok(_run(show, assay_root, token=latest_token, max_lines=50))
+    assert r.status is RailStatus.OK
+    assert r.artifacts
+    assert r.artifacts[0].path == api_path
+
+
+register_law(show, "show_latest_api_claim_root_preference")
+
 
 # --- [QUERY]
 

@@ -1,6 +1,6 @@
 using Rhino;
 
-namespace Rasm.Bridge.Scenarios;
+namespace Rasm.TestKit.Scenarios;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 

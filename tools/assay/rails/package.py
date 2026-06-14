@@ -91,6 +91,7 @@ _COMMIT_PENDING: Final[str] = ".commit-pending.json"
 _YAK_PLATFORM: Final[str] = "mac"
 _YAK_DISTRIBUTION_GLOB: Final[str] = "*-rh9_*-mac.yak"
 _RASM_BRIDGE_SLUG: Final[str] = "rasm-bridge"
+_RASM_BRIDGE_SHELL_PROJECT: Final[str] = "tools/rhino-bridge/Shell/Shell.csproj"
 _PACKAGE_STAGE: Final[str] = "package-stage"
 _PACKAGE_ROOTS: Final[tuple[str, ...]] = ("apps", "tools")
 _CSPROJ: Final[str] = ".csproj"
@@ -352,25 +353,28 @@ def _read_bytes(path: Path) -> Result[bytes, Fault]:
         return Error(Fault(("read", str(path)), message=str(exc)[:1024]))
 
 
-def _stage_artifacts(meta: YakMeta, staged: Path) -> Result[Path, Fault]:
+def _stage_artifacts(meta: YakMeta, staged: Path, target_dir: Path, extra_dirs: tuple[Path, ...]) -> Result[Path, Fault]:
     # Host-provided assemblies are excluded; manifest and primary .rhp must exist before yak build.
     manifest = meta.manifest_dir / "manifest.yml"
-    primary = meta.target_dir / f"{meta.assembly_name}{meta.target_ext}"
+    primary = target_dir / f"{meta.assembly_name}{meta.target_ext}"
     match (manifest.is_file(), primary.is_file()):
         case (False, _):
             return Error(Fault(("yak", "build"), message=f"missing yak manifest: {manifest}"))
         case (_, False):
             return Error(Fault(("yak", "build"), message=f"missing primary artifact: {primary}"))
+        case _ if missing := tuple(path for path in extra_dirs if not path.is_dir()):
+            return Error(Fault(("yak", "build"), message=f"missing package closure output: {', '.join(str(path) for path in missing)}"))
         case _:
-            return _copy_tree(meta, staged)
+            return _copy_tree(meta, staged, target_dir, extra_dirs)
 
 
-def _copy_tree(meta: YakMeta, staged: Path) -> Result[Path, Fault]:
+def _copy_tree(meta: YakMeta, staged: Path, target_dir: Path, extra_dirs: tuple[Path, ...]) -> Result[Path, Fault]:
     sources: Iterable[Path] = chain(
         (meta.manifest_dir / name for name in _MANIFEST_FILES if (meta.manifest_dir / name).is_file()),
         (
             p
-            for p in meta.target_dir.iterdir()
+            for root in (target_dir, *extra_dirs)
+            for p in root.iterdir()
             if p.suffix in _ARTIFACT_SUFFIXES and not any(fnmatch.fnmatch(p.name, pattern) for pattern in _HOST_EXCLUDES)
         ),
     )
@@ -460,7 +464,7 @@ def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, sl
 
     def staged_build() -> Result[Report, Fault]:
         staged = Path(mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent))
-        outcome = _build_outputs(meta, settings, scope).bind(lambda built: _copy_after_build(meta, staged, slug, version, built, settings, scope))
+        outcome = _build_outputs(meta, settings, scope, slug).bind(lambda built: _copy_after_build(meta, staged, slug, version, built, settings, scope))
         match outcome:
             case Result(tag="error"):
                 rmtree(staged, ignore_errors=True)
@@ -475,18 +479,31 @@ def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, sl
     return leased(resource, locked, settings=settings, run_id=settings.run_id, project=slug, mode="exclusive")
 
 
-def _build_outputs(meta: YakMeta, settings: AssaySettings, scope: ArtifactScope) -> Result[Completed, Fault]:
-    tool = Tool(
-        "dotnet-build",
-        Runner.DOTNET,
-        ("build", meta.project, "-c", settings.configuration.value, "-v:quiet", "/clp:ErrorsOnly"),
-        Input.NONE,
-        Language.CSHARP,
-        Claim.PACKAGE,
-        mode=Mode.BUILD,
-    )
-    return run_check(
-        Check(tool=tool, cwd=Path(str(settings.root))), settings=settings, scope=scope, routed=Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+def _build_outputs(meta: YakMeta, settings: AssaySettings, scope: ArtifactScope, slug: str) -> Result[Completed, Fault]:
+    projects = (_RASM_BRIDGE_SHELL_PROJECT, meta.project) if slug == _RASM_BRIDGE_SLUG else (meta.project,)
+
+    def run_project(project: str) -> Result[Completed, Fault]:
+        tool = Tool(
+            "dotnet-build",
+            Runner.DOTNET,
+            ("build", project, "-c", settings.configuration.value, "-v:quiet", "/clp:ErrorsOnly"),
+            Input.NONE,
+            Language.CSHARP,
+            Claim.PACKAGE,
+            mode=Mode.BUILD,
+        )
+        return run_check(
+            Check(tool=tool, cwd=Path(str(settings.root))), settings=settings, scope=scope, routed=Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+        )
+
+    rows = reduce(lambda acc, project: acc.bind(lambda done: run_project(project).map(lambda row: (*done, row))), projects, Ok(()))
+    return rows.map(
+        lambda done: msgspec.structs.replace(
+            next((row for row in done if row.status in {RailStatus.FAILED, RailStatus.FAULTED, RailStatus.TIMEOUT}), done[-1]),
+            status=reduce(lambda status, row: join(status, row.status), done, RailStatus.OK),
+            notes=tuple(chain.from_iterable(row.notes for row in done)),
+            artifacts=tuple(chain.from_iterable(row.artifacts for row in done)),
+        )
     )
 
 
@@ -498,8 +515,14 @@ def _copy_after_build(
             rmtree(staged, ignore_errors=True)
             return Ok(fold(Claim.PACKAGE, "stage", (built,)))
         case _:
+            target_dir = Path(scope.path) / "bin" / Path(meta.project).stem / settings.configuration.value.lower()
+            extra_dirs = (
+                (Path(scope.path) / "bin" / Path(_RASM_BRIDGE_SHELL_PROJECT).stem / settings.configuration.value.lower(),)
+                if slug == _RASM_BRIDGE_SLUG
+                else ()
+            )
             return (
-                _stage_artifacts(meta, staged)
+                _stage_artifacts(meta, staged, target_dir, extra_dirs)
                 .bind(lambda _: _run_yak(meta, _yak_build_tail(meta, version), Mode.STAGE, cwd=staged, settings=settings, scope=scope))
                 .bind(lambda done: _commit_or_fail(meta, staged, slug, version, done))
             )

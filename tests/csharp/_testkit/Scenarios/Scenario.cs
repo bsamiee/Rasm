@@ -1,7 +1,7 @@
 using Rhino;
 using Rhino.Display;
 
-namespace Rasm.Bridge.Scenarios;
+namespace Rasm.TestKit.Scenarios;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 

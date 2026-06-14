@@ -710,15 +710,22 @@ internal static class MatrixKernel {
             .OrderBy(static p => p.Eigenvalue));
 
     // --- [LOBPCG_PRIMITIVES] ----------------------------------------------------------------
-#pragma warning disable CA5394 // Random is sufficient for LOBPCG initial guess; not security-sensitive.
-    private static double NextSignedUnit(Random rng) => (rng.NextDouble() * 2.0) - 1.0;
-    private static Complex NextSignedComplexUnit(Random rng) => new(real: NextSignedUnit(rng: rng), imaginary: NextSignedUnit(rng: rng));
-    private static Matrix<T> OrthonormalRandom<T>(int rows, int k, int seed, Func<Random, T> sample, Func<Matrix<T>, Matrix<T>> orthonormalise)
-        where T : struct, IEquatable<T>, IFormattable {
-        Random rng = new(seed);
-        return orthonormalise(arg: Matrix<T>.Build.Dense(rows, k, (_, _) => sample(arg: rng)));
+    private delegate T BasisSample<T>(ref ulong state);
+
+    private static double NextSignedUnit(ref ulong state) {
+        state += 0x9E3779B97F4A7C15UL;
+        ulong z = state;
+        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+        z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+        double unitValue = ((z ^ (z >> 31)) >> 11) * (1.0 / 9_007_199_254_740_992.0);
+        return (unitValue * 2.0) - 1.0;
     }
-#pragma warning restore CA5394
+    private static Complex NextSignedComplexUnit(ref ulong state) => new(real: NextSignedUnit(state: ref state), imaginary: NextSignedUnit(state: ref state));
+    private static Matrix<T> OrthonormalRandom<T>(int rows, int k, int seed, BasisSample<T> sample, Func<Matrix<T>, Matrix<T>> orthonormalise)
+        where T : struct, IEquatable<T>, IFormattable {
+        ulong state = unchecked((ulong)seed);
+        return orthonormalise(arg: Matrix<T>.Build.Dense(rows, k, (_, _) => sample(state: ref state)));
+    }
     // Modified Gram-Schmidt with one reorthogonalisation pass; rank-collapsed columns remain zero for caller handling.
     private static Matrix<double> OrthonormaliseColumns(Matrix<double> m) =>
         OrthonormaliseColumns(m: m, zero: 0.0, inner: static (basis, value) => basis.DotProduct(value), remove: static (value, basis, dot) => value - (basis * dot), normalise: static (value, norm) => value / norm);
@@ -753,7 +760,7 @@ internal static class MatrixKernel {
             X.ColumnCount,
             j => X.Column(j).ConjugateDotProduct(X.Column(j)) switch {
                 Complex den when Complex.Abs(den) > RhinoMath.ZeroTolerance => X.Column(j).ConjugateDotProduct(AX.Column(j)) / den,
-                _ => Complex.Zero
+                _ => Complex.Zero,
             });
     private static double MaxColumnNorm<T>(Matrix<T> m)
         where T : struct, IEquatable<T>, IFormattable =>

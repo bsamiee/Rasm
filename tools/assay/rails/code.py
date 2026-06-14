@@ -16,7 +16,7 @@ from typing import Annotated, Final, override, TYPE_CHECKING
 
 from cyclopts import Parameter
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
-from expression import Error, Result  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
+from expression import Error, Ok, Result  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import catch, sequence
 import msgspec
@@ -38,6 +38,7 @@ from tools.assay.core.model import (
     Counts,
     Fault,  # unconditional: @checked resolves the `-> Result[Report, Fault]` forward-ref under PEP 649
     fold,
+    language_choice,
     Language,
     Match,
     Mode,
@@ -72,6 +73,11 @@ _METAVAR: re.Pattern[str] = re.compile(r"\$[A-Z_$]")
 class CodeParams(BaseParams):
     """Parameters shared by code verbs."""
 
+    csharp: Annotated[bool, Parameter(name="--csharp", negative="", show_default=False, help="Restrict the command to C# targets.")] = False
+    python: Annotated[bool, Parameter(name="--python", negative="", show_default=False, help="Restrict the command to Python targets.")] = False
+    typescript: Annotated[
+        bool, Parameter(name="--typescript", negative="", show_default=False, help="Restrict the command to TypeScript targets.")
+    ] = False
     pattern: Annotated[
         str, Parameter(allow_leading_hyphen=True, help="Pattern; the leading positional fills this slot when the flag is omitted.")
     ] = ""
@@ -94,6 +100,11 @@ class CodeParams(BaseParams):
             Projected CodeParams with pattern filled from positionals, or a Fault when
             the resolved pattern is blank for a verb that requires one.
         """
+        match language_choice(verb, csharp=self.csharp, python=self.python, typescript=self.typescript):
+            case Fault() as fault:
+                return fault
+            case _:
+                pass
         match (verb, self.pattern, self.paths):
             case (("search" | "query"), "", (pattern, *rest)):
                 projected = replace(self, pattern=pattern, paths=tuple(rest))
@@ -127,12 +138,18 @@ _TSX_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_tsx
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _languages(selected: Language | None, paths: tuple[str, ...]) -> tuple[Language, ...]:
+def _selected(params: CodeParams, verb: str) -> Language | Fault | None:
+    return language_choice(verb, csharp=params.csharp, python=params.python, typescript=params.typescript)
+
+
+def _languages(selected: Language | Fault | None, paths: tuple[str, ...]) -> Result[tuple[Language, ...], Fault]:
     match selected:
+        case Fault() as fault:
+            return Error(fault)
         case None:
-            return infer_languages(paths, tuple(sorted({t.language for t in select(Claim.CODE)}, key=lambda member: member.value)))
+            return Ok(infer_languages(paths, tuple(sorted({t.language for t in select(Claim.CODE)}, key=lambda member: member.value))))
         case language:
-            return (language,)
+            return Ok((language,))
 
 
 def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: AssaySettings) -> Result[Block[Routed], Fault]:
@@ -160,12 +177,14 @@ def _dispatch(
 
 
 def _fan(
-    settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Tool]
+    settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, verb: str, mode: Mode, splice: Callable[[Tool, Routed], Tool]
 ) -> Result[tuple[Completed, ...], Fault]:
     # Routing, spawn, and timeout Faults short-circuit; non-zero tool exits stay on Completed.
-    return _routed(_languages(params.language, params.paths), params.paths, settings).bind(
-        lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice)))).map(
-            tuple
+    return _languages(_selected(params, verb), params.paths).bind(
+        lambda languages: _routed(languages, params.paths, settings).bind(
+            lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice)))).map(
+                tuple
+            )
         )
     )
 
@@ -469,7 +488,10 @@ def _project_rows[M](
 
 def _content_splice(tool: Tool, params: CodeParams, root: Path) -> Tool:
     # --glob narrows to language suffixes; missing paths drop to the default target, matching _targets behavior in ast-grep splices.
-    globs = tuple(arg for suffix in (params.language.suffixes if params.language is not None else ()) for arg in ("--glob", f"*{suffix}"))
+    selected = _selected(params, "search")
+    globs = tuple(
+        arg for suffix in (selected.suffixes if isinstance(selected, Language) else ()) for arg in ("--glob", f"*{suffix}")
+    )
     return msgspec.structs.replace(tool, command=(*tool.command, *globs, "-e", params.pattern, "--", *_targets(params.paths, root)))
 
 
@@ -501,7 +523,7 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
     """
     match bool(_METAVAR.search(params.pattern)):
         case True:
-            return _fan(settings, scope, params, mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root)))).map(
+            return _fan(settings, scope, params, verb="search", mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root)))).map(
                 lambda done: _report(
                     settings,
                     scope,
@@ -518,10 +540,12 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
 def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
     # A synthetic Routed with no language files satisfies run_check's spawn shape; ripgrep
     # is grammar-blind so no actual file routing is needed before the check is dispatched.
-    match next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None):
-        case None:
+    match (_selected(params, "search"), next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None)):
+        case (Fault() as fault, _):
+            return Error(fault)
+        case (_, None):
             return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
-        case Tool() as tool:  # pragma: no cover — exhaustive match(Tool|None); sysmon arc to implicit exit unreachable
+        case (_, Tool() as tool):  # pragma: no cover — exhaustive match(Tool|None); sysmon arc to implicit exit unreachable
             check = Check(tool=_content_splice(tool, params, Path(str(settings.root))), paths=tuple(params.paths or _DEFAULT_TARGET))
             routed = Routed(language=tool.language, scope=Scope.CHANGED)
             return run_check(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, scope, params, done))
@@ -555,7 +579,7 @@ def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> 
         Ok carrying the folded Report with capture rows and an Artifact listing, or
         Error carrying a Fault on routing or spawn failure.
     """
-    return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
+    return _fan(settings, scope, params, verb="query", mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
         lambda done: _report(settings, scope, "query", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_TS_SPEC))
     )
 

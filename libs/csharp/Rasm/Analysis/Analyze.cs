@@ -59,10 +59,11 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         new(key: key, requirement: Requirement.None, requiresContext: requiresContext, body: new Body.Service(Evaluate: evaluate));
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
         Execution.Switch(
-            rejected: r => Fin.Fail<Seq<TOut>>(r.Fault).ToEff(),
-            perItem: i => geometry.TraverseM(i.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
-            aggregate: a => a.Evaluate(arg: geometry),
-            service: s => s.Evaluate());
+            state: geometry,
+            rejected: static (_, r) => Fin.Fail<Seq<TOut>>(r.Fault).ToEff(),
+            perItem: static (items, i) => items.TraverseM(i.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
+            aggregate: static (items, a) => a.Evaluate(arg: items),
+            service: static (_, s) => s.Evaluate());
     internal Fin<Operation<TGeometry, TOut>> Supported() =>
         Execution switch {
             Body.Rejected rejected => Fin.Fail<Operation<TGeometry, TOut>>(rejected.Fault),

@@ -346,7 +346,7 @@ public abstract partial record VectorIntent {
             select output,
         transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key),
         topologyCase: static (state, intent) =>
-            from topology in MeshKernel.TopologyDetailed(space: intent.Space, key: state.Key)
+            from topology in MeshKernel.TopologyDetailed(space: intent.Space)
             from output in topology.Project<TOut>(key: state.Key)
             select output,
         featuresCase: static (state, intent) =>

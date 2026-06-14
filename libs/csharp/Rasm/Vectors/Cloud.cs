@@ -452,7 +452,7 @@ public readonly record struct CloudCorrespondenceSet(Seq<CloudCorrespondence> It
             CoveredSourceCount = rowMass.Count(static mass => mass > RhinoMath.ZeroTolerance),
             CoveredTargetCount = columnMass.Count(static mass => mass > RhinoMath.ZeroTolerance),
             RetainedSourceMass = rowMass.Sum(),
-            RetainedTargetMass = columnMass.Sum()
+            RetainedTargetMass = columnMass.Sum(),
         };
     }
     private static double QuantileOrZero(double[] sorted, double tau) =>
@@ -472,7 +472,7 @@ public readonly record struct VectorCloudShape(Option<Vector3d> Normal, Option<d
         && PrincipalAxes.ForAll(static axis => OpAcceptance.ValidityOf(source: axis).IfNone(noneValue: false))
         && new[] { Normal.Map(static v => v.IsValid && !v.IsTiny()).IfNone(noneValue: true), SignedArea.Map(static v => RhinoMath.IsValidDouble(x: v)).IfNone(noneValue: true), Area.Map(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0).IfNone(noneValue: true), Perimeter.Map(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0).IfNone(noneValue: true),
             EdgeAspect.Map(static v => RhinoMath.IsValidDouble(x: v) && v >= 1.0).IfNone(noneValue: true), Skewness.Map(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0).IfNone(noneValue: true), PlanarityDeviation.Map(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0).IfNone(noneValue: true), Compactness.Map(static v => RhinoMath.IsValidDouble(x: v) && v is >= 0.0 and <= 1.0).IfNone(noneValue: true), MomentAnisotropy.Map(static v => RhinoMath.IsValidDouble(x: v) && v >= 1.0).IfNone(noneValue: true), RadiiOfGyration.Map(static v => v.IsValid).IfNone(noneValue: true), AreaError.Map(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0).IfNone(noneValue: true), CentroidError.Map(static v => v.IsValid).IfNone(noneValue: true),
-            BestFitPlane.Map(static v => v.IsValid).IfNone(noneValue: true), Orientation.Map(static v => v is CurveOrientation.Clockwise or CurveOrientation.CounterClockwise).IfNone(noneValue: true), OpenLength.Map(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0).IfNone(noneValue: true), Spread.Map(static v => v.IsValid).IfNone(noneValue: true) }.All(static valid => valid);
+            BestFitPlane.Map(static v => v.IsValid).IfNone(noneValue: true), Orientation.Map(static v => v is CurveOrientation.Clockwise or CurveOrientation.CounterClockwise).IfNone(noneValue: true), OpenLength.Map(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0).IfNone(noneValue: true), Spread.Map(static v => v.IsValid).IfNone(noneValue: true), }.All(static valid => valid);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -655,8 +655,10 @@ internal static class CloudKernel {
         CloudCases(cloud: cloud, key: key,
             ring: static (ring, k) => WithRingCurve(ring: ring, project: static (state, curve) =>
                 from oriented in RingOrientationOf(curve: curve, context: state.Context, key: state.Key)
-                from frame in WithMassPropertiesInternal(curve: curve, context: state.Context, project: static (s, mass) => AxesOf(mass: mass, key: s.Key)
-                    .Bind(axes => RingPrincipalFrameOf(centroid: mass.Centroid, axes: axes, normal: s.Normal, context: s.Context, key: s.Key)), state: (state.Context, state.Key, oriented.Normal), key: state.Key)
+                from frame in WithMassPropertiesInternal(curve: curve, context: state.Context, project: static ((Context Context, Op Key, Vector3d Normal) s, AreaMassProperties mass) =>
+                    from axes in AxesOf(mass: mass, key: s.Key)
+                    from principal in RingPrincipalFrameOf(centroid: mass.Centroid, axes: axes, normal: s.Normal, context: s.Context, key: s.Key)
+                    select principal, state: (state.Context, state.Key, oriented.Normal), key: state.Key)
                 select frame, key: k),
             polyline: static (polyline, k) => PrincipalStatsOf(points: polyline.Vertices, key: k).Bind(stats => PrincipalFrameOf(stats: stats, context: polyline.Tolerance, key: k)),
             cluster: static (cluster, k) => PrincipalStatsOf(cluster: cluster, key: k).Bind(stats => PrincipalFrameOf(stats: stats, context: cluster.Tolerance, key: k)));
@@ -676,8 +678,10 @@ internal static class CloudKernel {
     internal static Fin<double> RingMomentAnisotropyOf(VectorCloud.RingCase ring, Op key) =>
         WithRingCurve(ring: ring, project: static (state, curve) =>
             from oriented in RingOrientationOf(curve: curve, context: state.Context, key: state.Key)
-            from value in WithMassPropertiesInternal(curve: curve, context: state.Context, project: static (s, mass) => AxesOf(mass: mass, key: s.Key)
-                .Bind(axes => MomentAnisotropyOf(axes: axes, normal: s.Normal, context: s.Context, key: s.Key)), state: (state.Context, state.Key, oriented.Normal), key: state.Key)
+            from value in WithMassPropertiesInternal(curve: curve, context: state.Context, project: static ((Context Context, Op Key, Vector3d Normal) s, AreaMassProperties mass) =>
+                from axes in AxesOf(mass: mass, key: s.Key)
+                from anisotropy in MomentAnisotropyOf(axes: axes, normal: s.Normal, context: s.Context, key: s.Key)
+                select anisotropy, state: (state.Context, state.Key, oriented.Normal), key: state.Key)
             select value, key: key);
     internal static Fin<double> RingSkewnessOf(VectorCloud.RingCase ring, Op key) =>
         WithRingCurve(ring: ring, project: static (state, curve) =>
@@ -873,12 +877,13 @@ internal static class CloudKernel {
             return Enumerable.Range(start: 0, count: ring.Length).Any(i => sign * (((ring[(i + 1) % ring.Length].X - ring[i].X) * (y - ring[i].Y)) - ((ring[(i + 1) % ring.Length].Y - ring[i].Y) * (x - ring[i].X))) < -tolerance);
         });
     }
-    [System.Diagnostics.CodeAnalysis.SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "The created Mesh is returned as the successful payload and becomes caller-owned.")]
-    private static Fin<Mesh> MeshFromFootprint(Seq<Point3d> points, Op key) =>
-        points.Count < 3
-            ? Fin.Fail<Mesh>(key.InvalidResult())
-            : Optional(Mesh.CreateFromClosedPolyline(polyline: [.. Enumerable.Append(source: points.AsIterable(), element: points[index: 0])])).ToFin(key.InvalidResult())
-                .Bind(mesh => new Lease<Mesh>.Owned(Value: mesh).Use(state: key, project: static (op, active) => active.IsValid ? op.AcceptValue(value: active.DuplicateMesh()) : Fin.Fail<Mesh>(op.InvalidResult())));
+    private static Fin<Mesh> MeshFromFootprint(Seq<Point3d> points, Op key) {
+        if (points.Count < 3) return Fin.Fail<Mesh>(key.InvalidResult());
+        using Mesh? mesh = Mesh.CreateFromClosedPolyline(polyline: [.. Enumerable.Append(source: points.AsIterable(), element: points[index: 0])]);
+        return mesh is { IsValid: true }
+            ? key.AcceptValue(value: mesh.DuplicateMesh())
+            : Fin.Fail<Mesh>(key.InvalidResult());
+    }
     // --- [NEIGHBORHOODS] ---------------------------------------------------------------------
     internal readonly record struct CloudNeighborhoodGraph(int[][] Ids, CloudNeighborhoodReceipt Receipt);
     internal static Fin<CloudNeighborhoodReceipt> NeighborhoodReceiptOf(VectorCloud.ClusterCase cluster, CloudNeighborhoodPolicy policy, Op key) =>

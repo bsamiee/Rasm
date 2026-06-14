@@ -250,7 +250,7 @@ internal static class SpectralCore {
     internal static Fin<SpectralDescriptor> EvaluateFilteredDetailed(SpectralBasis basis, Option<Seq<int>> sources, SpectralFilter filter, SpectralDescriptorPolicy policy, Op key) {
         int n = basis.VertexCount;
         int[] sourceSet = sources is { IsSome: true, Case: Seq<int> values } ? [.. values.AsIterable()] : [];
-        if (n == 0 || (sources.IsSome && sourceSet.Length == 0) || sourceSet.Any(s => s < 0 || s >= n) || sourceSet.Distinct().Count() != sourceSet.Length)
+        if (n == 0 || (sources.IsSome && sourceSet.Length == 0) || sourceSet.Any(s => s < 0 || s >= n) || sourceSet.Distinct().Take(count: sourceSet.Length + 1).Count() != sourceSet.Length)
             return Fin.Fail<SpectralDescriptor>(error: key.InvalidInput());
         if (!basis.Eigenvectors.ForAll(phi => phi.Count == n)) return Fin.Fail<SpectralDescriptor>(error: key.InvalidResult());
         int zeroModeCount = basis.Eigenvalues.AsIterable().Count(static lambda => lambda <= RhinoMath.SqrtEpsilon);
@@ -375,10 +375,10 @@ internal static class SpectralCore {
     private static double BoundaryCompositionResidual(List<(int Row, int Col, double Value)> d0, List<(int Row, int Col, double Value)> d1) {
         ILookup<int, (int Row, int Col, double Value)> d0ByEdge = d0.ToLookup(static row => row.Row);
         return d1
-            .SelectMany(row => d0ByEdge[key: row.Col].Select(e => (Face: row.Row, Vertex: e.Col, Value: row.Value * e.Value)))
+            .SelectMany(((int Row, int Col, double Value) row) => d0ByEdge[key: row.Col].Select(((int Row, int Col, double Value) e) => (Face: row.Row, Vertex: e.Col, Value: row.Value * e.Value)))
             .GroupBy(static e => (e.Face, e.Vertex))
             .DefaultIfEmpty()
-            .Max(static group => group is null ? 0.0 : Math.Abs(value: group.Sum(static e => e.Value)));
+            .Max(static (IGrouping<(int Face, int Vertex), (int Face, int Vertex, double Value)>? group) => group is null ? 0.0 : Math.Abs(value: group.Sum(static ((int Face, int Vertex, double Value) e) => e.Value)));
     }
     internal static Arr<double> ComputeIntrinsicStar1(MeshKernel.IntrinsicMesh imesh) {
         int eCount = imesh.EdgeCount;
@@ -409,7 +409,7 @@ internal static class SpectralCore {
             ? space.Cache.TuftedIntrinsicMeshSnapshot(key: key)
             : space.Cache.IntrinsicMeshSnapshot(key: key)
         from laplacian in space.Laplacian(kind: activeKind, key: key)
-        from topology in MeshKernel.TopologyDetailed(space: space, key: key)
+        from topology in MeshKernel.TopologyDetailed(space: space)
         from dec in AssembleDecOperators(imesh: imesh, mass: laplacian.MassLumped, topology: topology, key: key)
         from transport in MeshKernel.SignpostTransportReceiptOf(space: space, imesh: imesh, key: key)
         from harmonic in topology.Genus.Map(static genus => genus > 0).IfNone(noneValue: false)
@@ -652,7 +652,7 @@ internal static class SpectralCore {
     }
     internal static Fin<Arr<double>> DistributeHolonomy(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
         Arr<double> defects = ComputeIntrinsicAngleDefects(imesh: imesh);
-        return from topology in MeshKernel.TopologyDetailed(space: space, key: key)
+        return from topology in MeshKernel.TopologyDetailed(space: space)
                from _ in topology.Genus.Match(
                    Some: genus => genus > 0
                        ? Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(Arr<double>)))

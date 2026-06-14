@@ -293,11 +293,15 @@ public static partial class OpExtensions {
     public static Op OrDefault(this Op? key, [CallerMemberName] string name = "") =>
         key ?? Op.Of(name: name);
     [BoundaryAdapter]
-    public static Fin<TVO> AcceptValidated<TVO>(this Op op, double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> =>
-        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
+    public static Fin<TVO> AcceptValidated<TVO>(this Op op, double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> {
+        _ = op;
+        return OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
+    }
     [BoundaryAdapter]
-    public static Fin<TVO> AcceptValidated<TVO>(this Op op, int candidate) where TVO : IObjectFactory<TVO, int, ValidationError> =>
-        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
+    public static Fin<TVO> AcceptValidated<TVO>(this Op op, int candidate) where TVO : IObjectFactory<TVO, int, ValidationError> {
+        _ = op;
+        return OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
+    }
 }
 
 internal static class RequirementContext {

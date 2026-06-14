@@ -18,7 +18,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 |   [1]   | TypeScript (`.ts`, `.tsx`)          | `coding-ts`          |
 |   [2]   | C# production (`.cs`)               | `docs/stacks/csharp` |
 |   [3]   | C# tests (`.spec.cs`)               | `testing-cs`         |
-|   [4]   | RhinoCode scenarios (`.verify.csx`) | `testing-cs`         |
+|   [4]   | Runtime scenarios (`Scenarios/*.cs`) | `testing-cs`         |
 |   [5]   | Python (`.py`)                      | `coding-python`      |
 |   [6]   | Bash/sh (`.sh`, `.bash`)            | `coding-bash`        |
 |   [7]   | SQL (`.sql`)                        | `coding-pg`          |

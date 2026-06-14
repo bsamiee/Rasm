@@ -34,8 +34,15 @@
         <TestsRasmGrasshopperRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.Grasshopper'))</TestsRasmGrasshopperRoot>
         <TestsRasmRhinoRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.Rhino'))</TestsRasmRhinoRoot>
         <TestsRasmMaterialsRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.Materials'))</TestsRasmMaterialsRoot>
+        <TestsRhinoBridgeContractRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', 'tools', 'rhino-bridge', 'Contract'))</TestsRhinoBridgeContractRoot>
+        <TestsRhinoBridgeSupervisorRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', 'tools', 'rhino-bridge', 'Supervisor'))</TestsRhinoBridgeSupervisorRoot>
         <TestsRhinoBridgeScenariosRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', 'tools', 'rhino-bridge', 'Scenarios'))</TestsRhinoBridgeScenariosRoot>
         <NormalizedProjectDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</NormalizedProjectDirectory>
+        <ArtifactsProjectName Condition="'$(ArtifactsPath)' != '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRhinoBridgeContractRoot)'))">Rasm.Bridge.Contract.Tests</ArtifactsProjectName>
+        <ArtifactsProjectName Condition="'$(ArtifactsPath)' != '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRhinoBridgeSupervisorRoot)'))">Rasm.Bridge.Supervisor.Tests</ArtifactsProjectName>
+        <ArtifactsProjectName Condition="'$(ArtifactsPath)' != '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRhinoBridgeScenariosRoot)'))">Rasm.Bridge.Scenarios.Tests</ArtifactsProjectName>
+        <BaseIntermediateOutputPath Condition="'$(ArtifactsPath)' != '' and '$(ArtifactsProjectName)' != ''">$(ArtifactsPath)/obj/$(ArtifactsProjectName)/</BaseIntermediateOutputPath>
+        <BaseOutputPath Condition="'$(ArtifactsPath)' != '' and '$(ArtifactsProjectName)' != ''">$(ArtifactsPath)/bin/$(ArtifactsProjectName)/</BaseOutputPath>
         <IsRhinoBridgeProject Condition="'$(IsRhinoBridgeProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)'))">true</IsRhinoBridgeProject>
         <IsRhinoBridgeProject Condition="'$(IsRhinoBridgeProject)' == ''">false</IsRhinoBridgeProject>
         <IsRhinoBridgeCargoProject Condition="'$(IsRhinoBridgeCargoProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeCargoRoot)'))">true</IsRhinoBridgeCargoProject>
@@ -79,6 +86,17 @@
         <NeedsRhinoHostUiSurface Condition="'$(NeedsRhinoHostUiSurface)' == ''">false</NeedsRhinoHostUiSurface>
     </PropertyGroup>
 
+    <ItemGroup Label="Bridge Scenario Sources"
+               Condition="'$(IsTestProject)' == 'true' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')))">
+        <BridgeScenarioSource Include="$(MSBuildProjectDirectory)/**/Scenarios/**/*.cs" />
+    </ItemGroup>
+
+    <PropertyGroup Label="Bridge Scenario Runtime" Condition="'$(IsTestProject)' == 'true'">
+        <HasBridgeScenarios Condition="'$(HasBridgeScenarios)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')))">true</HasBridgeScenarios>
+        <HasBridgeScenarios Condition="'$(HasBridgeScenarios)' == ''">false</HasBridgeScenarios>
+        <CopyLocalLockFileAssemblies Condition="'$(HasBridgeScenarios)' == 'true'">true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
     <PropertyGroup Label="Language and Build">
         <TargetFramework>net10.0</TargetFramework>
         <LangVersion>14.0</LangVersion>
@@ -96,7 +114,8 @@
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <ErrorLog Condition="'$(CspSarifDir)' != ''">$(CspSarifDir)/$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);CS1591;CA2225</NoWarn>
+        <!-- CS9236 is Roslyn binding-cost telemetry; dense typed Fin/query rails keep it non-actionable after explicit lambda/type-argument cleanup. -->
+        <NoWarn>$(NoWarn);CS1591;CA2225;CS9236</NoWarn>
         <NoWarn Condition="'$(IsRhinoUiAwareProject)' == 'true'">$(NoWarn);CA1416</NoWarn>
         <!-- CA1724 fires when Microsoft.macOS bindings ship a `Phase` namespace that collides with
              Rasm's ComponentUi.Phase enum. The enum is the canonical Rasm vocabulary; renaming
@@ -210,8 +229,15 @@
     <PropertyGroup Label="Test Runtime Config" Condition="'$(IsTestProject)' == 'true'">
         <OutputType>Exe</OutputType>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
         <_XunitRunnerJsonContent>{"$schema":"https://xunit.net/schema/v3.1/xunit.runner.schema.json","parallelAlgorithm":"conservative","preEnumerateTheories":true,"longRunningTestSeconds":30,"printMaxEnumerableLength":64,"printMaxObjectDepth":4}</_XunitRunnerJsonContent>
     </PropertyGroup>
+
+    <ItemDefinitionGroup Label="Test Project Reference Isolation" Condition="'$(IsTestProject)' == 'true'">
+        <ProjectReference>
+            <GlobalPropertiesToRemove>IsTestProject;UseMicrosoftTestingPlatformRunner;IsTestingPlatformApplication;TestingPlatformDotnetTestSupport;GenerateTestingPlatformEntryPoint;GenerateSelfRegisteredExtensions</GlobalPropertiesToRemove>
+        </ProjectReference>
+    </ItemDefinitionGroup>
 
     <ItemGroup Label="Xunit Serializer Registration" Condition="'$(IsTestProject)' == 'true' and '$(IsRhinoCommonAwareProject)' == 'true'">
         <AssemblyAttribute Include="Xunit.Sdk.RegisterXunitSerializerAttribute">

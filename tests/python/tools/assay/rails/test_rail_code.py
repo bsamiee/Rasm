@@ -7,10 +7,11 @@ from hashlib import sha256
 from pathlib import Path
 import shutil
 import tempfile
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from expression import Ok
-from hypothesis import given, settings as hyp_settings
+from hypothesis import assume, given, settings as hyp_settings
 import msgspec
 import msgspec.structs
 import pytest
@@ -73,6 +74,9 @@ def test_codeparams_defaults() -> None:
     p = CodeParams()
     assert not p.pattern
     assert p.paths == ()
+    assert not p.csharp
+    assert not p.python
+    assert not p.typescript
     assert p.max_results == 1000
 
 
@@ -107,6 +111,7 @@ def test_codeparams_bound_positional_projection(
 @hyp_settings(parent=hyp_settings.get_profile("rasm"))
 def test_codeparams_bound_with_explicit_pattern_never_overwrites(p: CodeParams) -> None:
     """bound() never overwrites a flag-supplied non-blank pattern."""
+    assume(sum((p.csharp, p.python, p.typescript)) <= 1)
     for verb in ("search", "query"):
         result = dc_replace(p, pattern="explicit").bound(verb)
         assert not isinstance(result, Fault), f"flag-pattern must survive bound({verb!r}): {result!r}"
@@ -118,6 +123,7 @@ def test_codeparams_bound_with_explicit_pattern_never_overwrites(p: CodeParams) 
 @hyp_settings(parent=hyp_settings.get_profile("rasm"))
 def test_codeparams_bound_idempotent_on_explicit_pattern(p: CodeParams) -> None:
     """bound() is idempotent when pattern is already set — second call changes nothing."""
+    assume(sum((p.csharp, p.python, p.typescript)) <= 1)
     for verb in ("search", "query"):
         first = dc_replace(p, pattern="pat", paths=()).bound(verb)
         assert isinstance(first, CodeParams)
@@ -251,10 +257,33 @@ def test_artifact_line_count_equals_splitlines(p: CodeParams) -> None:
 
 def test_languages_none_resolves_all_code_languages() -> None:
     """_languages(None, ()) returns every language in the CODE catalog, sorted by value, no duplicates."""
-    langs = _languages(None, ())
+    langs = assert_ok(_languages(None, ()))
     assert isinstance(langs, tuple)
     assert len(langs) > 0
     assert langs == tuple(sorted(set(langs), key=lambda m: m.value))
+
+
+def test_codeparams_rejects_multiple_language_flags() -> None:
+    """Code params accept one language flag at most."""
+    fault = CodeParams(pattern="alpha", csharp=True, python=True).bound("search")
+    assert isinstance(fault, Fault)
+    assert "--csharp" in fault.message
+    assert "--python" in fault.message
+
+
+def test_code_help_exposes_boolean_language_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
+    """Code help exposes selector flags and never the removed --language value flag."""
+    from tools.assay import __main__ as main_mod  # noqa: PLC0415
+
+    neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
+    monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
+    code = main_mod.main(["code", "search", "--help"])
+    cap = capsysbinary.readouterr()
+    assert code == 0
+    assert b"--csharp" in cap.out
+    assert b"--python" in cap.out
+    assert b"--typescript" in cap.out
+    assert b"--language" not in cap.out
 
 
 def test_checks_and_dispatch_empty_routed(assay_root: AssayHarness) -> None:
@@ -450,7 +479,7 @@ def test_structural_search_forced_cap_emits_results_note(assay_root: AssayHarnes
     assay_root.write("pkg/mod.py", "alpha = 1\nbeta = 2\n")
     two = msgspec.json.encode((_AG_MATCH, AstMatch(text="beta = 2", file="pkg/mod.py", lines="beta = 2\n")))
     monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(receipt(("ast-grep",), 0, stdout=two, status=RailStatus.OK)),))
-    params = CodeParams(pattern="$NAME = $VAL", language=Language.PYTHON, paths=(), max_results=1)
+    params = CodeParams(pattern="$NAME = $VAL", python=True, paths=(), max_results=1)
     report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params))
     assert "results: 1 of 2 (cap=1); full listing in artifact" in report.notes
 
@@ -458,7 +487,7 @@ def test_structural_search_forced_cap_emits_results_note(assay_root: AssayHarnes
 def test_query_forced_cap_emits_saturation_note(assay_root: AssayHarness) -> None:
     """query() with max_results=1 over 2 defs surfaces the match-limit-saturated cap note in the report."""
     assay_root.write("pkg/mod.py", "def a():\n    pass\n\ndef b():\n    pass\n")
-    params = CodeParams(pattern=_PY_FUNC_QUERY, language=Language.PYTHON, paths=("pkg/mod.py",), max_results=1)
+    params = CodeParams(pattern=_PY_FUNC_QUERY, python=True, paths=("pkg/mod.py",), max_results=1)
     report = assert_ok(query(assay_root.settings, assay_root.scope(Claim.CODE), params))
     assert any("(cap=1, match-limit saturated); full listing in artifact" in n for n in report.notes), report.notes
 
@@ -478,7 +507,7 @@ def test_query_public(assay_root: AssayHarness, content: str, pattern: str, chec
     """query() returns Ok Report matching expected status and count predicate."""
     assay_root.write("pkg/mod.py", content)
     report = assert_ok(
-        query(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, language=Language.PYTHON, paths=("pkg/mod.py",)))
+        query(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, python=True, paths=("pkg/mod.py",)))
     )
     check_fn(report)
 
@@ -495,7 +524,7 @@ def test_search_public(assay_root: AssayHarness, content: str, pattern: str, bin
     a resolvable binary must reach the Ok rail, so a real routing/spawn regression cannot hide behind the Error arm.
     """
     assay_root.write("pkg/mod.py", content)
-    result = search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, language=Language.PYTHON, paths=("pkg/mod.py",)))
+    result = search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, python=True, paths=("pkg/mod.py",)))
     match (shutil.which(binary), result.is_ok()):
         case (str(), _):
             assert result.is_ok(), f"resolvable {binary!r} must reach the Ok rail, not Error: {result!r}"
@@ -647,7 +676,7 @@ def test_splice_argv_shapes(assay_root: AssayHarness) -> None:
     routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
     ag = _search_splice(CodeParams(pattern="$X = $Y"), assay_root.root)(_QUERY_TOOL, routed)
     assert ag.command == (*_QUERY_TOOL.command, "-p", "$X = $Y", "-l", "python", "--json=compact", "--no-ignore", "hidden", ".")
-    rg = _content_splice(_QUERY_TOOL, CodeParams(pattern="alpha", language=Language.PYTHON), assay_root.root)
+    rg = _content_splice(_QUERY_TOOL, CodeParams(pattern="alpha", python=True), assay_root.root)
     globs, tail = rg.command[len(_QUERY_TOOL.command) : -4], rg.command[-4:]
     assert tail == ("-e", "alpha", "--", ".")
     assert (globs[::2], set(globs[1::2])) == (("--glob", "--glob"), {"*.py", "*.pyi"})
@@ -709,7 +738,7 @@ def test_structural_report_promotion_and_defect_rows(assay_root: AssayHarness, m
     must fall back to fold defect rows carrying tool argv provenance; verb stays 'search'.
     """
     assay_root.write("pkg/mod.py", "alpha = 1\n")
-    params = CodeParams(pattern="$NAME = $VAL", language=Language.PYTHON, paths=())
+    params = CodeParams(pattern="$NAME = $VAL", python=True, paths=())
     hit = msgspec.json.encode((_AG_MATCH,))
     monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(receipt(("ast-grep", "run"), 0, stdout=hit, status=RailStatus.EMPTY)),))
     promoted = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params))
@@ -720,7 +749,7 @@ def test_structural_report_promotion_and_defect_rows(assay_root: AssayHarness, m
     monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(panic),))
     failed = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params))
     assert (failed.verb, failed.status, failed.artifacts) == ("search", RailStatus.FAILED, ())
-    assert [(r.id, "panicked" in r.text) for r in failed.results] == [("ast-grep", True)]
+    assert [(r.id, "panicked" in r.text) for r in failed.results] == [("ast-grep run", True)]
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

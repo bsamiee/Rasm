@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
 using Rasm.Bridge.Contract;
-using Rasm.Bridge.Scenarios;
+using Rasm.TestKit.Scenarios;
 using Rhino;
 using Rhino.Display;
 using Rhino.Runtime;
@@ -53,7 +53,7 @@ internal sealed partial class HostCapability {
 // --- [SERVICES] -----------------------------------------------------------------------------
 
 // Ownership: the IBridgeCargo implementation activated by CargoGate inside the collectible ALC —
-// in-host post-load discovery over the staged *.Scenarios.dll set, the capability probe bracket,
+// in-host post-load discovery over staged assemblies carrying [RhinoScenario], the capability probe bracket,
 // the requires-lattice, the host-drift floor, and the scenario IO bracket (acquire context ->
 // invoke entrypoint -> release; the finally rung flushes the spool footer). Every event is
 // double-folded: cargo-stamped into the crash-durable spool AND relayed through the shell-owned
@@ -63,12 +63,14 @@ internal sealed partial class HostCapability {
 // is bound per run and cleared on both the run bracket and Dispose (D-2 precondition).
 public sealed class CargoHost : IBridgeCargo {
     private const string ProbeSlot = "probe";
-    private const string ScenarioAssemblyPattern = "*.Scenarios.dll";
+    private const int CommandEvidenceTail = 4096;
+    private const string ScenarioAttributeType = "Rasm.TestKit.Scenarios.RhinoScenarioAttribute";
 
     private readonly Lock sync = new();
     private readonly CargoManifest manifest;
     private Seq<(ScenarioEntry Entry, MethodInfo Method)> corpus;
     private Seq<CapabilityEntry> capabilities;
+    private Seq<(string Key, string Value)> discoveryFacts;
     private Gh2Lane? lane;
     private long sequence;
     private bool scanned;
@@ -85,6 +87,9 @@ public sealed class CargoHost : IBridgeCargo {
         long started = Stopwatch.GetTimestamp();
         using Spool spool = new(reportDir: manifest.ReportDir, scenario: ProbeSlot);
         CapabilityEntry[] report = [.. HostCapability.Items.Select(selector: row => Probed(row: row, spool: spool, publish: publish))];
+        foreach ((string key, string value) in discoveryFacts) {
+            Emit(spool: spool, publish: publish, evt: Fact(key: key, value: value, scenario: ProbeSlot));
+        }
         lock (sync) {
             capabilities = toSeq(report);
         }
@@ -163,7 +168,7 @@ public sealed class CargoHost : IBridgeCargo {
 
     private ScenarioReceipt Vanish(ScenarioEntry scenario, Action<BridgeEvent> publish, long started) {
         using Spool spool = new(reportDir: manifest.ReportDir, scenario: scenario.Name);
-        Emit(spool: spool, publish: publish, evt: Fact(key: "scenario.missing", value: $"'{scenario.Name}' not present in the staged {ScenarioAssemblyPattern} corpus", scenario: scenario.Name));
+        Emit(spool: spool, publish: publish, evt: Fact(key: "scenario.missing", value: $"'{scenario.Name}' not present in staged assemblies carrying [RhinoScenario]", scenario: scenario.Name));
         double duration = Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds;
         Emit(spool: spool, publish: publish, evt: new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: PhaseStatus.Failed, DurationMs: duration, Fault: null) { Stamp = NextStamp(scenario: scenario.Name) });
         return new ScenarioReceipt(Scenario: scenario.Name, Status: PhaseStatus.Failed, DurationMs: duration, Fault: null);
@@ -173,36 +178,75 @@ public sealed class CargoHost : IBridgeCargo {
         using Spool spool = new(reportDir: manifest.ReportDir, scenario: scenario.Name);
         void emit(BridgeEvent evt) => Emit(spool: spool, publish: publish, evt: evt);
         void fact(string key, object? value) => emit(Fact(key: key, value: value, scenario: scenario.Name));
-        if (RhinoDoc.ActiveDoc is not { } doc) {
-            fact(key: "scenario.doc.absent", value: "no active document in the host");
-            double absent = Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds;
-            emit(new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: PhaseStatus.Failed, DurationMs: absent, Fault: null) { Stamp = NextStamp(scenario: scenario.Name) });
-            return new ScenarioReceipt(Scenario: scenario.Name, Status: PhaseStatus.Failed, DurationMs: absent, Fault: null);
-        }
-        ScenarioContext context = new(doc: doc, sink: fact);
+        ScenarioContext? context = null;
         PhaseStatus status = PhaseStatus.Failed;
         BridgeFault? fault = null;
+        bool commandCaptureWasEnabled = false;
+        bool commandCaptureAdmitted = false;
+        string commandCaptureFailure = string.Empty;
         try {
-            Capture.Hook = label => doc.Views.ActiveView is { } view
-                ? Shoot(spool: spool, view: view, scenario: scenario.Name, label: label, onFailure: false, emit: emit, fact: fact)
-                : Fin.Fail<string>(error: Error.New(message: "Capture.Snapshot: no active viewport"));
-            (status, fault) = Invoke(entry: entry, context: context, fact: fact);
-            if (context.FactCount == 0) {
-                fact(key: "facts.empty", value: "scenario emitted zero facts");
-            }
-            if (status != PhaseStatus.Ok) {
-                AutoCapture(spool: spool, context: context, scenario: scenario, emit: emit, fact: fact);
+            commandCaptureWasEnabled = RhinoApp.CommandWindowCaptureEnabled;
+            RhinoApp.CommandWindowCaptureEnabled = true;
+            _ = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
+            commandCaptureAdmitted = true;
+        } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
+            commandCaptureFailure = $"{error.GetType().Name}: {error.Message}";
+        }
+        try {
+            if (RhinoDoc.ActiveDoc is { } doc) {
+                context = new ScenarioContext(doc: doc, sink: fact);
+                Capture.Hook = label => doc.Views.ActiveView is { } view
+                    ? Shoot(spool: spool, view: view, scenario: scenario.Name, label: label, onFailure: false, emit: emit, fact: fact)
+                    : Fin.Fail<string>(error: Error.New(message: "Capture.Snapshot: no active viewport"));
+                (status, fault) = Invoke(entry: entry, context: context, fact: fact);
+                if (context.FactCount == 0) {
+                    fact(key: "facts.empty", value: "scenario emitted zero facts");
+                }
+                if (status != PhaseStatus.Ok) {
+                    AutoCapture(spool: spool, context: context, scenario: scenario, emit: emit, fact: fact);
+                }
+            } else {
+                fact(key: "scenario.doc.absent", value: "no active document in the host");
             }
         } finally {
             // Port obligation 7 (belt): the footer rides the same WriteThrough spool; the
             // per-line append above is the structural crash-durability.
             Capture.Hook = null;
-            int leaked = context.DrainScopes();
-            if (leaked > 0) {
-                fact(key: "scope.leaked", value: leaked);
+            if (context is { } scenarioContext) {
+                int leaked = scenarioContext.DrainScopes();
+                if (leaked > 0) {
+                    fact(key: "scope.leaked", value: leaked);
+                }
             }
             if (spool.Failures > 0) {
                 publish(Fact(key: "spool.degraded", value: spool.Failures, scenario: scenario.Name));
+            }
+            try {
+                string[] captured = commandCaptureAdmitted ? RhinoApp.CapturedCommandWindowStrings(clearBuffer: true) : [];
+                string capturedText = string.IsNullOrEmpty(value: commandCaptureFailure)
+                    ? string.Join(separator: Environment.NewLine, values: captured)
+                    : commandCaptureFailure;
+                string history = RhinoApp.CommandHistoryWindowText ?? string.Empty;
+                fact(key: "command.capture.enabled", value: commandCaptureAdmitted);
+                fact(key: "command.capture.count", value: captured.Length);
+                fact(key: "command.capture.tail", value: capturedText.Length <= CommandEvidenceTail ? capturedText : capturedText[^CommandEvidenceTail..]);
+                fact(key: "command.history.length", value: history.Length);
+                fact(key: "command.history.tail", value: history.Length <= CommandEvidenceTail ? history : history[^CommandEvidenceTail..]);
+            } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
+                string detail = $"{error.GetType().Name}: {error.Message}";
+                fact(key: "command.capture.enabled", value: false);
+                fact(key: "command.capture.count", value: 0);
+                fact(key: "command.capture.tail", value: detail.Length <= CommandEvidenceTail ? detail : detail[^CommandEvidenceTail..]);
+                fact(key: "command.history.length", value: 0);
+                fact(key: "command.history.tail", value: string.Empty);
+            } finally {
+                if (commandCaptureAdmitted) {
+                    try {
+                        RhinoApp.CommandWindowCaptureEnabled = commandCaptureWasEnabled;
+                    } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
+                        fact(key: "command.capture.restore.failed", value: $"{error.GetType().Name}: {error.Message}");
+                    }
+                }
             }
             emit(new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: status, DurationMs: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds, Fault: fault) { Stamp = NextStamp(scenario: scenario.Name) });
         }
@@ -273,9 +317,44 @@ public sealed class CargoHost : IBridgeCargo {
         lock (sync) {
             if (!scanned) {
                 AssemblyLoadContext context = AssemblyLoadContext.GetLoadContext(assembly: typeof(CargoHost).Assembly) ?? AssemblyLoadContext.Default;
-                corpus = toSeq(Directory.EnumerateFiles(path: manifest.StagePath, searchPattern: ScenarioAssemblyPattern).Order(comparer: StringComparer.Ordinal))
-                    .Choose(selector: path => LoadScenarios(context: context, path: path))
-                    .Bind(f: static assembly => EntriesOf(assembly: assembly));
+                List<(ScenarioEntry Entry, MethodInfo Method)> entries = [];
+                List<(string Key, string Value)> facts = [];
+                foreach (string path in Directory.EnumerateFiles(path: manifest.StagePath, searchPattern: "*.dll").Order(comparer: StringComparer.Ordinal)) {
+                    Assembly? assembly = null;
+                    try {
+                        assembly = context.LoadFromAssemblyPath(assemblyPath: path);
+                    } catch (Exception error) when (error is BadImageFormatException or FileLoadException or FileNotFoundException) {
+                        facts.Add(item: ("discovery.assembly.load.failed", $"{Path.GetFileName(path)}: {error.GetType().Name}: {error.Message}"));
+                    }
+                    if (assembly is null) {
+                        continue;
+                    }
+                    int before = entries.Count;
+                    foreach (Type type in TypesOf(assembly: assembly, facts: facts)) {
+                        MethodInfo[] methods;
+                        try {
+                            methods = type.GetMethods(bindingAttr: BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                        } catch (Exception error) when (error is TypeLoadException or FileLoadException or FileNotFoundException or NotSupportedException) {
+                            facts.Add(item: ("discovery.type.methods.failed", $"{type.FullName}: {error.GetType().Name}: {error.Message}"));
+                            continue;
+                        }
+                        foreach (MethodInfo method in methods) {
+                            try {
+                                if (EntryOf(method: method) is { } entry) {
+                                    entries.Add(item: (entry, method));
+                                }
+                            } catch (Exception error) when (error is TypeLoadException or FileLoadException or FileNotFoundException or CustomAttributeFormatException) {
+                                facts.Add(item: ("discovery.method.attribute.failed", $"{type.FullName}.{method.Name}: {error.GetType().Name}: {error.Message}"));
+                            }
+                        }
+                    }
+                    int added = entries.Count - before;
+                    if (added > 0) {
+                        facts.Add(item: ("discovery.assembly.scenarios", $"{assembly.GetName().Name}:{added}"));
+                    }
+                }
+                corpus = toSeq(entries);
+                discoveryFacts = toSeq(facts);
                 scanned = true;
             }
             return corpus;
@@ -341,28 +420,36 @@ public sealed class CargoHost : IBridgeCargo {
         publish(evt);
     }
 
-    private static Option<Assembly> LoadScenarios(AssemblyLoadContext context, string path) {
-        try {
-            return Some(value: context.LoadFromAssemblyPath(assemblyPath: path));
-        } catch (Exception error) when (error is BadImageFormatException or FileLoadException or FileNotFoundException) {
-            return Option<Assembly>.None;
+    private static ScenarioEntry? EntryOf(MethodInfo method) {
+        CustomAttributeData? marker = method.CustomAttributes.FirstOrDefault(predicate: static attribute =>
+            string.Equals(a: attribute.AttributeType.FullName, b: ScenarioAttributeType, comparisonType: StringComparison.Ordinal));
+        if (marker is null || marker.ConstructorArguments.Count == 0 || marker.ConstructorArguments[0].Value is not string theme) {
+            return null;
         }
+        string[] requires = [.. marker.NamedArguments
+            .Where(predicate: static argument => string.Equals(a: argument.MemberName, b: nameof(RhinoScenarioAttribute.Requires), comparisonType: StringComparison.Ordinal))
+            .SelectMany(selector: static argument => argument.TypedValue.Value is IEnumerable<CustomAttributeTypedArgument> values
+                ? values.Select(selector: static value => value.Value).OfType<string>()
+                : [])];
+        int budgetMs = marker.NamedArguments
+            .Where(predicate: static argument => string.Equals(a: argument.MemberName, b: nameof(RhinoScenarioAttribute.BudgetMs), comparisonType: StringComparison.Ordinal))
+            .Select(selector: static argument => argument.TypedValue.Value is int value ? value : 0)
+            .FirstOrDefault();
+        return new ScenarioEntry(Theme: theme, Name: $"{theme}.{method.Name}", Requires: requires, BudgetMs: budgetMs);
     }
 
-    private static Seq<(ScenarioEntry Entry, MethodInfo Method)> EntriesOf(Assembly assembly) =>
-        toSeq(SafeTypes(assembly: assembly))
-            .Bind(f: static type => toSeq(type.GetMethods(bindingAttr: BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)))
-            .Choose(selector: static method => Optional(method.GetCustomAttribute<RhinoScenarioAttribute>())
-                .Map(f: attribute => (
-                    new ScenarioEntry(Theme: attribute.Theme, Name: $"{attribute.Theme}.{method.Name}", Requires: attribute.Requires, BudgetMs: attribute.BudgetMs),
-                    method)));
-
-    private static IEnumerable<Type> SafeTypes(Assembly assembly) {
+    private static IEnumerable<Type> TypesOf(Assembly assembly, List<(string Key, string Value)> facts) {
         // BOUNDARY ADAPTER — a partially-loadable scenario assembly (regime-A skew) yields its
-        // loadable types; the unloadable ones surface at invoke as the host-drift floor.
+        // loadable types; the loader casualties are facts so selection never collapses to a
+        // false zero-match with no diagnostic trail.
         try {
             return assembly.GetTypes();
         } catch (ReflectionTypeLoadException partial) {
+            foreach (Exception? error in partial.LoaderExceptions) {
+                if (error is not null) {
+                    facts.Add(item: ("discovery.type.load.failed", $"{assembly.GetName().Name}: {error.GetType().Name}: {error.Message}"));
+                }
+            }
             return partial.Types.Where(predicate: static type => type is not null)!;
         }
     }

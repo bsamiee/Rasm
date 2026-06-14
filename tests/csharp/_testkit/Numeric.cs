@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using Rhino;
 using Rhino.Geometry;
@@ -45,7 +46,7 @@ public static class Numeric {
         Enumerable.Range(start: 0, count: rows * cols).Select(idx => (Row: idx / cols, Col: idx % cols));
     public static void Entrywise(int rows, int cols, Func<int, int, double> expected, Func<int, int, double> actual, double tolerance, string label) =>
         _ = toSeq(Cells(rows: rows, cols: cols)).Iter(rc =>
-            Spec.Equal(left: actual(rc.Row, rc.Col), right: expected(rc.Row, rc.Col), tolerance: tolerance, what: $"{label}[{rc.Row},{rc.Col}]"));
+            Spec.Equal(left: actual(rc.Row, rc.Col), right: expected(rc.Row, rc.Col), tolerance: tolerance, what: string.Create(provider: CultureInfo.InvariantCulture, $"{label}[{rc.Row},{rc.Col}]")));
     public static void Symmetric(int dimension, Func<int, int, double> at, double tolerance, string label) =>
         Entrywise(rows: dimension, cols: dimension, expected: (row, col) => at(col, row), actual: at, tolerance: tolerance, label: label);
     public static double Dot(int count, Func<int, double> left, Func<int, double> right) =>
@@ -62,8 +63,8 @@ public static class Numeric {
             0 => 1.0,
             1 => at(0, 0),
             2 => (at(0, 0) * at(1, 1)) - (at(0, 1) * at(1, 0)),
-            _ => Enumerable.Range(start: 0, count: n).Sum(col =>
-                ((col & 1) == 0 ? 1.0 : -1.0) * at(0, col) * Determinant(n: n - 1, at: (row, minorCol) => at(row + 1, minorCol < col ? minorCol : minorCol + 1))),
+            _ => Enumerable.Range(start: 0, count: n).Sum((int col) =>
+                ((col & 1) == 0 ? 1.0 : -1.0) * at(0, col) * Determinant(n: n - 1, at: (int row, int minorCol) => at(row + 1, minorCol < col ? minorCol : minorCol + 1))),
         };
     }
     public static void ColumnGramIdentity(VectorMatrix matrix, Arr<double>? sigma, double tolerance, string label) =>
@@ -79,14 +80,14 @@ public static class Numeric {
                     left: Dot(count: matrix.Cols.Value, left: col => matrix.At(i: row, j: col), right: col => x[index: col]),
                     right: b[index: row],
                     tolerance: tolerance,
-                    what: $"{label}[{row}]"))
-            : throw new Xunit.Sdk.XunitException($"{label}: residual shape mismatch A={matrix.Rows.Value}x{matrix.Cols.Value}, x={x.Count}, b={b.Count}");
+                    what: string.Create(provider: CultureInfo.InvariantCulture, $"{label}[{row}]")))
+            : throw new Xunit.Sdk.XunitException(string.Create(provider: CultureInfo.InvariantCulture, $"{label}: residual shape mismatch A={matrix.Rows.Value}x{matrix.Cols.Value}, x={x.Count}, b={b.Count}"));
     public static void Eigenpair(VectorMatrix matrix, double eigenvalue, Arr<double> eigenvector, Func<double, double, bool> eq, string label) {
         Assert.Equal(expected: matrix.Cols.Value, actual: eigenvector.Count);
         _ = toSeq(Enumerable.Range(start: 0, count: matrix.Rows.Value)).Iter(row => {
             double left = Dot(count: matrix.Cols.Value, left: col => matrix.At(i: row, j: col), right: col => eigenvector[index: col]);
             double right = eigenvalue * eigenvector[index: row];
-            Spec.Holds(condition: (eq ?? throw new ArgumentNullException(nameof(eq)))(left, right), label: $"{label}[{row}]: {left:R} != {right:R}");
+            Spec.Holds(condition: (eq ?? throw new ArgumentNullException(nameof(eq)))(left, right), label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}[{row}]: {left:R} != {right:R}"));
         });
     }
     private static double WeightedMoment(Seq<Point3d> points, Seq<double> weights, Point3d mean, Func<Point3d, double> left, Func<Point3d, double> right) =>
@@ -133,8 +134,8 @@ public static class Numeric {
         IEnumerable<int> cols = Enumerable.Range(start: 0, count: matrix.Cols.Value);
         return kind switch {
             "MaxAbs" => matrix.Entries.AsIterable().Max(static x => Math.Abs(value: x)),
-            "L1" => cols.Max(c => rows.Sum(r => Math.Abs(value: matrix.At(i: r, j: c)))),
-            "LInf" => rows.Max(r => cols.Sum(c => Math.Abs(value: matrix.At(i: r, j: c)))),
+            "L1" => cols.Max((int c) => rows.Sum((int r) => Math.Abs(value: matrix.At(i: r, j: c)))),
+            "LInf" => rows.Max((int r) => cols.Sum((int c) => Math.Abs(value: matrix.At(i: r, j: c)))),
             _ => throw new ArgumentException(message: $"Norm: unknown kind '{kind}'", paramName: nameof(kind)),
         };
     }

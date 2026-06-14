@@ -74,6 +74,8 @@ internal static class Evidence {
                 json: File.ReadAllText(path: closureManifest), jsonTypeInfo: SupervisorJsonContext.Default.ClosureManifest);
             if (closure is null)
                 return Fin.Fail<CargoManifest>(error: Error.New(message: $"closure manifest decoded to null: {closureManifest}"));
+            if (closure.Assemblies is not { Length: > 0 })
+                return Fin.Fail<CargoManifest>(error: Error.New(message: $"closure manifest contains no assemblies: {closureManifest}"));
             string root = Path.GetDirectoryName(path: Path.GetFullPath(path: closureManifest)) ?? ".";
             Seq<string> assemblies = toSeq(value: closure.Assemblies)
                 .Map(f: path => Path.IsPathRooted(path: path) ? path : Path.Combine(path1: root, path2: path));
@@ -86,7 +88,7 @@ internal static class Evidence {
             _ = assemblies.Iter(f: source => CopyFresh(source: source, stagePath: stagePath));
             return Fin.Succ(value: new CargoManifest(
                 SessionId: sessionId, ReportDir: reportDir, ContentHash: contentHash, StagePath: stagePath,
-                HostPlugins: closure.HostPlugins, BuiltAgainst: closure.BuiltAgainst));
+                HostPlugins: closure.HostPlugins ?? [], BuiltAgainst: closure.BuiltAgainst));
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException) {
             return Fin.Fail<CargoManifest>(error: Error.New(message: $"closure staging failed: {error.Message}"));
         }
@@ -97,9 +99,17 @@ internal static class Evidence {
 
     private static void CopyFresh(string source, string stagePath) {
         // Content-addressed: an existing staged file under the same hash is byte-identical.
-        string target = Path.Combine(path1: stagePath, path2: Path.GetFileName(path: source));
-        if (!File.Exists(path: target))
-            File.Copy(sourceFileName: source, destFileName: target);
+        Seq<string> sources = string.Equals(a: Path.GetExtension(path: source), b: ".dll", comparisonType: StringComparison.OrdinalIgnoreCase)
+            ? toSeq(value: [source, Path.ChangeExtension(path: source, extension: ".deps.json"), Path.ChangeExtension(path: source, extension: ".runtimeconfig.json"), Path.ChangeExtension(path: source, extension: ".pdb"), Path.ChangeExtension(path: source, extension: ".xml")])
+            : Seq(source);
+        _ = sources.Filter(f: File.Exists).Iter(f: candidate => {
+            string target = Path.Combine(path1: stagePath, path2: Path.GetFileName(path: candidate));
+            if (!File.Exists(path: target)) {
+                File.Copy(sourceFileName: candidate, destFileName: target);
+            } else if (!File.ReadAllBytes(path: candidate).SequenceEqual(second: File.ReadAllBytes(path: target))) {
+                throw new IOException(message: $"staged file conflict for '{Path.GetFileName(path: candidate)}'");
+            }
+        });
     }
 
     private static Option<BridgeEvent> Decode(string line) {

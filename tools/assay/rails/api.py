@@ -1162,8 +1162,8 @@ def _inventory_artifacts(settings: AssaySettings, sources: tuple[ApiSource, ...]
     tsv = "\n".join(_source_tsv(source) for source in sources)
     tsv_raw = tsv.encode()
     json_path, tsv_path = store.write_many((
-        (json_raw, (ArtifactKind.SCOPE.value, "api", settings.run_id, "doctor-inventory.json")),
-        (tsv_raw, (ArtifactKind.SCOPE.value, "api", settings.run_id, "doctor-inventory.tsv")),
+        (json_raw, (Claim.API.value, settings.run_id, "doctor-inventory.json")),
+        (tsv_raw, (Claim.API.value, settings.run_id, "doctor-inventory.tsv")),
     ))
     return (
         Artifact(id="doctor-inventory-json", kind=ArtifactKind.SCOPE, path=json_path, bytes=len(json_raw), lines=len(sources)),
@@ -1526,6 +1526,7 @@ def _show_store_report(store: ArtifactStore, path: str, p: ApiParams, *, matched
 def _show_targets(store: ArtifactStore, p: ApiParams) -> tuple[str, ...]:
     return store.resolve_artifacts(
         p.token,
+        Claim.API.value,
         f"{ArtifactKind.SCOPE.value}/api",
         ArtifactKind.SCOPE.value,
         ArtifactKind.HISTORY.value,

@@ -8,6 +8,7 @@ so laws assert EMPTY without a zero-row special case in the production fold.
 
 import dataclasses
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from dirty_equals import IsInt
@@ -22,7 +23,7 @@ from tests.python._testkit.spec import assert_error_status, assert_ok, refutes, 
 from tools.assay.composition.catalog import TOOLS
 from tools.assay.composition.settings import ArtifactScope
 from tools.assay.core.engine import exclusive_lease
-from tools.assay.core.model import ArtifactKind, Check, Claim, fold, Input, Language, Mode, MutationLane, receipt, Runner, Stage, TestRun, Tool
+from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, fold, Input, Language, Mode, MutationLane, receipt, Runner, Stage, TestRun, Tool
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 from tools.assay.rails import test as test_rail
@@ -179,7 +180,7 @@ def test_run_envelope_names_host_routed(monkeypatch: pytest.MonkeyPatch, assay_r
         language=Language.CSHARP, scope=Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"), host_bound=("src/App/App.csproj",)
     )
     _wire(monkeypatch, _ok(("dotnet", "test")), routed=routed, seam="_dispatch_all")
-    report = assert_ok(test_rail.run(assay_root.settings, assay_root.scope(Claim.TEST), TestParams(language=Language.CSHARP)))
+    report = assert_ok(test_rail.run(assay_root.settings, assay_root.scope(Claim.TEST), TestParams(csharp=True)))
     assert "closure[csharp]: included=1 excluded=0 cached=0 host-routed=1" in report.notes
     assert "host-routed[csharp]: src/App/App.csproj" in report.notes
 
@@ -252,6 +253,9 @@ def test_testparams_default_invariants() -> None:
     support_matrix(
         ("target is None", lambda: p.target is None, True),
         ("all is False", lambda: p.all is False, True),
+        ("csharp flag is False", lambda: p.csharp is False, True),
+        ("python flag is False", lambda: p.python is False, True),
+        ("typescript flag is False", lambda: p.typescript is False, True),
         ("mutation is OFF", lambda: p.mutation is MutationLane.OFF, True),
         ("benchmark is False", lambda: p.benchmark is False, True),
         ("coverage is False", lambda: p.coverage is False, True),
@@ -259,6 +263,29 @@ def test_testparams_default_invariants() -> None:
         ("limit is 0", lambda: p.limit == 0, True),
         ("grep is empty", lambda: not p.grep, True),
     )
+
+
+def test_testparams_rejects_multiple_language_flags() -> None:
+    """TestParams rejects ambiguous language selectors."""
+    fault = TestParams(csharp=True, typescript=True).bound("run")
+    assert isinstance(fault, Fault)
+    assert "--csharp" in fault.message
+    assert "--typescript" in fault.message
+
+
+def test_test_help_exposes_boolean_language_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
+    """Test help exposes boolean language selectors and omits the removed --language value flag."""
+    from tools.assay import __main__ as main_mod  # noqa: PLC0415
+
+    neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
+    monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
+    code = main_mod.main(["test", "run", "--help"])
+    cap = capsysbinary.readouterr()
+    assert code == 0
+    assert b"--csharp" in cap.out
+    assert b"--python" in cap.out
+    assert b"--typescript" in cap.out
+    assert b"--language" not in cap.out
 
 
 def test_testparams_frozen() -> None:
@@ -656,7 +683,7 @@ def test_run_mutation_gap_note_emitted(assay_root: AssayHarness, monkeypatch: py
     """Run with mutation=FULL emits the gap note when language has no eligible mutation runner; TypeScript has none in the catalog."""
     routed = Routed(language=Language.TYPESCRIPT, scope=Scope.CHANGED)
     _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
-    params = TestParams(mutation=MutationLane.FULL, language=Language.TYPESCRIPT)
+    params = TestParams(mutation=MutationLane.FULL, typescript=True)
     report = assert_ok(test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), params))
     assert any("mutation" in n for n in report.notes)
 
@@ -729,7 +756,7 @@ def test_thin_rail_gap_note_emitted_in_report_notes(assay_root: AssayHarness, mo
     routed = Routed(language=Language.TYPESCRIPT, scope=Scope.CHANGED, files=())
     _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    params = TestParams(mutation=MutationLane.FULL, language=Language.TYPESCRIPT)
+    params = TestParams(mutation=MutationLane.FULL, typescript=True)
     report = assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
     assert any("mutation" in n for n in report.notes)
 
@@ -749,7 +776,7 @@ def test_thin_rail_mutation_eligible_calls_leased(assay_root: AssayHarness, monk
 
     monkeypatch.setattr(test_rail, "leased", _record_lease)
 
-    params = TestParams(mutation=MutationLane.FULL, language=_PY)
+    params = TestParams(mutation=MutationLane.FULL, python=True)
     assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
     assert leased_calls == ["mutation-python"]
 
@@ -761,7 +788,7 @@ def test_thin_rail_multi_language_mutation_nests_sorted_leases(assay_root: Assay
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
     _wire(monkeypatch, ok, routed=routed, seam="_dispatch_all")
-    monkeypatch.setattr(test_rail, "_languages", lambda *_a, **_k: (Language.CSHARP, _PY))
+    monkeypatch.setattr(test_rail, "_languages", lambda *_a, **_k: Ok((Language.CSHARP, _PY)))
 
     def _descend(resource: str, action: Callable[[object], Result[object, object]], **_k: object) -> Result[object, object]:
         leased_calls.append(resource)
@@ -780,7 +807,7 @@ def test_thin_rail_per_language_mutation_leases_do_not_contend(assay_root: Assay
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
     _wire(monkeypatch, ok, routed=routed, seam="_dispatch_all")
-    params = TestParams(mutation=MutationLane.FULL, language=_PY)
+    params = TestParams(mutation=MutationLane.FULL, python=True)
     with exclusive_lease("mutation-csharp", "holder", settings=assay_root.settings) as held:
         assert_ok(held)
         assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
@@ -794,7 +821,7 @@ def test_thin_rail_no_mutation_calls_work_directly(assay_root: AssayHarness, mon
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    params = TestParams(mutation=MutationLane.OFF, language=_PY)
+    params = TestParams(mutation=MutationLane.OFF, python=True)
     report = assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
     assert report.status in {RailStatus.OK, RailStatus.EMPTY}
 

@@ -95,7 +95,7 @@ Collect live RhinoWIP runtime evidence:
 uv run python -m tools.assay bridge doctor
 uv run python -m tools.assay bridge check
 uv run python -m tools.assay bridge clean
-uv run python -m tools.assay bridge verify --pattern path/to/scenario.verify.csx
+uv run python -m tools.assay bridge verify tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios
 ```
 
 ## Artifact Flow

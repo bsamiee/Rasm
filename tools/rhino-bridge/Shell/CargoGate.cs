@@ -39,6 +39,13 @@ internal static class HostAssemblyTable {
     internal static AssemblyLoadContext ShellContext { get; } =
         AssemblyLoadContext.GetLoadContext(assembly: typeof(HostAssemblyTable).Assembly) ?? AssemblyLoadContext.Default;
 
+    internal static Assembly? ShellAssembly(AssemblyName assemblyName) =>
+        string.Equals(a: assemblyName.Name, b: typeof(CargoManifest).Assembly.GetName().Name, comparisonType: StringComparison.Ordinal)
+            ? typeof(CargoManifest).Assembly
+            : string.Equals(a: assemblyName.Name, b: typeof(HostAssemblyTable).Assembly.GetName().Name, comparisonType: StringComparison.Ordinal)
+                ? typeof(HostAssemblyTable).Assembly
+                : ShellContext.Assemblies.FirstOrDefault(predicate: assembly => AssemblyName.ReferenceMatchesDefinition(reference: assemblyName, definition: assembly.GetName()));
+
     internal static AssemblyOwner OwnerOf(string simpleName) {
         string probe = simpleName;
         while (probe.Length > 0) {
@@ -64,12 +71,18 @@ internal static class HostAssemblyTable {
 // for bridge-owned names, default-ALC fallthrough for host-owned, cargo-first otherwise.
 internal sealed class CargoLoadContext(string cargoAssemblyPath, int generation) : AssemblyLoadContext(name: $"Rasm.Bridge.Cargo#{generation}", isCollectible: true) {
     private readonly AssemblyDependencyResolver resolver = new(componentAssemblyPath: cargoAssemblyPath);
+    private readonly string stagePath = Path.GetDirectoryName(path: cargoAssemblyPath) ?? ".";
 
     protected override Assembly? Load(AssemblyName assemblyName) =>
         HostAssemblyTable.OwnerOf(simpleName: assemblyName.Name ?? string.Empty) switch {
             AssemblyOwner.Host => null,
-            AssemblyOwner.Shell => HostAssemblyTable.ShellContext.LoadFromAssemblyName(assemblyName: assemblyName),
-            _ => resolver.ResolveAssemblyToPath(assemblyName: assemblyName) is { } path ? LoadFromAssemblyPath(assemblyPath: path) : null,
+            AssemblyOwner.Shell => HostAssemblyTable.ShellAssembly(assemblyName: assemblyName)
+                ?? HostAssemblyTable.ShellContext.LoadFromAssemblyName(assemblyName: assemblyName),
+            _ => resolver.ResolveAssemblyToPath(assemblyName: assemblyName) is { } path
+                ? LoadFromAssemblyPath(assemblyPath: path)
+                : Path.Combine(path1: stagePath, path2: assemblyName.Name + ".dll") is { } staged && File.Exists(path: staged)
+                    ? LoadFromAssemblyPath(assemblyPath: staged)
+                    : null,
         };
 
     protected override nint LoadUnmanagedDll(string unmanagedDllName) =>

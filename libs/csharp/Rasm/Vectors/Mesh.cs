@@ -484,7 +484,7 @@ internal static class MeshKernel {
         for (int f = 0; f < mesh.Faces.Count; f++) {
             double aspect = mesh.Faces.GetFaceAspectRatio(index: f);
             if (!RhinoMath.IsValidDouble(x: aspect) || aspect > ceiling)
-                return Fin.Fail<Unit>(key.Caution(concern: $"Face {f} aspect ratio exceeds {ceiling}."));
+                return Fin.Fail<Unit>(key.Caution(concern: string.Create(provider: CultureInfo.InvariantCulture, $"Face {f} aspect ratio exceeds {ceiling}.")));
         }
         return Fin.Succ(unit);
     }
@@ -857,7 +857,7 @@ internal static class MeshKernel {
         }
         return count > 0 ? sum / count : 0.0;
     }
-    internal static Fin<TopologyReceipt> TopologyDetailed(MeshSpace space, Op key) {
+    internal static Fin<TopologyReceipt> TopologyDetailed(MeshSpace space) {
         Mesh mesh = space.Native;
         bool manifold = mesh.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool hasBoundary);
         int euler = mesh.TopologyVertices.Count - mesh.TopologyEdges.Count + mesh.Faces.Count;
@@ -1075,10 +1075,10 @@ internal static class MeshKernel {
             : project(space.Native, space.Native.Faces[index: meshPoint.FaceIndex], meshPoint.T, meshPoint.FaceIndex);
     }
     private static Fin<double> InterpolateOnMesh(MeshSpace space, Point3d sample, Arr<double> perVertex, Op key) =>
-        ClosestFace(space: space, sample: sample, key: key, project: (mesh, face, weights, _) => key.AcceptValue(value: InterpolateFaceValue(mesh: mesh, face: face, weights: weights, perVertex: perVertex)));
+        ClosestFace(space: space, sample: sample, key: key, project: (_, face, weights, _) => key.AcceptValue(value: InterpolateFaceValue(face: face, weights: weights, perVertex: perVertex)));
     private static double MeshSearchDistance(MeshSpace space) =>
         Math.Max(val1: space.Tolerance.Absolute.Value, val2: space.Cache.MeanEdgeLength);
-    private static double InterpolateFaceValue(Mesh mesh, MeshFace face, double[] weights, Arr<double> perVertex) {
+    private static double InterpolateFaceValue(MeshFace face, double[] weights, Arr<double> perVertex) {
         double value = (weights[0] * perVertex[index: face.A]) + (weights[1] * perVertex[index: face.B]) + (weights[2] * perVertex[index: face.C]);
         return face.IsQuad ? value + (weights[3] * perVertex[index: face.D]) : value;
     }
@@ -1366,7 +1366,7 @@ internal static class MeshKernel {
         Optional(kind).ToFin(key.InvalidInput()).Bind(active =>
             guard(active.IsValid, key.InvalidInput()).Bind(_ => active.Switch(
                 state: (Space: space, Eigenpairs: eigenpairs, Key: key),
-                spectralCase: static (state, spec) =>
+                spectralCase: static ((MeshSpace Space, int Eigenpairs, Op Key) state, MeshDescriptor.SpectralCase spec) =>
                     from descriptor in DescribeSpectralShape(space: state.Space, spec: spec, eigenpairs: state.Eigenpairs, includeAssembly: typeof(TOut) == typeof(DescriptorResult) || typeof(TOut) == typeof(DescriptorReceipt), key: state.Key)
                     from output in ProjectDescriptor<TOut>(descriptor: descriptor, key: state.Key)
                     select output)));
@@ -1802,7 +1802,7 @@ internal static class MeshKernel {
         int nVerts = mesh.Vertices.Count;
         int nEdges = mesh.TopologyEdges.Count;
         double[] negDivergence = new double[nVerts];
-        return from topology in TopologyDetailed(space: space, key: key)
+        return from topology in TopologyDetailed(space: space)
                from harmonic in topology.Genus.Match(
                    Some: genus => genus > 0
                        ? SpectralCore.Build(space: space, key: key).Bind(calculus => calculus.Harmonic.IsSome ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult()))
@@ -2014,20 +2014,20 @@ internal static class MeshKernel {
         select active;
     internal static Fin<SdfMeshSample> SignedDistanceFromMeshDetailed(MeshSpace space, SdfMeshPolicy policy, Point3d sample, Op key) =>
         AdmitSignedDistanceMeshPolicy(space: space, policy: policy, key: key).Bind(active => active.Method switch {
-            SdfMeshMethod method when method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat) => ClosedSignedHeatDistanceDetailed(space: space, policy: active, sample: sample, key: key).Bind(result => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(result.Solution.Receipt), key: key, topology: Some(result.Solution.Topology), volumeGrid: Some(result.Solution.Domain.Receipt)).Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt))),
-            SdfMeshMethod method when method.Equals(SdfMeshMethod.BoundarySignedHeat) => SignedHeatDistanceDetailed(space: space, policy: active, sample: sample, key: key).Bind(result => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(result.Solution.Receipt), key: key, topology: Some(result.Solution.Topology)).Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt))),
-            SdfMeshMethod method when method.Equals(SdfMeshMethod.GeneralizedWindingNumber) => GeneralizedWindingDistance(space: space, sample: sample, key: key).Bind(distance => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Option<SignedHeatReceipt>.None, key: key).Map(receipt => new SdfMeshSample(Distance: active.SignConvention.Multiplier * distance, Receipt: receipt))),
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat) => ClosedSignedHeatDistanceDetailed(space: space, policy: active, sample: sample, key: key).Bind(result => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(result.Solution.Receipt), topology: Some(result.Solution.Topology), volumeGrid: Some(result.Solution.Domain.Receipt)).Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt))),
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.BoundarySignedHeat) => SignedHeatDistanceDetailed(space: space, policy: active, sample: sample, key: key).Bind(result => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(result.Solution.Receipt), topology: Some(result.Solution.Topology)).Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt))),
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.GeneralizedWindingNumber) => GeneralizedWindingDistance(space: space, sample: sample, key: key).Bind(distance => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Option<SignedHeatReceipt>.None).Map(receipt => new SdfMeshSample(Distance: active.SignConvention.Multiplier * distance, Receipt: receipt))),
             _ => Fin.Fail<SdfMeshSample>(key.InvalidInput()),
         });
     internal static Fin<SdfMeshReceipt> PrewarmSignedDistanceEvaluator(MeshSpace space, SdfMeshPolicy policy, Op key) =>
         AdmitSignedDistanceMeshPolicy(space: space, policy: policy, key: key).Bind(active => active.Method switch {
-            SdfMeshMethod method when method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat) => space.Cache.ClosedSignedHeatDetailed(policy: active, key: key).Bind(solution => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(solution.Receipt), key: key, topology: Some(solution.Topology), volumeGrid: Some(solution.Domain.Receipt))),
-            SdfMeshMethod method when method.Equals(SdfMeshMethod.BoundarySignedHeat) => space.Cache.SignedHeatDetailed(policy: active, key: key).Bind(solution => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(solution.Receipt), key: key, topology: Some(solution.Topology))),
-            SdfMeshMethod method when method.Equals(SdfMeshMethod.GeneralizedWindingNumber) => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Option<SignedHeatReceipt>.None, key: key),
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat) => space.Cache.ClosedSignedHeatDetailed(policy: active, key: key).Bind(solution => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(solution.Receipt), topology: Some(solution.Topology), volumeGrid: Some(solution.Domain.Receipt))),
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.BoundarySignedHeat) => space.Cache.SignedHeatDetailed(policy: active, key: key).Bind(solution => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(solution.Receipt), topology: Some(solution.Topology))),
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.GeneralizedWindingNumber) => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Option<SignedHeatReceipt>.None),
             _ => Fin.Fail<SdfMeshReceipt>(key.InvalidInput()),
         });
-    private static Fin<SdfMeshReceipt> SdfMeshReceiptOf(MeshSpace space, SdfMeshPolicy policy, Option<SignedHeatReceipt> signedHeat, Op key, Option<TopologyReceipt> topology = default, Option<VolumeGridReceipt> volumeGrid = default) =>
-        topology.Match(Some: static receipt => Fin.Succ(receipt), None: () => TopologyDetailed(space: space, key: key))
+    private static Fin<SdfMeshReceipt> SdfMeshReceiptOf(MeshSpace space, SdfMeshPolicy policy, Option<SignedHeatReceipt> signedHeat, Option<TopologyReceipt> topology = default, Option<VolumeGridReceipt> volumeGrid = default) =>
+        topology.Match(Some: static receipt => Fin.Succ(receipt), None: () => TopologyDetailed(space: space))
             .Map(topology => new SdfMeshReceipt(Method: policy.Method, Status: policy.Method.Status, Domain: policy.Method.Domain, Topology: topology, SignedHeat: signedHeat, VolumeGrid: volumeGrid));
     private static Fin<double> GeneralizedWindingDistance(MeshSpace space, Point3d sample, Op key) =>
         Optional(space.Native.ClosestPoint(testPoint: sample)).Filter(static closest => closest.IsValid).ToFin(key.InvalidResult()).Bind(closest =>
@@ -2104,7 +2104,7 @@ internal static class MeshKernel {
         let solvedDomain = domain with { Receipt = receipt }
         select new ClosedSignedHeatSolution(Domain: solvedDomain, Values: calibrated.Values, Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: 0, BoundaryEncodedEdgeSourceCount: 0, BoundaryRejectedPointCount: 0, BoundaryUnmatchedSegmentCount: 0, HeatSolve: Option<SolveReceipt>.None, PoissonSolve: solve), Topology: admitted.Topology);
     private static Fin<(TopologyReceipt Topology, BoundingBox Bounds, double NormalSign)> AdmitClosedSignedHeat(MeshSpace space, SdfMeshPolicy policy, Op key) =>
-        from topology in TopologyDetailed(space: space, key: key)
+        from topology in TopologyDetailed(space: space)
         from _ in policy.Method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat) && policy.Grid.IsSome && topology.IsWatertight && topology.IsSolid && topology.IsClosed && topology.IsOriented && !topology.HasBoundary && topology.NonManifoldEdges == 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
         from bounds in Optional(space.Native.GetBoundingBox(accurate: true)).Filter(static box => box.IsValid && box.Diagonal.Length > RhinoMath.ZeroTolerance).ToFin(key.InvalidInput())
         let orientation = space.Native.SolidOrientation()
@@ -2251,7 +2251,7 @@ internal static class MeshKernel {
         return key.AcceptValue(value: (c0 * (1.0 - tz)) + (c1 * tz));
     }
     private static Fin<(TopologyReceipt Topology, BoundarySignedHeatSource Source)> AdmitBoundarySignedHeat(MeshSpace space, IntrinsicMesh imesh, Op key) =>
-        from topology in TopologyDetailed(space: space, key: key)
+        from topology in TopologyDetailed(space: space)
         from polylines in Optional(space.Native.GetNakedEdges()).Filter(static edges => edges.Length > 0).ToFin(key.InvalidInput())
         let encoded = EncodeSignedHeatBoundarySource(mesh: space.Native, imesh: imesh, polylines: polylines)
         from admitted in AdmitSignedHeatSource(encoded: encoded, key: key)

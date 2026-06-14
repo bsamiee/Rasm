@@ -103,7 +103,7 @@ public static partial class Analyze {
             evaluator: static (op, geometry) =>
                 from context in Env.Asks
                 from form in GeometryKernel.CurveForm(source: geometry, op: op)
-                    .Bind(lease => lease.Use(curve => GeometryKernel.CurveFormOf(curve: curve, context: context, op: op))).ToEff()
+            .Bind(lease => lease.Use(curve => GeometryKernel.CurveFormOf(curve: curve, context: context))).ToEff()
                 from output in new AnalysisOutput<CurveForm>(Key: op).One(value: form).ToEff()
                 select output)
             .As<TGeometry, TOut>(key: key);

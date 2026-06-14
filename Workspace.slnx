@@ -60,20 +60,11 @@
   <Folder Name="/tests/csharp/libs/Rasm.Grasshopper/">
     <Project Path="tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj" />
   </Folder>
-  <Folder Name="/tests/csharp/libs/Rasm.Grasshopper.Scenarios/">
-    <Project Path="tests/csharp/libs/Rasm.Grasshopper.Scenarios/Rasm.Grasshopper.Scenarios.csproj" />
-  </Folder>
-  <Folder Name="/tests/csharp/libs/Rasm.Scenarios/">
-    <Project Path="tests/csharp/libs/Rasm.Scenarios/Rasm.Scenarios.csproj" />
-  </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.Materials/">
     <Project Path="tests/csharp/libs/Rasm.Materials/Rasm.Materials.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.Rhino/">
     <Project Path="tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj" />
-  </Folder>
-  <Folder Name="/tests/csharp/libs/Rasm.Rhino.Scenarios/">
-    <Project Path="tests/csharp/libs/Rasm.Rhino.Scenarios/Rasm.Rhino.Scenarios.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/tools/cs-analyzer/">
     <Project Path="tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj" />

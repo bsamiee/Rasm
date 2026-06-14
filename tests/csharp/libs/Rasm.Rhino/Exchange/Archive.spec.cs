@@ -5,7 +5,7 @@ using Rasm.TestKit;
 namespace Rasm.Rhino.Tests.Exchange;
 
 // The native graph WALK (FileArchiveOps.Resources over a live File3dm) is bridge-owned — File3dm P/Invokes
-// rhcommon_c, which a managed test runner process cannot load (see exchange.verify.csx theme 8). These laws cover the
+// rhcommon_c, which a managed test runner process cannot load. The typed Exchange scenario owns that runtime lane. These laws cover the
 // pure-managed projections the walk feeds into: link validation, the count summary, and the sentinel->Option
 // rail (the same TextOption/GuidOption guards that absorb null File3dmObject members in the walk).
 

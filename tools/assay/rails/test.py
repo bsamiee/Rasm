@@ -3,10 +3,11 @@
 from collections.abc import Callable  # noqa: TC003  # _MUTATION_SCOPE binds the projection type at import time
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Annotated, TYPE_CHECKING
 
+from cyclopts import Parameter
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # cyclopts resolves Param-annotated dataclass fields at runtime
-from expression import Ok, Result  # noqa: TC002  # beartype @checked resolves the handler forward-ref (PEP 649)
+from expression import Error, Ok, Result  # noqa: TC002  # beartype @checked resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
@@ -30,6 +31,7 @@ from tools.assay.core.model import (
     Fault,  # noqa: TC001  # beartype @checked resolves the rail's forward-ref (PEP 649)
     fold,
     Input,
+    language_choice,
     Language,
     Match,
     Mode,
@@ -96,6 +98,11 @@ _GATE_TOOL = Tool(
 class TestParams(BaseParams):
     """Parameters shared by test verbs."""
 
+    csharp: Annotated[bool, Parameter(name="--csharp", negative="", show_default=False, help="Restrict the command to C# targets.")] = False
+    python: Annotated[bool, Parameter(name="--python", negative="", show_default=False, help="Restrict the command to Python targets.")] = False
+    typescript: Annotated[
+        bool, Parameter(name="--typescript", negative="", show_default=False, help="Restrict the command to TypeScript targets.")
+    ] = False
     target: Path | None = None
     all: bool = False
     mutation: MutationLane = MutationLane.OFF
@@ -104,6 +111,14 @@ class TestParams(BaseParams):
     filter: str = ""
     limit: NonNegativeInt = 0
     grep: str = ""
+
+    def bound(self, verb: str) -> TestParams | Fault:
+        """Validate mutually-exclusive language flags while preserving variadic targets."""
+        match language_choice(verb, csharp=self.csharp, python=self.python, typescript=self.typescript):
+            case Fault() as fault:
+                return fault
+            case _:
+                return super().bound(verb)
 
 
 class _CoverageTotals(msgspec.Struct, frozen=True, gc=False):
@@ -124,12 +139,18 @@ _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.test")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _languages(selected: Language | None, paths: tuple[str, ...]) -> tuple[Language, ...]:
+def _selected(params: TestParams, verb: str) -> Language | Fault | None:
+    return language_choice(verb, csharp=params.csharp, python=params.python, typescript=params.typescript)
+
+
+def _languages(selected: Language | Fault | None, paths: tuple[str, ...]) -> Result[tuple[Language, ...], Fault]:
     match selected:
+        case Fault() as fault:
+            return Error(fault)
         case None:
-            return infer_languages(paths, tuple(sorted({t.language for t in select(Claim.TEST)}, key=lambda member: member.value)))
+            return Ok(infer_languages(paths, tuple(sorted({t.language for t in select(Claim.TEST)}, key=lambda member: member.value))))
         case language:
-            return (language,)
+            return Ok((language,))
 
 
 def _eligible(tool: Tool, params: TestParams) -> bool:
@@ -373,12 +394,18 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
     Returns:
         Folded test report, or routing/spawn/lease fault.
     """
-    languages = _languages(params.language, params.paths)
+    choice = _selected(params, verb)
+    language_result = _languages(choice, params.paths)
+    match language_result:
+        case Result(tag="error", error=fault):
+            return Error(fault)
+        case Result(tag="ok", ok=languages):
+            pass
     eligible = tuple(t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation is not MutationLane.OFF else mode))
     gap = _mutation_gap(params, eligible)
     match gap:
         case True:
-            _LOG.warning(_GAP_NOTE, claim=claim.value, verb=verb, language=params.language)
+            _LOG.warning(_GAP_NOTE, claim=claim.value, verb=verb, language=choice.value if isinstance(choice, Language) else "")
         case False:
             pass
 
@@ -437,7 +464,12 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
     Returns:
         Test roster report, or routing/spawn fault.
     """
-    languages = _languages(params.language, params.paths)
+    language_result = _languages(_selected(params, "list"), params.paths)
+    match language_result:
+        case Result(tag="error", error=fault):
+            return Error(fault)
+        case Result(tag="ok", ok=languages):
+            pass
     needle = params.grep.strip().lower()
 
     def _settle(done: block.Block[Completed], selected: tuple[Routed, ...]) -> Report:

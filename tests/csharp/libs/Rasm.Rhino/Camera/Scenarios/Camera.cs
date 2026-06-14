@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using Rasm.Bridge.Scenarios;
+using Rasm.TestKit.Scenarios;
 using Rasm.Rhino.Camera;
 using Rasm.Rhino.Commands;
 using Rhino;
@@ -7,7 +7,7 @@ using Rhino.Commands;
 using Rhino.DocObjects;
 using Rhino.Geometry;
 
-namespace Rasm.Rhino.Scenarios;
+namespace Rasm.Rhino.Tests.Camera.Scenarios;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 

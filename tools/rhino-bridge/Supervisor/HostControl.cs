@@ -98,18 +98,20 @@ internal sealed record LiveHost(int Pid, long StartedAtUnixMs, EndpointRecord En
 
 // Ownership: workstation pipe admission and JSON-RPC shell binding. Session orchestration owns
 // when to connect; this boundary owns how the pipe is framed, versioned, and disposed.
-internal sealed class SupervisorConnection : IDisposable {
+internal sealed class SupervisorConnection : IAsyncDisposable {
     private const string SupervisorVersion = "supervisor";
 
     private readonly NamedPipeClientStream stream;
+    private readonly SystemTextJsonFormatter formatter;
     private readonly HeaderDelimitedMessageHandler handler;
     private readonly JsonRpc rpc;
     private readonly IBridgeShell shell;
     private readonly ConcurrentQueue<BridgeEvent> events;
     private bool disposed;
 
-    private SupervisorConnection(NamedPipeClientStream stream, HeaderDelimitedMessageHandler handler, JsonRpc rpc, IBridgeShell shell, ConcurrentQueue<BridgeEvent> events) {
+    private SupervisorConnection(NamedPipeClientStream stream, SystemTextJsonFormatter formatter, HeaderDelimitedMessageHandler handler, JsonRpc rpc, IBridgeShell shell, ConcurrentQueue<BridgeEvent> events) {
         this.stream = stream;
+        this.formatter = formatter;
         this.handler = handler;
         this.rpc = rpc;
         this.shell = shell;
@@ -118,26 +120,51 @@ internal sealed class SupervisorConnection : IDisposable {
 
     internal BridgeEvent[] Events => [.. events];
 
-    internal static SupervisorConnection Connect(string pipeName, TimeSpan timeout) {
-        NamedPipeClientStream pipe = new(
+    internal static async Task<SupervisorConnection> ConnectAsync(string pipeName, TimeSpan timeout, CancellationToken ct) {
+        NamedPipeClientStream admittedStream = new(
             serverName: ".", pipeName: pipeName, direction: PipeDirection.InOut,
             options: PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-        pipe.Connect(timeout: timeout);
-        SystemTextJsonFormatter formatter = new() {
-            JsonSerializerOptions = new JsonSerializerOptions(BridgeJsonContext.Default.Options) {
-                TypeInfoResolver = JsonTypeInfoResolver.Combine(BridgeJsonContext.Default, new DefaultJsonTypeInfoResolver()),
-            },
-        };
-        HeaderDelimitedMessageHandler handler = new(duplexStream: pipe, formatter: formatter);
-        JsonRpc rpc = new BridgeRpc(handler: handler);
-        ConcurrentQueue<BridgeEvent> events = new();
-        rpc.AddLocalRpcTarget<IBridgeEvents>(target: new EventSink(events: events), options: null);
-        IBridgeShell shell = rpc.Attach<IBridgeShell>();
-        rpc.StartListening();
-        return new SupervisorConnection(stream: pipe, handler: handler, rpc: rpc, shell: shell, events: events);
+        SystemTextJsonFormatter? admittedFormatter = null;
+        HeaderDelimitedMessageHandler? admittedHandler = null;
+        JsonRpc? admittedRpc = null;
+        bool transferred = false;
+        try {
+            using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            linked.CancelAfter(delay: timeout);
+            await admittedStream.ConnectAsync(cancellationToken: linked.Token).ConfigureAwait(false);
+            admittedFormatter = new SystemTextJsonFormatter {
+                JsonSerializerOptions = new JsonSerializerOptions(BridgeJsonContext.Default.Options) {
+                    TypeInfoResolver = JsonTypeInfoResolver.Combine(BridgeJsonContext.Default, new DefaultJsonTypeInfoResolver()),
+                },
+            };
+            admittedHandler = new HeaderDelimitedMessageHandler(duplexStream: admittedStream, formatter: admittedFormatter);
+            admittedRpc = new BridgeRpc(messageHandler: admittedHandler);
+            ConcurrentQueue<BridgeEvent> admittedEvents = new();
+            admittedRpc.AddLocalRpcTarget<IBridgeEvents>(target: new EventSink(events: admittedEvents), options: null);
+            IBridgeShell admittedShell = admittedRpc.Attach<IBridgeShell>();
+            admittedRpc.StartListening();
+            SupervisorConnection connection = new(
+                stream: admittedStream,
+                formatter: admittedFormatter,
+                handler: admittedHandler,
+                rpc: admittedRpc,
+                shell: admittedShell,
+                events: admittedEvents);
+            transferred = true;
+            return connection;
+        } finally {
+            if (!transferred) {
+                admittedRpc?.Dispose();
+                if (admittedHandler is not null) {
+                    await admittedHandler.DisposeAsync().ConfigureAwait(false);
+                }
+                admittedFormatter?.Dispose();
+                await admittedStream.DisposeAsync().ConfigureAwait(false);
+            }
+        }
     }
 
-    internal Handshake Hello() =>
+    internal Task<Handshake> HelloAsync(CancellationToken ct) =>
         shell.HelloAsync(supervisor: new Handshake(
             ContractVersion: Handshake.CurrentVersion,
             SenderVersion: SupervisorVersion,
@@ -145,28 +172,28 @@ internal sealed class SupervisorConnection : IDisposable {
                 Key: "client.pid", Outcome: PhaseStatus.Ok,
                 Receipt: Environment.ProcessId.ToString(provider: CultureInfo.InvariantCulture))],
             Fingerprint: null,
-            Endpoint: null), ct: CancellationToken.None).GetAwaiter().GetResult();
+            Endpoint: null), ct: ct);
 
-    internal CargoReceipt Load(CargoManifest manifest) =>
-        shell.LoadCargoAsync(manifest: manifest, ct: CancellationToken.None).GetAwaiter().GetResult();
+    internal Task<CargoReceipt> LoadAsync(CargoManifest manifest, CancellationToken ct) =>
+        shell.LoadCargoAsync(manifest: manifest, ct: ct);
 
-    internal ScenarioReceipt[] Run(ScenarioSelection selection) =>
-        shell.RunAsync(selection: selection, ct: CancellationToken.None).GetAwaiter().GetResult();
+    internal Task<ScenarioReceipt[]> RunAsync(ScenarioSelection selection, CancellationToken ct) =>
+        shell.RunAsync(selection: selection, ct: ct);
 
-    internal UnloadReceipt Unload() =>
-        shell.UnloadCargoAsync(ct: CancellationToken.None).GetAwaiter().GetResult();
+    internal Task<UnloadReceipt> UnloadAsync(CancellationToken ct) =>
+        shell.UnloadCargoAsync(ct: ct);
 
-    internal void PrepareQuit() =>
-        shell.PrepareQuitAsync(ct: CancellationToken.None).GetAwaiter().GetResult();
+    internal Task PrepareQuitAsync(CancellationToken ct) =>
+        shell.PrepareQuitAsync(ct: ct);
 
-    [Obsolete]
-    public void Dispose() {
+    public async ValueTask DisposeAsync() {
         if (disposed)
             return;
         disposed = true;
         rpc.Dispose();
-        handler.Dispose();
-        stream.Dispose();
+        await handler.DisposeAsync().ConfigureAwait(false);
+        formatter.Dispose();
+        await stream.DisposeAsync().ConfigureAwait(false);
     }
 
     private sealed class EventSink(ConcurrentQueue<BridgeEvent> events) : IBridgeEvents {
@@ -176,9 +203,9 @@ internal sealed class SupervisorConnection : IDisposable {
         }
     }
 
-    private sealed class BridgeRpc(IJsonRpcMessageHandler handler) : JsonRpc(handler: handler) {
-        protected override Type? GetErrorDetailsDataType(JsonRpcError? error) =>
-            error?.Error?.Code is { } code && (int)code == -32050 ? typeof(BridgeFault) : base.GetErrorDetailsDataType(error: error);
+    private sealed class BridgeRpc(IJsonRpcMessageHandler messageHandler) : JsonRpc(messageHandler: messageHandler) {
+        protected override Type? GetErrorDetailsDataType(JsonRpcError error) =>
+            error.Error?.Code is { } code && (int)code == -32050 ? typeof(BridgeFault) : base.GetErrorDetailsDataType(error: error);
     }
 }
 

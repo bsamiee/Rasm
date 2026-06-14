@@ -158,28 +158,28 @@ register_law(_plan, "unknown_pattern_is_unsupported")
 def test_plan_empty_pattern_selects_all() -> None:
     plan = assert_ok(_plan(""))
     assert msgspec.json.decode(plan.selection_json.encode()) == {"$type": "all"}
-    assert {corpus.assembly for corpus in plan.corpora} == {"Rasm.Scenarios.dll", "Rasm.Rhino.Scenarios.dll", "Rasm.Grasshopper.Scenarios.dll"}
+    assert {corpus.assembly for corpus in plan.corpora} == {"Rasm.Tests.dll", "Rasm.Rhino.Tests.dll", "Rasm.Grasshopper.Tests.dll"}
 
 
 def test_plan_theme_pattern_selects_theme_case() -> None:
     plan = assert_ok(_plan("blocks"))
     assert msgspec.json.decode(plan.selection_json.encode()) == {"$type": "themes", "themes": ["blocks"]}
-    assert tuple(corpus.assembly for corpus in plan.corpora) == ("Rasm.Rhino.Scenarios.dll",)
+    assert tuple(corpus.assembly for corpus in plan.corpora) == ("Rasm.Rhino.Tests.dll",)
 
 
 def test_plan_bare_names_project_to_qualified_names() -> None:
     plan = assert_ok(_plan("CoreRail,NativeRail"))
     payload = msgspec.json.decode(plan.selection_json.encode())
     assert payload == {"$type": "names", "names": ["blocks.CoreRail", "analysis.NativeRail"]}
-    assert {corpus.assembly for corpus in plan.corpora} == {"Rasm.Rhino.Scenarios.dll", "Rasm.Scenarios.dll"}
+    assert {corpus.assembly for corpus in plan.corpora} == {"Rasm.Rhino.Tests.dll", "Rasm.Tests.dll"}
 
 
 def test_plan_project_path_selects_corpus_not_literal_name() -> None:
-    plan = assert_ok(_plan("tests/csharp/libs/Rasm.Rhino.Scenarios"))
+    plan = assert_ok(_plan("tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios"))
     payload = msgspec.json.decode(plan.selection_json.encode())
     assert payload["$type"] == "themes"
-    assert "tests/csharp/libs/Rasm.Rhino.Scenarios" not in payload.get("names", ())
-    assert tuple(corpus.assembly for corpus in plan.corpora) == ("Rasm.Rhino.Scenarios.dll",)
+    assert "tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios" not in payload.get("names", ())
+    assert tuple(corpus.assembly for corpus in plan.corpora) == ("Rasm.Rhino.Tests.dll",)
 
 
 def test_plan_unknown_pattern_is_unsupported() -> None:
@@ -233,21 +233,21 @@ register_law(_aggregate_closure, "missing_selected_closure_faults")
 def test_closure_index_and_aggregate_selected_corpus(assay_root: AssayHarness) -> None:
     scope = assay_root.scope(Claim.BRIDGE)
     root = Path(scope.ensure())
-    _closure(root / "rasm" / "bridge-closure.json", "Rasm.Scenarios.dll", "Core.dll")
-    _closure(root / "rhino" / "bridge-closure.json", "Rasm.Rhino.Scenarios.dll", "Rhino.dll")
+    _closure(root / "rasm" / "bridge-closure.json", "Rasm.Tests.dll", "Core.dll")
+    _closure(root / "rhino" / "bridge-closure.json", "Rasm.Rhino.Tests.dll", "Rhino.dll")
 
     index = assert_ok(_closure_index(scope))
-    assert set(index) == {"Rasm.Scenarios.dll", "Rasm.Rhino.Scenarios.dll"}
+    assert set(index) == {"Rasm.Tests.dll", "Rasm.Rhino.Tests.dll"}
 
     target = assert_ok(_aggregate_closure(scope, assert_ok(_plan("blocks")), index))
     payload = msgspec.json.decode(target.read_bytes())
-    assert {Path(row).name for row in payload["assemblies"]} == {"Rasm.Rhino.Scenarios.dll", "Rhino.dll"}
+    assert {Path(row).name for row in payload["assemblies"]} == {"Rasm.Rhino.Tests.dll", "Rhino.dll"}
     assert payload["hostPlugins"] == ["b45a29b1-4343-4035-989e-044e8580d9cf"]
 
 
 def test_aggregate_missing_selected_closure_faults(assay_root: AssayHarness) -> None:
     fault = assert_error_status(_aggregate_closure(assay_root.scope(Claim.BRIDGE), assert_ok(_plan("analysis")), {}), RailStatus.FAULTED)
-    assert "Rasm.Scenarios.dll" in fault.message
+    assert "Rasm.Tests.dll" in fault.message
 
 
 def test_read_closure_fallback_shape_is_empty() -> None:
@@ -314,7 +314,7 @@ def test_verify_folds_session_summary(assay_root: AssayHarness, monkeypatch: pyt
     closure.write_text("{}", encoding="utf-8")
     monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
     monkeypatch.setattr(_bridge_mod, "_build_closure", lambda _settings: Ok(receipt(("rasm-bridge-build",), 0, status=RailStatus.OK)))
-    monkeypatch.setattr(_bridge_mod, "_closure_index", lambda _scope: Ok({"Rasm.Rhino.Scenarios.dll": (closure, _ClosureManifest())}))
+    monkeypatch.setattr(_bridge_mod, "_closure_index", lambda _scope: Ok({"Rasm.Rhino.Tests.dll": (closure, _ClosureManifest())}))
     monkeypatch.setattr(_bridge_mod, "_aggregate_closure", lambda _scope, _plan, _index: Ok(closure))
     monkeypatch.setattr(
         _bridge_mod,

@@ -8,8 +8,8 @@ namespace Rasm.Bridge.Supervisor;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 
-// Ownership: argv -> SupervisorVerb [Union] -> Eff<SupervisorRuntime, SessionEnvelope> -> ONE
-// terminal collapse at Main. `verify` is modality-polymorphic on input shape: assay passes a
+// Ownership: argv -> SupervisorVerb [Union] -> SessionEnvelope -> ONE terminal collapse at Main.
+// `verify` is modality-polymorphic on input shape: assay passes a
 // ScenarioSelection union case + the staged closure manifest path; no flags, no modes. Key and
 // EntryPhase are derived projections — help, report routing, and fault attribution all read this
 // single declaration.
@@ -75,11 +75,6 @@ internal static class Verbs {
         };
     }
 
-    internal static Eff<SupervisorRuntime, SessionEnvelope> Session(SupervisorVerb verb) {
-        ArgumentNullException.ThrowIfNull(argument: verb);
-        return Eff<SupervisorRuntime, SessionEnvelope>.Lift(f: runtime => Fin.Succ(value: SessionKernel.Run(verb: verb, runtime: runtime)));
-    }
-
     private static IEnumerable<Type> Cases() =>
         typeof(SupervisorVerb).GetNestedTypes(bindingAttr: BindingFlags.Public | BindingFlags.NonPublic)
             .Where(predicate: static candidate => candidate.IsSealed && candidate.IsSubclassOf(c: typeof(SupervisorVerb)));
@@ -116,31 +111,31 @@ internal static class Verbs {
 // decode contract); structlog-style diagnostics ride stderr; the exit code derives from
 // PhaseStatus rows.
 internal static class Program {
-    internal static int Main(string[] args) {
+    internal static async Task<int> Main(string[] args) {
         if (args.Length == 0 || args[0] is "--help" or "-h" or "help") {
-            Console.Out.WriteLine(value: Verbs.Help());
+            await Console.Out.WriteLineAsync(value: Verbs.Help()).ConfigureAwait(false);
             return 0;
         }
         Fin<SupervisorVerb> parsed = Verbs.Parse(argv: args);
         if (parsed is not Fin<SupervisorVerb>.Succ(SupervisorVerb verb)) {
             Diagnose(@event: "argv.rejected", detail: parsed is Fin<SupervisorVerb>.Fail(Error rejection) ? rejection : null);
-            Console.Out.WriteLine(value: Verbs.Help());
+            await Console.Out.WriteLineAsync(value: Verbs.Help()).ConfigureAwait(false);
             return Verbs.UsageExitCode;
         }
         using CancellationTokenSource interrupt = new();
         SupervisorRuntime runtime = Compose(root: interrupt.Token);
-        Fin<SessionEnvelope> outcome = Verbs.Session(verb: verb).Run(runtime);
-        SessionEnvelope envelope = outcome switch {
-            Fin<SessionEnvelope>.Succ(SessionEnvelope folded) => folded,
-            Fin<SessionEnvelope>.Fail(Error failure) => SessionFold.Run(
+        SessionEnvelope envelope;
+        try {
+            envelope = await SessionKernel.RunAsync(verb: verb, runtime: runtime).ConfigureAwait(false);
+        } catch (Exception failure) when (failure is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
+            envelope = SessionFold.Run(
                 runId: Guid.NewGuid().ToString(format: "n"), verb: verb,
                 final: new SessionState.Faulted(
-                    Fault: new BridgeFault.LaunchFailed(Detail: failure.Message),
+                    Fault: new BridgeFault.LaunchFailed(Detail: $"{failure.GetType().Name}: {failure.Message}"),
                     At: verb.EntryPhase, Done: Seq<ScenarioReceipt>()),
-                stream: Seq<BridgeEvent>(), spoolTail: (0L, 0L), reportDir: runtime.ArtifactRoot),
-            _ => throw new InvalidOperationException(message: "Fin produced neither value nor error"),
-        };
-        Console.Out.WriteLine(value: JsonSerializer.Serialize(value: envelope, jsonTypeInfo: BridgeJsonContext.Default.SessionEnvelope));
+                stream: Seq<BridgeEvent>(), spoolTail: (0L, 0L), reportDir: runtime.ArtifactRoot);
+        }
+        await Console.Out.WriteLineAsync(value: JsonSerializer.Serialize(value: envelope, jsonTypeInfo: BridgeJsonContext.Default.SessionEnvelope)).ConfigureAwait(false);
         Diagnose(@event: "session.terminal", detail: null, envelope: envelope);
         return envelope.Status.ExitCode;
     }

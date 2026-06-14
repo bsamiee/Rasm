@@ -21,6 +21,7 @@ from tools.assay.core.model import (
     Check,
     Claim,
     Completed,  # noqa: TC001  # beartype resolves Result[Completed, Fault] forward-ref at runtime under PEP 649
+    Diagnostic,
     Fault,
     fold,
     Input,
@@ -44,9 +45,9 @@ _SHELL_PROJECT: Final[str] = "tools/rhino-bridge/Shell/Shell.csproj"
 _CARGO_PROJECT: Final[str] = "tools/rhino-bridge/Cargo/Cargo.csproj"
 _CONTRACT_PROJECT: Final[str] = "tools/rhino-bridge/Contract/Contract.csproj"
 _SCENARIO_PROJECTS: Final[tuple[str, ...]] = (
-    "tests/csharp/libs/Rasm.Scenarios/Rasm.Scenarios.csproj",
-    "tests/csharp/libs/Rasm.Rhino.Scenarios/Rasm.Rhino.Scenarios.csproj",
-    "tests/csharp/libs/Rasm.Grasshopper.Scenarios/Rasm.Grasshopper.Scenarios.csproj",
+    "tests/csharp/libs/Rasm/Rasm.Tests.csproj",
+    "tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj",
+    "tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
 )
 _BUILD_PROJECTS: Final[tuple[str, ...]] = (_CONTRACT_PROJECT, _CARGO_PROJECT, _SHELL_PROJECT, _STUB_PROJECT, _SUPERVISOR_PROJECT, *_SCENARIO_PROJECTS)
 _BRIDGE_REPORT_ROOT: Final[tuple[str, ...]] = (".artifacts", "assay", "bridge")
@@ -83,6 +84,7 @@ class _ScenarioCorpus:
     theme_names: tuple[tuple[str, str], ...]
     project: str
     assembly: str
+    paths: tuple[str, ...] = ()
 
     @property
     def themes(self) -> frozenset[str]:
@@ -163,8 +165,14 @@ class _SessionEnvelope(msgspec.Struct, frozen=True, gc=False, omit_defaults=True
 
 _SCENARIO_CORPORA: Final[tuple[_ScenarioCorpus, ...]] = (
     _ScenarioCorpus(
-        project="tests/csharp/libs/Rasm.Scenarios/Rasm.Scenarios.csproj",
-        assembly="Rasm.Scenarios.dll",
+        project="tests/csharp/libs/Rasm/Rasm.Tests.csproj",
+        assembly="Rasm.Tests.dll",
+        paths=(
+            "tests/csharp/libs/Rasm/Analysis",
+            "tests/csharp/libs/Rasm/Analysis/Scenarios",
+            "tests/csharp/libs/Rasm/Vectors",
+            "tests/csharp/libs/Rasm/Vectors/Scenarios",
+        ),
         theme_names=(
             ("analysis", "NativeRail"),
             ("vectors", "CloudShapes"),
@@ -180,8 +188,18 @@ _SCENARIO_CORPORA: Final[tuple[_ScenarioCorpus, ...]] = (
         ),
     ),
     _ScenarioCorpus(
-        project="tests/csharp/libs/Rasm.Rhino.Scenarios/Rasm.Rhino.Scenarios.csproj",
-        assembly="Rasm.Rhino.Scenarios.dll",
+        project="tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj",
+        assembly="Rasm.Rhino.Tests.dll",
+        paths=(
+            "tests/csharp/libs/Rasm.Rhino/Blocks",
+            "tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios",
+            "tests/csharp/libs/Rasm.Rhino/Camera",
+            "tests/csharp/libs/Rasm.Rhino/Camera/Scenarios",
+            "tests/csharp/libs/Rasm.Rhino/Exchange",
+            "tests/csharp/libs/Rasm.Rhino/Exchange/Scenarios",
+            "tests/csharp/libs/Rasm.Rhino/UI",
+            "tests/csharp/libs/Rasm.Rhino/UI/Scenarios",
+        ),
         theme_names=(
             ("blocks", "CoreRail"),
             ("blocks", "Stats"),
@@ -201,8 +219,12 @@ _SCENARIO_CORPORA: Final[tuple[_ScenarioCorpus, ...]] = (
         ),
     ),
     _ScenarioCorpus(
-        project="tests/csharp/libs/Rasm.Grasshopper.Scenarios/Rasm.Grasshopper.Scenarios.csproj",
-        assembly="Rasm.Grasshopper.Scenarios.dll",
+        project="tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
+        assembly="Rasm.Grasshopper.Tests.dll",
+        paths=(
+            "tests/csharp/libs/Rasm.Grasshopper/UI",
+            "tests/csharp/libs/Rasm.Grasshopper/UI/Scenarios",
+        ),
         theme_names=(("gh-ui", "MotionLayout"),),
     ),
 )
@@ -222,7 +244,7 @@ _SUPERVISOR_TOOL: Final[Tool] = Tool(
 _BUILD_TOOL: Final[Tool] = Tool(
     name="rasm-bridge-build",
     runner=Runner.DOTNET,
-    command=("build", "--no-restore", "-tl:off", "-v:quiet", "/clp:ErrorsOnly"),
+    command=("build", "-tl:off", "-v:quiet", "/clp:ErrorsOnly"),
     input=Input.OWNED,
     language=Language.CSHARP,
     claim=Claim.BRIDGE,
@@ -271,6 +293,11 @@ def _decode_envelope(run: Completed) -> _SessionEnvelope:
     try:
         return _ENVELOPE_DECODER.decode(raw or b"{}")
     except msgspec.MsgspecError:
+        for path in tuple(Path(artifact.path) for artifact in run.artifacts if artifact.kind is ArtifactKind.PROCESS and Path(artifact.path).name == "out.log"):
+            try:
+                return _ENVELOPE_DECODER.decode(path.read_bytes().strip() or b"{}")
+            except OSError, msgspec.MsgspecError:
+                pass
         text = (run.stderr or run.stdout).decode(errors="replace").strip()
         return _SessionEnvelope(status=RailStatus.FAILED, first_failure=text[:256] or "supervisor emitted no SessionEnvelope")
 
@@ -342,9 +369,8 @@ def _matches(token: str, value: str) -> bool:
 
 def _matches_corpus(token: str, corpus: _ScenarioCorpus) -> bool:
     parent = Path(corpus.project).parent.as_posix()
-    return token in {corpus.project, parent} or (
-        any(glyph in token for glyph in _PATH_GLYPHS) and (fnmatchcase(corpus.project, token) or fnmatchcase(parent, token))
-    )
+    paths = (corpus.project, parent, *corpus.paths)
+    return token in paths or (any(glyph in token for glyph in _PATH_GLYPHS) and any(fnmatchcase(path, token) for path in paths))
 
 
 def _scenario_name(token: str) -> str:
@@ -377,20 +403,24 @@ def _read_closure(path: Path) -> _ClosureManifest:
         return _ClosureManifest()
 
 
-def _aggregate_closure(scope: ArtifactScope, plan: _SelectionPlan, index: dict[str, tuple[Path, _ClosureManifest]]) -> Result[Path, Fault]:
+def _aggregate_closure(settings: AssaySettings, scope: ArtifactScope, plan: _SelectionPlan, index: dict[str, tuple[Path, _ClosureManifest]]) -> Result[Path, Fault]:
     missing = tuple(corpus.assembly for corpus in plan.corpora if corpus.assembly not in index)
     if missing:
         return Error(Fault(("bridge", "closure-index"), RailStatus.FAULTED, f"missing bridge closure(s): {', '.join(missing)}"))
     try:
         target = Path(scope.ensure()) / _AGGREGATE_CLOSURE_FILE
         selected = tuple(index[corpus.assembly] for corpus in plan.corpora)
+        cargo_root = Path(scope.path) / "bin" / "Cargo" / settings.configuration.value.lower()
+        cargo_assemblies = tuple(sorted(cargo_root.glob("*.dll")))
+        if not cargo_assemblies:
+            return Error(Fault(("bridge", "closure-aggregate"), RailStatus.FAULTED, f"missing cargo output assemblies under {cargo_root}"))
         payload = _ClosureManifest(
             assemblies=tuple(
                 sorted({
                     str((path.parent / assembly).resolve()) if not Path(assembly).is_absolute() else str(Path(assembly).resolve())
                     for path, closure in selected
                     for assembly in closure.assemblies
-                })
+                } | {str(path.resolve()) for path in cargo_assemblies})
             ),
             host_plugins=tuple(sorted({plugin for _, closure in selected for plugin in closure.host_plugins})),
             built_against=next((closure.built_against for _, closure in selected if closure.built_against != _HostFingerprint()), _HostFingerprint()),
@@ -442,9 +472,50 @@ def _lines(path: Path) -> int:
         return 0
 
 
+def _sarif_artifacts(scope: ArtifactScope) -> tuple[Artifact, ...]:
+    try:
+        paths = tuple(sorted(Path(scope.path).rglob("*.sarif")))
+    except OSError:
+        return ()
+    return tuple(
+        Artifact(
+            id=path.stem,
+            kind=ArtifactKind.PROCESS,
+            path=str(path),
+            bytes=_size(path),
+            lines=_lines(path),
+        )
+        for path in paths
+    )
+
+
 def _build_project(settings: AssaySettings, scope: ArtifactScope, project: str) -> Result[Completed, Fault]:
-    tool = msgspec.structs.replace(_BUILD_TOOL, command=(*_BUILD_TOOL.command, str(settings.root / project)))
+    tool = msgspec.structs.replace(
+        _BUILD_TOOL,
+        command=(*_BUILD_TOOL.command, "--configuration", settings.configuration.value, str(settings.root / project)),
+    )
     return run_check(Check(tool=tool, cwd=Path(str(settings.root))), settings=settings, scope=scope, routed=_routed(), deadline=None)
+
+
+def _first_diagnostic(rows: tuple[Completed, ...]) -> str:
+    return next(
+        (
+            text[:256]
+            for row in rows
+            for text in (row.stdout + b"\n" + row.stderr).decode(errors="replace").splitlines()
+            if text.strip() and ("): error " in text or ": error " in text or " error " in text)
+        ),
+        "",
+    )
+
+
+def _build_detail(done: Completed) -> Diagnostic | None:
+    first = _first_diagnostic((done,))
+    return Diagnostic(failing_step="bridge.build", recent_events=(first,), hint=first) if first else None
+
+
+def _build_ready(done: Completed) -> bool:
+    return done.status.severity <= RailStatus.OK.severity
 
 
 def _build_closure(settings: AssaySettings) -> Result[Completed, Fault]:
@@ -452,9 +523,11 @@ def _build_closure(settings: AssaySettings) -> Result[Completed, Fault]:
         scope = ArtifactScope.build(settings, "bridge")
         rows: list[Completed] = []
         for project in _BUILD_PROJECTS:
-            match _faulted(_build_project(settings, scope, project)):
+            match _build_project(settings, scope, project):
                 case Result(tag="ok", ok=done):
                     rows.append(done)
+                    if not _build_ready(done):
+                        break
                 case Result(error=fault):
                     return Error(fault)
         status = status_fold(*(row.status for row in rows))
@@ -462,10 +535,19 @@ def _build_closure(settings: AssaySettings) -> Result[Completed, Fault]:
             receipt(
                 ("rasm-bridge-build",),
                 status.exit_code,
+                stdout=b"\n".join(row.stdout for row in rows if row.stdout),
+                stderr=b"\n".join(row.stderr for row in rows if row.stderr),
                 status=status,
                 duration_ms=sum(row.duration_ms for row in rows),
-                notes=tuple(note for row in rows for note in row.notes),
-                artifacts=tuple(artifact for row in rows for artifact in row.artifacts),
+                notes=(
+                    *tuple(note for row in rows for note in row.notes),
+                    *tuple(f"build.{Path(project).name}={row.status.value}" for project, row in zip(_BUILD_PROJECTS, rows, strict=False)),
+                    *((f"bridge.firstDiagnostic={first}",) if (first := _first_diagnostic(tuple(rows))) else ()),
+                ),
+                artifacts=(
+                    *tuple(artifact for row in rows for artifact in row.artifacts),
+                    *_sarif_artifacts(scope),
+                ),
             )
         )
 
@@ -503,10 +585,10 @@ def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: Bridge
     _expire_stale(Path(str(settings.root)).joinpath(*_BRIDGE_REPORT_ROOT), _VERIFY_TTL_S)
     prelude = (
         _build_closure(settings)
-        .bind(lambda _: _plan(params.pattern))
+        .bind(lambda built: _plan(params.pattern) if _build_ready(built) else Error(Fault(built.argv, built.status, _first_diagnostic((built,)) or "bridge build failed")))
         .bind(
             lambda plan: _closure_index(build_scope).bind(
-                lambda index: _aggregate_closure(build_scope, plan, index).map(lambda closure: (plan, closure))
+                lambda index: _aggregate_closure(settings, build_scope, plan, index).map(lambda closure: (plan, closure))
             )
         )
     )
@@ -611,7 +693,15 @@ def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -
         Bridge build report or build fault.
     """
     _ = (scope, params)
-    return _build_closure(settings).map(lambda done: fold(Claim.BRIDGE, "build", (done,)))
+    return _build_closure(settings).map(
+        lambda done: fold(
+            Claim.BRIDGE,
+            "build",
+            (done,),
+            detail=_build_detail(done),
+            sarif_dir=str(ArtifactScope.build(settings, "bridge").path),
+        )
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

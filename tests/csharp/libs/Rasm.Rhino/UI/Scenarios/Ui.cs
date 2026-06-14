@@ -1,5 +1,5 @@
 using Eto.Forms;
-using Rasm.Bridge.Scenarios;
+using Rasm.TestKit.Scenarios;
 using Rasm.Rhino.Camera;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.UI;
@@ -9,7 +9,7 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry;
 
-namespace Rasm.Rhino.Scenarios;
+namespace Rasm.Rhino.Tests.UI.Scenarios;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 

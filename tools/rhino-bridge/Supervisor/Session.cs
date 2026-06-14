@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Rasm.Bridge.Contract;
 using StreamJsonRpc;
 
@@ -43,18 +45,13 @@ internal abstract partial record SessionSignal {
 // Ownership: every duration, cadence, budget, and retention value in the tool. One deadline row per
 // state; shell and Python derive these values instead of restating them.
 internal sealed record SessionPolicy(
-    Schedule Connect, Schedule QuitLadder,
     TimeSpan ReconcileDeadline, TimeSpan LaunchDeadline, TimeSpan ConnectDeadline, TimeSpan HelloDeadline,
     TimeSpan LoadDeadline, TimeSpan QuitRungDeadline, TimeSpan FaultDeadline, TimeSpan SessionDeadline,
     TimeSpan ScenarioDefaultBudget, TimeSpan HeartbeatWindow, TimeSpan WatchPoll, TimeSpan JournalSlack,
     TimeSpan ToolDeadline, TimeSpan ForensicsDeadline,
     int RestartBudget, TimeSpan FailureRetention, bool PruneGreenRuns) {
 
-    // Schedule intersection makes the bounded side authoritative; union would keep the unbounded
-    // cadence alive.
     public static readonly SessionPolicy Default = new(
-        Connect: Schedule.spaced(space: TimeSpan.FromMilliseconds(value: 250)) & Schedule.upto(max: TimeSpan.FromSeconds(value: 90)),
-        QuitLadder: Schedule.spaced(space: TimeSpan.FromSeconds(value: 15)) | Schedule.recurs(times: 2),
         ReconcileDeadline: TimeSpan.FromSeconds(value: 10),
         LaunchDeadline: TimeSpan.FromSeconds(value: 30),
         ConnectDeadline: TimeSpan.FromSeconds(value: 90),
@@ -98,12 +95,10 @@ internal sealed record SessionPolicy(
 // owns one lease, opens one RPC pipe, folds every event into one SessionEnvelope, and emits exactly
 // one terminal value for Assay.
 internal static class SessionKernel {
-    internal static SessionEnvelope Run(SupervisorVerb verb, SupervisorRuntime runtime) =>
-        new SessionRun(verb: verb, runtime: runtime).Run();
+    internal static Task<SessionEnvelope> RunAsync(SupervisorVerb verb, SupervisorRuntime runtime) =>
+        new SessionRun(verb: verb, runtime: runtime).RunAsync();
 
     private sealed class SessionRun {
-        private const string EndpointFileName = "rhino-bridge-rbx.json";
-
         private readonly SupervisorVerb verb;
         private readonly SupervisorRuntime runtime;
         private readonly Guid sessionId = Guid.NewGuid();
@@ -121,8 +116,7 @@ internal static class SessionKernel {
             reportDir = Path.Combine(path1: runtime.ArtifactRoot, path2: runId);
         }
 
-        [Obsolete]
-        internal SessionEnvelope Run() {
+        internal async Task<SessionEnvelope> RunAsync() {
             _ = Directory.CreateDirectory(path: reportDir);
             Fin<LeaseToken> claimed = Lease.Acquire(path: runtime.LeasePath, sessionId: sessionId, clock: runtime.Clock, publish: Publish);
             if (claimed is not Fin<LeaseToken>.Succ(LeaseToken lease)) {
@@ -133,9 +127,9 @@ internal static class SessionKernel {
             }
             try {
                 return verb switch {
-                    SupervisorVerb.Doctor => Doctor(),
-                    SupervisorVerb.Verify verify => Verify(verify: verify),
-                    SupervisorVerb.Quit => Quit(),
+                    SupervisorVerb.Doctor => await DoctorAsync().ConfigureAwait(false),
+                    SupervisorVerb.Verify verify => await VerifyAsync(verify: verify).ConfigureAwait(false),
+                    SupervisorVerb.Quit => await QuitAsync().ConfigureAwait(false),
                     SupervisorVerb.Redeploy => Fold(
                         final: Faulted(new BridgeFault.RedeployIncomplete(FailingCheck: "redeploy.supervisor"), SessionPhase.Install),
                         spoolTail: (0L, 0L)),
@@ -150,9 +144,9 @@ internal static class SessionKernel {
             }
         }
 
-        private SessionEnvelope Doctor() =>
-            WithHost(connectPhase: SessionPhase.Doctor, body: (connection, live) => {
-                Handshake peer = connection.Hello();
+        private Task<SessionEnvelope> DoctorAsync() =>
+            WithHostAsync(connectPhase: SessionPhase.Doctor, body: async (connection, live) => {
+                Handshake peer = await connection.HelloAsync(ct: runtime.Root).ConfigureAwait(false);
                 LiveHost negotiated = live with { Fingerprint = peer.Fingerprint ?? live.Fingerprint, Endpoint = peer.Endpoint ?? live.Endpoint };
                 stream.Add(item: Fact("doctor.endpoint", peer.Endpoint?.PipeName ?? live.Endpoint.PipeName));
                 return new SessionProjection(
@@ -160,10 +154,9 @@ internal static class SessionKernel {
                     SpoolTail: (0L, 0L));
             });
 
-        [Obsolete]
-        private SessionEnvelope Verify(SupervisorVerb.Verify verify) =>
-            WithHost(connectPhase: SessionPhase.Connect, body: (connection, live) => {
-                Handshake peer = connection.Hello();
+        private Task<SessionEnvelope> VerifyAsync(SupervisorVerb.Verify verify) =>
+            WithHostAsync(connectPhase: SessionPhase.Connect, body: async (connection, live) => {
+                Handshake peer = await connection.HelloAsync(ct: runtime.Root).ConfigureAwait(false);
                 LiveHost negotiated = live with { Fingerprint = peer.Fingerprint ?? live.Fingerprint, Endpoint = peer.Endpoint ?? live.Endpoint };
                 if (peer.ContractVersion < Handshake.CurrentVersion) {
                     BridgeFault fault = new BridgeFault.ShellSkew(ShellContract: peer.ContractVersion, SupervisorContract: Handshake.CurrentVersion);
@@ -181,16 +174,15 @@ internal static class SessionKernel {
                     return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Stage), SpoolTail: (0L, 0L));
                 }
                 Phase(SessionPhase.Stage, PhaseStatus.Ok);
-                CargoReceipt cargo = connection.Load(manifest: manifest);
+                CargoReceipt cargo = await connection.LoadAsync(manifest: manifest, ct: runtime.Root).ConfigureAwait(false);
                 Phase(SessionPhase.Load, PhaseStatus.Ok, durationMs: cargo.SwapMs);
-                ScenarioReceipt[] receipts = connection.Run(selection: verify.Selection);
-                UnloadReceipt unload = connection.Unload();
+                ScenarioReceipt[] receipts = await connection.RunAsync(selection: verify.Selection, ct: runtime.Root).ConfigureAwait(false);
+                UnloadReceipt unload = await connection.UnloadAsync(ct: runtime.Root).ConfigureAwait(false);
                 stream.Add(item: Fact(
                     unload.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked",
                     $"gcRetries={unload.GcRetries};elapsedMs={unload.ElapsedMs:F0};debugger={unload.DebuggerAttached}"));
                 Phase(SessionPhase.Unload, PhaseStatus.Ok, durationMs: unload.ElapsedMs);
-                connection.PrepareQuit();
-                connection.Dispose();
+                await connection.PrepareQuitAsync(ct: runtime.Root).ConfigureAwait(false);
                 _ = QuitLadder.Run(host: negotiated, sessionId: sessionId, publish: stream.Add).Run(runtime);
                 return new SessionProjection(
                     Final: new SessionState.Running(
@@ -199,18 +191,16 @@ internal static class SessionKernel {
                     SpoolTail: SpoolTail(receipts: receipts));
             });
 
-        [Obsolete]
-        private SessionEnvelope Quit() {
+        private Task<SessionEnvelope> QuitAsync() {
             Fin<LiveHost> admitted = ReadLiveEndpoint();
             if (admitted is not Fin<LiveHost>.Succ(LiveHost host)) {
                 stream.Add(item: Fact("quit.no-host", admitted is Fin<LiveHost>.Fail(Error error) ? error.Message : "no live endpoint"));
-                return Fold(final: new SessionState.Idle(Bundle: runtime.Bundle), spoolTail: (0L, 0L));
+                return Task.FromResult(Fold(final: new SessionState.Idle(Bundle: runtime.Bundle), spoolTail: (0L, 0L)));
             }
-            return WithConnection(host: host, connectPhase: SessionPhase.QuitAe, body: (connection, live) => {
-                Handshake peer = connection.Hello();
+            return WithConnectionAsync(host: host, connectPhase: SessionPhase.QuitAe, body: async (connection, live) => {
+                Handshake peer = await connection.HelloAsync(ct: runtime.Root).ConfigureAwait(false);
                 LiveHost negotiated = live with { Fingerprint = peer.Fingerprint ?? live.Fingerprint, Endpoint = peer.Endpoint ?? live.Endpoint };
-                connection.PrepareQuit();
-                connection.Dispose();
+                await connection.PrepareQuitAsync(ct: runtime.Root).ConfigureAwait(false);
                 Fin<PhaseStatus> outcome = QuitLadder.Run(host: negotiated, sessionId: sessionId, publish: stream.Add).Run(runtime);
                 if (outcome is Fin<PhaseStatus>.Succ(PhaseStatus status) && status == PhaseStatus.Ok) {
                     return new SessionProjection(
@@ -234,13 +224,12 @@ internal static class SessionKernel {
                 ? Fin.Succ(value: live)
                 : LaunchAndPoll();
 
-        [Obsolete]
-        private SessionEnvelope WithHost(SessionPhase connectPhase, Func<SupervisorConnection, LiveHost, SessionProjection> body) {
+        private Task<SessionEnvelope> WithHostAsync(SessionPhase connectPhase, Func<SupervisorConnection, LiveHost, Task<SessionProjection>> body) {
             ReconcileHost();
             return EnsureHost() switch {
-                Fin<LiveHost>.Succ(LiveHost host) => WithConnection(host: host, connectPhase: connectPhase, body: body),
-                Fin<LiveHost>.Fail(Error error) => Fault(phase: SessionPhase.Connect, detail: error.Message),
-                _ => Fault(phase: SessionPhase.Connect, detail: "host admission unresolved"),
+                Fin<LiveHost>.Succ(LiveHost host) => WithConnectionAsync(host: host, connectPhase: connectPhase, body: body),
+                Fin<LiveHost>.Fail(Error error) => Task.FromResult(Fault(phase: SessionPhase.Connect, detail: error.Message)),
+                _ => Task.FromResult(Fault(phase: SessionPhase.Connect, detail: "host admission unresolved")),
             };
         }
 
@@ -248,9 +237,9 @@ internal static class SessionKernel {
             long started = Environment.TickCount64;
             Fin<Unit> launched = runtime.Bundle.Launch(toolDeadline: runtime.Policy.ToolDeadline);
             if (launched is Fin<Unit>.Fail(Error launchError)) {
-                BridgeFault fault = new BridgeFault.LaunchFailed(Detail: launchError.Message);
-                Phase(SessionPhase.Launch, fault.Status, durationMs: Elapsed(started: started), fault: fault);
-                return Fin.Fail<LiveHost>(error: Error.New(message: fault.Prescription));
+                BridgeFault.LaunchFailed launchFault = new(Detail: launchError.Message);
+                Phase(SessionPhase.Launch, launchFault.Status, durationMs: Elapsed(started: started), fault: launchFault);
+                return Fin.Fail<LiveHost>(error: Error.New(message: launchFault.Prescription));
             }
             Phase(SessionPhase.Launch, PhaseStatus.Ok, durationMs: Elapsed(started: started));
             long until = Environment.TickCount64 + (long)runtime.Policy.ConnectDeadline.TotalMilliseconds;
@@ -261,29 +250,30 @@ internal static class SessionKernel {
                 }
                 Thread.Sleep(timeout: runtime.Policy.WatchPoll);
             }
-            BridgeFault fault = new BridgeFault.ConnectFailed(
+            BridgeFault.ConnectFailed connectFault = new(
                 Detail: "endpoint did not appear before connect deadline", ElapsedMs: Elapsed(started: started));
-            Phase(SessionPhase.Connect, fault.Status, durationMs: fault.ElapsedMs, fault: fault);
-            return Fin.Fail<LiveHost>(error: Error.New(message: fault.Prescription));
+            Phase(SessionPhase.Connect, connectFault.Status, durationMs: connectFault.ElapsedMs, fault: connectFault);
+            return Fin.Fail<LiveHost>(error: Error.New(message: connectFault.Prescription));
         }
 
-        [Obsolete]
-        private SessionEnvelope WithConnection(LiveHost host, SessionPhase connectPhase, Func<SupervisorConnection, LiveHost, SessionProjection> body) {
-            SupervisorConnection? connection = null;
+        private async Task<SessionEnvelope> WithConnectionAsync(LiveHost host, SessionPhase connectPhase, Func<SupervisorConnection, LiveHost, Task<SessionProjection>> body) {
             SessionProjection projection;
             try {
-                connection = SupervisorConnection.Connect(pipeName: host.Endpoint.PipeName, timeout: runtime.Policy.ConnectDeadline);
-                projection = body(connection, host);
+                SupervisorConnection connection = await SupervisorConnection
+                    .ConnectAsync(pipeName: host.Endpoint.PipeName, timeout: runtime.Policy.ConnectDeadline, ct: runtime.Root)
+                    .ConfigureAwait(false);
+                await using (connection.ConfigureAwait(false)) {
+                    try {
+                        projection = await body(connection, host).ConfigureAwait(false);
+                    } finally {
+                        stream.AddRange(collection: connection.Events);
+                    }
+                }
             } catch (Exception error) when (error is RemoteMethodNotFoundException or RemoteInvocationException or ConnectionLostException
                 or IOException or TimeoutException or ObjectDisposedException) {
                 BridgeFault fault = FaultOf(error: error);
                 Phase(connectPhase, fault.Status, fault: fault);
                 projection = new SessionProjection(Final: Faulted(fault: fault, at: connectPhase), SpoolTail: (0L, 0L));
-            } finally {
-                if (connection is not null) {
-                    stream.AddRange(collection: connection.Events);
-                    connection.Dispose();
-                }
             }
             return Fold(final: projection.Final, spoolTail: projection.SpoolTail);
         }
@@ -324,9 +314,7 @@ internal static class SessionKernel {
 
         private static Fin<LiveHost> ReadLiveEndpoint() {
             try {
-                string path = Path.Combine(
-                    path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile),
-                    path2: ".rasm", path3: EndpointFileName);
+                string path = EndpointRecord.EndpointPath;
                 if (!File.Exists(path: path)) {
                     return Fin.Fail<LiveHost>(error: Error.New(message: $"endpoint absent at '{path}'"));
                 }
@@ -553,16 +541,21 @@ internal static class SessionFold {
             _ => [],
         };
 
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct EvidenceDivergence(
+        [property: JsonPropertyName("spool")] long Spool,
+        [property: JsonPropertyName("relayed")] long Relayed,
+        [property: JsonPropertyName("spoolLastSequence")] long SpoolLastSequence);
+
     private static BridgeEvent.FactCase Divergence(string runId, Seq<BridgeEvent> ordered, (long Count, long LastSequence) spoolTail, long relayed) {
         Guid sessionId = ordered.Head.Case is BridgeEvent head ? head.Stamp.SessionId
             : Guid.TryParse(input: runId, result: out Guid parsed) ? parsed : Guid.Empty;
         (long lastSequence, long atUnixMs) = ordered.Last.Case is BridgeEvent tail
             ? (Math.Max(val1: tail.Stamp.Sequence, val2: spoolTail.LastSequence), tail.Stamp.AtUnixMs)
             : (spoolTail.LastSequence, 0L);
-        using JsonDocument value = JsonDocument.Parse(json: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"{{\"spool\":{spoolTail.Count},\"relayed\":{relayed},\"spoolLastSequence\":{spoolTail.LastSequence}}}"));
-        return new BridgeEvent.FactCase(Key: "evidence.divergence", Value: value.RootElement.Clone()) {
+        return new BridgeEvent.FactCase(
+            Key: "evidence.divergence",
+            Value: JsonSerializer.SerializeToElement(value: new EvidenceDivergence(Spool: spoolTail.Count, Relayed: relayed, SpoolLastSequence: spoolTail.LastSequence))) {
             Stamp = new EventStamp(SessionId: sessionId, Sequence: lastSequence + 1, AtUnixMs: atUnixMs, Scenario: null),
         };
     }

@@ -305,7 +305,7 @@ internal static class GeometryKernel {
             (Type t, Point point) when t == typeof(Point3d) => Some((object)point.Location),
             (Type t, Brep brep) when t == typeof(Box) => brep.IsBox(context.Absolute.Value) && brep.Faces[0].UnderlyingSurface().TryGetPlane(out Plane plane, context.Absolute.Value) && new Box(plane, brep) is { IsValid: true } box ? Some((object)box) : Option<object>.None,
             (Type t, object value) when t == typeof(Curve) => CurveForm(source: value, op: op).ToOption().Map(static lease => (object)lease.Resource),
-            (Type t, Curve curve) when t == typeof(Line) || t == typeof(Circle) || t == typeof(Arc) || t == typeof(Ellipse) || t == typeof(Polyline) => CurveFormOf(curve: curve, context: context, op: op).ToOption().Bind(form => (t, form) switch {
+            (Type t, Curve curve) when t == typeof(Line) || t == typeof(Circle) || t == typeof(Arc) || t == typeof(Ellipse) || t == typeof(Polyline) => CurveFormOf(curve: curve, context: context).ToOption().Bind(form => (t, form) switch {
                 (Type output, CurveForm.LineCase line) when output == typeof(Line) => Some((object)line.Value),
                 (Type output, CurveForm.CircleCase circle) when output == typeof(Circle) => Some((object)circle.Value),
                 (Type output, CurveForm.ArcCase arc) when output == typeof(Arc) => Some((object)arc.Value),
@@ -361,7 +361,7 @@ internal static class GeometryKernel {
     internal static Fin<Seq<double>> CurveSampleParameters(Curve curve, int count, Context context, Op key) =>
         Fractions(count: count, op: key).Bind(fractions =>
             Optional(curve.NormalizedLengthParameters([.. fractions.AsIterable()], context.Absolute.Value, context.Fractional)).ToFin(key.InvalidResult()).Map(static p => toSeq(p)));
-    internal static Fin<CurveForm> CurveFormOf(Curve curve, Context context, Op op) =>
+    internal static Fin<CurveForm> CurveFormOf(Curve curve, Context context) =>
         Fin.Succ<CurveForm>(curve switch {
             _ when curve.IsLinear(tolerance: context.Absolute.Value) => new CurveForm.LineCase(Value: new Line(from: curve.PointAtStart, to: curve.PointAtEnd)),
             _ when curve.TryGetCircle(circle: out Circle c, tolerance: context.Absolute.Value) => new CurveForm.CircleCase(Value: c),

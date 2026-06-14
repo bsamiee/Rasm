@@ -3,7 +3,7 @@
         <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
     </ItemGroup>
     <ItemGroup>
-        <!-- The bridge cargo runner drives the Rasm.Bridge.Scenarios SDK internals (context
+        <!-- The bridge cargo runner drives the Rasm.TestKit.Scenarios SDK internals (context
              construction, scope drain, capture hook); scenario authors see only the public SDK.
              The SDK law specs pin those same internal semantics (FactCount is the facts.empty
              trigger; Hook is the run-bracket capture seam). -->

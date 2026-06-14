@@ -168,7 +168,11 @@ public abstract partial record BridgeEvent {
 [ComplexValueObject(DefaultStringComparison = StringComparison.Ordinal)]
 [JsonConverter(typeof(Converter))]
 public sealed partial class EndpointRecord {
+    public const string EndpointFileName = "rhino-bridge-rbx.json";
     public const string PipePrefix = "rbx-";
+    public static string EndpointDirectory =>
+        Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm");
+    public static string EndpointPath => Path.Combine(path1: EndpointDirectory, path2: EndpointFileName);
 
     public string PipeName { get; }
     public int RhinoPid { get; }

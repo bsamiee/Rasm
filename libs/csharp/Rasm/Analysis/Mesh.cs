@@ -76,7 +76,7 @@ public sealed partial class MeshSampleKind {
     public static readonly MeshSampleKind Quads = new(key: 13, group: MeshSampleGroup.Count, sample: static (m, _) => Fin.Succ(m.Faces.QuadCount));
     public static readonly MeshSampleKind Edges = new(key: 14, group: MeshSampleGroup.Count, sample: static (m, _) => TopologyScalar.EdgeCount.IntegerOf(geometry: m, op: EdgeCountKey));
     public static readonly MeshSampleKind Euler = new(key: 15, group: MeshSampleGroup.Count, sample: static (m, _) => Analyze.EulerOf(geometry: m, op: EulerKey));
-    public static readonly MeshSampleKind VisiblePolygons = new(key: 16, group: MeshSampleGroup.Count, sample: static (m, _) => Analyze.VisiblePolygonCountOf(mesh: m, key: VisiblePolygonKey));
+    public static readonly MeshSampleKind VisiblePolygons = new(key: 16, group: MeshSampleGroup.Count, sample: static (m, _) => Analyze.VisiblePolygonCountOf(mesh: m));
     public static readonly MeshSampleKind DegenerateFaces = new(key: 20, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.DegenerateFaceCount));
     public static readonly MeshSampleKind DisjointMeshes = new(key: 21, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.DisjointMeshCount));
     public static readonly MeshSampleKind DuplicateFaces = new(key: 22, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.DuplicateFaceCount));
@@ -100,7 +100,6 @@ public sealed partial class MeshSampleKind {
     private static readonly Op FaceCountKey = Op.Of(name: "MeshFaceCount");
     private static readonly Op EdgeCountKey = Op.Of(name: "MeshEdgeCount");
     private static readonly Op EulerKey = Op.Of(name: "MeshEuler");
-    private static readonly Op VisiblePolygonKey = Op.Of(name: "MeshVisiblePolygons");
     private static readonly Op BoundaryLoopsKey = Op.Of(name: "MeshBoundaryLoops");
     private static readonly Op GenusKey = Op.Of(name: "MeshGenus");
     internal MeshSampleGroup Group { get; }
@@ -186,13 +185,13 @@ public sealed partial class MeshMetric {
                     Fin.Succ(toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))),
                 { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < mesh.Ngons.Count =>
                     FaceIndicesOf(mesh: mesh, ngon: ngon, key: key)
-                        .Map(parts => parts.Bind(face => toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))).Filter(other => !parts.Exists(face => face == other)).Distinct()),
+                        .Map((Seq<int> parts) => parts.Bind((int face) => toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))).Filter((int other) => !parts.Exists((int face) => face == other)).Distinct()),
                 _ => Fin.Fail<Seq<int>>(key.InvalidInput()),
-            }).Bind(neighbours => neighbours
-                .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal, Context: context, Key: key)), f: static (state, other) => state.Bind(s => NormalOf(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other), vertices: Seq<Point3d>(), context: s.Context, key: s.Key)
-                    .Bind(neighbour => VectorIntent.Angular(a: s.Normal, b: neighbour)
+            }).Bind((Seq<int> neighbours) => neighbours
+                .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal, Context: context, Key: key)), f: static (Fin<(double Max, Mesh Mesh, Vector3d Normal, Context Context, Op Key)> state, int other) => state.Bind(((double Max, Mesh Mesh, Vector3d Normal, Context Context, Op Key) s) => NormalOf(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other), vertices: Seq<Point3d>(), context: s.Context, key: s.Key)
+                    .Bind((Vector3d neighbour) => VectorIntent.Angular(a: s.Normal, b: neighbour)
                             .Project<double>(context: s.Context, key: s.Key)
-                        .Map(angle => (Math.Max(val1: s.Max, val2: angle), s.Mesh, s.Normal, s.Context, s.Key)))))
+                        .Map((double angle) => (Max: Math.Max(val1: s.Max, val2: angle), s.Mesh, s.Normal, s.Context, s.Key)))))
                 .Map(static state => state.Max)));
 }
 
@@ -269,7 +268,7 @@ public static partial class Analyze {
             Op key = Op.Of();
             return Operation<Mesh, int>.Build(
                 key: key, state: key,
-                evaluator: static (op, mesh) => VisiblePolygonCountOf(mesh: mesh, key: op).Bind(count => op.Accept(value: count)).ToEff());
+                evaluator: static (op, mesh) => VisiblePolygonCountOf(mesh: mesh).Bind(count => op.Accept(value: count)).ToEff());
         }
     }
     internal static Operation<Mesh, Polyline> MeshNakedEdges {
@@ -289,7 +288,7 @@ public static partial class Analyze {
             false => Operation<Mesh, Polyline>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
-    internal static Fin<int> VisiblePolygonCountOf(Mesh mesh, Op key) =>
+    internal static Fin<int> VisiblePolygonCountOf(Mesh mesh) =>
         Fin.Succ(mesh.GetNgonAndFacesCount());
     internal static Fin<ComponentIndex> VisiblePolygonSourceOf(Mesh mesh, MeshNgon polygon, Op key) =>
         Optional(polygon.BoundaryVertexIndexList()).Filter(static vertices => vertices.Length >= 3).ToFin(key.InvalidResult())

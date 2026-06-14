@@ -23,4 +23,27 @@
         <Delete Files="@(_GrasshopperSpillover)" Condition="'@(_GrasshopperSpillover)' != ''" />
         <Message Text="check-build: scrubbed @(_GrasshopperSpillover->Count()) Grasshopper2 resource spillover file(s) from repo root." Importance="normal" Condition="'@(_GrasshopperSpillover)' != ''" />
     </Target>
+
+    <Target Name="EmitBridgeClosure" AfterTargets="Build" Condition="'$(HasBridgeScenarios)' == 'true' and '$(TargetFileName)' != ''">
+        <GetAssemblyIdentity AssemblyFiles="$(RhinoCommonReferencePath)" Condition="Exists('$(RhinoCommonReferencePath)')">
+            <Output TaskParameter="Assemblies" ItemName="_BridgeRhinoIdentity" />
+        </GetAssemblyIdentity>
+        <GetAssemblyIdentity AssemblyFiles="$(Grasshopper2ReferencePath)" Condition="Exists('$(Grasshopper2ReferencePath)') and @(Reference->AnyHaveMetadataValue('Identity', 'Grasshopper2'))">
+            <Output TaskParameter="Assemblies" ItemName="_BridgeGh2Identity" />
+        </GetAssemblyIdentity>
+        <ItemGroup>
+            <_BridgeClosureDependency Include="@(ReferenceCopyLocalPaths->WithMetadataValue('DestinationSubDirectory','')->WithMetadataValue('Extension','.dll'))" />
+            <_BridgeClosureHostDependency Include="@(_BridgeClosureDependency)"
+                                          Condition="'%(_BridgeClosureDependency.Filename)' == 'RhinoCommon' or '%(_BridgeClosureDependency.Filename)' == 'Rhino.UI' or '%(_BridgeClosureDependency.Filename)' == 'System.Drawing.Common' or '%(_BridgeClosureDependency.Filename)' == 'Grasshopper2' or '%(_BridgeClosureDependency.Filename)' == 'GrasshopperIO' or '%(_BridgeClosureDependency.Filename)' == 'Eto' or '%(_BridgeClosureDependency.Filename)' == 'Eto.macOS' or '%(_BridgeClosureDependency.Filename)' == 'Microsoft.macOS' or '%(_BridgeClosureDependency.Filename)' == 'Rhino.Runtime.Code' or '%(_BridgeClosureDependency.Filename)' == 'RhinoCodePlatform.Rhino3D'" />
+            <_BridgeClosureAssembly Include="$(TargetFileName)" />
+            <_BridgeClosureAssembly Include="@(_BridgeClosureDependency->'%(Filename)%(Extension)')" Exclude="@(_BridgeClosureHostDependency->'%(Filename)%(Extension)')" />
+            <_BridgeHostPlugin Include="8307876d-a461-4daa-bb77-eb3715925513" Condition="'@(_BridgeGh2Identity)' != ''" />
+        </ItemGroup>
+        <PropertyGroup>
+            <!-- bundleVersion proxy: the WIP bundle stamps RhinoCommon.dll with the app build version. -->
+            <_BridgeBuiltAgainst>{"bundleVersion":"@(_BridgeRhinoIdentity->'%(Version)')","rhinoCommonVersion":"@(_BridgeRhinoIdentity->'%(Version)')","grasshopper2Version":"@(_BridgeGh2Identity->'%(Version)')","runtimeVersion":"$(TargetFrameworkVersion.TrimStart('v'))"}</_BridgeBuiltAgainst>
+            <_BridgeClosureJson>{"assemblies":[@(_BridgeClosureAssembly->Distinct()->'"%(Identity)"', ',')],"hostPlugins":[@(_BridgeHostPlugin->'"%(Identity)"', ',')],"builtAgainst":$(_BridgeBuiltAgainst)}</_BridgeClosureJson>
+        </PropertyGroup>
+        <WriteLinesToFile File="$(TargetDir)bridge-closure.json" Lines="$(_BridgeClosureJson)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    </Target>
 </Project>
