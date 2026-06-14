@@ -1,15 +1,4 @@
-"""Laws for tools.assay.composition.catalog public surface.
-
-Covers AST_MATCHES, CAPTURES, CAPTURE_ENCODER, Capture, RG_EVENT, TOOLS, and select.
-
-The laws exercise the following contracts: CAPTURES(CAPTURE_ENCODER([x])) == (x,) for any
-valid Capture, covering both codecs in one roundtrip; AST_MATCHES structural decode (empty
-array yields (), field identity preserved on a concrete row); RG_EVENT JSON "type" key maps
-to the .kind attribute via the msgspec rename; TOOLS census (every Tool in TOOLS selects back
-through select(claim, language)); select total (select(claim) is a subset of TOOLS for every
-Claim value); select monotone (select(claim, language) is a subset of select(claim) for all
-pairs); and select idempotent (select(claim) is pure with no hidden mutable state).
-"""
+"""Catalog law matrix for codecs, tool census, and selector algebra."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -26,7 +15,7 @@ from tools.assay.core.model import Claim, Input, Language, Mode, Tool
 
 _VALID_RG_JSON: bytes = b'{"type":"match","data":{"path":{"text":"foo.py"},"lines":{"text":"x = 1\\n"},"line_number":7}}'
 
-# Fixed payload, not generated: field-identity requires a concrete value to assert exact field mapping.
+# Concrete payload pins field mapping; generated rows only prove shape.
 _AST_MATCH_PAYLOAD: bytes = (
     b'[{"text":"def f()","file":"a.py","lines":"1-3","replacement":"","range":{"start":{"line":1,"column":0},"end":{"line":3,"column":1}}}]'
 )
@@ -38,7 +27,7 @@ _AST_MATCH_PAYLOAD: bytes = (
 
 @spec(Capture, law="capture_codec_roundtrip")
 def test_capture_roundtrip(capture: Capture) -> None:
-    """CAPTURES(CAPTURE_ENCODER([x])) == (x,) for any generated Capture."""
+    """Generated Capture rows survive the encoder/decoder pair."""
     encoded = CAPTURE_ENCODER.encode([capture])
     decoded = CAPTURES.decode(encoded)
     assert decoded == (capture,), f"roundtrip broken: {capture!r} -> {decoded!r}"
@@ -51,7 +40,7 @@ register_law("tools.assay.composition.catalog.CAPTURE_ENCODER", "capture_codec_r
 
 
 def test_captures_empty_array_decodes_to_empty_tuple() -> None:
-    """CAPTURES.decode(b'[]') yields the empty tuple, not a list."""
+    """Empty capture arrays decode to the tuple contract."""
     result = CAPTURES.decode(b"[]")
     assert result == (), f"expected empty tuple, got {result!r}"
 
@@ -78,7 +67,7 @@ register_law("tools.assay.composition.catalog.AST_MATCHES", "ast_matches_empty_a
 
 
 def test_ast_matches_field_identity() -> None:
-    """AstMatch fields round-trip through AST_MATCHES: text/file/lines preserved."""
+    """AST_MATCHES preserves text, file, and line identity."""
     rows = AST_MATCHES.decode(_AST_MATCH_PAYLOAD)
     assert len(rows) == 1
     m = rows[0]
@@ -93,7 +82,7 @@ register_law("tools.assay.composition.catalog.AST_MATCHES", "ast_matches_field_i
 
 
 def test_rg_event_type_to_kind_alias() -> None:
-    """RG_EVENT maps the JSON 'type' key to the .kind attribute (msgspec rename)."""
+    """RG_EVENT maps JSON type onto the kind field."""
     ev = RG_EVENT.decode(_VALID_RG_JSON)
     assert ev.kind == "match"
     assert ev.data.path.text == "foo.py"
@@ -117,7 +106,7 @@ register_law("tools.assay.composition.catalog.RG_EVENT", "rg_event_defaults", mo
 
 @pytest.mark.parametrize("claim", list(Claim))
 def test_catalog_census_every_tool_selects_back(claim: Claim) -> None:
-    """Census invariant: every Tool in TOOLS with the given claim appears in select(claim, language)."""
+    """Every catalog row selects back through its claim/language axes."""
     failures = [t for t in TOOLS if t.claim is claim and t not in select(t.claim, t.language)]
     assert not failures, f"select did not return these TOOLS rows: {failures}"
 
@@ -140,7 +129,7 @@ register_law(select, "select_total_subset", module=__name__)
 @pytest.mark.parametrize("claim", list(Claim))
 @pytest.mark.parametrize("language", list(Language))
 def test_select_monotone_language_refinement(claim: Claim, language: Language) -> None:
-    """select(claim, language) is a subset of select(claim): adding a filter only restricts."""
+    """Language refinement only removes rows from a claim selection."""
     broad = select(claim)
     refined = select(claim, language)
     extras = [t for t in refined if t not in broad]
@@ -154,7 +143,7 @@ register_law(select, "select_monotone_language", module=__name__)
 
 @pytest.mark.parametrize("claim", list(Claim))
 def test_select_idempotent(claim: Claim) -> None:
-    """select(claim) == select(claim): deterministic, stable, free of side-effects."""
+    """Repeated claim selection is deterministic and side-effect-free."""
     idempotent(select(claim), lambda _: select(claim))
 
 
@@ -165,7 +154,7 @@ register_law(select, "select_idempotent", module=__name__)
 
 @spec(Tool, law="tool_select_back_for_generated")
 def test_tool_generated_instance_selects_back(tool: Tool) -> None:
-    """Contrapositive of the census law: select never returns a Tool whose claim/language mismatches the query axes."""
+    """Generated tool axes constrain every selected row."""
     rows = select(tool.claim, tool.language)
     assert all(t.claim is tool.claim and t.language is tool.language for t in rows), (
         "select returned a row whose claim/language mismatches the query axes"
@@ -176,13 +165,10 @@ def test_tool_generated_instance_selects_back(tool: Tool) -> None:
 
 
 def test_mutation_rows_own_input_placement() -> None:
-    """Every Mode.MUTATION row places input via OWNED or PROJECT, never NONE.
+    """Mutation rows must own input placement.
 
-    place()'s NONE arm re-appends routed.files as bare positionals; mutmut reads positionals as
-    mutant-NAME filters, so a NONE-placed mutation row receives file paths that match zero mutant
-    names and aborts the entire run ("Filtered for specific mutants, but nothing matches" —
-    reproduced live 2026-06-12 on the first staged rail launch). Falsified by any mutation row
-    regressing to Input.NONE.
+    Input.NONE re-appends routed files as mutmut positional filters, which select zero mutant
+    names and abort the run; OWNED/PROJECT keeps file placement with the row.
     """
     rows = [t for claim in Claim for t in select(claim) if t.mode is Mode.MUTATION]
     assert rows, "census expects at least one mutation row"
@@ -196,7 +182,7 @@ register_law(select, "mutation_rows_own_input_placement", module=__name__)
 
 
 def test_validate_pyproject_owns_its_single_input() -> None:
-    """validate-pyproject embeds pyproject.toml in its command and must not fan per file/project."""
+    """validate-pyproject owns its single pyproject input."""
     rows = [t for t in select(Claim.STATIC, Language.PYTHON) if t.name == "validate-pyproject"]
     assert len(rows) == 1
     assert rows[0].input is Input.OWNED
@@ -206,7 +192,7 @@ register_law(select, "validate_pyproject_owns_single_input", module=__name__)
 
 
 def test_static_native_fixers_are_scoped_rows() -> None:
-    """Static native fixers stay file/folder-scoped: no solution-wide format row and Biome has a write row."""
+    """Native static fixers stay scoped, with Biome carrying the write row."""
     csharp_format = [t for t in select(Claim.STATIC, Language.CSHARP) if t.name == "dotnet-format"]
     biome_write = [t for t in select(Claim.STATIC, Language.TYPESCRIPT) if t.name == "biome" and t.mode is Mode.WRITE]
     assert csharp_format

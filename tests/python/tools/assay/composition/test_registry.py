@@ -80,20 +80,12 @@ class _Proc:
 
 
 def _strict_params(strict: bool) -> object:  # noqa: FBT001  # boundary factory: production reads `params.strict` via getattr
-    """Throwaway params object carrying only ``strict`` — duck-typed by the rail via ``getattr``.
-
-    Returns:
-        Object whose ``strict`` attribute holds the requested flag.
-    """
+    """Duck-typed params object exposing only the strict flag."""
     return type("_Params", (), {"strict": strict})()
 
 
 def _bad_io(*_a: object, **_k: object) -> None:
-    """Raise ``OSError`` — stand-in for any best-effort store write the rail must swallow.
-
-    Raises:
-        OSError: Always, simulating a full disk or read-only store.
-    """
+    """Raise the store-write OSError path every time."""
     raise OSError("disk full")
 
 
@@ -102,11 +94,7 @@ def _patch_store(monkeypatch: pytest.MonkeyPatch, member: str) -> None:
 
 
 def _run_fake(bind: Bind, settings: AssaySettings, outcome: Result[Report, Fault]) -> Envelope:
-    """Replace ``bind``'s handler with one returning ``outcome`` and execute the rail runner once.
-
-    Returns:
-        The ``Envelope`` emitted by the rail runner for the canned outcome.
-    """
+    """Run one bind through rail() with a canned handler outcome."""
     fake = msgspec.structs.replace(bind, handler=lambda *_a, **_k: outcome)
     return rail(fake, settings=settings)(StaticParams())
 
@@ -119,10 +107,10 @@ def _completed(check: Check, *, rc: int = 0, status: RailStatus = RailStatus.OK,
 
 
 def test_registry_structural_invariants() -> None:
-    """REGISTRY rows carry unique (claim, verb) leaves, all-callable handlers, and total claim coverage.
+    """REGISTRY rows own unique leaves, callable handlers, and total claim coverage.
 
-    Mutants caught: duplicate Bind row shrinks the deduped pair set; non-callable handler; dropping a
-    claim's last Bind leaves a coverage gap; corrupting a verb breaks the rail runner name.
+    Mutants caught: duplicate rows, non-callable handlers, missing claim coverage, and corrupted
+    runner names.
     """
     pairs = [(b.claim, b.verb) for b in REGISTRY]
     support_matrix(
@@ -148,10 +136,9 @@ register_laws(
 
 
 def test_build_app_returns_cyclopts_app() -> None:
-    """build_app(REGISTRY) produces a Cyclopts App with every (claim, verb) leaf + self-test/delta reachable.
+    """build_app exposes every registry leaf plus self-test and delta.
 
-    Mutants caught: build_app wrong return type; skipping a bind row in the groupby fold; removing the
-    _register(app, self_test, ...) / delta call.
+    Mutants caught: wrong App type, skipped bind rows, and missing root utility commands.
     """
     from cyclopts import App  # noqa: PLC0415
 
@@ -164,11 +151,10 @@ def test_build_app_returns_cyclopts_app() -> None:
 
 
 def test_build_app_root_configuration() -> None:
-    """build_app pins root App identity and error posture: name 'assay', catalog version, no exit/print/help on error.
+    """build_app pins root App identity, version, parse-fault posture, and return-value exits.
 
-    Mutants caught: name=None (root renamed from argv[0]); version dropped; exit_on_error/print_error/help_on_error
-    flipped truthy (Cyclopts would sys.exit on bad argv instead of routing through parse_fault); result_action
-    corrupted (exit codes no longer derived from __cyclopts_returncode__); default_parameter show_default dropped.
+    Mutants caught: argv-derived name, missing version, truthy Cyclopts error exits, corrupted
+    result_action, and hidden default parameters.
     """
     app = build_app(REGISTRY)
     assert app.name == ("assay",)
@@ -223,11 +209,10 @@ def test_orphan_min_age_s_threshold_boundary(assay_root: AssayHarness, monkeypat
 
 
 def test_process_hygiene_reports_old_repo_orphans(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Hygiene reports processes (ppid=1, root-cwd, old, tooling) without flagging non-orphans; note carries exact pid/age/command.
+    """Hygiene reports only old root-cwd tooling orphans.
 
-    Mutants caught: removing ppid==1 check → sibling processes reported; removing cwd check → foreign processes
-    reported; ppid-missing sentinel -1 flipped to +1 (kernel-parented ppid=0 rows reported); age arithmetic
-    now+create_time or age*60 (note misstates minutes); command kwarg nulled or cmdline fold emptied.
+    Mutants caught: ppid/cwd/sentinel drift, age arithmetic errors, and notes that lose exact
+    pid, age, or command text.
     """
     root = str(assay_root.root)
     rows = (
@@ -278,12 +263,10 @@ register_laws((
 
 
 def test_step_roster_pin() -> None:
-    """``Step`` is the closed fault-step taxonomy; the prefix-scan roster is exactly the original six.
+    """Step is the closed fault taxonomy and prefix-scan roster.
 
-    Mutants caught: adding/dropping/reordering a scan member silently changes ``_failing_step``
-    classification; rewording a member breaks the ``{step}:`` wire prefixes and the ``dispatch=`` ring
-    sentinel; flipping a member's ``scan`` flag pulls a status-derived classification into the prefix scan
-    (or evicts a real prefix from it).
+    Mutants caught: added, dropped, reordered, renamed, or scan-flag-flipped members change
+    _failing_step classification or the wire prefixes agents inspect.
     """
     scan_roster = tuple(member for member in Step if member.scan)
     assert scan_roster == (Step.STRICT, Step.VALIDATION, Step.CONFIG, Step.DISPATCH, Step.PARSE, Step.SPAWN)
@@ -300,10 +283,9 @@ register_laws((Step, ("step_roster_pin",)))
 
 
 def test_parse_fault_dispatch_and_fallback() -> None:
-    """parse_fault routes (claim_token, verb) to the matching Claim/verb; unknown/empty heads fold to STATIC.
+    """parse_fault routes known heads and folds unknown or empty heads to STATIC.
 
-    Mutants caught: breaking head-membership against _value2member_map_ (Claim("unknown") raises); accessing
-    tokens[0] unconditionally on empty tokens (IndexError); returning OK from any dispatch arm.
+    Mutants caught: unsafe Claim construction, empty-token indexing, and non-FAULTED dispatch.
     """
     validity_matrix(
         (
@@ -348,10 +330,9 @@ def test_parse_fault_preserves_rejected_argv() -> None:
 
 
 def test_parse_fault_never_persisted(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """parse_fault emits to stdout only — the FAULTED Envelope never lands in the history store.
+    """parse_fault emits only to stdout; history must stay clean.
 
-    Mutant caught: flipping the persist=False kwarg to True (_emit_envelope makes persist a required keyword, so
-    parse faults that omit it would pollute history and skew delta/retention folds).
+    Mutant caught: persist=True leaks parse faults into delta and retention folds.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     env = parse_fault(("static", "fix"), "bad flag")
@@ -361,10 +342,9 @@ def test_parse_fault_never_persisted(assay_root: AssayHarness, monkeypatch: pyte
 
 @pytest.mark.parametrize("initial, dispatch, tokens", [("existing", "static", ("static", "fix")), ("none", "bridge", ("bridge", "verify"))])
 def test_seed_parse_ring_extends_or_creates(initial: str, dispatch: str, tokens: tuple[str, ...]) -> None:
-    """_seed_parse_ring extends a pre-existing ring or initialises a fresh one, preserving dispatch + cmd entries.
+    """_seed_parse_ring extends or creates the ring while preserving dispatch and command text.
 
-    Mutants caught: replacing instead of extending an existing ring (prior events lost); not calling _RING.set()
-    on the None arm (ring stays None).
+    Mutants caught: dropped prior events and None-arm failure to set _RING.
     """
     token = _RING.set(deque(maxlen=16) if initial == "existing" else None)
     try:
@@ -391,12 +371,10 @@ def test_seed_parse_ring_extends_or_creates(initial: str, dispatch: str, tokens:
     ],
 )
 def test_failing_step_classification(fault: Fault, expected_step: Step) -> None:
-    """_failing_step classifies a Fault by status/argv/message prefix into the correct Step member.
+    """_failing_step classifies status, argv, and message prefixes into Step.
 
-    Mutants caught: one wrong status match arm → step mismatch in Diagnostic output; the empty-argv prefix
-    scan's SPAWN default replaced with None (unprefixed synthetic faults lose their step); a ``scan`` flag
-    flip on the status-derived members would pull TIMEOUT/LEASE_BUSY into the prefix scan. The exact-type
-    assertion pins the ``-> Step`` return: a stringified return would compare equal but fail the isinstance.
+    Mutants caught: wrong status arms, missing SPAWN fallback, scan-flag drift, or stringified
+    returns that compare equal but are not Step instances.
     """
     result = registry_mod._failing_step(fault)
     assert type(result) is Step, f"_failing_step must return a Step member, got {type(result).__name__}"
@@ -524,10 +502,9 @@ def test_identity_hom_returns_ok_report() -> None:
 
 
 def test_correlate_maps_run_id_and_strict(assay_root: AssayHarness) -> None:
-    """_correlate extracts run_id, strict flag, and agent_context from settings + params; attrless params fold strict=False.
+    """_correlate projects run_id, strict, and agent_context; attrless params are non-strict.
 
-    Mutants caught: omitting strict key → missing key assertion fails; wrong run_id → mismatch; getattr default
-    flipped to None/True → attrless params misreport strict in log/trace correlation.
+    Mutants caught: missing strict, wrong run_id, and getattr default drift in log correlation.
     """
     scope = ArtifactScope.open(assay_root.settings, Claim.STATIC)
     ctx = registry_mod._correlate(assay_root.settings, scope, _strict_params(strict=True))
@@ -537,10 +514,9 @@ def test_correlate_maps_run_id_and_strict(assay_root: AssayHarness) -> None:
 
 
 def test_bound_passthrough_and_surplus_fault() -> None:
-    """_bound wraps a non-BaseParams object in Ok and faults BaseParams with surplus positional tokens.
+    """_bound passes non-BaseParams through and faults surplus BaseParams tokens.
 
-    Mutants caught: removing the `_` arm (non-BaseParams raises AttributeError); dropping the Fault branch
-    (surplus tokens silently pass for a verb whose arity is 0).
+    Mutants caught: missing catchall arm and surplus-token success.
     """
     assert assert_ok(registry_mod._bound(42, Claim.STATIC, "fix")) == 42
     surplus = registry_mod._bound(BridgeParams(paths=("extra", "tokens")), Claim.BRIDGE, "verify")  # verify arity=0
@@ -567,11 +543,10 @@ def test_strict_passthrough_for_ok_non_strict() -> None:
 
 
 def test_strict_gate_truth_table_and_bound_identity() -> None:
-    """_strict promotes only the (strict truthy, EMPTY/SKIP) corner; the promoted fault carries argv=(); _bound returns the params identity.
+    """_strict promotes only strict EMPTY/SKIP, and _bound preserves params identity.
 
-    Mutants caught: `strict and noop-status` flipped to `or` (strict OK or non-strict EMPTY promoted); getattr
-    default flipped to True (attrless params promoted); Fault argv=None (failing-step reclassifies strict→spawn
-    and the wire Envelope stops round-tripping); Ok(None) on the bound success arm (handler receives None params).
+    Mutants caught: boolean gate drift, attrless strict defaults, argv=None faults, and Ok(None)
+    replacing the bound params object.
     """
     empty = Report(Claim.STATIC, "fix", RailStatus.EMPTY)
     support_matrix(
@@ -595,10 +570,9 @@ def test_narrow_raises_type_error_for_non_function() -> None:
 
 
 def test_validated_propagates_ok_and_error() -> None:
-    """_validated calls validate_detail on Ok(report) and passes the outcome through; Error skips validation.
+    """_validated checks Ok reports and leaves Error faults untouched.
 
-    Mutants caught: swallowing the Ok return (_validated always errors); calling validate_detail on a fault
-    (AttributeError on fault.detail).
+    Mutants caught: swallowed Ok returns and validation calls on Fault.
     """
     report = fold(Claim.STATIC, "fix", (receipt(("dotnet",), 0, status=RailStatus.OK),))
     assert assert_ok(registry_mod._validated(Ok(report))) is report
@@ -607,10 +581,10 @@ def test_validated_propagates_ok_and_error() -> None:
 
 
 def test_validated_invalid_detail_raises_into_validation_fault(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_validated RAISES msgspec.ValidationError on a constraint-violating detail; _guard folds it into a "validation:" fault.
+    """Invalid details raise through _validated and fold to validation faults at _guard.
 
-    Pins the raise channel as the contract: _validated never returns Error for an invalid detail — the
-    exception propagates to _guard, so the rail emits a FAULTED Envelope with the validation: prefix.
+    _validated does not return Error for invalid detail payloads; the rail boundary owns the
+    exception-to-FAULTED conversion.
     """
     report = fold(Claim.STATIC, "fix", (receipt(("dotnet",), 0, status=RailStatus.OK),), detail=TestRun(coverage=150.0))
     with pytest.raises(msgspec.ValidationError, match="coverage"):
@@ -644,10 +618,9 @@ def test_guard_maps_exception_to_fault(exc: Exception, prefix: str) -> None:
 
 
 def test_rail_runner_emits_ok_and_fault_paths(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """rail(bind) runner folds an Ok(report) into an OK Envelope and an Error(Fault) into a FAILED Envelope+diagnostic.
+    """rail(bind) folds Ok reports and Error faults into their Envelope paths.
 
-    Drives the _emit ok/error branches, _distill on the fault path, and the run closure full path.
-    Mutants caught: wrong claim/verb on the OK envelope; returning OK status for a fault.
+    Mutants caught: wrong OK claim/verb and OK status on fault output.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     bind = _STATIC_FIX_BIND
@@ -677,11 +650,10 @@ def test_rail_runner_scope_oserror_faults(assay_root: AssayHarness, monkeypatch:
 
 
 def test_rail_surplus_dispatch_fault_and_scope_identity(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """rail() folds surplus positionals into a parse-prefixed FAULTED Envelope seeded with dispatch=<claim>, unpersisted, scope intact.
+    """Surplus dispatch faults keep claim context, skip persistence, and preserve scope identity.
 
-    Mutants caught: _bound called with claim=None (ring seeding crashes on claim.value); _seed_parse_ring
-    dispatch=None (recent_events loses the dispatch=bridge token); the parse persist-gate inverted (parse faults
-    written to history); handler invoked with scope=None instead of the opened ArtifactScope.
+    Mutants caught: missing claim for ring seeding, lost dispatch token, inverted parse persistence,
+    or handler invocation without the opened ArtifactScope.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     verify = next(b for b in REGISTRY if b.claim is Claim.BRIDGE and b.verb == "verify")
@@ -701,11 +673,10 @@ def test_rail_surplus_dispatch_fault_and_scope_identity(assay_root: AssayHarness
 
 
 def test_emit_double_write_guard(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
-    """_emit suppresses a second Envelope write with a FAULTED, claim/verb-faithful, wire-decodable doubled Envelope on stderr.
+    """_emit converts a second write into a claim/verb-faithful doubled Envelope on stderr.
 
-    Drives the `case rank:` branch in _emit.
-    Mutants caught: not guarding the write count (two stdout lines, Invariant 1 violated); doubled-envelope
-    verb/claim kwargs nulled; Fault argv=None (wire codec rejects the doubled line); stderr fed wire_encode(None).
+    Mutants caught: missing write-count guard, nulled doubled-envelope claim/verb or argv, and
+    stderr writes that are not wire-decodable Envelopes.
     """
     bind = _STATIC_FIX_BIND
     report = fold(Claim.STATIC, bind.verb, (receipt(("dotnet",), 0, status=RailStatus.OK),))
@@ -743,11 +714,10 @@ def test_emit_exit_code_duration_and_persistence_matrix(
     persisted: bool,  # noqa: FBT001  # parametrize matrix field, not a call-site positional bool
     assay_root: AssayHarness,
 ) -> None:
-    """_emit derives exit_code from outcome status, measures wall-clock ms, persists OK and spawn faults, and never persists parse faults.
+    """_emit derives exit code, duration, and persistence from outcome class.
 
-    Mutants caught: ms scaled /1000 or nulled (duration collapses to ~0); exit_code kwarg dropped on the fault
-    arm (FAULTED envelopes exit 0); persist seed or parse-gate forced falsy/inverted (history rows vanish or
-    parse faults leak in); write_history called with run_id=None.
+    Mutants caught: duration scaling, dropped fault exit_code, inverted persistence gates, and
+    run_id=None writes.
     """
     bind = _STATIC_FIX_BIND
     settings = assay_root.settings.model_copy(update={"run_id": f"{assay_root.settings.run_id}-{label}"})
@@ -856,12 +826,10 @@ def test_delta_missing_after_and_symmetric_difference() -> None:
 
 
 def test_delta_end_to_end_projection_identity(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """delta(run_c) resolves the lexicographic prior, projects RunSnapshot identity on both sides, and never persists its own Envelope.
+    """delta(run_c) resolves the prior, projects both snapshots, and never persists itself.
 
-    Mutants caught: `against or _prior` flipped to `and` (prior never resolved → EMPTY); either load_history
-    side nulled; RunSnapshot status/counts kwargs nulled or dropped (snapshot collapses to defaults); fold
-    claim/verb literals corrupted; envelope run_id nulled; persist=False flipped (delta Envelope leaks into the
-    history store). The OK arm carries NO note — status/counts/added/removed live in detail, which agents read.
+    Mutants caught: prior-resolution inversion, nulled history sides, dropped snapshot status/counts,
+    corrupted claim/verb/run_id, persistence leaks, or redundant OK notes outside RunDelta detail.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     store = assay_root.settings.store()
@@ -884,10 +852,9 @@ def test_delta_end_to_end_projection_identity(assay_root: AssayHarness, monkeypa
 
 @pytest.mark.parametrize("orientation", ["removed", "empty"])
 def test_delta_report_orientation_and_empty_identity(orientation: str) -> None:
-    """_delta_report counts removed keys from the before side; the missing-side arm folds a STATIC/'delta' EMPTY report with a note.
+    """_delta_report counts removed keys and preserves EMPTY identity on missing sides.
 
-    Mutants caught: the `removed=` kwarg dropped (before-only result keys silently report zero drift); EMPTY-arm
-    fold claim nulled; EMPTY-arm Completed notes dropped; EMPTY-arm counts corrupted.
+    Mutants caught: dropped removed count, nulled EMPTY claim, missing notes, and corrupted counts.
     """
     match orientation:
         case "removed":
@@ -904,11 +871,9 @@ def test_delta_report_orientation_and_empty_identity(orientation: str) -> None:
 
 
 def test_emit_envelope_persist_is_required_keyword() -> None:
-    """_emit_envelope makes `persist` a required keyword-only param — the dead default is gone.
+    """_emit_envelope requires an explicit keyword-only persist decision.
 
-    Every caller passes persist explicitly (run path, delta, parse_fault, self_test), so a default merely hid
-    intent; making it required keeps the persistence decision at every call site and lets the checker catch an
-    omission. Mutant caught: re-introducing a default (a forgotten persist silently defaults to one polarity).
+    A default would hide caller intent across run, delta, parse_fault, and self_test emit paths.
     """
     import inspect  # noqa: PLC0415
 
@@ -923,7 +888,7 @@ def test_persist_oserror_is_swallowed(assay_root: AssayHarness, monkeypatch: pyt
     Mutant caught: re-raising the OSError → caller gets OSError instead of best-effort swallow.
     """
     _patch_store(monkeypatch, "write_history")
-    registry_mod._persist(assay_root.settings, make_history_envelope("run-x"))  # must not raise
+    registry_mod._persist(assay_root.settings, make_history_envelope("run-x"))
 
 
 register_laws((
@@ -946,14 +911,11 @@ register_laws((
 
 
 def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """self_test() emits a healthy, wire-round-trippable, history-persisted STATIC/self-test Envelope with exact summary and census.
+    """self_test emits a healthy, persisted, wire-round-trippable STATIC/self-test Envelope.
 
-    Census/health rows extend beyond the fold count, so counts.total tracks folded receipts while results
-    carries the full expanded set.
-    Mutants caught: wrong claim/verb literals; always-FAILED status; omitting the Match-extension loop; rhino
-    default flipped to True (preflight requires yak by default); summary note nulled or reworded; report fold
-    claim corrupted; envelope run_id dropped (history row unreachable); any Match/notes field nulled (wire
-    codec rejects the persisted Envelope).
+    Results carry the expanded census/health rows while counts.total tracks folded receipts.
+    Mutants caught: wrong identity/status, missing Match extension, rhino default drift, summary
+    rewrites, dropped run_id, or wire-invalid Match/notes payloads.
     """
     import inspect  # noqa: PLC0415
 
@@ -981,11 +943,9 @@ def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: p
 
 @pytest.mark.parametrize("probe", ["_census", "_composes"])
 def test_self_test_unhealthy_when_composition_breaks(probe: str, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """self_test folds healthy as a strict conjunction: one failing probe forces FAILED status/exit, healthy=False, and a full-argv defect row.
+    """self_test health is a strict conjunction over composition probes.
 
-    Mutants caught: `and _census()` flipped to `or` (one green probe masks the other's failure); receipt argv
-    corrupted (defect row id drifts from 'assay self-test'); status decoupled from the healthy fold; exit code
-    decoupled from status.
+    Mutants caught: OR-folded health, corrupted defect argv, and status/exit drift from healthy.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     monkeypatch.setattr(registry_mod, probe, lambda: False)
@@ -999,11 +959,9 @@ def test_self_test_unhealthy_when_composition_breaks(probe: str, assay_root: Ass
 
 
 def test_self_test_unhealthy_when_claim_loses_its_last_row(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """self_test FAILs when a declared Claim has no bound REGISTRY row — the roster derives from the Claim enum, not REGISTRY.
+    """self_test fails when a declared Claim has no bound REGISTRY row.
 
-    The coverage conjunct is now refutable: dropping every DOCS row leaves Claim.DOCS unbound, so
-    `all(c in bound_claims for c in Claim)` is False and the preflight is unhealthy. A REGISTRY-derived roster
-    (the former tautology) would still pass because the dropped claim would also vanish from the roster.
+    The roster derives from Claim, not REGISTRY, so dropping every row for one claim remains refutable.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     monkeypatch.setattr(registry_mod, "fan_out", lambda checks, **_k: tuple(Ok(_completed(c)) for c in checks))
@@ -1014,10 +972,9 @@ def test_self_test_unhealthy_when_claim_loses_its_last_row(assay_root: AssayHarn
 
 
 def test_self_test_summary_carries_yak_ready_token(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The self_test summary note carries a single typed yak_ready=<bool> token folded from _yak_ready().
+    """self_test summary carries one yak_ready token from _yak_ready.
 
-    Mutants caught: the yak_ready token dropped from the summary (an agent loses the packaging-readiness fact);
-    the token decoupled from _yak_ready() (the summary claims readiness the preflight never checked).
+    Mutants caught: dropped packaging-readiness signal and summary/preflight decoupling.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     monkeypatch.setattr(registry_mod, "_yak_ready", lambda: True)
@@ -1027,12 +984,10 @@ def test_self_test_summary_carries_yak_ready_token(assay_root: AssayHarness, mon
 
 
 def test_health_probe_cache_warm_path(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_health probes every tool cold, then on a warm pass re-runs only volatile git probes and token-unresolvable tools via _PROBE_ROUTED.
+    """_health warms from cache while re-probing only volatile or token-unresolvable tools.
 
-    Mutants caught: hit-lookup / cache-store `current` filters inverted between volatile and catalogued sets
-    (warm pass re-probes everything, or git rows get cached); routed=None handed to fan_out; the shared DOTNET
-    probe collapse dropped or its --version argv corrupted; the INPROC exclusion inverted (external tools
-    vanish from the probe set).
+    Mutants caught: inverted cache filters, routed=None fan-out, broken DOTNET probe collapse,
+    corrupted --version argv, or inverted INPROC exclusion.
     """
     calls: list[tuple[tuple[Check, ...], object]] = []
 
@@ -1058,11 +1013,9 @@ def test_health_probe_cache_warm_path(assay_root: AssayHarness, monkeypatch: pyt
 
 
 def test_probe_cache_round_trip_and_retention(assay_root: AssayHarness) -> None:
-    """_probe_cache_store rows survive a load + _cache_hit round-trip ((note, ok) identity); retention keeps catalogued keys, evicts removed.
+    """Probe cache rows round-trip and retention keeps only catalogued keys.
 
-    Mutants caught: ok/note/ts/token kwargs dropped or nulled in the stored row (a cached MISSING tool flips
-    back to healthy); the cache directory segment or NUL key separator corrupted (round-trip misses); the
-    retention keep/evict key sets inverted (ghost rows survive, live rows evicted).
+    Mutants caught: lost row fields, corrupted cache key path/separator, and inverted keep/evict sets.
     """
     argv = registry_mod._GIT_HEAD.tool.command
     registry_mod._probe_cache_store(assay_root.settings, {}, {argv: ("note-x", False)}, frozenset((argv,)))
@@ -1070,17 +1023,19 @@ def test_probe_cache_round_trip_and_retention(assay_root: AssayHarness) -> None:
     assert registry_mod._cache_hit(loaded, argv) == ("note-x", False)
 
     key = registry_mod._PROBE_CACHE_KEY % "\x00".join(argv)
-    prior = {key: loaded[key], "probe:ghost": registry_mod._ProbeRow(token="t", ts=time.time(), note="gone", ok=True)}  # noqa: S106  # mtime token, not a secret
+    prior = {
+        key: loaded[key],
+        "probe:ghost": registry_mod._ProbeRow(token="t", ts=time.time(), note="gone", ok=True),  # noqa: S106  # mtime token, not a secret
+    }
     registry_mod._probe_cache_store(assay_root.settings, prior, {}, frozenset((argv,)))
     assert set(registry_mod._probe_cache_load(assay_root.settings)) == {key}
 
 
 def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness) -> None:
-    """_ok_envelope keeps a report at exactly _RESULT_CAP untruncated and folds FAILED rows into a 'defects' Diagnostic with the failure tally.
+    """_ok_envelope preserves cap-boundary rows and distills FAILED rows into defects.
 
-    Mutants caught: cap comparison > flipped to >= (boundary report spuriously truncated); the failed-row
-    filter nulled (Diagnostic construction crashes); the 'defects' step label or Fault tally corrupted;
-    Envelope status kwarg nulled on the OK path.
+    Mutants caught: cap comparison drift, nulled failed-row filters, corrupted defects tally,
+    and dropped OK status.
     """
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 
@@ -1108,14 +1063,11 @@ def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness
 
 
 def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
-    """_ok_envelope saturates stdout at _RESULT_CAP, persists the unclipped report as a HISTORY artifact, and appends an in-band N-of-M note.
+    """_ok_envelope caps stdout, persists the full report, and emits only an in-band cap note.
 
-    The truncation signal is in-band only: report.notes carries the unified `results: {shown} of {total}
-    (cap={cap}); full report artifact under {run_id}` shape (the rails/code.py _cap_note grammar with the
-    registry suffix) and NOTHING is written to stderr — the former side-channel is gone.
-    Mutants caught: clipping report.results to _RESULT_CAP+1 (cap overrun); the artifact filename nulled
-    (persisted identity loses the claim-verb stem); bytes/lines kwargs nulled or bumped (artifact metadata
-    misstates the persisted payload); the in-band note dropped or reverted to a stderr write.
+    The cap signal lives in report/envelope notes and the HISTORY artifact; stderr stays silent.
+    Mutants caught: cap overrun, nulled artifact identity/metadata, dropped cap note, or restored
+    stderr side channel.
     """
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 
@@ -1127,7 +1079,7 @@ def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, c
     assert len(env.report.results) == _RESULT_CAP
     assert "full-report" in {a.id for a in env.report.artifacts}
     note = f"results: {_RESULT_CAP} of {_RESULT_CAP + 1} (cap={_RESULT_CAP}); full report artifact under {assay_root.settings.run_id}"
-    assert note in env.report.notes, "the in-band unified N-of-M note replaces the former stderr side-channel"
+    assert note in env.report.notes, "the cap signal must stay in-band"
     assert env.notes == env.report.notes, "the Envelope mirrors the report notes carrying the cap note"
     assert capsysbinary.readouterr().err == b"", "no stderr truncation side-channel is written"
 
@@ -1173,10 +1125,10 @@ def test_probe_note_projects_result_to_note(
     want_substrings: tuple[str, ...],
     want_ok: bool,  # noqa: FBT001  # parametrize matrix field, not a call-site positional bool
 ) -> None:
-    """_probe_note projects tool/git probe Results to (note, ok): git absence is informational, tool absence is a miss.
+    """_probe_note projects tool and git probe outcomes to note/health pairs.
 
-    Mutants caught: wrong git HEAD/dirty/clean note format; ok=False for nonzero exit (false unhealthy); swapping
-    dirty/clean logic; ok=True for absent tool (silent pass); ok=False for absent git (false FAILED health).
+    Mutants caught: git note drift, dirty/clean swaps, nonzero-exit health drift, and
+    inverted absence semantics for tools versus git.
     """
     check = check_factory()
     note, ok = registry_mod._probe_note(check, outcome(check))
@@ -1186,10 +1138,9 @@ def test_probe_note_projects_result_to_note(
 
 @pytest.mark.parametrize("fresh", [True, False], ids=["fresh", "stale"])
 def test_cache_hit_respects_ttl(fresh: bool) -> None:  # noqa: FBT001  # parametrize-injected, not a call-site positional bool
-    """_cache_hit returns (note, ok) for a matching fresh token within TTL and None once the ts expires.
+    """_cache_hit returns fresh token hits and rejects stale rows.
 
-    Mutants caught: always returning None (TTL ignored, every probe re-runs); removing the TTL check (stale
-    probes returned as fresh, masking tool upgrades).
+    Mutants caught: ignored cache hits and stale rows masking tool upgrades.
     """
     argv = registry_mod._GIT_HEAD.tool.command
     token = registry_mod._probe_token(argv)
@@ -1201,10 +1152,9 @@ def test_cache_hit_respects_ttl(fresh: bool) -> None:  # noqa: FBT001  # paramet
 
 @pytest.mark.parametrize("argv", [(), ("__no_such_program_xyz__",)], ids=["empty-argv", "unresolvable"])
 def test_probe_token_returns_none(argv: tuple[str, ...]) -> None:
-    """_probe_token returns None for empty argv (no key) and unresolvable programs (no mtime → forces a live probe).
+    """_probe_token returns None for empty argv and unresolvable programs.
 
-    Mutants caught: non-None token for empty argv (cache hits on an empty key); default token for unresolvable
-    programs (stale cache hits).
+    Mutants caught: empty-key cache hits and stale defaults for missing programs.
     """
     assert registry_mod._probe_token(argv) is None
 
@@ -1229,14 +1179,13 @@ def test_probe_cache_store_oserror_is_swallowed(assay_root: AssayHarness, monkey
     Mutant caught: re-raising OSError → self_test crashes when the cache store is read-only.
     """
     _patch_store(monkeypatch, "write_bytes")
-    registry_mod._probe_cache_store(assay_root.settings, {}, {}, frozenset())  # must not raise
+    registry_mod._probe_cache_store(assay_root.settings, {}, {}, frozenset())
 
 
 def test_composes_health_and_type_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """_composes() returns True when _RAIL_LAYERS weave and False when compose raises TypeError (slot inversion).
+    """_composes returns True for valid layers and False for slot-inversion TypeError.
 
-    Mutants caught: always returning False (composition marked unhealthy when valid); propagating TypeError
-    instead of returning False (self_test crashes).
+    Mutants caught: false unhealthy status and TypeError escaping self_test.
     """
     assert registry_mod._composes() is True
     monkeypatch.setattr(registry_mod, "compose", lambda *_a, **_k: (_ for _ in ()).throw(TypeError("slot order inversion")))
@@ -1258,8 +1207,7 @@ def test_yak_ready_without_yak_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_yak_ready_present_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
     """_yak_ready() is True when the catalogued PACKAGE yak tool resolves on PATH.
 
-    Mutants caught: runner/claim filters inverted or the 'yak' command literal corrupted — each empties the
-    candidate set so readiness is permanently False and --rhino self-test always fails even with yak installed.
+    Mutants caught: inverted row filters or corrupted yak command literals.
     """
     import shutil  # noqa: PLC0415
 
@@ -1315,10 +1263,9 @@ register_laws((
 
 
 def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_leaf(bind) is a verb-named, help/annotation-carrying closure whose command() forwards the params identity to the rail runner.
+    """_leaf returns a verb-named command closure that forwards params identity.
 
-    Mutants caught: command() calling runner(None) or with the wrong params type (handlers would receive None
-    instead of the Cyclopts-bound params); returning None instead of an Envelope.
+    Mutants caught: runner(None), wrong params type, and None return instead of Envelope.
     """
     import inspect  # noqa: PLC0415
     from types import FunctionType  # noqa: PLC0415
@@ -1347,11 +1294,9 @@ def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypat
 
 
 def test_read_version_string_and_oserror_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    """_read_version() returns exactly the manifest's project.version, and falls back to '0.0.0' when pyproject is unreadable.
+    """_read_version returns manifest version and falls back when pyproject is unreadable.
 
-    Mutants caught: the parse pipeline nulled or the 'version' key corrupted (CLI --version silently degrades
-    to the 0.0.0 fallback while pyproject is readable); propagating OSError (import fails when pyproject.toml
-    is absent).
+    Mutants caught: nulled parse/version keys and OSError propagation during import.
     """
     import tomllib  # noqa: PLC0415
 
