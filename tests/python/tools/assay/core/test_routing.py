@@ -1,13 +1,7 @@
-"""Law suite for tools.assay.core.routing.
+"""Routing laws for scope identity, source rails, target partitioning, route closure, and placement.
 
-Covers Scope StrEnum identity and validity, Source Protocol runtime-checkability,
-Routed structural invariants and scope-consistency, ProjectIndex and RoutePaths
-type contracts, route() language-table dispatch / determinism / fault propagation /
-normalisation, target_files() partitioning, place() Input-arm projection / solution arm /
-determinism / proportionality / probe-fixture stripping, and routable_files() prefix filtering.
-
-Symbols under test: route, place, routable_files, Routed, RoutePaths, ProjectIndex,
-Scope, Source, TargetFiles, target_files.
+The suite pins Protocol runtime checks, routed invariants, C# closure resolution, host-bound partitioning,
+probe-fixture stripping, and argv-tail projection.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -23,7 +17,7 @@ from upath import UPath
 from tests.python._testkit.laws import register_law, spec
 from tests.python._testkit.spec import assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
 from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, Runner, Tool
-from tools.assay.core.routing import (  # private probes: read/parse degradation arms are unreachable through public route fixtures
+from tools.assay.core.routing import (  # private probes for read/parse degradation arms
     _LocalSource,
     _owner,
     _refs,
@@ -54,7 +48,7 @@ if TYPE_CHECKING:
 
 
 class _StubSource(Source):
-    """Source double: returns the injected changed/universe sets; read yields a valid empty project."""
+    """Source double with injected changed/universe sets and empty project bytes."""
 
     def __init__(self, changed: tuple[str, ...], universe: tuple[str, ...] = ()) -> None:
         self._changed = changed
@@ -75,7 +69,7 @@ class _StubSource(Source):
 
 
 class _FaultingSource(Source):
-    """Source double whose changed/enumerate rails always fault — propagates Error through route."""
+    """Source double whose changed/enumerate rails always fault."""
 
     @override
     def changed(self) -> Result[tuple[str, ...], Fault]:
@@ -95,9 +89,7 @@ class _FaultingSource(Source):
 class _GraphSource(Source):
     """Source double over a fixed three-project graph App -> Lib -> Core (backslash-style Include).
 
-    ``read`` returns real ``.csproj`` bytes carrying ``ProjectReference Include`` entries so that
-    ``_refs`` must parse, ``_dependents`` must walk the transitive fixed-point, and ``_resolve`` must
-    project closure/groups; ``enumerate`` yields the full universe regardless of the requested paths.
+    ``read`` returns ``ProjectReference Include`` entries; ``enumerate`` yields the full universe.
     """
 
     _UNIVERSE: ClassVar[tuple[str, ...]] = ("src/Core/Core.csproj", "src/Lib/Lib.csproj", "src/App/App.csproj", "src/Core/c.cs", "src/App/a.cs")
@@ -125,7 +117,7 @@ class _GraphSource(Source):
 
 
 class _HostGraphSource(_GraphSource):
-    """_GraphSource variant where App alone carries the explicit AssayHostBound marker."""
+    """Graph variant where App alone carries the explicit AssayHostBound marker."""
 
     _CSPROJ: ClassVar[dict[str, bytes]] = {
         **_GraphSource._CSPROJ,
@@ -144,7 +136,7 @@ _PY_TOOL = Tool(
     name="py-check", runner=Runner.UV, command=("ruff", "check"), input=Input.FILES, language=Language.PYTHON, claim=Claim.CODE, mode=Mode.CHECK
 )
 
-# Mirrors AssaySettings.probe_fixture_prefixes — keeps prefix-stripping law parametrization in sync with settings.
+# Mirrors AssaySettings.probe_fixture_prefixes for prefix-stripping laws.
 _DEFAULT_PREFIXES: tuple[str, ...] = ("tests/ast-grep/", "tests/python/tools/py_analyzer/")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -543,10 +535,7 @@ register_law(route, "local_source_read_and_refs_degrade_isolated")
 def test_local_source_read_and_refs_degrade_isolated(tmp_path: Path) -> None:
     """The closure-graph degradation ladder: read faults and malformed .csproj XML collapse to isolated nodes.
 
-    ``_LocalSource.read`` returns Ok(bytes) for a present file and a FAULTED Fault (never a raised OSError)
-    for a missing one; ``_refs`` folds both an unreadable and a malformed .csproj to an empty reference set.
-    Falsified by a read that raises through, a Fault carrying the wrong argv provenance, or a ParseError
-    escaping ``_parse`` instead of degrading to an empty Project element.
+    Missing reads must return FAULTED with argv provenance; unreadable or malformed projects yield no refs.
     """
     src = _LocalSource(root=UPath(tmp_path))
     (tmp_path / "good.bin").write_bytes(b"payload")
@@ -575,13 +564,8 @@ register_law(_refs, "refs_resolves_project_references")
 def test_refs_resolves_project_references(csproj: str, expected: frozenset[str]) -> None:
     r"""_refs parses ProjectReference Include attributes, normalising backslash-relative paths to project-rooted refs.
 
-    Each ``.csproj`` carries a single Windows-style ``Include="..\\X\\X.csproj"``; _refs must read the file, locate
-    every ``ProjectReference`` element, pull its ``Include`` attribute, swap backslash for slash, join against the
-    declaring project's parent directory, and ``normpath`` the join to the exact root-relative reference path.
-    Falsifies the entire _refs happy-path cluster: deleting the ok-arm (always empty), nulling ``base`` (TypeError or
-    wrong root), nulling/garbling ``normpath``/``str`` args, mutating the ``"\\"``→``"/"`` replace literals, renaming
-    the ``"Include"`` attribute key (case-flips, XX-markers), or inverting the ``is not None`` guard — every one alters
-    which project edges the closure graph carries, so each produces a reference set that diverges from ``expected``.
+    Each fixture carries one Windows-style Include; the expected set pins read, Include lookup,
+    separator normalization, parent join, and root-relative normalization as one edge contract.
     """
     assert _refs(csproj, _GraphSource(())) == expected
 
@@ -597,10 +581,7 @@ register_law(_owner, "owner_selects_deepest_project")
 def test_owner_selects_deepest_project(rel: str, expected: str | None) -> None:
     """_owner returns the longest (deepest) owning project directory, not an arbitrary or insertion-order match.
 
-    With nested index keys ``src/Lib`` and ``src/Lib/Sub`` both relative-to a file under ``src/Lib/Sub``, the file is
-    owned by the deeper project. Falsifies the _owner cluster: dropping ``key=str.__len__`` (or nulling it) makes
-    ``max`` compare the directory strings lexicographically rather than by length, so ``src/Lib`` can win over
-    ``src/Lib/Sub`` and a changed file is attributed to the wrong project — the seed and group projection both shift.
+    Nested keys must choose by path depth, not lexicographic or insertion order.
     """
     index: ProjectIndex = {"src/Lib": "src/Lib/Lib.csproj", "src/Lib/Sub": "src/Lib/Sub/Sub.csproj"}
     assert _owner(rel, index) == expected
@@ -612,12 +593,7 @@ register_law(route, "route_closure_transitive_dependents")
 def test_route_closure_transitive_dependents(assay_root: AssayHarness) -> None:
     """A change to the deepest project pulls its full transitive reverse-dependency closure into ``projects``.
 
-    The graph is App -> Lib -> Core; changing ``src/Core/c.cs`` must rebuild Core, Lib, AND App because both
-    transitively reference Core. Falsifies the _dependents monotone-fixed-point cluster: union->intersection
-    (closure shrinks to the seed), ``and``->``or`` (unrelated nodes leak in), ``p not in current``->``p in current``
-    (no node is ever added), ``bool(current & refs)``->``bool(None)`` (no dependents pulled), and
-    ``current & refs``->``current | refs`` (every node pulled regardless of edges) each yield a ``projects`` set that
-    differs from the true ``{Core, Lib, App}`` closure.
+    App -> Lib -> Core means a Core change must rebuild Core, Lib, and App through the reverse closure.
     """
     routed = assert_ok(route(Language.CSHARP, source=_GraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
     assert routed.scope is Scope.CHANGED
@@ -630,11 +606,7 @@ register_law(route, "route_closure_groups_pair_seed_with_owned_files")
 def test_route_closure_groups_pair_seed_with_owned_files(assay_root: AssayHarness) -> None:
     """_resolve pairs each seed project with exactly the changed files it owns, sorted, and threads language through.
 
-    Two changed files land in two different seed projects; ``groups`` must associate each seed ``.csproj`` with the
-    files whose ``_owner`` resolves to that project, and ``files`` is the normalised owned set. Falsifies the _resolve
-    cluster: ``groups=None`` / ``groups=`` default (groups vanish), the ``index[owner] == owner_proj`` filter flipped
-    to ``!=`` (each seed paired with every OTHER seed's files), ``language=None`` / ``projects=None`` / ``projects=``
-    default (the carried projection fields drop or null out).
+    Two changed files in two seed projects pin group pairing, file normalization, and language threading.
     """
     routed = assert_ok(route(Language.CSHARP, source=_GraphSource(("src/Core/c.cs", "src/App/a.cs")), settings=assay_root.settings))
     assert routed.language is Language.CSHARP
@@ -660,10 +632,7 @@ def test_route_escalation_honours_settings_triggers(
 ) -> None:
     """FULL-scope escalation consults the active settings' trigger_files/trigger_prefixes, never the module constants.
 
-    Custom triggers escalate the matching change to FULL; a module-default trigger that the custom settings omit does
-    NOT escalate. Falsifies the settings-threading cluster: _escalate flipping ``settings is not None``->``is None``
-    (module defaults used instead of settings), _closure passing ``_escalate(files, None)``, and route passing
-    ``_closure(..., None)`` all swap the consulted trigger set, inverting at least one row of this matrix.
+    Custom settings replace defaults, so omitted default triggers must not escalate.
     """
     settings = assay_root.settings.model_copy(update=update)
     routed = assert_ok(route(Language.CSHARP, source=_GraphSource(changed), settings=settings))
@@ -678,11 +647,7 @@ register_law(route, "route_classifies_host_bound_by_marker_only")
 def test_route_classifies_host_bound_by_marker_only(assay_root: AssayHarness) -> None:
     """ONLY the explicit AssayHostBound marker classifies; the closure itself is unaffected (BUILD-lane keep).
 
-    Core changes; the closure is {Core, Lib, App}; App alone carries ``<AssayHostBound>true</AssayHostBound>``.
-    ``host_bound`` must be exactly (App,) while ``projects`` still carries the full closure, and the unmarked
-    graph yields an empty partition. Falsifies: deriving the partition from path shape or host-assembly
-    awareness (no path or reference in the graph distinguishes App), dropping host projects from ``projects``
-    (BUILD lanes would lose them), and a marker read that is case-sensitive or matches non-``true`` text.
+    App alone carries the marker; ``projects`` keeps the full closure while ``host_bound`` carries only App.
     """
     marked = assert_ok(route(Language.CSHARP, source=_HostGraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
     assert marked.projects == ("src/App/App.csproj", "src/Core/Core.csproj", "src/Lib/Lib.csproj")
@@ -707,9 +672,7 @@ register_law(place, "place_host_bound_lane_partition")
 def test_place_host_bound_lane_partition(mode: Mode, expected: tuple[tuple[str, ...], ...], assay_root: AssayHarness) -> None:
     """TEST lanes (RUN/LIST) drop host-bound projects from PROJECT placement; RESTORE/BUILD lanes keep them.
 
-    Falsifies the lane discriminant cluster: filtering on RESTORE/BUILD (host projects stop compiling),
-    keeping on RUN/LIST (managed ``dotnet test`` executes a native P/Invoke and dies at runtime), and
-    membership tested against ``projects`` instead of ``host_bound``.
+    The lane split prevents managed test runs from executing host-bound projects while preserving build coverage.
     """
     tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=mode)
     assert place(_HOST_ROUTED, tool, settings=assay_root.settings) == expected
@@ -722,10 +685,7 @@ register_law(expand, "expand_drops_host_emptied_project_check")
 def test_host_emptied_placement_drops_check(assay_root: AssayHarness) -> None:
     """An all-host-bound closure yields zero TEST invocations: no fallback resurrection, no bare unpinned check.
 
-    place(LIST) must NOT fall back to ``settings.test_target`` when the route HAD projects — the fallback
-    exists for empty routes only; expand must remove the RUN check entirely, because an unpinned zero-tail
-    PROJECT check composes a bare ``dotnet test`` against the whole tree. The BUILD check survives untouched,
-    and the empty-route fallback (pinned by place_project_list_fallback_to_test_target) stays intact.
+    Fallback exists for empty routes only; host-filtered routes must drop TEST checks and keep BUILD checks.
     """
     routed = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj",), host_bound=("src/App/App.csproj",))
     run_tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=Mode.RUN)
@@ -772,9 +732,7 @@ register_law(place, "place_project_list_fallback_to_test_target")
 def test_place_project_list_fallback_to_test_target(mode: Mode, projects: tuple[str, ...], expected_fn: str, assay_root: AssayHarness) -> None:
     """Input.PROJECT with no routed projects falls back to settings.test_target only when tool.mode is Mode.LIST.
 
-    Falsifies the place PROJECT-arm cluster: ``str(settings.test_target)``->``str(None)`` (the fallback projects the
-    literal ``"None"`` instead of the configured target) and ``tool.mode is Mode.LIST``->``is not Mode.LIST`` (the
-    fallback fires for the wrong modes); the non-LIST empty case yields no invocations, pinning the discriminant.
+    Non-LIST empty project routes yield no invocations; LIST with projects passes the projects through.
     """
     tool = Tool("t", Runner.DOTNET, ("dotnet",), Input.PROJECT, Language.CSHARP, Claim.STATIC, mode=mode)
     routed = Routed(Language.CSHARP, Scope.CHANGED, projects=projects)

@@ -1,8 +1,7 @@
-"""Model spine laws: wire round-trip encode-probe, the fold count oracle, envelope projection, enum payloads.
+"""Model laws for wire determinism, report folding, envelopes, and enum payloads.
 
-Every wire struct registered in the conftest is swept through assert_roundtrip (encode, decode,
-re-encode byte-identity), embodying the former session-fixture validation gate as a collectable,
-falsifiable law. The fold count invariant and Report arithmetic are asserted via assert_counts_consistent.
+Every registered wire struct is swept through encode/decode/re-encode identity, while report arithmetic
+is pinned through count consistency and fold-specific projection laws.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -97,8 +96,7 @@ if TYPE_CHECKING:
 # get_args avoids a manual parallel list that would drift from the union definition.
 _DETAIL_VARIANTS: tuple[type[Detail], ...] = get_args(AnyDetail.__value__)
 
-# Each row drives one register_law call so coverage is total — adding a wire struct here
-# is the only registration required.
+# Each row drives registration and round-trip coverage for one wire struct.
 _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
     (Stage, stage_st),
     (Tool, tool_st),
@@ -140,7 +138,7 @@ _BARE_STRENUM_CLASSES: tuple[type[Claim | SourceKind | ArtifactKind | MutationLa
 def test_wire_struct_round_trips(subject: type[Base], strategy: st.SearchStrategy[Base]) -> None:
     """Every conftest-registered wire struct survives the deterministic codec byte-identically.
 
-    A non-deterministic codec or a non-decode-clean field defect dies on the re-encode identity step.
+    The re-encode identity step catches non-deterministic codecs and non-decode-clean fields.
     """
 
     @given(strategy)
@@ -178,7 +176,7 @@ def test_wire_struct_forbids_unknown_fields(detail: AnyDetail) -> None:
 @pytest.mark.mutation
 @given(st.lists(completed_st, min_size=0, max_size=20))
 def test_fold_count_oracle(outcomes: list[Completed]) -> None:
-    """Fold count invariant: OK/EMPTY/SKIP counts as ok, FAILED as failed, FAULTED/BUSY/TIMEOUT as neither; total equals ok+failed."""
+    """Fold counts OK/EMPTY/SKIP as ok, FAILED as failed, and terminal faults as neither."""
     tup = tuple(outcomes)
     report = fold(Claim.STATIC, "check", tup)
     ok_n = sum(1 for o in tup if o.status in {RailStatus.OK, RailStatus.EMPTY, RailStatus.SKIP})
@@ -252,7 +250,7 @@ def _sarif_drop(tmp_path: Path, **files: bytes) -> str:
     ids=["error", "warning", "note_rides_info", "none_rides_info", "absent_defaults_warning"],
 )
 def test_fold_sarif_level_maps_to_assay_severity(level: str | None, severity: str, tmp_path: Path) -> None:
-    """SARIF levels map error/warning verbatim, note and none to info (CSP0903 rides note), absent to the SARIF default warning."""
+    """SARIF levels map to assay severity while absent levels keep the SARIF warning default."""
     sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0903", level, 12, "tone probe")))
     report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
     assert [(m.id, m.kind, m.severity, m.path, m.line, m.column, m.message) for m in report.results] == [
@@ -501,8 +499,7 @@ def test_envelope_projects_fault_status(fault: Fault) -> None:
     assert env.exit_code == fault.status.exit_code
 
 
-# Real pre-trace history artifact shape (.artifacts/assay/history/2026-06-10T05-34-31.783586-61744/envelope.json),
-# captured before Diagnostic carried trace_id/span_id; embedded so the law stays hermetic off this machine.
+# Pre-trace history fixture keeps additive Diagnostic defaults hermetic.
 _PRE_TRACE_ENVELOPE: bytes = (
     b'{"claim":"static","verb":"fix","status":"faulted","exit_code":2,'
     b'"run_id":"2026-06-10T05-34-31.783586-61744","error":{"argv":[],"message":"parse: x"},'
@@ -516,7 +513,7 @@ _PRE_TRACE_ENVELOPE: bytes = (
 def test_envelope_decodes_pre_trace_history_artifact() -> None:
     """Additive-compat: a pre-trace Envelope decodes with ``trace_id``/``span_id`` defaulted under ``schema_version=1``.
 
-    The decoded value survives encode → decode intact through the deterministic wire encoder.
+    The decoded value still survives deterministic encode/decode identity.
     """
     decoded = msgspec.json.decode(_PRE_TRACE_ENVELOPE, type=Envelope)
     ctx = decoded.error_context
@@ -558,7 +555,7 @@ def test_receipt_status_derivation(rc: int, explicit: RailStatus | None, expecte
     ],
 )
 def test_field_cap_introspection(subject: type[msgspec.Struct], name: str, default: int, expected: int) -> None:
-    """field_cap reads msgspec StrType max_length; returns the configured max_length, or the default when the field is non-string or absent."""
+    """field_cap reads msgspec string caps and falls back for non-string or absent fields."""
     assert field_cap(subject, name, default=default) == expected
 
 
@@ -673,8 +670,7 @@ def test_bare_strenum_token_identity(enum_cls: type[Claim | SourceKind]) -> None
 
 
 # --- [BIND]
-# Bind carries a callable handler and a type, so it cannot round-trip through the wire codec;
-# its law is structural well-formedness over the registry.
+# Bind carries callable/type objects, so registry shape is the law instead of wire round-trip.
 
 
 @given(binds_st)
@@ -689,7 +685,7 @@ def test_bind_is_well_formed(bind: Bind) -> None:
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-# Registrations run at import time so MANIFEST is fully populated before test collection begins.
+# Import-time registration fully populates MANIFEST before policy collection.
 
 for _row in _WIRE_ROWS:
     register_law(_row[0], "wire_round_trip")
@@ -720,7 +716,7 @@ register_laws(
     (Completed, ("receipt_construction",)),
     (field_cap, ("introspection_oracle",)),
     (validate_detail, ("detail_round_trip", "none_passthrough")),
-    # @spec covers wire_encode "determinism" at decoration time.
+    # @spec registers wire_encode determinism at decoration time.
     (wire_encode, ("decode_clean",)),
     (wire_safe, ("surrogate_neutralization", "idempotent")),
     (BaseParams, ("surplus_within_cap", "default_arity_identity")),

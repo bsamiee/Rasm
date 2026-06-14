@@ -1,11 +1,6 @@
-"""RailStatus monoid laws: fold/join form a commutative semigroup on severity, with fold seeded at EMPTY.
+"""RailStatus algebra laws for severity joins, seeded folds, and return-code projection.
 
-Public surface: RailStatus, fold, join (tools.assay.core.status.__all__).
-Oracle catalog: associative / commutative / absorbing / identity_element / monotone / validity_matrix.
-Strategy: resolve(RailStatus) -> sampled_from(list(RailStatus)) (StrEnum; registered by conftest).
-
-@given and @parametrize bypass @spec auto-registration, so register_laws lists every law name
-explicitly to keep the coverage ledger consistent with the generated test IDs.
+The manual law ledger covers ``@given`` and parametrized laws that bypass ``@spec`` auto-registration.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -67,7 +62,7 @@ register_laws(
 
 
 def _sev_eq(a: RailStatus, b: RailStatus) -> bool:
-    # Semigroup equality on severity only; left wins ties, so enum identity is not commutative.
+    # Severity is commutative; enum identity is not because left wins ties.
     return a.severity == b.severity
 
 
@@ -102,9 +97,7 @@ def test_join_faulted_absorbing(s: RailStatus) -> None:
 def test_join_empty_identity_element(s: RailStatus) -> None:
     """EMPTY is the identity element for all s with severity >= EMPTY.severity.
 
-    join is a max-severity operator seeded at EMPTY (severity 1). For s.severity >= 1 the
-    identity_element oracle holds exactly. SKIP (severity 0) is the sole member below EMPTY —
-    a separate sweep law covers that degenerate case.
+    SKIP is the sole member below EMPTY and is covered by the sweep law.
     """
     if s.severity >= _SEED.severity:
         identity_element(s, join, _SEED, eq=_sev_eq)
@@ -152,7 +145,7 @@ def test_join_exit_code_non_negative(s: RailStatus) -> None:
 def test_fold_max_severity_oracle(members: list[RailStatus]) -> None:
     """fold(*members) returns the max-by-severity element, floored at EMPTY.
 
-    fold seeds at EMPTY (severity 1): a list of only SKIP (severity 0) yields EMPTY, not SKIP.
+    Lists containing only SKIP still yield the EMPTY seed.
     """
     result = fold(*members)
     expected_sev = max(*(m.severity for m in members), _SEED.severity)

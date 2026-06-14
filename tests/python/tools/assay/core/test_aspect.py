@@ -1,29 +1,24 @@
-"""Aspect layer laws — decorator stack idempotency/ordering, ROP weaving, OTel + ring observability.
+"""Aspect laws for decorator ordering, ROP weaving, telemetry, and ring capture.
 
-Every law dies to a real defect in ``tools.assay.core.aspect``: the ``_assay_ids`` double-decoration
-guard (exercised THROUGH public ``compose``/``checked_call``), the ``Slot`` monotonic ordering that
-``assemble`` folds over, beartype shape validation surfaced as a ``Fault``, structlog key binding +
-finish-event emission, OTel span stamping, and the recent-events ring contextvar projection.
-
-The module-level ``register_law`` loop executes at import time; ``test_policy.py`` reads the
-law MANIFEST after collection but before tools/ tests execute, so every subject-to-law mapping must
-be registered before that policy check runs.
+Pins double-decoration guards, Slot monotonicity, beartype validation, finish severity, OTel
+status/event stamping, and recent-event ring projection. Law registration runs at import time
+because the policy ledger reads the MANIFEST immediately after collection.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections import deque
-from collections.abc import Callable  # noqa: TC003  # used in a runtime annotation; TC003 requires TYPE_CHECKING guard
+from collections.abc import Callable  # noqa: TC003  # runtime annotation
 from typing import Annotated
 
 from beartype.roar import BeartypeCallHintViolation
 from beartype.vale import Is
-from expression import Error, Ok, Result  # noqa: TC002  # Result names the Hom rail in runtime annotations
+from expression import Error, Ok, Result  # noqa: TC002  # Hom rail annotation
 from expression.collections import block
 from hypothesis import given, strategies as st
 from opentelemetry import trace
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-    InMemorySpanExporter,  # noqa: TC002  # fixture type annotations evaluated at collection time; must be a runtime import
+    InMemorySpanExporter,  # noqa: TC002  # collection-time fixture annotation
 )
 import pytest
 from structlog.contextvars import get_contextvars
@@ -31,21 +26,21 @@ from structlog.contextvars import get_contextvars
 from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_error, assert_ok, identity, support_matrix
 from tools.assay.core.aspect import (
-    _RING,  # internal contextvar; ring_processor/ring_recent laws must seed it directly
+    _RING,  # ring seam seeded directly for projection laws
     assemble,
     checked,
     checked_call,
     compose,
-    Hom,  # noqa: TC001  # PEP 695 alias used in runtime woven-Hom annotations
+    Hom,  # noqa: TC001  # runtime woven-Hom annotation
     Inversion,
-    Layer,  # noqa: TC001  # PEP 695 alias used in runtime layer-tuple annotations
+    Layer,  # noqa: TC001  # runtime layer-tuple annotation
     logged,
     ring_processor,
     ring_recent,
     Slot,
     traced,
 )
-from tools.assay.core.model import Claim, Fault, fold, Report  # noqa: TC001  # Report/Fault name the Hom rail in runtime annotations
+from tools.assay.core.model import Claim, Fault, fold, Report  # noqa: TC001  # Hom rail annotation
 from tools.assay.core.status import RailStatus
 
 
@@ -98,14 +93,10 @@ def test_slot_ordering_is_monotonic() -> None:
 
 
 def test_compose_double_checked_equals_single() -> None:
-    """The contract recipe: ``compose(layer, layer)(fn)`` weaves once — the per-instance ``_assay_ids`` guard.
+    """Repeating the same layer instance weaves once and preserves the single ``_assay_ids`` marker set.
 
-    Passing the SAME layer instance twice must NOT re-wrap: the woven function carries an identical
-    ``_assay_ids`` marker set to a single application. Kills any mutant that drops the idempotency guard
-    (a broken guard double-weaves, growing the marker set and changing observable identity).
-
-    ``checked()`` binds no projection callable, so mypy collapses its free ParamSpec to ``Never`` (ty
-    infers it cleanly); the mypy-only suppression keeps the public-``compose`` idempotency recipe verbatim.
+    The mypy-only suppression keeps the public ``compose(layer, layer)(fn)`` idempotency recipe intact;
+    ty specializes ``checked()`` cleanly while mypy collapses its free ParamSpec to ``Never``.
     """
     layer = checked()  # type: ignore[var-annotated]  # mypy Never-collapse; ty infers the generic layer
     once: Hom[[object], Report] = compose(layer)(_rail)
@@ -119,11 +110,7 @@ def test_compose_double_checked_equals_single() -> None:
 
 
 def test_compose_is_assemble_through_ok() -> None:
-    """``compose`` is ``assemble`` projected through its Ok rail — same woven behavior on a valid layer order.
-
-    Uses ``logged``/``traced`` rather than ``checked`` because ``checked()`` binds no projection
-    callable, leaving ty unable to specialize its free ParamSpec.
-    """
+    """``compose`` projects ``assemble`` through the Ok rail for valid layer order."""
     log: Layer[[object], Report] = logged(event="rail", keys=_keys)
     trc: Layer[[object], Report] = traced(span="rail.span", attrs=_attrs)
     layers: list[Layer[[object], Report]] = [log, trc]
@@ -134,12 +121,7 @@ def test_compose_is_assemble_through_ok() -> None:
 
 
 def test_assemble_accepts_ascending_rejects_inversion() -> None:
-    """``assemble`` is Ok iff slots are non-descending; any regression yields ``Error(Inversion)``.
-
-    The slot order is the load-bearing invariant the whole layer algebra rests on. ``compose`` raises
-    ``TypeError(Inversion)`` on the same regression — proven via the inversion law below. One case-table
-    sweeps every ascending acceptance and every descending rejection.
-    """
+    """Layer order is valid iff slots are non-descending; any regression yields ``Error(Inversion)``."""
     ident: Callable[[Hom[[object], Report]], Hom[[object], Report]] = lambda h: h  # noqa: E731
     cases: tuple[tuple[str, tuple[Slot, ...], bool], ...] = (
         ("checked-then-logged", (Slot.checked, Slot.logged), True),
@@ -200,8 +182,7 @@ def test_checked_call_is_idempotent_under_repeat() -> None:
 def test_checked_call_faults_on_shape_violation() -> None:
     """The beartype-woven rail enforces the annotated parameter constraint at call time.
 
-    The parameter is a positive-int beartype validator; ty sees a plain ``int`` so a negative literal is
-    statically valid yet violates the runtime shape — proving ``checked_call`` actually weaves beartype.
+    The validator is runtime-only to ty, so the negative literal proves ``checked_call`` actually weaves beartype.
     """
 
     def typed_rail(_n: Annotated[int, Is[lambda n: n > 0]]) -> Result[Report, Fault]:
@@ -251,8 +232,7 @@ def test_logged_emits_finish_event_per_rail(log_events: list[dict[str, object]])
 def test_logged_finish_severity_gate_info_below_failed(log_events: list[dict[str, object]]) -> None:
     """An Error rail whose Fault severity sits below FAILED (BUSY) finishes at info level with its own status.
 
-    Falsified by a ``logged`` that promotes every Error finish to the error channel — the severity gate is
-    what keeps lease-busy exits out of alert noise while still emitting exactly one finish record.
+    The severity gate keeps lease-busy exits out of alert noise while still emitting exactly one finish record.
     """
     layer: Layer[[object], Report] = logged(event="rail", keys=_keys)
     woven: Hom[[object], Report] = compose(layer)(_busy)
@@ -268,9 +248,7 @@ def test_logged_finish_severity_gate_info_below_failed(log_events: list[dict[str
 def test_logged_emits_faulted_finish_on_raised_then_reraises(log_events: list[dict[str, object]]) -> None:
     """A raised exception bypasses the Result rail: ``logged`` emits one FAULTED ``<event>.finish`` then re-propagates.
 
-    The faulting Result arm (severity-gated info/error) is a returned value; a raised ``BaseException`` is a
-    distinct path that must still surface a finish record with exc traceback before re-raising. Kills any mutant
-    that swallows the raise or drops the FAULTED status/``exc_info``.
+    Raised exceptions remain distinct from returned faults and must surface traceback evidence before re-raising.
     """
     layer: Layer[[object], Report] = logged(event="rail", keys=_keys)
     woven: Hom[[object], Report] = compose(layer)(_raising)
@@ -289,7 +267,7 @@ def test_logged_emits_faulted_finish_on_raised_then_reraises(log_events: list[di
 
 
 def test_traced_sync_records_one_span_with_status(otel_spans: InMemorySpanExporter) -> None:
-    """A sync woven rail records exactly one span stamped with its OK status under the session provider."""
+    """A sync woven rail records exactly one span stamped with its OK status under the active provider."""
     layer: Layer[[object], Report] = traced(span="probe.span", attrs=_attrs)
     woven: Hom[[object], Report] = compose(layer)(_rail)
     outcome = woven("x")
