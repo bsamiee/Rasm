@@ -6,9 +6,7 @@ namespace Rasm.Csp.Kernel;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-// NAMED delegate, NOT Action<RuleContext>: RuleContext is a ref struct, and a ref struct is
-// illegal as a generic type argument on netstandard2.0; a delegate parameter of ref-struct
-// type is legal. Check is total; no throw.
+// Named delegate is required because netstandard2.0 forbids ref structs as generic arguments.
 internal delegate void RuleCheck(in RuleContext context);
 
 internal enum TriggerKind : byte { Syntax, Operation, Symbol, SymbolStart, CompilationEnd }
@@ -22,7 +20,7 @@ internal sealed record RuleRow(
     ImmutableArray<RuleBinding> Bindings);
 
 internal sealed record RuleBinding(TriggerKind Trigger, RuleCheck Check, ImmutableArray<int> Kinds) {
-    // The three kind enums erase to one int slot; TriggerKind recovers the meaning.
+    // TriggerKind recovers the erased enum family.
     public static RuleBinding Syntax(RuleCheck check, params SyntaxKind[] kinds) => new(TriggerKind.Syntax, check, Erase(kinds));
     public static RuleBinding Operation(RuleCheck check, params OperationKind[] kinds) => new(TriggerKind.Operation, check, Erase(kinds));
     public static RuleBinding Symbol(RuleCheck check, params SymbolKind[] kinds) => new(TriggerKind.Symbol, check, Erase(kinds));
@@ -65,16 +63,15 @@ internal readonly ref struct RuleContext {
     public IOperation? Operation { get; }
     public ISymbol? Symbol { get; }
 
-    // ONLY the context-handed model (RS1030); never Compilation.GetSemanticModel.
+    // RS1030 requires the context-handed model, never Compilation.GetSemanticModel.
     public SemanticModel? Model { get; }
     public CompilationFacts Facts { get; }
 
-    // Resolved per the scope priority chain BEFORE the check runs; the gate is already applied.
+    // Scope is resolved and gated before the check runs.
     public CspScope Scope { get; }
     public CancellationToken Cancel { get; }
 
-    // Projects messageFormat; display formatting lives ONLY here. The properties bag carries
-    // exactly tier/doctrine/scope for the SARIF rail; fact/fix/exempt stay in the message line.
+    // Display formatting lives here; SARIF properties stay limited to tier, doctrine, and scope.
     public void Report(Location location, params object?[] args) =>
         _report(Diagnostic.Create(
             _descriptor,

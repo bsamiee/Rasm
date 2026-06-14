@@ -2,10 +2,9 @@ using System.Collections.Immutable;
 
 namespace Rasm.Csp.Kernel;
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-// Rule vocabulary as code: DocumentationCommentId rows resolved per compilation by CompilationFacts
-// (unresolvable rows are inert). Catalog rows decide whether a vocabulary section is active.
+// DocumentationCommentId rows resolve per compilation; unresolvable rows stay inert.
 internal static class Vocabulary {
     public static readonly ImmutableArray<string> Prefixes = ["Get", "TryGet", "GetOr"];
 

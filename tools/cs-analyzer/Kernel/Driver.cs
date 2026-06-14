@@ -7,27 +7,23 @@ namespace Rasm.Csp.Kernel;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-/// <summary>Single Csp analyzer entrypoint; registers every catalog rule pre-bucketed by trigger kind.</summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Driver : DiagnosticAnalyzer {
-    // --- [TABLES] ----------------------------------------------------------------------
+    // --- [TABLES]
 
-    // Built once from the catalog: each OperationKind/SyntaxKind registered exactly once,
-    // dispatching over a pre-bucketed array of rows (no dictionary per node).
+    // Build one trigger registration per Roslyn kind; row dispatch stays array-backed.
     private static readonly ImmutableArray<KindBucket> SyntaxBuckets = Buckets(TriggerKind.Syntax);
     private static readonly ImmutableArray<KindBucket> OperationBuckets = Buckets(TriggerKind.Operation);
     private static readonly ImmutableArray<KindBucket> SymbolBuckets = Buckets(TriggerKind.Symbol);
     private static readonly ImmutableArray<KindBucket> SymbolStartBuckets = Buckets(TriggerKind.SymbolStart);
     private static readonly ImmutableArray<Slot> CompilationEndSlots = EndSlots();
 
-    // --- [EXPORTS] ---------------------------------------------------------------------
+    // --- [EXPORTS]
 
-    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = Descriptors();
 
-    // --- [ENTRY] -------------------------------------------------------------------------
+    // --- [ENTRY]
 
-    /// <inheritdoc />
     public override void Initialize(AnalysisContext context) {
         _ = context ?? throw new ArgumentNullException(paramName: nameof(context));
         context.EnableConcurrentExecution();
@@ -50,12 +46,12 @@ public sealed class Driver : DiagnosticAnalyzer {
                 ImmutableArray<Slot> slots = bucket.Slots;
                 start.RegisterSymbolStartAction(symbolStartContext => symbolStartContext.RegisterSymbolEndAction(endContext => DispatchSymbol(endContext, facts, slots)), (SymbolKind)bucket.Kind);
             }
-            // Batch-build-only band: IDE live analysis does not reliably run end actions.
+            // Compilation-end checks are batch-build-only; IDE live analysis skips them.
             if (!CompilationEndSlots.IsEmpty) start.RegisterCompilationEndAction(endContext => DispatchCompilationEnd(endContext, facts, CompilationEndSlots));
         });
     }
 
-    // --- [OPERATIONS] --------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     private static ImmutableArray<KindBucket> Buckets(TriggerKind trigger) {
         Dictionary<int, ImmutableArray<Slot>.Builder> groups = [];
@@ -86,7 +82,7 @@ public sealed class Driver : DiagnosticAnalyzer {
     private static void DispatchCompilationEnd(CompilationAnalysisContext context, CompilationFacts facts, ImmutableArray<Slot> slots) {
         SyntaxTree? tree = FirstTree(context.Compilation);
         if (tree is null) return;
-        // Whole-compilation rules gate on assembly-level scope; per-tree overrides are meaningless here.
+        // Whole-compilation rules gate on assembly scope; per-tree overrides cannot apply.
         CspScope scope = facts.ScopeOf(tree, context.Compilation.Assembly);
         ScopeGate gate = GateOf(scope);
         foreach (Slot slot in slots) {
@@ -178,7 +174,7 @@ public sealed class Driver : DiagnosticAnalyzer {
 
     private static ScopeGate GateOf(CspScope scope) => (ScopeGate)(1 << (int)scope);
 
-    // --- [MODELS] ------------------------------------------------------------------------
+    // --- [MODELS]
 
     private sealed record KindBucket(int Kind, ImmutableArray<Slot> Slots);
 

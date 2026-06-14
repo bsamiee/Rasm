@@ -4,14 +4,11 @@
         <AssemblyName>Csp.Contracts</AssemblyName>
         <RootNamespace>Rasm.Csp</RootNamespace>
         <CspScope>Tooling</CspScope>
-        <!-- Zero-dependency contract assembly referenced normally by every project: skip workspace
-             runtime-library/using injection and the analyzer reference (tooling self-skip). -->
+        <!-- Contract assembly self-skips workspace libraries and analyzer injection. -->
         <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
         <SkipLocalCSharpAnalyzerReference>true</SkipLocalCSharpAnalyzerReference>
-        <!-- CA1008: CspScope is a closed vocabulary; a `None` row would be an
-             invalid scope. IDE0130: BoundaryContracts.cs keeps its consumed legacy namespace
-             (Foundation.CSharp.Analyzers.Contracts) so production call sites resolve through
-             this assembly unchanged. -->
+        <!-- CA1008: CspScope has no valid None row.
+             IDE0130: BoundaryContracts.cs preserves the consumed legacy namespace. -->
         <NoWarn>$(NoWarn);CA1008;IDE0130</NoWarn>
     </PropertyGroup>
 </Project>

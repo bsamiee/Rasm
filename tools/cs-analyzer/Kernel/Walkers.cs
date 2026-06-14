@@ -8,9 +8,7 @@ namespace Rasm.Csp.Kernel;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class Walkers {
-    // Fluent-pipeline receiver walk: extension methods carry their receiver in Arguments[0], not Instance.
-    // Use ExtractReceiver to obtain the receiver of any invocation regardless of extension-vs-instance shape;
-    // chain with UnwrapReceiver to peel implicit IConversionOperation wrappers (boxing, generic constraints).
+    // Extension invocations carry receivers in Arguments[0]; instance calls use Instance.
     internal static IOperation? ExtractReceiver(IInvocationOperation invocation) =>
         invocation.Instance switch {
             IOperation receiver => receiver,
@@ -61,9 +59,7 @@ internal static class Walkers {
             _ => null,
         };
 
-    // Terminal-Match-position analysis: Match is boundary-legal only as a returned value, a terminal
-    // Unit-typed expression statement, a terminal discard assignment, or the whole arrow body.
-    // unitType is the Facts-resolved LanguageExt.Unit symbol (SymbolEqualityComparer, never display strings).
+    // Boundary-legal Match sites are terminal return, Unit expression, discard, or arrow body.
     internal static bool IsBoundaryMatchUsage(IInvocationOperation invocation, INamedTypeSymbol? unitType) =>
         CollapseTransparentParents(invocation) is IReturnOperation
         || (unitType is not null

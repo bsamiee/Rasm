@@ -7,9 +7,7 @@ namespace Rasm.Csp.Kernel;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// Per-compilation state (RS1008/RS1009): all well-known symbols resolved ONCE at
-// CompilationStart and compared with SymbolEqualityComparer; config readers and scope
-// resolution live here so rule checks stay total and stateless.
+// RS1008/RS1009 state lives at CompilationStart; rule checks stay total and stateless.
 internal sealed class CompilationFacts {
     private const string ScopeAttributeMetadataName = "Rasm.Csp.CspScopeAttribute";
     private const string ScopeBuildProperty = "build_property.CspScope";
@@ -32,12 +30,11 @@ internal sealed class CompilationFacts {
 
     public ImmutableArray<string> PrefixVocabulary { get; }
 
-    // Cached GetTypeByMetadataName; callers compare with SymbolEqualityComparer.
+    // Cache metadata probes; callers compare with SymbolEqualityComparer.
     public INamedTypeSymbol? WellKnown(string metadataName) =>
         _wellKnown.GetOrAdd(metadataName, _compilation.GetTypeByMetadataName);
 
-    // Priority: type [CspScope] -> per-tree csp.scope -> build_property.CspScope / assembly [CspScope].
-    // Undeclared scope fails closed to Domain.
+    // Scope priority: type marker, tree option, then build or assembly marker; undeclared is Domain.
     public CspScope ScopeOf(SyntaxTree tree, ISymbol? symbol) {
         _ = tree ?? throw new ArgumentNullException(paramName: nameof(tree));
         return TypeScope(symbol, WellKnown(ScopeAttributeMetadataName)) switch {
@@ -56,7 +53,6 @@ internal sealed class CompilationFacts {
         && _banned.TryGetValue(section, out ImmutableHashSet<ISymbol>? banned)
         && banned.Contains(symbol.OriginalDefinition);
 
-    // csp.CSP####.<param> via AnalyzerConfigOptionsProvider.
     public bool TryParameter(string ruleId, string name, out string value) {
         bool found = _options.GlobalOptions.TryGetValue("csp." + ruleId + "." + name, out string? configured)
             && !string.IsNullOrEmpty(configured);
