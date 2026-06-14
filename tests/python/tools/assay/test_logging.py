@@ -1,13 +1,4 @@
-"""Multi-source logging laws for tools.assay [configure_logging].
-
-Proves the four caller-visible contracts of the process-global logging owner: the configured
-``logger_factory`` resolves ``sys.stderr`` per write (a stream closed since configure time cannot
-strand a later log on a dead fd); stdlib ``logging`` records bridge structured to stderr through the
-same processor chain; values msgspec cannot natively encode degrade to ``str`` instead of raising;
-``ASSAY_LOG_LEVEL`` gates both rails; and reconfiguring never stacks bridge handlers on the root
-logger. Drives the installed logger directly rather than through ``capture_logs`` (which bypasses
-the factory).
-"""
+"""Logging laws for stderr routing, stdlib bridging, fallback encoding, and reconfigure idempotence."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -31,13 +22,7 @@ from tools.assay.composition.settings import LogFormat
 
 
 class _SinkLaw(msgspec.Struct, frozen=True, gc=False):
-    """One stderr-sink logging law: env applied before ``configure_logging``, a driver, and a payload check.
-
-    ``drive`` receives the installed logger factory's product, the active ``monkeypatch`` (so a row may
-    reassign ``sys.stderr`` mid-write), and the initial sink; it performs the emission(s) and returns the
-    text to assert (usually the final sink's value). ``check`` legislates that text — a decoded JSON payload,
-    a substring, or a suppression check — keeping every row's distinguishing assertion intact.
-    """
+    """One stderr-sink law row with pre-config env, driver, and payload check."""
 
     label: str
     drive: Callable[[_StderrLogger, pytest.MonkeyPatch, io.StringIO], str]
@@ -46,29 +31,15 @@ class _SinkLaw(msgspec.Struct, frozen=True, gc=False):
 
 
 def _emit_then_value(emit: Callable[[], None]) -> Callable[[_StderrLogger, pytest.MonkeyPatch, io.StringIO], str]:
-    """Build a ``drive`` that runs ``emit`` against the scaffold's single sink and returns its text.
-
-    Returns:
-        A ``SinkLaw.drive`` closure ignoring the logger/monkeypatch and projecting ``sink.getvalue()``.
-    """
     return lambda _logger, _mp, sink: (emit(), sink.getvalue())[1]
 
 
 def _stdlib_warn(event: str) -> Callable[[], None]:
-    """An emitter warning ``event`` through the stdlib rail (the foreign-record bridge subject).
-
-    Returns:
-        A zero-arg emitter; ``logging`` is the law's subject so the project-internal-rail lint is waived.
-    """
     return lambda: logging.getLogger("asyncssh.bridge.law").warning(event)  # noqa: TID251  # the stdlib rail is the law's subject
 
 
 def _structured_payload(event: str) -> Callable[[str], None]:
-    """Assert the decoded one-line JSON payload carries ``event``/``warning``/``timestamp`` (structured-bridge law).
-
-    Returns:
-        A ``SinkLaw.check`` over the sink text.
-    """
+    """Build a check for the structured stdlib-bridge payload."""
 
     def check(text: str) -> None:
         lines = text.splitlines()
@@ -82,19 +53,14 @@ def _structured_payload(event: str) -> Callable[[str], None]:
 
 
 def _module_callsite(text: str) -> None:
-    """A synthesized foreign ``LogRecord`` renders ``module`` (``record.module``) but never ``qual_module``.
-
-    ``CallsiteParameterAdder._record_attribute_map`` has no ``QUAL_MODULE`` entry, so a stdlib record bridged
-    through the foreign pre-chain carries ``module`` only. Kills any mutant dropping ``CallsiteParameter.MODULE``
-    from the adder tuple — without it the foreign record renders no module field at all.
-    """
+    """Foreign LogRecords expose ``module`` only; dropping MODULE removes the field entirely."""
     payload = msgspec.json.decode(text)
     assert payload["module"] == "test_logging"
     assert "qual_module" not in payload
 
 
 def _unencodable_degrades(text: str) -> None:
-    """A ``threading.Lock`` and a lambda degrade to ``str`` in the payload instead of raising (encoder fallback law)."""
+    """Unencodable payload values degrade to strings instead of raising."""
     payload = msgspec.json.decode(text)
     assert payload["event"] == "unencodable-event"
     assert isinstance(payload["lock"], str)
@@ -102,14 +68,7 @@ def _unencodable_degrades(text: str) -> None:
 
 
 def _resolve_per_write(logger: _StderrLogger, monkeypatch: pytest.MonkeyPatch, first: io.StringIO) -> str:
-    """Prove ``_StderrLogger`` resolves ``sys.stderr`` per write: a sink closed since configure cannot strand a later log.
-
-    Writes to the scaffold's first sink, closes it, reassigns a second sink, writes again, and returns the
-    second sink's text. The intermediate first-sink assertion stays inline.
-
-    Returns:
-        The second sink's accumulated text for the matrix ``check``.
-    """
+    """Prove per-write stderr resolution after the configured sink is closed."""
     logger.info("before-close")
     assert "before-close" in first.getvalue()
     first.close()
@@ -120,11 +79,7 @@ def _resolve_per_write(logger: _StderrLogger, monkeypatch: pytest.MonkeyPatch, f
 
 
 def _error_suppresses_info(_logger: _StderrLogger, _monkeypatch: pytest.MonkeyPatch, sink: io.StringIO) -> str:
-    """Under ``ASSAY_LOG_LEVEL=error`` both rails drop ``info`` and only ``error`` reaches the sink.
-
-    Returns:
-        The sink text after the error emission, for the matrix ``check`` (which asserts the emitted event).
-    """
+    """Under ``ASSAY_LOG_LEVEL=error``, both rails drop info and keep error."""
     structlog.get_logger("assay.bridge.law").info("suppressed-event")
     logging.getLogger("assay.bridge.law").info("suppressed-stdlib-event")  # noqa: TID251  # the stdlib rail is the law's subject
     assert not sink.getvalue()
@@ -133,11 +88,6 @@ def _error_suppresses_info(_logger: _StderrLogger, _monkeypatch: pytest.MonkeyPa
 
 
 def _contains(substring: str) -> Callable[[str], None]:
-    """Assert ``substring`` reaches the sink text — the reassigned-sink and post-suppression-emit witnesses.
-
-    Returns:
-        A ``SinkLaw.check`` asserting ``substring in text``.
-    """
     return lambda text: _assert_in(substring, text)
 
 
@@ -162,15 +112,7 @@ _SINK_LAWS: tuple[_SinkLaw, ...] = (
 
 @pytest.mark.parametrize("row", _SINK_LAWS, ids=[r.label for r in _SINK_LAWS])
 def test_configure_logging_stderr_sink_matrix(row: _SinkLaw, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``configure_logging`` drives every emission to a freshly-resolved ``sys.stderr`` per row.
-
-    Covers per-write resolution, the stdlib structured bridge, foreign-record ``module``, unencodable-value
-    str degradation, and ``ASSAY_LOG_LEVEL`` gating. Each row applies its pre-configure ``env``, installs a
-    fresh ``StringIO`` sink, drives its emission(s) via the factory's ``_StderrLogger`` product, and legislates
-    the resulting text — every distinguishing assertion of the five original sink laws preserved as a row
-    ``check``. ``env`` is reset by ``monkeypatch`` teardown; the default config is then reinstalled so no row
-    strands ``ASSAY_LOG_LEVEL`` for the next test.
-    """
+    """Matrix stderr sink laws through the installed logger factory."""
     list(starmap(monkeypatch.setenv, row.env))
     configure_logging(LogFormat.CI)
     logger = structlog.get_config()["logger_factory"]()

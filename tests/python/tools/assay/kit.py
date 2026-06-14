@@ -1,23 +1,8 @@
-"""Assay test library payload: typed strategy registry, engine-backed seam doubles, and wire oracles.
-
-The reusable seam MECHANISM lives in the project-agnostic ``tests.python._testkit.seams`` engine (recording
-monkeypatch probe, psutil double, loopback capsule, payload-variant writer, tmp-root harness, NDJSON oracle).
-This module owns the assay PAYLOAD that test modules import directly: the explicit ``<snake>_st`` strategy
-globals (each a typed ``resolve(Pascal)`` so ``@given(X_st)`` resolves the overload), the bespoke ``binds_st``/
-``detail_st``/``envelope_st`` strategies, and the thin assay specializations of each engine abstraction —
-``RailProbe(SeamProbe[Check])`` + the Result builders, the ``_proc``/``_make_psutil_module``/
-``install_cpu_double`` partials, ``assay_settings`` as the suite's ``KitFactory[AssaySettings]``,
-``BridgeResult`` over ``VariantWriter[str]``, ``AssayHarness`` over ``TmpRoot[AssaySettings]``, ``YakShape``
-over ``TmpRoot.write``, and the envelope/history oracles over ``NdjsonOracle``. The sibling ``conftest.py``
-owns only pytest wiring: SUT registration, fixtures, and the ``log_processors`` override.
-
-Prefer ``resolve(X)`` over a hand-rolled strategy and the ``tests.python._testkit.spec`` oracles over
-hand-rolled ``assert x.is_ok()``.
-"""
+"""Assay test payloads: typed strategies, seam doubles, harnesses, and wire oracles."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import (  # noqa: TC003  # runtime: Callable is a CpuSampler annotation; Generator is the RailProbe.project msgspec field type
+from collections.abc import (  # noqa: TC003  # runtime: Protocol and msgspec fields resolve these annotations
     Callable,
     Generator,
 )
@@ -93,25 +78,19 @@ if TYPE_CHECKING:
 
 
 class VerbRunner(Protocol):
-    """In-process / subprocess CLI runner fixture surface.
-
-    Synchronous so the in-process default (which spawns its own ``anyio`` event loop inside ``main``)
-    is callable from any test; ``isolate=True`` drives the subprocess via ``anyio.run`` internally.
-    Returns a ``CliResult`` carrying the decoded Envelope, exit code, and the raw stdout/stderr bytes
-    so channel-separation laws can assert structlog diagnostics stay on stderr.
-    """
+    """Synchronous CLI fixture that returns decoded wire output plus raw channels."""
 
     def __call__(self, *argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None) -> CliResult: ...
 
 
 class CpuSampler(Protocol):
-    """Canned ``psutil.cpu_percent`` signature: warmup ``cpu_percent(0.1)`` and read ``cpu_percent(interval=None)``."""
+    """Canned ``psutil.cpu_percent`` callable for warmup and non-blocking reads."""
 
     def __call__(self, interval: float | None = None) -> float: ...
 
 
 class CpuDoubleInstaller(Protocol):
-    """The ``cpu_double`` fixture surface: pin ``automation.engine``'s ``psutil.cpu_percent`` to a canned sampler."""
+    """Fixture surface that installs a canned psutil module on ``automation.engine``."""
 
     def __call__(self, cpu_percent: CpuSampler, *, cpu_count: int = 4) -> MagicMock: ...
 
@@ -121,9 +100,8 @@ class CpuDoubleInstaller(Protocol):
 # Mirrors model._ENCODER order so oracle bytes are byte-identical to production wire output.
 WIRE_ENCODER = msgspec.json.Encoder(order="deterministic")
 
-# --- [STRATEGIES] -----------------------------------------------------------------------
-# Typed `resolve(Pascal)` aliases so `@given(X_st)` resolves the Hypothesis overload statically;
-# lazy `__getattr__` attributes return untyped `SearchStrategy` and defeat overload resolution.
+# --- [TABLES]
+# Typed aliases keep ``@given(X_st)`` overload resolution; lazy strategy attributes do not.
 
 
 rail_status_st: st.SearchStrategy[RailStatus] = resolve(RailStatus)
@@ -147,20 +125,17 @@ diagnostic_st: st.SearchStrategy[Diagnostic] = resolve(Diagnostic)
 run_delta_st: st.SearchStrategy[RunDelta] = resolve(RunDelta)
 static_run_st: st.SearchStrategy[StaticRun] = resolve(StaticRun)
 
-# `binds_st` samples the live registry; `envelope_st` composes via the canonical projection — neither maps to a single `resolve(T)`.
+# Registry rows and Envelope composition do not map to a single ``resolve(T)`` strategy.
 binds_st = st.sampled_from(REGISTRY)
 detail_st: st.SearchStrategy[AnyDetail] = resolve(AnyDetail)
 
 
 @st.composite
 def _envelopes(draw: st.DrawFn) -> Envelope:
-    """Draw a wire-consistent Envelope from a Report or Fault via the canonical ``envelope`` projection.
-
-    Resolves its payload strategies directly (not via the module `report_st`/`fault_st` globals) so the
-    draw is self-contained.
+    """Draw a wire-consistent Envelope through the production projection.
 
     Returns:
-        Envelope whose status/exit_code derive from the wrapped payload.
+        Envelope whose status and exit code derive from a Report or Fault payload.
     """
     payload: Report | Fault = draw(st.one_of(resolve(Report), resolve(Fault)))
     return wrap_envelope(payload, claim=draw(resolve(Claim)), verb=draw(st.text(max_size=32)), run_id=draw(st.text(max_size=32)))
@@ -186,55 +161,30 @@ class CliResult(msgspec.Struct, frozen=True, gc=False):
 
 
 def assay_settings(root: Path) -> AssaySettings:
-    """The assay suite's ``KitFactory[AssaySettings]``: stub a ``Workspace.slnx`` and bind tmp-rooted settings.
-
-    Returns:
-        AssaySettings rooted at ``root`` with ``exec_target=""`` and no known-hosts constraint, so nothing
-        the harness runs can mutate state outside the tmp tree.
-    """
+    """Build tmp-rooted settings with local execution and no known-hosts constraint."""
     (root / "Workspace.slnx").write_text("", encoding="utf-8")
     return AssaySettings(root=UPath(root), exec_target="", exec_known_hosts=None)
 
 
 class AssayHarness(TmpRoot[AssaySettings], frozen=True, gc=False):
-    """Isolated tmp-tree capsule over ``TmpRoot`` whose ``exec_target=""`` settings mutate nothing outside ``root``."""
+    """Tmp-root harness whose default settings cannot mutate outside ``root``."""
 
     def scope(self, claim: Claim = Claim.PACKAGE) -> ArtifactScope:
-        """Open an ArtifactScope rooted at this harness's settings.
-
-        Returns:
-            ArtifactScope bound to this harness's root and the given claim.
-        """
+        """Open an ArtifactScope rooted at this harness."""
         return ArtifactScope.open(self.settings, claim)
 
     def remote(self, exec_target: str) -> AssaySettings:
-        """Return a copy of settings with exec_target set and exec_known_hosts cleared for SSH law fixtures.
-
-        Returns:
-            AssaySettings copy with the given exec_target and no known-hosts constraint.
-        """
+        """Copy settings for SSH law fixtures without a known-hosts constraint."""
         return self.settings.model_copy(update={"exec_target": exec_target, "exec_known_hosts": None})
 
     @staticmethod
     def envelope_of(payload: Report | Fault, *, claim: Claim, verb: str) -> Envelope:
-        """Wrap payload in an Envelope via the canonical projection; run_id is auto-generated.
-
-        Returns:
-            Envelope whose status and exit_code derive from the payload type.
-        """
+        """Wrap a payload through the canonical Envelope projection."""
         return wrap_envelope(payload, claim=claim, verb=verb)
 
 
 class RailProbe(SeamProbe[Check], frozen=True, gc=False):
-    """Socket-free canned-seam host over ``SeamProbe`` — projects the first positional ``Check`` per call.
-
-    The patch target is the OWNER module that re-binds the seam (``rails.api``/``automation.engine``/
-    ``core.engine``), never the definition site, mirroring how production resolves the name. ``install``
-    promotes the member name to a ``Shape`` variant (``run_check_async`` → awaited; ``rail`` → the
-    ``(bind, settings) -> (params) -> Envelope`` factory recording a ``rail.run`` call-layer; a tuple-of-Results
-    payload → fan-out; everything else → sync) — this member→shape map is documented ASSAY POLICY, not an engine
-    catch-all.
-    """
+    """Canned assay seam host that captures the first positional ``Check`` per call."""
 
     project: Callable[[tuple[object, ...]], Generator[Check]] = _pick_check
 
@@ -246,13 +196,7 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
         member: str,
         payload: Result[object, Fault] | Envelope | tuple[Result[Completed, Fault], ...],
     ) -> None:
-        """Bind ``owner.member`` to a canned seam mirroring the production call shape of ``member``.
-
-        ``run_check``/``run_check_async`` accept a ``Result`` payload; ``rail`` accepts a canned ``Envelope``
-        and installs the ``(bind, settings) -> (params) -> Envelope`` factory; a tuple-of-Results payload binds a
-        fan-out seam so a future fan-out member is not silently doubled as ``Sync``. Each call is appended to
-        ``calls`` and any first-positional ``Check`` to ``captured`` (read as ``checks``).
-        """
+        """Install the canned seam shape selected by the production member contract."""
         match member:
             case "run_check_async":
                 shape: _Shape[object] = _Async[object](value=payload)
@@ -278,13 +222,9 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
     def receipt(
         argv: tuple[str, ...], rc: int = 0, *, status: RailStatus | None = None, stdout: bytes = b"", stderr: bytes = b""
     ) -> Result[Completed, Fault]:
-        """An ``Ok`` outcome wrapping a wire-shaped ``Completed`` so a verb's output-parsing logic runs.
+        """Build an ``Ok(Completed)`` outcome that still drives verb output parsing.
 
-        ``status`` defaults to ``RailStatus.from_returncode(rc)``; pass ``stdout`` to feed the verb a realistic
-        payload (canned ilspycmd output, MSBuild ``-getProperty`` JSON, build banners, …).
-
-        Returns:
-            ``Ok(Completed)`` carrying the argv, return code, status, and captured streams.
+        ``status`` defaults from ``rc``; ``stdout`` carries realistic payloads such as canned build output.
         """
         return Ok(receipt(argv, rc, status=status, stdout=stdout, stderr=stderr))
 
@@ -294,16 +234,12 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
 
 
 class BridgeResult(msgspec.Struct, frozen=True, gc=False):
-    """``_BridgeResult`` JSON writer over ``VariantWriter`` — one valid payload plus three adversarial variants."""
+    """Bridge JSON variant writer for valid and adversarial payload files."""
 
     directory: Path
 
     def valid(self, command: str = "scenario.verify.csx") -> Path:
-        """Write a well-formed bridge result JSON and return its path.
-
-        Returns:
-            Path to the written valid.json file.
-        """
+        """Write a well-formed bridge result JSON."""
         payload = {
             "command": command,
             "status": "ok",
@@ -319,27 +255,15 @@ class BridgeResult(msgspec.Struct, frozen=True, gc=False):
         return self._writer({"valid": "valid.json"}, {"valid": payload}).path("valid")
 
     def malformed(self) -> Path:
-        """Write a bridge result containing invalid JSON and return its path.
-
-        Returns:
-            Path to the written malformed.json file.
-        """
+        """Write invalid bridge result JSON."""
         return self._writer({"malformed": "malformed.json"}, {"malformed": b"{not json"}).path("malformed")
 
     def partial(self) -> Path:
-        """Write a bridge result with a valid-JSON but structurally incomplete payload and return its path.
-
-        Returns:
-            Path to the written partial.json file.
-        """
+        """Write valid JSON with an incomplete bridge result shape."""
         return self._writer({"partial": "partial.json"}, {"partial": b"{}"}).path("partial")
 
     def missing(self) -> Path:
-        """Return a path for a bridge result whose backing file is absent (never written).
-
-        Returns:
-            Path that maps to absent.json, which is not created on disk.
-        """
+        """Return a bridge result path whose backing file is intentionally absent."""
         return self._writer({"missing": "absent.json"}, {}, absent=frozenset({"missing"})).path("missing")
 
     def _writer(
@@ -349,7 +273,7 @@ class BridgeResult(msgspec.Struct, frozen=True, gc=False):
 
 
 class YakShape(msgspec.Struct, frozen=True, gc=False):
-    """Fake-yak + fake-msbuild materializer built on the harness ``TmpRoot.write`` primitive."""
+    """Fake yak and MSBuild tree materializer."""
 
     slug: str = "rasm-bridge"
     project: Path = Path("apps/bridge/plugin.csproj")
@@ -359,7 +283,7 @@ class YakShape(msgspec.Struct, frozen=True, gc=False):
     package_pattern: str = "rasm-rh9_1-mac.yak"
 
     def props(self, meta: package_rail.YakMeta) -> dict[str, str]:
-        """Return the MSBuild/yak property dict corresponding to a materialized YakMeta."""
+        """Project materialized YakMeta into the MSBuild/yak property map."""
         return {
             "AssemblyName": meta.assembly_name,
             "MSBuildProjectDirectory": str(meta.project_dir),
@@ -376,11 +300,7 @@ class YakShape(msgspec.Struct, frozen=True, gc=False):
         }
 
     def materialize(self, harness: AssayHarness) -> package_rail.YakMeta:
-        """Write a fake yak binary, project file, manifest, and assembly tree under harness.root.
-
-        Returns:
-            YakMeta with paths pointing into the harness tmp-tree.
-        """
+        """Write the fake yak binary, project file, manifest, and assembly tree."""
         yak = harness.write("yak", "#!/bin/sh\nexit 0\n", mode=0o755)
         project = harness.write(self.project, f"<Project><PropertyGroup><YakPackageSlug>{self.slug}</YakPackageSlug></PropertyGroup></Project>")
         target = project.parent / "bin" / harness.settings.configuration.value / self.target_framework
@@ -404,7 +324,7 @@ class YakShape(msgspec.Struct, frozen=True, gc=False):
         )
 
 
-# --- [PSUTIL_DOUBLES] -------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _proc(
@@ -418,12 +338,9 @@ def _proc(
     create_time: float = 1_700_000_000.0,
     raise_no_such: bool = False,
 ) -> MagicMock:
-    """Return a ``create_autospec(psutil.Process)`` double with the given field values.
+    """Build a process double with status and liveness controls.
 
-    ``status`` feeds ``Process.status()`` (default ``STATUS_RUNNING``) so staleness laws can model
-    ``STATUS_ZOMBIE``/``STATUS_DEAD`` processes. ``raise_no_such=True`` marks the double as a
-    dead-process sentinel: the module-level factory (``_make_psutil_module``) raises ``NoSuchProcess``
-    instead of returning it.
+    ``raise_no_such`` marks the double as a dead-process sentinel for the module factory.
     """
     return autospec_proc(
         _psutil.Process,
@@ -441,11 +358,9 @@ def _proc(
 
 
 def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 4) -> MagicMock:
-    """Return a ``MagicMock(spec=psutil)`` module double that dispatches ``Process(pid)`` via ``procs``.
+    """Build a psutil module double whose ``Process(pid)`` dispatches through ``procs``.
 
-    ``procs[None]`` is the self-process (``Process()`` / ``Process(os.getpid())``); integer keys are
-    specific pids. An unregistered pid causes ``NoSuchProcess`` — no silent fallback.
-    ``raise_no_such=True`` on a double causes the factory to raise ``NoSuchProcess(pid)`` on lookup.
+    ``procs[None]`` is the self-process; unregistered or dead-sentinel pids raise ``NoSuchProcess``.
     """
     return psutil_module_double(
         _psutil,
@@ -461,13 +376,9 @@ def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 
 
 
 def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler, *, cpu_count: int = 4) -> MagicMock:
-    """Install a ``psutil`` module double on ``automation.engine`` whose ``cpu_percent`` is ``cpu_percent``.
+    """Install a psutil module double on ``automation.engine``.
 
-    Reuses ``_make_psutil_module`` semantics (real ``Error``/``NoSuchProcess`` classes, ``cpu_count``) so the
-    governor laws drive ``is_governed`` against a canned non-blocking CPU sample with no real ``psutil`` read.
-
-    Returns:
-        The installed ``psutil`` module double; ``.cpu_percent`` is the supplied callable.
+    The double keeps real psutil error classes while replacing ``cpu_percent`` with the supplied sampler.
     """
     from tools.assay.automation import engine as automation_engine  # noqa: PLC0415  # patch target re-imported here
 
@@ -476,7 +387,7 @@ def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler,
     return install_module_attr(monkeypatch, automation_engine, "psutil", fake)
 
 
-# --- [ORACLES] --------------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 _ENV_ORACLE: Final = NdjsonOracle(msgspec.json.Decoder(Envelope))
 read_one_envelope_from_bytes = _ENV_ORACLE.one
@@ -490,11 +401,7 @@ def assert_counts_consistent(report: Report) -> None:
 
 
 def make_history_envelope(run_id: str, *, claim: Claim = Claim.STATIC, status: RailStatus = RailStatus.OK) -> Envelope:
-    """Build a canned history Envelope with the given run_id, claim, and status for delta/retention fixtures.
-
-    Returns:
-        Envelope with run_id replaced to the given value and status/exit_code derived from the payload.
-    """
+    """Build a canned history Envelope for delta and retention fixtures."""
     report = fold(claim, "check", (receipt(("tool",), 0, status=status),))
     return msgspec.structs.replace(wrap_envelope(report, claim=claim, verb="check"), run_id=run_id)
 

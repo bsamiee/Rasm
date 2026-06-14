@@ -1,11 +1,4 @@
-"""Assay-bound policy laws: the ``tools.assay`` couplings split out of the generic policy layer.
-
-The generic ``tests.python._testkit.test_policy`` layer owns SUT-agnostic policy (law-coverage,
-markers, litter) parameterized over ``SUT_PACKAGES`` and imports no SUT. These laws are the ones that
-genuinely reference ``tools.assay``: the benchmark-storage single-owner contract whose canonical owner
-is ``tools.assay.composition.catalog.BENCHMARK_STORAGE_URI``, the addopts↔catalog URI identity, and the
-catalog-import surface. They live beside the assay suite so the testkit stays project-agnostic.
-"""
+"""Assay-bound policy laws that depend on concrete ``tools.assay`` owners."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -25,7 +18,7 @@ _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"
 
 
 def _addopts() -> list[str]:
-    """Return the ``[tool.pytest.ini_options] addopts`` list as a flat string list; empty when absent."""
+    """Return ``[tool.pytest] addopts`` as strings; absent config yields an empty list."""
     data: dict[str, object] = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
     match data:
         case {"tool": {"pytest": {"addopts": list() as addopts}}}:
@@ -35,7 +28,6 @@ def _addopts() -> list[str]:
 
 
 def _benchmark_storage_flags(addopts: list[str]) -> list[str]:
-    """Return addopts entries that start with ``--benchmark-storage``."""
     return [o for o in addopts if o.startswith("--benchmark-storage")]
 
 
@@ -43,21 +35,13 @@ def _benchmark_storage_flags(addopts: list[str]) -> list[str]:
 
 
 def test_benchmark_storage_single_owner_in_addopts() -> None:
-    """``--benchmark-storage`` appears in addopts exactly once.
-
-    Falsifiable by: adding a second ``--benchmark-storage=...`` flag in addopts or a duplicate inline
-    pytest invocation — the single-owner policy breaks and the storage path becomes ambiguous.
-    """
+    """``--benchmark-storage`` appears in addopts exactly once."""
     flags = _benchmark_storage_flags(_addopts())
     assert len(flags) == 1, f"Expected exactly one --benchmark-storage in addopts, found {len(flags)}: {flags!r}"
 
 
 def test_benchmark_storage_uri_matches_catalog_constant() -> None:
-    """The ``--benchmark-storage`` URI in addopts equals ``catalog.BENCHMARK_STORAGE_URI``.
-
-    Falsifiable by: updating the catalog constant without updating pyproject.toml, or vice versa —
-    the benchmark runner would write to a different directory than the catalog's storage declaration.
-    """
+    """The addopts benchmark-storage URI matches the catalog owner constant."""
     flags = _benchmark_storage_flags(_addopts())
     assert flags, "--benchmark-storage not found in addopts (prerequisite for URI-match law)"
     _, _, uri = flags[0].partition("=")
@@ -65,11 +49,7 @@ def test_benchmark_storage_uri_matches_catalog_constant() -> None:
 
 
 def test_benchmark_storage_not_duplicated_in_conftest_files() -> None:
-    """No conftest.py file under ``tests/`` carries a ``--benchmark-storage`` flag.
-
-    Falsifiable by: adding a per-suite ``pytest.ini_options`` or ``addopts`` override in a sub-conftest
-    that duplicates or overrides the benchmark storage path — single-owner policy breaks silently.
-    """
+    """No conftest.py file under ``tests/`` carries a benchmark-storage override."""
     violators: list[str] = [
         str(cf.relative_to(REPO_ROOT)) for cf in (REPO_ROOT / "tests").rglob("conftest.py") if "--benchmark-storage" in cf.read_text(encoding="utf-8")
     ]
@@ -77,11 +57,7 @@ def test_benchmark_storage_not_duplicated_in_conftest_files() -> None:
 
 
 def test_catalog_module_exposes_benchmark_storage_uri() -> None:
-    """``tools.assay.composition.catalog`` is importable and ``BENCHMARK_STORAGE_URI`` is a non-empty str.
-
-    Falsifiable by: renaming or removing ``BENCHMARK_STORAGE_URI`` from catalog.py — the single-owner
-    policy tests above would also fail, but this law isolates the catalog as the canonical declaration.
-    """
+    """The catalog module exposes a non-empty benchmark-storage URI."""
     mod = importlib.import_module("tools.assay.composition.catalog")
     uri: object = getattr(mod, "BENCHMARK_STORAGE_URI", None)
     assert isinstance(uri, str), f"BENCHMARK_STORAGE_URI is absent or not str: {uri!r}"

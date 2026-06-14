@@ -1,7 +1,4 @@
-"""CLI dispatch / exit-code / channel-separation laws for tools.assay.__main__ [main].
-
-Covers tools.assay [install_tracing, bootstrap_error] with smoke laws.
-"""
+"""CLI dispatch, exit-code, tracing, bootstrap, and channel-separation laws."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -30,12 +27,7 @@ _FAULTED_EXIT: int = RailStatus.FAULTED.exit_code
 
 
 class _ParseFault(msgspec.Struct, frozen=True, gc=False):
-    """One parse-fault example row: the argv that never reaches dispatch plus the distinguishing claims.
-
-    Every row pins the FAULTED exit/status floor; ``claim``/``message``/``failing_step`` are the per-row
-    discriminants (``None`` = unchecked). ``claim`` is the Cyclopts-recovered claim of the bare token,
-    ``message`` an ``in``-substring of ``error.message``, ``failing_step`` the ``error_context`` step slug.
-    """
+    """Parse-fault law row with argv plus optional Envelope discriminants."""
 
     label: str
     argv: tuple[str, ...]
@@ -46,7 +38,7 @@ class _ParseFault(msgspec.Struct, frozen=True, gc=False):
 
 _PARSE_FAULTS: tuple[_ParseFault, ...] = (
     _ParseFault("empty-argv", (), message="parse: no command", failing_step="parse"),
-    _ParseFault("bare-static", ("static",), claim=Claim.STATIC, message="incomplete command"),
+    _ParseFault("bare-bridge", ("bridge",), claim=Claim.BRIDGE, message="incomplete command"),
     _ParseFault("bare-test", ("test",), claim=Claim.TEST),
     _ParseFault("bare-code", ("code",), claim=Claim.CODE),
     _ParseFault("numeric-validator", ("code", "query", "(module) @m", "--max-results", "-1"), failing_step="parse"),
@@ -59,12 +51,7 @@ _PARSE_FAULTS: tuple[_ParseFault, ...] = (
 
 @pytest.mark.parametrize("row", _PARSE_FAULTS, ids=[r.label for r in _PARSE_FAULTS])
 def test_main_parse_fault_matrix(cli: VerbRunner, row: _ParseFault) -> None:
-    """A pre-dispatch parse fault — empty argv, a bare incomplete claim, or a Cyclopts numeric violation — folds to one FAULTED Envelope on stdout.
-
-    The FAULTED exit/status floor holds for every row; each row then pins its discriminant: the Cyclopts-recovered
-    ``claim`` of a bare token, an ``error.message`` substring (``parse: no command`` / ``incomplete command``),
-    and/or the ``error_context.failing_step`` slug (``parse`` reaches stdout before any verb dispatch).
-    """
+    """Pre-dispatch parse faults fold to one FAULTED stdout Envelope."""
     res = cli(*row.argv)
     assert res.exit_code == _FAULTED_EXIT
     assert res.envelope.status is RailStatus.FAULTED
@@ -87,8 +74,8 @@ def test_main_parse_fault_matrix(cli: VerbRunner, row: _ParseFault) -> None:
 
 
 def test_main_channel_separation(cli: VerbRunner) -> None:
-    """The Envelope wire line is confined to stdout; schema_version never leaks to stderr."""
-    res = cli("static", "check")
+    """Wire output stays on stdout; stderr carries no schema payload."""
+    res = cli("static")
     assert len(res.stdout.splitlines()) == 1
     assert b'"schema_version"' not in res.stderr
     decoded = read_one_envelope_from_bytes(res.stdout)
@@ -99,7 +86,7 @@ def test_main_channel_separation(cli: VerbRunner) -> None:
 
 
 def test_main_tracing_lifecycle_order(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Main flushes then shuts down the active trace provider AFTER dispatch returns."""
+    """Main drains the active trace provider after dispatch returns."""
     events: list[object] = []
 
     def _flush(timeout_millis: int) -> bool:
@@ -126,7 +113,7 @@ def test_main_tracing_lifecycle_order(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_main_surrogate_argv_does_not_crash(cli: VerbRunner) -> None:
     """Lone surrogate bytes in argv are replaced with U+FFFD before reaching the wire encoder."""
-    # os.fsdecode(b'\xff') yields a surrogated string on POSIX; '\udcff' is the direct equivalent.
+    # POSIX fsdecode can produce this lone surrogate; direct literal avoids platform branching.
     surrogate_token = "\udcff"  # noqa: S105  # not a credential; lone surrogate probes wire_safe sanitization path
     res = cli(surrogate_token)
     assert len(res.stdout.splitlines()) == 1
@@ -138,7 +125,7 @@ def test_main_surrogate_argv_does_not_crash(cli: VerbRunner) -> None:
 
 
 def test_main_subprocess_exit_code(cli: VerbRunner) -> None:
-    """Subprocess invocation with invalid argv returns FAULTED exit code (isolation law)."""
+    """Invalid argv in a real subprocess returns the FAULTED exit code."""
     res = cli(isolate=True)
     assert res.exit_code == _FAULTED_EXIT
     assert res.envelope.status is RailStatus.FAULTED
@@ -148,8 +135,8 @@ def test_main_subprocess_exit_code(cli: VerbRunner) -> None:
 
 
 def test_main_config_env_fault_surfaces_as_config_step(cli: VerbRunner) -> None:
-    """A verb that builds AssaySettings under a malformed ASSAY_* env emits one FAULTED Envelope, failing_step='config'."""
-    res = cli("static", "check", extra_env={"ASSAY_MAX_CHECKS": "999"})
+    """Malformed ASSAY_* during settings construction emits a config-step fault."""
+    res = cli("static", extra_env={"ASSAY_MAX_CHECKS": "999"})
     assert res.exit_code == _FAULTED_EXIT
     assert res.envelope.status is RailStatus.FAULTED
     assert res.envelope.error_context is not None
@@ -160,12 +147,12 @@ def test_main_config_env_fault_surfaces_as_config_step(cli: VerbRunner) -> None:
 
 
 def test_main_unexpected_dispatch_faults_to_dispatch_step(cli: VerbRunner, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A non-Cyclopts dispatch exception reaches stdout as one FAULTED Envelope via the final boundary (failing_step='dispatch')."""
+    """Unexpected dispatch exceptions cross the final boundary as dispatch-step faults."""
 
     class _BoomApp:
         @staticmethod
         def parse_args(_tokens: tuple[str, ...], **_kwargs: object) -> tuple[object, None, None]:
-            return object(), None, None  # non-None first element signals real dispatch to cyclopts, not help
+            return object(), None, None  # non-None first item forces Cyclopts into dispatch, not help rendering
 
         def __call__(self, *_args: object, **_kwargs: object) -> object:
             raise RuntimeError("boom")
@@ -184,7 +171,7 @@ def test_main_unexpected_dispatch_faults_to_dispatch_step(cli: VerbRunner, monke
 
 
 def test_main_drain_noop_on_lifecycleless_provider(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Drain over a provider exposing neither force_flush nor shutdown is a no-op; main returns the dispatch code."""
+    """Providers without flush or shutdown lifecycle do not affect the dispatch code."""
     monkeypatch.setattr(_main_mod, "meta", lambda *_tokens: 5)
     monkeypatch.setattr(_main_mod, "get_tracer_provider", SimpleNamespace)
     assert _main_mod.main(["self-test"]) == 5
@@ -194,7 +181,7 @@ def test_main_drain_noop_on_lifecycleless_provider(monkeypatch: pytest.MonkeyPat
 
 
 def test_main_drain_swallows_provider_lifecycle_exceptions(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
-    """A provider whose force_flush and shutdown raise is drained to stderr only; main returns the dispatch code, stdout stays clean."""
+    """Provider lifecycle failures drain to stderr only and preserve clean stdout."""
 
     def _boom_flush(_timeout_millis: int) -> bool:
         raise RuntimeError("flush boom")
@@ -216,7 +203,7 @@ def test_main_drain_swallows_provider_lifecycle_exceptions(monkeypatch: pytest.M
 
 
 def test_main_install_tracing_swallows_settings_validation(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A malformed ASSAY_* env raised while building tracing settings is swallowed; main still returns the dispatch code."""
+    """Tracing-settings validation failures do not replace the dispatch result."""
     monkeypatch.setenv("ASSAY_MAX_CHECKS", "999")
     monkeypatch.setattr(_main_mod, "meta", lambda *_tokens: 0)
     monkeypatch.setattr(_main_mod, "get_tracer_provider", lambda: SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None))
@@ -227,8 +214,8 @@ def test_main_install_tracing_swallows_settings_validation(monkeypatch: pytest.M
 
 
 def test_main_subprocess_bootstrap_error_config_fault(cli: VerbRunner) -> None:
-    """A malformed ASSAY_* env survives real interpreter startup (import-time bootstrap fallback) and folds to one config-fault Envelope."""
-    res = cli("static", "check", isolate=True, extra_env={"ASSAY_MAX_CHECKS": "999"})
+    """Malformed ASSAY_* at interpreter startup folds to one config-fault Envelope."""
+    res = cli("static", isolate=True, extra_env={"ASSAY_MAX_CHECKS": "999"})
     assert res.exit_code == _FAULTED_EXIT
     assert res.envelope.status is RailStatus.FAULTED
     assert res.envelope.error_context is not None
@@ -239,7 +226,7 @@ def test_main_subprocess_bootstrap_error_config_fault(cli: VerbRunner) -> None:
 
 
 def test_main_subprocess_failing_rail_channel_separation(cli: VerbRunner) -> None:
-    """A FAULTED rail in a real subprocess holds the fd-level wire contract: one Envelope line on stdout, rail.finish + diagnostics on stderr."""
+    """A FAULTED subprocess rail keeps wire output on stdout and diagnostics on stderr."""
     res = cli("api", "resolve", "totally-bogus-key-xyz", "--strict", isolate=True)
     assert res.exit_code == _FAULTED_EXIT
     assert len(res.stdout.splitlines()) == 1
@@ -253,10 +240,10 @@ def test_main_subprocess_failing_rail_channel_separation(cli: VerbRunner) -> Non
 
 
 def test_main_subprocess_human_renderer_console_stderr(cli: VerbRunner) -> None:
-    """ASSAY_LOG_FORMAT=human in a real subprocess routes console-rendered diagnostics to stderr; the wire stays one stdout Envelope line.
+    """Human log format in a subprocess keeps console diagnostics on stderr.
 
-    A piped subprocess defaults to CI (stderr is no tty), so the env override is the only way this arm engages;
-    ConsoleRenderer(colors=True) emits ANSI escapes regardless of tty, and the JSON event-key shape must be absent.
+    The env override is required because piped subprocess stderr is not a tty; ANSI output proves the
+    ConsoleRenderer arm, while stdout remains one Envelope line.
     """
     res = cli("api", "resolve", "totally-bogus-key-xyz", "--strict", isolate=True, extra_env={"ASSAY_LOG_FORMAT": "human"})
     assert res.exit_code == _FAULTED_EXIT
@@ -270,7 +257,7 @@ def test_main_subprocess_human_renderer_console_stderr(cli: VerbRunner) -> None:
 
 
 def test_install_tracing_empty_endpoint_is_noop() -> None:
-    """install_tracing('') must not install a tracer provider (no exception, no side effect)."""
+    """An empty tracing endpoint leaves the current tracer provider untouched."""
     from opentelemetry.trace import get_tracer_provider as _gtp  # noqa: PLC0415  # deferred: avoids OTel global-provider side-effect at session scope
 
     before = _gtp()
@@ -283,14 +270,10 @@ def test_install_tracing_empty_endpoint_is_noop() -> None:
 
 
 def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: pytest.MonkeyPatch) -> None:
-    """install_tracing(endpoint) builds a real OTLP ``TracerProvider`` and installs it via ``set_tracer_provider``.
+    """A non-empty tracing endpoint builds and installs a fresh OTLP provider.
 
-    The set is intercepted so the build is OBSERVED without replacing the session provider: OTel's once-only
-    install would otherwise mask install_tracing's provider, and shutting the global provider down breaks span
-    capture for every later test (the latent order-dependent bug this replaces).
-
-    Falsified by: install_tracing skipping the provider build, attaching no span processor, or reusing the
-    existing global provider instead of constructing a new one.
+    Intercepting the setter observes construction without replacing the session provider, whose once-only
+    install and shutdown semantics would contaminate later span-capture tests.
     """
     from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415  # deferred: module-level import installs OTel before monkeypatch
     import opentelemetry.trace as _ot  # noqa: PLC0415  # deferred: same session-provider contamination reason as TracerProvider
@@ -309,7 +292,7 @@ def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: py
 
 
 def test_bootstrap_error_nominal_returns_none() -> None:
-    """Under a valid environment bootstrap_error() returns None (no import-time config fault)."""
+    """Valid environment bootstrap has no import-time config fault."""
     result = bootstrap_error()
     assert result is None
 
@@ -318,7 +301,7 @@ def test_bootstrap_error_nominal_returns_none() -> None:
 
 
 def test_bootstrap_error_type_contract() -> None:
-    """bootstrap_error() always returns ValidationError | None, never an unexpected type."""
+    """Import-time config faults expose only ValidationError or absence."""
     from pydantic import ValidationError  # noqa: PLC0415  # deferred: avoids mandatory pydantic import at collection time; type-contract check only
 
     result = bootstrap_error()
@@ -326,11 +309,9 @@ def test_bootstrap_error_type_contract() -> None:
 
 
 def test_main_version_token_routes_to_verb_params(cli: VerbRunner) -> None:
-    """--version after a verb binds the verb's params field; it never triggers a global version print.
+    """A verb-local ``--version`` token binds params instead of printing app version text.
 
-    The root App and every claim sub-App carry version_flags=() — with cyclopts' default flag active,
-    'package plan --version X' is intercepted before dispatch and bare app-version text replaces the
-    Envelope on stdout (a total wire-contract violation). Falsified by restoring any version flag.
+    Restoring Cyclopts version flags intercepts dispatch and replaces the Envelope with plain text.
     """
     res = cli("package", "plan", "--slug", "nonexistent-slug-xyz", "--version", "9.9.9")
     assert len(res.stdout.splitlines()) == 1
@@ -340,12 +321,10 @@ def test_main_version_token_routes_to_verb_params(cli: VerbRunner) -> None:
 
 
 def test_main_enum_param_help_renders(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
-    """--help on a verb with an Enum-hinted None-default param renders usage text and exits 0.
+    """Help for an Enum-hinted ``None`` default param renders usage text and exits 0.
 
-    cyclopts 4.16.1 renders Enum defaults via default_val.name before consulting show_default
-    callables, so language's Parameter must keep show_default=False; falsified by any show_default
-    form that re-enters the Enum branch (AttributeError -> FAULTED exit 2 instead of usage).
-    Help output is plain text, not an Envelope, so this drives main directly rather than the cli runner.
+    ``show_default=False`` prevents Cyclopts from reading ``default_val.name`` before help rendering.
+    The direct main call is required because help output is plain text, not an Envelope.
     """
     neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
     monkeypatch.setattr(_main_mod, "get_tracer_provider", lambda: neutralized)
@@ -358,17 +337,15 @@ def test_main_enum_param_help_renders(monkeypatch: pytest.MonkeyPatch, capsysbin
 
 @pytest.mark.parametrize("result, expected", [(3, 3), (object(), 0)], ids=["bare-int", "hookless-object"])
 def test_main_returncode_non_envelope_arms(result: object, expected: int) -> None:
-    """_returncode passes a bare int through verbatim and folds hook-less results to 0.
+    """_returncode preserves bare ints and folds hook-less results to 0.
 
-    The Envelope arm (__cyclopts_returncode__ hook) rides every CLI law; these two arms only fire on
-    non-Envelope dispatch results, so they need a direct probe. Falsified by a _returncode that coerces
-    every result through the hook lookup (bare int would raise) or returns a non-zero default.
+    These non-Envelope arms need direct coverage because the CLI laws exercise the hook-bearing Envelope path.
     """
     assert _main_mod._returncode(result) == expected
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-# Registrations run at import time so MANIFEST is fully populated before test collection begins.
+# Import-time registration keeps the law manifest complete before collection.
 
 register_laws(
     (

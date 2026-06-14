@@ -1,8 +1,4 @@
-"""Benchmark suite for representative assay operations.
-
-Each ``BenchCase`` row encodes a real workload; ``run_registry`` generates the Cartesian
-``(row, size)`` product so one parametrized function owns all benchmark invocations.
-"""
+"""Row-driven benchmarks for representative assay hot paths."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -42,13 +38,10 @@ def _envelope(size: int) -> Envelope:
 
 
 def _resolve_subject(payload: tuple[object, ...]) -> object:
-    """Measure ``msgspec.inspect.type_info`` enumeration cost across N repeated calls.
-
-    ``size`` simulates resolver warm-up across N types; this is the expensive once-per-type
-    step during strategy registration.
+    """Measure repeated ``type_info`` resolution without timing registry construction.
 
     Returns:
-        Opaque result retained by the benchmark harness to prevent dead-code elimination.
+        Opaque value retained by the benchmark harness.
     """
     (size,) = payload
     assert isinstance(size, int)
@@ -70,7 +63,7 @@ def _place_subject(payload: tuple[object, ...]) -> object:
         return place(routed, tool, settings=settings)
 
 
-# --- [ROWS]
+# --- [TABLES]
 
 _ROWS: tuple[BenchCase, ...] = (
     BenchCase(
@@ -123,7 +116,7 @@ _ROWS: tuple[BenchCase, ...] = (
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-# Eager: amortises resolver warm-up outside timed invocations so the first benchmark size is not skewed.
+# Eager resolver warm-up keeps the first benchmark size from timing strategy registration.
 _completed_st: st.SearchStrategy[Completed] = resolve(Completed)
 
 bench_assay = run_registry(_ROWS)
