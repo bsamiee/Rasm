@@ -1,13 +1,4 @@
-"""Seam engine: project-agnostic, polymorphic test doubles distilling seam MECHANISM from PAYLOAD.
-
-Surfaces: a recording monkeypatch installer dispatched by call SHAPE (``SeamProbe`` + the ``Shape`` algebra);
-a spec-bound psutil double (``autospec_proc`` / ``psutil_module_double`` / ``install_module_attr``); a
-leak-free loopback capsule (``Loopback`` / ``loopback_server``); a table-driven payload-variant writer
-(``VariantWriter``); an injected-settings tmp-root harness (``TmpRoot`` / ``tmp_root``); and an NDJSON decode
-oracle (``NdjsonOracle``). Every domain dependency enters through an injected ``Callable``/``Decoder``/owner
-— the engine imports NO project package; dispatch is STRUCTURAL (``match`` on the variant TYPE / payload
-SHAPE), never stringly-typed, and the closed ``Shape`` union proves exhaustiveness.
-"""
+"""Project-agnostic seam doubles, fixture writers, loopback capsules, and decode oracles."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -29,25 +20,20 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# SeamRecord carries member name for log readability; dispatch keys on Shape VARIANT, not the string.
+# Member names are diagnostic only; dispatch keys on the Shape variant.
 type SeamRecord = tuple[str, tuple[object, ...], dict[str, object]]
 type Variant = bytes | object
 
 
 class _AsyncServer(Protocol):
-    """Structural bound for an awaited server object that is its own async context manager (enters to itself)."""
+    """Awaited server that enters as its own async context manager."""
 
     async def __aenter__(self) -> Self: ...
     async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> object: ...
 
 
 class KitFactory[S](Protocol):
-    """Per-suite kit constructor: project a tmp root into the suite's settings/harness payload.
-
-    The single injection seam every suite kit shares — one suite binds its settings model, another binds
-    ``None`` for a bare module-tree kit — so ``tmp_root`` and everything built on ``TmpRoot`` never import
-    a project type.
-    """
+    """Project a tmp root into a suite-specific settings or harness payload."""
 
     def __call__(self, root: Path, /) -> S: ...
 
@@ -58,7 +44,7 @@ class KitFactory[S](Protocol):
 
 
 def _noproject[A](_args: tuple[object, ...]) -> tuple[A, ...]:
-    """Return the empty tuple; default for ``SeamProbe.project`` when callers only need the call log."""
+    """Return no captured projections for call-log-only probes."""
     return ()
 
 
@@ -91,24 +77,14 @@ type Shape[R] = Sync[R] | Async[R] | FanOut[R] | Factory[R]
 
 
 class SeamProbe[A](msgspec.Struct, frozen=True, gc=False):
-    """Recording monkeypatch host: install a canned seam by call SHAPE and capture every invocation.
-
-    ``project`` maps the positional args of each recorded call to the capture stream ``captured``; the default
-    captures nothing (pure call recorder). ``install`` matches the closed ``Shape`` union — sync / awaited /
-    fan-out / curried-factory — binding the matching canned callable via the single impure boundary
-    ``mp.setattr(owner, member, fn)``. ``projected`` derives an arbitrary view over the raw ``calls`` log.
-    """
+    """Recording monkeypatch host for canned call-shape seams."""
 
     project: Callable[[tuple[object, ...]], Iterable[A]] = _noproject
     calls: list[SeamRecord] = msgspec.field(default_factory=list)
     captured: list[A] = msgspec.field(default_factory=list)
 
     def install[R](self, mp: pytest.MonkeyPatch, owner: object, member: str, shape: Shape[R]) -> None:
-        """Bind ``owner.member`` to the canned callable selected by the ``shape`` variant.
-
-        ``owner`` must be the production resolution site (the module re-binding the seam), not the definition
-        site, so the patch mirrors how production resolves the name.
-        """
+        """Bind ``owner.member`` at the production resolution site."""
 
         def record(args: tuple[object, ...], kwargs: dict[str, object]) -> None:
             self.calls.append((member, args, kwargs))
@@ -157,11 +133,7 @@ class SeamProbe[A](msgspec.Struct, frozen=True, gc=False):
 
 
 class Loopback(msgspec.Struct, frozen=True, gc=False):
-    """A bound loopback endpoint projecting host/port to a connect target.
-
-    ``target`` always emits an explicit user because credential normalizers (e.g. asyncssh ``saslprep``)
-    reject a ``None`` username at connect.
-    """
+    """Bound loopback endpoint that projects host/port into connection targets."""
 
     host: str
     port: int
@@ -174,10 +146,7 @@ class Loopback(msgspec.Struct, frozen=True, gc=False):
 async def loopback_server[S: _AsyncServer](
     listen: Callable[[], Awaitable[S]], port_of: Callable[[S], int], *, host: str = "127.0.0.1"
 ) -> AsyncGenerator[Loopback]:
-    """Bind a loopback server for the duration of the ``async with`` and yield its endpoint capsule.
-
-    Teardown is tied to the server's own ``async with`` — no daemon threads, no manual close, no
-    ResourceWarning under ``filterwarnings=["error"]``.
+    """Bind a loopback server for the duration of the ``async with``.
 
     Yields:
         A ``Loopback`` carrying ``host`` and the bound port.
@@ -190,11 +159,7 @@ async def loopback_server[S: _AsyncServer](
 
 
 class VariantWriter[V](msgspec.Struct, frozen=True, gc=False):
-    """Table-driven payload-variant writer: materialize ``{variant: payload-or-raw-bytes}`` to a directory.
-
-    Dispatch is structural on the variant's membership in ``absent`` and its payload SHAPE (raw ``bytes`` vs
-    an object handed to ``encode``) — the variant family is data, never N hand-written methods.
-    """
+    """Table-driven payload-variant writer for raw bytes or encoded objects."""
 
     directory: Path
     names: "Mapping[V, str]"
@@ -229,17 +194,13 @@ class VariantWriter[V](msgspec.Struct, frozen=True, gc=False):
 
 
 class TmpRoot[S](msgspec.Struct, frozen=True, gc=False):
-    """Isolated tmp-tree harness: a ``write`` primitive plus an injected ``settings`` projection.
-
-    ``make_settings`` (via ``tmp_root``) is the sole injection seam, so the engine never imports any
-    project settings type.
-    """
+    """Isolated tmp-tree harness with a write primitive and injected settings projection."""
 
     root: Path
     settings: S
 
     def write(self, rel: str | Path, text: str = "", *, mode: int | None = None) -> Path:
-        """Write ``text`` under ``rel`` (empty for a touch), creating parents, optionally ``chmod``-ing.
+        """Write ``text`` under ``rel`` and optionally apply a mode.
 
         Returns:
             The absolute path written.
@@ -252,7 +213,7 @@ class TmpRoot[S](msgspec.Struct, frozen=True, gc=False):
 
 
 def tmp_root[S](root: Path, make_settings: KitFactory[S]) -> TmpRoot[S]:
-    """Build a ``TmpRoot`` rooted at ``root``; ``make_settings`` is the sole project-settings injection seam.
+    """Build a ``TmpRoot`` from an injected settings projector.
 
     Returns:
         A ``TmpRoot`` carrying the root and its derived settings.
@@ -264,7 +225,7 @@ def tmp_root[S](root: Path, make_settings: KitFactory[S]) -> TmpRoot[S]:
 
 
 class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
-    """NDJSON decode oracle: assert an exact line count and decode the first line via the injected decoder."""
+    """NDJSON oracle that checks line count before decoding the first row."""
 
     decoder: msgspec.json.Decoder[T]
     expect_lines: int = 1
@@ -285,14 +246,10 @@ class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
 
 
 def autospec_proc(spec: type, *, fields: Mapping[str, object] = {}, methods: Mapping[str, object] = {}, dead: bool = False) -> MagicMock:
-    """Build a ``create_autospec(spec, instance=True)`` double from plain fields and method return values.
-
-    ``methods`` returns are assigned onto the autospec CHILD mocks (``p.<m>.return_value = ...``), not the
-    parent; ``dead=True`` stamps a private ``_dead`` sentinel that ``psutil_module_double``'s factory reads
-    to raise not-found instead of returning the double.
+    """Build a spec-bound process double from fields and method return values.
 
     Returns:
-        A spec-bound ``MagicMock`` carrying the requested field values and method returns.
+        ``MagicMock`` with requested field values, child mock returns, and death sentinel.
     """
     proc: MagicMock = create_autospec(spec, instance=True)
     [setattr(proc, name, value) for name, value in fields.items()]
@@ -304,15 +261,10 @@ def autospec_proc(spec: type, *, fields: Mapping[str, object] = {}, methods: Map
 def psutil_module_double[E: BaseException](
     real: object, procs: Mapping[int | None, MagicMock], *, not_found: Callable[[int | None], E], extra: Mapping[str, object] = {}
 ) -> MagicMock:
-    """Wrap a pid→double mapping into a ``MagicMock(spec=real)`` module whose ``Process`` factory dispatches it.
-
-    ``procs[None]`` is the self-process; integer keys are explicit pids. An unregistered pid raises
-    ``not_found(pid)`` (no silent fallback); a double stamped ``_dead`` raises ``not_found(double.pid)``.
-    ``extra`` re-binds the module's real Error/NoSuchProcess/AccessDenied/cpu_count so SUT ``except`` clauses
-    stay catchable under the double — the engine itself never imports psutil.
+    """Build a psutil module double whose ``Process`` factory dispatches by pid.
 
     Returns:
-        A ``psutil`` module double with a pid-dispatching ``Process`` side effect.
+        Module-shaped ``MagicMock`` with pid dispatch and injected exception/capability bindings.
     """
     fake = MagicMock(spec=real)
     [setattr(fake, name, value) for name, value in extra.items()]
@@ -331,7 +283,7 @@ def psutil_module_double[E: BaseException](
 
 
 def install_module_attr[D](mp: pytest.MonkeyPatch, owner: object, attr: str, double: D) -> D:
-    """Pin ``double`` onto ``owner.attr`` via monkeypatch.
+    """Pin ``double`` onto ``owner.attr``.
 
     Returns:
         ``double`` unchanged, for fluent ``.cpu_percent = ...``-style post-configuration.

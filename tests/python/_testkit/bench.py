@@ -1,4 +1,4 @@
-"""Benchmark registry harness: BenchCase rows, auto-calibrated pedantic gating, and the session-end Potts/BIC regression hook."""
+"""Benchmark registry, absolute-budget gates, and sustained-regression detection."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -25,11 +25,11 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# pedantic's default iterations=1 is unsafe below 100 us: timer resolution dominates, so sub-floor subjects are re-calibrated up to the cap.
+# Sub-100us probes are re-calibrated because timer resolution dominates single-iteration pedantic runs.
 _CALIBRATION_FLOOR_NS = 100_000
 _ITERATIONS_CAP = 10_000
 
-# Potts/BIC step detector: breakpoint admitted when scale-free log-likelihood gain clears beta*ln(n) (~4 DOF/breakpoint, ASV convention).
+# Breakpoints require scale-free BIC gain beyond the ASV-style per-step penalty.
 _POTTS_BETA = 4.0
 _REGRESSION_TOLERANCE = 0.70
 
@@ -37,31 +37,19 @@ _REGRESSION_TOLERANCE = 0.70
 
 
 class BenchCase(msgspec.Struct, frozen=True):
-    """One registry row binding a subject callable to its benchmark geometry and gate policy.
+    """Registry row for one benchmark subject, workload geometry, and absolute gate.
 
-    One row = one benchmark; callers never define per-benchmark functions. ``workload`` accepts
-    the size integer and returns the argument tuple that ``subject`` receives (as a single
-    positional argument). ``budget_ms`` is a HARD per-subject absolute ceiling: ``run_bench``
-    asserts ``stats.<gate_stat> <= budget_ms`` after each measured benchmark (``--benchmark-
-    compare-fail`` is relative-to-prior-run only and cannot express an absolute budget). The
-    gate is statistically guarded — a sample whose dispersion exceeds ``max_rel_iqr`` is skipped
-    as untrustworthy rather than producing a flaky verdict.
+    ``workload(size)`` builds the tuple passed as the single positional argument to ``subject``.
+    ``budget_ms`` is an absolute ceiling over ``gate_stat``; samples above ``max_rel_iqr`` skip
+    rather than emit flaky verdicts.
 
     Attributes:
-        gate: When False, the row is measured and recorded but the absolute budget is not asserted
-            (regression-compare-only rows).
-        gate_stat: Which robust statistic the budget gates on; ``median`` (default) or ``min`` for
-            the "best achievable" posture. ``mean`` is accepted but discouraged (tail-sensitive).
-        max_rel_iqr: Dispersion ceiling (IQR / median). Above it the measurement is too noisy to
-            gate and the case is skipped.
-        fresh_per_round: When True the payload is rebuilt before every round via pedantic's setup
-            callback (forces ``iterations=1``), so subjects that MUTATE or CONSUME their argument
-            (in-place sort, generator drain, queue pop) measure a fresh payload each round instead
-            of an exhausted one.
-        warmup_rounds: Un-timed warm passes before the measured rounds (JIT/cache priming).
-        disable_gc: When True the pedantic call runs inside ``gc.disable()``/``gc.enable()`` so GC
-            collection spikes stay out of the timed window (the pedantic path does not honor the
-            CLI ``--benchmark-disable-gc`` the auto-fixture path does).
+        gate: False records timings without asserting the absolute budget.
+        gate_stat: Robust statistic the budget gates on; ``mean`` is admitted but tail-sensitive.
+        max_rel_iqr: Dispersion ceiling for a trustworthy gate.
+        fresh_per_round: Rebuilds mutating or consuming payloads before each measured round.
+        warmup_rounds: Untimed passes before measurement.
+        disable_gc: Disables GC inside pedantic because this path does not honor the CLI GC flag.
     """
 
     label: str
@@ -80,18 +68,13 @@ class BenchCase(msgspec.Struct, frozen=True):
 
 
 class _StoredStats(msgspec.Struct, frozen=True):
-    """Schema projection of a persisted ``stats`` block (median only; other keys ignored)."""
+    """Persisted benchmark ``stats`` projection used by the regression gate."""
 
     median: float | None = None
 
 
 class _StoredEntry(msgspec.Struct, frozen=True):
-    """Schema projection of one persisted benchmark entry (median + (fullname,group,size) key fields only).
-
-    ``fullname`` is pytest-benchmark's ``<file>::<test>[<param>]`` node id; its file part keys the
-    regression series so same-named groups from different benchmark files (different SUT packages
-    sharing the one policy-mandated storage root) never merge into one series.
-    """
+    """Persisted benchmark entry projection keyed by file, group, and size."""
 
     fullname: str | None = None
     group: str | None = None
@@ -100,7 +83,7 @@ class _StoredEntry(msgspec.Struct, frozen=True):
 
 
 class _StoredDoc(msgspec.Struct, frozen=True):
-    """Schema projection of one autosaved benchmark JSON document."""
+    """Autosaved benchmark JSON document projection."""
 
     benchmarks: tuple[_StoredEntry, ...] = ()
 
@@ -109,14 +92,13 @@ class _StoredDoc(msgspec.Struct, frozen=True):
 
 
 def bench_params(rows: Sequence[BenchCase]) -> pytest.MarkDecorator:
-    """Build a ``pytest.mark.parametrize`` decorator over the Cartesian (row, size) product.
+    """Build the benchmark ``(row, size)`` parametrization.
 
     Args:
         rows: Ordered registry of benchmark subjects.
 
     Returns:
-        A ``MarkDecorator`` whose parametrize ids are ``"{label}-{size}"`` so
-        benchmark storage keys are human-readable and stable across runs.
+        Parametrize decorator with stable ``"{label}-{size}"`` ids.
     """
     cases = [(row, size) for row in rows for size in row.sizes]
     ids = [f"{row.label}-{size}" for row, size in cases]
@@ -124,34 +106,22 @@ def bench_params(rows: Sequence[BenchCase]) -> pytest.MarkDecorator:
 
 
 def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
-    """Drive ``benchmark.pedantic`` with auto-calibration, psutil deltas, and the absolute budget gate.
-
-    Pipeline: an untimed probe auto-raises ``iterations`` for sub-100us subjects (unless the row
-    pinned iterations or requested ``fresh_per_round``); the payload is built once (or rebuilt per
-    round via the setup callback when ``fresh_per_round`` is set); the pedantic call runs under an
-    optional GC gate; the resulting ``benchmark.stats`` drive the dispersion floor (skip when too
-    noisy) and the hard absolute-budget assertion. ``benchmark.group`` is set to ``row.label`` so
-    relative compares stay within a subject across size variants, and the time series the session-
-    end step detector consumes is keyed by ``(fullname file part, group, extra_info['size'])``.
+    """Measure one benchmark case and enforce its dispersion and absolute-budget gates.
 
     Args:
-        benchmark: The ``pytest-benchmark`` ``BenchmarkFixture`` injected by pytest.
-        row: Registry row describing the subject, workload factory, timing policy, and gate policy.
+        benchmark: ``pytest-benchmark`` fixture carrying stats and storage metadata.
+        row: Subject, workload, and gate policy.
         size: The concrete workload size drawn from ``row.sizes``.
 
     Returns:
-        The value returned by the final pedantic round (passthrough for spot-check assertions;
-        benchmarks must not depend on this).
+        Final pedantic result for spot-check assertions.
     """
     proc = psutil.Process(os.getpid())
     payload = row.workload(size)
-    # Pre-pedantic, load-bearing: Metadata.__init__ SNAPSHOTS fixture.group when stats are created
-    # inside pedantic; a post-pedantic assignment never reaches the autosaved JSON (group stays null
-    # and the regression series drops every entry). extra_info survives post-hoc update only because
-    # Metadata captures the dict by reference.
+    # Metadata snapshots fixture.group inside pedantic; late assignment drops the storage series key.
     benchmark.group = row.label
 
-    # interval=None primes the psutil interval counter; the second call after pedantic captures user+sys CPU fraction for the timed window.
+    # Prime psutil so the post-pedantic read reflects the timed window.
     proc.cpu_percent(interval=None)
     rss_before = proc.memory_info().rss
 
@@ -184,7 +154,7 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
 
     result = _gated() if row.disable_gc else _measure()
 
-    # post-pedantic: benchmark.stats is Metadata; robust Stats live on .stats.stats, not directly on Metadata (pytest-benchmark 5.2.3).
+    # pytest-benchmark stores robust stats under Metadata.stats, not on the Metadata wrapper.
     assert benchmark.stats is not None
     s = benchmark.stats.stats
     rel_iqr = s.iqr / s.median if s.median > 0 else inf
@@ -212,18 +182,13 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
 
 
 def run_registry(rows: Sequence[BenchCase]) -> Callable[..., None]:
-    """Return a fully-decorated pytest benchmark function over the (row, size) Cartesian product.
-
-    Composes ``bench_params`` and ``run_bench`` so callers reduce to a single assignment:
-    ``bench_foo = run_registry(_ROWS)``.  pytest collects the returned function by name; the
-    function's ``__module__`` is patched to the calling module so ``collect_imported_tests=false``
-    does not suppress collection.
+    """Return a collectable benchmark function for a registry.
 
     Args:
         rows: Ordered registry of BenchCase rows.
 
     Returns:
-        A parametrized test function whose ``__module__`` matches the caller's module.
+        Parametrized benchmark function stamped with the caller module for collection.
     """
     caller_module: str = inspect.stack()[1].frame.f_globals["__name__"]
 
@@ -239,14 +204,7 @@ def run_registry(rows: Sequence[BenchCase]) -> Callable[..., None]:
 
 
 def _potts_segments(series: tuple[float, ...]) -> tuple[tuple[float, ...], ...]:
-    """Greedy penalized piecewise-constant (Potts) partition of a median time series.
-
-    Approximates the ASV step-detector via a scale-free Gaussian BIC criterion: a candidate
-    breakpoint is admitted only when the log-likelihood gain ``n * ln(sse_full / sse_split)``
-    exceeds the per-breakpoint penalty ``gamma = beta * ln(n)`` (~4 DOF/breakpoint, ASV/BIC
-    convention). Using the log-ratio rather than the raw SSE reduction makes the criterion
-    invariant to the absolute timing scale, so a 3x sustained step is detected whether the
-    medians are nanoseconds or seconds, while a single-run fluke stays below the penalty.
+    """Partition a median time series with the greedy Potts/BIC step criterion.
 
     Args:
         series: Ordered per-(label,size) median observations, oldest first.
@@ -274,14 +232,7 @@ def _potts_segments(series: tuple[float, ...]) -> tuple[tuple[float, ...], ...]:
 
 
 def _storage_root(config: pytest.Config) -> Path:
-    """Resolve the autosaved-benchmark storage root from the live ``--benchmark-storage`` option.
-
-    Single owner = the pytest config option (sourced from ``addopts`` / the catalog
-    ``BENCHMARK_STORAGE_URI``); the ``file://`` scheme is stripped and the remainder resolved under
-    ``config.rootpath`` so the Potts regression hook reads exactly the directory pytest-benchmark
-    autosaves into. Policy mandates ONE storage root for every SUT package (the single-owner
-    addopts law); package disjointness is keyed into the regression series via each entry's
-    ``fullname`` file part, never via per-package storage configuration.
+    """Resolve the autosaved-benchmark root from the live ``--benchmark-storage`` option.
 
     Returns:
         Absolute storage root (``config.rootpath / <path>`` for relative URIs).
@@ -292,18 +243,11 @@ def _storage_root(config: pytest.Config) -> Path:
 
 
 def _series_from_storage(config: pytest.Config, output_json: dict[str, object]) -> dict[tuple[str, str, int], tuple[float, ...]]:
-    """Reconstruct the per-(label,size) median time series from prior storage plus the current run.
-
-    Reads every prior autosaved benchmark JSON under the machine-specific storage subdirectory,
-    keyed by ``(fullname file part, group, extra_info['size'])`` to match the live registry rows
-    package-disjointly, then appends the current run's medians (oldest-first) so the last
-    observation is always the run under gate.
-    Documents are decoded into the ``_StoredDoc`` projection so malformed/foreign entries (no
-    ``group``/``size``/``median``) are dropped rather than crashing the gate.
+    """Reconstruct per-file benchmark median series from stored runs and the current report.
 
     Args:
-        config: The pytest config (resolves the rootdir the storage URI is relative to).
-        output_json: The serialized current-run benchmark report from ``pytest_benchmark_update_json``.
+        config: Pytest config that owns the storage URI root.
+        output_json: Current-run benchmark report from ``pytest_benchmark_update_json``.
 
     Returns:
         Mapping from ``(file, label, size)`` to its ordered median series (seconds), oldest first.
@@ -325,19 +269,12 @@ def _series_from_storage(config: pytest.Config, output_json: dict[str, object]) 
 
 
 def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, output_json: dict[str, object]) -> None:
-    """Session-end sustained-regression gate over the stored median time series.
-
-    Fits a penalized piecewise-constant (greedy Potts/BIC) model to each ``(label,size)`` median
-    series (prior autosaved runs + this run) and fails the session when the final segment's level
-    exceeds the prior segment's by more than ``_REGRESSION_TOLERANCE`` relative. This is a SUSTAINED
-    regression signal (robust to one-run flakiness), strictly stronger than the single-prior
-    relative threshold of ``--benchmark-compare-fail``. Series with a single segment (no sustained
-    shift) pass silently.
+    """Fail the session when stored median series show a sustained final-segment regression.
 
     Args:
         config: The pytest config.
-        benchmarks: The live benchmark fixtures (unused; medians read from ``output_json``/storage).
-        output_json: The serialized current-run benchmark report (mutated in place by the plugin).
+        benchmarks: Live benchmark fixtures; unused because medians come from report/storage.
+        output_json: Current-run benchmark report.
     """
     _ = benchmarks
     series_by_key = _series_from_storage(config, output_json)

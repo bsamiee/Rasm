@@ -1,14 +1,4 @@
-"""Hypothesis strategy resolver over the msgspec and pydantic-core schema node algebras.
-
-``resolve(T)`` registers a constraint-bounded strategy for any structured type so ``st.from_type(T)``
-yields valid, encode-clean instances. Two walkers drive it: ``_node`` over ``msgspec.inspect`` nodes
-(Struct, dataclass, TypedDict, leaves) and ``_pyd_node`` over ``__pydantic_core_schema__``, which is
-the only source that exposes ``pattern``, ``multiple_of``, and nested-container item constraints that
-native ``st.from_type`` silently drops. Both walkers read constraint metadata so generated values
-survive a round-trip and pass model validators. Custom ``@field_validator`` and ``@model_validator``
-bodies are opaque: a model whose validator rejects schema-derived instances must register an explicit
-strategy via ``st.register_type_strategy`` before calling ``resolve``.
-"""
+"""Hypothesis strategy resolver for msgspec and pydantic-core schema algebras."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -32,7 +22,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# Narrowed per-access so the rest of the module avoids `Any` and `cast`.
+# Per-access narrowing keeps schema walkers free of Any/cast.
 type _Schema = Mapping[str, object]
 
 
@@ -44,7 +34,7 @@ class _Size(TypedDict):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _EMPTY: _Schema = {}
-_CAP = 64  # keeps collection/string payloads encode-cheap and shrink-fast
+_CAP = 64  # Bound generated payloads for cheap encoding and shrinking.
 
 _JSON_SCALAR: st.SearchStrategy[object] = st.one_of(
     st.none(), st.booleans(), st.integers(min_value=-1_000, max_value=1_000), st.text(min_size=0, max_size=16)
@@ -67,7 +57,7 @@ def _json_value(depth: int = 0) -> st.SearchStrategy[object]:
     )
 
 
-# Depth cap prevents exponential blowup; size cap avoids OOM on unbounded nested Raw payloads.
+# Depth and size caps keep Raw payload generation finite.
 _RAW_ST: st.SearchStrategy[msgspec.Raw] = _json_value().map(lambda v: msgspec.Raw(msgspec.json.encode(v)))
 
 # --- [META_SURFACE_ALGEBRA]
@@ -78,26 +68,26 @@ def _size(node: object, cap: int) -> _Size:
     return {"min_size": mn if isinstance(mn, int) else 0, "max_size": min(mx, cap) if isinstance(mx, int) else cap}
 
 
-# `tz` mirrors the msgspec node's own `bool | None` tri-state field, not a boolean flag
+# msgspec exposes timezone policy as a tri-state field, not a boolean flag.
 def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # noqa: FBT001
     return st.none() if tz is False else st.timezones() if tz else st.none() | st.timezones()
 
 
 def _multiples_int(lo: int, hi: int, step: int) -> st.SearchStrategy[int]:
-    # Draw the multiplier k directly so every value is a valid multiple with zero rejection.
+    # Draw multiplier k directly so every value is a valid multiple with zero rejection.
     klo, khi = ceil(lo / step), floor(hi / step)
     return st.integers(min_value=klo, max_value=khi).map(lambda k: k * step) if klo <= khi else st.nothing()
 
 
 def _multiples_float(lo: float | Decimal, hi: float | Decimal, step: float | Decimal) -> st.SearchStrategy[float]:
-    # Decimal intermediate keeps `k*step` free of binary drift before projecting back to float.
+    # Decimal arithmetic avoids binary drift before projecting constrained multiples back to float.
     s = Decimal(str(step))
     klo, khi = ceil(Decimal(str(lo)) / s), floor(Decimal(str(hi)) / s)
     return st.integers(min_value=klo, max_value=khi).map(lambda k: float(Decimal(k) * s)) if klo <= khi else st.nothing()
 
 
 def _text(mn: object, mx: object, pattern: object) -> st.SearchStrategy[str]:
-    # `from_regex` carries no length bound, so a `.filter` is mandatory when `max_length` is declared.
+    # from_regex carries no length bound; constrained patterns need a length filter.
     lo = mn if isinstance(mn, int) else 1
     hi = min(mx, _CAP) if isinstance(mx, int) else _CAP
     return (
@@ -110,21 +100,16 @@ def _text(mn: object, mx: object, pattern: object) -> st.SearchStrategy[str]:
 
 
 def _decimal_max(md: object, dp: object) -> Decimal | None:
-    # Digit-budget ceiling: 10^(max_digits - decimal_places) - 10^(-decimal_places).
+    # Decimal digit budget ceiling for max_digits/decimal_places constraints.
     return Decimal(10) ** (md - dp) - Decimal(10) ** (-dp) if isinstance(md, int) and isinstance(dp, int) else None
 
 
 # --- [MSGSPEC_NODE_ALGEBRA]
 
 
-# closed taxonomy: one polymorphic surface over the msgspec node algebra
+# One polymorphic surface over the closed msgspec node taxonomy.
 def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912, PLR0914, PLR0915
     """Map one ``msgspec.inspect`` node to a codec-bounded strategy.
-
-    Reads numeric bounds (``ge``/``gt``/``le``/``lt``) and ``max_length`` so generated values survive a
-    msgspec JSON encode/decode round-trip. Struct-like arms recurse through ``resolve`` so nested types are
-    registered. ``CustomType`` and ``ExtType`` (Callable, Path, custom encoders) map to ``st.none()`` as
-    the safe default for JSON-opaque leaves.
 
     Returns:
         A bounded ``SearchStrategy`` for the node.
@@ -173,7 +158,7 @@ def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, 
         case _mi.LiteralType(values=values):
             return st.sampled_from(list(values))
         case _mi.DateTimeType(tz=tz):
-            return st.datetimes(timezones=_tz_arg(tz))  # msgspec JSON requires tz-aware (RFC 3339) datetimes when tz is True
+            return st.datetimes(timezones=_tz_arg(tz))  # msgspec JSON requires RFC 3339-aware datetimes when tz=True
         case _mi.TimeType(tz=tz):
             return st.times(timezones=_tz_arg(tz))
         case _mi.DateType():
@@ -205,7 +190,7 @@ def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, 
         case _mi.AnyType():
             return _json_value()
         case _mi.CustomType() | _mi.ExtType():
-            return st.none()  # JSON-opaque leaves (Callable, Path, Ext): no schema-derivable projection
+            return st.none()  # JSON-opaque leaves have no schema-derivable projection.
         case _:  # pragma: no cover  # provably unreachable: the msgspec node taxonomy above is exhaustive
             raise AssertionError(f"unhandled msgspec node {type(node).__name__}")
 
@@ -234,7 +219,7 @@ def _ibound(schema: _Schema, incl: str, excl: str, step: int) -> int | None:
 
 
 def _fbound(schema: _Schema, incl: str, excl: str) -> tuple[float | Decimal | None, bool]:
-    # pydantic-core emits `ge`/`le` as `Decimal` for Decimal constraints; thread unconverted to avoid ULP drift at high `decimal_places`.
+    # Decimal bounds stay unconverted to avoid ULP drift at high ``decimal_places``.
     a, b = schema.get(incl), schema.get(excl)
     return (
         (a if isinstance(a, Decimal) else float(a), False)
@@ -253,15 +238,9 @@ def _unwrap(schema: _Schema) -> _Schema:
     return _unwrap(_sub(schema, "schema")) if str(schema.get("type", "")).startswith("function-") else schema
 
 
-# closed taxonomy: one polymorphic surface over the pydantic-core schema algebra
+# One polymorphic surface over the pydantic-core schema algebra.
 def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912, PLR0914, PLR0915
     """Map one ``pydantic-core`` schema node to a constraint-honoring strategy.
-
-    Reads every machine-readable constraint the node carries — numeric bounds, ``multiple_of``,
-    ``pattern``, ``min_length``/``max_length``, item/key/value sub-schemas, ``decimal_places``, and
-    discriminator choices — so generated instances pass pydantic validation. ``defs`` threads the
-    ``definition-ref`` table so recursive models resolve via ``st.deferred`` without unbounded recursion.
-    Unrecognized leaf types (url, json, call, custom) map to ``st.none()``.
 
     Args:
         schema: A single pydantic-core schema dict node.
@@ -377,7 +356,7 @@ def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[ob
             ref = leaf.get("schema_ref")
             return st.deferred(_deferred_ref(ref, defs)) if isinstance(ref, str) and ref in defs else st.none()
         case _:
-            return st.none()  # url/json/call/custom leaves: no schema-derivable generator → encode-clean None
+            return st.none()  # url/json/call/custom leaves have no schema-derivable generator.
 
 
 def _deferred_ref(ref: str, defs: dict[str, _Schema]) -> Callable[[], st.SearchStrategy[object]]:
@@ -387,21 +366,12 @@ def _deferred_ref(ref: str, defs: dict[str, _Schema]) -> Callable[[], st.SearchS
 _REGISTERED: set[type] = set()
 
 
-# one polymorphic entry point over the full type-form algebra (alias / pydantic / msgspec / native)
+# One entry point over alias, pydantic, msgspec, and native type-form algebras.
 def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:  # noqa: PLR0912
-    """Idempotently register a constraint-bounded strategy for ``subject``, then return ``st.from_type(subject)``.
-
-    Total over the type-form algebra (PEP 747 ``TypeForm``): PEP 695 ``type`` aliases unwrap through
-    ``__value__`` and recurse; pydantic models walk ``__pydantic_core_schema__`` honoring ``pattern``,
-    ``multiple_of``, and nested-item constraints that native ``from_type`` drops; msgspec Struct,
-    dataclass, TypedDict, and NamedTuple walk the ``msgspec.inspect`` node algebra; everything else
-    (unions, ``Literal``, ``Annotated``, enums, leaves, containers) resolves natively. Call is idempotent:
-    the ``_REGISTERED`` guard prevents duplicate registration and allows self-referential structs to
-    resolve through the already-registered strategy.
+    """Register a constraint-bounded strategy for ``subject`` and return ``st.from_type(subject)``.
 
     Args:
-        subject: Any PEP 747 ``TypeForm`` — a concrete ``type``, PEP 695 alias, union, ``Literal``,
-            ``Annotated``, or other type-expression.
+        subject: Concrete type, PEP 695 alias, union, ``Literal``, ``Annotated``, or type expression.
 
     Returns:
         ``st.from_type(subject)`` producing valid, encode-clean instances of ``T``.

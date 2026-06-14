@@ -1,21 +1,8 @@
-"""Oracle library — Python mirror and extension of tests/csharp/_testkit/Spec.cs.
-
-Pure value-level oracles raising AssertionError on violation. Driven externally by
-hypothesis @given / @parametrize; this module never samples internally, except
-`model_based`, which drives hypothesis stateful execution as the one sampling entrypoint.
-
-The `eq` parameter defaults to structural `==`; pass a custom callable for approximate
-equality. Match on Result/Option variants uses the verified `__match_args__` forms:
-`case Result(tag='ok', ok=v)` etc. — `Ok`/`Error`/`Some` are factory functions, not
-classes, so `case Ok(...)` raises TypeError.
-
-Extends Spec.cs: `involution` and `absorbing` have no C# counterpart;
-`identity_element` mirrors the private C# AdditiveIdentity helper.
-"""
+"""Pure assertion oracles for algebraic, matrix, rail, and stateful laws."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable, Iterable  # noqa: TC003 — msgspec.Struct resolves annotations at runtime
+from collections.abc import Callable, Iterable  # noqa: TC003  # msgspec.Struct resolves annotations at runtime
 import functools
 import operator
 from typing import overload, Protocol, Self
@@ -36,7 +23,7 @@ type _Cmp[T] = Callable[[T, T], int] | None
 
 
 class _Comparable(Protocol):
-    """Structural bound for ordered projection keys — any type whose `<` is defined."""
+    """Structural bound for projection keys with total less-than ordering."""
 
     def __lt__(self, other: Self, /) -> bool: ...
 
@@ -45,12 +32,12 @@ class _Comparable(Protocol):
 
 
 class ValidityCase[T](msgspec.Struct, frozen=True, gc=False):
-    """Case carrier for `validity_matrix`.
+    """Case carrier for ``validity_matrix``.
 
     Args:
-        label: Human-readable case identifier surfaced on failure.
+        label: Case identifier surfaced on failure.
         value: The subject value under test.
-        expected: Whether `valid(value)` should return True.
+        expected: Expected predicate verdict.
     """
 
     label: str
@@ -59,14 +46,13 @@ class ValidityCase[T](msgspec.Struct, frozen=True, gc=False):
 
 
 class ProjectionCase[I](msgspec.Struct, frozen=True, gc=False):
-    """Case carrier for `projection_matrix`.
+    """Case carrier for ``projection_matrix``.
 
     Args:
-        label: Human-readable case identifier surfaced on failure.
-        intent: Input fed to `project`.
+        label: Case identifier surfaced on failure.
+        intent: Input fed to ``project``.
         supported_out: Expected output when projection succeeds.
-        oracle: Callable returning the reference output for comparison (None uses
-            `supported_out` directly).
+        oracle: Optional reference-output function; absent uses ``supported_out``.
         unsupported_out: Expected output when the projection is unsupported or falls back.
     """
 
@@ -78,17 +64,15 @@ class ProjectionCase[I](msgspec.Struct, frozen=True, gc=False):
 
 
 class MetamorphicRelation[T, R](msgspec.Struct, frozen=True, gc=False):
-    """A single metamorphic relation used by `metamorphic_sweep`.
+    """Single metamorphic relation used by ``metamorphic_sweep``.
 
-    Models the literature's (input-transform, output-relation) pair: `transform` derives a
-    follow-up input from the source, and `relate` asserts the required relation between the
-    source output `f(x)` and the follow-up output `f(transform(x))`, raising AssertionError
-    on violation (mirroring every other oracle body).
+    ``transform`` derives a follow-up input from the source; ``relate`` asserts the required
+    output relation and raises ``AssertionError`` on violation.
 
     Args:
-        name: Human-readable relation identifier surfaced on failure.
+        name: Relation identifier surfaced on failure.
         transform: Maps the source input to the follow-up input.
-        relate: Asserts the relation between `f(x)` and `f(transform(x))`; raises on violation.
+        relate: Assertion callback over source and follow-up outputs.
     """
 
     name: str
@@ -100,10 +84,7 @@ class MetamorphicRelation[T, R](msgspec.Struct, frozen=True, gc=False):
 
 
 def _eq_law[T](left: T, right: T, eq: _Eq[T]) -> None:
-    """Assert structural (or custom) equality, surfacing both sides on failure.
-
-    Shared collapse point for every equality-shaped law body — mirrors Spec.cs EqLaw.
-    """
+    """Assert structural or custom equality and surface both sides on failure."""
     assert (eq if eq is not None else operator.eq)(left, right), f"law violated: {left!r} != {right!r}"
 
 
@@ -111,61 +92,61 @@ def _eq_law[T](left: T, right: T, eq: _Eq[T]) -> None:
 
 
 def roundtrip[T, U](x: T, forward: Callable[[T], U], back: Callable[[U], T], *, eq: _Eq[T] = None) -> None:
-    """Assert `eq(x, back(forward(x)))` — encode/decode identity."""
+    """Assert ``eq(x, back(forward(x)))`` for encode/decode identity."""
     _eq_law(x, back(forward(x)), eq)
 
 
 def identity[T](x: T, f: Callable[[T], T], *, eq: _Eq[T] = None) -> None:
-    """Assert `eq(x, f(x))` — fixed-point under `f`."""
+    """Assert ``eq(x, f(x))`` for a fixed point under ``f``."""
     _eq_law(x, f(x), eq)
 
 
 def idempotent[T](x: T, f: Callable[[T], T], *, eq: _Eq[T] = None) -> None:
-    """Assert `eq(f(x), f(f(x)))` — applying `f` twice is the same as once."""
+    """Assert ``eq(f(x), f(f(x)))`` for idempotence."""
     _eq_law(f(x), f(f(x)), eq)
 
 
 def involution[T](x: T, f: Callable[[T], T], *, eq: _Eq[T] = None) -> None:
-    """Assert `eq(x, f(f(x)))` — `f` is its own inverse."""
+    """Assert ``eq(x, f(f(x)))`` for self-inverse functions."""
     _eq_law(x, f(f(x)), eq)
 
 
 def inverse[T](x: T, f: Callable[[T], T], g: Callable[[T], T], *, eq: _Eq[T] = None) -> None:
-    """Assert `eq(x, g(f(x)))` — `g` is the left inverse of `f`."""
+    """Assert ``eq(x, g(f(x)))`` for left-inverse pairs."""
     _eq_law(x, g(f(x)), eq)
 
 
 def commutative[T](a: T, b: T, op: Callable[[T, T], T], *, eq: _Eq[T] = None) -> None:
-    """Assert `eq(op(a, b), op(b, a))`."""
+    """Assert ``eq(op(a, b), op(b, a))``."""
     _eq_law(op(a, b), op(b, a), eq)
 
 
 def associative[T](a: T, b: T, c: T, op: Callable[[T, T], T], *, eq: _Eq[T] = None) -> None:
-    """Assert `eq(op(op(a, b), c), op(a, op(b, c)))`."""
+    """Assert ``eq(op(op(a, b), c), op(a, op(b, c)))``."""
     _eq_law(op(op(a, b), c), op(a, op(b, c)), eq)
 
 
 def distributive[T](a: T, b: T, c: T, mul: Callable[[T, T], T], add: Callable[[T, T], T], *, eq: _Eq[T] = None) -> None:
-    """Assert `eq(mul(a, add(b, c)), add(mul(a, b), mul(a, c)))`."""
+    """Assert ``eq(mul(a, add(b, c)), add(mul(a, b), mul(a, c)))``."""
     _eq_law(mul(a, add(b, c)), add(mul(a, b), mul(a, c)), eq)
 
 
 def absorbing[T](x: T, op: Callable[[T, T], T], zero: T, *, eq: _Eq[T] = None) -> None:
-    """Assert `eq(op(x, zero), zero)` and `eq(op(zero, x), zero)`."""
+    """Assert ``eq(op(x, zero), zero)`` and ``eq(op(zero, x), zero)``."""
     _eq_law(op(x, zero), zero, eq)
     _eq_law(op(zero, x), zero, eq)
 
 
 def identity_element[T](x: T, op: Callable[[T, T], T], unit: T, *, eq: _Eq[T] = None) -> None:
-    """Assert `eq(op(unit, x), x)` and `eq(op(x, unit), x)` — mirrors Spec.cs private AdditiveIdentity."""
+    """Assert ``eq(op(unit, x), x)`` and ``eq(op(x, unit), x)``."""
     _eq_law(op(unit, x), x, eq)
     _eq_law(op(x, unit), x, eq)
 
 
 def monotone[T, K: _Comparable](lo: T, hi: T, projection: Callable[[T], K], *, compare: _Cmp[K] = None) -> None:
-    """Assert `compare(projection(lo), projection(hi)) <= 0`.
+    """Assert ``compare(projection(lo), projection(hi)) <= 0``.
 
-    `compare` defaults to the built-in `__lt__` / `__eq__` ordering.
+    ``compare`` defaults to the built-in ``__lt__`` / ``__eq__`` ordering.
     """
     p_lo = projection(lo)
     p_hi = projection(hi)
@@ -174,45 +155,38 @@ def monotone[T, K: _Comparable](lo: T, hi: T, projection: Callable[[T], K], *, c
 
 
 def permutation_invariant[T, R](original: T, shuffled: T, f: Callable[[T], R], *, eq: _Eq[R] = None) -> None:
-    """Assert `eq(f(original), f(shuffled))`; caller draws `shuffled` via `st.permutations` under `@given`."""
+    """Assert ``eq(f(original), f(shuffled))`` for caller-drawn permutations."""
     _eq_law(f(original), f(shuffled), eq)
 
 
 def metamorphic[T, R](x: T, path: Callable[[T], R], oracle: Callable[[T], R], *, eq: _Eq[R] = None) -> None:
-    """Assert `eq(path(x), oracle(x))` — two computation paths must agree on the same input."""
+    """Assert ``eq(path(x), oracle(x))`` for two computation paths over one input."""
     _eq_law(path(x), oracle(x), eq)
 
 
 def metamorphic_sweep[T, R](x: T, f: Callable[[T], R], *relations: MetamorphicRelation[T, R]) -> None:
-    """Assert every MetamorphicRelation holds between `f(x)` and `f(relation.transform(x))`.
-
-    Generalizes `metamorphic` to an N-relation fold over the literature's
-    (input-transform, output-relation) form.
+    """Assert every relation holds between source and follow-up outputs.
 
     Args:
         x: The source input.
         f: The function under test.
-        *relations: Metamorphic relations to enforce against `f(x)`.
+        *relations: Metamorphic relations to enforce against ``f(x)``.
     """
     base = f(x)
     functools.reduce(lambda _, r: r.relate(base, f(r.transform(x))), relations, None)
 
 
 def refutes[T](witness: T, law: Callable[..., None], *args: object, **kwargs: object) -> None:
-    """Assert `law` raises AssertionError on a known-broken `witness` — the falsification oracle.
-
-    Inverse of every other oracle: where they prove a law holds, this proves a law is falsifiable.
-    A law with no falsifying witness is a tautology that surviving mutants exploit unobserved
-    (`refutes(broken_x, idempotent, increment)` proves `idempotent` catches a non-idempotent `f`).
+    """Assert ``law`` raises ``AssertionError`` for a known-broken witness.
 
     Args:
-        witness: A value for which `law` is expected to fail.
-        law: An oracle from this module invoked as `law(witness, *args, **kwargs)`.
-        *args: Trailing positional arguments forwarded to `law`.
-        **kwargs: Keyword arguments forwarded to `law`.
+        witness: Value for which ``law`` must fail.
+        law: Oracle invoked as ``law(witness, *args, **kwargs)``.
+        *args: Trailing positional arguments forwarded to ``law``.
+        **kwargs: Keyword arguments forwarded to ``law``.
 
     Raises:
-        AssertionError: When `law` does not raise on `witness` (the law is a tautology).
+        AssertionError: When ``law`` does not raise on ``witness``.
     """
     try:
         law(witness, *args, **kwargs)
@@ -233,10 +207,10 @@ def validity_matrix[T](cases: Iterable[tuple[str, T, bool]], valid: Callable[[T]
 
 
 def validity_matrix[T](cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T, bool]], valid: Callable[[T], bool]) -> None:
-    """Assert each case's expected validity; mirrors Spec.cs ValidityMatrix.
+    """Assert each case's expected validity verdict.
 
     Args:
-        cases: ValidityCase[T] instances or raw (label, value, expected) tuples.
+        cases: ``ValidityCase[T]`` instances or raw ``(label, value, expected)`` tuples.
         valid: Predicate returning True when the value is valid.
     """
     for raw in cases:
@@ -246,10 +220,10 @@ def validity_matrix[T](cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T,
 
 
 def support_matrix(*rows: tuple[str, Callable[[], bool], bool]) -> None:
-    """Assert each labeled probe returns the expected boolean; collapses anonymous assertion walls.
+    """Assert each labeled zero-argument probe returns the expected boolean.
 
     Args:
-        *rows: Triples of (label, probe, expected) where `probe` is a zero-arg callable.
+        *rows: Triples of ``(label, probe, expected)``.
     """
     for label, probe, expected in rows:
         actual = probe()
@@ -257,10 +231,9 @@ def support_matrix(*rows: tuple[str, Callable[[], bool], bool]) -> None:
 
 
 def projection_matrix[I](cases: Iterable[ProjectionCase[I]], project: Callable[[I], object]) -> None:
-    """Assert each case's projection outcome; mirrors Spec.cs ProjectionMatrix.
+    """Assert each case's projection outcome.
 
-    The `oracle` field, when present, is called with `intent` to compute the reference;
-    otherwise `supported_out` is used directly.
+    ``ProjectionCase.oracle`` computes the reference when present; otherwise ``supported_out`` is used.
 
     Args:
         cases: ProjectionCase[I] instances describing each projection scenario.
@@ -326,14 +299,11 @@ def assert_error[T, E](result: Result[T, E], *, then: Callable[[E], None] | None
 
 
 def assert_error_status[T, E](result: Result[T, E], status: object, *, attr: str = "status") -> E:
-    """Assert Error and that `getattr(error, attr) is status`; generalizes `assert_result_status`.
-
-    Reads the status attribute generically so it serves any Result[_, E] whose error is a
-    status-bearing error type.
+    """Assert ``Error`` and an identity match on the error status attribute.
 
     Args:
         result: The Result under test.
-        status: The expected status sentinel (identity check via `is`).
+        status: The expected status sentinel.
         attr: Attribute name on the error object carrying the status (default "status").
 
     Returns:
@@ -388,18 +358,17 @@ def assert_none(opt: Option[object]) -> None:
 
 
 def assert_roundtrip[T](value: T, typ: type[T], *, codec: msgspec.json.Encoder | None = None) -> T:
-    """Assert deterministic encode → decode → re-encode byte-identity for a wire value.
+    """Assert deterministic encode, decode, and re-encode byte identity for a wire value.
 
-    The re-encode step catches non-deterministic codecs that a plain `==` comparison
-    would miss (e.g. dict-bearing structs with non-stable key ordering).
+    The re-encode step catches non-deterministic codecs that structural equality misses.
 
     Args:
         value: The value to encode and round-trip.
-        typ: The target type for `msgspec.json.decode`.
-        codec: Encoder to use; defaults to `msgspec.json.Encoder(order='deterministic')`.
+        typ: The target type for ``msgspec.json.decode``.
+        codec: Encoder to use; defaults to deterministic JSON ordering.
 
     Returns:
-        The decoded value (structurally equal to `value`).
+        The decoded value, structurally equal to ``value``.
     """
     enc = codec if codec is not None else _DEFAULT_ENCODER
     raw = enc.encode(value)
@@ -414,24 +383,12 @@ def assert_roundtrip[T](value: T, typ: type[T], *, codec: msgspec.json.Encoder |
 
 
 def model_based[M: RuleBasedStateMachine](machine_cls: type[M], *, profile: str | None = None, settings: hyp_settings | None = None) -> None:
-    """Drive `machine_cls` to completion as a stateful hypothesis test under a settings profile.
-
-    Callers define `@initialize`/`@rule`/`@invariant` on their RuleBasedStateMachine
-    subclass, then invoke the driver inside a plain test function:
-
-        def test_machine_holds_contract() -> None:
-            model_based(SomeMachine)
-
-    Resolution order when `settings` is None: an explicit `profile` argument wins; otherwise the
-    profile is derived from the run's active profile — an active `rasm-mutation` profile (short
-    `stateful_step_count`) is honored so stateful machines do not burn the full 200-step
-    `rasm-stateful` budget under a mutation sweep, and every other active profile falls back to
-    `rasm-stateful`.
+    """Drive a stateful Hypothesis machine under the resolved settings profile.
 
     Args:
-        machine_cls: A RuleBasedStateMachine subclass with rules and invariants defined.
-        profile: Explicit registered profile name; `None` derives it from the active profile.
-        settings: Explicit hypothesis settings; overrides `profile` resolution entirely.
+        machine_cls: ``RuleBasedStateMachine`` subclass with rules and invariants.
+        profile: Explicit registered profile name; ``None`` derives from the active profile.
+        settings: Explicit Hypothesis settings; overrides profile resolution.
     """
     active = hyp_settings.get_current_profile_name()
     resolved = profile if profile is not None else (PROFILE_MUTATION if active == PROFILE_MUTATION else PROFILE_STATEFUL)

@@ -1,11 +1,4 @@
-"""@spec decorator, law MANIFEST registry, and law-coverage gate.
-
-Provides one polymorphic entrypoint ``spec`` that applies ``@given`` + ``@settings`` + pytest marks
-and registers a ``LawRecord`` into the global ``MANIFEST``. ``register_law`` covers multi-arg /
-metamorphic / matrix laws that bring their own ``@given``/``@parametrize``. ``register_sut`` records
-the SUT package surface; ``assert_law_coverage`` walks it via a filesystem ``rglob`` over the
-package tree and asserts every public symbol has at least one law or explicit exemption.
-"""
+"""Law decorators, registry records, SUT registration, and coverage gate."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -26,15 +19,7 @@ from tests.python._testkit.runtime import PROFILE_DEFAULT
 
 
 class LawRecord(msgspec.Struct, frozen=True):
-    """One law entry in the global MANIFEST.
-
-    ``subject`` and ``law`` hold the qualname / function-name captured at import time so coverage
-    comparisons are stable across interpreter restarts. ``subject_module`` carries the subject's
-    defining module so the coverage gate scopes a law to the SUT package that owns the subject —
-    a same-named symbol in a second registered package is never falsely covered. Empty when the
-    subject carries no ``__module__`` (instances, tables); such records fall back to global
-    simple-name coverage.
-    """
+    """Registered law record keyed by subject, law, owner module, and optional subject module."""
 
     subject: str
     law: str
@@ -42,7 +27,7 @@ class LawRecord(msgspec.Struct, frozen=True):
     subject_module: str = ""
 
 
-# --- [TABLES]
+# --- [TABLES] ---------------------------------------------------------------------------
 
 MANIFEST: list[LawRecord] = []
 SUT_PACKAGES: dict[str, frozenset[str]] = {}
@@ -54,24 +39,15 @@ def _qualname(subject: object) -> str:
     return getattr(subject, "__qualname__", None) or getattr(subject, "__name__", None) or str(subject)
 
 
-# filesystem walk + per-module __all__/dir fork is one cohesive pass; splitting would fragment ownership
+# The filesystem walk and per-module public-name fold are one import-failure-aware coverage pass.
 def _public_surface(package_name: str) -> tuple[frozenset[str], tuple[tuple[str, str], ...]]:  # noqa: PLR0912
-    """Walk every leaf module under ``package_name`` and union their public symbols.
-
-    Public surface = union of each module's ``__all__``, or all non-underscore attribute names when
-    ``__all__`` is absent. Module objects re-exported as attributes are excluded because they are
-    structural namespacing, not callable/type law subjects. Underscore-named modules (``_private``,
-    ``__main__`` entry shims) are skipped: their public API counts only via a public re-exporter,
-    and ``__main__`` modules execute on import. Import failures are accumulated, not swallowed —
-    a module that fails to import silently shrinks the surface, so the gate must see it.
+    """Collect a package's public symbol names and import failures.
 
     Returns:
-        Pair of (frozenset of simple public symbol names across the whole SUT package,
-        tuple of ``(module_name, error)`` import failures encountered during the walk).
+        Public simple-name set and ``(module_name, error)`` import failures.
     """
     root = importlib.import_module(package_name)
-    # Root __init__ exports must count; submodule walk alone misses them.
-    # rglob instead of pkgutil.walk_packages: walk_packages silently skips namespace subpackages (no __init__.py), producing false-pass coverage.
+    # rglob keeps namespace subpackages visible; pkgutil.walk_packages silently skips them.
     modules = [root]
     failures: list[tuple[str, str]] = []
     for base in getattr(root, "__path__", ()):
@@ -109,39 +85,20 @@ def spec[**P](
     law: str | None = None,
     events: tuple[Callable[[object], str], ...] = (),
 ) -> Callable[[Callable[P, None]], Callable[P, None]]:
-    """Polymorphic @spec entrypoint: register + optionally drive a property law.
-
-    When ``given=True`` (default), applies ``@hypothesis.given(resolve(subject))`` positionally —
-    the strategy parameter must be the LAST param (convention; fixtures precede it). When
-    ``given=False``, only registers the ``LawRecord`` and applies marks (for metamorphic / matrix /
-    multi-arg laws that supply their own ``@given``/``@parametrize``).
-
-    Applies ``@settings(parent=settings.get_profile(profile))`` in both modes. Applies
-    ``deadline=timeout`` only when ``timeout is not None``. Applies one ``pytest.mark.<m>`` per
-    entry in ``markers``, plus ``pytest.mark.mutation`` when ``mutation=True``. Double-decoration is
-    rejected via ``__wrapped__`` inspection. All hypothesis test functions must return ``None``
-    by hypothesis contract — ``R`` is fixed to ``None``.
-
-    When ``events`` is non-empty and ``given=True``, each callable receives the drawn argument and
-    its return value is passed to ``hypothesis.event()``. Per-event frequency appears under
-    ``--hypothesis-show-statistics``. Default empty tuple = zero overhead; ``given=False`` ignores
-    ``events`` (no drawn arg in scope).
+    """Register a law and optionally wrap it with Hypothesis strategy injection.
 
     Args:
-        subject: The type or callable whose strategy ``resolve`` resolves (strategy registered on
-            first call; ``given=False`` skips strategy resolution).
-        given: When True, inject the hypothesis strategy as the rightmost positional argument.
-        mutation: When True, also apply ``pytest.mark.mutation``.
-        profile: Hypothesis settings profile name (must be pre-registered in conftest).
+        subject: Type or callable whose strategy/law coverage is registered.
+        given: True injects ``resolve(subject)`` as the rightmost positional argument.
+        mutation: True also applies ``pytest.mark.mutation``.
+        profile: Registered Hypothesis profile name.
         markers: Extra pytest mark names to apply.
-        timeout: Hypothesis deadline in seconds; ``None`` (default) inherits from the profile.
+        timeout: Hypothesis deadline in seconds; ``None`` inherits from the profile.
         law: Override law name in ``MANIFEST``; defaults to the decorated function's ``__name__``.
-        events: Callables ``(drawn) -> str``; when non-empty and ``given=True``, each tag is
-            reported via ``hypothesis.event()`` on every drawn example.
+        events: Optional drawn-value event taggers for Hypothesis statistics.
 
     Returns:
-        A decorator that wraps the function, applies the full mark/settings stack, and registers a
-        ``LawRecord`` into ``MANIFEST``.
+        Decorator that applies the mark/settings stack and emits one ``LawRecord``.
     """
 
     def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
@@ -153,13 +110,10 @@ def spec[**P](
 
         match given:
             case True:
-                # Lazy import avoids a circular dependency: strategies imports from laws at module level.
                 from tests.python._testkit.strategies import resolve  # noqa: PLC0415  # deferred to break import cycle
 
-                # The type requirement binds only to the strategy-driving mode; given=False subjects may be callables.
                 assert isinstance(subject, type), f"@spec given=True requires a type, got {subject!r}"
-                # functools.wraps preserves the signature for @given injection; __wrapped__ fires the guard on fn, not the wrapper.
-                # hypothesis requires @given to wrap the raw function before @settings is applied.
+                # Hypothesis must wrap before settings; wraps preserves the collected signature.
                 target = (
                     functools.wraps(fn)(lambda *args, **kwargs: ([hyp_event(tag(args[-1])) for tag in events], fn(*args, **kwargs))[-1])
                     if events
@@ -188,8 +142,7 @@ def spec[**P](
             )
         )
 
-        # Return the decorated stack as-is: @given already stripped the strategy param from pytest's
-        # collected signature; re-stamping fn's signature would re-expose it as a missing fixture.
+        # Keep @given's signature-erased stack so the strategy param does not reappear as a fixture.
         return result
 
     return _decorator
@@ -212,16 +165,7 @@ def register_law(subject: object, law: str, *, module: str | None = None) -> Non
 
 
 def register_laws(*pairs: tuple[object, tuple[str, ...]]) -> None:
-    """Batch-register multiple law families at import time.
-
-    A greppable import-time helper that registers many ``LawRecord`` entries without
-    per-law ``register_law`` call spam. Intended for families of metamorphic, matrix, or
-    parametrized laws that share one subject but declare several law names together.
-
-    Each pair is ``(subject, (law_name, ...))`` where ``subject`` is the type or callable
-    covered and each ``law_name`` is a distinct law identifier. The caller module is
-    captured once via ``inspect.currentframe().f_back`` and shared across all emitted
-    records, matching the behaviour of ``register_law``.
+    """Batch-register import-time law families sharing the caller module.
 
     Args:
         *pairs: Variable-length sequence of ``(subject, (law_name, ...))`` 2-tuples.
@@ -249,16 +193,7 @@ def register_sut(package: str, *, exempt: frozenset[str] = frozenset()) -> None:
 
 
 def assert_law_coverage() -> None:
-    """Assert every public SUT symbol has at least one registered law or is explicitly exempt.
-
-    Walks each package registered via ``register_sut`` over the package filesystem tree, unions the
-    public surface across all leaf modules (``__all__`` union; non-underscore fallback; module objects
-    excluded), and asserts that the covered set + exempt set spans the full surface. Coverage is
-    package-scoped: a record covers a package only when its ``subject_module`` resolves inside that
-    package, so a same-named symbol in a second SUT is never falsely covered; records without a
-    ``subject_module`` (instances, tables) fall back to global simple-name coverage. Module import
-    failures collected during the walk fail the gate — a broken module silently shrinks the surface.
-    """
+    """Assert every registered SUT public symbol is law-covered or explicitly exempt."""
     global_covered = frozenset(rec.subject.rsplit(".", 1)[-1] for rec in MANIFEST if not rec.subject_module)
 
     for package, exempt in SUT_PACKAGES.items():

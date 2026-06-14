@@ -1,11 +1,4 @@
-"""Environment-double laws: provision dispatch totality, SSH exec/SFTP round-trips, bucket round-trips, fs algebra.
-
-The ``SshHost`` laws run real asyncssh handshakes over AF_UNIX socketpairs — no TCP, no ``socket_enabled``
-lift — so they ride the default and mutation lanes. The ``Bucket`` laws drive a loopback moto server over
-real TCP (``socket_enabled``) and skip wholesale when moto does not import on this interpreter (moto
-publishes no cp315 support claim). The ``RemoteFS`` laws prove the AbstractFileSystem algebra plus per-test
-root isolation over the process-global memory store.
-"""
+"""Environment-double laws for dispatch, SSH/SFTP, bucket, and filesystem behavior."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -29,10 +22,10 @@ def _moto_imports() -> bool:
     """Import-smoke the moto server entrypoint.
 
     Returns:
-        True when ``moto.server`` imports cleanly; False downgrades the bucket laws to skips.
+        True when bucket laws may run; False downgrades them to skips.
     """
     try:
-        import moto.server  # noqa: F401, PLC0415  # lazy: the smoke IS the probe; moto publishes no cp315 classifier
+        import moto.server  # noqa: F401, PLC0415  # lazy import smoke
     except Exception:  # noqa: BLE001  # import smoke: any interpreter incompatibility downgrades to skip, never errors collection
         return False
     return True
@@ -46,7 +39,7 @@ requires_moto = pytest.mark.skipif(not _moto_imports(), reason="moto[server] doe
 
 
 def test_provision_is_total_over_the_spec_union() -> None:
-    """Every ``EnvSpec`` variant provisions to a non-empty url plus callable factory and teardown."""
+    """Every ``EnvSpec`` variant provisions a URL, factory, and teardown."""
     specs: tuple[EnvSpec, ...] = (SshHost(), RemoteFS())
     for spec, provisioned in zip(specs, map(provision, specs), strict=True):
         assert provisioned.url, f"{type(spec).__name__} provisioned an empty url"
@@ -61,7 +54,7 @@ def test_provision_is_total_over_the_spec_union() -> None:
 
 @pytest.mark.anyio
 async def test_ssh_exec_round_trip_without_tcp() -> None:
-    """The default handler acknowledges the exact command at exit 0 over the non-streaming ``conn.run`` arm."""
+    """Default SSH exec acknowledges the exact command at exit 0 without TCP."""
     provisioned = provision(SshHost())
     conn = await provisioned.client_factory()
     try:
@@ -74,7 +67,7 @@ async def test_ssh_exec_round_trip_without_tcp() -> None:
 
 @pytest.mark.anyio
 async def test_ssh_handler_owns_reply_and_exit_code() -> None:
-    """A custom handler's stdout text AND nonzero exit code both cross the exec boundary."""
+    """Custom SSH handlers own both stdout text and nonzero exit code."""
     provisioned = provision(SshHost(handler=lambda command: (f"custom:{command}", 17)))
     conn = await provisioned.client_factory()
     try:
@@ -87,7 +80,7 @@ async def test_ssh_handler_owns_reply_and_exit_code() -> None:
 
 @pytest.mark.anyio
 async def test_ssh_streaming_process_arm_round_trips() -> None:
-    """``create_process(encoding=None, stdin=DEVNULL)`` — the engine's streaming shape — yields bytes and exit 0."""
+    """The streaming SSH process shape yields bytes and exit 0."""
     import asyncssh  # noqa: PLC0415  # lazy: only the streaming law needs the DEVNULL sentinel
 
     provisioned = provision(SshHost())
@@ -119,7 +112,7 @@ async def test_ssh_factory_yields_fresh_connections() -> None:
 
 @pytest.mark.anyio
 async def test_ssh_sftp_chroot_serves_and_confines(tmp_path: Path) -> None:
-    """``sftp_root`` serves a chroot: reads resolve inside it and absolute writes land inside it."""
+    """``sftp_root`` confines relative reads and absolute writes to the chroot."""
     (tmp_path / "hello.txt").write_text("payload", encoding="utf-8")
     provisioned = provision(SshHost(sftp_root=tmp_path))
     conn = await provisioned.client_factory()
@@ -141,7 +134,7 @@ async def test_ssh_sftp_chroot_serves_and_confines(tmp_path: Path) -> None:
 
 @requires_moto
 def test_bucket_round_trips_through_loopback_server(socket_enabled: None) -> None:
-    """Provision starts a loopback moto server with the bucket pre-created; bytes round-trip through the client."""
+    """Provision pre-creates the moto bucket and preserves object bytes."""
     _ = socket_enabled
     provisioned = provision(Bucket())
     try:
@@ -150,14 +143,14 @@ def test_bucket_round_trips_through_loopback_server(socket_enabled: None) -> Non
         client.head_bucket(Bucket="env-bucket")
         client.put_object(Bucket="env-bucket", Key="laws/blob", Body=b"payload")
         body = client.get_object(Bucket="env-bucket", Key="laws/blob")["Body"]
-        assert body.read() == b"payload", "bucket round-trip lost the payload"  # ty: ignore[unresolved-attribute]  # botocore StreamingBody publishes no types
+        assert body.read() == b"payload", "bucket round-trip lost the payload"  # ty: ignore[unresolved-attribute]  # untyped StreamingBody
     finally:
         provisioned.teardown()
 
 
 @requires_moto
 def test_bucket_spec_owns_name_and_region(socket_enabled: None) -> None:
-    """A non-default name and a non-us-east-1 region drive the location-constraint arm of bucket creation."""
+    """Non-default bucket regions drive the location-constraint creation arm."""
     _ = socket_enabled
     provisioned = provision(Bucket(name="env-regional", region="eu-west-1"))
     try:
@@ -170,7 +163,7 @@ def test_bucket_spec_owns_name_and_region(socket_enabled: None) -> None:
 
 
 def test_remote_fs_isolates_per_test_roots() -> None:
-    """Two provisions write the same key into disjoint memory roots; teardown erases only its own root."""
+    """RemoteFS provisions isolate equal keys in disjoint memory roots."""
     first, second = provision(RemoteFS()), provision(RemoteFS())
     fs_first, fs_second = first.client_factory(), second.client_factory()
     assert first.url != second.url, "per-test roots collided"
@@ -185,7 +178,7 @@ def test_remote_fs_isolates_per_test_roots() -> None:
 
 
 def test_remote_fs_obeys_filesystem_algebra() -> None:
-    """The DirFileSystem view satisfies the AbstractFileSystem law battery: write/cat, info, cp/mv/rm, find."""
+    """RemoteFS satisfies write/cat, info, cp/mv/rm, and find laws."""
     provisioned = provision(RemoteFS())
     fs = provisioned.client_factory()
     try:
