@@ -434,6 +434,7 @@ def _persist(settings: AssaySettings, envelope: Envelope) -> None:
         store.write_history(settings.run_id, _encode(envelope))
         store.retain_history(settings.artifact_retention)
         store.retain_scopes(envelope.claim, settings.artifact_retention)
+        store.retain_builds(settings.build_scope_retention)
     except OSError as exc:
         _LOG.warning("history.persist_failed", run_id=settings.run_id, error=str(exc)[:200])
 

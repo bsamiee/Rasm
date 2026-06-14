@@ -229,4 +229,4 @@ saveExact: true
 
 strictSsl: true
 
-verify-deps-before-run: warn
+verifyDepsBeforeRun: warn

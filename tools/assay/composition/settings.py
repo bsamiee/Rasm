@@ -293,6 +293,7 @@ class AssaySettings(BaseSettings):
     stream_chunk_bytes: Annotated[int, Field(ge=4096)] = 65536
     lease_drift_tolerance: Annotated[float, Field(gt=0)] = 1.0
     artifact_retention: Annotated[int, Field(ge=1, le=10000)] = 50
+    build_scope_retention: Annotated[int, Field(ge=1, le=1000)] = 24
     artifact_backend: ArtifactBackend = Field(default_factory=ArtifactBackend)
     scoped_verbs: frozenset[str] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test"))
     trigger_files: frozenset[str] = frozenset((
@@ -719,6 +720,15 @@ class ArtifactStore:
         ArtifactScope.open creates per rail run; prune order is oldest-first by (mtime, run_id).
         """
         self._prune(claim.value, keep)
+
+    def retain_builds(self, keep: int) -> None:
+        """Prune old build-closure scope dirs by backend metadata age, keeping the newest keep closures.
+
+        ArtifactScope.build writes stable `build/<closure>/<config>` dirs that retain_history/retain_scopes never
+        reach, so every distinct project-closure accumulates a full `--artifacts-path` tree forever; prune order is
+        oldest-first by (mtime, run_id) at the closure-dir granularity over the build root.
+        """
+        self._prune(_BUILD, keep)
 
     def load_history(self, run_id: str) -> Envelope | None:
         """Load one run Envelope and restore its full report artifact when available.

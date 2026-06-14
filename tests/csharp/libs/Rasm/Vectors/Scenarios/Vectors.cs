@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
 using Rasm.Domain;
 using Rasm.TestKit.Scenarios;
 using Rasm.Vectors;
@@ -387,8 +386,6 @@ internal static class VectorsScenarios {
         return SpectralEdgeConnectionRail(ctx: ctx, native: native);
     }
 
-    // BOUNDARY ADAPTER — native mesh fixture; vertices welded into a closed box for SDF rails.
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "Ownership transfers to the scenario rail; the transient mesh is finalizer-released, matching the legacy corpus lifetime.")]
     private static Mesh ClosedBoxMesh() {
         Mesh mesh = Mesh.CreateFromBox(
             box: new BoundingBox(new Point3d(-3.0, -3.0, -3.0), new Point3d(3.0, 3.0, 3.0)),
@@ -406,9 +403,6 @@ internal static class VectorsScenarios {
         ctx.Expect(label: $"{label} cluster", projection: VectorCloud.Cluster(points: points, context: context, key: key))
             .Bind(cloud => Project<CloudCurvatureResult>(ctx: ctx, intent: VectorIntent.Cloud(cloud: cloud, metric: VectorCloudMetric.PrincipalCurvature, policy: Some(policy), key: key), context: context, key: key, label: label));
 
-    // BOUNDARY ADAPTER — degenerate-face fixture: three disjoint triangles plus one zero-area
-    // sliver face, exercising the assembly's degenerate-face skip counter.
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "Ownership transfers to the using-scoped caller.")]
     private static Mesh DegenerateFaceMesh() {
         Mesh mesh = new();
         _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
@@ -428,9 +422,6 @@ internal static class VectorsScenarios {
         return mesh;
     }
 
-    // BOUNDARY ADAPTER — duplicate-coordinate RTree probe; the native PointCloud and its kNN ids
-    // feed both the dedup admission receipt and the PointAt round-trip law.
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "Ownership transfers to the scenario rail; lifetime matches the legacy corpus.")]
     private static (Point3d[] Points, PointCloud Cloud, int[][] Ids) DuplicateProbe() {
         Point3d[] points = [
             new Point3d(x: 0.0, y: 0.0, z: 0.0),
@@ -452,9 +443,6 @@ internal static class VectorsScenarios {
             let py = iy * step
             select new Point3d(x: px, y: py, z: z(px, py)));
 
-    // BOUNDARY ADAPTER — raw native iso-surface callback probe: proves the parallel evaluator
-    // callback fires with thread fan-out, independent of the Rasm field rail.
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "Ownership transfers to the scenario rail; lifetime matches the legacy corpus.")]
     private static (Mesh Iso, int Samples, int Threads) NativeIsoProbe(BoundingBox bounds) {
         ConcurrentDictionary<int, int> threads = new();
         int samples = 0;
@@ -476,7 +464,6 @@ internal static class VectorsScenarios {
     private static string Text(object? value) =>
         Convert.ToString(value: value, provider: System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
 
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "Ownership transfers to the scenario rail; lifetime matches the legacy corpus.")]
     private static Mesh OpenGrid() {
         Mesh mesh = Mesh.CreateFromPlane(
             plane: Plane.WorldXY,
@@ -489,7 +476,6 @@ internal static class VectorsScenarios {
         return mesh;
     }
 
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "Ownership transfers to the caller; spectral entrypoints dispose via using.")]
     private static Mesh OpenSquare() {
         Mesh mesh = Mesh.CreateFromPlane(
             plane: Plane.WorldXY,
@@ -651,8 +637,6 @@ internal static class VectorsScenarios {
         let toleranceFact = Note(ctx: ctx, key: "solverTolerance", value: solver.ResidualTolerance.Value)
         select unit;
 
-    // BOUNDARY ADAPTER — quad-strip torus fixture: genus-1 topology for the Hodge unsupported law.
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "Ownership transfers to the using-scoped caller.")]
     private static Mesh TorusMesh(int uCount, int vCount) {
         Mesh mesh = new();
         const double major = 3.0;
@@ -679,7 +663,6 @@ internal static class VectorsScenarios {
         return mesh;
     }
 
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "Ownership transfers to the using-scoped caller.")]
     private static Mesh Tetrahedron() {
         Mesh mesh = new();
         _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);

@@ -13,15 +13,15 @@ Operate as a senior developer in a bleeding-edge monorepo; use the newest viable
 
 If reviewing, refining, editing, creating, or modifying X file type, use skill Y (required):
 
-| [INDEX] | [FILE_TYPE]                         | [REQUIRED_SKILL]     |
-| :-----: | ----------------------------------- | -------------------- |
-|   [1]   | TypeScript (`.ts`, `.tsx`)          | `coding-ts`          |
-|   [2]   | C# production (`.cs`)               | `docs/stacks/csharp` |
-|   [3]   | C# tests (`.spec.cs`)               | `testing-cs`         |
+| [INDEX] | [FILE_TYPE]                          | [REQUIRED_SKILL]     |
+| :-----: | ------------------------------------ | -------------------- |
+|   [1]   | TypeScript (`.ts`, `.tsx`)           | `coding-ts`          |
+|   [2]   | C# production (`.cs`)                | `docs/stacks/csharp` |
+|   [3]   | C# tests (`.spec.cs`)                | `testing-cs`         |
 |   [4]   | Runtime scenarios (`Scenarios/*.cs`) | `testing-cs`         |
-|   [5]   | Python (`.py`)                      | `coding-python`      |
-|   [6]   | Bash/sh (`.sh`, `.bash`)            | `coding-bash`        |
-|   [7]   | SQL (`.sql`)                        | `coding-pg`          |
+|   [5]   | Python (`.py`)                       | `coding-python`      |
+|   [6]   | Bash/sh (`.sh`, `.bash`)             | `coding-bash`        |
+|   [7]   | SQL (`.sql`)                         | `coding-pg`          |
 
 - Treat `docs/stacks/csharp` as the only source of truth for csharp coding standards, and as a skill. All code MUST adhere to the doctrine stated in `docs/stacks/csharp/README.md`. All code is built on the standards of: `docs/stacks/csharp/language.md` + `docs/stacks/csharp/shapes.md` + `docs/stacks/csharp/surfaces-and-dispatch.md` + `docs/stacks/csharp/rails-and-effects.md` + `docs/stacks/csharp/boundaries.md` + `docs/stacks/csharp/algorithms.md` + `docs/stacks/csharp/system-apis.md`
 - Use `docs/stacks/csharp/domain` for specialized `.cs` file functionality and concers, file routing: `docs/stacks/csharp/domain/README.md`
@@ -105,6 +105,11 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Static analysis, tests, runtime scenarios, metadata lookup, formatting, restore, and generated-contract checks stay orthogonal. Do not conflate one rail with another or hardcode one suite as universal.
 - [ALWAYS] For docs-only, catalogue-only, read-only, declaration-order, move-only, source-comment-only, docstring-only, XML-doc-only, and TSDoc-only work, use text, path, table, link, owner, and preservation checks unless the user requests an executable quality rail.
 - [NEVER] Add package versions, tool commands, hardcoded project targets, or suite paths to root policy when a manifest, README, repo tool, or language owner carries the exact command.
+- [ALWAYS] LSP owns live navigation + post-edit diagnostics over LOCAL source (def/refs/hover/symbols/call-hierarchy).
+- [ALWAYS] `assay api` owns EXTERNAL-artifact decompile/reflection (Rhino DLLs, NuGet, installed py dists, `node_modules` `*.d.ts`) — no LSP substitute.
+- [ALWAYS] `assay code` owns structural/pattern search (ast-grep `$metavars`, tree-sitter queries) + CI artifacts; prefer LSP for plain single-symbol nav.
+- [ALWAYS] `assay static/test/bridge/package` own the gating quality rails; mutation (ast-grep rewrite, `shfmt -w`, sqlfluff fix, `dotnet format`) stays in assay — the LSP tool is read-only.
+- See `tools/assay/README.md` for rail/verb detail.
 
 ### [5.3]-[PLAN_DISCIPLINE]
 

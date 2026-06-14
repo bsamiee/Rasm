@@ -3,12 +3,28 @@
 Open issues only. **Every item is verified real** (reproduced, or confirmed against installed-library source) — nothing speculative. Closed-wave history lives in git (this file at 2026-06-10 held the pre-closeout backlog; the 2026-06-11 closeout session landed or explicitly rejected everything except the items below). Companion: `.cache/testing-infra-research-ledger.md` holds the research delta and earlier rejected-with-rationale rows (frozendict, schemathesis, CrossHair-as-dep, atheris, codspeed, ghostwriter — declined on portability/theater grounds; do not re-propose).
 
 
-## TOP CONCERN — finalization blockers (2026-06-12 rebuild session; resolve IN ORDER before anything else)
+## OPEN WORK — 2026-06-14 finalization plan (ordered; supersedes the 2026-06-12 TOP CONCERN ordering)
 
-The dual rebuild now has the canonical bridge tree in place and the supervisor kernel present, but cutover is not
-signed off until live supervisor proofs, quit hygiene, and Assay path-walking proof all pass on the renamed tree. Full
-mechanics for every row live in "Tooling issues observed this session" below and in `.cache/closeout-2026-06-12/`
-(the binding closeout SPEC.md, host-bound verdicts, static-opt research, testkit DECISION.md, VPS runbook).
+Phase order runs smallest/safest -> live/heaviest. Per-row mechanics live in the issue/smell rows below and in
+`.cache/closeout-2026-06-12/` (closeout SPEC.md, host-bound verdicts, static-opt research, testkit DECISION.md, VPS runbook).
+
+1. **[DONE 2026-06-14] Bound build-scope retention** — `ArtifactStore.retain_builds(keep)` + `build_scope_retention=24`, called from `registry._persist`; the stable `build/<closure>/<config>` dirs now prune oldest-first like history/scopes.
+2. **[DONE 2026-06-14] Stale litter + balloon reclaim** — `.artifacts/rhino-bridge-next`, `.cache/mut-venv`, `.cache/mutation-requirements.txt` deleted; the 13 GB `build/` balloon reclaimed to the new bound; frozen-tree litter sweep clean.
+3. **Collapse the 3x supervisor poll loops** onto one `Schedule`-driven `Poll.Until` combinator (Session.cs `LaunchAndPoll` + HostControl `QuitLadder`/`HostWatch`). -> Phase 2.1; bridge smell below.
+4. **`Stub.cs` endpoint-filename dedup** onto `EndpointRecord.EndpointPath`/`EndpointDirectory`. -> Phase 2.2.
+5. **Project supervisor `Host`/`Capabilities` into assay** so doctor/quit/launch/check/clean carry structured host+capability facts. -> Phase 2.3; assay smell below.
+6. **Wire `Evidence.GcDump` into the live cargo-unload-leak path** (Session.cs `VerifyAsync`). -> Phase 2.4; closeout row below.
+7. **Assay micro-smell polish** (package `_yak_*_tail`, `mutation_gate` dict-merge; hypothesis-gated). -> Phase 2.5.
+8. **Collapse static `check`+`build`+`fix` into ONE polymorphic `static` verb** (auto-fix -> diagnose -> restore -> build per language). -> Phase 3 (updates the rejected-with-rationale static-surface row on landing).
+9. **SSH offload finalization incl. live VPS** — bridge/package reject `exec_target` (HARD INVARIANT); execution-side artifact placement + uniform path translation; S3/GCS store laws vs `Bucket`; loopback + live `root@31.97.131.41` proofs. -> Phase 4; remote rail + governance rows below.
+10. **Static-rail perf + flag posture + PATH-WALKING proof matrix.** -> Phase 5; static-rail performance row below.
+11. **Live bridge proof matrix** — full 28-scenario matrix, U6 dirty-quit, U8 soak, MCP/GH2 capability facts, `vectors.SpectralDec` doc scope + open-quad DEC production fix. -> Phase 6; bridge issue rows below.
+12. **Terminal verification** — staged mutation gate vs the 0.80 floor, `.archive/quality` A/B + delete, full gates, final truth-sync. -> Phase 7.
+
+### Lifecycle/cutover mechanics (Phase 6-7 detail; ordering above is binding)
+
+The dual rebuild has the canonical bridge tree in place and the supervisor kernel present; cutover is not signed off
+until the live supervisor proofs, quit hygiene, and Assay path-walking proof all pass on the renamed tree.
 
 1. **Supervisor session kernel present; full-matrix proof incomplete** — `SessionKernel` now owns launch -> endpoint
    poll -> pipe connect -> Hello -> LoadCargo -> Run -> SessionFold envelope -> PrepareQuit -> QuitLadder, and doctor
@@ -128,12 +144,12 @@ cyclopts 4.16.1 `help/help.py` (the `if argument.show_default:` block) renders E
 
 ### `tools/assay`
 - **`Diagnostic.failing_step` carries `Step` members in-process but plain `str` after a wire round-trip** — `==`/`!=` comparisons are safe (StrEnum), identity (`is Step.X`) on decoded envelopes silently fails. The one existing comparison site uses `!=`; flag if identity comparison is ever introduced.
-- **Bridge envelope fact projection is still verify-heavy** — `verify` carries structured `VerifySummary` facts/captures, but `doctor`, `quit`, and lifecycle aliases still require opening the supervisor envelope/artifacts for some host/version/capability details. Assay should project the bridge-owned facts uniformly without recreating lifecycle logic.
+- **Bridge envelope fact projection is still verify-heavy** — `verify` carries structured `VerifySummary` facts/captures, but `doctor`, `quit`, and lifecycle aliases still require opening the supervisor envelope/artifacts for some host/version/capability details. Assay should project the bridge-owned `Host`/`Capabilities` facts uniformly without recreating lifecycle logic. OPEN -> Phase 2.3.
 
 ### `tools/rhino-bridge`
-- **`SessionPolicy.Connect` and `QuitLadder` are declared policy values, but the live kernel still has manual poll/quit loops** — acceptable at the boundary for now, but below the LanguageExt schedule doctrine. Collapse the execution path onto the declared policy rows or delete unused policy rows.
-- **Endpoint path ownership is local to `SessionRun.ReadLiveEndpoint()`** — collapse endpoint filename/path ownership with the shell/host-control endpoint owner so the path resolves in one hop.
-- **`SessionFold.Divergence()` builds JSON by interpolating text and parsing it back** — safe for the current numeric payload, but weaker than the generated JSON contract posture; replace with a typed/source-generated projection.
+- **`SessionPolicy.Connect` and `QuitLadder` are declared policy values, but the live kernel still has manual poll/quit loops** — below the LanguageExt schedule doctrine; collapse the 3 hand-rolled poll loops onto one `Schedule`-driven combinator. OPEN -> Phase 2.1.
+- **[DONE 2026-06-14] Endpoint path ownership one-hop** — `SessionRun.ReadLiveEndpoint()` resolves through `EndpointRecord.EndpointPath` (Session.cs:333). The remaining endpoint-path duplication is `Stub.cs`'s local `EndpointFileName` const -> Phase 2.2.
+- **[DONE 2026-06-14] `SessionFold.Divergence()` typed JSON** — folds through the `EvidenceDivergence` record + STJ source-gen (Session.cs:562-579), not interpolated-then-reparsed text.
 
 ### `tests/python` (carried intent flags)
 - **`SeamProbe.projected[K]` unused** in the assay specialization (`commands`/`checks` read `captured` directly). Retained as a real engine affordance (post-hoc `calls`-log view distinct from the per-call `project` stream) — flag so a reviewer does not strip it as dead.

@@ -257,13 +257,11 @@ internal static class SessionKernel {
                 return Fin.Fail<LiveHost>(error: Error.New(message: launchFault.Prescription));
             }
             Phase(SessionPhase.Launch, PhaseStatus.Ok, durationMs: Elapsed(started: started));
-            long until = Environment.TickCount64 + (long)runtime.Policy.ConnectDeadline.TotalMilliseconds;
-            while (Environment.TickCount64 < until && !runtime.Root.IsCancellationRequested) {
-                if (ReadLiveEndpoint() is Fin<LiveHost>.Succ(LiveHost live)) {
-                    Phase(SessionPhase.Connect, PhaseStatus.Ok, durationMs: Elapsed(started: started));
-                    return Fin.Succ(value: live);
-                }
-                Thread.Sleep(timeout: runtime.Policy.WatchPoll);
+            if (Poll.Until(probe: static () => ReadLiveEndpoint() is Fin<LiveHost>.Succ(LiveHost found) ? Some(value: found) : Option<LiveHost>.None,
+                    deadline: runtime.Policy.ConnectDeadline, cadence: runtime.Policy.WatchPoll, ct: runtime.Root)
+                is Fin<LiveHost>.Succ(LiveHost live)) {
+                Phase(SessionPhase.Connect, PhaseStatus.Ok, durationMs: Elapsed(started: started));
+                return Fin.Succ(value: live);
             }
             BridgeFault.ConnectFailed connectFault = new(
                 Detail: "endpoint did not appear before connect deadline", ElapsedMs: Elapsed(started: started));

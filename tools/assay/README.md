@@ -99,6 +99,7 @@ This table is a lookup by command surface and verb set:
 - Output: `Match` rows and rail artifacts.
 - Use: literal patterns route to ripgrep content search; `$NAME` metavar patterns route to ast-grep structural search; `query` runs an in-process tree-sitter AST query.
 - Grep overlap: the content sub-arm intentionally overlaps the harness Grep tool. It is kept deliberately so a content search produces the same one-`Envelope`, artifact-backed result contract as every other rail rather than raw matcher output.
+- LSP boundary: prefer the native LSP ops for live single declared-symbol navigation — definition, implementation, references, hover, call hierarchy — and for post-edit diagnostics; reach for `code search`/`code query` for arbitrary tree-sitter patterns, `$NAME` metavar and predicate-filtered captures, structural search, and the one-`Envelope` artifact contract; `api` owns external compiled-artifact decompile/reflection, which has no LSP substitute. The rails are orthogonal — nothing here forwards to or is replaced by the LSP tool.
 - Example: `uv run python -m tools.assay code search --pattern run_check --python tools/assay`
 
 [TEST_COMMANDS]:

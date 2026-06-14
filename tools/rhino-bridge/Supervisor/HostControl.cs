@@ -324,6 +324,29 @@ internal static class Exec {
         _ = line is null ? buffer : buffer.AppendLine(value: line);
 }
 
+// Ownership: the bounded-liveness-poll capsule every host-control wait rides (endpoint appearance,
+// quit-rung exit, degraded host-exit watch). One named statement kernel collapses the hand-rolled
+// connect/quit/watch loops onto one policy-driven shape; the synchronous native probe
+// (File.Exists / Posix.Alive) is the platform-forced statement seam, and the deadline value
+// discriminates the bounded session poll from the unbounded background watch (InfiniteTimeSpan).
+internal static class Poll {
+    internal static Fin<T> Until<T>(Func<Option<T>> probe, TimeSpan deadline, TimeSpan cadence, CancellationToken ct) {
+        ArgumentNullException.ThrowIfNull(argument: probe);
+        bool unbounded = deadline == Timeout.InfiniteTimeSpan;
+        long until = unbounded ? 0L : Environment.TickCount64 + (long)deadline.TotalMilliseconds;
+        while ((unbounded || Environment.TickCount64 < until) && !ct.IsCancellationRequested) {
+            if (probe() is { IsSome: true, Case: T value })
+                return Fin.Succ(value: value);
+            Thread.Sleep(timeout: cadence);
+        }
+        return probe() is { IsSome: true, Case: T settled }
+            ? Fin.Succ(value: settled)
+            : Fin.Fail<T>(error: Error.New(message: ct.IsCancellationRequested
+                ? "liveness poll cancelled"
+                : string.Create(provider: CultureInfo.InvariantCulture, $"liveness poll exceeded its {deadline.TotalMilliseconds:F0}ms deadline")));
+    }
+}
+
 // Ownership: instant host-exit detection — the charter D-7 kqueue NOTE_EXIT kernel with the
 // 250 ms PID-poll swap-in fallback. Mode reports which lane attached so the degradation itself
 // becomes a fact at the session fold. The wait loop wakes at WatchPoll granularity solely so
@@ -331,7 +354,7 @@ internal static class Exec {
 internal sealed class HostWatch : IDisposable {
     private readonly int kq;
     private readonly Thread watcher;
-    private volatile bool disposed;
+    private readonly CancellationTokenSource life = new();
 
     private HostWatch(int kq, string mode, int pid, Action<SessionSignal> raise, TimeSpan poll, TimeProvider clock) {
         this.kq = kq;
@@ -368,34 +391,35 @@ internal sealed class HostWatch : IDisposable {
     }
 
     public void Dispose() {
-        disposed = true;
+        life.Cancel();
         if (kq >= 0)
             _ = Posix.Close(fd: kq);
         _ = watcher.Join(timeout: TimeSpan.FromSeconds(value: 2));
+        life.Dispose();
     }
 
-    // D-7 named statement kernel: the watch loop is the one place a blocking syscall wait lives.
+    // The kqueue NOTE_EXIT wait is the D-7 named statement kernel (the one place a blocking syscall
+    // wait lives), woken at WatchPoll granularity solely so Dispose can stop it; the degraded lane
+    // (kqueue refused) rides the shared Poll.Until liveness cadence, unbounded until exit or disposal.
     private void Watch(int pid, Action<SessionSignal> raise, TimeSpan poll, TimeProvider clock) {
+        if (kq < 0) {
+            if (Poll.Until(probe: () => Posix.Alive(pid: pid) ? Option<Unit>.None : Some(value: unit),
+                           deadline: Timeout.InfiniteTimeSpan, cadence: poll, ct: life.Token).IsSucc)
+                raise(new SessionSignal.HostExited(Pid: pid, AtUnixMs: clock.GetUtcNow().ToUnixTimeMilliseconds()));
+            return;
+        }
         Posix.TimeSpec wake = new() {
             Seconds = (nint)(poll.Ticks / TimeSpan.TicksPerSecond),
             Nanoseconds = (nint)(poll.Ticks % TimeSpan.TicksPerSecond * 100),
         };
-        while (!disposed) {
-            if (kq >= 0) {
-                int landed = Posix.KEventWait(kq: kq, changeList: 0, changes: 0, eventOut: out Posix.KEvent observed, events: 1, timeout: in wake);
-                if (landed > 0 && (observed.FFlags & Posix.NoteExit) != 0) {
-                    raise(new SessionSignal.HostExited(Pid: pid, AtUnixMs: clock.GetUtcNow().ToUnixTimeMilliseconds()));
-                    return;
-                }
-                if (landed < 0 && Marshal.GetLastPInvokeError() != 4 /* EINTR */)
-                    return;
-            } else {
-                if (!Posix.Alive(pid: pid)) {
-                    raise(new SessionSignal.HostExited(Pid: pid, AtUnixMs: clock.GetUtcNow().ToUnixTimeMilliseconds()));
-                    return;
-                }
-                Thread.Sleep(timeout: poll);
+        while (!life.IsCancellationRequested) {
+            int landed = Posix.KEventWait(kq: kq, changeList: 0, changes: 0, eventOut: out Posix.KEvent observed, events: 1, timeout: in wake);
+            if (landed > 0 && (observed.FFlags & Posix.NoteExit) != 0) {
+                raise(new SessionSignal.HostExited(Pid: pid, AtUnixMs: clock.GetUtcNow().ToUnixTimeMilliseconds()));
+                return;
             }
+            if (landed < 0 && Marshal.GetLastPInvokeError() != 4 /* EINTR */)
+                return;
         }
     }
 }
@@ -564,7 +588,8 @@ internal static class QuitLadder {
             : Exec.Run(file: "osascript",
                 args: ["-l", "JavaScript", "-e", Jxa(pid: host.Pid, verb: rung == SessionPhase.QuitAe ? "terminate" : "forceTerminate")],
                 deadline: runtime.Policy.QuitRungDeadline).Map(f: static result => result.ExitCode == 0);
-        bool closed = WaitForExit(pid: host.Pid, deadline: runtime.Policy.QuitRungDeadline, poll: runtime.Policy.WatchPoll);
+        bool closed = Poll.Until(probe: () => Posix.Alive(pid: host.Pid) ? Option<Unit>.None : Some(value: unit),
+            deadline: runtime.Policy.QuitRungDeadline, cadence: runtime.Policy.WatchPoll, ct: CancellationToken.None).IsSucc;
         long endedMs = runtime.Clock.GetUtcNow().ToUnixTimeMilliseconds();
         publish(new BridgeEvent.PhaseCase(Phase: rung, Status: closed ? PhaseStatus.Ok : PhaseStatus.Failed, DurationMs: endedMs - startedMs, Fault: null) {
             Stamp = new EventStamp(SessionId: sessionId, Sequence: 0, AtUnixMs: endedMs, Scenario: null),
@@ -574,17 +599,6 @@ internal static class QuitLadder {
         _ = QuitJournal.Append(path: runtime.JournalPath, entry: new QuitJournalEntry(
             Pid: host.Pid, StartedAtUnixMs: host.StartedAtUnixMs, RetiredAtUnixMs: endedMs, Rung: rung.Key, PipeName: host.Endpoint.PipeName));
         return Some(value: PhaseStatus.Ok);
-    }
-
-    // D-7 named statement kernel: rung confirmation is a bounded liveness wait at WatchPoll cadence.
-    private static bool WaitForExit(int pid, TimeSpan deadline, TimeSpan poll) {
-        long until = Environment.TickCount64 + (long)deadline.TotalMilliseconds;
-        while (Environment.TickCount64 < until) {
-            if (!Posix.Alive(pid: pid))
-                return true;
-            Thread.Sleep(timeout: poll);
-        }
-        return !Posix.Alive(pid: pid);
     }
 }
 
