@@ -1,12 +1,8 @@
-"""Assay composition: registry, runners, Envelope emission, and history commands.
+"""Compose Assay registry rows into commands, rail runners, and persisted envelopes.
 
-Owns the full execution path from a parsed Cyclopts invocation to a written Envelope:
-claim dispatch, parameter binding and validation, rail-layer composition, artifact-scope
-lifecycle, one-Envelope-per-call invariant enforcement, history persistence, and the
-self-test/delta/parse-fault entry points that sit outside the REGISTRY fold.
-
-Public surfaces: REGISTRY (Bind tuple), build_app, rail, self_test, delta, parse_fault,
-Handler (type alias), and ORPHAN_MIN_AGE_S.
+This module owns claim dispatch, parameter binding, rail-layer composition, artifact
+scope lifecycle, one-envelope enforcement, history persistence, and root commands that
+sit outside the `REGISTRY` fold.
 """
 
 from collections import deque
@@ -92,7 +88,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# `P` is the verb params type, not a ParamSpec.
+# `P` is a verb-params type, not a ParamSpec.
 type Handler[P] = Callable[[AssaySettings, ArtifactScope, P], Result[Report, Fault]]
 type ReportLayer = Layer[[AssaySettings, ArtifactScope, object], Report]
 
@@ -112,15 +108,13 @@ _PROBE_CACHE_KEY: Final = "probe:%s"
 _PYPROJECT: Final[Path] = Path(__file__).resolve().parents[3] / "pyproject.toml"
 ORPHAN_MIN_AGE_S: Final = 900.0
 _ORPHAN_PROCESS_TOKENS: Final[frozenset[str]] = frozenset(("python", "python3", "uv", "ty"))
-# Longest-prefix-first: MODULE resolves before UV on the shared `uv run` head;
-# DIRECT and DOTNET omitted — argv[0] is the tool binary, no lockfile fold needed.
+# Prefix order is semantic: MODULE must win the shared `uv run` head before UV.
 _PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
     (Runner.MODULE.prefix, "uv.lock"),
     (Runner.UV.prefix, "uv.lock"),
     (Runner.PNPM.prefix, "pnpm-lock.yaml"),
 )
-# Help-truth usage slots: the claim default names the polymorphic positional surface; verb overrides
-# name the slots that BaseParams.bound projects out of paths (pattern/symbol/key/token stay legal tokens).
+# Claim slots name polymorphic positionals; verb slots name the tokens BaseParams.bound projects out of paths.
 _CLAIM_SLOTS: Final[dict[Claim, str]] = {
     Claim.STATIC: "[--all | --project PROJECT | --folder F... --file F...]",
     Claim.CODE: "PATTERN [PATHS]...",
@@ -131,7 +125,6 @@ _CLAIM_SLOTS: Final[dict[Claim, str]] = {
     Claim.DOCS: "[PATHS]...",
 }
 _VERB_SLOTS: Final[dict[tuple[Claim, str], str]] = {
-    (Claim.STATIC, "build"): "[--all | --project PROJECT]",
     (Claim.BRIDGE, "verify"): "[PATTERN]",
     (Claim.API, "resolve"): "[KEY [KIND]]",
     (Claim.API, "query"): "[SYMBOL]",
@@ -142,7 +135,7 @@ _VERB_SLOTS: Final[dict[tuple[Claim, str], str]] = {
 
 
 class _ProbeRow(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
-    # token encodes path+mtime; a tool upgrade changes the token and invalidates the cached entry.
+    # Path+mtime tokens invalidate cached probes on tool or lockfile upgrades.
     token: str = ""
     ts: float = 0.0
     note: str = ""
@@ -189,7 +182,7 @@ def _seed_parse_ring(dispatch: str, tokens: tuple[str, ...]) -> None:
 
 
 def _bound(params: object, claim: Claim, verb: str) -> Result[object, Fault]:
-    # BaseParams.bound validates positional arity; surplus tokens surface via _seed_parse_ring for hint distillation.
+    # BaseParams.bound owns arity; surplus tokens feed the parse ring for hint distillation.
     match params:
         case BaseParams() as p:
             match p.bound(verb):
@@ -232,7 +225,7 @@ def _distill(
     step = step if step is not None else _failing_step(fault)
     reason = fault.message.removeprefix(f"{step}: ") or (ring[-1] if ring else "")
     framing = f"{step}: after {duration_ms:.1f}ms"
-    # Reserve one byte for the space separating `budgeted` and the framing suffix, keeping len(hint) <= _HINT_CAP.
+    # Reserve the separator byte so the final hint cannot exceed _HINT_CAP.
     budgeted = reason[: max(_HINT_CAP - len(framing) - 1, 0)]
     hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
     truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
@@ -263,8 +256,7 @@ def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -
 
 def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report) -> Envelope:
     # FAILED reports carry a Diagnostic built from defect result rows, matching the fault-rail shape.
-    # The in-band N-of-M note rides the rails/code.py _cap_note grammar with the registry's full-report
-    # suffix; the cap that fired (results before artifacts) owns the (shown, total) pair.
+    # _cap_note owns the N-of-M grammar; the first cap tripped owns the (shown, total) pair.
     truncated = len(report.results) > _RESULT_CAP or len(report.artifacts) > _ARTIFACT_CAP
     if truncated:
         artifact = _full_report_artifact(settings, bind, report)
@@ -305,7 +297,7 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
 
 
 def _narrow(handler: object) -> Handler[object]:
-    # Rail modules rely on return annotations for beartype; FunctionType confirms the match without a cast.
+    # FunctionType preserves beartype's annotation contract without a cast.
     match handler:
         case FunctionType() as fn:
             return fn
@@ -323,7 +315,7 @@ def _validated(outcome: Result[Report, Fault]) -> Result[Report, Fault]:
 
 
 def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
-    # Owns the strict:/validation:/config: fault-prefix contract; rail modules must not emit these prefixes.
+    # The registry owns strict:/validation:/config: prefixes; rails must not emit them.
     try:
         return thunk()
     except FaultedPromotion as promoted:
@@ -376,11 +368,9 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
 def rail(bind: Bind, settings: AssaySettings | None = None) -> Callable[[object], Envelope]:
     """Build the registry runner for one bound verb.
 
-    Each call to the returned runner emits exactly one Envelope to stdout and,
-    unless the failing step is "parse", persists it to the history store.  Ring,
-    write counter, and resource snapshot context-vars are invocation-scoped and
-    reset in the finally block.  An OSError from ArtifactScope.open folds to a
-    FAULTED envelope rather than propagating.
+    Each invocation emits exactly one Envelope. Parse failures skip history persistence;
+    context variables are invocation-scoped; artifact-scope open failures fold to a
+    FAULTED Envelope instead of escaping.
 
     Args:
         bind: Registry row carrying the claim, verb, handler, and params type.
@@ -412,7 +402,7 @@ def rail(bind: Bind, settings: AssaySettings | None = None) -> Callable[[object]
 
 
 def _encode(envelope: Envelope) -> bytes:
-    # Lone surrogates in untrusted argv/paths raise UnicodeEncodeError; fold to a scrubbed FAULTED Envelope to preserve the one-Envelope contract.
+    # Scrub lone surrogates from untrusted argv/paths so the one-envelope contract survives encoding failure.
     try:
         return wire_encode(envelope)
     except UnicodeEncodeError:
@@ -463,7 +453,7 @@ def _delta_report(before_id: str, after_id: str, before: Envelope | None, after:
         case (Envelope() as b, Envelope() as a):
             (before_snap, before_keys), (after_snap, after_keys) = snapshot(before_id, b), snapshot(after_id, a)
             detail = RunDelta(before=before_snap, after=after_snap, added=len(after_keys - before_keys), removed=len(before_keys - after_keys))
-            # No note: status/counts/added/removed live in detail.before/after/added/removed — agents read the structured RunDelta.
+            # No note: RunDelta already owns status, counts, added, and removed.
             return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.OK),), detail=detail)
         case _:
             missing = after_id if after is None else before_id
@@ -554,7 +544,7 @@ def _probe_token(argv: tuple[str, ...]) -> str | None:
             return None
 
     def lock_path(name: str) -> str | None:
-        # Walks from the .venv shim (not the Nix-store target) to the nearest ancestor lockfile; None means program mtime alone forms the token.
+        # Start at the .venv shim so lockfile ancestry follows the workspace, not the Nix-store target.
         bases = Path(sys.executable).parents
         return next((str(base / name) for base in bases if (base / name).exists()), None)
 
@@ -633,7 +623,7 @@ def _probe_cache_load(settings: AssaySettings) -> dict[str, _ProbeRow]:
 def _probe_cache_store(
     settings: AssaySettings, prior: Mapping[str, _ProbeRow], fresh: Mapping[tuple[str, ...], tuple[str, bool]], current: frozenset[tuple[str, ...]]
 ) -> None:
-    # Best-effort; only token-resolvable probes for catalogued tools persist; removed-tool keys evict.
+    # Best-effort cache: persist token-resolvable catalog probes and evict removed-tool keys.
     fresh_rows = {
         _PROBE_CACHE_KEY % "\x00".join(argv): _ProbeRow(token=token, ts=time.time(), note=note, ok=ok)
         for argv, (note, ok) in fresh.items()
@@ -685,7 +675,7 @@ def _probe_note(check: Check, result: Result[Completed, Fault]) -> tuple[str, bo
             lines = d.stdout.decode(errors="replace").strip().splitlines()
             return f"tool {name}: {lines[0][:80] if lines else 'present'}", True
         case Completed() as d:
-            # Exit-code alone cannot distinguish a present-but-nonzero `--version` from a launcher that swallowed a missing-tool error.
+            # Nonzero --version output still proves the launcher exists; missing launchers return the fault rail.
             lines = (d.stdout or d.stderr).decode(errors="replace").strip().splitlines()
             version = f": {lines[0][:80]}" if lines else ""
             return f"tool {name}: present (exit {d.returncode}){version}", True
@@ -697,7 +687,7 @@ def _census() -> bool:
 
 
 def _yak_ready() -> bool:
-    # shutil.which matches the DIRECT runner's execvp PATH lookup; os.access would check CWD-relative paths instead.
+    # shutil.which mirrors DIRECT execvp lookup; os.access would check CWD-relative paths.
     import shutil  # noqa: PLC0415  # deferred: executed only on --rhino path
 
     return any(
@@ -708,7 +698,7 @@ def _yak_ready() -> bool:
 
 
 def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
-    # Missing tools appear in notes, not faults. Tool probes cache by (path, mtime, TTL); git probes are always live.
+    # Missing tools report as notes; tokenized tool probes cache, while git probes stay live.
     probes = (*_tool_probes(), _GIT_HEAD, _GIT_DIRTY)
     volatile = frozenset(c.tool.command for c in (_GIT_HEAD, _GIT_DIRTY))
     cache = _probe_cache_load(settings)
@@ -735,10 +725,8 @@ def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]
 def self_test(*, rhino: bool = False) -> Envelope:
     """Run the Assay composition preflight and emit a health Envelope.
 
-    Verifies handler callability for every REGISTRY row, claim coverage, rail-layer
-    composition, catalog census, and tool/process health probes.  When rhino is
-    True, the check additionally requires that a yak binary is present for the
-    PACKAGE claim; a missing yak yields FAILED rather than OK.
+    Verifies registry callability, claim coverage, rail-layer composition, catalog
+    census, and tool/process health. Rhino mode also requires `yak` for PACKAGE.
 
     Args:
         rhino: When True, fail if the Rhino packaging tool (yak) is not on PATH.
@@ -750,8 +738,7 @@ def self_test(*, rhino: bool = False) -> Envelope:
     bound_claims = frozenset(b.claim for b in REGISTRY)
     health_probes, health_notes = _health(settings)
     yak = _yak_ready()
-    # Roster derives from the Claim enum, not from REGISTRY: every declared claim must have at least one bound row,
-    # so the conjunct can actually fail when a claim loses its last verb (the REGISTRY-derived set was tautological).
+    # Claim enum coverage makes the check fail when a declared claim loses its last verb.
     healthy = all(callable(b.handler) for b in REGISTRY) and all(c in bound_claims for c in Claim) and _composes() and _census()
     status = RailStatus.FAILED if (not healthy or (rhino and not yak)) else RailStatus.OK
     summary = (
@@ -784,9 +771,7 @@ _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (
 )
 
 REGISTRY: Final[tuple[Bind, ...]] = (
-    Bind(Claim.STATIC, "check", static_rail.check, StaticParams, "Scoped non-mutating static execution."),
-    Bind(Claim.STATIC, "build", static_rail.build, StaticParams, "Scoped or whole-workspace diagnostics, restore, and build."),
-    Bind(Claim.STATIC, "fix", static_rail.fix, StaticParams, "Scoped native formatter and autofix."),
+    Bind(Claim.STATIC, "static", static_rail.run, StaticParams, "Polyglot quality: auto-fix + diagnose + build per language."),
     Bind(Claim.CODE, "search", code_rail.search, CodeParams, "Search: $-metavar -> ast-grep structural; literal -> ripgrep content."),
     Bind(Claim.CODE, "query", code_rail.query, CodeParams, "AST query via tree-sitter (in-process)."),
     Bind(Claim.TEST, "run", test_rail.run, TestParams, "Unit + coverage + mutation fold."),
@@ -833,8 +818,7 @@ _VERSION: Final[str] = _read_version()
 
 
 def _leaf(bind: Bind) -> Callable[[object], Envelope]:
-    # Cyclopts needs a concrete `params` default; functools.wraps is avoided because __wrapped__ exposes
-    # the defaultless runner to Cyclopts signature inspection. PEP 649 lazy annotations satisfy ty without imports.
+    # The params default must stay visible to Cyclopts; __wrapped__ would expose the defaultless runner.
     runner = rail(bind)
 
     def command(params: object = bind.params()) -> Envelope:
@@ -847,9 +831,11 @@ def _leaf(bind: Bind) -> Callable[[object], Envelope]:
     return command
 
 
-def _usage(bind: Bind) -> str:
+def _usage(bind: Bind, *, root_leaf: bool = False) -> str:
+    # Root-leaf usage omits the verb token for single-verb claims.
     slots = _VERB_SLOTS.get((bind.claim, bind.verb), _CLAIM_SLOTS[bind.claim])
-    return " ".join(part for part in ("Usage: assay", bind.claim.value, bind.verb, slots, "[OPTIONS]") if part)
+    verb = "" if root_leaf else bind.verb
+    return " ".join(part for part in ("Usage: assay", bind.claim.value, verb, slots, "[OPTIONS]") if part)
 
 
 def _register[**P](
@@ -873,9 +859,8 @@ def _register[**P](
 def build_app(registry: tuple[Bind, ...]) -> App:
     """Build the Cyclopts command tree from registry rows.
 
-    Groups rows by claim to produce one sub-app per claim, then registers each
-    verb as a leaf command under its claim sub-app.  self_test and delta are
-    registered directly on the root app outside the claim fold.
+    Multi-verb claims become sub-apps; single-verb claims register as root leaves.
+    `self_test` and `delta` stay outside the claim fold.
 
     Args:
         registry: Ordered Bind tuple; typically the module-level REGISTRY constant.
@@ -888,9 +873,7 @@ def build_app(registry: tuple[Bind, ...]) -> App:
         name="assay",
         help="Rasm polyglot quality operator.",
         version=_VERSION,
-        # Global --version is disabled so the token routes to verb params (PackageParams.version);
-        # with the default flag active, cyclopts intercepts `package plan --version X` and prints the
-        # app version on bare stdout — a total envelope-contract violation. `self-test` reports versions.
+        # Disable global --version so verb params can own the token and stdout remains envelope-only.
         version_flags=(),
         default_parameter=Parameter(show_default=True),
         result_action="return_value",
@@ -900,18 +883,26 @@ def build_app(registry: tuple[Bind, ...]) -> App:
         help_on_error=False,
     )
     keyed = sorted(registry, key=lambda b: b.claim.value)
-    subs = tuple(
-        reduce(
-            lambda app, row: _register(app, _leaf(row), name=row.verb, help=row.help, usage=_usage(row)),
-            tuple(rows),
-            App(name=claim.value, version_flags=(), usage=f"Usage: assay {claim.value} COMMAND"),
-        )
-        for claim, rows in groupby(keyed, key=attrgetter("claim"))
-    )
-    app = reduce(_register, subs, root)
+    groups = tuple((claim, tuple(rows)) for claim, rows in groupby(keyed, key=attrgetter("claim")))
+    app = reduce(_register_claim, groups, root)
     _register(app, self_test, name="self-test")
     _register(app, delta, name="delta")
     return app
+
+
+def _register_claim(app: App, group: tuple[Claim, tuple[Bind, ...]]) -> App:
+    # Single-verb claims are root leaves; multi-verb claims are sub-apps.
+    claim, rows = group
+    match rows:
+        case (single,):
+            return _register(app, _leaf(single), name=claim.value, help=single.help, usage=_usage(single, root_leaf=True))
+        case _:
+            sub = reduce(
+                lambda sub_app, row: _register(sub_app, _leaf(row), name=row.verb, help=row.help, usage=_usage(row)),
+                rows,
+                App(name=claim.value, version_flags=(), usage=f"Usage: assay {claim.value} COMMAND"),
+            )
+            return _register(app, sub)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

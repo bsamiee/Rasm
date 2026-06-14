@@ -1,9 +1,7 @@
-"""Assay tool catalog: static Tool rows for every supported runner/claim/language combination and msgspec decoders for structured tool output.
+"""Catalog Assay tool rows and structured-output decoders.
 
-TOOLS is the single source of truth for every runnable analysis surface.  select() is the
-only public query entry point; callers filter by Claim and optionally by Language.  The
-decoder constants (AST_MATCHES, CAPTURES, RG_EVENT) are shared wire decoders used by tool
-runners to deserialize structured output from ast-grep, tree-sitter, and ripgrep.
+`TOOLS` owns runnable analysis surfaces; `select` is the public query shape. Decoder
+constants parse ast-grep, tree-sitter, and ripgrep output into stable wire models.
 """
 
 import msgspec
@@ -29,7 +27,7 @@ class _Range(msgspec.Struct, frozen=True, gc=False):
 
 
 class AstMatch(msgspec.Struct, frozen=True, gc=False):
-    """One ast-grep match entry decoded from the JSON output array."""
+    """ast-grep JSON match row."""
 
     text: str = ""
     file: str = ""
@@ -39,7 +37,7 @@ class AstMatch(msgspec.Struct, frozen=True, gc=False):
 
 
 class Capture(msgspec.Struct, frozen=True, gc=False):
-    """Tree-sitter capture emitted by an in-process query."""
+    """Tree-sitter capture row emitted by in-process queries."""
 
     name: str = ""
     text: str = ""
@@ -67,7 +65,7 @@ class _RgData(msgspec.Struct, frozen=True, gc=False):
 
 
 class RgEvent(msgspec.Struct, frozen=True, gc=False):
-    """Ripgrep NDJSON event with `type` decoded as `kind`."""
+    """Ripgrep NDJSON event with wire `type` projected to `kind`."""
 
     kind: str = msgspec.field(default="", name="type")
     data: _RgData = msgspec.field(default_factory=_RgData)
@@ -134,8 +132,7 @@ TOOLS: tuple[Tool, ...] = (
             inputs=("pyproject.toml", ".gitignore", ".config/coverage-mutmut.ini", "tools/assay", "tests/python"),
             project=True,
         ),
-        # mutmut's in-process Coverage() must read relative_files=false or the covered-lines flip aborts at "no covered mutants".
-        # The rcfile rides stage.inputs so COVERAGE_RCFILE resolves against the staged cwd.
+        # The staged rcfile supplies relative_files=false; otherwise mutmut's covered-lines pass aborts before mutation.
         env=(("COVERAGE_RCFILE", ".config/coverage-mutmut.ini"),),
     ),
     # --- [TYPESCRIPT]
@@ -157,9 +154,8 @@ TOOLS: tuple[Tool, ...] = (
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error", "--verify-no-changes"), INCLUDE, CS, Claim.STATIC),
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error"), INCLUDE, CS, Claim.STATIC, mode=Mode.WRITE),
     Tool("dotnet-restore", DOTNET, ("restore", "--locked-mode"), PROJECT, CS, Claim.STATIC, mode=Mode.RESTORE),
-    # Effective argv gains two ArtifactScope-templated surfaces: the engine splices --artifacts-path from the
-    # build-closure scope, and the static rail pins -p:CspSarifDir=<run-scope>/sarif (inert until the conditioned
-    # ErrorLog lands in Directory.Build.props); fold() decodes the SARIF drops as evidence rows, never exit-code input.
+    # ArtifactScope supplies --artifacts-path; the static rail adds CspSarifDir for SARIF evidence rows.
+    # fold() consumes SARIF as report detail, never as an exit-code substitute.
     Tool("dotnet-build", DOTNET, ("build", "--no-restore", "-tl:off", "-v:quiet", "/clp:ErrorsOnly"), PROJECT, CS, Claim.STATIC, mode=Mode.BUILD),
     Tool("dotnet-test", DOTNET, ("test", "--minimum-expected-tests", "1"), PROJECT, CS, Claim.TEST, mode=Mode.RUN),
     Tool("dotnet-test", DOTNET, ("test", "--list-tests"), PROJECT, CS, Claim.TEST, mode=Mode.LIST),
@@ -175,7 +171,7 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool("rasm-bridge", DOTNET, ("run", "--no-build", "--", "verify"), PROJECT, CS, Claim.BRIDGE, mode=Mode.VERIFY),
     Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "-l", "cisde"), NONE, CS, Claim.API, mode=Mode.QUERY),
-    # py-api and ts-api INPROC thunks emit Capture arrays (same shape as tree-sitter), not ApiSurface JSON.
+    # INPROC API thunks emit Capture rows, matching tree-sitter query output.
     Tool("py-api", INPROC, ("py-api", "surface"), NONE, PY, Claim.API, mode=Mode.QUERY),
     Tool("py-api", INPROC, ("py-api", "member"), NONE, PY, Claim.API, mode=Mode.LIST),
     Tool("ts-api", INPROC, ("ts-api", "surface"), NONE, TS, Claim.API, mode=Mode.QUERY),
@@ -196,7 +192,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, PY, Claim.CODE, mode=Mode.QUERY),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, TS, Claim.CODE, mode=Mode.QUERY),
-    # ripgrep self-walks the tree; PY tag is census-only — rail globs narrow the language at invocation time.
+    # ripgrep self-walks the tree; the PY tag is census-only because rail globs narrow files at invocation.
     Tool(
         "ripgrep", DIRECT, ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git"), NONE, PY, Claim.CODE, mode=Mode.CONTENT
     ),
@@ -206,7 +202,7 @@ TOOLS: tuple[Tool, ...] = (
 
 
 def select(claim: Claim, language: Language | None = None) -> tuple[Tool, ...]:
-    """Return sorted catalog rows matching `claim` and optional `language`."""
+    """Return deterministic catalog rows for one claim and optional language."""
     return tuple(
         sorted(
             (t for t in TOOLS if t.claim is claim and (language is None or t.language is language)),
