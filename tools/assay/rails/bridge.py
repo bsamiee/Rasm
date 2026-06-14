@@ -1,4 +1,4 @@
-"""Run live Rhino bridge supervisor lifecycle and verification commands."""
+"""Run live Rhino bridge supervisor lifecycle and scenario verification rails."""
 
 from collections.abc import Callable  # noqa: TC003  # beartype resolves the public bridge_lease signature at runtime under PEP 649
 from dataclasses import dataclass
@@ -11,13 +11,13 @@ from typing import Final, override
 from expression import Error, Ok, Result
 import msgspec
 
-# beartype resolves ArtifactScope annotation in public function signatures at runtime under PEP 649
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001
+from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # beartype resolves public rail annotations at runtime
 from tools.assay.core.engine import leased, run_check
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
     BaseParams,
+    BridgeLifecycle,
     Check,
     Claim,
     Completed,  # noqa: TC001  # beartype resolves Result[Completed, Fault] forward-ref at runtime under PEP 649
@@ -108,6 +108,12 @@ class _HostFingerprint(msgspec.Struct, frozen=True, gc=False, omit_defaults=True
     runtime_version: str = ""
 
 
+class _CapabilityEntry(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
+    key: str = ""
+    outcome: str = ""  # PhaseStatus key token: ok / skipped / unsupported / failed / timeout / busy
+    receipt: str = ""
+
+
 class _ClosureManifest(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
     assemblies: tuple[str, ...] = ()
     scenario_assemblies: tuple[str, ...] = ()
@@ -155,6 +161,8 @@ class _SessionEnvelope(msgspec.Struct, frozen=True, gc=False, omit_defaults=True
     status: RailStatus = RailStatus.FAILED
     duration_ms: float = 0.0
     report_dir: str = ""
+    host: _HostFingerprint = msgspec.field(default_factory=_HostFingerprint)
+    capabilities: tuple[_CapabilityEntry, ...] = ()
     scenarios: tuple[_SessionScenario, ...] = ()
     evidence: tuple[_SessionEvidence, ...] = ()
     first_failure: str = ""
@@ -265,9 +273,9 @@ def _client_check(settings: AssaySettings, *args: str) -> Check:
 
 
 def client_run(settings: AssaySettings, *args: str, timeout: float | None = None) -> Result[Completed, Fault]:
-    """Run the rhino-bridge supervisor with the given verb arguments.
+    """Run the bridge supervisor with verb arguments and an optional deadline.
 
-    ``timeout`` is a wall-clock budget in seconds, mapped to the run deadline.
+    The optional timeout is a wall-clock budget in seconds mapped to the run deadline.
 
     Returns:
         Supervisor completion receipt, or an operational fault.
@@ -279,7 +287,7 @@ def client_run(settings: AssaySettings, *args: str, timeout: float | None = None
 
 
 def first_fault(envelope: _SessionEnvelope) -> tuple[str, str]:
-    """Extract first supervisor fault phase and message from a SessionEnvelope.
+    """Extract the first supervisor fault phase and bounded message.
 
     Returns:
         Fault phase plus bounded message, or empty strings when the session succeeded.
@@ -559,8 +567,8 @@ def _build_closure(settings: AssaySettings) -> Result[Completed, Fault]:
 def bridge_lease[T](settings: AssaySettings, action: Callable[[], Result[T, Fault]]) -> Result[T, Fault]:
     """Serialize an action through the process-global Rhino bridge lease.
 
-    One RhinoWIP.app exists per machine, so every supervisor, verify, and package
-    lifecycle command acquires the single ``bridge`` resource before touching the host.
+    The live host is a singleton per machine; supervisor, verify, and package lifecycle
+    commands acquire the shared ``bridge`` resource before touching it.
 
     Returns:
         Action result when the lease is held, or a busy/fault result otherwise.
@@ -569,7 +577,7 @@ def bridge_lease[T](settings: AssaySettings, action: Callable[[], Result[T, Faul
 
 
 def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Verify typed bridge scenarios under the live Rhino lease.
+    """Verify typed bridge scenarios under the live host lease.
 
     Returns:
         Verification report, or a lease/build/launch fault.
@@ -635,8 +643,38 @@ def _capture_row(evt: _SessionEvidence) -> tuple[str, str]:
     )
 
 
+def _host_rows(host: _HostFingerprint) -> tuple[tuple[str, str], ...]:
+    return tuple(
+        (axis, version)
+        for axis, version in (
+            ("bundle", host.bundle_version),
+            ("rhinoCommon", host.rhino_common_version),
+            ("grasshopper2", host.grasshopper2_version),
+            ("runtime", host.runtime_version),
+        )
+        if version
+    )
+
+
 def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report, Fault]:
-    return bridge_lease(settings, lambda: client_run(settings, verb, *args).map(lambda done: fold(Claim.BRIDGE, verb, (done,))))
+    def _fold_lifecycle(done: Completed) -> Report:
+        envelope = _decode_envelope(done)
+        phase, output = first_fault(envelope)
+        return fold(
+            Claim.BRIDGE,
+            verb,
+            (done,),
+            detail=BridgeLifecycle(
+                verb=verb,
+                report_dir=envelope.report_dir,
+                host=_host_rows(envelope.host),
+                capabilities=tuple((cap.key, cap.outcome, cap.receipt) for cap in envelope.capabilities),
+                first_fault_phase=phase,
+                first_fault_output=output,
+            ),
+        )
+
+    return bridge_lease(settings, lambda: client_run(settings, verb, *args).map(_fold_lifecycle))
 
 
 def doctor(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
@@ -650,7 +688,7 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) 
 
 
 def launch(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Launch the bridge host under the live Rhino lease.
+    """Launch the bridge host under the live host lease.
 
     Returns:
         Bridge lifecycle report or operational fault.
@@ -660,7 +698,7 @@ def launch(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) 
 
 
 def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:  # noqa: A001
-    """Terminate the bridge host under the live Rhino lease.
+    """Terminate the bridge host under the live host lease.
 
     Named to mirror the CLI token; shadows the Python builtin intentionally.
 

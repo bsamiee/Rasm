@@ -1,4 +1,4 @@
-"""Run test, list, coverage, and mutation rails."""
+"""Run test, discovery, coverage, and mutation rails."""
 
 from collections.abc import Callable  # noqa: TC003  # _MUTATION_SCOPE binds the projection type at import time
 from dataclasses import dataclass, replace
@@ -68,17 +68,15 @@ _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 _TESTS = msgspec.json.Decoder(TestRun)
 _ROSTER_ENCODER = msgspec.json.Encoder(order="deterministic")
-# CHANGED-lane scope projectors keyed by runner name: changed files → runner-native incremental selectors.
-# Stryker.NET takes repeatable `--mutate <glob>`; mutmut filters by MUTANT NAME, and names are module-dotted
-# (tools.assay.rails.docs.x_fn__mutmut_N), never file paths — a path-shaped glob silently matches zero mutants
-# and mutmut aborts. Runners absent here surface UNSUPPORTED on the CHANGED lane.
+# Runner-specific CHANGED mutation scopes: Stryker accepts file globs; mutmut requires module-dotted mutant names.
+# Runners absent here surface UNSUPPORTED on the CHANGED lane.
 _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
     "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f)),
     "mutmut": lambda files: tuple(f"{f.removesuffix('.py').replace('/', '.')}.*" for f in files),
 }
-# mutmut forks os.cpu_count() pytest children at the second tier, defeating mutation_max_cpu; the governor caps that fan.
+# mutmut self-parallelizes below the rail governor; --max-children caps that second tier.
 _MUTATION_GOVERNOR: frozenset[str] = frozenset(("mutmut",))
-# Lease-riding kill-rate gate over the staged mutmut cache; group splice only — never a catalog TOOLS row.
+# Lease-riding kill-rate gate over the staged mutmut cache; group splice only.
 _GATE_TOOL = Tool(
     name="mutmut-gate",
     runner=Runner.UV,
@@ -114,7 +112,7 @@ class TestParams(BaseParams):
 
     @override
     def bound(self, verb: str) -> TestParams | Fault:
-        """Validate mutually-exclusive language flags while preserving variadic targets.
+        """Validate language flag exclusivity while preserving variadic targets.
 
         Returns:
             Bound params, or a parse Fault when language flags conflict.
@@ -201,13 +199,12 @@ def _filter(expr: str) -> tuple[str, ...]:
 
 
 def _governor(tool: Tool, settings: AssaySettings) -> tuple[str, ...]:
-    # mutmut self-parallelizes to os.cpu_count() forked pytest children; --max-children binds the second tier to mutation_max_cpu.
+    # --max-children binds mutmut's internal pytest fan-out to mutation_max_cpu.
     return ("--max-children", str(settings.mutation_max_cpu)) if tool.name in _MUTATION_GOVERNOR else ()
 
 
 def _scoped_mutation(tool: Tool, params: TestParams, settings: AssaySettings, files: tuple[str, ...]) -> Tool | None:
-    # The single mutmut/Stryker argv shaper: every MUTATION row carries its governor; CHANGED additionally scopes to changed
-    # files. Runners absent from _MUTATION_SCOPE on the CHANGED lane yield None → UNSUPPORTED.
+    # One mutation argv shaper owns governors and changed-file scoping for every runner.
     govern = _governor(tool, settings)
     match (tool.mode, params.mutation, _MUTATION_SCOPE.get(tool.name)):
         case (Mode.MUTATION, MutationLane.CHANGED, None):
@@ -257,7 +254,7 @@ def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: A
 
 
 def _select(routed: Routed, params: TestParams, settings: AssaySettings) -> Routed:
-    # C# splices routed.projects for dotnet rows; --target pins to one csproj, --all unions default test target with changed-file closure.
+    # C# dotnet rows consume projects; --target pins one project, --all adds the default test target.
     match (routed.language.strategy, params.target, params.all):
         case ("glob", _, _):
             return routed
@@ -394,7 +391,7 @@ def _dispatch_all(
 
 
 def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
-    """Run the shared test route, eligibility, fan-out, and fold body.
+    """Run routed test eligibility, fan-out, mutation gating, and folding.
 
     Returns:
         Folded test report, or routing/spawn/lease fault.
@@ -436,9 +433,7 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
             )
         )
 
-    # Per-language mutation leases (mutation-python / mutation-csharp) let mutmut and Stryker run in parallel
-    # across agents; nested sorted non-blocking acquisition keeps contention deterministic and deadlock-free,
-    # and the kill-rate gate dispatched inside _work rides the held language lease.
+    # Sorted per-language mutation leases keep cross-agent contention deterministic and deadlock-free.
     def _nested(resources: tuple[str, ...]) -> Result[Report, Fault]:
         match resources:
             case (head, *rest):
@@ -487,9 +482,7 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
         artifacts = (*base.artifacts, _results_artifact(scope), *_roster_artifacts(settings, scope, discovered))
         roster = discovered[: params.limit] if params.limit > 0 else discovered
-        # discovered vs roster-after-limit is the truth test.py owns; the registry result cap (and its unified
-        # N-of-M note) owns any further downstream clip. detail.selected carries the pre-limit discovered total as
-        # the structured surface an agent reads, independent of the note.
+        # detail.selected preserves the pre-limit discovery total; registry caps own later clipping notes.
         detail = TestRun(selected=len(discovered)) if discovered else None
         note = (f"discovery: total={len(discovered)} returned={len(roster)}",) if discovered else ()
         diagnostics = tuple(

@@ -1,11 +1,4 @@
-"""Structural search, content search, and tree-sitter query rails for code.
-
-Implements two public verbs -- search and query -- over language-routed file sets.
-Search dispatches metavariable patterns to ast-grep structural search and literal
-patterns to ripgrep NDJSON content search; tree-sitter query runs in-process via
-INPROC thunks. All verbs produce a folded Report on the Ok rail and a Fault on the
-Error rail.
-"""
+"""Search code with ast-grep, ripgrep, and in-process tree-sitter query rails."""
 
 from dataclasses import dataclass, replace
 from functools import cache, reduce
@@ -84,20 +77,13 @@ class CodeParams(BaseParams):
 
     @override
     def bound(self, verb: str) -> CodeParams | Fault:
-        """Project the leading positional into the pattern slot for a code verb.
-
-        Code verbs are variadic over trailing paths, so positionals after the pattern
-        slot stay as search targets; a flag-supplied pattern is never overwritten. The
-        projected pattern is then validated non-blank -- a blank pattern (no positional,
-        an explicit empty string, or whitespace-only) is a parse fault, closing the
-        match-everything degeneracy for ``code search``.
+        """Project the leading positional into the pattern slot for code verbs.
 
         Args:
-            verb: The code verb name; controls whether a positional is consumed.
+            verb: Code verb name; search/query consume one leading pattern positional.
 
         Returns:
-            Projected CodeParams with pattern filled from positionals, or a Fault when
-            the resolved pattern is blank for a verb that requires one.
+            Bound params, or a parse fault when the required pattern is blank.
         """
         match language_choice(verb, csharp=self.csharp, python=self.python, typescript=self.typescript):
             case Fault() as fault:
@@ -363,8 +349,7 @@ def _ts_thunk(query_src: str, language: Language, root: Path, *, limit: int) -> 
 
 
 def _artifact(scope: ArtifactScope, verb: str, content: str, settings: AssaySettings) -> Artifact:
-    # run_id in the path prevents concurrent listing clobber; content hash enables delta to
-    # distinguish changed match sets across runs without reading the artifact body.
+    # run_id prevents concurrent listing clobber; content hash gives delta a body-free identity.
     raw = content.encode()
     digest = sha256(raw).hexdigest()[:12]
     path = scope.store.write_bytes(raw, ArtifactKind.CODE.value, verb, settings.run_id, "matches.txt")
@@ -372,8 +357,7 @@ def _artifact(scope: ArtifactScope, verb: str, content: str, settings: AssaySett
 
 
 def _safe_decode[T, E](decoder: msgspec.json.Decoder[T], raw: bytes, empty: E) -> T | E:
-    # Non-JSON stdout (e.g., tool panic output) degrades to empty rather than propagating
-    # MsgspecError across the fan-out pipeline; callers discriminate via the empty sentinel.
+    # Non-JSON stdout degrades to the sentinel so fan-out callers keep the rail shape.
     try:
         return decoder.decode(raw)
     except msgspec.MsgspecError:
@@ -392,9 +376,7 @@ def _ag_normalize(completeds: tuple[Completed, ...]) -> tuple[Completed, ...]:
 
 
 def _cap_note(shown: int, total: int, cap: int, *, saturated: bool = False, tail: str = "full listing in artifact") -> tuple[str, ...]:
-    # Truncation visibility: agents must always know what they are NOT seeing. `saturated`
-    # marks a source-level match-limit cut where `total` is a floor, not the true cardinality.
-    # `tail` names where the full payload lives; the registry passes its full-report suffix.
+    # Saturation means total is a floor; the note must name the full-payload route.
     detail = f"cap={cap}, match-limit saturated" if saturated else f"cap={cap}"
     return (f"results: {shown} of {total} ({detail}); {tail}",) if total > shown or saturated else ()
 
@@ -424,9 +406,7 @@ def _relevance(pattern: str, text: str) -> int:
     return max(1, min(100, len(pattern) * 100 // max(len(text), 1)))
 
 
-# Three rows, one projector: each row owns decode/extract, listing-line format, Match
-# projection, and the saturated flag for its match family. Output parity with the former
-# per-family projectors is law-pinned byte-for-byte in the rail spec file.
+# One row spec owns decode, listing text, Match projection, and saturation per match family.
 _AG_SPEC: Final[_RowSpec[AstMatch]] = _RowSpec(
     extract=lambda completeds: tuple(m for done in completeds for m in _safe_decode(AST_MATCHES, done.stdout or b"[]", ())),
     entry=lambda m: f"{m.file}:{m.range.start.line + 1}: {m.text}" + (f" => {m.replacement}" if m.replacement else ""),
@@ -452,8 +432,7 @@ _TS_SPEC: Final[_RowSpec[Capture]] = _RowSpec(
     ),
     saturated=lambda captures: any(c.truncated for c in captures),
 )
-# Only ripgrep NDJSON events with kind "match" carry hit data; begin, end, and summary
-# events are discarded at extract time.
+# Only ripgrep "match" events carry hit data; begin/end/summary events are intentionally dropped.
 _RG_SPEC: Final[_RowSpec[RgEvent]] = _RowSpec(
     extract=lambda completeds: tuple(
         e
@@ -478,8 +457,7 @@ _RG_SPEC: Final[_RowSpec[RgEvent]] = _RowSpec(
 def _project_rows[M](
     completeds: tuple[Completed, ...], cap: int, pattern: str, *, spec: _RowSpec[M]
 ) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
-    # Shared projection fold: extract -> cap -> Match rows; full listing stays uncapped;
-    # _cap_note is the single truncation-note owner across all three match families.
+    # Rows are capped for the report; artifact listing stays complete across match families.
     matches = spec.extract(completeds)
     rows = tuple(spec.row(m, pattern) for m in matches[:cap])
     return rows, "\n".join(spec.entry(m) for m in matches), _cap_note(len(rows), len(matches), cap, saturated=spec.saturated(matches))
@@ -509,14 +487,13 @@ def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailSta
 
 
 def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
-    """Dispatch a structural or content search over language-routed files.
+    """Dispatch structural or content search over language-routed files.
 
     Patterns containing a metavariable (``$NAME`` form) route to ast-grep structural
     search; all other patterns route to ripgrep content search.
 
     Returns:
-        Ok carrying the folded Report with match rows and an Artifact listing, or
-        Error carrying a Fault on routing, spawn, or lease failure.
+        Folded report with match rows and listing artifact, or a routing/spawn fault.
     """
     match bool(_METAVAR.search(params.pattern)):
         case True:
@@ -535,8 +512,7 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
 
 
 def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
-    # A synthetic Routed with no language files satisfies run_check's spawn shape; ripgrep
-    # is grammar-blind so no actual file routing is needed before the check is dispatched.
+    # Synthetic routing satisfies run_check; ripgrep remains grammar-blind until glob splicing.
     choice = _selected(params, "search")
     if isinstance(choice, Fault):
         return Error(choice)
@@ -549,8 +525,7 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
 
 
 def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, done: Completed) -> Report:
-    # ripgrep defect rows ride Report.results directly; routing the synthetic through `fold` would compute a
-    # discarded empty-text defect (the synthetic carries no stderr/stdout), so the Report is built honestly here.
+    # Direct report construction preserves ripgrep diagnostics that synthetic fold rows would discard.
     rows, listing, cap_notes = _project_rows((done,), params.max_results, params.pattern, spec=_RG_SPEC)
     status, notes = _rg_status(done.returncode, (done.stderr or b"").decode(errors="replace").strip(), has_rows=bool(rows))
     failed = status is RailStatus.FAILED
@@ -566,15 +541,14 @@ def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeP
 
 
 def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
-    """Run a tree-sitter query in-process over grammar-backed language files.
+    """Run an in-process tree-sitter query over grammar-backed language files.
 
     Queries execute via INPROC thunks; capture results are encoded into
     Completed.stdout to satisfy the fan-out contract. Files are prefiltered by
     literal byte needles when the query admits it.
 
     Returns:
-        Ok carrying the folded Report with capture rows and an Artifact listing, or
-        Error carrying a Fault on routing or spawn failure.
+        Folded report with capture rows and listing artifact, or a routing/spawn fault.
     """
     return _fan(settings, scope, params, verb="query", mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
         lambda done: _report(settings, scope, "query", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_TS_SPEC))

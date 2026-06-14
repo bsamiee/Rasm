@@ -1,13 +1,7 @@
-"""Resolve and query API metadata across host assemblies, NuGet packages, Python distributions, and TypeScript declarations.
+"""Resolve API metadata from host assemblies, packages, Python dists, and TS declarations.
 
-Exposes four public verbs: doctor inventories all source health; resolve maps a key to its
-asset paths; query walks the type/namespace/member hierarchy via ilspycmd (C#) or INPROC
-inspect/tree-sitter (Python/TypeScript); show previews a previously written artifact.
-
-Source resolution priority: host bundle (rhino-common, eto, gh2, ...) -> NuGet
-(Directory.Packages.props) -> installed Python distribution -> node_modules TypeScript
-declaration. Each source kind carries a distinct decompile/surface path; C# routes through
-ilspycmd subprocess, Python and TypeScript route through in-process thunks.
+Resolution priority is host bundle, NuGet manifest, installed Python distribution, then node_modules
+declarations. C# sources route through ilspycmd; Python and TypeScript sources route through INPROC thunks.
 """
 
 import annotationlib  # PEP 749: STRING annotations avoid evaluating unresolvable forward refs
@@ -163,11 +157,10 @@ class ApiParams(BaseParams):
 
     @override
     def bound(self, verb: str) -> ApiParams | Fault:
-        """Project positional tokens into the slots owned by an API verb.
+        """Project positional tokens into slots owned by an API verb.
 
         Args:
-            verb: One of doctor, resolve, query, or show; controls which positional
-                slots absorb paths[0] and paths[1] and what arity is legal.
+            verb: API verb controlling positional arity and slot projection.
 
         Returns:
             Bound params, or a parse fault for surplus positional tokens.
@@ -257,7 +250,7 @@ def _rhino_app(settings: AssaySettings) -> Path | None:
 
 
 def _host_source(settings: AssaySettings, key: str) -> _Source | None:
-    # Returns an empty _Source when the bundle is absent so doctor can report the row.
+    # Empty sources let doctor report absent bundles instead of hiding the row.
     match _HOST_SPECS.get(key):
         case None:
             return None
@@ -293,7 +286,7 @@ def _packages(settings: AssaySettings) -> dict[str, str]:
 
 
 def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP) -> tuple[tuple[str, int], ...]:
-    # Score order: exact match > prefix > substring > segment overlap, with subordinate char similarity.
+    # Ranking favors exact, prefix, substring, segment overlap, then character similarity.
     casefold = needle.casefold()
     segments = frozenset(casefold.replace("-", ".").split("."))
 
@@ -533,7 +526,7 @@ def _tsdecl_version(settings: AssaySettings, key: str) -> str:
 
 
 def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]:
-    # Resolver priority: host → NuGet → pydist → tsdecl; misses aggregate candidates across all kinds.
+    # Misses aggregate candidates across every resolver kind.
     packages = _packages(settings)
     resolvers: tuple[Callable[[], _Source | None], ...] = (
         lambda: _host_source(settings, key),
@@ -543,7 +536,7 @@ def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]
     )
 
     def _attempt(resolver: Callable[[], _Source | None]) -> _Source | None:
-        # Empty/NUL keys cause importlib.metadata.distribution() and glob scandir to raise; swallow at the resolver boundary.
+        # Empty/NUL keys can raise in metadata and glob resolvers; unknown stays a miss.
         try:
             return resolver()
         except ValueError, OSError:
@@ -732,7 +725,7 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
             cursor = QueryCursor(compiled.ok)
     cursor.match_limit = _RESULT_CAP
     nodes = tuple(node for group in cursor.captures(root).values() for node in group if _exported(node, is_dts=is_dts))
-    # Saturation mirrors code.py's _ts_file_captures: cursor-level match-limit OR roster overflow marks every kept row.
+    # Cursor match-limit or roster overflow marks every kept row as truncated.
     saturated = cursor.did_exceed_match_limit or len(nodes) > _RESULT_CAP
     return tuple(
         _span_capture("type", clipped, node, path, truncated=cut or saturated)
@@ -742,7 +735,7 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
 
 
 def _ts_member(root: Node, symbol: str, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
-    # Owner-qualified lookups match Foo first, then x within it; flat lookups anchor to depth-1 exports so a nested property_signature cannot win.
+    # Owner-qualified lookups search the owner first; flat lookups anchor to exported declarations.
     owner, _dot, target = symbol.rpartition(".")
     owner_node = next(
         (
@@ -786,7 +779,7 @@ def _ts_doc(node: Node) -> str:
 
 
 def _exported(node: Node, *, is_dts: bool) -> bool:
-    # Ambient .d.ts modules implicitly export top-level declarations; depth-1 under program or one ambient_declaration wrapper counts as exported.
+    # Ambient .d.ts top-level declarations count as exported, with one ambient wrapper admitted.
     chain = tuple(p.type for p in _parents(node))
     ambient_depth1 = is_dts and chain[1:] in {("program",), ("ambient_declaration", "program")}
     return "export_statement" in chain or ambient_depth1
@@ -1091,8 +1084,7 @@ def _api_source(source: _Source, *, status: RailStatus | None = None, selected: 
 
 
 def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[tuple[Match, ...], tuple[str, ...]]:
-    # Caller-supplied kind keeps type and scope match evidence distinct. Ids are identity-shaped
-    # (kind:row) rather than ordinal so delta's (id, line) comparison is meaningful across runs.
+    # Identity-shaped ids keep delta comparisons stable across result order changes.
     query = pattern.casefold()
 
     def score(text: str) -> int:
@@ -1172,7 +1164,7 @@ def _inventory_artifacts(settings: AssaySettings, sources: tuple[ApiSource, ...]
 
 
 def _doctor_row_text(source: ApiSource) -> str:
-    """Project one doctor inventory source into the stable ``key=value`` health grammar.
+    """Project one inventory source into the stable ``key=value`` health grammar.
 
     Grammar (single-space-separated, fixed key order):
     ``<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->``.
@@ -1335,7 +1327,7 @@ def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _
 
 
 def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
-    # NAMESPACE delegates to _resolve_namespace so a symbol that is also a type suffix decompiles rather than returning a namespace roster.
+    # Namespace-shaped symbols still decompile when they also match a type suffix.
     match shape_of(p.symbol):
         case SymbolShape.INDEX:
             rows = surface.namespaces or surface.types
@@ -1356,7 +1348,7 @@ def _rank_namespace(surface: _Surface, symbol: str) -> str:
 
 
 def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, rows: tuple[str, ...], p: ApiParams) -> Report:
-    # INDEX shape attaches the raw surface cache as a second artifact so callers can access the unfiltered ilspycmd output.
+    # INDEX includes the raw surface cache so callers can inspect unfiltered source output.
     source = surface.source
     artifact = _artifact(settings, source, f"{shape.value}.txt", "\n".join(rows))
     results, cap_notes = _matches(rows, ArtifactKind.SCOPE, p.grep)
@@ -1382,7 +1374,7 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
 
 
 def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> Report:
-    # Misses surface UNSUPPORTED with nearest candidates rather than bare EMPTY so callers can route to suggestions.
+    # Misses carry nearest candidates so callers can route to suggestions.
     source = surface.source
     needle = p.symbol.casefold()
     hits = tuple(fqn for fqn in surface.types if needle in fqn.casefold())
@@ -1393,7 +1385,7 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
         case _:
             results, cap_notes = _matches(hits, ArtifactKind.SCOPE, p.symbol)
             done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits", *cap_notes))
-            # Artifact carries the full hit set; results are capped at _RESULT_CAP.
+            # Results are capped; the artifact carries the full hit set.
             artifact = _artifact(settings, source, "search.txt", "\n".join(hits))
             detail = _api_detail(
                 source,
@@ -1420,7 +1412,7 @@ def _decompile_report(  # noqa: PLR0913,PLR0914  # all slots are structural call
     truncated: bool,
     p: ApiParams,
 ) -> Report:
-    # An empty signature means ilspycmd returned nothing; try namespace roster before falling to search.
+    # Empty signatures try namespace roster before falling to fuzzy search.
     match signature:
         case "":
             ns_key = _rank_namespace(surface, p.symbol)
@@ -1549,7 +1541,7 @@ def _cache_artifact(store: ArtifactStore, path: str) -> Artifact:
 
 
 def _slice(text: str, *, lines: str, grep: str, max_lines: int, full: bool) -> tuple[str, int, bool]:
-    # `--lines` range window applied after grep; `--full` overrides both.
+    # --lines windows after grep; --full overrides both.
     selected = tuple(line for line in text.splitlines() if not grep or grep.casefold() in line.casefold())
     match (full, lines.split(":", maxsplit=1)):
         case (True, _):

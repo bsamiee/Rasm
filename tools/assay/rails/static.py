@@ -1,4 +1,4 @@
-"""Static analysis rail: scoped diagnostics, build, and native fix."""
+"""Run one polyglot static lane: fix, diagnose, restore, then build."""
 
 from collections.abc import Callable  # noqa: TC003  # runtime: callable annotation is resolved through the rail layer
 from dataclasses import dataclass
@@ -48,16 +48,15 @@ type SkipRows = tuple[tuple[str, str, str], ...]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_BUILD_MODES: tuple[Mode, ...] = (Mode.RESTORE, Mode.BUILD)
-_CHECK_MODES: tuple[Mode, ...] = (Mode.CHECK, Mode.RESTORE, Mode.BUILD)
-_FIX_MODES: tuple[Mode, ...] = (Mode.WRITE,)
+# Fixed per-language order: writes land before diagnostics; restore precedes closure builds.
+_MODES: tuple[Mode, ...] = (Mode.WRITE, Mode.CHECK, Mode.RESTORE, Mode.BUILD)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StaticParams:
-    """Parameters for static check/build/fix."""
+    """Targets for the polyglot static lane."""
 
     all: Annotated[
         bool,
@@ -159,10 +158,10 @@ def _tool_skip(tool: Tool, routed: Routed) -> str:
             return ""
 
 
-def _phase_checks(routed: Routed, modes: tuple[Mode, ...], settings: AssaySettings, scope: ArtifactScope) -> tuple[PhaseChecks, SkipRows]:
+def _phase_checks(routed: Routed, settings: AssaySettings, scope: ArtifactScope) -> tuple[PhaseChecks, SkipRows]:
     rows = tuple(
         (_phase(active), projected, _tool_skip(projected, routed))
-        for active in modes
+        for active in _MODES
         for tool in select(Claim.STATIC, routed.language)
         if tool.mode is active
         for projected in (_routed_tool(tool, routed),)
@@ -170,7 +169,7 @@ def _phase_checks(routed: Routed, modes: tuple[Mode, ...], settings: AssaySettin
     selected = tuple((phase, Check(tool=_dotnet_policy(tool, settings, scope), paths=routed.files)) for phase, tool, reason in rows if not reason)
     skipped = tuple((phase, tool.name, reason) for phase, tool, reason in rows if reason)
     expanded = tuple((phase, clone) for phase, check in selected for clone in expand((check,), routed, settings=settings))
-    phases = tuple(dict.fromkeys(_phase(mode) for mode in modes))
+    phases = tuple(dict.fromkeys(_phase(mode) for mode in _MODES))
     return tuple((phase, tuple(check for row_phase, check in expanded if row_phase == phase)) for phase in phases), skipped
 
 
@@ -182,7 +181,7 @@ def _argv(check: Check, routed: Routed, settings: AssaySettings, scope: Artifact
     return argv_for(check, routed, settings=settings, scope=scope).map(" ".join).default_value(f"{check.tool.name}:<unplaced>")
 
 
-def _planned(_verb: str, routed: Routed, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope) -> tuple[tuple[str, str, str], ...]:
+def _planned(routed: Routed, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope) -> tuple[tuple[str, str, str], ...]:
     active_scope = ArtifactScope.build(settings, _build_sha(routed), disable_build_servers=False) if _uses_build_scope(routed, phases) else scope
     return tuple((phase, check.tool.name, _argv(check, routed, settings, active_scope)) for phase, checks in phases for check in checks)
 
@@ -253,10 +252,9 @@ def _detail(
     )
 
 
-def _params_argv(params: StaticParams, verb: str) -> tuple[str, ...]:
+def _params_argv(params: StaticParams) -> tuple[str, ...]:
     return (
         "static",
-        verb,
         *(("--all",) if params.all else ()),
         *(("--project", params.project) if params.project else ()),
         *(("--folder", *params.folders) if params.folders else ()),
@@ -264,47 +262,32 @@ def _params_argv(params: StaticParams, verb: str) -> tuple[str, ...]:
     )
 
 
-def _target_result(settings: AssaySettings, params: StaticParams, verb: str) -> Result[TargetFiles, Fault]:
-    argv = _params_argv(params, verb)
+def _target_result(settings: AssaySettings, params: StaticParams) -> Result[TargetFiles, Fault]:
+    # Target value alone selects all, project, folder/file, or changed-default scope.
+    # Unsupported files remain skipped target rows, not hard faults.
+    argv = _params_argv(params)
     path_targets = bool(params.folders or params.files)
-    direct_targets = int(params.all) + int(bool(params.project)) + int(path_targets)
-    if direct_targets > 1:
-        result = Error(Fault(argv, RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: choose only one of --all, --project, or folder/file targets"))
-    elif params.all:
-        result = Ok(TargetFiles(targets=(("all", str(settings.solution)),)))
-    elif params.project:
-        result = _project_target(settings, params.project, verb)
-    elif verb == "check":
-        result = target_files(params.folders, params.files, settings=settings, changed=not path_targets)
-    elif path_targets:
-        result = target_files(params.folders, params.files, settings=settings).bind(lambda targets: _execution_targets(targets, verb))
-    else:
-        status = RailStatus.UNSUPPORTED if verb == "build" else RailStatus.FAULTED
-        result = Error(Fault(argv, status, f"{Step.PARSE}: {verb}: requires --folder, --file, --project, or --all"))
-    return result
+    match (int(params.all) + int(bool(params.project)) + int(path_targets), params.all, params.project):
+        case (count, _, _) if count > 1:
+            return Error(Fault(argv, RailStatus.UNSUPPORTED, f"{Step.PARSE}: static: choose only one of --all, --project, or folder/file targets"))
+        case (_, True, _):
+            return Ok(TargetFiles(targets=(("all", str(settings.solution)),)))
+        case (_, _, project) if project:
+            return _project_target(settings, project)
+        case _:
+            return target_files(params.folders, params.files, settings=settings, changed=not path_targets)
 
 
-def _project_target(settings: AssaySettings, project: str, verb: str) -> Result[TargetFiles, Fault]:
+def _project_target(settings: AssaySettings, project: str) -> Result[TargetFiles, Fault]:
     rel = PurePosixPath(project).as_posix()
-    argv = ("static", verb, "--project", rel)
+    argv = ("static", "--project", rel)
     match (PurePosixPath(rel).suffix, (settings.root / rel).is_file()):
         case (".csproj", True):
             return Ok(TargetFiles(targets=(("project", rel),)))
         case (".csproj", False):
-            return Error(Fault(argv, RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: project not found: {rel}"))
+            return Error(Fault(argv, RailStatus.UNSUPPORTED, f"{Step.PARSE}: static: project not found: {rel}"))
         case _:
-            return Error(Fault(argv, RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: --project requires a .csproj path: {rel}"))
-
-
-def _execution_targets(targets: TargetFiles, verb: str) -> Result[TargetFiles, Fault]:
-    explicit = tuple(path for kind, path, _ in targets.rejected if kind == "file")
-    match (explicit, targets.files):
-        case ((_, *_), _):
-            return Error(Fault((), RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: unsupported --file target(s): {', '.join(explicit)}"))
-        case (_, ()):
-            return Error(Fault((), RailStatus.UNSUPPORTED, f"{Step.PARSE}: {verb}: no supported source files under target(s)"))
-        case _:
-            return Ok(targets)
+            return Error(Fault(argv, RailStatus.UNSUPPORTED, f"{Step.PARSE}: static: --project requires a .csproj path: {rel}"))
 
 
 def _routed(targets: TargetFiles, settings: AssaySettings) -> Result[tuple[Routed, ...], Fault]:
@@ -442,21 +425,20 @@ def _write_fan(checks: tuple[Check, ...], routed: Routed, settings: AssaySetting
     return _leased_run(resource, project, run, settings)
 
 
-def _dispatch(
-    routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope, verb: str
-) -> tuple[Result[Completed, Fault], ...]:
+def _dispatch(routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope) -> tuple[Result[Completed, Fault], ...]:
     if _empty_route(routed):
         return ()
-    checks = _all_checks(phases)
-    match checks:
-        case ():
-            return ()
-        case _ if _uses_build_scope(routed, phases):
-            return _build_fan(phases, routed, settings)
-        case _ if verb == "fix":
-            return _write_fan(checks, routed, settings, scope)
-        case _:
-            return tuple(row for _, phase_checks in phases for row in fan_out(phase_checks, settings=settings, scope=scope, routed=routed))
+    # Writes run under the mutating lease; C# restore/build runs under the closure lease.
+    # Non-closure build checks stay in the plain fan-out with diagnostics.
+    write = tuple(check for phase, checks in phases if phase == "fix" for check in checks)
+    closure_phases = tuple((phase, checks) for phase, checks in phases if phase in {"restore", "build"})
+    uses_closure = _uses_build_scope(routed, closure_phases)
+    plain = tuple(check for phase, checks in phases if phase != "fix" and not (uses_closure and phase in {"restore", "build"}) for check in checks)
+    return (
+        *(_write_fan(write, routed, settings, scope) if write else ()),
+        *(fan_out(plain, settings=settings, scope=scope, routed=routed) if plain else ()),
+        *(_build_fan(closure_phases, routed, settings) if uses_closure else ()),
+    )
 
 
 def _closure_notes(report: Report, routed: tuple[Routed, ...]) -> Report:
@@ -464,26 +446,22 @@ def _closure_notes(report: Report, routed: tuple[Routed, ...]) -> Report:
     return msgspec.structs.replace(report, notes=(*report.notes, *notes)) if notes else report
 
 
-def _rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParams, *, verb: str, modes: tuple[Mode, ...]) -> Result[Report, Fault]:
-    return _target_result(settings, params, verb).bind(
-        lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed, verb=verb, modes=modes))
-    )
-
-
-def _fold(
-    settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...], *, verb: str, modes: tuple[Mode, ...]
-) -> Result[Report, Fault]:
-    routed = tuple(_build_route(route_row) for route_row in routed) if Mode.BUILD in modes else routed
-    phase_sets = tuple((route_row, *_phase_checks(route_row, modes, settings, scope)) for route_row in routed)
-    planned = tuple(row for route_row, phases, _ in phase_sets for row in _planned(verb, route_row, phases, settings, scope))
+def _fold(settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...]) -> Result[Report, Fault]:
+    routed = tuple(_build_route(route_row) for route_row in routed)
+    phase_sets = tuple((route_row, *_phase_checks(route_row, settings, scope)) for route_row in routed)
+    planned = tuple(row for route_row, phases, _ in phase_sets for row in _planned(route_row, phases, settings, scope))
     checks = tuple(check for _, phases, _ in phase_sets for check in _all_checks(phases))
     skipped = tuple(row for _, _, rows in phase_sets for row in rows)
-    artifacts = _artifacts(settings, routed) if Mode.RESTORE in modes or Mode.BUILD in modes else ()
+    artifacts = _artifacts(settings, routed)
     matches = _matches(targets, routed, skipped)
 
     def executed(done: tuple[Completed, ...]) -> Report:
         report = fold(
-            Claim.STATIC, verb, done, detail=_detail(targets, routed, planned, skipped, artifacts, settings, checks, done), sarif_dir=scope.sarif_dir
+            Claim.STATIC,
+            "static",
+            done,
+            detail=_detail(targets, routed, planned, skipped, artifacts, settings, checks, done),
+            sarif_dir=scope.sarif_dir,
         )
         return _closure_notes(
             msgspec.structs.replace(
@@ -495,42 +473,29 @@ def _fold(
             routed,
         )
 
-    rows = (row for route_row, phases, _ in phase_sets for row in _dispatch(route_row, phases=phases, settings=settings, scope=scope, verb=verb))
+    rows = (row for route_row, phases, _ in phase_sets for row in _dispatch(route_row, phases=phases, settings=settings, scope=scope))
     return sequence(block.of_seq(rows)).map(lambda done: executed(tuple(done)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def check(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
-    """Run scoped non-mutating static diagnostics.
+def run(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
+    """Run the static quality lane for the selected target scope.
+
+    The target value selects whole-workspace, project, folder/file, or changed-default routing. Every
+    touched language runs write-capable tools before diagnostics, and C# closure builds observe restored outputs.
 
     Returns:
-        Static report carrying process receipts, diagnostics, route detail, resources, and artifacts.
+        Static report with receipts, route detail, resources, and artifacts.
     """
-    return _rail(settings, scope, params, verb="check", modes=_CHECK_MODES)
-
-
-def build(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
-    """Run scoped non-mutating diagnostics, restore, and build.
-
-    Returns:
-        Static report carrying process receipts, diagnostics, route detail, resources, and artifacts.
-    """
-    return _rail(settings, scope, params, verb="build", modes=_BUILD_MODES)
-
-
-def fix(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
-    """Run scoped native static fixers.
-
-    Returns:
-        Static report carrying mutating receipts, route detail, resources, and artifacts.
-    """
-    return _rail(settings, scope, params, verb="fix", modes=_FIX_MODES)
+    return _target_result(settings, params).bind(
+        lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed))
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 _LOG = structlog.get_logger("assay.static")
 
-__all__: list[str] = ["StaticParams", "build", "check", "fix"]
+__all__: list[str] = ["StaticParams", "run"]

@@ -1,10 +1,4 @@
-"""Docs rail: Mermaid diagram validation across Markdown files.
-
-Fans out one mmdc invocation per (tool, file) pair, folds results into a
-Report, and applies strict-mode promotion: EMPTY or SKIP outcomes raise
-FaultedPromotion before the registry fault-wrapping seam, converting
-absent-change ambiguity into an explicit fault.
-"""
+"""Validate Mermaid diagrams in routed Markdown files."""
 
 from dataclasses import dataclass
 from pathlib import PurePosixPath
@@ -60,7 +54,7 @@ class FaultedPromotion(Exception):  # noqa: N818  # sentinel, not an *Error cond
     """Strict-mode promotion raised before registry fault wrapping."""
 
     def __init__(self) -> None:
-        """Construct the sentinel with a fixed message."""
+        """Initialize the fixed strict-mode sentinel message."""
         super().__init__("no docs changed")
 
 
@@ -68,8 +62,7 @@ class FaultedPromotion(Exception):  # noqa: N818  # sentinel, not an *Error cond
 
 
 def _sink_stem(rel: str) -> str:
-    # Two routed README.md files share a stem; slug the full relative path so concurrent fan-out sinks
-    # never clobber a shared {scope_dir}/{stem}.md. PurePosixPath strips the suffix once; the rest folds to a flat key.
+    # Full relative-path slugs prevent concurrent README.md sinks from sharing one stem.
     p = PurePosixPath(rel)
     return "__".join((*p.parent.parts, p.stem)) or p.stem
 
@@ -83,10 +76,8 @@ def _produced(scope: ArtifactScope, stem: str) -> tuple[str, ...]:
 def _rows(
     scope: ArtifactScope, files: tuple[str, ...], stems: tuple[str, ...], done: tuple[Completed, ...]
 ) -> tuple[tuple[Match, ...], tuple[Artifact, ...]]:
-    # One result row per (file, mmdc receipt); severity tracks the receipt's exit. Artifact rows enumerate every
-    # produced file (SVG + MD) so an agent reads paths straight from the envelope instead of inferring the scope shape.
-    # fan_out preserves check order, so files and done align on the Ok rail (sequence short-circuits any Error
-    # before the fold); strict=False keeps synthetic single-receipt callers from over-zipping a routed-empty set.
+    # Fan-out order aligns files with receipts; strict zip keeps routed-empty synthetic callers valid.
+    # Artifact rows enumerate produced Markdown and SVG sinks so envelopes own the scope shape.
     results = tuple(
         Match(
             id=f"source:{rel}:1",
@@ -101,9 +92,7 @@ def _rows(
 
 
 def _outcomes(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
-    # mmdc owns its input placement (Input.OWNED): each (tool, file) pair carries the full -i/-a/-o argv. Markdown mode
-    # requires an -o path ending in .md and writes SVG siblings under -a; both ride the per-run artifact scope. The
-    # scope dir is materialized through the store boundary (ArtifactScope.ensure) because open() no longer eagerly makedirs.
+    # mmdc requires per-file -i/-a/-o placement; scope materialization stays at the ArtifactScope boundary.
     scope_dir = scope.ensure()
     pairs = tuple((t, f, _sink_stem(f)) for t in select(claim, routed.language) if t.mode is mode for f in routed.files)
     files = tuple(f for _, f, _ in pairs)
@@ -132,11 +121,10 @@ def _strict(report: Report, *, strict: bool) -> Report:
 
 
 def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: DocsParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
-    """Run the shared docs route, fan-out, fold, and strict-mode promotion.
+    """Run routed Mermaid validation with optional strict EMPTY/SKIP promotion.
 
     Returns:
-        Ok-folded Report on success; Fault on routing failure, spawn failure,
-        or FaultedPromotion when strict mode rejects an EMPTY or SKIP outcome.
+        Folded report, or a routing/spawn/strict-promotion fault.
     """
     return route(Language.DOCS, params.paths, settings=settings).bind(
         lambda routed: _outcomes(routed, settings=settings, scope=scope, claim=claim, verb=verb, mode=mode).map(
@@ -149,10 +137,10 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: DocsParams
 
 
 def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams) -> Result[Report, Fault]:
-    """Run Mermaid diagram validation across all routed Markdown files.
+    """Validate Mermaid diagrams across routed Markdown files.
 
     Returns:
-        Ok-folded Report on success; Fault on routing failure or spawn failure.
+        Folded report, or a routing/spawn fault.
     """
     return _thin_rail(settings, scope, params, claim=Claim.DOCS, verb="check", mode=Mode.CHECK)
 

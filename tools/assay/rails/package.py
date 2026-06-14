@@ -1,15 +1,7 @@
-"""Yak package lifecycle rails: stage, deploy, publish, list, and plan.
+"""Manage yak package stage, deploy, publish, list, and plan rails.
 
-Manages the full yak distribution lifecycle for Rhino plugin packages. Stage
-atomically builds, copies, and commits artifacts to the package directory using
-a same-filesystem rename with a .previous.<pid> recovery pivot. Deploy and
-publish extend stage with post-stage lifecycle steps (install, push) driven by
-a per-slug policy table; the rasm-bridge slug additionally cycles the live Rhino
-host via quit and refresh steps. All mutating paths acquire exclusive leases so
-concurrent rails for the same slug serialize safely.
-
-Public surface: PackageParams, YakMeta, stage, deploy, publish, list, plan,
-evaluate_meta.
+Stage commits package directories through a same-filesystem swap with a recovery sentinel. Deploy
+and publish extend stage through policy-driven install/push and bridge refresh steps under slug leases.
 """
 
 from dataclasses import dataclass
@@ -69,7 +61,7 @@ type _Step = tuple[str, ...]
 
 
 class _LifecycleStep(StrEnum):
-    """Post-stage lifecycle step with its yak run mode and bridge-lock requirement."""
+    """Post-stage yak or bridge step with its run mode and lease requirement."""
 
     mode: Mode
     needs_bridge: bool
@@ -391,10 +383,10 @@ def _pending_marker(package_dir: Path) -> Path:
 
 
 def _recover(meta: YakMeta, slug: str) -> Result[str, Fault]:
-    """Heal an interrupted commit from its crash-recovery sentinel under the held stage lease.
+    """Heal an interrupted package-directory swap under the held stage lease.
 
     Returns:
-        Recovery direction taken (``absent``/``forward``/``back``/``clear``), or a BUSY fault while the marker pid is alive.
+        Recovery direction taken, or a BUSY fault while the marker pid is alive.
     """
 
     def decoded(raw: bytes) -> _CommitMarker | None:
@@ -414,9 +406,7 @@ def _recover(meta: YakMeta, slug: str) -> Result[str, Fault]:
             case _:
                 previous = Path(mark.previous)
                 sibling = previous.parent == meta.package_dir.parent and previous.name.startswith(f"{meta.package_dir.name}.previous.")
-                # Safe direction from marker contents: an existing package_dir is authoritative (the swap finished or
-                # never started) -> roll forward by dropping previous; a missing package_dir with a sibling previous
-                # means the crash hit mid-swap -> roll back by restoring previous; anything else only clears the marker.
+                # Existing package_dir wins; missing package_dir plus sibling previous is the only rollback shape.
                 direction = "forward" if meta.package_dir.exists() else ("back" if sibling and previous.is_dir() else "clear")
                 try:
                     rmtree(previous, ignore_errors=True) if direction == "forward" and sibling else None
@@ -432,8 +422,7 @@ def _recover(meta: YakMeta, slug: str) -> Result[str, Fault]:
 
 
 def _commit(meta: YakMeta, staged: Path, slug: str) -> Result[Report, Fault]:
-    # Rotate to .previous.<pid> before swap so mid-commit crashes remain recoverable; the .commit-pending.json
-    # sentinel (pid + previous dir) brackets the swap so _recover can heal a dead-pid crash deterministically.
+    # The sentinel brackets the swap so dead-pid recovery can distinguish forward and rollback shapes.
     previous = meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{os.getpid()}")
     marker = _pending_marker(meta.package_dir)
     try:
@@ -447,7 +436,7 @@ def _commit(meta: YakMeta, staged: Path, slug: str) -> Result[Report, Fault]:
         rmtree(staged, ignore_errors=True)
         return Error(Fault(("yak", "build", slug), message=str(exc)[:1024]))
     finally:
-        # Sentinel clears only after the swap settled deterministically (committed forward or rolled back).
+        # Clear only after commit or rollback has settled the directory shape.
         marker.unlink(missing_ok=True)
     return Ok(
         fold(
@@ -601,7 +590,7 @@ def _drive_steps(
 def _fold_steps(
     settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, verb: str, staged: Report, package_file: Path, steps: tuple[_LifecycleStep, ...]
 ) -> Result[Report, Fault]:
-    # Stage build evidence is preserved in the accumulator; only spawn or lease Faults short-circuit.
+    # Stage evidence stays in the accumulator; only spawn or lease Faults short-circuit.
     seed: Result[tuple[Completed, ...], Fault] = Ok(())
     folded = reduce(
         lambda acc, step: acc.bind(lambda done: _run_step(settings, scope, meta, package_file, step).map(lambda c: (*done, c))), steps, seed
@@ -610,7 +599,7 @@ def _fold_steps(
 
 
 def _merge_stage(staged: Report, steps: Report) -> Report:
-    # Stage results prepend step rows so build evidence and post-stage outcomes both survive in one report.
+    # Stage rows lead so build evidence and post-stage outcomes survive in one report.
     return msgspec.structs.replace(
         steps,
         status=join(staged.status, steps.status),
@@ -665,7 +654,7 @@ def stage(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) 
     """Stage one yak distribution.
 
     Returns:
-        Package lifecycle report, or staging fault.
+        Package lifecycle report, or a staging fault.
     """
     return _lifecycle(settings, scope, params, "stage")
 
@@ -674,7 +663,7 @@ def deploy(settings: AssaySettings, scope: ArtifactScope, params: PackageParams)
     """Stage and install one yak distribution.
 
     Returns:
-        Package lifecycle report, or staging/install fault.
+        Package lifecycle report, or a staging/install fault.
     """
     return _lifecycle(settings, scope, params, "deploy")
 
@@ -683,7 +672,7 @@ def publish(settings: AssaySettings, scope: ArtifactScope, params: PackageParams
     """Stage, install, and publish one yak distribution.
 
     Returns:
-        Package lifecycle report, or staging/install/publish fault.
+        Package lifecycle report, or a staging/install/publish fault.
     """
     return _lifecycle(settings, scope, params, "publish")
 
@@ -694,7 +683,7 @@ def list(  # noqa: A001
     """List package projects and slugs.
 
     Returns:
-        Package roster report, or project discovery fault.
+        Package roster report, or a project-discovery fault.
     """
     _ = (scope, params)
     return (
@@ -714,7 +703,7 @@ def plan(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -
     """Evaluate package metadata without staging.
 
     Returns:
-        Package plan report, or metadata evaluation fault.
+        Package plan report, or a metadata-evaluation fault.
     """
     return (
         _resolve_project(settings, params.slug)
