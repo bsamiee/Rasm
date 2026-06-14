@@ -663,9 +663,9 @@ class ArtifactStore:
         detailed = self.walk(root, detail=True)
         # isinstance narrows walk's union to detail rows.
         detail_rows = tuple(
-            (path.rstrip("/").rsplit("/", 1)[-1], info)
-            for path, info in detailed  # type: ignore[str-unpack]
-            if isinstance(info, dict)
+            (row[0].rstrip("/").rsplit("/", 1)[-1], row[1])
+            for row in detailed
+            if isinstance(row, tuple) and isinstance(row[1], dict)
         )
         rows = detail_rows or tuple(
             (path.rstrip("/").rsplit("/", 1)[-1], {}) for path in self.glob(f"{root}/*")
