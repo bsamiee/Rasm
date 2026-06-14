@@ -1,10 +1,7 @@
-"""Wire models for automation triggers and actions decoded by the engine.
+"""Wire models decoded by the automation engine.
 
-Triggers (Watch, Schedule, Manual) are the event sources; actions (Rail, Program,
-Sequence, Debounce) are the responses. The Trigger and Action type aliases form closed
-unions over these cases and are the sole surfaces passed to TRIGGER_DECODER and
-ACTION_DECODER. All structs are frozen msgspec.Struct subclasses with tag-based
-discriminated-union decoding; unknown fields are rejected at decode time.
+Trigger and Action are closed msgspec unions with tagged decoding, frozen structs, and
+unknown-field rejection at the wire boundary.
 """
 
 from enum import StrEnum
@@ -12,14 +9,14 @@ from typing import Annotated
 
 from msgspec import json, Meta, Raw
 
-from tools.assay.core.model import Base, Claim  # noqa: TC001  # runtime msgspec field — deferring breaks struct resolution
+from tools.assay.core.model import Base, Claim  # noqa: TC001  # runtime msgspec field; deferring breaks struct resolution
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
 class WatchFilter(StrEnum):
-    """Wire tag resolved to a watchfiles filter by the engine; unknown tags fail at msgspec decode."""
+    """Wire tag resolved to a watchfiles filter by the engine."""
 
     DEFAULT = "default"
     PYTHON = "python"
@@ -31,9 +28,8 @@ class WatchFilter(StrEnum):
 class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fields=True):
     """Filesystem trigger interpreted by watchfiles.
 
-    cpu_threshold, when set, suppresses a fire when the current CPU utilization meets or
-    exceeds the fractional ceiling; the engine evaluates this before handing the event to
-    the action pipeline.
+    cpu_threshold suppresses a fire before the action pipeline when sampled CPU utilization
+    meets or exceeds the fractional ceiling.
     """
 
     paths: tuple[str, ...]
@@ -51,8 +47,8 @@ class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fie
 class Schedule(Base, frozen=True, tag_field="kind", tag="schedule", forbid_unknown_fields=True):
     """Cron trigger interpreted by aiocron.
 
-    cpu_threshold suppresses a fire when CPU utilization meets or exceeds the fractional
-    ceiling at the scheduled instant; the check runs before the action pipeline executes.
+    cpu_threshold suppresses a scheduled fire before the action pipeline when sampled CPU
+    utilization meets or exceeds the fractional ceiling.
     """
 
     cron: str
@@ -67,9 +63,8 @@ class Manual(Base, frozen=True, tag_field="kind", tag="manual", forbid_unknown_f
 class Rail(Base, frozen=True, tag_field="kind", tag="rail", forbid_unknown_fields=True):
     """Rail action resolved against the registry at fire time.
 
-    params carries the raw JSON bytes; the engine defers their decode until the bound
-    params type is retrieved from the registry, so an unknown claim or verb fails at
-    dispatch rather than at wire decode.
+    params remains raw until registry dispatch provides the bound params type, so unknown
+    claim or verb pairs fail during fire execution rather than wire decode.
     """
 
     claim: Claim
@@ -86,17 +81,17 @@ class Program(Base, frozen=True, tag_field="kind", tag="program", forbid_unknown
 class Sequence(Base, frozen=True, tag_field="kind", tag="sequence", forbid_unknown_fields=True):
     """Ordered actions evaluated by the engine."""
 
-    actions: tuple["Action", ...]  # noqa: UP037  # forward ref — Action alias defined after Sequence
+    actions: tuple["Action", ...]  # noqa: UP037  # forward ref; Action alias defined after Sequence
 
 
 class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unknown_fields=True):
     """Action wrapper that coalesces trigger storms within a quiescence window.
 
-    When collapse is True, only the trailing event in the window fires; intermediate
-    events are discarded. window_ms is the quiescence duration in milliseconds.
+    collapse keeps only the trailing event in the window; window_ms is the quiescence
+    duration in milliseconds.
     """
 
-    action: "Action"  # noqa: UP037  # forward ref — Action alias defined after Debounce
+    action: "Action"  # noqa: UP037  # forward ref; Action alias defined after Debounce
     window_ms: int = 500
     collapse: bool = True
 
@@ -113,13 +108,12 @@ _ENCODE = json.Encoder(order="deterministic")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# total match over a closed union — branch count is structural, not complexity
 def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912
-    """Render a trigger or action as a compact one-line label suitable for logging.
+    """Render a compact label for automation telemetry.
 
     Returns:
-        Label encoding the kind and key discriminating fields, for example
-        ``watch[3 paths @ 1600ms]`` or ``debounce[rail[core:run] @ 500ms]``.
+        Kind plus discriminating fields such as path count, cron spec, rail key, or
+        debounce window.
     """
     match node:
         case Watch(paths=p, debounce=d):
@@ -139,23 +133,23 @@ def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912
 
 
 def encode(node: Trigger | Action) -> bytes:
-    """Encode a trigger or action to JSON bytes.
+    """Encode a trigger or action as deterministic JSON.
 
     Returns:
-        JSON bytes with deterministic key ordering, suitable for hashing or comparison.
+        JSON bytes with stable key ordering for hashing or comparison.
     """
     return _ENCODE.encode(node)
 
 
 def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
-    """Decode JSON bytes to a trigger or action.
+    """Decode JSON bytes through the selected closed union.
 
     Args:
-        blob: Raw JSON bytes from the wire.
-        trigger: When True, routes to TRIGGER_DECODER; when False, routes to ACTION_DECODER.
+        blob: Raw wire bytes.
+        trigger: Selects the trigger union when True and the action union when False.
 
     Returns:
-        Decoded instance from the appropriate closed union.
+        Decoded Trigger or Action instance.
     """
     return TRIGGER_DECODER.decode(blob) if trigger else ACTION_DECODER.decode(blob)
 

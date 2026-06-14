@@ -1,9 +1,7 @@
-"""Automation engine: runs Watch, Schedule, and Manual triggers through Assay rails and direct programs.
+"""Drive automation triggers through rail, program, sequence, and debounce actions.
 
-Each trigger drives one action (Rail, Program, Sequence, or Debounce) under a single-flight
-CapacityLimiter.  Envelopes are written to stdout as newline-delimited JSON; structlog telemetry
-goes to stderr.  The public surface is `drive` plus `is_governed` and the type aliases exported
-via `__all__`.
+Each fire emits newline-delimited Envelope JSON to stdout while telemetry remains on stderr.
+The capacity limiter keeps one leaf action active per driver.
 """
 
 from collections.abc import Callable, Coroutine
@@ -55,7 +53,7 @@ type RailOutcome = tuple[Envelope, bool]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# ContextVar isolates the priming latch per async context so tests don't bleed state.
+# Context-local priming prevents one driver from inheriting another driver's CPU sample state.
 _CPU_PRIMED: ContextVar[bool] = ContextVar("assay_cpu_primed", default=False)
 _ENCODER = msgspec.json.Encoder(order="deterministic")
 _JITTER_MS: int = 100
@@ -78,15 +76,14 @@ def _emit(line: Envelope) -> None:
 def is_governed(threshold: float | None) -> bool:
     """Decide whether the CPU governor should suppress a fire.
 
-    The first call that actually samples the CPU blocks for 0.1 s to prime the
-    psutil kernel counter; all subsequent calls within the same async context use
-    a non-blocking interval=None sample via `_CPU_PRIMED`.
+    The first sampled call primes the psutil kernel counter for the current async context;
+    later calls reuse non-blocking samples.
 
     Args:
-        threshold: Fractional CPU ceiling in [0, 1]; None disables the governor.
+        threshold: Fractional CPU ceiling in [0, 1]; None disables suppression.
 
     Returns:
-        True when the current CPU sample meets or exceeds `threshold * 100`.
+        True when the current CPU sample meets or exceeds the ceiling.
     """
     match threshold:
         case None:
@@ -116,7 +113,7 @@ def _label(action: Action) -> tuple[Claim, str]:
 
 
 def _program_check(argv: tuple[str, ...]) -> Check:
-    # Runner.DIRECT + Input.NONE bypasses registry lookup and passes argv verbatim through the Check shape.
+    # DIRECT/NONE keeps argv owned by the Check command instead of registry stdin.
     tool = Tool(
         name=argv[0] if argv else "program",
         runner=Runner.DIRECT,
@@ -130,7 +127,7 @@ def _program_check(argv: tuple[str, ...]) -> Check:
 
 
 async def _program_outcome(action: Program, settings: AssaySettings) -> Result[Report, Fault]:
-    # No deadline: catalog tools run unbounded per fire; only spawn and process failures become Faults.
+    # Program deadlines stay with the invoked tool; this boundary converts spawn/process failures to Faults.
     if not action.argv:
         return Error(Fault(("program",), RailStatus.FAULTED, "program argv must be non-empty"))
     check = _program_check(action.argv)
@@ -149,7 +146,7 @@ def _emitted(line: Envelope) -> Envelope:
 
 
 def _rail_outcome(action: Rail, settings: AssaySettings) -> RailOutcome:
-    # Decode failures fold to a FAULTED Envelope at this boundary rather than escaping as exceptions.
+    # Decode failures fold to FAULTED Envelope rows instead of escaping the automation task.
     bind = _resolve(action)
     match bind:
         case None:
@@ -176,10 +173,10 @@ async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.Capac
     match is_governed(cpu_threshold):
         case True:
             claim, verb = _label(leaf)
-            # SKIP bypasses the fold rail; Counts(1, 0, 1) still marks one governed leaf.
+            # Counts(1, 0, 1) preserves one governed leaf even though SKIP bypasses the rail fold.
             skip = Report(claim, verb, RailStatus.SKIP, Counts(1, 0, 1), notes=(f"governed: cpu>={cpu_threshold or 0.0:.0%}",))
             return _emitted(envelope(skip, claim=claim, verb=verb)).status
-        # Sequence/Debounce recurse without the limiter; re-acquiring the same token raises anyio `already holding a token`.
+        # Recursive Sequence/Debounce leaves reuse the held limiter token; re-acquire raises in anyio.
         case False:
             match leaf:
                 case Rail() as r:
@@ -195,8 +192,7 @@ async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.Capac
                     return await _emit_leaf(inner, settings, limiter, cpu_threshold)
 
 
-# async required: callers need an async iterable for cooperative scheduling, not a sync generator
-async def _forever() -> AsyncIterator[int]:  # noqa: RUF029
+async def _forever() -> AsyncIterator[int]:  # noqa: RUF029  # async iterator keeps sequence and debounce loops cooperative
     for i in count():
         yield i
 
@@ -244,7 +240,7 @@ async def _quiesce(recv: MemoryObjectReceiveStream[ChangeBatch], window_ms: floa
 
 
 def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Worker]:
-    # Worker lifetime belongs to the caller's task group and stop scope, not to this closure.
+    # The caller owns worker lifetime through its task group and stop scope.
     send, recv = anyio.create_memory_object_stream[ChangeBatch](1)
 
     async def signal(changes: ChangeBatch) -> None:  # noqa: RUF029  # async required: trigger loop awaits this as a Fire coroutine
@@ -282,8 +278,7 @@ def _watch_filter(spec: Watch) -> BaseFilter:
     ignores = spec.ignore_patterns
     match spec.filter:
         case WatchFilter.DEFAULT:
-            # Extend, don't replace: a bare ignore_entity_patterns= drops watchfiles' built-in file-noise suppression
-            # (.pyc/.DS_Store/swap/editor-lock); keep those and append the spec's own ignores.
+            # Supplying ignore_entity_patterns replaces watchfiles' built-in file-noise filters.
             return DefaultFilter(ignore_entity_patterns=(*DefaultFilter.ignore_entity_patterns, *ignores))
         case WatchFilter.PYTHON:
             return PythonFilter(ignore_paths=ignores, extra_extensions=(".pyi",))
@@ -298,16 +293,15 @@ async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
         debounce=spec.debounce,
         step=spec.step,
         stop_event=stop,
-        rust_timeout=1000,  # cap the Rust watcher's blocking wait at 1s so a stop_event is honored within ≤1s, not ≤5s
-        yield_on_timeout=True,  # empty-set yields on each 1s timeout are routed safely by the empty-batch fire path
+        rust_timeout=1000,  # bound stop latency to the local event loop instead of watchfiles' default wait
+        yield_on_timeout=True,  # timeout heartbeats are filtered by the empty-batch path
         force_polling=spec.force_polling,
         poll_delay_ms=spec.poll_delay_ms,
         recursive=spec.recursive,
         ignore_permission_denied=spec.ignore_permission_denied,
     ):
         batch = tuple((str(kind), path) for kind, path in sorted(changes, key=itemgetter(1)))
-        # yield_on_timeout surfaces an empty changeset every rust_timeout window purely to re-check the stop_event;
-        # those are stop-latency heartbeats, not file events, so they must not fire the action.
+        # Timeout heartbeats preserve stop responsiveness without firing actions.
         match batch:
             case ():
                 pass
@@ -342,7 +336,7 @@ async def _fire_with_coalesce(fire: Fire, settings: AssaySettings, changes: Chan
 
 
 def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = None) -> Fire:
-    # Single-flight gate: mid-fire ticks accumulate in missed for one deferred catch-up; scheduling telemetry routes to structlog, not Envelope notes.
+    # Mid-fire ticks collapse to one catch-up fire; telemetry stays off the Envelope stream.
     running = False
     missed = 0
 
@@ -364,7 +358,7 @@ def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = 
 
 
 async def _schedule(spec: Schedule, fire: Fire, stop: anyio.Event) -> None:
-    # aiocron computes next wakeup instants only; the loop and stop integration are owned here.
+    # aiocron owns wakeup calculation; this loop owns stop integration.
     tz = ZoneInfo(spec.timezone)
     cron = aiocron.crontab(spec.cron, start=False, tz=tz)
     try:
@@ -420,13 +414,11 @@ async def _run_trigger(trigger: Trigger, action: Action, settings: AssaySettings
 
 
 async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> None:
-    """Run an action each time its trigger fires, writing Envelope JSON to stdout.
+    """Run an action for each trigger fire and emit Envelope JSON to stdout.
 
-    Manual triggers fire once and return.  Watch and Schedule triggers loop until
-    their underlying stop event fires or the process exits.  Setup failures
-    (invalid cron expression, unresolvable timezone, bad watch path, bad regex)
-    are caught from the ExceptionGroup raised by anyio and emitted as a single
-    FAULTED Envelope rather than propagating to the caller.
+    Manual triggers fire once. Watch and schedule triggers loop until their stop event
+    fires. Setup failures are collapsed from the anyio ExceptionGroup into one FAULTED
+    Envelope row.
     """
     limiter = anyio.CapacityLimiter(1)
     stop = anyio.Event()
