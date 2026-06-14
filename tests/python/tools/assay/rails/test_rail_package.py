@@ -1,4 +1,4 @@
-"""Laws for tools.assay.rails.package — PackageParams, YakMeta, deploy, evaluate_meta, list, plan, publish, stage."""
+"""Laws for package params, Yak metadata, stage flow, and post-stage policy."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -140,7 +140,7 @@ register_law(parse_csproj, "extraction_cases")
     [(_PLAIN_XML, "rasm-bridge"), (_NAMESPACED_XML, "rasm-bridge"), (_NO_SLUG_XML, ""), (b"{not xml", ""), (b"", ""), (b"<Project/>", "")],
 )
 def test_slug_from_bytes_cases(raw: bytes, expected: str) -> None:
-    """parse_csproj text extraction pins the slug projection: YakPackageSlug text, namespace-suffix tag match, '' on absence/malformed."""
+    """parse_csproj extracts YakPackageSlug across namespace and malformed XML cases."""
     assert next(iter(parse_csproj(raw, "YakPackageSlug")), "") == expected
 
 
@@ -152,7 +152,7 @@ register_law(_lone_match, "duplicate_message")
 
 @pytest.mark.parametrize("slug, pairs, expect_ok, expect_dup", _LONE_CASES)
 def test_lone_match_resolution(slug: str, pairs: tuple[tuple[str, str], ...], expect_ok: bool, expect_dup: bool) -> None:  # noqa: FBT001
-    """_lone_match Ok-on-exactly-one, Error-on-zero, Error-on-duplicate; duplicate carries 'duplicates'."""
+    """_lone_match admits one match and faults zero or duplicate matches."""
     result = _lone_match(slug, pairs)
     match expect_ok:
         case True:
@@ -389,14 +389,7 @@ def _flow_run_check(
     stage_status: RailStatus = RailStatus.OK,
     build_fault: Fault | None = None,
 ) -> Callable[..., Result[Completed, Fault]]:
-    """Build a fake run_check that simulates the full stage pipeline.
-
-    The STAGE arm writes a .yak file so _commit_or_fail finds a real artifact on disk;
-    all other arms return minimal receipts keyed by mode.
-
-    Returns:
-        A callable accepting a Check that dispatches on tool.mode.
-    """
+    """Build a fake run_check that materializes the stage pipeline artifacts."""
 
     def fake(check: Check, **kwargs: object) -> Result[Completed, Fault]:
         mode = check.tool.mode
@@ -433,11 +426,7 @@ register_law(stage, "yak_stage_failure_short_circuits_before_commit")
 def _install_flow(
     verb_fn: _VerbFn, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[Result[Report, Fault], builtins.list[str]]:
-    """Run verb_fn with a fake pipeline and capture bridge call args.
-
-    Returns:
-        Tuple of (verb result, list of positional args forwarded to the fake bridge client).
-    """
+    """Run a package verb with a fake pipeline and captured bridge args."""
     meta = yak_shape.materialize(assay_root)
     monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
     calls: builtins.list[str] = []
@@ -451,7 +440,7 @@ def _install_flow(
 
 
 def test_stage_full_flow_commits_distribution(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stage drives build -> artifact copy -> yak build -> commit; detail carries committed package_dir + version."""
+    """Stage commits the distribution and records project/version detail."""
     result, bridge_calls = _install_flow(stage, assay_root, yak_shape, monkeypatch)
     report = assert_ok(result)
     assert report.status is RailStatus.OK
@@ -489,7 +478,7 @@ def test_publish_full_flow_runs_install_and_push_steps(assay_root: AssayHarness,
 def test_stage_step_failure_short_circuits(
     build_status: RailStatus, stage_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A failed build or yak build folds the receipt into the stage report and never commits the distribution."""
+    """Failed build or yak build folds into the report without committing."""
     meta = yak_shape.materialize(assay_root)
     monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta, build_status=build_status, stage_status=stage_status))
     report = assert_ok(stage(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
@@ -520,7 +509,7 @@ def test_finish_stage_verb_returns_staged_unchanged(assay_root: AssayHarness, ya
 def test_finish_non_ok_stage_skips_post_steps(
     bad_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """_finish short-circuits a non-OK stage status for deploy/publish without resolving or driving steps."""
+    """_finish skips deploy/publish steps after non-OK stage status."""
     meta = yak_shape.materialize(assay_root)
     staged = msgspec.structs.replace(fold(Claim.PACKAGE, "deploy", ()), status=bad_status)
     monkeypatch.setattr(_pkg_mod, "_resolve_package_file", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("must not run")))
@@ -528,7 +517,7 @@ def test_finish_non_ok_stage_skips_post_steps(
 
 
 def test_drive_steps_bridge_policy_acquires_bridge_lock(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """rasm-bridge deploy steps serialize on the shared "bridge" lease: a live holder turns the step fold BUSY; a free lease runs it."""
+    """Bridge deploy steps serialize on the shared bridge lease."""
     meta = yak_shape.materialize(assay_root)
     monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
     monkeypatch.setattr(_pkg_mod, "client_run", lambda *_a, **_kw: Ok(receipt(("rasm-bridge",), 0, status=RailStatus.OK)))
@@ -564,7 +553,7 @@ def test_merge_stage_combines_evidence() -> None:
 
 
 def test_stamp_version_stamps_packagerun_and_defaults() -> None:
-    """_stamp_version overwrites a PackageRun version and synthesises a fresh PackageRun for any other detail."""
+    """_stamp_version updates PackageRun and synthesizes missing detail."""
     stamped = _stamp_version(PackageRun(project="p", version="old"), "new")
     assert stamped.project == "p"
     assert stamped.version == "new"
@@ -578,7 +567,7 @@ def test_stamp_version_stamps_packagerun_and_defaults() -> None:
 def test_commit_or_fail_non_ok_folds_without_commit(
     bad_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """_commit_or_fail folds a non-OK yak receipt into a stage report and never commits the staged tree."""
+    """_commit_or_fail folds non-OK yak receipts without committing."""
     meta = yak_shape.materialize(assay_root)
     staged = Path(assay_root.write(yak_shape.project.parent / "staged-tmp" / yak_shape.package_pattern, "yak")).parent
     monkeypatch.setattr(_pkg_mod, "_commit", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("commit must not run")))
@@ -643,7 +632,7 @@ def test_commit_swap_oserror_rolls_back(assay_root: AssayHarness, yak_shape: Yak
 
 
 def test_stage_build_outputs_fault_cleans_staged_tree(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A _build_outputs Fault (spawn failure) propagates and the staged temp tree is removed by _stage_meta."""
+    """_build_outputs Fault propagation removes the staged temp tree."""
     meta = yak_shape.materialize(assay_root)
     parents_before = {p.name for p in (assay_root.root / yak_shape.project.parent).iterdir()}
     spawn_fault = Fault(("dotnet", "build"), message="spawn failed: ENOENT")
@@ -684,7 +673,7 @@ def _seed_previous(meta: YakMeta) -> Path:
     return previous
 
 
-# Beyond macOS (99999) and Linux (2**22) pid_max — psutil resolves it as NoSuchProcess, i.e. a guaranteed-dead committer.
+# Above common pid_max values; psutil resolves it as a dead process.
 _DEAD_PID = 99_999_999
 
 
@@ -695,7 +684,7 @@ def test_recover_absent_marker_is_noop(assay_root: AssayHarness, yak_shape: YakS
 
 
 def test_recover_dead_pid_marker_heals_forward(assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """A dead-pid sentinel with package_dir present rolls forward: previous dropped, marker cleared, tree intact."""
+    """Dead-pid marker with package_dir present rolls forward."""
     meta = yak_shape.materialize(assay_root)
     meta.package_dir.mkdir(parents=True, exist_ok=True)
     (meta.package_dir / "dist.yak").write_bytes(b"committed")
@@ -708,7 +697,7 @@ def test_recover_dead_pid_marker_heals_forward(assay_root: AssayHarness, yak_sha
 
 
 def test_recover_dead_pid_marker_heals_back(assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """A dead-pid sentinel with package_dir missing rolls back: previous restored as package_dir, marker cleared."""
+    """Dead-pid marker with package_dir missing rolls back."""
     meta = yak_shape.materialize(assay_root)
     previous = _seed_previous(meta)
     marker = _seed_marker(meta, _DEAD_PID, previous)
@@ -719,7 +708,7 @@ def test_recover_dead_pid_marker_heals_back(assay_root: AssayHarness, yak_shape:
 
 
 def test_recover_live_pid_marker_is_busy(assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """A live-pid sentinel yields BUSY and preserves the marker so the live committer can finish its swap."""
+    """Live-pid marker yields BUSY and preserves the pending commit."""
     meta = yak_shape.materialize(assay_root)
     marker = _seed_marker(meta, os.getpid(), meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{os.getpid()}"))
     e = assert_error_status(_pkg_mod._recover(meta, yak_shape.slug), RailStatus.BUSY)
@@ -728,11 +717,7 @@ def test_recover_live_pid_marker_is_busy(assay_root: AssayHarness, yak_shape: Ya
 
 
 def test_recover_delegates_liveness_to_engine_proc_dead(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_recover's liveness check is the engine-owned proc_dead ladder: a live verdict for a dead pid yields BUSY, marker preserved.
-
-    Falsifying witness for the delegation seam — were package to keep a private ladder, patching the
-    imported proc_dead would not flip a dead-pid sentinel back to BUSY.
-    """
+    """_recover delegates marker liveness to the engine-owned proc_dead ladder."""
     meta = yak_shape.materialize(assay_root)
     previous = _seed_previous(meta)
     marker = _seed_marker(meta, _DEAD_PID, previous)
@@ -763,7 +748,7 @@ def test_commit_success_clears_pending_marker(assay_root: AssayHarness, yak_shap
 
 
 def test_stage_heals_dead_pid_marker_under_lease(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A dead-pid sentinel left by a crashed committer is healed inside the stage lease before restaging."""
+    """Stage heals dead-pid markers inside the package lease."""
     meta = yak_shape.materialize(assay_root)
     previous = _seed_previous(meta)
     marker = _seed_marker(meta, _DEAD_PID, previous)

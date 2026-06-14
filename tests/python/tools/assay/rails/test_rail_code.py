@@ -1,4 +1,4 @@
-"""Laws for tools.assay.rails.code — CodeParams, query, search."""
+"""Laws for code params, tree-sitter query, ripgrep search, and match projection."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -27,23 +27,23 @@ from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 import tools.assay.rails.code as code_rail
 from tools.assay.rails.code import (
-    _ag_normalize,  # private primitives under direct law coverage
-    _AG_SPEC,  # private primitives under direct law coverage
-    _artifact,  # private primitives under direct law coverage
-    _checks,  # private primitives under direct law coverage
-    _content_splice,  # private primitives under direct law coverage
-    _dispatch,  # private primitives under direct law coverage
-    _eq_needles,  # private primitives under direct law coverage
-    _languages,  # private primitives under direct law coverage
-    _project_rows,  # private primitives under direct law coverage
-    _RG_SPEC,  # private primitives under direct law coverage
-    _rg_status,  # private primitives under direct law coverage
-    _search_splice,  # private primitives under direct law coverage
-    _targets,  # private primitives under direct law coverage
-    _top_level_patterns,  # private primitives under direct law coverage
-    _ts_grammar,  # private primitives under direct law coverage
-    _TS_SPEC,  # private primitives under direct law coverage
-    _ts_thunk,  # private primitives under direct law coverage
+    _ag_normalize,
+    _AG_SPEC,
+    _artifact,
+    _checks,
+    _content_splice,
+    _dispatch,
+    _eq_needles,
+    _languages,
+    _project_rows,
+    _RG_SPEC,
+    _rg_status,
+    _search_splice,
+    _targets,
+    _top_level_patterns,
+    _ts_grammar,
+    _TS_SPEC,
+    _ts_thunk,
     CodeParams,
     query,
     search,
@@ -312,7 +312,7 @@ def test_targets(
 
 
 def test_ts_language_tsx_key_resolves_tsx_grammar() -> None:
-    """ts_language composed over the _ts_grammar resolver yields distinct TSLanguages for tsx vs typescript."""
+    """tsx and typescript resolve to distinct tree-sitter languages."""
     from tree_sitter import (  # noqa: PLC0415  # local import avoids aliasing `Language` from tools.assay.core.model at module scope
         Language as TSLanguage,
     )
@@ -365,7 +365,7 @@ def test_rg_status_branches(
     ids=["match_events_parsed", "non_match_events_ignored"],
 )
 def test_rg_rows(raw: bytes, expected_count: int, check_listing: str | None) -> None:
-    """_project_rows over _RG_SPEC decodes ripgrep NDJSON match events; skips begin/end/non-JSON without raising."""
+    """_RG_SPEC decodes match events and skips non-match NDJSON safely."""
     rows, listing, notes = _project_rows((receipt(("rg",), 0, stdout=raw, status=RailStatus.OK),), 100, "alpha", spec=_RG_SPEC)
     assert len(rows) == expected_count
     assert notes == ()  # uncapped row sets carry no truncation note
@@ -411,7 +411,7 @@ def test_ts_rows_produces_match_rows_and_listing(
     expected_id_fragment: str,
     expected_severity: str | None,
 ) -> None:
-    """_project_rows over _TS_SPEC decodes Capture JSON into Match rows with correct id, text, severity, and listing."""
+    """_TS_SPEC projects captures into match rows, severity, and listing text."""
     cap = Capture(name=name, text=text, file="pkg/mod.py" if not parse_error else "pkg/bad.py", line=1, column=5, ordinal=0, parse_error=parse_error)
     done = receipt(("tree-sitter",), rc, stdout=CAPTURE_ENCODER.encode((cap,)), status=status_in)
     rows, listing, _notes = _project_rows((done,), 100, "(function_definition)", spec=_TS_SPEC)
@@ -441,7 +441,7 @@ def test_match_ids_carry_source_prefixes() -> None:
 
 
 def test_project_rows_shape_parity() -> None:
-    """Each spec row reproduces its per-family projector shape byte-for-byte: id, text, listing line, and empty uncapped note."""
+    """Each projector preserves its id, text, listing, and uncapped-note shape."""
     ts_cap = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5, ordinal=0, pattern=0)
     rg_line = b'{"type":"match","data":{"path":{"text":"src/a.py"},"lines":{"text":"alpha = 1 \\n"},"line_number":3}}\n'
     ag = _project_rows((receipt(("ast-grep",), 0, stdout=msgspec.json.encode((_AG_MATCH,)), status=RailStatus.OK),), 10, "$X", spec=_AG_SPEC)
@@ -464,7 +464,7 @@ def test_project_rows_shape_parity() -> None:
 
 
 def test_content_search_forced_cap_emits_results_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """search() with max_results=1 over 2 content hits notes 'results: 1 of 2 (cap=1); full listing in artifact'."""
+    """Content search overflow emits the capped-results artifact note."""
     two = (
         b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 1"},"line_number":1}}\n'
         b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 2"},"line_number":2}}\n'
@@ -485,7 +485,7 @@ def test_structural_search_forced_cap_emits_results_note(assay_root: AssayHarnes
 
 
 def test_query_forced_cap_emits_saturation_note(assay_root: AssayHarness) -> None:
-    """query() with max_results=1 over 2 defs surfaces the match-limit-saturated cap note in the report."""
+    """query() overflow surfaces the match-limit-saturated cap note."""
     assay_root.write("pkg/mod.py", "def a():\n    pass\n\ndef b():\n    pass\n")
     params = CodeParams(pattern=_PY_FUNC_QUERY, python=True, paths=("pkg/mod.py",), max_results=1)
     report = assert_ok(query(assay_root.settings, assay_root.scope(Claim.CODE), params))
@@ -516,11 +516,7 @@ def test_query_public(assay_root: AssayHarness, content: str, pattern: str, chec
     ids=["search_structural_on_metavar", "search_content_ok_on_literal_pattern"],
 )
 def test_search_public(assay_root: AssayHarness, content: str, pattern: str, binary: str) -> None:
-    """search() routes to ast-grep (metavar) or ripgrep (literal); when the spawn binary resolves, the Ok report carries CODE claim.
-
-    The both-rails fallback survives only when the routed binary is absent from PATH (a CI without ast-grep/rg);
-    a resolvable binary must reach the Ok rail, so a real routing/spawn regression cannot hide behind the Error arm.
-    """
+    """search() routes structural patterns to ast-grep and literal patterns to ripgrep."""
     assay_root.write("pkg/mod.py", content)
     result = search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, python=True, paths=("pkg/mod.py",)))
     match (shutil.which(binary), result.is_ok()):
@@ -574,11 +570,7 @@ def test_content_search_no_catalog_row_returns_fault(assay_root: AssayHarness, m
     ids=["single", "two_top_level", "nested_uncounted", "string_masked_paren", "comment_masked_paren", "unbalanced_close_clamped", "empty"],
 )
 def test_top_level_patterns_masked_depth_count(query_src: str, expected: int) -> None:
-    """Kills _top_level_patterns fold mutations.
-
-    String/comment mask-regex corruption, '(' arm removal, count sign flips, and depth-clamp/seed-state
-    perturbations all shift the top-level pattern count.
-    """
+    """_top_level_patterns counts only unmasked top-level query forms."""
     assert _top_level_patterns(query_src) == expected
 
 
@@ -598,20 +590,12 @@ def test_top_level_patterns_masked_depth_count(query_src: str, expected: int) ->
     ids=["eq_single", "any_of_group", "eq_plus_any_of", "two_patterns_refused", "regex_predicate_refused", "predicate_free_refused"],
 )
 def test_eq_needles_prefilter_byte_sets(query_src: str, expected: tuple[frozenset[bytes], ...] | None) -> None:
-    """Kills _eq_needles widen/narrow mutations.
-
-    Predicate- or literal-regex corruption, pattern-count gate flips, subset-operator narrowing, and group
-    deletion all change the needle groups or wrongly toggle prefiltering.
-    """
+    """_eq_needles returns byte groups only for safe literal prefilters."""
     assert _eq_needles(query_src) == expected
 
 
 def test_ts_thunk_eq_prefilter_skip_and_admit(assay_root: AssayHarness) -> None:
-    """Kills _ts_thunk prefilter-gate mutations.
-
-    Disabling needles parses needle-free broken files into FAILED instead of EMPTY; inverting membership
-    skips needle-bearing valid files into EMPTY instead of OK.
-    """
+    """_ts_thunk prefilter skips needle-free files and admits needle hits."""
     assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
     assay_root.write("pkg/broken_miss.py", "def broken(:\n")
     thunk = _ts_thunk('(function_definition name: (identifier) @name (#eq? @name "alpha"))', Language.PYTHON, assay_root.root, limit=10)
@@ -622,11 +606,7 @@ def test_ts_thunk_eq_prefilter_skip_and_admit(assay_root: AssayHarness) -> None:
 
 
 def test_ts_thunk_receipt_argv_and_cap_fallback(assay_root: AssayHarness) -> None:
-    """Kills _ts_thunk receipt mutations.
-
-    Argv slot corruption on the tree-sitter provenance tuple and the limit>0 fallback flip that turns
-    limit=0 into cap=0 (EMPTY receipt) instead of the _RESULT_CAP fallback both diverge here.
-    """
+    """_ts_thunk preserves argv provenance and falls back when limit=0."""
     assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
     done = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=0)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
     assert done.argv == ("tree-sitter", "query", Language.PYTHON, "pkg/mod.py")
@@ -635,11 +615,7 @@ def test_ts_thunk_receipt_argv_and_cap_fallback(assay_root: AssayHarness) -> Non
 
 
 def test_ts_capture_full_byte_shape(assay_root: AssayHarness) -> None:
-    """Kills _ts_file_captures projection mutations.
-
-    Any dropped or offset capture field (column/end_line/end_column/start_byte/end_byte/pattern/ordinal)
-    and the >=-truncation flip at exact cap diverge from the exact Capture rows.
-    """
+    """_ts_file_captures preserves byte offsets and exact-cap truncation."""
     assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
     done = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
     expected = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5, end_line=1, end_column=10, start_byte=4, end_byte=9)
@@ -650,11 +626,7 @@ def test_ts_capture_full_byte_shape(assay_root: AssayHarness) -> None:
 
 
 def test_ts_capture_error_row_identity(assay_root: AssayHarness) -> None:
-    """Kills _ts_file_captures error-row mutations.
-
-    The query_error row must carry the compiler message and file; the parse_error row must keep exact
-    name/text/file and the saturation-derived truncated flag.
-    """
+    """Capture error rows preserve query, parse, file, and truncation identity."""
     assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
     qerr = CAPTURES.decode(_ts_thunk("(", Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",))).stdout)
     assert (qerr[0].name, qerr[0].file, qerr[0].line, qerr[0].parse_error) == ("query_error", "pkg/mod.py", 1, True)
@@ -666,11 +638,7 @@ def test_ts_capture_error_row_identity(assay_root: AssayHarness) -> None:
 
 
 def test_splice_argv_shapes(assay_root: AssayHarness) -> None:
-    """Kills _search_splice/_content_splice argv mutations.
-
-    Flag-string corruption, dropped command splice, and glob/pattern/target tail reordering all diverge
-    from the exact spawn argv.
-    """
+    """Search and content splices preserve exact spawn argv shape."""
     routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
     ag = _search_splice(CodeParams(pattern="$X = $Y"), assay_root.root)(_QUERY_TOOL, routed)
     assert ag.command == (*_QUERY_TOOL.command, "-p", "$X = $Y", "-l", "python", "--json=compact", "--no-ignore", "hidden", ".")
@@ -698,20 +666,12 @@ def test_rg_status_exact_note_bytes(
     has_rows: bool,  # noqa: FBT001  # parametrized bool flag
     expected: tuple[RailStatus, tuple[str, ...]],
 ) -> None:
-    """Kills _rg_status note mutations.
-
-    Warnings on clean exits, corrupted note prose, 200-char stderr truncation off-by-one, and and/or
-    fallback flips all diverge from the exact (status, notes) tuples.
-    """
+    """_rg_status preserves exact status and warning-note tuples."""
     assert _rg_status(returncode, stderr, has_rows=has_rows) == expected
 
 
 def test_content_report_byte_shape(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Kills _content_report mutations.
-
-    The stderr rail must decode with errors=replace (an and-flip drops the warning), verb stays 'search',
-    rows ride Report.results with pinned ids/scores, and the artifact pins digest/kind/bytes/run_id path.
-    """
+    """Content reports preserve stderr decoding, row scores, and artifact identity."""
     two = (
         b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 1"},"line_number":1}}\n'
         b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 2"},"line_number":2}}\n'
@@ -730,11 +690,7 @@ def test_content_report_byte_shape(assay_root: AssayHarness, monkeypatch: pytest
 
 
 def test_structural_report_promotion_and_defect_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Kills _report fold mutations.
-
-    An EMPTY base with projected rows must promote to OK with rows in Report.results; FAILED with no rows
-    must fall back to fold defect rows carrying tool argv provenance; verb stays 'search'.
-    """
+    """Structural reports promote row-bearing EMPTY and preserve defect rows."""
     assay_root.write("pkg/mod.py", "alpha = 1\n")
     params = CodeParams(pattern="$NAME = $VAL", python=True, paths=())
     hit = msgspec.json.encode((_AG_MATCH,))

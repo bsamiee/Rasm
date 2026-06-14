@@ -1,17 +1,4 @@
-"""Law matrix for tools.assay.rails.api public surface.
-
-Covers: ApiParams, doctor, query, resolve, shape_of, show.
-
-Laws:
-    shape_of: parametrized case-table over all SymbolShape arms; every arm is falsifiable.
-    ApiParams.bound: parametrized verb-x-positional case-table; surplus tokens produce Fault.
-    ApiParams.sources: tuple default; prefix filter is monotone.
-    doctor: prefix-subset monotone + strict-mode Fault promotion.
-    resolve: miss yields UNSUPPORTED + ApiResolution; bad kind yields kind candidates.
-    show: token cap / truncation; absent token yields EMPTY; latest prefers API scope.
-    query: known pydist key produces Ok report.
-    spec laws: ApiResolution / ApiSource / ApiSurface field roundtrip identity.
-"""
+"""Law matrix for API params, inventory, resolution, and surface queries."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -65,15 +52,13 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# All valid _PathKind tokens per _PATH_KINDS constant in api.py.
+# Valid _PathKind tokens mirrored from api.py.
 _VALID_KINDS: tuple[str, ...] = ("all", "assembly", "xml", "nuspec", "deps", "package-root")
 
-# Canned ilspycmd `-l cisde` type listing: `Kind FullyQualifiedName` per line (parsed by _parse_surface;
-# parts[0] must be in _SURFACE_KINDS). Four kinds across one namespace so namespace/type/member dispatch fires.
+# ilspy `Kind FullyQualifiedName` rows exercise namespace, type, and member dispatch.
 _ILSPY_TYPES: bytes = b"Class Acme.Widget\nStruct Acme.Point\nEnum Acme.Color\nInterface Acme.IThing\n"
 
-# Canned ilspycmd `-t` decompile window. The Spin member sits at a non-zero offset so the anchor search runs;
-# the trailing distinct lines drive max_lines truncation and the grep filter selects the Spin line only.
+# Spin's non-zero offset drives anchor search; trailing members drive cap and grep laws.
 _ILSPY_DECOMPILE: bytes = (
     b"namespace Acme\n"
     b"{\n"
@@ -88,7 +73,7 @@ _ILSPY_DECOMPILE: bytes = (
 )
 _ILSPY_DECOMPILE_LINES: int = len(_ILSPY_DECOMPILE.decode().splitlines())
 
-# Canned sidecar XMLDoc keyed by member element name (T:/M: prefix stripped, dotted-suffix matched by _xml_doc).
+# XMLDoc keys match the sidecar member-name suffix lookup.
 _ILSPY_XML: str = (
     "<doc><members>"
     '<member name="T:Acme.Widget"><summary>A widget that spins.</summary></member>'
@@ -101,18 +86,14 @@ _TS_CHECK: Check = Check(tool=Tool("ts-api", Runner.INPROC, (), Input.NONE, Lang
 
 _TEN_LINES: str = "\n".join(f"line{i}" for i in range(1, 11))
 
-# deps excluded: the fixture lays down no build/analyzers/runtimes dirs, so its target set is empty → EMPTY not OK.
+# The fixture has no deps target dirs, so that kind stays EMPTY.
 _PRESENT_KINDS: tuple[str, ...] = ("all", "assembly", "xml", "nuspec", "package-root")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class _DistDouble:
-    """Realistic importlib.metadata.Distribution double driving the pydist source/inventory edge arms.
-
-    ``files`` is None so the file-manifest-absent arm of _pydist_source is exercised; the OSError
-    fold-to-empty-root arm of the inventory loop is driven by the _OsErrorDist subclass below.
-    """
+    """Distribution double with absent files and overridable root lookup."""
 
     def __init__(self, name: str, *, root: str) -> None:
         self.metadata: dict[str, str] = {"Name": name}
@@ -128,13 +109,7 @@ class _DistDouble:
 
 
 def _run(verb: Verb, assay_root: AssayHarness, **params: object) -> Result[Report, Fault]:
-    """Run an api verb over ApiParams(**params) in a fresh Claim.API scope.
-
-    Collapses the verb(settings, scope, ApiParams(...)) triple so no test needs an inline scope binding.
-
-    Returns:
-        The verb's Result[Report, Fault] over the isolated tmp tree.
-    """
+    """Run an API verb in a fresh Claim.API scope."""
     return verb(
         assay_root.settings,
         assay_root.scope(Claim.API),
@@ -151,11 +126,7 @@ def _install_ilspy(
     returncode: int = 0,
     xmls: bool = False,
 ) -> None:
-    """Pin api_rail.run_check and _source to canned ilspycmd output over a fabricated RhinoCommon assembly.
-
-    The replacement discriminates on -t (decompile) vs the type-listing surface call, mirroring real
-    ilspycmd invocation. Both branches build their receipt through RailProbe.receipt.
-    """
+    """Pin ilspy source resolution to canned list/decompile receipts."""
     asm = assay_root.write("RhinoCommon.dll", "MZ")
     xml_paths = (assay_root.write("RhinoCommon.xml", _ILSPY_XML),) if xmls else ()
     source = api_rail._Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,), xmls=xml_paths)
@@ -172,11 +143,7 @@ def _install_ilspy(
 
 
 def _cs_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbol: str, *, install: bool = True, **kw: object) -> ApiSurface:
-    """Query symbol over canned ilspycmd output and return the asserted ApiSurface detail.
-
-    Returns:
-        The ApiSurface detail of the Ok query report over the canned C# source.
-    """
+    """Return the C# ApiSurface detail over the canned ilspy source."""
     match install:
         case True:
             _install_ilspy(assay_root, monkeypatch)
@@ -207,48 +174,28 @@ def _cs_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbo
     ids=["empty", "ws", "1-up", "1-low", "2-up", "rhino-type", "3-up", "parens", "rhino-mem", "3-low"],
 )
 def test_shape_of_dispatch(symbol: str, expected: SymbolShape) -> None:
-    """shape_of dispatches every SymbolShape arm and is idempotent on a canonical representative.
-
-    Falsified by a mutant that collapses any arm onto another (e.g. drops the dotted-vs-cased
-    discriminant): the refutes witness below proves the dispatch table is not a tautology — a
-    deliberately wrong (symbol, expected) pair makes the case-table law raise.
-    """
+    """shape_of dispatches every SymbolShape arm and remains idempotent."""
     assert shape_of(symbol) is expected
     assert shape_of(symbol) is shape_of(symbol)
 
 
 def _shape_law(symbol: str, expected: SymbolShape) -> None:
-    """Oracle: shape_of(symbol) must be ``expected``; raises AssertionError otherwise.
-
-    Driven both as a positive law (every parametrize row) and inverted by ``refutes`` with a
-    deliberately wrong expected, proving the dispatch table discriminates rather than returning a constant.
-    """
+    """Assert the shape oracle rejects wrong discriminant expectations."""
     assert shape_of(symbol) is expected, f"shape_of({symbol!r}) = {shape_of(symbol)} != {expected}"
 
 
 def test_shape_of_dispatch_is_falsifiable() -> None:
-    """``_shape_law`` raises on a wrong (symbol, shape) pair — the dispatch table is not vacuous.
-
-    Without a witness, a mutant collapsing shape_of to a constant SymbolShape could survive whenever a
-    parametrize row happens to expect that constant. refutes pins each shape against a deliberately wrong
-    expectation, so a non-discriminating shape_of cannot pass: every arm must reject the other arms' values.
-    """
-    refutes("System", _shape_law, SymbolShape.MEMBER)  # NAMESPACE-shaped, MEMBER expected → must raise
-    refutes("System.String", _shape_law, SymbolShape.INDEX)  # TYPE-shaped, INDEX expected → must raise
-    refutes("System.String.Contains()", _shape_law, SymbolShape.TYPE)  # MEMBER-shaped, TYPE expected → must raise
-    _shape_law("", SymbolShape.INDEX)  # the same oracle proves the positive arm holds (empty → INDEX)
+    """Wrong shape expectations must raise so the dispatch table is non-vacuous."""
+    refutes("System", _shape_law, SymbolShape.MEMBER)
+    refutes("System.String", _shape_law, SymbolShape.INDEX)
+    refutes("System.String.Contains()", _shape_law, SymbolShape.TYPE)
+    _shape_law("", SymbolShape.INDEX)
 
 
 def test_inspect_kinds_roster_pins_pep695_alias_row() -> None:
-    """_INSPECT_KINDS keeps the PEP 695 ``("type", TypeAliasType)`` row that rosters ``type X = ...`` aliases.
-
-    The api rail folds every (cap, predicate) row in _INSPECT_KINDS to roster a pydist's public surface;
-    dropping the TypeAliasType predicate silently stops type-alias members from appearing in a surface
-    query. This law fails if the alias row leaves the roster — proven by sampling the row's predicate
-    against a real ``type`` alias (True) and a plain class (False), so it cannot pass on a renamed/empty row.
-    """
-    type Alias = int  # a real PEP 695 alias object; isinstance(Alias, TypeAliasType) is True
-    assert isinstance(Alias, TypeAliasType)  # anchor: the alias row must accept exactly this object class
+    """_INSPECT_KINDS keeps the TypeAliasType row for PEP 695 aliases."""
+    type Alias = int
+    assert isinstance(Alias, TypeAliasType)
 
     alias_predicates = tuple(pred for cap, pred in api_rail._INSPECT_KINDS if cap == "type" and pred(Alias) and not pred(int))
     assert len(alias_predicates) == 1, "exactly one _INSPECT_KINDS row must accept a TypeAliasType and reject a plain class"
@@ -346,10 +293,7 @@ def test_doctor_sources_prefix_filters(assay_root: AssayHarness, prefix: str) ->
 
 
 def test_doctor_sources_validity_matrix(assay_root: AssayHarness) -> None:
-    """Validity matrix over the doctor sources prefix filter: all >= matching >= non-matching == 0.
-
-    Subsumes the nomatch-prefix-zero law (none == 0) and catches a mutant that breaks _filtered_sources.
-    """
+    """Doctor source filtering preserves all >= matching >= non-matching == 0."""
     lines_all = _doctor_lines(assay_root, ())
     lines_rhino = _doctor_lines(assay_root, ("rhino-",))
     lines_none = _doctor_lines(assay_root, ("xyz-no-match-xyzzy-",))
@@ -362,8 +306,7 @@ def test_doctor_sources_validity_matrix(assay_root: AssayHarness) -> None:
         lambda v: v >= 0,  # predicate: a valid line count is non-negative
     )
     assert lines_all >= lines_rhino >= lines_none == 0  # falsifiable by a defect in _filtered_sources
-    # validity_matrix is non-vacuous: a case whose expected flag contradicts the predicate must raise.
-    # This pins that the matrix oracle truly compares (it would silently pass any input if it ignored `expected`).
+    # Contradictory expectation proves validity_matrix compares expected flags.
     refutes([ValidityCase("contradiction", lines_none, expected=True)], validity_matrix, lambda v: v > 0)  # 0 > 0 is False ≠ True
 
 
@@ -387,7 +330,7 @@ register_law(doctor, "doctor_strict_promotes_fault")
 
 
 def test_doctor_inventory_includes_nuget_and_polyglot_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Doctor folds a populated NuGet package plus polyglot summary rows into a single inventory report."""
+    """Doctor folds NuGet and polyglot rows into one inventory report."""
     _nuget_fixture(assay_root)
     # Pin the version probe so the ilspycmd row reports a concrete version instead of 'unavailable'.
     monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.receipt(("ilspycmd",), 0, stdout=b"ilspycmd: 9.1.0.7988\n"))
@@ -422,7 +365,7 @@ register_law(doctor, "doctor_inventory_artifacts_retained_api_claim_root")
 
 
 def test_inventory_sources_keep_full_rows_without_pydist_file_expansion(assay_root: AssayHarness) -> None:
-    """_inventory_sources keeps full host/NuGet rows yet lists pydist rows without per-file asset expansion."""
+    """_inventory_sources keeps host/NuGet rows and omits pydist asset expansion."""
     _nuget_fixture(assay_root, owner=False)
     sources = api_rail._inventory_sources(assay_root.settings, None, "ilspycmd: 9.1", 0)
     by_id = {row.source_id for row in sources}
@@ -438,7 +381,7 @@ register_law(doctor, "inventory_sources_full_rows")
 
 
 def test_doctor_result_ids_are_identity_shaped(assay_root: AssayHarness) -> None:
-    """Doctor inventory results are keyed inventory:<source_id> — stable across runs so delta's (id, line) compare holds."""
+    """Doctor inventory result ids stay stable across repeated runs."""
     first = assert_ok(_run(doctor, assay_root))
     second = assert_ok(_run(doctor, assay_root))
     assert first.results
@@ -453,12 +396,7 @@ _DOCTOR_ROW = re.compile(r"^\S+ status=\S+ assembly=(?:present|missing) xml=(?:p
 
 
 def test_doctor_row_text_is_stable_key_value_grammar(assay_root: AssayHarness) -> None:
-    """Each doctor inventory ``Match.text`` follows the fixed ``key=value`` health grammar parsers key off.
-
-    Pins ``<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->`` —
-    fixed key order, single-space-separated — so a downstream parser reads named keys, not positions. A
-    presence-token flip (``present`` <-> ``missing``) or a dropped key fails the per-row fullmatch.
-    """
+    """Doctor row text keeps the fixed key=value health grammar."""
     report = assert_ok(_run(doctor, assay_root))
     assert report.results
     for match in report.results:
@@ -489,11 +427,7 @@ def test_resolve_miss_family(
     strict: bool,  # noqa: FBT001  # parametrized bool flag
     reason: str,
 ) -> None:
-    """Resolve misses stay UNSUPPORTED with a typed ApiResolution (reason + candidates); strict faults the rail.
-
-    One case-table covers unknown-key, bad-kind, NUL-codec-boundary, and strict-promotion in a single
-    falsifiable law.
-    """
+    """Resolve misses return ApiResolution candidates, while strict promotes to FAULTED."""
     result = _run(resolve, assay_root, key=key, kind=kind, strict=strict)
     match strict:
         case True:
@@ -514,7 +448,7 @@ register_law(resolve, "resolve_strict_fault_on_miss")
 
 
 def _kind_not_rejected(assay_root: AssayHarness, kind: str) -> bool:
-    # pytest is always a resolvable pydist key in the test environment; valid kinds never emit unknown-kind.
+    # pytest anchors kind validation to a resolvable pydist key.
     r = assert_ok(_run(resolve, assay_root, key="pytest", kind=kind))
     return not isinstance(r.detail, ApiResolution) or r.detail.reason != "unknown-kind"
 
@@ -597,7 +531,7 @@ def test_show_store_windowing(
     expect_lines: int,
     check_preview: Callable[[str], bool],
 ) -> None:
-    """Show windows a stored artifact via --max-lines / --lines / --grep / --full, with the full selected count on lines."""
+    """Show applies max-lines, explicit windows, grep, and full-view selection."""
     detail = _show_detail(assay_root, content, **params)
     assert detail.truncated is expect_truncated
     assert detail.lines == expect_lines
@@ -663,7 +597,7 @@ register_law(show, "show_latest_api_claim_root_preference")
 @pytest.mark.parametrize(
     "key, unsupported",
     [
-        ("pytest", False),  # live pydist key → Ok surface/miss, never FAULTED
+        ("pytest", False),
         ("totally-unknown-xxxxxxx456", True),  # unknown key → UNSUPPORTED + ApiResolution
     ],
     ids=["pydist-ok", "unknown-unsupported"],
@@ -673,7 +607,7 @@ def test_query_key_resolution(
     key: str,
     unsupported: bool,  # noqa: FBT001  # parametrized bool flag
 ) -> None:
-    """Query resolves a live key to an Ok report (never FAULTED) and an unknown key to UNSUPPORTED+ApiResolution."""
+    """Query keeps live and unknown keys on the Ok rail."""
     r = assert_ok(_run(query, assay_root, key=key, symbol=""))
     assert r.verb == "query"
     assert r.status is not RailStatus.FAULTED  # both arms ride the Ok rail
@@ -722,12 +656,8 @@ register_law(ApiSurface, "api_surface_roundtrip")
 def test_cs_query_dispatches_every_shape(
     assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbol: str, decompile: bytes, shape: SymbolShape, anchor: str
 ) -> None:
-    """C# query parses canned ilspycmd output into the correct ApiSurface shape and anchor text across all arms.
-
-    Drives the full C# surface and decompile pipeline through a monkeypatched run_check. Covers the
-    four SymbolShape arms plus the SEARCH branch reached via substring match and empty decompile fallback.
-    """
-    # The substring-search arm needs two same-prefix types so 'wid' substring-matches both; other arms use the default roster.
+    """C# query dispatches every canned ilspy shape and search fallback."""
+    # Two same-prefix types make the substring-search arm non-vacuous.
     types = {"wid": b"Class Acme.Widget\nClass Acme.WidgetFactory\nStruct Acme.Point\n"}.get(symbol, _ILSPY_TYPES)
     _install_ilspy(assay_root, monkeypatch, types=types, decompile=decompile)
     detail = _cs_surface(assay_root, monkeypatch, symbol, install=False)
@@ -741,14 +671,7 @@ register_law(query, "cs_query_empty_decompile_search")
 
 
 def test_cs_query_type_window_renders_full_golden_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The rendered C# type-decompile window reproduces the full anchored surface byte-for-byte.
-
-    Where the dispatch sweep only spot-checks ``anchor in preview``, this pins the entire rendered
-    window (class declaration + every member line, anchored and dedented) against an external golden.
-    Falsified by any decompile-window regression — line reordering, dropped members, anchor drift —
-    that a single-substring assertion would let survive. The golden lives in the external store so the
-    multi-line surface never bloats the test source.
-    """
+    """The C# type window matches the anchored external golden byte-for-byte."""
     detail = _cs_surface(assay_root, monkeypatch, "Widget")
     assert outsource(detail.preview, suffix=".txt") == external("uuid:be213712-2b2b-44e5-973c-ec6ff40ee8b9.txt")
 
@@ -768,11 +691,11 @@ register_law(query, "cs_query_member_xml_doc")
 
 
 def test_cs_query_grep_filters_decompile_window(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """C# decompile with grep keeps only matching lines and recomputes the selected count."""
+    """C# grep recomputes the selected decompile count."""
     detail = _cs_surface(assay_root, monkeypatch, "Widget", grep="Spin")
     assert "Spin" in detail.preview
     assert "Count" not in detail.preview  # grep dropped the non-matching member lines
-    assert detail.lines == 1  # exactly one line survived the grep filter
+    assert detail.lines == 1
 
 
 register_law(query, "cs_query_grep_filter")
@@ -788,11 +711,7 @@ def test_cs_query_truncation_matrix(
     full: bool,  # noqa: FBT001  # parametrized bool flag
     expect_truncated: bool,  # noqa: FBT001  # parametrized bool flag
 ) -> None:
-    """C# decompile truncation: a capped window truncates (anchor-relative); --full returns the whole file.
-
-    lines always carries the full source count; the window is anchored at the member declaration so a
-    capped (non-full) request never spans the whole file, while --full ignores the cap entirely.
-    """
+    """C# decompile lines keep full count while preview honors cap/full."""
     detail = _cs_surface(assay_root, monkeypatch, "Widget", max_lines=max_lines, full=full)
     assert detail.truncated is expect_truncated
     assert detail.lines == _ILSPY_DECOMPILE_LINES  # full count regardless of window
@@ -802,7 +721,7 @@ register_law(query, "cs_query_truncation_matrix")
 
 
 def test_cs_decompile_window_note_surfaces_truncation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A capped decompile window notes 'window: N of M lines (--full or --max-lines to widen)' on the report."""
+    """Capped decompile reports the selected-vs-total window note."""
     _install_ilspy(assay_root, monkeypatch)
     r = assert_ok(_run(query, assay_root, key="rhino-common", symbol="Widget", max_lines=2))
     assert f"window: 2 of {_ILSPY_DECOMPILE_LINES} lines (--full or --max-lines to widen)" in r.notes
@@ -812,7 +731,7 @@ register_law(query, "cs_decompile_window_note")
 
 
 def test_roster_forced_cap_emits_results_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A roster larger than _RESULT_CAP caps results and notes 'results: N of M (cap=K); full listing in artifact'."""
+    """Roster overflow emits the capped-results artifact note."""
     _install_ilspy(assay_root, monkeypatch)
     monkeypatch.setattr(api_rail, "_RESULT_CAP", 1)
     r = assert_ok(_run(query, assay_root, key="rhino-common", symbol="Acme"))  # namespace roster of 4 owned types
@@ -838,7 +757,7 @@ register_law(query, "api_result_ids_identity_shaped")
 
 @pytest.mark.parametrize("symbol", ["Nonexistent", "Other.Missing"], ids=["search-miss", "unranked-fqn-miss"])
 def test_cs_query_resolution_miss(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbol: str) -> None:
-    """C# query for an absent (search miss) or unranked-TYPE-shaped symbol folds to a partial ApiResolution (UNSUPPORTED)."""
+    """C# search and unranked-type misses fold to partial ApiResolution."""
     _install_ilspy(assay_root, monkeypatch)
     r = assert_ok(_run(query, assay_root, key="rhino-common", symbol=symbol))
     detail = r.detail
@@ -863,13 +782,9 @@ register_law(query, "cs_surface_all_fail_faults")
 
 
 def test_cs_surface_cache_hit_skips_reinvocation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A second C# surface query reads the fingerprint cache instead of re-invoking ilspycmd.
-
-    Regression guard: the first query writes the roster cache; a follow-up that would FAULT on a fresh
-    invocation must still succeed off the cache, proving the cache-hit branch (api.py:884-886) is taken.
-    """
+    """A second C# surface query reads the fingerprint cache."""
     first = _cs_surface(assay_root, monkeypatch, "")
-    # Re-pin run_check to a hard fault: only a cache hit can keep the second surface query green.
+    # A hard fault after the first call proves the second result is cache-backed.
     monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.error(("api",), "must-not-run"))
     second = _cs_surface(assay_root, monkeypatch, "", install=False)
     assert second.preview == first.preview
@@ -879,11 +794,11 @@ register_law(query, "cs_surface_cache_hit")
 
 
 def test_cs_surface_empty_assemblies_is_empty_not_fault(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A C# source with no assemblies yields an EMPTY surface (search miss), never a FAULT."""
+    """A C# source with no assemblies stays off the fault rail."""
     empty_src = api_rail._Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=())
     monkeypatch.setattr(api_rail, "_source", lambda _settings, _key: Ok(empty_src))
     r = assert_ok(_run(query, assay_root, key="rhino-common", symbol="Anything"))
-    assert r.status is not RailStatus.FAULTED  # no types → search miss → UNSUPPORTED ApiResolution, never a fault rail
+    assert r.status is not RailStatus.FAULTED
 
 
 register_law(query, "cs_surface_empty_assemblies_empty")
@@ -923,7 +838,7 @@ def test_pydist_member_grep_and_full_window(assay_root: AssayHarness) -> None:
     full_detail, grep_detail = full_r.detail, grep_r.detail
     assert isinstance(full_detail, ApiSurface)
     assert isinstance(grep_detail, ApiSurface)
-    assert not full_detail.truncated  # full flag never truncates
+    assert not full_detail.truncated
     assert grep_detail.lines <= full_detail.lines  # grep is a monotone filter over the same source
 
 
@@ -999,7 +914,7 @@ def _signature_fallback_probes() -> tuple[tuple[str, object, object], ...]:
     "obj, expected", [(o, e) for _id, o, e in _signature_fallback_probes()], ids=[i for i, _o, _e in _signature_fallback_probes()]
 )
 def test_signature_fallback_cases(obj: object, expected: object) -> None:
-    """_signature renders annotations, synthesizes annotationlib params, or yields the '(...)' sentinel."""
+    """_signature renders annotations, synthetic params, or sentinel."""
     assert api_rail._signature(obj) == expected
 
 
@@ -1009,7 +924,7 @@ def test_annotations_empty_for_unannotated_object() -> None:
 
 
 def test_malformed_xml_or_json_inputs_degrade_to_empty(assay_root: AssayHarness) -> None:
-    """Every codec boundary (props/csproj/package.json/sidecar-xml) folds malformed input to an empty result, never raising."""
+    """Malformed props, csproj, package.json, and XMLDoc inputs fold empty."""
     props = assay_root.write("Directory.Packages.props", "<Project><PackageVersion Include='A' Version='1'/>")  # unterminated XML
     csproj = assay_root.write("src/App/App.csproj", "<bad")  # unparseable XML
     manifest = assay_root.write("node_modules/pkg/package.json", "{not json")
@@ -1022,7 +937,7 @@ def test_malformed_xml_or_json_inputs_degrade_to_empty(assay_root: AssayHarness)
 
 
 def test_pydist_source_handles_files_none() -> None:
-    """_pydist_source yields a source even when the distribution exposes no file manifest (files=None arm)."""
+    """_pydist_source handles distributions without file manifests."""
     source = api_rail._pydist_source("pytest")
     assert source is not None
     assert source.kind is SourceKind.PYDIST
@@ -1040,7 +955,7 @@ def test_pydist_source_files_none_yields_empty_assets(assay_root: AssayHarness, 
 
 
 def test_pydist_inventory_skips_nameless_and_survives_locate_oserror(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_pydist_inventory_sources skips a nameless dist and folds a locate_file OSError to an empty root."""
+    """_pydist_inventory_sources skips nameless dists and folds root lookup errors."""
     import importlib.metadata as importlib_metadata  # noqa: PLC0415  # local: drive the stdlib metadata boundary
 
     class _OsErrorDist(_DistDouble):
@@ -1057,7 +972,7 @@ def test_pydist_inventory_skips_nameless_and_survives_locate_oserror(assay_root:
 
 
 def test_pydist_modules_unknown_key_empty() -> None:
-    """_pydist_modules returns empty for a key with no installed distribution (PackageNotFoundError arm)."""
+    """_pydist_modules returns empty for unknown distribution keys."""
     assert api_rail._pydist_modules("totally-not-installed-xyz") == ()
 
 
@@ -1089,14 +1004,14 @@ def test_tsdecl_member_query_anchors_signature(assay_root: AssayHarness) -> None
     detail = r.detail
     assert isinstance(detail, ApiSurface)
     assert "interface Foo" in detail.signature
-    assert "number" not in detail.signature  # Bar's member must not leak into Foo's window
+    assert "number" not in detail.signature, "Foo.x lookup must not leak Bar.x"
 
 
 register_law(query, "tsdecl_member_signature")
 
 
 def test_tsdecl_thunk_captures_export_aliases_and_parse_errors(assay_root: AssayHarness) -> None:
-    """_tsdecl_thunk surfaces re-export aliases as @type captures and flags malformed .d.ts as parse errors."""
+    """_tsdecl_thunk captures re-export aliases and malformed .d.ts parse errors."""
     good = assay_root.write("pkg/index.d.ts", 'export { Foo as Bar, Baz } from "./x";\nexport interface Thing { value: string }\n')
     bad = assay_root.write("pkg/bad.d.ts", "export interface Broken {")
     source = api_rail._Source("pkg", SourceKind.TSDECL, "1.0.0", package_root=good.parent, asset_paths=(good, bad))
@@ -1140,7 +1055,7 @@ def test_tsdecl_thunk_query_error_surfaces_capture(assay_root: AssayHarness, mon
 
 
 def test_ts_declared_match_limit_saturation_marks_truncated(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_ts_declared mirrors the code rail: roster overflow past _RESULT_CAP caps the rows and marks every kept row truncated."""
+    """TS declaration roster overflow caps rows and marks kept rows truncated."""
     dts = assay_root.write("pkg/index.d.ts", "export interface Foo { x: string }\nexport interface Bar { y: number }\n")
     source = api_rail._Source("pkg", SourceKind.TSDECL, "1.0.0", package_root=dts.parent, asset_paths=(dts,))
     monkeypatch.setattr(api_rail, "_RESULT_CAP", 1)
@@ -1209,7 +1124,7 @@ register_law(resolve, "resolve_nuget_kind_path_rows")
     "key, expect_ok, expect_reason",
     [
         ("Pkg.Core", True, ""),  # exact → resolved
-        ("Pkg.C", False, "ambiguous"),  # prefix-matches Core + Cache → ambiguous, never auto-picks one
+        ("Pkg.C", False, "ambiguous"),  # prefix matches Core + Cache, so ambiguity is explicit
         ("zzz-nope", False, "unknown"),  # no match → unknown with nearest candidates
     ],
     ids=["exact", "ambiguous", "unknown"],
@@ -1231,11 +1146,7 @@ def test_resolve_key_fuzzy_dispatch(key: str, expect_ok: bool, expect_reason: st
 
 
 def test_resolve_ambiguous_nuget_falls_through_to_unknown(assay_root: AssayHarness) -> None:
-    """Resolve over an ambiguous NuGet key folds the ambiguity to None in _source, surfacing unknown.
-
-    Regression guard for the _source fold contract: an ambiguous NuGet resolution does not short-circuit
-    the resolver chain — it degrades to None and the aggregate miss reports the union-of-roster reason.
-    """
+    """Ambiguous NuGet keys degrade to the aggregate unknown-source miss."""
     assay_root.write(
         "Directory.Packages.props",
         "<Project><ItemGroup>"
@@ -1256,7 +1167,7 @@ register_law(resolve, "resolve_nuget_ambiguous")
 
 
 def test_invoke_error_rail_yields_nonzero_completed(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_invoke maps a run_check Error fault into a non-zero Completed carrying the fault message on stderr."""
+    """_invoke maps run_check Error to non-zero Completed stderr."""
     monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.error(("api",), "spawn boom"))
     surface_tool = next(t for t in select(Claim.API, Language.CSHARP))
     done = api_rail._invoke(assay_root.settings, assay_root.scope(Claim.API), surface_tool, "--version")
@@ -1275,7 +1186,7 @@ def test_invoke_error_rail_yields_nonzero_completed(assay_root: AssayHarness, mo
 def test_surface_faults_when_catalog_row_missing(
     assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, key: str, kind: SourceKind, symbol: str, message: str
 ) -> None:
-    """A corrupted catalog (no api row) faults the surface rail with a precise diagnostic, across C# and INPROC."""
+    """Missing API catalog rows fault C# and INPROC surfaces precisely."""
     asm = assay_root.write("RhinoCommon.dll" if kind is SourceKind.ASSEMBLY else "dummy.py", "MZ")
     source = api_rail._Source(
         key=key, kind=kind, assemblies=(asm,) if kind is SourceKind.ASSEMBLY else (), asset_paths=() if kind is SourceKind.ASSEMBLY else (asm,)
@@ -1293,11 +1204,7 @@ register_law(query, "inproc_no_catalog_fault")
 
 
 def test_cs_decompile_faults_when_catalog_row_missing(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """When the catalog drops the ilspycmd row between surface listing and decompile, the decompile arm faults.
-
-    A stateful select double returns the real row for the surface listing (call 1) and an empty catalog for the
-    decompile lookup (call 2+), driving the _cs_decompile select-None Fault arm with the real verb pipeline.
-    """
+    """Catalog loss between C# listing and decompile faults the decompile arm."""
     asm = assay_root.write("RhinoCommon.dll", "MZ")
     source = api_rail._Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
     calls = {"n": 0}

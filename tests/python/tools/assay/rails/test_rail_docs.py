@@ -1,11 +1,4 @@
-"""Laws for tools.assay.rails.docs covering three contract surfaces.
-
-DocsParams: default and explicit strict/paths construction invariants.
-FaultedPromotion: Exception subclass semantics and the strict-mode promotion
-    matrix (EMPTY/SKIP raise, FAILED/OK are preserved unchanged).
-check: fan_out fault propagation, claim stamping, strict flag threading, and
-    first-fault short-circuit across multi-error fan_out results.
-"""
+"""Laws for docs params, strict promotion, check folding, and outcome rows."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -141,7 +134,7 @@ def test_faulted_promotion_preserves_failed_report() -> None:
 
 
 def test_faulted_promotion_promotion_matrix() -> None:
-    """_strict promotion matrix: EMPTY+strict→raise, SKIP+strict→raise, FAILED+strict→preserve, OK+strict→preserve."""
+    """_strict raises only EMPTY/SKIP strict-mode reports."""
     skip_report = fold(Claim.DOCS, "check", (Completed(("mmdc",), 0, status=RailStatus.SKIP),))
 
     for label, report, strict, should_raise in [
@@ -155,8 +148,8 @@ def test_faulted_promotion_promotion_matrix() -> None:
             with pytest.raises(FaultedPromotion, match="no docs changed"):
                 docs_rail._strict(report, strict=strict)
         else:
-            docs_rail._strict(report, strict=strict)  # must not raise
-        _ = label  # suppress F841 unused-loop-variable
+            docs_rail._strict(report, strict=strict)
+        _ = label
 
 
 # --- [LAWS_CHECK]
@@ -198,7 +191,7 @@ def test_check_ok_receipt_yields_ok_report(assay_root: AssayHarness, monkeypatch
 
 
 def test_check_failed_receipt_yields_failed_report(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check folds a FAILED receipt into Ok(Report) with status FAILED — real defects stay on the Ok rail."""
+    """Check folds FAILED receipts into Ok(Report) without masking status."""
     monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: (Ok(Completed(("mmdc",), 1, status=RailStatus.FAILED)),))
 
     result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("README.md",)))
@@ -245,12 +238,7 @@ def test_check_multi_fault_first_fault_wins(assay_root: AssayHarness, monkeypatc
 
 
 def test_check_verb_is_check(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check stamps the literal verb "check" into Report.verb across _thin_rail and the fold.
-
-    Kills the `verb=None`, `verb="XXcheckXX"`, and `verb="CHECK"` mutations at the check boundary
-    (and the threaded `_outcomes(verb=None)`): each changes the exact Report.verb token, which the
-    happy-path fold here surfaces and this asserts to be the byte-exact "check".
-    """
+    """Check stamps the exact lowercase verb into Report.verb."""
     monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
 
     result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("README.md",)))
@@ -259,12 +247,7 @@ def test_check_verb_is_check(assay_root: AssayHarness, monkeypatch: pytest.Monke
 
 
 def test_check_mode_threaded_selects_mmdc(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check threads Mode.CHECK so the `t.mode is mode` filter admits the mmdc tool for a routed file.
-
-    Kills `mode=None` (at check and at the threaded `_outcomes(mode=None)`): with the real mode the
-    select-filter yields exactly one mmdc Check for one routed file; with mode=None the filter
-    rejects every tool, fan_out sees zero checks, and the captured count collapses to zero.
-    """
+    """Mode.CHECK must thread into mmdc tool selection."""
     captured: list[Check] = []
     monkeypatch.setattr(docs_rail, "fan_out", lambda checks, **_k: captured.extend(checks) or (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
     src = assay_root.write("docs/diagram.md", "# d")
@@ -276,12 +259,7 @@ def test_check_mode_threaded_selects_mmdc(assay_root: AssayHarness, monkeypatch:
 
 
 def test_check_routing_settings_threaded_to_root(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check threads settings into route so enumeration resolves paths under settings.root, not cwd.
-
-    Kills `route(..., settings=None)` / dropped-settings: the harness writes a real .md under its
-    isolated root, so correct settings enumerate one file into one Check; settings=None roots the
-    LocalSource at the process cwd where the file is absent, routing zero files and zero checks.
-    """
+    """Check routes paths under settings.root instead of cwd."""
     captured: list[Check] = []
     monkeypatch.setattr(docs_rail, "fan_out", lambda checks, **_k: captured.extend(checks) or (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
     assay_root.write("docs/only-here.md", "# here")
@@ -293,12 +271,7 @@ def test_check_routing_settings_threaded_to_root(assay_root: AssayHarness, monke
 
 
 def test_check_fan_out_receives_real_dependencies(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check threads the live settings and scope down to fan_out through _thin_rail and _outcomes.
-
-    Kills `_thin_rail(None, scope, ...)` and the threaded `_outcomes(settings=None)`: the captured
-    fan_out kwargs must carry the exact harness settings and scope; a nulled settings argument would
-    surface as `seen["settings"] is None`.
-    """
+    """Check forwards live settings and scope to fan_out."""
     seen: dict[str, object] = {}
     receipt = (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),)
     monkeypatch.setattr(docs_rail, "fan_out", lambda checks, **kw: (seen.update(checks=checks, **kw), receipt)[1])
@@ -314,13 +287,7 @@ def test_check_fan_out_receives_real_dependencies(assay_root: AssayHarness, monk
 
 
 def test_outcomes_per_file_argv_shape(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_outcomes builds one mmdc Check per file with -i/-a/-o and a collision-free slugged sink stem.
-
-    The argv must end in the -o markdown sink (Input.OWNED contributes only an empty tail, so the raw
-    input file never re-appends as a bare positional). The -a artefacts path and -o sink both ride the
-    per-run scope path; the sink stem is the slugged full relative path (parts joined by `__`), so two
-    same-basename files never share a sink, and -o ends in <slug>.md.
-    """
+    """_outcomes builds one mmdc Check per file with scoped, collision-free sinks."""
     captured: list[Check] = []
     monkeypatch.setattr(docs_rail, "fan_out", lambda checks, **_k: captured.extend(checks) or ())
 
@@ -338,12 +305,7 @@ def test_outcomes_per_file_argv_shape(assay_root: AssayHarness, monkeypatch: pyt
 
 
 def test_outcomes_folds_result_rows_and_artifacts(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_outcomes folds one source:<file>:1 result row per routed file and Artifact rows for produced sink files.
-
-    A worked run must surface, in the envelope itself: (a) a per-file result row whose id is the
-    `source:<rel>:1` form and whose severity tracks the mmdc receipt's exit, and (b) Artifact rows for the
-    SVG/MD the run produced under the scope (so an agent reads paths from the envelope, never the scope shape).
-    """
+    """_outcomes folds per-file result rows and produced sink artifacts."""
     assay_root.write("docs/diagram.md", "# d")
     scope = assay_root.scope(Claim.DOCS)
     scope.ensure()
@@ -362,12 +324,7 @@ def test_outcomes_folds_result_rows_and_artifacts(assay_root: AssayHarness, monk
 
 
 def test_outcomes_empty_fold_promotes_to_ok(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_outcomes promotes an EMPTY base fold to OK once result rows fold in, but FAILED receipts stay FAILED.
-
-    The mmdc receipt is rc 0 → EMPTY base status; the worked run carries result rows, so the report status
-    promotes to OK (an agent must see a green run, not an ambiguous EMPTY). A FAILED receipt keeps FAILED and
-    stamps the row severity, so a real render defect is never masked by the promotion.
-    """
+    """_outcomes promotes row-bearing EMPTY reports but preserves FAILED receipts."""
     assay_root.write("docs/ok.md", "# ok")
     scope = assay_root.scope(Claim.DOCS)
     monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
@@ -382,11 +339,7 @@ def test_outcomes_empty_fold_promotes_to_ok(assay_root: AssayHarness, monkeypatc
 
 
 def test_outcomes_verb_stamped_into_report(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_outcomes stamps the `verb` argument verbatim into Report.verb via the fold.
-
-    Kills `fold(claim, None, ...)`: dropping/nulling the verb argument changes the observable
-    Report.verb from the passed token to None (or to another literal), which this asserts exactly.
-    """
+    """_outcomes stamps the supplied verb into Report.verb."""
     monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
 
     routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/a.md",))
@@ -398,12 +351,7 @@ def test_outcomes_verb_stamped_into_report(assay_root: AssayHarness, monkeypatch
 
 
 def test_outcomes_fan_out_receives_real_dependencies(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_outcomes forwards the live settings, scope, and routed objects into fan_out unchanged.
-
-    Kills the `fan_out(settings=None | scope=None | routed=None | dropped)` family: each nulled or
-    dropped keyword changes the kwargs fan_out actually receives, which this captures and asserts
-    by identity against the real dependency objects.
-    """
+    """_outcomes forwards live settings, scope, and routed objects to fan_out."""
     seen: dict[str, object] = {}
     monkeypatch.setattr(docs_rail, "fan_out", lambda checks, **kw: (seen.update(checks=checks, **kw), ())[1])
 
