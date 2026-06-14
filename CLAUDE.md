@@ -48,7 +48,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 ## [3]-[DEPENDENCY_POLICY]
 
 [IMPORTANT]: **External-Lib-First**: approved dependencies are primary implementation surfaces.
-- [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, and equivalent manifests as first-class libraries.
+- [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, and equivalent manifests as first-class libraries. All configurations for languages are centralized, never per-project/folder.
 - [ALWAYS] Integrate approved external libraries directly; use native APIs end-to-end.
 - [ALWAYS] Prefer ecosystem libraries that already own the domain concern over local reinvention.
 - [ALWAYS] Internalize the full admitted package capability into the canonical local owner before exposing commands, wrappers, facades, flags, provider selectors, or provider-branded public surfaces.
@@ -57,6 +57,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [NEVER] Create thin wrappers that rename or forward external APIs without adding domain value.
 
 [IMPORTANT]: **.NET-Central-Package-Management**: C# package versions live in `Directory.Packages.props`; project files may declare usage but never versions.
+- [ALWAYS] check `.config/` for centralized net tooling, configuration, and additions, never per-folder/project.
 - [ALWAYS] Check `docs/stacks/csharp/system-apis.md` before adding a `System.*` package, global using, or BCL replacement.
 - [ALWAYS] Keep RhinoWIP/GH2/Eto/System.Drawing host assemblies resolved through `Directory.Build.props` app-bundle references; if SDK compilation needs a NuGet reference surface, add it only as a conditioned central compile package.
 

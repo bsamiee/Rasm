@@ -7,7 +7,7 @@ using Complex = System.Numerics.Complex;
 namespace Rasm.TestKit;
 
 // --- [MODELS] -------------------------------------------------------------------------------
-// Record struct, not a [Union]: Absolute/Relative/Hybrid/Context all reduce to one (abs, rel) tuple with identical bodies.
+// One `(abs, rel)` regime covers every tolerance variant; a union would duplicate equality bodies.
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Tolerance(double Abs, double Rel) {
     public static Tolerance Absolute(double epsilon) => new(Abs: epsilon, Rel: 0.0);
@@ -23,7 +23,7 @@ public readonly record struct Tolerance(double Abs, double Rel) {
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// Polymorphic equality oracle: magnitude-based for vectors/Complex, elementwise for Transform/Arr/Seq/Matrix, recursive for Plane. Tolerance.Within owns the regime.
+// One oracle surface keeps supported geometry and numeric shapes on the same tolerance regime.
 public static class Approx {
     public static bool Equal(double left, double right, Tolerance tolerance) =>
         Math.Abs(value: left - right) <= tolerance.Within(left: left, right: right);
@@ -46,7 +46,7 @@ public static class Approx {
         left.Count == right.Count && Indexed(count: left.Count, get: static (i, s) => s[index: i], left: left, right: right, tolerance: tolerance);
     public static bool Equal(VectorMatrix left, VectorMatrix right, Tolerance tolerance) =>
         left.Rows.Value == right.Rows.Value && left.Cols.Value == right.Cols.Value && Equal(left: left.Entries, right: right.Entries, tolerance: tolerance);
-    // Elementwise fold over [0, count) — single dispatch surface for any T-indexed double sequence.
+    // Index projection keeps elementwise equality reusable across array-backed carriers.
     private static bool Indexed<T>(int count, Func<int, T, double> get, T left, T right, Tolerance tolerance) =>
         toSeq(Enumerable.Range(start: 0, count: count)).ForAll(i => Equal(left: get(i, left), right: get(i, right), tolerance: tolerance));
 }

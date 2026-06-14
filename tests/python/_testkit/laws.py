@@ -27,7 +27,7 @@ class LawRecord(msgspec.Struct, frozen=True):
     subject_module: str = ""
 
 
-# --- [TABLES] ---------------------------------------------------------------------------
+# --- [TABLES]
 
 MANIFEST: list[LawRecord] = []
 SUT_PACKAGES: dict[str, frozenset[str]] = {}

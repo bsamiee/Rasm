@@ -4,10 +4,8 @@ namespace Rasm.TestKit.Scenarios;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 
-// Ownership: the document resource capsule. Open admits the live document once and registers
-// with the owning context; dispose restores a clean object table both directions (deterministic
-// isolation on the bridge-dedicated host). ViewportRealized feeds the runner's
-// auto-capture-on-failure trigger; an undisposed scope is drained by the runner as a named leak.
+// DocumentScope admits the live document once, clears object state on open/dispose, and registers
+// leak drainage with the context. ViewportRealized feeds the runner's failure-capture trigger.
 public sealed class DocumentScope : IDisposable {
     private DocumentScope(RhinoDoc doc) => Doc = doc;
 
@@ -34,10 +32,8 @@ public sealed class DocumentScope : IDisposable {
     }
 }
 
-// Ownership: explicit green-path capture. The runner binds the capture surface per scenario run
-// and clears it on the run bracket and at cargo disposal (the hook is the SDK's one mutable
-// static; it lives and dies with the cargo ALC). Outside a run the call degrades to a typed
-// failure — never a throw, never a stray file.
+// Capture is the green-path SDK seam; the runner binds Hook only for the run bracket and cargo
+// lifetime. Unbound calls fail typed instead of throwing or writing stray files.
 public static class Capture {
     internal static Func<string, Fin<string>>? Hook { get; set; }
 

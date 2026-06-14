@@ -41,7 +41,7 @@ public static class Numeric {
     public static double ArcLength(Seq<Point3d> points) =>
         toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: points.Count - 1)))
             .Fold(initialState: 0.0, f: (sum, i) => sum + points[index: i - 1].DistanceTo(other: points[index: i]));
-    // Row-major (Row, Col) projection shared by every matrix-walking oracle.
+    // Row-major cell order is shared by matrix oracle labels and projections.
     private static IEnumerable<(int Row, int Col)> Cells(int rows, int cols) =>
         Enumerable.Range(start: 0, count: rows * cols).Select(idx => (Row: idx / cols, Col: idx % cols));
     public static void Entrywise(int rows, int cols, Func<int, int, double> expected, Func<int, int, double> actual, double tolerance, string label) =>
@@ -97,7 +97,7 @@ public static class Numeric {
                 return sum + (weights[index: i] * (left(point) - left(mean)) * (right(point) - right(mean)));
             });
 
-    // --- [GEOMETRY_ORACLES] ----------------------------------------------------------------
+    // --- [GEOMETRY_ORACLES]
     public static (double Min, double Mean, double Max) PairwiseDistances(Seq<Point3d> points) {
         double[] distances = [.. Enumerable.Range(start: 0, count: points.Count).SelectMany(i =>
             Enumerable.Range(start: i + 1, count: points.Count - i - 1).Select(j => points[index: i].DistanceTo(other: points[index: j])))];
@@ -120,11 +120,10 @@ public static class Numeric {
     public static double AngularDistance(Vector3d a, Vector3d b) =>
         Math.Acos(d: Math.Clamp(value: IsTiny(value: a) || IsTiny(value: b) ? 1.0 : a * b / (a.Length * b.Length), min: -1.0, max: 1.0));
 
-    // --- [MATRIX_ORACLES] -----------------------------------------------------------------
-    // Column Gram entry (M^T M)[r,c].
+    // --- [MATRIX_ORACLES]
     private static Func<int, int, double> ColumnGram(VectorMatrix matrix) =>
         (row, col) => Dot(count: matrix.Rows.Value, left: k => matrix.At(i: k, j: row), right: k => matrix.At(i: k, j: col));
-    // Independent O(n^3) oracle — must not reuse VectorMatrix production multiply.
+    // Independent O(n^3) oracle; do not reuse production multiply.
     public static double[][] Multiply(VectorMatrix left, VectorMatrix right) =>
         [.. Enumerable.Range(start: 0, count: left.Rows.Value).Select(r =>
             Enumerable.Range(start: 0, count: right.Cols.Value).Select(c =>
@@ -139,7 +138,6 @@ public static class Numeric {
             _ => throw new ArgumentException(message: $"Norm: unknown kind '{kind}'", paramName: nameof(kind)),
         };
     }
-    // Frobenius residual ||left - right||_F.
     public static double FrobeniusDistance(Func<int, int, double> left, Func<int, int, double> right, int rows, int cols) =>
         Math.Sqrt(d: Cells(rows: rows, cols: cols).Sum(rc => { double d = left(rc.Row, rc.Col) - right(rc.Row, rc.Col); return d * d; }));
     public static double OrthogonalityResidual(VectorMatrix matrix) {
@@ -147,7 +145,7 @@ public static class Numeric {
         return FrobeniusDistance(left: ColumnGram(matrix: matrix), right: (r, c) => r == c ? 1.0 : 0.0, rows: n, cols: n);
     }
 
-    // --- [SPECTRAL_ORACLES] ---------------------------------------------------------------
+    // --- [SPECTRAL_ORACLES]
     // Path-graph Laplacian; eigenvalue closed form λ_k = 2 - 2cos(kπ/N).
     public static VectorMatrix PathGraphLaplacian(int n) =>
         VectorMatrix.Of(
@@ -168,10 +166,10 @@ public static class Numeric {
         Math.Abs(value: a.Length - 1.0) <= tolerance && Math.Abs(value: b.Length - 1.0) <= tolerance && Math.Abs(value: c.Length - 1.0) <= tolerance
         && Math.Abs(value: a * b) <= tolerance && Math.Abs(value: b * c) <= tolerance && Math.Abs(value: a * c) <= tolerance;
 
-    // --- [FIELD_ORACLES] -------------------------------------------------------------------
+    // --- [FIELD_ORACLES]
     public static double SignedDistanceSphere(Point3d p, Point3d center, double radius) =>
         p.DistanceTo(other: center) - radius;
-    // Axis-aligned box SDF; half* are half-extents.
+    // Box SDF parameters are half-extents.
     public static double SignedDistanceBox(Point3d p, Point3d center, double halfX, double halfY, double halfZ) {
         Vector3d q = new(x: Math.Abs(p.X - center.X) - halfX, y: Math.Abs(p.Y - center.Y) - halfY, z: Math.Abs(p.Z - center.Z) - halfZ);
         Vector3d clamped = new(x: Math.Max(val1: q.X, val2: 0.0), y: Math.Max(val1: q.Y, val2: 0.0), z: Math.Max(val1: q.Z, val2: 0.0));
@@ -185,7 +183,7 @@ public static class Numeric {
             z: (f(new Point3d(x: p.X, y: p.Y, z: p.Z + eps)) - f(new Point3d(x: p.X, y: p.Y, z: p.Z - eps))) / (2.0 * eps));
     }
 
-    // --- [FLOW_ORACLES] --------------------------------------------------------------------
+    // --- [FLOW_ORACLES]
     public static Vector3d AnalyticLinearField(Vector3d a, Vector3d b, Point3d p) =>
         a + new Vector3d(x: b.X * p.X, y: b.Y * p.Y, z: b.Z * p.Z);
     public static double ConvergenceOrder(double coarseError, double fineError, double stepRatio = 2.0) =>

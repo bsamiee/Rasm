@@ -3,8 +3,8 @@ using System.Runtime.Loader;
 
 namespace Rasm.TestKit;
 
-// --- [SERVICES] -------------------------------------------------------------------------
-// Resolve Private=false RhinoWIP host assemblies from RHINO_WIP_APP_PATH (or newest /Applications/Rhino*.app) at load time.
+// --- [SERVICES] -----------------------------------------------------------------------------
+// Host assemblies resolve from the active RhinoWIP bundle when default loading misses them.
 public static class HostBundle {
     private static int registered;
     public static int RegistrationCount => Volatile.Read(location: ref registered);
@@ -14,7 +14,7 @@ public static class HostBundle {
         }
     }
     private static Assembly? Resolve(AssemblyLoadContext context, AssemblyName name) =>
-        // BOUNDARY ADAPTER — native loader callback; probe the RhinoWIP bundle for Private=false host assemblies.
+        // Loader boundary stays confined to unresolved host assemblies.
         name.Name is string assembly
             ? Candidates(assembly: assembly).Where(File.Exists).Select(context.LoadFromAssemblyPath).FirstOrDefault()
             : null;

@@ -72,7 +72,7 @@ public static class Spec {
         ArgumentNullException.ThrowIfNull(argument: result);
         _ = result.Match(Succ: value => throw new XunitException($"Expected Fail; got Succ: {value}"), Fail: error => Tap(action: then, value: error));
     }
-    // Fault.Category is the stable contract (Message drifts on refactor) — couples failure tests to dispatch category.
+    // Category, not message, is the stable failure contract for dispatch laws.
     public static void FailCategory<T>(Fin<T> result, string category) =>
         Fail(result: result, then: error => Assert.Equal(expected: category, actual: error.Category()));
     public static void FailCode<T>(Fin<T> result, int code) =>
@@ -93,7 +93,7 @@ public static class Spec {
         Holds(condition: attempted >= 0 && emitted >= 0 && rejected >= 0, label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}: negative count (attempted={attempted}, emitted={emitted}, rejected={rejected})"));
         Assert.Equal(expected: attempted, actual: emitted + rejected);
     }
-    // Order-independent: Error.+ produces ManyErrors on double-fault; flatten + ordinal-sort asserts Applicative commutativity.
+    // Flattening ManyErrors plus ordinal sort proves Applicative error order independence.
     public static void AllErrors<T>(Validation<Error, T> v, params string[] expectedCategories) {
         ArgumentNullException.ThrowIfNull(argument: v);
         string[] expected = [.. expectedCategories.Order(comparer: StringComparer.Ordinal)];
@@ -130,8 +130,8 @@ public static class Spec {
     public static void ValueObjectRejects<T>(Gen<T> invalid, Func<T, bool> tryCreate) =>
         ForAll(invalid, value => Assert.False(condition: tryCreate(value)));
 
-    // --- [APPROX_EQUALITY] -------------------------------------------------------------
-    // Facade over Approx.Equal defaulting to absolute tolerance; advanced specs build Tolerance directly (Hybrid/FromContext).
+    // --- [APPROX_EQUALITY]
+    // Spec.Equal is the absolute-tolerance facade; hybrid/context regimes construct Tolerance directly.
     public static void Equal(double left, double right, double tolerance = 1e-9, string? what = null) =>
         Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)),
            label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Equal"}: |{left:R} - {right:R}| = {Math.Abs(left - right):R} > {tolerance:R}"));
@@ -153,12 +153,12 @@ public static class Spec {
         Assert.Equal(expected: left.Count, actual: right.Count);
         Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)), label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "Seq"} mismatch (tol={tolerance:R})"));
     }
-    // Sign-ambiguous unit-vector equality — eigenvectors and principal axes have arbitrary sign.
+    // Sign-ambiguous equality covers eigenspaces and principal axes with arbitrary orientation.
     public static void EqualSignAmbiguous(Vector3d left, Vector3d right, double tolerance = 1e-9, string? what = null) =>
         Eq(ok: Math.Min(val1: (left - right).Length, val2: (left + right).Length) <= tolerance,
            label: string.Create(provider: CultureInfo.InvariantCulture, $"{what ?? "UnitVec"} (sign-amb): min(|Δ|, |Σ|)={Math.Min(val1: (left - right).Length, val2: (left + right).Length):R} > {tolerance:R}"));
 
-    // --- [POLYMORPHIC_COMBINATORS] -----------------------------------------------------
+    // --- [POLYMORPHIC_COMBINATORS]
     public static void MonotoneSeq<T>(Gen<Seq<T>> gen, IComparer<T>? comparer = null, string? seed = null, long? iter = null, int? time = null, int? threads = null) =>
         ForAll(gen: gen, property: values => _ = toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: values.Count - 1))).Iter(i =>
             Holds(condition: (comparer ?? Comparer<T>.Default).Compare(x: values[index: i - 1], y: values[index: i]) <= 0,
@@ -194,7 +194,7 @@ public static class Spec {
         TKey[] actual = [.. production.Select(key).Order()];
         Assert.Equal(expected: expected, actual: actual);
     }
-    // expectedOutput is the spec's INDEPENDENT table, not production's per-case Output — the law cross-checks the two.
+    // Expected output comes from spec-owned rows to cross-check production metadata.
     public static void SmartEnumOutputCatalog<T, TKey>(IReadOnlyList<T> items, IReadOnlyList<TKey> expectedKeys, Func<T, TKey> key, Func<T, Type> output, Func<T, Type> expectedOutput) where TKey : notnull {
         ArgumentNullException.ThrowIfNull(argument: items);
         SmartEnumCatalogMatches(production: items, expectedKeys: expectedKeys, key: key);
@@ -205,7 +205,7 @@ public static class Spec {
             Cancel();
             Succ(result: project(c.Input), then: actual => Holds(condition: (eq ?? EqualityComparer<TValue>.Default.Equals)(c.Expected, actual), label: c.Label));
         });
-    // VO shape lives as a record so generators+validators+readers can be packaged together for Family iteration.
+    // ValueObjectShape packages generator, validator, and reader rows for Family iteration.
     public sealed record ValueObjectShape<TIn, TStruct>(Gen<TIn> Valid, Gen<TIn> Invalid, TryCreate<TIn, TStruct> TryCreate, Func<TStruct, TIn> Read, Func<TIn, TIn, bool>? Eq = null);
     public static void Family<TIn, TStruct>(params ValueObjectShape<TIn, TStruct>[] shapes) =>
         _ = shapes.AsIterable().Iter(s => {
@@ -272,7 +272,7 @@ public static class Spec {
         Assert.Equal(expected: expectedStop, actual: actualStop);
         Assert.InRange(actual: iterations, low: 1, high: maxIterations);
     }
-    // Translation MR: f(translate(x, t)) == translate(f(x), t).
+    // Translation metamorphism: translating input translates observed output.
     public static void MetamorphicTranslation<T>(Gen<(T X, Vector3d Translation)> gen, Func<T, Vector3d, T> translate, Func<T, Point3d> evaluate, double tolerance = 1e-9) =>
         ForAll(gen: gen, property: p => Equal(left: evaluate(translate(p.X, p.Translation)), right: evaluate(p.X) + p.Translation, tolerance: tolerance, what: "MetamorphicTranslation"));
     public static void AdditiveIdentity<T>(Gen<T> gen, Func<T, T, T> op, T identity, Func<T, T, bool>? eq = null) =>
@@ -286,7 +286,7 @@ public static class Spec {
             Assert.Equal(expected: geometryType, actual: fault.GeometryType);
             Assert.Equal(expected: outputType, actual: fault.OutputType);
         });
-    // Func<bool> thunks keep each row's generics at the call site and carry per-row diagnostics, replacing anonymous Assert.True/False walls.
+    // Per-row thunks preserve call-site generics and diagnostics without anonymous assertion walls.
     public static void SupportMatrix(params (string Label, Func<bool> Probe, bool Expected)[] rows) {
         ArgumentNullException.ThrowIfNull(argument: rows);
         _ = rows.AsIterable().Iter(row => {
@@ -295,32 +295,29 @@ public static class Spec {
             Holds(condition: actual == row.Expected, label: $"{row.Label}: expected {row.Expected}, got {actual}");
         });
     }
-    // Wraps Check.SampleModelBased.
     public static void ModelBased<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Func<TActual, TModel, bool> equal, params GenOperation<TActual, TModel>[] operations) {
         Cancel();
         init.SampleModelBased(operations: operations, equal: equal);
     }
-    // Wraps Check.SampleMetamorphic.
     public static void MetamorphicOps<T, TParam>(Gen<T> initial, Gen<TParam> paramGen, Func<TParam, string> name, Action<T, TParam> path1, Action<T, TParam> path2, Func<T, T, bool>? equal = null) {
         Cancel();
         initial.SampleMetamorphic(operations: GenMetamorphic.Create(gen: paramGen, name: name, action1: path1, action2: path2), equal: equal);
     }
-    // Wraps Check.SampleParallel without Causal profiling output (vs ConcurrentProfiled).
     public static void Parallel<T>(Gen<T> init, params GenOperation<T>[] operations) {
         Cancel();
         init.SampleParallel(operations: operations);
     }
 
-    // --- [BOUNDARY_ADAPTERS] -----------------------------------------------------------
-    // Propagates xUnit v3 runner cancellation into long CsCheck sample loops.
+    // --- [BOUNDARY_ADAPTERS]
+    // Runner cancellation must enter long CsCheck sample loops.
     private static void Cancel() => TestContext.Current.CancellationToken.ThrowIfCancellationRequested();
-    // Action<T> -> CsCheck Func<T, bool> contract.
+    // CsCheck property callbacks need bool-returning adapters.
     private static bool Apply<T>(Action<T> action, T value) { action(value); return true; }
-    // Optional Action<T> -> LanguageExt Match's Unit-returning lambda contract.
+    // LanguageExt match callbacks need Unit-returning adapters.
     private static Unit Tap<T>(Action<T>? action, T value) { action?.Invoke(value); return unit; }
     private static bool EqOrThrow<T>(T left, T right, Func<T, T, bool>? predicate) =>
         (predicate ?? EqualityComparer<T>.Default.Equals)(left, right) ? true : throw new XunitException($"Equality failed: {left} != {right}");
-    // Generic dispatcher for ForAll-based equality laws — collapses Roundtrip/Identity/Idempotent/Inverse/Distributive/Linearity shapes.
+    // One equality dispatcher keeps law families from cloning ForAll bodies.
     private static void EqLaw<TIn, TOut>(Gen<TIn> gen, Func<TIn, TOut> left, Func<TIn, TOut> right, Func<TOut, TOut, bool>? eq = null) =>
         ForAll(gen: gen, property: x => _ = EqOrThrow(left: left(x), right: right(x), predicate: eq));
     private static void Eq(bool ok, string label) => Holds(condition: ok, label: label);

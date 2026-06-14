@@ -4,7 +4,7 @@ using Rhino;
 namespace Rasm.TestKit;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// Assembly fixtures register via Directory.Build.props `[assembly: AssemblyFixture(typeof(...))]`; inject through test-class ctor.
+// AssemblyFixture registration is central; consumers use constructor injection only.
 public sealed class ContextFixture {
     public ContextFixture() {
         HostBundle.Register();

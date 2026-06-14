@@ -6,7 +6,7 @@ using Xunit.Sdk;
 namespace Rasm.TestKit;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// Singular testkit serializer surface. Adding a type here also requires registering it via Directory.Build.props.
+// Serializer support stays explicit here and registered centrally with xUnit.
 public sealed class GeometrySerializer : IXunitSerializer {
     public bool IsSerializable(Type type, object? value, [NotNullWhen(false)] out string? failureReason) {
         ArgumentNullException.ThrowIfNull(argument: type);

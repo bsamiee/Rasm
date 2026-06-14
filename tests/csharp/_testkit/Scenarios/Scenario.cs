@@ -5,10 +5,8 @@ namespace Rasm.TestKit.Scenarios;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 
-// Ownership: the scenario declaration surface. Theme, capability requirements, and budget are
-// read in-host by post-load discovery — the attribute IS the scenario manifest; no parallel
-// registry, no pre-host enumeration lane exists. Entrypoint shape: static Fin<Unit> over one
-// ScenarioContext parameter.
+// Scenario attributes are the in-host manifest: discovery reads theme, requirements, budget,
+// and static Fin<Unit>(ScenarioContext) entrypoints. There is no pre-host registry lane.
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class RhinoScenarioAttribute(string theme) : Attribute {
     public string Theme { get; } = theme;
@@ -18,10 +16,8 @@ public sealed class RhinoScenarioAttribute(string theme) : Attribute {
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 
-// Ownership: the entrypoint's single parameter — fused assert+fact (one call emits the evidence
-// AND decides the rail), the document handle, and the scope registry the runner drains. Facts
-// ride a runner-owned sink so the SDK stays wire-blind: the runner counts, stamps, spools, and
-// relays; the SDK never names a wire type.
+// ScenarioContext is the SDK boundary: assert+fact calls write runner-owned facts while the SDK
+// stays wire-blind, and scope registration lets the runner drain leaks before unload.
 public sealed class ScenarioContext {
     private readonly List<DocumentScope> scopes = [];
     private readonly Action<string, object?> sink;
@@ -60,8 +56,7 @@ public sealed class ScenarioContext {
     }
 
     internal int DrainScopes() {
-        // D-2 precondition: an undisposed scope is a named leak — the runner facts it, then this
-        // forced dispose restores the document before the ALC unload begins.
+        // Leaked scopes are reported before forced disposal restores the document for unload.
         int leaked = 0;
         foreach (DocumentScope scope in scopes) {
             if (scope.IsLive) {

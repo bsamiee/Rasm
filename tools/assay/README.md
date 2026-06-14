@@ -69,7 +69,7 @@ This table is a lookup by command surface and verb set:
 | [INDEX] | [SURFACE] | [VERBS]                                                         |
 | :-----: | :-------- | :-------------------------------------------------------------- |
 |   [1]   | root      | `self-test`, `delta`                                            |
-|   [2]   | `static`  | `check`, `build`, `fix`                                         |
+|   [2]   | `static`  | _(leaf — value-driven targets, no sub-verbs)_                   |
 |   [3]   | `code`    | `search`, `query`                                               |
 |   [4]   | `test`    | `run`, `list`, `coverage`                                       |
 |   [5]   | `bridge`  | `verify`, `doctor`, `launch`, `quit`, `check`, `clean`, `build` |
@@ -85,13 +85,13 @@ This table is a lookup by command surface and verb set:
 - Example: `uv run python -m tools.assay delta <run_id> --against <run_id>`
 
 [STATIC_COMMANDS]:
-- Verbs: `check`, `build`, `fix`
-- Inputs: `check`, `build`, and `fix` accept `--all`, `--project <project.csproj>`, `--folder <path>...`, and `--file <path>...`.
+- Verb: `static` is a single root leaf — there is no `check`/`build`/`fix` split.
+- Inputs: `--all`, `--project <project.csproj>`, `--folder <path>...`, `--file <path>...`, or no target (changed-default). At most one of `--all`, `--project`, or folder/file targets.
 - Target binding: each flag consumes space-separated values until the next option; the flag may also be repeated. Commas are literal path characters.
 - Output: shared `Report`; `StaticRun` detail carries targets, routes, planned checks, skipped checks, phase order, resource telemetry, and artifact scopes.
-- Use: `check` runs non-mutating static rows for the resolved targets; `build` runs build-capable rows for the resolved language targets; `fix` runs native formatters and autofixers for folder/file/project/all targets.
-- Example: `uv run python -m tools.assay static check --folder tools/assay tests/python --file tools/assay/rails/static.py`
-- Build example: `uv run python -m tools.assay static build --project tools/rhino-bridge/Supervisor/Supervisor.csproj`
+- Use: for every language the resolved targets touch, `static` runs the full lane in fixed order — auto-fix (formatters + fixers) -> diagnose (non-fixable analyzers) -> restore -> build. Fix-always: a CI gate runs `static` then asserts a clean git tree and empty diagnostics.
+- Example: `uv run python -m tools.assay static --folder tools/assay tests/python --file tools/assay/rails/static.py`
+- Project example: `uv run python -m tools.assay static --project tools/rhino-bridge/Supervisor/Supervisor.csproj`
 
 [CODE_COMMANDS]:
 - Verbs: `search`, `query`
