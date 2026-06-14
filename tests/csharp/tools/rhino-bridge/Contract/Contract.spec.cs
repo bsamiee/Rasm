@@ -11,7 +11,7 @@ namespace Rasm.Bridge.Contract.Tests;
 internal static class WireGens {
     public static readonly EventStamp Stamp = new(SessionId: Guid.Parse(input: "6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f"), Sequence: 17, AtUnixMs: 1_765_432_100_123, Scenario: "blocks.baseline");
     public static readonly HostFingerprint Host = new(BundleVersion: "9.0.26153.12416", RhinoCommonVersion: "9.0.26153.12416", Grasshopper2Version: "2.0.0", RuntimeVersion: "10.0.2");
-    public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-test", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractVersion: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153");
+    public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-test", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractVersion: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153", fault: "");
     public static readonly Handshake Shell = new(
         ContractVersion: 1, SenderVersion: "1.0.0",
         Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: "2.25.25")],
@@ -25,8 +25,7 @@ internal static class WireGens {
         JsonSerializer.Deserialize(json: JsonSerializer.Serialize(value: fault, jsonTypeInfo: BridgeJsonContext.Default.BridgeFault), jsonTypeInfo: BridgeJsonContext.Default.BridgeFault)!;
 }
 
-// The minimal v1 shell: echoes negotiation, projects the selection union into receipt names so the
-// union's wire traversal is observable end to end.
+// Protocol stub projects selection cases into receipts so union traversal stays observable.
 internal sealed class ShellStub : IBridgeShell {
     public Task<Handshake> HelloAsync(Handshake supervisor, CancellationToken ct) =>
         Task.FromResult(result: supervisor with { SenderVersion = "shell", Fingerprint = WireGens.Host, Endpoint = WireGens.Endpoint });
@@ -45,7 +44,7 @@ internal sealed class ShellStub : IBridgeShell {
     public Task PrepareQuitAsync(CancellationToken ct) => Task.CompletedTask;
 }
 
-// A "newer supervisor" contract: one method the v1 shell does not implement (-32601 law).
+// Future contract pins JSON-RPC method-not-found behavior instead of fallback.
 [JsonRpcContract]
 internal partial interface IFutureShell {
     public Task<long> FutureProbeAsync(CancellationToken ct);
@@ -76,8 +75,6 @@ internal static class RpcPair {
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
-// Proof 1: [JsonRpcContract] source-generated proxies attach and the full verb surface round-trips
-// Contract payloads over SystemTextJsonFormatter.
 public sealed class RpcProxyLaws {
     [Fact]
     public async Task ProxyIsSourceGeneratedNotDynamicAsync() =>
@@ -110,9 +107,6 @@ public sealed class RpcProxyLaws {
         }).ConfigureAwait(continueOnCapturedContext: true);
 }
 
-// Proof 2: every union case round-trips through BridgeJsonContext; an unknown $type fails LOUD in
-// the reader direction (the additive-evolution direction gate makes that reader always the newer
-// assembly), and the closed unions make an unknown writer-side case unrepresentable.
 public sealed class UnionWireLaws {
     public static TheoryData<BridgeEvent> Events => [
         new BridgeEvent.FactCase(Key: "cargo.swapMs", Value: JsonSerializer.SerializeToElement(value: 412.3, jsonTypeInfo: BridgeJsonContext.Default.Double)) { Stamp = WireGens.Stamp },
@@ -209,8 +203,6 @@ public sealed class UnionWireLaws {
     }
 }
 
-// Proof 3: the Thinktecture converters (smart enums as key strings, the EndpointRecord value
-// object) compose with the BridgeJsonContext source-gen pipeline.
 public sealed class ConverterCompositionLaws {
     [Fact]
     public void SmartEnumsSerializeAsKeyStrings() {
@@ -236,12 +228,14 @@ public sealed class ConverterCompositionLaws {
     }
 
     [Fact]
-    public void EndpointAdmissionDemandsThePipePrefix() {
+    public void EndpointAdmissionTakesPipePrefixOrEmptyPoison() {
         Assert.Equal(expected: "rbx-", actual: EndpointRecord.PipePrefix);
         Spec.ForAll(gen: WireGens.PipeSuffix, law: static suffix =>
-            Assert.Null(@object: EndpointRecord.Validate(pipeName: $"rbx-{suffix}", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractVersion: 1, shellVersion: "s", rhinoVersion: "r", obj: out _)));
-        Assert.All(collection: (string[])["rb-old-prefix", "", "RBX-upper", $"rbx-{new string(c: 'x', count: 61)}"], action: static name =>
-            Assert.NotNull(@object: EndpointRecord.Validate(pipeName: name, rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractVersion: 1, shellVersion: "s", rhinoVersion: "r", obj: out _)));
+            Assert.Null(@object: EndpointRecord.Validate(pipeName: $"rbx-{suffix}", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractVersion: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
+        // Empty pipe is the poison-record shape admitted for typed startup-failure evidence.
+        Assert.Null(@object: EndpointRecord.Validate(pipeName: "", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractVersion: 1, shellVersion: "s", rhinoVersion: "r", fault: "shell load failed", obj: out _));
+        Assert.All(collection: (string[])["rb-old-prefix", "RBX-upper", $"rbx-{new string(c: 'x', count: 61)}"], action: static name =>
+            Assert.NotNull(@object: EndpointRecord.Validate(pipeName: name, rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractVersion: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
     }
 
     [Fact]
@@ -256,8 +250,6 @@ public sealed class ConverterCompositionLaws {
         Assert.False(condition: WireGens.Endpoint.IsLiveFor(pid: WireGens.Endpoint.RhinoPid + 1, startedAtUnixMs: WireGens.Endpoint.RhinoStartedAtUnixMs));
 }
 
-// Proof 4: declared unmapped-member skip admits future fields; a missing method surfaces as the
-// typed -32601 rejection with NO fallback lane.
 public sealed class ToleranceLaws {
     [Fact]
     public void UnknownHandshakeFieldsAreSkipped() {
@@ -283,8 +275,6 @@ public sealed class ToleranceLaws {
         }).ConfigureAwait(continueOnCapturedContext: true);
 }
 
-// Amendment laws: the PhaseStatus total order, the deliberate rank-1 tie, and the Worst monoid the
-// session folds rely on.
 public sealed class PhaseStatusAlgebraLaws {
     [Fact]
     public void RanksFormTheAmendedTotalOrder() =>
@@ -318,7 +308,6 @@ public sealed class PhaseStatusAlgebraLaws {
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
-// CsCheck bridge: one ForAll shape shared by the property laws above.
 internal static class Spec {
     public static void ForAll<T>(Gen<T> gen, Action<T> law) => gen.Sample(assert: law);
 }

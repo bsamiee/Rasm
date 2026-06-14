@@ -3,21 +3,19 @@ using Rasm.TestKit.Scenarios;
 
 namespace Scenarios;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------------
 
 internal static class EvidenceGens {
     public static readonly Gen<string> Label = Gen.Char[start: 'a', finish: 'z'].Array[1, 16].Select(selector: static chars => new string(value: chars));
     public static readonly Gen<(string Label, int Payload)> Projection = Label.Select(Gen.Int[start: -1_000_000, finish: 1_000_000], static (string label, int payload) => (label, payload));
     public static readonly Gen<(string Key, int Payload)[]> Stream = Projection.Array[0, 24];
 
-    // The evidence rail is doc-blind by design: Require/Expect/Fact never dereference the
-    // document (RhinoDoc is host-constructed only), so a null doc proves the invariant
-    // structurally — any dereference would throw and fail the law.
+    // Null Doc proves evidence verbs stay doc-blind; any dereference fails the law.
     public static ScenarioContext Context(List<(string Key, object? Value)> log) =>
         new(doc: null!, sink: (key, value) => log.Add(item: (key, value)));
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 
 public sealed class RequireLaws {
     [Fact]
@@ -86,8 +84,7 @@ public sealed class FactLaws {
 }
 
 public sealed class FactsEmptyTriggerLaws {
-    // The runner emits the facts.empty warning exactly when FactCount == 0 after the entrypoint
-    // returns; these laws pin that trigger predicate from the SDK side of the seam.
+    // The runner's facts.empty trigger is exactly FactCount == 0 after entrypoint return.
     [Fact]
     public void FreshContextFiresTheTrigger() {
         List<(string Key, object? Value)> log = [];
@@ -98,8 +95,7 @@ public sealed class FactsEmptyTriggerLaws {
 
     [Fact]
     public void EveryEvidenceVerbSuppressesTheTrigger() {
-        // A failing Require/Expect still counts as evidence: a failed scenario can never
-        // co-report facts.empty.
+        // Failed evidence verbs still suppress facts.empty; failure plus empty evidence is contradictory.
         (string Verb, Action<ScenarioContext> Call)[] verbs = [
             (Verb: "fact", Call: static ctx => ctx.Fact(key: "k", value: 1)),
             (Verb: "require.pass", Call: static ctx => _ = ctx.Require(label: "k", observed: true)),
@@ -143,7 +139,7 @@ public sealed class ScopeAndCaptureLaws {
     }
 }
 
-// --- [EDGE_CASES] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------------
 
 public sealed class GuardLaws {
     [Theory]

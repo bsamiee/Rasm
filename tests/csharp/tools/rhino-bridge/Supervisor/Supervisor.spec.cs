@@ -9,7 +9,7 @@ internal static class SessionGens {
     public static readonly Guid Sid = Guid.Parse(input: "6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f");
     public static readonly BundleInfo Bundle = new(AppPath: "/Applications/RhinoWIP.app", CFBundleName: "RhinoWIP", CFBundleExecutable: "Rhinoceros", CFBundleVersion: "9.0.26153");
     public static readonly HostFingerprint Fingerprint = new(BundleVersion: "9.0.26153.12416", RhinoCommonVersion: "9.0.26153.12416", Grasshopper2Version: "2.0.0", RuntimeVersion: "10.0.2");
-    public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-spec", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractVersion: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153");
+    public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-spec", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractVersion: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153", fault: "");
     public static readonly LiveHost Host = new(Pid: 4242, StartedAtUnixMs: 1_765_432_000_000, Endpoint: Endpoint, Fingerprint: Fingerprint);
     public static readonly Handshake Ours = new(ContractVersion: 1, SenderVersion: "supervisor", Capabilities: [], Fingerprint: null, Endpoint: null);
     public static readonly Handshake Peer = new(ContractVersion: 1, SenderVersion: "shell", Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: "2.25.25")], Fingerprint: Fingerprint, Endpoint: Endpoint);
@@ -52,8 +52,6 @@ internal static class SessionGens {
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
-// Policy rows: RestartBudget 1, retention 7 days with green runs pruned, and one deadline row
-// per non-terminal state.
 public sealed class PolicyLaws {
     [Fact]
     public void PolicyRowsHold() {
@@ -71,8 +69,6 @@ public sealed class PolicyLaws {
     }
 }
 
-// The transition algebra: total over state x signal, deadline-exits everywhere, ladder-ordered
-// quit escalation, absorbing terminals.
 public sealed class DispatchLaws {
     private static readonly SessionPolicy Policy = SessionPolicy.Default;
     private static readonly SessionSignal Exit = new SessionSignal.HostExited(Pid: 4242, AtUnixMs: 1_765_432_200_000);
@@ -195,9 +191,6 @@ public sealed class DispatchLaws {
     }
 }
 
-// The terminal fold: Worst seeded Ok with the deliberate rank-1 tie, first-non-ok projection in
-// wire order (session fault outranking phase evidence), bounded evidence, spool reconciliation —
-// the laws migrated from the retired python first-fault suite.
 public sealed class FoldLaws {
     [Fact]
     public void CleanRunFoldsOkWithAnEmptyFirstFailurePair() {
@@ -345,8 +338,6 @@ public sealed class FoldLaws {
     }
 }
 
-// The verb surface: argv admission by value shape, projections, and runtime-rendered help that
-// derives from the union metadata and the PhaseStatus rows — one declaration, no second copy.
 public sealed class VerbLaws {
     [Fact]
     public void ParseAdmitsEveryVerbShape() {

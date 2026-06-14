@@ -2,8 +2,7 @@
     <PropertyGroup>
         <AssemblyName>Rasm.Bridge.Supervisor.Tests</AssemblyName>
         <RootNamespace>Rasm.Bridge.Supervisor.Tests</RootNamespace>
-        <!-- StreamJsonRpc0008: SystemTextJsonFormatter is the pinned wire formatter; PolyType shape
-             rows would only serve the MessagePack-family formatter branches that never load. -->
+        <!-- StreamJsonRpc0008: SystemTextJsonFormatter is the only loaded wire formatter. -->
         <NoWarn>$(NoWarn);StreamJsonRpc0008</NoWarn>
     </PropertyGroup>
     <ItemGroup>
