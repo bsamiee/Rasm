@@ -1,1 +1,1 @@
-"""Rasm Python semantic analyzer."""
+"""Python semantic analyzer package."""

@@ -1,4 +1,4 @@
-"""Command-line boundary for the Rasm Python semantic analyzer."""
+"""Command-line boundary for the Python analyzer."""
 
 import argparse
 from pathlib import Path
@@ -17,11 +17,11 @@ if TYPE_CHECKING:
     from tools.py_analyzer.rules import Diagnostic
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def emit(diagnostics: Sequence[Diagnostic], root: Path, output_format: OutputFormat) -> None:
-    """Emit diagnostics using the selected machine or human output contract."""
+    """Emit diagnostics using the selected output contract."""
     resolved_root = root.resolve()
     match output_format:
         case OutputFormat.text:
@@ -80,10 +80,10 @@ def _anchor(root: Path, path: Path) -> Path:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the analyzer CLI.
+    """Run the analyzer command.
 
     Returns:
-        Process exit code for the analyzer invocation.
+        Process exit code for invocation validation and diagnostics.
     """
     args = _parser().parse_args(argv)
     match args.command:

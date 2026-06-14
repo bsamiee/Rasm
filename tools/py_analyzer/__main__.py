@@ -1,4 +1,4 @@
-"""Command module for the Rasm Python semantic analyzer."""
+"""Executable module for the Python analyzer CLI."""
 
 from tools.py_analyzer.cli import main
 

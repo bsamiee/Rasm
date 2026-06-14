@@ -1,4 +1,4 @@
-"""Rule catalog and diagnostic wire shape for the Rasm Python analyzer."""
+"""Rule catalog and diagnostic payload model for the Python analyzer."""
 
 from enum import StrEnum
 from pathlib import Path
@@ -14,7 +14,7 @@ type JsonValue = bool | int | str | list[JsonValue] | dict[str, JsonValue] | Non
 
 
 class RuleId(StrEnum):
-    """Stable analyzer rule identifiers."""
+    """Rule identifiers used in rendered diagnostics."""
 
     parse = "PYS0000"
     domain_flow = "PYS0001"
@@ -30,7 +30,7 @@ class RuleId(StrEnum):
 
 
 class OutputFormat(StrEnum):
-    """Supported diagnostic output formats."""
+    """Output formats accepted by the command boundary."""
 
     text = "text"
     json = "json"
@@ -38,13 +38,13 @@ class OutputFormat(StrEnum):
 
 
 class Severity(StrEnum):
-    """Stable diagnostic severities."""
+    """Diagnostic severity vocabulary."""
 
     error = "error"
 
 
 class RuleCategory(StrEnum):
-    """Stable diagnostic categories."""
+    """Diagnostic category vocabulary."""
 
     functional = "FunctionalDiscipline"
     governance = "Governance"
@@ -54,7 +54,7 @@ class RuleCategory(StrEnum):
 
 
 class Scope(StrEnum):
-    """Analyzer scope classification."""
+    """Semantic scope assigned from path ownership markers."""
 
     domain = "domain"
     application = "application"
@@ -67,7 +67,7 @@ class Scope(StrEnum):
 
 
 class Rule(msgspec.Struct, frozen=True, gc=False):
-    """Static rule metadata shared by output formats."""
+    """Rule metadata shared by every renderer."""
 
     title: str
     category: RuleCategory
@@ -75,7 +75,7 @@ class Rule(msgspec.Struct, frozen=True, gc=False):
 
 
 class Diagnostic(msgspec.Struct, frozen=True, gc=False):
-    """Analyzer diagnostic with stable external wire shape."""
+    """Diagnostic payload consumed by every renderer."""
 
     rule_id: RuleId
     severity: Severity
@@ -87,16 +87,16 @@ class Diagnostic(msgspec.Struct, frozen=True, gc=False):
     category: RuleCategory
 
     def relative_path(self, root: Path) -> str:
-        """Return a root-relative path when the diagnostic belongs to the project root.
+        """Render diagnostics under root as relative paths.
 
         Returns:
-            Project-relative path, or an absolute path for diagnostics outside the root.
+            Relative path under root, otherwise an absolute path.
         """
         resolved = self.path.resolve()
         return resolved.relative_to(root).as_posix() if resolved.is_relative_to(root) else resolved.as_posix()
 
     def as_json(self, root: Path) -> dict[str, JsonValue]:
-        """Project diagnostic into JSON-compatible fields.
+        """Convert diagnostic fields to JSON-compatible values.
 
         Returns:
             JSON-compatible diagnostic payload.
@@ -157,7 +157,7 @@ RULES: Final[MappingProxyType[RuleId, Rule]] = MappingProxyType({
 
 
 def diagnostic(rule_id: RuleId, path: Path, line: int, column: int, detail: str) -> Diagnostic:
-    """Create a stable error diagnostic from a rule id and location.
+    """Create an error diagnostic from catalog metadata and source location.
 
     Returns:
         Diagnostic populated from the rule catalog.

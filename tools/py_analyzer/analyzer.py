@@ -1,4 +1,4 @@
-"""Tree-sitter semantic analyzer for Rasm Python doctrine."""
+"""Tree-sitter analyzer for Python source policy."""
 
 from collections import Counter
 from dataclasses import dataclass
@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from tree_sitter import Node, Parser
 import tree_sitter_python
 
-from tools.assay.rails.code import ts_language  # shared tree-sitter kernel
+from tools.assay.rails.code import ts_language
 from tools.py_analyzer.rules import diagnostic, RuleId, Scope
 
 
@@ -73,7 +73,7 @@ _FLOW_NODE_TYPES = frozenset({"if_statement", "for_statement", "while_statement"
 
 @dataclass(frozen=True, slots=True)
 class FunctionFact:
-    """Module-level private function needed for cross-file surface checks."""
+    """Private function observed for single-call surface diagnostics."""
 
     name: str
     path: Path
@@ -84,7 +84,7 @@ class FunctionFact:
 
 @dataclass(frozen=True, slots=True)
 class ModelFact:
-    """Model shape fact needed for duplicate domain shape checks."""
+    """Model field-shape fingerprint for duplicate-shape diagnostics."""
 
     name: str
     path: Path
@@ -95,7 +95,7 @@ class ModelFact:
 
 @dataclass(frozen=True, slots=True)
 class ModelField:
-    """Instance model field with source node for local policy diagnostics."""
+    """Model field declaration with annotation and assignment nodes."""
 
     name: str
     annotation: Node
@@ -104,7 +104,7 @@ class ModelField:
 
 @dataclass(frozen=True, slots=True)
 class ModuleFacts:
-    """Immutable per-module facts emitted by one tree-sitter pass."""
+    """Immutable facts emitted by a single module walk."""
 
     diagnostics: tuple[Diagnostic, ...]
     private_functions: tuple[FunctionFact, ...]
@@ -117,7 +117,7 @@ class ModuleFacts:
 
 @dataclass(slots=True)
 class _ModulePass:
-    """Mutable collector folded into immutable ModuleFacts after one module walk."""
+    """Mutable tree-walk collector projected into immutable facts."""
 
     path: Path
     root: Path
@@ -131,11 +131,7 @@ class _ModulePass:
     effect_builder_depth: int = 0
 
     def facts(self) -> ModuleFacts:
-        """Project mutable pass state into immutable analyzer facts.
-
-        Returns:
-            Immutable module facts for cross-file diagnostic passes.
-        """
+        """Freeze accumulated local facts for cross-file diagnostics."""
         return ModuleFacts(tuple(self.diagnostics), tuple(self.private_functions), tuple(self.private_calls), tuple(self.models))
 
     def report(self, rule_id: RuleId, node: Node, detail: str) -> None:
@@ -288,7 +284,7 @@ class _ModulePass:
 
 
 def analyze_paths(root: Path, paths: Sequence[Path]) -> tuple[Diagnostic, ...]:
-    """Analyze Python files under root and return stable diagnostics.
+    """Analyze selected Python files and return deterministic diagnostics.
 
     Returns:
         Sorted analyzer diagnostics from local and cross-file rules.
@@ -305,10 +301,10 @@ def analyze_paths(root: Path, paths: Sequence[Path]) -> tuple[Diagnostic, ...]:
 
 
 def classify_scope(path: Path, root: Path) -> Scope:
-    """Classify a path into the Rasm semantic policy scope.
+    """Classify a path into the semantic policy scope.
 
     Returns:
-        Semantic scope assigned to the path.
+        Scope assigned from path ownership markers.
     """
     parts = _relative_parts(path, root)
     part_set = frozenset(parts)
