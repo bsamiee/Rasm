@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <RootNamespace>Rasm.Csp.Tests</RootNamespace>
-        <!-- Verify.props auto-discovery only climbs two parents; point it at the workspace root. -->
+        <!-- Verify.props searches two parents; this project pins workspace-root discovery. -->
         <SolutionDir Condition="'$(SolutionDir)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', '..', '..', '..'))</SolutionDir>
         <SolutionName Condition="'$(SolutionName)' == ''">Workspace</SolutionName>
     </PropertyGroup>
@@ -18,8 +18,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <!-- Meta invariants read Directory.Build.props / Directory.Packages.props / analyzer source
-             relative to the workspace root; baked here so tests never directory-walk at runtime. -->
+        <!-- RepoRoot fixes meta scans to workspace-owned files without runtime directory walks. -->
         <AssemblyMetadata Include="RepoRoot" Value="$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', '..', '..', '..'))" />
         <Using Include="Microsoft.CodeAnalysis.CSharp.Testing.CSharpAnalyzerVerifier&lt;Rasm.Csp.Kernel.Driver, Microsoft.CodeAnalysis.Testing.DefaultVerifier&gt;" Alias="Verify" />
     </ItemGroup>

@@ -5,7 +5,7 @@ using Rasm.Csp.Generators;
 
 namespace Rasm.Csp.Tests;
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 internal static class UnionSpecimens {
     public const string Attribute = """
@@ -15,8 +15,7 @@ internal static class UnionSpecimens {
         public sealed class GenerateUnionOpsAttribute : System.Attribute;
         """;
 
-    // Decoy members attack the case filter: non-sealed records, grandchildren, classes, and
-    // structs must never receive a SelfOp anchor; accessibility is not part of the filter.
+    // Decoy members prove case filtering ignores accessibility but rejects non-cases.
     public const string Unions = """
         namespace Rasm.Specimen;
 
@@ -39,7 +38,7 @@ internal static class UnionSpecimens {
         """;
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class UnionOpsGeneratorSpec {
     public static TheoryData<string> SilentShapes => new(

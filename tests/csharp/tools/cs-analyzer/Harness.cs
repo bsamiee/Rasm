@@ -13,21 +13,19 @@ namespace Rasm.Csp.Tests;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-// Rule<->test pairing is keyed on descriptor ID, never file naming; trivial-row bans may share
-// one per-category class carrying multiple [RuleSpec] rows.
+// Descriptor IDs, not filenames, bind rules to specs; one class may carry many rows.
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
 internal sealed class RuleSpecAttribute(string id) : Attribute {
     public string Id { get; } = id;
 }
 
-// Marks a fact that proves the rule FIRES, with markup span assertions ({|CSP####:span|}).
-// Empty ids inherit every [RuleSpec] ID on the declaring class.
+// Positive facts assert diagnostic markup spans; empty ID lists inherit class rows.
 [AttributeUsage(AttributeTargets.Method)]
 internal sealed class PositiveAttribute(params string[] ids) : Attribute {
     public IReadOnlyList<string> Ids { get; } = ids;
 }
 
-// Marks a fact that proves valid COMPACT code stays clean (or a documented exemption clause).
+// Negative facts prove compact valid code and documented exemptions stay clean.
 [AttributeUsage(AttributeTargets.Method)]
 internal sealed class NegativeAttribute(params string[] ids) : Attribute {
     public IReadOnlyList<string> Ids { get; } = ids;
@@ -35,10 +33,7 @@ internal sealed class NegativeAttribute(params string[] ids) : Attribute {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// One configured analyzer run: concurrent analysis stays ENABLED (Driver.Initialize calls
-// EnableConcurrentExecution; nothing here re-disables it), scope arrives through the same
-// build_property.CspScope channel production uses, and Csp.Contracts rides along so test
-// sources can declare [CspScope]/[BoundaryAdapter]/[CspExempt].
+// Mirrors production analyzer configuration: scope channel, contracts, and concurrency policy.
 internal sealed class CspTest : CSharpAnalyzerTest<Driver, DefaultVerifier> {
     public CspTest(
         string source,
@@ -51,11 +46,10 @@ internal sealed class CspTest : CSharpAnalyzerTest<Driver, DefaultVerifier> {
         TestState.AdditionalReferences.Add(typeof(CspScopeAttribute).Assembly);
         TestState.AnalyzerConfigFiles.Add(("/.globalconfig", GlobalConfig(scope, config)));
         foreach ((string name, string content) in data) TestState.AdditionalFiles.Add((name, content));
-        // Per-source assembly-name hashing: deterministic isolation under parallel test execution.
+        // Per-source assembly names isolate parallel analyzer workspaces deterministically.
         string assemblyName = "Csp.Spec." + Fingerprint(source);
         SolutionTransforms.Add((solution, projectId) => solution.WithProjectAssemblyName(projectId, assemblyName));
-        // Generator-run families (0733/0734/0802): the Thinktecture source generator executes in
-        // the test workspace so generated Switch/factory partials exist at analysis time.
+        // Generator-backed rules need Thinktecture partials materialized in the test workspace.
         if (generatorRun) {
             SolutionTransforms.Add(static (solution, projectId) =>
                 solution.AddAnalyzerReference(projectId, new AnalyzerFileReference(Harness.ThinktectureGeneratorPath.Value, Harness.GeneratorLoader.Instance)));
@@ -75,8 +69,7 @@ internal sealed class CspTest : CSharpAnalyzerTest<Driver, DefaultVerifier> {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 internal static class Harness {
-    // Mirror law (invariant h): these identities EXACTLY equal the Directory.Packages.props pins —
-    // REAL packages, never in-source shims, so rule tests compile doctrine-shaped code.
+    // Mirror central package pins so rule tests compile against real doctrine-shaped surfaces.
     public static readonly ImmutableArray<PackageIdentity> MirroredPackages = [
         new PackageIdentity(id: "LanguageExt.Core", version: "5.0.0-beta-77"),
         new PackageIdentity(id: "Thinktecture.Runtime.Extensions", version: "10.2.0"),
@@ -88,8 +81,7 @@ internal static class Harness {
             referenceAssemblyPath: Path.Combine("ref", "net10.0"))
         .AddPackages(MirroredPackages);
 
-    // Resolved from the restored Thinktecture runtime assembly, so the generator version can never
-    // drift from the mirrored package pin.
+    // Resolve beside the restored runtime assembly so generator and mirror pins cannot drift.
     internal static readonly Lazy<string> ThinktectureGeneratorPath = new(valueFactory: static () => {
         string versionDir = Path.GetFullPath(Path.Combine(typeof(UnionAttribute).Assembly.Location, "..", "..", ".."));
         string packagesRoot = Path.GetFullPath(Path.Combine(versionDir, "..", ".."));
