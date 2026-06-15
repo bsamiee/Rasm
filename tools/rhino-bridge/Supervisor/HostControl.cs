@@ -406,8 +406,7 @@ internal sealed class HostWatch : IDisposable {
 // Ownership: singleton lease gate. O_EXCL claims serialize sessions; stale holders are reclaimed
 // with evidence, and live holders fail as BusyHeld.
 internal static class Lease {
-    internal static string CanonicalPath =>
-        Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm", path3: "rhino-bridge-rbx.lease");
+    internal static string CanonicalPath => RasmHome.Resolve(name: "rhino-bridge-rbx.lease");
 
     internal static Fin<LeaseToken> Acquire(string path, Guid sessionId, TimeProvider clock, Action<BridgeEvent> publish) {
         ArgumentNullException.ThrowIfNull(argument: clock);
@@ -492,14 +491,30 @@ internal static class HostEvents {
 // Ownership: retired-instance journal. QuitLadder writes confirmed windows; Reconcile reads them
 // to scope marker cleanup, and corrupt lines decode to no window.
 internal static class QuitJournal {
-    internal static string CanonicalPath =>
-        Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm", path3: "rhino-bridge-quits.jsonl");
+    internal const int RetainedWindows = 256;
+
+    internal static string CanonicalPath => RasmHome.Resolve(name: "rhino-bridge-quits.jsonl");
 
     internal static Unit Append(string path, QuitJournalEntry entry) {
         // BOUNDARY ADAPTER: journal write failures cannot fail a completed quit.
         try {
             _ = Directory.CreateDirectory(path: Path.GetDirectoryName(path: path) ?? ".");
             File.AppendAllText(path: path, contents: JsonSerializer.Serialize(value: entry, jsonTypeInfo: SupervisorJsonContext.Default.QuitJournalEntry) + Environment.NewLine);
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
+        }
+        return Compact(path: path);
+    }
+
+    internal static Unit Compact(string path) {
+        // BOUNDARY ADAPTER: compaction never fails a completed quit; on error the append-only journal stays intact.
+        try {
+            Seq<QuitJournalEntry> entries = Read(path: path);
+            if (entries.Count > RetainedWindows) {
+                File.WriteAllLines(
+                    path: path,
+                    contents: entries.Skip(entries.Count - RetainedWindows)
+                        .Map(f: static entry => JsonSerializer.Serialize(value: entry, jsonTypeInfo: SupervisorJsonContext.Default.QuitJournalEntry)));
+            }
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
         }
         return unit;

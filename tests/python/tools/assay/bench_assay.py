@@ -59,7 +59,7 @@ def _place_subject(payload: tuple[object, ...]) -> object:
     assert isinstance(routed, Routed)
     assert isinstance(tool, Tool)
     with tempfile.TemporaryDirectory() as tmp:
-        settings: AssaySettings = AssaySettings(root=UPath(tmp), exec_target="", exec_known_hosts=None)
+        settings: AssaySettings = AssaySettings(root=UPath(tmp))
         return place(routed, tool, settings=settings)
 
 

@@ -2,6 +2,7 @@
 
 from collections.abc import Callable  # noqa: TC003  # runtime: callable annotation is resolved through the rail layer
 from dataclasses import dataclass
+from enum import StrEnum
 from hashlib import sha256
 from pathlib import PurePosixPath
 from typing import Annotated, TYPE_CHECKING
@@ -45,13 +46,25 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type PhaseChecks = tuple[tuple[str, tuple[Check, ...]], ...]
-type SkipRows = tuple[tuple[str, str, str], ...]
+
+class Phase(StrEnum):
+    """Static-lane phase in fixed execution order: writes, diagnostics, restore, build."""
+
+    FIX = "fix"
+    DIAGNOSTIC = "diagnostic"
+    RESTORE = "restore"
+    BUILD = "build"
+
+
+type PhaseChecks = tuple[tuple[Phase, tuple[Check, ...]], ...]
+type SkipRows = tuple[tuple[Phase, str, str], ...]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # Fixed per-language order: writes land before diagnostics; restore precedes closure builds.
 _MODES: tuple[Mode, ...] = (Mode.WRITE, Mode.CHECK, Mode.RESTORE, Mode.BUILD)
+# The lane-mode -> Phase projection; `_MODES` is the closed input domain, so a non-lane mode is a loud KeyError, not a silent default.
+_PHASE: dict[Mode, Phase] = {Mode.WRITE: Phase.FIX, Mode.CHECK: Phase.DIAGNOSTIC, Mode.RESTORE: Phase.RESTORE, Mode.BUILD: Phase.BUILD}
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -62,7 +75,7 @@ class StaticParams:
 
     all: Annotated[
         bool,
-        Parameter(name="--all", negative="", show_default=False, help="Whole-workspace C# target; explicit because it may build the full solution."),
+        Parameter(name="--all", negative="", show_default=False, help="Fan every detected language at full scope, including the C# solution build."),
     ] = False
     project: Annotated[str, Parameter(name="--project", show_default=False, help="Single C# project target.")] = ""
     folders: Annotated[
@@ -87,6 +100,9 @@ class StaticParams:
             help="File target(s); consumes values until the next option.",
         ),
     ] = ()
+    plan: Annotated[
+        bool, Parameter(name="--plan", negative="", show_default=False, help="Plan-only: emit planned argv without running any tool.")
+    ] = False
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -117,8 +133,8 @@ def _workspace_route(routed: Routed) -> bool:
     return routed.language is Language.CSHARP and routed.scope is Scope.FULL and not routed.files and not routed.projects
 
 
-def _phase(mode: Mode) -> str:
-    return {Mode.CHECK: "diagnostic", Mode.RESTORE: "restore", Mode.BUILD: "build", Mode.WRITE: "fix"}.get(mode, mode.value)
+def _phase(mode: Mode) -> Phase:
+    return _PHASE[mode]
 
 
 def _sarif_pin(tool: Tool, scope: ArtifactScope) -> Tool:
@@ -172,7 +188,7 @@ def _phase_checks(routed: Routed, settings: AssaySettings, scope: ArtifactScope)
     skipped = tuple((phase, tool.name, reason) for phase, tool, reason in rows if reason)
     expanded = tuple((phase, clone) for phase, check in selected for clone in expand((check,), routed, settings=settings))
     phases = tuple(dict.fromkeys(_phase(mode) for mode in _MODES))
-    return tuple((phase, tuple(check for row_phase, check in expanded if row_phase == phase)) for phase in phases), skipped
+    return tuple((phase, tuple(check for row_phase, check in expanded if row_phase is phase)) for phase in phases), skipped
 
 
 def _all_checks(phases: PhaseChecks) -> tuple[Check, ...]:
@@ -184,17 +200,17 @@ def _argv(check: Check, routed: Routed, settings: AssaySettings, scope: Artifact
 
 
 def _planned(routed: Routed, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope) -> tuple[tuple[str, str, str], ...]:
-    active_scope = ArtifactScope.build(settings, _build_sha(routed), disable_build_servers=False) if _uses_build_scope(routed, phases) else scope
+    active_scope = ArtifactScope.build(settings, _build_sha(routed)) if _uses_build_scope(routed, phases) else scope
     return tuple((phase, check.tool.name, _argv(check, routed, settings, active_scope)) for phase, checks in phases for check in checks)
 
 
 def _uses_build_scope(routed: Routed, phases: PhaseChecks) -> bool:
-    return _builds_closure(routed) and any(phase in {"restore", "build"} for phase, _ in phases)
+    return _builds_closure(routed) and any(phase in {Phase.RESTORE, Phase.BUILD} for phase, _ in phases)
 
 
 def _artifacts(settings: AssaySettings, routed: tuple[Routed, ...]) -> tuple[Artifact, ...]:
     return tuple(
-        Artifact(id=f"build-{sha}", kind=ArtifactKind.SCOPE, path=ArtifactScope.build(settings, sha, disable_build_servers=False).path)
+        Artifact(id=f"build-{sha}", kind=ArtifactKind.SCOPE, path=ArtifactScope.build(settings, sha).path)
         for route_row in routed
         for sha in (_build_sha(route_row),)
         if _builds_closure(route_row)
@@ -264,6 +280,7 @@ def _params_argv(params: StaticParams) -> tuple[str, ...]:
         *(("--project", params.project) if params.project else ()),
         *(("--folder", *params.folders) if params.folders else ()),
         *(("--file", *params.files) if params.files else ()),
+        *(("--plan",) if params.plan else ()),
     )
 
 
@@ -394,7 +411,7 @@ def _skipped(checks: tuple[Check, ...], routed: Routed, settings: AssaySettings,
 
 def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> tuple[Result[Completed, Fault], ...]:
     closure = _build_sha(routed)
-    active_scope = ArtifactScope.build(settings, closure, disable_build_servers=False)
+    active_scope = ArtifactScope.build(settings, closure)
     resource = f"build-{closure}-{settings.configuration.value}"
     project = f"{settings.configuration.value}:{','.join(routed.projects or routed.files)}"
 
@@ -405,13 +422,13 @@ def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> 
             _LOG.info("phase.start", phase=phase, checks=len(checks), run_id=settings.run_id, route=routed.language.value)
             phase_rows = (
                 _skipped(checks, routed, settings, active_scope)
-                if phase == "build" and blocked
+                if phase is Phase.BUILD and blocked
                 else fan_out(checks, settings=settings, scope=active_scope, routed=routed)
             )
             rows = (*rows, *phase_rows)
             failed = _phase_failed(phase_rows)
             _LOG.info("phase.end", phase=phase, checks=len(checks), failed=failed, run_id=settings.run_id, route=routed.language.value)
-            blocked = blocked or (phase == "restore" and failed)
+            blocked = blocked or (phase is Phase.RESTORE and failed)
         return rows
 
     return _leased_run(resource, project, run, settings)
@@ -435,10 +452,15 @@ def _dispatch(routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, s
         return ()
     # Writes run under the mutating lease; C# restore/build runs under the closure lease.
     # Non-closure build checks stay in the plain fan-out with diagnostics.
-    write = tuple(check for phase, checks in phases if phase == "fix" for check in checks)
-    closure_phases = tuple((phase, checks) for phase, checks in phases if phase in {"restore", "build"})
+    write = tuple(check for phase, checks in phases if phase is Phase.FIX for check in checks)
+    closure_phases = tuple((phase, checks) for phase, checks in phases if phase in {Phase.RESTORE, Phase.BUILD})
     uses_closure = _uses_build_scope(routed, closure_phases)
-    plain = tuple(check for phase, checks in phases if phase != "fix" and not (uses_closure and phase in {"restore", "build"}) for check in checks)
+    plain = tuple(
+        check
+        for phase, checks in phases
+        if phase is not Phase.FIX and not (uses_closure and phase in {Phase.RESTORE, Phase.BUILD})
+        for check in checks
+    )
     return (
         *(_write_fan(write, routed, settings, scope) if write else ()),
         *(fan_out(plain, settings=settings, scope=scope, routed=routed) if plain else ()),
@@ -465,7 +487,9 @@ def _closure_notes(report: Report, routed: tuple[Routed, ...]) -> Report:
     return msgspec.structs.replace(report, notes=(*report.notes, *notes)) if notes else report
 
 
-def _fold(settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...]) -> Result[Report, Fault]:
+def _fold(
+    settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...], *, plan: bool = False
+) -> Result[Report, Fault]:
     routed = tuple(_build_route(route_row) for route_row in routed)
     phase_sets = tuple((route_row, *_phase_checks(route_row, settings, scope)) for route_row in routed)
     planned = tuple(row for route_row, phases, _ in phase_sets for row in _planned(route_row, phases, settings, scope))
@@ -487,6 +511,9 @@ def _fold(settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, r
             routed,
         )
 
+    if plan:
+        # Dry-run: the populated `planned` argv rides the detail; no tool spawns and no file mutates.
+        return Ok(executed(()))
     rows = (row for route_row, phases, _ in phase_sets for row in _dispatch(route_row, phases=phases, settings=settings, scope=scope))
     return sequence(block.of_seq(rows)).map(lambda done: executed(tuple(done)))
 
@@ -504,7 +531,7 @@ def run(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> 
         Static report with receipts, route detail, resources, and artifacts.
     """
     return _target_result(settings, params).bind(
-        lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed))
+        lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed, plan=params.plan))
     )
 
 

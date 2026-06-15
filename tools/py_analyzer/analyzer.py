@@ -131,7 +131,11 @@ class _ModulePass:
     effect_builder_depth: int = 0
 
     def facts(self) -> ModuleFacts:
-        """Freeze accumulated local facts for cross-file diagnostics."""
+        """Freeze accumulated local facts for cross-file diagnostics.
+
+        Returns:
+            Immutable module fact snapshot for cross-file analysis.
+        """
         return ModuleFacts(tuple(self.diagnostics), tuple(self.private_functions), tuple(self.private_calls), tuple(self.models))
 
     def report(self, rule_id: RuleId, node: Node, detail: str) -> None:

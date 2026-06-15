@@ -23,7 +23,7 @@ import psutil  # typed via the types-psutil stub (psutil ships no py.typed marke
 import structlog
 from watchfiles import awatch, DefaultFilter, PythonFilter
 
-from tools.assay.automation.model import Debounce, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
+from tools.assay.automation.model import Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
 from tools.assay.composition.registry import rail, REGISTRY
 from tools.assay.composition.settings import ArtifactScope
 from tools.assay.core.engine import run_check_async
@@ -89,12 +89,9 @@ def is_governed(threshold: float | None) -> bool:
         case None:
             return False
         case _:
-            match _CPU_PRIMED.get():
-                case False:
-                    psutil.cpu_percent(0.1)
-                    _CPU_PRIMED.set(True)
-                case True:
-                    pass
+            if not _CPU_PRIMED.get():
+                psutil.cpu_percent(0.1)
+                _CPU_PRIMED.set(True)
             return psutil.cpu_percent(interval=None) >= threshold * 100.0
 
 
@@ -239,7 +236,7 @@ async def _quiesce(recv: MemoryObjectReceiveStream[ChangeBatch], window_ms: floa
     return latest  # pragma: no cover  # _forever returns only through quiet-window cancellation
 
 
-def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Worker]:
+def _debounce(inner: Fire, window_ms: int, *, edge: Edge) -> tuple[Fire, Worker]:
     # The caller owns worker lifetime through its task group and stop scope.
     send, recv = anyio.create_memory_object_stream[ChangeBatch](1)
 
@@ -257,17 +254,12 @@ def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Wor
         try:
             async with recv:
                 async for changes in recv:
-                    match collapse:
-                        case False:
+                    match edge:
+                        case Edge.LEADING:
                             await inner(changes)
-                        case True:
-                            pass
-                    latest = await _quiesce(recv, window_ms)
-                    match collapse:
-                        case True:
-                            await inner(latest or changes)
-                        case False:
-                            pass
+                            await _quiesce(recv, window_ms)  # drain the window; later events discarded
+                        case Edge.TRAILING:
+                            await inner((await _quiesce(recv, window_ms)) or changes)
         finally:
             await send.aclose()
 
@@ -327,12 +319,9 @@ async def _jittered_fire(fire: Fire, settings: AssaySettings, changes: ChangeBat
 
 async def _fire_with_coalesce(fire: Fire, settings: AssaySettings, changes: ChangeBatch, missed: int) -> int:
     await _jittered_fire(fire, settings, changes)
-    match missed:
-        case coalesced if coalesced:
-            await _coalesce_missed_fire(fire, coalesced)
-            return 0
-        case _:
-            return 0
+    if missed:
+        await _coalesce_missed_fire(fire, missed)
+    return 0
 
 
 def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = None) -> Fire:
@@ -372,8 +361,8 @@ async def _schedule(spec: Schedule, fire: Fire, stop: anyio.Event) -> None:
 
 def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, ceiling: float | None) -> tuple[Fire, Worker | None]:
     match action:
-        case Debounce(action=inner, window_ms=window, collapse=coalesce):
-            return _debounce(_fire(inner, settings, limiter=limiter, cpu_threshold=ceiling), window, collapse=coalesce)
+        case Debounce(action=inner, window_ms=window, edge=edge):
+            return _debounce(_fire(inner, settings, limiter=limiter, cpu_threshold=ceiling), window, edge=edge)
         case Rail() | Program() | Sequence():
             return _fire(action, settings, limiter=limiter, cpu_threshold=ceiling), None
 

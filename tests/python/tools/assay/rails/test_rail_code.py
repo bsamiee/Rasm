@@ -496,7 +496,7 @@ def test_structural_search_forced_cap_emits_results_note(assay_root: AssayHarnes
     assay_root.write("pkg/mod.py", "alpha = 1\nbeta = 2\n")
     two = msgspec.json.encode((_AG_MATCH, AstMatch(text="beta = 2", file="pkg/mod.py", lines="beta = 2\n")))
     monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(receipt(("ast-grep",), 0, stdout=two, status=RailStatus.OK)),))
-    params = CodeParams(pattern="$NAME = $VAL", python=True, paths=(), max_results=1)
+    params = CodeParams(pattern="$NAME = $VAL", language=Language.PYTHON, paths=(), max_results=1)
     report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params))
     assert "results: 1 of 2 (cap=1); full listing in artifact" in report.notes
 
@@ -504,7 +504,7 @@ def test_structural_search_forced_cap_emits_results_note(assay_root: AssayHarnes
 def test_query_forced_cap_emits_saturation_note(assay_root: AssayHarness) -> None:
     """query() overflow surfaces the match-limit-saturated cap note."""
     assay_root.write("pkg/mod.py", "def a():\n    pass\n\ndef b():\n    pass\n")
-    params = CodeParams(pattern=_PY_FUNC_QUERY, python=True, paths=("pkg/mod.py",), max_results=1)
+    params = CodeParams(pattern=_PY_FUNC_QUERY, language=Language.PYTHON, paths=("pkg/mod.py",), max_results=1)
     report = assert_ok(query(assay_root.settings, assay_root.scope(Claim.CODE), params))
     assert any("(cap=1, match-limit saturated); full listing in artifact" in n for n in report.notes), report.notes
 
@@ -523,7 +523,8 @@ def test_query_forced_cap_emits_saturation_note(assay_root: AssayHarness) -> Non
 def test_query_public(assay_root: AssayHarness, content: str, pattern: str, check_fn: Callable) -> None:
     """query() returns Ok Report matching expected status and count predicate."""
     assay_root.write("pkg/mod.py", content)
-    report = assert_ok(query(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, python=True, paths=("pkg/mod.py",))))
+    params = CodeParams(pattern=pattern, language=Language.PYTHON, paths=("pkg/mod.py",))
+    report = assert_ok(query(assay_root.settings, assay_root.scope(Claim.CODE), params))
     check_fn(report)
 
 
@@ -535,7 +536,7 @@ def test_query_public(assay_root: AssayHarness, content: str, pattern: str, chec
 def test_search_public(assay_root: AssayHarness, content: str, pattern: str, binary: str) -> None:
     """search() routes structural patterns to ast-grep and literal patterns to ripgrep."""
     assay_root.write("pkg/mod.py", content)
-    result = search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, python=True, paths=("pkg/mod.py",)))
+    result = search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, language=Language.PYTHON, paths=("pkg/mod.py",)))
     match (shutil.which(binary), result.is_ok()):
         case (str(), _):
             assert result.is_ok(), f"resolvable {binary!r} must reach the Ok rail, not Error: {result!r}"
@@ -659,7 +660,7 @@ def test_splice_argv_shapes(assay_root: AssayHarness) -> None:
     routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
     ag = _search_splice(CodeParams(pattern="$X = $Y"), assay_root.root)(_QUERY_TOOL, routed)
     assert ag.command == (*_QUERY_TOOL.command, "-p", "$X = $Y", "-l", "python", "--json=compact", "--no-ignore", "hidden", ".")
-    rg = _content_splice(_QUERY_TOOL, CodeParams(pattern="alpha", python=True), assay_root.root)
+    rg = _content_splice(_QUERY_TOOL, CodeParams(pattern="alpha", language=Language.PYTHON), assay_root.root)
     globs, tail = rg.command[len(_QUERY_TOOL.command) : -4], rg.command[-4:]
     assert tail == ("-e", "alpha", "--", ".")
     assert (globs[::2], set(globs[1::2])) == (("--glob", "--glob"), {"*.py", "*.pyi"})
@@ -709,7 +710,7 @@ def test_content_report_byte_shape(assay_root: AssayHarness, monkeypatch: pytest
 def test_structural_report_promotion_and_defect_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Structural reports promote row-bearing EMPTY and preserve defect rows."""
     assay_root.write("pkg/mod.py", "alpha = 1\n")
-    params = CodeParams(pattern="$NAME = $VAL", python=True, paths=())
+    params = CodeParams(pattern="$NAME = $VAL", language=Language.PYTHON, paths=())
     hit = msgspec.json.encode((_AG_MATCH,))
     monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(receipt(("ast-grep", "run"), 0, stdout=hit, status=RailStatus.EMPTY)),))
     promoted = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params))

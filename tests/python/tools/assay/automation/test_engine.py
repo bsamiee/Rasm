@@ -19,7 +19,7 @@ import pytest
 from tests.python._testkit.laws import register_law
 from tools.assay.automation import engine as _eng
 from tools.assay.automation.engine import is_governed
-from tools.assay.automation.model import Debounce, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
+from tools.assay.automation.model import Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
 from tools.assay.core.model import Claim, Counts, envelope, fold, receipt
 from tools.assay.core.status import RailStatus
 
@@ -401,7 +401,7 @@ def test_drive_manual_debounce_unwraps_to_inner_leaf(
     """
     rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
 
-    action = Debounce(action=Program(argv=("tool",)), window_ms=500, collapse=True)
+    action = Debounce(action=Program(argv=("tool",)), window_ms=500, edge=Edge.TRAILING)
     anyio.run(_eng.drive, Manual(), action, assay_root.settings)
 
     env = _one(captured_emits)
@@ -452,7 +452,7 @@ def test_debounce_signal_after_close_is_silent() -> None:
         return None
 
     async def _run() -> None:
-        signal, worker = _eng._debounce(_inner, 40, collapse=True)
+        signal, worker = _eng._debounce(_inner, 40, edge=Edge.TRAILING)
         async with anyio.create_task_group() as tg:
             tg.start_soon(worker)
             await anyio.lowlevel.checkpoint()
@@ -571,7 +571,7 @@ def test_drive_watch_debounce_collapses_storm(
     monkeypatch.setattr(_eng, "awatch", _fake_awatch((_FIRST, _SECOND)))
 
     spec = Watch(paths=(str(assay_root.root),))
-    action = Debounce(action=Program(argv=("tool",)), window_ms=30, collapse=True)
+    action = Debounce(action=Program(argv=("tool",)), window_ms=30, edge=Edge.TRAILING)
 
     async def _run() -> None:
         stop = anyio.Event()
@@ -660,7 +660,7 @@ def test_drive_schedule_debounce_co_resides_worker(
 
     async def _run() -> None:
         spec = Schedule(cron="* * * * *")
-        action = Debounce(action=Program(argv=("tool",)), window_ms=30, collapse=True)
+        action = Debounce(action=Program(argv=("tool",)), window_ms=30, edge=Edge.TRAILING)
         stop = anyio.Event()
 
         async def _release() -> None:
@@ -796,9 +796,9 @@ register_law(_eng.drive, "test_hardened_fire_faults_reset_after_exception")
 # --- [LAWS_DRIVE_DEBOUNCE]
 
 
-@pytest.mark.parametrize("collapse", [False, True], ids=["leading", "trailing"])
+@pytest.mark.parametrize("edge", [Edge.LEADING, Edge.TRAILING], ids=["leading", "trailing"])
 @pytest.mark.anyio
-async def test_debounce_fires_once_per_storm(*, collapse: bool) -> None:
+async def test_debounce_fires_once_per_storm(*, edge: Edge) -> None:
     """Leading and trailing debounce modes fire once per storm window.
 
     Falsified by: firing per-signal, or the worker leaking the channel under ``filterwarnings=error`` (an unclosed-stream ResourceWarning fails).
@@ -809,7 +809,7 @@ async def test_debounce_fires_once_per_storm(*, collapse: bool) -> None:
     async def _inner(changes: tuple[tuple[str, str], ...]) -> None:  # noqa: RUF029  # Fire protocol is async; no await needed here
         fired.append(changes)
 
-    signal, worker = _eng._debounce(_inner, 40, collapse=collapse)
+    signal, worker = _eng._debounce(_inner, 40, edge=edge)
     async with anyio.create_task_group() as tg:
         tg.start_soon(worker)
         await signal(_FIRST)
@@ -838,7 +838,7 @@ def test_debounce_signal_ignores_when_buffer_full() -> None:
         await pinned.wait()
 
     async def _run() -> None:
-        signal, worker = _eng._debounce(_inner, 40, collapse=False)
+        signal, worker = _eng._debounce(_inner, 40, edge=Edge.LEADING)
         async with anyio.create_task_group() as tg:
             tg.start_soon(worker)
             await signal(_FIRST)

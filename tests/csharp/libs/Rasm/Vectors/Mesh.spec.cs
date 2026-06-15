@@ -110,11 +110,12 @@ public sealed class MeshDescriptorAndRemeshLaws {
             Assert.Equal(expected: 1, actual: sources[index: 0]);
             Assert.Equal(expected: 2, actual: sources[index: 1]);
         });
-        Spec.Succ(RemeshKind.Quad(targetLength: 2.5, key: MeshGens.Key), then: remesh =>
-            Spec.Equal(left: Assert.IsType<RemeshKind.QuadCase>(@object: remesh).TargetLength.Value, right: 2.5, tolerance: 0.0, what: "quad length"));
+        QuadTarget edgeTarget = Spec.SuccValue(QuadTarget.EdgeLength(length: 2.5, key: MeshGens.Key), label: "quad edge target");
+        Spec.Succ(RemeshKind.Quad(target: edgeTarget, key: MeshGens.Key), then: remesh =>
+            Spec.Equal(left: Assert.IsType<QuadTarget.EdgeLengthCase>(@object: Assert.IsType<RemeshKind.QuadCase>(@object: remesh).Target).Length.Value, right: 2.5, tolerance: 0.0, what: "quad length"));
         Spec.Succ(RemeshKind.Simplify(parameters: new ReduceMeshParameters { DesiredPolygonCount = 4 }, key: MeshGens.Key), then: remesh =>
             Assert.Equal(expected: 4, actual: Assert.IsType<RemeshKind.SimplifyCase>(@object: remesh).Parameters.DesiredPolygonCount));
-        Spec.FailCategory(RemeshKind.Quad(targetLength: 0.0, key: MeshGens.Key), category: "Tolerance");
+        Spec.FailCategory(QuadTarget.EdgeLength(length: 0.0, key: MeshGens.Key), category: "Tolerance");
         Spec.FailCategory(RemeshKind.Simplify(parameters: null!, key: MeshGens.Key), category: "Input");
         Spec.FailCategory(RemeshKind.Simplify(parameters: new ReduceMeshParameters { DesiredPolygonCount = 0 }, key: MeshGens.Key), category: "Input");
     }

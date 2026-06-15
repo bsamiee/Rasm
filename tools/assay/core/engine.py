@@ -7,6 +7,7 @@ from collections.abc import Callable
 import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
+from enum import StrEnum
 import fcntl
 from functools import cache
 from hashlib import sha256
@@ -67,6 +68,13 @@ if TYPE_CHECKING:
 
 type _Woven = Callable[[Check, AssaySettings, ArtifactScope | None, Routed, float | None], Coroutine[None, None, Result[Completed, Fault]]]
 type ByteRecv = Callable[[], Coroutine[None, None, bytes | None]]
+
+
+class LeaseScope(StrEnum):
+    """Lock-root scope: REPO contends within one checkout; MACHINE contends across every invocation on the host."""
+
+    REPO = "repo"
+    MACHINE = "machine"
 
 
 class WriteSink(Protocol):
@@ -308,8 +316,7 @@ def splice_command(
     match (runner, command, scope):
         case (Runner.DOTNET, (verb, *_), ArtifactScope() as s) if verb in scoped_verbs and mode not in {Mode.QUERY, Mode.LIST}:
             cut = command.index("--") if "--" in command else len(command)
-            flags = tuple(flag for flag in s.dotnet_flags if verb != "test" or flag != "--disable-build-servers")
-            return (*command[:cut], *flags, *command[cut:])
+            return (*command[:cut], *s.dotnet_flags, *command[cut:])
         case _:
             return command
 
@@ -594,16 +601,17 @@ def _child_pgid(pid: int) -> int | None:
     return _safe_call(lambda: pgid if (pgid := _GETPGID(pid)) != _GETPGID(0) else None, None)
 
 
+def _proc_tree(pid: int) -> tuple[psutil.Process, ...]:
+    # Root plus the recursive child set; dotnet builds fan compiler children the root alone under-reports.
+    return _safe_call(lambda: ((root := psutil.Process(pid)), *root.children(recursive=True)), ())
+
+
 def _reap_tree(pid: int) -> None:
-    _safe_call(lambda: _terminate_process_tree(((root := psutil.Process(pid)), *root.children(recursive=True)), _child_pgid(pid)), None)
+    _safe_call(lambda: _terminate_process_tree(_proc_tree(pid), _child_pgid(pid)), None)
 
 
 def _stall_sample(pid: int) -> StalledProcess:
     # Tree-aggregated: dotnet builds fan out compiler children, so the root process alone under-reports activity.
-    def _tree() -> tuple[psutil.Process, ...]:
-        root = psutil.Process(pid)
-        return (root, *root.children(recursive=True))
-
     def _cpu(proc: psutil.Process) -> float:
         def _read() -> float:
             times = proc.cpu_times()
@@ -614,7 +622,7 @@ def _stall_sample(pid: int) -> StalledProcess:
     def _invol(proc: psutil.Process) -> float:
         return _safe_call(lambda: float(proc.num_ctx_switches().involuntary), 0.0)
 
-    tree: tuple[psutil.Process, ...] = _safe_call(_tree, ())
+    tree = _proc_tree(pid)
     return StalledProcess(
         cpu_s=sum(_cpu(proc) for proc in tree),
         invol=sum(_invol(proc) for proc in tree),
@@ -657,17 +665,13 @@ async def _stall_monitor(pid: int, last_output: list[float], notes: list[str]) -
 
 
 def _resource_sample(pid: int, last_output: float) -> tuple[tuple[str, float], ...]:
-    def _tree() -> tuple[psutil.Process, ...]:
-        root = psutil.Process(pid)
-        return (root, *root.children(recursive=True))
-
     def _rss(proc: psutil.Process) -> float:
         return _safe_call(lambda: float(proc.memory_info().rss), 0.0)
 
     def _name(proc: psutil.Process) -> str:
         return _safe_call(proc.name, "")
 
-    tree: tuple[psutil.Process, ...] = _safe_call(_tree, ())
+    tree = _proc_tree(pid)
     children = tree[1:]
     names = tuple(_name(proc) for proc in tree)
     dotnet = sum(1 for name in names if name in _DOTNET_PROC_NAMES)
@@ -1573,33 +1577,57 @@ def _total(slot: Result[Completed, Fault] | None) -> Result[Completed, Fault]:
             return r
 
 
+def _slot_census(settings: AssaySettings, slots: int) -> tuple[int, int]:
+    # Cross-invocation census from the machine slot locks: distinct foreign run_ids holding slots, plus the dotnet-family process count.
+    run_ids: set[str] = set()
+    for index in range(slots):
+        path = UPath(settings.machine_lock_root / f"dotnet-slot-{index}.lock")
+        try:
+            held = path.read_bytes() if path.exists() else b""
+        except OSError:
+            held = b""
+        owner = decode_lease_owner(held)
+        if owner is not None:
+            run_ids.add(owner.run_id)
+    run_ids.discard(settings.run_id)
+    return len(run_ids), _foreign_dotnet_count()
+
+
 @contextlib.asynccontextmanager
-async def _dotnet_slot(  # noqa: PLR0912  # closed resource-state ladder; static rail work only surfaces its receipts
+async def _dotnet_slot(  # noqa: PLR0912, PLR0914, PLR0915  # closed resource-state ladder + machine-pool census; static rail work only surfaces its receipts
     check: Check, settings: AssaySettings, deadline: float | None
 ) -> AsyncIterator[Result[tuple[str, ...], Fault]]:
     if check.tool.runner is not Runner.DOTNET:
         yield Ok(())
         return
     started = time.monotonic()
+    waited = False
     while True:
         pressure = _concurrency_pressure(settings, (check,))
         contended = 0
         for index in range(pressure.slots):
             stack = contextlib.ExitStack()
             held = stack.enter_context(
-                exclusive_lease(f"dotnet-slot-{index}", settings.run_id, settings=settings, project=check.tool.name, mode="dotnet-slot")
+                exclusive_lease(
+                    f"dotnet-slot-{index}", settings.run_id, settings=settings, project=check.tool.name, mode="dotnet-slot", scope=LeaseScope.MACHINE
+                )
             )
             match held:
                 case Result(tag="ok"):
+                    note = pressure.slot_note(index, started)
+                    if waited:
+                        behind, census = _slot_census(settings, pressure.slots)
+                        note = (*note, f"dotnet.slot queued {time.monotonic() - started:.1f}s behind {behind} invocations / census {census}")
                     try:
-                        yield Ok(pressure.slot_note(index, started))
+                        yield Ok(note)
                     finally:
                         stack.close()
                     return
                 case _:
                     stack.close()
                     contended += 1
-        # One slot-wait event per poll cycle after every slot is contended; mirrors the once-per-window stall discipline.
+        # Every slot contended: emit the once-per-window slot-wait event and let the next acquire carry the queue-position note.
+        waited = True
         wait_ms = (time.monotonic() - started) * 1000.0
         _LOG.info("dotnet.slot_wait", contended=contended, slots=pressure.slots, wait_ms=round(wait_ms, 1))
         trace.get_current_span().add_event(
@@ -1742,20 +1770,27 @@ def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def proc_dead(pid: int) -> bool:
-    """Decide whether a pid no longer denotes a live owner.
-
-    Returns:
-        True when gone, corrupt, dead, or zombie; ``AccessDenied`` falls back to ``pid_exists``.
-    """
+def _stale(pid: int, extra: Callable[[psutil.Process], bool] = lambda _p: False) -> bool:
+    # Single psutil liveness admission: gone/corrupt/dead/zombie, plus an optional per-holder staleness predicate.
     try:
-        return psutil.Process(pid).status() in _DEAD_STATUSES
+        proc = psutil.Process(pid)
+        with proc.oneshot():
+            return proc.status() in _DEAD_STATUSES or extra(proc)
     except psutil.NoSuchProcess, ValueError:
         # ValueError covers psutil.Process(pid<=0) from a corrupt marker or owner block; treat as dead.
         return True
     except psutil.AccessDenied:
         # AccessDenied means the OS still owns the pid; defer to pid_exists rather than declaring death.
         return not psutil.pid_exists(pid)
+
+
+def proc_dead(pid: int) -> bool:
+    """Decide whether a pid no longer denotes a live owner.
+
+    Returns:
+        True when gone, corrupt, dead, or zombie; ``AccessDenied`` falls back to ``pid_exists``.
+    """
+    return _stale(pid)
 
 
 def is_lease_stale(owner: _LeaseOwner, tolerance: float) -> bool:
@@ -1765,16 +1800,7 @@ def is_lease_stale(owner: _LeaseOwner, tolerance: float) -> bool:
         True when the holder is gone, zombie/dead, not running, or PID-reused beyond ``tolerance``.
     """
     # (pid, create_time) within the drift band guards against PID reuse presenting as a live holder.
-    try:
-        proc = psutil.Process(owner.pid)
-        with proc.oneshot():
-            return proc.status() in _DEAD_STATUSES or not (proc.is_running() and abs(proc.create_time() - owner.create_time) < tolerance)
-    except psutil.NoSuchProcess, ValueError:
-        # ValueError covers psutil.Process(pid<=0) from a corrupt owner block; treat as dead.
-        return True
-    except psutil.AccessDenied:
-        # AccessDenied means the OS still owns the pid; fall back to pid_exists rather than stealing a live lease.
-        return not psutil.pid_exists(owner.pid)
+    return _stale(owner.pid, lambda proc: not (proc.is_running() and abs(proc.create_time() - owner.create_time) < tolerance))
 
 
 def _claim(
@@ -1876,7 +1902,7 @@ def _write_owner(fd: int, resource: str, *, run_id: str, target: str, cwd: str =
 
 @contextlib.contextmanager
 def exclusive_lease(
-    resource: str, run_id: str, *, settings: AssaySettings, project: str = "", mode: str = "exclusive"
+    resource: str, run_id: str, *, settings: AssaySettings, project: str = "", mode: str = "exclusive", scope: LeaseScope = LeaseScope.REPO
 ) -> Generator[Result[_Held, Fault]]:
     """Acquire a non-blocking local POSIX process lease.
 
@@ -1886,11 +1912,16 @@ def exclusive_lease(
         settings: Runtime settings.
         project: Project label written into the owner block.
         mode: Lease mode label written into the owner block.
+        scope: REPO roots the lock under the repo artifact store; MACHINE roots it under the per-user machine lock home.
 
     Yields:
         Result containing the held lease or a busy fault.
     """
-    path = settings.artifact(ArtifactKind.LOCKS, f"{resource}.lock")
+    match scope:
+        case LeaseScope.REPO:
+            path = settings.artifact(ArtifactKind.LOCKS, f"{resource}.lock")
+        case LeaseScope.MACHINE:
+            path = UPath(settings.machine_lock_root / f"{resource}.lock")
     # fcntl.flock requires a local fd; remote artifact backends cannot host lease files.
     if path.protocol not in {"", "file"}:
         yield Error(Fault((), status=RailStatus.UNSUPPORTED, message=f"POSIX leases require a local artifact root; got {path.protocol!r} backend"))

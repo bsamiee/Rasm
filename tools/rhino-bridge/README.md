@@ -215,8 +215,10 @@ Scenario code does not write `#r`, `#load`, absolute build-output paths, or loca
 - Deploy and publish paths cycle the live host through quit and refresh steps.
 
 [MCP]:
-- The bridge does not start an MCP listener.
-- Doctor facts expose `mcp.listener` and `mcp.platform.version` capability rows from the loaded host state.
+- The bridge starts no MCP listener of its own; MCP tooling runs through McNeel's Rhino MCP platform, registered out-of-band with the agent.
+- Install: add McNeel `Rhino-MCP-Platform` 0.1.5 to the Rhino 9.0 package store via the Rhino PackageManager (Yak); this provides the `rhino-mcp-router` stdio server.
+- Register: declare `rhino-mcp-router` to Claude Code at USER scope in `~/.claude.json` as a `type: stdio` server. Never commit a project-scope `.mcp.json` for it; the platform is a per-operator host capability, not a checked-in workspace dependency.
+- Health: `bridge doctor` exposes `mcp.platform.version` and `mcp.listener` as capability facts read from the loaded host state. Cross-session changes to either fact (or `rhinoVersion`/`rpc.streamjsonrpc`) surface in `delta` as `RunDelta.drift` rows, so host drift is auto-tracked across sessions.
 
 ## [11]-[BOUNDARIES]
 

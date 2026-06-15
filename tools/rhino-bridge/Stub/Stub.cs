@@ -26,8 +26,9 @@ file sealed class ShellLoadContext(string shellAssemblyPath) : AssemblyLoadConte
 // Ownership: the zero-dependency reflective activation hop into the shell ALC. Failed starts write
 // poisoned endpoint evidence because no shell code exists yet to own that path.
 file static class ShellSeam {
-    // BOUNDARY EXEMPTION: EndpointRecord shape is mirrored here to keep the stub dependency-zero;
-    // referencing Contract would pin bridge dependencies into the host default ALC before shell load.
+    // BOUNDARY EXEMPTION: the EndpointRecord home shape (directory name + file name) is mirrored here to keep the stub
+    // dependency-zero; referencing Contract.RasmHome would pin bridge dependencies into the host default ALC before shell load.
+    private const string EndpointHomeName = ".rasm";
     private const string EndpointFileName = "rhino-bridge-rbx.json";
     private const string ShellAssemblyFile = "Rasm.Bridge.Shell.dll";
     private const string ShellEntryMethod = "Start";
@@ -60,7 +61,7 @@ file static class ShellSeam {
     private static object? Poison(string fault) {
         // BOUNDARY ADAPTER: console output is only the fallback when endpoint evidence cannot write.
         try {
-            string directory = Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm");
+            string directory = Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: EndpointHomeName);
             _ = Directory.CreateDirectory(path: directory);
             using Process host = Process.GetCurrentProcess();
             using FileStream stream = new(

@@ -19,6 +19,7 @@ from tools.assay.automation.model import (
     Debounce,
     decode,
     describe,
+    Edge,
     encode,
     Manual,
     Program,
@@ -191,7 +192,7 @@ register_law(Watch, "test_describe_watch_path_count")
 def test_watch_filter_roundtrip(flt: WatchFilter) -> None:
     """Every WatchFilter member survives Watch wire round-trip."""
     w = Watch(paths=("p",), filter=flt)
-    decoded = decode(encode(w), trigger=True)
+    decoded = decode(encode(w))
     assert isinstance(decoded, Watch)
     assert decoded.filter == flt
 
@@ -202,19 +203,19 @@ register_law(WatchFilter, "test_watch_filter_roundtrip")
 
 
 @pytest.mark.parametrize(
-    "blob,trigger,match",
+    "blob,match",
     [
-        (b'{"kind":"schedule","cron":"* * * * *","cpu_threshold":1.5}', True, r"<= 1\.0"),
-        (b'{"kind":"watch","paths":["src"],"debounce":0}', True, r">= 1"),
-        (b'{"kind":"program","argv":[]}', False, r"length >= 1"),
-        (b'{"kind":"manual","unknown_field":1}', True, r"unknown field"),
+        (b'{"kind":"schedule","cron":"* * * * *","cpu_threshold":1.5}', r"<= 1\.0"),
+        (b'{"kind":"watch","paths":["src"],"debounce":0}', r">= 1"),
+        (b'{"kind":"program","argv":[]}', r"length >= 1"),
+        (b'{"kind":"manual","unknown_field":1}', r"unknown field"),
     ],
     ids=["cpu_threshold_gt1", "debounce_lt1", "program_empty_argv", "unknown_field"],
 )
-def test_decode_constraint_violations(blob: bytes, trigger: bool, match: str) -> None:  # noqa: FBT001  # parametrized fixture, not a flag arg
+def test_decode_constraint_violations(blob: bytes, match: str) -> None:
     """Out-of-bound wire inputs surface msgspec validation diagnostics."""
     with pytest.raises(msgspec.ValidationError, match=match):
-        decode(blob, trigger=trigger)
+        decode(blob)
 
 
 register_law(decode, "test_decode_constraint_violations")
@@ -229,3 +230,14 @@ def test_encode_deterministic(action: Action) -> None:
 
 
 register_law(encode, "test_encode_deterministic")
+
+# --- [EDGE]
+
+
+def test_debounce_edge_default_is_trailing() -> None:
+    """Edge is the leading/trailing debounce vocabulary; Debounce coalesces to the trailing edge by default."""
+    assert set(Edge) == {Edge.LEADING, Edge.TRAILING}
+    assert Debounce(action=Rail(claim=Claim.STATIC, verb="x")).edge is Edge.TRAILING
+
+
+register_law(Edge, "test_debounce_edge_default_is_trailing")

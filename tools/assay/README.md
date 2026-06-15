@@ -80,13 +80,15 @@ This table is a lookup by command surface and verb set:
 [ROOT_COMMANDS]:
 - Verbs: `self-test`, `delta`
 - Inputs: `self-test` accepts `--rhino`; `delta` accepts `<run_id>` and `--against <run_id>`.
-- Output: `Envelope.report`; `delta` carries `RunDelta` detail.
-- Use: `self-test` runs composition/catalog census; `--rhino` opts into bridge-aware smoke. `delta` compares retained history under `.artifacts/assay/history`.
+- Output: `Envelope.report`; `delta` carries `RunDelta` detail, including `drift` rows `(host-fact key, before, after)` for changed cross-session host facts (`rhinoVersion`, `mcp.platform.version`, `mcp.listener`, `rpc.streamjsonrpc`) when both sides are bridge runs.
+- Use: `self-test` runs composition/catalog census; `--rhino` opts into bridge-aware smoke. `delta` compares retained history under `.artifacts/assay/history` and surfaces host drift across sessions.
 - Example: `uv run python -m tools.assay delta <run_id> --against <run_id>`
 
 [STATIC_COMMANDS]:
 - Verb: `static` is a single root leaf — there is no `check`/`build`/`fix` split.
-- Inputs: `--all`, `--project <project.csproj>`, `--folder <path>...`, `--file <path>...`, or no target (changed-default). At most one of `--all`, `--project`, or folder/file targets.
+- Inputs: `--all`, `--project <project.csproj>`, `--folder <path>...`, `--file <path>...`, or no target (changed-default); `--plan` is an orthogonal modifier. At most one of `--all`, `--project`, or folder/file targets.
+- `--all`: fans every detected language at full scope (whole-workspace Python, TypeScript, Bash, plus the C# solution build), not a C#-only target.
+- `--plan`: dry-run preflight — emits a `StaticRun` with populated per-phase `detail.planned` argv and runs no tool, so the git tree stays clean (the fix-always CI "what would change" probe).
 - Target binding: each flag consumes space-separated values until the next option; the flag may also be repeated. Commas are literal path characters.
 - Output: shared `Report`; `StaticRun` detail carries targets, routes, planned checks, skipped checks, phase order, resource telemetry, and artifact scopes.
 - Use: for every language the resolved targets touch, `static` runs the full lane in fixed order — auto-fix (formatters + fixers) -> diagnose (non-fixable analyzers) -> restore -> build. Fix-always: a CI gate runs `static` then asserts a clean git tree and empty diagnostics.

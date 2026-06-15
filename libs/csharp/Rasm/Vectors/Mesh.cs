@@ -86,12 +86,46 @@ public sealed partial class MeshSegmentationStatus {
     public static readonly MeshSegmentationStatus MaxIterationsExhausted = new(key: 1);
 }
 
+[SmartEnum<int>]
+public sealed partial class QuadGuideInfluence {
+    public static readonly QuadGuideInfluence Approximate = new(key: 0);
+    public static readonly QuadGuideInfluence InterpolateRing = new(key: 1);
+    public static readonly QuadGuideInfluence InterpolateLoop = new(key: 2);
+}
+
+[SmartEnum<int>]
+public sealed partial class QuadPreserveEdges {
+    public static readonly QuadPreserveEdges Off = new(key: 0);
+    public static readonly QuadPreserveEdges Smart = new(key: 1);
+    public static readonly QuadPreserveEdges Strict = new(key: 2);
+}
+
+[Union]
+public abstract partial record QuadTarget {
+    private QuadTarget() { }
+    public sealed record EdgeLengthCase(PositiveMagnitude Length) : QuadTarget;
+    public sealed record QuadCountCase(Dimension Count, UnitInterval AdaptiveSize, bool AdaptiveQuadCount) : QuadTarget;
+    public static Fin<QuadTarget> EdgeLength(double length, Op? key = null) =>
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: length).Map(static value => (QuadTarget)new EdgeLengthCase(Length: value));
+    public static Fin<QuadTarget> QuadCount(int count, double adaptiveSize, bool adaptiveQuadCount = true, Op? key = null) =>
+        key.OrDefault() switch { Op op => from quads in op.AcceptValidated<Dimension>(candidate: count) from size in op.AcceptValidated<UnitInterval>(candidate: adaptiveSize) select (QuadTarget)new QuadCountCase(Count: quads, AdaptiveSize: size, AdaptiveQuadCount: adaptiveQuadCount) };
+}
+
+[SmartEnum<int>]
+public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0); }
+
 [Union]
 public abstract partial record RemeshKind {
     private RemeshKind() { }
-    public sealed record QuadCase(PositiveMagnitude TargetLength) : RemeshKind;
+    public sealed record QuadCase(QuadTarget Target, bool DetectHardEdges, QuadGuideInfluence GuideInfluence, QuadPreserveEdges PreserveEdges, QuadRemeshSymmetryAxis SymmetryAxis, Arr<Curve> GuideCurves, Arr<int> FaceBlocks) : RemeshKind;
     public sealed record SimplifyCase(ReduceMeshParameters Parameters) : RemeshKind;
-    public static Fin<RemeshKind> Quad(double targetLength, Op? key = null) => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: targetLength).Map(t => (RemeshKind)new QuadCase(TargetLength: t));
+    public static Fin<RemeshKind> Quad(QuadTarget target, bool detectHardEdges = true, QuadGuideInfluence? guideInfluence = null, QuadPreserveEdges? preserveEdges = null, QuadRemeshSymmetryAxis symmetryAxis = QuadRemeshSymmetryAxis.None, Seq<Curve> guideCurves = default, Seq<int> faceBlocks = default, Op? key = null) =>
+        key.OrDefault() switch {
+            Op op => from active in Optional(target).ToFin(op.InvalidInput())
+                     from curves in guideCurves.IsEmpty ? Fin.Succ(Arr<Curve>.Empty) : guideCurves.AsIterable().All(static curve => curve is { IsValid: true }) ? Fin.Succ(new Arr<Curve>([.. guideCurves.AsIterable()])) : Fin.Fail<Arr<Curve>>(op.InvalidInput())
+                     from blocks in faceBlocks.IsEmpty ? Fin.Succ(Arr<int>.Empty) : faceBlocks.AsIterable().All(static index => index >= 0) ? Fin.Succ(new Arr<int>([.. faceBlocks.AsIterable()])) : Fin.Fail<Arr<int>>(op.InvalidInput())
+                     select (RemeshKind)new QuadCase(Target: active, DetectHardEdges: detectHardEdges, GuideInfluence: guideInfluence ?? QuadGuideInfluence.Approximate, PreserveEdges: preserveEdges ?? QuadPreserveEdges.Off, SymmetryAxis: symmetryAxis, GuideCurves: curves, FaceBlocks: blocks),
+        };
     public static Fin<RemeshKind> Simplify(ReduceMeshParameters parameters, Op? key = null) =>
         key.OrDefault() switch {
             Op op => Optional(parameters).ToFin(op.InvalidInput())
@@ -99,9 +133,6 @@ public abstract partial record RemeshKind {
                     .Bind(_ => Fin.Succ<RemeshKind>(new SimplifyCase(Parameters: active)))),
         };
 }
-
-[SmartEnum<int>]
-public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0); }
 
 [SmartEnum<int>]
 public sealed partial class SdfMeshDomain {
@@ -238,7 +269,7 @@ public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, Flatten
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshReceipt(RemeshKind Kind, RemeshStatus Status, Option<double> TargetLength, Option<int> DesiredPolygonCount, int PreVertexCount, int PreFaceCount, int PostVertexCount, int PostFaceCount, double ReductionRatio, bool Valid, bool HardEdgePreservationRequested, bool TopologyChanged);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshReceipt(RemeshKind Kind, RemeshStatus Status, int PreVertexCount, int PreFaceCount, int PostVertexCount, int PostFaceCount, double ReductionRatio, bool Valid, bool TopologyChanged, Option<double> TargetLength = default, Option<int> TargetQuadCount = default, Option<double> AdaptiveSize = default, Option<bool> AdaptiveQuadCount = default, Option<bool> HardEdgePreservationRequested = default, Option<QuadGuideInfluence> GuideInfluence = default, Option<QuadPreserveEdges> PreserveEdges = default, Option<QuadRemeshSymmetryAxis> SymmetryAxis = default, int GuideCurveCount = 0, int FaceBlockCount = 0, Option<int> DesiredPolygonCount = default, Option<bool> AllowDistortion = default, Option<int> Accuracy = default, Option<bool> NormalizeMeshSize = default, int FaceTagCount = 0, int LockedComponentCount = 0, Option<string> ReduceError = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt) {
@@ -429,6 +460,7 @@ internal static class MeshKernel {
     private const double VolumeGridKernelSofteningRatio = 0.0625;
     private const int VolumeGridMaxNodes = 1_000_000;
     private const int UnassignedRegion = -1;
+    private const double NativeAdaptiveScale = 100.0;
     private readonly record struct SegmentationScalars(Arr<double> FaceValues, int SkippedDegenerateFaces, int SkippedNonFiniteValues, int FiniteCount, double Min, double Max);
     private readonly record struct FeatureCurvatureSignals(double[] Edge, int FiniteVertices, int RejectedVertices);
     private readonly record struct SegmentationRun(MeshSegmentationAlgorithm Algorithm, int RequestedRegionCount, int SeedCount, MeshSegmentationStatus Status, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve = default, Option<bool> FactorCacheHit = default, Option<int> FactorNonZeros = default, Option<double> NormalizedCutValue = default, Option<int> AffinityNonZeros = default, Option<int> WatershedSaddleCount = default, Option<EigenSolveReceipt<double, Arr<double>>> Eigen = default);
@@ -1330,22 +1362,60 @@ internal static class MeshKernel {
     internal static Fin<RemeshResult> ApplyRemeshDetailed(RemeshKind kind, MeshSpace space, Op key) =>
         Optional(kind).ToFin(key.InvalidInput()).Bind(active => active.Switch(
             state: (Space: space, Key: key),
-            quadCase: static (state, quad) => {
-                Mesh? result = state.Space.Native.QuadRemesh(parameters: new QuadRemeshParameters { TargetEdgeLength = quad.TargetLength.Value, AdaptiveSize = 0.5, DetectHardEdges = true });
+            quadCase: static (state, quad) => state.Key.Catch(() => {
+                QuadRemeshParameters parameters = QuadParametersOf(quad: quad);
+                Mesh? result = state.Space.Native.QuadRemesh(faceBlocks: quad.FaceBlocks.AsIterable(), parameters: parameters, guideCurves: quad.GuideCurves.AsIterable(), progress: null, cancelToken: CancellationToken.None);
                 if (result is { IsValid: true })
-                    return Fin.Succ(new RemeshResult(Mesh: result, Receipt: RemeshReceiptOf(kind: quad, source: state.Space.Native, output: result, targetLength: Some(quad.TargetLength.Value), desiredPolygonCount: Option<int>.None, hardEdges: true)));
+                    return Fin.Succ(new RemeshResult(Mesh: result, Receipt: QuadReceiptOf(quad: quad, parameters: parameters, source: state.Space.Native, output: result)));
                 result?.Dispose();
                 return Fin.Fail<RemeshResult>(error: state.Key.InvalidResult());
-            },
-            simplifyCase: static (state, simplify) => {
+            }),
+            simplifyCase: static (state, simplify) => state.Key.Catch(() => {
                 Mesh clone = state.Space.Native.DuplicateMesh();
                 if (clone.Reduce(parameters: simplify.Parameters) && clone.IsValid)
-                    return Fin.Succ(new RemeshResult(Mesh: clone, Receipt: RemeshReceiptOf(kind: simplify, source: state.Space.Native, output: clone, targetLength: Option<double>.None, desiredPolygonCount: Some(simplify.Parameters.DesiredPolygonCount), hardEdges: false)));
+                    return Fin.Succ(new RemeshResult(Mesh: clone, Receipt: ReduceReceiptOf(kind: simplify, source: state.Space.Native, output: clone)));
                 clone.Dispose();
                 return Fin.Fail<RemeshResult>(error: state.Key.InvalidResult());
-            }));
-    private static RemeshReceipt RemeshReceiptOf(RemeshKind kind, Mesh source, Mesh output, Option<double> targetLength, Option<int> desiredPolygonCount, bool hardEdges) =>
-        new(Kind: kind, Status: RemeshStatus.Completed, TargetLength: targetLength, DesiredPolygonCount: desiredPolygonCount, PreVertexCount: source.Vertices.Count, PreFaceCount: source.Faces.Count, PostVertexCount: output.Vertices.Count, PostFaceCount: output.Faces.Count, ReductionRatio: source.Faces.Count == 0 ? 0.0 : (double)output.Faces.Count / source.Faces.Count, Valid: output.IsValid, HardEdgePreservationRequested: hardEdges, TopologyChanged: source.Vertices.Count != output.Vertices.Count || source.Faces.Count != output.Faces.Count);
+            })));
+    private static QuadRemeshParameters QuadParametersOf(RemeshKind.QuadCase quad) {
+        QuadRemeshParameters parameters = new() { DetectHardEdges = quad.DetectHardEdges, GuideCurveInfluence = quad.GuideInfluence.Key, PreserveMeshArrayEdgesMode = quad.PreserveEdges.Key, SymmetryAxis = quad.SymmetryAxis };
+        switch (quad.Target) {
+            case QuadTarget.EdgeLengthCase edge:
+                parameters.TargetEdgeLength = edge.Length.Value;
+                break;
+            case QuadTarget.QuadCountCase count:
+                parameters.TargetQuadCount = count.Count.Value;
+                parameters.AdaptiveSize = count.AdaptiveSize.Value * NativeAdaptiveScale;
+                parameters.AdaptiveQuadCount = count.AdaptiveQuadCount;
+                break;
+        }
+        return parameters;
+    }
+    private static RemeshReceipt QuadReceiptOf(RemeshKind.QuadCase quad, QuadRemeshParameters parameters, Mesh source, Mesh output) =>
+        TopologyOf(kind: quad, source: source, output: output) with {
+            TargetLength = quad.Target is QuadTarget.EdgeLengthCase edge ? Some(edge.Length.Value) : Option<double>.None,
+            TargetQuadCount = quad.Target is QuadTarget.QuadCountCase ? Some(parameters.TargetQuadCount) : Option<int>.None,
+            AdaptiveSize = Some(parameters.AdaptiveSize),
+            AdaptiveQuadCount = Some(parameters.AdaptiveQuadCount),
+            HardEdgePreservationRequested = Some(quad.DetectHardEdges),
+            GuideInfluence = Some(quad.GuideInfluence),
+            PreserveEdges = Some(quad.PreserveEdges),
+            SymmetryAxis = Some(quad.SymmetryAxis),
+            GuideCurveCount = quad.GuideCurves.Count,
+            FaceBlockCount = quad.FaceBlocks.Count,
+        };
+    private static RemeshReceipt ReduceReceiptOf(RemeshKind.SimplifyCase kind, Mesh source, Mesh output) =>
+        TopologyOf(kind: kind, source: source, output: output) with {
+            DesiredPolygonCount = Some(kind.Parameters.DesiredPolygonCount),
+            AllowDistortion = Some(kind.Parameters.AllowDistortion),
+            Accuracy = Some(kind.Parameters.Accuracy),
+            NormalizeMeshSize = Some(kind.Parameters.NormalizeMeshSize),
+            FaceTagCount = kind.Parameters.FaceTags?.Length ?? 0,
+            LockedComponentCount = kind.Parameters.LockedComponents?.Length ?? 0,
+            ReduceError = Optional(kind.Parameters.Error).Filter(static text => !string.IsNullOrWhiteSpace(value: text)),
+        };
+    private static RemeshReceipt TopologyOf(RemeshKind kind, Mesh source, Mesh output) =>
+        new(Kind: kind, Status: RemeshStatus.Completed, PreVertexCount: source.Vertices.Count, PreFaceCount: source.Faces.Count, PostVertexCount: output.Vertices.Count, PostFaceCount: output.Faces.Count, ReductionRatio: source.Faces.Count == 0 ? 0.0 : (double)output.Faces.Count / source.Faces.Count, Valid: output.IsValid, TopologyChanged: source.Vertices.Count != output.Vertices.Count || source.Faces.Count != output.Faces.Count);
 
     // --- [DESCRIPTORS] ----------------------------------------------------------------------
     // SpectralFilter owns HKS-like heat, unnormalized WKS-style wave, biharmonic, diffusion, commute-time, and identity descriptors.

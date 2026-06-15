@@ -344,7 +344,7 @@ def test_doctor_inventory_includes_nuget_and_polyglot_rows(assay_root: AssayHarn
     assert isinstance(detail, ApiSurface)
     assert "ilspycmd" in detail.preview  # canned version row surfaced
     assert "python-dists" in detail.preview  # polyglot summary row present
-    assert r.artifacts  # inventory json + tsv artifacts written
+    assert r.artifacts  # single inventory json artifact written (the unread tsv was dropped)
     assert detail.lines == IsInt(ge=3)  # rhino-app + ilspycmd + at least the NuGet package
 
 
@@ -356,13 +356,11 @@ def test_doctor_inventory_artifacts_live_under_retained_api_claim_root(assay_roo
     r = assert_ok(_run(doctor, assay_root, sources=("ilspy",)))
     store = assay_root.settings.store()
     run_id = assay_root.settings.run_id
-    expected = (store.path(Claim.API.value, run_id, "doctor-inventory.json"), store.path(Claim.API.value, run_id, "doctor-inventory.tsv"))
+    expected = (store.path(Claim.API.value, run_id, "doctor-inventory.json"),)
     assert tuple(a.path for a in r.artifacts) == expected
     assert all(a.kind is ArtifactKind.SCOPE for a in r.artifacts)
     assert store.exists(Claim.API.value, run_id, "doctor-inventory.json")
-    assert store.exists(Claim.API.value, run_id, "doctor-inventory.tsv")
     assert not store.exists(ArtifactKind.SCOPE.value, Claim.API.value, run_id, "doctor-inventory.json")
-    assert not store.exists(ArtifactKind.SCOPE.value, Claim.API.value, run_id, "doctor-inventory.tsv")
 
 
 register_law(doctor, "doctor_inventory_artifacts_retained_api_claim_root")
@@ -1124,7 +1122,7 @@ def test_resolve_nuget_kind_path_rows(assay_root: AssayHarness, kind: str) -> No
     assert isinstance(detail, ApiSurface)
     assert detail.source.source_kind is SourceKind.NUGET
     assert r.status is RailStatus.OK  # at least one path present for every concrete kind
-    assert r.artifacts  # full path listing rides an artifact
+    assert r.results  # path rows ride inline; the full-listing artifact appears only when results saturate the cap
 
 
 register_law(resolve, "resolve_nuget_kind_path_rows")

@@ -290,7 +290,9 @@ def test_build_fan_restores_before_build_and_skips_after_restore_failure(monkeyp
 
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
     monkeypatch.setattr(static_rail, "fan_out", fake_fan)
-    result = static_rail._build_fan((("restore", (restore,)), ("build", (compile_check,))), routed, assay_root.settings)
+    result = static_rail._build_fan(
+        ((static_rail.Phase.RESTORE, (restore,)), (static_rail.Phase.BUILD, (compile_check,))), routed, assay_root.settings
+    )
     assert calls == [(Mode.RESTORE,)]
     skipped = assert_ok(result[1])
     assert skipped.status is RailStatus.SKIP

@@ -43,19 +43,6 @@ _SERVICE: dict[str, str | int] = {
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def _install_tracing(endpoint: str) -> None:
-    # OTLP imports stay on the endpoint-set path to keep tracing-disabled startup lean.
-    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: PLC0415
-    from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: PLC0415
-    from opentelemetry.trace import set_tracer_provider  # noqa: PLC0415
-
-    # Exporter connects on force_flush, not construction; a stale endpoint fails silently until flush time.
-    provider = TracerProvider(resource=Resource.create(_SERVICE))
-    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint), schedule_delay_millis=_DRAIN_MS))
-    set_tracer_provider(provider)
-
-
 def install_tracing(endpoint: str) -> None:
     """Install the global OTLP tracer when an endpoint is configured.
 
@@ -66,7 +53,16 @@ def install_tracing(endpoint: str) -> None:
         case "":
             pass
         case target:
-            _install_tracing(target)
+            # OTLP imports stay on the endpoint-set path to keep tracing-disabled startup lean.
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: PLC0415
+            from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: PLC0415
+            from opentelemetry.trace import set_tracer_provider  # noqa: PLC0415
+
+            # Exporter connects on force_flush, not construction; a stale endpoint fails silently until flush time.
+            provider = TracerProvider(resource=Resource.create(_SERVICE))
+            provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=target), schedule_delay_millis=_DRAIN_MS))
+            set_tracer_provider(provider)
 
 
 def bootstrap_error() -> ValidationError | None:

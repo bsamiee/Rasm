@@ -5,6 +5,8 @@
 import contextlib
 from datetime import datetime, UTC
 import operator
+import os
+from pathlib import Path
 import tempfile
 from typing import Final, override, Self, TYPE_CHECKING
 import uuid  # noqa: TC003  # runtime: Hypothesis draws uuid.UUID values for the state-machine store identity
@@ -38,7 +40,10 @@ from tools.assay.composition.settings import (
     LogFormat,
     mtime_from_info,
     Offload,
+    prune_python_artifacts,
     PullStrategy,
+    PY_ARTIFACT_ROOTS,
+    PY_COVERAGE_FILES,
     size_from_info,
     Ssh,
 )
@@ -48,7 +53,6 @@ from tools.assay.core.model import Artifact, ArtifactKind, Claim
 if TYPE_CHECKING:
     from collections.abc import Callable
     from enum import StrEnum
-    from pathlib import Path
 
     from tools.assay.core.model import Envelope
 
@@ -651,7 +655,8 @@ def test_artifact_scope_open_computes_path_lazily_per_claim(claim: Claim, assay_
     assert isinstance(scope, ArtifactScope)
     assert claim.value in scope.path
     assert assay_root.settings.run_id in scope.path
-    assert {"--artifacts-path", scope.path, "--disable-build-servers"} <= set(scope.dotnet_flags)
+    assert {"--artifacts-path", scope.path} <= set(scope.dotnet_flags)
+    assert "--disable-build-servers" not in scope.dotnet_flags  # VBCSCompiler stays on; --artifacts-path is the isolation boundary
     assert not _Path(scope.path).exists(), "open() must not materialize the scope directory (no empty scope dirs)"
 
 
@@ -690,24 +695,27 @@ def test_artifact_scope_build_configuration_variants(config_arg: Configuration |
     scope = ArtifactScope.build(assay_root.settings, "my-closure", config_arg)
     assert expect_in_path in scope.path
     assert "my-closure" in scope.path
-    assert {"--artifacts-path", "--disable-build-servers"} <= set(scope.dotnet_flags)
+    assert "--artifacts-path" in scope.dotnet_flags
+    assert "--disable-build-servers" not in scope.dotnet_flags  # VBCSCompiler stays on; --artifacts-path is the isolation boundary
 
 
 register_law(ArtifactScope, "artifact_scope_build_configuration_variants")
 
 
 def test_artifact_scope_dotnet_env_isolation(assay_root: AssayHarness) -> None:
-    """ArtifactScope.dotnet_env provides DOTNET_CLI_HOME under the scope path and disables node reuse."""
+    """ArtifactScope.dotnet_env provides DOTNET_CLI_HOME under the scope path; VBCSCompiler stays on (no node-reuse disable)."""
     scope = ArtifactScope.open(assay_root.settings, Claim.STATIC)
-    assert scope.dotnet_env == IsPartialDict({"DOTNET_CLI_HOME": IsStr(regex=rf"{scope.path}.*"), "MSBUILDDISABLENODEREUSE": "1"})
+    assert scope.dotnet_env == IsPartialDict({"DOTNET_CLI_HOME": IsStr(regex=rf"{scope.path}.*")})
+    assert "MSBUILDDISABLENODEREUSE" not in scope.dotnet_env
+    assert "--disable-build-servers" not in scope.dotnet_flags
 
 
 register_law(ArtifactScope, "artifact_scope_dotnet_env_isolation")
 
 
 def test_artifact_scope_can_leave_build_servers_enabled(assay_root: AssayHarness) -> None:
-    """Static build scopes can route artifacts without forcing build-server isolation."""
-    scope = ArtifactScope.build(assay_root.settings, "static-closure", disable_build_servers=False)
+    """Build scopes route artifacts without forcing build-server isolation; VBCSCompiler shared compilation stays on."""
+    scope = ArtifactScope.build(assay_root.settings, "static-closure")
     assert "--artifacts-path" in scope.dotnet_flags
     assert scope.path in scope.dotnet_flags
     assert "--disable-build-servers" not in scope.dotnet_flags
@@ -1164,3 +1172,37 @@ def test_artifact_store_write_bytes_idempotent_overwrite(mem_store: ArtifactStor
 
 
 register_law(ArtifactStore, "artifact_store_write_bytes_idempotent_overwrite")
+
+# --- [PY_ARTIFACT_PATH_POLICY]
+
+
+def test_py_artifact_roots_own_python_tree() -> None:
+    """PY_ARTIFACT_ROOTS is the single owner of the .artifacts/python heavy-lane roots; coverage files derive from its coverage root."""
+    assert set(PY_ARTIFACT_ROOTS) == {"coverage", "benchmarks", "mutmut"}
+    assert all(root.startswith(".artifacts/python/") for root in PY_ARTIFACT_ROOTS.values())
+    assert set(PY_COVERAGE_FILES) == {"json", "xml", "lcov"}
+    assert all(path == f"{PY_ARTIFACT_ROOTS['coverage']}/coverage.{fmt}" for fmt, path in PY_COVERAGE_FILES.items())
+
+
+register_law("PY_ARTIFACT_ROOTS", "py_artifact_roots_own_python_tree")
+register_law("PY_COVERAGE_FILES", "py_artifact_roots_own_python_tree")
+
+
+def test_prune_python_artifacts_bounds_benchmark_autosaves(assay_root: AssayHarness) -> None:
+    """prune_python_artifacts keeps the newest ``keep`` benchmark autosaves; the self-overwriting coverage root is never child-pruned."""
+    root = Path(str(assay_root.root))
+    bench = root / PY_ARTIFACT_ROOTS["benchmarks"] / "machine"
+    bench.mkdir(parents=True)
+    for i in range(5):
+        target_file = bench / f"{i:04d}_run.json"
+        target_file.write_text("{}", encoding="utf-8")
+        os.utime(target_file, (i, i))  # ascending mtime: 0000 oldest, 0004 newest
+    coverage = root / PY_ARTIFACT_ROOTS["coverage"]
+    coverage.mkdir(parents=True)
+    (coverage / "coverage.json").write_text("{}", encoding="utf-8")
+    prune_python_artifacts(root, keep=2)
+    assert sorted(p.name for p in bench.glob("*.json")) == ["0003_run.json", "0004_run.json"]
+    assert (coverage / "coverage.json").exists()
+
+
+register_law(prune_python_artifacts, "prune_python_artifacts_bounds_benchmark_autosaves")

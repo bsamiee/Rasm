@@ -591,6 +591,7 @@ class RunDelta(Detail, frozen=True, tag="delta"):
     after: RunSnapshot = RunSnapshot()
     added: int = 0
     removed: int = 0
+    drift: tuple[tuple[str, str, str], ...] = ()  # (host-fact key, before, after) for changed cross-session host facts
 
 
 class StaticRun(Detail, frozen=True, tag="static"):

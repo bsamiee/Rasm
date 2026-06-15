@@ -120,29 +120,20 @@ def _strict(report: Report, *, strict: bool) -> Report:
             return report
 
 
-def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: DocsParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
-    """Run routed Mermaid validation with optional strict EMPTY/SKIP promotion.
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+
+def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams) -> Result[Report, Fault]:
+    """Validate Mermaid diagrams across routed Markdown files, with optional strict EMPTY/SKIP promotion.
 
     Returns:
         Folded report, or a routing/spawn/strict-promotion fault.
     """
     return route(Language.DOCS, params.paths, settings=settings).bind(
-        lambda routed: _outcomes(routed, settings=settings, scope=scope, claim=claim, verb=verb, mode=mode).map(
+        lambda routed: _outcomes(routed, settings=settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK).map(
             lambda report: _strict(report, strict=params.strict)
         )
     )
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-
-def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams) -> Result[Report, Fault]:
-    """Validate Mermaid diagrams across routed Markdown files.
-
-    Returns:
-        Folded report, or a routing/spawn fault.
-    """
-    return _thin_rail(settings, scope, params, claim=Claim.DOCS, verb="check", mode=Mode.CHECK)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

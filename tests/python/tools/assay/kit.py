@@ -166,7 +166,8 @@ def assay_settings(root: Path) -> AssaySettings:
         Settings rooted at ``root`` with remote execution disabled.
     """
     (root / "Workspace.slnx").write_text("", encoding="utf-8")
-    return AssaySettings(root=UPath(root), exec_known_hosts=None)
+    # Isolate the machine-wide dotnet slot lock root under the tmp tree so tests never contend on the real ~/.rasm pool.
+    return AssaySettings(root=UPath(root), exec_known_hosts=None, machine_lock_root=root / ".rasm" / "locks")
 
 
 class AssayHarness(TmpRoot[AssaySettings], frozen=True, gc=False):

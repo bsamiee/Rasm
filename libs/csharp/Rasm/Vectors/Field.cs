@@ -253,10 +253,10 @@ public sealed partial class ReconstructionMode {
     public static readonly ReconstructionMode RbfInterpolation = new(key: 0, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0);
     public static readonly ReconstructionMode RbfApproximation = new(key: 1, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0);
     public static readonly ReconstructionMode MovingLeastSquares = new(key: 2, executable: true, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 1);
-    public static readonly ReconstructionMode LevinMovingLeastSquares = new(key: 3, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2);
-    public static readonly ReconstructionMode AlgebraicPointSetSurfaces = new(key: 4, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2);
-    public static readonly ReconstructionMode Poisson = new(key: 5, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
-    public static readonly ReconstructionMode ScreenedPoisson = new(key: 6, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
+    public static readonly ReconstructionMode LevinMovingLeastSquares = new(key: 3, executable: true, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2);
+    public static readonly ReconstructionMode AlgebraicPointSetSurfaces = new(key: 4, executable: true, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2);
+    public static readonly ReconstructionMode Poisson = new(key: 5, executable: true, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
+    public static readonly ReconstructionMode ScreenedPoisson = new(key: 6, executable: true, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
     public bool Executable { get; }
     public bool RequiresNormals { get; }
     public bool RequiresSparseSystem { get; }
@@ -267,6 +267,31 @@ public sealed partial class ReconstructionMode {
 public sealed partial class ReconstructionStatus {
     public static readonly ReconstructionStatus ExactInterpolation = new(key: 0);
     public static readonly ReconstructionStatus ApproximateSdf = new(key: 1);
+    public static readonly ReconstructionStatus PoissonIndicator = new(key: 2);
+}
+
+[SmartEnum<int>]
+public sealed partial class PoissonBoundary {
+    public static readonly PoissonBoundary Free = new(key: 0, singular: true, exteriorValue: 0.0, isDirichlet: false);
+    public static readonly PoissonBoundary Dirichlet = new(key: 1, singular: false, exteriorValue: -0.5, isDirichlet: true);
+    public static readonly PoissonBoundary Neumann = new(key: 2, singular: true, exteriorValue: 0.0, isDirichlet: false);
+    public bool Singular { get; }
+    public double ExteriorValue { get; }
+    public bool IsDirichlet { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class WeightKernelFamily {
+    public static readonly WeightKernelFamily SmoothPoly = new(key: 0, interpolating: false, profile: static t => (1.0 - (t * t)) * (1.0 - (t * t)));
+    public static readonly WeightKernelFamily WendlandC2 = new(key: 1, interpolating: false, profile: static t => Math.Pow(x: 1.0 - t, y: 4) * (1.0 + (4.0 * t)));
+    public static readonly WeightKernelFamily Gaussian = new(key: 2, interpolating: false, profile: static t => Math.Exp(d: -(t * t) / GaussianBandwidthSquared));
+    public static readonly WeightKernelFamily CompactExp = new(key: 3, interpolating: false, profile: static t => t >= 1.0 ? 0.0 : Math.Exp(d: -(t * t) / Math.Max(val1: 1.0 - (t * t), val2: RhinoMath.ZeroTolerance)));
+    public static readonly WeightKernelFamily Singular = new(key: 4, interpolating: true, profile: static t => 1.0 / Math.Max(val1: t * t, val2: RhinoMath.SqrtEpsilon));
+    private const double GaussianBandwidthSquared = 1.0 / 9.0;
+    public bool Interpolating { get; }
+    [UseDelegateFromConstructor] private partial double Profile(double t);
+    internal double Weight(double distance, double support) =>
+        distance >= support ? 0.0 : Profile(t: Math.Min(val1: distance / support, val2: 1.0));
 }
 
 [Union]
@@ -305,7 +330,10 @@ public abstract partial record ScalarField {
     public sealed record SignedDistanceFromMeshCase : ScalarField { internal SignedDistanceFromMeshCase(MeshSpace Space, SdfMeshPolicy Policy) { this.Space = Space; this.Policy = Policy; } public MeshSpace Space { get; } public SdfMeshPolicy Policy { get; } }
     public sealed record RbfCase : ScalarField { internal RbfCase(Seq<(Point3d Position, double Value)> Samples, KernelKind Kernel, PositiveMagnitude Radius, Arr<double> Coefficients, ReconstructionReceipt Receipt) { this.Samples = Samples; this.Kernel = Kernel; this.Radius = Radius; this.Coefficients = Coefficients; this.Receipt = Receipt; } public Seq<(Point3d Position, double Value)> Samples { get; } public KernelKind Kernel { get; } public PositiveMagnitude Radius { get; } public Arr<double> Coefficients { get; } public ReconstructionReceipt Receipt { get; } }
     public sealed record MlsCase : ScalarField { internal MlsCase(Seq<MlsSample> Samples, KernelKind Kernel, PositiveMagnitude Radius, ReconstructionReceipt Receipt) { this.Samples = Samples; this.Kernel = Kernel; this.Radius = Radius; this.Receipt = Receipt; } public Seq<MlsSample> Samples { get; } public KernelKind Kernel { get; } public PositiveMagnitude Radius { get; } public ReconstructionReceipt Receipt { get; } }
+    public sealed record LevinMlsCase : ScalarField { internal LevinMlsCase(Seq<MlsSample> Samples, LevinMlsPolicy Policy, ReconstructionReceipt Receipt) { this.Samples = Samples; this.Policy = Policy; this.Receipt = Receipt; } public Seq<MlsSample> Samples { get; } public LevinMlsPolicy Policy { get; } public ReconstructionReceipt Receipt { get; } public Fin<LevinMlsSampleReceipt> Probe(Point3d sample, Context context, Op? key = null) => EvaluateLevinMls(samples: Samples, policy: Policy, sample: sample, context: context, key: key.OrDefault()).Map(static result => result.Levin); }
+    public sealed record ApssCase : ScalarField { internal ApssCase(Seq<MlsSample> Samples, ApssPolicy Policy, ReconstructionReceipt Receipt) { this.Samples = Samples; this.Policy = Policy; this.Receipt = Receipt; } public Seq<MlsSample> Samples { get; } public ApssPolicy Policy { get; } public ReconstructionReceipt Receipt { get; } public Fin<ApssSampleReceipt> Probe(Point3d sample, Context context, Op? key = null) => EvaluateApss(samples: Samples, policy: Policy, sample: sample, context: context, key: key.OrDefault()).Map(static result => result.Apss); }
     public sealed record TetSignedHeatCase : ScalarField { internal TetSignedHeatCase(TetMeshDomain Domain, TetSignedHeatPolicy Policy, Arr<double> Values, TetSignedHeatReceipt Receipt) { this.Domain = Domain; this.Policy = Policy; this.Values = Values; this.Receipt = Receipt; } public TetMeshDomain Domain { get; } public TetSignedHeatPolicy Policy { get; } public Arr<double> Values { get; } public TetSignedHeatReceipt Receipt { get; } }
+    public sealed record PoissonCase : ScalarField { internal PoissonCase(PoissonGrid Grid, double Gamma, PoissonReceipt Receipt) { this.Grid = Grid; this.Gamma = Gamma; this.Receipt = Receipt; } public PoissonGrid Grid { get; } public double Gamma { get; } public PoissonReceipt Receipt { get; } }
     public static ScalarField Constant(double value) => new ConstantCase(Value: value);
     public static Fin<ScalarField> Density(Point3d center, double spread, double strength, Op? key = null) =>
         FieldNabla.WithPositive(candidate: spread, make: s => (ScalarField)new DensityCase(Center: center, Spread: s, Strength: strength), key: key);
@@ -379,6 +407,12 @@ public abstract partial record ScalarField {
         ReconstructCore(mode: smoothing <= RhinoMath.ZeroTolerance ? ReconstructionMode.RbfInterpolation : ReconstructionMode.RbfApproximation, scalarSamples: samples, orientedSamples: Seq<MlsSample>(), kernel: kernel, radius: radius, smoothing: smoothing, context: null, key: key.OrDefault());
     public static Fin<ReconstructionResult> MlsDetailed(Seq<MlsSample> samples, KernelKind kernel, double radius, Context context, Op? key = null) =>
         ReconstructCore(mode: ReconstructionMode.MovingLeastSquares, scalarSamples: Seq<(Point3d Position, double Value)>(), orientedSamples: samples, kernel: kernel, radius: radius, smoothing: 0.0, context: context, key: key.OrDefault());
+    public static Fin<ReconstructionResult> LevinMlsDetailed(Seq<MlsSample> samples, KernelKind kernel, LevinMlsPolicy policy, Context context, Op? key = null) =>
+        ReconstructCore(mode: ReconstructionMode.LevinMovingLeastSquares, scalarSamples: Seq<(Point3d Position, double Value)>(), orientedSamples: samples, kernel: kernel, radius: policy.Support.Value, smoothing: 0.0, context: context, key: key.OrDefault(), levin: Some(policy));
+    public static Fin<ReconstructionResult> ApssDetailed(Seq<MlsSample> samples, KernelKind kernel, ApssPolicy policy, Context context, Op? key = null) =>
+        ReconstructCore(mode: ReconstructionMode.AlgebraicPointSetSurfaces, scalarSamples: Seq<(Point3d Position, double Value)>(), orientedSamples: samples, kernel: kernel, radius: policy.Support.Value, smoothing: 0.0, context: context, key: key.OrDefault(), apss: Some(policy));
+    public static Fin<ReconstructionResult> PoissonDetailed(Seq<MlsSample> samples, PoissonPolicy policy, Context context, Op? key = null) =>
+        ReconstructCore(mode: policy.PointWeight > 0.0 ? ReconstructionMode.ScreenedPoisson : ReconstructionMode.Poisson, scalarSamples: Seq<(Point3d Position, double Value)>(), orientedSamples: samples, kernel: KernelKind.Wendland, radius: policy.Scale.Value, smoothing: 0.0, context: context, key: key.OrDefault(), poisson: Some(policy));
     public static Fin<ReconstructionResult> ReconstructDetailed(ReconstructionMode mode, Seq<MlsSample> samples, KernelKind kernel, double radius, Context context, double smoothing = 0.0, Op? key = null) =>
         ReconstructCore(mode: mode, scalarSamples: samples.Map(static sample => (sample.Position, sample.Value)), orientedSamples: samples, kernel: kernel, radius: radius, smoothing: smoothing, context: context, key: key.OrDefault());
     public static Fin<ReconstructionAttempt> ReconstructAttemptDetailed(ReconstructionMode mode, Seq<MlsSample> samples, KernelKind kernel, double radius, Context context, double smoothing = 0.0, Op? key = null) =>
@@ -523,6 +557,8 @@ public abstract partial record ScalarField {
             SignedDistanceFromMeshCase c => MeshKernel.PrewarmSignedDistanceEvaluator(space: c.Space, policy: c.Policy, key: key).Map(static _ => unit),
             RbfCase c => AdmitRbfPayload(field: c, key: key),
             MlsCase c => AdmitMlsPayload(field: c, context: context, key: key),
+            LevinMlsCase c => AdmitLevinMlsPayload(field: c, context: context, key: key),
+            ApssCase c => AdmitApssPayload(field: c, context: context, key: key),
             TetSignedHeatCase c => AdmitTetSignedHeatPayload(field: c, key: key),
             OnionCase c => from thickness in FieldNabla.Positive(value: c.Thickness, key: key)
                            from source in AdmitScalarSource(source: c.Source, context: context, key: key)
@@ -684,6 +720,18 @@ public abstract partial record ScalarField {
         from samples in FieldNabla.MlsInput(samples: field.Samples, context: context, key: key)
         from receipt in AdmitReconstructionReceipt(receipt: field.Receipt, mode: Some(ReconstructionMode.MovingLeastSquares), kernel: kernel, radius: field.Radius.Value, sampleCount: samples.Count, solve: Option<SolveReceipt>.None, key: key)
         from mode in guard(!field.Receipt.Interpolation && field.Receipt.PolynomialDegree == 1, key.InvalidResult())
+        select unit;
+    private static Fin<Unit> AdmitLevinMlsPayload(LevinMlsCase field, Context context, Op key) =>
+        from policy in FieldNabla.LevinPolicyInput(policy: field.Policy, key: key)
+        from samples in FieldNabla.MlsInput(samples: field.Samples, context: context, key: key)
+        from receipt in AdmitReconstructionReceipt(receipt: field.Receipt, mode: Some(ReconstructionMode.LevinMovingLeastSquares), kernel: field.Receipt.Kernel, radius: policy.Support.Value, sampleCount: samples.Count, solve: Option<SolveReceipt>.None, key: key)
+        from mode in guard(!field.Receipt.Interpolation && field.Receipt.PolynomialDegree == policy.PolyDegree, key.InvalidResult())
+        select unit;
+    private static Fin<Unit> AdmitApssPayload(ApssCase field, Context context, Op key) =>
+        from policy in FieldNabla.ApssPolicyInput(policy: field.Policy, key: key)
+        from samples in FieldNabla.MlsInput(samples: field.Samples, context: context, key: key)
+        from receipt in AdmitReconstructionReceipt(receipt: field.Receipt, mode: Some(ReconstructionMode.AlgebraicPointSetSurfaces), kernel: field.Receipt.Kernel, radius: policy.Support.Value, sampleCount: samples.Count, solve: Option<SolveReceipt>.None, key: key)
+        from mode in guard(!field.Receipt.Interpolation && field.Receipt.PolynomialDegree == 2, key.InvalidResult())
         select unit;
     private static Fin<Unit> AdmitTetSignedHeatPayload(TetSignedHeatCase field, Op key) =>
         from domain in field.Domain.Admit(key: key)
@@ -861,7 +909,10 @@ public abstract partial record ScalarField {
         signedDistanceFromMeshCase: static (state, c) => MeshKernel.SignedDistanceFromMeshDetailed(space: c.Space, policy: c.Policy, sample: state.Sample, key: state.Key).Map(static result => result.Distance),
         tetSignedHeatCase: static (state, c) => SampleTetSignedHeat(source: c, sample: state.Sample, context: state.Context, key: state.Key).Map(static result => result.Value),
         rbfCase: static (state, c) => EvaluateRbf(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, coefficients: c.Coefficients, sample: state.Sample, key: state.Key),
-        mlsCase: static (state, c) => EvaluateMls(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, sample: state.Sample, context: state.Context, key: state.Key).Map(static result => result.Value)));
+        mlsCase: static (state, c) => EvaluateMls(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, sample: state.Sample, context: state.Context, key: state.Key).Map(static result => result.Value),
+        levinMlsCase: static (state, c) => EvaluateLevinMls(samples: c.Samples, policy: c.Policy, sample: state.Sample, context: state.Context, key: state.Key).Map(static result => result.Sample.Value),
+        apssCase: static (state, c) => EvaluateApss(samples: c.Samples, policy: c.Policy, sample: state.Sample, context: state.Context, key: state.Key).Map(static result => result.Sample.Value),
+        poissonCase: static (state, c) => state.Key.AcceptValue(value: c.Grid.SampleTrilinear(point: state.Sample) - c.Gamma)));
     public Fin<ReconstructionSample> SampleReconstructionDetailed(Point3d sample, Context context, Op? key = null) =>
         from model in Optional(context).ToFin(key.OrDefault().MissingContext())
         from finiteSample in FieldNabla.Finite(point: sample, key: key.OrDefault())
@@ -874,15 +925,19 @@ public abstract partial record ScalarField {
                              ? key.OrDefault().AcceptValue(value: Enumerable.Range(start: 0, count: weightArray.Length).Sum(i => weightArray[i] * r.Coefficients[i]))
                              : Fin.Fail<double>(key.OrDefault().InvalidResult())
                          from solve in r.Receipt.Solve.ToFin(key.OrDefault().InvalidResult())
-                         select new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: r.Receipt.Mode, Status: r.Receipt.Interpolation ? ReconstructionStatus.ExactInterpolation : ReconstructionStatus.ApproximateSdf, Kernel: r.Kernel, Radius: r.Radius.Value, SampleCount: r.Samples.Count, NeighborhoodCount: support, RejectedWeightCount: r.Samples.Count - support, WeightSum: weightSum, Rank: solve.IsUsable ? solve.Solution.Count : 0, Condition: Option<double>.None, NormalAgreement: Option<double>.None, GradientNorm: Option<double>.None, Solve: solve)),
+                         select new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: r.Receipt.Mode, Status: r.Receipt.Interpolation ? ReconstructionStatus.ExactInterpolation : ReconstructionStatus.ApproximateSdf, Kernel: r.Kernel, Radius: r.Radius.Value, SampleCount: r.Samples.Count, NeighborhoodCount: support, RejectedWeightCount: r.Samples.Count - support, WeightSum: weightSum, Rank: solve.IsUsable ? solve.Solution.Count : 0, Condition: Option<double>.None, NormalAgreement: Option<double>.None, GradientNorm: Option<double>.None, Solve: Some(solve))),
             MlsCase m => EvaluateMls(samples: m.Samples, kernel: m.Kernel, radius: m.Radius.Value, sample: sample, context: model, key: key.OrDefault()),
+            LevinMlsCase levin => EvaluateLevinMls(samples: levin.Samples, policy: levin.Policy, sample: sample, context: model, key: key.OrDefault()).Map(static result => result.Sample),
+            ApssCase apss => EvaluateApss(samples: apss.Samples, policy: apss.Policy, sample: sample, context: model, key: key.OrDefault()).Map(static result => result.Sample),
+            PoissonCase poisson => key.OrDefault().AcceptValue(value: poisson.Grid.SampleTrilinear(point: sample) - poisson.Gamma)
+                .Map(value => new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: poisson.Receipt.Mode, Status: ReconstructionStatus.PoissonIndicator, Kernel: KernelKind.Wendland, Radius: poisson.Receipt.Scale, SampleCount: poisson.Receipt.SampleCount, NeighborhoodCount: poisson.Receipt.ContributionCount, RejectedWeightCount: poisson.Receipt.RejectedCount, WeightSum: poisson.Receipt.WeightSum, Rank: poisson.Receipt.SystemDof, Condition: Option<double>.None, NormalAgreement: Option<double>.None, GradientNorm: Some(poisson.Receipt.GradientEnergy), Solve: Option<SolveReceipt>.None))),
             _ => Fin.Fail<ReconstructionSample>(key.OrDefault().Unsupported(geometryType: GetType(), outputType: typeof(ReconstructionSample))),
         }
         select output;
     private static Fin<double> SampleMapped<T>(ScalarField source, (Point3d Sample, Context Context, Op Key) state, T data, Func<T, double, double> map) =>
         source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
             .Bind(value => state.Key.AcceptValue(value: map(arg1: data, arg2: value)));
-    private static Fin<ReconstructionResult> ReconstructCore(ReconstructionMode mode, Seq<(Point3d Position, double Value)> scalarSamples, Seq<MlsSample> orientedSamples, KernelKind kernel, double radius, double smoothing, Context? context, Op key) =>
+    private static Fin<ReconstructionResult> ReconstructCore(ReconstructionMode mode, Seq<(Point3d Position, double Value)> scalarSamples, Seq<MlsSample> orientedSamples, KernelKind kernel, double radius, double smoothing, Context? context, Op key, Option<LevinMlsPolicy> levin = default, Option<ApssPolicy> apss = default, Option<PoissonPolicy> poisson = default) =>
         from activeMode in Optional(mode).ToFin(key.InvalidInput())
         from active in Optional(kernel).ToFin(key.InvalidInput())
         from r in key.AcceptValidated<PositiveMagnitude>(candidate: radius)
@@ -895,6 +950,24 @@ public abstract partial record ScalarField {
                 from admittedSamples in FieldNabla.MlsInput(samples: orientedSamples, context: model, key: key)
                 let receipt = new ReconstructionReceipt(Mode: m, Kernel: active, Radius: r.Value, Smoothing: 0.0, Interpolation: false, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: m.PolynomialDegree, Solve: Option<SolveReceipt>.None)
                 select new ReconstructionResult(Field: new MlsCase(Samples: admittedSamples, Kernel: active, Radius: r, Receipt: receipt), Receipt: receipt),
+            ReconstructionMode m when m.Equals(ReconstructionMode.LevinMovingLeastSquares) =>
+                from model in Optional(context).ToFin(key.MissingContext())
+                from admittedSamples in FieldNabla.MlsInput(samples: orientedSamples, context: model, key: key)
+                from policy in levin.Match(Some: Fin.Succ, None: () => LevinMlsPolicy.Of(support: r.Value, key: key))
+                let receipt = new ReconstructionReceipt(Mode: m, Kernel: active, Radius: policy.Support.Value, Smoothing: 0.0, Interpolation: false, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: policy.PolyDegree, Solve: Option<SolveReceipt>.None)
+                select new ReconstructionResult(Field: new LevinMlsCase(Samples: admittedSamples, Policy: policy, Receipt: receipt), Receipt: receipt),
+            ReconstructionMode m when m.Equals(ReconstructionMode.AlgebraicPointSetSurfaces) =>
+                from model in Optional(context).ToFin(key.MissingContext())
+                from admittedSamples in FieldNabla.MlsInput(samples: orientedSamples, context: model, key: key)
+                from policy in apss.Match(Some: Fin.Succ, None: () => ApssPolicy.Of(support: r.Value, key: key))
+                let receipt = new ReconstructionReceipt(Mode: m, Kernel: active, Radius: policy.Support.Value, Smoothing: 0.0, Interpolation: false, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: m.PolynomialDegree, Solve: Option<SolveReceipt>.None)
+                select new ReconstructionResult(Field: new ApssCase(Samples: admittedSamples, Policy: policy, Receipt: receipt), Receipt: receipt),
+            ReconstructionMode m when m.Equals(ReconstructionMode.Poisson) || m.Equals(ReconstructionMode.ScreenedPoisson) =>
+                from model in Optional(context).ToFin(key.MissingContext())
+                from admittedSamples in FieldNabla.MlsInput(samples: orientedSamples, context: model, key: key)
+                from policy in poisson.Match(Some: candidate => FieldNabla.PoissonPolicyInput(policy: candidate, screened: m.Equals(ReconstructionMode.ScreenedPoisson), key: key), None: () => PoissonPolicy.Of(pointWeight: m.Equals(ReconstructionMode.ScreenedPoisson) ? 4.0 : 0.0, key: key))
+                from built in BuildPoisson(mode: m, samples: admittedSamples, policy: policy, context: model, key: key)
+                select built,
             _ => Fin.Fail<ReconstructionResult>(key.Unsupported(geometryType: typeof(ReconstructionMode), outputType: typeof(ReconstructionResult))),
         }
         select result;
@@ -917,6 +990,230 @@ public abstract partial record ScalarField {
         from usable in solved.IsUsable ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
         let receipt = new ReconstructionReceipt(Mode: mode, Kernel: kernel, Radius: radius.Value, Smoothing: admittedSmoothing, Interpolation: interpolation, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: mode.PolynomialDegree, Solve: Some(solved))
         select new ReconstructionResult(Field: new RbfCase(Samples: admittedSamples, Kernel: kernel, Radius: radius, Coefficients: solved.Solution, Receipt: receipt), Receipt: receipt);
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct PoissonLattice(Point3d Origin, double Spacing, int Resolution) {
+        internal int NodeCount => Resolution * Resolution * Resolution;
+        internal int InteriorIndex => Index(x: Resolution / 2, y: Resolution / 2, z: Resolution / 2);
+        internal int Index(int x, int y, int z) => (((z * Resolution) + y) * Resolution) + x;
+        internal Point3d PointAt(int x, int y, int z) => new(x: Origin.X + (x * Spacing), y: Origin.Y + (y * Spacing), z: Origin.Z + (z * Spacing));
+    }
+    [StructLayout(LayoutKind.Auto)] private readonly record struct PoissonField(double[] GradientX, double[] GradientY, double[] GradientZ, double[] Density, int ContributionCount, int RejectedCount, int ClampedCount, double WeightSum);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct PoissonSystem(SparseMatrix Operator, Arr<double> Rhs, int LaplacianNonZeros, int ScreeningNonZeros);
+    private static bool OnLatticeBoundary(int x, int y, int z, int max) => x == 0 || y == 0 || z == 0 || x == max || y == max || z == max;
+    private static Fin<ReconstructionResult> BuildPoisson(ReconstructionMode mode, Seq<MlsSample> samples, PoissonPolicy policy, Context context, Op key) =>
+        from latticeAndField in SplatPoissonField(samples: samples, policy: policy, key: key)
+        let lattice = latticeAndField.Lattice
+        let field = latticeAndField.Field
+        let screened = mode.Equals(ReconstructionMode.ScreenedPoisson)
+        let definite = screened || !policy.Boundary.Singular
+        from system in AssemblePoissonSystem(lattice: lattice, field: field, samples: samples, policy: policy, screened: screened, key: key)
+        from solve in definite
+            ? CholeskySparse.Of(symmetric: system.Operator, key: key).Bind(factor => factor.SolveDetailed(rhs: system.Rhs, key: key))
+            : system.Operator.SingularSolveDetailed(rhs: system.Rhs, gauge: GaugePolicy.PinConstant(index: lattice.InteriorIndex, mass: Option<Arr<double>>.None, shift: GaugeShift.PinZero), context: context, key: key)
+        from usable in solve.IsUsable && solve.Residual <= Math.Max(val1: policy.SolverTolerance.Value, val2: RhinoMath.SqrtEpsilon) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+        from grid in PoissonGrid.Of(origin: lattice.Origin, spacing: lattice.Spacing, resolution: lattice.Resolution, chi: solve.Solution, density: field.Density, key: key)
+        from summary in SummarizePoisson(lattice: lattice, chi: solve.Solution, field: field, samples: samples, system: system, screened: screened, gradientResidual: solve.Residual, key: key)
+        let receipt = new PoissonReceipt(
+            Mode: mode, Depth: policy.Depth, GridResolution: lattice.Resolution, SystemDof: lattice.NodeCount, Degree: policy.Degree, Boundary: policy.Boundary, PointWeight: policy.PointWeight, Scale: policy.Scale.Value,
+            SampleCount: samples.Count, ContributionCount: field.ContributionCount, RejectedCount: field.RejectedCount, ClampedCount: field.ClampedCount, WeightSum: field.WeightSum,
+            LaplacianNonZeros: system.LaplacianNonZeros, ScreeningNonZeros: system.ScreeningNonZeros, RhsNorm: summary.RhsNorm,
+            Isovalue: summary.Gamma, IsovalueStdDev: summary.GammaStdDev, MeanAbsChi: summary.MeanAbsChi, MaxAbsChi: summary.MaxAbsChi,
+            GradientEnergy: summary.GradientEnergy, ScreeningEnergy: summary.ScreeningEnergy, DataResidual: summary.DataResidual, GradientResidual: summary.GradientResidual,
+            UnscreenedEquivalence: !screened && policy.PointWeight <= 0.0 && system.ScreeningNonZeros == 0,
+            Gauge: solve.Gauge, Solve: solve)
+        let field2 = new PoissonCase(Grid: grid, Gamma: summary.Gamma, Receipt: receipt)
+        let reconstruction = new ReconstructionReceipt(Mode: mode, Kernel: KernelKind.Wendland, Radius: policy.Scale.Value, Smoothing: 0.0, Interpolation: false, SampleCount: samples.Count, CenterCount: lattice.NodeCount, PolynomialDegree: mode.PolynomialDegree, Solve: Some(solve))
+        select new ReconstructionResult(Field: field2, Receipt: reconstruction);
+    private static Fin<(PoissonLattice Lattice, PoissonField Field)> SplatPoissonField(Seq<MlsSample> samples, PoissonPolicy policy, Op key) {
+        MlsSample[] sampleArray = [.. samples.AsIterable()];
+        double[] normalSpan = [.. sampleArray.SelectMany(static sample => new[] { sample.Normal.X, sample.Normal.Y, sample.Normal.Z })];
+        if (!FieldNabla.AllFiniteSpan(normalSpan.AsSpan())) return Fin.Fail<(PoissonLattice, PoissonField)>(key.InvalidInput());
+        int resolution = 1 << policy.Depth.Value;
+        BoundingBox raw = new(sampleArray.Select(static sample => sample.Position));
+        if (!raw.IsValid) return Fin.Fail<(PoissonLattice, PoissonField)>(key.InvalidInput());
+        Vector3d diagonal = raw.Diagonal;
+        double extent = Math.Max(val1: diagonal.X, val2: Math.Max(val1: diagonal.Y, val2: diagonal.Z)) * policy.Scale.Value;
+        if (!RhinoMath.IsValidDouble(x: extent) || extent <= RhinoMath.ZeroTolerance) return Fin.Fail<(PoissonLattice, PoissonField)>(key.InvalidInput());
+        Point3d center = raw.Center;
+        double spacing = extent / (resolution - 1);
+        Point3d origin = new(x: center.X - (extent * 0.5), y: center.Y - (extent * 0.5), z: center.Z - (extent * 0.5));
+        PoissonLattice lattice = new(Origin: origin, Spacing: spacing, Resolution: resolution);
+        int nodeCount = lattice.NodeCount;
+        double[] gx = new double[nodeCount], gy = new double[nodeCount], gz = new double[nodeCount], density = new double[nodeCount];
+        double invSpacing = 1.0 / spacing;
+        double weightFloor = Math.Max(val1: RhinoMath.SqrtEpsilon, val2: policy.Density.Value);
+        int contributions = 0, rejected = 0, clamped = 0;
+        double weightTotal = 0.0;
+        foreach (MlsSample sample in sampleArray) {
+            Vector3d inward = -sample.Normal;
+            if (!inward.Unitize()) { rejected++; continue; }
+            double fx = (sample.Position.X - origin.X) * invSpacing;
+            double fy = (sample.Position.Y - origin.Y) * invSpacing;
+            double fz = (sample.Position.Z - origin.Z) * invSpacing;
+            if (!RhinoMath.IsValidDouble(x: fx) || !RhinoMath.IsValidDouble(x: fy) || !RhinoMath.IsValidDouble(x: fz)) { rejected++; continue; }
+            int x0 = (int)Math.Floor(d: fx), y0 = (int)Math.Floor(d: fy), z0 = (int)Math.Floor(d: fz);
+            if (x0 < 0 || y0 < 0 || z0 < 0 || x0 >= resolution - 1 || y0 >= resolution - 1 || z0 >= resolution - 1) { clamped++; continue; }
+            double tx = fx - x0, ty = fy - y0, tz = fz - z0;
+            double weight = policy.SamplesPerNode.Value;
+            for (int dz = 0; dz < 2; dz++)
+                for (int dy = 0; dy < 2; dy++)
+                    for (int dx = 0; dx < 2; dx++) {
+                        double trilinear = (dx == 0 ? 1.0 - tx : tx) * (dy == 0 ? 1.0 - ty : ty) * (dz == 0 ? 1.0 - tz : tz);
+                        int node = lattice.Index(x: x0 + dx, y: y0 + dy, z: z0 + dz);
+                        double contribution = trilinear * weight;
+                        gx[node] += contribution * inward.X; gy[node] += contribution * inward.Y; gz[node] += contribution * inward.Z;
+                        density[node] += contribution;
+                    }
+            contributions++;
+            weightTotal += weight;
+        }
+        for (int node = 0; node < nodeCount; node++) {
+            double localDensity = Math.Max(val1: density[node], val2: weightFloor);
+            double scale = density[node] > weightFloor ? 1.0 / localDensity : 0.0;
+            gx[node] *= scale; gy[node] *= scale; gz[node] *= scale;
+        }
+        PoissonField field = new(GradientX: gx, GradientY: gy, GradientZ: gz, Density: density, ContributionCount: contributions, RejectedCount: rejected, ClampedCount: clamped, WeightSum: weightTotal);
+        return contributions > 0 && FieldNabla.AllFiniteSpan(gx.AsSpan()) && FieldNabla.AllFiniteSpan(gy.AsSpan()) && FieldNabla.AllFiniteSpan(gz.AsSpan())
+            ? Fin.Succ((Lattice: lattice, Field: field))
+            : Fin.Fail<(PoissonLattice, PoissonField)>(key.InvalidResult());
+    }
+    private static Fin<PoissonSystem> AssemblePoissonSystem(PoissonLattice lattice, PoissonField field, Seq<MlsSample> samples, PoissonPolicy policy, bool screened, Op key) {
+        int resolution = lattice.Resolution, nodeCount = lattice.NodeCount;
+        double invH = 1.0 / lattice.Spacing, invH2 = invH * invH;
+        double[] rhs = new double[nodeCount];
+        Dictionary<(int Row, int Col), double> operatorEntries = new(capacity: nodeCount * 7);
+        void Accumulate(int row, int col, double value) =>
+            operatorEntries[(row, col)] = operatorEntries.TryGetValue(key: (row, col), value: out double existing) ? existing + value : value;
+        double Difference(double[] values, int x, int y, int z, int axis) {
+            int max = resolution - 1;
+            int lo = axis == 0 ? lattice.Index(x: Math.Max(val1: x - 1, val2: 0), y: y, z: z) : axis == 1 ? lattice.Index(x: x, y: Math.Max(val1: y - 1, val2: 0), z: z) : lattice.Index(x: x, y: y, z: Math.Max(val1: z - 1, val2: 0));
+            int hi = axis == 0 ? lattice.Index(x: Math.Min(val1: x + 1, val2: max), y: y, z: z) : axis == 1 ? lattice.Index(x: x, y: Math.Min(val1: y + 1, val2: max), z: z) : lattice.Index(x: x, y: y, z: Math.Min(val1: z + 1, val2: max));
+            int coord = axis == 0 ? x : axis == 1 ? y : z;
+            return (values[hi] - values[lo]) * (coord == 0 || coord == max ? invH : 0.5 * invH);
+        }
+        for (int z = 0; z < resolution; z++)
+            for (int y = 0; y < resolution; y++)
+                for (int x = 0; x < resolution; x++) {
+                    int row = lattice.Index(x: x, y: y, z: z);
+                    rhs[row] = -(Difference(values: field.GradientX, x: x, y: y, z: z, axis: 0) + Difference(values: field.GradientY, x: x, y: y, z: z, axis: 1) + Difference(values: field.GradientZ, x: x, y: y, z: z, axis: 2));
+                    double diag = 0.0;
+                    if (x > 0) { Accumulate(row: row, col: lattice.Index(x: x - 1, y: y, z: z), value: -invH2); diag += invH2; }
+                    if (x < resolution - 1) { Accumulate(row: row, col: lattice.Index(x: x + 1, y: y, z: z), value: -invH2); diag += invH2; }
+                    if (y > 0) { Accumulate(row: row, col: lattice.Index(x: x, y: y - 1, z: z), value: -invH2); diag += invH2; }
+                    if (y < resolution - 1) { Accumulate(row: row, col: lattice.Index(x: x, y: y + 1, z: z), value: -invH2); diag += invH2; }
+                    if (z > 0) { Accumulate(row: row, col: lattice.Index(x: x, y: y, z: z - 1), value: -invH2); diag += invH2; }
+                    if (z < resolution - 1) { Accumulate(row: row, col: lattice.Index(x: x, y: y, z: z + 1), value: -invH2); diag += invH2; }
+                    Accumulate(row: row, col: row, value: diag);
+                }
+        int laplacianNonZeros = operatorEntries.Count;
+        int screeningNonZeros = screened ? AccumulateScreening(lattice: lattice, samples: samples, policy: policy, accumulate: Accumulate) : 0;
+        if (policy.Boundary.IsDirichlet) ImposeDirichlet(lattice: lattice, operatorEntries: operatorEntries, rhs: rhs, exteriorValue: policy.Boundary.ExteriorValue);
+        Dimension dim = Dimension.Create(value: nodeCount);
+        return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: operatorEntries.Select(static entry => (entry.Key.Row, entry.Key.Col, entry.Value)), key: key)
+            .Map(matrix => new PoissonSystem(Operator: matrix, Rhs: new Arr<double>(rhs), LaplacianNonZeros: laplacianNonZeros, ScreeningNonZeros: screeningNonZeros));
+    }
+    private static void ImposeDirichlet(PoissonLattice lattice, Dictionary<(int Row, int Col), double> operatorEntries, double[] rhs, double exteriorValue) {
+        int resolution = lattice.Resolution, max = resolution - 1;
+        System.Collections.Generic.HashSet<int> dirichletNodes = [..
+            from z in Enumerable.Range(start: 0, count: resolution)
+            from y in Enumerable.Range(start: 0, count: resolution)
+            from x in Enumerable.Range(start: 0, count: resolution)
+            where OnLatticeBoundary(x: x, y: y, z: z, max: max)
+            select lattice.Index(x: x, y: y, z: z)];
+        foreach (((int Row, int Col) cell, double value) in operatorEntries.Where(entry => entry.Key.Row != entry.Key.Col).ToArray()) {
+            bool rowFixed = dirichletNodes.Contains(item: cell.Row), colFixed = dirichletNodes.Contains(item: cell.Col);
+            if (!rowFixed && colFixed) rhs[cell.Row] -= value * exteriorValue;
+            if (rowFixed || colFixed) _ = operatorEntries.Remove(key: cell);
+        }
+        foreach (int node in dirichletNodes) {
+            operatorEntries[(node, node)] = 1.0;
+            rhs[node] = exteriorValue;
+        }
+    }
+    private static int AccumulateScreening(PoissonLattice lattice, Seq<MlsSample> samples, PoissonPolicy policy, Action<int, int, double> accumulate) {
+        int resolution = lattice.Resolution, contributions = 0;
+        double invSpacing = 1.0 / lattice.Spacing;
+        double alpha = ((long)1 << (3 * policy.Depth.Value)) * policy.PointWeight;
+        foreach (MlsSample sample in samples.AsIterable()) {
+            double fx = (sample.Position.X - lattice.Origin.X) * invSpacing;
+            double fy = (sample.Position.Y - lattice.Origin.Y) * invSpacing;
+            double fz = (sample.Position.Z - lattice.Origin.Z) * invSpacing;
+            int x0 = (int)Math.Floor(d: fx), y0 = (int)Math.Floor(d: fy), z0 = (int)Math.Floor(d: fz);
+            if (x0 < 0 || y0 < 0 || z0 < 0 || x0 >= resolution - 1 || y0 >= resolution - 1 || z0 >= resolution - 1) continue;
+            double tx = fx - x0, ty = fy - y0, tz = fz - z0;
+            (int Node, double Basis)[] basis = new (int, double)[8];
+            int corner = 0;
+            for (int dz = 0; dz < 2; dz++)
+                for (int dy = 0; dy < 2; dy++)
+                    for (int dx = 0; dx < 2; dx++) {
+                        double trilinear = (dx == 0 ? 1.0 - tx : tx) * (dy == 0 ? 1.0 - ty : ty) * (dz == 0 ? 1.0 - tz : tz);
+                        basis[corner++] = (lattice.Index(x: x0 + dx, y: y0 + dy, z: z0 + dz), trilinear);
+                    }
+            for (int i = 0; i < 8; i++)
+                for (int j = 0; j < 8; j++) {
+                    double value = alpha * basis[i].Basis * basis[j].Basis;
+                    if (value == 0.0) continue;
+                    accumulate(arg1: basis[i].Node, arg2: basis[j].Node, arg3: value);
+                    contributions++;
+                }
+        }
+        return contributions;
+    }
+    private static Fin<PoissonSummary> SummarizePoisson(PoissonLattice lattice, Arr<double> chi, PoissonField field, Seq<MlsSample> samples, PoissonSystem system, bool screened, double gradientResidual, Op key) {
+        MlsSample[] sampleArray = [.. samples.AsIterable()];
+        double invSpacing = 1.0 / lattice.Spacing;
+        int resolution = lattice.Resolution;
+        List<double> sampleChi = new(capacity: sampleArray.Length);
+        List<double> sampleDensity = new(capacity: sampleArray.Length);
+        foreach (MlsSample sample in sampleArray) {
+            double fx = (sample.Position.X - lattice.Origin.X) * invSpacing;
+            double fy = (sample.Position.Y - lattice.Origin.Y) * invSpacing;
+            double fz = (sample.Position.Z - lattice.Origin.Z) * invSpacing;
+            int x0 = (int)Math.Floor(d: fx), y0 = (int)Math.Floor(d: fy), z0 = (int)Math.Floor(d: fz);
+            if (x0 < 0 || y0 < 0 || z0 < 0 || x0 >= resolution - 1 || y0 >= resolution - 1 || z0 >= resolution - 1) continue;
+            double tx = fx - x0, ty = fy - y0, tz = fz - z0;
+            double value = 0.0, weight = 0.0;
+            for (int dz = 0; dz < 2; dz++)
+                for (int dy = 0; dy < 2; dy++)
+                    for (int dx = 0; dx < 2; dx++) {
+                        double trilinear = (dx == 0 ? 1.0 - tx : tx) * (dy == 0 ? 1.0 - ty : ty) * (dz == 0 ? 1.0 - tz : tz);
+                        int node = lattice.Index(x: x0 + dx, y: y0 + dy, z: z0 + dz);
+                        value += trilinear * chi[node];
+                        weight += trilinear * field.Density[node];
+                    }
+            sampleChi.Add(item: value);
+            sampleDensity.Add(item: Math.Max(val1: weight, val2: RhinoMath.SqrtEpsilon));
+        }
+        if (sampleChi.Count == 0) return Fin.Fail<PoissonSummary>(key.InvalidResult());
+        double densitySum = sampleDensity.Sum();
+        double gamma = Enumerable.Range(start: 0, count: sampleChi.Count).Sum(i => sampleDensity[i] * sampleChi[i]) / Math.Max(val1: densitySum, val2: RhinoMath.SqrtEpsilon);
+        double variance = Enumerable.Range(start: 0, count: sampleChi.Count).Sum(i => sampleDensity[i] * (sampleChi[i] - gamma) * (sampleChi[i] - gamma)) / Math.Max(val1: densitySum, val2: RhinoMath.SqrtEpsilon);
+        double meanAbsChi = Enumerable.Average(source: chi.AsIterable(), selector: static value => Math.Abs(value: value));
+        double maxAbsChi = Enumerable.Max(source: chi.AsIterable(), selector: static value => Math.Abs(value: value));
+        double gradientEnergy = GradientEnergyOf(lattice: lattice, chi: chi);
+        double screeningEnergy = screened ? ScreeningEnergyOf(sampleChi: sampleChi, gamma: gamma) : 0.0;
+        double rhsNorm = Math.Sqrt(d: system.Rhs.AsIterable().Sum(static value => value * value));
+        double dataResidual = screened ? Math.Sqrt(d: sampleChi.Sum(value => (value - gamma) * (value - gamma)) / sampleChi.Count) : 0.0;
+        return RhinoMath.IsValidDouble(x: gamma) && RhinoMath.IsValidDouble(x: variance) && RhinoMath.IsValidDouble(x: gradientEnergy) && RhinoMath.IsValidDouble(x: gradientResidual)
+            ? Fin.Succ(new PoissonSummary(Gamma: gamma, GammaStdDev: Math.Sqrt(d: Math.Max(val1: variance, val2: 0.0)), MeanAbsChi: meanAbsChi, MaxAbsChi: maxAbsChi, GradientEnergy: gradientEnergy, ScreeningEnergy: screeningEnergy, DataResidual: dataResidual, GradientResidual: Math.Max(val1: gradientResidual, val2: 0.0), RhsNorm: rhsNorm))
+            : Fin.Fail<PoissonSummary>(key.InvalidResult());
+    }
+    private static double GradientEnergyOf(PoissonLattice lattice, Arr<double> chi) {
+        int resolution = lattice.Resolution;
+        double invSpacing = 1.0 / lattice.Spacing, energy = 0.0;
+        for (int z = 0; z < resolution; z++)
+            for (int y = 0; y < resolution; y++)
+                for (int x = 0; x < resolution - 1; x++) {
+                    double gx = (chi[lattice.Index(x: x + 1, y: y, z: z)] - chi[lattice.Index(x: x, y: y, z: z)]) * invSpacing;
+                    double gy = y < resolution - 1 ? (chi[lattice.Index(x: x, y: y + 1, z: z)] - chi[lattice.Index(x: x, y: y, z: z)]) * invSpacing : 0.0;
+                    double gz = z < resolution - 1 ? (chi[lattice.Index(x: x, y: y, z: z + 1)] - chi[lattice.Index(x: x, y: y, z: z)]) * invSpacing : 0.0;
+                    energy += (gx * gx) + (gy * gy) + (gz * gz);
+                }
+        return energy;
+    }
+    private static double ScreeningEnergyOf(List<double> sampleChi, double gamma) =>
+        sampleChi.Sum(value => (value - gamma) * (value - gamma));
+    [StructLayout(LayoutKind.Auto)] private readonly record struct PoissonSummary(double Gamma, double GammaStdDev, double MeanAbsChi, double MaxAbsChi, double GradientEnergy, double ScreeningEnergy, double DataResidual, double GradientResidual, double RhsNorm);
     [StructLayout(LayoutKind.Auto)] private readonly record struct TetSignedHeatSolution(Arr<double> Values, TetSignedHeatReceipt Receipt);
     [StructLayout(LayoutKind.Auto)] private readonly record struct TetAssembly(SparseMatrix Mass, SparseMatrix Stiffness, SparseMatrix HeatOperator, Arr<double> HeatRhs, Arr<double> MassLumped, int GaugeVertex, double HeatTime);
     [StructLayout(LayoutKind.Auto)] private readonly record struct TetDivergence(Arr<double> Rhs, int NonZeros, int RejectedGradientCellCount);
@@ -1080,11 +1377,277 @@ public abstract partial record ScalarField {
                         Vector3d direction = gradientNorm > RhinoMath.ZeroTolerance ? gradient / gradientNorm : weightedNorm > RhinoMath.ZeroTolerance ? weightedNormal / weightedNorm : Vector3d.Zero;
                         double normalAgreement = neighborhood.Average(((MlsSample Sample, Vector3d Offset, KernelProfile Profile) candidate) => Math.Abs(value: candidate.Sample.Normal * direction));
                         return rank >= 4 && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: gradientNorm) && normalAgreement >= 0.5
-                            ? Fin.Succ(new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.MovingLeastSquares, Status: ReconstructionStatus.ApproximateSdf, Kernel: kernel, Radius: radius, SampleCount: samples.Count, NeighborhoodCount: neighborhood.Length, RejectedWeightCount: rejected, WeightSum: weightSum, Rank: rank, Condition: condition, NormalAgreement: Some(normalAgreement), GradientNorm: Some(gradientNorm), Solve: solve)))
+                            ? Fin.Succ(new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.MovingLeastSquares, Status: ReconstructionStatus.ApproximateSdf, Kernel: kernel, Radius: radius, SampleCount: samples.Count, NeighborhoodCount: neighborhood.Length, RejectedWeightCount: rejected, WeightSum: weightSum, Rank: rank, Condition: condition, NormalAgreement: Some(normalAgreement), GradientNorm: Some(gradientNorm), Solve: Some(solve))))
                             : Fin.Fail<ReconstructionSample>(key.InvalidResult());
                     })));
             });
         });
+    }
+    [StructLayout(LayoutKind.Auto)] private readonly record struct Neighbor(MlsSample Sample, Vector3d Offset, double Distance, double Weight);
+    private static Fin<Neighbor[]> CollectNeighborhood(Seq<MlsSample> samples, Point3d sample, double support, WeightKernelFamily kernel, double neglectEps, int minNeighbors, Context context, Op key) {
+        double neglect = support * Math.Sqrt(d: Math.Log(d: 1.0 / Math.Max(val1: neglectEps, val2: RhinoMath.SqrtEpsilon)));
+        double weightFloor = Math.Max(val1: context.Relative.Value, val2: RhinoMath.SqrtEpsilon);
+        Neighbor[] neighborhood = [.. samples.AsIterable()
+            .Select(candidate => (Sample: candidate, Offset: sample - candidate.Position, Distance: (sample - candidate.Position).Length))
+            .Where(candidate => candidate.Distance <= neglect)
+            .Select(candidate => new Neighbor(Sample: candidate.Sample, Offset: candidate.Offset, Distance: candidate.Distance, Weight: kernel.Weight(distance: candidate.Distance, support: support)))
+            .Where(candidate => candidate.Weight > weightFloor)];
+        return neighborhood.Length >= minNeighbors && neighborhood.All(static candidate => RhinoMath.IsValidDouble(x: candidate.Weight))
+            ? Fin.Succ(neighborhood)
+            : Fin.Fail<Neighbor[]>(key.InvalidInput());
+    }
+    private static (Vector3d U, Vector3d V) TangentFrame(Vector3d normal) {
+        Vector3d seed = Math.Abs(value: normal.X) <= Math.Abs(value: normal.Y) && Math.Abs(value: normal.X) <= Math.Abs(value: normal.Z) ? Vector3d.XAxis : Math.Abs(value: normal.Y) <= Math.Abs(value: normal.Z) ? Vector3d.YAxis : Vector3d.ZAxis;
+        Vector3d u = Vector3d.CrossProduct(a: normal, b: seed);
+        _ = u.Unitize();
+        Vector3d v = Vector3d.CrossProduct(a: normal, b: u);
+        _ = v.Unitize();
+        return (U: u, V: v);
+    }
+    private static Fin<(ReconstructionSample Sample, LevinMlsSampleReceipt Levin)> EvaluateLevinMls(Seq<MlsSample> samples, LevinMlsPolicy policy, Point3d sample, Context context, Op key) =>
+        (FieldNabla.Finite(point: sample) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput()))
+            .Bind(_ => CollectNeighborhood(samples: samples, sample: sample, support: policy.Support.Value, kernel: policy.WeightKernel, neglectEps: policy.NeglectEps, minNeighbors: policy.MinNeighbors, context: context, key: key))
+            .Bind(neighborhood => key.Catch(() => {
+                double support = policy.Support.Value;
+                double weightSum = neighborhood.Sum(static n => n.Weight);
+                Vector3d weightedNormal = neighborhood.Aggregate(seed: Vector3d.Zero, func: static (sum, n) => sum + (n.Weight * n.Sample.Normal));
+                double weightedNorm = weightedNormal.Length;
+                Vector3d orientation = weightedNorm > RhinoMath.ZeroTolerance ? weightedNormal / weightedNorm : Vector3d.ZAxis;
+                double cxx = 0.0, cxy = 0.0, cxz = 0.0, cyy = 0.0, cyz = 0.0, czz = 0.0;
+                foreach (Neighbor n in neighborhood) {
+                    Vector3d d = n.Sample.Position - sample;
+                    double w = n.Weight;
+                    cxx += w * d.X * d.X; cxy += w * d.X * d.Y; cxz += w * d.X * d.Z;
+                    cyy += w * d.Y * d.Y; cyz += w * d.Y * d.Z; czz += w * d.Z * d.Z;
+                }
+                double invW = 1.0 / weightSum;
+                return SymmetricMatrix.Of(dim: Dimension.Create(value: 3), upper: new Arr<double>([cxx * invW, cxy * invW, cxz * invW, cyy * invW, cyz * invW, czz * invW]), key: key)
+                    .Bind(covariance => covariance.DecomposeEigenDetailed(key: key))
+                    .Bind((EigenSolveReceipt<double, Arr<double>> eigen) => {
+                        (double Eigenvalue, Arr<double> Eigenvector)[] pairs = [.. eigen.Pairs.AsIterable()];
+                        (double smallestLambda, Arr<double> smallestVector) = pairs[^1];
+                        (double largestLambda, Arr<double> _) = pairs[0];
+                        double lambda0 = Math.Abs(value: smallestLambda);
+                        double lambda2 = Math.Abs(value: largestLambda);
+                        double planarity = lambda2 > RhinoMath.SqrtEpsilon ? lambda0 / lambda2 : double.PositiveInfinity;
+                        Vector3d normal0 = new(x: smallestVector[index: 0], y: smallestVector[index: 1], z: smallestVector[index: 2]);
+                        _ = normal0.Unitize();
+                        Vector3d planeNormal = policy.OrientNormals && normal0 * orientation < 0.0 ? -normal0 : normal0;
+                        return planarity > policy.PlanarityTau
+                            ? Fin.Fail<(ReconstructionSample Sample, LevinMlsSampleReceipt Levin)>(key.InvalidResult())
+                            : LevinAlternate(neighborhood: neighborhood, sample: sample, planeNormal: planeNormal, support: support, policy: policy, weightSum: weightSum, lambda0: lambda0, lambda2: lambda2, planarity: planarity, key: key);
+                    });
+            }));
+    private static Fin<(ReconstructionSample Sample, LevinMlsSampleReceipt Levin)> LevinAlternate(Neighbor[] neighborhood, Point3d sample, Vector3d planeNormal, double support, LevinMlsPolicy policy, double weightSum, double lambda0, double lambda2, double planarity, Op key) {
+        Vector3d normal = planeNormal;
+        double offset = 0.0;
+        int step1Iterations = 0, rootIterations = 0, normalIterations = 0;
+        double rootResidual = 0.0, secondDerivative = 0.0, normalResidual = 0.0;
+        bool converged = false;
+        double bracket = policy.BracketFactor * support;
+        double accuracy = policy.RootTol * support;
+        double curvatureProbe = Math.Max(val1: support * policy.RootTol, val2: RhinoMath.SqrtEpsilon);
+        double normalStepScale = 1.0 / (2.0 * Math.Max(val1: weightSum, val2: RhinoMath.SqrtEpsilon));
+        while (step1Iterations < policy.MaxOuterIter && !converged) {
+            Vector3d frameNormal = normal;
+            double EnergyDerivative(double t) {
+                Point3d probe = sample + (t * frameNormal);
+                double sum = 0.0;
+                foreach (Neighbor n in neighborhood) {
+                    double signed = (n.Sample.Position - probe) * frameNormal;
+                    sum += -2.0 * n.Weight * signed;
+                }
+                return sum;
+            }
+            bool found = MathNet.Numerics.RootFinding.Brent.TryFindRoot(f: EnergyDerivative, lowerBound: offset - bracket, upperBound: offset + bracket, accuracy: accuracy, maxIterations: policy.CgMaxIter, root: out double root);
+            double secondAt = (EnergyDerivative(t: root + curvatureProbe) - EnergyDerivative(t: root - curvatureProbe)) / (2.0 * curvatureProbe);
+            double newOffset = found && secondAt > 0.0 ? root : offset;
+            rootResidual = Math.Abs(value: EnergyDerivative(t: newOffset));
+            secondDerivative = secondAt;
+            Point3d footAt = sample + (newOffset * frameNormal);
+            Vector3d innerNormal = frameNormal;
+            int innerStep = 0;
+            double innerResidual = double.PositiveInfinity;
+            while (innerStep < policy.CgMaxIter && innerResidual > policy.NormalTau) {
+                Vector3d active = innerNormal;
+                Vector3d gradient = Vector3d.Zero;
+                foreach (Neighbor n in neighborhood) {
+                    double signed = (n.Sample.Position - footAt) * active;
+                    gradient += n.Weight * signed * (n.Sample.Normal - (n.Sample.Normal * active * active));
+                }
+                Vector3d stepped = active + (normalStepScale * gradient);
+                Vector3d candidate = stepped.Length > RhinoMath.ZeroTolerance ? stepped / stepped.Length : active;
+                innerResidual = (candidate - active).Length;
+                innerNormal = candidate;
+                innerStep++;
+            }
+            normalIterations += innerStep;
+            normalResidual = innerResidual;
+            Vector3d newNormal = innerNormal;
+            converged = Math.Abs(value: newOffset - offset) <= policy.StepEps * support && (newNormal - normal).Length <= policy.CgTol;
+            offset = newOffset;
+            normal = newNormal;
+            rootIterations = found ? rootIterations + 1 : rootIterations;
+            step1Iterations++;
+        }
+        double step1Energy = 0.0;
+        Point3d foot = sample + (offset * normal);
+        foreach (Neighbor n in neighborhood) {
+            double signed = (n.Sample.Position - foot) * normal;
+            step1Energy += n.Weight * signed * signed;
+        }
+        bool localConverged = converged;
+        int localStep1 = step1Iterations, localRoot = rootIterations, localNormalIter = normalIterations;
+        double localRootResidual = rootResidual, localSecond = secondDerivative, localNormalResidual = normalResidual;
+        return LevinHeightFit(neighborhood: neighborhood, sample: sample, foot: foot, normal: normal, support: support, policy: policy, weightSum: weightSum, lambda0: lambda0, lambda2: lambda2, planarity: planarity, offset: offset, step1Iterations: localStep1, step1Converged: localConverged, rootIterations: localRoot, rootResidual: localRootResidual, secondDerivative: localSecond, normalIterations: localNormalIter, normalResidual: localNormalResidual, step1Energy: step1Energy, key: key);
+    }
+    private static Fin<(ReconstructionSample Sample, LevinMlsSampleReceipt Levin)> LevinHeightFit(Neighbor[] neighborhood, Point3d sample, Point3d foot, Vector3d normal, double support, LevinMlsPolicy policy, double weightSum, double lambda0, double lambda2, double planarity, double offset, int step1Iterations, bool step1Converged, int rootIterations, double rootResidual, double secondDerivative, int normalIterations, double normalResidual, double step1Energy, Op key) {
+        (Vector3d u, Vector3d v) = TangentFrame(normal: normal);
+        int degree = policy.PolyDegree;
+        int basisCount = (degree + 1) * (degree + 2) / 2;
+        int ridgeRows = policy.RidgeLambda > 0.0 ? basisCount : 0;
+        int rows = neighborhood.Length + ridgeRows;
+        double[] design = new double[rows * basisCount];
+        double[] rhs = new double[rows];
+        for (int i = 0; i < neighborhood.Length; i++) {
+            Neighbor n = neighborhood[i];
+            Vector3d local = n.Sample.Position - foot;
+            double a = local * u, b = local * v, h = local * normal;
+            double rootW = Math.Sqrt(d: n.Weight);
+            int col = 0;
+            for (int p = 0; p <= degree; p++) {
+                for (int q = 0; q <= degree - p; q++) {
+                    design[(i * basisCount) + col] = rootW * Math.Pow(x: a, y: p) * Math.Pow(x: b, y: q);
+                    col++;
+                }
+            }
+            rhs[i] = rootW * h;
+        }
+        double rootRidge = Math.Sqrt(d: policy.RidgeLambda);
+        for (int j = 0; j < ridgeRows; j++) {
+            design[((neighborhood.Length + j) * basisCount) + j] = rootRidge;
+            rhs[neighborhood.Length + j] = 0.0;
+        }
+        return Matrix.Of(rows: Dimension.Create(value: rows), cols: Dimension.Create(value: basisCount), entries: new Arr<double>([.. design]), key: key)
+            .Bind(designMatrix => designMatrix.LeastSquaresDetailed(rhs: new Arr<double>([.. rhs]), key: key)
+                .Bind(solve => designMatrix.DecomposeSvd(key: key)
+                    .Bind(svd => {
+                        double[] positive = [.. svd.Sigma.AsIterable().Where(static s => s > RhinoMath.SqrtEpsilon)];
+                        double condition = positive.Length == 0 ? double.PositiveInfinity : Enumerable.Max(source: positive) / Enumerable.Min(source: positive);
+                        int rank = svd.Rank;
+                        double fittedHeight = solve.Solution.Count > 0 ? solve.Solution[index: 0] : double.NaN;
+                        double height = policy.PlaneThroughPoint ? 0.0 : fittedHeight;
+                        double gx = solve.Solution.Count > degree + 1 ? solve.Solution[index: degree + 1] : 0.0;
+                        double gy = solve.Solution.Count > 1 ? solve.Solution[index: 1] : 0.0;
+                        Vector3d mlsNormal = normal - (gx * u) - (gy * v);
+                        double mlsNorm = mlsNormal.Length;
+                        Vector3d unitNormal = mlsNorm > RhinoMath.ZeroTolerance ? mlsNormal / mlsNorm : normal;
+                        double residualSquares = 0.0;
+                        foreach (Neighbor n in neighborhood) {
+                            Vector3d local = n.Sample.Position - foot;
+                            double a = local * u, b = local * v, h = local * normal;
+                            double predicted = LevinPolyValue(solution: solve.Solution, degree: degree, a: a, b: b);
+                            residualSquares += n.Weight * (h - predicted) * (h - predicted);
+                        }
+                        double trueResidual = Math.Sqrt(d: residualSquares / weightSum);
+                        double rms = Math.Sqrt(d: residualSquares / neighborhood.Length);
+                        Point3d projected = foot + (height * normal);
+                        double projDisplacement = projected.DistanceTo(other: foot);
+                        double value = (sample - projected) * unitNormal;
+                        double normalAgreement = neighborhood.Average(n => Math.Abs(value: n.Sample.Normal * unitNormal));
+                        double projTolerance = policy.ProjEps * support;
+                        double projResidual = trueResidual / Math.Max(val1: support, val2: RhinoMath.SqrtEpsilon);
+                        LevinMlsSampleReceipt receipt = new(PlaneOrigin: foot, PlaneNormal: normal, MlsNormal: unitNormal, Offset: offset, FrameU: u, FrameV: v, Step1Iterations: step1Iterations, Step1Converged: step1Converged, RootIterations: rootIterations, RootResidual: rootResidual, SecondDerivative: secondDerivative, NormalIterations: normalIterations, NormalResidual: normalResidual, Lambda0: lambda0, Lambda2: lambda2, Planarity: planarity, NeighborCount: neighborhood.Length, WeightSum: weightSum, Step1Energy: step1Energy, PolyDegree: degree, CoefficientCount: basisCount, Step2Residual: trueResidual, Step2Rms: rms, DesignCondition: condition, Rank: rank, GradientMagnitude: Math.Sqrt(d: (gx * gx) + (gy * gy)), NormalAgreement: normalAgreement, ProjDisplacement: projDisplacement, ProjResidual: projResidual, ProjConverged: trueResidual <= projTolerance, PlaneThroughPoint: policy.PlaneThroughPoint, Solve: solve);
+                        return rank >= 1 && solve.IsUsable && RhinoMath.IsValidDouble(x: value) && receipt.IsValid
+                            ? Fin.Succ((Sample: new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.LevinMovingLeastSquares, Status: ReconstructionStatus.ApproximateSdf, Kernel: KernelKind.Wendland, Radius: support, SampleCount: neighborhood.Length, NeighborhoodCount: neighborhood.Length, RejectedWeightCount: 0, WeightSum: weightSum, Rank: rank, Condition: Some(condition), NormalAgreement: Some(normalAgreement), GradientNorm: Some(Math.Sqrt(d: (gx * gx) + (gy * gy))), Solve: Some(solve))), Levin: receipt))
+                            : Fin.Fail<(ReconstructionSample Sample, LevinMlsSampleReceipt Levin)>(key.InvalidResult());
+                    })));
+    }
+    private static double LevinPolyValue(Arr<double> solution, int degree, double a, double b) {
+        double sum = 0.0;
+        int col = 0;
+        for (int p = 0; p <= degree; p++) {
+            for (int q = 0; q <= degree - p; q++) {
+                sum += (col < solution.Count ? solution[index: col] : 0.0) * Math.Pow(x: a, y: p) * Math.Pow(x: b, y: q);
+                col++;
+            }
+        }
+        return sum;
+    }
+    private static Fin<(ReconstructionSample Sample, ApssSampleReceipt Apss)> EvaluateApss(Seq<MlsSample> samples, ApssPolicy policy, Point3d sample, Context context, Op key) =>
+        (FieldNabla.Finite(point: sample) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput()))
+            .Bind(_ => CollectNeighborhood(samples: samples, sample: sample, support: policy.Support.Value, kernel: policy.WeightKernel, neglectEps: policy.NeglectEps, minNeighbors: policy.MinNeighbors, context: context, key: key))
+            .Bind(neighborhood => key.Catch(() => {
+                double support = policy.Support.Value;
+                double w = 0.0, spn = 0.0, spp = 0.0;
+                Vector3d sp = Vector3d.Zero, sn = Vector3d.Zero;
+                foreach (Neighbor n in neighborhood) {
+                    Vector3d q = n.Sample.Position - sample;
+                    double weight = n.Weight;
+                    w += weight;
+                    sp += weight * q;
+                    sn += weight * n.Sample.Normal;
+                    spn += weight * (q * n.Sample.Normal);
+                    spp += weight * q.SquareLength;
+                }
+                double scale = support * support;
+                double num = spn - (sp * sn / w);
+                double den = spp - (sp.SquareLength / w);
+                bool degenerate = Math.Abs(value: den) / Math.Max(val1: scale, val2: RhinoMath.SqrtEpsilon) <= policy.EpsDegeneracy;
+                double uq = degenerate ? 0.0 : policy.Beta * 0.5 * num / den;
+                Vector3d ul = degenerate ? sn / Math.Max(val1: w, val2: RhinoMath.SqrtEpsilon) : (sn - (2.0 * uq * sp)) / w;
+                double uc = -(((ul * sp) + (uq * spp)) / w);
+                if (degenerate) {
+                    double ln = ul.Length;
+                    ul = ln > RhinoMath.ZeroTolerance ? ul / ln : Vector3d.ZAxis;
+                    uc = -(ul * sp) / w;
+                }
+                double prattNormSq = ul.SquareLength - (4.0 * uc * uq);
+                double prattFloor = policy.EpsPratt * Math.Max(val1: ul.SquareLength, val2: RhinoMath.SqrtEpsilon);
+                return prattNormSq > prattFloor
+                    ? ApssDescribe(neighborhood: neighborhood, sample: sample, support: support, policy: policy, uc: uc, ul: ul, uq: uq, prattNormSq: prattNormSq, isPlane: degenerate, degeneracyRatio: Math.Abs(value: den) / Math.Max(val1: scale, val2: RhinoMath.SqrtEpsilon), weightSum: w, key: key)
+                    : Fin.Fail<(ReconstructionSample Sample, ApssSampleReceipt Apss)>(key.InvalidResult());
+            }));
+    private static Fin<(ReconstructionSample Sample, ApssSampleReceipt Apss)> ApssDescribe(Neighbor[] neighborhood, Point3d sample, double support, ApssPolicy policy, double uc, Vector3d ul, double uq, double prattNormSq, bool isPlane, double degeneracyRatio, double weightSum, Op key) {
+        double prattNorm = Math.Sqrt(d: prattNormSq);
+        double hc = uc / prattNorm;
+        Vector3d hl = ul / prattNorm;
+        double hq = uq / prattNorm;
+        Point3d center = isPlane || Math.Abs(value: hq) <= RhinoMath.SqrtEpsilon ? sample : sample - (hl / (2.0 * hq));
+        double radiusSq = hl.SquareLength - (4.0 * hc * hq);
+        double radius = isPlane || Math.Abs(value: hq) <= RhinoMath.SqrtEpsilon || radiusSq < 0.0 ? double.PositiveInfinity : Math.Sqrt(d: radiusSq) / (2.0 * Math.Abs(value: hq));
+        double meanCurvature = 2.0 * hq;
+        Point3d current = sample;
+        int iterations = 0;
+        double residual = 0.0, displacement = 0.0;
+        double projTolerance = policy.ProjTol * support;
+        while (iterations < policy.ProjMaxIter) {
+            Vector3d rel = current - sample;
+            double field = hc + (hl * rel) + (hq * rel.SquareLength);
+            Vector3d gradient = hl + (2.0 * hq * rel);
+            double gradNorm = gradient.Length;
+            residual = Math.Abs(value: field);
+            if (gradNorm <= RhinoMath.SqrtEpsilon || residual <= projTolerance) {
+                break;
+            }
+            Point3d next = current - (policy.StepDamping * field / (gradNorm * gradNorm) * gradient);
+            displacement = next.DistanceTo(other: current);
+            current = next;
+            iterations++;
+        }
+        Vector3d finalRel = current - sample;
+        double finalField = hc + (hl * finalRel) + (hq * finalRel.SquareLength);
+        Vector3d finalGradient = hl + (2.0 * hq * finalRel);
+        double gradientNorm = finalGradient.Length;
+        Vector3d eta = gradientNorm > RhinoMath.ZeroTolerance ? finalGradient / gradientNorm : Vector3d.ZAxis;
+        Vector3d weightedNormal = neighborhood.Aggregate(seed: Vector3d.Zero, func: static (sum, n) => sum + (n.Weight * n.Sample.Normal));
+        Vector3d orientedEta = weightedNormal.Length > RhinoMath.ZeroTolerance && eta * weightedNormal < 0.0 ? -eta : eta;
+        double normalAgreement = neighborhood.Average(n => Math.Abs(value: n.Sample.Normal * orientedEta));
+        double value = hc;
+        ApssSampleReceipt receipt = new(Hc: hc, Hl: hl, Hq: hq, PrattNormSquared: prattNormSq, IsPlane: isPlane, DegeneracyRatio: degeneracyRatio, Center: center, Radius: radius, MeanCurvature: meanCurvature, FieldValue: value, GradientNorm: gradientNorm, Normal: orientedEta, NeighborCount: neighborhood.Length, WeightSum: weightSum, ProjIterations: iterations, TaubinResidual: Math.Abs(value: finalField), ProjDisplacement: displacement);
+        return RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: gradientNorm) && normalAgreement >= 0.0 && receipt.IsValid
+            ? Fin.Succ((Sample: new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.AlgebraicPointSetSurfaces, Status: ReconstructionStatus.ApproximateSdf, Kernel: KernelKind.Wendland, Radius: support, SampleCount: neighborhood.Length, NeighborhoodCount: neighborhood.Length, RejectedWeightCount: 0, WeightSum: weightSum, Rank: 4, Condition: Option<double>.None, NormalAgreement: Some(normalAgreement), GradientNorm: Some(gradientNorm), Solve: Option<SolveReceipt>.None)), Apss: receipt))
+            : Fin.Fail<(ReconstructionSample Sample, ApssSampleReceipt Apss)>(key.InvalidResult());
     }
     private static Fin<SdfSample> SampleProfileExtrusion(ProfileExtrusionCase source, Point3d sample, Context context, Op key) =>
         source.Plane.RemapToPlaneSpace(ptSample: sample, ptPlane: out Point3d local) switch {
@@ -1526,7 +2089,113 @@ public readonly record struct ReconstructionSample(double Value, ReconstructionS
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ReconstructionSampleReceipt(ReconstructionMode Mode, ReconstructionStatus Status, KernelKind Kernel, double Radius, int SampleCount, int NeighborhoodCount, int RejectedWeightCount, double WeightSum, int Rank, Option<double> Condition, Option<double> NormalAgreement, Option<double> GradientNorm, SolveReceipt Solve);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ReconstructionSampleReceipt(ReconstructionMode Mode, ReconstructionStatus Status, KernelKind Kernel, double Radius, int SampleCount, int NeighborhoodCount, int RejectedWeightCount, double WeightSum, int Rank, Option<double> Condition, Option<double> NormalAgreement, Option<double> GradientNorm, Option<SolveReceipt> Solve);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct LevinMlsPolicy(PositiveMagnitude Support, int PolyDegree, double NeglectEps, int MinNeighbors, double BracketFactor, int MaxOuterIter, double StepEps, double RootTol, int CgMaxIter, double CgTol, double PlanarityTau, double RidgeLambda, double NormalTau, double ProjEps, bool PlaneThroughPoint, bool OrientNormals, WeightKernelFamily WeightKernel) {
+    public static Fin<LevinMlsPolicy> Of(double support, int polyDegree = 2, double neglectEps = 1e-3, int minNeighbors = 6, double bracketFactor = 2.0, int maxOuterIter = 16, double stepEps = 1e-4, double rootTol = 1e-6, int cgMaxIter = 32, double cgTol = 1e-6, double planarityTau = 0.25, double ridgeLambda = 0.0, double normalTau = 0.3, double projEps = 1e-4, bool planeThroughPoint = false, bool orientNormals = true, WeightKernelFamily? weightKernel = null, Op? key = null) =>
+        FieldNabla.LevinPolicyInput(support: support, polyDegree: polyDegree, neglectEps: neglectEps, minNeighbors: minNeighbors, bracketFactor: bracketFactor, maxOuterIter: maxOuterIter, stepEps: stepEps, rootTol: rootTol, cgMaxIter: cgMaxIter, cgTol: cgTol, planarityTau: planarityTau, ridgeLambda: ridgeLambda, normalTau: normalTau, projEps: projEps, planeThroughPoint: planeThroughPoint, orientNormals: orientNormals, weightKernel: weightKernel ?? WeightKernelFamily.WendlandC2, key: key.OrDefault());
+    internal static Fin<LevinMlsPolicy> Of(double support, Op key) => Of(support: support, key: (Op?)key);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct ApssPolicy(PositiveMagnitude Support, WeightKernelFamily WeightKernel, double Beta, double NeglectEps, double EpsDegeneracy, double EpsPratt, int ProjMaxIter, double ProjTol, double StepDamping, int MinNeighbors) {
+    public static Fin<ApssPolicy> Of(double support, WeightKernelFamily? weightKernel = null, double beta = 1.0, double neglectEps = 1e-3, double epsDegeneracy = 1e-6, double epsPratt = 1e-9, int projMaxIter = 16, double projTol = 1e-4, double stepDamping = 1.0, int minNeighbors = 6, Op? key = null) =>
+        FieldNabla.ApssPolicyInput(support: support, weightKernel: weightKernel ?? WeightKernelFamily.WendlandC2, beta: beta, neglectEps: neglectEps, epsDegeneracy: epsDegeneracy, epsPratt: epsPratt, projMaxIter: projMaxIter, projTol: projTol, stepDamping: stepDamping, minNeighbors: minNeighbors, key: key.OrDefault());
+    internal static Fin<ApssPolicy> Of(double support, Op key) => Of(support: support, key: (Op?)key);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct LevinMlsSampleReceipt(
+    Point3d PlaneOrigin, Vector3d PlaneNormal, Vector3d MlsNormal, double Offset, Vector3d FrameU, Vector3d FrameV,
+    int Step1Iterations, bool Step1Converged, int RootIterations, double RootResidual, double SecondDerivative,
+    int NormalIterations, double NormalResidual,
+    double Lambda0, double Lambda2, double Planarity, int NeighborCount, double WeightSum, double Step1Energy,
+    int PolyDegree, int CoefficientCount, double Step2Residual, double Step2Rms, double DesignCondition, int Rank,
+    double GradientMagnitude, double NormalAgreement, double ProjDisplacement, double ProjResidual, bool ProjConverged,
+    bool PlaneThroughPoint, SolveReceipt Solve) {
+    public bool IsValid =>
+        FieldNabla.Finite(point: PlaneOrigin) && FieldNabla.Finite(vector: PlaneNormal) && FieldNabla.Finite(vector: MlsNormal)
+        && RhinoMath.IsValidDouble(x: Offset) && FieldNabla.Finite(vector: FrameU) && FieldNabla.Finite(vector: FrameV)
+        && Step1Iterations >= 0 && RootIterations >= 0 && RhinoMath.IsValidDouble(x: RootResidual)
+        && RhinoMath.IsValidDouble(x: SecondDerivative) && NormalIterations >= 0 && RhinoMath.IsValidDouble(x: NormalResidual)
+        && RhinoMath.IsValidDouble(x: Lambda0) && RhinoMath.IsValidDouble(x: Lambda2)
+        && RhinoMath.IsValidDouble(x: Planarity) && NeighborCount >= MinValidNeighbors && RhinoMath.IsValidDouble(x: WeightSum) && WeightSum > 0.0
+        && RhinoMath.IsValidDouble(x: Step1Energy) && PolyDegree >= 1 && CoefficientCount >= 1
+        && RhinoMath.IsValidDouble(x: Step2Residual) && RhinoMath.IsValidDouble(x: Step2Rms) && RhinoMath.IsValidDouble(x: DesignCondition)
+        && Rank >= 1 && RhinoMath.IsValidDouble(x: GradientMagnitude) && RhinoMath.IsValidDouble(x: NormalAgreement)
+        && RhinoMath.IsValidDouble(x: ProjDisplacement) && RhinoMath.IsValidDouble(x: ProjResidual) && Solve.IsUsable;
+    private const int MinValidNeighbors = 1;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct ApssSampleReceipt(
+    double Hc, Vector3d Hl, double Hq, double PrattNormSquared, bool IsPlane, double DegeneracyRatio,
+    Point3d Center, double Radius, double MeanCurvature, double FieldValue, double GradientNorm, Vector3d Normal,
+    int NeighborCount, double WeightSum, int ProjIterations, double TaubinResidual, double ProjDisplacement) {
+    public bool IsValid =>
+        RhinoMath.IsValidDouble(x: Hc) && FieldNabla.Finite(vector: Hl) && RhinoMath.IsValidDouble(x: Hq)
+        && RhinoMath.IsValidDouble(x: PrattNormSquared) && PrattNormSquared > 0.0 && RhinoMath.IsValidDouble(x: DegeneracyRatio)
+        && FieldNabla.Finite(point: Center) && RhinoMath.IsValidDouble(x: Radius) && RhinoMath.IsValidDouble(x: MeanCurvature)
+        && RhinoMath.IsValidDouble(x: FieldValue) && RhinoMath.IsValidDouble(x: GradientNorm) && FieldNabla.Finite(vector: Normal)
+        && NeighborCount >= 1 && RhinoMath.IsValidDouble(x: WeightSum) && WeightSum > 0.0 && ProjIterations >= 0
+        && RhinoMath.IsValidDouble(x: TaubinResidual) && RhinoMath.IsValidDouble(x: ProjDisplacement);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct PoissonPolicy(Dimension Depth, Dimension FullDepth, PositiveMagnitude Width, PositiveMagnitude Scale, PositiveMagnitude SamplesPerNode, double PointWeight, int Degree, PoissonBoundary Boundary, Dimension Iters, Dimension CgDepth, PositiveMagnitude SolverTolerance, Dimension KernelDepth, UnitInterval Confidence, double ConfidenceBias, bool LinearFit, bool PrimalGrid, PositiveMagnitude Density) {
+    public static Fin<PoissonPolicy> Of(int depth = 6, int fullDepth = 5, double width = 1.0, double scale = 1.1, double samplesPerNode = 1.5, double pointWeight = 0.0, int degree = 2, PoissonBoundary? boundary = null, int iters = 8, int cgDepth = 0, double solverTolerance = 0.0, int kernelDepth = 4, double confidence = 0.0, double confidenceBias = 0.0, bool linearFit = false, bool primalGrid = false, double density = 0.0, Op? key = null) =>
+        FieldNabla.PoissonPolicyInput(depth: depth, fullDepth: fullDepth, width: width, scale: scale, samplesPerNode: samplesPerNode, pointWeight: pointWeight, degree: degree, boundary: boundary ?? PoissonBoundary.Neumann, iters: iters, cgDepth: cgDepth, solverTolerance: solverTolerance, kernelDepth: kernelDepth, confidence: confidence, confidenceBias: confidenceBias, linearFit: linearFit, primalGrid: primalGrid, density: density, key: key.OrDefault());
+    internal static Fin<PoissonPolicy> Of(double pointWeight, Op key) => Of(pointWeight: pointWeight, key: (Op?)key);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct PoissonGrid(Point3d Origin, double Spacing, int Resolution, Arr<double> Chi, Arr<double> Density) {
+    internal static Fin<PoissonGrid> Of(Point3d origin, double spacing, int resolution, Arr<double> chi, double[] density, Op key) =>
+        chi.Count == resolution * resolution * resolution && density.Length == chi.Count && FieldNabla.AllFiniteSpan(chi.AsSpan()) && FieldNabla.AllFiniteSpan(density.AsSpan()) && spacing > RhinoMath.ZeroTolerance && resolution >= 2
+        && FieldNabla.Finite(point: origin)
+            ? Fin.Succ(new PoissonGrid(Origin: origin, Spacing: spacing, Resolution: resolution, Chi: chi, Density: new Arr<double>(density)))
+            : Fin.Fail<PoissonGrid>(key.InvalidResult());
+    public bool IsValid => Chi.Count == Resolution * Resolution * Resolution && Density.Count == Chi.Count && Resolution >= 2 && Spacing > 0.0 && FieldNabla.AllFiniteSpan(Chi.AsSpan()) && FieldNabla.Finite(point: Origin);
+    internal double SampleTrilinear(Point3d point) {
+        double invSpacing = 1.0 / Spacing;
+        double fx = (point.X - Origin.X) * invSpacing, fy = (point.Y - Origin.Y) * invSpacing, fz = (point.Z - Origin.Z) * invSpacing;
+        if (!RhinoMath.IsValidDouble(x: fx) || !RhinoMath.IsValidDouble(x: fy) || !RhinoMath.IsValidDouble(x: fz)
+            || fx < 0.0 || fy < 0.0 || fz < 0.0 || fx > Resolution - 1 || fy > Resolution - 1 || fz > Resolution - 1)
+            return OutsideValue;
+        int x0 = Math.Min(val1: (int)Math.Floor(d: fx), val2: Resolution - 2), y0 = Math.Min(val1: (int)Math.Floor(d: fy), val2: Resolution - 2), z0 = Math.Min(val1: (int)Math.Floor(d: fz), val2: Resolution - 2);
+        double tx = fx - x0, ty = fy - y0, tz = fz - z0, value = 0.0;
+        for (int dz = 0; dz < 2; dz++)
+            for (int dy = 0; dy < 2; dy++)
+                for (int dx = 0; dx < 2; dx++) {
+                    double trilinear = (dx == 0 ? 1.0 - tx : tx) * (dy == 0 ? 1.0 - ty : ty) * (dz == 0 ? 1.0 - tz : tz);
+                    value += trilinear * Chi[((((z0 + dz) * Resolution) + y0 + dy) * Resolution) + x0 + dx];
+                }
+        return value;
+    }
+    private double OutsideValue => Math.Max(val1: 1.0, val2: Spacing * Resolution);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct PoissonReceipt(
+    ReconstructionMode Mode, Dimension Depth, int GridResolution, int SystemDof, int Degree, PoissonBoundary Boundary, double PointWeight, double Scale,
+    int SampleCount, int ContributionCount, int RejectedCount, int ClampedCount, double WeightSum,
+    int LaplacianNonZeros, int ScreeningNonZeros, double RhsNorm,
+    double Isovalue, double IsovalueStdDev, double MeanAbsChi, double MaxAbsChi,
+    double GradientEnergy, double ScreeningEnergy, double DataResidual, double GradientResidual,
+    bool UnscreenedEquivalence, Option<GaugeReceipt> Gauge, SolveReceipt Solve) {
+    public bool IsValid =>
+        Mode is not null && Depth.Value >= 1 && Boundary is not null && GridResolution >= 2 && SystemDof == GridResolution * GridResolution * GridResolution
+        && SystemDof == Solve.Cols.Value && Degree is >= 1 and <= 2 && RhinoMath.IsValidDouble(x: PointWeight) && PointWeight >= 0.0 && RhinoMath.IsValidDouble(x: Scale) && Scale > 0.0
+        && SampleCount >= 0 && ContributionCount >= 0 && RejectedCount >= 0 && ClampedCount >= 0 && ContributionCount + RejectedCount + ClampedCount == SampleCount
+        && RhinoMath.IsValidDouble(x: WeightSum) && WeightSum >= 0.0 && LaplacianNonZeros > 0 && ScreeningNonZeros >= 0
+        && RhinoMath.IsValidDouble(x: RhsNorm) && RhsNorm >= 0.0 && RhinoMath.IsValidDouble(x: Isovalue) && RhinoMath.IsValidDouble(x: IsovalueStdDev) && IsovalueStdDev >= 0.0
+        && RhinoMath.IsValidDouble(x: MeanAbsChi) && MeanAbsChi >= 0.0 && RhinoMath.IsValidDouble(x: MaxAbsChi) && MaxAbsChi >= 0.0
+        && RhinoMath.IsValidDouble(x: GradientEnergy) && GradientEnergy >= 0.0 && RhinoMath.IsValidDouble(x: ScreeningEnergy) && ScreeningEnergy >= 0.0
+        && RhinoMath.IsValidDouble(x: DataResidual) && DataResidual >= 0.0 && RhinoMath.IsValidDouble(x: GradientResidual) && GradientResidual >= 0.0
+        && (!UnscreenedEquivalence || (ScreeningNonZeros == 0 && PointWeight <= 0.0 && ScreeningEnergy == 0.0 && DataResidual == 0.0))
+        && Solve.IsUsable && Gauge.Map(static receipt => receipt.IsValid).IfNone(noneValue: true);
+}
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfReceipt(SdfStatus Status, Option<double> LipschitzBound, bool AnalyticPrimitive, bool MeshBacked, Option<bool> WatertightPreflight, bool LossyFallback, Option<SdfMeshReceipt> Mesh, bool NativeProfile = false, Option<ToleranceSource> ToleranceSource = default, Option<double> Tolerance = default, bool ClosestAccepted = false, Option<PointContainment> ProfileContainment = default, Option<ProfileExtrusionFeature> ProfileFeature = default, Option<TetSignedHeatReceipt> TetSignedHeat = default, Option<TetInterpolationReceipt> TetInterpolation = default);
 
@@ -1819,6 +2488,59 @@ internal static class FieldNabla {
             && samples.ForAll(sample => Finite(point: sample.Position) && Finite(vector: sample.Normal) && Math.Abs(value: sample.Normal.Length - 1.0) <= Math.Max(val1: model.Relative.Value, val2: RhinoMath.SqrtEpsilon) && RhinoMath.IsValidDouble(x: sample.Value))
                 ? Fin.Succ(samples)
                 : Fin.Fail<Seq<MlsSample>>(key.InvalidInput()));
+    internal static Fin<LevinMlsPolicy> LevinPolicyInput(double support, int polyDegree, double neglectEps, int minNeighbors, double bracketFactor, int maxOuterIter, double stepEps, double rootTol, int cgMaxIter, double cgTol, double planarityTau, double ridgeLambda, double normalTau, double projEps, bool planeThroughPoint, bool orientNormals, WeightKernelFamily weightKernel, Op key) =>
+        from kernel in Optional(weightKernel).ToFin(key.InvalidInput())
+        from h in key.AcceptValidated<PositiveMagnitude>(candidate: support)
+        from neglect in key.AcceptValidated<PositiveMagnitude>(candidate: neglectEps)
+        from step in key.AcceptValidated<PositiveMagnitude>(candidate: stepEps)
+        from root in key.AcceptValidated<PositiveMagnitude>(candidate: rootTol)
+        from cg in key.AcceptValidated<PositiveMagnitude>(candidate: cgTol)
+        from bracket in key.AcceptValidated<PositiveMagnitude>(candidate: bracketFactor)
+        from planarity in key.AcceptValidated<PositiveMagnitude>(candidate: planarityTau)
+        from ridge in NonnegativeFinite(value: ridgeLambda, key: key)
+        from normal in key.AcceptValidated<PositiveMagnitude>(candidate: normalTau)
+        from proj in key.AcceptValidated<PositiveMagnitude>(candidate: projEps)
+        from degree in guard(polyDegree is >= 1 and <= 4, key.InvalidInput()).ToFin()
+        from neighbors in guard(minNeighbors >= 6, key.InvalidInput()).ToFin()
+        from outer in guard(maxOuterIter is >= 1 and <= 256, key.InvalidInput()).ToFin()
+        from cgIters in guard(cgMaxIter is >= 1 and <= 1024, key.InvalidInput()).ToFin()
+        select new LevinMlsPolicy(Support: h, PolyDegree: polyDegree, NeglectEps: neglect.Value, MinNeighbors: minNeighbors, BracketFactor: bracket.Value, MaxOuterIter: maxOuterIter, StepEps: step.Value, RootTol: root.Value, CgMaxIter: cgMaxIter, CgTol: cg.Value, PlanarityTau: planarity.Value, RidgeLambda: ridge, NormalTau: normal.Value, ProjEps: proj.Value, PlaneThroughPoint: planeThroughPoint, OrientNormals: orientNormals, WeightKernel: kernel);
+    internal static Fin<LevinMlsPolicy> LevinPolicyInput(LevinMlsPolicy policy, Op key) =>
+        LevinPolicyInput(support: policy.Support.Value, polyDegree: policy.PolyDegree, neglectEps: policy.NeglectEps, minNeighbors: policy.MinNeighbors, bracketFactor: policy.BracketFactor, maxOuterIter: policy.MaxOuterIter, stepEps: policy.StepEps, rootTol: policy.RootTol, cgMaxIter: policy.CgMaxIter, cgTol: policy.CgTol, planarityTau: policy.PlanarityTau, ridgeLambda: policy.RidgeLambda, normalTau: policy.NormalTau, projEps: policy.ProjEps, planeThroughPoint: policy.PlaneThroughPoint, orientNormals: policy.OrientNormals, weightKernel: policy.WeightKernel, key: key);
+    internal static Fin<ApssPolicy> ApssPolicyInput(double support, WeightKernelFamily weightKernel, double beta, double neglectEps, double epsDegeneracy, double epsPratt, int projMaxIter, double projTol, double stepDamping, int minNeighbors, Op key) =>
+        from kernel in Optional(weightKernel).ToFin(key.InvalidInput())
+        from h in key.AcceptValidated<PositiveMagnitude>(candidate: support)
+        from b in key.AcceptValidated<PositiveMagnitude>(candidate: beta)
+        from neglect in key.AcceptValidated<PositiveMagnitude>(candidate: neglectEps)
+        from degeneracy in key.AcceptValidated<PositiveMagnitude>(candidate: epsDegeneracy)
+        from pratt in key.AcceptValidated<PositiveMagnitude>(candidate: epsPratt)
+        from proj in key.AcceptValidated<PositiveMagnitude>(candidate: projTol)
+        from damping in key.AcceptValidated<UnitInterval>(candidate: stepDamping)
+        from iters in guard(projMaxIter is >= 1 and <= 256, key.InvalidInput()).ToFin()
+        from neighbors in guard(minNeighbors >= 6, key.InvalidInput()).ToFin()
+        select new ApssPolicy(Support: h, WeightKernel: kernel, Beta: b.Value, NeglectEps: neglect.Value, EpsDegeneracy: degeneracy.Value, EpsPratt: pratt.Value, ProjMaxIter: projMaxIter, ProjTol: proj.Value, StepDamping: damping.Value, MinNeighbors: minNeighbors);
+    internal static Fin<ApssPolicy> ApssPolicyInput(ApssPolicy policy, Op key) =>
+        ApssPolicyInput(support: policy.Support.Value, weightKernel: policy.WeightKernel, beta: policy.Beta, neglectEps: policy.NeglectEps, epsDegeneracy: policy.EpsDegeneracy, epsPratt: policy.EpsPratt, projMaxIter: policy.ProjMaxIter, projTol: policy.ProjTol, stepDamping: policy.StepDamping, minNeighbors: policy.MinNeighbors, key: key);
+    internal const int PoissonMaxDepth = 6;
+    internal const long PoissonNodeCeiling = 262_144L;
+    internal static Fin<PoissonPolicy> PoissonPolicyInput(int depth, int fullDepth, double width, double scale, double samplesPerNode, double pointWeight, int degree, PoissonBoundary boundary, int iters, int cgDepth, double solverTolerance, int kernelDepth, double confidence, double confidenceBias, bool linearFit, bool primalGrid, double density, Op key) =>
+        from kind in Optional(boundary).ToFin(key.InvalidInput())
+        from depthDim in key.AcceptValidated<Dimension>(candidate: depth)
+        from _ in guard(depth is >= 1 and <= PoissonMaxDepth && checked((long)1 << (3 * depth)) <= PoissonNodeCeiling, key.InvalidInput()).ToFin()
+        from fullDepthDim in key.AcceptValidated<Dimension>(candidate: Math.Max(val1: 1, val2: Math.Min(val1: fullDepth, val2: depth)))
+        from widthMag in key.AcceptValidated<PositiveMagnitude>(candidate: width)
+        from scaleMag in key.AcceptValidated<PositiveMagnitude>(candidate: scale)
+        from samplesMag in key.AcceptValidated<PositiveMagnitude>(candidate: samplesPerNode)
+        from densityMag in key.AcceptValidated<PositiveMagnitude>(candidate: density > 0.0 ? density : RhinoMath.SqrtEpsilon)
+        from itersDim in key.AcceptValidated<Dimension>(candidate: Math.Max(val1: 1, val2: iters))
+        from cgDepthDim in key.AcceptValidated<Dimension>(candidate: Math.Max(val1: 1, val2: cgDepth == 0 ? depth : cgDepth))
+        from kernelDepthDim in key.AcceptValidated<Dimension>(candidate: Math.Max(val1: 1, val2: Math.Min(val1: kernelDepth, val2: depth)))
+        from confidenceUnit in key.AcceptValidated<UnitInterval>(candidate: confidence)
+        from solverTol in key.AcceptValidated<PositiveMagnitude>(candidate: solverTolerance > 0.0 ? solverTolerance : RhinoMath.SqrtEpsilon)
+        from __ in guard(degree is >= 1 and <= 2 && RhinoMath.IsValidDouble(x: pointWeight) && pointWeight >= 0.0 && RhinoMath.IsValidDouble(x: confidenceBias), key.InvalidInput()).ToFin()
+        select new PoissonPolicy(Depth: depthDim, FullDepth: fullDepthDim, Width: widthMag, Scale: scaleMag, SamplesPerNode: samplesMag, PointWeight: pointWeight, Degree: degree, Boundary: kind, Iters: itersDim, CgDepth: cgDepthDim, SolverTolerance: solverTol, KernelDepth: kernelDepthDim, Confidence: confidenceUnit, ConfidenceBias: confidenceBias, LinearFit: linearFit, PrimalGrid: primalGrid, Density: densityMag);
+    internal static Fin<PoissonPolicy> PoissonPolicyInput(PoissonPolicy policy, bool screened, Op key) =>
+        PoissonPolicyInput(depth: policy.Depth.Value, fullDepth: policy.FullDepth.Value, width: policy.Width.Value, scale: policy.Scale.Value, samplesPerNode: policy.SamplesPerNode.Value, pointWeight: screened ? Math.Max(val1: policy.PointWeight, val2: RhinoMath.SqrtEpsilon) : 0.0, degree: policy.Degree, boundary: policy.Boundary, iters: policy.Iters.Value, cgDepth: policy.CgDepth.Value, solverTolerance: policy.SolverTolerance.Value, kernelDepth: policy.KernelDepth.Value, confidence: policy.Confidence.Value, confidenceBias: policy.ConfidenceBias, linearFit: policy.LinearFit, primalGrid: policy.PrimalGrid, density: policy.Density.Value, key: key);
     internal static Fin<(Curve Profile, Plane Plane, PositiveMagnitude HalfHeight)> ProfileExtrusionInput(Curve profile, Plane plane, double halfHeight, Context context, Op key) =>
         from model in Optional(context).ToFin(key.MissingContext())
         from activePlane in Plane(basis: plane, key: key)

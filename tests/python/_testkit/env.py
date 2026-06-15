@@ -66,7 +66,7 @@ class Provisioned[C](msgspec.Struct, frozen=True, gc=False):
 def provision(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]]: ...
 @overload
 def provision(spec: RemoteFS) -> Provisioned[AbstractFileSystem]: ...
-def provision(  # noqa: PLR0914, PLR0915  # one dispatch surface owns both provision arms; splitting fragments the closed union
+def provision(  # one dispatch surface owns both provision arms; splitting fragments the closed union
     spec: EnvSpec,
 ) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]] | Provisioned[AbstractFileSystem]:
     """Materialize the declared environment double.

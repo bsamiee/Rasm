@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             install_tracing(AssaySettings().otel_endpoint)
         except ValidationError as exc:
-            _ = exc
+            sys.stderr.write(f"assay: tracing disabled (config invalid): {exc}\n")
 
     def _drain(provider: object) -> None:
         # Bound flush before releasing SDK workers so a slow OTLP endpoint cannot stall exit.

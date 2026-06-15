@@ -843,7 +843,7 @@ def _invoke(settings: AssaySettings, scope: ArtifactScope, tool: Tool, *args: st
             return Completed((*tool.runner.prefix, *tool.command, *args), 1, stderr=fault.message.encode())
 
 
-def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:
+def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:  # noqa: PLR0912  # one arm per SourceKind; the axis is closed
     # Content-fingerprint cache avoids repeat listings; the strategy splits on source.kind (ilspycmd subprocess vs INPROC thunk).
     store = settings.store()
     match source.kind:
@@ -873,8 +873,10 @@ def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> 
                 return _parse_inproc(source, cache, done.stdout)
 
             return _inproc_check(settings, source, Mode.QUERY, _inproc_thunk(source, "")).map(_persist)
-        case _:  # pragma: no cover  # TOOL never resolves through _resolve_source
+        case SourceKind.TOOL:  # pragma: no cover  # TOOL never resolves through _resolve_source
             return Ok(_Surface(source, (), (), {}, _cache_path(settings, source, ""), ""))
+        case never:  # pragma: no cover
+            assert_never(never)
 
 
 def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: InprocThunk) -> Result[Completed, Fault]:
@@ -895,7 +897,8 @@ def _parse_inproc(source: _Source, cache: str, stdout: bytes) -> _Surface:
 
 
 def _cache_path(settings: AssaySettings, source: _Source, fingerprint: str) -> str:
-    return settings.store().path(ArtifactKind.SCOPE.value, "api", f"{_safe(source.key)}.{fingerprint or 'unresolved'}.txt")
+    # Co-located under the per-key dir alongside this source's report artifacts, not a flat sibling of every other key.
+    return settings.store().path(ArtifactKind.SCOPE.value, "api", _safe(source.key), f"{fingerprint or 'unresolved'}.txt")
 
 
 def _run_surface(
@@ -979,8 +982,10 @@ def _decompile(
             return _cs_decompile(settings, scope, surface, symbol, shape, p)
         case SourceKind.PYDIST | SourceKind.TSDECL:
             return _inproc_decompile(settings, surface, symbol, shape, p)
-        case _:  # pragma: no cover  # TOOL never resolves through _resolve_source
+        case SourceKind.TOOL:  # pragma: no cover  # TOOL never resolves through _resolve_source
             return Ok(_search_report(settings, surface, p))
+        case never:  # pragma: no cover
+            assert_never(never)
 
 
 def _cs_decompile(  # noqa: PLR0914  # decompile pipeline uses all 14 locals as independent pipeline stages
@@ -1144,18 +1149,10 @@ def _filtered_sources(all_sources: tuple[ApiSource, ...], prefixes: tuple[str, .
 
 
 def _inventory_artifacts(settings: AssaySettings, sources: tuple[ApiSource, ...]) -> tuple[Artifact, ...]:
-    store = settings.store()
+    # One durable inventory artifact: the structured JSON. The compact preview rides the envelope; the TSV had no reader.
     json_raw = _ENCODER.encode(sources)
-    tsv = "\n".join(_source_tsv(source) for source in sources)
-    tsv_raw = tsv.encode()
-    json_path, tsv_path = store.write_many((
-        (json_raw, (Claim.API.value, settings.run_id, "doctor-inventory.json")),
-        (tsv_raw, (Claim.API.value, settings.run_id, "doctor-inventory.tsv")),
-    ))
-    return (
-        Artifact(id="doctor-inventory-json", kind=ArtifactKind.SCOPE, path=json_path, bytes=len(json_raw), lines=len(sources)),
-        Artifact(id="doctor-inventory-tsv", kind=ArtifactKind.SCOPE, path=tsv_path, bytes=len(tsv_raw), lines=len(sources)),
-    )
+    json_path = settings.store().write_bytes(json_raw, Claim.API.value, settings.run_id, "doctor-inventory.json")
+    return (Artifact(id="doctor-inventory-json", kind=ArtifactKind.SCOPE, path=json_path, bytes=len(json_raw), lines=len(sources)),)
 
 
 def _doctor_row_text(source: ApiSource) -> str:
@@ -1173,12 +1170,6 @@ def _doctor_row_text(source: ApiSource) -> str:
         ("version", source.version or "-"),
     )
     return f"{source.source_id} status={source.status.value} " + " ".join(f"{key}={value}" for key, value in presence)
-
-
-def _source_tsv(source: ApiSource) -> str:
-    head = (str(source.source_kind), str(source.status), source.source_id, source.version, source.package_root or source.primary_assembly)
-    counts = (len(source.assemblies), len(source.xmls), len(source.assets))
-    return "\t".join((*head, ",".join(source.frameworks), ",".join(source.owners), *map(str, counts)))
 
 
 def _inventory_sources(settings: AssaySettings, app: Path | None, ilspy_ver: str, returncode: int) -> tuple[ApiSource, ...]:
@@ -1263,8 +1254,9 @@ def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> R
         )
     targets = _resolve_targets(source, p.kind)
     existing = tuple(t for t in targets if t.exists())
-    artifact = _artifact(settings, source, f"{p.kind}.paths.txt", "\n".join(str(t) for t in targets))
     results, cap_notes = _matches(tuple(str(t) for t in targets), ArtifactKind.SCOPE, "")
+    # The full path list rides an artifact only when ranked results saturate the cap; small sets ride inline.
+    artifact = _artifact(settings, source, f"{p.kind}.paths.txt", "\n".join(str(t) for t in targets)) if cap_notes else None
     note = f"{len(existing)}/{len(targets)} {p.kind} paths present"
     done = Completed(("api", "resolve", p.key), 0, status=RailStatus.OK if existing else RailStatus.EMPTY, notes=(note, *cap_notes))
     detail = _api_detail(
@@ -1273,10 +1265,10 @@ def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> R
         preview="\n".join(str(t) for t in existing[:_PREVIEW_ROWS]),
         lines=len(targets),
         selected=len(existing),
-        artifact_paths=(artifact.path,),
+        artifact_paths=(artifact.path,) if artifact is not None else (),
     )
     report = fold(Claim.API, "resolve", (done,), detail=detail)
-    return msgspec.structs.replace(report, artifacts=(artifact,), results=results)
+    return msgspec.structs.replace(report, artifacts=(artifact,) if artifact is not None else (), results=results)
 
 
 def _resolve_targets(source: _Source, kind: _PathKind) -> tuple[Path, ...]:
@@ -1343,10 +1335,14 @@ def _rank_namespace(surface: _Surface, symbol: str) -> str:
 
 
 def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, rows: tuple[str, ...], p: ApiParams) -> Report:
-    # INDEX includes the raw surface cache so callers can inspect unfiltered source output.
+    # INDEX's sole durable artifact is the content-fingerprinted surface cache (unfiltered source output); other shapes
+    # write a .txt only when ranked results saturate the cap, so small rosters ride the envelope with zero artifacts.
     source = surface.source
-    artifact = _artifact(settings, source, f"{shape.value}.txt", "\n".join(rows))
     results, cap_notes = _matches(rows, ArtifactKind.SCOPE, p.grep)
+    store = settings.store()
+    cache = _cache_artifact(store, surface.cache) if shape is SymbolShape.INDEX and store.exists_path(surface.cache) else None
+    artifact = _artifact(settings, source, f"{shape.value}.txt", "\n".join(rows)) if cap_notes and shape is not SymbolShape.INDEX else None
+    artifacts = tuple(a for a in (artifact, cache) if a is not None)
     done = Completed(
         ("api", "query", source.key),
         0,
@@ -1360,11 +1356,8 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
         truncated=len(rows) > _PREVIEW_ROWS,
         lines=len(rows),
         selected=len(rows),
-        artifact_paths=(artifact.path,),
+        artifact_paths=tuple(a.path for a in artifacts),
     )
-    store = settings.store()
-    extra = _cache_artifact(store, surface.cache) if shape is SymbolShape.INDEX and store.exists_path(surface.cache) else None
-    artifacts = (artifact, extra) if extra is not None else (artifact,)
     return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=results)
 
 
@@ -1380,8 +1373,8 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
         case _:
             results, cap_notes = _matches(hits, ArtifactKind.SCOPE, p.symbol)
             done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits", *cap_notes))
-            # Results are capped; the artifact carries the full hit set.
-            artifact = _artifact(settings, source, "search.txt", "\n".join(hits))
+            # The artifact carries the full hit set only when results saturate the cap; small sets ride inline.
+            artifact = _artifact(settings, source, "search.txt", "\n".join(hits)) if cap_notes else None
             detail = _api_detail(
                 source,
                 SymbolShape.SEARCH,
@@ -1389,9 +1382,10 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
                 truncated=len(hits) > _PREVIEW_ROWS,
                 lines=len(hits),
                 selected=len(hits),
-                artifact_paths=(artifact.path,),
+                artifact_paths=(artifact.path,) if artifact is not None else (),
             )
-            return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=(artifact,), results=results)
+            artifacts = (artifact,) if artifact is not None else ()
+            return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=results)
 
 
 def _decompile_report(  # noqa: PLR0913,PLR0914  # all slots are structural caller positions shared across C# and INPROC paths
@@ -1420,7 +1414,8 @@ def _decompile_report(  # noqa: PLR0913,PLR0914  # all slots are structural call
             is_member = shape is SymbolShape.MEMBER or bool(head and resolved_fqn and not direct_fqn)
             final_shape = SymbolShape.MEMBER if is_member else SymbolShape.TYPE
             suffix = {SourceKind.PYDIST: ".py", SourceKind.TSDECL: ".d.ts"}.get(surface.source.kind, ".cs")
-            artifact = _artifact(settings, surface.source, f"decompile{suffix}", full)
+            # The full decompiled body rides an artifact only when the inline window truncates; untruncated output rides the preview.
+            artifact = _artifact(settings, surface.source, f"decompile{suffix}", full) if truncated else None
             detail = _api_detail(
                 surface.source,
                 final_shape,
@@ -1431,14 +1426,15 @@ def _decompile_report(  # noqa: PLR0913,PLR0914  # all slots are structural call
                 truncated=truncated,
                 lines=selected,
                 selected=selected,
-                artifact_paths=(artifact.path,),
+                artifact_paths=(artifact.path,) if artifact is not None else (),
             )
             shown = len(window.splitlines())
             window_note = (f"window: {shown} of {selected} lines (--full or --max-lines to widen)",) if truncated else ()
             note = Completed(("api", "query", surface.source.key), 0, status=RailStatus.OK, notes=(f"{selected} selected lines", *window_note))
             identity = (resolved_fqn or p.symbol)[:_NAME_CAP]
             result = Match(id=f"{final_shape.value}:{identity}", kind=ArtifactKind.SCOPE, text=identity, score=100)
-            return msgspec.structs.replace(fold(Claim.API, "query", (note,), detail=detail), artifacts=(artifact,), results=(result,))
+            artifacts = (artifact,) if artifact is not None else ()
+            return msgspec.structs.replace(fold(Claim.API, "query", (note,), detail=detail), artifacts=artifacts, results=(result,))
 
 
 def _api_detail(  # noqa: PLR0913  # single ApiSurface constructor surface; keyword-only slots prevent positional confusion

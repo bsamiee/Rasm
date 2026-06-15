@@ -12,13 +12,13 @@ from posixpath import normpath
 from typing import assert_never, Protocol, runtime_checkable
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local .csproj XML from source.read, never network-sourced
 
-from expression import Error, Ok, Result
+from expression import Error, Ok, Result  # noqa: TC002  # beartype resolves routing Result annotations at runtime (PEP 649)
 import msgspec
 import structlog
 from upath import UPath
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import AssaySettings
+from tools.assay.composition.settings import AssaySettings  # noqa: TC001  # beartype resolves route/target_files settings annotations at runtime
 from tools.assay.core.model import (  # noqa: TC001  # msgspec needs Language/Tool annotations at runtime
     Base,
     Check,
@@ -79,17 +79,6 @@ class Source(Protocol):
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-
-_TRIGGER_FILES: frozenset[str] = frozenset((
-    ".config/dotnet-tools.json",
-    "Directory.Build.props",
-    "Directory.Build.targets",
-    "Directory.Packages.props",
-    "Workspace.slnx",
-    ".editorconfig",
-    "global.json",
-))
-_TRIGGER_PREFIXES: tuple[str, ...] = ("tools/cs-analyzer/",)
 
 _CSPROJ: str = ".csproj"
 _PROJECT_INPUT_SUFFIXES: frozenset[str] = frozenset((".csproj", ".sln", ".slnx"))
@@ -194,13 +183,11 @@ def _norm(paths: tuple[str, ...]) -> tuple[str, ...]:
 
 def _unsupported_target(rel: str, settings: AssaySettings) -> str:
     suffix = PurePosixPath(rel).suffix
-    match rel in settings.trigger_files or suffix in _TRIGGER_INPUT_SUFFIXES:
-        case _ if suffix in _PROJECT_INPUT_SUFFIXES:
-            return "project-or-solution"
-        case True:
-            return "full-trigger"
-        case False:
-            return ""
+    if suffix in _PROJECT_INPUT_SUFFIXES:
+        return "project-or-solution"
+    if rel in settings.trigger_files or suffix in _TRIGGER_INPUT_SUFFIXES:
+        return "full-trigger"
+    return ""
 
 
 def _owner(rel: str, index: ProjectIndex) -> str | None:
@@ -211,12 +198,12 @@ def _owner(rel: str, index: ProjectIndex) -> str | None:
 
 def _refs(rel: str, source: Source) -> frozenset[str]:
     # Unreadable or malformed .csproj becomes an isolated graph node; fault does not propagate.
-    match source.read(rel):
-        case Result(tag="ok", ok=raw):
-            base = PurePosixPath(rel).parent
-            return frozenset(normpath(str(base / inc.replace("\\", "/"))) for inc in parse_csproj(raw, "ProjectReference", "Include"))
-        case _:
-            return frozenset()
+    base = PurePosixPath(rel).parent
+    return (
+        source.read(rel)
+        .map(lambda raw: frozenset(normpath(str(base / inc.replace("\\", "/"))) for inc in parse_csproj(raw, "ProjectReference", "Include")))
+        .default_value(frozenset())
+    )
 
 
 def parse_csproj(raw: bytes, tag: str, *attrs: str) -> tuple[str, ...]:
@@ -246,11 +233,8 @@ def parse_csproj(raw: bytes, tag: str, *attrs: str) -> tuple[str, ...]:
 
 def _host_bound(rel: str, source: Source) -> bool:
     # Only the explicit marker is authoritative; path shape and RhinoCommon-awareness are non-signals.
-    match source.read(rel):
-        case Result(tag="ok", ok=raw):
-            return any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound"))
-        case _:
-            return False
+    marked = source.read(rel).map(lambda raw: any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound")))
+    return marked.default_value(False)  # noqa: FBT003  # expression sentinel default, not a behavior flag
 
 
 def _dependents(seeds: frozenset[str], index: ProjectIndex, source: Source) -> frozenset[str]:
@@ -261,10 +245,8 @@ def _dependents(seeds: frozenset[str], index: ProjectIndex, source: Source) -> f
     )
 
 
-def _escalate(files: tuple[str, ...], settings: AssaySettings | None) -> tuple[str, ...]:
-    trigger_files = settings.trigger_files if settings is not None else _TRIGGER_FILES
-    trigger_prefixes = settings.trigger_prefixes if settings is not None else _TRIGGER_PREFIXES
-    return tuple(f for f in files if f in trigger_files or any(f.startswith(prefix) for prefix in trigger_prefixes))
+def _escalate(files: tuple[str, ...], settings: AssaySettings) -> tuple[str, ...]:
+    return tuple(f for f in files if f in settings.trigger_files or any(f.startswith(prefix) for prefix in settings.trigger_prefixes))
 
 
 def _glob(language: Language, files: tuple[str, ...]) -> Result[Routed, Fault]:
@@ -272,7 +254,7 @@ def _glob(language: Language, files: tuple[str, ...]) -> Result[Routed, Fault]:
     return Ok(Routed(language=language, scope=Scope.CHANGED, files=_norm(tuple(f for f in files if PurePosixPath(f).suffix in language.suffixes))))
 
 
-def _closure(language: Language, files: tuple[str, ...], source: Source, settings: AssaySettings | None) -> Result[Routed, Fault]:
+def _closure(language: Language, files: tuple[str, ...], source: Source, settings: AssaySettings) -> Result[Routed, Fault]:
     triggers = _escalate(files, settings)
     match triggers:
         case ():
@@ -329,9 +311,7 @@ def resolve_languages(selected: Language | Fault | None, paths: RoutePaths, *, c
             return Ok((language,))
 
 
-def route(
-    language: Language, paths: RoutePaths = (), *, source: Source | None = None, settings: AssaySettings | None = None
-) -> Result[Routed, Fault]:
+def route(language: Language, paths: RoutePaths = (), *, source: Source | None = None, settings: AssaySettings) -> Result[Routed, Fault]:
     """Resolve paths into routed inputs for one language.
 
     Empty ``paths`` uses the provider's changed-file set; the default provider roots at ``settings.root``.
@@ -345,13 +325,13 @@ def route(
     Returns:
         Ok with the routed projection, or a Fault propagated from the source provider.
     """
-    src = source if source is not None else _LocalSource(root=UPath((settings or AssaySettings()).root))
+    src = source if source is not None else _LocalSource(root=UPath(settings.root))
     enumerated = src.enumerate(paths) if paths else src.changed()
     return enumerated.bind(lambda files: _closure(language, files, src, settings) if language.strategy == "closure" else _glob(language, files))
 
 
 def target_files(
-    folders: RoutePaths = (), files: RoutePaths = (), *, source: Source | None = None, settings: AssaySettings | None = None, changed: bool = False
+    folders: RoutePaths = (), files: RoutePaths = (), *, source: Source | None = None, settings: AssaySettings, changed: bool = False
 ) -> Result[TargetFiles, Fault]:
     """Expand static folder/file targets and partition unsupported full-build inputs.
 
@@ -365,8 +345,7 @@ def target_files(
     Returns:
         Expanded file projection with unsupported project/solution/root-trigger files removed.
     """
-    active = settings or AssaySettings()
-    src = source if source is not None else _LocalSource(root=UPath(active.root))
+    src = source if source is not None else _LocalSource(root=UPath(settings.root))
     target_rows = (*(("folder", PurePosixPath(p).as_posix()) for p in folders), *(("file", PurePosixPath(p).as_posix()) for p in files))
     seed = src.changed() if changed else Ok(())
     return seed.bind(
@@ -374,12 +353,12 @@ def target_files(
     ).map(
         lambda rows: TargetFiles(
             targets=target_rows or (("changed", ""),) if changed else target_rows,
-            files=_norm(tuple(path for paths in rows for path in paths if not _unsupported_target(path, active))),
+            files=_norm(tuple(path for paths in rows for path in paths if not _unsupported_target(path, settings))),
             rejected=tuple(
                 (kind, path, reason)
                 for kind, paths in (("changed" if changed else "folder", (*rows[0], *rows[1])), ("file", rows[2]))
                 for path in paths
-                for reason in (_unsupported_target(path, active),)
+                for reason in (_unsupported_target(path, settings),)
                 if reason
             ),
             changed=changed,

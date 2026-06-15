@@ -41,7 +41,8 @@ internal static class AlignGens {
             from iterations in Key.AcceptValidated<Dimension>(candidate: maxIterations)
             from convergence in Key.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
             from robust in Key.AcceptValidated<PositiveMagnitude>(candidate: 0.1)
-            select new AlignmentPolicy(MaxIterations: iterations, ConvergenceTolerance: convergence, RobustScale: robust),
+            from ridge in Key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-9)
+            select new AlignmentPolicy(MaxIterations: iterations, ConvergenceTolerance: convergence, RobustScale: robust, CovarianceRidge: ridge),
             label: "alignment policy");
 }
 

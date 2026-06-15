@@ -28,8 +28,8 @@ from pydantic import ValidationError
 import structlog
 
 from tools.assay.composition.catalog import select, TOOLS
-from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.aspect import _RING, checked_call, compose, Layer, logged, Slot, traced  # noqa: PLC2701
+from tools.assay.composition.settings import ArtifactScope, AssaySettings, prune_python_artifacts
+from tools.assay.core.aspect import _CHECKED_LAYER, _RING, compose, Layer, logged, traced  # noqa: PLC2701
 from tools.assay.core.engine import _measure, _RESOURCE, fan_out  # noqa: PLC2701
 from tools.assay.core.model import (
     _HINT_CAP,  # noqa: PLC2701  # private symbol; canonical hint-cap clip site
@@ -38,6 +38,7 @@ from tools.assay.core.model import (
     ArtifactKind,
     BaseParams,
     Bind,
+    BridgeLifecycle,
     Check,
     Claim,
     Completed,
@@ -59,6 +60,7 @@ from tools.assay.core.model import (
     StaticRun,
     Tool,
     validate_detail,
+    VerifySummary,
     wire_encode,
     wire_safe,
 )
@@ -162,10 +164,6 @@ _LOG: Final = structlog.get_logger("assay.registry")
 
 def _identity_hom(*_a: object, **_k: object) -> Result[Report, Fault]:
     return Ok(fold(Claim.STATIC, "self-test", ()))
-
-
-def _checked_report(fn: Handler[object]) -> Handler[object]:
-    return checked_call(fn)
 
 
 def _correlate(settings: AssaySettings, _scope: ArtifactScope, params: object) -> Mapping[str, object]:
@@ -430,6 +428,8 @@ def _persist(settings: AssaySettings, envelope: Envelope) -> None:
         store.retain_builds(settings.build_scope_retention)
     except OSError as exc:
         _LOG.warning("history.persist_failed", run_id=settings.run_id, error=str(exc)[:200])
+    # Heavy-lane benchmark autosaves live outside the assay store boundary; bound them by the same retention setting.
+    prune_python_artifacts(Path(str(settings.root)), settings.artifact_retention)
 
 
 def _emit_envelope(settings: AssaySettings, envelope: Envelope, *, persist: bool) -> Envelope:
@@ -444,19 +444,36 @@ def _prior(run_ids: tuple[str, ...], run_id: str) -> str:
     return earlier[-1] if earlier else ""
 
 
-def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:
+_DRIFT_KEYS: Final[tuple[str, ...]] = ("rhinoVersion", "mcp.platform.version", "mcp.listener", "rpc.streamjsonrpc")
+
+
+def _host_facts(report: Report | None) -> dict[str, str]:
+    # Cross-session host fingerprint: bridge lifecycle host/capability rows or verify facts; absent for non-bridge runs.
+    match report.detail if report is not None else None:
+        case BridgeLifecycle(host=host, capabilities=caps):
+            return {**dict(host), **{key: f"{outcome}: {receipt}" for key, outcome, receipt in caps}}
+        case VerifySummary(facts=facts):
+            return dict(facts)
+        case _:
+            return {}
+
+
+def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:  # noqa: PLR0914  # delta + host-drift projection over both endpoints
     # Compares by status, counts, and `(id, line)` result keys; a missing side folds to EMPTY.
-    def snapshot(run_id: str, env: Envelope) -> tuple[RunSnapshot, frozenset[tuple[str, int]]]:
+    def snapshot(run_id: str, env: Envelope) -> tuple[RunSnapshot, frozenset[tuple[str, int]], dict[str, str]]:
         report = env.report
         counts = report.counts if report is not None else Counts()
         keys = frozenset((m.id, m.line) for m in (report.results if report is not None else ()))
-        return RunSnapshot(id=run_id, status=env.status, counts=counts), keys
+        return RunSnapshot(id=run_id, status=env.status, counts=counts), keys, _host_facts(report)
 
     match (before, after):
         case (Envelope() as b, Envelope() as a):
-            (before_snap, before_keys), (after_snap, after_keys) = snapshot(before_id, b), snapshot(after_id, a)
-            detail = RunDelta(before=before_snap, after=after_snap, added=len(after_keys - before_keys), removed=len(before_keys - after_keys))
-            # No note: RunDelta already owns status, counts, added, and removed.
+            (before_snap, before_keys, bf), (after_snap, after_keys, af) = snapshot(before_id, b), snapshot(after_id, a)
+            drift = tuple((k, bf.get(k, ""), af.get(k, "")) for k in _DRIFT_KEYS if bf.get(k, "") != af.get(k, ""))
+            detail = RunDelta(
+                before=before_snap, after=after_snap, added=len(after_keys - before_keys), removed=len(before_keys - after_keys), drift=drift
+            )
+            # No note: RunDelta already owns status, counts, added, removed, and cross-session host-fact drift.
             return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.OK),), detail=detail)
         case _:
             missing = after_id if after is None else before_id
@@ -762,8 +779,10 @@ def self_test(*, rhino: bool = False) -> Envelope:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 # compose sorts layers by Slot; rails apply checked/logged/traced without spawn retry.
+# PEP 696: the aspect-owned checked layer's free vars do not unify with ReportLayer; same seam as engine._spawn's compose.
+_CHECKED: ReportLayer = _CHECKED_LAYER  # ty: ignore[invalid-assignment]
 _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (
-    (Slot.checked, _checked_report),
+    _CHECKED,
     logged(event="rail", keys=_correlate),
     traced(span="assay.rail", attrs=_correlate),
 )

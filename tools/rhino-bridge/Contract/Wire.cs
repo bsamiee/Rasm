@@ -143,6 +143,16 @@ public abstract partial record BridgeEvent {
     public sealed record HostExceptionCase(string Report) : BridgeEvent;
 }
 
+// Ownership: the single ~/.rasm home for bridge endpoint, lease, and quit-journal state. Every bridge path under the
+// home resolves through this owner; no other site in Contract or Supervisor reconstructs the home directory. The
+// dependency-zero Stub mirrors only the home name locally because it loads before the shell ALC exists.
+public static class RasmHome {
+    public static string Directory =>
+        Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm");
+
+    public static string Resolve(string name) => Path.Combine(path1: Directory, path2: name);
+}
+
 // Ownership: endpoint admission. Validation owns pipe shape, IsLiveFor owns liveness, and `rbx-`
 // remains the distinct pipe family so stale or foreign endpoints reject typed.
 [ComplexValueObject(DefaultStringComparison = StringComparison.Ordinal)]
@@ -150,9 +160,8 @@ public abstract partial record BridgeEvent {
 public sealed partial class EndpointRecord {
     public const string EndpointFileName = "rhino-bridge-rbx.json";
     public const string PipePrefix = "rbx-";
-    public static string EndpointDirectory =>
-        Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm");
-    public static string EndpointPath => Path.Combine(path1: EndpointDirectory, path2: EndpointFileName);
+    public static string EndpointDirectory => RasmHome.Directory;
+    public static string EndpointPath => RasmHome.Resolve(name: EndpointFileName);
 
     public string PipeName { get; }
     public int RhinoPid { get; }

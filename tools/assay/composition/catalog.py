@@ -6,12 +6,13 @@ constants parse ast-grep, tree-sitter, and ripgrep output into stable wire model
 
 import msgspec
 
+from tools.assay.composition.settings import PY_ARTIFACT_ROOTS, PY_COVERAGE_FILES
 from tools.assay.core.model import Claim, Input, Language, Mode, Runner, Stage, Tool, ToolGroup
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-BENCHMARK_STORAGE_URI = "file://.artifacts/python/benchmarks"
+BENCHMARK_STORAGE_URI = f"file://{PY_ARTIFACT_ROOTS['benchmarks']}"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -89,8 +90,8 @@ TOOLS: tuple[Tool, ...] = (
     Tool("ruff", UV, ("ruff", "check", "--fix"), FILES, PY, Claim.STATIC, mode=Mode.WRITE),
     Tool("ruff-format", UV, ("ruff", "format", "--check"), FILES, PY, Claim.STATIC),
     Tool("ruff-format", UV, ("ruff", "format"), FILES, PY, Claim.STATIC, mode=Mode.WRITE),
-    Tool("ty", UV, ("ty", "check", "--no-progress"), FILES, PY, Claim.STATIC),
-    Tool("mypy", UV, ("mypy", "--no-error-summary", "--hide-error-context", "--no-pretty"), FILES, PY, Claim.STATIC),
+    Tool("ty", UV, ("ty", "check", "--no-progress"), OWNED, PY, Claim.STATIC),
+    Tool("mypy", UV, ("mypy", "--no-error-summary", "--hide-error-context", "--no-pretty"), OWNED, PY, Claim.STATIC),
     Tool("ast-grep-py", PNPM, ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^no-", "--error"), FILES, PY, Claim.STATIC),
     Tool(
         "ast-grep-py",
@@ -127,7 +128,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "coverage-json",
         UV,
-        ("coverage", "json", "-o", ".artifacts/python/coverage/coverage.json"),
+        ("coverage", "json", "-o", PY_COVERAGE_FILES["json"]),
         NONE,
         PY,
         Claim.TEST,
@@ -137,7 +138,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "coverage-xml",
         UV,
-        ("coverage", "xml", "-o", ".artifacts/python/coverage/coverage.xml"),
+        ("coverage", "xml", "-o", PY_COVERAGE_FILES["xml"]),
         NONE,
         PY,
         Claim.TEST,
@@ -147,7 +148,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "coverage-lcov",
         UV,
-        ("coverage", "lcov", "-o", ".artifacts/python/coverage/coverage.lcov"),
+        ("coverage", "lcov", "-o", PY_COVERAGE_FILES["lcov"]),
         NONE,
         PY,
         Claim.TEST,
@@ -165,7 +166,7 @@ TOOLS: tuple[Tool, ...] = (
         groups=(ToolGroup.MUTATION,),
         timeout=3600.0,
         stage=Stage(
-            root=".artifacts/python/mutmut/work",
+            root=PY_ARTIFACT_ROOTS["mutmut"],
             inputs=("pyproject.toml", ".gitignore", ".config/coverage-mutmut.ini", "tools/assay", "tests/python"),
             project=True,
         ),

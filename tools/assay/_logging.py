@@ -10,7 +10,7 @@ streams; stdout stays reserved for the Envelope wire.
 import logging
 import sys
 import threading
-from typing import Final, override
+from typing import assert_never, Final, override
 
 import msgspec
 from pydantic import ValidationError
@@ -28,13 +28,7 @@ from tools.assay.core.aspect import ring_processor
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_LEVELS: Final[dict[str, int]] = {
-    "debug": logging.DEBUG,
-    "info": logging.INFO,
-    "warning": logging.WARNING,
-    "error": logging.ERROR,
-    "critical": logging.CRITICAL,
-}
+_LEVELS: Final[dict[str, int]] = logging.getLevelNamesMapping()
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -90,8 +84,10 @@ def _renderer(fmt: LogFormat) -> Processor:
     match fmt:
         case LogFormat.CI:
             return JSONRenderer(serializer=lambda v, **_k: _LOG_ENCODER.encode(v).decode())
-        case _:
+        case LogFormat.HUMAN:
             return ConsoleRenderer(colors=True)
+        case never:
+            assert_never(never)
 
 
 def configure_logging(log_format: LogFormat | None = None) -> None:
@@ -111,7 +107,7 @@ def configure_logging(log_format: LogFormat | None = None) -> None:
         fmt = log_format if log_format is not None else settings.log_format
         chain = _chain()
         renderer = _renderer(fmt)
-        level = _LEVELS[settings.log_level]
+        level = _LEVELS[settings.log_level.upper()]
         structlog.configure(
             processors=[*chain, renderer],
             wrapper_class=make_filtering_bound_logger(level),

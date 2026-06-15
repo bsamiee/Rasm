@@ -5,7 +5,7 @@ unknown-field rejection at the wire boundary.
 """
 
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, assert_never
 
 from msgspec import json, Meta, Raw
 
@@ -20,6 +20,13 @@ class WatchFilter(StrEnum):
 
     DEFAULT = "default"
     PYTHON = "python"
+
+
+class Edge(StrEnum):
+    """Debounce firing edge: leading fires the first event then drains; trailing fires the last after quiescence."""
+
+    LEADING = "leading"
+    TRAILING = "trailing"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -87,13 +94,13 @@ class Sequence(Base, frozen=True, tag_field="kind", tag="sequence", forbid_unkno
 class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unknown_fields=True):
     """Action wrapper that coalesces trigger storms within a quiescence window.
 
-    collapse keeps only the trailing event in the window; window_ms is the quiescence
-    duration in milliseconds.
+    edge selects which event in the window fires (trailing keeps only the last); window_ms is
+    the quiescence duration in milliseconds.
     """
 
     action: "Action"  # noqa: UP037  # forward ref; Action alias defined after Debounce
     window_ms: int = 500
-    collapse: bool = True
+    edge: Edge = Edge.TRAILING
 
 
 type Trigger = Watch | Schedule | Manual
@@ -103,12 +110,13 @@ type Action = Rail | Program | Sequence | Debounce
 
 TRIGGER_DECODER: json.Decoder[Trigger] = json.Decoder(Trigger)  # msgspec resolves union members eagerly at Decoder.__init__
 ACTION_DECODER: json.Decoder[Action] = json.Decoder(Action)
+_NODE_DECODER: json.Decoder[Trigger | Action] = json.Decoder(Trigger | Action)  # disjoint tags discriminate the combined union
 _ENCODE = json.Encoder(order="deterministic")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912
+def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912, PLR0914
     """Render a compact label for automation telemetry.
 
     Returns:
@@ -130,6 +138,8 @@ def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912
             return "seq[" + " > ".join(describe(a) for a in acts) + "]"
         case Debounce(action=inner, window_ms=w):
             return f"debounce[{describe(inner)} @ {w}ms]"
+        case never:
+            assert_never(never)
 
 
 def encode(node: Trigger | Action) -> bytes:
@@ -141,17 +151,16 @@ def encode(node: Trigger | Action) -> bytes:
     return _ENCODE.encode(node)
 
 
-def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
-    """Decode JSON bytes through the selected closed union.
+def decode(blob: bytes) -> Trigger | Action:
+    """Decode JSON bytes through the combined closed union, discriminating by the wire ``kind`` tag.
 
     Args:
         blob: Raw wire bytes.
-        trigger: Selects the trigger union when True and the action union when False.
 
     Returns:
-        Decoded Trigger or Action instance.
+        Decoded Trigger or Action instance selected by the encoded tag.
     """
-    return TRIGGER_DECODER.decode(blob) if trigger else ACTION_DECODER.decode(blob)
+    return _NODE_DECODER.decode(blob)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -160,6 +169,7 @@ __all__ = [
     "ACTION_DECODER",
     "Action",
     "Debounce",
+    "Edge",
     "Manual",
     "Program",
     "Rail",

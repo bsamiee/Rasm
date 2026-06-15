@@ -33,6 +33,7 @@ from tools.assay.core.engine import _RESOURCE  # ContextVar set/reset directly f
 from tools.assay.core.model import (
     _RESULT_CAP,  # private cap used to construct overflow tuple in test_ok_envelope_truncation_persists_full_report
     ArtifactKind,
+    BridgeLifecycle,
     Claim,
     Completed,
     Counts,
@@ -838,6 +839,30 @@ def test_delta_missing_after_and_symmetric_difference() -> None:
     diff = _delta_report("run-x", "run-y", before_env, after_env)
     assert isinstance(diff.detail, RunDelta)
     assert (diff.detail.added, diff.detail.removed) == (1, 0)
+
+
+def test_delta_host_drift_from_bridge_facts() -> None:
+    """_delta_report projects changed cross-session host facts into RunDelta.drift; non-bridge deltas stay empty.
+
+    Mutants caught: dropping the drift field, comparing unchanged facts, or reading drift from non-bridge details.
+    """
+    from tools.assay.composition.registry import _delta_report  # noqa: PLC0415
+
+    def bridge_env(version: str) -> Envelope:
+        detail = BridgeLifecycle(verb="doctor", host=(("rhinoVersion", "9.0"),), capabilities=(("mcp.platform.version", "Ok", version),))
+        return envelope(Report(Claim.BRIDGE, "doctor", detail=detail), claim=Claim.BRIDGE, verb="doctor")
+
+    drifted = _delta_report("b", "a", bridge_env("1.0.4"), bridge_env("1.0.5"))
+    assert isinstance(drifted.detail, RunDelta)
+    assert drifted.detail.drift == (("mcp.platform.version", "Ok: 1.0.4", "Ok: 1.0.5"),)
+
+    same = _delta_report("b", "a", bridge_env("1.0.5"), bridge_env("1.0.5"))
+    assert isinstance(same.detail, RunDelta)
+    assert same.detail.drift == ()
+
+    non_bridge = _delta_report("b", "a", make_history_envelope("b"), make_history_envelope("a"))
+    assert isinstance(non_bridge.detail, RunDelta)
+    assert non_bridge.detail.drift == ()
 
 
 def test_delta_end_to_end_projection_identity(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

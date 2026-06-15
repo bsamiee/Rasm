@@ -184,7 +184,7 @@ def test_run_envelope_names_host_routed(monkeypatch: pytest.MonkeyPatch, assay_r
         language=Language.CSHARP, scope=Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"), host_bound=("src/App/App.csproj",)
     )
     _wire(monkeypatch, _ok(("dotnet", "test")), routed=routed, seam="_dispatch_all")
-    report = assert_ok(test_rail.run(assay_root.settings, assay_root.scope(Claim.TEST), TestParams(csharp=True)))
+    report = assert_ok(test_rail.run(assay_root.settings, assay_root.scope(Claim.TEST), TestParams(language=Language.CSHARP)))
     assert "closure[csharp]: included=1 excluded=0 cached=0 host-routed=1" in report.notes
     assert "host-routed[csharp]: src/App/App.csproj" in report.notes
 
@@ -658,7 +658,7 @@ def test_run_mutation_gap_note_emitted(assay_root: AssayHarness, monkeypatch: py
     """Run emits a mutation gap note when the language has no eligible runner."""
     routed = Routed(language=Language.TYPESCRIPT, scope=Scope.CHANGED)
     _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
-    params = TestParams(mutation=MutationLane.FULL, typescript=True)
+    params = TestParams(mutation=MutationLane.FULL, language=Language.TYPESCRIPT)
     report = assert_ok(test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), params))
     assert any("mutation" in n for n in report.notes)
 
@@ -731,7 +731,7 @@ def test_thin_rail_gap_note_emitted_in_report_notes(assay_root: AssayHarness, mo
     routed = Routed(language=Language.TYPESCRIPT, scope=Scope.CHANGED, files=())
     _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    params = TestParams(mutation=MutationLane.FULL, typescript=True)
+    params = TestParams(mutation=MutationLane.FULL, language=Language.TYPESCRIPT)
     report = assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
     assert any("mutation" in n for n in report.notes)
 
@@ -751,7 +751,7 @@ def test_thin_rail_mutation_eligible_calls_leased(assay_root: AssayHarness, monk
 
     monkeypatch.setattr(test_rail, "leased", _record_lease)
 
-    params = TestParams(mutation=MutationLane.FULL, python=True)
+    params = TestParams(mutation=MutationLane.FULL, language=Language.PYTHON)
     assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
     assert leased_calls == ["mutation-python"]
 
@@ -782,7 +782,7 @@ def test_thin_rail_per_language_mutation_leases_do_not_contend(assay_root: Assay
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
     _wire(monkeypatch, ok, routed=routed, seam="_dispatch_all")
-    params = TestParams(mutation=MutationLane.FULL, python=True)
+    params = TestParams(mutation=MutationLane.FULL, language=Language.PYTHON)
     with exclusive_lease("mutation-csharp", "holder", settings=assay_root.settings) as held:
         assert_ok(held)
         assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
@@ -796,7 +796,7 @@ def test_thin_rail_no_mutation_calls_work_directly(assay_root: AssayHarness, mon
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    params = TestParams(mutation=MutationLane.OFF, python=True)
+    params = TestParams(mutation=MutationLane.OFF, language=Language.PYTHON)
     report = assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
     assert report.status in {RailStatus.OK, RailStatus.EMPTY}
 

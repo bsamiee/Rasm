@@ -124,7 +124,6 @@ _ARTIFACTS: Final[str] = ".artifacts"
 _ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
 _ASSAY: Final[str] = "assay"
 _BUILD: Final[str] = "build"
-_DISABLE_BUILD_SERVERS: Final[str] = "--disable-build-servers"
 _MARKER: Final[str] = "Workspace.slnx"
 _RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
 # Literal remote-shell tilde: the agent cannot resolve a remote ~, so the push target and derived sftp backend root expand host-side.
@@ -165,6 +164,15 @@ _PYTHON_TOOL_ENV_REL: Final[dict[str, str]] = {
     "MYPY_CACHE_DIR": ".cache/mypy",
     "COVERAGE_FILE": ".cache/coverage/.coverage",
 }
+# Single owner of every Python heavy-lane artifact-output root; catalog rows, the test rail, and runtime envs route here
+# instead of re-spelling the literal. Of the three, only benchmark autosaves accumulate; coverage files and the mutmut
+# work tree self-overwrite per run.
+PY_ARTIFACT_ROOTS: Final[dict[str, str]] = {
+    "coverage": f"{_ARTIFACTS}/python/coverage",
+    "benchmarks": f"{_ARTIFACTS}/python/benchmarks",
+    "mutmut": f"{_ARTIFACTS}/python/mutmut/work",
+}
+PY_COVERAGE_FILES: Final[dict[str, str]] = {fmt: f"{PY_ARTIFACT_ROOTS['coverage']}/coverage.{fmt}" for fmt in ("json", "xml", "lcov")}
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
@@ -441,6 +449,8 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
     stream_tail_bytes: Annotated[int, Field(ge=512)] = 4096
     stream_chunk_bytes: Annotated[int, Field(ge=4096)] = 65536
     lease_drift_tolerance: Annotated[float, Field(gt=0)] = 1.0
+    # Machine-wide dotnet admission-slot lock root: per-user, machine-stable, local-fs (flock-hostable), aligned with the bridge ~/.rasm home.
+    machine_lock_root: Path = Field(default_factory=lambda: Path.home() / ".rasm" / "locks")
     artifact_retention: Annotated[int, Field(ge=1, le=10000)] = 50
     build_scope_retention: Annotated[int, Field(ge=1, le=1000)] = 24
     artifact_backend: ArtifactBackend = Field(default_factory=ArtifactBackend)
@@ -979,10 +989,9 @@ class ArtifactScope:
     store: ArtifactStore
     path: str
     dotnet_flags: tuple[str, ...]
-    disable_build_servers: bool = True
 
     @classmethod
-    def open(cls, settings: AssaySettings, claim: Claim, *, disable_build_servers: bool = True) -> ArtifactScope:
+    def open(cls, settings: AssaySettings, claim: Claim) -> ArtifactScope:
         """Open a per-run artifact scope for a claim.
 
         Returns:
@@ -991,13 +1000,10 @@ class ArtifactScope:
         store = settings.store()
         # Lazy open avoids empty run directories when neither rails nor dotnet write into the scope.
         path = store.path(claim.value, settings.run_id)
-        flags = (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS) if disable_build_servers else (_ARTIFACTS_PATH_FLAG, path)
-        return cls(store, path, flags, disable_build_servers)
+        return cls(store, path, (_ARTIFACTS_PATH_FLAG, path))
 
     @classmethod
-    def build(
-        cls, settings: AssaySettings, closure: str, configuration: Configuration | str | None = None, *, disable_build_servers: bool = True
-    ) -> ArtifactScope:
+    def build(cls, settings: AssaySettings, closure: str, configuration: Configuration | str | None = None) -> ArtifactScope:
         """Open a stable build-closure artifact scope.
 
         Returns:
@@ -1006,8 +1012,7 @@ class ArtifactScope:
         store = settings.store()
         config = configuration.value if isinstance(configuration, Configuration) else configuration or settings.configuration.value
         path = store.ensure(_BUILD, closure, config)
-        flags = (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS) if disable_build_servers else (_ARTIFACTS_PATH_FLAG, path)
-        return cls(store, path, flags, disable_build_servers)
+        return cls(store, path, (_ARTIFACTS_PATH_FLAG, path))
 
     def ensure(self) -> str:
         """Materialize this scope's directory through the store boundary.
@@ -1019,9 +1024,12 @@ class ArtifactScope:
 
     @property
     def dotnet_env(self) -> dict[str, str]:
-        """Build .NET command environment isolation variables."""
-        env = {"DOTNET_CLI_HOME": f"{self.path}/dotnet-cli"}
-        return {**env, "MSBUILDDISABLENODEREUSE": "1"} if self.disable_build_servers else env
+        """Build .NET command environment isolation variables.
+
+        VBCSCompiler shared compilation stays on; the per-closure ``--artifacts-path`` is the isolation boundary because
+        the build-server pipe identity is per-user and per-SDK, so concurrent closures share servers without cross-talk.
+        """
+        return {"DOTNET_CLI_HOME": f"{self.path}/dotnet-cli"}
 
     @property
     def sarif_dir(self) -> str:
@@ -1030,6 +1038,30 @@ class ArtifactScope:
         Materialized eagerly because Roslyn `/errorlog` does not create parent directories.
         """
         return self.store.ensure_path(f"{self.path}/sarif")
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def prune_python_artifacts(root: Path, keep: int) -> None:
+    """Bound Python heavy-lane artifact accumulation under the repo root, keeping the newest ``keep`` benchmark autosaves.
+
+    Only the benchmark autosave tree accumulates across runs; the coverage files and the mutmut work tree self-overwrite,
+    so the bound applies solely to ``PY_ARTIFACT_ROOTS['benchmarks']``.
+
+    Args:
+        root: Local repository root that anchors the relative heavy-lane roots.
+        keep: Maximum number of benchmark autosave files to retain, oldest pruned first.
+    """
+    benchmarks = root / PY_ARTIFACT_ROOTS["benchmarks"]
+    if not benchmarks.is_dir():
+        return
+    files = sorted((p for p in benchmarks.rglob("*") if p.is_file()), key=lambda p: p.stat().st_mtime)
+    for stale in files[: max(0, len(files) - keep)]:
+        try:
+            stale.unlink()
+        except OSError:
+            _ = stale.exists()  # best-effort prune; a vanished autosave is already gone
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -1043,9 +1075,12 @@ __all__ = [
     "Local",
     "LogFormat",
     "Offload",
+    "PY_ARTIFACT_ROOTS",
+    "PY_COVERAGE_FILES",
     "PullStrategy",
     "Ssh",
     "backend_capability",
     "mtime_from_info",
+    "prune_python_artifacts",
     "size_from_info",
 ]

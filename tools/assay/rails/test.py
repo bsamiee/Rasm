@@ -7,7 +7,7 @@ from typing import Annotated, override, TYPE_CHECKING
 
 from cyclopts import Parameter
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # cyclopts resolves Param-annotated dataclass fields at runtime
-from expression import Error, Ok, Result  # beartype @checked resolves the handler forward-ref (PEP 649)
+from expression import Ok, Result  # noqa: TC002  # beartype @checked resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
@@ -18,6 +18,8 @@ from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolv
     ArtifactScope,
     ArtifactStore,
     AssaySettings,
+    PY_ARTIFACT_ROOTS,
+    PY_COVERAGE_FILES,
 )
 from tools.assay.core.engine import fan_out, leased
 from tools.assay.core.model import (
@@ -58,11 +60,11 @@ if TYPE_CHECKING:
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner)"
-_COVERAGE_JSON: str = ".artifacts/python/coverage/coverage.json"
+_COVERAGE_JSON: str = PY_COVERAGE_FILES["json"]
 _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("coverage.json", ("uv", "run", "coverage", "json", "-o", ".artifacts/python/coverage/coverage.json")),
-    ("coverage.xml", ("uv", "run", "coverage", "xml", "-o", ".artifacts/python/coverage/coverage.xml")),
-    ("coverage.lcov", ("uv", "run", "coverage", "lcov", "-o", ".artifacts/python/coverage/coverage.lcov")),
+    ("coverage.json", ("uv", "run", "coverage", "json", "-o", PY_COVERAGE_FILES["json"])),
+    ("coverage.xml", ("uv", "run", "coverage", "xml", "-o", PY_COVERAGE_FILES["xml"])),
+    ("coverage.lcov", ("uv", "run", "coverage", "lcov", "-o", PY_COVERAGE_FILES["lcov"])),
 )
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -103,6 +105,7 @@ class TestParams(BaseParams):
     typescript: Annotated[
         bool, Parameter(name="--typescript", negative="", show_default=False, help="Restrict the command to TypeScript targets.")
     ] = False
+    language: Annotated[Language | None, Parameter(parse=False)] = None
     target: Path | None = None
     all: bool = False
     mutation: MutationLane = MutationLane.OFF
@@ -122,8 +125,12 @@ class TestParams(BaseParams):
         match language_choice(verb, csharp=self.csharp, python=self.python, typescript=self.typescript):
             case Fault() as fault:
                 return fault
-            case _:
-                return super().bound(verb)
+            case language:
+                match super().bound(verb):
+                    case Fault() as fault:
+                        return fault
+                    case bound:
+                        return replace(bound, language=language)
 
 
 class _CoverageTotals(msgspec.Struct, frozen=True, gc=False):
@@ -291,9 +298,7 @@ def _test_detail(done: Completed) -> TestRun:
 
 def _detail(done: tuple[Completed, ...], params: TestParams, root: Path) -> AnyDetail | None:
     # Mutation evidence is stdout-derived; use the first decoded receipt carrying a real mutation lane.
-    mutation = next(
-        (d for c in done if (d := _test_detail(c)) is not None and isinstance(d, TestRun) and d.mutation is not MutationLane.OFF), TestRun()
-    )
+    mutation = next((d for c in done if (d := _test_detail(c)).mutation is not MutationLane.OFF), TestRun())
     coverage = coverage_percent(root)
     match (params.mutation, params.coverage, coverage):
         case (MutationLane.OFF, False, _):
@@ -331,7 +336,7 @@ def _adopt_coverage(store: ArtifactStore, run_id: str, path: Path) -> Artifact:
 
 
 def _coverage_artifacts(settings: AssaySettings, scope: ArtifactScope, done: tuple[Completed, ...]) -> tuple[Artifact, ...]:
-    root = Path(str(settings.root)) / ".artifacts/python/coverage"
+    root = Path(str(settings.root)) / PY_ARTIFACT_ROOTS["coverage"]
     produced = frozenset(name for name, head in _COVERAGE_OUTPUTS if any(c.argv[: len(head)] == head and c.returncode == 0 for c in done))
     paths = tuple(p for name in produced for p in (root / name,) if p.is_file())
     return tuple(_adopt_coverage(scope.store, settings.run_id, path) for path in paths)
@@ -385,54 +390,55 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
     Returns:
         Folded test report, or routing/spawn/lease fault.
     """
-    choice = language_choice(verb, csharp=params.csharp, python=params.python, typescript=params.typescript)
-    language_result = resolve_languages(choice, params.paths, claim=claim)
-    match language_result:
-        case Result(tag="error", error=fault):
-            return Error(fault)
-        case Result(tag="ok", ok=languages):
-            pass
-        case unreachable:
-            return Error(Fault(("test", verb), status=RailStatus.FAULTED, message=f"language selection unresolved: {unreachable!r}"))
-    eligible = tuple(t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation is not MutationLane.OFF else mode))
-    gap = _mutation_gap(params, eligible)
-    match gap:
-        case True:
-            _LOG.warning(_GAP_NOTE, claim=claim.value, verb=verb, language=choice.value if isinstance(choice, Language) else "")
-        case False:
-            pass
-
-    def _work(_held: object = None) -> Result[Report, Fault]:
-        def _settle(done: Block[Completed], selected: tuple[Routed, ...]) -> Report:
-            outcomes = tuple(done)
-            base = fold(claim, verb, outcomes, detail=_detail(outcomes, params, Path(str(settings.root))), promote_empty=True)
-            return msgspec.structs.replace(
-                base,
-                artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, scope, outcomes)),
-                notes=(*base.notes, *(note for r in selected for note in r.closure_note()), *((_GAP_NOTE,) if gap else ())),
-            )
-
-        return (
-            _routed(languages, params.paths, settings)
-            .map(lambda routed: tuple(_select(r, params, settings) for r in routed))
-            .bind(
-                lambda selected: sequence(
-                    block.of_seq(row for r in selected for row in _dispatch_all(r, params, settings=settings, scope=scope, mode=mode))
-                ).map(lambda done: _settle(done, selected))
-            )
+    def _resolved(languages: tuple[Language, ...]) -> Result[Report, Fault]:
+        eligible = tuple(
+            t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation is not MutationLane.OFF else mode)
         )
+        gap = _mutation_gap(params, eligible)
+        match gap:
+            case True:
+                _LOG.warning(_GAP_NOTE, claim=claim.value, verb=verb, language=params.language.value if params.language is not None else "")
+            case False:
+                pass
 
-    # Sorted per-language mutation leases keep cross-agent contention deterministic and deadlock-free.
-    def _nested(resources: tuple[str, ...]) -> Result[Report, Fault]:
-        match resources:
-            case (head, *rest):
-                return leased(
-                    f"mutation-{head}", lambda _held: _nested(tuple(rest)), settings=settings, run_id=settings.run_id, project=head, mode="exclusive"
+        def _work(_held: object = None) -> Result[Report, Fault]:
+            def _settle(done: Block[Completed], selected: tuple[Routed, ...]) -> Report:
+                outcomes = tuple(done)
+                base = fold(claim, verb, outcomes, detail=_detail(outcomes, params, Path(str(settings.root))), promote_empty=True)
+                return msgspec.structs.replace(
+                    base,
+                    artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, scope, outcomes)),
+                    notes=(*base.notes, *(note for r in selected for note in r.closure_note()), *((_GAP_NOTE,) if gap else ())),
                 )
-            case _:
-                return _work()
 
-    return _nested(tuple(sorted({t.language.value for t in eligible if t.mode is Mode.MUTATION})))
+            return (
+                _routed(languages, params.paths, settings)
+                .map(lambda routed: tuple(_select(r, params, settings) for r in routed))
+                .bind(
+                    lambda selected: sequence(
+                        block.of_seq(row for r in selected for row in _dispatch_all(r, params, settings=settings, scope=scope, mode=mode))
+                    ).map(lambda done: _settle(done, selected))
+                )
+            )
+
+        # Sorted per-language mutation leases keep cross-agent contention deterministic and deadlock-free.
+        def _nested(resources: tuple[str, ...]) -> Result[Report, Fault]:
+            match resources:
+                case (head, *rest):
+                    return leased(
+                        f"mutation-{head}",
+                        lambda _held: _nested(tuple(rest)),
+                        settings=settings,
+                        run_id=settings.run_id,
+                        project=head,
+                        mode="exclusive",
+                    )
+                case _:
+                    return _work()
+
+        return _nested(tuple(sorted({t.language.value for t in eligible if t.mode is Mode.MUTATION})))
+
+    return resolve_languages(params.language, params.paths, claim=claim).bind(_resolved)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -455,16 +461,6 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
     Returns:
         Test roster report, or routing/spawn fault.
     """
-    language_result = resolve_languages(
-        language_choice("list", csharp=params.csharp, python=params.python, typescript=params.typescript), params.paths, claim=Claim.TEST
-    )
-    match language_result:
-        case Result(tag="error", error=fault):
-            return Error(fault)
-        case Result(tag="ok", ok=languages):
-            pass
-        case unreachable:
-            return Error(Fault(("test", "list"), status=RailStatus.FAULTED, message=f"language selection unresolved: {unreachable!r}"))
     needle = params.grep.strip().lower()
 
     def _settle(done: block.Block[Completed], selected: tuple[Routed, ...]) -> Report:
@@ -497,8 +493,8 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
             else msgspec.structs.replace(base, artifacts=artifacts, notes=notes, detail=detail)
         )
 
-    return (
-        _routed(languages, params.paths, settings)
+    return resolve_languages(params.language, params.paths, claim=Claim.TEST).bind(
+        lambda languages: _routed(languages, params.paths, settings)
         .map(lambda routed: tuple(_select(r, params, settings) for r in routed))
         .bind(
             lambda selected: sequence(

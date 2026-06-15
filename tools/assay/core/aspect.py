@@ -5,13 +5,14 @@ The event ring and trace correlation fields are context-local so fault envelopes
 
 from collections import deque
 from collections.abc import Callable, Mapping
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import IntEnum
 from functools import wraps
 import inspect
 from operator import itemgetter
-from typing import assert_never, Final, TYPE_CHECKING
+from typing import assert_never, Final, Protocol, TYPE_CHECKING
 
 from beartype import beartype, BeartypeConf, BeartypeStrategy, BeartypeViolationVerbosity
 from expression import Ok, Result
@@ -26,6 +27,8 @@ from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from expression.collections import Block
     from opentelemetry.trace import Span
     from structlog.typing import EventDict
@@ -35,7 +38,16 @@ if TYPE_CHECKING:
 
 type Attrs = Mapping[str, object]
 type Bind[**P] = Callable[P, Mapping[str, object]]
-type Hom[**P, T] = Callable[P, Result[T, Fault]]
+
+
+class HasStatus(Protocol):
+    """Rail carrier exposing the status that log and trace layers stamp."""
+
+    @property
+    def status(self) -> RailStatus: ...
+
+
+type Hom[**P, T: HasStatus] = Callable[P, Result[T, Fault]]
 
 
 class Slot(IntEnum):
@@ -46,7 +58,7 @@ class Slot(IntEnum):
     traced = 2
 
 
-type Layer[**P, T] = tuple[Slot, Callable[[Hom[P, T]], Hom[P, T]]]
+type Layer[**P, T: HasStatus] = tuple[Slot, Callable[[Hom[P, T]], Hom[P, T]]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -127,7 +139,7 @@ def _once[**P, T](dec: Callable[[Callable[P, T]], Callable[P, T]]) -> Callable[[
     return guard
 
 
-def checked_call[**P, T](fn: Hom[P, T], *, conf: BeartypeConf = _CONF) -> Hom[P, T]:
+def checked_call[**P, T: HasStatus](fn: Hom[P, T], *, conf: BeartypeConf = _CONF) -> Hom[P, T]:
     """Apply idempotent beartype validation to one rail function.
 
     Returns:
@@ -136,7 +148,7 @@ def checked_call[**P, T](fn: Hom[P, T], *, conf: BeartypeConf = _CONF) -> Hom[P,
     return _once(beartype(conf=conf))(fn)
 
 
-def assemble[**P, T](layers: Block[Layer[P, T]], fn: Hom[P, T]) -> Result[Hom[P, T], Inversion]:
+def assemble[**P, T: HasStatus](layers: Block[Layer[P, T]], fn: Hom[P, T]) -> Result[Hom[P, T], Inversion]:
     """Fold ordered layers onto a rail function.
 
     Returns:
@@ -151,7 +163,7 @@ def assemble[**P, T](layers: Block[Layer[P, T]], fn: Hom[P, T]) -> Result[Hom[P,
     ).map(itemgetter(2))
 
 
-def compose[**P, T](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Hom[P, T]]:
+def compose[**P, T: HasStatus](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Hom[P, T]]:
     """Build a decorator from a monotonic layer sequence.
 
     Returns:
@@ -171,7 +183,7 @@ def compose[**P, T](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Hom[P, T]]:
     return weave
 
 
-def checked[**P, T](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
+def checked[**P, T: HasStatus](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
     """Return a Layer tuple for the Slot.checked position."""
     return (Slot.checked, lambda fn: checked_call(fn, conf=conf))
 
@@ -179,7 +191,7 @@ def checked[**P, T](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
 _CHECKED_LAYER = checked()  # type: ignore[var-annotated]  # Layer[**P, T] PEP 696 vars cannot be inferred at module-level singleton instantiation
 
 
-def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
+def logged[**P, T: HasStatus](*, event: str, keys: Bind[P]) -> Layer[P, T]:
     """Return a logging layer for rail completion events.
 
     Faults at ``FAILED`` severity or above log at error level; lower-severity faults and successes log at info level.
@@ -196,7 +208,7 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
                     raise
                 match res:
                     case Result(tag="ok", ok=done):
-                        _LOG.info(f"{event}.finish", status=getattr(done, "status", RailStatus.OK))
+                        _LOG.info(f"{event}.finish", status=done.status)
                     case Result(error=f):
                         finish = f"{event}.finish"
                         match f.status.severity >= RailStatus.FAILED.severity:
@@ -215,10 +227,10 @@ def _correlate(projected: Attrs) -> dict[str, str]:
     return {key.removeprefix("assay.").replace(".", "_"): str(val) for key, val in projected.items() if val is not None and str(val)}
 
 
-def _stamp[T](s: Span, res: Result[T, Fault]) -> Result[T, Fault]:
+def _stamp[T: HasStatus](s: Span, res: Result[T, Fault]) -> Result[T, Fault]:
     match res:
         case Result(tag="ok", ok=done):
-            s.set_attribute("assay.status", str(getattr(done, "status", RailStatus.OK)))
+            s.set_attribute("assay.status", str(done.status))
             s.set_status(Status(StatusCode.OK))
         case Result(error=f):
             s.set_attributes({"assay.status": f.status.value, "assay.message": f.message[:_ATTR_CAP]})
@@ -230,15 +242,15 @@ def _stamp[T](s: Span, res: Result[T, Fault]) -> Result[T, Fault]:
     return res
 
 
-def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, Attrs] | None = None) -> Layer[P, T]:
+def traced[**P, T: HasStatus](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, Attrs] | None = None) -> Layer[P, T]:
     """Return a tracing layer that stamps spans, baggage, and log context.
 
     Async callables receive an async wrapper because ParamSpec cannot expose coroutine shape through ``Hom``.
     """
 
     def dec(fn: Hom[P, T]) -> Hom[P, T]:
-        @wraps(fn)
-        def woven(*a: P.args, **k: P.kwargs) -> Result[T, Fault]:
+        @contextmanager
+        def _scope(*a: P.args, **k: P.kwargs) -> Iterator[Span]:
             projected = {**attrs(*a, **k), **(agent(*a, **k) if agent is not None else {})}
             with bound_contextvars(**_correlate(projected)):
                 ctx = block.of_seq(tuple(get_contextvars().items())).fold(
@@ -248,25 +260,20 @@ def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, A
                 try:
                     with _TRACER.start_as_current_span(span) as s:
                         s.set_attributes({key: str(val) for key, val in projected.items()})
-                        return _stamp(s, fn(*a, **k))  # ty re-scopes nested _stamp[T] vs traced's T; mypy unifies them
+                        yield s
                 finally:
                     context.detach(token)
 
         @wraps(fn)
+        def woven(*a: P.args, **k: P.kwargs) -> Result[T, Fault]:
+            with _scope(*a, **k) as s:
+                return _stamp(s, fn(*a, **k))
+
+        @wraps(fn)
         async def awoven(*a: P.args, **k: P.kwargs) -> Result[T, Fault]:
-            projected = {**attrs(*a, **k), **(agent(*a, **k) if agent is not None else {})}
-            with bound_contextvars(**_correlate(projected)):
-                ctx = block.of_seq(tuple(get_contextvars().items())).fold(
-                    lambda c, kv: baggage.set_baggage(kv[0], kv[1], context=c), context.get_current()
-                )
-                token = context.attach(ctx)
-                try:
-                    with _TRACER.start_as_current_span(span) as s:
-                        s.set_attributes({key: str(val) for key, val in projected.items()})
-                        # iscoroutinefunction narrows runtime shape; ParamSpec remains opaque to both checkers.
-                        return _stamp(s, await fn(*a, **k))  # type: ignore[misc]  # ty: ignore[invalid-await]
-                finally:
-                    context.detach(token)
+            with _scope(*a, **k) as s:
+                # iscoroutinefunction narrows runtime shape; ParamSpec remains opaque to both checkers.
+                return _stamp(s, await fn(*a, **k))  # type: ignore[misc]  # ty: ignore[invalid-await]
 
         # Runtime coroutine dispatch is precise; strict ParamSpec cannot unify the wrapper union.
         return awoven if inspect.iscoroutinefunction(fn) else woven  # type: ignore[return-value]  # ty: ignore[invalid-return-type]

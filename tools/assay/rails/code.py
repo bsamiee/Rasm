@@ -71,6 +71,7 @@ class CodeParams(BaseParams):
     typescript: Annotated[
         bool, Parameter(name="--typescript", negative="", show_default=False, help="Restrict the command to TypeScript targets.")
     ] = False
+    language: Annotated[Language | None, Parameter(parse=False)] = None
     pattern: Annotated[
         str, Parameter(allow_leading_hyphen=True, help="Pattern; the leading positional fills this slot when the flag is omitted.")
     ] = ""
@@ -89,13 +90,13 @@ class CodeParams(BaseParams):
         match language_choice(verb, csharp=self.csharp, python=self.python, typescript=self.typescript):
             case Fault() as fault:
                 return fault
-            case _:
-                pass
-        match (verb, self.pattern, self.paths):
+            case language:
+                base = replace(self, language=language)
+        match (verb, base.pattern, base.paths):
             case (("search" | "query"), "", (pattern, *rest)):
-                projected = replace(self, pattern=pattern, paths=tuple(rest))
+                projected = replace(base, pattern=pattern, paths=tuple(rest))
             case _:
-                projected = self
+                projected = base
         match (verb, projected.pattern.strip()):
             case (("search" | "query"), ""):
                 return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: pattern required")
@@ -149,12 +150,10 @@ def _dispatch(
 
 
 def _fan(
-    settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, verb: str, mode: Mode, splice: Callable[[Tool, Routed], Tool]
+    settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Tool]
 ) -> Result[tuple[Completed, ...], Fault]:
     # Routing, spawn, and timeout Faults short-circuit; non-zero tool exits stay on Completed.
-    return resolve_languages(
-        language_choice(verb, csharp=params.csharp, python=params.python, typescript=params.typescript), params.paths, claim=Claim.CODE
-    ).bind(
+    return resolve_languages(params.language, params.paths, claim=Claim.CODE).bind(
         lambda languages: _routed(languages, params.paths, settings).bind(
             lambda routed: sequence(
                 routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice)))
@@ -443,8 +442,7 @@ def _project_rows[M](
 
 def _content_splice(tool: Tool, params: CodeParams, root: Path) -> Tool:
     # --glob narrows to language suffixes; missing paths drop to the default target, matching _targets behavior in ast-grep splices.
-    selected = language_choice("search", csharp=params.csharp, python=params.python, typescript=params.typescript)
-    globs = tuple(arg for suffix in (selected.suffixes if isinstance(selected, Language) else ()) for arg in ("--glob", f"*{suffix}"))
+    globs = tuple(arg for suffix in (params.language.suffixes if params.language is not None else ()) for arg in ("--glob", f"*{suffix}"))
     return msgspec.structs.replace(tool, command=(*tool.command, *globs, "-e", params.pattern, "--", *_targets(params.paths, root)))
 
 
@@ -475,7 +473,7 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
     """
     match bool(_METAVAR.search(params.pattern)):
         case True:
-            return _fan(settings, scope, params, verb="search", mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root)))).map(
+            return _fan(settings, scope, params, mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root)))).map(
                 lambda done: _report(
                     settings, scope, "search", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_AG_SPEC)
                 )
@@ -486,15 +484,13 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
 
 def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
     # Synthetic routing satisfies run_check; ripgrep remains grammar-blind until glob splicing.
-    choice = language_choice("search", csharp=params.csharp, python=params.python, typescript=params.typescript)
-    if isinstance(choice, Fault):
-        return Error(choice)
-    tool = next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None)
-    if tool is None:
-        return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
-    check = Check(tool=_content_splice(tool, params, Path(str(settings.root))), paths=tuple(params.paths or _DEFAULT_TARGET))
-    routed = Routed(language=tool.language, scope=Scope.CHANGED)
-    return run_check(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, scope, params, done))
+    match next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None):
+        case None:
+            return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
+        case tool:
+            check = Check(tool=_content_splice(tool, params, Path(str(settings.root))), paths=tuple(params.paths or _DEFAULT_TARGET))
+            routed = Routed(language=tool.language, scope=Scope.CHANGED)
+            return run_check(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, scope, params, done))
 
 
 def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, done: Completed) -> Report:
@@ -523,7 +519,7 @@ def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> 
     Returns:
         Folded report with capture rows and listing artifact, or a routing/spawn fault.
     """
-    return _fan(settings, scope, params, verb="query", mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
+    return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
         lambda done: _report(settings, scope, "query", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_TS_SPEC))
     )
 
