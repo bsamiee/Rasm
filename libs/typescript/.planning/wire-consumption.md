@@ -29,10 +29,12 @@ Cross-cluster binding: every json-stj receipt payload binds as the `TPayload` ty
 
 ## [2]-[CODEGEN_TOOLING]
 
-The single-plugin codegen line generates messages and service descriptors together; `@connectrpc/protoc-gen-connect-es` is the rejected separate-plugin form. Peer pins are exact across the connect line, so the four wire packages move together in one resolve.
+The codegen line is one descriptor pipeline with four ordered stages: the app-root-emitted descriptor set is the input, the buf generation pass runs the single message-and-service plugin over it, the generated descriptor module carries one service descriptor per wire service, and the connect runtime derives one client per browser-dialable service from those descriptors over one shared transport. The single-plugin line generates messages and service descriptors together; `@connectrpc/protoc-gen-connect-es` is the rejected separate-plugin form. Peer pins are exact across the connect line, so the four wire packages move together in one resolve.
 
 ```yaml
 version: v2
+inputs:
+  - directory: gen/descriptors
 plugins:
   - local: protoc-gen-es
     out: src/gen
@@ -40,11 +42,13 @@ plugins:
     opt: target=ts
 ```
 
-[TOOLING_LAWS]:
-- Codegen input: the app-root-emitted descriptor set, published beside the discovery manifest by `ContractGuard`; the pnpm build consumes it, never hand-copied `.proto` files.
-- Generated surface: `*_pb.ts` with one `GenService` per service; each rpc carries `methodKind`, `input`, and `output`, and the five method-shape aliases in the inventory mirror it.
-- Message construction: generated messages construct through `create` from `@bufbuild/protobuf`, never object literals cast to message types.
-- Client factory: `createClient(service: DescService, transport)` builds one client per browser-dialable service over one shared transport; hand-written wire clients are the deleted form.
+[PIPELINE_STAGES]:
+- Descriptor ingestion: the codegen input is the app-root-emitted `FileDescriptorSet`, published beside the discovery manifest by the C# `ContractGuard`; the buf input row points at the committed descriptor directory rather than a `.proto` source tree, so the TS branch consumes the same descriptor set the .NET side emits and never re-authors or hand-copies a `.proto` file. The `include_imports` row embeds every transitively imported descriptor in the generated output so the registry resolves the full type graph from one module.
+- Generation pass: `buf generate` is the build-time driver — a tool surface, never a runtime import — invoking the single `protoc-gen-es` plugin with the `target=ts` option so the output is `.ts`, not the `.js`/`.d.ts` split. The generated surface is `*_pb.ts` modules, one `GenService` descriptor per service and one message descriptor per message, each rpc carrying its `methodKind`, `input`, and `output`; the five method-shape aliases in the inventory mirror the descriptor `methodKind` exactly.
+- Descriptor runtime: the generated descriptors are the protobuf-runtime values the consumer composes — message construction goes through `create` from the protobuf runtime against the message descriptor, never an object literal cast to a message type; binary read and write go through the schema-anchored `fromBinary`/`toBinary` against the same descriptor; and the file-aware registry constructed from the emitted `FileDescriptorSet` is the lookup the fault rail passes to `findDetails` to resolve `google.rpc.Status` detail messages by type name. Unknown fields are retained by the descriptor runtime by default, which is the additive-drift tolerance the versioning law relies on.
+- Client derivation: `createClient(service, transport)` derives one typed client per browser-dialable service descriptor over one shared transport; the return maps each unary rpc to a `Promise` and each server-streaming rpc to an `AsyncIterable`. Hand-written wire clients are the deleted form, and the descriptor is the single source the client shape derives from.
+
+[TRANSPORT_LAWS]:
 - Browser transport: `createGrpcWebTransport({ baseUrl })` with the binary format default and same-origin `baseUrl` under the co-hosted topology; `GrpcWebTransportOptions` carries `interceptors`, `fetch`, and `defaultTimeoutMs`.
 - Call shapes: unary as `await`, server-stream as `for await` — genuine binary server-streaming over Fetch, and the text mode never enters; client-stream and bidi are structurally absent in the browser; the per-call `signal` option carries Effect interruption into transport cancellation.
 - Call stamping: a transport interceptor stamps `rasm-correlation` and `traceparent` metadata, mirroring the .NET `CallSpine` constants.

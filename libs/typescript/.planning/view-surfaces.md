@@ -13,16 +13,34 @@ One page owns leaf rendering and read-only observation — the view edge that su
 
 - Owner: `AtomBinding`, the single sanctioned React state binding, plus the accessible interaction primitives, the headless table machinery, and the virtualization machinery composed under it; `DeepLinkBinding` owns URL-resident state in the query string as a sibling binding.
 - Cases: components subscribe at the leaf, not the root; all domain state lives in the owning store and reaches the component only through `AtomBinding`; local component state holding domain data is the named defect the collapse-scan law deletes; `DeepLinkBinding` resolves route-resident state through the query string and command intents resolve from stable string keys so deep links survive, never duplicated into component state.
-- Entry: the view renders document, health, progress, conflict, presence, and command surfaces by reading stores through the atom hooks; accessible primitives, virtualized tables, command-menu and drawer surfaces compose under that binding.
+- Entry: the view renders document, health, progress, conflict, presence, and command surfaces by reading stores through the atom hooks; accessible primitives, virtualized tables, command-menu and drawer surfaces compose under that binding; the login-logout affordance and the session-status indicator are one leaf subscriber reading the `AuthSession` status through the atom binding, never a second state binding.
 - Packages: the React line and its DOM renderer, the React atom binding, the accessible-component and primitive sets, the headless table and virtualization libraries, the icon and styling-merge utilities, and the query-string state library.
 - Growth: a new leaf surface lands as one subscriber component; a new interaction primitive composes under the existing binding; a new deep-link surface lands as one query-string-bound key.
 - Boundary: a second state binding beside the atom layer is the named defect; the view emits intents only through the command gateway the control-edge page owns and never dials a transport directly; URL-resident state is never duplicated into local component state.
 
 ## [3]-[OBSERVATION_ROUTES]
 
-- Owner: the read-only observation routes — `EvidenceTimelineRoute`, `BenchmarkRoute`, `GeoSeriesSurface`, and `CollectorPanel`.
-- Cases: `EvidenceTimelineRoute` carries receipt envelopes whole and renders them in HLC order with skew bands from the evidence fold; `BenchmarkRoute` renders only when fingerprint-gated by the host-fingerprint shape on `receipts-and-benchmarks.md#TS_PROJECTION`, so an unverifiable claim never displays as verified; `GeoSeriesSurface` decodes embedded geometry through the geometry rail the wire-contracts page owns; `CollectorPanel` reads the telemetry collector.
-- Entry: dashboards sit on the evidence fold and the receipt store and read, never emit; the read-versus-emit split is explicit — dashboards read the collector while instrumentation belongs to the host.
-- Packages: the React line, the virtualization library, and the opentelemetry surface used strictly as a collector reader.
-- Growth: a new observation route lands as one route module over an existing store; a new telemetry panel reads the same collector.
-- Boundary: a benchmark claim displayed without the fingerprint gate is the named defect; `CollectorPanel` crosses no wire contract of its own and references no telemetry wire type.
+- Owner: the read-only observation routes — `EvidenceTimelineRoute`, `BenchmarkRoute`, `GeoSeriesSurface`, and `CollectorPanel`; `GeoSeriesSurface` owns the map-substrate axis as a layered base-map-plus-overlay composition.
+- Cases: `EvidenceTimelineRoute` carries receipt envelopes whole and renders them in HLC order with skew bands from the evidence fold; `BenchmarkRoute` renders only when fingerprint-gated by the host-fingerprint shape on `receipts-and-benchmarks.md#TS_PROJECTION`, so an unverifiable claim never displays as verified; `GeoSeriesSurface` decodes embedded geometry through the geometry rail the wire-contracts page owns and renders it across the map-substrate axis — the GL base-map row draws pan-zoom-style-spec cartography while the GPU overlay-layer row draws the geometry family keyed by feature kind, composited by the overlay-mode discriminant; `CollectorPanel` reads the telemetry collector.
+- Entry: dashboards sit on the evidence fold and the receipt store and read, never emit; the read-versus-emit split is explicit — dashboards read the collector while instrumentation belongs to the host; `GeoSeriesSurface` sources its geometry only through `GeometryRail` decoded to the GeoJSON projection on `snapshot-codecs.md#TS_PROJECTION`, so the surface owns the renderer and never a second decode.
+- Packages: the React line, the virtualization library, the opentelemetry surface used strictly as a collector reader, the GL base-map library for the cartographic substrate, and the GPU layer engine for the instanced overlay.
+- Growth: a new observation route lands as one route module over an existing store; a new telemetry panel reads the same collector; a new geometry-feature kind lands as one overlay-layer row keyed on the feature kind, never a parallel surface.
+- Boundary: a benchmark claim displayed without the fingerprint gate is the named defect; `CollectorPanel` crosses no wire contract of its own and references no telemetry wire type; `GeoSeriesSurface` holds its map instance as an `Effect.acquireRelease` resource bound under `BrowserPlatform` and never a free React ref, subscribes to its geometry only through the one `AtomBinding`, and a second decode of the geometry beside `GeometryRail` is the named defect.
+
+```ts contract
+type MapSubstrate = "maplibre-base" | "deckgl-overlay";
+
+type OverlayMode = "interleaved" | "overlaid";
+
+type GeometryFeatureKind = "point" | "path" | "polygon" | "mesh-projection";
+
+type GeoSeriesComposition = {
+  readonly base: { readonly substrate: "maplibre-base"; readonly styleSpec: StyleSpecification | string };
+  readonly overlay: ReadonlyArray<{
+    readonly substrate: "deckgl-overlay";
+    readonly featureKind: GeometryFeatureKind;
+    readonly mode: OverlayMode;
+  }>;
+  readonly viewState: MapViewState;
+};
+```

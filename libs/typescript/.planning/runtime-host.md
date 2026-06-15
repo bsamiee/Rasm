@@ -12,12 +12,33 @@ One page owns the co-hosted single-page-application root — one Layer graph, on
 
 ## [2]-[COMPOSITION_AND_PLATFORM]
 
-- Owner: `CompositionRoot`, the one Layer graph and one runtime, plus `BrowserPlatform`, the browser platform layer owning the HTTP client, the key-value store, and the worker pool.
-- Cases: `CompositionRoot` assembles every browser domain into one Layer graph and one runtime; `BrowserPlatform` binds the platform services; configuration enters as one domain value at the root, never scattered flag reads.
-- Entry: the five closed app-service owners — `WireClients`, `SnapshotFeed`, `RuntimeFeed`, `CommandGateway`, and `EvidenceFeed` named on `architecture-posture.md` — are provided once in this one Layer graph; a sixth sibling service is the named defect, a new state or gateway capability landing as a method or row on one of the five.
-- Packages: the effect core, the platform and platform-browser layers, and the platform worker primitives.
-- Growth: a new host service capability lands as a method on one of the five owners; a new platform binding lands as one platform-layer row.
-- Boundary: the service-owner budget is closed at five; no integration path resolves into the C# tree, only the inventoried wire contracts.
+- Owner: `CompositionRoot`, the one Layer graph and one runtime, plus `BrowserPlatform`, the browser platform layer owning the HTTP client, the key-value store, and the worker pool, and `AuthSession`, the browser credential owner bound under the platform layer.
+- Cases: `CompositionRoot` assembles every browser domain into one Layer graph and one runtime; `BrowserPlatform` binds the platform services; configuration enters as one domain value at the root, never scattered flag reads; `AuthSession` owns the browser bearer credential — OIDC authorization-code-with-PKCE acquisition as the one browser-safe flow with no implicit grant and no client secret, the session-lifecycle fold over a `SubscriptionRef` carrying the current token with its expiry and refresh schedule, silent refresh through a `Schedule` firing before expiry, and the per-call token producer the wire transport interceptor reads at call time so the browser never stamps a token cached past its expiry.
+- Entry: the five closed app-service owners — `WireClients`, `SnapshotFeed`, `RuntimeFeed`, `CommandGateway`, and `EvidenceFeed` named on `architecture-posture.md` — are provided once in this one Layer graph; a sixth sibling app-service is the named defect, a new state or gateway capability landing as a method or row on one of the five; `AuthSession` is a platform-bound host owner like `BrowserPlatform` and `SelfTelemetry`, not a sixth app-service, and is provided once under the platform layer; the session status feeds the view-surfaces login-logout leaf through the atom binding and an expired-or-rejected token folds to the `FaultDetailRail` typed failure union as a re-auth fault, never a silent redirect from inside a decode.
+- Packages: the effect core, the platform and platform-browser layers, the platform worker primitives, and the browser OIDC authorization-code-with-PKCE client library for token-endpoint and refresh.
+- Growth: a new host service capability lands as a method on one of the five owners; a new platform binding lands as one platform-layer row; a new credential modality on `AuthSession` lands as one row on its credential axis, never a parallel session owner.
+- Boundary: the app-service-owner budget is closed at five; `AuthSession` holds session state as single-fiber host state inside its own `SubscriptionRef`, never a sixth store fold, so a parallel `AuthStore` arm is the named defect; the bearer stamp is designed-only growth that activates with the cross-origin growth row exactly as the C# side gates Bearer behind the cross-origin deployment, and `AuthSession` is the present owner with the stamp gated on that activation; no integration path resolves into the C# tree, only the inventoried wire contracts.
+
+```ts contract
+type SessionStatus =
+  | { readonly _tag: "Anonymous" }
+  | { readonly _tag: "Authenticating" }
+  | { readonly _tag: "Authenticated"; readonly subject: string; readonly expiresAt: number }
+  | { readonly _tag: "Expired" };
+
+type BearerToken = {
+  readonly value: Redacted.Redacted;
+  readonly expiresAt: number;
+  readonly refreshAt: number;
+};
+
+interface AuthSession {
+  readonly status: SubscriptionRef.SubscriptionRef<SessionStatus>;
+  readonly login: Effect.Effect<void, AuthFault>;
+  readonly logout: Effect.Effect<void>;
+  readonly currentToken: Effect.Effect<Option.Option<BearerToken>, AuthFault>;
+}
+```
 
 ## [3]-[SELF_TELEMETRY]
 
