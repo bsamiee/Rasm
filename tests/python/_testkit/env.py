@@ -1,4 +1,4 @@
-"""Declarative environment doubles for SSH, object storage, and remote filesystems."""
+"""Declarative environment doubles for SSH and remote filesystems."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -6,7 +6,7 @@ from collections.abc import Callable  # msgspec resolves Provisioned field annot
 import os
 from pathlib import Path  # msgspec resolves SshHost field annotations at runtime
 import socket
-from typing import overload, override, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import overload, override, TYPE_CHECKING
 import uuid
 
 import anyio
@@ -14,7 +14,7 @@ import msgspec
 
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Mapping
+    from collections.abc import Awaitable
 
     import asyncssh
     from fsspec import AbstractFileSystem
@@ -22,17 +22,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type EnvSpec = SshHost | Bucket | RemoteFS
-
-
-@runtime_checkable
-class ObjectClient(Protocol):
-    """S3-compatible client subset driven by bucket laws."""
-
-    def create_bucket(self, *, Bucket: str, **config: object) -> Mapping[str, object]: ...  # noqa: N803  # AWS wire casing
-    def head_bucket(self, *, Bucket: str) -> Mapping[str, object]: ...  # noqa: N803  # AWS wire casing
-    def put_object(self, *, Bucket: str, Key: str, Body: bytes) -> Mapping[str, object]: ...  # noqa: N803  # AWS wire casing
-    def get_object(self, *, Bucket: str, Key: str) -> Mapping[str, object]: ...  # noqa: N803  # AWS wire casing
+type EnvSpec = SshHost | RemoteFS
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -55,13 +45,6 @@ class SshHost(msgspec.Struct, frozen=True, gc=False):
     user: str = "x"
 
 
-class Bucket(msgspec.Struct, frozen=True, gc=False):
-    """Loopback moto S3 bucket created at provision time."""
-
-    name: str = "env-bucket"
-    region: str = "us-east-1"
-
-
 class RemoteFS(msgspec.Struct, frozen=True, gc=False):
     """Remote filesystem double scoped to a per-test in-memory root."""
 
@@ -82,16 +65,14 @@ class Provisioned[C](msgspec.Struct, frozen=True, gc=False):
 @overload
 def provision(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]]: ...
 @overload
-def provision(spec: Bucket) -> Provisioned[ObjectClient]: ...
-@overload
 def provision(spec: RemoteFS) -> Provisioned[AbstractFileSystem]: ...
-def provision(  # noqa: PLR0914, PLR0915  # one dispatch surface owns all three provision arms; splitting fragments the closed union
+def provision(  # noqa: PLR0914, PLR0915  # one dispatch surface owns both provision arms; splitting fragments the closed union
     spec: EnvSpec,
-) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]] | Provisioned[ObjectClient] | Provisioned[AbstractFileSystem]:
+) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]] | Provisioned[AbstractFileSystem]:
     """Materialize the declared environment double.
 
     Returns:
-        Provisioned SSH connection factory, S3-compatible client, or filesystem view.
+        Provisioned SSH connection factory or filesystem view.
     """
     match spec:
         case SshHost(handler=handler, sftp_root=sftp_root, user=user):
@@ -128,38 +109,6 @@ def provision(  # noqa: PLR0914, PLR0915  # one dispatch surface owns all three 
                 return client
 
             return Provisioned(url=f"ssh://{user}@127.0.0.1:0", client_factory=_connect, teardown=lambda: None)
-        case Bucket(name=name, region=region):
-            from moto.server import ThreadedMotoServer  # noqa: PLC0415  # lazy: moto/werkzeug import tax paid only by bucket suites
-
-            server = ThreadedMotoServer(ip_address="127.0.0.1", port=0, verbose=False)
-            server.start()
-            host, port = server.get_host_and_port()
-            url = f"http://{host}:{port}"
-
-            def _client() -> ObjectClient:
-                import boto3  # noqa: PLC0415  # lazy: boto3 rides moto[server]'s dependency closure
-
-                # Static credentials isolate the moto double from ambient AWS config.
-                client = boto3.client(
-                    "s3",
-                    endpoint_url=url,
-                    region_name=region,
-                    aws_access_key_id="env-double",
-                    aws_secret_access_key="env-double",  # noqa: S106  # moto placeholder
-                )
-                match client:
-                    case ObjectClient():
-                        return client
-                    case _:
-                        msg = "boto3 S3 client no longer satisfies the ObjectClient protocol"
-                        raise TypeError(msg)
-
-            match region:
-                case "us-east-1":
-                    _client().create_bucket(Bucket=name)
-                case _:
-                    _client().create_bucket(Bucket=name, CreateBucketConfiguration={"LocationConstraint": region})
-            return Provisioned(url=url, client_factory=_client, teardown=server.stop)
         case RemoteFS(root=root):
             from fsspec.implementations.dirfs import DirFileSystem  # noqa: PLC0415  # lazy: keep fsspec impl imports off non-fs suites
             from fsspec.implementations.memory import MemoryFileSystem  # noqa: PLC0415  # lazy: keep fsspec impl imports off non-fs suites
@@ -176,4 +125,4 @@ def provision(  # noqa: PLR0914, PLR0915  # one dispatch surface owns all three 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bucket", "EnvSpec", "ObjectClient", "Provisioned", "RemoteFS", "SshHost", "provision"]
+__all__ = ["EnvSpec", "Provisioned", "RemoteFS", "SshHost", "provision"]

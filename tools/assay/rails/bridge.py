@@ -627,7 +627,7 @@ def _fold_session(settings: AssaySettings, plan: _SelectionPlan, closure: Path, 
                 facts=tuple(_fact_row(evt) for evt in envelope.evidence if evt.kind == "fact"),
                 captures=tuple(_capture_row(evt) for evt in envelope.evidence if evt.kind == "capture"),
             )
-            return Ok(fold(Claim.BRIDGE, "verify", (msgspec.structs.replace(done, argv=argv),), detail=summary))
+            return Ok(fold(Claim.BRIDGE, "verify", (msgspec.structs.replace(done, argv=argv),), detail=summary, promote_empty=True))
         case Result(error=fault):
             return Error(fault)
 
@@ -664,6 +664,7 @@ def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report,
             Claim.BRIDGE,
             verb,
             (done,),
+            promote_empty=True,
             detail=BridgeLifecycle(
                 verb=verb,
                 report_dir=envelope.report_dir,
@@ -737,7 +738,14 @@ def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -
     """
     _ = (scope, params)
     return _build_closure(settings).map(
-        lambda done: fold(Claim.BRIDGE, "build", (done,), detail=_build_detail(done), sarif_dir=str(ArtifactScope.build(settings, "bridge").path))
+        lambda done: fold(
+            Claim.BRIDGE,
+            "build",
+            (done,),
+            detail=_build_detail(done),
+            sarif_dir=str(ArtifactScope.build(settings, "bridge").path),
+            promote_empty=True,
+        )
     )
 
 

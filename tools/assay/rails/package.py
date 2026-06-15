@@ -595,7 +595,7 @@ def _fold_steps(
     folded = reduce(
         lambda acc, step: acc.bind(lambda done: _run_step(settings, scope, meta, package_file, step).map(lambda c: (*done, c))), steps, seed
     )
-    return folded.map(lambda outcomes: _merge_stage(staged, fold(Claim.PACKAGE, verb, outcomes, detail=staged.detail)))
+    return folded.map(lambda outcomes: _merge_stage(staged, fold(Claim.PACKAGE, verb, outcomes, detail=staged.detail, promote_empty=True)))
 
 
 def _merge_stage(staged: Report, steps: Report) -> Report:

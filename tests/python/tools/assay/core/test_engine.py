@@ -13,6 +13,7 @@ import fcntl
 import functools
 from itertools import starmap
 import os
+from pathlib import Path
 import signal
 import sys
 import tempfile
@@ -78,8 +79,7 @@ from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
-    from pathlib import Path
+    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping, Sequence
 
     import asyncssh
     from expression import Result
@@ -167,13 +167,20 @@ _LAWS: tuple[tuple[object, str], ...] = (
     (engine_mod._steal, "claim_contention_busy_vs_steal_decision"),
     (engine_mod._measure, "measure_and_load_info_pin_exact_metric_projection"),
     (engine_mod._load_info, "measure_and_load_info_pin_exact_metric_projection"),
+    (engine_mod.Measurements, "to_resources_projects_exact_metric_evidence_eliding_degraded_arms"),
+    (engine_mod.StalledProcess, "stall_sample_aggregates_process_tree"),
     (engine_mod._guarded, "guarded_projects_argv_scope_and_governed_limiter_into_execute"),
     (engine_mod._dotnet_slot, "dotnet_slot_surfaces_queue_and_pressure_note"),
     (engine_mod._guarded, "guarded_fault_messages_are_stamped_exactly"),
     (engine_mod._run_process_backend, "local_spawn_arms_honor_check_cwd_and_exit_code"),
     (engine_mod._run_process_backend, "run_process_backend_routes_on_exec_target"),
-    (engine_mod._pull_remote_artifacts, "pull_remote_artifacts_sftp_mgets_scope_tree_to_local_store"),
-    (engine_mod._sftp_pull_scope, "pull_remote_artifacts_sftp_mgets_scope_tree_to_local_store"),
+    (engine_mod._remote_transfer, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
+    (engine_mod._remote_transfer, "remote_transfer_keeps_exec_cancellable_under_deadline"),
+    (engine_mod._run_remote, "remote_transfer_keeps_exec_cancellable_under_deadline"),
+    (engine_mod._sftp_pull_scope, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
+    (engine_mod._push_repo, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
+    (engine_mod._probe_toolchain, "probe_toolchain_faults_unsupported_on_missing_remote_tool"),
+    (engine_mod._fold_receipt, "fold_receipt_projects_exec_facts_onto_completed"),
     (discover, "discover_runs_at_root_and_pins_fault_evidence"),
     (argv_for, "argv_for_pins_uv_group_project_segments_and_query_passthrough"),
     (splice_command, "splice_command_cuts_before_first_separator"),
@@ -868,7 +875,7 @@ class LeaseStateMachine(RuleBasedStateMachine):
         self._slots: dict[int, _LeaseSlot] = {}
         root = UPath(tempfile.mkdtemp(prefix="assay-lease-rbsm-"))
         (root / "Workspace.slnx").write_text("", encoding="utf-8")
-        self._settings = AssaySettings(root=root, exec_target="", exec_known_hosts=None)
+        self._settings = AssaySettings(root=root, exec_known_hosts=None)
 
     @rule(target=held, run_id=st.text(alphabet="abcdef0123456789", min_size=1, max_size=8))
     def acquire(self, run_id: str) -> int:
@@ -1454,7 +1461,7 @@ def test_exclusive_lease_rejects_non_local_backend(tmp_path: Path) -> None:
     ``exclusive_lease`` short-circuits to ``UNSUPPORTED`` before any fd is opened.
     """
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
-    settings = AssaySettings(root=UPath("memory://assay-lease-backend"), exec_target="", exec_known_hosts=None)
+    settings = AssaySettings(root=UPath("memory://assay-lease-backend"), exec_known_hosts=None)
     with exclusive_lease("res", "run", settings=settings) as outcome:
         fault = assert_error_status(outcome, RailStatus.UNSUPPORTED)
     assert "POSIX leases require a local artifact root" in fault.message, f"wrong backend message: {fault!r}"
@@ -1565,33 +1572,50 @@ async def test_fan_out_remote_pools_ssh_connection(assay_root: AssayHarness, ssh
 _SEED_FILES: tuple[tuple[str, bytes], ...] = (("results.sarif", b'{"runs":[]}\n'), ("coverage.xml", b"<coverage/>\nline2\n"))
 
 
+async def _git_seed(root: Path, files: Mapping[str, bytes]) -> None:
+    # A minimal real git repo makes `git ls-files` the manifest source: the push test pushes exactly the tracked set.
+    for rel, payload in files.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_bytes(payload)
+    ident = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null", **ident}  # noqa: TID251  # subprocess env clone for the test-local git seed
+    for argv in (("git", "init", "-q"), ("git", "add", "-A"), ("git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "seed", "--no-verify")):
+        await anyio.run_process([*argv], cwd=str(root), env=env, check=True)
+
+
 @pytest.mark.anyio
-async def test_pull_remote_artifacts_sftp_mgets_scope_tree_to_local_store(  # noqa: PLR0914, PLR0915  # one end-to-end sftp-pull law: remote settings, chroot seed, plan, and per-file landing assertions own a single scenario that a helper split would fragment
+async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(  # noqa: PLR0914, PLR0915  # one end-to-end transfer law: push the git manifest, run, pull the scope tree, and assert receipt counts in a single scenario a helper split would fragment
     assay_root: AssayHarness, tmp_path: Path
 ) -> None:
-    """``_pull_remote_artifacts`` over an sftp backend downloads the tool-written scope tree to the agent-local store.
+    """``_remote_transfer`` pushes the git-tracked working tree to ``<workroot>/<run_id>`` then pulls the scope tree back.
 
-    The chrooted loopback SFTP server stands in for the remote backend: files the remote tool wrote under the
-    per-run scope tree come down to the agent's local file store at the same scope-relative parts, with real byte
-    and line counts and no absolute host path leaking into ``Artifact.path``.
+    The chrooted loopback SFTP server stands in for the remote host. The push leg lands exactly the ``git ls-files``
+    manifest under the remote run dir; the pull leg downloads the tool-written scope tree to the agent-local store at
+    the same scope-relative parts, with real byte/line counts, no absolute host path leaking into ``Artifact.path``,
+    and the ``ExecReceipt`` carrying the pushed and pulled file counts.
     """
-    from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # sftp-capable loopback for the real mget
-    from tools.assay.composition.settings import ArtifactBackend, ArtifactScope, AssaySettings  # noqa: PLC0415  # runtime scope/backend construction
-    from tools.assay.core.engine import _ExecPlan  # noqa: PLC0415  # plan carries the scope/backend the pull dispatches on
+    from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # sftp-capable loopback for the real put/get
+    from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: PLC0415  # runtime scope construction
+    from tools.assay.core.engine import _ExecPlan  # noqa: PLC0415  # plan carries the scope/backend the transfer dispatches on
 
-    # Backend root sits inside the SFTP chroot so the remote absolute scope path maps under tmp_path.
-    backend_root = "/scope"
-    remote = AssaySettings(
-        root=UPath(assay_root.root),
-        exec_target="ssh://x@127.0.0.1",
-        exec_known_hosts=None,
-        artifact_backend=ArtifactBackend(protocol="sftp", root=backend_root),
-    )
+    # The Offload derives the sftp backend from the host: <workroot>/<run_id>/.artifacts/assay, sited inside the SFTP chroot.
+    remote = AssaySettings.model_validate({
+        "root": UPath(assay_root.root),
+        "exec_target": "ssh://x@127.0.0.1",
+        "exec_known_hosts": None,
+        "exec_workroot": "/work",
+    })
+    offload = remote.offload
+    assert offload is not None
+    backend_root, run_id, claim = offload.backend.root, remote.run_id, Claim.STATIC.value
+    manifest = {"Workspace.slnx": b"", "src/a.cs": b"class A;\n", "src/nested/b.txt": b"b\n"}
+    await _git_seed(Path(str(remote.local_root)), manifest)
+    # The remote cwd is the run dir the push lands under; the chroot resolves /work/<run_id> to tmp_path/work/<run_id>.
+    remote_cwd = offload.target.remote_workroot(run_id)
+
     # The agent landing store is local-file; the scope is rooted there so `_scope_relative` yields the same parts the remote tool used.
     landing = remote.store(protocol="file", root="")
-    run_id, claim = remote.run_id, Claim.STATIC.value
     scope = ArtifactScope(store=landing, path=landing.path(claim, run_id), dotnet_flags=())
-
     # Seed the remote scope tree under the chroot: this is what the remote tool wrote to its backend.
     remote_scope = tmp_path / backend_root.lstrip("/") / claim / run_id
     (remote_scope / "sarif").mkdir(parents=True)
@@ -1600,11 +1624,10 @@ async def test_pull_remote_artifacts_sftp_mgets_scope_tree_to_local_store(  # no
 
     provisioned = provision(SshHost(sftp_root=tmp_path))
     conn = await provisioned.client_factory()
-    tool = _stream_tool("remote-pull-law", ("/bin/echo", "x"))
     plan = _ExecPlan(
         argv=("echo",),
-        check=Check(tool=tool),
-        cwd=str(assay_root.root),
+        check=Check(tool=_stream_tool("remote-transfer-law", ("/bin/echo", "x"))),
+        cwd=remote_cwd,
         env={},
         settings=remote,
         scope=scope,
@@ -1614,24 +1637,142 @@ async def test_pull_remote_artifacts_sftp_mgets_scope_tree_to_local_store(  # no
         thread_limiter=None,
     )
     try:
-        artifacts, notes = await engine_mod._pull_remote_artifacts(conn, plan, {})
+        async with engine_mod._remote_transfer(conn, plan) as transfer:
+            pass  # exec is a no-op here: the push runs on bracket entry, the pull on transfer.pull
+        pulled = await transfer.pull({})
+        # The remote run dir holds both the pushed manifest and the pre-seeded scope tree; the push leg owns only the former.
+        run_dir = tmp_path / "work" / run_id
+        landed_manifest = {
+            rel
+            for p in run_dir.rglob("*")
+            if p.is_file()
+            for rel in (str(p.relative_to(run_dir)).replace("\\", "/"),)
+            if not rel.startswith(".artifacts/")
+        }
     finally:
         conn.close()
         await conn.wait_closed()
 
-    assert notes == (), f"a clean sftp pull must add no degrade note: {notes!r}"
-    by_name = {a.path.rsplit("/", 1)[-1]: a for a in artifacts}
+    assert transfer.notes == (), f"a clean push must add no degrade note: {transfer.notes!r}"
+    assert transfer.pushed == len(manifest), f"push count != manifest size: {transfer.pushed} != {len(manifest)}"
+    assert landed_manifest == set(manifest), f"pushed tree diverged from the git manifest: {landed_manifest} != {set(manifest)}"
+    assert pulled.notes == (), f"a clean sftp pull must add no degrade note: {pulled.notes!r}"
+    assert pulled.count == len(_SEED_FILES), f"pull count != scope tree size: {pulled.count} != {len(_SEED_FILES)}"
+    by_name = {a.path.rsplit("/", 1)[-1]: a for a in pulled.artifacts}
     assert {"results.sarif", "coverage.xml"} <= set(by_name), f"sftp pull lost a scope file: {by_name.keys()}"
     for name, expected in _SEED_FILES:
         row = by_name[name]
-        assert row.kind is ArtifactKind.SCOPE, f"wrong kind for {name}: {row!r}"
-        assert row.bytes == len(expected), f"wrong size for {name}: {row!r}"
+        assert (row.kind, row.bytes) == (ArtifactKind.SCOPE, len(expected)), f"wrong kind/size for {name}: {row!r}"
         assert f"/{claim}/{run_id}/" in f"/{row.path}/", f"scope-relative path lost for {name}: {row.path!r}"
         # The agent-local landing path is recorded, never the remote backend root that hosted the source tree.
         assert not row.path.startswith(backend_root.lstrip("/")), f"remote backend path leaked into {name}: {row.path!r}"
         assert f"{backend_root}/" not in f"/{row.path}", f"remote backend path leaked into {name}: {row.path!r}"
         assert landing.read_path(row.path) == expected, f"landed bytes diverged for {name}"
     assert by_name["coverage.xml"].lines == 2, "line count not derived from the real landed bytes"
+
+
+@pytest.mark.anyio
+async def test_remote_transfer_keeps_exec_cancellable_under_deadline(  # noqa: PLR0915  # deadline + shielded push-leg + cancellation integration scenario
+    assay_root: AssayHarness, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A wedged remote exec inside the transfer bracket is reclaimed by the check deadline; the push leg still completes shielded.
+
+    The push shield must scope to the push leg only — never the bracketed exec — or a hung remote tool runs unbounded and
+    defeats the deadline. This drives the production topology (``_run_remote`` builds the bracket around ``_remote_exec``)
+    with a stalled exec, asserting an outer ``fail_after`` shorter than the stall cancels the run while the up-front push lands.
+    """
+    from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # chrooted loopback so the real push leg lands the manifest
+    from tools.assay.composition.settings import AssaySettings  # noqa: PLC0415  # runtime remote-settings construction
+    from tools.assay.core.engine import _ExecPlan  # noqa: PLC0415  # plan carries the cwd/settings the bracket pushes under
+
+    remote = AssaySettings.model_validate({
+        "root": UPath(assay_root.root),
+        "exec_target": "ssh://x@127.0.0.1",
+        "exec_known_hosts": None,
+        "exec_workroot": "/work",
+    })
+    offload = remote.offload
+    assert offload is not None
+    target = offload.target
+    run_id, remote_cwd = remote.run_id, target.remote_workroot(remote.run_id)
+    await _git_seed(Path(str(remote.local_root)), {"Workspace.slnx": b"", "src/a.cs": b"class A;\n"})
+
+    conn = await provision(SshHost(sftp_root=tmp_path)).client_factory()
+
+    @contextlib.asynccontextmanager
+    async def _fixed_conn(_target: object) -> AsyncIterator[object]:
+        yield conn  # inject the chrooted double so the bracket pushes/pulls without a real SSH host
+
+    async def _wedged_exec(*_args: object, **_kw: object) -> object:
+        await anyio.sleep(5.0)  # a hung remote tool: longer than the deadline, must be cancelled not awaited
+        raise AssertionError("wedged remote exec was awaited to completion — the deadline failed to cancel it")
+
+    monkeypatch.setattr(engine_mod, "_ssh_connection", _fixed_conn)
+    monkeypatch.setattr(engine_mod, "_remote_exec", _wedged_exec)
+    monkeypatch.setattr(engine_mod, "_probe_toolchain", lambda *_a, **_k: _async_none())
+
+    plan = _ExecPlan(
+        argv=("dotnet", "test"),
+        check=Check(tool=_stream_tool("remote-deadline-law", ("/bin/echo", "x"))),
+        cwd=remote_cwd,
+        env={},
+        settings=remote,
+        scope=None,
+        streaming=False,
+        tail_cap=4096,
+        chunk=65536,
+        thread_limiter=None,
+    )
+    started = time.monotonic()
+    try:
+        with pytest.raises(TimeoutError):
+            with anyio.fail_after(0.4):
+                await engine_mod._run_remote(plan, target)
+    finally:
+        conn.close()
+        await conn.wait_closed()
+    elapsed = time.monotonic() - started
+    assert elapsed < 2.0, f"deadline did not cancel the wedged remote exec: elapsed={elapsed:.2f}s (shield leaked over the bracketed exec)"
+    landed = {str(p.relative_to(tmp_path / "work" / run_id)).replace("\\", "/") for p in (tmp_path / "work" / run_id).rglob("*") if p.is_file()}
+    assert {"Workspace.slnx", "src/a.cs"} <= landed, f"push leg did not complete before the exec stalled: {landed!r}"
+
+
+async def _async_none() -> None:  # noqa: RUF029  # no-op coroutine: the _probe_toolchain mock must return an awaitable
+    return None
+
+
+@pytest.mark.anyio
+async def test_probe_toolchain_faults_unsupported_on_missing_remote_tool() -> None:
+    """``_probe_toolchain`` returns ``(tool, detail)`` when ``command -v`` exits non-zero, else ``None`` for a present tool."""
+    from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # loopback exec host with a status-driven handler
+
+    def _handler(command: str) -> tuple[str, int]:
+        # The probe runs `command -v <tool>`; the double reports the missing tool as exit 1, a present tool as exit 0.
+        return ("", 1) if "missing-tool" in command else ("/usr/bin/git\n", 0)
+
+    conn = await provision(SshHost(handler=_handler)).client_factory()
+    try:
+        absent = await engine_mod._probe_toolchain(conn, ("missing-tool", "build"))
+        present = await engine_mod._probe_toolchain(conn, ("git", "ls-files"))
+        absolute = await engine_mod._probe_toolchain(conn, ("/bin/echo", "x"))
+    finally:
+        conn.close()
+        await conn.wait_closed()
+    assert absent is not None, "a missing remote tool must surface a probe result"
+    assert absent[0] == "missing-tool", f"missing remote tool must surface its name: {absent!r}"
+    assert present is None, f"a present remote tool must probe clean: {present!r}"
+    assert absolute is None, "an absolute-path command is self-locating and must skip the probe"
+
+
+def test_fold_receipt_projects_exec_facts_onto_completed() -> None:
+    """``_fold_receipt`` stamps the remote target URL/host, exit status, signal, and push/pull counts onto ``Completed.exec``."""
+    from tools.assay.composition.settings import Ssh  # noqa: PLC0415  # the value object owns the url/host projection
+
+    target = Ssh(host="vps", port=22, user="root")
+    done = engine_mod._fold_receipt(receipt(("dotnet", "test"), 0), target, exit_status=0, signal="", notes=("n",), pushed=3, pulled=2)
+    assert done.exec is not None
+    assert (done.exec.target, done.exec.host, done.exec.exit_status) == ("ssh://root@vps:22", "vps", 0)
+    assert (done.exec.pushed, done.exec.pulled, done.exec.notes) == (3, 2, ("n",))
 
 
 @pytest.mark.anyio
@@ -1907,8 +2048,8 @@ def test_run_process_backend_routes_on_exec_target(assay_root: AssayHarness, mon
     """
     recorded: list[tuple[str, dict[str, str]]] = []
 
-    async def _record(plan: object, target: str) -> object:  # noqa: RUF029  # async to match _run_remote's awaited signature
-        recorded.append((target, dict(getattr(plan, "env", {}))))
+    async def _record(plan: object, target: object) -> object:  # noqa: RUF029  # async to match _run_remote's awaited signature
+        recorded.append((target.url, dict(getattr(plan, "env", {}))))  # ty: ignore[unresolved-attribute]  # target is the Ssh value object
         return receipt(("remote",), 0, stdout=b"recorded")
 
     monkeypatch.setattr(engine_mod, "_run_remote", _record)

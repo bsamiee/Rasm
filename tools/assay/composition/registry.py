@@ -292,6 +292,7 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
         duration_ms=ms,
         report=report,
         error_context=ctx,
+        exec=report.exec,
         truncated=truncated,
         notes=report.notes,
     )
@@ -335,6 +336,7 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
         case Result(tag="ok", ok=report):
             envelope = _ok_envelope(bind, settings, ms, report)
         case Result(error=fault):
+            # Faults carry no Report, hence no ExecReceipt: a remote timeout/spawn-fault is interrupted before the receipt is stamped.
             diagnostic, truncated = _distill(fault, ms)
             persist = diagnostic.failing_step != Step.PARSE
             envelope = Envelope(

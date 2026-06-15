@@ -32,9 +32,15 @@ from tools.assay.composition.settings import (
     ArtifactScope,
     ArtifactStore,
     AssaySettings,
+    backend_capability,
     Configuration,
+    Local,
     LogFormat,
     mtime_from_info,
+    Offload,
+    PullStrategy,
+    size_from_info,
+    Ssh,
 )
 from tools.assay.core.model import Artifact, ArtifactKind, Claim
 
@@ -221,6 +227,22 @@ def test_mtime_from_info_numeric_identity(v: float) -> None:
 
 register_law(mtime_from_info, "mtime_from_info_numeric_identity")
 
+
+# --- [SIZE_FROM_INFO_LAWS]
+
+
+@pytest.mark.parametrize(
+    "info, fallback, expected",
+    [({"size": 4096}, 0, 4096), ({"size": 0}, 7, 0), ({}, 11, 11), ({"size": None}, 13, 13), ({"size": 3.5}, 17, 17)],
+    ids=["int_size", "zero_is_genuine", "absent_falls_back", "none_falls_back", "non_int_falls_back"],
+)
+def test_size_from_info_projection(info: dict[str, object], fallback: int, expected: int) -> None:
+    """size_from_info returns an int size when fsspec reports one, else the fallback for absent or non-int keys."""
+    assert size_from_info(info, fallback=fallback) == expected
+
+
+register_law(size_from_info, "size_from_info_projection")
+
 # --- [ARTIFACT_BACKEND_LAWS]
 
 
@@ -327,7 +349,7 @@ def test_assay_settings_cpu_count_boundary(assay_root: AssayHarness) -> None:
     """
 
     def _build(cpu_count: int) -> AssaySettings:
-        return AssaySettings(root=assay_root.settings.root, exec_target="", exec_known_hosts=None, cpu_count=cpu_count)
+        return AssaySettings(root=assay_root.settings.root, exec_known_hosts=None, cpu_count=cpu_count)
 
     validity_matrix(
         (("below", _CPU_BELOW, False), ("above", _CPU_ABOVE, False), ("min", _CPU_MIN, True), ("max", _CPU_MAX, True)), lambda c: _cpu_ok(_build, c)
@@ -379,7 +401,7 @@ def test_assay_settings_local_root_raises_for_non_file_protocol() -> None:
     A memory:// UPath has .protocol == 'memory'; _anchor folds to the cursor (no Workspace.slnx ancestor
     in the virtual FS), so the model builds and only local_root rejects the non-file protocol.
     """
-    settings = AssaySettings(root=UPath("memory://bucket/scope"), exec_target="", exec_known_hosts=None)
+    settings = AssaySettings(root=UPath("memory://bucket/scope"), exec_known_hosts=None)
     with pytest.raises(ValueError, match="file protocol"):
         _ = settings.local_root
 
@@ -390,7 +412,7 @@ register_law(AssaySettings, "assay_settings_local_root_raises_for_non_file_proto
 def test_assay_settings_wire_safe_scrubs_surrogates(tmp_path: Path) -> None:
     """_wire_safe replaces lone surrogates in run_id / agent_task_id so the result is UTF-8 encodable."""
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
-    settings = AssaySettings(root=UPath(tmp_path), run_id="run-1", agent_task_id="run-\udcff", exec_target="", exec_known_hosts=None)
+    settings = AssaySettings(root=UPath(tmp_path), run_id="run-1", agent_task_id="run-\udcff", exec_known_hosts=None)
     settings.agent_task_id.encode("utf-8")
 
 
@@ -406,82 +428,82 @@ def test_assay_settings_exec_target_rejected(exec_target: str, error_match: str,
     """exec_target rejects non-numeric ssh ports and non-ssh schemes with a diagnostic ValidationError."""
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
     with pytest.raises(ValidationError, match=error_match):
-        AssaySettings(root=UPath(tmp_path), exec_target=exec_target, exec_known_hosts=None)
+        AssaySettings.model_validate({"root": UPath(tmp_path), "exec_target": exec_target, "exec_known_hosts": None})
 
 
 def test_assay_settings_exec_target_valid_ssh_with_port(tmp_path: Path) -> None:
-    """exec_target accepts ssh://[user@]host:port without path/query/fragment.
+    """exec_target admits ssh://[user@]host:port into an Ssh value object whose host/port/user round-trip the URL."""
+    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
+    s = AssaySettings.model_validate({"root": UPath(tmp_path), "exec_target": "ssh://user@host:22", "exec_known_hosts": None})
+    assert isinstance(s.exec_target, Ssh)
+    assert (s.exec_target.host, s.exec_target.port, s.exec_target.user, s.exec_target.url) == ("host", 22, "user", "ssh://user@host:22")
 
-    Remote exec is paired with a remotely-reachable backend so the two-axis coupling invariant admits it.
+
+def test_assay_settings_exec_target_local_is_falsy_modal_identity(tmp_path: Path) -> None:
+    """An empty exec_target admits the Local case: falsy, with no offload binding derived."""
+    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
+    s = AssaySettings.model_validate({"root": UPath(tmp_path), "exec_target": "", "exec_known_hosts": None})
+    assert isinstance(s.exec_target, Local)
+    assert (bool(s.exec_target), s.offload) == (False, None)
+
+
+def test_settings_offload_derives_sftp_backend_under_run_dir(tmp_path: Path) -> None:
+    """A remote Ssh target derives one Offload binding: an sftp backend rooted under <workroot>/<run_id>/.artifacts/assay.
+
+    Host and backend cannot disagree — the backend is never a separate knob, it is pinned under the target's remote run dir,
+    and its TRANSFER pull strategy reads from the capability table, not a dispatch literal.
     """
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
-    s = AssaySettings(
-        root=UPath(tmp_path),
-        exec_target="ssh://user@host:22",
-        exec_known_hosts=None,
-        artifact_backend=ArtifactBackend(protocol="sftp", root="host/path"),
-    )
-    assert s.exec_target == "ssh://user@host:22"
+    s = AssaySettings.model_validate({
+        "root": UPath(tmp_path),
+        "exec_target": "ssh://host:22",
+        "exec_known_hosts": None,
+        "run_id": "run-1",
+        "exec_workroot": "/srv/work",
+    })
+    offload = s.offload
+    assert offload is not None
+    assert (offload.backend.protocol, offload.backend.root) == ("sftp", "/srv/work/run-1/.artifacts/assay")
+    assert offload.pull_strategy is PullStrategy.TRANSFER
 
 
-register_law(AssaySettings, "assay_settings_exec_target_rejected")
-register_law(AssaySettings, "assay_settings_exec_target_valid_ssh_with_port")
+register_law(Ssh, "assay_settings_exec_target_rejected")
+register_law(Ssh, "assay_settings_exec_target_valid_ssh_with_port")
+register_law(Local, "assay_settings_exec_target_local_is_falsy_modal_identity")
+register_law(Offload, "settings_offload_derives_sftp_backend_under_run_dir")
 
 
 @pytest.mark.parametrize(
-    "exec_target, protocol, root, ok",
+    "protocol, reachable, admitted, strategy",
     [
-        ("", "file", "", True),  # local exec tolerates any backend
-        ("", "s3", "bucket/prefix", True),  # local exec tolerates a remote backend too
-        ("ssh://host:22", "file", "", False),  # remote exec + local-file backend rejected at load
-        ("ssh://host:22", "memory", "prefix", False),  # any protocol outside the reachable set is rejected, not just file
-        ("ssh://host:22", "http", "host/x", False),  # set non-membership keys the reject, not a file literal
-        ("ssh://host:22", "s3", "bucket/prefix", False),  # cloud stores stay unadmitted until their fsspec backend (s3fs/gcsfs) + moto law land
-        ("ssh://host:22", "gs", "bucket/prefix", False),
-        ("ssh://host:22", "gcs", "bucket/prefix", False),
-        ("ssh://host:22", "sftp", "host/path", True),  # sftp is the only end-to-end proven remote-exec backend
+        ("file", False, True, PullStrategy.NONE),  # local landing store: reachable=False, no pull
+        ("sftp", True, True, PullStrategy.TRANSFER),  # the one end-to-end proven remote-exec backend
+        ("s3", True, False, PullStrategy.SHARED),  # cloud rows are explicit not-admitted facts until s3fs/gcsfs + moto law land
+        ("gs", True, False, PullStrategy.SHARED),
+        ("gcs", True, False, PullStrategy.SHARED),
+        ("http", False, False, PullStrategy.NONE),  # unknown protocol: unreachable, not admitted, pulls nothing
     ],
-    ids=[
-        "local_file",
-        "local_s3",
-        "remote_file_rejected",
-        "remote_memory_rejected",
-        "remote_http_rejected",
-        "remote_s3_deferred",
-        "remote_gs_deferred",
-        "remote_gcs_deferred",
-        "remote_sftp",
-    ],
+    ids=["file", "sftp", "s3", "gs", "gcs", "unknown"],
 )
-def test_settings_exec_target_artifact_backend_coupling(exec_target: str, protocol: str, root: str, ok: bool, tmp_path: Path) -> None:  # noqa: FBT001  # parametrize column: pytest injects the expectation flag positionally by name
-    """Remote exec_target requires a remotely-reachable artifact backend; remote + local-file is rejected at settings load.
+def test_backend_capability_table_owns_admission(protocol: str, reachable: bool, admitted: bool, strategy: PullStrategy) -> None:  # noqa: FBT001  # parametrize columns: pytest injects the expectation flags positionally by name
+    """One capability table owns reachability, admission, and pull strategy per backend protocol.
 
-    The reject message must name both axes and the fix so the agent corrects the env, not chase a per-check fault.
+    Re-admitting a cloud shared store is one row's admitted=True flip; the table never widens into a dispatch chain.
     """
-    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
-
-    def _build() -> AssaySettings:
-        return AssaySettings(
-            root=UPath(tmp_path), exec_target=exec_target, exec_known_hosts=None, artifact_backend=ArtifactBackend(protocol=protocol, root=root)
-        )
-
-    match ok:
-        case True:
-            assert _build().exec_target == exec_target
-        case False:
-            with pytest.raises(ValidationError, match="remotely-reachable artifact_backend"):
-                _build()
+    assert backend_capability(protocol) == (reachable, admitted, strategy)
+    assert ArtifactBackend(protocol=protocol, root="x/y").capability == (reachable, admitted, strategy)
 
 
-register_law(AssaySettings, "settings_exec_target_artifact_backend_coupling")
+register_law(backend_capability, "backend_capability_table_owns_admission")
+register_law(PullStrategy, "backend_capability_table_owns_admission")
 
 # --- [BOUNDARY_VALIDATOR_LAWS]
 
 
-def test_exec_target_accepts_root_path_only() -> None:
-    """_exec_target accepts only empty or root slash paths after the ssh host.
+def test_ssh_parse_accepts_root_path_only() -> None:
+    """Ssh.parse accepts only empty or root slash paths after the ssh host.
 
-    Accepted rows pin the exact round-trip values; deeper paths must remain rejected.
+    Accepted rows pin the exact round-trip URL; deeper paths must remain rejected.
     """
     validity_matrix(
         (
@@ -491,20 +513,20 @@ def test_exec_target_accepts_root_path_only() -> None:
             ("user_port_slash", "ssh://user@host:22/", True),
             ("non_root_path", "ssh://host/sub", False),
         ),
-        _exec_target_ok,
+        _ssh_parse_ok,
     )
-    assert _settings_mod._exec_target("ssh://host/") == "ssh://host/"
+    assert Ssh.parse("ssh://host/").url == "ssh://host"
 
 
-def _exec_target_ok(url: str) -> bool:
+def _ssh_parse_ok(url: str) -> bool:
     try:
-        _settings_mod._exec_target(url)
+        Ssh.parse(url)
     except ValueError:
         return False
     return True
 
 
-register_law(AssaySettings, "exec_target_accepts_root_path_only")
+register_law(Ssh, "ssh_parse_accepts_root_path_only")
 
 
 @pytest.mark.parametrize(

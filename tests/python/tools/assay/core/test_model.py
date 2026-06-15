@@ -28,6 +28,7 @@ from tests.python.tools.assay.kit import (
     detail_st,
     diagnostic_st,
     envelope_st,
+    exec_receipt_st,
     fault_st,
     match_st,
     package_run_st,
@@ -59,11 +60,13 @@ from tools.assay.core.model import (
     Diagnostic,
     Envelope,
     envelope,
+    ExecReceipt,
     Fault,
     field_cap,
     fold,
     Input,
     Language,
+    language_choice,
     Match,
     Mode,
     MutationLane,
@@ -73,12 +76,14 @@ from tools.assay.core.model import (
     RunDelta,
     Runner,
     RunSnapshot,
+    SarifStatus,
     SourceKind,
     Stage,
     StaticRun,
     SymbolShape,
     TestRun,
     Tool,
+    ToolGroup,
     validate_detail,
     VerifySummary,
     wire_encode,
@@ -103,6 +108,7 @@ _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
     (Check, check_st),
     (Artifact, artifact_st),
     (Completed, completed_st),
+    (ExecReceipt, exec_receipt_st),
     (Fault, fault_st),
     (Counts, counts_st),
     (Match, match_st),
@@ -203,6 +209,27 @@ def test_fold_empty_outcomes_is_empty_report() -> None:
     report = fold(Claim.TEST, "run", ())
     assert report.counts == Counts()
     assert report.status is RailStatus.EMPTY
+
+
+def test_fold_merges_every_remote_receipt_not_just_the_first() -> None:
+    """A multi-check remote fold folds every outcome's ExecReceipt: push/pull counts sum, notes concat, host identity stays.
+
+    A fan-out over one ``exec_target`` yields one receipt per check; the carrier must surface all transfer evidence,
+    not silently drop every receipt after the first as ``next(...)`` did.
+    """
+    rx = ExecReceipt(target="ssh://root@vps:22", host="vps", exit_status=0, pushed=3, pulled=2, notes=("a",))
+    ry = ExecReceipt(target="ssh://root@vps:22", host="vps", exit_status=0, pushed=4, pulled=1, notes=("b",))
+    outcomes = (msgspec.structs.replace(receipt(("x",), 0), exec=rx), msgspec.structs.replace(receipt(("y",), 0), exec=ry))
+    report = fold(Claim.STATIC, "check", outcomes)
+    assert report.exec is not None
+    assert (report.exec.pushed, report.exec.pulled) == (7, 3), f"counts did not sum across receipts: {report.exec!r}"
+    assert report.exec.notes == ("a", "b"), f"notes did not concat across receipts: {report.exec.notes!r}"
+    assert (report.exec.host, report.exec.target) == ("vps", "ssh://root@vps:22")
+
+
+def test_fold_local_run_leaves_exec_carrier_none() -> None:
+    """A fold over outcomes that never offloaded leaves the dedicated exec carrier None."""
+    assert fold(Claim.STATIC, "check", (receipt(("ruff",), 0),)).exec is None
 
 
 def test_fold_failed_stderr_reaches_results_text() -> None:
@@ -671,6 +698,53 @@ def test_bare_strenum_token_identity(enum_cls: type[Claim | SourceKind]) -> None
     assert len({m.value for m in members}) == len(members)
 
 
+def test_toolgroup_uv_flag_splits_dependency_groups_from_policy_tags() -> None:
+    """Exactly the uv-flagged ToolGroup members name uv dependency groups; Tool.uv_groups keeps that subset, dropping policy tags."""
+    uv_members = frozenset(g for g in ToolGroup if g.uv)
+    assert uv_members == {ToolGroup.MUTATION}, "uv-dependency-group membership drifted from the MUTATION group"
+    tool = msgspec.structs.replace(
+        Tool("g", Runner.UV, ("ruff",), Input.NONE, Language.PYTHON, Claim.STATIC),
+        groups=(ToolGroup.MUTATION, ToolGroup.RUN_DEFAULT, ToolGroup.REQUIRES_COVERAGE),
+    )
+    assert tool.uv_groups() == (ToolGroup.MUTATION,), "uv_groups must inject only genuine uv dependency groups for --group"
+    assert msgspec.structs.replace(tool, groups=(ToolGroup.RUN_DEFAULT,)).uv_groups() == (), "a tag-only row injects no uv group"
+
+
+@pytest.mark.parametrize(
+    "status, results, expected",
+    [
+        (SarifStatus.PRODUCED, 0, "produced:0"),
+        (SarifStatus.PRODUCED, 7, "produced:7"),
+        (SarifStatus.INCREMENTAL, 7, "absent:incremental"),
+        (SarifStatus.NO_BUILD, 7, "absent:no-build"),
+        (SarifStatus.BUILD_FAILED, 7, "absent:build-failed"),
+    ],
+    ids=["produced_zero", "produced_qualified", "incremental", "no_build", "build_failed"],
+)
+def test_sarif_status_token_qualifies_produced_only(status: SarifStatus, results: int, expected: str) -> None:
+    """SarifStatus.token qualifies a produced SARIF with its result count; every absent reason renders its bare class token."""
+    assert status.token(results) == expected
+
+
+@pytest.mark.parametrize(
+    "flags, expected",
+    [({}, None), ({"csharp": True}, Language.CSHARP), ({"python": True}, Language.PYTHON), ({"typescript": True}, Language.TYPESCRIPT)],
+    ids=["unrestricted", "csharp", "python", "typescript"],
+)
+def test_language_choice_projects_single_flag(flags: dict[str, bool], expected: Language | None) -> None:
+    """language_choice maps no flag to None (unrestricted) and one flag to that language."""
+    assert language_choice("check", **flags) == expected
+
+
+def test_language_choice_conflicting_flags_fault() -> None:
+    """Two or more language flags fault with a parse-step message naming every conflicting flag."""
+    fault = language_choice("check", csharp=True, python=True)
+    assert isinstance(fault, Fault)
+    assert fault.status is RailStatus.FAULTED
+    assert "--csharp" in fault.message
+    assert "--python" in fault.message
+
+
 # --- [BIND]
 # Bind carries callable/type objects, so registry shape is the law instead of wire round-trip.
 
@@ -727,6 +801,9 @@ register_laws(
     (Language, ("suffix_and_strategy",)),
     (Input, ("flag_and_scoped",)),
     (Bind, ("well_formed",)),
+    (ToolGroup, ("uv_flag_splits_dependency_groups_from_policy_tags",)),
+    (SarifStatus, ("token_qualifies_produced_only",)),
+    (language_choice, ("projects_single_flag", "conflicting_flags_fault")),
 )
 
 for _cls in _BARE_STRENUM_CLASSES:

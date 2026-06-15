@@ -299,6 +299,49 @@ class Artifact(Base, frozen=True):
     lines: Annotated[int, msgspec.Meta(ge=0)] = 0
 
 
+class ExecReceipt(Base, frozen=True):
+    """Remote-execution facts for an offloaded check.
+
+    A dedicated carrier field on Completed/Report/Envelope, paralleling Envelope.error_context: it never
+    rides the Report.detail slot, so the rail's domain detail and the remote evidence stay disjoint. Local
+    execution leaves the carrier ``None``; only the Ssh case projects a receipt.
+    """
+
+    target: str = ""
+    host: str = ""
+    exit_status: int | None = None
+    signal: str = ""
+    pushed: Annotated[int, msgspec.Meta(ge=0)] = 0
+    pulled: Annotated[int, msgspec.Meta(ge=0)] = 0
+    notes: tuple[str, ...] = ()
+
+    @classmethod
+    def merge(cls, receipts: tuple[ExecReceipt, ...]) -> ExecReceipt | None:
+        """Fold the per-outcome remote receipts of a multi-check fold into one host receipt.
+
+        A fan-out over one ``exec_target`` yields one receipt per check, all to the same host; the merge sums the
+        push/pull counts, concatenates notes, and keeps the host identity, so a multi-outcome remote fold surfaces
+        every leg's transfer evidence instead of only the first outcome's.
+
+        Returns:
+            The folded receipt, or ``None`` when no outcome carried one (a local run).
+        """
+        if not receipts:
+            return None
+        if len(receipts) == 1:
+            return receipts[0]
+        head, last_status = receipts[0], next((r.exit_status for r in reversed(receipts) if r.exit_status is not None), None)
+        return cls(
+            target=head.target,
+            host=head.host,
+            exit_status=last_status,
+            signal=next((r.signal for r in receipts if r.signal), ""),
+            pushed=sum(r.pushed for r in receipts),
+            pulled=sum(r.pulled for r in receipts),
+            notes=tuple(n for r in receipts for n in r.notes),
+        )
+
+
 class Completed(Base, frozen=True):
     """Receipt for a process or in-process tool that ran."""
 
@@ -311,6 +354,7 @@ class Completed(Base, frozen=True):
     notes: tuple[str, ...] = ()
     artifacts: tuple[Artifact, ...] = ()
     resources: tuple[tuple[str, float], ...] = ()
+    exec: ExecReceipt | None = None
 
 
 class Counts(Base, frozen=True):
@@ -616,6 +660,7 @@ class Report(Base, frozen=True):
     results: tuple[Match, ...] = ()
     notes: tuple[str, ...] = ()
     detail: AnyDetail | None = None
+    exec: ExecReceipt | None = None
 
 
 class Envelope(Base, frozen=True, kw_only=True):
@@ -632,6 +677,7 @@ class Envelope(Base, frozen=True, kw_only=True):
     report: Report | None = None
     error: Fault | None = None
     error_context: Diagnostic | None = None
+    exec: ExecReceipt | None = None
     truncated: bool = False
     notes: tuple[str, ...] = ()
 
@@ -1124,6 +1170,8 @@ def fold(
             *((_diagnostic_notes(diagnostic_rows)) if claim is Claim.STATIC and diagnostic_rows else ()),
         ),
         detail=detail,
+        # Remote-execution facts ride the dedicated carrier: a multi-check fan-out over one host folds every leg's transfer counts.
+        exec=ExecReceipt.merge(tuple(o.exec for o in outcomes if o.exec is not None)),
     )
 
 
@@ -1187,6 +1235,7 @@ __all__ = [
     "Detail",
     "Diagnostic",
     "Envelope",
+    "ExecReceipt",
     "Fault",
     "InprocThunk",
     "Input",

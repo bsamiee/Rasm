@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
     from tests.python._testkit.env import Provisioned
     from tests.python.tools.assay.kit import CpuDoubleInstaller, CpuSampler, VerbRunner
-    from tools.assay.composition.settings import ArtifactStore, AssaySettings
+    from tools.assay.composition.settings import ArtifactStore, Ssh
     from tools.assay.core.model import Envelope
 
 
@@ -203,18 +203,19 @@ def captured_emits(monkeypatch: pytest.MonkeyPatch) -> list[Envelope]:
 
 
 @pytest.fixture
-def ssh_env(monkeypatch: pytest.MonkeyPatch) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]]:
-    """Socketpair-backed SSH double pinned to the engine connect seam.
+def ssh_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Provisioned[Awaitable[asyncssh.SSHClientConnection]]:
+    """Socketpair-backed SSH double pinned to the engine connect seam, sftp-capable for the offload-derived backend pull.
 
     Returns:
         Provisioned remote target whose factory runs the asyncssh handshake inside the awaiting loop.
     """
     from tools.assay.core import engine as engine_mod  # noqa: PLC0415  # patch target re-imported here
 
-    provisioned = provision(SshHost())
+    # The Offload always derives an sftp backend for a remote run; the chrooted SFTP subsystem lets the scope pull resolve.
+    provisioned = provision(SshHost(sftp_root=tmp_path))
 
-    def _connect(target: str, settings: AssaySettings) -> Awaitable[asyncssh.SSHClientConnection]:
-        _ = target, settings
+    def _connect(target: Ssh) -> Awaitable[asyncssh.SSHClientConnection]:
+        _ = target
         return provisioned.client_factory()
 
     monkeypatch.setattr(engine_mod, "_connect_once", _connect)

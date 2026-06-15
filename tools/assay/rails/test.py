@@ -405,7 +405,7 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
     def _work(_held: object = None) -> Result[Report, Fault]:
         def _settle(done: Block[Completed], selected: tuple[Routed, ...]) -> Report:
             outcomes = tuple(done)
-            base = fold(claim, verb, outcomes, detail=_detail(outcomes, params, Path(str(settings.root))))
+            base = fold(claim, verb, outcomes, detail=_detail(outcomes, params, Path(str(settings.root))), promote_empty=True)
             return msgspec.structs.replace(
                 base,
                 artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, scope, outcomes)),
@@ -469,7 +469,7 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
 
     def _settle(done: block.Block[Completed], selected: tuple[Routed, ...]) -> Report:
         outcomes = tuple(done)
-        base = fold(Claim.TEST, "list", outcomes)
+        base = fold(Claim.TEST, "list", outcomes, promote_empty=True)
         discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
         artifacts = (*base.artifacts, _results_artifact(scope), *_roster_artifacts(settings, scope, discovered))
         roster = discovered[: params.limit] if params.limit > 0 else discovered

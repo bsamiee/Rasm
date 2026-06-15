@@ -14,7 +14,7 @@ import pytest
 from tests.python._testkit.laws import register_law, register_laws
 from tests.python._testkit.spec import assert_error_status, assert_ok
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.model import Claim, Fault, receipt, Report, VerifySummary
+from tools.assay.core.model import BridgeLifecycle, Claim, Fault, receipt, Report, validate_detail, VerifySummary
 from tools.assay.core.status import RailStatus
 from tools.assay.rails import bridge as _bridge_mod
 from tools.assay.rails.bridge import (
@@ -89,6 +89,8 @@ def _envelope(
     first_fault_phase: str | None = None,
     scenarios: tuple[dict[str, object], ...] = (),
     evidence: tuple[dict[str, object], ...] = (),
+    host: dict[str, object] | None = None,
+    capabilities: tuple[dict[str, object], ...] = (),
 ) -> bytes:
     return msgspec.json.encode({
         "runId": "run-1",
@@ -96,6 +98,8 @@ def _envelope(
         "status": status.value,
         "durationMs": 12.5,
         "reportDir": report_dir,
+        "host": host or {},
+        "capabilities": list(capabilities),
         "scenarios": list(scenarios),
         "evidence": list(evidence),
         "firstFailure": first_failure,
@@ -302,9 +306,39 @@ def test_lifecycle_verbs_fold_supervisor_completion(
     assert report.status is RailStatus.OK
 
 
+register_law(BridgeLifecycle, "lifecycle_detail_projects_host_and_capabilities")
+
+
+def test_lifecycle_detail_projects_host_and_capabilities(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A lifecycle fold projects the supervisor host versions and capability rows into a wire-round-tripping BridgeLifecycle detail."""
+    envelope = _envelope(
+        report_dir="report/doctor",
+        host={"bundleVersion": "9.0", "rhinoCommonVersion": "9.0", "grasshopper2Version": "", "runtimeVersion": "10.0"},
+        capabilities=({"key": "rail.core", "outcome": "ok", "receipt": "warm"}, {"key": "rail.vectors", "outcome": "skipped", "receipt": ""}),
+    )
+    monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
+    monkeypatch.setattr(
+        _bridge_mod, "client_run", lambda _settings, *args, **_kw: Ok(receipt(("rasm-bridge", *args), 0, stdout=envelope, status=RailStatus.OK))
+    )
+    report = assert_ok(doctor(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
+    detail = report.detail
+    assert isinstance(detail, BridgeLifecycle)
+    assert (detail.verb, detail.report_dir) == ("doctor", "report/doctor")
+    # Empty grasshopper2 version is elided; surviving rows keep fingerprint order.
+    assert detail.host == (("bundle", "9.0"), ("rhinoCommon", "9.0"), ("runtime", "10.0"))
+    # Capability admission rows keep their key/outcome/receipt triple.
+    assert detail.capabilities == (("rail.core", "ok", "warm"), ("rail.vectors", "skipped", ""))
+    assert validate_detail(detail) == detail, "BridgeLifecycle did not survive the tagged-union wire codec"
+
+
+register_law(build, "folds_bridge_build_receipt")
+
+
 def test_build_folds_bridge_build_receipt(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(_bridge_mod, "_build_closure", lambda _settings: Ok(receipt(("rasm-bridge-build",), 0, status=RailStatus.OK)))
     report = assert_ok(build(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
+    assert report.claim is Claim.BRIDGE
+    assert report.verb == "build"
     assert report.status is RailStatus.OK
     assert report.results == ()
 

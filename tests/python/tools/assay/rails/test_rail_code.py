@@ -246,12 +246,16 @@ def test_artifact_line_count_equals_splitlines(p: CodeParams) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "Workspace.slnx").write_text("", encoding="utf-8")
-        s = AssaySettings(root=UPath(root), exec_target="", exec_known_hosts=None)
+        s = AssaySettings(root=UPath(root), exec_known_hosts=None)
         artifact = _artifact(ArtifactScope.open(s, Claim.CODE), "search", content, s)
         assert artifact.lines == len(content.splitlines())
 
 
 # --- [INTERNAL_PRIMITIVE_LAWS]
+
+
+register_law(resolve_languages, "none_resolves_all_code_languages")
+register_law(resolve_languages, "choice_arms_short_circuit_fault_and_pin_single_language")
 
 
 def test_languages_none_resolves_all_code_languages() -> None:
@@ -260,6 +264,13 @@ def test_languages_none_resolves_all_code_languages() -> None:
     assert isinstance(langs, tuple)
     assert len(langs) > 0
     assert langs == tuple(sorted(set(langs), key=lambda m: m.value))
+
+
+def test_languages_choice_arms_short_circuit_fault_and_pin_single_language() -> None:
+    """A conflicting-flag Fault propagates unchanged; an explicit language yields exactly that single-element tuple."""
+    conflict = Fault((), RailStatus.FAULTED, "parse: code: choose one language flag")
+    assert assert_error(resolve_languages(conflict, (), claim=Claim.CODE)) is conflict
+    assert assert_ok(resolve_languages(Language.PYTHON, ("a.py", "b.cs"), claim=Claim.CODE)) == (Language.PYTHON,)
 
 
 def test_codeparams_rejects_multiple_language_flags() -> None:
@@ -377,6 +388,8 @@ def test_rg_rows(raw: bytes, expected_count: int, check_listing: str | None) -> 
 
 
 # --- [TS_ROWS_LAWS]
+
+register_law(apply_row_status, "empty_on_exit1")
 
 
 @pytest.mark.parametrize(

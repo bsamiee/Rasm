@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipes;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -23,6 +24,8 @@ namespace Rasm.Bridge.Shell;
 public sealed class ShellHost : IDisposable {
     private const int FaultErrorCode = -32050;
     private const int PipeInstances = 4;
+    // McNeel Rhino-MCP-Platform PlugIn GUID ([assembly: Guid] in its AssemblyInfo); the community fork uses a distinct GUID.
+    private const string McneelPlugInGuid = "2668d7ed-f507-4a68-8295-8172147a0e39";
 
     private readonly Lock sync = new();
     private readonly ConcurrentQueue<string> defaultResolves = new();
@@ -305,27 +308,25 @@ public sealed class ShellHost : IDisposable {
 
     private static CapabilityEntry McpPlatform() {
         string[] loaded = [.. AppDomain.CurrentDomain.GetAssemblies()
-            .Select(selector: static assembly => assembly.GetName())
             .Where(predicate: IsMcneelRhinoMcp)
+            .Select(selector: static assembly => assembly.GetName())
             .Select(selector: static name => $"{name.Name}:{name.Version}")
             .Order(comparer: StringComparer.Ordinal)];
         return loaded.Length == 0
-            ? new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Unsupported, Receipt: "no MCP platform assembly loaded")
+            ? new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Unsupported, Receipt: "McNeel Rhino-MCP-Platform not loaded")
             : new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Ok, Receipt: string.Join(separator: ',', value: loaded));
     }
 
-    private static bool IsMcneelRhinoMcp(AssemblyName name) {
-        // McNeel's official rhinomcp and the community fork share the simple name; the McNeel
-        // package ships unsigned (PublicKeyToken=null), so identity falls to a namespace/type probe.
-        if (!string.Equals(a: name.Name, b: "rhinomcp", comparisonType: StringComparison.Ordinal)) {
-            return false;
-        }
-        Assembly? assembly = AppDomain.CurrentDomain.GetAssemblies()
-            .FirstOrDefault(predicate: candidate => AssemblyName.ReferenceMatchesDefinition(reference: candidate.GetName(), definition: name));
-        return assembly is not null && SafeTypes(assembly: assembly)
-            .Any(predicate: static type => (type.Namespace ?? string.Empty)
-                .StartsWith(value: "rhinomcp", comparisonType: StringComparison.Ordinal));
-    }
+    private static bool IsMcneelRhinoMcp(Assembly assembly) =>
+        // McNeel's official Rhino-MCP-Platform ships assembly RhinoMcpPlatform / namespace RhMcp and
+        // pins its PlugIn GUID via [assembly: Guid]; the community fork (assembly rhinomcp) carries
+        // neither, so the rename-stable GUID is the primary signal with the identity pair as fallback.
+        string.Equals(a: assembly.GetCustomAttribute<GuidAttribute>()?.Value, b: McneelPlugInGuid, comparisonType: StringComparison.OrdinalIgnoreCase)
+        || (string.Equals(a: assembly.GetName().Name, b: "RhinoMcpPlatform", comparisonType: StringComparison.Ordinal)
+            && SafeTypes(assembly: assembly).Any(predicate: static type => IsRhMcpNamespace(ns: type.Namespace)));
+
+    private static bool IsRhMcpNamespace(string? ns) =>
+        ns is "RhMcp" || (ns?.StartsWith(value: "RhMcp.", comparisonType: StringComparison.Ordinal) ?? false);
 
     private static CapabilityEntry ShellContent(string deployDir) {
         string path = Path.Combine(path1: deployDir, path2: "Rasm.Bridge.Shell.dll");

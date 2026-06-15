@@ -1,4 +1,4 @@
-"""Environment-double laws for dispatch, SSH/SFTP, bucket, and filesystem behavior."""
+"""Environment-double laws for dispatch, SSH/SFTP, and filesystem behavior."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from tests.python._testkit.env import Bucket, provision, RemoteFS, SshHost
+from tests.python._testkit.env import provision, RemoteFS, SshHost
 
 
 if TYPE_CHECKING:
@@ -14,24 +14,6 @@ if TYPE_CHECKING:
 
     from tests.python._testkit.env import EnvSpec
 
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-
-def _moto_imports() -> bool:
-    """Import-smoke the moto server entrypoint.
-
-    Returns:
-        True when bucket laws may run; False downgrades them to skips.
-    """
-    try:
-        import moto.server  # noqa: F401, PLC0415  # lazy import smoke
-    except Exception:  # noqa: BLE001  # import smoke: any interpreter incompatibility downgrades to skip, never errors collection
-        return False
-    return True
-
-
-requires_moto = pytest.mark.skipif(not _moto_imports(), reason="moto[server] does not import on this interpreter")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -127,36 +109,6 @@ async def test_ssh_sftp_chroot_serves_and_confines(tmp_path: Path) -> None:
     finally:
         conn.close()
         await conn.wait_closed()
-
-
-# --- [BUCKET]
-
-
-@requires_moto
-def test_bucket_round_trips_through_loopback_server(socket_enabled: None) -> None:
-    """Provision pre-creates the moto bucket and preserves object bytes."""
-    _ = socket_enabled
-    provisioned = provision(Bucket())
-    try:
-        assert provisioned.url.startswith("http://127.0.0.1:"), f"unexpected endpoint: {provisioned.url}"
-        client = provisioned.client_factory()
-        client.head_bucket(Bucket="env-bucket")
-        client.put_object(Bucket="env-bucket", Key="laws/blob", Body=b"payload")
-        body = client.get_object(Bucket="env-bucket", Key="laws/blob")["Body"]
-        assert body.read() == b"payload", "bucket round-trip lost the payload"  # ty: ignore[unresolved-attribute]  # untyped StreamingBody
-    finally:
-        provisioned.teardown()
-
-
-@requires_moto
-def test_bucket_spec_owns_name_and_region(socket_enabled: None) -> None:
-    """Non-default bucket regions drive the location-constraint creation arm."""
-    _ = socket_enabled
-    provisioned = provision(Bucket(name="env-regional", region="eu-west-1"))
-    try:
-        provisioned.client_factory().head_bucket(Bucket="env-regional")
-    finally:
-        provisioned.teardown()
 
 
 # --- [REMOTE_FS]

@@ -8,8 +8,10 @@ import contextlib
 from dataclasses import dataclass
 from datetime import datetime, UTC
 from enum import StrEnum
+import hashlib
 import os
 from pathlib import Path
+import socket
 import sys
 from typing import Annotated, Final, Literal, override, Protocol, runtime_checkable, TYPE_CHECKING
 from urllib.parse import urlsplit
@@ -55,8 +57,20 @@ class LogFormat(StrEnum):
     CI = "ci"
 
 
+class PullStrategy(StrEnum):
+    """How a remote artifact backend's scope tree reaches the agent landing store.
+
+    ``TRANSFER`` downloads the tree byte-for-byte (sftp); ``SHARED`` reads the same universal paths the
+    remote tool wrote (cloud object stores); ``NONE`` skips the pull (no admitted backend).
+    """
+
+    TRANSFER = "transfer"
+    SHARED = "shared"
+    NONE = "none"
+
+
 type AnchoredRoot = Annotated[UPath, BeforeValidator(_anchor)]
-type ExecTarget = Annotated[str, AfterValidator(_exec_target)]
+type ExecTargetValue = Annotated[Local | Ssh, BeforeValidator(_parse_exec_target)]
 type ExpandedKnownHosts = Annotated[str | None, BeforeValidator(_expand_or_none)]
 type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expanduser())]
 type RunId = Annotated[str, Field(min_length=1, max_length=160, pattern=_RUN_ID_PATTERN), AfterValidator(wire_safe)]
@@ -113,8 +127,18 @@ _BUILD: Final[str] = "build"
 _DISABLE_BUILD_SERVERS: Final[str] = "--disable-build-servers"
 _MARKER: Final[str] = "Workspace.slnx"
 _RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
-# Only sftp is end-to-end proven; cloud stores re-admit here once their fsspec backend (s3fs/gcsfs) and moto law land.
-_REMOTE_REACHABLE_PROTOCOLS: Final[frozenset[str]] = frozenset(("sftp",))
+# Literal remote-shell tilde: the agent cannot resolve a remote ~, so the push target and derived sftp backend root expand host-side.
+_REMOTE_WORKROOT_DEFAULT: Final[str] = "~/.assay-work"
+# Backend admission is data, not a dispatch chain: one row per protocol carries reachability, admission, and the pull strategy the
+# Ssh case selects. Only sftp is end-to-end proven; the cloud rows are explicit not-admitted facts so re-admitting a shared object
+# store (s3fs/gcsfs + moto law) is a one-row admitted=True flip, never a multi-file edit.
+_BACKEND_CAPABILITY: Final[dict[str, tuple[bool, bool, PullStrategy]]] = {
+    "file": (False, True, PullStrategy.NONE),
+    "sftp": (True, True, PullStrategy.TRANSFER),
+    "s3": (True, False, PullStrategy.SHARED),
+    "gs": (True, False, PullStrategy.SHARED),
+    "gcs": (True, False, PullStrategy.SHARED),
+}
 _REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
     "ASSAY_AGENT_TASK_ID",
     "ASSAY_ARTIFACT_BACKEND__PROTOCOL",  # remote executor writes scope artifacts to the same logical backend the agent reads
@@ -184,22 +208,25 @@ def _default_cpu_count() -> int:
     return min(256, max(1, os.process_cpu_count() or 8))
 
 
-def _exec_target(value: str) -> str:
-    # Validate scheme, host, and port before engine._run_remote can raise mid-spawn.
+def _host_unique_run_id() -> str:
+    # timestamp-pid alone collides across machines on a shared backend root; a stable host token keeps run dirs disjoint per host.
+    host = hashlib.blake2b(socket.gethostname().encode(), digest_size=4).hexdigest()
+    return f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{host}-{os.getpid()}"
+
+
+def _parse_exec_target(value: object) -> Local | Ssh:
+    # One admission point folds the raw ssh:// URL or a round-tripped dump into the modal value object so the discriminant is the case, never a flag.
     match value:
-        case "":
+        case Local() | Ssh():
             return value
+        case "" | None | {} | {"host": ""}:
+            return Local()
+        case str() as url:
+            return Ssh.parse(url)
+        case {"host": str()} as fields:
+            return Ssh.model_validate(fields)
         case _:
-            parts = urlsplit(value)
-            match (parts.scheme, parts.hostname, parts.path, parts.query, parts.fragment):
-                case ("ssh", str() as host, "" | "/", "", "") if host:
-                    try:
-                        _ = parts.port
-                    except ValueError as exc:
-                        raise ValueError(f"exec_target has a non-numeric ssh port: {value!r}") from exc
-                    return value
-                case _:
-                    raise ValueError(f"exec_target must be '' (local) or 'ssh://[user@]host[:port]' without path/query/fragment: {value!r}")
+            raise ValueError(f"exec_target must be '' (local), an 'ssh://[user@]host[:port]' URL, or an ExecTarget value: {value!r}")
 
 
 def _expand_or_none(value: str | UPath | None) -> str | None:
@@ -223,6 +250,15 @@ def _safe_segment(part: str | UPath) -> str:
             return text
         case _:
             raise ValueError(f"unsafe artifact path segment: {text!r}")
+
+
+def backend_capability(protocol: str) -> tuple[bool, bool, PullStrategy]:
+    """Project a backend protocol's (reachable, admitted, pull-strategy) capability row.
+
+    Returns:
+        The policy row for ``protocol``; an unknown protocol is unreachable, not admitted, and pulls nothing.
+    """
+    return _BACKEND_CAPABILITY.get(protocol, (False, False, PullStrategy.NONE))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -265,8 +301,123 @@ class ArtifactBackend(BaseModel):
             case _:
                 return self.root.rstrip("/")
 
+    @property
+    def capability(self) -> tuple[bool, bool, PullStrategy]:
+        """Project this backend's (reachable, admitted, pull-strategy) capability row.
 
-class AssaySettings(BaseSettings):
+        Returns:
+            Capability row from the policy table; an unknown protocol is unreachable, not admitted, no pull.
+        """
+        return backend_capability(self.protocol)
+
+
+class Local(BaseModel):
+    """Local execution target: the agent runs the check in-process on this host."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    def __bool__(self) -> bool:
+        """Return False: Local is the falsy identity of the local/remote discriminant engine sites read."""
+        return False
+
+
+class Ssh(BaseModel):
+    """Remote SSH execution target owning connect kwargs, remote workroot, env-forwarding, and the pull strategy."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    host: str = Field(min_length=1)
+    port: Annotated[int, Field(ge=0, le=65535)] | None = None
+    user: str | None = None
+    known_hosts: ExpandedKnownHosts = Field(default=str(UPath("~/.ssh/known_hosts").expanduser()))
+    workroot: str = _REMOTE_WORKROOT_DEFAULT
+
+    @classmethod
+    def parse(cls, url: str) -> Ssh:
+        """Admit an ``ssh://[user@]host[:port]`` URL into the value object.
+
+        Returns:
+            Validated Ssh target with the URL's host, port, and user.
+
+        Raises:
+            ValueError: When the scheme is not ssh or a path/query/fragment is present.
+        """
+        parts = urlsplit(url)
+        match (parts.scheme, parts.hostname, parts.path, parts.query, parts.fragment):
+            case ("ssh", str() as host, "" | "/", "", "") if host:
+                try:
+                    port = parts.port
+                except ValueError as exc:
+                    raise ValueError(f"exec_target has a non-numeric ssh port: {url!r}") from exc
+                return cls(host=host, port=port, user=parts.username)
+            case _:
+                raise ValueError(f"exec_target must be '' (local) or 'ssh://[user@]host[:port]' without path/query/fragment: {url!r}")
+
+    def __bool__(self) -> bool:
+        """Return True: Ssh is the truthy remote case of the local/remote discriminant engine sites read."""
+        return True
+
+    @property
+    def url(self) -> str:
+        """Render the canonical ``ssh://[user@]host[:port]`` URL for logging, OTel, and the lease owner.
+
+        Returns:
+            The ssh URL string projection of this target.
+        """
+        authority = f"{self.user}@{self.host}" if self.user else self.host
+        return f"ssh://{authority}:{self.port}" if self.port is not None else f"ssh://{authority}"
+
+    @property
+    def connect_kwargs(self) -> dict[str, object]:
+        """Project asyncssh connect kwargs the agent owns (host/port/username/known_hosts).
+
+        Returns:
+            Mapping passed to ``asyncssh.connect``; timeouts/keepalive are engine-owned constants.
+        """
+        return {"host": self.host, "port": self.port, "username": self.user, "known_hosts": self.known_hosts}
+
+    def remote_workroot(self, run_id: str) -> str:
+        """Derive the per-run remote working tree root ``<workroot>/<run_id>``.
+
+        The workroot tilde is a literal the remote shell expands; the agent never resolves a remote ``~``.
+
+        Returns:
+            Remote run-dir path the pushed tree lands under and the remote cwd resolves to.
+        """
+        return f"{self.workroot.rstrip('/')}/{_safe_segment(run_id)}"
+
+    def offload(self, run_id: str) -> Offload:
+        """Derive the offload binding for this run: target plus the sftp backend co-located under the run dir.
+
+        Returns:
+            Offload value object whose backend is derived from this host, never separately configured.
+        """
+        return Offload(target=self, backend=ArtifactBackend(protocol="sftp", root=f"{self.remote_workroot(run_id)}/{_ARTIFACTS}/{_ASSAY}"))
+
+
+class Offload(BaseModel):
+    """Per-run offload binding: an Ssh target with the artifact backend derived from its host.
+
+    One owner makes host/backend inconsistency unrepresentable — the backend is never a separate knob, it is the sftp
+    store pinned under the target's remote run dir, so a remote target always reads through a remotely-reachable store.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    target: Ssh
+    backend: ArtifactBackend
+
+    @property
+    def pull_strategy(self) -> PullStrategy:
+        """Project the pull strategy from the derived backend's capability row.
+
+        Returns:
+            How the remote scope tree reaches the agent landing store.
+        """
+        return self.backend.capability[2]
+
+
+class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the central runtime-settings owner; its projections compose one concern.
     """Validated Assay runtime settings."""
 
     model_config = SettingsConfigDict(
@@ -309,29 +460,36 @@ class AssaySettings(BaseSettings):
     mutation_python: str = "3.14.5"
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)
     log_level: Literal["debug", "info", "warning", "error", "critical"] = "info"
-    run_id: RunId = Field(default_factory=lambda: f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{os.getpid()}")
+    run_id: RunId = Field(default_factory=_host_unique_run_id)
     agent_task_id: WireSafeText = ""
-    exec_target: ExecTarget = Field(default="", description="execution target; '' = local, ssh://[user@]host[:port] = remote")
+    exec_target: ExecTargetValue = Field(default_factory=Local, description="execution target; '' = local, ssh://[user@]host[:port] = remote")
     exec_known_hosts: ExpandedKnownHosts = Field(
         default=str(UPath("~/.ssh/known_hosts").expanduser()),
         description="asyncssh known_hosts path for ssh:// exec_target; empty disables the host-key check",
+    )
+    exec_workroot: str = Field(
+        default=_REMOTE_WORKROOT_DEFAULT, description="remote working-tree root for ssh:// exec_target; the remote shell expands a leading ~"
     )
     otel_endpoint: str = Field(
         default="", validation_alias=AliasChoices("ASSAY_OTEL_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
     )
 
-    @model_validator(mode="after")
-    def _remote_exec_requires_reachable_backend(self) -> AssaySettings:  # noqa: N804  # Pydantic v2 mode="after" passes the model instance, not cls.
-        # Remote execution cannot reach a local-file artifact root, so reject the misconfiguration at load.
-        match (self.exec_target, self.artifact_backend.protocol in _REMOTE_REACHABLE_PROTOCOLS):
-            case ("", _) | (_, True):
-                return self
+    @model_validator(mode="before")
+    @classmethod
+    def _fold_remote_connect_inputs(cls, data: object) -> object:
+        # known_hosts/workroot arrive as separate env vars; fold them into the Ssh case at admission so the value object owns all connect facts.
+        match data:
+            case dict() as raw:
+                match _parse_exec_target(raw.get("exec_target", "")):
+                    case Ssh() as ssh:
+                        overrides = {
+                            field: raw[key] for field, key in (("known_hosts", "exec_known_hosts"), ("workroot", "exec_workroot")) if key in raw
+                        }
+                        return {**raw, "exec_target": ssh.model_copy(update=overrides) if overrides else ssh}
+                    case local:
+                        return {**raw, "exec_target": local}
             case _:
-                raise ValueError(
-                    f"remote exec_target {self.exec_target!r} requires a remotely-reachable artifact_backend "
-                    f"(protocol in {sorted(_REMOTE_REACHABLE_PROTOCOLS)}), got {self.artifact_backend.protocol!r}; "
-                    f"set ASSAY_ARTIFACT_BACKEND__PROTOCOL to one of those with a matching __ROOT, or clear ASSAY_EXEC_TARGET for local execution"
-                )
+                return data
 
     @override
     @classmethod
@@ -364,6 +522,19 @@ class AssaySettings(BaseSettings):
         """Project repo-local Python tool storage variables for subprocess launches."""
         local = self.local_root
         return {key: str(local / rel) for key, rel in _PYTHON_TOOL_ENV_REL.items()}
+
+    @property
+    def offload(self) -> Offload | None:
+        """Derive the per-run offload binding when the target is remote.
+
+        Returns:
+            Offload value object pinning the sftp backend under this run's remote dir, or None for local execution.
+        """
+        match self.exec_target:
+            case Ssh() as ssh:
+                return ssh.offload(self.run_id)
+            case _:
+                return None
 
     @property
     def store_root(self) -> UPath:
@@ -416,9 +587,11 @@ class AssaySettings(BaseSettings):
         Returns:
             Environment variables allowed to cross the SSH execution boundary.
         """
-        # RUN_ID and the artifact backend live in validated settings, so inject them before allowlist projection.
+        # RUN_ID and the offload-derived backend live in validated settings, so inject them before allowlist projection.
+        # The remote executor writes scope artifacts to the backend the agent pulls from: the per-run sftp root, never the local file root.
         safe_names = frozenset((*self.python_tool_env, *_REMOTE_ENV_NAMES, *_TRACE_CONTEXT_ENV, *forward))
-        backend = {"ASSAY_ARTIFACT_BACKEND__PROTOCOL": self.artifact_backend.protocol, "ASSAY_ARTIFACT_BACKEND__ROOT": self.artifact_backend.root}
+        store = self.offload.backend if self.offload is not None else self.artifact_backend
+        backend = {"ASSAY_ARTIFACT_BACKEND__PROTOCOL": store.protocol, "ASSAY_ARTIFACT_BACKEND__ROOT": store.root}
         source = {"ASSAY_RUN_ID": self.run_id, **backend, **env}
         return {k: v for k, v in source.items() if k in safe_names and v}
 
@@ -861,4 +1034,18 @@ class ArtifactScope:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ArtifactBackend", "ArtifactScope", "ArtifactStore", "AssaySettings", "Configuration", "LogFormat", "mtime_from_info", "size_from_info"]
+__all__ = [
+    "ArtifactBackend",
+    "ArtifactScope",
+    "ArtifactStore",
+    "AssaySettings",
+    "Configuration",
+    "Local",
+    "LogFormat",
+    "Offload",
+    "PullStrategy",
+    "Ssh",
+    "backend_capability",
+    "mtime_from_info",
+    "size_from_info",
+]

@@ -29,7 +29,7 @@ from tests.python._testkit.seams import (
 )
 from tests.python._testkit.strategies import resolve
 from tools.assay.composition.registry import REGISTRY
-from tools.assay.composition.settings import ArtifactScope, AssaySettings
+from tools.assay.composition.settings import ArtifactScope, AssaySettings, Ssh
 from tools.assay.core.model import (
     AnyDetail,
     ApiResolution,
@@ -43,6 +43,7 @@ from tools.assay.core.model import (
     Diagnostic,
     Envelope,
     envelope as wrap_envelope,
+    ExecReceipt,
     Fault,
     fold,
     Match,
@@ -103,6 +104,7 @@ WIRE_ENCODER = msgspec.json.Encoder(order="deterministic")
 
 rail_status_st: st.SearchStrategy[RailStatus] = resolve(RailStatus)
 completed_st: st.SearchStrategy[Completed] = resolve(Completed)
+exec_receipt_st: st.SearchStrategy[ExecReceipt] = resolve(ExecReceipt)
 fault_st: st.SearchStrategy[Fault] = resolve(Fault)
 counts_st: st.SearchStrategy[Counts] = resolve(Counts)
 artifact_st: st.SearchStrategy[Artifact] = resolve(Artifact)
@@ -164,7 +166,7 @@ def assay_settings(root: Path) -> AssaySettings:
         Settings rooted at ``root`` with remote execution disabled.
     """
     (root / "Workspace.slnx").write_text("", encoding="utf-8")
-    return AssaySettings(root=UPath(root), exec_target="", exec_known_hosts=None)
+    return AssaySettings(root=UPath(root), exec_known_hosts=None)
 
 
 class AssayHarness(TmpRoot[AssaySettings], frozen=True, gc=False):
@@ -179,12 +181,13 @@ class AssayHarness(TmpRoot[AssaySettings], frozen=True, gc=False):
         return ArtifactScope.open(self.settings, claim)
 
     def remote(self, exec_target: str) -> AssaySettings:
-        """Copy settings for SSH law fixtures without a known-hosts constraint.
+        """Copy settings for SSH law fixtures, binding the parsed Ssh target without a known-hosts constraint.
 
         Returns:
-            Settings copy targeting ``exec_target``.
+            Settings whose modal exec_target is the Ssh value object parsed from ``exec_target``.
         """
-        return self.settings.model_copy(update={"exec_target": exec_target, "exec_known_hosts": None})
+        target = Ssh.parse(exec_target).model_copy(update={"known_hosts": None})
+        return self.settings.model_copy(update={"exec_target": target, "exec_known_hosts": None})
 
     @staticmethod
     def envelope_of(payload: Report | Fault, *, claim: Claim, verb: str) -> Envelope:

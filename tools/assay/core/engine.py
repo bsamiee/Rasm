@@ -17,7 +17,6 @@ import shutil
 import signal
 import time
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
-from urllib.parse import urlsplit
 
 import anyio
 from anyio import to_thread  # ty mis-resolves anyio.to_thread without an explicit submodule import
@@ -30,11 +29,7 @@ import structlog
 from upath import UPath
 
 from tools.assay.composition.catalog import AST_MATCHES
-from tools.assay.composition.settings import (  # unconditional: beartype resolves forward refs at import time
-    ArtifactScope,
-    AssaySettings,
-    size_from_info,
-)
+from tools.assay.composition.settings import ArtifactScope, AssaySettings, Local, Ssh  # unconditional: beartype resolves forward refs at import time
 from tools.assay.core.aspect import (
     _CHECKED_LAYER,  # noqa: PLC2701  # co-owned internal seam: aspect and engine share this layer without a public surface
     compose,
@@ -47,6 +42,7 @@ from tools.assay.core.model import (  # noqa: TC001  # beartype resolves the Too
     ArtifactKind,
     Check,
     Completed,
+    ExecReceipt,
     Fault,
     Mode,
     receipt,
@@ -105,10 +101,11 @@ _SSH_CONNECT_TIMEOUT: float = 15.0
 _SSH_KEEPALIVE_INTERVAL_S: float = 15.0
 _SSH_KEEPALIVE_COUNT_MAX: int = 3
 _SSH_SIGNAL_STATUS: int = 255
-# Artifact pull runs after the remote process exits; a shielded ceiling stops a large tree from reclassifying a completed run as TIMEOUT.
-_ARTIFACT_PULL_BUDGET_S: float = 120.0
-# Cloud backends are a shared store the agent reads at the same universal paths; sftp requires a real byte transfer.
-_SHARED_STORE_PROTOCOLS: frozenset[str] = frozenset({"s3", "gs", "gcs"})
+# Repo push + artifact pull bracket the remote exec; a shielded ceiling stops a large transfer from reclassifying a completed run as TIMEOUT.
+_TRANSFER_BUDGET_S: float = 120.0
+# git ls-files is the set-algebraic push manifest: .git/.cache/.artifacts/bin/obj/node_modules/.venv are gitignored, so they never cross.
+_PUSH_MANIFEST_ARGV: tuple[str, ...] = ("git", "ls-files", "-z")
+_SFTP_MAX_REQUESTS: int = 64
 _DOTNET_PROBE_TIMEOUT_S: float = 15.0
 _DOTNET_SHARED_RUNTIME: tuple[str, str] = ("shared", "Microsoft.NETCore.App")
 _DOTNET_SLOT_POLL_S: float = 0.25
@@ -710,7 +707,7 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:  # noqa: PLR0914  
         "process.start", tool=plan.check.tool.name, argv=plan.argv, cwd=plan.cwd, streaming=plan.streaming, remote=bool(plan.settings.exec_target)
     )
     match plan.settings.exec_target:
-        case "":
+        case Local():
             match plan.streaming:
                 case True:
                     proc = await anyio.open_process(list(plan.argv), cwd=plan.cwd, env=plan.env, start_new_session=True)
@@ -773,7 +770,7 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:  # noqa: PLR0914  
                         ),
                         resources=(*resources, ("process.duration_ms", duration_ms)),
                     )
-        case target:
+        case Ssh() as target:
             # Forward declared row env across SSH; keep ambient host env behind the allowlist.
             row_env = frozenset(key for key, _ in plan.check.tool.env)
             remote_done = await _run_remote(replace(plan, env=plan.settings.remote_env(dict(plan.env), forward=row_env)), target)
@@ -843,112 +840,206 @@ def _stream_writer(plan: _ExecPlan, name: str) -> tuple[str, _WriteContext | Non
                     raise TypeError(f"artifact backend returned non-context writer: {type(handle).__name__}")
 
 
-async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
+@dataclass(frozen=True, slots=True)
+class _Outcome:
+    streams: dict[str, Captured]
+    exit_status: int | None
+    signal: str
+
+
+async def _run_remote(plan: _ExecPlan, target: Ssh) -> Completed:
+    command = remote_command(plan.argv, cwd=plan.cwd, env=plan.env)
+    async with _ssh_connection(target) as conn:
+        # Pre-flight probe: a missing remote toolchain yields a typed UNSUPPORTED receipt, never an opaque `cd && exec` non-zero.
+        match await _probe_toolchain(conn, plan.argv):
+            case (str() as missing, str() as detail):
+                miss = receipt(plan.argv, RailStatus.UNSUPPORTED.exit_code, status=RailStatus.UNSUPPORTED, stderr=detail.encode()[:1024])
+                return _fold_receipt(miss, target, exit_status=None, signal="", notes=(f"remote.toolchain.missing tool={missing}",))
+            case _:
+                pass
+        # One shielded bracket owns push (before exec) and pull (after exec) on the same pooled connection.
+        async with _remote_transfer(conn, plan) as transfer:
+            outcome = await _remote_exec(conn, plan, command)
+            pulled = await transfer.pull(outcome.streams)
+    code, signal_notes = ssh_outcome(outcome.exit_status, (outcome.signal,) if outcome.signal else None)
+    notes = (*transfer.notes, *pulled.notes)
+    done = receipt(
+        plan.argv,
+        code,
+        stdout=outcome.streams.get("out", Captured()).tail,
+        stderr=outcome.streams.get("err", Captured()).tail,
+        notes=(*signal_notes, *notes),
+        artifacts=pulled.artifacts,
+    )
+    return _fold_receipt(
+        done, target, exit_status=outcome.exit_status, signal=outcome.signal, notes=notes, pushed=transfer.pushed, pulled=pulled.count
+    )
+
+
+async def _remote_exec(conn: asyncssh.SSHClientConnection, plan: _ExecPlan, command: str) -> _Outcome:
     import asyncssh  # noqa: PLC0415  # lazy: ~83ms cold-start cost; defer past import time
 
-    command = remote_command(plan.argv, cwd=plan.cwd, env=plan.env)
-    async with _ssh_connection(target, plan.settings) as conn:
-        match plan.streaming:
-            case True:
-                # No stall telemetry on this branch: psutil cannot inspect remote pids across the SSH boundary.
-                proc = await conn.create_process(command, encoding=None, stdin=asyncssh.DEVNULL)
-                try:
-                    streams = await _drain_pair(plan, _recv_ssh(proc.stdout, plan.chunk), _recv_ssh(proc.stderr, plan.chunk), proc.wait)
-                    code, notes = ssh_outcome(proc.exit_status, getattr(proc, "exit_signal", None))
-                    artifacts, pull_notes = await _pull_remote_artifacts(conn, plan, streams)
-                    return receipt(
-                        plan.argv,
-                        code,
-                        stdout=streams.get("out", Captured()).tail,
-                        stderr=streams.get("err", Captured()).tail,
-                        notes=(*notes, *pull_notes),
-                        artifacts=artifacts,
-                    )
-                finally:
-                    with anyio.CancelScope(shield=True):
-                        proc.close()
-                        await proc.wait_closed()
-            case False:
-                done = await conn.run(command, encoding=None, check=False)
-                code, notes = ssh_outcome(done.exit_status, getattr(done, "exit_signal", None))
-                streams = _captured_outputs(plan, _as_bytes(done.stdout), _as_bytes(done.stderr))
-                artifacts, pull_notes = await _pull_remote_artifacts(conn, plan, streams)
-                return receipt(
-                    plan.argv,
-                    code,
-                    stdout=streams.get("out", Captured()).tail,
-                    stderr=streams.get("err", Captured()).tail,
-                    notes=(*notes, *pull_notes),
-                    artifacts=artifacts,
-                )
+    # asyncssh reports a signalled kill as a (name, *) tuple; the name is the receipt-bearing fact.
+    def signal_name(exit_signal: object | None) -> str:
+        return exit_signal[0] if isinstance(exit_signal, tuple) and exit_signal and isinstance(exit_signal[0], str) else ""
+
+    match plan.streaming:
+        case True:
+            # No stall telemetry on this branch: psutil cannot inspect remote pids across the SSH boundary.
+            proc = await conn.create_process(command, encoding=None, stdin=asyncssh.DEVNULL)
+            try:
+                streams = await _drain_pair(plan, _recv_ssh(proc.stdout, plan.chunk), _recv_ssh(proc.stderr, plan.chunk), proc.wait)
+                return _Outcome(streams, proc.exit_status, signal_name(getattr(proc, "exit_signal", None)))
+            finally:
+                with anyio.CancelScope(shield=True):
+                    proc.close()
+                    await proc.wait_closed()
+        case False:
+            run = await conn.run(command, encoding=None, check=False)
+            streams = _captured_outputs(plan, _as_bytes(run.stdout), _as_bytes(run.stderr))
+            return _Outcome(streams, run.exit_status, signal_name(getattr(run, "exit_signal", None)))
 
 
-async def _pull_remote_artifacts(
-    conn: asyncssh.SSHClientConnection, plan: _ExecPlan, streams: Mapping[str, Captured]
-) -> tuple[tuple[Artifact, ...], tuple[str, ...]]:
-    """Fold the agent-streamed captures with the tool-written remote scope tree, dispatching on the backend protocol.
+@dataclass(frozen=True, slots=True)
+class _Pulled:
+    artifacts: tuple[Artifact, ...]
+    count: int
+    notes: tuple[str, ...]
 
-    The stdout/stderr captures already streamed to the agent-local store; the remote tool wrote its own scope
-    artifacts (SARIF/coverage/results) to the configured backend. Cloud backends are shared and need no transfer;
-    sftp needs a real download. The pull is shielded under a generous budget so a slow tree degrades to a receipt
-    note rather than reclassifying a completed run as TIMEOUT.
+
+@dataclass(frozen=True, slots=True)
+class _Transfer:
+    conn: asyncssh.SSHClientConnection
+    plan: _ExecPlan
+    pushed: int
+    notes: tuple[str, ...]
+
+    async def pull(self, streams: Mapping[str, Captured]) -> _Pulled:
+        """Download the tool-written remote scope tree into the agent-local landing store after the remote exec.
+
+        Returns:
+            Folded scope artifacts, the pulled-file count, and any degrade note.
+        """
+        captured = _stream_artifacts(self.plan.scope, self.plan.settings, self.plan.check, streams)
+        if not isinstance(self.plan.scope, ArtifactScope):
+            return _Pulled(captured, 0, ())
+        scope: ArtifactScope = self.plan.scope
+        try:
+            # Shield the post-exit download so a completed run lands its artifacts even under deadline cancellation; the budget still bounds it.
+            with anyio.CancelScope(shield=True), anyio.fail_after(_TRANSFER_BUDGET_S):
+                landed = await _sftp_pull_scope(self.conn, self.plan, scope)
+        except TimeoutError:
+            return _Pulled(captured, 0, (f"remote.artifacts.degraded budget_s={_TRANSFER_BUDGET_S:g}",))
+        return _Pulled((*captured, *landed), len(landed), ())
+
+
+@contextlib.asynccontextmanager
+async def _remote_transfer(conn: asyncssh.SSHClientConnection, plan: _ExecPlan) -> AsyncIterator[_Transfer]:
+    """Bracket the remote exec with the push leg and prepare the pull leg on one pooled connection.
+
+    The repo working tree is pushed up front so the remote tool sees it at ``<workroot>/<run_id>``; the pull leg
+    runs after the body downloads the tool-written scope tree. Push and pull each own a shield + budget so a large
+    transfer degrades to a receipt note rather than reclassifying a completed run as TIMEOUT; the ``yield`` stays
+    outside the push shield so the bracketed remote exec remains cancellable by the check deadline.
+
+    Yields:
+        A transfer handle carrying the pushed-file count, push notes, and the post-exec ``pull`` coroutine.
+    """
+    try:
+        with anyio.CancelScope(shield=True), anyio.fail_after(_TRANSFER_BUDGET_S):
+            pushed, push_notes = await _push_repo(conn, plan)
+    except TimeoutError:
+        pushed, push_notes = 0, (f"remote.push.degraded budget_s={_TRANSFER_BUDGET_S:g}",)
+    yield _Transfer(conn=conn, plan=plan, pushed=pushed, notes=push_notes)
+
+
+async def _push_repo(conn: asyncssh.SSHClientConnection, plan: _ExecPlan) -> tuple[int, tuple[str, ...]]:
+    """Push the git-tracked working tree to the remote run dir via parallel SFTPClient.put grouped by directory.
+
+    ``git ls-files`` is the set-algebraic manifest: gitignored roots (``.git``/``.cache``/``.artifacts``/``bin``/``obj``/
+    ``node_modules``/``.venv``) never cross. Per-file ``put`` failures fold into receipt notes instead of aborting the push.
 
     Returns:
-        Folded artifact rows and any degrade/skip notes.
+        The pushed-file count and any per-file failure or empty-manifest notes.
     """
-    captured = _stream_artifacts(plan.scope, plan.settings, plan.check, streams)
-    if not isinstance(plan.scope, ArtifactScope):
-        return captured, ()
-    # Shield + fail_after bound the pull on the check's clock so artifact return never reclassifies a completed run.
-    with anyio.CancelScope(shield=True):
-        pulled = await _pull_scope_under_budget(conn, plan, plan.scope, captured)
-    return pulled
+    manifest = await _push_manifest(plan)
+    local_root = Path(str(plan.settings.local_root))
+    remote_root = plan.cwd.rstrip("/")
+    failures: list[str] = []
+
+    def _on_error(exc: Exception) -> None:
+        failures.append(f"remote.push.failed {type(exc).__name__}: {str(exc)[:120]}")
+
+    async with await conn.start_sftp_client() as sftp:
+        # The run root is created unconditionally so the remote `cd <workroot>/<run_id>` is valid even for an empty manifest.
+        await sftp.makedirs(remote_root, exist_ok=True)
+        for parent, names in _grouped_by_parent(manifest).items():
+            remote_dir = "/".join((remote_root, *parent.split("/"))) if parent else remote_root
+            await sftp.makedirs(remote_dir, exist_ok=True)
+            locals_in_dir = [str(local_root / (f"{parent}/{name}" if parent else name)) for name in names]
+            await sftp.put(locals_in_dir, remote_dir, max_requests=_SFTP_MAX_REQUESTS, error_handler=_on_error)
+    pushed = len(manifest) - len(failures)
+    return pushed, (("remote.push.empty",) if not manifest else tuple(failures))
 
 
-async def _pull_scope_under_budget(
-    conn: asyncssh.SSHClientConnection, plan: _ExecPlan, scope: ArtifactScope, captured: tuple[Artifact, ...]
-) -> tuple[tuple[Artifact, ...], tuple[str, ...]]:
-    protocol = plan.settings.artifact_backend.protocol
-    try:
-        with anyio.fail_after(_ARTIFACT_PULL_BUDGET_S):
-            match protocol:
-                case "sftp":
-                    return (*captured, *await _sftp_pull_scope(conn, plan, scope)), ()
-                case shared if (
-                    shared in _SHARED_STORE_PROTOCOLS
-                ):  # pragma: no cover  # cloud arm: revived when _REMOTE_REACHABLE_PROTOCOLS re-admits these
-                    return (*captured, *await to_thread.run_sync(_shared_scope_artifacts, scope, plan.check)), ()
-                case other:  # pragma: no cover  # the load-time validator forecloses every non-sftp remote-exec backend
-                    return captured, (f"remote.artifacts.skipped protocol={other}",)
-    except TimeoutError:
-        return captured, (f"remote.artifacts.degraded budget_s={_ARTIFACT_PULL_BUDGET_S:g} protocol={protocol}",)
+async def _push_manifest(plan: _ExecPlan) -> tuple[str, ...]:
+    # git ls-files -z is NUL-delimited so paths with spaces/newlines survive; the agent-local root is the manifest source.
+    listed = await discover_async(_PUSH_MANIFEST_ARGV, root=plan.settings.local_root, limit_s=_TRANSFER_BUDGET_S)
+    return listed.map(lambda out: tuple(p for p in out.decode(errors="replace").split("\x00") if p)).default_value(())
+
+
+def _grouped_by_parent(manifest: tuple[str, ...]) -> dict[str, tuple[str, ...]]:
+    # Group by repo-relative parent so one put call per directory preserves tree structure: basenames within a dir are unique.
+    groups: dict[str, list[str]] = {}
+    for rel in manifest:
+        parent, _, name = rel.rpartition("/")
+        groups.setdefault(parent, []).append(name)
+    return {parent: tuple(names) for parent, names in groups.items()}
+
+
+async def _probe_toolchain(conn: asyncssh.SSHClientConnection, argv: tuple[str, ...]) -> tuple[str, str] | None:
+    """Probe the remote PATH for the runner's leading tool before committing to the exec.
+
+    Returns:
+        ``(tool, detail)`` when the tool is absent, else ``None`` when present or unprobeable.
+    """
+    match argv:
+        case (str() as tool, *_) if tool and "/" not in tool:
+            probe = await conn.run(f"command -v {shlex.quote(tool)}", encoding="utf-8", check=False)
+            return None if probe.exit_status == 0 else (tool, f"remote toolchain missing: {tool!r} not on PATH")
+        case _:
+            # An absolute-path or empty leading token is self-locating; the exec surfaces its own ENOENT.
+            return None
+
+
+def _fold_receipt(
+    done: Completed, target: Ssh, *, exit_status: int | None, signal: str, notes: tuple[str, ...] = (), pushed: int = 0, pulled: int = 0
+) -> Completed:
+    """Project the remote-execution facts onto the receipt's dedicated ``exec`` carrier.
+
+    Returns:
+        The receipt with an ``ExecReceipt`` stamping the target URL, host, exit status, signal, and transfer counts.
+    """
+    return msgspec.structs.replace(
+        done, exec=ExecReceipt(target=target.url, host=target.host, exit_status=exit_status, signal=signal, pushed=pushed, pulled=pulled, notes=notes)
+    )
 
 
 def _scope_relative(scope: ArtifactScope) -> tuple[str, ...]:
-    # Scope parts are root-down by construction: stripping the store root yields parts that agree across local/remote/cloud.
+    # Scope parts are root-down by construction: stripping the store root yields parts that agree across local and remote.
     tail = scope.path[len(scope.store.root) + 1 :] if scope.path.startswith(f"{scope.store.root}/") else scope.path
     return tuple(part for part in tail.split("/") if part)
 
 
-def _shared_scope_artifacts(
-    scope: ArtifactScope, check: Check
-) -> tuple[Artifact, ...]:  # pragma: no cover  # unreachable until cloud backends re-admit
-    # Cloud store is shared: the agent reads the tool-written files at the same universal paths; no transfer.
-    rows = scope.store.walk(*_scope_relative(scope), recursive=True, detail=True)
-    return tuple(
-        Artifact(id=f"{check.tool.name}-scope-{path.rsplit('/', 1)[-1]}", kind=ArtifactKind.SCOPE, path=path, bytes=size_from_info(info))
-        for row in rows
-        if isinstance(row, tuple)
-        for path, info in (row,)
-        if isinstance(info, dict) and str(info.get("type", "file")) != "directory"
-    )
-
-
 async def _sftp_pull_scope(conn: asyncssh.SSHClientConnection, plan: _ExecPlan, scope: ArtifactScope) -> tuple[Artifact, ...]:
     # The agent landing store is always local-file: an SFTP execution backend cannot be read in-process, so artifacts come down to disk.
+    # Offload pins the sftp backend under the run dir, so the backend root is the type's projection, never an inline re-derivation.
+    offload = plan.settings.offload
+    if offload is None:  # pragma: no cover  # the remote arm only reaches here under an Ssh target, which always derives an Offload
+        return ()
     rel = _scope_relative(scope)
     landing = plan.settings.store(protocol="file", root="")
-    remote_dir = "/".join((plan.settings.artifact_backend.root.rstrip("/"), *rel))
+    remote_dir = "/".join((offload.backend.root.rstrip("/"), *rel))
     local_dir = Path(landing.ensure(*rel))
     async with await conn.start_sftp_client() as sftp:
         if not await sftp.exists(remote_dir):
@@ -974,23 +1065,23 @@ def _landed_scope_artifacts(landing: ArtifactStore, local_dir: Path, rel: tuple[
 
 
 @contextlib.asynccontextmanager
-async def _ssh_connection(target: str, settings: AssaySettings) -> AsyncIterator[asyncssh.SSHClientConnection]:
+async def _ssh_connection(target: Ssh) -> AsyncIterator[asyncssh.SSHClientConnection]:
     cache = _SSH_CACHE.get()
     match cache:
         case None:
-            async with _connect(target, settings) as conn:
+            async with _connect(target) as conn:
                 yield conn
         case _SshCache() as pooled:
             async with pooled.lock:
-                cached = pooled.conns.get(target)
+                cached = pooled.conns.get(target.url)
                 if cached is None or cached.is_closed():
-                    cached = pooled.conns[target] = await _connect_once(target, settings)
+                    cached = pooled.conns[target.url] = await _connect_once(target)
             yield cached
 
 
 @contextlib.asynccontextmanager
-async def _connect(target: str, settings: AssaySettings) -> AsyncIterator[asyncssh.SSHClientConnection]:
-    conn = await _connect_once(target, settings)
+async def _connect(target: Ssh) -> AsyncIterator[asyncssh.SSHClientConnection]:
+    conn = await _connect_once(target)
     try:
         yield conn
     finally:
@@ -998,15 +1089,12 @@ async def _connect(target: str, settings: AssaySettings) -> AsyncIterator[asyncs
         await conn.wait_closed()
 
 
-async def _connect_once(target: str, settings: AssaySettings) -> asyncssh.SSHClientConnection:
+async def _connect_once(target: Ssh) -> asyncssh.SSHClientConnection:
     import asyncssh  # noqa: PLC0415  # lazy: ~83ms cold-start cost; defer past import time
 
-    parts = urlsplit(target)
+    # The Ssh value object owns host/port/username/known_hosts; the engine owns only the timeout/keepalive policy constants.
     return await asyncssh.connect(
-        parts.hostname or "",
-        parts.port,
-        username=parts.username,
-        known_hosts=settings.exec_known_hosts,
+        **target.connect_kwargs,
         connect_timeout=_SSH_CONNECT_TIMEOUT,
         login_timeout=_SSH_CONNECT_TIMEOUT,
         keepalive_interval=_SSH_KEEPALIVE_INTERVAL_S,
@@ -1158,6 +1246,15 @@ async def _guarded(
         return Error(_spawn_fault(argv, exc, attempts[0]))
 
 
+def _exec_cwd(check: Check, settings: AssaySettings) -> str:
+    # Local keeps the staging worktree or anchored root; the Ssh case projects the remote run dir the push tree lands under.
+    match settings.exec_target:
+        case Ssh() as target:
+            return target.remote_workroot(settings.run_id)
+        case _:
+            return str(UPath(check.cwd or settings.local_root).path)
+
+
 async def _prepare_exec(
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[_PreparedExec, Fault]:
@@ -1177,10 +1274,11 @@ async def _prepare_exec(
         case Result(error=fault):
             return Error(fault)
     bound = deadline if deadline is not None else (time.monotonic() + check.tool.timeout if check.tool.timeout is not None else None)
-    cwd = str(UPath(check.cwd or settings.local_root).path)
+    # The remote cwd is the run dir the push lands under; an agent-local absolute path would not exist on the remote host.
+    cwd = _exec_cwd(check, settings)
     env = await to_thread.run_sync(_apphost, check.tool, _overlay(check.tool, settings, scope), abandon_on_cancel=True)
     propagate.inject(env)
-    trace.get_current_span().set_attribute("exec.target", settings.exec_target)
+    trace.get_current_span().set_attribute("exec.target", settings.exec_target.url if isinstance(settings.exec_target, Ssh) else "")
     return Ok(
         _PreparedExec(
             check=check,
@@ -1806,7 +1904,7 @@ def exclusive_lease(
             resource,
             run_id=run_id,
             tolerance=settings.lease_drift_tolerance,
-            target=settings.exec_target,
+            target=settings.exec_target.url if isinstance(settings.exec_target, Ssh) else "",
             cwd=str(settings.root),
             project=project,
             mode=mode,
