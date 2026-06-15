@@ -15,9 +15,8 @@ Rasm.AppHost has zero consumers; the implementation is full-capability with no h
 |   [7]   | [diagnostics-and-telemetry](diagnostics-and-telemetry.md) | correlation, signals, classification taxonomy    | finalized |
 |   [8]   | [health-and-degradation](health-and-degradation.md)       | health fold and degradation rail                 | finalized |
 |   [9]   | [support-bundles](support-bundles.md)                     | bounded redacted diagnostic capture              | finalized |
-|  [10]   | [outbound-resilience](outbound-resilience.md)             | hop axis and single retry owner                  | finalized |
-|  [11]   | [outbound-discovery](outbound-discovery.md)               | discovery manifest, UDS attach, companion spawn  | finalized |
-|  [12]   | [runtime-ports](runtime-ports.md)                         | port records, suite wire law, TS map             | finalized |
+|  [10]   | [outbound-resilience](outbound-resilience.md)             | hop axis, single retry owner, discovery manifest, UDS attach, companion spawn | finalized |
+|  [11]   | [runtime-ports](runtime-ports.md)                         | port records, suite wire law, TS map             | finalized |
 
 ## [2]-[WIRE_PAGES]
 
@@ -29,38 +28,39 @@ App-root-only pins with no restored closure, catalogued at app-root creation: Op
 
 ## [4]-[GAP_LEDGER]
 
-The red-team pass requires every row `CLOSED`; `[CLOSED_BY]` names the page#cluster that absorbed the gap.
+Every row is CLOSED; `[CLOSED_BY]` names the page#cluster that absorbed the gap.
 
-| [INDEX] | [GAP]                                            | [CLOSED_BY (page#cluster)]                                                                                         | [STATE] |
-| :-----: | :----------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- | :-----: |
-|   [1]   | sibling telemetry registration seam              | runtime-ports#PORT_RECORDS + diagnostics-and-telemetry#TELEMETRY_IDENTITY                                          | CLOSED  |
-|   [2]   | cross-package drain rank bands                   | lifecycle-and-drain#DRAIN_CONDUCTOR                                                                                | CLOSED  |
-|   [3]   | shared data-classification taxonomy              | diagnostics-and-telemetry#REDACTION_TAXONOMY                                                                       | CLOSED  |
-|   [4]   | HLC receipt envelope as causal primitive         | runtime-ports#PORT_RECORDS                                                                                         | CLOSED  |
-|   [5]   | `grpc.health.v1` registry projection             | health-and-degradation#WIRE_HEALTH                                                                                 | CLOSED  |
-|   [6]   | `DrainQueue` / `WorkLane` name split             | resource-lanes#DRAIN_QUEUES                                                                                        | CLOSED  |
-|   [7]   | `HybridCache` port, stampede, tags, and L2 seam  | resource-lanes#CACHE_PORT                                                                                          | CLOSED  |
-|   [8]   | options reload-class column                      | configuration-and-options#POLICY_VALUES                                                                            | CLOSED  |
-|   [9]   | resource-pressure health contributor             | health-and-degradation#HEALTH_FOLD                                                                                 | CLOSED  |
-|  [10]   | user-secrets versus OS-keychain config rows      | configuration-and-options#SOURCE_AXIS                                                                              | CLOSED  |
-|  [11]   | update-check outbound hop                        | outbound-resilience#HOP_AXIS                                                                                       | CLOSED  |
-|  [12]   | unhandled, task, POSIX, and crash-marker faults  | lifecycle-and-drain#FAULT_SPINE                                                                                    | CLOSED  |
-|  [13]   | discovery manifest and local IPC attach          | outbound-discovery#DISCOVERY_ATTACH + runtime-ports#PORT_RECORDS                                                   | CLOSED  |
-|  [14]   | `LocalOnly` degradation level                    | health-and-degradation#DEGRADATION_RAIL                                                                            | CLOSED  |
-|  [15]   | operator kill-switch and degradation consequence | configuration-and-options#KILL_SWITCH + health-and-degradation#DEGRADATION_RAIL                                    | CLOSED  |
-|  [16]   | cron schedule port and lease/crash split         | time-and-deadlines#SCHEDULE_PORT                                                                                   | CLOSED  |
-|  [17]   | merged JSON contracts and schema emission        | runtime-ports#WIRE_LAW                                                                                             | CLOSED  |
-|  [18]   | crash probe, support trigger, and host markers   | lifecycle-and-drain#FAULT_SPINE + support-bundles#TRIGGER_UNION                                                    | CLOSED  |
-|  [19]   | service-mode control verbs                       | support-bundles#CAPTURE_PIPELINE + health-and-degradation#DEGRADATION_RAIL + configuration-and-options#KILL_SWITCH | CLOSED  |
-|  [20]   | GC posture and DATAS benchmark gate              | host-profiles#PROFILE_AXIS                                                                                         | CLOSED  |
+| [INDEX] | [GAP]                                            | [CLOSED_BY (page#cluster)]                                                                                         |
+| :-----: | :----------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- |
+|   [1]   | sibling telemetry registration seam              | runtime-ports#PORT_RECORDS + diagnostics-and-telemetry#TELEMETRY_IDENTITY                                          |
+|   [2]   | cross-package drain rank bands                   | lifecycle-and-drain#DRAIN_CONDUCTOR                                                                                |
+|   [3]   | shared data-classification taxonomy              | diagnostics-and-telemetry#REDACTION_TAXONOMY                                                                       |
+|   [4]   | HLC receipt envelope as causal primitive         | runtime-ports#PORT_RECORDS                                                                                         |
+|   [5]   | `grpc.health.v1` registry projection             | health-and-degradation#WIRE_HEALTH                                                                                 |
+|   [6]   | `DrainQueue` / `WorkLane` name split             | resource-lanes#DRAIN_QUEUES                                                                                        |
+|   [7]   | `HybridCache` port, stampede, tags, and L2 seam  | resource-lanes#CACHE_PORT                                                                                          |
+|   [8]   | options reload-class column                      | configuration-and-options#POLICY_VALUES                                                                            |
+|   [9]   | resource-pressure health contributor             | health-and-degradation#HEALTH_FOLD                                                                                 |
+|  [10]   | user-secrets versus OS-keychain config rows      | configuration-and-options#SOURCE_AXIS                                                                              |
+|  [11]   | update-check outbound hop                        | outbound-resilience#HOP_AXIS                                                                                       |
+|  [12]   | unhandled, task, POSIX, and crash-marker faults  | lifecycle-and-drain#FAULT_SPINE                                                                                    |
+|  [13]   | discovery manifest and local IPC attach          | outbound-resilience#DISCOVERY_ATTACH + runtime-ports#PORT_RECORDS                                                  |
+|  [14]   | `LocalOnly` degradation level                    | health-and-degradation#DEGRADATION_RAIL                                                                            |
+|  [15]   | operator kill-switch and degradation consequence | configuration-and-options#KILL_SWITCH + health-and-degradation#DEGRADATION_RAIL                                    |
+|  [16]   | cron schedule port and lease/crash split         | time-and-deadlines#SCHEDULE_PORT                                                                                   |
+|  [17]   | merged JSON contracts and schema emission        | runtime-ports#WIRE_LAW                                                                                             |
+|  [18]   | crash probe, support trigger, and host markers   | lifecycle-and-drain#FAULT_SPINE + support-bundles#TRIGGER_UNION                                                    |
+|  [19]   | service-mode control verbs                       | support-bundles#CAPTURE_PIPELINE + health-and-degradation#DEGRADATION_RAIL + configuration-and-options#KILL_SWITCH |
+|  [20]   | GC posture and DATAS benchmark gate              | host-profiles#PROFILE_AXIS                                                                                         |
 
 ## [5]-[DENSITY_BAR]
 
-Implementation lands at 25-35% of the naive LOC a per-concern implementation spends. The owner
-budget below is the public-surface cap: one owner per axis, one entrypoint family per rail; a
-new feature is a row or case, never a new surface. Key policies, receipts, policy records,
-runtime records, and wire shapes ride inside their owner's signature region (ledger rows AH-01
-through AH-11 and AH-04a-d); a public type outside those regions is the named defect.
+Implementation collapses to one owner per axis and one entrypoint family per rail; density means
+no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its
+owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a
+new surface. The owner budget below is the public-surface cap. Key policies, receipts, policy
+records, runtime records, and wire shapes ride inside their owner's signature region (ledger rows
+AH-01 through AH-11 and AH-04a-d); a public type outside those regions is the named defect.
 
 The `[STATE]` column carries `FINALIZED` where the owner is a transcription-complete fence with
 no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual
@@ -118,10 +118,9 @@ lifecycle-and-drain#PHASE_FAMILY; `Diagnostics.cs` consumes it and never re-decl
 Drain band literals live only on `DrainBand`; sibling registrations arrive as
 `DrainParticipantPort` rows and never copy them. `DrainQueue` is the AppHost name;
 `WorkLane` stays at Compute. Comparer accessors stay package-local, one per axis owner.
-`Outbound.cs` transcribes both `outbound-resilience.md` and `outbound-discovery.md` — the
-two pages split the one outbound symbol closure along the index, where the `LocalIpc` hop case
-carries the `DiscoveryManifest` payload and `Discovery.Connect` consumes `GrpcChannelPolicy`,
-so the discovery sibling is never a second file.
+`Outbound.cs` transcribes `outbound-resilience.md` including its DISCOVERY_ATTACH cluster, where
+the `LocalIpc` hop case carries the `DiscoveryManifest` payload and `Discovery.Connect` consumes
+`GrpcChannelPolicy`, so discovery is never a second file.
 
 Cluster names are page-local anchors; gates name the extra proof beyond the standard static build row.
 
@@ -206,61 +205,58 @@ Assay rows use `uv run python -m tools.assay`; proof runs at the planned phase g
 
 ## [10]-[ADMISSIONS_RECORD]
 
-The executed admissions ledger — the only planning location where versions are written. PAGE
-names the primary consuming page; CATALOGUE is the `.api` file.
+The executed admissions ledger maps each package to its consuming page, `.api` catalogue, and
+admission status. Versions live in `Directory.Packages.props`; this table never carries a pin.
+`[PAGE]` names the primary consuming page; `[CATALOGUE]` is the `.api` file; `[STATUS]` is one of
+`catalogue-pending`, `app-root-pending`, `tests-only`, `admitted`.
 
-| [PACKAGE]                                               | [VERSION] | [PAGE]                    | [CATALOGUE]                   |
-| :------------------------------------------------------ | :-------- | :------------------------ | :---------------------------- |
-| Cronos                                                  | 0.13.0    | time-and-deadlines        | api-cronos.md                 |
-| FluentValidation                                        | 12.1.1    | configuration-and-options | api-validation.md             |
-| FluentValidation.DependencyInjectionExtensions          | 12.1.1    | composition-and-modules   | api-validation-di.md          |
-| Microsoft.Extensions.Caching.Hybrid                     | 10.7.0    | resource-lanes            | api-hybrid-cache.md           |
-| Microsoft.Extensions.Compliance.Redaction               | 10.7.0    | diagnostics-and-telemetry | api-telemetry.md              |
-| Microsoft.Extensions.Configuration                      | 10.0.9    | configuration-and-options | api-config.md                 |
-| Microsoft.Extensions.Configuration.Binder               | 10.0.9    | configuration-and-options | api-binder.md                 |
-| Microsoft.Extensions.Configuration.CommandLine          | 10.0.9    | configuration-and-options | api-config-providers.md       |
-| Microsoft.Extensions.Configuration.EnvironmentVariables | 10.0.9    | configuration-and-options | api-config-providers.md       |
-| Microsoft.Extensions.Configuration.Json                 | 10.0.9    | configuration-and-options | api-config-providers.md       |
-| Microsoft.Extensions.Configuration.UserSecrets          | 10.0.9    | configuration-and-options | api-config-providers.md       |
-| Microsoft.Extensions.DependencyInjection                | 10.0.9    | composition-and-modules   | api-di.md                     |
-| Microsoft.Extensions.Diagnostics.HealthChecks           | 10.0.9    | health-and-degradation    | api-health.md                 |
-| Microsoft.Extensions.Diagnostics.ResourceMonitoring     | 10.7.0    | health-and-degradation    | api-resource-monitoring.md    |
-| Microsoft.Extensions.Hosting                            | 10.0.9    | host-profiles             | api-hosting.md                |
-| Microsoft.Extensions.Hosting.Systemd                    | 10.0.9    | host-profiles             | api-hosting-lifetimes.md      |
-| Microsoft.Extensions.Hosting.WindowsServices            | 10.0.9    | host-profiles             | api-hosting-lifetimes.md      |
-| Microsoft.Extensions.Http.Resilience                    | 10.7.0    | outbound-resilience       | api-resilience.md             |
-| Microsoft.Extensions.Logging.Abstractions               | 10.0.9    | diagnostics-and-telemetry | api-logging.md                |
-| Microsoft.Extensions.ObjectPool                         | 10.0.9    | resource-lanes            | api-objectpool.md             |
-| Microsoft.Extensions.Options                            | 10.0.9    | configuration-and-options | api-options.md                |
-| Microsoft.Extensions.Telemetry                          | 10.7.0    | diagnostics-and-telemetry | api-telemetry.md              |
-| Microsoft.Extensions.Telemetry.Abstractions             | 10.7.0    | diagnostics-and-telemetry | api-telemetry-abstractions.md |
-| NodaTime                                                | 3.3.2     | time-and-deadlines        | api-nodatime.md               |
-| OpenTelemetry                                           | 1.16.0    | diagnostics-and-telemetry | api-otel.md                   |
-| OpenTelemetry.Extensions.Hosting                        | 1.16.0    | diagnostics-and-telemetry | api-otel-hosting.md           |
-| OpenTelemetry.Instrumentation.Http                      | 1.15.1    | diagnostics-and-telemetry | api-otel-instrumentation.md   |
-| OpenTelemetry.Instrumentation.Runtime                   | 1.15.1    | diagnostics-and-telemetry | api-otel-instrumentation.md   |
-| Polly.Core                                              | 8.7.0     | outbound-resilience       | api-polly-core.md             |
-| Polly.Extensions                                        | 8.7.0     | outbound-resilience       | api-polly-extensions.md       |
-| Polly.RateLimiting                                      | 8.7.0     | outbound-resilience       | api-polly-ratelimiting.md     |
-| Scrutor                                                 | 7.0.0     | composition-and-modules   | api-scrutor.md                |
-| Serilog                                                 | 4.3.1     | diagnostics-and-telemetry | api-serilog.md                |
-| System.Threading.Tasks.Dataflow                         | 10.0.9    | resource-lanes            | api-dataflow.md               |
-| Thinktecture.Runtime.Extensions.Json                    | 10.2.0    | runtime-ports             | api-thinktecture-json.md      |
-
-Substrate, pending, and test-only admissions:
-
-| [PACKAGE]                                 | [VERSION]     | [PAGE]                    | [CATALOGUE]                                            |
-| :---------------------------------------- | :------------ | :------------------------ | :----------------------------------------------------- |
-| LanguageExt.Core                          | 5.0.0-beta-77 | every page                | stack doctrine (`docs/stacks/csharp`)                  |
-| Thinktecture.Runtime.Extensions           | 10.2.0        | every page                | stack doctrine (`docs/stacks/csharp`)                  |
-| Grpc.Net.Client                           | 2.80.0        | outbound-resilience       | catalogue pending; csproj row lands with `Outbound.cs` |
-| NodaTime.Serialization.SystemTextJson     | 1.4.0         | runtime-ports             | catalogue pending; csproj row lands with `Ports.cs`    |
-| Microsoft.Extensions.TimeProvider.Testing | 10.7.0        | time-and-deadlines        | api-testing-seams.md (tests-only)                      |
-| NodaTime.Testing                          | 3.3.2         | time-and-deadlines        | api-testing-seams.md (tests-only)                      |
-| Microsoft.Extensions.Diagnostics.Testing  | 10.7.0        | diagnostics-and-telemetry | api-testing-seams.md (tests-only)                      |
+| [INDEX] | [PACKAGE]                                               | [PAGE]                    | [CATALOGUE]                           | [STATUS]          |
+| :-----: | :----------------------------------------------------- | :------------------------ | :------------------------------------ | :---------------- |
+|   [1]   | Cronos                                                  | time-and-deadlines        | api-cronos.md                         | admitted          |
+|   [2]   | FluentValidation                                        | configuration-and-options | api-validation.md                     | admitted          |
+|   [3]   | FluentValidation.DependencyInjectionExtensions          | composition-and-modules   | api-validation-di.md                  | admitted          |
+|   [4]   | Microsoft.Extensions.Caching.Hybrid                     | resource-lanes            | api-hybrid-cache.md                   | admitted          |
+|   [5]   | Microsoft.Extensions.Compliance.Redaction               | diagnostics-and-telemetry | api-telemetry.md                      | admitted          |
+|   [6]   | Microsoft.Extensions.Configuration                      | configuration-and-options | api-config.md                         | admitted          |
+|   [7]   | Microsoft.Extensions.Configuration.Binder               | configuration-and-options | api-binder.md                         | admitted          |
+|   [8]   | Microsoft.Extensions.Configuration.CommandLine          | configuration-and-options | api-config-providers.md               | admitted          |
+|   [9]   | Microsoft.Extensions.Configuration.EnvironmentVariables | configuration-and-options | api-config-providers.md               | admitted          |
+|  [10]   | Microsoft.Extensions.Configuration.Json                 | configuration-and-options | api-config-providers.md               | admitted          |
+|  [11]   | Microsoft.Extensions.Configuration.UserSecrets          | configuration-and-options | api-config-providers.md               | admitted          |
+|  [12]   | Microsoft.Extensions.DependencyInjection                | composition-and-modules   | api-di.md                             | admitted          |
+|  [13]   | Microsoft.Extensions.Diagnostics.HealthChecks           | health-and-degradation    | api-health.md                         | admitted          |
+|  [14]   | Microsoft.Extensions.Diagnostics.ResourceMonitoring     | health-and-degradation    | api-resource-monitoring.md            | admitted          |
+|  [15]   | Microsoft.Extensions.Hosting                            | host-profiles             | api-hosting.md                        | admitted          |
+|  [16]   | Microsoft.Extensions.Hosting.Systemd                    | host-profiles             | api-hosting-lifetimes.md              | admitted          |
+|  [17]   | Microsoft.Extensions.Hosting.WindowsServices            | host-profiles             | api-hosting-lifetimes.md              | admitted          |
+|  [18]   | Microsoft.Extensions.Http.Resilience                    | outbound-resilience       | api-resilience.md                     | admitted          |
+|  [19]   | Microsoft.Extensions.Logging.Abstractions               | diagnostics-and-telemetry | api-logging.md                        | admitted          |
+|  [20]   | Microsoft.Extensions.ObjectPool                         | resource-lanes            | api-objectpool.md                     | admitted          |
+|  [21]   | Microsoft.Extensions.Options                            | configuration-and-options | api-options.md                        | admitted          |
+|  [22]   | Microsoft.Extensions.Telemetry                          | diagnostics-and-telemetry | api-telemetry.md                      | admitted          |
+|  [23]   | Microsoft.Extensions.Telemetry.Abstractions             | diagnostics-and-telemetry | api-telemetry-abstractions.md         | admitted          |
+|  [24]   | NodaTime                                                | time-and-deadlines        | api-nodatime.md                       | admitted          |
+|  [25]   | OpenTelemetry                                           | diagnostics-and-telemetry | api-otel.md                           | admitted          |
+|  [26]   | OpenTelemetry.Extensions.Hosting                        | diagnostics-and-telemetry | api-otel-hosting.md                   | admitted          |
+|  [27]   | OpenTelemetry.Instrumentation.Http                      | diagnostics-and-telemetry | api-otel-instrumentation.md           | admitted          |
+|  [28]   | OpenTelemetry.Instrumentation.Runtime                   | diagnostics-and-telemetry | api-otel-instrumentation.md           | admitted          |
+|  [29]   | Polly.Core                                              | outbound-resilience       | api-polly-core.md                     | admitted          |
+|  [30]   | Polly.Extensions                                        | outbound-resilience       | api-polly-extensions.md               | admitted          |
+|  [31]   | Polly.RateLimiting                                      | outbound-resilience       | api-polly-ratelimiting.md             | admitted          |
+|  [32]   | Scrutor                                                 | composition-and-modules   | api-scrutor.md                        | admitted          |
+|  [33]   | Serilog                                                 | diagnostics-and-telemetry | api-serilog.md                        | admitted          |
+|  [34]   | System.Threading.Tasks.Dataflow                         | resource-lanes            | api-dataflow.md                       | admitted          |
+|  [35]   | Thinktecture.Runtime.Extensions.Json                    | runtime-ports             | api-thinktecture-json.md              | admitted          |
+|  [36]   | LanguageExt.Core                                        | every page                | stack doctrine (`docs/stacks/csharp`) | admitted          |
+|  [37]   | Thinktecture.Runtime.Extensions                         | every page                | stack doctrine (`docs/stacks/csharp`) | admitted          |
+|  [38]   | Grpc.Net.Client                                         | outbound-resilience       | —                                     | catalogue-pending |
+|  [39]   | NodaTime.Serialization.SystemTextJson                   | runtime-ports             | —                                     | catalogue-pending |
+|  [40]   | Microsoft.Extensions.TimeProvider.Testing               | time-and-deadlines        | api-testing-seams.md                  | tests-only        |
+|  [41]   | NodaTime.Testing                                        | time-and-deadlines        | api-testing-seams.md                  | tests-only        |
+|  [42]   | Microsoft.Extensions.Diagnostics.Testing                | diagnostics-and-telemetry | api-testing-seams.md                  | tests-only        |
 
 ## [11]-[REFINEMENT_HORIZON]
 
 Folder-specific deepening targets beyond the closed corpus, each carrying its open probe. The operational control surface — the `ControlService` verb fold (`setDegradation`→`DegradationCell.Force`, `reloadOptions`→`ReloadClass`, `captureSupport`→`SupportTrigger`) riding configuration-and-options#POLICY_VALUES, health-and-degradation#WIRE_HEALTH and #DEGRADATION_RAIL, and support-bundles#TRIGGER_UNION — exercised against every service modality. The systemd watchdog heartbeat composed end-to-end with the support pipeline, gated on the host-profiles#WATCHDOG_PING keepalive-notify payload over `ISystemdNotifier`. The discovery/attach choreography rehearsed against the paired and companion topologies in `../../.planning/FEATURES.md`, gated on the outbound-resilience#PEER_CREDENTIAL `LOCAL_PEERCRED` read and the #DISCOVERY_ATTACH UDS connect. The keychain secrets-store route (configuration-and-options#SOURCE_ROUTES) and SIGHUP delivery (lifecycle-and-drain#FAULT_PROBES) resolved from their probes into settled rows. The bar: any host modality boots, degrades, drains, and reports through this spine with zero app-side ceremony.
 
-Testing-infrastructure horizon: the deterministic-clock seam pairs `FakeClock` (`NodaTime.Testing`) with `FakeTimeProvider` over the dual clock authority; the `NodaTime.Testing 3.3.2` central pin closes the prior charter-row drift, and the telemetry-seam assertions ride `MetricCollector<T>`/`FakeLogCollector` against the diagnostics signal-governance fold.
+Testing-infrastructure horizon: the deterministic-clock seam pairs `FakeClock` (`NodaTime.Testing`) with `FakeTimeProvider` over the dual clock authority, and the telemetry-seam assertions ride `MetricCollector<T>`/`FakeLogCollector` against the diagnostics signal-governance fold.

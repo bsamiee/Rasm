@@ -18,7 +18,7 @@ Outbound boundary ownership for the runtime spine: seven `OutboundHop` cases bin
 - Cases: HttpApi, Grpc, ServerStream, CompanionSpawn, LocalIpc, WebhookPost, UpdateCheck — the stream case is gRPC server-stream; UpdateCheck carries `ReleaseIdentity` and is structurally excluded on plugin rows.
 - Entry: `HopPolicy Policy` — extension property; total state-free `Switch` from case to frozen row.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one case plus one `HopPolicy` row absorbs a new outbound boundary; the update vehicle lands in a future admission as one `UpdatePort` row on the UpdateCheck case; zero new surface.
+- Growth: one case plus one `HopPolicy` row absorbs a new outbound boundary; the update vehicle lands as one `UpdatePort` row on the UpdateCheck case; zero new surface.
 - Boundary: deadline durations are the two hop deadline rows read by projection, never literals here; database retry is excluded from the hop law — the store execution strategy owns it; the `Transport` column names the byte mover on every row — `SocketsHttpHandler`, `GrpcChannel`, or process spawn — and resilience-event enrichment is the pipeline-key tag, never a second enrichment surface; the row's `Needs` capability is the degradation gate and `ExcludedOn` is the modality fence; webhook delivery identity is the case's `DeliveryKey` payload, never a header literal.
 
 ```csharp signature

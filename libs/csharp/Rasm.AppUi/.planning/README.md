@@ -35,38 +35,38 @@ TextMateSharp grammar registry (transitive, unpinned) gets a page only if admitt
 
 ## [4]-[GAP_LEDGER]
 
-`[OWNER]` names the page that absorbed the gap; the red-team pass requires every row CLOSED.
+Every row is CLOSED: a gap is present only when absorbed by the named page#cluster.
 
-| [INDEX] | [GAP]                                    | [OWNER]                                                      | [STATE] |
-| :-----: | :--------------------------------------- | :----------------------------------------------------------- | :------ |
-|   [1]   | designed-only web host and TS wire reuse | surface-hosts + commands-availability + diagnostics-evidence | CLOSED  |
-|   [2]   | one `CommandIntent` table                | commands-availability                                        | CLOSED  |
-|   [3]   | orthogonal variant and density rows      | theme-tokens                                                 | CLOSED  |
-|   [4]   | ranked icon fallback                     | icons-assets                                                 | CLOSED  |
-|   [5]   | dock checkpoint and crash restore        | shell-navigation                                             | CLOSED  |
-|   [6]   | `ProgressPhase` to `MotionToken` map     | motion-tokens                                                | CLOSED  |
-|   [7]   | options inspector reload composite       | inspector-editing                                            | CLOSED  |
-|   [8]   | command-journal replay                   | diagnostics-evidence + surface-hosts                         | CLOSED  |
-|   [9]   | correlation drill-down join              | diagnostics-evidence                                         | CLOSED  |
-|  [10]   | Markdig to typography projection         | typography-shaping                                           | CLOSED  |
-|  [11]   | `SKDocument` document export             | visuals-offscreen                                            | CLOSED  |
-|  [12]   | model-result provenance projection       | diagnostics-evidence                                         | CLOSED  |
-|  [13]   | DataGrid tree flatten and edit commit    | tables-hierarchy                                             | CLOSED  |
-|  [14]   | live-data spine and `SourceCache` keys   | live-data                                                    | CLOSED  |
-|  [15]   | palette search and MessageBus rejection  | commands-availability                                        | CLOSED  |
-|  [16]   | WCAG luminance gate                      | accessibility                                                | CLOSED  |
-|  [17]   | drain/suspend notification suppression   | dialogs-notifications                                        | CLOSED  |
-|  [18]   | GeoMap GeoJSON asset route               | charts-dashboards + icons-assets                             | CLOSED  |
-|  [19]   | conflict inspector projection            | inspector-editing                                            | CLOSED  |
-|  [20]   | value-object and quantity editors        | inspector-editing                                            | CLOSED  |
-|  [21]   | locale row and ICU research route        | localization-culture                                         | CLOSED  |
-|  [22]   | Avalonia-in-Rhino embedding gate         | surface-hosts                                                | CLOSED  |
-|  [23]   | headless render-hash and dashboard wire  | diagnostics-evidence + visuals-offscreen                     | CLOSED  |
-|  [24]   | pan-zoom canvas rows                     | input-interaction                                            | CLOSED  |
+| [INDEX] | [GAP]                                    | [CLOSED_BY (page#cluster)]                                   |
+| :-----: | :--------------------------------------- | :----------------------------------------------------------- |
+|   [1]   | designed-only web host and TS wire reuse | surface-hosts + commands-availability + diagnostics-evidence |
+|   [2]   | one `CommandIntent` table                | commands-availability                                        |
+|   [3]   | orthogonal variant and density rows      | theme-tokens                                                 |
+|   [4]   | ranked icon fallback                     | icons-assets                                                 |
+|   [5]   | dock checkpoint and crash restore        | shell-navigation                                             |
+|   [6]   | `ProgressPhase` to `MotionToken` map     | motion-tokens                                                |
+|   [7]   | options inspector reload composite       | inspector-editing                                            |
+|   [8]   | command-journal replay                   | diagnostics-evidence + surface-hosts                         |
+|   [9]   | correlation drill-down join              | diagnostics-evidence                                         |
+|  [10]   | Markdig to typography projection         | typography-shaping                                           |
+|  [11]   | `SKDocument` document export             | visuals-offscreen                                            |
+|  [12]   | model-result provenance projection       | diagnostics-evidence                                         |
+|  [13]   | DataGrid tree flatten and edit commit    | tables-hierarchy                                             |
+|  [14]   | live-data spine and `SourceCache` keys   | live-data                                                    |
+|  [15]   | palette search and MessageBus rejection  | commands-availability                                        |
+|  [16]   | WCAG luminance gate                      | accessibility                                                |
+|  [17]   | drain/suspend notification suppression   | dialogs-notifications                                        |
+|  [18]   | GeoMap GeoJSON asset route               | charts-dashboards + icons-assets                             |
+|  [19]   | conflict inspector projection            | inspector-editing                                            |
+|  [20]   | value-object and quantity editors        | inspector-editing                                            |
+|  [21]   | locale row and ICU research route        | localization-culture                                         |
+|  [22]   | Avalonia-in-Rhino embedding gate         | surface-hosts                                                |
+|  [23]   | headless render-hash and dashboard wire  | diagnostics-evidence + visuals-offscreen                     |
+|  [24]   | pan-zoom canvas rows                     | input-interaction                                            |
 
 ## [5]-[DENSITY_BAR]
 
-Implementation lands at 25-35% of the naive LOC for this capability set. One owner per axis, one entrypoint family per rail; a new feature is a row or a case inside a budgeted owner, never a new surface. The budget below is the closed owner set derived from the ledger AU-01 through AU-18 signature regions; an implementation file that mints an owner absent from this table fails review. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
+Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. The budget below is the closed owner set; an implementation file that mints an owner absent from this table fails review. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
 | [INDEX] | [AXIS]                  | [OWNER]                                                     | [KIND]       | [CASES]       |  [STATE]  |
 | :-----: | :---------------------- | :---------------------------------------------------------- | :----------- | :------------ | :-------: |
@@ -178,57 +178,50 @@ Assay rows use `uv run python -m tools.assay`; proof runs at the planned phase g
 
 ## [10]-[ADMISSIONS_RECORD]
 
-The executed admissions ledger binds each package to its version pin, owner page, and API evidence. Versions transcribe `Directory.Packages.props`; API keys omit the `api-` prefix and `.md` suffix. This is the only planning location where versions are written.
+The executed admissions ledger maps each package to its consuming page, `.api` catalogue, and admission status. Versions live in `Directory.Packages.props`; this table never carries a pin. Catalogue keys omit the `api-` prefix and `.md` suffix.
 
-| [INDEX] | [PACKAGE]                                   | [VERSION]    | [OWNER]                     | [API]                 |
-| :-----: | :------------------------------------------ | :----------- | :-------------------------- | :-------------------- |
-|   [1]   | Avalonia                                    | 12.0.4       | surface-hosts               | avalonia              |
-|   [2]   | Avalonia.Desktop                            | 12.0.4       | surface-hosts               | avalonia-desktop      |
-|   [3]   | Avalonia.Skia                               | 12.0.4       | visuals-offscreen           | avalonia-skia         |
-|   [4]   | Avalonia.Controls.ColorPicker               | 12.0.4       | inspector + accessibility   | avalonia-color        |
-|   [5]   | Avalonia.Controls.DataGrid                  | 12.0.0       | tables-hierarchy            | avalonia-grid         |
-|   [6]   | Avalonia.Fonts.Inter                        | 12.0.4       | typography-shaping          | avalonia-fonts        |
-|   [7]   | Avalonia.Themes.Fluent                      | 12.0.4       | theme-tokens                | avalonia-fluent       |
-|   [8]   | ReactiveUI                                  | 23.2.28      | shell + screens + commands  | reactiveui            |
-|   [9]   | ReactiveUI.Avalonia                         | 12.0.3       | surface-hosts + shell       | reactiveui-avalonia   |
-|  [10]   | ReactiveUI.Validation                       | 7.1.0        | screens + inspector         | reactiveui-validation |
-|  [11]   | Xaml.Behaviors.Avalonia                     | 12.0.0.1     | input + shell               | behaviors             |
-|  [12]   | System.Reactive                             | 6.1.0        | live-data + screens         | reactive              |
-|  [13]   | DynamicData                                 | 9.4.31       | live-data + tables          | dynamicdata           |
-|  [14]   | LiveChartsCore.SkiaSharpView.Avalonia       | 2.0.4        | charts-dashboards           | livecharts            |
-|  [15]   | SkiaSharp                                   | 3.119.4      | visuals + icons             | skiasharp             |
-|  [16]   | SkiaSharp.HarfBuzz                          | 3.119.4      | typography-shaping          | skia-harfbuzz         |
-|  [17]   | Svg.Controls.Skia.Avalonia                  | 12.0.0.11    | icons-assets                | svg-skia              |
-|  [18]   | SkiaSharp.NativeAssets.macOS                | 3.119.4      | surface-hosts               | skia-native           |
-|  [19]   | SkiaSharp.NativeAssets.Win32                | 3.119.4      | surface-hosts               | skia-native           |
-|  [20]   | SkiaSharp.NativeAssets.Linux.NoDependencies | 3.119.4      | surface-hosts               | skia-native           |
-|  [21]   | SkiaSharp.NativeAssets.Linux                | 3.119.4      | surface-hosts               | skia-native           |
-|  [22]   | HarfBuzzSharp.NativeAssets.macOS            | 8.3.1.5      | surface-hosts               | harfbuzz-native       |
-|  [23]   | HarfBuzzSharp.NativeAssets.Win32            | 8.3.1.5      | surface-hosts               | harfbuzz-native       |
-|  [24]   | HarfBuzzSharp.NativeAssets.Linux            | 8.3.1.5      | surface-hosts               | harfbuzz-native       |
-|  [25]   | AsyncImageLoader.Avalonia                   | 3.8.0        | icons + visuals             | asyncimageloader      |
-|  [26]   | Avalonia.AvaloniaEdit                       | 12.0.0       | inspector-editing           | avaloniaedit          |
-|  [27]   | AvaloniaEdit.TextMate                       | 12.0.0       | inspector-editing           | avaloniaedit          |
-|  [28]   | bodong.Avalonia.PropertyGrid                | 12.0.4.1     | inspector-editing           | propertygrid          |
-|  [29]   | bodong.PropertyModels                       | 12.0.0       | inspector-editing           | propertygrid          |
-|  [30]   | DialogHost.Avalonia                         | 0.12.2       | dialogs-notifications       | dialoghost            |
-|  [31]   | Dock.Avalonia                               | 12.0.0.2     | shell-navigation            | dock                  |
-|  [32]   | Dock.Model.ReactiveUI                       | 12.0.0.2     | shell-navigation            | dock                  |
-|  [33]   | PanAndZoom                                  | 12.0.0.1     | input + charts              | panandzoom            |
-|  [34]   | FluentIcons.Avalonia                        | 2.1.328      | icons-assets                | fluenticons           |
-|  [35]   | Markdig                                     | 1.2.0        | typography-shaping          | markdig               |
-|  [36]   | Thinktecture.Runtime.Extensions.Json        | 10.2.0       | commands + diagnostics      | docs/stacks/csharp    |
-|  [37]   | HotAvalonia                                 | 3.1.1        | diagnostics-evidence        | hotavalonia           |
-|  [38]   | Avalonia.Headless                           | 12.0.4       | diagnostics + accessibility | headless              |
-|  [39]   | Avalonia.Headless.XUnit                     | 12.0.4       | diagnostics-evidence        | headless              |
-
-Substrate, pending, and test-only admissions:
-
-| [PACKAGE]               | [VERSION] | [PAGE]               | [CATALOGUE]               |
-| :---------------------- | :-------- | :------------------- | :------------------------ |
-| Avalonia.Headless.XUnit | 12.0.4    | surface-hosts        | api-headless.md (tests-only) |
-| Avalonia.Skia           | 12.0.4    | surface-hosts        | api-headless.md (tests-only) |
-| Verify.XunitV3          | 31.19.1   | diagnostics-evidence | catalogue pending         |
+| [INDEX] | [PACKAGE]                                   | [PAGE]                      | [CATALOGUE]           | [STATUS]     |
+| :-----: | :------------------------------------------ | :-------------------------- | :-------------------- | :----------- |
+|   [1]   | Avalonia                                    | surface-hosts               | avalonia              | admitted     |
+|   [2]   | Avalonia.Desktop                            | surface-hosts               | avalonia-desktop      | admitted     |
+|   [3]   | Avalonia.Skia                               | visuals-offscreen           | avalonia-skia         | admitted     |
+|   [4]   | Avalonia.Controls.ColorPicker               | inspector + accessibility   | avalonia-color        | admitted     |
+|   [5]   | Avalonia.Controls.DataGrid                  | tables-hierarchy            | avalonia-grid         | admitted     |
+|   [6]   | Avalonia.Fonts.Inter                        | typography-shaping          | avalonia-fonts        | admitted     |
+|   [7]   | Avalonia.Themes.Fluent                      | theme-tokens                | avalonia-fluent       | admitted     |
+|   [8]   | ReactiveUI                                  | shell + screens + commands  | reactiveui            | admitted     |
+|   [9]   | ReactiveUI.Avalonia                         | surface-hosts + shell       | reactiveui-avalonia   | admitted     |
+|  [10]   | ReactiveUI.Validation                       | screens + inspector         | reactiveui-validation | admitted     |
+|  [11]   | Xaml.Behaviors.Avalonia                     | input + shell               | behaviors             | admitted     |
+|  [12]   | System.Reactive                             | live-data + screens         | reactive              | admitted     |
+|  [13]   | DynamicData                                 | live-data + tables          | dynamicdata           | admitted     |
+|  [14]   | LiveChartsCore.SkiaSharpView.Avalonia       | charts-dashboards           | livecharts            | admitted     |
+|  [15]   | SkiaSharp                                   | visuals + icons             | skiasharp             | admitted     |
+|  [16]   | SkiaSharp.HarfBuzz                          | typography-shaping          | skia-harfbuzz         | admitted     |
+|  [17]   | Svg.Controls.Skia.Avalonia                  | icons-assets                | svg-skia              | admitted     |
+|  [18]   | SkiaSharp.NativeAssets.macOS                | surface-hosts               | skia-native           | admitted     |
+|  [19]   | SkiaSharp.NativeAssets.Win32                | surface-hosts               | skia-native           | admitted     |
+|  [20]   | SkiaSharp.NativeAssets.Linux.NoDependencies | surface-hosts               | skia-native           | admitted     |
+|  [21]   | SkiaSharp.NativeAssets.Linux                | surface-hosts               | skia-native           | admitted     |
+|  [22]   | HarfBuzzSharp.NativeAssets.macOS            | surface-hosts               | harfbuzz-native       | admitted     |
+|  [23]   | HarfBuzzSharp.NativeAssets.Win32            | surface-hosts               | harfbuzz-native       | admitted     |
+|  [24]   | HarfBuzzSharp.NativeAssets.Linux            | surface-hosts               | harfbuzz-native       | admitted     |
+|  [25]   | AsyncImageLoader.Avalonia                   | icons + visuals             | asyncimageloader      | admitted     |
+|  [26]   | Avalonia.AvaloniaEdit                       | inspector-editing           | avaloniaedit          | admitted     |
+|  [27]   | AvaloniaEdit.TextMate                       | inspector-editing           | avaloniaedit          | admitted     |
+|  [28]   | bodong.Avalonia.PropertyGrid                | inspector-editing           | propertygrid          | admitted     |
+|  [29]   | bodong.PropertyModels                       | inspector-editing           | propertygrid          | admitted     |
+|  [30]   | DialogHost.Avalonia                         | dialogs-notifications       | dialoghost            | admitted     |
+|  [31]   | Dock.Avalonia                               | shell-navigation            | dock                  | admitted     |
+|  [32]   | Dock.Model.ReactiveUI                       | shell-navigation            | dock                  | admitted     |
+|  [33]   | PanAndZoom                                  | input + charts              | panandzoom            | admitted     |
+|  [34]   | FluentIcons.Avalonia                        | icons-assets                | fluenticons           | admitted     |
+|  [35]   | Markdig                                     | typography-shaping          | markdig               | admitted     |
+|  [36]   | Thinktecture.Runtime.Extensions.Json        | commands + diagnostics      | docs/stacks/csharp    | admitted     |
+|  [37]   | HotAvalonia                                 | diagnostics-evidence        | hotavalonia           | admitted     |
+|  [38]   | Avalonia.Headless                           | diagnostics + accessibility | headless              | admitted     |
+|  [39]   | Avalonia.Headless.XUnit                     | diagnostics-evidence        | headless              | admitted     |
+|  [40]   | Verify.XunitV3                              | diagnostics-evidence        | headless              | catalogue-pending |
 
 ## [11]-[REFINEMENT_HORIZON]
 

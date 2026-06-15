@@ -1,10 +1,6 @@
 # [APPHOST_HEALTH_AND_DEGRADATION]
 
-Capability health and the usable-failure degradation rail for every Rasm.AppHost process: a health-contributor row
-family folds package probes into one wire-neutral snapshot, the five-level DegradationLevel vocabulary carries one
-retained-capability set per row, and a wire-health mapping projects the registry onto the standard wire health
-service. Microsoft.Extensions.Diagnostics.HealthChecks and ResourceMonitoring supply probe mechanics, Thinktecture
-owns the vocabularies, LanguageExt and NodaTime carry the fold rails and stamps; every consumer reads one level value.
+Capability health and the usable-failure degradation rail for every Rasm.AppHost process: a health-contributor row family folds package probes into one wire-neutral snapshot, the five-level DegradationLevel vocabulary carries one retained-capability set per row, and a wire-health mapping projects the registry onto the standard wire health service. Microsoft.Extensions.Diagnostics.HealthChecks and ResourceMonitoring supply probe mechanics, Thinktecture owns the vocabularies, LanguageExt and NodaTime carry the fold rails and stamps; every consumer reads one level value.
 
 ## [1]-[INDEX]
 

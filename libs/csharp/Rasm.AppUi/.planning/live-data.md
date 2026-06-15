@@ -1,12 +1,12 @@
 # [APPUI_LIVE_DATA]
 
-Rasm.AppUi live data owns every change-set pipeline between data sources and screens: the six-case `DataSource` axis, the operator-row vocabulary, the one UI-thread `BindingCapsule`, and the aggregation rows feeding stat tiles and evidence. The engine is DynamicData over System.Reactive — every source folds into one keyed `SourceCache`, key selectors transcribe the Persistence IdentityPolicy vocabulary, the Ui scheduler arrives from the surface scheduler boundary fed by `UiSchedulerPort`, and change evidence leaves through the `ReceiptSinkPort` envelope. The live-data spine — host fact to projection write to tag transition to delta fetch to `IChangeSet` — is the page's composite automation, and screens consume pipelines as expression folds beside their catalog rows.
+Rasm.AppUi live data owns every change-set pipeline between data sources and screens: the seven-case `DataSource` axis, the operator-row vocabulary, the one UI-thread `BindingCapsule`, and the aggregation rows feeding stat tiles and evidence. The engine is DynamicData over System.Reactive — every source folds into one keyed `SourceCache`, key selectors transcribe the Persistence IdentityPolicy vocabulary, the Ui scheduler arrives from the surface scheduler boundary fed by `UiSchedulerPort`, and change evidence leaves through the `ReceiptSinkPort` envelope. The live-data spine — host fact to projection write to tag transition to delta fetch to `IChangeSet` — is the page's composite automation, and screens consume pipelines as expression folds beside their catalog rows.
 
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                           |
 | :-----: | ----------------- | ---------------------------------------------------------------- |
-|   [1]   | DATA_SOURCES      | Six sourcing cases; one cache feed dispatch; the live-data spine |
+|   [1]   | DATA_SOURCES      | Seven sourcing cases; one cache feed dispatch; the live-data spine |
 |   [2]   | CHANGE_PIPELINES  | Operator rows; dynamic predicate, comparer, page, window streams |
 |   [3]   | BINDING_CAPSULE   | One UI-thread binding edge; single ObserveOn; the fault rail     |
 |   [4]   | AGGREGATION_SPINE | Stat folds, change-audit evidence, suspend-resume law            |
