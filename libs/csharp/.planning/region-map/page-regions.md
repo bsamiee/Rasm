@@ -13,8 +13,7 @@ Suite region map — row shapes and protocol live in the [suite standard](../REA
 - diagnostics-and-telemetry.md [FINAL]: correlation spine, TelemetrySignal governance, DataClassification taxonomy, contributor consumption.
 - health-and-degradation.md [FINAL]: HealthContributor fold, DegradationLevel rail incl. LocalOnly, grpc.health.v1 tag-predicate mapping, resource-pressure row.
 - support-bundles.md [FINAL]: SupportTrigger union, window freeze, contributor fan-in, redaction, cap, manifest, receipt.
-- outbound-resilience.md [FINAL]: OutboundHop axis (7 cases incl. update-check), one keyed Polly pipeline per hop, single retry-owner conflict evidence and receipts.
-- outbound-discovery.md [FINAL]: DiscoveryManifest attach law, atomic publish, staleness probe, checksum gate, UDS connect, single-shot companion spawn, peer-credential probe.
+- outbound-resilience.md [FINAL]: OutboundHop axis (7 cases incl. update-check), one keyed Polly pipeline per hop, single retry-owner conflict evidence and receipts; the DISCOVERY_ATTACH cluster owns DiscoveryManifest attach law, atomic publish, staleness probe, checksum gate, UDS connect, single-shot companion spawn, peer-credential probe.
 - runtime-ports.md [FINAL]: typed port records (TelemetryContributor, ReceiptSink with HLC envelope, DrainParticipant, HostAttach, UiScheduler, Support, Health), suite wire law, TS tooling map, contract-merge rule.
 
 [PERSISTENCE]:

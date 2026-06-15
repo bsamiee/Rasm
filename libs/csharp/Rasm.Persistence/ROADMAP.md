@@ -53,7 +53,7 @@ Seam ordering per the charter BUILD_ORDER: [2] precedes [3] so `StoreOpenReceipt
 
 ## [4]-[TESTING_APPROACH]
 
-Universal rails share the legend in the package ROADMAP corpus (owner + resolved member identical across the four packages); versions live in `Directory.Packages.props` `ItemGroup Label="Test Stack"`.
+Universal rails share the legend in the package ROADMAP corpus (owner + resolved member identical across the four packages); versions live in `Directory.Packages.props`.
 
 Universal-rail concept differentiator:
 
@@ -70,9 +70,9 @@ Package-specific rails:
 
 | [RAIL]                                  | [OWNER]                  | [CONCEPT PROVEN]                                                                                  | [RESOLVED MEMBER / TOKEN]                                                                              |
 | :-------------------------------------- | :----------------------- | :----------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-| BenchmarkDotNet                         | `specialized-rails.md [2]` | bulk-write lanes (set-based / `BulkCopyAsync` / merge), codec encode / decode size scaling, seal / restore pass, DuckDB analytical-lane round-trip durable-throughput | `ManualConfig`, `MemoryDiagnoser`, `BenchmarkSwitcher`; rail `tests/csharp/_benchmarks`              |
-| SharpFuzz                               | `specialized-rails.md [3]` | snapshot-codec decode (`MessagePackSerializer.Deserialize` under `WithSecurity(UntrustedData)`) + sealed-artifact rejection ladder (raw-byte gates) — the restore lane reads untrusted data across a rest boundary | `Fuzzer.OutOfProcess.Run(Action<Stream>)`; rail `tests/csharp/_fuzz`. `SharpFuzz` `NEEDS-ADMISSION` |
-| host/runtime scenarios (SqliteMemory / DuckDB) | `durability.md`   | live store, WAL sidecar, cross-process `data_version` probe; `SqliteMemory` is the deterministic in-memory store row; the DuckDB analytical lane is the live-engine round-trip scenario | `StoreProfile.SqliteMemory` placement; DuckDB analytical lane (scenario rail)                         |
+| BenchmarkDotNet                         | data-lanes#ANALYTICAL_LANE | bulk-write lanes (set-based / `BulkCopyAsync` / merge), codec encode / decode size scaling, seal / restore pass, DuckDB analytical-lane round-trip durable-throughput | `ManualConfig`, `MemoryDiagnoser`, `BenchmarkSwitcher`; rail `tests/csharp/_benchmarks`              |
+| SharpFuzz                               | snapshot-codecs#RESTORE_AND_DIFF | snapshot-codec decode (`MessagePackSerializer.Deserialize` under `WithSecurity(UntrustedData)`) + sealed-artifact rejection ladder (raw-byte gates) — the restore lane reads untrusted data across a rest boundary | `Fuzzer.OutOfProcess.Run(Action<Stream>)`; rail `tests/csharp/_fuzz`. `SharpFuzz` catalogue-pending |
+| host/runtime scenarios (SqliteMemory / DuckDB) | store-profiles#PLACEMENT_MATRIX | live store, WAL sidecar, cross-process `data_version` probe; `SqliteMemory` is the deterministic in-memory store row; the DuckDB analytical lane is the live-engine round-trip scenario | `StoreProfile.SqliteMemory` placement; DuckDB analytical lane (scenario rail)                         |
 
 ## [5]-[EXIT]
 

@@ -4,13 +4,14 @@
 
 ## [1]-[ROUTING]
 
-| [INDEX] | [OPEN]                                                     | [READ_FOR]                                                    |
-| :-----: | :--------------------------------------------------------- | :------------------------------------------------------------ |
-|   [1]   | [ARCHITECTURE.md](ARCHITECTURE.md)                         | Rails, axes, cross-package seams, reference direction         |
-|   [2]   | [ROADMAP.md](ROADMAP.md)                                   | Start gates, build-order-sequenced tasks, exit condition      |
-|   [3]   | [FEATURES.md](FEATURES.md)                                 | Capability atlas keyed to planning-page anchors               |
-|   [4]   | [Implementation charter](.planning/README.md)              | Page index, density bar, build order, proof gates, admissions |
-|   [5]   | [Package API catalogues](.api/README.md)                   | External package API facts per lane                           |
-|   [6]   | [C# stack doctrine](../../../docs/stacks/csharp/README.md) | Language, shapes, rails, surfaces, and boundary law           |
-|   [7]   | [Suite planning standard](../.planning/README.md)          | Page grammar and review law governing `.planning/`            |
-|   [8]   | [Suite region map](../.planning/region-map/)               | Suite symbol ledger and seam splits                           |
+| [INDEX] | [READ_FOR]                                                    | [OPEN]                                                     |
+| :-----: | :----------------------------------------------------------- | :-------------------------------------------------------- |
+|   [1]   | Source tree, execution spine, rails, axes, cross-package seams | [ARCHITECTURE.md](ARCHITECTURE.md)                       |
+|   [2]   | Start gates, build-order-sequenced tasks, exit condition      | [ROADMAP.md](ROADMAP.md)                                  |
+|   [3]   | Capability atlas keyed to planning-page anchors               | [FEATURES.md](FEATURES.md)                                |
+|   [4]   | Open work owned by this folder                                | [TASKLOG.md](TASKLOG.md)                                  |
+|   [5]   | Page index, density bar, build order, proof gates, admissions | [Implementation charter](.planning/README.md)            |
+|   [6]   | External package API facts per lane                           | [Package API catalogues](.api/README.md)                 |
+|   [7]   | Language, shapes, rails, surfaces, and boundary law           | [C# stack doctrine](../../../docs/stacks/csharp/README.md) |
+
+The charter `.planning/README.md` is the only linking file in the planning set; every page is self-contained and reached through it.

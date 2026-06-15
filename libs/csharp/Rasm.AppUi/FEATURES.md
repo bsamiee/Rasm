@@ -1,133 +1,145 @@
 # [APPUI_FEATURES]
 
-Isolation-concept atlas for the product UI rail. Every concept rides one budgeted owner — `SurfaceHost`, `SurfaceSeam`, `DataSource`, `TokenRow`, `ThemeVariantRow`×`DensityRow`, `TypographyRole`, `IconSource`, `ChartSeriesSpec`, `EditorFactory`, `DialogIntent`, `CommandIntent`, `MotionToken`, `TableProjection`, `DragPayload`, `LocaleRow`, `EvidenceReceipt` — and a new concept is a row, case, or policy value on one of them, never a new surface. Mechanics live in the `.planning/` pages; each row cites the owning page clusters. The `[STATE]` column mirrors the charter `GAP_LEDGER` model: `[FINALIZED]` = realized as a transcription-complete `csharp` fence in a page; `[PARTIAL]` = fenced with a research-gated sub-member; `[MISSING]` = named gap with no owner row yet; `[SPIKE]` = gated on a live bridge/native/embed probe.
+Isolation-concept atlas for the product UI rail. Every concept rides one budgeted owner, and a new concept is a row, case, or policy value on that owner, never a new surface.
 
-## [1]-[ISOLATION_CONCEPTS]
+## [1]-[SURFACE_AND_SHELL]
 
-Each concept names its spine, owning page clusters, and state.
+| [INDEX] | [FEATURE] | [OWNER] | [PAGE#CLUSTER] |
+| :-----: | --------- | ------- | -------------- |
+| [1] | One shell mounts on any host through one mount transaction; no dispatch arm names a host API | `SurfaceHost` | surface-hosts#HOST_AXIS |
+| [2] | Foreign-view embedding — retained NSView handoff, embedded platform policy, ordered lifecycle, defensive teardown | `EmbedCapsule` | surface-hosts#EMBED_CAPSULE |
+| [3] | One UI scheduler boundary completes `UiSchedulerPort.Marshal`; `ObserveOn` rides `Ui` once inside binding capsules | `SurfaceScheduler` | surface-hosts#SCHEDULER_BOUNDARY |
+| [4] | Per-RID native asset load-identity receipts at mount; wrong-RID load surfaces as a receipt, never a draw fault | `NativeAssets` | surface-hosts#NATIVE_ASSETS |
+| [5] | Closed host fact union for scale, visibility, focus, appearance feeding activation, theme re-probe, DPI selection | `SurfaceFact` | surface-hosts#SCALE_FOCUS |
+| [6] | Routing spine with deep-link grammar; two view-resolution hosts; viewport history rides the same grammar | `NavRequest` | shell-navigation#ROUTING_SPINE |
+| [7] | Dockables fold from route rows; checkpoint cadence, drain flush, crash restore, external-dock surface, drop selector | `ShellDockFactory` | shell-navigation#DOCK_LAYOUTS |
+| [8] | Chrome rows derive from intent keys per surface; macOS global menu and tray export; visibility matrix per host | `ShellChrome` | shell-navigation#SHELL_CHROME |
+| [9] | One breakpoint table; behavior-attached responsive policy values; orthogonal to density tokens | `AdaptiveLayout` | shell-navigation#ADAPTIVE_LAYOUT |
 
-| [INDEX] | [CONCEPT] | [SPINE] | [PAGE_CLUSTERS] | [STATE] |
-| :-----: | --------- | ------- | --------------- | :-----: |
-| [1] | One shell mounts on any host through one mount transaction — `SurfaceSeam` carries every host delegate column, no dispatch arm names a host API | `SurfaceHost` 7-case ×- `SurfaceSeam` ×- `Surfaces.Mount` ×- `SurfaceFault` 5-case | surface-hosts#HOST_AXIS | [FINALIZED] |
-| [2] | Foreign-view embedding — retained NSView handoff, embedded platform policy, ordered lifecycle, defensive teardown | `EmbedCapsule` ×- `EmbedOptions` | surface-hosts#EMBED_CAPSULE | [SPIKE] |
-| [3] | One UI scheduler boundary completes `UiSchedulerPort.Marshal`; `ObserveOn` rides `Ui` exactly once inside binding capsules | `SurfaceScheduler` ×- `Affinity` | surface-hosts#SCHEDULER_BOUNDARY · live-data#BINDING_CAPSULE | [FINALIZED] |
-| [4] | Per-RID native asset load-identity receipts at mount; wrong-RID load surfaces as a receipt, never a draw fault | `NativeAssetRow` ×- `NativeAssetReceipt` ×- `NativeAssets` | surface-hosts#NATIVE_ASSETS | [FINALIZED] |
-| [5] | Closed host fact union for scale, visibility, focus, appearance feeding activation, theme re-probe, DPI selection | `SurfaceFact` 4-case | surface-hosts#SCALE_FOCUS | [FINALIZED] |
-| [6] | Five-verb routing spine with deep-link grammar; two view-resolution hosts; viewport history rides the same grammar | `NavRequest` 5-case ×- `ShellRoot` ×- `NavRequest.Parse` | shell-navigation#ROUTING_SPINE | [FINALIZED] |
-| [7] | Dockables fold from route rows; checkpoint cadence, drain flush, crash restore, external-dock surface, drop selector | `DockableRow` ×- `ShellDockFactory` ×- `LayoutLedger` ×- `LayoutCheckpoint` ×- `LayoutPersistence` | shell-navigation#DOCK_LAYOUTS | [PARTIAL] |
-| [8] | Chrome rows derive from intent keys per surface; macOS global menu + tray export; visibility matrix per host | `ChromeSlot` 4-slot ×- `ChromeRow` ×- `ShellChrome` | shell-navigation#SHELL_CHROME | [FINALIZED] |
-| [9] | One breakpoint table; behavior-attached responsive policy values; orthogonal to density tokens | `BreakpointRow` ×- `AdaptiveLayout` | shell-navigation#ADAPTIVE_LAYOUT | [FINALIZED] |
-| [10] | One screen catalog row drives dockables, titles, automation names, route keys, headless proof lanes | `ScreenCatalogRow` ×- `ScreenCatalog` | screens-activation#SCREEN_CATALOG | [FINALIZED] |
-| [11] | One activatable base — ref-counted activation scopes, suspend/resume, scoped disposal, drain row rank 10 | `ScreenBase` ×- `ScreenRuntime` ×- `DrainRow` | screens-activation#ACTIVATION_SCOPES | [FINALIZED] |
-| [12] | Paced derived state through OAPH rows; one screen fault fold; distinct-before-throttle pacing | `ScreenFault` ×- `DerivedOps` | screens-activation#DERIVED_STATE | [FINALIZED] |
-| [13] | Typed-rail validation lift into ReactiveUI.Validation; context validity gates commands, property text feeds adorners | `AdmissionState` ×- `ScreenValidation` | screens-activation#VALIDATION_UX | [FINALIZED] |
-| [14] | Per-surface state snapshots; restore-on-activate merge; partition by id+surface; support-bundle contribution | `ScreenState` ×- `ScreenStatePolicy` ×- `ScreenStateOps` | screens-activation#SCREEN_STATE | [FINALIZED] |
-| [15] | One `CommandIntent` table is the only command vocabulary; menus, hotkeys, palette, deep links, remote verbs derive | `CommandIntent` ×- `CommandPayload` 4-case ×- `CommandDeck` | commands-availability#INTENT_TABLE | [FINALIZED] |
-| [16] | Availability algebra over degradation, validation, selection, busy folds into one `CanExecute` stream; macro verbs combine | `CommandGate` ×- `Observe` ×- `CombineLatest` | commands-availability#AVAILABILITY_ALGEBRA | [FINALIZED] |
-| [17] | Total execution receipts; `Catch` rail makes outcome total; XxHash128 payload digest; sealed through the sink envelope | `CommandOutcome` 4-case ×- `CommandReceipt` ×- `CommandExecution` | commands-availability#EXECUTION_RECEIPTS | [FINALIZED] |
-| [18] | Palette + deep links + remote + journal replay over one intent table; span-ranked fuzzy search; ControlService verbs as rows | `CommandProjections` ×- `Search`/`Score` ×- control verb rows | commands-availability#PALETTE_AND_REMOTE | [PARTIAL] |
-| [19] | Live-data spine — host fact to projection write to tag transition to delta fetch to `IChangeSet`; six sourcing cases | `DataSource<TRow,TKey>` 6-case ×- `SourcePolicy` ×- `HostDocumentFact` | live-data#DATA_SOURCES | [FINALIZED] |
-| [20] | Fourteen operator rows; dynamic predicate, comparer, page, window streams; classified-exclusion subtracts the deny projection | `PipelineInputs<TRow>` ×- operator-row table | live-data#CHANGE_PIPELINES | [PARTIAL] |
-| [21] | One UI-thread binding capsule; single `ObserveOn`; async-disposal drain; the one fault rail | `BindingCapsule` ×- `Into`/`Drained` | live-data#BINDING_CAPSULE | [FINALIZED] |
-| [22] | Stat folds, change-audit evidence, suspend-resume; metrics derive from the same audit as the receipt stream | `LiveDataOps` ×- stat-row table | live-data#AGGREGATION_SPINE | [FINALIZED] |
-| [23] | One column metadata family drives columns, filter, masking, edit, export; classified column never enters filter/export | `TableColumnRow<TRow>` ×- `TableSurface` ×- `TableCellKind` | tables-hierarchy#GRID_SUBSTRATE | [FINALIZED] |
-| [24] | Serializable collection-view snapshot applied in one `DeferRefresh`; paged + virtualized window restore | `TableViewState` ×- `WindowState` ×- `ViewStateSurface` | tables-hierarchy#VIEW_STATE | [PARTIAL] |
-| [25] | Five projection cases fold to one flat virtualized `TreeRow` stream on the free DataGrid; TreeDataGrid rejected | `TableProjection<TRow,TKey>` 5-case ×- `TreeRow` ×- `ProjectionFold` | tables-hierarchy#TREE_FLATTEN | [FINALIZED] |
-| [26] | Grid-edit commit to `StoreOp.Upsert` and `DocumentTransaction`; delimited exports through Persistence Sep lane | `TableCommit<TRow>` ×- `TableExportSpec` ×- `ExportDestination` 3-case ×- `CommitSurface` | tables-hierarchy#GRID_COMMIT | [PARTIAL] |
-| [27] | PropertyGrid admission capsule; descriptor filters, focus receipts; operation controls as command-table intents | `InspectorPolicy` ×- `InspectorSurface.Mount` | inspector-editing#INSPECTOR_SURFACE | [FINALIZED] |
-| [28] | Eleven ranked editor rows incl. value-object and quantity; metadata-driven generated-owner detection; first-accepting rank walk | `EditorFactory` 11-row ×- `Match` ×- `MetadataLookup` | inspector-editing#EDITOR_FACTORIES | [FINALIZED] |
-| [29] | Typed admission rail with preview-versus-commit law; accumulating `Validation`; executing-vs-executed debounce | `EditFault` 7-case ×- `EditOutcome` 5-case ×- `EditReceipt` ×- `EditGate` | inspector-editing#COMMIT_VALIDATION | [FINALIZED] |
-| [30] | Options-inspector to user-settings write and `ReloadReceipt` banner; immutable-record-draft route | `OptionsInspector<T>` ×- `InspectorSurface.Attach`/`Banner` | inspector-editing#OPTIONS_INSPECTOR | [PARTIAL] |
-| [31] | Side-by-side conflict projection over Persistence conflict receipts; four resolution intent keys | `ConflictPane<TReceipt>` ×- `Project` | inspector-editing#CONFLICT_RESOLUTION | [FINALIZED] |
-| [32] | Grammar-scoped code panes — folding, completion, search, TextMate theme sync to tokens; fenced code only | `CodePane` ×- `CompletionRow` ×- TextMate `IRegistryOptions` | inspector-editing#CODE_EDITING | [PARTIAL] |
-| [33] | Fifteen chart series rows incl. geo-map dispatching onto four canvas rows; each row is its own render-hash twin | `ChartSeriesSpec` 15-row ×- `ChartCanvas` 4-row ×- `Baseline` | charts-dashboards#SERIES_TABLE | [PARTIAL] |
-| [34] | Five axis scales; `CompositeFormat` labels; shared-scale pairing; threshold sections | `ChartAxisKind` 5-row ×- `ChartSection` | charts-dashboards#AXES_SECTIONS | [FINALIZED] |
-| [35] | One interaction policy — zoom, anchors, intent routing, `ZoomBorder` dashboard canvas with view history | `ChartPolicy` ×- `ChartAnchor` 6-row | charts-dashboards#CHART_INTERACTION | [FINALIZED] |
-| [36] | Windowed + LTTB-downsampled stream binding; `SyncContext`-locked swap; four feed rows | `ChartStream` ×- `ChartFolds.Lttb`/`Shape` | charts-dashboards#STREAM_BINDING | [FINALIZED] |
-| [37] | Dashboard tile union; placement fold; benchmark + activity-timeline named rows; versioned `DashboardLayout` blobs | `DashboardTile` 4-case ×- `TilePlacement` ×- `DashboardLayout` ×- `DashboardSurface` | charts-dashboards#DASHBOARD_TILES | [FINALIZED] |
-| [38] | Borrowed/owned Skia draw capsule on one `Fin` rail; five-row FX table; in-tree `ICustomDrawOperation` vehicle | `DrawSource` 2-case ×- `Offscreen` ×- FX-row table | visuals-offscreen#DRAW_CAPSULE | [FINALIZED] |
-| [39] | Host-agnostic thumbnails with blob-backed cache, async display, DPI variants; host bitmap converts once at the seam | `VisualRuntime` ×- `ThumbnailRow` ×- `Thumbnails` | visuals-offscreen#THUMBNAIL_PIPELINE | [FINALIZED] |
-| [40] | Receipt-keyed zoomable previews; geometry families from Compute receipt streams as rows; HUD stays host-side | `PreviewRow<TReceipt>` ×- backplate table | visuals-offscreen#PREVIEW_SURFACES | [FINALIZED] |
-| [41] | Content-hashed encode identity; codec axis png/jpeg/webp/png-wide; color-managed float reproject with color-space receipt tag; native-asset facts; XxHash128 frame hash | `RenderReceipt` ×- `NativeAssetFact` ×- `VisualCodec` ×- `EncodeRow` ×- `ColorPolicy` | visuals-offscreen#ENCODE_IDENTITY | [PARTIAL] |
-| [42] | Paged `SKDocument` export — `FlowFold` over `FlowBlock` under `BreakRule` with `HeaderFooterBand`; three destinations | `FlowBlock` 3-case ×- `VisualExportSpec` ×- `VisualDestination` 3-case ×- `BreakRule` ×- `FlowLayout` | visuals-offscreen#DOCUMENT_EXPORT | [PARTIAL] |
-| [43] | One frozen token catalogue — five `TokenRow` cases feeding five consumers; OKLab ramp mix; orthogonal variant×density resolve | `TokenRow` 5-case ×- `ThemeCatalog.Resolve` ×- `ResolvedTheme` | theme-tokens#TOKEN_CATALOG | [FINALIZED] |
-| [44] | Four variant rows with host-agnostic appearance probe folding; per-surface override delegate | `ThemeVariantRow` 4-row ×- `Concrete`/`Pick` | theme-tokens#VARIANT_AXIS | [FINALIZED] |
-| [45] | Two density rows selecting metric columns orthogonally; Fluent compact resource swap on the one rail | `DensityRow` 2-row ×- `Pick` | theme-tokens#DENSITY_AXIS | [FINALIZED] |
-| [46] | Atomic theme swap re-resolving the full catalogue; token-diff receipts sink through the evidence envelope | `ThemeCell` ×- `ThemeSwitchReceipt` ×- `ThemeRail` | theme-tokens#CONTROL_THEMES | [FINALIZED] |
-| [47] | Ten typography roles; every size/weight/feature literal traces here; one resolved `TextStyleRow` for five consumers | `TypographyRole` 10-row ×- `TextStyleRow.Resolve` | typography-shaping#ROLE_AXIS | [FINALIZED] |
-| [48] | Deterministic embedded-Inter admission; ranked per-platform fallback chains; one boot-time font registration | `FontChain` 3-case ×- `FontAdmission.Admit` | typography-shaping#FONT_ADMISSION | [FINALIZED] |
-| [49] | One HarfBuzz shaping rail before every Skia glyph; per-role feature tags; libHarfBuzzSharp load-identity proof | `ShapingSurface` | typography-shaping#SHAPING_RAIL | [FINALIZED] |
-| [50] | Markdig AST to seven role-keyed rows; one typed-traversal fold shared with inspector/SVG walks; math/diagrams excluded | `MarkdownRow` 7-case ×- `InlineRun` ×- `MarkdownProjection` | typography-shaping#MARKDOWN_PROJECTION | [PARTIAL] |
-| [51] | Baseline-grid metrics; `MeasureText` + shaped rail only; tabular-numeral advance proof | `TextMetricsPolicy` | typography-shaping#TEXT_METRICS | [FINALIZED] |
-| [52] | Five icon sourcing cases with rank-column fallback walk; off-axis size aborts; per-row tint through token key | `IconSource` 5-case ×- `IconRow` ×- `IconSurface.Resolve` ×- `AssetFault` 4-case | icons-assets#ICON_AXIS | [FINALIZED] |
-| [53] | Retained SVG pipeline — scene graph, animation invalidation, hit testing; process-static cache; motion-pumped frames | `SvgPipeline` ×- `ScenePolicy` 3-value | icons-assets#SVG_PIPELINE | [PARTIAL] |
-| [54] | Async raster rows with disk/RAM cache, DPI variants, placeholder/error fallback keys; one global loader; storage-scoped fetch lane | `RasterRow` ×- `RasterAssets` ×- `Storage` | icons-assets#RASTER_ASSETS | [PARTIAL] |
-| [55] | nameof-derived `AssetKey` vocabulary shared across pages; avares admission with preload receipts; geo asset routing | `AssetKey` ×- `AssetKind` 3-case ×- `AssetRow` ×- `AssetCatalog` ×- `AssetReceipt` | icons-assets#ASSET_CATALOG | [FINALIZED] |
-| [56] | Six dialog intents with typed `Fin` results, dismissal as a value; boot crash-restore offer; deadline-typed progress | `DialogIntent` 6-case ×- `DialogFault` 3-case | dialogs-notifications#DIALOG_INTENTS | [FINALIZED] |
-| [57] | Per-surface session topology rows — stacking, blur, positioner, `TopLevelResolver`; one `Interaction` seam per root | `DialogTopology` 6-row ×- `DialogSurface` | dialogs-notifications#SESSION_ALGEBRA | [PARTIAL] |
-| [58] | Toast suppression fold over phase and degradation with queued/dropped receipts; no notification-history store | `ToastRow` 4-row ×- `ToastOutcome` 3-row ×- `ToastGate` ×- `ToastReceipt` | dialogs-notifications#NOTIFICATIONS | [FINALIZED] |
-| [59] | Host-agnostic pickers with format-derived filters; anchored/centered positioner rows; headless folds to typed fault | `PickKind` 3-row ×- `PickFilter` ×- `PickOps` | dialogs-notifications#PICKERS_HOST_MODALITY | [PARTIAL] |
-| [60] | Hotkey derivation from the command table with platform chord transform; first-claimant conflict drop; no second key table | `GesturePolicy` ×- `Bindings`/`Chord`/`Split` | input-interaction#HOTKEY_DERIVATION | [PARTIAL] |
-| [61] | Admitted behavior trigger/action rows; rejected file/network/http triggers; intervals from motion vocabulary | `BehaviorRail` ×- 11-row admission table | input-interaction#BEHAVIOR_RAIL | [FINALIZED] |
-| [62] | Pan-zoom canvas family — dashboard + preview rows; one zoom owner per canvas; view-state round-trip | `PanZoomRow` 2-row ×- gesture-routing table | input-interaction#POINTER_GESTURES | [PARTIAL] |
-| [63] | Typed drag payloads and clipboard codec rows on the validation rail; format-probe before paste; text copy-only | `DragPayload` 5-case ×- `ClipboardRow` 4-row ×- `Admit` | input-interaction#DRAG_CLIPBOARD | [PARTIAL] |
-| [64] | Six motion tokens with reduced pairs and spring algebra; every duration/easing literal traces here; host parity | `MotionToken` 6-row ×- `SpringValue` | motion-tokens#MOTION_AXIS | [FINALIZED] |
-| [65] | Plan rows binding transitions, charts, zoom, clocks; reduction applies exactly once; deterministic motion clocks | `MotionPlan` ×- `MotionApplication` | motion-tokens#MOTION_APPLICATION | [FINALIZED] |
-| [66] | Frozen nine-row `ProgressPhase`-to-`MotionToken` map; conformance sweep fails on Compute phase drift | `PhaseMotion.Map`/`Resolve` | motion-tokens#PHASE_MAPPING | [FINALIZED] |
-| [67] | One global reduced-motion degrade switch; host-agnostic probe rows; opacity-only reduced render | `MotionProbeRow` ×- `MotionReceipt` ×- `ReducedMotion` | motion-tokens#REDUCED_MOTION | [PARTIAL] |
-| [68] | Catalog-sourced automation identity and live-region announcements; five rows; `Synthesized` peer-presence column | `AnnouncementRow` ×- `AccessOps.Identify`/`Announce` | accessibility#AUTOMATION_PEERS | [PARTIAL] |
-| [69] | Tab-order, trap, refocus law over attached navigation; access keys fold over the command table; four navigation modes | `FocusOps` ×- navigation-mode table | accessibility#KEYBOARD_NAV | [FINALIZED] |
-| [70] | The suite's single WCAG luminance gate with floor rows; theme tokens emit pairs, consume receipts, never ratios | `ContrastGate` ×- `ContrastReceipt` | accessibility#CONTRAST_GATE | [FINALIZED] |
-| [71] | Per-row compliance audit across the variant-density grid; five checks; executed by the evidence derivation engine | `AccessAudit` ×- `AccessProof.Sweep` | accessibility#COMPLIANCE_PROOF | [PARTIAL] |
-| [72] | Locale rows on inbox resx/ICU/NodaTime with a pseudo-locale conformance row; authoritative flow column | `LocaleRow` 2-row ×- `LocaleKeyPolicy` | localization-culture#LOCALE_AXIS | [FINALIZED] |
-| [73] | nameof-derived string tables with PropertyGrid `ILocalizationService` bridge; rejected MS.Extensions.Localization | `LocaleStrings` ×- `Find`/`Expand`/`Key` | localization-culture#STRING_TABLES | [PARTIAL] |
-| [74] | Atomic culture composition under the options reload class; `CompositeFormat` + NodaTime patterns; ambient culture absent | `LocalePolicy` ×- `ResolvedLocale` ×- `LocaleRuntime` | localization-culture#CULTURE_COMPOSITION | [PARTIAL] |
-| [75] | RTL mirroring at surface root by inheritance with icon exemption; directional rows re-join root flow | `MirrorPolicy` | localization-culture#RTL_MIRRORING | [FINALIZED] |
-| [76] | Seven-case evidence union sealed through the HLC sink envelope; every sibling receipt stream folds in, zero new emitters | `EvidenceReceipt` 7-case ×- `EvidenceOps` ×- `AppUiWireContext` | diagnostics-evidence#RECEIPT_UNION | [FINALIZED] |
-| [77] | Correlation join with typed skew bands and model-result provenance projection; `Overlaps` band algebra | `SkewBand` ×- `EvidenceRow` ×- `EvidenceTimeline` ×- `EvidenceJoin` | diagnostics-evidence#CORRELATION_JOIN | [FINALIZED] |
-| [78] | Host-agnostic render-hash capture lanes; `ForceRenderTimerTick` deterministic frames; scale-attributable hash | `CaptureRow` ×- `Captures` | diagnostics-evidence#CAPTURE_LANES | [FINALIZED] |
-| [79] | Catalog-derived headless proof matrix with command-journal replay under virtual time; one session per assembly; pointer-walk and drag-drop synthetic-input checks | `ProofCheck` 8-row ×- `ProofSpec` ×- `ProofEngine` | diagnostics-evidence#HEADLESS_DERIVATION | [SPIKE] |
-| [80] | Debug hot-reload loop with dispatcher-lag probe; manual-reload intent verbs; Release closure strip; markup-loader Debug pin | `DevLoop` ×- `ReloadIntent` 3-case ×- HotAvalonia knob rows | diagnostics-evidence#DEV_LOOP | [SPIKE] |
-| [81] | Unified observability contribution — every owner calls `AppUiTelemetry.Contribute` with its own instrument constants into the AppHost telemetry spine; no local meter, no per-owner contributor factory | `AppUiTelemetry.Contribute` ×- `TelemetryContributorPort` (AppHost) ×- per-page `TelemetryRow` | diagnostics-evidence#RECEIPT_UNION · surface-hosts#HOST_AXIS · commands-availability#EXECUTION_RECEIPTS · live-data#AGGREGATION_SPINE · inspector-editing#INSPECTOR_SURFACE · screens-activation#ACTIVATION_SCOPES · shell-navigation#DOCK_LAYOUTS · tables-hierarchy#GRID_COMMIT | [FINALIZED] |
+## [2]-[SCREENS_AND_COMMANDS]
 
-## [2]-[CAPABILITY_ROWS]
+| [INDEX] | [FEATURE] | [OWNER] | [PAGE#CLUSTER] |
+| :-----: | --------- | ------- | -------------- |
+| [1] | One screen catalog row drives dockables, titles, automation names, route keys, headless proof lanes | `ScreenCatalog` | screens-activation#SCREEN_CATALOG |
+| [2] | One activatable base — ref-counted activation scopes, suspend/resume, scoped disposal, drain row rank 10 | `ScreenBase` | screens-activation#ACTIVATION_SCOPES |
+| [3] | Paced derived state through OAPH rows; one screen fault fold; distinct-before-throttle pacing | `DerivedOps` | screens-activation#DERIVED_STATE |
+| [4] | Typed-rail validation lift into ReactiveUI.Validation; context validity gates commands, property text feeds adorners | `ScreenValidation` | screens-activation#VALIDATION_UX |
+| [5] | Per-surface state snapshots; restore-on-activate merge; partition by id and surface; support-bundle contribution | `ScreenState` | screens-activation#SCREEN_STATE |
+| [6] | One `CommandIntent` table is the only command vocabulary; menus, hotkeys, palette, deep links, remote verbs derive | `CommandIntent` | commands-availability#INTENT_TABLE |
+| [7] | Availability algebra over degradation, validation, selection, busy folds into one `CanExecute` stream; macro verbs combine | `CommandGate` | commands-availability#AVAILABILITY_ALGEBRA |
+| [8] | Total execution receipts; `Catch` rail makes outcome total; XxHash128 payload digest; sealed through the sink envelope | `CommandExecution` | commands-availability#EXECUTION_RECEIPTS |
+| [9] | Palette, deep links, remote, and journal replay over one intent table; span-ranked fuzzy search; ControlService verbs as rows | `CommandProjections` | commands-availability#PALETTE_AND_REMOTE |
 
-- Hosts: avalonia-desktop, rhino-panel, rhino-modal, gh2-companion, sidecar-shell, headless; web-browser stays designed-only — TS owns web UI while `CommandIntent` keys and `EvidenceReceipt` cases serialize for it today (commands-availability#TS_PROJECTION, diagnostics-evidence#TS_PROJECTION).
-- Sourcing-as-rows: every source axis is one extensible row — `DataSource` six feed cases (host-document, persistence-query, compute-receipt-stream, in-memory, remote-companion, fake-deterministic), `ChartStream` four feed rows, `IconSource` five cases, `AssetKind` three origins, `ThemeVariantRow` probe column per surface, `FontChain` per-RID rows, `LocaleRow` culture rows, `ClipboardRow` format codecs, `NativeAssetRow` per-RID rows — a new source is one row, never an ad-hoc branch.
+## [3]-[LIVE_DATA_AND_TABLES]
+
+| [INDEX] | [FEATURE] | [OWNER] | [PAGE#CLUSTER] |
+| :-----: | --------- | ------- | -------------- |
+| [1] | Live-data spine — host fact to projection write to tag transition to delta fetch to `IChangeSet`; closed sourcing cases | `DataSource<TRow,TKey>` | live-data#DATA_SOURCES |
+| [2] | Operator rows — dynamic predicate, comparer, page, window streams; classified-exclusion subtracts the deny projection | `PipelineInputs<TRow>` | live-data#CHANGE_PIPELINES |
+| [3] | One UI-thread binding capsule; single `ObserveOn`; async-disposal drain; the one fault rail | `BindingCapsule` | live-data#BINDING_CAPSULE |
+| [4] | Stat folds, change-audit evidence, suspend-resume; metrics derive from the same audit as the receipt stream | `LiveDataOps` | live-data#AGGREGATION_SPINE |
+| [5] | One column metadata family drives columns, filter, masking, edit, export; classified column never enters filter or export | `TableColumnRow<TRow>` | tables-hierarchy#GRID_SUBSTRATE |
+| [6] | Serializable collection-view snapshot applied in one `DeferRefresh`; paged and virtualized window restore | `TableViewState` | tables-hierarchy#VIEW_STATE |
+| [7] | Projection cases fold to one flat virtualized `TreeRow` stream on the free DataGrid; TreeDataGrid rejected | `TableProjection<TRow,TKey>` | tables-hierarchy#TREE_FLATTEN |
+| [8] | Grid-edit commit to `StoreOp.Upsert` and `DocumentTransaction`; delimited exports through Persistence Sep lane | `TableCommit<TRow>` | tables-hierarchy#GRID_COMMIT |
+
+## [4]-[INSPECTOR_AND_EDITING]
+
+| [INDEX] | [FEATURE] | [OWNER] | [PAGE#CLUSTER] |
+| :-----: | --------- | ------- | -------------- |
+| [1] | PropertyGrid admission capsule; descriptor filters, focus receipts; operation controls as command-table intents | `InspectorSurface` | inspector-editing#INSPECTOR_SURFACE |
+| [2] | Ranked editor rows incl. value-object and quantity; metadata-driven generated-owner detection; first-accepting rank walk | `EditorFactory` | inspector-editing#EDITOR_FACTORIES |
+| [3] | Typed admission rail with preview-versus-commit law; accumulating `Validation`; executing-vs-executed debounce | `EditGate` | inspector-editing#COMMIT_VALIDATION |
+| [4] | Options-inspector to user-settings write and `ReloadReceipt` banner; immutable-record-draft route | `OptionsInspector<T>` | inspector-editing#OPTIONS_INSPECTOR |
+| [5] | Side-by-side conflict projection over Persistence conflict receipts; four resolution intent keys | `ConflictPane<TReceipt>` | inspector-editing#CONFLICT_RESOLUTION |
+| [6] | Grammar-scoped code panes — folding, completion, search, TextMate theme sync to tokens; fenced code only | `CodePane` | inspector-editing#CODE_EDITING |
+
+## [5]-[CHARTS_AND_VISUALS]
+
+| [INDEX] | [FEATURE] | [OWNER] | [PAGE#CLUSTER] |
+| :-----: | --------- | ------- | -------------- |
+| [1] | Chart series rows incl. geo-map dispatching onto canvas rows; each row is its own render-hash twin | `ChartSeriesSpec` | charts-dashboards#SERIES_TABLE |
+| [2] | Axis scales; `CompositeFormat` labels; shared-scale pairing; threshold sections | `ChartAxisKind` | charts-dashboards#AXES_SECTIONS |
+| [3] | One interaction policy — zoom, anchors, intent routing, `ZoomBorder` dashboard canvas with view history | `ChartPolicy` | charts-dashboards#CHART_INTERACTION |
+| [4] | Windowed and LTTB-downsampled stream binding; `SyncContext`-locked swap; feed rows | `ChartFolds` | charts-dashboards#STREAM_BINDING |
+| [5] | Dashboard tile union; placement fold; benchmark and activity-timeline named rows; versioned `DashboardLayout` blobs | `DashboardTile` | charts-dashboards#DASHBOARD_TILES |
+| [6] | Borrowed/owned Skia draw capsule on one `Fin` rail; FX table; in-tree `ICustomDrawOperation` vehicle | `DrawSource` | visuals-offscreen#DRAW_CAPSULE |
+| [7] | Host-agnostic thumbnails with blob-backed cache, async display, DPI variants; host bitmap converts once at the seam | `Thumbnails` | visuals-offscreen#THUMBNAIL_PIPELINE |
+| [8] | Receipt-keyed zoomable previews; geometry families from Compute receipt streams as rows; HUD stays host-side | `PreviewRow<TReceipt>` | visuals-offscreen#PREVIEW_SURFACES |
+| [9] | Content-hashed encode identity; codec axis; color-managed float reproject with color-space receipt tag; XxHash128 frame hash | `VisualCodec` | visuals-offscreen#ENCODE_IDENTITY |
+| [10] | Paged `SKDocument` export — `FlowFold` over `FlowBlock` under `BreakRule` with `HeaderFooterBand`; three destinations | `FlowBlock` | visuals-offscreen#DOCUMENT_EXPORT |
+
+## [6]-[THEME_AND_TYPOGRAPHY]
+
+| [INDEX] | [FEATURE] | [OWNER] | [PAGE#CLUSTER] |
+| :-----: | --------- | ------- | -------------- |
+| [1] | One frozen token catalogue feeding five consumers; OKLab ramp mix; orthogonal variant and density resolve | `TokenRow` | theme-tokens#TOKEN_CATALOG |
+| [2] | Variant rows with host-agnostic appearance probe folding; per-surface override delegate | `ThemeVariantRow` | theme-tokens#VARIANT_AXIS |
+| [3] | Density rows selecting metric columns orthogonally; Fluent compact resource swap on the one rail | `DensityRow` | theme-tokens#DENSITY_AXIS |
+| [4] | Atomic theme swap re-resolving the full catalogue; token-diff receipts sink through the evidence envelope | `ThemeCell` | theme-tokens#CONTROL_THEMES |
+| [5] | Typography roles; every size, weight, and feature literal traces here; one resolved `TextStyleRow` for five consumers | `TypographyRole` | typography-shaping#ROLE_AXIS |
+| [6] | Deterministic embedded-Inter admission; ranked per-platform fallback chains; one boot-time font registration | `FontChain` | typography-shaping#FONT_ADMISSION |
+| [7] | One HarfBuzz shaping rail before every Skia glyph; per-role feature tags; libHarfBuzzSharp load-identity proof | `ShapingSurface` | typography-shaping#SHAPING_RAIL |
+| [8] | Markdig AST to role-keyed rows; one typed-traversal fold shared with inspector and SVG walks; math and diagrams excluded | `MarkdownProjection` | typography-shaping#MARKDOWN_PROJECTION |
+| [9] | Baseline-grid metrics; `MeasureText` and the shaped rail only; tabular-numeral advance proof | `TextMetricsPolicy` | typography-shaping#TEXT_METRICS |
+
+## [7]-[ICONS_AND_ASSETS]
+
+| [INDEX] | [FEATURE] | [OWNER] | [PAGE#CLUSTER] |
+| :-----: | --------- | ------- | -------------- |
+| [1] | Icon sourcing cases with rank-column fallback walk; off-axis size aborts; per-row tint through token key | `IconSource` | icons-assets#ICON_AXIS |
+| [2] | Retained SVG pipeline — scene graph, animation invalidation, hit testing; process-static cache; motion-pumped frames | `SvgPipeline` | icons-assets#SVG_PIPELINE |
+| [3] | Async raster rows with disk/RAM cache, DPI variants, placeholder/error fallback keys; one global loader; storage-scoped fetch lane | `RasterAssets` | icons-assets#RASTER_ASSETS |
+| [4] | nameof-derived `AssetKey` vocabulary shared across pages; avares admission with preload receipts; geo asset routing | `AssetCatalog` | icons-assets#ASSET_CATALOG |
+
+## [8]-[DIALOGS_AND_INPUT]
+
+| [INDEX] | [FEATURE] | [OWNER] | [PAGE#CLUSTER] |
+| :-----: | --------- | ------- | -------------- |
+| [1] | Dialog intents with typed `Fin` results, dismissal as a value; boot crash-restore offer; deadline-typed progress | `DialogIntent` | dialogs-notifications#DIALOG_INTENTS |
+| [2] | Per-surface session topology rows — stacking, blur, positioner, `TopLevelResolver`; one `Interaction` seam per root | `DialogTopology` | dialogs-notifications#SESSION_ALGEBRA |
+| [3] | Toast suppression fold over phase and degradation with queued/dropped receipts; no notification-history store | `ToastGate` | dialogs-notifications#NOTIFICATIONS |
+| [4] | Host-agnostic pickers with format-derived filters; anchored/centered positioner rows; headless folds to typed fault | `PickOps` | dialogs-notifications#PICKERS_HOST_MODALITY |
+| [5] | Hotkey derivation from the command table with platform chord transform; first-claimant conflict drop; no second key table | `GesturePolicy` | input-interaction#HOTKEY_DERIVATION |
+| [6] | Admitted behavior trigger and action rows; rejected file/network/http triggers; intervals from motion vocabulary | `BehaviorRail` | input-interaction#BEHAVIOR_RAIL |
+| [7] | Pan-zoom canvas family — dashboard and preview rows; one zoom owner per canvas; view-state round-trip | `PanZoomRow` | input-interaction#POINTER_GESTURES |
+| [8] | Typed drag payloads and clipboard codec rows on the validation rail; format-probe before paste; text copy-only | `DragPayload` | input-interaction#DRAG_CLIPBOARD |
+
+## [9]-[MOTION_AND_ACCESSIBILITY]
+
+| [INDEX] | [FEATURE] | [OWNER] | [PAGE#CLUSTER] |
+| :-----: | --------- | ------- | -------------- |
+| [1] | Motion tokens with reduced pairs and spring algebra; every duration and easing literal traces here; host parity | `MotionToken` | motion-tokens#MOTION_AXIS |
+| [2] | Plan rows binding transitions, charts, zoom, clocks; reduction applies once; deterministic motion clocks | `MotionApplication` | motion-tokens#MOTION_APPLICATION |
+| [3] | Frozen nine-row `ProgressPhase`-to-`MotionToken` map; conformance sweep fails on Compute phase drift | `PhaseMotion` | motion-tokens#PHASE_MAPPING |
+| [4] | One global reduced-motion degrade switch; host-agnostic probe rows; opacity-only reduced render | `ReducedMotion` | motion-tokens#REDUCED_MOTION |
+| [5] | Catalog-sourced automation identity and live-region announcements; `Synthesized` peer-presence column | `AccessOps` | accessibility#AUTOMATION_PEERS |
+| [6] | Tab-order, trap, refocus law over attached navigation; access keys fold over the command table; navigation modes | `FocusOps` | accessibility#KEYBOARD_NAV |
+| [7] | The suite's single WCAG luminance gate with floor rows; theme tokens emit pairs, consume receipts, never ratios | `ContrastGate` | accessibility#CONTRAST_GATE |
+| [8] | Per-row compliance audit across the variant-density grid; executed by the evidence derivation engine | `AccessProof` | accessibility#COMPLIANCE_PROOF |
+
+## [10]-[LOCALIZATION_AND_EVIDENCE]
+
+| [INDEX] | [FEATURE] | [OWNER] | [PAGE#CLUSTER] |
+| :-----: | --------- | ------- | -------------- |
+| [1] | Locale rows on inbox resx/ICU/NodaTime with a pseudo-locale conformance row; authoritative flow column | `LocaleRow` | localization-culture#LOCALE_AXIS |
+| [2] | nameof-derived string tables with PropertyGrid `ILocalizationService` bridge; rejected MS.Extensions.Localization | `LocaleStrings` | localization-culture#STRING_TABLES |
+| [3] | Atomic culture composition under the options reload class; `CompositeFormat` and NodaTime patterns; ambient culture absent | `LocaleRuntime` | localization-culture#CULTURE_COMPOSITION |
+| [4] | RTL mirroring at surface root by inheritance with icon exemption; directional rows re-join root flow | `MirrorPolicy` | localization-culture#RTL_MIRRORING |
+| [5] | Evidence union sealed through the HLC sink envelope; every sibling receipt stream folds in, zero new emitters | `EvidenceReceipt` | diagnostics-evidence#RECEIPT_UNION |
+| [6] | Correlation join with typed skew bands and model-result provenance projection; `Overlaps` band algebra | `EvidenceJoin` | diagnostics-evidence#CORRELATION_JOIN |
+| [7] | Host-agnostic render-hash capture lanes; `ForceRenderTimerTick` deterministic frames; scale-attributable hash | `Captures` | diagnostics-evidence#CAPTURE_LANES |
+| [8] | Catalog-derived headless proof matrix with command-journal replay under virtual time; one session per assembly | `ProofEngine` | diagnostics-evidence#HEADLESS_DERIVATION |
+| [9] | Debug hot-reload loop with dispatcher-lag probe; manual-reload intent verbs; Release closure strip; markup-loader Debug pin | `DevLoop` | diagnostics-evidence#DEV_LOOP |
+
+## [11]-[ROUTING]
+
+- Mechanics route to the owning page cluster cited in each `[PAGE#CLUSTER]` cell; the page card legislates, the table enumerates.
+- Owner budget and realization state route to the charter DENSITY_BAR through the `[OWNER]` cell — the DENSITY_BAR `[STATE]` column is the sole state authority.
+- Wire shapes route to the TS_PROJECTION clusters on commands-availability#TS_PROJECTION and diagnostics-evidence#TS_PROJECTION; command intent, availability, invocation, payload, outcome, and receipt plus the evidence wire shapes transcribe the camelCase Strict emission, and receipts bind as envelope payload type parameters.
+- Hosts: avalonia-desktop, rhino-panel, rhino-modal, gh2-companion, sidecar-shell, headless; web-browser stays designed-only — TS owns web UI while `CommandIntent` keys and `EvidenceReceipt` cases serialize for it through commands-availability#TS_PROJECTION and diagnostics-evidence#TS_PROJECTION.
+- Sourcing-as-rows: every source axis is one extensible row — `DataSource` feed cases, `ChartStream` feed rows, `IconSource` cases, `AssetKind` origins, `ThemeVariantRow` probe column per surface, `FontChain` per-RID rows, `LocaleRow` culture rows, `ClipboardRow` format codecs, `NativeAssetRow` per-RID rows; a new source is one row, never an ad-hoc branch.
 - Host-agnostic sourcing law: `SurfaceSeam` is the host-delegate column record; every probe, marshal, mount, fact, capture, toast-pipe, pick-pipe, theme-probe, and reduced-motion-probe is a delegate column bound at composition. No dispatch arm names a host API — a host crossing is a `SurfaceSeam` column, a port delegate, or a `Func<...>` field (surface-hosts#HOST_AXIS, dialogs-notifications#SESSION_ALGEBRA, theme-tokens#VARIANT_AXIS, motion-tokens#REDUCED_MOTION).
-- Unified observability: every page-owner contributes traces/metrics inward through one `AppUiTelemetry.Contribute(version, instruments)` → `TelemetryContributorPort`; instrument names stay owned by the contributing page as constants (`rasm.appui.surface.mounted`, `rasm.appui.command.outcome`, `rasm.appui.live.changes`, `rasm.appui.edit.committed`, `rasm.appui.screen.activated`, `rasm.appui.layout.flushed`, `rasm.appui.table.commit`, render-span/frame-byte). The OTLP backend (Prometheus/Tempo/Loki/Alloy/Grafana) is AppHost-owned and env-parameterized — AppUi never names a backend. Every receipt sinks through the one `ReceiptSinkPort` HLC envelope; the seven-case `EvidenceReceipt` union and the correlation join are the only evidence vocabulary — a generic receipt/ledger abstraction is rejected.
-- Unified hardening: `DataClassification` deny projection subtracts classified rows from live-data, table filter/export, and thumbnail bundles; `DegradationLevel`/`Capability.HostDocument` fold host-targeting commands unavailable structurally on `LocalOnly`/`Suspended`; `ToastGate` suppresses notices under terminal/paused phases; every dialog/edit/command/asset fault is a typed `[Union]` band (4100 surface, 4120 asset, 4130 dialog, 4700 edit) on the doctrine `Expected` shape; cancellation rides `EnvIO`/`CancellationToken` on command run and table commit; credential material is barred from the emission grammar (AppHost redaction seam owns the HMAC/erase rows). The rhino-gh2 ⇄ web/ux ⇄ remote/local matrix resolves through `SurfaceHost` cases, `DegradationLevel`, and `SurfaceSeam` delegates.
-- Packaging capture (under-util → row): DynamicData `ExpireAfter`/`LimitSizeTo`/`Page`/`Virtualise`/`MergeMany`/`GroupWithImmutableState`/`TransformToTree`/`AsyncDisposeMany` → live-data + tables; LiveCharts `GeoMap`/gauge/box/candlestick + `ZoomBorder` history → charts; Dock `RegisterExternalDockSurface`/`GlobalDockTarget`/`HostWindowFactory` → shell#DOCK_LAYOUTS; Behaviors `ListReorderDragBehavior`/`Throttle`/`Debounce`/`ObservableStreamBehavior` → input; DialogHost `IsMultipleDialogsEnabled`/`BlurBackground`/`IDialogPopupPositioner` → dialogs; Headless `Dispatch`/`SetRenderScaling`/`ForceRenderTimerTick`/`CaptureRenderedFrame` → evidence; AvaloniaEdit `FoldingManager`/`CompletionWindow`/`SearchPanel`/`TextMate.SetTheme` → inspector#CODE_EDITING; PropertyGrid `AbstractCellEditFactory`/`MetadataLookup`/`ILocalizationService` → inspector + localization; Markdig `TrackTrivia`/`UseFootnotes`/`UseYamlFrontMatter`/`Descendants<T>` → typography (math/diagrams excluded by design); SkiaSharp `SKDocument`/`SKRuntimeEffect`/`SKShaper` → visuals + typography; AsyncImageLoader `DiskCachedWebImageLoader`/`AdvancedImage.FallbackImage` → icons; HotAvalonia `ExcludeReferences` → dev-loop.
-- Wire: command intent/availability/invocation/payload/outcome/receipt plus the six evidence wire shapes transcribe the camelCase Strict emission; receipts bind as envelope payload type parameters (commands-availability#TS_PROJECTION, diagnostics-evidence#TS_PROJECTION).
-
-## [3]-[CAPABILITY_EXPANSION_REGISTER]
-
-Each gap rides an existing budgeted owner — no new surface — and feeds Phase 3 integration. `[STATE]`: `[PARTIAL]` = fenced with a research-gated sub-member; `[SPIKE]` = gated on a bridge/native/embed probe; `[MISSING]` = no owner row yet. `RESEARCH` flags an item with no `.api` catalogue grounding.
-
-| [INDEX] | [GAP / EXPANSION] | [OWNER · PAGE#CLUSTER ROW] | [GROUNDING] | [STATE] |
-| :-----: | ----------------- | -------------------------- | ----------- | :-----: |
-| [E1] | Embedded GPU shared-`GRContext` against host pipeline; Win32 HWND reparent | `EmbedOptions.RenderingMode` column + `SurfaceSeam` GPU delegate · surface-hosts#EMBED_CAPSULE | RESEARCH (EMBED_SPIKE/WIN32_ROUTE) | [SPIKE] |
-| [E2] | Dock serializer round-trip + external-dock selector arity | `LayoutPersistence.Serialize`/`Restore` + `DockControl.RegisterExternalDockSurface` · shell-navigation#DOCK_LAYOUTS | api-dock (partial — DOCK_SERIALIZER/DOCK_SELECTOR ungrounded) | [PARTIAL] |
-| [E3] | Headless `[AvaloniaFact]` MTP-dispatch + Release-strip resolution | `ProofEngine.Dispatch` + `DevLoop` knob rows · diagnostics-evidence#HEADLESS_DERIVATION/DEV_LOOP | api-headless + api-hotavalonia (runner spike) | [SPIKE] |
-| [E4] | GeoMap heat-land payload + projection binding | `ChartSeriesSpec.Geo` `GeoAssetKey` column · charts-dashboards#SERIES_TABLE | api-livecharts (GEO_PAYLOAD ungrounded) | [PARTIAL] |
-| [E5] | LiveCharts net8-asset render fidelity on net10 host | `ChartSeriesSpec.Baseline` render-hash twin · charts-dashboards#SERIES_TABLE | RESEARCH (SERIES_RENDER) | [PARTIAL] |
-| [E6] | Immutable-record draft for grid editing | `OptionsInspector.Draft` policy + `AbstractCellEditFactory.SetPropertyValue` · inspector-editing#OPTIONS_INSPECTOR | api-propertygrid (RECORD_DRAFT ungrounded) | [PARTIAL] |
-| [E7] | Code folding batch-resync + completion population chain | `CodePane.Fold`/`Assist` · inspector-editing#CODE_EDITING | api-avaloniaedit (CODE_FOLDING/CODE_ASSIST ungrounded) | [PARTIAL] |
-| [E8] | Paragraph cluster-boundary break in export flow | `FlowBlock.Text` advance + shaped-run break flags · visuals-offscreen#DOCUMENT_EXPORT | api-skia-harfbuzz (PARAGRAPH_BREAK ungrounded) | [PARTIAL] |
-| [E9] | Page/virtual response field accessors for window restore | `WindowState` field from `PageContext`/`VirtualResponse` · tables-hierarchy#VIEW_STATE | api-dynamicdata (PAGE_RESPONSE_FIELDS ungrounded) | [PARTIAL] |
-| [E10] | Embedded-root toplevel resolver — toast manager + storage provider | `DialogTopology.TopLevelResolver` column · dialogs-notifications#SESSION_ALGEBRA/PICKERS | RESEARCH (EMBEDDED_TOPLEVEL — embed spike) | [SPIKE] |
-| [E11] | SVG animation event-args type | `SvgPipeline.Subscribed` handler · icons-assets#SVG_PIPELINE | api-svg-skia (SVG_ANIMATION_ARGS ungrounded) | [PARTIAL] |
-| [E12] | Markdown front-matter/footnote AST traversal | `MarkdownDocumentRows.FrontMatter`/`Footnotes` fields · typography-shaping#MARKDOWN_PROJECTION | api-markdig (FRONT_MATTER_AST ungrounded) | [PARTIAL] |
-| [E13] | Gesture routed-event triggers + pointer-capture + clipboard multi-format write | `GesturePolicy` gesture-routing table + `ClipboardRow` write · input-interaction#POINTER_GESTURES/DRAG_CLIPBOARD | api-behaviors + api-avalonia (GESTURE_TRIGGERS/POINTER_CAPTURE/CLIPBOARD_WRITE ungrounded) | [PARTIAL] |
-| [E14] | Rhino panel return-key knob + embedded host-object drag | `GesturePolicy.WantReturnInPanel` + `DragPayload.HostObjects` · input-interaction#HOTKEY_DERIVATION/DRAG_CLIPBOARD | RESEARCH (PANEL_KEYS/EMBEDDED_DRAG — embed spike) | [SPIKE] |
-| [E15] | macOS reduce-motion preference probe | `MotionProbeRow.Probe` delegate · motion-tokens#REDUCED_MOTION | RESEARCH (REDUCED_MOTION_PROBE) | [PARTIAL] |
-| [E16] | Automation peer synthesis for Skia visuals + VoiceOver across NSView | `AnnouncementRow.Synthesized` column + `OnCreateAutomationPeer` · accessibility#AUTOMATION_PEERS/COMPLIANCE_PROOF | RESEARCH (PEER_SYNTHESIS/EMBEDDED_VOICEOVER — embed spike) | [SPIKE] |
-| [E17] | Pseudo-locale satellite resolution + ICU MessageFormat plural route | `LocaleRow.PluralRoute` ICU arm + `LocaleStrings.Expand` · localization-culture#LOCALE_AXIS/CULTURE_COMPOSITION | RESEARCH (PSEUDO_LOCALE/ICU_PLURALS) | [PARTIAL] |
-| [E18] | Live-data virtual-time + grouped-window stability | `DataSource.FakeDeterministic` + `GroupWithImmutableState` · live-data#DATA_SOURCES/CHANGE_PIPELINES | api-dynamicdata (VIRTUAL_TIME/GROUPED_WINDOWS ungrounded) | [PARTIAL] |
-| [E19] | Remote-evidence binary codec ingest from Persistence wire | `DevLoop` composition-bound codec delegate · diagnostics-evidence#DEV_LOOP | Persistence binary-wire (cross-package, settled) | [PARTIAL] |
-| [E20] | TextMate Rasm-DSL grammar registry (`IRegistryOptions`) | `CodePane` registry row · inspector-editing#CODE_EDITING | TextMateSharp (transitive, unpinned — admit-or-drop) | [MISSING] |
-| [E21] | SVG-text typeface chain through `SKSvgSettings.TypefaceProviders` | `SvgPipeline.Admit` typeface add · icons-assets#SVG_PIPELINE | api-svg-skia (SVG_TYPEFACE_PROVIDER ungrounded — `SKSvgSettings` catalogued) | [PARTIAL] |
-| [E22] | Storage-scoped raster fetch via `IAdvancedAsyncImageLoader.ProvideImageAsync(url, IStorageProvider)` | `RasterAssets.Storage` lane · icons-assets#RASTER_ASSETS | api-asyncimageloader (STORAGE_LOADER_OVERLOAD ungrounded — `IAdvancedAsyncImageLoader` catalogued) | [PARTIAL] |
-| [E23] | Color-managed float reproject — `SKImage.ColorSpace`, `RgbaF16`, `Premul` members | `VisualCodec.ColorPolicy.Reproject` · visuals-offscreen#ENCODE_IDENTITY | api-skiasharp + visuals doctrine (COLOR_REPROJECT_MEMBERS — `WithColorSpace`/`CreateSrgbLinear`/`Equal` confirmed) | [PARTIAL] |
-| [E24] | PropertyGrid display-name projection through `CustomNameBlock` event args | `InspectorPolicy.Rename` column · inspector-editing#INSPECTOR_SURFACE | api-propertygrid (NAME_BLOCK_ARGS ungrounded — `CustomNameBlock` catalogued) | [PARTIAL] |
-| [E25] | Two-finger rotate gesture source + saved-view registry ops on `ZoomBorder` | `PanZoomRow` rotation column + saved-view intents · input-interaction#POINTER_GESTURES | api-panandzoom (ROTATE_GESTURE ungrounded — `Rotate`/`SnapRotation`/`SaveView`/`RestoreView` catalogued) | [PARTIAL] |
+- Unified observability: every page-owner contributes traces and metrics inward through one `AppUiTelemetry.Contribute(version, instruments)` to `TelemetryContributorPort`; instrument names stay owned by the contributing page as constants. The OTLP backend is AppHost-owned and env-parameterized; AppUi never names a backend. Every receipt sinks through the one `ReceiptSinkPort` HLC envelope; the `EvidenceReceipt` union and the correlation join are the only evidence vocabulary, and a generic receipt or ledger abstraction is rejected.
+- Unified hardening: `DataClassification` deny projection subtracts classified rows from live-data, table filter and export, and thumbnail bundles; `DegradationLevel`/`Capability.HostDocument` fold host-targeting commands unavailable structurally on `LocalOnly`/`Suspended`; `ToastGate` suppresses notices under terminal and paused phases; every dialog, edit, command, and asset fault is a typed `[Union]` band on the doctrine `Expected` shape; cancellation rides `EnvIO`/`CancellationToken` on command run and table commit; credential material is barred from the emission grammar. The rhino-gh2, web/ux, and remote/local matrix resolves through `SurfaceHost` cases, `DegradationLevel`, and `SurfaceSeam` delegates.
+- Packaging capture (under-util to row): DynamicData `ExpireAfter`/`LimitSizeTo`/`Page`/`Virtualise`/`MergeMany`/`GroupWithImmutableState`/`TransformToTree`/`AsyncDisposeMany` route to live-data and tables; LiveCharts `GeoMap`/gauge/box/candlestick plus `ZoomBorder` history route to charts; Dock `RegisterExternalDockSurface`/`GlobalDockTarget`/`HostWindowFactory` route to shell-navigation#DOCK_LAYOUTS; Behaviors `ListReorderDragBehavior`/`Throttle`/`Debounce`/`ObservableStreamBehavior` route to input; DialogHost `IsMultipleDialogsEnabled`/`BlurBackground`/`IDialogPopupPositioner` route to dialogs; Headless `Dispatch`/`SetRenderScaling`/`ForceRenderTimerTick`/`CaptureRenderedFrame` route to evidence; AvaloniaEdit `FoldingManager`/`CompletionWindow`/`SearchPanel`/`TextMate.SetTheme` route to inspector-editing#CODE_EDITING; PropertyGrid `AbstractCellEditFactory`/`MetadataLookup`/`ILocalizationService` route to inspector and localization; Markdig `TrackTrivia`/`UseFootnotes`/`UseYamlFrontMatter`/`Descendants<T>` route to typography; SkiaSharp `SKDocument`/`SKRuntimeEffect`/`SKShaper` route to visuals and typography; AsyncImageLoader `DiskCachedWebImageLoader`/`AdvancedImage.FallbackImage` route to icons; HotAvalonia `ExcludeReferences` routes to dev-loop.

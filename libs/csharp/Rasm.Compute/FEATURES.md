@@ -1,120 +1,83 @@
 # [COMPUTE_FEATURES]
 
-Isolation-concept atlas for measured execution. Every concept rides a row on an owned axis — a new concept is a row, never a surface. Each concept names its spine then the owning page clusters; mechanics live in the `.planning/` pages. The `[STATE]` column is the feature-state verdict: `FINALIZED` (realized as a transcription-complete `csharp` fence in a page), `PARTIAL` (fence present, a column or member deferred to a research row), `MISSING` (named gap not yet a fence), `SPIKE` (gated on a bridge/native/server probe).
+Isolation-concept atlas for measured execution. Every concept rides a row on an owned axis — a new concept is a row, never a surface. Each row names the one budgeted owner and the page#cluster that legislates the mechanics; owner realization state lives on the charter DENSITY_BAR `[STATE]` column, reached through the `[OWNER]` cell.
 
 ## [1]-[ISOLATION_CONCEPTS]
 
-The capabilities Rasm.Compute uniquely owns: a downstream app dev reaches for none of these by hand — each is a row/case on a budgeted owner, finalized as a fence unless the [STATE] says otherwise.
+The capabilities Rasm.Compute uniquely owns: a downstream app dev reaches for none of these by hand — each is a row or case on a budgeted owner.
 
-| [INDEX] | [CONCEPT]                                                        | [SPINE]                                                                                            | [ANCHORS]                                                                | [STATE]   |
-| :-----: | :-------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------- | :-------- |
-|   [1]   | Typed intent admission, once at the boundary                   | five-case `ComputeIntent` + one `Spec` policy record; `IntentAdmission.Admit` digests and bounds  | intent-and-selection#INTENT_FAMILY                                       | FINALIZED |
-|   [2]   | Substrate selection as a fold over row data                    | three `Substrate` rows; predicate, rank, cap, fallback, warm-affinity as columns; `Plan`/`Select` | intent-and-selection#SUBSTRATE_AXIS, intent-and-selection#DISPATCH_SPINE | FINALIZED |
-|   [3]   | Boot-frozen benchmark-rank routing with static fall-through    | `BenchmarkRank` projection; `EffectiveRank` reads claim, falls to static cost on fingerprint miss  | intent-and-selection#SUBSTRATE_AXIS, receipts-and-benchmarks#BENCHMARK_CLAIMS | FINALIZED |
-|   [4]   | Total dispatch with compile-broken row coverage                | `DispatchTable` three-delegate record; `ComputeFault` band-2200, 13 cases breaking every Switch    | intent-and-selection#DISPATCH_SPINE                                     | FINALIZED |
-|   [5]   | CPU tensor lane over the SIMD primitive surface                | `Tensor<T>` spans + `TensorOpFamily` 82-row table across 12 kinds; 17 arity entrypoints            | tensor-lane#TENSOR_VOCABULARY, tensor-operations#OPERATION_TABLE, tensor-operations#KERNEL_DISPATCH | FINALIZED |
-|   [6]   | Designed convolution and pooling on Rasm routes                | `Conv1D/2D/3D` im2col→`Matrix.Multiply`, `MaxPool`/`AvgPool`/`GlobalAvgPool` strided-window rows    | tensor-operations#OPERATION_TABLE, tensor-lane#EQUIVALENCE_INTEROP       | PARTIAL   |
-|   [7]   | Layout algebra and bare plane staging views                    | `LayoutForm` 5 rows + permute table; `Span2D`/`Memory2D` projections, never rank permutation        | tensor-lane#LAYOUT_ALGEBRA, staging-and-streams#PLANE_VIEWS             | FINALIZED |
-|   [8]   | Geometry-to-tensor feature encoding with conformance triad     | `GeometryEncoding` 3 cases; `EncodingChannel` 6-row width axis; `Row` carries wire-shape gate       | tensor-lane#GEOMETRY_ENCODING                                          | FINALIZED |
-|   [9]   | Kernel equivalence proofs against Rasm baselines               | `EquivalenceLaw.Prove`; `ToleranceClass` per family; loosen-to-pass is the named defect             | tensor-lane#EQUIVALENCE_INTEROP                                        | FINALIZED |
-|  [10]   | ONNX inference, EP-parameterized, OrtValue-only                | `ExecutionProvider` axis; `RunOps.Infer`; OrtValue-only law; superseded spellings deleted           | model-lane#EP_AXIS, model-inference#INFERENCE_MODES                     | FINALIZED |
-|  [11]   | Apple-silicon ANE/GPU inference (CoreML EP)                    | `ExecutionProvider.CoreMl` seven frozen option rows; macOS-12 `ModelFormat` gate                    | model-lane#EP_AXIS                                                     | FINALIZED |
-|  [12]   | Designed GPU inference rows (CUDA, DirectML)                   | `Cuda`/`DirectMl` Windows-gated rows; device policy column; no-op register until GPU package admits | model-lane#EP_AXIS                                                     | SPIKE     |
-|  [13]   | Model provenance and extension-op admission                    | `ModelSource` 4 cases→one byte admission; `ModelIdentity` checksum; `CustomOps` asset-evidence fold | model-lane#MODEL_IDENTITY, model-lane#EXTENSION_OPS                     | FINALIZED |
-|  [14]   | One shared session per checksum with LRU residency             | `ModelSessions` capsule; one `InferenceSession` per checksum; global ORT pool; drain + warmup rows  | model-lane#SESSION_CAPSULE                                            | FINALIZED |
-|  [15]   | EP-context warm-start blob, content-addressed                  | `ep.context_*` config; `WarmStart` reads compiled blob into one `ArtifactIndexRow` on the open fold | model-lane#SESSION_CAPSULE, intent-and-selection#SUBSTRATE_AXIS         | FINALIZED |
-|  [16]   | Bound-batch inference over OrtIoBinding                        | `RunOps.InferBound` over `RunWithBinding`+`GetOutputValues`; `BoundLoop` zero-alloc steady state    | model-inference#INFERENCE_MODES                                       | SPIKE     |
-|  [17]   | ONNX terminate-latch cancellation cadence                     | `RunOptions.Terminate` one-way latch from linked `CancelScope`; deadline-poll cadence on probe       | model-inference#INFERENCE_MODES, scheduling-and-lanes#DRAIN_CANCEL     | SPIKE     |
-|  [18]   | Deterministic version-stamped model-result cache              | `CachePolicy` 4 rows; `CacheOps.Key` over checksum+digest+EP+ORT+option-hash; checksum-echo validate | model-inference#RESULT_CACHE                                         | FINALIZED |
-|  [19]   | Staging allocation classes with admission predicate + evidence | `AllocationClass` 5 rows; `Admits` once at intent; `AllocationEvidence` every grant                  | staging-and-streams#ALLOCATION_AXIS                                  | FINALIZED |
-|  [20]   | Bit-packed occupancy and in-place codec growth                 | `BitHelper` mask-word pack over `PooledMemory`; `ArrayPoolExtensions.Resize`; span tokenizers        | staging-and-streams#ALLOCATION_AXIS                                  | PARTIAL   |
-|  [21]   | One-per-process recyclable stream pool, evidence-folded        | `StreamPool` capsule; `RecyclableMemoryStreamManager`; 11-event fold to `AllocationEvidence`         | staging-and-streams#STREAM_POOL                                      | FINALIZED |
-|  [22]   | Bounded work lanes with backpressure receipts                  | `WorkLane` 5 rows; capacity/full-mode/readers/rank as data; `Backpressure` on every drop             | scheduling-and-lanes#LANE_AXIS                                       | FINALIZED |
-|  [23]   | Solve-path isolation (GH2 structural enqueue guard)            | `LaneRuntime.Enqueue` returns `LaneHandle`; sync execution on a solve path is unrepresentable         | scheduling-and-lanes#SOLVE_GUARD                                     | FINALIZED |
-|  [24]   | One processor budget across the three concurrency axes         | `CpuBudget`; lane readers, ORT pool, partition cap, spin posture all derive from two inputs           | scheduling-and-lanes#CPU_BUDGET                                      | FINALIZED |
-|  [25]   | Band-200 drain participation with provenance-preserved cancel  | `LaneDrain.Participants`; one linked token chain; `ShutdownDrained`/`DeadlineExpired`/`Cancelled`     | scheduling-and-lanes#DRAIN_CANCEL                                    | FINALIZED |
-|  [26]   | Monotonic progress phases with CAS rank guard                  | `ProgressPhase` 9 rows; `ProgressCell` Atom; gate CAS so observers never see regress                  | progress-and-observation#PHASE_FAMILY, progress-and-observation#PROGRESS_CELL | FINALIZED |
-|  [27]   | Cadence-gated observation seams (UI marshal, wire stream)      | `SubscriptionPolicy` 3 rows; `ProgressSeams.Observe`/`Stream`; no UI type touches a Compute thread     | progress-and-observation#OBSERVATION_SEAMS                          | FINALIZED |
-|  [28]   | Units-aware AEC admission with dual unit evidence              | `QuantityFamily` 15 rows; conversion once at admission; `UnitEvidence` original+canonical             | units-boundary#QUANTITY_TABLE, units-boundary#PARSE_FORMAT          | FINALIZED |
-|  [29]   | AEC successor quantity rows                                    | `HeatTransferCoefficient`/`ThermalInsulance`/`AreaMomentOfInertia`/`Illuminance` rows, AEC-gated       | units-boundary#QUANTITY_TABLE                                       | MISSING   |
-|  [30]   | Compound dimensional consistency at composition               | `UnitAlgebra.Consistency` sweeps 7 compound relations + Ratio dimensionlessness once at boot           | units-boundary#DIMENSIONAL_LAW                                     | FINALIZED |
+| [INDEX] | [FEATURE]                                                       | [OWNER]             | [PAGE#CLUSTER]                          |
+| :-----: | :------------------------------------------------------------- | :------------------ | :-------------------------------------- |
+|   [1]   | Typed intent admission, once at the boundary                   | `IntentAdmission`   | intent-and-selection#INTENT_FAMILY      |
+|   [2]   | Substrate selection as a fold over row data                    | `SubstrateSelection`| intent-and-selection#SUBSTRATE_AXIS     |
+|   [3]   | Boot-frozen benchmark-rank routing with static fall-through    | `SubstrateSelection`| intent-and-selection#SUBSTRATE_AXIS     |
+|   [4]   | Total dispatch with compile-broken row coverage                | `DispatchTable`     | intent-and-selection#DISPATCH_SPINE     |
+|   [5]   | CPU tensor lane over the SIMD primitive surface                | `TensorOps`         | tensor-lane#OPERATION_TABLE             |
+|   [6]   | Designed convolution and pooling on Rasm routes                | `TensorOpFamily`    | tensor-lane#EQUIVALENCE_INTEROP         |
+|   [7]   | Layout algebra and bare plane staging views                    | `LayoutForm`        | tensor-lane#LAYOUT_ALGEBRA              |
+|   [8]   | Geometry-to-tensor feature encoding with conformance triad     | `GeometryEncoding`  | tensor-lane#GEOMETRY_ENCODING           |
+|   [9]   | Kernel equivalence proofs against Rasm baselines               | `EquivalenceLaw`    | tensor-lane#EQUIVALENCE_INTEROP         |
+|  [10]   | ONNX inference, EP-parameterized, OrtValue-only                | `RunOps`            | model-lane#INFERENCE_MODES              |
+|  [11]   | Apple-silicon ANE/GPU inference, CoreML EP                     | `ExecutionProvider` | model-lane#EP_AXIS                      |
+|  [12]   | Designed GPU inference rows, CUDA and DirectML                 | `ExecutionProvider` | model-lane#EP_AXIS                      |
+|  [13]   | Model provenance and extension-op admission                    | `ModelSource`       | model-lane#MODEL_IDENTITY               |
+|  [14]   | One shared session per checksum with LRU residency             | `ModelSessions`     | model-lane#SESSION_CAPSULE              |
+|  [15]   | EP-context warm-start blob, content-addressed                  | `ModelSessions`     | model-lane#SESSION_CAPSULE              |
+|  [16]   | Bound-batch inference over OrtIoBinding                        | `RunOps`            | model-lane#INFERENCE_MODES              |
+|  [17]   | ONNX terminate-latch cancellation cadence                     | `RunOps`            | model-lane#INFERENCE_MODES              |
+|  [18]   | Deterministic version-stamped model-result cache              | `CacheOps`          | model-lane#RESULT_CACHE                 |
+|  [19]   | Staging allocation classes with admission predicate + evidence | `AllocationClass`   | staging-and-streams#ALLOCATION_AXIS     |
+|  [20]   | Bit-packed occupancy and in-place codec growth                 | `AllocationClass`   | staging-and-streams#ALLOCATION_AXIS     |
+|  [21]   | One-per-process recyclable stream pool, evidence-folded        | `StreamPool`        | staging-and-streams#STREAM_POOL         |
+|  [22]   | Bounded work lanes with backpressure receipts                  | `WorkLane`          | scheduling-and-lanes#LANE_AXIS          |
+|  [23]   | Solve-path isolation, GH2 structural enqueue guard             | `LaneRuntime`       | scheduling-and-lanes#SOLVE_GUARD        |
+|  [24]   | One processor budget across the three concurrency axes         | `WorkLane`          | scheduling-and-lanes#CPU_BUDGET         |
+|  [25]   | Band-200 drain participation with provenance-preserved cancel  | `LaneRuntime`       | scheduling-and-lanes#DRAIN_CANCEL       |
+|  [26]   | Monotonic progress phases with CAS rank guard                  | `ProgressCell`      | progress-and-observation#PROGRESS_CELL  |
+|  [27]   | Cadence-gated observation seams, UI marshal and wire stream    | `SubscriptionPolicy`| progress-and-observation#OBSERVATION_SEAMS |
+|  [28]   | Units-aware AEC admission with dual unit evidence              | `QuantityFamily`    | units-boundary#QUANTITY_TABLE           |
+|  [29]   | AEC successor quantity rows                                    | `QuantityFamily`    | units-boundary#QUANTITY_TABLE           |
+|  [30]   | Compound dimensional consistency at composition               | `QuantityFamily`    | units-boundary#DIMENSIONAL_LAW          |
 
 ## [2]-[WIRE_AND_EVIDENCE_CONCEPTS]
 
-| [INDEX] | [CONCEPT]                                                       | [SPINE]                                                                                              | [ANCHORS]                                                                                                | [STATE]   |
-| :-----: | :------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------- | :-------- |
-|   [1]   | Suite wire vocabulary: five proto services                    | ComputeService, DocumentService, ControlService, ArtifactSync, grpc.health.v1; `WireServices` capsule | remote-lane#PROTO_VOCABULARY                                                                            | FINALIZED |
-|   [2]   | Canonical proto geometry, one binary wire shape                | GeometryPayload oneof (point-cloud/mesh/voxel); NTS/GeoJSON/RhinoCommon are boundary projections      | remote-lane#PROTO_VOCABULARY, tensor-lane#GEOMETRY_ENCODING                                              | FINALIZED |
-|   [3]   | Contract evolution by descriptor diff                         | `ContractDrift` 3 cases; `ContractGuard.Classify`; `ParseGuard` bounded reader + extension registry   | remote-lane#CONTRACT_EVOLUTION                                                                          | FINALIZED |
-|   [4]   | Open-envelope option negotiation under additive-only contract  | `ParseGuard.Envelope` over `Struct`/`Value`; host↔companion capability + per-node EP bag               | remote-lane#CONTRACT_EVOLUTION                                                                          | FINALIZED |
-|   [5]   | Typed faults across the wire through FaultDetail               | `WireFault.Decode`/`Classify`; one FaultDetail family; TS reconstructs the literal union               | remote-lane#FAULT_PROJECTION, intent-and-selection#DISPATCH_SPINE                                       | FINALIZED |
-|   [6]   | Six-row transport axis with streaming-capability columns       | `RemoteTransport` Http2/GrpcWeb/UDS/InProcess + designed NamedPipe/TcpLoopback; `StreamShape` flags    | remote-lane#TRANSPORT_AXIS                                                                              | PARTIAL   |
-|   [7]   | In-process transport for the deterministic test host          | `RemoteTransport.InProcess`; `TestServer.CreateHandler` seam on `Microsoft.AspNetCore.TestHost`         | remote-lane#TRANSPORT_AXIS                                                                              | SPIKE     |
-|   [8]   | Loopback-byte-path transports with per-path security law       | `NamedPipe` `PipeSecurity` ACL row, `TcpLoopback` DACL+bearer row; faults `Excluded` until path lands   | remote-lane#TRANSPORT_AXIS                                                                              | SPIKE     |
-|   [9]   | Warm-start node affinity as a selection tie-breaker            | `NodeSelection.ModelWarmupAffinity`; `WireChannels.WarmAffinity` projects into `SelectionContext`       | remote-lane#TRANSPORT_AXIS, intent-and-selection#SUBSTRATE_AXIS                                          | FINALIZED |
-|  [10]   | Credential axis behind one stamping interceptor               | `CredentialPolicy` 4 rows; `CallSpine` stamps correlation+traceparent; per-call bearer mint             | remote-lane#CALL_POLICY                                                                                 | FINALIZED |
-|  [11]   | Compression flip behind a winning benchmark claim             | `CallSpine.Compressed` stamps `grpc-internal-encoding-request` vs channel `CompressionProviders`; claim-gated | remote-lane#CALL_POLICY, receipts-and-benchmarks#BENCHMARK_CLAIMS                                   | SPIKE     |
-|  [12]   | Artifact frame law: 64 KiB, Crc32, zero-copy wrap             | `FrameEdge.Frames`/`Owned`/`Valid`; XxHash128 whole-artifact identity; blob seam consumes constants     | remote-frames#ARTIFACT_FRAMES, staging-and-streams#STREAM_POOL                                          | FINALIZED |
-|  [13]   | Zero-alloc IBufferMessage frame steady state                  | `FrameEdge.Parse`/`Write`/`Merge`/`Prefixed` over the buffer face; `PayloadCodec` `FieldCodec<ByteString>` | remote-frames#ARTIFACT_FRAMES                                                                          | SPIKE     |
-|  [14]   | Progress observation and cancellation spine                   | `ProgressCell`; `scheduling-and-lanes#DRAIN_CANCEL` linked token chain                                   | progress-and-observation#PROGRESS_CELL, scheduling-and-lanes#DRAIN_CANCEL                                | FINALIZED |
-|  [15]   | Thirteen-case receipt union with fold projections             | `ComputeReceipt`; `ReceiptFolds` lane counts/route histograms/leaks/conflicts/provenance as folds        | receipts-and-benchmarks#RECEIPT_UNION, receipts-and-benchmarks#FOLD_PROJECTIONS                          | FINALIZED |
-|  [16]   | Unified telemetry contribution through AppHost ports          | `ReceiptSurface.Telemetry`/`Emit`; `TelemetrySource.Compute`; two `InstrumentRow` counters; sink emit     | receipts-and-benchmarks#RECEIPT_UNION                                                                   | FINALIZED |
-|  [17]   | NodaTime-protobuf wire stamps at the temporal edge            | `WireStamps` Timestamp/Duration + `Google.Type` Date/TimeOfDay/DayOfWeek bridges incl. `RailDayOfWeek` inward | receipts-and-benchmarks#WIRE_STAMPS                                                                | FINALIZED |
-|  [18]   | Benchmark and profiling evidence farm, fingerprint-gated      | `BenchmarkClaim`/`HostFingerprint`; 4 bands; `Stale` on stamp drift; artifacts to the blob lane           | receipts-and-benchmarks#BENCHMARK_CLAIMS                                                                | FINALIZED |
-|  [19]   | TS dashboard projections (wire, progress, receipts)           | connect-es v2 binary transport; `FaultDetailWire`, `ProgressMarkWire`, `ComputeReceiptWire` unions        | remote-frames#TS_PROJECTION, progress-and-observation#TS_PROJECTION, receipts-and-benchmarks#TS_PROJECTION | FINALIZED |
+| [INDEX] | [FEATURE]                                                      | [OWNER]            | [PAGE#CLUSTER]                          |
+| :-----: | :------------------------------------------------------------ | :----------------- | :-------------------------------------- |
+|   [1]   | Suite wire vocabulary, five proto services                   | `WireServices`     | remote-lane#PROTO_VOCABULARY            |
+|   [2]   | Canonical proto geometry, one binary wire shape              | `WireServices`     | remote-lane#PROTO_VOCABULARY            |
+|   [3]   | Contract evolution by descriptor diff                         | `ContractGuard`    | remote-lane#CONTRACT_EVOLUTION          |
+|   [4]   | Open-envelope option negotiation under additive-only contract | `ContractGuard`    | remote-lane#CONTRACT_EVOLUTION          |
+|   [5]   | Typed faults across the wire through FaultDetail              | `ContractGuard`    | remote-lane#FAULT_PROJECTION            |
+|   [6]   | Six-row transport axis with streaming-capability columns     | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
+|   [7]   | In-process transport for the deterministic test host         | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
+|   [8]   | Loopback-byte-path transports with per-path security law      | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
+|   [9]   | Warm-start node affinity as a selection tie-breaker           | `WireChannels`     | remote-lane#TRANSPORT_AXIS              |
+|  [10]   | Credential axis behind one stamping interceptor              | `CredentialPolicy` | remote-lane#CALL_POLICY                 |
+|  [11]   | Compression flip behind a winning benchmark claim            | `CallSpine`        | remote-lane#CALL_POLICY                 |
+|  [12]   | Artifact frame law: 64 KiB, Crc32, zero-copy wrap            | `FrameEdge`        | remote-lane#ARTIFACT_FRAMES             |
+|  [13]   | Zero-alloc IBufferMessage frame steady state                 | `FrameEdge`        | remote-lane#ARTIFACT_FRAMES             |
+|  [14]   | Progress observation and cancellation spine                  | `ProgressCell`     | progress-and-observation#PROGRESS_CELL  |
+|  [15]   | Thirteen-case receipt union with fold projections            | `ComputeReceipt`   | receipts-and-benchmarks#RECEIPT_UNION   |
+|  [16]   | Unified telemetry contribution through AppHost ports         | `ReceiptSurface`   | receipts-and-benchmarks#RECEIPT_UNION   |
+|  [17]   | NodaTime-protobuf wire stamps at the temporal edge           | `ReceiptSurface`   | receipts-and-benchmarks#WIRE_STAMPS     |
+|  [18]   | Benchmark and profiling evidence farm, fingerprint-gated     | `BenchmarkClaim`   | receipts-and-benchmarks#BENCHMARK_CLAIMS |
+|  [19]   | TS dashboard projections, wire, progress, receipts           | `ComputeReceipt`   | receipts-and-benchmarks#TS_PROJECTION   |
 
-## [3]-[CAPABILITY_EXPANSION_REGISTER]
-
-Future-app-dev gaps mapped to the exact owner·page#cluster row/case/column to add, riding an existing budgeted owner. Each grounds in a `.api` catalogue or carries `RESEARCH`. This register feeds Phase 3 integration.
-
-| [INDEX] | [GAP]                                                  | [OWNER·CLUSTER → ADDITION]                                                                          | [GROUNDING]                                  | [STATE] |
-| :-----: | :---------------------------------------------------- | :------------------------------------------------------------------------------------------------ | :------------------------------------------- | :------ |
-|   [1]   | Bound-batch inference binding population               | `RunOps`·model-inference#INFERENCE_MODES → `BindInput`/`BindOutput`/`BindOutputToDevice`/`Synchronize*`/`BoundLoop` | api-onnxruntime (IO-binding scope)  | SPIKE   |
-|   [2]   | GPU EP registration spellings                          | `ExecutionProvider`·model-lane#EP_AXIS → `Cuda`/`DirectMl` register delegate bodies                 | RESEARCH (EP_OPTIONS; app-root GPU package)  | SPIKE   |
-|   [3]   | Tensor operator backlog rows                           | `TensorOpFamily`·tensor-operations#OPERATION_TABLE → 30 rows landed; `MinNumber`/`MaxNumber` backlog | api-tensors; RESEARCH (OPERATOR_BACKLOG)      | SPIKE   |
-|   [4]   | Convolution/pooling Rasm route binding                 | `TensorOpFamily`·tensor-lane#EQUIVALENCE_INTEROP → im2col + strided-window kernel bodies            | api-tensors (`GetDimensionSpan`); Rasm `Matrix.Multiply` | PARTIAL |
-|   [5]   | AEC successor quantity rows                             | `QuantityFamily`·units-boundary#QUANTITY_TABLE → 4 designed rows, AEC-consumer-gated                | api-unitsnet (`QuantityInfo`)                | MISSING |
-|   [6]   | Attribute-sourced canonical/display unit columns       | `QuantityFamily`·units-boundary#QUANTITY_TABLE → reflect `DefaultUnitAttribute`/`DisplayAsUnit…`    | RESEARCH (ATTRIBUTE_SOURCING)                | MISSING |
-|   [7]   | Request compression behind a benchmark claim           | `CallSpine.Compressed`·remote-lane#CALL_POLICY → `CompressionProviders` + `grpc-internal-encoding-request` key | api-grpc-client (`CompressionProviders`)     | SPIKE   |
-|   [8]   | Bit-flag pack member spellings                          | `StagingViews`·staging-and-streams#ALLOCATION_AXIS → `BitHelper` set/has-flag word overloads        | RESEARCH (BIT_FLAG_MEMBERS)                  | PARTIAL |
-|   [9]   | Zero-alloc frame fast-path buffer-context init         | `FrameEdge`·remote-frames#ARTIFACT_FRAMES → `IBufferMessage` parse/write buffer face; `PayloadCodec` | api-protobuf; RESEARCH (BUFFER_FAST_PATH tag) | SPIKE   |
-|  [10]   | Designed loopback transports byte path + security      | `RemoteTransport`·remote-lane#TRANSPORT_AXIS → `NamedPipe`/`TcpLoopback` dial + `PipeSecurity`/DACL  | RESEARCH (PIPE_SECURITY)                     | SPIKE   |
-|  [11]   | In-process test-host handler seam                      | `RemoteTransport`·remote-lane#TRANSPORT_AXIS → `InProcess` handler from `TestServer.CreateHandler`   | RESEARCH (TRANSPORTS; TestHost admission)    | SPIKE   |
-|  [12]   | LoRA-adapter run posture                                | `RunConfig`·model-inference#INFERENCE_MODES → `OrtLoraAdapter.Create` active-set joins fingerprint   | api-onnxruntime (`AddActiveLoraAdapter`)     | PARTIAL |
-|  [13]   | Deployment-constant initializer binding                | `SessionPolicy`·model-lane#SESSION_CAPSULE → `AddInitializer`/`OverridableInitializerMetadata`       | RESEARCH (not in api-onnxruntime catalogue)  | MISSING |
-|  [14]   | Parallel kernel fan-out behind a claim                 | `TensorOps`·tensor-operations#KERNEL_DISPATCH + scheduling-and-lanes#CPU_BUDGET → `ParallelHelper.For` struct `IAction` | RESEARCH (PARALLEL_PARTITION; rail admission)| MISSING |
-|  [15]   | Memory-arena shrinkage bulk run posture                | `RunConfig`·model-inference#INFERENCE_MODES → `RunConfig.Bulk`/`Arena`/`Device` `OrtAllocatorType` columns | api-onnxruntime (`AddRunConfigEntry`, `OrtAllocatorType`) | PARTIAL |
-|  [16]   | CoreML compute-unit posture columns                    | `ExecutionProvider`·model-lane#EP_AXIS → `MLComputeUnits`/`SpecializationStrategy` value domains      | api-onnxruntime (CoreML config-key table)    | PARTIAL |
-|  [17]   | Encoding-channel widening (curvature/geodesic/intensity)| `EncodingChannel`·tensor-lane#GEOMETRY_ENCODING → 3 widening rows on the 6-row width axis             | api-tensors; Rasm `CloudNeighborhoodPca…`    | FINALIZED |
-|  [18]   | Calendar wire-stamp bridge members                     | `WireStamps`·receipts-and-benchmarks#WIRE_STAMPS → `Google.Type` Date/TimeOfDay/DayOfWeek converters | RESEARCH (CALENDAR_BRIDGE; CommonProtos)     | PARTIAL |
-
-## [4]-[CAPABILITY_MANDATE_VERDICT]
-
-Per-folder verdict against the cross-cutting capability-completeness mandates.
-
-| [INDEX] | [MANDATE]               | [COMPUTE OWNS]                                                                                              | [GAP]                                          | [STATE]   |
-| :-----: | :---------------------- | :--------------------------------------------------------------------------------------------------------- | :--------------------------------------------- | :-------- |
-|   [1]   | Unified observability   | traces/metrics/logs via `TelemetryContributorPort`/`ReceiptSinkPort`; `TelemetrySource.Compute`; 2 instruments | OTLP backend-parameterization is AppHost-root-owned (one `UseOtlpExporter`, env-bound) — correctly not a Compute surface | FINALIZED |
-|   [2]   | Sourcing-as-rows        | `Substrate`/`RemoteTransport`/`ExecutionProvider`/`ModelSource`/`AllocationClass`/`WorkLane`/`CredentialPolicy` every axis extensible by one row | loopback transports + GPU EPs are SPIKE rows pending byte path/native package | PARTIAL   |
-|   [3]   | Unified hardening        | payload caps (`Bounded`/`VetoPayload`/`Bounded<T>`), `ParseGuard` bounded reader, `WarmStartClassification`, `Terminate` cancel, drain band, peer-credential law, no second retry/cache owner | redaction taxonomy is AppHost-owned; Compute classifies warm-start artifacts only | FINALIZED |
-|   [4]   | Packaging capture        | OnnxRuntime/Tensors/Protobuf/Grpc/HighPerformance/RecyclableStream/UnitsNet mined to row form; under-util folded into rows | IO-binding/GPU-EP/operator-backlog/bit-flag/buffer-fast-path member spellings on RESEARCH rows | PARTIAL   |
-|   [5]   | Future-app-dev ownership | every query/transport/retry/projection/codec/encoding a downstream dev would hand-roll is a row (register §3) | 18-row expansion register carries the residual; none is a deferral, each is a row | PARTIAL   |
-
-## [5]-[CONCEPT_SEEDS]
+## [3]-[CONCEPT_SEEDS]
 
 Higher-order isolation concepts this folder uniquely enables, each riding an existing owner — no new surface.
 
 - Farm-affinity routing as a `Substrate`-fold column: warm-start affinity reorders only the rank-equal tier, so host-vs-companion-vs-farm is the same fold that picks cpu-vs-onnx — no `FarmRouter` (intent-and-selection#SUBSTRATE_AXIS · remote-lane#TRANSPORT_AXIS).
-- Content-addressed acquisition unification: warm-start blob, result cache, and model acquisition collapse onto one checksum identity so a cold companion warms from the blob the host wrote (model-lane#SESSION_CAPSULE · model-inference#RESULT_CACHE · model-lane#MODEL_IDENTITY).
-- `ToleranceClass` as a proof-by-data column on every `TensorOpFamily` row: a designed-only kernel inherits proof coverage the moment its route lands, with no `Prove` argument (tensor-operations#OPERATION_TABLE · tensor-lane#EQUIVALENCE_INTEROP).
-- Zero-alloc frame spine: `IBufferMessage` + `CreateWithLimits` + `FieldCodec<T>` make the steady-state frame path copy-free, the send-side `CalculateSize` pre-check symmetric with the receive-side bounded reader (remote-frames#ARTIFACT_FRAMES · staging-and-streams#STREAM_POOL).
+- Content-addressed acquisition unification: warm-start blob, result cache, and model acquisition collapse onto one checksum identity so a cold companion warms from the blob the host wrote (model-lane#SESSION_CAPSULE · model-lane#RESULT_CACHE · model-lane#MODEL_IDENTITY).
+- `ToleranceClass` as a proof-by-data column on every `TensorOpFamily` row: a designed-only kernel inherits proof coverage the moment its route lands, with no `Prove` argument (tensor-lane#OPERATION_TABLE · tensor-lane#EQUIVALENCE_INTEROP).
+- Zero-alloc frame spine: `IBufferMessage` + `CreateWithLimits` + `FieldCodec<T>` make the steady-state frame path copy-free, the send-side `CalculateSize` pre-check symmetric with the receive-side bounded reader (remote-lane#ARTIFACT_FRAMES · staging-and-streams#STREAM_POOL).
 - One processor budget as the suite's anti-oversubscription invariant: lane readers, ORT global pool, partition cap, and spin posture all derive from two inputs, so one budget edit re-caps every concurrency axis coherently (scheduling-and-lanes#CPU_BUDGET).
 - Claim-gated performance as a closed conjunction: equivalence proof AND fingerprint-matched speed claim — a fast wrong kernel is poisoned regardless of ratio, and an empty claims table is the correct cold start (receipts-and-benchmarks#BENCHMARK_CLAIMS · tensor-lane#EQUIVALENCE_INTEROP).
 - Every measured hop self-proves on one receipt rail: a farm hop, a tensor run, and a unit projection all materialize `ComputeReceipt` cases at the sink edge, so cross-process provenance joins by correlation with no per-view store (receipts-and-benchmarks#RECEIPT_UNION · receipts-and-benchmarks#FOLD_PROJECTIONS).
 
-## [6]-[ROUTING]
+## [4]-[ROUTING]
 
 - Concept mechanics: `Rasm.Compute/.planning/<page>.md` at the cluster anchor named on each concept.
-- Axis budgets and prohibitions: `.planning/README.md` DENSITY_BAR and PROHIBITIONS; gap ledger and admissions: `.planning/README.md` GAP_LEDGER / ADMISSIONS_RECORD.
+- Owner budget and realization state: `.planning/README.md` DENSITY_BAR via the `[OWNER]` cell; prohibitions: `.planning/README.md` PROHIBITIONS; gap ledger and admissions: `.planning/README.md` GAP_LEDGER / ADMISSIONS_RECORD.
 - External-API grounding: `.api/*.md` per the ADMISSIONS_RECORD CATALOGUE column; RESEARCH rows carry the page-local research-cluster name.
 - Consumed and provided seams: `ARCHITECTURE.md` CONSUMED_SEAMS / PROVIDED_SEAMS; cross-package topologies: `libs/csharp/.planning/FEATURES.md`.

@@ -1,6 +1,6 @@
 # [RASM_APPUI_ROADMAP]
 
-Implementation transcribes the eighteen finalized planning pages in the charter [BUILD_ORDER](.planning/README.md). Every task exits against named page clusters; every exit is proven by a charter proof gate. Production source is absent; this roadmap is the complete path from manifest-backed project to proven rail.
+Implementation transcribes the planning pages in the charter [BUILD_ORDER](.planning/README.md) into the namespaced source tree. Every task exits against named page clusters, and every exit is proven by a charter proof gate. Production source is absent; the path runs from manifest-backed project to proven rail.
 
 ## [1]-[START_GATES]
 
@@ -57,7 +57,7 @@ Tasks in charter BUILD_ORDER. A task exits when its clusters are transcribed ver
 
 ## [3]-[TESTING_APPROACH]
 
-Universal rails share the legend in the package ROADMAP corpus (owner + resolved member identical across the four packages); versions live in `Directory.Packages.props` `ItemGroup Label="Test Stack"`.
+Universal rails carry one owner and resolved member identical across the four packages; versions live in `Directory.Packages.props`.
 
 Universal-rail concept differentiator:
 
