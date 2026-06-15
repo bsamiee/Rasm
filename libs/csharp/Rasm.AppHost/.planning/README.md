@@ -16,7 +16,8 @@ Rasm.AppHost has zero consumers; the implementation is full-capability with no h
 |   [8]   | [health-and-degradation](health-and-degradation.md)       | health fold and degradation rail                 | finalized |
 |   [9]   | [support-bundles](support-bundles.md)                     | bounded redacted diagnostic capture              | finalized |
 |  [10]   | [outbound-resilience](outbound-resilience.md)             | hop axis and single retry owner                  | finalized |
-|  [11]   | [runtime-ports](runtime-ports.md)                         | port records, suite wire law, TS map             | finalized |
+|  [11]   | [outbound-discovery](outbound-discovery.md)               | discovery manifest, UDS attach, companion spawn  | finalized |
+|  [12]   | [runtime-ports](runtime-ports.md)                         | port records, suite wire law, TS map             | finalized |
 
 ## [2]-[WIRE_PAGES]
 
@@ -44,7 +45,7 @@ The red-team pass requires every row `CLOSED`; `[CLOSED_BY]` names the page#clus
 |  [10]   | user-secrets versus OS-keychain config rows      | configuration-and-options#SOURCE_AXIS                                                                              | CLOSED  |
 |  [11]   | update-check outbound hop                        | outbound-resilience#HOP_AXIS                                                                                       | CLOSED  |
 |  [12]   | unhandled, task, POSIX, and crash-marker faults  | lifecycle-and-drain#FAULT_SPINE                                                                                    | CLOSED  |
-|  [13]   | discovery manifest and local IPC attach          | outbound-resilience#DISCOVERY_ATTACH + runtime-ports#PORT_RECORDS                                                  | CLOSED  |
+|  [13]   | discovery manifest and local IPC attach          | outbound-discovery#DISCOVERY_ATTACH + runtime-ports#PORT_RECORDS                                                   | CLOSED  |
 |  [14]   | `LocalOnly` degradation level                    | health-and-degradation#DEGRADATION_RAIL                                                                            | CLOSED  |
 |  [15]   | operator kill-switch and degradation consequence | configuration-and-options#KILL_SWITCH + health-and-degradation#DEGRADATION_RAIL                                    | CLOSED  |
 |  [16]   | cron schedule port and lease/crash split         | time-and-deadlines#SCHEDULE_PORT                                                                                   | CLOSED  |
@@ -61,47 +62,52 @@ new feature is a row or case, never a new surface. Key policies, receipts, polic
 runtime records, and wire shapes ride inside their owner's signature region (ledger rows AH-01
 through AH-11 and AH-04a-d); a public type outside those regions is the named defect.
 
-| [INDEX] | [AXIS/CONCERN]          | [OWNER]                          | [KIND]                  | [CASES]                                                     |
-| :-----: | :---------------------- | :------------------------------- | :---------------------- | :---------------------------------------------------------- |
-|   [1]   | host variance           | `HostProfile`                    | `[SmartEnum<string>]`   | 8 rows                                                      |
-|   [2]   | lifetime adapters       | `ProfileBoot`                    | static fold             | 6 delegate targets                                          |
-|   [3]   | resource identity       | `ProfileIdentity`                | static fold             | 5 attribute rows                                            |
-|   [4]   | phase family            | `RuntimePhase`                   | `[SmartEnum<string>]`   | 8 rows                                                      |
-|   [5]   | trigger vocabulary      | `PhaseTrigger`                   | `[Union]`               | 10 cases                                                    |
-|   [6]   | transition cell         | `Lifecycle`                      | boundary capsule        | 1 CAS entry                                                 |
-|   [7]   | fault spine             | `FaultSource`                    | `[Union]`               | 4 cases                                                     |
-|   [8]   | drain bands             | `DrainBand`                      | `[SmartEnum<int>]`      | 4 rows                                                      |
-|   [9]   | cancellation spine      | `CancelScope`                    | record capsule          | 1 root                                                      |
-|  [10]   | clock seam              | `ClockPolicy`                    | record                  | 2 admissions                                                |
-|  [11]   | deadline taxonomy       | `DeadlineClass`                  | `[SmartEnum<string>]`   | 9 rows                                                      |
-|  [12]   | schedule port           | `ScheduleEntry`                  | record port             | 2 occurrence cases                                          |
-|  [13]   | config sources          | `ConfigSource`                   | `[SmartEnum<string>]`   | 8 rows                                                      |
-|  [14]   | binding faults          | `ConfigError`                    | `[Union]` fault         | 7 cases                                                     |
-|  [15]   | reload rail             | `ReloadOutcome`                  | `[Union]`               | 4 cases                                                     |
-|  [16]   | kill switch             | `OperatorOverride`               | `[Union]`               | 2 cases                                                     |
-|  [17]   | module table            | `ModuleContribution`             | record row              | 1 row per package; `DecorationRow` carrier column           |
-|  [18]   | composition fold        | `CompositionSurface`             | static fold             | 1 receipted entry                                           |
-|  [19]   | boundary activation     | `BoundaryActivation`             | static surface          | 1 entry family                                              |
-|  [20]   | cache lanes             | `CacheLane`                      | `[SmartEnum<string>]`   | 3 rows                                                      |
-|  [21]   | object pools            | `PoolPolicy<T>`                  | policy row              | 1 row per type; `Pools` registration sub-surface            |
-|  [22]   | drain queues            | `DrainQueue<T>`                  | `[Union]`               | 2 cases                                                     |
-|  [23]   | telemetry identity      | `TelemetrySource`                | `[SmartEnum<string>]`   | 6 rows                                                      |
-|  [24]   | correlation spine       | `Correlation`                    | static surface          | 1 boot mint                                                 |
-|  [25]   | log arbitration         | `LogPipeline`                    | `[SmartEnum<string>]`   | 2 rows; `SpineLossFold` listener sub-surface                |
-|  [26]   | signal governance       | `TelemetrySignal`                | `[SmartEnum<string>]`   | 3 rows; `LatencyCheckpoint`/`LatencySpine` carrier          |
-|  [27]   | classification taxonomy | `DataClassification`             | `[SmartEnum<string>]`   | 7 rows; `RedactorKind` column, `RedactionRegistration` fold |
-|  [28]   | health fold             | `HealthContributorRow`           | record row + probe      | 4 tag families                                              |
-|  [29]   | capability vocabulary   | `Capability`                     | `[SmartEnum<string>]`   | 6 rows                                                      |
-|  [30]   | degradation rail        | `DegradationLevel`               | `[SmartEnum<string>]`   | 5 rows                                                      |
-|  [31]   | wire health             | `WireHealthRow`                  | record row              | 1 row per service                                           |
-|  [32]   | support triggers        | `SupportTrigger`                 | `[Union]`               | 6 cases                                                     |
-|  [33]   | support receipts        | `SupportReceipt`                 | `[Union]`               | 3 cases                                                     |
-|  [34]   | hop axis                | `OutboundHop`                    | `[Union]`               | 7 cases                                                     |
-|  [35]   | hop faults              | `HopFault`                       | `[Union]` fault         | 7 cases                                                     |
-|  [36]   | hop outcomes            | `HopOutcome`                     | `[Union]`               | 3 cases                                                     |
-|  [37]   | discovery attach        | `DiscoveryManifest`              | record + static surface | 1 manifest law                                              |
-|  [38]   | runtime ports           | `ReceiptSinkPort` + six siblings | sealed records          | 7 ports                                                     |
-|  [39]   | wire law                | `AppHostWireContext`             | JsonSerializerContext   | 9 contract rows; `NodaPatterns` pattern sub-surface         |
+The `[STATE]` column carries `FINALIZED` where the owner is a transcription-complete fence with
+no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual
+native, bridge, or live-server probe named in the page RESEARCH cluster; a SPIKE owner is fully
+shaped now, never a deferred surface.
+
+| [INDEX] | [AXIS/CONCERN]          | [OWNER]                          | [KIND]                  | [CASES]                                                     |  [STATE]  |
+| :-----: | :---------------------- | :------------------------------- | :---------------------- | :---------------------------------------------------------- | :-------: |
+|   [1]   | host variance           | `HostProfile`                    | `[SmartEnum<string>]`   | 8 rows                                                      | SPIKE     |
+|   [2]   | lifetime adapters       | `ProfileBoot`                    | static fold             | 6 delegate targets; `ServiceNotify`/`MirrorService`/`Emit` mirror sub-surface | SPIKE |
+|   [3]   | resource identity       | `ProfileIdentity`                | static fold             | 5 attribute rows; `HostResourceDetector` detector sub-surface | SPIKE   |
+|   [4]   | phase family            | `RuntimePhase`                   | `[SmartEnum<string>]`   | 8 rows                                                      | FINALIZED |
+|   [5]   | trigger vocabulary      | `PhaseTrigger`                   | `[Union]`               | 10 cases                                                    | FINALIZED |
+|   [6]   | transition cell         | `Lifecycle`                      | boundary capsule        | 1 CAS entry                                                 | FINALIZED |
+|   [7]   | fault spine             | `FaultSource`                    | `[Union]`               | 4 cases                                                     | SPIKE     |
+|   [8]   | drain bands             | `DrainBand`                      | `[SmartEnum<int>]`      | 4 rows                                                      | SPIKE     |
+|   [9]   | cancellation spine      | `CancelScope`                    | record capsule          | 1 root                                                      | FINALIZED |
+|  [10]   | clock seam              | `ClockPolicy`                    | record                  | 2 admissions                                                | FINALIZED |
+|  [11]   | deadline taxonomy       | `DeadlineClass`                  | `[SmartEnum<string>]`   | 9 rows                                                      | FINALIZED |
+|  [12]   | schedule port           | `ScheduleEntry`                  | record port             | 3 `OccurrenceSpec` cases (cron, every, annual)             | FINALIZED |
+|  [13]   | config sources          | `ConfigSource`                   | `[SmartEnum<string>]`   | 8 rows                                                      | SPIKE     |
+|  [14]   | binding faults          | `ConfigError`                    | `[Union]` fault         | 7 cases                                                     | FINALIZED |
+|  [15]   | reload rail             | `ReloadOutcome`                  | `[Union]`               | 4 cases                                                     | FINALIZED |
+|  [16]   | kill switch             | `OperatorOverride`               | `[Union]`               | 2 cases                                                     | FINALIZED |
+|  [17]   | module table            | `ModuleContribution`             | record row              | 1 row per package; `DecorationRow` carrier column           | FINALIZED |
+|  [18]   | composition fold        | `CompositionSurface`             | static fold             | 1 receipted entry                                           | FINALIZED |
+|  [19]   | boundary activation     | `BoundaryActivation`             | static surface          | 1 entry family                                              | FINALIZED |
+|  [20]   | cache lanes             | `CacheLane`                      | `[SmartEnum<string>]`   | 3 rows                                                      | FINALIZED |
+|  [21]   | object pools            | `PoolPolicy<T>`                  | policy row              | 1 row per type; `Pools` registration sub-surface            | FINALIZED |
+|  [22]   | drain queues            | `DrainQueue<T>`                  | `[Union]`               | 2 cases                                                     | FINALIZED |
+|  [23]   | telemetry identity      | `TelemetrySource`                | `[SmartEnum<string>]`   | 6 rows                                                      | SPIKE     |
+|  [24]   | correlation spine       | `Correlation`                    | static surface          | 1 boot mint; `RootEnricher`/`CausalEnricher` cost-class seats | FINALIZED |
+|  [25]   | log arbitration         | `LogPipeline`                    | `[SmartEnum<string>]`   | 2 rows; `SpineLossFold` listener, `HostTags` tag-provider   | SPIKE     |
+|  [26]   | signal governance       | `TelemetrySignal`                | `[SmartEnum<string>]`   | 3 rows; `LatencyCheckpoint`/`LatencySpine` carrier          | SPIKE     |
+|  [27]   | classification taxonomy | `DataClassification`             | `[SmartEnum<string>]`   | 7 rows; `RedactorKind` column, `RedactionRegistration` fold | SPIKE     |
+|  [28]   | health fold             | `HealthContributorRow`           | record row + probe      | 4 tag families; `PressurePolicy` grade, `GradePublisher` publisher | SPIKE |
+|  [29]   | capability vocabulary   | `Capability`                     | `[SmartEnum<string>]`   | 6 rows                                                      | FINALIZED |
+|  [30]   | degradation rail        | `DegradationLevel`               | `[SmartEnum<string>]`   | 5 rows                                                      | FINALIZED |
+|  [31]   | wire health             | `WireHealthRow`                  | record row              | 1 row per service                                           | SPIKE     |
+|  [32]   | support triggers        | `SupportTrigger`                 | `[Union]`               | 6 cases                                                     | SPIKE     |
+|  [33]   | support receipts        | `SupportReceipt`                 | `[Union]`               | 3 cases                                                     | SPIKE     |
+|  [34]   | hop axis                | `OutboundHop`                    | `[Union]`               | 7 cases                                                     | SPIKE     |
+|  [35]   | hop faults              | `HopFault`                       | `[Union]` fault         | 7 cases                                                     | FINALIZED |
+|  [36]   | hop outcomes            | `HopOutcome`                     | `[Union]`               | 3 cases                                                     | FINALIZED |
+|  [37]   | discovery attach        | `DiscoveryManifest`              | record + static surface | 1 manifest law                                              | SPIKE     |
+|  [38]   | runtime ports           | `ReceiptSinkPort` + six siblings | sealed records          | 7 ports                                                     | FINALIZED |
+|  [39]   | wire law                | `AppHostWireContext`             | JsonSerializerContext   | 9 contract rows; `NodaPatterns` pattern sub-surface         | SPIKE     |
 
 ## [6]-[BUILD_ORDER]
 
@@ -112,6 +118,10 @@ lifecycle-and-drain#PHASE_FAMILY; `Diagnostics.cs` consumes it and never re-decl
 Drain band literals live only on `DrainBand`; sibling registrations arrive as
 `DrainParticipantPort` rows and never copy them. `DrainQueue` is the AppHost name;
 `WorkLane` stays at Compute. Comparer accessors stay package-local, one per axis owner.
+`Outbound.cs` transcribes both `outbound-resilience.md` and `outbound-discovery.md` — the
+two pages split the one outbound symbol closure along the index, where the `LocalIpc` hop case
+carries the `DiscoveryManifest` payload and `Discovery.Connect` consumes `GrpcChannelPolicy`,
+so the discovery sibling is never a second file.
 
 Cluster names are page-local anchors; gates name the extra proof beyond the standard static build row.
 
@@ -251,4 +261,6 @@ Substrate, pending, and test-only admissions:
 
 ## [11]-[REFINEMENT_HORIZON]
 
-Folder-specific deepening targets beyond the closed corpus: the operational control surface (ControlService consequence rows) exercised against every service modality; watchdog/heartbeat receipts composed with the support pipeline end-to-end; the discovery/attach choreography rehearsed against the paired and companion topologies in `../../.planning/FEATURES.md`; keychain secrets-store and SIGHUP routes resolved from their probes into settled rows. The bar: any host modality boots, degrades, drains, and reports through this spine with zero app-side ceremony.
+Folder-specific deepening targets beyond the closed corpus, each carrying its open probe. The operational control surface — the `ControlService` verb fold (`setDegradation`→`DegradationCell.Force`, `reloadOptions`→`ReloadClass`, `captureSupport`→`SupportTrigger`) riding configuration-and-options#POLICY_VALUES, health-and-degradation#WIRE_HEALTH and #DEGRADATION_RAIL, and support-bundles#TRIGGER_UNION — exercised against every service modality. The systemd watchdog heartbeat composed end-to-end with the support pipeline, gated on the host-profiles#WATCHDOG_PING keepalive-notify payload over `ISystemdNotifier`. The discovery/attach choreography rehearsed against the paired and companion topologies in `../../.planning/FEATURES.md`, gated on the outbound-resilience#PEER_CREDENTIAL `LOCAL_PEERCRED` read and the #DISCOVERY_ATTACH UDS connect. The keychain secrets-store route (configuration-and-options#SOURCE_ROUTES) and SIGHUP delivery (lifecycle-and-drain#FAULT_PROBES) resolved from their probes into settled rows. The bar: any host modality boots, degrades, drains, and reports through this spine with zero app-side ceremony.
+
+Testing-infrastructure horizon: the deterministic-clock seam pairs `FakeClock` (`NodaTime.Testing`) with `FakeTimeProvider` over the dual clock authority; the `NodaTime.Testing 3.3.2` central pin closes the prior charter-row drift, and the telemetry-seam assertions ride `MetricCollector<T>`/`FakeLogCollector` against the diagnostics signal-governance fold.

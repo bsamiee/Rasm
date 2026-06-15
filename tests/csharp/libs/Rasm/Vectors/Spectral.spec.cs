@@ -91,7 +91,7 @@ public sealed class SpectralFilterLaws {
     public void RankingUsesPolicyDistanceAndOriginalOrderTieBreak() {
         SpectralDescriptor query = SpectralGens.Descriptor(1.0, 0.0, 0.0);
         Seq<SpectralDescriptor> candidates = Seq(SpectralGens.Descriptor(0.0, 1.0, 0.0), SpectralGens.Descriptor(1.0, 0.0, 0.0), SpectralGens.Descriptor(1.0, 0.0, 0.0));
-        SpectralRankingPolicy policy = new(Descriptor: new SpectralDescriptorPolicy(ScaleNormalization: SpectralScaleNormalization.Raw, EnergyNormalization: SpectralEnergyNormalization.UnitL2, ZeroModePolicy: SpectralZeroModePolicy.Keep, CropCount: Option<Dimension>.None), Distance: SpectralDistanceKind.Euclidean, TieBreak: SpectralTieBreak.InputOrder);
+        SpectralRankingPolicy policy = new(Descriptor: new SpectralDescriptorPolicy(ScaleNormalization: SpectralScaleNormalization.Raw, EnergyNormalization: SpectralEnergyNormalization.UnitL2, ZeroModePolicy: SpectralZeroModePolicy.Keep, CropCount: Option<Dimension>.None), Distance: SpectralDistanceKind.Euclidean);
         Spec.Succ(query.Rank(candidates: candidates, policy: policy, key: SpectralGens.Key), ranking => {
             Assert.Equal(expected: 3, actual: ranking.Items.Count);
             Assert.Equal(expected: 1, actual: ranking.Items[0].Index);

@@ -129,12 +129,12 @@ public static class DeadlineOps {
 ## [4]-[SCHEDULE_PORT]
 
 - Owner: `ScheduleEntry`
-- Cases: `OccurrenceSpec.Cron(CronExpression Expression)` | `OccurrenceSpec.Every(Duration Period)`
+- Cases: `OccurrenceSpec.Cron(CronExpression Expression)` | `OccurrenceSpec.Every(Duration Period)` | `OccurrenceSpec.Annual(AnnualDate Date, LocalTime At, DateTimeZone Zone)`
 - Entry: `public static IO<(Fin<Unit> Outcome, DeadlineReceipt Deadline)> Run(ClockPolicy clocks, ScheduleEntry entry, Option<Duration> allotted = default)` — `IO<T>` carries the deferred occurrence run; the work outcome rides `Fin<Unit>` beside the deadline receipt.
 - Receipt: every occurrence run yields its `DeadlineReceipt` paired with the work outcome, and `Heartbeat` folds a not-met receipt into `SupportTrigger.WatchdogTimeout` carrying the firing `ScheduleEntry` — the watchdog signal the support owner consumes, composed from the receipt with no watchdog service type.
 - Packages: Cronos, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new scheduled concern is one `ScheduleEntry` row registered by its consumer, and a new occurrence grammar is one case on `OccurrenceSpec`; zero new surface.
-- Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary; second-resolution rows admit through `CronFormat.IncludeSeconds` and a fleet-spread annual row admits through the `YearlyWithJitter` template family, while `H` fields hash deterministically from the four-arg `TryParse` jitter-seed integer, so fleet spreading of a shared cron row is one schedule-key-derived seed value, never a hand-edited expression; `Missed` detects a skipped occurrence through `GetPreviousOccurrence` against the last-fired stamp and `Window` audits a bounded backfill through `GetOccurrences`, so a missed-occurrence sweep reads occurrence history rather than tracking a running counter; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `CrashStaleness` exceeds the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain; a watchdog is a heartbeat row plus a deadline class, never a service type.
+- Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary; second-resolution rows admit through `CronFormat.IncludeSeconds` and a fleet-spread cron row admits through the `YearlyWithJitter` template family, while `H` fields hash deterministically from the four-arg `TryParse` jitter-seed integer, so fleet spreading of a shared cron row is one schedule-key-derived seed value, never a hand-edited expression; the `Annual` case carries a calendar-recurring `AnnualDate` resolved through `InYear(...).At(...).InZoneStrictly` so a once-a-year rollup row maps its local wall-time to a UTC instant under the strict resolver, never a hand-built leap-day branch; `Missed` detects a skipped occurrence through `GetPreviousOccurrence` against the last-fired stamp, `Window` audits a bounded ascending backfill through `GetOccurrences`, and `WindowDescending` reads the most-recent-first audit through `GetOccurrencesDescending`, so a missed-occurrence sweep reads occurrence history rather than tracking a running counter; `Span` reports the calendar gap between two stamps through `Period.Between` over zoned local date-times — the only calendar-difference surface a retention or lease-age report reads, never a `Duration`-to-days division; `OccurrenceSpec.Identical` compares two specs through `CronExpression.Equals` on the cron arm so a reload that re-parses an unchanged expression text is recognized as the same schedule and never re-registers; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `CrashStaleness` exceeds the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain; a watchdog is a heartbeat row plus a deadline class, never a service type.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -145,12 +145,22 @@ public abstract partial record OccurrenceSpec {
 
     public sealed record Every(Duration Period) : OccurrenceSpec;
 
+    public sealed record Annual(AnnualDate Date, LocalTime At, DateTimeZone Zone) : OccurrenceSpec;
+
     public static Fin<OccurrenceSpec> Admit(string expression, CronFormat format, Option<int> jitterSeed = default) =>
         (jitterSeed is { IsSome: true, Case: int seed }
             ? CronExpression.TryParse(expression, format, seed, out var parsed)
             : CronExpression.TryParse(expression, format, out parsed))
             ? Fin.Succ<OccurrenceSpec>(new Cron(parsed!))
             : Fin.Fail<OccurrenceSpec>(Error.New($"<invalid-cron:{expression}>"));
+
+    public bool Identical(OccurrenceSpec other) =>
+        (this, other) switch {
+            (Cron a, Cron b) => a.Expression.Equals(b.Expression),
+            (Every a, Every b) => a.Period == b.Period,
+            (Annual a, Annual b) => a.Date == b.Date && a.At == b.At && a.Zone.Equals(b.Zone),
+            _ => false,
+        };
 }
 
 public sealed record LeasePolicy(Duration CrashStaleness) {
@@ -170,6 +180,7 @@ public static class SchedulePort {
             cron:  static (s, c) => Optional(c.Expression.GetNextOccurrence(s.ToDateTimeOffset(), TimeZoneInfo.Utc))
                 .Map(static next => next.ToInstant()),
             every: static (s, e) => Optional(s + e.Period),
+            annual: static (s, a) => AnnualNext(s, a.Date, a.At, a.Zone),
             state: after);
 
     public static IO<(Fin<Unit> Outcome, DeadlineReceipt Deadline)> Run(ClockPolicy clocks, ScheduleEntry entry, Option<Duration> allotted = default) =>
@@ -190,6 +201,8 @@ public static class SchedulePort {
                     .Map(static pair => pair.Prev),
             every: static (s, e) =>
                 s.LastFired + e.Period <= s.Now ? Some(s.LastFired + e.Period) : None,
+            annual: static (s, a) =>
+                AnnualWindow(s.LastFired, s.Now, a.Date, a.At, a.Zone).LastOrNone(),
             state: (LastFired: lastFired, Now: now));
 
     public static Seq<Instant> Window(ScheduleEntry entry, Instant from, Instant to) =>
@@ -202,7 +215,33 @@ public static class SchedulePort {
                 Range(0, (int)((s.To - s.From).TotalSeconds / e.Period.TotalSeconds))
                     .Map(step => s.From + e.Period * step)
                     .ToSeq(),
+            annual: static (s, a) => AnnualWindow(s.From, s.To, a.Date, a.At, a.Zone),
             state: (From: from, To: to));
+
+    public static Seq<Instant> WindowDescending(ScheduleEntry entry, Instant from, Instant to) =>
+        entry.Spec.Switch(
+            cron: static (s, c) =>
+                c.Expression.GetOccurrencesDescending(s.From.ToDateTimeOffset(), s.To.ToDateTimeOffset(), TimeZoneInfo.Utc)
+                    .Map(static at => at.ToInstant())
+                    .ToSeq(),
+            every: static (s, e) => Window(s.Entry, s.From, s.To).Rev(),
+            annual: static (s, a) => AnnualWindow(s.From, s.To, a.Date, a.At, a.Zone).Rev(),
+            state: (Entry: entry, From: from, To: to));
+
+    public static Period Span(Instant from, Instant to, DateTimeZone zone) =>
+        Period.Between(from.InZone(zone).LocalDateTime, to.InZone(zone).LocalDateTime);
+
+    static Option<Instant> AnnualNext(Instant after, AnnualDate date, LocalTime at, DateTimeZone zone) =>
+        Range(0, 2)
+            .Map(step => date.InYear(after.InZone(zone).Year + step).At(at).InZoneStrictly(zone).ToInstant())
+            .Filter(candidate => candidate > after)
+            .HeadOrNone();
+
+    static Seq<Instant> AnnualWindow(Instant from, Instant to, AnnualDate date, LocalTime at, DateTimeZone zone) =>
+        Range(from.InZone(zone).Year, to.InZone(zone).Year - from.InZone(zone).Year + 1)
+            .Map(year => date.InYear(year).At(at).InZoneStrictly(zone).ToInstant())
+            .Filter(candidate => candidate >= from && candidate < to)
+            .ToSeq();
 
     public static Option<SupportTrigger> Heartbeat(CorrelationId correlation, ScheduleEntry entry, DeadlineReceipt receipt) =>
         receipt.Outcome == DeadlineOutcome.Met
@@ -211,7 +250,7 @@ public static class SchedulePort {
 }
 ```
 
-The watchdog spine composes end to end without a watchdog service type: `Run` emits the heartbeat row's paired `(Fin<Unit>, DeadlineReceipt)`, `Heartbeat` folds a not-met receipt into `SupportTrigger.WatchdogTimeout` carrying the same `ScheduleEntry`, and the support owner consumes that trigger; a missed occurrence is detected through `Missed`, which reads `GetPreviousOccurrence` against the last-fired stamp, and a backfill audit reads the bounded `GetOccurrences` window. Six-field second-resolution rows admit through `CronFormat.IncludeSeconds`, and a fleet-spread annual row admits through the `YearlyWithJitter` template family seeded from the schedule key.
+The watchdog spine composes end to end without a watchdog service type: `Run` emits the heartbeat row's paired `(Fin<Unit>, DeadlineReceipt)`, `Heartbeat` folds a not-met receipt into `SupportTrigger.WatchdogTimeout` carrying the same `ScheduleEntry`, and the support owner consumes that trigger; a missed occurrence is detected through `Missed`, which reads `GetPreviousOccurrence` against the last-fired stamp, an ascending backfill audit reads the bounded `GetOccurrences` window, and a most-recent-first audit reads `WindowDescending` over `GetOccurrencesDescending`. Six-field second-resolution rows admit through `CronFormat.IncludeSeconds`, a fleet-spread cron row admits through the `YearlyWithJitter` template family seeded from the schedule key, and a calendar-recurring rollup admits through the `Annual` case whose `AnnualDate` resolves under the strict zone resolver. `Span` reports the calendar gap between two stamps through `Period.Between`, and `OccurrenceSpec.Identical` proves schedule identity across a reload through `CronExpression.Equals`.
 
 Consumers register rows, never ports — the registered set at composition:
 

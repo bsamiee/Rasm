@@ -16,12 +16,6 @@ public sealed partial class ExtractionStatus {
 }
 
 [SmartEnum<int>]
-public sealed partial class ScalarIsolineRoute {
-    public static readonly ScalarIsolineRoute LocalPiecewiseLinearMesh = new(key: 0, nativeRouted: false);
-    public bool NativeRouted { get; }
-}
-
-[SmartEnum<int>]
 public sealed partial class ToleranceSource {
     public static readonly ToleranceSource Context = new(key: 0);
     public static readonly ToleranceSource RhinoDefault = new(key: 1);
@@ -36,24 +30,16 @@ public abstract partial record ContourPolicy {
     public sealed record SurfaceIsoCase(IsoStatus Status, double Parameter) : ContourPolicy;
     public sealed record MeshScalarCase(Arr<double> Values, Seq<double> Levels) : ContourPolicy;
     public static Fin<ContourPolicy> Plane(Plane section, Op? key = null) =>
-        FieldNabla.Plane(basis: section, key: key.OrDefault()).Map(active => (ContourPolicy)new PlaneCase(Section: active));
+        new PlaneCase(Section: section).Admit(key: key.OrDefault());
     public static Fin<ContourPolicy> Axis(Point3d start, Point3d end, double interval, Op? key = null) {
         Op op = key.OrDefault();
-        Vector3d vector = end - start;
-        return from _ in guard(FieldNabla.Finite(point: start) && FieldNabla.Finite(point: end) && FieldNabla.Finite(vector: vector) && vector.Length > RhinoMath.ZeroTolerance, op.InvalidInput())
-               from step in op.AcceptValidated<PositiveMagnitude>(candidate: interval)
-               select (ContourPolicy)new AxisCase(Start: start, End: end, Interval: step);
+        return op.AcceptValidated<PositiveMagnitude>(candidate: interval)
+            .Bind(step => new AxisCase(Start: start, End: end, Interval: step).Admit(key: op));
     }
     public static Fin<ContourPolicy> SurfaceIso(IsoStatus status, double parameter, Op? key = null) =>
-        status switch {
-            IsoStatus.X or IsoStatus.Y when RhinoMath.IsValidDouble(x: parameter) => Fin.Succ<ContourPolicy>(new SurfaceIsoCase(Status: status, Parameter: parameter)),
-            IsoStatus.North or IsoStatus.East or IsoStatus.South or IsoStatus.West => Fin.Succ<ContourPolicy>(new SurfaceIsoCase(Status: status, Parameter: parameter)),
-            _ => Fin.Fail<ContourPolicy>(key.OrDefault().InvalidInput()),
-        };
+        new SurfaceIsoCase(Status: status, Parameter: parameter).Admit(key: key.OrDefault());
     public static Fin<ContourPolicy> MeshScalar(Arr<double> values, Seq<double> levels, Op? key = null) =>
-        from scalars in values.Count > 0 ? FieldNabla.AllFinite(values: values, key: key.OrDefault()) : Fin.Fail<Unit>(key.OrDefault().InvalidInput())
-        from admittedLevels in FieldNabla.FiniteScalars(values: levels, allowEmpty: false, key: key.OrDefault())
-        select (ContourPolicy)new MeshScalarCase(Values: values, Levels: admittedLevels);
+        new MeshScalarCase(Values: values, Levels: levels).Admit(key: key.OrDefault());
     internal Fin<ContourPolicy> Admit(Op key) =>
         Switch(
             state: key,
@@ -61,7 +47,6 @@ public abstract partial record ContourPolicy {
             axisCase: static (op, policy) => from start in FieldNabla.Finite(point: policy.Start, key: op)
                                              from end in FieldNabla.Finite(point: policy.End, key: op)
                                              from vector in FieldNabla.Finite(vector: policy.End - policy.Start, key: op)
-                                             from step in FieldNabla.Positive(value: policy.Interval, key: op)
                                              from span in guard((policy.End - policy.Start).Length > RhinoMath.ZeroTolerance, op.InvalidInput())
                                              select (ContourPolicy)policy,
             surfaceIsoCase: static (op, policy) => (policy.Status, policy.Parameter) switch {
@@ -69,7 +54,7 @@ public abstract partial record ContourPolicy {
                 (IsoStatus.North or IsoStatus.East or IsoStatus.South or IsoStatus.West, _) => Fin.Succ<ContourPolicy>(policy),
                 _ => Fin.Fail<ContourPolicy>(op.InvalidInput()),
             },
-            meshScalarCase: static (op, policy) => from scalars in policy.Values.Count > 0 ? FieldNabla.AllFinite(values: policy.Values, key: op) : Fin.Fail<Unit>(op.InvalidInput())
+            meshScalarCase: static (op, policy) => from scalars in policy.Values.Count > 0 ? FieldNabla.AllFiniteDoubles(values: policy.Values.AsSpan(), key: op) : Fin.Fail<Unit>(op.InvalidInput())
                                                    from levels in FieldNabla.FiniteScalars(values: policy.Levels, allowEmpty: false, key: op)
                                                    select (ContourPolicy)policy);
 }
@@ -147,7 +132,7 @@ public abstract partial record ExtractionDomain {
         }
         Seq<ScalarIsolineSegment> deduped = DeduplicateSegments(segments: segments, tolerance: context.Absolute.Value, stats: stats);
         Seq<Curve> curves = StitchSegments(segments: deduped, tolerance: context.Absolute.Value, stats: stats);
-        return Fin.Succ(new ScalarIsolineResult(Curves: curves, Receipt: new ScalarIsolineReceipt(Route: ScalarIsolineRoute.LocalPiecewiseLinearMesh, FiniteLevels: levels.Count, RawSegments: stats.RawSegments, DedupedSegments: stats.DedupedSegments, DegenerateRejected: stats.DegenerateRejected, PlateauRejected: stats.PlateauRejected, StitchedCandidates: stats.StitchedCandidates, BranchStops: stats.BranchStops, BranchNodes: stats.BranchNodes, MaxIncidentSegments: stats.MaxIncidentSegments, EmittedCurves: stats.EmittedCurves)));
+        return Fin.Succ(new ScalarIsolineResult(Curves: curves, Receipt: new ScalarIsolineReceipt(NativeRouted: false, FiniteLevels: levels.Count, RawSegments: stats.RawSegments, DedupedSegments: stats.DedupedSegments, DegenerateRejected: stats.DegenerateRejected, PlateauRejected: stats.PlateauRejected, StitchedCandidates: stats.StitchedCandidates, BranchStops: stats.BranchStops, BranchNodes: stats.BranchNodes, MaxIncidentSegments: stats.MaxIncidentSegments, EmittedCurves: stats.EmittedCurves)));
     }
     private static void AddFaceIsolines(Mesh mesh, MeshFace face, Arr<double> values, Seq<double> levels, double tolerance, List<ScalarIsolineSegment> segments, ScalarIsolineStats stats) {
         Point3d[] points = [mesh.Vertices[index: face.A], mesh.Vertices[index: face.B], mesh.Vertices[index: face.C]];
@@ -482,9 +467,7 @@ public readonly record struct GlyphPolicy {
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: scale)
             .Bind(validScale => Of(kind: kind, scale: validScale, key: key));
     public static Fin<GlyphPolicy> Of(SampleKind kind, PositiveMagnitude scale, Op? key = null) =>
-        from validKind in SampleKind.Admit(value: kind, key: key.OrDefault())
-        from _ in guard(scale.Value > RhinoMath.ZeroTolerance, key.OrDefault().InvalidInput())
-        select new GlyphPolicy(kind: validKind, scale: scale);
+        SampleKind.Admit(value: kind, key: key.OrDefault()).Map(validKind => new GlyphPolicy(kind: validKind, scale: scale));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -496,7 +479,7 @@ public readonly record struct GridPolicy {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ScalarIsolineReceipt(ScalarIsolineRoute Route, int FiniteLevels, int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int StitchedCandidates, int BranchStops, int BranchNodes, int MaxIncidentSegments, int EmittedCurves);
+public readonly record struct ScalarIsolineReceipt(bool NativeRouted, int FiniteLevels, int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int StitchedCandidates, int BranchStops, int BranchNodes, int MaxIncidentSegments, int EmittedCurves);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ScalarIsolineResult(Seq<Curve> Curves, ScalarIsolineReceipt Receipt);
 
@@ -516,7 +499,6 @@ public readonly record struct StreamBundlePolicy {
         return from validKind in SampleKind.Admit(value: kind, key: op)
                from validIntegrator in FieldIntegrator.Admit(value: integrator, key: op)
                from validTermination in Termination.Admit(value: termination, key: op)
-               from _ in guard(initialStep.Value > RhinoMath.ZeroTolerance, op.InvalidInput())
                select new StreamBundlePolicy(kind: validKind, initialStep: initialStep, integrator: validIntegrator, termination: validTermination);
     }
 }

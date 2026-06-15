@@ -66,40 +66,40 @@ TextMateSharp grammar registry (transitive, unpinned) gets a page only if admitt
 
 ## [5]-[DENSITY_BAR]
 
-Implementation lands at 25-35% of the naive LOC for this capability set. One owner per axis, one entrypoint family per rail; a new feature is a row or a case inside a budgeted owner, never a new surface. The budget below is the closed owner set derived from the ledger AU-01 through AU-18 signature regions; an implementation file that mints an owner absent from this table fails review.
+Implementation lands at 25-35% of the naive LOC for this capability set. One owner per axis, one entrypoint family per rail; a new feature is a row or a case inside a budgeted owner, never a new surface. The budget below is the closed owner set derived from the ledger AU-01 through AU-18 signature regions; an implementation file that mints an owner absent from this table fails review. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
-| [INDEX] | [AXIS]                  | [OWNER]                                                     | [KIND]       | [CASES]       |
-| :-----: | :---------------------- | :---------------------------------------------------------- | :----------- | :------------ |
-|   [1]   | host substrate          | `SurfaceHost`                                               | [Union]      | 7             |
-|   [2]   | host facts              | `SurfaceFact`                                               | [Union]      | 4             |
-|   [3]   | navigation verbs        | `NavRequest`                                                | [Union]      | 5             |
-|   [4]   | chrome slots            | `ChromeSlot`                                                | SmartEnum    | 4             |
-|   [5]   | screen rows             | `ScreenCatalog`                                             | row table    | per screen    |
-|   [6]   | command rows            | `CommandIntent` + `CommandDeck`                             | row + deck   | per verb      |
-|   [7]   | command payload/outcome | `CommandPayload` · `CommandOutcome`                         | union pair   | 4 · 4         |
-|   [8]   | data sourcing           | `DataSource<TRow,TKey>`                                     | [Union]      | 6             |
-|   [9]   | table projection        | `TableProjection<TRow,TKey>`                                | [Union]      | 5             |
-|  [10]   | editor rows             | `EditorFactory`                                             | SmartEnum    | 11            |
-|  [11]   | chart series            | `ChartSeriesSpec`                                           | SmartEnum    | 15            |
-|  [12]   | chart scales            | `ChartAxisKind`                                             | SmartEnum    | 5             |
-|  [13]   | dashboard tiles         | `DashboardTile`                                             | [Union]      | 4             |
-|  [14]   | draw sources            | `DrawSource`                                                | [Union]      | 2             |
-|  [15]   | visual destinations     | `VisualDestination` · `ExportDestination`                  | union pair   | 3 · 3         |
-|  [16]   | theme tokens            | `TokenRow`                                                  | [Union]      | 5             |
-|  [17]   | variant and density     | `ThemeVariantRow` · `DensityRow`                            | enum pair    | 4 × 2         |
-|  [18]   | typography roles        | `TypographyRole`                                            | SmartEnum    | 10            |
-|  [19]   | markdown rows           | `MarkdownRow`                                               | [Union]      | 7             |
-|  [20]   | icon sourcing           | `IconSource`                                                | [Union]      | 5             |
-|  [21]   | asset identity          | `AssetKey` · `AssetKind`                                    | value + enum | open · 3      |
-|  [22]   | dialog intents          | `DialogIntent`                                              | [Union]      | 6             |
-|  [23]   | toast rows/outcomes     | `ToastRow` · `ToastOutcome`                                 | enum pair    | 4 · 3         |
-|  [24]   | transfer payloads       | `DragPayload`                                               | [Union]      | 5             |
-|  [25]   | motion grades           | `MotionToken`                                               | SmartEnum    | 6             |
-|  [26]   | locale rows             | `LocaleRow`                                                 | SmartEnum    | 2             |
-|  [27]   | evidence union          | `EvidenceReceipt`                                           | [Union]      | 7             |
-|  [28]   | proof checks            | `ProofCheck`                                                | SmartEnum    | 6             |
-|  [29]   | fault bands             | surface, asset, dialog, edit faults          | fault unions | 5 · 4 · 3 · 7 |
-|  [30]   | export flow blocks      | `FlowBlock` (+ `HeaderFooterBand` band, `BreakRule` policy on `VisualExportSpec`) | [Union]      | 3             |
+| [INDEX] | [AXIS]                  | [OWNER]                                                     | [KIND]       | [CASES]       |  [STATE]  |
+| :-----: | :---------------------- | :---------------------------------------------------------- | :----------- | :------------ | :-------: |
+|   [1]   | host substrate          | `SurfaceHost`                                               | [Union]      | 7             |   SPIKE   |
+|   [2]   | host facts              | `SurfaceFact`                                               | [Union]      | 4             |   SPIKE   |
+|   [3]   | navigation verbs        | `NavRequest`                                                | [Union]      | 5             | FINALIZED |
+|   [4]   | chrome slots            | `ChromeSlot`                                                | SmartEnum    | 4             | FINALIZED |
+|   [5]   | screen rows             | `ScreenCatalog`                                             | row table    | per screen    | FINALIZED |
+|   [6]   | command rows            | `CommandIntent` + `CommandDeck`                             | row + deck   | per verb      | FINALIZED |
+|   [7]   | command payload/outcome | `CommandPayload` · `CommandOutcome`                         | union pair   | 4 · 4         | FINALIZED |
+|   [8]   | data sourcing           | `DataSource<TRow,TKey>`                                     | [Union]      | 7             |   SPIKE   |
+|   [9]   | table projection        | `TableProjection<TRow,TKey>`                                | [Union]      | 5             | FINALIZED |
+|  [10]   | editor rows             | `EditorFactory`                                             | SmartEnum    | 11            | FINALIZED |
+|  [11]   | chart series            | `ChartSeriesSpec`                                           | SmartEnum    | 15            |   SPIKE   |
+|  [12]   | chart scales            | `ChartAxisKind`                                             | SmartEnum    | 5             | FINALIZED |
+|  [13]   | dashboard tiles         | `DashboardTile`                                             | [Union]      | 4             | FINALIZED |
+|  [14]   | draw sources            | `DrawSource`                                                | [Union]      | 2             | FINALIZED |
+|  [15]   | visual destinations     | `VisualDestination` · `ExportDestination` (+ `VisualCodec` encode) | union pair   | 3 · 3         |   SPIKE   |
+|  [16]   | theme tokens            | `TokenRow`                                                  | [Union]      | 5             | FINALIZED |
+|  [17]   | variant and density     | `ThemeVariantRow` · `DensityRow`                            | enum pair    | 4 × 2         | FINALIZED |
+|  [18]   | typography roles        | `TypographyRole`                                            | SmartEnum    | 10            | FINALIZED |
+|  [19]   | markdown rows           | `MarkdownRow`                                               | [Union]      | 7             | FINALIZED |
+|  [20]   | icon sourcing           | `IconSource`                                                | [Union]      | 5             | FINALIZED |
+|  [21]   | asset identity          | `AssetKey` · `AssetKind` (+ `SvgPipeline` · `RasterAssets`) | value + enum | open · 3      |   SPIKE   |
+|  [22]   | dialog intents          | `DialogIntent`                                              | [Union]      | 6             | FINALIZED |
+|  [23]   | toast rows/outcomes     | `ToastRow` · `ToastOutcome`                                 | enum pair    | 4 · 3         |   SPIKE   |
+|  [24]   | transfer payloads       | `DragPayload`                                               | [Union]      | 5             |   SPIKE   |
+|  [25]   | motion grades           | `MotionToken`                                               | SmartEnum    | 6             | FINALIZED |
+|  [26]   | locale rows             | `LocaleRow`                                                 | SmartEnum    | 2             | FINALIZED |
+|  [27]   | evidence union          | `EvidenceReceipt`                                           | [Union]      | 7             |   SPIKE   |
+|  [28]   | proof checks            | `ProofCheck`                                                | SmartEnum    | 8             |   SPIKE   |
+|  [29]   | fault bands             | surface, asset, dialog, edit faults          | fault unions | 5 · 4 · 3 · 7 | FINALIZED |
+|  [30]   | export flow blocks      | `FlowBlock` (+ `HeaderFooterBand` band, `BreakRule` policy on `VisualExportSpec`) | [Union]      | 3             | FINALIZED |
 
 ## [6]-[BUILD_ORDER]
 
@@ -222,6 +222,16 @@ The executed admissions ledger binds each package to its version pin, owner page
 |  [38]   | Avalonia.Headless                           | 12.0.4       | diagnostics + accessibility | headless              |
 |  [39]   | Avalonia.Headless.XUnit                     | 12.0.4       | diagnostics-evidence        | headless              |
 
+Substrate, pending, and test-only admissions:
+
+| [PACKAGE]               | [VERSION] | [PAGE]               | [CATALOGUE]               |
+| :---------------------- | :-------- | :------------------- | :------------------------ |
+| Avalonia.Headless.XUnit | 12.0.4    | surface-hosts        | api-headless.md (tests-only) |
+| Avalonia.Skia           | 12.0.4    | surface-hosts        | api-headless.md (tests-only) |
+| Verify.XunitV3          | 31.19.1   | diagnostics-evidence | catalogue pending         |
+
 ## [11]-[REFINEMENT_HORIZON]
 
-Folder-specific deepening targets: the embedding capsule proven by the NSView bridge spike and extended with the Win32 route; viewport-in-panel and host-data-in-shell compositions rehearsed as concept rows (rhino panels, viewports, and host documents inside the same shell that runs standalone); every element family re-swept after the embedding spike answers its research items. The bar already set here is the suite bar: any app UI — panel, modal, standalone, companion console — composes from rows with dynamic sourcing and zero host-coupled code.
+Folder-specific deepening targets: the embedding capsule beyond the NSView bridge spike — the `surface-hosts` [EMBED_SPIKE] seam resolving the UI-thread predicate, the CADisplayLink-paced pump fallback, `RenderingMode` ordering against the host pipeline, and the shared-`GRContext` composite into the host-owned context, then the [WIN32_ROUTE] embed route activating the designed-only host-axis case against the Rhino Windows panel host once the WinForms interoperability host admission lands; viewport-in-panel and host-data-in-shell compositions rehearsed as concept rows (rhino panels, viewports, and host documents inside the one shell that runs standalone), gated by that same spike; every element family re-swept after the embedding spike answers its research items. The bar already set here is the suite bar: any app UI — panel, modal, standalone, companion console — composes from rows with dynamic sourcing and zero host-coupled code.
+
+Testing-infrastructure horizon: the headless render-hash baselines drive `[AvaloniaFact]` UI-thread dispatch through `SetRenderScaling`/`CaptureRenderedFrame`, snapshotting the content-addressed render-hash receipt text under `Verify.XunitV3`, never floating pixels.

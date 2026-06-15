@@ -16,5 +16,5 @@ seven cross-package runtime ports.
 |   [5]   | external package API catalogues               | [.api](.api/README.md)                            |
 |   [6]   | C# stack doctrine                             | [C# stack](../../../docs/stacks/csharp/README.md) |
 
-The charter is the only linking file in the planning set; its PAGE_INDEX routes to all eleven
+The charter is the only linking file in the planning set; its PAGE_INDEX routes to all twelve
 concept pages. Package-local documents state AppHost law and package API facts only.

@@ -86,8 +86,8 @@ public static class BehaviorRail {
 - Owner: `PanZoomRow` — the frozen canvas row family over `ZoomBorder`; gesture routing rows.
 - Cases: `Dashboard` | `Preview`
 - Packages: PanAndZoom, Xaml.Behaviors.Avalonia, Avalonia, BCL inbox
-- Growth: a new zoomable surface is one `PanZoomRow` row; a new pointer gesture is one routing-table row landing on an existing intent; zero new surface.
-- Boundary: one zoom owner per canvas — a chart tile mounted inside a `PanZoomRow` canvas gates its internal zoom off; the row's `MinZoom` and `MaxZoom` land on the control's per-axis `MinZoomX`/`MinZoomY`/`MaxZoomX`/`MaxZoomY` at composition; `Dashboard` animation duration binds `AnimationDuration` from the motion standard row at composition and `Preview` stays animation-free for capture determinism; view state round-trips through the `ZoomBorderState` value and `ImportState` into the screen-state snapshot rows, named viewports persist through `SaveView`/`RestoreView`, traversal rides `NavigateBack`/`NavigateForward` with `ClearViewHistory` resetting the stack at screen teardown; focus follows pointer press through `Focus` on `IInputElement`, and pointer-capture acquisition on press and release on capture-loss ride the behavior rail as routed-event triggers; the dashboard tile canvas and the offscreen-visuals preview canvas consume these rows as settled values.
+- Growth: a new zoomable surface is one `PanZoomRow` row; a new pointer gesture is one routing-table row landing on an existing intent; a rotation or saved-view posture is one policy value on the row; zero new surface.
+- Boundary: one zoom owner per canvas — a chart tile mounted inside a `PanZoomRow` canvas gates its internal zoom off; the row's `MinZoom` and `MaxZoom` land on the control's per-axis `MinZoomX`/`MinZoomY`/`MaxZoomX`/`MaxZoomY` at composition; `Dashboard` animation duration binds `AnimationDuration` from the motion standard row at composition and `Preview` stays animation-free for capture determinism; rotation rides the `EnableRotation` row gate onto the control `Rotate`/`RotateAt` operations with `SnapRotation` quantizing to the rotation-step policy value and `ResetRotation` clearing on view reset, so a hand-built rotation matrix on the canvas is the deleted form and `Preview` holds rotation off for capture determinism; view state round-trips through the `ZoomBorderState` value and `ImportState` into the screen-state snapshot rows, named viewports persist through `SaveView`/`RestoreView` with `DeleteSavedView` and `ClearSavedViews` owning the named-view registry as command-table intents, traversal rides `NavigateBack`/`NavigateForward` with `ClearViewHistory` resetting the stack at screen teardown; focus follows pointer press through `Focus` on `IInputElement`, and pointer-capture acquisition on press and release on capture-loss ride the behavior rail as routed-event triggers; the dashboard tile canvas and the offscreen-visuals preview canvas consume these rows as settled values.
 
 ```csharp signature
 public sealed record PanZoomRow(
@@ -100,9 +100,11 @@ public sealed record PanZoomRow(
     bool EnableConstrains,
     bool EnableGestures,
     bool EnableAnimations,
-    bool ShowZoomIndicator) {
-    public static readonly PanZoomRow Dashboard = new("dashboard", StretchMode.None, ButtonName.Middle, ZoomSpeed: 1.2, MinZoom: 0.1, MaxZoom: 8.0, EnableConstrains: true, EnableGestures: true, EnableAnimations: true, ShowZoomIndicator: true);
-    public static readonly PanZoomRow Preview = new("preview", StretchMode.Uniform, ButtonName.Middle, ZoomSpeed: 1.2, MinZoom: 0.05, MaxZoom: 64.0, EnableConstrains: true, EnableGestures: true, EnableAnimations: false, ShowZoomIndicator: false);
+    bool ShowZoomIndicator,
+    bool EnableRotation,
+    double RotationStep) {
+    public static readonly PanZoomRow Dashboard = new("dashboard", StretchMode.None, ButtonName.Middle, ZoomSpeed: 1.2, MinZoom: 0.1, MaxZoom: 8.0, EnableConstrains: true, EnableGestures: true, EnableAnimations: true, ShowZoomIndicator: true, EnableRotation: true, RotationStep: 15.0);
+    public static readonly PanZoomRow Preview = new("preview", StretchMode.Uniform, ButtonName.Middle, ZoomSpeed: 1.2, MinZoom: 0.05, MaxZoom: 64.0, EnableConstrains: true, EnableGestures: true, EnableAnimations: false, ShowZoomIndicator: false, EnableRotation: false, RotationStep: 0.0);
 
     public static readonly FrozenDictionary<string, PanZoomRow> Rows =
         new[] { Dashboard, Preview }.ToFrozenDictionary(static row => row.Key, static row => row, StringComparer.Ordinal);
@@ -119,6 +121,8 @@ public sealed record PanZoomRow(
 |   [6]   | pinch zoom      | `ZoomBorder` `EnableGestures`        | same single-owner law                                    |
 |   [7]   | canvas drag     | `CanvasDragBehavior`                 | draggable tiles inside canvas rows                       |
 |   [8]   | item drag       | `ItemDragBehavior`                   | draggable-control rows                                   |
+|   [9]   | rotate gesture  | `ZoomBorder` `Rotate` / `SnapRotation` | gated by the row `EnableRotation` under `RotationStep`  |
+|  [10]   | saved-view      | `ZoomBorder` `RestoreView` / `SaveView` | `DeleteSavedView`/`ClearSavedViews` raise as intents   |
 
 ## [5]-[DRAG_CLIPBOARD]
 
@@ -212,4 +216,5 @@ flowchart LR
 - [EMBEDDED_DRAG]: host-object drag across the NSView boundary carrying Rhino object ids into and out of the embedded panel.
 - [GESTURE_TRIGGERS]: the per-gesture routed-event-trigger spellings for tap, double-tap, press-hold, and right-tap, and the press-hold gesture-event source, against the behaviors routed-event-trigger family.
 - [POINTER_CAPTURE]: the pointer-capture acquisition and capture-loss spellings carried as behavior-rail routed-event triggers on the canvas rows.
+- [ROTATE_GESTURE]: the two-finger rotate `GestureEventArgs` source the rotation row binds to drive `Rotate`/`SnapRotation` under the `RotationStep` policy — the `Rotate`/`RotateAt`/`ResetRotation`/`SnapRotation` operations and the saved-view registry operations are fenced.
 - [CLIPBOARD_WRITE]: the multi-format structured clipboard-write spelling keyed by the `ClipboardRow` format identifiers, beyond the catalogued text-write and format-probe actions.

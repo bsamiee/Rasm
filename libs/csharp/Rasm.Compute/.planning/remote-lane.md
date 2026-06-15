@@ -1,6 +1,6 @@
 # [COMPUTE_REMOTE_LANE]
 
-Rasm.Compute owns the suite wire vocabulary: five proto services compiled GrpcServices=Client in this package and GrpcServices=Server at app roots, one descriptor-diff contract-evolution law, one FaultDetail family carrying every typed fault across the wire, six `RemoteTransport` rows with streaming-capability columns, a four-row `CredentialPolicy` axis behind one stamping interceptor, and the 64 KiB ArtifactSync frame law whose constants the blob seam consumes as settled values. Channel policy values arrive settled on `GrpcChannelPolicy.Canonical`; discovery, retry ownership, deadlines, correlation, degradation, and receipt sinks compose from the AppHost spine. The package spine is Google.Protobuf, Grpc.Tools, Grpc.Net.Client, Grpc.Net.Client.Web, NodaTime.Serialization.Protobuf, Microsoft.IO.RecyclableMemoryStream, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, and NodaTime.
+Rasm.Compute owns the suite wire vocabulary: five proto services compiled GrpcServices=Client in this package and GrpcServices=Server at app roots, one descriptor-diff contract-evolution law, one FaultDetail family carrying every typed fault across the wire, six `RemoteTransport` rows with streaming-capability columns, and a four-row `CredentialPolicy` axis behind one stamping interceptor. The ArtifactSync frame law owns the 64 KiB `FrameEdge` fold with per-frame Crc32, whole-artifact XxHash128 identity, and the `IBufferMessage` zero-alloc parse-merge-write fast path, and the browser TS posture projects the whole suite wire as type-only contracts. Channel policy values arrive settled on `GrpcChannelPolicy.Canonical`; discovery, retry ownership, deadlines, correlation, degradation, and receipt sinks compose from the AppHost spine. The package spine is Google.Protobuf, Grpc.Tools, Grpc.Net.Client, Grpc.Net.Client.Web, NodaTime.Serialization.Protobuf, Microsoft.IO.RecyclableMemoryStream, CommunityToolkit.HighPerformance, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, and NodaTime.
 
 ## [1]-[INDEX]
 
@@ -21,7 +21,7 @@ Rasm.Compute owns the suite wire vocabulary: five proto services compiled GrpcSe
 - Auto: Grpc.Tools compiles GrpcServices=Client at build with PrivateAssets=all; app roots compile the same files GrpcServices=Server and emit the descriptor set that feeds connect-es codegen and the manifest checksum.
 - Packages: Google.Protobuf, Grpc.Tools, Grpc.Net.Client, NodaTime.Serialization.Protobuf
 - Growth: one rpc row on an existing service or one numbered message field absorbs a new wire fact; the browser collaboration decomposition (server-stream down, unary chunked up) is designed-only growth of one rpc row per direction; zero new surface.
-- Boundary: temporal values cross as Timestamp and protobuf Duration through `ToTimestamp`/`ToProtobufDuration` outward and `ToInstant`/`ToNodaDuration` inward — BCL DateTime never sits between wire and rail; calendar-bearing capture and schedule facts cross as `Google.Type` commons through `ToDate`/`ToTimeOfDay`/`ToProtobufDayOfWeek` outward and `ToLocalDate`/`ToLocalTime`/`ToIsoDayOfWeek` inward, so a serialized date string never sits between wire and rail; FieldMask carries partial updates, Any with TypeRegistry carries polymorphic artifact envelopes, Empty carries signals; JsonFormatter and JsonParser with the same TypeRegistry are the dashboard edge over the identical generated messages — a parallel web DTO family is the deleted form; `ExecuteTransaction` defends its idempotency edge by `Clone` on the dedup-window receipt rather than mutating the cached message in place — a shared-mutable cached message is the deleted form; `OriginalNameAttribute` reconciles a proto field name to its diverged C# name at the descriptor surface so the contract-evolution key reads the proto name, never the generated identifier; the proto geometry family is the single binary wire geometry, with NetTopologySuite as the store boundary projection, GeoJSON as the JSON projection, and RhinoCommon as the host projection; ArtifactSync carries the wire leg only — sync state, diffing, and transfer manifests are store mechanics.
+- Boundary: temporal values cross as Timestamp and protobuf Duration through `ToTimestamp`/`ToProtobufDuration` outward and `ToInstant`/`ToNodaDuration` inward — BCL DateTime never sits between wire and rail; calendar-bearing capture and schedule facts cross as `Google.Type` commons through `ToDate`/`ToTimeOfDay`/`ToProtobufDayOfWeek` outward and `ToLocalDate`/`ToLocalTime`/`ToIsoDayOfWeek` inward, so a serialized date string never sits between wire and rail; FieldMask carries partial updates and `WireServices.QueryMask` projects a field-path set through `FieldMask.FromString` onto the DocumentService Query read so a web or peer dashboard tile reads only the columns its viewport renders — the same partial-read mask the web-fed Query feed consumes, never a per-tile request DTO; Any with TypeRegistry carries polymorphic artifact envelopes, Empty carries signals; JsonFormatter and JsonParser with the same TypeRegistry are the dashboard edge over the identical generated messages — a parallel web DTO family is the deleted form; `ExecuteTransaction` defends its idempotency edge by `Clone` on the dedup-window receipt rather than mutating the cached message in place — a shared-mutable cached message is the deleted form; `OriginalNameAttribute` reconciles a proto field name to its diverged C# name at the descriptor surface so the contract-evolution key reads the proto name, never the generated identifier; the proto geometry family is the single binary wire geometry, with NetTopologySuite as the store boundary projection, GeoJSON as the JSON projection, and RhinoCommon as the host projection; ArtifactSync carries the wire leg only — sync state, diffing, and transfer manifests are store mechanics.
 
 ```csharp signature
 public sealed record WireServices(
@@ -31,6 +31,9 @@ public sealed record WireServices(
     ControlService.ControlServiceClient Control,
     ArtifactSync.ArtifactSyncClient Artifacts,
     Health.HealthClient Health) : IDisposable {
+    public static FieldMask QueryMask(params ReadOnlySpan<string> paths) =>
+        FieldMask.FromString(string.Join(',', paths.ToArray()));
+
     public void Dispose() => Channel.Dispose();
 }
 ```
@@ -276,7 +279,7 @@ sequenceDiagram
 - Auto: every generated stub call crosses the interceptor — correlation metadata, W3C traceparent, and per-call receipt capture stamp without hand-threaded Metadata.
 - Receipt: per-call route, byte sizes, and deadline outcome evidence emit through `ReceiptSinkPort.Send` at the interceptor seam.
 - Packages: Grpc.Net.Client, Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: one credential row per new trust shape; the compression row (channel `CompressionProviders` plus the per-call `grpc-internal-encoding-request` metadata key) flips on behind one winning benchmark claim row; zero new surface.
+- Growth: one credential row per new trust shape; the compression row flips on behind one winning benchmark claim row through `CallSpine.Compressed` stamping the per-call `grpc-internal-encoding-request` metadata key (the `RequestEncodingKey` const) onto the call options when the claim names a registered encoding, against the channel-side `GrpcChannelOptions.CompressionProviders` `ICompressionProvider` rows — the encoding name is a claim-gated `Option<string>`, so an absent claim leaves the call uncompressed and a per-call default-on knob is the deleted form; zero new surface.
 - Boundary: the Bearer token is minted per call through `CallCredentials.FromInterceptor` reading the `AsyncAuthInterceptor` token producer, never a pre-built credential cached past its expiry — a stale cached token is the deleted form; `GrpcChannelOptions.ServiceConfig` is never set — the whole retry, hedging, and load-balancing config surface is experimental and a second retry owner; the AppHost keyed pipeline owns the hop retry and a detected second owner emits Conflict evidence instead of stacking; `UnsafeUseInsecureChannelCallCredentials` is never set; `ThrowOperationCanceledOnCancellation` stays unset — `RpcException` conversion lives in the one `WireFault.Classify` arm.
 
 ```csharp signature
@@ -295,9 +298,15 @@ public sealed partial class CredentialPolicy {
 public sealed class CallSpine(CorrelationId correlation, Func<string> traceparent) : Interceptor {
     public const string CorrelationKey = "rasm-correlation";
     public const string TraceparentKey = "traceparent";
+    public const string RequestEncodingKey = "grpc-internal-encoding-request";
 
     public static CallOptions Options(Instant deadline, CancellationToken token) =>
         new(deadline: deadline.ToDateTimeUtc(), cancellationToken: token);
+
+    public static CallOptions Compressed(CallOptions options, Option<string> winningEncoding) =>
+        winningEncoding.Match(
+            Some: encoding => options.WithHeaders(Merge(options.Headers, new Metadata { { RequestEncodingKey, encoding } })),
+            None: () => options);
 
     public static Fin<T> Bounded<T>(T message) where T : IMessage<T> =>
         message.CalculateSize() <= GrpcChannelPolicy.Canonical.MaxSendBytes
@@ -319,22 +328,31 @@ public sealed class CallSpine(CorrelationId correlation, Func<string> traceparen
 
 ## [7]-[ARTIFACT_FRAMES]
 
-- Owner: `FrameEdge` — the suite frame law: frame size, per-frame Crc32, whole-artifact XxHash128 identity, zero-copy wrap, fragmented parse, the `IBufferMessage` zero-alloc parse-write fast path, and the `FieldCodec<T>` payload codec; the ArtifactFrame message row below; the blob seam consumes these constants as settled values.
+- Owner: `FrameEdge` — the suite frame law: frame size, per-frame Crc32, whole-artifact XxHash128 identity, zero-copy wrap, fragmented parse, the `IBufferMessage` zero-alloc parse-merge-write fast path (`ParseFrom`, `MergeFrom`, `WriteTo`, `WriteLengthPrefixedTo` over the buffer face), and the `PayloadCodec` `FieldCodec<ByteString>` payload codec; the ArtifactFrame message row below; the blob seam consumes these constants as settled values.
 - Entry: `Frames(ByteString artifactId, ReadOnlySequence<byte> staged)` — the 64 KiB frame fold over the staged sequence.
 - Receipt: StreamSegment evidence — segment counts and byte sizes — emits through `ReceiptSinkPort.Send`; every `UnsafeWrap` records ownership transfer in the same evidence row.
 - Packages: Google.Protobuf, Microsoft.IO.RecyclableMemoryStream, CommunityToolkit.HighPerformance, System.IO.Hashing, LanguageExt.Core, BCL inbox
 - Growth: one numbered frame field row; one `FieldCodec<T>` row per new payload encoding so a custom field type rides the generated codec rather than a hand-rolled byte layout; zero new surface.
-- Boundary: artifact identity is XxHash128 over the whole artifact — the settled identity row — and frame integrity is Crc32 per frame; a frame whose message implements `IBufferMessage` parses through `MessageParser<T>.ParseFrom` over `GetReadOnlySequence` and writes through `WriteTo` into the recyclable stream — both drive the `ParseContext`/`WriteContext` buffer path with no intermediate managed array, bounded by the `MaxReceiveBytes`/`MaxSendBytes` caps the page already quotes — so the buffer fast path is the zero-alloc steady-state row and a per-frame managed-array copy is the deleted form; the `FieldCodec<T>` row owns the payload field's wire encoding so a hand-rolled byte layout never enters; `ToArray` materialization is bounded to one frame window at the send edge, and a `MemoryOwner<byte>` segment hands off to `UnsafeByteOperations.UnsafeWrap` through `DangerousGetArray` so the frame never copies into a fresh managed array; `UnsafeWrap` transfers buffer ownership to the message and the wrapped buffer is never mutated after wrap.
+- Boundary: artifact identity is XxHash128 over the whole artifact — the settled identity row — and frame integrity is Crc32 per frame; a frame whose message implements `IBufferMessage` parses through `MessageParser<T>.ParseFrom` over `GetReadOnlySequence`, extends a live message through `MergeFrom(ReadOnlySpan<byte>)` over a contiguous pooled buffer, and writes through `WriteTo(IBufferWriter<byte>)` into the recyclable stream cast to its `IBufferWriter<byte>` face — all three drive the `ParseContext`/`WriteContext` buffer path with no intermediate managed array, bounded by the `MaxReceiveBytes`/`MaxSendBytes` caps the page already quotes — so the buffer fast path is the zero-alloc steady-state row and a per-frame managed-array copy is the deleted form; `WriteLengthPrefixedTo(IBufferWriter<byte>)` emits the varint-length-prefixed frame so a concatenated-stream reader length-delimits without a side-channel header; the `PayloadCodec` `FieldCodec<ByteString>` row owns the payload field's wire encoding — built from the generated `ArtifactFrame.PayloadFieldNumber` and read through `FieldCodec<T>.Read(ref ParseContext)`, written through `WriteTagAndValue(ref WriteContext, T)`, and sized through `CalculateSizeWithTag(T)` — so a hand-rolled byte layout never enters; `ToArray` materialization is bounded to one frame window at the send edge, and a `MemoryOwner<byte>` segment hands off to `UnsafeByteOperations.UnsafeWrap` through `DangerousGetArray` so the frame never copies into a fresh managed array; `UnsafeWrap` transfers buffer ownership to the message and the wrapped buffer is never mutated after wrap.
 
 ```csharp signature
 public static class FrameEdge {
     public const int FrameBytes = 64 * 1024;
 
+    public static readonly FieldCodec<ByteString> PayloadCodec =
+        FieldCodec.ForBytes(WireFormat.MakeTag(ArtifactFrame.PayloadFieldNumber, WireFormat.WireType.LengthDelimited));
+
     public static T Parse<T>(MessageParser<T> parser, RecyclableMemoryStream staged) where T : IBufferMessage, IMessage<T> =>
         parser.ParseFrom(staged.GetReadOnlySequence());
 
+    public static Unit Merge<T>(T message, ReadOnlySpan<byte> frame) where T : IBufferMessage, IMessage<T> =>
+        fun(() => message.MergeFrom(frame))();
+
     public static Unit Write<T>(T message, RecyclableMemoryStream staged) where T : IBufferMessage, IMessage<T> =>
-        fun(() => message.WriteTo(staged))();
+        fun(() => message.WriteTo((IBufferWriter<byte>)staged))();
+
+    public static Unit Prefixed<T>(T message, RecyclableMemoryStream staged) where T : IBufferMessage, IMessage<T> =>
+        fun(() => message.WriteLengthPrefixedTo((IBufferWriter<byte>)staged))();
 
     public static ArtifactFrame Owned(ByteString artifactId, long artifactBytes, MemoryOwner<byte> payload, long offset) {
         var segment = payload.DangerousGetArray();
@@ -396,5 +414,6 @@ interface ArtifactFrameWire { artifactId: string; artifactBytes: number; offset:
 
 - [TRANSPORTS]: `TestServer.CreateHandler` handler seam for the in-process row through the test-host pin surface; `Microsoft.AspNetCore.TestHost` admission lands the test-only package reference at the matched ASP.NET Core servicing line.
 - [PIPE_SECURITY]: `System.IO.Pipes` `PipeSecurity` ACL for the designed-only NamedPipe row and the loopback DACL plus bearer-token shape for the designed-only TcpLoopback row.
-- [BUFFER_FAST_PATH]: the `IBufferMessage` direct `ParseContext`/`WriteContext` initialization members for the zero-alloc frame steady-state row beyond the catalogued `ParseFrom`/`WriteTo` buffer entry, and the `FieldCodec<T>` construction factory and tag spelling for a custom payload-field encoding row.
 - [REQUEST_COMPRESSION]: the `GrpcChannelOptions.CompressionProviders` `ICompressionProvider` registration and the per-call `grpc-internal-encoding-request` metadata key bind the compression row only behind a winning `BenchmarkClaim` row whose fingerprint matches the running host; the row stays a claim-gated case on `CredentialPolicy`, never a default-on channel knob, until the claim lands.
+- [COMPOSED_CREDENTIAL]: the `Grpc.Core.Api` `CallCredentials.Compose(CallCredentials, CallCredentials)` member stacking a node identity onto a hub identity for a farm node dialing through a hub stays uncatalogued in `api-grpc-client.md` — the `CredentialPolicy` composed-identity arm holds at SPIKE on the catalogued `CallCredentials.FromInterceptor` plus `ChannelCredentials.Create(ChannelCredentials, CallCredentials)` until the `Compose` overload lands in the catalogue, composed call credentials transmitting only over a TLS channel row.
+- [BUFFER_FAST_PATH]: the `IBufferMessage` direct `ParseContext`/`WriteContext` initialization members for the zero-alloc frame steady-state row beyond the catalogued `ParseFrom`/`WriteTo`/`MergeFrom(ReadOnlySpan<byte>)`/`WriteTo(IBufferWriter<byte>)`/`WriteLengthPrefixedTo(IBufferWriter<byte>)` buffer entries; the `WireFormat.MakeTag(int, WireFormat.WireType)` tag-construction spelling consumed by the catalogued `FieldCodec.ForBytes`/`FieldCodec.ForMessage<T>` builders so the `PayloadCodec` field's tag derives from the generated `ArtifactFrame.PayloadFieldNumber` constant — the `FieldCodec<T>.Read`/`WriteTagAndValue`/`CalculateSizeWithTag` ref-context members are catalogued, the tag helper is the gated spelling.

@@ -245,5 +245,10 @@
         <PackageVersion Include="Verify.XunitV3" Version="31.19.1" />
         <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3" Version="0.13.3" />
         <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+        <!-- AspNetCore.TestHost rides the Microsoft.Extensions 10.0.9 servicing line:
+             the Rasm.Compute RemoteTransport.InProcess TestServer.CreateHandler seam. -->
+        <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.9" />
+        <PackageVersion Include="NodaTime.Testing" Version="3.3.2" />
+        <PackageVersion Include="SharpFuzz" Version="2.2.0" />
     </ItemGroup>
 </Project>

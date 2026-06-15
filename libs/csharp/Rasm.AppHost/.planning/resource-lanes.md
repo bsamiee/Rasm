@@ -17,8 +17,8 @@ Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-
 - Entry: `ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Option<Seq<string>> tags = default, CancellationToken token = default)`.
 - Auto: `GetOrCreateAsync` owns stampede single-flight; local and distributed hit, miss, and write counts, stampede joins, and tag invalidations ride the package `Microsoft-Extensions-HybridCache` event source as polling counters with zero call-site metric code; `Cache` resolves the lane's keyed `HybridCache` from the provider by the lane key so each lane reads its own L2 topology.
 - Packages: Microsoft.Extensions.Caching.Hybrid; NodaTime; Thinktecture.Runtime.Extensions; LanguageExt.Core.
-- Growth: one lane row on `CacheLane`; a lifetime or flag change is one policy value; a new L2 topology is one `Store` value on the lane row; zero new surface.
-- Boundary: the L2 `IDistributedCache` registered under the lane's `Store` key and the `IHybridCacheSerializerFactory` registration arrive as the single Persistence row; `Register` composes one `AddKeyedHybridCache(lane.Key)` per lane row whose `Store` is set, binding `DistributedCacheServiceKey` to that store key so each such lane reads its own keyed L2, while a lane with no `Store` resolves the default `AddHybridCache` service — one cache owner across both paths, never a second; registration composes after the DI `TimeProvider` registration so the test row's `FakeTimeProvider` drives creation stamps and tag cuts; this port deletes hand-rolled double-checked caches, `ICacheService` wrappers, and every second cache owner in the suite.
+- Growth: one lane row on `CacheLane`; a lifetime or flag change is one policy value; a new L2 topology is one `Store` value on the lane row; a payload-guard retune is one `MaxPayloadBytes` value; zero new surface.
+- Boundary: the L2 `IDistributedCache` registered under the lane's `Store` key and the `IHybridCacheSerializerFactory` arrive as the single Persistence contribution — `Register` admits that one factory through `AddSerializerFactory` on every keyed builder, never a per-type `AddSerializer<T>` scatter; `Register` composes one `AddKeyedHybridCache(lane.Key)` per lane row whose `Store` is set, binding `DistributedCacheServiceKey` to that store key and `MaximumPayloadBytes` from the lane's `MaxPayloadBytes` so each such lane reads its own keyed L2 under its own payload guard, while a lane with no `Store` resolves the default `AddHybridCache` service — one cache owner across both paths, never a second; registration composes after the DI `TimeProvider` registration so the test row's `FakeTimeProvider` drives creation stamps and tag cuts; this port deletes hand-rolled double-checked caches, `ICacheService` wrappers, and every second cache owner in the suite.
 
 ```csharp signature
 public sealed class LaneKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -33,9 +33,9 @@ public sealed class LaneKeyPolicy : IEqualityComparerAccessor<string>, IComparer
 [KeyMemberEqualityComparer<LaneKeyPolicy, string>]
 [KeyMemberComparer<LaneKeyPolicy, string>]
 public sealed partial class CacheLane {
-    public static readonly CacheLane ModelResult = new("model-result", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None, store: "durable-l2");
-    public static readonly CacheLane Projection = new("projection", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None, store: "durable-l2");
-    public static readonly CacheLane ArtifactBlob = new("artifact-blob", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None, store: default);
+    public static readonly CacheLane ModelResult = new("model-result", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None, store: "durable-l2", maxPayloadBytes: 1 << 20);
+    public static readonly CacheLane Projection = new("projection", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None, store: "durable-l2", maxPayloadBytes: 1 << 20);
+    public static readonly CacheLane ArtifactBlob = new("artifact-blob", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.DisableLocalCache, store: default, maxPayloadBytes: 1 << 26);
 
     public DeadlineClass Ttl { get; }
 
@@ -44,6 +44,8 @@ public sealed partial class CacheLane {
     public HybridCacheEntryFlags Flags { get; }
 
     public Option<string> Store { get; }
+
+    public long MaxPayloadBytes { get; }
 
     public HybridCacheEntryOptions Entry => new() { Expiration = Ttl.Allotted.ToTimeSpan(), LocalCacheExpiration = L1Ttl.Allotted.ToTimeSpan(), Flags = Flags };
 
@@ -74,13 +76,14 @@ public static class CacheSurface {
                 : provider.GetRequiredService<HybridCache>();
     }
 
-    public static IServiceCollection Register(IServiceCollection services) =>
-        CacheLane.Items.Fold(services, static (current, lane) =>
+    public static IServiceCollection Register(IServiceCollection services, IHybridCacheSerializerFactory contributed) =>
+        CacheLane.Items.Fold(services, (current, lane) =>
             lane.Store.Case is string store
                 ? (current.AddKeyedHybridCache(lane.Key, options => {
                         options.DefaultEntryOptions = lane.Entry;
+                        options.MaximumPayloadBytes = lane.MaxPayloadBytes;
                         options.DistributedCacheServiceKey = store;
-                    }), current).Item2
+                    }).AddSerializerFactory(contributed), current).Item2
                 : current);
 }
 ```
@@ -93,7 +96,7 @@ Cache semantics ride these rulings:
 - Tag vocabulary: tags derive from `CacheLane` keys and admitted owner keys; a free-string tag is the rejected form; every write carries its lane key tag, so `Invalidate(lane)` cuts the whole lane through `RemoveByTagAsync(lane.Key)` and `Invalidate(tags)` cuts a tag set — a lane-scoped cut is the widest invalidation the closed tag vocabulary admits, and a global reset rides provider disposal at host unload, never a write-time pattern tag.
 - Cross-process L1: peer-process L1 staleness is TTL-bounded with no backplane; convergence rides natural expiry or the next tag cut.
 - Clock seam: the cache implementation service-locates the DI `TimeProvider` with system fallback, so creation stamps and tag cuts ride the injected clock; absolute L1 expiry is delegated to the memory-cache entry's `AbsoluteExpirationRelativeToNow` under the memory cache's own clock — read-time revalidation checks only tag cuts against the injected clock, so advancing `FakeTimeProvider` never expires an L1 entry by TTL and specs assert via tag cut or `RemoveAsync`.
-- Guards: `MaximumPayloadBytes` stays the 1 MiB package default and `MaximumKeyLength` the 1024 default; the package clamps `LocalCacheExpiration` to `Expiration` when the L1 row exceeds the L2 row; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality.
+- Guards: `MaximumPayloadBytes` is the lane's `MaxPayloadBytes` column — 1 MiB for `ModelResult`/`Projection` at the package default and 64 MiB for the `ArtifactBlob` lane whose blobs exceed the default — and `MaximumKeyLength` stays the 1024 default; the package clamps `LocalCacheExpiration` to `Expiration` when the L1 row exceeds the L2 row; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality.
 - Test double: no fake cache type exists or gets hand-rolled; `SetAsync` preloads spec state through the real implementation.
 
 ## [3]-[OBJECT_POOLS]
@@ -103,7 +106,7 @@ Cache semantics ride these rulings:
 - Auto: `Return` folds `IResettable.TryReset` before the row's sanity predicate, so a false return discards the instance instead of re-pooling it; `Pool` mints once through `ObjectPool.Create<T>` over the policy and caches the `ObjectPool<T>` for the row's lifetime.
 - Packages: Microsoft.Extensions.ObjectPool.
 - Growth: one pool policy row per pooled type; a capacity change is one policy value; zero new surface.
-- Boundary: pooled instances never carry request, document, or host state across returns; `ObjectPool.Create<T>` mints the default-bounded pool and `ObjectPoolProvider.Create<T>` mints a row whose retention overrides the `DefaultObjectPoolProvider` `MaximumRetained` default of twice the processor count; the text pool is the `Text` row — a `StringBuilder` policy reset clear-on-return with the `InitialCapacity` 100 and `MaximumRetainedCapacity` 4096 package defaults, and a typed `DefaultPooledObjectPolicy<T>` row covers a parameterless reference type whose default construction and reset suffice — and `LeakTrackingObjectPoolProvider` wraps the provider on the test-host row only; this cluster deletes ad hoc static pools and per-site `StringBuilder` churn.
+- Boundary: pooled instances never carry request, document, or host state across returns; `ObjectPool.Create<T>` mints the default-bounded pool, `Bounded<T>` mints through `DefaultObjectPoolProvider` whose `MaximumRetained` overrides the twice-processor-count default, and the text pool rides the package's own `StringBuilderPooledObjectPolicy` with its `InitialCapacity` and `MaximumRetainedCapacity` knobs — the hand-rolled clear-on-return reset is the deleted form because the package policy owns the reset; `LeakTrackingObjectPoolProvider` wraps the provider on the test-host row only; this cluster deletes ad hoc static pools, per-site `StringBuilder` churn, and any wrapper re-deriving the package's `IResettable` contract.
 
 ```csharp signature
 public sealed class PoolPolicy<T>(Func<T> create, Func<T, bool> sane) : PooledObjectPolicy<T> where T : class {
@@ -121,13 +124,14 @@ public sealed class PoolPolicy<T>(Func<T> create, Func<T, bool> sane) : PooledOb
 }
 
 public static class Pools {
-    public static readonly PoolPolicy<StringBuilder> Text = new(
-        create: static () => new StringBuilder(capacity: 100),
-        sane: static builder => builder.Capacity <= 4096 && (builder.Clear(), true).Item2);
+    public static readonly ObjectPool<StringBuilder> Text =
+        ObjectPool.Create(new StringBuilderPooledObjectPolicy { InitialCapacity = 100, MaximumRetainedCapacity = 4096 });
 
-    public static PoolPolicy<T> Default<T>() where T : class, new() =>
-        new(create: static () => new DefaultPooledObjectPolicy<T>().Create(),
-            sane: static pooled => new DefaultPooledObjectPolicy<T>().Return(pooled));
+    public static ObjectPool<T> Bounded<T>(int maximumRetained) where T : class, new() =>
+        new DefaultObjectPoolProvider { MaximumRetained = maximumRetained }.Create(new DefaultPooledObjectPolicy<T>());
+
+    public static ObjectPool<T> Default<T>() where T : class, new() =>
+        ObjectPool.Create<T>();
 }
 ```
 

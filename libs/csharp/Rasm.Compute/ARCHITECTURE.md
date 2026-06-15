@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_ARCHITECTURE]
 
-`Rasm.Compute` owns measured execution: one intent rail admits work exactly once at the boundary, one substrate axis routes it over row data, bounded lanes carry it, and one receipt union records every outcome at the sink edge. Mechanics live in the nine `.planning/` pages; this page names the rails, the axes, the cross-package seams, and the reference direction. Per-cluster package owners live on the planning-page cards; admitted versions live in the charter ADMISSIONS_RECORD.
+`Rasm.Compute` owns measured execution: one intent rail admits work exactly once at the boundary, one substrate axis routes it over row data, bounded lanes carry it, and one receipt union records every outcome at the sink edge. Mechanics live in the twelve `.planning/` pages; this page names the rails, the axes, the cross-package seams, and the reference direction. Per-cluster package owners live on the planning-page cards; admitted versions live in the charter ADMISSIONS_RECORD.
 
 ## [1]-[EXECUTION_SPINE]
 
@@ -55,12 +55,12 @@ Text equivalent: `ComputeIntent` admits through `IntentAdmission` into an `Admit
 |   [2]   | Substrate axis      | `Substrate`         |      3       | intent-and-selection#SUBSTRATE_AXIS      |
 |   [3]   | Fault family        | `ComputeFault`      |      13      | intent-and-selection#DISPATCH_SPINE      |
 |   [4]   | Tensor dtypes       | `TensorDtype`       |      10      | tensor-lane#TENSOR_VOCABULARY            |
-|   [5]   | Tensor op families  | `TensorOpFamily`    |      45      | tensor-lane#OPERATION_FAMILIES           |
+|   [5]   | Tensor op families  | `TensorOpFamily`    |      82      | tensor-operations#OPERATION_TABLE        |
 |   [6]   | Layout algebra      | `LayoutForm`        |      5       | tensor-lane#LAYOUT_ALGEBRA               |
 |   [7]   | Geometry encodings  | `GeometryEncoding`  |      3       | tensor-lane#GEOMETRY_ENCODING            |
 |   [8]   | Model acquisition   | `ModelSource`       |      4       | model-lane#MODEL_IDENTITY                |
 |   [9]   | Execution providers | `ExecutionProvider` |      2       | model-lane#EP_AXIS                       |
-|  [10]   | Cache postures      | `CachePolicy`       |      4       | model-lane#RESULT_CACHE                  |
+|  [10]   | Cache postures      | `CachePolicy`       |      4       | model-inference#RESULT_CACHE             |
 |  [11]   | Wire services       | `WireServices`      |  5 / 14 rpc  | remote-lane#PROTO_VOCABULARY             |
 |  [12]   | Contract drift      | `ContractDrift`     |      3       | remote-lane#CONTRACT_EVOLUTION           |
 |  [13]   | Transports          | `RemoteTransport`   |      4       | remote-lane#TRANSPORT_AXIS               |
@@ -97,7 +97,7 @@ Each row cites the suite ledger SEAM_SPLITS: mechanics live at the named owner; 
 | [INDEX] | [SEAM]                           | [MECHANICS_HERE]                      | [CONSEQUENCE]                                                                       |
 | :-----: | :------------------------------- | :------------------------------------ | :---------------------------------------------------------------------------------- |
 |   [1]   | Suite wire vocabulary            | remote-lane#PROTO_VOCABULARY          | AppHost runtime-ports carries the suite wire law and TS tooling map                 |
-|   [2]   | ArtifactSync frame law           | remote-lane#ARTIFACT_FRAMES           | Persistence BlobRemote and sync rows consume the 64 KiB, Crc32, XxHash128 constants |
+|   [2]   | ArtifactSync frame law           | remote-frames#ARTIFACT_FRAMES         | Persistence BlobRemote and sync rows consume the 64 KiB, Crc32, XxHash128 constants |
 |   [3]   | `WorkLane` name                  | scheduling-and-lanes#LANE_AXIS        | AppHost owns `DrainQueue`; one altitude per name                                    |
 |   [4]   | Phase-key set                    | progress-and-observation#PHASE_FAMILY | AppUi motion mapping mirrors the nine keys; its conformance sweep fails on drift    |
 |   [5]   | Receipt and progress wire shapes | receipts-and-benchmarks#TS_PROJECTION | AppUi evidence joins and dashboard ingestion consume the projections                |

@@ -14,12 +14,12 @@ Rasm.AppUi live data owns every change-set pipeline between data sources and scr
 ## [2]-[DATA_SOURCES]
 
 - Owner: `HostDocumentFact`, `SourcePolicy`, `DataSource<TRow, TKey>` — the closed sourcing axis; one generated dispatch feeds one keyed cache per projection.
-- Cases: HostDocumentEvents, PersistenceQuery, ComputeReceiptStream, InMemorySeq, RemoteCompanionStream, FakeDeterministic
+- Cases: HostDocumentEvents, PersistenceQuery, ComputeReceiptStream, InMemorySeq, RemoteCompanionStream, FakeDeterministic, OrderedList
 - Entry: `public (IObservableCache<TRow, TKey> Cache, IDisposable Feed) Open(Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault)` — the cache is the replay substrate; the feed disposable registers into the caller's activation scope.
 - Auto: the live-data spine — a host watch fact drives the Persistence projection write, the tag transition fires `Invalidations`, `Delta` fetches the changed rows, and the cache emits `IChangeSet`; one named pipeline, zero bespoke glue; the emitted `IChangeSet` is the single delta spine — one `Connect` chain fans into chart `SeriesSource`, table projection, and aggregation tiles through `Transform`/`MergeMany` with zero materialized intermediate, so a new consumer subscribes to the existing delta and the source never forks into a second collection-mutation path.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime
 - Growth: a new feed is one case on the closed family; a new bound is one policy value on `SourcePolicy`; a new live consumer is one downstream chain off the existing `Connect`; zero new surface.
-- Boundary: `Open` and `Admit` form the page's Rx-to-rail boundary capsule and this fence carries language-owned statement forms inside that capsule; hosts enter only as fact and envelope delegates — Rasm.Rhino `WatchEvent` projects to `HostDocumentFact` at the surface adapter (`WatchPhase` key, document serial, object ids, viewport change counter) and a case body never names a host API; key selectors transcribe the Persistence IdentityPolicy rows — uuidv7 surrogate, content hash, natural key — one key discipline per row model; late subscribers replay from cache state because `Connect` emits current state as the first change set, so per-source replay buffers are the deleted pattern; live rows feed on `TaskPoolScheduler` and the fake row on a `VirtualTimeScheduler` through `SourcePolicy.Source`; receipt-stream bounds trace to the cache-ttl `DeadlineClass` row; chart, table, and aggregation consumers compose off the one `Connect` delta and a second materialized snapshot beside it is the deleted form; an event aggregator and per-source error handlers are the rejected forms — every fault lands in the one `Action<Error>` rail.
+- Boundary: `Open` and `Admit` form the page's Rx-to-rail boundary capsule and this fence carries language-owned statement forms inside that capsule; hosts enter only as fact and envelope delegates — Rasm.Rhino `WatchEvent` projects to `HostDocumentFact` at the surface adapter (`WatchPhase` key, document serial, object ids, viewport change counter) and a case body never names a host API; key selectors transcribe the Persistence IdentityPolicy rows — uuidv7 surrogate, content hash, natural key — one key discipline per row model; late subscribers replay from cache state because `Connect` emits current state as the first change set, so per-source replay buffers are the deleted pattern; live rows feed on `TaskPoolScheduler` and the fake row on a `VirtualTimeScheduler` through `SourcePolicy.Source`; receipt-stream bounds trace to the cache-ttl `DeadlineClass` row; the `OrderedList` case is the one insertion-ordered source where row position is the model fact rather than a key projection — it admits a `SourceList<TRow>` change-set, folds into the one keyed cache on every list edit, and the binding capsule reattaches insertion order through `BindToObservableList` so a parallel ordered collection beside the keyed cache is the deleted form, with the diff-efficient list-to-cache projection research-gated under ORDERED_PROJECTION (the present snapshot-rebuild fold is fail-closed); chart, table, and aggregation consumers compose off the one `Connect` delta and a second materialized snapshot beside it is the deleted form; an event aggregator and per-source error handlers are the rejected forms — every fault lands in the one `Action<Error>` rail.
 
 ```csharp signature
 public readonly record struct HostDocumentFact(int PhaseKey, uint DocumentSerial, Seq<Guid> ObjectIds, uint ChangeCounter);
@@ -55,14 +55,16 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
 
     public sealed record FakeDeterministic(Seq<(Duration At, Seq<TRow> Rows)> Script) : DataSource<TRow, TKey>;
 
+    public sealed record OrderedList(Func<ISourceList<TRow>, IDisposable> Bind) : DataSource<TRow, TKey>;
+
     public (IObservableCache<TRow, TKey> Cache, IDisposable Feed) Open(Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault) {
         SourceCache<TRow, TKey> cache = new(key);
-        return (cache, new CompositeDisposable(cache, Feed(cache, policy, fault)));
+        return (cache, new CompositeDisposable(cache, Feed(cache, key, policy, fault)));
     }
 
-    private IDisposable Feed(ISourceCache<TRow, TKey> cache, SourcePolicy policy, Action<Error> fault) =>
+    private IDisposable Feed(ISourceCache<TRow, TKey> cache, Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault) =>
         Switch(
-            state: (cache, policy, fault),
+            state: (cache, key, policy, fault),
             hostDocumentEvents: static (s, c) => c.Facts(fact => s.cache.Edit(updater => c.Project(fact).Iter(row => updater.AddOrUpdate(row)))),
             persistenceQuery: static (s, c) => new CompositeDisposable(
                 Admit(s.cache, c.Snapshot(), s.fault),
@@ -72,7 +74,8 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
             remoteCompanionStream: static (s, c) => c.Stream(envelope => s.cache.Edit(updater => c.Project(envelope).Iter(row => updater.AddOrUpdate(row)))),
             fakeDeterministic: static (s, c) => new CompositeDisposable(
                 c.Script.Map(step => Observable.Timer(step.At.ToTimeSpan(), s.policy.Source)
-                    .Subscribe(_ => Admit(s.cache, Fin.Succ(step.Rows), s.fault)))));
+                    .Subscribe(_ => Admit(s.cache, Fin.Succ(step.Rows), s.fault)))),
+            orderedList: static (s, c) => Ordered(s.cache, s.key, c.Bind));
 
     private static IDisposable Admit(ISourceCache<TRow, TKey> cache, Fin<Seq<TRow>> rows, Action<Error> fault) {
         switch (rows.Case) {
@@ -80,6 +83,17 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
             case Error error: fault(error); break;
         }
         return Disposable.Empty;
+    }
+
+    private static IDisposable Ordered(ISourceCache<TRow, TKey> cache, Func<TRow, TKey> key, Func<ISourceList<TRow>, IDisposable> bind) {
+        SourceList<TRow> list = new();
+        return new CompositeDisposable(
+            list,
+            bind(list),
+            list.Connect().Subscribe(_ => cache.Edit(updater => {
+                updater.Clear();
+                list.Items.Iter(row => updater.AddOrUpdate(row));
+            })));
     }
 }
 ```
@@ -130,10 +144,10 @@ public sealed record PipelineInputs<TRow>(
 ## [4]-[BINDING_CAPSULE]
 
 - Owner: `BindingCapsule` — the single UI-thread binding edge.
-- Entry: `public IDisposable Into<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, ObservableCollectionExtended<TRow> target, Option<IObservable<IComparer<TRow>>> order = default)` — sorted binding rides the comparer stream; absent order is the bare bind; `Drained<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, Func<TRow, ValueTask> release)` binds the async-disposal drain hook over the same edge.
+- Entry: `public IDisposable Into<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, ObservableCollectionExtended<TRow> target, Option<IObservable<IComparer<TRow>>> order = default)` — sorted binding rides the comparer stream; absent order is the bare bind; `IntoList<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, IObservableList<TRow> target)` binds the insertion-ordered consumer through `BindToObservableList`; `Drained<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, Func<TRow, ValueTask> release)` binds the async-disposal drain hook over the same edge.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core
-- Growth: a new binding posture is one policy value on the capsule record; the async-drain hook is one `Drained` row on the capsule; zero new surface.
-- Boundary: the capsule is the UI-thread boundary capsule and this fence carries the subscription edge under that carve-out; `ObserveOn` applies exactly once here — a second `ObserveOn` anywhere in a pipeline is the named defect; `Ui` arrives from the surface scheduler boundary fed by `UiSchedulerPort`; every `Into` disposable registers into the caller's activation scope, whose disposal receipts are the screens law — no second disposal stream exists here; rows holding disposable child resources bind through `AsyncDisposeMany`, whose completion stream is the cache drain hook awaited at deactivation so leavers release asynchronously before the scope tears down — a synchronous `DisposeMany` over async-disposable rows is the deleted form; faults reach the screen fault state through `Fault` and silent failure is structurally impossible; bulk admissions batch through `SuspendNotifications` on `ObservableCollectionExtended` at load edges.
+- Growth: a new binding posture is one policy value on the capsule record; the list-target bind is one `IntoList` row and the async-drain hook is one `Drained` row on the capsule; zero new surface.
+- Boundary: the capsule is the UI-thread boundary capsule and this fence carries the subscription edge under that carve-out; `ObserveOn` applies exactly once here — a second `ObserveOn` anywhere in a pipeline is the named defect; `Ui` arrives from the surface scheduler boundary fed by `UiSchedulerPort`; every `Into` disposable registers into the caller's activation scope, whose disposal receipts are the screens law — no second disposal stream exists here; the `IntoList` edge is the one ordered-target binding — it consumes the `OrderedList` source delta and reattaches insertion order through `BindToObservableList` so the ordered consumer never forks a second collection-mutation path, and a `SortAndBind` over an unordered source beside it is the deleted form; rows holding disposable child resources bind through `AsyncDisposeMany`, whose completion stream is the cache drain hook awaited at deactivation so leavers release asynchronously before the scope tears down — a synchronous `DisposeMany` over async-disposable rows is the deleted form; faults reach the screen fault state through `Fault` and silent failure is structurally impossible; bulk admissions batch through `SuspendNotifications` on `ObservableCollectionExtended` at load edges.
 
 ```csharp signature
 public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
@@ -148,6 +162,14 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
         })
         .DisposeMany()
         .Subscribe(static _ => { }, raw => Fault(Error.New(raw)));
+
+    public IDisposable IntoList<TRow, TKey>(
+        IObservable<IChangeSet<TRow, TKey>> pipeline,
+        IObservableList<TRow> target)
+        where TRow : notnull where TKey : notnull =>
+        pipeline.ObserveOn(Ui)
+            .BindToObservableList(target)
+            .Subscribe(static _ => { }, raw => Fault(Error.New(raw)));
 
     public IDisposable Drained<TRow, TKey>(
         IObservable<IChangeSet<TRow, TKey>> pipeline,
@@ -201,3 +223,4 @@ public static class LiveDataOps {
 
 - [VIRTUAL_TIME]: `VirtualTimeScheduler`-driven determinism of `ExpireAfter` and `Timer` on the fake-deterministic row.
 - [GROUPED_WINDOWS]: `GroupWithImmutableState` ordering stability under `Page` and `Virtualise` windows.
+- [ORDERED_PROJECTION]: the diff-efficient `SourceList<TRow>` to keyed-cache projection on the `OrderedList` case — the `ToObservableChangeSet(keySelector)` list-to-cache overload and `PopulateInto` sink that replace the snapshot-rebuild `Edit` fold, and the `SourceList<TRow>.Items` accessor, beyond the catalogued list `Connect`.

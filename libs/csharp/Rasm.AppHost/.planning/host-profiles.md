@@ -104,7 +104,7 @@ public static class ProfileSurface {
 - Packages: Microsoft.Extensions.Hosting, Microsoft.Extensions.Hosting.Systemd, Microsoft.Extensions.Hosting.WindowsServices, Microsoft.Extensions.Options, NodaTime
 - Receipt: `ServiceNotify` projects each `RuntimePhase` transition to its `ServiceState` sd_notify mirror through one table lookup, so a new host modality inherits the mirror as one row; `Aborted` yields a `PhaseTrigger.FaultCommitted` value carrying `FaultSource.Unhandled` evidence with `Terminating: true`.
 - Growth: one adapter row — a static delegate target bound through the row constructor — extends the lifetime surface with zero new surface; one `ServiceNotify` row binds a new phase-to-state mirror without leaving the fold.
-- Boundary: the web row crosses in through `external` — its builder is constructed at the web app root, where ASP.NET Core enters as a shared-framework asset only; the host registers `ConsoleLifetime` as the default `IHostLifetime` on every builder path including the empty builder, so plugin rows swap in the no-op `DetachedLifetime` through `Detached` and host-attach trigger injection drives phases; `AddSystemd` and `AddWindowsService` coexist because each registration is environment-gated, and `SystemdHelpers.IsSystemdService`/`WindowsServiceHelpers.IsWindowsService` gate the live `ISystemdNotifier.Notify` emission so the notify socket is written only under a service manager; `MirrorService` registers one `Lifecycle.Subscribe` observer at the composition root for service rows, so `Emit` fires on every committed `PhaseReceipt` — `ServiceState.Ready` mirrors the ready transition and `ServiceState.Stopping` mirrors the draining transition, the two confirmed notify payloads — and the service-manager liveness keep-alive rides the schedule-port heartbeat row rather than a second timer; `HostAbortedException` during build projects through `Aborted` to a boot-fault trigger value consumed by the transition entrypoint, never a second state machine.
+- Boundary: the web row crosses in through `external` — its builder is constructed at the web app root, where ASP.NET Core enters as a shared-framework asset only; the host registers `ConsoleLifetime` as the default `IHostLifetime` on every builder path including the empty builder, so plugin rows swap in the no-op `DetachedLifetime` through `Detached` and host-attach trigger injection drives phases; `AddSystemd` and `AddWindowsService` coexist because each registration is environment-gated, the windows registration carries the SCM name through `WindowsServiceLifetimeOptions.ServiceName` bound to the resolved `IHostEnvironment.ApplicationName` so the service control manager registers under the canonical application identity rather than the executable stem, and `SystemdHelpers.IsSystemdService`/`WindowsServiceHelpers.IsWindowsService` gate the live `ISystemdNotifier.Notify` emission so the notify socket is written only under a service manager; `MirrorService` registers one `Lifecycle.Subscribe` observer at the composition root for service rows, so `Emit` fires on every committed `PhaseReceipt` — `ServiceState.Ready` mirrors the ready transition and `ServiceState.Stopping` mirrors the draining transition, the two confirmed notify payloads — and the service-manager liveness keep-alive rides the schedule-port heartbeat row rather than a second timer; `HostAbortedException` during build projects through `Aborted` to a boot-fault trigger value consumed by the transition entrypoint, never a second state machine.
 
 ```csharp signature
 public static class ProfileBoot {
@@ -121,7 +121,9 @@ public static class ProfileBoot {
         (builder.Services.Configure<ConsoleLifetimeOptions>(static options => options.SuppressStatusMessages = true), builder).Item2;
 
     public static IHostApplicationBuilder Service(IHostApplicationBuilder builder) =>
-        (builder.Services.AddSystemd().AddWindowsService(), builder).Item2;
+        (builder.Services
+            .AddSystemd()
+            .AddWindowsService(options => options.ServiceName = builder.Environment.ApplicationName), builder).Item2;
 
     public static Option<ServiceState> ServiceNotify(RuntimePhase phase) =>
         phase == RuntimePhase.Ready ? Some(ServiceState.Ready)
@@ -185,10 +187,10 @@ Lifetime signals project into phase-transition trigger values consumed by the tr
 
 - Owner: `ProfileIdentity` — per-user root computation and telemetry resource identity; `ProfileRoots` is the path artifact carried inside the resolved record.
 - Entry: `ImmutableArray<KeyValuePair<string, object>> ResourceAttributes(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra)` — pure projection over the resolved record.
-- Auto: identity derives from the resolved record before any provider construction; `ConfigureResource` admits the attribute set through `ResourceBuilder.AddAttributes` as the one resource feed for every signal provider.
+- Auto: identity derives from the resolved record before any provider construction; the resolved record feeds one `IResourceDetector` whose `Detect` returns the `ResourceAttributes` projection as a `Resource`, and `ConfigureResource` on every signal provider admits that detector as the one resource feed — a per-call attribute push at each provider is the deleted form; the detector is designed-only, its `Resource` assembly spelling resolved through `[RESOURCE_DETECTOR]`.
 - Packages: OpenTelemetry, NodaTime, LanguageExt.Core, BCL inbox
-- Growth: one attribute row or one root policy value per new identity fact; zero new surface.
-- Boundary: roots are ApplicationData-rooted per-user paths — store under the application base on plugin and standalone rows, a scoped companion store on the companion row, no local store on sidecar, headless, web, and test rows; Persistence consumes the resolved record and derives no path; host-document identity enters as one extra attribute row on plugin rows; `service.instance.id` is pid joined with the start instant.
+- Growth: one attribute row or one root policy value per new identity fact, or one sibling `IResourceDetector` composed through `ConfigureResource`; zero new surface.
+- Boundary: roots are ApplicationData-rooted per-user paths — store under the application base on plugin and standalone rows, a scoped companion store on the companion row, no local store on sidecar, headless, web, and test rows; Persistence consumes the resolved record and derives no path; host-document identity enters as one extra attribute row on plugin rows; `service.instance.id` is pid joined with the start instant; `HostResourceDetector` is the one resource-discovery seam — `ConfigureResource` composes it ahead of any environment or telemetry-SDK detector so the resolved-record attributes are authoritative, and a hand-pushed attribute list at a provider builder is the deleted pattern.
 
 ```csharp signature
 public sealed record ProfileRoots(string AppRoot, Option<string> StoreRoot, string SupportRoot);
@@ -207,6 +209,10 @@ public static class ProfileIdentity {
         new("rasm.host.kind", resolved.Profile.Key),
         .. extra,
     ];
+
+    public sealed record HostResourceDetector(ResolvedProfile Resolved) : IResourceDetector {
+        public Resource Detect() => new(ResourceAttributes(Resolved));
+    }
 
     static ProfileRoots Folded(HostProfile profile, string baseRoot, Option<RuntimeAttachment> attachment) =>
         profile.Switch(
@@ -233,3 +239,4 @@ public static class ProfileIdentity {
 - [PLUGIN_HOST]: Generic Host boot and unload inside the RhinoWIP plugin load context without process exit; the `Detached` lifetime swap and host-attach trigger injection are the settled mechanics, the unverified surface is the load-context teardown sequence under live host eviction.
 - [WEB_ROOT]: static-asset spellings at the web app root under the Microsoft.AspNetCore.App shared framework; `CoHostedAssets` selects the co-hosted-bundle column, the unverified surface is the static-file middleware registration at the app root.
 - [WATCHDOG_PING]: the systemd watchdog liveness channel beyond the `ServiceState.Ready`/`ServiceState.Stopping` payloads — the periodic keep-alive notify rides the schedule-port heartbeat row, the unverified surface is the watchdog-keepalive notify payload on `ISystemdNotifier`.
+- [RESOURCE_DETECTOR]: the `HostResourceDetector.Detect` body assembles the `ResourceAttributes` projection into an OpenTelemetry `Resource` and `ConfigureResource` composes the detector ahead of the SDK detectors; `IResourceDetector`, `Resource`, `ResourceBuilder`, and `ConfigureResource` are the settled types, the unverified surface is the `Resource` construction-and-merge member spelling that builds a `Resource` from the attribute set.

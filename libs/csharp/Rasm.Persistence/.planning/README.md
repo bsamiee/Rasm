@@ -61,7 +61,7 @@ Every ledger row is closed; `[OWNER]` names the page that absorbed the gap and `
 
 ## [5]-[DENSITY_BAR]
 
-Implementation lands at 25-35% of naive LOC. One owner per axis, one entrypoint family per rail; a new feature is a row, case, or policy value — never a new surface. The budget below is the complete public-owner set; a type outside it is a defect. `[OWNER]` cells fold every extension block and mapping descriptor under the axis owner — `StoreOpCompose` rides axis [11], `TabularDirection`/`TabularSpec`/`AnalyticalTraversal`/`DuckDBOpLogMap` ride axis [8], `DbConfig` rides axis [16], `Composite`/`MapComposites` ride axis [10] — so the complete-owner claim holds. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
+Implementation lands at 25-35% of naive LOC. One owner per axis, one entrypoint family per rail; a new feature is a row, case, or policy value — never a new surface. The budget below is the complete public-owner set; a type outside it is a defect. `[OWNER]` cells fold every extension block and mapping descriptor under the axis owner — `StoreOpCompose` rides axis [11], `TabularDirection`/`TabularSpec`/`AnalyticalTraversal`/`DuckDBOpLogMap` ride axis [8], `DbConfig` rides axis [16], `Composite`/`MapComposites`/`Enum`/`MapEnums`/`SqlitePatterns` ride axis [10], `GeoJsonProjection`/`PersistenceResolver`/`GeneratedMessagePackResolver` ride axis [17] — so the complete-owner claim holds. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
 | [INDEX] | [AXIS]               | [OWNER]                                          | [KIND]            | [CASES]           |  [STATE]  |
 | :-----: | :------------------- | :----------------------------------------------- | :---------------- | :---------------- | :-------: |
@@ -71,7 +71,7 @@ Implementation lands at 25-35% of naive LOC. One owner per axis, one entrypoint 
 |   [4]   | cross-process        | StoreLeaseRow, StoreLocality                     | record + guard    | 2 lease kinds     |   SPIKE   |
 |   [5]   | provisioning         | ExtensionRequirement                             | table + verify    | 7 rows            |   SPIKE   |
 |   [6]   | lane axis            | DataLane, KvEntry                                | union + fold      | 7 cases           | FINALIZED |
-|   [7]   | document/search      | JsonIndex, VectorMetric, FullTextMode            | enums             | 4 · 4 · 4         | FINALIZED |
+|   [7]   | document/search      | JsonIndex, VectorMetric, FullTextMode            | enums             | 4 · 6 · 4         |   SPIKE   |
 |   [8]   | geo + analytical     | GeoLayer, TabularExportSpec, TabularDirection    | policy + enum     | concern rows      |   SPIKE   |
 |   [9]   | identity             | IdentityPolicy                                   | enum              | 3 rows            | FINALIZED |
 |  [10]   | schema law           | faults, fingerprint, columns, SchemaDdl          | fault + DDL       | 5 codes · 19 ext. |   SPIKE   |
@@ -193,6 +193,16 @@ API keys omit the `api-` prefix and `.md` suffix. `[VERSION]` records the props/
 |  [10]   | Thinktecture.Runtime.Extensions.Json        | 10.2.0    | snapshot-codecs     | thinktecture-serialization |
 |  [11]   | Thinktecture.Runtime.Extensions.MessagePack | 10.2.0    | snapshot-codecs     | thinktecture-serialization |
 
+Substrate, pending, and test-only admissions:
+
+| [PACKAGE]       | [VERSION] | [PAGE]          | [CATALOGUE]                        |
+| :-------------- | :-------- | :-------------- | :--------------------------------- |
+| SharpFuzz       | 2.2.0     | snapshot-codecs | catalogue pending — NEEDS-ADMISSION |
+| Verify.XunitV3  | 31.19.1   | snapshot-codecs | catalogue pending                  |
+| BenchmarkDotNet | 0.15.8    | data-lanes      | catalogue pending                  |
+
 ## [11]-[REFINEMENT_HORIZON]
 
-Deepening targets: the GIS lanes pushed to full pipeline capability (heterogeneous source ingestion through GeoPackage/GeoJSON/PostGIS rows into the analytical lane); sync topologies rehearsed against the hub and collaboration concepts; the extension gates (vec0, SQLCipher, sqlean) resolved from probes into settled rows; server self-provisioning rows exercised when the first server root lands. The bar: any data product — offline-first field store, telemetry lake, geospatial sync hub — composes from rows with zero app-side persistence code.
+Deepening targets, each open against a named page RESEARCH probe: the GIS lanes pushed to full pipeline capability — heterogeneous ingestion through GeoPackage/GeoJSON/PostGIS rows into the analytical lane — gated by data-lanes#RESEARCH `[MANAGED_REFINE_OPS]` constructive-geometry forms and `[REGISTER_TABLE_FUNCTION]` chunk-fill; sync topologies rehearsed against the hub and collaboration concepts, gated by sync-collaboration#RESEARCH `[LIVE_REPLICATION]` publication-parameter and conflict-stat facts on a live PG18 server; the extension gates — vec0, SQLCipher, sqlean — resolved from native-sqlite#RESEARCH `[EXTENSION_LOADING]` live-load and hardened-runtime dlopen probes into settled rows; server self-provisioning rows exercised against store-profiles#PROVISIONING_ROWS — postgresql.conf preload fragments, pg_hba fragments, role grants, and server-side extension enablement — when the first server root lands. The bar: any data product — offline-first field store, telemetry lake, geospatial sync hub — composes from rows with zero app-side persistence code.
+
+Testing-infrastructure horizon: the snapshot-codec decode and sealed-artifact rejection ladder ride `SharpFuzz` `Fuzzer.OutOfProcess.Run` over the restore lane's untrusted-data boundary (`NEEDS-ADMISSION`); the `StoreProfile.SqliteMemory` placement is the deterministic in-memory store row and the DuckDB analytical lane the live-engine round-trip; bulk-write lane throughput lands on the BenchmarkDotNet rail.

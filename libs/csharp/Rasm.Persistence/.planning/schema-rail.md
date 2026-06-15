@@ -9,7 +9,7 @@ Schema truth for every store the suite opens: `IdentityPolicy` is the three-row 
 |   [1]   | IDENTITY_POLICY   | Three-row key axis with per-provider default SQL             |
 |   [2]   | MIGRATION_LAW     | Migration faults, fingerprint gate, receipted apply ceremony |
 |   [3]   | GENERATED_COLUMNS | Stored-versus-virtual decision for derived projections       |
-|   [4]   | EXTENSION_DDL     | Declared extension rows, index method and operator classes   |
+|   [4]   | EXTENSION_DDL     | Extension, index, exclusion, composite, native-enum declaration rows |
 |   [5]   | CONVERTER_RAIL    | One converter and naming registration row                    |
 
 ## [2]-[IDENTITY_POLICY]
@@ -127,12 +127,12 @@ public sealed record DerivedColumn(string Table, string Column, string Sql, bool
 ## [5]-[EXTENSION_DDL]
 
 - Owner: `SchemaDdl` `[Union]` declaration-row family with the frozen `Extensions` row set.
-- Cases: Extension, Index, Exclusion, Composite — extension declarations, method-and-operator-class index rows, btree_gist exclusion-constraint rows, PostgreSQL composite-type declarations.
-- Entry: `public static ModelBuilder Declare(ModelBuilder model)` — total fold of the extension rows into model annotations.
-- Auto: `HasPostgresExtension` annotations flow through `AlterDatabaseOperation` into generated migration DDL — `CreatePostgresExtensionOperation` is the deleted phantom spelling.
+- Cases: Extension, Index, Exclusion, Composite, Enum — extension declarations, method-and-operator-class index rows, btree_gist exclusion-constraint rows, PostgreSQL composite-type declarations, native PostgreSQL enum-type declarations.
+- Entry: `public static ModelBuilder Declare(ModelBuilder model)` — total fold of the extension and enum rows into model annotations.
+- Auto: `HasPostgresExtension` annotations flow through `AlterDatabaseOperation` into generated migration DDL — `CreatePostgresExtensionOperation` is the deleted phantom spelling; `HasPostgresEnum` annotations flow through `PostgresEnum` into the same `AlterDatabaseOperation` so a native enum column emits a `CREATE TYPE ... AS ENUM` step rather than a check-constrained text column.
 - Packages: Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, Pgvector.EntityFrameworkCore, Npgsql, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: one `SchemaDdl` row — a new extension is one `Extension` entry, a new index family is one `Index` row carrying its operator class; zero new surface.
-- Boundary: preload-gated extensions never enter `Extensions` — their capability verification belongs to the provisioning table; the `Surface` column states the driver-native cost of each row and built-in ranges and multiranges map to `NpgsqlRange<T>` with zero extension entry; `Index` rows carry the method and operator-class columns (gin, gist) that the per-column lane policies instantiate, and `Exclusion` rows ride btree_gist; the postgis row makes NetTopologySuite the pg boundary projection of the canonical proto wire geometry; earthdistance is rejected — the postgis row owns geodesy; `Composite` rows declare PostgreSQL composite types — `MapComposites` folds each onto the data-source builder through `MapComposite` so the round-trip type registration is one row, never a per-type hand-written reader; the composite set is empty until a real composite landmark exists, the case is shaped for the family it absorbs.
+- Growth: one `SchemaDdl` row — a new extension is one `Extension` entry, a new index family is one `Index` row carrying its operator class, a native pg enum is one `Enum` entry; zero new surface.
+- Boundary: preload-gated extensions never enter `Extensions` — their capability verification belongs to the provisioning table; the `Surface` column states the driver-native cost of each row and built-in ranges and multiranges map to `NpgsqlRange<T>` with zero extension entry; `Index` rows carry the method and operator-class columns (gin, gist) that the per-column lane policies instantiate, and `Exclusion` rows ride btree_gist; the postgis row makes NetTopologySuite the pg boundary projection of the canonical proto wire geometry; earthdistance is rejected — the postgis row owns geodesy; `Composite` rows declare PostgreSQL composite types — `MapComposites` folds each onto the data-source builder through `MapComposite` so the round-trip type registration is one row, never a per-type hand-written reader; `Enum` rows declare native PostgreSQL enum types symmetric with `Composite` — `MapEnums` folds each onto the data-source builder through the generic `MapEnum<TEnum>` resolver while `Declare` folds `HasPostgresEnum` so the model annotation and the type registration trace to one row, never a per-enum hand-written `MapEnum` call beside a hand-written check constraint, and the `EnableUnmappedTypes` builder column on the pg profile row admits enum-as-text round-trips without an `Enum` entry where a native type is unwarranted; the composite and enum sets are empty until a real landmark exists, the cases are shaped for the family they absorb.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -143,8 +143,16 @@ public abstract partial record SchemaDdl {
     public sealed record Index(string Table, Seq<string> Columns, string Method, Option<string> Operators) : SchemaDdl;
     public sealed record Exclusion(string Table, string Predicate, string Method) : SchemaDdl;
     public sealed record Composite(string Name, Type ClrType) : SchemaDdl;
+    public sealed record Enum(string Name, Type ClrType, Func<NpgsqlDataSourceBuilder, string, INpgsqlNameTranslator?, NpgsqlDataSourceBuilder> Map, Func<ModelBuilder, ModelBuilder> Annotate) : SchemaDdl {
+        public static Enum Of<TEnum>(string name) where TEnum : struct, System.Enum =>
+            new(name, typeof(TEnum),
+                static (builder, pgName, translator) => builder.MapEnum<TEnum>(pgName, translator),
+                static model => model.HasPostgresEnum<TEnum>(name));
+    }
 
     public static readonly Seq<Composite> Composites = Seq<Composite>();
+
+    public static readonly Seq<Enum> Enums = Seq<Enum>();
 
     public static readonly Seq<Extension> Extensions = Seq(
         new Extension("pg_trgm", Surface: "sql-functions"),
@@ -170,8 +178,13 @@ public abstract partial record SchemaDdl {
     public static NpgsqlDataSourceBuilder MapComposites(NpgsqlDataSourceBuilder builder) =>
         Composites.Fold(builder, static (mapper, row) => mapper.MapComposite(row.ClrType, row.Name));
 
+    public static NpgsqlDataSourceBuilder MapEnums(NpgsqlDataSourceBuilder builder) =>
+        Enums.Fold(builder, static (mapper, row) => row.Map(mapper, row.Name, null));
+
     public static ModelBuilder Declare(ModelBuilder model) =>
-        Extensions.Fold(model, static (builder, row) => builder.HasPostgresExtension(row.Name));
+        Enums.Fold(
+            Extensions.Fold(model, static (builder, row) => builder.HasPostgresExtension(row.Name)),
+            static (builder, row) => row.Annotate(builder));
 }
 ```
 
@@ -182,10 +195,14 @@ public abstract partial record SchemaDdl {
 - Auto: `ThinktectureValueConverterFactory` converters cover every `[ValueObject]`, `[SmartEnum]`, and keyed `[Union]` column behind `UseThinktectureValueConverters` — zero hand-written converter classes; a single declared property converts through `HasThinktectureValueConverter`, a complex-type property through `ComplexTypePropertyBuilderExtensions`, and a primitive-collection element through `PrimitiveCollectionBuilderExtensions`, so a per-column conversion is one builder call, never a converter class.
 - Packages: Thinktecture.Runtime.Extensions.EntityFrameworkCore10, EFCore.NamingConventions, Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime, NodaTime
 - Growth: one policy value per naming override; a new generated domain owner costs zero converter code on the same registration row; a sqlite temporal column is one `NodaTime` pattern row; zero new surface.
-- Boundary: `UseSnakeCaseNamingConvention` is the single naming policy — the `CamelCase`, `LowerCase`, `UpperCase`, and `UpperSnakeCase` rewriters are the named rejected conventions because a second casing fractures the schema fingerprint, and hand-written provider naming patches and per-entity converter classes are the deleted patterns; key-column width rides the converter registration's `Configuration` value — `SmartEnumConfiguration` bounds smart-enum columns and `KeyedValueObjectConfiguration` bounds keyed value-object columns to a declared max-length and `NoMaxLength` is the rejected unbounded form; pg temporal columns ride the profile row's `UseNodaTime` option and sqlite temporal columns persist `InstantPattern.ExtendedIso` text through the `instant_iso` collation, while ranged temporal columns persist `ZonedDateTimePattern`, `OffsetDateTimePattern`, `LocalDateTimePattern`, and `PeriodPattern` text under the same convention so no `DateTime` sentinel reaches a store; concurrency tokens are schema facts declared here — the pg row maps the system `xmin` column and the sqlite row carries an integer version column bumped per write — while the provider-exception fault projection belongs to the query rail.
+- Boundary: `UseSnakeCaseNamingConvention` is the single naming policy — the `CamelCase`, `LowerCase`, `UpperCase`, and `UpperSnakeCase` rewriters are the named rejected conventions because a second casing fractures the schema fingerprint, and hand-written provider naming patches and per-entity converter classes are the deleted patterns; key-column width rides the converter registration's `Configuration` value — `SmartEnumConfiguration` bounds smart-enum columns and `KeyedValueObjectConfiguration` bounds keyed value-object columns to a declared max-length and `NoMaxLength` is the rejected unbounded form; pg temporal columns ride the profile row's `UseNodaTime` option and sqlite temporal columns persist NodaTime pattern text through the `instant_iso` collation under the same convention so no `DateTime` sentinel reaches a store — `SqlitePatterns` is the frozen pattern table the sqlite converter rows trace to, keyed by CLR type so a `Duration` median or p95 statistic rides `DurationPattern`, a date-only column rides `LocalDatePattern`, a time-only column rides `LocalTimePattern`, instants ride `InstantPattern`, and ranged temporal columns ride `ZonedDateTimePattern`, `OffsetDateTimePattern`, `LocalDateTimePattern`, and `PeriodPattern`, so each temporal column round-trips as ISO text rather than fall back to a BCL `DateTime` column; a hand-written `DateTime`-typed sqlite temporal column is the deleted form; concurrency tokens are schema facts declared here — the pg row maps the system `xmin` column and the sqlite row carries an integer version column bumped per write — while the provider-exception fault projection belongs to the query rail.
 
 ```csharp signature
 public static class ConverterRail {
+    public static readonly FrozenDictionary<Type, object> SqlitePatterns = new Dictionary<Type, object> {
+        [typeof(Instant)] = InstantPattern.ExtendedIso,
+    }.ToFrozenDictionary();
+
     public static DbContextOptionsBuilder Compose(DbContextOptionsBuilder options) =>
         options.UseSnakeCaseNamingConvention().UseThinktectureValueConverters();
 }
@@ -195,3 +212,5 @@ public static class ConverterRail {
 
 - [NAMING_COMPILED_MODEL]: the `ClientGenerated` precedence column makes the client value authoritative under `ValueGeneratedNever`; the residual is whether `UseSnakeCaseNamingConvention` rewrites are baked into `Optimize` compiled-model output or re-derived at runtime, so a compiled model and a fresh model emit identical migration SQL column names.
 - [COMPOSITE_DDL]: the `MapComposite` runtime overload arity for a `(Type, name)` pair and the migration-side `CREATE TYPE` emission path for a `SchemaDdl.Composite` row — whether the EF model annotation surface emits the composite-type DDL or a manual `MigrationBuilder.Sql` row carries it; the `Composites` set stays empty until a real composite landmark resolves this.
+- [ENUM_DDL]: the `MapEnum<TEnum>` data-source-builder overload arity carrying the `(pgName, INpgsqlNameTranslator)` pair and the migration-side `CREATE TYPE ... AS ENUM` emission path for a `SchemaDdl.Enum` row through `HasPostgresEnum<TEnum>` — whether the `PostgresEnum` model annotation emits the enum-type DDL directly; the `Enums` set stays empty until a native pg enum landmark resolves this.
+- [TEMPORAL_PATTERN_MEMBERS]: the exact NodaTime round-trip static pattern instance per CLR type for the `SqlitePatterns` table — `DurationPattern`, `PeriodPattern`, `LocalDatePattern`, `LocalTimePattern`, `ZonedDateTimePattern`, and `OffsetDateTimePattern` carry one ISO round-trip instance each beside the confirmed `InstantPattern.ExtendedIso`, resolved against the installed NodaTime assembly before the per-type rows land beside the instant row.

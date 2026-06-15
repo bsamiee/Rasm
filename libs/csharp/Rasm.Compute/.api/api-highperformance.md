@@ -87,7 +87,23 @@ for measured staging payloads.
 |   [9]   | `Enumerate`                                | extension call | exposes ref enumeration |
 |  [10]   | `AsStream`                                 | extension call | projects payload stream |
 |  [11]   | `StreamExtensions.Read` / `Write`          | extension call | moves span payloads     |
-|  [12]   | `ParallelHelper.For` / `For2D` / `ForEach` | helper call    | partitions span work    |
+
+[ENTRYPOINT_SCOPE]: parallel partition operations
+- rail: staging
+
+| [INDEX] | [SURFACE]                              | [CALL_SHAPE]   | [CAPABILITY]                                                                                |
+| :-----: | :------------------------------------- | :------------- | :------------------------------------------------------------------------------------------ |
+|   [1]   | `ParallelHelper.For<TAction>`          | partition call | `(int start, int end, in TAction, int minimumActionsPerThread)` over a 1D index range       |
+|   [2]   | `ParallelHelper.For<TAction>`          | partition call | `(Range, in TAction, int)` over a `Range` index span                                        |
+|   [3]   | `ParallelHelper.For2D<TAction>`        | partition call | `(int top, int bottom, int left, int right, in TAction, int)` over a 2D index rectangle      |
+|   [4]   | `ParallelHelper.For2D<TAction>`        | partition call | `(Rectangle, in TAction, int)` and `(Range i, Range j, in TAction, int)` over a 2D region    |
+|   [5]   | `ParallelHelper.ForEach<TItem,TAction>` | partition call | `(Memory<TItem>, in TAction, int)` ref-mutating item loop                                   |
+|   [6]   | `ParallelHelper.ForEach<TItem,TAction>` | partition call | `(ReadOnlyMemory<TItem>, in TAction, int)` in-reading item loop                             |
+|   [7]   | `ParallelHelper.ForEach<TItem,TAction>` | partition call | `(Memory2D<TItem>, in TAction, int)` and `(ReadOnlyMemory2D<TItem>, in TAction, int)` planes |
+|   [8]   | `IAction.Invoke`                       | action call    | `(int i)` invoked per 1D index slot                                                         |
+|   [9]   | `IAction2D.Invoke`                     | action call    | `(int i, int j)` invoked per 2D index slot                                                  |
+|  [10]   | `IInAction<T>.Invoke`                  | action call    | `(in T item)` invoked per read-only item                                                    |
+|  [11]   | `IRefAction<T>.Invoke`                 | action call    | `(ref T item)` invoked per mutable item                                                     |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
@@ -101,6 +117,14 @@ for measured staging payloads.
 - bridge: memory, memory owners, buffer writers, and read-only sequences become streams only through the `AsStream` extension family at IO edges
 - implementation rule: stream implementation types are package-internal and never appear in Compute vocabulary
 - text rule: pooled text belongs to staging receipts, not domain values
+
+[PARALLEL_PARTITION]:
+- partition root: `ParallelHelper` static methods `For`, `For2D`, `ForEach`
+- work shape: callers pass a `struct` action implementing `IAction` / `IAction2D` / `IInAction<T>` / `IRefAction<T>`; the struct constraint keeps the invoker allocation-free and inlinable
+- index forms: `For` takes `(int start, int end)` or `Range`; `For2D` takes `(top, bottom, left, right)`, `Rectangle`, or `(Range i, Range j)`
+- item forms: `ForEach` partitions `Memory<T>` / `ReadOnlyMemory<T>` and the 2D plane variants `Memory2D<T>` / `ReadOnlyMemory2D<T>`
+- granularity: `minimumActionsPerThread` lower-bounds work per thread; degree of parallelism clamps to `Environment.ProcessorCount`
+- single-thread collapse: a partition count of one invokes the action inline on the calling thread
 
 [LOCAL_ADMISSION]:
 - Compute staging uses package memory shapes before introducing package-local payload owners.

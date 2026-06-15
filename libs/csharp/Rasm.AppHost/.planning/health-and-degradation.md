@@ -17,13 +17,13 @@ owns the vocabularies, LanguageExt and NodaTime carry the fold rails and stamps;
 
 ## [2]-[HEALTH_FOLD]
 
-- Owner: `HealthContributorRow` is the probe row and the `IHealthCheck`; `PressurePolicy` grades utilization with container-limit columns; `HealthSnapshot` with nested `Entry` is the only health shape interiors read.
+- Owner: `HealthContributorRow` is the probe row and the `IHealthCheck`; `PressurePolicy` grades utilization with container-limit columns; `GradePublisher` is the cadence-coupled `IResourceUtilizationPublisher`; `HealthSnapshot` with nested `Entry` is the only health shape interiors read.
 - Cases: tag consts `Host`, `Remote`, `Store`, `Pressure` key the derivation rules and the wire predicates; `Gauge` and `Peer` are the canonical row factories.
 - Entry: `Register(params ReadOnlySpan<HealthContributorRow> rows)` composes registrations; `Snapshot(Instant at, CorrelationId correlation)` is the pure report fold.
-- Auto: rows project into `HealthCheckRegistration` — `FailureStatus`, `Tags`, `Timeout`, `Delay`, `Period` are registration policy, never probe-local exception handling; `AddResourceMonitoring` plus `ConfigureMonitor` align `CollectionWindow` with `PressurePolicy.Canonical.Window`, bind `PublishingWindow`, and set `UseLinuxCalculationV2` and `UseZeroToOneRangeForLinuxMetrics` on cgroup-v2 hosts with `EnableSystemDiskIoMetrics` for the disk-I/O instruments.
+- Auto: rows project into `HealthCheckRegistration` — `FailureStatus`, `Tags`, `Timeout`, `Delay`, `Period` are registration policy, never probe-local exception handling; `AddResourceMonitoring` plus `ConfigureMonitor` align `CollectionWindow` with `PressurePolicy.Canonical.Window`, bind `SamplingInterval`, `PublishingWindow`, `CpuConsumptionRefreshInterval`, and `MemoryConsumptionRefreshInterval`, and set `UseLinuxCalculationV2` and `UseZeroToOneRangeForLinuxMetrics` on cgroup-v2 hosts with `EnableSystemDiskIoMetrics` for the disk-I/O instruments; `AddPublisher<GradePublisher>` fans the windowed utilization into the cadence-coupled publisher that records and returns, its sampling interval bounding every derived signal's reaction time.
 - Receipt: `HealthSnapshot` stamped with `Instant` and `CorrelationId`; `HealthReport` never crosses the fold.
 - Packages: Microsoft.Extensions.Diagnostics.HealthChecks, Microsoft.Extensions.Diagnostics.ResourceMonitoring, NodaTime, LanguageExt.Core
-- Growth: one contributor row per new capability probe — sibling packages extend the same `Register` span through the health port registration set, zero new surface; container-limit grading is one `Quota` column flip on `PressurePolicy`, never a parallel policy.
+- Growth: one contributor row per new capability probe — sibling packages extend the same `Register` span through the health port registration set, zero new surface; container-limit grading is one `Quota` column flip on `PressurePolicy`, a sampling retune is one `Sampling` value, and a derived utilization consumer is one `IResourceUtilizationPublisher` row, never a parallel policy.
 - Boundary: package health types stop at this seam — interiors read `HealthSnapshot` and one level value; `Peer` rows read a peer process over its wire health service, so cross-process health is a read, never shared state; `Gauge` grades against the container limit when the `ResourceUtilization` snapshot carries `SystemResources` — the OCI `headless` and `web` rows fold guaranteed-versus-maximum CPU units and memory bytes into the same percentage axis, so a cgroup-throttled process degrades on the limit it actually runs under, never the host total; `ResourceQuota` carries the baseline-and-maximum quota the limit grading reads, and a bare host-percentage grade on a container row is the deleted form.
 
 ```csharp signature
@@ -57,11 +57,14 @@ public sealed record HealthContributorRow(
     public static IResourceMonitorBuilder Monitor(IResourceMonitorBuilder builder, PressurePolicy policy) =>
         builder.ConfigureMonitor(options => {
             options.CollectionWindow = policy.Window.ToTimeSpan();
+            options.SamplingInterval = policy.Sampling.ToTimeSpan();
             options.PublishingWindow = policy.Window.ToTimeSpan();
+            options.CpuConsumptionRefreshInterval = policy.Window.ToTimeSpan();
+            options.MemoryConsumptionRefreshInterval = policy.Window.ToTimeSpan();
             options.EnableSystemDiskIoMetrics = policy.DiskIoMetrics;
             options.UseLinuxCalculationV2 = policy.CgroupV2;
             options.UseZeroToOneRangeForLinuxMetrics = false;
-        });
+        }).AddPublisher<GradePublisher>();
 
     public static HealthContributorRow Peer(string name, string tag, Duration cadence, Func<CancellationToken, ValueTask<HealthCheckResult>> probe) => new(
         Name: name,
@@ -75,6 +78,7 @@ public sealed record HealthContributorRow(
 
 public sealed record PressurePolicy(
     Duration Window,
+    Duration Sampling,
     double CpuDegraded,
     double CpuUnhealthy,
     double MemoryDegraded,
@@ -83,7 +87,8 @@ public sealed record PressurePolicy(
     bool CgroupV2,
     bool DiskIoMetrics) {
     public static readonly PressurePolicy Canonical = new(
-        Window: Duration.FromSeconds(5), CpuDegraded: 80d, CpuUnhealthy: 92d, MemoryDegraded: 85d, MemoryUnhealthy: 95d,
+        Window: Duration.FromSeconds(5), Sampling: Duration.FromSeconds(1),
+        CpuDegraded: 80d, CpuUnhealthy: 92d, MemoryDegraded: 85d, MemoryUnhealthy: 95d,
         Quota: false, CgroupV2: false, DiskIoMetrics: false);
 
     public static readonly PressurePolicy Container = Canonical with { Quota = true, CgroupV2 = true, DiskIoMetrics = true };
@@ -96,6 +101,13 @@ public sealed record PressurePolicy(
                 HealthCheckResult.Degraded($"cpu {load.Cpu:F0} memory {load.Memory:F0}"),
             _ => HealthCheckResult.Healthy(),
         };
+}
+
+public sealed class GradePublisher(PressurePolicy policy, Atom<Option<ResourceUtilization>> cell) : IResourceUtilizationPublisher {
+    public ValueTask PublishAsync(ResourceUtilization utilization, CancellationToken cancellationToken) =>
+        (cell.Swap(_ => Optional(utilization)), ValueTask.CompletedTask).Item2;
+
+    public Option<HealthCheckResult> Latest() => cell.Value.Map(policy.Grade);
 }
 
 public sealed record HealthSnapshot(

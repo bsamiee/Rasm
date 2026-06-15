@@ -19,7 +19,7 @@ Rasm.AppUi accessibility is columns on existing catalogs plus one gate fold: aut
 - Auto: the mount transaction applies `Identify` at every surface root; `Announce` subscriptions join the activation scope's disposal; the `AutomationName` column is the single name source for every derived dockable, palette entry, and proof lane; the `Synthesized` column declares which live regions sit on Skia-drawn visuals lacking a stock peer, so the peer-presence audit reads the contract from the row, not a per-visual probe.
 - Packages: Avalonia, System.Reactive, BCL inbox
 - Growth: one announcement row per live source; one `Synthesized` flag per Skia-drawn region; zero new surface.
-- Boundary: stock Avalonia peers own every retained control — a per-control peer class is the deleted pattern; a `Synthesized` row marks a Skia-drawn chart, tile, or preview visual whose automation peer the peer-synthesis mechanism must construct, and that synthesis spelling stays a research row until the `OnCreateAutomationPeer` surface confirms in the catalogue; the embedded NSView bridge and the macOS automation-backend projection of `SetLiveSetting` and `SetName` transitions across the NSView boundary are research rows; per-call automation-name literals are deleted by the catalog column.
+- Boundary: stock Avalonia peers own every retained control — a per-control peer class is the deleted pattern; a `Synthesized` row marks a Skia-drawn chart, tile, or preview visual whose automation peer the `Control.OnCreateAutomationPeer` override constructs as a `ControlAutomationPeer` over the synthesized region, so one synthesized-peer construction rides the row flag rather than a per-visual peer class, and the live-region `SetLiveSetting`/`SetName` transitions ride that peer; the macOS automation-backend projection of those transitions across the embedded NSView boundary stays a research row until the backend reach confirms; per-call automation-name literals are deleted by the catalog column.
 
 ```csharp signature
 public sealed record AnnouncementRow(string Key, AutomationLiveSetting Setting, IObservable<string> Texts, bool Synthesized);
@@ -163,5 +163,5 @@ flowchart LR
 
 ## [6]-[RESEARCH]
 
-- [PEER_SYNTHESIS]: automation-peer presence over Skia-drawn chart, tile, and preview visuals.
+- [PEER_SYNTHESIS]: the `ControlAutomationPeer` subclass shape synthesizing automation-peer presence over Skia-drawn chart, tile, and preview visuals — the `GetNameCore`, `GetAutomationControlTypeCore`, and `GetClassNameOverrideCore` overrides the synthesized region returns and the live-region update path on the synthesized peer.
 - [EMBEDDED_VOICEOVER]: VoiceOver reach into embedded-root content across the NSView boundary on Rhino panel rows; live-region projection of `SetLiveSetting` and `SetName` transitions through the macOS automation backend.

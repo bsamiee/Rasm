@@ -93,7 +93,7 @@ public readonly record struct AlignmentOptimizerReceipt(AlignmentOptimizerStopKi
     internal bool IsValid =>
         Stop is not null
         && LineSearchSteps >= 0
-        && new[] { InitialCost, FinalCost, StepNorm, StepScale, MeanMahalanobis, MaxMahalanobis }.All(RhinoMath.IsValidDouble)
+        && RhinoMath.IsValidDouble(x: InitialCost) && RhinoMath.IsValidDouble(x: FinalCost) && RhinoMath.IsValidDouble(x: StepNorm) && RhinoMath.IsValidDouble(x: StepScale) && RhinoMath.IsValidDouble(x: MeanMahalanobis) && RhinoMath.IsValidDouble(x: MaxMahalanobis)
         && InitialCost >= 0.0
         && FinalCost >= 0.0
         && StepNorm >= 0.0
@@ -111,13 +111,13 @@ internal readonly record struct AlignmentStep(Transform Delta, Option<SolveRecei
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct AlignmentReceipt(Transform Transform, AlignKind Kind, AlignmentApproximationStatus Approximation, AlignmentStopKind Stop, int Iterations, double FinalDelta, Option<AlignmentRobustReceipt> Robust, CloudCorrespondenceSet Correspondences, Option<SolveReceipt> Solve, Option<AlignmentOptimizerReceipt> Optimizer) {
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(AlignmentReceipt) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(Transform) && Stop.Equals(AlignmentStopKind.Converged) => key.AcceptValue(value: Transform).Map(static value => (TOut)(object)value),
-            Type t when t == typeof(Transform) => Fin.Fail<TOut>(key.InvalidResult()),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(AlignmentReceipt), outputType: typeof(TOut))),
-        };
+    internal Fin<TOut> Project<TOut>(Op key) {
+        AlignmentReceipt self = this;
+        return AtomProjection.Rows<AlignmentReceipt, TOut>(self: self, key: key,
+            new ProjectionRow(typeof(Transform), () => self.Stop.Equals(AlignmentStopKind.Converged)
+                ? key.AcceptValue(value: self.Transform).Map(static value => (object)value)
+                : Fin.Fail<object>(key.InvalidResult())));
+    }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -274,7 +274,7 @@ internal static class AlignKernel {
         from count in FieldNabla.CountAtLeast(count: source.Count, minimum: minimum, key: key).Map(_ => source.Count)
         from same in FieldNabla.SameCount(expected: count, key: key, counts: [target.Length, weights.Length])
         from sourceFinite in FieldNabla.AllFinite(points: source, key: key)
-        from targetFinite in guard(target.All(static point => FieldNabla.Finite(point: point)), key.InvalidInput())
+        from targetFinite in FieldNabla.AllFinite(key: key, points: target)
         from mass in FieldNabla.PositiveFiniteWeights(weights: weights, count: count, key: key)
         select count;
     private static Fin<Transform> SolveProcrustes(Seq<Point3d> source, Point3d[] target, double[] weights, Transform current, Op key) {
@@ -323,7 +323,7 @@ internal static class AlignKernel {
         int n = source.Count;
         Fin<int> admitted = from count in AdmitAlignmentRows(source: source, target: target, weights: rowMass, minimum: 6, key: key)
                             from normalCount in FieldNabla.SameCount(expected: count, key: key, counts: [normals.Length])
-                            from finiteNormals in guard(normals.All(static normal => normal.IsValid), key.InvalidInput())
+                            from finiteNormals in FieldNabla.AllValid(key: key, vectors: normals)
                             select count;
         return admitted.Bind(_ => {
             double[] aFlat = new double[n * 6]; double[] b = new double[n];

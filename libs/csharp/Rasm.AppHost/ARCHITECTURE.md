@@ -43,7 +43,7 @@ participants into one `DrainReceipt` ending at Unloaded.
 | :-----: | :---------------------- | :--------------------------------- | :----------------- | :------------------------------------------- |
 |   [1]   | host variance           | `HostProfile`                      | 8 rows             | host-profiles#PROFILE_AXIS                   |
 |   [2]   | lifetime adapters       | `ProfileBoot`                      | 6 delegate targets | host-profiles#LIFETIME_ADAPTERS              |
-|   [3]   | resource identity       | `ProfileIdentity`                  | 5 attribute rows   | host-profiles#RESOURCE_IDENTITY              |
+|   [3]   | resource identity       | `ProfileIdentity`                  | 5 attribute rows; `HostResourceDetector` | host-profiles#RESOURCE_IDENTITY      |
 |   [4]   | phase family            | `RuntimePhase`                     | 8 rows             | lifecycle-and-drain#PHASE_FAMILY             |
 |   [5]   | trigger vocabulary      | `PhaseTrigger`                     | 10 cases           | lifecycle-and-drain#PHASE_FAMILY             |
 |   [6]   | fault spine             | `FaultSource`                      | 4 cases            | lifecycle-and-drain#FAULT_SPINE              |
@@ -51,7 +51,7 @@ participants into one `DrainReceipt` ending at Unloaded.
 |   [8]   | cancellation            | `CancelScope`                      | 1 root spine       | lifecycle-and-drain#CANCEL_SPINE             |
 |   [9]   | clock seam              | `ClockPolicy`                      | 1 injected pair    | time-and-deadlines#CLOCK_SPLIT               |
 |  [10]   | deadline taxonomy       | `DeadlineClass`                    | 9 rows             | time-and-deadlines#DEADLINE_TAXONOMY         |
-|  [11]   | suite scheduler         | `ScheduleEntry`                    | 2 occurrence cases | time-and-deadlines#SCHEDULE_PORT             |
+|  [11]   | suite scheduler         | `ScheduleEntry`                    | 3 occurrence cases | time-and-deadlines#SCHEDULE_PORT             |
 |  [12]   | config sources          | `ConfigSource`                     | 8 rows             | configuration-and-options#SOURCE_AXIS        |
 |  [13]   | binding faults          | `ConfigError`                      | 7 cases            | configuration-and-options#TYPED_BINDING      |
 |  [14]   | reload rail             | `ReloadOutcome`                    | 4 cases            | configuration-and-options#POLICY_VALUES      |
@@ -74,7 +74,7 @@ participants into one `DrainReceipt` ending at Unloaded.
 |  [31]   | support triggers        | `SupportTrigger`                   | 6 cases            | support-bundles#TRIGGER_UNION                |
 |  [32]   | support receipts        | `SupportReceipt`                   | 3 cases            | support-bundles#MANIFEST_RECEIPT             |
 |  [33]   | hop axis                | `OutboundHop`                      | 7 cases            | outbound-resilience#HOP_AXIS                 |
-|  [34]   | discovery attach        | `DiscoveryManifest`                | 1 manifest law     | outbound-resilience#DISCOVERY_ATTACH         |
+|  [34]   | discovery attach        | `DiscoveryManifest`                | 1 manifest law     | outbound-discovery#DISCOVERY_ATTACH          |
 |  [35]   | retry ownership         | `OutboundSurface`                  | 3 outcome cases    | outbound-resilience#OWNERSHIP_LAW            |
 |  [36]   | runtime ports           | `ReceiptSinkPort` and six siblings | 7 records          | runtime-ports#PORT_RECORDS                   |
 |  [37]   | wire law                | `AppHostWireContext`               | 9 contract rows    | runtime-ports#WIRE_LAW                       |

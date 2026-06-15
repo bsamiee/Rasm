@@ -1,3 +1,4 @@
+using System.Numerics.Tensors;
 using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Vectors;
@@ -917,7 +918,7 @@ public abstract partial record ScalarField {
         let receipt = new ReconstructionReceipt(Mode: mode, Kernel: kernel, Radius: radius.Value, Smoothing: admittedSmoothing, Interpolation: interpolation, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: mode.PolynomialDegree, Solve: Some(solved))
         select new ReconstructionResult(Field: new RbfCase(Samples: admittedSamples, Kernel: kernel, Radius: radius, Coefficients: solved.Solution, Receipt: receipt), Receipt: receipt);
     [StructLayout(LayoutKind.Auto)] private readonly record struct TetSignedHeatSolution(Arr<double> Values, TetSignedHeatReceipt Receipt);
-    [StructLayout(LayoutKind.Auto)] private readonly record struct TetAssembly(SparseMatrix Mass, SparseMatrix Stiffness, SparseMatrix HeatOperator, Arr<double> HeatRhs, int GaugeVertex, double HeatTime);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct TetAssembly(SparseMatrix Mass, SparseMatrix Stiffness, SparseMatrix HeatOperator, Arr<double> HeatRhs, Arr<double> MassLumped, int GaugeVertex, double HeatTime);
     [StructLayout(LayoutKind.Auto)] private readonly record struct TetDivergence(Arr<double> Rhs, int NonZeros, int RejectedGradientCellCount);
     [StructLayout(LayoutKind.Auto)] private readonly record struct TetCalibration(Arr<double> Values, double BoundaryShift, double InteriorMean);
     [StructLayout(LayoutKind.Auto)] private readonly record struct TetInterpolated(double Value, TetInterpolationReceipt Receipt);
@@ -929,9 +930,7 @@ public abstract partial record ScalarField {
         from heatSolve in CholeskySparse.Of(symmetric: assembly.HeatOperator, key: key).Bind(factor => factor.SolveDetailed(rhs: assembly.HeatRhs, key: key))
         from heatResidual in heatSolve.Residual <= activePolicy.Solver.ResidualTolerance.Value ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
         from divergence in TetDivergenceOf(domain: activeDomain, heat: heatSolve.Solution, key: key)
-        from poisson in PinTetGauge(stiffness: assembly.Stiffness, gauge: assembly.GaugeVertex, rhs: divergence.Rhs, key: key)
-        from rawPoissonSolve in CholeskySparse.Of(symmetric: poisson.Matrix, key: key).Bind(factor => factor.SolveDetailed(rhs: poisson.Rhs, key: key))
-        let poissonSolve = rawPoissonSolve with { Gauge = Some(new GaugeReceipt(PinnedIndex: Some(assembly.GaugeVertex), MeanZero: false, ConstraintRows: 1, RhsMutationNorm: poisson.RhsMutationNorm, ResidualAfterGauge: rawPoissonSolve.Residual)) }
+        from poissonSolve in assembly.Stiffness.SingularSolveDetailed(rhs: divergence.Rhs, gauge: GaugePolicy.PinConstant(index: assembly.GaugeVertex, mass: Some(assembly.MassLumped), shift: GaugeShift.PinZero), context: activeDomain.Context, key: key)
         from poissonResidual in poissonSolve.Residual <= activePolicy.Solver.ResidualTolerance.Value ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
         from calibrated in CalibrateTetSignedHeat(domain: activeDomain, raw: poissonSolve.Solution, key: key)
         let fem = new TetFemReceipt(
@@ -965,11 +964,13 @@ public abstract partial record ScalarField {
                     heatRhs[ids[i]] += boundary.Contains(item: ids[j]) ? mass : 0.0;
                 }
         }
+        double[] massLumped = new double[vertexCount];
+        foreach ((int row, int _, double value) in massTriplets) massLumped[row] += value;
         Dimension dim = Dimension.Create(value: vertexCount);
         return from mass in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: massTriplets, key: key)
                from stiffness in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: stiffnessTriplets, key: key)
                from heat in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: massTriplets.Concat(stiffnessTriplets.Select(t => (t.Row, t.Col, Value: heatTime * t.Value))), key: key)
-               select new TetAssembly(Mass: mass, Stiffness: stiffness, HeatOperator: heat, HeatRhs: new Arr<double>(heatRhs), GaugeVertex: domain.BoundaryVertices[0], HeatTime: heatTime);
+               select new TetAssembly(Mass: mass, Stiffness: stiffness, HeatOperator: heat, HeatRhs: new Arr<double>(heatRhs), MassLumped: new Arr<double>(massLumped), GaugeVertex: domain.BoundaryVertices[0], HeatTime: heatTime);
     }
     private static Fin<TetDivergence> TetDivergenceOf(TetMeshDomain domain, Arr<double> heat, Op key) {
         Point3d[] points = [.. domain.Vertices.AsIterable()];
@@ -991,20 +992,6 @@ public abstract partial record ScalarField {
         return nonZeros > 0 && rejected < cells.Length
             ? Fin.Succ(new TetDivergence(Rhs: new Arr<double>(rhs), NonZeros: nonZeros, RejectedGradientCellCount: rejected))
             : Fin.Fail<TetDivergence>(key.InvalidResult());
-    }
-    private static Fin<(SparseMatrix Matrix, Arr<double> Rhs, double RhsMutationNorm)> PinTetGauge(SparseMatrix stiffness, int gauge, Arr<double> rhs, Op key) {
-        if (!stiffness.IsValid || stiffness.Rows.Value != stiffness.Cols.Value || rhs.Count != stiffness.Rows.Value || gauge < 0 || gauge >= stiffness.Rows.Value) return Fin.Fail<(SparseMatrix, Arr<double>, double)>(key.InvalidInput());
-        List<(int Row, int Col, double Value)> triplets = new(capacity: stiffness.NonZeros + 1);
-        for (int row = 0; row < stiffness.Rows.Value; row++)
-            for (int k = stiffness.RowPtr[row]; k < stiffness.RowPtr[row + 1]; k++) {
-                int col = stiffness.ColInd[k];
-                if (row != gauge && col != gauge) triplets.Add(item: (row, col, stiffness.Values[k]));
-            }
-        triplets.Add(item: (gauge, gauge, 1.0));
-        double[] pinned = [.. rhs.AsIterable()];
-        double mutation = Math.Abs(value: pinned[gauge]);
-        pinned[gauge] = 0.0;
-        return SparseMatrix.FromTriplets(rows: stiffness.Rows, cols: stiffness.Cols, triplets: triplets, key: key).Map(matrix => (Matrix: matrix, Rhs: new Arr<double>(pinned), RhsMutationNorm: mutation));
     }
     private static Fin<TetCalibration> CalibrateTetSignedHeat(TetMeshDomain domain, Arr<double> raw, Op key) {
         System.Collections.Generic.HashSet<int> boundary = [.. domain.BoundaryVertices.AsIterable()];
@@ -1521,24 +1508,22 @@ public sealed partial class VolumeSolverKind { public static readonly VolumeSolv
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ReconstructionResult(ScalarField Field, ReconstructionReceipt Receipt) {
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(ReconstructionResult) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(ReconstructionReceipt) => Fin.Succ((TOut)(object)Receipt),
-            Type t when t == typeof(ScalarField) => Optional(Field).ToFin(key.InvalidResult()).Map(static field => (TOut)(object)field),
-            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(ReconstructionResult), outputType: typeof(TOut))),
-        };
+    internal Fin<TOut> Project<TOut>(Op key) {
+        ReconstructionResult self = this;
+        return AtomProjection.Rows<ReconstructionResult, TOut>(self: self, key: key,
+            new ProjectionRow(typeof(ReconstructionReceipt), () => Fin.Succ<object>(self.Receipt)),
+            new ProjectionRow(typeof(ScalarField), () => Optional(self.Field).ToFin(key.InvalidResult()).Map(static field => (object)field)));
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ReconstructionSample(double Value, ReconstructionSampleReceipt Receipt) {
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(ReconstructionSample) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(ReconstructionSampleReceipt) => Fin.Succ((TOut)(object)Receipt),
-            Type t when t == typeof(double) => AtomProjection.Value<double, TOut>(value: Value, key: key, owner: typeof(ReconstructionSample)),
-            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(ReconstructionSample), outputType: typeof(TOut))),
-        };
+    internal Fin<TOut> Project<TOut>(Op key) {
+        ReconstructionSample self = this;
+        return AtomProjection.Rows<ReconstructionSample, TOut>(self: self, key: key,
+            new ProjectionRow(typeof(ReconstructionSampleReceipt), () => Fin.Succ<object>(self.Receipt)),
+            new ProjectionRow(typeof(double), () => key.AcceptValue(value: self.Value).Map(static value => (object)value)));
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ReconstructionSampleReceipt(ReconstructionMode Mode, ReconstructionStatus Status, KernelKind Kernel, double Radius, int SampleCount, int NeighborhoodCount, int RejectedWeightCount, double WeightSum, int Rank, Option<double> Condition, Option<double> NormalAgreement, Option<double> GradientNorm, SolveReceipt Solve);
@@ -1547,13 +1532,12 @@ public readonly record struct ReconstructionSample(double Value, ReconstructionS
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SdfSample(double Value, SdfReceipt Receipt) {
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(SdfSample) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(SdfReceipt) => Fin.Succ((TOut)(object)Receipt),
-            Type t when t == typeof(double) => AtomProjection.Value<double, TOut>(value: Value, key: key, owner: typeof(SdfSample)),
-            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SdfSample), outputType: typeof(TOut))),
-        };
+    internal Fin<TOut> Project<TOut>(Op key) {
+        SdfSample self = this;
+        return AtomProjection.Rows<SdfSample, TOut>(self: self, key: key,
+            new ProjectionRow(typeof(SdfReceipt), () => Fin.Succ<object>(self.Receipt)),
+            new ProjectionRow(typeof(double), () => key.AcceptValue(value: self.Value).Map(static value => (object)value)));
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -1744,10 +1728,28 @@ internal static class FieldNabla {
         guard(count >= minimum, key.InvalidInput()).ToFin();
     internal static Fin<Unit> SameCount(int expected, Op key, params int[] counts) =>
         guard(counts.All(count => count == expected), key.InvalidInput()).ToFin();
-    internal static Fin<Unit> AllFinite(Arr<double> values, Op key) =>
-        guard(values.ForAll(RhinoMath.IsValidDouble), key.InvalidInput()).ToFin();
     internal static Fin<Unit> AllFinite(Seq<Point3d> points, Op key) =>
         guard(points.ForAll(static point => Finite(point: point)), key.InvalidInput()).ToFin();
+    internal static Fin<Unit> AllFinite(Op key, params ReadOnlySpan<Point3d> points) {
+        foreach (Point3d point in points) {
+            if (!Finite(point: point)) {
+                return Fin.Fail<Unit>(key.InvalidInput());
+            }
+        }
+        return Fin.Succ(unit);
+    }
+    internal static Fin<Unit> AllValid(Op key, params ReadOnlySpan<Vector3d> vectors) {
+        foreach (Vector3d vector in vectors) {
+            if (!Finite(vector: vector)) {
+                return Fin.Fail<Unit>(key.InvalidInput());
+            }
+        }
+        return Fin.Succ(unit);
+    }
+    internal static Fin<Unit> AllFiniteDoubles(ReadOnlySpan<double> values, Op key) =>
+        AllFiniteSpan(values) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+    internal static bool AllFiniteSpan(ReadOnlySpan<double> values) =>
+        TensorPrimitives.IsFiniteAll(values);
     internal static Fin<Seq<Point3d>> FinitePoints(Seq<Point3d> points, bool allowEmpty, Op key) =>
         (allowEmpty || !points.IsEmpty) && points.ForAll(static point => Finite(point: point)) ? Fin.Succ(points) : Fin.Fail<Seq<Point3d>>(key.InvalidInput());
     internal static Fin<Seq<double>> FiniteScalars(Seq<double> values, bool allowEmpty, Op key) =>

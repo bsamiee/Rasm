@@ -234,7 +234,7 @@ internal static class VectorsScenarios {
         from closedSignLaw in ctx.Require(label: "closed signs", observed: RhinoMath.IsValidDouble(x: closedSignedHeat.Value) && RhinoMath.IsValidDouble(x: flippedClosedSignedHeat.Value) && closedSignedHeat.Value * flippedClosedSignedHeat.Value < 0.0)
         from closedIsoLaw in ctx.Require(label: "closed iso accepted", observed: closedIsoAccepted)
         from openClosedLaw in ctx.Require(label: "open closed signed heat rejected", observed: openClosedSignedHeatRejected)
-        from isolineLaw in ctx.Require(label: "scalar isoline", observed: scalarIsoline.Receipt.Route.Equals(other: ScalarIsolineRoute.LocalPiecewiseLinearMesh) && scalarIsoline.Receipt.EmittedCurves > 0 && scalarIsoline.Curves.Count == scalarIsoline.Receipt.EmittedCurves)
+        from isolineLaw in ctx.Require(label: "scalar isoline", observed: !scalarIsoline.Receipt.NativeRouted && scalarIsoline.Receipt.EmittedCurves > 0 && scalarIsoline.Curves.Count == scalarIsoline.Receipt.EmittedCurves)
         from containmentLaw in ctx.Require(label: "containment", observed: RhinoMath.IsValidDouble(x: containment) && containment > 0.0)
         from evaluatorLaw in ctx.Require(label: "evaluator failure rejected", observed: evaluatorFailureRejected && evaluatorFailureReceiptRejected)
         from nativeLaw in ctx.Require(label: "native callback evidence", observed: nativeProbe.Iso is { IsValid: true } && nativeProbe.Samples > 0 && nativeProbe.Threads >= 1)
@@ -428,9 +428,7 @@ internal static class VectorsScenarios {
             new Point3d(x: 0.0, y: 0.0, z: 0.0),
             new Point3d(x: 1.0, y: 0.0, z: 0.0),
         ];
-#pragma warning disable IDE0306 // collection expression would route through Add(PointCloudItem), not the Point3d ctor
         PointCloud cloud = new(points);
-#pragma warning restore IDE0306
         int[][] ids = [.. RTree.PointCloudKNeighbors(pointcloud: cloud, needlePts: points, amount: 3)];
         return (Points: points, Cloud: cloud, Ids: ids);
     }

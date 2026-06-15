@@ -160,11 +160,11 @@ public static class DerivedOps {
 ## [5]-[VALIDATION_UX]
 
 - Owner: `AdmissionState` validation state value; `ScreenValidation` lift surface.
-- Entry: `public ValidationHelper Admit<TValue>(Expression<Func<TScreen, TValue>> property, IObservable<Validation<Error, TValue>> admissions)` — the one admission seam from the typed rail into rule rows.
+- Entry: `public ValidationHelper Admit<TValue>(Expression<Func<TScreen, TValue>> property, IObservable<Validation<Error, TValue>> admissions)` — the one admission seam from the typed rail into rule rows; `AdmitCross<TValue>(IObservable<Validation<Error, TValue>> admissions)` lands the same typed rail on the context-level `ValidationRule` overload for cross-field invariants spanning two or more properties.
 - Auto: `Gate` projects `IsValid` into the availability delegate column consumed by the command table; `BindValidation` renders rule text view-side through the one `Formatter` policy with error styling from theme tokens; `FieldErrors` projects per-property text from `ReactiveValidationObject.GetErrors`/`ErrorsChanged` into the field-adorner stream, so context-level validity feeds the command gate while property-level text feeds the adorner — one context, two read altitudes.
 - Packages: ReactiveUI.Validation, ReactiveUI, System.Reactive, LanguageExt.Core
 - Growth: one rule row per validated property; zero new surface.
-- Boundary: the lift is the single validation vocabulary — a second rule rail beside `Validation<Error,T>` is the rejected form, and domain factories keep emitting the typed rail untouched; `Admit` lands on the `ValidationRule(Expression, IObservable<IValidationState>)` overload, and `ValidationContext` activation is internal and `_isActive`-guarded, so repeated activation scopes never duplicate rule subscriptions; fail text crosses as typed `IValidationText` through `SingleLineFormatter`, never freeform string side channels; `FieldErrors` reads the `INotifyDataErrorInfo` bridge `ReactiveValidationObject` exposes — `GetErrors` for the current property set, `ErrorsChanged` for the edge — and the platform error-adorner contract is itself string-typed, so the projection takes the `INotifyDataErrorInfo` string seam fail-closed through `OfType<string>` rather than casting, the one place the typed `IValidationText` lands on the host's string adorner channel; a hand-wired per-control error handler is the deleted pattern and the adorner never re-runs validation logic; `Rules` activates inside the activation scope, so rule subscriptions share screen disposal.
+- Boundary: the lift is the single validation vocabulary — a second rule rail beside `Validation<Error,T>` is the rejected form, and domain factories keep emitting the typed rail untouched; `Admit` lands on the `ValidationRule(Expression, IObservable<IValidationState>)` overload and `AdmitCross` on the context-level `ValidationRule(IObservable<IValidationState>)` overload, so a cross-field invariant is one rule row spanning every contributing property rather than a duplicated per-property rule, and the cross-field state feeds the same `Gate` context-validity stream the command table reads; `ValidationContext` activation is internal and `_isActive`-guarded, so repeated activation scopes never duplicate rule subscriptions; fail text crosses as typed `IValidationText` through `SingleLineFormatter`, never freeform string side channels; `FieldErrors` reads the `INotifyDataErrorInfo` bridge `ReactiveValidationObject` exposes — `GetErrors` for the current property set, `ErrorsChanged` for the edge — and the platform error-adorner contract is itself string-typed, so the projection takes the `INotifyDataErrorInfo` string seam fail-closed through `OfType<string>` rather than casting, the one place the typed `IValidationText` lands on the host's string adorner channel; a hand-wired per-control error handler is the deleted pattern and the adorner never re-runs validation logic; `Rules` activates inside the activation scope, so rule subscriptions share screen disposal.
 
 ```csharp signature
 public readonly record struct AdmissionState(bool IsValid, IValidationText Text) : IValidationState;
@@ -180,6 +180,9 @@ public static class ScreenValidation {
     extension<TScreen>(TScreen screen) where TScreen : ScreenBase {
         public ValidationHelper Admit<TValue>(Expression<Func<TScreen, TValue>> property, IObservable<Validation<Error, TValue>> admissions) =>
             screen.ValidationRule(property, States(admissions));
+
+        public ValidationHelper AdmitCross<TValue>(IObservable<Validation<Error, TValue>> admissions) =>
+            screen.ValidationRule(States(admissions));
 
         public IObservable<bool> Gate() => screen.IsValid();
     }

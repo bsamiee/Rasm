@@ -143,22 +143,20 @@ public readonly record struct MeshSpace {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges, bool HasBoundary, bool IsClosed, bool IsSolid, bool IsWatertight, bool IsManifold, bool IsOriented, int EulerCharacteristic, Option<int> Genus, bool EulerValidated) {
     internal Fin<TOut> Project<TOut>(Op key) {
-        int euler = EulerCharacteristic, boundaryComponents = BoundaryComponents;
-        Option<int> genusOption = Genus;
-        return typeof(TOut) switch {
-            Type t when t == typeof(TopologyReceipt) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof((int Euler, int Genus, int BoundaryComponents)) && genusOption.IsSome => Fin.Succ((TOut)(object)(euler, genusOption.IfNone(noneValue: 0), boundaryComponents)),
-            Type t when t == typeof((int Euler, int Genus, int BoundaryComponents)) => Fin.Fail<TOut>(key.InvalidResult()),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(TopologyReceipt), outputType: typeof(TOut))),
-        };
+        TopologyReceipt self = this;
+        return AtomProjection.Rows<TopologyReceipt, TOut>(self: self, key: key,
+            new ProjectionRow(typeof((int Euler, int Genus, int BoundaryComponents)), () => self.Genus.Match(
+                Some: genus => Fin.Succ<object>((self.EulerCharacteristic, genus, self.BoundaryComponents)),
+                None: () => Fin.Fail<object>(key.InvalidResult()))));
     }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int OriginalVertices, int OriginalFaces, int IntrinsicVertices, int IntrinsicEdges, int IntrinsicFaces, int LogicalCoverFaces, int LogicalCoverEdges, int BoundaryEdges, int NonManifoldEdges, int MollifiedEdges, double MaxMollification, int IntrinsicFlips, bool DelaunaySatisfied, int StiffnessNonZeros, int MassNonZeros, int PositiveMassCount, int SkippedDegenerateFaces, bool CoverAware, bool CollapsedToOriginalVertices) {
+public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int OriginalVertices, int OriginalFaces, int IntrinsicVertices, int IntrinsicEdges, int IntrinsicFaces, int LogicalCoverFaces, int LogicalCoverEdges, int BoundaryEdges, int NonManifoldEdges, int MollifiedEdges, double MaxMollification, int IntrinsicFlips, bool DelaunaySatisfied, int StiffnessNonZeros, int MassNonZeros, int PositiveMassCount, int SkippedDegenerateFaces, int DroppedNonTriangleFaces, bool CoverAware, bool CollapsedToOriginalVertices) {
     public bool IsValid =>
         Kind is not null
-        && new[] { OriginalVertices, OriginalFaces, IntrinsicVertices, IntrinsicEdges, IntrinsicFaces, LogicalCoverFaces, LogicalCoverEdges, BoundaryEdges, NonManifoldEdges, MollifiedEdges, IntrinsicFlips, StiffnessNonZeros, MassNonZeros, PositiveMassCount, SkippedDegenerateFaces }.All(static value => value >= 0)
+        && OriginalVertices >= 0 && OriginalFaces >= 0 && IntrinsicVertices >= 0 && IntrinsicEdges >= 0 && IntrinsicFaces >= 0 && LogicalCoverFaces >= 0 && LogicalCoverEdges >= 0 && BoundaryEdges >= 0 && NonManifoldEdges >= 0 && MollifiedEdges >= 0 && IntrinsicFlips >= 0 && StiffnessNonZeros >= 0 && MassNonZeros >= 0 && PositiveMassCount >= 0 && SkippedDegenerateFaces >= 0 && DroppedNonTriangleFaces >= 0
+        && OriginalFaces >= IntrinsicFaces + DroppedNonTriangleFaces
         && RhinoMath.IsValidDouble(x: MaxMollification)
         && MaxMollification >= 0.0
         && (!CoverAware || LogicalCoverFaces >= IntrinsicFaces)
@@ -181,22 +179,21 @@ public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatr
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshSamplingSpectrumReceipt(int VertexCount, int SampleCount, int EigenpairCount, double LowFrequencyEnergy, double TotalEnergy, double SuppressionRatio, double ValidationThreshold, bool Validated, MeshSamplingSpectrumAlgorithm? Algorithm = null) {
-    internal bool IsValid => VertexCount > 0 && SampleCount > 0 && EigenpairCount > 0 && new[] { LowFrequencyEnergy, TotalEnergy, SuppressionRatio, ValidationThreshold }.All(RhinoMath.IsValidDouble) && TotalEnergy > 0.0 && SuppressionRatio is >= 0.0 and <= 1.0 && ValidationThreshold is >= 0.0 and <= 1.0 && Validated == (SuppressionRatio <= ValidationThreshold);
+    internal bool IsValid => VertexCount > 0 && SampleCount > 0 && EigenpairCount > 0 && RhinoMath.IsValidDouble(x: LowFrequencyEnergy) && RhinoMath.IsValidDouble(x: TotalEnergy) && RhinoMath.IsValidDouble(x: SuppressionRatio) && RhinoMath.IsValidDouble(x: ValidationThreshold) && TotalEnergy > 0.0 && SuppressionRatio is >= 0.0 and <= 1.0 && ValidationThreshold is >= 0.0 and <= 1.0 && Validated == (SuppressionRatio <= ValidationThreshold);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureEdge(int A, int B, MeshFeatureKind Kind, Option<double> DihedralRadians, Option<double> SignedDihedralRadians = default, Option<double> CurvatureSignal = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct FeatureReceipt(Seq<FeatureEdge> Edges, int BoundaryEdges, int CreaseEdges, int NonManifoldEdges, int UnweldedEdges, int NgonInteriorSkippedEdges, double DihedralThresholdRadians, int RidgeEdges = 0, int ValleyEdges = 0, int RegionBoundaryEdges = 0, double CurvatureThreshold = 0.0, double SmoothingScale = 0.0, int CurvatureFiniteVertices = 0, int CurvatureRejectedVertices = 0, MeshFeatureAlgorithm? Algorithm = null) {
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(FeatureReceipt) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(Seq<FeatureEdge>) => Fin.Succ((TOut)(object)Edges),
-            Type t when t == typeof(Seq<(int A, int B)>) => Fin.Succ((TOut)(object)toSeq(Edges.AsIterable()
+    internal Fin<TOut> Project<TOut>(Op key) {
+        FeatureReceipt self = this;
+        return AtomProjection.Rows<FeatureReceipt, TOut>(self: self, key: key,
+            new ProjectionRow(typeof(Seq<FeatureEdge>), () => Fin.Succ<object>(self.Edges)),
+            new ProjectionRow(typeof(Seq<(int A, int B)>), () => Fin.Succ<object>(toSeq(self.Edges.AsIterable()
                 .Where(static edge => !edge.Kind.Equals(MeshFeatureKind.NgonInteriorSkipped))
-                .Select(static edge => (edge.A, edge.B)))),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(FeatureReceipt), outputType: typeof(TOut))),
-        };
+                .Select(static edge => (edge.A, edge.B))))));
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -228,14 +225,13 @@ public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, P
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, FlattenReceipt Receipt) {
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(Arr<Point2d>) => Fin.Succ((TOut)(object)Uvs),
-            Type t when t == typeof(FlattenResult) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(FlattenReceipt) => Fin.Succ((TOut)(object)Receipt),
-            Type t when t == typeof(Mesh) => key.AcceptValue(value: Mesh).Map(static value => (TOut)(object)value),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(FlattenResult), outputType: typeof(TOut))),
-        };
+    internal Fin<TOut> Project<TOut>(Op key) {
+        FlattenResult self = this;
+        return AtomProjection.Rows<FlattenResult, TOut>(self: self, key: key,
+            new ProjectionRow(typeof(Arr<Point2d>), () => Fin.Succ<object>(self.Uvs)),
+            new ProjectionRow(typeof(FlattenReceipt), () => Fin.Succ<object>(self.Receipt)),
+            new ProjectionRow(typeof(Mesh), () => key.AcceptValue(value: self.Mesh).Map(static value => (object)value)));
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount, int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros, Option<double> NormalizedCutValue = default, Option<int> AffinityNonZeros = default, Option<int> WatershedSaddleCount = default, Option<EigenSolveReceipt<double, Arr<double>>> Eigen = default);
@@ -246,13 +242,12 @@ public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, Flatten
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt) {
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(Mesh) => key.AcceptValue(value: Mesh).Map(static value => (TOut)(object)value),
-            Type t when t == typeof(RemeshResult) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(RemeshReceipt) => Fin.Succ((TOut)(object)Receipt),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(RemeshResult), outputType: typeof(TOut))),
-        };
+    internal Fin<TOut> Project<TOut>(Op key) {
+        RemeshResult self = this;
+        return AtomProjection.Rows<RemeshResult, TOut>(self: self, key: key,
+            new ProjectionRow(typeof(Mesh), () => key.AcceptValue(value: self.Mesh).Map(static value => (object)value)),
+            new ProjectionRow(typeof(RemeshReceipt), () => Fin.Succ<object>(self.Receipt)));
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve, Option<SpectralAssemblyReceipt> EdgeAssembly = default);
@@ -267,7 +262,7 @@ public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SignpostTransportReceipt(int VertexCount, int IntrinsicEdgeCount, int TransportedEdgeCount, int IntrinsicFlipCount, int ChordFallbackEdges, int MissingFrameEdges, int CommonSubdivisionSegments, bool IntrinsicSnapshot, bool ExactCommonSubdivision, double MaxAngleRadians, double MaxLengthResidual) {
     public bool IsValid =>
-        new[] { VertexCount, IntrinsicEdgeCount, TransportedEdgeCount, IntrinsicFlipCount, ChordFallbackEdges, MissingFrameEdges, CommonSubdivisionSegments }.All(static value => value >= 0)
+        VertexCount >= 0 && IntrinsicEdgeCount >= 0 && TransportedEdgeCount >= 0 && IntrinsicFlipCount >= 0 && ChordFallbackEdges >= 0 && MissingFrameEdges >= 0 && CommonSubdivisionSegments >= 0
         && TransportedEdgeCount + MissingFrameEdges <= IntrinsicEdgeCount
         && ChordFallbackEdges <= TransportedEdgeCount
         && (!ExactCommonSubdivision || CommonSubdivisionSegments > 0)
@@ -445,7 +440,7 @@ internal static class MeshKernel {
     [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeSource(Point3d Center, Vector3d Normal, double Area);
     [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeSourceSet(VolumeSource[] Sources, int Degenerate, double Area);
     [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeGridVectors(double[] X, double[] Y, double[] Z, int Rejected, int Inside, int Outside, int NearSurface, int InteriorIndex);
-    [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeGridSystem(SparseMatrix Operator, Arr<double> Rhs, int GaugeNode);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeGridSystem(SparseMatrix Operator, Arr<double> Rhs);
     private sealed class LaplacianTriplets {
         private readonly int vertexCount;
         internal readonly List<(int Row, int Col, double Value)> Stiffness = [], Mass = [];
@@ -561,6 +556,7 @@ internal static class MeshKernel {
         internal bool HasFlips;
         internal bool TuftedCover;
         internal int OriginalFaceCount;
+        internal int DroppedNonTriangleFaces;
         internal int FlipCount;
         internal int MollifiedEdgeCount;
         internal double MaxMollification;
@@ -646,7 +642,7 @@ internal static class MeshKernel {
             IntrinsicMesh m = new() { VertexCount = active.Vertices.Count, OriginalFaceCount = active.Faces.Count, TuftedCover = tuftedCover };
             for (int f = 0; f < active.Faces.Count; f++) {
                 MeshFace face = active.Faces[index: f];
-                if (!face.IsTriangle) continue;
+                if (!face.IsTriangle) { m.DroppedNonTriangleFaces++; continue; }
                 Point3d pa = active.Vertices[index: face.A]; Point3d pb = active.Vertices[index: face.B]; Point3d pc = active.Vertices[index: face.C];
                 IntrinsicLengthSet lengths = tuftedCover
                     ? MollifiedLengths(lAB: pa.DistanceTo(other: pb), lBC: pb.DistanceTo(other: pc), lAC: pa.DistanceTo(other: pc))
@@ -797,6 +793,7 @@ internal static class MeshKernel {
             MassNonZeros: laplacian.MassConsistent.NonZeros,
             PositiveMassCount: laplacian.MassLumped.Count(static value => value > RhinoMath.ZeroTolerance),
             SkippedDegenerateFaces: laplacian.SkippedDegenerateFaces,
+            DroppedNonTriangleFaces: imesh.DroppedNonTriangleFaces,
             CoverAware: false,
             CollapsedToOriginalVertices: true)
         from _ in receipt.IsValid ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
@@ -816,18 +813,10 @@ internal static class MeshKernel {
     internal static Fin<SparseMatrix> AssembleMassStiffnessSystem(SparseLaplacian laplacian, double stiffnessScale, Op key, double massScale = 1.0) {
         int n = laplacian.Stiffness.Rows.Value;
         if (n == 0) return Fin.Fail<SparseMatrix>(error: key.InvalidInput());
-        List<(int Row, int Col, double Value)> triplets = SparseTripletsOf(matrix: laplacian.Stiffness, capacityBonus: n, scale: stiffnessScale);
+        List<(int Row, int Col, double Value)> triplets = MatrixKernel.SparseTripletsOf(matrix: laplacian.Stiffness, capacityBonus: n, scale: stiffnessScale);
         for (int i = 0; i < n; i++) triplets.Add(item: (i, i, massScale * laplacian.MassLumped[index: i]));
         Dimension dim = Dimension.Create(value: n);
         return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key);
-    }
-    private static List<(int Row, int Col, double Value)> SparseTripletsOf(SparseMatrix matrix, int capacityBonus = 0, double scale = 1.0) {
-        int n = matrix.Rows.Value;
-        List<(int Row, int Col, double Value)> triplets = new(capacity: matrix.NonZeros + capacityBonus);
-        for (int i = 0; i < n; i++)
-            for (int k = matrix.RowPtr[index: i]; k < matrix.RowPtr[index: i + 1]; k++)
-                triplets.Add(item: (i, matrix.ColInd[index: k], scale * matrix.Values[index: k]));
-        return triplets;
     }
 
     // --- [SPECTRAL_BASIS] ------------------------------------------------------------------
@@ -1054,14 +1043,12 @@ internal static class MeshKernel {
         double h = space.Cache.MeanEdgeLength;
         if (h <= RhinoMath.ZeroTolerance) return Fin.Fail<Arr<double>>(key.InvalidResult());
         double t = h * h;
-        Dimension dim = Dimension.Create(value: n);
         return from heatFactor in space.Cache.ScalarHeatCholesky(time: t, key: key)
                from delta in Fin.Succ(SpectralCore.BuildSourceDelta(n: n, sources: sources, mass: laplacian.MassLumped))
                from u in heatFactor.Solve(rhs: delta, key: key)
                from gradient in Fin.Succ(SpectralCore.ComputeTriangleGradients(mesh: space.Native, u: u))
                from divergence in Fin.Succ(SpectralCore.ComputeVertexDivergence(mesh: space.Native, gradients: gradient))
-               from poisson in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: SpectralCore.PoissonTriplets(L: laplacian, sources: sources), key: key)
-               from phi in poisson.Solve(rhs: divergence, key: key)
+               from phi in laplacian.Stiffness.SingularSolve(rhs: divergence, gauge: GaugePolicy.Pinned(indices: sources, mass: Some(laplacian.MassLumped), shift: GaugeShift.MinZero), context: space.Tolerance, key: key)
                select NormalizeToZero(values: phi);
     }
     private static Arr<double> NormalizeToZero(Arr<double> values) {
@@ -1378,14 +1365,11 @@ internal static class MeshKernel {
         from assembly in includeAssembly ? SpectralCore.Build(space: space, key: key).Map(calculus => Some(calculus.Receipt)) : Fin.Succ(Option<SpectralAssemblyReceipt>.None)
         select new DescriptorResult(Values: spectral.Values, Receipt: new DescriptorReceipt(Spectral: spectral.Receipt, Eigen: bundle.Eigen, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, SpectralCacheHit: bundle.CacheHit, SkippedDegenerateFaces: bundle.SkippedDegenerateFaces, FactorNonZeros: bundle.FactorNonZeros, Assembly: assembly));
     private static Fin<TOut> ProjectDescriptor<TOut>(DescriptorResult descriptor, Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(DescriptorResult) => Fin.Succ((TOut)(object)descriptor),
-            Type t when t == typeof(DescriptorReceipt) => Fin.Succ((TOut)(object)descriptor.Receipt),
-            Type t when t == typeof(SpectralDescriptor) => Fin.Succ((TOut)(object)new SpectralDescriptor(Values: descriptor.Values, Receipt: descriptor.Receipt.Spectral)),
-            Type t when t == typeof(SpectralDescriptorReceipt) => Fin.Succ((TOut)(object)descriptor.Receipt.Spectral),
-            Type t when t == typeof(Arr<double>) => Fin.Succ((TOut)(object)descriptor.Values),
-            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor.SpectralCase), outputType: typeof(TOut))),
-        };
+        AtomProjection.Rows<DescriptorResult, TOut>(self: descriptor, key: key, owner: typeof(MeshDescriptor.SpectralCase),
+            new ProjectionRow(typeof(DescriptorReceipt), () => Fin.Succ<object>(descriptor.Receipt)),
+            new ProjectionRow(typeof(SpectralDescriptor), () => Fin.Succ<object>(new SpectralDescriptor(Values: descriptor.Values, Receipt: descriptor.Receipt.Spectral))),
+            new ProjectionRow(typeof(SpectralDescriptorReceipt), () => Fin.Succ<object>(descriptor.Receipt.Spectral)),
+            new ProjectionRow(typeof(Arr<double>), () => Fin.Succ<object>(descriptor.Values)));
 
     internal static Fin<double> SpectralDistanceAt(MeshSpace space, SpectralFilter filter, Seq<int> sources, int pairs, Point3d sample, Op key) =>
         from bundle in space.Cache.SpectralBasisBundleOf(k: pairs, key: key)
@@ -1439,7 +1423,10 @@ internal static class MeshKernel {
         let labels = ConnectedComponents(mesh: space.Native, buckets: clusters.Labels)
         let value = NormalizedCutValue(mesh: space.Native, scalars: scalars.FaceValues, labels: labels, sigma: system.Sigma)
         select SegmentationResultOf(mesh: space.Native, faceRegions: labels, scalars: scalars, run: new SegmentationRun(Algorithm: MeshSegmentationAlgorithm.NormalizedCut, RequestedRegionCount: kind.RegionCount.Value, SeedCount: 0, Status: clusters.Converged ? MeshSegmentationStatus.Completed : MeshSegmentationStatus.MaxIterationsExhausted, Iterations: Some(clusters.Iterations), MaxIterations: Some(kind.MaxIterations.Value), Tolerance: Some(kind.Tolerance.Value), Threshold: Option<double>.None, Descriptor: Option<DescriptorReceipt>.None, FactorNonZeros: eigen.FactorNonZeros, NormalizedCutValue: Some(value), AffinityNonZeros: Some(system.AffinityNonZeros), Eigen: Some(eigen)));
-    private static Fin<TOut> ProjectSegmentation<TOut>(MeshSegmentationResult result, Op key) => typeof(TOut) switch { Type t when t == typeof(MeshSegmentationResult) => Fin.Succ((TOut)(object)result), Type t when t == typeof(MeshSegmentationReceipt) => Fin.Succ((TOut)(object)result.Receipt), Type t when t == typeof(Arr<int>) => Fin.Succ((TOut)(object)result.FaceRegions), _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshSegmentation), outputType: typeof(TOut))) };
+    private static Fin<TOut> ProjectSegmentation<TOut>(MeshSegmentationResult result, Op key) =>
+        AtomProjection.Rows<MeshSegmentationResult, TOut>(self: result, key: key, owner: typeof(MeshSegmentation),
+            new ProjectionRow(typeof(MeshSegmentationReceipt), () => Fin.Succ<object>(result.Receipt)),
+            new ProjectionRow(typeof(Arr<int>), () => Fin.Succ<object>(result.FaceRegions)));
     private static MeshSegmentationResult SegmentationComponentsOf(Mesh mesh, SegmentationScalars scalars, Func<double, int> bucket, SegmentationRun run) =>
         SegmentationResultOf(mesh: mesh, faceRegions: ConnectedComponents(mesh: mesh, buckets: BucketsOf(values: scalars.FaceValues, bucket: bucket)), scalars: scalars, run: run);
     private static MeshSegmentationResult SegmentationResultOf(Mesh mesh, int[] faceRegions, SegmentationScalars scalars, SegmentationRun run) {
@@ -1830,19 +1817,9 @@ internal static class MeshKernel {
                 };
             }))
             .Bind(_ => space.Laplacian(kind: MeshLaplacian.Cotangent, key: key))
-            .Bind(L => SolvePinnedPoisson(stiffness: L.Stiffness, rhs: new Arr<double>(negDivergence), key: key))
+            .Bind(L => L.Stiffness.SingularSolve(rhs: new Arr<double>(negDivergence), gauge: GaugePolicy.PinConstant(index: 0, mass: Some(L.MassLumped), shift: GaugeShift.MeanZero), context: space.Tolerance, key: key))
             .Bind(potential => BuildHodgeFromPotential(mesh: mesh, source: source, potential: potential, space: space, key: key))
                select bundle;
-    }
-    // Pinning removes the constant Laplacian null mode.
-    private static Fin<Arr<double>> SolvePinnedPoisson(SparseMatrix stiffness, Arr<double> rhs, Op key) {
-        int n = stiffness.Rows.Value;
-        List<(int Row, int Col, double Value)> triplets = SparseTripletsOf(matrix: stiffness, capacityBonus: 1);
-        triplets.Add(item: (0, 0, 1.0e10));
-        Dimension dim = Dimension.Create(value: n);
-        return from pinned in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key)
-               from potential in pinned.Solve(rhs: rhs, key: key)
-               select potential;
     }
     private static Fin<HodgeBundle> BuildHodgeFromPotential(Mesh mesh, VectorField source, Arr<double> potential, MeshSpace space, Op key) {
         using Mesh active = mesh.DuplicateMesh();
@@ -2097,10 +2074,10 @@ internal static class MeshKernel {
         from sources in VolumeSourcesOf(mesh: space.Native, normalSign: admitted.NormalSign, key: key)
         from vectors in VolumeGridVectorsOf(mesh: space.Native, domain: domain, sources: sources, heatTime: heatTime, tolerance: space.Tolerance.Absolute.Value, key: key)
         from system in AssembleVolumeGridPoisson(domain: domain, vectors: vectors, key: key)
-        from solve in CholeskySparse.Of(symmetric: system.Operator, key: key).Bind(factor => factor.SolveDetailed(rhs: system.Rhs, key: key))
+        from solve in system.Operator.SingularSolveDetailed(rhs: system.Rhs, gauge: GaugePolicy.PinConstant(index: vectors.InteriorIndex, shift: GaugeShift.MinZero), context: space.Tolerance, key: key)
         from __ in solve.Residual <= policy.Solver.ResidualTolerance.Value ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
         from calibrated in CalibrateClosedSignedHeat(domain: domain, raw: solve.Solution, sources: sources, interiorIndex: vectors.InteriorIndex, key: key)
-        let receipt = new VolumeGridReceipt(Bounds: domain.Bounds, Resolution: domain.Resolution, XNodes: domain.XNodes, YNodes: domain.YNodes, ZNodes: domain.ZNodes, CellSize: domain.CellSize, Padding: domain.Padding, NodeCount: domain.NodeCount, CellCount: domain.CellCount, SourceTriangleCount: sources.Sources.Length, DegenerateTriangleCount: sources.Degenerate, SourceArea: sources.Area, InsideNodeCount: vectors.Inside, OutsideNodeCount: vectors.Outside, NearSurfaceNodeCount: vectors.NearSurface, RejectedVectorCount: vectors.Rejected, HeatTime: heatTime, GaugeNode: system.GaugeNode, SurfaceShift: calibrated.Shift, Interpolation: policy.Interpolation, BoundaryCondition: policy.BoundaryCondition, Solver: policy.Solver, OperatorNonZeros: system.Operator.NonZeros, FactorNonZeros: solve.FactorNonZeros, Residual: solve.Residual)
+        let receipt = new VolumeGridReceipt(Bounds: domain.Bounds, Resolution: domain.Resolution, XNodes: domain.XNodes, YNodes: domain.YNodes, ZNodes: domain.ZNodes, CellSize: domain.CellSize, Padding: domain.Padding, NodeCount: domain.NodeCount, CellCount: domain.CellCount, SourceTriangleCount: sources.Sources.Length, DegenerateTriangleCount: sources.Degenerate, SourceArea: sources.Area, InsideNodeCount: vectors.Inside, OutsideNodeCount: vectors.Outside, NearSurfaceNodeCount: vectors.NearSurface, RejectedVectorCount: vectors.Rejected, HeatTime: heatTime, GaugeNode: solve.Gauge.Bind(static gauge => gauge.PinnedIndex).IfNone(noneValue: 0), SurfaceShift: calibrated.Shift, Interpolation: policy.Interpolation, BoundaryCondition: policy.BoundaryCondition, Solver: policy.Solver, OperatorNonZeros: system.Operator.NonZeros, FactorNonZeros: solve.FactorNonZeros, Residual: solve.Residual)
         let solvedDomain = domain with { Receipt = receipt }
         select new ClosedSignedHeatSolution(Domain: solvedDomain, Values: calibrated.Values, Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: 0, BoundaryEncodedEdgeSourceCount: 0, BoundaryRejectedPointCount: 0, BoundaryUnmatchedSegmentCount: 0, HeatSolve: Option<SolveReceipt>.None, PoissonSolve: solve), Topology: admitted.Topology);
     private static Fin<(TopologyReceipt Topology, BoundingBox Bounds, double NormalSign)> AdmitClosedSignedHeat(MeshSpace space, SdfMeshPolicy policy, Op key) =>
@@ -2181,7 +2158,6 @@ internal static class MeshKernel {
             : Fin.Fail<VolumeGridVectors>(key.InvalidResult());
     }
     private static Fin<VolumeGridSystem> AssembleVolumeGridPoisson(VolumeGridDomain domain, VolumeGridVectors vectors, Op key) {
-        int gauge = 0;
         double invH = 1.0 / domain.CellSize, invH2 = invH * invH;
         double[] rhs = new double[domain.NodeCount];
         List<(int Row, int Col, double Value)> triplets = new(capacity: domain.NodeCount * 7);
@@ -2196,16 +2172,11 @@ internal static class MeshKernel {
             for (int y = 0; y < domain.YNodes; y++)
                 for (int x = 0; x < domain.XNodes; x++) {
                     int row = domain.Index(x: x, y: y, z: z);
-                    if (row == gauge) {
-                        rhs[row] = 0.0;
-                        triplets.Add(item: (row, row, 1.0));
-                        continue;
-                    }
                     rhs[row] = -(Difference(values: vectors.X, x: x, y: y, z: z, axis: 0) + Difference(values: vectors.Y, x: x, y: y, z: z, axis: 1) + Difference(values: vectors.Z, x: x, y: y, z: z, axis: 2));
                     double diag = 0.0;
                     void AddNeighbor(int nx, int ny, int nz) {
                         int col = domain.Index(x: nx, y: ny, z: nz); diag += invH2;
-                        if (col != gauge) triplets.Add(item: (row, col, -invH2));
+                        triplets.Add(item: (row, col, -invH2));
                     }
                     if (x > 0) AddNeighbor(nx: x - 1, ny: y, nz: z); if (x < domain.XNodes - 1) AddNeighbor(nx: x + 1, ny: y, nz: z);
                     if (y > 0) AddNeighbor(nx: x, ny: y - 1, nz: z); if (y < domain.YNodes - 1) AddNeighbor(nx: x, ny: y + 1, nz: z);
@@ -2214,7 +2185,7 @@ internal static class MeshKernel {
                 }
         Dimension dim = Dimension.Create(value: domain.NodeCount);
         return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key)
-            .Map(matrix => new VolumeGridSystem(Operator: matrix, Rhs: new Arr<double>(rhs), GaugeNode: gauge));
+            .Map(matrix => new VolumeGridSystem(Operator: matrix, Rhs: new Arr<double>(rhs)));
     }
     private static Fin<(Arr<double> Values, double Shift)> CalibrateClosedSignedHeat(VolumeGridDomain domain, Arr<double> raw, VolumeSourceSet sources, int interiorIndex, Op key) {
         VolumeSource[] sourceArray = sources.Sources;

@@ -44,6 +44,9 @@ and execution-provider selection for Compute model rails.
 |   [6]   | `PrePackedWeightsContainer` | weights cache   | shares packed weights    |
 |   [7]   | `FixedBufferOnnxValue`      | buffer value    | binds fixed memory       |
 |   [8]   | `OrtLoraAdapter`            | adapter value   | binds LoRA adapter       |
+|   [9]   | `OrtMemoryAllocation`       | device buffer   | owns a device allocation |
+|  [10]   | `OrtMemType`                | memory enum     | `Default`, `Cpu`, `CpuInput`, `CpuOutput` |
+|  [11]   | `OrtAllocatorType`          | allocator enum  | `DeviceAllocator`, `ArenaAllocator` |
 
 [PUBLIC_TYPE_SCOPE]: environment, threading, and provider-policy contracts
 - rail: model
@@ -136,6 +139,31 @@ and execution-provider selection for Compute model rails.
 |  [25]   | `OrtThreadingOptions.GlobalSpinControl`         | set-only property  | `bool` spin flag, `false` no-spin/low-CPU, `true` spin/low-latency                       |
 |  [26]   | `OrtThreadingOptions`                           | parameterless ctor | constructs a global thread-pool options handle                                           |
 
+[ENTRYPOINT_SCOPE]: IO-binding bound-inference operations
+- rail: model
+
+| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]      | [CAPABILITY]                                                                  |
+| :-----: | :----------------------------------------- | :---------------- | :---------------------------------------------------------------------------- |
+|   [1]   | `InferenceSession.CreateIoBinding`         | factory call      | returns an `OrtIoBinding` bound to the session                                |
+|   [2]   | `InferenceSession.RunWithBinding`          | bound-run call    | `(RunOptions, OrtIoBinding)` executes a pre-bound inference                    |
+|   [3]   | `OrtIoBinding.BindInput`                   | bind call         | `(string, OrtValue)` binds a named input value                                |
+|   [4]   | `OrtIoBinding.BindInput`                   | bind call         | `(string, TensorElementType, long[], OrtMemoryAllocation)` binds device input |
+|   [5]   | `OrtIoBinding.BindOutput`                  | bind call         | `(string, OrtValue)` binds a named output value                               |
+|   [6]   | `OrtIoBinding.BindOutput`                  | bind call         | `(string, TensorElementType, long[], OrtMemoryAllocation)` binds device output |
+|   [7]   | `OrtIoBinding.BindOutputToDevice`          | bind call         | `(string, OrtMemoryInfo)` binds an output to a device allocator               |
+|   [8]   | `OrtIoBinding.SynchronizeBoundInputs`      | sync call         | flushes pending bound input transfers                                         |
+|   [9]   | `OrtIoBinding.SynchronizeBoundOutputs`     | sync call         | flushes pending bound output transfers                                        |
+|  [10]   | `OrtIoBinding.GetOutputNames`              | binding read      | `string[]` returns bound output names                                         |
+|  [11]   | `OrtIoBinding.GetOutputValues`             | binding read      | `IDisposableReadOnlyCollection<OrtValue>` returns bound output values         |
+|  [12]   | `OrtIoBinding.ClearBoundInputs`            | reset call        | clears all bound inputs                                                       |
+|  [13]   | `OrtIoBinding.ClearBoundOutputs`           | reset call        | clears all bound outputs                                                      |
+|  [14]   | `OrtValue.CreateTensorValueWithData`       | factory call      | `(OrtMemoryInfo, TensorElementType, long[], nint, long)` binds device memory  |
+|  [15]   | `OrtValue.CreateAllocatedTensorValue`      | factory call      | `(OrtAllocator, TensorElementType, long[])` allocates an output tensor        |
+|  [16]   | `OrtValue.GetTensorDataAsSpan<T>`          | span read         | `ReadOnlySpan<T>` reads bound tensor data                                     |
+|  [17]   | `OrtValue.GetTensorMutableDataAsSpan<T>`   | span write        | `Span<T>` writes bound tensor data                                            |
+|  [18]   | `OrtMemoryInfo.DefaultInstance`            | static property   | shared CPU `OrtMemoryInfo` for default-device binding                         |
+|  [19]   | `OrtMemoryInfo`                            | ctor              | `(string, OrtAllocatorType, int, OrtMemType)` builds a device descriptor      |
+
 ## [4]-[CONFIG_KEYS]
 
 [CONFIG_KEY_SCOPE]: session-options config-entry keys
@@ -180,6 +208,15 @@ and execution-provider selection for Compute model rails.
 - run root: `RunOptions`
 - metadata root: model, node, tensor, and element classifiers
 - lifetime: native handles release through deterministic disposal
+
+[IO_BINDING]:
+- binding root: `OrtIoBinding` from `InferenceSession.CreateIoBinding`
+- bound run: `InferenceSession.RunWithBinding(RunOptions, OrtIoBinding)` executes against pre-bound input and output slots
+- input binding: `BindInput` accepts an `OrtValue` or a device `(TensorElementType, long[], OrtMemoryAllocation)` tuple
+- output binding: `BindOutput` mirrors input binding; `BindOutputToDevice(string, OrtMemoryInfo)` routes outputs to a device allocator
+- synchronization: `SynchronizeBoundInputs` and `SynchronizeBoundOutputs` flush pending device transfers around the bound run
+- output projection: `GetOutputNames` and `GetOutputValues` read bound results; `ClearBoundInputs` and `ClearBoundOutputs` reset the binding between runs
+- steady state: binding amortizes input and output allocation across repeated runs and is the measured hot-loop path
 
 [NATIVE_RUNTIME]:
 - package asset: runtime-native libraries

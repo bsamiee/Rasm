@@ -116,6 +116,42 @@ reflection, well-known types, repeated fields, maps, and JSON projection.
 |  [11]   | `MessageParser<T>.ParseFrom`        | parser call      | accepts `ReadOnlySequence<byte>` fragmented payloads                    |
 |  [12]   | `CodedInputStream.CreateWithLimits` | factory call     | binds size and recursion limits; package default recursion limit is 100 |
 
+[ENTRYPOINT_SCOPE]: buffer fast-path parse and write operations
+- rail: remote-contracts
+
+| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]   | [CAPABILITY]                                                                  |
+| :-----: | :----------------------------------------- | :------------- | :---------------------------------------------------------------------------- |
+|   [1]   | `MessageParser.ParseFrom`                  | parser call    | `(ReadOnlySpan<byte>)` parses a contiguous buffer with no stream allocation    |
+|   [2]   | `MessageParser.ParseFrom`                  | parser call    | `(ReadOnlySequence<byte>)` parses a fragmented buffer                          |
+|   [3]   | `MessageExtensions.MergeFrom`              | merge call     | `(this IMessage, ReadOnlySpan<byte>)` merges a contiguous buffer               |
+|   [4]   | `MessageExtensions.MergeFrom`              | merge call     | `(this IMessage, ReadOnlySequence<byte>)` merges a fragmented buffer           |
+|   [5]   | `MessageExtensions.WriteTo`                | writer call    | `(this IMessage, IBufferWriter<byte>)` writes into a pooled writer             |
+|   [6]   | `MessageExtensions.WriteTo`                | writer call    | `(this IMessage, Span<byte>)` writes into a pre-sized buffer                   |
+|   [7]   | `MessageExtensions.WriteLengthPrefixedTo`  | writer call    | `(this IMessage, IBufferWriter<byte>)` writes a varint-length-prefixed payload |
+|   [8]   | `UnsafeByteOperations.UnsafeWrap`          | byte call      | `(ReadOnlyMemory<byte>)` aliases backing memory into a `ByteString` no-copy    |
+
+[ENTRYPOINT_SCOPE]: buffer-message and field-codec context operations
+- rail: remote-contracts
+
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]   | [CAPABILITY]                                                                |
+| :-----: | :----------------------------------- | :------------- | :-------------------------------------------------------------------------- |
+|   [1]   | `IBufferMessage.InternalMergeFrom`   | parse call     | `(ref ParseContext)` generated buffer-driven merge entry                    |
+|   [2]   | `IBufferMessage.InternalWriteTo`     | write call     | `(ref WriteContext)` generated buffer-driven write entry                    |
+|   [3]   | `ParseContext.ReadTag`               | read call      | `uint` reads the next field tag                                             |
+|   [4]   | `ParseContext.ReadMessage`           | read call      | `(IMessage)` reads a nested length-delimited message                        |
+|   [5]   | `ParseContext.ReadString` / `ReadBytes` | read call   | reads a length-delimited string or `ByteString`                            |
+|   [6]   | `ParseContext.ReadInt32` / `ReadInt64` / `ReadDouble` / `ReadBool` | read call | reads a scalar field by wire type                       |
+|   [7]   | `WriteContext.WriteTag`              | write call     | `(int fieldNumber, WireFormat.WireType)` or `(uint tag)` writes a field tag |
+|   [8]   | `WriteContext.WriteMessage`          | write call     | `(IMessage)` writes a nested length-delimited message                       |
+|   [9]   | `WriteContext.WriteString` / `WriteBytes` | write call | writes a length-delimited string or `ByteString`                           |
+|  [10]   | `WriteContext.WriteRawTag`           | write call     | `(byte b1, ...)` emits up to four precomputed tag bytes                     |
+|  [11]   | `FieldCodec.For*`                    | factory call   | static `ForInt32` / `ForString` / `ForBytes` / `ForBool` / scalar builders  |
+|  [12]   | `FieldCodec.ForMessage<T>`           | factory call   | `(uint tag, MessageParser<T>)` builds a message-field codec                  |
+|  [13]   | `FieldCodec.ForEnum<T>`              | factory call   | `(uint tag, Func<T,int>, Func<int,T>)` builds an enum-field codec            |
+|  [14]   | `FieldCodec<T>.Read`                 | read call      | `(ref ParseContext)` or `(CodedInputStream)` reads a typed field value      |
+|  [15]   | `FieldCodec<T>.WriteTagAndValue`     | write call     | `(ref WriteContext, T)` or `(CodedOutputStream, T)` writes tag plus value   |
+|  [16]   | `FieldCodec<T>.CalculateSizeWithTag` | size call      | `(T)` measures the encoded field size including its tag                      |
+
 ## [4]-[IMPLEMENTATION_LAW]
 
 [WIRE_CONTRACTS]:
@@ -123,6 +159,14 @@ reflection, well-known types, repeated fields, maps, and JSON projection.
 - contract root: generated messages implement `IMessage<T>`
 - codec root: parsers, coded streams, and field codecs own binary payload flow
 - collection root: repeated fields and map fields remain generated-contract internals
+
+[BUFFER_FAST_PATH]:
+- read entry: `MessageParser.ParseFrom(ReadOnlySpan<byte>)` and `ParseFrom(ReadOnlySequence<byte>)` parse pooled buffers without a stream allocation
+- merge entry: `MessageExtensions.MergeFrom(ReadOnlySpan<byte>)` and `MergeFrom(ReadOnlySequence<byte>)` extend a live message from a buffer
+- write entry: `MessageExtensions.WriteTo(IBufferWriter<byte>)`, `WriteTo(Span<byte>)`, and `WriteLengthPrefixedTo(IBufferWriter<byte>)` emit into pooled or pre-sized buffers
+- no-copy aliasing: `UnsafeByteOperations.UnsafeWrap(ReadOnlyMemory<byte>)` adopts backing memory into a `ByteString` and requires the caller to own buffer lifetime
+- context boundary: `ParseContext` and `WriteContext` `Initialize` factories are package-internal; generated code drives them through `IBufferMessage.InternalMergeFrom(ref ParseContext)` and `InternalWriteTo(ref WriteContext)`, and Compute reaches the fast path only through the public parser, message-extension, and field-codec surfaces
+- field codec: `FieldCodec<T>.Read(ref ParseContext)`, `WriteTagAndValue(ref WriteContext, T)`, and `CalculateSizeWithTag(T)` are the ref-context per-field operations behind generated accessors
 
 [REFLECTION_CONTRACTS]:
 - namespace: `Google.Protobuf.Reflection`

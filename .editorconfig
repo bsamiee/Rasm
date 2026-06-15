@@ -370,3 +370,6 @@ dotnet_diagnostic.IDE1005.severity = error                                    # 
 [tests/**/*.cs]
 dotnet_diagnostic.CA1515.severity = none                                      # xUnit discovery requires public test classes; spec-local generators stay non-public.
 dotnet_diagnostic.MA0191.severity = none                                      # Adversarial null-payload laws intentionally use null-forgiving to enter non-nullable production boundaries.
+
+[tests/**/Scenarios/Vectors.cs]
+dotnet_diagnostic.IDE0306.severity = none                                     # RhinoCommon PointCloud collection-expression form binds Add(PointCloudItem), not the Point3d ctor; the simplification does not compile.

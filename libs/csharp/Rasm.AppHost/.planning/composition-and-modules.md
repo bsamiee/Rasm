@@ -14,7 +14,7 @@ One composition root per process folds a frozen module table into the service gr
 
 - Owner: `ModuleContribution` — the frozen per-process module-table row; modules contribute registrations and never resolve services.
 - Auto: `Contributors` rows apply through `TryAddEnumerable` — one ordered descriptor algebra carries every multi-implementation fan-in family.
-- Receipt: `ContributionReceipt` — per-module scan, lifetime, keyed, contributor, registrar, and decoration counts, materialized at the fold edge.
+- Receipt: `ContributionReceipt` — per-module scan, lifetime, keyed, default, contributor, registrar, and decoration counts, materialized at the fold edge.
 - Packages: Microsoft.Extensions.DependencyInjection
 - Growth: one module row per contributing package, one descriptor row per service; zero new surface.
 - Boundary: descriptor construction spells `ServiceDescriptor.Describe` and `DescribeKeyed` only — the `AddSingleton`/`AddScoped`/`AddTransient` and `AddKeyedSingleton`/`AddKeyedScoped`/`AddKeyedTransient` overload families are the deleted spellings.
@@ -23,6 +23,7 @@ Row law:
 - One composition root per process folds the table; packages ship rows into it. A per-package registration extension, a module interface with configure members, and an event-style registration hook are the deleted patterns — the row is the whole module contract.
 - Table order is semantic: a registrar that wraps a sibling module's contract sits in a later row than the contract it wraps, and the fold preserves declaration order end to end.
 - `Services` carries unkeyed `Describe` rows; `Keyed` carries `DescribeKeyed` rows whose keys are smart-enum policy values from the owning vocabulary pages; `Contributors` carries the ordered fan-in sets — health, support, drain, and telemetry contributor families register here, never through a bespoke aggregator contract.
+- `Defaults` carries idempotent fallback rows: a package-shipped default whose contract a host or later module may pre-empt applies through `TryAdd` for unkeyed rows and `TryAddKeyedSingleton`/`TryAddKeyedScoped`/`TryAddKeyedTransient` for keyed rows, so the first registration of a contract wins and a duplicate default is a no-op — never a silent second descriptor competing at resolution. A default that must override an earlier registration stays a `Services` `Describe` row; `Defaults` is the additive-only floor.
 - `FromKeyedServicesAttribute` binds keyed constructor parameters, `ServiceKeyAttribute` injects the resolved key into the implementation, and `KeyedService.AnyKey` selects keyed enumerables and never resolves a single service.
 - `Registrars` carries collection-shaped package registrations that no descriptor spelling expresses — the validator-discovery row and other collection-shaped admissions — each a `Func<IServiceCollection, IServiceCollection>` applied after the module's descriptor rows.
 - `Decorations` carries the typed decoration column: each entry is one `DecorationRow` application naming the inner service contract and the wrapping decorator, so the decoration topology is data the fold reads and the receipt counts, never an opaque registrar `Func`. A profile that drops a contributor port carries the entry with `Conditional: true`, so the same column decorates on the service profile and skips on the plugin profile by `TryDecorate` row presence.
@@ -35,6 +36,7 @@ public sealed record ModuleContribution(
     Option<Action<IImplementationTypeSelector>> Scan,
     Seq<ServiceDescriptor> Services,
     Seq<ServiceDescriptor> Keyed,
+    Seq<ServiceDescriptor> Defaults,
     Seq<ServiceDescriptor> Contributors,
     Seq<Func<IServiceCollection, IServiceCollection>> Registrars,
     Seq<DecorationRow> Decorations);
@@ -48,6 +50,7 @@ public readonly record struct ContributionReceipt(
     int Scoped,
     int Transients,
     int Keyed,
+    int Defaults,
     int Contributors,
     int Registrars,
     int Decorated);
@@ -88,6 +91,7 @@ public static class CompositionSurface {
         int scanned = services.Count - admitted;
         module.Services.Iter(services.Add);
         module.Keyed.Iter(services.Add);
+        module.Defaults.Iter(row => Default(services, row));
         module.Contributors.Iter(services.TryAddEnumerable);
         module.Decorations.Iter(decoration => BoundaryActivation.Decorate(services, decoration));
         ignore(module.Registrars.Fold(services, static (current, registrar) => registrar(current)));
@@ -98,13 +102,23 @@ public static class CompositionSurface {
             Scoped: Lifetimes(module, ServiceLifetime.Scoped),
             Transients: Lifetimes(module, ServiceLifetime.Transient),
             Keyed: module.Keyed.Count,
+            Defaults: module.Defaults.Count,
             Contributors: module.Contributors.Count,
             Registrars: module.Registrars.Count,
             Decorated: module.Decorations.Count(decoration => services.IsDecorated(decoration.Service)));
     }
 
+    private static void Default(IServiceCollection services, ServiceDescriptor row) =>
+        ignore(row.IsKeyedService
+            ? row.Lifetime switch {
+                ServiceLifetime.Singleton => (services.TryAddKeyedSingleton(row.ServiceType, row.ServiceKey, row.KeyedImplementationType!), services).Item2,
+                ServiceLifetime.Scoped => (services.TryAddKeyedScoped(row.ServiceType, row.ServiceKey, row.KeyedImplementationType!), services).Item2,
+                _ => (services.TryAddKeyedTransient(row.ServiceType, row.ServiceKey, row.KeyedImplementationType!), services).Item2,
+            }
+            : (fun(() => services.TryAdd(row))(), services).Item2);
+
     private static int Lifetimes(ModuleContribution module, ServiceLifetime lifetime) =>
-        (module.Services + module.Keyed).Filter(row => row.Lifetime == lifetime).Count;
+        (module.Services + module.Keyed + module.Defaults).Filter(row => row.Lifetime == lifetime).Count;
 }
 ```
 
@@ -116,11 +130,11 @@ The fold is the only writer of the collection: scan first inside each module so 
 - Entry: `Fin<T> Activate<T>(params object[] dependencies)` — empty arity resolves the registered contract, supplied arity invokes the cached constructor plan.
 - Packages: Microsoft.Extensions.DependencyInjection, Scrutor, FluentValidation.DependencyInjectionExtensions
 - Growth: one validator assembly row per discovering package, one cached plan per boundary-constructed type, one `TryDecorate` row per profile-conditional contributor port; zero new surface.
-- Boundary: activation sits at admission boundaries only — interior code receives constructor dependencies and frozen policy records, and a provider lookup inside domain flow is the deleted service-location pattern; `Available` probes through `IServiceProviderIsService`/`IServiceProviderIsKeyedService` instead of a resolve-and-catch, and the deleted form is the `GetService<T>()` null check; `Scoped` opens an `AsyncServiceScope` through `CreateAsyncScope`, and a synchronous `CreateScope` at a drain boundary is the deleted form because scoped disposables there `DisposeAsync` under the conductor token.
+- Boundary: activation sits at admission boundaries only — interior code receives constructor dependencies and frozen policy records, and a provider lookup inside domain flow is the deleted service-location pattern; `Available` probes through `IServiceProviderIsService`/`IServiceProviderIsKeyedService` instead of a resolve-and-catch, and the deleted form is the `GetService<T>()` null check; `Scoped` opens an `AsyncServiceScope` through `CreateAsyncScope`, and a synchronous `CreateScope` at a drain boundary is the deleted form because scoped disposables there `DisposeAsync` under the conductor token; a multi-constructor boundary type pins its activation constructor with `[ActivatorUtilitiesConstructor]`, so the cached `CreateFactory` plan binds the declared signature rather than constructor-greediness inference.
 
 Activation law:
 - Empty arity routes through `GetServiceOrCreateInstance` — registered contract first, constructed instance second — so optional host contracts admit without a parallel probe entrypoint.
-- Supplied arity routes through the `ActivatorUtilities.CreateFactory(Type, Type[])` plan cached per boundary type — the returned `ObjectFactory` delegate invokes as `(IServiceProvider, object?[]?) -> object`; the plan's argument vector derives from the first admission, so a boundary-constructed type owns exactly one explicit-dependency shape, and a second shape for the same type is a row on a new type, never an overload.
+- Supplied arity routes through the `ActivatorUtilities.CreateFactory(Type, Type[])` plan cached per boundary type — the returned `ObjectFactory` delegate invokes as `(IServiceProvider, object?[]?) -> object`; the plan's argument vector derives from the first admission, so a boundary-constructed type owns exactly one explicit-dependency shape, and a second shape for the same type is a row on a new type, never an overload. A boundary type carrying more than one constructor pins the activation constructor with `[ActivatorUtilitiesConstructor]` so the factory plan binds the intended signature deterministically rather than the greediest-resolvable one; a boundary type with one constructor needs no marker.
 - `Available` answers admission questions before construction: `IServiceProviderIsService.IsService` for unkeyed contracts and `IServiceProviderIsKeyedService.IsKeyedService` for smart-enum-keyed ports, so an optional host contract admits through one probe instead of a resolve-then-rescue pair; the probe never resolves, so it is legal in admission flow where a resolve is not.
 - `Scoped` owns the async drain-scope shape: `CreateAsyncScope` returns the `AsyncServiceScope` whose `ServiceProvider` resolves the boundary graph and whose `DisposeAsync` runs under the supplied conductor token, so scoped disposables flush inside the drain band instead of on a finalizer thread.
 - Every activation failure converts at this seam: the capture funnel projects construction rejections into the rail with the target type name, and no raw activation exception crosses inward.

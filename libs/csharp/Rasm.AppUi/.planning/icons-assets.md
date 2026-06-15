@@ -116,7 +116,7 @@ flowchart LR
 - Auto: the process-static retained table deletes per-control re-parse and per-call picture rebuilds; `RetainedScene` rows eagerly build the diffable scene graph at admission so hit-test and animated previews never rebuild a picture per pointer move; animation invalidation drives `InvalidateVisual` on the consuming `Svg` control and the `AnimationController` exposes pause/seek as scene-policy data, never a draw-time timer; `SvgParameters` recolor and `CurrentColor` tinting ride the same theme token resolve.
 - Packages: Svg.Controls.Skia.Avalonia, SkiaSharp, Avalonia, LanguageExt.Core, BCL inbox
 - Growth: one retained row per asset key; a recolor, scene-build, or animation policy is one `ScenePolicy` value with zero new surface.
-- Boundary: the `Admit` and `Subscribed` pair is this fence's boundary capsule — native document construction, event attachment, scene-graph build, and the process-static cache stay inside their statement bodies, the admitted stream is using-scoped, and a racing duplicate document disposes in place so only the retained winner survives; hit dispatch rides the catalogued `SvgInteractionDispatcher.HitTestTopmostElement` for topmost pointer resolution and `SKSvg.HitTestSceneNodes` for the full hit set, both projecting `SvgSceneNode` values into the interaction rail, never retained control handles; the diffable `RetainedSceneGraph` `SvgSceneDocument` node walk is the same typed-traversal algebra the Markdown and inspector descriptor folds run, parameterized by node family; the animation controller never owns the frame clock — the motion pump schedules invalidation against the reduced-motion switch, so an animated SVG rides the same frame ceiling as every moving surface; the `AnimationInvalidated` event is catalogued and its subscription is fenced, while the exact event-args type the handler binds is research-gated under SVG_ANIMATION_ARGS.
+- Boundary: the `Admit` and `Subscribed` pair is this fence's boundary capsule — native document construction, settings configuration, event attachment, scene-graph build, and the process-static cache stay inside their statement bodies, the admitted stream is using-scoped, and a racing duplicate document disposes in place so only the retained winner survives; SVG text resolves through the typography font chain rather than a private SVG font registry — `SKSvgSettings.TypefaceProviders` admits a `FontManagerTypefaceProvider` over the resolved `SKFontManager` at construction so an embedded-Inter SVG label shapes through the same family ranks the retained text stack reads, and `SrgbLinear`/`Srgb` on the settings pin the color-managed working spaces in parity with the encode color policy, while the `TypefaceProviders` collection member, the `FontManagerTypefaceProvider`/`ITypefaceProvider` provider shape, and the settings color-space members stay research-gated under SVG_TYPEFACE_PROVIDER and the provider add is fail-closed; hit dispatch rides the catalogued `SvgInteractionDispatcher.HitTestTopmostElement` for topmost pointer resolution and `SKSvg.HitTestSceneNodes` for the full hit set, both projecting `SvgSceneNode` values into the interaction rail, never retained control handles; the diffable `RetainedSceneGraph` `SvgSceneDocument` node walk is the same typed-traversal algebra the Markdown and inspector descriptor folds run, parameterized by node family; the animation controller never owns the frame clock — the motion pump schedules invalidation against the reduced-motion switch, so an animated SVG rides the same frame ceiling as every moving surface; the `AnimationInvalidated` event is catalogued and its subscription is fenced, while the exact event-args type the handler binds is research-gated under SVG_ANIMATION_ARGS.
 
 ```csharp signature
 public readonly record struct ScenePolicy(bool RetainScene, bool Animate) {
@@ -147,9 +147,12 @@ public static class SvgPipeline {
     public static Seq<SvgSceneNode> HitAll(SKSvg document, float x, float y) =>
         toSeq(document.HitTestSceneNodes(new SKPoint(x, y)));
 
+    static readonly ITypefaceProvider Typefaces = new FontManagerTypefaceProvider { FontManager = SKFontManager.Default };
+
     static SKSvg Admit(AssetKey key, Stream payload, ScenePolicy policy) {
         using Stream scoped = payload;
         SKSvg document = new();
+        document.Settings.TypefaceProviders?.Add(Typefaces);
         _ = document.Load(scoped);
         if (policy.RetainScene) { _ = document.TryEnsureRetainedSceneGraph(); }
         SKSvg retained = Retained.GetOrAdd(key, document);
@@ -168,10 +171,10 @@ public static class SvgPipeline {
 
 - Owner: `RasterAssets` — async raster loader rows, cache scope, and DPI-variant selection; `RasterRow` is the policy record carrying placeholder and error fallback keys.
 - Entry: `public static IAsyncImageLoader Loader(ProfileRoots roots)` — the disk-cached loader rooted under the resolved app root.
-- Auto: one `Wire` assignment publishes the global loader and deletes per-view loader construction; placeholder and error fallbacks are catalog keys consumed by `AdvancedImage` `FallbackImage` rows, never per-control bitmaps.
+- Auto: one `Wire` assignment publishes the global loader and deletes per-view loader construction; placeholder and error fallbacks are catalog keys consumed by `AdvancedImage` `FallbackImage` rows, never per-control bitmaps; the storage-aware lane resolves a picker-scoped or sandboxed asset through `IAdvancedAsyncImageLoader.ProvideImageAsync(url, storageProvider)` so a host-storage-scoped image enters the same loader without a second decode path, with the two-argument `IStorageProvider`-bearing overload research-gated under STORAGE_LOADER_OVERLOAD.
 - Packages: AsyncImageLoader.Avalonia, Avalonia, Rasm.AppHost (project), LanguageExt.Core, BCL inbox
-- Growth: one policy value per cache or variant fact; a remote companion source is one loader row with zero new surface.
-- Boundary: remote rows serve companion streams and the web remote row is designed-only growth carrying zero unadmitted payload types; cache content lives under `ProfileRoots` and a second image cache stays rejected — the loader hierarchy and the blob lane absorb it.
+- Growth: one policy value per cache or variant fact; a remote companion source is one loader row; a storage-scoped source is one `IStorageProvider`-bound call on the advanced loader — zero new surface.
+- Boundary: remote rows serve companion streams and the web remote row is designed-only growth carrying zero unadmitted payload types; the disk and RAM caches and the storage-aware `IAdvancedAsyncImageLoader` resolution all ride the one loader hierarchy so a picker-supplied `IStorageProvider` scopes the fetch without a parallel loader, and the `Storage` lane is fail-closed against an absent overload under STORAGE_LOADER_OVERLOAD; cache content lives under `ProfileRoots` and a second image cache stays rejected — the loader hierarchy and the blob lane absorb it.
 
 ```csharp signature
 public sealed record RasterRow(AssetKey Placeholder, AssetKey Error, string CacheFolder, double HiDpiThreshold);
@@ -184,6 +187,9 @@ public static class RasterAssets {
 
     public static IAsyncImageLoader CompanionLoader() =>
         new RamCachedWebImageLoader();
+
+    public static IO<Option<Bitmap>> Storage(IAdvancedAsyncImageLoader loader, string url, IStorageProvider storage) =>
+        IO.liftAsync(async () => Optional(await loader.ProvideImageAsync(url, storage).ConfigureAwait(false)));
 
     public static Unit Wire(ProfileRoots roots) =>
         (ImageLoader.AsyncImageLoader = Loader(roots), unit).Item2;
@@ -272,4 +278,6 @@ public static class AssetCatalog {
 ## [6]-[RESEARCH]
 
 - [SVG_ANIMATION_ARGS]: the exact event-args type the `SKSvg.AnimationInvalidated` event delegate carries — the catalogued event and its `+=` subscription are fenced, the `SvgAnimationFrameChangedEventArgs` handler argument shape binds at implementation against the installed `Svg.Controls.Skia.Avalonia` surface.
+- [SVG_TYPEFACE_PROVIDER]: the `SKSvgSettings.TypefaceProviders` collection member, the `FontManagerTypefaceProvider`/`ITypefaceProvider` provider shape, and the `Srgb`/`SrgbLinear` color-space settings on `SKSvgSettings` that the `Admit` capsule wires so SVG text shapes through the typography font chain — the `SKSvgSettings` type is catalogued, the provider-collection and color-space member surface binds at implementation against the installed `Svg.Skia` surface, and the typeface-provider add is fail-closed (an SVG with no embedded text resolves unchanged when the provider collection is absent).
+- [STORAGE_LOADER_OVERLOAD]: the `IAdvancedAsyncImageLoader.ProvideImageAsync(string, IStorageProvider)` storage-scoped overload — the `IAdvancedAsyncImageLoader` storage-aware contract and the single-argument `ProvideImageAsync` resolution are catalogued, the two-argument `IStorageProvider`-bearing overload signature binds at implementation against the installed `AsyncImageLoader.Avalonia` surface; the `RasterAssets.Storage` lane is fail-closed against an absent overload.
 

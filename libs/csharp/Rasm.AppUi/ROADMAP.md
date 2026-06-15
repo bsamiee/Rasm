@@ -10,11 +10,12 @@ Implementation-start gates owned by this package — each unblocks its named clu
 | :-----: | ------ | ------------- | ---------- |
 | [1] | Avalonia-in-Rhino NSView embedding spike | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_pump` (+ `avalonia_embed_resize`, `avalonia_embed_render`) | surface-hosts#EMBED_CAPSULE, surface-hosts#SCHEDULER_BOUNDARY, surface-hosts#HOST_AXIS |
 | [2] | `Rasm.AppUi.Tests` target row on the assay test rail | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` | every specs and render-hash gate below |
-| [3] | HotAvalonia Release closure strip | `dotnet build libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj -c Release` | diagnostics-evidence#DEV_LOOP |
+| [3] | HotAvalonia Release closure strip + markup-loader floor (diagnostics-evidence [DEV_LOOP_STRIP]) | `dotnet build libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj -c Release` | diagnostics-evidence#DEV_LOOP |
 | [4] | Embedded TopLevel service resolution | `tests/csharp/libs/Rasm.AppUi/scenarios/appui-embedded-toplevel.verify.csx` | dialogs-notifications#NOTIFICATIONS, dialogs-notifications#PICKERS_HOST_MODALITY |
 | [5] | Host-object drag across the NSView boundary | `libs/csharp/Rasm.AppUi/scenarios/embedded-drag.verify.csx` under live RhinoWIP | input-interaction#DRAG_CLIPBOARD |
 | [6] | macOS reduce-motion preference probe | `libs/csharp/Rasm.AppUi/scenarios/reduced-motion-probe.verify.csx` | motion-tokens#REDUCED_MOTION |
 | [7] | VoiceOver reach across the embedded root | `tests/csharp/libs/Rasm.Rhino/UI/scenarios/avalonia-embed-a11y.verify.csx` | accessibility#AUTOMATION_PEERS |
+| [8] | input-interaction member re-grounding — routed-event gesture triggers, pointer capture, structured clipboard write re-grounded against installed `Avalonia.Xaml.Behaviors` and Avalonia clipboard surfaces (input-interaction [GESTURE_TRIGGERS], [POINTER_CAPTURE], [CLIPBOARD_WRITE]) | `uv run python -m tools.assay api resolve --pattern behaviors` then specs against the re-grounded trigger and clipboard rows | input-interaction#POINTER_GESTURES, input-interaction#DRAG_CLIPBOARD |
 
 Every remaining research item resolves before its gated cluster is transcribed. An unresolved item blocks the cluster; the charter [FILE_PROCESS](.planning/README.md) makes the block mechanical and the charter [PROOF_GATES](.planning/README.md) carry the executable rails.
 
@@ -54,7 +55,31 @@ Tasks in charter BUILD_ORDER. A task exits when its clusters are transcribed ver
 - Exits: diagnostics-evidence#RECEIPT_UNION, diagnostics-evidence#CORRELATION_JOIN, diagnostics-evidence#CAPTURE_LANES, diagnostics-evidence#HEADLESS_DERIVATION, diagnostics-evidence#DEV_LOOP, diagnostics-evidence#TS_PROJECTION.
 - Proof: full derived proof matrix green (`ProofEngine.Derive` across catalog × checks × grid), render-hash regression against blob-lane baselines, command-journal replay deterministic under `FakeTimeProvider`, bridge scenarios for host capture lanes.
 
-## [3]-[COMPLETION_SIGNALS]
+## [3]-[TESTING_APPROACH]
+
+Universal rails share the legend in the package ROADMAP corpus (owner + resolved member identical across the four packages); versions live in `Directory.Packages.props` `ItemGroup Label="Test Stack"`.
+
+Universal-rail concept differentiator:
+
+| [RAIL]                                          | [CONCEPT PROVEN]                                                                                                                              |
+| :---------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
+| xUnit v3 managed law (UI-thread, headless rail) | surface-mount fold, command-intent gesture-conflict table, availability seeded-total pipeline, token resolve / freeze missing-cell rejection, nav / restore total fold; dispatches on the headless UI thread |
+| CsCheck PBT                                     | OkLab perceptual-tween monotone-lightness law, token-diff changed-key set, nav-verb FSM                                                       |
+| coverlet.MTP coverage                           | managed reachability of fold / projection / resolve surfaces; GPU / native draw path classified out                                           |
+| dotnet-stryker mutation                         | killing oracle over command-availability gates, gesture-conflict fold, variant-fold idempotency, token changed-key diff; mutation pairs the managed UI-logic project, never the headless scenario harness |
+| Verify.XunitV3 snapshot                         | render-hash chart baselines projecting the pinned-pixel content-addressed render-hash receipt text under `[AvaloniaFact]` dispatch + scale-pinned capture; snapshot the receipt, never floating pixels |
+| ArchUnitNET architecture                        | one shaping owner per grid (view layer never shapes), no captured-brush staleness type leak, automation-id derivation reachability            |
+
+Package-specific rails:
+
+| [RAIL]                                       | [OWNER]                  | [CONCEPT PROVEN]                                                                                  | [RESOLVED MEMBER / TOKEN]                                                                              |
+| :------------------------------------------- | :----------------------- | :----------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
+| xUnit v3 headless types                      | `api-headless.md`        | UI-thread fact / theory dispatch                                                                 | `[AvaloniaFact]`, `[AvaloniaTheory]`                                                                   |
+| host/runtime scenarios (headless production) | `interaction.md` MOUNT_LAW | headless is a production row — frames advance only on `ForceRenderTimerTick` / `CaptureRenderedFrame`; synthetic input drives the real pipeline; the render-hash baseline pins scale before grab | `HeadlessUnitTestSession`, `Dispatch`, `GetOrStartForAssembly`, `DisposeAsync`, `ForceRenderTimerTick`, `CaptureRenderedFrame`, `SetRenderScaling` |
+
+N/A rails: BenchmarkDotNet — `specialized-rails.md [2]` reject bars UI surfaces / viewport / UI threads; durable OkLab ramp math routes to the Compute benchmark rail. SharpFuzz — `specialized-rails.md [3]` reject names UI surfaces; markdown / SVG admission goes through frozen fail-loud pipelines.
+
+## [4]-[COMPLETION_SIGNALS]
 
 - Every charter BUILD_ORDER row closed with its gates green; `uv run python -m tools.assay static build` clean on the package closure.
 - `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` green, including the derived proof matrix, contrast sweep, motion conformance, and render-hash lanes.

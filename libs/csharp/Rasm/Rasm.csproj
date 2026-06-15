@@ -8,6 +8,7 @@
         <PackageReference Include="CSparse" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="MathNet.Symbolics" />
+        <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 
     <ItemGroup>

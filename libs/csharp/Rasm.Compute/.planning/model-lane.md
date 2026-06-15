@@ -1,6 +1,6 @@
 # [COMPUTE_MODEL_LANE]
 
-Rasm.Compute model lane: ONNX model identity and provenance, the one shared session capsule with its EP-context warm-start route, the EP-parameterized execution-provider axis across CPU, CoreML, and the designed GPU rows, custom-operator admission, OrtValue-only inference modes with a frozen run-config table, and the version-stamped deterministic result cache. The page owns the `ModelSource`/`ModelIdentity` vocabulary, the `SessionPolicy` lifecycle rows, the `ExecutionProvider` axis, the `RunConfig` and `CachePolicy` rows, and the run-mode fold over Microsoft.ML.OnnxRuntime — composing AppHost clocks, deadlines, drain, schedule, and cache ports plus Persistence index and blob rows as settled vocabulary.
+Rasm.Compute model lane: ONNX model identity and provenance, the one shared session capsule with its EP-context warm-start route, the EP-parameterized execution-provider axis across CPU, CoreML, and the designed GPU rows, custom-operator admission, the OrtValue-only run-mode fold with its `BoundLoop` zero-allocation hot path, and the version-stamped deterministic result cache. The page owns the `ModelSource`/`ModelIdentity` vocabulary, the `SessionPolicy` lifecycle rows, the `ExecutionProvider` axis, the extension-op admission fold, the `RunConfig`/`RunOps` inference fold, and the `CachePolicy`/`CacheOps` read-through over Microsoft.ML.OnnxRuntime. The lane composes AppHost clocks, deadlines, drain, schedule, and cache ports plus Persistence index, blob, and `ModelResultKey` rows as settled vocabulary.
 
 ## [1]-[INDEX]
 
@@ -271,20 +271,21 @@ public static class CustomOps {
 ## [6]-[INFERENCE_MODES]
 
 - Owner: `RunOps` — the run-mode fold over the shared session: single, lane-enqueued, bound-batch, and windowed runs discriminated by intent payload shape.
-- Cases: single `Run`; lane-enqueued async (the lane seam owns the thread hop — the native `RunAsync` requires pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so it is the rejected spelling); `RunWithBoundResults` batch over `OrtIoBinding`; streaming windows over chunked inputs.
+- Cases: single `Run`; lane-enqueued async (the lane seam owns the thread hop — the native `RunAsync` requires pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so it is the rejected spelling); `RunWithBinding` bound batch over a populated `OrtIoBinding`; the `BoundLoop` steady-state hot path; streaming windows over chunked inputs.
 - Entry: `public Fin<T> Infer<T>(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, Seq<string> outputs, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project)` — the projection runs inside the native-result bracket.
 - Auto: `Plan` wires deadline expiry into the `Terminate` one-way latch from the linked `CancelScope`, attaches LoRA adapters, and folds the `RunConfig` row table into `AddRunConfigEntry` calls so a posture change selects a row rather than editing the fence; one conversion arm classifies failures into `DeadlineExpired`/`Cancelled` by scope provenance.
 - Receipt: the ModelRun receipt carries route, elapsed, allocation class, and `OrtMemoryInfo` allocator evidence slots; profiling chrome-trace artifacts land as `ArtifactIndexRow.OnnxProfile` rows with the artifact path in the receipt.
 - Packages: Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
-- Growth: a new run shape is one payload-shape case on the intent family; a new run-config posture is one `RunConfig` row carrying its `AddRunConfigEntry` key-value pairs; zero new surface.
-- Boundary: `RunOps` extends the `ModelSessions` boundary capsule and this fence carries bracketed statement forms with deterministic native disposal; OrtValue-only law — `NamedOnnxValue`, `DisposableNamedOnnxValue`, and `FixedBufferOnnxValue` are superseded spellings that never appear; `CreateTensorValueFromMemory` binds rented staging arrays without copies; the `Terminate` latch is the single cancellation propagation path and the deadline-poll cadence binds from the CANCELLATION research row; `InferBound` runs `RunWithBoundResults` over a pre-built `OrtIoBinding` whose bind and synchronize population binds from the IO_BINDING research row, never a guessed member spelling; output projection scopes native memory inside `project` and sentinel or NaN values project to `Option` at the boundary, never inward.
+- Growth: a new run shape is one payload-shape case on the intent family; a new run-config posture is one `RunConfig` row carrying its `AddRunConfigEntry` key-value pairs and its `OrtAllocatorType` arena column; zero new surface.
+- Boundary: `RunOps` extends the `ModelSessions` boundary capsule and this fence carries bracketed statement forms with deterministic native disposal; OrtValue-only law — `NamedOnnxValue`, `DisposableNamedOnnxValue`, and `FixedBufferOnnxValue` are superseded spellings that never appear; `CreateTensorValueFromMemory` binds rented staging arrays without copies; the `Terminate` latch is the single cancellation propagation path and the deadline-poll cadence binds from the CANCELLATION research row; `InferBound` runs `RunWithBinding` over a populated `OrtIoBinding`, bracketing the run between `SynchronizeBoundInputs` and `SynchronizeBoundOutputs` and projecting `GetOutputValues`; the `BoundLoop` capsule is the zero-allocation steady-state posture for repeated same-shape inference — `CreateIoBinding`, `BindInput`/`BindOutput` once, a `MemoryOwner<float>` input plane refreshed by span copy, a `CreateAllocatedTensorValue` output sink, and `RunWithBinding` per `Pulse` with no per-call marshal — and a shape-class transition rebinds through `ClearBoundInputs`/`ClearBoundOutputs` with `BindOutputToDevice` routing device outputs; the `RunConfig.Arena` column classifies the run allocator through `OrtAllocatorType` (`ArenaAllocator` steady, `DeviceAllocator` device-resident); output projection scopes native memory inside `project` and sentinel or NaN values project to `Option` at the boundary, never inward.
 
 ```csharp signature
-public sealed record RunConfig(FrozenDictionary<string, string> Entries) {
-    public static readonly RunConfig Steady = new(FrozenDictionary<string, string>.Empty);
+public sealed record RunConfig(FrozenDictionary<string, string> Entries, OrtAllocatorType Arena) {
+    public static readonly RunConfig Steady = new(FrozenDictionary<string, string>.Empty, OrtAllocatorType.ArenaAllocator);
     public static RunConfig Bulk(string arenaShrinkDevice) => new(new Dictionary<string, string>(StringComparer.Ordinal) {
         ["memory.enable_memory_arena_shrinkage"] = arenaShrinkDevice,
-    }.ToFrozenDictionary(StringComparer.Ordinal));
+    }.ToFrozenDictionary(StringComparer.Ordinal), OrtAllocatorType.ArenaAllocator);
+    public static readonly RunConfig Device = new(FrozenDictionary<string, string>.Empty, OrtAllocatorType.DeviceAllocator);
 }
 
 public static class RunOps {
@@ -304,7 +305,7 @@ public static class RunOps {
             Bracket(scope, project, () => session.Run(options, inputs.Map(static row => row.Name), inputs.Map(static row => row.Value), outputs));
 
         public Fin<T> InferBound<T>(RunOptions options, CancelScope scope, OrtIoBinding binding, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project) =>
-            Bracket(scope, project, () => session.RunWithBoundResults(options, binding));
+            Bracket(scope, project, () => { binding.SynchronizeBoundInputs(); session.RunWithBinding(options, binding); binding.SynchronizeBoundOutputs(); return binding.GetOutputValues(); });
 
         public ArtifactIndexRow Profile(DataClassification classification, string retentionClass, Instant at) {
             var path = session.EndProfiling();
@@ -332,6 +333,37 @@ public static class RunOps {
                 ? new ComputeFault.DeadlineExpired(scope.Provenance)
                 : new ComputeFault.Cancelled(scope.Provenance)
             : Error.New(error);
+
+    public sealed class BoundLoop : IDisposable {
+        readonly InferenceSession session;
+        readonly OrtIoBinding binding;
+        readonly MemoryOwner<float> plane;
+        readonly OrtValue bound, sink;
+
+        public BoundLoop(InferenceSession session, string input, string output, long[] shape) {
+            this.session = session;
+            plane = MemoryOwner<float>.Allocate(checked((int)shape.Aggregate(1L, static (acc, extent) => acc * extent)));
+            bound = OrtValue.CreateTensorValueFromMemory(OrtMemoryInfo.DefaultInstance, plane.Memory, shape);
+            sink = OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance, TensorElementType.Float, shape);
+            binding = session.CreateIoBinding();
+            binding.BindInput(input, bound);
+            binding.BindOutput(output, sink);
+        }
+
+        public Fin<T> Pulse<T>(RunOptions options, CancelScope scope, ReadOnlySpan<float> payload, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project) {
+            payload.CopyTo(plane.Span);
+            return Bracket(scope, project, () => { binding.SynchronizeBoundInputs(); session.RunWithBinding(options, binding); binding.SynchronizeBoundOutputs(); return binding.GetOutputValues(); });
+        }
+
+        public void Rebind(string input, string output, long[] shape) {
+            binding.ClearBoundInputs();
+            binding.ClearBoundOutputs();
+            binding.BindInput(input, OrtValue.CreateTensorValueFromMemory(OrtMemoryInfo.DefaultInstance, plane.Memory, shape));
+            binding.BindOutputToDevice(output, OrtMemoryInfo.DefaultInstance);
+        }
+
+        public void Dispose() { binding.Dispose(); bound.Dispose(); sink.Dispose(); plane.Dispose(); }
+    }
 }
 ```
 
@@ -392,6 +424,5 @@ public static class CacheOps {
 
 ## [8]-[RESEARCH]
 
-- [CANCELLATION]: `RunOptions.Terminate` latch propagation latency and the deadline poll cadence on the CoreML and CPU rows.
 - [EP_OPTIONS]: the `Cuda` and `DirectMl` GPU registration members — `AppendExecutionProvider_CUDA(int)` and `AppendExecutionProvider_DML(int)` — uncatalogued against the Compute-graph package surface because they ship in the app-root-only `Microsoft.ML.OnnxRuntime.Gpu`/`.DirectML` packages; the no-op register delegate stands in until the GPU package admission lands these member spellings at the Windows-profile implementation.
-- [IO_BINDING]: the `OrtIoBinding` bind and synchronize population members — `BindInput`, `BindOutput`, `BindOutputToDevice`, `SynchronizeBoundInputs`, `SynchronizeBoundOutputs` — uncatalogued against the package surface; `InferBound` owns binding population only once these member spellings confirm in the onnxruntime catalogue.
+- [CANCELLATION]: `RunOptions.Terminate` latch propagation latency and the deadline poll cadence on the CoreML and CPU rows.

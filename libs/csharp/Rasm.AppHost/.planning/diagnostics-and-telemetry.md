@@ -72,12 +72,13 @@ public static class TelemetryIdentity {
 
 ## [3]-[CORRELATION_SPINE]
 
-- Owner: `Correlation` spine surface stamping the boot-minted `CorrelationId` across every signal and hop.
-- Entry: `Correlation.Stamp(CorrelationId root)` returning the `IDisposable` ambient scope.
-- Auto: one boot mint stamps `LogContext` properties, `Baggage`, meter tags, receipts, and support manifests — deletes per-call-site correlation parameters across the suite.
-- Packages: OpenTelemetry, Serilog, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new stamped carrier is one stamp row inside `Stamp` plus one policy value; zero new surface.
-- Boundary: the composite registers as `Propagators.DefaultTextMapPropagator` and crosses every hop through `TextMapPropagator.Inject` and `TextMapPropagator.Extract`, riding gRPC metadata on the local-ipc leg; the Serilog event trace-id and span-id fields bind to the live `Activity` ids, never to a parallel identifier; `RuntimeContext` slots carry the ambient value where async flow demands it.
+- Owner: `Correlation` spine surface stamping the boot-minted `CorrelationId` across every signal and hop; `RootEnricher` `IStaticLogEnricher` stamps process constants once per provider; `CausalEnricher` `ILogEnricher` stamps the request-scoped correlation per record.
+- Cases: two enrichment seats split by cost class — `RootEnricher` for the boot mint, resource instance id, and host generation; `CausalEnricher` for the ambient correlation key.
+- Entry: `Correlation.Stamp(CorrelationId root)` returning the `IDisposable` ambient scope; `Correlation.Capture()` snapshots the ambient context for deferred work, `Correlation.Restore(value)` rehydrates it at the work entry.
+- Auto: one boot mint stamps `LogContext` properties, `Baggage`, meter tags, receipts, and support manifests — deletes per-call-site correlation parameters across the suite; the two enrichers feed `IEnrichmentTagCollector` under one bounded prefix, registered through `AddStaticLogEnricher` and `AddLogEnricher`; pooled-callback, native-callback, and manual-thread ambient breaks share one repair — `LogContext.Clone` captures the context as a value, `Push` restores it at deferred-work entry.
+- Packages: OpenTelemetry, Serilog, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new stamped carrier is one stamp row inside `Stamp` plus one policy value; a new process-constant dimension is one `RootEnricher` line, a new request dimension one `CausalEnricher` line; zero new surface.
+- Boundary: the composite registers as `Propagators.DefaultTextMapPropagator` and crosses every hop through `TextMapPropagator.Inject` and `TextMapPropagator.Extract`, riding gRPC metadata on the local-ipc leg; the Serilog event trace-id and span-id fields bind to the live `Activity` ids, never to a parallel identifier; `RuntimeContext` slots carry the ambient value where async flow demands it; a constant placed in `CausalEnricher` is waste and a request value placed in `RootEnricher` is a bug — the cost-class split is structural, and the captured `LogContext.Clone` value, never the ambient current at execution time, seeds deferred children.
 
 ```csharp signature
 public static class Correlation {
@@ -92,6 +93,22 @@ public static class Correlation {
     public static IDisposable Stamp(CorrelationId root) =>
         (Baggage.SetBaggage(nameof(CorrelationId), root.ToString()),
          LogContext.PushProperty(nameof(CorrelationId), root.ToString())).Item2;
+
+    public static ILogEventEnricher Capture() => LogContext.Clone();
+
+    public static IDisposable Restore(ILogEventEnricher captured) => LogContext.Push(captured);
+}
+
+public sealed class RootEnricher(CorrelationId root, string instanceId) : IStaticLogEnricher {
+    public void Enrich(IEnrichmentTagCollector collector) {
+        collector.Add($"{nameof(Correlation)}.root", root.ToString());
+        collector.Add($"{nameof(Correlation)}.instance", instanceId);
+    }
+}
+
+public sealed class CausalEnricher : ILogEnricher {
+    public void Enrich(IEnrichmentTagCollector collector) =>
+        Optional(Correlation.Ambient.Get()).Iter(value => collector.Add($"{nameof(Correlation)}.causal", value.ToString()));
 }
 ```
 
@@ -100,7 +117,7 @@ public static class Correlation {
 - Owner: `LogPipeline` `[SmartEnum<string>]` arbitration column; `SpineLog` generated delegates; `SerilogProjectionPolicy` shaping surface; `SpineLossFold` failure listener.
 - Cases: 2 pipeline rows — serilog-projection on rhino-plugin, gh2-plugin, standalone-desktop, and test-host; otel-export on companion, sidecar, headless-service, and web-service.
 - Entry: `LogPipeline.Owner(HostProfile profile)` — the total arbitration projection; `SerilogProjectionPolicy.Shape(LoggerConfiguration)` composes the six rails and freezes them on `CreateLogger`.
-- Auto: generated delegates carry stable `EventId` and `EventName`; `[LogProperties]` expands typed payloads into bounded tags with classification intact; `WriteTo` swallows sink failure into the typed loss rail while `AuditTo` propagates it to the caller, and `FallbackChain` reroutes on synchronous throw, with the registered `ILoggingFailureListener` folding every reported failure into the loss stream.
+- Auto: generated delegates carry stable `EventId` and `EventName`; `[LogProperties]` expands typed payloads into bounded tags with classification intact, `[TagProvider]` projects a foreign type that carries no annotation, and `[TagName]`/`[LogPropertyIgnore]` rename and elide at the declaration; the wire sink rides one `BatchingOptions` latency/throughput square while `WriteTo` swallows sink failure into the typed loss rail and `AuditTo` propagates it to the caller, `FallbackChain` reroutes on synchronous throw, `Conditional` forks the error-and-above tier to the hot sink, and the registered `ILoggingFailureListener` folds every reported failure into the loss stream.
 - Packages: Microsoft.Extensions.Logging.Abstractions, Microsoft.Extensions.Telemetry.Abstractions, Serilog, Thinktecture.Runtime.Extensions.
 - Growth: one spine event is one generated-delegate row inside the 1000-1999 band; a new profile is one `Owner` arm; one sink-loss class is one `SpineLossFold` fact row; zero new surface.
 - Boundary: lib level emits `ILogger` only — zero Serilog types below composition roots, deleting static `Log` facade calls; the `AddSerilog` host bridge and every sink are app-root pins; `CloseAndFlush` is a ranked drain participant; exactly one pipeline owner per profile row, never both on one signal; `Filter.ByExcluding` holds lifetime-noise categories out of the pipeline by `Matching.FromSource` construction, `Destructure.With` binds the redaction-preserving `IDestructuringPolicy` so a custom shaper never strips classification, and `ForContext` is the emission-side source-keyed derivation the generated delegates ride, never a second `Shape` call; `SpineLossFold` implements `ILoggingFailureListener` and folds every sink failure into one evidence stream, with `SelfLog.Enable` the never-throwing floor beneath the rail; the listener registration shape and the failure-kind discriminant the listener receives are the RESEARCH-gated surface; a sink without the listener is unobserved best-effort, the named defect; the test row installs `AddFakeLogging` and asserts through `FakeLogCollector` snapshots, never sink text.
@@ -125,12 +142,20 @@ public sealed partial class LogPipeline {
             testHost: SerilogProjection);
 }
 
+public static class HostTags {
+    public static void Collect(ITagCollector collector, Version value) =>
+        collector.Add("host.generation", value.Major);
+}
+
 public static partial class SpineLog {
     [LoggerMessage(EventId = 1000, EventName = nameof(ReloadApplied), Level = LogLevel.Information, Message = "configuration reload applied")]
-    public static partial void ReloadApplied(ILogger logger, [LogProperties] ReloadReceipt receipt);
+    public static partial void ReloadApplied(ILogger logger, [LogProperties(OmitReferenceName = true, SkipNullProperties = true)] ReloadReceipt receipt);
 
     [LoggerMessage(EventId = 1001, EventName = nameof(SignalDropped), Level = LogLevel.Warning, Message = "telemetry signal {Signal} dropped {Count} events", SkipEnabledCheck = true)]
-    public static partial void SignalDropped(ILogger logger, string signal, long count);
+    public static partial void SignalDropped(ILogger logger, [TagName("signal.kind")] string signal, long count);
+
+    [LoggerMessage(EventId = 1002, EventName = nameof(DrainSettled), Level = LogLevel.Information, Message = "drain settled on host {Host}")]
+    public static partial void DrainSettled(ILogger logger, [TagProvider(typeof(HostTags), nameof(HostTags.Collect))] Version host, [LogPropertyIgnore] string trace);
 }
 
 public sealed class SpineLossFold : ILoggingFailureListener {
@@ -140,7 +165,14 @@ public sealed class SpineLossFold : ILoggingFailureListener {
 public static class SerilogProjectionPolicy {
     public static readonly LoggingLevelSwitch Floor = new(LogEventLevel.Information);
 
-    public static LoggerConfiguration Shape(LoggerConfiguration configuration, ILogEventSink wire, ILogEventSink fallback, ILogEventSink audit, IDestructuringPolicy classification) {
+    public static readonly BatchingOptions Batch = new() {
+        EagerlyEmitFirstEvent = true,
+        BatchSizeLimit = 500,
+        BufferingTimeLimit = TimeSpan.FromSeconds(2),
+        QueueLimit = 10_000,
+    };
+
+    public static LoggerConfiguration Shape(LoggerConfiguration configuration, IBatchedLogEventSink wire, ILogEventSink fallback, ILogEventSink audit, ILogEventSink hot, IDestructuringPolicy classification) {
         ArgumentNullException.ThrowIfNull(configuration);
         SelfLog.Enable(Console.Error);
         return configuration
@@ -151,8 +183,11 @@ public static class SerilogProjectionPolicy {
             .Destructure.ToMaximumDepth(4)
             .Filter.ByExcluding(Matching.FromSource("Microsoft.Hosting.Lifetime"))
             .WriteTo.FallbackChain(
-                write => write.Sink(wire),
+                write => write.Sink(wire, Batch),
                 rescue => rescue.Sink(fallback))
+            .WriteTo.Conditional(
+                static log => log.Level >= LogEventLevel.Error,
+                static into => into.Sink(hot))
             .AuditTo.Sink(audit);
     }
 }
@@ -163,7 +198,7 @@ public static class SerilogProjectionPolicy {
 - Owner: `TelemetrySignal` `[SmartEnum<string>]` governance rows and the `SignalGovernance` registration fold; `LatencyCheckpoint` `[SmartEnum<string>]` the three-phase in-flight vocabulary; `LatencySpine` the checkpoint recorder.
 - Cases: 3 signal rows — log, trace, metric — each binding ratio, buffering, and redaction policy; 3 latency checkpoint rows — drain, hop, capture.
 - Entry: `SignalGovernance.Govern(IServiceCollection services, HostProfile profile, Action<ResourceBuilder> identity)` returning the host-owned `OpenTelemetryBuilder`; `LatencySpine.Mark(ILatencyContext context, CheckpointToken phase)` records one checkpoint, `LatencySpine.Seal` freezes the context for export at drain.
-- Auto: provider `ForceFlush` and `Shutdown` ride the telemetry drain band; the fault transition lands the `GlobalLogBuffer.Flush` window inside support capture; `AddRandomProbabilisticSampler` thins the chatty floor at service roots while a `LogBufferingFilterRule` row holds the verbose tiers until an incident flushes them; the latency vocabulary registers once through `RegisterCheckpointNames` at composition, and runtime code records through resolved `CheckpointToken` handles only — durations never derive from stamp differences; a value-bearing `MeasureToken` recording is a forward row admitted only when a measure consumer exists, gated on the `[LATENCY_TOKEN_RESOLUTION]` row.
+- Auto: provider `ForceFlush` and `Shutdown` ride the telemetry drain band; the fault transition lands the `GlobalLogBuffer.Flush` window inside support capture; `AddRandomProbabilisticSampler` carries a `RandomProbabilisticSamplerFilterRule` row keyed by maximum level so it thins the chatty floor and never the error ceiling, while a `LogBufferingFilterRule` row holds the verbose tiers until an incident flushes them; `AddHttpClientInstrumentation` binds `HttpClientTraceInstrumentationOptions` — `RecordException` projects exceptions as `ActivityEvent`, `FilterHttpRequestMessage` drops the loopback leg, `EnrichWithException` stamps the exception type, and URL-query redaction stays the package default; `Views` folds one `MetricStreamConfiguration` per instrument through `AddView` to cap cardinality and project tag keys, and the service-app-root metric exemplar policy rides `SetExemplarFilter` per the trace-based governance row; `EnableEnrichment` activates the `RootEnricher`/`CausalEnricher` seats; the latency vocabulary registers once through `RegisterCheckpointNames` at composition, and runtime code records through resolved `CheckpointToken` handles only — durations never derive from stamp differences; a value-bearing `MeasureToken` recording is a forward row admitted only when a measure consumer exists, gated on the `[LATENCY_TOKEN_RESOLUTION]` row.
 - Receipt: `LatencyData` — the frozen checkpoint spans `ILatencyDataExporter` exports at the drain band; one span per drain, hop, and capture phase.
 - Packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry, OpenTelemetry.Instrumentation.Http, Microsoft.Extensions.Telemetry, Microsoft.Extensions.Telemetry.Abstractions, OpenTelemetry.Exporter.OpenTelemetryProtocol, Microsoft.Extensions.Diagnostics.Testing.
 - Growth: one governance decision is one policy value row; one stream reshaping is one `AddView` row over `MetricStreamConfiguration`; one measured phase is one `LatencyCheckpoint` row recorded by one `LatencySpine.Mark` call; zero new surface.
@@ -218,6 +253,11 @@ public static class LatencySpine {
 }
 
 public static class SignalGovernance {
+    public static readonly Seq<(string Instrument, MetricStreamConfiguration Shape)> Views = [
+        ("rasm.apphost.drain.duration", new MetricStreamConfiguration { TagKeys = ["drain.band"], CardinalityLimit = 64 }),
+        ("rasm.apphost.redaction.tags", new MetricStreamConfiguration { TagKeys = [nameof(DataClassification)], CardinalityLimit = 32 }),
+    ];
+
     public static OpenTelemetryBuilder Govern(IServiceCollection services, HostProfile profile, Action<ResourceBuilder> identity) =>
         LogPipeline.Owner(profile).Switch(
             state: services.AddOpenTelemetry()
@@ -225,9 +265,14 @@ public static class SignalGovernance {
                 .WithTracing(tracing => tracing
                     .SetSampler(new ParentBasedSampler(new TraceIdRatioBasedSampler(TelemetrySignal.Trace.Ratio(profile))))
                     .AddSource([.. TelemetrySource.Items.Where(static row => row.Minted).Select(static row => row.Key)])
-                    .AddHttpClientInstrumentation())
-                .WithMetrics(static metrics => metrics
-                    .AddMeter([.. TelemetrySource.Items.Select(static row => row.Key)])),
+                    .AddHttpClientInstrumentation(static http => {
+                        http.RecordException = true;
+                        http.FilterHttpRequestMessage = static request => request.RequestUri is { IsLoopback: false };
+                        http.EnrichWithException = static (activity, exception) => activity.SetTag("exception.type", exception.GetType().Name);
+                    }))
+                .WithMetrics(metrics => Views.Fold(
+                    metrics.AddMeter([.. TelemetrySource.Items.Select(static row => row.Key)]),
+                    static (admitted, view) => admitted.AddView(view.Instrument, view.Shape))),
             serilogProjection: static builder => builder,
             otelExport: static builder => builder.WithLogging());
 
@@ -240,7 +285,12 @@ public static class SignalGovernance {
             .AddGlobalBuffer(LogLevel.Warning);
 
     public static IServiceCollection EnrichContext(IServiceCollection services) =>
-        LatencySpine.Register(services.AddApplicationLogEnricher().AddProcessLogEnricher().AddLatencyContext());
+        LatencySpine.Register(services
+            .AddLogEnricher<CausalEnricher>()
+            .AddStaticLogEnricher<RootEnricher>()
+            .AddApplicationLogEnricher()
+            .AddProcessLogEnricher()
+            .AddLatencyContext());
 }
 ```
 
@@ -262,6 +312,10 @@ public static class SignalGovernance {
 |  [12]   | spine event-id band                            | 1000-1999                   | `LoggerMessage` `EventId` values                       |
 |  [13]   | latency checkpoint vocabulary                  | drain, hop, capture         | `LatencyCheckpoint` rows, `RegisterCheckpointNames`    |
 |  [14]   | latency span export                            | drain-band flush            | `ILatencyDataExporter` on `LatencySpine.Seal`          |
+|  [15]   | serilog wire-sink batch square                 | 500/2 s/10 000              | `BatchingOptions` on the `FallbackChain` wire sink     |
+|  [16]   | otlp span batch square                         | package defaults            | `BatchExportProcessorOptions<Activity>` at service roots |
+|  [17]   | http route-parameter redaction                 | erase                       | `HttpRouteParameterRedactionMode` on `RequestMetadata` |
+|  [18]   | otel processor admission                       | test-row `BaseProcessor<Activity>` | `AddProcessor` over `CompositeProcessor<Activity>`     |
 
 ## [6]-[REDACTION_TAXONOMY]
 
@@ -271,7 +325,7 @@ public static class SignalGovernance {
 - Auto: classification flows through `[LogProperties]` and `[TagProvider]` generated methods as `LoggerMessageState.ClassifiedTag`; `EnableRedaction` applies the bound redactor before any sink or exporter observes the tag, and the `rasm.apphost.redaction.tags` count rises per redacted tag.
 - Packages: Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions.
 - Growth: one classification row plus one redactor binding; one redactor kind is one case; zero new surface.
-- Boundary: an unredacted classified value reaching any exporter is a seam violation; classification attributes annotate shapes at definition time as `DataClassificationAttribute` subclasses through the transitively arriving compliance-abstractions surface; redactor binding rides `AddRedaction` with one `SetHmacRedactor` row, one `SetRedactor<ErasingRedactor>` row, and `SetFallbackRedactor<ErasingRedactor>` as the fail-closed default for unmapped classifications; `SetHmacRedactor` is `[Experimental("EXTEXP0002")]`, so the registration fold carries a scoped `EXTEXP0002` suppression — the only place the symbol is named — while `SetRedactor<ErasingRedactor>` and `SetFallbackRedactor<ErasingRedactor>` stay stable; hmac rows pseudonymize while preserving cross-event correlation, erase rows destroy the value, and credential plus secret material never persists in any signal; one redaction policy serves logs, traces, and support capture, deleting call-site string scrubbing.
+- Boundary: an unredacted classified value reaching any exporter is a seam violation; classification attributes annotate shapes at definition time as `DataClassificationAttribute` subclasses through the transitively arriving compliance-abstractions surface; redactor binding rides `AddRedaction` with one `SetHmacRedactor` row, one `SetRedactor<ErasingRedactor>` row, and `SetFallbackRedactor<ErasingRedactor>` as the fail-closed default for unmapped classifications; `SetHmacRedactor` is `[Experimental("EXTEXP0002")]`, so the registration fold carries a scoped `EXTEXP0002` suppression — the only place the symbol is named — while `SetRedactor<ErasingRedactor>` and `SetFallbackRedactor<ErasingRedactor>` stay stable; hmac rows pseudonymize while preserving cross-event correlation, erase rows destroy the value, and credential plus secret material never persists in any signal; the log seam governs the log path while the HTTP route-parameter path is a prevention row at the instrumentation root — `RequestMetadata` declares route-template parameters and `HttpRouteParameterRedactionMode` erases them so an outgoing-request span never carries an unredacted route segment, consumed by Persistence `ClassificationGuard` through `GetRedactor` and never a second registration; one redaction policy serves logs, traces, support capture, and the route-parameter prevention row, deleting call-site string scrubbing.
 
 ```csharp signature
 [SmartEnum]
@@ -301,7 +355,7 @@ public static class RedactionRegistration {
 
     public static ILoggingBuilder Bind(ILoggingBuilder logging, IConfigurationSection hmacKeys) {
         ArgumentNullException.ThrowIfNull(logging);
-#pragma warning disable EXTEXP0002 // SetHmacRedactor is the centrally-pinned experimental redactor seam
+#pragma warning disable EXTEXP0002
         logging.Services.AddRedaction(redaction => DataClassification.Items.Fold(redaction,
             (seam, row) => row.Redactor.Switch(
                 none: seam,

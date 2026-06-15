@@ -379,4 +379,4 @@ interface PresenceRowWire {
 
 ## [7]-[RESEARCH]
 
-- [LIVE_REPLICATION]: publish_generated_columns publication parameter, idle-slot timeout setting, and subscription conflict-stat columns on a live PG18 server.
+- [LIVE_REPLICATION]: publish_generated_columns publication parameter, idle-slot timeout setting, and subscription conflict-stat columns on a live PG18 server; the concrete pgoutput message leaf types under the catalogued `PgOutputReplicationMessage` base — `InsertMessage`, the `DefaultUpdateMessage`/`FullUpdateMessage`/`IndexUpdateMessage` update leaves, the `KeyDeleteMessage`/`FullDeleteMessage` delete leaves, `TruncateMessage`, `RelationMessage`, and the stream-control frames the `Decode` fold pattern-matches.

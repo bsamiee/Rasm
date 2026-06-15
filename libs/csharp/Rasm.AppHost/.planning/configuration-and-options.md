@@ -188,11 +188,11 @@ public static class PolicyBinding {
 - Owner: `OptionsAdmission` static registration surface; `ReloadOutcome` `[Union]`; `ReloadReceipt` record.
 - Cases: Applied, Unchanged, RestartRequired, Rejected — Applied re-publishes frozen policy values, Unchanged records a no-diff publish, RestartRequired is the frozen-row path, Rejected carries the `ConfigError` of a failed re-validation while the prior values stay live.
 - Entry: `Admit<T>(IServiceCollection services, string section)` — composition registration; `Refine` accumulates on `Validation<ConfigError,T>` against the active rule set, `Sweep` aborts on `Fin<Unit>`.
-- Auto: generated `[OptionsValidator]` validators with `[ValidateObjectMembers]` and `[ValidateEnumeratedItems]` own structural validation; `ValidateOnStart` plus the `IStartupValidator` sweep prove every registered policy record before ready; `PostConfigure` derives a dependent policy value after binding, and `IOptionsMonitorCache.TryRemove` invalidates the named entry so the next read re-binds.
+- Auto: generated `[OptionsValidator]` validators with `[ValidateObjectMembers]` and `[ValidateEnumeratedItems]` own structural validation; `ValidateOnStart` plus the `IStartupValidator` sweep prove every registered policy record before ready; `PostConfigure` derives a dependent policy value after binding, and `Invalidate` is the one polymorphic cache cut — a named entry routes to `IOptionsMonitorCache.TryRemove`, an absent name routes to `Clear` so the whole set re-binds, never two named operations.
 - Receipt: `ReloadReceipt` — section, reload class, trigger, outcome, `Instant`, correlation id.
 - Packages: Microsoft.Extensions.Options, FluentValidation, NodaTime, LanguageExt.Core
 - Growth: one case on `ReloadOutcome`; one config-boundary variant is one rule-set name through `IncludeRuleSets`, never a second validator; zero new surface.
-- Boundary: every options registration carries its `ReloadClass` row — frozen rows re-publish only through process restart and `RestartRequired` is that named path; interior code receives frozen records read once at ready, never `IOptions` handles, and per-call-site `OnChange` callbacks are rejected; `Observe` subscriptions return disposable detachers composed LIFO by the lifecycle owner; SIGHUP and the ControlService reload-options verb enqueue the same `ReloadOutcome` transition under `SignalTrigger` and `ControlTrigger`; cross-process reload propagation rides the op-log HLC cursor; named options key by smart-enum keys; FluentValidation owns cross-field invariants behind `Refine`, where the active rule set is itself a policy value admitted through `ValidationContext.CreateWithOptions` and `IncludeRuleSets` so a boundary variant runs its own rule subset, `PolymorphicValidator` and `SetInheritanceValidator` route subtype policy records to their own graph, and each failure's `WithErrorCode` and `WithSeverity` carry the code straight into the 4100-4199 `ConfigError` band rather than a flat `ToDictionary` re-derivation; a monitor-cache invalidation becomes a typed runtime transition through `TryRemove`, never an ambient re-read; `BindConfiguration(section, configureBinder)` rides `OptionsBuilderConfigurationExtensions` from Microsoft.Extensions.Options.ConfigurationExtensions, a lock-pinned transitive of the hosting closure, never a direct project asset.
+- Boundary: every options registration carries its `ReloadClass` row — frozen rows re-publish only through process restart and `RestartRequired` is that named path; interior code receives frozen records read once at ready, never `IOptions` handles, and per-call-site `OnChange` callbacks are rejected; `Observe` subscriptions return disposable detachers composed LIFO by the lifecycle owner; SIGHUP and the ControlService reload-options verb enqueue the same `ReloadOutcome` transition under `SignalTrigger` and `ControlTrigger`; cross-process reload propagation rides the op-log HLC cursor; named options key by smart-enum keys; FluentValidation owns cross-field invariants behind `Refine`, where the active rule set is itself a policy value admitted through `ValidationContext.CreateWithOptions` and `IncludeRuleSets` so a boundary variant runs its own rule subset, `PolymorphicValidator` and `SetInheritanceValidator` route subtype policy records to their own graph, `WithState` carries a constructed `ConfigError` straight off the failure so `Refine` reads the typed fault before falling back to the `WithErrorCode`/`WithSeverity` 4100-4199 band, and the flat `ToDictionary` re-derivation is the deleted form; a monitor-cache invalidation becomes a typed runtime transition through the polymorphic `Invalidate` over `TryRemove` and `Clear`, never an ambient re-read; `BindConfiguration(section, configureBinder)` rides `OptionsBuilderConfigurationExtensions` from Microsoft.Extensions.Options.ConfigurationExtensions, a lock-pinned transitive of the hosting closure, never a direct project asset.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -228,9 +228,11 @@ public static class OptionsAdmission {
                 ? validator.Validate(ValidationContext<T>.CreateWithOptions(policy, options => options.IncludeRuleSets([.. sets])))
                 : validator.Validate(policy))
             .Errors.AsIterable()
-            .Map(static failure => failure.ErrorCode is { Length: > 0 } code && int.TryParse(code, out var coded) && coded is >= 4100 and <= 4199
-                ? (ConfigError)new ConfigError.Scalar(failure.PropertyName, failure.ErrorMessage)
-                : new ConfigError.Invariant(failure.PropertyName, failure.ErrorMessage))
+            .Map(static failure => failure.CustomState is ConfigError carried
+                ? carried
+                : failure.ErrorCode is { Length: > 0 } code && int.TryParse(code, out var coded) && coded is >= 4100 and <= 4199
+                    ? (ConfigError)new ConfigError.Scalar(failure.PropertyName, failure.ErrorMessage)
+                    : new ConfigError.Invariant(failure.PropertyName, failure.ErrorMessage))
             .ToSeq() is { IsEmpty: false } faults
             ? new ConfigError.Aggregate(faults)
             : (Validation<ConfigError, T>)policy;
@@ -239,6 +241,9 @@ public static class OptionsAdmission {
         Try.lift(fun(validator.Validate))
             .Run()
             .MapFail(static error => ConfigError.Create(error.Message));
+
+    public static Unit Invalidate<T>(IOptionsMonitorCache<T> cache, Option<string> name = default) where T : class =>
+        name.Case is string named ? ignore(cache.TryRemove(named)) : (cache.Clear(), unit).Item2;
 
     public static IDisposable Observe<T>(IOptionsMonitor<T> monitor, string section, ReloadClass reload, IClock clock, CorrelationId correlation, Func<T, ReloadOutcome> republish, Action<ReloadReceipt> sink) where T : class =>
         monitor.OnChange((snapshot, _) => sink(new ReloadReceipt(

@@ -19,9 +19,9 @@ Rasm.AppUi mounts one shell into every admitted host substrate through a single 
 - Entry: `Fin<SurfaceSession> Mount(SurfaceHost host, SurfaceSeam seam, Control content, ClockPolicy clocks, CorrelationId correlation)` — `Fin` aborts on absent host, rejected mount, missing handle, and thread-affinity violation.
 - Auto: one mount transaction replaces seven boot programs — boot-edge guard, builder shaping, parent-handle capture, scale capture, disposal registration, and receipt emission land in one fold; raw case keys serialize through the suite wire law as locked kind literals.
 - Receipt: `SurfaceReceipt` — host case, native handle identity as descriptor and value, scale, `Instant`, `CorrelationId`; `TelemetryRow` contributes the mount-outcome and scale-flip instruments inward through the AppHost `TelemetryContributorPort`.
-- Packages: Avalonia, Avalonia.Desktop, Avalonia.Headless, ReactiveUI.Avalonia, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Rhino (project), Rasm.Grasshopper (project)
+- Packages: Avalonia, Avalonia.Desktop, Avalonia.Headless, Avalonia.Skia, ReactiveUI.Avalonia, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Rhino (project), Rasm.Grasshopper (project)
 - Growth: one case row — payload fields, seam column, capability set — absorbs a new host substrate with zero new surface, and one host instrument is one `InstrumentRow` on `Surfaces.TelemetryRow`; `WebBrowser` stays the designed growth case whose future activation is one seam column plus one dispatch arm swap.
-- Boundary: `Surfaces` is the named boundary capsule for the statement carve-out on its boot-edge guard; host-agnostic sourcing law — every probe, marshal, mount, and fact delegate is a `SurfaceSeam` column and no dispatch arm names a host API: rhino rows cross only the Rasm.Rhino panel, semi-modal, and UI-thread ports (the catching marshal that wraps the swallowing host invoke ships with Rasm.Rhino), the gh2 row crosses only the Rasm.Grasshopper mount seam, and the empty-host shell crosses nothing; boot is one `SetupWithoutStarting` admission behind the `Interlocked` edge guard and a second `AppBuilder` or lifetime anywhere is the rejected form; `WebBrowser` carries an empty capability set and zero payload, so its wire key is its only live surface; the headless row holds host-document capability structurally false, draws through Skia for the render-hash lanes, and is the mount surface of the command-journal replay lane.
+- Boundary: `Surfaces` is the named boundary capsule for the statement carve-out on its boot-edge guard; host-agnostic sourcing law — every probe, marshal, mount, and fact delegate is a `SurfaceSeam` column and no dispatch arm names a host API: rhino rows cross only the Rasm.Rhino panel, semi-modal, and UI-thread ports (the catching marshal that wraps the swallowing host invoke ships with Rasm.Rhino), the gh2 row crosses only the Rasm.Grasshopper mount seam, and the empty-host shell crosses nothing; boot is one `SetupWithoutStarting` admission behind the `Interlocked` edge guard and a second `AppBuilder` or lifetime anywhere is the rejected form; the Skia backend GPU cache is tuned once at boot through one `SkiaOptions` value carrying `MaxGpuResourceSizeBytes` from the `GpuResourceBudget` anchor with `UseOpacitySaveLayer` true so the render-hash lanes share one deterministic GPU budget and a per-shell GPU knob is the rejected form; `WebBrowser` carries an empty capability set and zero payload, so its wire key is its only live surface; the headless row holds host-document capability structurally false, draws through Skia for the render-hash lanes, and is the mount surface of the command-journal replay lane.
 
 ```csharp signature
 [Union]
@@ -81,15 +81,19 @@ public sealed record SurfaceSession(SurfaceReceipt Receipt, Func<Action<SurfaceF
 public static class Surfaces {
     static int booted;
 
+    public const long GpuResourceBudget = 268_435_456;
+
+    static readonly SkiaOptions SkiaBudget = new() { MaxGpuResourceSizeBytes = GpuResourceBudget, UseOpacitySaveLayer = true };
+
     public static Fin<SurfaceRow> Row(SurfaceHost host, SurfaceSeam seam) => host.Switch(
         state: seam,
-        avaloniaDesktopWindow: static (s, own) => Fin.Succ(Shell(s, static b => b.UsePlatformDetect().UseSkia().UseReactiveUI(), s.RunLoop, interactive: true)),
+        avaloniaDesktopWindow: static (s, own) => Fin.Succ(Shell(s, static b => b.UsePlatformDetect().UseSkia().With(SkiaBudget).UseReactiveUI(), s.RunLoop, interactive: true)),
         rhinoPanel: static (s, own) => Fin.Succ(Embedded(s, s.PanelMount(own.PanelId))),
         rhinoModal: static (s, own) => Fin.Succ(Embedded(s, s.ModalMount)),
         gh2CompanionWindow: static (s, own) => Fin.Succ(Embedded(s, s.CompanionMount)),
-        sidecarShell: static (s, own) => Fin.Succ(Shell(s, static b => b.UsePlatformDetect().UseSkia().UseReactiveUI(), s.RunLoop, interactive: true)),
+        sidecarShell: static (s, own) => Fin.Succ(Shell(s, static b => b.UsePlatformDetect().UseSkia().With(SkiaBudget).UseReactiveUI(), s.RunLoop, interactive: true)),
         webBrowser: static (s, own) => Fin.Fail<SurfaceRow>(new SurfaceFault.HostAbsent(nameof(SurfaceHost.WebBrowser))),
-        headless: static (s, own) => Fin.Succ(Shell(s, static b => b.UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseReactiveUI(), Setup, interactive: false)));
+        headless: static (s, own) => Fin.Succ(Shell(s, static b => b.UseSkia().With(SkiaBudget).UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseReactiveUI(), Setup, interactive: false)));
 
     public static Fin<Unit> Boot(SurfaceHost host, SurfaceSeam seam, Func<AppBuilder> entry) =>
         from row in Row(host, seam)
@@ -262,7 +266,7 @@ public sealed record SurfaceScheduler(IScheduler Ui, Func<Action, IO<Unit>> Mars
 - Receipt: `NativeAssetReceipt` — library, version, path, RID.
 - Packages: SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Win32, SkiaSharp.NativeAssets.Linux.NoDependencies, HarfBuzzSharp.NativeAssets.macOS, HarfBuzzSharp.NativeAssets.Win32, HarfBuzzSharp.NativeAssets.Linux, LanguageExt.Core, BCL inbox
 - Growth: one `NativeAssetRow` per new RID; zero new surface.
-- Boundary: one shaping family rides every desktop row — each Skia asset row pairs its HarfBuzz row; the fontconfig-dependent Linux Skia variant stays pinned and excluded at the AppUi admission, so NoDependencies is the only Linux Skia asset; the WebAssembly native pins stay dormant transitive floors with no row while `WebBrowser` stays a designed growth case; identity receipts run at mount, so a wrong-RID load surfaces as a receipt, never a draw fault.
+- Boundary: one shaping family rides every desktop row — each Skia asset row pairs its HarfBuzz row across the full desktop RID matrix (osx universal, win-x64/x86/arm64, linux-x64/arm64, linux-musl-x64) so cross-architecture load identity is one row per RID and a missing-architecture load surfaces as an absent receipt; the fontconfig-dependent Linux Skia variant stays pinned and excluded at the AppUi admission, so NoDependencies is the only Linux Skia asset and the glibc and musl rows share it; the WebAssembly native pins stay dormant transitive floors with no row while `WebBrowser` stays a designed growth case; identity receipts run at mount, so a wrong-RID load surfaces as a receipt, never a draw fault.
 
 ```csharp signature
 public sealed record NativeAssetReceipt(string Library, string Version, string Path, string Rid);
@@ -273,7 +277,11 @@ public static class NativeAssets {
     public static readonly Seq<NativeAssetRow> Rows = Seq(
         new NativeAssetRow("osx", "SkiaSharp.NativeAssets.macOS", "HarfBuzzSharp.NativeAssets.macOS", "libAvaloniaNative.dylib", Seq("libSkiaSharp", "libHarfBuzzSharp", "libAvaloniaNative")),
         new NativeAssetRow("win-x64", "SkiaSharp.NativeAssets.Win32", "HarfBuzzSharp.NativeAssets.Win32", "Avalonia.Win32.dll", Seq("libSkiaSharp", "libHarfBuzzSharp")),
-        new NativeAssetRow("linux-x64", "SkiaSharp.NativeAssets.Linux.NoDependencies", "HarfBuzzSharp.NativeAssets.Linux", "Avalonia.X11.dll", Seq("libSkiaSharp", "libHarfBuzzSharp")));
+        new NativeAssetRow("win-x86", "SkiaSharp.NativeAssets.Win32", "HarfBuzzSharp.NativeAssets.Win32", "Avalonia.Win32.dll", Seq("libSkiaSharp", "libHarfBuzzSharp")),
+        new NativeAssetRow("win-arm64", "SkiaSharp.NativeAssets.Win32", "HarfBuzzSharp.NativeAssets.Win32", "Avalonia.Win32.dll", Seq("libSkiaSharp", "libHarfBuzzSharp")),
+        new NativeAssetRow("linux-x64", "SkiaSharp.NativeAssets.Linux.NoDependencies", "HarfBuzzSharp.NativeAssets.Linux", "Avalonia.X11.dll", Seq("libSkiaSharp", "libHarfBuzzSharp")),
+        new NativeAssetRow("linux-arm64", "SkiaSharp.NativeAssets.Linux.NoDependencies", "HarfBuzzSharp.NativeAssets.Linux", "Avalonia.X11.dll", Seq("libSkiaSharp", "libHarfBuzzSharp")),
+        new NativeAssetRow("linux-musl-x64", "SkiaSharp.NativeAssets.Linux.NoDependencies", "HarfBuzzSharp.NativeAssets.Linux", "Avalonia.X11.dll", Seq("libSkiaSharp", "libHarfBuzzSharp")));
 
     public static Fin<Seq<NativeAssetReceipt>> Identity(NativeAssetRow row) =>
         row.Libraries.TraverseM(library => Probe(row, library)).As();

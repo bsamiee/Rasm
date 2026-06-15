@@ -90,6 +90,7 @@ public sealed partial class VectorRelation {
 public readonly record struct Direction {
     private Direction(Vector3d value) => Value = value;
     public Vector3d Value { get; }
+    public bool IsValid => Value.IsValid && Math.Abs(value: Value.Length - 1.0) <= RhinoMath.SqrtEpsilon;
     public static Fin<Direction> Of(Vector3d value, Context context, Op? key = null) =>
         Optional(context).ToFin(key.OrDefault().MissingContext()).Bind(model => Of(value: value, tolerance: model.Absolute.Value, key: key));
     internal static Fin<Direction> Of(Vector3d value, double tolerance, Op? key = null) =>
@@ -238,7 +239,18 @@ public readonly record struct VectorCone {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
+internal readonly record struct ProjectionRow(Type Output, Func<Fin<object>> Make);
+
 internal static class AtomProjection {
+    internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, Op key, Type? owner, params ReadOnlySpan<ProjectionRow> rows) {
+        foreach (ProjectionRow row in rows) {
+            if (row.Output == typeof(TOut)) {
+                return row.Make().Map(static projected => (TOut)projected!);
+            }
+        }
+        return typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)self!) : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TSelf), outputType: typeof(TOut)));
+    }
+    internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, Op key, params ReadOnlySpan<ProjectionRow> rows) => Rows<TSelf, TOut>(self: self, key: key, owner: null, rows: rows);
     internal static Fin<TOut> Self<TSelf, TOut>(TSelf value, Op key, Type? owner = null) => typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TSelf), outputType: typeof(TOut)));
     internal static Fin<TOut> Value<TValue, TOut>(TValue value, Op key, Type? owner = null) =>
         typeof(TOut) == typeof(TValue)

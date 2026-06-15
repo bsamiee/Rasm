@@ -18,7 +18,7 @@ Rasm.AppUi presents every modal and transient surface through one `DialogIntent`
 - Auto: the screen fault fold raises the Error case with its correlation — never per-control failure handling; the boot crash-restore offer rides one Confirm row; the conflict-resolution inspector registers as one Form content row.
 - Packages: Thinktecture.Runtime.Extensions, ReactiveUI, LanguageExt.Core, Rasm.AppHost (project)
 - Growth: one `DialogIntent` case or one Form content row resolved through `IViewFor` registration; zero new surface.
-- Boundary: Progress content binds the Compute progress stream selected by `Correlation`, and a deadline miss renders the typed `DeadlineOutcome` — never a spinner timeout; About renders the `ReleaseIdentity` record as given.
+- Boundary: Progress content binds the Compute progress stream selected by `Correlation`, and a deadline miss renders the typed `DeadlineOutcome` — never a spinner timeout; the `Form.TemplateKey` resolves through the topology `ContentTemplate` resolver onto the host `DialogContentTemplate` at registration so a Form session selects its content template by key from one resolver and a per-Form template literal in registration code is the deleted form; About renders the `ReleaseIdentity` record as given.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -49,7 +49,7 @@ public abstract partial record DialogFault : Expected, IValidationError<DialogFa
 - Owner: `DialogTopology` — one per-surface root row binding identifier, stacking, close policy, styling token keys, toast pipe, pick pipe, and its `Interaction` seam; `DialogSurface` extension fold over the row.
 - Cases: six topology rows — avalonia-desktop, rhino-panel, rhino-modal, gh2-companion, sidecar-shell, headless; the web-browser case carries zero rows.
 - Entry: `public IO<Fin<Option<TResult>>> Show<TResult>(DialogIntent intent)` — `Fin` aborts on fault, `Option` carries dismissal as a value; `Advance` drives live progress through `UpdateContent`; `Retreat` closes the top stacked session; `Dismiss` closes the current session.
-- Auto: `RegisterRoot` binds the row's handler at surface mount and disposes with the activation scope; composition projects each row onto `Identifier`, `IsMultipleDialogsEnabled`, `CloseOnClickAway`, `OverlayBackground`, `BlurBackground`, `PopupPositioner`, and `DialogHostStyle` `CornerRadius`; a dirty Form session arms `DialogClosingEventArgs` `Cancel` through `DialogClosingCallback`; `StackedSessions` drives `IsMultipleDialogsEnabled`, `DialogHost.CurrentSessions` is the stacked-session surface the `Retreat` veto consults, and `HasOpenSession` reads `IsDialogOpen` so a `Show` on a non-stacked row that already holds an open session folds to the existing session rather than minting a parallel root.
+- Auto: `RegisterRoot` binds the row's handler at surface mount and disposes with the activation scope; composition projects each row onto `Identifier`, `IsMultipleDialogsEnabled`, `CloseOnClickAway`, `OverlayBackground`, `BlurBackground`, `PopupPositioner`, and `DialogHostStyle` `CornerRadius`; the Form arm wraps its content through `Templated`, resolving the `Form.TemplateKey` against the `ContentTemplate` resolver onto the host `DialogContentTemplate`; a dirty Form session arms `DialogClosingEventArgs` `Cancel` through `DialogClosingCallback`; `StackedSessions` drives `IsMultipleDialogsEnabled`, `DialogHost.CurrentSessions` is the stacked-session surface the `Retreat` veto consults, and `HasOpenSession` reads `IsDialogOpen` so a `Show` on a non-stacked row that already holds an open session folds to the existing session rather than minting a parallel root.
 - Packages: DialogHost.Avalonia, ReactiveUI, Avalonia, LanguageExt.Core
 - Growth: one topology row admits a new surface root, one positioner row swaps `IDialogPopupPositioner`; zero new surface.
 - Boundary: `DialogSurface` is the named boundary capsule — the registration handler and pick route carry the erased close parameter the DialogHost seam owns, and `Project` re-types it onto the `Fin` rail; overlay, blur, and corner styling resolve through theme token keys, never local literals; `TopLevelResolver` is the single per-surface service-capsule delegate the `ToastPipe` and `PickPipe` bind over so a desktop row resolves the window capsule and an embedded row resolves the embedded-root capsule — host service-capsule resolution inside the embedded root is the deleted call site, replaced by the bound delegate, and the embedded resolution spelling stays research-gated; one headless smoke spec opens, stacks, and closes sessions per row.
@@ -65,6 +65,7 @@ public sealed record DialogTopology(
     string CornerToken,
     IDialogPopupPositioner Positioner,
     Func<Option<TopLevel>> TopLevelResolver,
+    Func<string, Option<IDataTemplate>> ContentTemplate,
     Func<ToastRow, string, string, Option<string>, Unit> ToastPipe,
     Option<Func<DialogIntent.Pick, Task<Seq<string>>>> PickPipe) {
     public Interaction<DialogIntent, object?> Requests { get; } = new();
@@ -89,7 +90,7 @@ public static class DialogSurface {
                 context.SetOutput(await context.Input.Switch(
                     state: root,
                     confirm: static (state, request) => DialogHost.Show(request, state.Identifier),
-                    form: static (state, request) => DialogHost.Show(request, state.Identifier),
+                    form: static (state, request) => DialogHost.Show(state.Templated(request), state.Identifier),
                     pick: static (state, request) => state.RoutePick(request),
                     progress: static (state, request) => DialogHost.Show(request, state.Identifier),
                     error: static (state, request) => DialogHost.Show(request, state.Identifier),
@@ -99,6 +100,11 @@ public static class DialogSurface {
             root.PickPipe is { IsSome: true, Case: Func<DialogIntent.Pick, Task<Seq<string>>> route }
                 ? await route(request).ConfigureAwait(true) is { IsEmpty: false } paths ? (object?)paths : null
                 : new DialogFault.PickerUnavailable(root.SurfaceKey);
+
+        internal object Templated(DialogIntent.Form request) =>
+            root.ContentTemplate(request.TemplateKey) is { IsSome: true, Case: IDataTemplate template }
+                ? new ContentControl { Content = request.Content, ContentTemplate = template }
+                : request.Content;
     }
 
     static Fin<Option<TResult>> Project<TResult>(object? closing) where TResult : notnull =>

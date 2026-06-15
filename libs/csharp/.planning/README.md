@@ -7,7 +7,7 @@ This file is the binding authoring standard for the four app-package planning co
 - Planning home: `libs/csharp/Rasm.<Pkg>/.planning/`, sibling to `.api/`. The suite home `libs/csharp/.planning/` holds this standard, the ledger `region-map/`, the campaign method (`campaign-method.md`), the open-work log (`TASKLOG.md`), and the concert feature atlas (`FEATURES.md`); the standard and the ledger are the only durable law, and campaign working material lives under `.artifacts/planning-briefs/`.
 - Per package: one charter (`README.md`, the only linking file) plus self-contained domain pages. Pages are decision-complete blueprints an implementation agent transcribes; they are not narratives, reports, or research logs.
 - Package-local planning docs are repo-concrete: they name Rasm projects, admitted packages, and decided policy values. Stack doctrine (`docs/stacks/csharp/`) is never restated; its vocabulary arrives settled and is composed as given.
-- A page over the size cap splits along its index into axis-led siblings; signatures are never truncated to fit.
+- Page size is refinement pressure, never a hard cap: the working target is ~300 lines and pages stay comfortably readable to ~800; a signature is never truncated and a capability is never dropped to hit a number. A concern that genuinely outgrows ~800 lines of one owned concern earns a new axis-led sibling page (an architecture improvement), but logical consolidation into one page is preferred to a split, and the planning page set models the implementation file set — one page maps to one transcription unit.
 
 ## [2]-[PAGE_GRAMMAR]
 
@@ -21,7 +21,7 @@ This file is the binding authoring standard for the four app-package planning co
 - Fence info strings: ```` ```csharp signature ````, ```` ```ts contract ````, ```` ```mermaid ````. Mermaid kinds: stateDiagram-v2 (lifecycles), flowchart (pipelines), sequenceDiagram (cross-boundary handshakes) only.
 - Tables: at most 8 columns and 20 rows; beyond 20 rows decompose into axis-led sibling tables; rows atomic; no links inside cells; tables enumerate, cards legislate.
 - RESEARCH section: grouped leader lines `- [<GROUP>]:`, each followed by its related unresolved items as compact clauses. An item is a question-free fact statement naming the unverified surface; near-duplicate items merge into one clause. No proof routes and no gate column: the charter PROOF_GATES carries the executable rails once, and the section already sits on the page that owns the decision. An item answerable trivially or owned elsewhere is deleted.
-- Size: target 150-300 lines, hard cap 400.
+- Size: refinement-pressure target ~300 lines, comfortable to ~800; no hard cap and no truncation — never drop a fence or a case to satisfy a number. A page genuinely larger than ~800 lines of one concern signals an axis-led sibling page (architecture improvement) only as a last resort after consolidation, because the page set models the eventual implementation file set.
 - Anchors: cluster tokens are unique within a package's planning set (TS_PROJECTION and RESEARCH are exempt structural tokens); every owner type name is unique across the four-package suite, enforced through the ledger.
 - Disjointness: a sibling page's concern is neither re-shown nor pointed to; a fact owned elsewhere is composed as supporting material inside a fence, never re-taught in prose.
 

@@ -7,11 +7,11 @@
 | [INDEX] | [RAIL]              | [OWNING_AXES]                                                                                                                    | [PAGE]                                                  |
 | :-----: | :------------------ | :------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------ |
 |   [1]   | Store profiles      | `StoreProfile` (6) · `StoreLifecycle` (5) · `StorePlacement` (8 arms) · `StoreLeaseRow` · `ExtensionRequirement` (7)             | [store-profiles](.planning/store-profiles.md)           |
-|   [2]   | Data lanes          | `DataLane` (7) · `JsonIndex` (3) · `VectorMetric` (3) · `FullTextMode` (4) · `GeoLayer` · `TabularExportSpec`                    | [data-lanes](.planning/data-lanes.md)                   |
+|   [2]   | Data lanes          | `DataLane` (7) · `JsonIndex` (3) · `VectorMetric` (6) · `FullTextMode` (4) · `GeoLayer` · `TabularExportSpec`                    | [data-lanes](.planning/data-lanes.md)                   |
 |   [3]   | Schema rail         | `IdentityPolicy` (3) · `SchemaFault` (5) · `SchemaFingerprint` · `DerivedColumn` · `SchemaDdl` (19 extensions) · `ConverterRail` | [schema-rail](.planning/schema-rail.md)                 |
 |   [4]   | Query rail          | `StoreOp<T>` (8) · `StoreFault` (6) · `KeysetPage<TRow>` · `BulkRoute` (3) · `StoreInterceptor` · `StoreFact` (7 kinds)          | [query-rail](.planning/query-rail.md)                   |
 |   [5]   | Native SQLite       | `SqlitePragma` (10) · `SqliteFactKind` (14) · `SqliteCompileSurface` · `SqliteMaintenance` (9 verbs) · `ExtensionGate` (8)       | [native-sqlite](.planning/native-sqlite.md)             |
-|   [6]   | Snapshot codecs     | `SnapshotCodec` (3) · `CompressionPolicy` (3) · `HashPolicy` (3) · `SnapshotHeader` · `Snapshots` · `PersistenceWireContext`     | [snapshot-codecs](.planning/snapshot-codecs.md)         |
+|   [6]   | Snapshot codecs     | `SnapshotCodec` (3) · `CompressionPolicy` (3) · `HashPolicy` (5) · `GeoJsonProjection` · `PersistenceResolver` · `SnapshotHeader` · `Snapshots` · `PersistenceWireContext` | [snapshot-codecs](.planning/snapshot-codecs.md)         |
 |   [7]   | Cache indexes       | `CacheContribution` · `ModelResultKey` · `ArtifactIndexRow` · `BenchmarkRow`                                                     | [cache-indexes](.planning/cache-indexes.md)             |
 |   [8]   | Sync collaboration  | `SyncOpKind` (3) · `OpLogEntry` · `ConflictOutcome` (4) · `SyncTransport` (3) · `PresenceRow`                                    | [sync-collaboration](.planning/sync-collaboration.md)   |
 |   [9]   | Redaction retention | `RetentionPolicy` (4) · `ArtifactClasses` (7) · `ExportProof` · `AuditBinding` (5)                                               | [redaction-retention](.planning/redaction-retention.md) |
@@ -40,6 +40,7 @@ Seam altitudes record in the suite ledger [SEAM_SPLITS](../.planning/region-map/
 |  [13]   | Suite wire law           | Persistence snapshot-codecs + sync-collaboration TS_PROJECTION | AppHost runtime-ports merges `PersistenceWireContext` into the suite contract                                 |
 |  [14]   | Fingerprint slot         | Persistence schema-rail `SchemaFingerprint`                    | store-profiles open receipt carries the bare `ulong`; zero forward reference                                  |
 |  [15]   | Pooled-context residence | Persistence store-profiles delegate columns                    | app roots build one `PooledDbContextFactory` per placement; query-rail leases                                 |
+|  [16]   | Canonical wire geometry  | Compute `GeometryPayload` proto oneof                          | snapshot-codecs#CODEC_AXIS `GeoJsonProjection` PROJECTS off the oneof; never mints a second geometry (XR7)     |
 
 ## [3]-[STORE_FLOW]
 

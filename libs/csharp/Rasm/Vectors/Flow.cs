@@ -54,19 +54,12 @@ public abstract partial record FieldIntegrator {
     private FieldIntegrator() { }
     public static Fin<FieldIntegrator> Fixed(IntegratorKind kind, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(kind).ToFin(op.InvalidInput())
-               from _ in active.Tableau.Admit(key: op)
-               from __ in guard(!active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(FixedCase)))
-               select (FieldIntegrator)new FixedCase(kind: active);
+        return Admit(value: new FixedCase(kind: kind), key: op);
     }
     public static Fin<FieldIntegrator> Adaptive(IntegratorKind kind, double tolerance, int maxRejects = 3, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(kind).ToFin(op.InvalidInput())
-               from _ in active.Tableau.Admit(key: op)
-               from __ in guard(maxRejects >= 0, op.InvalidInput())
-               from ___ in guard(active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(AdaptiveCase)))
-               from validated in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
-               select (FieldIntegrator)new AdaptiveCase(kind: active, tolerance: validated, maxRejects: maxRejects);
+        return op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
+            .Bind(validated => Admit(value: new AdaptiveCase(kind: kind, tolerance: validated, maxRejects: maxRejects), key: op));
     }
     internal int RejectBudget => Switch(
         state: 0,
@@ -91,7 +84,6 @@ public abstract partial record FieldIntegrator {
                 from tableau in kind.Tableau.Admit(key: op)
                 from rejects in guard(integrator.MaxRejects >= 0, op.InvalidInput())
                 from adaptiveKind in guard(kind.IsAdaptive, op.Unsupported(geometryType: kind.GetType(), outputType: typeof(AdaptiveCase)))
-                from tolerance in FieldNabla.Positive(value: integrator.Tolerance, key: op)
                 select (FieldIntegrator)integrator);
     internal static Fin<FieldIntegrator> Admit(FieldIntegrator value, Op key) =>
         FieldNabla.NotNull(value: value, key: key).Bind(integrator => integrator.Admit(key: key));
@@ -171,34 +163,22 @@ public abstract partial record Termination {
     private const int EventBisectionMaxIterations = 64;
     private Termination() { }
     public static Fin<Termination> Steps(int count, Op? key = null) =>
-        count > 0
-            ? Fin.Succ<Termination>(new StepCountCase(Count: count))
-            : Fin.Fail<Termination>(key.OrDefault().InvalidInput());
+        Admit(value: new StepCountCase(Count: count), key: key.OrDefault());
     public static Fin<Termination> ArcLength(double length, Op? key = null) =>
         Positive(candidate: length, create: static l => new ArcLengthCase(Length: l), key: key);
     public static Fin<Termination> Magnitude(double threshold, Op? key = null) =>
         Positive(candidate: threshold, create: static t => new MagnitudeFloorCase(Threshold: t), key: key);
-    public static Fin<Termination> CrossSurface(SupportSpace surface, int maxLocalizationIterations = EventBisectionMaxIterations, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in Optional(surface).ToFin(op.InvalidInput())
-               from iterations in LocalizationIterations(candidate: maxLocalizationIterations, key: op)
-               from _ in guard(GeometryKernel.CanClosest(type: active.SourceType) && active.CanSignedDistance, op.Unsupported(geometryType: active.SourceType, outputType: typeof(double)))
-               select (Termination)new CrossSurfaceCase(Surface: active, MaxLocalizationIterations: iterations);
-    }
-    public static Fin<Termination> RegionThreshold(ScalarField region, double threshold, int maxLocalizationIterations = EventBisectionMaxIterations, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in Optional(region).ToFin(op.InvalidInput())
-               from iterations in LocalizationIterations(candidate: maxLocalizationIterations, key: op)
-               from _ in guard(RhinoMath.IsValidDouble(x: threshold), op.InvalidInput())
-               select (Termination)new RegionThresholdCase(Region: active, Threshold: threshold, MaxLocalizationIterations: iterations);
-    }
+    public static Fin<Termination> CrossSurface(SupportSpace surface, int maxLocalizationIterations = EventBisectionMaxIterations, Op? key = null) =>
+        Admit(value: new CrossSurfaceCase(Surface: surface, MaxLocalizationIterations: maxLocalizationIterations), key: key.OrDefault());
+    public static Fin<Termination> RegionThreshold(ScalarField region, double threshold, int maxLocalizationIterations = EventBisectionMaxIterations, Op? key = null) =>
+        Admit(value: new RegionThresholdCase(Region: region, Threshold: threshold, MaxLocalizationIterations: maxLocalizationIterations), key: key.OrDefault());
     public static Fin<Termination> LoopDetected(double closureRadius, Op? key = null) =>
         Positive(candidate: closureRadius, create: static r => new LoopDetectedCase(ClosureRadius: r), key: key);
     internal Fin<Termination> Admit(Op key) => Switch(
         state: key,
         stepCountCase: static (op, termination) => termination.Count > 0 ? Fin.Succ<Termination>(termination) : Fin.Fail<Termination>(op.InvalidInput()),
-        arcLengthCase: static (op, termination) => FieldNabla.Positive(value: termination.Length, key: op).Map(_ => (Termination)termination),
-        magnitudeFloorCase: static (op, termination) => FieldNabla.Positive(value: termination.Threshold, key: op).Map(_ => (Termination)termination),
+        arcLengthCase: static (_, termination) => Fin.Succ<Termination>(termination),
+        magnitudeFloorCase: static (_, termination) => Fin.Succ<Termination>(termination),
         crossSurfaceCase: static (op, termination) =>
             from surface in FieldNabla.NotNull(value: termination.Surface, key: op)
             from iterations in LocalizationIterations(candidate: termination.MaxLocalizationIterations, key: op)
@@ -209,7 +189,7 @@ public abstract partial record Termination {
             from iterations in LocalizationIterations(candidate: termination.MaxLocalizationIterations, key: op)
             from threshold in FieldNabla.Finite(value: termination.Threshold, key: op)
             select (Termination)termination,
-        loopDetectedCase: static (op, termination) => FieldNabla.Positive(value: termination.ClosureRadius, key: op).Map(_ => (Termination)termination));
+        loopDetectedCase: static (_, termination) => Fin.Succ<Termination>(termination));
     internal static Fin<Termination> Admit(Termination value, Op key) =>
         FieldNabla.NotNull(value: value, key: key).Bind(termination => termination.Admit(key: key));
     internal Fin<(bool Stop, Option<TraceEvent> Event)> Evaluate(StreamlineState state, Vector3d currentSample, Context context, Op key) => Switch(
@@ -237,8 +217,10 @@ public abstract partial record Termination {
             maxIterations: c.MaxLocalizationIterations,
             sample: point => c.Region.SampleScalar(sample: point, context: s.Context, key: s.Key).Map(value => value - c.Threshold),
             key: s.Key).Map(@event => (Stop: @event.IsSome, Event: @event)));
-    private static Fin<Termination> Positive(double candidate, Func<PositiveMagnitude, Termination> create, Op? key) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: candidate).Map(create);
+    private static Fin<Termination> Positive(double candidate, Func<PositiveMagnitude, Termination> create, Op? key) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<PositiveMagnitude>(candidate: candidate).Bind(value => Admit(value: create(value), key: op));
+    }
     private static Fin<int> LocalizationIterations(int candidate, Op key) =>
         candidate > 0 ? Fin.Succ(candidate) : Fin.Fail<int>(key.InvalidInput());
     private static Fin<(bool Stop, Option<TraceEvent> Event)> Decision(bool stop) =>

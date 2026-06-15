@@ -7,24 +7,34 @@ Rasm.Compute has zero consumers; the implementation is full-capability with no h
 | [INDEX] | [PAGE]                                                  | [OWNS]                                                              |
 | :-----: | ------------------------------------------------------- | ------------------------------------------------------------------- |
 |   [1]   | [intent-and-selection](intent-and-selection.md)         | Typed intent family; substrate-selection rail; total dispatch       |
-|   [2]   | [tensor-lane](tensor-lane.md)                           | CPU tensor substrate; shape algebra; geometry-to-tensor encoding    |
-|   [3]   | [model-lane](model-lane.md)                             | ONNX identity, session capsule, EP rows, extension-op admission     |
-|   [4]   | [remote-lane](remote-lane.md)                           | Proto wire vocabulary; transports; channel capsule; credential axis |
-|   [5]   | [staging-and-streams](staging-and-streams.md)           | AllocationClass rows; pooled memory; recyclable streams             |
-|   [6]   | [scheduling-and-lanes](scheduling-and-lanes.md)         | WorkLane channels; solve-path guard; drain participation            |
-|   [7]   | [progress-and-observation](progress-and-observation.md) | Monotonic phases; zero-alloc capsules; observation seams            |
-|   [8]   | [units-boundary](units-boundary.md)                     | QuantityFamily rows; conversion-at-admission; unit evidence         |
-|   [9]   | [receipts-and-benchmarks](receipts-and-benchmarks.md)   | Receipt union; fold projections; benchmark claims                   |
+|   [2]   | [tensor-lane](tensor-lane.md)                           | Tensor shapes, dtype map, layout algebra, geometry encoding         |
+|   [3]   | [tensor-operations](tensor-operations.md)               | TensorOpFamily table; tolerance vocabulary; kernel dispatch         |
+|   [4]   | [model-lane](model-lane.md)                             | ONNX identity, session capsule, EP rows, extension-op admission     |
+|   [5]   | [model-inference](model-inference.md)                   | OrtValue run modes; bound-loop hot path; result cache               |
+|   [6]   | [remote-lane](remote-lane.md)                           | Proto wire vocabulary; transports; channel capsule; credential axis |
+|   [7]   | [remote-frames](remote-frames.md)                       | Artifact frame law; buffer fast path; suite TS wire posture         |
+|   [8]   | [staging-and-streams](staging-and-streams.md)           | AllocationClass rows; pooled memory; recyclable streams             |
+|   [9]   | [scheduling-and-lanes](scheduling-and-lanes.md)         | WorkLane channels; solve-path guard; drain participation            |
+|  [10]   | [progress-and-observation](progress-and-observation.md) | Monotonic phases; zero-alloc capsules; observation seams            |
+|  [11]   | [units-boundary](units-boundary.md)                     | QuantityFamily rows; conversion-at-admission; unit evidence         |
+|  [12]   | [receipts-and-benchmarks](receipts-and-benchmarks.md)   | Receipt union; fold projections; benchmark claims                   |
 
 ## [2]-[WIRE_PAGES]
 
-remote-lane · progress-and-observation · receipts-and-benchmarks (each carries exactly one TS_PROJECTION cluster).
+remote-frames · progress-and-observation · receipts-and-benchmarks (each carries exactly one TS_PROJECTION cluster).
 
 ## [3]-[CATALOGUE_PENDING]
 
 - App-root server packages (Grpc.AspNetCore trio) catalogued at app-root creation.
 - `Microsoft.AspNetCore.TestHost` — the `RemoteTransport.InProcess` row's `TestServer.CreateHandler` handler seam; lands as a test-only `<PackageReference>` in the spec project at the matched ASP.NET Core servicing line.
 - `NodaTime.Serialization.Protobuf` — the `Google.Type` calendar-date wire bridges on remote-lane and receipts-and-benchmarks (`api-nodatime-protobuf.md`); lands as a direct `<PackageVersion>` only when the `Google.Api.CommonProtos` calendar surface does not resolve transitively through the admitted NodaTime and Grpc graph.
+
+Substrate, pending, and test-only admissions:
+
+| [PACKAGE]       | [VERSION] | [PAGE]                    | [CATALOGUE]                         |
+| :-------------- | :-------- | :------------------------ | :---------------------------------- |
+| SharpFuzz       | 2.2.0     | remote-lane + tensor-lane | catalogue pending — NEEDS-ADMISSION |
+| BenchmarkDotNet | 0.15.8    | model-lane                | catalogue pending                   |
 
 ## [4]-[GAP_LEDGER]
 
@@ -39,7 +49,7 @@ remote-lane · progress-and-observation · receipts-and-benchmarks (each carries
 |   [5]   | descriptor-diff contract evolution        | remote-lane                           | FINALIZED |
 |   [6]   | transport streaming-capability column     | remote-lane                           | FINALIZED |
 |   [7]   | keepalive policy rows                     | remote-lane                           | FINALIZED |
-|   [8]   | payload caps, frames, hashes, zero-copy   | remote-lane + staging-and-streams     | FINALIZED |
+|   [8]   | payload caps, frames, hashes, zero-copy   | remote-frames + staging-and-streams   | FINALIZED |
 |   [9]   | credential policy and peer credentials    | remote-lane                           | FINALIZED |
 |  [10]   | compression axis                          | remote-lane                           | FINALIZED |
 |  [11]   | interceptor and call-invoker seam         | remote-lane                           | FINALIZED |
@@ -50,7 +60,7 @@ remote-lane · progress-and-observation · receipts-and-benchmarks (each carries
 |  [16]   | geometry-to-tensor encoding cluster       | tensor-lane                           | FINALIZED |
 |  [17]   | tensor layout family surface              | tensor-lane                           | FINALIZED |
 |  [18]   | CoreML EP and EP-context artifacts        | model-lane                            | FINALIZED |
-|  [19]   | ONNX terminate-latch cancellation cadence | model-lane                            | SPIKE     |
+|  [19]   | ONNX terminate-latch cancellation cadence | model-inference                       | SPIKE     |
 |  [20]   | NodaTime-protobuf wire bridges            | remote-lane + receipts-and-benchmarks | FINALIZED |
 |  [21]   | benchmark claims and profiling artifacts  | receipts-and-benchmarks               | FINALIZED |
 |  [22]   | canonical proto geometry                  | remote-lane                           | FINALIZED |
@@ -59,65 +69,65 @@ remote-lane · progress-and-observation · receipts-and-benchmarks (each carries
 
 ## [5]-[DENSITY_BAR]
 
-Implementation lands at 25-35% of naive LOC: one owner per axis, one entrypoint family per rail, dispatch over row data through generated total Switches and frozen tables. A new feature is one row or one case on a budgeted owner — never a new surface. Seven comparer accessors exist, one per axis owner and package-local; the `WorkLane` key accessor is `ComputeKeyPolicy`, never the AppHost `LaneKeyPolicy` (suite ledger key-policy posture).
+Implementation lands at 25-35% of naive LOC: one owner per axis, one entrypoint family per rail, dispatch over row data through generated total Switches and frozen tables. A new feature is one row or one case on a budgeted owner — never a new surface. Seven comparer accessors exist, one per axis owner and package-local; the `WorkLane` key accessor is `ComputeKeyPolicy`, never the AppHost `LaneKeyPolicy` (suite ledger key-policy posture). `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
 Axis owners (vocabulary budget):
 
-| [INDEX] | [AXIS/CONCERN]     | [OWNER]             | [KIND]                   |   [CASES]   |
-| :-----: | :----------------- | :------------------ | :----------------------- | :---------: |
-|   [1]   | Intent family      | `ComputeIntent`     | [Union] + nested `Spec`  |      5      |
-|   [2]   | Substrate axis     | `Substrate`         | SmartEnum\<string>       |      3      |
-|   [3]   | Fault family       | `ComputeFault`      | [Union] fault, band 2200 |     13      |
-|   [4]   | Total dispatch     | `DispatchTable`     | record                   | 3 delegates |
-|   [5]   | Tensor dtypes      | `TensorDtype`       | SmartEnum\<string>       |     10      |
-|   [6]   | Tensor op kinds    | `TensorOpKind`      | SmartEnum\<string>       |     10      |
-|   [7]   | Tensor op families | `TensorOpFamily`    | SmartEnum\<string>       |     52      |
-|   [8]   | Tolerance classes  | `ToleranceClass`    | SmartEnum\<string>       |      4      |
-|   [9]   | Layout forms       | `LayoutForm`        | SmartEnum\<string>       |      5      |
-|  [10]   | Encoding channels  | `EncodingChannel`   | SmartEnum\<string>       |      6      |
-|  [11]   | Geometry encodings | `GeometryEncoding`  | [Union]                  |      3      |
-|  [12]   | Model acquisition  | `ModelSource`       | [Union]                  |      4      |
-|  [13]   | EP axis            | `ExecutionProvider` | SmartEnum\<string>       |      4      |
-|  [14]   | Cache postures     | `CachePolicy`       | SmartEnum\<string>       |      4      |
+| [INDEX] | [AXIS/CONCERN]     | [OWNER]             | [KIND]                   |   [CASES]   |  [STATE]  |
+| :-----: | :----------------- | :------------------ | :----------------------- | :---------: | :-------: |
+|   [1]   | Intent family      | `ComputeIntent`     | [Union] + nested `Spec`  |      5      | FINALIZED |
+|   [2]   | Substrate axis     | `Substrate`         | SmartEnum\<string>       |      3      | FINALIZED |
+|   [3]   | Fault family       | `ComputeFault`      | [Union] fault, band 2200 |     13      | FINALIZED |
+|   [4]   | Total dispatch     | `DispatchTable`     | record                   | 3 delegates | FINALIZED |
+|   [5]   | Tensor dtypes      | `TensorDtype`       | SmartEnum\<string>       |     10      | FINALIZED |
+|   [6]   | Tensor op kinds    | `TensorOpKind`      | SmartEnum\<string>       |     12      | FINALIZED |
+|   [7]   | Tensor op families | `TensorOpFamily`    | SmartEnum\<string>       |     82      | FINALIZED |
+|   [8]   | Tolerance classes  | `ToleranceClass`    | SmartEnum\<string>       |      4      | FINALIZED |
+|   [9]   | Layout forms       | `LayoutForm`        | SmartEnum\<string>       |      5      | FINALIZED |
+|  [10]   | Encoding channels  | `EncodingChannel`   | SmartEnum\<string>       |      6      | FINALIZED |
+|  [11]   | Geometry encodings | `GeometryEncoding`  | [Union]                  |      3      | FINALIZED |
+|  [12]   | Model acquisition  | `ModelSource`       | [Union]                  |      4      | FINALIZED |
+|  [13]   | EP axis            | `ExecutionProvider` | SmartEnum\<string>       |      4      | FINALIZED |
+|  [14]   | Cache postures     | `CachePolicy`       | SmartEnum\<string>       |      4      | FINALIZED |
 
-| [INDEX] | [AXIS/CONCERN]    | [OWNER]                | [KIND]             | [CASES] |
-| :-----: | :---------------- | :--------------------- | :----------------- | :-----: |
-|   [1]   | Contract drift    | `ContractDrift`        | [Union]            |    3    |
-|   [2]   | Transport axis    | `RemoteTransport`      | SmartEnum\<string> |    6    |
-|   [3]   | Stream shapes     | `StreamShape`          | [Flags] enum       |    4    |
-|   [4]   | Node selection    | `NodeSelection`        | enum               |    3    |
-|   [5]   | Credential axis   | `CredentialPolicy`     | SmartEnum\<string> |    4    |
-|   [6]   | Allocation axis   | `AllocationClass`      | SmartEnum\<string> |    5    |
-|   [7]   | Work lanes        | `WorkLane`             | SmartEnum\<string> |    5    |
-|   [8]   | Progress phases   | `ProgressPhase`        | SmartEnum\<string> |    9    |
-|   [9]   | Cadence rows      | `SubscriptionPolicy`   | record rows        |    3    |
-|  [10]   | Quantity families | `QuantityFamily`       | SmartEnum\<string> |   15    |
-|  [11]   | Receipt union     | `ComputeReceipt`       | [Union]            |   13    |
-|  [12]   | Claim bands       | `BenchmarkClaim.Bands` | frozen rows        |    4    |
-|  [13]   | Key policies      | `*KeyPolicy`           | comparer accessors |    7    |
+| [INDEX] | [AXIS/CONCERN]    | [OWNER]                | [KIND]             | [CASES] |  [STATE]  |
+| :-----: | :---------------- | :--------------------- | :----------------- | :-----: | :-------: |
+|   [1]   | Contract drift    | `ContractDrift`        | [Union]            |    3    | FINALIZED |
+|   [2]   | Transport axis    | `RemoteTransport`      | SmartEnum\<string> |    6    | FINALIZED |
+|   [3]   | Stream shapes     | `StreamShape`          | [Flags] enum       |    4    | FINALIZED |
+|   [4]   | Node selection    | `NodeSelection`        | enum               |    3    | FINALIZED |
+|   [5]   | Credential axis   | `CredentialPolicy`     | SmartEnum\<string> |    4    | FINALIZED |
+|   [6]   | Allocation axis   | `AllocationClass`      | SmartEnum\<string> |    5    | FINALIZED |
+|   [7]   | Work lanes        | `WorkLane`             | SmartEnum\<string> |    5    | FINALIZED |
+|   [8]   | Progress phases   | `ProgressPhase`        | SmartEnum\<string> |    9    | FINALIZED |
+|   [9]   | Cadence rows      | `SubscriptionPolicy`   | record rows        |    3    | FINALIZED |
+|  [10]   | Quantity families | `QuantityFamily`       | SmartEnum\<string> |   15    | FINALIZED |
+|  [11]   | Receipt union     | `ComputeReceipt`       | [Union]            |   13    | FINALIZED |
+|  [12]   | Claim bands       | `BenchmarkClaim.Bands` | frozen rows        |    4    | FINALIZED |
+|  [13]   | Key policies      | `*KeyPolicy`           | comparer accessors |    7    | FINALIZED |
 
 Rail surfaces (one entrypoint family per rail):
 
-| [INDEX] | [AXIS/CONCERN]      | [OWNER]                              | [KIND]                | [CASES]                                         |
-| :-----: | :------------------ | :----------------------------------- | :-------------------- | :---------------------------------------------- |
-|   [1]   | Admission rail      | `IntentAdmission`                    | static fold           | `Admit` — `Fin<AdmittedIntent>`                 |
-|   [2]   | Selection rail      | `SubstrateSelection`                 | static fold           | `Plan`/`Select` — `Fin`                         |
-|   [3]   | Kernel rail         | `TensorOps`                          | static table dispatch | 9 arity entrypoints — `Fin`                     |
-|   [4]   | Layout and encoding | `TensorLayout` / `EncodedTensor`     | static + record       | `Reform` / `Of` — `Fin`                         |
-|   [5]   | Equivalence rail    | `EquivalenceLaw`                     | static surface        | `Prove` — pure proof                            |
-|   [6]   | Session capsule     | `ModelSessions`                      | boundary capsule      | `Boot`/`Lease`/`Unload` — `Fin`                 |
-|   [7]   | Inference rail      | `RunOps`                             | extension fold        | `Infer`/`InferBound` — `Fin` in bracket         |
-|   [8]   | Cache rail          | `CacheOps`                           | extension fold        | `Through` — `ValueTask`                         |
-|   [9]   | Contract rail       | `ContractGuard`                      | static fold           | `Classify`/`AdditiveOnly` — `Fin`               |
-|  [10]   | Channel capsule     | `WireChannels`                       | boundary capsule      | `Attach`/`Open`/`Observe`/`Redial` — `Fin`/`IO` |
-|  [11]   | Call edge           | `CallSpine`                          | interceptor           | `Options`/`Bounded` + 4 overrides               |
-|  [12]   | Frame rail          | `FrameEdge`                          | static surface        | `Frames`/`Parse`/`Write`/`Valid`                |
-|  [13]   | Stream capsule      | `StreamPool`                         | boundary capsule      | `Get` + 11-event fold                           |
-|  [14]   | Lane capsule        | `LaneRuntime`                        | boundary capsule      | `Enqueue`/`Pump`/`Drain` — `IO`                 |
-|  [15]   | Progress capsule    | `ProgressCell`                       | capsule               | `Advance`/`Subscribe`/`Cancel`                  |
-|  [16]   | Units rail          | `QuantityFamily.Admit`               | row members           | 4 arities — `Fin<UnitEvidence>`                 |
-|  [17]   | Receipt rail        | `ReceiptSurface` / `ReceiptFolds`    | static + fold         | `Emit` — `IO`; 6 fold views                     |
-|  [18]   | Claim rail          | `HostFingerprint` / `BenchmarkClaim` | records               | `Claim` — `Option`; `BandOf`/`Persist`/`Stale`  |
+| [INDEX] | [AXIS/CONCERN]      | [OWNER]                              | [KIND]                | [CASES]                                         |  [STATE]  |
+| :-----: | :------------------ | :----------------------------------- | :-------------------- | :---------------------------------------------- | :-------: |
+|   [1]   | Admission rail      | `IntentAdmission`                    | static fold           | `Admit` — `Fin<AdmittedIntent>`                 | FINALIZED |
+|   [2]   | Selection rail      | `SubstrateSelection`                 | static fold           | `Plan`/`Select` — `Fin`                         | FINALIZED |
+|   [3]   | Kernel rail         | `TensorOps`                          | static table dispatch | 9 arity entrypoints — `Fin`                     | FINALIZED |
+|   [4]   | Layout and encoding | `TensorLayout` / `EncodedTensor`     | static + record       | `Reform` / `Of` — `Fin`                         | FINALIZED |
+|   [5]   | Equivalence rail    | `EquivalenceLaw`                     | static surface        | `Prove` — pure proof                            | FINALIZED |
+|   [6]   | Session capsule     | `ModelSessions`                      | boundary capsule      | `Boot`/`Lease`/`Unload` — `Fin`                 |   SPIKE   |
+|   [7]   | Inference rail      | `RunOps`                             | extension fold        | `Infer`/`InferBound` — `Fin` in bracket         |   SPIKE   |
+|   [8]   | Cache rail          | `CacheOps`                           | extension fold        | `Through` — `ValueTask`                         | FINALIZED |
+|   [9]   | Contract rail       | `ContractGuard`                      | static fold           | `Classify`/`AdditiveOnly` — `Fin`               | FINALIZED |
+|  [10]   | Channel capsule     | `WireChannels`                       | boundary capsule      | `Attach`/`Open`/`Observe`/`Redial` — `Fin`/`IO` |   SPIKE   |
+|  [11]   | Call edge           | `CallSpine`                          | interceptor           | `Options`/`Bounded` + 4 overrides               |   SPIKE   |
+|  [12]   | Frame rail          | `FrameEdge`                          | static surface        | `Frames`/`Parse`/`Write`/`Prefixed`/`Merge`/`Valid` |   SPIKE   |
+|  [13]   | Stream capsule      | `StreamPool`                         | boundary capsule      | `Get` + 11-event fold                           | FINALIZED |
+|  [14]   | Lane capsule        | `LaneRuntime`                        | boundary capsule      | `Enqueue`/`Pump`/`Drain` — `IO`                 | FINALIZED |
+|  [15]   | Progress capsule    | `ProgressCell`                       | capsule               | `Advance`/`Subscribe`/`Cancel`                  | FINALIZED |
+|  [16]   | Units rail          | `QuantityFamily.Admit`               | row members           | 4 arities — `Fin<UnitEvidence>`                 | FINALIZED |
+|  [17]   | Receipt rail        | `ReceiptSurface` / `ReceiptFolds`    | static + fold         | `Emit` — `IO`; 6 fold views                     | FINALIZED |
+|  [18]   | Claim rail          | `HostFingerprint` / `BenchmarkClaim` | records               | `Claim` — `Option`; `BandOf`/`Persist`/`Stale`  | FINALIZED |
 
 ## [6]-[BUILD_ORDER]
 
@@ -194,21 +204,24 @@ Assay rows use `uv run python -m tools.assay`; proof runs at the planned phase g
 
 ## [10]-[ADMISSIONS_RECORD]
 
-| [PACKAGE]                            | [PAGE]                                        | [CATALOGUE]              |
-| :----------------------------------- | :-------------------------------------------- | :----------------------- |
-| CommunityToolkit.HighPerformance     | tensor-lane, staging-and-streams              | api-highperformance.md   |
-| Google.Protobuf                      | remote-lane, receipts-and-benchmarks          | api-protobuf.md          |
-| Grpc.Net.Client                      | remote-lane                                   | api-grpc-client.md       |
-| Grpc.Net.Client.Web                  | remote-lane                                   | api-grpc-client-web.md   |
-| Grpc.Tools                           | remote-lane                                   | api-grpc-tools.md        |
-| Microsoft.IO.RecyclableMemoryStream  | staging-and-streams, remote-lane              | api-recyclable-stream.md |
-| Microsoft.ML.OnnxRuntime             | model-lane, tensor-lane, intent-and-selection | api-onnxruntime.md       |
-| Microsoft.ML.OnnxRuntime.Extensions  | model-lane                                    | api-onnx-extensions.md   |
-| System.Numerics.Tensors              | tensor-lane                                   | api-tensors.md           |
-| Thinktecture.Runtime.Extensions      | all pages                                     | doctrine (stack atlas)   |
-| Thinktecture.Runtime.Extensions.Json | receipts-and-benchmarks                       | doctrine (stack atlas)   |
-| UnitsNet                             | units-boundary                                | api-unitsnet.md          |
+| [PACKAGE]                            | [VERSION] | [PAGE]                                        | [CATALOGUE]                        |
+| :----------------------------------- | :-------- | :-------------------------------------------- | :--------------------------------- |
+| CommunityToolkit.HighPerformance     | 8.4.2     | tensor-lane, staging-and-streams              | api-highperformance.md             |
+| Google.Protobuf                      | 3.35.1    | remote-lane, receipts-and-benchmarks          | api-protobuf.md                    |
+| Grpc.Net.Client                      | 2.80.0    | remote-lane                                   | api-grpc-client.md                 |
+| Grpc.Net.Client.Web                  | 2.80.0    | remote-lane                                   | api-grpc-client-web.md             |
+| Grpc.Tools                           | 2.81.1    | remote-lane                                   | api-grpc-tools.md                  |
+| Microsoft.AspNetCore.TestHost        | 10.0.9    | remote-lane                                   | api-microsoftaspnetcoretesthost.md |
+| Microsoft.IO.RecyclableMemoryStream  | 3.0.1     | staging-and-streams, remote-lane              | api-recyclable-stream.md           |
+| Microsoft.ML.OnnxRuntime             | 1.26.0    | model-lane, tensor-lane, intent-and-selection | api-onnxruntime.md                 |
+| Microsoft.ML.OnnxRuntime.Extensions  | 0.14.0    | model-lane                                    | api-onnx-extensions.md             |
+| System.Numerics.Tensors              | 10.0.9    | tensor-lane                                   | api-tensors.md                     |
+| Thinktecture.Runtime.Extensions      | 10.2.0    | all pages                                     | doctrine (stack atlas)             |
+| Thinktecture.Runtime.Extensions.Json | 10.2.0    | receipts-and-benchmarks                       | doctrine (stack atlas)             |
+| UnitsNet                             | 5.75.0    | units-boundary                                | api-unitsnet.md                    |
 
 ## [11]-[REFINEMENT_HORIZON]
 
-Entry for the next deepening session: `libs/csharp/.planning/campaign-method.md` then `TASKLOG.md` then this charter. Folder-specific deepening targets: geometry-to-tensor encoding widened against real model zoos; the compute farm topology (node affinity, warm-start artifacts) rehearsed end-to-end; load/offload choreography between Rhino-hosted and companion processes proven over the wire vocabulary; the ALC spikes (ONNX dylib, Kestrel) executed from TASKLOG. The bar: apps move compute between host, companion, and farm rows without new surfaces, with receipts proving every hop.
+Entry for the next deepening session: `libs/csharp/.planning/campaign-method.md` then `TASKLOG.md` then this charter. Folder-specific deepening targets: geometry-to-tensor encoding widened against real model zoos as the uncatalogued `TensorPrimitives` operator surface on `tensor-operations#[OPERATOR_BACKLOG]` resolves into `TensorOpFamily` rows; the compute farm topology — node affinity, EP-context warm-start artifacts — rehearsed end-to-end against the designed-only `RemoteTransport` byte paths whose `PipeSecurity` ACL and loopback DACL member spellings live on `remote-lane#[PIPE_SECURITY]`; load/offload choreography between Rhino-hosted and companion processes proven over the wire vocabulary once the Kestrel `ListenUnixSocket` server leg and the `Grpc.Core.Api` transitive route land from START_GATES [3] and [4]; the ALC spikes — ONNX dylib native load and `libortextensions.dylib` RID resolution from TASKLOG §7[4] — executed with the `RunOptions.Terminate` latch propagation cadence on the CoreML and CPU rows resolved at `model-inference#[CANCELLATION]`. The bar: apps move compute between host, companion, and farm rows without new surfaces, with receipts proving every hop.
+
+Testing-infrastructure horizon: the `RemoteTransport.InProcess` transport seam proves the hand-off through `TestServer.CreateHandler` (`Microsoft.AspNetCore.TestHost`, admitted) without a live remote; the protobuf decode and tensor binary-frame admission ride `SharpFuzz` `Fuzzer.OutOfProcess.Run` (`NEEDS-ADMISSION`); durable kernel speed and the zero-alloc `OrtIoBinding` posture land on the BenchmarkDotNet rail.

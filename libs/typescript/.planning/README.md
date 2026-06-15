@@ -4,12 +4,18 @@ Rasm TypeScript owns the web UI: the co-hosted SPA, the evidence and benchmark d
 
 ## [1]-[PAGE_INDEX]
 
-The two wire pages are authored; deep pages land at stage [2.D] and register here as rows.
+The two wire pages plus the eight-domain deep corpus are authored; the deep pages land at stage [2.D] and the TS region ledger registers them.
 
-| [INDEX] | [PAGE]                                          | [OWNS]                                                            | [STATE]  |
-| :-----: | :---------------------------------------------- | :---------------------------------------------------------------- | :------- |
-|   [1]   | [wire-consumption](wire-consumption.md)         | Contract inventory, codegen tooling, codec posture, tolerance law | authored |
-|   [2]   | [architecture-posture](architecture-posture.md) | Effect app shape, state layer, host topology                      | authored |
+| [INDEX] | [PAGE]                                          | [OWNS]                                                                 | [STATE]   |
+| :-----: | :---------------------------------------------- | :--------------------------------------------------------------------- | :-------- |
+|   [1]   | [wire-consumption](wire-consumption.md)         | Contract inventory, codegen tooling, codec posture, tolerance law      | authored  |
+|   [2]   | [architecture-posture](architecture-posture.md) | Effect app shape, state layer, host topology                           | authored  |
+|   [3]   | [wire-contracts](wire-contracts.md)             | Byte-to-typed boundary; transport, five decode rails, quarantine fold  | finalized |
+|   [4]   | [state-stores](state-stores.md)                 | Key-discriminated folds, envelope carrier, staleness and availability  | finalized |
+|   [5]   | [view-surfaces](view-surfaces.md)               | Atom-bound leaf render and read-only observation routes                | finalized |
+|   [6]   | [control-edge](control-edge.md)                 | The write edge; command gateway and intent registry                    | finalized |
+|   [7]   | [runtime-host](runtime-host.md)                 | SPA root, Layer graph, platform, self-telemetry, build, worker pool    | finalized |
+|   [8]   | [node-tier](node-tier.md)                       | Node-only deploy and durable-work surfaces; observability provisioning | partial   |
 
 ## [2]-[EXECUTION_STAGES]
 
@@ -65,20 +71,31 @@ Catalogue truth for every TS dependency — the TS analog of the C# per-package 
 
 ## [3]-[ADMISSIONS_RECORD]
 
-The admission record owns package posture and catalogue state. Concrete package coordinates live in the workspace catalog, not in planning prose.
+The admission record owns package posture and catalogue state. Concrete package coordinates live in the workspace catalog, not in planning prose. The net-edit ledger holds one flagged-pending deletion, two comment-only security-line annotations, and zero version bumps; `pnpm-lock.yaml` is untouched.
 
-| [PACKAGE]                | [PAGE]               | [CATALOGUE]       |
-| :----------------------- | :------------------- | :---------------- |
-| typescript               | architecture-posture | catalog           |
-| effect                   | architecture-posture | catalog           |
-| @effect/platform         | architecture-posture | catalog           |
-| @effect/platform-browser | architecture-posture | catalog           |
-| react                    | architecture-posture | catalog           |
-| react-dom                | architecture-posture | catalog           |
-| vite                     | architecture-posture | catalog           |
-| @connectrpc/connect      | wire-consumption     | admission pending |
-| @connectrpc/connect-web  | wire-consumption     | admission pending |
-| @bufbuild/protobuf       | wire-consumption     | admission pending |
-| @bufbuild/protoc-gen-es  | wire-consumption     | admission pending |
-| @bufbuild/buf            | wire-consumption     | admission pending |
-| @msgpack/msgpack         | wire-consumption     | admission pending |
+| [PACKAGE]                  | [PAGE]               | [CATALOGUE]                                                                                                                                                                                     |
+| :------------------------- | :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| typescript                 | architecture-posture | catalog                                                                                                                                                                                         |
+| effect                     | architecture-posture | catalog; core pin confirmed past the async-local-storage context-loss patched line; v3 held, v4 a designed-only growth row with unstable-import-path risk; consumers node-tier and runtime-host |
+| @effect/platform           | architecture-posture | catalog                                                                                                                                                                                         |
+| @effect/platform-browser   | architecture-posture | catalog                                                                                                                                                                                         |
+| @effect/platform-node      | node-tier            | catalog                                                                                                                                                                                         |
+| @effect/rpc                | node-tier            | catalog; RPC pin confirmed past the async-local-storage context-loss patched line; consumers node-tier and runtime-host                                                                         |
+| @effect/cluster            | node-tier            | catalog; successor present at frontier                                                                                                                                                          |
+| @effect/workflow           | node-tier            | catalog; successor present at frontier                                                                                                                                                          |
+| @effect/cluster-workflow   | node-tier            | flagged-pending; superseded predecessor, zero root consumers, deletion deferred to stage [2.C] consumer sweep                                                                                   |
+| @effect/sql                | node-tier            | catalog                                                                                                                                                                                         |
+| @effect/sql-pg             | node-tier            | catalog                                                                                                                                                                                         |
+| @effect/opentelemetry      | runtime-host         | catalog                                                                                                                                                                                         |
+| @effect-atom/atom          | state-stores         | catalog                                                                                                                                                                                         |
+| @effect-atom/atom-react    | view-surfaces        | catalog                                                                                                                                                                                         |
+| react                      | architecture-posture | catalog                                                                                                                                                                                         |
+| react-dom                  | architecture-posture | catalog                                                                                                                                                                                         |
+| vite                       | architecture-posture | catalog                                                                                                                                                                                         |
+| @typescript/native-preview | architecture-posture | research; registry latest advanced past the catalog dev-nightly pin at re-probe; row demoted pending stage-[2.A] catalog refresh                                                                |
+| @connectrpc/connect        | wire-consumption     | admission pending                                                                                                                                                                               |
+| @connectrpc/connect-web    | wire-consumption     | admission pending                                                                                                                                                                               |
+| @bufbuild/protobuf         | wire-consumption     | admission pending                                                                                                                                                                               |
+| @bufbuild/protoc-gen-es    | wire-consumption     | admission pending                                                                                                                                                                               |
+| @bufbuild/buf              | wire-consumption     | admission pending                                                                                                                                                                               |
+| @msgpack/msgpack           | wire-consumption     | admission pending                                                                                                                                                                               |

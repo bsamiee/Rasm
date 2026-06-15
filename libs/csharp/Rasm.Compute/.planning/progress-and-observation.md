@@ -180,3 +180,4 @@ interface ProgressMarkWire {
 ## [6]-[RESEARCH]
 
 - [COMMIT_ORDER]: observer monotonicity is order-independent because each gate is a CAS over `Due` that permanently rejects a lower-rank mark once a higher-rank mark forwards; the implementation-time `SampleParallel` property confirms no interleaving of concurrent `Advance` commits forwards a rank-decreasing mark to any subscriber and that the cell `Atom` never stores a lower rank than a prior committed mark.
+- [GH2_READBACK_IDLE]: the GH2 `SolveInstance` async-readback idle-loop cadence — the interval a GH2 component polls its `ProgressCell.Latest` for a terminal mark before re-scheduling its own solve — fixes against the live GH2 solver idle loop; the in-flight readback ceiling itself is the `Interactive` lane capacity owned at scheduling-and-lanes#SOLVE_GUARD, so this probe gates only whether a per-subscription readback cadence row is warranted beyond `SubscriptionPolicy.Interactive`, never a second ceiling.

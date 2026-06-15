@@ -16,13 +16,13 @@ Each suite altitude has exactly one TS form; a second form on the same altitude 
 
 The service owner budget is closed; a new capability lands as a method or row on an existing owner, never as a sibling service.
 
-| [INDEX] | [AXIS]            | [OWNER]          | [CONSUMES]                                                                       |
-| :-----: | :---------------- | :--------------- | :-------------------------------------------------------------------------------- |
-|   [1]   | wire clients      | `WireClients`    | the four browser-dialable generated services over one shared grpc-web transport   |
-|   [2]   | snapshot decode   | `SnapshotFeed`   | msgpack decoder and header reads over the Persistence codec rows                   |
-|   [3]   | runtime records   | `RuntimeFeed`    | JSON record decode and receipt-envelope payload binding                            |
-|   [4]   | command gateway   | `CommandGateway` | intent keys, availability rows, invocation, and deep-link routing                  |
-|   [5]   | evidence timeline | `EvidenceFeed`   | correlation-keyed envelope ingestion and the skew-band fold                        |
+| [INDEX] | [AXIS]            | [OWNER]          | [CONSUMES]                                                                      |
+| :-----: | :---------------- | :--------------- | :------------------------------------------------------------------------------ |
+|   [1]   | wire clients      | `WireClients`    | the four browser-dialable generated services over one shared grpc-web transport |
+|   [2]   | snapshot decode   | `SnapshotFeed`   | msgpack decoder and header reads over the Persistence codec rows                |
+|   [3]   | runtime records   | `RuntimeFeed`    | JSON record decode and receipt-envelope payload binding                         |
+|   [4]   | command gateway   | `CommandGateway` | intent keys, availability rows, invocation, and deep-link routing               |
+|   [5]   | evidence timeline | `EvidenceFeed`   | correlation-keyed envelope ingestion and the skew-band fold                     |
 
 ## [2]-[STATE_LAYER]
 

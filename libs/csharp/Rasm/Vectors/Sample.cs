@@ -55,11 +55,18 @@ public abstract partial record SampleKind {
     public sealed record PowerCcvtCase : SampleKind { internal PowerCcvtCase(Dimension count, Dimension iterations, PositiveMagnitude tolerance) { Count = count; Iterations = iterations; Tolerance = tolerance; } public Dimension Count { get; } public Dimension Iterations { get; } public PositiveMagnitude Tolerance { get; } }
     private SampleKind() { }
     public static Fin<SampleKind> Explicit(Seq<Point3d> points, Op? key = null) =>
-        points.IsEmpty ? Fin.Fail<SampleKind>(key.OrDefault().InvalidInput()) : Fin.Succ<SampleKind>(new ExplicitCase(points: points));
-    public static Fin<SampleKind> PoissonDisk(double radius, int attempts = 30, int seed = 0, Op? key = null) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius).Bind(r => key.OrDefault().AcceptValidated<Dimension>(candidate: attempts).Map(a => (SampleKind)new PoissonDiskCase(radius: r, attempts: a, seed: seed)));
-    public static Fin<SampleKind> Farthest(int count, Op? key = null) =>
-        key.OrDefault().AcceptValidated<Dimension>(candidate: count).Map(static value => (SampleKind)new FarthestCase(count: value));
+        Admit(value: new ExplicitCase(points: points), key: key.OrDefault());
+    public static Fin<SampleKind> PoissonDisk(double radius, int attempts = 30, int seed = 0, Op? key = null) {
+        Op op = key.OrDefault();
+        return from r in op.AcceptValidated<PositiveMagnitude>(candidate: radius)
+               from a in op.AcceptValidated<Dimension>(candidate: attempts)
+               from admitted in Admit(value: new PoissonDiskCase(radius: r, attempts: a, seed: seed), key: op)
+               select admitted;
+    }
+    public static Fin<SampleKind> Farthest(int count, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<Dimension>(candidate: count).Bind(value => Admit(value: new FarthestCase(count: value), key: op));
+    }
     public static Fin<SampleKind> Optimize(int count, int iterations, Op? key = null) =>
         Counted(count: count, value: iterations, create: static (count, iterations) => new OptimizeCase(count: count, iterations: iterations), key: key);
     public static Fin<SampleKind> Lloyd(int count, int iterations, Op? key = null) =>
@@ -70,17 +77,22 @@ public abstract partial record SampleKind {
                from limit in op.AcceptValidated<Dimension>(candidate: capacity)
                from iter in op.AcceptValidated<Dimension>(candidate: iterations)
                from tol in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
-               select (SampleKind)new CapacityCase(count: c, limit: limit, iterations: iter, tolerance: tol);
+               from admitted in Admit(value: new CapacityCase(count: c, limit: limit, iterations: iter, tolerance: tol), key: op)
+               select admitted;
     }
-    public static Fin<SampleKind> Weighted(Seq<(Point3d Point, double Mass)> points, Op? key = null) {
+    public static Fin<SampleKind> Weighted(Seq<(Point3d Point, double Mass)> points, Op? key = null) =>
+        Admit(value: new WeightedCase(points: points), key: key.OrDefault());
+    public static Fin<SampleKind> ScalarDensity(ScalarField density, int count, Op? key = null) {
         Op op = key.OrDefault();
-        return points.IsEmpty
-            ? Fin.Fail<SampleKind>(op.InvalidInput())
-            : CloudKernel.MassOf(mass: new Arr<double>([.. points.AsIterable().Select(static item => item.Mass)]), count: points.Count, key: op)
-                .Map(_ => (SampleKind)new WeightedCase(points: points));
+        return op.AcceptValidated<Dimension>(candidate: count).Bind(c => Admit(value: new ScalarDensityCase(density: density, count: c), key: op));
     }
-    public static Fin<SampleKind> ScalarDensity(ScalarField density, int count, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Map(c => (SampleKind)new ScalarDensityCase(density: active, count: c)));
-    public static Fin<SampleKind> Adaptive(ScalarField density, int count, double minSpacing, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: minSpacing).Map(spacing => (SampleKind)new AdaptiveCase(density: active, count: c, minSpacing: spacing))));
+    public static Fin<SampleKind> Adaptive(ScalarField density, int count, double minSpacing, Op? key = null) {
+        Op op = key.OrDefault();
+        return from c in op.AcceptValidated<Dimension>(candidate: count)
+               from spacing in op.AcceptValidated<PositiveMagnitude>(candidate: minSpacing)
+               from admitted in Admit(value: new AdaptiveCase(density: density, count: c, minSpacing: spacing), key: op)
+               select admitted;
+    }
     public static Fin<SampleKind> SampleElimination(int count, int oversampleFactor, double alpha, double beta, double gamma, int seed, Op? key = null) {
         Op op = key.OrDefault();
         return from c in op.AcceptValidated<Dimension>(candidate: count)
@@ -88,45 +100,40 @@ public abstract partial record SampleKind {
                from a in op.AcceptValidated<PositiveMagnitude>(candidate: alpha)
                from b in op.AcceptValidated<PositiveMagnitude>(candidate: beta)
                from g in op.AcceptValidated<PositiveMagnitude>(candidate: gamma)
-               from _ in guard(oversample.Value > 1 && b.Value <= 1.0, op.InvalidInput())
-               select (SampleKind)new SampleEliminationCase(count: c, oversampleFactor: oversample, alpha: a, beta: b, gamma: g, seed: seed);
+               from admitted in Admit(value: new SampleEliminationCase(count: c, oversampleFactor: oversample, alpha: a, beta: b, gamma: g, seed: seed), key: op)
+               select admitted;
     }
     public static Fin<SampleKind> DworkVariableDensity(ScalarField radius, int count, double minRadius, int attempts = 30, int seed = 0, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(radius).ToFin(op.InvalidInput())
-               from c in op.AcceptValidated<Dimension>(candidate: count)
+        return from c in op.AcceptValidated<Dimension>(candidate: count)
                from min in op.AcceptValidated<PositiveMagnitude>(candidate: minRadius)
                from a in op.AcceptValidated<Dimension>(candidate: attempts)
-               select (SampleKind)new DworkVariableDensityCase(radius: active, count: c, minRadius: min, attempts: a, seed: seed);
+               from admitted in Admit(value: new DworkVariableDensityCase(radius: radius, count: c, minRadius: min, attempts: a, seed: seed), key: op)
+               select admitted;
     }
     public static Fin<SampleKind> PowerCcvt(int count, int iterations = 16, double tolerance = 1.0e-6, Op? key = null) {
         Op op = key.OrDefault();
         return from c in op.AcceptValidated<Dimension>(candidate: count)
                from iter in op.AcceptValidated<Dimension>(candidate: iterations)
                from tol in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
-               select (SampleKind)new PowerCcvtCase(count: c, iterations: iter, tolerance: tol);
+               from admitted in Admit(value: new PowerCcvtCase(count: c, iterations: iter, tolerance: tol), key: op)
+               select admitted;
     }
     internal Fin<SampleKind> Admit(Op key) => this switch {
         ExplicitCase c => c.Points.IsEmpty ? Fin.Fail<SampleKind>(key.InvalidInput()) : Fin.Succ(this),
-        PoissonDiskCase c => from radius in FieldNabla.Positive(value: c.Radius, key: key) from attempts in FieldNabla.Dimension(value: c.Attempts, key: key) select this,
-        FarthestCase c => FieldNabla.Dimension(value: c.Count, key: key).Map(_ => this),
-        OptimizeCase c => from count in FieldNabla.Dimension(value: c.Count, key: key) from iterations in FieldNabla.Dimension(value: c.Iterations, key: key) select this,
-        LloydCase c => from count in FieldNabla.Dimension(value: c.Count, key: key) from iterations in FieldNabla.Dimension(value: c.Iterations, key: key) select this,
-        CapacityCase c => from count in FieldNabla.Dimension(value: c.Count, key: key) from limit in FieldNabla.Dimension(value: c.Limit, key: key) from iterations in FieldNabla.Dimension(value: c.Iterations, key: key) from tolerance in FieldNabla.Positive(value: c.Tolerance, key: key) select this,
+        PoissonDiskCase => Fin.Succ(this),
+        FarthestCase => Fin.Succ(this),
+        OptimizeCase => Fin.Succ(this),
+        LloydCase => Fin.Succ(this),
+        CapacityCase => Fin.Succ(this),
         WeightedCase c => c.Points.IsEmpty
             ? Fin.Fail<SampleKind>(key.InvalidInput())
             : CloudKernel.MassOf(mass: new Arr<double>([.. c.Points.AsIterable().Select(static item => item.Mass)]), count: c.Points.Count, key: key).Map(_ => this),
-        ScalarDensityCase c => from density in FieldNabla.NotNull(value: c.Density, key: key) from count in FieldNabla.Dimension(value: c.Count, key: key) select this,
-        AdaptiveCase c => from density in FieldNabla.NotNull(value: c.Density, key: key) from count in FieldNabla.Dimension(value: c.Count, key: key) from spacing in FieldNabla.Positive(value: c.MinSpacing, key: key) select this,
-        SampleEliminationCase c => from count in FieldNabla.Dimension(value: c.Count, key: key)
-                                   from oversample in FieldNabla.Dimension(value: c.OversampleFactor, key: key)
-                                   from a in FieldNabla.Positive(value: c.Alpha, key: key)
-                                   from b in FieldNabla.Positive(value: c.Beta, key: key)
-                                   from g in FieldNabla.Positive(value: c.Gamma, key: key)
-                                   from valid in guard(c.OversampleFactor.Value > 1 && c.Beta.Value <= 1.0, key.InvalidInput())
-                                   select this,
-        DworkVariableDensityCase c => from radius in FieldNabla.NotNull(value: c.Radius, key: key) from count in FieldNabla.Dimension(value: c.Count, key: key) from min in FieldNabla.Positive(value: c.MinRadius, key: key) from attempts in FieldNabla.Dimension(value: c.Attempts, key: key) select this,
-        PowerCcvtCase c => from count in FieldNabla.Dimension(value: c.Count, key: key) from iterations in FieldNabla.Dimension(value: c.Iterations, key: key) from tolerance in FieldNabla.Positive(value: c.Tolerance, key: key) select this,
+        ScalarDensityCase c => FieldNabla.NotNull(value: c.Density, key: key).Map(_ => this),
+        AdaptiveCase c => FieldNabla.NotNull(value: c.Density, key: key).Map(_ => this),
+        SampleEliminationCase c => guard(c.OversampleFactor.Value > 1 && c.Beta.Value <= 1.0, key.InvalidInput()).ToFin().Map(_ => this),
+        DworkVariableDensityCase c => FieldNabla.NotNull(value: c.Radius, key: key).Map(_ => this),
+        PowerCcvtCase => Fin.Succ(this),
         _ => Fin.Fail<SampleKind>(key.InvalidInput()),
     };
     internal static Fin<SampleKind> Admit(SampleKind value, Op key) =>
@@ -164,8 +171,13 @@ public abstract partial record SampleKind {
             ? key.AcceptValue(value: Math.Max(val1: target / safeArea, val2: 1.0 / safeArea))
             : Fin.Fail<double>(key.Unsupported(geometryType: GetType(), outputType: typeof(SampleResult)));
     }
-    private static Fin<SampleKind> Counted(int count, int value, Func<Dimension, Dimension, SampleKind> create, Op? key) =>
-        key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<Dimension>(candidate: value).Map(v => create(arg1: c, arg2: v)));
+    private static Fin<SampleKind> Counted(int count, int value, Func<Dimension, Dimension, SampleKind> create, Op? key) {
+        Op op = key.OrDefault();
+        return from c in op.AcceptValidated<Dimension>(candidate: count)
+               from v in op.AcceptValidated<Dimension>(candidate: value)
+               from admitted in Admit(value: create(arg1: c, arg2: v), key: op)
+               select admitted;
+    }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------

@@ -67,15 +67,63 @@ public sealed partial class SolveStop {
     public bool IsUsable { get; }
 }
 
+[SmartEnum<int>]
+public sealed partial class GaugeSolverKind {
+    public static readonly GaugeSolverKind SparseCholeskyReduced = new(key: 0, isDirect: true, isIterative: false);
+    public static readonly GaugeSolverKind SparseBiCgStabDeflated = new(key: 1, isDirect: false, isIterative: true);
+    public static readonly GaugeSolverKind SparseLuKkt = new(key: 2, isDirect: true, isIterative: false);
+    public bool IsDirect { get; }
+    public bool IsIterative { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class GaugeShift {
+    public static readonly GaugeShift None = new(0);
+    public static readonly GaugeShift MeanZero = new(1);
+    public static readonly GaugeShift MinZero = new(2);
+    public static readonly GaugeShift PinZero = new(3);
+}
+
+[Union]
+public abstract partial record GaugePolicy {
+    private GaugePolicy() { }
+    public sealed record Pin(Arr<int> Indices, Arr<double> Values, Option<Arr<double>> Mass, GaugeShift PostShift) : GaugePolicy;
+    public sealed record MeanZeroDeflation(Arr<Arr<double>> Nullspace, Option<Arr<double>> Mass, GaugeShift PostShift) : GaugePolicy;
+    public sealed record LagrangeKKT(Arr<Arr<double>> Nullspace, Option<Arr<double>> Mass, GaugeShift PostShift) : GaugePolicy;
+    public static GaugePolicy PinConstant(int index, Option<Arr<double>> mass = default, GaugeShift? shift = null) =>
+        new Pin(Indices: new Arr<int>([index]), Values: new Arr<double>([0.0]), Mass: mass, PostShift: shift ?? GaugeShift.None);
+    public static GaugePolicy Pinned(Seq<int> indices, Option<Arr<double>> mass = default, GaugeShift? shift = null) =>
+        new Pin(Indices: new Arr<int>([.. indices]), Values: new Arr<double>([.. indices.Map(static _ => 0.0)]), Mass: mass, PostShift: shift ?? GaugeShift.None);
+    public static GaugePolicy MeanZeroConstant(int dimension, Option<Arr<double>> mass = default, GaugeShift? shift = null) =>
+        new MeanZeroDeflation(Nullspace: ConstantNullspace(dimension: dimension), Mass: mass, PostShift: shift ?? GaugeShift.MeanZero);
+    public static GaugePolicy KktConstant(int dimension, Option<Arr<double>> mass = default, GaugeShift? shift = null) =>
+        new LagrangeKKT(Nullspace: ConstantNullspace(dimension: dimension), Mass: mass, PostShift: shift ?? GaugeShift.None);
+    private static Arr<Arr<double>> ConstantNullspace(int dimension) =>
+        new([new Arr<double>([.. Enumerable.Repeat(element: 1.0, count: Math.Max(val1: 0, val2: dimension))])]);
+    internal int NullspaceDim => Switch(
+        pin: static p => p.Indices.Count,
+        meanZeroDeflation: static d => d.Nullspace.Count,
+        lagrangeKKT: static k => k.Nullspace.Count);
+    internal GaugeShift Shift => Switch(
+        pin: static p => p.PostShift,
+        meanZeroDeflation: static d => d.PostShift,
+        lagrangeKKT: static k => k.PostShift);
+    internal GaugeSolverKind SolverKind => Switch(
+        pin: static _ => GaugeSolverKind.SparseCholeskyReduced,
+        meanZeroDeflation: static _ => GaugeSolverKind.SparseBiCgStabDeflated,
+        lagrangeKKT: static _ => GaugeSolverKind.SparseLuKkt);
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double> Entries) {
     public static Fin<Matrix> Of(Dimension rows, Dimension cols, Arr<double> entries, Op? key = null) =>
-        from _ in guard(entries.Count == rows.Value * cols.Value && entries.All(RhinoMath.IsValidDouble), key.OrDefault().InvalidInput()).ToFin()
+        from _ in guard(entries.Count == rows.Value * cols.Value, key.OrDefault().InvalidInput()).ToFin()
+        from finite in FieldNabla.AllFiniteDoubles(values: entries.AsSpan(), key: key.OrDefault())
         select new Matrix(Rows: rows, Cols: cols, Entries: entries);
     public static Matrix Identity(Dimension dim) =>
         MatrixKernel.FromMathNet(m: DenseMatrixD.CreateIdentity(order: dim.Value), rows: dim, cols: dim);
-    public bool IsValid => Entries.Count == Rows.Value * Cols.Value && Entries.All(RhinoMath.IsValidDouble);
+    public bool IsValid => Entries.Count == Rows.Value * Cols.Value && FieldNabla.AllFiniteSpan(Entries.AsSpan());
     public double Frobenius => MatrixNormKind.Frobenius.Compute(matrix: this);
     public Matrix Transpose() => MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(this).Transpose(), Cols, Rows);
     public Fin<Matrix> Multiply(Matrix other, Op? key = null) =>
@@ -114,9 +162,10 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> Upper) {
     public static Fin<SymmetricMatrix> Of(Dimension dim, Arr<double> upper, Op? key = null) =>
-        from _ in guard(upper.Count == dim.Value * (dim.Value + 1) / 2 && upper.All(RhinoMath.IsValidDouble), key.OrDefault().InvalidInput()).ToFin()
+        from _ in guard(upper.Count == dim.Value * (dim.Value + 1) / 2, key.OrDefault().InvalidInput()).ToFin()
+        from finite in FieldNabla.AllFiniteDoubles(values: upper.AsSpan(), key: key.OrDefault())
         select new SymmetricMatrix(Dimension: dim, Upper: upper);
-    public bool IsValid => Upper.Count == (Dimension.Value * (Dimension.Value + 1) / 2) && Upper.All(RhinoMath.IsValidDouble);
+    public bool IsValid => Upper.Count == (Dimension.Value * (Dimension.Value + 1) / 2) && FieldNabla.AllFiniteSpan(Upper.AsSpan());
     public Matrix ToDense() {
         SymmetricMatrix self = this;
         int dim = Dimension.Value;
@@ -137,7 +186,7 @@ public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> U
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<int> RowPtr, Arr<int> ColInd, Arr<double> Values) {
     public static Fin<SparseMatrix> FromTriplets(Dimension rows, Dimension cols, IEnumerable<(int Row, int Col, double Value)> triplets, Op? key = null) { Op op = key.OrDefault(); return Optional(triplets).ToFin(op.InvalidInput()).Bind(active => MatrixKernel.AssembleSparse(rows: rows, cols: cols, triplets: active, op: op)); }
-    public bool IsValid => RowPtr.Count == Rows.Value + 1 && ColInd.Count == Values.Count && Values.All(RhinoMath.IsValidDouble) && RowPtr[0] == 0 && RowPtr[Rows.Value] == Values.Count && RowPointersAreMonotone(RowPtr) && RowColumnsAreStrict(rowPtr: RowPtr, colInd: ColInd, minCol: static _ => 0, maxCol: Cols.Value);
+    public bool IsValid => RowPtr.Count == Rows.Value + 1 && ColInd.Count == Values.Count && FieldNabla.AllFiniteSpan(Values.AsSpan()) && RowPtr[0] == 0 && RowPtr[Rows.Value] == Values.Count && RowPointersAreMonotone(RowPtr) && RowColumnsAreStrict(rowPtr: RowPtr, colInd: ColInd, minCol: static _ => 0, maxCol: Cols.Value);
     public int NonZeros => Values.Count;
     public Fin<Arr<double>> Multiply(Arr<double> vector, Op? key = null) => !IsValid || vector.Count != Cols.Value || vector.AsIterable().Any(static value => !RhinoMath.IsValidDouble(x: value)) ? Fin.Fail<Arr<double>>(key.OrDefault().InvalidInput()) : MatrixKernel.SparseMatVec(self: this, x: vector, key: key.OrDefault());
     public Matrix ToDense() => MatrixKernel.SparseToDense(self: this);
@@ -145,6 +194,10 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
         MatrixKernel.SparseSolve(matrix: this, rhs: rhs, key: key.OrDefault());
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
         SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static result => result.Solution);
+    public Fin<SolveReceipt> SingularSolveDetailed(Arr<double> rhs, GaugePolicy gauge, Context context, Op? key = null) =>
+        MatrixKernel.SingularGaugeSolve(matrix: this, rhs: rhs, gauge: gauge, context: context, key: key.OrDefault());
+    public Fin<Arr<double>> SingularSolve(Arr<double> rhs, GaugePolicy gauge, Context context, Op? key = null) =>
+        SingularSolveDetailed(rhs: rhs, gauge: gauge, context: context, key: key.OrDefault()).Map(static result => result.Solution);
     public Fin<EigenSolveReceipt<double, Arr<double>>> SmallestEigenpairsDetailed(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.Lobpcg(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
     internal static bool RowPointersAreMonotone(Arr<int> rowPtr) =>
@@ -194,7 +247,7 @@ public readonly record struct SolveReceipt(Arr<double> Solution, SolvePath Path,
                 && RhinoMath.IsValidDouble(x: Residual)
                 && Residual <= Tolerance.IfNone(double.PositiveInfinity)
                 && Solution.Count == Cols.Value
-                && Solution.ForAll(RhinoMath.IsValidDouble)
+                && FieldNabla.AllFiniteSpan(Solution.AsSpan())
                 && FullRank.Map(rank => !path.Equals(SolvePath.DenseQrLeastSquares) || rank).IfNone(noneValue: true)
                 && FactorNonZeros.Map(nz => !path.Equals(SolvePath.SparseCholesky) || nz > 0).IfNone(noneValue: true)
                 && Iterations.Map(iter => iter >= 0 && maxIterations.Map(max => max >= iter).IfNone(noneValue: true)).IfNone(noneValue: true)
@@ -224,14 +277,41 @@ public readonly record struct EigenSolveReceipt<TEigen, TVector>(Seq<(TEigen Eig
     }
 }
 
-public readonly record struct GaugeReceipt(Option<int> PinnedIndex, bool MeanZero, int ConstraintRows, double RhsMutationNorm, double ResidualAfterGauge) {
-    public bool IsValid =>
-        ConstraintRows >= 0
-        && PinnedIndex.Map(static index => index >= 0).IfNone(noneValue: true)
-        && RhinoMath.IsValidDouble(x: RhsMutationNorm)
-        && RhsMutationNorm >= 0.0
-        && RhinoMath.IsValidDouble(x: ResidualAfterGauge)
-        && ResidualAfterGauge >= 0.0;
+public readonly record struct GaugeReceipt(
+    GaugeSolverKind Solver, int NullspaceDim, Option<int> NullspaceDimNumeric, Option<double> SpectralGap,
+    double LambdaMax, double ResidualCompatibility, bool RhsProjected, double ResidualAfterGauge, double ResidualAfterGaugeM,
+    double ResidualRelative, Option<int> PinnedIndex, Arr<int> PinIndices, int ConstraintRows, GaugeShift PostShiftApplied,
+    double RhsMutationNorm, double MultiplierNorm, Option<int> Iterations, double GaugeOrthogonalityCheck, double RegularizationEpsUsed,
+    bool NumericalBreakdown) {
+    public bool IsValid {
+        get {
+            int nullspaceDim = NullspaceDim;
+            return Solver is not null
+                && PostShiftApplied is not null
+                && nullspaceDim >= 0
+                && ConstraintRows >= 0
+                && RhinoMath.IsValidDouble(x: LambdaMax)
+                && LambdaMax > 0.0
+                && RhinoMath.IsValidDouble(x: ResidualCompatibility)
+                && ResidualCompatibility >= 0.0
+                && RhinoMath.IsValidDouble(x: ResidualAfterGauge)
+                && ResidualAfterGauge >= 0.0
+                && RhinoMath.IsValidDouble(x: ResidualRelative)
+                && ResidualRelative >= 0.0
+                && RhinoMath.IsValidDouble(x: RhsMutationNorm)
+                && RhsMutationNorm >= 0.0
+                && RhinoMath.IsValidDouble(x: MultiplierNorm)
+                && MultiplierNorm >= 0.0
+                && RhinoMath.IsValidDouble(x: GaugeOrthogonalityCheck)
+                && GaugeOrthogonalityCheck >= 0.0
+                && RhinoMath.IsValidDouble(x: RegularizationEpsUsed)
+                && RegularizationEpsUsed >= 0.0
+                && PinnedIndex.Map(static index => index >= 0).IfNone(noneValue: true)
+                && NullspaceDimNumeric.Map(count => count >= 0 && count <= nullspaceDim).IfNone(noneValue: true)
+                && SpectralGap.Map(static gap => RhinoMath.IsValidDouble(x: gap) && gap >= 0.0).IfNone(noneValue: true)
+                && Iterations.Map(static iter => iter >= 0).IfNone(noneValue: true);
+        }
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -372,7 +452,7 @@ internal static class MatrixKernel {
     private static double RelativeResidual(Matrix<double> a, LinearVector x, LinearVector b) =>
         (b - a.Multiply(x)).L2Norm() / Math.Max(val1: 1.0, val2: b.L2Norm());
     internal static bool SolveInputIsValid(int rows, Arr<double> rhs) =>
-        rhs.Count == rows && rhs.All(RhinoMath.IsValidDouble);
+        rhs.Count == rows && FieldNabla.AllFiniteSpan(rhs.AsSpan());
     private static Fin<SolveReceipt> DenseSolveGated(Matrix source, Arr<double> rhs, Op key, bool square, Func<Matrix, Arr<double>, Op, Fin<SolveReceipt>> solve) =>
         !source.IsValid || !SolveInputIsValid(rows: source.Rows.Value, rhs: rhs) || (square && source.Rows.Value != source.Cols.Value)
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
@@ -411,7 +491,7 @@ internal static class MatrixKernel {
         });
     internal static Fin<SolveReceipt> SolveSuccess(Arr<double> solution, int solutionLength, SolvePath path, SolveStop stop, Dimension rows, Dimension cols, int rhsLength, double residual, Op key, double residualCap = double.PositiveInfinity, Option<int> iterations = default, Option<int> maxIterations = default, Option<double> tolerance = default, Option<bool> fullRank = default, Option<int> inputNonZeros = default, Option<int> factorNonZeros = default, Option<GaugeReceipt> gauge = default) {
         SolveReceipt receipt = new(Solution: solution, Path: path, Stop: stop, Rows: rows, Cols: cols, RhsLength: rhsLength, Iterations: iterations, MaxIterations: maxIterations, Tolerance: tolerance, Residual: residual, FullRank: fullRank, InputNonZeros: inputNonZeros, FactorNonZeros: factorNonZeros, Gauge: gauge);
-        return solution.Count == solutionLength && solution.ForAll(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: residual) && residual <= residualCap && (!stop.IsUsable || receipt.IsUsable)
+        return solution.Count == solutionLength && FieldNabla.AllFiniteSpan(solution.AsSpan()) && RhinoMath.IsValidDouble(x: residual) && residual <= residualCap && (!stop.IsUsable || receipt.IsUsable)
             ? Fin.Succ(receipt)
             : Fin.Fail<SolveReceipt>(key.InvalidResult());
     }
@@ -429,7 +509,7 @@ internal static class MatrixKernel {
         };
     private static bool EigenvectorIsFinite<TVector>(TVector vector, Option<int> expectedLength) =>
         vector switch {
-            Arr<double> real => VectorLengthMatches(count: real.Count, expectedLength: expectedLength) && real.ForAll(RhinoMath.IsValidDouble) && real.AsIterable().Any(static value => Math.Abs(value: value) > RhinoMath.SqrtEpsilon),
+            Arr<double> real => VectorLengthMatches(count: real.Count, expectedLength: expectedLength) && FieldNabla.AllFiniteSpan(real.AsSpan()) && real.AsIterable().Any(static value => Math.Abs(value: value) > RhinoMath.SqrtEpsilon),
             Arr<Complex> complex => VectorLengthMatches(count: complex.Count, expectedLength: expectedLength) && complex.ForAll(static value => RhinoMath.IsValidDouble(x: value.Real) && RhinoMath.IsValidDouble(x: value.Imaginary)) && complex.AsIterable().Any(static value => value.Magnitude > RhinoMath.SqrtEpsilon),
             _ => false,
         };
@@ -574,7 +654,7 @@ internal static class MatrixKernel {
     // --- [SPARSE_OPERATIONS] ----------------------------------------------------------------
     internal static Fin<Arr<double>> SparseMatVec(SparseMatrix self, Arr<double> x, Op key) =>
         ArrFromVector(ToMathNetSparse(s: self).Multiply(DenseVectorD.OfArray([.. x.AsIterable()]))) switch {
-            Arr<double> result when result.ForAll(RhinoMath.IsValidDouble) => Fin.Succ(result),
+            Arr<double> result when FieldNabla.AllFiniteSpan(result.AsSpan()) => Fin.Succ(result),
             _ => Fin.Fail<Arr<double>>(key.InvalidResult()),
         };
     internal static Fin<Arr<Complex>> HermitianMatVec(SparseHermitian self, Arr<Complex> x, Op key) =>
@@ -582,6 +662,14 @@ internal static class MatrixKernel {
             Arr<Complex> result when result.ForAll(static value => RhinoMath.IsValidDouble(x: value.Real) && RhinoMath.IsValidDouble(x: value.Imaginary)) => Fin.Succ(result),
             _ => Fin.Fail<Arr<Complex>>(key.InvalidResult()),
         };
+    internal static List<(int Row, int Col, double Value)> SparseTripletsOf(SparseMatrix matrix, int capacityBonus = 0, double scale = 1.0) {
+        int n = matrix.Rows.Value;
+        List<(int Row, int Col, double Value)> triplets = new(capacity: matrix.NonZeros + capacityBonus);
+        for (int i = 0; i < n; i++)
+            for (int k = matrix.RowPtr[index: i]; k < matrix.RowPtr[index: i + 1]; k++)
+                triplets.Add(item: (i, matrix.ColInd[index: k], scale * matrix.Values[index: k]));
+        return triplets;
+    }
     internal static Fin<SolveReceipt> SparseSolve(SparseMatrix matrix, Arr<double> rhs, Op key) =>
         !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || !SolveInputIsValid(rows: matrix.Rows.Value, rhs: rhs)
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
@@ -601,11 +689,189 @@ internal static class MatrixKernel {
                 double iterativeResidual = RelativeResidual(a: A, x: iterative, b: b);
                 bool iteratorConverged = iterator.Status == MathNet.Numerics.LinearAlgebra.Solvers.IterationStatus.Converged;
                 bool iterativeConverged = iteratorConverged && RhinoMath.IsValidDouble(x: iterativeResidual) && iterativeResidual <= RhinoMath.SqrtEpsilon;
+                double fallbackCap = Math.Sqrt(RhinoMath.SqrtEpsilon);
                 LinearVector x = iterativeConverged ? iterative : A.Solve(b);
                 double residual = RelativeResidual(a: A, x: x, b: b);
-                bool fallbackAccepted = RhinoMath.IsValidDouble(x: residual) && residual <= Math.Sqrt(RhinoMath.SqrtEpsilon);
-                return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetDirectFallback, stop: iterativeConverged ? SolveStop.ResidualConverged : fallbackAccepted ? SolveStop.DirectFallbackSolved : SolveStop.FallbackRejected, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: fallbackAccepted ? Math.Sqrt(RhinoMath.SqrtEpsilon) : double.PositiveInfinity, maxIterations: Some(iterationCap), tolerance: Some(iterativeConverged ? RhinoMath.SqrtEpsilon : Math.Sqrt(RhinoMath.SqrtEpsilon)), inputNonZeros: Some(matrix.NonZeros));
+                bool fallbackAccepted = RhinoMath.IsValidDouble(x: residual) && residual <= fallbackCap;
+                return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetDirectFallback, stop: iterativeConverged ? SolveStop.ResidualConverged : fallbackAccepted ? SolveStop.DirectFallbackSolved : SolveStop.FallbackRejected, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: iterativeConverged ? RhinoMath.SqrtEpsilon : fallbackCap, maxIterations: Some(iterationCap), tolerance: Some(iterativeConverged ? RhinoMath.SqrtEpsilon : fallbackCap), inputNonZeros: Some(matrix.NonZeros));
             });
+    // --- [SINGULAR_GAUGE] -------------------------------------------------------------------
+    // Gauge dual-solve over a singular SPSD operator: admit once, derive every threshold from
+    // OperatorScale and the right-hand-side scale, witness the TRUE relative residual against the
+    // original un-shifted operator, and leave a typed GaugeReceipt. The pin/KKT/deflation triplet
+    // and projection loops are the named statement-kernel exemption.
+    internal static Fin<SolveReceipt> SingularGaugeSolve(SparseMatrix matrix, Arr<double> rhs, GaugePolicy gauge, Context context, Op key) =>
+        gauge is null || !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || !SolveInputIsValid(rows: matrix.Rows.Value, rhs: rhs) || !GaugeNullspaceFits(gauge: gauge, dimension: matrix.Rows.Value)
+            ? Fin.Fail<SolveReceipt>(key.InvalidInput())
+            : from upper in NormalizeSymmetricUpperEntries(s: matrix, key: key)
+              from result in key.Catch(() => {
+                  int n = matrix.Rows.Value;
+                  Matrix<double> aSym = ToMathNetSymmetric(matrix: matrix, upper: upper);
+                  LinearVector b = DenseVectorD.OfArray([.. rhs.AsIterable()]);
+                  double operatorScale = Math.Max(val1: RhinoMath.SqrtEpsilon, val2: aSym.FrobeniusNorm());
+                  Matrix<double> mass = GaugeMass(gauge: gauge, dimension: n);
+                  Matrix<double> nullspace = GaugeNullspaceColumns(gauge: gauge, dimension: n);
+                  double bScale = Math.Max(val1: 1.0, val2: b.InfinityNorm());
+                  double compatibility = gauge.Switch(
+                      state: (Nullspace: nullspace, B: b),
+                      pin: static (_, _) => 0.0,
+                      meanZeroDeflation: static (s, _) => CompatibilityResidual(nullspace: s.Nullspace, b: s.B),
+                      lagrangeKKT: static (s, _) => CompatibilityResidual(nullspace: s.Nullspace, b: s.B));
+                  bool projectRhs = gauge.Switch(
+                      state: (Compat: compatibility, Tol: context.Fractional * bScale),
+                      pin: static (_, _) => false,
+                      meanZeroDeflation: static (s, _) => s.Compat > s.Tol,
+                      lagrangeKKT: static (_, _) => false);
+                  LinearVector rhsGauged = projectRhs ? DeflateRhs(nullspace: nullspace, mass: mass, b: b) : b;
+                  double rhsMutation = (rhsGauged - b).L2Norm();
+                  return gauge.Switch(
+                      state: (Matrix: matrix, Upper: upper, ASym: aSym, Mass: mass, Nullspace: nullspace, Rhs: rhsGauged, OperatorScale: operatorScale, Key: key),
+                      pin: static (s, p) => SolvePin(matrix: s.Matrix, upper: s.Upper, pin: p, b: s.Rhs, key: s.Key),
+                      meanZeroDeflation: static (s, _) => SolveMeanZeroDeflation(matrix: s.Matrix, mass: s.Mass, nullspace: s.Nullspace, b: s.Rhs, key: s.Key),
+                      lagrangeKKT: static (s, _) => SolveKkt(aSym: s.ASym, massNullspace: s.Mass.Multiply(s.Nullspace), b: s.Rhs, operatorScale: s.OperatorScale, key: s.Key))
+                  .Bind(stage => {
+                      LinearVector shifted = ApplyShift(shift: gauge.Shift, mass: mass, x: stage.X, rows: n);
+                      double relative = RelativeResidual(a: aSym, x: shifted, b: b);
+                      double residualM = MassResidual(a: aSym, mass: mass, x: shifted, b: b);
+                      double orthogonality = GaugeOrthogonality(nullspace: nullspace, mass: mass, x: shifted) / Math.Max(val1: 1.0, val2: shifted.L2Norm());
+                      GaugeReceipt receipt = new(
+                          Solver: gauge.SolverKind, NullspaceDim: gauge.NullspaceDim, NullspaceDimNumeric: None, SpectralGap: None,
+                          LambdaMax: operatorScale, ResidualCompatibility: compatibility, RhsProjected: projectRhs, ResidualAfterGauge: stage.Residual, ResidualAfterGaugeM: residualM,
+                          ResidualRelative: relative, PinnedIndex: GaugePinnedIndex(gauge: gauge), PinIndices: GaugePinIndices(gauge: gauge), ConstraintRows: gauge.NullspaceDim, PostShiftApplied: gauge.Shift,
+                          RhsMutationNorm: rhsMutation, MultiplierNorm: stage.MultiplierNorm, Iterations: stage.Iterations, GaugeOrthogonalityCheck: orthogonality, RegularizationEpsUsed: stage.RegularizationEps,
+                          NumericalBreakdown: stage.NumericalBreakdown);
+                      SolveStop stop = stage.NumericalBreakdown || !RhinoMath.IsValidDouble(x: relative)
+                          ? SolveStop.FallbackRejected
+                          : relative <= context.Fractional ? stage.Stop : SolveStop.IterativeExhausted;
+                      return SolveSuccess(solution: ArrFromVector(shifted), solutionLength: n, path: gauge.SolverKind.IsIterative ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseCholesky, stop: stop, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: relative, key: key, iterations: stage.Iterations, factorNonZeros: stage.FactorNonZeros, gauge: Some(receipt));
+                  });
+              })
+              select result;
+    private static bool GaugeNullspaceFits(GaugePolicy gauge, int dimension) =>
+        gauge.Switch(
+            state: dimension,
+            pin: static (dim, p) => p.Indices.Count >= 1 && p.Indices.Count == p.Values.Count && p.Indices.ForAll(index => index >= 0 && index < dim) && GaugeMassFits(mass: p.Mass, dimension: dim),
+            meanZeroDeflation: static (dim, d) => GaugeBasisFits(basis: d.Nullspace, dimension: dim) && GaugeMassFits(mass: d.Mass, dimension: dim),
+            lagrangeKKT: static (dim, k) => GaugeBasisFits(basis: k.Nullspace, dimension: dim) && GaugeMassFits(mass: k.Mass, dimension: dim));
+    private static bool GaugeBasisFits(Arr<Arr<double>> basis, int dimension) =>
+        basis.Count >= 1 && basis.Count < dimension && basis.ForAll(column => column.Count == dimension && FieldNabla.AllFiniteSpan(column.AsSpan()));
+    private static bool GaugeMassFits(Option<Arr<double>> mass, int dimension) =>
+        mass.Map(diagonal => diagonal.Count == dimension && diagonal.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)).IfNone(noneValue: true);
+    private static Matrix<double> GaugeMass(GaugePolicy gauge, int dimension) =>
+        gauge.Switch(
+            state: dimension,
+            pin: static (dim, p) => MassDiagonal(mass: p.Mass, dimension: dim),
+            meanZeroDeflation: static (dim, d) => MassDiagonal(mass: d.Mass, dimension: dim),
+            lagrangeKKT: static (dim, k) => MassDiagonal(mass: k.Mass, dimension: dim));
+    private static Matrix<double> MassDiagonal(Option<Arr<double>> mass, int dimension) =>
+        mass.Match(
+            Some: diagonal => (Matrix<double>)DenseMatrixD.OfDiagonalVector(DenseVectorD.OfArray([.. diagonal.AsIterable()])),
+            None: () => DenseMatrixD.CreateIdentity(order: dimension));
+    private static Matrix<double> GaugeNullspaceColumns(GaugePolicy gauge, int dimension) =>
+        gauge.Switch(
+            state: dimension,
+            pin: static (dim, p) => PinNullspaceColumns(indices: p.Indices, dimension: dim),
+            meanZeroDeflation: static (_, d) => BasisColumns(basis: d.Nullspace),
+            lagrangeKKT: static (_, k) => BasisColumns(basis: k.Nullspace));
+    private static Matrix<double> PinNullspaceColumns(Arr<int> indices, int dimension) =>
+        DenseMatrixD.OfColumnVectors([.. indices.AsIterable().Select(index => DenseVectorD.Create(dimension, i => i == index ? 1.0 : 0.0))]);
+    private static Matrix<double> BasisColumns(Arr<Arr<double>> basis) =>
+        DenseMatrixD.OfColumnVectors([.. basis.AsIterable().Select(column => DenseVectorD.OfArray([.. column.AsIterable()]))]);
+    private static Option<int> GaugePinnedIndex(GaugePolicy gauge) =>
+        gauge.Switch(pin: static p => p.Indices.Count > 0 ? Some(p.Indices[0]) : Option<int>.None, meanZeroDeflation: static _ => Option<int>.None, lagrangeKKT: static _ => Option<int>.None);
+    private static Arr<int> GaugePinIndices(GaugePolicy gauge) =>
+        gauge.Switch(pin: static p => p.Indices, meanZeroDeflation: static _ => new Arr<int>([]), lagrangeKKT: static _ => new Arr<int>([]));
+    // M-orthogonal primitives: DeflateRhs, ProjectRange, MassResidual, MassTimes share one Mass inner product.
+    private static LinearVector MassTimes(Matrix<double> mass, LinearVector x) => mass.Multiply(x);
+    private static double CompatibilityResidual(Matrix<double> nullspace, LinearVector b) =>
+        nullspace.TransposeThisAndMultiply(b).L2Norm();
+    private static LinearVector ProjectRange(Matrix<double> nullspace, Matrix<double> mass, LinearVector x) {
+        Matrix<double> massNullspace = mass.Multiply(nullspace);
+        Matrix<double> gram = nullspace.TransposeThisAndMultiply(massNullspace);
+        LinearVector coords = gram.Cholesky().Solve(nullspace.TransposeThisAndMultiply(MassTimes(mass: mass, x: x)));
+        return x - (nullspace * coords);
+    }
+    private static LinearVector DeflateRhs(Matrix<double> nullspace, Matrix<double> mass, LinearVector b) {
+        Matrix<double> massNullspace = mass.Multiply(nullspace);
+        Matrix<double> gram = nullspace.TransposeThisAndMultiply(massNullspace);
+        LinearVector coords = gram.Cholesky().Solve(nullspace.TransposeThisAndMultiply(b));
+        return b - (massNullspace * coords);
+    }
+    private static double GaugeOrthogonality(Matrix<double> nullspace, Matrix<double> mass, LinearVector x) =>
+        nullspace.TransposeThisAndMultiply(MassTimes(mass: mass, x: x)).L2Norm();
+    private static double MassResidual(Matrix<double> a, Matrix<double> mass, LinearVector x, LinearVector b) {
+        LinearVector residual = b - a.Multiply(x);
+        return Math.Sqrt(residual.DotProduct(MassTimes(mass: mass, x: residual))) / Math.Max(val1: 1.0, val2: Math.Sqrt(b.DotProduct(MassTimes(mass: mass, x: b))));
+    }
+    private static LinearVector ApplyShift(GaugeShift shift, Matrix<double> mass, LinearVector x, int rows) =>
+        shift.Switch(
+            state: (Mass: mass, X: x, Rows: rows),
+            none: static s => s.X,
+            meanZero: static s => s.X - (MassWeightedMean(mass: s.Mass, x: s.X) * DenseVectorD.Create(s.Rows, static _ => 1.0)),
+            minZero: static s => s.X - (s.X.Minimum() * DenseVectorD.Create(s.X.Count, static _ => 1.0)),
+            pinZero: static s => s.X);
+    private static double MassWeightedMean(Matrix<double> mass, LinearVector x) {
+        LinearVector ones = DenseVectorD.Create(x.Count, static _ => 1.0);
+        LinearVector massOnes = mass.Multiply(ones);
+        return massOnes.DotProduct(x) / Math.Max(val1: RhinoMath.SqrtEpsilon, val2: massOnes.DotProduct(ones));
+    }
+    private static Fin<GaugeStage> SolvePin(SparseMatrix matrix, List<(int Row, int Col, double Value)> upper, GaugePolicy.Pin pin, LinearVector b, Op key) {
+        int n = matrix.Rows.Value;
+        bool[] pinned = new bool[n];
+        double[] pinValues = new double[n];
+        for (int i = 0; i < pin.Indices.Count; i++) { pinned[pin.Indices[i]] = true; pinValues[pin.Indices[i]] = pin.Values[i]; }
+        int[] remap = new int[n];
+        int free = 0;
+        for (int i = 0; i < n; i++) remap[i] = pinned[i] ? -1 : free++;
+        if (free == 0) return Fin.Fail<GaugeStage>(key.InvalidInput());
+        List<(int Row, int Col, double Value)> filtered = new(capacity: upper.Count);
+        double[] reduced = new double[free];
+        foreach ((int row, int col, double value) in upper) {
+            if (pinned[row] && pinned[col]) continue;
+            if (pinned[row]) { reduced[remap[col]] -= value * pinValues[row]; continue; }
+            if (pinned[col]) { reduced[remap[row]] -= value * pinValues[col]; continue; }
+            filtered.Add(item: (remap[row], remap[col], value));
+        }
+        for (int i = 0; i < n; i++) if (!pinned[i]) reduced[remap[i]] += b[i];
+        Dimension dim = Dimension.Create(value: free);
+        return from reducedMatrix in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: filtered, key: key)
+               from factor in CholeskySparse.Of(symmetric: reducedMatrix, key: key)
+               from solved in factor.Solve(rhs: new Arr<double>(reduced), key: key)
+               let reassembled = ReassemblePinned(n: n, pinned: pinned, pinValues: pinValues, remap: remap, reduced: solved)
+               select new GaugeStage(X: reassembled, Residual: RelativeResidual(a: ToMathNetSparse(s: matrix), x: reassembled, b: b), Stop: SolveStop.DirectSolved, MultiplierNorm: 0.0, Iterations: None, RegularizationEps: 0.0, NumericalBreakdown: false, FactorNonZeros: Some(factor.FactorNonZeros));
+    }
+    private static LinearVector ReassemblePinned(int n, bool[] pinned, double[] pinValues, int[] remap, Arr<double> reduced) =>
+        DenseVectorD.Create(n, i => pinned[i] ? pinValues[i] : reduced[remap[i]]);
+    private static Fin<GaugeStage> SolveMeanZeroDeflation(SparseMatrix matrix, Matrix<double> mass, Matrix<double> nullspace, LinearVector b, Op key) =>
+        SparseSolve(matrix: matrix, rhs: new Arr<double>(b.ToArray()), key: key).Map(receipt => {
+            LinearVector raw = DenseVectorD.OfArray([.. receipt.Solution.AsIterable()]);
+            LinearVector projected = ProjectRange(nullspace: nullspace, mass: mass, x: raw);
+            return new GaugeStage(X: projected, Residual: receipt.Residual, Stop: receipt.Stop, MultiplierNorm: 0.0, Iterations: receipt.Iterations, RegularizationEps: 0.0, NumericalBreakdown: false, FactorNonZeros: receipt.FactorNonZeros);
+        });
+    private static Fin<GaugeStage> SolveKkt(Matrix<double> aSym, Matrix<double> massNullspace, LinearVector b, double operatorScale, Op key) {
+        int n = aSym.RowCount, m = massNullspace.ColumnCount, total = n + m;
+        List<(int Row, int Col, double Value)> entries = new(capacity: (n * n) + (4 * n * m));
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++)
+                if (Math.Abs(value: aSym[i, j]) > RhinoMath.SqrtEpsilon * operatorScale) entries.Add(item: (i, j, aSym[i, j]));
+        double constraintScale = Math.Max(val1: 1.0, val2: massNullspace.InfinityNorm());
+        for (int i = 0; i < n; i++)
+            for (int c = 0; c < m; c++)
+                if (Math.Abs(value: massNullspace[i, c]) > RhinoMath.SqrtEpsilon * constraintScale) { entries.Add(item: (i, n + c, massNullspace[i, c])); entries.Add(item: (n + c, i, massNullspace[i, c])); }
+        double[] rhs = new double[total];
+        for (int i = 0; i < n; i++) rhs[i] = b[i];
+        return key.Catch(() => {
+            CSparse.Storage.CompressedColumnStorage<double> saddle = CSparse.Double.SparseMatrix.OfIndexed(rows: total, columns: total, enumerable: entries);
+            double[] solution = new double[total];
+            CSparse.Double.Factorization.SparseLU lu = CSparse.Double.Factorization.SparseLU.Create(A: saddle, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, tol: 1.0);
+            lu.Solve(input: rhs.AsSpan(), result: solution.AsSpan());
+            LinearVector x = DenseVectorD.OfArray([.. solution.Take(count: n)]);
+            LinearVector lambda = DenseVectorD.OfArray([.. solution.Skip(count: n)]);
+            double residual = (b - aSym.Multiply(x)).L2Norm() / Math.Max(val1: 1.0, val2: b.L2Norm());
+            return Fin.Succ(new GaugeStage(X: x, Residual: residual, Stop: SolveStop.DirectSolved, MultiplierNorm: lambda.L2Norm(), Iterations: None, RegularizationEps: 0.0, NumericalBreakdown: false, FactorNonZeros: None));
+        }).BindFail(_ => Fin.Succ(new GaugeStage(X: DenseVectorD.Create(n, static _ => 0.0), Residual: double.PositiveInfinity, Stop: SolveStop.FallbackRejected, MultiplierNorm: 0.0, Iterations: None, RegularizationEps: 0.0, NumericalBreakdown: true, FactorNonZeros: None)));
+    }
+    private readonly record struct GaugeStage(LinearVector X, double Residual, SolveStop Stop, double MultiplierNorm, Option<int> Iterations, double RegularizationEps, bool NumericalBreakdown, Option<int> FactorNonZeros);
     // --- [GENERALIZED_EIGEN] -----------------------------------------------------------------
     internal static Fin<EigenSolveReceipt<double, Arr<double>>> GeneralizedEigenpairsDetailed(SparseMatrix stiffness, SparseMatrix mass, int k, Op key) =>
         !stiffness.IsValid || !mass.IsValid || stiffness.Rows.Value != stiffness.Cols.Value || mass.Rows.Value != mass.Cols.Value || stiffness.Rows.Value != mass.Rows.Value || k < 1 || k >= stiffness.Rows.Value
@@ -688,11 +954,15 @@ internal static class MatrixKernel {
             Matrix<T> W = ApplyJacobi(R: R, invDiag: jacobi);
             bool hasPrevious = iter > 0 && MaxColumnNorm(m: P) > RhinoMath.SqrtEpsilon;
             Matrix<T> S = AssembleSubspace(X: X, W: W, P: P, includePrevious: hasPrevious, orthonormalise: orthonormalise);
-            Matrix<T> AS = A * S;
-            Matrix<T> ST = adjoint(arg: S);
-            Fin<(MathNet.Numerics.LinearAlgebra.Vector<T> Vals, Matrix<T> Vecs)> solved = key.Catch(() => Fin.Succ(solveGeneralised(arg1: ST * AS, arg2: ST * S)));
+            int[] survivors = SurvivingColumns(m: S);
+            if (survivors.Length < k)
+                return LobpcgReceipt(A: A, lambda: rayleigh(arg1: X, arg2: A * X), X: X, k: k, iter: iter, maxIterations: maxIterations, tolerance: tolerance, path: path, stop: EigenSolveStop.MaxIterationsExhausted, eigenvalue: eigenvalue, vector: vector, residual: residual, key: key);
+            Matrix<T> Sr = Matrix<T>.Build.DenseOfColumnVectors([.. survivors.Select(S.Column)]);
+            Matrix<T> ASr = A * Sr;
+            Matrix<T> STr = adjoint(arg: Sr);
+            Fin<(MathNet.Numerics.LinearAlgebra.Vector<T> Vals, Matrix<T> Vecs)> solved = key.Catch(() => Fin.Succ(solveGeneralised(arg1: STr * ASr, arg2: STr * Sr)));
             return solved.Bind(solution => {
-                Matrix<T> Z = TakeSmallest(eigVals: solution.Vals, eigVecs: solution.Vecs, k: k, key: eigenvalue);
+                Matrix<T> Z = ScatterRows(reduced: TakeSmallest(eigVals: solution.Vals, eigVecs: solution.Vecs, k: k, key: eigenvalue), rows: S.ColumnCount, sourceRows: survivors);
                 Matrix<T> previous = hasPrevious ? P * Z.SubMatrix(2 * k, k, 0, k) : Matrix<T>.Build.Dense(n, k);
                 return Iterate(iter: iter + 1, X: orthonormalise(arg: S * Z), P: (W * Z.SubMatrix(k, k, 0, k)) + previous);
             });
@@ -746,6 +1016,16 @@ internal static class MatrixKernel {
             if (norm > RhinoMath.SqrtEpsilon) q.SetColumn(columnIndex: j, column: normalise(arg1: v, arg2: norm));
         }
         return q;
+    }
+    // Rank-collapsed (zero) columns from Gram-Schmidt make Sᵀ S singular and the Cholesky congruence throw; drop them before the Rayleigh-Ritz solve and scatter the reduced Ritz vectors back into the full subspace so the [X|W|P] block offsets survive.
+    private static int[] SurvivingColumns<T>(Matrix<T> m)
+        where T : struct, IEquatable<T>, IFormattable =>
+        [.. Enumerable.Range(start: 0, count: m.ColumnCount).Where(j => m.Column(j).L2Norm() > RhinoMath.SqrtEpsilon)];
+    private static Matrix<T> ScatterRows<T>(Matrix<T> reduced, int rows, int[] sourceRows)
+        where T : struct, IEquatable<T>, IFormattable {
+        Matrix<T> full = Matrix<T>.Build.Dense(rows: rows, columns: reduced.ColumnCount);
+        for (int i = 0; i < sourceRows.Length; i++) full.SetRow(rowIndex: sourceRows[i], row: reduced.Row(i));
+        return full;
     }
     private static LinearVector ExtractDiagonalInverse(Matrix<double> A) =>
         DenseVectorD.Create(A.RowCount, i => Math.Abs(A[i, i]) > RhinoMath.SqrtEpsilon ? 1.0 / A[i, i] : 1.0);

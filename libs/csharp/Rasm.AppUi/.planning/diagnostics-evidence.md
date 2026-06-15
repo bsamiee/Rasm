@@ -27,7 +27,7 @@ rows, and the evidence wire contract — composing AppHost ports and the settled
 - Receipt: the sealed `ReceiptEnvelope` is the emission evidence; its HLC stamp is the only time authority on evidence, so a second stamp field on a case payload is the deleted form.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one case row absorbs a new evidence family and one `[JsonSerializable]` row extends the context; zero new surface.
-- Boundary: receipts are process-local and HLC-correlated, never globally shared; a generic receipt or ledger abstraction is the rejected form — the typed union with slot metadata is the absorbing owner; cases nest a sibling receipt when its wire form is settled and flatten to scalars when the sibling shape carries non-wire members — the render flatten absorbs the optional destination and the edit flatten absorbs the literal-free outcome union, and a third parallel evidence shape is the named defect; the kind literal reads from the serialized payload, so a second literal table is the deleted form; `AppUiTelemetry.Contribute(version, instruments)` is the one parameterized telemetry-contribution surface every owner calls with its own instrument-name constants — a hand-rolled per-owner `TelemetryContributorPort` factory is the deleted form, the instrument names stay owned by the contributing page, and the contribution shape stays single.
+- Boundary: receipts are process-local and HLC-correlated, never globally shared; a generic receipt or ledger abstraction is the rejected form — the typed union with slot metadata is the absorbing owner; cases nest a sibling receipt when its wire form is settled and flatten to scalars when the sibling shape carries non-wire members — the render flatten absorbs the optional destination and the render-row color-space tag so a wide-gamut baseline keys distinctly on the timeline, and the edit flatten absorbs the literal-free outcome union, and a third parallel evidence shape is the named defect; the kind literal reads from the serialized payload, so a second literal table is the deleted form; `AppUiTelemetry.Contribute(version, instruments)` is the one parameterized telemetry-contribution surface every owner calls with its own instrument-name constants — a hand-rolled per-owner `TelemetryContributorPort` factory is the deleted form, the instrument names stay owned by the contributing page, and the contribution shape stays single.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -43,7 +43,7 @@ public abstract partial record EvidenceReceipt {
     private EvidenceReceipt() { }
     public sealed record Surface(SurfaceReceipt Receipt) : EvidenceReceipt;
     public sealed record Focus(string Target, bool Focused) : EvidenceReceipt;
-    public sealed record Render(string Slot, string Format, string FrameHash, long Bytes, Duration Elapsed, string? Destination) : EvidenceReceipt;
+    public sealed record Render(string Slot, string Format, string FrameHash, long Bytes, Duration Elapsed, string? Destination, string ColorSpace) : EvidenceReceipt;
     public sealed record Disposal(string ScreenId, Duration Active, int Disposables) : EvidenceReceipt;
     public sealed record Edit(string Slot, string Surface, string Target, string Editor, string Outcome) : EvidenceReceipt;
     public sealed record Command(CommandReceipt Receipt) : EvidenceReceipt;
@@ -59,7 +59,7 @@ public static class EvidenceOps {
     extension(RenderReceipt receipt) {
         public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Render(
             receipt.Kind, receipt.Format, receipt.FrameHash, receipt.Bytes, receipt.Elapsed,
-            receipt.Destination.Case as string);
+            receipt.Destination.Case as string, receipt.ColorSpace);
     }
 
     extension(EditReceipt receipt) {
@@ -149,7 +149,7 @@ flowchart LR
 - Auto: capture keys prefix into the per-run artifact scope behind the runtime blob delegate, so a shot never computes a path; the `Scale` column pins the headless render scaling through `SetRenderScaling` so a hi-DPI baseline keys distinctly from its standard-scale twin; the `Ticks` column folds that many `ForceRenderTimerTick` advances into one deterministic frame effect before the grab, so a single-frame baseline pins `Ticks: 1` and an animation-settled or multi-frame capture pins its own count as data and never wall time; the receipt's `FrameHash` rides the suite content-hash identity row.
 - Packages: SkiaSharp, Avalonia.Headless, Avalonia.Skia, LanguageExt.Core
 - Growth: one capture row absorbs a new surface lane; one `Scale` value on a row absorbs a new DPI baseline; zero new surface.
-- Boundary: grab delegates bind at composition per surface row and no capture member is named outside its own row — the headless lane rides `CaptureRenderedFrame` and `GetLastRenderedFrame` whose `WriteableBitmap` pixels enter the hash fold through `Lock()` over the `ILockedFramebuffer` (`Address`, `RowBytes`, `Size`, `Format`) with `UseHeadlessDrawing` false selecting the Skia backend on every hash lane and `SetRenderScaling` pinning the device scale before the grab so the render-hash is scale-attributable, the rhino lane rides the settled host viewport capture port, and the desktop in-tree lane renders through `RenderTargetBitmap.Render(Visual)` with `CopyPixels(PixelRect, nint, int, int)` as its pixel projection; `ForceRenderTimerTick` is the only frame-advance verb on the deterministic lane — a debounce or animation that fails under forced ticks has smuggled wall time, and the tick count is a row column so a multi-frame capture is data; `Regression` compares `FrameHash` values from the settled receipt family, so a per-spec screenshot helper is the deleted form and a second baseline store beside the blob lane is the rejected form.
+- Boundary: grab delegates bind at composition per surface row and no capture member is named outside its own row — the headless lane rides `CaptureRenderedFrame` and `GetLastRenderedFrame` whose `WriteableBitmap` pixels enter the hash fold through `Lock()` over the `ILockedFramebuffer` (`Address`, `RowBytes`, `Size`, `Format`) with `UseHeadlessDrawing` false selecting the Skia backend on every hash lane and `SetRenderScaling` pinning the device scale before the grab so the render-hash is scale-attributable, the rhino lane rides the settled host viewport capture port, and the desktop in-tree lane renders through `RenderTargetBitmap.Render(Visual)` with `CopyPixels(PixelRect, nint, int, int)` as its pixel projection, or evaluates a live visual onto a leased Skia canvas through `DrawingContextHelper.RenderAsync` where the in-tree row already holds a render lease so the capture composes the visual into the encode fold without a second offscreen surface; `ForceRenderTimerTick` is the only frame-advance verb on the deterministic lane — a debounce or animation that fails under forced ticks has smuggled wall time, and the tick count is a row column so a multi-frame capture is data; `Regression` compares `FrameHash` values from the settled receipt family, so a per-spec screenshot helper is the deleted form and a second baseline store beside the blob lane is the rejected form.
 
 ```csharp signature
 public sealed record CaptureRow(string Key, Func<SurfaceHost, bool> Surface, double Scale, int Ticks, Func<double, Func<IO<Unit>>, IO<SKImage>> Grab) {
@@ -174,10 +174,10 @@ public static class Captures {
 
 ## [5]-[HEADLESS_DERIVATION]
 
-- Owner: `EvidenceKeyPolicy` ordinal accessor; `ProofCheck` — the six-row check vocabulary; `ProofSpec` — the derived spec row; `ProofEngine` — the derivation and replay surface.
-- Cases: activation, render-hash, focus-walk, variant-sweep, density-sweep, disposal-leak.
+- Owner: `EvidenceKeyPolicy` ordinal accessor; `ProofCheck` — the eight-row check vocabulary; `ProofSpec` — the derived spec row; `ProofEngine` — the derivation and replay surface.
+- Cases: activation, render-hash, focus-walk, variant-sweep, density-sweep, disposal-leak, pointer-walk, drag-drop — the two input-proof rows drive the headless synthetic-input verbs.
 - Entry: `public static Seq<ProofSpec> Derive(ScreenCatalog catalog, Seq<(ThemeVariantRow Variant, DensityRow Density)> grid, Func<ScreenCatalogRow, ProofCheck, ThemeVariantRow, DensityRow, Func<IO<EvidenceReceipt>>> probe)` — every headless catalog row crossed with every check and every variant-density cell.
-- Auto: derived specs execute on the shared `HeadlessUnitTestSession` through `GetOrStartForAssembly` once per assembly and `Dispatch` per spec, so every spec runs on the one UI thread without a per-spec session boot, and `[AvaloniaFact]` dispatch under the xunit.v3 MTP runner rides the same session; `FakeTimeProvider` time travel fills the headless row's virtual-time slot; `Replay` drives the journal through the one remote-invocation route on the frozen deck, so journal replay, deep links, and interactive execution seal the same receipt family; the snapshot store rehydrates screen state before the first journal entry, so replay is deterministic end to end.
+- Auto: derived specs execute on the shared `HeadlessUnitTestSession` through `GetOrStartForAssembly` once per assembly and `Dispatch` per spec, so every spec runs on the one UI thread without a per-spec session boot, and `[AvaloniaFact]` dispatch under the xunit.v3 MTP runner rides the same session; `FakeTimeProvider` time travel fills the headless row's virtual-time slot; `Replay` drives the journal through the one remote-invocation route on the frozen deck, so journal replay, deep links, and interactive execution seal the same receipt family; the snapshot store rehydrates screen state before the first journal entry, so replay is deterministic end to end; the pointer-walk and drag-drop checks drive synthetic input on the session window through `HeadlessWindowExtensions.MouseDown`/`MouseMove`/`MouseUp` and `DragDrop` between `ForceRenderTimerTick` advances, so a pointer-interaction or drop-target proof is a deterministic frame sequence and never wall-time hover timing.
 - Receipt: every executed spec seals its `EvidenceReceipt` through the union — disposal-leak audits ride the Disposal case and render checks ride the Render case.
 - Packages: Avalonia.Headless, Avalonia.Headless.XUnit, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one check row sweeps every headless screen and one grid cell sweeps every check; zero new surface.
@@ -200,6 +200,8 @@ public sealed partial class ProofCheck {
     public static readonly ProofCheck VariantSweep = new("variant-sweep");
     public static readonly ProofCheck DensitySweep = new("density-sweep");
     public static readonly ProofCheck DisposalLeak = new("disposal-leak");
+    public static readonly ProofCheck PointerWalk = new("pointer-walk");
+    public static readonly ProofCheck DragDrop = new("drag-drop");
 }
 
 public sealed record ProofSpec(
@@ -232,14 +234,22 @@ public static class ProofEngine {
 
 ## [6]-[DEV_LOOP]
 
-- Owner: `DevLoop` — the Debug loop surface with the hot-reload knob rows and the remote-evidence ingest edge.
-- Entry: `public static IO<Unit> DispatcherLag(SurfaceScheduler boundary, TimeProvider time, Func<Duration, IO<Unit>> sink)` — marshal round-trip lag into the composition-bound sink delegate; `public static IO<Unit> Ingest(ReceiptSinkPort sink, Func<ReadOnlyMemory<byte>, Fin<ReceiptEnvelope>> decode, ReadOnlyMemory<byte> frame)` — the composition-bound binary-wire `decode` column lifts a remote frame into a `ReceiptEnvelope` re-emitted through `sink.Emit`, preserving the origin node's HLC stamp so the correlation join reads each node's own clock.
-- Auto: the lag sink binds to `ReceiptSinkPort.Send` at composition under the `LagKind` row, so starvation evidence rides the same envelope stream the dashboards ingest; threshold evaluation stays with the health fold, so the probe carries zero literals; the `decode` column binds the settled Persistence binary-wire decode at composition so a companion node's receipt frames fold into the same envelope stream as local evidence with no second codec.
+- Owner: `DevLoop` — the Debug loop surface with the hot-reload knob rows, the manual-reload intent edge, and the remote-evidence ingest edge.
+- Entry: `public static IO<Unit> DispatcherLag(SurfaceScheduler boundary, TimeProvider time, Func<Duration, IO<Unit>> sink)` — marshal round-trip lag into the composition-bound sink delegate; `public static IO<Unit> Reload(ReloadIntent intent, Func<IO<Unit>> trigger, Func<IO<Unit>> enable, Func<IO<Unit>> disable)` — the manual-reload verb routes the three injected `AvaloniaHotReloadExtensions` operations through composition-bound delegates so a palette-raised reload intent dispatches `TriggerHotReload`/`EnableHotReload`/`DisableHotReload` without DevLoop touching the injected surface; `public static IO<Unit> Ingest(ReceiptSinkPort sink, Func<ReadOnlyMemory<byte>, Fin<ReceiptEnvelope>> decode, ReadOnlyMemory<byte> frame)` — the composition-bound binary-wire `decode` column lifts a remote frame into a `ReceiptEnvelope` re-emitted through `sink.Emit`, preserving the origin node's HLC stamp so the correlation join reads each node's own clock.
+- Auto: the lag sink binds to `ReceiptSinkPort.Send` at composition under the `LagKind` row, so starvation evidence rides the same envelope stream the dashboards ingest; threshold evaluation stays with the health fold, so the probe carries zero literals; the `decode` column binds the settled Persistence binary-wire decode at composition so a companion node's receipt frames fold into the same envelope stream as local evidence with no second codec; `Reload` binds the three injected operations at composition under the master gate so the manual-reload intent is a command-table verb on Debug profiles and a structurally-absent route on Release closures where the injected source is stripped.
 - Packages: HotAvalonia, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one knob row retunes the reload gate and one probe row absorbs a new loop measure; zero new surface.
-- Boundary: HotAvalonia is a Debug-gated build asset whose injected `UseHotReload` wiring is the only callable surface — the master gate plus `HotAvaloniaProcessReferences` enabled strips `HotAvalonia.Core`, `HotAvalonia.Extensions`, and the `HotAvalonia.Fody` weaver from Release closures while `HotAvaloniaExcludeReferences` names the exact reference list the strip removes, and the explicit `Avalonia.Markup.Xaml.Loader` markup-loader pin with its transitive floor lands in the charter admissions so the Debug XAML-compile path resolves and the Release closure carries none of it; a DevTools attach surface is the deleted form — the dev loop is hot reload plus headless evidence; remote evidence ingestion packs envelopes through the settled Persistence binary wire row via a composition-bound codec delegate, so a second binary codec here is the rejected form.
+- Growth: one knob row retunes the reload gate, one `ReloadIntent` case absorbs a new manual-reload verb, and one probe row absorbs a new loop measure; zero new surface.
+- Boundary: HotAvalonia is a Debug-gated build asset whose injected `UseHotReload`, `EnableHotReload`, `DisableHotReload`, and `TriggerHotReload` extensions on `AppBuilder`/`Application` are the only callable surface — the master gate plus `HotAvaloniaProcessReferences` enabled strips `HotAvalonia.Core`, `HotAvalonia.Extensions`, and the `HotAvalonia.Fody` weaver from Release closures while `HotAvaloniaExcludeReferences` names the exact reference list the strip removes, and the explicit `Avalonia.Markup.Xaml.Loader` markup-loader pin with its transitive floor lands in the charter admissions so the Debug XAML-compile path resolves and the Release closure carries none of it; the manual-reload intent rides composition-bound delegates so DevLoop names no injected symbol directly and the deleted form is a DevLoop-internal reload bootstrap beside the injected extensions; a DevTools attach surface is the deleted form — the dev loop is hot reload plus headless evidence; remote evidence ingestion packs envelopes through the settled Persistence binary wire row via a composition-bound codec delegate, so a second binary codec here is the rejected form; the HARFS remote-server knobs and the runtime timeout and hotkey knobs ride the same MSBuild gate as the master row and carry no managed surface.
 
 ```csharp signature
+[Union]
+public abstract partial record ReloadIntent {
+    private ReloadIntent() { }
+    public sealed record Trigger : ReloadIntent;
+    public sealed record Enable : ReloadIntent;
+    public sealed record Disable : ReloadIntent;
+}
+
 public static class DevLoop {
     public const string LagKind = "dispatcher-lag";
 
@@ -247,6 +257,13 @@ public static class DevLoop {
         IO.lift(time.GetTimestamp)
             .Bind(mark => boundary.Marshal(() =>
                 ignore(sink(Duration.FromTimeSpan(time.GetElapsedTime(mark))).Run())));
+
+    public static IO<Unit> Reload(ReloadIntent intent, Func<IO<Unit>> trigger, Func<IO<Unit>> enable, Func<IO<Unit>> disable) =>
+        intent.Switch(
+            state: (Trigger: trigger, Enable: enable, Disable: disable),
+            trigger: static (ops, _) => ops.Trigger(),
+            enable: static (ops, _) => ops.Enable(),
+            disable: static (ops, _) => ops.Disable());
 
     public static IO<Unit> Ingest(ReceiptSinkPort sink, Func<ReadOnlyMemory<byte>, Fin<ReceiptEnvelope>> decode, ReadOnlyMemory<byte> frame) =>
         decode(frame).Match(
@@ -262,6 +279,10 @@ public static class DevLoop {
 |   [3]   | HotAvaloniaProcessReferences | enabled            | Release closure strip                   |
 |   [4]   | HotAvaloniaExcludeReferences | weaver + core list | reference list the strip removes        |
 |   [5]   | markup-loader pin            | transitive floor   | `Avalonia.Markup.Xaml.Loader` Debug pin |
+|   [6]   | HotAvaloniaRemote            | non-desktop opt-in | remote reload route                     |
+|   [7]   | HotAvaloniaTimeout           | runtime default    | reload timeout window                   |
+|   [8]   | HotAvaloniaHotkey            | runtime default    | manual-reload key chord                 |
+|   [9]   | HarfsAddress / HarfsPort     | remote endpoint    | HARFS file-server endpoint              |
 
 ## [7]-[TS_PROJECTION]
 
@@ -274,7 +295,7 @@ public static class DevLoop {
 type EvidenceReceiptWire =
   | { readonly kind: "surface"; readonly receipt: SurfaceReceiptWire }
   | { readonly kind: "focus"; readonly target: string; readonly focused: boolean }
-  | { readonly kind: "render"; readonly slot: string; readonly format: string; readonly frameHash: string; readonly bytes: number; readonly elapsed: string; readonly destination: string | null }
+  | { readonly kind: "render"; readonly slot: string; readonly format: string; readonly frameHash: string; readonly bytes: number; readonly elapsed: string; readonly destination: string | null; readonly colorSpace: string }
   | { readonly kind: "disposal"; readonly screenId: string; readonly active: string; readonly disposables: number }
   | { readonly kind: "edit"; readonly slot: string; readonly surface: string; readonly target: string; readonly editor: string; readonly outcome: string }
   | { readonly kind: "command"; readonly receipt: CommandReceiptWire }

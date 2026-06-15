@@ -121,7 +121,7 @@ public static class ReceiptSurface {
 - Auto: per-lane counts, route histograms, hot-path totals, leak indicators, conflict evidence, and provenance chains derive on read from the identical stream the dashboards consume.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new operational view is one fold member row over the same fact stream, zero new surface.
-- Boundary: leak indicators read the double-dispose and finalized allocation events as diagnostics, never log noise; `Conflicts` surfaces retry-owner and contract-checksum evidence toward the operator; a mutable accumulator, a per-view repository, and a second fact stream are the deleted forms.
+- Boundary: leak indicators read the double-dispose and finalized allocation events as diagnostics, never log noise; `DiscardTaxonomy` folds the stream-pool `BufferDiscardedEventArgs.Reason` carried on the discard `Allocation.Reason` field into a reason-keyed count so an `EnoughFree`-dominant tally reads as caps-below-workload and an oversize-dominant tally as payloads-exceeding-`MaximumBufferSize` — opposite tuning moves separated by the fold, never a merged counter; `Conflicts` surfaces retry-owner and contract-checksum evidence toward the operator; a mutable accumulator, a per-view repository, and a second fact stream are the deleted forms.
 
 ```csharp signature
 public static class ReceiptFolds {
@@ -139,6 +139,12 @@ public static class ReceiptFolds {
             facts.Bind(static fact => fact is ComputeReceipt.Allocation { Event: "double-dispose" or "finalized" } leak
                 ? Seq(leak)
                 : Seq<ComputeReceipt.Allocation>());
+
+        public HashMap<string, int> DiscardTaxonomy =>
+            facts.Fold(HashMap<string, int>(), static (acc, fact) =>
+                fact is ComputeReceipt.Allocation { Event: "discard", Reason: { } reason }
+                    ? acc.AddOrUpdate(reason, static n => n + 1, 1)
+                    : acc);
 
         public Seq<ComputeReceipt.Conflict> Conflicts =>
             facts.Bind(static fact => fact is ComputeReceipt.Conflict conflict ? Seq(conflict) : Seq<ComputeReceipt.Conflict>());
@@ -195,6 +201,10 @@ public static class WireStamps {
 
     extension(Google.Type.TimeOfDay wire) {
         public LocalTime RailTime => wire.ToLocalTime();
+    }
+
+    extension(Google.Type.DayOfWeek wire) {
+        public IsoDayOfWeek RailDayOfWeek => wire.ToIsoDayOfWeek();
     }
 }
 ```
