@@ -82,8 +82,8 @@ public sealed record HealthContributorPort(
 - Owner: `AppHostWireContext`, `SuiteContracts` — the package wire context and the app-root merge surface; `NodaPatterns` the pattern-derived text codec table.
 - Entry: `public static JsonSerializerOptions Wire(params ReadOnlySpan<JsonSerializerContext> contexts)` — one merge per app root; every JSON wire surface reads and writes through the merged options value, which seals on first use.
 - Packages: NodaTime.Serialization.SystemTextJson, NodaTime, Thinktecture.Runtime.Extensions.Json, BCL inbox
-- Growth: a new wire record lands as one `[JsonSerializable]` row on its package context plus one `[JsonDerivedType]` row per polymorphic leaf, zero new surface; a new semantic-time edge is one `NodaPatterns` row; an owner that must decline span-based deserialization is one predicate branch in the factory's `Func<Type, bool>` opt-out, never a second factory; CORS and grpc-web middleware land as one app-root row each when a cross-origin deployment exists.
-- Boundary: converter precedence is settled — `ConfigureForNodaTime` runs last in the `Wire` expression, after `TypeInfoResolver` binds the combined source-gen metadata, so the NodaTime per-type converters for `Instant`, `OffsetDateTime`, `ZonedDateTime`, and `Interval` resolve ahead of any source-gen `JsonTypeInfo` for those types — converter resolution precedes resolver metadata in System.Text.Json, and the call order in `Wire` is the precedence law, never a hand-assembled converter list; `OffsetDateTimePattern.Rfc3339` carries the exported offset stamp and `ZonedDateTimePattern` binds `WithZoneProvider`/`WithResolver` against the Tzdb provider with the strict resolver, so an ambiguous or skipped local time is a typed parse failure, never a silent shift; generated Thinktecture converters own every value-object, smart-enum, and keyed-union wire form, and a hand-written converter beside them is the named defect; the one options-level `ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true, ...)` covers any generated owner that carries no `[JsonConverter]` attribute while honoring the attribute on those that do, so attribute wiring and options registration never double-bind one owner, and the `Func<Type, bool>` span opt-out callback declines span-based deserialization per type — `NoSpanDeserialization` is the suite default that holds the validated-rail read path uniform across owners, the per-type flip being the growth axis; PipeReader deserialization is the consumer-edge inbound decode shape, never a staging axis.
+- Growth: a new wire record lands as one `[JsonSerializable]` row on its package context plus one `[JsonDerivedType]` row per polymorphic leaf, zero new surface; a new semantic-time edge is one `NodaPatterns` row; an owner that must decline the factory carries its own `[JsonConverter]` attribute that `skipObjectsWithJsonConverterAttribute` honors, never a second factory; CORS and grpc-web middleware land as one app-root row each when a cross-origin deployment exists.
+- Boundary: converter precedence is settled — `ConfigureForNodaTime` runs last in the `Wire` expression, after `TypeInfoResolver` binds the combined source-gen metadata, so the NodaTime per-type converters for `Instant`, `OffsetDateTime`, `ZonedDateTime`, and `Interval` resolve ahead of any source-gen `JsonTypeInfo` for those types — converter resolution precedes resolver metadata in System.Text.Json, and the call order in `Wire` is the precedence law, never a hand-assembled converter list; `OffsetDateTimePattern.Rfc3339` carries the exported offset stamp and `ZonedDateTimePattern` binds `WithZoneProvider`/`WithResolver` against the Tzdb provider with the strict resolver, so an ambiguous or skipped local time is a typed parse failure, never a silent shift; generated Thinktecture converters own every value-object, smart-enum, and keyed-union wire form, and a hand-written converter beside them is the named defect; the one options-level `ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true)` covers any generated owner that carries no `[JsonConverter]` attribute while honoring the attribute on those that do, so attribute wiring and options registration never double-bind one owner; PipeReader deserialization is the consumer-edge inbound decode shape, never a staging axis.
 
 ```csharp signature
 [JsonSourceGenerationOptions(
@@ -104,14 +104,12 @@ public partial class AppHostWireContext : JsonSerializerContext;
 
 public static class SuiteContracts
 {
-    static readonly Func<Type, bool> NoSpanDeserialization = static _ => false;
-
     public static JsonSerializerOptions Wire(params ReadOnlySpan<JsonSerializerContext> contexts) =>
         new JsonSerializerOptions(JsonSerializerOptions.Strict)
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             TypeInfoResolver = JsonTypeInfoResolver.Combine([.. contexts]),
-            Converters = { new ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true, NoSpanDeserialization) },
+            Converters = { new ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true) },
         }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 
     public static JsonNode Schema(JsonSerializerOptions wire, Type record) =>
@@ -180,7 +178,3 @@ Each tool row names the consumed surface, activation point, and spelling it dele
 |   [2]   | @msgpack/msgpack  | snapshot blobs      | snapshot import | second TS binary codec |
 |   [3]   | OTLP ingestion    | telemetry signals   | OTLP endpoint   | bespoke telemetry wire |
 |   [4]   | schema-derived TS | JSON schemas        | TS build input  | mirrored interfaces    |
-
-## [5]-[RESEARCH]
-
-- [ZONED_PATTERN_GRAMMAR]: the `ZonedDateTimePattern.CreateWithInvariantCulture` format-string literal for the exported zoned timestamp, and the named ISO singleton if one supplants the format-string construction.

@@ -69,19 +69,19 @@ shaped now, never a deferred surface.
 
 | [INDEX] | [AXIS/CONCERN]          | [OWNER]                          | [KIND]                  | [CASES]                                                     |  [STATE]  |
 | :-----: | :---------------------- | :------------------------------- | :---------------------- | :---------------------------------------------------------- | :-------: |
-|   [1]   | host variance           | `HostProfile`                    | `[SmartEnum<string>]`   | 8 rows                                                      | SPIKE     |
+|   [1]   | host variance           | `HostProfile`                    | `[SmartEnum<string>]`   | 8 rows                                                      | FINALIZED |
 |   [2]   | lifetime adapters       | `ProfileBoot`                    | static fold             | 6 delegate targets; `ServiceNotify`/`MirrorService`/`Emit` mirror sub-surface | SPIKE |
-|   [3]   | resource identity       | `ProfileIdentity`                | static fold             | 5 attribute rows; `HostResourceDetector` detector sub-surface | SPIKE   |
+|   [3]   | resource identity       | `ProfileIdentity`                | static fold             | 5 attribute rows; `HostResourceDetector` detector sub-surface | FINALIZED |
 |   [4]   | phase family            | `RuntimePhase`                   | `[SmartEnum<string>]`   | 8 rows                                                      | FINALIZED |
 |   [5]   | trigger vocabulary      | `PhaseTrigger`                   | `[Union]`               | 10 cases                                                    | FINALIZED |
 |   [6]   | transition cell         | `Lifecycle`                      | boundary capsule        | 1 CAS entry                                                 | FINALIZED |
-|   [7]   | fault spine             | `FaultSource`                    | `[Union]`               | 4 cases                                                     | SPIKE     |
-|   [8]   | drain bands             | `DrainBand`                      | `[SmartEnum<int>]`      | 4 rows                                                      | SPIKE     |
+|   [7]   | fault spine             | `FaultSource`                    | `[Union]`               | 4 cases                                                     | FINALIZED |
+|   [8]   | drain bands             | `DrainBand`                      | `[SmartEnum<int>]`      | 4 rows                                                      | FINALIZED |
 |   [9]   | cancellation spine      | `CancelScope`                    | record capsule          | 1 root                                                      | FINALIZED |
 |  [10]   | clock seam              | `ClockPolicy`                    | record                  | 2 admissions                                                | FINALIZED |
 |  [11]   | deadline taxonomy       | `DeadlineClass`                  | `[SmartEnum<string>]`   | 9 rows                                                      | FINALIZED |
 |  [12]   | schedule port           | `ScheduleEntry`                  | record port             | 3 `OccurrenceSpec` cases (cron, every, annual)             | FINALIZED |
-|  [13]   | config sources          | `ConfigSource`                   | `[SmartEnum<string>]`   | 8 rows                                                      | SPIKE     |
+|  [13]   | config sources          | `ConfigSource`                   | `[SmartEnum<string>]`   | 8 rows                                                      | FINALIZED |
 |  [14]   | binding faults          | `ConfigError`                    | `[Union]` fault         | 7 cases                                                     | FINALIZED |
 |  [15]   | reload rail             | `ReloadOutcome`                  | `[Union]`               | 4 cases                                                     | FINALIZED |
 |  [16]   | kill switch             | `OperatorOverride`               | `[Union]`               | 2 cases                                                     | FINALIZED |
@@ -91,23 +91,23 @@ shaped now, never a deferred surface.
 |  [20]   | cache lanes             | `CacheLane`                      | `[SmartEnum<string>]`   | 3 rows                                                      | FINALIZED |
 |  [21]   | object pools            | `PoolPolicy<T>`                  | policy row              | 1 row per type; `Pools` registration sub-surface            | FINALIZED |
 |  [22]   | drain queues            | `DrainQueue<T>`                  | `[Union]`               | 2 cases                                                     | FINALIZED |
-|  [23]   | telemetry identity      | `TelemetrySource`                | `[SmartEnum<string>]`   | 6 rows                                                      | SPIKE     |
+|  [23]   | telemetry identity      | `TelemetrySource`                | `[SmartEnum<string>]`   | 6 rows                                                      | FINALIZED |
 |  [24]   | correlation spine       | `Correlation`                    | static surface          | 1 boot mint; `RootEnricher`/`CausalEnricher` cost-class seats | FINALIZED |
-|  [25]   | log arbitration         | `LogPipeline`                    | `[SmartEnum<string>]`   | 2 rows; `SpineLossFold` listener, `HostTags` tag-provider   | SPIKE     |
-|  [26]   | signal governance       | `TelemetrySignal`                | `[SmartEnum<string>]`   | 3 rows; `LatencyCheckpoint`/`LatencySpine` carrier          | SPIKE     |
-|  [27]   | classification taxonomy | `DataClassification`             | `[SmartEnum<string>]`   | 7 rows; `RedactorKind` column, `RedactionRegistration` fold | SPIKE     |
-|  [28]   | health fold             | `HealthContributorRow`           | record row + probe      | 4 tag families; `PressurePolicy` grade, `GradePublisher` publisher | SPIKE |
+|  [25]   | log arbitration         | `LogPipeline`                    | `[SmartEnum<string>]`   | 2 rows; `SpineLossFold` listener, `HostTags` tag-provider   | FINALIZED |
+|  [26]   | signal governance       | `TelemetrySignal`                | `[SmartEnum<string>]`   | 3 rows; `LatencyCheckpoint`/`LatencySpine` carrier          | FINALIZED |
+|  [27]   | classification taxonomy | `DataClassification`             | `[SmartEnum<string>]`   | 7 rows; `RedactorKind` column, `RedactionRegistration` fold | FINALIZED |
+|  [28]   | health fold             | `HealthContributorRow`           | record row + probe      | 4 tag families; `PressurePolicy` grade, `GradePublisher` publisher | FINALIZED |
 |  [29]   | capability vocabulary   | `Capability`                     | `[SmartEnum<string>]`   | 6 rows                                                      | FINALIZED |
 |  [30]   | degradation rail        | `DegradationLevel`               | `[SmartEnum<string>]`   | 5 rows                                                      | FINALIZED |
-|  [31]   | wire health             | `WireHealthRow`                  | record row              | 1 row per service                                           | SPIKE     |
-|  [32]   | support triggers        | `SupportTrigger`                 | `[Union]`               | 6 cases                                                     | SPIKE     |
-|  [33]   | support receipts        | `SupportReceipt`                 | `[Union]`               | 3 cases                                                     | SPIKE     |
+|  [31]   | wire health             | `WireHealthRow`                  | record row              | 1 row per service                                           | FINALIZED |
+|  [32]   | support triggers        | `SupportTrigger`                 | `[Union]`               | 6 cases                                                     | FINALIZED |
+|  [33]   | support receipts        | `SupportReceipt`                 | `[Union]`               | 3 cases                                                     | FINALIZED |
 |  [34]   | hop axis                | `OutboundHop`                    | `[Union]`               | 7 cases                                                     | SPIKE     |
-|  [35]   | hop faults              | `HopFault`                       | `[Union]` fault         | 7 cases                                                     | FINALIZED |
-|  [36]   | hop outcomes            | `HopOutcome`                     | `[Union]`               | 3 cases                                                     | FINALIZED |
+|  [35]   | hop faults              | `HopFault`                       | `[Union]` fault         | 7 cases                                                     | SPIKE     |
+|  [36]   | hop outcomes            | `HopOutcome`                     | `[Union]`               | 3 cases                                                     | SPIKE     |
 |  [37]   | discovery attach        | `DiscoveryManifest`              | record + static surface | 1 manifest law                                              | SPIKE     |
 |  [38]   | runtime ports           | `ReceiptSinkPort` + six siblings | sealed records          | 7 ports                                                     | FINALIZED |
-|  [39]   | wire law                | `AppHostWireContext`             | JsonSerializerContext   | 9 contract rows; `NodaPatterns` pattern sub-surface         | SPIKE     |
+|  [39]   | wire law                | `AppHostWireContext`             | JsonSerializerContext   | 9 contract rows; `NodaPatterns` pattern sub-surface         | FINALIZED |
 
 ## [6]-[BUILD_ORDER]
 

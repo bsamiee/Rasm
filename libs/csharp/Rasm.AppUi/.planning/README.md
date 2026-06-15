@@ -77,7 +77,7 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |   [5]   | screen rows             | `ScreenCatalog`                                             | row table    | per screen    | FINALIZED |
 |   [6]   | command rows            | `CommandIntent` + `CommandDeck`                             | row + deck   | per verb      | FINALIZED |
 |   [7]   | command payload/outcome | `CommandPayload` · `CommandOutcome`                         | union pair   | 4 · 4         | FINALIZED |
-|   [8]   | data sourcing           | `DataSource<TRow,TKey>`                                     | [Union]      | 7             |   SPIKE   |
+|   [8]   | data sourcing           | `DataSource<TRow,TKey>`                                     | [Union]      | 7             | FINALIZED |
 |   [9]   | table projection        | `TableProjection<TRow,TKey>`                                | [Union]      | 5             | FINALIZED |
 |  [10]   | editor rows             | `EditorFactory`                                             | SmartEnum    | 11            | FINALIZED |
 |  [11]   | chart series            | `ChartSeriesSpec`                                           | SmartEnum    | 15            |   SPIKE   |
@@ -90,7 +90,7 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |  [18]   | typography roles        | `TypographyRole`                                            | SmartEnum    | 10            | FINALIZED |
 |  [19]   | markdown rows           | `MarkdownRow`                                               | [Union]      | 7             | FINALIZED |
 |  [20]   | icon sourcing           | `IconSource`                                                | [Union]      | 5             | FINALIZED |
-|  [21]   | asset identity          | `AssetKey` · `AssetKind` (+ `SvgPipeline` · `RasterAssets`) | value + enum | open · 3      |   SPIKE   |
+|  [21]   | asset identity          | `AssetKey` · `AssetKind` (+ `SvgPipeline` · `RasterAssets`) | value + enum | open · 3      | FINALIZED |
 |  [22]   | dialog intents          | `DialogIntent`                                              | [Union]      | 6             | FINALIZED |
 |  [23]   | toast rows/outcomes     | `ToastRow` · `ToastOutcome`                                 | enum pair    | 4 · 3         |   SPIKE   |
 |  [24]   | transfer payloads       | `DragPayload`                                               | [Union]      | 5             |   SPIKE   |

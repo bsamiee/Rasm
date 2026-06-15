@@ -79,7 +79,7 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |  [12]   | projection egress    | KeysetPage, ProjectionRail                       | record + fold     | 3 filter keys     | FINALIZED |
 |  [13]   | bulk lane            | BulkRoute, receipts, deltas                      | enum + receipts   | 3 routes          |   SPIKE   |
 |  [14]   | interceptor spine    | interceptors, policies, facts                    | capsule + policy  | 4 hooks · 7 kinds |   SPIKE   |
-|  [15]   | native policy tables | pragmas, facts, compile surface                  | tables + probe    | 10 · 14           |   SPIKE   |
+|  [15]   | native policy tables | pragmas, facts, compile surface                  | tables + probe    | 10 · 14           | FINALIZED |
 |  [16]   | maintenance + gates  | maintenance, functions, extensions, DbConfig     | verbs + gates     | 9 verbs · 8 gates |   SPIKE   |
 |  [17]   | snapshot protocol    | codecs, compression, hashing, restore            | rows + wire       | 3 · 3 · 5         |   SPIKE   |
 |  [18]   | cache + indexes      | contribution, result, artifact, benchmark        | capsule + keys    | 1 + 3 indexes     | FINALIZED |

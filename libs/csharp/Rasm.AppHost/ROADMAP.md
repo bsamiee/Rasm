@@ -1,24 +1,20 @@
 # [RASM_APPHOST_ROADMAP]
 
-The `.planning/` corpus is finalized; implementation transcribes pages in the charter
-BUILD_ORDER ([planning charter](.planning/README.md)). Every task exits against named page
-clusters and proves through the charter PROOF_GATES.
+The `.planning/` corpus is finalized; this roadmap carries the implementation sequence and its start gates, never a restatement of finalized design. Owner state lives on the charter DENSITY_BAR `[STATE]` column ([planning charter](.planning/README.md)); every row here routes to it rather than mirroring per-owner FINALIZED/SPIKE values.
 
 ## [1]-[CURRENT_POSITION]
 
-| [INDEX] | [SURFACE]         | [STATE]                                      |
-| :-----: | :---------------- | :------------------------------------------- |
-|   [1]   | planning corpus   | 11 pages finalized; charter complete         |
-|   [2]   | package graph     | runtime closure admitted and lock-tracked    |
-|   [3]   | production source | absent                                       |
-|   [4]   | test project      | `Rasm.AppHost.Tests` node present, empty     |
-|   [5]   | API catalogues    | 30 pages current; 2 admissions pending pages |
+| [INDEX] | [SURFACE]         | [STATE]                                   |
+| :-----: | :---------------- | :---------------------------------------- |
+|   [1]   | planning corpus   | finalized; charter complete               |
+|   [2]   | package graph     | runtime closure admitted and lock-tracked |
+|   [3]   | production source | absent                                    |
+|   [4]   | test project      | `Rasm.AppHost.Tests` node present, empty  |
+|   [5]   | API catalogues    | current; app-root pins catalogued at app-root creation |
 
 ## [2]-[START_GATES]
 
-Implementation-start gates: bridge-proofed spikes and research-resolution probes that need a
-live host or scratch process. Decompile-grade research items (`assay api query`) resolve
-inline inside the owning task and are not listed.
+Implementation-start gates are the bridge-proofed spikes and research-resolution probes that need a live host or scratch process. Decompile-grade research items (`assay api query`) resolve inline inside the owning task and are not listed.
 
 | [INDEX] | [GATE]                                                             | [PROBE]                                                                             | [UNBLOCKS]                              |
 | :-----: | :----------------------------------------------------------------- | :---------------------------------------------------------------------------------- | :-------------------------------------- |
@@ -36,10 +32,9 @@ inline inside the owning task and are not listed.
 
 ## [3]-[IMPLEMENTATION_TASKS]
 
-Ordered by the charter BUILD_ORDER; each task transcribes its clusters verbatim, resolves the
-RESEARCH items its pages carry, and exits on the named proof.
+Ordered by the charter BUILD_ORDER; each task transcribes its page clusters verbatim, resolves the RESEARCH items those pages carry, and exits on the named proof.
 
-| [INDEX] | [TASK]             | [EXITS_AGAINST]                                                                                                            | [PROOF]                                                                                      |
+| [INDEX] | [TASK]             | [EXITS_AGAINST]                                                                                                            | [PROOF]                                                                                       |
 | :-----: | :----------------- | :------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
 |   [1]   | `Time.cs`          | time-and-deadlines#CLOCK_SPLIT, #DEADLINE_TAXONOMY, #SCHEDULE_PORT                                                         | G3 + G4: deadline receipts and cron occurrences under `FakeClock`/`FakeTimeProvider`         |
 |   [2]   | `Profiles.cs`      | host-profiles#PROFILE_AXIS, #LIFETIME_ADAPTERS, #RESOURCE_IDENTITY                                                         | G3 + G4: Resolve/Roots law matrix; G5: gate [1]                                              |
@@ -53,12 +48,11 @@ RESEARCH items its pages carry, and exits on the named proof.
 |  [10]   | `Outbound.cs`      | outbound-resilience#HOP_AXIS, #HTTP_PIPELINES, #KEYED_PIPELINES, #OWNERSHIP_LAW, #DISCOVERY_ATTACH                         | G3 + G4: admission fold, owner-conflict evidence, breaker enforcement; G5: gates [2] and [8] |
 |  [11]   | `Ports.cs`         | runtime-ports#PORT_RECORDS, #WIRE_LAW                                                                                      | G3 + G4: HLC advance law, wire round-trip incl. NodaTime converter precedence                |
 
-G1 and G2 run once before task [1] and again on any manifest or catalogue change; G6 runs on
-any page-diagram edit.
+G1 and G2 run once before task [1] and again on any manifest or catalogue change; G6 runs on any page-diagram edit.
 
 ## [4]-[TESTING_APPROACH]
 
-Universal rails carry one shared legend (owner + resolved member identical across the four packages); versions live in `Directory.Packages.props` `ItemGroup Label="Test Stack"` and `.config/dotnet-tools.json`, never restated here.
+Universal rails carry one shared legend (owner plus resolved member identical across the four packages); versions live in `Directory.Packages.props` and `.config/dotnet-tools.json`, never restated here.
 
 | [RAIL]                      | [OWNER]                  | [RESOLVED MEMBER / TOKEN]                                                                                       |
 | :-------------------------- | :----------------------- | :------------------------------------------------------------------------------------------------------------- |
@@ -91,9 +85,6 @@ N/A rails: BenchmarkDotNet — AppHost owns no durable managed numeric kernel (`
 
 ## [5]-[EXIT]
 
-The package exits implementation when every BUILD_ORDER file is transcribed `Time.cs` through
-`Ports.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static
-build`, G4 `test run`, G5 `bridge verify`, G6 `mmdc` render, G7 `Grpc.Core.Api` spec compile),
-the GAP_LEDGER stays fully CLOSED, every START_GATES probe discharges under live RhinoWIP or its
-scratch host and lands as a settled fence row rather than a re-opened gate, and the charter
-`spec` gate passes on the full suite.
+The package exits implementation when every BUILD_ORDER file is transcribed `Time.cs` through `Ports.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static build`, G4 `test run`, G5 `bridge verify`, G6 `mmdc` render, G7 `Grpc.Core.Api` spec compile), and the charter `spec` gate passes on the full suite.
+
+The residual host-bridge work is the close-out: every charter DENSITY_BAR `[STATE]=SPIKE` owner discharges its probe — named in that owner's page RESEARCH cluster — under live RhinoWIP or its scratch host, and every START_GATES row above lands as a settled fence row rather than a re-opened gate. The settled-spike targets and their entry route are carried by the charter REFINEMENT_HORIZON; this roadmap does not duplicate them.

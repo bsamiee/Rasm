@@ -53,7 +53,7 @@ public static class SupportTriggerOps {
 - Receipt: per-artifact written bytes, truncated bytes, and redaction counts land as manifest entries.
 - Packages: Microsoft.Extensions.Telemetry.Abstractions, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one `SupportArtifact` factory row lands a new contributor — `EffectiveConfig` is the config debug-view row and `ProcessDump` is the gated row that fails closed until the diagnostics-tool gate clears; zero new surface.
-- Boundary: the Active cell is the coalesce gate — a trigger arriving mid-capture folds to SupportReceipt.Coalesced and never opens a second window; classification resolves redaction at row registration, so Produce returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; the `EffectiveConfig` row passes the `GetDebugView` text through the resolved `Redactor` so the configuration artifact carries no unredacted secret, the length cut yielding the binary redaction signal until the `[DEBUG_VIEW_PROCESSOR]` row lands the per-entry processor that scopes redaction and its count to each provider value; the `ProcessDump` row's `Produce` fails closed on the `[DUMP_ADMISSION]` gate, present as a fail-closed contributor, never an absent one.
+- Boundary: the Active cell is the coalesce gate — a trigger arriving mid-capture folds to SupportReceipt.Coalesced and never opens a second window; classification resolves redaction at row registration, so Produce returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` and the redaction count rises per masked entry, carrying no unredacted secret; the `ProcessDump` row's `Produce` fails closed on the `[DUMP_ADMISSION]` gate, present as a fail-closed contributor, never an absent one.
 
 ```csharp signature
 public sealed record SupportArtifact(
@@ -65,10 +65,17 @@ public sealed record SupportArtifact(
         Name: "effective-config",
         Classification: DataClassification.Operational,
         EstimatedBytes: 64 << 10,
-        Produce: _ => IO.lift(() => (Source: root.GetDebugView(), Redactor: redactor) is var input
-            && input.Redactor.Redact(input.Source) is var redacted
-                ? (new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(redacted)), redacted.Length < input.Source.Length ? 1 : 0)
-                : (ReadOnlyMemory<byte>.Empty, 0)));
+        Produce: _ => IO.lift(() => {
+            var redactions = 0;
+            string Mask(ConfigurationDebugViewContext entry) {
+                if (entry.Value is not { Length: > 0 } value) return entry.Value ?? string.Empty;
+                var masked = redactor.Redact(value);
+                if (masked.Length != value.Length) redactions++;
+                return masked;
+            }
+            var view = root.GetDebugView(Mask);
+            return (new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(view)), redactions);
+        }));
 
     public static SupportArtifact ProcessDump(long estimatedBytes) => new(
         Name: "process-dump",
@@ -311,4 +318,3 @@ type SupportReceipt =
 ## [6]-[RESEARCH]
 
 - [DUMP_ADMISSION]: dump and gcdump capture-tool admission for the process-dump row.
-- [DEBUG_VIEW_PROCESSOR]: the `ConfigurationRootExtensions.GetDebugView` per-value processor-delegate overload — the `ConfigurationDebugViewContext` `Path`/`Value` member shape that scopes per-entry redaction so the `EffectiveConfig` producer redacts each secret value at its provider origin rather than over the whole view text, and the per-entry redaction count it yields.

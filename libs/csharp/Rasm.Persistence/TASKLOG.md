@@ -16,13 +16,7 @@ Open work owned by this folder; closed items do not appear.
 | [8] | uuidv7 double-generation precedence (client CreateVersion7 vs pg column default) | precedence rule grounded; one generation site confirmed |
 | [9] | APFS rename durability without directory fsync; migration-lock holder evidence | durability posture confirmed; lock-holder evidence captured |
 
-## [2]-[SPEC_PROOFS_AT_IMPLEMENTATION]
-
-| [INDEX] | [ITEM] | [EXIT] |
-| :-----: | ------ | ------ |
-| [1] | Compile-options receipt + Batteries_V2 round-trip under the bundle-line override; snapshot bracket preconditions | round-trip passes; preconditions enforced by spec |
-
-## [3]-[PLANNING_CLOSE_OUT_SPIKES]
+## [2]-[PLANNING_CLOSE_OUT_SPIKES]
 
 | [INDEX] | [ITEM] | [EXIT] |
 | :-----: | ------ | ------ |

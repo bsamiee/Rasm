@@ -111,7 +111,7 @@ Rail surfaces (one entrypoint family per rail):
 |   [9]   | Contract rail       | `ContractGuard`                      | static fold           | `Classify`/`AdditiveOnly` — `Fin`               | FINALIZED |
 |  [10]   | Channel capsule     | `WireChannels`                       | boundary capsule      | `Attach`/`Open`/`Observe`/`Redial` — `Fin`/`IO` |   SPIKE   |
 |  [11]   | Call edge           | `CallSpine`                          | interceptor           | `Options`/`Bounded` + 4 overrides               |   SPIKE   |
-|  [12]   | Frame rail          | `FrameEdge`                          | static surface        | `Frames`/`Parse`/`Write`/`Prefixed`/`Merge`/`Valid` |   SPIKE   |
+|  [12]   | Frame rail          | `FrameEdge`                          | static surface        | `Frames`/`Parse`/`Write`/`Prefixed`/`Merge`/`Valid` | FINALIZED |
 |  [13]   | Stream capsule      | `StreamPool`                         | boundary capsule      | `Get` + 11-event fold                           | FINALIZED |
 |  [14]   | Lane capsule        | `LaneRuntime`                        | boundary capsule      | `Enqueue`/`Pump`/`Drain` — `IO`                 | FINALIZED |
 |  [15]   | Progress capsule    | `ProgressCell`                       | capsule               | `Advance`/`Subscribe`/`Cancel`                  | FINALIZED |

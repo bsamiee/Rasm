@@ -1,61 +1,63 @@
 # [RASM_APPUI_ROADMAP]
 
-Implementation transcribes the planning pages in the charter [BUILD_ORDER](.planning/README.md) into the namespaced source tree. Every task exits against named page clusters, and every exit is proven by a charter proof gate. Production source is absent; the path runs from manifest-backed project to proven rail.
+The `.planning/` corpus is finalized; implementation transcribes pages in the charter BUILD_ORDER ([planning charter](.planning/README.md)). Every task exits against named page clusters and proves through the charter PROOF_GATES. Owner realization state lives on the charter DENSITY_BAR `[STATE]` column; this roadmap routes to it rather than mirroring it.
 
-## [1]-[START_GATES]
+## [1]-[CURRENT_POSITION]
 
-Implementation-start gates owned by this package — each unblocks its named clusters before transcription begins.
+| [INDEX] | [SURFACE]         | [STATE]                                       |
+| :-----: | :---------------- | :-------------------------------------------- |
+|   [1]   | planning corpus   | 18 pages finalized; charter complete          |
+|   [2]   | package graph     | runtime closure admitted and lock-tracked     |
+|   [3]   | production source | absent                                        |
+|   [4]   | test project      | `Rasm.AppUi.Tests` node present, empty         |
+|   [5]   | API catalogues    | 37 pages current; `Verify.XunitV3` admission pending |
 
-| [INDEX] | [GATE] | [PROOF_ROUTE] | [UNBLOCKS] |
-| :-----: | ------ | ------------- | ---------- |
-| [1] | Avalonia-in-Rhino NSView embedding spike | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_pump` (+ `avalonia_embed_resize`, `avalonia_embed_render`) | surface-hosts#EMBED_CAPSULE, surface-hosts#SCHEDULER_BOUNDARY, surface-hosts#HOST_AXIS |
-| [2] | `Rasm.AppUi.Tests` target row on the assay test rail | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` | every specs and render-hash gate below |
-| [3] | HotAvalonia Release closure strip + markup-loader floor (diagnostics-evidence [DEV_LOOP_STRIP]) | `dotnet build libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj -c Release` | diagnostics-evidence#DEV_LOOP |
-| [4] | Embedded TopLevel service resolution | `tests/csharp/libs/Rasm.AppUi/scenarios/appui-embedded-toplevel.verify.csx` | dialogs-notifications#NOTIFICATIONS, dialogs-notifications#PICKERS_HOST_MODALITY |
-| [5] | Host-object drag across the NSView boundary | `libs/csharp/Rasm.AppUi/scenarios/embedded-drag.verify.csx` under live RhinoWIP | input-interaction#DRAG_CLIPBOARD |
-| [6] | macOS reduce-motion preference probe | `libs/csharp/Rasm.AppUi/scenarios/reduced-motion-probe.verify.csx` | motion-tokens#REDUCED_MOTION |
-| [7] | VoiceOver reach across the embedded root | `tests/csharp/libs/Rasm.Rhino/UI/scenarios/avalonia-embed-a11y.verify.csx` | accessibility#AUTOMATION_PEERS |
-| [8] | input-interaction member re-grounding — routed-event gesture triggers, pointer capture, structured clipboard write re-grounded against installed `Avalonia.Xaml.Behaviors` and Avalonia clipboard surfaces (input-interaction [GESTURE_TRIGGERS], [POINTER_CAPTURE], [CLIPBOARD_WRITE]) | `uv run python -m tools.assay api resolve --pattern behaviors` then specs against the re-grounded trigger and clipboard rows | input-interaction#POINTER_GESTURES, input-interaction#DRAG_CLIPBOARD |
+## [2]-[START_GATES]
 
-Every remaining research item resolves before its gated cluster is transcribed. An unresolved item blocks the cluster; the charter [FILE_PROCESS](.planning/README.md) makes the block mechanical and the charter [PROOF_GATES](.planning/README.md) carry the executable rails.
+Implementation-start gates: bridge-proofed spikes and research-resolution probes that need a live host or scratch process. Decompile-grade research items (`assay api resolve`) resolve inline inside the owning task and are not listed. An unresolved gate blocks its named cluster; the charter FILE_PROCESS makes the block mechanical and the charter PROOF_GATES carry the executable rails.
 
-## [2]-[IMPLEMENTATION_TASKS]
+| [INDEX] | [GATE]                                              | [PROBE]                                                                                                  | [UNBLOCKS]                                              |
+| :-----: | :-------------------------------------------------- | :------------------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
+|   [1]   | Avalonia-in-Rhino NSView embedding spike            | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_pump` (+ `avalonia_embed_resize`, `avalonia_embed_render`) | surface-hosts#EMBED_CAPSULE, #SCHEDULER_BOUNDARY, #HOST_AXIS |
+|   [2]   | `Rasm.AppUi.Tests` row on the assay test rail       | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests`                                        | every spec and render-hash gate below                  |
+|   [3]   | HotAvalonia Release closure strip + markup-loader floor | `dotnet build libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj -c Release`                                       | diagnostics-evidence#DEV_LOOP                          |
+|   [4]   | Embedded TopLevel service resolution                | `tests/csharp/libs/Rasm.AppUi/scenarios/appui-embedded-toplevel.verify.csx`                              | dialogs-notifications#NOTIFICATIONS, #PICKERS_HOST_MODALITY |
+|   [5]   | Host-object drag across the NSView boundary         | `libs/csharp/Rasm.AppUi/scenarios/embedded-drag.verify.csx` under live RhinoWIP                          | input-interaction#DRAG_CLIPBOARD                      |
+|   [6]   | macOS reduce-motion preference probe                | `libs/csharp/Rasm.AppUi/scenarios/reduced-motion-probe.verify.csx`                                       | motion-tokens#REDUCED_MOTION                          |
+|   [7]   | VoiceOver reach across the embedded root            | `tests/csharp/libs/Rasm.Rhino/UI/scenarios/avalonia-embed-a11y.verify.csx`                               | accessibility#AUTOMATION_PEERS                        |
+|   [8]   | input-interaction member re-grounding               | `uv run python -m tools.assay api resolve --pattern behaviors` then specs against the re-grounded trigger and clipboard rows | input-interaction#POINTER_GESTURES, #DRAG_CLIPBOARD   |
 
-Tasks in charter BUILD_ORDER. A task exits when its clusters are transcribed verbatim, the collapse scan passes, and the named gates are green.
+## [3]-[IMPLEMENTATION_TASKS]
 
-[VOCABULARY_SPINE]:
-- Exits: surface-hosts#HOST_AXIS (vocabulary fences), surface-hosts#SCALE_FOCUS; motion-tokens#MOTION_AXIS, motion-tokens#MOTION_APPLICATION, motion-tokens#PHASE_MAPPING, motion-tokens#REDUCED_MOTION; typography-shaping#ROLE_AXIS, typography-shaping#FONT_ADMISSION, typography-shaping#SHAPING_RAIL, typography-shaping#MARKDOWN_PROJECTION, typography-shaping#TEXT_METRICS; icons-assets#ASSET_CATALOG, icons-assets#RASTER_ASSETS, icons-assets#ICON_AXIS, icons-assets#SVG_PIPELINE; theme-tokens#TOKEN_CATALOG, theme-tokens#VARIANT_AXIS, theme-tokens#DENSITY_AXIS; localization-culture#LOCALE_AXIS, localization-culture#STRING_TABLES, localization-culture#CULTURE_COMPOSITION, localization-culture#RTL_MIRRORING.
-- Proof: static + specs; icon materialize rides the render-hash lane; PhaseMotion conformance sweep asserts map keys equal `ProgressPhase.Items`.
+Ordered by the charter BUILD_ORDER; each task transcribes its clusters verbatim, resolves the RESEARCH items its pages carry, runs the collapse scan, and exits on the named proof.
 
-[HOST_MOUNT]:
-- Exits: surface-hosts#HOST_AXIS (dispatch), surface-hosts#EMBED_CAPSULE, surface-hosts#SCHEDULER_BOUNDARY, surface-hosts#NATIVE_ASSETS; theme-tokens#CONTROL_THEMES.
-- Proof: bridge (embed pump/resize/render scenarios) + specs + render-hash variant sweep; `Surfaces.Mount` lands with the `ClockPolicy` retype per the ledger conformance ruling.
+| [INDEX] | [FILE]                         | [EXITS_AGAINST]                                                                                                   | [PROOF]                                  |
+| :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------------------------- | :--------------------------------------- |
+|   [1]   | `Hosts/SurfaceVocabulary.cs`   | surface-hosts#HOST_AXIS, #SCALE_FOCUS                                                                            | G3 + G4 specs                            |
+|   [2]   | `Motion/MotionRail.cs`         | motion-tokens#MOTION_AXIS, #MOTION_APPLICATION, #PHASE_MAPPING, #REDUCED_MOTION                                  | G4 phase-map conformance sweep (keys equal `ProgressPhase.Items`) |
+|   [3]   | `Typography/TypographyRail.cs` | typography-shaping#ROLE_AXIS, #FONT_ADMISSION, #SHAPING_RAIL, #MARKDOWN_PROJECTION, #TEXT_METRICS                | G4 shaping specs                         |
+|   [4]   | `Assets/AssetCatalog.cs`       | icons-assets#ASSET_CATALOG, #RASTER_ASSETS                                                                       | G4 specs                                 |
+|   [5]   | `Assets/IconRail.cs`           | icons-assets#ICON_AXIS, #SVG_PIPELINE                                                                            | G6 render-hash                           |
+|   [6]   | `Theme/ThemeTokens.cs`         | theme-tokens#TOKEN_CATALOG, #VARIANT_AXIS, #DENSITY_AXIS                                                         | G4 specs                                 |
+|   [7]   | `Localization/LocaleRail.cs`   | localization-culture#LOCALE_AXIS, #STRING_TABLES, #CULTURE_COMPOSITION, #RTL_MIRRORING                          | G4 specs                                 |
+|   [8]   | `Hosts/SurfaceRail.cs`         | surface-hosts#HOST_AXIS (dispatch), #EMBED_CAPSULE, #SCHEDULER_BOUNDARY, #NATIVE_ASSETS; theme-tokens#CONTROL_THEMES | G5 bridge (embed pump/resize/render) + G6 variant sweep; `Surfaces.Mount` carries `ClockPolicy` |
+|   [9]   | `Theme/ThemeRail.cs`           | theme-tokens#CONTROL_THEMES                                                                                      | G6 render-hash                           |
+|  [10]   | `Commands/CommandRail.cs`      | commands-availability#INTENT_TABLE, #AVAILABILITY_ALGEBRA, #EXECUTION_RECEIPTS, #PALETTE_AND_REMOTE, #TS_PROJECTION | G4 specs (deck freeze, conflict fold, receipt totality, palette ranking, wire round-trip) |
+|  [11]   | `Input/InteractionRail.cs`     | input-interaction#HOTKEY_DERIVATION, #BEHAVIOR_RAIL, #POINTER_GESTURES, #DRAG_CLIPBOARD                          | G5 bridge (embedded-drag) + G4 specs     |
+|  [12]   | `Screens/ScreenRail.cs`        | screens-activation#SCREEN_CATALOG, #ACTIVATION_SCOPES, #DERIVED_STATE, #VALIDATION_UX, #SCREEN_STATE            | G4 specs (activation/suspend law, snapshot merge) |
+|  [13]   | `LiveData/LiveDataRail.cs`     | live-data#DATA_SOURCES, #CHANGE_PIPELINES, #BINDING_CAPSULE, #AGGREGATION_SPINE                                  | G4 specs under `VirtualTimeScheduler`; single-`ObserveOn` law |
+|  [14]   | `Tables/TableRail.cs`          | tables-hierarchy#GRID_SUBSTRATE, #VIEW_STATE, #TREE_FLATTEN, #GRID_COMMIT                                        | G4 specs (tree-flatten fold, DeferRefresh batching) |
+|  [15]   | `Inspector/InspectorRail.cs`   | inspector-editing#INSPECTOR_SURFACE, #EDITOR_FACTORIES, #COMMIT_VALIDATION, #OPTIONS_INSPECTOR, #CONFLICT_RESOLUTION, #CODE_EDITING | G4 specs (editor rank walk, preview-versus-commit law) |
+|  [16]   | `Dialogs/DialogRail.cs`        | dialogs-notifications#DIALOG_INTENTS, #SESSION_ALGEBRA, #NOTIFICATIONS, #PICKERS_HOST_MODALITY                  | G5 bridge (embedded TopLevel) + G4 specs (toast gate totality) |
+|  [17]   | `Shell/ShellRail.cs`           | shell-navigation#ROUTING_SPINE, #DOCK_LAYOUTS, #SHELL_CHROME, #ADAPTIVE_LAYOUT                                  | G4 specs (dock serialize-restore round-trip, layout admit) |
+|  [18]   | `Charts/ChartRail.cs`          | charts-dashboards#SERIES_TABLE, #AXES_SECTIONS, #CHART_INTERACTION, #STREAM_BINDING, #DASHBOARD_TILES          | G6 render-hash per `ChartSeriesSpec` row and per named dashboard; Lttb fold spec |
+|  [19]   | `Visuals/VisualRail.cs`        | visuals-offscreen#DRAW_CAPSULE, #THUMBNAIL_PIPELINE, #PREVIEW_SURFACES, #ENCODE_IDENTITY, #DOCUMENT_EXPORT      | G6 render-hash                           |
+|  [20]   | `Access/AccessRail.cs`         | accessibility#AUTOMATION_PEERS, #KEYBOARD_NAV, #CONTRAST_GATE, #COMPLIANCE_PROOF                                | G4 contrast-floor rows + audit sweep over the typed (variant, density) grid |
+|  [21]   | `Evidence/EvidenceRail.cs`     | diagnostics-evidence#RECEIPT_UNION, #CORRELATION_JOIN, #CAPTURE_LANES, #HEADLESS_DERIVATION, #DEV_LOOP, #TS_PROJECTION | G6 render-hash + G5 bridge; full `ProofEngine.Derive` matrix; journal replay under `FakeTimeProvider` |
 
-[COMMAND_AND_INPUT]:
-- Exits: commands-availability#INTENT_TABLE, commands-availability#AVAILABILITY_ALGEBRA, commands-availability#EXECUTION_RECEIPTS, commands-availability#PALETTE_AND_REMOTE, commands-availability#TS_PROJECTION; input-interaction#HOTKEY_DERIVATION, input-interaction#BEHAVIOR_RAIL, input-interaction#POINTER_GESTURES, input-interaction#DRAG_CLIPBOARD.
-- Proof: specs (deck freeze, conflict fold, receipt totality, palette ranking, wire round-trip) + bridge (embedded-drag).
+G1 and G2 run once before task [1] and again on any manifest or catalogue change; G7 runs on any page-diagram edit. The BUILD_ORDER seam notes are binding at transcription: `AssetKeys` nameof spellings are the only cross-file asset references; the `PhaseMotion` map keys mirror the Compute `ProgressPhase` nine-case set; `AccessProof.Sweep` and `ProofEngine.Derive` share the typed `(ThemeVariantRow, DensityRow)` grid.
 
-[SCREENS_AND_LIVE_DATA]:
-- Exits: screens-activation#SCREEN_CATALOG, screens-activation#ACTIVATION_SCOPES, screens-activation#DERIVED_STATE, screens-activation#VALIDATION_UX, screens-activation#SCREEN_STATE; live-data#DATA_SOURCES, live-data#CHANGE_PIPELINES, live-data#BINDING_CAPSULE, live-data#AGGREGATION_SPINE.
-- Proof: specs — activation/suspend law, snapshot merge, fake-deterministic rows under `VirtualTimeScheduler`, single-`ObserveOn` law.
-
-[CONTENT_SURFACES]:
-- Exits: tables-hierarchy#GRID_SUBSTRATE, tables-hierarchy#VIEW_STATE, tables-hierarchy#TREE_FLATTEN, tables-hierarchy#GRID_COMMIT; inspector-editing#INSPECTOR_SURFACE, inspector-editing#EDITOR_FACTORIES, inspector-editing#COMMIT_VALIDATION, inspector-editing#OPTIONS_INSPECTOR, inspector-editing#CONFLICT_RESOLUTION, inspector-editing#CODE_EDITING; dialogs-notifications#DIALOG_INTENTS, dialogs-notifications#SESSION_ALGEBRA, dialogs-notifications#NOTIFICATIONS, dialogs-notifications#PICKERS_HOST_MODALITY.
-- Proof: specs (tree-flatten fold, DeferRefresh batching, editor rank walk, preview-versus-commit law, toast gate totality) + bridge (embedded TopLevel).
-
-[SHELL_AND_VISUALS]:
-- Exits: shell-navigation#ROUTING_SPINE, shell-navigation#DOCK_LAYOUTS, shell-navigation#SHELL_CHROME, shell-navigation#ADAPTIVE_LAYOUT; charts-dashboards#SERIES_TABLE, charts-dashboards#AXES_SECTIONS, charts-dashboards#CHART_INTERACTION, charts-dashboards#STREAM_BINDING, charts-dashboards#DASHBOARD_TILES; visuals-offscreen#DRAW_CAPSULE, visuals-offscreen#THUMBNAIL_PIPELINE, visuals-offscreen#PREVIEW_SURFACES, visuals-offscreen#ENCODE_IDENTITY, visuals-offscreen#DOCUMENT_EXPORT.
-- Proof: specs (dock serialize-restore round-trip, Lttb fold, layout admit) + render-hash sweeps per `ChartSeriesSpec` row and per named dashboard.
-
-[ACCESSIBILITY_RAIL]:
-- Exits: accessibility#AUTOMATION_PEERS, accessibility#KEYBOARD_NAV, accessibility#CONTRAST_GATE, accessibility#COMPLIANCE_PROOF.
-- Proof: specs — contrast floor rows over the candidate pairs, audit sweep across the typed (variant, density) grid.
-
-[EVIDENCE_RAIL]:
-- Exits: diagnostics-evidence#RECEIPT_UNION, diagnostics-evidence#CORRELATION_JOIN, diagnostics-evidence#CAPTURE_LANES, diagnostics-evidence#HEADLESS_DERIVATION, diagnostics-evidence#DEV_LOOP, diagnostics-evidence#TS_PROJECTION.
-- Proof: full derived proof matrix green (`ProofEngine.Derive` across catalog × checks × grid), render-hash regression against blob-lane baselines, command-journal replay deterministic under `FakeTimeProvider`, bridge scenarios for host capture lanes.
-
-## [3]-[TESTING_APPROACH]
+## [4]-[TESTING_APPROACH]
 
 Universal rails carry one owner and resolved member identical across the four packages; versions live in `Directory.Packages.props`.
 
@@ -79,9 +81,14 @@ Package-specific rails:
 
 N/A rails: BenchmarkDotNet — `specialized-rails.md [2]` reject bars UI surfaces / viewport / UI threads; durable OkLab ramp math routes to the Compute benchmark rail. SharpFuzz — `specialized-rails.md [3]` reject names UI surfaces; markdown / SVG admission goes through frozen fail-loud pipelines.
 
-## [4]-[COMPLETION_SIGNALS]
+## [5]-[EXIT]
 
-- Every charter BUILD_ORDER row closed with its gates green; `uv run python -m tools.assay static build` clean on the package closure.
-- `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` green, including the derived proof matrix, contrast sweep, motion conformance, and render-hash lanes.
-- Bridge scenarios for the four host seams pass under live RhinoWIP.
-- The charter [GAP_LEDGER](.planning/README.md) stays fully CLOSED; no implementation re-opens a routed gap.
+The package exits implementation when every BUILD_ORDER file is transcribed `Hosts/SurfaceVocabulary.cs` through `Evidence/EvidenceRail.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static build`, G4 `test run`, G5 `bridge verify`, G6 headless render-hash lanes, G7 `mmdc` render), the charter GAP_LEDGER stays fully CLOSED, and the charter `spec` gate passes on the full suite.
+
+Residual host-bridge work is the charter DENSITY_BAR `SPIKE` set discharging against its page RESEARCH clusters; each exits when its bridge or native probe lands as a settled fence row rather than a re-opened gate:
+- Embedding seam (`SurfaceHost`, `SurfaceFact`) — surface-hosts#RESEARCH [EMBED_SPIKE]/[WIN32_ROUTE].
+- Embedded notification and picker capsule (`ToastRow` · `ToastOutcome`) — dialogs-notifications#RESEARCH [EMBEDDED_TOPLEVEL].
+- Cross-boundary transfer (`DragPayload`) — input-interaction#RESEARCH [EMBEDDED_DRAG]/[GESTURE_TRIGGERS]/[POINTER_CAPTURE]/[ROTATE_GESTURE]/[CLIPBOARD_WRITE]; the Avalonia 12 data-transfer reshape moves the structured clipboard write onto `IClipboard.SetDataAsync(IDataTransfer)` over `DataFormat` application formats.
+- Series render fidelity (`ChartSeriesSpec`) — charts-dashboards#RESEARCH [SERIES_RENDER]/[GEO_PAYLOAD].
+- Offscreen render-byte identity and break (`VisualDestination` · `ExportDestination` · `VisualCodec`) — visuals-offscreen#RESEARCH [PARAGRAPH_BREAK]/[SERIES_RENDER]; the color-reproject member surface is confirmed against SkiaSharp.
+- Headless evidence derivation (`EvidenceReceipt`, `ProofCheck`) — diagnostics-evidence#RESEARCH [HEADLESS_RUNNER]/[DEV_LOOP_STRIP].
