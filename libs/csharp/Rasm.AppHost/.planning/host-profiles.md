@@ -100,10 +100,11 @@ public static class ProfileSurface {
 
 - Owner: `ProfileBoot` — builder selection, lifetime-adapter delegate rows, and `HostOptions` policy as one fold.
 - Entry: `IHostApplicationBuilder Boot(ResolvedProfile resolved, Duration startupDeadline, Duration shutdownDeadline, Option<IHostApplicationBuilder> external = default)` — total over every row; both deadline values arrive from the deadline vocabulary.
-- Auto: Boot composes the row's `CreateBuilder` and `AttachLifetime` delegates with `HostOptions` — startup and shutdown timeouts, concurrent start and stop, `BackgroundServiceExceptionBehavior.StopHost` — deleting per-host bootstrap programs.
+- Auto: Boot composes the row's `CreateBuilder` and `AttachLifetime` delegates with `HostOptions` — startup and shutdown timeouts, concurrent start and stop, `BackgroundServiceExceptionBehavior.StopHost` — deleting per-host bootstrap programs; the `Service` row gates `AddSystemd`/`AddWindowsService` on the matching probe, and `MirrorService` rides the existing `Lifecycle.Subscribe` fold so every committed transition fires its service-state mirror through one subscriber seat, never a per-callsite emission; `Aborted` flattens a `HostAbortedException` into the boot-fault trigger value with no second state machine.
 - Packages: Microsoft.Extensions.Hosting, Microsoft.Extensions.Hosting.Systemd, Microsoft.Extensions.Hosting.WindowsServices, Microsoft.Extensions.Options, NodaTime
-- Growth: one adapter row — a static delegate target bound through the row constructor — extends the lifetime surface with zero new surface.
-- Boundary: the web row crosses in through `external` — its builder is constructed at the web app root, where ASP.NET Core enters as a shared-framework asset only; the host registers `ConsoleLifetime` as the default `IHostLifetime` on every builder path including the empty builder, so plugin rows swap in the no-op `DetachedLifetime` through `Detached` and host-attach trigger injection drives phases; `AddSystemd` and `AddWindowsService` coexist because each registration is environment-gated; `HostAbortedException` during build projects to a boot-fault trigger value, never a second state machine.
+- Receipt: `ServiceNotify` projects each `RuntimePhase` transition to its `ServiceState` sd_notify mirror through one table lookup, so a new host modality inherits the mirror as one row; `Aborted` yields a `PhaseTrigger.FaultCommitted` value carrying `FaultSource.Unhandled` evidence with `Terminating: true`.
+- Growth: one adapter row — a static delegate target bound through the row constructor — extends the lifetime surface with zero new surface; one `ServiceNotify` row binds a new phase-to-state mirror without leaving the fold.
+- Boundary: the web row crosses in through `external` — its builder is constructed at the web app root, where ASP.NET Core enters as a shared-framework asset only; the host registers `ConsoleLifetime` as the default `IHostLifetime` on every builder path including the empty builder, so plugin rows swap in the no-op `DetachedLifetime` through `Detached` and host-attach trigger injection drives phases; `AddSystemd` and `AddWindowsService` coexist because each registration is environment-gated, and `SystemdHelpers.IsSystemdService`/`WindowsServiceHelpers.IsWindowsService` gate the live `ISystemdNotifier.Notify` emission so the notify socket is written only under a service manager; `MirrorService` registers one `Lifecycle.Subscribe` observer at the composition root for service rows, so `Emit` fires on every committed `PhaseReceipt` — `ServiceState.Ready` mirrors the ready transition and `ServiceState.Stopping` mirrors the draining transition, the two confirmed notify payloads — and the service-manager liveness keep-alive rides the schedule-port heartbeat row rather than a second timer; `HostAbortedException` during build projects through `Aborted` to a boot-fault trigger value consumed by the transition entrypoint, never a second state machine.
 
 ```csharp signature
 public static class ProfileBoot {
@@ -121,6 +122,22 @@ public static class ProfileBoot {
 
     public static IHostApplicationBuilder Service(IHostApplicationBuilder builder) =>
         (builder.Services.AddSystemd().AddWindowsService(), builder).Item2;
+
+    public static Option<ServiceState> ServiceNotify(RuntimePhase phase) =>
+        phase == RuntimePhase.Ready ? Some(ServiceState.Ready)
+        : phase == RuntimePhase.Draining ? Some(ServiceState.Stopping)
+        : None;
+
+    public static Unit Emit(ISystemdNotifier notifier, RuntimePhase phase) =>
+        ServiceNotify(phase).Match(
+            Some: state => { if (notifier.IsEnabled) notifier.Notify(state); return unit; },
+            None: static () => unit);
+
+    public static PhaseSubscription MirrorService(Lifecycle lifecycle, ISystemdNotifier notifier) =>
+        lifecycle.Subscribe(receipt => ignore(Emit(notifier, receipt.To)));
+
+    public static PhaseTrigger Aborted(HostAbortedException abort) =>
+        new PhaseTrigger.FaultCommitted(new FaultSource.Unhandled(Error.New(abort), Terminating: true));
 
     public static IHostApplicationBuilder Boot(ResolvedProfile resolved, Duration startupDeadline, Duration shutdownDeadline, Option<IHostApplicationBuilder> external = default) =>
         Tuned(
@@ -151,17 +168,18 @@ public static class ProfileBoot {
 
 Lifetime signals project into phase-transition trigger values consumed by the transition entrypoint as one vocabulary:
 
-| [INDEX] | [SIGNAL]                                      | [PROJECTION]                            |
-| :-----: | :-------------------------------------------- | :-------------------------------------- |
-|   [1]   | `IHostedLifecycleService.StartingAsync`       | boot                                    |
-|   [2]   | `IHostedLifecycleService.StartedAsync`        | ready                                   |
-|   [3]   | `IHostApplicationLifetime` started token      | running                                 |
-|   [4]   | `IHostedLifecycleService.StoppingAsync`       | draining                                |
-|   [5]   | `IHostApplicationLifetime` stopping token     | draining                                |
-|   [6]   | `IHostedLifecycleService.StoppedAsync`        | unloaded                                |
-|   [7]   | `IHostApplicationLifetime` stopped token      | unloaded                                |
-|   [8]   | `HostAbortedException` during build           | faulted                                 |
-|   [9]   | `ServiceState.Ready`, `ServiceState.Stopping` | sd_notify mirrors of ready and draining |
+| [INDEX] | [SIGNAL]                                    | [PROJECTION]                            |
+| :-----: | :------------------------------------------ | :-------------------------------------- |
+|   [1]   | `IHostedLifecycleService.StartingAsync`     | boot                                    |
+|   [2]   | `IHostedLifecycleService.StartedAsync`      | ready                                   |
+|   [3]   | `IHostApplicationLifetime` started token    | running                                 |
+|   [4]   | `IHostedLifecycleService.StoppingAsync`     | draining                                |
+|   [5]   | `IHostApplicationLifetime` stopping token   | draining                                |
+|   [6]   | `IHostedLifecycleService.StoppedAsync`      | unloaded                                |
+|   [7]   | `IHostApplicationLifetime` stopped token    | unloaded                                |
+|   [8]   | `HostAbortedException` during build         | faulted                                 |
+|   [9]   | `ServiceState.Ready` via `ServiceNotify`    | sd_notify mirror of the ready commit    |
+|  [10]   | `ServiceState.Stopping` via `ServiceNotify` | sd_notify mirror of the draining commit |
 
 ## [4]-[RESOURCE_IDENTITY]
 
@@ -212,5 +230,6 @@ public static class ProfileIdentity {
 
 ## [5]-[RESEARCH]
 
-- [PLUGIN_HOST]: Generic Host boot and unload inside the RhinoWIP plugin load context without process exit.
-- [WEB_ROOT]: static-asset spellings at the web app root under the Microsoft.AspNetCore.App shared framework.
+- [PLUGIN_HOST]: Generic Host boot and unload inside the RhinoWIP plugin load context without process exit; the `Detached` lifetime swap and host-attach trigger injection are the settled mechanics, the unverified surface is the load-context teardown sequence under live host eviction.
+- [WEB_ROOT]: static-asset spellings at the web app root under the Microsoft.AspNetCore.App shared framework; `CoHostedAssets` selects the co-hosted-bundle column, the unverified surface is the static-file middleware registration at the app root.
+- [WATCHDOG_PING]: the systemd watchdog liveness channel beyond the `ServiceState.Ready`/`ServiceState.Stopping` payloads — the periodic keep-alive notify rides the schedule-port heartbeat row, the unverified surface is the watchdog-keepalive notify payload on `ISystemdNotifier`.

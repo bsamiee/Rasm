@@ -292,23 +292,39 @@ public sealed class ShellHost : IDisposable {
     }
 
     private static CapabilityEntry McpListener() =>
-        new(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
-            Receipt: string.Equals(
-                    a: Environment.GetEnvironmentVariable(variable: "RHINO_MCP_AUTOSTART_PORT"),
-                    b: "0",
-                    comparisonType: StringComparison.Ordinal)
-                ? "autostart suppressed by RHINO_MCP_AUTOSTART_PORT=0; bridge did not start a listener"
-                : "bridge did not start a listener");
+        // Autostart is never driven by the bridge; the gate distinguishes deliberate suppression
+        // from an unavailable gate so the absent listener is never silently identical evidence.
+        Environment.GetEnvironmentVariable(variable: "RHINO_MCP_AUTOSTART_PORT") switch {
+            "0" => new CapabilityEntry(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
+                Receipt: "autostart suppressed by RHINO_MCP_AUTOSTART_PORT=0; bridge did not start a listener"),
+            { Length: > 0 } port => new CapabilityEntry(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
+                Receipt: $"listener autostart gate unavailable; bridge owns no autostart for RHINO_MCP_AUTOSTART_PORT={port}"),
+            _ => new CapabilityEntry(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
+                Receipt: "listener autostart gate unavailable; bridge did not start a listener"),
+        };
 
     private static CapabilityEntry McpPlatform() {
         string[] loaded = [.. AppDomain.CurrentDomain.GetAssemblies()
             .Select(selector: static assembly => assembly.GetName())
-            .Where(predicate: static name => (name.Name ?? string.Empty).Contains(value: "mcp", comparisonType: StringComparison.OrdinalIgnoreCase))
+            .Where(predicate: IsMcneelRhinoMcp)
             .Select(selector: static name => $"{name.Name}:{name.Version}")
             .Order(comparer: StringComparer.Ordinal)];
         return loaded.Length == 0
             ? new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Unsupported, Receipt: "no MCP platform assembly loaded")
             : new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Ok, Receipt: string.Join(separator: ',', value: loaded));
+    }
+
+    private static bool IsMcneelRhinoMcp(AssemblyName name) {
+        // McNeel's official rhinomcp and the community fork share the simple name; the McNeel
+        // package ships unsigned (PublicKeyToken=null), so identity falls to a namespace/type probe.
+        if (!string.Equals(a: name.Name, b: "rhinomcp", comparisonType: StringComparison.Ordinal)) {
+            return false;
+        }
+        Assembly? assembly = AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(predicate: candidate => AssemblyName.ReferenceMatchesDefinition(reference: candidate.GetName(), definition: name));
+        return assembly is not null && SafeTypes(assembly: assembly)
+            .Any(predicate: static type => (type.Namespace ?? string.Empty)
+                .StartsWith(value: "rhinomcp", comparisonType: StringComparison.Ordinal));
     }
 
     private static CapabilityEntry ShellContent(string deployDir) {

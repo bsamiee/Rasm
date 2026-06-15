@@ -52,9 +52,9 @@ _FAULT_CASES: list[tuple[str, Trigger, Action, Claim, str, tuple[str, ...]]] = [
     (
         "test_drive_setup_error_emits_faulted_envelope",
         Schedule(cron="* * * * *", timezone="Invalid/Zone"),
-        Rail(claim=Claim.STATIC, verb="check"),
+        Rail(claim=Claim.STATIC, verb="static"),
         Claim.STATIC,
-        "check",
+        "static",
         ("automation setup",),
     ),
     # Empty argv faults before process spawn.
@@ -72,9 +72,9 @@ _FAULT_CASES: list[tuple[str, Trigger, Action, Claim, str, tuple[str, ...]]] = [
     (
         "test_drive_rail_param_decode_failure_folds_to_fault",
         Manual(),
-        Rail(claim=Claim.STATIC, verb="check", params=msgspec.Raw(b"{not json")),
+        Rail(claim=Claim.STATIC, verb="static", params=msgspec.Raw(b"{not json")),
         Claim.STATIC,
-        "check",
+        "static",
         (),
     ),
     # Setup faults label Debounce wrappers by the inner action.
@@ -310,10 +310,10 @@ def test_drive_rail_resolves_bind_and_emits_canned_envelope(
 
     Falsified by: re-emitting the rail Envelope or failing to resolve the registered claim/verb pair.
     """
-    rail_env = envelope(fold(Claim.STATIC, "check", (receipt(("check",), 0, status=RailStatus.OK),)), claim=Claim.STATIC, verb="check")
+    rail_env = envelope(fold(Claim.STATIC, "static", (receipt(("static",), 0, status=RailStatus.OK),)), claim=Claim.STATIC, verb="static")
     rail_probe.install(monkeypatch, _eng, "rail", rail_env)
 
-    anyio.run(_eng.drive, Manual(), Rail(claim=Claim.STATIC, verb="check"), assay_root.settings)
+    anyio.run(_eng.drive, Manual(), Rail(claim=Claim.STATIC, verb="static"), assay_root.settings)
 
     assert [c for c in rail_probe.calls if c[0] == "rail.run"], "the registry runner must be invoked with decoded params"
     assert captured_emits == [], f"already-emitted rail Envelope must not be re-emitted; got {len(captured_emits)}"
@@ -381,11 +381,7 @@ def test_drive_nested_sequence_and_debounce_leaves(
     rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("p",)))
 
     seq = Sequence(
-        actions=(
-            Program(argv=("p", "outer")),
-            Sequence(actions=(Program(argv=("p", "nested")),)),
-            Debounce(action=Program(argv=("p", "wrapped"))),
-        )
+        actions=(Program(argv=("p", "outer")), Sequence(actions=(Program(argv=("p", "nested")),)), Debounce(action=Program(argv=("p", "wrapped"))))
     )
     anyio.run(_eng.drive, Manual(), seq, assay_root.settings)
 

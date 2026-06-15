@@ -42,8 +42,9 @@ from tools.assay.core.model import (
     Stage,
     TestRun,
     Tool,
+    ToolGroup,
 )
-from tools.assay.core.routing import expand, infer_languages, route
+from tools.assay.core.routing import expand, resolve_languages, route
 from tools.assay.core.status import RailStatus
 
 
@@ -85,7 +86,7 @@ _GATE_TOOL = Tool(
     language=Language.PYTHON,
     claim=Claim.TEST,
     mode=Mode.MUTATION,
-    groups=("mutation",),
+    groups=(ToolGroup.MUTATION,),
     stage=Stage(project=True),
 )
 
@@ -96,6 +97,7 @@ _GATE_TOOL = Tool(
 class TestParams(BaseParams):
     """Parameters shared by test verbs."""
 
+    # language selectors are optional; hide default so help does not advertise an unset flag
     csharp: Annotated[bool, Parameter(name="--csharp", negative="", show_default=False, help="Restrict the command to C# targets.")] = False
     python: Annotated[bool, Parameter(name="--python", negative="", show_default=False, help="Restrict the command to Python targets.")] = False
     typescript: Annotated[
@@ -142,20 +144,6 @@ _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.test")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _selected(params: TestParams, verb: str) -> Language | Fault | None:
-    return language_choice(verb, csharp=params.csharp, python=params.python, typescript=params.typescript)
-
-
-def _languages(selected: Language | Fault | None, paths: tuple[str, ...]) -> Result[tuple[Language, ...], Fault]:
-    match selected:
-        case Fault() as fault:
-            return Error(fault)
-        case None:
-            return Ok(infer_languages(paths, tuple(sorted({t.language for t in select(Claim.TEST)}, key=lambda member: member.value))))
-        case language:
-            return Ok((language,))
-
-
 def _eligible(tool: Tool, params: TestParams) -> bool:
     # Mutation eligibility is independent of target/all; those narrow projects only.
     match (tool.mode, params.mutation):
@@ -164,11 +152,12 @@ def _eligible(tool: Tool, params: TestParams) -> bool:
         case (Mode.MUTATION, MutationLane.CHANGED | MutationLane.FULL):
             return True
         case _:
+            # coverage/benchmark each re-run their own pytest, so a run-default row yields to them when either is set.
+            special = params.benchmark or params.coverage
             return (
-                (tool.name != "pytest" or not (params.benchmark or params.coverage))
-                and (tool.name != "coverage" or params.coverage)
-                and (not tool.name.startswith("coverage-") or params.coverage)
-                and (tool.name != "pytest-benchmark" or params.benchmark)
+                (ToolGroup.REQUIRES_BENCHMARK not in tool.groups or params.benchmark)
+                and (ToolGroup.REQUIRES_COVERAGE not in tool.groups or params.coverage)
+                and (ToolGroup.RUN_DEFAULT not in tool.groups or not special)
             )
 
 
@@ -396,8 +385,8 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
     Returns:
         Folded test report, or routing/spawn/lease fault.
     """
-    choice = _selected(params, verb)
-    language_result = _languages(choice, params.paths)
+    choice = language_choice(verb, csharp=params.csharp, python=params.python, typescript=params.typescript)
+    language_result = resolve_languages(choice, params.paths, claim=claim)
     match language_result:
         case Result(tag="error", error=fault):
             return Error(fault)
@@ -466,7 +455,9 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
     Returns:
         Test roster report, or routing/spawn fault.
     """
-    language_result = _languages(_selected(params, "list"), params.paths)
+    language_result = resolve_languages(
+        language_choice("list", csharp=params.csharp, python=params.python, typescript=params.typescript), params.paths, claim=Claim.TEST
+    )
     match language_result:
         case Result(tag="error", error=fault):
             return Error(fault)

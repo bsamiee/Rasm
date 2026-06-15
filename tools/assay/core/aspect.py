@@ -128,7 +128,11 @@ def _once[**P, T](dec: Callable[[Callable[P, T]], Callable[P, T]]) -> Callable[[
 
 
 def checked_call[**P, T](fn: Hom[P, T], *, conf: BeartypeConf = _CONF) -> Hom[P, T]:
-    """Apply idempotent beartype validation to one rail function."""
+    """Apply idempotent beartype validation to one rail function.
+
+    Returns:
+        The validated rail function; re-application is a no-op.
+    """
     return _once(beartype(conf=conf))(fn)
 
 

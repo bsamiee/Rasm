@@ -109,7 +109,11 @@ class _DistDouble:
 
 
 def _run(verb: Verb, assay_root: AssayHarness, **params: object) -> Result[Report, Fault]:
-    """Run an API verb in a fresh Claim.API scope."""
+    """Run an API verb in a fresh Claim.API scope.
+
+    Returns:
+        Verb result over a fresh API scope rooted at the harness.
+    """
     return verb(
         assay_root.settings,
         assay_root.scope(Claim.API),
@@ -139,7 +143,7 @@ def _install_ilspy(
         )
 
     monkeypatch.setattr(api_rail, "run_check", _canned)
-    monkeypatch.setattr(api_rail, "_source", lambda _settings, _key: Ok(source))
+    monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
 
 
 def _cs_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbol: str, *, install: bool = True, **kw: object) -> ApiSurface:
@@ -796,7 +800,7 @@ register_law(query, "cs_surface_cache_hit")
 def test_cs_surface_empty_assemblies_is_empty_not_fault(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A C# source with no assemblies stays off the fault rail."""
     empty_src = api_rail._Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=())
-    monkeypatch.setattr(api_rail, "_source", lambda _settings, _key: Ok(empty_src))
+    monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(empty_src))
     r = assert_ok(_run(query, assay_root, key="rhino-common", symbol="Anything"))
     assert r.status is not RailStatus.FAULTED
 
@@ -881,8 +885,8 @@ def test_pydist_modules_recovers_import_roots() -> None:
 
 
 def test_resolve_symbol_walks_longest_importable_prefix() -> None:
-    """_resolve_symbol resolves a dotted member against the longest importable distribution prefix."""
-    resolved = api_rail._resolve_symbol("msgspec", "Struct")
+    """_resolve_py_symbol resolves a dotted member against the longest importable distribution prefix."""
+    resolved = api_rail._resolve_py_symbol("msgspec", "Struct")
     assert resolved is not None
     assert getattr(resolved, "__name__", "") == "Struct"
 
@@ -932,8 +936,14 @@ def test_malformed_xml_or_json_inputs_degrade_to_empty(assay_root: AssayHarness)
     _ = props  # _packages reads via settings, not the path directly
     assert api_rail._packages(assay_root.settings) == {}
     assert api_rail._project_references(csproj) == ()
-    assert not api_rail._json_field(manifest, "version")
+    assert not api_rail._json_fields(manifest, "version")["version"]
     assert api_rail._xml_members(bad_xml) == ()
+
+
+def test_json_fields_isolates_malformed_sibling(assay_root: AssayHarness) -> None:
+    """A non-string field value folds only itself; a valid sibling survives the same single decode."""
+    manifest = assay_root.write("node_modules/pkg/package.json", '{"types": 5, "version": "2.1.0"}')
+    assert api_rail._json_fields(manifest, "types", "typings", "version") == {"types": "", "typings": "", "version": "2.1.0"}
 
 
 def test_pydist_source_handles_files_none() -> None:
@@ -1191,7 +1201,7 @@ def test_surface_faults_when_catalog_row_missing(
     source = api_rail._Source(
         key=key, kind=kind, assemblies=(asm,) if kind is SourceKind.ASSEMBLY else (), asset_paths=() if kind is SourceKind.ASSEMBLY else (asm,)
     )
-    monkeypatch.setattr(api_rail, "_source", lambda _settings, _key: Ok(source))
+    monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
     monkeypatch.setattr(api_rail, "select", lambda _claim, _lang: iter(()))
 
     e = assert_error(_run(query, assay_root, key=key, symbol=symbol))
@@ -1213,7 +1223,7 @@ def test_cs_decompile_faults_when_catalog_row_missing(assay_root: AssayHarness, 
         calls["n"] += 1
         return iter(select(Claim.API, Language.CSHARP)) if calls["n"] == 1 else iter(())
 
-    monkeypatch.setattr(api_rail, "_source", lambda _settings, _key: Ok(source))
+    monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
     monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.receipt(("ilspycmd",), 0, stdout=_ILSPY_TYPES))
     monkeypatch.setattr(api_rail, "select", _staged)
 

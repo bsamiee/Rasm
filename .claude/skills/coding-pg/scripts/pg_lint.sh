@@ -9,7 +9,10 @@ IFS=$'\n\t'
 
 readonly _OK=0 _FAIL=1 _USAGE=2 _S=$'\x1f'
 readonly _R=$'\033[31m' _Y=$'\033[33m' _G=$'\033[32m' _B=$'\033[1m' _Z=$'\033[0m'
-declare -i _t=0; [[ -t 1 ]] && _t=1; readonly _TTY="${_t}"; unset -v _t
+declare -i _t=0
+[[ -t 1 ]] && _t=1
+readonly _TTY="${_t}"
+unset -v _t
 declare -Ar _CLR=([E]="${_R}" [W]="${_Y}")
 declare -Ar _CTR=([E]=_errs [W]=_warns)
 
@@ -19,8 +22,10 @@ declare -a _CLEANUP=()
 declare -i _CLEANING=0
 _register() { _CLEANUP+=("$1"); }
 _on_exit() {
-    (( _CLEANING )) && return; _CLEANING=1
-    local i; for (( i=${#_CLEANUP[@]}-1; i>=0; i-- )); do rm -rf -- "${_CLEANUP[i]}" 2>/dev/null || :; done
+    ((_CLEANING)) && return
+    _CLEANING=1
+    local i
+    for ((i = ${#_CLEANUP[@]} - 1; i >= 0; i--)); do rm -rf -- "${_CLEANUP[i]}" 2>/dev/null || :; done
 }
 # shellcheck disable=SC2329
 _on_err() {
@@ -37,14 +42,14 @@ _emit_json() {
         '{label:$l,level:$v,message:$m,location:$c}'
 }
 _emit_text() {
-    (( _TTY )) \
-        && printf '%s[%s]%s %s — %s\n' "${_CLR[$2]}" "$1" "${_Z}" "$3" "$4" \
-        || printf '[%s] %s — %s\n' "$1" "$3" "$4"
+    ((_TTY)) &&
+        printf '%s[%s]%s %s — %s\n' "${_CLR[$2]}" "$1" "${_Z}" "$3" "$4" ||
+        printf '[%s] %s — %s\n' "$1" "$3" "$4"
 }
 _emit() {
     case "${_FMT}" in
-        json) _emit_json "$@" ;;
-        text) _emit_text "$@" ;;
+    json) _emit_json "$@" ;;
+    text) _emit_text "$@" ;;
     esac
 }
 
@@ -88,32 +93,35 @@ declare -i _errs=0 _warns=0 _checks=0
 _tally() {
     local -r label="$1" level="$2" msg="$3"
     [[ -n "$4" ]] || return 0
-    local -a lines; mapfile -t lines <<< "$4"
+    local -a lines
+    mapfile -t lines <<<"$4"
     local -n ctr="${_CTR[${level}]}"
-    (( ctr += ${#lines[@]} ))
+    ((ctr += ${#lines[@]}))
     [[ "${_QUIET}" == true ]] && return 0
-    local line; for line in "${lines[@]}"; do _emit "${label}" "${level}" "${msg}" "${line}"; done
+    local line
+    for line in "${lines[@]}"; do _emit "${label}" "${level}" "${msg}" "${line}"; done
 }
 _run_rg() {
     local -r workdir="$1"
     local -A meta=()
     local rule label level ext flags msg pattern idx=0
     for rule in "${_RG_RULES[@]}"; do
-        IFS="${_S}" read -r label level ext flags msg pattern <<< "${rule}"
+        IFS="${_S}" read -r label level ext flags msg pattern <<<"${rule}"
         [[ "${ext}" == "ts" && "${_TS}" != true ]] && continue
         [[ "${ext}" == "sql" && "${_SQL}" != true ]] && continue
-        (( ++_checks ))
+        ((++_checks))
         meta[${idx}]="${label}${_S}${level}${_S}${msg}"
         # shellcheck disable=SC2086
         { rg --no-heading -n --glob "*.${ext}" ${flags} -- "${pattern}" "${_PATHS[@]}" \
-            > "${workdir}/${idx}" 2>/dev/null || :; } &
-        (( ++idx ))
+            >"${workdir}/${idx}" 2>/dev/null || :; } &
+        ((++idx))
     done
     wait
-    local f key; for f in "${workdir}"/*; do
+    local f key
+    for f in "${workdir}"/*; do
         [[ -s "${f}" ]] || continue
         key="${f##*/}"
-        IFS="${_S}" read -r label level msg <<< "${meta[${key}]}"
+        IFS="${_S}" read -r label level msg <<<"${meta[${key}]}"
         _tally "${label}" "${level}" "${msg}" "$(<"${f}")"
     done
 }
@@ -122,36 +130,41 @@ _run_pairs() {
     local rule label level present absent msg
     local -a files violations
     for rule in "${_PAIR_RULES[@]}"; do
-        IFS="${_S}" read -r label level present absent msg <<< "${rule}"
-        (( ++_checks ))
+        IFS="${_S}" read -r label level present absent msg <<<"${rule}"
+        ((++_checks))
         mapfile -t files < <(rg -l "${present}" --glob '*.sql' "${_PATHS[@]}" 2>/dev/null)
         [[ ${#files[@]} -eq 0 ]] && continue
         mapfile -t violations < <(rg --files-without-match "${absent}" "${files[@]}" 2>/dev/null)
         [[ ${#violations[@]} -eq 0 ]] && continue
-        local hits; hits=$(rg -H --no-heading -n "${present}" "${violations[@]}" 2>/dev/null) || true
+        local hits
+        hits=$(rg -H --no-heading -n "${present}" "${violations[@]}" 2>/dev/null) || true
         [[ -n "${hits}" ]] && _tally "${label}" "${level}" "${msg}" "${hits}"
     done
 }
 _check_sprawl() {
     [[ "${_SQL}" == true ]] || return 0
-    (( ++_checks ))
+    ((++_checks))
     local results
     # shellcheck disable=SC2016
     results=$(rg --no-filename --glob '*.sql' -ioP \
         'CREATE\s+(UNIQUE\s+)?INDEX\s+\w+\s+ON\s+(\w+)\s*\(([^)]+)\)' \
-        --replace '$2|$3' "${_PATHS[@]}" 2>/dev/null | \
+        --replace '$2|$3' "${_PATHS[@]}" 2>/dev/null |
         awk -F'|' '{gsub(/[[:space:]]/,"",$2); if(split($2,c,",")==1)s[$1]++}
             END{for(t in s)if(s[t]>=3)printf "%d single-col indexes — review composite subsumption\ttable:%s\n",s[t],t}') || true
     [[ -z "${results}" ]] && return 0
-    local -a lines; mapfile -t lines <<< "${results}"
-    local line m l; for line in "${lines[@]}"; do
-        IFS=$'\t' read -r m l <<< "${line}"
-        (( ++_warns )); _emit "INDEX_SPRAWL" "W" "${m}" "${l}"
+    local -a lines
+    mapfile -t lines <<<"${results}"
+    local line m l
+    for line in "${lines[@]}"; do
+        IFS=$'\t' read -r m l <<<"${line}"
+        ((++_warns))
+        _emit "INDEX_SPRAWL" "W" "${m}" "${l}"
     done
 }
 
 # --- [INTERFACE] --------------------------------------------------------------
-_usage() { cat <<'EOF'
+_usage() {
+    cat <<'EOF'
 pg_lint — PostgreSQL 18 anti-pattern linter
 USAGE:  pg_lint [OPTIONS] [PATH...]
   -h,--help  -q,--quiet  --sql-only  --ts-only  --json  --self-test
@@ -162,29 +175,58 @@ EOF
 _SQL=true _TS=true _QUIET=false _FMT=text
 declare -a _PATHS=()
 _parse() {
-    while (( $# )); do
+    while (($#)); do
         case "$1" in
-            -h|--help)    _usage; exit 0 ;;
-            -q|--quiet)   _QUIET=true; shift ;;
-            --sql-only)   _TS=false; shift ;;
-            --ts-only)    _SQL=false; shift ;;
-            --json)       _FMT=json; shift ;;
-            --self-test)  _self_test; exit $? ;;
-            --)           shift; break ;;
-            -*)           printf 'Unknown: %s\n' "$1" >&2; _usage >&2; exit "${_USAGE}" ;;
-            *)            break ;;
+        -h | --help)
+            _usage
+            exit 0
+            ;;
+        -q | --quiet)
+            _QUIET=true
+            shift
+            ;;
+        --sql-only)
+            _TS=false
+            shift
+            ;;
+        --ts-only)
+            _SQL=false
+            shift
+            ;;
+        --json)
+            _FMT=json
+            shift
+            ;;
+        --self-test)
+            _self_test
+            exit $?
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            printf 'Unknown: %s\n' "$1" >&2
+            _usage >&2
+            exit "${_USAGE}"
+            ;;
+        *) break ;;
         esac
     done
     _PATHS=("${@:-.}")
 }
 _summary() {
     [[ "${_QUIET}" == true ]] && return 0
-    local -ri elapsed="${_elapsed:-0}" total=$(( _errs + _warns ))
+    local -ri elapsed="${_elapsed:-0}" total=$((_errs + _warns))
     local -r line="${_checks} checks — ${_errs} errors, ${_warns} warnings (${elapsed} us)"
-    [[ "${_FMT}" == json ]] && { printf '{"summary":true,"checks":%d,"errors":%d,"warnings":%d,"elapsed_us":%d}\n' \
-        "${_checks}" "${_errs}" "${_warns}" "${elapsed}"; return; }
-    local clr; (( total > 0 )) && clr="${_R}" || clr="${_G}"
-    (( _TTY )) && printf '\n%s%s%s%s\n' "${_B}" "${clr}" "${line}" "${_Z}" || printf '\n%s\n' "${line}"
+    [[ "${_FMT}" == json ]] && {
+        printf '{"summary":true,"checks":%d,"errors":%d,"warnings":%d,"elapsed_us":%d}\n' \
+            "${_checks}" "${_errs}" "${_warns}" "${elapsed}"
+        return
+    }
+    local clr
+    ((total > 0)) && clr="${_R}" || clr="${_G}"
+    ((_TTY)) && printf '\n%s%s%s%s\n' "${_B}" "${clr}" "${line}" "${_Z}" || printf '\n%s\n' "${line}"
 }
 
 # --- [SELF-TEST] --------------------------------------------------------------
@@ -194,33 +236,41 @@ _self_test() {
     local _SQL=true _TS=false _QUIET=true _FMT=text
     local -i _errs=0 _warns=0 _checks=0
     local -a _PATHS=()
-    local td; td=$(mktemp -d)
-    local wd; wd=$(mktemp -d "${td}/w.XXXXXX")
-    cat > "${td}/bad.sql" <<'SQL'
+    local td
+    td=$(mktemp -d)
+    local wd
+    wd=$(mktemp -d "${td}/w.XXXXXX")
+    cat >"${td}/bad.sql" <<'SQL'
 CREATE TABLE t (start_date date, end_date date);
 SELECT * FROM t LIMIT 10 OFFSET 20;
 id uuid DEFAULT gen_random_uuid() PRIMARY KEY;
 DEFAULT now();
 SELECT * FROM orders WHERE id NOT IN (SELECT order_id FROM returns);
 SQL
-    cat > "${td}/bad_rls.sql" <<'SQL'
+    cat >"${td}/bad_rls.sql" <<'SQL'
 CREATE FUNCTION x() RETURNS void LANGUAGE sql SECURITY DEFINER AS $$ SELECT 1 $$;
 ALTER TABLE t ENABLE ROW LEVEL SECURITY;
 CREATE POLICY p ON t USING (tenant_id = 'hardcoded');
 SQL
     _PATHS=("${td}")
-    _run_rg "${wd}"; _run_pairs
+    _run_rg "${wd}"
+    _run_pairs
     _assert() {
-        [[ "$2" == "$3" ]] && { (( ++pass )); return 0; }
-        printf 'FAIL: %s (expected=%s actual=%s)\n' "$1" "$2" "$3" >&2; (( ++fail )); return 0
+        [[ "$2" == "$3" ]] && {
+            ((++pass))
+            return 0
+        }
+        printf 'FAIL: %s (expected=%s actual=%s)\n' "$1" "$2" "$3" >&2
+        ((++fail))
+        return 0
     }
-    _assert "rg errors detected" true "$( (( _errs >= 4 )) && printf true || printf false)"
-    _assert "pair errors detected" true "$( (( _errs >= 7 )) && printf true || printf false)"
-    _assert "checks executed" true "$( (( _checks >= 20 )) && printf true || printf false)"
+    _assert "rg errors detected" true "$( ((_errs >= 4)) && printf true || printf false)"
+    _assert "pair errors detected" true "$( ((_errs >= 7)) && printf true || printf false)"
+    _assert "checks executed" true "$( ((_checks >= 20)) && printf true || printf false)"
     printf '%d passed, %d failed (%d checks, %d errors, %d warnings)\n' \
         "${pass}" "${fail}" "${_checks}" "${_errs}" "${_warns}"
     rm -rf -- "${td}"
-    return $(( fail > 0 ))
+    return $((fail > 0))
 }
 
 # --- [ENTRY] ------------------------------------------------------------------
@@ -228,20 +278,30 @@ SQL
 _main() {
     _parse "$@"
     readonly _SQL _TS _QUIET _FMT _PATHS
-    command -v rg >/dev/null 2>&1 \
-        || { printf '%s[ERR]%s ripgrep (rg) required\n' "${_R}" "${_Z}" >&2; exit "${_USAGE}"; }
-    [[ "${_FMT}" != json ]] || command -v jq >/dev/null 2>&1 \
-        || { printf '%s[ERR]%s jq required for --json\n' "${_R}" "${_Z}" >&2; exit "${_USAGE}"; }
+    command -v rg >/dev/null 2>&1 ||
+        {
+            printf '%s[ERR]%s ripgrep (rg) required\n' "${_R}" "${_Z}" >&2
+            exit "${_USAGE}"
+        }
+    [[ "${_FMT}" != json ]] || command -v jq >/dev/null 2>&1 ||
+        {
+            printf '%s[ERR]%s jq required for --json\n' "${_R}" "${_Z}" >&2
+            exit "${_USAGE}"
+        }
     local -r t0="${EPOCHREALTIME}"
-    local workdir; workdir=$(mktemp -d)
+    local workdir
+    workdir=$(mktemp -d)
     _register "${workdir}"
     _run_rg "${workdir}"
     _run_pairs
     _check_sprawl
     local -r t1="${EPOCHREALTIME}"
-    declare -gi _elapsed=$(( (${t1%.*} - ${t0%.*}) * 1000000 + 10#${t1#*.} - 10#${t0#*.} ))
+    declare -gi _elapsed=$(((${t1%.*} - ${t0%.*}) * 1000000 + 10#${t1#*.} - 10#${t0#*.}))
     _summary
-    (( _errs > 0 )) && { _on_exit; exit "${_FAIL}"; }
+    ((_errs > 0)) && {
+        _on_exit
+        exit "${_FAIL}"
+    }
     _on_exit
     exit "${_OK}"
 }

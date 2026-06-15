@@ -9,7 +9,7 @@ from typing import Annotated, Final, override, TYPE_CHECKING
 
 from cyclopts import Parameter
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
-from expression import Error, Ok, Result  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
+from expression import Error, Result  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import catch, sequence
 import msgspec
@@ -38,7 +38,7 @@ from tools.assay.core.model import (
     receipt,
     Report,
 )
-from tools.assay.core.routing import infer_languages, route, Routed, Scope
+from tools.assay.core.routing import resolve_languages, route, Routed, Scope
 from tools.assay.core.status import RailStatus, Step
 
 
@@ -65,6 +65,7 @@ _METAVAR: re.Pattern[str] = re.compile(r"\$[A-Z_$]")
 class CodeParams(BaseParams):
     """Parameters shared by code verbs."""
 
+    # language selectors are optional; hide default so help does not advertise an unset flag
     csharp: Annotated[bool, Parameter(name="--csharp", negative="", show_default=False, help="Restrict the command to C# targets.")] = False
     python: Annotated[bool, Parameter(name="--python", negative="", show_default=False, help="Restrict the command to Python targets.")] = False
     typescript: Annotated[
@@ -123,20 +124,6 @@ _TSX_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_tsx
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _selected(params: CodeParams, verb: str) -> Language | Fault | None:
-    return language_choice(verb, csharp=params.csharp, python=params.python, typescript=params.typescript)
-
-
-def _languages(selected: Language | Fault | None, paths: tuple[str, ...]) -> Result[tuple[Language, ...], Fault]:
-    match selected:
-        case Fault() as fault:
-            return Error(fault)
-        case None:
-            return Ok(infer_languages(paths, tuple(sorted({t.language for t in select(Claim.CODE)}, key=lambda member: member.value))))
-        case language:
-            return Ok((language,))
-
-
 def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: AssaySettings) -> Result[Block[Routed], Fault]:
     # Code search defaults to the whole worktree, unlike changed-files quality gates.
     return sequence(block.of_seq(route(language, paths or _DEFAULT_TARGET, settings=settings) for language in languages))
@@ -165,7 +152,9 @@ def _fan(
     settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, verb: str, mode: Mode, splice: Callable[[Tool, Routed], Tool]
 ) -> Result[tuple[Completed, ...], Fault]:
     # Routing, spawn, and timeout Faults short-circuit; non-zero tool exits stay on Completed.
-    return _languages(_selected(params, verb), params.paths).bind(
+    return resolve_languages(
+        language_choice(verb, csharp=params.csharp, python=params.python, typescript=params.typescript), params.paths, claim=Claim.CODE
+    ).bind(
         lambda languages: _routed(languages, params.paths, settings).bind(
             lambda routed: sequence(
                 routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice)))
@@ -364,17 +353,6 @@ def _safe_decode[T, E](decoder: msgspec.json.Decoder[T], raw: bytes, empty: E) -
         return empty
 
 
-def _ag_normalize(completeds: tuple[Completed, ...]) -> tuple[Completed, ...]:
-    # ast-grep exit 1 with parseable JSON stdout means no match and maps to EMPTY; exit 1
-    # with non-JSON stdout is a tool fault and must remain FAILED.
-    return tuple(
-        msgspec.structs.replace(done, status=RailStatus.EMPTY)
-        if done.returncode == 1 and _safe_decode(AST_MATCHES, done.stdout or b"[]", None) is not None
-        else done
-        for done in completeds
-    )
-
-
 def _cap_note(shown: int, total: int, cap: int, *, saturated: bool = False, tail: str = "full listing in artifact") -> tuple[str, ...]:
     # Saturation means total is a floor; the note must name the full-payload route.
     detail = f"cap={cap}, match-limit saturated" if saturated else f"cap={cap}"
@@ -465,7 +443,7 @@ def _project_rows[M](
 
 def _content_splice(tool: Tool, params: CodeParams, root: Path) -> Tool:
     # --glob narrows to language suffixes; missing paths drop to the default target, matching _targets behavior in ast-grep splices.
-    selected = _selected(params, "search")
+    selected = language_choice("search", csharp=params.csharp, python=params.python, typescript=params.typescript)
     globs = tuple(arg for suffix in (selected.suffixes if isinstance(selected, Language) else ()) for arg in ("--glob", f"*{suffix}"))
     return msgspec.structs.replace(tool, command=(*tool.command, *globs, "-e", params.pattern, "--", *_targets(params.paths, root)))
 
@@ -499,12 +477,7 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
         case True:
             return _fan(settings, scope, params, verb="search", mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root)))).map(
                 lambda done: _report(
-                    settings,
-                    scope,
-                    "search",
-                    params.pattern,
-                    _ag_normalize(done),
-                    *_project_rows(done, params.max_results, params.pattern, spec=_AG_SPEC),
+                    settings, scope, "search", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_AG_SPEC)
                 )
             )
         case False:  # pragma: no cover — exhaustive match(bool); sysmon arc to implicit exit unreachable
@@ -513,7 +486,7 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
 
 def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
     # Synthetic routing satisfies run_check; ripgrep remains grammar-blind until glob splicing.
-    choice = _selected(params, "search")
+    choice = language_choice("search", csharp=params.csharp, python=params.python, typescript=params.typescript)
     if isinstance(choice, Fault):
         return Error(choice)
     tool = next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None)

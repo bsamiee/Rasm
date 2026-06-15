@@ -18,8 +18,8 @@ Schema truth for every store the suite opens: `IdentityPolicy` is the three-row 
 - Cases: uuid-v7 (default), content-hash, natural-key — uuid-v7 orders B-tree inserts, content-hash addresses immutable payloads, natural-key admits caller-owned identifiers.
 - Entry: `public static Guid NextKey()` mints the uuid-v7 default; `public static UInt128 ContentKey(ReadOnlySpan<byte> content)` derives content identity — pure values.
 - Packages: Thinktecture.Runtime.Extensions, System.IO.Hashing, LanguageExt.Core, BCL inbox
-- Growth: one `IdentityPolicy` row (key text, clr type, per-provider default SQL); a v3/v5 namespace key is one future row on the same axis; zero new surface.
-- Boundary: every persisted key strategy in the package traces to one row here — uuid-ossp is the deleted extension route; the per-provider default-SQL columns feed column defaults as data, with the pg column dormant behind the double-generation research gate; the sqlite `"uuid7()"` leg executes through the native function-registration rows; content identity is non-cryptographic XxHash128 with no security claim.
+- Growth: one `IdentityPolicy` row (key text, clr type, per-provider default SQL, client-generated precedence); a v3/v5 namespace key is one future row on the same axis; zero new surface.
+- Boundary: every persisted key strategy in the package traces to one row here — uuid-ossp is the deleted extension route; the per-provider default-SQL columns feed column defaults as data, and the `ClientGenerated` precedence column resolves the double-generation gate — when it is set the model configures the key column `ValueGeneratedNever` so the client `Guid.CreateVersion7` value is authoritative and the provider default never fires on the same key, while a `false` value defers to the column default for server-minted rows; the sqlite `"uuid7()"` leg executes through the native function-registration rows; content identity is non-cryptographic XxHash128 with no security claim.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -27,14 +27,16 @@ Schema truth for every store the suite opens: `IdentityPolicy` is the three-row 
 [KeyMemberEqualityComparer<StoreKeyPolicy, string>]
 [KeyMemberComparer<StoreKeyPolicy, string>]
 public sealed partial class IdentityPolicy {
-    public static readonly IdentityPolicy UuidV7Key = new("uuid-v7", clrType: typeof(Guid), pgDefaultSql: "uuidv7()", sqliteDefaultSql: "uuid7()");
-    public static readonly IdentityPolicy ContentHash = new("content-hash", clrType: typeof(UInt128), pgDefaultSql: null, sqliteDefaultSql: null);
-    public static readonly IdentityPolicy NaturalKey = new("natural-key", clrType: typeof(string), pgDefaultSql: null, sqliteDefaultSql: null);
+    public static readonly IdentityPolicy UuidV7Key = new("uuid-v7", clrType: typeof(Guid), pgDefaultSql: "uuidv7()", sqliteDefaultSql: "uuid7()", clientGenerated: true);
+    public static readonly IdentityPolicy ContentHash = new("content-hash", clrType: typeof(UInt128), pgDefaultSql: null, sqliteDefaultSql: null, clientGenerated: true);
+    public static readonly IdentityPolicy NaturalKey = new("natural-key", clrType: typeof(string), pgDefaultSql: null, sqliteDefaultSql: null, clientGenerated: true);
 
     private readonly string? pgDefaultSql;
     private readonly string? sqliteDefaultSql;
 
     public Type ClrType { get; }
+
+    public bool ClientGenerated { get; }
 
     public Option<string> PgDefaultSql => Optional(pgDefaultSql);
 
@@ -51,7 +53,7 @@ public sealed partial class IdentityPolicy {
 - Owner: `SchemaFault` `[Union]` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract; `SchemaFingerprint` compiled-model fingerprint; `MigrationReceipt` record.
 - Cases: Text, NewerSchema, PendingModel, PartialApplication, DestructiveUnapproved — codes 5300-5304.
 - Entry: `public static Fin<Unit> Gate(Seq<string> applied, Seq<string> known, SchemaFingerprint stored, SchemaFingerprint compiled, bool pendingChanges)` — `Fin<Unit>` aborts into `SchemaFault`.
-- Auto: migrations and compiled models are generated facts — the design-time `Optimize`, `ScriptMigration`, `MigrationsBundle`, and `GetMigrations` operations own emission; hand-authored migration code and custom migration-operation types are the deleted patterns.
+- Auto: migrations and compiled models are generated facts — the design-time `Optimize`, `ScriptMigration`, `MigrationsBundle`, and `GetMigrations` operations own emission; hand-authored migration code and custom migration-operation types are the deleted patterns; a `MigrationsCodeGeneratorSelector` override is the one seam that swaps emission language without a hand-written generator class; `ReverseEngineerScaffolder`, `ScaffoldContext`, and `ModelReverseEngineerOptions` are the rejected DB-first inversion — the model is the source of truth, never a scaffolded store, so a reverse-engineered context is the named defect.
 - Receipt: `MigrationReceipt` — profile, applied ids, failed step, lock holder, compiled fingerprint, elapsed `Duration`, `Instant`, correlation.
 - Packages: Microsoft.EntityFrameworkCore.Design, Microsoft.EntityFrameworkCore.Sqlite, Npgsql.EntityFrameworkCore.PostgreSQL, System.IO.Hashing, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
 - Growth: one case on `SchemaFault` or one slot on `MigrationReceipt`; zero new surface.
@@ -125,12 +127,12 @@ public sealed record DerivedColumn(string Table, string Column, string Sql, bool
 ## [5]-[EXTENSION_DDL]
 
 - Owner: `SchemaDdl` `[Union]` declaration-row family with the frozen `Extensions` row set.
-- Cases: Extension, Index, Exclusion — extension declarations, method-and-operator-class index rows, btree_gist exclusion-constraint rows.
+- Cases: Extension, Index, Exclusion, Composite — extension declarations, method-and-operator-class index rows, btree_gist exclusion-constraint rows, PostgreSQL composite-type declarations.
 - Entry: `public static ModelBuilder Declare(ModelBuilder model)` — total fold of the extension rows into model annotations.
 - Auto: `HasPostgresExtension` annotations flow through `AlterDatabaseOperation` into generated migration DDL — `CreatePostgresExtensionOperation` is the deleted phantom spelling.
 - Packages: Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, Pgvector.EntityFrameworkCore, Npgsql, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one `SchemaDdl` row — a new extension is one `Extension` entry, a new index family is one `Index` row carrying its operator class; zero new surface.
-- Boundary: preload-gated extensions never enter `Extensions` — their capability verification belongs to the provisioning table; the `Surface` column states the driver-native cost of each row and built-in ranges and multiranges map to `NpgsqlRange<T>` with zero extension entry; `Index` rows carry the method and operator-class columns (gin, gist) that the per-column lane policies instantiate, and `Exclusion` rows ride btree_gist; the postgis row makes NetTopologySuite the pg boundary projection of the canonical proto wire geometry; earthdistance is rejected — the postgis row owns geodesy.
+- Boundary: preload-gated extensions never enter `Extensions` — their capability verification belongs to the provisioning table; the `Surface` column states the driver-native cost of each row and built-in ranges and multiranges map to `NpgsqlRange<T>` with zero extension entry; `Index` rows carry the method and operator-class columns (gin, gist) that the per-column lane policies instantiate, and `Exclusion` rows ride btree_gist; the postgis row makes NetTopologySuite the pg boundary projection of the canonical proto wire geometry; earthdistance is rejected — the postgis row owns geodesy; `Composite` rows declare PostgreSQL composite types — `MapComposites` folds each onto the data-source builder through `MapComposite` so the round-trip type registration is one row, never a per-type hand-written reader; the composite set is empty until a real composite landmark exists, the case is shaped for the family it absorbs.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -140,6 +142,9 @@ public abstract partial record SchemaDdl {
     public sealed record Extension(string Name, string Surface) : SchemaDdl;
     public sealed record Index(string Table, Seq<string> Columns, string Method, Option<string> Operators) : SchemaDdl;
     public sealed record Exclusion(string Table, string Predicate, string Method) : SchemaDdl;
+    public sealed record Composite(string Name, Type ClrType) : SchemaDdl;
+
+    public static readonly Seq<Composite> Composites = Seq<Composite>();
 
     public static readonly Seq<Extension> Extensions = Seq(
         new Extension("pg_trgm", Surface: "sql-functions"),
@@ -162,6 +167,9 @@ public abstract partial record SchemaDdl {
         new Extension("vector", Surface: "Pgvector.Vector"),
         new Extension("postgis", Surface: "NetTopologySuite.Geometry"));
 
+    public static NpgsqlDataSourceBuilder MapComposites(NpgsqlDataSourceBuilder builder) =>
+        Composites.Fold(builder, static (mapper, row) => mapper.MapComposite(row.ClrType, row.Name));
+
     public static ModelBuilder Declare(ModelBuilder model) =>
         Extensions.Fold(model, static (builder, row) => builder.HasPostgresExtension(row.Name));
 }
@@ -171,10 +179,10 @@ public abstract partial record SchemaDdl {
 
 - Owner: `ConverterRail` static composition surface.
 - Entry: `public static DbContextOptionsBuilder Compose(DbContextOptionsBuilder options)` — the one registration row every profile's options delegate folds in.
-- Auto: `ThinktectureValueConverterFactory` converters cover every `[ValueObject]`, `[SmartEnum]`, and keyed `[Union]` column behind `UseThinktectureValueConverters` — zero hand-written converter classes.
+- Auto: `ThinktectureValueConverterFactory` converters cover every `[ValueObject]`, `[SmartEnum]`, and keyed `[Union]` column behind `UseThinktectureValueConverters` — zero hand-written converter classes; a single declared property converts through `HasThinktectureValueConverter`, a complex-type property through `ComplexTypePropertyBuilderExtensions`, and a primitive-collection element through `PrimitiveCollectionBuilderExtensions`, so a per-column conversion is one builder call, never a converter class.
 - Packages: Thinktecture.Runtime.Extensions.EntityFrameworkCore10, EFCore.NamingConventions, Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime, NodaTime
-- Growth: one policy value per naming override; a new generated domain owner costs zero converter code on the same registration row; zero new surface.
-- Boundary: `UseSnakeCaseNamingConvention` is the single naming policy — hand-written provider naming patches and per-entity converter classes are the deleted patterns; key-column width rides the converter registration's `Configuration` value — `Configuration.Default` bounds smart-enum and keyed value-object columns and `NoMaxLength` is the rejected unbounded form; pg temporal columns ride the profile row's `UseNodaTime` option and sqlite temporal columns persist `InstantPattern.ExtendedIso` text, so no `DateTime` sentinel reaches a store; concurrency tokens are schema facts declared here — the pg row maps the system `xmin` column and the sqlite row carries an integer version column bumped per write — while the provider-exception fault projection belongs to the query rail.
+- Growth: one policy value per naming override; a new generated domain owner costs zero converter code on the same registration row; a sqlite temporal column is one `NodaTime` pattern row; zero new surface.
+- Boundary: `UseSnakeCaseNamingConvention` is the single naming policy — the `CamelCase`, `LowerCase`, `UpperCase`, and `UpperSnakeCase` rewriters are the named rejected conventions because a second casing fractures the schema fingerprint, and hand-written provider naming patches and per-entity converter classes are the deleted patterns; key-column width rides the converter registration's `Configuration` value — `SmartEnumConfiguration` bounds smart-enum columns and `KeyedValueObjectConfiguration` bounds keyed value-object columns to a declared max-length and `NoMaxLength` is the rejected unbounded form; pg temporal columns ride the profile row's `UseNodaTime` option and sqlite temporal columns persist `InstantPattern.ExtendedIso` text through the `instant_iso` collation, while ranged temporal columns persist `ZonedDateTimePattern`, `OffsetDateTimePattern`, `LocalDateTimePattern`, and `PeriodPattern` text under the same convention so no `DateTime` sentinel reaches a store; concurrency tokens are schema facts declared here — the pg row maps the system `xmin` column and the sqlite row carries an integer version column bumped per write — while the provider-exception fault projection belongs to the query rail.
 
 ```csharp signature
 public static class ConverterRail {
@@ -185,5 +193,5 @@ public static class ConverterRail {
 
 ## [7]-[RESEARCH]
 
-- [IDENTITY_DEFAULTS]: uuidv7 double-generation precedence between the client `Guid.CreateVersion7` value and the `"uuidv7()"` pg column default on one key.
-- [NAMING_COMPILED_MODEL]: snake-case naming interaction with compiled-model output — policy names baked into the optimized model versus migration SQL.
+- [NAMING_COMPILED_MODEL]: the `ClientGenerated` precedence column makes the client value authoritative under `ValueGeneratedNever`; the residual is whether `UseSnakeCaseNamingConvention` rewrites are baked into `Optimize` compiled-model output or re-derived at runtime, so a compiled model and a fresh model emit identical migration SQL column names.
+- [COMPOSITE_DDL]: the `MapComposite` runtime overload arity for a `(Type, name)` pair and the migration-side `CREATE TYPE` emission path for a `SchemaDdl.Composite` row — whether the EF model annotation surface emits the composite-type DDL or a manual `MigrationBuilder.Sql` row carries it; the `Composites` set stays empty until a real composite landmark resolves this.

@@ -1,6 +1,6 @@
 # [APPUI_VISUALS_OFFSCREEN]
 
-Offscreen visuals are the package's raster rail: one DrawSource capsule projects every Skia canvas — host-leased or owned — through a Fin-railed Use, thumbnails and geometry previews materialize as SKImage through host-agnostic capture delegates, one codec surface encodes and decodes with content-hashed RenderReceipt evidence, and one SKDocument export surface delivers paged output to parameterized destinations. The page owns the draw capsule, the thumbnail and preview row families, the encode axis, the export spec with its destination union, and the RenderReceipt family the render-hash proof lanes consume. The package spine is SkiaSharp behind Avalonia.Skia leases, AsyncImageLoader display, and PanAndZoom preview navigation; HUD and viewport overlay drawing stays host-side.
+Offscreen visuals are the package's raster rail: one DrawSource capsule projects every Skia canvas — host-leased or owned — through a Fin-railed Use, thumbnails and geometry previews materialize as SKImage through host-agnostic capture delegates, one codec surface encodes and decodes with content-hashed RenderReceipt evidence, and one SKDocument export surface paginates a flow-fold of content blocks under a break rule and header-footer band, delivering paged output to parameterized destinations. The page owns the draw capsule, the thumbnail and preview row families, the encode axis, the export spec with its flow vocabulary and destination union, and the RenderReceipt family the render-hash proof lanes and the AppHost telemetry spine consume. The package spine is SkiaSharp behind Avalonia.Skia leases, AsyncImageLoader display, and PanAndZoom preview navigation; HUD and viewport overlay drawing stays host-side.
 
 ## [1]-[INDEX]
 
@@ -162,7 +162,7 @@ public sealed record PreviewRow<TReceipt>(
 - Receipt: FrameHash is the whole-payload content hash through the runtime ContentHash delegate bound to the suite XxHash128 identity row; quality values are the encode-row axis values — lossless png at 100, perceptual jpeg and webp at 90.
 - Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Win32, SkiaSharp.NativeAssets.Linux.NoDependencies, Rasm.AppHost (project), NodaTime, LanguageExt.Core
 - Growth: one encode row admits a format; one policy value retunes quality — zero new surface.
-- Boundary: Decode and Encode are the named native-disposal boundary capsules — the intermediate `SKBitmap`, the consumed `SKImage`, and the encoded `SKData` are using-scoped so a failing later clause never leaks a native handle, and Encode owns the image it consumes; per-format exporter classes are deleted with the encode rows as the absorbing axis; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
+- Boundary: Decode and Encode are the named native-disposal boundary capsules — the intermediate `SKBitmap`, the consumed `SKImage`, and the encoded `SKData` are using-scoped so a failing later clause never leaks a native handle, and Encode owns the image it consumes; per-format exporter classes are deleted with the encode rows as the absorbing axis; the `RenderReceipt` `Elapsed`, `Bytes`, and `FrameHash` fields project to the encode-duration span and byte-size metric on the AppHost telemetry spine through the runtime `Sink` bound to the `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
 
 ```csharp signature
 public sealed record RenderReceipt(
@@ -206,14 +206,14 @@ public static class VisualCodec {
 
 ## [6]-[DOCUMENT_EXPORT]
 
-- Owner: `VisualDestination` [Union] · `VisualExportSpec` · `VisualExport`
+- Owner: `VisualDestination` [Union] · `VisualExportSpec` · `FlowBlock` [Union] · `VisualExport`
 - Cases: FilePath · BlobLane · Bundle
 - Entry: `public static IO<RenderReceipt> Export(VisualRuntime runtime, VisualExportSpec spec)` — IO rail
 - Auto: the Bundle arm delivers visual artifacts through the runtime BundleWrite delegate with their classification — the support-contributor consequence; the FilePath arm receives its absolute path as a value from the picker intent and never computes paths; artifact scopes resolve from ProfileRoots.
 - Receipt: one RenderReceipt of kind document per export with whole-payload content hash and the delivered destination key.
 - Packages: SkiaSharp, SkiaSharp.HarfBuzz, Thinktecture.Runtime.Extensions, Rasm.AppHost (project), NodaTime, LanguageExt.Core
-- Growth: one destination case extends delivery and breaks the Deliver dispatch at compile time; one page-size row extends the table; the content-to-page flow algorithm lands once its RESEARCH item clears — zero new surface.
-- Boundary: Paged and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging and byte delivery; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; pages arrive as precomposed draw folds over the DrawSource vocabulary — shaped text enters as the shaping rail's glyph output and chart snapshots enter as `SKImage` tiles; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners.
+- Growth: one destination case extends delivery and breaks the Deliver dispatch at compile time; one page-size row extends the table; one `FlowBlock` case extends the flow-block owner and one `BreakRule` value extends the break policy column; zero new surface.
+- Boundary: `FlowBlock` is the budgeted export-flow owner (DENSITY_BAR row 30), `HeaderFooterBand` its companion band member, and `BreakRule` a `POLICY_VALUES` column on `VisualExportSpec` — the document-pagination concern resolves through these without minting a surface beside the destination owners; Paged, Flow, and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging, content-to-page flow, and byte delivery; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`, `Close` finalizes, and the failure arm calls `Abort` explicitly so a paging fault neither commits nor disposes silently; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; the `FlowFold` consumes a `Seq<FlowBlock>` under the spec's `BreakRule` column and emits the same precomposed `Func<SKCanvas, Fin<Unit>>` page folds the explicit-pages path already carries — each page draws the `HeaderFooterBand` first, then the block run the break rule fits, with shaped text entering as the shaping rail's glyph output and chart snapshots entering as `SKImage` tiles; vector content enters pages as picture content so vectors and text survive rather than rasterizing; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -229,7 +229,58 @@ public sealed record VisualExportSpec(
     float PageWidth,
     float PageHeight,
     Seq<Func<SKCanvas, Fin<Unit>>> Pages,
+    BreakRule Break,
     VisualDestination Destination);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FlowBlock {
+    private FlowBlock() { }
+    public sealed record Text(float Height, Func<SKCanvas, float, Fin<Unit>> Draw) : FlowBlock;
+    public sealed record Tile(float Height, SKImage Image) : FlowBlock;
+    public sealed record Rule(float Height) : FlowBlock;
+
+    public float Advance => Switch(text: static t => t.Height, tile: static i => i.Height, rule: static r => r.Height);
+
+    public Fin<Unit> Draw(SKCanvas canvas, float cursor) =>
+        Switch(
+            state: (Canvas: canvas, Cursor: cursor),
+            text: static (ctx, t) => t.Draw(ctx.Canvas, ctx.Cursor),
+            tile: static (ctx, i) => (fun(() => ctx.Canvas.DrawImage(i.Image, 0f, ctx.Cursor))(), FinSucc(unit)).Item2,
+            rule: static (_, _) => FinSucc(unit));
+}
+
+[SmartEnum]
+public sealed partial class BreakRule {
+    public static readonly BreakRule Greedy = new();
+    public static readonly BreakRule BlockAtomic = new();
+    public static readonly BreakRule OnePerPage = new();
+}
+
+public readonly record struct HeaderFooterBand(
+    Option<Func<SKCanvas, int, Fin<Unit>>> Header,
+    Option<Func<SKCanvas, int, Fin<Unit>>> Footer,
+    float HeaderHeight,
+    float FooterHeight);
+
+public static class FlowLayout {
+    public static Seq<Func<SKCanvas, Fin<Unit>>> FlowFold(VisualExportSpec spec, Seq<FlowBlock> blocks, HeaderFooterBand band) =>
+        blocks.Fold(
+                (Pages: Seq<Seq<FlowBlock>>(), Run: Seq<FlowBlock>(), Cursor: band.HeaderHeight),
+                (state, block) =>
+                    !state.Run.IsEmpty && (spec.Break == BreakRule.OnePerPage || state.Cursor + block.Advance > spec.PageHeight - band.FooterHeight)
+                        ? (Pages: state.Pages.Add(state.Run), Run: Seq(block), Cursor: band.HeaderHeight + block.Advance)
+                        : (Pages: state.Pages, Run: state.Run.Add(block), Cursor: state.Cursor + block.Advance))
+            switch {
+                var folded => folded.Pages.Add(folded.Run).Filter(static run => !run.IsEmpty).Map((run, index) => Page(band, index, run)),
+            };
+
+    static Func<SKCanvas, Fin<Unit>> Page(HeaderFooterBand band, int index, Seq<FlowBlock> run) =>
+        canvas =>
+            band.Header.Match(Some: header => header(canvas, index), None: static () => FinSucc(unit))
+                .Bind(_ => run.Fold(Fin.Succ(band.HeaderHeight),
+                    (cursor, block) => cursor.Bind(at => block.Draw(canvas, at).Map(_ => at + block.Advance))))
+                .Bind(_ => band.Footer.Match(Some: footer => footer(canvas, index), None: static () => FinSucc(unit)));
+}
 
 public static class VisualExport {
     public static readonly Error XpsUnavailable = Error.New("visuals/xps-unavailable: the loaded Skia native carries no XPS backend on this platform");
@@ -248,12 +299,12 @@ public static class VisualExport {
         SKDocument? document = spec.Format == "xps" ? SKDocument.CreateXps(sink) : SKDocument.CreatePdf(sink);
         if (document is null) { return Fin.Fail<byte[]>(XpsUnavailable); }
         using SKDocument scoped = document;
-        foreach (Func<SKCanvas, Fin<Unit>> page in spec.Pages) {
-            page(scoped.BeginPage(spec.PageWidth, spec.PageHeight)).ThrowIfFail();
-            scoped.EndPage();
-        }
-        scoped.Close();
-        return sink.ToArray();
+        return spec.Pages
+            .Fold(FinSucc(unit), (rail, page) => rail.Bind(_ =>
+                page(scoped.BeginPage(spec.PageWidth, spec.PageHeight)).Map(_ => { scoped.EndPage(); return unit; })))
+            .Match(
+                Succ: _ => { scoped.Close(); return Fin.Succ(sink.ToArray()); },
+                Fail: error => { scoped.Abort(); return Fin.Fail<byte[]>(error); });
     }
 
     static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload) =>
@@ -277,4 +328,4 @@ public static class VisualExport {
 
 ## [7]-[RESEARCH]
 
-- [PAGE_FLOW]: content-to-page flow layout model over `SKDocument` — flow folds, break policy, header and footer bands.
+- [PARAGRAPH_BREAK]: the within-`FlowBlock.Text` cluster-boundary break point at the page edge — the shaping rail owns cluster metrics, and the exact line-of-clusters split that lets a `Text` block resume on the next page rather than re-running the whole block binds at implementation against the shaped-run break flags.

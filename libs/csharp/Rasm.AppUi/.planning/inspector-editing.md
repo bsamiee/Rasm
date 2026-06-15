@@ -4,22 +4,22 @@ Typed property inspection and value editing for product state: one `InspectorPol
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                          |
-| :-----: | ------------------- | --------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                            |
+| :-----: | ------------------- | ----------------------------------------------------------------- |
 |   [1]   | INSPECTOR_SURFACE   | PropertyGrid admission policy, descriptor filters, focus receipts |
-|   [2]   | EDITOR_FACTORIES    | Eleven ranked editor rows with total shape match                 |
-|   [3]   | COMMIT_VALIDATION   | Typed admission rail, preview-commit law, edit receipts          |
-|   [4]   | OPTIONS_INSPECTOR   | Options-to-grid binding, user-settings persist, reload banner    |
-|   [5]   | CONFLICT_RESOLUTION | Side-by-side conflict projection with resolution intent keys     |
-|   [6]   | CODE_EDITING        | Grammar-scoped code panes and completion projection              |
+|   [2]   | EDITOR_FACTORIES    | Eleven ranked editor rows with total shape match                  |
+|   [3]   | COMMIT_VALIDATION   | Typed admission rail, preview-commit law, edit receipts           |
+|   [4]   | OPTIONS_INSPECTOR   | Options-to-grid binding, user-settings persist, reload banner     |
+|   [5]   | CONFLICT_RESOLUTION | Side-by-side conflict projection with resolution intent keys      |
+|   [6]   | CODE_EDITING        | Grammar-scoped code panes and completion projection               |
 
 ## [2]-[INSPECTOR_SURFACE]
 
 - Owner: `InspectorPolicy` policy record; `InspectorSurface` static boundary capsule.
 - Entry: `Mount(PropertyGrid grid, InspectorPolicy policy, object subject, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink)` — `IDisposable` detacher composed LIFO by the activation scope.
-- Receipt: `EditReceipt` focus kind — surface, member path, `Instant`, correlation.
+- Receipt: `EditReceipt` focus kind — surface, member path, `Instant`, correlation; `TelemetryRow` contributes the edit-committed and edit-rejected instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: bodong.Avalonia.PropertyGrid, System.Reactive, NodaTime, LanguageExt.Core
-- Growth: one policy value on `InspectorPolicy`; zero new surface.
+- Growth: one policy value on `InspectorPolicy`; one inspector instrument is one `InstrumentRow` on `InspectorSurface.TelemetryRow`; zero new surface.
 - Boundary: `Mount` is the page's PropertyGrid boundary capsule — the inspected subject enters through `DataContext` (the grid's only subject channel) as object because the grid inspects arbitrary shapes, and canonical typing re-enters at the editor rows; every grid event is a routed `EventHandler<RoutedEventArgs>` whose args narrow to `CustomPropertyDescriptorFilterEventArgs` (`TargetObject`, `PropertyDescriptor`, settable `IsVisible`) and `PropertyGotFocusEventArgs` (`Context`), so host-API variance lives in the policy's delegate columns (`Admit` descriptor filter, `FocusTarget` member-path projection) and no call site beyond the capsule reads grid event internals; `OperationIntents` surface operation controls as command-table intent keys and the derivation fold lives with the command table — a per-screen operation registry is deleted; quick-filter, category, and read-only state are policy values, never control state.
 
 ```csharp signature
@@ -28,6 +28,7 @@ public sealed record InspectorPolicy(
     bool CategoriesVisible,
     bool QuickFilter,
     bool CategoriesExpanded,
+    bool Draft,
     string Surface,
     Seq<string> OperationIntents,
     Action<CustomPropertyDescriptorFilterEventArgs> Admit,
@@ -56,6 +57,12 @@ public static partial class InspectorSurface {
             grid.PropertyGotFocus -= focus;
         });
     }
+
+    public const string CommittedInstrument = "rasm.appui.edit.committed";
+    public const string RejectedInstrument = "rasm.appui.edit.rejected";
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, CommittedInstrument, RejectedInstrument);
 }
 ```
 
@@ -231,7 +238,7 @@ public static class EditGate {
 - Receipt: `EditReceipt` options kind per persisted commit; `ReloadReceipt` consumed from the options monitor stream.
 - Packages: bodong.Avalonia.PropertyGrid, System.Reactive, NodaTime, LanguageExt.Core
 - Growth: one options section row binds with one `OptionsInspector` record; zero new surface — a settings-dialog framework is deleted by this composite.
-- Boundary: `Attach` extends the `Mount` boundary capsule; `Persist` writes the draft to the user-settings JSON path computed from the settled config-layer values, the options monitor re-validates, and the resulting `ReloadReceipt` stream closes the loop — the grid never touches configuration directly; cross-process propagation is the op-log cursor consequence consumed as settled vocabulary, never re-modeled; the immutable-record draft route is gated on the draft research row, and `Snapshot` is the bound subject under that gate.
+- Boundary: `Attach` extends the `Mount` boundary capsule; `Persist` writes the draft to the user-settings JSON path computed from the settled config-layer values, the options monitor re-validates, and the resulting `ReloadReceipt` stream closes the loop — the grid never touches configuration directly; cross-process propagation is the op-log cursor consequence consumed as settled vocabulary, never re-modeled; the immutable-record draft route is gated on the draft research row, and `Snapshot` is the bound subject under that gate — under RECORD_DRAFT the `Draft` policy value synthesizes a `PropertyModels` descriptor set against a generated mutable draft of the record, each editor writes through the row-driven `AbstractCellEditFactory.SetPropertyValue` landing on the draft, and the options-applied commit rebuilds the immutable record from the draft in one `with`-expression so the inspected subject stays a record and a mutable settings POCO is the deleted form.
 
 ```csharp signature
 public sealed record OptionsInspector<T>(
@@ -321,10 +328,10 @@ public sealed record ConflictPane<TReceipt>(
 
 - Owner: `CodePane` document-editor row record; `CompletionRow` completion projection.
 - Cases: grammar scopes source.rasm, source.rasm-expression, source.json — the Rasm-DSL scopes register through the custom `IRegistryOptions` implementation row.
-- Entry: `Open(TextEditor editor, IRegistryOptions registry)` — `Fin<(TextMate.Installation Session, Option<FoldingManager> Folding)>` aborts on grammar admission; `FromMetadata(Seq<(string Key, string Detail)> metadata)` — completion fold.
+- Entry: `Open(TextEditor editor, IRegistryOptions registry)` — `Fin<(TextMate.Installation Session, Option<FoldingManager> Folding, SearchPanel Search)>` aborts on grammar admission and mounts the grammar session, fold margin, and search overlay in one capsule; `Fold(FoldingManager manager, TextDocument document, Seq<(int Start, int End)> regions)` mints explicit folds through `CreateFolding`; `Assist(TextEditor editor)` constructs the `CompletionWindow` over the editor's text area; `FromMetadata(Seq<(string Key, string Detail)> metadata)` — completion projection fold.
 - Packages: Avalonia.AvaloniaEdit, AvaloniaEdit.TextMate, LanguageExt.Core
-- Growth: one grammar scope row on `CodePane`; zero new surface.
-- Boundary: `Open` is the editor boundary capsule — one TextMate installation per editor, disposed with the pane; the registry argument implements the four-member `IRegistryOptions` contract (`GetTheme(string)`, `GetGrammar(string)`, `GetInjections(string)`, `GetDefaultTheme()`), and the Rasm-DSL scopes register by returning their raw grammars from `GetGrammar`; highlight colors derive from theme tokens through `SetTheme`/`TryGetThemeColor` and the mono typography role enters as the code role key, so per-editor font setup is deleted; read-only panes are the evidence and conflict viewer mode; completion data is a projection fold over options section keys and policy record member names as nameof-derived symbols, and `CompletionRow` projects into `ICompletionData` (`Image`, `Text`, `Content`, `Description`, `Priority`, `Complete(TextArea, ISegment, EventArgs)`) at the completion-window edge; Markdown never renders here — the typography projection owns it and the code pane owns only fenced code.
+- Growth: one grammar scope row on `CodePane`; a completion, search, or fold posture is one policy value; zero new surface.
+- Boundary: `Open` is the editor boundary capsule — one TextMate installation per editor, disposed with the pane; the registry argument implements the four-member `IRegistryOptions` contract (`GetTheme(string)`, `GetGrammar(string)`, `GetInjections(string)`, `GetDefaultTheme()`), and the Rasm-DSL scopes register by returning their raw grammars from `GetGrammar`; highlight colors derive from theme tokens through `SetTheme`/`TryGetThemeColor` and re-sync on the `AppliedTheme` event when the theme-variant subscription flips, so the editor palette rides the one `TokenRow` resolution and per-editor brush literals are deleted; the mono typography role enters as the code role key, so per-editor font setup is deleted; `Folding` panes install the `FoldingManager` and `Fold` mints explicit regions through `CreateFolding`, so a hand-tracked fold-offset table is the deleted form, with the batch `UpdateFoldings`/`NewFolding` error-offset arity that re-syncs the whole region set research-gated under CODE_FOLDING; read-only panes are the evidence and conflict viewer mode; `Open` mounts the search overlay through the catalogued `SearchPanel.Install` and `Assist` constructs the catalogued `CompletionWindow` over the editor text area, so a bespoke find-replace control and a hand-rolled completion list are the deleted forms, with only the `CompletionWindow.CompletionList` population and `ICompletionData` projection member set research-gated under CODE_ASSIST; completion data is a projection fold over options section keys and policy record member names as nameof-derived symbols; Markdown never renders here — the typography projection owns it and the code pane owns only fenced code.
 
 ```csharp signature
 public sealed record CodePane(
@@ -336,7 +343,7 @@ public sealed record CodePane(
     public const string ExpressionScope = "source.rasm-expression";
     public const string JsonScope = "source.json";
 
-    public Fin<(TextMate.Installation Session, Option<FoldingManager> Folding)> Open(TextEditor editor, IRegistryOptions registry) {
+    public Fin<(TextMate.Installation Session, Option<FoldingManager> Folding, SearchPanel Search)> Open(TextEditor editor, IRegistryOptions registry) {
         editor.IsReadOnly = ReadOnly;
         editor.ShowLineNumbers = LineNumbers;
         editor.WordWrap = false;
@@ -344,9 +351,15 @@ public sealed record CodePane(
             var session = editor.InstallTextMate(registry);
             session.SetGrammar(GrammarScope);
             var folding = Folding ? Some(FoldingManager.Install(editor.TextArea)) : Option<FoldingManager>.None;
-            return (Session: session, Folding: folding);
+            var search = SearchPanel.Install(editor.TextArea);
+            return (Session: session, Folding: folding, Search: search);
         }).Run().MapFail(static error => (Error)EditFault.Create(error.Message));
     }
+
+    public static Unit Fold(FoldingManager manager, TextDocument document, Seq<(int Start, int End)> regions) =>
+        regions.Iter(region => manager.CreateFolding(region.Start, region.End));
+
+    public static CompletionWindow Assist(TextEditor editor) => new(editor.TextArea);
 }
 
 public sealed record CompletionRow(string Key, string Detail) {
@@ -360,3 +373,5 @@ public sealed record CompletionRow(string Key, string Detail) {
 ## [8]-[RESEARCH]
 
 - [RECORD_DRAFT]: immutable policy-record draft route for grid editing — PropertyModels descriptor synthesis against a generated mutable draft partial, with `SetPropertyValue` landing on the draft and commit rebuilding the record.
+- [CODE_FOLDING]: the `FoldingManager.UpdateFoldings(IEnumerable<NewFolding>, int firstErrorOffset)` batch-resync arity and the `NewFolding` field set that re-folds the whole region pass — the `CreateFolding` per-fold mint and `FoldingManager.Install` are fenced.
+- [CODE_ASSIST]: the `CompletionWindow.CompletionList.CompletionData` population chain and the `ICompletionData` projection member set (`Image`, `Text`, `Content`, `Description`, `Priority`, `Complete`) the popup binds — the `CompletionWindow` construction over the text area and `SearchPanel.Install` mount are fenced.

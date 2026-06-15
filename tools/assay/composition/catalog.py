@@ -6,7 +6,7 @@ constants parse ast-grep, tree-sitter, and ripgrep output into stable wire model
 
 import msgspec
 
-from tools.assay.core.model import Claim, Input, Language, Mode, Runner, Stage, Tool
+from tools.assay.core.model import Claim, Input, Language, Mode, Runner, Stage, Tool, ToolGroup
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -102,8 +102,8 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.VERIFY,
     ),
     Tool("py-analyzer", MODULE, ("tools.py_analyzer", "check", "--format", "json"), NONE, PY, Claim.STATIC),
-    Tool("pytest", UV, ("pytest", "-m", "not benchmark"), INCLUDE, PY, Claim.TEST, mode=Mode.RUN),
-    Tool("pytest", UV, ("pytest", "--collect-only", "-q"), INCLUDE, PY, Claim.TEST, mode=Mode.LIST),
+    Tool("pytest", UV, ("pytest", "-m", "not benchmark"), INCLUDE, PY, Claim.TEST, mode=Mode.RUN, groups=(ToolGroup.RUN_DEFAULT,)),
+    Tool("pytest", UV, ("pytest", "--collect-only", "-q"), INCLUDE, PY, Claim.TEST, mode=Mode.LIST, groups=(ToolGroup.RUN_DEFAULT,)),
     Tool(
         "pytest-benchmark",
         UV,
@@ -112,11 +112,48 @@ TOOLS: tuple[Tool, ...] = (
         PY,
         Claim.TEST,
         mode=Mode.RUN,
+        groups=(ToolGroup.REQUIRES_BENCHMARK,),
     ),
-    Tool("coverage", UV, ("coverage", "run", "-m", "pytest", "-m", "not benchmark"), INCLUDE, PY, Claim.TEST, mode=Mode.RUN),
-    Tool("coverage-json", UV, ("coverage", "json", "-o", ".artifacts/python/coverage/coverage.json"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
-    Tool("coverage-xml", UV, ("coverage", "xml", "-o", ".artifacts/python/coverage/coverage.xml"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
-    Tool("coverage-lcov", UV, ("coverage", "lcov", "-o", ".artifacts/python/coverage/coverage.lcov"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
+    Tool(
+        "coverage",
+        UV,
+        ("coverage", "run", "-m", "pytest", "-m", "not benchmark"),
+        INCLUDE,
+        PY,
+        Claim.TEST,
+        mode=Mode.RUN,
+        groups=(ToolGroup.REQUIRES_COVERAGE,),
+    ),
+    Tool(
+        "coverage-json",
+        UV,
+        ("coverage", "json", "-o", ".artifacts/python/coverage/coverage.json"),
+        NONE,
+        PY,
+        Claim.TEST,
+        mode=Mode.CLIENT,
+        groups=(ToolGroup.REQUIRES_COVERAGE,),
+    ),
+    Tool(
+        "coverage-xml",
+        UV,
+        ("coverage", "xml", "-o", ".artifacts/python/coverage/coverage.xml"),
+        NONE,
+        PY,
+        Claim.TEST,
+        mode=Mode.CLIENT,
+        groups=(ToolGroup.REQUIRES_COVERAGE,),
+    ),
+    Tool(
+        "coverage-lcov",
+        UV,
+        ("coverage", "lcov", "-o", ".artifacts/python/coverage/coverage.lcov"),
+        NONE,
+        PY,
+        Claim.TEST,
+        mode=Mode.CLIENT,
+        groups=(ToolGroup.REQUIRES_COVERAGE,),
+    ),
     Tool(
         "mutmut",
         UV,
@@ -125,7 +162,7 @@ TOOLS: tuple[Tool, ...] = (
         PY,
         Claim.TEST,
         mode=Mode.MUTATION,
-        groups=("mutation",),
+        groups=(ToolGroup.MUTATION,),
         timeout=3600.0,
         stage=Stage(
             root=".artifacts/python/mutmut/work",
@@ -188,8 +225,8 @@ TOOLS: tuple[Tool, ...] = (
     # --- [DOCS]
     Tool("mmdc", PNPM, ("mmdc", "-q"), OWNED, DOCS, Claim.DOCS),
     # --- [CODE]
-    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE),
-    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE),
+    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, groups=(ToolGroup.EMPTY_ON_EXIT1,)),
+    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, groups=(ToolGroup.EMPTY_ON_EXIT1,)),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, PY, Claim.CODE, mode=Mode.QUERY),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, TS, Claim.CODE, mode=Mode.QUERY),
     # ripgrep self-walks the tree; the PY tag is census-only because rail globs narrow files at invocation.

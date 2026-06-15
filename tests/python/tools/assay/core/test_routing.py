@@ -16,6 +16,9 @@ from upath import UPath
 
 from tests.python._testkit.laws import register_law, spec
 from tests.python._testkit.spec import assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
+from tests.python.tools.assay.kit import (
+    AssayHarness,  # noqa: TC001  # runtime: hypothesis resolves @given fixture signatures via inspect.signature(eval_str=True)
+)
 from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, Runner, Tool
 from tools.assay.core.routing import (  # private probes for read/parse degradation arms
     _LocalSource,
@@ -40,7 +43,6 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from tests.python.tools.assay.kit import AssayHarness
     from tools.assay.core.routing import ProjectIndex, RoutePaths
 
 
@@ -662,10 +664,10 @@ register_law(place, "place_host_bound_lane_partition")
 @pytest.mark.parametrize(
     "mode,expected",
     [
-        (Mode.RUN, (("src/Lib/Lib.csproj",),)),
-        (Mode.LIST, (("src/Lib/Lib.csproj",),)),
-        (Mode.RESTORE, (("src/App/App.csproj",), ("src/Lib/Lib.csproj",))),
-        (Mode.BUILD, (("src/App/App.csproj",), ("src/Lib/Lib.csproj",))),
+        (Mode.RUN, (("--project", "src/Lib/Lib.csproj"),)),
+        (Mode.LIST, (("--project", "src/Lib/Lib.csproj"),)),
+        (Mode.RESTORE, (("--project", "src/App/App.csproj"), ("--project", "src/Lib/Lib.csproj"))),
+        (Mode.BUILD, (("--project", "src/App/App.csproj"), ("--project", "src/Lib/Lib.csproj"))),
     ],
     ids=["run-drops", "list-drops", "restore-keeps", "build-keeps"],
 )
@@ -673,6 +675,7 @@ def test_place_host_bound_lane_partition(mode: Mode, expected: tuple[tuple[str, 
     """TEST lanes (RUN/LIST) drop host-bound projects from PROJECT placement; RESTORE/BUILD lanes keep them.
 
     The lane split prevents managed test runs from executing host-bound projects while preserving build coverage.
+    A dotnet ``test`` tool pins each kept project with ``--project``.
     """
     tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=mode)
     assert place(_HOST_ROUTED, tool, settings=assay_root.settings) == expected

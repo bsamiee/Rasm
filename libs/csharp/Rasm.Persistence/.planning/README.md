@@ -4,17 +4,17 @@ Rasm.Persistence has zero consumers; the implementation is full-capability with 
 
 ## [1]-[PAGE_INDEX]
 
-| [INDEX] | [PAGE]                                        | [OWNS]                                                                        |  [STATE]  |
-| :-----: | --------------------------------------------- | ----------------------------------------------------------------------------- | :-------: |
-|   [1]   | [store-profiles](store-profiles.md)           | Six-row engine axis; widened row record; cross-process and provisioning law   | finalized |
-|   [2]   | [data-lanes](data-lanes.md)                   | Seven-lane capability map incl. geometry lanes and extension capabilities     | finalized |
-|   [3]   | [schema-rail](schema-rail.md)                 | Identity policy, migrations, generated columns, extension declarations        | finalized |
-|   [4]   | [query-rail](query-rail.md)                   | StoreOp dispatch, pooled contexts, bulk lane, delta projection, interceptors  | finalized |
-|   [5]   | [native-sqlite](native-sqlite.md)             | Verified e_sqlite3 surface, WAL law, loadable extensions, encryption gate     | finalized |
-|   [6]   | [snapshot-codecs](snapshot-codecs.md)         | Codec axis, compression, hashing, restore choreography, wire contracts        | finalized |
-|   [7]   | [cache-indexes](cache-indexes.md)             | L2 cache contribution, serializer rows, model-result and artifact indexes     | finalized |
-|   [8]   | [sync-collaboration](sync-collaboration.md)   | SyncTransport axis, op-log changefeed, diff rows, presence, conflict receipts | finalized |
-|   [9]   | [redaction-retention](redaction-retention.md) | Retention policies, classification enforcement, audit binding                 | finalized |
+| [INDEX] | [PAGE]                                        | [OWNS]                                                       |  [STATE]  |
+| :-----: | --------------------------------------------- | :----------------------------------------------------------- | :-------: |
+|   [1]   | [store-profiles](store-profiles.md)           | engine axis, row records, cross-process law                  | finalized |
+|   [2]   | [data-lanes](data-lanes.md)                   | lane map, geometry, analytical, extensions                   | finalized |
+|   [3]   | [schema-rail](schema-rail.md)                 | identity, migrations, generated columns, DDL                 | finalized |
+|   [4]   | [query-rail](query-rail.md)                   | operations, contexts, bulk lane, projection, interceptors    | finalized |
+|   [5]   | [native-sqlite](native-sqlite.md)             | e_sqlite3, WAL, loadable extensions, encryption gate         | finalized |
+|   [6]   | [snapshot-codecs](snapshot-codecs.md)         | codecs, compression, hashing, restore, wire contracts        | finalized |
+|   [7]   | [cache-indexes](cache-indexes.md)             | cache contribution, serializers, result and artifact indexes | finalized |
+|   [8]   | [sync-collaboration](sync-collaboration.md)   | sync transports, op-log, diffs, presence, conflicts          | finalized |
+|   [9]   | [redaction-retention](redaction-retention.md) | retention, classification, audit binding                     | finalized |
 
 ## [2]-[WIRE_PAGES]
 
@@ -26,80 +26,84 @@ linq2db core (LinqToDB.dll) merge/output surfaces ride the bridge package and ge
 
 ## [4]-[GAP_LEDGER]
 
-| [INDEX] | [GAP]                                                                                                                                                 | [CLOSED_BY]                                   | [STATE] |
-| :-----: | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | :-----: |
-|   [1]   | Execution-strategy rows (EnableRetryOnFailure / busy-retry); database retry excluded from the hop law                                                 | store-profiles + query-rail                   | CLOSED  |
-|   [2]   | PooledDbContextFactory pooling in the query rail                                                                                                      | query-rail                                    | CLOSED  |
-|   [3]   | Optimistic-concurrency tokens (pg xmin, sqlite version column) to typed store fault                                                                   | schema-rail + query-rail                      | CLOSED  |
-|   [4]   | UseSeeding/UseAsyncSeeding reference-data law                                                                                                         | store-profiles                                | CLOSED  |
-|   [5]   | PG maintenance/backup symmetry rows (ANALYZE, REINDEX, autovacuum posture)                                                                            | store-profiles                                | CLOSED  |
-|   [6]   | Receipted restore choreography fencing all writers, deleting -wal/-shm                                                                                | snapshot-codecs + store-profiles              | CLOSED  |
-|   [7]   | Cross-process law: WAL + busy-retry + first-opener-migrates + HLC maintenance lease; lease-handoff distinct from crash-reclaim with staleness timeout | store-profiles + native-sqlite                | CLOSED  |
-|   [8]   | Clock-seam injection for all TTL/retention/HLC stamping                                                                                               | redaction-retention + sync-collaboration      | CLOSED  |
-|   [9]   | IdentityPolicy axis (UuidV7Key, ContentHash, NaturalKey); sqlite uuidv7 via CreateFunction                                                            | schema-rail                                   | CLOSED  |
-|  [10]   | Bulk-path invalidation: linq2db lane emits its own changefeed + tag invalidation                                                                      | query-rail                                    | CLOSED  |
-|  [11]   | DataClassification consumed from AppHost; store-side enforcement rows only                                                                            | redaction-retention                           | CLOSED  |
-|  [12]   | PG18 adoption rows: uuidv7, virtual generated columns (STORED when replicated/indexed), replication policy fields, MERGE/RETURNING delta              | schema-rail + query-rail + sync-collaboration | CLOSED  |
-|  [13]   | Extensions axis: first-party ADOPT rows, PostGIS lanes via NTS chain, operator-provisioned rows, named REJECT rows                                    | data-lanes + schema-rail + store-profiles     | CLOSED  |
-|  [14]   | Verified e_sqlite3 compile-flag table + loadable-extension law; sqlean/sqlite-vec gates with DuckDB vss alternative                                   | native-sqlite                                 | CLOSED  |
-|  [15]   | M1-M5 sync rows: HasObjects diff, __closure manifest field, TransportBridge ownership here, fan-in/out topology field, capture-direction field        | sync-collaboration                            | CLOSED  |
-|  [16]   | HttpDelta fallback = RFC 6902 JsonPatchDocument, subordinate to the op-log changefeed; merge-patch rejected                                           | sync-collaboration                            | CLOSED  |
-|  [17]   | BlobRemote consumes the ArtifactSync frame constants as settled vocabulary                                                                            | sync-collaboration                            | CLOSED  |
-|  [18]   | Presence rows (ephemeral changefeed + DropOldest)                                                                                                     | sync-collaboration                            | CLOSED  |
-|  [19]   | Conflict-receipt projection consumed by the UI inspector                                                                                              | sync-collaboration                            | CLOSED  |
-|  [20]   | Parquet schema-versioning policy row; DuckDB ATTACH sqlite_scanner row; postgres_scanner rejected                                                     | data-lanes                                    | CLOSED  |
-|  [21]   | jsonb canonical law, ComplexProperty().ToJson(), jsonpath surface; OwnsOne().ToJson() rejected                                                        | schema-rail + query-rail                      | CLOSED  |
-|  [22]   | GeoJSON4STJ wire projection + GeoPackage container rows; one canonical wire geometry (proto), NTS as PG boundary                                      | data-lanes + snapshot-codecs                  | CLOSED  |
-|  [23]   | Snapshot-diff projection between two snapshots                                                                                                        | snapshot-codecs                               | CLOSED  |
-|  [24]   | EP-context + profiling artifact blob routing (Compute consumes)                                                                                       | cache-indexes                                 | CLOSED  |
-|  [25]   | Filesystem-locality admission guard (WAL needs local volume; network homes typed-rejected)                                                            | store-profiles                                | CLOSED  |
-|  [26]   | SQLCipher encryption row research-gated on provider + external dylib spike                                                                            | native-sqlite                                 | CLOSED  |
-|  [27]   | pgaudit classification binding research row; LegalHold-vs-sweep ordering                                                                              | redaction-retention                           | CLOSED  |
-|  [28]   | Thinktecture EF value converters + MessagePack formatters as codec rows                                                                               | schema-rail + snapshot-codecs                 | CLOSED  |
+Every ledger row is closed; `[OWNER]` names the page that absorbed the gap and `[STATE]` carries the `CLOSED` queryable lens — a gap that is not `CLOSED` is an open defect, never silent.
+
+| [INDEX] | [GAP]                                       | [OWNER]                                       | [STATE] |
+| :-----: | :------------------------------------------ | :-------------------------------------------- | :-----: |
+|   [1]   | database execution-strategy rows            | store-profiles + query-rail                   | CLOSED  |
+|   [2]   | pooled context factory                      | query-rail                                    | CLOSED  |
+|   [3]   | optimistic concurrency tokens               | schema-rail + query-rail                      | CLOSED  |
+|   [4]   | reference-data seeding law                  | store-profiles                                | CLOSED  |
+|   [5]   | PostgreSQL maintenance symmetry             | store-profiles                                | CLOSED  |
+|   [6]   | receipted restore choreography              | snapshot-codecs + store-profiles              | CLOSED  |
+|   [7]   | WAL, busy retry, opener, HLC lease law      | store-profiles + native-sqlite                | CLOSED  |
+|   [8]   | clock seam for durable stamping             | redaction-retention + sync-collaboration      | CLOSED  |
+|   [9]   | identity axis and SQLite uuidv7             | schema-rail                                   | CLOSED  |
+|  [10]   | bulk invalidation changefeed                | query-rail                                    | CLOSED  |
+|  [11]   | store-side classification enforcement       | redaction-retention                           | CLOSED  |
+|  [12]   | PostgreSQL 18 adoption rows                 | schema-rail + query-rail + sync-collaboration | CLOSED  |
+|  [13]   | extension axis and PostGIS lanes            | data-lanes + schema-rail + store-profiles     | CLOSED  |
+|  [14]   | e_sqlite3 compile flags and extension gates | native-sqlite                                 | CLOSED  |
+|  [15]   | M1-M5 sync rows                             | sync-collaboration                            | CLOSED  |
+|  [16]   | RFC 6902 HTTP delta fallback                | sync-collaboration                            | CLOSED  |
+|  [17]   | BlobRemote frame constants                  | sync-collaboration                            | CLOSED  |
+|  [18]   | ephemeral presence rows                     | sync-collaboration                            | CLOSED  |
+|  [19]   | UI conflict receipt projection              | sync-collaboration                            | CLOSED  |
+|  [20]   | Parquet and DuckDB analytical rows          | data-lanes                                    | CLOSED  |
+|  [21]   | jsonb canonical law                         | schema-rail + query-rail                      | CLOSED  |
+|  [22]   | GeoJSON, GeoPackage, canonical geometry     | data-lanes + snapshot-codecs                  | CLOSED  |
+|  [23]   | snapshot diff projection                    | snapshot-codecs                               | CLOSED  |
+|  [24]   | compute artifact blob routing               | cache-indexes                                 | CLOSED  |
+|  [25]   | filesystem-locality admission guard         | store-profiles                                | CLOSED  |
+|  [26]   | SQLCipher research gate                     | native-sqlite                                 | CLOSED  |
+|  [27]   | pgaudit and legal-hold ordering             | redaction-retention                           | CLOSED  |
+|  [28]   | Thinktecture codec rows                     | schema-rail + snapshot-codecs                 | CLOSED  |
 
 ## [5]-[DENSITY_BAR]
 
-Implementation lands at 25-35% of naive LOC. One owner per axis, one entrypoint family per rail; a new feature is a row, case, or policy value — never a new surface. The budget below is the complete public-owner set; a type outside it is a defect.
+Implementation lands at 25-35% of naive LOC. One owner per axis, one entrypoint family per rail; a new feature is a row, case, or policy value — never a new surface. The budget below is the complete public-owner set; a type outside it is a defect. `[OWNER]` cells fold every extension block and mapping descriptor under the axis owner — `StoreOpCompose` rides axis [11], `TabularDirection`/`TabularSpec`/`AnalyticalTraversal`/`DuckDBOpLogMap` ride axis [8], `DbConfig` rides axis [16], `Composite`/`MapComposites` ride axis [10] — so the complete-owner claim holds. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
-| [INDEX] | [AXIS/CONCERN]               | [OWNER]                                                                                                              | [KIND]                                                     |               [CASES]               |
-| :-----: | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | :---------------------------------: |
-|   [1]   | Engine axis + blob contract  | `StoreProfile` + `StoreRows` + `BlobRemote`                                                                          | `[SmartEnum<string>]` widened rows + records               |               6 rows                |
-|   [2]   | Store lifecycle              | `StoreLifecycle` + `StoreOpenReceipt` + `StoreCeremony`                                                              | `[SmartEnum<string>]` + fold surface                       |              5 states               |
-|   [3]   | Placement                    | `StorePlacement`                                                                                                     | record + total fold                                        |               8 arms                |
-|   [4]   | Cross-process law            | `StoreLeaseRow` + `StoreLocality`                                                                                    | record + admission guard                                   |            2 lease kinds            |
-|   [5]   | Operator provisioning        | `ExtensionRequirement`                                                                                               | record table + verify fold                                 |               7 rows                |
-|   [6]   | Lane axis                    | `DataLane` + `KvEntry`                                                                                               | `[Union]` + capability fold                                |               7 cases               |
-|   [7]   | Document/search vocabulary   | `JsonIndex` · `VectorMetric` · `FullTextMode`                                                                        | `[SmartEnum<string>]`                                      |              3 · 4 · 4              |
-|   [8]   | Geo + analytical policy      | `GeoLayer` + `TabularExportSpec` + `ParquetSchemaStamp`                                                              | policy records                                             |           row-per-concern           |
-|   [9]   | Identity axis                | `IdentityPolicy`                                                                                                     | `[SmartEnum<string>]`                                      |               3 rows                |
-|  [10]   | Schema law                   | `SchemaFault` + `SchemaFingerprint` + `DerivedColumn` + `SchemaDdl` + `ConverterRail`                                | `[Union]` fault + struct + DDL rows                        |       5 codes · 19 extensions       |
-|  [11]   | Operation algebra            | `StoreOp<T>` + `StoreFault` + `StoreRail`                                                                            | `[Union]` × 2 + total dispatch                             |          8 ops · 6 faults           |
-|  [12]   | Projection egress            | `KeysetPage<TRow>` + `ProjectionRail`                                                                                | record + extension fold                                    |            3 filter keys            |
-|  [13]   | Bulk lane                    | `BulkRoute` + `BulkReceipt` + `BulkDelta<TRow>`                                                                      | `[SmartEnum]` + typed receipts                             |              3 routes               |
-|  [14]   | Interceptor spine            | `StoreInterceptor` + `InterceptPolicy` + `StoreFact` + `StoreObservability`                                          | boundary capsule + policy + facts                          |          4 hooks · 7 kinds          |
-|  [15]   | Native policy tables         | `SqlitePragma` + `SqliteFactKind` + `SqliteCompileSurface`                                                           | `[SmartEnum<string>]` tables + probe                       |        10 pragmas · 14 kinds        |
-|  [16]   | Maintenance + gates          | `SqliteMaintenance` + `FunctionRegistration` + `ExtensionGate` + `EncryptionGate`                                    | verb surface + gate rows                                   |          9 verbs · 8 gates          |
-|  [17]   | Snapshot codecs + protocol   | `SnapshotCodec` · `CompressionPolicy` · `HashPolicy` + `Snapshots` + `SnapshotRestoreOps` + `PersistenceWireContext` | `[SmartEnum<string>]` delegate rows + folds + wire context |           3 · 3 · 3 rows            |
-|  [18]   | Cache contribution + indexes | `CacheContribution` + `ModelResultKey` + `ArtifactIndexRow` + `BenchmarkRow` + `IndexSurface`                        | boundary capsule + key shapes                              |     1 registration · 3 indexes      |
-|  [19]   | Sync spine                   | `SyncOpKind` + `OpLogEntry` + `SyncMerge` + `ConflictOutcome` + `SyncTransport` + `SyncPump` + `Presence`            | vocab + `[Union]` × 2 + total dispatch                     | 3 kinds · 4 outcomes · 3 transports |
-|  [20]   | Retention + classification   | `RetentionPolicy` + `ArtifactClasses` + `ClassificationGuard` + `StoreEvidence` + `AuditBinding`                     | axis + frozen tables + guards                              | 4 policies · 7 classes · 5 bindings |
+| [INDEX] | [AXIS]               | [OWNER]                                          | [KIND]            | [CASES]           |  [STATE]  |
+| :-----: | :------------------- | :----------------------------------------------- | :---------------- | :---------------- | :-------: |
+|   [1]   | engine + blob        | StoreProfile, StoreRows, BlobRemote              | enum + records    | 6 rows            | FINALIZED |
+|   [2]   | lifecycle            | StoreLifecycle, receipts                         | enum + fold       | 5 states          | FINALIZED |
+|   [3]   | placement            | StorePlacement                                   | record + fold     | 8 arms            | FINALIZED |
+|   [4]   | cross-process        | StoreLeaseRow, StoreLocality                     | record + guard    | 2 lease kinds     |   SPIKE   |
+|   [5]   | provisioning         | ExtensionRequirement                             | table + verify    | 7 rows            |   SPIKE   |
+|   [6]   | lane axis            | DataLane, KvEntry                                | union + fold      | 7 cases           | FINALIZED |
+|   [7]   | document/search      | JsonIndex, VectorMetric, FullTextMode            | enums             | 4 · 4 · 4         | FINALIZED |
+|   [8]   | geo + analytical     | GeoLayer, TabularExportSpec, TabularDirection    | policy + enum     | concern rows      |   SPIKE   |
+|   [9]   | identity             | IdentityPolicy                                   | enum              | 3 rows            | FINALIZED |
+|  [10]   | schema law           | faults, fingerprint, columns, SchemaDdl          | fault + DDL       | 5 codes · 19 ext. |   SPIKE   |
+|  [11]   | operation algebra    | StoreOp, StoreFault, StoreRail, StoreOpCompose   | unions + dispatch | 8 ops · 6 faults  | FINALIZED |
+|  [12]   | projection egress    | KeysetPage, ProjectionRail                       | record + fold     | 3 filter keys     | FINALIZED |
+|  [13]   | bulk lane            | BulkRoute, receipts, deltas                      | enum + receipts   | 3 routes          |   SPIKE   |
+|  [14]   | interceptor spine    | interceptors, policies, facts                    | capsule + policy  | 4 hooks · 7 kinds |   SPIKE   |
+|  [15]   | native policy tables | pragmas, facts, compile surface                  | tables + probe    | 10 · 14           |   SPIKE   |
+|  [16]   | maintenance + gates  | maintenance, functions, extensions, DbConfig     | verbs + gates     | 9 verbs · 8 gates |   SPIKE   |
+|  [17]   | snapshot protocol    | codecs, compression, hashing, restore            | rows + wire       | 3 · 3 · 5         |   SPIKE   |
+|  [18]   | cache + indexes      | contribution, result, artifact, benchmark        | capsule + keys    | 1 + 3 indexes     | FINALIZED |
+|  [19]   | sync spine           | op kind, log, merge, conflicts                   | vocab + dispatch  | 3 · 4 · 3         |   SPIKE   |
+|  [20]   | retention + classes  | policies, classes, guards, evidence              | axes + guards     | 4 · 7 · 5         |   SPIKE   |
 
 Comparer accessors (`StoreKeyPolicy`, `SqliteKeyPolicy`, `SnapshotKeyPolicy`, `SyncKeyPolicy`, `RetentionKeyPolicy`) ride inside their owner files, one per axis family, package-local.
 
 ## [6]-[BUILD_ORDER]
 
-| [INDEX] | [FILE]                   | [TRANSCRIBES]                                                                                        | [GATE]                                                               |
-| :-----: | ------------------------ | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-|   [1]   | `Stores/Profiles.cs`     | store-profiles#PROFILE_AXIS + #PLACEMENT_MATRIX + #CROSS_PROCESS_LAW                                 | static fix/build; profile, placement, locality specs                 |
-|   [2]   | `Stores/Lifecycle.cs`    | store-profiles#STORE_LIFECYCLE + #PROVISIONING_ROWS                                                  | transition-law specs; two-process WAL race spec                      |
-|   [3]   | `Schema/SchemaRail.cs`   | schema-rail#IDENTITY_POLICY + #MIGRATION_LAW + #GENERATED_COLUMNS + #EXTENSION_DDL + #CONVERTER_RAIL | gate specs; `dotnet ef` script/optimize probes                       |
-|   [4]   | `Lanes/DataLanes.cs`     | data-lanes#LANE_AXIS + #DOCUMENT_LANE + #SEARCH_LANES + #GEO_LANES + #ANALYTICAL_LANE                | lane-admission specs; attach/window probe specs                      |
-|   [5]   | `Native/Sqlite.cs`       | native-sqlite#PRAGMA_TABLE + #COMPILE_SURFACE + #MAINTENANCE_OPS + #EXTENSION_GATES                  | compile-surface probe spec; bridge scenario for the host dlopen seam |
-|   [6]   | `Query/QueryRail.cs`     | query-rail#OPERATION_ALGEBRA + #PROJECTION_SHAPES + #BULK_LANE + #INTERCEPTOR_SPINE                  | dispatch-totality + fault-conversion specs                           |
-|   [7]   | `Cache/Indexes.cs`       | cache-indexes#L2_CONTRIBUTION + #MODEL_RESULT_INDEX + #ARTIFACT_BLOB_INDEX + #BENCHMARK_INDEX        | paired closure with [8]                                              |
-|   [8]   | `Snapshots/Codecs.cs`    | snapshot-codecs#CODEC_AXIS + #COMPRESSION_HASHING + #SNAPSHOT_PROTOCOL + #RESTORE_AND_DIFF           | round-trip, header, restore specs; gate closes [7]+[8]               |
-|   [9]   | `Sync/Collaboration.cs`  | sync-collaboration#OPLOG_CHANGEFEED + #MERGE_LAW + #TRANSPORT_AXIS + #PRESENCE_AND_BLOB              | merge-law idempotency + adjudication specs                           |
-|  [10]   | `Retention/Redaction.cs` | redaction-retention#CLASSIFICATION_ENFORCEMENT + #RETENTION_SWEEPS + #EXPORT_PROOF + #AUDIT_BINDING  | sweep-fold, guard, audit-binding specs                               |
+Cluster cells use page-local anchor names; proof cells name evidence beyond the standard static/spec gate.
+
+| [INDEX] | [FILE]                   | [CLUSTERS]                                   | [PROOF]                         |
+| :-----: | :----------------------- | :------------------------------------------- | :------------------------------ |
+|   [1]   | `Stores/Profiles.cs`     | profiles, placement, cross-process law       | profile, placement, locality    |
+|   [2]   | `Stores/Lifecycle.cs`    | lifecycle, provisioning                      | transitions, two-process WAL    |
+|   [3]   | `Schema/SchemaRail.cs`   | identity, migrations, columns, DDL, codecs   | gates, EF script/optimize       |
+|   [4]   | `Lanes/DataLanes.cs`     | lanes, document, search, geo, analytical     | lane admission and attach probe |
+|   [5]   | `Native/Sqlite.cs`       | pragmas, compile surface, maintenance, gates | compile probe and bridge seam   |
+|   [6]   | `Query/QueryRail.cs`     | operations, projections, bulk, interceptors  | dispatch and fault conversion   |
+|   [7]   | `Cache/Indexes.cs`       | L2, result, artifact, benchmark indexes      | paired closure with [8]         |
+|   [8]   | `Snapshots/Codecs.cs`    | codecs, compression, protocol, restore       | round-trip, header, restore     |
+|   [9]   | `Sync/Collaboration.cs`  | op-log, merge, transport, presence/blob      | merge idempotency, adjudication |
+|  [10]   | `Retention/Redaction.cs` | classification, sweeps, export, audits       | sweep, guard, audit binding     |
 
 Seam ordering law:
 - Fingerprint slot: `StoreOpenReceipt.SchemaFingerprint` stays bare `ulong` (ledger seam), so [2] precedes [3] with zero forward reference; `SchemaFingerprint` in [3] is the typed owner.
@@ -115,19 +119,21 @@ Seam ordering law:
 4. Run `uv run python -m tools.assay static fix` then `uv run python -m tools.assay static build` on the touched closure; a busy lease exits 5 and reruns.
 5. Author specs per the `testing-cs` skill — law-matrix specs over the page cards; research-row proofs land as named specs in the same pass.
 6. Host seams gate through bridge scenarios (`scenarios/extension-load.verify.csx`); a file with no host seam carries no scenario.
-7. Pages stay finalized: a transcription conflict routes back to the page owner and the ledger, never into implementation-side redesign.
+7. Transcription conflicts route back to the page owner and the ledger, never into implementation-side redesign.
 
 ## [8]-[PROOF_GATES]
 
-| [INDEX] | [GATE]     | [COMMAND]                                                                                                     | [EVIDENCE]                                                          |
-| :-----: | ---------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-|   [1]   | restore    | `dotnet restore --force-evaluate`                                                                             | `packages.lock.json` closure regenerated and committed; zero NU1004 |
-|   [2]   | catalogue  | `uv run python -m tools.assay api doctor --strict` + `api resolve`                                            | every ADMISSIONS_RECORD package resolves an assay asset             |
-|   [3]   | routing    | `uv run python -m tools.assay static plan`                                                                    | Persistence closure owners and triggers land in notes               |
-|   [4]   | compile    | `uv run python -m tools.assay static build`                                                                   | green leased build; `': error '` grep empty over the closure        |
-|   [5]   | specs      | `uv run python -m tools.assay test run --target Rasm.Persistence.Tests`                                       | all specs green, research-row proof specs included                  |
-|   [6]   | host seams | `uv run python -m tools.assay bridge verify libs/csharp/Rasm.Persistence/scenarios/extension-load.verify.csx` | scenario facts green inside live RhinoWIP                           |
-|   [7]   | diagrams   | `npx -y @mermaid-js/mermaid-cli -i ARCHITECTURE.md -o /tmp/persistence-arch.svg`                              | local render exits zero; the MCP renderer stays permission-blocked  |
+Assay rows use `uv run python -m tools.assay`; proof runs at the planned phase gate, not after each edit.
+
+| [GATE] | [RAIL]                                | [EVIDENCE]                                |
+| :----: | :------------------------------------ | :---------------------------------------- |
+|  [G1]  | `dotnet restore --force-evaluate`     | lockfile closure regenerates; zero NU1004 |
+|  [G2]  | `api doctor --strict` + `api resolve` | admissions resolve assay assets           |
+|  [G3]  | `static plan`                         | closure owners and triggers land in notes |
+|  [G4]  | `static build`                        | leased build green; error grep empty      |
+|  [G5]  | `test run` Persistence target         | specs and research-row proofs pass        |
+|  [G6]  | `bridge verify` extension scenario    | live RhinoWIP scenario facts pass         |
+|  [G7]  | `mmdc` architecture render            | local diagram render exits zero           |
 
 ## [9]-[PROHIBITIONS]
 
@@ -150,40 +156,42 @@ Seam ordering law:
 
 [STORE_LANES]:
 
-| [PACKAGE]                                              | [VERSION]     | [PAGE]          | [CATALOGUE]                                                                         |
-| ------------------------------------------------------ | ------------- | --------------- | ----------------------------------------------------------------------------------- |
-| DuckDB.NET.Data.Full                                   | 1.5.3         | data-lanes      | [api-duckdb](../.api/api-duckdb.md)                                         |
-| EFCore.NamingConventions                               | 10.0.1        | schema-rail     | [api-ef-naming](../.api/api-ef-naming.md)                                   |
-| linq2db.EntityFrameworkCore                            | 10.4.0        | query-rail      | [api-linq2db-ef](../.api/api-linq2db-ef.md)                                 |
-| Microsoft.Data.Sqlite                                  | 10.0.9        | native-sqlite   | [api-sqlite](../.api/api-sqlite.md)                                         |
-| Microsoft.EntityFrameworkCore.Design                   | 10.0.9        | schema-rail     | [api-ef-design](../.api/api-ef-design.md)                                   |
-| Microsoft.EntityFrameworkCore.Sqlite                   | 10.0.9        | store-profiles  | [api-ef-sqlite](../.api/api-ef-sqlite.md)                                   |
-| NetTopologySuite.IO.GeoJSON4STJ                        | 4.0.0         | snapshot-codecs | [api-nts-io](../.api/api-nts-io.md)                                         |
-| NetTopologySuite.IO.GeoPackage                         | 2.0.0         | data-lanes      | [api-nts-io](../.api/api-nts-io.md)                                         |
-| Npgsql                                                 | 10.0.3        | store-profiles  | [api-npgsql](../.api/api-npgsql.md)                                         |
-| Npgsql.EntityFrameworkCore.PostgreSQL                  | 10.0.2        | store-profiles  | [api-npgsql-ef](../.api/api-npgsql-ef.md)                                   |
-| Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite | 10.0.2        | data-lanes      | [api-nts-ef](../.api/api-nts-ef.md)                                         |
-| Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime         | 10.0.2        | data-lanes      | [api-npgsql-ef-nodatime](../.api/api-npgsql-ef-nodatime.md)                 |
-| Npgsql.OpenTelemetry                                   | 10.0.3        | query-rail      | [api-npgsql-otel](../.api/api-npgsql-otel.md)                               |
-| Pgvector.EntityFrameworkCore                           | 0.3.0         | data-lanes      | [api-pgvector-ef](../.api/api-pgvector-ef.md)                               |
-| SQLitePCLRaw.bundle_e_sqlite3                          | 3.0.3         | native-sqlite   | [api-sqlitepcl](../.api/api-sqlitepcl.md)                                   |
-| Thinktecture.Runtime.Extensions.EntityFrameworkCore10  | 10.2.0-beta01 | schema-rail     | [api-thinktecture-serialization](../.api/api-thinktecture-serialization.md) |
+API keys omit the `api-` prefix and `.md` suffix. `[VERSION]` records the props/lock-resolved pin so the charter is the one place version truth lives; a value disagreeing with `Directory.Packages.props` plus the lockfile is a doc-truth drift.
+
+| [INDEX] | [PACKAGE]                                              | [VERSION] | [OWNER]         | [API]                      |
+| :-----: | :----------------------------------------------------- | :-------- | :-------------- | :------------------------- |
+|   [1]   | DuckDB.NET.Data.Full                                   | 1.5.3     | data-lanes      | duckdb                     |
+|   [2]   | EFCore.NamingConventions                               | 10.0.1    | schema-rail     | ef-naming                  |
+|   [3]   | linq2db.EntityFrameworkCore                            | 10.4.0    | query-rail      | linq2db-ef                 |
+|   [4]   | Microsoft.Data.Sqlite                                  | 10.0.9    | native-sqlite   | sqlite                     |
+|   [5]   | Microsoft.EntityFrameworkCore.Design                   | 10.0.9    | schema-rail     | ef-design                  |
+|   [6]   | Microsoft.EntityFrameworkCore.Sqlite                   | 10.0.9    | store-profiles  | ef-sqlite                  |
+|   [7]   | NetTopologySuite.IO.GeoJSON4STJ                        | 4.0.0     | snapshot-codecs | nts-io                     |
+|   [8]   | NetTopologySuite.IO.GeoPackage                         | 2.0.0     | data-lanes      | nts-io                     |
+|   [9]   | Npgsql                                                 | 10.0.3    | store-profiles  | npgsql                     |
+|  [10]   | Npgsql.EntityFrameworkCore.PostgreSQL                  | 10.0.2    | store-profiles  | npgsql-ef                  |
+|  [11]   | Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite | 10.0.2    | data-lanes      | nts-ef                     |
+|  [12]   | Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime         | 10.0.2    | data-lanes      | npgsql-ef-nodatime         |
+|  [13]   | Npgsql.OpenTelemetry                                   | 10.0.3    | query-rail      | npgsql-otel                |
+|  [14]   | Pgvector.EntityFrameworkCore                           | 0.3.0     | data-lanes      | pgvector-ef                |
+|  [15]   | SQLitePCLRaw.bundle_e_sqlite3                          | 3.0.3     | native-sqlite   | sqlitepcl                  |
+|  [16]   | Thinktecture.Runtime.Extensions.EntityFrameworkCore10  | 10.2.0    | schema-rail     | thinktecture-serialization |
 
 [SNAPSHOTS_AND_SUPPORT]:
 
-| [PACKAGE]                                   | [VERSION] | [PAGE]              | [CATALOGUE]                                                                         |
-| ------------------------------------------- | --------- | ------------------- | ----------------------------------------------------------------------------------- |
-| K4os.Compression.LZ4                        | 1.3.8     | snapshot-codecs     | [api-lz4](../.api/api-lz4.md)                                               |
-| MessagePack                                 | 3.1.7     | snapshot-codecs     | [api-messagepack](../.api/api-messagepack.md)                               |
-| MessagePackAnalyzer                         | 3.1.7     | snapshot-codecs     | [api-messagepack-analyzer](../.api/api-messagepack-analyzer.md)             |
-| Microsoft.Extensions.Caching.Hybrid         | 10.7.0    | cache-indexes       | [api-hybrid-cache (AppHost)](../../Rasm.AppHost/.api/api-hybrid-cache.md)   |
-| Microsoft.Extensions.Compliance.Redaction   | 10.7.0    | redaction-retention | [api-redaction](../.api/api-redaction.md)                                   |
-| NodaTime                                    | 3.3.2     | store-profiles      | [api-nodatime](../.api/api-nodatime.md)                                     |
-| NodaTime.Serialization.SystemTextJson       | 1.4.0     | snapshot-codecs     | [api-nodatime-json](../.api/api-nodatime-json.md)                           |
-| Sep                                         | 0.14.1    | data-lanes          | [api-sep](../.api/api-sep.md)                                               |
-| System.IO.Hashing                           | 10.0.9    | schema-rail         | [api-hashing](../.api/api-hashing.md)                                       |
-| Thinktecture.Runtime.Extensions.Json        | 10.2.0    | snapshot-codecs     | [api-thinktecture-serialization](../.api/api-thinktecture-serialization.md) |
-| Thinktecture.Runtime.Extensions.MessagePack | 10.2.0    | snapshot-codecs     | [api-thinktecture-serialization](../.api/api-thinktecture-serialization.md) |
+| [INDEX] | [PACKAGE]                                   | [VERSION] | [OWNER]             | [API]                      |
+| :-----: | :------------------------------------------ | :-------- | :------------------ | :------------------------- |
+|   [1]   | K4os.Compression.LZ4                        | 1.3.8     | snapshot-codecs     | lz4                        |
+|   [2]   | MessagePack                                 | 3.1.7     | snapshot-codecs     | messagepack                |
+|   [3]   | MessagePackAnalyzer                         | 3.1.7     | snapshot-codecs     | messagepack-analyzer       |
+|   [4]   | Microsoft.Extensions.Caching.Hybrid         | 10.7.0    | cache-indexes       | hybrid-cache AppHost       |
+|   [5]   | Microsoft.Extensions.Compliance.Redaction   | 10.7.0    | redaction-retention | redaction                  |
+|   [6]   | NodaTime                                    | 3.3.2     | store-profiles      | nodatime                   |
+|   [7]   | NodaTime.Serialization.SystemTextJson       | 1.4.0     | snapshot-codecs     | nodatime-json              |
+|   [8]   | Sep                                         | 0.14.1    | data-lanes          | sep                        |
+|   [9]   | System.IO.Hashing                           | 10.0.9    | schema-rail         | hashing                    |
+|  [10]   | Thinktecture.Runtime.Extensions.Json        | 10.2.0    | snapshot-codecs     | thinktecture-serialization |
+|  [11]   | Thinktecture.Runtime.Extensions.MessagePack | 10.2.0    | snapshot-codecs     | thinktecture-serialization |
 
 ## [11]-[REFINEMENT_HORIZON]
 

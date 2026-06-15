@@ -9,13 +9,13 @@ rails, NodaTime durations, and the settled AppHost port records.
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]            | [OWNS]                                                            |
-| :-----: | :------------------- | :----------------------------------------------------------------- |
-|   [1]   | INTENT_TABLE         | One frozen row table, payload shapes, per-surface deck freeze      |
-|   [2]   | AVAILABILITY_ALGEBRA | Typed availability inputs fold into one CanExecute stream          |
-|   [3]   | EXECUTION_RECEIPTS   | Total outcome rail; receipts sealed through the sink envelope      |
+| [INDEX] | [CLUSTER]            | [OWNS]                                                                 |
+| :-----: | :------------------- | :--------------------------------------------------------------------- |
+|   [1]   | INTENT_TABLE         | One frozen row table, payload shapes, per-surface deck freeze          |
+|   [2]   | AVAILABILITY_ALGEBRA | Typed availability inputs fold into one CanExecute stream              |
+|   [3]   | EXECUTION_RECEIPTS   | Total outcome rail; receipts sealed through the sink envelope          |
 |   [4]   | PALETTE_AND_REMOTE   | Derivation folds, span-ranked palette search, remote and control verbs |
-|   [5]   | TS_PROJECTION        | Intent, availability, invocation, and receipt wire shapes          |
+|   [5]   | TS_PROJECTION        | Intent, availability, invocation, and receipt wire shapes              |
 
 ## [2]-[INTENT_TABLE]
 
@@ -104,7 +104,7 @@ public sealed record CommandDeck(
 - Auto: the level stream attaches through `UiSchedulerPort.Degradation`, the valid stream is the screen validation fold, the selected count rides selection state, and the busy stream is the compute receipt-stream projection — all four enter as delegate-supplied streams, no sibling type is re-modeled; `Observe` seeds match `DegradationState.Boot` so the gate is total before the first emission.
 - Packages: System.Reactive, LanguageExt.Core, BCL inbox
 - Growth: one `Availability` field row plus one `Observe` source row absorbs a new availability driver; zero new surface.
-- Boundary: `DegradationLevel.LocalOnly` retains no `Capability.HostDocument`, so every host-targeting row — its `Requires` set naming `Capability.HostDocument` — folds unavailable structurally when the host is absent; per-call-site CanExecute lambdas and availability policy enums are the deleted forms; `IsExecuting` on the materialized command drives progress presentation and suppresses re-entrancy, so manual busy flags are the rejected form.
+- Boundary: `DegradationLevel.LocalOnly` retains no `Capability.HostDocument`, so every host-targeting row — its `Requires` set naming `Capability.HostDocument` — folds unavailable structurally when the host is absent; per-call-site CanExecute lambdas and availability policy enums are the deleted forms; `IsExecuting` on the materialized command drives progress presentation and suppresses re-entrancy, so manual busy flags are the rejected form; a batch verb materialized through `CommandExecution.Combine` derives its availability as the all-true fold `CreateCombined` computes over the child rows' `CanExecute` streams, so the macro verb shares the one seeded `CombineLatest` algebra and a hand-written aggregate gate is the rejected form.
 
 ```csharp signature
 public static class CommandGate {
@@ -130,14 +130,14 @@ public static class CommandGate {
 
 ## [4]-[EXECUTION_RECEIPTS]
 
-- Owner: `CommandOutcome` `[Union]` total result vocabulary; `CommandReceipt` execution evidence record; `CommandExecution` — the materialize-run-seal fold.
+- Owner: `CommandOutcome` `[Union]` total result vocabulary; `CommandReceipt` execution evidence record; `CommandExecution` — the materialize-run-seal fold, the batch-combine projection, and the telemetry contribution.
 - Cases: `CommandOutcome` = Completed | Cancelled | Rejected | Faulted under the locked kind literals completed, cancelled, rejected, faulted.
 - Entry: `public ReactiveCommand<CommandPayload, CommandReceipt> Materialize(CommandDeck deck)` — one generated command per admitted row; the receipt is the command result.
-- Auto: the `Catch` rail makes the outcome total, so every execution seals a receipt before any fault surfaces; residual throws ride `ThrownExceptions` into the one screen fault state and the error dialog intent row — never per-control handling; elapsed derives from the injected `TimeProvider` timestamp pair.
-- Receipt: `CommandReceipt` — intent key, surface key, elapsed `Duration`, outcome, payload digest, `CorrelationId` — sealed through `ReceiptSinkPort.Send` as kind `command`; the HLC envelope is the only cross-process correlation carrier.
-- Packages: ReactiveUI, LanguageExt.Core, NodaTime, System.IO.Hashing, BCL inbox
-- Growth: one `CommandOutcome` case absorbs a new result class and breaks every dispatch site at compile time; zero new surface.
-- Boundary: the receipt record lands as one `[JsonSerializable]` row on the package wire context merged at app roots; ICommand wrapper classes are the deleted form and a generic receipt or ledger abstraction is the rejected form; the digest is the XxHash128 hex of the serialized payload, so receipt payloads stay fixed-size on the hot path.
+- Auto: the `Catch` rail makes the outcome total, so every execution seals a receipt before any fault surfaces; residual throws ride `ThrownExceptions` into the one screen fault state and the error dialog intent row — never per-control handling; elapsed derives from the injected `TimeProvider` timestamp pair; `Combine` resolves each batch key through one `TryGetValue` probe and a fail-closed `Traverse` into `Fin`, so an unknown intent key aborts the macro rather than silently dropping, and the admitted child rows fold into one `CombinedReactiveCommand` whose availability is the all-true fold over child `CanExecute` — a macro verb spending several rows in one gesture is a `CreateCombined` projection over existing rows, never a new payload case.
+- Receipt: `CommandReceipt` — intent key, surface key, elapsed `Duration`, outcome, payload digest, `CorrelationId` — sealed through `ReceiptSinkPort.Send` as kind `command`; the HLC envelope is the only cross-process correlation carrier; `TelemetryRow` contributes the command-outcome and command-elapsed instruments inward through the AppHost `TelemetryContributorPort`.
+- Packages: ReactiveUI, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm.AppHost (project), BCL inbox
+- Growth: one `CommandOutcome` case absorbs a new result class and breaks every dispatch site at compile time, and one command instrument is one `InstrumentRow` on `CommandExecution.TelemetryRow`; zero new surface.
+- Boundary: the receipt record lands as one `[JsonSerializable]` row on the package wire context merged at app roots; ICommand wrapper classes are the deleted form and a generic receipt or ledger abstraction is the rejected form; the digest is the XxHash128 hex of the serialized payload, so receipt payloads stay fixed-size on the hot path; `Combine` is the only batch-verb spelling — a sibling `Batch` payload case beside the closed four-case union and a per-macro registry are the rejected forms, an unknown batch key aborts the macro on the `Fin` rail rather than dropping under a `ContainsKey` filter, and the combined command's child execution still seals one `CommandReceipt` per child through the same sink so batch evidence never collapses into one opaque receipt.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -188,12 +188,26 @@ public static class CommandExecution {
                 .Bind(receipt => deck.Sink
                     .Send(deck.Correlation, "Rasm.AppUi", CommandReceipt.Kind, JsonSerializer.SerializeToElement(receipt, deck.Wire))
                     .Map(_ => receipt));
+
+        public Fin<CombinedReactiveCommand<CommandPayload, CommandReceipt>> Combine(params ReadOnlySpan<string> keys) =>
+            toSeq(keys.ToArray())
+                .Traverse(key => deck.Rows.TryGetValue(key, out var row)
+                    ? Fin<ReactiveCommand<CommandPayload, CommandReceipt>>.Succ(row.Materialize(deck))
+                    : Fin<ReactiveCommand<CommandPayload, CommandReceipt>>.Fail(Error.New(nameof(Combine) + " unknown intent key " + key)))
+                .As()
+                .Map(children => ReactiveCommand.CreateCombined(children, outputScheduler: deck.Scheduler));
     }
 
     extension(CommandPayload payload) {
         public string Digest(JsonSerializerOptions wire) =>
             Convert.ToHexStringLower(XxHash128.Hash(JsonSerializer.SerializeToUtf8Bytes(payload, wire)));
     }
+
+    public const string OutcomeInstrument = "rasm.appui.command.outcome";
+    public const string ElapsedInstrument = "rasm.appui.command.elapsed";
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, OutcomeInstrument, ElapsedInstrument);
 }
 ```
 
@@ -246,11 +260,11 @@ public static class CommandProjections {
 
 The ControlService operational verbs surface as ordinary table rows on companion-control surfaces; each `Execute` binding lands on the settled AppHost rail at composition:
 
-| [INDEX] | [INTENT_KEY]            | [EXECUTE_BINDING]                                          |
-| :-----: | :----------------------- | :---------------------------------------------------------- |
-|   [1]   | control.capture-support  | SupportTrigger.ExternalCommand admission                    |
-|   [2]   | control.set-degradation  | OperatorOverride force input to the degradation fold        |
-|   [3]   | control.reload-options   | ReloadOutcome transition on the options rail                |
+| [INDEX] | [INTENT_KEY]            | [EXECUTE_BINDING]                                    |
+| :-----: | :---------------------- | :--------------------------------------------------- |
+|   [1]   | control.capture-support | SupportTrigger.ExternalCommand admission             |
+|   [2]   | control.set-degradation | OperatorOverride force input to the degradation fold |
+|   [3]   | control.reload-options  | ReloadOutcome transition on the options rail         |
 
 ```mermaid
 flowchart LR

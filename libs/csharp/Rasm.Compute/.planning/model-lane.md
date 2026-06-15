@@ -1,6 +1,6 @@
 # [COMPUTE_MODEL_LANE]
 
-Rasm.Compute model lane: ONNX model identity and provenance, the one shared session capsule, the EP-parameterized execution-provider axis, custom-operator admission, OrtValue-only inference modes, and the version-stamped deterministic result cache. The page owns the `ModelSource`/`ModelIdentity` vocabulary, the `SessionPolicy` lifecycle rows, the `ExecutionProvider` axis, the `CachePolicy` rows, and the run-mode fold over Microsoft.ML.OnnxRuntime — composing AppHost clocks, deadlines, drain, schedule, and cache ports plus Persistence index rows as settled vocabulary.
+Rasm.Compute model lane: ONNX model identity and provenance, the one shared session capsule with its EP-context warm-start route, the EP-parameterized execution-provider axis across CPU, CoreML, and the designed GPU rows, custom-operator admission, OrtValue-only inference modes with a frozen run-config table, and the version-stamped deterministic result cache. The page owns the `ModelSource`/`ModelIdentity` vocabulary, the `SessionPolicy` lifecycle rows, the `ExecutionProvider` axis, the `RunConfig` and `CachePolicy` rows, and the run-mode fold over Microsoft.ML.OnnxRuntime — composing AppHost clocks, deadlines, drain, schedule, and cache ports plus Persistence index and blob rows as settled vocabulary.
 
 ## [1]-[INDEX]
 
@@ -78,22 +78,24 @@ public sealed record ModelIdentity(
 ## [3]-[SESSION_CAPSULE]
 
 - Owner: `SessionPolicy` lifecycle policy record; `ModelSessions` boundary capsule owning the OrtEnv boot gate, the resident-session map, and the drain and warmup rows.
-- Entry: `public static Fin<InferenceSession> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, ClockPolicy clocks)` — `Fin` aborts on rejected admission; a hit shares the resident session.
-- Auto: the admission fold runs options, EP-context keys, free-dim overrides, device policy, EP registration, custom ops, and resident admission as one rail; every lease touches `LastUsed`; eviction past `ResidentSessions` captures the least-recently-used residents inside the swap and disposes them only after the map commits.
-- Receipt: the Warmup receipt rides the representative-shape first run on the sweep row; the Drain receipt counts unloaded sessions on the band-200 row.
-- Packages: Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: a lifecycle change is one policy value on `SessionPolicy`; zero new surface.
-- Boundary: `ModelSessions` is the page's boundary capsule and its fence carries language-owned statement forms; ORT sessions are thread-safe for concurrent `Run`, so all lanes share ONE `InferenceSession` per checksum — a session pool is the rejected form; `DisablePerSessionThreads` puts every session on the global pool whose counts arrive as settled processor-budget values through `Boot` — `OrtThreadingOptions.GlobalIntraOpNumThreads` and `GlobalInterOpNumThreads` bind the budget's `OrtIntraOp` and `OrtInterOp` values; `DisableTelemetryEvents` runs at boot because the telemetry spine owns signals; the sweep entry folds idle eviction before re-warm on the registered `compute-model-warmup` row; EP-context and profile outputs land under the blob-lane artifact directory, never as stray temp files.
+- Entry: `public static Fin<(InferenceSession Session, Option<ArtifactIndexRow> WarmStart)> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, ClockPolicy clocks)` — `Fin` aborts on rejected admission; a hit shares the resident session with `None` warm-start evidence and a first open carries the compiled EP-context row.
+- Auto: the admission fold runs options, EP-context keys, free-dim overrides, device policy, EP registration, custom ops, and resident admission as one rail; every lease touches `LastUsed`; eviction past `ResidentSessions` captures the least-recently-used residents inside the swap and disposes them only after the map commits; on first open the compiled EP-context blob is read back from the artifact directory through `WarmStart` inside the success arm and the resulting `ArtifactIndexRow` — content-addressed by the model checksum under the `WarmStartClassification`/`WarmStartRetention` policy columns — rides out of `Open` for the composition edge to route to the Persistence blob lane, so a cold companion warms from the same blob the host wrote.
+- Receipt: the Warmup receipt rides the representative-shape first run on the sweep row and carries the warm-start `ArtifactIndexRow` checksum and byte size from the `Lease` evidence when the compiled context lands; the Drain receipt counts unloaded sessions on the band-200 row.
+- Packages: Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
+- Growth: a lifecycle change is one policy value on `SessionPolicy`; the EP-context warm-start route is one artifact column on the open fold, never a second cache or artifact owner; zero new surface.
+- Boundary: `ModelSessions` is the page's boundary capsule and its fence carries language-owned statement forms; ORT sessions are thread-safe for concurrent `Run`, so all lanes share ONE `InferenceSession` per checksum — a session pool is the rejected form; `DisablePerSessionThreads` puts every session on the global pool `Boot` constructs from the `CpuBudget` row — `OrtThreadingOptions.GlobalIntraOpNumThreads` and `GlobalInterOpNumThreads` take the budget's `OrtIntraOp` and `OrtInterOp` and `GlobalSpinControl` takes its `SpinControl` latency-versus-CPU posture, so a thread count or spin flag set outside this one boot fence is the named defect; `DisableTelemetryEvents` runs at boot because the telemetry spine owns signals; the sweep entry folds idle eviction before re-warm on the registered `compute-model-warmup` row; the compiled `ep.context_*` artifact and profile outputs land under the blob-lane artifact directory through `ArtifactIndexRow.Admit`, never as stray temp files, and the warm-start blob is content-addressed by the session fingerprint the capsule already computes — a managed copy of the context bytes is the rejected form.
 
 ```csharp signature
 public sealed record SessionPolicy(
     int ResidentSessions, Duration IdleUnload, Duration WarmupSweep,
     GraphOptimizationLevel Optimization, bool MemoryPattern, bool Profiling,
-    bool OrtExtensions, Seq<string> CustomOpLibraries, Seq<(string Dim, long Value)> FreeDims) {
+    bool OrtExtensions, Seq<string> CustomOpLibraries, Seq<(string Dim, long Value)> FreeDims,
+    DataClassification WarmStartClassification, string WarmStartRetention) {
     public static readonly SessionPolicy Canonical = new(
         ResidentSessions: 4, IdleUnload: Duration.FromMinutes(10), WarmupSweep: Duration.FromMinutes(5),
         Optimization: GraphOptimizationLevel.ORT_ENABLE_ALL, MemoryPattern: true, Profiling: false,
-        OrtExtensions: false, CustomOpLibraries: Seq<string>(), FreeDims: Seq<(string Dim, long Value)>());
+        OrtExtensions: false, CustomOpLibraries: Seq<string>(), FreeDims: Seq<(string Dim, long Value)>(),
+        WarmStartClassification: DataClassification.Operational, WarmStartRetention: "blob-index");
 }
 
 public static class ModelSessions {
@@ -102,19 +104,20 @@ public static class ModelSessions {
     static readonly Atom<HashMap<UInt128, Resident>> Residents = Atom(HashMap<UInt128, Resident>());
     static readonly PrePackedWeightsContainer PrePacked = new();
 
-    public static Fin<Unit> Boot(string logId, OrtLoggingLevel severity, OrtThreadingOptions pool) {
+    public static Fin<Unit> Boot(string logId, OrtLoggingLevel severity, CpuBudget budget) {
         if (OrtEnv.IsCreated) { return Fin.Succ(unit); }
+        var pool = new OrtThreadingOptions { GlobalIntraOpNumThreads = budget.OrtIntraOp, GlobalInterOpNumThreads = budget.OrtInterOp, GlobalSpinControl = budget.SpinControl };
         var creation = new EnvironmentCreationOptions { logId = logId, logLevel = severity, threadOptions = pool };
         OrtEnv.CreateInstanceWithOptions(ref creation);
         OrtEnv.Instance().DisableTelemetryEvents();
         return Fin.Succ(unit);
     }
 
-    public static Fin<InferenceSession> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, ClockPolicy clocks) {
+    public static Fin<(InferenceSession Session, Option<ArtifactIndexRow> WarmStart)> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, ClockPolicy clocks) {
         var now = clocks.Now;
         if (Residents.Value.Find(model.Checksum).Case is Resident resident) {
             Residents.Swap(map => map.SetItem(model.Checksum, resident with { LastUsed = now }));
-            return Fin.Succ(resident.Session);
+            return Fin.Succ((resident.Session, Option<ArtifactIndexRow>.None));
         }
         return Open(model, bytes, ep, policy, artifactDir, now);
     }
@@ -132,7 +135,7 @@ public static class ModelSessions {
     public static ScheduleEntry SweepRow(Func<IO<Unit>> warm) =>
         new("compute-model-warmup", new OccurrenceSpec.Every(SessionPolicy.Canonical.WarmupSweep), DeadlineClass.Startup, Option<LeasePolicy>.None, warm);
 
-    static Fin<InferenceSession> Open(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, Instant now) {
+    static Fin<(InferenceSession Session, Option<ArtifactIndexRow> WarmStart)> Open(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, Instant now) {
         var options = new SessionOptions();
         try {
             options.GraphOptimizationLevel = policy.Optimization;
@@ -153,35 +156,32 @@ public static class ModelSessions {
                     Seq<(UInt128, Resident)> evicted = default;
                     Residents.Swap(map => (evicted = toSeq(map.ToSeq().OrderBy(static pair => pair.Item2.LastUsed).Take(Math.Max(map.Count - policy.ResidentSessions + 1, 0)))).Fold(map, static (acc, pair) => acc.Remove(pair.Item1)).Add(model.Checksum, new Resident(session, now)));
                     evicted.Iter(static pair => pair.Item2.Session.Dispose());
-                    return session;
+                    return (session, WarmStart(model, artifactDir, policy.WarmStartClassification, policy.WarmStartRetention, now));
                 });
         }
         catch (Exception error) {
             options.Dispose();
-            return Fin.Fail<InferenceSession>(new ComputeFault.ModelRejected(error.Message));
+            return Fin.Fail<(InferenceSession, Option<ArtifactIndexRow>)>(new ComputeFault.ModelRejected(error.Message));
         }
     }
-}
-```
 
-```mermaid
-flowchart LR
-    ModelSource --> ModelIdentity
-    ModelIdentity --> ModelSessions
-    ExecutionProvider --> ModelSessions
-    CustomOps --> ModelSessions
-    SessionPolicy --> ModelSessions
-    ModelSessions --> InferenceSession
+    static Option<ArtifactIndexRow> WarmStart(ModelIdentity model, string artifactDir, DataClassification classification, string retentionClass, Instant at) {
+        var contextPath = Path.Combine(artifactDir, $"{model.Checksum:x32}.ctx.onnx");
+        return File.Exists(contextPath)
+            ? Some(ArtifactIndexRow.Admit(ArtifactIndexRow.EpContext, contextPath, File.ReadAllBytes(contextPath), classification, retentionClass, at))
+            : None;
+    }
+}
 ```
 
 ## [4]-[EP_AXIS]
 
 - Owner: `ModelKeyPolicy` ordinal accessor; `ExecutionProvider` `[SmartEnum<string>]` rows with probe name, OS gate, frozen option table, device policy, and register delegate columns.
-- Cases: `Cpu`, `CoreMl`.
-- Auto: `Available` reads the `GetAvailableProviders` probe plus the macOS 12 gate riding the `ModelFormat` row value; `ResultKey` stamps EP key, ORT version, and option-table hash for the deterministic cache key with zero call-site hashing.
+- Cases: `Cpu`, `CoreMl`, `Cuda`, `DirectMl`.
+- Auto: `Available` reads the `GetAvailableProviders` probe plus the macOS 12 gate riding the `ModelFormat` row value and the `RequiresWindows` gate on the GPU rows; `ResultKey` stamps EP key, ORT version, and option-table hash for the deterministic cache key with zero call-site hashing.
 - Packages: Microsoft.ML.OnnxRuntime, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: Cuda and DirectML are one EP row each on Windows profiles; the generative token-streaming successor lands as one designed substrate row, never a chat-client surface; zero new surface.
-- Boundary: `AppendExecutionProvider("CoreML", options)` with the eight option keys is the canonical spelling — `AppendExecutionProvider_CoreML(CoreMLFlags)` is the rejected legacy flags route; the macOS 12 gate is per `ModelFormat` value because the legacy NeuralNetwork format alone reaches back to macOS 10.15; `ModelCacheDirectory` binds at registration to the blob-lane artifact directory so compiled CoreML caches are catalogued inventory; dylib-presence heuristics are the deleted probe form.
+- Growth: a new accelerator is one `ExecutionProvider` row with its probe name, OS gate, and device policy columns — `Cuda` and `DirectMl` are the designed-only Windows-gated rows carrying the `PREFER_GPU` and `MAX_PERFORMANCE` device policies; the generative token-streaming successor lands as one designed substrate row, never a chat-client surface; zero new surface.
+- Boundary: `AppendExecutionProvider("CoreML", options)` with the seven frozen option keys is the canonical spelling — `AppendExecutionProvider_CoreML(CoreMLFlags)` is the rejected legacy flags route; the `Cuda` and `DirectMl` rows carry only their `PREFER_GPU` and `MAX_PERFORMANCE` device-policy columns and a no-op register delegate, the GPU registration spelling binding from the EP_OPTIONS research row, and stay designed-only behind the `RequiresWindows` gate; the macOS 12 gate is per `ModelFormat` value because the legacy NeuralNetwork format alone reaches back to macOS 10.15; the CoreML option keys and their value domains are catalogued and the seven frozen rows are the canonical spelling; `ModelCacheDirectory` binds at registration to the blob-lane artifact directory so compiled CoreML caches are catalogued inventory; a vetoed row degrades to the next with its reason in the receipt and `Cpu` is the implicit terminal; dylib-presence heuristics are the deleted probe form.
 
 ```csharp signature
 public sealed class ModelKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -205,19 +205,20 @@ public sealed partial class ExecutionProvider {
         ["AllowLowPrecisionAccumulationOnGPU"] = "0",
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    public static readonly ExecutionProvider Cpu = new(
-        "cpu", providerName: "CPUExecutionProvider", minMacOsMajor: 0, optionsHash: 0UL,
-        options: FrozenDictionary<string, string>.Empty, devicePolicy: Option<ExecutionProviderDevicePolicy>.None,
-        register: static (_, _) => { });
+    public static readonly ExecutionProvider Cpu = new("cpu", providerName: "CPUExecutionProvider", minMacOsMajor: 0, requiresWindows: false, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, devicePolicy: Option<ExecutionProviderDevicePolicy>.None, register: static (_, _) => { });
 
     public static readonly ExecutionProvider CoreMl = new(
-        "coreml", providerName: "CoreMLExecutionProvider", minMacOsMajor: 12, optionsHash: Hash(CoreMlRows),
+        "coreml", providerName: "CoreMLExecutionProvider", minMacOsMajor: 12, requiresWindows: false, optionsHash: Hash(CoreMlRows),
         options: CoreMlRows, devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_NPU),
-        register: static (sessionOptions, cacheDir) => sessionOptions.AppendExecutionProvider(
-            "CoreML", new Dictionary<string, string>(CoreMlRows, StringComparer.Ordinal) { ["ModelCacheDirectory"] = cacheDir }));
+        register: static (sessionOptions, cacheDir) => sessionOptions.AppendExecutionProvider("CoreML", new Dictionary<string, string>(CoreMlRows, StringComparer.Ordinal) { ["ModelCacheDirectory"] = cacheDir }));
+
+    public static readonly ExecutionProvider Cuda = new("cuda", providerName: "CUDAExecutionProvider", minMacOsMajor: 0, requiresWindows: true, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_GPU), register: static (_, _) => { });
+
+    public static readonly ExecutionProvider DirectMl = new("directml", providerName: "DmlExecutionProvider", minMacOsMajor: 0, requiresWindows: true, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, devicePolicy: Some(ExecutionProviderDevicePolicy.MAX_PERFORMANCE), register: static (_, _) => { });
 
     public string ProviderName { get; }
     public int MinMacOsMajor { get; }
+    public bool RequiresWindows { get; }
     public ulong OptionsHash { get; }
     public FrozenDictionary<string, string> Options { get; }
     public Option<ExecutionProviderDevicePolicy> DevicePolicy { get; }
@@ -225,7 +226,8 @@ public sealed partial class ExecutionProvider {
 
     public bool Available =>
         OrtEnv.Instance().GetAvailableProviders().Contains(ProviderName, StringComparer.Ordinal)
-        && (MinMacOsMajor is 0 || OperatingSystem.IsMacOSVersionAtLeast(MinMacOsMajor));
+        && (MinMacOsMajor is 0 || OperatingSystem.IsMacOSVersionAtLeast(MinMacOsMajor))
+        && (!RequiresWindows || OperatingSystem.IsWindows());
 
     public string ResultKey(string ortVersion) => $"{Key}:{ortVersion}:{OptionsHash:x16}";
 
@@ -271,18 +273,25 @@ public static class CustomOps {
 - Owner: `RunOps` — the run-mode fold over the shared session: single, lane-enqueued, bound-batch, and windowed runs discriminated by intent payload shape.
 - Cases: single `Run`; lane-enqueued async (the lane seam owns the thread hop — the native `RunAsync` requires pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so it is the rejected spelling); `RunWithBoundResults` batch over `OrtIoBinding`; streaming windows over chunked inputs.
 - Entry: `public Fin<T> Infer<T>(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, Seq<string> outputs, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project)` — the projection runs inside the native-result bracket.
-- Auto: `Plan` wires deadline expiry into the `Terminate` one-way latch from the linked `CancelScope`, attaches LoRA adapters, and sets the arena-shrinkage row on bulk runs; one conversion arm classifies failures into `DeadlineExpired`/`Cancelled` by scope provenance.
+- Auto: `Plan` wires deadline expiry into the `Terminate` one-way latch from the linked `CancelScope`, attaches LoRA adapters, and folds the `RunConfig` row table into `AddRunConfigEntry` calls so a posture change selects a row rather than editing the fence; one conversion arm classifies failures into `DeadlineExpired`/`Cancelled` by scope provenance.
 - Receipt: the ModelRun receipt carries route, elapsed, allocation class, and `OrtMemoryInfo` allocator evidence slots; profiling chrome-trace artifacts land as `ArtifactIndexRow.OnnxProfile` rows with the artifact path in the receipt.
 - Packages: Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
-- Growth: a new run shape is one payload-shape case on the intent family; zero new surface.
-- Boundary: `RunOps` extends the `ModelSessions` boundary capsule and this fence carries bracketed statement forms with deterministic native disposal; OrtValue-only law — `NamedOnnxValue`, `DisposableNamedOnnxValue`, and `FixedBufferOnnxValue` are superseded spellings that never appear; `CreateTensorValueFromMemory` binds rented staging arrays without copies; output projection scopes native memory inside `project` and sentinel or NaN values project to `Option` at the boundary, never inward.
+- Growth: a new run shape is one payload-shape case on the intent family; a new run-config posture is one `RunConfig` row carrying its `AddRunConfigEntry` key-value pairs; zero new surface.
+- Boundary: `RunOps` extends the `ModelSessions` boundary capsule and this fence carries bracketed statement forms with deterministic native disposal; OrtValue-only law — `NamedOnnxValue`, `DisposableNamedOnnxValue`, and `FixedBufferOnnxValue` are superseded spellings that never appear; `CreateTensorValueFromMemory` binds rented staging arrays without copies; the `Terminate` latch is the single cancellation propagation path and the deadline-poll cadence binds from the CANCELLATION research row; `InferBound` runs `RunWithBoundResults` over a pre-built `OrtIoBinding` whose bind and synchronize population binds from the IO_BINDING research row, never a guessed member spelling; output projection scopes native memory inside `project` and sentinel or NaN values project to `Option` at the boundary, never inward.
 
 ```csharp signature
+public sealed record RunConfig(FrozenDictionary<string, string> Entries) {
+    public static readonly RunConfig Steady = new(FrozenDictionary<string, string>.Empty);
+    public static RunConfig Bulk(string arenaShrinkDevice) => new(new Dictionary<string, string>(StringComparer.Ordinal) {
+        ["memory.enable_memory_arena_shrinkage"] = arenaShrinkDevice,
+    }.ToFrozenDictionary(StringComparer.Ordinal));
+}
+
 public static class RunOps {
-    public static RunOptions Plan(CancelScope scope, Option<OrtLoraAdapter> lora = default, Option<string> arenaShrink = default) {
+    public static RunOptions Plan(CancelScope scope, RunConfig config, Option<OrtLoraAdapter> lora = default) {
         var options = new RunOptions();
         lora.Iter(options.AddActiveLoraAdapter);
-        arenaShrink.Iter(value => options.AddRunConfigEntry("memory.enable_memory_arena_shrinkage", value));
+        config.Entries.Iter(entry => options.AddRunConfigEntry(entry.Key, entry.Value));
         scope.Source.Token.Register(() => options.Terminate = true);
         return options;
     }
@@ -335,7 +344,7 @@ public static class RunOps {
 - Receipt: `CacheIndexFact` hit/miss/evict facts with byte sizes; `Validated` faults `CacheCorrupt` on checksum-echo mismatch at read.
 - Packages: Microsoft.Extensions.Caching.Hybrid, Microsoft.ML.OnnxRuntime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), Rasm.Persistence (project)
 - Growth: a new cache posture is one `CachePolicy` row; zero new surface.
-- Boundary: `CacheOps` extends the cache boundary capsule and this fence carries the async statement forms of the fresh path; Compute owns keys and policy rows, never a cache instance — `CacheSurface` over `CacheLane.ModelResult` is the single cache owner and hand-rolled memoization beside it is the named defect; cached payloads carry the checksum echo that `Validated` checks before projection.
+- Boundary: `CacheOps` extends the cache boundary capsule and this fence carries the async statement forms of the fresh path; Compute owns keys and policy rows, never a cache instance — `CacheSurface` over `CacheLane.ModelResult` is the single cache owner and hand-rolled memoization beside it is the named defect; cached payloads carry the checksum echo that `Validated` checks before projection; the cross-process result-reuse recency horizon is read by reference from the Persistence `ModelResultKey` index owner — the single horizon owner — never minted here, so a second `Duration horizon` parameter beside the policy rows is the named defect.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -384,4 +393,5 @@ public static class CacheOps {
 ## [8]-[RESEARCH]
 
 - [CANCELLATION]: `RunOptions.Terminate` latch propagation latency and the deadline poll cadence on the CoreML and CPU rows.
-- [EP_OPTIONS]: CoreML option value domains beyond `ModelFormat` — the `MLComputeUnits` and `SpecializationStrategy` value spellings.
+- [EP_OPTIONS]: the `Cuda` and `DirectMl` GPU registration members — `AppendExecutionProvider_CUDA(int)` and `AppendExecutionProvider_DML(int)` — uncatalogued against the Compute-graph package surface because they ship in the app-root-only `Microsoft.ML.OnnxRuntime.Gpu`/`.DirectML` packages; the no-op register delegate stands in until the GPU package admission lands these member spellings at the Windows-profile implementation.
+- [IO_BINDING]: the `OrtIoBinding` bind and synchronize population members — `BindInput`, `BindOutput`, `BindOutputToDevice`, `SynchronizeBoundInputs`, `SynchronizeBoundOutputs` — uncatalogued against the package surface; `InferBound` owns binding population only once these member spellings confirm in the onnxruntime catalogue.

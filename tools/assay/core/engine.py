@@ -29,7 +29,12 @@ import stamina
 import structlog
 from upath import UPath
 
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # unconditional: beartype resolves forward refs at import time
+from tools.assay.composition.catalog import AST_MATCHES
+from tools.assay.composition.settings import (  # unconditional: beartype resolves forward refs at import time
+    ArtifactScope,
+    AssaySettings,
+    size_from_info,
+)
 from tools.assay.core.aspect import (
     _CHECKED_LAYER,  # noqa: PLC2701  # co-owned internal seam: aspect and engine share this layer without a public surface
     compose,
@@ -37,6 +42,7 @@ from tools.assay.core.aspect import (
     traced,
 )
 from tools.assay.core.model import (  # noqa: TC001  # beartype resolves the Tool annotation on _apphost at runtime under PEP 649
+    _HOST_BOUND_CLAIMS,  # noqa: PLC2701  # shared host-bound claim set for the remote-exec reject gate
     Artifact,
     ArtifactKind,
     Check,
@@ -46,6 +52,7 @@ from tools.assay.core.model import (  # noqa: TC001  # beartype resolves the Too
     receipt,
     Runner,
     Tool,
+    ToolGroup,
 )
 from tools.assay.core.routing import place, Routed
 from tools.assay.core.status import RailStatus
@@ -56,6 +63,8 @@ if TYPE_CHECKING:
 
     from anyio.abc import ByteReceiveStream, ObjectReceiveStream, ObjectSendStream, Process
     import asyncssh
+
+    from tools.assay.composition.settings import ArtifactStore
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -96,6 +105,10 @@ _SSH_CONNECT_TIMEOUT: float = 15.0
 _SSH_KEEPALIVE_INTERVAL_S: float = 15.0
 _SSH_KEEPALIVE_COUNT_MAX: int = 3
 _SSH_SIGNAL_STATUS: int = 255
+# Artifact pull runs after the remote process exits; a shielded ceiling stops a large tree from reclassifying a completed run as TIMEOUT.
+_ARTIFACT_PULL_BUDGET_S: float = 120.0
+# Cloud backends are a shared store the agent reads at the same universal paths; sftp requires a real byte transfer.
+_SHARED_STORE_PROTOCOLS: frozenset[str] = frozenset({"s3", "gs", "gcs"})
 _DOTNET_PROBE_TIMEOUT_S: float = 15.0
 _DOTNET_SHARED_RUNTIME: tuple[str, str] = ("shared", "Microsoft.NETCore.App")
 _DOTNET_SLOT_POLL_S: float = 0.25
@@ -144,11 +157,74 @@ class _SshCache:
 
 
 @dataclass(frozen=True, slots=True)
-class _StallSample:
+class StalledProcess:
+    """Tree-aggregated stall sample: cumulative CPU seconds, involuntary switches, root status, and process count."""
+
     cpu_s: float
     invol: float
     status: str
     procs: int
+
+
+@dataclass(frozen=True, slots=True)
+class _MemoryInfo:
+    rss: float
+    vms: float
+    uss: float
+    percent_rss: float
+    num_fds: float
+    num_threads: float
+
+
+@dataclass(frozen=True, slots=True)
+class _LoadInfo:
+    # Mem and load probes degrade independently to None: a faulted source elides its keys rather than reporting a sentinel.
+    mem: tuple[float, float, float] | None
+    load1_percent: float | None
+
+    def to_rows(self) -> dict[str, float]:
+        mem_rows = (
+            {} if self.mem is None else {"sys.mem_available_bytes": self.mem[0], "sys.mem_percent": self.mem[1], "sys.swap_percent": self.mem[2]}
+        )
+        load_rows = {} if self.load1_percent is None else {"sys.load1_percent": self.load1_percent}
+        return {**mem_rows, **load_rows}
+
+
+@dataclass(frozen=True, slots=True)
+class _ChildrenInfo:
+    count: float
+    rss_bytes: float
+
+    def to_rows(self) -> dict[str, float]:
+        return {"proc.children": self.count, "proc.children_rss_bytes": self.rss_bytes}
+
+
+@dataclass(frozen=True, slots=True)
+class Measurements:
+    """Single-pass process, load, and child-tree telemetry folded from one psutil oneshot and one tree walk."""
+
+    memory: _MemoryInfo
+    load: _LoadInfo
+    children: _ChildrenInfo | None  # None when the recursive children walk faults; elides the two child-tree keys
+
+    def to_resources(self) -> tuple[tuple[str, float], ...]:
+        """Project the canonical resource key/value rows, eliding any child-tree or load arm that degraded.
+
+        Returns:
+            The sorted-on-consumption resource rows in their existing key spellings.
+        """
+        return tuple(
+            {
+                "mem.rss_bytes": self.memory.rss,
+                "mem.vms_bytes": self.memory.vms,
+                "mem.uss_bytes": self.memory.uss,
+                "mem.percent_rss": self.memory.percent_rss,
+                "proc.num_fds": self.memory.num_fds,
+                "proc.num_threads": self.memory.num_threads,
+                **(self.children.to_rows() if self.children is not None else {}),
+                **self.load.to_rows(),
+            }.items()
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,7 +332,7 @@ def _overlay(tool: Tool, settings: AssaySettings, scope: ArtifactScope | None) -
 def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: ArtifactScope | None) -> Result[tuple[str, ...], Fault]:
     tool = check.tool
     body = splice_command(tool.runner, tool.command, scope, settings.scoped_verbs, tool.mode)
-    body = (*(part for group in tool.groups for part in ("--group", group)), *body) if tool.runner is Runner.UV else body
+    body = (*(part for group in tool.uv_groups() for part in ("--group", group)), *body) if tool.runner is Runner.UV else body
     body = ("--project", str(settings.root), *body) if tool.runner is Runner.UV and tool.stage.project else body
     match check.tail:
         case tuple() as pinned:
@@ -525,7 +601,7 @@ def _reap_tree(pid: int) -> None:
     _safe_call(lambda: _terminate_process_tree(((root := psutil.Process(pid)), *root.children(recursive=True)), _child_pgid(pid)), None)
 
 
-def _stall_sample(pid: int) -> _StallSample:
+def _stall_sample(pid: int) -> StalledProcess:
     # Tree-aggregated: dotnet builds fan out compiler children, so the root process alone under-reports activity.
     def _tree() -> tuple[psutil.Process, ...]:
         root = psutil.Process(pid)
@@ -542,7 +618,7 @@ def _stall_sample(pid: int) -> _StallSample:
         return _safe_call(lambda: float(proc.num_ctx_switches().involuntary), 0.0)
 
     tree: tuple[psutil.Process, ...] = _safe_call(_tree, ())
-    return _StallSample(
+    return StalledProcess(
         cpu_s=sum(_cpu(proc) for proc in tree),
         invol=sum(_invol(proc) for proc in tree),
         status=_safe_call(tree[0].status, "") if tree else "",
@@ -550,7 +626,7 @@ def _stall_sample(pid: int) -> _StallSample:
     )
 
 
-def _stall_verdict(first: _StallSample, second: _StallSample) -> str:
+def _stall_verdict(first: StalledProcess, second: StalledProcess) -> str:
     # Silent-child triage reports the resource consumed across the sample window.
     cpu_pct = max(0.0, second.cpu_s - first.cpu_s) * 100.0 / max(_STALL_SAMPLE_S, 1e-6)
     invol_rate = max(0.0, second.invol - first.invol) / max(_STALL_SAMPLE_S, 1e-6)
@@ -607,7 +683,7 @@ def _resource_sample(pid: int, last_output: float) -> tuple[tuple[str, float], .
         "proc.dotnet.count": float(dotnet),
         "proc.csc.count": float(csc),
         "proc.last_output_age_s": max(0.0, time.monotonic() - last_output),
-        **_sys_pressure(),
+        **_load_info().to_rows(),
     }
     return tuple(sample.items())
 
@@ -676,7 +752,8 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:  # noqa: PLR0914  
                 case False:
                     done = await anyio.run_process(list(plan.argv), cwd=plan.cwd, env=plan.env, check=False, start_new_session=True)
                     streams = _captured_outputs(plan, done.stdout, done.stderr)
-                    resources = tuple(sorted(_snapshot().items()))
+                    # One measurement owner feeds every receipt: the non-streaming receipt now carries proc.children like the streaming path.
+                    resources = tuple(sorted(_measure().to_resources()))
                     duration_ms = (time.monotonic() - started) * 1000.0
                     _LOG.info(
                         "process.end",
@@ -778,13 +855,14 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
                 try:
                     streams = await _drain_pair(plan, _recv_ssh(proc.stdout, plan.chunk), _recv_ssh(proc.stderr, plan.chunk), proc.wait)
                     code, notes = ssh_outcome(proc.exit_status, getattr(proc, "exit_signal", None))
+                    artifacts, pull_notes = await _pull_remote_artifacts(conn, plan, streams)
                     return receipt(
                         plan.argv,
                         code,
                         stdout=streams.get("out", Captured()).tail,
                         stderr=streams.get("err", Captured()).tail,
-                        notes=notes,
-                        artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
+                        notes=(*notes, *pull_notes),
+                        artifacts=artifacts,
                     )
                 finally:
                     with anyio.CancelScope(shield=True):
@@ -794,14 +872,105 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
                 done = await conn.run(command, encoding=None, check=False)
                 code, notes = ssh_outcome(done.exit_status, getattr(done, "exit_signal", None))
                 streams = _captured_outputs(plan, _as_bytes(done.stdout), _as_bytes(done.stderr))
+                artifacts, pull_notes = await _pull_remote_artifacts(conn, plan, streams)
                 return receipt(
                     plan.argv,
                     code,
                     stdout=streams.get("out", Captured()).tail,
                     stderr=streams.get("err", Captured()).tail,
-                    notes=notes,
-                    artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
+                    notes=(*notes, *pull_notes),
+                    artifacts=artifacts,
                 )
+
+
+async def _pull_remote_artifacts(
+    conn: asyncssh.SSHClientConnection, plan: _ExecPlan, streams: Mapping[str, Captured]
+) -> tuple[tuple[Artifact, ...], tuple[str, ...]]:
+    """Fold the agent-streamed captures with the tool-written remote scope tree, dispatching on the backend protocol.
+
+    The stdout/stderr captures already streamed to the agent-local store; the remote tool wrote its own scope
+    artifacts (SARIF/coverage/results) to the configured backend. Cloud backends are shared and need no transfer;
+    sftp needs a real download. The pull is shielded under a generous budget so a slow tree degrades to a receipt
+    note rather than reclassifying a completed run as TIMEOUT.
+
+    Returns:
+        Folded artifact rows and any degrade/skip notes.
+    """
+    captured = _stream_artifacts(plan.scope, plan.settings, plan.check, streams)
+    if not isinstance(plan.scope, ArtifactScope):
+        return captured, ()
+    # Shield + fail_after bound the pull on the check's clock so artifact return never reclassifies a completed run.
+    with anyio.CancelScope(shield=True):
+        pulled = await _pull_scope_under_budget(conn, plan, plan.scope, captured)
+    return pulled
+
+
+async def _pull_scope_under_budget(
+    conn: asyncssh.SSHClientConnection, plan: _ExecPlan, scope: ArtifactScope, captured: tuple[Artifact, ...]
+) -> tuple[tuple[Artifact, ...], tuple[str, ...]]:
+    protocol = plan.settings.artifact_backend.protocol
+    try:
+        with anyio.fail_after(_ARTIFACT_PULL_BUDGET_S):
+            match protocol:
+                case "sftp":
+                    return (*captured, *await _sftp_pull_scope(conn, plan, scope)), ()
+                case shared if (
+                    shared in _SHARED_STORE_PROTOCOLS
+                ):  # pragma: no cover  # cloud arm: revived when _REMOTE_REACHABLE_PROTOCOLS re-admits these
+                    return (*captured, *await to_thread.run_sync(_shared_scope_artifacts, scope, plan.check)), ()
+                case other:  # pragma: no cover  # the load-time validator forecloses every non-sftp remote-exec backend
+                    return captured, (f"remote.artifacts.skipped protocol={other}",)
+    except TimeoutError:
+        return captured, (f"remote.artifacts.degraded budget_s={_ARTIFACT_PULL_BUDGET_S:g} protocol={protocol}",)
+
+
+def _scope_relative(scope: ArtifactScope) -> tuple[str, ...]:
+    # Scope parts are root-down by construction: stripping the store root yields parts that agree across local/remote/cloud.
+    tail = scope.path[len(scope.store.root) + 1 :] if scope.path.startswith(f"{scope.store.root}/") else scope.path
+    return tuple(part for part in tail.split("/") if part)
+
+
+def _shared_scope_artifacts(
+    scope: ArtifactScope, check: Check
+) -> tuple[Artifact, ...]:  # pragma: no cover  # unreachable until cloud backends re-admit
+    # Cloud store is shared: the agent reads the tool-written files at the same universal paths; no transfer.
+    rows = scope.store.walk(*_scope_relative(scope), recursive=True, detail=True)
+    return tuple(
+        Artifact(id=f"{check.tool.name}-scope-{path.rsplit('/', 1)[-1]}", kind=ArtifactKind.SCOPE, path=path, bytes=size_from_info(info))
+        for row in rows
+        if isinstance(row, tuple)
+        for path, info in (row,)
+        if isinstance(info, dict) and str(info.get("type", "file")) != "directory"
+    )
+
+
+async def _sftp_pull_scope(conn: asyncssh.SSHClientConnection, plan: _ExecPlan, scope: ArtifactScope) -> tuple[Artifact, ...]:
+    # The agent landing store is always local-file: an SFTP execution backend cannot be read in-process, so artifacts come down to disk.
+    rel = _scope_relative(scope)
+    landing = plan.settings.store(protocol="file", root="")
+    remote_dir = "/".join((plan.settings.artifact_backend.root.rstrip("/"), *rel))
+    local_dir = Path(landing.ensure(*rel))
+    async with await conn.start_sftp_client() as sftp:
+        if not await sftp.exists(remote_dir):
+            return ()
+        # localpath is the parent so asyncssh recreates the run-id dir from the remote basename, agreeing with `rel`.
+        await sftp.get(remote_dir, str(local_dir.parent), recurse=True, preserve=False)
+    return await to_thread.run_sync(_landed_scope_artifacts, landing, local_dir, rel, plan.check.tool.name)
+
+
+def _landed_scope_artifacts(landing: ArtifactStore, local_dir: Path, rel: tuple[str, ...], tool: str) -> tuple[Artifact, ...]:
+    # Sync file-tree read of the freshly-landed scope: byte/line counts are real, paths are agent-local and scope-relative.
+    return tuple(
+        Artifact(
+            id=f"{tool}-scope-{file.name}",
+            kind=ArtifactKind.SCOPE,
+            path=landing.path(*rel, *file.relative_to(local_dir).parts),
+            bytes=file.stat().st_size,
+            lines=_line_count(file.read_bytes()),
+        )
+        for file in sorted(local_dir.rglob("*"))
+        if file.is_file()
+    )
 
 
 @contextlib.asynccontextmanager
@@ -889,58 +1058,80 @@ def _safe_call[T](fn: Callable[[], T], default: T) -> T:
         return default
 
 
-def _snapshot() -> dict[str, float]:
-    # oneshot batches proc syscalls; _children is called separately to avoid recursive oneshot nesting.
-    proc = psutil.Process()
-    with proc.oneshot():
-        info = proc.memory_info()
-        base = {
-            "mem.rss_bytes": float(info.rss),
-            "mem.vms_bytes": _safe_call(lambda: float(info.vms), -1.0),
-            "mem.uss_bytes": _safe_call(lambda: float(proc.memory_full_info().uss), -1.0),
-            "mem.percent_rss": _safe_call(lambda: float(info.rss) * 100.0 / max(float(psutil.virtual_memory().total), 1.0), -1.0),
-            "proc.num_fds": _safe_call(lambda: float(proc.num_fds()), -1.0),  # ty: ignore[possibly-missing-attribute]  # POSIX-only probe
-            "proc.num_threads": _safe_call(lambda: float(proc.num_threads()) if isinstance(proc.num_threads, _Nullary) else -1.0, -1.0),
-        }
-    return {**base, **_sys_pressure()}
-
-
-def _sys_pressure() -> dict[str, float]:
-    # Memory and load probes degrade independently: each arm contributes its keys only when its own source calls succeed.
-    def _mem() -> dict[str, float]:
+def _load_info() -> _LoadInfo:
+    # Memory and load probes degrade independently: each arm yields None (elided keys) when its own source calls fail.
+    def _mem() -> tuple[float, float, float]:
         mem, swap = psutil.virtual_memory(), psutil.swap_memory()
-        return {
-            "sys.mem_available_bytes": _safe_call(lambda: float(mem.available), -1.0),
-            "sys.mem_percent": _safe_call(lambda: float(mem.percent), -1.0),
-            "sys.swap_percent": _safe_call(lambda: float(swap.percent), -1.0),
-        }
+        return (
+            _safe_call(lambda: float(mem.available), -1.0),
+            _safe_call(lambda: float(mem.percent), -1.0),
+            _safe_call(lambda: float(swap.percent), -1.0),
+        )
 
-    def _load() -> dict[str, float]:
+    def _load() -> float:
         load1 = os.getloadavg()[0]  # ty: ignore[possibly-missing-attribute]  # POSIX-only; absence degrades through _safe_call
-        return {"sys.load1_percent": load1 * 100.0 / max(float(psutil.cpu_count(logical=True) or 1), 1.0)}
+        return load1 * 100.0 / max(float(psutil.cpu_count(logical=True) or 1), 1.0)
 
-    return {**_safe_call(_mem, {}), **_safe_call(_load, {})}
+    return _LoadInfo(mem=_safe_call(_mem, None), load1_percent=_safe_call(_load, None))
 
 
-def _children(proc: psutil.Process) -> dict[str, float]:
+def _measure() -> Measurements:
+    # One oneshot batches self-process syscalls; one recursive children walk and one load read feed the unified owner.
+    proc = psutil.Process()
+
     def _rss(child: psutil.Process) -> float:
         return _safe_call(lambda: float(child.memory_info().rss), 0.0)
 
-    def _walk() -> dict[str, float]:
+    def _walk() -> _ChildrenInfo:
         kids = tuple(proc.children(recursive=True))
-        return {"proc.children": float(len(kids)), "proc.children_rss_bytes": float(sum(_rss(child) for child in kids))}
+        return _ChildrenInfo(count=float(len(kids)), rss_bytes=float(sum(_rss(child) for child in kids)))
 
-    return _safe_call(_walk, {})
+    with proc.oneshot():
+        info = proc.memory_info()
+        memory = _MemoryInfo(
+            rss=float(info.rss),
+            vms=_safe_call(lambda: float(info.vms), -1.0),
+            uss=_safe_call(lambda: float(proc.memory_full_info().uss), -1.0),
+            percent_rss=_safe_call(lambda: float(info.rss) * 100.0 / max(float(psutil.virtual_memory().total), 1.0), -1.0),
+            num_fds=_safe_call(lambda: float(proc.num_fds()), -1.0),  # ty: ignore[possibly-missing-attribute]  # POSIX-only probe
+            num_threads=_safe_call(lambda: float(proc.num_threads()) if isinstance(proc.num_threads, _Nullary) else -1.0, -1.0),
+        )
+        children = _safe_call(_walk, None)
+    return Measurements(memory=memory, load=_load_info(), children=children)
 
 
 def _diagnose(exc: BaseException) -> None:
-    # Children walk on the fault path only; keeps _snapshot free of recursive oneshot nesting.
-    snap = {**_snapshot(), **_children(psutil.Process())}
+    snap = dict(_measure().to_resources())
     _RESOURCE.set(tuple(snap.items()))
     span = trace.get_current_span()
     span.record_exception(exc)
     span.add_event(_FAULT_SNAPSHOT, attributes=snap)
     span.add_event(_RING_SNAPSHOT, attributes={"events": ring_recent()})
+
+
+def apply_row_status(tool: Tool, done: Completed) -> Completed:
+    """Apply a tool row's status policy to a process receipt.
+
+    An ``empty-on-exit1`` row whose returncode-1 stdout decodes as the no-match document maps to ``EMPTY``
+    (the tool signals "no match" through exit 1); non-document stdout on exit 1 stays a tool fault (FAILED).
+
+    Returns:
+        The receipt with the group-driven status applied, or unchanged when no policy matches.
+    """
+    return (
+        msgspec.structs.replace(done, status=RailStatus.EMPTY)
+        if ToolGroup.EMPTY_ON_EXIT1 in tool.groups and done.returncode == 1 and _is_match_document(done.stdout)
+        else done
+    )
+
+
+def _is_match_document(raw: bytes) -> bool:
+    # The typed match-array decoder rejects a valid-JSON non-array on exit 1, keeping it a tool fault.
+    try:
+        AST_MATCHES.decode(raw or b"[]")
+    except msgspec.MsgspecError:
+        return False
+    return True
 
 
 async def _guarded(
@@ -957,7 +1148,7 @@ async def _guarded(
             case Result(tag="ok", ok=prepared):
                 argv = prepared.argv
                 return (await _run_prepared(prepared, settings, scope, attempts)).map(
-                    lambda done: msgspec.structs.replace(done, duration_ms=(time.monotonic() - t0) * 1000.0)
+                    lambda done: apply_row_status(check.tool, msgspec.structs.replace(done, duration_ms=(time.monotonic() - t0) * 1000.0))
                 )
             case Result(error=fault):
                 return Error(fault)
@@ -976,6 +1167,10 @@ async def _prepare_exec(
             check = prepared
         case Result(error=fault):
             return Error(fault)
+    if check.tool.claim in _HOST_BOUND_CLAIMS and settings.exec_target:
+        return Error(
+            Fault((check.tool.name, check.tool.claim.value), status=RailStatus.UNSUPPORTED, message="host-bound tools require local execution")
+        )
     match _argv(check, routed, settings=settings, scope=scope):
         case Result(tag="ok", ok=argv):
             pass
@@ -1188,6 +1383,7 @@ def fan_out(
     """
 
     async def _run() -> tuple[Result[Completed, Fault], ...]:
+        _FOREIGN_DOTNET_MEMO.clear()  # fresh dotnet census per fan; the TTL memo only spans one fan's slot-poll window
         limit = governed_concurrency(settings, checks)
         results: dict[int, Result[Completed, Fault]] = {}
         token = _FAN_LIMITER.set(anyio.CapacityLimiter(limit))
@@ -1207,6 +1403,8 @@ def fan_out(
 async def _fan_schedule(
     checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None, limit: int
 ) -> dict[int, Result[Completed, Fault]]:
+    _LOG.info("fan.schedule", total=len(checks), concurrency=limit)
+    trace.get_current_span().add_event("fan.schedule", attributes={"fan.total": len(checks), "fan.concurrency": limit})
     # Buffer capacity equals the check count so the producer never blocks behind a stalled worker.
     send, recv = anyio.create_memory_object_stream[tuple[int, Check]](max(1, len(checks)))
     out_send, out_recv = anyio.create_memory_object_stream[tuple[int, Result[Completed, Fault]]](limit)
@@ -1287,6 +1485,7 @@ async def _dotnet_slot(  # noqa: PLR0912  # closed resource-state ladder; static
     started = time.monotonic()
     while True:
         pressure = _concurrency_pressure(settings, (check,))
+        contended = 0
         for index in range(pressure.slots):
             stack = contextlib.ExitStack()
             held = stack.enter_context(
@@ -1301,6 +1500,13 @@ async def _dotnet_slot(  # noqa: PLR0912  # closed resource-state ladder; static
                     return
                 case _:
                     stack.close()
+                    contended += 1
+        # One slot-wait event per poll cycle after every slot is contended; mirrors the once-per-window stall discipline.
+        wait_ms = (time.monotonic() - started) * 1000.0
+        _LOG.info("dotnet.slot_wait", contended=contended, slots=pressure.slots, wait_ms=round(wait_ms, 1))
+        trace.get_current_span().add_event(
+            "dotnet.slot_wait", attributes={"slot.contended": contended, "slot.slots": pressure.slots, "slot.wait_ms": wait_ms}
+        )
         remaining = _remaining(deadline)
         if remaining is not None and remaining <= _DOTNET_SLOT_POLL_S:
             yield Error(Fault((check.tool.name,), status=RailStatus.TIMEOUT, message="dotnet slot wait deadline exceeded"))
@@ -1318,10 +1524,22 @@ def _concurrency_pressure(settings: AssaySettings, checks: tuple[Check, ...]) ->
     mem_percent = _safe_call(lambda: float(psutil.virtual_memory().percent), 0.0)
     mem_pressure = mem_percent >= _MEM_PRESSURE_PERCENT
     dotnet_pressure = has_dotnet and foreign >= settings.cpu_count
+    reduced = max(1, original // 2) if mem_pressure or dotnet_pressure else original
+    if reduced < original:
+        _LOG.info("concurrency.pressure", original=original, reduced=reduced, foreign_dotnet=foreign, mem_percent=round(mem_percent, 1))
+        trace.get_current_span().add_event(
+            "concurrency.pressure",
+            attributes={
+                "pressure.original": original,
+                "pressure.reduced": reduced,
+                "pressure.foreign_dotnet": foreign,
+                "pressure.mem_percent": mem_percent,
+            },
+        )
     return _ConcurrencyPressure(
         slots=slots,
         original=original,
-        reduced=max(1, original // 2) if mem_pressure or dotnet_pressure else original,
+        reduced=reduced,
         foreign_dotnet=foreign,
         mem_percent=mem_percent,
         mem_pressure=mem_pressure,
@@ -1379,11 +1597,22 @@ def resource_projection(
     return tuple(sorted(resources.items()))
 
 
+# (monotonic_at, count) TTL memo: the 0.25s slot poll and the pressure checks share one census within the poll window.
+_FOREIGN_DOTNET_MEMO: list[tuple[float, int]] = []
+
+
 def _foreign_dotnet_count() -> int:
     # Dotnet-family processes are the cross-invocation pressure unit; exclude this invocation's subtree.
-    own: set[int] = _safe_call(lambda: {p.pid for p in psutil.Process().children(recursive=True)} | {os.getpid()}, {os.getpid()})
-    processes: list[psutil.Process] = _safe_call(lambda: list(psutil.process_iter(["name", "pid"])), [])
-    return sum(1 for proc in processes if (proc.info.get("name") or "") in _DOTNET_PROC_NAMES and proc.info.get("pid") not in own)
+    now = time.monotonic()
+    match _FOREIGN_DOTNET_MEMO:
+        case [(stamped, count)] if now - stamped < _DOTNET_SLOT_POLL_S:
+            return count
+        case _:
+            own: set[int] = _safe_call(lambda: {p.pid for p in psutil.Process().children(recursive=True)} | {os.getpid()}, {os.getpid()})
+            processes: list[psutil.Process] = _safe_call(lambda: list(psutil.process_iter(["name", "pid"])), [])
+            count = sum(1 for proc in processes if (proc.info.get("name") or "") in _DOTNET_PROC_NAMES and proc.info.get("pid") not in own)
+            _FOREIGN_DOTNET_MEMO[:] = ((now, count),)
+            return count
 
 
 def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()) -> int:
@@ -1618,7 +1847,10 @@ __all__ = [
     "_RESOURCE",
     "ByteRecv",
     "Captured",
+    "Measurements",
+    "StalledProcess",
     "WriteSink",
+    "apply_row_status",
     "argv_for",
     "decode_lease_owner",
     "discover",

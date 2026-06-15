@@ -75,17 +75,19 @@ public sealed class CacheContribution(
 
 ## [3]-[MODEL_RESULT_INDEX]
 
-- Owner: `ModelResultKey`, `CacheIndexFact`, `IndexSurface` — deterministic result identity plus the one cache-evidence fact stream shared by all three indexes.
+- Owner: `ModelResultKey`, `CacheIndexFact`, `IndexSurface` — deterministic result identity plus the one cache-evidence fact stream shared by all three indexes; `ModelResultKey.RecencyHorizon` is the suite's sole cross-process result-reuse recency horizon every reuse surface traces to.
 - Cases: `Hit`, `Miss`, `Evict` kind rows on the fact stream.
 - Entry: `ValueTask<T> Result<T, TState>(ModelResultKey key, TState state, Func<TState, CancellationToken, ValueTask<T>> produce, CancellationToken token = default)` — the cache port's carrier; `Fact` rides `IO<ReceiptEnvelope>` for the sink effect.
 - Auto: `Result` composes the port read — lane scoping, stampede single-flight, the lane tag, and the model-checksum tag all ride one call with zero call-site ceremony; `Of` derives input identity via `XxHash128.HashToUInt128` so no caller hashes by hand.
 - Receipt: `CacheIndexFact` — miss on produce invocation, hit on completion without produce, evict from the sweep — HLC-stamped through `ReceiptSinkPort` and consumed by compute-side substrate selection.
 - Packages: System.IO.Hashing; LanguageExt.Core; NodaTime; Rasm.AppHost (project); BCL inbox.
 - Growth: a new evidence kind is one kind row on `CacheIndexFact`; a new result family is one tag value on the same shape; zero new surface.
-- Boundary: keys cross as canonical ordinal strings through `ISpanFormattable` and `IUtf8SpanFormattable`; `ModelChecksum` and `EpKey` arrive as opaque wire strings so no compute vocabulary leaks into the key shape; eviction eligibility is retention-axis law and the index contributes only its class value; the fact record lands as one `[JsonSerializable]` row on `PersistenceWireContext`; the cluster deletes per-index repository classes and a generic receipt abstraction over hit/miss evidence.
+- Boundary: keys cross as canonical ordinal strings through `ISpanFormattable` and `IUtf8SpanFormattable`; `ModelChecksum` and `EpKey` arrive as opaque wire strings so no compute vocabulary leaks into the key shape; eviction eligibility is retention-axis law and the index contributes only its class value; the fact record lands as one `[JsonSerializable]` row on `PersistenceWireContext`; the cluster deletes per-index repository classes and a generic receipt abstraction over hit/miss evidence; `RecencyHorizon` is the one owned recency bound — the benchmark claim gate and the compute-side result-reuse and route-selection consumers reference this value rather than minting a second `Duration horizon`, so a stale cross-process reuse is impossible by construction and a floating per-call horizon parameter is the deleted form.
 
 ```csharp signature
 public readonly record struct ModelResultKey(string ModelChecksum, UInt128 InputHash, string EpKey) : ISpanFormattable, IUtf8SpanFormattable {
+    public static readonly Duration RecencyHorizon = Duration.FromHours(24);
+
     public static ModelResultKey Of(string modelChecksum, ReadOnlySpan<byte> input, string epKey) =>
         new(modelChecksum, XxHash128.HashToUInt128(input), epKey);
 
@@ -151,12 +153,12 @@ public readonly record struct ArtifactIndexRow(
 
 ## [5]-[BENCHMARK_INDEX]
 
-- Owner: `BenchmarkRow` — persisted benchmark evidence with the fingerprint-match claim gate.
-- Entry: `static Option<BenchmarkRow> Claim(Seq<BenchmarkRow> rows, string hostFingerprint)` — `Option` carries fingerprint admission; `None` is the fall-through signal toward the caller's static cost rank.
-- Auto: ingest rides the bulk lane under its self-emitted changefeed and tag-transition law; trend history exports to the analytical lane as parquet with zero second pipeline.
+- Owner: `BenchmarkRow` — persisted benchmark evidence with the fingerprint-match, recency-bounded claim gate.
+- Entry: `static Option<BenchmarkRow> Claim(Seq<BenchmarkRow> rows, string hostFingerprint, Instant now, Duration horizon = default)` — `Option` carries fingerprint admission gated by the staleness horizon defaulting to the `ModelResultKey.RecencyHorizon` owned bound; `None` is the fall-through signal toward the caller's static cost rank; `RouteOf` projects the same claim to its route string.
+- Auto: ingest rides the bulk lane under its self-emitted changefeed and tag-transition law; every row carries the `benchmark-row` artifact-class value so the `CountBound 1024` retention sweep folds over a traceable class; trend history exports to the analytical lane as parquet with zero second pipeline.
 - Packages: NodaTime; LanguageExt.Core; linq2db.EntityFrameworkCore; DuckDB.NET.Data.Full.
 - Growth: a new benchmark dimension is one column on `BenchmarkRow`; a new dashboard cut is one analytical export row; zero new surface.
-- Boundary: the contract is read-only toward route selection — `Claim` admits only rows whose `HostFingerprint` matches the calling host with ordinal equality, and the fingerprint value arrives as an opaque string minted by the benchmark producer; the cluster deletes a benchmarks repository service and a second dashboard export path.
+- Boundary: the contract is read-only toward route selection — `Claim` admits only rows whose `HostFingerprint` matches the calling host with ordinal equality and whose `At` stamp falls inside the staleness `horizon` measured from `now`, then folds the matching set to the most-recent `At` so a stale benchmark never selects a route, while the companion `RouteOf` projects that same claim to its `Route` string so one horizon-bounded recency fold serves both; the `horizon` argument defaults to the `ModelResultKey.RecencyHorizon` owned bound so this index consumes the one suite recency horizon rather than minting a second `Duration`, and a caller may narrow it but never re-owns it; the recency fold replaces the first-ordinal `Find`, an `OrderByDescending` LINQ chain, and a counter loop, the fingerprint value arrives as an opaque string minted by the benchmark producer, and the `ArtifactClass` column carries the constant `benchmark-row` class so the retention sweep keys on the same class value the redaction axis bounds; the cluster deletes a benchmarks repository service and a second dashboard export path.
 
 ```csharp signature
 public readonly record struct BenchmarkRow(
@@ -166,9 +168,18 @@ public readonly record struct BenchmarkRow(
     Duration P95,
     long AllocatedBytes,
     string HostFingerprint,
+    string ArtifactClass,
     Instant At) {
-    public static Option<BenchmarkRow> Claim(Seq<BenchmarkRow> rows, string hostFingerprint) =>
-        rows.Find(row => StringComparer.Ordinal.Equals(row.HostFingerprint, hostFingerprint));
+    public const string BenchmarkRowClass = "benchmark-row";
+
+    public static Option<BenchmarkRow> Claim(Seq<BenchmarkRow> rows, string hostFingerprint, Instant now, Duration horizon = default) =>
+        rows.Filter(row => StringComparer.Ordinal.Equals(row.HostFingerprint, hostFingerprint) && now - row.At <= (horizon == default ? ModelResultKey.RecencyHorizon : horizon))
+            .Fold(
+                Option<BenchmarkRow>.None,
+                static (held, row) => held.Match(prior => row.At > prior.At ? Some(row) : held, () => Some(row)));
+
+    public static Option<string> RouteOf(Seq<BenchmarkRow> rows, string hostFingerprint, Instant now, Duration horizon = default) =>
+        Claim(rows, hostFingerprint, now, horizon).Map(static row => row.Route);
 }
 ```
 

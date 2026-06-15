@@ -4,12 +4,12 @@ Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColu
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                |
-| :-----: | :------------- | :-------------------------------------------------------------------- |
-|   [1]   | GRID_SUBSTRATE | One column metadata family drives columns, filter, masking, export    |
-|   [2]   | VIEW_STATE     | Serializable collection-view snapshot applied in one DeferRefresh     |
-|   [3]   | TREE_FLATTEN   | Five projection cases fold to one flat virtualized TreeRow stream     |
-|   [4]   | GRID_COMMIT    | Edit commits ride CommandIntent rails; exports ride one spec record   |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                              |
+| :-----: | :------------- | :------------------------------------------------------------------ |
+|   [1]   | GRID_SUBSTRATE | One column metadata family drives columns, filter, masking, export  |
+|   [2]   | VIEW_STATE     | Serializable collection-view snapshot applied in one DeferRefresh   |
+|   [3]   | TREE_FLATTEN   | Five projection cases fold to one flat virtualized TreeRow stream   |
+|   [4]   | GRID_COMMIT    | Edit commits ride CommandIntent rails; exports ride one spec record |
 
 ## [2]-[GRID_SUBSTRATE]
 
@@ -69,20 +69,23 @@ public static class TableSurface {
 ## [3]-[VIEW_STATE]
 
 - Owner: `TableViewState` — the serializable collection-view snapshot; `ViewStateSurface` applies it against `DataGridCollectionView`, the only collection-view state holder.
-- Entry: `Unit Apply<TRow>(TableViewState state, Seq<TableColumnRow<TRow>> columns, Option<object> current = default)`.
-- Auto: `DeferRefresh` collapses every multi-descriptor write into one refresh; apply-on-activate and capture-on-deactivate ride the screen-state snapshot rows.
-- Packages: Avalonia.Controls.DataGrid; LanguageExt.Core; BCL inbox.
-- Growth: one snapshot field per view-state axis; a page-size or group change is one policy value; zero new surface.
-- Boundary: boundary capsule (statement carve-out) — `DataGridCollectionView` is package-owned mutable state, so `Apply` carries language-owned statement forms writing filter, sort, group, page, and current-row descriptors inside one `DeferRefresh` scope; the snapshot is built from screen control state and never read back from the view; a second collection-view state holder is the deleted form.
+- Entry: `Unit Apply<TRow>(TableViewState state, Seq<TableColumnRow<TRow>> columns, Option<object> current = default)`; the realized paging and virtualisation bounds construct the snapshot's `WindowState` window field directly through target-typed `new(...)` at the request edge.
+- Auto: `DeferRefresh` collapses every multi-descriptor write into one refresh; apply-on-activate and capture-on-deactivate ride the screen-state snapshot rows; the live-data `Page` and `Virtualise` operators emit `PageContext<TRow>` and `VirtualResponse`, and their realized bounds construct the `WindowState` window field so restore re-requests the same window with zero re-query.
+- Packages: Avalonia.Controls.DataGrid; DynamicData; LanguageExt.Core; BCL inbox.
+- Growth: one snapshot field per view-state axis; a page-size, window, or group change is one policy value; zero new surface.
+- Boundary: boundary capsule (statement carve-out) — `DataGridCollectionView` is package-owned mutable state, so `Apply` carries language-owned statement forms writing filter, sort, group, page, and current-row descriptors inside one `DeferRefresh` scope; the snapshot is built from screen control state and never read back from the view; the `Paged` window rides the live-data `Page` operator over the page-request stream and the `Virtualised` window rides `Virtualise` over the virtual-request stream, and the realized page index, page size, virtual start, and virtual size construct the `WindowState` window field directly so restore re-requests the exact viewport and a second paging or virtualisation surface beside the projection cases is the deleted form; the `PageContext<TRow>` and `VirtualResponse` response field accessors that source those realized bounds are research-gated under PAGE_RESPONSE_FIELDS; a second collection-view state holder is the deleted form.
 
 ```csharp signature
+public readonly record struct WindowState(int PageIndex, int PageSize, int VirtualStart, int VirtualSize);
+
 public sealed record TableViewState(
     Option<string> Filter,
     Seq<(string ColumnKey, bool Descending)> Sort,
     Seq<string> Groups,
     Option<int> PageSize,
     Option<string> CurrentKey,
-    Seq<string> Expanded);
+    Seq<string> Expanded,
+    Option<WindowState> Window = default);
 
 public static class ViewStateSurface {
     extension(DataGridCollectionView view) {
@@ -187,9 +190,9 @@ public static class ProjectionFold {
 - Cases: `Clipboard`, `File`, `BlobLane`.
 - Entry: `IDisposable Attach(DataGrid grid, Action<string, TRow> invoke)`.
 - Auto: every commit and export executes as a CommandIntent, so availability gating, re-entrancy suppression, and `CommandReceipt` emission arrive with zero local receipt code.
-- Receipt: the CommandReceipt rail carries intent key, surface, elapsed, outcome, and `CorrelationId`; host-routed commits project the `DocumentTransaction` receipt into the same rail.
+- Receipt: the CommandReceipt rail carries intent key, surface, elapsed, outcome, and `CorrelationId`; host-routed commits project the `DocumentTransaction` receipt into the same rail; `TelemetryRow` contributes the commit-outcome and export-volume instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Avalonia.Controls.DataGrid; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core.
-- Growth: one destination case or one export policy value; a new commit target is one `Persist` delegate binding; zero new surface.
+- Growth: one destination case or one export policy value; a new commit target is one `Persist` delegate binding; one grid instrument is one `InstrumentRow` on `CommitSurface.TelemetryRow`; zero new surface.
 - Boundary: store rows bind `Persist` to `StoreOp.Upsert` through the Persistence port; host-object rows bind the same column to the Rasm.Rhino `DocumentTransaction` commit; `File` and `BlobLane` destinations hand the spec to the Persistence Sep lane with the file path arriving as a value from the storage-pick DialogIntent row; the `Clipboard` case hands its text to the input rail's typed clipboard row — a bespoke CSV writer is the deleted form.
 
 ```csharp signature
@@ -212,6 +215,12 @@ public sealed record TableCommit<TRow>(
     Func<TRow, CancellationToken, ValueTask<Fin<Unit>>> Persist);
 
 public static class CommitSurface {
+    public const string CommitInstrument = "rasm.appui.table.commit";
+    public const string ExportInstrument = "rasm.appui.table.export";
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, CommitInstrument, ExportInstrument);
+
     extension<TRow>(TableCommit<TRow> commit) {
         public Func<TRow, CancellationToken, ValueTask<Fin<Unit>>> Execution =>
             (row, token) => commit.Gate(row) switch {
@@ -255,3 +264,7 @@ flowchart LR
 - Persistence split: the `Persist` column is the host-agnostic parameter: store rows, host-object rows, and fake-deterministic rows differ only in the bound delegate.
 - Clipboard: the `Clipboard` destination fixes `Delimiter` at tab with `HeaderRow` true — the rows-as-TSV case.
 - Export admission: classified columns never pass `Admitted`; the delimited projection is the single text-shaping fold for clipboard and Sep destinations.
+
+## [6]-[RESEARCH]
+
+- [PAGE_RESPONSE_FIELDS]: the `PageContext<TRow>` and `VirtualResponse` response field accessors carrying the realized page index, page size, total pages, virtual start index, and virtual size that source the `WindowState` window bounds, beyond the catalogued `Page`/`Virtualise` operators and the response types themselves.

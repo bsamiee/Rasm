@@ -4,7 +4,7 @@ Rasm.AppUi mounts one shell into every admitted host substrate through a single 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                          |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                           |
 | :-----: | :----------------- | :--------------------------------------------------------------- |
 |   [1]   | HOST_AXIS          | Seven-case host axis, seam columns, one mount transaction        |
 |   [2]   | EMBED_CAPSULE      | Foreign-view embedding capsule, lifecycle order, platform policy |
@@ -18,9 +18,9 @@ Rasm.AppUi mounts one shell into every admitted host substrate through a single 
 - Cases: AvaloniaDesktopWindow, RhinoPanel, RhinoModal, Gh2CompanionWindow, SidecarShell, WebBrowser, Headless; `SurfaceFault` = Text | HostAbsent | MountRejected | HandleUnavailable | ThreadAffinity in the 4100 code band.
 - Entry: `Fin<SurfaceSession> Mount(SurfaceHost host, SurfaceSeam seam, Control content, ClockPolicy clocks, CorrelationId correlation)` — `Fin` aborts on absent host, rejected mount, missing handle, and thread-affinity violation.
 - Auto: one mount transaction replaces seven boot programs — boot-edge guard, builder shaping, parent-handle capture, scale capture, disposal registration, and receipt emission land in one fold; raw case keys serialize through the suite wire law as locked kind literals.
-- Receipt: `SurfaceReceipt` — host case, native handle identity as descriptor and value, scale, `Instant`, `CorrelationId`.
-- Packages: Avalonia, Avalonia.Desktop, Avalonia.Headless, ReactiveUI.Avalonia, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Rhino (project), Rasm.Grasshopper (project)
-- Growth: one case row — payload fields, seam column, capability set — absorbs a new host substrate with zero new surface; `WebBrowser` stays the designed growth case whose future activation is one seam column plus one dispatch arm swap.
+- Receipt: `SurfaceReceipt` — host case, native handle identity as descriptor and value, scale, `Instant`, `CorrelationId`; `TelemetryRow` contributes the mount-outcome and scale-flip instruments inward through the AppHost `TelemetryContributorPort`.
+- Packages: Avalonia, Avalonia.Desktop, Avalonia.Headless, ReactiveUI.Avalonia, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Rhino (project), Rasm.Grasshopper (project)
+- Growth: one case row — payload fields, seam column, capability set — absorbs a new host substrate with zero new surface, and one host instrument is one `InstrumentRow` on `Surfaces.TelemetryRow`; `WebBrowser` stays the designed growth case whose future activation is one seam column plus one dispatch arm swap.
 - Boundary: `Surfaces` is the named boundary capsule for the statement carve-out on its boot-edge guard; host-agnostic sourcing law — every probe, marshal, mount, and fact delegate is a `SurfaceSeam` column and no dispatch arm names a host API: rhino rows cross only the Rasm.Rhino panel, semi-modal, and UI-thread ports (the catching marshal that wraps the swallowing host invoke ships with Rasm.Rhino), the gh2 row crosses only the Rasm.Grasshopper mount seam, and the empty-host shell crosses nothing; boot is one `SetupWithoutStarting` admission behind the `Interlocked` edge guard and a second `AppBuilder` or lifetime anywhere is the rejected form; `WebBrowser` carries an empty capability set and zero payload, so its wire key is its only live surface; the headless row holds host-document capability structurally false, draws through Skia for the render-hash lanes, and is the mount surface of the command-journal replay lane.
 
 ```csharp signature
@@ -54,6 +54,7 @@ public sealed record SurfaceSeam(
     Func<EmbedCapsule, Fin<IDisposable>> ModalMount,
     Func<EmbedCapsule, Fin<IDisposable>> CompanionMount,
     Func<Action, IO<Unit>> HostMarshal,
+    Func<bool> OnUiThread,
     Func<AppBuilder, Fin<Unit>> RunLoop,
     Func<double> Scale,
     Func<Action<SurfaceFact>, IDisposable> HostFacts);
@@ -63,6 +64,7 @@ public sealed record SurfaceRow(
     Func<AppBuilder, Fin<Unit>> Start,
     Func<Action, IO<Unit>> Marshal,
     Func<double> Scale,
+    Func<bool> OnUiThread,
     Func<Control, Fin<(long Handle, string Descriptor, IDisposable Teardown)>> Attach,
     Func<Action<SurfaceFact>, IDisposable> Facts,
     FrozenSet<Capability> Capabilities,
@@ -108,6 +110,7 @@ public static class Surfaces {
         Start: Setup,
         Marshal: seam.HostMarshal,
         Scale: seam.Scale,
+        OnUiThread: seam.OnUiThread,
         Attach: content => new EmbedCapsule(content, EmbedOptions.Embedded).Mounted(mount),
         Facts: seam.HostFacts,
         Capabilities: Capability.Set(Capability.HostDocument),
@@ -118,6 +121,7 @@ public static class Surfaces {
         Start: start,
         Marshal: SurfaceScheduler.Post,
         Scale: seam.Scale,
+        OnUiThread: seam.OnUiThread,
         Attach: Windowed,
         Facts: seam.HostFacts,
         Capabilities: Capability.Set(),
@@ -134,6 +138,12 @@ public static class Surfaces {
                 window.TryGetPlatformHandle() is { } handle ? handle.Handle.ToInt64() : 0L,
                 window.TryGetPlatformHandle()?.HandleDescriptor ?? nameof(SurfaceHost.Headless),
                 (IDisposable)Disposable.Create(window.Close)));
+
+    public const string MountInstrument = "rasm.appui.surface.mounted";
+    public const string ScaleInstrument = "rasm.appui.surface.scaled";
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, MountInstrument, ScaleInstrument);
 }
 ```
 
@@ -144,7 +154,7 @@ public static class Surfaces {
 - Auto: construction runs the load-bearing order in one body — `EnforceClientSize` value, `Content`, `Prepare` — and `Mounted` appends retained-view capture, seam attach, and `StartRendering`; teardown composes `StopRendering`, seam detach, `Dispose` in declared order.
 - Packages: Avalonia, System.Reactive, LanguageExt.Core, Rasm.Rhino (project)
 - Growth: one `EmbedOptions` policy value per new platform knob; zero new surface.
-- Boundary: `EmbedCapsule` is the named boundary capsule for the statement carve-out — the constructor carries the ordered statements; `GetNSViewRetained` hands a retained pointer whose release belongs to the host seam after detach, and the accessor carries Avalonia's unstable-API obsolete marker, so the capsule's `RetainedView` body is the single acknowledged suppression site; `EnforceClientSize` is a protected setter reachable only inside the derived capsule, and the host seam pushes frame sync on every panel-resize fact while it holds true; `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values enter only through `EmbedOptions.Admit` and a hardcoded platform knob in boot code is the rejected form — `ShowInDock` false keeps embedded rows out of the macOS Dock, `DisableDefaultApplicationMenuItems` strips the default app menu under the host menu bar, and `RenderingMode` is the backend policy column over Metal, OpenGl, and Software whose embedded value the render research row decides; the win32 reparent column and the dispatcher-pump regime stay research-gated.
+- Boundary: `EmbedCapsule` is the named boundary capsule for the statement carve-out — the constructor carries the ordered statements; `GetNSViewRetained` hands a retained pointer whose release belongs to the host seam after detach, and the accessor carries Avalonia's unstable-API obsolete marker, so the capsule's `RetainedView` body is the single acknowledged suppression site; `EnforceClientSize` is a protected setter reachable only inside the derived capsule, and the host seam pushes frame sync on every panel-resize fact while it holds true; `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values enter only through `EmbedOptions.Admit` and a hardcoded platform knob in boot code is the rejected form — `ShowInDock` false keeps embedded rows out of the macOS Dock, `DisableDefaultApplicationMenuItems` strips the default app menu under the host menu bar, and `RenderingMode` over `AvaloniaNativeRenderingMode` is the backend policy column over Metal, OpenGl, and Software whose embedded value the render research row decides; Avalonia owns GPU backend selection through `RenderingMode`, so a direct `GRContext.CreateMetal`/`CreateVulkan`/`CreateDirect3D`/`CreateGl` call inside a dispatch arm is the rejected form (PROHIBITION host-API-in-arm) — a shared-context requirement against the host pipeline rides one `SurfaceSeam` delegate column bound at composition, never a per-host GPU call site, and the exact shared-context spelling is the EMBED_SPIKE render research row; the win32 reparent column and the dispatcher-pump regime stay research-gated.
 
 ```csharp signature
 public sealed record EmbedOptions(
@@ -221,21 +231,22 @@ stateDiagram-v2
 ## [4]-[SCHEDULER_BOUNDARY]
 
 - Owner: `SurfaceScheduler` — the one record where the UI dispatcher, the Avalonia reactive scheduler, and the host marshal meet.
-- Entry: `SurfaceScheduler For(SurfaceHost host, SurfaceRow row, Option<TimeProvider> virtualTime = default)` — pure projection over the resolved row.
+- Entry: `SurfaceScheduler For(SurfaceHost host, SurfaceRow row, Option<TimeProvider> virtualTime = default)` — pure projection over the resolved row; the UI-thread predicate is sourced once from `row.OnUiThread`, which the row builders carry from `seam.OnUiThread` at resolution, so no parallel `onUiThread` parameter threads beside the row.
 - Auto: `Port` completes `UiSchedulerPort.Marshal` from this boundary at the composition root — `Phases` and `Degradation` arrive already bound; `UseReactiveUI` admission wires the reactive main-thread scheduler onto `AvaloniaScheduler`.
 - Packages: ReactiveUI.Avalonia, Avalonia, System.Reactive, LanguageExt.Core, BCL inbox
 - Growth: one marshal column per new host thread regime; carrier swap on the virtual-time slot; zero new surface.
-- Boundary: `Affinity` is the single thread-affinity assertion and a per-call-site access check is the rejected form; embedded rows marshal through the seam's host column, windowed and headless rows through `Post`; the headless row receives its virtual `TimeProvider` from the test composition so the command-journal replay lane runs under deterministic time; `ObserveOn` rides `Ui` exactly once inside binding capsules, never at call sites.
+- Boundary: `Affinity` is the single thread-affinity assertion and a per-call-site access check is the rejected form; the UI-thread predicate originates once at the seam's `OnUiThread` column and flows through `row.OnUiThread` into the scheduler — one source, no parallel parameter — so the access-assertion spelling stays a seam delegate and never a hardcoded dispatcher call inside a dispatch arm; embedded rows marshal through the seam's host column, windowed and headless rows post through the `AvaloniaScheduler` UI scheduler; the headless row receives its virtual `TimeProvider` from the test composition so the command-journal replay lane runs under deterministic time; `ObserveOn` rides `Ui` exactly once inside binding capsules, never at call sites.
 
 ```csharp signature
 public sealed record SurfaceScheduler(IScheduler Ui, Func<Action, IO<Unit>> Marshal, Func<bool> OnUiThread, Option<TimeProvider> VirtualTime) {
     public static SurfaceScheduler For(SurfaceHost host, SurfaceRow row, Option<TimeProvider> virtualTime = default) => new(
         AvaloniaScheduler.Instance,
         row.Marshal,
-        static () => Dispatcher.UIThread.CheckAccess(),
+        row.OnUiThread,
         host is SurfaceHost.Headless ? virtualTime : None);
 
-    public static IO<Unit> Post(Action action) => IO.lift(() => Dispatcher.UIThread.Post(action));
+    public static IO<Unit> Post(Action action) =>
+        IO.lift(() => (AvaloniaScheduler.Instance.Schedule(action), unit).Item2);
 
     public static UiSchedulerPort Port(UiSchedulerPort spine, SurfaceScheduler boundary) => spine with { Marshal = boundary.Marshal };
 
@@ -299,5 +310,5 @@ public abstract partial record SurfaceFact {
 
 ## [7]-[RESEARCH]
 
-- [EMBED_SPIKE]: dispatcher and scheduler boundary spellings with run-loop coexistence under the Rhino-owned AppKit loop — `Dispatcher.UIThread` post and access assertion, `AvaloniaScheduler` singleton accessor, input and IME delivery, and the CADisplayLink-paced pump fallback row; `EnforceClientSize` tracking of the foreign host view against seam-pushed frame sync on panel resize; render-backend selection for the embedded surface — `RenderingMode` orderings of Metal against the host pipeline against software raster, compared on frame-elapsed receipts.
+- [EMBED_SPIKE]: the seam `OnUiThread` access-assertion spelling and scheduler boundary under the Rhino-owned AppKit run-loop — the UI-thread predicate the seam column binds, input and IME delivery, and the CADisplayLink-paced pump fallback row; `EnforceClientSize` tracking of the foreign host view against seam-pushed frame sync on panel resize; render-backend selection for the embedded surface — `RenderingMode` orderings of Metal against the host pipeline against software raster, compared on frame-elapsed receipts; the shared-`GRContext` spelling against the host GPU pipeline when the embedded surface composites into a host-owned context, bound as one `SurfaceSeam` delegate column.
 - [WIN32_ROUTE]: raw HWND reparent against the WinForms interoperability host (a package outside the current restore set) and the Rhino Windows panel host type.

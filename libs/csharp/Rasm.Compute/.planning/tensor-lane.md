@@ -1,6 +1,6 @@
 # [COMPUTE_TENSOR_LANE]
 
-The cpu-tensor execution vocabulary: `Tensor<T>` spans and factories as the only tensor shapes, one dtype map between `TensorElementType` and CLR carriers, one `TensorOpFamily` table over the TensorPrimitives surface, one `LayoutForm` algebra over the layout member surface, geometry-to-tensor encoding rows as the canonical geometry-ML input vocabulary, and the equivalence law proving lane kernels against Rasm baselines. The page owns the `TensorDtype`, `TensorOpFamily`, `LayoutForm`, and `GeometryEncoding` axes; AppHost `ClockPolicy` and `CorrelationId` arrive settled, and the substrate row, fault union, and receipt cases ride their owning pages.
+The cpu-tensor execution vocabulary: `Tensor<T>` spans and factories as the only tensor shapes, one dtype map between `TensorElementType` and CLR carriers, one `TensorOpFamily` table over the TensorPrimitives surface plus the designed convolution, pooling, and masked-write rows on their Rasm routes, one `LayoutForm` algebra over the layout member surface, geometry-to-tensor encoding rows as the canonical geometry-ML input vocabulary, and the equivalence law proving lane kernels against Rasm baselines. The page owns the `TensorDtype`, `TensorOpKind`, `TensorOpFamily`, `ToleranceClass`, `LayoutForm`, `EncodingChannel`, and `GeometryEncoding` axes; AppHost `ClockPolicy` and `CorrelationId` arrive settled, and the substrate row, fault union, and receipt cases ride their owning pages.
 
 ## [1]-[INDEX]
 
@@ -67,11 +67,11 @@ public static class TensorVocabulary {
 ## [3]-[OPERATION_FAMILIES]
 
 - Owner: `TensorOpFamily`
-- Cases: forty-five rows across nine `TensorOpKind` rows — elementwise, rounding, transcendental, reduction, statistics, bitwise, similarity, conversion, matrix
-- Entry: `public static Fin<Unit> Map<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> destination)` — `Fin<Unit>` aborts on a kernel-row miss; the arity siblings `Zip`, `Fuse`, `Bits`, `Shift`, `Convert`, `Fold`, `FoldPair`, and `IndexOf` dispatch the same table law.
-- Packages: System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new operation is one `TensorOpFamily` row plus one binding entry on its arity table; zero new surface.
-- Boundary: every row binds the TensorPrimitives member matching its Pascal-cased key (shift-right binds the arithmetic-shift member; matmul binds the Rasm kernel route in EQUIVALENCE_INTEROP); the forty-five rows partition exactly across the arity tables, the `Hamming` entry, and the matmul route; a primitive becomes a default hot route only behind a winning benchmark-claim row, and the binding tables are `FrozenDictionary` indexes keyed through the ordinal `TensorKeyPolicy`; integer dtypes enter the real-constrained entries through the conversion rows first.
+- Cases: fifty-two rows across ten `TensorOpKind` rows — elementwise, rounding, transcendental, reduction, statistics, bitwise, similarity, conversion, matrix, structural
+- Entry: `public static Fin<Unit> Map<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> destination)` — `Fin<Unit>` aborts on a kernel-row miss; the arity siblings `Zip`, `Fuse`, `Bits`, `Shift`, `Convert`, `Fold`, `FoldPair`, `IndexOf`, and `Mask` dispatch the same table law.
+- Packages: System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
+- Growth: a new operation is one `TensorOpFamily` row plus one binding entry on its arity table; a windowed convolution or pooling kernel is one row bound to its designed Rasm route, never a span-kernel entry; zero new surface.
+- Boundary: every span row binds the TensorPrimitives member matching its Pascal-cased key (shift-right binds the arithmetic-shift member) and only the `MaskedWrite` row carries a full-tensor binding — `SetSlice`/`FilteredUpdate` over `NRange`/`NIndex` through the `Mask` arity; the `MatMul`, `Conv1D`/`Conv2D`/`Conv3D`, and `MaxPool`/`AvgPool`/`GlobalAvgPool` rows hold no TensorPrimitives or in-package member, carry no binding-table entry, and `Map` returns a `<kernel-row-miss>` `Fin.Fail` for each until its designed Rasm route lands behind a winning benchmark-claim row — the matrix rows route to the Rasm `Matrix.Multiply` im2col lowering and the pooling rows to the strided-window fold over `GetDimensionSpan` cursors; the fifty-two rows partition exactly across the span-arity tables, the `Hamming` entry, the bound masked-write route, and the designed-only matrix and pooling routes; the binding tables are `FrozenDictionary` indexes keyed through the ordinal `TensorKeyPolicy`, span kernels iterate rows by reference through `RefEnumerable<T>`/`SpanEnumerable<T>` rather than flat indexing, and integer dtypes enter the real-constrained entries through the conversion rows first.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -99,6 +99,7 @@ public sealed partial class TensorOpKind {
     public static readonly TensorOpKind Similarity = new("similarity");
     public static readonly TensorOpKind Conversion = new("conversion");
     public static readonly TensorOpKind Matrix = new("matrix");
+    public static readonly TensorOpKind Structural = new("structural");
 }
 
 [SmartEnum<string>]
@@ -150,6 +151,13 @@ public sealed partial class TensorOpFamily {
     public static readonly TensorOpFamily ConvertSaturating = new("convert-saturating", TensorOpKind.Conversion, ToleranceClass.Exact);
     public static readonly TensorOpFamily ConvertTruncating = new("convert-truncating", TensorOpKind.Conversion, ToleranceClass.Exact);
     public static readonly TensorOpFamily MatMul = new("matmul", TensorOpKind.Matrix, ToleranceClass.Tight);
+    public static readonly TensorOpFamily Conv1D = new("conv-1d", TensorOpKind.Matrix, ToleranceClass.Tight);
+    public static readonly TensorOpFamily Conv2D = new("conv-2d", TensorOpKind.Matrix, ToleranceClass.Tight);
+    public static readonly TensorOpFamily Conv3D = new("conv-3d", TensorOpKind.Matrix, ToleranceClass.Tight);
+    public static readonly TensorOpFamily MaxPool = new("max-pool", TensorOpKind.Structural, ToleranceClass.Exact);
+    public static readonly TensorOpFamily AvgPool = new("avg-pool", TensorOpKind.Structural, ToleranceClass.Statistical);
+    public static readonly TensorOpFamily GlobalAvgPool = new("global-avg-pool", TensorOpKind.Structural, ToleranceClass.Statistical);
+    public static readonly TensorOpFamily MaskedWrite = new("masked-write", TensorOpKind.Structural, ToleranceClass.Exact);
 
     public TensorOpKind Kind { get; }
     public ToleranceClass Tolerance { get; }
@@ -248,6 +256,8 @@ public static class TensorOps {
     public static Fin<int> IndexOf<T>(TensorOpFamily row, ReadOnlySpan<T> x) where T : IFloatingPointIeee754<T> =>
         TensorKernels<T>.Index.GetValueOrDefault(row) is { } kernel ? Fin.Succ(kernel(x)) : Miss<int>(row);
     public static int Hamming<T>(ReadOnlySpan<T> x, ReadOnlySpan<T> y) where T : IEquatable<T> => TensorPrimitives.HammingDistance(x, y);
+    public static Fin<Tensor<T>> Mask<T>(TensorOpFamily row, Tensor<T> destination, in ReadOnlyTensorSpan<T> values, ReadOnlySpan<NRange> region) where T : unmanaged =>
+        row == TensorOpFamily.MaskedWrite ? Fin.Succ(Tensor.SetSlice(destination, values, region)) : Miss<Tensor<T>>(row);
     private static Fin<A> Miss<A>(TensorOpFamily row) => Fin.Fail<A>(ComputeFault.Create($"<kernel-row-miss:{row.Key}>"));
 }
 ```
@@ -294,9 +304,9 @@ public static class TensorLayout {
 - Owner: `GeometryEncoding`
 - Cases: `PointCloud(VectorCloud, Option<CloudNeighborhoodPcaResult>, Option<ReadOnlyMemory<float>>)` | `MeshPatch(MeshSpace)` | `VoxelGrid(ReadOnlyMemory<float>, Dimension, Dimension, Dimension, VolumeGridPolicy)`
 - Entry: `public static Fin<EncodedTensor> Of(GeometryEncoding source, Tensor<float> values, Option<Tensor<long>> indices = default, Seq<(string Name, long Extent)> freeDimensions = default)` — `Fin<T>` aborts when rank or free-dimension names miss the case row.
-- Packages: Rasm (project), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new encoding is one `GeometryEncoding` case with its `Row` and `ChannelRows` arms; zero new surface.
-- Boundary: packing kernels are the page's declared boundary capsules beside the union — host geometry coordinate access stays inside the capsule and host geometry types never enter lane signatures; the free-dimension rows feed the model-lane `AddFreeDimensionOverrideByName` admission; the wire-shape names mirror one-to-one onto the remote-lane proto geometry message family; mesh face indices ride the int64 row as `Tensor<long>`; voxel grids ride nchw with grid z-slices as channel planes; the point-cloud feature width folds over the `EncodingChannel` widths present on the payload.
+- Packages: Rasm (project), System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new encoding is one `GeometryEncoding` case with its `Row` and `ChannelRows` arms; a new feature channel is one `EncodingChannel` row carrying its width column (six rows close the axis); zero new surface.
+- Boundary: packing kernels are the page's declared boundary capsules beside the union — host geometry coordinate access stays inside the capsule and host geometry types never enter lane signatures; each case's `Row` carries the model-zoo conformance triad — named `WireShape`, `LayoutForm`, declared free-dimension rank — and `Of` rejects a payload missing that triad, so the conformance gate is the case row, never an external architecture name; the free-dimension rows feed the model-lane `AddFreeDimensionOverrideByName` admission and the wire-shape names mirror one-to-one onto the remote-lane proto geometry family; mesh face indices ride the int64 row as `Tensor<long>`; voxel grids ride nchw with z-slices as channel planes and pack occupancy through `BitHelper` bit-flag words, never a `bool[]`; `FeatureWidth` folds the `EncodingChannel` widths present on the payload, where `curvature`, `geodesic`, and `intensity` widen the channel axis as SmartEnum rows — a `PointCloudV2` sibling case is the rejected anticipatory form.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -306,6 +316,9 @@ public sealed partial class EncodingChannel {
     public static readonly EncodingChannel Position = new("position", width: 3);
     public static readonly EncodingChannel Normal = new("normal", width: 3);
     public static readonly EncodingChannel ColorRgba = new("color-rgba", width: 4);
+    public static readonly EncodingChannel Curvature = new("curvature", width: 1);
+    public static readonly EncodingChannel Geodesic = new("geodesic", width: 1);
+    public static readonly EncodingChannel Intensity = new("intensity", width: 1);
 
     public int Width { get; }
 }
@@ -328,9 +341,11 @@ public abstract partial record GeometryEncoding {
 
     public Seq<EncodingChannel> ChannelRows =>
         Switch(
-            pointCloud: static c => Seq1(EncodingChannel.Position) + c.Normals.Map(static _ => EncodingChannel.Normal).ToSeq() + c.Colors.Map(static _ => EncodingChannel.ColorRgba).ToSeq(),
+            pointCloud: static c => Seq1(EncodingChannel.Position) + c.Normals.Map(static _ => Seq(EncodingChannel.Normal, EncodingChannel.Curvature, EncodingChannel.Geodesic)).IfNone(Seq<EncodingChannel>()) + c.Colors.Map(static _ => EncodingChannel.ColorRgba).ToSeq(),
             meshPatch: static _ => Seq1(EncodingChannel.Position),
-            voxelGrid: static _ => Seq<EncodingChannel>());
+            voxelGrid: static _ => Seq1(EncodingChannel.Intensity));
+
+    public int FeatureWidth => ChannelRows.Sum(static channel => channel.Width);
 }
 
 public sealed record EncodedTensor(Tensor<float> Values, Option<Tensor<long>> Indices, TensorDtype Dtype, LayoutForm Layout, string WireShape, Seq<(string Name, long Extent)> FreeDimensions) {
@@ -341,24 +356,14 @@ public sealed record EncodedTensor(Tensor<float> Values, Option<Tensor<long>> In
 }
 ```
 
-```mermaid
-flowchart LR
-    VectorCloud --> GeometryEncoding
-    MeshSpace --> GeometryEncoding
-    VolumeGridPolicy --> GeometryEncoding
-    TensorDtype --> EncodedTensor
-    LayoutForm --> EncodedTensor
-    GeometryEncoding --> EncodedTensor
-```
-
 ## [6]-[EQUIVALENCE_INTEROP]
 
 - Owner: `EquivalencePolicy`
 - Entry: `public static EquivalenceProof Prove(ClockPolicy clocks, CorrelationId correlation, EquivalencePolicy policy, ReadOnlySpan<double> baseline, ReadOnlySpan<double> candidate)` — pure value; a non-holding proof aborts dispatch through the `EquivalenceMiss` fault case on the intent rail.
 - Receipt: equivalence runs and explicit copy points materialize as TensorRun receipt evidence at the sink edge, stamped through `ClockPolicy` and keyed by `CorrelationId`.
 - Packages: Rasm (project), System.Numerics.Tensors, CommunityToolkit.HighPerformance, NodaTime, LanguageExt.Core
-- Growth: a new kernel route is one `TensorOpFamily` row with one `EquivalencePolicy` row; convolution lands as one matrix-kind row bound to its Rasm kernel; zero new surface.
-- Boundary: TensorPrimitives carries no matrix kernels — `Matrix.Multiply` (Rasm) is the kernel route behind the matmul row; zero-copy projections cross at three receipted copy points — tensor span to `OrtValue` through `CreateTensorValueFromSystemNumericsTensorObject` (model lane), to `Span2D` planes (staging views), to `ByteString` through `UnsafeByteOperations` (remote edge); `ParallelHelper.For` partitioning enters only behind a winning benchmark-claim row inside the shared processor-budget record; equivalence sample tensors fill through `Tensor.FillUniformDistribution` and `FillGaussianNormalDistribution` — a hand-rolled sample-RNG loop is the deleted form; loosening a `ToleranceClass` bound to pass equivalence is the named production-slack defect — the kernel is fixed, never the bound.
+- Growth: a new kernel route is one `TensorOpFamily` row with one `EquivalencePolicy` row; convolution lands as one matrix-kind row bound to its Rasm im2col route and pooling as one structural-kind row bound to the strided-window route; zero new surface.
+- Boundary: TensorPrimitives carries no matrix kernels — `Matrix.Multiply` (Rasm) is the designed route behind the matmul row and the convolution rows, an im2col patch projection lowering each convolution to one `Matrix.Multiply` call so a convolution row inherits the matmul tolerance proof once its route lands, and the pooling rows fold each window through the `TensorPrimitives.Max`/`Average` kernels over `GetDimensionSpan` cursors on the same designed route; until those routes land each matrix and pooling row `Map`-misses, never silently resolving to a wrong kernel; zero-copy projections cross at three receipted copy points — tensor span to `OrtValue` through `CreateTensorValueFromSystemNumericsTensorObject` (model lane), to `Span2D` planes (staging views), to `ByteString` through `UnsafeByteOperations` (remote edge); equivalence sample tensors fill through `Tensor.FillUniformDistribution` and `FillGaussianNormalDistribution` — a hand-rolled sample-RNG loop is the deleted form; every designed-only row inherits proof coverage because its `ToleranceClass` rides the `TensorOpFamily` row, so `EquivalenceLaw.Prove` covers a new kernel by data with no `Prove` argument; loosening a `ToleranceClass` bound to pass equivalence is the named production-slack defect — the kernel is fixed, never the bound.
 
 ```csharp signature
 public sealed record EquivalencePolicy(TensorOpFamily Family, int SampleCount) {
@@ -380,3 +385,8 @@ public static class EquivalenceLaw {
     }
 }
 ```
+
+## [7]-[RESEARCH]
+
+- [OPERATOR_BACKLOG]: the uncatalogued `TensorPrimitives` operator surface beyond the bound rows — `Normalize`, `Lerp`, `Hypot`, `Reciprocal`, `RootN`, `SinCos`, `PopCount`, `LeadingZeroCount`, `MinNumber`, `MaxNumber`, `SumOfSquares`, `ConvertToHalf` — each becomes one `TensorOpFamily` row with its `ToleranceClass` column once confirmed in the package surface and added to the tensor catalogue.
+- [PARALLEL_PARTITION]: the `ParallelHelper.For` span-partition surface for kernel fan-out becomes a default execution path only behind a winning benchmark-claim row inside the shared processor-budget record, after the surface is confirmed as a rail entry rather than an unbudgeted partition helper.

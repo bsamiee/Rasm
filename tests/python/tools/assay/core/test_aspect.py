@@ -17,9 +17,7 @@ from expression import Error, Ok, Result  # noqa: TC002  # Hom rail annotation
 from expression.collections import block
 from hypothesis import given, strategies as st
 from opentelemetry import trace
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-    InMemorySpanExporter,  # noqa: TC002  # collection-time fixture annotation
-)
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: TC002  # collection-time fixture annotation
 import pytest
 from structlog.contextvars import get_contextvars
 

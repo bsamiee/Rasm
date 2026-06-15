@@ -66,6 +66,8 @@ if TYPE_CHECKING:
 
     from tools.assay.core.model import InprocThunk
 
+    type _SourceResolver = Callable[[AssaySettings, str, dict[str, str]], _Source | None]
+
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -127,10 +129,11 @@ _DECL_NODES: frozenset[str] = frozenset((
     "public_field_definition",
     "variable_declarator",
 ))
+_TYPE_CAP: str = "type"  # roster capture-name vocabulary: every INPROC/tree-sitter declaration row caps under this name
 _INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (
-    ("type", inspect.isclass),
-    ("type", inspect.isfunction),
-    ("type", lambda obj: isinstance(obj, TypeAliasType)),  # PEP 695 `type` aliases surface alongside classes and functions
+    (_TYPE_CAP, inspect.isclass),
+    (_TYPE_CAP, inspect.isfunction),
+    (_TYPE_CAP, lambda obj: isinstance(obj, TypeAliasType)),  # PEP 695 `type` aliases surface alongside classes and functions
 )
 _NAME_CAP: int = 320
 _SIG_CAP: int = 480
@@ -285,22 +288,22 @@ def _packages(settings: AssaySettings) -> dict[str, str]:
     return _packages_at(str(path), hashlib.sha256(raw).hexdigest()[:16])
 
 
-def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP) -> tuple[tuple[str, int], ...]:
+def _score_name(name: str, needle: str) -> int:
     # Ranking favors exact, prefix, substring, segment overlap, then character similarity.
     casefold = needle.casefold()
     segments = frozenset(casefold.replace("-", ".").split("."))
+    low = name.casefold()
+    tokens = frozenset(low.replace("-", ".").split("."))
+    overlap = len(segments & tokens) * 20 // max(1, len(tokens))
+    base = 100 if low == casefold else 70 if low.startswith(casefold) else 40 if casefold in low else overlap
+    best_seg = min(tokens, key=lambda t: abs(len(t) - len(casefold)), default=low)
+    char_sim = int(difflib.SequenceMatcher(None, casefold, best_seg).ratio() * 30)
+    length_bonus = max(0, 20 - len(name) // 4) if char_sim > 0 else 0
+    return base + char_sim + length_bonus
 
-    def score(name: str) -> int:
-        low = name.casefold()
-        tokens = frozenset(low.replace("-", ".").split("."))
-        overlap = len(segments & tokens) * 20 // max(1, len(tokens))
-        base = 100 if low == casefold else 70 if low.startswith(casefold) else 40 if casefold in low else overlap
-        best_seg = min(tokens, key=lambda t: abs(len(t) - len(casefold)), default=low)
-        char_sim = int(difflib.SequenceMatcher(None, casefold, best_seg).ratio() * 30)
-        length_bonus = max(0, 20 - len(name) // 4) if char_sim > 0 else 0
-        return base + char_sim + length_bonus
 
-    ranked = sorted(((name, score(name)) for name in names), key=lambda row: (-row[1], row[0]))
+def _rank_candidates(haystack: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP) -> tuple[tuple[str, int], ...]:
+    ranked = sorted(((name, _score_name(name, needle)) for name in haystack), key=lambda row: (-row[1], row[0]))
     return tuple((name, sc) for name, sc in ranked[:n] if sc > 0)
 
 
@@ -313,9 +316,9 @@ def _resolve_key(packages: dict[str, str], key: str) -> Result[str, ApiResolutio
         case (True, _):
             return Ok(hits[0])
         case (_, 0):
-            return Error(ApiResolution(candidates=_candidates(tuple(packages), key), reason="unknown"))
+            return Error(ApiResolution(candidates=_rank_candidates(tuple(packages), key), reason="unknown"))
         case _:
-            return Error(ApiResolution(candidates=_candidates(hits, key, n=len(hits)), reason="ambiguous"))
+            return Error(ApiResolution(candidates=_rank_candidates(hits, key, n=len(hits)), reason="ambiguous"))
 
 
 def _package_root(settings: AssaySettings, package: str, version: str) -> Path:
@@ -478,76 +481,81 @@ def _tsdecl_names(settings: AssaySettings) -> tuple[str, ...]:
             return tuple(sorted((*top, *scoped)))
 
 
-def _tsdecl_dir(settings: AssaySettings, key: str) -> Path | None:
-    # Hoisted node_modules entry wins; pnpm store versioned paths are fallbacks.
-    base = Path(str(settings.root)) / _NODE_MODULES
-    hoisted = base / key
-    mangled = key.replace("/", "+")
-    pnpm = tuple(sorted((Path(str(settings.root)) / _PNPM_STORE).glob(f"{mangled}@*/{_NODE_MODULES}/{key}")))
-    candidates = (hoisted, *pnpm)
-    return next((c for c in candidates if (c / "package.json").is_file() or any(c.glob(_DTS_GLOB))), None)
-
-
-def _tsdecl_source(settings: AssaySettings, key: str) -> _Source | None:
-    # A package with no .d.ts files yields EMPTY, not FAULTED.
-    match _tsdecl_dir(settings, key):
-        case None:
-            return None
-        case pkg_dir:
-            version = _tsdecl_version(settings, key)
-            entry = _tsdecl_entry(pkg_dir)
-            siblings = tuple(sorted((entry.parent if entry is not None else pkg_dir).glob(_DTS_GLOB)))
-            assets = tuple(dict.fromkeys((*((entry,) if entry is not None else ()), *siblings)))
-            return _Source(key=key, kind=SourceKind.TSDECL, version=version, package_root=pkg_dir, asset_paths=assets)
-
-
-def _json_field(path: Path, field: str) -> str:
+def _json_fields(path: Path, *fields: str) -> dict[str, str]:
+    # One decode per manifest, but each field's str-decode is isolated: a malformed sibling value must not zero a valid field.
     try:
         data = msgspec.json.decode(path.read_bytes(), type=dict[str, msgspec.Raw])
-        return msgspec.json.decode(data[field], type=str) if field in data else ""
     except OSError, msgspec.DecodeError:
-        return ""
+        return dict.fromkeys(fields, "")
+
+    def _field(field: str) -> str:
+        try:
+            return msgspec.json.decode(data[field], type=str) if field in data else ""
+        except msgspec.DecodeError:
+            return ""
+
+    return {field: _field(field) for field in fields}
 
 
-def _tsdecl_entry(pkg_dir: Path) -> Path | None:
+def _tsdecl_entry(pkg_dir: Path, manifest: dict[str, str]) -> Path | None:
     # package.json `types`/`typings` field wins over the `index.d.ts` convention.
-    manifest = pkg_dir / "package.json"
-    declared = _json_field(manifest, "types") or _json_field(manifest, "typings")
+    declared = manifest["types"] or manifest["typings"]
     target = (pkg_dir / declared) if declared else (pkg_dir / _DTS_ENTRY)
     return target if target.is_file() else None
 
 
-def _tsdecl_version(settings: AssaySettings, key: str) -> str:
-    # pnpm store directory name encodes the version; hoisted package.json is the fallback.
+def _pnpm_version(store: Path, mangled: str) -> str:
+    # pnpm store directory name encodes the version as `{mangled}@version(+peer)(_hash)`; strip the peer/hash suffixes.
+    return next((d.name.removeprefix(f"{mangled}@").split("+", 1)[0].split("_", 1)[0] for d in sorted(store.glob(f"{mangled}@*"))), "")
+
+
+def _tsdecl_source(settings: AssaySettings, key: str) -> _Source | None:
+    # Hoisted node_modules entry wins, pnpm store paths are fallbacks; a package with no .d.ts files yields EMPTY, not FAULTED.
     mangled = key.replace("/", "+")
-    pnpm = tuple(sorted((Path(str(settings.root)) / _PNPM_STORE).glob(f"{mangled}@*")))
-    tail = next((d.name.removeprefix(f"{mangled}@").split("+", 1)[0].split("_", 1)[0] for d in pnpm), "")
-    return tail or _json_field((Path(str(settings.root)) / _NODE_MODULES / key) / "package.json", "version")
+    store = Path(str(settings.root)) / _PNPM_STORE
+    candidates = (Path(str(settings.root)) / _NODE_MODULES / key, *sorted(store.glob(f"{mangled}@*/{_NODE_MODULES}/{key}")))
+    match next((c for c in candidates if (c / "package.json").is_file() or any(c.glob(_DTS_GLOB))), None):
+        case None:
+            return None
+        case pkg_dir:
+            manifest = _json_fields(pkg_dir / "package.json", "types", "typings", "version")
+            entry = _tsdecl_entry(pkg_dir, manifest)
+            siblings = tuple(sorted((entry.parent if entry is not None else pkg_dir).glob(_DTS_GLOB)))
+            assets = tuple(dict.fromkeys((*((entry,) if entry is not None else ()), *siblings)))
+            version = _pnpm_version(store, mangled) or manifest["version"]
+            return _Source(key=key, kind=SourceKind.TSDECL, version=version, package_root=pkg_dir, asset_paths=assets)
 
 
-def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]:
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# SourceKind-keyed resolver order is the bundle > NuGet > pydist > tsdecl precedence; iteration takes the first hit.
+_RESOLVE_TABLE: dict[SourceKind, _SourceResolver] = {
+    SourceKind.ASSEMBLY: lambda settings, key, _packages_map: _host_source(settings, key),
+    SourceKind.NUGET: lambda settings, key, packages_map: (
+        _resolve_key(packages_map, key).map(lambda package: _nuget_source(settings, package, packages_map[package])).default_value(None)
+    ),
+    SourceKind.PYDIST: lambda _settings, key, _packages_map: _pydist_source(key),
+    SourceKind.TSDECL: lambda settings, key, _packages_map: _tsdecl_source(settings, key),
+}
+
+
+def _resolve_source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]:
     # Misses aggregate candidates across every resolver kind.
     packages = _packages(settings)
-    resolvers: tuple[Callable[[], _Source | None], ...] = (
-        lambda: _host_source(settings, key),
-        lambda: _resolve_key(packages, key).map(lambda package: _nuget_source(settings, package, packages[package])).default_value(None),
-        lambda: _pydist_source(key),
-        lambda: _tsdecl_source(settings, key),
-    )
 
-    def _attempt(resolver: Callable[[], _Source | None]) -> _Source | None:
+    def _attempt(resolver: _SourceResolver) -> _Source | None:
         # Empty/NUL keys can raise in metadata and glob resolvers; unknown stays a miss.
         try:
-            return resolver()
+            return resolver(settings, key, packages)
         except ValueError, OSError:
             return None
 
-    match next((source for resolver in resolvers if (source := _attempt(resolver)) is not None), None):
+    match next((source for resolver in _RESOLVE_TABLE.values() if (source := _attempt(resolver)) is not None), None):
         case _Source() as source:
             return Ok(source)
         case None:
             names = (*tuple(packages), *_pydist_names(), *_tsdecl_names(settings))
-            return Error(ApiResolution(candidates=_candidates(names, key), reason="unknown"))
+            return Error(ApiResolution(candidates=_rank_candidates(names, key), reason="unknown"))
 
 
 def _clip(text: str, cap: int) -> tuple[str, bool]:
@@ -593,7 +601,7 @@ def _pydist_thunk(key: str, symbol: str) -> InprocThunk:
                 captures = tuple(cap for name, module in modules if module is not None for cap in _module_members(module, name))
                 return receipt(("py-api", "surface", key), 0, stdout=CAPTURE_ENCODER.encode(captures))
             case _:
-                obj = _resolve_symbol(key, symbol)
+                obj = _resolve_py_symbol(key, symbol)
                 member = _member_captures(obj, symbol) if obj is not None else ()
                 return receipt(("py-api", "member", key, symbol), 0, stdout=CAPTURE_ENCODER.encode(member))
 
@@ -604,34 +612,31 @@ def _inproc_thunk(source: _Source, symbol: str) -> InprocThunk:
     return _pydist_thunk(source.key, symbol) if source.kind is SourceKind.PYDIST else _tsdecl_thunk(source, symbol)
 
 
-def _resolve_symbol(key: str, symbol: str) -> object | None:
-    # Candidate imports stay under declared distribution roots; the longest importable prefix wins.
+def _resolve_py_symbol(key: str, symbol: str) -> object | None:
+    # Candidate imports stay under declared distribution roots; the longest importable module prefix that walks to the attr wins.
     roots = _pydist_modules(key)
     qualified = tuple(dict.fromkeys((symbol, *(f"{root}.{symbol}" for root in roots if not symbol.startswith(f"{root}.") and symbol != root))))
-    return next((resolved for qname in qualified for resolved in (_resolve_qualified(qname, roots),) if resolved is not None), None)
-
-
-def _resolve_qualified(qname: str, roots: tuple[str, ...]) -> object | None:
-    parts = tuple(qname.split("."))
-    splits = tuple((parts[:i], parts[i:]) for i in range(len(parts), 0, -1) if parts[0] in roots)
     return next(
         (
             resolved
-            for head, tail in splits
-            for module in (_import(".".join(head)),)
+            for qname in qualified
+            for parts in (tuple(qname.split(".")),)
+            for i in range(len(parts), 0, -1)
+            if parts[0] in roots
+            for module in (_import(".".join(parts[:i])),)
             if module is not None
-            for resolved in (_getattr_walk(module, tail),)
+            for resolved in (_walk_attrs(module, parts[i:]),)
             if resolved is not None
         ),
         None,
     )
 
 
-def _getattr_walk(root: object, parts: tuple[str, ...]) -> object | None:
+def _walk_attrs(root: object, parts: tuple[str, ...]) -> object | None:
     match parts:
         case (head, *tail):
             attr = getattr(root, head, None)
-            return _getattr_walk(attr, tuple(tail)) if attr is not None else None
+            return _walk_attrs(attr, tuple(tail)) if attr is not None else None
         case _:
             return root
 
@@ -728,7 +733,7 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
     # Cursor match-limit or roster overflow marks every kept row as truncated.
     saturated = cursor.did_exceed_match_limit or len(nodes) > _RESULT_CAP
     return tuple(
-        _span_capture("type", clipped, node, path, truncated=cut or saturated)
+        _span_capture(_TYPE_CAP, clipped, node, path, truncated=cut or saturated)
         for node in nodes[:_RESULT_CAP]
         for clipped, cut in (_clip(_node_text(node), _NAME_CAP),)
     )
@@ -795,7 +800,7 @@ def _parents(node: Node) -> tuple[Node, ...]:
 
 def _export_aliases(root: Node, path: Path) -> tuple[Capture, ...]:
     return tuple(
-        _span_capture("type", clipped, spec, path, truncated=cut)
+        _span_capture(_TYPE_CAP, clipped, spec, path, truncated=cut)
         for spec in _walk(root, "export_specifier")
         if _export_name(spec)
         for clipped, cut in (_clip(_export_name(spec), _NAME_CAP),)
@@ -839,31 +844,37 @@ def _invoke(settings: AssaySettings, scope: ArtifactScope, tool: Tool, *args: st
 
 
 def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:
+    # Content-fingerprint cache avoids repeat listings; the strategy splits on source.kind (ilspycmd subprocess vs INPROC thunk).
+    store = settings.store()
     match source.kind:
         case SourceKind.ASSEMBLY | SourceKind.NUGET:
-            return _cs_surface(settings, scope, source)
+            assemblies = source.assemblies
+            cache = _cache_path(settings, source, _fingerprint(assemblies) if assemblies else "")
+            match next((t for t in select(Claim.API, Language.CSHARP)), None):
+                case None:
+                    return Error(Fault(("api", "surface", source.key), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
+                case Tool() as tool:
+                    # No assemblies → EMPTY surface, never FAULTED; cache hit replays the prior ilspycmd listing.
+                    return (
+                        Ok(_Surface(source, (), (), {}, cache, ""))
+                        if not assemblies
+                        else Ok(_parse_surface(source, cache, store.read_text_path(cache)))
+                        if store.exists_path(cache)
+                        else _run_surface(settings, scope, source, tool, assemblies, cache)
+                    )
         case SourceKind.PYDIST | SourceKind.TSDECL:
-            return _inproc_surface(settings, source)
-        case _:  # pragma: no cover  # TOOL never resolves through _source
-            return Ok(_Surface(source, (), (), {}, _cache_path(settings, source, ""), ""))
+            # No asset_paths → EMPTY, not FAULTED.
+            cache = _cache_path(settings, source, _fingerprint(source.asset_paths))
+            if store.exists_path(cache):
+                return Ok(_parse_inproc(source, cache, store.read_text_path(cache).encode()))
 
+            def _persist(done: Completed) -> _Surface:
+                store.write_text_path(done.stdout.decode(errors="replace"), cache)
+                return _parse_inproc(source, cache, done.stdout)
 
-def _cs_surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:
-    # Content-fingerprint cache avoids repeat ilspycmd type listings when assemblies have not changed.
-    assemblies = source.assemblies
-    store = settings.store()
-    match next((t for t in select(Claim.API, Language.CSHARP)), None):
-        case None:
-            return Error(Fault(("api", "surface", source.key), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
-        case Tool() if not assemblies:
+            return _inproc_check(settings, source, Mode.QUERY, _inproc_thunk(source, "")).map(_persist)
+        case _:  # pragma: no cover  # TOOL never resolves through _resolve_source
             return Ok(_Surface(source, (), (), {}, _cache_path(settings, source, ""), ""))
-        case Tool() as tool:
-            cache = _cache_path(settings, source, _fingerprint(assemblies))
-            match store.exists_path(cache):
-                case True:
-                    return Ok(_parse_surface(source, cache, store.read_text_path(cache)))
-                case False:
-                    return _run_surface(settings, scope, source, tool, assemblies, cache)
 
 
 def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: InprocThunk) -> Result[Completed, Fault]:
@@ -878,24 +889,8 @@ def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: I
             return run_check(check, settings=settings, scope=None, routed=routed)
 
 
-def _inproc_surface(settings: AssaySettings, source: _Source) -> Result[_Surface, Fault]:
-    # Fingerprint cache avoids repeat thunk runs; no asset_paths → EMPTY, not FAULTED.
-    store = settings.store()
-    cache = _cache_path(settings, source, _fingerprint(source.asset_paths))
-    match store.exists_path(cache):
-        case True:
-            return Ok(_parse_inproc(source, cache, store.read_text_path(cache).encode()))
-        case False:
-
-            def _persist(done: Completed) -> _Surface:
-                store.write_text_path(done.stdout.decode(errors="replace"), cache)
-                return _parse_inproc(source, cache, done.stdout)
-
-            return _inproc_check(settings, source, Mode.QUERY, _inproc_thunk(source, "")).map(_persist)
-
-
 def _parse_inproc(source: _Source, cache: str, stdout: bytes) -> _Surface:
-    types = tuple(dict.fromkeys(cap.text for cap in CAPTURES.decode(stdout or b"[]") if cap.name == "type" and cap.text))
+    types = tuple(dict.fromkeys(cap.text for cap in CAPTURES.decode(stdout or b"[]") if cap.name == _TYPE_CAP and cap.text))
     return _roster(source, cache, types, stdout.decode(errors="replace"))
 
 
@@ -984,7 +979,7 @@ def _decompile(
             return _cs_decompile(settings, scope, surface, symbol, shape, p)
         case SourceKind.PYDIST | SourceKind.TSDECL:
             return _inproc_decompile(settings, surface, symbol, shape, p)
-        case _:  # pragma: no cover  # TOOL never resolves through _source
+        case _:  # pragma: no cover  # TOOL never resolves through _resolve_source
             return Ok(_search_report(settings, surface, p))
 
 
@@ -1252,7 +1247,7 @@ def resolve(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resu
         Asset path report, or unsupported-source candidate evidence.
     """
     _ = scope
-    match _source(settings, p.key):
+    match _resolve_source(settings, p.key):
         case Result(tag="ok", ok=source):
             return _strict(_resolve_report(settings, source, p), p)
         case Result(error=resolution):
@@ -1302,7 +1297,7 @@ def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result
     Returns:
         API surface report, or unsupported-source candidate evidence.
     """
-    match _source(settings, p.key):
+    match _resolve_source(settings, p.key):
         case Result(tag="ok", ok=source):
             return (
                 _surface(settings, scope, source)
@@ -1381,7 +1376,7 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
     match hits:
         case ():
             done = Completed(("api", "query", source.key), 0, status=RailStatus.UNSUPPORTED, notes=(f"no match for '{p.symbol}'",))
-            return fold(Claim.API, "query", (done,), detail=ApiResolution(candidates=_candidates(surface.types, p.symbol), reason="partial"))
+            return fold(Claim.API, "query", (done,), detail=ApiResolution(candidates=_rank_candidates(surface.types, p.symbol), reason="partial"))
         case _:
             results, cap_notes = _matches(hits, ArtifactKind.SCOPE, p.symbol)
             done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits", *cap_notes))

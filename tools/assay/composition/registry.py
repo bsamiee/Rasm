@@ -30,7 +30,7 @@ import structlog
 from tools.assay.composition.catalog import select, TOOLS
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
 from tools.assay.core.aspect import _RING, checked_call, compose, Layer, logged, Slot, traced  # noqa: PLC2701
-from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out  # noqa: PLC2701
+from tools.assay.core.engine import _measure, _RESOURCE, fan_out  # noqa: PLC2701
 from tools.assay.core.model import (
     _HINT_CAP,  # noqa: PLC2701  # private symbol; canonical hint-cap clip site
     _RESULT_CAP,  # noqa: PLC2701  # private symbol; canonical result-cap saturation site
@@ -229,7 +229,8 @@ def _distill(
     budgeted = reason[: max(_HINT_CAP - len(framing) - 1, 0)]
     hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
     truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
-    snap = resource or _RESOURCE.get() or tuple(_snapshot().items())
+    # _measure is the one resource owner; the fallback carries proc.children/proc.children_rss_bytes, matching the streaming receipt key set.
+    snap = resource or _RESOURCE.get() or _measure().to_resources()
     ctx = trace.get_current_span().get_span_context()
     ids = (f"{ctx.trace_id:032x}", f"{ctx.span_id:016x}") if ctx.is_valid else ("", "")
     return Diagnostic(
@@ -646,14 +647,9 @@ def _tool_probes() -> tuple[Check, ...]:
         match tool.runner:
             case Runner.DOTNET:
                 return "dotnet", ("dotnet", "--version")
-            case Runner.UV if tool.groups:
-                group_flags = tuple(part for group in tool.groups for part in ("--group", group))
-                return f"{tool.runner.value}:{tool.command[0]}:{','.join(tool.groups)}", (
-                    *tool.runner.prefix,
-                    *group_flags,
-                    tool.command[0],
-                    "--version",
-                )
+            case Runner.UV if uv := tool.uv_groups():
+                group_flags = tuple(part for group in uv for part in ("--group", group))
+                return f"{tool.runner.value}:{tool.command[0]}:{','.join(uv)}", (*tool.runner.prefix, *group_flags, tool.command[0], "--version")
             case _:
                 return f"{tool.runner.value}:{tool.command[0]}", (*tool.runner.prefix, tool.command[0], "--version")
 

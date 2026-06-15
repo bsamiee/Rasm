@@ -63,8 +63,7 @@ if TYPE_CHECKING:
 _EXPECTED_CLAIMS: frozenset[Claim] = frozenset(b.claim for b in REGISTRY)
 _REGISTRY_ROOT: Final = f"{registry_mod.__name__}.REGISTRY"
 _ORPHAN_SUBJECT: Final = f"{registry_mod.__name__}.ORPHAN_MIN_AGE_S"
-_STATIC_FIX_BIND = next(b for b in REGISTRY if b.claim is Claim.STATIC and b.verb == "fix")
-_STATIC_BUILD_BIND = next(b for b in REGISTRY if b.claim is Claim.STATIC and b.verb == "build")
+_STATIC_BIND = next(b for b in REGISTRY if b.claim is Claim.STATIC and b.verb == "static")
 
 # --- [HARNESS] --------------------------------------------------------------------------
 
@@ -80,12 +79,20 @@ class _Proc:
 
 
 def _strict_params(strict: bool) -> object:  # noqa: FBT001  # boundary factory: production reads `params.strict` via getattr
-    """Duck-typed params object exposing only the strict flag."""
+    """Duck-typed params object exposing only the strict flag.
+
+    Returns:
+        Object exposing a single ``strict`` attribute.
+    """
     return type("_Params", (), {"strict": strict})()
 
 
 def _bad_io(*_a: object, **_k: object) -> None:
-    """Raise the store-write OSError path every time."""
+    """Raise the store-write OSError path every time.
+
+    Raises:
+        OSError: Always, simulating a failed store write.
+    """
     raise OSError("disk full")
 
 
@@ -94,7 +101,11 @@ def _patch_store(monkeypatch: pytest.MonkeyPatch, member: str) -> None:
 
 
 def _run_fake(bind: Bind, settings: AssaySettings, outcome: Result[Report, Fault]) -> Envelope:
-    """Run one bind through rail() with a canned handler outcome."""
+    """Run one bind through rail() with a canned handler outcome.
+
+    Returns:
+        The Envelope emitted by the rail runner for the canned outcome.
+    """
     fake = msgspec.structs.replace(bind, handler=lambda *_a, **_k: outcome)
     return rail(fake, settings=settings)(StaticParams())
 
@@ -144,8 +155,11 @@ def test_build_app_returns_cyclopts_app() -> None:
 
     app = build_app(REGISTRY)
     assert isinstance(app, App)
+    # Single-verb claims register as root leaves (verb folded into the claim token); multi-verb claims as sub-apps.
+    single_verb = frozenset(c for c in _EXPECTED_CLAIMS if sum(b.claim is c for b in REGISTRY) == 1)
     validity_matrix(
-        (ValidityCase(label=f"{b.claim.value}/{b.verb}", value=b, expected=True) for b in REGISTRY), valid=lambda b: b.verb in app[b.claim.value]
+        (ValidityCase(label=f"{b.claim.value}/{b.verb}", value=b, expected=True) for b in REGISTRY),
+        valid=lambda b: (b.claim.value in app) if b.claim in single_verb else (b.verb in app[b.claim.value]),
     )
     support_matrix(("self-test reachable", lambda: "self-test" in app, True), ("delta reachable", lambda: "delta" in app, True))
 
@@ -289,7 +303,7 @@ def test_parse_fault_dispatch_and_fallback() -> None:
     """
     validity_matrix(
         (
-            ValidityCase(label="static/fix → static", value=("static", "fix"), expected=True),
+            ValidityCase(label="static/static → static", value=("static", "static"), expected=True),
             ValidityCase(label="api/doctor → api", value=("api", "doctor"), expected=True),
             ValidityCase(label="bridge/verify → bridge", value=("bridge", "verify"), expected=True),
             ValidityCase(label="test/run → test", value=("test", "run"), expected=True),
@@ -305,7 +319,7 @@ def test_parse_fault_dispatch_and_fallback() -> None:
         ("empty tokens → blank verb", lambda: not empty.verb, True),
         ("empty tokens → FAULTED", lambda: empty.status is RailStatus.FAULTED, True),
     )
-    cases: tuple[tuple[str, ...], ...] = ((), ("static",), ("static", "fix"), ("unknown",), ("bridge", "verify"))
+    cases: tuple[tuple[str, ...], ...] = ((), ("static",), ("static", "static"), ("unknown",), ("bridge", "verify"))
     assert all(parse_fault(tokens, "msg").status is RailStatus.FAULTED for tokens in cases), "every dispatch path must emit FAULTED"
 
 
@@ -314,7 +328,7 @@ def test_parse_fault_diagnostic_context_present() -> None:
 
     Mutant caught: omitting _seed_parse_ring call → recent_events empty; wrong failing_step label.
     """
-    env = parse_fault(("static", "fix"), "something wrong")
+    env = parse_fault(("static", "static"), "something wrong")
     assert env.error_context is not None
     assert env.error_context.failing_step == "parse"
     assert any("dispatch=static" in ev for ev in env.error_context.recent_events)
@@ -322,11 +336,11 @@ def test_parse_fault_diagnostic_context_present() -> None:
 
 def test_parse_fault_preserves_rejected_argv() -> None:
     """Parse faults retain the exact rejected argv tokens for agent-facing repair hints."""
-    env = parse_fault(("static", "build", "--folder", "src/App"), "unexpected option")
+    env = parse_fault(("static", "static", "--folder", "src/App"), "unexpected option")
     assert env.error is not None
-    assert env.error.argv == ("static", "build", "--folder", "src/App")
+    assert env.error.argv == ("static", "static", "--folder", "src/App")
     assert env.error_context is not None
-    assert "static build --folder src/App" in env.error_context.recent_events
+    assert "static static --folder src/App" in env.error_context.recent_events
 
 
 def test_parse_fault_never_persisted(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -335,12 +349,12 @@ def test_parse_fault_never_persisted(assay_root: AssayHarness, monkeypatch: pyte
     Mutant caught: persist=True leaks parse faults into delta and retention folds.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    env = parse_fault(("static", "fix"), "bad flag")
+    env = parse_fault(("static", "static"), "bad flag")
     assert env.run_id
     assert assay_root.settings.store().load_history(env.run_id) is None
 
 
-@pytest.mark.parametrize("initial, dispatch, tokens", [("existing", "static", ("static", "fix")), ("none", "bridge", ("bridge", "verify"))])
+@pytest.mark.parametrize("initial, dispatch, tokens", [("existing", "static", ("static", "static")), ("none", "bridge", ("bridge", "verify"))])
 def test_seed_parse_ring_extends_or_creates(initial: str, dispatch: str, tokens: tuple[str, ...]) -> None:
     """_seed_parse_ring extends or creates the ring while preserving dispatch and command text.
 
@@ -404,12 +418,12 @@ def test_ok_envelope_static_failed_context_uses_source_diagnostics_and_resources
     resources = (("proc.tree_rss_bytes.max", 123.0), ("dotnet.slot_wait_ms.max", 4.0))
     report = Report(
         Claim.STATIC,
-        "build",
+        "static",
         RailStatus.FAILED,
         results=(Match(id="ma0006", kind=ArtifactKind.CODE, text="tools/rhino-bridge/Shell/ShellHost.cs(297,22): message", severity="error"),),
         detail=StaticRun(resources=resources),
     )
-    env = registry_mod._ok_envelope(_STATIC_BUILD_BIND, assay_root.settings, 12.0, report)
+    env = registry_mod._ok_envelope(_STATIC_BIND, assay_root.settings, 12.0, report)
     assert env.error_context is not None
     assert env.error_context.resource == resources
     assert env.error_context.recent_events == ("ma0006: tools/rhino-bridge/Shell/ShellHost.cs(297,22): message",)
@@ -425,7 +439,7 @@ def test_parse_fault_config_error_path(monkeypatch: pytest.MonkeyPatch) -> None:
         x: int
 
     monkeypatch.setattr(AssaySettings, "__init__", lambda *_a, **_k: _IntField.model_validate({"x": "not-an-int"}))
-    env = parse_fault(("static", "fix"), "test error")
+    env = parse_fault(("static", "static"), "test error")
     assert env.status is RailStatus.FAULTED
     assert env.error is not None
     assert env.error.message.startswith("config:")
@@ -454,7 +468,7 @@ def test_encode_unicode_error_produces_scrubbed_envelope(monkeypatch: pytest.Mon
 
     Mutant caught: re-raising the error → caller gets UnicodeEncodeError instead of a valid NDJSON line.
     """
-    env = Envelope(schema_version=1, claim=Claim.STATIC, verb="fix", status=RailStatus.OK, exit_code=0, run_id="x")
+    env = Envelope(schema_version=1, claim=Claim.STATIC, verb="static", status=RailStatus.OK, exit_code=0, run_id="x")
     calls = iter((True, False))  # first encode raises, subsequent encodes succeed
 
     def patched(obj: object) -> bytes:
@@ -518,7 +532,7 @@ def test_bound_passthrough_and_surplus_fault() -> None:
 
     Mutants caught: missing catchall arm and surplus-token success.
     """
-    assert assert_ok(registry_mod._bound(42, Claim.STATIC, "fix")) == 42
+    assert assert_ok(registry_mod._bound(42, Claim.STATIC, "static")) == 42
     surplus = registry_mod._bound(BridgeParams(paths=("extra", "tokens")), Claim.BRIDGE, "verify")  # verify arity=0
     assert isinstance(assert_error(surplus), Fault)
 
@@ -529,7 +543,7 @@ def test_strict_promotes_noop_fold_to_fault(status: RailStatus) -> None:
 
     Mutants caught: removing the strict guard (no-op folds pass); only gating EMPTY but not SKIP.
     """
-    result = registry_mod._strict(Ok(Report(Claim.STATIC, "fix", status)), _strict_params(strict=True))
+    result = registry_mod._strict(Ok(Report(Claim.STATIC, "static", status)), _strict_params(strict=True))
     fault = assert_error_status(result, RailStatus.FAULTED)
     assert "strict" in fault.message
 
@@ -539,7 +553,7 @@ def test_strict_passthrough_for_ok_non_strict() -> None:
 
     Mutant caught: always returning Error regardless of strict flag → false fault on OK reports.
     """
-    assert registry_mod._strict(Ok(Report(Claim.STATIC, "fix", RailStatus.OK)), _strict_params(strict=False)).is_ok()
+    assert registry_mod._strict(Ok(Report(Claim.STATIC, "static", RailStatus.OK)), _strict_params(strict=False)).is_ok()
 
 
 def test_strict_gate_truth_table_and_bound_identity() -> None:
@@ -548,16 +562,17 @@ def test_strict_gate_truth_table_and_bound_identity() -> None:
     Mutants caught: boolean gate drift, attrless strict defaults, argv=None faults, and Ok(None)
     replacing the bound params object.
     """
-    empty = Report(Claim.STATIC, "fix", RailStatus.EMPTY)
+    empty = Report(Claim.STATIC, "static", RailStatus.EMPTY)
+    ok = Report(Claim.STATIC, "static", RailStatus.OK)
     support_matrix(
         ("non-strict EMPTY passes", lambda: registry_mod._strict(Ok(empty), _strict_params(strict=False)).is_ok(), True),
         ("attrless params EMPTY passes", lambda: registry_mod._strict(Ok(empty), object()).is_ok(), True),
-        ("strict OK passes", lambda: registry_mod._strict(Ok(Report(Claim.STATIC, "fix", RailStatus.OK)), _strict_params(strict=True)).is_ok(), True),
+        ("strict OK passes", lambda: registry_mod._strict(Ok(ok), _strict_params(strict=True)).is_ok(), True),
     )
     promoted = assert_error_status(registry_mod._strict(Ok(empty), _strict_params(strict=True)), RailStatus.FAULTED)
     assert promoted.argv == ()
     params = StaticParams()
-    assert assert_ok(registry_mod._bound(params, Claim.STATIC, "fix")) is params
+    assert assert_ok(registry_mod._bound(params, Claim.STATIC, "static")) is params
 
 
 def test_narrow_raises_type_error_for_non_function() -> None:
@@ -574,7 +589,7 @@ def test_validated_propagates_ok_and_error() -> None:
 
     Mutants caught: swallowed Ok returns and validation calls on Fault.
     """
-    report = fold(Claim.STATIC, "fix", (receipt(("dotnet",), 0, status=RailStatus.OK),))
+    report = fold(Claim.STATIC, "static", (receipt(("dotnet",), 0, status=RailStatus.OK),))
     assert assert_ok(registry_mod._validated(Ok(report))) is report
     fault = Fault((), RailStatus.FAULTED, "err")
     assert assert_error(registry_mod._validated(Error(fault))) is fault
@@ -586,11 +601,11 @@ def test_validated_invalid_detail_raises_into_validation_fault(assay_root: Assay
     _validated does not return Error for invalid detail payloads; the rail boundary owns the
     exception-to-FAULTED conversion.
     """
-    report = fold(Claim.STATIC, "fix", (receipt(("dotnet",), 0, status=RailStatus.OK),), detail=TestRun(coverage=150.0))
+    report = fold(Claim.STATIC, "static", (receipt(("dotnet",), 0, status=RailStatus.OK),), detail=TestRun(coverage=150.0))
     with pytest.raises(msgspec.ValidationError, match="coverage"):
         registry_mod._validated(Ok(report))
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    env = _run_fake(_STATIC_FIX_BIND, assay_root.settings, Ok(report))
+    env = _run_fake(_STATIC_BIND, assay_root.settings, Ok(report))
     assert env.status is RailStatus.FAULTED
     assert env.error is not None
     assert env.error.message.startswith("validation:")
@@ -623,10 +638,10 @@ def test_rail_runner_emits_ok_and_fault_paths(assay_root: AssayHarness, monkeypa
     Mutants caught: wrong OK claim/verb and OK status on fault output.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    bind = _STATIC_FIX_BIND
+    bind = _STATIC_BIND
 
     ok_env = _run_fake(bind, assay_root.settings, Ok(fold(Claim.STATIC, bind.verb, (receipt(("dotnet",), 0, status=RailStatus.OK),))))
-    assert (ok_env.claim, ok_env.verb, ok_env.status) == (Claim.STATIC, "fix", RailStatus.OK)
+    assert (ok_env.claim, ok_env.verb, ok_env.status) == (Claim.STATIC, "static", RailStatus.OK)
 
     fault_env = _run_fake(bind, assay_root.settings, Error(Fault(("tool",), RailStatus.FAILED, "tool failed")))
     assert fault_env.status is RailStatus.FAILED
@@ -641,7 +656,7 @@ def test_rail_runner_scope_oserror_faults(assay_root: AssayHarness, monkeypatch:
     Mutant caught: not catching OSError → exception propagates to caller.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    bind = _STATIC_FIX_BIND
+    bind = _STATIC_BIND
     monkeypatch.setattr(ArtifactScope, "open", staticmethod(lambda *_: (_ for _ in ()).throw(OSError("permission denied"))))
     env = _run_fake(bind, assay_root.settings, Ok(fold(Claim.STATIC, bind.verb, ())))
     assert env.status is RailStatus.FAULTED
@@ -667,7 +682,7 @@ def test_rail_surplus_dispatch_fault_and_scope_identity(assay_root: AssayHarness
     assert assay_root.settings.store().load_history(assay_root.settings.run_id) is None
 
     seen: list[object] = []
-    ok_bind = msgspec.structs.replace(_STATIC_FIX_BIND, handler=lambda _s, scope, _p: (seen.append(scope), Ok(fold(Claim.STATIC, "fix", ())))[1])
+    ok_bind = msgspec.structs.replace(_STATIC_BIND, handler=lambda _s, scope, _p: (seen.append(scope), Ok(fold(Claim.STATIC, "static", ())))[1])
     rail(ok_bind, settings=assay_root.settings)(StaticParams())
     assert isinstance(seen[0], ArtifactScope)
 
@@ -678,7 +693,7 @@ def test_emit_double_write_guard(assay_root: AssayHarness, capsysbinary: pytest.
     Mutants caught: missing write-count guard, nulled doubled-envelope claim/verb or argv, and
     stderr writes that are not wire-decodable Envelopes.
     """
-    bind = _STATIC_FIX_BIND
+    bind = _STATIC_BIND
     report = fold(Claim.STATIC, bind.verb, (receipt(("dotnet",), 0, status=RailStatus.OK),))
     writes_token = registry_mod._WRITES.set(iter([1, 2]))  # past 0 so the "second write" arm fires
     ring_token, resource_token = _RING.set(deque(maxlen=16)), _RESOURCE.set(())
@@ -702,7 +717,7 @@ def test_emit_double_write_guard(assay_root: AssayHarness, capsysbinary: pytest.
 @pytest.mark.parametrize(
     "label, outcome, exit_code, persisted",
     [
-        ("ok", Ok(fold(Claim.STATIC, "fix", (receipt(("dotnet",), 0, status=RailStatus.OK),))), 0, True),
+        ("ok", Ok(fold(Claim.STATIC, "static", (receipt(("dotnet",), 0, status=RailStatus.OK),))), 0, True),
         ("spawn-fault", Error(Fault(("tool",), RailStatus.FAILED, "boom")), RailStatus.FAILED.exit_code, True),
         ("parse-fault", Error(Fault((), RailStatus.FAULTED, "parse: bad token")), RailStatus.FAULTED.exit_code, False),
     ],
@@ -719,7 +734,7 @@ def test_emit_exit_code_duration_and_persistence_matrix(
     Mutants caught: duration scaling, dropped fault exit_code, inverted persistence gates, and
     run_id=None writes.
     """
-    bind = _STATIC_FIX_BIND
+    bind = _STATIC_BIND
     settings = assay_root.settings.model_copy(update={"run_id": f"{assay_root.settings.run_id}-{label}"})
     tokens = (_RING.set(deque(maxlen=16)), registry_mod._WRITES.set(count()), _RESOURCE.set(()))
     try:
@@ -1040,7 +1055,7 @@ def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 
     at_cap = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(_RESULT_CAP))
-    env = _ok_envelope(_STATIC_FIX_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "fix", RailStatus.OK, results=at_cap))
+    env = _ok_envelope(_STATIC_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "static", RailStatus.OK, results=at_cap))
     assert env.truncated is False
     assert env.status is RailStatus.OK
     assert env.report is not None
@@ -1052,7 +1067,7 @@ def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness
         Match(id="t2", kind=ArtifactKind.PROCESS, text="bang", severity="failed"),
         Match(id="t3", kind=ArtifactKind.PROCESS, text="fine"),
     )
-    failed_env = _ok_envelope(_STATIC_FIX_BIND, assay_root.settings, 2.0, Report(Claim.STATIC, "fix", RailStatus.FAILED, results=rows))
+    failed_env = _ok_envelope(_STATIC_BIND, assay_root.settings, 2.0, Report(Claim.STATIC, "static", RailStatus.FAILED, results=rows))
     assert failed_env.status is RailStatus.FAILED
     assert failed_env.exit_code == RailStatus.FAILED.exit_code
     ctx = failed_env.error_context
@@ -1072,7 +1087,7 @@ def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, c
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 
     rows = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(_RESULT_CAP + 1))
-    env = _ok_envelope(_STATIC_FIX_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "fix", RailStatus.OK, results=rows))
+    env = _ok_envelope(_STATIC_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "static", RailStatus.OK, results=rows))
 
     assert env.truncated
     assert env.report is not None
@@ -1086,7 +1101,7 @@ def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, c
     full = next(a for a in env.report.artifacts if a.id == "full-report")
     full_raw = assay_root.settings.store().read_path(full.path)
     assert len(msgspec.json.decode(full_raw, type=Report).results) == _RESULT_CAP + 1
-    assert full.path.endswith("static-fix.full-report.json")
+    assert full.path.endswith("static-static.full-report.json")
     assert full.kind is ArtifactKind.HISTORY
     assert (full.bytes, full.lines) == (len(full_raw), 0)
 
@@ -1099,7 +1114,7 @@ def test_full_report_artifact_oserror_returns_empty(assay_root: AssayHarness, mo
     from tools.assay.composition.registry import _full_report_artifact  # noqa: PLC0415
 
     _patch_store(monkeypatch, "write_full_report")
-    assert _full_report_artifact(assay_root.settings, _STATIC_FIX_BIND, Report(Claim.STATIC, "fix", RailStatus.OK)) == ()
+    assert _full_report_artifact(assay_root.settings, _STATIC_BIND, Report(Claim.STATIC, "static", RailStatus.OK)) == ()
 
 
 @pytest.mark.parametrize(
@@ -1273,7 +1288,7 @@ def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypat
     from tools.assay.composition.registry import _leaf  # noqa: PLC0415
 
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    bind = _STATIC_FIX_BIND
+    bind = _STATIC_BIND
     leaf = _leaf(bind)
     assert isinstance(leaf, FunctionType)
     fn: FunctionType = leaf

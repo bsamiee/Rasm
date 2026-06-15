@@ -71,39 +71,44 @@ public sealed record KvEntry(
 ## [3]-[DOCUMENT_LANE]
 
 - Owner: `JsonIndex` `[SmartEnum<string>]` per-column index policy under the `StoreKeyPolicy` ordinal accessor.
-- Cases: Containment | KeyExistence | None
+- Cases: Containment | KeyExistence | TextDocument | None
 - Packages: Microsoft.EntityFrameworkCore.Sqlite, Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: a new document column is one `JsonIndex` policy value on its index row; the text-preserving json column type lands later as one designed-only growth row; zero new surface.
-- Boundary: `ComplexProperty(x => x.Detail, d => d.ToJson())` is the only document mapping — the owned-entity ToJson spelling is the rejected form; jsonb is the canonical server column while the embedded column stays TEXT json with `json_extract` translation, so `JsonIndex.None` is the only embedded row and the lane is index-asymmetric by construction — query shapes never assume jsonpath-index parity across profiles; NodaTime values inside documents persist through the registered plugin converters, never a DateTime sentinel; foreign schemaless payloads enter as one JsonDocument column through exactly one boundary converter; tz-suffixed path functions never enter an expression index.
+- Growth: a new document column is one `JsonIndex` policy value on its index row; a new server json representation is one row on the same enum; zero new surface.
+- Boundary: `ComplexProperty(x => x.Detail, d => d.ToJson())` is the only document mapping — the owned-entity ToJson spelling is the rejected form; each `JsonIndex` key denotes one index strategy and the `ColumnType` and `OpClass` columns carry the server-column and GIN-opclass facts so the key axis stays homogeneous; jsonb is the canonical `ColumnType` while `TextDocument` carries the `json` `ColumnType` that preserves textual byte order, whitespace, and duplicate keys for round-trip-fidelity documents, so a foreign-document of-record column declares `TextDocument` and an indexable decomposed column declares `Containment` or `KeyExistence`; the embedded column stays TEXT json with `json_extract` translation, so `JsonIndex.None` is the only embedded row and the lane is index-asymmetric by construction — query shapes never assume jsonpath-index parity across profiles, and `TextDocument` carries no expression-index analogue because `json` is not set-indexable; NodaTime values inside documents persist through the registered plugin converters, never a DateTime sentinel; foreign schemaless payloads enter as one JsonDocument column through exactly one boundary converter; tz-suffixed path functions never enter an expression index.
 
 ```csharp signature
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<StoreKeyPolicy, string>]
 public sealed partial class JsonIndex {
-    public static readonly JsonIndex Containment = new("jsonb_path_ops");
-    public static readonly JsonIndex KeyExistence = new("jsonb_ops");
-    public static readonly JsonIndex None = new("none");
+    public static readonly JsonIndex Containment = new("containment", columnType: "jsonb", opClass: "jsonb_path_ops");
+    public static readonly JsonIndex KeyExistence = new("key-existence", columnType: "jsonb", opClass: "jsonb_ops");
+    public static readonly JsonIndex TextDocument = new("text-document", columnType: "json", opClass: "none");
+    public static readonly JsonIndex None = new("none", columnType: "jsonb", opClass: "none");
+
+    public string ColumnType { get; }
+    public string OpClass { get; }
 }
 ```
 
-| [INDEX] | [SURFACE]                          | [STORE]         | [ROUTE]                | [LAW]                                                       |
-| :-----: | ---------------------------------- | --------------- | ---------------------- | ----------------------------------------------------------- |
-|   [1]   | jsonb document column              | postgres-server | provider mapping       | canonical document column; decomposed binary, set-indexable |
-|   [2]   | `@?` / `@@` path predicates        | postgres-server | raw SQL over GIN       | containment and path predicates under the declared class    |
-|   [3]   | `jsonb_path_query` function family | postgres-server | raw SQL                | non-tz forms only inside expression indexes                 |
-|   [4]   | `JSON_TABLE` shredding             | postgres-server | FromSql projection     | SQL/JSON standard row-shred surface for set projections     |
-|   [5]   | `json_extract` translation         | sqlite rows     | LINQ translation       | TEXT json column; zero index analogue                       |
-|   [6]   | ExecuteUpdate into JSON paths      | both providers  | set-based write        | partial document update without entity materialization      |
-|   [7]   | JsonDocument escape hatch          | both providers  | one boundary converter | schemaless foreign payload admission                        |
+| [INDEX] | [SURFACE]                          | [STORE]         | [ROUTE]                | [LAW]                                                                           |
+| :-----: | ---------------------------------- | --------------- | ---------------------- | ------------------------------------------------------------------------------- |
+|   [1]   | jsonb document column              | postgres-server | provider mapping       | canonical document column; decomposed binary, set-indexable                     |
+|   [2]   | json document column               | postgres-server | provider mapping       | text-preserving column; byte order and duplicate keys held; no expression index |
+|   [3]   | `@?` / `@@` path predicates        | postgres-server | raw SQL over GIN       | containment and path predicates under the declared class                        |
+|   [4]   | `jsonb_path_query` function family | postgres-server | raw SQL                | non-tz forms only inside expression indexes                                     |
+|   [5]   | `JSON_TABLE` shredding             | postgres-server | FromSql projection     | SQL/JSON standard row-shred surface for set projections                         |
+|   [6]   | `json_extract` translation         | sqlite rows     | LINQ translation       | TEXT json column; zero index analogue                                           |
+|   [7]   | ExecuteUpdate into JSON paths      | both providers  | set-based write        | partial document update without entity materialization                          |
+|   [8]   | JsonDocument escape hatch          | both providers  | one boundary converter | schemaless foreign payload admission                                            |
 
 ## [4]-[SEARCH_LANES]
 
 - Owner: `VectorQuery` and `FullTextQuery` shapes with the `VectorMetric`, `FullTextMode`, and `EmbeddingIdentity` vocabularies.
 - Cases: `VectorMetric` l2 | cosine | inner-product | l1; `FullTextMode` match | prefix | phrase | websearch
 - Entry: `public static EmbeddingIdentity Of(ReadOnlySpan<byte> content, string modelId)` — pure value; embedding identity is content hash times model id, so re-embedding dedupes structurally.
-- Packages: Pgvector.EntityFrameworkCore, Microsoft.Data.Sqlite, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Packages: Pgvector.EntityFrameworkCore, Microsoft.Data.Sqlite, Microsoft.EntityFrameworkCore.Sqlite, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new embedding family is one row carrying model id, dimensionality, and column type; a new tokenizer or rank grammar is one policy value on its provider row; a bit-vector metric family (hamming, jaccard) is one `VectorMetric` row paired with one bit-probe arity on `VectorQuery`; zero new surface.
-- Boundary: one query shape per search concern projects to every provider — provider-twin query shapes are the deleted pattern; `VectorMetric.Op` carries the distance operator that the server row projects through `L2Distance`, `CosineDistance`, `MaxInnerProduct`, and `L1Distance`; the embedded vector route stays gate-resolved with the brute-force scan as the always-present correctness baseline; fuzzy admission normalizes through unaccent and prefilters through trigram similarity before rank.
+- Boundary: one query shape per search concern projects to every provider — provider-twin query shapes are the deleted pattern; `VectorMetric.Op` carries the distance operator that the server row projects through `L2Distance`, `CosineDistance`, `MaxInnerProduct`, and `L1Distance`; the embedded vector route stays gate-resolved with the brute-force scan as the always-present correctness baseline; fuzzy admission normalizes through unaccent and prefilters through trigram similarity before rank; the embedded `Regex.IsMatch` predicate translates through `SqliteRegexMethodTranslator` so a LINQ regex filter projects to the sqlite `REGEXP` operator instead of client evaluation.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -157,34 +162,52 @@ public sealed record FullTextQuery(
 ## [5]-[GEO_LANES]
 
 - Owner: `GeoLayer` container row over the NetTopologySuite value chain.
-- Packages: Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, NetTopologySuite.IO.GeoPackage, Microsoft.Data.Sqlite
-- Growth: a new geometry concern is one `GeoLayer` row or one driver-native type row; zero new surface.
-- Boundary: NetTopologySuite is the store boundary projection of the one canonical wire geometry — a third managed geometry representation is the named defect; server geometry and geography columns enter through the single `UseNetTopologySuite` admission on provider options and data source; container window reads prefilter by `Envelope` against the R*Tree index and refine with managed `Geometry` predicates after blob decode; the `Ordinates` and `RepairRings` columns parameterize the GPB codec — `GeoPackageGeoWriter.HandleOrdinates` caps written ordinates and selects the header envelope kind, `HandleSRID` stamps the row's `Srid` on decode, and ring repair runs only where the row arms it; geodesy is owned server-side and the earthdistance route stays rejected.
+- Packages: Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, NetTopologySuite.IO.GeoPackage, NetTopologySuite.IO.GeoJSON4STJ, Microsoft.Data.Sqlite
+- Growth: a new geometry concern is one `GeoLayer` row or one driver-native type row; a new container-write policy is one column on `GeoLayer`; zero new surface.
+- Boundary: NetTopologySuite is the store boundary projection of the one canonical wire geometry — a third managed geometry representation is the named defect; server geometry and geography columns enter through the single `UseNetTopologySuite` admission on provider options and data source; container window reads prefilter by `Envelope` against the R*Tree index and refine with managed `Geometry` predicates after blob decode — `Geometry.Intersects`, `Geometry.Contains`, and `Geometry.Buffer` over the decoded candidate set are the managed-refine vocabulary and `Geometry.AsBinary`/`Geometry.AsText` are the only egress projections, while server-side refine and a second managed geometry chain stay rejected; the `Ordinates`, `RepairRings`, and `RingOrientation` columns parameterize the GPB codec — `GeoPackageGeoWriter.HandleOrdinates` caps written ordinates and selects the header envelope kind, `HandleSRID` stamps the row's `Srid` on decode, ring repair runs only where the row arms it, and `RingOrientationOption` selects the polygon-ring orientation on write so a sign-deriving kernel reads a normalized winding; feature attributes stay element-backed read-only unless `WriteAttributes` admits the mutable `JsonObjectAttributesTable` adapter, and typed attribute projection rides `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>` and `TryGetJsonObjectPropertyValue<T>` so loose-table DOM walking is the deleted form; geodesy is owned server-side and the earthdistance route stays rejected.
 
 ```csharp signature
-public sealed record GeoLayer(string Table, string GeometryColumn, int Srid, Envelope Extent, Ordinates Ordinates, bool RepairRings);
+public sealed record GeoLayer(
+    string Table,
+    string GeometryColumn,
+    int Srid,
+    Envelope Extent,
+    Ordinates Ordinates,
+    bool RepairRings,
+    RingOrientationOption RingOrientation,
+    bool WriteAttributes);
 ```
 
-| [INDEX] | [CONCERN]               | [RESIDENCE]           | [SURFACE]                                                                             | [LAW]                                                                                                                                                                      |
-| :-----: | ----------------------- | --------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | geometry / geography    | postgres-server       | NetTopologySuite column mapping                                                       | spatial predicates translate; indexes ride schema rows                                                                                                                     |
-|   [2]   | embedded geo container  | sqlite container file | `GeoPackageGeoReader` / `GeoPackageGeoWriter`                                         | GPB blob codec; R*Tree window then managed refine                                                                                                                          |
-|   [3]   | hierarchy paths         | postgres-server       | ltree driver-native rows                                                              | assembly and part trees; lquery operators raw SQL                                                                                                                          |
-|   [4]   | N-dimensional intervals | postgres-server       | cube driver-native rows                                                               | GiST nearest-neighbor concerns                                                                                                                                             |
-|   [5]   | scalar spans            | postgres-server       | `NpgsqlRange<T>` ranges and multiranges                                               | overlap predicates and exclusion constraints; Interval and DateInterval spans ride the NodaTime range mappings with `RangeAgg` / `RangeIntersectAgg` aggregate projections |
-|   [6]   | geodesic query forms    | postgres-server       | `Distance` / `IsWithinDistance` / `DistanceKnn` / `Transform` / `Force2D` DbFunctions | spheroid math, KNN ordering, and SRID reprojection ride translated SQL, never client refine                                                                                |
+| [INDEX] | [CONCERN]               | [RESIDENCE]           | [SURFACE]                                                                             | [LAW]                                                                                                                                                                                                                                                                                          |
+| :-----: | ----------------------- | --------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | geometry / geography    | postgres-server       | NetTopologySuite column mapping                                                       | spatial predicates translate; indexes ride schema rows                                                                                                                                                                                                                                         |
+|   [2]   | embedded geo container  | sqlite container file | `GeoPackageGeoReader` / `GeoPackageGeoWriter`                                         | GPB blob codec; R*Tree window then managed `Geometry.Intersects` / `Geometry.Contains` / `Geometry.Buffer` refine; `Geometry.AsBinary` / `Geometry.AsText` egress only                                                                                                                         |
+|   [3]   | hierarchy paths         | postgres-server       | ltree driver-native rows                                                              | assembly and part trees; lquery operators raw SQL                                                                                                                                                                                                                                              |
+|   [4]   | N-dimensional intervals | postgres-server       | cube driver-native rows                                                               | GiST nearest-neighbor concerns                                                                                                                                                                                                                                                                 |
+|   [5]   | scalar spans            | postgres-server       | `NpgsqlRange<T>` ranges, multiranges, `NpgsqlInterval`                                | overlap predicates and exclusion constraints; `Period` / `YearMonth` / `DateInterval` columns and `Interval` / `DateInterval` spans ride NodaTime range and `IntervalMultirangeMapping` / `DateIntervalMultirangeMapping` mappings with `RangeAgg` / `RangeIntersectAgg` aggregate projections |
+|   [6]   | geodesic query forms    | postgres-server       | `Distance` / `IsWithinDistance` / `DistanceKnn` / `Transform` / `Force2D` DbFunctions | spheroid math, KNN ordering, and SRID reprojection ride translated SQL, never client refine                                                                                                                                                                                                    |
+|   [7]   | feature attribute write | both projections      | `JsonObjectAttributesTable` / `IPartiallyDeserializedAttributesTable`                 | mutable feature attributes only under `WriteAttributes`; typed projection via `TryDeserializeJsonObject<T>` / `TryGetJsonObjectPropertyValue<T>`; loose-table walking rejected                                                                                                                 |
+|   [8]   | container window clip   | sqlite container file | GeoPackage R*Tree window predicate                                                    | envelope-overlap candidate set keyed on the integer primary key before managed-geometry refine                                                                                                                                                                                                 |
 
 ## [6]-[ANALYTICAL_LANE]
 
 - Owner: `TabularExportSpec` and `ParquetSchemaStamp` export policy records.
-- Packages: DuckDB.NET.Data.Full, Sep, LanguageExt.Core, BCL inbox
-- Growth: a new export shape is one `TabularExportSpec` row; a new parquet generation is one `ParquetSchemaStamp` row; a new shred source is one read_json row; zero new surface.
-- Boundary: the analytical lane reads and projects and never owns source-of-truth writes; the server boundary is parquet-export-only — postgres_scanner stays rejected; live embedded reads ride one `ATTACH (TYPE sqlite, READ_ONLY)` row gated by the live-attach research gate; parquet, json, and icu ride statically inside the bundled engine while the sqlite scanner autoloads, so offline posture vendors the platform-matched extension binary beside the engine; xlsx and a second tabular engine stay rejected with Sep and parquet as the owners; Sep rows and columns are ref-struct projections that never escape the read scope and typed columns parse through `ISpanParsable` values, never string materialization; DuckDB fts, spatial, remote-filesystem, and vss rows stay out — full-text, geometry, remote-blob, and vector concerns have named lane owners and vss persistence is experimental with documented loss on unclean shutdown.
+- Packages: DuckDB.NET.Data.Full, Sep, MessagePack, LanguageExt.Core, BCL inbox
+- Growth: a new export shape is one `TabularExportSpec` row; a new exchange direction is one `TabularDirection` policy value on the same record; a new parquet generation is one `ParquetSchemaStamp` row; a new shred source is one read_json row; a new in-process sequence is one `RegisterTableFunction` row; the changefeed materialization is the `AnalyticalTraversal` extension block on `TabularExportSpec` with one `DuckDBOpLogMap` mapping descriptor, not a new owner; zero new surface.
+- Boundary: the analytical lane reads and projects and never owns source-of-truth writes; the server boundary is parquet-export-only — postgres_scanner stays rejected; live embedded reads ride one `ATTACH (TYPE sqlite, READ_ONLY)` row gated by the live-attach research gate, and in-process concurrency rides `Duplicate` lanes over the one anchor handle so a streaming drain occupies its own connection while a write lane serializes at `BeginTransaction` under one `DuckDBTransaction` per database; foreign-store pre-flight is a `GetSchema` metadata read against the alias before any data moves, and `Prepare` amortizes repeated parameterized reads; parquet, json, and icu ride statically inside the bundled engine while the sqlite scanner autoloads, so offline posture vendors the platform-matched extension binary beside the engine; xlsx and a second tabular engine stay rejected with Sep and parquet as the owners; the `TabularDirection` policy value selects read versus write through `Direction.Switch` so one spec record derives both `SepReader` and `SepWriter` — `OpenReader` admits only under `Import` and `OpenWriter` only under `Export`, the opposite direction projecting to a typed `Fin` rejection so a misdirected open fails at composition rather than at first parse, `ReadHeader` carries the header-presence axis for import, `Strict` and `Trim` fold onto the reader options value, `Sep.Auto` is the exploratory separator-sniff value never a contract profile, and the reader-to-writer fusion rides `SepReaderWriterExtensions.CopyTo` and `SepWriter.NewRow(readerRow)` so parse-materialize-rebuild is the rejected spelling; Sep rows and columns are ref-struct projections that never escape the read scope, strings route once through `SepToString` pooling, and typed columns parse through `ISpanParsable` values, never string materialization; bulk receipt staging validates at construction through the `DuckDBAppenderMap` so record-table drift is a construction failure caught on the rail, and a registered scalar or table function exposes an in-process sequence as a relation with `CardinalityHint` feeding the join planner instead of a staging table; vector chunk readers and writers move data at the engine's vector quantum so peak managed memory is one chunk wide; DuckDB fts, spatial, remote-filesystem, and vss rows stay out — full-text, geometry, remote-blob, and vector concerns have named lane owners and vss persistence is experimental with documented loss on unclean shutdown.
 
 ```csharp signature
+[SmartEnum]
+public sealed partial class TabularDirection {
+    public static readonly TabularDirection Import = new();
+    public static readonly TabularDirection Export = new();
+}
+
 public sealed record TabularExportSpec(
     Seq<string> Columns,
+    TabularDirection Direction,
     bool WriteHeader,
+    bool ReadHeader,
     CultureInfo Culture,
     char Separator,
     bool Strict,
@@ -192,21 +215,98 @@ public sealed record TabularExportSpec(
     bool ParallelRead);
 
 public sealed record ParquetSchemaStamp(string Stamp, FrozenDictionary<string, string> Fields);
+
+public static class TabularSpec {
+    extension(TabularExportSpec spec) {
+        public Fin<SepReader> OpenReader(Stream source) =>
+            spec.Direction.Switch(
+                state: (Spec: spec, Source: source),
+                import: static s => Fin.Succ(ReaderOptions(s.Spec).From(s.Source)),
+                export: static _ => Fin.Fail<SepReader>(Error.New("<tabular-direction:export-has-no-reader>")));
+
+        public Fin<SepWriter> OpenWriter(Stream sink) =>
+            spec.Direction.Switch(
+                state: (Spec: spec, Sink: sink),
+                import: static _ => Fin.Fail<SepWriter>(Error.New("<tabular-direction:import-has-no-writer>")),
+                export: static s => Fin.Succ(
+                    Sep.New(s.Spec.Separator)
+                        .Writer(o => o with { CultureInfo = s.Spec.Culture, WriteHeader = s.Spec.WriteHeader })
+                        .To(s.Sink)));
+    }
+
+    private static SepReaderOptions ReaderOptions(TabularExportSpec spec) =>
+        Sep.New(spec.Separator).Reader(o => (spec.Strict ? o.Strict() : o) with {
+            CultureInfo = spec.Culture,
+            HasHeader = spec.ReadHeader,
+            Trim = spec.Trim,
+            Unescape = true,
+        });
+}
 ```
 
-| [INDEX] | [ROW]                     | [SURFACE]                                                                       | [LAW]                                                                                                                                              |
-| :-----: | ------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | live store attach         | `ATTACH 'store.db' AS live (TYPE sqlite, READ_ONLY)` raw SQL on `DuckDBCommand` | zero-export reads of the embedded store                                                                                                            |
-|   [2]   | parquet export            | `COPY` rollup `TO` parquet via `DuckDBCommand`                                  | the only dashboard export; rows carry the stamp column                                                                                             |
-|   [3]   | json shred                | `read_json` / `json_transform`                                                  | typed STRUCT and LIST coercion of receipt streams                                                                                                  |
-|   [4]   | rollup pushdown           | group, window, percentile raw SQL                                               | aggregate shapes stay off the EF rails                                                                                                             |
-|   [5]   | collation                 | icu rows inside the engine                                                      | locale-aware ordering inside exports                                                                                                               |
-|   [6]   | tabular import/export     | `SepReader` / `SepWriter` under one spec record                                 | culture-aware parse; column selection; header policy; `Strict` hardening, `SepTrim` trim, and `ParallelEnumerate` projection ride the spec columns |
-|   [7]   | receipt staging           | `CreateAppender` rows via `DuckDBAppender`                                      | derived rollup staging only; `Close` seals appended rows                                                                                           |
-|   [8]   | long-rollup observability | `UseStreamingMode` + `GetQueryProgress` on `DuckDBCommand`                      | bounded-memory result streams; progress projects as maintain-kind facts                                                                            |
+| [INDEX] | [ROW]                     | [SURFACE]                                                                                                | [LAW]                                                                                                                                                                                                                                                                                                                                                                       |
+| :-----: | ------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | live store attach         | `ATTACH 'store.db' AS live (TYPE sqlite, READ_ONLY)` raw SQL on `DuckDBCommand`                          | zero-export reads of the embedded store; `Duplicate` lanes carry concurrent drains                                                                                                                                                                                                                                                                                          |
+|   [2]   | parquet export            | `COPY` rollup `TO` parquet via `DuckDBCommand`                                                           | the only dashboard export; rows carry the stamp column                                                                                                                                                                                                                                                                                                                      |
+|   [3]   | json shred                | `read_json` / `json_transform`                                                                           | typed STRUCT and LIST coercion of receipt streams                                                                                                                                                                                                                                                                                                                           |
+|   [4]   | rollup pushdown           | group, window, percentile raw SQL                                                                        | aggregate shapes stay off the EF rails                                                                                                                                                                                                                                                                                                                                      |
+|   [5]   | collation                 | icu rows inside the engine                                                                               | locale-aware ordering inside exports                                                                                                                                                                                                                                                                                                                                        |
+|   [6]   | tabular import/export     | `SepReader` / `SepWriter` under one spec record                                                          | `TabularDirection` derives the reader/writer pair; culture-aware parse; column selection; `ReadHeader` and `WriteHeader` header policy; `Sep.Auto` exploratory sniff; `Strict` hardening, `SepTrim` trim, `SepToString` pooling, and `ParallelEnumerate` projection ride the spec columns; `SepReaderWriterExtensions.CopyTo` and `NewRow(readerRow)` fuse reader-to-writer |
+|   [7]   | mapped receipt staging    | `CreateAppender<T,TMap>` over `DuckDBMappedAppender` / `DuckDBAppenderMap`; `AppendRecords` then `Close` | derived rollup staging only; record-table drift fails at `DuckDBAppenderMap` construction; the batch flushes at the vector quantum and `Close` seals the run; a row-at-a-time appender open is rejected                                                                                                                                                                     |
+|   [8]   | in-process sequences      | `RegisterScalarFunction` / `RegisterTableFunction` with `CardinalityHint`                                | a managed sequence participates as a relation with planner cardinality instead of a single-query staging table                                                                                                                                                                                                                                                              |
+|   [9]   | vector chunk transfer     | `VectorDataReaderFactory` / `VectorDataWriterFactory` / `IDuckDBDataWriter` (`WriteValue` / `IsValid`)   | one-chunk-wide ingress and egress at the vector quantum; `IsValid` is the validity-mask read before every nullable column value                                                                                                                                                                                                                                             |
+|  [10]   | long-rollup observability | `UseStreamingMode` + `GetQueryProgress` on `DuckDBCommand`                                               | bounded-memory result streams; progress projects as maintain-kind facts; a negative percentage projects to absence                                                                                                                                                                                                                                                          |
+
+The `TabularExportSpec` owner carries one HLC-ordered changefeed-to-parquet traversal — `Materialize` drains the sync changefeed's length-delimited segments through `MessagePackStreamReader` into one materialized `Seq` (the changefeed entries consumed as settled vocabulary), orders that carrier by the HLC `(Physical, Logical, OriginStoreId)` key, and flushes the ordered run through the `DuckDBOpLogMap` mapped appender's `AppendRecords` in one batch sealed by `Close`, so the staging row and the streamed segment reader fold into one accumulate-or-abort `IO` pass; the row-at-a-time appender open is the deleted spelling, the sort is bounded to the materialized run, and no transport and no second changefeed enter. Exemption: `Drain`'s `MessagePackStreamReader` segment loop and `Stage`'s `using` mapped-appender capsule are this traversal's platform-forced statement seam — the ADO bulk-appender and the length-delimited segment reader carry language-owned statement forms, while the surrounding `Materialize` pipeline stays expression-shaped over `IO.liftAsync`, `Map`, and `Bind`; the same seam law governs the `OpenReader`/`OpenWriter` derivation, whose Sep options carry no statement body.
+
+```csharp signature
+public sealed class DuckDBOpLogMap : DuckDBAppenderMap<OpLogEntry> {
+    public DuckDBOpLogMap() {
+        Map(static entry => entry.Sequence);
+        Map(static entry => entry.EntityKind);
+        Map(static entry => entry.EntityKey);
+        Map(static entry => entry.ColumnFamily);
+        Map(static entry => entry.Kind.Key);
+        Map(static entry => entry.Physical.ToUnixTimeTicks());
+        Map(static entry => (long)entry.Logical);
+    }
+}
+
+public static class AnalyticalTraversal {
+    extension(TabularExportSpec spec) {
+        public IO<ParquetSchemaStamp> Materialize(
+            DuckDBConnection lane,
+            Stream changefeed,
+            string table,
+            ParquetSchemaStamp schema) =>
+            IO.liftAsync(env => Drain(changefeed, env.Token))
+                .Map(static entries => toSeq(entries
+                    .OrderBy(static entry => entry.Physical)
+                    .ThenBy(static entry => entry.Logical)
+                    .ThenBy(static entry => entry.OriginStoreId)))
+                .Bind(ordered => IO.lift(() => Stage(lane, table, ordered)))
+                .Map(_ => schema);
+
+        private static async ValueTask<Seq<OpLogEntry>> Drain(Stream changefeed, CancellationToken token) {
+            using var reader = new MessagePackStreamReader(changefeed);
+            var entries = Seq<OpLogEntry>();
+            while (await reader.ReadAsync(token) is { } segment)
+                entries = entries.Add(MessagePackSerializer.Deserialize<OpLogEntry>(segment, SnapshotCodec.Binary, token));
+            return entries;
+        }
+
+        private static Unit Stage(DuckDBConnection lane, string table, Seq<OpLogEntry> ordered) {
+            using var bulk = lane.CreateAppender<OpLogEntry, DuckDBOpLogMap>(table);
+            bulk.AppendRecords([.. ordered]);
+            bulk.Close();
+            return unit;
+        }
+    }
+}
+```
 
 ## [7]-[RESEARCH]
 
-- [LIVE_ATTACH]: sqlite_scanner snapshot visibility against a live WAL store under one concurrent writer.
-- [DOCUMENT_PARITY]: predicate, `ExecuteUpdate`, and index translation parity for `ToJson` complex documents across the two store providers.
-- [GEO_WINDOW]: GeoPackage spatial-index trigger conformance over the compiled R*Tree module.
+- [LIVE_ATTACH]: sqlite_scanner snapshot visibility against a live WAL store under one concurrent writer, and `ATTACH (TYPE sqlite, READ_ONLY)` page-cache coherence across the `Duplicate` lane boundary mid-write.
+- [REGISTER_TABLE_FUNCTION]: managed `RegisterTableFunction` chunk-fill contract under streaming-mode consumption — vector-fill arity and `CardinalityHint` accuracy effect on join-plan selection.
+- [MANAGED_REFINE_OPS]: managed `Centroid`, `ConvexHull`, and `Intersection` constructive-geometry forms over decoded container candidates beyond the catalogued `Geometry.Intersects` / `Geometry.Contains` / `Geometry.Buffer` predicate and `Geometry.Distance` measurement vocabulary.

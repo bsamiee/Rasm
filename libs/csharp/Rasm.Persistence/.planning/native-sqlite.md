@@ -157,7 +157,7 @@ public static class SqliteCompileSurface {
 - Receipt: maintenance facts carry the engine's result rows in the After slot and result-row counts in Count; paged backup emits one progress fact per `BackupStepPages` step with remaining pages in Count and a terminal fact carrying total pages.
 - Packages: Microsoft.Data.Sqlite, SQLitePCLRaw.bundle_e_sqlite3, System.IO.Hashing, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new maintenance verb is one Maintain-flagged `SqliteFactKind` row plus one `Sql` entry; a new engine function, aggregate (`CreateAggregate` inside the same `Bind` delegate), or collation is one `FunctionRegistration` row; zero new surface.
-- Boundary: `Maintain`, `Register`, `Backup`, and `WithSnapshot` are this fence's boundary capsules over ADO and raw-interop ceremony; the verbs surface upward as the StoreOp.Maintain arm set, never as a service class; blob payloads stream through the constructed `SqliteBlob` write stream and the `GetStream` read path, so whole-payload byte[] materialization is the deleted pattern; paged backup steps the raw backup session over `Handle` — the provider's whole-file `BackupDatabase` copy is subsumed by the paged session, which adds progress facts; the snapshot bracket pins a consistent multi-transaction read view under WAL, attempts one `sqlite3_snapshot_recover` pass when the initial pin is refused, and frees only a held snapshot handle; `uuid7` registration is the sqlite leg of the identity policy, `xxh128` is the non-cryptographic identity scalar, and `instant_iso` collates persisted ExtendedIso text chronologically by parsed comparison.
+- Boundary: `Maintain`, `Register`, `Backup`, and `WithSnapshot` are this fence's boundary capsules over ADO and raw-interop ceremony; the verbs surface upward as the StoreOp.Maintain arm set, never as a service class; blob payloads stream through the constructed `SqliteBlob` write stream and the `GetStream` read path, so whole-payload byte[] materialization is the deleted pattern; paged backup steps the raw backup session over `Handle` — the provider's whole-file `BackupDatabase` copy is subsumed by the paged session, which adds progress facts; the snapshot bracket pins a consistent multi-transaction read view under WAL, attempts one `sqlite3_snapshot_recover` pass when the initial pin is refused, rejects a pin older than the optional `floor` through `sqlite3_snapshot_cmp` so a monotonic reader never regresses across successive brackets, and frees only a held snapshot handle; `uuid7` registration is the sqlite leg of the identity policy, `xxh128` is the non-cryptographic identity scalar, and `instant_iso` collates persisted ExtendedIso text chronologically by parsed comparison.
 
 ```csharp signature
 public sealed record SqliteMaintenancePolicy(long FreelistThresholdPages, int BackupStepPages) {
@@ -219,15 +219,19 @@ public static class SqliteMaintenance {
             return facts.Add(new SqliteFact(SqliteFactKind.Backup, "main", None, Some("complete"), Count: total, Bytes: 0, clocks.Elapsed(mark), clocks.Now));
         });
 
-    public static IO<Fin<T>> WithSnapshot<T>(SqliteConnection connection, string schema, Func<SqliteConnection, Fin<T>> read) =>
+    public static IO<Fin<T>> WithSnapshot<T>(SqliteConnection connection, string schema, Func<SqliteConnection, Fin<T>> read, Option<sqlite3_snapshot> floor = default) =>
         IO.lift(() => {
             var status = raw.sqlite3_snapshot_get(connection.Handle, schema, out var snapshot);
             if (status != raw.SQLITE_OK && raw.sqlite3_snapshot_recover(connection.Handle, schema) == raw.SQLITE_OK)
                 status = raw.sqlite3_snapshot_get(connection.Handle, schema, out snapshot);
             try {
-                return status == raw.SQLITE_OK && raw.sqlite3_snapshot_open(connection.Handle, schema, snapshot) == raw.SQLITE_OK
-                    ? read(connection)
-                    : Fin.Fail<T>(Error.New($"<snapshot-unavailable:{schema}>"));
+                return status != raw.SQLITE_OK
+                    ? Fin.Fail<T>(Error.New($"<snapshot-unavailable:{schema}>"))
+                    : floor is { IsSome: true, Case: sqlite3_snapshot since } && raw.sqlite3_snapshot_cmp(snapshot, since) < 0
+                        ? Fin.Fail<T>(Error.New($"<snapshot-stale:{schema}>"))
+                        : raw.sqlite3_snapshot_open(connection.Handle, schema, snapshot) == raw.SQLITE_OK
+                            ? read(connection)
+                            : Fin.Fail<T>(Error.New($"<snapshot-open-refused:{schema}>"));
             } finally {
                 if (snapshot is { } held)
                     raw.sqlite3_snapshot_free(held);
@@ -249,8 +253,8 @@ public static class SqliteMaintenance {
 - Entry: `public static IO<SqliteFact> Load(SqliteConnection connection, ClockPolicy clocks, ExtensionGate gate)` — arms the db_config route and loads through the OS loader.
 - Receipt: one extension-load fact per opened gate (Slot = gate name, After = entrypoint); the encryption ceremony receipts cipher_version on the same stream when its research gate opens.
 - Packages: Microsoft.Data.Sqlite, SQLitePCLRaw.bundle_e_sqlite3, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
-- Growth: a new loadable concern is one `ExtensionGate` row naming artifact route and fallback lane; future cr-sqlite admission lands as one gate row plus merge-law rows on the sync owner, never a transport case; zero new surface.
-- Boundary: `EnableExtensions` arms only the db_config form, so the SQL-level load_extension() function stays off; the OS loader resolves artifacts directly — absolute path or loader-path variable, with the NuGet RID convention copying payloads to output; the vector gate never deletes the brute-force fallback case; jsonb_* blob functions are an in-process raw-SQL fast path that never crosses a seam while the EF mapping stays TEXT json; the encryption key handle arrives from the app root per open, is never persisted, and applies through the Password connection-string keyword — the provider issues `PRAGMA key` with `SELECT quote($password)` escaping inside every pooled physical open, so the manual quoted-PRAGMA ceremony covers only `cipher_migrate`, `cipher_version`, and `rekey`; sqlean-math stays rejected (the compile flag owns it) and Microsoft.SemanticKernel.Connectors.SqliteVec stays rejected as a thin loader dragging a foreign graph.
+- Growth: a new loadable concern is one `ExtensionGate` row naming artifact route and fallback lane; a new per-connection hardening posture is one `DbConfig` row; future cr-sqlite admission lands as one gate row plus merge-law rows on the sync owner, never a transport case; zero new surface.
+- Boundary: `EnableExtensions` arms only the db_config form, so the SQL-level load_extension() function stays off; `DbConfig.Apply` folds per-connection config flags through `raw.sqlite3_db_config` so defensive-mode and double-quoted-string-literal rejection are connection policy values rather than connection-string knobs, applied once per physical open before any user statement; the OS loader resolves artifacts directly — absolute path or loader-path variable, with the NuGet RID convention copying payloads to output; the vector gate never deletes the brute-force fallback case; jsonb_* blob functions are an in-process raw-SQL fast path that never crosses a seam while the EF mapping stays TEXT json; the encryption key handle arrives from the app root per open and is never persisted, and the `EncryptionGate.Sqlcipher` ceremony rows declare the keying surface — `PRAGMA key`, `cipher_migrate`, `cipher_version`, and `rekey` — whose `SQLite3Provider_sqlcipher` keying mechanics resolve through the gate's research row before the row leaves `ExtensionGateState.Research`; sqlean-math stays rejected (the compile flag owns it) and Microsoft.SemanticKernel.Connectors.SqliteVec stays rejected as a thin loader dragging a foreign graph.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -281,6 +285,19 @@ public sealed record EncryptionGate(string GateRow, FrozenSet<DataClassification
         Ceremony: Seq("PRAGMA key", "PRAGMA cipher_migrate", "PRAGMA cipher_version", "PRAGMA rekey"));
 }
 
+public sealed record DbConfig(int Op, int Value) {
+    public static readonly Seq<DbConfig> Hardened = Seq(
+        new DbConfig(raw.SQLITE_DBCONFIG_DEFENSIVE, 1),
+        new DbConfig(raw.SQLITE_DBCONFIG_DQS_DDL, 0),
+        new DbConfig(raw.SQLITE_DBCONFIG_DQS_DML, 0),
+        new DbConfig(raw.SQLITE_DBCONFIG_ENABLE_TRIGGER, 1),
+        new DbConfig(raw.SQLITE_DBCONFIG_ENABLE_VIEW, 1),
+        new DbConfig(raw.SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION, 1));
+
+    public static IO<Unit> Apply(SqliteConnection connection, Seq<DbConfig> rows) =>
+        IO.lift(() => rows.Iter(row => raw.sqlite3_db_config(connection.Handle, row.Op, row.Value, out _)));
+}
+
 public static class ExtensionOps {
     public static IO<SqliteFact> Load(SqliteConnection connection, ClockPolicy clocks, ExtensionGate gate) =>
         IO.lift(() => {
@@ -295,4 +312,5 @@ public static class ExtensionOps {
 ## [6]-[RESEARCH]
 
 - [ENGINE_FLOOR]: compile-options receipt spellings under the central bundle-line override plus the Batteries_V2 round-trip; snapshot-bracket preconditions — read-transaction entry and checkpoint interaction under the bundled engine.
-- [EXTENSION_LOADING]: vec0 live load with the `vec_version()` fact and the package-payload versus vendored-tarball sourcing decision; hardened-runtime dlopen acceptance of unsigned extension dylibs inside the signed Rhino host process; SQLCipher provider route with an externally supplied native library on osx-arm64, including the crypto-backend notice set.
+- [EXTENSION_LOADING]: vec0 live load with the `vec_version()` fact and the package-payload versus vendored-tarball sourcing decision; hardened-runtime dlopen acceptance of unsigned extension dylibs inside the signed Rhino host process; SQLCipher provider route with an externally supplied native library on osx-arm64, including the crypto-backend notice set; the `SQLite3Provider_sqlcipher` keying surface for the `EncryptionGate.Sqlcipher` ceremony rows — the connection-string keying keyword versus the inline `PRAGMA key` form, key-literal escaping, and the pooled-physical-open application point.
+- [DB_CONFIG_OPS]: the live ordering of the `DbConfig.Hardened` set against pooled physical opens — whether defensive mode and the double-quoted-string-literal DDL/DML rejection must precede the migration ladder or apply after schema creation, and the interaction of `SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` enablement with the db_config extension-arming path on the same connection.

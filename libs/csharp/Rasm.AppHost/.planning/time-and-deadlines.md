@@ -15,8 +15,8 @@ One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement
 - Owner: `ClockPolicy`
 - Entry: `public static Option<Instant> Admit(DateTimeOffset raw)` — `Option<T>` carries absence; a platform sentinel never travels inward.
 - Packages: NodaTime, Microsoft.Extensions.TimeProvider.Testing, NodaTime.Testing, BCL inbox
-- Growth: a new foreign temporal representation lands as one policy value on `ClockPolicy` — an admission overload or a persisted text pattern; zero new surface.
-- Boundary: siblings receive `ClockPolicy` through composition and stamp TTL, retention, lease, and elapsed evidence from it — `DateTime.UtcNow`, `DateTime.Now`, and direct `Stopwatch` call sites are the deleted patterns; `InstantPattern.ExtendedIso` and `PeriodPattern.Roundtrip` are the only persisted temporal grammars, invariant-culture only; `OffsetDateTime` carries exported stamps and `ZonedDateTime` appears only at user-facing edges through an explicit resolver; the test row constructs the same record from `FakeTimeProvider` and `FakeClock`, so `Advance`, `SetUtcNow`, `AutoAdvanceAmount`, and `FromUtc` drive schedule, drain, and retry specs deterministically with zero test-only production surface.
+- Growth: a new foreign temporal representation lands as one policy value on `ClockPolicy` — an admission overload, a persisted text pattern, or an exported zone-projection formatter; zero new surface.
+- Boundary: siblings receive `ClockPolicy` through composition and stamp TTL, retention, lease, and elapsed evidence from it — `DateTime.UtcNow`, `DateTime.Now`, and direct `Stopwatch` call sites are the deleted patterns; `InstantPattern.ExtendedIso` and `PeriodPattern.Roundtrip` are the only persisted temporal grammars, invariant-culture only; `Exported` is the one cross-boundary stamp formatter — `OffsetDateTimePattern.Rfc3339` carries the offset stamp and `ZonedDateTimePattern` carries the user-facing zoned stamp, bound once through `WithZoneProvider(DateTimeZoneProviders.Tzdb)` and `WithResolver(Resolvers.StrictResolver)` so a hand-built zoned formatter is the deleted pattern; `ZoneShift` reads the offset transition at an instant through `GetZoneInterval`, the only DST-evidence surface for receipt windows that straddle a transition; the test row constructs the same record from `FakeTimeProvider` and `FakeClock`, so `Advance`, `SetUtcNow`, `AutoAdvanceAmount`, and `FromUtc` drive schedule, drain, and retry specs deterministically with zero test-only production surface.
 
 ```csharp signature
 public sealed record ClockPolicy(TimeProvider Time, IClock Clock) {
@@ -39,6 +39,19 @@ public sealed record ClockPolicy(TimeProvider Time, IClock Clock) {
     public static string Persisted(Instant value) => InstantPattern.ExtendedIso.Format(value);
 
     public static string Persisted(Period value) => PeriodPattern.Roundtrip.Format(value);
+
+    private static readonly ZonedDateTimePattern Zoned =
+        ZonedDateTimePattern.CreateWithInvariantCulture("uuuu'-'MM'-'dd'T'HH':'mm':'ss;FFFFFFFFFo<G> z", DateTimeZoneProviders.Tzdb)
+            .WithZoneProvider(DateTimeZoneProviders.Tzdb)
+            .WithResolver(Resolvers.StrictResolver);
+
+    public static string Exported(Instant value, Offset offset) =>
+        OffsetDateTimePattern.Rfc3339.Format(value.WithOffset(offset));
+
+    public static string Exported(Instant value, DateTimeZone zone) =>
+        Zoned.Format(value.InZone(zone));
+
+    public static ZoneInterval ZoneShift(Instant at, DateTimeZone zone) => zone.GetZoneInterval(at);
 }
 ```
 
@@ -50,7 +63,7 @@ public sealed record ClockPolicy(TimeProvider Time, IClock Clock) {
 - Receipt: `DeadlineReceipt` — class, allotted `Duration`, consumed `Duration`, outcome, `Instant` stamp.
 - Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new bound is one `DeadlineClass` row; profile variance stays one policy value through `Resolve`; zero new surface.
-- Boundary: every duration bound in the suite traces to a row here or to a policy row on its owning page — a bare `TimeSpan` literal anywhere else is the named defect; profile variance enters `Resolve` as one override-table swap at the composition root, and consumers read the frozen table, never the raw rows; the cancellation spine, hop registry, drain conductor, and cache lanes consume these rows as values — drain-cooperative escalates to drain-forced and every other miss is forced.
+- Boundary: every duration bound in the suite traces to a row here or to a policy row on its owning page — a bare `TimeSpan` literal anywhere else is the named defect; profile variance enters `Resolve` as one override-table swap at the composition root, and consumers read the frozen table, never the raw rows; the cancellation spine, hop registry, drain conductor, and cache lanes consume these rows as values — drain-cooperative escalates to drain-forced and every other miss is forced; the cooperative allotment is the telemetry-flush budget — a ForceFlush during plugin unload runs inside drain-cooperative, and an overrun escalates through the `Escalation` arc to drain-forced, the terminal forced-flush bound past which the drain conductor abandons in-flight export, so the flush latency is one `escalatesTo` arc, never a separate timer.
 
 ```csharp signature
 public sealed class TimeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -118,10 +131,10 @@ public static class DeadlineOps {
 - Owner: `ScheduleEntry`
 - Cases: `OccurrenceSpec.Cron(CronExpression Expression)` | `OccurrenceSpec.Every(Duration Period)`
 - Entry: `public static IO<(Fin<Unit> Outcome, DeadlineReceipt Deadline)> Run(ClockPolicy clocks, ScheduleEntry entry, Option<Duration> allotted = default)` — `IO<T>` carries the deferred occurrence run; the work outcome rides `Fin<Unit>` beside the deadline receipt.
-- Receipt: every occurrence run yields its `DeadlineReceipt` paired with the work outcome — a miss past the allotted bound is the watchdog signal consumed by the support owner.
+- Receipt: every occurrence run yields its `DeadlineReceipt` paired with the work outcome, and `Heartbeat` folds a not-met receipt into `SupportTrigger.WatchdogTimeout` carrying the firing `ScheduleEntry` — the watchdog signal the support owner consumes, composed from the receipt with no watchdog service type.
 - Packages: Cronos, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new scheduled concern is one `ScheduleEntry` row registered by its consumer, and a new occurrence grammar is one case on `OccurrenceSpec`; zero new surface.
-- Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary; `H` fields hash deterministically from the four-arg `TryParse` jitter-seed integer, so fleet spreading of a shared cron row is one schedule-key-derived seed value, never a hand-edited expression; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `CrashStaleness` exceeds the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain; a watchdog is a heartbeat row plus a deadline class, never a service type.
+- Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary; second-resolution rows admit through `CronFormat.IncludeSeconds` and a fleet-spread annual row admits through the `YearlyWithJitter` template family, while `H` fields hash deterministically from the four-arg `TryParse` jitter-seed integer, so fleet spreading of a shared cron row is one schedule-key-derived seed value, never a hand-edited expression; `Missed` detects a skipped occurrence through `GetPreviousOccurrence` against the last-fired stamp and `Window` audits a bounded backfill through `GetOccurrences`, so a missed-occurrence sweep reads occurrence history rather than tracking a running counter; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `CrashStaleness` exceeds the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain; a watchdog is a heartbeat row plus a deadline class, never a service type.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -167,8 +180,38 @@ public static class SchedulePort {
               | @catch<IO, Fin<Unit>>(static _ => true, static error => pure<IO, Fin<Unit>>(Fin.Fail<Unit>(error))))
             .As()
             .Map(outcome => (outcome, clocks.Receipt(entry.Deadline, mark, allotted))));
+
+    public static Option<Instant> Missed(ScheduleEntry entry, Instant lastFired, Instant now) =>
+        entry.Spec.Switch(
+            cron: static (s, c) =>
+                Optional(c.Expression.GetPreviousOccurrence(s.Now.ToDateTimeOffset(), TimeZoneInfo.Utc))
+                    .Map(prev => (Prev: prev.ToInstant(), s.LastFired))
+                    .Filter(static pair => pair.Prev > pair.LastFired)
+                    .Map(static pair => pair.Prev),
+            every: static (s, e) =>
+                s.LastFired + e.Period <= s.Now ? Some(s.LastFired + e.Period) : None,
+            state: (LastFired: lastFired, Now: now));
+
+    public static Seq<Instant> Window(ScheduleEntry entry, Instant from, Instant to) =>
+        entry.Spec.Switch(
+            cron: static (s, c) =>
+                c.Expression.GetOccurrences(s.From.ToDateTimeOffset(), s.To.ToDateTimeOffset(), TimeZoneInfo.Utc)
+                    .Map(static at => at.ToInstant())
+                    .ToSeq(),
+            every: static (s, e) =>
+                Range(0, (int)((s.To - s.From).TotalSeconds / e.Period.TotalSeconds))
+                    .Map(step => s.From + e.Period * step)
+                    .ToSeq(),
+            state: (From: from, To: to));
+
+    public static Option<SupportTrigger> Heartbeat(CorrelationId correlation, ScheduleEntry entry, DeadlineReceipt receipt) =>
+        receipt.Outcome == DeadlineOutcome.Met
+            ? None
+            : Some<SupportTrigger>(new SupportTrigger.WatchdogTimeout(correlation, entry));
 }
 ```
+
+The watchdog spine composes end to end without a watchdog service type: `Run` emits the heartbeat row's paired `(Fin<Unit>, DeadlineReceipt)`, `Heartbeat` folds a not-met receipt into `SupportTrigger.WatchdogTimeout` carrying the same `ScheduleEntry`, and the support owner consumes that trigger; a missed occurrence is detected through `Missed`, which reads `GetPreviousOccurrence` against the last-fired stamp, and a backfill audit reads the bounded `GetOccurrences` window. Six-field second-resolution rows admit through `CronFormat.IncludeSeconds`, and a fleet-spread annual row admits through the `YearlyWithJitter` template family seeded from the schedule key.
 
 Consumers register rows, never ports — the registered set at composition:
 
@@ -178,10 +221,6 @@ Consumers register rows, never ports — the registered set at composition:
 |   [2]   | support-scheduled-capture | config-sourced cron       | support-window    | none              |
 |   [3]   | bundle-retention-eviction | support-owned cadence row | support-window    | none              |
 |   [4]   | compute-model-warmup      | consumer-declared         | consumer-declared | none              |
-|   [5]   | watchdog-heartbeat        | `Every` 15 s              | health-probe      | none              |
+|   [5]   | watchdog-heartbeat        | `Every` 3 × health-probe  | health-probe      | none              |
 
-The heartbeat period is one policy value fixed at 3 × the health-probe row; one heartbeat row exists per watched child or peer, and a run whose receipt outcome is not met is the watchdog-timeout consequence at its consuming owner. Maintenance work executes only while the registering process holds the maintenance lease; `LeasePolicy.Maintenance` carries the reclamation value both release routes share.
-
-## [5]-[RESEARCH]
-
-- [DRAIN_FLUSH]: ForceFlush completion latency inside the drain-cooperative allotment during plugin unload.
+The heartbeat period is one policy value fixed at 3 × the health-probe row; one heartbeat row exists per watched child or peer. Maintenance work executes only while the registering process holds the maintenance lease; `LeasePolicy.Maintenance` carries the reclamation value both release routes share.

@@ -1,16 +1,16 @@
 # [APPUI_SCREENS_ACTIVATION]
 
-Rasm.AppUi screens are catalog rows over one activatable base: a frozen `ScreenCatalog` table is the single derivation source for dockables, window titles, automation names, route keys, and headless proof lanes, while `ScreenBase` owns activation scopes, suspend/resume, the one screen fault fold, paced derived state, the `Validation<Error,T>` lift into ReactiveUI.Validation, and per-surface state snapshots. The page owns the catalog axis, the activation capsule, the derived-state and validation rails, and the snapshot law, composing AppHost `ClockPolicy`, `RuntimePhase`, `UiSchedulerPort`, `DrainParticipantPort`, and `DrainBand` over ReactiveUI, System.Reactive, LanguageExt rails, and NodaTime instants.
+Rasm.AppUi screens are catalog rows over one activatable base: a frozen `ScreenCatalog` table is the single derivation source for dockables, window titles, automation names, route keys, and headless proof lanes, while `ScreenBase` owns activation scopes, suspend/resume, the one screen fault fold, paced derived state, the `Validation<Error,T>` lift into ReactiveUI.Validation, and per-surface state snapshots. The page owns the catalog axis, the activation capsule, the derived-state and validation rails, and the snapshot law, composing AppHost `ClockPolicy`, `RuntimePhase`, `UiSchedulerPort`, `DrainParticipantPort`, `TelemetryContributorPort`, and `DrainBand` over ReactiveUI, System.Reactive, LanguageExt rails, and NodaTime instants.
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                          |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                           |
 | :-----: | :---------------- | :--------------------------------------------------------------- |
 |   [1]   | SCREEN_CATALOG    | One frozen row table; every screen derivation folds over it      |
-|   [2]   | ACTIVATION_SCOPES | One activatable base; scoped disposal, suspend/resume, drain row  |
-|   [3]   | DERIVED_STATE     | OAPH derivations, paced streams, one screen fault fold            |
-|   [4]   | VALIDATION_UX     | One typed-rail lift into ReactiveUI.Validation rule rows          |
-|   [5]   | SCREEN_STATE      | Per-surface snapshots; restore-on-activate merge; checkpoint law  |
+|   [2]   | ACTIVATION_SCOPES | One activatable base; scoped disposal, suspend/resume, drain row |
+|   [3]   | DERIVED_STATE     | OAPH derivations, paced streams, one screen fault fold           |
+|   [4]   | VALIDATION_UX     | One typed-rail lift into ReactiveUI.Validation rule rows         |
+|   [5]   | SCREEN_STATE      | Per-surface snapshots; restore-on-activate merge; checkpoint law |
 
 ## [2]-[SCREEN_CATALOG]
 
@@ -56,11 +56,11 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
 
 - Owner: `ScreenRuntime` policy record; `ScreenBase` activation capsule.
 - Entry: `public IDisposable BindActivation(IObservable<bool> visible, UiSchedulerPort scheduler)` — visibility edges and phase receipts fold into one activate/suspend rail.
-- Auto: `WhenActivated` composes rehydration, the per-screen `Wire` pipelines, and a closing disposal that checkpoints state and emits the disposal evidence; `DrainRow` registers the screens teardown as one `DrainParticipantPort` row; the draining phase receipt suspends every bound screen through the same `Suspend` path.
-- Receipt: disposal evidence — row id, active `Duration`, disposable count — through `ScreenRuntime.Disposed` into the evidence stream bound at composition.
-- Packages: ReactiveUI, System.Reactive, LanguageExt.Core, NodaTime
-- Growth: one screen is one `ScreenBase` subclass expression body plus one catalog row; zero new surface.
-- Boundary: `ScreenBase` is the named boundary capsule for the statement carve-out — activation wiring, visibility subscription, and disposal registration carry language-owned statement forms while every other member stays expression-shaped; `ViewModelActivator` ref-counts through `Interlocked` increments — activation fires only on the zero-to-one edge and `Deactivate` decrements symmetrically — so concurrent visibility-driven suspension and view-driven activation compose without a second guard; AutoSuspendHelper and RxApp.SuspensionHost are the deleted patterns, suspension rides the state checkpoint plus the visibility fold; the drain row registers rank 10 — the one rank literal here — ordering screen teardown first inside `DrainBand.Interaction`; `Throttle` arrives on `ScreenRuntime` from the motion timing rows, so the fences carry zero duration literals.
+- Auto: `WhenActivated` composes rehydration, the per-screen `Wire` pipelines, and a closing disposal that checkpoints state and emits the disposal evidence; `DrainRow` registers the screens teardown as one `DrainParticipantPort` row; the draining phase receipt suspends every bound screen through the same `Suspend` path; `Reachable` probes `Interaction.GetHandlers` so a deep-link or modal route gates on registered handler presence before navigating, never on a caught unhandled-interaction throw.
+- Receipt: disposal evidence — row id, active `Duration`, disposable count — through `ScreenRuntime.Disposed` into the evidence stream bound at composition; `TelemetryRow` contributes the activation and suspend instruments inward through the AppHost `TelemetryContributorPort`.
+- Packages: ReactiveUI, System.Reactive, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
+- Growth: one screen is one `ScreenBase` subclass expression body plus one catalog row, and one screen instrument is one `InstrumentRow` on `ScreenBase.TelemetryRow`; zero new surface.
+- Boundary: `ScreenBase` is the named boundary capsule for the statement carve-out — activation wiring, visibility subscription, and disposal registration carry language-owned statement forms while every other member stays expression-shaped; `ViewModelActivator` ref-counts through `Interlocked` increments — activation fires only on the zero-to-one edge and `Deactivate` decrements symmetrically — so concurrent visibility-driven suspension and view-driven activation compose without a second guard; AutoSuspendHelper and RxApp.SuspensionHost are the deleted patterns, suspension rides the state checkpoint plus the visibility fold; view-model questions ride `Interaction<TInput,TOutput>` and `Reachable` reads its `GetHandlers` count so deep-link gating stays a value check, never an exception probe; the drain row registers rank 10 — the one rank literal here — ordering screen teardown first inside `DrainBand.Interaction`; `Throttle` arrives on `ScreenRuntime` from the motion timing rows, so the fences carry zero duration literals.
 
 ```csharp signature
 public sealed record ScreenRuntime(
@@ -105,6 +105,15 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
 
     public IO<Unit> Suspend() =>
         this.Checkpoint().Bind(_ => IO.lift(fun(() => Activator.Deactivate())));
+
+    public static bool Reachable<TInput, TOutput>(Interaction<TInput, TOutput> question) =>
+        question.GetHandlers().Any();
+
+    public const string ActivatedInstrument = "rasm.appui.screen.activated";
+    public const string SuspendedInstrument = "rasm.appui.screen.suspended";
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, ActivatedInstrument, SuspendedInstrument);
 
     public static DrainParticipantPort DrainRow(Func<Seq<ScreenBase>> active) =>
         new("screens", DrainBand.Interaction, 10, token => active().TraverseM(static screen => screen.Suspend()).As().Map(static _ => unit));
@@ -152,10 +161,10 @@ public static class DerivedOps {
 
 - Owner: `AdmissionState` validation state value; `ScreenValidation` lift surface.
 - Entry: `public ValidationHelper Admit<TValue>(Expression<Func<TScreen, TValue>> property, IObservable<Validation<Error, TValue>> admissions)` — the one admission seam from the typed rail into rule rows.
-- Auto: `Gate` projects `IsValid` into the availability delegate column consumed by the command table; `BindValidation` renders rule text view-side through the one `Formatter` policy with error styling from theme tokens.
-- Packages: ReactiveUI.Validation, ReactiveUI, LanguageExt.Core
+- Auto: `Gate` projects `IsValid` into the availability delegate column consumed by the command table; `BindValidation` renders rule text view-side through the one `Formatter` policy with error styling from theme tokens; `FieldErrors` projects per-property text from `ReactiveValidationObject.GetErrors`/`ErrorsChanged` into the field-adorner stream, so context-level validity feeds the command gate while property-level text feeds the adorner — one context, two read altitudes.
+- Packages: ReactiveUI.Validation, ReactiveUI, System.Reactive, LanguageExt.Core
 - Growth: one rule row per validated property; zero new surface.
-- Boundary: the lift is the single validation vocabulary — a second rule rail beside `Validation<Error,T>` is the rejected form, and domain factories keep emitting the typed rail untouched; `Admit` lands on the `ValidationRule(Expression, IObservable<IValidationState>)` overload, and `ValidationContext` activation is internal and `_isActive`-guarded, so repeated activation scopes never duplicate rule subscriptions; fail text crosses as typed `IValidationText` through `SingleLineFormatter`, never freeform string side channels; `Rules` activates inside the activation scope, so rule subscriptions share screen disposal.
+- Boundary: the lift is the single validation vocabulary — a second rule rail beside `Validation<Error,T>` is the rejected form, and domain factories keep emitting the typed rail untouched; `Admit` lands on the `ValidationRule(Expression, IObservable<IValidationState>)` overload, and `ValidationContext` activation is internal and `_isActive`-guarded, so repeated activation scopes never duplicate rule subscriptions; fail text crosses as typed `IValidationText` through `SingleLineFormatter`, never freeform string side channels; `FieldErrors` reads the `INotifyDataErrorInfo` bridge `ReactiveValidationObject` exposes — `GetErrors` for the current property set, `ErrorsChanged` for the edge — and the platform error-adorner contract is itself string-typed, so the projection takes the `INotifyDataErrorInfo` string seam fail-closed through `OfType<string>` rather than casting, the one place the typed `IValidationText` lands on the host's string adorner channel; a hand-wired per-control error handler is the deleted pattern and the adorner never re-runs validation logic; `Rules` activates inside the activation scope, so rule subscriptions share screen disposal.
 
 ```csharp signature
 public readonly record struct AdmissionState(bool IsValid, IValidationText Text) : IValidationState;
@@ -174,6 +183,14 @@ public static class ScreenValidation {
 
         public IObservable<bool> Gate() => screen.IsValid();
     }
+
+    public static IObservable<Seq<string>> FieldErrors(ReactiveValidationObject screen, string property) =>
+        Observable.FromEventPattern<DataErrorsChangedEventArgs>(
+                handler => screen.ErrorsChanged += handler,
+                handler => screen.ErrorsChanged -= handler)
+            .Where(change => change.EventArgs.PropertyName == property)
+            .StartWith((EventPattern<DataErrorsChangedEventArgs>?)null)
+            .Select(_ => toSeq(screen.GetErrors(property).OfType<string>()));
 }
 ```
 

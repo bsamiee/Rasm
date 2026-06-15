@@ -19,8 +19,8 @@ Rasm.Persistence encodes every durable payload through one three-row `SnapshotCo
 - Entry: `public partial byte[] Serialize(Type shape, object? value)` — pure byte transform; shape-discriminated dispatch serves every registered wire record through source-generated metadata.
 - Auto: registering `ThinktectureJsonConverterFactory` and `ThinktectureMessageFormatterResolver.Instance` once derives every value-object, smart-enum, and keyed-union converter and formatter — per-type hand-written codec classes are the deleted pattern; `GeoJsonConverterFactory` derives the GeoJSON projection of every NetTopologySuite geometry riding the STJ rail.
 - Packages: MessagePack, MessagePackAnalyzer, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, Thinktecture.Runtime.Extensions.MessagePack, NetTopologySuite.IO.GeoJSON4STJ, NodaTime, NodaTime.Serialization.SystemTextJson, BCL inbox.
-- Growth: one codec is one row; a new wire record is one `[JsonSerializable]` row on `PersistenceWireContext` plus one MessagePack union tag row when polymorphic; zero new surface.
-- Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; `GeoJsonConverterFactory` writes RFC-orientation polygon rings and reads through its SRID-4326 default `GeometryFactory`, so geometry wire records carry no per-call geometry policy; `ProjectJson` is diagnostic egress only and never a payload route; `Foreign` gates every payload arriving across a process boundary; MessagePack union tag rows are append-only and a retired tag never returns; a hand-written converter or formatter beside the generated ones is the named defect; MemoryPack, CBOR, and protobuf snapshot encodings stay rejected — proto owns RPC payloads only; the MessagePackBinary row is the value the cache serializer registration consumes.
+- Growth: one codec is one row; a new wire record is one `[JsonSerializable]` row on `PersistenceWireContext` plus one MessagePack union tag row when polymorphic; an AOT resolver landmark is one `CompositeResolverAttribute`/`GeneratedMessagePackResolverAttribute` row that replaces the runtime `CompositeResolver.Create` chain with a generated resolver; zero new surface.
+- Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; `GeoJsonConverterFactory` writes RFC-orientation polygon rings and reads through its SRID-4326 default `GeometryFactory`, so geometry wire records carry no per-call geometry policy; `ProjectJson` is diagnostic egress only and never a payload route; `Foreign` gates every payload arriving across a process boundary; large payloads stream rather than buffer — `SerializeAsync`/`DeserializeAsync` drive the whole-archive codec path and `MessagePackStreamReader` reads a length-delimited segment sequence so a multi-segment op-log or snapshot archive decodes one frame at a time, while `WriteArrayHeader`/`WriteMapHeader`/`ReadArrayHeader`/`ReadMapHeader` are the low-level shaping the streamed header law uses and never a per-record hand-format; `ContractlessStandardResolver` is the resolver-chain tail that admits an unattributed record only at the diagnostic egress, never on a wire surface; a custom extension typecode crosses through `ExtensionHeader`/`ExtensionResult` and stays absent on the wire so the TS ext-union is `never`; NodaTime JSON converters bind through `WithIsoIntervalConverter` and `WithIsoDateIntervalConverter` so an interval wire record carries the ISO form rather than the default range form; a `[Union]`/`[SmartEnum]` key parses inbound from the UTF-8 span through `ThinktectureSpanParsableJsonConverter` on the read path; MessagePack union tag rows are append-only and a retired tag never returns; a hand-written converter or formatter beside the generated ones is the named defect; MemoryPack, CBOR, and protobuf snapshot encodings stay rejected — proto owns RPC payloads only; the MessagePackBinary row is the value the cache serializer registration consumes.
 
 ```csharp signature
 public sealed class SnapshotKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -111,11 +111,11 @@ public sealed partial class SnapshotCodec {
 ## [3]-[COMPRESSION_HASHING]
 
 - Owner: `CompressionPolicy` and `HashPolicy` `[SmartEnum<string>]` row families under the `SnapshotKeyPolicy` ordinal accessor.
-- Cases: 3 compression rows — none, lz4-fast, lz4-high; 3 hash rows — Content, Identity, Frame.
+- Cases: 3 compression rows — none, lz4-fast, lz4-high; 5 hash rows — Content, Identity, Frame, Wide, FrameWide.
 - Entry: `public partial byte[] Pack(ReadOnlyMemory<byte> payload)` — pure byte transform; the row delegate is total over any payload size.
 - Packages: K4os.Compression.LZ4, MessagePack, System.IO.Hashing, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: one compression level or hash algorithm is one row; zero new surface.
-- Boundary: every hash row is non-cryptographic identity — a security or tamper claim on any row is the named defect; compression evidence never obscures redaction or retention receipts; the MessagePackBinary codec pairs with the none row at write because Lz4BlockArray owns compression in-codec — double framing is the deleted pattern; the Frame row belongs to artifact frame checks and never stands in for Identity.
+- Growth: one compression level or hash algorithm is one row; a Zstandard level lands as one `CompressionPolicy` delegate row carrying its own `HeaderId` so the snapshot header's `CompressionId` keeps every prior LZ4 archive readable across the swap; zero new surface.
+- Boundary: every hash row is non-cryptographic identity — a security or tamper claim on any row is the named defect; compression evidence never obscures redaction or retention receipts; the MessagePackBinary codec pairs with the none row at write because Lz4BlockArray owns compression in-codec — double framing is the deleted pattern; the Frame row belongs to artifact frame checks and never stands in for Identity; `Content` and `Wide` are not one parameterized row because `Content` pins `XxHash3` as the content-address algorithm every snapshot identity, diff, and dedup surface computes, so its algorithm cannot vary, while `Wide` is `XxHash64` for a wide artifact-catalog index whose collision domain stays statistically independent of the content address without the 128-bit cost of Identity; the `FrameWide` row is `Crc64` for whole-archive frame integrity where `Frame`'s 32-bit check is too narrow — every row folds once into the `Bits`/`HexFormat` columns so a tag width is data, never a per-call format string.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -146,12 +146,11 @@ public sealed partial class CompressionPolicy {
 [KeyMemberEqualityComparer<SnapshotKeyPolicy, string>]
 [KeyMemberComparer<SnapshotKeyPolicy, string>]
 public sealed partial class HashPolicy {
-    public static readonly HashPolicy Content = new("xxhash3", bits: 64, hexFormat: "x16",
-        compute: static payload => XxHash3.HashToUInt64(payload.Span));
-    public static readonly HashPolicy Identity = new("xxhash128", bits: 128, hexFormat: "x32",
-        compute: static payload => XxHash128.HashToUInt128(payload.Span));
-    public static readonly HashPolicy Frame = new("crc32", bits: 32, hexFormat: "x8",
-        compute: static payload => Crc32.HashToUInt32(payload.Span));
+    public static readonly HashPolicy Content = new("xxhash3", bits: 64, hexFormat: "x16", compute: static payload => XxHash3.HashToUInt64(payload.Span));
+    public static readonly HashPolicy Identity = new("xxhash128", bits: 128, hexFormat: "x32", compute: static payload => XxHash128.HashToUInt128(payload.Span));
+    public static readonly HashPolicy Frame = new("crc32", bits: 32, hexFormat: "x8", compute: static payload => Crc32.HashToUInt32(payload.Span));
+    public static readonly HashPolicy Wide = new("xxhash64", bits: 64, hexFormat: "x16", compute: static payload => XxHash64.HashToUInt64(payload.Span));
+    public static readonly HashPolicy FrameWide = new("crc64", bits: 64, hexFormat: "x16", compute: static payload => Crc64.HashToUInt64(payload.Span));
 
     public int Bits { get; }
     public string HexFormat { get; }
@@ -163,21 +162,22 @@ public sealed partial class HashPolicy {
 }
 ```
 
-| [INDEX] | [ROUTE]            | [PAYLOAD_CLASS]              | [MECHANISM]                                   | [VALUE]                                                |
-| :-----: | :----------------- | :--------------------------- | :-------------------------------------------- | :----------------------------------------------------- |
-|   [1]   | in-codec           | MessagePackBinary payloads   | `MessagePackCompression.Lz4BlockArray` blocks | `CompressionMinLength` provider default 64 bytes       |
-|   [2]   | standalone frame   | JsonStj and FileRaw payloads | `LZ4Pickler` self-describing frame            | level from the selected row                            |
-|   [3]   | contiguity ceiling | payloads above 1 MiB         | block-array segmenting, no contiguous buffer  | `SuggestedContiguousMemorySize` provider default 1 MiB |
+| [INDEX] | [ROUTE]          | [PAYLOAD_CLASS]              | [MECHANISM]                                                   | [VALUE]                                                                |
+| :-----: | :--------------- | :--------------------------- | :------------------------------------------------------------ | :--------------------------------------------------------------------- |
+|   [1]   | in-codec         | MessagePackBinary payloads   | `MessagePackCompression.Lz4BlockArray` blocks                 | `CompressionMinLength` provider default 64 bytes                       |
+|   [2]   | standalone frame | JsonStj and FileRaw payloads | `LZ4Pickler` self-describing frame                            | level from the selected row                                            |
+|   [3]   | streaming frame  | payloads above 1 MiB         | `LZ4Encoder`/`LZ4ChainDecoder` `Topup`/`Drain` chained blocks | `SuggestedContiguousMemorySize` 1 MiB segmenting, no contiguous buffer |
+|   [4]   | raw block        | fixed known-length spans     | `LZ4Codec.Encode`/`Decode` into a caller buffer               | `LZ4Codec.MaximumOutputSize` bounds the destination                    |
 
 ## [4]-[SNAPSHOT_PROTOCOL]
 
 - Owner: `SnapshotHeader`, `SealedSnapshot`, `SnapshotCatalogRow`, `Snapshots` — the header law, the atomic write fold, and the orphan sweep.
 - Entry: `public static IO<SnapshotCatalogRow> Write<T>(ReceiptSinkPort sink, CorrelationId correlation, string directory, string kind, SnapshotCodec codec, CompressionPolicy compression, ulong schemaFingerprint, DataClassification classification, string retentionClass, T value, Func<SnapshotCatalogRow, IO<Unit>> persist)` — `IO` carries the file-system and sink effects; one call encodes, packs, hashes, seals, stamps, and persists.
-- Auto: the write fold derives codec id, compression id, schema fingerprint, identity hash, HLC stamp, classification, and retention class into the catalog row — per-call-site assembly ceremony is the deleted pattern; the schema fingerprint value arrives from the compiled-model fingerprint law and the row identity from the UuidV7Key identity row.
+- Auto: the write fold derives codec id, compression id, schema fingerprint, identity hash, HLC stamp, classification, and retention class into the catalog row — per-call-site assembly ceremony is the deleted pattern; the schema fingerprint value arrives from the compiled-model fingerprint law and the row identity from the UuidV7Key identity row; the sealed `Hash` is the content address every secondary surface derives from, so a sealed snapshot is automatically catalog-addressable on the artifact-blob index without a parallel key — `ContentAddress` selects the cache tag, the blob lookup, and the diff identity from one value.
 - Receipt: `SnapshotCatalogRow` is the durable evidence; the `SealedSnapshot` payload rides the receipt envelope at the sink edge, so the catalog HLC stamp and the receipt stamp are one value.
 - Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, BCL inbox.
 - Growth: a new header capability is one flag bit row on `Flags`; one artifact kind is one catalog row value; zero new surface.
-- Boundary: `Seal` and the sweep deletion kernel are this fence's boundary capsules — language-owned statement forms stay inside those two bodies; `directory` arrives from the placement law and is never derived here; temp residue and catalog-orphaned payloads leave only through `Sweep`; catalog insertion enters through the `persist` delegate so the store rail stays the single write path; the magic constant spells RSNP in little-endian byte order.
+- Boundary: `Seal` and the sweep deletion kernel are this fence's boundary capsules — language-owned statement forms stay inside those two bodies; `directory` arrives from the placement law and is never derived here; the durability order is settled — `Flush(flushToDisk: true)` forces the data blocks before `File.Move` performs the atomic rename, so a crash between the two leaves the temp file swept rather than a torn final; temp residue and catalog-orphaned payloads leave only through `Sweep`; catalog insertion enters through the `persist` delegate so the store rail stays the single write path; `ContentAddress` parses the sealed `Hash` so the cache, blob, and diff surfaces share one content key and never mint parallel identities; the magic constant spells RSNP in little-endian byte order.
 
 ```csharp signature
 public readonly record struct SnapshotHeader(
@@ -226,6 +226,9 @@ public sealed record SnapshotCatalogRow(
 
 public static class Snapshots {
     public const string Suffix = ".rsnp";
+
+    public static UInt128 ContentAddress(SnapshotCatalogRow row) =>
+        UInt128.Parse(row.Hash, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
 
     public static IO<SnapshotCatalogRow> Write<T>(
         ReceiptSinkPort sink,
@@ -389,5 +392,6 @@ type SnapshotExtensionRows = never;
 
 ## [7]-[RESEARCH]
 
-- [RENAME_DURABILITY]: directory-handle flush admission after the atomic rename on APFS — rename durability without a directory fsync route.
-- [RESOLVER_PRECEDENCE]: `ThinktectureMessageFormatterResolver` coverage over keyed unions and complex value objects composed with `SourceGeneratedFormatterResolver` under Lz4BlockArray; `GeoJsonConverterFactory` precedence over combined source-generated contract metadata for geometry-bearing wire records.
+- [RENAME_DURABILITY]: the data-flush-before-rename order is settled; the residual is directory-entry durability — whether APFS guarantees the rename's directory entry survives a power loss without an explicit parent-directory fsync, and the managed route to that fsync if it does not.
+- [RESOLVER_PRECEDENCE]: `ThinktectureMessageFormatterResolver` coverage over keyed unions and complex value objects composed with `SourceGeneratedFormatterResolver` under Lz4BlockArray; the precedence of a `GeneratedMessagePackResolverAttribute`/`CompositeResolverAttribute` AOT resolver over the runtime `CompositeResolver.Create` chain; `GeoJsonConverterFactory` precedence over combined source-generated contract metadata for geometry-bearing wire records.
+- [ZSTD_SWAP]: the inbox Zstandard stream surface a future TFM exposes — its managed `Pack`/`Unpack` shape and level vocabulary for the deferred `CompressionPolicy` row, gated on the framework move that admits it.

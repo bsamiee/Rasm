@@ -113,8 +113,12 @@ _BUILD: Final[str] = "build"
 _DISABLE_BUILD_SERVERS: Final[str] = "--disable-build-servers"
 _MARKER: Final[str] = "Workspace.slnx"
 _RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
+# Only sftp is end-to-end proven; cloud stores re-admit here once their fsspec backend (s3fs/gcsfs) and moto law land.
+_REMOTE_REACHABLE_PROTOCOLS: Final[frozenset[str]] = frozenset(("sftp",))
 _REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
     "ASSAY_AGENT_TASK_ID",
+    "ASSAY_ARTIFACT_BACKEND__PROTOCOL",  # remote executor writes scope artifacts to the same logical backend the agent reads
+    "ASSAY_ARTIFACT_BACKEND__ROOT",  # cloud credentials ride the executor's ambient env, never this allowlist
     "ASSAY_ARTIFACT_RETENTION",
     "ASSAY_EXEC_TARGET",
     "ASSAY_RUN_ID",
@@ -154,6 +158,19 @@ def mtime_from_info(info: dict[str, object]) -> float:
             return value.timestamp()
         case _:
             return 0.0
+
+
+def size_from_info(info: dict[str, object], *, fallback: int = 0) -> int:
+    """Coerce fsspec size metadata to an int for artifact byte counts.
+
+    Returns:
+        File size as an int, or fallback when the backend omits or non-ints the key.
+    """
+    match info.get("size", fallback):
+        case int() as value:
+            return value
+        case _:
+            return fallback
 
 
 def _anchor(value: str | UPath) -> UPath:
@@ -303,6 +320,19 @@ class AssaySettings(BaseSettings):
         default="", validation_alias=AliasChoices("ASSAY_OTEL_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
     )
 
+    @model_validator(mode="after")
+    def _remote_exec_requires_reachable_backend(self) -> AssaySettings:  # noqa: N804  # Pydantic v2 mode="after" passes the model instance, not cls.
+        # Remote execution cannot reach a local-file artifact root, so reject the misconfiguration at load.
+        match (self.exec_target, self.artifact_backend.protocol in _REMOTE_REACHABLE_PROTOCOLS):
+            case ("", _) | (_, True):
+                return self
+            case _:
+                raise ValueError(
+                    f"remote exec_target {self.exec_target!r} requires a remotely-reachable artifact_backend "
+                    f"(protocol in {sorted(_REMOTE_REACHABLE_PROTOCOLS)}), got {self.artifact_backend.protocol!r}; "
+                    f"set ASSAY_ARTIFACT_BACKEND__PROTOCOL to one of those with a matching __ROOT, or clear ASSAY_EXEC_TARGET for local execution"
+                )
+
     @override
     @classmethod
     def settings_customise_sources(
@@ -386,10 +416,11 @@ class AssaySettings(BaseSettings):
         Returns:
             Environment variables allowed to cross the SSH execution boundary.
         """
-        # ASSAY_RUN_ID may exist only in settings, so inject it before allowlist projection.
+        # RUN_ID and the artifact backend live in validated settings, so inject them before allowlist projection.
         safe_names = frozenset((*self.python_tool_env, *_REMOTE_ENV_NAMES, *_TRACE_CONTEXT_ENV, *forward))
-        source = {"ASSAY_RUN_ID": self.run_id, **env}
-        return {k: v for k, v in source.items() if k in safe_names}
+        backend = {"ASSAY_ARTIFACT_BACKEND__PROTOCOL": self.artifact_backend.protocol, "ASSAY_ARTIFACT_BACKEND__ROOT": self.artifact_backend.root}
+        source = {"ASSAY_RUN_ID": self.run_id, **backend, **env}
+        return {k: v for k, v in source.items() if k in safe_names and v}
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -479,8 +510,7 @@ class ArtifactStore:
         Returns:
             File size, or fallback when the backend omits size metadata.
         """
-        value = self.info_path(path).get("size", fallback)
-        return value if isinstance(value, int) else fallback
+        return size_from_info(self.info_path(path), fallback=fallback)
 
     def mtime_path(self, path: str | UPath, *, fallback: float = 0.0) -> float:
         """Return a backend path modification time as a float.
@@ -562,11 +592,10 @@ class ArtifactStore:
     def write_bytes(self, payload: bytes, *parts: str | UPath, create: bool = False, transaction: bool = False) -> str:
         """Write bytes to a validated store-relative path.
 
+        ``create=True`` propagates FileExistsError from the backend when the target already exists.
+
         Returns:
             Backend path that received the payload.
-
-        Raises:
-            FileExistsError: When create is true and the target exists.
         """
         return self._write_at(self.path(*parts), payload, create=create, transaction=transaction)
 
@@ -581,11 +610,10 @@ class ArtifactStore:
     def write_bytes_path(self, payload: bytes, path: str | UPath, *, create: bool = False, transaction: bool = False) -> str:
         """Write bytes to a validated backend path emitted by this store.
 
+        ``create=True`` propagates FileExistsError from the backend when the target already exists.
+
         Returns:
             Backend path that received the payload.
-
-        Raises:
-            FileExistsError: When create is true and the target exists.
         """
         return self._write_at(self.backend_path(path), payload, create=create, transaction=transaction)
 
@@ -663,13 +691,9 @@ class ArtifactStore:
         detailed = self.walk(root, detail=True)
         # isinstance narrows walk's union to detail rows.
         detail_rows = tuple(
-            (row[0].rstrip("/").rsplit("/", 1)[-1], row[1])
-            for row in detailed
-            if isinstance(row, tuple) and isinstance(row[1], dict)
+            (row[0].rstrip("/").rsplit("/", 1)[-1], row[1]) for row in detailed if isinstance(row, tuple) and isinstance(row[1], dict)
         )
-        rows = detail_rows or tuple(
-            (path.rstrip("/").rsplit("/", 1)[-1], {}) for path in self.glob(f"{root}/*")
-        )
+        rows = detail_rows or tuple((path.rstrip("/").rsplit("/", 1)[-1], {}) for path in self.glob(f"{root}/*"))
         return tuple(run_id for run_id, _ in sorted(rows, key=lambda row: (mtime_from_info(row[1]), row[0])))
 
     def _prune(self, root: str, keep: int) -> None:
@@ -837,4 +861,4 @@ class ArtifactScope:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ArtifactBackend", "ArtifactScope", "ArtifactStore", "AssaySettings", "Configuration", "LogFormat", "mtime_from_info"]
+__all__ = ["ArtifactBackend", "ArtifactScope", "ArtifactStore", "AssaySettings", "Configuration", "LogFormat", "mtime_from_info", "size_from_info"]

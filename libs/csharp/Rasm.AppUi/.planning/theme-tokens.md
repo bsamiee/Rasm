@@ -6,10 +6,10 @@ Rasm.AppUi resolves every visual constant through one frozen token catalogue: a 
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                         |
 | :-----: | :------------- | :------------------------------------------------------------- |
-|   [1]   | TOKEN_CATALOG  | Role-keyed frozen token rows; one resolve fold, five consumers  |
-|   [2]   | VARIANT_AXIS   | Four variant rows with host-agnostic probe folding              |
-|   [3]   | DENSITY_AXIS   | Two density rows selecting metric columns orthogonally          |
-|   [4]   | CONTROL_THEMES | One Styles rail, atomic swap, token-diff receipts               |
+|   [1]   | TOKEN_CATALOG  | Role-keyed frozen token rows; one resolve fold, five consumers |
+|   [2]   | VARIANT_AXIS   | Four variant rows with host-agnostic probe folding             |
+|   [3]   | DENSITY_AXIS   | Two density rows selecting metric columns orthogonally         |
+|   [4]   | CONTROL_THEMES | One Styles rail, atomic swap, token-diff receipts              |
 
 ## [2]-[TOKEN_CATALOG]
 
@@ -158,13 +158,13 @@ public sealed partial class ThemeVariantRow {
 }
 ```
 
-| [INDEX] | [SURFACE_ROWS]            | [PROBE_SOURCE]                                          | [ROUTE_STATE] |
-| :-----: | :------------------------ | :------------------------------------------------------ | :------------ |
-|   [1]   | rhino-panel, rhino-modal  | `RunningInDarkMode` read, `ThemeChanged` flips           | settled       |
-|   [2]   | gh2-companion             | same host appearance row as rhino                        | settled       |
-|   [3]   | avalonia-desktop, sidecar | `GetColorValues()` read, `ColorValuesChanged` flips      | settled       |
-|   [4]   | web-browser               | designed-only column, zero interop                       | designed-only |
-|   [5]   | headless                  | probe absent, `Light` default                            | settled       |
+| [INDEX] | [SURFACE_ROWS]            | [PROBE_SOURCE]                                      | [ROUTE_STATE] |
+| :-----: | :------------------------ | :-------------------------------------------------- | :------------ |
+|   [1]   | rhino-panel, rhino-modal  | `RunningInDarkMode` read, `ThemeChanged` flips      | settled       |
+|   [2]   | gh2-companion             | same host appearance row as rhino                   | settled       |
+|   [3]   | avalonia-desktop, sidecar | `GetColorValues()` read, `ColorValuesChanged` flips | settled       |
+|   [4]   | web-browser               | designed-only column, zero interop                  | designed-only |
+|   [5]   | headless                  | probe absent, `Light` default                       | settled       |
 
 ## [4]-[DENSITY_AXIS]
 
@@ -198,11 +198,11 @@ public sealed partial class DensityRow {
 - Owner: `ThemeCell` atomic swap capsule; `ThemeSwitchReceipt` token-diff receipt; `ThemeRail` the one Styles admission boundary.
 - Cases: trigger values boot | user-switch | host-probe as receipt constants.
 - Entry: `public IO<ThemeSwitchReceipt> Swap(ThemeVariantRow variant, DensityRow density, Func<Option<ThemeVariantRow>> probe, string trigger, CorrelationId correlation)` — one swap re-resolves the full catalogue.
-- Auto: every swap emits one receipt carrying changed keys; receipts and `ContrastCandidates` feed the accessibility gate and the evidence stream, deleting per-control theme refresh handlers.
-- Receipt: `ThemeSwitchReceipt` — variant, density, trigger, changed keys, `Instant`, correlation id; the reload-receipt shape on a separate stream.
+- Auto: every swap emits one receipt carrying changed keys; the swap sinks the receipt through `ReceiptSinkPort` as a `Surface`-family appearance fact, so theme transitions ride the one evidence envelope stream the dashboards ingest and the accessibility gate consumes `ContrastCandidates` from the same resolve — deleting per-control theme refresh handlers.
+- Receipt: `ThemeSwitchReceipt` — variant, density, trigger, changed keys, `Instant`, correlation id; the reload-receipt shape on a separate stream, sealed once through the sink port at composition.
 - Packages: Avalonia, Avalonia.Themes.Fluent, Rasm.AppHost (project), LanguageExt.Core, NodaTime
-- Growth: one control-theme row or one contrast-candidate row; zero new surface.
-- Boundary: `ThemeRail` is the boundary capsule and its fence carries the language-owned statement forms — `Mount` and `ApplyTo` write retained application state; the token dictionary occupies merged-dictionary index zero so a swap is one indexer write, marshaled through the UI scheduler port by the caller; selector styles and `ControlTheme` rows enter only through this rail and pseudo-class states bind token keys, never literal paints; the contrast ratio law lives with the accessibility gate — candidate pairs only here; `Defaults` reads the resolved profile so per-process boot variants are row values, not boot code.
+- Growth: one control-theme row, one contrast-candidate row, or one trigger constant; zero new surface.
+- Boundary: `ThemeRail` is the boundary capsule and its fence carries the language-owned statement forms — `Mount` and `ApplyTo` write retained application state; the token dictionary occupies merged-dictionary index zero so a swap is one indexer write, marshaled through the UI scheduler port by the caller; the `Sink` delegate binds `ReceiptSinkPort.Send` at composition so the swap carries zero telemetry wiring and a second receipt stamp on the swap is the deleted form; selector styles and `ControlTheme` rows enter only through this rail and pseudo-class states bind token keys, never literal paints; the contrast ratio law lives with the accessibility gate — candidate pairs only here; `Defaults` reads the resolved profile so per-process boot variants are row values, not boot code.
 
 ```csharp signature
 public sealed record ThemeSwitchReceipt(
@@ -221,6 +221,7 @@ public sealed record ThemeCell(
     Atom<ResolvedTheme> Current,
     Func<SurfaceHost, Option<ThemeVariantRow>> SurfaceOverride,
     Func<ResolvedTheme, IO<Unit>> Apply,
+    Func<ThemeSwitchReceipt, IO<Unit>> Sink,
     Func<Color, Color, double, Color> Mix,
     ClockPolicy Clocks) {
 
@@ -239,7 +240,8 @@ public sealed record ThemeCell(
     public IO<ThemeSwitchReceipt> Swap(ThemeVariantRow variant, DensityRow density, Func<Option<ThemeVariantRow>> probe, string trigger, CorrelationId correlation) =>
         IO.lift(() => (Previous: Current.Value, Next: Current.Swap(_ => ThemeCatalog.Resolve(variant.Concrete(probe), density, Mix))))
             .Bind(step => Apply(step.Next).Map(_ => new ThemeSwitchReceipt(
-                step.Next.Variant, step.Next.Density, trigger, Diff(step.Previous, step.Next), Clocks.Now, correlation)));
+                step.Next.Variant, step.Next.Density, trigger, Diff(step.Previous, step.Next), Clocks.Now, correlation)))
+            .Bind(receipt => Sink(receipt).Map(_ => receipt));
 
     public ResolvedTheme For(SurfaceHost surface, Func<Option<ThemeVariantRow>> probe) =>
         SurfaceOverride(surface)
@@ -292,16 +294,16 @@ public static class ThemeRail {
 }
 ```
 
-| [INDEX] | [CONTROL_THEME_ROW] | [PSEUDO_CLASSES]                  | [TOKEN_KEYS]                                          |
-| :-----: | :------------------ | :-------------------------------- | :---------------------------------------------------- |
-|   [1]   | command button      | :pointerover, :pressed, :disabled | accent, accent+1, accent+2, radius-control            |
-|   [2]   | text entry          | :focus, :error                    | region, base, error, accent, radius-control           |
-|   [3]   | grid row            | :selected, :pointerover           | region+1, region+2, row-height                        |
-|   [4]   | tab strip item      | :selected                         | accent, base+1, spacing-unit                          |
-|   [5]   | flyout host         | :open                             | region+1, radius-overlay, elevation-flyout, z-flyout  |
-|   [6]   | dialog host         | :open                             | region, radius-overlay, elevation-dialog, z-dialog    |
-|   [7]   | toast card          | :open                             | region+1, elevation-flyout, z-toast                   |
-|   [8]   | tooltip             | :open                             | region+2, z-tooltip                                   |
+| [INDEX] | [CONTROL_THEME_ROW] | [PSEUDO_CLASSES]                  | [TOKEN_KEYS]                                         |
+| :-----: | :------------------ | :-------------------------------- | :--------------------------------------------------- |
+|   [1]   | command button      | :pointerover, :pressed, :disabled | accent, accent+1, accent+2, radius-control           |
+|   [2]   | text entry          | :focus, :error                    | region, base, error, accent, radius-control          |
+|   [3]   | grid row            | :selected, :pointerover           | region+1, region+2, row-height                       |
+|   [4]   | tab strip item      | :selected                         | accent, base+1, spacing-unit                         |
+|   [5]   | flyout host         | :open                             | region+1, radius-overlay, elevation-flyout, z-flyout |
+|   [6]   | dialog host         | :open                             | region, radius-overlay, elevation-dialog, z-dialog   |
+|   [7]   | toast card          | :open                             | region+1, elevation-flyout, z-toast                  |
+|   [8]   | tooltip             | :open                             | region+2, z-tooltip                                  |
 
 ```mermaid
 flowchart LR

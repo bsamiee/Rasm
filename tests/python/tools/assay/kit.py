@@ -2,10 +2,7 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import (  # noqa: TC003  # runtime: Protocol and msgspec fields resolve these annotations
-    Callable,
-    Generator,
-)
+from collections.abc import Callable, Generator  # noqa: TC003  # runtime: Protocol and msgspec fields resolve these annotations
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Final, override, Protocol, TYPE_CHECKING
@@ -161,7 +158,11 @@ class CliResult(msgspec.Struct, frozen=True, gc=False):
 
 
 def assay_settings(root: Path) -> AssaySettings:
-    """Build tmp-rooted settings with local execution and no known-hosts constraint."""
+    """Build tmp-rooted settings with local execution and no known-hosts constraint.
+
+    Returns:
+        Settings rooted at ``root`` with remote execution disabled.
+    """
     (root / "Workspace.slnx").write_text("", encoding="utf-8")
     return AssaySettings(root=UPath(root), exec_target="", exec_known_hosts=None)
 
@@ -170,16 +171,28 @@ class AssayHarness(TmpRoot[AssaySettings], frozen=True, gc=False):
     """Tmp-root harness whose default settings cannot mutate outside ``root``."""
 
     def scope(self, claim: Claim = Claim.PACKAGE) -> ArtifactScope:
-        """Open an ArtifactScope rooted at this harness."""
+        """Open an ArtifactScope rooted at this harness.
+
+        Returns:
+            Scope bound to the harness settings for ``claim``.
+        """
         return ArtifactScope.open(self.settings, claim)
 
     def remote(self, exec_target: str) -> AssaySettings:
-        """Copy settings for SSH law fixtures without a known-hosts constraint."""
+        """Copy settings for SSH law fixtures without a known-hosts constraint.
+
+        Returns:
+            Settings copy targeting ``exec_target``.
+        """
         return self.settings.model_copy(update={"exec_target": exec_target, "exec_known_hosts": None})
 
     @staticmethod
     def envelope_of(payload: Report | Fault, *, claim: Claim, verb: str) -> Envelope:
-        """Wrap a payload through the canonical Envelope projection."""
+        """Wrap a payload through the canonical Envelope projection.
+
+        Returns:
+            Envelope carrying ``payload`` under ``claim``/``verb``.
+        """
         return wrap_envelope(payload, claim=claim, verb=verb)
 
 
@@ -225,6 +238,9 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
         """Build an ``Ok(Completed)`` outcome that still drives verb output parsing.
 
         ``status`` defaults from ``rc``; ``stdout`` carries realistic payloads such as canned build output.
+
+        Returns:
+            Ok-wrapped completed receipt for the canned argv.
         """
         return Ok(receipt(argv, rc, status=status, stdout=stdout, stderr=stderr))
 
@@ -239,7 +255,11 @@ class BridgeResult(msgspec.Struct, frozen=True, gc=False):
     directory: Path
 
     def valid(self, command: str = "scenario.verify.csx") -> Path:
-        """Write a well-formed bridge result JSON."""
+        """Write a well-formed bridge result JSON.
+
+        Returns:
+            Path to the written valid result file.
+        """
         payload = {
             "command": command,
             "status": "ok",
@@ -255,15 +275,27 @@ class BridgeResult(msgspec.Struct, frozen=True, gc=False):
         return self._writer({"valid": "valid.json"}, {"valid": payload}).path("valid")
 
     def malformed(self) -> Path:
-        """Write invalid bridge result JSON."""
+        """Write invalid bridge result JSON.
+
+        Returns:
+            Path to the written malformed result file.
+        """
         return self._writer({"malformed": "malformed.json"}, {"malformed": b"{not json"}).path("malformed")
 
     def partial(self) -> Path:
-        """Write valid JSON with an incomplete bridge result shape."""
+        """Write valid JSON with an incomplete bridge result shape.
+
+        Returns:
+            Path to the written partial result file.
+        """
         return self._writer({"partial": "partial.json"}, {"partial": b"{}"}).path("partial")
 
     def missing(self) -> Path:
-        """Return a bridge result path whose backing file is intentionally absent."""
+        """Return a bridge result path whose backing file is intentionally absent.
+
+        Returns:
+            Path to the intentionally absent result file.
+        """
         return self._writer({"missing": "absent.json"}, {}, absent=frozenset({"missing"})).path("missing")
 
     def _writer(
@@ -283,7 +315,11 @@ class YakShape(msgspec.Struct, frozen=True, gc=False):
     package_pattern: str = "rasm-rh9_1-mac.yak"
 
     def props(self, meta: package_rail.YakMeta) -> dict[str, str]:
-        """Project materialized YakMeta into the MSBuild/yak property map."""
+        """Project materialized YakMeta into the MSBuild/yak property map.
+
+        Returns:
+            Property map mirroring the MSBuild/yak names for ``meta``.
+        """
         return {
             "AssemblyName": meta.assembly_name,
             "MSBuildProjectDirectory": str(meta.project_dir),
@@ -300,7 +336,11 @@ class YakShape(msgspec.Struct, frozen=True, gc=False):
         }
 
     def materialize(self, harness: AssayHarness) -> package_rail.YakMeta:
-        """Write the fake yak binary, project file, manifest, and assembly tree."""
+        """Write the fake yak binary, project file, manifest, and assembly tree.
+
+        Returns:
+            Materialized YakMeta describing the written tree.
+        """
         yak = harness.write("yak", "#!/bin/sh\nexit 0\n", mode=0o755)
         project = harness.write(self.project, f"<Project><PropertyGroup><YakPackageSlug>{self.slug}</YakPackageSlug></PropertyGroup></Project>")
         target = project.parent / "bin" / harness.settings.configuration.value / self.target_framework
@@ -341,6 +381,9 @@ def _proc(
     """Build a process double with status and liveness controls.
 
     ``raise_no_such`` marks the double as a dead-process sentinel for the module factory.
+
+    Returns:
+        Autospec ``psutil.Process`` double with the configured fields and methods.
     """
     return autospec_proc(
         _psutil.Process,
@@ -361,6 +404,9 @@ def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 
     """Build a psutil module double whose ``Process(pid)`` dispatches through ``procs``.
 
     ``procs[None]`` is the self-process; unregistered or dead-sentinel pids raise ``NoSuchProcess``.
+
+    Returns:
+        Module double exposing the canned ``Process`` dispatch and psutil error classes.
     """
     return psutil_module_double(
         _psutil,
@@ -379,6 +425,9 @@ def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler,
     """Install a psutil module double on ``automation.engine``.
 
     The double keeps real psutil error classes while replacing ``cpu_percent`` with the supplied sampler.
+
+    Returns:
+        The installed module double for further per-test configuration.
     """
     from tools.assay.automation import engine as automation_engine  # noqa: PLC0415  # patch target re-imported here
 
@@ -401,7 +450,11 @@ def assert_counts_consistent(report: Report) -> None:
 
 
 def make_history_envelope(run_id: str, *, claim: Claim = Claim.STATIC, status: RailStatus = RailStatus.OK) -> Envelope:
-    """Build a canned history Envelope for delta and retention fixtures."""
+    """Build a canned history Envelope for delta and retention fixtures.
+
+    Returns:
+        Envelope stamped with ``run_id`` for history-tree fixtures.
+    """
     report = fold(claim, "check", (receipt(("tool",), 0, status=status),))
     return msgspec.structs.replace(wrap_envelope(report, claim=claim, verb="check"), run_id=run_id)
 

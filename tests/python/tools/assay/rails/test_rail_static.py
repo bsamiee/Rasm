@@ -6,12 +6,12 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from expression import Error, Ok
-import pytest
+import msgspec
 
 from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_error_status, assert_ok, support_matrix
 from tools.assay.composition.registry import REGISTRY
-from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, receipt, Runner, StaticRun, Tool
+from tools.assay.core.model import _sarif_status, Check, Claim, Fault, Input, Language, Mode, receipt, Runner, StaticRun, Tool
 from tools.assay.core.routing import Routed, Scope, TargetFiles
 from tools.assay.core.status import RailStatus
 import tools.assay.rails.static as static_rail
@@ -19,7 +19,10 @@ from tools.assay.rails.static import run, StaticParams
 
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from expression import Result
+    import pytest
 
     from tests.python.tools.assay.kit import AssayHarness, VerbRunner
     from tools.assay.core.model import Completed
@@ -305,3 +308,68 @@ def test_static_status_matrix() -> None:
         ("restore is read-only", lambda: not Mode.RESTORE.writes, True),
         ("write mutates", lambda: Mode.WRITE.writes, True),
     )
+
+
+# --- [SARIF_STATUS_LAWS]
+
+
+def _build_receipt(project: str, status: RailStatus) -> Completed:
+    return receipt(("dotnet", "build", "--no-restore", project), 0 if status is not RailStatus.FAILED else 1, status=status)
+
+
+def test_sarif_status_distinguishes_incremental_from_clean(tmp_path: Path) -> None:
+    """Per-build SARIF status separates produced:N from absent:incremental, absent:no-build, and absent:build-failed.
+
+    A warm-incremental OK build with no SARIF reads as ``absent:incremental``, never as a clean produced pass — the
+    exact distinction the analyzer's incremental design would otherwise erase.
+    """
+    sarif_dir = tmp_path / "sarif"
+    sarif_dir.mkdir()
+    (sarif_dir / "App.sarif").write_bytes(
+        msgspec.json.encode({"version": "2.1.0", "runs": [{"results": [{"ruleId": "CSP0101", "message": {"text": "x"}}] * 2}]})
+    )
+    outcomes = (
+        _build_receipt("src/App/App.csproj", RailStatus.OK),
+        _build_receipt("src/Lib/Lib.csproj", RailStatus.EMPTY),
+        _build_receipt("src/Skip/Skip.csproj", RailStatus.SKIP),
+        _build_receipt("src/Bad/Bad.csproj", RailStatus.FAILED),
+    )
+    assert _sarif_status(outcomes, str(sarif_dir)) == (
+        ("App", "produced:2"),
+        ("Lib", "absent:incremental"),
+        ("Skip", "absent:no-build"),
+        ("Bad", "absent:build-failed"),
+    )
+    # A non-build receipt contributes no row; a .slnx workspace build keys against the whole directory.
+    assert _sarif_status((receipt(("ruff", "check"), 0, status=RailStatus.OK),), str(sarif_dir)) == ()
+    assert _sarif_status((_build_receipt("Workspace.slnx", RailStatus.OK),), str(sarif_dir)) == (("Workspace", "produced:2"),)
+
+
+register_law(_sarif_status, "distinguishes_incremental_from_clean")
+
+
+# --- [BACKPRESSURE_LAWS]
+
+
+def test_backpressure_note_threads_structured_pressure() -> None:
+    """A halving or any dotnet.slot wait appends one structured backpressure note carrying the real fan numbers.
+
+    Every field rides the typed resource rows resource_projection folded; nothing is re-parsed out of note text.
+    """
+    resources = (
+        ("concurrency.original", 8.0),
+        ("concurrency.reduced", 4.0),
+        ("dotnet.foreign", 12.0),
+        ("dotnet.slot_wait_ms.max", 1500.0),
+        ("memory.percent", 91.0),
+    )
+    assert static_rail._backpressure_note(resources) == (
+        "concurrency.backpressure: reduced 8->4 (mem=91% foreign_dotnet=12); dotnet.slot max_wait=1500ms",
+    )
+    quiet = (("concurrency.original", 8.0), ("concurrency.reduced", 8.0), ("dotnet.foreign", 0.0), ("memory.percent", 40.0))
+    assert static_rail._backpressure_note(quiet) == ()
+    waited = (("concurrency.original", 8.0), ("concurrency.reduced", 8.0), ("dotnet.slot_wait_ms.max", 1500.0), ("memory.percent", 40.0))
+    assert static_rail._backpressure_note(waited)[0].endswith("dotnet.slot max_wait=1500ms")
+
+
+register_law(static_rail._backpressure_note, "threads_structured_pressure")

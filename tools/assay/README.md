@@ -296,8 +296,13 @@ Artifacts, logs, tracing, and remote execution are operator surfaces. They do no
 - Use: correlation, retention, and execution target control only where settings expose the behavior.
 
 [REMOTE_EXECUTION]:
-- Target: `ASSAY_EXEC_TARGET=ssh://...` runs processes over SSH.
-- Local/shared requirement: routing, locks, package staging, bridge discovery, API discovery, and many artifacts still need local or shared paths.
+- Target switch: `ASSAY_EXEC_TARGET` unset (`""`) keeps execution local — the default for agent ergonomics. Set to `ssh://[user@]host[:port]` it offloads process execution over SSH; the scheme, host, and port are validated at settings load, so a malformed target fails before any spawn.
+- Offload-capable lanes: heavy closures — mutation `full`, the full `static` lane, and `.NET` build graphs — run on the remote host. The calling agent always receives the same one-`Envelope` result locally: the engine streams stdout/stderr into the agent-local store, resolves the remote exit status (signalled kills synthesize exit 255 with an `ssh.signal=<name>` note), and returns a normal `Completed` receipt with full status, diagnostics, and artifact rows. Remote runs carry no process-stall telemetry — `psutil` cannot inspect remote pids across the SSH boundary.
+- Host-bound reject: `bridge` and `package` claims are host-bound by definition (live Rhino/Yak resources, leases) and are rejected under `exec_target` with status `unsupported` and `host-bound tools require local execution`. Copy-staged tools reject the same way. The reject is a typed receipt, not a fault.
+- Artifact pull-back: `sftp` is the default — and currently only — remote backend. The remote tool writes its scope artifacts (SARIF, coverage, results) to the configured backend root; after the process exits, a shielded SFTP download under a fixed budget lands them in the agent-local file store, degrading to a `remote.artifacts.degraded` note rather than reclassifying a completed run as timeout. A non-reachable backend under remote exec is rejected at settings load, naming `ASSAY_ARTIFACT_BACKEND__PROTOCOL`/`__ROOT`.
+- Uniform path semantics: scope paths are root-down across local, SSH, and cloud — the store root is stripped so the parts agree on every backend. `Artifact.path` never carries an absolute host path; landed remote artifacts are recorded at agent-local, scope-relative paths.
+- Cloud posture: `s3`, `gs`, and `gcs` are shared stores the agent reads at the same universal paths with no byte transfer. They are not yet admitted as remote-exec backends; the cloud pull arm activates only once the `s3fs`/`gcsfs` backend and its test law land and `sftp` is no longer the sole reachable protocol.
+- Local/shared requirement: routing, locks, package staging, bridge discovery, API discovery, and history still need local or shared paths; remote execution moves command execution only.
 
 [FSSPEC_STORE]:
 - Shape: `ArtifactStore` is fsspec-shaped.

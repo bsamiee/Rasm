@@ -43,8 +43,10 @@ Every remaining open item across all ledgers and ROADMAP gates — the suite-lev
 | [3] | Avalonia.Win32.Interoperability (Win32 embed route) | Windows panel-host spike |
 | [4] | Dock.Serializer.* package naming | first app-root layout persistence |
 | [5] | Microsoft.Extensions.Caching.StackExchangeRedis (web L2) | first web app root |
-| [6] | Microsoft.AspNetCore.TestHost (InProcess transport row helper) | Compute spec lane need |
+| [6] | Microsoft.AspNetCore.TestHost (InProcess transport row helper) | folded to Compute remote-lane RESEARCH [TRANSPORTS]; lands as test-only PackageReference in the spec project at the matched ASP.NET Core servicing line |
 | [7] | Microsoft.Extensions.Options.ConfigurationExtensions central-pin policy (directly-invoked lock-pinned transitive) | repo policy decision |
+| [10] | Microsoft.ML.OnnxRuntime.Gpu / .DirectML (Cuda/DirectMl EP registration members) | Windows-profile implementation; folded to Compute model-lane RESEARCH [EP_OPTIONS] as designed-only rows |
+| [11] | Microsoft.Extensions.Compliance.Redaction registration surface (AddRedaction/SetHmacRedactor/SetRedactor/SetFallbackRedactor) | AppHost diagnostics; EXTEXP0002 experimental gate; folded to RESEARCH [REDACTION_REGISTRATION] |
 | [8] | dotnet-counters/trace/gcdump tool-manifest admission (9.0.661903 line, re-verify) | AppHost implementation start |
 | [9] | TimescaleDB / pg_partman / pg_repack / HypoPG / pgaudit operator provisioning | self-provisioned server era |
 
@@ -84,6 +86,7 @@ Entry: `libs/typescript/.planning/README.md`.
 | [3] | Stage C: TS dependency catalogue extraction (the .api equivalent) |
 | [4] | Stage D: planning corpus completion to the suite review-law bar with a TS region ledger; register the five TS service owners (WireClients, SnapshotFeed, RuntimeFeed, CommandGateway, EvidenceFeed) |
 | [5] | Pin @bufbuild/buf + remaining unpinned rows at catalogue truth; the connect peer set moves in one resolve |
+| [6] | Phase-6 wire-drift reconcile from the Phase-1 deepening (all additive-tolerable per `wire-consumption.md` §4, none breaking): (a) Compute remote-lane `RemoteTransport` widened to six rows incl. designed-only `NamedPipe`/`TcpLoopback` — `TransportCapabilityWire` enumerates more transport rows but the browser surface stays grpc-web unary + server-stream only, both byte paths structurally absent in the browser; (b) the Compute receipts `Selection` case payload gained a warm-affinity flag — one additive JSON member on the Selection case interface; (c) AppHost `HealthEntryWire`/`DegradationWire` unaffected by the new `PressurePolicy` container-limit columns (internal policy, the limit grade folds into the existing status field); (d) AppUi telemetry contribution (`AppUiTelemetry`) crosses no wire per the inventory — confirm at closeout. No TS authored here. |
 
 ## [7]-[PLANNING_CLOSE_OUT_SPIKES]
 
@@ -99,3 +102,13 @@ The total planning-phase close-out: these bridge-proofed spikes run ONLY after e
 | [6] | Embedded-TopLevel service resolution (toasts, storage pickers) inside the rhino-panel root | AppUi ROADMAP |
 | [7] | Host-object drag across the NSView boundary; VoiceOver reach across the embedding | AppUi ROADMAP |
 | [8] | Drain-deadline conformance scenario under live plugin unload | AppHost ROADMAP |
+
+## [8]-[DEEPENING_FINDINGS]
+
+Cross-folder findings the Phase-1 deepening surfaced. Page-local RESEARCH tokens stay on the owning page's RESEARCH cluster and each folder ROADMAP; this section carries only the suite-level reconciliations and the one grounding regression that crosses folder ownership. Every owned foldable item from the deepening landed as a transcription-complete fence; the residue below is genuine probe-gated or suite-policy work, not unfolded page law.
+
+| [INDEX] | [ITEM] | [OWNER] |
+| :-----: | ------ | ------- |
+| [1] | AppUi input-interaction net-lost-grounding: the deepening softened the previously-fenced gesture-trigger and clipboard member spellings (`TappedEventTrigger`, `DoubleTappedEventTrigger`, `RightTappedEventTrigger`, `IPointer.Capture`, `PointerCaptureLostEventTrigger`, `ExportState`, the multi-format clipboard write) to prose and split them into three new RESEARCH rows (`[GESTURE_TRIGGERS]`, `[POINTER_CAPTURE]`, `[CLIPBOARD_WRITE]`); re-ground each against the installed Avalonia.Xaml.Behaviors and Avalonia clipboard surfaces at implementation so the routed-event-trigger family and structured clipboard write carry exact member spellings rather than prose. | AppUi ROADMAP (input-interaction) |
+| [2] | CHARTER_TEMPLATE feature-state column reconciliation: Compute and Persistence DENSITY_BAR now carry an optional trailing `[STATE]` (`FINALIZED`/`SPIKE`) column; the suite standard CHARTER_TEMPLATE sanctions it as optional. AppHost and AppUi DENSITY_BAR gain the same optional `[STATE]` column at their charter-owning phase so all four charters carry one identical column shape (GAP_LEDGER and DENSITY_BAR both ending on `[STATE]`). | suite standard + AppHost/AppUi charters |
+| [3] | Optional `NodaTime.Serialization.Protobuf` direct `<PackageVersion>` admission gated on whether `Google.Api.CommonProtos` calendar surface resolves transitively through the admitted NodaTime + Grpc graph (Compute remote-lane/receipts RESEARCH [CALENDAR_BRIDGE]). | Compute ROADMAP |

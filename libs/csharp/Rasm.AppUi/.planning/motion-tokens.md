@@ -4,12 +4,12 @@ Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries its 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                |
-| :-----: | :----------------- | :-------------------------------------------------------------------- |
-|   [1]   | MOTION_AXIS        | Six token rows; durations, curves, springs, reduced pairs, pacing     |
-|   [2]   | MOTION_APPLICATION | Plan rows and projections binding transitions, charts, zoom, clocks   |
-|   [3]   | PHASE_MAPPING      | Frozen nine-row ProgressPhase-to-token map; one resolve entrypoint    |
-|   [4]   | REDUCED_MOTION     | Host-agnostic probe rows; one global degrade switch; conformance      |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                              |
+| :-----: | :----------------- | :------------------------------------------------------------------ |
+|   [1]   | MOTION_AXIS        | Six token rows; durations, curves, springs, reduced pairs, pacing   |
+|   [2]   | MOTION_APPLICATION | Plan rows and projections binding transitions, charts, zoom, clocks |
+|   [3]   | PHASE_MAPPING      | Frozen nine-row ProgressPhase-to-token map; one resolve entrypoint  |
+|   [4]   | REDUCED_MOTION     | Host-agnostic probe rows; one global degrade switch; conformance    |
 
 ## [2]-[MOTION_AXIS]
 
@@ -147,13 +147,13 @@ public static class ReducedMotion {
 }
 ```
 
-| [INDEX] | [HOST_ROW]                | [PROBE_SOURCE]                                            | [DESIGNED] |
-| :-----: | :------------------------ | :-------------------------------------------------------- | :--------: |
-|   [1]   | rhino-panel / rhino-modal | macOS reduce-motion preference via the embed capsule facts | no         |
-|   [2]   | standalone-desktop        | platform reduce-motion preference bound at composition     | no         |
-|   [3]   | gh2-companion             | the same macOS preference delegate as the panel rows       | no         |
-|   [4]   | headless                  | constant false; spec-driven `Observe` flips                | no         |
-|   [5]   | web-browser               | absent; designed-only case                                 | yes        |
+| [INDEX] | [HOST_ROW]                | [PROBE_SOURCE]                                             | [DESIGNED] |
+| :-----: | :------------------------ | :--------------------------------------------------------- | :--------: |
+|   [1]   | rhino-panel / rhino-modal | macOS reduce-motion preference via the embed capsule facts |     no     |
+|   [2]   | standalone-desktop        | platform reduce-motion preference bound at composition     |     no     |
+|   [3]   | gh2-companion             | the same macOS preference delegate as the panel rows       |     no     |
+|   [4]   | headless                  | constant false; spec-driven `Observe` flips                |     no     |
+|   [5]   | web-browser               | absent; designed-only case                                 |    yes     |
 
 ## [6]-[RESEARCH]
 

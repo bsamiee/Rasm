@@ -79,11 +79,11 @@ public sealed record HealthContributorPort(
 
 ## [3]-[WIRE_LAW]
 
-- Owner: `AppHostWireContext`, `SuiteContracts` — the package wire context and the app-root merge surface.
+- Owner: `AppHostWireContext`, `SuiteContracts` — the package wire context and the app-root merge surface; `NodaPatterns` the pattern-derived text codec table.
 - Entry: `public static JsonSerializerOptions Wire(params ReadOnlySpan<JsonSerializerContext> contexts)` — one merge per app root; every JSON wire surface reads and writes through the merged options value, which seals on first use.
-- Packages: NodaTime.Serialization.SystemTextJson, Thinktecture.Runtime.Extensions.Json, BCL inbox
-- Growth: a new wire record lands as one `[JsonSerializable]` row on its package context plus one `[JsonDerivedType]` row per polymorphic leaf, zero new surface; CORS and grpc-web middleware land as one app-root row each when a cross-origin deployment exists.
-- Boundary: `ConfigureForNodaTime` owns NodaTime converter ordering — Interval and ZonedDateTime converters bind after the Instant converter, so a hand-assembled converter list is the rejected form; generated Thinktecture converters own every value-object, smart-enum, and keyed-union wire form, and a hand-written converter beside them is the named defect; PipeReader deserialization is the consumer-edge inbound decode shape, never a staging axis.
+- Packages: NodaTime.Serialization.SystemTextJson, NodaTime, Thinktecture.Runtime.Extensions.Json, BCL inbox
+- Growth: a new wire record lands as one `[JsonSerializable]` row on its package context plus one `[JsonDerivedType]` row per polymorphic leaf, zero new surface; a new semantic-time edge is one `NodaPatterns` row; CORS and grpc-web middleware land as one app-root row each when a cross-origin deployment exists.
+- Boundary: converter precedence is settled — `ConfigureForNodaTime` runs last in the `Wire` expression, after `TypeInfoResolver` binds the combined source-gen metadata, so the NodaTime per-type converters for `Instant`, `OffsetDateTime`, `ZonedDateTime`, and `Interval` resolve ahead of any source-gen `JsonTypeInfo` for those types — converter resolution precedes resolver metadata in System.Text.Json, and the call order in `Wire` is the precedence law, never a hand-assembled converter list; `OffsetDateTimePattern.Rfc3339` carries the exported offset stamp and `ZonedDateTimePattern` binds `WithZoneProvider`/`WithResolver` against the Tzdb provider with the strict resolver, so an ambiguous or skipped local time is a typed parse failure, never a silent shift; generated Thinktecture converters own every value-object, smart-enum, and keyed-union wire form, and a hand-written converter beside them is the named defect; PipeReader deserialization is the consumer-edge inbound decode shape, never a staging axis.
 
 ```csharp signature
 [JsonSourceGenerationOptions(
@@ -117,23 +117,37 @@ public static class SuiteContracts
             TreatNullObliviousAsNonNullable = true,
         });
 }
+
+public static class NodaPatterns
+{
+    public static readonly IPattern<Instant> Instant = InstantPattern.ExtendedIso;
+
+    public static readonly IPattern<OffsetDateTime> Offset = OffsetDateTimePattern.Rfc3339;
+
+    public static IPattern<ZonedDateTime> Zoned(string format) =>
+        ZonedDateTimePattern.CreateWithInvariantCulture(format, DateTimeZoneProviders.Tzdb)
+            .WithZoneProvider(DateTimeZoneProviders.Tzdb)
+            .WithResolver(Resolvers.StrictResolver);
+}
 ```
 
-Codec residence is fixed per wire surface; exactly one codec owns each surface and a second codec on one surface is a conflict, not a fallback:
+Codec residence is fixed per wire surface; producer and consumer cells name endpoints only, not alternate codecs.
 
-| [INDEX] | [WIRE_SURFACE]                                                                                            | [CODEC]                                    | [PRODUCER]                                     | [CONSUMER]                      |
-| :-----: | :-------------------------------------------------------------------------------------------------------- | :----------------------------------------- | :--------------------------------------------- | :------------------------------ |
-|   [1]   | runtime records — phase, fault, health snapshot, degradation, support manifest, receipt envelope          | STJ Strict source-gen JSON                 | per-package context merged at app roots        | TS dashboard, companion upload  |
-|   [2]   | discovery manifest — pid, socketPath, startInstant, contractChecksum, storeEpoch                          | STJ Strict JSON, atomic file write         | app-root boot                                  | attaching peer process          |
-|   [3]   | service verbs and streams — ComputeService, DocumentService, ControlService, ArtifactSync, grpc.health.v1 | protobuf descriptors over gRPC             | app roots compiling GrpcServices=Server        | connect-es generated clients    |
-|   [4]   | fault unions on the wire                                                                                  | FaultDetail into google.rpc.Status details | wire-edge projection                           | TS typed-failure reconstruction |
-|   [5]   | snapshot blobs                                                                                            | MessagePack                                | snapshot codec rows                            | @msgpack/msgpack                |
-|   [6]   | telemetry signals                                                                                         | OTLP                                       | exporter pinned at companion and web app roots | any OTLP collector              |
-|   [7]   | JSON contract schemas                                                                                     | JsonSchemaExporter emission                | schema emission at app roots                   | schema-derived TS types         |
+| [INDEX] | [WIRE_SURFACE]       | [CODEC]                          | [PRODUCER]       | [CONSUMER]           |
+| :-----: | :------------------- | :------------------------------- | :--------------- | :------------------- |
+|   [1]   | runtime records      | STJ Strict source-gen JSON       | package contexts | dashboard and upload |
+|   [2]   | discovery manifest   | STJ Strict atomic JSON           | app-root boot    | attaching peer       |
+|   [3]   | service verbs        | protobuf over gRPC               | app roots        | connect-es clients   |
+|   [4]   | wire fault unions    | `google.rpc.Status` details      | wire projection  | TS fault projection  |
+|   [5]   | snapshot blobs       | MessagePack                      | snapshot rows    | @msgpack/msgpack     |
+|   [6]   | telemetry signals    | OTLP                             | exporters        | OTLP collector       |
+|   [7]   | contract schemas     | JsonSchemaExporter               | schema emission  | schema-derived TS    |
+|   [8]   | semantic-time fields | `NodaPatterns` + Noda converters | `Wire` options   | ISO/RFC-3339 strings |
 
 ## [4]-[TS_PROJECTION]
 
 - Owner: `RasmPackage`, `HlcStampWire`, `ReceiptEnvelopeWire` — the suite-level TS contract; per-record wire shapes ride their owning wire surfaces and bind here as `TPayload`.
+- Entry: `ReceiptEnvelopeWire<TPayload>` binds at the codec edge where `SuiteContracts.Wire` emits the runtime record and `SuiteContracts.Schema` derives its TS type; every wire payload reconstructs through this one envelope, never a hand-mirrored interface.
 - Packages: BCL inbox
 - Growth: a new wire payload lands as one payload row bound through `ReceiptEnvelopeWire`, zero new surface; the tooling map gains one tool row per new wire codec.
 - Boundary: `logical` resets to zero on every physical advance, so the counter never approaches the JSON number precision envelope; `physical` and `skewBound` cross as NodaTime ISO-8601 and roundtrip-pattern strings; Thinktecture keyed owners cross as their key scalars while polymorphic leafs cross with the kind literals their polymorphic metadata pins, reconstructed in TS as literal-discriminated unions.
@@ -155,15 +169,15 @@ interface ReceiptEnvelopeWire<TPayload> extends HlcStampWire {
 }
 ```
 
-Each tool row names the surface it consumes, its activation point, and the spelling it deletes:
+Each tool row names the consumed surface, activation point, and spelling it deletes.
 
-| [INDEX] | [TOOL]                            | [SURFACE]                                                         | [ACTIVATION]                                             | [DELETES]                                   |
-| :-----: | :-------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------- | :------------------------------------------ |
-|   [1]   | connect-es with protoc-gen-es     | suite service descriptors, binary format, unary and server-stream | pnpm workspace bootstrap over the emitted descriptor set | hand-written wire clients and request types |
-|   [2]   | @msgpack/msgpack with useBigInt64 | binary snapshot blobs                                             | dashboard snapshot import                                | a second binary codec on the TS side        |
-|   [3]   | OTLP ingestion                    | telemetry signals                                                 | collector endpoint bound through OTEL_EXPORTER_OTLP_*    | bespoke telemetry wire formats              |
-|   [4]   | schema-derived TS types           | JSON runtime records via emitted contract schemas                 | app-root schema emission feeding the TS build            | hand-mirrored TS interfaces that drift      |
+| [INDEX] | [TOOL]            | [CONSUMES]          | [ACTIVATION]    | [DELETES]              |
+| :-----: | :---------------- | :------------------ | :-------------- | :--------------------- |
+|   [1]   | connect-es        | service descriptors | pnpm bootstrap  | hand-written clients   |
+|   [2]   | @msgpack/msgpack  | snapshot blobs      | snapshot import | second TS binary codec |
+|   [3]   | OTLP ingestion    | telemetry signals   | OTLP endpoint   | bespoke telemetry wire |
+|   [4]   | schema-derived TS | JSON schemas        | TS build input  | mirrored interfaces    |
 
 ## [5]-[RESEARCH]
 
-- [CONVERTER_PRECEDENCE]: NodaTime converter precedence over combined source-gen contract metadata in the Strict merge.
+- [ZONED_PATTERN_GRAMMAR]: the `ZonedDateTimePattern.CreateWithInvariantCulture` format-string literal for the exported zoned timestamp, and the named ISO singleton if one supplants the format-string construction.

@@ -4,8 +4,8 @@ Rasm.AppUi live data owns every change-set pipeline between data sources and scr
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                          |
-| :-----: | ----------------- | --------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                           |
+| :-----: | ----------------- | ---------------------------------------------------------------- |
 |   [1]   | DATA_SOURCES      | Six sourcing cases; one cache feed dispatch; the live-data spine |
 |   [2]   | CHANGE_PIPELINES  | Operator rows; dynamic predicate, comparer, page, window streams |
 |   [3]   | BINDING_CAPSULE   | One UI-thread binding edge; single ObserveOn; the fault rail     |
@@ -16,10 +16,10 @@ Rasm.AppUi live data owns every change-set pipeline between data sources and scr
 - Owner: `HostDocumentFact`, `SourcePolicy`, `DataSource<TRow, TKey>` — the closed sourcing axis; one generated dispatch feeds one keyed cache per projection.
 - Cases: HostDocumentEvents, PersistenceQuery, ComputeReceiptStream, InMemorySeq, RemoteCompanionStream, FakeDeterministic
 - Entry: `public (IObservableCache<TRow, TKey> Cache, IDisposable Feed) Open(Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault)` — the cache is the replay substrate; the feed disposable registers into the caller's activation scope.
-- Auto: the live-data spine — a host watch fact drives the Persistence projection write, the tag transition fires `Invalidations`, `Delta` fetches the changed rows, and the cache emits `IChangeSet`; one named pipeline, zero bespoke glue.
+- Auto: the live-data spine — a host watch fact drives the Persistence projection write, the tag transition fires `Invalidations`, `Delta` fetches the changed rows, and the cache emits `IChangeSet`; one named pipeline, zero bespoke glue; the emitted `IChangeSet` is the single delta spine — one `Connect` chain fans into chart `SeriesSource`, table projection, and aggregation tiles through `Transform`/`MergeMany` with zero materialized intermediate, so a new consumer subscribes to the existing delta and the source never forks into a second collection-mutation path.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime
-- Growth: a new feed is one case on the closed family; a new bound is one policy value on `SourcePolicy`; zero new surface.
-- Boundary: `Open` and `Admit` form the page's Rx-to-rail boundary capsule and this fence carries language-owned statement forms inside that capsule; hosts enter only as fact and envelope delegates — Rasm.Rhino `WatchEvent` projects to `HostDocumentFact` at the surface adapter (`WatchPhase` key, document serial, object ids, viewport change counter) and a case body never names a host API; key selectors transcribe the Persistence IdentityPolicy rows — uuidv7 surrogate, content hash, natural key — one key discipline per row model; late subscribers replay from cache state because `Connect` emits current state as the first change set, so per-source replay buffers are the deleted pattern; live rows feed on `TaskPoolScheduler` and the fake row on a `VirtualTimeScheduler` through `SourcePolicy.Source`; receipt-stream bounds trace to the cache-ttl `DeadlineClass` row; an event aggregator and per-source error handlers are the rejected forms — every fault lands in the one `Action<Error>` rail.
+- Growth: a new feed is one case on the closed family; a new bound is one policy value on `SourcePolicy`; a new live consumer is one downstream chain off the existing `Connect`; zero new surface.
+- Boundary: `Open` and `Admit` form the page's Rx-to-rail boundary capsule and this fence carries language-owned statement forms inside that capsule; hosts enter only as fact and envelope delegates — Rasm.Rhino `WatchEvent` projects to `HostDocumentFact` at the surface adapter (`WatchPhase` key, document serial, object ids, viewport change counter) and a case body never names a host API; key selectors transcribe the Persistence IdentityPolicy rows — uuidv7 surrogate, content hash, natural key — one key discipline per row model; late subscribers replay from cache state because `Connect` emits current state as the first change set, so per-source replay buffers are the deleted pattern; live rows feed on `TaskPoolScheduler` and the fake row on a `VirtualTimeScheduler` through `SourcePolicy.Source`; receipt-stream bounds trace to the cache-ttl `DeadlineClass` row; chart, table, and aggregation consumers compose off the one `Connect` delta and a second materialized snapshot beside it is the deleted form; an event aggregator and per-source error handlers are the rejected forms — every fault lands in the one `Action<Error>` rail.
 
 ```csharp signature
 public readonly record struct HostDocumentFact(int PhaseKey, uint DocumentSerial, Seq<Guid> ObjectIds, uint ChangeCounter);
@@ -110,8 +110,8 @@ public sealed record PipelineInputs<TRow>(
     IObservable<VirtualRequest> Windows);
 ```
 
-| [INDEX] | [ROW]                | [OPERATORS]             | [POLICY]                                                          |
-| :-----: | -------------------- | ----------------------- | ----------------------------------------------------------------- |
+| [INDEX] | [ROW]                | [OPERATORS]             | [POLICY]                                                           |
+| :-----: | -------------------- | ----------------------- | ------------------------------------------------------------------ |
 |   [1]   | dynamic-filter       | Filter                  | predicate stream from `Predicates`; pushed value, zero resubscribe |
 |   [2]   | comparative-sort     | Sort                    | comparer stream from `Comparers` for mid-pipeline order            |
 |   [3]   | projection           | Transform               | row models projected from store and receipt shapes                 |
@@ -130,10 +130,10 @@ public sealed record PipelineInputs<TRow>(
 ## [4]-[BINDING_CAPSULE]
 
 - Owner: `BindingCapsule` — the single UI-thread binding edge.
-- Entry: `public IDisposable Into<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, ObservableCollectionExtended<TRow> target, Option<IObservable<IComparer<TRow>>> order = default)` — sorted binding rides the comparer stream; absent order is the bare bind.
+- Entry: `public IDisposable Into<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, ObservableCollectionExtended<TRow> target, Option<IObservable<IComparer<TRow>>> order = default)` — sorted binding rides the comparer stream; absent order is the bare bind; `Drained<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, Func<TRow, ValueTask> release)` binds the async-disposal drain hook over the same edge.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core
-- Growth: a new binding posture is one policy value on the capsule record; zero new surface.
-- Boundary: the capsule is the UI-thread boundary capsule and this fence carries the subscription edge under that carve-out; `ObserveOn` applies exactly once here — a second `ObserveOn` anywhere in a pipeline is the named defect; `Ui` arrives from the surface scheduler boundary fed by `UiSchedulerPort`; every `Into` disposable registers into the caller's activation scope, whose disposal receipts are the screens law — no second disposal stream exists here; faults reach the screen fault state through `Fault` and silent failure is structurally impossible; bulk admissions batch through `SuspendNotifications` on `ObservableCollectionExtended` at load edges.
+- Growth: a new binding posture is one policy value on the capsule record; the async-drain hook is one `Drained` row on the capsule; zero new surface.
+- Boundary: the capsule is the UI-thread boundary capsule and this fence carries the subscription edge under that carve-out; `ObserveOn` applies exactly once here — a second `ObserveOn` anywhere in a pipeline is the named defect; `Ui` arrives from the surface scheduler boundary fed by `UiSchedulerPort`; every `Into` disposable registers into the caller's activation scope, whose disposal receipts are the screens law — no second disposal stream exists here; rows holding disposable child resources bind through `AsyncDisposeMany`, whose completion stream is the cache drain hook awaited at deactivation so leavers release asynchronously before the scope tears down — a synchronous `DisposeMany` over async-disposable rows is the deleted form; faults reach the screen fault state through `Fault` and silent failure is structurally impossible; bulk admissions batch through `SuspendNotifications` on `ObservableCollectionExtended` at load edges.
 
 ```csharp signature
 public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
@@ -148,6 +148,14 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
         })
         .DisposeMany()
         .Subscribe(static _ => { }, raw => Fault(Error.New(raw)));
+
+    public IDisposable Drained<TRow, TKey>(
+        IObservable<IChangeSet<TRow, TKey>> pipeline,
+        Func<TRow, ValueTask> release)
+        where TRow : notnull where TKey : notnull =>
+        pipeline.ObserveOn(Ui)
+            .AsyncDisposeMany(release)
+            .Subscribe(static _ => { }, raw => Fault(Error.New(raw)));
 }
 ```
 
@@ -155,13 +163,19 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
 
 - Owner: `LiveDataOps` — stat folds and change audit attach to the capsule as one extension block.
 - Entry: `public IDisposable Tile<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, Func<IObservable<IChangeSet<TRow, TKey>>, IObservable<double>> fold, Action<double> render)` — one entrypoint serves every stat row.
-- Receipt: change-audit rows project `ChangeSummary` into the evidence stream as `ReceiptSinkPort` envelope payloads — process-local, HLC-correlated.
+- Receipt: change-audit rows project `ChangeSummary` into the evidence stream as `ReceiptSinkPort` envelope payloads — process-local, HLC-correlated; `TelemetryRow` contributes the change-throughput and live-fault instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core
-- Growth: a new statistic is one stat row mapping a fold; zero new surface.
-- Boundary: suspend and resume ride the activation scope — surface visibility drives activation at the screens owner, a hidden surface holds zero live subscriptions, and cache state delivers instant replay on resume; gauge and stat tiles on the dashboard surfaces consume `Tile` streams as rows; an OAPH mirror of change-set state, a stats service, and a notification-center history store are the rejected forms.
+- Growth: a new statistic is one stat row mapping a fold; one live instrument is one `InstrumentRow` on `LiveDataOps.TelemetryRow`; zero new surface.
+- Boundary: suspend and resume ride the activation scope — surface visibility drives activation at the screens owner, a hidden surface holds zero live subscriptions, and cache state delivers instant replay on resume; gauge and stat tiles on the dashboard surfaces consume `Tile` streams as rows; the change-throughput instrument pulls from the `ChangeStatistics` count and the live-fault instrument from the one `Action<Error>` rail, so metrics and the `ReceiptSinkPort` evidence stream derive from the same audit and a second hand-synced counter is the rejected form; an OAPH mirror of change-set state, a stats service, and a notification-center history store are the rejected forms.
 
 ```csharp signature
 public static class LiveDataOps {
+    public const string ChangesInstrument = "rasm.appui.live.changes";
+    public const string FaultsInstrument = "rasm.appui.live.faults";
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, ChangesInstrument, FaultsInstrument);
+
     extension(BindingCapsule capsule) {
         public IDisposable Tile<TRow, TKey>(
             IObservable<IChangeSet<TRow, TKey>> pipeline,
@@ -173,14 +187,14 @@ public static class LiveDataOps {
 }
 ```
 
-| [INDEX] | [ROW]        | [FOLD]                              | [CONSUMER]                                  |
-| :-----: | ------------ | ----------------------------------- | ------------------------------------------- |
-|   [1]   | count        | Count                               | stat tiles                                  |
-|   [2]   | sum          | Sum                                 | stat tiles                                  |
-|   [3]   | average      | Avg                                 | stat tiles                                  |
-|   [4]   | minimum      | Minimum                             | stat tiles                                  |
-|   [5]   | maximum      | Maximum                             | stat tiles                                  |
-|   [6]   | deviation    | StdDev                              | stat tiles                                  |
+| [INDEX] | [ROW]        | [FOLD]                              | [CONSUMER]                                     |
+| :-----: | ------------ | ----------------------------------- | ---------------------------------------------- |
+|   [1]   | count        | Count                               | stat tiles                                     |
+|   [2]   | sum          | Sum                                 | stat tiles                                     |
+|   [3]   | average      | Avg                                 | stat tiles                                     |
+|   [4]   | minimum      | Min                                 | stat tiles                                     |
+|   [5]   | maximum      | Max                                 | stat tiles                                     |
+|   [6]   | deviation    | StdDev                              | stat tiles                                     |
 |   [7]   | change-audit | CollectUpdateStats to ChangeSummary | evidence stream via `ReceiptSinkPort` envelope |
 
 ## [6]-[RESEARCH]

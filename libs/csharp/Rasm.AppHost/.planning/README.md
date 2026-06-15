@@ -4,19 +4,19 @@ Rasm.AppHost has zero consumers; the implementation is full-capability with no h
 
 ## [1]-[PAGE_INDEX]
 
-| [INDEX] | [PAGE]                                                    | [OWNS]                                                                           |  [STATE]  |
-| :-----: | --------------------------------------------------------- | -------------------------------------------------------------------------------- | :-------: |
-|   [1]   | [host-profiles](host-profiles.md)                         | The single host-variance axis; profile rows resolve all modality variance        | finalized |
-|   [2]   | [lifecycle-and-drain](lifecycle-and-drain.md)             | Phase family, transition law, drain conductor, cancellation spine, crash markers | finalized |
-|   [3]   | [time-and-deadlines](time-and-deadlines.md)               | Clock seams, deadline taxonomy, schedule port, deterministic test clocks         | finalized |
-|   [4]   | [configuration-and-options](configuration-and-options.md) | Source axis, layering, typed binding, validated frozen policy, receipted reload  | finalized |
-|   [5]   | [composition-and-modules](composition-and-modules.md)     | One composition root per process; module contribution rows                       | finalized |
-|   [6]   | [resource-lanes](resource-lanes.md)                       | Hybrid cache lane, object pools, drainable queues                                | finalized |
-|   [7]   | [diagnostics-and-telemetry](diagnostics-and-telemetry.md) | Correlation spine, signal governance, classification taxonomy                    | finalized |
-|   [8]   | [health-and-degradation](health-and-degradation.md)       | Capability health fold and the usable-failure degradation rail                   | finalized |
-|   [9]   | [support-bundles](support-bundles.md)                     | Bounded, correlated, redacted diagnostic capture                                 | finalized |
-|  [10]   | [outbound-resilience](outbound-resilience.md)             | Hop axis; exactly one retry owner per remote boundary                            | finalized |
-|  [11]   | [runtime-ports](runtime-ports.md)                         | Typed port records, suite wire law, TS tooling map                               | finalized |
+| [INDEX] | [PAGE]                                                    | [OWNS]                                           |  [STATE]  |
+| :-----: | --------------------------------------------------------- | :----------------------------------------------- | :-------: |
+|   [1]   | [host-profiles](host-profiles.md)                         | host-variance axis; modality rows                | finalized |
+|   [2]   | [lifecycle-and-drain](lifecycle-and-drain.md)             | phase, transition, drain, cancellation, markers  | finalized |
+|   [3]   | [time-and-deadlines](time-and-deadlines.md)               | clocks, deadlines, schedule port, test clocks    | finalized |
+|   [4]   | [configuration-and-options](configuration-and-options.md) | source layering, binding, frozen policy, reloads | finalized |
+|   [5]   | [composition-and-modules](composition-and-modules.md)     | composition root and module contribution rows    | finalized |
+|   [6]   | [resource-lanes](resource-lanes.md)                       | cache lane, object pools, drainable queues       | finalized |
+|   [7]   | [diagnostics-and-telemetry](diagnostics-and-telemetry.md) | correlation, signals, classification taxonomy    | finalized |
+|   [8]   | [health-and-degradation](health-and-degradation.md)       | health fold and degradation rail                 | finalized |
+|   [9]   | [support-bundles](support-bundles.md)                     | bounded redacted diagnostic capture              | finalized |
+|  [10]   | [outbound-resilience](outbound-resilience.md)             | hop axis and single retry owner                  | finalized |
+|  [11]   | [runtime-ports](runtime-ports.md)                         | port records, suite wire law, TS map             | finalized |
 
 ## [2]-[WIRE_PAGES]
 
@@ -28,28 +28,30 @@ App-root-only pins with no restored closure, catalogued at app-root creation: Op
 
 ## [4]-[GAP_LEDGER]
 
-| [INDEX] | [GAP]                                                                                                                                 | [CLOSED_BY]                                                          | [STATE] |
-| :-----: | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | :-----: |
-|   [1]   | TelemetryContributorPort seam for sibling ActivitySource/Meter registration                                                           | runtime-ports + diagnostics-and-telemetry                            | CLOSED  |
-|   [2]   | Cross-package drain rank-band table with store-dependency column; inbound cessation first                                             | lifecycle-and-drain                                                  | CLOSED  |
-|   [3]   | DataClassification taxonomy ownership here (Persistence consumes)                                                                     | diagnostics-and-telemetry                                            | CLOSED  |
-|   [4]   | ReceiptSinkPort with HLC envelope as the only cross-process causal primitive                                                          | runtime-ports                                                        | CLOSED  |
-|   [5]   | grpc.health.v1 mapping from the HealthChecks registry via tag predicate                                                               | health-and-degradation                                               | CLOSED  |
-|   [6]   | Lane homonym resolved: DrainQueue here, WorkLane at Compute                                                                           | resource-lanes                                                       | CLOSED  |
-|   [7]   | HybridCache ownership here (port, stampede, tags, entry options); L2 contributed by Persistence                                       | resource-lanes                                                       | CLOSED  |
-|   [8]   | Options rows carry a reload-class column (frozen, transition)                                                                         | configuration-and-options                                            | CLOSED  |
-|   [9]   | Resource-pressure HealthContributor row consuming ResourceMonitoring snapshots                                                        | health-and-degradation                                               | CLOSED  |
-|  [10]   | ConfigSource gains the user-secrets row distinct from the OS-keychain secrets-store row                                               | configuration-and-options                                            | CLOSED  |
-|  [11]   | OutboundHop gains the update-check case, structurally excluded on plugin rows                                                         | outbound-resilience                                                  | CLOSED  |
-|  [12]   | FaultSource union: unhandled, unobserved-task, posix-signal, host-crash-marker                                                        | lifecycle-and-drain                                                  | CLOSED  |
-|  [13]   | Discovery manifest + LocalIpc hop + single retry owner for the standalone attach                                                      | outbound-resilience + runtime-ports                                  | CLOSED  |
-|  [14]   | DegradationLevel.LocalOnly designed level for Rhino-absent folding                                                                    | health-and-degradation                                               | CLOSED  |
-|  [15]   | Operator kill-switch as a config row + ControlService set-degradation verb consequence                                                | configuration-and-options + health-and-degradation                   | CLOSED  |
-|  [16]   | Schedule-port record carries CronExpression; lease-handoff distinct from crash-reclaim                                                | time-and-deadlines                                                   | CLOSED  |
-|  [17]   | JsonTypeInfoResolver.Combine suite contract merge + JsonSchemaExporter emission path                                                  | runtime-ports                                                        | CLOSED  |
-|  [18]   | Crash-recovery choreography: boot probe maps to the existing fault-transition SupportTrigger; plugin rows read host .rhl/.ips markers | lifecycle-and-drain + support-bundles                                | CLOSED  |
-|  [19]   | Service-modality inbound verbs land as ControlService consequence rows                                                                | support-bundles + health-and-degradation + configuration-and-options | CLOSED  |
-|  [20]   | GC posture per HostProfile row; DATAS knobs claim-gated behind a losing benchmark                                                     | host-profiles                                                        | CLOSED  |
+The red-team pass requires every row `CLOSED`; `[CLOSED_BY]` names the page#cluster that absorbed the gap.
+
+| [INDEX] | [GAP]                                            | [CLOSED_BY (page#cluster)]                                                                                         | [STATE] |
+| :-----: | :----------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- | :-----: |
+|   [1]   | sibling telemetry registration seam              | runtime-ports#PORT_RECORDS + diagnostics-and-telemetry#TELEMETRY_IDENTITY                                          | CLOSED  |
+|   [2]   | cross-package drain rank bands                   | lifecycle-and-drain#DRAIN_CONDUCTOR                                                                                | CLOSED  |
+|   [3]   | shared data-classification taxonomy              | diagnostics-and-telemetry#REDACTION_TAXONOMY                                                                       | CLOSED  |
+|   [4]   | HLC receipt envelope as causal primitive         | runtime-ports#PORT_RECORDS                                                                                         | CLOSED  |
+|   [5]   | `grpc.health.v1` registry projection             | health-and-degradation#WIRE_HEALTH                                                                                 | CLOSED  |
+|   [6]   | `DrainQueue` / `WorkLane` name split             | resource-lanes#DRAIN_QUEUES                                                                                        | CLOSED  |
+|   [7]   | `HybridCache` port, stampede, tags, and L2 seam  | resource-lanes#CACHE_PORT                                                                                          | CLOSED  |
+|   [8]   | options reload-class column                      | configuration-and-options#POLICY_VALUES                                                                            | CLOSED  |
+|   [9]   | resource-pressure health contributor             | health-and-degradation#HEALTH_FOLD                                                                                 | CLOSED  |
+|  [10]   | user-secrets versus OS-keychain config rows      | configuration-and-options#SOURCE_AXIS                                                                              | CLOSED  |
+|  [11]   | update-check outbound hop                        | outbound-resilience#HOP_AXIS                                                                                       | CLOSED  |
+|  [12]   | unhandled, task, POSIX, and crash-marker faults  | lifecycle-and-drain#FAULT_SPINE                                                                                    | CLOSED  |
+|  [13]   | discovery manifest and local IPC attach          | outbound-resilience#DISCOVERY_ATTACH + runtime-ports#PORT_RECORDS                                                  | CLOSED  |
+|  [14]   | `LocalOnly` degradation level                    | health-and-degradation#DEGRADATION_RAIL                                                                            | CLOSED  |
+|  [15]   | operator kill-switch and degradation consequence | configuration-and-options#KILL_SWITCH + health-and-degradation#DEGRADATION_RAIL                                    | CLOSED  |
+|  [16]   | cron schedule port and lease/crash split         | time-and-deadlines#SCHEDULE_PORT                                                                                   | CLOSED  |
+|  [17]   | merged JSON contracts and schema emission        | runtime-ports#WIRE_LAW                                                                                             | CLOSED  |
+|  [18]   | crash probe, support trigger, and host markers   | lifecycle-and-drain#FAULT_SPINE + support-bundles#TRIGGER_UNION                                                    | CLOSED  |
+|  [19]   | service-mode control verbs                       | support-bundles#CAPTURE_PIPELINE + health-and-degradation#DEGRADATION_RAIL + configuration-and-options#KILL_SWITCH | CLOSED  |
+|  [20]   | GC posture and DATAS benchmark gate              | host-profiles#PROFILE_AXIS                                                                                         | CLOSED  |
 
 ## [5]-[DENSITY_BAR]
 
@@ -59,47 +61,47 @@ new feature is a row or case, never a new surface. Key policies, receipts, polic
 runtime records, and wire shapes ride inside their owner's signature region (ledger rows AH-01
 through AH-11 and AH-04a-d); a public type outside those regions is the named defect.
 
-| [INDEX] | [AXIS/CONCERN]          | [OWNER]                          | [KIND]                  | [CASES]            |
-| :-----: | :---------------------- | :------------------------------- | :---------------------- | :----------------- |
-|   [1]   | host variance           | `HostProfile`                    | `[SmartEnum<string>]`   | 8 rows             |
-|   [2]   | lifetime adapters       | `ProfileBoot`                    | static fold             | 6 delegate targets |
-|   [3]   | resource identity       | `ProfileIdentity`                | static fold             | 5 attribute rows   |
-|   [4]   | phase family            | `RuntimePhase`                   | `[SmartEnum<string>]`   | 8 rows             |
-|   [5]   | trigger vocabulary      | `PhaseTrigger`                   | `[Union]`               | 10 cases           |
-|   [6]   | transition cell         | `Lifecycle`                      | boundary capsule        | 1 CAS entry        |
-|   [7]   | fault spine             | `FaultSource`                    | `[Union]`               | 4 cases            |
-|   [8]   | drain bands             | `DrainBand`                      | `[SmartEnum<int>]`      | 4 rows             |
-|   [9]   | cancellation spine      | `CancelScope`                    | record capsule          | 1 root             |
-|  [10]   | clock seam              | `ClockPolicy`                    | record                  | 2 admissions       |
-|  [11]   | deadline taxonomy       | `DeadlineClass`                  | `[SmartEnum<string>]`   | 9 rows             |
-|  [12]   | schedule port           | `ScheduleEntry`                  | record port             | 2 occurrence cases |
-|  [13]   | config sources          | `ConfigSource`                   | `[SmartEnum<string>]`   | 8 rows             |
-|  [14]   | binding faults          | `ConfigError`                    | `[Union]` fault         | 7 cases            |
-|  [15]   | reload rail             | `ReloadOutcome`                  | `[Union]`               | 4 cases            |
-|  [16]   | kill switch             | `OperatorOverride`               | `[Union]`               | 2 cases            |
-|  [17]   | module table            | `ModuleContribution`             | record row              | 1 row per package  |
-|  [18]   | composition fold        | `CompositionSurface`             | static fold             | 1 receipted entry  |
-|  [19]   | boundary activation     | `BoundaryActivation`             | static surface          | 1 entry family     |
-|  [20]   | cache lanes             | `CacheLane`                      | `[SmartEnum<string>]`   | 3 rows             |
-|  [21]   | object pools            | `PoolPolicy<T>`                  | policy row              | 1 row per type     |
-|  [22]   | drain queues            | `DrainQueue<T>`                  | `[Union]`               | 2 cases            |
-|  [23]   | telemetry identity      | `TelemetrySource`                | `[SmartEnum<string>]`   | 6 rows             |
-|  [24]   | correlation spine       | `Correlation`                    | static surface          | 1 boot mint        |
-|  [25]   | log arbitration         | `LogPipeline`                    | `[SmartEnum<string>]`   | 2 rows             |
-|  [26]   | signal governance       | `TelemetrySignal`                | `[SmartEnum<string>]`   | 3 rows             |
-|  [27]   | classification taxonomy | `DataClassification`             | `[SmartEnum<string>]`   | 7 rows             |
-|  [28]   | health fold             | `HealthContributorRow`           | record row + probe      | 4 tag families     |
-|  [29]   | capability vocabulary   | `Capability`                     | `[SmartEnum<string>]`   | 6 rows             |
-|  [30]   | degradation rail        | `DegradationLevel`               | `[SmartEnum<string>]`   | 5 rows             |
-|  [31]   | wire health             | `WireHealthRow`                  | record row              | 1 row per service  |
-|  [32]   | support triggers        | `SupportTrigger`                 | `[Union]`               | 6 cases            |
-|  [33]   | support receipts        | `SupportReceipt`                 | `[Union]`               | 3 cases            |
-|  [34]   | hop axis                | `OutboundHop`                    | `[Union]`               | 7 cases            |
-|  [35]   | hop faults              | `HopFault`                       | `[Union]` fault         | 7 cases            |
-|  [36]   | hop outcomes            | `HopOutcome`                     | `[Union]`               | 3 cases            |
-|  [37]   | discovery attach        | `DiscoveryManifest`              | record + static surface | 1 manifest law     |
-|  [38]   | runtime ports           | `ReceiptSinkPort` + six siblings | sealed records          | 7 ports            |
-|  [39]   | wire law                | `AppHostWireContext`             | JsonSerializerContext   | 9 contract rows    |
+| [INDEX] | [AXIS/CONCERN]          | [OWNER]                          | [KIND]                  | [CASES]                                                     |
+| :-----: | :---------------------- | :------------------------------- | :---------------------- | :---------------------------------------------------------- |
+|   [1]   | host variance           | `HostProfile`                    | `[SmartEnum<string>]`   | 8 rows                                                      |
+|   [2]   | lifetime adapters       | `ProfileBoot`                    | static fold             | 6 delegate targets                                          |
+|   [3]   | resource identity       | `ProfileIdentity`                | static fold             | 5 attribute rows                                            |
+|   [4]   | phase family            | `RuntimePhase`                   | `[SmartEnum<string>]`   | 8 rows                                                      |
+|   [5]   | trigger vocabulary      | `PhaseTrigger`                   | `[Union]`               | 10 cases                                                    |
+|   [6]   | transition cell         | `Lifecycle`                      | boundary capsule        | 1 CAS entry                                                 |
+|   [7]   | fault spine             | `FaultSource`                    | `[Union]`               | 4 cases                                                     |
+|   [8]   | drain bands             | `DrainBand`                      | `[SmartEnum<int>]`      | 4 rows                                                      |
+|   [9]   | cancellation spine      | `CancelScope`                    | record capsule          | 1 root                                                      |
+|  [10]   | clock seam              | `ClockPolicy`                    | record                  | 2 admissions                                                |
+|  [11]   | deadline taxonomy       | `DeadlineClass`                  | `[SmartEnum<string>]`   | 9 rows                                                      |
+|  [12]   | schedule port           | `ScheduleEntry`                  | record port             | 2 occurrence cases                                          |
+|  [13]   | config sources          | `ConfigSource`                   | `[SmartEnum<string>]`   | 8 rows                                                      |
+|  [14]   | binding faults          | `ConfigError`                    | `[Union]` fault         | 7 cases                                                     |
+|  [15]   | reload rail             | `ReloadOutcome`                  | `[Union]`               | 4 cases                                                     |
+|  [16]   | kill switch             | `OperatorOverride`               | `[Union]`               | 2 cases                                                     |
+|  [17]   | module table            | `ModuleContribution`             | record row              | 1 row per package; `DecorationRow` carrier column           |
+|  [18]   | composition fold        | `CompositionSurface`             | static fold             | 1 receipted entry                                           |
+|  [19]   | boundary activation     | `BoundaryActivation`             | static surface          | 1 entry family                                              |
+|  [20]   | cache lanes             | `CacheLane`                      | `[SmartEnum<string>]`   | 3 rows                                                      |
+|  [21]   | object pools            | `PoolPolicy<T>`                  | policy row              | 1 row per type; `Pools` registration sub-surface            |
+|  [22]   | drain queues            | `DrainQueue<T>`                  | `[Union]`               | 2 cases                                                     |
+|  [23]   | telemetry identity      | `TelemetrySource`                | `[SmartEnum<string>]`   | 6 rows                                                      |
+|  [24]   | correlation spine       | `Correlation`                    | static surface          | 1 boot mint                                                 |
+|  [25]   | log arbitration         | `LogPipeline`                    | `[SmartEnum<string>]`   | 2 rows; `SpineLossFold` listener sub-surface                |
+|  [26]   | signal governance       | `TelemetrySignal`                | `[SmartEnum<string>]`   | 3 rows; `LatencyCheckpoint`/`LatencySpine` carrier          |
+|  [27]   | classification taxonomy | `DataClassification`             | `[SmartEnum<string>]`   | 7 rows; `RedactorKind` column, `RedactionRegistration` fold |
+|  [28]   | health fold             | `HealthContributorRow`           | record row + probe      | 4 tag families                                              |
+|  [29]   | capability vocabulary   | `Capability`                     | `[SmartEnum<string>]`   | 6 rows                                                      |
+|  [30]   | degradation rail        | `DegradationLevel`               | `[SmartEnum<string>]`   | 5 rows                                                      |
+|  [31]   | wire health             | `WireHealthRow`                  | record row              | 1 row per service                                           |
+|  [32]   | support triggers        | `SupportTrigger`                 | `[Union]`               | 6 cases                                                     |
+|  [33]   | support receipts        | `SupportReceipt`                 | `[Union]`               | 3 cases                                                     |
+|  [34]   | hop axis                | `OutboundHop`                    | `[Union]`               | 7 cases                                                     |
+|  [35]   | hop faults              | `HopFault`                       | `[Union]` fault         | 7 cases                                                     |
+|  [36]   | hop outcomes            | `HopOutcome`                     | `[Union]`               | 3 cases                                                     |
+|  [37]   | discovery attach        | `DiscoveryManifest`              | record + static surface | 1 manifest law                                              |
+|  [38]   | runtime ports           | `ReceiptSinkPort` + six siblings | sealed records          | 7 ports                                                     |
+|  [39]   | wire law                | `AppHostWireContext`             | JsonSerializerContext   | 9 contract rows; `NodaPatterns` pattern sub-surface         |
 
 ## [6]-[BUILD_ORDER]
 
@@ -111,19 +113,21 @@ Drain band literals live only on `DrainBand`; sibling registrations arrive as
 `DrainParticipantPort` rows and never copy them. `DrainQueue` is the AppHost name;
 `WorkLane` stays at Compute. Comparer accessors stay package-local, one per axis owner.
 
-| [INDEX] | [FILE]             | [TRANSCRIBES]                                                                                                              | [GATE]                                                    |
-| :-----: | :----------------- | :------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------- |
-|   [1]   | `Time.cs`          | time-and-deadlines#CLOCK_SPLIT + DEADLINE_TAXONOMY + SCHEDULE_PORT                                                         | G3 + G4 fake-clock deadline and occurrence specs          |
-|   [2]   | `Profiles.cs`      | host-profiles#PROFILE_AXIS + LIFETIME_ADAPTERS + RESOURCE_IDENTITY                                                         | G3 + G4 Resolve/Roots matrix; G5 `host_boot_drain`        |
-|   [3]   | `Lifecycle.cs`     | lifecycle-and-drain#PHASE_FAMILY + FAULT_SPINE + DRAIN_CONDUCTOR + CANCEL_SPINE                                            | G3 + G4 total transition matrix, marker round-trip        |
-|   [4]   | `Configuration.cs` | configuration-and-options#SOURCE_AXIS + TYPED_BINDING + POLICY_VALUES + KILL_SWITCH                                        | G3 + G4 rank fold, fail-closed bind, reload gating        |
-|   [5]   | `Composition.cs`   | composition-and-modules#MODULE_TABLE + SCAN_AND_DECORATE + BOUNDARY_ACTIVATION                                             | G3 + G4 compose under `ValidateOnBuild`                   |
-|   [6]   | `ResourceLanes.cs` | resource-lanes#CACHE_PORT + OBJECT_POOLS + DRAIN_QUEUES                                                                    | G3 + G4 tag-cut, reset, unreceipted-loss specs            |
-|   [7]   | `Diagnostics.cs`   | diagnostics-and-telemetry#TELEMETRY_IDENTITY + CORRELATION_SPINE + LOG_PROJECTION + SIGNAL_GOVERNANCE + REDACTION_TAXONOMY | G3 + G4 `FakeLogCollector` + `MetricCollector<T>`         |
-|   [8]   | `Health.cs`        | health-and-degradation#HEALTH_FOLD + DEGRADATION_RAIL + WIRE_HEALTH                                                        | G3 + G4 hysteresis and force-beats-derived specs          |
-|   [9]   | `Support.cs`       | support-bundles#TRIGGER_UNION + CAPTURE_PIPELINE + MANIFEST_RECEIPT                                                        | G3 + G4 coalesce, cap, eviction specs                     |
-|  [10]   | `Outbound.cs`      | outbound-resilience#HOP_AXIS + HTTP_PIPELINES + KEYED_PIPELINES + DISCOVERY_ATTACH + OWNERSHIP_LAW                         | G3 + G4 admission and owner-conflict specs; G5 UDS attach |
-|  [11]   | `Ports.cs`         | runtime-ports#PORT_RECORDS + WIRE_LAW                                                                                      | G3 + G4 HLC advance and wire round-trip specs             |
+Cluster names are page-local anchors; gates name the extra proof beyond the standard static build row.
+
+| [INDEX] | [FILE]             | [CLUSTERS]                                     | [PROOF]                                     |
+| :-----: | :----------------- | :--------------------------------------------- | :------------------------------------------ |
+|   [1]   | `Time.cs`          | clock split, deadlines, schedule port          | fake-clock deadlines and occurrences        |
+|   [2]   | `Profiles.cs`      | profile axis, lifetime adapters, resource ids  | Resolve/Roots matrix; `host_boot_drain`     |
+|   [3]   | `Lifecycle.cs`     | phase, fault, drain, cancellation              | transition matrix and marker round-trip     |
+|   [4]   | `Configuration.cs` | sources, binding, policy, kill switch          | rank fold, fail-closed bind, reload gating  |
+|   [5]   | `Composition.cs`   | module table, scan/decorate, activation        | `ValidateOnBuild` composition               |
+|   [6]   | `ResourceLanes.cs` | cache port, object pools, drain queues         | tag cut, reset, and loss receipts           |
+|   [7]   | `Diagnostics.cs`   | telemetry identity, correlation, logs, signals | `FakeLogCollector` and `MetricCollector<T>` |
+|   [8]   | `Health.cs`        | health fold, degradation, wire health          | hysteresis and forced state precedence      |
+|   [9]   | `Support.cs`       | trigger union, capture pipeline, manifest      | coalescing, caps, and eviction              |
+|  [10]   | `Outbound.cs`      | hop axis, pipelines, discovery, ownership      | admission, owner conflicts, UDS attach      |
+|  [11]   | `Ports.cs`         | port records and wire law                      | HLC advance and wire round-trip             |
 
 TS_PROJECTION clusters carry no C# build row; they transcribe into the TS workspace at web
 app-root creation.
@@ -145,15 +149,17 @@ app-root creation.
 
 ## [8]-[PROOF_GATES]
 
-| [GATE] | [COMMAND]                                                           | [EVIDENCE]                                                                                               |
-| :----: | :------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------- |
-|  [G1]  | `dotnet restore --locked-mode`                                      | closure restores clean; `packages.lock.json` unchanged                                                   |
-|  [G2]  | `uv run python -m tools.assay api doctor` + `api resolve <key>`     | every fence member resolves in `.api` or doctrine pages                                          |
-|  [G3]  | `uv run python -m tools.assay static plan` + `static build`         | routing proven; zero `': error '` lines on the touched closure                                           |
-|  [G4]  | `uv run python -m tools.assay test run --target Rasm.AppHost.Tests` | law-matrix specs green per `testing-cs`                                                                  |
-|  [G5]  | `uv run python -m tools.assay bridge verify --pattern <scenario>`   | host-seam scenarios pass under live RhinoWIP                                                             |
-|  [G6]  | `pnpm exec mmdc -i <page> -o /tmp/<page>.svg`                       | every page diagram renders through the local mermaid-cli route                                           |
-|  [G7]  | spec compile on the G4 rail                                         | `Grpc.Core.Api` transitive members prove by compiling specs until the assay source map registers the key |
+Assay rows use `uv run python -m tools.assay`; proof runs at the planned phase gate, not after each edit.
+
+| [GATE] | [RAIL]                         | [EVIDENCE]                                                            |
+| :----: | :----------------------------- | :-------------------------------------------------------------------- |
+|  [G1]  | `dotnet restore --locked-mode` | clean closure; unchanged `packages.lock.json`                         |
+|  [G2]  | `api doctor` + `api resolve`   | fence members resolve in `.api` or doctrine pages                     |
+|  [G3]  | `static plan` + `static build` | routed closure, zero `': error '` lines                               |
+|  [G4]  | `test run` AppHost target      | `testing-cs` law-matrix specs pass                                    |
+|  [G5]  | `bridge verify` scenario       | host-seam scenarios pass under live RhinoWIP                          |
+|  [G6]  | `mmdc` page render             | page diagrams render through local mermaid-cli                        |
+|  [G7]  | G4 spec compile                | `Grpc.Core.Api` members compile until assay source-map coverage lands |
 
 ## [9]-[PROHIBITIONS]
 
@@ -221,7 +227,7 @@ names the primary consuming page; CATALOGUE is the `.api` file.
 | NodaTime                                                | 3.3.2     | time-and-deadlines        | api-nodatime.md               |
 | OpenTelemetry                                           | 1.16.0    | diagnostics-and-telemetry | api-otel.md                   |
 | OpenTelemetry.Extensions.Hosting                        | 1.16.0    | diagnostics-and-telemetry | api-otel-hosting.md           |
-| OpenTelemetry.Instrumentation.Http                      | 1.15.0    | diagnostics-and-telemetry | api-otel-instrumentation.md   |
+| OpenTelemetry.Instrumentation.Http                      | 1.15.1    | diagnostics-and-telemetry | api-otel-instrumentation.md   |
 | OpenTelemetry.Instrumentation.Runtime                   | 1.15.1    | diagnostics-and-telemetry | api-otel-instrumentation.md   |
 | Polly.Core                                              | 8.7.0     | outbound-resilience       | api-polly-core.md             |
 | Polly.Extensions                                        | 8.7.0     | outbound-resilience       | api-polly-extensions.md       |

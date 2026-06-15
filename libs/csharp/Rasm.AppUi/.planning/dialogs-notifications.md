@@ -1,6 +1,6 @@
 # [APPUI_DIALOGS_NOTIFICATIONS]
 
-Rasm.AppUi presents every modal and transient surface through one `DialogIntent` union resolved over a per-root ReactiveUI `Interaction` seam into DialogHost sessions: six intent cases return `Fin`-railed typed results with dismissal as a value, six `DialogTopology` rows bind one session root per admitted surface, four `ToastRow` rows pass one suppression fold over `RuntimePhase` and `DegradationLevel` before presentation, and three `PickKind` rows route format-derived filters through host-agnostic pick pipes. The page owns the intent vocabulary, the session algebra, the notification policy with its queued-then-dropped receipts, and the picker and host-modality law over DialogHost.Avalonia, ReactiveUI, Avalonia, Thinktecture-generated vocabulary, LanguageExt rails, and NodaTime instants.
+Rasm.AppUi presents every modal and transient surface through one `DialogIntent` union resolved over a per-root ReactiveUI `Interaction` seam into DialogHost sessions: six intent cases return `Fin`-railed typed results with dismissal as a value, six `DialogTopology` rows bind one session root per admitted surface with one `TopLevelResolver` delegate carrying the per-surface service capsule both the toast and pick pipes resolve over, four `ToastRow` rows pass one suppression fold over `RuntimePhase` and `DegradationLevel` before presentation, and three `PickKind` rows route format-derived filters through host-agnostic pick pipes. The page owns the intent vocabulary, the session algebra, the notification policy with its queued-then-dropped receipts, and the picker and host-modality law over DialogHost.Avalonia, ReactiveUI, Avalonia, Thinktecture-generated vocabulary, LanguageExt rails, and NodaTime instants.
 
 ## [1]-[INDEX]
 
@@ -49,10 +49,10 @@ public abstract partial record DialogFault : Expected, IValidationError<DialogFa
 - Owner: `DialogTopology` — one per-surface root row binding identifier, stacking, close policy, styling token keys, toast pipe, pick pipe, and its `Interaction` seam; `DialogSurface` extension fold over the row.
 - Cases: six topology rows — avalonia-desktop, rhino-panel, rhino-modal, gh2-companion, sidecar-shell, headless; the web-browser case carries zero rows.
 - Entry: `public IO<Fin<Option<TResult>>> Show<TResult>(DialogIntent intent)` — `Fin` aborts on fault, `Option` carries dismissal as a value; `Advance` drives live progress through `UpdateContent`; `Retreat` closes the top stacked session; `Dismiss` closes the current session.
-- Auto: `RegisterRoot` binds the row's handler at surface mount and disposes with the activation scope; composition projects each row onto `Identifier`, `IsMultipleDialogsEnabled`, `CloseOnClickAway`, `OverlayBackground`, `BlurBackground`, `PopupPositioner`, and `DialogHostStyle` `CornerRadius`; a dirty Form session arms `DialogClosingEventArgs` `Cancel` through `DialogClosingCallback`.
+- Auto: `RegisterRoot` binds the row's handler at surface mount and disposes with the activation scope; composition projects each row onto `Identifier`, `IsMultipleDialogsEnabled`, `CloseOnClickAway`, `OverlayBackground`, `BlurBackground`, `PopupPositioner`, and `DialogHostStyle` `CornerRadius`; a dirty Form session arms `DialogClosingEventArgs` `Cancel` through `DialogClosingCallback`; `StackedSessions` drives `IsMultipleDialogsEnabled`, `DialogHost.CurrentSessions` is the stacked-session surface the `Retreat` veto consults, and `HasOpenSession` reads `IsDialogOpen` so a `Show` on a non-stacked row that already holds an open session folds to the existing session rather than minting a parallel root.
 - Packages: DialogHost.Avalonia, ReactiveUI, Avalonia, LanguageExt.Core
 - Growth: one topology row admits a new surface root, one positioner row swaps `IDialogPopupPositioner`; zero new surface.
-- Boundary: `DialogSurface` is the named boundary capsule — the registration handler and pick route carry the erased close parameter the DialogHost seam owns, and `Project` re-types it onto the `Fin` rail; overlay, blur, and corner styling resolve through theme token keys, never local literals; one headless smoke spec opens, stacks, and closes sessions per row.
+- Boundary: `DialogSurface` is the named boundary capsule — the registration handler and pick route carry the erased close parameter the DialogHost seam owns, and `Project` re-types it onto the `Fin` rail; overlay, blur, and corner styling resolve through theme token keys, never local literals; `TopLevelResolver` is the single per-surface service-capsule delegate the `ToastPipe` and `PickPipe` bind over so a desktop row resolves the window capsule and an embedded row resolves the embedded-root capsule — host service-capsule resolution inside the embedded root is the deleted call site, replaced by the bound delegate, and the embedded resolution spelling stays research-gated; one headless smoke spec opens, stacks, and closes sessions per row.
 
 ```csharp signature
 public sealed record DialogTopology(
@@ -64,9 +64,12 @@ public sealed record DialogTopology(
     string OverlayToken,
     string CornerToken,
     IDialogPopupPositioner Positioner,
+    Func<Option<TopLevel>> TopLevelResolver,
     Func<ToastRow, string, string, Option<string>, Unit> ToastPipe,
     Option<Func<DialogIntent.Pick, Task<Seq<string>>>> PickPipe) {
     public Interaction<DialogIntent, object?> Requests { get; } = new();
+
+    public bool HasOpenSession => DialogHost.IsDialogOpen(Identifier);
 }
 
 public static class DialogSurface {
@@ -125,7 +128,7 @@ public static class DialogSurface {
 - Cases: Info 4s | Success 4s | Warning 6s | Error sticky; outcomes shown | queued | dropped.
 - Entry: `public IO<ToastReceipt> Toast(ToastRow row, string title, string body, RuntimePhase phase, DegradationState degradation, Instant at, CorrelationId correlation, Option<string> intentKey = default)` — `IO` carries the presentation effect; the receipt is total over outcomes.
 - Auto: composition binds `ToastPipe` per topology row; a toast action raises its command intent by key through the one intent table; queued notes flush through one `PhaseSubscription` observing the support-capture resume and fold to dropped receipts when the phase reaches `Draining`.
-- Receipt: `ToastReceipt` — row, surface, outcome, intent key, `Instant`, correlation — sinks through the `ReceiptSinkPort` envelope; the receipt stream absorbs the audit need and no notification-history store exists.
+- Receipt: `ToastReceipt` — row, surface, outcome, intent key, `Instant`, correlation — sinks through the `ReceiptSinkPort` envelope and projects its outcome and surface to the notification-presentation metric on the AppHost telemetry spine through the `TelemetryContributorPort`; the receipt stream absorbs the audit need and no notification-history store exists.
 - Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one `ToastRow` row or one `ToastOutcome` case; zero new surface.
 - Boundary: enter/exit timing and reduced-motion pairs arrive from the motion vocabulary — linger and suppression are the only timing facts owned here; `ToastPipe` binds one `WindowNotificationManager` constructed over the surface `TopLevel`, whose `Show(object, NotificationType, TimeSpan?, ...)` overload carries the row's severity as the `NotificationType` case and the linger as the expiration; native Rhino toasts and status panes stay host-owned; `Suspended` drops every note because retained capabilities exclude presentation.
@@ -199,7 +202,7 @@ flowchart LR
 - Entry: `public static Seq<PickFilter> Filters(Seq<(string Key, Seq<string> Extensions)> formats)` — pure projection; one filter row per format tuple.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one `PickKind` row or one format tuple from the host vocabulary; zero new surface.
-- Boundary: the Rasm.Rhino `FileFormat` vocabulary crosses `HostAttachPort` as key-plus-extension tuples — the type never enters this package; host-native modal flows (document file IO, command prompts, Eto semi-modal panels) stay Rasm.Rhino-owned and AppUi raises only the intent through the port; `PickPipe` rows bind `IStorageProvider` per surface — `OpenFilePickerAsync`, `SaveFilePickerAsync`, and `OpenFolderPickerAsync` discriminate on the `PickKind` row with `PickFilter` rows projecting into `FilePickerFileType` patterns — and the headless row holds `None`, folding to `DialogFault.PickerUnavailable`.
+- Boundary: the Rasm.Rhino `FileFormat` vocabulary crosses `HostAttachPort` as key-plus-extension tuples — the type never enters this package; host-native modal flows (document file IO, command prompts, Eto semi-modal panels) stay Rasm.Rhino-owned and AppUi raises only the intent through the port; `PickPipe` rows bind the storage route resolved through the topology `TopLevelResolver` per surface — the pick route discriminates on the `PickKind` row with `PickFilter` rows projecting into the storage picker filter patterns — and the headless row holds `None` storage and folds to `DialogFault.PickerUnavailable`; the anchored picker and confirm popups ride the `AlignmentDialogPopupPositioner` row swapped onto the topology `Positioner` field, the centered surfaces ride the centered positioner, and the embedded-root storage-provider resolution spelling stays research-gated.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -221,4 +224,4 @@ public static class PickOps {
 
 ## [6]-[RESEARCH]
 
-- [EMBEDDED_TOPLEVEL]: embedded-root `TopLevel` service resolution for the toast manager and storage provider inside the rhino-panel root.
+- [EMBEDDED_TOPLEVEL]: the embedded-root service-capsule spelling the `TopLevelResolver` returns inside the rhino-panel root — the notification-manager construction surface and the storage-provider resolution across the embedded `TopLevel`, both uncatalogued for the embedded host and bound at the embed-capsule spike.

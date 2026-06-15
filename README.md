@@ -1,144 +1,76 @@
-# [RHINOWIP_PLUGIN_WORKSPACE]
+# [RASM_WORKSPACE]
 
-RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each app under `apps/grasshopper/<PluginName>` or `apps/rhino/<PluginName>` is a concrete plugin boundary; shared geometry capability lives in `libs/csharp` and stays product-neutral.
+Rasm is a RhinoWIP and Grasshopper2 monorepo for product-neutral AEC libraries, host-boundary packages, agent-operated tooling, and downstream Rhino/GH2 products. Apps and plugins are consumers; shared capability lands first in libraries that absorb geometry, host, runtime, UI, compute, persistence, packaging, and evidence concerns behind canonical owners.
 
-## Target
+## [1]-[TARGET]
 
 - RhinoWIP on macOS.
 - `net10.0` for hosted plugins and shared C# projects.
 - Grasshopper product surfaces through `Grasshopper2`.
-- Yak package output for Mac only.
-- No GH1 `.gha`, Windows target, Rhino 8 target, RhinoCode publishing path, or speculative Rhino command shell.
+- Yak package output for Mac package roots.
+- Polyglot workspace roots: C# libraries and plugins, Python tooling, TypeScript/web surfaces and generated wire consumers.
+- Out of scope: GH1 `.gha`, Rhino 8 target, Windows package target, RhinoCode publishing path, speculative Rhino command shells, and app-side reinvention of shared library capability.
 
-## Layout
+## [2]-[TOPOLOGY]
 
-| Path                           | Purpose                                                                                  |
-| ------------------------------ | ---------------------------------------------------------------------------------------- |
-| `apps/grasshopper/Radyab`      | Radyab GH2 `.rhp` plugin boundary.                                                       |
-| `libs/csharp/Rasm`             | RhinoCommon-aware geometry domain + analysis algebra (merged).                           |
-| `libs/csharp/Rasm.Grasshopper` | GH2 component infrastructure: typed parameter bindings, bridge plumbing, component base. |
-| `tests/csharp`                 | Managed C# contract tests for shared libraries.                                          |
-| `tools/cs-analyzer`            | Local Roslyn analyzer project used by C# builds.                                         |
-| `tools/yak/<package>`          | Tracked Yak metadata for one package.                                                    |
-| `tools/assay`                  | Typed quality operator: static, test, bridge, package, code, docs, and API rails.        |
-| `tools/rhino-bridge`           | In-Rhino bridge plugin, client, and protocol.                                            |
+| [SURFACE]                 | [OWNER]                   | [ROLE]                                                                                    |
+| :------------------------ | :------------------------ | :---------------------------------------------------------------------------------------- |
+| `apps/grasshopper/Radyab` | GH2 product boundary      | Thin plugin shell over shared GH2 and geometry libraries.                                 |
+| `libs/csharp`             | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                        |
+| `tests/csharp`            | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                          |
+| `tests/python`            | Python tool proof surface | Assay and repo-tool behavior tests.                                                       |
+| `tools/assay`             | Typed operator            | Static, test, bridge, package, code, docs, and API evidence rails.                        |
+| `tools/rhino-bridge`      | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.                 |
+| `tools/cs-analyzer`       | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                                  |
+| `tools/yak`               | Package metadata          | Tracked Yak manifests and icons for package roots.                                        |
+| `docs`                    | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, and source-backed reference material. |
 
-## Build Policy
+## [3]-[LIBRARY_OWNERS]
 
-`Directory.Build.props` owns shared C# and RhinoWIP configuration.
+`libs/csharp/Rasm` is the RhinoCommon-aware geometry and numeric kernel. It owns domain context, tolerance, geometry admission, analysis queries, vector geometry, fields, clouds, mesh, sampling, flow, spectral, matrix, and typed receipts. It does not own Rhino commands, GH2 components, preview conduits, bake flows, UI, runtime launch, or bridge lifecycle.
 
-| Property                           | Value                                                                       |
-| ---------------------------------- | --------------------------------------------------------------------------- |
-| `TargetFramework`                  | `net10.0`                                                                   |
-| `RhinoWipAppPath`                  | `/Applications/RhinoWIP.app`                                                |
-| `RhinoCommonReferencePath`         | Installed RhinoWIP `RhinoCommon.dll`                                        |
-| `RhinoUiReferencePath`             | Installed RhinoWIP `Rhino.UI.dll`                                           |
-| `EtoReferencePath`                 | Installed RhinoWIP Eto assembly.                                            |
-| `SystemDrawingCommonReferencePath` | RhinoWIP-hosted `System.Drawing.Common.dll` for UI/raster boundaries.       |
-| `Grasshopper2ReferencePath`        | Installed RhinoWIP `Grasshopper2.dll`                                       |
-| `GrasshopperIoReferencePath`       | Installed RhinoWIP `GrasshopperIO.dll`                                      |
-| `IsGrasshopperPluginProject`       | Enables `.rhp` output plus local Grasshopper2 and GrasshopperIO references. |
-| `IsGrasshopperAwareProject`        | Enables Grasshopper2 and GrasshopperIO references without plugin output.    |
-| `IsRhinoCommonAwareProject`        | Enables local RhinoCommon references.                                       |
-| `IsRhinoUiAwareProject`            | Enables Rhino UI, Eto, and RhinoWIP-hosted drawing references.              |
-| `UseWorkspaceLibraries`            | Enables the shared LanguageExt and Thinktecture package surface.            |
+`libs/csharp/Rasm.Rhino` owns in-process RhinoCommon boundaries: commands, document mutation, input and selection, UI dispatch, camera, files, archive, publish, sheets, blocks, and events. It assumes an active Rhino host or explicit headless document and keeps command-string shims as narrow managed-API-gap boundaries.
 
-Plugin projects set plugin classification explicitly in their `.csproj`; build behavior does not depend on product names.
+`libs/csharp/Rasm.Grasshopper` owns GH2 component and UI intent boundaries: component specs, ports, data access, bindings, GH2 canvas/document/wire/editor operations, realized editor/canvas/window state, Rhino main-thread/Eto dispatch, and reversible GH2 global mutation.
 
-RhinoWIP currently hosts .NET 10 while installed McNeel assemblies can target older `.NETCoreApp` versions. Keep that compatibility detail in build properties and package validation, not product code.
+`libs/csharp/Rasm.AppHost` owns the runtime spine: host variance, lifecycle, drain, time, deadlines, configuration, composition, resources, telemetry, health, support bundles, outbound resilience, and suite ports. Sibling packages adapt to AppHost ports; AppHost does not depend on sibling packages.
 
-## Commands
+`libs/csharp/Rasm.AppUi` owns the product UI rail: surface hosts, shell, navigation, screens, commands, live data, tables, inspectors, charts, offscreen visuals, theme, typography, icons, dialogs, input, motion, accessibility, localization, evidence, and TS-facing command/evidence projections.
 
-Run C# quality gates:
+`libs/csharp/Rasm.Compute` owns measured execution: intent admission, substrate selection, tensors, model sessions, remote wire vocabulary, staging, lanes, progress, units, typed receipts, benchmark claims, and cross-process compute transport.
 
-```bash copy-safe
-uv run python -m tools.assay static fix
-uv run python -m tools.assay static build
-```
+`libs/csharp/Rasm.Persistence` owns durable state: store profiles, data lanes, schema rails, query rails, native SQLite truth, snapshots, cache indexes, sync/collaboration, redaction, retention, and store evidence.
 
-Build Rhino artifacts:
+## [4]-[TOOL_OWNERS]
 
-```bash copy-safe
-uv run python -m tools.assay bridge build
-```
+`tools/assay` is the repo operator. Its registry owns public command shape; its envelopes own result interpretation. It returns typed reports, artifacts, faults, routing notes, and evidence rather than relying on stderr or human-scanned logs. Structural search, API catalogs, static analysis, tests, bridge orchestration, package work, and docs checks route through the relevant Assay rail.
 
-Create the Mac Yak package:
+`tools/rhino-bridge` owns live RhinoWIP execution. Contract owns protocol and fault shapes; Supervisor owns host lifecycle and folds; Stub stays dependency-zero; Shell owns in-host RPC/admission; Cargo owns scenarios and capture evidence. Libraries and prompts do not recreate launch, endpoint, quit, cargo, or spool choreography.
 
-```bash copy-safe
-uv run python -m tools.assay package stage --slug radyab --version 0.1.0-wip
-```
+`tools/cs-analyzer` captures repeated C# shape laws after source diffs prove the rule reduces surface while preserving behavior. Analyzer diagnostics are architecture pressure, not suppression targets.
 
-Deploy a package into RhinoWIP:
+`tools/yak` stores package metadata only. Package staging, deployment, publish, artifact roots, and host refresh are Assay/package responsibilities.
 
-```bash copy-safe
-uv run python -m tools.assay package deploy --slug radyab --version 0.1.0-wip
-```
+## [5]-[PLANNING_AND_EVIDENCE]
 
-Build, install locally, then push to a Yak feed (one shot):
+New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
 
-```bash copy-safe
-uv run python -m tools.assay package publish --slug radyab --version 0.1.0-wip
-```
+Hidden `.planning/` folders are implementation source when a package charter makes them the owner. Hidden `.reports/` folders are mining material for their visible doctrine pages. `.api/` folders are generated catalog evidence.
 
-Build and deploy the runtime analyzer bridge:
+Every root, tool, and library routes generated output through an owned store: `.artifacts`, `.cache`, package staging roots, scoped report directories, or owner-declared state files. Root scratch output is a defect.
 
-```bash copy-safe
-VERSION=0.1.0-wip
-uv run python -m tools.assay bridge build
-uv run python -m tools.assay package stage --slug rasm-bridge --version "$VERSION"
-uv run python -m tools.assay package deploy --slug rasm-bridge --version "$VERSION"
-```
+## [6]-[HOST_RUNTIME]
 
-Collect live RhinoWIP runtime evidence:
+RhinoWIP and GH2 assemblies resolve through shared build properties, not per-project references. Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and RhinoWIP-hosted drawing assemblies.
 
-```bash copy-safe
-uv run python -m tools.assay bridge doctor
-uv run python -m tools.assay bridge check
-uv run python -m tools.assay bridge clean
-uv run python -m tools.assay bridge verify tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios
-```
+Live host evidence flows through the bridge plugin. Scenarios are source-only diagnostics under the relevant test or library mirror path; they do not carry `#r`, `#load`, or absolute build-output references. The bridge rail owns host-filtered reference projection, fresh artifact refs, scenario name injection, capture path injection, stdout, stderr, exception, Rhino, document, tolerance, and bridge identity evidence.
 
-## Artifact Flow
+Plugin projects classify themselves in their project files; build behavior does not depend on product names. Package membership is evaluated from MSBuild properties and package metadata.
 
-`uv run python -m tools.assay package stage --slug <package> --version <version>` performs one path:
+## [7]-[DEVELOPMENT_MODEL]
 
-1. Resolve one package project by `YakPackageSlug`.
-2. Clear configured plugin output directories for the selected package.
-3. Build the selected package project in `Release`.
-4. Stage the configured plugin `.rhp` files and owned output assemblies for the selected package.
-5. Copy `tools/yak/<package>/manifest.yml` and `tools/yak/<package>/icon.png`.
-6. Run RhinoWIP Yak with `--platform mac` and the supplied version.
+Code starts from the deepest reusable library owner that can absorb the capability. App and plugin layers declare product intent, ports, and output bindings; they do not reimplement geometry kernels, host lifecycles, GH2 wiring, runtime composition, UI primitives, compute orchestration, persistence, packaging, or evidence capture.
 
-`uv run python -m tools.assay package deploy --slug <package> --version <version>` builds the same package, installs the local `.yak`, and refreshes RhinoWIP through the idempotent bridge launch path where that package requires it. `uv run python -m tools.assay package publish --slug <package> --version <version>` builds the same package, installs it locally, and pushes it with `YAK_SOURCE` when that environment variable is set.
+External libraries, host APIs, package catalogs, and generated evidence are implementation material. A provider capability becomes a local row, case, delegate column, receipt field, or boundary adapter on the owning surface. Thin wrappers, provider-branded public shapes, command spam, flag spam, and app-local copies are defects.
 
-Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and `System.Drawing.Common`.
-
-The generated Yak package root is `.artifacts/rhino/<package>/package`, with `manifest.yml` and plugin files at the top level required by Yak.
-
-Package membership is evaluated from MSBuild. Projects under `apps/` or package-capable `tools/` roots opt in with `YakPackageSlug`; `Directory.Build.targets` derives manifest and stage paths.
-
-## Runtime Notes
-
-Grasshopper uses GH2 component APIs directly: `Grasshopper2.Components.Component`, `InputAdder`, `OutputAdder`, `IDataAccess`, and `GrasshopperIO.IoIdAttribute`.
-
-GH2 can run component work in parallel. Component code must keep execution state local to `Process`; reusable geometry logic belongs in `Rasm.Analysis` and `Rasm.Domain`.
-
-Automated Rhino/GH2 unit-test frameworks stay out of this foundation until Rhino.Testing exposes a current `net10.0` path. Live RhinoWIP runtime analyzer evidence flows through the installed bridge plugin, which registers RhinoCode C# scripting, runs transient scripts in-process, and returns factual build, diagnostic, stdout, stderr, exception, Rhino, document, tolerance, and bridge identity data. `rhinocode list --json`, `bridge doctor`, and endpoint metadata are discovery evidence; RhinoCode publishing remains out of scope. `bridge check <source.cs>` resolves and builds the owning project, then returns `unsupported` unless an executable scenario is supplied as the second positional argument.
-
-Scenarios are source-only diagnostics. Library scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. Do not add `#r`, `#load`, or absolute build-output paths; `bridge verify --pattern <scenario>` owns host-filtered reference projection, fresh artifact refs, and `SCENARIO_NAME` / `CAPTURE_PATH` injection.
-
-## GH2 Foundation
-
-`libs/csharp/Rasm.Grasshopper` provides the reusable component boundary for GH2 plugins:
-
-- `PortKind` maps CLR types to native `Grasshopper2.Parameters.Standard` parameters and owns input/output adder delegates.
-- `Port<T>` describes item, twig, and tree access plus requirement and parameter policy.
-- `PortPolicy` applies native GH2 behavior for vectors, curves, surfaces, angles, optional ports, categories, and index semantics; `PortKind.Index` owns native index parameters.
-- `ComponentSpec.Of` and `Component` keep plugin components as thin port and output declarations.
-- `Bridge.Read<T>` uses `IDataAccess.GetPears<T>` and `GetTree<T>` to preserve metadata, null state, and topology.
-- `Bridge.Write<T>` uses `SetPear`, `SetTwig<T>`, and `SetTree` with `Garden.TwigFromPears`, `Garden.TreeFromLeaves`, and `Garden.TreeFromPears`.
-- `Output` keeps final GH2 side effects at the component boundary.
-
-Add a new parameter type by extending `PortKind` with a static case that returns the native `InputAdder.Add{X}` and `OutputAdder.Add{X}` parameter instances. Port factories fall back to `PortKind.Generic` for unmapped CLR types; add typed mappings only when GH2 has a real native parameter.
-
-To add a component, create static `Port<T>` and `OutputBinding` declarations, pass them to `ComponentSpec.Of`, and inherit `Component`. Prefer adding `PortPolicy` at the port declaration over local validation or conversion code.
+Quality proof follows the changed owner and the active instruction cadence. Documentation and instruction changes use text, owner, path, and preservation checks unless an executable rail is explicitly requested.

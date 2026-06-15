@@ -4,13 +4,13 @@ One typographic law serves every AppUi surface: `TypographyRole` is the ten-row 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                        |
-| :-----: | ------------------- | ------------------------------------------------------------- |
-|   [1]   | ROLE_AXIS           | Ten role rows; every text appearance literal traces here      |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                      |
+| :-----: | ------------------- | --------------------------------------------------------------------------- |
+|   [1]   | ROLE_AXIS           | Ten role rows; every text appearance literal traces here                    |
 |   [2]   | FONT_ADMISSION      | Deterministic embedded-Inter admission; ranked per-platform fallback chains |
-|   [3]   | SHAPING_RAIL        | One HarfBuzz shaping rail before every Skia glyph draw        |
-|   [4]   | MARKDOWN_PROJECTION | Markdig AST folds to role-keyed rows and inline runs          |
-|   [5]   | TEXT_METRICS        | Baseline-grid math, measurement, trimming, tabular-numeral proof |
+|   [3]   | SHAPING_RAIL        | One HarfBuzz shaping rail before every Skia glyph draw                      |
+|   [4]   | MARKDOWN_PROJECTION | Markdig AST folds to role-keyed rows and inline runs                        |
+|   [5]   | TEXT_METRICS        | Baseline-grid math, measurement, trimming, tabular-numeral proof            |
 
 ## [2]-[ROLE_AXIS]
 
@@ -135,11 +135,12 @@ public static class ShapingSurface {
 ## [5]-[MARKDOWN_PROJECTION]
 
 - Owner: `MarkdownProjection`
-- Cases: Heading | Paragraph | Quote | ListRows | Grid | CodeFence | Rule
-- Entry: `public static Seq<MarkdownRow> Project(string markdown)` — pure fold from document text to role-keyed rows; presentation consumes rows, never the AST.
+- Cases: Heading | Paragraph | Quote | ListRows | Grid | CodeFence | Rule — the closed seven-arm fold; footnote and front-matter constructs ride existing arms, never an eighth case.
+- Entry: `public static MarkdownDocumentRows Project(string markdown)` — pure fold from document text to role-keyed rows plus the front-matter row; presentation consumes rows, never the AST.
+- Auto: `TrackTrivia` plus `PreciseSourceLocation` make every `MarkdownRow` carry its source `Span`, so an editor round-trip maps a retained row back to its byte range with zero second parse; the `UseYamlFrontMatter` and `UseFootnotes` builder rows admit the front-matter and footnote constructs into the pipeline, and the `MarkdownDocumentRows.FrontMatter` and `Footnotes` fields ride reserved on the document-rows product until their AST node-type traversal resolves.
 - Packages: Markdig, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new document construct is one `MarkdownRow` case plus one dispatch arm on the same fold; zero new surface.
-- Boundary: the pipeline is built once with in-package extensions only, and `UseAdvancedExtensions` admits the pipe-table family whose `Table`/`TableRow`/`TableCell` blocks fold into the `Grid` arm; `CodeFence` payloads hand off to the code-editor surface with their language tag — the projection never highlights or renders code; `HtmlBlock` and `HtmlInline` payloads degrade to empty runs so raw HTML never enters the retained tree; document headings cap at `Headline` — `Display` is reserved for shell hero text; Markdown.Avalonia and any parallel Markdown node model are the deleted patterns; retained materialization renders `InlineRun` sequences through the `Avalonia.Controls.Documents` family — `Run` inside `Span`, `Bold`, and `Italic` with `LineBreak`, appended to one `InlineCollection`.
+- Growth: a new document construct is one `MarkdownRow` case plus one dispatch arm on the same fold; a new extension is one builder row on the one pipeline; zero new surface.
+- Boundary: the pipeline is built once with in-package extensions only, and `UseAdvancedExtensions` admits the pipe-table family whose `Table`/`TableRow`/`TableCell` blocks fold into the `Grid` arm while `UseYamlFrontMatter` and `UseFootnotes` admit the front-matter and footnote constructs into the pipeline and `TrackTrivia` plus `PreciseSourceLocation` admit the round-trip span fidelity; the front-matter and footnote AST node-type traversal that populates the `FrontMatter` and `Footnotes` fields is research-gated under FRONT_MATTER_AST; `UseMathematics` and `UseDiagrams` stay excluded by design — the seven-arm fold owns no math or diagram node and a math construct degrades to a `Paragraph` of its source runs; `CodeFence` payloads hand off to the code-editor surface with their language tag — the projection never highlights or renders code; `HtmlBlock` and `HtmlInline` payloads degrade to empty runs so raw HTML never enters the retained tree; document headings cap at `Headline` — `Display` is reserved for shell hero text; the `Descendants<T>` typed traversal is the one document-fold algebra shared with the inspector descriptor synthesis and the SVG scene-node walk, parameterized by node family; Markdown.Avalonia and any parallel Markdown node model are the deleted patterns; retained materialization renders `InlineRun` sequences through the `Avalonia.Controls.Documents` family — `Run` inside `Span`, `Bold`, and `Italic` with `LineBreak`, appended to one `InlineCollection`.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -161,13 +162,25 @@ public abstract partial record MarkdownRow {
     public sealed record Rule : MarkdownRow;
 }
 
-public readonly record struct InlineRun(string Text, bool Strong, bool Emphasis, bool Code, Option<string> Link);
+public readonly record struct InlineRun(string Text, bool Strong, bool Emphasis, bool Code, Option<string> Link, SourceSpan Span);
+
+public sealed record MarkdownDocumentRows(Seq<MarkdownRow> Body, Option<string> FrontMatter, HashMap<string, Seq<InlineRun>> Footnotes);
 
 public static class MarkdownProjection {
-    public static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+    public static readonly MarkdownPipeline Pipeline =
+        new MarkdownPipelineBuilder { PreciseSourceLocation = true, TrackTrivia = true }
+            .UseAdvancedExtensions()
+            .UseYamlFrontMatter()
+            .UseFootnotes()
+            .Build();
 
-    public static Seq<MarkdownRow> Project(string markdown) =>
-        toSeq<Block>(Markdown.Parse(markdown, Pipeline)).Map(Row);
+    public static MarkdownDocumentRows Project(string markdown) =>
+        Markdown.Parse(markdown, Pipeline) switch {
+            var document => new MarkdownDocumentRows(
+                Body: toSeq<Block>(document).Map(Row),
+                FrontMatter: None,
+                Footnotes: HashMap<string, Seq<InlineRun>>()),
+        };
 
     public static TypographyRole HeadingRole(int level) =>
         level switch { 1 => TypographyRole.Headline, 2 => TypographyRole.Title, 3 => TypographyRole.Subtitle, _ => TypographyRole.BodyStrong };
@@ -196,15 +209,16 @@ public static class MarkdownProjection {
 
     private static InlineRun Flatten(LeafInline node) =>
         node switch {
-            CodeInline code => new InlineRun(code.Content, Strong: false, Emphasis: false, Code: true, Link: None),
+            CodeInline code => new InlineRun(code.Content, Strong: false, Emphasis: false, Code: true, Link: None, Span: code.Span),
             LiteralInline literal => new InlineRun(
                 Text: literal.Content.ToString(),
                 Strong: Ancestry(literal).Exists(static a => a is EmphasisInline { DelimiterCount: >= 2 }),
                 Emphasis: Ancestry(literal).Exists(static a => a is EmphasisInline { DelimiterCount: 1 }),
                 Code: false,
-                Link: Ancestry(literal).Filter(static a => a is LinkInline).Map(static a => ((LinkInline)a).Url ?? "").HeadOrNone()),
-            LineBreakInline => new InlineRun(" ", Strong: false, Emphasis: false, Code: false, Link: None),
-            _ => new InlineRun("", Strong: false, Emphasis: false, Code: false, Link: None),
+                Link: Ancestry(literal).Filter(static a => a is LinkInline).Map(static a => ((LinkInline)a).Url ?? "").HeadOrNone(),
+                Span: literal.Span),
+            LineBreakInline brk => new InlineRun(" ", Strong: false, Emphasis: false, Code: false, Link: None, Span: brk.Span),
+            _ => new InlineRun("", Strong: false, Emphasis: false, Code: false, Link: None, Span: node.Span),
         };
 
     private static Seq<Inline> Ancestry(Inline node) =>
@@ -246,4 +260,8 @@ public sealed record TextMetricsPolicy(double BaselineUnit) {
     public static float Advance(SKFont font, string text) => font.MeasureText(text);
 }
 ```
+
+## [7]-[RESEARCH]
+
+- [FRONT_MATTER_AST]: the front-matter and footnote AST node types and member accessors — the front-matter block and its line text, the footnote group and footnote label, and the typed descendant traversal that populates the `FrontMatter` and `Footnotes` fields from the parsed document, against the Markdig extension block families beyond the catalogued `UseYamlFrontMatter`/`UseFootnotes` builder rows.
 

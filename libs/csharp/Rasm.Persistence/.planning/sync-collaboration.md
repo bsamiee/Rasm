@@ -21,7 +21,7 @@ Rasm.Persistence owns local-first synchronization and collaboration: the op-log 
 - Receipt: cursor position and queue depth ride `SyncApplyReceipt`; appended-segment evidence rides `ReceiptSinkPort` kinds through the package wire context.
 - Packages: NodaTime, System.IO.Hashing, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new synced concern is one `SyncOpKind` row or one `EntityKind` value on the same op-log shape, zero new surface; per-entity-kind outbox tables are the deleted form.
-- Boundary: op-log and entity rows commit in one transaction — a trigger-based second write path is the rejected form; tombstone rows carry the age-bound retention class and hide behind the sync-tombstone named query filter; `Closure` carries the graph's descendant content-key manifest so transfer is set-difference, never tree-walk.
+- Boundary: op-log and entity rows commit in one transaction — a trigger-based second write path is the rejected form; tombstone rows carry the age-bound retention class and hide behind the sync-tombstone named query filter; `Closure` carries the graph's descendant content-key manifest so transfer is set-difference, never tree-walk; a multi-segment pull decodes through the settled `MessagePackStreamReader` segment reader one length-delimited frame at a time, so a large catch-up never buffers the whole transfer set contiguously.
 
 ```csharp signature
 public sealed class SyncKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -162,7 +162,7 @@ public static class SyncMerge {
 - Receipt: every pump run yields one `SyncApplyReceipt`; slot lifecycle evidence rides `ReceiptSinkPort` kinds.
 - Packages: Npgsql, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
 - Growth: a new transport is one case row plus one dispatch arm, zero new surface; future PowerSync lands as one designed-for case behind its admission gate; future cr-sqlite lands as native-sqlite extension rows plus merge-law rows, never a case here.
-- Boundary: HttpDelta rides the AppHost `OutboundHop` http-api keyed pipeline — retry, backoff, and hop deadlines are owned there and the database stays excluded from the hop law; the document-granular fallback is the RFC 6902 patch payload, subordinate to the op-log changefeed, and RFC 7386 merge-patch is the rejected form; SSE and WebSocket transports are rejected — server-stream verbs own streaming; the obsolete ulong-protocol `PgOutputReplicationOptions` constructor is the rejected spelling; `Decode` folds the pgoutput message family — `InsertMessage`, the `DefaultUpdateMessage`/`FullUpdateMessage`/`IndexUpdateMessage` update leaves, the `KeyDeleteMessage`/`FullDeleteMessage` delete leaves, `TruncateMessage`, and the stream control frames — over `RelationMessage` schema context into op-log entries behind the session delegate; a transport bridge is two sessions composed through `CopyGraph` — transport state and op-log mechanics live here, the wire leg is the settled proto vocabulary.
+- Boundary: HttpDelta rides the AppHost `OutboundHop` http-api keyed pipeline — retry, backoff, and hop deadlines are owned there and the database stays excluded from the hop law; the document-granular fallback is the RFC 6902 patch payload, subordinate to the op-log changefeed, and RFC 7386 merge-patch is the rejected form; SSE and WebSocket transports are rejected — server-stream verbs own streaming; the obsolete ulong-protocol `PgOutputReplicationOptions` constructor is the rejected spelling, and `TestDecodingOptions` is the named rejected alternative output plugin — its human-readable text frames carry no typed message family, so pgoutput's binary `PgOutputReplicationMessage` leaves stay the only decode path; `Decode` folds the pgoutput message family — `InsertMessage`, the `DefaultUpdateMessage`/`FullUpdateMessage`/`IndexUpdateMessage` update leaves, the `KeyDeleteMessage`/`FullDeleteMessage` delete leaves, `TruncateMessage`, and the stream control frames — over `RelationMessage` schema context into op-log entries behind the session delegate; a transport bridge is two sessions composed through `CopyGraph` — transport state and op-log mechanics live here, the wire leg is the settled proto vocabulary.
 
 ```csharp signature
 [SmartEnum]
@@ -254,14 +254,28 @@ public static class SyncPump {
 - Auto: presence rows expire at stamp plus `Ttl` and sweep on the heartbeat `ScheduleEntry` cadence; the offline queue is op-log accumulation draining on reconnect, with queue depth on every apply receipt.
 - Receipt: `Put` returns the stored `BlobRemote.Descriptor` as write evidence; sweep counts ride `ReceiptSinkPort` kinds.
 - Packages: NodaTime, System.IO.Hashing, LanguageExt.Core, BCL inbox.
-- Growth: a new presence attribute is one `PresenceRow` field on the same wire shape; a new offline-queue bound is one policy value; zero new surface.
-- Boundary: blob streams frame at 64 KiB with Crc32 per frame and XxHash128 whole-artifact identity — the settled ArtifactSync frame constants, and a second framing law is the rejected form; every `BlobRemote.Descriptor` carries classification and retention columns, so an unclassified blob write is a typed rejection; presence rides the DropOldest lane and is never durable beyond its TTL.
+- Growth: a new presence attribute is one `PresenceRow` field on the same wire shape; a new offline-queue bound is one policy value; a new frame size is one `FrameBytes` policy value; zero new surface.
+- Boundary: blob streams frame at 64 KiB with Crc32 per frame and XxHash128 whole-artifact identity — the settled ArtifactSync frame constants, and a second framing law is the rejected form; the whole-artifact identity accumulates incrementally — `FrameHash` feeds each 64 KiB frame into one `XxHash128` instance through `Append` and reads the final digest through `GetCurrentHash`, so a multi-gigabyte blob never materializes contiguously and `XxHash128.HashToUInt128` over a whole span is the deleted pattern for streamed payloads; every `BlobRemote.Descriptor` carries classification and retention columns, so an unclassified blob write is a typed rejection; presence rides the DropOldest lane and is never durable beyond its TTL.
 
 ```csharp signature
 public sealed record PresenceRow(string Actor, string EntityKind, string EntityKey, Instant ExpiresAt);
 
 public static class Presence {
     public static readonly Duration Ttl = Duration.FromSeconds(45);
+
+    public const int FrameBytes = 65536;
+
+    public static IO<(UInt128 Identity, Seq<uint> FrameChecks)> FrameHash(Stream source) =>
+        IO.lift(() => {
+            var identity = new XxHash128();
+            var checks = Seq<uint>();
+            var frame = new byte[FrameBytes];
+            for (var read = source.Read(frame); read > 0; read = source.Read(frame)) {
+                identity.Append(frame.AsSpan(0, read));
+                checks = checks.Add(Crc32.HashToUInt32(frame.AsSpan(0, read)));
+            }
+            return (BinaryPrimitives.ReadUInt128LittleEndian(identity.GetCurrentHash()), checks);
+        });
 
     public static Channel<OpLogEntry> Lane() =>
         Channel.CreateBounded<OpLogEntry>(new BoundedChannelOptions(64) {
@@ -293,7 +307,7 @@ public static class Presence {
 |   [1]   | presence heartbeat | `Every` 15 s                                    | one `ScheduleEntry` row per active editing surface |
 |   [2]   | presence TTL       | 45 s — 3 × heartbeat                            | `Ttl`                                              |
 |   [3]   | presence lane      | capacity 64, DropOldest, single reader          | `Lane`                                             |
-|   [4]   | blob framing       | 64 KiB frames, Crc32 per frame, XxHash128 whole | settled ArtifactSync frame constants               |
+|   [4]   | blob framing       | 64 KiB frames, Crc32 per frame, XxHash128 whole | `FrameHash` incremental `Append`/`GetCurrentHash`  |
 
 ## [6]-[TS_PROJECTION]
 

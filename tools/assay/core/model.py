@@ -139,6 +139,24 @@ class Runner(StrEnum):
         return m
 
 
+class ToolGroup(StrEnum):
+    """Tool policy group: uv dependency groups inject ``uv run --group``; assay tags drive status/eligibility."""
+
+    uv: bool  # genuine uv dependency group when True, assay policy tag when False
+
+    MUTATION = "mutation", True
+    RUN_DEFAULT = "run-default", False
+    REQUIRES_COVERAGE = "requires-coverage", False
+    REQUIRES_BENCHMARK = "requires-benchmark", False
+    EMPTY_ON_EXIT1 = "empty-on-exit1", False
+
+    def __new__(cls, value: str, uv: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
+        """Attach the uv-dependency-group flag not represented by the StrEnum value."""
+        m = str.__new__(cls, value)
+        m._value_, m.uv = value, uv
+        return m
+
+
 class SourceKind(StrEnum):
     """Source provenance for API evidence."""
 
@@ -159,6 +177,27 @@ class SymbolShape(StrEnum):
     SEARCH = "search"
 
 
+class SarifStatus(StrEnum):
+    """Per-build SARIF evidence class.
+
+    The ``absent:*`` reasons distinguish a warm incremental skip (no recompile, no analyzer pass) from a clean
+    analyzer pass, so an agent never reads an incremental "no SARIF" as "no diagnostics".
+    """
+
+    PRODUCED = "produced"
+    INCREMENTAL = "absent:incremental"
+    NO_BUILD = "absent:no-build"
+    BUILD_FAILED = "absent:build-failed"
+
+    def token(self, results: int) -> str:
+        """Render this class as a wire token, qualifying ``produced`` with its result count.
+
+        Returns:
+            ``produced:N`` for a produced SARIF, else the bare absent-reason token.
+        """
+        return f"{self.value}:{results}" if self is SarifStatus.PRODUCED else self.value
+
+
 type InprocThunk = Callable[[Check], Completed]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -169,6 +208,8 @@ _DEFECT_TAIL: int = 4096
 _SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
 _DIAGNOSTIC_SEVERITY_RANK: dict[str, int] = {"error": 0, "warning": 1, "info": 2, "failed": 3}
 _PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE)
+# host-bound claims cannot run off-host; remote execution rejects them before argv composition.
+_HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE))
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 _HEADER_DIAGNOSTIC = re.compile(r"^(?P<severity>error|warning|warn|info|note)(?:\[(?P<rule>[^\]]+)])?:\s*(?P<message>.+)$", re.IGNORECASE)
 _ARROW_LOCATION = re.compile(r"^\s*-->\s*(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)$")
@@ -221,11 +262,19 @@ class Tool(Base, frozen=True, cache_hash=True):
     language: Language
     claim: Claim
     mode: Mode = Mode.CHECK
-    groups: tuple[str, ...] = ()
+    groups: tuple[ToolGroup, ...] = ()
     timeout: Annotated[float, msgspec.Meta(gt=0)] | None = None
     thunk: InprocThunk | None = None
     stage: Stage = Stage()
     env: tuple[tuple[str, str], ...] = ()
+
+    def uv_groups(self) -> tuple[ToolGroup, ...]:
+        """Return the groups that name genuine uv dependency groups for ``uv run --group`` injection.
+
+        Returns:
+            The subset of ``groups`` flagged as uv dependency groups; assay policy tags are excluded.
+        """
+        return tuple(group for group in self.groups if group.uv)
 
 
 class Check(Base, frozen=True, cache_hash=True):
@@ -501,7 +550,7 @@ class RunDelta(Detail, frozen=True, tag="delta"):
 
 
 class StaticRun(Detail, frozen=True, tag="static"):
-    """Static route, check, skip, artifact, and resource detail."""
+    """Static route, check, skip, artifact, SARIF-status, and resource detail."""
 
     targets: tuple[tuple[str, str], ...] = ()
     routes: tuple[tuple[str, ...], ...] = ()
@@ -510,6 +559,8 @@ class StaticRun(Detail, frozen=True, tag="static"):
     phases: tuple[str, ...] = ()
     resources: tuple[tuple[str, float], ...] = ()
     artifacts: tuple[str, ...] = ()
+    # (csproj-stem, SarifStatus token) per C# build outcome; absent:* keeps a warm-incremental skip distinct from a clean pass.
+    sarif_status: tuple[tuple[str, str], ...] = ()
 
 
 class TestRun(Detail, frozen=True, tag="test"):
@@ -750,6 +801,42 @@ def _sarif_rows(sarif_dir: str | None) -> tuple[Match, ...]:
     return tuple(_sarif_match(result) for path in files for run in _sarif_log(path).runs for result in run.results)
 
 
+def _build_targets(argv: tuple[str, ...]) -> tuple[tuple[str, bool], ...]:
+    # The analyzer drops one ``$(MSBuildProjectName).sarif`` per built project; a .csproj argv names one stem keyed to
+    # its own file, a .slnx argv names the whole solution and keys against every SARIF the directory holds.
+    return tuple((Path(token).stem, token.endswith(".slnx")) for token in argv if token.endswith((".csproj", ".slnx")))
+
+
+def _sarif_status(outcomes: tuple[Completed, ...], sarif_dir: str | None) -> tuple[tuple[str, str], ...]:
+    base = Path(sarif_dir) if sarif_dir else None
+    return tuple(
+        (stem, _classify_sarif(done.status, base, stem, slnx=slnx).token(_sarif_results(base, stem, slnx=slnx)))
+        for done in outcomes
+        if "dotnet" in done.argv and "build" in done.argv
+        for stem, slnx in (_build_targets(done.argv) or (("", False),))
+    )
+
+
+def _classify_sarif(status: RailStatus, base: Path | None, stem: str, *, slnx: bool) -> SarifStatus:
+    produced = base is not None and ((slnx and any(base.glob("*.sarif"))) or (bool(stem) and (base / f"{stem}.sarif").is_file()))
+    match (produced, status):
+        case (True, _):
+            return SarifStatus.PRODUCED
+        case (False, RailStatus.SKIP):
+            return SarifStatus.NO_BUILD
+        case (False, RailStatus.OK | RailStatus.EMPTY):
+            return SarifStatus.INCREMENTAL
+        case _:
+            return SarifStatus.BUILD_FAILED
+
+
+def _sarif_results(base: Path | None, stem: str, *, slnx: bool) -> int:
+    if base is None:
+        return 0
+    files = tuple(base.glob("*.sarif")) if slnx else ((base / f"{stem}.sarif"),) if stem else ()
+    return sum(len(run.results) for path in files if path.is_file() for run in _sarif_log(path).runs)
+
+
 def _csharp_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
     rows = tuple(
         Match(
@@ -983,10 +1070,20 @@ def _diagnostic_notes(rows: tuple[Match, ...]) -> tuple[str, ...]:
     )
 
 
-def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None, sarif_dir: str | None = None) -> Report:
+def fold(
+    claim: Claim,
+    verb: str,
+    outcomes: tuple[Completed, ...],
+    *,
+    detail: AnyDetail | None = None,
+    sarif_dir: str | None = None,
+    promote_empty: bool = False,
+) -> Report:
     """Fold process outcomes and evidence into a rail report.
 
     Static source error rows fail the report; generated diagnostics remain evidence-only, and absent SARIF folds to no rows.
+    ``promote_empty`` lets a process-backed rail (eligible claim, ran cleanly, no defects) report OK for a folded-empty
+    run; without it a clean no-op stays EMPTY so non-rail folds reusing the claim keep their natural absence.
 
     Returns:
         Report carrying status, counts, artifacts, evidence rows, notes, and optional detail.
@@ -1012,7 +1109,7 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
         RailStatus.FAILED
         if claim is Claim.STATIC and source_error
         else RailStatus.OK
-        if claim in _PROCESS_BACKED_OK_CLAIMS and folded_status is RailStatus.EMPTY and bool(outcomes) and not defects
+        if promote_empty and claim in _PROCESS_BACKED_OK_CLAIMS and folded_status is RailStatus.EMPTY and bool(outcomes) and not defects
         else folded_status
     )
     return Report(
@@ -1102,12 +1199,15 @@ __all__ = [
     "RunDelta",
     "RunSnapshot",
     "Runner",
+    "SarifStatus",
     "SourceKind",
     "Stage",
     "StaticRun",
     "SymbolShape",
+    "_sarif_status",
     "TestRun",
     "Tool",
+    "ToolGroup",
     "VerifySummary",
     "_HINT_CAP",
     "_RESULT_CAP",

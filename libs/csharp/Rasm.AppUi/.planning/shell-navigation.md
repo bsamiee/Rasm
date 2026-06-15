@@ -1,15 +1,15 @@
 # [APPUI_SHELL_NAVIGATION]
 
-Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over the `ShellRoot` router capsule with two view-resolution hosts, one `ShellDockFactory` folds route-keyed `DockableRow` rows into the Dock model graph so dockables are screens, `LayoutLedger` flows layout checkpoints as versioned hashed blobs through `LayoutPersistence` delegates with cadence, drain, support, and crash-restore registrations on the AppHost ports, `ShellChrome` derives menu, toolbar, status, and tray rows from intent keys per `SurfaceHost` row, and `AdaptiveLayout` owns the breakpoint table. The page owns the routing spine, dock layouts with checkpoint-cadence and crash-restore values, chrome derivation, and adaptive layout over ReactiveUI, Dock.Avalonia, Dock.Model.ReactiveUI, Xaml.Behaviors.Avalonia, Thinktecture vocabulary, and LanguageExt rails.
+Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over the `ShellRoot` router capsule with two view-resolution hosts, one `ShellDockFactory` folds route-keyed `DockableRow` rows into the Dock model graph so dockables are screens, `LayoutLedger` flows layout checkpoints as versioned hashed blobs through `LayoutPersistence` delegates with cadence, drain, support, telemetry, and crash-restore registrations on the AppHost ports, `ShellChrome` derives menu, toolbar, status, and tray rows from intent keys per `SurfaceHost` row, and `AdaptiveLayout` owns the breakpoint table. The page owns the routing spine, dock layouts with checkpoint-cadence, external-dock-surface, and crash-restore values, chrome derivation, and adaptive layout over ReactiveUI, Dock.Avalonia, Dock.Model.ReactiveUI, Xaml.Behaviors.Avalonia, PanAndZoom, Thinktecture vocabulary, and LanguageExt rails.
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                            |
-| :-----: | --------------- | ----------------------------------------------------------------- |
-|   [1]   | ROUTING_SPINE   | One route union over the shell root; two view-resolution hosts    |
-|   [2]   | DOCK_LAYOUTS    | Dockables fold from route rows; checkpoint, crash restore, drain  |
-|   [3]   | SHELL_CHROME    | Chrome rows derive from intent keys per surface row               |
-|   [4]   | ADAPTIVE_LAYOUT | One breakpoint table; behavior-attached responsive policy values  |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                             |
+| :-----: | --------------- | ------------------------------------------------------------------ |
+|   [1]   | ROUTING_SPINE   | One route union over the shell root; two view-resolution hosts     |
+|   [2]   | DOCK_LAYOUTS    | Dockables fold from route rows; checkpoint, restore, external dock |
+|   [3]   | SHELL_CHROME    | Chrome rows derive from intent keys per surface row                |
+|   [4]   | ADAPTIVE_LAYOUT | One breakpoint table; behavior-attached responsive policy values   |
 
 ## [2]-[ROUTING_SPINE]
 
@@ -19,7 +19,7 @@ Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over th
 - Auto: `RoutedViewHost` re-resolves the view on every router transition; deep links and remote verbs enter through `Parse` with no second admission path.
 - Packages: ReactiveUI, ReactiveUI.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new navigation verb is one case on `NavRequest`, and a new screen is one route row frozen through `Freeze`; zero new surface.
-- Boundary: `ShellRoot` is the named boundary capsule — ReactiveUI command execution awaits inside its private kernels and nowhere else; `RoutedViewHost` and `ViewModelViewHost` are the only view-resolution surfaces, binding `Router` and `ViewModel` from the shell root, and view lookup beside the two hosts is the deleted pattern; the `ViewContract` value on `RoutedViewHost` carries the `SurfaceHost` row key so one screen resolves a surface-specific template; route keys are ordinal strings shared by deep links, remote invocation, the dock factory, and the web projection, so the same grammar admits every caller today; modal presentation crosses to the dialog-session owner through the `PresentModal` delegate; a second router beside the router cell and a region framework are the rejected forms.
+- Boundary: `ShellRoot` is the named boundary capsule — ReactiveUI command execution awaits inside its private kernels and nowhere else; `RoutedViewHost` and `ViewModelViewHost` are the only view-resolution surfaces, binding `Router` and `ViewModel` from the shell root, and view lookup beside the two hosts is the deleted pattern; the `ViewContract` value on `RoutedViewHost` carries the `SurfaceHost` row key so one screen resolves a surface-specific template; route keys are ordinal strings shared by deep links, remote invocation, the dock factory, and the web projection, so the same grammar admits every caller today; modal presentation crosses to the dialog-session owner through the `PresentModal` delegate; viewport-scoped navigation rides the same five-verb grammar — a `Push`/`Pop` over a `ZoomBorder`-hosted screen drives `ZoomBorder.NavigateBack`/`NavigateForward` view history and `ClearViewHistory` on a `Reset`, so a per-canvas back-stack is the deleted pattern and viewport history is one verb dispatch, never a second navigation owner; a second router beside the router cell and a region framework are the rejected forms.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -86,13 +86,13 @@ public sealed class ShellRoot(
 
 ## [3]-[DOCK_LAYOUTS]
 
-- Owner: `DockableRow` registration row; `ShellDockFactory` boundary capsule over the Dock model graph; `ShellPolicy` policy anchor; `LayoutCheckpoint` versioned blob record; `LayoutPersistence` port-delegate record; `LayoutLedger` checkpoint, restore, and registration fold surface.
+- Owner: `DockableRow` registration row; `ShellDockFactory` boundary capsule over the Dock model graph; `ShellPolicy` policy anchor; `LayoutCheckpoint` versioned blob record; `LayoutPersistence` port-delegate record; `LayoutLedger` checkpoint, restore, telemetry, and registration fold surface.
 - Entry: `public static IO<Option<LayoutCheckpoint>> Flush(ClockPolicy clocks, LayoutPersistence port, Atom<Option<string>> last)` — `IO` carries the serialize-hash-persist effect; the unchanged-hash skip rides `Option<T>`.
-- Auto: the cadence, drain, and support rows register once at composition — flush fires on the `Every` cadence and again at drain band 100, the support capture reads the latest blob, and boot restore runs once from the fault-spine probe consequence; zero UI timers.
+- Auto: the cadence, drain, support, and telemetry rows register once at composition — flush fires on the `Every` cadence and again at drain band 100, the support capture reads the latest blob, the telemetry row contributes the layout-flush instruments inward, and boot restore runs once from the fault-spine probe consequence; zero UI timers.
 - Receipt: `Flush` yields `Option<LayoutCheckpoint>` — Some on a persisted blob, None on the unchanged-hash skip; the checkpoint record is the restore evidence and the support artifact body.
 - Packages: Dock.Avalonia, Dock.Model.ReactiveUI, NodaTime, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
-- Growth: a new dockable is one `DockableRow` row registered from the screen catalog, and a new cadence, rank, retention, or proportion bound is one policy value on `ShellPolicy`; zero new surface.
-- Boundary: `ShellDockFactory` is the named boundary capsule for the statement carve-out — the Dock model graph is mutable host-owned state assembled only through `Factory` create entrypoints, and view-layer mutation of dock structure is the rejected form; `DockControl` binds `Build`'s root through `Layout` with `InitializeLayout` and `InitializeFactory` false so the factory owns initialization, and floating hosts ride `HostWindowFactory` with `EnableManagedWindowLayer` under the `FloatingWindows` gate; dockable `Context` resolves through the same frozen route index as navigation, so a dockable is a screen and a second viewmodel system is the deleted pattern; the serialize and restore delegates bind the dock serializer at composition and the payload crosses the Persistence port as an opaque versioned blob — AppUi issues no store queries, the `ContentHash` delegate carries the Persistence snapshot hash vocabulary, and the persist route prunes to `RetainedCheckpoints` generations; crash offer consumes the fault-spine crashes — a `HostCrashMarker` case gates the confirm route while a clean boot restores the warm blob silently; multi-window coordination and session restore ride the same blob; the checkpoint row shares the health-probe deadline bound, so a flush past it is the dispatcher-starvation signal; the drain row ranks after the screens teardown row inside `DrainBand.Interaction`, so the flushed layout captures post-suspension state; pin, auto-hide, float, and close states are `DockableRow` policy values, never control state.
+- Growth: a new dockable is one `DockableRow` row registered from the screen catalog, a new cadence, rank, retention, proportion, drop-selector, or external-surface bound is one policy value on `ShellPolicy`, and a new layout instrument is one `InstrumentRow` on `LayoutLedger.TelemetryRow`; zero new surface.
+- Boundary: `ShellDockFactory` is the named boundary capsule for the statement carve-out — the Dock model graph is mutable host-owned state assembled only through `Factory` create entrypoints, and view-layer mutation of dock structure is the rejected form; `DockControl` binds `Build`'s root through `Layout` with `InitializeLayout` and `InitializeFactory` false so the factory owns initialization, floating hosts ride `HostWindowFactory` with `EnableManagedWindowLayer` under the `FloatingWindows` gate, and rows where `ShellPolicy.ExternalSurface` holds register the embedded host root through `DockControl.RegisterExternalDockSurface` so a docked panel drags across the host boundary while `GlobalDockTarget` and the `DockSelectorMode`-typed selector drive the `DockControl.ShowSelector`/`HideSelector` drop overlay under the `ShellPolicy.DropSelector` gate — a per-host drag-handler fork is the rejected form, and the exact selector-registration argument arity is the DOCK_SELECTOR research item; dockable `Context` resolves through the same frozen route index as navigation, so a dockable is a screen and a second viewmodel system is the deleted pattern; the `Serialize` and `Restore` delegates bind the dock serializer at composition and the payload crosses the Persistence port as an opaque versioned blob — the serializer round-trips dockable identity by `Id` so structure survives restore (the serializer-package member spelling is the DOCK_SERIALIZER research item), AppUi issues no store queries, the `ContentHash` delegate carries the Persistence snapshot hash vocabulary, and the persist route prunes to `RetainedCheckpoints` generations; crash offer consumes the fault-spine crashes — a `HostCrashMarker` case gates the confirm route while a clean boot restores the warm blob silently; multi-window coordination and session restore ride the same blob; the checkpoint row shares the health-probe deadline bound, so a flush past it is the dispatcher-starvation signal; the drain row ranks after the screens teardown row inside `DrainBand.Interaction`, so the flushed layout captures post-suspension state; pin, auto-hide, float, and close states are `DockableRow` policy values rendered through `PinnedDockControl`/`ToolPinnedControl`, never control state.
 
 ```csharp signature
 public sealed record DockableRow(
@@ -141,10 +141,18 @@ public static class ShellPolicy {
     public const int RetainedCheckpoints = 4;
     public const long LayoutArtifactBytes = 262_144;
     public const double ToolDockProportion = 0.25;
+    public const string FlushInstrument = "rasm.appui.layout.flushed";
+    public const string RestoreInstrument = "rasm.appui.layout.restored";
     public static readonly Duration CheckpointCadence = Duration.FromSeconds(120);
 
     public static bool FloatingWindows(SurfaceHost host) =>
         host is not (SurfaceHost.RhinoPanel or SurfaceHost.WebBrowser);
+
+    public static bool DropSelector(SurfaceHost host) =>
+        host is not SurfaceHost.WebBrowser;
+
+    public static bool ExternalSurface(SurfaceHost host) =>
+        host is SurfaceHost.RhinoPanel or SurfaceHost.RhinoModal or SurfaceHost.Gh2CompanionWindow;
 }
 
 public sealed record LayoutCheckpoint(int Version, string ContentHash, string Payload, Instant At);
@@ -201,6 +209,9 @@ public static class LayoutLedger {
                 EstimatedBytes: ShellPolicy.LayoutArtifactBytes,
                 Produce: window => port.Latest.Map(latest =>
                     ((ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(latest.Map(static c => c.Payload).IfNone("")), 0)))));
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, ShellPolicy.FlushInstrument, ShellPolicy.RestoreInstrument);
 }
 ```
 
@@ -255,11 +266,11 @@ Visibility matrix — the value source for every `Visible` predicate and for `Fl
 
 | [INDEX] | [HOST_ROW]            | [MENU] | [TOOLBAR] | [STATUS] | [TRAY] | [FLOATING] |
 | :-----: | --------------------- | :----: | :-------: | :------: | :----: | :--------: |
-|   [1]   | AvaloniaDesktopWindow |  on    |    on     |    on    |  off   |    open    |
+|   [1]   | AvaloniaDesktopWindow |   on   |    on     |    on    |  off   |    open    |
 |   [2]   | RhinoPanel            |  off   |    on     |   off    |  off   | suppressed |
 |   [3]   | RhinoModal            |  off   |    on     |   off    |  off   |    open    |
 |   [4]   | Gh2CompanionWindow    |  off   |    on     |    on    |  off   |    open    |
-|   [5]   | SidecarShell          |  on    |    on     |    on    |  on    |    open    |
+|   [5]   | SidecarShell          |   on   |    on     |    on    |   on   |    open    |
 |   [6]   | WebBrowser            |  off   |    off    |   off    |  off   | suppressed |
 |   [7]   | Headless              |  off   |    off    |   off    |  off   |    open    |
 
@@ -278,7 +289,8 @@ public static class AdaptiveLayout {
     public static readonly Seq<BreakpointRow> Rows = Seq(
         new BreakpointRow("compact", 0d),
         new BreakpointRow("medium", 720d),
-        new BreakpointRow("expanded", 1280d));
+        new BreakpointRow("expanded", 1280d),
+        new BreakpointRow("ultrawide", 2560d));
 
     public static BreakpointRow Resolve(double width) =>
         Rows.Fold(Rows[0], (best, row) => row.MinWidth <= width ? row : best);
@@ -288,3 +300,4 @@ public static class AdaptiveLayout {
 ## [6]-[RESEARCH]
 
 - [DOCK_SERIALIZER]: dock serializer round-trip payload shape preserving dockable identity across serialize and restore; the serializer package is named at the first app-root admission.
+- [DOCK_SELECTOR]: `DockControl.RegisterExternalDockSurface`, `ShowSelector`/`HideSelector`, and `GlobalDockTarget` argument arity and the `DockSelectorMode` member domain for the embedded external-dock drop overlay.

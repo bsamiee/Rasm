@@ -100,10 +100,10 @@ public static class IntentAdmission {
 - Owner: `Substrate` `[SmartEnum<string>]` three rows under the `ComputeKeyPolicy` ordinal accessor; `SubstrateProbes` veto delegates; `SelectionContext` resolved selection inputs; `BenchmarkRank` boot-frozen rank projection.
 - Cases: cpu-tensor, onnx (one EP-parameterized row — EP variance is model-lane row data, never substrate-row twins), remote-grpc.
 - Entry: `public partial Option<string> Veto(SelectionContext context)` — `Option<T>` carries the rejection reason; `None` admits the row; one delegate collapses the availability predicate and its evidence.
-- Auto: `EffectiveRank` reads the boot-frozen `BenchmarkRank` projection and falls through to the static cost rank when the host fingerprint mismatches; provider names arrive boot-frozen in `SelectionContext.Providers` from the model-lane environment probe.
+- Auto: `EffectiveRank` reads the boot-frozen `BenchmarkRank` projection and falls through to the static cost rank when the host fingerprint mismatches; provider names arrive boot-frozen in `SelectionContext.Providers` from the model-lane environment probe; the warm-start affinity column reorders the eligible chain so a cold companion routes to the node holding the matching EP-context blob — the same fold that picks cpu-vs-onnx picks host-vs-companion-vs-farm because the discriminant is a column, never an `if (warm)` branch.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Microsoft.ML.OnnxRuntime, BCL inbox
-- Growth: one substrate row — key, rank, cap, fallback key, veto delegate — absorbs a new execution substrate; gpu-direct and the ONNX Runtime GenAI token-streaming successor each land as one future row on `Substrate`; zero new surface.
-- Boundary: wasm is a platform predicate column — `OperatingSystem.IsBrowser` structurally excludes the onnx row while cpu-tensor and remote-grpc admit it, and a wasm substrate row is the deleted form; substrate predicates read the retained `Capability` set so remote health rides the AppHost degradation fold and a second health probe is the named defect — Rhino-absent folds to `DegradationLevel.LocalOnly` and the remote row vetoes itself through `Capability.RemoteCompute`; the remote payload cap composes `GrpcChannelPolicy.Canonical.MaxSendBytes`, never a re-declared literal.
+- Growth: one substrate row — key, rank, cap, fallback key, veto delegate — absorbs a new execution substrate; gpu-direct and the ONNX Runtime GenAI token-streaming successor each land as one future row on `Substrate`; warm-start affinity is a column the selection fold already reads, so farm load-and-offload lands without a `FarmRouter`; zero new surface.
+- Boundary: wasm is a platform predicate column — `OperatingSystem.IsBrowser` structurally excludes the onnx row while cpu-tensor and remote-grpc admit it, and a wasm substrate row is the deleted form; substrate predicates read the retained `Capability` set so remote health rides the AppHost degradation fold and a second health probe is the named defect — Rhino-absent folds to `DegradationLevel.LocalOnly` and the remote row vetoes itself through `Capability.RemoteCompute`; the remote payload cap composes `GrpcChannelPolicy.Canonical.MaxSendBytes`, never a re-declared literal; warm-start affinity reorders only within the rank-equal tier so a benchmark rank never loses to an affinity preference — affinity is a tie-breaker column, never a rank override.
 
 ```csharp signature
 public sealed class ComputeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -125,8 +125,11 @@ public sealed record SelectionContext(
     FrozenSet<string> Providers,
     string Fingerprint,
     Option<BenchmarkRank> Ranks,
+    FrozenSet<string> WarmAffinity,
     ClockPolicy Clocks) {
     public int EffectiveRank(Substrate row) => Ranks.Bind(ranks => ranks.For(row, Fingerprint)).IfNone(row.Rank);
+
+    public int AffinityRank(Substrate row) => WarmAffinity.Contains(row.Key) ? 0 : 1;
 }
 
 public static class SubstrateProbes {
@@ -174,8 +177,8 @@ public sealed partial class Substrate {
 - Owner: `ComputeFault` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract in the 2200 code band beside LifecycleFault 1200 and HopFault 4500; `SelectionHop` and `SelectionReceipt` evidence records; `SubstrateSelection` ordered-predicate fold; `DispatchTable` total row dispatch.
 - Cases: Text plus the twelve domain cases SubstrateUnavailable | PayloadOverBounds | DeadlineExpired | Cancelled | ShutdownDrained | ModelRejected | ExtensionAssetMissing | EndpointUnreachable | RetryOwnerConflict | AllocationOverClass | EquivalenceMiss | CacheCorrupt.
 - Entry: `public static Fin<Seq<SelectionReceipt>> Plan(AdmittedIntent admitted, SelectionContext context)` — `Fin<T>` aborts; the pipeline case folds its stages sequentially with short-circuit and the stage receipts share the parent correlation and digest.
-- Auto: every selection walk materializes one `SelectionReceipt` — evaluated rows, rejection reasons, fallback hops, forced bypass, final route — and the receipts page carries it to the sink as the Selection case of the package receipt union.
-- Receipt: `SelectionReceipt` — correlation, digest, route, hop evidence, forced `Option`, `Instant` stamp.
+- Auto: every selection walk materializes one `SelectionReceipt` — evaluated rows, rejection reasons, fallback hops, forced bypass, warm-affinity influence, final route — and the receipts page carries it to the sink as the Selection case of the package receipt union, so a farm hop proves itself on the same receipt rail every other hop rides.
+- Receipt: `SelectionReceipt` — correlation, digest, route, hop evidence, forced `Option`, warm-affinity flag, `Instant` stamp.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one fault case breaks every total Switch at compile time; one new substrate row costs one delegate field on `DispatchTable` and the generated row Switch breaks until it exists; zero new surface.
 - Boundary: every fault case projects through the remote-lane FaultDetail wire family at the server edge — a status code plus string is never the terminal shape; cancellation classifies in one conversion arm from `CancelScope` provenance and the deadline instant so user cancel, deadline expiry, and shutdown drain stay distinct cases, and drain-derived scopes carry `RuntimePhase.Draining.Key` as a provenance segment; a detected second retry owner raises RetryOwnerConflict toward the Conflict receipt — the AppHost keyed Polly hop owns retry and stacking never occurs here; forced substrate is the only selection bypass and it is recorded, never silent; dispatch delegates bind at composition through `DispatchTable` because execution capsules carry runtime state no static row column owns.
@@ -215,6 +218,7 @@ public sealed record SelectionReceipt(
     Substrate Route,
     Seq<SelectionHop> Hops,
     Option<Substrate> Forced,
+    bool WarmAffinity,
     Instant At);
 
 public static class SubstrateSelection {
@@ -234,11 +238,11 @@ public static class SubstrateSelection {
 
     public static Fin<SelectionReceipt> Select(AdmittedIntent admitted, SelectionContext context) =>
         admitted.Spec.Forced is { IsSome: true, Case: Substrate forced }
-            ? Fin.Succ(new SelectionReceipt(admitted.Correlation, admitted.Digest, forced, Seq<SelectionHop>(), Some(forced), context.Clocks.Now))
+            ? Fin.Succ(new SelectionReceipt(admitted.Correlation, admitted.Digest, forced, Seq<SelectionHop>(), Some(forced), false, context.Clocks.Now))
             : Routed(admitted, context, Chain(Eligible(admitted.Intent), context));
 
     static Seq<Substrate> Chain(Seq<Substrate> eligible, SelectionContext context) =>
-        toSeq(eligible.OrderBy(context.EffectiveRank))
+        toSeq(eligible.OrderBy(context.EffectiveRank).ThenBy(context.AffinityRank))
             .Bind(static row => Seq(row) + row.Fallback.ToSeq())
             .Filter(eligible.Contains)
             .Distinct();
@@ -254,7 +258,7 @@ public static class SubstrateSelection {
     static Fin<SelectionReceipt> Receipted(AdmittedIntent admitted, SelectionContext context, (Option<Substrate> Route, Seq<SelectionHop> Hops) walked) =>
         walked.Route
             .ToFin(new ComputeFault.SubstrateUnavailable(string.Join(',', walked.Hops.Map(static hop => hop.Row.Key))))
-            .Map(route => new SelectionReceipt(admitted.Correlation, admitted.Digest, route, walked.Hops, None, context.Clocks.Now));
+            .Map(route => new SelectionReceipt(admitted.Correlation, admitted.Digest, route, walked.Hops, None, context.AffinityRank(route) == 0, context.Clocks.Now));
 }
 
 public sealed record DispatchTable(

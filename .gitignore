@@ -47,6 +47,9 @@ env/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.ty_cache/
+*.prof
+*.lprof
 
 # --- [TEST_COVERAGE] ----------------------------------------------------------
 

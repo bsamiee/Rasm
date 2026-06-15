@@ -19,7 +19,23 @@ from tests.python._testkit.spec import assert_error_status, assert_ok, refutes, 
 from tools.assay.composition.catalog import TOOLS
 from tools.assay.composition.settings import ArtifactScope
 from tools.assay.core.engine import exclusive_lease
-from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, fold, Input, Language, Mode, MutationLane, receipt, Runner, Stage, TestRun, Tool
+from tools.assay.core.model import (
+    ArtifactKind,
+    Check,
+    Claim,
+    Fault,
+    fold,
+    Input,
+    Language,
+    Mode,
+    MutationLane,
+    receipt,
+    Runner,
+    Stage,
+    TestRun,
+    Tool,
+    ToolGroup,
+)
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 from tools.assay.rails import test as test_rail
@@ -67,7 +83,11 @@ def _ok(argv: tuple[str, ...], stdout: bytes = b"", *, status: RailStatus = Rail
 
 
 def _seed_coverage_json(root: Path, payload: bytes) -> Path:
-    """Write coverage.json at the canonical artifact path under root."""
+    """Write coverage.json at the canonical artifact path under root.
+
+    Returns:
+        Path to the written coverage.json file.
+    """
     target = root / ".artifacts" / "python" / "coverage" / "coverage.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(payload)
@@ -91,8 +111,13 @@ def _capture_rail(monkeypatch: pytest.MonkeyPatch) -> list[tuple[TestParams, obj
 
 
 def _tool(name: str = "pytest", mode: Mode = Mode.RUN, runner: Runner = Runner.UV, language: Language = _PY) -> Tool:
-    """Build a minimal TEST catalog row for eligibility laws."""
-    return Tool(name=name, runner=runner, command=(name,), input=Input.NONE, language=language, claim=Claim.TEST, mode=mode)
+    """Build a minimal TEST catalog row for eligibility laws, carrying the catalog's policy groups for the name.
+
+    Returns:
+        TEST catalog row for ``name`` with the catalog's policy groups.
+    """
+    groups = next((t.groups for t in TOOLS if t.name == name and t.claim is Claim.TEST), ())
+    return Tool(name=name, runner=runner, command=(name,), input=Input.NONE, language=language, claim=Claim.TEST, mode=mode, groups=groups)
 
 
 def _mutation_tool(name: str = "mutmut") -> Tool:
@@ -100,7 +125,11 @@ def _mutation_tool(name: str = "mutmut") -> Tool:
 
 
 def _stryker_tool() -> Tool:
-    """Build the dotnet-stryker mutation row used by scoped-mutation laws."""
+    """Build the dotnet-stryker mutation row used by scoped-mutation laws.
+
+    Returns:
+        Stryker mutation catalog row.
+    """
     return Tool(
         name="dotnet-stryker",
         runner=Runner.DOTNET,
@@ -734,7 +763,7 @@ def test_thin_rail_multi_language_mutation_nests_sorted_leases(assay_root: Assay
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
     _wire(monkeypatch, ok, routed=routed, seam="_dispatch_all")
-    monkeypatch.setattr(test_rail, "_languages", lambda *_a, **_k: Ok((Language.CSHARP, _PY)))
+    monkeypatch.setattr(test_rail, "resolve_languages", lambda *_a, **_k: Ok((Language.CSHARP, _PY)))
 
     def _descend(resource: str, action: Callable[[object], Result[object, object]], **_k: object) -> Result[object, object]:
         leased_calls.append(resource)
@@ -796,7 +825,7 @@ def _staged_mutmut() -> Tool:
         language=_PY,
         claim=Claim.TEST,
         mode=Mode.MUTATION,
-        groups=("mutation",),
+        groups=(ToolGroup.MUTATION,),
         stage=Stage(root=".artifacts/python/mutmut/work", project=True),
     )
 
@@ -839,7 +868,7 @@ def test_gate_tool_groups_splice_not_catalog() -> None:
     """_GATE_TOOL is lease-riding only and absent from the catalog census."""
     assert _GATE_TOOL not in TOOLS
     assert all(t.name != _GATE_TOOL.name for t in TOOLS)
-    assert (_GATE_TOOL.runner, _GATE_TOOL.groups, _GATE_TOOL.mode) == (Runner.UV, ("mutation",), Mode.MUTATION)
+    assert (_GATE_TOOL.runner, _GATE_TOOL.groups, _GATE_TOOL.mode) == (Runner.UV, (ToolGroup.MUTATION,), Mode.MUTATION)
     assert (_GATE_TOOL.stage.root, _GATE_TOOL.stage.project) == ("", True)
     assert _GATE_TOOL.command == ("python", "-m", "tools.assay.rails.mutation_gate")
 

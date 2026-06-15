@@ -4,17 +4,17 @@ Rasm.Compute has zero consumers; the implementation is full-capability with no h
 
 ## [1]-[PAGE_INDEX]
 
-| [INDEX] | [PAGE]                                                  | [OWNS]                                                              |  [STATE]  |
-| :-----: | ------------------------------------------------------- | ------------------------------------------------------------------- | :-------: |
-|   [1]   | [intent-and-selection](intent-and-selection.md)         | Typed intent family; substrate-selection rail; total dispatch       | finalized |
-|   [2]   | [tensor-lane](tensor-lane.md)                           | CPU tensor substrate; shape algebra; geometry-to-tensor encoding    | finalized |
-|   [3]   | [model-lane](model-lane.md)                             | ONNX identity, session capsule, EP rows, extension-op admission     | finalized |
-|   [4]   | [remote-lane](remote-lane.md)                           | Proto wire vocabulary; transports; channel capsule; credential axis | finalized |
-|   [5]   | [staging-and-streams](staging-and-streams.md)           | AllocationClass rows; pooled memory; recyclable streams             | finalized |
-|   [6]   | [scheduling-and-lanes](scheduling-and-lanes.md)         | WorkLane channels; solve-path guard; drain participation            | finalized |
-|   [7]   | [progress-and-observation](progress-and-observation.md) | Monotonic phases; zero-alloc capsules; observation seams            | finalized |
-|   [8]   | [units-boundary](units-boundary.md)                     | QuantityFamily rows; conversion-at-admission; unit evidence         | finalized |
-|   [9]   | [receipts-and-benchmarks](receipts-and-benchmarks.md)   | Receipt union; fold projections; benchmark claims                   | finalized |
+| [INDEX] | [PAGE]                                                  | [OWNS]                                                              |
+| :-----: | ------------------------------------------------------- | ------------------------------------------------------------------- |
+|   [1]   | [intent-and-selection](intent-and-selection.md)         | Typed intent family; substrate-selection rail; total dispatch       |
+|   [2]   | [tensor-lane](tensor-lane.md)                           | CPU tensor substrate; shape algebra; geometry-to-tensor encoding    |
+|   [3]   | [model-lane](model-lane.md)                             | ONNX identity, session capsule, EP rows, extension-op admission     |
+|   [4]   | [remote-lane](remote-lane.md)                           | Proto wire vocabulary; transports; channel capsule; credential axis |
+|   [5]   | [staging-and-streams](staging-and-streams.md)           | AllocationClass rows; pooled memory; recyclable streams             |
+|   [6]   | [scheduling-and-lanes](scheduling-and-lanes.md)         | WorkLane channels; solve-path guard; drain participation            |
+|   [7]   | [progress-and-observation](progress-and-observation.md) | Monotonic phases; zero-alloc capsules; observation seams            |
+|   [8]   | [units-boundary](units-boundary.md)                     | QuantityFamily rows; conversion-at-admission; unit evidence         |
+|   [9]   | [receipts-and-benchmarks](receipts-and-benchmarks.md)   | Receipt union; fold projections; benchmark claims                   |
 
 ## [2]-[WIRE_PAGES]
 
@@ -22,36 +22,40 @@ remote-lane · progress-and-observation · receipts-and-benchmarks (each carries
 
 ## [3]-[CATALOGUE_PENDING]
 
-App-root server packages (Grpc.AspNetCore trio) catalogued at app-root creation.
+- App-root server packages (Grpc.AspNetCore trio) catalogued at app-root creation.
+- `Microsoft.AspNetCore.TestHost` — the `RemoteTransport.InProcess` row's `TestServer.CreateHandler` handler seam; lands as a test-only `<PackageReference>` in the spec project at the matched ASP.NET Core servicing line.
+- `NodaTime.Serialization.Protobuf` — the `Google.Type` calendar-date wire bridges on remote-lane and receipts-and-benchmarks (`api-nodatime-protobuf.md`); lands as a direct `<PackageVersion>` only when the `Google.Api.CommonProtos` calendar surface does not resolve transitively through the admitted NodaTime and Grpc graph.
 
 ## [4]-[GAP_LEDGER]
 
-| [INDEX] | [GAP]                                                                                                                                                                      | [CLOSED_BY]                           | [STATE] |
-| :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | :-----: |
-|   [1]   | Substrate collapse: one EP-parameterized Onnx row; wasm row deleted (platform predicate)                                                                                   | intent-and-selection                  | CLOSED  |
-|   [2]   | DocumentService joins the wire vocabulary (Capabilities, DocumentEvents stream, ExecuteTransaction idempotency + dedup window, Query)                                      | remote-lane                           | CLOSED  |
-|   [3]   | ControlService joins the wire vocabulary (capture-support, set-degradation, reload-options)                                                                                | remote-lane                           | CLOSED  |
-|   [4]   | FaultDetail messages project typed faults into google.rpc.Status.details                                                                                                   | remote-lane + receipts-and-benchmarks | CLOSED  |
-|   [5]   | Contract evolution by descriptor diff (additive tolerated, breaking rejected); checksum byte-equality deleted                                                              | remote-lane                           | CLOSED  |
-|   [6]   | Streaming-capability column per transport row; ArtifactSync bidi structurally excluded on GrpcWeb                                                                          | remote-lane                           | CLOSED  |
-|   [7]   | Keepalive policy rows (PooledConnectionIdleTimeout=Infinite, KeepAlivePing 60s/30s, EnableMultipleHttp2Connections)                                                        | remote-lane                           | CLOSED  |
-|   [8]   | Payload law: 4 MiB caps; ArtifactSync 64 KiB Crc32 frames + XxHash128 whole-artifact; UnsafeByteOperations.UnsafeWrap zero-copy; frame law owned here, BlobRemote consumes | remote-lane + staging-and-streams     | CLOSED  |
-|   [9]   | CredentialPolicy axis (insecure-loopback scoped to UDS, tls, mtls, bearer-for-browser); UDS row current with capability flags; peer-credential law                         | remote-lane                           | CLOSED  |
-|  [10]   | Compression axis row (channel/per-call grpc-accept-encoding)                                                                                                               | remote-lane                           | CLOSED  |
-|  [11]   | Interceptor/CallInvoker seam absorbed: correlation metadata, traceparent propagation                                                                                       | remote-lane                           | CLOSED  |
-|  [12]   | One retry owner: gRPC ServiceConfig RetryPolicy refused by spelling; Conflict receipts emitted here                                                                        | remote-lane + receipts-and-benchmarks | CLOSED  |
-|  [13]   | grpc.health.v1 adopted; node-selection affinity column for farm topologies                                                                                                 | remote-lane                           | CLOSED  |
-|  [14]   | WorkLane name owned here (AppHost renamed to DrainQueue); solve-path guard makes synchronous GH2 execution unrepresentable                                                 | scheduling-and-lanes                  | CLOSED  |
-|  [15]   | Progress subscriptions carry scheduler policy values; zero-alloc readonly record struct capsules; receipts materialize at the sink edge                                    | progress-and-observation              | CLOSED  |
-|  [16]   | Geometry-to-tensor encoding cluster (point-cloud, mesh, voxel, symbolic-dim rows)                                                                                          | tensor-lane                           | CLOSED  |
-|  [17]   | Tensor layout family surface (PermuteDimensions, FlattenTo, Squeeze/Unsqueeze, SetSlice, Split, Stack) replaces phantom factories                                          | tensor-lane                           | CLOSED  |
-|  [18]   | CoreML EP row with the AppendExecutionProvider spelling + OrtEnv.GetAvailableProviders probe; EP-context warm-start artifacts route to the Persistence blob lane           | model-lane                            | CLOSED  |
-|  [19]   | ONNX Terminate-latch cancellation cadence (no native timeout) research row                                                                                                 | model-lane                            | CLOSED  |
-|  [20]   | NodaTime-to-protobuf bridges at the wire edge (ToTimestamp/ToInstant family)                                                                                               | remote-lane + receipts-and-benchmarks | CLOSED  |
-|  [21]   | Benchmark claims gated by environment fingerprint; profiling artifacts to blob lane                                                                                        | receipts-and-benchmarks               | CLOSED  |
-|  [22]   | One canonical wire geometry: the proto geometry family; NTS/RhinoCommon/GeoJSON are boundary projections                                                                   | remote-lane                           | CLOSED  |
-|  [23]   | UnitsNet next-major QuantityInfo reshape research row                                                                                                                      | units-boundary                        | CLOSED  |
-|  [24]   | Discovery manifest consumption (socket path, contractChecksum, storeEpoch) on the UDS transport row                                                                        | remote-lane                           | CLOSED  |
+`[OWNER]` names the page that absorbed the gap; `[STATE]` is the feature-state value — `FINALIZED` as a transcription-complete fence, `SPIKE` gated on a probe.
+
+| [INDEX] | [GAP]                                     | [OWNER]                               | [STATE]   |
+| :-----: | :---------------------------------------- | :------------------------------------ | :-------- |
+|   [1]   | EP-parameterized substrate row            | intent-and-selection                  | FINALIZED |
+|   [2]   | `DocumentService` wire vocabulary         | remote-lane                           | FINALIZED |
+|   [3]   | `ControlService` wire vocabulary          | remote-lane                           | FINALIZED |
+|   [4]   | `FaultDetail` status projection           | remote-lane + receipts-and-benchmarks | FINALIZED |
+|   [5]   | descriptor-diff contract evolution        | remote-lane                           | FINALIZED |
+|   [6]   | transport streaming-capability column     | remote-lane                           | FINALIZED |
+|   [7]   | keepalive policy rows                     | remote-lane                           | FINALIZED |
+|   [8]   | payload caps, frames, hashes, zero-copy   | remote-lane + staging-and-streams     | FINALIZED |
+|   [9]   | credential policy and peer credentials    | remote-lane                           | FINALIZED |
+|  [10]   | compression axis                          | remote-lane                           | FINALIZED |
+|  [11]   | interceptor and call-invoker seam         | remote-lane                           | FINALIZED |
+|  [12]   | single retry owner and conflict receipts  | remote-lane + receipts-and-benchmarks | FINALIZED |
+|  [13]   | `grpc.health.v1` and node affinity        | remote-lane                           | FINALIZED |
+|  [14]   | `WorkLane` name and solve-path guard      | scheduling-and-lanes                  | FINALIZED |
+|  [15]   | scheduler-valued progress subscriptions   | progress-and-observation              | FINALIZED |
+|  [16]   | geometry-to-tensor encoding cluster       | tensor-lane                           | FINALIZED |
+|  [17]   | tensor layout family surface              | tensor-lane                           | FINALIZED |
+|  [18]   | CoreML EP and EP-context artifacts        | model-lane                            | FINALIZED |
+|  [19]   | ONNX terminate-latch cancellation cadence | model-lane                            | SPIKE     |
+|  [20]   | NodaTime-protobuf wire bridges            | remote-lane + receipts-and-benchmarks | FINALIZED |
+|  [21]   | benchmark claims and profiling artifacts  | receipts-and-benchmarks               | FINALIZED |
+|  [22]   | canonical proto geometry                  | remote-lane                           | FINALIZED |
+|  [23]   | UnitsNet `QuantityInfo` research row      | units-boundary                        | FINALIZED |
+|  [24]   | discovery manifest on UDS transport       | remote-lane                           | FINALIZED |
 
 ## [5]-[DENSITY_BAR]
 
@@ -66,20 +70,20 @@ Axis owners (vocabulary budget):
 |   [3]   | Fault family       | `ComputeFault`      | [Union] fault, band 2200 |     13      |
 |   [4]   | Total dispatch     | `DispatchTable`     | record                   | 3 delegates |
 |   [5]   | Tensor dtypes      | `TensorDtype`       | SmartEnum\<string>       |     10      |
-|   [6]   | Tensor op kinds    | `TensorOpKind`      | SmartEnum\<string>       |      9      |
-|   [7]   | Tensor op families | `TensorOpFamily`    | SmartEnum\<string>       |     45      |
+|   [6]   | Tensor op kinds    | `TensorOpKind`      | SmartEnum\<string>       |     10      |
+|   [7]   | Tensor op families | `TensorOpFamily`    | SmartEnum\<string>       |     52      |
 |   [8]   | Tolerance classes  | `ToleranceClass`    | SmartEnum\<string>       |      4      |
 |   [9]   | Layout forms       | `LayoutForm`        | SmartEnum\<string>       |      5      |
-|  [10]   | Encoding channels  | `EncodingChannel`   | SmartEnum\<string>       |      3      |
+|  [10]   | Encoding channels  | `EncodingChannel`   | SmartEnum\<string>       |      6      |
 |  [11]   | Geometry encodings | `GeometryEncoding`  | [Union]                  |      3      |
 |  [12]   | Model acquisition  | `ModelSource`       | [Union]                  |      4      |
-|  [13]   | EP axis            | `ExecutionProvider` | SmartEnum\<string>       |      2      |
+|  [13]   | EP axis            | `ExecutionProvider` | SmartEnum\<string>       |      4      |
 |  [14]   | Cache postures     | `CachePolicy`       | SmartEnum\<string>       |      4      |
 
 | [INDEX] | [AXIS/CONCERN]    | [OWNER]                | [KIND]             | [CASES] |
 | :-----: | :---------------- | :--------------------- | :----------------- | :-----: |
 |   [1]   | Contract drift    | `ContractDrift`        | [Union]            |    3    |
-|   [2]   | Transport axis    | `RemoteTransport`      | SmartEnum\<string> |    4    |
+|   [2]   | Transport axis    | `RemoteTransport`      | SmartEnum\<string> |    6    |
 |   [3]   | Stream shapes     | `StreamShape`          | [Flags] enum       |    4    |
 |   [4]   | Node selection    | `NodeSelection`        | enum               |    3    |
 |   [5]   | Credential axis   | `CredentialPolicy`     | SmartEnum\<string> |    4    |
@@ -119,28 +123,30 @@ Rail surfaces (one entrypoint family per rail):
 
 Vocabulary owners first, then shapes, rails, dispatch, boundaries, composition. Seam notes honored: the intent/dispatch spine composes its axis vocabularies (package-cumulative resolution ruling), so axis files land before `Intent.cs`; `SelectionContext` carries the host fingerprint as a bare string with the typed `HostFingerprint` owner landing in `Receipts.cs` (fingerprint-slot ordering, no forward reference); the `WorkLane` accessor is `ComputeKeyPolicy`; TS_PROJECTION clusters transcribe at the TS workspace, never as package source.
 
-| [INDEX] | [FILE]                  | [TRANSCRIBES]                                                                                                                                                  | [GATE]                 |
-| :-----: | :---------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------- |
-|   [1]   | `Faults.cs`             | intent-and-selection#DISPATCH_SPINE (`ComputeFault`), intent-and-selection#SUBSTRATE_AXIS (`ComputeKeyPolicy`)                                                 | static                 |
-|   [2]   | `Tensors/Vocabulary.cs` | tensor-lane#TENSOR_VOCABULARY                                                                                                                                  | static + spec          |
-|   [3]   | `Tensors/Operations.cs` | tensor-lane#OPERATION_FAMILIES                                                                                                                                 | static + spec          |
-|   [4]   | `Tensors/Layout.cs`     | tensor-lane#LAYOUT_ALGEBRA                                                                                                                                     | static + spec          |
-|   [5]   | `Units.cs`              | units-boundary#QUANTITY_TABLE, units-boundary#DIMENSIONAL_LAW, units-boundary#PARSE_FORMAT                                                                     | static + spec          |
-|   [6]   | `Staging.cs`            | staging-and-streams#ALLOCATION_AXIS, staging-and-streams#PLANE_VIEWS, staging-and-streams#STREAM_POOL                                                          | static + spec          |
-|   [7]   | `Progress.cs`           | progress-and-observation#PHASE_FAMILY, progress-and-observation#PROGRESS_CELL, progress-and-observation#OBSERVATION_SEAMS                                      | static + spec          |
-|   [8]   | `Lanes.cs`              | scheduling-and-lanes#LANE_AXIS (`WorkLane`, `LaneHandle`), scheduling-and-lanes#CPU_BUDGET                                                                     | static + spec          |
-|   [9]   | `Protos/*.proto`        | remote-lane#PROTO_VOCABULARY (service and message tables), remote-lane#FAULT_PROJECTION (`FaultDetail` row), remote-lane#ARTIFACT_FRAMES (`ArtifactFrame` row) | restore + static       |
-|  [10]   | `Models/Providers.cs`   | model-lane#EP_AXIS                                                                                                                                             | static + spec          |
-|  [11]   | `Models/Identity.cs`    | model-lane#MODEL_IDENTITY                                                                                                                                      | static + spec          |
-|  [12]   | `Models/Sessions.cs`    | model-lane#SESSION_CAPSULE, model-lane#EXTENSION_OPS, model-lane#INFERENCE_MODES                                                                               | static + spec + bridge |
-|  [13]   | `Models/Cache.cs`       | model-lane#RESULT_CACHE                                                                                                                                        | static + spec          |
-|  [14]   | `Remote/Contract.cs`    | remote-lane#CONTRACT_EVOLUTION, remote-lane#FAULT_PROJECTION (`WireFault`)                                                                                     | static + spec-rail     |
-|  [15]   | `Remote/Frames.cs`      | remote-lane#ARTIFACT_FRAMES (`FrameEdge`)                                                                                                                      | static + spec          |
-|  [16]   | `Remote/Transports.cs`  | remote-lane#PROTO_VOCABULARY (`WireServices`), remote-lane#TRANSPORT_AXIS, remote-lane#CALL_POLICY                                                             | static + spec-rail     |
-|  [17]   | `Intent.cs`             | intent-and-selection#INTENT_FAMILY, intent-and-selection#SUBSTRATE_AXIS, intent-and-selection#DISPATCH_SPINE (remaining owners)                                | static + spec          |
-|  [18]   | `LaneRuntime.cs`        | scheduling-and-lanes#LANE_AXIS (`WorkItem`), scheduling-and-lanes#SOLVE_GUARD, scheduling-and-lanes#DRAIN_CANCEL                                               | static + spec          |
-|  [19]   | `Receipts.cs`           | receipts-and-benchmarks#RECEIPT_UNION, receipts-and-benchmarks#FOLD_PROJECTIONS, receipts-and-benchmarks#WIRE_STAMPS                                           | static + spec          |
-|  [20]   | `Benchmarks.cs`         | receipts-and-benchmarks#BENCHMARK_CLAIMS                                                                                                                       | static + spec          |
+Cluster cells use page-local anchor names; proof cells name evidence beyond the standard static/spec gate.
+
+| [INDEX] | [FILE]                  | [CLUSTERS]                               | [PROOF]          |
+| :-----: | :---------------------- | :--------------------------------------- | :--------------- |
+|   [1]   | `Faults.cs`             | faults and key policy                    | static           |
+|   [2]   | `Tensors/Vocabulary.cs` | tensor vocabulary                        | specs            |
+|   [3]   | `Tensors/Operations.cs` | operation families                       | specs            |
+|   [4]   | `Tensors/Layout.cs`     | layout algebra                           | specs            |
+|   [5]   | `Units.cs`              | quantities, dimensions, parse/format     | specs            |
+|   [6]   | `Staging.cs`            | allocation, plane views, stream pool     | specs            |
+|   [7]   | `Progress.cs`           | phases, progress cell, observation seams | specs            |
+|   [8]   | `Lanes.cs`              | lane axis, handles, CPU budget           | specs            |
+|   [9]   | `Protos/*.proto`        | services, faults, artifact frames        | restore + static |
+|  [10]   | `Models/Providers.cs`   | execution providers                      | specs            |
+|  [11]   | `Models/Identity.cs`    | model identity                           | specs            |
+|  [12]   | `Models/Sessions.cs`    | sessions, extension ops, inference modes | specs + bridge   |
+|  [13]   | `Models/Cache.cs`       | result cache                             | specs            |
+|  [14]   | `Remote/Contract.cs`    | contract evolution, wire faults          | spec rail        |
+|  [15]   | `Remote/Frames.cs`      | artifact frames                          | specs            |
+|  [16]   | `Remote/Transports.cs`  | services, transport, call policy         | spec rail        |
+|  [17]   | `Intent.cs`             | intent, substrate, dispatch              | specs            |
+|  [18]   | `LaneRuntime.cs`        | work items, solve guard, drain cancel    | specs            |
+|  [19]   | `Receipts.cs`           | receipts, folds, wire stamps             | specs            |
+|  [20]   | `Benchmarks.cs`         | benchmark claims                         | specs            |
 
 ## [7]-[FILE_PROCESS]
 
@@ -155,15 +161,17 @@ Vocabulary owners first, then shapes, rails, dispatch, boundaries, composition. 
 
 ## [8]-[PROOF_GATES]
 
-| [GATE]    | [COMMAND]                                                                                                 | [EVIDENCE]                                                                        |
-| :-------- | :-------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------- |
-| restore   | `dotnet restore libs/csharp/Rasm.Compute/Rasm.Compute.csproj`                                             | `packages.lock.json` unchanged; zero NU1004                                       |
-| catalogue | `uv run python -m tools.assay api doctor` and `api resolve <key>`                                         | every Compute package key reports assembly present; catalogue pages current       |
-| static    | `uv run python -m tools.assay static plan --language csharp libs/csharp/Rasm.Compute` then `static build` | routed closure compiles; zero `': error '` diagnostics                            |
-| spec      | `uv run python -m tools.assay test run --target Rasm.Compute.Tests`                                       | green run; CsCheck laws hold without tolerance loosening                          |
-| bridge    | `uv run python -m tools.assay bridge verify --pattern tests/csharp/libs/Rasm.Compute`                     | host-seam scenarios pass (plugin-ALC ONNX load, UDS attach)                       |
-| spec-rail | `uv run python -m tools.assay test run --target Rasm.Compute.Tests` (CallSpine, WireFault specs)          | Grpc.Core.Api members compile on the spec rail (transitive package, no assay key) |
-| render    | `uv run python -m tools.assay docs check libs/csharp/Rasm.Compute`                                        | every Mermaid block renders through the local `mmdc` route                        |
+Assay rows use `uv run python -m tools.assay`; proof runs at the planned phase gate, not after each edit.
+
+| [GATE] | [RAIL]                         | [EVIDENCE]                                    |
+| :----: | :----------------------------- | :-------------------------------------------- |
+|  [G1]  | `dotnet restore` Compute       | lockfile unchanged; zero NU1004               |
+|  [G2]  | `api doctor` + `api resolve`   | package keys resolve; catalogues current      |
+|  [G3]  | `static plan` + `static build` | routed closure compiles                       |
+|  [G4]  | `test run` Compute target      | CsCheck laws hold without tolerance loosening |
+|  [G5]  | `bridge verify` scenarios      | plugin-ALC ONNX load and UDS attach pass      |
+|  [G6]  | G4 spec rail                   | `Grpc.Core.Api` members compile               |
+|  [G7]  | `docs check` Compute           | Mermaid blocks render through local `mmdc`    |
 
 ## [9]-[PROHIBITIONS]
 
@@ -186,20 +194,20 @@ Vocabulary owners first, then shapes, rails, dispatch, boundaries, composition. 
 
 ## [10]-[ADMISSIONS_RECORD]
 
-| [PACKAGE]                            | [VERSION] | [PAGE]                                        | [CATALOGUE]              |
-| :----------------------------------- | :-------- | :-------------------------------------------- | :----------------------- |
-| CommunityToolkit.HighPerformance     | 8.4.2     | tensor-lane, staging-and-streams              | api-highperformance.md   |
-| Google.Protobuf                      | 3.35.1    | remote-lane, receipts-and-benchmarks          | api-protobuf.md          |
-| Grpc.Net.Client                      | 2.80.0    | remote-lane                                   | api-grpc-client.md       |
-| Grpc.Net.Client.Web                  | 2.80.0    | remote-lane                                   | api-grpc-client-web.md   |
-| Grpc.Tools                           | 2.81.1    | remote-lane                                   | api-grpc-tools.md        |
-| Microsoft.IO.RecyclableMemoryStream  | 3.0.1     | staging-and-streams, remote-lane              | api-recyclable-stream.md |
-| Microsoft.ML.OnnxRuntime             | 1.26.0    | model-lane, tensor-lane, intent-and-selection | api-onnxruntime.md       |
-| Microsoft.ML.OnnxRuntime.Extensions  | 0.14.0    | model-lane                                    | api-onnx-extensions.md   |
-| NodaTime.Serialization.Protobuf      | 2.0.2     | remote-lane, receipts-and-benchmarks          | api-nodatime-protobuf.md |
-| System.Numerics.Tensors              | 10.0.9    | tensor-lane                                   | api-tensors.md           |
-| Thinktecture.Runtime.Extensions.Json | 10.2.0    | receipts-and-benchmarks                       | doctrine (stack atlas)   |
-| UnitsNet                             | 5.75.0    | units-boundary                                | api-unitsnet.md          |
+| [PACKAGE]                            | [PAGE]                                        | [CATALOGUE]              |
+| :----------------------------------- | :-------------------------------------------- | :----------------------- |
+| CommunityToolkit.HighPerformance     | tensor-lane, staging-and-streams              | api-highperformance.md   |
+| Google.Protobuf                      | remote-lane, receipts-and-benchmarks          | api-protobuf.md          |
+| Grpc.Net.Client                      | remote-lane                                   | api-grpc-client.md       |
+| Grpc.Net.Client.Web                  | remote-lane                                   | api-grpc-client-web.md   |
+| Grpc.Tools                           | remote-lane                                   | api-grpc-tools.md        |
+| Microsoft.IO.RecyclableMemoryStream  | staging-and-streams, remote-lane              | api-recyclable-stream.md |
+| Microsoft.ML.OnnxRuntime             | model-lane, tensor-lane, intent-and-selection | api-onnxruntime.md       |
+| Microsoft.ML.OnnxRuntime.Extensions  | model-lane                                    | api-onnx-extensions.md   |
+| System.Numerics.Tensors              | tensor-lane                                   | api-tensors.md           |
+| Thinktecture.Runtime.Extensions      | all pages                                     | doctrine (stack atlas)   |
+| Thinktecture.Runtime.Extensions.Json | receipts-and-benchmarks                       | doctrine (stack atlas)   |
+| UnitsNet                             | units-boundary                                | api-unitsnet.md          |
 
 ## [11]-[REFINEMENT_HORIZON]
 

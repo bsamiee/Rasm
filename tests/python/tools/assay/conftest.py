@@ -88,13 +88,21 @@ def _isolate_sut_state() -> Generator[None]:
 
 @pytest.fixture
 def assay_root(tmp_path: Path) -> AssayHarness:
-    """Isolated harness rooted in pytest's tmp tree."""
+    """Isolated harness rooted in pytest's tmp tree.
+
+    Returns:
+        Harness whose settings root at ``tmp_path``.
+    """
     return AssayHarness(root=tmp_path, settings=assay_settings(tmp_path))
 
 
 @pytest.fixture
 def mem_store(assay_root: AssayHarness) -> Generator[ArtifactStore]:
-    """In-memory artifact store under the current run id, removed on teardown."""
+    """In-memory artifact store under the current run id, removed on teardown.
+
+    Yields:
+        Memory-backed artifact store for the active run.
+    """
     store = assay_root.settings.store(protocol="memory", root=f"mem-store/{assay_root.settings.run_id}")
     yield store
     store.remove_path(store.root, recursive=True) if store.exists_path(store.root) else None
@@ -146,7 +154,11 @@ def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], mo
 
 @pytest.fixture
 def log_processors() -> tuple[Processor, ...]:
-    """Add assay's ring processor to the project-agnostic log capture chain."""
+    """Add assay's ring processor to the project-agnostic log capture chain.
+
+    Returns:
+        Processor chain extension carrying the assay ring processor.
+    """
     from tools.assay.core.aspect import ring_processor  # noqa: PLC0415  # processor imported at fixture time to keep collection import-clean
 
     return (ring_processor,)
@@ -154,13 +166,21 @@ def log_processors() -> tuple[Processor, ...]:
 
 @pytest.fixture
 def rail_probe() -> RailProbe:
-    """Fresh seam probe for one test's canned rail calls."""
+    """Fresh seam probe for one test's canned rail calls.
+
+    Returns:
+        New rail seam probe.
+    """
     return RailProbe()
 
 
 @pytest.fixture
 def cpu_double(monkeypatch: pytest.MonkeyPatch) -> CpuDoubleInstaller:
-    """Installer bound to this test's monkeypatch for canned psutil samples."""
+    """Installer bound to this test's monkeypatch for canned psutil samples.
+
+    Returns:
+        Installer callable that mounts a psutil double for the supplied sampler.
+    """
 
     def install(cpu_percent: CpuSampler, *, cpu_count: int = 4) -> MagicMock:
         return install_cpu_double(monkeypatch, cpu_percent, cpu_count=cpu_count)
@@ -170,7 +190,11 @@ def cpu_double(monkeypatch: pytest.MonkeyPatch) -> CpuDoubleInstaller:
 
 @pytest.fixture
 def captured_emits(monkeypatch: pytest.MonkeyPatch) -> list[Envelope]:
-    """Capture each ``automation.engine._emit`` Envelope without parsing stdout."""
+    """Capture each ``automation.engine._emit`` Envelope without parsing stdout.
+
+    Returns:
+        Live list accumulating every captured emit Envelope.
+    """
     from tools.assay.automation import engine as automation_engine  # noqa: PLC0415  # patch target re-imported here
 
     probe: SeamProbe[Envelope] = SeamProbe(project=operator.itemgetter(slice(1)))
@@ -199,11 +223,19 @@ def ssh_env(monkeypatch: pytest.MonkeyPatch) -> Provisioned[Awaitable[asyncssh.S
 
 @pytest.fixture
 def bridge_result(tmp_path: Path) -> BridgeResult:
-    """Bridge-result variant writer rooted under ``tmp_path / "verify"``."""
+    """Bridge-result variant writer rooted under ``tmp_path / "verify"``.
+
+    Returns:
+        Variant writer for valid and adversarial bridge result files.
+    """
     return BridgeResult(tmp_path / "verify")
 
 
 @pytest.fixture
 def yak_shape() -> YakShape:
-    """Default fake-yak materializer for package rail laws."""
+    """Default fake-yak materializer for package rail laws.
+
+    Returns:
+        Default fake-yak/MSBuild tree materializer.
+    """
     return YakShape()

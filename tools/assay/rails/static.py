@@ -17,6 +17,8 @@ from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # runtime: public rail signatures are inspected
 from tools.assay.core.engine import argv_for, fan_out, leased, resource_projection
 from tools.assay.core.model import (
+    # _sarif_status is a model-owned reader the rail forwards; private cross-module reach is intentional.
+    _sarif_status,  # noqa: PLC2701
     Artifact,
     ArtifactKind,
     Check,
@@ -230,7 +232,7 @@ def _matches(targets: TargetFiles, routed: tuple[Routed, ...], skipped: SkipRows
     return (*route_matches, *rejected, *skipped_matches)
 
 
-def _detail(
+def _detail(  # noqa: PLR0913  # each param is a distinct StaticRun projection input; no grouping reduces the count without a synthetic carrier
     targets: TargetFiles,
     routed: tuple[Routed, ...],
     planned: tuple[tuple[str, str, str], ...],
@@ -238,6 +240,8 @@ def _detail(
     artifacts: tuple[Artifact, ...],
     settings: AssaySettings,
     checks: tuple[Check, ...],
+    *,
+    sarif_status: tuple[tuple[str, str], ...],
     done: tuple[Completed, ...] = (),
 ) -> StaticRun:
     notes = tuple(note for item in done for note in item.notes)
@@ -249,6 +253,7 @@ def _detail(
         phases=tuple(dict.fromkeys(row[0] for row in planned)),
         resources=resource_projection(settings, checks, notes=notes, receipts=done),
         artifacts=tuple(artifact.path for artifact in artifacts),
+        sarif_status=sarif_status,
     )
 
 
@@ -441,6 +446,20 @@ def _dispatch(routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, s
     )
 
 
+def _backpressure_note(resources: tuple[tuple[str, float], ...]) -> tuple[str, ...]:
+    # Structured threading: every field rides the typed resource rows resource_projection already folded from
+    # _ConcurrencyPressure and notes (slot max-wait is dotnet.slot_wait_ms.max). The note touches no receipt text.
+    row = dict(resources)
+    original, reduced = int(row.get("concurrency.original", 0.0)), int(row.get("concurrency.reduced", 0.0))
+    foreign, mem = int(row.get("dotnet.foreign", 0.0)), row.get("memory.percent", 0.0)
+    slot_wait_max = row.get("dotnet.slot_wait_ms.max", 0.0)
+    note = (
+        f"concurrency.backpressure: reduced {original}->{reduced} (mem={mem:.0f}% foreign_dotnet={foreign}); "
+        f"dotnet.slot max_wait={slot_wait_max:.0f}ms"
+    )
+    return (note,) if reduced < original or slot_wait_max > 0.0 else ()
+
+
 def _closure_notes(report: Report, routed: tuple[Routed, ...]) -> Report:
     notes = tuple(note for route_row in routed for note in route_row.closure_note())
     return msgspec.structs.replace(report, notes=(*report.notes, *notes)) if notes else report
@@ -456,19 +475,14 @@ def _fold(settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, r
     matches = _matches(targets, routed, skipped)
 
     def executed(done: tuple[Completed, ...]) -> Report:
-        report = fold(
-            Claim.STATIC,
-            "static",
-            done,
-            detail=_detail(targets, routed, planned, skipped, artifacts, settings, checks, done),
-            sarif_dir=scope.sarif_dir,
-        )
+        detail = _detail(targets, routed, planned, skipped, artifacts, settings, checks, sarif_status=_sarif_status(done, scope.sarif_dir), done=done)
+        report = fold(Claim.STATIC, "static", done, detail=detail, sarif_dir=scope.sarif_dir, promote_empty=True)
         return _closure_notes(
             msgspec.structs.replace(
                 report,
                 results=(*report.results, *matches),
                 artifacts=(*artifacts, *report.artifacts),
-                notes=(*report.notes, f"planned={len(planned)} skipped={len((*targets.rejected, *skipped))}"),
+                notes=(*report.notes, f"planned={len(planned)} skipped={len((*targets.rejected, *skipped))}", *_backpressure_note(detail.resources)),
             ),
             routed,
         )

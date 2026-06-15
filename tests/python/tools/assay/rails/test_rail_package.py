@@ -389,7 +389,11 @@ def _flow_run_check(
     stage_status: RailStatus = RailStatus.OK,
     build_fault: Fault | None = None,
 ) -> Callable[..., Result[Completed, Fault]]:
-    """Build a fake run_check that materializes the stage pipeline artifacts."""
+    """Build a fake run_check that materializes the stage pipeline artifacts.
+
+    Returns:
+        Fake ``run_check`` driving the build/stage pipeline doubles.
+    """
 
     def fake(check: Check, **kwargs: object) -> Result[Completed, Fault]:
         mode = check.tool.mode
@@ -426,7 +430,11 @@ register_law(stage, "yak_stage_failure_short_circuits_before_commit")
 def _install_flow(
     verb_fn: _VerbFn, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[Result[Report, Fault], builtins.list[str]]:
-    """Run a package verb with a fake pipeline and captured bridge args."""
+    """Run a package verb with a fake pipeline and captured bridge args.
+
+    Returns:
+        Verb result paired with the captured bridge argument strings.
+    """
     meta = yak_shape.materialize(assay_root)
     monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
     calls: builtins.list[str] = []

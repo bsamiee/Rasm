@@ -17,10 +17,12 @@ import msgspec
 import structlog
 from upath import UPath
 
+from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import AssaySettings
 from tools.assay.core.model import (  # noqa: TC001  # msgspec needs Language/Tool annotations at runtime
     Base,
     Check,
+    Claim,
     Fault,
     Input,
     Language,
@@ -304,6 +306,29 @@ def infer_languages(paths: RoutePaths, available: tuple[Language, ...]) -> tuple
     return tuple(language for language in available if suffixes & language.suffixes) or available
 
 
+def resolve_languages(selected: Language | Fault | None, paths: RoutePaths, *, claim: Claim) -> Result[tuple[Language, ...], Fault]:
+    """Resolve a language-flag choice into the routed language tuple.
+
+    A conflicting flag choice short-circuits as its fault; ``None`` infers languages from path suffixes over the
+    claim's catalog languages; an explicit choice yields that single language.
+
+    Args:
+        selected: ``language_choice`` result: a Fault, ``None`` for unrestricted, or one language.
+        paths: Root-relative path tokens used for suffix inference.
+        claim: Owning claim whose catalog languages bound the inference candidates.
+
+    Returns:
+        Ok with the routed languages, or the conflicting-flag fault.
+    """
+    match selected:
+        case Fault() as fault:
+            return Error(fault)
+        case None:
+            return Ok(infer_languages(paths, tuple(sorted({t.language for t in select(claim)}, key=lambda member: member.value))))
+        case Language() as language:
+            return Ok((language,))
+
+
 def route(
     language: Language, paths: RoutePaths = (), *, source: Source | None = None, settings: AssaySettings | None = None
 ) -> Result[Routed, Fault]:
@@ -450,6 +475,7 @@ __all__ = [
     "infer_languages",
     "parse_csproj",
     "place",
+    "resolve_languages",
     "routable_files",
     "route",
     "target_files",

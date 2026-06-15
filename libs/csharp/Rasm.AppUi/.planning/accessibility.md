@@ -4,25 +4,25 @@ Rasm.AppUi accessibility is columns on existing catalogs plus one gate fold: aut
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                       |
-| :-----: | :--------------- | :----------------------------------------------------------- |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                             |
+| :-----: | :--------------- | :----------------------------------------------------------------- |
 |   [1]   | AUTOMATION_PEERS | Catalog-sourced automation identity; live-region announcement rows |
-|   [2]   | KEYBOARD_NAV     | Tab-order, trap, and refocus law over attached navigation     |
-|   [3]   | CONTRAST_GATE    | The suite's single WCAG luminance gate and floor rows         |
-|   [4]   | COMPLIANCE_PROOF | Per-catalog-row audit law executed by the headless lanes      |
+|   [2]   | KEYBOARD_NAV     | Tab-order, trap, and refocus law over attached navigation          |
+|   [3]   | CONTRAST_GATE    | The suite's single WCAG luminance gate and floor rows              |
+|   [4]   | COMPLIANCE_PROOF | Per-catalog-row audit law executed by the headless lanes           |
 
 ## [2]-[AUTOMATION_PEERS]
 
 - Owner: `AnnouncementRow` live-region record; `AccessOps` identity fold over catalog columns.
-- Cases: toast, progress, validation — the three announcement rows.
+- Cases: toast, progress, validation over stock peers; chart-tile, preview over Skia-drawn visuals carrying the `Synthesized` flag — the five announcement rows.
 - Entry: `public StyledElement Identify(ScreenCatalogRow row)` — the one automation-identity admission per surface root.
-- Auto: the mount transaction applies `Identify` at every surface root; `Announce` subscriptions join the activation scope's disposal; the `AutomationName` column is the single name source for every derived dockable, palette entry, and proof lane.
+- Auto: the mount transaction applies `Identify` at every surface root; `Announce` subscriptions join the activation scope's disposal; the `AutomationName` column is the single name source for every derived dockable, palette entry, and proof lane; the `Synthesized` column declares which live regions sit on Skia-drawn visuals lacking a stock peer, so the peer-presence audit reads the contract from the row, not a per-visual probe.
 - Packages: Avalonia, System.Reactive, BCL inbox
-- Growth: one announcement row per live source; zero new surface.
-- Boundary: stock Avalonia peers own every retained control — a per-control peer class is the deleted pattern; Skia-drawn visuals, the embedded NSView bridge, and macOS announcement projection are research rows; per-call automation-name literals are deleted by the catalog column.
+- Growth: one announcement row per live source; one `Synthesized` flag per Skia-drawn region; zero new surface.
+- Boundary: stock Avalonia peers own every retained control — a per-control peer class is the deleted pattern; a `Synthesized` row marks a Skia-drawn chart, tile, or preview visual whose automation peer the peer-synthesis mechanism must construct, and that synthesis spelling stays a research row until the `OnCreateAutomationPeer` surface confirms in the catalogue; the embedded NSView bridge and the macOS automation-backend projection of `SetLiveSetting` and `SetName` transitions across the NSView boundary are research rows; per-call automation-name literals are deleted by the catalog column.
 
 ```csharp signature
-public sealed record AnnouncementRow(string Key, AutomationLiveSetting Setting, IObservable<string> Texts);
+public sealed record AnnouncementRow(string Key, AutomationLiveSetting Setting, IObservable<string> Texts, bool Synthesized);
 
 public static class AccessOps {
     extension(StyledElement element) {
@@ -42,11 +42,13 @@ public static class AccessOps {
 }
 ```
 
-| [INDEX] | [ROW]      | [SETTING]   | [TEXT_SOURCE]                                |
-| :-----: | :--------- | :---------- | :------------------------------------------- |
-|   [1]   | toast      | `Polite`    | notification text at presentation            |
-|   [2]   | progress   | `Polite`    | phase-transition text from progress streams  |
-|   [3]   | validation | `Assertive` | `AdmissionState` fail text                   |
+| [INDEX] | [ROW]      | [SETTING]   | [TEXT_SOURCE]                               | [SYNTHESIZED] |
+| :-----: | :--------- | :---------- | :------------------------------------------ | :------------ |
+|   [1]   | toast      | `Polite`    | notification text at presentation           | no            |
+|   [2]   | progress   | `Polite`    | phase-transition text from progress streams | no            |
+|   [3]   | validation | `Assertive` | `AdmissionState` fail text                  | no            |
+|   [4]   | chart-tile | `Polite`    | series summary at render from the spec fold | yes           |
+|   [5]   | preview    | `Polite`    | offscreen-preview caption at capture        | yes           |
 
 ## [3]-[KEYBOARD_NAV]
 
@@ -109,13 +111,13 @@ public static class ContrastGate {
 }
 ```
 
-| [INDEX] | [ROW]            | [VALUE] | [BINDS]                                          |
-| :-----: | :--------------- | :-----: | :----------------------------------------------- |
-|   [1]   | body-text        |   4.5   | text pairs at body sizes                          |
-|   [2]   | large-text       |   3.0   | display and headline pairs                        |
-|   [3]   | non-text         |   3.0   | focus visuals, icon tints, chart strokes          |
-|   [4]   | high-contrast    |   7.0   | every pair on the high-contrast variant row       |
-|   [5]   | luminance-offset |  0.05   | both ratio terms                                  |
+| [INDEX] | [ROW]            | [VALUE] | [BINDS]                                     |
+| :-----: | :--------------- | :-----: | :------------------------------------------ |
+|   [1]   | body-text        |   4.5   | text pairs at body sizes                    |
+|   [2]   | large-text       |   3.0   | display and headline pairs                  |
+|   [3]   | non-text         |   3.0   | focus visuals, icon tints, chart strokes    |
+|   [4]   | high-contrast    |   7.0   | every pair on the high-contrast variant row |
+|   [5]   | luminance-offset |  0.05   | both ratio terms                            |
 
 ## [5]-[COMPLIANCE_PROOF]
 

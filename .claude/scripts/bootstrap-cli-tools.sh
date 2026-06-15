@@ -16,20 +16,20 @@ readonly ALLOW_NETWORK="${CLAUDE_BOOTSTRAP_ALLOW_NETWORK:-0}"
 readonly ALLOW_REMOTE_INSTALLERS="${CLAUDE_BOOTSTRAP_ALLOW_REMOTE_INSTALLERS:-0}"
 readonly BINSTALL_URL='https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh'
 declare -Ar TOOLS=(
-    [rg]='ripgrep:binstall'          [fd]='fd-find:binstall'
-    [sd]='sd:binstall'               [bat]='bat:binstall'
-    [eza]='eza:binstall'             [choose]='choose:binstall'
-    [xh]='xh:binstall'               [dust]='du-dust:binstall'
-    [procs]='procs:binstall'         [ouch]='ouch:binstall'
-    [jnv]='jnv:binstall'             [scc]='boyter/scc:github-go'
+    [rg]='ripgrep:binstall' [fd]='fd-find:binstall'
+    [sd]='sd:binstall' [bat]='bat:binstall'
+    [eza]='eza:binstall' [choose]='choose:binstall'
+    [xh]='xh:binstall' [dust]='du-dust:binstall'
+    [procs]='procs:binstall' [ouch]='ouch:binstall'
+    [jnv]='jnv:binstall' [scc]='boyter/scc:github-go'
     [hyperfine]='hyperfine:binstall' [gping]='gping:binstall'
     [trip]='trippy:binstall'
     [doggo]='mr-karan/doggo:github-go'
-    [trash-put]='trash-cli:pipx'
+    [trash - put]='trash-cli:pipx'
 )
 declare -Ar STRATEGY_DISPATCH=(
     [binstall]=_install_binstall
-    [github-go]=_install_github_go
+    [github - go]=_install_github_go
     [pipx]=_install_pipx
 )
 declare -Ar COMMAND_DISPATCH=(
@@ -91,7 +91,7 @@ _ensure_prereqs() {
     for bin in "${PREREQS[@]}"; do
         command -v "${bin}" >/dev/null 2>&1 || missing+=("${bin}")
     done
-    (( ${#missing[@]} == 0 )) && return 0
+    ((${#missing[@]} == 0)) && return 0
     _require_enabled "${ALLOW_SUDO}" "Missing prerequisites (${missing[*]}). Set CLAUDE_BOOTSTRAP_ALLOW_SUDO=1 to install them."
     local -r pkg_mgr="$(_detect_pkg_mgr)"
     printf '[PREREQS] Installing with %s: %s\n' "${pkg_mgr}" "${missing[*]}"
@@ -102,10 +102,10 @@ _ensure_path() {
     mkdir -p "${BIN_DIR}"
     export PATH="${BIN_DIR}:${PATH}"
     [[ "${ALLOW_PROFILE_WRITE}" == "1" ]] || return 0
-    [[ -f "${PROFILE_PATH}" ]] || : > "${PROFILE_PATH}"
+    [[ -f "${PROFILE_PATH}" ]] || : >"${PROFILE_PATH}"
     rg -q --fixed-strings "${BIN_DIR}" "${PROFILE_PATH}" 2>/dev/null && return 0
     # shellcheck disable=SC2016  # Single quotes intentional -- expand when shell reads the profile.
-    printf 'export PATH="%s:${PATH}"\n' "${BIN_DIR}" >> "${PROFILE_PATH}"
+    printf 'export PATH="%s:${PATH}"\n' "${BIN_DIR}" >>"${PROFILE_PATH}"
     printf '[PATH] Appended %s to %s\n' "${BIN_DIR}" "${PROFILE_PATH}"
 }
 
@@ -151,8 +151,8 @@ _install_github_go() {
     raw_os="$(uname -s)"
     readonly raw_os
     local -r os="${raw_os@L}"
-    url="$(curl -sSf "https://api.github.com/repos/${repo}/releases/latest" \
-        | jq -r --arg os "${os}" --arg arch "${arch}" \
+    url="$(curl -sSf "https://api.github.com/repos/${repo}/releases/latest" |
+        jq -r --arg os "${os}" --arg arch "${arch}" \
             '[.assets[].browser_download_url | select(test($os; "i") and test($arch; "i") and test("\\.tar\\.gz$"))] | first // empty')"
     readonly url
     [[ -n "${url}" ]] || {
@@ -188,7 +188,7 @@ _provision() {
     local binary spec package strategy
     for binary in "${!TOOLS[@]}"; do
         spec="${TOOLS[${binary}]}"
-        IFS=: read -r package strategy <<< "${spec}"
+        IFS=: read -r package strategy <<<"${spec}"
         command -v "${binary}" >/dev/null 2>&1 && {
             printf '[SKIP] %s already present\n' "${binary}"
             skipped+=("${binary}")
@@ -218,7 +218,7 @@ _check() {
         command -v "${binary}" >/dev/null 2>&1 && continue
         missing_tools+=("${binary}")
         spec="${TOOLS[${binary}]}"
-        IFS=: read -r package strategy <<< "${spec}"
+        IFS=: read -r package strategy <<<"${spec}"
         [[ "${strategy}" == "pipx" ]] && {
             command -v pipx >/dev/null 2>&1 || missing_prereqs+=("pipx")
         }
@@ -229,14 +229,14 @@ _check() {
         }
     done
     printf '[CHECK] missing_prereqs=%d missing_tools=%d\n' "${#missing_prereqs[@]}" "${#missing_tools[@]}"
-    (( ${#missing_prereqs[@]} == 0 )) || printf '[CHECK] missing prereqs: %s\n' "${missing_prereqs[*]}"
-    (( ${#missing_tools[@]} == 0 )) || printf '[CHECK] missing tools: %s\n' "${missing_tools[*]}"
-    (( ${#missing_prereqs[@]} == 0 && ${#missing_tools[@]} == 0 ))
+    ((${#missing_prereqs[@]} == 0)) || printf '[CHECK] missing prereqs: %s\n' "${missing_prereqs[*]}"
+    ((${#missing_tools[@]} == 0)) || printf '[CHECK] missing tools: %s\n' "${missing_tools[*]}"
+    ((${#missing_prereqs[@]} == 0 && ${#missing_tools[@]} == 0))
 }
 
 _report() {
     printf '\n[REPORT] installed=%d skipped=%d failed=%d\n' "${#installed[@]}" "${#skipped[@]}" "${#failed[@]}"
-    (( ${#failed[@]} == 0 ))
+    ((${#failed[@]} == 0))
 }
 
 _apply() {

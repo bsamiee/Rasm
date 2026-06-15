@@ -285,28 +285,30 @@ def test_fold_static_source_diagnostics_precede_defect_rows(tmp_path: Path) -> N
 
 
 def test_fold_static_note_only_sarif_promotes_empty_receipt_to_ok(tmp_path: Path) -> None:
-    """Note-only SARIF diagnostics keep a successful static run ok, not empty."""
+    """``promote_empty`` keeps a note-only SARIF static run ok, not empty."""
     sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0903", "note", 1, "gamma")))
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.EMPTY),), sarif_dir=sarif_dir)
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.EMPTY),), sarif_dir=sarif_dir, promote_empty=True)
     assert [(m.id, m.severity) for m in report.results] == [("csp0903", "info")]
     assert report.status is RailStatus.OK
     assert report.counts == Counts(ok=1, failed=0, total=1)
 
 
 def test_fold_static_green_executed_rows_are_ok() -> None:
-    """A static check that ran successfully with no diagnostics reports ok instead of empty."""
-    report = fold(Claim.STATIC, "check", (receipt(("ruff",), 0, status=RailStatus.EMPTY),))
+    """A ``promote_empty`` static check that ran clean with no diagnostics reports ok instead of empty."""
+    report = fold(Claim.STATIC, "check", (receipt(("ruff",), 0, status=RailStatus.EMPTY),), promote_empty=True)
     assert report.results == ()
     assert report.status is RailStatus.OK
     assert report.counts == Counts(ok=1, failed=0, total=1)
 
 
-def test_fold_process_backed_empty_status_promotes_to_ok() -> None:
-    """Every claim with process evidence and no defects reports ok rather than an empty top-level status."""
-    for claim in (Claim.BRIDGE, Claim.PACKAGE, Claim.TEST):
-        report = fold(claim, "check", (receipt((claim.value,), 0, status=RailStatus.EMPTY),))
-        assert report.status is RailStatus.OK
-        assert report.counts == Counts(ok=1, failed=0, total=1)
+def test_fold_promote_empty_is_opt_in_per_claim() -> None:
+    """``promote_empty`` gates the promotion: an eligible claim stays empty by default and folds to ok only on opt-in."""
+    for claim in (Claim.STATIC, Claim.BRIDGE, Claim.PACKAGE, Claim.TEST):
+        outcomes = (receipt((claim.value,), 0, status=RailStatus.EMPTY),)
+        assert fold(claim, "check", outcomes).status is RailStatus.EMPTY
+        promoted = fold(claim, "check", outcomes, promote_empty=True)
+        assert promoted.status is RailStatus.OK
+        assert promoted.counts == Counts(ok=1, failed=0, total=1)
 
 
 def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> None:
@@ -461,7 +463,7 @@ def test_fold_static_generated_errors_are_evidence_not_failure() -> None:
         b".artifacts/assay/build/abc/Release/obj/Debug/net10.0/Scenarios.GlobalUsings.g.cs(18,25): "
         b"error CS0436: The type conflicts with imported type [tools/rhino-bridge/Scenarios.csproj]"
     )
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 0, status=RailStatus.EMPTY, stdout=generated),))
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 0, status=RailStatus.EMPTY, stdout=generated),), promote_empty=True)
     assert [(m.id, m.kind, m.severity, m.count) for m in report.results] == [("cs0436", ArtifactKind.PROCESS, "error", 1)]
     assert report.status is RailStatus.OK
     assert "diagnostics: total=1 source=0 generated=1 error=1 warning=0 info=0" in report.notes

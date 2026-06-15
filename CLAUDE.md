@@ -1,19 +1,26 @@
 # [CLAUDE_MANIFEST]
 
-Operate as a senior developer in a bleeding-edge monorepo; use the newest viable current versions of languages, libraries, plugins, extensions, and add-ons after verifying tooling behavior from current docs or local output.
+Operate as a senior developer in a bleeding-edge polyglot monorepo. Build the strongest source-backed implementation the workspace admits: newest viable language and platform features, full external-library capability, dense polymorphic owners, and root-up refactors instead of additive code.
+
+## [1]-[WORKSPACE_LAW]
 
 [IMPORTANT]:
 - [ALWAYS] Treat monorepo code as polymorphic, agnostic, and universal by default.
-- [ALWAYS] Identify canonical object shapes, field names, and semantics that scale across packages and apps.
-- [ALWAYS] Reuse established naming patterns; prefer universal names (`countBy`) over narrow variants (`countByIp`, `countByX`).
-- [ALWAYS] If an external contract requires a different name, isolate mapping at boundary adapters and keep canonical names internally.
-- [NEVER] Rename a canonical concept across schemas/models/classes, parameters, and return keys within the same bounded context.
+- [ALWAYS] Identify canonical object shapes, field names, semantics, and receipts that scale across packages, tools, apps, plugins, sidecars, services, and web consumers.
+- [ALWAYS] Use one canonical semantic name per bounded concept; arity, filters, provider, and modality live in request shape, case, policy row, or boundary adapter, not parallel names.
+- [ALWAYS] Extend the canonical owner before adding rails, public surfaces, wrappers, commands, flags, provider selectors, schemas, models, helpers, or files.
+- [ALWAYS] Treat planned future consumers as real design pressure. Zero current consumers never reduces the capability bar.
+- [ALWAYS] Capture host APIs, external packages, generated API evidence, and platform quirks into focused local owners so downstream code composes capability instead of re-learning provider surfaces.
+- [ALWAYS] Keep boundary mapping at the edge; internal code uses canonical names and shapes.
+- [NEVER] Split one concern across parallel objects, services, error rails, command families, or compatibility shims.
+- [NEVER] Create operation families such as `Get`, `GetMany`, `GetBy<Key>`, `List`, or `Search` for one concept when one polymorphic operation can discriminate by input value.
+- [NEVER] Preserve stale APIs, wrappers, aliases, or old-baseline caveats when a root-up collapse improves the system.
 
-## [1]-[REQUIRED_STANDARDS]
+## [2]-[REQUIRED_STANDARDS]
 
-If reviewing, refining, editing, creating, or modifying X file type, use skill Y (required):
+Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                          | [REQUIRED_SKILL]     |
+| [INDEX] | [FILE_TYPE]                          | [ROUTE]              |
 | :-----: | ------------------------------------ | -------------------- |
 |   [1]   | TypeScript (`.ts`, `.tsx`)           | `coding-ts`          |
 |   [2]   | C# production (`.cs`)                | `docs/stacks/csharp` |
@@ -23,111 +30,81 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 |   [6]   | Bash/sh (`.sh`, `.bash`)             | `coding-bash`        |
 |   [7]   | SQL (`.sql`)                         | `coding-pg`          |
 
-- Treat `docs/stacks/csharp` as the only source of truth for csharp coding standards, and as a skill. All code MUST adhere to the doctrine stated in `docs/stacks/csharp/README.md`. All code is built on the standards of: `docs/stacks/csharp/language.md` + `docs/stacks/csharp/shapes.md` + `docs/stacks/csharp/surfaces-and-dispatch.md` + `docs/stacks/csharp/rails-and-effects.md` + `docs/stacks/csharp/boundaries.md` + `docs/stacks/csharp/algorithms.md` + `docs/stacks/csharp/system-apis.md`
-- Use `docs/stacks/csharp/domain` for specialized `.cs` file functionality and concers, file routing: `docs/stacks/csharp/domain/README.md`
-
-## [2]-[BEHAVIOR]
-
-[IMPORTANT]:
-- [ALWAYS] Use current technical material when conducting research; changing material [MUST] be within the last 3-4 months from current date unless stable official docs are the only primary route for a settled platform rule.
-- [ALWAYS] Tools over internal knowledge: read files, search codebase, verify assumptions.
-- [ALWAYS] Parallelize aggressively: run multiple searches, read several files, call independent tools concurrently.
-- [ALWAYS] Use bounded sub-agents for independent exploration, research, verification, and disjoint implementation when the user asks for sub-agents or parallel agent work; merge findings through current code and tool output, and keep fixed agent counts, transcript order, and critique labels out of durable policy.
-- [ALWAYS] Reference symbols by name; avoid inline code blocks for context already shown.
-
-[CRITICAL]:
-- [NEVER] Use emojis; use `[X]` style markers with concise UPPERCASE formatting.
-
-### [2.1]-[SHELL_AND_WORKFLOW_EXECUTION]
-
-[IMPORTANT]:
-- [ALWAYS] Invoke real executables on `PATH`; use `zsh -ic` only when intentionally testing interactive zsh configuration.
-- [ALWAYS] Run Bash-only snippets using `mapfile`, `readarray`, `shopt`, `BASH_*`, arrays, or Bash 5.3 features through `bash -lc`, a Bash heredoc, or an executable with a Bash shebang.
-- [ALWAYS] Treat Claude workflow globals such as `args` as Claude workflow-runtime state, separate from Nix, zsh, aliases, and shell `PATH`; verify `args` before using it for phase selection in saved or scriptPath-launched workflows.
+`docs/stacks/csharp` is the route-owned C# production standard. C# source composes `docs/stacks/csharp/README.md`, `language.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `boundaries.md`, `algorithms.md`, and `system-apis.md`. Specialized C# domains route through `docs/stacks/csharp/domain/README.md`.
 
 ## [3]-[DEPENDENCY_POLICY]
 
-[IMPORTANT]: **External-Lib-First**: approved dependencies are primary implementation surfaces.
-- [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, and equivalent manifests as first-class libraries. All configurations for languages are centralized, never per-project/folder.
-- [ALWAYS] Integrate approved external libraries directly; use native APIs end-to-end.
-- [ALWAYS] Prefer ecosystem libraries that already own the domain concern over local reinvention.
-- [ALWAYS] Internalize the full admitted package capability into the canonical local owner before exposing commands, wrappers, facades, flags, provider selectors, or provider-branded public surfaces.
-- [NEVER] Hand-roll functionality already provided by approved dependencies.
-- [NEVER] Prefer stdlib alternatives when approved external libraries already cover the requirement.
-- [NEVER] Create thin wrappers that rename or forward external APIs without adding domain value.
+[IMPORTANT]: External libraries, manifests, and host APIs are implementation surfaces.
+- [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, project files, lockfiles, and equivalent manifests as first-class material.
+- [ALWAYS] Mine admitted packages to their full useful capability before writing local kernels.
+- [ALWAYS] Prefer ecosystem libraries that already own the domain concern over lower-level reinvention.
+- [ALWAYS] Internalize external capability into canonical local owners organized by domain, axis, row, case, receipt, or rail.
+- [ALWAYS] Keep central package/version/tool ownership centralized in the owning manifest or tool configuration.
+- [NEVER] Hand-roll functionality provided by admitted dependencies.
+- [NEVER] Create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
+- [NEVER] Encode package versions, provider caveats, or command catalogs outside the owning manifest, package charter, README, or tool owner.
 
-[IMPORTANT]: **.NET-Central-Package-Management**: C# package versions live in `Directory.Packages.props`; project files may declare usage but never versions.
-- [ALWAYS] check `.config/` for centralized net tooling, configuration, and additions, never per-folder/project.
-- [ALWAYS] Check `docs/stacks/csharp/system-apis.md` before adding a `System.*` package, global using, or BCL replacement.
-- [ALWAYS] Keep RhinoWIP/GH2/Eto/System.Drawing host assemblies resolved through `Directory.Build.props` app-bundle references; if SDK compilation needs a NuGet reference surface, add it only as a conditioned central compile package.
-
-## [4]-[UNIVERSAL_CONSTRAINTS]
+## [4]-[IMPLEMENTATION_CONSTRAINTS]
 
 [CRITICAL]:
 - [NEVER] Use weak, unbounded, or erased types where the language can express the domain precisely.
-- [NEVER] Use imperative branching in domain logic; use the language skill's expression, match, dispatch-table, or monadic ROP patterns.
+- [NEVER] Use exception-style control flow in domain logic; use typed error rails and the required route's recovery patterns.
+- [NEVER] Use imperative branching when a bounded vocabulary, dispatch table, generated switch, match, fold, or monadic rail can own the variation.
 - [NEVER] Use mutable accumulation for domain transforms; use immutable folds, projections, collection combinators, or effect/resource pipelines.
-- [NEVER] Use exception-style control flow in domain logic; use typed error rails and the required skill's recovery patterns.
-- [NEVER] Proliferate schemas, structs, models, branded types, records, classes, or aliases for the same concept.
-- [NEVER] Create helper/utility files or functions (`helpers.*`, `*Helper`, `*Util`, `common.*`) for single-caller or thin indirection.
-- [NEVER] Create wrappers, unnecessary intermediate bindings, single-use aliases, or constant spam.
-- [NEVER] Split one concern across parallel names, objects, services, or error rails.
-- [NEVER] Add comments describing "what"; reserve comments for "why", boundary exceptions, and non-obvious invariants. Public XML docs, TSDoc, Google docstrings, Bash contract comments, and SQL `COMMENT ON` state caller-visible semantics only; comments and docstrings never carry task, session, sub-agent, review-label, or process narration.
-- [NEVER] Add new code before searching for existing canonical shapes, vocabularies, services, and policies to extend.
-- [NEVER] Extract code to new files to reduce LOC. Densify in place through polymorphism, fold algebras, table-driven dispatch.
-- [NEVER] Add shims, adapters, legacy aliases, `[Obsolete]` wrappers, or backwards-compat surfaces. Break APIs freely when collapse improves the system.
-- [NEVER] Couple custom analyzer rules to project namespaces, paths, or one-off symbols. Rules describe semantic shapes and include positive and negative tests for valid compact code.
-- [NEVER] Treat ~350 LOC or any specific byte-count as a refactor trigger. The trigger is concept density: parallel types ≥3, sibling factories ≥3, repeated switch arms ≥3, single-call helpers ≥3.
-- [NEVER] Delete functionality to satisfy a "density" or "LOC" signal. Functionality is preserved in capability through denser polymorphic surfaces, not removed.
+- [NEVER] Proliferate schemas, structs, models, branded types, records, classes, aliases, or DTOs for the same concept.
+- [NEVER] Create helper/utility files or functions for single-caller or thin indirection.
+- [NEVER] Extract code to new files to reduce LOC. Densify in place through polymorphism, folds, generated owners, and table-driven dispatch.
+- [NEVER] Delete functionality to satisfy a density or LOC signal. Preserve capability through denser owners.
 - [NEVER] Replace algorithm-specific typed receipts with generic `IReceipt`, ledger, or reported-value abstractions.
+- [NEVER] Add comments that carry task, session, subagent, review-label, proof, history, or process narration.
 
 [IMPORTANT]:
-- [ALWAYS] Collapse related variants into one polymorphic surface before adding new entrypoints.
-- [ALWAYS] Drive logic algorithmically with data, bounded vocabularies, discriminants, and reusable projections.
-- [ALWAYS] Keep boundary translation at the boundary; internal code uses canonical names and shapes.
-- [ALWAYS] Co-locate domain logic with the owning module instead of scattering it into generic support files.
-- [ALWAYS] Collapse operational mutation receipts into one fact stream with slot/kind metadata and fold-derived projections when 3+ mutation buckets or repeated slot families share construction, count, or status semantics.
-- [ALWAYS] Keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, or extraction evidence.
-- [ALWAYS] Treat CSP analyzer diagnostics as hypotheses: fix production code for true positives; refine the analyzer for false positives or fixes that add ceremony without improving correctness, capability, or maintainability.
-- [ALWAYS] Consider `tools/cs-analyzer` when a repeated C# optimization pattern is proven by diffs. Add rules only after the best fix reduces LOC or surface while preserving semantics.
+- [ALWAYS] Collapse related variants into one polymorphic surface before adding entrypoints.
+- [ALWAYS] Drive logic with data, bounded vocabularies, discriminants, table rows, and reusable projections.
+- [ALWAYS] Co-locate domain logic with its owner instead of scattering it into generic support files.
+- [ALWAYS] Collapse repeated mutation/status/count construction into one fact stream with slot/kind metadata when three or more buckets share construction.
+- [ALWAYS] Keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
+- [ALWAYS] Treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and avoid suppressions that add ceremony without improving correctness.
 
-## [5]-[OUTPUT]
+## [5]-[BEHAVIOR]
 
 [IMPORTANT]:
-- [ALWAYS] Use `backticks` for file paths, symbols, and CLI commands.
-- [ALWAYS] Use Markdown: headings for structure, bullets for lists, tables for comparisons.
-- [ALWAYS] Keep responses actionable; lead with what changed, not what you will do.
+- [ALWAYS] Tools over internal knowledge: read files, search code, verify assumptions through source, manifests, docs, and tool output.
+- [ALWAYS] Parallelize independent searches, reads, and checks.
+- [ALWAYS] Use bounded subagents for independent exploration, research, verification, and disjoint implementation when the user asks for subagents or parallel agent work.
+- [ALWAYS] Invoke real executables on `PATH`; use `zsh -ic` only when testing interactive zsh configuration.
+- [ALWAYS] Run Bash-only snippets through `bash -lc`, a Bash heredoc, or an executable with a Bash shebang.
+- [ALWAYS] Treat workflow globals such as `args` as workflow-runtime state, separate from shell, Nix, aliases, and `PATH`.
+- [NEVER] Use emojis.
 
-### [5.1]-[OWNER_ROUTING]
+## [6]-[OWNER_ROUTING]
 
 [IMPORTANT]:
 - [ALWAYS] Dependency graph facts live in manifests, package-manager configuration, lockfiles, project files, and the tool owner that consumes them.
 - [ALWAYS] Quality routes are selected by the owning language/tool surface for the changed files. Root policy owns intent, not command catalogs.
-- [ALWAYS] Static analysis, tests, runtime scenarios, metadata lookup, formatting, restore, and generated-contract checks stay orthogonal. Do not conflate one rail with another or hardcode one suite as universal.
-- [ALWAYS] For docs-only, catalogue-only, read-only, declaration-order, move-only, source-comment-only, docstring-only, XML-doc-only, and TSDoc-only work, use text, path, table, link, owner, and preservation checks unless the user requests an executable quality rail.
+- [ALWAYS] Keep static analysis, tests, runtime scenarios, metadata lookup, formatting, restore, and generated-contract checks orthogonal.
+- [ALWAYS] For docs-only, catalog-only, read-only, declaration-order, move-only, source-comment-only, docstring-only, XML-doc-only, and TSDoc-only work, use text, path, table, link, owner, and preservation checks unless the user requests an executable quality rail.
 - [NEVER] Add package versions, tool commands, hardcoded project targets, or suite paths to root policy when a manifest, README, repo tool, or language owner carries the exact command.
-- [ALWAYS] LSP owns live navigation + post-edit diagnostics over LOCAL source (def/refs/hover/symbols/call-hierarchy).
-- [ALWAYS] `assay api` owns EXTERNAL-artifact decompile/reflection (Rhino DLLs, NuGet, installed py dists, `node_modules` `*.d.ts`) — no LSP substitute.
-- [ALWAYS] `assay code` owns structural/pattern search (ast-grep `$metavars`, tree-sitter queries) + CI artifacts; prefer LSP for plain single-symbol nav.
-- [ALWAYS] `assay static/test/bridge/package` own the gating quality rails; mutation (ast-grep rewrite, `shfmt -w`, sqlfluff fix, `dotnet format`) stays in assay — the LSP tool is read-only.
-- See `tools/assay/README.md` for rail/verb detail.
+- [ALWAYS] LSP owns live navigation and post-edit diagnostics over local source.
+- [ALWAYS] `assay api` owns external-artifact decompile/reflection over host DLLs, NuGet packages, installed Python distributions, and `node_modules` declarations.
+- [ALWAYS] `assay code` owns structural/pattern search over ast-grep metavariables, tree-sitter queries, and CI artifacts; prefer LSP for plain single-symbol navigation.
+- [ALWAYS] `assay static/test/bridge/package` own gating quality rails and mutation routes. LSP is read-only.
 
-### [5.3]-[PLAN_DISCIPLINE]
-
-[IMPORTANT]:
-- [ALWAYS] Plans are decision-complete blueprints, not narratives. Code change must be explicit, real, and routed to the owning quality policy.
-- [ALWAYS] Structure: Context, critical files, implementation approach, acceptance signals, and explicit assumptions only when they change execution.
-- [NEVER] Include "Phase 1...Phase N" workflow narration, alternatives considered, checklist tails, command catalogs, or boilerplate closure. The plan is the blueprint, not a journal.
-
-### [5.4]-[SURFACE_PREFERENCE]
+## [7]-[DOCUMENTATION_AND_OUTPUT]
 
 [IMPORTANT]:
-- [ALWAYS] Prefer FEWER deep, complex surfaces over MANY loose, simple ones. A single 400-LOC type that owns a full polymorphic concern is better than four 100-LOC types that fragment it.
-- [ALWAYS] The unit of design is the polymorphic dispatch surface, not the file.
+- [ALWAYS] Use `backticks` for file paths, symbols, and CLI commands.
+- [ALWAYS] Keep responses actionable and lead with what changed.
+- [ALWAYS] Treat durable docs, prompts, standards, skills, examples, and templates as agent-facing declarative law.
+- [NEVER] Add provenance blocks, research-origin sections, source tails, freshness disclaimers, defensive version caveats, checklist tails, or report framing to durable docs.
+- [NEVER] Tell a prompt recipient to read root instructions, load skills, follow instruction files, use known tools, or run standard checks when those obligations already come from active instructions.
+- [NEVER] Restate quality ladders, command catalogs, skill loading, load-order ladders, or system/developer rules in generated artifacts.
 
-## [6]-[FILE_ORGANIZATION]
+Plans are decision-complete blueprints. Include context, critical files, implementation approach, acceptance signals, and assumptions only when they change execution. Do not include workflow narration, alternatives considered, command catalogs, or boilerplate closure.
 
-[IMPORTANT] **Section separators**: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill to the established language width.
+## [8]-[FILE_ORGANIZATION]
+
+[IMPORTANT] Section separators: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill to the established language width.
 
 ```typescript
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -141,11 +118,10 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 // --- [SERVICES] ------------------------------------------------------------------------
 ```
 
-**Canonical order** (omit unused): `TYPES` -> `CONSTANTS` -> `MODELS` -> `ERRORS` -> `SERVICES` -> `OPERATIONS` -> `COMPOSITION` -> `EXPORTS` 
+Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` -> `ERRORS` -> `SERVICES` -> `OPERATIONS` -> `COMPOSITION` -> `EXPORTS`.
 
 `[RUNTIME_PRELUDE]` may precede the canonical order only for imports, shebangs, strict modes, session setup, and load gates.
 
-**Core Sections**:
 - `[TYPES]`: type aliases, inferred types, protocols/interfaces, enums, discriminated unions, generated algebraic owners, value-object declarations.
 - `[CONSTANTS]`: dependency-free immutable anchors, caps, suffixes, primitive policies, schedules, and static literals.
 - `[MODELS]`: runtime schemas, records/classes, value objects, DTOs, table/domain models, receipts, result carriers.
@@ -159,13 +135,13 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Apply ordering as `section` -> `owner block` -> `runtime/declaration dependency` -> `semantic rank` -> `kind` -> `smaller-to-larger` -> `alphabetical`.
 - [ALWAYS] Prefer concept discovery order from stable declarations to composition: vocabulary, constants, models, failures, services, operations, wiring, exports.
 - [ALWAYS] Treat one generated type, smart enum, value object, schema/model family, wire model family, kernel, registry, catalog, table, dispatcher, query family, or composition root as an owner block; sort inside the owner instead of flattening its members into unrelated top-level sections.
-- [ALWAYS] Keep dependency clusters intact when a declaration must follow the symbol it imports, inspects, derives from, registers, decodes, wraps, statically initializes, traps, migrates, or composes.
+- [ALWAYS] Keep dependency clusters intact when a declaration must follow the symbol it imports, inspects, derives from, registers, decodes, wraps, initializes, traps, migrates, or composes.
 - [ALWAYS] Use smaller-to-larger only after ownership and dependency order are satisfied: one-line anchors before multi-line policies, simple axes before rich models, leaf operations before orchestration.
 - [ALWAYS] Use alphabetical order only for equivalent declarations with the same owner, kind, dependency level, and semantic rank.
 - [ALWAYS] Treat kind as an owner-local tiebreaker, not a new section: type/member family precedes accessibility, size, and alphabetical order only when ownership, dependency, and semantic rank are equivalent.
 - [ALWAYS] For equivalent same-owner members, prefer public contract before internal extension before private implementation unless static construction, generated semantics, or read-before-use dependency requires another order.
-- [ALWAYS] Keep semantically ordered sequences in domain order, not alphabetical order: severity, lifecycle, routing, key, protocol, generated-case, table-row, migration-step, and public API order are load-bearing when the owner defines them.
-- [ALWAYS] Co-locate tightly coupled symbols when strict section order would obscure ownership or violate language/runtime constraints.
+- [ALWAYS] Keep semantically ordered sequences in domain order: severity, lifecycle, routing, key, protocol, generated-case, table-row, migration-step, and public API order are load-bearing when the owner defines them.
+- [ALWAYS] Co-locate tightly coupled symbols when strict section order obscures ownership or violates language/runtime constraints.
 - [ALWAYS] Insert domain extensions immediately after the closest core section, using precise labels only when they name real ownership: `[TABLES]`, `[BOUNDARIES]`, `[REPOSITORIES]`, `[GROUPS]`, `[MIDDLEWARE]`, `[INDEXES]`, `[POLICIES]`, or `[ENTRY]`.
 - [ALWAYS] Use nested algorithm subsection labels inside large kernels only when they identify a real operation family, such as `[VECTOR_HEAT]` or `[NORMAL_ESTIMATION]`.
 - [ALWAYS] Keep internal cache keys, memo tables, mutable registries, and algorithm state records with the operation, kernel, or runtime owner that reads and mutates them.
@@ -175,7 +151,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [NEVER] Rename recurring categories per file; use canonical labels unless a domain extension is materially clearer.
 - [NEVER] Use alias or drift labels that merely rename core categories or hide complexity: `SCHEMA`, `FUNCTIONS`, `LAYERS`, `IMPORTS`, `INTERFACES`, `ENUMS`, `DTO`, `QUERIES`, `HELPERS`, `UTILS`, `COMMON`, `MISC`.
 
-**Language Overlays**:
+Language overlays refine the canonical order by runtime semantics:
 - C#: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate partials, validation partials, factories, and projections stay inside the declaring owner block. Preserve generated-case and smart-enum semantic order, with one generated case or static entry per physical declaration line unless a generator or runtime contract requires grouping. Static construction order inside a type is semantic when later fields derive from earlier fields. Static kernels, projectors, acceptors, and extension folds are `[OPERATIONS]` unless they own an actual dependency or service boundary. Inside a section, prefer attributes/delegates/marker types, enums/smart enums, readonly structs/records/value objects, records/classes/services, then owner-local private types when all earlier ordering constraints are equal. Inside a C# owner block, prefer generated/static dependency entries, fields/state, constructors/factories, properties, public operations, explicit boundary adapters, internal operations, then private kernels/implementation details.
 - Python: imports, `TYPE_CHECKING`, and import-time gates precede ordinary sections. Runtime decoders, encoders, registries, and tables follow the models/functions they inspect because module-level assignments execute immediately and runtime annotation consumers such as `msgspec` and `beartype` resolve real objects. `Annotated` validator functions may use `[BOUNDARIES]` between immutable constants and dependent aliases when the aliases must reference the real validator object.
 - TypeScript: side-effect/value imports preserve runtime order, and `import type`/`export type` stay explicit. Runtime schemas/classes are `[MODELS]`, `Effect.Service` owners are `[SERVICES]`, `Layer`/runtime wiring is `[COMPOSITION]`, and catalog or registry rows that reference functions/classes stay after their referenced owners.

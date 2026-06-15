@@ -131,8 +131,47 @@ and execution-provider selection for Compute model rails.
 |  [20]   | `NodeMetadata.ElementDataType`                  | metadata property | `TensorElementType` of the slot                                                           |
 |  [21]   | `NodeMetadata.Dimensions`                       | metadata property | `int[]` fixed dimensions                                                                  |
 |  [22]   | `NodeMetadata.SymbolicDimensions`               | metadata property | `string[]` free-dimension names                                                           |
+|  [23]   | `OrtThreadingOptions.GlobalIntraOpNumThreads`   | set-only property  | `int` global intra-op thread count                                                       |
+|  [24]   | `OrtThreadingOptions.GlobalInterOpNumThreads`   | set-only property  | `int` global inter-op thread count                                                       |
+|  [25]   | `OrtThreadingOptions.GlobalSpinControl`         | set-only property  | `bool` spin flag, `false` no-spin/low-CPU, `true` spin/low-latency                       |
+|  [26]   | `OrtThreadingOptions`                           | parameterless ctor | constructs a global thread-pool options handle                                           |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [4]-[CONFIG_KEYS]
+
+[CONFIG_KEY_SCOPE]: session-options config-entry keys
+- source: `build/native/include/onnxruntime_session_options_config_keys.h`
+- rail: model
+
+| [INDEX] | [KEY_STRING]            | [SETTER]                          | [VALUE_DOMAIN]                            |
+| :-----: | :---------------------- | :-------------------------------- | :---------------------------------------- |
+|   [1]   | `ep.context_enable`     | `SessionOptions.AddSessionConfigEntry` | `0` / `1`                            |
+|   [2]   | `ep.context_file_path`  | `SessionOptions.AddSessionConfigEntry` | filesystem path string               |
+|   [3]   | `ep.share_ep_contexts`  | `SessionOptions.AddSessionConfigEntry` | `0` / `1`                            |
+
+[CONFIG_KEY_SCOPE]: run-options config-entry keys
+- source: `build/native/include/onnxruntime_run_options_config_keys.h`
+- rail: model
+
+| [INDEX] | [KEY_STRING]                            | [SETTER]                       | [VALUE_DOMAIN]            |
+| :-----: | :-------------------------------------- | :----------------------------- | :----------------------- |
+|   [1]   | `memory.enable_memory_arena_shrinkage`  | `RunOptions.AddRunConfigEntry` | allocator device string  |
+
+[CONFIG_KEY_SCOPE]: CoreML provider-option keys
+- source: CoreML execution-provider option surface
+- rail: model
+
+| [INDEX] | [KEY_STRING]                         | [VALUE_DOMAIN]                                            |
+| :-----: | :----------------------------------- | :-------------------------------------------------------- |
+|   [1]   | `ModelFormat`                        | `MLProgram`, `NeuralNetwork`                              |
+|   [2]   | `MLComputeUnits`                     | `ALL`, `CPUOnly`, `CPUAndGPU`, `CPUAndNeuralEngine`       |
+|   [3]   | `RequireStaticInputShapes`           | `0`, `1`                                                  |
+|   [4]   | `EnableOnSubgraphs`                  | `0`, `1`                                                  |
+|   [5]   | `SpecializationStrategy`             | `Default`, `FastPrediction`                              |
+|   [6]   | `ProfileComputePlan`                 | `0`, `1`                                                  |
+|   [7]   | `AllowLowPrecisionAccumulationOnGPU` | `0`, `1`                                                  |
+|   [8]   | `ModelCacheDirectory`                | cache-directory path string                              |
+
+## [5]-[IMPLEMENTATION_LAW]
 
 [MODEL_SESSION]:
 - namespace: `Microsoft.ML.OnnxRuntime`

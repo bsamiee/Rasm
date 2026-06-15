@@ -147,15 +147,15 @@ Policy rows bind through the config rail: rows one through six freeze into the S
 |   [6]   | retention-max-age       |    30 days | transition     |
 |   [7]   | retention-sweep-cadence |   `@daily` | transition     |
 
-Canonical AppHost artifact rows; sibling packages land their rows through the ordered contributor descriptor set:
+Canonical AppHost artifact rows are current; `process-dump` is the designed capture row. Sibling packages add rows through ordered contributor descriptors.
 
-| [INDEX] | [ARTIFACT]       | [PRODUCER]                                                                                                                          | [STATE]  |
-| :-----: | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------- | :------- |
-|   [1]   | effective-config | `GetDebugView` with the `Func<ConfigurationDebugViewContext, string>` processValue hook redacting per key, source provenance intact | current  |
-|   [2]   | buffered-logs    | fault-buffer flush rendered by the profile row's log pipeline owner                                                                 | current  |
-|   [3]   | phase-receipts   | lifecycle transition receipts inside the frozen window                                                                              | current  |
-|   [4]   | health-snapshot  | latest health fold snapshot                                                                                                         | current  |
-|   [5]   | process-dump     | dump and gcdump capture                                                                                                             | designed |
+| [INDEX] | [ARTIFACT]       | [PRODUCER]                              |
+| :-----: | :--------------- | :-------------------------------------- |
+|   [1]   | effective-config | redacted configuration debug view       |
+|   [2]   | buffered-logs    | profile log pipeline fault buffer       |
+|   [3]   | phase-receipts   | lifecycle receipts in the frozen window |
+|   [4]   | health-snapshot  | latest health fold                      |
+|   [5]   | process-dump     | dump and gcdump capture                 |
 
 ## [4]-[MANIFEST_RECEIPT]
 

@@ -16,9 +16,10 @@ One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is
 
 - Owner: `ChartSeriesSpec`
 - Cases: line, step-line, scatter, column, row, stacked-area, stacked-column, heat, candlestick, box, pie, polar-line, gauge-angular, gauge-background, geo-map — canvas rows cartesian, pie, polar, map materialize as `CartesianChart`, `PieChart`, `PolarChart`, `GeoMap` control templates selected by the `ChartCanvas` key.
+- Receipt: each series row is its own headless render-hash twin — the row's `Series` factory materializes the live `XamlSeries` and its `Baseline` member derives the matching `CaptureRow` from the same `Key` and the resolved `(ThemeVariantRow, DensityRow)` cell, so the proof lane captures the same materialized chart through `CaptureRenderedFrame` and the `FrameHash` baseline is derived from one row with no parallel fixture; baselines content-address by the token-grid cell through the diagnostics-evidence capture lane.
 - Packages: LiveChartsCore.SkiaSharpView.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new visualization is one `ChartSeriesSpec` row and a new chart family is one `ChartCanvas` row; zero new surface.
-- Boundary: typed row models project through `ValuesMap` on each `XamlSeries` instance materialized per tile from the row delegate, never shared across charts; the geo row carries an absent series delegate and a `GeoAssetKey` resolved by key through the asset rank fold — chart code never opens files, the decoded asset feeds `GeoMap.ActiveMap`, and the map's `Series` value is `IEnumerable<IGeoSeries>` carrying one `HeatLandSeries` of `HeatLand` lands with `MapProjection`, `Stroke`, and `Fill` resolved from token paints; gauge accessory visuals `XamlNeedle` and `XamlAngularTicks` ride the gauge rows as canvas children; series paints resolve from the `ChartPolicy` paint-family ramp indexed per series instance; per-chart wrapper controls, hand-drawn chart code, and a second charting package are the deleted patterns.
+- Growth: a new visualization is one `ChartSeriesSpec` row and a new chart family is one `ChartCanvas` row; a sixteenth series row carries its render-hash baseline by construction of the same fold; zero new surface.
+- Boundary: typed row models project through `ValuesMap` on each `XamlSeries` instance materialized per tile from the row delegate, never shared across charts; the geo row carries an absent series delegate and a `GeoAssetKey` resolved by key through the asset rank fold — chart code never opens files, the decoded asset feeds the `GeoMap` control through `SourceGenMapChart`, and the heat-land payload shape binding to `GeoMap` resolves at implementation under the GEO_PAYLOAD research item with its stroke and fill resolved from token paints; gauge accessory visuals `XamlNeedle` and `XamlAngularTicks` ride the gauge rows as canvas children; series paints resolve from the `ChartPolicy` paint-family ramp indexed per series instance; per-chart wrapper controls, hand-drawn chart code, and a second charting package are the deleted patterns.
 
 ```csharp signature
 public sealed class ChartKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -65,6 +66,10 @@ public sealed partial class ChartSeriesSpec {
     public Option<Func<XamlSeries>> Series => Optional(series);
 
     public Option<string> GeoAssetKey => Optional(geoAssetKey);
+
+    public CaptureRow Baseline((ThemeVariantRow Variant, DensityRow Density) cell, double scale,
+        Func<ChartSeriesSpec, (ThemeVariantRow, DensityRow), Func<double, Func<IO<Unit>>, IO<SKImage>>> grab) =>
+        new($"{Key}@{cell.Variant.Key}-{cell.Density.Key}", static host => host is SurfaceHost.Headless, scale, 1, grab(this, cell));
 }
 ```
 
@@ -99,7 +104,7 @@ public readonly record struct ChartSection(double From, double To, string PaintK
 - Cases: `ChartAnchor` rows hidden, top, bottom, left, right, auto — one anchor vocabulary shared by the tooltip and legend columns.
 - Packages: PanAndZoom, LiveChartsCore.SkiaSharpView.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new interaction posture is one `ChartPolicy` value row; a new overlay verb is one CommandIntent table row the chart raises by key; zero new surface.
-- Boundary: `ZoomX`/`ZoomY` compose into the chart `ZoomMode` value of the `ZoomAndPanMode` flags and the anchors map onto the `TooltipPosition` and `LegendPosition` enums at the bind edge; `VisualElements` overlays route `VisualElementsPointerDownCommand` to the `PointerIntent` CommandIntent key, never a local handler; `AnimationsSpeed` (`TimeSpan`) and the `EasingFunction` delegate derive from the `MotionKey` motion row, and a second animation vocabulary is the deleted pattern; the dashboard canvas is one `ZoomBorder` — gestures ride `EnableGestures`, fit is `AutoFit`, focus is `ZoomToRectangle`, traversal is `NavigateBack`/`NavigateForward`, and `ZoomBorderState` round-trips through `ImportState` into `DashboardLayout.CanvasState`; `MotionKey`, `LabelRole`, `GridRole`, and `PaintFamily` values are row keys in the motion, typography, and token vocabularies resolved at mount; tooltip and legend text render through `TooltipTextPaint` and `LegendTextPaint` resolved from the `LabelRole` typography key.
+- Boundary: `ZoomX`/`ZoomY` compose into the chart `ZoomMode` value of the `ZoomAndPanMode` flags and the anchors map onto the `TooltipPosition` and `LegendPosition` enums at the bind edge; `VisualElements` overlays route `VisualElementsPointerDown` through the `PointerIntent` field's CommandIntent table key, never a local handler, and `DrawMarginFrame` resolves its stroke and fill from the `GridRole` token key so the plot rectangle aligns across paired dashboard tiles; `AnimationsSpeed` (`TimeSpan`) and the `EasingFunction` delegate derive from the `MotionKey` motion row, and a second animation vocabulary is the deleted pattern; the dashboard canvas is one `ZoomBorder` — gestures ride `EnableGestures`, fit is `AutoFit`, focus is `ZoomToRectangle`, traversal is `NavigateBack`/`NavigateForward`, view history clears through `ClearViewHistory`, named viewports save and restore through `SaveView`/`RestoreView`, and `ZoomBorderState` round-trips through `ImportState` into `DashboardLayout.CanvasState`; `MotionKey`, `LabelRole`, `GridRole`, and `PaintFamily` values are row keys in the motion, typography, and token vocabularies resolved at mount; tooltip and legend text render through `TooltipTextPaint` and `LegendTextPaint` resolved from the `LabelRole` typography key.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -152,7 +157,7 @@ public sealed record ChartPolicy(
 - Entry: `public static Seq<T> Lttb<T>(Seq<T> points, int buckets, Func<T, (double X, double Y)> project)` — the pure largest-triangle-three-buckets fold; below three buckets the stream binds change-for-change.
 - Packages: DynamicData, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new feed class is one `ChartStream` row in the feed table; a new bound is one policy value on its row; zero new surface.
-- Boundary: `SourceKey` names the feed row whose typed `DataSource` case the screen catalog binds — the stream record carries policy values, never the typed source; window expiry composes `ExpireAfter` over the source change-set; the bind edge materializes the window snapshot, applies `Lttb`, and swaps series values inside the chart `SyncContext` lock — the concurrent-mutation law; scheduler placement stays inside the live-data binding capsule, so `ObserveOn` is composed exactly once and never re-applied here; gauge feeds assign `GaugeValue` and call `Invalidate` per swap; `Cadence` throttles bind refresh and rows with no cadence bind change-for-change.
+- Boundary: `SourceKey` names the feed row whose typed `DataSource` case the screen catalog binds — the stream record carries policy values, never the typed source; window expiry composes `ExpireAfter` over the source change-set and the bound-cardinality row composes `LimitSizeTo` so a runaway feed sheds oldest points instead of unbounded growth; a multi-series feed composes `MergeMany` over the nested per-key change-streams so one `Connect()` chain feeds every series, and the same delta is the one spine live-data folds into chart series, table projections, and aggregation summaries without a materialized intermediate; the bind edge materializes the window snapshot, applies `Lttb`, and swaps series values inside the chart `SyncContext` lock — the concurrent-mutation law; scheduler placement stays inside the live-data binding capsule, so `ObserveOn` is composed exactly once and never re-applied here; gauge feeds assign `GaugeValue` and call `Invalidate` per swap; `Cadence` throttles bind refresh and rows with no cadence bind change-for-change.
 
 ```csharp signature
 public sealed record ChartStream(
@@ -205,10 +210,10 @@ public static class ChartFolds {
 
 | [INDEX] | [FEED_ROW]             | [SOURCE_CASE]        | [WINDOW] | [BUCKETS] | [CADENCE] |
 | :-----: | ---------------------- | -------------------- | :------: | :-------: | :-------: |
-|   [1]   | compute-receipt-stream | ComputeReceiptStream | 120 s    | 512       | 250 ms    |
-|   [2]   | persistence-analytical | PersistenceQuery     | none     | 0         | 1 s       |
-|   [3]   | host-document-events   | HostDocumentEvents   | 300 s    | 256       | 500 ms    |
-|   [4]   | fake-deterministic     | FakeDeterministic    | none     | 0         | none      |
+|   [1]   | compute-receipt-stream | ComputeReceiptStream |  120 s   |    512    |  250 ms   |
+|   [2]   | persistence-analytical | PersistenceQuery     |   none   |     0     |    1 s    |
+|   [3]   | host-document-events   | HostDocumentEvents   |  300 s   |    256    |  500 ms   |
+|   [4]   | fake-deterministic     | FakeDeterministic    |   none   |     0     |   none    |
 
 Window, bucket, and cadence values live on these rows and nowhere else; a bucket value below three is the passthrough case the `Lttb` guard encodes.
 
@@ -230,7 +235,7 @@ flowchart LR
 - Entry: `public static Fin<Seq<(TilePlacement Placement, DashboardTile Tile)>> Resolve(DashboardLayout layout, HashMap<string, DashboardTile> tiles)` — `Fin<T>` aborts on the first unresolved tile key.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, SkiaSharp
 - Growth: a new tile kind is one `DashboardTile` case; a new dashboard is one `DashboardLayout` row; zero new surface.
-- Boundary: layout blobs persist as opaque versioned snapshots through the persistence port on the dock-layout law — `Version` gates restore and a mismatch falls back to the named dashboard row; board capture projects to `SKImage` and hands off to the offscreen encode rows, so export is consumed and never re-owned; the headless render hash per named dashboard row is the visual proof lane; benchmark and activity-timeline rows read HLC-ordered receipt envelopes, and the skew-uncertainty band arrives as a consumed series feed from the evidence join; a dashboard layout engine is the deleted pattern — one placement fold inside the dock rail.
+- Boundary: layout blobs persist as opaque versioned snapshots through the persistence port on the dock-layout law — `Version` gates restore and a mismatch falls back to the named dashboard row; board capture projects to `SKImage` and hands off to the offscreen encode rows, so export is consumed and never re-owned; the headless render hash per named dashboard row is the visual proof lane and its `RenderReceipt` sinks through the `ReceiptSinkPort` envelope, contributing the chart-render span and frame-byte metric to the AppHost telemetry spine through the `TelemetryContributorPort` rather than a local meter; benchmark and activity-timeline rows read HLC-ordered receipt envelopes, and the skew-uncertainty band arrives as a consumed series feed from the evidence join; a dashboard layout engine is the deleted pattern — one placement fold inside the dock rail.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -273,3 +278,4 @@ public static class DashboardSurface {
 ## [7]-[RESEARCH]
 
 - [SERIES_RENDER]: LiveCharts net8-asset render fidelity on the net10 Avalonia host across all fifteen series rows.
+- [GEO_PAYLOAD]: the heat-land payload shape feeding the `Geo` case into the `GeoMap` control — the active-map binding member, the geo-series collection type, the heat-land land record, the projection mode, and the stroke/fill resolution surface that `SourceGenMapChart` consumes; the `GeoMap` map-binding, geo land-collection, and projection members are uncatalogued and bind at implementation.

@@ -18,7 +18,7 @@ Configuration admission for the runtime spine: eight ranked `ConfigSource` rows 
 - Entry: `Compose(IConfigurationManager manager, ConfigLayer layer, params ReadOnlySpan<ConfigSource> sources)` — `Fin<IConfigurationManager>` aborts on the first rejected mount.
 - Packages: Microsoft.Extensions.Configuration, Microsoft.Extensions.Configuration.Json, Microsoft.Extensions.Configuration.EnvironmentVariables, Microsoft.Extensions.Configuration.CommandLine, Microsoft.Extensions.Configuration.UserSecrets, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one source row on `ConfigSource` (key, rank, reload class, mount delegate); zero new surface.
-- Boundary: per-profile source selection and layering are computed from the resolved profile record at the composition root, never a second profile-keyed table here; `ConfigLayer` is the boundary capsule — `HostDocument` carries the HostAttachPort doc-user-text projection, `SecretsSource` carries the app-root-owned keychain `IConfigurationSource` gated on the keychain research row, `ParentSnapshot` chains a companion onto its parent snapshot, `UserSettingsPath` and `ContentRoot` arrive computed from the profile row; the inbox JSON provider parses JSONC (comments plus trailing commas) with zero added package; section paths travel as nameof-derived symbols, never call-site string literals; ambient `IConfiguration` reads past bootstrap are rejected.
+- Boundary: per-profile source selection and layering are computed from the resolved profile record at the composition root, never a second profile-keyed table here; `ConfigLayer` is the boundary capsule — `HostDocument` carries the HostAttachPort doc-user-text projection, `SecretsSource` carries the app-root-owned keychain `IConfigurationSource` gated on the keychain research row whose store path resolves through `PathHelper.GetSecretsPathFromSecretsId` rather than a hand-built path, `ParentSnapshot` chains a companion onto its parent snapshot through `AddJsonStream` over the parent's serialized snapshot stream so an embedded or in-memory-stream layer mounts without a temp file, `UserSettingsPath` and `ContentRoot` arrive computed from the profile row; the inbox JSON provider parses JSONC (comments plus trailing commas) with zero added package; `ConfigurationKeyComparer` is the canonical path-segment order so a numeric array index sorts before a sibling string key; section paths travel as nameof-derived symbols, never call-site string literals; ambient `IConfiguration` reads past bootstrap are rejected.
 
 ```csharp signature
 public sealed class ConfigSourceKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -187,12 +187,12 @@ public static class PolicyBinding {
 
 - Owner: `OptionsAdmission` static registration surface; `ReloadOutcome` `[Union]`; `ReloadReceipt` record.
 - Cases: Applied, Unchanged, RestartRequired, Rejected — Applied re-publishes frozen policy values, Unchanged records a no-diff publish, RestartRequired is the frozen-row path, Rejected carries the `ConfigError` of a failed re-validation while the prior values stay live.
-- Entry: `Admit<T>(IServiceCollection services, string section)` — composition registration; `Refine` accumulates on `Validation<ConfigError,T>`, `Sweep` aborts on `Fin<Unit>`.
-- Auto: generated `[OptionsValidator]` validators with `[ValidateObjectMembers]` and `[ValidateEnumeratedItems]` own structural validation; `ValidateOnStart` plus the `IStartupValidator` sweep prove every registered policy record before ready.
+- Entry: `Admit<T>(IServiceCollection services, string section)` — composition registration; `Refine` accumulates on `Validation<ConfigError,T>` against the active rule set, `Sweep` aborts on `Fin<Unit>`.
+- Auto: generated `[OptionsValidator]` validators with `[ValidateObjectMembers]` and `[ValidateEnumeratedItems]` own structural validation; `ValidateOnStart` plus the `IStartupValidator` sweep prove every registered policy record before ready; `PostConfigure` derives a dependent policy value after binding, and `IOptionsMonitorCache.TryRemove` invalidates the named entry so the next read re-binds.
 - Receipt: `ReloadReceipt` — section, reload class, trigger, outcome, `Instant`, correlation id.
 - Packages: Microsoft.Extensions.Options, FluentValidation, NodaTime, LanguageExt.Core
-- Growth: one case on `ReloadOutcome`; zero new surface.
-- Boundary: every options registration carries its `ReloadClass` row — frozen rows re-publish only through process restart and `RestartRequired` is that named path; interior code receives frozen records read once at ready, never `IOptions` handles, and per-call-site `OnChange` callbacks are rejected; `Observe` subscriptions return disposable detachers composed LIFO by the lifecycle owner; SIGHUP and the ControlService reload-options verb enqueue the same `ReloadOutcome` transition under `SignalTrigger` and `ControlTrigger`; cross-process reload propagation rides the op-log HLC cursor; named options key by smart-enum keys; FluentValidation owns cross-field invariants behind `Refine`; `BindConfiguration(section, configureBinder)` rides `OptionsBuilderConfigurationExtensions` from Microsoft.Extensions.Options.ConfigurationExtensions, a lock-pinned transitive of the hosting closure, never a direct project asset.
+- Growth: one case on `ReloadOutcome`; one config-boundary variant is one rule-set name through `IncludeRuleSets`, never a second validator; zero new surface.
+- Boundary: every options registration carries its `ReloadClass` row — frozen rows re-publish only through process restart and `RestartRequired` is that named path; interior code receives frozen records read once at ready, never `IOptions` handles, and per-call-site `OnChange` callbacks are rejected; `Observe` subscriptions return disposable detachers composed LIFO by the lifecycle owner; SIGHUP and the ControlService reload-options verb enqueue the same `ReloadOutcome` transition under `SignalTrigger` and `ControlTrigger`; cross-process reload propagation rides the op-log HLC cursor; named options key by smart-enum keys; FluentValidation owns cross-field invariants behind `Refine`, where the active rule set is itself a policy value admitted through `ValidationContext.CreateWithOptions` and `IncludeRuleSets` so a boundary variant runs its own rule subset, `PolymorphicValidator` and `SetInheritanceValidator` route subtype policy records to their own graph, and each failure's `WithErrorCode` and `WithSeverity` carry the code straight into the 4100-4199 `ConfigError` band rather than a flat `ToDictionary` re-derivation; a monitor-cache invalidation becomes a typed runtime transition through `TryRemove`, never an ambient re-read; `BindConfiguration(section, configureBinder)` rides `OptionsBuilderConfigurationExtensions` from Microsoft.Extensions.Options.ConfigurationExtensions, a lock-pinned transitive of the hosting closure, never a direct project asset.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -223,9 +223,15 @@ public static class OptionsAdmission {
             .BindConfiguration(section, static binder => binder.ErrorOnUnknownConfiguration = true)
             .ValidateOnStart();
 
-    public static Validation<ConfigError, T> Refine<T>(T policy, IValidator<T> validator) where T : notnull =>
-        validator.Validate(policy).ToDictionary().ToSeq()
-                .Map(static entry => (ConfigError)new ConfigError.Invariant(entry.Key, string.Join("; ", entry.Value))) is { IsEmpty: false } faults
+    public static Validation<ConfigError, T> Refine<T>(T policy, IValidator<T> validator, Option<Seq<string>> ruleSets = default) where T : notnull =>
+        (ruleSets.Case is Seq<string> sets
+                ? validator.Validate(ValidationContext<T>.CreateWithOptions(policy, options => options.IncludeRuleSets([.. sets])))
+                : validator.Validate(policy))
+            .Errors.AsIterable()
+            .Map(static failure => failure.ErrorCode is { Length: > 0 } code && int.TryParse(code, out var coded) && coded is >= 4100 and <= 4199
+                ? (ConfigError)new ConfigError.Scalar(failure.PropertyName, failure.ErrorMessage)
+                : new ConfigError.Invariant(failure.PropertyName, failure.ErrorMessage))
+            .ToSeq() is { IsEmpty: false } faults
             ? new ConfigError.Aggregate(faults)
             : (Validation<ConfigError, T>)policy;
 

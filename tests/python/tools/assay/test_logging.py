@@ -39,7 +39,11 @@ def _stdlib_warn(event: str) -> Callable[[], None]:
 
 
 def _structured_payload(event: str) -> Callable[[str], None]:
-    """Build a check for the structured stdlib-bridge payload."""
+    """Build a check for the structured stdlib-bridge payload.
+
+    Returns:
+        Checker asserting the captured text decodes to a one-line ``event`` payload.
+    """
 
     def check(text: str) -> None:
         lines = text.splitlines()
@@ -68,7 +72,11 @@ def _unencodable_degrades(text: str) -> None:
 
 
 def _resolve_per_write(logger: _StderrLogger, monkeypatch: pytest.MonkeyPatch, first: io.StringIO) -> str:
-    """Prove per-write stderr resolution after the configured sink is closed."""
+    """Prove per-write stderr resolution after the configured sink is closed.
+
+    Returns:
+        Text captured on the reassigned stderr sink.
+    """
     logger.info("before-close")
     assert "before-close" in first.getvalue()
     first.close()
@@ -79,7 +87,11 @@ def _resolve_per_write(logger: _StderrLogger, monkeypatch: pytest.MonkeyPatch, f
 
 
 def _error_suppresses_info(_logger: _StderrLogger, _monkeypatch: pytest.MonkeyPatch, sink: io.StringIO) -> str:
-    """Under ``ASSAY_LOG_LEVEL=error``, both rails drop info and keep error."""
+    """Under ``ASSAY_LOG_LEVEL=error``, both rails drop info and keep error.
+
+    Returns:
+        Sink text containing only the surviving error emission.
+    """
     structlog.get_logger("assay.bridge.law").info("suppressed-event")
     logging.getLogger("assay.bridge.law").info("suppressed-stdlib-event")  # noqa: TID251  # the stdlib rail is the law's subject
     assert not sink.getvalue()

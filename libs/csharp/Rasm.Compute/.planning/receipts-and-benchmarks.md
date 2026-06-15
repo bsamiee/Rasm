@@ -1,6 +1,6 @@
 # [COMPUTE_RECEIPTS_AND_BENCHMARKS]
 
-One thirteen-case `ComputeReceipt` union is the package's only fact vocabulary for measured execution: every operational view derives as a fold over that stream, NodaTime-protobuf bridges own the temporal wire edge, and fingerprint-gated benchmark claims decide every performance-motivated route in the suite. The page owns the receipt union with its emission surface, the fold-projection family, the wire-stamp bridges, the claim table with its host fingerprint, and `ComputeWireContext` — composing `ReceiptSinkPort`, `ReceiptEnvelope`, `ClockPolicy`, `ScheduleEntry`, `TelemetryContributorPort`, and the Persistence benchmark and artifact index contracts as settled vocabulary.
+One thirteen-case `ComputeReceipt` union is the package's only fact vocabulary for measured execution: every operational view derives as a fold over that stream, NodaTime-protobuf bridges own the instant, duration, and calendar wire edge, and fingerprint-gated benchmark claims decide every performance-motivated route in the suite. The page owns the receipt union with its Strict-resolver round-trip emission surface, the fold-projection family, the wire-stamp bridges, the claim table with its host fingerprint, and `ComputeWireContext` — composing `ReceiptSinkPort`, `ReceiptEnvelope`, `ClockPolicy`, `ScheduleEntry`, `TelemetryContributorPort`, and the Persistence benchmark and artifact index contracts as settled vocabulary.
 
 ## [1]-[INDEX]
 
@@ -17,7 +17,7 @@ One thirteen-case `ComputeReceipt` union is the package's only fact vocabulary f
 - Owner: `ComputeReceipt`, `ComputeWireContext`, `ReceiptSurface` — the fact union, the package's one `JsonSerializerContext` partial joining the suite Strict resolver merge, and the emission-plus-telemetry surface.
 - Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · cache · unit-projection · backpressure · drain · conflict
 - Entry: `public IO<ReceiptEnvelope> Emit(ReceiptSinkPort sink, JsonSerializerOptions wire)` — `IO` carries the sink effect; the returned envelope is the emission evidence.
-- Auto: the wire kind derives from the polymorphic metadata pinned on the union, the HLC stamp and `SkewBound` derive inside `Send`, and the instrument rows register once at composition through `TelemetryContributorPort` — `TelemetrySource.Compute` mints the activity spine so receipt correlation joins the OTel rail with zero call-site ceremony.
+- Auto: the wire kind derives from the polymorphic metadata pinned on the union, the HLC stamp and `SkewBound` derive inside `Send`, and the instrument rows register once at composition through `TelemetryContributorPort` — `TelemetrySource.Compute` mints the activity spine so receipt correlation joins the OTel rail with zero call-site ceremony; `ComputeWireContext` joins the suite Strict resolver merge so the polymorphic `kind` discriminator round-trips through one shared `JsonSerializerOptions`, every Thinktecture spine field crosses as its key scalar through the merged Thinktecture resolver, and the union deserializes back to the exact case with `Seq<string>` collections intact — `UnmappedMemberHandling.Disallow` rejects any drifted field at the consuming edge rather than dropping it.
 - Receipt: union cases materialize at the sink edge only; hot-path capsules upstream stay allocation-free and the envelope is the sole cross-process causal carrier.
 - Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
 - Growth: a new measured concern is one case row on `ComputeReceipt` plus one `[JsonDerivedType]` row and one TS payload row, zero new surface.
@@ -151,11 +151,11 @@ public static class ReceiptFolds {
 
 ## [4]-[WIRE_STAMPS]
 
-- Owner: `WireStamps` — the NodaTime-protobuf bridge family is the only temporal crossing between the receipt rail and the proto wire.
+- Owner: `WireStamps` — the NodaTime-protobuf bridge family is the only temporal crossing between the receipt rail and the proto wire, spanning the well-known `Timestamp`/`Duration` edge and the `Google.Type` calendar-date and time-of-day edge.
 - Entry: `public Timestamp WirePhysical` — the envelope's HLC physical stamp projected onto the well-known wire type.
 - Packages: NodaTime.Serialization.Protobuf, Google.Protobuf, NodaTime, Rasm.AppHost (project)
 - Growth: a new temporal wire field is one extension row over the bridge family, zero new surface.
-- Boundary: BCL `DateTime` never appears between wire and rail; pre-epoch instants and out-of-window durations are boundary faults the call edge projects onto the typed rail; the desktop and the web dashboard consume the identical receipt stream — envelope JSON and the proto contracts are two encodings of one stream — and `SkewBound` surfaces in the evidence view with zero configuration.
+- Boundary: BCL `DateTime` never appears between wire and rail; pre-epoch instants and out-of-window durations are boundary faults the call edge projects onto the typed rail, and an invalid time-of-day or out-of-range day-of-week is the same boundary fault on the calendar edge; the desktop and the web dashboard consume the identical receipt stream — envelope JSON and the proto contracts are two encodings of one stream — and `SkewBound` surfaces in the evidence view with zero configuration; a sweep occurrence's calendar date, time-of-day, and day-of-week cross as `Google.Type.Date`/`TimeOfDay`/`DayOfWeek` so a dashboard groups runs by calendar day and weekday without re-deriving the instant, and `ToBase64` projects a frame or artifact checksum onto a text-safe field for the evidence view without a second hashing pass.
 
 ```csharp signature
 public static class WireStamps {
@@ -165,12 +165,36 @@ public static class WireStamps {
         public Google.Protobuf.WellKnownTypes.Duration WireSkew => envelope.SkewBound.ToProtobufDuration();
     }
 
+    extension(LocalDate date) {
+        public Google.Type.Date WireDate => date.ToDate();
+    }
+
+    extension(LocalTime time) {
+        public Google.Type.TimeOfDay WireTimeOfDay => time.ToTimeOfDay();
+    }
+
+    extension(IsoDayOfWeek day) {
+        public Google.Type.DayOfWeek WireDayOfWeek => day.ToProtobufDayOfWeek();
+    }
+
+    extension(ByteString checksum) {
+        public string Base64 => checksum.ToBase64();
+    }
+
     extension(Timestamp wire) {
         public Instant Rail => wire.ToInstant();
     }
 
     extension(Google.Protobuf.WellKnownTypes.Duration wire) {
         public Duration Rail => wire.ToNodaDuration();
+    }
+
+    extension(Google.Type.Date wire) {
+        public LocalDate RailDate => wire.ToLocalDate();
+    }
+
+    extension(Google.Type.TimeOfDay wire) {
+        public LocalTime RailTime => wire.ToLocalTime();
     }
 }
 ```
@@ -184,7 +208,7 @@ public static class WireStamps {
 - Receipt: every sweep run emits `TensorRun`/`ModelRun` receipts beside the persisted row; artifacts — chrome-trace profiles, BenchmarkDotNet exports, EP-context caches — land as `ArtifactIndexRow` paths on the blob lane and ride the `Artifacts` rows on the claim.
 - Packages: BenchmarkDotNet, NodaTime, LanguageExt.Core, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox
 - Growth: a new performance surface is one claim row; a new claim dimension is one column on `BenchmarkClaim`; zero new surface.
-- Boundary: the claim-gate law — a SIMD default route, compression enable, ParallelHelper partitioning, or a DATAS knob binds only behind a winning claim row whose fingerprint matches the running host; tolerance classes arrive settled from the operation-family rows and loosening one to pass equivalence is the named production-slack defect; a second benchmark store, BenchmarkDotNet profiler add-ons, and prose performance claims are the rejected forms.
+- Boundary: the claim-gate law — a SIMD default route, compression enable, ParallelHelper partitioning, or a DATAS knob binds only behind a winning claim row whose fingerprint matches the running host; tolerance classes arrive settled from the operation-family rows and loosening one to pass equivalence is the named production-slack defect; `Claim` resolves the most-recent fingerprint-matching `BenchmarkRow` against the recency horizon read by reference from the Persistence `ModelResultKey` index owner — the single horizon owner — so a stale benchmark never wins and Compute never mints a second `Duration horizon` beside the claim; a second benchmark store, BenchmarkDotNet profiler add-ons, and prose performance claims are the rejected forms.
 
 ```csharp signature
 public sealed record HostFingerprint(string Os, string Arch, int Processors, FrozenDictionary<string, string> Stamps) : ISpanFormattable, IUtf8SpanFormattable {
@@ -294,4 +318,5 @@ interface BenchmarkClaimWire { band: "micro" | "small" | "medium" | "large"; dty
 
 ## [7]-[RESEARCH]
 
-- [WIRE_EMISSION]: `ComputeReceipt` polymorphic kind emission with Thinktecture key scalars and `Seq` collection metadata through the suite Strict resolver merge.
+- [WIRE_EMISSION]: the implementation-time round-trip confirms the merged resolver chain orders `ComputeWireContext` after the Thinktecture key-scalar resolver so the polymorphic `kind` discriminator and every smart-enum spine field serialize and deserialize to the identical case, and that `Seq<string>` collection members on the `Selection` case survive the merge without a `JsonConverter` for the LanguageExt collection.
+- [CALENDAR_BRIDGE]: the `Google.Type.Date`/`TimeOfDay`/`DayOfWeek` calendar wire types and the `Google.Api.CommonProtos` assembly that carries them, with the `ToDate`/`ToLocalDate`/`ToTimeOfDay`/`ToLocalTime`/`ToProtobufDayOfWeek`/`ToIsoDayOfWeek` conversion members the calendar-bridge wire-stamp columns bind.

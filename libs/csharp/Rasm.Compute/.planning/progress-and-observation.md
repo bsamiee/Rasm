@@ -82,7 +82,7 @@ stateDiagram-v2
 - Owner: `ProgressMark` readonly record struct hot-path capsule; `SubscriptionPolicy` cadence record with the `Due` delivery predicate; `ProgressCell` Atom-backed boundary capsule.
 - Cases: `SubscriptionPolicy.Immediate` | `SubscriptionPolicy.Interactive` | `SubscriptionPolicy.Wire` cadence rows.
 - Entry: `public ProgressMark Advance(ProgressPhase phase, double fraction = 0d, long segments = 0L)` — value-returning commit; the unchanged snapshot is the rejection contract and the hot path carries no fault rail.
-- Auto: every successful swap fires the change event into per-subscription coalesce gates; a rejected regression retains the prior mark and re-fires it, and the gate's equality pre-check drops the re-fired duplicate, so observers structurally never observe rank regress; terminal commits always deliver and terminal re-fires are suppressed.
+- Auto: every successful swap fires the change event into per-subscription coalesce gates; a rejected regression retains the prior mark and re-fires it, and the gate's equality pre-check drops the re-fired duplicate, so observers structurally never observe rank regress; terminal commits always deliver and terminal re-fires are suppressed; concurrent `Advance` commits serialize through the cell `Atom` CAS so the stored mark is always the highest-rank winner, and each observer gate is itself a CAS over `Due`, so an out-of-order `AtomChangedEvent` invocation that delivers a higher-rank mark first permanently rejects the later lower-rank mark at that gate — observer monotonicity holds independent of handler-invocation order.
 - Receipt: none minted here — every mark carries the intent correlation that keys receipt evidence at the sink edge, so terminal marks join observers to evidence in one hop.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one cadence row on `SubscriptionPolicy` or one field on `ProgressMark` mirrored by one wire member; zero new surface.
@@ -179,4 +179,4 @@ interface ProgressMarkWire {
 
 ## [6]-[RESEARCH]
 
-- [COMMIT_ORDER]: `AtomChangedEvent` invocation order across concurrent `Advance` commits at the coalesce gate.
+- [COMMIT_ORDER]: observer monotonicity is order-independent because each gate is a CAS over `Due` that permanently rejects a lower-rank mark once a higher-rank mark forwards; the implementation-time `SampleParallel` property confirms no interleaving of concurrent `Advance` commits forwards a rank-decreasing mark to any subscriber and that the cell `Atom` never stores a lower rank than a prior committed mark.

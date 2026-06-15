@@ -4,12 +4,12 @@ Rasm.AppUi sources every icon and bundled asset through one nameof-derived `Asse
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                              |
-| :-----: | :------------ | :------------------------------------------------------------------ |
+| [INDEX] | [CLUSTER]     | [OWNS]                                                                    |
+| :-----: | :------------ | :------------------------------------------------------------------------ |
 |   [1]   | ICON_AXIS     | Five-case icon union, rank-column fallback walk, one materialize dispatch |
-|   [2]   | SVG_PIPELINE  | Retained SVG documents, scene graph, animation invalidation, hit testing |
-|   [3]   | RASTER_ASSETS | Async raster loaders, cache scope, fallbacks, DPI-variant selection  |
-|   [4]   | ASSET_CATALOG | Avares admission rows, key vocabulary, preload receipts, geo assets  |
+|   [2]   | SVG_PIPELINE  | Retained SVG documents, scene graph, animation invalidation, hit testing  |
+|   [3]   | RASTER_ASSETS | Async raster loaders, cache scope, fallbacks, DPI-variant selection       |
+|   [4]   | ASSET_CATALOG | Avares admission rows, key vocabulary, preload receipts, geo assets       |
 
 ## [2]-[ICON_AXIS]
 
@@ -110,19 +110,26 @@ flowchart LR
 
 ## [3]-[SVG_PIPELINE]
 
-- Owner: `SvgPipeline` — retained SVG document admission, scene access, animation invalidation, hit testing, and tinted image projection.
-- Entry: `public static Fin<SKSvg> Load(AssetKey key, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation = default)` — `Fin` aborts on unknown key and stream admission failure.
-- Auto: the process-static retained table deletes per-control re-parse and per-call picture rebuilds; animation invalidation drives `InvalidateVisual` on the consuming `Svg` control; `SvgParameters` recolor and `CurrentColor` tinting ride the same theme token resolve.
+- Owner: `SvgPipeline` — retained SVG document admission, scene-graph access, animation control and invalidation, hit testing, and tinted image projection.
+- Cases: `ScenePolicy` carrier values — `PictureOnly` for icons and illustrations, `RetainedScene` for hit-testable documents, `Animated` for time-driven documents — selecting whether `TryEnsureRetainedSceneGraph` runs at admission and whether the animation controller binds.
+- Entry: `public static Fin<SKSvg> Load(AssetKey key, ScenePolicy policy, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation = default)` — `Fin` aborts on unknown key and stream admission failure.
+- Auto: the process-static retained table deletes per-control re-parse and per-call picture rebuilds; `RetainedScene` rows eagerly build the diffable scene graph at admission so hit-test and animated previews never rebuild a picture per pointer move; animation invalidation drives `InvalidateVisual` on the consuming `Svg` control and the `AnimationController` exposes pause/seek as scene-policy data, never a draw-time timer; `SvgParameters` recolor and `CurrentColor` tinting ride the same theme token resolve.
 - Packages: Svg.Controls.Skia.Avalonia, SkiaSharp, Avalonia, LanguageExt.Core, BCL inbox
-- Growth: one retained row per asset key; a recolor or scene policy is one policy value with zero new surface.
-- Boundary: the `Admit` and `Subscribed` pair is this fence's boundary capsule — native document construction, event attachment, and the process-static cache stay inside their statement bodies, the admitted stream is using-scoped, and a racing duplicate document disposes in place so only the retained winner survives; hit-test results cross into the interaction rail as scene-node values, never as retained control handles.
+- Growth: one retained row per asset key; a recolor, scene-build, or animation policy is one `ScenePolicy` value with zero new surface.
+- Boundary: the `Admit` and `Subscribed` pair is this fence's boundary capsule — native document construction, event attachment, scene-graph build, and the process-static cache stay inside their statement bodies, the admitted stream is using-scoped, and a racing duplicate document disposes in place so only the retained winner survives; hit dispatch rides the catalogued `SvgInteractionDispatcher.HitTestTopmostElement` for topmost pointer resolution and `SKSvg.HitTestSceneNodes` for the full hit set, both projecting `SvgSceneNode` values into the interaction rail, never retained control handles; the diffable `RetainedSceneGraph` `SvgSceneDocument` node walk is the same typed-traversal algebra the Markdown and inspector descriptor folds run, parameterized by node family; the animation controller never owns the frame clock — the motion pump schedules invalidation against the reduced-motion switch, so an animated SVG rides the same frame ceiling as every moving surface; the `AnimationInvalidated` event is catalogued and its subscription is fenced, while the exact event-args type the handler binds is research-gated under SVG_ANIMATION_ARGS.
 
 ```csharp signature
+public readonly record struct ScenePolicy(bool RetainScene, bool Animate) {
+    public static readonly ScenePolicy PictureOnly = new(RetainScene: false, Animate: false);
+    public static readonly ScenePolicy RetainedScene = new(RetainScene: true, Animate: false);
+    public static readonly ScenePolicy Animated = new(RetainScene: true, Animate: true);
+}
+
 public static class SvgPipeline {
     static readonly ConcurrentDictionary<AssetKey, SKSvg> Retained = new();
 
-    public static Fin<SKSvg> Load(AssetKey key, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation = default) =>
-        (Retained.TryGetValue(key, out var hit) ? Fin.Succ(hit) : AssetCatalog.Open(key).Map(payload => Admit(key, payload)))
+    public static Fin<SKSvg> Load(AssetKey key, ScenePolicy policy, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation = default) =>
+        (Retained.TryGetValue(key, out var hit) ? Fin.Succ(hit) : AssetCatalog.Open(key).Map(payload => Admit(key, payload, policy)))
             .Map(document => Subscribed(document, onAnimation));
 
     public static Fin<IImage> Image(AssetKey asset, Color tint) =>
@@ -131,13 +138,20 @@ public static class SvgPipeline {
     public static Option<SvgSceneDocument> Scene(SKSvg document) =>
         document.HasRetainedSceneGraph ? Optional(document.RetainedSceneGraph) : None;
 
-    public static Option<SvgSceneNode> Hit(SKSvg document, float x, float y) =>
-        Optional(document.HitTestTopmostSceneNode(new SKPoint(x, y)));
+    public static Option<SvgAnimationController> Animation(SKSvg document) =>
+        Optional(document.AnimationController);
 
-    static SKSvg Admit(AssetKey key, Stream payload) {
+    public static Option<SvgSceneNode> Hit(SvgInteractionDispatcher dispatcher, float x, float y) =>
+        Optional(dispatcher.HitTestTopmostElement(new SKPoint(x, y)));
+
+    public static Seq<SvgSceneNode> HitAll(SKSvg document, float x, float y) =>
+        toSeq(document.HitTestSceneNodes(new SKPoint(x, y)));
+
+    static SKSvg Admit(AssetKey key, Stream payload, ScenePolicy policy) {
         using Stream scoped = payload;
         SKSvg document = new();
         _ = document.Load(scoped);
+        if (policy.RetainScene) { _ = document.TryEnsureRetainedSceneGraph(); }
         SKSvg retained = Retained.GetOrAdd(key, document);
         if (!ReferenceEquals(retained, document)) { document.Dispose(); }
         return retained;
@@ -254,4 +268,8 @@ public static class AssetCatalog {
         });
 }
 ```
+
+## [6]-[RESEARCH]
+
+- [SVG_ANIMATION_ARGS]: the exact event-args type the `SKSvg.AnimationInvalidated` event delegate carries — the catalogued event and its `+=` subscription are fenced, the `SvgAnimationFrameChangedEventArgs` handler argument shape binds at implementation against the installed `Svg.Controls.Skia.Avalonia` surface.
 

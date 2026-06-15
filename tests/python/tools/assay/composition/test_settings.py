@@ -410,14 +410,70 @@ def test_assay_settings_exec_target_rejected(exec_target: str, error_match: str,
 
 
 def test_assay_settings_exec_target_valid_ssh_with_port(tmp_path: Path) -> None:
-    """exec_target accepts ssh://[user@]host:port without path/query/fragment."""
+    """exec_target accepts ssh://[user@]host:port without path/query/fragment.
+
+    Remote exec is paired with a remotely-reachable backend so the two-axis coupling invariant admits it.
+    """
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
-    s = AssaySettings(root=UPath(tmp_path), exec_target="ssh://user@host:22", exec_known_hosts=None)
+    s = AssaySettings(
+        root=UPath(tmp_path),
+        exec_target="ssh://user@host:22",
+        exec_known_hosts=None,
+        artifact_backend=ArtifactBackend(protocol="sftp", root="host/path"),
+    )
     assert s.exec_target == "ssh://user@host:22"
 
 
 register_law(AssaySettings, "assay_settings_exec_target_rejected")
 register_law(AssaySettings, "assay_settings_exec_target_valid_ssh_with_port")
+
+
+@pytest.mark.parametrize(
+    "exec_target, protocol, root, ok",
+    [
+        ("", "file", "", True),  # local exec tolerates any backend
+        ("", "s3", "bucket/prefix", True),  # local exec tolerates a remote backend too
+        ("ssh://host:22", "file", "", False),  # remote exec + local-file backend rejected at load
+        ("ssh://host:22", "memory", "prefix", False),  # any protocol outside the reachable set is rejected, not just file
+        ("ssh://host:22", "http", "host/x", False),  # set non-membership keys the reject, not a file literal
+        ("ssh://host:22", "s3", "bucket/prefix", False),  # cloud stores stay unadmitted until their fsspec backend (s3fs/gcsfs) + moto law land
+        ("ssh://host:22", "gs", "bucket/prefix", False),
+        ("ssh://host:22", "gcs", "bucket/prefix", False),
+        ("ssh://host:22", "sftp", "host/path", True),  # sftp is the only end-to-end proven remote-exec backend
+    ],
+    ids=[
+        "local_file",
+        "local_s3",
+        "remote_file_rejected",
+        "remote_memory_rejected",
+        "remote_http_rejected",
+        "remote_s3_deferred",
+        "remote_gs_deferred",
+        "remote_gcs_deferred",
+        "remote_sftp",
+    ],
+)
+def test_settings_exec_target_artifact_backend_coupling(exec_target: str, protocol: str, root: str, ok: bool, tmp_path: Path) -> None:  # noqa: FBT001  # parametrize column: pytest injects the expectation flag positionally by name
+    """Remote exec_target requires a remotely-reachable artifact backend; remote + local-file is rejected at settings load.
+
+    The reject message must name both axes and the fix so the agent corrects the env, not chase a per-check fault.
+    """
+    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
+
+    def _build() -> AssaySettings:
+        return AssaySettings(
+            root=UPath(tmp_path), exec_target=exec_target, exec_known_hosts=None, artifact_backend=ArtifactBackend(protocol=protocol, root=root)
+        )
+
+    match ok:
+        case True:
+            assert _build().exec_target == exec_target
+        case False:
+            with pytest.raises(ValidationError, match="remotely-reachable artifact_backend"):
+                _build()
+
+
+register_law(AssaySettings, "settings_exec_target_artifact_backend_coupling")
 
 # --- [BOUNDARY_VALIDATOR_LAWS]
 
@@ -536,7 +592,7 @@ register_law(AssaySettings, "assay_settings_artifact_rejects_unsafe_segments")
 
 
 def test_assay_settings_store_honors_protocol_and_forwards_opts(assay_root: AssayHarness) -> None:
-    """store builds the requested filesystem and forwards backend opts.
+    """Store builds the requested filesystem and forwards backend opts.
 
     The memory branch rejects None-protocol fallback to local FS; auto_mkdir=False pins option
     forwarding onto the constructed backend.

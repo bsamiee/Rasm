@@ -1,6 +1,6 @@
 # [APPHOST_OUTBOUND_RESILIENCE]
 
-Outbound boundary ownership for the runtime spine: seven `OutboundHop` cases bind to frozen `HopPolicy` rows, every hop holds exactly one retry surface — the standard or hedging HTTP handler on SocketsHttpHandler-borne rows, one keyed Polly pipeline per non-HTTP row — admission folds the degradation gate, the modality exclusion, and the retry-owner claim into one `Fin` rail, the discovery manifest and UDS attach law carry the standalone-to-host and companion-spawn boundaries, and every dispatch exits as a `HopReceipt`. The page owns the hop axis, both pipeline registries, the discovery and spawn law, and the ownership law; the spine is Polly.Core, Polly.Extensions, Polly.RateLimiting, Microsoft.Extensions.Http.Resilience, Grpc.Net.Client, Thinktecture.Runtime.Extensions, LanguageExt.Core, and NodaTime.
+Outbound boundary ownership for the runtime spine: seven `OutboundHop` cases bind to frozen `HopPolicy` rows, every hop holds exactly one retry surface — the standard or hedging HTTP handler on SocketsHttpHandler-borne rows, one keyed Polly pipeline per non-HTTP row — admission folds the degradation gate, the modality exclusion, and the retry-owner claim into one `Fin` rail, the discovery manifest and UDS attach law carry the standalone-to-host and companion-spawn boundaries, and every dispatch exits as a `HopReceipt`. The page owns the hop axis, both pipeline registries, the discovery and spawn law, and the ownership law over the Polly, Http.Resilience, and Grpc.Net.Client spine.
 
 ## [1]-[INDEX]
 
@@ -105,10 +105,10 @@ public static class HopRows {
 
 - Owner: `HttpLane` — one registration fold for the SocketsHttpHandler-borne rows (HttpApi, WebhookPost, UpdateCheck).
 - Entry: `Wire(IServiceCollection services, IConfiguration configuration, OutboundHop hop, Uri authority)` — the idempotency row dispatch selects hedging versus standard and returns the graph.
-- Auto: package-generated option validators prove the bound standard and hedging records at startup; `EnableReloads` keeps named policy live through the options monitor on the handler context route.
-- Packages: Microsoft.Extensions.Http.Resilience, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: one options row per pipeline key under the `Outbound` section root; a new HTTP-borne hop is one `Wire` call over its row — zero new surface.
-- Boundary: `AddStandardResilienceHandler` binds rate limiter, total timeout, retry, breaker, and attempt timeout as one options record from the `Outbound:{PipelineKey}` section; hedging admits only rows whose idempotency is `Idempotent`, with ordered routing groups bound from the `:Routing` subsection; `DisableForUnsafeHttpMethods` is the method-derived guard; `SelectPipelineByAuthority` keys pipeline identity by authority; the named-client `AddHttpClient` registration arrives through the Microsoft.Extensions.Http transitive closure of the resilience package, never a direct pin; resilience context crosses through the request-message extensions, never ambient state.
+- Auto: package-generated option validators prove the bound standard and hedging records at startup; `EnableReloads` keeps named policy live through the options monitor on the handler context route; `SetRequestMessage`/`GetRequestMessage` carry the per-request `RequestMetadata` route name into the Polly context so dependency-route metadata enriches the resilience meter without ambient state.
+- Packages: Microsoft.Extensions.Http.Resilience, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions, BCL inbox
+- Growth: one options row per pipeline key under the `Outbound` section root; a new HTTP-borne hop is one `Wire` call over its row; a multi-region target is one `:Routing` weighted-group subsection, never a second pipeline — zero new surface.
+- Boundary: `AddStandardResilienceHandler` binds rate limiter, total timeout, retry, breaker, and attempt timeout as one options record from the `Outbound:{PipelineKey}` section; hedging admits only `Idempotent` rows, routing from the `:Routing` subsection — `ConfigureOrderedGroups` for a single-target row, `ConfigureWeightedGroups` over `WeightedGroupsRoutingOptions`/`WeightedUriEndpoint` with `WeightedGroupSelectionMode` as the row's routing policy value for a multi-region row; the standard transient surface is `HttpClientResiliencePredicates.IsTransientHttpFailure` and the hedging surface `HttpClientHedgingResiliencePredicates.IsTransient`, so a non-transient status never burns an attempt; `DisableForUnsafeHttpMethods` is the method-derived guard, `SelectPipelineByAuthority` keys pipeline identity by authority; one `IDownstreamDependencyMetadata` row declares the dependency route once so spans carry the route with no per-call literal, its registration spelling RESEARCH-gated; the named-client `AddHttpClient` arrives through the Microsoft.Extensions.Http transitive closure, never a direct pin; resilience context crosses through the request-message extensions, never ambient state.
 
 ```csharp signature
 public static class HttpLane {
@@ -130,9 +130,14 @@ public static class HttpLane {
 
     static IStandardHedgingHandlerBuilder Hedged(IServiceCollection services, IConfiguration configuration, HopPolicy row, Uri authority) =>
         services.AddHttpClient(row.PipelineKey, client => client.BaseAddress = authority)
-            .AddStandardHedgingHandler(routing => routing.ConfigureOrderedGroups(configuration.GetSection($"{SectionRoot}:{row.PipelineKey}:Routing")))
+            .AddStandardHedgingHandler(route => Route(route, configuration.GetSection($"{SectionRoot}:{row.PipelineKey}:Routing")))
             .Configure(configuration.GetSection($"{SectionRoot}:{row.PipelineKey}"))
             .SelectPipelineByAuthority();
+
+    static void Route(IRoutingStrategyBuilder route, IConfigurationSection routing) =>
+        ignore(routing.GetSection("Weighted").Exists()
+            ? route.ConfigureWeightedGroups(routing.GetSection("Weighted"))
+            : route.ConfigureOrderedGroups(routing));
 }
 ```
 
@@ -140,10 +145,10 @@ public static class HttpLane {
 
 - Owner: `KeyedLane` — the one keyed registry registration fold for every non-HTTP hop; `GrpcChannelPolicy` canonical channel-policy record.
 - Entry: `Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, params ReadOnlySpan<HopPolicy> rows)` — one `AddResiliencePipeline` entry per row.
-- Auto: `ConfigureTelemetry` inserts the telemetry strategy at pipeline head; resilience events land under the pipeline key in the package meter and logger.
+- Auto: `ConfigureTelemetry` inserts the telemetry strategy at pipeline head; resilience events land under the pipeline key in the package meter and logger; each pipeline binds a `CircuitBreakerStateProvider` so the breaker state reads from Polly's own observation surface, never a parallel state delegate.
 - Packages: Polly.Core, Polly.Extensions, Polly.RateLimiting, LanguageExt.Core, BCL inbox
 - Growth: one strategy row inside one keyed pipeline; chaos rows attach on the test-host profile row as one `AddChaosLatency`, `AddChaosFault`, or `AddChaosOutcome` strategy row each — zero new surface.
-- Boundary: gRPC-native retry is rejected — the channel `ServiceConfig` retry and hedging policies are experimental surfaces and a second retry owner; reconnect on the UDS hop is redial-only; `CircuitBreakerManualControl` keyed per hop is the kill-switch enforcement surface; the `allotted` projection is the deadline-row read so no duration literal lives in a strategy; the canonical channel record carries keepalive 60s/30s, infinite pooled-connection idle, multiplexed HTTP/2, and 4 MiB caps in both directions.
+- Boundary: gRPC-native retry is rejected — the channel `ServiceConfig` retry and hedging are experimental and a second retry owner; the `LocalIpc` redial is one `AddFallback` strategy whose `FallbackStrategyOptions<HopOutcome>.FallbackAction` re-reads the peer manifest and reconnects, a hop-keyed policy value, never a coded retry loop — the action receives a `FallbackActionArguments<HopOutcome>` carrier and returns `ValueTask<Outcome<HopOutcome>>`, its exact argument-carrier member shape RESEARCH-gated on `[FALLBACK_ACTION]`; `CircuitBreakerManualControl` keyed per hop is the kill-switch write surface and `CircuitBreakerStateProvider` keyed per hop is the read-side state the receipt projects, the two split by write-versus-read with no overlap; the `allotted` projection is the deadline-row read so no duration literal lives in a strategy; the canonical channel record carries keepalive 60s/30s, infinite pooled-connection idle, multiplexed HTTP/2, and 4 MiB caps in both directions.
 
 ```csharp signature
 public sealed record GrpcChannelPolicy(
@@ -167,36 +172,36 @@ public static class KeyedLane {
     public const int QueueLimit = 256;
     public const int RetryAttempts = 3;
     public static readonly TimeSpan RetrySeed = TimeSpan.FromMilliseconds(200);
+    static readonly ConcurrentDictionary<string, (CircuitBreakerManualControl Control, CircuitBreakerStateProvider State)> Breakers = new(StringComparer.Ordinal);
+    static (CircuitBreakerManualControl Control, CircuitBreakerStateProvider State) Of(string key) =>
+        Breakers.GetOrAdd(key, static _ => (new CircuitBreakerManualControl(), new CircuitBreakerStateProvider()));
+    public static CircuitBreakerManualControl BreakerOf(string pipelineKey) => Of(pipelineKey).Control;
+    public static CircuitBreakerStateProvider StateOf(string pipelineKey) => Of(pipelineKey).State;
 
-    static readonly ConcurrentDictionary<string, CircuitBreakerManualControl> Breakers = new(StringComparer.Ordinal);
-
-    public static CircuitBreakerManualControl BreakerOf(string pipelineKey) =>
-        Breakers.GetOrAdd(pipelineKey, static _ => new CircuitBreakerManualControl());
-
-    public static IServiceCollection Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, params ReadOnlySpan<HopPolicy> rows) =>
+    public static IServiceCollection Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, Func<HopPolicy, Func<FallbackActionArguments<HopOutcome>, ValueTask<Outcome<HopOutcome>>>> redial, params ReadOnlySpan<HopPolicy> rows) =>
         rows.ToArray().ToSeq().Fold(services, (graph, row) =>
-            graph.AddResiliencePipeline(row.PipelineKey, builder => builder
+            graph.AddResiliencePipeline<HopOutcome>(row.PipelineKey, builder => builder
                 .ConfigureTelemetry(telemetry)
                 .AddConcurrencyLimiter(permitLimit: PermitLimit, queueLimit: QueueLimit)
-                .AddRetry(new RetryStrategyOptions {
+                .AddRetry(new RetryStrategyOptions<HopOutcome> {
                     MaxRetryAttempts = RetryAttempts,
                     BackoffType = DelayBackoffType.Exponential,
                     UseJitter = true,
                     Delay = RetrySeed,
                 })
-                .AddCircuitBreaker(new CircuitBreakerStrategyOptions { ManualControl = BreakerOf(row.PipelineKey) })
+                .AddCircuitBreaker(new CircuitBreakerStrategyOptions<HopOutcome> {
+                    ManualControl = BreakerOf(row.PipelineKey),
+                    StateProvider = StateOf(row.PipelineKey),
+                })
+                .AddFallback(new FallbackStrategyOptions<HopOutcome> {
+                    ShouldHandle = new PredicateBuilder<HopOutcome>().Handle<ExecutionRejectedException>(),
+                    FallbackAction = redial(row),
+                })
                 .AddTimeout(allotted(row.Attempt))));
 }
 ```
 
-Strategy literals are frozen policy rows held on `KeyedLane`; every keyed-pipeline literal traces to this table:
-
-| [INDEX] | [POLICY]                 | [VALUE] | [RELOAD_CLASS] |
-| :-----: | :----------------------- | ------: | :------------- |
-|   [1]   | concurrency-permit-limit |      64 | frozen         |
-|   [2]   | concurrency-queue-limit  |     256 | frozen         |
-|   [3]   | retry-attempts           |       3 | frozen         |
-|   [4]   | retry-seed-delay         |  200 ms | frozen         |
+Every keyed-pipeline literal is a named frozen `const` on `KeyedLane` — `PermitLimit` 64, `QueueLimit` 256, `RetryAttempts` 3, `RetrySeed` 200 ms — so each strategy value traces to its declaring field, never an inline literal.
 
 ## [5]-[DISCOVERY_ATTACH]
 
@@ -299,7 +304,7 @@ public static class Discovery {
 - Receipt: `HopReceipt` — pipeline key, attempts, outcome, elapsed `Duration`, consumed deadline class, breaker state.
 - Packages: Polly.Core, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one outcome case per new terminal kind; zero new surface.
-- Boundary: exactly one retry owner per hop held at the composition root — domain rails retry through `Schedule`, transport hops retry through the keyed or HTTP pipeline, never both on one seam; the `RetryOwners` claim cell is the structural proof and `Guarded` is the schedule-side guard that degrades to a single pass and emits the conflict receipt instead of stacking a loop; `Execute` is the named boundary capsule converting pipeline rejection exceptions to `Faulted`; `Enforce` sweeps the keyed manual breakers from the effective degradation level — the kill-switch consequence; the runtime record is constructed once at the composition root.
+- Boundary: exactly one retry owner per hop held at the composition root — domain rails retry through `Schedule`, transport hops retry through the keyed or HTTP pipeline, never both on one seam; the `RetryOwners` claim cell is the structural proof and `Guarded` is the schedule-side guard that degrades to a single pass and emits the conflict receipt instead of stacking a loop; `Execute` is the named boundary capsule converting pipeline rejection exceptions to `Faulted`; `Enforce` sweeps the keyed manual breakers from the effective degradation level — the kill-switch consequence; `BreakerState` reads the receipt's breaker field from the native `CircuitBreakerStateProvider` keyed per hop on `KeyedLane`, deleting the hand-held state delegate so the runtime record carries no parallel breaker-state function; the runtime record is constructed once at the composition root.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -324,8 +329,9 @@ public sealed record OutboundRuntime(
     HostProfile Profile,
     ClockPolicy Clocks,
     Func<DegradationLevel> Level,
-    Atom<HashMap<string, string>> RetryOwners,
-    Func<string, CircuitState> BreakerStateOf);
+    Atom<HashMap<string, string>> RetryOwners) {
+    public CircuitState BreakerState(string pipelineKey) => KeyedLane.StateOf(pipelineKey).CircuitState;
+}
 
 public static class OutboundSurface {
     public const string PipelineOwner = "transport-pipeline";
@@ -380,13 +386,15 @@ public static class OutboundSurface {
         });
 
     static HopReceipt Receipt(OutboundRuntime runtime, HopPolicy row, int attempts, HopOutcome outcome, long mark) =>
-        new(row.PipelineKey, attempts, outcome, runtime.Clocks.Elapsed(mark), row.Attempt, runtime.BreakerStateOf(row.PipelineKey));
+        new(row.PipelineKey, attempts, outcome, runtime.Clocks.Elapsed(mark), row.Attempt, runtime.BreakerState(row.PipelineKey));
 
     static HopReceipt Conflicted(OutboundRuntime runtime, HopPolicy row, Error reason) =>
-        new(row.PipelineKey, Attempts: 0, new HopOutcome.Refused(reason), Duration.Zero, row.Total, runtime.BreakerStateOf(row.PipelineKey));
+        new(row.PipelineKey, Attempts: 0, new HopOutcome.Refused(reason), Duration.Zero, row.Total, runtime.BreakerState(row.PipelineKey));
 }
 ```
 
 ## [7]-[RESEARCH]
 
 - [PEER_CREDENTIAL]: peer-credential projection on accepted UDS sockets through the raw socket-option read on macOS and Linux.
+- [DEPENDENCY_METADATA]: the `IDownstreamDependencyMetadata` registration spelling that declares the per-route dependency metadata, and the `RequestMetadata`/`IOutgoingRequestContext` set-call shape that carries the route name into the Polly context for resilience-meter enrichment.
+- [FALLBACK_ACTION]: the `FallbackStrategyOptions<HopOutcome>.FallbackAction` delegate argument-carrier shape — the `FallbackActionArguments<HopOutcome>` member surface (its `Context` and inbound `Outcome` accessors) the `redial` action reads to reconnect the `LocalIpc` peer; `FallbackStrategyOptions<T>` is catalogued but the action-argument carrier is not.

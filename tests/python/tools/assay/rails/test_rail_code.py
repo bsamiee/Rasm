@@ -22,19 +22,18 @@ from tests.python._testkit.spec import assert_error, assert_ok, validity_matrix,
 from tests.python._testkit.strategies import resolve
 from tools.assay.composition.catalog import AstMatch, Capture, CAPTURE_ENCODER, CAPTURES
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, receipt, Runner, Tool
-from tools.assay.core.routing import Routed, Scope
+from tools.assay.core.engine import apply_row_status
+from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, receipt, Runner, Tool, ToolGroup
+from tools.assay.core.routing import resolve_languages, Routed, Scope
 from tools.assay.core.status import RailStatus
 import tools.assay.rails.code as code_rail
 from tools.assay.rails.code import (
-    _ag_normalize,
     _AG_SPEC,
     _artifact,
     _checks,
     _content_splice,
     _dispatch,
     _eq_needles,
-    _languages,
     _project_rows,
     _RG_SPEC,
     _rg_status,
@@ -256,8 +255,8 @@ def test_artifact_line_count_equals_splitlines(p: CodeParams) -> None:
 
 
 def test_languages_none_resolves_all_code_languages() -> None:
-    """_languages(None, ()) returns every language in the CODE catalog, sorted by value, no duplicates."""
-    langs = assert_ok(_languages(None, ()))
+    """resolve_languages(None, ()) returns every CODE catalog language, sorted by value, no duplicates."""
+    langs = assert_ok(resolve_languages(None, (), claim=Claim.CODE))
     assert isinstance(langs, tuple)
     assert len(langs) > 0
     assert langs == tuple(sorted(set(langs), key=lambda m: m.value))
@@ -312,7 +311,7 @@ def test_targets(
 
 
 def test_ts_language_tsx_key_resolves_tsx_grammar() -> None:
-    """tsx and typescript resolve to distinct tree-sitter languages."""
+    """Tsx and typescript resolve to distinct tree-sitter languages."""
     from tree_sitter import (  # noqa: PLC0415  # local import avoids aliasing `Language` from tools.assay.core.model at module scope
         Language as TSLanguage,
     )
@@ -377,21 +376,26 @@ def test_rg_rows(raw: bytes, expected_count: int, check_listing: str | None) -> 
         assert not listing
 
 
-# --- [AG_NORMALIZE_TS_ROWS_LAWS]
+# --- [TS_ROWS_LAWS]
 
 
 @pytest.mark.parametrize(
-    "stdout, rc, status_in, expected_status",
+    "groups, stdout, rc, status_in, expected_status",
     [
-        (b"[]", 1, RailStatus.FAILED, RailStatus.EMPTY),  # rc=1 + parseable JSON → no-match, not failure
-        (b"not json", 1, RailStatus.FAILED, RailStatus.FAILED),  # rc=1 + garbage → genuine failure
-        (b"[]", 0, RailStatus.OK, RailStatus.OK),
+        ((ToolGroup.EMPTY_ON_EXIT1,), b"[]", 1, RailStatus.FAILED, RailStatus.EMPTY),  # rc=1 + match array → no-match
+        ((ToolGroup.EMPTY_ON_EXIT1,), b'{"error":1}', 1, RailStatus.FAILED, RailStatus.FAILED),  # rc=1 + valid-JSON non-array → fault
+        ((ToolGroup.EMPTY_ON_EXIT1,), b"not json", 1, RailStatus.FAILED, RailStatus.FAILED),  # rc=1 + garbage → genuine failure
+        ((ToolGroup.EMPTY_ON_EXIT1,), b"[]", 0, RailStatus.OK, RailStatus.OK),
+        ((), b"[]", 1, RailStatus.FAILED, RailStatus.FAILED),  # group absent → no normalization
     ],
-    ids=["exit1_parseable", "exit1_garbage", "exit0_unchanged"],
+    ids=["group_exit1_matcharray", "group_exit1_nonarray_json", "group_exit1_garbage", "group_exit0_unchanged", "no_group_unchanged"],
 )
-def test_ag_normalize_branches(stdout: bytes, rc: int, status_in: RailStatus, expected_status: RailStatus) -> None:
-    """_ag_normalize maps rc=1+JSON to EMPTY; keeps FAILED for garbage; leaves rc=0 unchanged."""
-    assert _ag_normalize((receipt(("ast-grep",), rc, stdout=stdout, status=status_in),))[0].status is expected_status
+def test_apply_row_status_empty_on_exit1(
+    groups: tuple[ToolGroup, ...], stdout: bytes, rc: int, status_in: RailStatus, expected_status: RailStatus
+) -> None:
+    """apply_row_status maps a match array on rc=1 to EMPTY; a valid-JSON non-array or garbage stays FAILED; a group-less row is untouched."""
+    tool = Tool("ast-grep", Runner.PNPM, ("ast-grep", "run"), Input.NONE, Language.PYTHON, Claim.CODE, groups=groups)
+    assert apply_row_status(tool, receipt(("ast-grep",), rc, stdout=stdout, status=status_in)).status is expected_status
 
 
 @pytest.mark.parametrize(
@@ -749,7 +753,7 @@ register_law(search, "checks_empty_routed_returns_empty_tuple")
 register_law(search, "dispatch_empty_checks_returns_empty_tuple")
 register_law(search, "targets_empty_paths_returns_default_target")
 register_law(search, "ts_language_tsx_key_resolves_tsx_grammar")
-register_law(search, "ag_normalize_exit1_parseable_becomes_empty")
+register_law(search, "empty_on_exit1_group_becomes_empty")
 register_law(query, "ts_rows_produces_match_rows_and_listing")
 register_law(query, "top_level_patterns_masked_depth_count")
 register_law(query, "eq_needles_prefilter_byte_sets")

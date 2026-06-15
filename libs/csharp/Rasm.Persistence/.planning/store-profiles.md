@@ -19,8 +19,8 @@ Rasm.Persistence anchors every durable store on one six-row `StoreProfile` axis:
 - Entry: `public partial IO<DbConnection> Connect(StorePlacement placement)` — `IO` carries the provider open effect; rows without a connection surface fail inside the rail.
 - Auto: the pg row pins `SetPostgresVersion(18, 0)` so uuidv7 and virtual-generated-column translations activate over the provider's 14.0 default dialect; the memory row rides Mode=Memory plus Cache=Shared with a token-gated keeper proof pinning the shared-cache lifetime; the seed delegate enters EF through the UseSeeding and UseAsyncSeeding option hooks at pooled-factory build.
 - Packages: Microsoft.EntityFrameworkCore.Sqlite, Microsoft.Data.Sqlite, Npgsql, Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime, Pgvector.EntityFrameworkCore, Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, DuckDB.NET.Data.Full, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: one profile row — key, capability columns, three delegate bindings — absorbs a new engine with zero new surface; the sqlite vector gate flips one capability column; a mapped enum or composite is one MapEnum or MapComposite row on the data-source builder; S3 lands later as one app-root registration row implementing `BlobRemote` with zero Persistence rework.
-- Boundary: profile residence is single — placement consumes `ResolvedProfile` and `ProfileRoots.StoreRoot`, and Persistence owns no profile-keyed table and derives no per-user path; `FileSnapshot` implements the `BlobRemote` record today over the snapshot catalog protocol; the database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners; dsn and store-root inputs are host-resolved values handed over by app roots; the data-source `UseNodaTime` and `UseNetTopologySuite` registrations are builder-preserving generic extensions while `UseVector` returns the erased mapper interface, so the vector registration binds by tuple-capture beside the typed builder and never re-types the chain.
+- Growth: one profile row — key, capability columns, three delegate bindings — absorbs a new engine with zero new surface; the sqlite vector gate flips one capability column; a mapped enum or composite is one MapEnum or MapComposite row on the data-source builder; an unmapped-type admission is one `EnableUnmappedTypes` builder column on the pg row and a custom provider classification is one `INpgsqlTypeMapper` mapper column; an attach-only durable lane is one `SqliteOpenMode.ReadOnly` placement value on the embedded row; S3 lands later as one app-root registration row implementing `BlobRemote` with zero Persistence rework.
+- Boundary: profile residence is single — placement consumes `ResolvedProfile` and `ProfileRoots.StoreRoot`, and Persistence owns no profile-keyed table and derives no per-user path; `FileSnapshot` implements the `BlobRemote` record today over the snapshot catalog protocol; the database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners; dsn and store-root inputs are host-resolved values handed over by app roots; the data-source `UseNodaTime` and `UseNetTopologySuite` registrations are builder-preserving generic extensions while `UseVector` returns the erased mapper interface, so the vector registration binds by tuple-capture beside the typed builder and never re-types the chain; `EnableUnmappedTypes` opens the pg builder to enum-as-text and range round-trips without a per-type `MapEnum` row, and the `INpgsqlTypeMapper` handle the builder exposes is the one classification seam a custom provider type registers on, never a second mapper surface; a reader replica attaches the same embedded file through `SqliteOpenMode.ReadOnly`, so a read-only consumer never contends for the writer lease; the pg temporal-resolution policy column carries the `Resolvers` strategy — `AtStrictly` rejects skipped or ambiguous local times, `AtLeniently` and `ResolveLocal` over a `ZoneLocalMapping` admit them under one declared rule — so a daylight-transition timestamp resolves by policy value and never by an ad hoc catch.
 
 ```csharp signature
 public sealed class StoreKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -71,7 +71,7 @@ public static class StoreRows {
 
     public static IO<DbConnection> Postgres(StorePlacement placement) =>
         placement.Dsn is { IsSome: true, Case: string dsn }
-            ? IO.lift(() => new NpgsqlDataSourceBuilder(dsn).EnableDynamicJson().UseNodaTime().UseNetTopologySuite())
+            ? IO.lift(() => new NpgsqlDataSourceBuilder(dsn).EnableDynamicJson().EnableUnmappedTypes().UseNodaTime().UseNetTopologySuite())
                 .Map(static builder => (builder.UseVector(), builder).Item2)
                 .Map(static builder => (DbConnection)builder.Build().OpenConnection())
             : IO.fail<DbConnection>(Error.New("<dsn-absent:postgres-server>"));
@@ -104,7 +104,7 @@ public static class StoreRows {
 
     static string SqliteText(StorePlacement placement) =>
         placement.StoreRoot is { IsSome: true, Case: string root }
-            ? new SqliteConnectionStringBuilder { DataSource = Path.Join(root, StoreFile), Pooling = true }.ToString()
+            ? new SqliteConnectionStringBuilder { DataSource = Path.Join(root, StoreFile), Pooling = true, Mode = placement.ReadOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWriteCreate }.ToString()
             : new SqliteConnectionStringBuilder { DataSource = SharedMemory, Mode = SqliteOpenMode.Memory, Cache = SqliteCacheMode.Shared }.ToString();
 }
 
@@ -257,17 +257,19 @@ stateDiagram-v2
 ## [4]-[CROSS_PROCESS_LAW]
 
 - Owner: `StoreLeaseRow` — one persisted lease shape with two kind rows; `StoreLocality` — the filesystem-locality admission guard.
-- Cases: writer and maintenance lease kinds; the lease table creation is pinned to the first migration so every sharing process reads one coordination surface.
+- Cases: writer and maintenance lease kinds; the lease table creation is pinned to the first migration so every sharing process reads one coordination surface, and the unique `(store, kind)` constraint makes the `Claim` conflict the first-open arbiter.
 - Entry: `public static IO<StorePlacement> Admit(StorePlacement placement)` — `IO` carries the volume probe and aborts a WAL placement on a non-local volume with typed evidence.
-- Auto: WAL plus busy-retry plus first-opener-migrates govern every shared sqlite file; maintenance work runs only while the registering process holds the maintenance lease scheduled as the AppHost persistence-maintenance entry; handoff-on-drain releases on the conductor's Stores-band row while crash-reclaim waits the `LeasePolicy.Maintenance` CrashStaleness past the holder's last `Heartbeat` stamp; `Restore` calls `Fence` so the epoch bump invalidates every stale writer handle; cross-process tag invalidation is a consequence — peer processes replay entity-kind tag transitions from the op-log HLC cursor on schedule cadence.
+- Auto: WAL plus busy-retry plus first-opener-migrates govern every shared sqlite file; the first-open race resolves through `Claim` — a candidate writes its `StoreLeaseRow` Writer row inside one `INSERT ... ON CONFLICT(Store, Kind) DO NOTHING` so exactly one process wins the writer row, the loser folds to a reader attach under `SqliteOpenMode.ReadOnly` and reads the winner's applied migrations rather than re-running `MigrateAsync`, and the won row's `Epoch` seeds every writer handle so a later `Fence` invalidates stale handles; maintenance work runs only while the registering process holds the maintenance lease scheduled as the AppHost persistence-maintenance entry; handoff-on-drain releases on the conductor's Stores-band row while crash-reclaim waits the `LeasePolicy.Maintenance` CrashStaleness past the holder's last `Heartbeat` stamp; `Restore` calls `Fence` so the epoch bump invalidates every stale writer handle; cross-process tag invalidation is a consequence — peer processes replay entity-kind tag transitions from the op-log HLC cursor on schedule cadence.
 - Packages: LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
 - Growth: one lease kind row or one remote-home marker row; zero new surface.
-- Boundary: `LeasePolicy` is the only lease policy shape — this row is its persisted projection, never a second policy record; rejection evidence converts once into the package fault union at the query rail; storeEpoch surfaces in the discovery manifest as the settled AppHost field, sourced from the writer lease row's `Epoch`.
+- Boundary: `LeasePolicy` is the only lease policy shape — this row is its persisted projection, never a second policy record; rejection evidence converts once into the package fault union at the query rail; storeEpoch surfaces in the discovery manifest as the settled AppHost field, sourced from the writer lease row's `Epoch`; `ClaimSql` is the one declared identifier seam for the `store_lease` table and its `(store, kind, holder_pid, stamp, epoch)` columns — the first migration pins those identifiers and `ClaimSql` is the single place the program restates them, so every other lease read derives from `StoreLeaseRow` members and never from a second copy of the literal. Exemption: `ClaimSql` is the SYMBOLIC_REFERENCE carve-out for the atomic first-open arbiter — the `INSERT ... ON CONFLICT(store, kind) DO NOTHING RETURNING` race cannot route through the EF set-based write path because the conflict arbitration must execute as one provider statement before any `DbContext` exists, so the literal is owned by, and only consumed inside, the native-sqlite open-ceremony bracket seam that runs `Claim` on the raw `SqliteCommand`; the `store_lease` table that pins the same identifiers is the first migration's `EnsureCreated` artifact, making this the sole write path and not a second DML owner.
 
 ```csharp signature
 public sealed record StoreLeaseRow(string Store, string Kind, int HolderPid, Instant Stamp, ulong Epoch) {
     public const string Writer = "writer";
     public const string Maintenance = "maintenance";
+
+    public const string ClaimSql = "INSERT INTO store_lease (store, kind, holder_pid, stamp, epoch) VALUES ($store, $kind, $pid, $stamp, 0) ON CONFLICT (store, kind) DO NOTHING RETURNING holder_pid";
 
     public bool Reclaimable(LeasePolicy policy, Instant now) => now - Stamp > policy.CrashStaleness;
 
@@ -276,6 +278,11 @@ public sealed record StoreLeaseRow(string Store, string Kind, int HolderPid, Ins
     public StoreLeaseRow Handoff(int successor, Instant now) => this with { HolderPid = successor, Stamp = now };
 
     public StoreLeaseRow Fence(Instant now) => this with { Stamp = now, Epoch = Epoch + 1UL };
+
+    public static Fin<StoreLeaseRow> Claim(StoreLeaseRow candidate, Option<int> winnerPid) =>
+        winnerPid is { IsSome: true, Case: int pid } && pid == candidate.HolderPid
+            ? Fin.Succ(candidate)
+            : Fin.Fail<StoreLeaseRow>(Error.New($"<writer-lease-held:{candidate.Store}>"));
 }
 
 public static class StoreLocality {
@@ -307,7 +314,8 @@ public sealed record StorePlacement(
     Option<string> Dsn,
     bool DelegatesToHost,
     bool WriterLeased,
-    bool MigrateOnOpen) {
+    bool MigrateOnOpen,
+    bool ReadOnly = false) {
     public static StorePlacement Resolve(ResolvedProfile host, Option<string> dsn = default) =>
         host.Profile.Switch(
             state: (Roots: host.Roots, Attachment: host.Attachment, Dsn: dsn),
@@ -372,4 +380,4 @@ public sealed record ExtensionRequirement(string Name, bool PreloadRequired, boo
 
 ## [7]-[RESEARCH]
 
-- [FIRST_OPEN_RACE]: two-process first-open outcome under racing `MigrateAsync` calls and busy_timeout on one WAL file.
+- [FIRST_OPEN_RACE]: the `Claim` conflict elects the writer deterministically, so the residual is the provider-level interaction only — whether the losing process's reader attach observes the winner's `MigrateAsync` commit boundary atomically under busy_timeout on one WAL file, versus a transient empty-schema read window before the migration transaction commits.
