@@ -296,8 +296,10 @@ public abstract partial record ExtractionProbe {
             state: (Sample: sample, Context: context, Key: key),
             vectorCase: static (state, probe) =>
                 probe.Source is VectorField.TangentLogMapCase log && (typeof(TOut) == typeof(TangentLogMapResult) || typeof(TOut) == typeof(TangentLogMapReceipt))
-                    ? from result in MeshKernel.TangentLogMapAt(space: log.Space, source: log.Source, sample: state.Sample, time: log.Time.Value, key: state.Key)
+                    ? from result in MeshKernel.TangentLogMapAt(space: log.Space, source: log.Source, sample: state.Sample, time: log.Time.Value, algorithm: log.Algorithm, trace: log.Trace, windows: log.Windows, key: state.Key)
                       select typeof(TOut) == typeof(TangentLogMapResult) ? (TOut)(object)result : (TOut)(object)result.Receipt
+                : probe.Source is VectorField.HodgeCase hodge && (typeof(TOut) == typeof(HodgeDecompositionReceipt) || typeof(TOut) == typeof(HarmonicOneFormReceipt))
+                    ? MeshKernel.HodgeProjected<TOut>(source: hodge.Source, space: hodge.Space, key: state.Key)
                     : from vector in probe.Source.SampleVector(sample: state.Sample, context: state.Context, key: state.Key)
                       from output in typeof(TOut) switch {
                           Type t when t == typeof(Vector3d) => AtomProjection.Value<Vector3d, TOut>(value: vector, key: state.Key, owner: typeof(VectorCase)),

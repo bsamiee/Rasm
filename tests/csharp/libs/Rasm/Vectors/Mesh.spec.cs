@@ -28,7 +28,7 @@ public sealed class MeshCatalogLaws {
         Spec.SmartEnumCatalogMatches(production: MeshFeatureKind.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7], key: static kind => kind.Key);
         Spec.SmartEnumCatalogMatches(production: MeshFeatureAlgorithm.Items, expectedKeys: [0], key: static kind => kind.Key);
         Spec.SmartEnumCatalogMatches(production: MeshSamplingSpectrumAlgorithm.Items, expectedKeys: [0], key: static kind => kind.Key);
-        Spec.SmartEnumCatalogMatches(production: TangentLogMapAlgorithm.Items, expectedKeys: [0], key: static kind => kind.Key);
+        Spec.SmartEnumCatalogMatches(production: TangentLogMapAlgorithm.Items, expectedKeys: [0, 1, 2], key: static kind => kind.Key);
         Spec.SmartEnumCatalogMatches(production: MeshSegmentationAlgorithm.Items, expectedKeys: [0, 1, 2, 3, 4, 5], key: static kind => kind.Key);
     }
 }
@@ -132,7 +132,7 @@ public sealed class MeshDescriptorAndRemeshLaws {
         Assert.False(condition: (receipt with { AdmittedFaceCount = 5 }).IsValid);
         FeatureReceipt features = new(Edges: Seq<FeatureEdge>(), BoundaryEdges: 0, CreaseEdges: 0, NonManifoldEdges: 0, UnweldedEdges: 0, NgonInteriorSkippedEdges: 0, DihedralThresholdRadians: 0.25, Algorithm: MeshFeatureAlgorithm.DihedralProxy);
         MeshSamplingSpectrumReceipt spectrum = new(VertexCount: 4, SampleCount: 2, EigenpairCount: 2, LowFrequencyEnergy: 0.5, TotalEnergy: 1.0, SuppressionRatio: 0.25, ValidationThreshold: 0.5, Validated: true, Algorithm: MeshSamplingSpectrumAlgorithm.CandidateSpectrum);
-        TangentLogMapReceipt tangent = new(SourceVertex: 0, TargetCount: 1, HeatTime: 0.1, VectorHeatBacked: true, RejectsFlippedIntrinsic: true, FiniteLogCount: 1, MaxMagnitudeResidual: 0.0, Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate);
+        TangentLogMapReceipt tangent = new(SourceVertex: 0, TargetCount: 1, HeatTime: 0.1, VectorHeatBacked: true, RejectsFlippedIntrinsic: true, FiniteLogCount: 1, MaxMagnitudeResidual: 0.0, Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate, PathFaces: [], CrossedEdges: [], TracedLength: 0.0, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0);
         Assert.True(condition: features.Algorithm?.Equals(MeshFeatureAlgorithm.DihedralProxy) == true);
         Assert.True(condition: spectrum.Algorithm?.Equals(MeshSamplingSpectrumAlgorithm.CandidateSpectrum) == true);
         Assert.True(condition: tangent.Algorithm?.Equals(TangentLogMapAlgorithm.VectorHeatApproximate) == true);

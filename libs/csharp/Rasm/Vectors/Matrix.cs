@@ -50,6 +50,7 @@ public sealed partial class SolvePath {
     public static readonly SolvePath SparseBiCgStabDiagonal = new(key: 3, isSparse: true, isFallback: false, usesDiagonalPreconditioner: true);
     public static readonly SolvePath SparseMathNetDirectFallback = new(key: 4, isSparse: true, isFallback: true, usesDiagonalPreconditioner: false);
     public static readonly SolvePath SparseCholesky = new(key: 5, isSparse: true, isFallback: false, usesDiagonalPreconditioner: false);
+    public static readonly SolvePath SparseLuIndefinite = new(key: 6, isSparse: true, isFallback: false, usesDiagonalPreconditioner: false);
     public bool IsSparse { get; }
     public bool IsFallback { get; }
     public bool UsesDiagonalPreconditioner { get; }
@@ -198,6 +199,10 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
         MatrixKernel.SingularGaugeSolve(matrix: this, rhs: rhs, gauge: gauge, context: context, key: key.OrDefault());
     public Fin<Arr<double>> SingularSolve(Arr<double> rhs, GaugePolicy gauge, Context context, Op? key = null) =>
         SingularSolveDetailed(rhs: rhs, gauge: gauge, context: context, key: key.OrDefault()).Map(static result => result.Solution);
+    public Fin<SolveReceipt> SolveIndefiniteDetailed(Arr<double> rhs, double pivotTolerance = 1.0, Op? key = null) =>
+        MatrixKernel.SparseLuSolve(matrix: this, rhs: rhs, pivotTolerance: pivotTolerance, key: key.OrDefault());
+    public Fin<Arr<double>> SolveIndefinite(Arr<double> rhs, double pivotTolerance = 1.0, Op? key = null) =>
+        SolveIndefiniteDetailed(rhs: rhs, pivotTolerance: pivotTolerance, key: key.OrDefault()).Map(static result => result.Solution);
     public Fin<EigenSolveReceipt<double, Arr<double>>> SmallestEigenpairsDetailed(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.Lobpcg(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
     internal static bool RowPointersAreMonotone(Arr<int> rowPtr) =>
@@ -694,6 +699,26 @@ internal static class MatrixKernel {
                 double residual = RelativeResidual(a: A, x: x, b: b);
                 bool fallbackAccepted = RhinoMath.IsValidDouble(x: residual) && residual <= fallbackCap;
                 return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetDirectFallback, stop: iterativeConverged ? SolveStop.ResidualConverged : fallbackAccepted ? SolveStop.DirectFallbackSolved : SolveStop.FallbackRejected, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: iterativeConverged ? RhinoMath.SqrtEpsilon : fallbackCap, maxIterations: Some(iterationCap), tolerance: Some(iterativeConverged ? RhinoMath.SqrtEpsilon : fallbackCap), inputNonZeros: Some(matrix.NonZeros));
+            });
+    // --- [SPARSE_LU_INDEFINITE] -------------------------------------------------------------
+    // Symmetric-indefinite (or nonsymmetric) sparse direct solve via CSparse SparseLU with the
+    // A+Aᵀ fill-reducing ordering and a column-relative pivot tol in [0,1] (algorithms.md route 10).
+    // The triplet-to-CSC assembly is the named statement-kernel exemption; admission witnesses the
+    // TRUE relative residual against the original operator, the only signal surviving the indefinite
+    // factorization (SPD pivot loss throws a bare Exception, caught by key.Catch into a typed fault).
+    internal static Fin<SolveReceipt> SparseLuSolve(SparseMatrix matrix, Arr<double> rhs, double pivotTolerance, Op key) =>
+        !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || !SolveInputIsValid(rows: matrix.Rows.Value, rhs: rhs) || !RhinoMath.IsValidDouble(x: pivotTolerance) || pivotTolerance is < 0.0 or > 1.0
+            ? Fin.Fail<SolveReceipt>(key.InvalidInput())
+            : key.Catch(() => {
+                int n = matrix.Rows.Value;
+                CSparse.Storage.CompressedColumnStorage<double> csc = CSparse.Double.SparseMatrix.OfIndexed(rows: n, columns: n, enumerable: SparseTripletsOf(matrix: matrix));
+                CSparse.Double.Factorization.SparseLU lu = CSparse.Double.Factorization.SparseLU.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, tol: pivotTolerance);
+                double[] solution = new double[n];
+                lu.Solve(input: [.. rhs.AsIterable()], result: solution.AsSpan());
+                Arr<double> x = new(solution);
+                double residual = SparseResidual(matrix: matrix, solution: x, rhs: rhs);
+                double cap = Math.Sqrt(RhinoMath.SqrtEpsilon);
+                return SolveSuccess(solution: x, solutionLength: n, path: SolvePath.SparseLuIndefinite, stop: RhinoMath.IsValidDouble(x: residual) && residual <= cap ? SolveStop.DirectSolved : SolveStop.FallbackRejected, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: cap, tolerance: Some(cap), inputNonZeros: Some(matrix.NonZeros), factorNonZeros: Some(lu.NonZerosCount));
             });
     // --- [SINGULAR_GAUGE] -------------------------------------------------------------------
     // Gauge dual-solve over a singular SPSD operator: admit once, derive every threshold from

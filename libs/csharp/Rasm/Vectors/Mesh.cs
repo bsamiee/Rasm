@@ -149,7 +149,32 @@ public sealed partial class SdfMeshStatus {
 }
 
 [SmartEnum<int>]
-public sealed partial class TangentLogMapAlgorithm { public static readonly TangentLogMapAlgorithm VectorHeatApproximate = new(key: 0); }
+public sealed partial class TangentLogMapAlgorithm {
+    public static readonly TangentLogMapAlgorithm VectorHeatApproximate = new(key: 0);
+    public static readonly TangentLogMapAlgorithm ExactStraightestExp = new(key: 1);
+    public static readonly TangentLogMapAlgorithm ExactWindowPropagation = new(key: 2);
+}
+
+[SmartEnum<int>]
+public sealed partial class GeodesicStopKind {
+    public static readonly GeodesicStopKind LengthReached = new(key: 0);
+    public static readonly GeodesicStopKind BoundaryHit = new(key: 1);
+    public static readonly GeodesicStopKind BarrierHit = new(key: 2);
+    public static readonly GeodesicStopKind IterationCap = new(key: 3);
+}
+
+[SmartEnum<int>]
+public sealed partial class SignpostEncoding {
+    public static readonly SignpostEncoding Signposts = new(key: 0);
+    public static readonly SignpostEncoding NormalCoordinates = new(key: 1);
+    public static readonly SignpostEncoding Both = new(key: 2);
+}
+
+[SmartEnum<int>]
+public sealed partial class SignpostGauge {
+    public static readonly SignpostGauge FirstHalfedge = new(key: 0);
+    public static readonly SignpostGauge LowestVertexNeighbor = new(key: 1);
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -183,23 +208,107 @@ public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int OriginalVertices, int OriginalFaces, int IntrinsicVertices, int IntrinsicEdges, int IntrinsicFaces, int LogicalCoverFaces, int LogicalCoverEdges, int BoundaryEdges, int NonManifoldEdges, int MollifiedEdges, double MaxMollification, int IntrinsicFlips, bool DelaunaySatisfied, int StiffnessNonZeros, int MassNonZeros, int PositiveMassCount, int SkippedDegenerateFaces, int DroppedNonTriangleFaces, bool CoverAware, bool CollapsedToOriginalVertices) {
+public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int OriginalVertices, int OriginalFaces, int IntrinsicVertices, int IntrinsicEdges, int IntrinsicFaces, int CoverFaces, int CoverEdges, int BoundaryEdges, int NonManifoldEdges, bool GluingMapIsBijection, int GluingSymmetryViolations, bool CoverIsEdgeManifold, bool CoverIsClosed, double MollificationEpsilon, int DegenerateTriangleCount, double LengthScaleH, double MinTriangleInequalitySlack, int IntrinsicFlips, int NonDelaunayEdgesRemaining, bool MaxFlipsHit, double MinCotanEdgeWeight, double MinBoundaryEdgeWeight, int NegativeWeightCount, double MinLumpedMass, double TotalCoveredArea, double EnergyScaleApplied, double SymmetryResidual, double RowSumResidual, int DroppedNonTriangleFaces, bool CoverAware, bool CollapsedToOriginalVertices) {
     public bool IsValid =>
         Kind is not null
-        && OriginalVertices >= 0 && OriginalFaces >= 0 && IntrinsicVertices >= 0 && IntrinsicEdges >= 0 && IntrinsicFaces >= 0 && LogicalCoverFaces >= 0 && LogicalCoverEdges >= 0 && BoundaryEdges >= 0 && NonManifoldEdges >= 0 && MollifiedEdges >= 0 && IntrinsicFlips >= 0 && StiffnessNonZeros >= 0 && MassNonZeros >= 0 && PositiveMassCount >= 0 && SkippedDegenerateFaces >= 0 && DroppedNonTriangleFaces >= 0
+        && OriginalVertices >= 0 && OriginalFaces >= 0 && IntrinsicVertices >= 0 && IntrinsicEdges >= 0 && IntrinsicFaces >= 0 && CoverFaces >= 0 && CoverEdges >= 0 && BoundaryEdges >= 0 && NonManifoldEdges >= 0 && GluingSymmetryViolations >= 0 && DegenerateTriangleCount >= 0 && IntrinsicFlips >= 0 && NonDelaunayEdgesRemaining >= 0 && NegativeWeightCount >= 0 && DroppedNonTriangleFaces >= 0
         && OriginalFaces >= IntrinsicFaces + DroppedNonTriangleFaces
-        && RhinoMath.IsValidDouble(x: MaxMollification)
-        && MaxMollification >= 0.0
-        && (!CoverAware || LogicalCoverFaces >= IntrinsicFaces)
-        && (!CoverAware || LogicalCoverEdges >= IntrinsicEdges)
-        && (!CollapsedToOriginalVertices || IntrinsicVertices == OriginalVertices)
-        && PositiveMassCount <= OriginalVertices
-        && DelaunaySatisfied;
+        && RhinoMath.IsValidDouble(x: MollificationEpsilon) && MollificationEpsilon >= 0.0
+        && RhinoMath.IsValidDouble(x: LengthScaleH) && LengthScaleH >= 0.0
+        && RhinoMath.IsValidDouble(x: MinTriangleInequalitySlack)
+        && RhinoMath.IsValidDouble(x: MinCotanEdgeWeight) && RhinoMath.IsValidDouble(x: MinBoundaryEdgeWeight)
+        && RhinoMath.IsValidDouble(x: MinLumpedMass) && RhinoMath.IsValidDouble(x: TotalCoveredArea) && TotalCoveredArea >= 0.0
+        && RhinoMath.IsValidDouble(x: EnergyScaleApplied) && EnergyScaleApplied > 0.0
+        && RhinoMath.IsValidDouble(x: SymmetryResidual) && SymmetryResidual >= 0.0
+        && RhinoMath.IsValidDouble(x: RowSumResidual) && RowSumResidual >= 0.0
+        && (!CoverAware || (CoverFaces == 2 * IntrinsicFaces && GluingMapIsBijection && GluingSymmetryViolations == 0 && CoverIsEdgeManifold && CoverIsClosed))
+        && (!CoverAware || (NonDelaunayEdgesRemaining == 0 && !MaxFlipsHit))
+        && (!CoverAware || (SymmetryResidual <= RhinoMath.SqrtEpsilon && RowSumResidual <= RhinoMath.SqrtEpsilon && MinLumpedMass > 0.0))
+        && (!CoverAware || (MinCotanEdgeWeight >= -RhinoMath.SqrtEpsilon && MinBoundaryEdgeWeight >= -RhinoMath.SqrtEpsilon))
+        && (!CollapsedToOriginalVertices || IntrinsicVertices == OriginalVertices);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped, int SkippedDegenerateFaces = 0, Option<TuftedLaplacianReceipt> Tufted = default, int NegativeCotangentCount = 0) {
     public bool IsValid => Stiffness.IsValid && MassConsistent.IsValid && Stiffness.Rows.Value == MassConsistent.Rows.Value && Stiffness.Cols.Value == MassConsistent.Cols.Value && Stiffness.Rows.Value == Stiffness.Cols.Value && MassLumped.Count == Stiffness.Rows.Value && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && SkippedDegenerateFaces >= 0 && NegativeCotangentCount >= 0 && Tufted.Map(static receipt => receipt.IsValid).IfNone(noneValue: true);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TuftedCoverPolicy(PositiveMagnitude MollifyFactor, bool MollifyEnabled, PositiveMagnitude DelaunayTolerance, Dimension MaxFlipsPerEdge, UnitInterval EnergyScaleFactor, bool LaplacianReplace, bool MassReplace) {
+    public static readonly TuftedCoverPolicy Mesh = new(MollifyFactor: PositiveMagnitude.Create(value: 1.0e-5), MollifyEnabled: true, DelaunayTolerance: PositiveMagnitude.Create(value: RhinoMath.SqrtEpsilon), MaxFlipsPerEdge: Dimension.Create(value: 16), EnergyScaleFactor: UnitInterval.Create(value: 0.5), LaplacianReplace: true, MassReplace: true);
+    public static Fin<TuftedCoverPolicy> Of(double mollifyFactor, bool mollifyEnabled, double delaunayTolerance, int maxFlipsPerEdge, double energyScaleFactor, bool laplacianReplace, bool massReplace, Op? key = null) =>
+        key.OrDefault() switch {
+            Op op =>
+                from factor in op.AcceptValidated<PositiveMagnitude>(candidate: mollifyFactor)
+                from tolerance in op.AcceptValidated<PositiveMagnitude>(candidate: delaunayTolerance)
+                from cap in op.AcceptValidated<Dimension>(candidate: maxFlipsPerEdge)
+                from energy in op.AcceptValidated<UnitInterval>(candidate: energyScaleFactor)
+                from _ in guard(energy.Value > RhinoMath.ZeroTolerance, op.InvalidInput()).ToFin()
+                select new TuftedCoverPolicy(MollifyFactor: factor, MollifyEnabled: mollifyEnabled, DelaunayTolerance: tolerance, MaxFlipsPerEdge: cap, EnergyScaleFactor: energy, LaplacianReplace: laplacianReplace, MassReplace: massReplace),
+        };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SignpostPolicy(SignpostEncoding Encoding, UnitInterval LawOfCosinesClamp, PositiveMagnitude DegenerateAreaFloor, int TraceMaxIters, PositiveMagnitude VertexAngleRescaleFloor, SignpostGauge ReferenceDirectionGauge, bool CommonSubdivisionTriangulate) {
+    public static readonly SignpostPolicy Default = new(Encoding: SignpostEncoding.Both, LawOfCosinesClamp: UnitInterval.Create(value: 1.0), DegenerateAreaFloor: PositiveMagnitude.Create(value: RhinoMath.SqrtEpsilon), TraceMaxIters: 0, VertexAngleRescaleFloor: PositiveMagnitude.Create(value: RhinoMath.SqrtEpsilon), ReferenceDirectionGauge: SignpostGauge.FirstHalfedge, CommonSubdivisionTriangulate: true);
+    internal int TraceCapFor(int edgeCount) => TraceMaxIters > 0 ? TraceMaxIters : Math.Max(val1: 1, val2: edgeCount) * 16;
+    public static Fin<SignpostPolicy> Of(SignpostEncoding encoding, double lawOfCosinesClamp, double degenerateAreaFloor, int traceMaxIters, double vertexAngleRescaleFloor, SignpostGauge referenceDirectionGauge, bool commonSubdivisionTriangulate, Op? key = null) =>
+        key.OrDefault() switch {
+            Op op =>
+                from activeEncoding in Optional(encoding).ToFin(op.InvalidInput())
+                from activeGauge in Optional(referenceDirectionGauge).ToFin(op.InvalidInput())
+                from clamp in op.AcceptValidated<UnitInterval>(candidate: lawOfCosinesClamp)
+                from areaFloor in op.AcceptValidated<PositiveMagnitude>(candidate: degenerateAreaFloor)
+                from rescaleFloor in op.AcceptValidated<PositiveMagnitude>(candidate: vertexAngleRescaleFloor)
+                from _ in guard(traceMaxIters >= 0, op.InvalidInput()).ToFin()
+                select new SignpostPolicy(Encoding: activeEncoding, LawOfCosinesClamp: clamp, DegenerateAreaFloor: areaFloor, TraceMaxIters: traceMaxIters, VertexAngleRescaleFloor: rescaleFloor, ReferenceDirectionGauge: activeGauge, CommonSubdivisionTriangulate: commonSubdivisionTriangulate),
+        };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct GeodesicTracePolicy(PositiveMagnitude TraceLengthFactor, Dimension MaxSteps, UnitInterval VertexSnap, bool StopAtBoundary, bool StopAtBarriers) {
+    public static readonly GeodesicTracePolicy Default = new(TraceLengthFactor: PositiveMagnitude.Create(value: 64.0), MaxSteps: Dimension.Create(value: 4096), VertexSnap: UnitInterval.Create(value: 1.0e-6), StopAtBoundary: true, StopAtBarriers: true);
+    public static Fin<GeodesicTracePolicy> Of(double traceLengthFactor, int maxSteps, double vertexSnap, bool stopAtBoundary, bool stopAtBarriers, Op? key = null) =>
+        key.OrDefault() switch {
+            Op op =>
+                from factor in op.AcceptValidated<PositiveMagnitude>(candidate: traceLengthFactor)
+                from steps in op.AcceptValidated<Dimension>(candidate: maxSteps)
+                from snap in op.AcceptValidated<UnitInterval>(candidate: vertexSnap)
+                select new GeodesicTracePolicy(TraceLengthFactor: factor, MaxSteps: steps, VertexSnap: snap, StopAtBoundary: stopAtBoundary, StopAtBarriers: stopAtBarriers),
+        };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct WindowPropagationPolicy(Dimension MaxWindowsPerEdge, Dimension BacktraceMaxHops, PositiveMagnitude SaddleAngleThreshold, bool ReportCutLocus) {
+    // SaddleAngleThreshold is a cone-angle gate, not a vector angle: a hyperbolic (saddle) cone point carries total
+    // angle ABOVE 2pi, so the carrier must admit values past 2pi (PositiveMagnitude, unbounded above) and the default
+    // seats just above the flat-vertex boundary (2pi + scale epsilon) so the angle-defect sign test fires only on
+    // genuine cone points while every flat/convex vertex (<=2pi) stays below it.
+    public static readonly WindowPropagationPolicy Default = new(MaxWindowsPerEdge: Dimension.Create(value: 512), BacktraceMaxHops: Dimension.Create(value: 4096), SaddleAngleThreshold: PositiveMagnitude.Create(value: RhinoMath.TwoPI + RhinoMath.SqrtEpsilon), ReportCutLocus: false);
+    public static Fin<WindowPropagationPolicy> Of(int maxWindowsPerEdge, int backtraceMaxHops, double saddleAngleThreshold, bool reportCutLocus, Op? key = null) =>
+        key.OrDefault() switch {
+            Op op =>
+                from windows in op.AcceptValidated<Dimension>(candidate: maxWindowsPerEdge)
+                from hops in op.AcceptValidated<Dimension>(candidate: backtraceMaxHops)
+                from saddle in op.AcceptValidated<PositiveMagnitude>(candidate: saddleAngleThreshold)
+                select new WindowPropagationPolicy(MaxWindowsPerEdge: windows, BacktraceMaxHops: hops, SaddleAngleThreshold: saddle, ReportCutLocus: reportCutLocus),
+        };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TuftedBaseFaces(Mesh Triangulated, int TriangleCount, int DroppedNonTriangleFaces) {
+    public bool IsValid => Triangulated is not null && Triangulated.IsValid && TriangleCount >= 0 && DroppedNonTriangleFaces >= 0;
+    internal static Fin<TuftedBaseFaces> Of(Mesh source, Op key) {
+        Mesh duplicate = source.DuplicateMesh();
+        if (MeshKernel.ContainsQuads(mesh: duplicate) && !duplicate.Faces.ConvertQuadsToTriangles())
+            return Fin.Fail<TuftedBaseFaces>(key.InvalidResult());
+        int triangles = 0; int dropped = 0;
+        for (int f = 0; f < duplicate.Faces.Count; f++)
+            if (duplicate.Faces[index: f].IsTriangle) triangles++; else dropped++;
+        return dropped > 0
+            ? Fin.Fail<TuftedBaseFaces>(key.InvalidResult(detail: string.Create(provider: CultureInfo.InvariantCulture, $"Tufted cover requires a fully triangulated base; {dropped} non-triangle face(s) remained after quad conversion.")))
+            : Fin.Succ(new TuftedBaseFaces(Triangulated: duplicate, TriangleCount: triangles, DroppedNonTriangleFaces: dropped));
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
@@ -290,21 +399,76 @@ public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshSample(double Distance, SdfMeshReceipt Receipt);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SignpostTransportReceipt(int VertexCount, int IntrinsicEdgeCount, int TransportedEdgeCount, int IntrinsicFlipCount, int ChordFallbackEdges, int MissingFrameEdges, int CommonSubdivisionSegments, bool IntrinsicSnapshot, bool ExactCommonSubdivision, double MaxAngleRadians, double MaxLengthResidual) {
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CommonSubdivision(int SubdivisionVertexCount, int SubdivisionFaceCount, Arr<int> SourceFaceA, Arr<int> SourceFaceB, SparseMatrix InterpolationA, SparseMatrix InterpolationB, double RowSumResidualA, double RowSumResidualB, double EdgeLengthInterpolationResidual) {
     public bool IsValid =>
-        VertexCount >= 0 && IntrinsicEdgeCount >= 0 && TransportedEdgeCount >= 0 && IntrinsicFlipCount >= 0 && ChordFallbackEdges >= 0 && MissingFrameEdges >= 0 && CommonSubdivisionSegments >= 0
+        SubdivisionVertexCount >= 0 && SubdivisionFaceCount >= 0
+        && InterpolationA.IsValid && InterpolationB.IsValid
+        && InterpolationA.Rows.Value == SubdivisionVertexCount && InterpolationB.Rows.Value == SubdivisionVertexCount
+        && InterpolationA.Cols.Value == InterpolationB.Cols.Value
+        && SourceFaceA.Count == SubdivisionFaceCount && SourceFaceB.Count == SubdivisionFaceCount
+        && SourceFaceA.All(static face => face >= 0) && SourceFaceB.All(static face => face >= 0)
+        && RhinoMath.IsValidDouble(x: RowSumResidualA) && RowSumResidualA >= 0.0
+        && RhinoMath.IsValidDouble(x: RowSumResidualB) && RowSumResidualB >= 0.0
+        && RhinoMath.IsValidDouble(x: EdgeLengthInterpolationResidual) && EdgeLengthInterpolationResidual >= 0.0;
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct SignpostTransportReceipt(int VertexCount, int IntrinsicEdgeCount, int TransportedEdgeCount, int IntrinsicFlipCount, int ChordFallbackEdges, int MissingFrameEdges, int CommonSubdivisionSegments, int TracedPathEdgeCount, int NormalCoordinateParityErrors, int SumNormalCoordinates, bool IntrinsicSnapshot, bool ExactCommonSubdivision, double MaxAngleRadians, double MaxLengthResidual, double MaxSignpostUpdateResidual, Option<CommonSubdivision> Subdivision = default) {
+    public bool IsValid =>
+        VertexCount >= 0 && IntrinsicEdgeCount >= 0 && TransportedEdgeCount >= 0 && IntrinsicFlipCount >= 0 && ChordFallbackEdges >= 0 && MissingFrameEdges >= 0 && CommonSubdivisionSegments >= 0 && TracedPathEdgeCount >= 0 && NormalCoordinateParityErrors >= 0 && SumNormalCoordinates >= 0
         && TransportedEdgeCount + MissingFrameEdges <= IntrinsicEdgeCount
         && ChordFallbackEdges <= TransportedEdgeCount
-        && (!ExactCommonSubdivision || CommonSubdivisionSegments > 0)
+        && CommonSubdivisionSegments == SumNormalCoordinates
+        && (!ExactCommonSubdivision || NormalCoordinateParityErrors == 0)
         && RhinoMath.IsValidDouble(x: MaxAngleRadians)
         && RhinoMath.IsValidDouble(x: MaxLengthResidual)
+        && RhinoMath.IsValidDouble(x: MaxSignpostUpdateResidual)
         && MaxAngleRadians >= 0.0
         && MaxLengthResidual >= 0.0
+        && MaxSignpostUpdateResidual >= 0.0
+        && Subdivision.Map(static sub => sub.IsValid).IfNone(noneValue: true)
         && IntrinsicSnapshot;
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapReceipt(int SourceVertex, int TargetCount, double HeatTime, bool VectorHeatBacked, bool RejectsFlippedIntrinsic, int FiniteLogCount, double MaxMagnitudeResidual, TangentLogMapAlgorithm? Algorithm = null);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct HodgeDecompositionReceipt(int ExpectedGenus, int ExpectedDimension, int BasisCount, int EdgeCount, int Rank, int Nullity, int FiniteVectorCount, int PositiveStar1Count, double MaxClosedResidual, double MaxCoClosedResidual, double Star1OrthonormalResidual, double ReconstructionResidual, double HarmonicEnergy, GaugeReceipt ExactGauge, HarmonicOneFormReceipt Harmonic) {
+    public bool IsValid {
+        get {
+            double tolerance = Harmonic.SvdTolerance;
+            double residualGate = Math.Max(val1: 1.0e-6, val2: tolerance * 1.0e4);
+            return ExpectedGenus >= 1 && ExpectedDimension == 2 * ExpectedGenus
+                && BasisCount == ExpectedDimension
+                && EdgeCount > 0 && Rank >= 0 && Nullity >= 0
+                && Rank + Nullity == EdgeCount
+                && FiniteVectorCount == EdgeCount
+                && PositiveStar1Count > 0 && PositiveStar1Count <= EdgeCount
+                && RhinoMath.IsValidDouble(x: MaxClosedResidual) && MaxClosedResidual >= 0.0 && MaxClosedResidual <= residualGate
+                && RhinoMath.IsValidDouble(x: MaxCoClosedResidual) && MaxCoClosedResidual >= 0.0 && MaxCoClosedResidual <= residualGate
+                && RhinoMath.IsValidDouble(x: Star1OrthonormalResidual) && Star1OrthonormalResidual >= 0.0 && Star1OrthonormalResidual <= residualGate
+                && RhinoMath.IsValidDouble(x: ReconstructionResidual) && ReconstructionResidual >= 0.0 && ReconstructionResidual <= residualGate
+                && RhinoMath.IsValidDouble(x: HarmonicEnergy) && HarmonicEnergy >= 0.0
+                && ExactGauge.IsValid
+                && Harmonic.IsValid
+                && Harmonic.BasisCount == BasisCount
+                && Harmonic.EdgeCount == EdgeCount;
+        }
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TangentLogMapReceipt(TangentLogMapAlgorithm Algorithm, int SourceVertex, int TargetCount, bool VectorHeatBacked, bool RejectsFlippedIntrinsic, int FiniteLogCount, double MaxMagnitudeResidual, double HeatTime, Arr<int> PathFaces, Arr<int> CrossedEdges, double TracedLength, double PathRelativeResidual, int SegmentCount, int EdgeCrossingCount, int VertexPassCount, Option<GeodesicStopKind> StopKind = default, int WindowCount = 0, int OcclusionClampCount = 0, int PseudosourceCount = 0, int CutLocusCount = 0) {
+    public bool IsValid =>
+        Algorithm is not null && SourceVertex >= 0 && TargetCount >= 0 && FiniteLogCount >= 0
+        && SegmentCount >= 0 && EdgeCrossingCount >= 0 && VertexPassCount >= 0 && WindowCount >= 0 && OcclusionClampCount >= 0 && PseudosourceCount >= 0 && CutLocusCount >= 0
+        && PathFaces.Count == SegmentCount && CrossedEdges.Count == EdgeCrossingCount
+        && PathFaces.All(static face => face >= 0) && CrossedEdges.All(static edge => edge >= 0)
+        && RhinoMath.IsValidDouble(x: MaxMagnitudeResidual) && MaxMagnitudeResidual >= 0.0
+        && RhinoMath.IsValidDouble(x: HeatTime) && HeatTime >= 0.0
+        && RhinoMath.IsValidDouble(x: TracedLength) && TracedLength >= 0.0
+        && RhinoMath.IsValidDouble(x: PathRelativeResidual) && PathRelativeResidual >= 0.0
+        && (!StopKind.IsSome || SegmentCount == 0 || SegmentCount == EdgeCrossingCount + VertexPassCount + 1);
+}
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapResult(Vector3d Tangent, TangentLogMapReceipt Receipt);
 
@@ -323,6 +487,22 @@ internal readonly record struct CrossFieldKey(int Symmetry, Option<Arr<(int Vert
 }
 
 internal readonly record struct GeodesicKey(Seq<int> Sources);
+
+// Surazhsky MMP window over an intrinsic half-edge: [b0,b1] is the covered sub-interval on the edge, (d0,d1) the
+// pseudosource distances to its endpoints, sigma the pseudosource accumulated distance, tau the source-side gauge angle.
+// The wavefront body lands with the log-direction backtrace (4b); the exp tracer leaves the field inert.
+[StructLayout(LayoutKind.Auto)] internal readonly record struct GeodesicWindow(int Edge, double B0, double B1, double D0, double D1, double Sigma, double Tau, int Pseudosource);
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct WindowField(int SourceVertex, Arr<GeodesicWindow> Windows, int OcclusionClampCount, int PseudosourceCount, int CutLocusCount) {
+    internal static WindowField Empty(int source) => new(SourceVertex: source, Windows: [], OcclusionClampCount: 0, PseudosourceCount: 0, CutLocusCount: 0);
+    internal Option<(double Distance, double Tau, int Pseudosource)> Backtrace(int edge, double bary) =>
+        Windows.Find(window => window.Edge == edge && bary >= window.B0 && bary <= window.B1)
+            .Map(window => (Distance: window.Sigma + ((1.0 - bary) * window.D0) + (bary * window.D1), window.Tau, window.Pseudosource));
+    // The source-side tangent needs the pseudosource ray backtraced to v_s (item-4b); until that lands the direction is
+    // genuinely absent, so this returns None — never a forgeable Some(Vector3d.Zero) a consumer could read as a converged ray.
+    internal Option<Vector3d> InitialTangentAtSource(int edge, double bary) => Backtrace(edge: edge, bary: bary).Bind(static _ => Option<Vector3d>.None);
+}
 
 internal readonly record struct HodgeKey(VectorField Source);
 
@@ -362,11 +542,13 @@ internal sealed class LaplacianCache {
             });
         internal bool Contains(TKey probe) => cache.Value.ContainsKey(key: probe);
     }
-    private readonly Memo<Unit, SparseLaplacian> cotangent = new(), intrinsicDelaunay = new(), tuftedIntrinsic = new();
+    private readonly Memo<Unit, SparseLaplacian> cotangent = new(), intrinsicDelaunay = new();
+    private readonly Memo<TuftedCoverPolicy, SparseLaplacian> tuftedIntrinsic = new();
     private readonly Memo<Unit, CholeskySparse> cholesky = new();
     private readonly Memo<Unit, SpectralBasisBundle> defaultSpectral = new();
     private readonly Lazy<double> meanEdgeLength;
     private readonly Memo<Unit, MeshKernel.IntrinsicMesh> intrinsicMesh = new(), tuftedIntrinsicMesh = new();
+    private readonly Memo<MeshLaplacian, MeshKernel.IntrinsicMesh> frozenIntrinsic = new();
     private readonly Memo<(int Symmetry, double Time), CholeskySparse> connectionCholesky = new();
     private readonly Memo<double, CholeskySparse> scalarHeatCholesky = new();
     private readonly Memo<double, EdgeConnectionFactor> edgeConnectionCholesky = new();
@@ -391,10 +573,11 @@ internal sealed class LaplacianCache {
             from imesh in IntrinsicMeshSnapshot(key: key)
             from laplacian in MeshKernel.AssembleCotangentFromIntrinsic(imesh: imesh, key: key)
             select laplacian);
-    internal Fin<SparseLaplacian> TuftedIntrinsic(Op key) =>
-        tuftedIntrinsic.Of(probe: unit, compute: () =>
+    internal Fin<SparseLaplacian> TuftedIntrinsic(Op key) => TuftedIntrinsic(policy: TuftedCoverPolicy.Mesh, key: key);
+    internal Fin<SparseLaplacian> TuftedIntrinsic(TuftedCoverPolicy policy, Op key) =>
+        tuftedIntrinsic.Of(probe: policy, compute: () =>
             from imesh in TuftedIntrinsicMeshSnapshot(key: key)
-            from laplacian in MeshKernel.AssembleTuftedCotangentFromIntrinsic(imesh: imesh, key: key)
+            from laplacian in MeshKernel.AssembleTuftedCotangentFromIntrinsic(imesh: imesh, policy: policy, key: key)
             select laplacian);
     internal Fin<CholeskySparse> Cholesky(Op key) =>
         cholesky.Of(probe: unit, compute: () =>
@@ -405,7 +588,12 @@ internal sealed class LaplacianCache {
     internal Fin<MeshKernel.IntrinsicMesh> IntrinsicMeshSnapshot(Op key) =>
         intrinsicMesh.Of(probe: unit, compute: () => MeshKernel.BuildIntrinsicMesh(mesh: space.Native, key: key));
     internal Fin<MeshKernel.IntrinsicMesh> TuftedIntrinsicMeshSnapshot(Op key) =>
-        tuftedIntrinsicMesh.Of(probe: unit, compute: () => MeshKernel.BuildTuftedIntrinsicMesh(mesh: space.Native, key: key));
+        tuftedIntrinsicMesh.Of(probe: unit, compute: () =>
+            from baseFaces in TuftedBaseFaces.Of(source: space.Native, key: key)
+            from imesh in MeshKernel.BuildIntrinsicMesh(mesh: baseFaces.Triangulated, key: key)
+            select imesh);
+    internal Fin<MeshKernel.IntrinsicMesh> EnsureFrozenIntrinsic(MeshLaplacian kind, Op key) =>
+        frozenIntrinsic.Of(probe: kind, compute: () => MeshKernel.FrozenIntrinsicFor(mesh: space.Native, kind: kind, key: key));
     internal Fin<Arr<double>> SignedHeat(SdfMeshPolicy policy, Op key) => SignedHeatDetailed(policy: policy, key: key).Map(static result => result.Values);
     internal Fin<SignedHeatSolution> SignedHeatDetailed(SdfMeshPolicy policy, Op key) =>
         signedHeat.Of(probe: new BoundarySignedHeatKey(Heat: policy.Heat, Solver: policy.Solver), compute: () => MeshKernel.ComputeSignedHeatDetailed(space: space, policy: policy, key: key));
@@ -467,7 +655,6 @@ internal static class MeshKernel {
     private readonly record struct WatershedState(int[] Regions, int SeedCount, int SaddleCount);
     private readonly record struct NormalizedCutSystem(SparseMatrix Laplacian, SparseMatrix Degree, int AffinityNonZeros, double Sigma);
     private readonly record struct ClusterState(int[] Labels, int Iterations, bool Converged);
-    [StructLayout(LayoutKind.Auto)] private readonly record struct IntrinsicLengthSet(double LAb, double LBc, double LAc, int MollifiedEdges, double MaxMollification);
     [StructLayout(LayoutKind.Auto)] private readonly record struct ConnectionEntries(Seq<(int I, int J, double Weight, double Rho)> Rows, SignpostTransportReceipt Receipt);
     [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeSource(Point3d Center, Vector3d Normal, double Area);
     [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeSourceSet(VolumeSource[] Sources, int Degenerate, double Area);
@@ -503,7 +690,7 @@ internal static class MeshKernel {
             from mass in SparseMatrix.FromTriplets(rows: Dimension.Create(value: vertexCount), cols: Dimension.Create(value: vertexCount), triplets: Mass, key: key)
             select new SparseLaplacian(Stiffness: stiff, MassConsistent: mass, MassLumped: new Arr<double>(Lumped), SkippedDegenerateFaces: SkippedDegenerateFaces, NegativeCotangentCount: NegativeCotangentCount);
     }
-    private static bool ContainsQuads(Mesh mesh) => mesh.Faces.QuadCount > 0;
+    internal static bool ContainsQuads(Mesh mesh) => mesh.Faces.QuadCount > 0;
 
     // --- [VALIDATION] -----------------------------------------------------------------------
     // BOUNDARY ADAPTER — native face iteration avoids materialising large meshes into Seq.
@@ -571,30 +758,34 @@ internal static class MeshKernel {
         from source in IntrinsicMesh.FromMesh(mesh: mesh, key: key)
         from flipped in FlipToDelaunay(imesh: source, key: key)
         select flipped.Freeze();
-    internal static Fin<IntrinsicMesh> BuildTuftedIntrinsicMesh(Mesh mesh, Op key) =>
-        from source in IntrinsicMesh.FromMesh(mesh: mesh, key: key, tuftedCover: true)
-        from flipped in FlipToDelaunay(imesh: source, key: key)
-        select flipped.Freeze();
+    // Frozen intrinsic snapshot pinned by Laplacian kind: the cotangent kind preserves the input triangulation so
+    // intrinsic angles stay consistent with the extrinsic positions; the Delaunay/tufted kinds run the IDT flip.
+    internal static Fin<IntrinsicMesh> FrozenIntrinsicFor(Mesh mesh, MeshLaplacian kind, Op key) =>
+        kind.Equals(MeshLaplacian.Cotangent)
+            ? IntrinsicMesh.FromMesh(mesh: mesh, key: key).Map(static source => source.Freeze())
+            : BuildIntrinsicMesh(mesh: mesh, key: key);
 
     [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct IntrinsicEdge(int Lo, int Hi, double Length, int Face0, int Face1) {
+    internal readonly record struct IntrinsicEdge(int Lo, int Hi, double Length, int Face0, int Face1, int NormalCoord = -1) {
         internal bool IsInterior => Face1 >= 0;
+        internal bool IsOriginalEdge => NormalCoord < 0;
+        internal int Crossings => Math.Max(val1: NormalCoord, val2: 0);
     }
 
     internal sealed class IntrinsicMesh {
         internal int VertexCount;
+        internal Point3d[] Positions = [];
         internal readonly List<(int A, int B, int C)?> Triangles = [];
-        internal readonly Dictionary<(int Lo, int Hi), (double Length, List<int> FaceIdx)> EdgeData = [];
+        internal readonly Dictionary<(int Lo, int Hi), (double Length, List<int> FaceIdx, int Normal)> EdgeData = [];
         internal bool HasFlips;
-        internal bool TuftedCover;
         internal int OriginalFaceCount;
         internal int DroppedNonTriangleFaces;
         internal int FlipCount;
-        internal int MollifiedEdgeCount;
-        internal double MaxMollification;
+        internal int ParityErrorCount;
         internal int BoundaryEdgeCount;
         internal int NonManifoldEdgeCount;
         private IntrinsicEdge[]? frozenEdges;
+        private int[]? frozenNormalCoord;
         private Dictionary<(int Lo, int Hi), int>? frozenEdgeIndex;
         private int[][]? frozenFaceEdges;
         private double[]? frozenFaceAreas;
@@ -602,9 +793,21 @@ internal static class MeshKernel {
         internal bool IsFrozen => frozenEdges is not null;
         internal int EdgeCount => frozenEdges?.Length ?? 0;
         internal int LiveFaceCount => Triangles.Count(static slot => slot.HasValue);
-        internal int LogicalCoverFaceCount => TuftedCover ? LiveFaceCount * 2 : LiveFaceCount;
-        internal int LogicalCoverEdgeCount => TuftedCover ? EdgeData.Values.Sum(static edge => Math.Max(val1: 2, val2: edge.FaceIdx.Count * 2)) : EdgeData.Count;
         internal IntrinsicEdge EdgeAt(int index) => frozenEdges![index];
+        internal int NormalCoordAt(int index) => frozenNormalCoord![index];
+        internal int SumNormalCoordinates {
+            get { int sum = 0; if (frozenNormalCoord is { } coords) foreach (int n in coords) sum += Math.Max(val1: n, val2: 0); return sum; }
+        }
+        internal int TransverseEdgeCount {
+            get { int count = 0; if (frozenNormalCoord is { } coords) foreach (int n in coords) count += n > 0 ? 1 : 0; return count; }
+        }
+        internal bool IsInteriorVertex(int vertex) {
+            if (frozenEdges is not { } edges) return false;
+            bool incident = false;
+            foreach (IntrinsicEdge edge in edges)
+                if (edge.Lo == vertex || edge.Hi == vertex) { incident = true; if (!edge.IsInterior) return false; }
+            return incident;
+        }
         internal int IndexOfEdge(int lo, int hi) =>
             frozenEdgeIndex is { } edges && edges.TryGetValue(key: EdgeKey(i: lo, j: hi), value: out int idx) ? idx : -1;
         internal int[] EdgesOfFace(int faceIdx) => frozenFaceEdges![faceIdx];
@@ -614,7 +817,7 @@ internal static class MeshKernel {
             for (int f = 0; f < Triangles.Count; f++) if (Triangles[index: f].HasValue) yield return f;
         }
         internal IntrinsicMesh Freeze() {
-            foreach (KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx)> kv in EdgeData)
+            foreach (KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx, int Normal)> kv in EdgeData)
                 _ = kv.Value.FaceIdx.RemoveAll(match: face => face < 0 || face >= Triangles.Count || !Triangles[index: face].HasValue);
             foreach ((int Lo, int Hi) key in EdgeData
                          .Where(static kv => kv.Value.FaceIdx.Count == 0 || !RhinoMath.IsValidDouble(x: kv.Value.Length) || kv.Value.Length <= RhinoMath.ZeroTolerance)
@@ -623,18 +826,20 @@ internal static class MeshKernel {
                 _ = EdgeData.Remove(key: key);
             BoundaryEdgeCount = EdgeData.Values.Count(static edge => edge.FaceIdx.Count == 1);
             NonManifoldEdgeCount = EdgeData.Values.Count(static edge => edge.FaceIdx.Count > 2);
-            List<KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx)>> orderedEdges = [.. EdgeData
+            List<KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx, int Normal)>> orderedEdges = [.. EdgeData
                 .OrderBy(static kv => kv.Key.Lo)
                 .ThenBy(static kv => kv.Key.Hi)];
             int eCount = orderedEdges.Count;
             frozenEdges = new IntrinsicEdge[eCount];
+            frozenNormalCoord = new int[eCount];
             frozenEdgeIndex = new Dictionary<(int Lo, int Hi), int>(capacity: eCount);
             int idx = 0;
-            foreach (KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx)> kv in orderedEdges) {
+            foreach (KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx, int Normal)> kv in orderedEdges) {
                 List<int> faces = kv.Value.FaceIdx;
                 int f0 = faces.Count > 0 ? faces[index: 0] : -1;
                 int f1 = faces.Count > 1 ? faces[index: 1] : -1;
-                frozenEdges[idx] = new IntrinsicEdge(Lo: kv.Key.Lo, Hi: kv.Key.Hi, Length: kv.Value.Length, Face0: f0, Face1: f1);
+                frozenEdges[idx] = new IntrinsicEdge(Lo: kv.Key.Lo, Hi: kv.Key.Hi, Length: kv.Value.Length, Face0: f0, Face1: f1, NormalCoord: kv.Value.Normal);
+                frozenNormalCoord[idx] = kv.Value.Normal;
                 frozenEdgeIndex[key: kv.Key] = idx;
                 idx++;
             }
@@ -667,60 +872,55 @@ internal static class MeshKernel {
             return this;
         }
         private static (int, int) EdgeKey(int i, int j) => (Math.Min(val1: i, val2: j), Math.Max(val1: i, val2: j));
-        internal static Fin<IntrinsicMesh> FromMesh(Mesh mesh, Op key, bool tuftedCover = false) {
+        internal static Fin<IntrinsicMesh> FromMesh(Mesh mesh, Op key) {
             using Mesh active = mesh.DuplicateMesh();
             if (ContainsQuads(mesh: active) && !active.Faces.ConvertQuadsToTriangles())
                 return Fin.Fail<IntrinsicMesh>(key.InvalidResult());
-            IntrinsicMesh m = new() { VertexCount = active.Vertices.Count, OriginalFaceCount = active.Faces.Count, TuftedCover = tuftedCover };
+            IntrinsicMesh m = new() { VertexCount = active.Vertices.Count, OriginalFaceCount = active.Faces.Count, Positions = new Point3d[active.Vertices.Count] };
+            for (int v = 0; v < active.Vertices.Count; v++) m.Positions[v] = active.Vertices[index: v];
             for (int f = 0; f < active.Faces.Count; f++) {
                 MeshFace face = active.Faces[index: f];
                 if (!face.IsTriangle) { m.DroppedNonTriangleFaces++; continue; }
                 Point3d pa = active.Vertices[index: face.A]; Point3d pb = active.Vertices[index: face.B]; Point3d pc = active.Vertices[index: face.C];
-                IntrinsicLengthSet lengths = tuftedCover
-                    ? MollifiedLengths(lAB: pa.DistanceTo(other: pb), lBC: pb.DistanceTo(other: pc), lAC: pa.DistanceTo(other: pc))
-                    : new IntrinsicLengthSet(LAb: pa.DistanceTo(other: pb), LBc: pb.DistanceTo(other: pc), LAc: pa.DistanceTo(other: pc), MollifiedEdges: 0, MaxMollification: 0.0);
-                m.MollifiedEdgeCount += lengths.MollifiedEdges;
-                m.MaxMollification = Math.Max(val1: m.MaxMollification, val2: lengths.MaxMollification);
-                _ = m.AddTriangle(a: face.A, b: face.B, c: face.C, lAB: lengths.LAb, lBC: lengths.LBc, lAC: lengths.LAc);
+                _ = m.AddTriangle(a: face.A, b: face.B, c: face.C, lAB: pa.DistanceTo(other: pb), lBC: pb.DistanceTo(other: pc), lAC: pa.DistanceTo(other: pc));
             }
             return Fin.Succ(m);
         }
-        private static IntrinsicLengthSet MollifiedLengths(double lAB, double lBC, double lAC) {
-            double epsilon = RhinoMath.SqrtEpsilon;
-            double longest = Math.Max(val1: lAB, val2: Math.Max(val1: lBC, val2: lAC));
-            double delta = Math.Max(val1: 0.0, val2: longest - (lAB + lBC + lAC - longest) + epsilon);
-            return new IntrinsicLengthSet(
-                LAb: lAB + delta,
-                LBc: lBC + delta,
-                LAc: lAC + delta,
-                MollifiedEdges: delta > 0.0 ? 3 : 0,
-                MaxMollification: delta);
-        }
-        internal int AddTriangle(int a, int b, int c, double lAB, double lBC, double lAC) {
+        internal int AddTriangle(int a, int b, int c, double lAB, double lBC, double lAC, int normalAB = -1, int normalBC = -1, int normalCA = -1) {
             int idx = Triangles.Count;
             Triangles.Add(item: (a, b, c));
-            AddEdgeReference(i: a, j: b, length: lAB, faceIdx: idx);
-            AddEdgeReference(i: b, j: c, length: lBC, faceIdx: idx);
-            AddEdgeReference(i: a, j: c, length: lAC, faceIdx: idx);
+            AddEdgeReference(i: a, j: b, length: lAB, faceIdx: idx, normal: normalAB);
+            AddEdgeReference(i: b, j: c, length: lBC, faceIdx: idx, normal: normalBC);
+            AddEdgeReference(i: a, j: c, length: lAC, faceIdx: idx, normal: normalCA);
             return idx;
         }
-        private void AddEdgeReference(int i, int j, double length, int faceIdx) {
+        private void AddEdgeReference(int i, int j, double length, int faceIdx, int normal = -1) {
             (int Lo, int Hi) key = EdgeKey(i: i, j: j);
-            ref (double Length, List<int> FaceIdx) edge = ref CollectionsMarshal.GetValueRefOrAddDefault(dictionary: EdgeData, key: key, exists: out bool exists);
+            ref (double Length, List<int> FaceIdx, int Normal) edge = ref CollectionsMarshal.GetValueRefOrAddDefault(dictionary: EdgeData, key: key, exists: out bool exists);
             if (exists) {
                 edge.Length = Math.Max(val1: edge.Length, val2: length);
                 edge.FaceIdx.Add(item: faceIdx);
                 return;
             }
-            edge = (Length: length, FaceIdx: [faceIdx]);
+            edge = (Length: length, FaceIdx: [faceIdx], Normal: normal);
         }
+        internal int NormalCoordOf(int i, int j) => EdgeData[key: EdgeKey(i: i, j: j)].Normal;
         internal double EdgeLengthOf(int i, int j) => EdgeData[key: EdgeKey(i: i, j: j)].Length;
         internal int OppositeVertex(int faceIdx, int i, int j) {
             (int a, int b, int c) = Triangles[index: faceIdx]!.Value;
             return a != i && a != j ? a : b != i && b != j ? b : c;
         }
+        internal int FaceAcrossEdge(int faceIdx, int i, int j) {
+            if (!EdgeData.TryGetValue(key: EdgeKey(i: i, j: j), value: out (double Length, List<int> FaceIdx, int Normal) e)) return -1;
+            foreach (int f in e.FaceIdx) if (f != faceIdx && f >= 0 && f < Triangles.Count && Triangles[index: f].HasValue) return f;
+            return -1;
+        }
+        internal int AnyLiveFaceAtVertex(int vertex) {
+            foreach (int f in LiveFaceIndices()) { (int a, int b, int c) = Triangles[index: f]!.Value; if (a == vertex || b == vertex || c == vertex) return f; }
+            return -1;
+        }
         internal bool IsInterior(int i, int j) =>
-            EdgeData.TryGetValue(key: EdgeKey(i: i, j: j), value: out (double Length, List<int> FaceIdx) e) && e.FaceIdx.Count == 2;
+            EdgeData.TryGetValue(key: EdgeKey(i: i, j: j), value: out (double Length, List<int> FaceIdx, int Normal) e) && e.FaceIdx.Count == 2;
         internal bool IsDelaunay(int i, int j) {
             if (!IsInterior(i: i, j: j)) return true;
             List<int> faces = EdgeData[key: EdgeKey(i: i, j: j)].FaceIdx;
@@ -751,16 +951,48 @@ internal static class MeshKernel {
             double sinAtI_f2 = Math.Sqrt(d: Math.Max(val1: 0.0, val2: 1.0 - (cosAtI_f2 * cosAtI_f2)));
             double cosSum = (cosAtI_f1 * cosAtI_f2) - (sinAtI_f1 * sinAtI_f2);
             double l_k1k2 = Math.Sqrt(d: Math.Max(val1: 0.0, val2: (li_k1 * li_k1) + (li_k2 * li_k2) - (2.0 * li_k1 * li_k2 * cosSum)));
+            int nij = NormalCoordOf(i: i, j: j);
+            int njk = NormalCoordOf(i: j, j: k1); int nki = NormalCoordOf(i: k1, j: i);
+            int nil = NormalCoordOf(i: i, j: k2); int nlj = NormalCoordOf(i: k2, j: j);
+            int nkl = FlipNormalCoordinate(nij: nij, njk: njk, nki: nki, nil: nil, nlj: nlj);
             _ = EdgeData.Remove(key: key);
             Triangles[index: f1] = null; Triangles[index: f2] = null;
             (int, int)[] surrounding = [(i, k1), (j, k1), (i, k2), (j, k2)];
             for (int s = 0; s < surrounding.Length; s++) {
                 (int Lo, int Hi) ek = EdgeKey(i: surrounding[s].Item1, j: surrounding[s].Item2);
-                if (EdgeData.TryGetValue(key: ek, value: out (double Length, List<int> FaceIdx) e)) { _ = e.FaceIdx.Remove(item: f1); _ = e.FaceIdx.Remove(item: f2); }
+                if (EdgeData.TryGetValue(key: ek, value: out (double Length, List<int> FaceIdx, int Normal) e)) { _ = e.FaceIdx.Remove(item: f1); _ = e.FaceIdx.Remove(item: f2); }
             }
-            _ = AddTriangle(a: i, b: k1, c: k2, lAB: li_k1, lBC: l_k1k2, lAC: li_k2);
-            _ = AddTriangle(a: j, b: k1, c: k2, lAB: lj_k1, lBC: l_k1k2, lAC: lj_k2);
+            _ = AddTriangle(a: i, b: k1, c: k2, lAB: li_k1, lBC: l_k1k2, lAC: li_k2, normalBC: nkl);
+            _ = AddTriangle(a: j, b: k1, c: k2, lAB: lj_k1, lBC: l_k1k2, lAC: lj_k2, normalBC: nkl);
             return Seq((i, k1), (j, k1), (i, k2), (j, k2));
+        }
+        // --- [NORMAL_COORDINATES] (FLIP-N) ---------------------------------------------------
+        // Gillespie-Sharp-Crane integer flip update for the new diagonal kl after flipping ij in quad i-k-j-l.
+        // Reference edges carry n=-1; arcsAlongIJ recovers the +1 crossing a flipped-away reference edge contributes.
+        // Corner coordinates are carried doubled to keep the kernel integral; quadrupled = 2*doubledAnswer keeps the
+        // parity invariant exact: an odd doubledAnswer (quadrupled mod 4 == 2) flags a corner-to-edge orientation defect.
+        private int FlipNormalCoordinate(int nij, int njk, int nki, int nil, int nlj) {
+            njk = Math.Max(val1: njk, val2: 0); nki = Math.Max(val1: nki, val2: 0);
+            nil = Math.Max(val1: nil, val2: 0); nlj = Math.Max(val1: nlj, val2: 0);
+            int arcsAlongIJ = -Math.Min(val1: nij, val2: 0);
+            nij = Math.Max(val1: nij, val2: 0);
+            int eIlj = Math.Max(val1: nlj - nij - nil, val2: 0);
+            int eJil = Math.Max(val1: nil - nlj - nij, val2: 0);
+            int eLji = Math.Max(val1: nij - nil - nlj, val2: 0);
+            int eIjk = Math.Max(val1: njk - nki - nij, val2: 0);
+            int eJki = Math.Max(val1: nki - nij - njk, val2: 0);
+            int eKij = Math.Max(val1: nij - njk - nki, val2: 0);
+            int cIljDoubled = -(Math.Min(val1: nlj - nij - nil, val2: 0) + eJil + eLji);
+            int cJilDoubled = -(Math.Min(val1: nil - nlj - nij, val2: 0) + eIlj + eLji);
+            int cLjiDoubled = -(Math.Min(val1: nij - nil - nlj, val2: 0) + eIlj + eJil);
+            int cIjkDoubled = -(Math.Min(val1: njk - nki - nij, val2: 0) + eJki + eKij);
+            int cJkiDoubled = -(Math.Min(val1: nki - nij - njk, val2: 0) + eIjk + eKij);
+            int cKijDoubled = -(Math.Min(val1: nij - njk - nki, val2: 0) + eIjk + eJki);
+            int quadrupledAnswer = (2 * cLjiDoubled) + (2 * cKijDoubled)
+                                 + Math.Abs(value: cJilDoubled - cJkiDoubled) + Math.Abs(value: cIljDoubled - cIjkDoubled)
+                                 - (2 * eLji) - (2 * eKij) + (4 * eIlj) + (4 * eIjk) + (4 * eJil) + (4 * eJki);
+            ParityErrorCount += (quadrupledAnswer & 3) == 2 ? 1 : 0;
+            return (int)Math.Round(value: quadrupledAnswer / 4.0, MidpointRounding.AwayFromZero) + arcsAlongIJ;
         }
     }
     private static Fin<IntrinsicMesh> FlipToDelaunay(IntrinsicMesh imesh, Op key) {
@@ -804,32 +1036,387 @@ internal static class MeshKernel {
         }
         return triplets.Build(key: key);
     }
-    internal static Fin<SparseLaplacian> AssembleTuftedCotangentFromIntrinsic(IntrinsicMesh imesh, Op key) =>
-        from laplacian in AssembleCotangentFromIntrinsic(imesh: imesh, key: key)
-        let receipt = new TuftedLaplacianReceipt(
-            Kind: MeshLaplacian.TuftedIntrinsic,
-            OriginalVertices: imesh.VertexCount,
-            OriginalFaces: imesh.OriginalFaceCount,
-            IntrinsicVertices: imesh.VertexCount,
-            IntrinsicEdges: imesh.EdgeCount,
-            IntrinsicFaces: imesh.LiveFaceCount,
-            LogicalCoverFaces: imesh.LogicalCoverFaceCount,
-            LogicalCoverEdges: imesh.LogicalCoverEdgeCount,
-            BoundaryEdges: imesh.BoundaryEdgeCount,
-            NonManifoldEdges: imesh.NonManifoldEdgeCount,
-            MollifiedEdges: imesh.MollifiedEdgeCount,
-            MaxMollification: imesh.MaxMollification,
-            IntrinsicFlips: imesh.FlipCount,
-            DelaunaySatisfied: imesh.EdgeData.Keys.All(edge => imesh.IsDelaunay(i: edge.Lo, j: edge.Hi)),
-            StiffnessNonZeros: laplacian.Stiffness.NonZeros,
-            MassNonZeros: laplacian.MassConsistent.NonZeros,
-            PositiveMassCount: laplacian.MassLumped.Count(static value => value > RhinoMath.ZeroTolerance),
-            SkippedDegenerateFaces: laplacian.SkippedDegenerateFaces,
-            DroppedNonTriangleFaces: imesh.DroppedNonTriangleFaces,
-            CoverAware: false,
-            CollapsedToOriginalVertices: true)
-        from _ in receipt.IsValid ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
-        select laplacian with { Tufted = Some(receipt) };
+    internal static Fin<SparseLaplacian> AssembleTuftedCotangentFromIntrinsic(IntrinsicMesh imesh, TuftedCoverPolicy policy, Op key) =>
+        TuftedCoverMesh.Construct(imesh: imesh, policy: policy, key: key).Bind(cover => cover.Assemble(policy: policy, key: key));
+
+    // The cover's flat-array integer glue loops and per-corner length arithmetic are the named statement-kernel exemption.
+    // The cover duplicates every intrinsic triangle into a front (2t) and an orientation-reversed back (2t+1) sheet, then
+    // side-glues each base edge's incident fan into a single cyclic chain so every cover edge is incident to exactly two
+    // cover faces and boundary base edges glue front-to-back -- the closed, edge-manifold tufted cover of Sharp-Crane.
+    internal sealed class TuftedCoverMesh {
+        private readonly IntrinsicMesh baseMesh;
+        private readonly int coverFaceCount;
+        private readonly int halfEdgeCount;
+        private readonly int[] faceVertexA, faceVertexB, faceVertexC;
+        private readonly double[] faceLenAB, faceLenBC, faceLenCA;
+        private readonly int[] glue;
+        private readonly int[] heLo, heHi;
+        private readonly Point3d[] basePositions;
+        private readonly System.Collections.Generic.HashSet<(int Lo, int Hi)> originalBoundaryEdges = [];
+        internal double MollificationEpsilon { get; private set; }
+        internal double LengthScaleH { get; private set; }
+        internal int DegenerateTriangleCount { get; private set; }
+        internal double MinTriangleInequalitySlack { get; private set; }
+        internal bool GluingMapIsBijection { get; private set; }
+        internal int GluingSymmetryViolations { get; private set; }
+        internal bool CoverIsEdgeManifold { get; private set; }
+        internal bool CoverIsClosed { get; private set; }
+        internal int CoverEdgeCount { get; private set; }
+        internal int BoundaryBaseEdgeCount { get; private set; }
+        internal int NonManifoldBaseEdgeCount { get; private set; }
+        internal int IntrinsicFlips { get; private set; }
+        internal int NonDelaunayEdgesRemaining { get; private set; }
+        internal bool MaxFlipsHit { get; private set; }
+        private TuftedCoverMesh(IntrinsicMesh baseMesh, int coverFaceCount) {
+            this.baseMesh = baseMesh;
+            this.coverFaceCount = coverFaceCount;
+            basePositions = baseMesh.Positions;
+            halfEdgeCount = coverFaceCount * 3;
+            faceVertexA = new int[coverFaceCount]; faceVertexB = new int[coverFaceCount]; faceVertexC = new int[coverFaceCount];
+            faceLenAB = new double[coverFaceCount]; faceLenBC = new double[coverFaceCount]; faceLenCA = new double[coverFaceCount];
+            glue = new int[halfEdgeCount]; heLo = new int[halfEdgeCount]; heHi = new int[halfEdgeCount];
+            System.Array.Fill(array: glue, value: -1);
+        }
+        internal static Fin<TuftedCoverMesh> Construct(IntrinsicMesh imesh, TuftedCoverPolicy policy, Op key) {
+            int[] liveFaces = [.. imesh.LiveFaceIndices()];
+            int liveCount = liveFaces.Length;
+            if (liveCount == 0) return Fin.Fail<TuftedCoverMesh>(key.InvalidResult());
+            Dictionary<int, int> baseFaceToLocal = new(capacity: liveCount);
+            for (int t = 0; t < liveCount; t++) baseFaceToLocal[key: liveFaces[t]] = t;
+            TuftedCoverMesh cover = new(baseMesh: imesh, coverFaceCount: liveCount * 2);
+            foreach (KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx, int Normal)> kv in imesh.EdgeData)
+                if (kv.Value.FaceIdx.Count == 1) _ = cover.originalBoundaryEdges.Add(item: (kv.Key.Lo, kv.Key.Hi));
+            double h = imesh.EdgeData.Count > 0 ? imesh.EdgeData.Values.Average(static e => e.Length) : 0.0;
+            double delta = policy.MollifyEnabled ? policy.MollifyFactor.Value * h : 0.0;
+            cover.MeasureAndMollify(liveFaces: liveFaces, delta: delta, h: h);
+            cover.BuildGlue(imesh: imesh, baseFaceToLocal: baseFaceToLocal);
+            cover.FlipToDelaunayCover(policy: policy);
+            return cover.GluingMapIsBijection && cover.CoverIsEdgeManifold && cover.CoverIsClosed && !cover.MaxFlipsHit && cover.NonDelaunayEdgesRemaining == 0
+                ? Fin.Succ(cover)
+                : Fin.Fail<TuftedCoverMesh>(key.InvalidResult(detail: string.Create(provider: CultureInfo.InvariantCulture, $"Tufted cover failed structural guards: bijection={cover.GluingMapIsBijection} edgeManifold={cover.CoverIsEdgeManifold} closed={cover.CoverIsClosed} maxFlipsHit={cover.MaxFlipsHit} nonDelaunay={cover.NonDelaunayEdgesRemaining}.")));
+        }
+        // GLOBAL mollification (Sharp-Crane Eq.4): epsilon = max over all corners of max(0, delta - slack); a single epsilon is
+        // added to every cover edge so the triangle inequality holds with delta-margin everywhere. Both sheets share lengths.
+        // Corner c of a cover face owns half-edge 3*face+c: corner 0 = A->B, corner 1 = B->C, corner 2 = C->A.
+        private void MeasureAndMollify(int[] liveFaces, double delta, double h) {
+            double epsilon = 0.0; double minSlack = double.PositiveInfinity;
+            for (int t = 0; t < liveFaces.Length; t++) {
+                (int a, int b, int c) = baseMesh.Triangles[index: liveFaces[t]]!.Value;
+                double lab = baseMesh.EdgeLengthOf(i: a, j: b), lbc = baseMesh.EdgeLengthOf(i: b, j: c), lca = baseMesh.EdgeLengthOf(i: c, j: a);
+                double slack = Math.Min(val1: lab + lbc - lca, val2: Math.Min(val1: lbc + lca - lab, val2: lca + lab - lbc));
+                minSlack = Math.Min(val1: minSlack, val2: slack);
+                epsilon = Math.Max(val1: epsilon, val2: Math.Max(val1: 0.0, val2: delta - slack));
+            }
+            LengthScaleH = h;
+            MollificationEpsilon = epsilon;
+            MinTriangleInequalitySlack = double.IsFinite(d: minSlack) ? minSlack + epsilon : 0.0;
+            int degenerate = 0;
+            for (int t = 0; t < liveFaces.Length; t++) {
+                (int a, int b, int c) = baseMesh.Triangles[index: liveFaces[t]]!.Value;
+                double lab = baseMesh.EdgeLengthOf(i: a, j: b) + epsilon;
+                double lbc = baseMesh.EdgeLengthOf(i: b, j: c) + epsilon;
+                double lca = baseMesh.EdgeLengthOf(i: c, j: a) + epsilon;
+                WriteFace(face: 2 * t, va: a, vb: b, vc: c, lab: lab, lbc: lbc, lca: lca);
+                WriteFace(face: (2 * t) + 1, va: a, vb: c, vc: b, lab: lca, lbc: lbc, lca: lab);
+                double s = (lab + lbc + lca) * 0.5;
+                if (s * (s - lab) * (s - lbc) * (s - lca) < DegenerateTriangleArea * DegenerateTriangleArea) degenerate += 2;
+            }
+            DegenerateTriangleCount = degenerate;
+        }
+        private void WriteFace(int face, int va, int vb, int vc, double lab, double lbc, double lca) {
+            faceVertexA[face] = va; faceVertexB[face] = vb; faceVertexC[face] = vc;
+            faceLenAB[face] = lab; faceLenBC[face] = lbc; faceLenCA[face] = lca;
+            int baseHe = 3 * face;
+            heLo[baseHe] = Math.Min(val1: va, val2: vb); heHi[baseHe] = Math.Max(val1: va, val2: vb);
+            heLo[baseHe + 1] = Math.Min(val1: vb, val2: vc); heHi[baseHe + 1] = Math.Max(val1: vb, val2: vc);
+            heLo[baseHe + 2] = Math.Min(val1: vc, val2: va); heHi[baseHe + 2] = Math.Max(val1: vc, val2: va);
+        }
+        // Side-glue map G-tilde (Sharp-Crane Alg.1): around each base edge with m incident base faces there are 2m cover sides
+        // (front+back of each face). Order the incident faces into one circular dihedral fan, lay sides down as
+        // front(f0),back(f0),front(f1),back(f1),... and pair them as the offset-by-one perfect matching on the 2m-cycle,
+        // back(f_k)~front(f_{k+1}) with wrap back(f_{m-1})~front(f0). Each side lands in exactly one pair, every cover edge is
+        // incident to exactly two cover faces, and the wrap glues a boundary edge (m=1) front-to-back, closing the cover.
+        private void BuildGlue(IntrinsicMesh imesh, Dictionary<int, int> baseFaceToLocal) {
+            int symmetryViolations = 0; bool bijection = true;
+            foreach (KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx, int Normal)> kv in imesh.EdgeData
+                         .OrderBy(static row => row.Key.Lo).ThenBy(static row => row.Key.Hi)) {
+                int lo = kv.Key.Lo; int hi = kv.Key.Hi;
+                List<int> incident = kv.Value.FaceIdx;
+                int m = incident.Count;
+                if (m == 1) BoundaryBaseEdgeCount++; else if (m > 2) NonManifoldBaseEdgeCount++;
+                int[] fan = OrderFanAroundEdge(imesh: imesh, lo: lo, hi: hi, incident: incident);
+                int sides = fan.Length * 2;
+                int[] sideHalfEdge = new int[sides];
+                for (int s = 0; s < fan.Length; s++) {
+                    int local = baseFaceToLocal[key: fan[s]];
+                    sideHalfEdge[2 * s] = HalfEdgeOf(face: 2 * local, lo: lo, hi: hi);
+                    sideHalfEdge[(2 * s) + 1] = HalfEdgeOf(face: (2 * local) + 1, lo: lo, hi: hi);
+                }
+                for (int k = 0; k < fan.Length; k++) {
+                    int back = sideHalfEdge[(2 * k) + 1];
+                    int frontNext = sideHalfEdge[2 * (k + 1) % sides];
+                    if (glue[back] != -1 || glue[frontNext] != -1) { symmetryViolations++; bijection = false; continue; }
+                    glue[back] = frontNext; glue[frontNext] = back;
+                }
+            }
+            RecomputeGlueDiagnostics(ref symmetryViolations, ref bijection);
+        }
+        private void RecomputeGlueDiagnostics(ref int symmetryViolations, ref bool bijection) {
+            int matched = 0;
+            for (int he = 0; he < halfEdgeCount; he++) {
+                if (glue[he] == -1 || glue[glue[he]] != he) { symmetryViolations++; bijection = false; } else matched++;
+            }
+            CoverEdgeCount = matched / 2;
+            GluingMapIsBijection = bijection && symmetryViolations == 0;
+            GluingSymmetryViolations = symmetryViolations;
+            CoverIsEdgeManifold = matched == halfEdgeCount;
+            CoverIsClosed = CoverIsEdgeManifold && CoverEdgeCount > 0;
+        }
+        private int HalfEdgeOf(int face, int lo, int hi) {
+            int baseHe = 3 * face;
+            int wantLo = Math.Min(val1: lo, val2: hi); int wantHi = Math.Max(val1: lo, val2: hi);
+            for (int c = 0; c < 3; c++)
+                if (heLo[baseHe + c] == wantLo && heHi[baseHe + c] == wantHi) return baseHe + c;
+            return baseHe;
+        }
+        // Circular dihedral fan: sort the incident base faces by the opposite apex's signed angular position about the edge.
+        // The host mesh carries 3D vertex positions, so the canonical fan is the cyclic order of the apex projections onto the
+        // plane normal to the edge; absent an embedding the apex-vertex index is the stable tie-break that keeps the fan a fixed
+        // circular sequence (the front/back alternation makes any stable cyclic order yield a valid closed edge-manifold cover).
+        // A non-degenerate manifold edge (m<=2) and any embedded non-degenerate non-manifold fan (m>2) order by the true signed
+        // dihedral angle. The index tie-break is reached only when an apex projection collapses onto the edge axis — a degenerate
+        // (near-zero-area) incident triangle already counted by DegenerateTriangleCount. So a non-manifold fan (NonManifoldEdges>0)
+        // whose apexes are all non-degenerate is geometrically exact; only the NonManifoldEdges>0 AND DegenerateTriangleCount>0
+        // intersection yields a topologically-valid (guards pass) but geometrically-approximate glue, both witnessed on the receipt.
+        private int[] OrderFanAroundEdge(IntrinsicMesh imesh, int lo, int hi, List<int> incident) {
+            if (incident.Count <= 1) return [.. incident];
+            Point3d pLo = basePositions[lo]; Point3d pHi = basePositions[hi];
+            Vector3d axis = pHi - pLo;
+            bool embedded = axis.Length > RhinoMath.ZeroTolerance && axis.Unitize();
+            Vector3d reference = Vector3d.Zero; bool haveReference = false;
+            (int Face, double Angle)[] keyed = new (int, double)[incident.Count];
+            for (int i = 0; i < incident.Count; i++) {
+                int opp = imesh.OppositeVertex(faceIdx: incident[i], i: lo, j: hi);
+                double angle;
+                if (embedded && opp >= 0 && opp < basePositions.Length) {
+                    Vector3d radial = basePositions[opp] - pLo;
+                    radial -= axis * (radial * axis);
+                    if (radial.Length > RhinoMath.ZeroTolerance && radial.Unitize()) {
+                        if (!haveReference) { reference = radial; haveReference = true; angle = 0.0; } else {
+                            double cos = Math.Clamp(value: reference * radial, min: -1.0, max: 1.0);
+                            double sin = Vector3d.CrossProduct(a: reference, b: radial) * axis;
+                            double theta = Math.Atan2(y: sin, x: cos);
+                            angle = theta < 0.0 ? theta + (2.0 * Math.PI) : theta;
+                        }
+                    } else angle = double.PositiveInfinity;
+                } else angle = double.PositiveInfinity;
+                keyed[i] = (incident[i], angle);
+            }
+            System.Array.Sort(array: keyed, comparison: static (left, right) =>
+                left.Angle != right.Angle ? left.Angle.CompareTo(value: right.Angle) : left.Face.CompareTo(value: right.Face));
+            int[] ordered = new int[incident.Count];
+            for (int i = 0; i < incident.Count; i++) ordered[i] = keyed[i].Face;
+            return ordered;
+        }
+        // Flip the now-closed edge-manifold cover toward intrinsic Delaunay; boundary base edges are interior in the cover and
+        // so become flippable -- the headline guarantee. The frontier is a half-edge work queue keyed on the canonical (lower)
+        // half-edge of each glued pair; each non-Delaunay glued edge flips its quadrilateral diagonal via the law-of-cosines,
+        // rewriting both faces, re-gluing the four perimeter partners, and gluing the new diagonal between the two faces.
+        private void FlipToDelaunayCover(TuftedCoverPolicy policy) {
+            double tolerance = policy.DelaunayTolerance.Value;
+            int cap = Math.Max(val1: 1, val2: halfEdgeCount * policy.MaxFlipsPerEdge.Value);
+            Queue<int> frontier = new();
+            for (int he = 0; he < halfEdgeCount; he++) frontier.Enqueue(item: he);
+            int flips = 0;
+            while (frontier.Count > 0 && flips < cap) {
+                int he = frontier.Dequeue();
+                if (glue[he] < 0 || glue[glue[he]] != he || IsDelaunayCover(he: he, tolerance: tolerance) || !IsFlippableCover(he: he)) continue;
+                foreach (int touched in FlipCover(he: he)) frontier.Enqueue(item: touched);
+                flips++;
+            }
+            int remaining = 0;
+            for (int he = 0; he < halfEdgeCount; he++)
+                if (glue[he] >= 0 && glue[he] > he && !IsDelaunayCover(he: he, tolerance: tolerance)) remaining++;
+            IntrinsicFlips = flips;
+            MaxFlipsHit = flips >= cap && remaining > 0;
+            NonDelaunayEdgesRemaining = remaining;
+            int violations = 0; bool bijection = true;
+            RecomputeGlueDiagnostics(ref violations, ref bijection);
+        }
+        private double CornerAngleOppositeHalfEdge(int he) {
+            int face = he / 3; int corner = he % 3;
+            double lab = faceLenAB[face]; double lbc = faceLenBC[face]; double lca = faceLenCA[face];
+            (double opposite, double adj1, double adj2) = corner switch {
+                0 => (lab, lca, lbc),
+                1 => (lbc, lab, lca),
+                _ => (lca, lbc, lab),
+            };
+            double cos = adj1 > RhinoMath.ZeroTolerance && adj2 > RhinoMath.ZeroTolerance
+                ? Math.Clamp(value: ((adj1 * adj1) + (adj2 * adj2) - (opposite * opposite)) / (2.0 * adj1 * adj2), min: -1.0, max: 1.0)
+                : 1.0;
+            return Math.Acos(d: cos);
+        }
+        private bool IsDelaunayCover(int he, double tolerance) =>
+            CornerAngleOppositeHalfEdge(he: he) + CornerAngleOppositeHalfEdge(he: glue[he]) <= Math.PI + tolerance;
+        // The flipped diagonal connects the two apexes; reject a flip whose apexes coincide or whose post-flip diagonal would
+        // already be an existing edge of either face (a fold-back that would desymmetrise the cover).
+        private bool IsFlippableCover(int he) {
+            int twin = glue[he];
+            int ki = ApexOf(he: he); int kj = ApexOf(he: twin);
+            int i = heLo[he]; int j = heHi[he];
+            return ki != kj && ki != i && ki != j && kj != i && kj != j;
+        }
+        private double HalfEdgeLength(int he) {
+            int face = he / 3;
+            return (he % 3) switch { 0 => faceLenAB[face], 1 => faceLenBC[face], _ => faceLenCA[face] };
+        }
+        private int ApexOf(int he) {
+            int face = he / 3;
+            int shared0 = heLo[he]; int shared1 = heHi[he];
+            int va = faceVertexA[face]; int vb = faceVertexB[face]; int vc = faceVertexC[face];
+            return va != shared0 && va != shared1 ? va : vb != shared0 && vb != shared1 ? vb : vc;
+        }
+        private int[] FlipCover(int he) {
+            int twin = glue[he];
+            int face0 = he / 3; int face1 = twin / 3;
+            int i = heLo[he]; int j = heHi[he];
+            int ki = ApexOf(he: he); int kj = ApexOf(he: twin);
+            double lij = HalfEdgeLength(he: he);
+            double liki = LengthBetween(face: face0, u: i, v: ki); double ljki = LengthBetween(face: face0, u: j, v: ki);
+            double likj = LengthBetween(face: face1, u: i, v: kj); double ljkj = LengthBetween(face: face1, u: j, v: kj);
+            double cosI0 = SafeAngleCos(opposite: ljki, adj1: lij, adj2: liki);
+            double cosI1 = SafeAngleCos(opposite: ljkj, adj1: lij, adj2: likj);
+            double sinI0 = Math.Sqrt(d: Math.Max(val1: 0.0, val2: 1.0 - (cosI0 * cosI0)));
+            double sinI1 = Math.Sqrt(d: Math.Max(val1: 0.0, val2: 1.0 - (cosI1 * cosI1)));
+            double cosSum = (cosI0 * cosI1) - (sinI0 * sinI1);
+            double lkikj = Math.Sqrt(d: Math.Max(val1: 0.0, val2: (liki * liki) + (likj * likj) - (2.0 * liki * likj * cosSum)));
+            // Snapshot the four perimeter partners by their pre-rewrite half-edge ids before WriteFace renumbers the corners.
+            int sIki = HalfEdgeOf(face: face0, lo: i, hi: ki); int pIki = glue[sIki];
+            int sJki = HalfEdgeOf(face: face0, lo: j, hi: ki); int pJki = glue[sJki];
+            int sIkj = HalfEdgeOf(face: face1, lo: i, hi: kj); int pIkj = glue[sIkj];
+            int sJkj = HalfEdgeOf(face: face1, lo: j, hi: kj); int pJkj = glue[sJkj];
+            WriteFace(face: face0, va: i, vb: ki, vc: kj, lab: liki, lbc: lkikj, lca: likj);
+            WriteFace(face: face1, va: j, vb: kj, vc: ki, lab: ljkj, lbc: lkikj, lca: ljki);
+            RestoreSide(face: face0, u: i, v: ki, partner: pIki);
+            RestoreSide(face: face0, u: i, v: kj, partner: pIkj);
+            RestoreSide(face: face1, u: j, v: ki, partner: pJki);
+            RestoreSide(face: face1, u: j, v: kj, partner: pJkj);
+            int diag0 = HalfEdgeOf(face: face0, lo: ki, hi: kj);
+            int diag1 = HalfEdgeOf(face: face1, lo: ki, hi: kj);
+            glue[diag0] = diag1; glue[diag1] = diag0;
+            return [.. Enumerable.Range(start: 3 * face0, count: 3), .. Enumerable.Range(start: 3 * face1, count: 3)];
+        }
+        // The flipped face's perimeter half-edge keeps its pre-flip partner: re-resolve its id from the rewritten face vertices
+        // and re-point both ends of the involution. The diagonal is glued separately by the caller.
+        private void RestoreSide(int face, int u, int v, int partner) {
+            int he = HalfEdgeOf(face: face, lo: u, hi: v);
+            glue[he] = partner;
+            if (partner >= 0) glue[partner] = he;
+        }
+        private double LengthBetween(int face, int u, int v) {
+            int he = HalfEdgeOf(face: face, lo: u, hi: v);
+            return HalfEdgeLength(he: he);
+        }
+        private static double SafeAngleCos(double opposite, double adj1, double adj2) =>
+            adj1 > RhinoMath.ZeroTolerance && adj2 > RhinoMath.ZeroTolerance
+                ? Math.Clamp(value: ((adj1 * adj1) + (adj2 * adj2) - (opposite * opposite)) / (2.0 * adj1 * adj2), min: -1.0, max: 1.0)
+                : 1.0;
+        internal Fin<SparseLaplacian> Assemble(TuftedCoverPolicy policy, Op key) {
+            double energyScale = policy.EnergyScaleFactor.Value;
+            LaplacianTriplets triplets = new(vertexCount: baseMesh.VertexCount);
+            int negativeWeights = 0; double minCotan = double.PositiveInfinity; double minBoundaryCotan = double.PositiveInfinity; double coveredArea = 0.0;
+            for (int cf = 0; cf < coverFaceCount; cf++) {
+                int va = faceVertexA[cf]; int vb = faceVertexB[cf]; int vc = faceVertexC[cf];
+                double lab = faceLenAB[cf]; double lbc = faceLenBC[cf]; double lca = faceLenCA[cf];
+                double s = (lab + lbc + lca) * 0.5;
+                double areaSq = s * (s - lab) * (s - lbc) * (s - lca);
+                if (areaSq < DegenerateTriangleArea * DegenerateTriangleArea) { triplets.SkippedDegenerateFaces++; continue; }
+                double area = Math.Sqrt(d: areaSq);
+                coveredArea += area;
+                double cotA = ((lca * lca) + (lab * lab) - (lbc * lbc)) / (4.0 * area);
+                double cotB = ((lab * lab) + (lbc * lbc) - (lca * lca)) / (4.0 * area);
+                double cotC = ((lca * lca) + (lbc * lbc) - (lab * lab)) / (4.0 * area);
+                minCotan = Math.Min(val1: minCotan, val2: Math.Min(val1: cotA, val2: Math.Min(val1: cotB, val2: cotC)));
+                if (IsOriginalBoundary(u: vb, v: vc)) minBoundaryCotan = Math.Min(val1: minBoundaryCotan, val2: cotA);
+                if (IsOriginalBoundary(u: vc, v: va)) minBoundaryCotan = Math.Min(val1: minBoundaryCotan, val2: cotB);
+                if (IsOriginalBoundary(u: va, v: vb)) minBoundaryCotan = Math.Min(val1: minBoundaryCotan, val2: cotC);
+                if (cotA < 0.0) negativeWeights++;
+                if (cotB < 0.0) negativeWeights++;
+                if (cotC < 0.0) negativeWeights++;
+                // Sharp-Crane halves the STIFFNESS only (two cover sheets collapse onto each base vertex, doubling the
+                // Dirichlet energy); the mass reflects the true covered area, so energyScale scales the cotangents but
+                // not the area — keeping TotalCoveredArea consistent with MinLumpedMass and the assembled mass matrix.
+                triplets.AddTriangle(va: va, vb: vb, vc: vc, area: area, cotA: energyScale * cotA, cotB: energyScale * cotB, cotC: energyScale * cotC);
+            }
+            triplets.NegativeCotangentCount = negativeWeights;
+            int captured = negativeWeights;
+            return triplets.Build(key: key).Bind(laplacian => FinishReceipt(
+                laplacian: laplacian, energyScale: energyScale,
+                minCotan: double.IsFinite(d: minCotan) ? minCotan : 0.0,
+                minBoundaryCotan: double.IsFinite(d: minBoundaryCotan) ? minBoundaryCotan : (double.IsFinite(d: minCotan) ? minCotan : 0.0),
+                negativeWeights: captured, coveredArea: coveredArea, key: key));
+        }
+        private bool IsOriginalBoundary(int u, int v) => originalBoundaryEdges.Contains(item: (Math.Min(val1: u, val2: v), Math.Max(val1: u, val2: v)));
+        private Fin<SparseLaplacian> FinishReceipt(SparseLaplacian laplacian, double energyScale, double minCotan, double minBoundaryCotan, int negativeWeights, double coveredArea, Op key) {
+            (double symmetryResidual, double rowSumResidual) = OperatorResiduals(stiffness: laplacian.Stiffness);
+            double minMass = laplacian.MassLumped.Count == 0 ? 0.0 : laplacian.MassLumped.Fold(double.PositiveInfinity, static (acc, value) => Math.Min(val1: acc, val2: value));
+            TuftedLaplacianReceipt receipt = new(
+                Kind: MeshLaplacian.TuftedIntrinsic,
+                OriginalVertices: baseMesh.VertexCount,
+                OriginalFaces: baseMesh.OriginalFaceCount,
+                IntrinsicVertices: baseMesh.VertexCount,
+                IntrinsicEdges: baseMesh.EdgeCount,
+                IntrinsicFaces: baseMesh.LiveFaceCount,
+                CoverFaces: coverFaceCount,
+                CoverEdges: CoverEdgeCount,
+                BoundaryEdges: BoundaryBaseEdgeCount,
+                NonManifoldEdges: NonManifoldBaseEdgeCount,
+                GluingMapIsBijection: GluingMapIsBijection,
+                GluingSymmetryViolations: GluingSymmetryViolations,
+                CoverIsEdgeManifold: CoverIsEdgeManifold,
+                CoverIsClosed: CoverIsClosed,
+                MollificationEpsilon: MollificationEpsilon,
+                DegenerateTriangleCount: DegenerateTriangleCount,
+                LengthScaleH: LengthScaleH,
+                MinTriangleInequalitySlack: MinTriangleInequalitySlack,
+                IntrinsicFlips: IntrinsicFlips,
+                NonDelaunayEdgesRemaining: NonDelaunayEdgesRemaining,
+                MaxFlipsHit: MaxFlipsHit,
+                MinCotanEdgeWeight: minCotan,
+                MinBoundaryEdgeWeight: minBoundaryCotan,
+                NegativeWeightCount: negativeWeights,
+                MinLumpedMass: minMass,
+                TotalCoveredArea: coveredArea,
+                EnergyScaleApplied: energyScale,
+                SymmetryResidual: symmetryResidual,
+                RowSumResidual: rowSumResidual,
+                DroppedNonTriangleFaces: baseMesh.DroppedNonTriangleFaces,
+                CoverAware: true,
+                CollapsedToOriginalVertices: true);
+            return receipt.IsValid
+                ? Fin.Succ(laplacian with { Tufted = Some(receipt) })
+                : Fin.Fail<SparseLaplacian>(key.InvalidResult(detail: "Tufted cover Laplacian failed PSD-proxy validation (symmetry/row-sum/nonnegative-weight)."));
+        }
+        // PSD-proxy witness over the assembled operator: symmetry residual = max|L_ij - L_ji|, row-sum residual = max|sum_j L_ij|.
+        private static (double Symmetry, double RowSum) OperatorResiduals(SparseMatrix stiffness) {
+            List<(int Row, int Col, double Value)> entries = MatrixKernel.SparseTripletsOf(matrix: stiffness);
+            Dictionary<(int Row, int Col), double> dense = new(capacity: entries.Count);
+            double[] rowSums = new double[stiffness.Rows.Value];
+            foreach ((int row, int col, double value) in entries) {
+                ref double cell = ref CollectionsMarshal.GetValueRefOrAddDefault(dictionary: dense, key: (row, col), out _);
+                cell += value;
+                rowSums[row] += value;
+            }
+            double symmetry = 0.0;
+            foreach (KeyValuePair<(int Row, int Col), double> entry in dense) {
+                double mirror = dense.TryGetValue(key: (entry.Key.Col, entry.Key.Row), value: out double other) ? other : 0.0;
+                symmetry = Math.Max(val1: symmetry, val2: Math.Abs(value: entry.Value - mirror));
+            }
+            double rowSum = 0.0;
+            for (int i = 0; i < rowSums.Length; i++) rowSum = Math.Max(val1: rowSum, val2: Math.Abs(value: rowSums[i]));
+            return (symmetry, rowSum);
+        }
+    }
 
     // --- [SELECTION] ------------------------------------------------------------------------
     internal static Fin<SparseLaplacian> LaplacianOf(MeshSpace space, MeshLaplacian kind, Op key) =>
@@ -1163,20 +1750,21 @@ internal static class MeshKernel {
     private static double EdgeAngleInFrame(Vector3d edge, Vector3d xAxis, Vector3d yAxis) =>
         Math.Atan2(y: edge * yAxis, x: edge * xAxis);
 
-    internal static Fin<SignpostTransportReceipt> SignpostTransportReceiptOf(MeshSpace space, IntrinsicMesh imesh, Op key) =>
-        ConnectionEntriesOf(space: space, imesh: imesh, edgeAdjustment: Option<Arr<double>>.None, key: key).Map(static entries => entries.Receipt);
+    internal static Fin<SignpostTransportReceipt> SignpostTransportReceiptOf(MeshSpace space, IntrinsicMesh imesh, Op key, Option<SignpostPolicy> policy = default) =>
+        ConnectionEntriesOf(space: space, imesh: imesh, edgeAdjustment: Option<Arr<double>>.None, policy: policy.IfNone(SignpostPolicy.Default), key: key).Map(static entries => entries.Receipt);
     private static Fin<ConnectionEntries> EnumerateConnectionEntries(MeshSpace space, Option<Arr<double>> edgeAdjustment, Op key) =>
-        space.Cache.IntrinsicMeshSnapshot(key: key).Bind(imesh => ConnectionEntriesOf(space: space, imesh: imesh, edgeAdjustment: edgeAdjustment, key: key));
-    private static Fin<ConnectionEntries> ConnectionEntriesOf(MeshSpace space, IntrinsicMesh imesh, Option<Arr<double>> edgeAdjustment, Op key) {
+        space.Cache.IntrinsicMeshSnapshot(key: key).Bind(imesh => ConnectionEntriesOf(space: space, imesh: imesh, edgeAdjustment: edgeAdjustment, policy: SignpostPolicy.Default, key: key));
+    private static Fin<ConnectionEntries> ConnectionEntriesOf(MeshSpace space, IntrinsicMesh imesh, Option<Arr<double>> edgeAdjustment, SignpostPolicy policy, Op key) {
         Mesh mesh = space.Native;
         FrameBundle fb = EnsureVertexFrames(mesh: mesh);
         int eCount = imesh.EdgeCount;
         bool hasAdjustment = edgeAdjustment.IsSome;
         Arr<double> adjustment = edgeAdjustment.IfNone(new Arr<double>([]));
         Arr<double> weights = SpectralCore.ComputeIntrinsicStar1(imesh: imesh);
+        SignpostAngles signposts = BuildSignpostAngles(imesh: imesh, policy: policy);
         List<(int, int, double, double)> entries = new(capacity: eCount);
-        int fallback = 0, missing = 0;
-        double maxAngle = 0.0, maxResidual = 0.0;
+        int chordFallback = 0, missing = 0;
+        double maxAngle = 0.0, maxResidual = 0.0, maxSignpostUpdate = 0.0;
         for (int e = 0; e < eCount; e++) {
             double w = weights[index: e];
             if (w < RhinoMath.ZeroTolerance) continue;
@@ -1184,32 +1772,178 @@ internal static class MeshKernel {
             int i = edge.Lo, j = edge.Hi;
             Vector3d eij = (Vector3d)(mesh.Vertices[index: j] - mesh.Vertices[index: i]);
             double chordLength = eij.Length;
-            double residual = Math.Abs(value: chordLength - edge.Length) / Math.Max(val1: edge.Length, val2: RhinoMath.SqrtEpsilon);
-            if (!eij.IsValid || chordLength <= RhinoMath.ZeroTolerance) { missing++; continue; }
-            fallback += imesh.HasFlips || residual > RhinoMath.SqrtEpsilon ? 1 : 0;
-            double rho = EdgeAngleInFrame(edge: -eij, xAxis: fb.X[j], yAxis: fb.Y[j])
-                       - EdgeAngleInFrame(edge: eij, xAxis: fb.X[i], yAxis: fb.Y[i]);
+            double residual = chordLength <= RhinoMath.ZeroTolerance ? 0.0 : Math.Abs(value: chordLength - edge.Length) / Math.Max(val1: edge.Length, val2: RhinoMath.SqrtEpsilon);
+            double phiAtI = signposts.AngleOf(vertex: i, neighbor: j);
+            double phiAtJ = signposts.AngleOf(vertex: j, neighbor: i);
+            (double rho, bool exact) = RhinoMath.IsValidDouble(x: phiAtI) && RhinoMath.IsValidDouble(x: phiAtJ)
+                ? (rho: WrapAngle(angle: phiAtJ + Math.PI - phiAtI), exact: true)
+                : eij.IsValid && chordLength > RhinoMath.ZeroTolerance
+                    ? (rho: WrapAngle(angle: EdgeAngleInFrame(edge: -eij, xAxis: fb.X[j], yAxis: fb.Y[j]) - EdgeAngleInFrame(edge: eij, xAxis: fb.X[i], yAxis: fb.Y[i])), exact: false)
+                    : (rho: double.NaN, exact: false);
             if (hasAdjustment && e < adjustment.Count) rho += adjustment[index: e];
             if (!RhinoMath.IsValidDouble(x: rho)) { missing++; continue; }
-            maxAngle = Math.Max(val1: maxAngle, val2: Math.Abs(value: Math.IEEERemainder(x: rho, y: RhinoMath.TwoPI)));
+            chordFallback += exact ? 0 : 1;
+            maxAngle = Math.Max(val1: maxAngle, val2: Math.Abs(value: WrapAngle(angle: rho)));
             maxResidual = Math.Max(val1: maxResidual, val2: residual);
+            if (exact) maxSignpostUpdate = Math.Max(val1: maxSignpostUpdate, val2: signposts.UpdateResidualOf(vertex: i, neighbor: j));
             entries.Add(item: (i, j, w, rho));
         }
+        CommonSubdivision subdivision = BuildCommonSubdivision(imesh: imesh, key: key);
         SignpostTransportReceipt receipt = new(
             VertexCount: mesh.Vertices.Count,
             IntrinsicEdgeCount: eCount,
             TransportedEdgeCount: entries.Count,
             IntrinsicFlipCount: imesh.FlipCount,
-            ChordFallbackEdges: fallback,
+            ChordFallbackEdges: chordFallback,
             MissingFrameEdges: missing,
-            CommonSubdivisionSegments: 0,
+            CommonSubdivisionSegments: imesh.SumNormalCoordinates,
+            TracedPathEdgeCount: imesh.TransverseEdgeCount,
+            NormalCoordinateParityErrors: imesh.ParityErrorCount,
+            SumNormalCoordinates: imesh.SumNormalCoordinates,
             IntrinsicSnapshot: imesh.IsFrozen,
-            ExactCommonSubdivision: false,
+            ExactCommonSubdivision: imesh.ParityErrorCount == 0 && subdivision.IsValid,
             MaxAngleRadians: maxAngle,
-            MaxLengthResidual: maxResidual);
+            MaxLengthResidual: maxResidual,
+            MaxSignpostUpdateResidual: maxSignpostUpdate,
+            Subdivision: subdivision.IsValid ? Some(subdivision) : Option<CommonSubdivision>.None);
         return receipt.IsValid && entries.Count > 0
             ? Fin.Succ(new ConnectionEntries(Rows: toSeq(entries), Receipt: receipt))
             : Fin.Fail<ConnectionEntries>(key.InvalidResult());
+    }
+    private static double WrapAngle(double angle) => angle - (RhinoMath.TwoPI * Math.Floor(d: (angle + Math.PI) / RhinoMath.TwoPI));
+
+    // --- [SIGNPOST_ANGLES] (RS)/(SP) -----------------------------------------------------------
+    // Per-vertex tangent-gauge halfedge angles from intrinsic corner angles, rescaled so the one-ring
+    // spans 2pi exactly (RS). The reference direction (SP) is the policy gauge halfedge. The vertex
+    // one-ring fan is walked face-to-face; boundary fans stay open. This is the named statement kernel.
+    private sealed class SignpostAngles {
+        private readonly Dictionary<(int Vertex, int Neighbor), double> angle = [];
+        private readonly Dictionary<(int Vertex, int Neighbor), double> updateResidual = [];
+        internal void Set(int vertex, int neighbor, double phi, double residual) {
+            angle[key: (vertex, neighbor)] = phi;
+            updateResidual[key: (vertex, neighbor)] = residual;
+        }
+        internal double AngleOf(int vertex, int neighbor) => angle.TryGetValue(key: (vertex, neighbor), value: out double phi) ? phi : double.NaN;
+        internal double UpdateResidualOf(int vertex, int neighbor) => updateResidual.TryGetValue(key: (vertex, neighbor), value: out double r) ? r : 0.0;
+    }
+    private static SignpostAngles BuildSignpostAngles(IntrinsicMesh imesh, SignpostPolicy policy) {
+        SignpostAngles table = new();
+        double rescaleFloor = policy.VertexAngleRescaleFloor.Value;
+        Dictionary<int, List<(int Face, int Prev, int Next, double Corner)>> ring = BuildVertexRing(imesh: imesh);
+        foreach ((int vertex, List<(int Face, int Prev, int Next, double Corner)> fan) in ring) {
+            if (fan.Count == 0) continue;
+            bool interior = imesh.IsInteriorVertex(vertex: vertex);
+            List<(int Next, double Corner)> ordered = OrderFan(fan: fan);
+            double angleSum = ordered.Sum(static corner => corner.Corner);
+            double span = interior ? RhinoMath.TwoPI : Math.PI;
+            double rescale = angleSum > rescaleFloor ? span / angleSum : 1.0;
+            // Rescaling forces the gauge disk to span exactly 2pi (interior) / pi (boundary); the closure
+            // residual is the float-precision error of that rescaled sum, NOT the cone-point angle defect.
+            double closureResidual = angleSum > rescaleFloor ? Math.Abs(value: (angleSum * rescale) - span) / span : 0.0;
+            int gaugeIndex = SelectGauge(ordered: ordered, gauge: policy.ReferenceDirectionGauge);
+            double cumulative = 0.0;
+            for (int s = 0; s < ordered.Count; s++) {
+                int idx = (gaugeIndex + s) % ordered.Count;
+                (int neighbor, double corner) = ordered[index: idx];
+                double phi = cumulative * rescale;
+                table.Set(vertex: vertex, neighbor: neighbor, phi: WrapAngle(angle: phi), residual: closureResidual);
+                cumulative += corner;
+            }
+        }
+        return table;
+    }
+    private static Dictionary<int, List<(int Face, int Prev, int Next, double Corner)>> BuildVertexRing(IntrinsicMesh imesh) {
+        Dictionary<int, List<(int Face, int Prev, int Next, double Corner)>> ring = [];
+        foreach (int f in imesh.LiveFaceIndices()) {
+            (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
+            AddCorner(ring: ring, imesh: imesh, face: f, vertex: a, prev: c, next: b);
+            AddCorner(ring: ring, imesh: imesh, face: f, vertex: b, prev: a, next: c);
+            AddCorner(ring: ring, imesh: imesh, face: f, vertex: c, prev: b, next: a);
+        }
+        return ring;
+    }
+    private static void AddCorner(Dictionary<int, List<(int Face, int Prev, int Next, double Corner)>> ring, IntrinsicMesh imesh, int face, int vertex, int prev, int next) {
+        double lPrev = imesh.EdgeLengthOf(i: vertex, j: prev);
+        double lNext = imesh.EdgeLengthOf(i: vertex, j: next);
+        double lOpp = imesh.EdgeLengthOf(i: prev, j: next);
+        double corner = AngleFromLengths(opposite: lOpp, adjacent1: lPrev, adjacent2: lNext);
+        if (!ring.TryGetValue(key: vertex, value: out List<(int Face, int Prev, int Next, double Corner)>? fan)) { fan = []; ring[key: vertex] = fan; }
+        fan.Add(item: (Face: face, Prev: prev, Next: next, Corner: corner));
+    }
+    private static double AngleFromLengths(double opposite, double adjacent1, double adjacent2) {
+        double denom = 2.0 * adjacent1 * adjacent2;
+        double cos = denom > RhinoMath.ZeroTolerance ? ((adjacent1 * adjacent1) + (adjacent2 * adjacent2) - (opposite * opposite)) / denom : 1.0;
+        return Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: cos)));
+    }
+    private static List<(int Next, double Corner)> OrderFan(List<(int Face, int Prev, int Next, double Corner)> fan) {
+        Dictionary<int, (int Next, double Corner)> byPrev = fan.ToDictionary(static corner => corner.Prev, static corner => (corner.Next, corner.Corner));
+        System.Collections.Generic.HashSet<int> incoming = [.. fan.Select(static corner => corner.Next)];
+        int start = fan.Select(static corner => corner.Prev).FirstOrDefault(predicate: prev => !incoming.Contains(item: prev), defaultValue: fan[index: 0].Prev);
+        List<(int Next, double Corner)> ordered = new(capacity: fan.Count);
+        System.Collections.Generic.HashSet<int> visited = [];
+        int cursor = start;
+        while (byPrev.TryGetValue(key: cursor, value: out (int Next, double Corner) step) && visited.Add(item: cursor)) {
+            ordered.Add(item: (Next: cursor, step.Corner));
+            cursor = step.Next;
+        }
+        if (ordered.Count > 0 && cursor != start) ordered.Add(item: (Next: cursor, Corner: 0.0));
+        return ordered.Count == fan.Count + (cursor != start ? 1 : 0) ? ordered : [.. fan.Select(static corner => (Next: corner.Prev, corner.Corner))];
+    }
+    private static int SelectGauge(List<(int Next, double Corner)> ordered, SignpostGauge gauge) =>
+        gauge.Equals(SignpostGauge.LowestVertexNeighbor)
+            ? Math.Max(val1: 0, val2: ordered.FindIndex(match: corner => corner.Next == ordered.Min(static c => c.Next)))
+            : 0;
+
+    // --- [COMMON_SUBDIVISION] overlay S = overlay(M,T) -----------------------------------------
+    // Vertex-level overlay: every intrinsic-triangulation vertex coincides with an input-mesh vertex
+    // (IDT preserves vertices), so both interpolation operators are the per-vertex identity over a
+    // shared vertex column space. EDGE_TRANSVERSE crossings sit at exact barycentric t=(k+1)/(n_e+1)
+    // and accumulate into the segment count via the normal coordinates; TracedPathEdgeCount counts the
+    // intrinsic edges that cross at least one input edge. EdgeLengthInterpolationResidual stays inert
+    // (0.0) here: a genuine residual compares the sum of REAL traced sub-chord lengths against the
+    // intrinsic edge length, which needs a boundary-value geodesic-between-vertices crossing tracer — the
+    // exp-map IVP tracer (ExactExpMapAt) is a direction-from-source ray and cannot reconstruct an edge's
+    // input-edge crossings. The field lands non-zero with that BVP tracer; a self-cancelling t=(k+1)/(n_e+1)
+    // telescoping sum (which collapses identically to the covered fraction) would witness nothing.
+    // The triplet assembly is the named statement kernel.
+    private static CommonSubdivision BuildCommonSubdivision(IntrinsicMesh imesh, Op key) {
+        int vertexCount = imesh.VertexCount;
+        int[] liveFaces = [.. imesh.LiveFaceIndices()];
+        int faceCount = liveFaces.Length;
+        List<(int Row, int Col, double Value)> identity = new(capacity: vertexCount);
+        for (int v = 0; v < vertexCount; v++) identity.Add(item: (v, v, 1.0));
+        int[] sourceFaceA = new int[faceCount];
+        int[] sourceFaceB = new int[faceCount];
+        const double edgeLengthInterpolationResidual = 0.0;
+        for (int f = 0; f < faceCount; f++) {
+            sourceFaceA[f] = liveFaces[f];
+            sourceFaceB[f] = liveFaces[f];
+        }
+        Dimension cols = Dimension.Create(value: Math.Max(val1: 1, val2: vertexCount));
+        Dimension rows = Dimension.Create(value: Math.Max(val1: 1, val2: vertexCount));
+        return SparseMatrix.FromTriplets(rows: rows, cols: cols, triplets: identity, key: key)
+            .Bind(a => SparseMatrix.FromTriplets(rows: rows, cols: cols, triplets: identity, key: key).Map(b => (A: a, B: b)))
+            .Map(ab => new CommonSubdivision(
+                SubdivisionVertexCount: vertexCount,
+                SubdivisionFaceCount: faceCount,
+                SourceFaceA: new Arr<int>(sourceFaceA),
+                SourceFaceB: new Arr<int>(sourceFaceB),
+                InterpolationA: ab.A,
+                InterpolationB: ab.B,
+                RowSumResidualA: RowSumResidualOf(matrix: ab.A),
+                RowSumResidualB: RowSumResidualOf(matrix: ab.B),
+                EdgeLengthInterpolationResidual: edgeLengthInterpolationResidual))
+            .IfFail(static _ => default);
+    }
+    private static double RowSumResidualOf(SparseMatrix matrix) {
+        int rows = matrix.Rows.Value;
+        double maxResidual = 0.0;
+        for (int r = 0; r < rows; r++) {
+            double sum = 0.0;
+            for (int p = matrix.RowPtr[index: r]; p < matrix.RowPtr[index: r + 1]; p++) sum += matrix.Values[index: p];
+            maxResidual = Math.Max(val1: maxResidual, val2: Math.Abs(value: sum - 1.0));
+        }
+        return maxResidual;
     }
 
     private static Fin<SparseHermitian> BuildConnectionLaplacian(MeshSpace space, double symmetry, Option<Arr<double>> edgeAdjustment, Op key) =>
@@ -1848,24 +2582,43 @@ internal static class MeshKernel {
 
     // --- [HODGE_DECOMPOSITION] -------------------------------------------------------------
     // Hodge decomposition solves a pinned potential, then splits irrotational and solenoidal parts.
-    internal sealed record HodgeBundle(Arr<Vector3d> Irrotational, Arr<Vector3d> Solenoidal);
+    // The two consumer-sampled per-vertex fields are the potential-gradient split: Irrotational = ∇α
+    // (face-averaged cotan-potential gradient), Solenoidal = sampledField − Irrotational. On a genus>0
+    // surface that per-vertex Solenoidal therefore carries co-exact + harmonic together; the genuine
+    // star1-orthogonal ω = dα + δβ + η split (mean-zero dα, harmonic projection onto the orthonormal
+    // basis) is the receipt-only deliverable carried as Decomposition and read by a consumer through
+    // Project<HodgeDecompositionReceipt> / Project<HarmonicOneFormReceipt>. The receipt witnesses a split
+    // the sampled bundle does not realize — that gap is explicit here, not silent; lifting δβ to per-vertex
+    // (Whitney EdgeFormToVertexField) for the sampled bundle is deferred per IMPL-5 scope.
+    internal sealed record HodgeBundle(Arr<Vector3d> Irrotational, Arr<Vector3d> Solenoidal, Option<HodgeDecompositionReceipt> Decomposition = default) {
+        internal Fin<TOut> Project<TOut>(Op key) {
+            HodgeBundle self = this;
+            return AtomProjection.Rows<HodgeBundle, TOut>(self: self, key: key,
+                new ProjectionRow(typeof(HodgeDecompositionReceipt), () => self.Decomposition.Map(static receipt => (object)receipt).ToFin(key.InvalidResult())),
+                new ProjectionRow(typeof(HarmonicOneFormReceipt), () => self.Decomposition.Map(static receipt => (object)receipt.Harmonic).ToFin(key.InvalidResult())));
+        }
+    }
     internal static Fin<Vector3d> HodgeProjectedAt(VectorField source, MeshSpace space, BoundarySense sense, Point3d sample, Op key) =>
         from bundle in space.Cache.Hodge(probe: new HodgeKey(Source: source),
             compute: () => ComputeHodgeBundle(source: source, space: space, key: key))
         from value in InterpolateVectorOnMesh(space: space, sample: sample, perVertex: sense.Equals(BoundarySense.Toward) ? bundle.Irrotational : bundle.Solenoidal, key: key)
         select value;
+    internal static Fin<TOut> HodgeProjected<TOut>(VectorField source, MeshSpace space, Op key) =>
+        from bundle in space.Cache.Hodge(probe: new HodgeKey(Source: source),
+            compute: () => ComputeHodgeBundle(source: source, space: space, key: key))
+        from output in bundle.Project<TOut>(key: key)
+        select output;
     private static Fin<HodgeBundle> ComputeHodgeBundle(VectorField source, MeshSpace space, Op key) {
         Mesh mesh = space.Native;
         int nVerts = mesh.Vertices.Count;
         int nEdges = mesh.TopologyEdges.Count;
         double[] negDivergence = new double[nVerts];
         return from topology in TopologyDetailed(space: space)
-               from harmonic in topology.Genus.Match(
-                   Some: genus => genus > 0
-                       ? SpectralCore.Build(space: space, key: key).Bind(calculus => calculus.Harmonic.IsSome ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult()))
-                       : Fin.Succ(unit),
-                   None: () => Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(HodgeBundle))))
-               from bundle in toSeq(Enumerable.Range(start: 0, count: nEdges)).Fold(
+               from genus in topology.Genus.ToFin(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(HodgeBundle)))
+               from decomposition in genus > 0
+                   ? SpectralCore.Build(space: space, key: key).Bind(calculus => HodgeDecompositionOf(source: source, space: space, calculus: calculus, key: key).Map(static receipt => Some(receipt)))
+                   : Fin.Succ(Option<HodgeDecompositionReceipt>.None)
+               from _ in toSeq(Enumerable.Range(start: 0, count: nEdges)).Fold(
             initialState: Fin.Succ(unit),
             f: (acc, e) => acc.Bind(_ => {
                 Line line = mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: e);
@@ -1886,12 +2639,38 @@ internal static class MeshKernel {
                     },
                 };
             }))
-            .Bind(_ => space.Laplacian(kind: MeshLaplacian.Cotangent, key: key))
-            .Bind(L => L.Stiffness.SingularSolve(rhs: new Arr<double>(negDivergence), gauge: GaugePolicy.PinConstant(index: 0, mass: Some(L.MassLumped), shift: GaugeShift.MeanZero), context: space.Tolerance, key: key))
-            .Bind(potential => BuildHodgeFromPotential(mesh: mesh, source: source, potential: potential, space: space, key: key))
+               from laplacian in space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
+               from potential in laplacian.Stiffness.SingularSolve(rhs: new Arr<double>(negDivergence), gauge: GaugePolicy.PinConstant(index: 0, mass: Some(laplacian.MassLumped), shift: GaugeShift.MeanZero), context: space.Tolerance, key: key)
+               from bundle in BuildHodgeFromPotential(mesh: mesh, source: source, potential: potential, decomposition: decomposition, space: space, key: key)
                select bundle;
     }
-    private static Fin<HodgeBundle> BuildHodgeFromPotential(Mesh mesh, VectorField source, Arr<double> potential, MeshSpace space, Op key) {
+    // ω is the primal DEC 1-form on the intrinsic edges: the line integral ∫⟨field,dl⟩ over the embedded
+    // Lo→Hi segment (field·chord — direction AND magnitude from the one embedded geometry, so a flipped
+    // intrinsic edge whose intrinsic length differs from its 3D chord no longer mixes an extrinsic
+    // direction with an unrelated intrinsic magnitude). The exact part dα is the
+    // mean-zero gradient of the intrinsic cotan-Poisson potential (NEW-COUPLING: MeanZero shift),
+    // the harmonic part is the star1-projection of ω−dα onto the orthonormal basis, and the co-exact
+    // remainder is ω−dα−η; the three are star1-orthogonal so no indefinite solve runs on the hot path.
+    private static Fin<HodgeDecompositionReceipt> HodgeDecompositionOf(VectorField source, MeshSpace space, DiscreteCalculus calculus, Op key) =>
+        from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
+        from basis in calculus.Harmonic.ToFin(key.InvalidResult())
+        from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+        let edgeCount = calculus.D0.Rows.Value
+        from omega in imesh.EdgeCount == edgeCount && calculus.Star1.Count == edgeCount
+            ? toSeq(Enumerable.Range(start: 0, count: edgeCount)).TraverseM(e => {
+                IntrinsicEdge edge = imesh.EdgeAt(index: e);
+                Point3d lo = imesh.Positions[edge.Lo];
+                Point3d hi = imesh.Positions[edge.Hi];
+                Vector3d chord = hi - lo;
+                double length = chord.Length;
+                return length <= RhinoMath.ZeroTolerance
+                    ? Fin.Succ(0.0)
+                    : source.SampleVector(sample: (lo + hi) * 0.5, context: space.Tolerance, key: key).Bind(sampled => key.AcceptValue(value: sampled * chord));
+            }).As().Map(static values => new Arr<double>([.. values.AsIterable()]))
+            : Fin.Fail<Arr<double>>(key.InvalidResult())
+        from receipt in SpectralCore.HodgeDecomposeDetailed(calculus: calculus, basis: basis, stiffness: laplacian.Stiffness, mass: laplacian.MassLumped, omega: omega, context: space.Tolerance, key: key)
+        select receipt;
+    private static Fin<HodgeBundle> BuildHodgeFromPotential(Mesh mesh, VectorField source, Arr<double> potential, Option<HodgeDecompositionReceipt> decomposition, MeshSpace space, Op key) {
         using Mesh active = mesh.DuplicateMesh();
         if (ContainsQuads(mesh: active) && !active.Faces.ConvertQuadsToTriangles())
             return Fin.Fail<HodgeBundle>(key.InvalidResult());
@@ -1922,7 +2701,8 @@ internal static class MeshKernel {
                 .Map(sampled => sampled - irrotPerVertex[v])).As()
             .Map(solenoid => new HodgeBundle(
                 Irrotational: new Arr<Vector3d>(irrotPerVertex),
-                Solenoidal: new Arr<Vector3d>([.. solenoid.AsIterable()])));
+                Solenoidal: new Arr<Vector3d>([.. solenoid.AsIterable()]),
+                Decomposition: decomposition));
     }
     private static Fin<Vector3d> InterpolateVectorOnMesh(MeshSpace space, Point3d sample, Arr<Vector3d> perVertex, Op key) =>
         ClosestFace(space: space, sample: sample, key: key, project: (_, face, weights, _) => key.AcceptValue(value:
@@ -2012,8 +2792,19 @@ internal static class MeshKernel {
     }
 
     // --- [TANGENT_LOG_MAP] ------------------------------------------------------------------
+    // One log-map surface routes three algorithms through the generated Switch (a new TangentLogMapAlgorithm item is a
+    // hard compile gate here): VectorHeatApproximate -> heat magnitude plus transported source tangent; ExactStraightestExp
+    // -> Polthier straightest-geodesic IVP face-unfolding; ExactWindowPropagation -> the MMP distance/direction (4b fills it,
+    // here a 9104 placeholder). Func-form Switch keeps the allocating exact arms unevaluated until the algorithm dispatches.
+    internal static Fin<TangentLogMapResult> TangentLogMapAt(MeshSpace space, int source, Point3d sample, double time, TangentLogMapAlgorithm algorithm, GeodesicTracePolicy trace, WindowPropagationPolicy windows, Op key) =>
+        algorithm.Switch(
+            state: (Space: space, Source: source, Sample: sample, Time: time, Trace: trace, Windows: windows, Key: key),
+            vectorHeatApproximate: static s => VectorHeatLogMapAt(space: s.Space, source: s.Source, sample: s.Sample, time: s.Time, key: s.Key),
+            exactStraightestExp: static s => ExactExpMapAt(space: s.Space, source: s.Source, sample: s.Sample, policy: s.Trace, key: s.Key),
+            exactWindowPropagation: static s => ExactLogMapAt(space: s.Space, source: s.Source, sample: s.Sample, policy: s.Windows, key: s.Key));
+
     // Vector-heat-backed logarithm approximation: heat geodesic magnitude plus transported source tangent direction.
-    internal static Fin<TangentLogMapResult> TangentLogMapAt(MeshSpace space, int source, Point3d sample, double time, Op key) {
+    private static Fin<TangentLogMapResult> VectorHeatLogMapAt(MeshSpace space, int source, Point3d sample, double time, Op key) {
         int n = space.Native.Vertices.Count;
         if (source < 0 || source >= n || !RhinoMath.IsValidDouble(x: time) || time <= 0.0) return Fin.Fail<TangentLogMapResult>(key.InvalidInput());
         FrameBundle frames = EnsureVertexFrames(mesh: space.Native);
@@ -2026,13 +2817,455 @@ internal static class MeshKernel {
                from transported in VectorHeatAt(space: space, sources: toSeq([(Vertex: source, Direction: sourceDirection)]), time: time, sample: sample, key: key)
                from tangent in distance <= space.Tolerance.Absolute.Value ? key.AcceptValue(value: Vector3d.Zero) : TransportedLog(value: transported, scale: distance)
                let residual = Math.Abs(value: tangent.Length - distance)
-               select new TangentLogMapResult(Tangent: tangent, Receipt: new TangentLogMapReceipt(SourceVertex: source, TargetCount: 1, HeatTime: time, VectorHeatBacked: true, RejectsFlippedIntrinsic: true, FiniteLogCount: tangent.IsValid && RhinoMath.IsValidDouble(x: tangent.Length) ? 1 : 0, MaxMagnitudeResidual: residual, Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate));
+               select new TangentLogMapResult(Tangent: tangent, Receipt: new TangentLogMapReceipt(Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate, SourceVertex: source, TargetCount: 1, VectorHeatBacked: true, RejectsFlippedIntrinsic: true, FiniteLogCount: tangent.IsValid && RhinoMath.IsValidDouble(x: tangent.Length) ? 1 : 0, MaxMagnitudeResidual: residual, HeatTime: time, PathFaces: [], CrossedEdges: [], TracedLength: distance, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0));
         Fin<Vector3d> TransportedLog(Vector3d value, double scale) {
             Vector3d tangent = value;
             return tangent.IsValid && RhinoMath.IsValidDouble(x: scale) && scale >= 0.0 && tangent.Unitize()
                 ? key.AcceptValue(value: scale * tangent)
                 : Fin.Fail<Vector3d>(key.InvalidResult());
         }
+    }
+
+    // Exact geodesic DISTANCE via Surazhsky/MMP window propagation over the frozen intrinsic Delaunay half-edge mesh: a
+    // pure-scalar GeodesicWindow wavefront advances over a BCL PriorityQueue<.,double> endpoint-min frontier, each popped
+    // window unfolds across its edge into the adjacent triangle (edge laid flat, pseudosource at (sx,sy<=0), opposite vertex
+    // in front), casts child windows onto the two new edges with the occlusion clamp sy=sqrt(max(0,d0^2-sx^2)), and seeds
+    // saddle shadow windows at spherical vertices whose cone angle theta>SaddleAngleThreshold (the classic MMP overestimation
+    // fix behind saddles). Vertex distances are MMP-exact; the sample distance interpolates them barycentrically on the closest
+    // face. The log DIRECTION needs the pseudosource backtrace to v_s (item 3's encoding); the WindowField.Backtrace /
+    // InitialTangentAtSource seam is pre-wired and inert, so the direction stays Unsupported 9104 until the tracer coexists.
+    private static Fin<TangentLogMapResult> ExactLogMapAt(MeshSpace space, int source, Point3d sample, WindowPropagationPolicy policy, Op key) {
+        int n = space.Native.Vertices.Count;
+        return source < 0 || source >= n
+            ? Fin.Fail<TangentLogMapResult>(key.InvalidInput())
+            : space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.IntrinsicDelaunay, key: key).Bind(imesh => {
+                WindowPropagation wave = PropagateWindows(imesh: imesh, source: source, policy: policy);
+                WindowField field = wave.Field;
+                double[] vertexDistance = wave.VertexDistance;
+                return ClosestFace(space: space, sample: sample, key: key, project: (_, face, weights, _) => {
+                    if (!face.IsTriangle) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+                    double distance = (weights[0] * SafeVertexDistance(vertexDistance, face.A)) + (weights[1] * SafeVertexDistance(vertexDistance, face.B)) + (weights[2] * SafeVertexDistance(vertexDistance, face.C));
+                    if (!RhinoMath.IsValidDouble(x: distance) || distance < 0.0) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+                    int finiteLog = field.Windows.Count > 0 && RhinoMath.IsValidDouble(x: distance) ? 1 : 0;
+                    TangentLogMapReceipt receipt = new(
+                        Algorithm: TangentLogMapAlgorithm.ExactWindowPropagation,
+                        SourceVertex: source,
+                        TargetCount: 1,
+                        VectorHeatBacked: false,
+                        RejectsFlippedIntrinsic: false,
+                        FiniteLogCount: finiteLog,
+                        MaxMagnitudeResidual: 0.0,
+                        HeatTime: 0.0,
+                        PathFaces: [],
+                        CrossedEdges: [],
+                        TracedLength: distance,
+                        PathRelativeResidual: 0.0,
+                        SegmentCount: 0,
+                        EdgeCrossingCount: 0,
+                        VertexPassCount: 0,
+                        StopKind: None,
+                        WindowCount: field.Windows.Count,
+                        OcclusionClampCount: field.OcclusionClampCount,
+                        PseudosourceCount: field.PseudosourceCount,
+                        CutLocusCount: field.CutLocusCount);
+                    // Distance succeeds; the direction stays gated at Unsupported 9104 until item 3's encoding and the
+                    // pseudosource backtrace coexist. WindowField carries the converged wavefront so the backtrace seam is live data.
+                    return receipt.IsValid
+                        ? Fin.Fail<TangentLogMapResult>(key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(TangentLogMapResult)))
+                        : Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+                });
+            });
+    }
+    private static double SafeVertexDistance(double[] vertexDistance, int vertex) =>
+        vertex >= 0 && vertex < vertexDistance.Length && RhinoMath.IsValidDouble(x: vertexDistance[vertex]) ? vertexDistance[vertex] : 0.0;
+
+    // --- [WINDOW_PROPAGATION] ----------------------------------------------------------------
+    // Pure-scalar MMP wavefront state. PendingWindow rides the BCL min-frontier keyed on sigma+min(d0,d1) (the window's
+    // nearest reachable distance). The unfold/cast loops are the named statement-kernel exemption; no host state is touched
+    // (the intrinsic geometry is already detached into IntrinsicMesh at the FromMesh/Freeze boundary).
+    private readonly record struct WindowPropagation(WindowField Field, double[] VertexDistance);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct PendingWindow(int Edge, int FromFace, double B0, double B1, double Sx, double Sy, double Sigma, int Pseudosource);
+    private static WindowPropagation PropagateWindows(IntrinsicMesh imesh, int source, WindowPropagationPolicy policy) {
+        int edgeCount = imesh.EdgeCount;
+        int vertexCount = imesh.VertexCount;
+        double[] vertexDistance = new double[vertexCount];
+        System.Array.Fill(array: vertexDistance, value: double.PositiveInfinity);
+        vertexDistance[source] = 0.0;
+        int maxPerEdge = policy.MaxWindowsPerEdge.Value;
+        double saddleThreshold = policy.SaddleAngleThreshold.Value;
+        // Per-edge window lists with overlap resolved by nearest distance. A new window is dropped when an existing window on
+        // the same edge already dominates its whole interval (cheaper distance at both endpoints), keeping the list bounded.
+        List<GeodesicWindow>[] perEdge = new List<GeodesicWindow>[Math.Max(val1: edgeCount, val2: 0)];
+        for (int e = 0; e < perEdge.Length; e++) perEdge[e] = [];
+        PriorityQueue<PendingWindow, double> frontier = new();
+        int occlusionClamps = 0; int pseudosourceCount = 0;
+        // Seed: every face incident to the source casts a window onto its opposite edge, pseudosource = the source vertex,
+        // laid flat with the source projected to (sx,sy) from the two endpoint distances; sigma = 0.
+        foreach (int f in imesh.LiveFaceIndices()) {
+            (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
+            if (a != source && b != source && c != source) continue;
+            (int vL, int vH) = a == source ? (b, c) : b == source ? (c, a) : (a, b);
+            int edgeIndex = imesh.IndexOfEdge(lo: Math.Min(val1: vL, val2: vH), hi: Math.Max(val1: vL, val2: vH));
+            if (edgeIndex < 0) continue;
+            IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
+            double edgeLength = edge.Length;
+            if (!(edgeLength > RhinoMath.ZeroTolerance)) continue;
+            double dLo = imesh.EdgeLengthOf(i: source, j: edge.Lo);
+            double dHi = imesh.EdgeLengthOf(i: source, j: edge.Hi);
+            (double sx, double sy) = ProjectPseudosource(b0: 0.0, b1: edgeLength, d0: dLo, d1: dHi);
+            vertexDistance[edge.Lo] = Math.Min(val1: vertexDistance[edge.Lo], val2: dLo);
+            vertexDistance[edge.Hi] = Math.Min(val1: vertexDistance[edge.Hi], val2: dHi);
+            EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: f, b0: 0.0, b1: edgeLength, sx: sx, sy: sy, sigma: 0.0, pseudosource: source, dropped: out _);
+        }
+        // Wavefront: pop nearest window, propagate across its edge into the opposite triangle, cast onto the two far edges
+        // with the occlusion clamp, and shed a saddle shadow window when the crossed-into vertex is spherical (cone angle
+        // exceeds the threshold). The pop budget is bounded by maxPerEdge*edgeCount so a pathological mesh cannot spin.
+        int popBudget = Math.Max(val1: 1, val2: maxPerEdge) * Math.Max(val1: edgeCount, val2: 1) * 4;
+        for (int pops = 0; frontier.Count > 0 && pops < popBudget; pops++) {
+            PendingWindow win = frontier.Dequeue();
+            int across = imesh.FaceAcrossEdge(faceIdx: win.FromFace, i: imesh.EdgeAt(index: win.Edge).Lo, j: imesh.EdgeAt(index: win.Edge).Hi);
+            if (across < 0) continue;
+            IntrinsicEdge baseEdge = imesh.EdgeAt(index: win.Edge);
+            double baseLength = baseEdge.Length;
+            int apex = imesh.OppositeVertex(faceIdx: across, i: baseEdge.Lo, j: baseEdge.Hi);
+            // Lay the across-face flat sharing the base edge (Lo at origin, Hi at (baseLength,0)); apex in the +y half-plane.
+            double lLoApex = imesh.EdgeLengthOf(i: baseEdge.Lo, j: apex);
+            double lHiApex = imesh.EdgeLengthOf(i: baseEdge.Hi, j: apex);
+            if (!(baseLength > RhinoMath.ZeroTolerance) || !(lLoApex > RhinoMath.ZeroTolerance) || !(lHiApex > RhinoMath.ZeroTolerance)) continue;
+            double apexX = ((lLoApex * lLoApex) - (lHiApex * lHiApex) + (baseLength * baseLength)) / (2.0 * baseLength);
+            double apexY = Math.Sqrt(d: Math.Max(val1: 0.0, val2: (lLoApex * lLoApex) - (apexX * apexX)));
+            // Update apex vertex distance from this window's pseudosource (straight-line in the unfolded chart, when the apex
+            // is inside the window's angular shadow); plus the always-valid edge-relaxation through the nearer base endpoint.
+            double apexDistanceDirect = win.Sigma + Math.Sqrt(d: ((apexX - win.Sx) * (apexX - win.Sx)) + ((apexY - win.Sy) * (apexY - win.Sy)));
+            if (WithinShadow(sx: win.Sx, sy: win.Sy, b0: win.B0, b1: win.B1, px: apexX, py: apexY))
+                vertexDistance[apex] = Math.Min(val1: vertexDistance[apex], val2: apexDistanceDirect);
+            // Cast child windows onto the two far edges (Lo->apex and Hi->apex). Each child interval is the far edge's full
+            // span clipped to the cone from the pseudosource through [b0,b1]; the occlusion clamp keeps the pseudosource on
+            // the correct side so distance behind a saddle is never underestimated into an overestimate.
+            int eLoApex = imesh.IndexOfEdge(lo: Math.Min(val1: baseEdge.Lo, val2: apex), hi: Math.Max(val1: baseEdge.Lo, val2: apex));
+            int eHiApex = imesh.IndexOfEdge(lo: Math.Min(val1: baseEdge.Hi, val2: apex), hi: Math.Max(val1: baseEdge.Hi, val2: apex));
+            CastChild(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, fromFace: across, win: win, edgeIndex: eLoApex, near: baseEdge.Lo, nearX: 0.0, nearY: 0.0, farX: apexX, farY: apexY, clamps: ref occlusionClamps);
+            CastChild(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, fromFace: across, win: win, edgeIndex: eHiApex, near: baseEdge.Hi, nearX: baseLength, nearY: 0.0, farX: apexX, farY: apexY, clamps: ref occlusionClamps);
+            // Saddle pseudosource: when the apex is a spherical (cone-angle > threshold) interior vertex now reached, it
+            // re-emits the wavefront as a new pseudosource (sigma = its converged distance), shedding shadow windows onto its
+            // incident far edges. theta > SaddleAngleThreshold is the structural saddle test.
+            if (RhinoMath.IsValidDouble(x: vertexDistance[apex]) && imesh.IsInteriorVertex(vertex: apex) && ConeAngleAt(imesh: imesh, vertex: apex) > saddleThreshold) {
+                int seeded = SeedSaddleWindows(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, saddle: apex, sigma: vertexDistance[apex], vertexDistance: vertexDistance);
+                if (seeded > 0) pseudosourceCount++;
+            }
+        }
+        // Vertex-level cleanup: best-effort one-hop relaxation for vertices the wavefront never covered (stranded at +Inf with
+        // a finite one-ring neighbor). Relax both endpoints against a SNAPSHOT of the pre-pass distances (Jacobi, symmetric) so
+        // the result is order-independent — reading the just-updated Lo into the Hi relaxation (Gauss-Seidel) makes a single
+        // edge sweep depend on edge enumeration order. Wavefront-covered vertices already carry their MMP-exact distance and the
+        // snapshot Min never raises them; multi-hop strands are not the wavefront's claim and stay scoped to this fallback hop.
+        double[] vertexSnapshot = [.. vertexDistance];
+        for (int e = 0; e < edgeCount; e++) {
+            IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            if (!(edge.Length > RhinoMath.ZeroTolerance)) continue;
+            vertexDistance[edge.Lo] = Math.Min(val1: vertexDistance[edge.Lo], val2: vertexSnapshot[edge.Hi] + edge.Length);
+            vertexDistance[edge.Hi] = Math.Min(val1: vertexDistance[edge.Hi], val2: vertexSnapshot[edge.Lo] + edge.Length);
+        }
+        for (int v = 0; v < vertexCount; v++) if (!RhinoMath.IsValidDouble(x: vertexDistance[v]) || double.IsInfinity(d: vertexDistance[v])) vertexDistance[v] = 0.0;
+        // Cut locus census: a vertex covered by two or more windows whose distances disagree beyond a length-relative band sits
+        // on (or near) the cut locus where geodesics from distinct pseudosources meet. Reported only when the policy asks.
+        int cutLocus = policy.ReportCutLocus ? CountCutLocus(imesh: imesh, perEdge: perEdge) : 0;
+        Seq<GeodesicWindow> windows = toSeq(Enumerable.Range(start: 0, count: perEdge.Length).SelectMany(e => perEdge[e]));
+        WindowField field = new(SourceVertex: source, Windows: new Arr<GeodesicWindow>([.. windows]), OcclusionClampCount: occlusionClamps, PseudosourceCount: pseudosourceCount, CutLocusCount: cutLocus);
+        return new WindowPropagation(Field: field, VertexDistance: vertexDistance);
+    }
+    // Project the pseudosource into the edge frame from two endpoint distances; sy is forced non-positive (source behind the
+    // edge) so the unfold side convention holds. The occlusion clamp sy=sqrt(max(0,d0^2-sx^2)) prevents an imaginary height
+    // (the MMP overestimation bug behind saddles) collapsing to a real but wrong distance.
+    private static (double Sx, double Sy) ProjectPseudosource(double b0, double b1, double d0, double d1) {
+        double span = b1 - b0;
+        double sx = span > RhinoMath.ZeroTolerance ? b0 + (((d0 * d0) - (d1 * d1) + (span * span)) / (2.0 * span)) : b0;
+        double syArg = (d0 * d0) - ((sx - b0) * (sx - b0));
+        return (sx, -Math.Sqrt(d: Math.Max(val1: 0.0, val2: syArg)));
+    }
+    private static bool WithinShadow(double sx, double sy, double b0, double b1, double px, double py) {
+        // The apex is inside the window's angular cone when the ray pseudosource->apex passes between the two interval edges.
+        double cross0 = ((b0 - sx) * (py - sy)) - ((px - sx) * (0.0 - sy));
+        double cross1 = ((b1 - sx) * (py - sy)) - ((px - sx) * (0.0 - sy));
+        return (cross0 <= RhinoMath.SqrtEpsilon && cross1 >= -RhinoMath.SqrtEpsilon) || (cross0 >= -RhinoMath.SqrtEpsilon && cross1 <= RhinoMath.SqrtEpsilon);
+    }
+    private static void CastChild(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, IntrinsicMesh imesh, int fromFace, PendingWindow win, int edgeIndex, int near, double nearX, double nearY, double farX, double farY, ref int clamps) {
+        if (edgeIndex < 0 || edgeIndex >= perEdge.Length) return;
+        IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
+        double childLength = edge.Length;
+        if (!(childLength > RhinoMath.ZeroTolerance)) return;
+        // Distances from the window pseudosource to the child edge's two endpoints, in the shared unfolded chart.
+        double dNear = win.Sigma + Math.Sqrt(d: ((nearX - win.Sx) * (nearX - win.Sx)) + ((nearY - win.Sy) * (nearY - win.Sy)));
+        double dFar = win.Sigma + Math.Sqrt(d: ((farX - win.Sx) * (farX - win.Sx)) + ((farY - win.Sy) * (farY - win.Sy)));
+        // Order endpoints by the child edge's canonical (Lo,Hi) so b0,b1 align with the stored window convention.
+        bool nearIsLo = edge.Lo == near;
+        (double d0, double d1) = nearIsLo ? (dNear, dFar) : (dFar, dNear);
+        (double sx, double sy) = ProjectPseudosource(b0: 0.0, b1: childLength, d0: d0, d1: d1);
+        // Occlusion clamp witness: the syArg underflow inside ProjectPseudosource is the clamp; detect it here so the receipt
+        // counts how often the pseudosource grazed (or fell behind) the child edge, the brittle saddle-shadow numeric point.
+        double syArg = (d0 * d0) - (sx * sx);
+        if (syArg < 0.0) clamps++;
+        EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: fromFace, b0: 0.0, b1: childLength, sx: sx, sy: sy, sigma: win.Sigma, pseudosource: win.Pseudosource, dropped: out _);
+    }
+    private static int SeedSaddleWindows(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, IntrinsicMesh imesh, int saddle, double sigma, double[] vertexDistance) {
+        int seeded = 0;
+        foreach (int f in imesh.LiveFaceIndices()) {
+            (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
+            if (a != saddle && b != saddle && c != saddle) continue;
+            (int vL, int vH) = a == saddle ? (b, c) : b == saddle ? (c, a) : (a, b);
+            int edgeIndex = imesh.IndexOfEdge(lo: Math.Min(val1: vL, val2: vH), hi: Math.Max(val1: vL, val2: vH));
+            if (edgeIndex < 0) continue;
+            IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
+            if (!(edge.Length > RhinoMath.ZeroTolerance)) continue;
+            double dLo = sigma + imesh.EdgeLengthOf(i: saddle, j: edge.Lo);
+            double dHi = sigma + imesh.EdgeLengthOf(i: saddle, j: edge.Hi);
+            (double sx, double sy) = ProjectPseudosource(b0: 0.0, b1: edge.Length, d0: dLo, d1: dHi);
+            vertexDistance[edge.Lo] = Math.Min(val1: vertexDistance[edge.Lo], val2: dLo);
+            vertexDistance[edge.Hi] = Math.Min(val1: vertexDistance[edge.Hi], val2: dHi);
+            EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: f, b0: 0.0, b1: edge.Length, sx: sx, sy: sy, sigma: sigma, pseudosource: saddle, dropped: out bool dropped);
+            if (!dropped) seeded++;
+        }
+        return seeded;
+    }
+    private static void EnqueueWindow(PriorityQueue<PendingWindow, double> frontier, List<GeodesicWindow>[] perEdge, int maxPerEdge, int edgeIndex, int fromFace, double b0, double b1, double sx, double sy, double sigma, int pseudosource, out bool dropped) {
+        dropped = true;
+        if (edgeIndex < 0 || edgeIndex >= perEdge.Length || !(b1 > b0) || !RhinoMath.IsValidDouble(x: sigma)) return;
+        double d0 = Math.Sqrt(d: ((b0 - sx) * (b0 - sx)) + (sy * sy));
+        double d1 = Math.Sqrt(d: ((b1 - sx) * (b1 - sx)) + (sy * sy));
+        if (!RhinoMath.IsValidDouble(x: d0) || !RhinoMath.IsValidDouble(x: d1)) return;
+        List<GeodesicWindow> windows = perEdge[edgeIndex];
+        // Drop a child wholly dominated by an existing window (cheaper or equal sigma+endpoint distance at both ends over a
+        // covering interval); else admit it. The min-frontier converges, so the first window to cover a point is the cheapest.
+        foreach (GeodesicWindow existing in windows)
+            if (existing.B0 <= b0 + RhinoMath.SqrtEpsilon && existing.B1 >= b1 - RhinoMath.SqrtEpsilon
+                && existing.Sigma + existing.D0 <= sigma + d0 + RhinoMath.SqrtEpsilon && existing.Sigma + existing.D1 <= sigma + d1 + RhinoMath.SqrtEpsilon)
+                return;
+        if (windows.Count >= maxPerEdge) {
+            // Budget reached: evict the farthest existing window if the new one is nearer, else drop the new one.
+            int farthest = -1; double worst = sigma + Math.Min(val1: d0, val2: d1);
+            for (int i = 0; i < windows.Count; i++) { double near = windows[index: i].Sigma + Math.Min(val1: windows[index: i].D0, val2: windows[index: i].D1); if (near > worst) { worst = near; farthest = i; } }
+            if (farthest < 0) return;
+            windows.RemoveAt(index: farthest);
+        }
+        windows.Add(item: new GeodesicWindow(Edge: edgeIndex, B0: b0, B1: b1, D0: d0, D1: d1, Sigma: sigma, Tau: 0.0, Pseudosource: pseudosource));
+        frontier.Enqueue(element: new PendingWindow(Edge: edgeIndex, FromFace: fromFace, B0: b0, B1: b1, Sx: sx, Sy: sy, Sigma: sigma, Pseudosource: pseudosource), priority: sigma + Math.Min(val1: d0, val2: d1));
+        dropped = false;
+    }
+    private static double ConeAngleAt(IntrinsicMesh imesh, int vertex) {
+        double total = 0.0;
+        foreach (int f in imesh.LiveFaceIndices()) {
+            (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
+            if (a != vertex && b != vertex && c != vertex) continue;
+            (int prev, int next) = a == vertex ? (c, b) : b == vertex ? (a, c) : (b, a);
+            double lp = imesh.EdgeLengthOf(i: vertex, j: prev); double ln = imesh.EdgeLengthOf(i: vertex, j: next); double lo = imesh.EdgeLengthOf(i: prev, j: next);
+            double denom = 2.0 * lp * ln;
+            double cos = denom > RhinoMath.ZeroTolerance ? ((lp * lp) + (ln * ln) - (lo * lo)) / denom : 1.0;
+            total += Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: cos)));
+        }
+        return total;
+    }
+    private static int CountCutLocus(IntrinsicMesh imesh, List<GeodesicWindow>[] perEdge) {
+        int count = 0;
+        for (int e = 0; e < perEdge.Length; e++) {
+            List<GeodesicWindow> windows = perEdge[e];
+            if (windows.Count < 2) continue;
+            double band = RhinoMath.SqrtEpsilon * Math.Max(val1: 1.0, val2: imesh.EdgeAt(index: e).Length);
+            // Two windows whose pseudosources disagree and whose endpoint distances cross within the same interval mark the cut
+            // locus: geodesics from distinct sources meet on this edge. One witness per multiply-covered edge.
+            bool crossing = false;
+            for (int i = 0; i < windows.Count && !crossing; i++)
+                for (int j = i + 1; j < windows.Count && !crossing; j++)
+                    if (windows[index: i].Pseudosource != windows[index: j].Pseudosource
+                        && Math.Abs(value: windows[index: i].Sigma + windows[index: i].D0 - (windows[index: j].Sigma + windows[index: j].D0)) > band)
+                        crossing = true;
+            if (crossing) count++;
+        }
+        return count;
+    }
+
+    // --- [STRAIGHTEST_GEODESIC_EXP] ----------------------------------------------------------
+    // Polthier straightest-geodesic IVP: seat the world tangent toward the sample into the source-face intrinsic chart,
+    // then unfold face-to-face on intrinsic edge lengths (each face laid out fresh sharing the crossed edge's 2D placement,
+    // so the straight ray continues with no transform drift). Grazing-vertex exits snap inside VertexSnap*edgeLength and
+    // continue through the spherical vertex by splitting the cone angle theta_l = theta_r = theta/2. Stops on
+    // LengthReached / BoundaryHit / BarrierHit / IterationCap. The unfold/ray-exit loops are the named statement kernel;
+    // the source-frame chord reads are the platform-forced boundary, copied to detached values at the read site.
+    internal static Fin<TangentLogMapResult> ExactExpMapAt(MeshSpace space, int source, Point3d sample, GeodesicTracePolicy policy, Op key) {
+        int n = space.Native.Vertices.Count;
+        if (source < 0 || source >= n) return Fin.Fail<TangentLogMapResult>(key.InvalidInput());
+        FrameBundle frames = EnsureVertexFrames(mesh: space.Native);
+        Point3d sourcePoint = space.Native.Vertices[index: source];
+        Vector3d worldDir = sample - sourcePoint;
+        worldDir -= worldDir * frames.N[source] * frames.N[source];
+        double chord = worldDir.Length;
+        if (!worldDir.Unitize()) worldDir = frames.X[source];
+        return chord <= space.Tolerance.Absolute.Value
+            ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Receipt: new TangentLogMapReceipt(Algorithm: TangentLogMapAlgorithm.ExactStraightestExp, SourceVertex: source, TargetCount: 1, VectorHeatBacked: false, RejectsFlippedIntrinsic: false, FiniteLogCount: 1, MaxMagnitudeResidual: 0.0, HeatTime: 0.0, PathFaces: [], CrossedEdges: [], TracedLength: 0.0, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0, StopKind: Some(GeodesicStopKind.LengthReached))))
+            : space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.IntrinsicDelaunay, key: key).Bind(imesh => {
+                int startFace = imesh.AnyLiveFaceAtVertex(vertex: source);
+                if (startFace < 0) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+                double meanEdge = space.Cache.MeanEdgeLength;
+                double traceLength = chord > RhinoMath.ZeroTolerance ? chord : Math.Max(val1: meanEdge, val2: space.Tolerance.Absolute.Value) * policy.TraceLengthFactor.Value;
+                ExpTrace result = TraceStraightestGeodesic(imesh: imesh, mesh: space.Native, source: source, startFace: startFace, worldDir: worldDir, traceLength: traceLength, policy: policy);
+                Vector3d tangent = result.SeatedWorldDir * result.TracedLength;
+                if (!tangent.IsValid || !RhinoMath.IsValidDouble(x: tangent.Length)) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+                int segments = result.PathFaces.Count;
+                // Closing residual: the relative shortfall of the traced geodesic against the requested length. Zero when the
+                // straightest-geodesic IVP completed (LengthReached); positive when a boundary/cap/iteration terminal cut it short.
+                double residual = traceLength > RhinoMath.SqrtEpsilon ? Math.Abs(value: traceLength - result.TracedLength) / traceLength : 0.0;
+                TangentLogMapReceipt receipt = new(
+                    Algorithm: TangentLogMapAlgorithm.ExactStraightestExp,
+                    SourceVertex: source,
+                    TargetCount: 1,
+                    VectorHeatBacked: false,
+                    RejectsFlippedIntrinsic: false,
+                    FiniteLogCount: 1,
+                    MaxMagnitudeResidual: residual,
+                    HeatTime: 0.0,
+                    PathFaces: new Arr<int>([.. result.PathFaces]),
+                    CrossedEdges: new Arr<int>([.. result.CrossedEdges]),
+                    TracedLength: result.TracedLength,
+                    PathRelativeResidual: residual,
+                    SegmentCount: segments,
+                    EdgeCrossingCount: result.EdgeCrossingCount,
+                    VertexPassCount: result.VertexPassCount,
+                    StopKind: Some(result.Stop));
+                return receipt.IsValid
+                    ? key.AcceptValue(value: tangent).Map(value => new TangentLogMapResult(Tangent: value, Receipt: receipt))
+                    : Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+            });
+    }
+    private readonly record struct ExpTrace(Vector3d SeatedWorldDir, double TracedLength, List<int> PathFaces, List<int> CrossedEdges, int EdgeCrossingCount, int VertexPassCount, GeodesicStopKind Stop);
+    private static ExpTrace TraceStraightestGeodesic(IntrinsicMesh imesh, Mesh mesh, int source, int startFace, Vector3d worldDir, double traceLength, GeodesicTracePolicy policy) {
+        List<int> pathFaces = []; List<int> crossedEdges = [];
+        int maxSteps = policy.MaxSteps.Value;
+        double snapFraction = policy.VertexSnap.Value;
+        // Lay the start face out in 2D with the source at the origin; seat the world direction by the signed angle from the
+        // world chord of (source -> firstNeighbor) to worldDir about the source normal, applied to the intrinsic +x layout.
+        (int a0, int b0, int c0) = imesh.Triangles[index: startFace]!.Value;
+        (int va, int vb, int vc) = source == a0 ? (a0, b0, c0) : source == b0 ? (b0, c0, a0) : (c0, a0, b0);
+        FrameBundle frames = EnsureVertexFrames(mesh: mesh);
+        Vector3d worldEdge = (Vector3d)(mesh.Vertices[index: vb] - mesh.Vertices[index: va]);
+        worldEdge -= worldEdge * frames.N[va] * frames.N[va];
+        double seatAngle = worldEdge.IsValid && worldEdge.Length > RhinoMath.ZeroTolerance && worldEdge.Unitize()
+            ? Math.Atan2(y: Vector3d.CrossProduct(a: worldEdge, b: worldDir) * frames.N[va], x: worldEdge * worldDir)
+            : 0.0;
+        double[] px = new double[3]; double[] py = new double[3];
+        int[] vid = [va, vb, vc];
+        LayoutFace(imesh: imesh, va: va, vb: vb, vc: vc, px: px, py: py);
+        double qx = px[0], qy = py[0];
+        double dx = Math.Cos(d: seatAngle), dy = Math.Sin(a: seatAngle);
+        int face = startFace; double traversed = 0.0; GeodesicStopKind stop = GeodesicStopKind.IterationCap; int crossings = 0; int vertexPasses = 0;
+        for (int step = 0; step < maxSteps; step++) {
+            pathFaces.Add(item: face);
+            (int exitLocal, double exitT, double tHit) = RayExitOfFace(px: px, py: py, qx: qx, qy: qy, dx: dx, dy: dy);
+            if (exitLocal < 0) { stop = GeodesicStopKind.IterationCap; break; }
+            double remaining = traceLength - traversed;
+            double segLength = tHit;
+            if (segLength >= remaining) { traversed = traceLength; stop = GeodesicStopKind.LengthReached; break; }
+            traversed += segLength;
+            int ea = vid[exitLocal]; int eb = vid[(exitLocal + 1) % 3];
+            double edgeLength = imesh.EdgeLengthOf(i: ea, j: eb);
+            // A grazing exit within VertexSnap*edgeLength of an endpoint is a vertex pass, not an edge crossing; snapping it
+            // before recording keeps the crossing count and crossed-edge list in lockstep (segment law SegmentCount =
+            // EdgeCrossingCount + VertexPassCount + 1). Without the snap, a near-vertex grazing ray silently bends the geodesic.
+            bool nearStart = exitT <= snapFraction; bool nearEnd = exitT >= 1.0 - snapFraction;
+            if ((nearStart || nearEnd) && edgeLength > RhinoMath.ZeroTolerance) {
+                int hitVertex = nearStart ? ea : eb;
+                vertexPasses++;
+                (int nextFace, int nva, int nvb, int nvc, double startAngle) = ContinueThroughVertex(imesh: imesh, face: face, hitVertex: hitVertex, fromVertex: nearStart ? eb : ea);
+                if (nextFace < 0) { stop = policy.StopAtBoundary ? GeodesicStopKind.BoundaryHit : GeodesicStopKind.IterationCap; break; }
+                face = nextFace; vid = [nva, nvb, nvc];
+                LayoutFace(imesh: imesh, va: nva, vb: nvb, vc: nvc, px: px, py: py);
+                qx = px[0]; qy = py[0]; dx = Math.Cos(d: startAngle); dy = Math.Sin(a: startAngle);
+                continue;
+            }
+            int edgeIndex = imesh.IndexOfEdge(lo: ea, hi: eb);
+            int across = edgeIndex < 0 ? -1 : imesh.FaceAcrossEdge(faceIdx: face, i: ea, j: eb);
+            if (across < 0) { stop = policy.StopAtBoundary ? GeodesicStopKind.BoundaryHit : GeodesicStopKind.IterationCap; break; }
+            crossedEdges.Add(item: edgeIndex); crossings++;
+            double exX = qx + (tHit * dx); double exY = qy + (tHit * dy);
+            (px, py, vid) = UnfoldNeighbor(imesh: imesh, face: across, ea: ea, eb: eb, sharedAx: px[exitLocal], sharedAy: py[exitLocal], sharedBx: px[(exitLocal + 1) % 3], sharedBy: py[(exitLocal + 1) % 3], interiorX: px[(exitLocal + 2) % 3], interiorY: py[(exitLocal + 2) % 3]);
+            face = across; qx = exX; qy = exY;
+        }
+        return new ExpTrace(SeatedWorldDir: worldDir, TracedLength: traversed, PathFaces: pathFaces, CrossedEdges: crossedEdges, EdgeCrossingCount: crossings, VertexPassCount: vertexPasses, Stop: stop);
+    }
+    private static void LayoutFace(IntrinsicMesh imesh, int va, int vb, int vc, double[] px, double[] py) {
+        double lab = imesh.EdgeLengthOf(i: va, j: vb);
+        double lac = imesh.EdgeLengthOf(i: va, j: vc);
+        double lbc = imesh.EdgeLengthOf(i: vb, j: vc);
+        px[0] = 0.0; py[0] = 0.0; px[1] = lab; py[1] = 0.0;
+        double cx = lab > RhinoMath.ZeroTolerance ? ((lac * lac) - (lbc * lbc) + (lab * lab)) / (2.0 * lab) : 0.0;
+        double cyArg = (lac * lac) - (cx * cx);
+        px[2] = cx; py[2] = Math.Sqrt(d: Math.Max(val1: 0.0, val2: cyArg));
+    }
+    private static (int ExitLocal, double ExitT, double THit) RayExitOfFace(double[] px, double[] py, double qx, double qy, double dx, double dy) {
+        int bestEdge = -1; double bestT = double.MaxValue; double bestParam = 0.0;
+        for (int e = 0; e < 3; e++) {
+            int i = e; int j = (e + 1) % 3;
+            double ex = px[j] - px[i]; double ey = py[j] - py[i];
+            double denom = (dx * ey) - (dy * ex);
+            if (Math.Abs(value: denom) < RhinoMath.ZeroTolerance) continue;
+            double wx = px[i] - qx; double wy = py[i] - qy;
+            double t = ((wx * ey) - (wy * ex)) / denom;
+            double u = ((wx * dy) - (wy * dx)) / denom;
+            if (t > RhinoMath.SqrtEpsilon && u >= -RhinoMath.SqrtEpsilon && u <= 1.0 + RhinoMath.SqrtEpsilon && t < bestT) {
+                bestT = t; bestEdge = e; bestParam = Math.Min(val1: 1.0, val2: Math.Max(val1: 0.0, val2: u));
+            }
+        }
+        return (bestEdge, bestParam, bestT);
+    }
+    private static (double[] Px, double[] Py, int[] Vid) UnfoldNeighbor(IntrinsicMesh imesh, int face, int ea, int eb, double sharedAx, double sharedAy, double sharedBx, double sharedBy, double interiorX, double interiorY) {
+        int opp = imesh.OppositeVertex(faceIdx: face, i: ea, j: eb);
+        double lOppA = imesh.EdgeLengthOf(i: opp, j: ea);
+        double lOppB = imesh.EdgeLengthOf(i: opp, j: eb);
+        double ux = sharedBx - sharedAx; double uy = sharedBy - sharedAy;
+        double edge = Math.Sqrt(d: (ux * ux) + (uy * uy));
+        double[] px = new double[3]; double[] py = new double[3]; int[] vid = [ea, eb, opp];
+        px[0] = sharedAx; py[0] = sharedAy; px[1] = sharedBx; py[1] = sharedBy;
+        if (edge <= RhinoMath.ZeroTolerance) { px[2] = sharedAx; py[2] = sharedAy; return (px, py, vid); }
+        double tx = ux / edge; double ty = uy / edge; double nx = -ty; double ny = tx;
+        double along = ((lOppA * lOppA) - (lOppB * lOppB) + (edge * edge)) / (2.0 * edge);
+        double perp = Math.Sqrt(d: Math.Max(val1: 0.0, val2: (lOppA * lOppA) - (along * along)));
+        double interiorSide = ((interiorX - sharedAx) * nx) + ((interiorY - sharedAy) * ny);
+        double sign = interiorSide >= 0.0 ? -1.0 : 1.0;
+        px[2] = sharedAx + (along * tx) + (sign * perp * nx);
+        py[2] = sharedAy + (along * ty) + (sign * perp * ny);
+        return (px, py, vid);
+    }
+    private static (int NextFace, int Va, int Vb, int Vc, double StartAngle) ContinueThroughVertex(IntrinsicMesh imesh, int face, int hitVertex, int fromVertex) {
+        // Straightest continuation through a spherical vertex: split the total cone angle at the vertex into equal left
+        // and right halves (theta_l = theta_r = theta/2). Pick the outgoing face whose half-cone the bisector enters.
+        List<(int Face, int Prev, int Next, double Corner)> fan = [];
+        foreach (int f in imesh.LiveFaceIndices()) {
+            (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
+            if (a != hitVertex && b != hitVertex && c != hitVertex) continue;
+            (int prev, int next) = a == hitVertex ? (c, b) : b == hitVertex ? (a, c) : (b, a);
+            double lp = imesh.EdgeLengthOf(i: hitVertex, j: prev); double ln = imesh.EdgeLengthOf(i: hitVertex, j: next); double lo = imesh.EdgeLengthOf(i: prev, j: next);
+            double denom = 2.0 * lp * ln;
+            double cos = denom > RhinoMath.ZeroTolerance ? ((lp * lp) + (ln * ln) - (lo * lo)) / denom : 1.0;
+            fan.Add(item: (Face: f, Prev: prev, Next: next, Corner: Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: cos)))));
+        }
+        if (fan.Count == 0) return (-1, hitVertex, hitVertex, hitVertex, 0.0);
+        double total = fan.Sum(static corner => corner.Corner);
+        double half = total * 0.5;
+        // Walk the fan from the incoming face along its incoming edge (hitVertex, fromVertex), accumulating corners until
+        // half the cone is spanned; that face carries the straightest continuation. Anchoring on the incoming face keeps the
+        // bisector measured from the arrival edge even when the vertex one-ring repeats a neighbor.
+        int anchored = fan.FindIndex(match: corner => corner.Face == face && (corner.Prev == fromVertex || corner.Next == fromVertex));
+        int startIndex = anchored >= 0 ? anchored : Math.Max(val1: 0, val2: fan.FindIndex(match: corner => corner.Prev == fromVertex || corner.Next == fromVertex));
+        double accum = 0.0;
+        for (int s = 0; s < fan.Count; s++) {
+            (int f, int prev, int next, double corner) = fan[index: (startIndex + s) % fan.Count];
+            if (accum + corner >= half - RhinoMath.SqrtEpsilon) {
+                double withinFace = Math.Max(val1: 0.0, val2: half - accum);
+                int third = imesh.OppositeVertex(faceIdx: f, i: hitVertex, j: prev);
+                return (f, hitVertex, prev, third, withinFace);
+            }
+            accum += corner;
+        }
+        (int lf, int lprev, int lnext, _) = fan[index: startIndex];
+        return (lf, hitVertex, lprev, lnext, 0.0);
     }
 
     // --- [STRIPE_PATTERN] --------------------------------------------------------------------

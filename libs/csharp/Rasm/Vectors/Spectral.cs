@@ -97,7 +97,7 @@ public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeC
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct HarmonicOneFormReceipt(Option<int> Genus, int ExpectedDimension, int ConstraintRows, int EdgeCount, int Rank, int Nullity, int BasisCount, double SvdTolerance, double MinNullEigenvalue, double MaxNullEigenvalue, double MaxClosedResidual, double MaxCoClosedResidual, double Star1OrthonormalResidual, int PositiveStar1Count, EigenSolveReceipt<double, Arr<double>> Eigen) {
+public readonly record struct HarmonicOneFormReceipt(Option<int> Genus, int ExpectedDimension, int ConstraintRows, int EdgeCount, int Rank, int Nullity, int BasisCount, double SvdTolerance, double EpsRank, double SpectralRadius, double NullspaceThreshold, double MinNullEigenvalue, double MaxNullEigenvalue, double MaxClosedResidual, double MaxCoClosedResidual, double Star1OrthonormalResidual, int PositiveStar1Count, EigenSolveReceipt<double, Arr<double>> Eigen) {
     public bool IsValid {
         get {
             int expected = ExpectedDimension;
@@ -108,8 +108,13 @@ public readonly record struct HarmonicOneFormReceipt(Option<int> Genus, int Expe
                 && Nullity >= expected
                 && PositiveStar1Count <= EdgeCount
                 && Genus.Map(genus => expected == 2 * genus).IfNone(expected == 0)
-                && RhinoMath.IsValidDouble(x: tolerance) && RhinoMath.IsValidDouble(x: MinNullEigenvalue) && RhinoMath.IsValidDouble(x: MaxNullEigenvalue) && RhinoMath.IsValidDouble(x: MaxClosedResidual) && RhinoMath.IsValidDouble(x: MaxCoClosedResidual) && RhinoMath.IsValidDouble(x: Star1OrthonormalResidual)
+                && RhinoMath.IsValidDouble(x: tolerance) && RhinoMath.IsValidDouble(x: EpsRank) && RhinoMath.IsValidDouble(x: SpectralRadius) && RhinoMath.IsValidDouble(x: NullspaceThreshold) && RhinoMath.IsValidDouble(x: MinNullEigenvalue) && RhinoMath.IsValidDouble(x: MaxNullEigenvalue) && RhinoMath.IsValidDouble(x: MaxClosedResidual) && RhinoMath.IsValidDouble(x: MaxCoClosedResidual) && RhinoMath.IsValidDouble(x: Star1OrthonormalResidual)
                 && tolerance > 0.0
+                && EpsRank > 0.0
+                && SpectralRadius >= 0.0
+                && NullspaceThreshold >= 0.0
+                && Math.Abs(value: SvdTolerance - NullspaceThreshold) <= RhinoMath.SqrtEpsilon * Math.Max(val1: 1.0, val2: NullspaceThreshold)
+                && NullspaceThreshold <= (EpsRank * Math.Max(val1: 1.0, val2: SpectralRadius)) + RhinoMath.SqrtEpsilon
                 && MinNullEigenvalue >= -RhinoMath.SqrtEpsilon
                 && MaxNullEigenvalue >= MinNullEigenvalue - RhinoMath.SqrtEpsilon
                 && MaxClosedResidual <= Math.Max(val1: 1.0e-7, val2: tolerance * 1.0e3)
@@ -222,6 +227,7 @@ public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<Spec
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class SpectralCore {
     internal const double WaveBandwidthFloor = 1e-9;
+    internal const double HarmonicEpsRankDefault = 1e-10;
     private const double DegenerateTriangleArea = 1e-14;
     private readonly record struct IntrinsicTriangle(int A, int B, int C, int[] Edges, double Area, double LAb, double LBc, double LCa) {
         internal double QuadArea => 4.0 * Area;
@@ -409,7 +415,7 @@ internal static class SpectralCore {
         from dec in AssembleDecOperators(imesh: imesh, mass: laplacian.MassLumped, topology: topology, key: key)
         from transport in MeshKernel.SignpostTransportReceiptOf(space: space, imesh: imesh, key: key)
         from harmonic in topology.Genus.Map(static genus => genus > 0).IfNone(noneValue: false)
-            ? BuildHarmonicOneForms(calculus: dec, topology: topology, key: key).Map(static basis => Some(basis))
+            ? BuildHarmonicOneForms(calculus: dec, topology: topology, epsRank: HarmonicEpsRankDefault, key: key).Map(static basis => Some(basis))
             : Fin.Succ(Option<HarmonicOneFormBasis>.None)
         let calculus = dec with { Transport = Some(transport), Harmonic = harmonic }
         from valid in calculus.IsValid ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
@@ -445,7 +451,9 @@ internal static class SpectralCore {
         }
         double boundaryResidual = BoundaryCompositionResidual(d0: d0, d1: d1);
         int harmonicDimension = topology.Genus.Map(static g => 2 * g).IfNone(0);
-        return mass.Count != vertCount
+        return skippedDegenerate > 0 || skippedMissing > 0 || admitted != faceCount
+            ? Fin.Fail<DiscreteCalculus>(key.Unsupported(geometryType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(DiscreteCalculus)))
+            : mass.Count != vertCount
             || !mass.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)
             || boundaryResidual > RhinoMath.SqrtEpsilon
             ? Fin.Fail<DiscreteCalculus>(key.InvalidResult())
@@ -456,13 +464,12 @@ internal static class SpectralCore {
               select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>(star2), Receipt: receipt);
     }
 
-    private static Fin<HarmonicOneFormBasis> BuildHarmonicOneForms(DiscreteCalculus calculus, TopologyReceipt topology, Op key) {
+    private static Fin<HarmonicOneFormBasis> BuildHarmonicOneForms(DiscreteCalculus calculus, TopologyReceipt topology, double epsRank, Op key) {
         int edgeCount = calculus.D0.Rows.Value;
         int vertexCount = calculus.D0.Cols.Value;
         int faceCount = calculus.D1.Rows.Value;
         int expected = topology.Genus.Map(static genus => 2 * genus).IfNone(0);
-        double tolerance = 1.0e-8;
-        if (expected <= 0 || edgeCount <= 0 || expected > edgeCount || calculus.Star1.Count != edgeCount)
+        if (expected <= 0 || edgeCount <= 0 || expected > edgeCount || calculus.Star1.Count != edgeCount || !RhinoMath.IsValidDouble(x: epsRank) || epsRank <= 0.0)
             return Fin.Fail<HarmonicOneFormBasis>(key.InvalidInput());
         double[] normal = new double[edgeCount * edgeCount];
         void AddOuter(IReadOnlyList<(int Col, double Value)> row) {
@@ -485,6 +492,8 @@ internal static class SpectralCore {
                from eigen in matrix.DecomposeEigenDetailed(key: key)
                let sorted = eigen.Pairs.AsIterable().OrderBy(static pair => pair.Eigenvalue).ToArray()
                from enough in sorted.Length >= expected ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+               let spectralRadius = sorted.Aggregate(seed: 0.0, func: static (max, pair) => Math.Max(val1: max, val2: Math.Abs(value: pair.Eigenvalue)))
+               let tolerance = epsRank * Math.Max(val1: 1.0, val2: spectralRadius)
                from forms in Star1OrthonormalForms(vectors: sorted.Take(count: expected).Select(static pair => pair.Eigenvector), star1: calculus.Star1, key: key)
                let maxClosed = MaxResidual(matrix: calculus.D1, forms: forms)
                let maxCoClosed = MaxCoClosedResidual(d0: calculus.D0, star1: calculus.Star1, forms: forms)
@@ -499,6 +508,9 @@ internal static class SpectralCore {
                    Nullity: nullity,
                    BasisCount: forms.Count,
                    SvdTolerance: tolerance,
+                   EpsRank: epsRank,
+                   SpectralRadius: spectralRadius,
+                   NullspaceThreshold: tolerance,
                    MinNullEigenvalue: sorted[0].Eigenvalue,
                    MaxNullEigenvalue: sorted[expected - 1].Eigenvalue,
                    MaxClosedResidual: maxClosed,
@@ -559,6 +571,73 @@ internal static class SpectralCore {
                 max = Math.Max(val1: max, val2: Math.Abs(value: Star1Inner(left: left, right: forms[j], star1: star1) - (i == j ? 1.0 : 0.0)));
         }
         return max;
+    }
+
+    // Hodge decomposition ω = dα + δβ + η on the intrinsic DEC: exact part dα is the mean-zero cotan
+    // potential gradient (gauge-fixed via item-1 SingularSolve), the harmonic part η projects ω−dα
+    // onto the star1-orthonormal basis, and the co-exact remainder δβ = ω−dα−η is recovered by
+    // orthogonality (no indefinite solve on the hot path). The edge/vertex apply and projection folds
+    // are the named statement-kernel exemption; residuals witness against the active D0/D1/Star1.
+    internal static Fin<HodgeDecompositionReceipt> HodgeDecomposeDetailed(DiscreteCalculus calculus, HarmonicOneFormBasis basis, SparseMatrix stiffness, Arr<double> mass, Arr<double> omega, Context context, Op key) {
+        int edgeCount = calculus.D0.Rows.Value;
+        int vertexCount = calculus.D0.Cols.Value;
+        if (omega.Count != edgeCount || calculus.Star1.Count != edgeCount || stiffness.Rows.Value != vertexCount || mass.Count != vertexCount || basis.Receipt.EdgeCount != edgeCount)
+            return Fin.Fail<HodgeDecompositionReceipt>(key.InvalidInput());
+        double[] poissonRhs = D0Transpose(d0: calculus.D0, edgeValues: HadamardEdge(left: calculus.Star1, right: omega));
+        return stiffness.SingularSolveDetailed(rhs: new Arr<double>(poissonRhs), gauge: GaugePolicy.PinConstant(index: 0, mass: Some(mass), shift: GaugeShift.MeanZero), context: context, key: key)
+            .Bind(solve => solve.Gauge.ToFin(key.InvalidResult()).Map(gauge => (Solve: solve, Gauge: gauge)))
+            .Bind(stage => {
+                double[] dAlpha = D0Apply(d0: calculus.D0, vertexValues: stage.Solve.Solution);
+                double[] exactRemoved = [.. Enumerable.Range(start: 0, count: edgeCount).Select(e => omega[index: e] - dAlpha[e])];
+                double harmonicEnergySquared = 0.0;
+                double[] harmonic = new double[edgeCount];
+                foreach (Arr<double> form in basis.Forms.AsIterable()) {
+                    double coefficient = Star1Inner(left: exactRemoved, right: form, star1: calculus.Star1);
+                    harmonicEnergySquared += coefficient * coefficient;
+                    for (int e = 0; e < edgeCount; e++) harmonic[e] += coefficient * form[index: e];
+                }
+                double[] coExact = [.. Enumerable.Range(start: 0, count: edgeCount).Select(e => exactRemoved[e] - harmonic[e])];
+                Arr<Arr<double>> dAlphaForm = new([new Arr<double>(dAlpha)]);
+                Arr<Arr<double>> coExactForm = new([new Arr<double>(coExact)]);
+                double maxClosed = MaxResidual(matrix: calculus.D1, forms: dAlphaForm);
+                double maxCoClosed = MaxCoClosedResidual(d0: calculus.D0, star1: calculus.Star1, forms: coExactForm);
+                double reconstruction = Enumerable.Range(start: 0, count: edgeCount).Aggregate(seed: 0.0, func: (max, e) => Math.Max(val1: max, val2: Math.Abs(value: omega[index: e] - (dAlpha[e] + harmonic[e] + coExact[e]))));
+                int finiteVectorCount = Enumerable.Range(start: 0, count: edgeCount).Count(e => RhinoMath.IsValidDouble(x: dAlpha[e]) && RhinoMath.IsValidDouble(x: harmonic[e]) && RhinoMath.IsValidDouble(x: coExact[e]));
+                HodgeDecompositionReceipt receipt = new(
+                    ExpectedGenus: basis.Receipt.Genus.IfNone(0),
+                    ExpectedDimension: basis.Receipt.ExpectedDimension,
+                    BasisCount: basis.Receipt.BasisCount,
+                    EdgeCount: edgeCount,
+                    Rank: basis.Receipt.Rank,
+                    Nullity: basis.Receipt.Nullity,
+                    FiniteVectorCount: finiteVectorCount,
+                    PositiveStar1Count: basis.Receipt.PositiveStar1Count,
+                    MaxClosedResidual: maxClosed,
+                    MaxCoClosedResidual: maxCoClosed,
+                    Star1OrthonormalResidual: basis.Receipt.Star1OrthonormalResidual,
+                    ReconstructionResidual: reconstruction,
+                    HarmonicEnergy: Math.Sqrt(d: Math.Max(val1: 0.0, val2: harmonicEnergySquared)),
+                    ExactGauge: stage.Gauge,
+                    Harmonic: basis.Receipt);
+                return receipt.IsValid ? Fin.Succ(receipt) : Fin.Fail<HodgeDecompositionReceipt>(key.InvalidResult());
+            });
+    }
+    private static double[] HadamardEdge(Arr<double> left, Arr<double> right) =>
+        [.. Enumerable.Range(start: 0, count: left.Count).Select(e => left[index: e] * right[index: e])];
+    private static double[] D0Apply(SparseMatrix d0, Arr<double> vertexValues) {
+        double[] result = new double[d0.Rows.Value];
+        for (int edge = 0; edge < d0.Rows.Value; edge++) {
+            double value = 0.0;
+            for (int k = d0.RowPtr[edge]; k < d0.RowPtr[edge + 1]; k++) value += d0.Values[k] * vertexValues[index: d0.ColInd[k]];
+            result[edge] = value;
+        }
+        return result;
+    }
+    private static double[] D0Transpose(SparseMatrix d0, double[] edgeValues) {
+        double[] result = new double[d0.Cols.Value];
+        for (int edge = 0; edge < d0.Rows.Value; edge++)
+            for (int k = d0.RowPtr[edge]; k < d0.RowPtr[edge + 1]; k++) result[d0.ColInd[k]] += d0.Values[k] * edgeValues[edge];
+        return result;
     }
 
     // --- [CROUZEIX_RAVIART] -----------------------------------------------------------------

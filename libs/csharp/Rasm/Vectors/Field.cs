@@ -1880,7 +1880,7 @@ public abstract partial record VectorField {
     public sealed record HodgeCase : VectorField { internal HodgeCase(VectorField Source, MeshSpace Space, BoundarySense Sense) { this.Source = Source; this.Space = Space; this.Sense = Sense; } public VectorField Source { get; } public MeshSpace Space { get; } public BoundarySense Sense { get; } }
     public sealed record VectorHeatCase : VectorField { internal VectorHeatCase(MeshSpace Space, Seq<(int Vertex, Vector3d Direction)> Sources, PositiveMagnitude Time) { this.Space = Space; this.Sources = Sources; this.Time = Time; } public MeshSpace Space { get; } public Seq<(int Vertex, Vector3d Direction)> Sources { get; } public PositiveMagnitude Time { get; } }
     public sealed record GeodesicTangentCase : VectorField { internal GeodesicTangentCase(MeshSpace Space, Seq<int> Sources) { this.Space = Space; this.Sources = Sources; } public MeshSpace Space { get; } public Seq<int> Sources { get; } }
-    public sealed record TangentLogMapCase : VectorField { internal TangentLogMapCase(MeshSpace Space, int Source, PositiveMagnitude Time) { this.Space = Space; this.Source = Source; this.Time = Time; } public MeshSpace Space { get; } public int Source { get; } public PositiveMagnitude Time { get; } }
+    public sealed record TangentLogMapCase : VectorField { internal TangentLogMapCase(MeshSpace Space, int Source, PositiveMagnitude Time, TangentLogMapAlgorithm Algorithm, GeodesicTracePolicy Trace, WindowPropagationPolicy Windows) { this.Space = Space; this.Source = Source; this.Time = Time; this.Algorithm = Algorithm; this.Trace = Trace; this.Windows = Windows; } public MeshSpace Space { get; } public int Source { get; } public PositiveMagnitude Time { get; } public TangentLogMapAlgorithm Algorithm { get; } public GeodesicTracePolicy Trace { get; } public WindowPropagationPolicy Windows { get; } }
     public static VectorField Constant(Vector3d value) => new ConstantCase(Value: value);
     public static VectorField Blend(Seq<VectorField> fields, FieldBlend? blend = null) =>
         new BlendCase(Fields: fields, Mode: blend ?? FieldBlend.Sum);
@@ -1918,10 +1918,10 @@ public abstract partial record VectorField {
         from _ in FieldNabla.MeshVertices(space: space, vertices: sources.Map(static s => s.Vertex), allowEmpty: false, key: key.OrDefault()) from t in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: time) select (VectorField)new VectorHeatCase(Space: space, Sources: sources, Time: t);
     public static Fin<VectorField> GeodesicTangent(MeshSpace space, Seq<int> sources, Op? key = null) =>
         FieldNabla.MeshVertices(space: space, vertices: sources, allowEmpty: false, key: key.OrDefault()).Map(_ => (VectorField)new GeodesicTangentCase(Space: space, Sources: sources));
-    public static Fin<VectorField> TangentLogMap(MeshSpace space, int source, double time, Op? key = null) =>
+    public static Fin<VectorField> TangentLogMap(MeshSpace space, int source, double time, TangentLogMapAlgorithm? algorithm = null, GeodesicTracePolicy? trace = null, WindowPropagationPolicy? windows = null, Op? key = null) =>
         from _ in FieldNabla.MeshVertices(space: space, vertices: Seq(source), allowEmpty: false, key: key.OrDefault())
         from t in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: time)
-        select (VectorField)new TangentLogMapCase(Space: space, Source: source, Time: t);
+        select (VectorField)new TangentLogMapCase(Space: space, Source: source, Time: t, Algorithm: algorithm ?? TangentLogMapAlgorithm.VectorHeatApproximate, Trace: trace ?? GeodesicTracePolicy.Default, Windows: windows ?? WindowPropagationPolicy.Default);
     public static VectorField operator +(VectorField left, VectorField right) =>
         new BlendCase(Fields: (left is BlendCase lb && lb.Mode.Equals(FieldBlend.Sum) ? lb.Fields : Seq(left)).Concat(right is BlendCase rb && rb.Mode.Equals(FieldBlend.Sum) ? rb.Fields : Seq(right)).ToSeq(), Mode: FieldBlend.Sum);
     public static VectorField operator -(VectorField left, VectorField right) => left + (-right);
@@ -2004,7 +2004,7 @@ public abstract partial record VectorField {
         hodgeCase: static (state, c) => MeshKernel.HodgeProjectedAt(source: c.Source, space: c.Space, sense: c.Sense, sample: state.Sample, key: state.Key),
         vectorHeatCase: static (state, c) => MeshKernel.VectorHeatAt(space: c.Space, sources: c.Sources, time: c.Time.Value, sample: state.Sample, key: state.Key),
         geodesicTangentCase: static (state, c) => MeshKernel.GeodesicTangentAt(space: c.Space, sources: c.Sources, sample: state.Sample, key: state.Key),
-        tangentLogMapCase: static (state, c) => MeshKernel.TangentLogMapAt(space: c.Space, source: c.Source, sample: state.Sample, time: c.Time.Value, key: state.Key).Map(static result => result.Tangent)));
+        tangentLogMapCase: static (state, c) => MeshKernel.TangentLogMapAt(space: c.Space, source: c.Source, sample: state.Sample, time: c.Time.Value, algorithm: c.Algorithm, trace: c.Trace, windows: c.Windows, key: state.Key).Map(static result => result.Tangent)));
     private static Fin<Vector3d> RotationalField(Point3d anchor, Direction axis, Falloff falloff, double axial, double swirl, (Point3d Sample, Context Context, Op Key) state) {
         Vector3d rPerp = FieldNabla.PerpendicularComponent(r: state.Sample - anchor, axis: axis.Value);
         return falloff.Weight(offset: rPerp, sample: state.Sample, context: state.Context, tolerance: state.Context.Absolute.Value, key: state.Key)
