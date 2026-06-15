@@ -26,7 +26,7 @@ parallel enumeration.
 |   [4]   | `SepReaderOptions`   | reader options   | configures parsing        |
 |   [5]   | `SepWriterOptions`   | writer options   | configures emission       |
 |   [6]   | `SepTrim`            | trim classifier  | selects trimming          |
-|   [7]   | `SepColNotSetOption` | unset classifier | selects unset handling    |
+|   [7]   | `SepColNotSetOption` | unset classifier | values `Throw`/`Empty`/`Skip`; binds writer leg via `SepWriterOptions.ColNotSetOption` (reader options carry no unset knob) |
 |   [8]   | `SepToString`        | string pool root | pools column strings      |
 |   [9]   | `SepCreateToString`  | pool factory     | creates string pools      |
 

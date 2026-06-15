@@ -336,5 +336,4 @@ interface EvidenceTimelineWire {
 
 ## [8]-[RESEARCH]
 
-- [HEADLESS_RUNNER]: `AvaloniaFact` session dispatch under the xunit.v3 MTP runner on the assay test rail.
-- [DEV_LOOP_STRIP]: HotAvalonia Release closure strip and markup-loader floor resolution against the central Avalonia pin.
+- [DEV_LOOP_STRIP]: HotAvalonia Release closure strip and markup-loader floor resolution against the central Avalonia pin, verified against the built project MSBuild closure at implementation.

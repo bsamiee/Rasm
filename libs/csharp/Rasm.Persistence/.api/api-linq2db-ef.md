@@ -96,7 +96,8 @@ async LINQ operators, and bridge options.
 
 [LOCAL_ADMISSION]:
 - Bridge surfaces operate on contexts admitted through the store-profile algebra.
-- Merge and output surfaces live in the LINQ To DB core assembly, not this bridge.
+- Merge and output surfaces live in the LINQ To DB core assembly, not this bridge — `LinqToDB.LinqExtensions.MergeWithOutputAsync<TTarget, TSource, TOutput>(IMergeable<TTarget, TSource>, Expression<...>) : IAsyncEnumerable<TOutput>`; `LinqToDB.Data.DataContextExtensions.BulkCopyAsync<T>(IDataContext, BulkCopyOptions, IEnumerable<T>, CancellationToken)`.
+- `LinqToDB.Data.BulkCopyOptions` carries `BulkCopyType` (enum `Default`/`RowByRow`/`MultipleRows`/`ProviderSpecific`; `ProviderSpecific` = pg binary COPY, `MultipleRows` = sqlite downgrade), `MaxBatchSize`, `WithoutSession`, `MaxDegreeOfParallelism`.
 - Bulk copy options and rows-copied receipts are profile receipts.
 - Bridge interceptors and mapping schemas require explicit profile declarations.
 

@@ -6,8 +6,8 @@ Open work owned by this folder; closed items do not appear.
 
 | [INDEX] | [ITEM] | [EXIT] |
 | :-----: | ------ | ------ |
-| [1] | DockSerializer round-trip preserving dockable identity; render-hash lanes; AvaloniaFact-under-MTP dispatch spike | round-trip preserves identity; render-hash lanes pass; dispatch spike recorded |
-| [2] | LiveCharts net8-asset render fidelity on Avalonia 12; heat-land geo payload | render hash matches expected fidelity; geo payload verified |
+| [1] | DockSerializer round-trip preserving dockable identity; render-hash lanes pass as executed specs | round-trip preserves identity; render-hash lanes pass |
+| [2] | Heat-land geo payload projection from the Compute `GeometryPayload` proto into the `GeoMap` land records (GEO_PAYLOAD wire boundary) | land-record projection verified against the settled Compute wire contract |
 
 ## [2]-[PLANNING_CLOSE_OUT_SPIKES]
 
@@ -21,4 +21,4 @@ Open work owned by this folder; closed items do not appear.
 
 | [INDEX] | [ITEM] | [EXIT] |
 | :-----: | ------ | ------ |
-| [1] | AppUi input-interaction net-lost-grounding: gesture-trigger and clipboard member spellings (TappedEventTrigger, DoubleTappedEventTrigger, RightTappedEventTrigger, IPointer.Capture, PointerCaptureLostEventTrigger, ExportState, multi-format clipboard write) softened to prose; re-ground each against installed Avalonia.Xaml.Behaviors and Avalonia clipboard surfaces at implementation so input-interaction#POINTER_GESTURES/#DRAG_CLIPBOARD carry exact member spellings | all named members grounded to exact API spellings; no prose-only rows remain on the input-interaction page |
+| [1] | AppUi input-interaction gesture-trigger member spellings (TappedEventTrigger, DoubleTappedEventTrigger, RightTappedEventTrigger, IPointer.Capture, PointerCaptureLostEventTrigger) softened to prose; re-ground each against installed Avalonia.Xaml.Behaviors at implementation so input-interaction#POINTER_GESTURES carries exact member spellings | gesture-trigger members grounded to exact API spellings; no prose-only gesture rows remain |

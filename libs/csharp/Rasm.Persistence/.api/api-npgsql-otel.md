@@ -28,16 +28,16 @@ provider builders.
 [ENTRYPOINT_SCOPE]: tracing wiring
 - rail: telemetry
 
-| [INDEX] | [SURFACE]   | [CALL_SHAPE]                      | [CAPABILITY]            |
-| :-----: | :---------- | :-------------------------------- | :---------------------- |
-|   [1]   | `AddNpgsql` | `TracerProviderBuilder` extension | subscribes Npgsql spans |
+| [INDEX] | [SURFACE]   | [CALL_SHAPE]                                                | [CAPABILITY]            |
+| :-----: | :---------- | :--------------------------------------------------------- | :---------------------- |
+|   [1]   | `AddNpgsql` | `AddNpgsql(TracerProviderBuilder) : TracerProviderBuilder` | subscribes Npgsql spans |
 
 [ENTRYPOINT_SCOPE]: metrics wiring
 - rail: telemetry
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                         | [CAPABILITY]             |
-| :-----: | :------------------------- | :------------------------------------------------------------------- | :----------------------- |
-|   [1]   | `AddNpgsqlInstrumentation` | `MeterProviderBuilder` extension with `Action<NpgsqlMetricsOptions>` | subscribes Npgsql meters |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                  | [CAPABILITY]             |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------------- | :----------------------- |
+|   [1]   | `AddNpgsqlInstrumentation` | `AddNpgsqlInstrumentation(MeterProviderBuilder, Action<NpgsqlMetricsOptions>) : MeterProviderBuilder` | subscribes Npgsql meters |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
@@ -45,7 +45,7 @@ provider builders.
 - namespace: `Npgsql`
 - tracer root: `AddNpgsql`
 - meter root: `AddNpgsqlInstrumentation`
-- options root: `NpgsqlMetricsOptions` declared by the `Npgsql` driver
+- options root: `NpgsqlMetricsOptions` declared by the `Npgsql` driver (parameterless ctor, no settable property knobs at the admitted version; histogram and cardinality posture rides OpenTelemetry meter-view configuration)
 
 [LOCAL_ADMISSION]:
 - Npgsql telemetry enters through the composition-root telemetry pipeline only.

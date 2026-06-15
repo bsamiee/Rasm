@@ -79,21 +79,21 @@ MessagePack snapshot codec, and EF Core value conversion.
 [ENTRYPOINT_SCOPE]: JSON codec admission
 - rail: snapshot-codec
 
-| [INDEX] | [SURFACE]                                                   | [CALL_SHAPE]        | [CAPABILITY]                 |
-| :-----: | :---------------------------------------------------------- | :------------------ | :--------------------------- |
-|   [1]   | `new ThinktectureJsonConverterFactory()`                    | options converter   | converts all generated types |
-|   [2]   | `ThinktectureJsonConverterFactory(bool)`                    | factory constructor | skips attributed types       |
-|   [3]   | `ThinktectureJsonConverterFactory(bool, Func<Type, bool>?)` | factory constructor | gates span deserialization   |
-|   [4]   | `CanConvert` / `CreateConverter`                            | factory overrides   | resolves per-type converters |
+| [INDEX] | [SURFACE]                                                                                  | [CALL_SHAPE]        | [CAPABILITY]                 |
+| :-----: | :---------------------------------------------------------------------------------------- | :------------------ | :--------------------------- |
+|   [1]   | `new ThinktectureJsonConverterFactory()`                                                  | options converter   | converts all generated types |
+|   [2]   | `ThinktectureJsonConverterFactory(bool skipObjectsWithJsonConverterAttribute)`            | factory constructor | skips attributed types       |
+|   [3]   | `ThinktectureJsonConverterFactory(bool skipObjectsWithJsonConverterAttribute, Func<Type, bool>? skipSpanBasedDeserialization)` | factory constructor | gates span deserialization   |
+|   [4]   | `CanConvert` / `CreateConverter`                                                          | factory overrides   | resolves per-type converters |
 
 [ENTRYPOINT_SCOPE]: MessagePack codec admission
 - rail: snapshot-codec
 
-| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]         | [CAPABILITY]                  |
-| :-----: | :----------------------------------------------- | :------------------- | :---------------------------- |
-|   [1]   | `ThinktectureMessageFormatterResolver.Instance`  | static resolver      | resolves generated formatters |
-|   [2]   | `new ThinktectureMessageFormatterResolver(bool)` | resolver constructor | skips attributed types        |
-|   [3]   | `GetFormatter<T>`                                | resolver call        | returns the typed formatter   |
+| [INDEX] | [SURFACE]                                                                              | [CALL_SHAPE]         | [CAPABILITY]                  |
+| :-----: | :------------------------------------------------------------------------------------ | :------------------- | :---------------------------- |
+|   [1]   | `ThinktectureMessageFormatterResolver.Instance`                                       | static resolver      | resolves generated formatters |
+|   [2]   | `new ThinktectureMessageFormatterResolver(bool skipObjectsWithMessagePackFormatterAttribute)` | resolver constructor | skips attributed types        |
+|   [3]   | `GetFormatter<T>`                                                                     | resolver call        | returns the typed formatter   |
 
 [ENTRYPOINT_SCOPE]: EF value-converter admission
 - rail: store-provider

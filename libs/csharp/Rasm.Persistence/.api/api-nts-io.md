@@ -59,7 +59,7 @@ GeoPackage stores.
 
 | [INDEX] | [SURFACE]                                       | [CALL_SHAPE]        | [CAPABILITY]                                                                        |
 | :-----: | :---------------------------------------------- | :------------------ | :---------------------------------------------------------------------------------- |
-|   [1]   | `new GeoJsonConverterFactory(...)`              | factory constructor | carries `GeometryFactory`, bbox, id, ring, mutability policy                        |
+|   [1]   | `new GeoJsonConverterFactory(GeometryFactory factory, bool writeGeometryBBox, string idPropertyName, RingOrientationOption ringOrientationOption, bool allowModifyingAttributesTables)` | factory constructor | carries `GeometryFactory`, bbox, id, ring, mutability policy |
 |   [2]   | `JsonSerializerOptions.Converters.Add`          | options admission   | enables GeoJSON for `Geometry`, `IFeature`, `FeatureCollection`, `IAttributesTable` |
 |   [3]   | `GeoJsonConverterFactory.DefaultIdPropertyName` | policy constant     | names the attribute carrying a feature `id` (`_NetTopologySuite_id`)                |
 

@@ -79,14 +79,17 @@ and annotation contracts.
 [ENTRYPOINT_SCOPE]: resolver and policy operations
 - rail: snapshot-codec
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]    | [CAPABILITY]              |
-| :-----: | :---------------------------------- | :-------------- | :------------------------ |
-|   [1]   | `WithResolver`                      | option call     | sets resolver policy      |
-|   [2]   | `WithSecurity`                      | option call     | sets security policy      |
-|   [3]   | `WithCompression`                   | option call     | sets compression policy   |
-|   [4]   | `GetFormatter<T>`                   | resolver call   | resolves formatter        |
-|   [5]   | `CompositeResolver.Create`          | factory call    | composes resolver         |
-|   [6]   | `MessagePackSecurity.UntrustedData` | security preset | hardens untrusted reading |
+| [INDEX] | [SURFACE]                                                                                                       | [CALL_SHAPE]    | [CAPABILITY]              |
+| :-----: | :------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------ |
+|   [1]   | `WithResolver(IFormatterResolver)`                                                                             | option call     | sets resolver policy      |
+|   [2]   | `WithSecurity(MessagePackSecurity)`                                                                            | option call     | sets security policy      |
+|   [3]   | `WithCompression(MessagePackCompression)`                                                                      | option call     | sets compression policy   |
+|   [4]   | `GetFormatter<T>`                                                                                              | resolver call   | resolves formatter        |
+|   [5]   | `CompositeResolver.Create(IReadOnlyList<IMessagePackFormatter>, IReadOnlyList<IFormatterResolver>)`            | factory call    | composes resolver         |
+|   [6]   | `MessagePackSecurity.UntrustedData`                                                                            | security preset | hardens untrusted reading |
+|   [7]   | `MessagePackCompression.Lz4BlockArray` / `Lz4Block`                                                            | compression row | in-codec LZ4 framing      |
+|   [8]   | `MessagePackStreamReader.ReadAsync(CancellationToken) : ValueTask<ReadOnlySequence<byte>?>`                    | segment read    | length-delimited frames   |
+|   [9]   | `ConvertToJson(ReadOnlyMemory<byte>, MessagePackSerializerOptions, CancellationToken)`                         | projection call | diagnostic JSON projection |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

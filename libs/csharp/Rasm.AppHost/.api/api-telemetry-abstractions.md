@@ -90,16 +90,18 @@ generator attributes, and outgoing request metadata into the observability rail.
 [ENTRYPOINT_SCOPE]: runtime operations
 - rail: observability
 
-| [INDEX] | [SURFACE]       | [CALL_SHAPE]                   | [CAPABILITY]                  |
-| :-----: | :-------------- | :----------------------------- | :---------------------------- |
-|   [1]   | `TryEnqueue`    | buffered logger plus log entry | buffers a log record          |
-|   [2]   | `Flush`         | buffer command                 | replays buffered records      |
-|   [3]   | `ShouldSample`  | `in LogEntry<TState>`          | per-entry sampling decision   |
-|   [4]   | `AddCheckpoint` | `CheckpointToken`              | records a latency checkpoint  |
-|   [5]   | `AddMeasure`    | token plus value               | accumulates a latency measure |
-|   [6]   | `RecordMeasure` | token plus value               | sets a latency measure        |
-|   [7]   | `SetTag`        | token plus value               | tags the latency context      |
-|   [8]   | `Freeze`        | context command                | seals latency data for export |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                              | [CAPABILITY]                       |
+| :-----: | :------------------------------ | :----------------------------------------------------------------------- | :--------------------------------- |
+|   [1]   | `TryEnqueue`                    | buffered logger plus log entry                                           | buffers a log record               |
+|   [2]   | `Flush`                         | buffer command                                                          | replays buffered records           |
+|   [3]   | `ShouldSample`                  | `in LogEntry<TState>`                                                    | per-entry sampling decision        |
+|   [4]   | `AddCheckpoint`                 | `CheckpointToken`                                                        | records a latency checkpoint       |
+|   [5]   | `AddMeasure`                    | token plus value                                                        | accumulates a latency measure      |
+|   [6]   | `RecordMeasure`                 | token plus value                                                        | sets a latency measure             |
+|   [7]   | `SetTag`                        | token plus value                                                        | tags the latency context           |
+|   [8]   | `Freeze`                        | context command                                                        | seals latency data for export      |
+|   [9]   | `SetRequestMetadata`            | `IOutgoingRequestContext.SetRequestMetadata(RequestMetadata)`           | sets outgoing request route        |
+|  [10]   | `AddDownstreamDependencyMetadata` | `HttpDiagnosticsServiceCollectionExtensions.AddDownstreamDependencyMetadata(IServiceCollection, IDownstreamDependencyMetadata)` -> `IServiceCollection` | registers dependency route metadata |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
@@ -108,6 +110,8 @@ generator attributes, and outgoing request metadata into the observability rail.
 - redaction surface: `LoggerMessageState.ClassifiedTag` carries data classification for redaction-aware sinks; `HttpRouteParameterRedactionMode` scopes route parameter redaction
 - enrichment surface: `ILogEnricher` and `IStaticLogEnricher` feed `IEnrichmentTagCollector`
 - latency surface: token issuance, context recording, freeze, and exporter contracts
+- request-metadata surface: `RequestMetadata` (namespace `Microsoft.Extensions.Http.Diagnostics`) is a `class` with settable `string RequestRoute` (default `"unknown"`), `string RequestName` (default `"unknown"`), `string DependencyName` (default `"unknown"`), and `string MethodType` (default `"GET"`) members, a parameterless constructor, and a `(string methodType, string requestRoute, string requestName = "unknown")` constructor; `IOutgoingRequestContext` carries `RequestMetadata? RequestMetadata { get; }` and `void SetRequestMetadata(RequestMetadata metadata)`; `IDownstreamDependencyMetadata` carries `string DependencyName`, `ISet<string> UniqueHostNameSuffixes`, and `ISet<RequestMetadata> RequestMetadata`
+- dependency-registration surface: the `AddDownstreamDependencyMetadata` DI registration is owned by package `Microsoft.Extensions.Http.Diagnostics` on `Microsoft.Extensions.DependencyInjection.HttpDiagnosticsServiceCollectionExtensions`, with overloads `(IServiceCollection, IDownstreamDependencyMetadata)` and `(IServiceCollection)` (generic-derived), both returning `IServiceCollection`
 - implementation split: policy implementations and enricher registrations live in `Microsoft.Extensions.Telemetry`, where `AddApplicationLogEnricher` is current and `AddServiceLogEnricher` is its obsolete predecessor
 
 [LOCAL_ADMISSION]:

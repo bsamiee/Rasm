@@ -31,8 +31,10 @@ replication surfaces for provider store profiles.
 |   [9]   | `NpgsqlParameter`               | parameter           | binds statement values          |
 |  [10]   | `NpgsqlDataReader`              | data reader         | reads result rows               |
 |  [11]   | `NpgsqlException`               | provider exception  | reports provider failure        |
-|  [12]   | `PostgresException`             | server exception    | carries `SqlState` server error |
+|  [12]   | `PostgresException`             | server exception    | carries `SqlState` + `IsTransient`; `PostgresErrorCodes.UndefinedObject` = 42704 |
 |  [13]   | `PostgresErrorCodes`            | SQLSTATE constants  | names SQLSTATE values           |
+|  [14]   | `NpgsqlBinaryImporter`          | binary-COPY writer  | streams binary-COPY rows        |
+|  [15]   | `NpgsqlMetricsOptions`          | meter options       | shapes `AddNpgsqlInstrumentation` meter stream |
 
 [TYPE_SYSTEM_TYPES]: PostgreSQL type surfaces
 - rail: store-provider
@@ -53,17 +55,19 @@ replication surfaces for provider store profiles.
 [REPLICATION_TYPES]: logical replication surfaces
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]       | [CAPABILITY]                  |
-| :-----: | :----------------------------- | :------------------- | :---------------------------- |
-|   [1]   | `LogicalReplicationConnection` | replication root     | opens logical stream          |
-|   [2]   | `ReplicationSlot`              | slot metadata        | identifies slot               |
-|   [3]   | `PgOutputReplicationOptions`   | replication policy   | configures pgoutput           |
-|   [4]   | `TestDecodingOptions`          | replication policy   | configures test decoding      |
-|   [5]   | `ReplicationMessage`           | replication message  | carries stream event          |
-|   [6]   | `PgOutputReplicationSlot`      | slot handle          | attaches pgoutput slot        |
-|   [7]   | `PgOutputProtocolVersion`      | protocol classifier  | selects protocol version      |
-|   [8]   | `PgOutputStreamingMode`        | streaming classifier | selects streaming mode        |
-|   [9]   | `PgOutputReplicationMessage`   | message base         | roots pgoutput message family |
+| [INDEX] | [SYMBOL]                                                                  | [PACKAGE_ROLE]       | [CAPABILITY]                  |
+| :-----: | :------------------------------------------------------------------------ | :------------------- | :---------------------------- |
+|   [1]   | `Npgsql.Replication.LogicalReplicationConnection`                         | replication root     | opens logical stream          |
+|   [2]   | `ReplicationSlot`                                                         | slot metadata        | identifies slot               |
+|   [3]   | `Npgsql.Replication.PgOutput.PgOutputReplicationOptions`                  | replication policy   | configures pgoutput           |
+|   [4]   | `Npgsql.Replication.TestDecoding.TestDecodingOptions`                     | replication policy   | rejected alternative output   |
+|   [5]   | `ReplicationMessage`                                                      | replication message  | carries stream event          |
+|   [6]   | `Npgsql.Replication.PgOutput.PgOutputReplicationSlot`                     | slot handle          | attaches pgoutput slot        |
+|   [7]   | `PgOutputProtocolVersion`                                                 | protocol classifier  | enum `V1`/`V2`/`V3`/`V4`      |
+|   [8]   | `PgOutputStreamingMode`                                                   | streaming classifier | enum `Off`/`On`/`Parallel`    |
+|   [9]   | `Npgsql.Replication.PgOutput.Messages.PgOutputReplicationMessage`         | message base         | roots pgoutput message family |
+|  [10]   | `Messages.InsertMessage` / `DefaultUpdateMessage` / `FullUpdateMessage` / `IndexUpdateMessage` | message leaves | insert/update leaf frames |
+|  [11]   | `Messages.KeyDeleteMessage` / `FullDeleteMessage` / `TruncateMessage` / `RelationMessage` | message leaves | delete/truncate/relation frames |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -86,16 +90,19 @@ replication surfaces for provider store profiles.
 [ENTRYPOINT_SCOPE]: mapping and replication
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]     | [CAPABILITY]                   |
-| :-----: | :------------------------------ | :--------------- | :----------------------------- |
-|   [1]   | `MapEnum`                       | builder mapping  | maps enum type                 |
-|   [2]   | `MapComposite`                  | builder mapping  | maps composite type            |
-|   [3]   | `EnableDynamicJson`             | builder mapping  | enables JSON mapping           |
-|   [4]   | `EnableUnmappedTypes`           | builder mapping  | enables unmapped types         |
-|   [5]   | `StartReplication`              | replication call | starts replication             |
-|   [6]   | `CreatePgOutputReplicationSlot` | replication call | creates slot                   |
-|   [7]   | `SetReplicationStatus`          | replication call | stamps applied-and-flushed LSN |
-|   [8]   | `SendStatusUpdate`              | replication call | forces feedback flush          |
+| [INDEX] | [SURFACE]                                                                                                       | [CALL_SHAPE]     | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------------------------------------------------------------- | :--------------- | :----------------------------- |
+|   [1]   | `MapEnum`                                                                                                      | builder mapping  | maps enum type                 |
+|   [2]   | `MapComposite`                                                                                                 | builder mapping  | maps composite type            |
+|   [3]   | `EnableDynamicJson`                                                                                            | builder mapping  | enables JSON mapping           |
+|   [4]   | `EnableUnmappedTypes`                                                                                          | builder mapping  | enables unmapped types         |
+|   [5]   | `StartReplication`                                                                                             | replication call | starts replication             |
+|   [6]   | `CreatePgOutputReplicationSlot`                                                                                | replication call | creates slot                   |
+|   [7]   | `ReplicationConnection.SetReplicationStatus(NpgsqlLogSequenceNumber lastAppliedAndFlushedLsn)` (inherited)     | replication call | stamps applied-and-flushed LSN |
+|   [8]   | `SendStatusUpdate(CancellationToken)` / `WalReceiverStatusInterval` / `LastAppliedLsn` / `LastFlushedLsn`      | replication call | feedback flush + LSN state     |
+|   [9]   | `new PgOutputReplicationOptions(IEnumerable<string> publicationNames, PgOutputProtocolVersion, bool? binary, PgOutputStreamingMode? streamingMode, bool? messages, bool? twoPhase)` | replication ctor | non-obsolete pgoutput options  |
+|  [10]   | `NpgsqlConnection.BeginBinaryImport(string copyFromCommand) : NpgsqlBinaryImporter` / `BeginBinaryImportAsync` | binary COPY      | binary-COPY bulk import path    |
+|  [11]   | `NpgsqlBinaryImporter.StartRow` / `Write` / `Complete` (+ async)                                               | importer call    | streams binary-COPY rows        |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

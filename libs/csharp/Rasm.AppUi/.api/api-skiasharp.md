@@ -70,6 +70,15 @@
 |   [9]   | `SKMaskFilter`    | mask filter     |
 |  [10]   | `SKRuntimeEffect` | runtime shader  |
 
+[CODEC_AND_FORMAT_TYPES]: encode format, pixel layout, and alpha enums
+- rail: visuals
+
+| [INDEX] | [SYMBOL]                | [RAIL]          |
+| :-----: | :---------------------- | :-------------- |
+|   [1]   | `SKEncodedImageFormat`  | encode format   |
+|   [2]   | `SKColorType`           | pixel layout    |
+|   [3]   | `SKAlphaType`           | alpha mode      |
+
 [GPU_TYPES]: GPU context and backend surface
 - rail: visuals
 
@@ -121,6 +130,24 @@
 |   [8]   | `ReadPixels` | `SKPixmap`     | pixel read     |
 |   [9]   | `SetPixel`   | `SKBitmap`     | pixel write    |
 |  [10]   | `Encode`     | `SKImage`      | image encode   |
+|  [11]   | `ColorSpace` | `SKImage`      | image space    |
+|  [12]   | `ToArray`    | `SKData`       | byte buffer    |
+
+[DOCUMENT_AND_COLOR_ENTRYPOINTS]: paged document export and color-managed reproject
+- rail: visuals
+
+| [INDEX] | [SURFACE]          | [SURFACE_ROOT] | [RAIL]            |
+| :-----: | :----------------- | :------------- | :---------------- |
+|   [1]   | `CreatePdf`        | `SKDocument`   | PDF backend       |
+|   [2]   | `CreateXps`        | `SKDocument`   | XPS backend       |
+|   [3]   | `BeginPage`        | `SKDocument`   | page open         |
+|   [4]   | `EndPage`          | `SKDocument`   | page commit       |
+|   [5]   | `Close`            | `SKDocument`   | document finalize |
+|   [6]   | `Abort`            | `SKDocument`   | document abort    |
+|   [7]   | `CreateSrgb`       | `SKColorSpace` | sRGB space        |
+|   [8]   | `CreateSrgbLinear` | `SKColorSpace` | linear space      |
+|   [9]   | `Equal`            | `SKColorSpace` | space identity    |
+|  [10]   | `WithColorSpace`   | `SKImageInfo`  | space retag       |
 
 [TEXT_AND_PAINT_ENTRYPOINTS]: text, color, shader, and render operations
 - rail: visuals

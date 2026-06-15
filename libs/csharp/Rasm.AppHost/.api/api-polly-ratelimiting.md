@@ -27,6 +27,7 @@ limiting inside resilience pipelines.
 |   [3]   | `OnRateLimiterRejectedArguments`                 | callback arguments  | rejection callback    |
 |   [4]   | `RateLimiterRejectedException`                   | rejection exception | rejected execution    |
 |   [5]   | `RateLimiterResiliencePipelineBuilderExtensions` | builder extension   | limiter admission     |
+|   [6]   | `ConcurrencyLimiterOptions`                      | option value        | permit/queue policy   |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -52,6 +53,7 @@ limiting inside resilience pipelines.
 - strategy surface: delegate-based limiter, default concurrency limiter options, rejection callback
 - execution surface: rejected executions surface as `RateLimiterRejectedException`
 - retry-after surface: rejected exceptions may carry a retry-after duration
+- default-options surface: `RateLimiterStrategyOptions.DefaultRateLimiterOptions` is typed `System.Threading.RateLimiting.ConcurrencyLimiterOptions`, a `sealed class` carrying settable `int PermitLimit`, `int QueueLimit`, and `QueueProcessingOrder QueueProcessingOrder` members and a parameterless constructor; the pipeline-head limiter binds `PermitLimit`/`QueueLimit` from policy values
 
 [LOCAL_ADMISSION]:
 - Rate limiting is a boundary policy in the resilience pipeline.

@@ -14,6 +14,8 @@
 - namespace: `Avalonia.Controls`
 - namespace: `Avalonia.Data`
 - namespace: `Avalonia.Input`
+- namespace: `Avalonia.Input.Platform`
+- namespace: `Avalonia.Controls.Notifications`
 - namespace: `Avalonia.Interactivity`
 - namespace: `Avalonia.Markup.Xaml`
 - asset: runtime libraries
@@ -95,6 +97,33 @@
 |   [5]   | `TemplateContentAttribute`      | template content  |
 |   [6]   | `ControlTemplateScopeAttribute` | template scope    |
 
+[NOTIFICATION_TYPES]: transient notification surfaces
+- rail: retained-ui
+
+| [INDEX] | [SYMBOL]                          | [RAIL]               |
+| :-----: | :-------------------------------- | :------------------- |
+|   [1]   | `WindowNotificationManager`       | toast manager        |
+|   [2]   | `INotificationManager`            | manager contract     |
+|   [3]   | `IManagedNotificationManager`     | content manager      |
+|   [4]   | `NotificationType`                | severity enum        |
+|   [5]   | `NotificationPosition`            | placement enum       |
+
+[DATA_TRANSFER_TYPES]: Avalonia 12 clipboard and drag data-transfer surfaces
+- rail: retained-ui
+
+| [INDEX] | [SYMBOL]                                | [RAIL]             |
+| :-----: | :-------------------------------------- | :----------------- |
+|   [1]   | `Avalonia.Input.Platform.IClipboard`    | clipboard contract |
+|   [2]   | `Avalonia.Input.Platform.ClipboardExtensions` | typed clip ops |
+|   [3]   | `IDataTransfer`                         | transfer contract  |
+|   [4]   | `IAsyncDataTransfer`                     | async transfer     |
+|   [5]   | `DataTransfer`                          | transfer payload   |
+|   [6]   | `DataTransferItem`                      | per-format item    |
+|   [7]   | `IDataTransferItem`                     | item contract      |
+|   [8]   | `DataFormat`                            | format identity    |
+|   [9]   | `DataFormat<T>`                         | typed format       |
+|  [10]   | `DataFormatKind`                        | format kind enum   |
+
 ## [3]-[ENTRYPOINTS]
 
 [PROPERTY_OPERATIONS]: retained property operations
@@ -144,6 +173,33 @@
 |   [4]   | `InvalidateVisual`  | `Visual`             | render refresh   |
 |   [5]   | `InvalidateMeasure` | `Layoutable`         | layout refresh   |
 |   [6]   | `InvalidateArrange` | `Layoutable`         | arrange refresh  |
+
+[NOTIFICATION_OPERATIONS]: toast presentation surfaces
+- rail: retained-ui
+
+| [INDEX] | [SURFACE]    | [SURFACE_ROOT]              | [RAIL]            |
+| :-----: | :----------- | :------------------------- | :---------------- |
+|   [1]   | `Show`       | `WindowNotificationManager` | toast present     |
+|   [2]   | `Close`      | `WindowNotificationManager` | toast close       |
+|   [3]   | `CloseAll`   | `WindowNotificationManager` | toast clear       |
+|   [4]   | `Position`   | `WindowNotificationManager` | placement knob    |
+|   [5]   | `MaxItems`   | `WindowNotificationManager` | queue cap         |
+
+[DATA_TRANSFER_OPERATIONS]: clipboard and drag data-transfer composition
+- rail: retained-ui
+
+| [INDEX] | [SURFACE]                       | [SURFACE_ROOT]        | [RAIL]            |
+| :-----: | :------------------------------ | :-------------------- | :---------------- |
+|   [1]   | `SetDataAsync`                  | `IClipboard`          | clipboard write   |
+|   [2]   | `TryGetDataAsync`               | `IClipboard`          | clipboard read    |
+|   [3]   | `GetDataFormatsAsync`           | `ClipboardExtensions` | format probe      |
+|   [4]   | `Add`                           | `DataTransfer`        | item compose      |
+|   [5]   | `Create<T>`                     | `DataTransferItem`    | per-format item   |
+|   [6]   | `Set<T>`                        | `DataTransferItem`    | per-format set    |
+|   [7]   | `TryGetRaw`                     | `DataTransferItem`    | per-format read   |
+|   [8]   | `CreateBytesApplicationFormat`  | `DataFormat`          | byte format       |
+|   [9]   | `CreateStringApplicationFormat` | `DataFormat`          | string format     |
+|  [10]   | `Formats`                       | `IDataTransfer`       | format inventory  |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

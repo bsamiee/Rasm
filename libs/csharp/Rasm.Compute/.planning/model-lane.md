@@ -425,4 +425,4 @@ public static class CacheOps {
 ## [8]-[RESEARCH]
 
 - [EP_OPTIONS]: the `Cuda` and `DirectMl` GPU registration members — `AppendExecutionProvider_CUDA(int)` and `AppendExecutionProvider_DML(int)` — uncatalogued against the Compute-graph package surface because they ship in the app-root-only `Microsoft.ML.OnnxRuntime.Gpu`/`.DirectML` packages; the no-op register delegate stands in until the GPU package admission lands these member spellings at the Windows-profile implementation.
-- [CANCELLATION]: `RunOptions.Terminate` latch propagation latency and the deadline poll cadence on the CoreML and CPU rows.
+- [CANCELLATION]: `RunOptions.Terminate` is a one-way `get;set;` latch — a latched `RunOptions` aborts both `Run` and `RunWithBinding` with the native `OnnxRuntimeException` `[ErrorCode:Fail] Exiting due to terminate flag being set to true`, which the `Bracket` arm classifies by scope provenance; the residual probe is the latch propagation latency and the deadline poll cadence on the CoreML and CPU rows inside the live plugin ALC.

@@ -102,9 +102,9 @@ shaped now, never a deferred surface.
 |  [31]   | wire health             | `WireHealthRow`                  | record row              | 1 row per service                                           | FINALIZED |
 |  [32]   | support triggers        | `SupportTrigger`                 | `[Union]`               | 6 cases                                                     | FINALIZED |
 |  [33]   | support receipts        | `SupportReceipt`                 | `[Union]`               | 3 cases                                                     | FINALIZED |
-|  [34]   | hop axis                | `OutboundHop`                    | `[Union]`               | 7 cases                                                     | SPIKE     |
-|  [35]   | hop faults              | `HopFault`                       | `[Union]` fault         | 7 cases                                                     | SPIKE     |
-|  [36]   | hop outcomes            | `HopOutcome`                     | `[Union]`               | 3 cases                                                     | SPIKE     |
+|  [34]   | hop axis                | `OutboundHop`                    | `[Union]`               | 7 cases                                                     | FINALIZED |
+|  [35]   | hop faults              | `HopFault`                       | `[Union]` fault         | 7 cases                                                     | FINALIZED |
+|  [36]   | hop outcomes            | `HopOutcome`                     | `[Union]`               | 3 cases                                                     | FINALIZED |
 |  [37]   | discovery attach        | `DiscoveryManifest`              | record + static surface | 1 manifest law                                              | SPIKE     |
 |  [38]   | runtime ports           | `ReceiptSinkPort` + six siblings | sealed records          | 7 ports                                                     | FINALIZED |
 |  [39]   | wire law                | `AppHostWireContext`             | JsonSerializerContext   | 9 contract rows; `NodaPatterns` pattern sub-surface         | FINALIZED |

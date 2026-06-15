@@ -80,11 +80,11 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |   [8]   | data sourcing           | `DataSource<TRow,TKey>`                                     | [Union]      | 7             | FINALIZED |
 |   [9]   | table projection        | `TableProjection<TRow,TKey>`                                | [Union]      | 5             | FINALIZED |
 |  [10]   | editor rows             | `EditorFactory`                                             | SmartEnum    | 11            | FINALIZED |
-|  [11]   | chart series            | `ChartSeriesSpec`                                           | SmartEnum    | 15            |   SPIKE   |
+|  [11]   | chart series            | `ChartSeriesSpec`                                           | SmartEnum    | 15            | FINALIZED |
 |  [12]   | chart scales            | `ChartAxisKind`                                             | SmartEnum    | 5             | FINALIZED |
 |  [13]   | dashboard tiles         | `DashboardTile`                                             | [Union]      | 4             | FINALIZED |
 |  [14]   | draw sources            | `DrawSource`                                                | [Union]      | 2             | FINALIZED |
-|  [15]   | visual destinations     | `VisualDestination` · `ExportDestination` (+ `VisualCodec` encode) | union pair   | 3 · 3         |   SPIKE   |
+|  [15]   | visual destinations     | `VisualDestination` · `ExportDestination` (+ `VisualCodec` encode) | union pair   | 3 · 3         | FINALIZED |
 |  [16]   | theme tokens            | `TokenRow`                                                  | [Union]      | 5             | FINALIZED |
 |  [17]   | variant and density     | `ThemeVariantRow` · `DensityRow`                            | enum pair    | 4 × 2         | FINALIZED |
 |  [18]   | typography roles        | `TypographyRole`                                            | SmartEnum    | 10            | FINALIZED |
@@ -92,12 +92,12 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |  [20]   | icon sourcing           | `IconSource`                                                | [Union]      | 5             | FINALIZED |
 |  [21]   | asset identity          | `AssetKey` · `AssetKind` (+ `SvgPipeline` · `RasterAssets`) | value + enum | open · 3      | FINALIZED |
 |  [22]   | dialog intents          | `DialogIntent`                                              | [Union]      | 6             | FINALIZED |
-|  [23]   | toast rows/outcomes     | `ToastRow` · `ToastOutcome`                                 | enum pair    | 4 · 3         |   SPIKE   |
-|  [24]   | transfer payloads       | `DragPayload`                                               | [Union]      | 5             |   SPIKE   |
+|  [23]   | toast rows/outcomes     | `ToastRow` · `ToastOutcome`                                 | enum pair    | 4 · 3         | FINALIZED |
+|  [24]   | transfer payloads       | `DragPayload`                                               | [Union]      | 5             | FINALIZED |
 |  [25]   | motion grades           | `MotionToken`                                               | SmartEnum    | 6             | FINALIZED |
 |  [26]   | locale rows             | `LocaleRow`                                                 | SmartEnum    | 2             | FINALIZED |
-|  [27]   | evidence union          | `EvidenceReceipt`                                           | [Union]      | 7             |   SPIKE   |
-|  [28]   | proof checks            | `ProofCheck`                                                | SmartEnum    | 8             |   SPIKE   |
+|  [27]   | evidence union          | `EvidenceReceipt`                                           | [Union]      | 7             | FINALIZED |
+|  [28]   | proof checks            | `ProofCheck`                                                | SmartEnum    | 8             | FINALIZED |
 |  [29]   | fault bands             | surface, asset, dialog, edit faults          | fault unions | 5 · 4 · 3 · 7 | FINALIZED |
 |  [30]   | export flow blocks      | `FlowBlock` (+ `HeaderFooterBand` band, `BreakRule` policy on `VisualExportSpec`) | [Union]      | 3             | FINALIZED |
 

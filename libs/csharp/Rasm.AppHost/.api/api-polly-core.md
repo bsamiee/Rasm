@@ -36,6 +36,8 @@ surfaces, and telemetry event contracts for non-HTTP and shared resilience rails
 |   [7]   | `ResilienceContextPool`         | context pool        | context reuse               |
 |   [8]   | `Outcome<T>`                    | result value        | exception/result outcome    |
 |   [9]   | `PredicateBuilder<T>`           | predicate builder   | handled outcome predicate   |
+|  [10]   | `ResiliencePropertyKey<T>`      | property key        | typed context property key   |
+|  [11]   | `FallbackActionArguments<T>`    | callback arguments  | fallback action carrier      |
 
 [PUBLIC_TYPE_SCOPE]: strategy and registry family
 - rail: resilience
@@ -101,6 +103,8 @@ surfaces, and telemetry event contracts for non-HTTP and shared resilience rails
 - context surface: pooled context carrying operation key, cancellation, properties, and telemetry identity
 - registry surface: keyed pipeline construction and lookup
 - telemetry surface: strategy event values, sources, severities, and listeners
+- property-key surface: `readonly struct ResiliencePropertyKey<T>` in namespace `Polly` carries a single `string key` constructor and a `string Key` accessor; it keys `ResilienceContext.Properties` for typed property set/get
+- fallback-carrier surface: `readonly struct FallbackActionArguments<T>` in namespace `Polly.Fallback` carries `ResilienceContext Context` and inbound `Outcome<T> Outcome` accessors and a `(ResilienceContext context, Outcome<T> outcome)` constructor; `FallbackStrategyOptions<T>.FallbackAction` is typed `Func<FallbackActionArguments<T>, ValueTask<Outcome<T>>>`
 
 [LOCAL_ADMISSION]:
 - Resilience policy is a composed value built once and injected as a boundary capability.

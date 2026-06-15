@@ -55,6 +55,20 @@ query translation, and type mapping into one store-provider rail.
 |   [6]   | `SqliteRegexMethodTranslator`              | translator          | translates regex calls  |
 |   [7]   | `SqliteQueryableAggregateMethodTranslator` | translator          | translates aggregates   |
 
+[INTERCEPTION_TYPES]: EF Core interception surfaces (`Microsoft.EntityFrameworkCore.Diagnostics`, base assembly)
+- rail: store-provider
+
+| [INDEX] | [SYMBOL]                                                                              | [PACKAGE_ROLE]      | [CAPABILITY]                |
+| :-----: | :----------------------------------------------------------------------------------- | :------------------ | :-------------------------- |
+|   [1]   | `IDbConnectionInterceptor.ConnectionOpenedAsync(DbConnection, ConnectionEndEventData, CancellationToken) : Task` | connection hook | re-applies PRAGMA ladder |
+|   [2]   | `IDbCommandInterceptor.ReaderExecutedAsync(DbCommand, CommandExecutedEventData, DbDataReader, CancellationToken) : ValueTask<DbDataReader>` | command hook | slow/burst facts |
+|   [3]   | `ISaveChangesInterceptor.SavingChangesAsync(DbContextEventData, InterceptionResult<int>, CancellationToken) : ValueTask<InterceptionResult<int>>` | save hook | stamp + changefeed in-txn |
+|   [4]   | `ISaveChangesInterceptor.SavedChangesAsync(SaveChangesCompletedEventData, int, CancellationToken) : ValueTask<int>` | save hook | invalidate + save fact |
+|   [5]   | `IDbTransactionInterceptor.TransactionCommittedAsync(DbTransaction, TransactionEndEventData, CancellationToken) : Task` | transaction hook | transaction facts |
+|   [6]   | `CommandExecutedEventData.Duration : TimeSpan` / `DbContextEventData.Context : DbContext` | event data | slow-query gate + context access |
+|   [7]   | `ConnectionEndEventData.Duration : TimeSpan` / `TransactionEndEventData.Duration : TimeSpan` | event data | reopen + commit elapsed |
+|   [8]   | `InterceptionResult<TResult>` carries `static SuppressWithResult(TResult)`, `Result`, `HasResult` | result struct | round-trips the `InterceptionResult<int>` save result |
+
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider admission
@@ -81,6 +95,7 @@ query translation, and type mapping into one store-provider rail.
 |   [3]   | `SqliteEntityTypeExtensions`       | metadata extension  | configures entities         |
 |   [4]   | `SqliteValueGenerationStrategy`    | metadata value      | classifies generation       |
 |   [5]   | `ConfigureDesignTimeServices`      | service hook        | registers design services   |
+|   [6]   | `EF.CompileAsyncQuery<TContext, TResult>(Expression<Func<TContext, IQueryable<TResult>>>) : Func<TContext, IAsyncEnumerable<TResult>>` | compiled shape | caches a hot projection delegate (parameterized arities `TParam1`..`TParam15`) |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

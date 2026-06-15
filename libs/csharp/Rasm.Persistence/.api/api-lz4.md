@@ -25,7 +25,7 @@ helpers for snapshot payload profiles.
 |   [3]   | `LZ4Level`      | level classifier  | selects compression      |
 |   [4]   | `EncoderAction` | action classifier | classifies encoder steps |
 
-[ENCODER_TYPES]: stream encoder surfaces
+[ENCODER_TYPES]: stream encoder surfaces (namespace `K4os.Compression.LZ4.Encoders`)
 - rail: snapshot-codec
 
 | [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]    | [CAPABILITY]             |

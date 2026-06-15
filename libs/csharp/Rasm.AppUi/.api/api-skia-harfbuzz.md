@@ -52,6 +52,16 @@
 |   [4]   | `GetScale`       | `FontExtensions`   | scale read      |
 |   [5]   | `SetScale`       | `FontExtensions`   | scale write     |
 
+[RESULT_ENTRYPOINTS]: shaped-run metrics for flow advance
+- rail: typography
+
+| [INDEX] | [SURFACE]    | [SURFACE_ROOT]    | [RAIL]            |
+| :-----: | :----------- | :---------------- | :---------------- |
+|   [1]   | `Width`      | `SKShaper.Result` | run advance       |
+|   [2]   | `Clusters`   | `SKShaper.Result` | cluster boundary  |
+|   [3]   | `Codepoints` | `SKShaper.Result` | glyph identifiers |
+|   [4]   | `Points`     | `SKShaper.Result` | glyph positions   |
+
 ## [4]-[IMPLEMENTATION_LAW]
 
 [TYPOGRAPHY_LAW]:

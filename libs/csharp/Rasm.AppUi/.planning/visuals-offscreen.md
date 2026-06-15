@@ -347,5 +347,4 @@ public static class VisualExport {
 
 ## [7]-[RESEARCH]
 
-- [PARAGRAPH_BREAK]: the within-`FlowBlock.Text` cluster-boundary break point at the page edge — the shaping rail owns cluster metrics, and the exact line-of-clusters split that lets a `Text` block resume on the next page rather than re-running the whole block binds at implementation against the shaped-run break flags.
-- [RENDER_BYTE_IDENTITY]: the cross-host encode and SKDocument-export byte-identity baseline on the Skia-backed headless render lane — the encode and export member surface is confirmed (`SKImage.Encode`, `SKDocument.CreatePdf`/`CreateXps`, the page fold) and the color reproject is confirmed (`SKImage.ColorSpace`, `SKColorType.RgbaF16`, `SKAlphaType.Premul`, the five-argument `SKImageInfo` constructor, `SKImageInfo.WithColorSpace`, `SKColorSpace.Equal`), and the `FrameHash` byte-identity pins on the live headless render-hash lane.
+- [PARAGRAPH_BREAK]: the within-`FlowBlock.Text` cluster-boundary break point at the page edge — the shaping rail owns cluster metrics through the confirmed `SKShaper.Result` `Clusters` and `Width` surface, and the exact line-of-clusters split that lets a `Text` block resume on the next page rather than re-running the whole block binds at implementation against the shaped-run break flags.

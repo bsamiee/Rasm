@@ -86,9 +86,11 @@ N/A rails: BenchmarkDotNet — `specialized-rails.md [2]` reject bars UI surface
 The package exits implementation when every BUILD_ORDER file is transcribed `Hosts/SurfaceVocabulary.cs` through `Evidence/EvidenceRail.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static build`, G4 `test run`, G5 `bridge verify`, G6 headless render-hash lanes, G7 `mmdc` render), the charter GAP_LEDGER stays fully CLOSED, and the charter `spec` gate passes on the full suite.
 
 Residual host-bridge work is the charter DENSITY_BAR `SPIKE` set discharging against its page RESEARCH clusters; each exits when its bridge or native probe lands as a settled fence row rather than a re-opened gate:
-- Embedding seam (`SurfaceHost`, `SurfaceFact`) — surface-hosts#RESEARCH [EMBED_SPIKE]/[WIN32_ROUTE].
-- Embedded notification and picker capsule (`ToastRow` · `ToastOutcome`) — dialogs-notifications#RESEARCH [EMBEDDED_TOPLEVEL].
-- Cross-boundary transfer (`DragPayload`) — input-interaction#RESEARCH [EMBEDDED_DRAG]/[GESTURE_TRIGGERS]/[POINTER_CAPTURE]/[ROTATE_GESTURE]/[CLIPBOARD_WRITE]; the Avalonia 12 data-transfer reshape moves the structured clipboard write onto `IClipboard.SetDataAsync(IDataTransfer)` over `DataFormat` application formats.
-- Series render fidelity (`ChartSeriesSpec`) — charts-dashboards#RESEARCH [SERIES_RENDER]/[GEO_PAYLOAD].
-- Offscreen render-byte identity and break (`VisualDestination` · `ExportDestination` · `VisualCodec`) — visuals-offscreen#RESEARCH [PARAGRAPH_BREAK]/[SERIES_RENDER]; the color-reproject member surface is confirmed against SkiaSharp.
-- Headless evidence derivation (`EvidenceReceipt`, `ProofCheck`) — diagnostics-evidence#RESEARCH [HEADLESS_RUNNER]/[DEV_LOOP_STRIP].
+- Embedding seam (`SurfaceHost`, `SurfaceFact`) — surface-hosts#RESEARCH [EMBED_SPIKE]/[WIN32_ROUTE]: the only DENSITY_BAR `SPIKE` set, gated on the live Rhino-owned AppKit run-loop and Win32 reparent host, de-risked standalone with only the in-host confirmation remaining.
+
+Implementation-bound refinements ride FINALIZED owners and carry no `SPIKE` state; each is a settled fence whose remaining detail binds against the live closure at transcription:
+- Embedded notification, picker, and host-object-drag capsule rides the embedding seam — dialogs-notifications#RESEARCH [EMBEDDED_TOPLEVEL], input-interaction#RESEARCH [EMBEDDED_DRAG]: the embedded-root `TopLevel` resolution resolves with the embed capsule.
+- Behaviors routed-event spellings — input-interaction#RESEARCH [GESTURE_TRIGGERS]/[POINTER_CAPTURE]/[ROTATE_GESTURE]: the per-gesture trigger family binds at transcription against the installed `Xaml.Behaviors.Avalonia` surface.
+- Geo land-record projection — charts-dashboards#RESEARCH [GEO_PAYLOAD]: the `GeometryPayload`-to-`GeoMap` land-record projection is the cross-package wire boundary, with `SourceGenMapChart` `ActiveMap`/`MapProjection`/`Series`/`Stroke`/`Fill` confirmed.
+- Flow page-resume — visuals-offscreen#RESEARCH [PARAGRAPH_BREAK]: the within-`FlowBlock.Text` cluster split rides the confirmed `SKShaper.Result` `Clusters`/`Width` surface.
+- Dev-loop Release strip — diagnostics-evidence#RESEARCH [DEV_LOOP_STRIP]: the HotAvalonia strip and markup-loader floor verify against the built MSBuild closure.

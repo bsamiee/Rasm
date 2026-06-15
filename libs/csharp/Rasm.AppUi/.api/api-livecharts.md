@@ -83,6 +83,15 @@
 |   [9]   | `ColorExtension`               | color value      |
 |  [10]   | `ValuesExtension`              | values value     |
 
+[GEO_TYPES]: map chart binding surfaces
+- rail: charts
+
+| [INDEX] | [SYMBOL]                  | [RAIL]            |
+| :-----: | :------------------------ | :---------------- |
+|   [1]   | `IGeoMapView`             | map view contract |
+|   [2]   | `DrawnMap`                | active map record |
+|   [3]   | `MapProjection`           | projection mode   |
+
 ## [3]-[ENTRYPOINTS]
 
 [CHART_ENTRYPOINTS]: chart control properties
@@ -126,6 +135,17 @@
 |   [3]   | `AdditionalVisualStates` | `XamlSeries`      | visual states    |
 |   [4]   | `GaugeValue`             | `XamlGaugeSeries` | gauge value      |
 |   [5]   | `Invalidate`             | `XamlGaugeSeries` | series refresh   |
+
+[GEO_ENTRYPOINTS]: map chart binding members
+- rail: charts
+
+| [INDEX] | [SURFACE]       | [SURFACE_ROOT]      | [RAIL]            |
+| :-----: | :-------------- | :------------------ | :---------------- |
+|   [1]   | `ActiveMap`     | `SourceGenMapChart` | active map source |
+|   [2]   | `MapProjection` | `SourceGenMapChart` | projection mode   |
+|   [3]   | `Series`        | `SourceGenMapChart` | geo series        |
+|   [4]   | `Stroke`        | `SourceGenMapChart` | land stroke paint |
+|   [5]   | `Fill`          | `SourceGenMapChart` | land fill paint   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
