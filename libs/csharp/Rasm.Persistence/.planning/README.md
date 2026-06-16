@@ -17,12 +17,12 @@ Rasm.Persistence has zero consumers; the implementation is full-capability with 
 |   [9]   | [redaction-retention](redaction-retention.md) | retention, classification, audit binding                     | finalized |
 |  [10]   | [remote-stores](remote-stores.md)             | object-store axis, multipart transfer, residence, sync feed  | finalized |
 |  [11]   | [server-tier](server-tier.md)                 | time-series, search, cluster GUC, tenancy/RLS, migration bundle | finalized |
-|  [12]   | [version-control](version-control.md)         | commit-DAG, CRDT algebra, time-travel, structural diff/merge | authored  |
-|  [13]   | [federation](federation.md)                   | entity graph, element-set algebra, links, rule plan, fusion, planner | authored  |
-|  [14]   | [provenance](provenance.md)                   | causal DAG, attested ledger, lineage-scoped CDC              | authored  |
-|  [15]   | [annotation](annotation.md)                   | anchor algebra, BCF protocol, CDE OAuth2 sync                | authored  |
-|  [16]   | [catalog-cost](catalog-cost.md)               | classification catalogs, cost-code, formula rollup           | authored  |
-|  [17]   | [schedule-interchange](schedule-interchange.md) | P6/MSP import, task-element link, 4D state                 | authored  |
+|  [12]   | [version-control](version-control.md)         | commit-DAG, CRDT algebra, time-travel, structural diff/merge | finalized |
+|  [13]   | [federation](federation.md)                   | entity graph, element-set algebra, links, rule plan, fusion, planner | finalized |
+|  [14]   | [provenance](provenance.md)                   | causal DAG, attested ledger, lineage-scoped CDC              | finalized |
+|  [15]   | [annotation](annotation.md)                   | anchor algebra, BCF protocol, CDE OAuth2 sync                | finalized |
+|  [16]   | [catalog-cost](catalog-cost.md)               | classification catalogs, cost-code, formula rollup           | finalized |
+|  [17]   | [schedule-interchange](schedule-interchange.md) | P6/MSP import, task-element link, 4D state                 | finalized |
 
 ## [2]-[WIRE_PAGES]
 

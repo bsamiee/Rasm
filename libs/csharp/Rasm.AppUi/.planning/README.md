@@ -25,10 +25,10 @@ Rasm.AppUi has zero consumers; the implementation is full-capability with no hol
 |  [17]   | [localization-culture](localization-culture.md)   | locale rows and culture composition                                   | finalized |
 |  [18]   | [diagnostics-evidence](diagnostics-evidence.md)   | evidence union, correlation, headless proof                           | finalized |
 |  [19]   | [custom-visuals](custom-visuals.md)               | Skia diagram kinds and wide-gamut axis                                | finalized |
-|  [20]   | [viewport-pipeline](viewport-pipeline.md)         | GPU render graph, virtualized geometry, path trace, sim, viewpoint    | authored  |
-|  [21]   | [drafting-sheets](drafting-sheets.md)             | sheet set, title-block, 3D-to-2D projection, dimensioning, GD&T, emit | authored  |
-|  [22]   | [notebook-document](notebook-document.md)         | pinned-capability cells, dependency recompute, CRDT, replay           | authored  |
-|  [23]   | [animation-timeline](animation-timeline.md)       | keyframe tracks, timeline playhead, scrub, walkthrough export         | authored  |
+|  [20]   | [viewport-pipeline](viewport-pipeline.md)         | GPU render graph, virtualized geometry, path trace, sim, viewpoint    | finalized |
+|  [21]   | [drafting-sheets](drafting-sheets.md)             | sheet set, title-block, 3D-to-2D projection, dimensioning, GD&T, emit | finalized |
+|  [22]   | [notebook-document](notebook-document.md)         | pinned-capability cells, dependency recompute, CRDT, replay           | finalized |
+|  [23]   | [animation-timeline](animation-timeline.md)       | keyframe tracks, timeline playhead, scrub, walkthrough export         | finalized |
 
 ## [2]-[WIRE_PAGES]
 
