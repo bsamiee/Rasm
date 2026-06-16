@@ -61,10 +61,13 @@ paths.
 | :-----: | :------------------------ | :------------------------------------------------------------------------- | :--------------------- | :--------------- |
 |   [1]   | `GrpcWebHandler.ctor`     | `GrpcWebHandler()`                                                         | remote-lane#CALL_SPINE | decompile 2.80.0 |
 |   [2]   | `GrpcWebHandler.ctor`     | `GrpcWebHandler(HttpMessageHandler innerHandler)`                          | remote-lane#CALL_SPINE | decompile 2.80.0 |
-|   [3]   | `GrpcWebHandler.ctor`     | `GrpcWebHandler(GrpcWebMode grpcWebMode)`                                  | remote-lane#CALL_SPINE | decompile 2.80.0 |
-|   [4]   | `GrpcWebHandler.ctor`     | `GrpcWebHandler(GrpcWebMode grpcWebMode, HttpMessageHandler innerHandler)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `GrpcWebHandler.ctor`     | `GrpcWebHandler(GrpcWebMode mode)`                                         | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `GrpcWebHandler.ctor`     | `GrpcWebHandler(GrpcWebMode mode, HttpMessageHandler innerHandler)`        | remote-lane#CALL_SPINE | decompile 2.80.0 |
 |   [5]   | `GrpcWebMode.GrpcWeb`     | `GrpcWeb = 0` — `application/grpc-web` binary wire format                  | remote-lane#CALL_SPINE | decompile 2.80.0 |
 |   [6]   | `GrpcWebMode.GrpcWebText` | `GrpcWebText = 1` — `application/grpc-web-text` base64 wire format         | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [7]   | `GrpcWebHandler.GrpcWebMode` | `GrpcWebMode GrpcWebMode { get; set; }` — mode property on the handler  | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [8]   | `GrpcWebHandler.HttpVersion` | `[Obsolete] Version? HttpVersion { get; set; }` — use `GrpcChannelOptions.HttpVersion` instead | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [9]   | `GrpcWebHandler.SendAsync`   | `protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

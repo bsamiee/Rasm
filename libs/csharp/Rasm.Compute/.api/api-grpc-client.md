@@ -79,19 +79,23 @@ execution clients.
 [PUBLIC_TYPE_SCOPE]: transitive `Grpc.Core.Api` call contracts
 - rail: remote-client
 
-| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]      | [CAPABILITY]                        |
-| :-----: | :------------------------- | :------------------ | :---------------------------------- |
-|   [1]   | `Interceptor`              | interceptor base    | client call override family         |
-|   [2]   | `ClientInterceptorContext` | call context struct | method, host, and options payload   |
-|   [3]   | `CallInvoker`              | invocation root     | composes interceptors               |
-|   [4]   | `CallOptions`              | call policy struct  | headers, deadline, and cancellation |
-|   [5]   | `Metadata`                 | header collection   | metadata entries and binary values  |
-|   [6]   | `RpcException`             | call failure        | status plus trailers                |
-|   [7]   | `Status`                   | status struct       | code plus detail                    |
-|   [8]   | `StatusCode`               | status enum         | call-failure taxonomy               |
-|   [9]   | `CallCredentials`          | per-call trust      | interceptor-backed call credentials |
-|  [10]   | `ChannelCredentials`       | channel trust       | transport credential selection      |
-|  [11]   | `ConnectivityState`        | state enum          | channel connectivity taxonomy       |
+| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]        | [CAPABILITY]                        |
+| :-----: | :------------------------- | :-------------------- | :---------------------------------- |
+|   [1]   | `Interceptor`              | interceptor base      | client call override family         |
+|   [2]   | `ClientInterceptorContext` | call context struct   | method, host, and options payload   |
+|   [3]   | `CallInvoker`              | invocation root       | composes interceptors               |
+|   [4]   | `CallInvokerExtensions`    | invoker extensions    | `Intercept` factory overloads       |
+|   [5]   | `InterceptingCallInvoker`  | interceptor invoker   | wraps invoker with one interceptor  |
+|   [6]   | `CallOptions`              | call policy struct    | headers, deadline, and cancellation |
+|   [7]   | `Metadata`                 | header collection     | metadata entries and binary values  |
+|   [8]   | `RpcException`             | call failure          | status plus trailers                |
+|   [9]   | `Status`                   | status struct         | code plus detail                    |
+|  [10]   | `StatusCode`               | status enum           | call-failure taxonomy               |
+|  [11]   | `CallCredentials`          | per-call trust        | interceptor-backed call credentials |
+|  [12]   | `ChannelCredentials`       | channel trust         | transport credential selection      |
+|  [13]   | `ConnectivityState`        | state enum            | channel connectivity taxonomy       |
+|  [14]   | `AsyncAuthInterceptor`     | auth delegate         | async metadata injection delegate   |
+|  [15]   | `AuthInterceptorContext`   | auth call context     | service URL, method, cancellation   |
 
 [ENTRYPOINT_SCOPE]: interceptor override signatures
 - source: `Grpc.Core.Api` 2.80.0 — `Grpc.Core.Interceptors.Interceptor` decompile
@@ -181,6 +185,43 @@ execution clients.
 |   [4]   | `ChannelCredentials.Insecure`     | `static ChannelCredentials Insecure { get; }`                                                              | remote-lane#CALL_SPINE | decompile 2.80.0 |
 |   [5]   | `ChannelCredentials.SecureSsl`    | `static ChannelCredentials SecureSsl { get; }`                                                             | remote-lane#CALL_SPINE | decompile 2.80.0 |
 
+[ENTRYPOINT_SCOPE]: `CallInvokerExtensions` intercept factory members
+- source: `Grpc.Core.Api` 2.80.0 — `Grpc.Core.Interceptors.CallInvokerExtensions` decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]                              | [SIGNATURE]                                                                          | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :------------------------------------ | :----------------------------------------------------------------------------------- | :--------------------- | :--------------- |
+|   [1]   | `CallInvokerExtensions.Intercept`     | `static CallInvoker Intercept(this CallInvoker invoker, Interceptor interceptor)`    | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `CallInvokerExtensions.Intercept`     | `static CallInvoker Intercept(this CallInvoker invoker, params Interceptor[] interceptors)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `CallInvokerExtensions.Intercept`     | `static CallInvoker Intercept(this CallInvoker invoker, Func<Metadata, Metadata> interceptor)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `InterceptingCallInvoker.ctor`        | `InterceptingCallInvoker(CallInvoker invoker, Interceptor interceptor)`              | remote-lane#CALL_SPINE | decompile 2.80.0 |
+
+[ENTRYPOINT_SCOPE]: `AsyncAuthInterceptor` delegate and `AuthInterceptorContext` members
+- source: `Grpc.Core.Api` 2.80.0 — `Grpc.Core.AsyncAuthInterceptor` / `Grpc.Core.AuthInterceptorContext` decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]                             | [SIGNATURE]                                                                                    | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :----------------------------------- | :--------------------------------------------------------------------------------------------- | :--------------------- | :--------------- |
+|   [1]   | `AsyncAuthInterceptor`               | `delegate Task AsyncAuthInterceptor(AuthInterceptorContext context, Metadata metadata)`        | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `AuthInterceptorContext.ctor`        | `AuthInterceptorContext(string serviceUrl, string methodName)`                                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `AuthInterceptorContext.ctor`        | `AuthInterceptorContext(string serviceUrl, string methodName, CancellationToken cancellationToken)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `AuthInterceptorContext.ServiceUrl`  | `string ServiceUrl { get; }`                                                                   | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [5]   | `AuthInterceptorContext.MethodName`  | `string MethodName { get; }`                                                                   | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [6]   | `AuthInterceptorContext.CancellationToken` | `CancellationToken CancellationToken { get; }`                                          | remote-lane#CALL_SPINE | decompile 2.80.0 |
+
+[ENTRYPOINT_SCOPE]: `SocketsHttpHandler` keepalive members (BCL — passed as `GrpcChannelOptions.HttpHandler`)
+- source: BCL `System.Net.Http` net10.0 — `System.Net.Http.SocketsHttpHandler` decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]                                        | [SIGNATURE]                                                           | [USED_BY]              | [EVIDENCE]          |
+| :-----: | :---------------------------------------------- | :-------------------------------------------------------------------- | :--------------------- | :------------------ |
+|   [1]   | `SocketsHttpHandler.KeepAlivePingDelay`         | `TimeSpan KeepAlivePingDelay { get; set; }`                           | remote-lane#CALL_SPINE | decompile net10.0   |
+|   [2]   | `SocketsHttpHandler.KeepAlivePingTimeout`       | `TimeSpan KeepAlivePingTimeout { get; set; }`                         | remote-lane#CALL_SPINE | decompile net10.0   |
+|   [3]   | `SocketsHttpHandler.KeepAlivePingPolicy`        | `HttpKeepAlivePingPolicy KeepAlivePingPolicy { get; set; }`           | remote-lane#CALL_SPINE | decompile net10.0   |
+|   [4]   | `SocketsHttpHandler.EnableMultipleHttp2Connections` | `bool EnableMultipleHttp2Connections { get; set; }`               | remote-lane#CALL_SPINE | decompile net10.0   |
+|   [5]   | `HttpKeepAlivePingPolicy.WithActiveRequests`    | `WithActiveRequests = 0` — ping only when active requests are pending | remote-lane#CALL_SPINE | decompile net10.0   |
+|   [6]   | `HttpKeepAlivePingPolicy.Always`                | `Always = 1` — ping even on idle connections                          | remote-lane#CALL_SPINE | decompile net10.0   |
+
 [ENTRYPOINT_SCOPE]: compression provider types
 - source: `Grpc.Net.Common` 2.80.0 — `Grpc.Net.Compression` namespace decompile
 - rail: remote-client#CALL_SPINE
@@ -216,8 +257,11 @@ execution clients.
 |  [13]   | `ServiceConfig`                           | `ServiceConfig? ServiceConfig { get; set; }`                      | remote-lane#CALL_SPINE | decompile 2.80.0 |
 |  [14]   | `DisableResolverServiceConfig`            | `bool DisableResolverServiceConfig { get; set; }`                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
 |  [15]   | `ServiceProvider`                         | `IServiceProvider? ServiceProvider { get; set; }`                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
-|  [16]   | `HttpVersion`                             | `Version? HttpVersion { get; set; }`                              | remote-lane#CALL_SPINE | decompile 2.80.0 |
-|  [17]   | `HttpVersionPolicy`                       | `HttpVersionPolicy? HttpVersionPolicy { get; set; }`              | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [16]   | `HttpVersion`                             | `Version? HttpVersion { get; set; }`                                           | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [17]   | `HttpVersionPolicy`                       | `HttpVersionPolicy? HttpVersionPolicy { get; set; }`                           | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [18]   | `LoggerFactory`                           | `ILoggerFactory? LoggerFactory { get; set; }`                                  | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [19]   | `MaxReconnectBackoff`                     | `TimeSpan? MaxReconnectBackoff { get; set; }` — default 120 s                  | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [20]   | `InitialReconnectBackoff`                 | `TimeSpan InitialReconnectBackoff { get; set; }` — default 1 s                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
 
 [ENTRYPOINT_SCOPE]: policy and balancing operations
 - rail: remote-client
@@ -248,12 +292,14 @@ execution clients.
 - base class: `abstract class Interceptor` in `Grpc.Core.Api` 2.80.0
 - client overrides: `BlockingUnaryCall`, `AsyncUnaryCall`, `AsyncServerStreamingCall`, `AsyncClientStreamingCall`, `AsyncDuplexStreamingCall` — each virtual with a matching continuation delegate type
 - context type: `ClientInterceptorContext<TRequest,TResponse>` struct carrying `Method`, `Host`, and `Options`
+- composition: `CallInvokerExtensions.Intercept(this CallInvoker, Interceptor)`, `Intercept(this CallInvoker, params Interceptor[])`, and `Intercept(this CallInvoker, Func<Metadata,Metadata>)` build chains; multiple interceptors invoked in argument order
+- runtime wrapper: `InterceptingCallInvoker(CallInvoker, Interceptor)` is `internal sealed` — acquire only through `CallInvokerExtensions.Intercept`
 - server overrides: `UnaryServerHandler`, `ClientStreamingServerHandler`, `ServerStreamingServerHandler`, `DuplexStreamingServerHandler` — out of scope for the Compute client rail
 
 [KEEPALIVE_POLICY]:
 - keepalive is owned by `SocketsHttpHandler` (BCL) when passed as `GrpcChannelOptions.HttpHandler`
-- properties: `SocketsHttpHandler.KeepAlivePingDelay`, `KeepAlivePingTimeout`, `KeepAlivePingPolicy` (enum `HttpKeepAlivePingPolicy` with `Always`/`WithActiveRequests`)
-- these are BCL types and do not appear in `Grpc.Net.Client` or `Grpc.Core.Api` assemblies
+- properties: `SocketsHttpHandler.KeepAlivePingDelay`, `KeepAlivePingTimeout`, `KeepAlivePingPolicy` (`HttpKeepAlivePingPolicy.WithActiveRequests` / `Always`), `EnableMultipleHttp2Connections`
+- reconnect backoff: `GrpcChannelOptions.InitialReconnectBackoff` (default 1 s) and `MaxReconnectBackoff` (default 120 s) control exponential backoff between connection attempts
 
 [COMPRESSION_SURFACE]:
 - namespace: `Grpc.Net.Compression` (in `Grpc.Net.Common` 2.80.0)

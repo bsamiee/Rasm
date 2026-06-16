@@ -9,6 +9,7 @@ for the Compute geometry interchange rail.
 
 [PACKAGE_SURFACE]: `GeometryGymIFC_Core`
 - package: `GeometryGymIFC_Core`
+- version: `25.7.30`
 - assembly: `GeometryGymIFCcore`
 - namespace: `GeometryGym.Ifc`
 - namespace: `GeometryGym.STEP`
@@ -49,11 +50,13 @@ for the Compute geometry interchange rail.
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                 | [RAIL]   | [CAPABILITY]                                                                                                              |
-| :-----: | :----------------------- | :------- | :------------------------------------------------------------------------------------------------------------------------ |
-|   [1]   | `ReleaseVersion`         | geometry | schema version: `IFC2x3`, `IFC4A2`, `IFC4X3`, `IFC4X3_ADD2`, `IFC4X4_DRAFT` (plus retired/withdrawn `[Obsolete]` members) |
-|   [2]   | `ModelView`              | geometry | MVD selector: `Ifc4Reference`, `Ifc4DesignTransfer`, `Ifc2x3Coordination`, `IFC4X3Reference`, `IFC4X3AlignmentBasedView`  |
-|   [3]   | `FormatIfcSerialization` | geometry | serialization format for `DatabaseIfc.ToString`: `STEP`, `XML`, `JSON`                                                    |
+| [INDEX] | [SYMBOL]                    | [RAIL]   | [CAPABILITY]                                                                                                                                            |
+| :-----: | :-------------------------- | :------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|   [1]   | `ReleaseVersion`            | geometry | schema version: `IFC2x3`, `IFC4A2`, `IFC4X3`, `IFC4X3_ADD2`, `IFC4X4_DRAFT` (plus retired/withdrawn `[Obsolete]` members)                              |
+|   [2]   | `ModelView`                 | geometry | MVD selector: `Ifc4Reference`, `Ifc4DesignTransfer`, `Ifc2x3Coordination`, `IFC4X3Reference`, `IFC4X3AlignmentBasedView`, `Ifc4X3NotAssigned`          |
+|   [3]   | `FormatIfcSerialization`    | geometry | serialization format for `DatabaseIfc.ToString`: `STEP`, `XML`, `JSON`                                                                                  |
+|   [4]   | `IfcReflectanceMethodEnum`  | geometry | PBR/Phong reflectance model: `BLINN`, `FLAT`, `GLASS`, `MATT`, `METAL`, `MIRROR`, `PHONG`, `PLASTIC`, `STRAUSS`, `NOTDEFINED`                           |
+|   [5]   | `IfcSurfaceSide`            | geometry | surface-style application side: `POSITIVE`, `NEGATIVE`, `BOTH`                                                                                          |
 
 [PUBLIC_TYPE_SCOPE]: IFC kernel root entities
 - package: `GeometryGymIFC_Core`
@@ -187,6 +190,46 @@ for the Compute geometry interchange rail.
 |  [14]   | `IfcBooleanResult`                  | geometry | CSG boolean operation result                     |
 |  [15]   | `IfcMappedItem`                     | geometry | instanced representation map reference           |
 
+[PUBLIC_TYPE_SCOPE]: tessellation geometry — AP242/IFC4.3 mesh interchange
+- package: `GeometryGymIFC_Core`
+- namespace: `GeometryGym.Ifc`
+- rail: geometry
+
+| [INDEX] | [SYMBOL]                  | [RAIL]   | [CAPABILITY]                                                                          |
+| :-----: | :------------------------ | :------- | :------------------------------------------------------------------------------------ |
+|   [1]   | `IfcTessellatedItem`      | geometry | abstract tessellated geometry item base; derives from `IfcGeometricRepresentationItem` |
+|   [2]   | `IfcTessellatedFaceSet`   | geometry | abstract indexed face mesh base; `Closed`, `HasColours`, `HasTextures` properties     |
+|   [3]   | `IfcTriangulatedFaceSet`  | geometry | triangle mesh: `CoordIndex`, `Normals`, `NormalIndex`, `PnIndex`                      |
+|   [4]   | `IfcPolygonalFaceSet`     | geometry | polygon mesh (already catalogued); paired here as `IfcTessellatedFaceSet` subtype     |
+|   [5]   | `IfcCartesianPointList`   | geometry | abstract packed point list base                                                       |
+|   [6]   | `IfcCartesianPointList3D` | geometry | packed 3D point list; used as `Coordinates` by tessellated face sets                  |
+|   [7]   | `IfcCartesianPointList2D` | geometry | packed 2D point list                                                                  |
+
+[PUBLIC_TYPE_SCOPE]: material appearance and presentation interchange
+- package: `GeometryGymIFC_Core`
+- namespace: `GeometryGym.Ifc`
+- rail: geometry
+
+| [INDEX] | [SYMBOL]                            | [RAIL]   | [CAPABILITY]                                                                       |
+| :-----: | :---------------------------------- | :------- | :--------------------------------------------------------------------------------- |
+|   [1]   | `IfcPresentationStyle`              | geometry | abstract presentation style root                                                   |
+|   [2]   | `IfcPresentationItem`               | geometry | abstract item within a presentation style                                          |
+|   [3]   | `IfcSurfaceStyle`                   | geometry | surface style; holds `Side` (`IfcSurfaceSide`) and `Styles` element set            |
+|   [4]   | `IfcSurfaceStyleShading`            | geometry | base shading style; `SurfaceColour` (`IfcColourRgb`), `Transparency` (`double`)    |
+|   [5]   | `IfcSurfaceStyleRendering`          | geometry | extends shading with PBR parameters: `DiffuseColour`, `SpecularColour`, `ReflectanceMethod` (`IfcReflectanceMethodEnum`) |
+|   [6]   | `IfcSurfaceStyleWithTextures`       | geometry | texture style; references `IfcSurfaceTexture` instances                            |
+|   [7]   | `IfcSurfaceStyleLighting`           | geometry | additional lighting coefficients: ambient, diffuse, transmission, reflectance      |
+|   [8]   | `IfcSurfaceStyleRefraction`         | geometry | refraction index and light-transmission factor for optical materials               |
+|   [9]   | `IfcSurfaceTexture`                 | geometry | abstract surface texture; `RepeatS`, `RepeatT`, `Mode`, `TextureTransform`         |
+|  [10]   | `IfcImageTexture`                   | geometry | file-path-referenced image texture (`IfcSurfaceTexture` subtype)                   |
+|  [11]   | `IfcPixelTexture`                   | geometry | inline pixel-encoded texture (`IfcSurfaceTexture` subtype)                         |
+|  [12]   | `IfcBlobTexture`                    | geometry | binary blob texture (`IfcSurfaceTexture` subtype); `RasterCode`, `RasterFormat`    |
+|  [13]   | `IfcStyledItem`                     | geometry | binds a style to a representation item                                             |
+|  [14]   | `IfcStyledRepresentation`           | geometry | representation holding only styled items                                           |
+|  [15]   | `IfcMaterialDefinitionRepresentation` | geometry | links an `IfcMaterial` to its `IfcStyledRepresentation` set                       |
+|  [16]   | `IfcColourRgb`                      | geometry | RGB colour value                                                                   |
+|  [17]   | `IfcColourRgbList`                  | geometry | packed list of RGB colour triples for indexed colour sets                          |
+
 [PUBLIC_TYPE_SCOPE]: units, presentation, and attributes
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
@@ -200,11 +243,8 @@ for the Compute geometry interchange rail.
 |   [4]   | `IfcDerivedUnit`             | geometry | compound derived unit                                        |
 |   [5]   | `IfcMonetaryUnit`            | geometry | currency unit                                                |
 |   [6]   | `IfcMeasureWithUnit`         | geometry | value bound to a unit                                        |
-|   [7]   | `IfcSurfaceStyle`            | geometry | surface presentation style                                   |
-|   [8]   | `IfcStyledItem`              | geometry | binds a style to a representation item                       |
-|   [9]   | `IfcColourRgb`               | geometry | RGB colour value                                             |
-|  [10]   | `IfcClassificationReference` | geometry | reference to an external classification                      |
-|  [11]   | `VersionAddedAttribute`      | geometry | reflection attribute marking schema-version availability     |
+|   [7]   | `IfcClassificationReference` | geometry | reference to an external classification                      |
+|   [8]   | `VersionAddedAttribute`      | geometry | reflection attribute marking schema-version availability     |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -314,6 +354,15 @@ for the Compute geometry interchange rail.
 - format-explicit read: `ReadJSONFile`/`ReadJSON` for IFC-JSON, `ReadXMLFile`/`ReadXMLDoc` for IFC-XML
 - write root: `DatabaseIfc.WriteFile` emits STEP physical file; `DatabaseIfc.ToString(FormatIfcSerialization)` selects `STEP`, `XML`, or `JSON`
 - schema is database-level state: set via `DatabaseIfc(ReleaseVersion)` / `DatabaseIfc(ModelView)` and read via `Release` / `ModelView`
+- STEP physical-file header metadata is exposed via `STEPFileInformation` on `DatabaseSTEP<T>.OriginatingFileInformation`; fields: `FileDescriptionViewDefinition`, `FileName`, `TimeStamp`, `Author`, `Organization`, `OriginatingSystem`, `Authorization`
+
+[AP242_STEP_READ]:
+- The package reads all STEP physical file (`.ifc`, `.stp`) versions through `new DatabaseIfc(filePath)` without schema pre-selection; schema is auto-resolved from the file header
+- IFC4.3 (`ReleaseVersion.IFC4X3_ADD2`) is the delivered IFC schema mapped to the AP242 domain overlap for building infrastructure; select this `ReleaseVersion` for infrastructure interchange or alignment geometry
+- STEP read populates the in-memory entity graph; entities are accessible via `DatabaseIfc[stepId]` (integer), `DatabaseIfc[globalId]` (string), or full enumeration over `IEnumerable<BaseClassIfc>`
+- AP242 geometry exchange topology: STEP entities map to `IfcTriangulatedFaceSet` / `IfcPolygonalFaceSet` (tessellation), `IfcExtrudedAreaSolid` (swept solid), `IfcAdvancedBrep` (NURBS BREP), `IfcFacetedBrep` (faceted BREP), and `IfcMappedItem` (instanced geometry)
+- Material appearance on STEP import: `IfcStyledItem` → `IfcSurfaceStyle` → `IfcSurfaceStyleShading` / `IfcSurfaceStyleRendering` / `IfcSurfaceStyleWithTextures`; traverse via `BaseClassIfc.Extract<IfcStyledItem>()` then follow `.Item` to the geometry owner
+- `IfcMaterialDefinitionRepresentation` binds an `IfcMaterial` to its `IfcStyledRepresentation`; retrieve via `material.HasRepresentation`
 
 [MODEL_GRAPH]:
 - repository: `DatabaseIfc` is the entity store, enumerable as `IEnumerable<BaseClassIfc>` and indexable by STEP id or GlobalId

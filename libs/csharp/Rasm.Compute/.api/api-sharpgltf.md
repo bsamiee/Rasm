@@ -90,22 +90,25 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |   [1]   | `DimensionType`              | geometry | `SCALAR`, `VEC2`, `VEC3`, `VEC4`, `MAT2`, `MAT3`, `MAT4`         |
 |   [2]   | `EncodingType`               | geometry | `BYTE`, `UBYTE`, `SHORT`, `USHORT`, `UINT`, `FLOAT`              |
 |   [3]   | `IndexEncodingType`          | geometry | `UNSIGNED_BYTE`, `UNSIGNED_SHORT`, `UNSIGNED_INT`                |
-|   [4]   | `AlphaMode`                  | geometry | `OPAQUE`, `MASK`, `BLEND`                                        |
-|   [5]   | `PrimitiveType`              | geometry | `POINTS`, `LINES`, `TRIANGLES`, etc.                             |
-|   [6]   | `AnimationInterpolationMode` | geometry | `LINEAR`, `STEP`, `CUBICSPLINE`                                  |
-|   [7]   | `PropertyPath`               | geometry | animated property: `translation`, `rotation`, `scale`, `weights` |
-|   [8]   | `MemoryAccessor`             | geometry | wraps a `BufferView` memory region; projects typed arrays        |
-|   [9]   | `MemoryAccessInfo`           | geometry | describes item format: name, byte offset, stride, format         |
-|  [10]   | `MemoryImage`                | geometry | in-memory image bytes; detects PNG/JPG/KTX2/DDS/WebP             |
-|  [11]   | `ScalarArray`                | geometry | typed `Memory<byte>` view over scalar accessor data              |
-|  [12]   | `Vector2Array`               | geometry | typed `Memory<byte>` view over Vector2 accessor data             |
-|  [13]   | `Vector3Array`               | geometry | typed `Memory<byte>` view over Vector3 accessor data             |
-|  [14]   | `Vector4Array`               | geometry | typed `Memory<byte>` view over Vector4 accessor data             |
-|  [15]   | `IntegerArray`               | geometry | typed `Memory<byte>` view over index accessor data               |
-|  [16]   | `ColorArray`                 | geometry | typed `Memory<byte>` view over color accessor data               |
-|  [17]   | `AttributeFormat`            | geometry | encoding/decoding descriptor for vertex attribute bytes          |
-|  [18]   | `BufferMode`                 | geometry | `ARRAY_BUFFER`, `ELEMENT_ARRAY_BUFFER` hints                     |
-|  [19]   | `CameraType`                 | geometry | `PERSPECTIVE`, `ORTHOGRAPHIC`                                    |
+|   [4]   | `ResourceWriteMode`          | geometry | `Default`, `SatelliteFile`, `EmbeddedAsBase64`, `BufferView`     |
+|   [5]   | `AlphaMode`                  | geometry | `OPAQUE`, `MASK`, `BLEND`                                        |
+|   [6]   | `PrimitiveType`              | geometry | `POINTS`, `LINES`, `TRIANGLES`, etc.                             |
+|   [7]   | `AnimationInterpolationMode` | geometry | `LINEAR`, `STEP`, `CUBICSPLINE`                                  |
+|   [8]   | `PropertyPath`               | geometry | animated property: `translation`, `rotation`, `scale`, `weights` |
+|   [9]   | `MemoryAccessor`             | geometry | wraps a `BufferView` memory region; projects typed arrays        |
+|  [10]   | `MemoryAccessInfo`           | geometry | describes item format: name, byte offset, stride, format         |
+|  [11]   | `MemoryImage`                | geometry | in-memory image bytes; detects PNG/JPG/KTX2/DDS/WebP             |
+|  [12]   | `ScalarArray`                | geometry | typed `Memory<byte>` view over scalar accessor data              |
+|  [13]   | `Vector2Array`               | geometry | typed `Memory<byte>` view over Vector2 accessor data             |
+|  [14]   | `Vector3Array`               | geometry | typed `Memory<byte>` view over Vector3 accessor data             |
+|  [15]   | `Vector4Array`               | geometry | typed `Memory<byte>` view over Vector4 accessor data             |
+|  [16]   | `QuaternionArray`            | geometry | typed `Memory<byte>` view over quaternion accessor data          |
+|  [17]   | `Matrix4x4Array`             | geometry | typed `Memory<byte>` view over matrix4x4 accessor data          |
+|  [18]   | `IntegerArray`               | geometry | typed `Memory<byte>` view over index accessor data               |
+|  [19]   | `ColorArray`                 | geometry | typed `Memory<byte>` view over color accessor data               |
+|  [20]   | `AttributeFormat`            | geometry | encoding/decoding descriptor for vertex attribute bytes          |
+|  [21]   | `BufferMode`                 | geometry | `ARRAY_BUFFER`, `ELEMENT_ARRAY_BUFFER` hints                     |
+|  [22]   | `CameraType`                 | geometry | `PERSPECTIVE`, `ORTHOGRAPHIC`                                    |
 
 [PUBLIC_TYPE_SCOPE]: Schema2 — validation
 - package: `SharpGLTF.Core`
@@ -147,6 +150,8 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |  [16]   | `TextureDDS`                    | geometry | MSFT_texture_dds; DirectDraw Surface texture              |
 |  [17]   | `TextureWEBP`                   | geometry | EXT_texture_webp; WebP texture                            |
 |  [18]   | `AnimationPointer`              | geometry | KHR_animation_pointer; JSON-pointer animation target      |
+|  [19]   | `XmpPackets`                    | geometry | KHR_xmp_json_ld model-level XMP metadata packet list      |
+|  [20]   | `XmpPacketReference`            | geometry | KHR_xmp_json_ld per-entity XMP packet index reference     |
 
 [PUBLIC_TYPE_SCOPE]: Toolkit — scene and mesh builders
 - package: `SharpGLTF.Toolkit`
@@ -379,6 +384,22 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 - write root: `ModelRoot.Save` selects format by extension; `ModelRoot.WriteGLB` produces bytes
 - validation: `ReadSettings.Validation` and `WriteSettings.Validation` accept `ValidationMode.Skip`, `TryFix`, or `Strict`
 - custom URI resolution: configure `ReadContext` with a file-reader delegate before calling `ReadSchema2`
+
+[WRITE_SETTINGS]:
+- `MergeBuffers` (`bool`, default `true`) — merges all `ModelRoot.LogicalBuffers` into one before serialization
+- `BuffersMaxSize` (`int`, default `int.MaxValue`) — splits the merged buffer into chunks at this byte cap; only applies when `MergeBuffers` is `true` and format is glTF (not GLB)
+- `JsonIndented` (`bool`) — delegates to `JsonWriterOptions.Indented`; set `true` for human-readable output
+- `JsonOptions` (`JsonWriterOptions`) — full STJ writer options; `JsonIndented` is a convenience forwarder into this field
+- `ImageWriting` (`ResourceWriteMode`) — controls how images are stored: `Default` / `SatelliteFile` / `EmbeddedAsBase64` / `BufferView`; `BufferView` embeds images into the binary buffer (GLB-native form); `EmbeddedAsBase64` embeds into JSON only for glTF, not GLB
+- `ImageWriteCallback` (`ImageWriterCallback`) — per-image hook that overrides `ImageWriting` for individual images; receives the image and returns `ResourceWriteMode`
+- `JsonPostprocessor` (`JsonFilterCallback`) — post-processes the raw JSON text string before it is written; use for custom escape or transform passes
+- `Validation` (`ValidationMode`) — validation strictness; applies at both read and write time through the matching settings class
+
+[COMPRESSION_LAW]:
+- `SharpGLTF.Core` 1.0.6 ships **no Draco encode surface and no meshopt encode surface** in this build; the package has zero types matching `KHR_draco_mesh_compression` or `EXT_meshopt_compression` in the decompiled assembly scope.
+- KHR_draco_mesh_compression read-side support can be registered via `ExtensionsFactory.RegisterExtension<MeshPrimitive, TDracoExt>(name)` when a separately compiled Draco decode adapter is provided by the caller; the core library carries only the extension framework, not the codec.
+- EXT_meshopt_compression and vertex quantization helpers are not present in Core 1.0.6; these are caller-provided or require a separate SharpGLTF extension package if available.
+- Consumers requiring Draco decode must supply a `JsonSerializable`-derived extension class and register it before any read call; no encode path exists in this version.
 
 [EXTENSION_REGISTRATION]:
 - `ExtensionsFactory.RegisterExtension<TParent, TExt>(string name)` — registers a globally available extension type

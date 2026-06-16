@@ -18,14 +18,18 @@ session-registration material for ONNX execution lanes.
 [PACKAGE_ASSET_SCOPE]: native runtime assets
 - rail: model
 
-| [INDEX] | [SYMBOL]                                 | [PACKAGE_ROLE]      | [CAPABILITY]          |
-| :-----: | :--------------------------------------- | :------------------ | :-------------------- |
-|   [1]   | `libortextensions.dylib`                 | native asset        | loads extension ops   |
-|   [2]   | `libortextensions.so`                    | native asset        | loads extension ops   |
-|   [3]   | `ortextensions.dll`                      | native asset        | loads extension ops   |
-|   [4]   | `onnxruntime-extensions.aar`             | native asset        | loads Android ops     |
-|   [5]   | `onnxruntime_extensions.xcframework.zip` | native asset        | loads Apple ops       |
-|   [6]   | `runtimes/*/native`                      | runtime asset group | selects native binary |
+| [INDEX] | [SYMBOL]                                       | [PACKAGE_ROLE]      | [CAPABILITY]          |
+| :-----: | :--------------------------------------------- | :------------------ | :-------------------- |
+|   [1]   | `libortextensions.dylib` (osx.10.14-arm64)     | native asset        | loads extension ops   |
+|   [2]   | `libortextensions.dylib` (osx.10.14-x64)       | native asset        | loads extension ops   |
+|   [3]   | `libortextensions.so` (linux-arm64)            | native asset        | loads extension ops   |
+|   [4]   | `libortextensions.so` (linux-x64)              | native asset        | loads extension ops   |
+|   [5]   | `ortextensions.dll` (win-arm64)                | native asset        | loads extension ops   |
+|   [6]   | `ortextensions.dll` (win-x64)                  | native asset        | loads extension ops   |
+|   [7]   | `ortextensions.dll` (win-x86)                  | native asset        | loads extension ops   |
+|   [8]   | `onnxruntime-extensions.aar`                   | native asset        | loads Android ops     |
+|   [9]   | `onnxruntime_extensions.xcframework.zip`       | native asset        | loads Apple ops       |
+|  [10]   | `runtimes/*/native`                            | runtime asset group | selects native binary |
 
 [PACKAGE_ASSET_SCOPE]: build assets
 - rail: model
@@ -70,6 +74,7 @@ session-registration material for ONNX execution lanes.
 
 [PHANTOM_CORRECTIONS]:
 - `OrtExtensions.RegisterCustomOps` — PHANTOM. No public `OrtExtensions` class exists in `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0. The package contains only native assets and MSBuild targets; there is no managed public assembly. The correct entry point is `SessionOptions.RegisterOrtExtensions()` defined in `Microsoft.ML.OnnxRuntime`.
+- `OrtOperators` — PHANTOM. No `OrtOperators` type exists in `Microsoft.ML.OnnxRuntime` 1.26.0 or in `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0. Extension op registration has no CLR type owner; it is fully native and entered through `SessionOptions.RegisterOrtExtensions()`.
 - `RegisterCustomOpLibraryV2` on `SessionOptions` — is a separate method for loading arbitrary custom op libraries by path; it is distinct from the Extensions package registration path.
 
 [LOCAL_ADMISSION]:
@@ -82,4 +87,4 @@ session-registration material for ONNX execution lanes.
 - Package: `Microsoft.ML.OnnxRuntime.Extensions`
 - Owns: ONNX extension native assets
 - Accept: declared custom-operator sessions
-- Reject: opaque model preprocessor services; phantom `OrtExtensions.RegisterCustomOps` call site
+- Reject: opaque model preprocessor services; phantom `OrtExtensions.RegisterCustomOps` call site; phantom `OrtOperators` type
