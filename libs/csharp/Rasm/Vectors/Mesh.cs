@@ -408,8 +408,12 @@ public readonly record struct CommonSubdivision(int SubdivisionVertexCount, int 
         && InterpolationA.Cols.Value == InterpolationB.Cols.Value
         && SourceFaceA.Count == SubdivisionFaceCount && SourceFaceB.Count == SubdivisionFaceCount
         && SourceFaceA.All(static face => face >= 0) && SourceFaceB.All(static face => face >= 0)
-        && RhinoMath.IsValidDouble(x: RowSumResidualA) && RowSumResidualA >= 0.0
-        && RhinoMath.IsValidDouble(x: RowSumResidualB) && RowSumResidualB >= 0.0
+        // Partition-of-unity gate: each interpolation row must sum to 1.0 within the scale-relative band (identity rows are 1.0 by
+        // construction; each crossing row is (1-u)+u / (1-t)+t = 1.0), so a residual above SqrtEpsilon is an empty or malformed row
+        // (a short edge trace that scattered partial rows) and is rejected, not merely recorded. The arrival residual is the BVP
+        // trace's relative arrival gap, +inf when a transverse edge failed to recover its crossings.
+        && RhinoMath.IsValidDouble(x: RowSumResidualA) && RowSumResidualA >= 0.0 && RowSumResidualA <= RhinoMath.SqrtEpsilon
+        && RhinoMath.IsValidDouble(x: RowSumResidualB) && RowSumResidualB >= 0.0 && RowSumResidualB <= RhinoMath.SqrtEpsilon
         && RhinoMath.IsValidDouble(x: EdgeLengthInterpolationResidual) && EdgeLengthInterpolationResidual >= 0.0;
 }
 
@@ -496,12 +500,6 @@ internal readonly record struct GeodesicKey(Seq<int> Sources);
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct WindowField(int SourceVertex, Arr<GeodesicWindow> Windows, int OcclusionClampCount, int PseudosourceCount, int CutLocusCount) {
     internal static WindowField Empty(int source) => new(SourceVertex: source, Windows: [], OcclusionClampCount: 0, PseudosourceCount: 0, CutLocusCount: 0);
-    internal Option<(double Distance, double Tau, int Pseudosource)> Backtrace(int edge, double bary) =>
-        Windows.Find(window => window.Edge == edge && bary >= window.B0 && bary <= window.B1)
-            .Map(window => (Distance: window.Sigma + ((1.0 - bary) * window.D0) + (bary * window.D1), window.Tau, window.Pseudosource));
-    // The source-side tangent needs the pseudosource ray backtraced to v_s (item-4b); until that lands the direction is
-    // genuinely absent, so this returns None — never a forgeable Some(Vector3d.Zero) a consumer could read as a converged ray.
-    internal Option<Vector3d> InitialTangentAtSource(int edge, double bary) => Backtrace(edge: edge, bary: bary).Bind(static _ => Option<Vector3d>.None);
 }
 
 internal readonly record struct HodgeKey(VectorField Source);
@@ -2163,7 +2161,7 @@ internal static class MeshKernel {
             if (exact) maxSignpostUpdate = Math.Max(val1: maxSignpostUpdate, val2: signposts.UpdateResidualOf(vertex: i, neighbor: j));
             entries.Add(item: (i, j, w, rho));
         }
-        CommonSubdivision subdivision = BuildCommonSubdivision(imesh: imesh, key: key);
+        CommonSubdivision subdivision = BuildCommonSubdivision(space: space, imesh: imesh, key: key);
         SignpostTransportReceipt receipt = new(
             VertexCount: mesh.Vertices.Count,
             IntrinsicEdgeCount: eCount,
@@ -2270,36 +2268,49 @@ internal static class MeshKernel {
             : 0;
 
     // --- [COMMON_SUBDIVISION] overlay S = overlay(M,T) -----------------------------------------
-    // Vertex-level overlay: every intrinsic-triangulation vertex coincides with an input-mesh vertex
-    // (IDT preserves vertices), so both interpolation operators are the per-vertex identity over a
-    // shared vertex column space. EDGE_TRANSVERSE crossings sit at exact barycentric t=(k+1)/(n_e+1)
-    // and accumulate into the segment count via the normal coordinates; TracedPathEdgeCount counts the
-    // intrinsic edges that cross at least one input edge. EdgeLengthInterpolationResidual stays inert
-    // (0.0) here: a genuine residual compares the sum of REAL traced sub-chord lengths against the
-    // intrinsic edge length, which needs a boundary-value geodesic-between-vertices crossing tracer — the
-    // exp-map IVP tracer (ExactExpMapAt) is a direction-from-source ray and cannot reconstruct an edge's
-    // input-edge crossings. The field lands non-zero with that BVP tracer; a self-cancelling t=(k+1)/(n_e+1)
-    // telescoping sum (which collapses identically to the covered fraction) would witness nothing.
-    // The triplet assembly is the named statement kernel.
-    private static CommonSubdivision BuildCommonSubdivision(IntrinsicMesh imesh, Op key) {
+    // The overlay vertex set is the VertexCount shared vertices (every IDT vertex coincides with an
+    // input-mesh vertex) plus the SumNormalCoordinates EDGE_TRANSVERSE crossing vertices. Each transverse
+    // T-edge e (e.Crossings>0) is a straight geodesic on the source mesh M; TraceIntrinsicEdgeAcrossSource
+    // (a seat front-end of the ONE shared WalkChart unfold kernel, driven in EdgeOverlay mode — the same kernel the
+    // IVP TraceStraightestGeodesic and the BVP log replay walk, so no unfold arithmetic is forked) walks e.Lo->e.Hi
+    // over M and recovers the c ordered input-edge crossings: each carries the M-edge it cuts and the exact
+    // barycentric parameter u along that M-edge.
+    // InterpolationA (M side) is the per-vertex identity on the shared rows plus one M-barycentric row per
+    // crossing ((1-u) on the cut M-edge's Lo, u on its Hi; a single nonzero when the crossing grazes an
+    // M-vertex within VertexSnap*edgeLength, never a near-singular row). InterpolationB (T side) is the
+    // per-vertex identity plus one T-barycentric row per crossing ((1-t_k) on e.Lo, t_k on e.Hi at the exact
+    // t_k=(k+1)/(c+1)). EdgeLengthInterpolationResidual is the genuine witness — the worst-edge relative gap
+    // between the straight ray's arrival point and e.Hi's unfolded position — so a wrong overlay (a bad seat
+    // angle or a missed crossing) fails CommonSubdivision.IsValid through RowSumResidualOf (partition of unity)
+    // and this residual, never silently. The n_e=0-everywhere case (tetrahedron / no flip) stays the exact
+    // identity fast path. The triplet assembly and per-crossing unfold are the named statement kernel; the
+    // M-face centroid reads are the platform-forced boundary copied to detached values at the read site.
+    private static CommonSubdivision BuildCommonSubdivision(MeshSpace space, IntrinsicMesh imesh, Op key) {
         int vertexCount = imesh.VertexCount;
         int[] liveFaces = [.. imesh.LiveFaceIndices()];
         int faceCount = liveFaces.Length;
-        List<(int Row, int Col, double Value)> identity = new(capacity: vertexCount);
-        for (int v = 0; v < vertexCount; v++) identity.Add(item: (v, v, 1.0));
+        int crossingTotal = imesh.SumNormalCoordinates;
+        int subdivisionVertexCount = vertexCount + crossingTotal;
+        List<(int Row, int Col, double Value)> tripletsA = new(capacity: subdivisionVertexCount + (2 * crossingTotal));
+        List<(int Row, int Col, double Value)> tripletsB = new(capacity: subdivisionVertexCount + (2 * crossingTotal));
+        for (int v = 0; v < vertexCount; v++) { tripletsA.Add(item: (v, v, 1.0)); tripletsB.Add(item: (v, v, 1.0)); }
+        double edgeLengthInterpolationResidual = crossingTotal <= 0
+            ? 0.0
+            : space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.Cotangent, key: key).Match(
+                Succ: source => AccumulateTransverseCrossings(source: source, imesh: imesh, baseRow: vertexCount, tripletsA: tripletsA, tripletsB: tripletsB),
+                Fail: static _ => double.PositiveInfinity);
         int[] sourceFaceA = new int[faceCount];
         int[] sourceFaceB = new int[faceCount];
-        const double edgeLengthInterpolationResidual = 0.0;
         for (int f = 0; f < faceCount; f++) {
-            sourceFaceA[f] = liveFaces[f];
             sourceFaceB[f] = liveFaces[f];
+            sourceFaceA[f] = MFaceOfIntrinsicFace(space: space, imesh: imesh, face: liveFaces[f]);
         }
         Dimension cols = Dimension.Create(value: Math.Max(val1: 1, val2: vertexCount));
-        Dimension rows = Dimension.Create(value: Math.Max(val1: 1, val2: vertexCount));
-        return SparseMatrix.FromTriplets(rows: rows, cols: cols, triplets: identity, key: key)
-            .Bind(a => SparseMatrix.FromTriplets(rows: rows, cols: cols, triplets: identity, key: key).Map(b => (A: a, B: b)))
+        Dimension rows = Dimension.Create(value: Math.Max(val1: 1, val2: subdivisionVertexCount));
+        return SparseMatrix.FromTriplets(rows: rows, cols: cols, triplets: tripletsA, key: key)
+            .Bind(a => SparseMatrix.FromTriplets(rows: rows, cols: cols, triplets: tripletsB, key: key).Map(b => (A: a, B: b)))
             .Map(ab => new CommonSubdivision(
-                SubdivisionVertexCount: vertexCount,
+                SubdivisionVertexCount: subdivisionVertexCount,
                 SubdivisionFaceCount: faceCount,
                 SourceFaceA: new Arr<int>(sourceFaceA),
                 SourceFaceB: new Arr<int>(sourceFaceB),
@@ -2309,6 +2320,89 @@ internal static class MeshKernel {
                 RowSumResidualB: RowSumResidualOf(matrix: ab.B),
                 EdgeLengthInterpolationResidual: edgeLengthInterpolationResidual))
             .IfFail(static _ => default);
+    }
+    // Scatter the M-side and T-side barycentric rows for every transverse T-edge and return the worst-edge
+    // relative residual. The crossing rows occupy baseRow.. in declaration order across edges; the ordered
+    // crossings of one edge land at t_k=(k+1)/(c+1). The residual is the relative arrival gap of the BVP trace
+    // (how far the straight ray of length e.Length lands from e.Hi's unfolded position) — a genuine geometric
+    // witness that the seat angle and the recovered crossings are consistent, not a self-cancelling chord sum.
+    // Returns +inf when a transverse edge fails to recover its c crossings (so the residual gate rejects the
+    // overlay) rather than silently emitting an identity row.
+    private static double AccumulateTransverseCrossings(IntrinsicMesh source, IntrinsicMesh imesh, int baseRow, List<(int Row, int Col, double Value)> tripletsA, List<(int Row, int Col, double Value)> tripletsB) {
+        double snapFraction = GeodesicTracePolicy.Default.VertexSnap.Value;
+        int eCount = imesh.EdgeCount;
+        int row = baseRow;
+        double worst = 0.0;
+        for (int e = 0; e < eCount; e++) {
+            IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            int c = edge.Crossings;
+            if (c <= 0) continue;
+            ExpTrace trace = TraceIntrinsicEdgeAcrossSource(source: source, lo: edge.Lo, hi: edge.Hi, edgeLength: edge.Length);
+            if (trace.Crossings.Count != c || trace.Stop != GeodesicStopKind.LengthReached) return double.PositiveInfinity;
+            for (int k = 0; k < c; k++) {
+                (int mEdge, double u) = trace.Crossings[index: k];
+                double tK = (k + 1.0) / (c + 1.0);
+                tripletsB.Add(item: (row, edge.Lo, 1.0 - tK));
+                tripletsB.Add(item: (row, edge.Hi, tK));
+                IntrinsicEdge cut = source.EdgeAt(index: mEdge);
+                bool nearLo = u <= snapFraction;
+                bool nearHi = u >= 1.0 - snapFraction;
+                if (nearLo) tripletsA.Add(item: (row, cut.Lo, 1.0));
+                else if (nearHi) tripletsA.Add(item: (row, cut.Hi, 1.0));
+                else { tripletsA.Add(item: (row, cut.Lo, 1.0 - u)); tripletsA.Add(item: (row, cut.Hi, u)); }
+                row++;
+            }
+            worst = Math.Max(val1: worst, val2: ArrivalGapOf(trace: trace, source: source, hi: edge.Hi) / Math.Max(val1: edge.Length, val2: RhinoMath.SqrtEpsilon));
+        }
+        return worst;
+    }
+    // BVP edge-trace entry of the ONE geodesic tracer: seat the lo->hi chart bearing from the START-FACE 2D layout
+    // (consistent with the IVP/BVP seats — never blending extrinsic Point3d chords with intrinsic edge lengths), then
+    // drive the shared WalkChart in EdgeOverlay mode (raw crossings, vertex-snap suppressed, stop at hi). The kernel
+    // records the cut M-edge + barycentric U per crossing and the unfolded arrival endpoint; the walk loop is owned by
+    // WalkChart, so this is a seat front-end, not a forked tracer.
+    private static ExpTrace TraceIntrinsicEdgeAcrossSource(IntrinsicMesh source, int lo, int hi, double edgeLength) {
+        int startFace = source.AnyLiveFaceAtVertex(vertex: lo);
+        if (startFace < 0 || !(edgeLength > RhinoMath.ZeroTolerance)) return EmptyEdgeTrace(startFace: Math.Max(val1: 0, val2: startFace));
+        (int a0, int b0, int c0) = source.Triangles[index: startFace]!.Value;
+        (int va, int vb, int vc) = lo == a0 ? (a0, b0, c0) : lo == b0 ? (b0, c0, a0) : (c0, a0, b0);
+        // Seat lo->hi by the in-chart bearing of hi's unfolded position about lo in the start-face layout: a metric-consistent
+        // bearing (the chart is built from intrinsic edge lengths, hi placed by its two intrinsic legs to va/vb), never the
+        // extrinsic chord-vs-intrinsic mix. ChartAngleToward returns the angle of the source->toward leg in the +x layout.
+        double bearing = ChartAngleToward(imesh: source, va: va, vb: vb, vc: vc, toward: hi);
+        return !RhinoMath.IsValidDouble(x: bearing)
+            ? EmptyEdgeTrace(startFace: startFace)
+            : WalkChart(imesh: source, startFace: startFace, va: va, vb: vb, vc: vc, seatAngle: bearing, seatedWorldDir: Vector3d.Zero, traceLength: edgeLength, mode: GeodesicWalkMode.EdgeOverlay, stopAtVertex: hi, policy: GeodesicTracePolicy.Default);
+    }
+    private static ExpTrace EmptyEdgeTrace(int startFace) =>
+        new(SeatedWorldDir: Vector3d.Zero, TracedLength: 0.0, PathFaces: [], CrossedEdges: [], EdgeCrossingCount: 0, VertexPassCount: 0, Stop: GeodesicStopKind.IterationCap, Crossings: [], EndX: 0.0, EndY: 0.0, ArrivalFace: startFace, ReachedStopVertex: false);
+    // The relative arrival gap: the 2D distance between the overlay walk's recovered endpoint and hi's unfolded position in the
+    // arrival face — the geometric witness that the straight ray reaches hi. hi is a corner of the arrival face on a clean trace.
+    private static double ArrivalGapOf(ExpTrace trace, IntrinsicMesh source, int hi) {
+        (int a, int b, int c) = source.Triangles[index: trace.ArrivalFace]!.Value;
+        int hiLocal = a == hi ? 0 : b == hi ? 1 : c == hi ? 2 : -1;
+        if (hiLocal < 0) return double.PositiveInfinity;
+        double[] px = new double[3]; double[] py = new double[3];
+        LayoutFace(imesh: source, va: a, vb: b, vc: c, px: px, py: py);
+        return Math.Sqrt(d: ((trace.EndX - px[hiLocal]) * (trace.EndX - px[hiLocal])) + ((trace.EndY - py[hiLocal]) * (trace.EndY - py[hiLocal])));
+    }
+    // In-chart angle of the va->toward leg measured in the (va at origin, vb on +x) layout. Falls back to the +x reference (the
+    // va->vb edge) when toward is not a non-origin vertex of the seat face. The single seat geometry the IVP forward seat inverts:
+    // forward maps world->chart, this reads chart directly. (RhinoMath.IsValidDouble gate at the call site rejects a NaN seat.)
+    private static double ChartAngleToward(IntrinsicMesh imesh, int va, int vb, int vc, int toward) {
+        double[] px = new double[3]; double[] py = new double[3];
+        LayoutFace(imesh: imesh, va: va, vb: vb, vc: vc, px: px, py: py);
+        int local = toward == vb ? 1 : toward == vc ? 2 : -1;
+        return local < 0 ? 0.0 : Math.Atan2(y: py[local], x: px[local]);
+    }
+    // The source M-face an intrinsic (T) face overlaps: the M-face the T-face centroid lands in. T shares M's
+    // vertices, so the centroid is the mean of the three intrinsic vertex positions; ClosestMeshPoint resolves
+    // the containing original-mesh face, falling back to the same ordinal for the no-flip (M==T) case.
+    private static int MFaceOfIntrinsicFace(MeshSpace space, IntrinsicMesh imesh, int face) {
+        (int a, int b, int c) = imesh.Triangles[index: face]!.Value;
+        Point3d centroid = new(x: (imesh.Positions[a].X + imesh.Positions[b].X + imesh.Positions[c].X) / 3.0, y: (imesh.Positions[a].Y + imesh.Positions[b].Y + imesh.Positions[c].Y) / 3.0, z: (imesh.Positions[a].Z + imesh.Positions[b].Z + imesh.Positions[c].Z) / 3.0);
+        MeshPoint meshPoint = space.Native.ClosestMeshPoint(testPoint: centroid, maximumDistance: MeshSearchDistance(space: space));
+        return meshPoint is { FaceIndex: >= 0 } ? meshPoint.FaceIndex : Math.Max(val1: 0, val2: face);
     }
     private static double RowSumResidualOf(SparseMatrix matrix) {
         int rows = matrix.Rows.Value;
@@ -3169,8 +3263,8 @@ internal static class MeshKernel {
     // --- [TANGENT_LOG_MAP] ------------------------------------------------------------------
     // One log-map surface routes three algorithms through the generated Switch (a new TangentLogMapAlgorithm item is a
     // hard compile gate here): VectorHeatApproximate -> heat magnitude plus transported source tangent; ExactStraightestExp
-    // -> Polthier straightest-geodesic IVP face-unfolding; ExactWindowPropagation -> the MMP distance/direction (4b fills it,
-    // here a 9104 placeholder). Func-form Switch keeps the allocating exact arms unevaluated until the algorithm dispatches.
+    // -> Polthier straightest-geodesic IVP face-unfolding; ExactWindowPropagation -> the MMP distance plus the BVP backtrace
+    // log direction. Func-form Switch keeps the allocating exact arms unevaluated until the algorithm dispatches.
     internal static Fin<TangentLogMapResult> TangentLogMapAt(MeshSpace space, int source, Point3d sample, double time, TangentLogMapAlgorithm algorithm, GeodesicTracePolicy trace, WindowPropagationPolicy windows, Op key) =>
         algorithm.Switch(
             state: (Space: space, Source: source, Sample: sample, Time: time, Trace: trace, Windows: windows, Key: key),
@@ -3201,14 +3295,14 @@ internal static class MeshKernel {
         }
     }
 
-    // Exact geodesic DISTANCE via Surazhsky/MMP window propagation over the frozen intrinsic Delaunay half-edge mesh: a
-    // pure-scalar GeodesicWindow wavefront advances over a BCL PriorityQueue<.,double> endpoint-min frontier, each popped
+    // Exact geodesic DISTANCE + DIRECTION via Surazhsky/MMP window propagation over the frozen intrinsic Delaunay half-edge mesh:
+    // a pure-scalar GeodesicWindow wavefront advances over a BCL PriorityQueue<.,double> endpoint-min frontier, each popped
     // window unfolds across its edge into the adjacent triangle (edge laid flat, pseudosource at (sx,sy<=0), opposite vertex
     // in front), casts child windows onto the two new edges with the occlusion clamp sy=sqrt(max(0,d0^2-sx^2)), and seeds
     // saddle shadow windows at spherical vertices whose cone angle theta>SaddleAngleThreshold (the classic MMP overestimation
     // fix behind saddles). Vertex distances are MMP-exact; the sample distance interpolates them barycentrically on the closest
-    // face. The log DIRECTION needs the pseudosource backtrace to v_s (item 3's encoding); the WindowField.Backtrace /
-    // InitialTangentAtSource seam is pre-wired and inert, so the direction stays Unsupported 9104 until the tracer coexists.
+    // face. The log DIRECTION is the BVP entry of the one geodesic tracer: BacktraceGeodesicToSource walks the converged field
+    // back to the source over the shared chart kernel and inverse-seats the source-outgoing angle through frames.X/Y[source].
     private static Fin<TangentLogMapResult> ExactLogMapAt(MeshSpace space, int source, Point3d sample, WindowPropagationPolicy policy, Op key) {
         int n = space.Native.Vertices.Count;
         return source < 0 || source >= n
@@ -3221,6 +3315,21 @@ internal static class MeshKernel {
                     if (!face.IsTriangle) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
                     double distance = (weights[0] * SafeVertexDistance(vertexDistance, face.A)) + (weights[1] * SafeVertexDistance(vertexDistance, face.B)) + (weights[2] * SafeVertexDistance(vertexDistance, face.C));
                     if (!RhinoMath.IsValidDouble(x: distance) || distance < 0.0) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+                    bool nearSource = distance <= space.Tolerance.Absolute.Value;
+                    int intrinsicFace = IntrinsicFaceOfVertices(imesh: imesh, a: face.A, b: face.B, c: face.C);
+                    BvpTrace trace = BacktraceGeodesicToSource(imesh: imesh, mesh: space.Native, field: field, targetDistance: distance, source: source, targetFace: intrinsicFace, targetWeights: weights, policy: policy)
+                        .IfNone(() => new BvpTrace(WorldLogDir: Vector3d.Zero, TracedLength: 0.0, FieldDistance: distance, PathFaces: [], CrossedEdges: [], EdgeCrossingCount: 0, VertexPassCount: 0, Stop: GeodesicStopKind.IterationCap));
+                    // A recovered log direction requires the backtrace to reach the source (LengthReached) with a finite outgoing ray
+                    // AND the INDEPENDENT chart geodesic distance (trace.TracedLength = the straight-line distance to the target point
+                    // in the source-rooted unfolded chart, a pure-geometry quantity) to match the field-exact distance (trace.FieldDistance,
+                    // the converged MMP wavefront's own distance at the target) within the scale-relative band; a cut-locus / multi-saddle
+                    // chain (IterationCap), a wrong owning-window pick, a degenerate ray, or the source point itself (log = 0) disagrees the
+                    // two and fails the projection. The witness compares two independently-derived distances, never the input echoed back.
+                    Vector3d worldLogDir = nearSource ? Vector3d.Zero : trace.WorldLogDir;
+                    double witnessDistance = trace.FieldDistance;
+                    double pathResidual = nearSource || witnessDistance <= RhinoMath.SqrtEpsilon ? 0.0 : Math.Abs(value: trace.TracedLength - witnessDistance) / Math.Max(val1: witnessDistance, val2: RhinoMath.SqrtEpsilon);
+                    bool directionRecovered = trace.Stop == GeodesicStopKind.LengthReached && trace.WorldLogDir.IsValid && trace.WorldLogDir.Length > RhinoMath.ZeroTolerance && pathResidual <= RhinoMath.SqrtEpsilon;
+                    int segments = trace.PathFaces.Count;
                     int finiteLog = field.Windows.Count > 0 && RhinoMath.IsValidDouble(x: distance) ? 1 : 0;
                     TangentLogMapReceipt receipt = new(
                         Algorithm: TangentLogMapAlgorithm.ExactWindowPropagation,
@@ -3231,25 +3340,35 @@ internal static class MeshKernel {
                         FiniteLogCount: finiteLog,
                         MaxMagnitudeResidual: 0.0,
                         HeatTime: 0.0,
-                        PathFaces: [],
-                        CrossedEdges: [],
-                        TracedLength: distance,
-                        PathRelativeResidual: 0.0,
-                        SegmentCount: 0,
-                        EdgeCrossingCount: 0,
-                        VertexPassCount: 0,
-                        StopKind: None,
+                        PathFaces: new Arr<int>([.. trace.PathFaces]),
+                        CrossedEdges: new Arr<int>([.. trace.CrossedEdges]),
+                        TracedLength: trace.TracedLength,
+                        PathRelativeResidual: pathResidual,
+                        SegmentCount: segments,
+                        EdgeCrossingCount: trace.EdgeCrossingCount,
+                        VertexPassCount: trace.VertexPassCount,
+                        StopKind: Some(trace.Stop),
                         WindowCount: field.Windows.Count,
                         OcclusionClampCount: field.OcclusionClampCount,
                         PseudosourceCount: field.PseudosourceCount,
                         CutLocusCount: field.CutLocusCount);
-                    // Distance succeeds; the direction stays gated at Unsupported 9104 until item 3's encoding and the
-                    // pseudosource backtrace coexist. WindowField carries the converged wavefront so the backtrace seam is live data.
-                    return receipt.IsValid
-                        ? Fin.Fail<TangentLogMapResult>(key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(TangentLogMapResult)))
-                        : Fin.Fail<TangentLogMapResult>(key.InvalidResult());
+                    return nearSource
+                        ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Receipt: receipt))
+                        : receipt.IsValid && directionRecovered
+                            ? key.AcceptValue(value: worldLogDir).Map(value => new TangentLogMapResult(Tangent: value, Receipt: receipt))
+                            : Fin.Fail<TangentLogMapResult>(key.InvalidResult());
                 });
             });
+    }
+    // Resolve the intrinsic live face whose vertex set is {a,b,c}; after IDT flips the host triangle may not survive as an
+    // intrinsic face, in which case the source-incident fallback (AnyLiveFaceAtVertex) keeps the backtrace anchored at a real
+    // intrinsic triangle and the residual witness gates the result.
+    private static int IntrinsicFaceOfVertices(IntrinsicMesh imesh, int a, int b, int c) {
+        foreach (int f in imesh.LiveFaceIndices()) {
+            (int x, int y, int z) = imesh.Triangles[index: f]!.Value;
+            if ((x == a || x == b || x == c) && (y == a || y == b || y == c) && (z == a || z == b || z == c)) return f;
+        }
+        return imesh.AnyLiveFaceAtVertex(vertex: a);
     }
     private static double SafeVertexDistance(double[] vertexDistance, int vertex) =>
         vertex >= 0 && vertex < vertexDistance.Length && RhinoMath.IsValidDouble(x: vertexDistance[vertex]) ? vertexDistance[vertex] : 0.0;
@@ -3458,6 +3577,164 @@ internal static class MeshKernel {
         return count;
     }
 
+    // --- [BACKTRACE_GEODESIC_BVP] ------------------------------------------------------------
+    // BVP mode of the one geodesic tracer: the IVP entry (ExactExpMapAt -> TraceStraightestGeodesic, source + direction) and this
+    // BVP entry (target -> source) share the same WalkChart unfold kernel; neither re-derives the unfold arithmetic. The backtrace
+    // recovers the boundary conditions from the converged WindowField — the owning window at the target (admitted by OwningWindowAt
+    // through the SAME WithinShadow predicate the forward wavefront used for apex admission, so forward and backward provably agree),
+    // the field-exact distance at the target (the owning window's barycentric distance interpolation, the converged wavefront's own
+    // distance), and the pseudosource chain back to the source (pivoting at each saddle / cut-locus pseudosource where
+    // w.Pseudosource != source, monotone-checked so a non-decreasing pivot stops the chain). The source-outgoing chart angle is
+    // inverse-seated to world through frames.X/Y[source] and the shared WalkChart replays the ray to the firstWaypoint vertex, so
+    // TracedLength is the arc INDEPENDENTLY consumed reaching v_s — witnessed against the field distance via PathRelativeResidual,
+    // never the input echoed back. The hop count honors BacktraceMaxHops -> IterationCap so a cut-locus cycle never spins.
+    internal readonly record struct BvpTrace(Vector3d WorldLogDir, double TracedLength, double FieldDistance, List<int> PathFaces, List<int> CrossedEdges, int EdgeCrossingCount, int VertexPassCount, GeodesicStopKind Stop);
+    internal static Option<BvpTrace> BacktraceGeodesicToSource(IntrinsicMesh imesh, Mesh mesh, WindowField field, double targetDistance, int source, int targetFace, double[] targetWeights, WindowPropagationPolicy policy) {
+        if (source < 0 || targetFace < 0 || targetWeights.Length < 3) return None;
+        (int a, int b, int c) = imesh.Triangles[index: targetFace]!.Value;
+        int[] faceVerts = [a, b, c];
+        // Owning-window selection at the target via the forward WithinShadow predicate. Returns the owning pseudosource and the
+        // field-exact distance, both derived from the wavefront's own provenance (forward and backward use the SAME shadow predicate).
+        Option<(int Pseudosource, double FieldDistance)> entry = OwningWindowAt(imesh: imesh, field: field, faceVerts: faceVerts, weights: targetWeights);
+        if (entry.IsNone) return None;
+        (int owningPseudosource, double fieldDistance) = entry.IfNone((Pseudosource: source, FieldDistance: targetDistance));
+        // fieldDistance is the converged wavefront's own interpolated distance at the target (the witness reference the INDEPENDENT
+        // chart geodesic distance is compared against, never a replay length fed back).
+        if (!RhinoMath.IsValidDouble(x: fieldDistance) || fieldDistance < 0.0) return None;
+        // Walk the saddle chain target->source to confirm reachability. The accept is gated to the DIRECT case (owning pseudosource
+        // == source: the geodesic is a single straight source-incident leg) — the case the rigorous independent witness below covers.
+        // A genuine multi-saddle (cut-locus-bent) chain is confirmed monotone-decreasing toward the source but is NOT reported as a
+        // straight-ray path: it terminates IterationCap with the MMP-exact distance recorded, the honest terminal partition until a
+        // piecewise-through-saddle replay lands, rather than asserting a bent path the wavefront never took. With the default policy
+        // (SaddleAngleThreshold = 2pi+eps) no saddle pseudosource is ever seeded, so the direct case is the realized path.
+        int maxHops = Math.Max(val1: 1, val2: policy.BacktraceMaxHops.Value);
+        bool directLeg = owningPseudosource == source;
+        if (!directLeg) {
+            int pivot = owningPseudosource;
+            GeodesicStopKind chainStop = GeodesicStopKind.IterationCap;
+            for (int hop = 0; hop < maxHops; hop++) {
+                if (pivot == source) { chainStop = GeodesicStopKind.LengthReached; break; }
+                if (pivot < 0 || pivot >= imesh.VertexCount) return None;
+                double pivotReach = SaddleReach(imesh: imesh, field: field, saddle: pivot);
+                Option<int> step = PseudosourceTowardSource(imesh: imesh, field: field, saddle: pivot, source: source);
+                if (step.IsNone) return None;
+                int next = step.IfNone(source);
+                double nextReach = next == source ? 0.0 : SaddleReach(imesh: imesh, field: field, saddle: next);
+                if (next != source && nextReach >= pivotReach - RhinoMath.SqrtEpsilon) break;
+                pivot = next;
+            }
+            // Multi-saddle path confirmed (or exhausted): record the MMP-exact distance and defer the bent-path direction to IterationCap.
+            return new BvpTrace(WorldLogDir: Vector3d.Zero, TracedLength: chainStop == GeodesicStopKind.LengthReached ? fieldDistance : 0.0, FieldDistance: fieldDistance, PathFaces: [], CrossedEdges: [], EdgeCrossingCount: 0, VertexPassCount: 0, Stop: GeodesicStopKind.IterationCap);
+        }
+        // Direct geodesic: aim at the ACTUAL barycentric target POINT in the source-rooted chart (not a face corner) so the outgoing
+        // tangent is the true source->sample direction. The CHART geodesic distance to that point (sqrt(tx^2+ty^2) in the unfolded
+        // layout, a pure geometry quantity) is the INDEPENDENT witness length — compared against fieldDistance (the MMP wavefront's own
+        // distance) it catches a wrong owning-window pick that disagrees the two. Inverse-seat to world through the same basis the IVP
+        // forward seat inverts, then replay through WalkChart to produce the path evidence (PathFaces / CrossedEdges / segment law).
+        Option<(double Angle, double ChartDistance)> target = ChartAngleToTargetPoint(imesh: imesh, source: source, targetFace: targetFace, weights: targetWeights);
+        if (target.IsNone) return None;
+        (double directAngle, double chartDistance) = target.IfNone((Angle: 0.0, ChartDistance: 0.0));
+        Option<(int StartFace, int Va, int Vb, int Vc, double ChartAngle, Vector3d WorldDir)> seat = SeatSourceOutgoing(imesh: imesh, mesh: mesh, source: source, seatFace: targetFace, chartAngle: directAngle);
+        if (seat.IsNone) return None;
+        (int startFace, int va, int vb, int vc, double chartAngle, Vector3d worldDir) = seat.IfNone((StartFace: -1, Va: -1, Vb: -1, Vc: -1, ChartAngle: 0.0, WorldDir: Vector3d.Zero));
+        if (startFace < 0 || !worldDir.IsValid) return None;
+        ExpTrace forward = WalkChart(imesh: imesh, startFace: startFace, va: va, vb: vb, vc: vc, seatAngle: chartAngle, seatedWorldDir: worldDir, traceLength: chartDistance, mode: GeodesicWalkMode.Straightest, stopAtVertex: -1, policy: GeodesicTracePolicy.Default);
+        // TracedLength is the INDEPENDENT chart geodesic distance to the target point (geometry-derived), witnessed upstream against
+        // fieldDistance (MMP-derived). WorldLogDir scales the VALIDATED outgoing direction the replay traced by that length.
+        Vector3d worldLogDir = chartDistance * forward.SeatedWorldDir;
+        return new BvpTrace(WorldLogDir: worldLogDir, TracedLength: chartDistance, FieldDistance: fieldDistance, PathFaces: forward.PathFaces, CrossedEdges: forward.CrossedEdges, EdgeCrossingCount: forward.EdgeCrossingCount, VertexPassCount: forward.VertexPassCount, Stop: forward.Stop);
+    }
+    // Select the window owning the target point by the SAME WithinShadow predicate the forward wavefront used: across the face's
+    // three edges, project the barycentric point into each candidate window's pseudosource chart (Sx,Sy from the window's endpoint
+    // distances) and keep the shadow-covered window of least interpolated distance. Returns the owning pseudosource and the
+    // field-exact interpolated distance at the target — the witness reference. WithinShadow makes forward admission and backward
+    // selection the SAME predicate, so a target the forward pass covered is never mis-owned or missed by the backward pass.
+    private static Option<(int Pseudosource, double FieldDistance)> OwningWindowAt(IntrinsicMesh imesh, WindowField field, int[] faceVerts, double[] weights) {
+        double best = double.PositiveInfinity;
+        Option<(int Pseudosource, double FieldDistance)> owner = None;
+        for (int e = 0; e < 3; e++) {
+            int vi = faceVerts[e]; int vj = faceVerts[(e + 1) % 3];
+            int edgeIndex = imesh.IndexOfEdge(lo: Math.Min(val1: vi, val2: vj), hi: Math.Max(val1: vi, val2: vj));
+            if (edgeIndex < 0) continue;
+            IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
+            double wi = weights[e]; double wj = weights[(e + 1) % 3];
+            double denom = wi + wj;
+            double frac = denom > RhinoMath.ZeroTolerance ? (edge.Lo == vi ? wj : wi) / denom : 0.5;
+            double bary = Math.Min(val1: 1.0, val2: Math.Max(val1: 0.0, val2: frac)) * edge.Length;
+            foreach (GeodesicWindow window in field.Windows) {
+                if (window.Edge != edgeIndex) continue;
+                // Reconstruct the window's pseudosource projection (Sx,Sy<=0) in the edge frame from its stored endpoint distances
+                // (the same ProjectPseudosource geometry the forward cast used), then admit the target by WithinShadow.
+                (double sx, double sy) = ProjectPseudosource(b0: window.B0, b1: window.B1, d0: window.D0, d1: window.D1);
+                if (!WithinShadow(sx: sx, sy: sy, b0: window.B0, b1: window.B1, px: bary, py: 0.0)) continue;
+                double span = Math.Max(val1: window.B1 - window.B0, val2: RhinoMath.ZeroTolerance);
+                double here = window.Sigma + ((((window.B1 - bary) * window.D0) + ((bary - window.B0) * window.D1)) / span);
+                if (here < best) { best = here; owner = (window.Pseudosource, FieldDistance: here); }
+            }
+        }
+        return owner;
+    }
+    // The geodesic reach of a saddle pseudosource: the least field distance to the saddle vertex over its incident windows (the
+    // converged wavefront distance the saddle re-emitted from). Used as the chain-monotonicity reference and the direct-leg length.
+    private static double SaddleReach(IntrinsicMesh imesh, WindowField field, int saddle) {
+        double best = double.PositiveInfinity;
+        foreach (GeodesicWindow window in field.Windows) {
+            IntrinsicEdge edge = imesh.EdgeAt(index: window.Edge);
+            double reach = edge.Lo == saddle ? window.Sigma + window.D0 : edge.Hi == saddle ? window.Sigma + window.D1 : double.PositiveInfinity;
+            if (reach < best) best = reach;
+        }
+        return best;
+    }
+    // From a saddle waypoint, the next pseudosource toward the source is the owning pseudosource of the saddle's cheapest incident
+    // window — the wavefront leg that delivered the saddle its converged distance. A self-loop or absent window returns None so the
+    // caller emits IterationCap rather than spinning; the chain length itself is read from SaddleReach (the converged field distance).
+    private static Option<int> PseudosourceTowardSource(IntrinsicMesh imesh, WindowField field, int saddle, int source) {
+        double best = double.PositiveInfinity;
+        Option<int> next = None;
+        foreach (GeodesicWindow window in field.Windows) {
+            if (window.Pseudosource == saddle) continue;
+            IntrinsicEdge edge = imesh.EdgeAt(index: window.Edge);
+            if (edge.Lo != saddle && edge.Hi != saddle) continue;
+            double reach = window.Sigma + Math.Min(val1: window.D0, val2: window.D1);
+            if (reach < best) { best = reach; next = window.Pseudosource; }
+        }
+        return next.IsSome ? next : (saddle == source ? Some(source) : None);
+    }
+    // In-chart angle AND straight-line distance of the source-outgoing leg toward the barycentric target POINT, valid only when the
+    // target face is incident to the source (the direct 1-ring case): lay the source-rooted target face flat (source at origin, a
+    // neighbor on +x), place the target point by its barycentric weights, and read its chart angle + radius. The angle is the
+    // geometrically exact outgoing tangent of a direct geodesic (aiming at the true sample point, never a face corner) and the radius
+    // is the exact chart geodesic distance — the INDEPENDENT witness length. None when the source is not a vertex of the target face.
+    private static Option<(double Angle, double ChartDistance)> ChartAngleToTargetPoint(IntrinsicMesh imesh, int source, int targetFace, double[] weights) {
+        (int a, int b, int c) = imesh.Triangles[index: targetFace]!.Value;
+        int sLocal = a == source ? 0 : b == source ? 1 : c == source ? 2 : -1;
+        if (sLocal < 0) return None;
+        (int va, int vb, int vc) = sLocal == 0 ? (a, b, c) : sLocal == 1 ? (b, c, a) : (c, a, b);
+        (double w0, double w1, double w2) = sLocal == 0 ? (weights[0], weights[1], weights[2]) : sLocal == 1 ? (weights[1], weights[2], weights[0]) : (weights[2], weights[0], weights[1]);
+        double[] px = new double[3]; double[] py = new double[3];
+        LayoutFace(imesh: imesh, va: va, vb: vb, vc: vc, px: px, py: py);
+        double tx = (w0 * px[0]) + (w1 * px[1]) + (w2 * px[2]);
+        double ty = (w0 * py[0]) + (w1 * py[1]) + (w2 * py[2]);
+        double radius = Math.Sqrt(d: (tx * tx) + (ty * ty));
+        return radius > RhinoMath.ZeroTolerance ? Some((Angle: Math.Atan2(y: ty, x: tx), ChartDistance: radius)) : None;
+    }
+    // Inverse-seat the source-outgoing chart angle (the target-point bearing measured in the source-rooted seatFace layout) to world
+    // through the source reference edge / normal basis the forward seat (TraceStraightestGeodesic) inverts — placing the log direction
+    // in frames.X/Y[source]'s tangent plane without a fabricated gauge. Returns the seat face vertex order so WalkChart replays from
+    // the exact (va,vb,vc) the chart angle was measured in (so the forward and inverse seats are one shared geometry).
+    private static Option<(int StartFace, int Va, int Vb, int Vc, double ChartAngle, Vector3d WorldDir)> SeatSourceOutgoing(IntrinsicMesh imesh, Mesh mesh, int source, int seatFace, double chartAngle) {
+        if (seatFace < 0) return None;
+        (int a0, int b0, int c0) = imesh.Triangles[index: seatFace]!.Value;
+        (int va, int vb, int vc) = source == a0 ? (a0, b0, c0) : source == b0 ? (b0, c0, a0) : (c0, a0, b0);
+        FrameBundle frames = EnsureVertexFrames(mesh: mesh);
+        Vector3d worldEdge = (Vector3d)(mesh.Vertices[index: vb] - mesh.Vertices[index: va]);
+        worldEdge -= worldEdge * frames.N[va] * frames.N[va];
+        if (!worldEdge.IsValid || !(worldEdge.Length > RhinoMath.ZeroTolerance) || !worldEdge.Unitize()) worldEdge = frames.X[va];
+        Vector3d worldPerp = Vector3d.CrossProduct(a: frames.N[va], b: worldEdge);
+        Vector3d worldDir = (Math.Cos(d: chartAngle) * worldEdge) + (Math.Sin(a: chartAngle) * worldPerp);
+        return worldDir.IsValid && worldDir.Unitize() ? Some((StartFace: seatFace, Va: va, Vb: vb, Vc: vc, ChartAngle: chartAngle, WorldDir: worldDir)) : None;
+    }
+
     // --- [STRAIGHTEST_GEODESIC_EXP] ----------------------------------------------------------
     // Polthier straightest-geodesic IVP: seat the world tangent toward the sample into the source-face intrinsic chart,
     // then unfold face-to-face on intrinsic edge lengths (each face laid out fresh sharing the crossed edge's 2D placement,
@@ -3510,13 +3787,19 @@ internal static class MeshKernel {
                     : Fin.Fail<TangentLogMapResult>(key.InvalidResult());
             });
     }
-    private readonly record struct ExpTrace(Vector3d SeatedWorldDir, double TracedLength, List<int> PathFaces, List<int> CrossedEdges, int EdgeCrossingCount, int VertexPassCount, GeodesicStopKind Stop);
+    // The one face-unfolding walk owner. Three entries seat it differently and read different projections off it, but a single
+    // loop owns the unfold orchestration (no forked tracer): the IVP exp seats a world tangent, the BVP log replay seats the
+    // recovered source-outgoing chart angle and stops at the source vertex, and the overlay edge-trace seats the lo->hi chart
+    // bearing and records per-crossing barycentric (CutEdge,U). GeodesicWalkMode discriminates record-crossings/snap-suppression;
+    // StopAtVertex (>=0) adds the vertex-hit terminal so the BVP replay produces an INDEPENDENT arc length, not the input length.
+    private readonly record struct GeodesicWalkMode(bool RecordCrossings, bool SuppressVertexSnap) {
+        internal static readonly GeodesicWalkMode Straightest = new(RecordCrossings: false, SuppressVertexSnap: false);
+        internal static readonly GeodesicWalkMode EdgeOverlay = new(RecordCrossings: true, SuppressVertexSnap: true);
+    }
+    private readonly record struct ExpTrace(Vector3d SeatedWorldDir, double TracedLength, List<int> PathFaces, List<int> CrossedEdges, int EdgeCrossingCount, int VertexPassCount, GeodesicStopKind Stop, List<(int CutEdge, double U)> Crossings, double EndX, double EndY, int ArrivalFace, bool ReachedStopVertex);
+    // IVP straightest-geodesic seat: seat the world tangent by the signed angle from the world chord (source -> firstNeighbor)
+    // to worldDir about the source normal, then walk via the shared kernel. SeatedWorldDir echoes the validated direction.
     private static ExpTrace TraceStraightestGeodesic(IntrinsicMesh imesh, Mesh mesh, int source, int startFace, Vector3d worldDir, double traceLength, GeodesicTracePolicy policy) {
-        List<int> pathFaces = []; List<int> crossedEdges = [];
-        int maxSteps = policy.MaxSteps.Value;
-        double snapFraction = policy.VertexSnap.Value;
-        // Lay the start face out in 2D with the source at the origin; seat the world direction by the signed angle from the
-        // world chord of (source -> firstNeighbor) to worldDir about the source normal, applied to the intrinsic +x layout.
         (int a0, int b0, int c0) = imesh.Triangles[index: startFace]!.Value;
         (int va, int vb, int vc) = source == a0 ? (a0, b0, c0) : source == b0 ? (b0, c0, a0) : (c0, a0, b0);
         FrameBundle frames = EnsureVertexFrames(mesh: mesh);
@@ -3525,25 +3808,43 @@ internal static class MeshKernel {
         double seatAngle = worldEdge.IsValid && worldEdge.Length > RhinoMath.ZeroTolerance && worldEdge.Unitize()
             ? Math.Atan2(y: Vector3d.CrossProduct(a: worldEdge, b: worldDir) * frames.N[va], x: worldEdge * worldDir)
             : 0.0;
+        return WalkChart(imesh: imesh, startFace: startFace, va: va, vb: vb, vc: vc, seatAngle: seatAngle, seatedWorldDir: worldDir, traceLength: traceLength, mode: GeodesicWalkMode.Straightest, stopAtVertex: -1, policy: policy);
+    }
+    // Shared unfold walk: lay the start face flat (va at origin, vb on +x), shoot the ray at seatAngle, and unfold face-to-face on
+    // intrinsic lengths. EdgeOverlay records the cut M-edge + barycentric U per crossing and suppresses the vertex snap (raw
+    // crossings). StopAtVertex terminates with ReachedStopVertex when the ray reaches that vertex (the BVP source terminal), so
+    // TracedLength is the arc actually consumed, never the requested length. The loop is the named statement-kernel exemption.
+    private static ExpTrace WalkChart(IntrinsicMesh imesh, int startFace, int va, int vb, int vc, double seatAngle, Vector3d seatedWorldDir, double traceLength, GeodesicWalkMode mode, int stopAtVertex, GeodesicTracePolicy policy) {
+        List<int> pathFaces = []; List<int> crossedEdges = []; List<(int CutEdge, double U)> crossings = [];
+        int maxSteps = policy.MaxSteps.Value;
+        double snapFraction = mode.SuppressVertexSnap ? 0.0 : policy.VertexSnap.Value;
         double[] px = new double[3]; double[] py = new double[3];
         int[] vid = [va, vb, vc];
         LayoutFace(imesh: imesh, va: va, vb: vb, vc: vc, px: px, py: py);
         double qx = px[0], qy = py[0];
         double dx = Math.Cos(d: seatAngle), dy = Math.Sin(a: seatAngle);
-        int face = startFace; double traversed = 0.0; GeodesicStopKind stop = GeodesicStopKind.IterationCap; int crossings = 0; int vertexPasses = 0;
+        int face = startFace; double traversed = 0.0; GeodesicStopKind stop = GeodesicStopKind.IterationCap; int edgeCrossings = 0; int vertexPasses = 0;
+        double endX = qx; double endY = qy; int arrivalFace = startFace; bool reachedStop = false;
         for (int step = 0; step < maxSteps; step++) {
             pathFaces.Add(item: face);
             (int exitLocal, double exitT, double tHit) = RayExitOfFace(px: px, py: py, qx: qx, qy: qy, dx: dx, dy: dy);
             if (exitLocal < 0) { stop = GeodesicStopKind.IterationCap; break; }
-            double remaining = traceLength - traversed;
-            double segLength = tHit;
-            if (segLength >= remaining) { traversed = traceLength; stop = GeodesicStopKind.LengthReached; break; }
-            traversed += segLength;
             int ea = vid[exitLocal]; int eb = vid[(exitLocal + 1) % 3];
-            double edgeLength = imesh.EdgeLengthOf(i: ea, j: eb);
+            double remaining = traceLength - traversed;
+            // Vertex terminal: when the ray exit grazes the stop vertex (within VertexSnap*edge), the source is reached and the
+            // arc consumed so far is the independent length the witness compares against the field distance.
+            double exitEdgeLength = imesh.EdgeLengthOf(i: ea, j: eb);
+            double vertexFraction = mode.SuppressVertexSnap ? policy.VertexSnap.Value : snapFraction;
+            if (stopAtVertex >= 0 && exitEdgeLength > RhinoMath.ZeroTolerance && tHit <= remaining + RhinoMath.SqrtEpsilon
+                && ((ea == stopAtVertex && exitT <= vertexFraction) || (eb == stopAtVertex && exitT >= 1.0 - vertexFraction))) {
+                traversed += tHit; endX = qx + (tHit * dx); endY = qy + (tHit * dy); arrivalFace = face; reachedStop = true; stop = GeodesicStopKind.LengthReached; break;
+            }
+            if (tHit >= remaining) { traversed = traceLength; endX = qx + (remaining * dx); endY = qy + (remaining * dy); arrivalFace = face; stop = GeodesicStopKind.LengthReached; break; }
+            traversed += tHit;
+            double edgeLength = exitEdgeLength;
             // A grazing exit within VertexSnap*edgeLength of an endpoint is a vertex pass, not an edge crossing; snapping it
             // before recording keeps the crossing count and crossed-edge list in lockstep (segment law SegmentCount =
-            // EdgeCrossingCount + VertexPassCount + 1). Without the snap, a near-vertex grazing ray silently bends the geodesic.
+            // EdgeCrossingCount + VertexPassCount + 1). EdgeOverlay suppresses the snap so every transverse cut is recorded raw.
             bool nearStart = exitT <= snapFraction; bool nearEnd = exitT >= 1.0 - snapFraction;
             if ((nearStart || nearEnd) && edgeLength > RhinoMath.ZeroTolerance) {
                 int hitVertex = nearStart ? ea : eb;
@@ -3558,12 +3859,17 @@ internal static class MeshKernel {
             int edgeIndex = imesh.IndexOfEdge(lo: ea, hi: eb);
             int across = edgeIndex < 0 ? -1 : imesh.FaceAcrossEdge(faceIdx: face, i: ea, j: eb);
             if (across < 0) { stop = policy.StopAtBoundary ? GeodesicStopKind.BoundaryHit : GeodesicStopKind.IterationCap; break; }
-            crossedEdges.Add(item: edgeIndex); crossings++;
+            crossedEdges.Add(item: edgeIndex); edgeCrossings++;
+            if (mode.RecordCrossings) {
+                IntrinsicEdge cut = imesh.EdgeAt(index: edgeIndex);
+                double u = cut.Lo == ea ? exitT : 1.0 - exitT;
+                crossings.Add(item: (CutEdge: edgeIndex, U: Math.Min(val1: 1.0, val2: Math.Max(val1: 0.0, val2: u))));
+            }
             double exX = qx + (tHit * dx); double exY = qy + (tHit * dy);
             (px, py, vid) = UnfoldNeighbor(imesh: imesh, face: across, ea: ea, eb: eb, sharedAx: px[exitLocal], sharedAy: py[exitLocal], sharedBx: px[(exitLocal + 1) % 3], sharedBy: py[(exitLocal + 1) % 3], interiorX: px[(exitLocal + 2) % 3], interiorY: py[(exitLocal + 2) % 3]);
-            face = across; qx = exX; qy = exY;
+            face = across; qx = exX; qy = exY; endX = exX; endY = exY; arrivalFace = across;
         }
-        return new ExpTrace(SeatedWorldDir: worldDir, TracedLength: traversed, PathFaces: pathFaces, CrossedEdges: crossedEdges, EdgeCrossingCount: crossings, VertexPassCount: vertexPasses, Stop: stop);
+        return new ExpTrace(SeatedWorldDir: seatedWorldDir, TracedLength: traversed, PathFaces: pathFaces, CrossedEdges: crossedEdges, EdgeCrossingCount: edgeCrossings, VertexPassCount: vertexPasses, Stop: stop, Crossings: crossings, EndX: endX, EndY: endY, ArrivalFace: arrivalFace, ReachedStopVertex: reachedStop);
     }
     private static void LayoutFace(IntrinsicMesh imesh, int va, int vb, int vc, double[] px, double[] py) {
         double lab = imesh.EdgeLengthOf(i: va, j: vb);
