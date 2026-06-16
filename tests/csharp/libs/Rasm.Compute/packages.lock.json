@@ -28,9 +28,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.102, )",
-        "resolved": "3.0.102",
-        "contentHash": "WhGaJ3QsULOtDUXqZIDMZqTnZ68wvl6UMvPjkdxcZVIe/n3sfJyd2rDRVO3Ea7KitP0xUn3M85L/t7+JGkt63w=="
+        "requested": "[3.0.104, )",
+        "resolved": "3.0.104",
+        "contentHash": "lFbTJ7eJCUIAFlZhkF394BnBe4oIto0pCOH8cEZasPqWCMm1bevmaMsIsxO5SSezqGmzzSaeTeMKvBH1fQG5ew=="
       },
       "Microsoft.Testing.Extensions.CrashDump": {
         "type": "Direct",
@@ -60,13 +60,13 @@
       },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
-        "requested": "[10.2.0, )",
-        "resolved": "10.2.0",
-        "contentHash": "BRiSpmpFsbbpHO7gnUK0s0uQwB9TmOkoVD8n1b9GrDBqvdnFDmWGGH81YQZKtTyB12aybXDB4EcVv4STQQVwVA==",
+        "requested": "[10.3.0, )",
+        "resolved": "10.3.0",
+        "contentHash": "8V1PjROSO+kyYjIfndPi4gmwL29qw3pkAm/MUdnyIi0lggwHALJ2IlzvIlVDJFOlYHyf6b4NjzrWp/h8GsLxQQ==",
         "dependencies": {
-          "Thinktecture.Runtime.Extensions.Analyzers": "10.2.0",
-          "Thinktecture.Runtime.Extensions.Refactorings": "10.2.0",
-          "Thinktecture.Runtime.Extensions.SourceGenerator": "10.2.0"
+          "Thinktecture.Runtime.Extensions.Analyzers": "10.3.0",
+          "Thinktecture.Runtime.Extensions.Refactorings": "10.3.0",
+          "Thinktecture.Runtime.Extensions.SourceGenerator": "10.3.0"
         }
       },
       "xunit.v3.mtp-v2": {
@@ -568,18 +568,18 @@
       },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",
-        "resolved": "10.2.0",
-        "contentHash": "hS5YZR6+bn9YewLV8ywkUXlvZmRLwhQ6Z7is+rvQQJuDpv+SuLEfEkzuTWi9pkKftBbJMorkpKEh/hoGS6Iqyg=="
+        "resolved": "10.3.0",
+        "contentHash": "z3DTkauLeUYhROp9DR7j47oy7kdA6ehq7IKpQ0RSHeHKR3/7z1xQ5Jpx+8bDBNXDaTBN4WHTsE6r1+iI1S1oYQ=="
       },
       "Thinktecture.Runtime.Extensions.Refactorings": {
         "type": "Transitive",
-        "resolved": "10.2.0",
-        "contentHash": "DCuufIBk40w1n8UOPoVE4KOofYtOKnjYQ0aOE759f1GqqpAuqOaapOF7rr3/DQRrRZuaFy2Mggw/UIVOLqaJaA=="
+        "resolved": "10.3.0",
+        "contentHash": "XwUUR6OvQ6oF9Maj1u6IlEE+fXJEEJJx/2ug+iP3ePj4vwRKmNfQnWrlic4i5FixYHUUePNrZf6YCiyPCf52ew=="
       },
       "Thinktecture.Runtime.Extensions.SourceGenerator": {
         "type": "Transitive",
-        "resolved": "10.2.0",
-        "contentHash": "dakjsj9+k/faX/Ff0Ez+jcV6bqdJ+6fem4sXkNZDL3qZwtyp4SGfZgRHDiOEWrkgq/WBoZWiE+MOaBoXiXObbw=="
+        "resolved": "10.3.0",
+        "contentHash": "CB2efEemm7FEAhHi7zoxT8ANLMhHQ5MpVmTBd4H+GRb2GyHEdN8Uhb5c1U9sv/EXylcmfeLdnDukQrjUrKrRvQ=="
       },
       "xunit.analyzers": {
         "type": "Transitive",
@@ -629,7 +629,7 @@
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "MathNet.Symbolics": "[0.25.0, )",
           "System.Numerics.Tensors": "[10.0.9, )",
-          "Thinktecture.Runtime.Extensions": "[10.2.0, )"
+          "Thinktecture.Runtime.Extensions": "[10.3.0, )"
         }
       },
       "rasm.apphost": {
@@ -669,8 +669,8 @@
           "Polly.RateLimiting": "[8.7.0, )",
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.3.1, )",
-          "Thinktecture.Runtime.Extensions": "[10.2.0, )",
-          "Thinktecture.Runtime.Extensions.Json": "[10.2.0, )"
+          "Thinktecture.Runtime.Extensions": "[10.3.0, )",
+          "Thinktecture.Runtime.Extensions.Json": "[10.3.0, )"
         }
       },
       "rasm.compute": {
@@ -689,8 +689,8 @@
           "Rasm.AppHost": "[1.0.0, )",
           "Rasm.Persistence": "[1.0.0, )",
           "System.Numerics.Tensors": "[10.0.9, )",
-          "Thinktecture.Runtime.Extensions": "[10.2.0, )",
-          "Thinktecture.Runtime.Extensions.Json": "[10.2.0, )",
+          "Thinktecture.Runtime.Extensions": "[10.3.0, )",
+          "Thinktecture.Runtime.Extensions.Json": "[10.3.0, )",
           "UnitsNet": "[5.75.0, )"
         }
       },
@@ -718,10 +718,10 @@
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.3, )",
           "Sep": "[0.14.1, )",
           "System.IO.Hashing": "[10.0.9, )",
-          "Thinktecture.Runtime.Extensions": "[10.2.0, )",
-          "Thinktecture.Runtime.Extensions.EntityFrameworkCore10": "[10.2.0, )",
-          "Thinktecture.Runtime.Extensions.Json": "[10.2.0, )",
-          "Thinktecture.Runtime.Extensions.MessagePack": "[10.2.0, )",
+          "Thinktecture.Runtime.Extensions": "[10.3.0, )",
+          "Thinktecture.Runtime.Extensions.EntityFrameworkCore10": "[10.3.0, )",
+          "Thinktecture.Runtime.Extensions.Json": "[10.3.0, )",
+          "Thinktecture.Runtime.Extensions.MessagePack": "[10.3.0, )",
           "linq2db.EntityFrameworkCore": "[10.4.0, )"
         }
       },
@@ -732,7 +732,7 @@
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Rasm": "[1.0.0, )",
           "System.Drawing.Common": "[10.0.9, )",
-          "Thinktecture.Runtime.Extensions": "[10.2.0, )"
+          "Thinktecture.Runtime.Extensions": "[10.3.0, )"
         }
       },
       "CommunityToolkit.HighPerformance": {
@@ -1435,31 +1435,31 @@
       },
       "Thinktecture.Runtime.Extensions.EntityFrameworkCore10": {
         "type": "CentralTransitive",
-        "requested": "[10.2.0, )",
-        "resolved": "10.2.0",
-        "contentHash": "PAZZx2BxdN/AV4Q6dHMN/4lKDxlQngLrOBBiJfM+uXeoEEqG5M3FeKCoWB7kNcwU71rnj2v2OPiTFWHIw6tbHA==",
+        "requested": "[10.3.0, )",
+        "resolved": "10.3.0",
+        "contentHash": "hc+jNHUq5+UtqBPIbvAlcx360/q3Fha+eg16TWDdm1lIpL/1lu8M7u60OQOGySiZMQ/EmYzxRCUhBayvDqqtCw==",
         "dependencies": {
           "Microsoft.EntityFrameworkCore.Relational": "10.0.1",
-          "Thinktecture.Runtime.Extensions": "10.2.0"
+          "Thinktecture.Runtime.Extensions": "10.3.0"
         }
       },
       "Thinktecture.Runtime.Extensions.Json": {
         "type": "CentralTransitive",
-        "requested": "[10.2.0, )",
-        "resolved": "10.2.0",
-        "contentHash": "ij6WM33qRNwEHDIf4uQ/YEleR8KptTGv9G7EWi+C4ZVzGbpJqRhAp95qY8qu6VJoXYMSR27WMIafm3h4lX0soA==",
+        "requested": "[10.3.0, )",
+        "resolved": "10.3.0",
+        "contentHash": "auTbWvDCLIA0EvwRDuNXVOJjXMsmdmPsRn0DcG29q0iziTaToAa3DnscfGeypK5E1xLsa6c/MkOzgZ1yk2tk/Q==",
         "dependencies": {
-          "Thinktecture.Runtime.Extensions": "10.2.0"
+          "Thinktecture.Runtime.Extensions": "10.3.0"
         }
       },
       "Thinktecture.Runtime.Extensions.MessagePack": {
         "type": "CentralTransitive",
-        "requested": "[10.2.0, )",
-        "resolved": "10.2.0",
-        "contentHash": "kPgQraXFPotL8jPqfC24okkQBpxGDJ1n1V567AT6Rzw7HvbYjXITE49HJfprrL2mNb/LTBFs7vbhuuWr/ZVCCQ==",
+        "requested": "[10.3.0, )",
+        "resolved": "10.3.0",
+        "contentHash": "fNRNjA2akm+uH9OO5IIFfFE3UdQ8ouyJlhXqoIpbTVnyLofKkRjtup8dEGuriv0DSi+r5CkhhPOoMR7+Cw8Bbw==",
         "dependencies": {
-          "MessagePack": "2.5.198",
-          "Thinktecture.Runtime.Extensions": "10.2.0"
+          "MessagePack": "2.5.302",
+          "Thinktecture.Runtime.Extensions": "10.3.0"
         }
       },
       "UnitsNet": {
