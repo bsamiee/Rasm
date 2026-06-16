@@ -9,7 +9,7 @@ Rasm.Compute owns the suite wire vocabulary: five proto services compiled GrpcSe
 |   [1]   | PROTO_VOCABULARY   | Five wire services, canonical geometry messages, generated-client capsule |
 |   [2]   | CONTRACT_EVOLUTION | Descriptor-diff drift law, parse hardening, reserved-number policy        |
 |   [3]   | FAULT_PROJECTION   | One FaultDetail family carrying typed faults through status details       |
-|   [4]   | TRANSPORT_AXIS     | Four transport rows, streaming capability, dial dispatch, redial law        |
+|   [4]   | TRANSPORT_AXIS     | Four transport rows, streaming capability, dial dispatch, redial law      |
 |   [5]   | CALL_POLICY        | Credential axis, one stamping interceptor, deadline and payload edges     |
 |   [6]   | ARTIFACT_FRAMES    | Suite frame law: 64 KiB frames, Crc32, zero-copy wrap                     |
 |   [7]   | TS_PROJECTION      | Browser wire posture, fault and frame contracts, method shapes            |
@@ -54,26 +54,26 @@ public sealed record WireServices(
 |  [12]   | ArtifactSync    | Sync               | bidi          | ArtifactFrame → ArtifactFrame            | frame law below; FieldMask partials; Any artifact envelopes                                                                                                                              |
 |  [13]   | Health          | Check              | unary         | HealthCheckRequest → HealthCheckResponse | maps from the HealthChecks registry via the WireHealthRow tag predicate; substrate predicate and node selection read it                                                                  |
 |  [14]   | Health          | Watch              | server-stream | HealthCheckRequest → HealthCheckResponse | compiled verbatim from the well-known proto                                                                                                                                              |
-|  [15]   | ComputeService  | Solve              | unary         | SolveRequest → SolveResponse             | carries the numeric-lane dense or sparse decomposition field-for-field; faults ride FaultDetail; the row-block shard sub-solve dials this rpc                                             |
+|  [15]   | ComputeService  | Solve              | unary         | SolveRequest → SolveResponse             | carries the numeric-lane dense or sparse decomposition field-for-field; faults ride FaultDetail; the row-block shard sub-solve dials this rpc                                            |
 |  [16]   | ComputeService  | Generate           | server-stream | GenerateRequest → TokenChunk             | the remote token-streaming leg riding the Progress-class server-stream pattern, keyed by correlation; faults ride FaultDetail                                                            |
-|  [17]   | ComputeService  | GraphDiff          | unary         | GraphDiffRequest → GraphDiffResponse     | content-key delta over two Closure hashes; the diff algebra is Persistence sync-collaboration#TRANSPORT_AXIS, this carries the wire shape only                                            |
-|  [18]   | ComputeService  | SubtreeFetch       | server-stream | SubtreeFetchRequest → GraphChunk         | partial-graph checkout streaming the content-addressed subtree the GraphDiff added-set names                                                                                              |
+|  [17]   | ComputeService  | GraphDiff          | unary         | GraphDiffRequest → GraphDiffResponse     | content-key delta over two Closure hashes; the diff algebra is Persistence sync-collaboration#TRANSPORT_AXIS, this carries the wire shape only                                           |
+|  [18]   | ComputeService  | SubtreeFetch       | server-stream | SubtreeFetchRequest → GraphChunk         | partial-graph checkout streaming the content-addressed subtree the GraphDiff added-set names                                                                                             |
 
-| [INDEX] | [MESSAGE]        | [FIELDS]                                                                  | [ALIGNS]                                  |
-| :-----: | ---------------- | ------------------------------------------------------------------------- | ----------------------------------------- |
-|   [1]   | GeometryPayload  | oneof kind: point_cloud=1, mesh=2, voxel=3; symbolic_dims=4 repeated      | envelope for Infer payloads and artifacts |
-|   [2]   | PointCloudTensor | count=1 int64; channels=2 int32; dtype=3 string; data=4 bytes             | point-cloud N×C encoding row              |
-|   [3]   | MeshTensor       | vertex_count=1 int64; vertices=2 bytes; face_count=3 int64; faces=4 bytes | mesh vertex N×3 and face F×3 rows         |
-|   [4]   | VoxelTensor      | dims=1 repeated int64; dtype=2 string; data=3 bytes                       | voxel NCHW row                            |
-|   [5]   | SymbolicDim      | name=1 string; bound=2 int64                                              | symbolic-dim binding row                  |
-|   [6]   | SolveRequest     | matrix=1 GeometryPayload; rhs=2 bytes; factorization_kind=3 string; sparse_format=4 string; shard_tile=5 int32 | numeric-lane decomposition request field-for-field |
-|   [7]   | SolveResponse    | solution=1 bytes; provider=2 string; decomposition=3 string; rows=4 int64; cols=5 int64; nnz=6 int64 | numeric-lane solve result + Factorization-receipt evidence |
-|   [8]   | GenerateRequest  | model_checksum=1 string; prompt=2 string; max_length=3 double; guidance_kind=4 string; guidance_data=5 string; tools=6 string | generative-run request mirroring GenerationPolicy |
-|   [9]   | TokenChunk       | piece=1 string; token_index=2 int64; done=3 bool                          | one decoded token piece per server-stream frame |
-|  [10]   | GraphDiffRequest | base_hash=1 string; target_hash=2 string                                  | content-key delta over two Closure hashes |
-|  [11]   | GraphDiffResponse| added=1 repeated string; removed=2 repeated string                        | added/removed content-key set             |
-|  [12]   | SubtreeFetchRequest | content_keys=1 repeated string                                          | partial-graph checkout request            |
-|  [13]   | GraphChunk       | content_key=1 string; payload=2 bytes; ordinal=3 int64                    | one content-addressed subtree node per frame |
+| [INDEX] | [MESSAGE]           | [FIELDS]                                                                                                                      | [ALIGNS]                                                   |
+| :-----: | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+|   [1]   | GeometryPayload     | oneof kind: point_cloud=1, mesh=2, voxel=3; symbolic_dims=4 repeated                                                          | envelope for Infer payloads and artifacts                  |
+|   [2]   | PointCloudTensor    | count=1 int64; channels=2 int32; dtype=3 string; data=4 bytes                                                                 | point-cloud N×C encoding row                               |
+|   [3]   | MeshTensor          | vertex_count=1 int64; vertices=2 bytes; face_count=3 int64; faces=4 bytes                                                     | mesh vertex N×3 and face F×3 rows                          |
+|   [4]   | VoxelTensor         | dims=1 repeated int64; dtype=2 string; data=3 bytes                                                                           | voxel NCHW row                                             |
+|   [5]   | SymbolicDim         | name=1 string; bound=2 int64                                                                                                  | symbolic-dim binding row                                   |
+|   [6]   | SolveRequest        | matrix=1 GeometryPayload; rhs=2 bytes; factorization_kind=3 string; sparse_format=4 string; shard_tile=5 int32                | numeric-lane decomposition request field-for-field         |
+|   [7]   | SolveResponse       | solution=1 bytes; provider=2 string; decomposition=3 string; rows=4 int64; cols=5 int64; nnz=6 int64                          | numeric-lane solve result + Factorization-receipt evidence |
+|   [8]   | GenerateRequest     | model_checksum=1 string; prompt=2 string; max_length=3 double; guidance_kind=4 string; guidance_data=5 string; tools=6 string | generative-run request mirroring GenerationPolicy          |
+|   [9]   | TokenChunk          | piece=1 string; token_index=2 int64; done=3 bool                                                                              | one decoded token piece per server-stream frame            |
+|  [10]   | GraphDiffRequest    | base_hash=1 string; target_hash=2 string                                                                                      | content-key delta over two Closure hashes                  |
+|  [11]   | GraphDiffResponse   | added=1 repeated string; removed=2 repeated string                                                                            | added/removed content-key set                              |
+|  [12]   | SubtreeFetchRequest | content_keys=1 repeated string                                                                                                | partial-graph checkout request                             |
+|  [13]   | GraphChunk          | content_key=1 string; payload=2 bytes; ordinal=3 int64                                                                        | one content-addressed subtree node per frame               |
 
 ## [3]-[CONTRACT_EVOLUTION]
 

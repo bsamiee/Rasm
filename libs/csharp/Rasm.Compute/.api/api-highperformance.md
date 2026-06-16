@@ -40,20 +40,20 @@ for measured staging payloads.
 [PUBLIC_TYPE_SCOPE]: enumeration and helper shapes
 - rail: staging
 
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]  | [CAPABILITY]           |
-| :-----: | :-------------------------- | :-------------- | :--------------------- |
-|   [1]   | `ReadOnlySpanTokenizer<T>`  | tokenizer       | splits spans           |
-|   [2]   | `SpanTokenizer<T>`          | tokenizer       | splits mutable spans   |
-|   [3]   | `ReadOnlySpanEnumerable<T>` | item enumerable | enumerates with index  |
-|   [4]   | `SpanEnumerable<T>`         | item enumerable | enumerates with index  |
-|   [5]   | `ReadOnlyRefEnumerable<T>`  | ref enumerable  | enumerates by ref      |
-|   [6]   | `RefEnumerable<T>`          | ref enumerable  | enumerates by ref      |
-|   [7]   | `ParallelHelper`            | parallel root   | partitions batch work  |
-|   [8]   | `IAction` / `IAction2D`     | action contract | defines indexed work   |
-|   [9]   | `IInAction` / `IRefAction`  | action contract | defines item work      |
-|  [10]   | `BitHelper`                 | bit helper      | packs bit flags        |
+| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]  | [CAPABILITY]                |
+| :-----: | :-------------------------- | :-------------- | :-------------------------- |
+|   [1]   | `ReadOnlySpanTokenizer<T>`  | tokenizer       | splits spans                |
+|   [2]   | `SpanTokenizer<T>`          | tokenizer       | splits mutable spans        |
+|   [3]   | `ReadOnlySpanEnumerable<T>` | item enumerable | enumerates with index       |
+|   [4]   | `SpanEnumerable<T>`         | item enumerable | enumerates with index       |
+|   [5]   | `ReadOnlyRefEnumerable<T>`  | ref enumerable  | enumerates by ref           |
+|   [6]   | `RefEnumerable<T>`          | ref enumerable  | enumerates by ref           |
+|   [7]   | `ParallelHelper`            | parallel root   | partitions batch work       |
+|   [8]   | `IAction` / `IAction2D`     | action contract | defines indexed work        |
+|   [9]   | `IInAction` / `IRefAction`  | action contract | defines item work           |
+|  [10]   | `BitHelper`                 | bit helper      | packs bit flags             |
 |  [11]   | `HashCode<T>`               | hash helper     | REJECTED — see `[REJECTED]` |
-|  [12]   | `ObjectMarshal`             | marshal helper  | reads object internals |
+|  [12]   | `ObjectMarshal`             | marshal helper  | reads object internals      |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -74,36 +74,43 @@ for measured staging payloads.
 [ENTRYPOINT_SCOPE]: projections and transforms
 - rail: staging
 
-| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]   | [CAPABILITY]            |
-| :-----: | :----------------------------------------- | :------------- | :---------------------- |
-|   [1]   | `AsSpan2D`                                 | extension call | projects plane view     |
-|   [2]   | `AsMemory2D`                               | extension call | projects memory plane   |
-|   [3]   | `GetRow` / `GetColumn`                     | extension call | enumerates plane axis   |
-|   [4]   | `GetRowSpan`                               | extension call | addresses plane row     |
-|   [5]   | `DangerousGetReference`                    | extension call | exposes ref root        |
-|   [6]   | `AsBytes`                                  | extension call | projects raw bytes      |
-|   [7]   | `Cast`                                     | extension call | reinterprets span bytes |
-|   [8]   | `Tokenize`                                 | extension call | splits span payloads    |
-|   [9]   | `Enumerate`                                | extension call | exposes ref enumeration |
-|  [10]   | `AsStream`                                 | extension call | projects payload stream |
-|  [11]   | `StreamExtensions.Read` / `Write`          | extension call | moves span payloads     |
+| [INDEX] | [SURFACE]                         | [CALL_SHAPE]   | [CAPABILITY]            |
+| :-----: | :-------------------------------- | :------------- | :---------------------- |
+|   [1]   | `AsSpan2D`                        | extension call | projects plane view     |
+|   [2]   | `AsMemory2D`                      | extension call | projects memory plane   |
+|   [3]   | `GetRow` / `GetColumn`            | extension call | enumerates plane axis   |
+|   [4]   | `GetRowSpan`                      | extension call | addresses plane row     |
+|   [5]   | `DangerousGetReference`           | extension call | exposes ref root        |
+|   [6]   | `AsBytes`                         | extension call | projects raw bytes      |
+|   [7]   | `Cast`                            | extension call | reinterprets span bytes |
+|   [8]   | `Tokenize`                        | extension call | splits span payloads    |
+|   [9]   | `Enumerate`                       | extension call | exposes ref enumeration |
+|  [10]   | `AsStream`                        | extension call | projects payload stream |
+|  [11]   | `StreamExtensions.Read` / `Write` | extension call | moves span payloads     |
 
 [ENTRYPOINT_SCOPE]: parallel partition operations
 - rail: staging
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]   | [CAPABILITY]                                                                                |
-| :-----: | :------------------------------------- | :------------- | :------------------------------------------------------------------------------------------ |
-|   [1]   | `ParallelHelper.For<TAction>`          | partition call | `(int start, int end, in TAction, int minimumActionsPerThread)` over a 1D index range       |
-|   [2]   | `ParallelHelper.For<TAction>`          | partition call | `(Range, in TAction, int)` over a `Range` index span                                        |
-|   [3]   | `ParallelHelper.For2D<TAction>`        | partition call | `(int top, int bottom, int left, int right, in TAction, int)` over a 2D index rectangle      |
-|   [4]   | `ParallelHelper.For2D<TAction>`        | partition call | `(Rectangle, in TAction, int)` and `(Range i, Range j, in TAction, int)` over a 2D region    |
-|   [5]   | `ParallelHelper.ForEach<TItem,TAction>` | partition call | `(Memory<TItem>, in TAction, int)` ref-mutating item loop                                   |
-|   [6]   | `ParallelHelper.ForEach<TItem,TAction>` | partition call | `(ReadOnlyMemory<TItem>, in TAction, int)` in-reading item loop                             |
-|   [7]   | `ParallelHelper.ForEach<TItem,TAction>` | partition call | `(Memory2D<TItem>, in TAction, int)` and `(ReadOnlyMemory2D<TItem>, in TAction, int)` planes |
-|   [8]   | `IAction.Invoke`                       | action call    | `(int i)` invoked per 1D index slot                                                         |
-|   [9]   | `IAction2D.Invoke`                     | action call    | `(int i, int j)` invoked per 2D index slot                                                  |
-|  [10]   | `IInAction<T>.Invoke`                  | action call    | `(in T item)` invoked per read-only item                                                    |
-|  [11]   | `IRefAction<T>.Invoke`                 | action call    | `(ref T item)` invoked per mutable item                                                     |
+Partition helpers carry the partition shape; action contracts carry invocation arity.
+
+[PARTITION_OPERATIONS]:
+| [INDEX] | [SURFACE]                               | [CALL_SHAPE]        | [CAPABILITY]                |
+| :-----: | :-------------------------------------- | :------------------ | :-------------------------- |
+|   [1]   | `ParallelHelper.For<TAction>`           | 1D index range      | partitions index slots      |
+|   [2]   | `ParallelHelper.For<TAction>`           | `Range` span        | partitions a range span     |
+|   [3]   | `ParallelHelper.For2D<TAction>`         | 2D rectangle bounds | partitions a 2D rectangle   |
+|   [4]   | `ParallelHelper.For2D<TAction>`         | 2D region values    | partitions a 2D region      |
+|   [5]   | `ParallelHelper.ForEach<TItem,TAction>` | `Memory<T>`         | mutates items by reference  |
+|   [6]   | `ParallelHelper.ForEach<TItem,TAction>` | `ReadOnlyMemory<T>` | reads items by reference    |
+|   [7]   | `ParallelHelper.ForEach<TItem,TAction>` | memory plane        | partitions 2D memory planes |
+
+[ACTION_CONTRACTS]:
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]   | [CAPABILITY]             |
+| :-----: | :--------------------- | :------------- | :----------------------- |
+|   [1]   | `IAction.Invoke`       | 1D index       | handles one index slot   |
+|   [2]   | `IAction2D.Invoke`     | 2D index pair  | handles one 2D slot      |
+|   [3]   | `IInAction<T>.Invoke`  | read-only item | handles one input item   |
+|   [4]   | `IRefAction<T>.Invoke` | mutable item   | handles one mutable item |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

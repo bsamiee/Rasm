@@ -11,6 +11,7 @@ Outbound boundary ownership for the runtime spine: seven `OutboundHop` cases bin
 |   [3]   | KEYED_PIPELINES  | One keyed Polly registry and channel policy for non-HTTP hops      |
 |   [4]   | OWNERSHIP_LAW    | One retry owner per hop with conflict evidence and receipts        |
 |   [5]   | DISCOVERY_ATTACH | Manifest law, UDS attach, checksum gate, companion child lifecycle |
+|   [6]   | DELIVERY_FANOUT  | Multi-channel notification fan-out, delivery receipts, dedupe      |
 
 ## [2]-[HOP_AXIS]
 
@@ -460,6 +461,94 @@ public static class Discovery {
 }
 ```
 
-## [7]-[RESEARCH]
+## [7]-[DELIVERY_FANOUT]
 
-The dial-out boundary carries no open research. The accepted-socket peer-credential projection moves to the serving owner at `companion-sidecar#PEER_ADMISSION`, where the P/Invoke `getsockopt` route and the `ucred`/`xucred` blittable layout seat the admission fence.
+- Owner: `DeliveryTarget` `[Union]` the channel-target carrier (endpoint `Uri` versus discovered peer manifest); `DeliveryChannel` `[SmartEnum<string>]` the outbound notification-channel axis under the hop key policy; `DeliveryMessage` the channel-agnostic notification payload; `DeliveryReceipt` the per-channel delivery evidence; `DeliveryFanout` the static multi-channel fan surface with the dedupe cell.
+- Cases: 2 target cases — `Endpoint(Uri)` for the network-borne channels, `Peer(DiscoveryManifest)` for the in-app companion channel; 4 channel rows — push, webhook, email, in-app — each binding the `OutboundHop` its bytes ride through a target-discriminating `Hop(DeliveryTarget)` returning `Fin<OutboundHop>`: push and webhook on `WebhookPost` over an `Endpoint`, email on `HttpApi` over an `Endpoint` (the transactional-mail API), in-app on `LocalIpc` over a `Peer` manifest; a channel fed the wrong target shape returns `HopFault.Excluded` so the in-app channel can never forge a null manifest and a network channel can never dial a peer; delivery dispositions ride `HopOutcome`.
+- Entry: `Fan(DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels)` returns `IO<Seq<DeliveryReceipt>>` — deduplicates the message by its idempotency key, then fans it to each channel through the channel's `OutboundHop` so one notification reaches every configured channel under one dedupe guard.
+- Auto: every channel rides its `OutboundHop` so delivery inherits the hop's retry, breaker, rate-limit, and deadline — a flapping webhook endpoint breaks on the existing circuit breaker and a rate-capped push channel admits through the existing sliding-window limiter, never a per-channel retry loop; the dedupe decision reads the idempotency-key cell BEFORE the fan stamps it — the window-pruned map's `ContainsKey` on the message key is the dedupe verdict (first sight within the window is absent so the fan delivers, a re-fanned identical message within the window is present so every channel folds to a `DeliveryReceipt` carrying the deduped flag rather than re-delivering), then the cell records `now` so the window slides on the latest sight, never deciding on the post-swap value; each channel's delivery mints one `DeliveryReceipt` carrying the channel, the `HopReceipt`, and the delivery disposition so a partial fan (push delivered, email faulted) records every channel's outcome independently; the fan runs the channels concurrently under one `CancelScope` so a slow channel does not block the others.
+- Receipt: `DeliveryReceipt` — channel key, idempotency key, `HopOutcome`, deduped flag, attempt count, elapsed `Duration`, correlation id.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: one channel row absorbs a new delivery medium — a new SMS or chat channel is one `DeliveryChannel` row binding its `OutboundHop` over the matching `DeliveryTarget` case, never a parallel sender; a new target shape is one `DeliveryTarget` case breaking every channel's `Hop` switch; a new delivery disposition rides the existing `HopOutcome`; zero new surface.
+- Boundary: the delivery fan-out is the only multi-channel notification owner — a per-channel sender, a notification service wrapper, and a parallel delivery queue are the deleted forms, so all channels ride one fan and one dedupe; delivery never owns its own resilience — each channel composes its `OutboundHop` so the retry-owner, breaker, and rate-limit are the existing hop policy, and the delivery fan is purely the fan-and-dedupe layer above the hops; the dedupe is bounded — the idempotency-key cell evicts past its window so a long-lived process does not accumulate unbounded dedup state, mirroring the cache tag-cut bound; the fan is the scheduled-delivery consumer — a `ScheduleEntry` row fires the fan on its cadence so scheduled multi-channel delivery is one schedule row plus one fan call, never a second scheduler; the in-app channel rides the `LocalIpc` hop over a `DeliveryTarget.Peer` carrying the attached companion's `DiscoveryManifest` so an in-app notification reaches the companion over the control hop with a real peer manifest, never a `default!` placeholder and never a separate transport — the `Hop(DeliveryTarget)` switch is total and a target/channel shape mismatch is a typed `HopFault.Excluded`, never an unsound construction.
+
+```csharp signature
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DeliveryTarget {
+    private DeliveryTarget() { }
+
+    public sealed record Endpoint(Uri Authority) : DeliveryTarget;
+    public sealed record Peer(DiscoveryManifest Manifest) : DeliveryTarget;
+}
+
+[SmartEnum<string>]
+public sealed partial class DeliveryChannel {
+    public static readonly DeliveryChannel Push = new("push", static target => target.Switch(
+        endpoint: static e => Fin<OutboundHop>.Succ(new OutboundHop.WebhookPost(e.Authority, Guid.CreateVersion7())),
+        peer: static _ => Fin<OutboundHop>.Fail(new HopFault.Excluded("push:requires-endpoint"))));
+    public static readonly DeliveryChannel Webhook = new("webhook", static target => target.Switch(
+        endpoint: static e => Fin<OutboundHop>.Succ(new OutboundHop.WebhookPost(e.Authority, Guid.CreateVersion7())),
+        peer: static _ => Fin<OutboundHop>.Fail(new HopFault.Excluded("webhook:requires-endpoint"))));
+    public static readonly DeliveryChannel Email = new("email", static target => target.Switch(
+        endpoint: static e => Fin<OutboundHop>.Succ(new OutboundHop.HttpApi(e.Authority)),
+        peer: static _ => Fin<OutboundHop>.Fail(new HopFault.Excluded("email:requires-endpoint"))));
+    public static readonly DeliveryChannel InApp = new("in-app", static target => target.Switch(
+        endpoint: static _ => Fin<OutboundHop>.Fail(new HopFault.Excluded("in-app:requires-peer")),
+        peer: static p => Fin<OutboundHop>.Succ(new OutboundHop.LocalIpc(p.Manifest))));
+
+    [UseDelegateFromConstructor]
+    public partial Fin<OutboundHop> Hop(DeliveryTarget target);
+}
+
+public sealed record DeliveryMessage(
+    string IdempotencyKey,
+    string Subject,
+    JsonElement Body,
+    DataClassification Classification,
+    HashMap<DeliveryChannel, DeliveryTarget> Targets);
+
+public readonly record struct DeliveryReceipt(
+    string Channel,
+    string IdempotencyKey,
+    HopOutcome Outcome,
+    bool Deduped,
+    int Attempts,
+    Duration Elapsed,
+    CorrelationId Correlation);
+
+public sealed record DeliveryRuntime(
+    OutboundRuntime Outbound,
+    Func<OutboundHop, DeliveryMessage, Func<CancellationToken, Task<HopOutcome>>> Send,
+    Atom<HashMap<string, Instant>> Dedupe,
+    Duration DedupeWindow,
+    ClockPolicy Clocks,
+    ReceiptSinkPort Sink,
+    JsonSerializerOptions Wire);
+
+public static class DeliveryFanout {
+    public static IO<Seq<DeliveryReceipt>> Fan(DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels) =>
+        IO.lift(() => runtime.Clocks.Now).Bind(now => {
+            var correlation = Correlation.Mint();
+            var pruned = runtime.Dedupe.Value.Filter(stamp => now - stamp < runtime.DedupeWindow);
+            var deduped = pruned.ContainsKey(message.IdempotencyKey);
+            runtime.Dedupe.Swap(_ => pruned.AddOrUpdate(message.IdempotencyKey, now, now));
+            return channels.ToArray().ToSeq()
+                .TraverseM(channel => deduped
+                    ? IO.pure(new DeliveryReceipt(channel.Key, message.IdempotencyKey, new HopOutcome.Delivered(), Deduped: true, 0, Duration.Zero, correlation))
+                    : Deliver(runtime, channel, message, correlation))
+                .As();
+        });
+
+    static IO<DeliveryReceipt> Deliver(DeliveryRuntime runtime, DeliveryChannel channel, DeliveryMessage message, CorrelationId correlation) =>
+        (from target in message.Targets.Find(channel).ToFin(new HopFault.Text($"no-target:{channel.Key}"))
+         from hop in channel.Hop(target)
+         select (Target: target, Hop: hop)).Match(
+            Succ: bound => OutboundSurface.Run(runtime.Outbound, bound.Hop, runtime.Send(bound.Hop, message))
+                .Map(receipt => new DeliveryReceipt(channel.Key, message.IdempotencyKey, receipt.Outcome, Deduped: false, receipt.Attempts, receipt.Elapsed, correlation)),
+            Fail: error => IO.pure(new DeliveryReceipt(channel.Key, message.IdempotencyKey, new HopOutcome.Refused(error), Deduped: false, 0, Duration.Zero, correlation)));
+}
+```
+
+## [8]-[RESEARCH]
+
+The dial-out boundary carries no open research. The accepted-socket peer-credential projection moves to the serving owner at `companion-sidecar#PEER_ADMISSION`, where the P/Invoke `getsockopt` route and the `ucred`/`xucred` blittable layout seat the admission fence. The transactional-mail channel target API resolves at app-root creation behind the same app-root pin the OTLP exporter rides; the channel rows bind the `OutboundHop` only, never the provider client, so a mail provider is one channel target Uri, never a delivery-page client.

@@ -6,82 +6,102 @@ Isolation-concept atlas for measured execution. Every concept rides a row on an 
 
 The capabilities Rasm.Compute uniquely owns: a downstream app dev reaches for none of these by hand — each is a row or case on a budgeted owner.
 
-| [INDEX] | [FEATURE]                                                       | [OWNER]             | [PAGE#CLUSTER]                          |
-| :-----: | :------------------------------------------------------------- | :------------------ | :-------------------------------------- |
-|   [1]   | Typed intent admission, once at the boundary                   | `IntentAdmission`   | intent-and-selection#INTENT_FAMILY      |
-|   [2]   | Substrate selection as a fold over row data                    | `SubstrateSelection`| intent-and-selection#SUBSTRATE_AXIS     |
-|   [3]   | Boot-frozen benchmark-rank routing with static fall-through    | `SubstrateSelection`| intent-and-selection#SUBSTRATE_AXIS     |
-|   [4]   | Total dispatch with compile-broken row coverage                | `DispatchTable`     | intent-and-selection#DISPATCH_SPINE     |
-|   [5]   | CPU tensor lane over the SIMD primitive surface                | `TensorOps`         | tensor-lane#OPERATION_TABLE             |
-|   [6]   | Designed convolution and pooling on Rasm routes                | `TensorOpFamily`    | tensor-lane#EQUIVALENCE_INTEROP         |
-|   [7]   | Layout algebra and bare plane staging views                    | `LayoutForm`        | tensor-lane#LAYOUT_ALGEBRA              |
-|   [8]   | Geometry-to-tensor feature encoding with conformance triad     | `GeometryEncoding`  | tensor-lane#GEOMETRY_ENCODING           |
-|   [9]   | Kernel equivalence proofs against Rasm baselines               | `EquivalenceLaw`    | tensor-lane#EQUIVALENCE_INTEROP         |
-|  [10]   | ONNX inference, EP-parameterized, OrtValue-only                | `RunOps`            | model-lane#INFERENCE_MODES              |
-|  [11]   | Apple-silicon ANE/GPU inference, CoreML EP                     | `ExecutionProvider` | model-lane#EP_AXIS                      |
-|  [12]   | Designed GPU inference rows, CUDA and DirectML                 | `ExecutionProvider` | model-lane#EP_AXIS                      |
-|  [13]   | Model provenance and extension-op admission                    | `ModelSource`       | model-lane#MODEL_IDENTITY               |
-|  [14]   | One shared session per checksum with LRU residency             | `ModelSessions`     | model-lane#SESSION_CAPSULE              |
-|  [15]   | EP-context warm-start blob, content-addressed                  | `ModelSessions`     | model-lane#SESSION_CAPSULE              |
-|  [16]   | Bound-batch inference over OrtIoBinding                        | `RunOps`            | model-lane#INFERENCE_MODES              |
-|  [17]   | ONNX terminate-latch cancellation cadence                     | `RunOps`            | model-lane#INFERENCE_MODES              |
-|  [18]   | Deterministic version-stamped model-result cache              | `CacheOps`          | model-lane#RESULT_CACHE                 |
-|  [19]   | Staging allocation classes with admission predicate + evidence | `AllocationClass`   | staging-and-streams#ALLOCATION_AXIS     |
-|  [20]   | Bit-packed occupancy and in-place codec growth                 | `AllocationClass`   | staging-and-streams#ALLOCATION_AXIS     |
-|  [21]   | One-per-process recyclable stream pool, evidence-folded        | `StreamPool`        | staging-and-streams#STREAM_POOL         |
-|  [22]   | Bounded work lanes with backpressure receipts                  | `WorkLane`          | scheduling-and-lanes#LANE_AXIS          |
-|  [23]   | Solve-path isolation, GH2 structural enqueue guard             | `LaneRuntime`       | scheduling-and-lanes#SOLVE_GUARD        |
-|  [24]   | One processor budget across the three concurrency axes         | `WorkLane`          | scheduling-and-lanes#CPU_BUDGET         |
-|  [25]   | Band-200 drain participation with provenance-preserved cancel  | `LaneRuntime`       | scheduling-and-lanes#DRAIN_CANCEL       |
-|  [26]   | Monotonic progress phases with CAS rank guard                  | `ProgressCell`      | progress-and-observation#PROGRESS_CELL  |
-|  [27]   | Cadence-gated observation seams, UI marshal and wire stream    | `SubscriptionPolicy`| progress-and-observation#OBSERVATION_SEAMS |
-|  [28]   | Units-aware AEC admission with dual unit evidence              | `QuantityFamily`    | units-boundary#QUANTITY_TABLE           |
-|  [29]   | AEC successor quantity rows                                    | `QuantityFamily`    | units-boundary#QUANTITY_TABLE           |
-|  [30]   | Compound dimensional consistency at composition               | `QuantityFamily`    | units-boundary#DIMENSIONAL_LAW          |
-|  [31]   | NaN-as-missing min/max reductions, distinct from Min/Max      | `TensorOpFamily`    | tensor-lane#OPERATION_TABLE             |
-|  [32]   | Claim-gated parallel partition column over the SIMD lane      | `TensorOps`         | tensor-lane#KERNEL_DISPATCH             |
-|  [33]   | RID-keyed BLAS provider table with managed fallback           | `LinearProvider`    | numeric-lane#DENSE_ALGEBRA              |
-|  [34]   | Dense GEMM/solve over a five-case factorization union         | `DenseOps`          | numeric-lane#DENSE_ALGEBRA              |
-|  [35]   | Sparse-format ingestion and direct/iterative solve            | `SparseOps`         | numeric-lane#SPARSE_SOLVE               |
-|  [36]   | Kernel lowering binding for tensor matrix/structural rows     | `KernelLowering`    | numeric-lane#KERNEL_LOWERING            |
-|  [37]   | Row-block shard fan-out over the dense fold                   | `ShardPlan`         | numeric-lane#KERNEL_LOWERING            |
-|  [38]   | Claim-gated numeric provider rank                             | `LinearProvider`    | numeric-lane#PROVIDER_CLAIMS            |
-|  [39]   | Token-streaming generative run over the session/EP spine      | `GenerativeRun`     | model-lane#GENERATIVE_RUN               |
-|  [40]   | Search-option and native chat-template prompt assembly        | `GenerationPolicy`  | model-lane#GENERATIVE_RUN               |
-|  [41]   | Grammar-constrained structured output at generation           | `GuidanceKind`      | model-lane#GENERATIVE_RUN               |
-|  [42]   | Generative and numeric-solve intent cases                     | `ComputeIntent`     | intent-and-selection#INTENT_FAMILY      |
-|  [43]   | glTF/GLB managed mesh-and-scene import and export             | `InterchangeIo`     | interchange#IMPORT_RAIL                 |
-|  [44]   | In-process IFC semantic-graph ingest, never tessellated BRep  | `InterchangeIo`     | interchange#IMPORT_RAIL                 |
-|  [45]   | IFC STEP/XML/JSON managed model serialization                | `InterchangeIo`     | interchange#EXPORT_RAIL                 |
-|  [46]   | IFC-to-geometry two-hop tessellation over the companion rpc   | `TessellationRequest`| interchange#TWO_HOP_TESSELLATION       |
-|  [47]   | Content-addressed interchange artifacts, deflection-folded    | `InterchangeIdentity`| interchange#CONTENT_ADDRESSING         |
+| [INDEX] | [FEATURE]                                                                | [OWNER]               | [PAGE#CLUSTER]                              |
+| :-----: | :----------------------------------------------------------------------- | :-------------------- | :------------------------------------------ |
+|   [1]   | Typed intent admission, once at the boundary                             | `IntentAdmission`     | intent-and-selection#INTENT_FAMILY          |
+|   [2]   | Substrate selection as a fold over row data                              | `SubstrateSelection`  | intent-and-selection#SUBSTRATE_AXIS         |
+|   [3]   | Boot-frozen benchmark-rank routing with static fall-through              | `SubstrateSelection`  | intent-and-selection#SUBSTRATE_AXIS         |
+|   [4]   | Total dispatch with compile-broken row coverage                          | `DispatchTable`       | intent-and-selection#DISPATCH_SPINE         |
+|   [5]   | CPU tensor lane over the SIMD primitive surface                          | `TensorOps`           | tensor-lane#OPERATION_TABLE                 |
+|   [6]   | Designed convolution and pooling on Rasm routes                          | `TensorOpFamily`      | tensor-lane#EQUIVALENCE_INTEROP             |
+|   [7]   | Layout algebra and bare plane staging views                              | `LayoutForm`          | tensor-lane#LAYOUT_ALGEBRA                  |
+|   [8]   | Geometry-to-tensor feature encoding with conformance triad               | `GeometryEncoding`    | tensor-lane#GEOMETRY_ENCODING               |
+|   [9]   | Kernel equivalence proofs against Rasm baselines                         | `EquivalenceLaw`      | tensor-lane#EQUIVALENCE_INTEROP             |
+|  [10]   | ONNX inference, EP-parameterized, OrtValue-only                          | `RunOps`              | model-lane#INFERENCE_MODES                  |
+|  [11]   | Apple-silicon ANE/GPU inference, CoreML EP                               | `ExecutionProvider`   | model-lane#EP_AXIS                          |
+|  [12]   | Designed GPU inference rows, CUDA and DirectML                           | `ExecutionProvider`   | model-lane#EP_AXIS                          |
+|  [13]   | Model provenance and extension-op admission                              | `ModelSource`         | model-lane#MODEL_IDENTITY                   |
+|  [14]   | One shared session per checksum with LRU residency                       | `ModelSessions`       | model-lane#SESSION_CAPSULE                  |
+|  [15]   | EP-context warm-start blob, content-addressed                            | `ModelSessions`       | model-lane#SESSION_CAPSULE                  |
+|  [16]   | Bound-batch inference over OrtIoBinding                                  | `RunOps`              | model-lane#INFERENCE_MODES                  |
+|  [17]   | ONNX terminate-latch cancellation cadence                                | `RunOps`              | model-lane#INFERENCE_MODES                  |
+|  [18]   | Deterministic version-stamped model-result cache                         | `CacheOps`            | model-lane#RESULT_CACHE                     |
+|  [19]   | Staging allocation classes with admission predicate + evidence           | `AllocationClass`     | staging-and-streams#ALLOCATION_AXIS         |
+|  [20]   | Bit-packed occupancy and in-place codec growth                           | `AllocationClass`     | staging-and-streams#ALLOCATION_AXIS         |
+|  [21]   | One-per-process recyclable stream pool, evidence-folded                  | `StreamPool`          | staging-and-streams#STREAM_POOL             |
+|  [22]   | Bounded work lanes with backpressure receipts                            | `WorkLane`            | scheduling-and-lanes#LANE_AXIS              |
+|  [23]   | Solve-path isolation, GH2 structural enqueue guard                       | `LaneRuntime`         | scheduling-and-lanes#SOLVE_GUARD            |
+|  [24]   | One processor budget across the three concurrency axes                   | `WorkLane`            | scheduling-and-lanes#CPU_BUDGET             |
+|  [25]   | Band-200 drain participation with provenance-preserved cancel            | `LaneRuntime`         | scheduling-and-lanes#DRAIN_CANCEL           |
+|  [26]   | Monotonic progress phases with CAS rank guard                            | `ProgressCell`        | progress-and-observation#PROGRESS_CELL      |
+|  [27]   | Cadence-gated observation seams, UI marshal and wire stream              | `SubscriptionPolicy`  | progress-and-observation#OBSERVATION_SEAMS  |
+|  [28]   | Units-aware AEC admission with dual unit evidence                        | `QuantityFamily`      | units-boundary#QUANTITY_TABLE               |
+|  [29]   | AEC successor quantity rows                                              | `QuantityFamily`      | units-boundary#QUANTITY_TABLE               |
+|  [30]   | Compound dimensional consistency at composition                          | `QuantityFamily`      | units-boundary#DIMENSIONAL_LAW              |
+|  [31]   | NaN-as-missing min/max reductions, distinct from Min/Max                 | `TensorOpFamily`      | tensor-lane#OPERATION_TABLE                 |
+|  [32]   | Claim-gated parallel partition column over the SIMD lane                 | `TensorOps`           | tensor-lane#KERNEL_DISPATCH                 |
+|  [33]   | RID-keyed BLAS provider table with managed fallback                      | `LinearProvider`      | numeric-lane#DENSE_ALGEBRA                  |
+|  [34]   | Dense GEMM/solve over a five-case factorization union                    | `DenseOps`            | numeric-lane#DENSE_ALGEBRA                  |
+|  [35]   | Sparse-format ingestion and direct/iterative solve                       | `SparseOps`           | numeric-lane#SPARSE_SOLVE                   |
+|  [36]   | Kernel lowering binding for tensor matrix/structural rows                | `KernelLowering`      | numeric-lane#KERNEL_LOWERING                |
+|  [37]   | Row-block shard fan-out over the dense fold                              | `ShardPlan`           | numeric-lane#KERNEL_LOWERING                |
+|  [38]   | Claim-gated numeric provider rank                                        | `LinearProvider`      | numeric-lane#PROVIDER_CLAIMS                |
+|  [39]   | Token-streaming generative run over the session/EP spine                 | `GenerativeRun`       | model-lane#GENERATIVE_RUN                   |
+|  [40]   | Search-option and native chat-template prompt assembly                   | `GenerationPolicy`    | model-lane#GENERATIVE_RUN                   |
+|  [41]   | Grammar-constrained structured output at generation                      | `GuidanceKind`        | model-lane#GENERATIVE_RUN                   |
+|  [42]   | Generative and numeric-solve intent cases                                | `ComputeIntent`       | intent-and-selection#INTENT_FAMILY          |
+|  [43]   | glTF/GLB managed mesh-and-scene import and export                        | `InterchangeIo`       | interchange#IMPORT_RAIL                     |
+|  [44]   | In-process IFC semantic-graph ingest, never tessellated BRep             | `InterchangeIo`       | interchange#IMPORT_RAIL                     |
+|  [45]   | IFC STEP/XML/JSON managed model serialization                            | `InterchangeIo`       | interchange#EXPORT_RAIL                     |
+|  [46]   | IFC-to-geometry two-hop tessellation over the companion rpc              | `TessellationRequest` | interchange#TWO_HOP_TESSELLATION            |
+|  [47]   | Content-addressed interchange artifacts, deflection-folded               | `InterchangeIdentity` | interchange#CONTENT_ADDRESSING              |
+|  [48]   | STEP AP242 + Revit/Navisworks/DWG + IFC5 + sim-format ingest             | `InterchangeFormat`   | interchange#FORMAT_AXIS                     |
+|  [49]   | Per-importer frame/handedness/up-axis normalization at ingest            | `FrameNormalization`  | interchange#FORMAT_AXIS                     |
+|  [50]   | glTF Draco/Meshopt compression and 3D-Tiles streamable LOD               | `InterchangeIo`       | interchange#EXPORT_RAIL                     |
+|  [51]   | Chunked error-bounded field/result codec, zero-copy                      | `FieldCodec`          | interchange#FIELD_RESULT_CODEC              |
+|  [52]   | FastCDC structural geometry-delta codec, progressive                     | `DeltaCodec`          | interchange#GEOMETRY_DELTA                  |
+|  [53]   | Provider-determinism solve-dedup fingerprint                             | `LinearProvider`      | numeric-lane#DENSE_ALGEBRA                  |
+|  [54]   | Reverse-mode adjoint through differentiable DDG operators                | `SensitivityLaw`      | tensor-lane#EQUIVALENCE_INTEROP             |
+|  [55]   | B-rep/NURBS canonical geometry encoding                                  | `GeometryEncoding`    | tensor-lane#GEOMETRY_ENCODING               |
+|  [56]   | BIM inference reuse: classification, symbol, clash scoring               | `RunOps`              | model-lane#INFERENCE_MODES                  |
+|  [57]   | Dependency job-graph scheduler, dirty-subgraph re-solve                  | `JobGraph`            | scheduling-and-lanes#JOB_GRAPH              |
+|  [58]   | Volumetric mesher: tet/hex/poly, boundary-layer, h/p adaptive            | `MeshKernel`          | solver-and-optimization#DISCRETIZATION_MESH |
+|  [59]   | Integration-point/nodal scalar/vector/tensor field rep                   | `FieldSpace`          | solver-and-optimization#DISCRETIZATION_MESH |
+|  [60]   | Uniform physics×BC×element solve contract, typed receipts                | `SolveLane`           | solver-and-optimization#SOLVE_CONTRACT      |
+|  [61]   | Design-space optimizer: NSGA/Bayesian/adjoint/topology/SA                | `Optimizer`           | solver-and-optimization#OPTIMIZER_LANE      |
+|  [62]   | Surrogate/reduced-order duality behind the solve contract                | `Surrogate`           | solver-and-optimization#OPTIMIZER_LANE      |
+|  [63]   | Pareto front as a queryable artifact                                     | `ParetoFront`         | solver-and-optimization#OPTIMIZER_LANE      |
+|  [64]   | N-dim DOE sweep grid with sensitivity tornado                            | `SweepLane`           | solver-and-optimization#SWEEP_AND_BUDGET    |
+|  [65]   | Frame-budgeted progressive solve, coarse-then-refine                     | `FrameBudget`         | solver-and-optimization#SWEEP_AND_BUDGET    |
+|  [66]   | Acceleration-structure clash + clearance compute over federated geometry | `ClashScale`          | solver-and-optimization#CLASH_AND_TWIN      |
+|  [67]   | ROM digital-twin loop: anomaly scoring, control suggestion               | `DigitalTwin`         | solver-and-optimization#CLASH_AND_TWIN      |
 
 ## [2]-[WIRE_AND_EVIDENCE_CONCEPTS]
 
-| [INDEX] | [FEATURE]                                                      | [OWNER]            | [PAGE#CLUSTER]                          |
-| :-----: | :------------------------------------------------------------ | :----------------- | :-------------------------------------- |
-|   [1]   | Suite wire vocabulary, five proto services                   | `WireServices`     | remote-lane#PROTO_VOCABULARY            |
-|   [2]   | Canonical proto geometry, one binary wire shape              | `WireServices`     | remote-lane#PROTO_VOCABULARY            |
-|   [3]   | Contract evolution by descriptor diff                         | `ContractGuard`    | remote-lane#CONTRACT_EVOLUTION          |
-|   [4]   | Open-envelope option negotiation under additive-only contract | `ContractGuard`    | remote-lane#CONTRACT_EVOLUTION          |
-|   [5]   | Typed faults across the wire through FaultDetail              | `ContractGuard`    | remote-lane#FAULT_PROJECTION            |
-|   [6]   | Four-row transport axis with streaming-capability columns     | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
-|   [7]   | In-process transport for the deterministic test host         | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
-|   [8]   | UnixDomainSocket byte-path transport with peer-credential law | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
-|   [9]   | Warm-start node affinity as a selection tie-breaker           | `WireChannels`     | remote-lane#TRANSPORT_AXIS              |
-|  [10]   | Credential axis behind one stamping interceptor              | `CredentialPolicy` | remote-lane#CALL_POLICY                 |
-|  [11]   | Compression flip behind a winning benchmark claim            | `CallSpine`        | remote-lane#CALL_POLICY                 |
-|  [12]   | Artifact frame law: 64 KiB, Crc32, zero-copy wrap            | `FrameEdge`        | remote-lane#ARTIFACT_FRAMES             |
-|  [13]   | Zero-alloc IBufferMessage frame steady state                 | `FrameEdge`        | remote-lane#ARTIFACT_FRAMES             |
-|  [14]   | Progress observation and cancellation spine                  | `ProgressCell`     | progress-and-observation#PROGRESS_CELL  |
-|  [15]   | Fifteen-case receipt union with fold projections             | `ComputeReceipt`   | receipts-and-benchmarks#RECEIPT_UNION   |
-|  [16]   | Unified telemetry contribution through AppHost ports         | `ReceiptSurface`   | receipts-and-benchmarks#RECEIPT_UNION   |
-|  [17]   | NodaTime-protobuf wire stamps at the temporal edge           | `ReceiptSurface`   | receipts-and-benchmarks#WIRE_STAMPS     |
-|  [18]   | Benchmark and profiling evidence farm, fingerprint-gated     | `BenchmarkClaim`   | receipts-and-benchmarks#BENCHMARK_CLAIMS |
-|  [19]   | TS dashboard projections, wire, progress, receipts           | `ComputeReceipt`   | receipts-and-benchmarks#TS_PROJECTION   |
-|  [20]   | Numeric solve and remote-generate rpc legs                   | `WireServices`     | remote-lane#PROTO_VOCABULARY            |
-|  [21]   | Graph-diff and subtree-fetch wire message family             | `WireServices`     | remote-lane#PROTO_VOCABULARY            |
-|  [22]   | Factorization and generate receipt cases                    | `ComputeReceipt`   | receipts-and-benchmarks#RECEIPT_UNION   |
+| [INDEX] | [FEATURE]                                                     | [OWNER]            | [PAGE#CLUSTER]                           |
+| :-----: | :------------------------------------------------------------ | :----------------- | :--------------------------------------- |
+|   [1]   | Suite wire vocabulary, five proto services                    | `WireServices`     | remote-lane#PROTO_VOCABULARY             |
+|   [2]   | Canonical proto geometry, one binary wire shape               | `WireServices`     | remote-lane#PROTO_VOCABULARY             |
+|   [3]   | Contract evolution by descriptor diff                         | `ContractGuard`    | remote-lane#CONTRACT_EVOLUTION           |
+|   [4]   | Open-envelope option negotiation under additive-only contract | `ContractGuard`    | remote-lane#CONTRACT_EVOLUTION           |
+|   [5]   | Typed faults across the wire through FaultDetail              | `ContractGuard`    | remote-lane#FAULT_PROJECTION             |
+|   [6]   | Four-row transport axis with streaming-capability columns     | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS               |
+|   [7]   | In-process transport for the deterministic test host          | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS               |
+|   [8]   | UnixDomainSocket byte-path transport with peer-credential law | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS               |
+|   [9]   | Warm-start node affinity as a selection tie-breaker           | `WireChannels`     | remote-lane#TRANSPORT_AXIS               |
+|  [10]   | Credential axis behind one stamping interceptor               | `CredentialPolicy` | remote-lane#CALL_POLICY                  |
+|  [11]   | Compression flip behind a winning benchmark claim             | `CallSpine`        | remote-lane#CALL_POLICY                  |
+|  [12]   | Artifact frame law: 64 KiB, Crc32, zero-copy wrap             | `FrameEdge`        | remote-lane#ARTIFACT_FRAMES              |
+|  [13]   | Zero-alloc IBufferMessage frame steady state                  | `FrameEdge`        | remote-lane#ARTIFACT_FRAMES              |
+|  [14]   | Progress observation and cancellation spine                   | `ProgressCell`     | progress-and-observation#PROGRESS_CELL   |
+|  [15]   | Fifteen-case receipt union with fold projections              | `ComputeReceipt`   | receipts-and-benchmarks#RECEIPT_UNION    |
+|  [16]   | Unified telemetry contribution through AppHost ports          | `ReceiptSurface`   | receipts-and-benchmarks#RECEIPT_UNION    |
+|  [17]   | NodaTime-protobuf wire stamps at the temporal edge            | `ReceiptSurface`   | receipts-and-benchmarks#WIRE_STAMPS      |
+|  [18]   | Benchmark and profiling evidence farm, fingerprint-gated      | `BenchmarkClaim`   | receipts-and-benchmarks#BENCHMARK_CLAIMS |
+|  [19]   | TS dashboard projections, wire, progress, receipts            | `ComputeReceipt`   | receipts-and-benchmarks#TS_PROJECTION    |
+|  [20]   | Numeric solve and remote-generate rpc legs                    | `WireServices`     | remote-lane#PROTO_VOCABULARY             |
+|  [21]   | Graph-diff and subtree-fetch wire message family              | `WireServices`     | remote-lane#PROTO_VOCABULARY             |
+|  [22]   | Factorization and generate receipt cases                      | `ComputeReceipt`   | receipts-and-benchmarks#RECEIPT_UNION    |
 
 ## [3]-[CONCEPT_SEEDS]
 

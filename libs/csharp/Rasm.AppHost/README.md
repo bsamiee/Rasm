@@ -9,7 +9,7 @@
 |   [1]   | rails, axes, source tree, seams, boundaries   | [architecture](ARCHITECTURE.md)                   |
 |   [2]   | implementation sequence and start gates       | [roadmap](ROADMAP.md)                             |
 |   [3]   | product capability atlas                      | [features](FEATURES.md)                           |
-|   [4]   | open work owned by this folder                 | [tasklog](TASKLOG.md)                             |
+|   [4]   | open work owned by this folder                | [tasklog](TASKLOG.md)                             |
 |   [5]   | implementation charter and concept-page index | [planning charter](.planning/README.md)           |
 |   [6]   | external package API catalogues               | [.api](.api/README.md)                            |
 |   [7]   | C# stack doctrine                             | [C# stack](../../../docs/stacks/csharp/README.md) |

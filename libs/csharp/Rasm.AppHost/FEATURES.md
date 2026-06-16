@@ -95,7 +95,41 @@ The post-fetch update rail and the inbound control-service host — the self-upd
 |  [57]   | Boot-minted tenant context: 4th cross-process primitive stamped on the envelope | `TenantContext`      | runtime-ports#PORT_RECORDS              |
 |  [58]   | W3C trace-context propagation over the control hop via gRPC metadata             | `TraceContext`       | diagnostics-and-telemetry#CORRELATION_SPINE |
 
-## [6]-[ROUTING]
+## [6]-[CAPABILITY_AND_EXTENSIBILITY]
+
+The self-describing op catalog, the agent and SDK projection, the capability-brokered plugin sandbox, the solver-extension contract, the reactive external-binding studio, and the reproducibility kernel — the platform legs that make the suite programmable, extensible, agent-operable, and reproducible from one descriptor source with zero ambient authority.
+
+| [INDEX] | [FEATURE]                                                                       | [OWNER]                 | [PAGE#CLUSTER]                              |
+| :-----: | :------------------------------------------------------------------------------ | :---------------------- | :------------------------------------------ |
+|  [59]   | Self-describing op catalog with effect/idempotency/cost/permission columns      | `CapabilityDescriptor`  | capability-registry#DESCRIPTOR_AXIS         |
+|  [60]   | Shape-discriminated discovery over the frozen registry, degradation-gated       | `CapabilityRegistry`    | capability-registry#DISCOVERY_FOLD          |
+|  [61]   | Commit-or-rollback intent transaction over the Compute dispatch rail            | `CommandAlgebra`        | capability-registry#COMMAND_ALGEBRA         |
+|  [62]   | Scoped grant algebra with consent/elevation, cost metering, dry-run sim         | `GrantBroker`           | capability-registry#GRANT_BROKER            |
+|  [63]   | Polyglot C#/TS/Python SDK codegen off one descriptor source                     | `SdkCodegen`            | capability-registry#SDK_CODEGEN             |
+|  [64]   | MCP tool/resource/prompt projection from the capability registry                | `McpMethod`             | mcp-projection#METHOD_AXIS                  |
+|  [65]   | MCP dry-run cost preview and brokered tool dispatch                             | `McpDispatch`           | mcp-projection#TOOL_DISPATCH                |
+|  [66]   | Streaming progress, cancellation, backpressure, resumable agent handles         | `StreamProgress`        | mcp-projection#STREAM_PROGRESS              |
+|  [67]   | WASM-component and process isolation with no-ambient-authority load             | `SandboxIsolation`      | sandbox-host#ISOLATION_AXIS                 |
+|  [68]   | Capability-brokered grant handle mediating every plugin host call               | `GrantHandle`           | sandbox-host#GRANT_HANDLE                   |
+|  [69]   | Per-plugin quota cell with kill-and-quarantine rail                             | `QuotaShape`            | sandbox-host#QUOTA_CONTROL                  |
+|  [70]   | Fail-closed supply-chain gate: signature, SLSA attestation, semver              | `SupplyChainGate`       | sandbox-host#SUPPLY_CHAIN                   |
+|  [71]   | Seven-category solver-plugin contract over one hosting fold                     | `SolverKind`            | solver-plugin#SOLVER_KIND                   |
+|  [72]   | Declared-op-to-descriptor plugin contract validation                           | `SolverPluginContract`  | solver-plugin#PLUGIN_CONTRACT               |
+|  [73]   | Sandboxed solver hosting with canonical-representation negotiation              | `SolverHosting`         | solver-plugin#SOLVER_HOSTING                |
+|  [74]   | Eight-transport reactive bidirectional external binding axis                    | `ExternalTransport`     | live-wire#TRANSPORT_AXIS                    |
+|  [75]   | Edge unit coercion through the Compute unit algebra on every inbound value      | `BindingSpec`           | live-wire#BINDING_SPEC                      |
+|  [76]   | Transactional write-back with acknowledgement and rollback                      | `WriteBack`             | live-wire#WRITE_BACK                        |
+|  [77]   | Per-binding connect/subscribe/stale/fault health folded into the host fold      | `BindingState`          | live-wire#BINDING_HEALTH                    |
+|  [78]   | Determinism kernel: pinned RNG, float mode, environment fingerprint             | `DeterminismContext`    | determinism-and-replay#DETERMINISM_KERNEL   |
+|  [79]   | Hash-chained content-addressed command log riding the durable op-log            | `EventLog`              | determinism-and-replay#EVENT_LOG            |
+|  [80]   | Replay-verify with per-step content-hash identity proof                         | `ReplayVerify`          | determinism-and-replay#REPLAY_VERIFY        |
+|  [81]   | Macro record/replay as a content-addressed parameterized atomic batch           | `MacroEngine`           | determinism-and-replay#MACRO_ENGINE         |
+|  [82]   | Partial recompute over content-address dependency edges with unchanged-prune    | `RecomputeGraph`        | determinism-and-replay#RECOMPUTE_GRAPH      |
+|  [83]   | Energy/thermal-aware compute-fidelity scaling from live power state             | `FidelityScale`         | host-profiles#POWER_AND_FIDELITY            |
+|  [84]   | Multi-channel delivery fan-out with delivery receipts and dedupe                | `DeliveryChannel`       | outbound-resilience#DELIVERY_FANOUT         |
+|  [85]   | Declarative alert engine: threshold/anomaly/forecast with hysteresis, escalation | `AlertRule`            | health-and-degradation#ALERT_ENGINE         |
+
+## [7]-[ROUTING]
 
 - Concept mechanics: `.planning/<page>.md` at the cluster anchor on each row.
 - Owner budget, public-surface cap, and owner realization state: `.planning/README.md#DENSITY_BAR`.

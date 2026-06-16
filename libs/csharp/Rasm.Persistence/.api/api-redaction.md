@@ -35,16 +35,18 @@ injection registration for support bundles and retained snapshot projections.
 [ENTRYPOINT_SCOPE]: registration and policy operations
 - rail: redaction
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]      | [CAPABILITY]             |
-| :-----: | :------------------------------------------------------------------------- | :---------------- | :----------------------- |
-|   [1]   | `AddRedaction`                                                             | service extension | registers redaction      |
-|   [2]   | `IRedactionBuilder.SetRedactor<T>(params DataClassificationSet[])`         | builder call      | maps redactor per class  |
-|   [3]   | `RedactionExtensions.SetHmacRedactor(IRedactionBuilder, Action<HmacRedactorOptions> \| IConfigurationSection, params DataClassificationSet[])` | builder extension | maps HMAC redactor       |
-|   [4]   | `IRedactionBuilder.SetFallbackRedactor<T>()`                              | builder call      | sets fallback redactor   |
-|   [5]   | `IRedactorProvider.GetRedactor(DataClassificationSet classifications) : Redactor` | provider call | resolves redactor        |
-|   [6]   | `Redactor.Redact(ReadOnlySpan<char> source, Span<char> destination) : int` (abstract) | redactor call | redacts value into buffer |
-|   [7]   | `Redactor.GetRedactedLength(ReadOnlySpan<char> input) : int` (abstract)    | redactor call     | measures redacted output |
-|   [8]   | `NullRedactor.Instance` / `ErasingRedactor.Instance`                       | static accessor   | settled pass / erase redactor |
+Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor calls use span inputs and return the redacted length or resolved `Redactor`.
+
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]      | [CAPABILITY]                  |
+| :-----: | :----------------------- | :---------------- | :---------------------------- |
+|   [1]   | `AddRedaction`           | service extension | registers redaction           |
+|   [2]   | `SetRedactor<T>`         | builder mapping   | maps redactor per class       |
+|   [3]   | `SetHmacRedactor`        | builder mapping   | maps HMAC redactor            |
+|   [4]   | `SetFallbackRedactor<T>` | builder fallback  | sets fallback redactor        |
+|   [5]   | `GetRedactor`            | provider lookup   | resolves redactor             |
+|   [6]   | `Redact`                 | span redaction    | redacts value into buffer     |
+|   [7]   | `GetRedactedLength`      | span measurement  | measures redacted output      |
+|   [8]   | redactor singletons      | static accessor   | settled pass / erase redactor |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

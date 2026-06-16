@@ -28,16 +28,17 @@ provider builders.
 [ENTRYPOINT_SCOPE]: tracing wiring
 - rail: telemetry
 
-| [INDEX] | [SURFACE]   | [CALL_SHAPE]                                                | [CAPABILITY]            |
+| [INDEX] | [SURFACE]   | [CALL_SHAPE]                                               | [CAPABILITY]            |
 | :-----: | :---------- | :--------------------------------------------------------- | :---------------------- |
 |   [1]   | `AddNpgsql` | `AddNpgsql(TracerProviderBuilder) : TracerProviderBuilder` | subscribes Npgsql spans |
 
 [ENTRYPOINT_SCOPE]: metrics wiring
 - rail: telemetry
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                  | [CAPABILITY]             |
-| :-----: | :------------------------- | :------------------------------------------------------------------------------------------- | :----------------------- |
-|   [1]   | `AddNpgsqlInstrumentation` | `AddNpgsqlInstrumentation(MeterProviderBuilder, Action<NpgsqlMetricsOptions>) : MeterProviderBuilder` | subscribes Npgsql meters |
+[METRICS_WIRING]:
+- Surface: `AddNpgsqlInstrumentation`.
+- Call shape: `MeterProviderBuilder` plus `Action<NpgsqlMetricsOptions>`.
+- Capability: subscribes Npgsql meters.
 
 ## [4]-[IMPLEMENTATION_LAW]
 

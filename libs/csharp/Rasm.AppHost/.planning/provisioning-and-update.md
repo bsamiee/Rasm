@@ -8,7 +8,7 @@ Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state m
 | :-----: | :------------- | :----------------------------------------------------------------------------- |
 |   [1]   | UPDATE_RAIL    | Post-fetch state machine, fault band, per-phase receipt, generated instruments |
 |   [2]   | CHANNEL_AXIS   | Three feed rows binding explicit channel and downgrade policy onto options     |
-|   [3]   | ROLLOVER_DRAIN | Drain-before-swap handshake + health-gated fleet-wide rolling-update wave       |
+|   [3]   | ROLLOVER_DRAIN | Drain-before-swap handshake + health-gated fleet-wide rolling-update wave      |
 
 ## [2]-[UPDATE_RAIL]
 

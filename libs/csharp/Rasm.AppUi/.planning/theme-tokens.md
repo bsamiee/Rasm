@@ -13,13 +13,13 @@ Rasm.AppUi resolves every visual constant through one frozen token catalogue: a 
 
 ## [2]-[TOKEN_CATALOG]
 
-- Owner: `TokenRow` `[Union]` role-keyed token family; `ThemeCatalog` frozen table and resolve fold; `ResolvedTheme` the one resolved artifact every consumer reads.
-- Cases: Paint | Metric | Depth | Span | Rank — color, dimension, elevation, duration, and z-order roles in one closed family.
-- Entry: `public static ResolvedTheme Resolve(ThemeVariantRow variant, DensityRow density, Func<Color, Color, double, Color> mix)` — one pure fold; the `(variant, density)` signature is the orthogonality law.
-- Auto: one resolve feeds five consumers — control resources, chart paints, SVG tint, icon foreground, editor highlights — from the same dictionaries; `Palette` projects the same paints into `ColorPaletteResources`, deleting per-consumer palette code.
-- Packages: Avalonia, Avalonia.Themes.Fluent, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: one token row reaches every consumer with zero new surface; a new role is one case on `TokenRow`.
-- Boundary: `mix` is the perceptual OKLab interpolation consumed as a delegate value — a second color-interpolation implementation beside it is the rejected form; ramp keys derive as ordinal `key+rank` strings mixed toward the row's `Toward` anchor; `Span` rows publish static delays only — interactive easing and tween vocabulary stay outside the catalogue; `HostMatched` never reaches `Resolve` because `Concrete` folds it to a concrete row first.
+- Owner: `TokenRow` `[Union]` role-keyed token family; `ThemeCatalog` frozen table and resolve fold; `ResolvedTheme` the one resolved artifact every consumer reads; `Colormap` `[SmartEnum<string>]` perceptually-uniform data-colormap catalog.
+- Cases: Paint | Metric | Depth | Span | Rank — color, dimension, elevation, duration, and z-order roles in one closed family; `Colormap` = viridis | magma | cividis | turbo — the perceptual scientific-data ramps the heat, density, and analytical visuals sample.
+- Entry: `public static ResolvedTheme Resolve(ThemeVariantRow variant, DensityRow density, Func<Color, Color, double, Color> mix)` — one pure fold; the `(variant, density)` signature is the orthogonality law; `public Color Sample(double t, Func<Color, Color, double, Color> mix)` — the one colormap sampler over the same OKLab mix.
+- Auto: one resolve feeds five consumers — control resources, chart paints, SVG tint, icon foreground, editor highlights — from the same dictionaries; `Palette` projects the same paints into `ColorPaletteResources`, deleting per-consumer palette code; `Colormap.Sample` interpolates between the six anchor stops through the same OKLab `mix` so a heat ramp, a density gradient, or a `HeatLandSeries.HeatMap` reads one perceptually-uniform scale, and `HeatMap` projects the sampled ramp into the LiveCharts `LvcColor[]` the geo and heat series consume.
+- Packages: Avalonia, Avalonia.Themes.Fluent, LiveChartsCore.SkiaSharpView.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
+- Growth: one token row reaches every consumer with zero new surface; a new role is one case on `TokenRow`; a new data-colormap is one `Colormap` row carrying its anchor stops; zero new surface.
+- Boundary: `mix` is the perceptual OKLab interpolation consumed as a delegate value — a second color-interpolation implementation beside it is the rejected form, and `Colormap.Sample` rides the same delegate so a hand-rolled RGB-lerped colormap or a hardcoded heat-gradient table is the deleted form; the perceptual ramps (`viridis`, `magma`, `cividis`) carry `Perceptual: true` so a contrast-sensitive data surface selects a lightness-monotone scale and `turbo` carries `Perceptual: false` as the rainbow row admitted only where category separation outranks lightness order; ramp keys derive as ordinal `key+rank` strings mixed toward the row's `Toward` anchor; `Span` rows publish static delays only — interactive easing and tween vocabulary stay outside the catalogue; `HostMatched` never reaches `Resolve` because `Concrete` folds it to a concrete row first.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -111,6 +111,46 @@ public static class ThemeCatalog {
 
     static FrozenDictionary<string, T> Frozen<T>(IEnumerable<(string Key, T Value)> entries) =>
         entries.ToFrozenDictionary(static entry => entry.Key, static entry => entry.Value, StringComparer.Ordinal);
+}
+```
+
+```csharp signature
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ThemeKeyPolicy, string>]
+[KeyMemberComparer<ThemeKeyPolicy, string>]
+public sealed partial class Colormap {
+    public static readonly Colormap Viridis = new("viridis", perceptual: true, stops: Seq(
+        Color.FromUInt32(0xFF440154), Color.FromUInt32(0xFF414487), Color.FromUInt32(0xFF2A788E),
+        Color.FromUInt32(0xFF22A884), Color.FromUInt32(0xFF7AD151), Color.FromUInt32(0xFFFDE725)));
+    public static readonly Colormap Magma = new("magma", perceptual: true, stops: Seq(
+        Color.FromUInt32(0xFF000004), Color.FromUInt32(0xFF3B0F70), Color.FromUInt32(0xFF8C2981),
+        Color.FromUInt32(0xFFDE4968), Color.FromUInt32(0xFFFE9F6D), Color.FromUInt32(0xFFFCFDBF)));
+    public static readonly Colormap Cividis = new("cividis", perceptual: true, stops: Seq(
+        Color.FromUInt32(0xFF00224E), Color.FromUInt32(0xFF35456C), Color.FromUInt32(0xFF666970),
+        Color.FromUInt32(0xFF948E77), Color.FromUInt32(0xFFCBBA69), Color.FromUInt32(0xFFFEE838)));
+    public static readonly Colormap Turbo = new("turbo", perceptual: false, stops: Seq(
+        Color.FromUInt32(0xFF30123B), Color.FromUInt32(0xFF4145AB), Color.FromUInt32(0xFF26BCE1),
+        Color.FromUInt32(0xFF7DFF56), Color.FromUInt32(0xFFFB8022), Color.FromUInt32(0xFF7A0403)));
+
+    public bool Perceptual { get; }
+
+    public Seq<Color> Stops { get; }
+
+    public Color Sample(double t, Func<Color, Color, double, Color> mix) {
+        double clamped = Math.Clamp(t, 0d, 1d);
+        int segments = Stops.Count - 1;
+        double scaled = clamped * segments;
+        int lo = Math.Min((int)scaled, segments - 1);
+        return mix(Stops[lo], Stops[lo + 1], scaled - lo);
+    }
+
+    public Seq<Color> Ramp(int steps, Func<Color, Color, double, Color> mix) =>
+        steps <= 1
+            ? Seq1(Sample(0d, mix))
+            : toSeq(Enumerable.Range(0, steps)).Map(step => Sample((double)step / (steps - 1), mix));
+
+    public LvcColor[] HeatMap(int steps, Func<Color, Color, double, Color> mix) =>
+        Ramp(steps, mix).Map(static color => new LvcColor(color.R, color.G, color.B, color.A)).ToArray();
 }
 ```
 

@@ -11,7 +11,8 @@ Rasm.Persistence encodes every durable payload through one three-row `SnapshotCo
 |   [3]   | SNAPSHOT_PROTOCOL   | Header law, atomic write fold, catalog row, orphan sweep              |
 |   [4]   | RESTORE_AND_DIFF    | Verified read, restore receipt parity, content-addressed diff         |
 |   [5]   | FUZZ_HARNESS        | Out-of-process SharpFuzz over the codec/restore untrusted boundary    |
-|   [6]   | TS_PROJECTION       | Wire shapes and msgpack alignment the dashboard consumes              |
+|   [6]   | SCHEMA_EVOLUTION    | Content-negotiated wire formats; schema-version registry; codec-as-lineage |
+|   [7]   | TS_PROJECTION       | Wire shapes and msgpack alignment the dashboard consumes              |
 
 ## [2]-[CODEC_AXIS]
 
@@ -392,7 +393,57 @@ public static class SnapshotCodecFuzz {
 }
 ```
 
-## [7]-[TS_PROJECTION]
+## [7]-[SCHEMA_EVOLUTION]
+
+- Owner: `SchemaVersion` the unified schema-version registry row; `WireFormat` the content-negotiable wire-format axis; `CodecLineageEdge` the schema/codec-version provenance edge; `SchemaEvolution` the static surface owning the schema-version registration, the content negotiation, and the codec-as-lineage projection.
+- Cases: a schema version registers a `(TypeName, Version, Fingerprint)` triple with its forward/backward compatibility flags; `WireFormat` carries the negotiable formats (json-stj, messagepack, file-raw — the `SnapshotCodec` rows) so a content-negotiation picks the best mutually-supported format; a codec-lineage edge is a `WasDerivedFrom` relating a payload's codec/schema version to its predecessor.
+- Entry: `public static SchemaVersion Register(string typeName, int version, ulong fingerprint, bool forwardCompatible, bool backwardCompatible)` — registers a schema version; `public static Fin<WireFormat> Negotiate(Seq<WireFormat> offered, Seq<WireFormat> accepted)` picks the highest mutually-supported wire format; `public static CodecLineageEdge Edge(UInt128 payload, SchemaVersion from, SchemaVersion to)` projects the codec/schema version as a provenance edge.
+- Auto: the schema-version registry is unified across the codec axis and the `SchemaFingerprint` so one registry answers "what schema version produced this payload" — every sealed snapshot's header `CodecVersion` plus the `SchemaFingerprint` resolves to a `SchemaVersion` row, so a payload self-describes its schema; content negotiation reads the offered and accepted `WireFormat` sets (a peer or a web consumer advertises its accepted formats, the codec axis offers its supported formats) and picks the highest mutually-supported one so a JSON-only web consumer reads json-stj while a binary peer reads messagepack off the same payload; codec and schema versions are provenance edges (`provenance#CAUSAL_DAG` `WasDerivedFrom`) so a schema migration's effect on a payload is a lineage edge — "this payload was re-encoded from schema v3 to v4" is a join dimension, not a hidden re-write.
+- Receipt: a registration rides `store.schema.register`; a negotiation rides `store.wire.negotiate` carrying the selected format; a codec-lineage edge folds into the `provenance#CAUSAL_DAG`.
+- Packages: System.IO.Hashing, MessagePack, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
+- Growth: a new wire format is one `WireFormat` row (a `SnapshotCodec` row's negotiable face); a new schema version is one `SchemaVersion` registry row; a new compatibility flag is one column; zero new surface — a per-version codec class, a hardcoded format pick, or a silent schema re-write is the deleted form because the registry is unified with the codec axis and the fingerprint, negotiation is a set-intersection over the `WireFormat` axis, and a codec/schema version change is a provenance edge.
+- Boundary: the schema-version registry is unified with the `SnapshotCodec` `CodecVersion` and the `SchemaFingerprint` so one registry resolves a payload's schema version — a separate version registry per codec or a version field duplicated across surfaces is the deleted form; content negotiation is a set-intersection over the `WireFormat` axis (the negotiable face of the `SnapshotCodec` rows) so a consumer advertising its accepted formats receives the highest mutually-supported one, and a hardcoded format pick or a server-imposed single format is the deleted form — the JSON-STJ row serves web consumers, the MessagePack row serves binary peers, and the negotiation picks per-consumer; codec and schema versions are provenance edges so a schema evolution is a lineage join dimension — a payload re-encoded under a new schema version carries a `WasDerivedFrom` edge to its prior version so the migration is auditable through the same provenance DAG, and a silent in-place schema re-write that loses the version history is the deleted form; forward/backward compatibility flags gate a read — a payload at a schema version newer than the reader's, where the version is not forward-compatible, folds to the `RESTORE_AND_DIFF` version-unsupported rejection rather than a best-effort decode, the same gate the snapshot header `CodecVersion` check enforces.
+
+```csharp signature
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<SnapshotKeyPolicy, string>]
+public sealed partial class WireFormat {
+    public static readonly WireFormat JsonStj = new("json-stj", rank: 1);
+    public static readonly WireFormat MessagePack = new("messagepack", rank: 3);
+    public static readonly WireFormat FileRaw = new("file-raw", rank: 0);
+
+    public int Rank { get; }
+}
+
+public readonly record struct SchemaVersion(string TypeName, int Version, ulong Fingerprint, bool ForwardCompatible, bool BackwardCompatible);
+
+public readonly record struct CodecLineageEdge(UInt128 Payload, string TypeName, int FromVersion, int ToVersion, ulong FromFingerprint, ulong ToFingerprint);
+
+public static class SchemaEvolution {
+    public static readonly FrozenDictionary<(string, int), SchemaVersion> Registry = FrozenDictionary<(string, int), SchemaVersion>.Empty;
+
+    public static SchemaVersion Register(string typeName, int version, ulong fingerprint, bool forwardCompatible, bool backwardCompatible) =>
+        new(typeName, version, fingerprint, forwardCompatible, backwardCompatible);
+
+    public static Fin<WireFormat> Negotiate(Seq<WireFormat> offered, Seq<WireFormat> accepted) =>
+        toSeq(offered.Filter(accepted.Contains).OrderByDescending(static format => format.Rank)).HeadOrNone()
+            .Match(
+                Some: Fin.Succ,
+                None: () => Fin.Fail<WireFormat>(Error.New("<wire-format-no-mutual-support>")));
+
+    public static CodecLineageEdge Edge(UInt128 payload, SchemaVersion from, SchemaVersion to) =>
+        new(payload, to.TypeName, from.Version, to.Version, from.Fingerprint, to.Fingerprint);
+
+    public static Fin<Unit> AdmitRead(SchemaVersion payload, SchemaVersion reader) =>
+        payload.Version > reader.Version && !payload.ForwardCompatible
+            ? Fin.Fail<Unit>(Error.New($"<schema-version-unsupported:{payload.TypeName}:{payload.Version}>"))
+            : payload.Version < reader.Version && !reader.BackwardCompatible
+                ? Fin.Fail<Unit>(Error.New($"<schema-version-too-old:{payload.TypeName}:{payload.Version}>"))
+                : Fin.Succ(unit);
+}
+```
+
+## [8]-[TS_PROJECTION]
 
 - Owner: `SnapshotCodecKey`, `SnapshotCompressionKey`, `DataClassificationKey`, `SnapshotHeaderWire`, `SnapshotCatalogRowWire`, `SnapshotDeltaWire`, `RestoreReceiptWire`, `SnapshotDecodeOptions`, `SnapshotExtensionRows` — the page's wire transcription.
 - Packages: BCL inbox.
@@ -452,8 +503,9 @@ interface SnapshotDecodeOptions {
 type SnapshotExtensionRows = never;
 ```
 
-## [8]-[RESEARCH]
+## [9]-[RESEARCH]
 
+- [SCHEMA_NEGOTIATION]: the content-negotiation wire-format advertisement a peer and a web consumer exchange — whether the negotiation rides the gRPC metadata / HTTP Accept header the AppHost wire law owns or a payload-prefix format byte, and the schema-version-to-`SchemaFingerprint` resolution confirming a payload self-describes its schema version against the live compiled-model fingerprint.
 - [RENAME_DURABILITY]: the data-flush-before-rename order is settled; the residual is directory-entry durability — whether APFS guarantees the rename's directory entry survives a power loss without an explicit parent-directory fsync, and the managed route to that fsync if it does not.
 - [RESOLVER_PRECEDENCE]: `ThinktectureMessageFormatterResolver` coverage over keyed unions and complex value objects composed with `SourceGeneratedFormatterResolver` under Lz4BlockArray; the precedence of the `PersistenceResolver` `[CompositeResolver]`/`[GeneratedMessagePackResolver]` AOT landmark over the runtime `CompositeResolver.Create` chain and over `SourceGeneratedFormatterResolver` when both resolve one generated type; `GeoJsonConverterFactory` precedence over combined source-generated contract metadata for geometry-bearing wire records.
 - [ZSTD_SWAP]: the inbox Zstandard stream surface a future TFM exposes — its managed `Pack`/`Unpack` shape and level vocabulary for the deferred `CompressionPolicy` row, gated on the framework move that admits it.

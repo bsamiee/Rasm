@@ -17,59 +17,59 @@ and provider-bound factories.
 
 ## [2]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]        | [RAIL]                            |
-| :-----: | :-------------------------- | :------------------- | :-------------------------------- |
-|   [1]   | `Extensions`                | static extension     | options registration entry point  |
-|   [2]   | `NodaJsonSettings`          | mutable property bag | per-type converter assignment     |
-|   [3]   | `NodaConverters`            | static factory class | pre-built converter singletons    |
-|   [4]   | `NodaConverterBase<T>`      | abstract base        | nullity + CanConvert boilerplate  |
-|   [5]   | `NodaPatternConverter<T>`   | pattern-backed       | IPattern<T> read/write + validate |
-|   [6]   | `DelegatingConverterBase<T>`| delegation base      | per-property attribute dispatch   |
-|   [7]   | `NodaNullableConverter<T>`  | nullable wrapper     | nullable struct bridging          |
-|   [8]   | `NodaDateTimeZoneConverter` | zone converter       | DateTimeZone via provider lookup  |
-|   [9]   | `NodaIntervalConverter`     | interval converter   | Interval as start/end sub-object  |
-|  [10]   | `NodaIsoIntervalConverter`  | interval converter   | Interval as ISO-8601 string       |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]        | [RAIL]                            |
+| :-----: | :--------------------------- | :------------------- | :-------------------------------- |
+|   [1]   | `Extensions`                 | static extension     | options registration entry point  |
+|   [2]   | `NodaJsonSettings`           | mutable property bag | per-type converter assignment     |
+|   [3]   | `NodaConverters`             | static factory class | pre-built converter singletons    |
+|   [4]   | `NodaConverterBase<T>`       | abstract base        | nullity + CanConvert boilerplate  |
+|   [5]   | `NodaPatternConverter<T>`    | pattern-backed       | IPattern<T> read/write + validate |
+|   [6]   | `DelegatingConverterBase<T>` | delegation base      | per-property attribute dispatch   |
+|   [7]   | `NodaNullableConverter<T>`   | nullable wrapper     | nullable struct bridging          |
+|   [8]   | `NodaDateTimeZoneConverter`  | zone converter       | DateTimeZone via provider lookup  |
+|   [9]   | `NodaIntervalConverter`      | interval converter   | Interval as start/end sub-object  |
+|  [10]   | `NodaIsoIntervalConverter`   | interval converter   | Interval as ISO-8601 string       |
 
 ## [3]-[ENTRYPOINTS]
 
 ### Registration
 
-| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY]         | [RAIL]                                  |
-| :-----: | :--------------------------------------------- | :--------------------- | :-------------------------------------- |
-|   [1]   | `options.ConfigureForNodaTime(provider)`        | provider overload      | constructs `NodaJsonSettings(provider)` |
-|   [2]   | `options.ConfigureForNodaTime(nodaJsonSettings)`| settings overload      | calls `AddConverters(options.Converters)` |
-|   [3]   | `options.WithIsoIntervalConverter()`            | interval swap          | replaces Interval converters with ISO   |
-|   [4]   | `options.WithIsoDateIntervalConverter()`        | date-interval swap     | replaces DateInterval converters with ISO |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]     | [RAIL]                                    |
+| :-----: | :----------------------------------------------- | :----------------- | :---------------------------------------- |
+|   [1]   | `options.ConfigureForNodaTime(provider)`         | provider overload  | constructs `NodaJsonSettings(provider)`   |
+|   [2]   | `options.ConfigureForNodaTime(nodaJsonSettings)` | settings overload  | calls `AddConverters(options.Converters)` |
+|   [3]   | `options.WithIsoIntervalConverter()`             | interval swap      | replaces Interval converters with ISO     |
+|   [4]   | `options.WithIsoDateIntervalConverter()`         | date-interval swap | replaces DateInterval converters with ISO |
 
 ### NodaConverters singletons (static, pattern-backed)
 
-| [INDEX] | [MEMBER]                    | [BACKING_PATTERN]                        | [NOTES]                        |
-| :-----: | :-------------------------- | :--------------------------------------- | :----------------------------- |
-|   [1]   | `InstantConverter`          | `InstantPattern.ExtendedIso`             |                                |
-|   [2]   | `LocalDateConverter`        | `LocalDatePattern.Iso`                   |                                |
-|   [3]   | `LocalDateTimeConverter`    | pattern                                  |                                |
-|   [4]   | `LocalTimeConverter`        | pattern                                  |                                |
-|   [5]   | `AnnualDateConverter`       | pattern                                  |                                |
-|   [6]   | `YearMonthConverter`        | pattern                                  |                                |
-|   [7]   | `OffsetConverter`           | `OffsetPattern.GeneralInvariant`         |                                |
-|   [8]   | `OffsetDateTimeConverter`   | `OffsetDateTimePattern.Rfc3339`          | ISO calendar validator applied |
-|   [9]   | `OffsetDateConverter`       | `OffsetDatePattern.GeneralIso`           | ISO calendar validator applied |
-|  [10]   | `OffsetTimeConverter`       | `OffsetTimePattern.ExtendedIso`          |                                |
-|  [11]   | `DurationConverter`         | `DurationPattern.JsonRoundtrip`          |                                |
-|  [12]   | `RoundtripDurationConverter`| `DurationPattern.Roundtrip`              |                                |
-|  [13]   | `RoundtripPeriodConverter`  | `PeriodPattern.Roundtrip`                | default PeriodConverter row    |
-|  [14]   | `NormalizingIsoPeriodConverter` | `PeriodPattern.NormalizingIso`       | lossy: 90m -> 1h30m            |
-|  [15]   | `IntervalConverter`         | `NodaIntervalConverter`                  | start/end sub-properties       |
-|  [16]   | `IsoIntervalConverter`      | `NodaIsoIntervalConverter`               | ISO-8601 interval string       |
-|  [17]   | `IsoDateIntervalConverter`  | `NodaIsoDateIntervalConverter`           | ISO-8601 date-interval string  |
-|  [18]   | `DateIntervalConverter`     | `NodaDateIntervalConverter`              |                                |
+| [INDEX] | [MEMBER]                        | [BACKING_PATTERN]                | [NOTES]                        |
+| :-----: | :------------------------------ | :------------------------------- | :----------------------------- |
+|   [1]   | `InstantConverter`              | `InstantPattern.ExtendedIso`     |                                |
+|   [2]   | `LocalDateConverter`            | `LocalDatePattern.Iso`           |                                |
+|   [3]   | `LocalDateTimeConverter`        | pattern                          |                                |
+|   [4]   | `LocalTimeConverter`            | pattern                          |                                |
+|   [5]   | `AnnualDateConverter`           | pattern                          |                                |
+|   [6]   | `YearMonthConverter`            | pattern                          |                                |
+|   [7]   | `OffsetConverter`               | `OffsetPattern.GeneralInvariant` |                                |
+|   [8]   | `OffsetDateTimeConverter`       | `OffsetDateTimePattern.Rfc3339`  | ISO calendar validator applied |
+|   [9]   | `OffsetDateConverter`           | `OffsetDatePattern.GeneralIso`   | ISO calendar validator applied |
+|  [10]   | `OffsetTimeConverter`           | `OffsetTimePattern.ExtendedIso`  |                                |
+|  [11]   | `DurationConverter`             | `DurationPattern.JsonRoundtrip`  |                                |
+|  [12]   | `RoundtripDurationConverter`    | `DurationPattern.Roundtrip`      |                                |
+|  [13]   | `RoundtripPeriodConverter`      | `PeriodPattern.Roundtrip`        | default PeriodConverter row    |
+|  [14]   | `NormalizingIsoPeriodConverter` | `PeriodPattern.NormalizingIso`   | lossy: 90m -> 1h30m            |
+|  [15]   | `IntervalConverter`             | `NodaIntervalConverter`          | start/end sub-properties       |
+|  [16]   | `IsoIntervalConverter`          | `NodaIsoIntervalConverter`       | ISO-8601 interval string       |
+|  [17]   | `IsoDateIntervalConverter`      | `NodaIsoDateIntervalConverter`   | ISO-8601 date-interval string  |
+|  [18]   | `DateIntervalConverter`         | `NodaDateIntervalConverter`      |                                |
 
 ### NodaConverters factories (provider-bound)
 
-| [INDEX] | [MEMBER]                                              | [RETURNS]                     |
-| :-----: | :---------------------------------------------------- | :---------------------------- |
+| [INDEX] | [MEMBER]                                              | [RETURNS]                                                         |
+| :-----: | :---------------------------------------------------- | :---------------------------------------------------------------- |
 |   [1]   | `CreateZonedDateTimeConverter(IDateTimeZoneProvider)` | `NodaPatternConverter<ZonedDateTime>` with ISO calendar validator |
-|   [2]   | `CreateDateTimeZoneConverter(IDateTimeZoneProvider)`  | `NodaDateTimeZoneConverter(provider)` |
+|   [2]   | `CreateDateTimeZoneConverter(IDateTimeZoneProvider)`  | `NodaDateTimeZoneConverter(provider)`                             |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

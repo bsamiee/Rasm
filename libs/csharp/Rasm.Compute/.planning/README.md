@@ -4,19 +4,20 @@ Rasm.Compute has zero consumers; the implementation is full-capability with no h
 
 ## [1]-[PAGE_INDEX]
 
-| [INDEX] | [PAGE]                                                  | [OWNS]                                                                            |
-| :-----: | ------------------------------------------------------- | -------------------------------------------------------------------------------- |
-|   [1]   | [intent-and-selection](intent-and-selection.md)         | Typed intent family; substrate-selection rail; total dispatch                    |
-|   [2]   | [tensor-lane](tensor-lane.md)                           | Tensor shapes, dtype map, layout algebra, geometry encoding; TensorOpFamily table; tolerance vocabulary; kernel dispatch |
-|   [3]   | [model-lane](model-lane.md)                             | ONNX identity, session capsule, EP rows, extension-op admission; OrtValue run modes; bound-loop hot path; generative token-streaming run; result cache |
-|   [4]   | [numeric-lane](numeric-lane.md)                         | RID-keyed BLAS provider table; dense factorization union; sparse-format ingestion and solve; kernel-lowering binding; claim-gated provider rank |
-|   [5]   | [remote-lane](remote-lane.md)                           | Proto wire vocabulary; transports; channel capsule; credential axis; artifact frame law; buffer fast path; suite TS wire posture |
-|   [6]   | [staging-and-streams](staging-and-streams.md)           | AllocationClass rows; pooled memory; recyclable streams                          |
-|   [7]   | [scheduling-and-lanes](scheduling-and-lanes.md)         | WorkLane channels; solve-path guard; drain participation                         |
-|   [8]   | [progress-and-observation](progress-and-observation.md) | Monotonic phases; zero-alloc capsules; observation seams                         |
-|   [9]   | [units-boundary](units-boundary.md)                     | QuantityFamily rows; conversion-at-admission; unit evidence                      |
-|  [10]   | [receipts-and-benchmarks](receipts-and-benchmarks.md)   | Receipt union; fold projections; benchmark claims                                |
-|  [11]   | [interchange](interchange.md)                           | InterchangeFormat axis; glTF/IFC import-export; in-proc IFC semantic ingest; two-hop tessellation; content-addressing |
+| [INDEX] | [PAGE]                                                  | [OWNS]                                                                                                                                                                                                   |
+| :-----: | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | [intent-and-selection](intent-and-selection.md)         | Typed intent family; substrate-selection rail; total dispatch                                                                                                                                            |
+|   [2]   | [tensor-lane](tensor-lane.md)                           | Tensor shapes, dtype map, layout algebra, geometry encoding; TensorOpFamily table; tolerance vocabulary; kernel dispatch                                                                                 |
+|   [3]   | [model-lane](model-lane.md)                             | ONNX identity, session capsule, EP rows, extension-op admission; OrtValue run modes; bound-loop hot path; generative token-streaming run; result cache                                                   |
+|   [4]   | [numeric-lane](numeric-lane.md)                         | RID-keyed BLAS provider table; dense factorization union; sparse-format ingestion and solve; kernel-lowering binding; claim-gated provider rank                                                          |
+|   [5]   | [remote-lane](remote-lane.md)                           | Proto wire vocabulary; transports; channel capsule; credential axis; artifact frame law; buffer fast path; suite TS wire posture                                                                         |
+|   [6]   | [staging-and-streams](staging-and-streams.md)           | AllocationClass rows; pooled memory; recyclable streams                                                                                                                                                  |
+|   [7]   | [scheduling-and-lanes](scheduling-and-lanes.md)         | WorkLane channels; solve-path guard; drain participation                                                                                                                                                 |
+|   [8]   | [progress-and-observation](progress-and-observation.md) | Monotonic phases; zero-alloc capsules; observation seams                                                                                                                                                 |
+|   [9]   | [units-boundary](units-boundary.md)                     | QuantityFamily rows; conversion-at-admission; unit evidence                                                                                                                                              |
+|  [10]   | [receipts-and-benchmarks](receipts-and-benchmarks.md)   | Receipt union; fold projections; benchmark claims                                                                                                                                                        |
+|  [11]   | [interchange](interchange.md)                           | InterchangeFormat/codec axes; glTF/mesh/point/field import-export; Draco/Meshopt/3D-Tiles; AP242/native/IFC5; frame normalization; field+geometry-delta codecs; two-hop tessellation; content-addressing |
+|  [12]   | [solver-and-optimization](solver-and-optimization.md)   | Volumetric mesher + field rep; physics×BC×element solve contract; design-space optimizer + surrogate duality; N-dim sweep + frame-budget; clash compute + ROM digital twin                               |
 
 ## [2]-[WIRE_PAGES]
 
@@ -31,70 +32,85 @@ remote-lane · progress-and-observation · receipts-and-benchmarks (each carries
 
 Every adversarial-verifier gap finding for the package; a row is present only when closed by its `[CLOSED_BY (page#cluster)]` page, so every row is CLOSED.
 
-| [INDEX] | [GAP]                                     | [CLOSED_BY (page#cluster)]            |
-| :-----: | :---------------------------------------- | :------------------------------------ |
-|   [1]   | EP-parameterized substrate row            | intent-and-selection                  |
-|   [2]   | `DocumentService` wire vocabulary         | remote-lane                           |
-|   [3]   | `ControlService` wire vocabulary          | remote-lane                           |
-|   [4]   | `FaultDetail` status projection           | remote-lane + receipts-and-benchmarks |
-|   [5]   | descriptor-diff contract evolution        | remote-lane                           |
-|   [6]   | transport streaming-capability column     | remote-lane                           |
-|   [7]   | keepalive policy rows                     | remote-lane                           |
-|   [8]   | payload caps, frames, hashes, zero-copy   | remote-lane + staging-and-streams     |
-|   [9]   | credential policy and peer credentials    | remote-lane                           |
-|  [10]   | compression axis                          | remote-lane                           |
-|  [11]   | interceptor and call-invoker seam         | remote-lane                           |
-|  [12]   | single retry owner and conflict receipts  | remote-lane + receipts-and-benchmarks |
-|  [13]   | `grpc.health.v1` and node affinity        | remote-lane                           |
-|  [14]   | `WorkLane` name and solve-path guard      | scheduling-and-lanes                  |
-|  [15]   | scheduler-valued progress subscriptions   | progress-and-observation              |
-|  [16]   | geometry-to-tensor encoding cluster       | tensor-lane                           |
-|  [17]   | tensor layout family surface              | tensor-lane                           |
-|  [18]   | CoreML EP and EP-context artifacts        | model-lane                            |
-|  [19]   | ONNX terminate-latch cancellation cadence | model-lane                            |
-|  [20]   | NodaTime-protobuf wire bridges            | remote-lane + receipts-and-benchmarks |
-|  [21]   | benchmark claims and profiling artifacts  | receipts-and-benchmarks               |
-|  [22]   | canonical proto geometry                  | remote-lane                           |
-|  [23]   | UnitsNet `QuantityInfo` research row      | units-boundary                        |
-|  [24]   | discovery manifest on UDS transport       | remote-lane                           |
-|  [25]   | numeric BLAS solver service               | numeric-lane                          |
-|  [26]   | RID-keyed native-provider availability    | numeric-lane                          |
-|  [27]   | sparse-format ingestion and direct solve  | numeric-lane                          |
-|  [28]   | tensor matrix/structural kernel lowering  | numeric-lane + tensor-lane            |
-|  [29]   | token-streaming generative substrate      | model-lane                            |
-|  [30]   | grammar-constrained structured generation | model-lane                            |
-|  [31]   | numeric solve and generate wire rpcs      | remote-lane                           |
-|  [32]   | graph-diff and subtree-fetch wire family  | remote-lane                           |
-|  [33]   | glTF/GLB and IFC interchange import-export | interchange                           |
-|  [34]   | in-process IFC semantic-graph ingest      | interchange                           |
-|  [35]   | IFC-to-geometry two-hop tessellation rail | interchange                           |
-|  [36]   | content-addressed interchange artifacts   | interchange                           |
+| [INDEX] | [GAP]                                               | [CLOSED_BY (page#cluster)]             |
+| :-----: | :-------------------------------------------------- | :------------------------------------- |
+|   [1]   | EP-parameterized substrate row                      | intent-and-selection                   |
+|   [2]   | `DocumentService` wire vocabulary                   | remote-lane                            |
+|   [3]   | `ControlService` wire vocabulary                    | remote-lane                            |
+|   [4]   | `FaultDetail` status projection                     | remote-lane + receipts-and-benchmarks  |
+|   [5]   | descriptor-diff contract evolution                  | remote-lane                            |
+|   [6]   | transport streaming-capability column               | remote-lane                            |
+|   [7]   | keepalive policy rows                               | remote-lane                            |
+|   [8]   | payload caps, frames, hashes, zero-copy             | remote-lane + staging-and-streams      |
+|   [9]   | credential policy and peer credentials              | remote-lane                            |
+|  [10]   | compression axis                                    | remote-lane                            |
+|  [11]   | interceptor and call-invoker seam                   | remote-lane                            |
+|  [12]   | single retry owner and conflict receipts            | remote-lane + receipts-and-benchmarks  |
+|  [13]   | `grpc.health.v1` and node affinity                  | remote-lane                            |
+|  [14]   | `WorkLane` name and solve-path guard                | scheduling-and-lanes                   |
+|  [15]   | scheduler-valued progress subscriptions             | progress-and-observation               |
+|  [16]   | geometry-to-tensor encoding cluster                 | tensor-lane                            |
+|  [17]   | tensor layout family surface                        | tensor-lane                            |
+|  [18]   | CoreML EP and EP-context artifacts                  | model-lane                             |
+|  [19]   | ONNX terminate-latch cancellation cadence           | model-lane                             |
+|  [20]   | NodaTime-protobuf wire bridges                      | remote-lane + receipts-and-benchmarks  |
+|  [21]   | benchmark claims and profiling artifacts            | receipts-and-benchmarks                |
+|  [22]   | canonical proto geometry                            | remote-lane                            |
+|  [23]   | UnitsNet `QuantityInfo` research row                | units-boundary                         |
+|  [24]   | discovery manifest on UDS transport                 | remote-lane                            |
+|  [25]   | numeric BLAS solver service                         | numeric-lane                           |
+|  [26]   | RID-keyed native-provider availability              | numeric-lane                           |
+|  [27]   | sparse-format ingestion and direct solve            | numeric-lane                           |
+|  [28]   | tensor matrix/structural kernel lowering            | numeric-lane + tensor-lane             |
+|  [29]   | token-streaming generative substrate                | model-lane                             |
+|  [30]   | grammar-constrained structured generation           | model-lane                             |
+|  [31]   | numeric solve and generate wire rpcs                | remote-lane                            |
+|  [32]   | graph-diff and subtree-fetch wire family            | remote-lane                            |
+|  [33]   | glTF/GLB and IFC interchange import-export          | interchange                            |
+|  [34]   | in-process IFC semantic-graph ingest                | interchange                            |
+|  [35]   | IFC-to-geometry two-hop tessellation rail           | interchange                            |
+|  [36]   | content-addressed interchange artifacts             | interchange                            |
+|  [37]   | AP242 + native + IFC5 + sim-format breadth          | interchange                            |
+|  [38]   | frame/handedness/up-axis ingest normalization       | interchange                            |
+|  [39]   | Draco/Meshopt compression + 3D-Tiles tiling         | interchange                            |
+|  [40]   | chunked error-bounded field/result codec            | interchange                            |
+|  [41]   | FastCDC structural geometry-delta codec             | interchange                            |
+|  [42]   | provider-determinism solve-dedup fingerprint        | numeric-lane + receipts-and-benchmarks |
+|  [43]   | differentiable-operator reverse-mode adjoint        | tensor-lane                            |
+|  [44]   | B-rep/NURBS canonical geometry encoding             | tensor-lane                            |
+|  [45]   | BIM inference-reuse run modes                       | model-lane                             |
+|  [46]   | dependency job-graph scheduler + dirty re-solve     | scheduling-and-lanes                   |
+|  [47]   | volumetric mesher + integration-point field rep     | solver-and-optimization                |
+|  [48]   | uniform physics×BC×element solve contract           | solver-and-optimization                |
+|  [49]   | design-space optimizer + surrogate duality + Pareto | solver-and-optimization                |
+|  [50]   | N-dim sweep + frame-budgeted progressive solve      | solver-and-optimization                |
+|  [51]   | acceleration-structure clash compute + ROM twin     | solver-and-optimization                |
 
 ## [5]-[DENSITY_BAR]
 
-Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. Dispatch runs over row data through generated total Switches and frozen tables. Nine comparer accessors exist, one per axis owner and package-local; the `WorkLane` key accessor is `ComputeKeyPolicy`, never the AppHost `LaneKeyPolicy` (suite ledger key-policy posture); the numeric lane carries `NumericKeyPolicy` over its string-keyed axes and the interchange lane carries `InterchangeKeyPolicy` over its format and codec axes. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
+Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. Dispatch runs over row data through generated total Switches and frozen tables. Ten comparer accessors exist, one per axis owner and package-local; the `WorkLane` key accessor is `ComputeKeyPolicy`, never the AppHost `LaneKeyPolicy` (suite ledger key-policy posture); the numeric lane carries `NumericKeyPolicy` over its string-keyed axes, the interchange lane carries `InterchangeKeyPolicy` over its format/codec/geometry-delta axes, and the solver-and-optimization lane carries `SolverKeyPolicy` over its element/mesh/physics/method/optimizer/objective/field-station axes. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
 Axis owners (vocabulary budget):
 
-| [INDEX] | [AXIS/CONCERN]     | [OWNER]             | [KIND]                   |   [CASES]   |  [STATE]  |
-| :-----: | :----------------- | :------------------ | :----------------------- | :---------: | :-------: |
-|   [1]   | Intent family      | `ComputeIntent`     | [Union] + nested `Spec`  |      6      | FINALIZED |
-|   [2]   | Substrate axis     | `Substrate`         | SmartEnum\<string>       |      4      | FINALIZED |
-|   [3]   | Fault family       | `ComputeFault`      | [Union] fault, band 2200 |     13      | FINALIZED |
-|   [4]   | Total dispatch     | `DispatchTable`     | record                   | 4 delegates | FINALIZED |
-|   [5]   | Tensor dtypes      | `TensorDtype`       | SmartEnum\<string>       |     10      | FINALIZED |
-|   [6]   | Tensor op kinds    | `TensorOpKind`      | SmartEnum\<string>       |     12      | FINALIZED |
-|   [7]   | Tensor op families | `TensorOpFamily`    | SmartEnum\<string>       |     84      | FINALIZED |
-|   [8]   | Tolerance classes  | `ToleranceClass`    | SmartEnum\<string>       |      4      | FINALIZED |
-|   [9]   | Layout forms       | `LayoutForm`        | SmartEnum\<string>       |      5      | FINALIZED |
-|  [10]   | Encoding channels  | `EncodingChannel`   | SmartEnum\<string>       |      6      | FINALIZED |
-|  [11]   | Geometry encodings | `GeometryEncoding`  | [Union]                  |      3      | FINALIZED |
-|  [12]   | Model acquisition  | `ModelSource`       | [Union]                  |      4      | FINALIZED |
-|  [13]   | EP axis            | `ExecutionProvider` | SmartEnum\<string>       |      2      | FINALIZED |
-|  [14]   | Cache postures     | `CachePolicy`       | SmartEnum\<string>       |      4      | FINALIZED |
-|  [15]   | Generation policy  | `GenerationPolicy`  | record + `Apply`/`Messages` fold |  14 cols | FINALIZED |
-|  [16]   | Guidance constraint| `GuidanceKind`      | SmartEnum\<string>       |      5      | FINALIZED |
-|  [17]   | Generative run     | `GenerativeRun`     | boundary capsule         | `Stream`/`Collect`/`Receipt` | FINALIZED |
+| [INDEX] | [AXIS/CONCERN]      | [OWNER]             | [KIND]                           |           [CASES]            |  [STATE]  |
+| :-----: | :------------------ | :------------------ | :------------------------------- | :--------------------------: | :-------: |
+|   [1]   | Intent family       | `ComputeIntent`     | [Union] + nested `Spec`          |              6               | FINALIZED |
+|   [2]   | Substrate axis      | `Substrate`         | SmartEnum\<string>               |              4               | FINALIZED |
+|   [3]   | Fault family        | `ComputeFault`      | [Union] fault, band 2200         |              13              | FINALIZED |
+|   [4]   | Total dispatch      | `DispatchTable`     | record                           |         4 delegates          | FINALIZED |
+|   [5]   | Tensor dtypes       | `TensorDtype`       | SmartEnum\<string>               |              10              | FINALIZED |
+|   [6]   | Tensor op kinds     | `TensorOpKind`      | SmartEnum\<string>               |              12              | FINALIZED |
+|   [7]   | Tensor op families  | `TensorOpFamily`    | SmartEnum\<string>               |              84              | FINALIZED |
+|   [8]   | Tolerance classes   | `ToleranceClass`    | SmartEnum\<string>               |              4               | FINALIZED |
+|   [9]   | Layout forms        | `LayoutForm`        | SmartEnum\<string>               |              5               | FINALIZED |
+|  [10]   | Encoding channels   | `EncodingChannel`   | SmartEnum\<string>               |              6               | FINALIZED |
+|  [11]   | Geometry encodings  | `GeometryEncoding`  | [Union]                          |              3               | FINALIZED |
+|  [12]   | Model acquisition   | `ModelSource`       | [Union]                          |              4               | FINALIZED |
+|  [13]   | EP axis             | `ExecutionProvider` | SmartEnum\<string>               |              2               | FINALIZED |
+|  [14]   | Cache postures      | `CachePolicy`       | SmartEnum\<string>               |              4               | FINALIZED |
+|  [15]   | Generation policy   | `GenerationPolicy`  | record + `Apply`/`Messages` fold |           14 cols            | FINALIZED |
+|  [16]   | Guidance constraint | `GuidanceKind`      | SmartEnum\<string>               |              5               | FINALIZED |
+|  [17]   | Generative run      | `GenerativeRun`     | boundary capsule                 | `Stream`/`Collect`/`Receipt` | FINALIZED |
 
 | [INDEX] | [AXIS/CONCERN]    | [OWNER]                | [KIND]             | [CASES] |  [STATE]  |
 | :-----: | :---------------- | :--------------------- | :----------------- | :-----: | :-------: |
@@ -109,56 +125,84 @@ Axis owners (vocabulary budget):
 |   [9]   | Progress phases   | `ProgressPhase`        | SmartEnum\<string> |    9    | FINALIZED |
 |  [10]   | Cadence rows      | `SubscriptionPolicy`   | record rows        |    3    | FINALIZED |
 |  [11]   | Quantity families | `QuantityFamily`       | SmartEnum\<string> |   15    | FINALIZED |
-|  [12]   | Receipt union     | `ComputeReceipt`       | [Union]            |   15    | FINALIZED |
+|  [12]   | Receipt union     | `ComputeReceipt`       | [Union]            |   21    | FINALIZED |
 |  [13]   | Claim bands       | `BenchmarkClaim.Bands` | frozen rows        |    4    | FINALIZED |
-|  [14]   | Key policies      | `*KeyPolicy`           | comparer accessors |    9    | FINALIZED |
+|  [14]   | Key policies      | `*KeyPolicy`           | comparer accessors |   10    | FINALIZED |
 
 Numeric-lane owners (BLAS-class linear algebra; managed terminal proved end-to-end on osx-arm64 against the real MathNet + CSparse stack — the x64-only native-MKL row is dropped from the live axis (its member spelling is the win/linux-x64 design record), and native-OpenBLAS EXECUTION is the documented per-RID build/deploy gate carried on the `LinearProvider` RID axis activating only where an osx-arm64 OpenBLAS asset resolves, never an open owner spike):
 
-| [INDEX] | [AXIS/CONCERN]      | [OWNER]             | [KIND]                | [CASES]              |  [STATE]  |
-| :-----: | :------------------ | :------------------ | :-------------------- | :------------------- | :-------: |
-|   [1]   | BLAS provider table | `LinearProvider`    | SmartEnum\<string>    |          2           | FINALIZED |
-|   [2]   | Factorization kind  | `FactorizationKind` | SmartEnum\<string>    |          5           | FINALIZED |
-|   [3]   | Decomposition union | `Factorization`     | [Union]               |          5           | FINALIZED |
-|   [4]   | Sparse format axis  | `SparseFormat`      | SmartEnum\<string>    |          4           | FINALIZED |
-|   [5]   | Dense solve fold    | `DenseOps`          | static surface        | `Decompose`/`Gemm`/`Receipt` | FINALIZED |
-|   [6]   | Sparse solve fold   | `SparseOps`         | static surface        | `Ingest`/`SolveDirect`/`Receipt` | FINALIZED |
+| [INDEX] | [AXIS/CONCERN]      | [OWNER]             | [KIND]                       | [CASES]                                              |  [STATE]  |
+| :-----: | :------------------ | :------------------ | :--------------------------- | :--------------------------------------------------- | :-------: |
+|   [1]   | BLAS provider table | `LinearProvider`    | SmartEnum\<string>           | 2                                                    | FINALIZED |
+|   [2]   | Factorization kind  | `FactorizationKind` | SmartEnum\<string>           | 5                                                    | FINALIZED |
+|   [3]   | Decomposition union | `Factorization`     | [Union]                      | 5                                                    | FINALIZED |
+|   [4]   | Sparse format axis  | `SparseFormat`      | SmartEnum\<string>           | 4                                                    | FINALIZED |
+|   [5]   | Dense solve fold    | `DenseOps`          | static surface               | `Decompose`/`Gemm`/`Receipt`                         | FINALIZED |
+|   [6]   | Sparse solve fold   | `SparseOps`         | static surface               | `Ingest`/`SolveDirect`/`SolveIterative`/`Receipt`    |   SPIKE   |
 |   [7]   | Kernel lowering     | `KernelLowering`    | binding table + `ConvWindow` | `Lower`(matmul)/`Lower`(conv im2col)/`Pool`/`Lowers` | FINALIZED |
-|   [8]   | Shard plan          | `ShardPlan`         | [Union]               |          2           | FINALIZED |
+|   [8]   | Shard plan          | `ShardPlan`         | [Union]                      | 2                                                    | FINALIZED |
 
 Interchange-lane owners (managed glTF/IFC import-export + in-process IFC semantic ingest + two-hop tessellation; managed read-write proved end-to-end against SharpGLTF + GeometryGym, the IFC-to-geometry tessellation hop is host-local riding the existing remote-lane companion rpc to the IfcOpenShell PyPI companion):
 
-| [INDEX] | [AXIS/CONCERN]       | [OWNER]              | [KIND]                | [CASES]                              |  [STATE]  |
-| :-----: | :------------------- | :------------------ | :-------------------- | :----------------------------------- | :-------: |
-|   [1]   | Format axis          | `InterchangeFormat` | SmartEnum\<string>    |                  5                   | FINALIZED |
-|   [2]   | Codec owner          | `InterchangeCodec`  | SmartEnum\<string>    |                  2                   | FINALIZED |
-|   [3]   | Import/export fold   | `InterchangeIo`     | boundary capsule      | `ImportGeometry`/`ImportIfc`/`Export`/`ExportIfc` | FINALIZED |
-|   [4]   | IFC semantic graph   | `IfcSemanticModel`  | record + nested rows  | 6 entity-family projections          | FINALIZED |
-|   [5]   | Two-hop tessellation | `TessellationRequest`| record                | `Plan` — `Fin`                       |   SPIKE   |
-|   [6]   | Content addressing   | `InterchangeIdentity`| static surface        | `Key`/`Admit`                        | FINALIZED |
+| [INDEX] | [AXIS/CONCERN]       | [OWNER]               | [KIND]                                               | [CASES]                                                                                      |  [STATE]  |
+| :-----: | :------------------- | :-------------------- | :--------------------------------------------------- | :------------------------------------------------------------------------------------------- | :-------: |
+|   [1]   | Format axis          | `InterchangeFormat`   | SmartEnum\<string>                                   | 22                                                                                           | FINALIZED |
+|   [2]   | Codec owner          | `InterchangeCodec`    | SmartEnum\<string>                                   | 7                                                                                            | FINALIZED |
+|   [3]   | Import/export fold   | `InterchangeIo`       | boundary capsule                                     | `ImportGeometry`/`ImportPoints`/`ImportField`/`ImportIfc`/`Export`/`ExportIfc`/`ExportTiles` | FINALIZED |
+|   [4]   | Frame normalization  | `FrameNormalization`  | static surface + `UpAxis`/`Handedness`               | `Canonicalize`/`Basis`                                                                       | FINALIZED |
+|   [5]   | IFC semantic graph   | `IfcSemanticModel`    | record + nested rows                                 | 6 entity-family projections                                                                  | FINALIZED |
+|   [6]   | Field/result codec   | `FieldCodec`          | static surface + `FieldArtifact`/`FieldCodecPolicy`  | `FieldDecode`/`FieldEncode`/`ChunkSequence`                                                  |   SPIKE   |
+|   [7]   | Geometry delta codec | `DeltaCodec`          | static surface + `GeometryDeltaKind`/`GeometryDelta` | `Diff`/`Apply` (FastCDC)                                                                     | FINALIZED |
+|   [8]   | Two-hop tessellation | `TessellationRequest` | record                                               | `Plan` — `Fin`                                                                               |   SPIKE   |
+|   [9]   | Content addressing   | `InterchangeIdentity` | static surface                                       | `Key`/`Admit`                                                                                | FINALIZED |
+
+Solver-and-optimization-lane owners (volumetric discretization + uniform physics solve contract + design-space search + surrogate duality + N-dim sweep + frame-budget + clash compute + ROM digital twin; the solve interior rides the numeric-lane factorization/sparse machinery and the tensor-lane field encoding/adjoint, the distributed leg dials the existing `remote-lane#PROTO_VOCABULARY` `Solve` rpc through `ShardPlan.Blocked`, and the assembly kernels + GP/reduced-basis surrogate fit ground against the `Rasm`/Vectors and MathNet surfaces at alignment — SPIKE owners carry that named cross-folder/library probe, never a deferred surface):
+
+| [INDEX] | [AXIS/CONCERN]       | [OWNER]                 | [KIND]                                                              | [CASES]                          |  [STATE]  |
+| :-----: | :------------------- | :---------------------- | :------------------------------------------------------------------ | :------------------------------- | :-------: |
+|   [1]   | Element topology     | `ElementClass`          | SmartEnum\<string>                                                  | 9                                | FINALIZED |
+|   [2]   | Mesh algorithm       | `MeshAlgorithm`         | SmartEnum\<string>                                                  | 5                                | FINALIZED |
+|   [3]   | Field station        | `FieldStation`          | SmartEnum\<string>                                                  | 3                                | FINALIZED |
+|   [4]   | Field representation | `FieldSpace`            | record                                                              | scalar/vector/tensor projections | FINALIZED |
+|   [5]   | Volumetric mesher    | `MeshKernel`            | static surface + `DiscreteMesh`/`MeshPolicy`                        | `Discretize`/`Refine`/`Receipt`  |   SPIKE   |
+|   [6]   | Physics axis         | `PhysicsKind`           | SmartEnum\<string>                                                  | 9                                | FINALIZED |
+|   [7]   | Boundary condition   | `BoundaryCondition`     | [Union]                                                             | 4                                | FINALIZED |
+|   [8]   | Solve method         | `SolveMethod`           | SmartEnum\<string>                                                  | 6                                | FINALIZED |
+|   [9]   | Solve contract fold  | `SolveLane`             | static surface + `SolveProblem`/`SolveResult`                       | `Solve`/`Receipt`                |   SPIKE   |
+|  [10]   | Optimizer axis       | `OptimizerKind`         | SmartEnum\<string>                                                  | 6                                | FINALIZED |
+|  [11]   | Design variable      | `DesignVariable`        | [Union]                                                             | 4                                | FINALIZED |
+|  [12]   | Objective sense      | `ObjectiveSense`        | SmartEnum\<string>                                                  | 2                                | FINALIZED |
+|  [13]   | Optimizer fold       | `Optimizer`             | static surface + `DesignProblem`/`ParetoFront`/`OptimizationResult` | `Optimize`/`Receipt`             |   SPIKE   |
+|  [14]   | Surrogate duality    | `Surrogate`             | record                                                              | `Predict`/`Fit`                  |   SPIKE   |
+|  [15]   | Sweep axis           | `SweepAxis`             | [Union]                                                             | 4                                | FINALIZED |
+|  [16]   | Sweep + budget fold  | `SweepLane`             | static surface + `SweepGrid`/`FrameBudget`/`SensitivityTornado`     | `Run`/`Governed`                 | FINALIZED |
+|  [17]   | Acceleration index   | `AccelerationStructure` | [Union]                                                             | 3                                | FINALIZED |
+|  [18]   | Clash compute fold   | `ClashScale`            | static surface + `ClashPair`/`ClashPolicy`                          | `Detect`/`Clearance`/`Receipt`   | FINALIZED |
+|  [19]   | Digital twin loop    | `DigitalTwin`           | static surface + `TwinSignal`/`TwinVerdict`                         | `Score`/`Receipt`                | FINALIZED |
+|  [20]   | Solver key policy    | `SolverKeyPolicy`       | comparer accessor                                                   | ordinal                          | FINALIZED |
 
 Rail surfaces (one entrypoint family per rail):
 
-| [INDEX] | [AXIS/CONCERN]      | [OWNER]                              | [KIND]                | [CASES]                                         |  [STATE]  |
-| :-----: | :------------------ | :----------------------------------- | :-------------------- | :---------------------------------------------- | :-------: |
-|   [1]   | Admission rail      | `IntentAdmission`                    | static fold           | `Admit` — `Fin<AdmittedIntent>`                 | FINALIZED |
-|   [2]   | Selection rail      | `SubstrateSelection`                 | static fold           | `Plan`/`Select` — `Fin`                         | FINALIZED |
-|   [3]   | Kernel rail         | `TensorOps`                          | static table dispatch | 9 arity entrypoints — `Fin`                     | FINALIZED |
-|   [4]   | Layout and encoding | `TensorLayout` / `EncodedTensor`     | static + record       | `Reform` / `Of` — `Fin`                         | FINALIZED |
-|   [5]   | Equivalence rail    | `EquivalenceLaw`                     | static surface        | `Prove` — pure proof                            | FINALIZED |
-|   [6]   | Session capsule     | `ModelSessions`                      | boundary capsule      | `Boot`/`Lease`/`Unload` — `Fin`                 |   SPIKE   |
-|   [7]   | Inference rail      | `RunOps`                             | extension fold        | `Infer`/`InferBound` — `Fin` in bracket         |   SPIKE   |
-|   [8]   | Cache rail          | `CacheOps`                           | extension fold        | `Through` — `ValueTask`                         | FINALIZED |
-|   [9]   | Contract rail       | `ContractGuard`                      | static fold           | `Classify`/`AdditiveOnly` — `Fin`               | FINALIZED |
-|  [10]   | Channel capsule     | `WireChannels`                       | boundary capsule      | `Attach`/`Open`/`Observe`/`Redial` — `Fin`/`IO` |   SPIKE   |
-|  [11]   | Call edge           | `CallSpine`                          | interceptor           | `Options`/`Bounded` + 4 overrides               |   SPIKE   |
+| [INDEX] | [AXIS/CONCERN]      | [OWNER]                              | [KIND]                | [CASES]                                             |  [STATE]  |
+| :-----: | :------------------ | :----------------------------------- | :-------------------- | :-------------------------------------------------- | :-------: |
+|   [1]   | Admission rail      | `IntentAdmission`                    | static fold           | `Admit` — `Fin<AdmittedIntent>`                     | FINALIZED |
+|   [2]   | Selection rail      | `SubstrateSelection`                 | static fold           | `Plan`/`Select` — `Fin`                             | FINALIZED |
+|   [3]   | Kernel rail         | `TensorOps`                          | static table dispatch | 9 arity entrypoints — `Fin`                         | FINALIZED |
+|   [4]   | Layout and encoding | `TensorLayout` / `EncodedTensor`     | static + record       | `Reform` / `Of` — `Fin`                             | FINALIZED |
+|   [5]   | Equivalence rail    | `EquivalenceLaw`                     | static surface        | `Prove` — pure proof                                | FINALIZED |
+|   [6]   | Session capsule     | `ModelSessions`                      | boundary capsule      | `Boot`/`Lease`/`Unload` — `Fin`                     |   SPIKE   |
+|   [7]   | Inference rail      | `RunOps`                             | extension fold        | `Infer`/`InferBound` — `Fin` in bracket             |   SPIKE   |
+|   [8]   | Cache rail          | `CacheOps`                           | extension fold        | `Through` — `ValueTask`                             | FINALIZED |
+|   [9]   | Contract rail       | `ContractGuard`                      | static fold           | `Classify`/`AdditiveOnly` — `Fin`                   | FINALIZED |
+|  [10]   | Channel capsule     | `WireChannels`                       | boundary capsule      | `Attach`/`Open`/`Observe`/`Redial` — `Fin`/`IO`     |   SPIKE   |
+|  [11]   | Call edge           | `CallSpine`                          | interceptor           | `Options`/`Bounded` + 4 overrides                   |   SPIKE   |
 |  [12]   | Frame rail          | `FrameEdge`                          | static surface        | `Frames`/`Parse`/`Write`/`Prefixed`/`Merge`/`Valid` | FINALIZED |
-|  [13]   | Stream capsule      | `StreamPool`                         | boundary capsule      | `Get` + 11-event fold                           | FINALIZED |
-|  [14]   | Lane capsule        | `LaneRuntime`                        | boundary capsule      | `Enqueue`/`Pump`/`Drain` — `IO`                 | FINALIZED |
-|  [15]   | Progress capsule    | `ProgressCell`                       | capsule               | `Advance`/`Subscribe`/`Cancel`                  | FINALIZED |
-|  [16]   | Units rail          | `QuantityFamily.Admit`               | row members           | 4 arities — `Fin<UnitEvidence>`                 | FINALIZED |
-|  [17]   | Receipt rail        | `ReceiptSurface` / `ReceiptFolds`    | static + fold         | `Emit` — `IO`; 6 fold views                     | FINALIZED |
-|  [18]   | Claim rail          | `HostFingerprint` / `BenchmarkClaim` | records               | `Claim` — `Option`; `BandOf`/`Persist`/`Stale`  | FINALIZED |
+|  [13]   | Stream capsule      | `StreamPool`                         | boundary capsule      | `Get` + 11-event fold                               | FINALIZED |
+|  [14]   | Lane capsule        | `LaneRuntime`                        | boundary capsule      | `Enqueue`/`Pump`/`Drain` — `IO`                     | FINALIZED |
+|  [15]   | Progress capsule    | `ProgressCell`                       | capsule               | `Advance`/`Subscribe`/`Cancel`                      | FINALIZED |
+|  [16]   | Units rail          | `QuantityFamily.Admit`               | row members           | 4 arities — `Fin<UnitEvidence>`                     | FINALIZED |
+|  [17]   | Receipt rail        | `ReceiptSurface` / `ReceiptFolds`    | static + fold         | `Emit` — `IO`; 6 fold views                         | FINALIZED |
+|  [18]   | Claim rail          | `HostFingerprint` / `BenchmarkClaim` | records               | `Claim` — `Option`; `BandOf`/`Persist`/`Stale`      | FINALIZED |
 
 ## [6]-[BUILD_ORDER]
 
@@ -166,30 +210,31 @@ Vocabulary owners first, then shapes, rails, dispatch, boundaries, composition. 
 
 Cluster cells use page-local anchor names; proof cells name evidence beyond the standard static/spec gate.
 
-| [INDEX] | [FILE]                  | [CLUSTERS]                               | [PROOF]          |
-| :-----: | :---------------------- | :--------------------------------------- | :--------------- |
-|   [1]   | `Faults.cs`             | faults and key policy                    | static           |
-|   [2]   | `Tensors/Vocabulary.cs` | tensor vocabulary                        | specs            |
-|   [3]   | `Tensors/Operations.cs` | operation families                       | specs            |
-|   [4]   | `Tensors/Layout.cs`     | layout algebra                           | specs            |
-|   [5]   | `Units.cs`              | quantities, dimensions, parse/format     | specs            |
-|   [6]   | `Staging.cs`            | allocation, plane views, stream pool     | specs            |
-|   [7]   | `Progress.cs`           | phases, progress cell, observation seams | specs            |
-|   [8]   | `Lanes.cs`              | lane axis, handles, CPU budget           | specs            |
-|   [9]   | `Protos/*.proto`        | services, faults, artifact frames        | restore + static |
-|  [10]   | `Models/Providers.cs`   | execution providers                      | specs            |
-|  [11]   | `Models/Identity.cs`    | model identity                           | specs            |
-|  [12]   | `Models/Sessions.cs`    | sessions, extension ops, inference modes | specs + bridge   |
-|  [13]   | `Models/Cache.cs`       | result cache                             | specs            |
-|  [14]   | `Remote/Contract.cs`    | contract evolution, wire faults          | spec rail        |
-|  [15]   | `Remote/Frames.cs`      | artifact frames                          | specs            |
-|  [16]   | `Remote/Transports.cs`  | services, transport, call policy         | spec rail        |
-|  [17]   | `Intent.cs`             | intent, substrate, dispatch              | specs            |
-|  [18]   | `LaneRuntime.cs`        | work items, solve guard, drain cancel    | specs            |
-|  [19]   | `Receipts.cs`           | receipts, folds, wire stamps             | specs            |
-|  [20]   | `Benchmarks.cs`         | benchmark claims                         | specs            |
-|  [21]   | `Numeric/Lane.cs`       | provider table, factorization union, sparse solve, kernel lowering, provider claims | specs |
-|  [22]   | `Interchange/Interchange.cs` | format axis, codec owner, import/export fold, IFC semantic graph, two-hop tessellation, content-addressing | specs + bridge |
+| [INDEX] | [FILE]                       | [CLUSTERS]                                                                                                                                                                                 | [PROOF]          |
+| :-----: | :--------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- |
+|   [1]   | `Faults.cs`                  | faults and key policy                                                                                                                                                                      | static           |
+|   [2]   | `Tensors/Vocabulary.cs`      | tensor vocabulary                                                                                                                                                                          | specs            |
+|   [3]   | `Tensors/Operations.cs`      | operation families                                                                                                                                                                         | specs            |
+|   [4]   | `Tensors/Layout.cs`          | layout algebra                                                                                                                                                                             | specs            |
+|   [5]   | `Units.cs`                   | quantities, dimensions, parse/format                                                                                                                                                       | specs            |
+|   [6]   | `Staging.cs`                 | allocation, plane views, stream pool                                                                                                                                                       | specs            |
+|   [7]   | `Progress.cs`                | phases, progress cell, observation seams                                                                                                                                                   | specs            |
+|   [8]   | `Lanes.cs`                   | lane axis, handles, CPU budget                                                                                                                                                             | specs            |
+|   [9]   | `Protos/*.proto`             | services, faults, artifact frames                                                                                                                                                          | restore + static |
+|  [10]   | `Models/Providers.cs`        | execution providers                                                                                                                                                                        | specs            |
+|  [11]   | `Models/Identity.cs`         | model identity                                                                                                                                                                             | specs            |
+|  [12]   | `Models/Sessions.cs`         | sessions, extension ops, inference modes                                                                                                                                                   | specs + bridge   |
+|  [13]   | `Models/Cache.cs`            | result cache                                                                                                                                                                               | specs            |
+|  [14]   | `Remote/Contract.cs`         | contract evolution, wire faults                                                                                                                                                            | spec rail        |
+|  [15]   | `Remote/Frames.cs`           | artifact frames                                                                                                                                                                            | specs            |
+|  [16]   | `Remote/Transports.cs`       | services, transport, call policy                                                                                                                                                           | spec rail        |
+|  [17]   | `Intent.cs`                  | intent, substrate, dispatch                                                                                                                                                                | specs            |
+|  [18]   | `LaneRuntime.cs`             | work items, solve guard, drain cancel                                                                                                                                                      | specs            |
+|  [19]   | `Receipts.cs`                | receipts, folds, wire stamps                                                                                                                                                               | specs            |
+|  [20]   | `Benchmarks.cs`              | benchmark claims                                                                                                                                                                           | specs            |
+|  [21]   | `Numeric/Lane.cs`            | provider table, factorization union, sparse solve, kernel lowering, provider claims, provider-determinism dedup key                                                                        | specs            |
+|  [22]   | `Interchange/Interchange.cs` | format/codec axes, import/export fold, frame normalization, IFC semantic graph, field/result codec, geometry-delta codec, Draco/Meshopt/3D-Tiles, two-hop tessellation, content-addressing | specs + bridge   |
+|  [23]   | `Solver/Lane.cs`             | element/mesh/field vocabulary, volumetric mesher, physics×BC×element solve contract, optimizer + surrogate + Pareto, sweep + frame-budget, clash compute + ROM digital twin                | specs            |
 
 ## [7]-[FILE_PROCESS]
 
@@ -239,31 +284,31 @@ Assay rows use `uv run python -m tools.assay`; proof runs at the planned phase g
 
 The executed admissions ledger maps each package to its consuming page, `.api` catalogue, and admission status. Versions live in `Directory.Packages.props`; this table never carries a pin. `[STATUS]` in {catalogue-pending, app-root-pending, tests-only, admitted}.
 
-| [INDEX] | [PACKAGE]                            | [PAGE]                                        | [CATALOGUE]                        | [STATUS]          |
-| :-----: | :----------------------------------- | :-------------------------------------------- | :--------------------------------- | :---------------- |
-|   [1]   | CommunityToolkit.HighPerformance     | tensor-lane, staging-and-streams              | api-highperformance.md             | admitted          |
-|   [2]   | Google.Protobuf                      | remote-lane, receipts-and-benchmarks          | api-protobuf.md                    | admitted          |
-|   [3]   | Grpc.Net.Client                      | remote-lane                                   | api-grpc-client.md                 | admitted          |
-|   [4]   | Grpc.Net.Client.Web                  | remote-lane                                   | api-grpc-client-web.md             | admitted          |
-|   [5]   | Grpc.Tools                           | remote-lane                                   | api-grpc-tools.md                  | admitted          |
-|   [6]   | Microsoft.AspNetCore.TestHost        | remote-lane                                   | api-microsoftaspnetcoretesthost.md | admitted          |
-|   [7]   | Microsoft.IO.RecyclableMemoryStream  | staging-and-streams, remote-lane              | api-recyclable-stream.md           | admitted          |
-|   [8]   | Microsoft.ML.OnnxRuntime             | model-lane, tensor-lane, intent-and-selection | api-onnxruntime.md                 | admitted          |
-|   [9]   | Microsoft.ML.OnnxRuntime.Extensions  | model-lane                                    | api-onnx-extensions.md             | admitted          |
-|  [10]   | System.Numerics.Tensors              | tensor-lane                                   | api-tensors.md                     | admitted          |
-|  [11]   | Thinktecture.Runtime.Extensions      | all pages                                     | doctrine (stack atlas)             | admitted          |
-|  [12]   | Thinktecture.Runtime.Extensions.Json | receipts-and-benchmarks                       | doctrine (stack atlas)             | admitted          |
-|  [13]   | UnitsNet                             | units-boundary                                | api-unitsnet.md                    | admitted          |
-|  [14]   | SharpFuzz                            | remote-lane, tensor-lane                      | doctrine (testing-cs stack)        | admitted          |
-|  [15]   | BenchmarkDotNet                      | model-lane                                    | doctrine (testing-cs stack)        | admitted          |
-|  [16]   | MathNet.Numerics                     | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
-|  [17]   | CSparse                              | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
-|  [18]   | Microsoft.ML.OnnxRuntimeGenAI        | model-lane                                    | api-onnxruntimegenai.md            | admitted          |
-|  [19]   | Microsoft.Extensions.AI.Abstractions | model-lane                                    | api-onnxruntimegenai.md            | admitted          |
-|  [20]   | GeometryGymIFC_Core                  | interchange                                   | api-geometrygym-ifc.md             | admitted          |
-|  [21]   | SharpGLTF.Core                       | interchange                                   | api-sharpgltf.md                   | admitted          |
-|  [22]   | SharpGLTF.Toolkit                    | interchange                                   | api-sharpgltf.md                   | admitted          |
-|  [23]   | SharpGLTF.Runtime                    | interchange                                   | api-sharpgltf.md                   | admitted          |
+| [INDEX] | [PACKAGE]                            | [PAGE]                                        | [CATALOGUE]                        | [STATUS] |
+| :-----: | :----------------------------------- | :-------------------------------------------- | :--------------------------------- | :------- |
+|   [1]   | CommunityToolkit.HighPerformance     | tensor-lane, staging-and-streams              | api-highperformance.md             | admitted |
+|   [2]   | Google.Protobuf                      | remote-lane, receipts-and-benchmarks          | api-protobuf.md                    | admitted |
+|   [3]   | Grpc.Net.Client                      | remote-lane                                   | api-grpc-client.md                 | admitted |
+|   [4]   | Grpc.Net.Client.Web                  | remote-lane                                   | api-grpc-client-web.md             | admitted |
+|   [5]   | Grpc.Tools                           | remote-lane                                   | api-grpc-tools.md                  | admitted |
+|   [6]   | Microsoft.AspNetCore.TestHost        | remote-lane                                   | api-microsoftaspnetcoretesthost.md | admitted |
+|   [7]   | Microsoft.IO.RecyclableMemoryStream  | staging-and-streams, remote-lane              | api-recyclable-stream.md           | admitted |
+|   [8]   | Microsoft.ML.OnnxRuntime             | model-lane, tensor-lane, intent-and-selection | api-onnxruntime.md                 | admitted |
+|   [9]   | Microsoft.ML.OnnxRuntime.Extensions  | model-lane                                    | api-onnx-extensions.md             | admitted |
+|  [10]   | System.Numerics.Tensors              | tensor-lane                                   | api-tensors.md                     | admitted |
+|  [11]   | Thinktecture.Runtime.Extensions      | all pages                                     | doctrine (stack atlas)             | admitted |
+|  [12]   | Thinktecture.Runtime.Extensions.Json | receipts-and-benchmarks                       | doctrine (stack atlas)             | admitted |
+|  [13]   | UnitsNet                             | units-boundary                                | api-unitsnet.md                    | admitted |
+|  [14]   | SharpFuzz                            | remote-lane, tensor-lane                      | doctrine (testing-cs stack)        | admitted |
+|  [15]   | BenchmarkDotNet                      | model-lane                                    | doctrine (testing-cs stack)        | admitted |
+|  [16]   | MathNet.Numerics                     | numeric-lane                                  | api-mathnet-providers.md           | admitted |
+|  [17]   | CSparse                              | numeric-lane                                  | api-mathnet-providers.md           | admitted |
+|  [18]   | Microsoft.ML.OnnxRuntimeGenAI        | model-lane                                    | api-onnxruntimegenai.md            | admitted |
+|  [19]   | Microsoft.Extensions.AI.Abstractions | model-lane                                    | api-onnxruntimegenai.md            | admitted |
+|  [20]   | GeometryGymIFC_Core                  | interchange                                   | api-geometrygym-ifc.md             | admitted |
+|  [21]   | SharpGLTF.Core                       | interchange                                   | api-sharpgltf.md                   | admitted |
+|  [22]   | SharpGLTF.Toolkit                    | interchange                                   | api-sharpgltf.md                   | admitted |
+|  [23]   | SharpGLTF.Runtime                    | interchange                                   | api-sharpgltf.md                   | admitted |
 
 ## [11]-[REFINEMENT_HORIZON]
 

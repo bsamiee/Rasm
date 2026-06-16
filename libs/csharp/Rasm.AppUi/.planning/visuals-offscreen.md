@@ -55,14 +55,14 @@ public static class Offscreen {
 }
 ```
 
-| [INDEX] | [FX_ROW]       | [FACTORY]                          | [CONSUMER]                          |
-| :-----: | :------------- | :--------------------------------- | :---------------------------------- |
-|   [1]   | runtime-shader | `SKRuntimeEffect.CreateShader`     | animated backplates, gauge fills    |
-|   [2]   | blur           | `SKImageFilter.CreateBlur`         | thumbnail elevation underlays       |
-|   [3]   | dash           | `SKPathEffect.CreateDash`          | preview curve styling               |
-|   [4]   | tint           | `SKColorFilter`                    | classification and state recoloring |
-|   [5]   | mask           | `SKMaskFilter`                     | preview edge fades                  |
-|   [6]   | gradient       | `SKShader.CreateLinearGradient`    | preview fills, sparkline ramps      |
+| [INDEX] | [FX_ROW]       | [FACTORY]                       | [CONSUMER]                          |
+| :-----: | :------------- | :------------------------------ | :---------------------------------- |
+|   [1]   | runtime-shader | `SKRuntimeEffect.CreateShader`  | animated backplates, gauge fills    |
+|   [2]   | blur           | `SKImageFilter.CreateBlur`      | thumbnail elevation underlays       |
+|   [3]   | dash           | `SKPathEffect.CreateDash`       | preview curve styling               |
+|   [4]   | tint           | `SKColorFilter`                 | classification and state recoloring |
+|   [5]   | mask           | `SKMaskFilter`                  | preview edge fades                  |
+|   [6]   | gradient       | `SKShader.CreateLinearGradient` | preview fills, sparkline ramps      |
 
 ## [3]-[THUMBNAIL_PIPELINE]
 
@@ -163,8 +163,8 @@ public sealed record PreviewRow<TReceipt>(
 - Auto: the runtime NativeIdentity delegate is filled by the mount transaction's load-identity probe and yields one `NativeAssetFact` per loaded native (libSkiaSharp, libHarfBuzzSharp) with version, path, and RID; the evidence stream folds the facts with kind native-asset.
 - Receipt: FrameHash is the whole-payload content hash through the runtime ContentHash delegate bound to the suite XxHash128 identity row; quality values are the encode-row axis values — lossless png at 100, perceptual jpeg and webp at 90; the receipt's `ColorSpace` field is the encode-row working-space tag so a wide-gamut baseline keys distinctly from its sRGB twin and a cross-host byte swap is attributable, never silent.
 - Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Linux.NoDependencies, Rasm.AppHost (project), NodaTime, LanguageExt.Core
-- Growth: one encode row admits a format; one policy value retunes quality; one `ColorPolicy` row retunes the working-and-output color-space pair and rides the `ColorSpaceAxis` gamut vocabulary — zero new surface.
-- Boundary: Decode and Encode are the named native-disposal boundary capsules — the intermediate `SKBitmap`, the consumed `SKImage`, and the encoded `SKData` are using-scoped so a failing later clause never leaks a native handle, and Encode owns the image it consumes; per-format exporter classes are deleted with the encode rows as the absorbing axis; the `RenderReceipt` `Elapsed`, `Bytes`, and `FrameHash` fields project to the encode-duration span and byte-size metric on the AppHost telemetry spine through the runtime `Sink` bound to the `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing; color management is float end-to-end — the encode row carries a `ColorPolicy` whose `Working` space `Reproject` retags the consumed `SKImage` to its declared space through `SKImage.ColorSpace` and `SKImageInfo.WithColorSpace` and whose `Output` space pins the encoded payload, `SKColorSpace.CreateSrgbLinear` is the composite-blend working space converted once at projection, `SKColorSpace.Equal` is the only color-space identity test, the `SKImage.ColorSpace` read, the `SKColorType.RgbaF16` float surface format, and the `SKAlphaType.Premul` alpha mode that the five-argument `SKImageInfo` constructor and `SKImageInfo.WithColorSpace` compose are confirmed against the installed SkiaSharp surface, and the reproject is fail-closed against an already-matching color space, and the byte `SKColor` path that assumes sRGB and quantizes before conversion is the deleted form so a wide-gamut render hashes its float pixels, never a quantized sRGB shadow; `SKColorF` carries token paints into the float pipeline so a wide-gamut token never round-trips through the byte color quantizer; the four `ColorPolicy` gamut rows `Display`, `DisplayP3`, `Rec2020`, and `ScrgbFloat` are the encode-side projection of the single suite-wide `ColorSpaceAxis` vocabulary the custom-visual rail owns, the ICC-tagged rows source `SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3)` and `SKColorSpaceXyz.Rec2020` on the `Rgba8888` byte surface and the float row sources `SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb)` on the `RgbaF16` surface, the `Surface` column selects the reproject pixel format per row so the float row never truncates to bytes and the ICC rows never inflate to half-float, and the `RenderReceipt.ColorSpace` tag is one of the four axis keys so a cross-host byte swap is attributable to the exact gamut and a parallel `Gamut` enum or per-encode color struct is the deleted form.
+- Growth: one encode row admits a format; one policy value retunes quality; one `ColorPolicy` row retunes the working-and-output color-space pair and rides the `ColorSpaceAxis` gamut vocabulary; one `ToneMap` row admits an HDR-to-SDR operator; an ICC-profiled output is one `ColorPolicy.FromIcc` value from a profile-byte source — zero new surface.
+- Boundary: Decode and Encode are the named native-disposal boundary capsules — the intermediate `SKBitmap`, the consumed `SKImage`, and the encoded `SKData` are using-scoped so a failing later clause never leaks a native handle, and Encode owns the image it consumes; per-format exporter classes are deleted with the encode rows as the absorbing axis; the `RenderReceipt` `Elapsed`, `Bytes`, and `FrameHash` fields project to the encode-duration span and byte-size metric on the AppHost telemetry spine through the runtime `Sink` bound to the `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing; color management is float end-to-end — the encode row carries a `ColorPolicy` whose `Working` space `Reproject` retags the consumed `SKImage` to its declared space through `SKImage.ColorSpace` and `SKImageInfo.WithColorSpace` and whose `Output` space pins the encoded payload, `SKColorSpace.CreateSrgbLinear` is the composite-blend working space converted once at projection, `SKColorSpace.Equal` is the only color-space identity test, the `SKImage.ColorSpace` read, the `SKColorType.RgbaF16` float surface format, and the `SKAlphaType.Premul` alpha mode that the five-argument `SKImageInfo` constructor and `SKImageInfo.WithColorSpace` compose are confirmed against the installed SkiaSharp surface, and the reproject is fail-closed against an already-matching color space, and the byte `SKColor` path that assumes sRGB and quantizes before conversion is the deleted form so a wide-gamut render hashes its float pixels, never a quantized sRGB shadow; `SKColorF` carries token paints into the float pipeline so a wide-gamut token never round-trips through the byte color quantizer; the four `ColorPolicy` gamut rows `Display`, `DisplayP3`, `Rec2020`, and `ScrgbFloat` are the encode-side projection of the single suite-wide `ColorSpaceAxis` vocabulary the custom-visual rail owns, the ICC-tagged rows source `SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3)` and `SKColorSpaceXyz.Rec2020` on the `Rgba8888` byte surface and the float row sources `SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb)` on the `RgbaF16` surface, the `Surface` column selects the reproject pixel format per row so the float row never truncates to bytes and the ICC rows never inflate to half-float, and the `RenderReceipt.ColorSpace` tag is one of the axis keys so a cross-host byte swap is attributable to the exact gamut and a parallel `Gamut` enum or per-encode color struct is the deleted form; HDR tone-mapping is the `ToneMap` smart-enum column on `ColorPolicy` — the `Aces`/`Reinhard`/`HableFilmic` curves are pure float operators sampled into a 256-entry `SKColorFilter.CreateTable` LUT bound onto the reproject paint exactly once at projection, so a scene-referred Rec.2020-PQ render tone-maps to the SDR output gamut through one filter pass and a per-pixel managed tone-map loop or a second display-mapping owner is the deleted form, and the `HdrPq` row carries the `Aces` operator so an HDR baseline keys distinctly and its SDR projection is reproducible; ICC profile management is `ColorPolicy.FromIcc` — an embedded or sidecar ICC profile parses through `SKColorSpace.CreateIcc(ReadOnlySpan<byte>)` into the working-and-output space so a display-calibrated or print profile drives the reproject without a fifth enum, an unparseable profile folds to the `icc-invalid` error row rather than a silent sRGB fallback, and an OpenColorIO config crosses the seam as a profile-byte source the caller resolves — AppUi consumes the profile bytes and never embeds an OCIO runtime; the OCIO-config-to-ICC extraction is caller-side and a managed OCIO color-pipeline is the deleted form; the `SKColorSpace.CreateIcc` parse, the `SKColorFilter.CreateTable(byte[])` LUT arity, and the `SKImageInfo.WithColorSpace` ICC tag round-trip resolve at implementation against the installed SkiaSharp surface under ICC_TONEMAP.
 
 ```csharp signature
 public sealed record RenderReceipt(
@@ -187,24 +187,54 @@ public static class VisualCodec {
     public static readonly EncodeRow PngP3 = new("png-p3", SKEncodedImageFormat.Png, 100, ColorPolicy.DisplayP3);
     public static readonly EncodeRow PngRec2020 = new("png-rec2020", SKEncodedImageFormat.Png, 100, ColorPolicy.Rec2020);
     public static readonly EncodeRow PngScrgb = new("png-scrgb", SKEncodedImageFormat.Png, 100, ColorPolicy.ScrgbFloat);
+    public static readonly EncodeRow PngHdr = new("png-hdr", SKEncodedImageFormat.Png, 100, ColorPolicy.HdrPq);
 
-    public sealed record ColorPolicy(string Key, Func<SKColorSpace> Working, Func<SKColorSpace> Output, SKColorType Surface) {
-        public static readonly ColorPolicy Display = new("srgb", SKColorSpace.CreateSrgb, SKColorSpace.CreateSrgb, SKColorType.Rgba8888);
-        public static readonly ColorPolicy WideGamut = new("srgb-linear", SKColorSpace.CreateSrgbLinear, SKColorSpace.CreateSrgb, SKColorType.RgbaF16);
-        public static readonly ColorPolicy DisplayP3 = new("display-p3", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3), SKColorType.Rgba8888);
-        public static readonly ColorPolicy Rec2020 = new("rec2020", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.Rec2020), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.Rec2020), SKColorType.Rgba8888);
-        public static readonly ColorPolicy ScrgbFloat = new("scrgb-float", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb), SKColorType.RgbaF16);
+    public sealed record ColorPolicy(string Key, Func<SKColorSpace> Working, Func<SKColorSpace> Output, SKColorType Surface, ToneMap Tone) {
+        public static readonly ColorPolicy Display = new("srgb", SKColorSpace.CreateSrgb, SKColorSpace.CreateSrgb, SKColorType.Rgba8888, ToneMap.None);
+        public static readonly ColorPolicy WideGamut = new("srgb-linear", SKColorSpace.CreateSrgbLinear, SKColorSpace.CreateSrgb, SKColorType.RgbaF16, ToneMap.None);
+        public static readonly ColorPolicy DisplayP3 = new("display-p3", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3), SKColorType.Rgba8888, ToneMap.None);
+        public static readonly ColorPolicy Rec2020 = new("rec2020", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.Rec2020), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.Rec2020), SKColorType.Rgba8888, ToneMap.None);
+        public static readonly ColorPolicy ScrgbFloat = new("scrgb-float", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb), SKColorType.RgbaF16, ToneMap.None);
+        public static readonly ColorPolicy HdrPq = new("rec2020-pq", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Rec2020), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.Rec2020), SKColorType.RgbaF16, ToneMap.Aces);
 
         public SKColorF Resolve(Color token) => new(token.R / 255f, token.G / 255f, token.B / 255f, token.A / 255f);
 
+        public static Fin<ColorPolicy> FromIcc(string key, ReadOnlyMemory<byte> profile, SKColorType surface) =>
+            Optional(SKColorSpace.CreateIcc(profile.Span)) is { IsSome: true, Case: SKColorSpace space }
+                ? Fin.Succ(new ColorPolicy(key, () => space, () => space, surface, ToneMap.None))
+                : Fin.Fail<ColorPolicy>(Error.New($"visuals/icc-invalid: profile bytes for {key} do not parse as an ICC profile"));
+
         public Fin<SKImage> Reproject(SKImage image) {
             using SKColorSpace target = Output();
-            return SKColorSpace.Equal(image.ColorSpace ?? SKColorSpace.CreateSrgb(), target)
+            using SKColorFilter? tone = Tone.Filter();
+            return SKColorSpace.Equal(image.ColorSpace ?? SKColorSpace.CreateSrgb(), target) && tone is null
                 ? Fin.Succ(image)
                 : Offscreen.Snapshot(
                     new SKImageInfo(image.Width, image.Height, Surface, SKAlphaType.Premul).WithColorSpace(target),
-                    canvas => { canvas.DrawImage(image, 0f, 0f); return FinSucc(unit); });
+                    canvas => {
+                        using SKPaint paint = new() { ColorFilter = tone };
+                        canvas.DrawImage(image, 0f, 0f, paint);
+                        return FinSucc(unit);
+                    });
         }
+    }
+
+    [SmartEnum<string>]
+    public sealed partial class ToneMap {
+        public static readonly ToneMap None = new("none", static _ => 1f);
+        public static readonly ToneMap Reinhard = new("reinhard", static x => x / (1f + x));
+        public static readonly ToneMap Aces = new("aces", static x => Math.Clamp((x * ((2.51f * x) + 0.03f)) / ((x * ((2.43f * x) + 0.59f)) + 0.14f), 0f, 1f));
+        public static readonly ToneMap HableFilmic = new("hable", static x => (((x * ((0.15f * x) + 0.05f)) + 0.004f) / ((x * ((0.15f * x) + 0.50f)) + 0.06f)) - 0.0667f);
+
+        private readonly Func<float, float> curve;
+
+        public SKColorFilter? Filter() =>
+            ReferenceEquals(this, None) ? null : SKColorFilter.CreateTable(Lut());
+
+        private byte[] Lut() =>
+            Enumerable.Range(0, 256)
+                .Select(step => (byte)Math.Clamp((int)(curve(step / 255f) * 255f), 0, 255))
+                .ToArray();
     }
 
     public sealed record EncodeRow(string Key, SKEncodedImageFormat Format, int Quality, ColorPolicy Color);
@@ -232,14 +262,14 @@ public static class VisualCodec {
 
 ## [6]-[DOCUMENT_EXPORT]
 
-- Owner: `VisualDestination` [Union] · `VisualExportSpec` · `FlowBlock` [Union] · `VisualExport`
-- Cases: FilePath · BlobLane · Bundle
-- Entry: `public static IO<RenderReceipt> Export(VisualRuntime runtime, VisualExportSpec spec)` — IO rail
+- Owner: `VisualDestination` [Union] · `VisualExportSpec` · `FlowBlock` [Union] · `VisualExport` · `OfficeFormat` · `OfficeSpec` · `OfficeSheet` [Union] · `OfficeExport`
+- Cases: FilePath · BlobLane · Bundle; `OfficeFormat` = xlsx · pptx · docx; `OfficeSheet` = Table · Chart · Image · RichText
+- Entry: `public static IO<RenderReceipt> Export(VisualRuntime runtime, VisualExportSpec spec)` — IO rail; `public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec)` — the Office IO rail
 - Auto: the Bundle arm delivers visual artifacts through the runtime BundleWrite delegate with their classification — the support-contributor consequence; the FilePath arm receives its absolute path as a value from the picker intent and never computes paths; artifact scopes resolve from ProfileRoots.
 - Receipt: one RenderReceipt of kind document per export with whole-payload content hash and the delivered destination key.
 - Packages: SkiaSharp, SkiaSharp.HarfBuzz, Thinktecture.Runtime.Extensions, Rasm.AppHost (project), NodaTime, LanguageExt.Core
-- Growth: one destination case extends delivery and breaks the Deliver dispatch at compile time; one page-size row extends the table; one `FlowBlock` case extends the flow-block owner and one `BreakRule` value extends the break policy column; zero new surface.
-- Boundary: `FlowBlock` is the budgeted export-flow owner (DENSITY_BAR row 30), `HeaderFooterBand` its companion band member, and `BreakRule` a `POLICY_VALUES` column on `VisualExportSpec` — the document-pagination concern resolves through these without minting a surface beside the destination owners; Paged, Flow, and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging, content-to-page flow, and byte delivery; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`, `Close` finalizes, and the failure arm calls `Abort` explicitly so a paging fault neither commits nor disposes silently; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; the `FlowFold` consumes a `Seq<FlowBlock>` under the spec's `BreakRule` column and emits the same precomposed `Func<SKCanvas, Fin<Unit>>` page folds the explicit-pages path already carries — each page draws the `HeaderFooterBand` first, then the block run the break rule fits, with a `Text` block's `Draw` delegate composing the shaping rail's `DrawShapedText` so glyphs shape through HarfBuzz before they raster and the block's `Height` advance derives from the shaped run's `SKShaper.Result` `Width` and the role-row line box, never a per-glyph placement loop, and chart snapshots entering as `SKImage` tiles; vector content enters pages as picture content so vectors and text survive rather than rasterizing; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners.
+- Growth: one destination case extends delivery and breaks the Deliver dispatch at compile time; one page-size row extends the table; one `FlowBlock` case extends the flow-block owner and one `BreakRule` value extends the break policy column; one `OfficeFormat` row admits an Office target and one `OfficeSheet` case admits a content kind; zero new surface.
+- Boundary: `FlowBlock` is the budgeted export-flow owner (DENSITY_BAR row 30), `HeaderFooterBand` its companion band member, and `BreakRule` a `POLICY_VALUES` column on `VisualExportSpec` — the document-pagination concern resolves through these without minting a surface beside the destination owners; Paged, Flow, and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging, content-to-page flow, and byte delivery; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`, `Close` finalizes, and the failure arm calls `Abort` explicitly so a paging fault neither commits nor disposes silently; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; the `FlowFold` consumes a `Seq<FlowBlock>` under the spec's `BreakRule` column and emits the same precomposed `Func<SKCanvas, Fin<Unit>>` page folds the explicit-pages path already carries — each page draws the `HeaderFooterBand` first, then the block run the break rule fits, with a `Text` block's `Draw` delegate composing the shaping rail's `DrawShapedText` so glyphs shape through HarfBuzz before they raster and the block's `Height` advance derives from the shaped run's `SKShaper.Result` `Width` and the role-row line box, never a per-glyph placement loop, and chart snapshots entering as `SKImage` tiles; vector content enters pages as picture content so vectors and text survive rather than rasterizing; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners; Office export is the `OfficeExport.Emit` rail over the `OfficeSpec` — XLSX, PPTX, and DOCX targets carry typed `OfficeSheet` content (tables, charts projecting the `ChartSeriesSpec` points, images as `SKImage` tiles, rich text as `FlowBlock` runs) with embedded font faces packed into the OOXML part so a report renders identically off-machine, and the deterministic pagination reuses the `FlowFold` break algebra so a DOCX page break matches the PDF page break — a hand-laid-out report and a per-format report builder are the deleted forms; the Office payload writes through the OpenXML writer surface whose exact `SpreadsheetDocument`/`PresentationDocument`/`WordprocessingDocument` part-graph and font-embedding member set resolve under OFFICE_OPENXML against the admitted OpenXML package, so the Office fence is complete and SPIKE-gated on the writer while the `SKDocument` PDF and the codec axis ship today; the Office destination is the same `VisualDestination` union so the Office emit mints no second destination owner and the receipt rides the `RenderReceipt` family as kind office.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -308,6 +338,54 @@ public static class FlowLayout {
                 .Bind(_ => band.Footer.Match(Some: footer => footer(canvas, index), None: static () => FinSucc(unit)));
 }
 
+[SmartEnum<string>]
+public sealed partial class OfficeFormat {
+    public static readonly OfficeFormat Xlsx = new("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    public static readonly OfficeFormat Pptx = new("pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+    public static readonly OfficeFormat Docx = new("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+    public string MediaType { get; }
+}
+
+public sealed record OfficeSpec(
+    OfficeFormat Format,
+    Seq<OfficeSheet> Sheets,
+    Seq<(string FontFamily, ReadOnlyMemory<byte> Face)> EmbeddedFonts,
+    VisualDestination Destination);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record OfficeSheet {
+    private OfficeSheet() { }
+    public sealed record Table(string Name, Seq<Seq<string>> Rows, bool Header) : OfficeSheet;
+    public sealed record Chart(string Name, ChartSeriesSpec Spec, Seq<(double X, double Y)> Points) : OfficeSheet;
+    public sealed record Image(string Name, SKImage Picture) : OfficeSheet;
+    public sealed record RichText(string Name, Seq<FlowBlock> Blocks) : OfficeSheet;
+}
+
+public static class OfficeExport {
+    public const string Kind = "office";
+
+    public static readonly Error WriterUnavailable = Error.New("visuals/office-writer-unavailable: no OpenXML writer admitted; deterministic pagination is fence-complete and SPIKE-gated under OFFICE_OPENXML");
+
+    public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec) =>
+        from mark in IO.lift(runtime.Clocks.Mark)
+        from payload in Write(spec)
+        from destination in Deliver(runtime, spec.Destination, payload)
+        from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
+        let receipt = new RenderReceipt(Kind, spec.Format.Key, runtime.ContentHash(payload), payload.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
+        from _ in runtime.Sink(receipt)
+        select receipt;
+
+    static IO<byte[]> Write(OfficeSpec spec) => IO.fail<byte[]>(WriterUnavailable);
+
+    static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload) =>
+        destination.Switch(
+            state: (runtime, payload),
+            filePath: static (ctx, file) => IO.lift(() => { File.WriteAllBytes(file.AbsolutePath, ctx.payload); return file.AbsolutePath; }),
+            blobLane: static (ctx, blob) => ctx.runtime.BlobWrite(blob.ArtifactKey, ctx.payload),
+            bundle: static (ctx, bundle) => ctx.runtime.BundleWrite(bundle.ArtifactName, bundle.Classification, ctx.payload));
+}
+
 public static class VisualExport {
     public static readonly Error XpsUnavailable = Error.New("visuals/xps-unavailable: the loaded Skia native carries no XPS backend on this platform");
 
@@ -355,3 +433,5 @@ public static class VisualExport {
 ## [7]-[RESEARCH]
 
 - [PARAGRAPH_BREAK]: the within-`FlowBlock.Text` cluster-boundary break point at the page edge — the shaping rail owns cluster metrics through the confirmed `SKShaper.Result` `Clusters` and `Width` surface, and the exact line-of-clusters split that lets a `Text` block resume on the next page rather than re-running the whole block binds at implementation against the shaped-run break flags.
+- [OFFICE_OPENXML]: the OpenXML writer surface for the XLSX/PPTX/DOCX emit — the `SpreadsheetDocument`/`PresentationDocument`/`WordprocessingDocument` part-graph construction, the sheet/slide/body content insertion, the embedded-font part packing, and the deterministic-ordering knobs that make the OOXML byte-stream reproducible, resolved at implementation against the admitted OpenXML package; the `OfficeFormat` axis, the `OfficeSheet` content union, the `OfficeSpec`, and the `FlowFold`-shared pagination are settled, the OpenXML part-graph member set is the unverified surface and the package admission lands the writer pin.
+- [ICC_TONEMAP]: the `SKColorSpace.CreateIcc(ReadOnlySpan<byte>)` ICC-profile parse returning a tagged color space, the `SKColorFilter.CreateTable(byte[])` 256-entry LUT-filter arity the `ToneMap.Filter` builds, and the `SKImageInfo.WithColorSpace` ICC round-trip preservation resolve at implementation against the installed SkiaSharp 3 surface; the `ColorPolicy.FromIcc` fence, the `ToneMap` curve operators, and the reproject paint binding are settled, the exact `CreateIcc`/`CreateTable` member shapes are the unverified surface.

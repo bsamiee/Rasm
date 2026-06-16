@@ -53,13 +53,15 @@ deserialization, and number-handling-aware key codecs.
 [ENTRYPOINT_SCOPE]: factory registration and selection
 - rail: serialization
 
-| [INDEX] | [SURFACE]                                                   | [CALL_SHAPE]                                 | [CAPABILITY]                                   |
-| :-----: | :---------------------------------------------------------- | :------------------------------------------- | :--------------------------------------------- |
-|   [1]   | `ThinktectureJsonConverterFactory()`                        | parameterless constructor                    | admits all metadata-bearing owners             |
-|   [2]   | `ThinktectureJsonConverterFactory(bool)`                    | `skipObjectsWithJsonConverterAttribute` flag | honors or overrides existing `[JsonConverter]` |
-|   [3]   | `ThinktectureJsonConverterFactory(bool, Func<Type, bool>?)` | skip flag plus span opt-out callback         | per-type span-deserialization opt-out          |
-|   [4]   | `CanConvert`                                                | `Type` probe                                 | metadata presence plus attribute-skip decision |
-|   [5]   | `CreateConverter`                                           | `Type` plus `JsonSerializerOptions`          | selects span, string, or keyed converter       |
+Factory constructors optionally receive `skipObjectsWithJsonConverterAttribute` and a `Func<Type, bool>?` span-deserialization opt-out callback.
+
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]              | [CAPABILITY]                                   |
+| :-----: | :--------------------------------- | :------------------------ | :--------------------------------------------- |
+|   [1]   | `ThinktectureJsonConverterFactory` | parameterless constructor | admits all metadata-bearing owners             |
+|   [2]   | `ThinktectureJsonConverterFactory` | attribute-skip flag       | honors or overrides existing `[JsonConverter]` |
+|   [3]   | `ThinktectureJsonConverterFactory` | skip flag plus opt-out    | per-type span-deserialization opt-out          |
+|   [4]   | `CanConvert`                       | `Type` probe              | metadata presence plus attribute-skip decision |
+|   [5]   | `CreateConverter`                  | type plus options         | selects span, string, or keyed converter       |
 
 [ENTRYPOINT_SCOPE]: conversion operations
 - rail: serialization

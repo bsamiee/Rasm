@@ -86,11 +86,11 @@
 [GEO_TYPES]: map chart binding surfaces
 - rail: charts
 
-| [INDEX] | [SYMBOL]                  | [RAIL]            |
-| :-----: | :------------------------ | :---------------- |
-|   [1]   | `IGeoMapView`             | map view contract |
-|   [2]   | `DrawnMap`                | active map record |
-|   [3]   | `MapProjection`           | projection mode   |
+| [INDEX] | [SYMBOL]        | [RAIL]            |
+| :-----: | :-------------- | :---------------- |
+|   [1]   | `IGeoMapView`   | map view contract |
+|   [2]   | `DrawnMap`      | active map record |
+|   [3]   | `MapProjection` | projection mode   |
 
 ## [3]-[ENTRYPOINTS]
 

@@ -282,12 +282,12 @@ public static class CustomOps {
 ## [6]-[INFERENCE_MODES]
 
 - Owner: `RunOps` — the run-mode fold over the shared session: single, lane-enqueued, bound-batch, and windowed runs discriminated by intent payload shape.
-- Cases: single `Run`; lane-enqueued async (the lane seam owns the thread hop — the native `RunAsync` requires pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so it is the rejected spelling); `InferBound` bound batch over a populated `OrtIoBinding`; `InferBoundNamed` the name-keyed steady-state bound run pairing `GetOutputNames` with `GetOutputValues`; the `BoundLoop` steady-state hot path; `Chunked` streaming windows over chunked inputs through `RecyclableMemoryStream.GetReadOnlySequence`; `Embed` text-to-vector projection over an embedding model.
+- Cases: single `Run`; lane-enqueued async (the lane seam owns the thread hop — the native `RunAsync` requires pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so it is the rejected spelling); `InferBound` bound batch over a populated `OrtIoBinding`; `InferBoundNamed` the name-keyed steady-state bound run pairing `GetOutputNames` with `GetOutputValues`; the `BoundLoop` steady-state hot path; `Chunked` streaming windows over chunked inputs through `RecyclableMemoryStream.GetReadOnlySequence`; `Embed` text-to-vector projection over an embedding model; `Classify` argmax-over-logits run for BIM point-cloud→element classification and symbol recognition over the interchange `PointScan` encoding; `ClashScore` scalar-output run for clash false-positive scoring over a candidate `ClashPair` feature vector.
 - Entry: `public Fin<T> Infer<T>(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, Seq<string> outputs, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project)` — the projection runs inside the native-result bracket.
 - Auto: `Plan` wires deadline expiry into the `Terminate` one-way latch from the linked `CancelScope`, attaches LoRA adapters, and folds the `RunConfig` row table into `AddRunConfigEntry` calls so a posture change selects a row rather than editing the fence; one conversion arm classifies failures into `DeadlineExpired`/`Cancelled` by scope provenance.
 - Receipt: the ModelRun receipt carries route, elapsed, allocation class, and `OrtMemoryInfo` allocator evidence slots; profiling chrome-trace artifacts land as `ArtifactIndexRow.OnnxProfile` rows with the artifact path in the receipt.
 - Packages: Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
-- Growth: a new run shape is one payload-shape case on the intent family; a new run-config posture is one `RunConfig` row carrying its `AddRunConfigEntry` key-value pairs and its `OrtAllocatorType` arena column; an embedding model is one more `Embed` run over the same session capsule, never a new model lane; zero new surface.
+- Growth: a new run shape is one payload-shape case on the intent family; a new run-config posture is one `RunConfig` row carrying its `AddRunConfigEntry` key-value pairs and its `OrtAllocatorType` arena column; an embedding model is one more `Embed` run over the same session capsule and a BIM classifier, symbol recognizer, or clash false-positive scorer is one more `Classify`/`ClashScore` run over the shared session reusing the inference engine for the non-AI in-scope BIM pipelines (point-cloud→element classification consumes the interchange `PointScan` encoding, clash scoring consumes the `solver-and-optimization#CLASH_AND_TWIN` `ClashPair` feature vector), never a new model lane or a BIM-specific service; zero new surface.
 - Boundary: `RunOps` extends the `ModelSessions` boundary capsule and this fence carries bracketed statement forms with deterministic native disposal; OrtValue-only law — `NamedOnnxValue`, `DisposableNamedOnnxValue`, and `FixedBufferOnnxValue` are superseded spellings that never appear; `CreateTensorValueFromMemory` binds rented staging arrays without copies; the `Terminate` latch is the single cancellation propagation path and the deadline-poll cadence binds from the CANCELLATION research row; `InferBound` runs `RunWithBinding` over a populated `OrtIoBinding`, bracketing the run between `SynchronizeBoundInputs` and `SynchronizeBoundOutputs` and projecting `GetOutputValues`; `InferBoundNamed` is the name-keyed steady-state bound run — the same `RunWithBinding` bracket projecting the output `OrtValue`s zipped against `GetOutputNames()` to a `Seq<(string Name, OrtValue Value)>`, delivering the `RunWithBindingAndNames(RunOptions, OrtIoBinding, string[])` named-output convenience without materializing the forbidden `IDisposableReadOnlyCollection<DisposableNamedOnnxValue>` that member returns; the `BoundLoop` capsule is the zero-allocation steady-state posture for repeated same-shape inference — `CreateIoBinding`, `BindInput`/`BindOutput` once, a `MemoryOwner<float>` input plane refreshed by span copy, a `CreateAllocatedTensorValue` output sink, and `RunWithBinding` per `Pulse` with no per-call marshal — and a shape-class transition rebinds through `ClearBoundInputs`/`ClearBoundOutputs` with `BindOutputToDevice` routing device outputs; `Chunked` reads the chunked input through `RecyclableMemoryStream.GetReadOnlySequence` (zero-copy) and drives one `BoundLoop.Pulse` per window emitting the `streaming` `ProgressPhase` and a `StreamSegment` receipt per chunk, never a hand-rolled contiguous frame; `Embed` runs one inference over an embedding model and projects the last-hidden-state mean-pool or CLS-token slice to a `float[]`/`Half[]` vector feeding the Persistence vector lane by reference, keying on the content-hash and model-id reuse identity the Persistence owner holds; the `RunConfig.Arena` column classifies the run allocator through `OrtAllocatorType` (`ArenaAllocator` steady, `DeviceAllocator` device-resident); output projection scopes native memory inside `project` and sentinel or NaN values project to `Option` at the boundary, never inward.
 
 ```csharp signature
@@ -334,6 +334,24 @@ public static class RunOps {
 
         public Fin<float[]> Embed(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, string output) =>
             session.Infer(options, scope, inputs, Seq(output), static results => Fin.Succ(results.First().GetTensorDataAsSpan<float>().ToArray()));
+
+        public Fin<Seq<(int Class, float Score)>> Classify(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, string logits, int classes) =>
+            session.Infer(options, scope, inputs, Seq(logits), results => {
+                var scores = results.First().GetTensorDataAsSpan<float>();
+                return Fin.Succ(toSeq(Enumerable.Range(0, scores.Length / Math.Max(1, classes)))
+                    .Map(row => { int slice = row * classes; int arg = ArgMax(scores.Slice(slice, classes)); return (arg, scores[slice + arg]); }));
+            });
+
+        public Fin<float> ClashScore(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> features, string output) =>
+            session.Infer(options, scope, features, Seq(output), static results => Fin.Succ(results.First().GetTensorDataAsSpan<float>()[0]));
+    }
+
+    static int ArgMax(ReadOnlySpan<float> scores) {
+        int best = 0;
+        for (int index = 1; index < scores.Length; index++) {
+            if (scores[index] > scores[best]) { best = index; }
+        }
+        return best;
     }
 
     static IEnumerable<ReadOnlyMemory<float>> Frames(ReadOnlySequence<byte> windows, int windowFloats) =>

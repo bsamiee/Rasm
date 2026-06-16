@@ -41,108 +41,112 @@ factorizations beside the MathNet iterative solvers for the numeric lane.
 [PUBLIC_TYPE_SCOPE]: provider selection
 - rail: numeric
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE] | [CAPABILITY]                          |
-| :-----: | :-------------------------------- | :------------- | :------------------------------------ |
-|   [1]   | `Control`                         | static façade  | selects + probes the active provider  |
-|   [2]   | `LinearAlgebraControl`            | static façade  | provider-level direct selection API   |
-|   [3]   | `ILinearAlgebraProvider`          | provider seam  | the active provider handle            |
-|   [4]   | `MklLinearAlgebraControl`         | provider type  | MKL native adapter control            |
-|   [5]   | `OpenBlasLinearAlgebraControl`    | provider type  | OpenBLAS native adapter control       |
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE] | [CAPABILITY]                         |
+| :-----: | :----------------------------- | :------------- | :----------------------------------- |
+|   [1]   | `Control`                      | static façade  | selects + probes the active provider |
+|   [2]   | `LinearAlgebraControl`         | static façade  | provider-level direct selection API  |
+|   [3]   | `ILinearAlgebraProvider`       | provider seam  | the active provider handle           |
+|   [4]   | `MklLinearAlgebraControl`      | provider type  | MKL native adapter control           |
+|   [5]   | `OpenBlasLinearAlgebraControl` | provider type  | OpenBLAS native adapter control      |
 
 [PUBLIC_TYPE_SCOPE]: dense algebra
 - rail: numeric
 
-| [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE] | [CAPABILITY]                          |
-| :-----: | :------------------------------------ | :------------- | :------------------------------------ |
-|   [1]   | `Matrix<T>`                           | dense matrix   | dense matrix value carrier            |
-|   [2]   | `Vector<T>`                           | dense vector   | dense vector value carrier            |
-|   [3]   | `Matrix<double>` (`Double.Matrix`)    | dense matrix   | the numeric-lane dense carrier        |
-|   [4]   | `LU<T>`                               | factorization  | LU decomposition + solve              |
-|   [5]   | `QR<T>`                               | factorization  | QR decomposition + solve              |
-|   [6]   | `Cholesky<T>`                         | factorization  | Cholesky decomposition + solve        |
-|   [7]   | `Svd<T>`                              | factorization  | singular value decomposition          |
-|   [8]   | `Evd<T>`                              | factorization  | eigenvalue decomposition              |
-|   [9]   | `DenseColumnMajorMatrixStorage<T>`    | dense storage  | column-major dense backing            |
-|  [10]   | `DenseVectorStorage<T>`               | dense storage  | dense vector backing                  |
+| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE] | [CAPABILITY]                   |
+| :-----: | :--------------------------------- | :------------- | :----------------------------- |
+|   [1]   | `Matrix<T>`                        | dense matrix   | dense matrix value carrier     |
+|   [2]   | `Vector<T>`                        | dense vector   | dense vector value carrier     |
+|   [3]   | `Matrix<double>` (`Double.Matrix`) | dense matrix   | the numeric-lane dense carrier |
+|   [4]   | `LU<T>`                            | factorization  | LU decomposition + solve       |
+|   [5]   | `QR<T>`                            | factorization  | QR decomposition + solve       |
+|   [6]   | `Cholesky<T>`                      | factorization  | Cholesky decomposition + solve |
+|   [7]   | `Svd<T>`                           | factorization  | singular value decomposition   |
+|   [8]   | `Evd<T>`                           | factorization  | eigenvalue decomposition       |
+|   [9]   | `DenseColumnMajorMatrixStorage<T>` | dense storage  | column-major dense backing     |
+|  [10]   | `DenseVectorStorage<T>`            | dense storage  | dense vector backing           |
 
 [PUBLIC_TYPE_SCOPE]: sparse algebra
 - rail: numeric
 
-| [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE]  | [CAPABILITY]                          |
-| :-----: | :------------------------------------ | :-------------- | :------------------------------------ |
-|   [1]   | `SparseCompressedRowMatrixStorage<T>` | sparse storage  | CSR matrix backing (only native form) |
-|   [2]   | `SparseVectorStorage<T>`              | sparse storage  | COO-style sparse vector backing       |
-|   [3]   | `CSparse.Storage.CompressedColumnStorage<T>` | csc storage | CSparse CSC matrix backing       |
-|   [4]   | `CSparse.Double.SparseMatrix`         | sparse matrix   | CSparse double CSC matrix             |
-|   [5]   | `CSparse.Double.Factorization.SparseCholesky` | factorization | direct sparse Cholesky          |
-|   [6]   | `CSparse.Double.Factorization.SparseLU` | factorization | direct sparse LU                    |
-|   [7]   | `CSparse.Double.Factorization.SparseQR`  | factorization | direct sparse QR                   |
-|   [8]   | `CSparse.ColumnOrdering`               | ordering enum   | fill-reducing ordering selector      |
-|   [9]   | `MathNet.Numerics.LinearAlgebra.Solvers.IIterativeSolver<T>` | solver seam | iterative-solve seam      |
+| [INDEX] | [SYMBOL]                                                     | [PACKAGE_ROLE] | [CAPABILITY]                          |
+| :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------ |
+|   [1]   | `SparseCompressedRowMatrixStorage<T>`                        | sparse storage | CSR matrix backing (only native form) |
+|   [2]   | `SparseVectorStorage<T>`                                     | sparse storage | COO-style sparse vector backing       |
+|   [3]   | `CSparse.Storage.CompressedColumnStorage<T>`                 | csc storage    | CSparse CSC matrix backing            |
+|   [4]   | `CSparse.Double.SparseMatrix`                                | sparse matrix  | CSparse double CSC matrix             |
+|   [5]   | `CSparse.Double.Factorization.SparseCholesky`                | factorization  | direct sparse Cholesky                |
+|   [6]   | `CSparse.Double.Factorization.SparseLU`                      | factorization  | direct sparse LU                      |
+|   [7]   | `CSparse.Double.Factorization.SparseQR`                      | factorization  | direct sparse QR                      |
+|   [8]   | `CSparse.ColumnOrdering`                                     | ordering enum  | fill-reducing ordering selector       |
+|   [9]   | `MathNet.Numerics.LinearAlgebra.Solvers.IIterativeSolver<T>` | solver seam    | iterative-solve seam                  |
 
 [PUBLIC_TYPE_SCOPE]: iterative solvers
 - rail: numeric
 
-| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE] | [CAPABILITY]                  |
-| :-----: | :------------------------------------------------ | :------------- | :---------------------------- |
-|   [1]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.BiCgStab` | solver  | biconjugate gradient stabilized |
-|   [2]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.GpBiCg`   | solver  | generalized product BiCG        |
-|   [3]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.TFQMR`    | solver  | transpose-free QMR              |
-|   [4]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.MlkBiCgStab` | solver | multiple-Lanczos BiCGStab     |
-|   [5]   | `MathNet.Numerics.LinearAlgebra.Solvers.Iterator<T>`    | control | iteration stop criteria         |
+| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE] | [CAPABILITY]                    |
+| :-----: | :---------------------------------------------------------- | :------------- | :------------------------------ |
+|   [1]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.BiCgStab`    | solver         | biconjugate gradient stabilized |
+|   [2]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.GpBiCg`      | solver         | generalized product BiCG        |
+|   [3]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.TFQMR`       | solver         | transpose-free QMR              |
+|   [4]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.MlkBiCgStab` | solver         | multiple-Lanczos BiCGStab       |
+|   [5]   | `MathNet.Numerics.LinearAlgebra.Solvers.Iterator<T>`        | control        | iteration stop criteria         |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider selection
 - rail: numeric
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]   | [CAPABILITY]                              |
-| :-----: | :----------------------------------- | :------------- | :---------------------------------------- |
-|   [1]   | `Control.UseManaged`                 | static `void`  | selects the pure-managed provider         |
-|   [2]   | `Control.UseNativeMKL`               | static `void`  | selects MKL; throws on load failure       |
-|   [3]   | `Control.TryUseNativeMKL`            | static `bool`  | selects MKL; `false` on load failure      |
-|   [4]   | `Control.UseNativeOpenBLAS`          | static `void`  | selects OpenBLAS; throws on load failure  |
-|   [5]   | `Control.TryUseNativeOpenBLAS`       | static `bool`  | selects OpenBLAS; `false` on load failure |
-|   [6]   | `Control.UseBestProviders`           | static `void`  | tries MKL→CUDA→OpenBLAS→managed           |
-|   [7]   | `Control.NativeProviderPath`         | static `string`| sets native hint path on all controls     |
-|   [8]   | `LinearAlgebraControl.Provider`      | static prop    | gets/sets the active provider handle       |
-|   [9]   | `LinearAlgebraControl.TryUse`        | static `bool`  | activates a provided handle, no-throw      |
-|  [10]   | `LinearAlgebraControl.FreeResources` | static `void`  | releases native provider resources         |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]    | [CAPABILITY]                              |
+| :-----: | :----------------------------------- | :-------------- | :---------------------------------------- |
+|   [1]   | `Control.UseManaged`                 | static `void`   | selects the pure-managed provider         |
+|   [2]   | `Control.UseNativeMKL`               | static `void`   | selects MKL; throws on load failure       |
+|   [3]   | `Control.TryUseNativeMKL`            | static `bool`   | selects MKL; `false` on load failure      |
+|   [4]   | `Control.UseNativeOpenBLAS`          | static `void`   | selects OpenBLAS; throws on load failure  |
+|   [5]   | `Control.TryUseNativeOpenBLAS`       | static `bool`   | selects OpenBLAS; `false` on load failure |
+|   [6]   | `Control.UseBestProviders`           | static `void`   | tries MKL→CUDA→OpenBLAS→managed           |
+|   [7]   | `Control.NativeProviderPath`         | static `string` | sets native hint path on all controls     |
+|   [8]   | `LinearAlgebraControl.Provider`      | static prop     | gets/sets the active provider handle      |
+|   [9]   | `LinearAlgebraControl.TryUse`        | static `bool`   | activates a provided handle, no-throw     |
+|  [10]   | `LinearAlgebraControl.FreeResources` | static `void`   | releases native provider resources        |
 
 [ENTRYPOINT_SCOPE]: dense factorization
 - rail: numeric
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]      | [CAPABILITY]                       |
-| :-----: | :--------------------------------- | :---------------- | :--------------------------------- |
-|   [1]   | `Matrix<T>.Multiply`               | matrix call       | dense GEMM (provider-routed)       |
-|   [2]   | `Matrix<T>.LU`                     | matrix call       | builds `LU<T>`                     |
-|   [3]   | `Matrix<T>.QR`                     | matrix call       | builds `QR<T>`                     |
-|   [4]   | `Matrix<T>.Cholesky`              | matrix call       | builds `Cholesky<T>`              |
-|   [5]   | `Matrix<T>.Svd`                    | matrix call       | builds `Svd<T>`                    |
-|   [6]   | `Matrix<T>.Evd`                    | matrix call       | builds `Evd<T>`                    |
-|   [7]   | `LU<T>.Solve`                      | factorization call| solves against a right-hand side   |
-|   [8]   | `Cholesky<T>.Solve`               | factorization call| solves SPD systems                 |
-|   [9]   | `QR<T>.Solve` / `Svd<T>.Solve` / `Evd<T>.Solve` | factorization call | `Solve(Matrix<T>)` and `Solve(Vector<T>)` via the shared `ISolver<T>` contract |
-|  [10]   | `Matrix<double>.Build.DenseOfArray`| factory call      | builds dense matrix from `[,]`     |
-|  [11]   | `Matrix<double>.Build.Dense`       | factory call      | `Dense(int,int)`, `Dense(int,int,T)`, `Dense(int,int,Func<int,int,T>)` |
-|  [12]   | `Matrix<T>.SubMatrix`              | matrix call       | `SubMatrix(int rowIndex, int rowCount, int columnIndex, int columnCount)` extracts a tile |
-|  [13]   | `Matrix<T>.SetSubMatrix`          | matrix call       | `SetSubMatrix(int rowIndex, int columnIndex, Matrix<T>)` writes a tile in place |
+Dense builders and tile methods keep exact overload shape outside the table; `Solve` admits both matrix and vector right-hand sides through `ISolver<T>`.
+
+| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]       | [CAPABILITY]                       |
+| :-----: | :---------------------------------------------- | :----------------- | :--------------------------------- |
+|   [1]   | `Matrix<T>.Multiply`                            | matrix call        | provider-routed dense GEMM         |
+|   [2]   | `Matrix<T>.LU`                                  | matrix call        | builds `LU<T>`                     |
+|   [3]   | `Matrix<T>.QR`                                  | matrix call        | builds `QR<T>`                     |
+|   [4]   | `Matrix<T>.Cholesky`                            | matrix call        | builds `Cholesky<T>`               |
+|   [5]   | `Matrix<T>.Svd`                                 | matrix call        | builds `Svd<T>`                    |
+|   [6]   | `Matrix<T>.Evd`                                 | matrix call        | builds `Evd<T>`                    |
+|   [7]   | `LU<T>.Solve`                                   | factorization call | solves right-hand sides            |
+|   [8]   | `Cholesky<T>.Solve`                             | factorization call | solves SPD systems                 |
+|   [9]   | `QR<T>.Solve` / `Svd<T>.Solve` / `Evd<T>.Solve` | factorization call | solves through `ISolver<T>`        |
+|  [10]   | `Matrix<double>.Build.DenseOfArray`             | factory call       | builds dense matrix from array     |
+|  [11]   | `Matrix<double>.Build.Dense`                    | factory call       | builds dense matrix by shape/value |
+|  [12]   | `Matrix<T>.SubMatrix`                           | matrix call        | extracts a tile                    |
+|  [13]   | `Matrix<T>.SetSubMatrix`                        | matrix call        | writes a tile in place             |
 
 [ENTRYPOINT_SCOPE]: sparse ingestion + solve
 - rail: numeric
 
-| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]   | [CAPABILITY]                        |
-| :-----: | :----------------------------------------------------- | :------------- | :---------------------------------- |
-|   [1]   | `SparseCompressedRowMatrixStorage<T>.OfCompressedSparseRowFormat` | static factory | direct CSR import     |
-|   [2]   | `SparseCompressedRowMatrixStorage<T>.OfCompressedSparseColumnFormat` | static factory | CSC import→CSR     |
-|   [3]   | `SparseCompressedRowMatrixStorage<T>.OfCoordinateFormat` | static factory | COO import→CSR                    |
-|   [4]   | `SparseCompressedRowMatrixStorage<T>.OfIndexedEnumerable` | static factory | DOK/indexed import→CSR            |
-|   [5]   | `CSparse.Storage.CompressedColumnStorage<T>.OfIndexed` | static factory | CSparse CSC from indexed entries; returns the base CSC storage `SparseLU`/`SparseCholesky`/`SparseQR` consume |
-|   [6]   | `SparseCholesky.Create`                               | static factory | factors a CSparse CSC matrix        |
-|   [7]   | `SparseLU.Create`                                     | static factory | factors a CSparse CSC matrix        |
-|   [8]   | `SparseQR.Create`                                     | static factory | factors a CSparse CSC matrix        |
-|   [9]   | `ISparseFactorization<T>.Solve`                       | factorization call | solves `Ax=b` in place           |
-|  [10]   | `IIterativeSolver<T>.Solve`                           | solver call    | iterative `Ax=b` with `Iterator`    |
+Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC storage from indexed entries.
+
+| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE]       | [CAPABILITY]                    |
+| :-----: | :------------------------------------------------------------------- | :----------------- | :------------------------------ |
+|   [1]   | `SparseCompressedRowMatrixStorage<T>.OfCompressedSparseRowFormat`    | static factory     | direct CSR import               |
+|   [2]   | `SparseCompressedRowMatrixStorage<T>.OfCompressedSparseColumnFormat` | static factory     | CSC import to CSR               |
+|   [3]   | `SparseCompressedRowMatrixStorage<T>.OfCoordinateFormat`             | static factory     | COO import to CSR               |
+|   [4]   | `SparseCompressedRowMatrixStorage<T>.OfIndexedEnumerable`            | static factory     | indexed import to CSR           |
+|   [5]   | `CSparse.Storage.CompressedColumnStorage<T>.OfIndexed`               | static factory     | CSparse CSC import              |
+|   [6]   | `SparseCholesky.Create`                                              | static factory     | factors a CSparse CSC matrix    |
+|   [7]   | `SparseLU.Create`                                                    | static factory     | factors a CSparse CSC matrix    |
+|   [8]   | `SparseQR.Create`                                                    | static factory     | factors a CSparse CSC matrix    |
+|   [9]   | `ISparseFactorization<T>.Solve`                                      | factorization call | solves `Ax=b` in place          |
+|  [10]   | `IIterativeSolver<T>.Solve`                                          | solver call        | iterative solve with `Iterator` |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

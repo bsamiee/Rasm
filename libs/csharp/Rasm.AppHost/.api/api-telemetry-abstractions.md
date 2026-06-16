@@ -90,21 +90,32 @@ generator attributes, and outgoing request metadata into the observability rail.
 [ENTRYPOINT_SCOPE]: runtime operations
 - rail: observability
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                              | [CAPABILITY]                       |
-| :-----: | :------------------------------ | :----------------------------------------------------------------------- | :--------------------------------- |
-|   [1]   | `TryEnqueue`                    | buffered logger plus log entry                                           | buffers a log record               |
-|   [2]   | `Flush`                         | buffer command                                                          | replays buffered records           |
-|   [3]   | `ShouldSample`                  | `in LogEntry<TState>`                                                    | per-entry sampling decision        |
-|   [4]   | `GetCheckpointToken`            | `ILatencyContextTokenIssuer.GetCheckpointToken(string)` -> `CheckpointToken`            | resolves a registered checkpoint name to its token |
-|   [5]   | `GetMeasureToken`               | `ILatencyContextTokenIssuer.GetMeasureToken(string)` -> `MeasureToken`                  | resolves a registered measure name to its token    |
-|   [6]   | `GetTagToken`                   | `ILatencyContextTokenIssuer.GetTagToken(string)` -> `TagToken`                          | resolves a registered tag name to its token        |
-|   [7]   | `AddCheckpoint`                 | `CheckpointToken`                                                        | records a latency checkpoint       |
-|   [8]   | `AddMeasure`                    | token plus value                                                        | accumulates a latency measure      |
-|   [9]   | `RecordMeasure`                 | token plus value                                                        | sets a latency measure             |
-|  [10]   | `SetTag`                        | token plus value                                                        | tags the latency context           |
-|  [11]   | `Freeze`                        | context command                                                        | seals latency data for export      |
-|  [12]   | `SetRequestMetadata`            | `IOutgoingRequestContext.SetRequestMetadata(RequestMetadata)`           | sets outgoing request route        |
-|  [13]   | `AddDownstreamDependencyMetadata` | `HttpDiagnosticsServiceCollectionExtensions.AddDownstreamDependencyMetadata(IServiceCollection, IDownstreamDependencyMetadata)` -> `IServiceCollection` | registers dependency route metadata |
+Runtime operations split by observability axis; exact request-metadata signatures stay in `ABSTRACTION_TOPOLOGY`.
+
+[BUFFERING_RUNTIME]:
+| [INDEX] | [SURFACE]      | [CALL_SHAPE]          | [CAPABILITY]                |
+| :-----: | :------------- | :-------------------- | :-------------------------- |
+|   [1]   | `TryEnqueue`   | buffered log entry    | buffers a log record        |
+|   [2]   | `Flush`        | buffer command        | replays buffered records    |
+|   [3]   | `ShouldSample` | `in LogEntry<TState>` | per-entry sampling decision |
+
+[LATENCY_RUNTIME]:
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]     | [CAPABILITY]                  |
+| :-----: | :------------------- | :--------------- | :---------------------------- |
+|   [1]   | `GetCheckpointToken` | name lookup      | resolves checkpoint token     |
+|   [2]   | `GetMeasureToken`    | name lookup      | resolves measure token        |
+|   [3]   | `GetTagToken`        | name lookup      | resolves tag token            |
+|   [4]   | `AddCheckpoint`      | checkpoint token | records a latency checkpoint  |
+|   [5]   | `AddMeasure`         | token plus value | accumulates a latency measure |
+|   [6]   | `RecordMeasure`      | token plus value | sets a latency measure        |
+|   [7]   | `SetTag`             | token plus value | tags the latency context      |
+|   [8]   | `Freeze`             | context command  | seals latency data for export |
+
+[REQUEST_METADATA_RUNTIME]:
+| [INDEX] | [SURFACE]                         | [CALL_SHAPE]         | [CAPABILITY]                        |
+| :-----: | :-------------------------------- | :------------------- | :---------------------------------- |
+|   [1]   | `SetRequestMetadata`              | context mutation     | sets outgoing request route         |
+|   [2]   | `AddDownstreamDependencyMetadata` | service registration | registers dependency route metadata |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

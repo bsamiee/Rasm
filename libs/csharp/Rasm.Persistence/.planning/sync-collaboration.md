@@ -259,13 +259,13 @@ public static class SyncPump {
 
 ## [5]-[PRESENCE_AND_BLOB]
 
-- Owner: `PresenceRow` and the `Presence` surface — ephemeral collaboration rows on the op-log shape; blob transfer composes the settled `BlobRemote` contract record, never a second blob shape.
-- Entry: `public static IO<OpLogEntry> Beat(ReceiptSinkPort sink, ClockPolicy clocks, Guid storeId, SnapshotCodec codec, PresenceRow row, ReadOnlyMemory<byte> payload)` — presence is one changefeed row, never a transport.
-- Auto: presence rows expire at stamp plus `Ttl` and sweep on the heartbeat `ScheduleEntry` cadence; the offline queue is op-log accumulation draining on reconnect, with queue depth on every apply receipt.
-- Receipt: `Put` returns the stored `BlobRemote.Descriptor` as write evidence; sweep counts ride `ReceiptSinkPort` kinds.
-- Packages: NodaTime, System.IO.Hashing, LanguageExt.Core, BCL inbox.
-- Growth: a new presence attribute is one `PresenceRow` field on the same wire shape; a new offline-queue bound is one policy value; a new frame size is one `FrameBytes` policy value; zero new surface.
-- Boundary: blob streams frame at 64 KiB with Crc32 per frame and XxHash128 whole-artifact identity — the settled ArtifactSync frame constants, and a second framing law is the rejected form; the whole-artifact identity accumulates incrementally — `FrameHash` feeds each 64 KiB frame into one `XxHash128` instance through `Append` and reads the final digest through `GetCurrentHash`, so a multi-gigabyte blob never materializes contiguously and `XxHash128.HashToUInt128` over a whole span is the deleted pattern for streamed payloads; every `BlobRemote.Descriptor` carries classification and retention columns, so an unclassified blob write is a typed rejection; presence rides the DropOldest lane and is never durable beyond its TTL.
+- Owner: `PresenceRow` and the `Presence` surface — ephemeral collaboration rows on the op-log shape; `AwarenessBeat` and the `Awareness` surface — the dedicated low-latency lossy awareness channel carrying cursor, selection, camera-frustum, active-node-focus, and follow-mode beats off the durable op-log; `WorkingSet` and the `Replication` surface — the partial-replication subgraph-checkout and working-set op-stream subscription; blob transfer composes the settled `BlobRemote` contract record, never a second blob shape.
+- Entry: `public static IO<OpLogEntry> Beat(ReceiptSinkPort sink, ClockPolicy clocks, Guid storeId, SnapshotCodec codec, PresenceRow row, ReadOnlyMemory<byte> payload)` — presence is one changefeed row, never a transport; `public static Channel<AwarenessBeat> AwarenessLane()` is the dedicated lossy fan-out channel and `public static IO<WorkingSet> Checkout(ReplicationQuery query, Func<ReplicationQuery, IO<Seq<UInt128>>> resolve, Func<Seq<UInt128>, IO<Seq<OpLogEntry>>> fetch)` materializes a subgraph working set.
+- Auto: presence rows expire at stamp plus `Ttl` and sweep on the heartbeat `ScheduleEntry` cadence; the offline queue is op-log accumulation draining on reconnect, with queue depth on every apply receipt; the awareness channel is a separate lossy lane from the durable op-log — cursor moves, selection halos, and camera frusta beat at a high cadence through the DropOldest channel and never touch the durable store, so a 60-Hz cursor stream never appends an op-log row, while `AwarenessKind` discriminates cursor, selection, camera, focus, and follow beats so one lossy lane carries every awareness signal; the working-set checkout resolves a `ReplicationQuery` (region/layer/view/type/closure-depth) into a content-key set then fetches only those entries, so a peer materializes one subgraph rather than the whole graph and subscribes its working-set op-stream to receive only changes touching its checked-out keys.
+- Receipt: `Put` returns the stored `BlobRemote.Descriptor` as write evidence; sweep counts ride `ReceiptSinkPort` kinds; an awareness beat carries no receipt (lossy); a checkout rides `store.replication.checkout` carrying the resolved key count and the closure depth.
+- Packages: NodaTime, System.IO.Hashing, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new presence attribute is one `PresenceRow` field on the same wire shape; a new awareness signal is one `AwarenessKind` row on the same lossy lane; a new offline-queue bound is one policy value; a new frame size is one `FrameBytes` policy value; a new checkout dimension is one column on `ReplicationQuery`; zero new surface — a durable cursor table, a per-signal awareness channel, or an eager full-graph replication is the deleted form.
+- Boundary: blob streams frame at 64 KiB with Crc32 per frame and XxHash128 whole-artifact identity — the settled ArtifactSync frame constants, and a second framing law is the rejected form; the whole-artifact identity accumulates incrementally — `FrameHash` feeds each 64 KiB frame into one `XxHash128` instance through `Append` and reads the final digest through `GetCurrentHash`, so a multi-gigabyte blob never materializes contiguously and `XxHash128.HashToUInt128` over a whole span is the deleted pattern for streamed payloads; every `BlobRemote.Descriptor` carries classification and retention columns, so an unclassified blob write is a typed rejection; presence (a durable-TTL editing-surface claim) rides the DropOldest lane and is never durable beyond its TTL, while awareness (cursor/selection/camera/focus/follow) rides a SEPARATE lossy channel that never appends a durable op-log row — so a high-cadence cursor stream never pressures the durable store and an awareness beat lost under backpressure is correct-by-design (the next beat supersedes it), distinct from a durable op that must converge; the `AwarenessKind` axis carries the five collaboration signals on one lossy lane so a per-signal channel is the deleted form, and follow-mode is one peer subscribing another's camera beats; the working-set checkout is the partial-replication query-shape algebra — `ReplicationQuery` selects by region (spatial envelope), layer, view, type, and closure-depth so a peer checks out a subgraph rather than the whole graph, and the working-set manager subscribes the op-stream filtered to the checked-out keys so a peer receives only changes touching its working set, an eager full-graph replication or an unfiltered op-stream being the deleted form; the checkout rides the settled `SyncPump.SubtreeFetch`/`GraphDiff` set-difference so it fetches only the keys the peer lacks within the closure depth, and the `ReplicationQuery` lowers to a `federation#ELEMENT_SET_ALGEBRA` `SetExpr` so the checkout selection is the one element-set currency, never a second query shape.
 
 ```csharp signature
 public sealed record PresenceRow(string Actor, string EntityKind, string EntityKey, Instant ExpiresAt);
@@ -309,6 +309,89 @@ public static class Presence {
             OriginStoreId: storeId,
             Physical: cell.Physical,
             Logical: cell.Logical));
+}
+
+[SmartEnum]
+public sealed partial class AwarenessKind {
+    public static readonly AwarenessKind Cursor = new();
+    public static readonly AwarenessKind Selection = new();
+    public static readonly AwarenessKind Camera = new();
+    public static readonly AwarenessKind Focus = new();
+    public static readonly AwarenessKind Follow = new();
+}
+
+public readonly record struct AwarenessBeat(
+    string Actor,
+    AwarenessKind Kind,
+    ReadOnlyMemory<byte> Payload,
+    Option<string> FollowTarget,
+    Instant At);
+
+public static class Awareness {
+    public const int LaneCapacity = 256;
+
+    public static Channel<AwarenessBeat> AwarenessLane() =>
+        Channel.CreateBounded<AwarenessBeat>(new BoundedChannelOptions(LaneCapacity) {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = false,
+            SingleWriter = false,
+        });
+
+    public static AwarenessBeat Cursor(string actor, ReadOnlyMemory<byte> point, ClockPolicy clocks) =>
+        new(actor, AwarenessKind.Cursor, point, None, clocks.Now);
+
+    public static AwarenessBeat Selection(string actor, ReadOnlyMemory<byte> halo, ClockPolicy clocks) =>
+        new(actor, AwarenessKind.Selection, halo, None, clocks.Now);
+
+    public static AwarenessBeat Camera(string actor, ReadOnlyMemory<byte> frustum, ClockPolicy clocks) =>
+        new(actor, AwarenessKind.Camera, frustum, None, clocks.Now);
+
+    public static AwarenessBeat Follow(string actor, string target, ClockPolicy clocks) =>
+        new(actor, AwarenessKind.Follow, ReadOnlyMemory<byte>.Empty, Some(target), clocks.Now);
+}
+
+[SmartEnum]
+public sealed partial class CheckoutDimension {
+    public static readonly CheckoutDimension Region = new();
+    public static readonly CheckoutDimension Layer = new();
+    public static readonly CheckoutDimension View = new();
+    public static readonly CheckoutDimension Type = new();
+    public static readonly CheckoutDimension Closure = new();
+}
+
+public sealed record ReplicationQuery(
+    Option<byte[]> RegionEnvelope,
+    Seq<string> Layers,
+    Option<string> View,
+    Seq<string> Types,
+    int ClosureDepth);
+
+public sealed record WorkingSet(
+    Seq<UInt128> Keys,
+    ReplicationQuery Query,
+    SyncCursor Cursor,
+    int ClosureDepth,
+    Instant At) {
+    public bool Subscribes(OpLogEntry entry) => Keys.Contains(entry.ContentKey);
+}
+
+public static class Replication {
+    public static IO<WorkingSet> Checkout(
+        ReplicationQuery query,
+        Func<ReplicationQuery, IO<Seq<UInt128>>> resolve,
+        Func<Seq<UInt128>, IO<Seq<OpLogEntry>>> fetch,
+        SyncCursor cursor,
+        ClockPolicy clocks) =>
+        from keys in resolve(query)
+        from _ in fetch(keys)
+        select new WorkingSet(keys, query, cursor, query.ClosureDepth, clocks.Now);
+
+    public static Seq<OpLogEntry> Filter(WorkingSet working, Seq<OpLogEntry> incoming) =>
+        incoming.Filter(working.Subscribes);
+
+    public static IO<WorkingSet> Expand(WorkingSet working, Seq<UInt128> additional, Func<Seq<UInt128>, IO<Seq<OpLogEntry>>> fetch) =>
+        fetch(additional.Filter(key => !working.Keys.Contains(key)))
+            .Map(_ => working with { Keys = toSeq((working.Keys + additional).Distinct()) });
 }
 ```
 

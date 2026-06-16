@@ -4,31 +4,35 @@ Rasm.AppUi has zero consumers; the implementation is full-capability with no hol
 
 ## [1]-[PAGE_INDEX]
 
-| [INDEX] | [PAGE]                                            | [OWNS]                                      | [STATE]   |
-| :-----: | ------------------------------------------------- | :------------------------------------------ | :-------- |
-|   [1]   | [surface-hosts](surface-hosts.md)                 | host axis, mount, marshal rows              | finalized |
-|   [2]   | [shell-navigation](shell-navigation.md)           | shell, routing, dock layouts                | finalized |
-|   [3]   | [screens-activation](screens-activation.md)       | screen family, activation, lifecycle        | finalized |
-|   [4]   | [commands-availability](commands-availability.md) | intent table, availability, invocation      | finalized |
-|   [5]   | [live-data](live-data.md)                         | data sources and change-set spine           | finalized |
-|   [6]   | [tables-hierarchy](tables-hierarchy.md)           | table projections and tree flattening       | finalized |
-|   [7]   | [inspector-editing](inspector-editing.md)         | editors, validation, options, conflicts     | finalized |
-|   [8]   | [charts-dashboards](charts-dashboards.md)         | chart rows and dashboard composition        | finalized |
-|   [9]   | [visuals-offscreen](visuals-offscreen.md)         | offscreen render, hash, export              | finalized |
-|  [10]   | [theme-tokens](theme-tokens.md)                   | tokens, variants, density                   | finalized |
-|  [11]   | [typography-shaping](typography-shaping.md)       | typography, shaping, markdown               | finalized |
-|  [12]   | [icons-assets](icons-assets.md)                   | icon sources and asset loading              | finalized |
-|  [13]   | [dialogs-notifications](dialogs-notifications.md) | dialogs, sessions, notifications            | finalized |
-|  [14]   | [input-interaction](input-interaction.md)         | input rows, gestures, pan-zoom              | finalized |
-|  [15]   | [motion-tokens](motion-tokens.md)                 | motion rows and phase mapping               | finalized |
-|  [16]   | [accessibility](accessibility.md)                 | automation, contrast, motion law            | finalized |
-|  [17]   | [localization-culture](localization-culture.md)   | locale rows and culture composition         | finalized |
-|  [18]   | [diagnostics-evidence](diagnostics-evidence.md)   | evidence union, correlation, headless proof | finalized |
-|  [19]   | [custom-visuals](custom-visuals.md)               | Skia diagram kinds and wide-gamut axis      | finalized |
+| [INDEX] | [PAGE]                                            | [OWNS]                                                                | [STATE]   |
+| :-----: | ------------------------------------------------- | :-------------------------------------------------------------------- | :-------- |
+|   [1]   | [surface-hosts](surface-hosts.md)                 | host axis, mount, marshal rows                                        | finalized |
+|   [2]   | [shell-navigation](shell-navigation.md)           | shell, routing, dock layouts                                          | finalized |
+|   [3]   | [screens-activation](screens-activation.md)       | screen family, activation, lifecycle                                  | finalized |
+|   [4]   | [commands-availability](commands-availability.md) | intent table, availability, invocation                                | finalized |
+|   [5]   | [live-data](live-data.md)                         | data sources and change-set spine                                     | finalized |
+|   [6]   | [tables-hierarchy](tables-hierarchy.md)           | table projections and tree flattening                                 | finalized |
+|   [7]   | [inspector-editing](inspector-editing.md)         | editors, validation, options, conflicts                               | finalized |
+|   [8]   | [charts-dashboards](charts-dashboards.md)         | chart rows and dashboard composition                                  | finalized |
+|   [9]   | [visuals-offscreen](visuals-offscreen.md)         | offscreen render, hash, export                                        | finalized |
+|  [10]   | [theme-tokens](theme-tokens.md)                   | tokens, variants, density                                             | finalized |
+|  [11]   | [typography-shaping](typography-shaping.md)       | typography, shaping, markdown                                         | finalized |
+|  [12]   | [icons-assets](icons-assets.md)                   | icon sources and asset loading                                        | finalized |
+|  [13]   | [dialogs-notifications](dialogs-notifications.md) | dialogs, sessions, notifications                                      | finalized |
+|  [14]   | [input-interaction](input-interaction.md)         | input rows, gestures, pan-zoom                                        | finalized |
+|  [15]   | [motion-tokens](motion-tokens.md)                 | motion rows and phase mapping                                         | finalized |
+|  [16]   | [accessibility](accessibility.md)                 | automation, contrast, motion law                                      | finalized |
+|  [17]   | [localization-culture](localization-culture.md)   | locale rows and culture composition                                   | finalized |
+|  [18]   | [diagnostics-evidence](diagnostics-evidence.md)   | evidence union, correlation, headless proof                           | finalized |
+|  [19]   | [custom-visuals](custom-visuals.md)               | Skia diagram kinds and wide-gamut axis                                | finalized |
+|  [20]   | [viewport-pipeline](viewport-pipeline.md)         | GPU render graph, virtualized geometry, path trace, sim, viewpoint    | authored  |
+|  [21]   | [drafting-sheets](drafting-sheets.md)             | sheet set, title-block, 3D-to-2D projection, dimensioning, GD&T, emit | authored  |
+|  [22]   | [notebook-document](notebook-document.md)         | pinned-capability cells, dependency recompute, CRDT, replay           | authored  |
+|  [23]   | [animation-timeline](animation-timeline.md)       | keyframe tracks, timeline playhead, scrub, walkthrough export         | authored  |
 
 ## [2]-[WIRE_PAGES]
 
-commands-availability · diagnostics-evidence (each carries exactly one TS_PROJECTION cluster).
+commands-availability · diagnostics-evidence · viewport-pipeline (each carries exactly one TS_PROJECTION cluster).
 
 ## [3]-[CATALOGUE_PENDING]
 
@@ -38,74 +42,110 @@ TextMateSharp grammar registry (transitive, unpinned) gets a page only if admitt
 
 Every row is CLOSED: a gap is present only when absorbed by the named page#cluster.
 
-| [INDEX] | [GAP]                                    | [CLOSED_BY (page#cluster)]                                   |
-| :-----: | :--------------------------------------- | :----------------------------------------------------------- |
-|   [1]   | designed-only web host and TS wire reuse | surface-hosts + commands-availability + diagnostics-evidence |
-|   [2]   | one `CommandIntent` table                | commands-availability                                        |
-|   [3]   | orthogonal variant and density rows      | theme-tokens                                                 |
-|   [4]   | ranked icon fallback                     | icons-assets                                                 |
-|   [5]   | dock checkpoint and crash restore        | shell-navigation                                             |
-|   [6]   | `ProgressPhase` to `MotionToken` map     | motion-tokens                                                |
-|   [7]   | options inspector reload composite       | inspector-editing                                            |
-|   [8]   | command-journal replay                   | diagnostics-evidence + surface-hosts                         |
-|   [9]   | correlation drill-down join              | diagnostics-evidence                                         |
-|  [10]   | Markdig to typography projection         | typography-shaping                                           |
-|  [11]   | `SKDocument` document export             | visuals-offscreen                                            |
-|  [12]   | model-result provenance projection       | diagnostics-evidence                                         |
-|  [13]   | DataGrid tree flatten and edit commit    | tables-hierarchy                                             |
-|  [14]   | live-data spine and `SourceCache` keys   | live-data                                                    |
-|  [15]   | palette search and MessageBus rejection  | commands-availability                                        |
-|  [16]   | WCAG luminance gate                      | accessibility                                                |
-|  [17]   | drain/suspend notification suppression   | dialogs-notifications                                        |
-|  [18]   | GeoMap GeoJSON asset route               | charts-dashboards + icons-assets                             |
-|  [19]   | conflict inspector projection            | inspector-editing                                            |
-|  [20]   | value-object and quantity editors        | inspector-editing                                            |
-|  [21]   | locale row and ICU research route        | localization-culture                                         |
-|  [22]   | Avalonia-in-Rhino embedding gate         | surface-hosts                                                |
-|  [23]   | headless render-hash and dashboard wire  | diagnostics-evidence + visuals-offscreen                     |
-|  [24]   | pan-zoom canvas rows                     | input-interaction                                            |
-|  [25]   | Skia custom-visual kinds + wide-gamut axis | custom-visuals                                            |
-|  [26]   | ReactiveUI code-behind view-binding reject | input-interaction                                          |
-|  [27]   | runtime `AvaloniaXamlLoader.Load` reject  | surface-hosts + diagnostics-evidence                       |
+| [INDEX] | [GAP]                                                                       | [CLOSED_BY (page#cluster)]                                                       |
+| :-----: | :-------------------------------------------------------------------------- | :------------------------------------------------------------------------------- |
+|   [1]   | designed-only web host and TS wire reuse                                    | surface-hosts + commands-availability + diagnostics-evidence                     |
+|   [2]   | one `CommandIntent` table                                                   | commands-availability                                                            |
+|   [3]   | orthogonal variant and density rows                                         | theme-tokens                                                                     |
+|   [4]   | ranked icon fallback                                                        | icons-assets                                                                     |
+|   [5]   | dock checkpoint and crash restore                                           | shell-navigation                                                                 |
+|   [6]   | `ProgressPhase` to `MotionToken` map                                        | motion-tokens                                                                    |
+|   [7]   | options inspector reload composite                                          | inspector-editing                                                                |
+|   [8]   | command-journal replay                                                      | diagnostics-evidence + surface-hosts                                             |
+|   [9]   | correlation drill-down join                                                 | diagnostics-evidence                                                             |
+|  [10]   | Markdig to typography projection                                            | typography-shaping                                                               |
+|  [11]   | `SKDocument` document export                                                | visuals-offscreen                                                                |
+|  [12]   | model-result provenance projection                                          | diagnostics-evidence                                                             |
+|  [13]   | DataGrid tree flatten and edit commit                                       | tables-hierarchy                                                                 |
+|  [14]   | live-data spine and `SourceCache` keys                                      | live-data                                                                        |
+|  [15]   | palette search and MessageBus rejection                                     | commands-availability                                                            |
+|  [16]   | WCAG luminance gate                                                         | accessibility                                                                    |
+|  [17]   | drain/suspend notification suppression                                      | dialogs-notifications                                                            |
+|  [18]   | GeoMap GeoJSON asset route                                                  | charts-dashboards + icons-assets                                                 |
+|  [19]   | conflict inspector projection                                               | inspector-editing                                                                |
+|  [20]   | value-object and quantity editors                                           | inspector-editing                                                                |
+|  [21]   | locale row and ICU research route                                           | localization-culture                                                             |
+|  [22]   | Avalonia-in-Rhino embedding gate                                            | surface-hosts                                                                    |
+|  [23]   | headless render-hash and dashboard wire                                     | diagnostics-evidence + visuals-offscreen                                         |
+|  [24]   | pan-zoom canvas rows                                                        | input-interaction                                                                |
+|  [25]   | Skia custom-visual kinds + wide-gamut axis                                  | custom-visuals                                                                   |
+|  [26]   | ReactiveUI code-behind view-binding reject                                  | input-interaction                                                                |
+|  [27]   | runtime `AvaloniaXamlLoader.Load` reject                                    | surface-hosts + diagnostics-evidence                                             |
+|  [28]   | GPU-virtualized infinite viewport (meshlet/cluster-LOD/GPU-cull/bindless)   | viewport-pipeline#GEOMETRY_VIRTUAL + #RENDER_GRAPH                               |
+|  [29]   | hardware path tracing + GI (BVH/ReSTIR/denoise/progressive)                 | viewport-pipeline#PATH_TRACE                                                     |
+|  [30]   | out-of-core streaming geometry + massive instancing                         | viewport-pipeline#RESIDENCY_BUDGET                                               |
+|  [31]   | simulation visualization (isosurface/volume/streamline/glyph/deformation)   | viewport-pipeline#SIM_VISUAL                                                     |
+|  [32]   | portable viewpoint codec (camera/section/visibility/override/selection BCF) | viewport-pipeline#VIEWPOINT_CODEC                                                |
+|  [33]   | perceptual colormap catalog + HDR/ICC/OCIO color science                    | theme-tokens#TOKEN_CATALOG + visuals-offscreen#ENCODE_IDENTITY                   |
+|  [34]   | roaring-bitmap dimension index + spatial-polygon cross-filter               | charts-dashboards#DASHBOARD_TILES                                                |
+|  [35]   | deck.gl-class geo layers + parallel-coords/radar/network/gantt/sunburst     | custom-visuals#SKIA_KINDS                                                        |
+|  [36]   | drafting sheets + title-block locale + dimensioning/GD&T + DWG/DXF/PDF/SVG  | drafting-sheets#SHEET_SET + #PROJECTION + #DIMENSIONING + #DRAFT_EMIT            |
+|  [37]   | reproducible notebooks (pinned cells, dep recompute, CRDT, export-replay)   | notebook-document#CELL_MODEL + #DEPENDENCY_GRAPH + #CRDT_COEDIT + #REPLAY_BUNDLE |
+|  [38]   | animation + temporal model (keyframe tracks, scrub, walkthrough export)     | animation-timeline#TRACK_MODEL + #TIMELINE + #SCRUB + #WALKTHROUGH               |
 
 ## [5]-[DENSITY_BAR]
 
 Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. The budget below is the closed owner set; an implementation file that mints an owner absent from this table fails review. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
-| [INDEX] | [AXIS]                  | [OWNER]                                                     | [KIND]       | [CASES]       |  [STATE]  |
-| :-----: | :---------------------- | :---------------------------------------------------------- | :----------- | :------------ | :-------: |
-|   [1]   | host substrate          | `SurfaceHost`                                               | [Union]      | 7             |   SPIKE   |
-|   [2]   | host facts              | `SurfaceFact`                                               | [Union]      | 4             |   SPIKE   |
-|   [3]   | navigation verbs        | `NavRequest`                                                | [Union]      | 5             | FINALIZED |
-|   [4]   | chrome slots            | `ChromeSlot`                                                | SmartEnum    | 4             | FINALIZED |
-|   [5]   | screen rows             | `ScreenCatalog`                                             | row table    | per screen    | FINALIZED |
-|   [6]   | command rows            | `CommandIntent` + `CommandDeck`                             | row + deck   | per verb      | FINALIZED |
-|   [7]   | command payload/outcome | `CommandPayload` · `CommandOutcome`                         | union pair   | 4 · 4         | FINALIZED |
-|   [8]   | data sourcing           | `DataSource<TRow,TKey>`                                     | [Union]      | 7             | FINALIZED |
-|   [9]   | table projection        | `TableProjection<TRow,TKey>`                                | [Union]      | 5             | FINALIZED |
-|  [10]   | editor rows             | `EditorFactory`                                             | SmartEnum    | 11            | FINALIZED |
-|  [11]   | chart series            | `ChartSeriesSpec`                                           | SmartEnum    | 15            | FINALIZED |
-|  [12]   | chart scales            | `ChartAxisKind`                                             | SmartEnum    | 5             | FINALIZED |
-|  [13]   | dashboard tiles         | `DashboardTile`                                             | [Union]      | 5             | FINALIZED |
-|  [14]   | draw sources            | `DrawSource`                                                | [Union]      | 2             | FINALIZED |
-|  [15]   | visual destinations     | `VisualDestination` · `ExportDestination` (+ `VisualCodec` encode, EncodeRow 4 gamut rows) | union pair   | 3 · 3         | FINALIZED |
-|  [16]   | theme tokens            | `TokenRow`                                                  | [Union]      | 5             | FINALIZED |
-|  [17]   | variant and density     | `ThemeVariantRow` · `DensityRow`                            | enum pair    | 4 × 2         | FINALIZED |
-|  [18]   | typography roles        | `TypographyRole`                                            | SmartEnum    | 10            | FINALIZED |
-|  [19]   | markdown rows           | `MarkdownRow`                                               | [Union]      | 7             | FINALIZED |
-|  [20]   | icon sourcing           | `IconSource`                                                | [Union]      | 5             | FINALIZED |
-|  [21]   | asset identity          | `AssetKey` · `AssetKind` (+ `SvgPipeline` · `RasterAssets`) | value + enum | open · 3      | FINALIZED |
-|  [22]   | dialog intents          | `DialogIntent`                                              | [Union]      | 6             | FINALIZED |
-|  [23]   | toast rows/outcomes     | `ToastRow` · `ToastOutcome`                                 | enum pair    | 4 · 3         | FINALIZED |
-|  [24]   | transfer payloads       | `DragPayload`                                               | [Union]      | 5             | FINALIZED |
-|  [25]   | motion grades           | `MotionToken`                                               | SmartEnum    | 6             | FINALIZED |
-|  [26]   | locale rows             | `LocaleRow`                                                 | SmartEnum    | 2             | FINALIZED |
-|  [27]   | evidence union          | `EvidenceReceipt`                                           | [Union]      | 7             | FINALIZED |
-|  [28]   | proof checks            | `ProofCheck`                                                | SmartEnum    | 8             | FINALIZED |
-|  [29]   | fault bands             | surface, asset, dialog, edit faults          | fault unions | 5 · 4 · 3 · 7 | FINALIZED |
-|  [30]   | export flow blocks      | `FlowBlock` (+ `HeaderFooterBand` band, `BreakRule` policy on `VisualExportSpec`) | [Union]      | 3             | FINALIZED |
-|  [31]   | custom-visual kinds     | `CustomVisual` (+ `CustomVisualData`, `CustomVisuals`)      | [Union]      | 4             | FINALIZED |
-|  [32]   | wide-gamut axis         | `ColorSpaceAxis` (+ `ColorSpaceKeyPolicy`)                 | SmartEnum    | 4             | FINALIZED |
+| [INDEX] | [AXIS]                  | [OWNER]                                                                                                      | [KIND]             | [CASES]       |  [STATE]  |
+| :-----: | :---------------------- | :----------------------------------------------------------------------------------------------------------- | :----------------- | :------------ | :-------: |
+|   [1]   | host substrate          | `SurfaceHost`                                                                                                | [Union]            | 7             |   SPIKE   |
+|   [2]   | host facts              | `SurfaceFact`                                                                                                | [Union]            | 4             |   SPIKE   |
+|   [3]   | navigation verbs        | `NavRequest`                                                                                                 | [Union]            | 5             | FINALIZED |
+|   [4]   | chrome slots            | `ChromeSlot`                                                                                                 | SmartEnum          | 4             | FINALIZED |
+|   [5]   | screen rows             | `ScreenCatalog`                                                                                              | row table          | per screen    | FINALIZED |
+|   [6]   | command rows            | `CommandIntent` + `CommandDeck`                                                                              | row + deck         | per verb      | FINALIZED |
+|   [7]   | command payload/outcome | `CommandPayload` · `CommandOutcome`                                                                          | union pair         | 4 · 4         | FINALIZED |
+|   [8]   | data sourcing           | `DataSource<TRow,TKey>`                                                                                      | [Union]            | 7             | FINALIZED |
+|   [9]   | table projection        | `TableProjection<TRow,TKey>`                                                                                 | [Union]            | 5             | FINALIZED |
+|  [10]   | editor rows             | `EditorFactory`                                                                                              | SmartEnum          | 11            | FINALIZED |
+|  [10a]  | conflict resolution     | `ConflictPane<TReceipt>` (+ `ThreeWay`, `ConflictSide`, `ThreeWayHunk`, `GeometryDiff`)                      | record + fold      | 3 sides       | FINALIZED |
+|  [11]   | chart series            | `ChartSeriesSpec`                                                                                            | SmartEnum          | 15            | FINALIZED |
+|  [12]   | chart scales            | `ChartAxisKind`                                                                                              | SmartEnum          | 5             | FINALIZED |
+|  [13]   | dashboard tiles         | `DashboardTile`                                                                                              | [Union]            | 5             | FINALIZED |
+|  [14]   | draw sources            | `DrawSource`                                                                                                 | [Union]            | 2             | FINALIZED |
+|  [15]   | visual destinations     | `VisualDestination` · `ExportDestination` (+ `VisualCodec` encode, EncodeRow 4 gamut rows)                   | union pair         | 3 · 3         | FINALIZED |
+|  [16]   | theme tokens            | `TokenRow`                                                                                                   | [Union]            | 5             | FINALIZED |
+|  [17]   | variant and density     | `ThemeVariantRow` · `DensityRow`                                                                             | enum pair          | 4 × 2         | FINALIZED |
+|  [17a]  | data colormaps          | `Colormap`                                                                                                   | SmartEnum          | 4             | FINALIZED |
+|  [18]   | typography roles        | `TypographyRole`                                                                                             | SmartEnum          | 10            | FINALIZED |
+|  [19]   | markdown rows           | `MarkdownRow`                                                                                                | [Union]            | 7             | FINALIZED |
+|  [20]   | icon sourcing           | `IconSource`                                                                                                 | [Union]            | 5             | FINALIZED |
+|  [21]   | asset identity          | `AssetKey` · `AssetKind` (+ `SvgPipeline` · `RasterAssets`)                                                  | value + enum       | open · 3      | FINALIZED |
+|  [22]   | dialog intents          | `DialogIntent`                                                                                               | [Union]            | 6             | FINALIZED |
+|  [23]   | toast rows/outcomes     | `ToastRow` · `ToastOutcome`                                                                                  | enum pair          | 4 · 3         | FINALIZED |
+|  [24]   | transfer payloads       | `DragPayload`                                                                                                | [Union]            | 5             | FINALIZED |
+|  [24a]  | input fabric            | `InputDevice` · `DeviceOutput` (+ `DeviceAxis`, `InputFabric`)                                               | union pair         | 6 · 4         |   SPIKE   |
+|  [25]   | motion grades           | `MotionToken`                                                                                                | SmartEnum          | 6             | FINALIZED |
+|  [26]   | locale rows             | `LocaleRow`                                                                                                  | SmartEnum          | 2             | FINALIZED |
+|  [26a]  | 3D-annotation + caption | `ShapedAnnotation` · `LiveCaption` (+ `CaptionSource`)                                                       | record + union     | 2 sources     |   SPIKE   |
+|  [27]   | evidence union          | `EvidenceReceipt`                                                                                            | [Union]            | 7             | FINALIZED |
+|  [28]   | proof checks            | `ProofCheck`                                                                                                 | SmartEnum          | 8             | FINALIZED |
+|  [28a]  | 3D scene a11y           | `SceneAccessNode` · `SpatialCue`                                                                             | tree + cue         | per node      |   SPIKE   |
+|  [29]   | fault bands             | surface, asset, dialog, edit faults                                                                          | fault unions       | 5 · 4 · 3 · 7 | FINALIZED |
+|  [29a]  | perf HUD + solve REPL   | `DevLoop` (+ `HudSample`, `FlameNode`, `SolveScrub`, `Repl`, `ReplResult`)                                   | record family      | per loop      |   SPIKE   |
+|  [30]   | export flow blocks      | `FlowBlock` (+ `HeaderFooterBand` band, `BreakRule` policy on `VisualExportSpec`)                            | [Union]            | 3             | FINALIZED |
+|  [30a]  | office export           | `OfficeExport` (+ `OfficeFormat`, `OfficeSpec`, `OfficeSheet`)                                               | [Union]            | 3 · 4         |   SPIKE   |
+|  [31]   | custom-visual kinds     | `CustomVisual` (+ `CustomVisualData`, `CustomVisuals`)                                                       | [Union]            | 14            | FINALIZED |
+|  [32]   | wide-gamut axis         | `ColorSpaceAxis` (+ `ColorSpaceKeyPolicy`)                                                                   | SmartEnum          | 4             | FINALIZED |
+|  [33]   | render passes           | `RenderPass` (+ `RenderGraph`, `RenderTarget`, `FrameBudget`, `ViewportClock`, `FrameReceipt`, `GpuBackend`) | [Union]            | 6             |   SPIKE   |
+|  [34]   | viewport faults         | `ViewportFault`                                                                                              | Union fault        | 5             |   SPIKE   |
+|  [35]   | geometry virtualization | `MeshletCluster` (+ `Meshlet`, `BindlessTable`, `Frustum`, `LodPolicy`)                                      | [Union]-backed     | per cluster   |   SPIKE   |
+|  [36]   | residency budget        | `ResidencyBudget` (+ `ResidencyTile`, `ResidencyPlan`, `InstanceBuffer`)                                     | record             | per tile      |   SPIKE   |
+|  [37]   | path tracing            | `PathTracePass` (+ `Bvh`, `BvhNode`, `Reservoir`, `SamplePolicy`, `Denoiser`)                                | record             | per scene     |   SPIKE   |
+|  [38]   | simulation render       | `SimVisual` (+ `SimField`, `TransferFunction`)                                                               | [Union]            | 7             |   SPIKE   |
+|  [39]   | viewpoint codec         | `Viewpoint` (+ `ViewCamera`, `SectionBox`, `VisibilityOverride`, `ViewpointCodec`, `BcfViewpoint`)           | record + codec     | per view      | FINALIZED |
+|  [40]   | sheet set + title-block | `SheetSet` (+ `Sheet`, `SheetSize`, `TitleBlock`, `TitleBlockStandard`, `SheetRegion`)                       | SmartEnum + record | 15 sizes      | FINALIZED |
+|  [41]   | drafting projection     | `Viewport2D` (+ `ProjectionBasis`, `HiddenLine`, `EdgeStyle`)                                                | record             | per view      | FINALIZED |
+|  [42]   | dimensioning + GD&T     | `Dimension` · `Annotation` (+ `Tolerance`, `GdtFrame`, `GeometricCharacteristic`)                            | union pair         | 6 · 6         | FINALIZED |
+|  [43]   | drafting emit           | `DraftEmit` (+ `DraftFormat`, `DraftFault`)                                                                  | SmartEnum          | 4             |   SPIKE   |
+|  [44]   | notebook cells          | `NotebookCell` (+ `Notebook`, `CapabilityPin`, `CellOutput`, `NotebookRuntime`, `NotebookFault`)             | [Union]            | 6             | FINALIZED |
+|  [45]   | notebook recompute      | `DependencyGraph` (+ `RecomputePlan`)                                                                        | record             | per DAG       | FINALIZED |
+|  [46]   | notebook co-edit        | `NotebookCrdt` (+ `CrdtOp`, `HlcStamp`)                                                                      | [Union]            | 3             | FINALIZED |
+|  [47]   | notebook replay         | `ReplayBundle` (+ `ReplayManifest`, `ReplayInput`, `ReplayVerify`)                                           | record             | per bundle    | FINALIZED |
+|  [48]   | animation tracks        | `Track` (+ `Keyframe<T>`, `Easing`)                                                                          | [Union]            | 5             | FINALIZED |
+|  [49]   | timeline playback       | `Timeline` (+ `Playhead`, `PlaybackMode`, `TimelineSample`)                                                  | record             | per timeline  | FINALIZED |
+|  [50]   | scrub + walkthrough     | `Scrub` · `Walkthrough` (+ `ScrubState`, `WalkthroughSpec`)                                                  | static pair        | per render    | FINALIZED |
 
 ## [6]-[BUILD_ORDER]
 
@@ -113,30 +153,34 @@ Vocabulary owners land first, then shapes, rails, dispatch surfaces, boundaries,
 
 Cluster cells use page-local anchor names; proof cells name evidence beyond the standard static/spec gate.
 
-| [INDEX] | [FILE]                         | [CLUSTERS]                                     | [PROOF]              |
-| :-----: | :----------------------------- | :--------------------------------------------- | :------------------- |
-|   [1]   | `Hosts/SurfaceVocabulary.cs`   | host axis, scale focus                         | specs                |
-|   [2]   | `Motion/MotionRail.cs`         | motion axis, application, phase map, reduction | phase-map specs      |
-|   [3]   | `Typography/TypographyRail.cs` | roles, fonts, shaping, markdown, metrics       | shaping specs        |
-|   [4]   | `Assets/AssetCatalog.cs`       | asset catalog, raster assets                   | specs                |
-|   [5]   | `Assets/IconRail.cs`           | icon axis, SVG pipeline                        | render-hash          |
-|   [6]   | `Theme/ThemeTokens.cs`         | token catalog, variant, density                | specs                |
-|   [7]   | `Localization/LocaleRail.cs`   | locale, strings, culture, RTL                  | specs                |
-|   [8]   | `Hosts/SurfaceRail.cs`         | host dispatch, embed, scheduler, native assets | bridge               |
-|   [9]   | `Theme/ThemeRail.cs`           | control themes                                 | render-hash          |
-|  [10]   | `Commands/CommandRail.cs`      | intent, availability, receipts, palette        | specs                |
-|  [11]   | `Input/InteractionRail.cs`     | hotkeys, behavior, gestures, drag              | bridge               |
-|  [12]   | `Screens/ScreenRail.cs`        | catalog, activation, state, validation         | specs                |
-|  [13]   | `LiveData/LiveDataRail.cs`     | sources, pipelines, binding, aggregation       | specs                |
-|  [14]   | `Tables/TableRail.cs`          | grid, view state, tree flatten, commit         | specs                |
-|  [15]   | `Inspector/InspectorRail.cs`   | surface, editors, commit, options, conflicts   | specs                |
-|  [16]   | `Dialogs/DialogRail.cs`        | dialogs, sessions, notices, pickers            | bridge               |
-|  [17]   | `Shell/ShellRail.cs`           | routing, docks, chrome, adaptive layout        | specs                |
-|  [18]   | `Charts/ChartRail.cs`          | series, axes, interaction, streams, tiles      | render-hash          |
-|  [19]   | `Visuals/VisualRail.cs`        | draw, thumbnails, previews, encode, export     | render-hash          |
-|  [20]   | `Charts/CustomVisualRail.cs`   | custom-visual kinds, layout folds, render twins, wide-gamut axis | render-hash |
-|  [21]   | `Access/AccessRail.cs`         | peers, keyboard, contrast, proof               | specs                |
-|  [22]   | `Evidence/EvidenceRail.cs`     | receipts, correlation, capture, headless, TS   | render-hash + bridge |
+| [INDEX] | [FILE]                         | [CLUSTERS]                                                                | [PROOF]                                                          |
+| :-----: | :----------------------------- | :------------------------------------------------------------------------ | :--------------------------------------------------------------- |
+|   [1]   | `Hosts/SurfaceVocabulary.cs`   | host axis, scale focus                                                    | specs                                                            |
+|   [2]   | `Motion/MotionRail.cs`         | motion axis, application, phase map, reduction                            | phase-map specs                                                  |
+|   [3]   | `Typography/TypographyRail.cs` | roles, fonts, shaping, markdown, metrics                                  | shaping specs                                                    |
+|   [4]   | `Assets/AssetCatalog.cs`       | asset catalog, raster assets                                              | specs                                                            |
+|   [5]   | `Assets/IconRail.cs`           | icon axis, SVG pipeline                                                   | render-hash                                                      |
+|   [6]   | `Theme/ThemeTokens.cs`         | token catalog, variant, density                                           | specs                                                            |
+|   [7]   | `Localization/LocaleRail.cs`   | locale, strings, culture, RTL                                             | specs                                                            |
+|   [8]   | `Hosts/SurfaceRail.cs`         | host dispatch, embed, scheduler, native assets                            | bridge                                                           |
+|   [9]   | `Theme/ThemeRail.cs`           | control themes                                                            | render-hash                                                      |
+|  [10]   | `Commands/CommandRail.cs`      | intent, availability, receipts, palette                                   | specs                                                            |
+|  [11]   | `Input/InteractionRail.cs`     | hotkeys, behavior, gestures, drag                                         | bridge                                                           |
+|  [12]   | `Screens/ScreenRail.cs`        | catalog, activation, state, validation                                    | specs                                                            |
+|  [13]   | `LiveData/LiveDataRail.cs`     | sources, pipelines, binding, aggregation                                  | specs                                                            |
+|  [14]   | `Tables/TableRail.cs`          | grid, view state, tree flatten, commit                                    | specs                                                            |
+|  [15]   | `Inspector/InspectorRail.cs`   | surface, editors, commit, options, conflicts                              | specs                                                            |
+|  [16]   | `Dialogs/DialogRail.cs`        | dialogs, sessions, notices, pickers                                       | bridge                                                           |
+|  [17]   | `Shell/ShellRail.cs`           | routing, docks, chrome, adaptive layout                                   | specs                                                            |
+|  [18]   | `Charts/ChartRail.cs`          | series, axes, interaction, streams, tiles                                 | render-hash                                                      |
+|  [19]   | `Visuals/VisualRail.cs`        | draw, thumbnails, previews, encode, export                                | render-hash                                                      |
+|  [20]   | `Charts/CustomVisualRail.cs`   | custom-visual kinds, layout folds, render twins, wide-gamut axis          | render-hash                                                      |
+|  [21]   | `Access/AccessRail.cs`         | peers, keyboard, contrast, proof                                          | specs                                                            |
+|  [22]   | `Evidence/EvidenceRail.cs`     | receipts, correlation, capture, headless, TS                              | render-hash + bridge                                             |
+|  [23]   | `Viewport/ViewportPipeline.cs` | render graph, geometry-virtual, residency, path-trace, sim, viewpoint, TS | bridge (GPU spike) + render-hash (CPU fallback)                  |
+|  [24]   | `Drafting/DraftingRail.cs`     | sheet set, title-block, projection, dimensioning, GD&T, emit              | render-hash (PDF/SVG) + bridge (DWG/DXF spike)                   |
+|  [25]   | `Notebook/NotebookRail.cs`     | cells, capability pins, dependency recompute, CRDT, replay                | specs (recompute closure, CRDT convergence, replay bit-identity) |
+|  [26]   | `Animation/AnimationRail.cs`   | tracks, keyframes, timeline, playhead, scrub, walkthrough                 | specs (deterministic sample) + render-hash (walkthrough frames)  |
 
 ## [7]-[FILE_PROCESS]
 
@@ -187,46 +231,46 @@ Assay rows use `uv run python -m tools.assay`; proof runs at the planned phase g
 
 The executed admissions ledger maps each package to its consuming page, `.api` catalogue, and admission status. Versions live in `Directory.Packages.props`; this table never carries a pin. Catalogue keys omit the `api-` prefix and `.md` suffix.
 
-| [INDEX] | [PACKAGE]                                   | [PAGE]                      | [CATALOGUE]           | [STATUS]     |
-| :-----: | :------------------------------------------ | :-------------------------- | :-------------------- | :----------- |
-|   [1]   | Avalonia                                    | surface-hosts               | avalonia              | admitted     |
-|   [2]   | Avalonia.Desktop                            | surface-hosts               | avalonia-desktop      | admitted     |
-|   [3]   | Avalonia.Skia                               | visuals-offscreen           | avalonia-skia         | admitted     |
-|   [4]   | Avalonia.Controls.ColorPicker               | inspector + accessibility   | avalonia-color        | admitted     |
-|   [5]   | Avalonia.Controls.DataGrid                  | tables-hierarchy            | avalonia-grid         | admitted     |
-|   [6]   | Avalonia.Fonts.Inter                        | typography-shaping          | avalonia-fonts        | admitted     |
-|   [7]   | Avalonia.Themes.Fluent                      | theme-tokens                | avalonia-fluent       | admitted     |
-|   [8]   | ReactiveUI                                  | shell + screens + commands  | reactiveui            | admitted     |
-|   [9]   | ReactiveUI.Avalonia                         | surface-hosts + shell       | reactiveui-avalonia   | admitted     |
-|  [10]   | ReactiveUI.Validation                       | screens + inspector         | reactiveui-validation | admitted     |
-|  [11]   | Xaml.Behaviors.Avalonia                     | input + shell               | behaviors             | admitted     |
-|  [12]   | System.Reactive                             | live-data + screens         | reactive              | admitted     |
-|  [13]   | DynamicData                                 | live-data + tables          | dynamicdata           | admitted     |
-|  [14]   | LiveChartsCore.SkiaSharpView.Avalonia       | charts-dashboards           | livecharts            | admitted     |
-|  [15]   | SkiaSharp                                   | visuals + icons             | skiasharp             | admitted     |
-|  [16]   | SkiaSharp.HarfBuzz                          | typography-shaping          | skia-harfbuzz         | admitted     |
-|  [17]   | Svg.Controls.Skia.Avalonia                  | icons-assets                | svg-skia              | admitted     |
-|  [18]   | SkiaSharp.NativeAssets.macOS                | surface-hosts               | skia-native           | admitted     |
-|  [19]   | SkiaSharp.NativeAssets.Linux.NoDependencies | surface-hosts               | skia-native           | admitted     |
-|  [20]   | SkiaSharp.NativeAssets.Linux                | surface-hosts               | skia-native           | admitted     |
-|  [21]   | HarfBuzzSharp.NativeAssets.macOS            | surface-hosts               | harfbuzz-native       | admitted     |
-|  [22]   | HarfBuzzSharp.NativeAssets.Linux            | surface-hosts               | harfbuzz-native       | admitted     |
-|  [23]   | AsyncImageLoader.Avalonia                   | icons + visuals             | asyncimageloader      | admitted     |
-|  [24]   | Avalonia.AvaloniaEdit                       | inspector-editing           | avaloniaedit          | admitted     |
-|  [25]   | AvaloniaEdit.TextMate                       | inspector-editing           | avaloniaedit          | admitted     |
-|  [26]   | bodong.Avalonia.PropertyGrid                | inspector-editing           | propertygrid          | admitted     |
-|  [27]   | bodong.PropertyModels                       | inspector-editing           | propertygrid          | admitted     |
-|  [28]   | DialogHost.Avalonia                         | dialogs-notifications       | dialoghost            | admitted     |
-|  [29]   | Dock.Avalonia                               | shell-navigation            | dock                  | admitted     |
-|  [30]   | Dock.Model.ReactiveUI                       | shell-navigation            | dock                  | admitted     |
-|  [31]   | Dock.Serializer.SystemTextJson              | shell-navigation            | dock-serializer       | admitted     |
-|  [32]   | PanAndZoom                                  | input + charts              | panandzoom            | admitted     |
-|  [33]   | FluentIcons.Avalonia                        | icons-assets                | fluenticons           | admitted     |
-|  [34]   | Markdig                                     | typography-shaping          | markdig               | admitted     |
-|  [35]   | Thinktecture.Runtime.Extensions.Json        | commands + diagnostics      | docs/stacks/csharp    | admitted     |
-|  [36]   | HotAvalonia                                 | diagnostics-evidence        | hotavalonia           | admitted     |
-|  [37]   | Avalonia.Headless                           | diagnostics + accessibility | headless              | admitted     |
-|  [38]   | Avalonia.Headless.XUnit                     | diagnostics-evidence        | headless              | admitted     |
+| [INDEX] | [PACKAGE]                                   | [PAGE]                      | [CATALOGUE]           | [STATUS]          |
+| :-----: | :------------------------------------------ | :-------------------------- | :-------------------- | :---------------- |
+|   [1]   | Avalonia                                    | surface-hosts               | avalonia              | admitted          |
+|   [2]   | Avalonia.Desktop                            | surface-hosts               | avalonia-desktop      | admitted          |
+|   [3]   | Avalonia.Skia                               | visuals-offscreen           | avalonia-skia         | admitted          |
+|   [4]   | Avalonia.Controls.ColorPicker               | inspector + accessibility   | avalonia-color        | admitted          |
+|   [5]   | Avalonia.Controls.DataGrid                  | tables-hierarchy            | avalonia-grid         | admitted          |
+|   [6]   | Avalonia.Fonts.Inter                        | typography-shaping          | avalonia-fonts        | admitted          |
+|   [7]   | Avalonia.Themes.Fluent                      | theme-tokens                | avalonia-fluent       | admitted          |
+|   [8]   | ReactiveUI                                  | shell + screens + commands  | reactiveui            | admitted          |
+|   [9]   | ReactiveUI.Avalonia                         | surface-hosts + shell       | reactiveui-avalonia   | admitted          |
+|  [10]   | ReactiveUI.Validation                       | screens + inspector         | reactiveui-validation | admitted          |
+|  [11]   | Xaml.Behaviors.Avalonia                     | input + shell               | behaviors             | admitted          |
+|  [12]   | System.Reactive                             | live-data + screens         | reactive              | admitted          |
+|  [13]   | DynamicData                                 | live-data + tables          | dynamicdata           | admitted          |
+|  [14]   | LiveChartsCore.SkiaSharpView.Avalonia       | charts-dashboards           | livecharts            | admitted          |
+|  [15]   | SkiaSharp                                   | visuals + icons             | skiasharp             | admitted          |
+|  [16]   | SkiaSharp.HarfBuzz                          | typography-shaping          | skia-harfbuzz         | admitted          |
+|  [17]   | Svg.Controls.Skia.Avalonia                  | icons-assets                | svg-skia              | admitted          |
+|  [18]   | SkiaSharp.NativeAssets.macOS                | surface-hosts               | skia-native           | admitted          |
+|  [19]   | SkiaSharp.NativeAssets.Linux.NoDependencies | surface-hosts               | skia-native           | admitted          |
+|  [20]   | SkiaSharp.NativeAssets.Linux                | surface-hosts               | skia-native           | admitted          |
+|  [21]   | HarfBuzzSharp.NativeAssets.macOS            | surface-hosts               | harfbuzz-native       | admitted          |
+|  [22]   | HarfBuzzSharp.NativeAssets.Linux            | surface-hosts               | harfbuzz-native       | admitted          |
+|  [23]   | AsyncImageLoader.Avalonia                   | icons + visuals             | asyncimageloader      | admitted          |
+|  [24]   | Avalonia.AvaloniaEdit                       | inspector-editing           | avaloniaedit          | admitted          |
+|  [25]   | AvaloniaEdit.TextMate                       | inspector-editing           | avaloniaedit          | admitted          |
+|  [26]   | bodong.Avalonia.PropertyGrid                | inspector-editing           | propertygrid          | admitted          |
+|  [27]   | bodong.PropertyModels                       | inspector-editing           | propertygrid          | admitted          |
+|  [28]   | DialogHost.Avalonia                         | dialogs-notifications       | dialoghost            | admitted          |
+|  [29]   | Dock.Avalonia                               | shell-navigation            | dock                  | admitted          |
+|  [30]   | Dock.Model.ReactiveUI                       | shell-navigation            | dock                  | admitted          |
+|  [31]   | Dock.Serializer.SystemTextJson              | shell-navigation            | dock-serializer       | admitted          |
+|  [32]   | PanAndZoom                                  | input + charts              | panandzoom            | admitted          |
+|  [33]   | FluentIcons.Avalonia                        | icons-assets                | fluenticons           | admitted          |
+|  [34]   | Markdig                                     | typography-shaping          | markdig               | admitted          |
+|  [35]   | Thinktecture.Runtime.Extensions.Json        | commands + diagnostics      | docs/stacks/csharp    | admitted          |
+|  [36]   | HotAvalonia                                 | diagnostics-evidence        | hotavalonia           | admitted          |
+|  [37]   | Avalonia.Headless                           | diagnostics + accessibility | headless              | admitted          |
+|  [38]   | Avalonia.Headless.XUnit                     | diagnostics-evidence        | headless              | admitted          |
 |  [39]   | Verify.XunitV3                              | diagnostics-evidence        | headless              | catalogue-pending |
 
 ## [11]-[REFINEMENT_HORIZON]

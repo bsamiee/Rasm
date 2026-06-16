@@ -4,12 +4,12 @@ One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                             |
-| :-----: | ----------------- | ------------------------------------------------------------------ |
-|   [1]   | SERIES_TABLE      | Fifteen series rows; canvas dispatch; live geo-overlay land swap   |
-|   [2]   | AXES_SECTIONS     | Five scale rows; label formats; sections; shared-scale pairing     |
-|   [3]   | CHART_INTERACTION | One policy record; zoom, anchors, intent routing, dashboard canvas |
-|   [4]   | STREAM_BINDING    | Feed rows; downsampling fold; sync law; board-state persistence    |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                |
+| :-----: | ----------------- | --------------------------------------------------------------------- |
+|   [1]   | SERIES_TABLE      | Fifteen series rows; canvas dispatch; live geo-overlay land swap      |
+|   [2]   | AXES_SECTIONS     | Five scale rows; label formats; sections; shared-scale pairing        |
+|   [3]   | CHART_INTERACTION | One policy record; zoom, anchors, intent routing, dashboard canvas    |
+|   [4]   | STREAM_BINDING    | Feed rows; downsampling fold; sync law; board-state persistence       |
 |   [5]   | DASHBOARD_TILES   | Tile union; placement fold; cross-filter brushing; layout persistence |
 
 ## [2]-[SERIES_TABLE]
@@ -259,7 +259,11 @@ public sealed record BoardState(
 
     public IO<Unit> Reapply(CrossFilter crossFilter) =>
         Filter.Source.Match(
-            Some: source => crossFilter.Brush(source, Filter.From, Filter.To, Filter.Tags),
+            Some: source =>
+                from _ in crossFilter.Brush(source, Filter.From, Filter.To, Filter.Tags)
+                from __ in Filter.Dimensions.Fold(IO.pure(unit), (rail, entry) => rail.Bind(_ => crossFilter.BrushDimension(source, entry.Key, entry.Value)))
+                from ___ in Filter.Region.Match(Some: region => crossFilter.BrushRegion(source, region), None: () => IO.pure(unit))
+                select unit,
             None: () => crossFilter.Clear());
 }
 ```
@@ -290,8 +294,8 @@ flowchart LR
 - Cases: `DashboardTile.Chart` | `DashboardTile.Stat` | `DashboardTile.Gauge` | `DashboardTile.Table` | `DashboardTile.Custom`; named dashboards benchmark, activity-timeline, and analytical-flow.
 - Entry: `public static Fin<Seq<(TilePlacement Placement, DashboardTile Tile)>> Resolve(DashboardLayout layout, HashMap<string, DashboardTile> tiles)` — `Fin<T>` aborts on the first unresolved tile key.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, DynamicData, SkiaSharp
-- Growth: a new tile kind is one `DashboardTile` case; a new dashboard is one `DashboardLayout` row; a new cross-tile brush dimension is one `FilterState` field; zero new surface.
-- Boundary: layout blobs persist as opaque versioned snapshots through the persistence port on the dock-layout law — `Version` gates restore and a mismatch falls back to the named dashboard row; board capture projects to `SKImage` and hands off to the offscreen encode rows, so export is consumed and never re-owned; the headless render hash per named dashboard row is the visual proof lane and its `RenderReceipt` sinks through the `ReceiptSinkPort` envelope, contributing the chart-render span and frame-byte metric to the AppHost telemetry spine through the `TelemetryContributorPort` rather than a local meter; the `Custom` tile case places a `CustomVisual` kind in a board and its capture is the `CustomVisual.Materialize` render twin keyed through the same `(ThemeVariantRow, DensityRow)` grid as `ChartSeriesSpec.Baseline`, never a LiveCharts capture, and its render contributes the same chart-render span and frame-byte metric through `TelemetryContributorPort` so a custom-tile render attributes distinctly without a second meter; benchmark and activity-timeline rows read HLC-ordered receipt envelopes, and the skew-uncertainty band arrives as a consumed series feed from the evidence join; the analytical-flow row composes the custom-visual kinds over the residence-selected analytical feed; cross-tile linked brushing is the `CrossFilter` fold over `DashboardSurface` — a board holds one `BehaviorSubject<FilterState>` whose value carries the brushed time `(Option<Instant> From, Option<Instant> To)`, the brushed tags `Set<string>`, and the source tile `Option<string>` that raised the brush, so a `VisualElementsPointerDown` or `ZoomBorder` rectangle on one tile pushes the next `FilterState` and every other tile's `ChartStream.Connect()` re-filters through the DynamicData dynamic-predicate `Filter(IObservable<Func<TRow,bool>>)` overload built from `CrossFilter.Predicate`, never a per-tile event handler and never a shared mutable list; the source tile is excluded from its own brush by the `FilterState.Source` key so a self-filter loop is structurally impossible; the predicate composes inside the chart `SyncContext` lock on the one `Connect()` spine the multi-series feeds already share, so a brush is an incremental change-set re-filter, never a feed re-subscribe; the server-side filtered re-query against the analytical lane is Persistence-owned, the brush pushes the same `(time, tags)` shape across the seam and AppUi never builds the SQL predicate; the cross-filter mechanics own the brush state and the in-board re-filter, the cross-tile telemetry contributes a `filter.apply` span and a `filter.tiles` count through `TelemetryContributorPort` so a brush attributes through the one meter; a dashboard layout engine is the deleted pattern — one placement fold inside the dock rail.
+- Growth: a new tile kind is one `DashboardTile` case; a new dashboard is one `DashboardLayout` row; a new cross-tile brush dimension is one `FilterState.Dimensions` map key; a new dimension projection is one `DimensionIndex` column; zero new surface.
+- Boundary: layout blobs persist as opaque versioned snapshots through the persistence port on the dock-layout law — `Version` gates restore and a mismatch falls back to the named dashboard row; board capture projects to `SKImage` and hands off to the offscreen encode rows, so export is consumed and never re-owned; the headless render hash per named dashboard row is the visual proof lane and its `RenderReceipt` sinks through the `ReceiptSinkPort` envelope, contributing the chart-render span and frame-byte metric to the AppHost telemetry spine through the `TelemetryContributorPort` rather than a local meter; the `Custom` tile case places a `CustomVisual` kind in a board and its capture is the `CustomVisual.Materialize` render twin keyed through the same `(ThemeVariantRow, DensityRow)` grid as `ChartSeriesSpec.Baseline`, never a LiveCharts capture, and its render contributes the same chart-render span and frame-byte metric through `TelemetryContributorPort` so a custom-tile render attributes distinctly without a second meter; benchmark and activity-timeline rows read HLC-ordered receipt envelopes, and the skew-uncertainty band arrives as a consumed series feed from the evidence join; the analytical-flow row composes the custom-visual kinds over the residence-selected analytical feed; cross-tile linked brushing is the `CrossFilter` fold over `DashboardSurface` — a board holds one `BehaviorSubject<FilterState>` whose value carries the brushed time `(Option<Instant> From, Option<Instant> To)`, the brushed tags `Set<string>`, and the source tile `Option<string>` that raised the brush, so a `VisualElementsPointerDown` or `ZoomBorder` rectangle on one tile pushes the next `FilterState` and every other tile's `ChartStream.Connect()` re-filters through the DynamicData dynamic-predicate `Filter(IObservable<Func<TRow,bool>>)` overload built from `CrossFilter.Predicate`, never a per-tile event handler and never a shared mutable list; the source tile is excluded from its own brush by the `FilterState.Source` key so a self-filter loop is structurally impossible; the predicate composes inside the chart `SyncContext` lock on the one `Connect()` spine the multi-series feeds already share, so a brush is an incremental change-set re-filter, never a feed re-subscribe; multi-dimensional categorical brushing folds through `DimensionIndex<TRow,TKey>` — one word-aligned `ulong[]` bitset per `(dimension, value)` cell over the row ordinal so a multi-dimension brush is the AND of per-dimension value unions computed in O(changed-words) and never an O(rows) re-scan, `Ingest`/`Drop` maintain the bitset off the same `IChangeSet` deltas the feeds already carry so the index tracks the live cache with no second materialization, and `Selected` resolves the brushed key set the predicate intersects, so the bitmap index is the absorbing owner of categorical cross-filtering and a `System.Linq` per-tile `GroupBy` re-aggregation on every brush is the deleted form; spatial cross-filtering rides the `PolygonBrush` ring whose even-odd winding `Contains` is a ray-cast fold over the ring vertices (the one point-in-polygon law, no second geometry predicate), so a lasso or map-region brush on a geo or scatter tile pushes one `BrushRegion` and every spatial tile's predicate admits a row only when its projected point lies inside the ring, with the geo tile projecting the `HeatLand` centroid and the scatter tile projecting its `(X,Y)` value; the server-side filtered re-query against the analytical lane is Persistence-owned, the brush pushes the same `(time, tags, dimensions, region)` shape across the seam and AppUi never builds the SQL predicate; the cross-filter mechanics own the brush state and the in-board re-filter, the cross-tile telemetry contributes a `filter.apply` span and a `filter.tiles` count through `TelemetryContributorPort` so a brush attributes through the one meter; a dashboard layout engine is the deleted pattern — one placement fold inside the dock rail.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -333,13 +337,107 @@ public sealed record FilterState(
     Option<Instant> From,
     Option<Instant> To,
     Set<string> Tags,
+    HashMap<string, Set<string>> Dimensions,
+    Option<PolygonBrush> Region,
     Option<string> Source) {
-    public static readonly FilterState Empty = new(None, None, Empty, None);
+    public static readonly FilterState Empty = new(None, None, Empty, Empty, None, None);
 
     public bool Admits(Instant at, Set<string> rowTags) =>
         From.Map(lo => at >= lo).IfNone(true)
             && To.Map(hi => at <= hi).IfNone(true)
             && (Tags.IsEmpty || Tags.Exists(rowTags.Contains));
+}
+
+public readonly record struct PolygonBrush(string DimensionKey, Seq<(double X, double Y)> Ring) {
+    public bool Contains(double x, double y) =>
+        Ring.Count >= 3 && Ring.Fold(
+            (Inside: false, Prev: Ring[Ring.Count - 1]),
+            (state, vertex) => (
+                Inside: state.Inside ^ (((vertex.Y > y) != (state.Prev.Y > y))
+                    && (x < (((state.Prev.X - vertex.X) * (y - vertex.Y)) / (state.Prev.Y - vertex.Y)) + vertex.X)),
+                Prev: vertex)).Inside;
+}
+```
+
+```csharp signature
+public sealed class DimensionIndex<TRow, TKey> where TKey : notnull {
+    private readonly Func<TRow, TKey> key;
+    private readonly FrozenDictionary<string, Func<TRow, string>> dimensions;
+    private readonly Dictionary<TKey, int> ordinals = new();
+    private readonly List<TKey> keys = [];
+    private readonly Dictionary<string, Dictionary<string, ulong[]>> words = new(StringComparer.Ordinal);
+    private int capacityWords = 1;
+
+    public DimensionIndex(Func<TRow, TKey> key, FrozenDictionary<string, Func<TRow, string>> dimensions) {
+        this.key = key;
+        this.dimensions = dimensions;
+        foreach (var dimension in dimensions.Keys) { words[dimension] = new Dictionary<string, ulong[]>(StringComparer.Ordinal); }
+    }
+
+    public Unit Ingest(TRow row) {
+        var k = key(row);
+        if (!ordinals.TryGetValue(k, out var ordinal)) {
+            ordinal = keys.Count;
+            ordinals[k] = ordinal;
+            keys.Add(k);
+            Grow(ordinal);
+        }
+        foreach (var (dimension, project) in dimensions) {
+            var bucket = words[dimension];
+            var value = project(row);
+            if (!bucket.TryGetValue(value, out var bitmap)) { bitmap = new ulong[capacityWords]; bucket[value] = bitmap; }
+            bitmap[ordinal >> 6] |= 1UL << (ordinal & 63);
+        }
+        return unit;
+    }
+
+    public Unit Drop(TKey k) {
+        if (!ordinals.TryGetValue(k, out var ordinal)) { return unit; }
+        foreach (var bucket in words.Values) {
+            foreach (var bitmap in bucket.Values) { bitmap[ordinal >> 6] &= ~(1UL << (ordinal & 63)); }
+        }
+        return unit;
+    }
+
+    public Seq<TKey> Selected(HashMap<string, Set<string>> predicate) =>
+        predicate.IsEmpty
+            ? toSeq(keys)
+            : Materialize(predicate.Fold(
+                Option<ulong[]>.None,
+                (acc, entry) => acc.Match(
+                    Some: live => Some(And(live, Union(entry.Key, entry.Value))),
+                    None: () => Some(Union(entry.Key, entry.Value)))));
+
+    private ulong[] Union(string dimension, Set<string> values) {
+        var result = new ulong[capacityWords];
+        var bucket = words[dimension];
+        foreach (var value in values) {
+            if (bucket.TryGetValue(value, out var bitmap)) {
+                for (var word = 0; word < capacityWords; word++) { result[word] |= bitmap[word]; }
+            }
+        }
+        return result;
+    }
+
+    private static ulong[] And(ulong[] left, ulong[] right) {
+        var result = new ulong[left.Length];
+        for (var word = 0; word < left.Length; word++) { result[word] = left[word] & right[word]; }
+        return result;
+    }
+
+    private Seq<TKey> Materialize(Option<ulong[]> bits) =>
+        bits.Match(
+            Some: live => toSeq(Enumerable.Range(0, keys.Count).Where(ordinal => (live[ordinal >> 6] & (1UL << (ordinal & 63))) != 0).Select(ordinal => keys[ordinal])),
+            None: () => Seq<TKey>());
+
+    private void Grow(int ordinal) {
+        var need = (ordinal >> 6) + 1;
+        if (need <= capacityWords) { return; }
+        capacityWords = need;
+        foreach (var bucket in words.Values) {
+            foreach (var value in bucket.Keys.ToArray()) { Array.Resize(ref CollectionsMarshal.GetValueRefOrNullRef(bucket, value), capacityWords); }
+        }
+    }
 }
 
 public sealed class CrossFilter {
@@ -352,26 +450,49 @@ public sealed class CrossFilter {
     public IO<Unit> Brush(string source, Option<Instant> from, Option<Instant> to, Set<string> tags) =>
         IO.lift(() => state.OnNext(state.Value with { From = from, To = to, Tags = tags, Source = Some(source) }));
 
+    public IO<Unit> BrushDimension(string source, string dimension, Set<string> values) =>
+        IO.lift(() => state.OnNext(state.Value with { Dimensions = state.Value.Dimensions.AddOrUpdate(dimension, values), Source = Some(source) }));
+
+    public IO<Unit> BrushRegion(string source, PolygonBrush region) =>
+        IO.lift(() => state.OnNext(state.Value with { Region = Some(region), Source = Some(source) }));
+
     public IO<Unit> Clear() => IO.lift(() => state.OnNext(FilterState.Empty));
 
-    public IObservable<Func<TRow, bool>> Predicate<TRow>(string tile, Func<TRow, Instant> at, Func<TRow, Set<string>> rowTags) =>
+    public IObservable<Func<TRow, bool>> Predicate<TRow>(
+        string tile,
+        Func<TRow, Instant> at,
+        Func<TRow, Set<string>> rowTags,
+        Func<TRow, string, Option<string>> dimension = null,
+        Func<TRow, (double X, double Y)> point = null) =>
         state.Select(filter => (Func<TRow, bool>)(row =>
-            filter.Source == Some(tile) || filter.Admits(at(row), rowTags(row))));
+            filter.Source == Some(tile)
+                || (filter.Admits(at(row), rowTags(row))
+                    && DimensionsAdmit(filter, row, dimension)
+                    && RegionAdmits(filter, row, point))));
+
+    private static bool DimensionsAdmit<TRow>(FilterState filter, TRow row, Func<TRow, string, Option<string>> dimension) =>
+        dimension is null || filter.Dimensions.ForAll(entry =>
+            dimension(row, entry.Key).Match(Some: value => entry.Value.IsEmpty || entry.Value.Contains(value), None: () => true));
+
+    private static bool RegionAdmits<TRow>(FilterState filter, TRow row, Func<TRow, (double X, double Y)> point) =>
+        point is null || filter.Region.Match(Some: brush => point(row) is var p && brush.Contains(p.X, p.Y), None: () => true);
 
     public IObservable<IChangeSet<TRow, TKey>> Apply<TRow, TKey>(
         string tile,
         IObservable<IChangeSet<TRow, TKey>> source,
         Func<TRow, Instant> at,
-        Func<TRow, Set<string>> rowTags) where TKey : notnull =>
-        source.Filter(Predicate<TRow>(tile, at, rowTags));
+        Func<TRow, Set<string>> rowTags,
+        Func<TRow, string, Option<string>> dimension = null,
+        Func<TRow, (double X, double Y)> point = null) where TKey : notnull =>
+        source.Filter(Predicate(tile, at, rowTags, dimension, point));
 }
 ```
 
-| [INDEX] | [DASHBOARD_ROW]   | [TILES]                  | [FEEDS]                                         |
-| :-----: | ----------------- | ------------------------ | ----------------------------------------------- |
-|   [1]   | benchmark         | column + box + stat      | persistence-analytical                          |
-|   [2]   | activity-timeline | step-line + heat + table | compute-receipt-stream + persistence-analytical |
-|   [3]   | analytical-flow   | sankey + treemap + waterfall | persistence-analytical                      |
+| [INDEX] | [DASHBOARD_ROW]   | [TILES]                      | [FEEDS]                                         |
+| :-----: | ----------------- | ---------------------------- | ----------------------------------------------- |
+|   [1]   | benchmark         | column + box + stat          | persistence-analytical                          |
+|   [2]   | activity-timeline | step-line + heat + table     | compute-receipt-stream + persistence-analytical |
+|   [3]   | analytical-flow   | sankey + treemap + waterfall | persistence-analytical                          |
 
 ## [7]-[RESEARCH]
 

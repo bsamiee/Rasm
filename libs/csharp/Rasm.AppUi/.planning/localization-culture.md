@@ -171,11 +171,11 @@ flowchart LR
 
 ## [5]-[RTL_MIRRORING]
 
-- Owner: `MirrorPolicy` directional-row policy record.
-- Entry: `public bool Mirrors(string iconKey, LocaleRow row)` — pure predicate; the icon presenter's flow pin folds over it.
-- Packages: Avalonia, LanguageExt.Core
-- Growth: a direction-sensitive glyph is one key row on `Directional`; zero new surface.
-- Boundary: the mount transaction writes the active row's flow once to the surface root's inherited `Visual.FlowDirection` (`LeftToRight` | `RightToLeft`) and layout mirroring arrives by inheritance — per-control flow flips are the deleted pattern; every icon presenter pins `LeftToRight` structurally — the exemption — and only `Directional` rows re-join the root flow, so logos, status glyphs, and brand marks never mirror; Skia-side bidi and complex-script ordering stay with the shaping rail and this cluster owns retained-layout mirroring only; caret travel and text alignment arrive from the inherited flow, never per-control settings.
+- Owner: `MirrorPolicy` directional-row policy record; `ShapedAnnotation` the complex-script 3D-annotation shaping projection; `CaptionSource` · `LiveCaption` the live-caption-and-translation owner.
+- Entry: `public bool Mirrors(string iconKey, LocaleRow row)` — pure predicate; the icon presenter's flow pin folds over it; `public static ShapedAnnotation For(string key, ResolvedLocale locale)` — projects a 3D-annotation string into its shaping features and flow; `public IObservable<ShapedAnnotation> Stream(ResolvedLocale locale)` — the live-caption stream optionally translated into the target locale.
+- Packages: Avalonia, System.Reactive, LanguageExt.Core
+- Growth: a direction-sensitive glyph is one key row on `Directional`; a new caption source is one `CaptionSource` case; zero new surface.
+- Boundary: the mount transaction writes the active row's flow once to the surface root's inherited `Visual.FlowDirection` (`LeftToRight` | `RightToLeft`) and layout mirroring arrives by inheritance — per-control flow flips are the deleted pattern; every icon presenter pins `LeftToRight` structurally — the exemption — and only `Directional` rows re-join the root flow, so logos, status glyphs, and brand marks never mirror; 3D-annotation complex-script shaping rides `ShapedAnnotation` — a viewport label, dimension text, or scene annotation carries its locale's bidi flow and complex-script feature tags (RTL ligatures for Arabic/Hebrew, contextual alternates for Indic) which feed the typography `ShapingSurface.DrawLabel` HarfBuzz rail so a 3D annotation shapes through the one shaping owner exactly as retained text does and a per-annotation glyph loop is the deleted form; drafting title-blocks are locale-aware through the drafting page's `TitleBlock.Fields(ResolvedLocale)` so the ISO/ANSI/JIS field labels and the date resolve through this locale vocabulary — the title-block standard owns layout, the locale owns the field text, and a hardcoded title-block label is the deleted form; live caption and translation ride `LiveCaption` — a spoken or streamed utterance source projects into shaped annotations, the `Translated` source folds each utterance through the composition-bound `Translate` delegate into the target locale before shaping so a live session captions in the viewer's language, with the speech-recognition and translation engine member spellings research-gated; Skia-side bidi and complex-script ordering stay with the shaping rail and this cluster owns retained-layout mirroring plus the annotation-shaping and caption projection; caret travel and text alignment arrive from the inherited flow, never per-control settings.
 
 ```csharp signature
 public sealed record MirrorPolicy(Seq<string> Directional) {
@@ -184,9 +184,31 @@ public sealed record MirrorPolicy(Seq<string> Directional) {
     public bool Mirrors(string iconKey, LocaleRow row) =>
         row.RightToLeft && Directional.Exists(key => string.Equals(key, iconKey, StringComparison.Ordinal));
 }
+
+public readonly record struct ShapedAnnotation(string Text, bool RightToLeft, Seq<string> Features) {
+    public static ShapedAnnotation For(string key, ResolvedLocale locale) =>
+        new(locale.Label(key), locale.Row.RightToLeft, locale.Row.RightToLeft ? Seq("calt", "liga", "rlig") : Seq("calt", "liga"));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record CaptionSource {
+    private CaptionSource() { }
+    public sealed record Live(IObservable<string> Utterances) : CaptionSource;
+    public sealed record Translated(IObservable<string> Utterances, Func<string, LocaleRow, IO<string>> Translate) : CaptionSource;
+}
+
+public sealed record LiveCaption(CaptionSource Source, LocaleRow Target, double DwellSeconds) {
+    public IObservable<ShapedAnnotation> Stream(ResolvedLocale locale) =>
+        Source.Switch(
+            state: (Target: Target, Locale: locale),
+            live: static (ctx, l) => l.Utterances.Select(text => new ShapedAnnotation(text, ctx.Locale.Row.RightToLeft, Seq("calt", "liga"))),
+            translated: static (ctx, t) => t.Utterances.Select(text => t.Translate(text, ctx.Target).Run())
+                .Select(translated => new ShapedAnnotation(translated, ctx.Target.RightToLeft, ctx.Target.RightToLeft ? Seq("calt", "liga", "rlig") : Seq("calt", "liga"))));
+}
 ```
 
 ## [6]-[RESEARCH]
 
 - [PSEUDO_LOCALE]: qps-ploc satellite resx resolution through the ResourceManager fallback fold on ICU-backed globalization.
 - [ICU_PLURALS]: ICU MessageFormat plural and gender route replacing the suffix arm — umsg binding over the runtime ICU or a managed CLDR fold.
+- [LIVE_TRANSLATE]: the speech-recognition utterance source and the machine-translation engine the `LiveCaption.Translated` `Translate` delegate binds — the recognizer producing the utterance stream and the translation service producing the target-locale text, resolved at implementation against an admitted speech-and-translation package bound through a composition delegate; the `ShapedAnnotation` complex-script projection, the `CaptionSource` union, and the caption stream are settled, the recognizer-and-translator member spellings are the unverified surface.

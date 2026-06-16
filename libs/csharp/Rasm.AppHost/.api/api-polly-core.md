@@ -36,8 +36,8 @@ surfaces, and telemetry event contracts for non-HTTP and shared resilience rails
 |   [7]   | `ResilienceContextPool`         | context pool        | context reuse               |
 |   [8]   | `Outcome<T>`                    | result value        | exception/result outcome    |
 |   [9]   | `PredicateBuilder<T>`           | predicate builder   | handled outcome predicate   |
-|  [10]   | `ResiliencePropertyKey<T>`      | property key        | typed context property key   |
-|  [11]   | `FallbackActionArguments<T>`    | callback arguments  | fallback action carrier      |
+|  [10]   | `ResiliencePropertyKey<T>`      | property key        | typed context property key  |
+|  [11]   | `FallbackActionArguments<T>`    | callback arguments  | fallback action carrier     |
 
 [PUBLIC_TYPE_SCOPE]: strategy and registry family
 - rail: resilience

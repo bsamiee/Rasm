@@ -28,79 +28,89 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 [PUBLIC_TYPE_SCOPE]: handle chain and generation contracts
 - rail: model
 
-| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]        | [CAPABILITY]                              |
-| :-----: | :------------------------ | :-------------------- | :---------------------------------------- |
-|   [1]   | `OgaHandle`               | process-global handle  | owns native init/teardown (LIFO outermost) |
-|   [2]   | `Config`                  | model configuration    | configures model dir and providers        |
-|   [3]   | `Model`                   | model root             | loads the generative model                |
-|   [4]   | `Tokenizer`               | tokenizer root         | encodes prompts, applies chat template    |
-|   [5]   | `TokenizerStream`         | incremental decoder    | decodes one token per step                |
-|   [6]   | `Sequences`               | token-sequence carrier | carries encoded/generated token sequences |
-|   [7]   | `GeneratorParams`         | generation policy      | carries search options and guidance       |
-|   [8]   | `Generator`               | generation engine      | runs the per-step token loop              |
-|   [9]   | `OnnxRuntimeGenAIException`| fault rail             | the sole generative exception type        |
+| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]         | [CAPABILITY]                               |
+| :-----: | :-------------------------- | :--------------------- | :----------------------------------------- |
+|   [1]   | `OgaHandle`                 | process-global handle  | owns native init/teardown (LIFO outermost) |
+|   [2]   | `Config`                    | model configuration    | configures model dir and providers         |
+|   [3]   | `Model`                     | model root             | loads the generative model                 |
+|   [4]   | `Tokenizer`                 | tokenizer root         | encodes prompts, applies chat template     |
+|   [5]   | `TokenizerStream`           | incremental decoder    | decodes one token per step                 |
+|   [6]   | `Sequences`                 | token-sequence carrier | carries encoded/generated token sequences  |
+|   [7]   | `GeneratorParams`           | generation policy      | carries search options and guidance        |
+|   [8]   | `Generator`                 | generation engine      | runs the per-step token loop               |
+|   [9]   | `OnnxRuntimeGenAIException` | fault rail             | the sole generative exception type         |
 
 [PUBLIC_TYPE_SCOPE]: M.E.AI projection
 - rail: model
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]      | [CAPABILITY]                              |
-| :-----: | :----------------------------- | :------------------ | :---------------------------------------- |
-|   [1]   | `OnnxRuntimeGenAIChatClient`   | `IChatClient` impl  | streaming chat over the GenAI handle chain |
-|   [2]   | `IChatClient`                  | M.E.AI contract     | response and streaming-response surface    |
-|   [3]   | `ChatResponse`                 | M.E.AI response     | non-streaming response carrier             |
-|   [4]   | `ChatResponseUpdate`           | M.E.AI update       | streaming incremental update carrier       |
-|   [5]   | `ChatMessage`                  | M.E.AI message      | role-tagged message carrier                |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]     | [CAPABILITY]                               |
+| :-----: | :--------------------------- | :----------------- | :----------------------------------------- |
+|   [1]   | `OnnxRuntimeGenAIChatClient` | `IChatClient` impl | streaming chat over the GenAI handle chain |
+|   [2]   | `IChatClient`                | M.E.AI contract    | response and streaming-response surface    |
+|   [3]   | `ChatResponse`               | M.E.AI response    | non-streaming response carrier             |
+|   [4]   | `ChatResponseUpdate`         | M.E.AI update      | streaming incremental update carrier       |
+|   [5]   | `ChatMessage`                | M.E.AI message     | role-tagged message carrier                |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process and model lifecycle
 - rail: model
 
-| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                  | [CAPABILITY]                          |
-| :-----: | :-------------------------------- | :-------------------------------------------- | :------------------------------------ |
-|   [1]   | `new OgaHandle()`                 | `OgaHandle()`                                 | process-global init (`IDisposable`)   |
-|   [2]   | `new Config(string)`              | `Config(string modelPath)`                    | reads `{modelPath}/genai_config.json` |
-|   [3]   | `Config.AppendProvider`           | `void AppendProvider(string provider)`        | injects an execution provider         |
-|   [4]   | `Config.SetProviderOption`        | `void SetProviderOption(string provider, string option, string value)` | sets a provider option key |
-|   [5]   | `new Model(Config)`               | `Model(Config config)`                        | loads the model from config           |
-|   [6]   | `Model.GetModelType`              | `string GetModelType()`                       | reports the model type string         |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                           | [CAPABILITY]                          |
+| :-----: | :------------------------- | :--------------------------------------------------------------------- | :------------------------------------ |
+|   [1]   | `new OgaHandle()`          | `OgaHandle()`                                                          | process-global init (`IDisposable`)   |
+|   [2]   | `new Config(string)`       | `Config(string modelPath)`                                             | reads `{modelPath}/genai_config.json` |
+|   [3]   | `Config.AppendProvider`    | `void AppendProvider(string provider)`                                 | injects an execution provider         |
+|   [4]   | `Config.SetProviderOption` | `void SetProviderOption(string provider, string option, string value)` | sets a provider option key            |
+|   [5]   | `new Model(Config)`        | `Model(Config config)`                                                 | loads the model from config           |
+|   [6]   | `Model.GetModelType`       | `string GetModelType()`                                                | reports the model type string         |
 
 [ENTRYPOINT_SCOPE]: tokenization and chat template
 - rail: model
 
-| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                              | [CAPABILITY]                         |
-| :-----: | :---------------------------- | :----------------------------------------------------------------------- | :----------------------------------- |
-|   [1]   | `new Tokenizer(Model)`        | `Tokenizer(Model model)`                                                  | builds the tokenizer over a model    |
-|   [2]   | `Tokenizer.CreateStream`      | `TokenizerStream CreateStream()`                                          | sole `TokenizerStream` source        |
-|   [3]   | `Tokenizer.ApplyChatTemplate` | `string ApplyChatTemplate(string template_str, string messages, string tools, bool add_generation_prompt)` | assembles the prompt natively |
-|   [4]   | `Tokenizer.Encode`            | `Sequences Encode(string text)`                                          | encodes text to token sequences      |
-|   [5]   | `TokenizerStream.Decode`      | `string Decode(int token)`                                               | decodes one token incrementally      |
+Tokenizer calls keep exact return and parameter shapes in package topology; the table keeps the operation inventory.
+
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]            | [CAPABILITY]                      |
+| :-----: | :---------------------------- | :---------------------- | :-------------------------------- |
+|   [1]   | `Tokenizer`                   | model constructor       | builds the tokenizer over a model |
+|   [2]   | `Tokenizer.CreateStream`      | stream factory          | sole `TokenizerStream` source     |
+|   [3]   | `Tokenizer.ApplyChatTemplate` | chat-template operation | assembles the prompt natively     |
+|   [4]   | `Tokenizer.Encode`            | text encode             | encodes text to token sequences   |
+|   [5]   | `TokenizerStream.Decode`      | token decode            | decodes one token incrementally   |
 
 [ENTRYPOINT_SCOPE]: generation loop and search options
 - rail: model
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                       | [CAPABILITY]                          |
-| :-----: | :--------------------------------- | :---------------------------------------------------------------- | :------------------------------------ |
-|   [1]   | `new GeneratorParams(Model)`       | `GeneratorParams(Model model)`                                    | builds generation params              |
-|   [2]   | `GeneratorParams.SetSearchOption`  | `void SetSearchOption(string name, double value)`                | numeric search option                 |
-|   [3]   | `GeneratorParams.SetSearchOption`  | `void SetSearchOption(string name, bool value)`                  | flag search option (no string overload) |
-|   [4]   | `GeneratorParams.SetGuidance`      | `void SetGuidance(string type, string data, bool enableFFTokens)`| structured-output constraint          |
-|   [5]   | `new Generator(Model, GeneratorParams)` | `Generator(Model model, GeneratorParams generatorParams)`   | builds the generator                  |
-|   [6]   | `Generator.AppendTokenSequences`   | `void AppendTokenSequences(Sequences sequences)`                 | seeds the prompt tokens               |
-|   [7]   | `Generator.AppendTokens`           | `void AppendTokens(ReadOnlySpan<int> tokens)`                    | re-feeds typed tool-result tokens     |
-|   [8]   | `Generator.RewindTo`               | `void RewindTo(ulong newLength)`                                 | rewinds a partial turn                 |
-|   [9]   | `Generator.GenerateNextToken`      | `void GenerateNextToken()`                                       | advances one step                     |
-|  [10]   | `Generator.IsDone`                 | `bool IsDone()`                                                  | loop terminator                       |
-|  [11]   | `Generator.GetSequence`            | `ReadOnlySpan<int> GetSequence(ulong index)`                    | native-memory view of generated tokens |
+`SetSearchOption` admits numeric and bool values only; `SetGuidance` carries type, data, and FFTokens policy.
+
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]      | [CAPABILITY]                      |
+| :-----: | :--------------------- | :---------------- | :-------------------------------- |
+|   [1]   | `GeneratorParams`      | model constructor | builds generation params          |
+|   [2]   | `SetSearchOption`      | numeric option    | sets numeric search option        |
+|   [3]   | `SetSearchOption`      | flag option       | sets bool search option           |
+|   [4]   | `SetGuidance`          | guidance option   | sets structured-output constraint |
+|   [5]   | `Generator`            | model plus params | builds the generator              |
+|   [6]   | `AppendTokenSequences` | sequence append   | seeds the prompt tokens           |
+|   [7]   | `AppendTokens`         | token span append | re-feeds typed tool-result tokens |
+|   [8]   | `RewindTo`             | sequence rewind   | rewinds a partial turn            |
+|   [9]   | `GenerateNextToken`    | generation step   | advances one step                 |
+|  [10]   | `IsDone`               | loop predicate    | terminates generation             |
+|  [11]   | `GetSequence`          | sequence view     | exposes generated token memory    |
 
 [ENTRYPOINT_SCOPE]: M.E.AI chat client
 - rail: model
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE]                                                                 | [CAPABILITY]                       |
-| :-----: | :--------------------------------------- | :-------------------------------------------------------------------------- | :--------------------------------- |
-|   [1]   | `new OnnxRuntimeGenAIChatClient(Model)`  | `OnnxRuntimeGenAIChatClient(Model model, OnnxRuntimeGenAIChatClientOptions? options = null)` | wraps a `Model` as `IChatClient` |
-|   [2]   | `IChatClient.GetResponseAsync`           | `Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options, CancellationToken)` | non-streaming response |
-|   [3]   | `IChatClient.GetStreamingResponseAsync`  | `IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options, CancellationToken)` | streaming response |
+| [INDEX] | [SURFACE]                               | [CALL_SHAPE]       | [CAPABILITY]                     |
+| :-----: | :-------------------------------------- | :----------------- | :------------------------------- |
+|   [1]   | `OnnxRuntimeGenAIChatClient`            | model wrapper      | wraps a `Model` as `IChatClient` |
+|   [2]   | `IChatClient.GetResponseAsync`          | async response     | non-streaming response           |
+|   [3]   | `IChatClient.GetStreamingResponseAsync` | streaming response | streaming response               |
+
+```csharp generated
+OnnxRuntimeGenAIChatClient(Model model, OnnxRuntimeGenAIChatClientOptions? options = null)
+Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options, CancellationToken cancellationToken)
+IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options, CancellationToken cancellationToken)
+```
 
 ## [4]-[IMPLEMENTATION_LAW]
 

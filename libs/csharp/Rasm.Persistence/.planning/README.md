@@ -17,10 +17,16 @@ Rasm.Persistence has zero consumers; the implementation is full-capability with 
 |   [9]   | [redaction-retention](redaction-retention.md) | retention, classification, audit binding                     | finalized |
 |  [10]   | [remote-stores](remote-stores.md)             | object-store axis, multipart transfer, residence, sync feed  | finalized |
 |  [11]   | [server-tier](server-tier.md)                 | time-series, search, cluster GUC, tenancy/RLS, migration bundle | finalized |
+|  [12]   | [version-control](version-control.md)         | commit-DAG, CRDT algebra, time-travel, structural diff/merge | authored  |
+|  [13]   | [federation](federation.md)                   | entity graph, element-set algebra, links, rule plan, fusion, planner | authored  |
+|  [14]   | [provenance](provenance.md)                   | causal DAG, attested ledger, lineage-scoped CDC              | authored  |
+|  [15]   | [annotation](annotation.md)                   | anchor algebra, BCF protocol, CDE OAuth2 sync                | authored  |
+|  [16]   | [catalog-cost](catalog-cost.md)               | classification catalogs, cost-code, formula rollup           | authored  |
+|  [17]   | [schedule-interchange](schedule-interchange.md) | P6/MSP import, task-element link, 4D state                 | authored  |
 
 ## [2]-[WIRE_PAGES]
 
-snapshot-codecs · sync-collaboration (each carries exactly one TS_PROJECTION cluster).
+snapshot-codecs · sync-collaboration · version-control · federation (TS via the consuming explorer) · provenance · annotation · schedule-interchange (each wire page carries exactly one TS_PROJECTION cluster; federation, catalog-cost, and the host-local server pages carry none — federation's selection results cross as content-key arrays inside the consuming page's projection).
 
 ## [3]-[CATALOGUE_PENDING]
 
@@ -81,6 +87,34 @@ Every row is CLOSED; `[CLOSED_BY]` names the page that absorbed the gap. A row i
 |  [47]   | object-store reachability GC by live Closure | redaction-retention#RETENTION_SWEEPS         |
 |  [48]   | server-side filtered keyset re-query         | query-rail#PROJECTION_SHAPES                  |
 |  [49]   | bulk-lane store-side backpressure shed fact  | query-rail#BULK_LANE                          |
+|  [50]   | content-addressed commit-DAG + named branches + merge-base | version-control#COMMIT_DAG          |
+|  [51]   | convergent op-based/delta-state CRDT (RGA/OR-set/LWW) | version-control#CRDT_ALGEBRA           |
+|  [52]   | version-vector concurrency + Merkle-DAG reconciliation | version-control#COMMIT_DAG            |
+|  [53]   | AS-OF time-travel: reconstruct, range diff, blame, scrub, branch-from-past | version-control#TIME_TRAVEL |
+|  [54]   | geometry-aware structural diff/merge + typed conflict classes | version-control#STRUCTURAL_DIFF     |
+|  [55]   | source-agnostic federated entity graph on PostGIS | federation#ENTITY_GRAPH                  |
+|  [56]   | polymorphic element-set query algebra + stable receipts | federation#ELEMENT_SET_ALGEBRA       |
+|  [57]   | federation cross-document reference resolver + transitive impact | federation#CROSS_DOC_LINKS        |
+|  [58]   | declarative rule engine DSL → plan + typed receipts | federation#RULE_PLAN                   |
+|  [59]   | HNSW + GiST + FTS fusion-ranking with lineage | federation#FUSION_RANK                       |
+|  [60]   | within-residence cross-engine federated query planner | federation#FEDERATED_PLAN            |
+|  [61]   | W3C-PROV causal DAG + slicing/blame/impact as join dimension | provenance#CAUSAL_DAG               |
+|  [62]   | hash-chained attested ledger + redaction-preserving lineage | provenance#ATTESTED_LEDGER          |
+|  [63]   | lineage-scoped redaction-aware CDC                | provenance#LINEAGE_CDC                       |
+|  [64]   | anchored-annotation anchor algebra + re-anchoring | annotation#ANCHOR_ALGEBRA                  |
+|  [65]   | BCF 2.1/3.0 read/write + topic/comment/viewpoint lifecycle | annotation#BCF_PROTOCOL             |
+|  [66]   | bidirectional CDE OAuth2 sync over BCF-API REST   | annotation#CDE_SYNC                         |
+|  [67]   | multi-standard classification catalogs + cross-map | catalog-cost#CLASSIFICATION_CATALOG       |
+|  [68]   | cost-code mapping + DuckDB formula-evaluated rollup | catalog-cost#COST_ROLLUP                  |
+|  [69]   | P6 XER / MS-Project import + activity network     | schedule-interchange#SCHEDULE_STORE        |
+|  [70]   | task-element link + as-of 4D state + variance     | schedule-interchange#TASK_LINK_4D          |
+|  [71]   | continuous/incremental standing query + windows + IVM + watermark | query-rail#STANDING_QUERY      |
+|  [72]   | columnar Arrow zero-copy carrier across analytics surfaces | query-rail#ARROW_PLANE             |
+|  [73]   | dedicated lossy awareness channel (cursor/selection/camera/focus/follow) | sync-collaboration#PRESENCE_AND_BLOB |
+|  [74]   | partial-replication query-shape algebra + working-set manager | sync-collaboration#PRESENCE_AND_BLOB |
+|  [75]   | georeferencing/CRS reconciliation kernel (EPSG/IfcMapConversion/survey) | data-lanes#GEO_LANES        |
+|  [76]   | object-level ACL (RBAC + capability) + signed authorship | schema-rail#IDENTITY_POLICY          |
+|  [77]   | schema + codec evolution registry (content-negotiation + codec-as-lineage) | snapshot-codecs#SCHEMA_EVOLUTION |
 
 ## [5]-[DENSITY_BAR]
 
@@ -94,7 +128,7 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |   [4]   | cross-process        | StoreLeaseRow, StoreLocality                     | record + guard    | 2 lease kinds     |   SPIKE   |
 |   [5]   | provisioning         | ExtensionRequirement                             | table + verify    | 11 rows           | FINALIZED |
 |   [6]   | lane axis            | DataLane, KvEntry                                | union + fold      | 7 cases           | FINALIZED |
-|   [7]   | document/search      | JsonIndex, VectorMetric, FullTextMode            | enums             | 4 · 6 · 4         | FINALIZED |
+|   [7]   | document/search      | JsonIndex, VectorMetric, FullTextMode            | enums             | 4 · 6 · 4         |   SPIKE   |
 |   [8]   | geo + analytical     | GeoLayer, TabularExportSpec, TabularDirection    | policy + enum     | concern rows      |   SPIKE   |
 |   [9]   | identity             | IdentityPolicy                                   | enum              | 3 rows            | FINALIZED |
 |  [10]   | schema law           | faults, fingerprint, columns, SchemaDdl, TemporalShape | fault + DDL | 5 codes · 19 ext. · 3 temporal shapes | FINALIZED |
@@ -110,8 +144,26 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |  [20]   | retention + classes  | policies, classes, guards, evidence, ClosureGc   | axes + guards     | 4 · 7 · 5         |   SPIKE   |
 |  [21]   | object-store         | ObjectStore, MultipartTransfer, ObjectResidence, ArtifactSyncFeed, RemoteStoreFault | SmartEnum + Union + records | 3 providers · 5 faults | FINALIZED |
 |  [22]   | server-tier          | TimescaleProvisioning, SearchProvisioning, ClusterConfig, TenancyModel, TenantProvision, TenantQuota, MigrationBundle | static folds + SmartEnum | 5 clusters · 4 tenancy · 2 lifecycle | FINALIZED |
+|  [23]   | commit-DAG           | CommitNode, BranchRef, VersionVector, MerkleRange, CommitGraph | records + SmartEnum + fold | 3 ref kinds · 4 vector orders | FINALIZED |
+|  [24]   | CRDT algebra         | CrdtField, CrdtOp, Crdt, ElementId               | unions + fold     | 3 types · 5 ops   | FINALIZED |
+|  [25]   | time-travel          | AsOfQuery, RangeDiff, BlameRow, ScrubFrame, TimeTravel | records + fold | 2 directions      | FINALIZED |
+|  [26]   | structural diff      | GraphNode, EditOp, MergeConflict, StructuralMerge | unions + fold     | 5 edits · 5 conflicts | FINALIZED |
+|  [27]   | entity graph         | FederatedEntity, EntityIdentity, SourceRef, EntityGraph | records + SmartEnum | 4 source kinds · 5 identity axes | FINALIZED |
+|  [28]   | element-set algebra  | ElementSet, SetExpr, ElementSetAlgebra           | union + record + fold | 9 set exprs     | FINALIZED |
+|  [29]   | cross-doc links      | CrossDocLink, LinkKind, ImpactNode, LinkStore    | record + SmartEnum + fold | 5 link kinds  | FINALIZED |
+|  [30]   | rule plan            | RuleAst, RuleResult, RulePlan                    | unions + lowering | 7 ast · 5 results | FINALIZED |
+|  [31]   | fusion + plan        | FusionRank, FusionCandidate, FusionWeights, FederatedPlan, PlanNode, PlanEngine | static folds + union | 5 engines · 6 plan nodes | FINALIZED |
+|  [32]   | provenance           | ProvEdge, ProvNode, LineageSlice, Provenance, AttestedEntry, AttestedLedger, CdcScope, CdcEnvelope, LineageCdc | unions + chain + fold | 6 PROV relations · 2 directions | FINALIZED |
+|  [33]   | annotation           | Anchor, Thread, AnnotationStatus, Anchors, BcfTopic, BcfViewpoint, BcfVersion, Bcf, BcfApiEndpoint, CdeSession, CdeSync | unions + records + folds | 4 anchors · 5 status · 2 BCF versions | FINALIZED |
+|  [34]   | catalog + cost       | ClassificationStandard, ClassificationCode, Catalog, CostCode, CostLineItem, CostRollup | SmartEnum + records + DuckDB fold | 4 standards       | FINALIZED |
+|  [35]   | schedule + 4D        | ScheduleFormat, ScheduleTask, TaskRelation, ScheduleImport, TaskElementLink, FourDStatus, FourDState | SmartEnum + records + folds | 2 formats · 4 relations · 4 4D states | FINALIZED |
+|  [36]   | standing + arrow     | StandingQuery, WindowSpec, QueryDelta, Watermark, StandingQueries, ArrowCarrier, ArrowPlane | records + folds   | 3 windows         | FINALIZED |
+|  [37]   | awareness + working-set | AwarenessBeat, AwarenessKind, Awareness, ReplicationQuery, WorkingSet, Replication | SmartEnum + records + folds | 5 awareness kinds · 5 checkout dims | FINALIZED |
+|  [38]   | CRS reconcile        | CrsSource, MapConversion, CrsTransform, CrsReconcile | records + fold    | similarity + map-conversion | FINALIZED |
+|  [39]   | object authz         | AclGrant, AclScope, ObjectAcl, SignedAuthorship, Authz | flags + SmartEnum + record + fold | 5 grants · 4 scopes | SPIKE |
+|  [40]   | schema evolution     | WireFormat, SchemaVersion, CodecLineageEdge, SchemaEvolution | SmartEnum + records + fold | 3 wire formats  | FINALIZED |
 
-Comparer accessors (`StoreKeyPolicy`, `SqliteKeyPolicy`, `SnapshotKeyPolicy`, `SyncKeyPolicy`, `RetentionKeyPolicy`, `CacheResidenceKeyPolicy`) ride inside their owner files, one per axis family, package-local. `ObjectStore`, `TenancyModel`, and the data-lanes string-keyed axes (`JsonIndex`/`VectorMetric`/`FullTextMode`/`EmbeddingArity`) reuse the package-wide `StoreKeyPolicy` accessor.
+Comparer accessors (`StoreKeyPolicy`, `SqliteKeyPolicy`, `SnapshotKeyPolicy`, `SyncKeyPolicy`, `RetentionKeyPolicy`, `CacheResidenceKeyPolicy`, `VersionKeyPolicy`, `FederationKeyPolicy`, `ProvenanceKeyPolicy`, `AnnotationKeyPolicy`, `CatalogKeyPolicy`, `ScheduleKeyPolicy`) ride inside their owner files, one per axis family, package-local. `ObjectStore`, `TenancyModel`, and the data-lanes string-keyed axes (`JsonIndex`/`VectorMetric`/`FullTextMode`/`EmbeddingArity`) reuse the package-wide `StoreKeyPolicy` accessor; the new-page string-keyed axes reuse their page-local accessor (`RefKind`→`VersionKeyPolicy`, `SourceKind`/`LinkKind`/`PlanEngine`→`FederationKeyPolicy`, `AnnotationStatus`/`BcfVersion`→`AnnotationKeyPolicy`, `ClassificationStandard`→`CatalogKeyPolicy`, `ScheduleFormat`/`RelationKind`→`ScheduleKeyPolicy`); the `AclScope` and `WireFormat` axes reuse `StoreKeyPolicy`/`SnapshotKeyPolicy` inside their owner files.
 
 ## [6]-[BUILD_ORDER]
 
@@ -131,6 +183,12 @@ Cluster cells use page-local anchor names; proof cells name evidence beyond the 
 |  [10]   | `Retention/Redaction.cs` | classification, sweeps, export, audits       | sweep, guard, audit binding     |
 |  [11]   | `Stores/ServerTier.cs`   | timescale, search, cluster GUC, tenancy/RLS, migration bundle | live-PG18 provisioning roundtrip |
 |  [12]   | `Stores/RemoteStores.cs` | object-store, multipart transfer, residence, sync feed | object-store emulator roundtrip |
+|  [13]   | `Versioning/VersionControl.cs` | commit-DAG, CRDT algebra, time-travel, structural diff | merge convergence, three-way merge, AS-OF fold |
+|  [14]   | `Federation/Federation.cs` | entity graph, element-set, links, rule plan, fusion, planner | identity merge, set algebra, clash pushdown |
+|  [15]   | `Provenance/Provenance.cs` | causal DAG, attested ledger, lineage CDC | slice fold, chain verify, scoped feed |
+|  [16]   | `Annotation/Annotation.cs` | anchor algebra, BCF protocol, CDE sync | re-anchor, BCF round-trip, OAuth2 hop |
+|  [17]   | `Catalog/CatalogCost.cs`   | classification catalogs, cost-code, formula rollup | ltree load, DuckDB rollup |
+|  [18]   | `Schedule/ScheduleInterchange.cs` | P6/MSP import, task-element link, 4D state | XER read, 4D fold |
 
 Seam ordering law:
 - Fingerprint slot: `StoreOpenReceipt.SchemaFingerprint` stays bare `ulong` (ledger seam), so [2] precedes [3] with zero forward reference; `SchemaFingerprint` in [3] is the typed owner.
@@ -138,6 +196,12 @@ Seam ordering law:
 - Mutual placement: `StoreProfile` delegate columns consume `StorePlacement` and the placement record carries `StoreProfile` fields — both land in [1], never split.
 - Server-tier ordering: `Stores/ServerTier.cs` consumes `ExtensionRequirement` (from [2]) and `SchemaDdl` (from [3]) as settled vocabulary, so [11] follows both with zero forward reference; the `TenancyModel` RLS row consumes the AppHost `TenantContext` and the `redaction-retention#AUDIT_BINDING` category binding as settled.
 - Remote-stores ordering: `Stores/RemoteStores.cs` consumes the `BlobRemote`/`BlobRemote.Descriptor` contract (from [1]) and the Compute `ARTIFACT_FRAMES` 64-KiB/Crc32/XxHash128 frame constants plus the `sync-collaboration#OPLOG_CHANGEFEED` op-log as settled, so [12] follows [1] and the snapshot/sync closure with zero re-declared frame width.
+- Version-control ordering: `Versioning/VersionControl.cs` consumes `OpLogEntry`/`SyncOpKind`/`Snapshots.ContentAddress`/`ConflictReceipt`/`Hlc` from the sync and snapshot closure (files [8]/[9]) as settled vocabulary, so [13] follows them; the CRDT algebra supersedes the LWW `Adjudicate` scalar — `SyncMerge.Apply` dispatches the `column-family=crdt` op-log row into `Crdt.Apply`, a cross-package wire-vocabulary amendment recorded as a ledger seam-split, never a parallel sync engine.
+- Federation ordering: `Federation/Federation.cs` consumes the PostGIS GiST + jsonb + ltree substrate (`data-lanes`, file [4]), the `GraphNode` structural-diff identity ([13]), and the `Snapshots.ContentAddress` identity ([8]) as settled, so [14] follows [4]/[8]/[13]; the federated entity is the substrate `Provenance`, `Annotation`, `CatalogCost`, and `ScheduleInterchange` ride, so [14] precedes [15]/[16]/[17]/[18].
+- Provenance ordering: `Provenance/Provenance.cs` consumes the `OpLogEntry`/`Closure` op-log ([9]), the `ExportProof`/`RedactorKind` redaction ([10]), and the `AuditBinding` categories ([10]) as settled, so [15] follows the sync and retention closure.
+- Annotation ordering: `Annotation/Annotation.cs` consumes the `EditOp` structural diff ([13]), the `ElementSet` currency ([14]), the `FederatedEntity` keys ([14]), and the AppHost OAuth2 outbound hop as settled, so [16] follows [13]/[14].
+- Catalog-cost ordering: `Catalog/CatalogCost.cs` consumes the `FederatedEntity`/`ElementSet` ([14]) and the DuckDB analytical lane ([4]) as settled, so [17] follows [4]/[14].
+- Schedule ordering: `Schedule/ScheduleInterchange.cs` consumes the Sep tabular reader ([4]), the `CrossDocLink` ([14]), the `ElementSet` ([14]), and the `TimeTravel` AS-OF fold ([13]) as settled, so [18] follows [4]/[13]/[14].
 - TS_PROJECTION clusters transcribe into the TS workspace under the suite wire law, never into `.cs` files.
 
 ## [7]-[FILE_PROCESS]

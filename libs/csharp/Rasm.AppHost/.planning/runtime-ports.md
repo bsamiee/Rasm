@@ -4,11 +4,11 @@ Rasm.AppHost exposes exactly seven typed port records as its only cross-package 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                         |
-| :-----: | :------------ | :----------------------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]     | [OWNS]                                                                           |
+| :-----: | :------------ | :------------------------------------------------------------------------------- |
 |   [1]   | PORT_RECORDS  | Seven inward port records; HLC envelope + TenantContext cross-process primitives |
-|   [2]   | WIRE_LAW      | One Strict context per package; app roots merge resolvers, emit schemas        |
-|   [3]   | TS_PROJECTION | Tooling map and the envelope wire contract the TS dashboard consumes           |
+|   [2]   | WIRE_LAW      | One Strict context per package; app roots merge resolvers, emit schemas          |
+|   [3]   | TS_PROJECTION | Tooling map and the envelope wire contract the TS dashboard consumes             |
 
 ## [2]-[PORT_RECORDS]
 
@@ -133,6 +133,12 @@ public sealed record HealthContributorPort(
 [JsonSerializable(typeof(TenantContext))]
 [JsonSerializable(typeof(RosterReceipt))]
 [JsonSerializable(typeof(FleetRollReceipt))]
+[JsonSerializable(typeof(CommandReceipt))]
+[JsonSerializable(typeof(DescriptorReceipt))]
+[JsonSerializable(typeof(SandboxReceipt))]
+[JsonSerializable(typeof(WriteReceipt))]
+[JsonSerializable(typeof(AlertReceipt))]
+[JsonSerializable(typeof(LogEntry))]
 public partial class AppHostWireContext : JsonSerializerContext;
 
 public static class SuiteContracts

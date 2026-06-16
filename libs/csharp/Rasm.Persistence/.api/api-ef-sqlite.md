@@ -58,16 +58,26 @@ query translation, and type mapping into one store-provider rail.
 [INTERCEPTION_TYPES]: EF Core interception surfaces (`Microsoft.EntityFrameworkCore.Diagnostics`, base assembly)
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                                                              | [PACKAGE_ROLE]      | [CAPABILITY]                |
-| :-----: | :----------------------------------------------------------------------------------- | :------------------ | :-------------------------- |
-|   [1]   | `IDbConnectionInterceptor.ConnectionOpenedAsync(DbConnection, ConnectionEndEventData, CancellationToken) : Task` | connection hook | re-applies PRAGMA ladder |
-|   [2]   | `IDbCommandInterceptor.ReaderExecutedAsync(DbCommand, CommandExecutedEventData, DbDataReader, CancellationToken) : ValueTask<DbDataReader>` | command hook | slow/burst facts |
-|   [3]   | `ISaveChangesInterceptor.SavingChangesAsync(DbContextEventData, InterceptionResult<int>, CancellationToken) : ValueTask<InterceptionResult<int>>` | save hook | stamp + changefeed in-txn |
-|   [4]   | `ISaveChangesInterceptor.SavedChangesAsync(SaveChangesCompletedEventData, int, CancellationToken) : ValueTask<int>` | save hook | invalidate + save fact |
-|   [5]   | `IDbTransactionInterceptor.TransactionCommittedAsync(DbTransaction, TransactionEndEventData, CancellationToken) : Task` | transaction hook | transaction facts |
-|   [6]   | `CommandExecutedEventData.Duration : TimeSpan` / `DbContextEventData.Context : DbContext` | event data | slow-query gate + context access |
-|   [7]   | `ConnectionEndEventData.Duration : TimeSpan` / `TransactionEndEventData.Duration : TimeSpan` | event data | reopen + commit elapsed |
-|   [8]   | `InterceptionResult<TResult>` carries `static SuppressWithResult(TResult)`, `Result`, `HasResult` | result struct | round-trips the `InterceptionResult<int>` save result |
+| [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE]   | [CAPABILITY]                     |
+| :-----: | :---------------------------- | :--------------- | :------------------------------- |
+|   [1]   | `ConnectionOpenedAsync`       | connection hook  | re-applies PRAGMA ladder         |
+|   [2]   | `ReaderExecutedAsync`         | command hook     | emits slow and burst facts       |
+|   [3]   | `SavingChangesAsync`          | save hook        | stamps changefeed in transaction |
+|   [4]   | `SavedChangesAsync`           | save hook        | invalidates and emits save fact  |
+|   [5]   | `TransactionCommittedAsync`   | transaction hook | emits transaction facts          |
+|   [6]   | `CommandExecutedEventData`    | event data       | carries slow-query duration      |
+|   [7]   | `DbContextEventData`          | event data       | carries context access           |
+|   [8]   | `ConnectionEndEventData`      | event data       | carries reopen duration          |
+|   [9]   | `TransactionEndEventData`     | event data       | carries commit duration          |
+|  [10]   | `InterceptionResult<TResult>` | result struct    | round-trips suppressed results   |
+
+```csharp generated
+Task ConnectionOpenedAsync(DbConnection connection, ConnectionEndEventData eventData, CancellationToken cancellationToken)
+ValueTask<DbDataReader> ReaderExecutedAsync(DbCommand command, CommandExecutedEventData eventData, DbDataReader result, CancellationToken cancellationToken)
+ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken)
+ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken)
+Task TransactionCommittedAsync(DbTransaction transaction, TransactionEndEventData eventData, CancellationToken cancellationToken)
+```
 
 ## [3]-[ENTRYPOINTS]
 
@@ -88,14 +98,16 @@ query translation, and type mapping into one store-provider rail.
 [ENTRYPOINT_SCOPE]: migration and model operations
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]        | [CAPABILITY]                |
-| :-----: | :--------------------------------- | :------------------ | :-------------------------- |
-|   [1]   | `SqliteMigrationBuilderExtensions` | migration extension | identifies provider builder |
-|   [2]   | `SqliteTableExtensions`            | metadata extension  | configures tables           |
-|   [3]   | `SqliteEntityTypeExtensions`       | metadata extension  | configures entities         |
-|   [4]   | `SqliteValueGenerationStrategy`    | metadata value      | classifies generation       |
-|   [5]   | `ConfigureDesignTimeServices`      | service hook        | registers design services   |
-|   [6]   | `EF.CompileAsyncQuery<TContext, TResult>(Expression<Func<TContext, IQueryable<TResult>>>) : Func<TContext, IAsyncEnumerable<TResult>>` | compiled shape | caches a hot projection delegate (parameterized arities `TParam1`..`TParam15`) |
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]        | [CAPABILITY]                   |
+| :-----: | :--------------------------------- | :------------------ | :----------------------------- |
+|   [1]   | `SqliteMigrationBuilderExtensions` | migration extension | identifies provider builder    |
+|   [2]   | `SqliteTableExtensions`            | metadata extension  | configures tables              |
+|   [3]   | `SqliteEntityTypeExtensions`       | metadata extension  | configures entities            |
+|   [4]   | `SqliteValueGenerationStrategy`    | metadata value      | classifies generation          |
+|   [5]   | `ConfigureDesignTimeServices`      | service hook        | registers design services      |
+|   [6]   | `EF.CompileAsyncQuery`             | compiled shape      | caches hot projection delegate |
+
+`EF.CompileAsyncQuery<TContext,TResult>` returns `Func<TContext,IAsyncEnumerable<TResult>>`; parameterized overloads extend through `TParam15`.
 
 ## [4]-[IMPLEMENTATION_LAW]
 

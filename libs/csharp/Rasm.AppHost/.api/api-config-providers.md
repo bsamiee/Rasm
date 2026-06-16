@@ -87,12 +87,12 @@ re-binds from configuration without an interior `IConfiguration` read.
 [PUBLIC_TYPE_SCOPE]: options-binding family
 - rail: options-binding
 
-| [INDEX] | [SYMBOL]                                       | [PACKAGE_ROLE]  | [CAPABILITY]                       |
-| :-----: | :--------------------------------------------- | :-------------- | :--------------------------------- |
-|   [1]   | `OptionsBuilderConfigurationExtensions`        | builder surface | binds a section onto an options builder |
-|   [2]   | `OptionsConfigurationServiceCollectionExtensions` | service surface | binds a section onto a service options registration |
-|   [3]   | `ConfigurationChangeTokenSource<TOptions>`     | change token    | reloads bound options on section change |
-|   [4]   | `NamedConfigureFromConfigurationOptions<TOptions>` | configure action | configures named options from a section |
+| [INDEX] | [SYMBOL]                                           | [PACKAGE_ROLE]   | [CAPABILITY]                                        |
+| :-----: | :------------------------------------------------- | :--------------- | :-------------------------------------------------- |
+|   [1]   | `OptionsBuilderConfigurationExtensions`            | builder surface  | binds a section onto an options builder             |
+|   [2]   | `OptionsConfigurationServiceCollectionExtensions`  | service surface  | binds a section onto a service options registration |
+|   [3]   | `ConfigurationChangeTokenSource<TOptions>`         | change token     | reloads bound options on section change             |
+|   [4]   | `NamedConfigureFromConfigurationOptions<TOptions>` | configure action | configures named options from a section             |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -125,13 +125,13 @@ re-binds from configuration without an interior `IConfiguration` read.
 [ENTRYPOINT_SCOPE]: options binding
 - rail: options-binding
 
-| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE]              | [CAPABILITY]                       |
-| :-----: | :---------------------------------------------------------------- | :----------------------- | :--------------------------------- |
-|   [1]   | `OptionsBuilder<T>.Bind(IConfiguration)`                         | builder bind             | binds a section onto the builder    |
-|   [2]   | `OptionsBuilder<T>.Bind(IConfiguration, Action<BinderOptions>)`  | builder bind configured  | binds with binder-options policy    |
-|   [3]   | `OptionsBuilder<T>.BindConfiguration(string, Action<BinderOptions>)` | builder bind by path  | binds by section path with reload token |
-|   [4]   | `Configure<T>(IServiceCollection, IConfiguration)`              | service configure        | binds a section onto service options |
-|   [5]   | `Configure<T>(IServiceCollection, string name, IConfiguration)` | named service configure  | binds a section onto named options  |
+| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE]            | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------------- | :---------------------- | :-------------------------------------- |
+|   [1]   | `OptionsBuilder<T>.Bind(IConfiguration)`                             | builder bind            | binds a section onto the builder        |
+|   [2]   | `OptionsBuilder<T>.Bind(IConfiguration, Action<BinderOptions>)`      | builder bind configured | binds with binder-options policy        |
+|   [3]   | `OptionsBuilder<T>.BindConfiguration(string, Action<BinderOptions>)` | builder bind by path    | binds by section path with reload token |
+|   [4]   | `Configure<T>(IServiceCollection, IConfiguration)`                   | service configure       | binds a section onto service options    |
+|   [5]   | `Configure<T>(IServiceCollection, string name, IConfiguration)`      | named service configure | binds a section onto named options      |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

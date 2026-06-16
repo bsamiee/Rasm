@@ -54,30 +54,53 @@ by the embedded SQLite store profile.
 [RAW_SIGNATURES]: verified `SQLitePCL.raw` member signatures (e_sqlite3 3.0.3)
 - rail: store-provider
 
-| [INDEX] | [SIGNATURE]                                                                                        | [CAPABILITY]               |
-| :-----: | :------------------------------------------------------------------------------------------------- | :------------------------- |
-|   [1]   | `int sqlite3_db_config(sqlite3 db, int op, int val, out int result)`                               | per-connection config flag |
-|   [2]   | `int sqlite3_wal_checkpoint_v2(sqlite3 db, string dbName, int eMode, out int logSize, out int framesCheckPointed)` | WAL checkpoint with frames  |
-|   [3]   | `int sqlite3_extended_result_codes(sqlite3 db, int onoff)`                                         | arms extended result codes |
-|   [4]   | `int sqlite3_snapshot_get(sqlite3 db, string schema, out sqlite3_snapshot snap)`                   | pins read-view snapshot    |
-|   [5]   | `int sqlite3_snapshot_open(sqlite3 db, string schema, sqlite3_snapshot snap)`                      | opens pinned snapshot      |
-|   [6]   | `int sqlite3_snapshot_cmp(sqlite3_snapshot p1, sqlite3_snapshot p2)`                               | orders snapshots           |
-|   [7]   | `int sqlite3_snapshot_recover(sqlite3 db, string name)` / `void sqlite3_snapshot_free(sqlite3_snapshot snap)` | recovers / frees snapshot |
-|   [8]   | `sqlite3_backup sqlite3_backup_init(sqlite3 destDb, string destName, sqlite3 sourceDb, string sourceName)`; `int _step(sqlite3_backup, int nPage)`; `int _remaining` / `_pagecount(sqlite3_backup)`; `int _finish(sqlite3_backup)` | pages live backup |
+| [INDEX] | [SURFACE]                       | [CAPABILITY]               |
+| :-----: | :------------------------------ | :------------------------- |
+|   [1]   | `sqlite3_db_config`             | per-connection config flag |
+|   [2]   | `sqlite3_wal_checkpoint_v2`     | WAL checkpoint with frames |
+|   [3]   | `sqlite3_extended_result_codes` | arms extended result codes |
+|   [4]   | `sqlite3_snapshot_get`          | pins read-view snapshot    |
+|   [5]   | `sqlite3_snapshot_open`         | opens pinned snapshot      |
+|   [6]   | `sqlite3_snapshot_cmp`          | orders snapshots           |
+|   [7]   | snapshot recover/free           | recovers / frees snapshot  |
+|   [8]   | backup API                      | pages live backup          |
+
+```csharp generated
+int sqlite3_db_config(sqlite3 db, int op, int val, out int result)
+int sqlite3_wal_checkpoint_v2(sqlite3 db, string dbName, int eMode, out int logSize, out int framesCheckPointed)
+int sqlite3_extended_result_codes(sqlite3 db, int onoff)
+int sqlite3_snapshot_get(sqlite3 db, string schema, out sqlite3_snapshot snap)
+int sqlite3_snapshot_open(sqlite3 db, string schema, sqlite3_snapshot snap)
+int sqlite3_snapshot_cmp(sqlite3_snapshot p1, sqlite3_snapshot p2)
+int sqlite3_snapshot_recover(sqlite3 db, string name)
+void sqlite3_snapshot_free(sqlite3_snapshot snap)
+sqlite3_backup sqlite3_backup_init(sqlite3 destDb, string destName, sqlite3 sourceDb, string sourceName)
+int sqlite3_backup_step(sqlite3_backup backup, int nPage)
+int sqlite3_backup_remaining(sqlite3_backup backup)
+int sqlite3_backup_pagecount(sqlite3_backup backup)
+int sqlite3_backup_finish(sqlite3_backup backup)
+```
 
 [RAW_CONSTANTS]: verified `SQLitePCL.raw` integer constants (e_sqlite3 3.0.3)
 - rail: store-provider
 
 | [INDEX] | [CONSTANT]                              | [VALUE] | [CAPABILITY]                |
-| :-----: | :-------------------------------------- | :-----: | :-------------------------- |
-|   [1]   | `SQLITE_DBCONFIG_DEFENSIVE`             |  1010   | defensive-mode hardening    |
-|   [2]   | `SQLITE_DBCONFIG_DQS_DML`               |  1013   | double-quoted DML rejection |
-|   [3]   | `SQLITE_DBCONFIG_DQS_DDL`               |  1014   | double-quoted DDL rejection |
-|   [4]   | `SQLITE_DBCONFIG_ENABLE_TRIGGER`        |  1003   | trigger enablement          |
-|   [5]   | `SQLITE_DBCONFIG_ENABLE_VIEW`           |  1015   | view enablement             |
-|   [6]   | `SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` |  1005   | db_config extension arming  |
-|   [7]   | `SQLITE_OK` 0 / `SQLITE_DONE` 101 / `SQLITE_BUSY` 5 / `SQLITE_CORRUPT` 11 / `SQLITE_NOTADB` 26 | status / extended codes |
-|   [8]   | `SQLITE_CHECKPOINT_PASSIVE` 0 / `_FULL` 1 / `_RESTART` 2 / `_TRUNCATE` 3 | checkpoint modes |
+| :-----: | :-------------------------------------- | ------: | :-------------------------- |
+|   [1]   | `SQLITE_DBCONFIG_DEFENSIVE`             |    1010 | defensive-mode hardening    |
+|   [2]   | `SQLITE_DBCONFIG_DQS_DML`               |    1013 | double-quoted DML rejection |
+|   [3]   | `SQLITE_DBCONFIG_DQS_DDL`               |    1014 | double-quoted DDL rejection |
+|   [4]   | `SQLITE_DBCONFIG_ENABLE_TRIGGER`        |    1003 | trigger enablement          |
+|   [5]   | `SQLITE_DBCONFIG_ENABLE_VIEW`           |    1015 | view enablement             |
+|   [6]   | `SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` |    1005 | db_config extension arming  |
+|   [7]   | `SQLITE_OK`                             |       0 | status code                 |
+|   [8]   | `SQLITE_DONE`                           |     101 | status code                 |
+|   [9]   | `SQLITE_BUSY`                           |       5 | extended status code        |
+|  [10]   | `SQLITE_CORRUPT`                        |      11 | extended status code        |
+|  [11]   | `SQLITE_NOTADB`                         |      26 | extended status code        |
+|  [12]   | `SQLITE_CHECKPOINT_PASSIVE`             |       0 | checkpoint mode             |
+|  [13]   | `SQLITE_CHECKPOINT_FULL`                |       1 | checkpoint mode             |
+|  [14]   | `SQLITE_CHECKPOINT_RESTART`             |       2 | checkpoint mode             |
+|  [15]   | `SQLITE_CHECKPOINT_TRUNCATE`            |       3 | checkpoint mode             |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

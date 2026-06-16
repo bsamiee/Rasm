@@ -4,12 +4,13 @@ One interaction rail owns gesture mechanics for every admitted surface: keyboard
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                              |
-| :-----: | ----------------- | ------------------------------------------------------------------- |
-|   [1]   | HOTKEY_DERIVATION | Chord transform, scope split, gesture bindings over the frozen deck |
-|   [2]   | BEHAVIOR_RAIL     | Admitted trigger and action rows; one intent-binding entry          |
-|   [3]   | POINTER_GESTURES  | Gesture routing rows and the frozen pan-zoom canvas family          |
-|   [4]   | DRAG_CLIPBOARD    | Typed transfer payload union and clipboard codec rows               |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                       |
+| :-----: | ----------------- | ---------------------------------------------------------------------------- |
+|   [1]   | HOTKEY_DERIVATION | Chord transform, scope split, gesture bindings over the frozen deck          |
+|   [2]   | BEHAVIOR_RAIL     | Admitted trigger and action rows; one intent-binding entry                   |
+|   [3]   | POINTER_GESTURES  | Gesture routing rows and the frozen pan-zoom canvas family                   |
+|   [4]   | DRAG_CLIPBOARD    | Typed transfer payload union and clipboard codec rows                        |
+|   [5]   | INPUT_FABRIC      | Alternative-input device union and device-output union over the intent table |
 
 ## [2]-[HOTKEY_DERIVATION]
 
@@ -70,19 +71,19 @@ public static class BehaviorRail {
 }
 ```
 
-| [INDEX] | [ROW]          | [SURFACE]                            | [KNOB]       | [TIMING_ROW] |
-| :-----: | -------------- | ------------------------------------ | ------------ | :----------: |
-|   [1]   | routed-event   | `RoutedEventTriggerBehavior`         | `RoutedEvent` |     —       |
-|   [2]   | data           | `DataTriggerBehavior`                | `Binding`    |      —       |
-|   [3]   | multi-data     | `MultiDataTriggerBehavior`           | `Conditions` |      —       |
-|   [4]   | timer          | `TimerTrigger`                       | —            |   standard   |
-|   [5]   | task-completed | `TaskCompletedTrigger`               | —            |      —       |
-|   [6]   | stream-bridge  | `ObservableStreamBehavior`           | `Source`     |      —       |
-|   [7]   | intent-action  | `InvokeCommandAction`                | `Command`    |      —       |
-|   [8]   | property       | `ChangePropertyAction`               | —            |      —       |
-|   [9]   | async-group    | `AsyncActionGroup`                   | `Actions`    |      —       |
-|  [10]   | throttle       | `ThrottleAction`                     | `Interval`   |     fast     |
-|  [11]   | debounce       | `DebounceAction`                     | `Delay`      |   standard   |
+| [INDEX] | [ROW]          | [SURFACE]                    | [KNOB]        | [TIMING_ROW] |
+| :-----: | -------------- | ---------------------------- | ------------- | :----------: |
+|   [1]   | routed-event   | `RoutedEventTriggerBehavior` | `RoutedEvent` |      —       |
+|   [2]   | data           | `DataTriggerBehavior`        | `Binding`     |      —       |
+|   [3]   | multi-data     | `MultiDataTriggerBehavior`   | `Conditions`  |      —       |
+|   [4]   | timer          | `TimerTrigger`               | —             |   standard   |
+|   [5]   | task-completed | `TaskCompletedTrigger`       | —             |      —       |
+|   [6]   | stream-bridge  | `ObservableStreamBehavior`   | `Source`      |      —       |
+|   [7]   | intent-action  | `InvokeCommandAction`        | `Command`     |      —       |
+|   [8]   | property       | `ChangePropertyAction`       | —             |      —       |
+|   [9]   | async-group    | `AsyncActionGroup`           | `Actions`     |      —       |
+|  [10]   | throttle       | `ThrottleAction`             | `Interval`    |     fast     |
+|  [11]   | debounce       | `DebounceAction`             | `Delay`       |   standard   |
 
 ## [4]-[POINTER_GESTURES]
 
@@ -114,20 +115,20 @@ public sealed record PanZoomRow(
 }
 ```
 
-| [INDEX] | [GESTURE]       | [ROUTE]                                          | [CONSEQUENCE]                                            |
-| :-----: | --------------- | ------------------------------------------------ | -------------------------------------------------------- |
-|   [1]   | tap             | `TappedEventTrigger`                              | primary intent action fires                              |
-|   [2]   | double-tap      | `DoubleTappedEventTrigger`                        | canvas rows route through `DoubleClickZoomMode`          |
-|   [3]   | press-hold      | `HoldingGestureTrigger`                           | context intent raise                                     |
-|   [4]   | context-request | `RightTappedEventTrigger`                         | menu derivation from the command-table surface predicate |
-|   [5]   | wheel zoom      | `ZoomBorder`                                      | one zoom owner per canvas row                            |
-|   [6]   | pinch zoom      | `PinchGestureTrigger` / `ZoomBorder` `EnableGestures` | same single-owner law                              |
-|   [7]   | canvas drag     | `CanvasDragBehavior`                              | draggable tiles inside canvas rows                       |
-|   [8]   | item drag       | `ItemDragBehavior`                               | draggable-control rows                                   |
-|   [9]   | rotate gesture  | `PointerTouchPadGestureRotateGestureTrigger`     | gated by the row `EnableRotation` onto `Rotate`/`SnapRotation` under `RotationStep` |
-|  [10]   | magnify gesture | `PointerTouchPadGestureMagnifyGestureTrigger`    | wheel-class zoom under the row `MinZoom`/`MaxZoom`       |
-|  [11]   | pointer-capture | `PointerCaptureLostEventTrigger`                 | capture-loss releases the canvas pointer owner          |
-|  [12]   | saved-view      | `ZoomBorder` `RestoreView` / `SaveView`          | `DeleteSavedView`/`ClearSavedViews` raise as intents     |
+| [INDEX] | [GESTURE]       | [ROUTE]                                               | [CONSEQUENCE]                                                                       |
+| :-----: | --------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+|   [1]   | tap             | `TappedEventTrigger`                                  | primary intent action fires                                                         |
+|   [2]   | double-tap      | `DoubleTappedEventTrigger`                            | canvas rows route through `DoubleClickZoomMode`                                     |
+|   [3]   | press-hold      | `HoldingGestureTrigger`                               | context intent raise                                                                |
+|   [4]   | context-request | `RightTappedEventTrigger`                             | menu derivation from the command-table surface predicate                            |
+|   [5]   | wheel zoom      | `ZoomBorder`                                          | one zoom owner per canvas row                                                       |
+|   [6]   | pinch zoom      | `PinchGestureTrigger` / `ZoomBorder` `EnableGestures` | same single-owner law                                                               |
+|   [7]   | canvas drag     | `CanvasDragBehavior`                                  | draggable tiles inside canvas rows                                                  |
+|   [8]   | item drag       | `ItemDragBehavior`                                    | draggable-control rows                                                              |
+|   [9]   | rotate gesture  | `PointerTouchPadGestureRotateGestureTrigger`          | gated by the row `EnableRotation` onto `Rotate`/`SnapRotation` under `RotationStep` |
+|  [10]   | magnify gesture | `PointerTouchPadGestureMagnifyGestureTrigger`         | wheel-class zoom under the row `MinZoom`/`MaxZoom`                                  |
+|  [11]   | pointer-capture | `PointerCaptureLostEventTrigger`                      | capture-loss releases the canvas pointer owner                                      |
+|  [12]   | saved-view      | `ZoomBorder` `RestoreView` / `SaveView`               | `DeleteSavedView`/`ClearSavedViews` raise as intents                                |
 
 ## [5]-[DRAG_CLIPBOARD]
 
@@ -215,7 +216,70 @@ flowchart LR
     DragPayload --> CommandIntent
 ```
 
-## [6]-[RESEARCH]
+## [6]-[INPUT_FABRIC]
+
+- Owner: `InputDevice` `[Union]` the alternative-input source family; `DeviceAxis` the normalized continuous-axis sample; `DeviceOutput` `[Union]` the device-output sink family; `InputFabric` the device-to-intent and intent-to-device fold.
+- Cases: `InputDevice` = SpaceMouse | GameController | EyeTracker | SwitchAccess | Voice | MidiSurface under the locked kind literals; `DeviceOutput` = MotionController | CncMachine | Robot | HapticRumble under the locked kind literals.
+- Entry: `public Seq<CommandIntent> Map(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck)` — folds a device sample into the command intents it raises through the one table; `public IO<Unit> Drive(DeviceOutput output, Seq<DeviceAxis> command)` — folds a command into the device-output samples it emits.
+- Auto: every alternative-input device folds onto the one `CommandIntent` table — a SpaceMouse six-degree-of-freedom sample maps to the viewport orbit/pan/zoom intents, a game-controller stick to the same navigation intents, an eye-tracker gaze-dwell to a focus-and-select intent, a switch-access scan-and-select to the focused intent, a voice command to its intent key through the speech-to-intent fold, and a MIDI control surface to parameter intents — so a new input modality raises existing verbs and never a parallel command path; device output is the symmetric fold — a motion controller, CNC machine, robot, or haptic rumble consumes the normalized command axes so the same intent that an input device raises a device output can consume, completing the input-output fabric; the continuous-axis sample is normalized to [-1, 1] so a device-specific range never leaks into the intent fold.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
+- Growth: a new input device is one `InputDevice` case; a new output device is one `DeviceOutput` case; a new continuous control is one `DeviceAxis` row; zero new surface.
+- Boundary: alternative input folds onto the one command table so a per-device handler is the deleted form — a SpaceMouse, controller, gaze, switch, voice, or MIDI sample raises a `CommandIntent` exactly as a hotkey does, and the one availability algebra gates them all; the device sample is normalized so the fabric carries no device-specific range literal; voice-to-intent rides the command-table label index through the same `CommandProjections.Search` fuzzy match so a spoken phrase resolves to an intent key without a second voice grammar; device output is the symmetric consequence — the motion-controller, CNC, robot, and haptic sinks consume normalized command axes through a `SurfaceSeam`-bound device delegate so no fabric body names a device SDK at a call site, and the HID/SpaceMouse driver, the eye-tracker SDK, the speech-recognition engine, the MIDI port, and the CNC/robot transport are all composition-bound delegate columns whose member spellings resolve under INPUT_DEVICE_SDK; the mouse, touch, pen, and keyboard paths stay the pointer-gesture and hotkey owners so the fabric adds only the alternative modalities and re-models no existing input.
+
+```csharp signature
+public readonly record struct DeviceAxis(string Channel, double Value);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record InputDevice {
+    private InputDevice() { }
+    public sealed record SpaceMouse(string Id, Func<Seq<DeviceAxis>, Seq<string>> ToIntents) : InputDevice;
+    public sealed record GameController(string Id, Func<Seq<DeviceAxis>, Seq<string>> ToIntents) : InputDevice;
+    public sealed record EyeTracker(string Id, double DwellSeconds, Func<DeviceAxis, DeviceAxis, Option<string>> Gaze) : InputDevice;
+    public sealed record SwitchAccess(string Id, double ScanInterval, Func<int, Option<string>> Select) : InputDevice;
+    public sealed record Voice(string Id, Func<string, CommandDeck, Option<string>> Recognize) : InputDevice;
+    public sealed record MidiSurface(string Id, Func<Seq<DeviceAxis>, Seq<(string Key, double Value)>> ToParameters) : InputDevice;
+
+    public string Id => Switch(
+        spaceMouse: static s => s.Id, gameController: static g => g.Id, eyeTracker: static e => e.Id,
+        switchAccess: static s => s.Id, voice: static v => v.Id, midiSurface: static m => m.Id);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DeviceOutput {
+    private DeviceOutput() { }
+    public sealed record MotionController(string Id, Func<Seq<DeviceAxis>, IO<Unit>> Emit) : DeviceOutput;
+    public sealed record CncMachine(string Id, Func<Seq<DeviceAxis>, IO<Unit>> Stream) : DeviceOutput;
+    public sealed record Robot(string Id, Func<Seq<DeviceAxis>, IO<Unit>> Command) : DeviceOutput;
+    public sealed record HapticRumble(string Id, Func<double, IO<Unit>> Pulse) : DeviceOutput;
+}
+
+public static class InputFabric {
+    public static Seq<CommandIntent> Map(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck) =>
+        Keys(device, sample, deck)
+            .Bind(key => deck.Rows.TryGetValue(key, out var row) ? Seq1(row) : Seq<CommandIntent>());
+
+    static Seq<string> Keys(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck) =>
+        device.Switch(
+            state: (Sample: sample, Deck: deck),
+            spaceMouse: static (ctx, s) => s.ToIntents(ctx.Sample),
+            gameController: static (ctx, g) => g.ToIntents(ctx.Sample),
+            eyeTracker: static (ctx, e) => ctx.Sample is [var x, var y, ..] ? e.Gaze(x, y).ToSeq() : Seq<string>(),
+            switchAccess: static (ctx, s) => ctx.Sample is [var index, ..] ? s.Select((int)index.Value).ToSeq() : Seq<string>(),
+            voice: static (ctx, v) => ctx.Sample is [] && v.Recognize(string.Empty, ctx.Deck) is { IsSome: true, Case: string key } ? Seq1(key) : Seq<string>(),
+            midiSurface: static (ctx, m) => m.ToParameters(ctx.Sample).Map(static p => p.Key));
+
+    public static IO<Unit> Drive(DeviceOutput output, Seq<DeviceAxis> command) =>
+        output.Switch(
+            state: command,
+            motionController: static (cmd, m) => m.Emit(cmd),
+            cncMachine: static (cmd, c) => c.Stream(cmd),
+            robot: static (cmd, r) => r.Command(cmd),
+            hapticRumble: static (cmd, h) => h.Pulse(cmd is [var first, ..] ? first.Value : 0d));
+}
+```
+
+## [7]-[RESEARCH]
 
 - [PANEL_KEYS]: Rhino panel return-key policy knob residence and its registration point on the panel host.
 - [EMBEDDED_DRAG]: host-object drag across the NSView boundary carrying Rhino object ids into and out of the embedded panel.
+- [INPUT_DEVICE_SDK]: the alternative-input and device-output driver surfaces the `InputDevice` and `DeviceOutput` delegate columns bind — the 3Dconnexion SpaceMouse HID driver, the game-controller gamepad API, the eye-tracker gaze SDK, the switch-access scan timer, the speech-recognition engine, the MIDI port, and the CNC/robot/haptic transport — resolved at implementation against the admitted device packages bound through `SurfaceSeam` delegate columns; the `InputDevice`/`DeviceOutput` union, the normalized `DeviceAxis`, and the device-to-intent and intent-to-device folds are settled, the per-device SDK member spellings are the unverified surface bound at composition.

@@ -13,16 +13,49 @@ Rasm.AppUi accessibility is columns on existing catalogs plus one gate fold: aut
 
 ## [2]-[AUTOMATION_PEERS]
 
-- Owner: `AnnouncementRow` live-region record; `AccessOps` identity fold over catalog columns.
-- Cases: toast, progress, validation over stock peers; chart-tile, preview, custom-visual over Skia-drawn visuals carrying the `Synthesized` flag — the six announcement rows.
-- Entry: `public StyledElement Identify(ScreenCatalogRow row)` — the one automation-identity admission per surface root.
+- Owner: `AnnouncementRow` live-region record; `SceneAccessNode` the 3D-scene accessibility tree; `SpatialCue` the spatial-audio cue; `AccessOps` identity fold over catalog columns.
+- Cases: toast, progress, validation over stock peers; chart-tile, preview, custom-visual, scene-element over Skia-drawn visuals carrying the `Synthesized` flag — the seven announcement rows.
+- Entry: `public StyledElement Identify(ScreenCatalogRow row)` — the one automation-identity admission per surface root; `public StyledElement FocusGeometry(SceneAccessNode node)` — the one focus-over-geometry admission projecting a scene node's name and role onto the focused element.
 - Auto: the mount transaction applies `Identify` at every surface root; `Announce` subscriptions join the activation scope's disposal; the `AutomationName` column is the single name source for every derived dockable, palette entry, and proof lane; the `Synthesized` column declares which live regions sit on Skia-drawn visuals lacking a stock peer, so the peer-presence audit reads the contract from the row, not a per-visual probe.
 - Packages: Avalonia, System.Reactive, BCL inbox
-- Growth: one announcement row per live source; one `Synthesized` flag per Skia-drawn region; zero new surface.
-- Boundary: stock Avalonia peers own every retained control — a per-control peer class is the deleted pattern; a `Synthesized` row marks a Skia-drawn chart, tile, preview, or custom-visual region whose automation peer the `Control.OnCreateAutomationPeer` override constructs as a `ControlAutomationPeer` over the synthesized region, so one synthesized-peer construction rides the row flag rather than a per-visual peer class, and the live-region `SetLiveSetting`/`SetName` transitions ride that peer; the macOS automation-backend projection of those transitions across the embedded NSView boundary stays a research row until the backend reach confirms; per-call automation-name literals are deleted by the catalog column.
+- Growth: one announcement row per live source; one `Synthesized` flag per Skia-drawn region; one scene-element kind per 3D node role; zero new surface.
+- Boundary: stock Avalonia peers own every retained control — a per-control peer class is the deleted pattern; a `Synthesized` row marks a Skia-drawn chart, tile, preview, custom-visual, or scene-element region whose automation peer the `Control.OnCreateAutomationPeer` override constructs as a `ControlAutomationPeer` over the synthesized region, so one synthesized-peer construction rides the row flag rather than a per-visual peer class, and the live-region `SetLiveSetting`/`SetName` transitions ride that peer; the 3D scene accessibility tree is `SceneAccessNode` — the geometry and node-graph elements project into one accessibility tree mirroring the scene hierarchy so a screen reader walks the model the same way it walks the control tree, `Nearest` and `Step` resolve geometry focus by spatial proximity and direction so arrow-key or gaze navigation moves focus element-to-element through the scene, and `FocusGeometry` projects the focused node's name and role onto the synthesized peer so the reader announces the geometry under focus; spatial-audio cues ride `SpatialCue` — a focused scene element emits a stereo-panned, distance-attenuated cue so a non-sighted user localizes the element in space, the pan and gain derived from the listener-relative position, with the audio-output sink a composition-bound delegate; the 3D scene a11y is blocked at runtime on the viewport scene surface but fence-complete now over the scene-node tree the viewport and the host emit; the macOS automation-backend projection of those transitions across the embedded NSView boundary stays a research row until the backend reach confirms; per-call automation-name literals are deleted by the catalog column.
 
 ```csharp signature
 public sealed record AnnouncementRow(string Key, AutomationLiveSetting Setting, IObservable<string> Texts, bool Synthesized);
+
+public sealed record SceneAccessNode(
+    string ElementId,
+    string Name,
+    string Role,
+    (double X, double Y, double Z) Center,
+    Seq<SceneAccessNode> Children) {
+    public Seq<SceneAccessNode> Flatten() => Seq1(this) + Children.Bind(static child => child.Flatten());
+
+    public Option<SceneAccessNode> Nearest((double X, double Y, double Z) from) =>
+        Flatten().OrderBy(node => Distance(node.Center, from)).HeadOrNone();
+
+    public Option<SceneAccessNode> Step((double X, double Y, double Z) from, (double X, double Y, double Z) direction) =>
+        Flatten()
+            .Filter(node => Dot(Delta(node.Center, from), direction) > 0d)
+            .OrderBy(node => Distance(node.Center, from))
+            .HeadOrNone();
+
+    static (double X, double Y, double Z) Delta((double X, double Y, double Z) a, (double X, double Y, double Z) b) => (a.X - b.X, a.Y - b.Y, a.Z - b.Z);
+    static double Dot((double X, double Y, double Z) a, (double X, double Y, double Z) b) => (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
+    static double Distance((double X, double Y, double Z) a, (double X, double Y, double Z) b) => Math.Sqrt(Dot(Delta(a, b), Delta(a, b)));
+}
+
+public readonly record struct SpatialCue(string ElementId, double Pan, double Distance, double Gain) {
+    public static SpatialCue For(SceneAccessNode node, (double X, double Y, double Z) listener, (double X, double Y, double Z) right) {
+        var dx = node.Center.X - listener.X;
+        var dy = node.Center.Y - listener.Y;
+        var dz = node.Center.Z - listener.Z;
+        var distance = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        var pan = Math.Clamp(((dx * right.X) + (dy * right.Y) + (dz * right.Z)) / (distance + double.Epsilon), -1d, 1d);
+        return new SpatialCue(node.ElementId, pan, distance, 1d / (1d + distance));
+    }
+}
 
 public static class AccessOps {
     extension(StyledElement element) {
@@ -38,18 +71,26 @@ public static class AccessOps {
             AutomationProperties.SetLiveSetting(element, row.Setting);
             return row.Texts.Subscribe(text => AutomationProperties.SetName(element, text));
         }
+
+        public StyledElement FocusGeometry(SceneAccessNode node) {
+            AutomationProperties.SetAutomationId(element, node.ElementId);
+            AutomationProperties.SetName(element, node.Name);
+            AutomationProperties.SetHelpText(element, node.Role);
+            return element;
+        }
     }
 }
 ```
 
-| [INDEX] | [ROW]      | [SETTING]   | [TEXT_SOURCE]                               | [SYNTHESIZED] |
-| :-----: | :--------- | :---------- | :------------------------------------------ | :------------ |
-|   [1]   | toast      | `Polite`    | notification text at presentation           | no            |
-|   [2]   | progress   | `Polite`    | phase-transition text from progress streams | no            |
-|   [3]   | validation | `Assertive` | `AdmissionState` fail text                  | no            |
-|   [4]   | chart-tile | `Polite`    | series summary at render from the spec fold | yes           |
-|   [5]   | preview    | `Polite`    | offscreen-preview caption at capture        | yes           |
-|   [6]   | custom-visual | `Polite` | custom-visual summary at render from the kind fold | yes      |
+| [INDEX] | [ROW]         | [SETTING]   | [TEXT_SOURCE]                                          | [SYNTHESIZED] |
+| :-----: | :------------ | :---------- | :----------------------------------------------------- | :------------ |
+|   [1]   | toast         | `Polite`    | notification text at presentation                      | no            |
+|   [2]   | progress      | `Polite`    | phase-transition text from progress streams            | no            |
+|   [3]   | validation    | `Assertive` | `AdmissionState` fail text                             | no            |
+|   [4]   | chart-tile    | `Polite`    | series summary at render from the spec fold            | yes           |
+|   [5]   | preview       | `Polite`    | offscreen-preview caption at capture                   | yes           |
+|   [6]   | custom-visual | `Polite`    | custom-visual summary at render from the kind fold     | yes           |
+|   [7]   | scene-element | `Polite`    | scene-node name and role at focus from the access tree | yes           |
 
 ## [3]-[KEYBOARD_NAV]
 

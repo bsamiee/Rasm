@@ -79,19 +79,27 @@ execution clients.
 [PUBLIC_TYPE_SCOPE]: transitive `Grpc.Core.Api` call contracts
 - rail: remote-client
 
-| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                                                                                                                                                                                                     |
-| :-----: | :------------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `Interceptor`              | interceptor base    | client overrides `AsyncUnaryCall` returning `AsyncUnaryCall<TResponse>`, `AsyncServerStreamingCall` returning `AsyncServerStreamingCall<TResponse>`, `AsyncClientStreamingCall` and `AsyncDuplexStreamingCall` returning two-arg call types, each with its continuation delegate |
-|   [2]   | `ClientInterceptorContext` | call context struct | ctor `(Method<TRequest,TResponse>, string?, CallOptions)`; `Method`, `Host`, `Options`                                                                                                                                                                                           |
-|   [3]   | `CallInvoker`              | invocation root     | `Intercept(Interceptor)` extension composes interceptors                                                                                                                                                                                                                         |
-|   [4]   | `CallOptions`              | call policy struct  | ctor named args `headers`, `deadline`, `cancellationToken`; `WithHeaders(Metadata)`                                                                                                                                                                                              |
-|   [5]   | `Metadata`                 | header collection   | `Empty` frozen instance, `Add(Entry)`, `GetValueBytes(string)`                                                                                                                                                                                                                   |
-|   [6]   | `RpcException`             | call failure        | `Trailers`, `Status`, `StatusCode`                                                                                                                                                                                                                                               |
-|   [7]   | `Status`                   | status struct       | `StatusCode`, `Detail`                                                                                                                                                                                                                                                           |
-|   [8]   | `StatusCode`               | status enum         | `Cancelled`, `DeadlineExceeded`, residual taxonomy                                                                                                                                                                                                                               |
-|   [9]   | `CallCredentials`          | per-call trust      | `FromInterceptor(AsyncAuthInterceptor)`, `Compose(params CallCredentials[])` stacks a node identity onto a hub identity into a composite per-call credential                                                                                                                       |
-|  [10]   | `ChannelCredentials`       | channel trust       | `Insecure`, `SecureSsl`, `Create(ChannelCredentials, CallCredentials)`                                                                                                                                                                                                           |
-|  [11]   | `ConnectivityState`        | state enum          | channel connectivity taxonomy                                                                                                                                                                                                                                                    |
+| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]      | [CAPABILITY]                        |
+| :-----: | :------------------------- | :------------------ | :---------------------------------- |
+|   [1]   | `Interceptor`              | interceptor base    | client call override family         |
+|   [2]   | `ClientInterceptorContext` | call context struct | method, host, and options payload   |
+|   [3]   | `CallInvoker`              | invocation root     | composes interceptors               |
+|   [4]   | `CallOptions`              | call policy struct  | headers, deadline, and cancellation |
+|   [5]   | `Metadata`                 | header collection   | metadata entries and binary values  |
+|   [6]   | `RpcException`             | call failure        | status plus trailers                |
+|   [7]   | `Status`                   | status struct       | code plus detail                    |
+|   [8]   | `StatusCode`               | status enum         | call-failure taxonomy               |
+|   [9]   | `CallCredentials`          | per-call trust      | interceptor-backed call credentials |
+|  [10]   | `ChannelCredentials`       | channel trust       | transport credential selection      |
+|  [11]   | `ConnectivityState`        | state enum          | channel connectivity taxonomy       |
+
+[INTERCEPTOR_CALLS]:
+- Overrides: `AsyncUnaryCall`, `AsyncServerStreamingCall`, `AsyncClientStreamingCall`, and `AsyncDuplexStreamingCall`.
+- Continuation shape: each override receives its matching continuation delegate.
+
+[CREDENTIAL_COMPOSITION]:
+- `CallCredentials.FromInterceptor` builds per-call credentials from `AsyncAuthInterceptor`.
+- `CallCredentials.Compose` stacks per-call credentials; `ChannelCredentials.Create` composes transport and call credentials.
 
 [ENTRYPOINT_SCOPE]: policy and balancing operations
 - rail: remote-client

@@ -43,11 +43,19 @@ Rasm.AppUi/
 ├── Motion/
 │   └── MotionRail.cs           # MotionToken, MotionApplication, PhaseMotion, ReducedMotion — motion-tokens#MOTION_AXIS, motion-tokens#MOTION_APPLICATION, motion-tokens#PHASE_MAPPING, motion-tokens#REDUCED_MOTION
 ├── Access/
-│   └── AccessRail.cs           # AccessOps, FocusOps, ContrastGate, AccessProof — accessibility#AUTOMATION_PEERS, accessibility#KEYBOARD_NAV, accessibility#CONTRAST_GATE, accessibility#COMPLIANCE_PROOF
+│   └── AccessRail.cs           # AccessOps, FocusOps, ContrastGate, AccessProof, SceneAccessNode, SpatialCue — accessibility#AUTOMATION_PEERS, accessibility#KEYBOARD_NAV, accessibility#CONTRAST_GATE, accessibility#COMPLIANCE_PROOF
 ├── Localization/
-│   └── LocaleRail.cs           # LocaleRow, LocaleStrings, LocaleRuntime, MirrorPolicy — localization-culture#LOCALE_AXIS, localization-culture#STRING_TABLES, localization-culture#CULTURE_COMPOSITION, localization-culture#RTL_MIRRORING
-└── Evidence/
-    └── EvidenceRail.cs         # EvidenceReceipt, EvidenceJoin, Captures, ProofEngine, DevLoop — diagnostics-evidence#RECEIPT_UNION, diagnostics-evidence#CORRELATION_JOIN, diagnostics-evidence#CAPTURE_LANES, diagnostics-evidence#HEADLESS_DERIVATION, diagnostics-evidence#DEV_LOOP
+│   └── LocaleRail.cs           # LocaleRow, LocaleStrings, LocaleRuntime, MirrorPolicy, ShapedAnnotation, LiveCaption — localization-culture#LOCALE_AXIS, localization-culture#STRING_TABLES, localization-culture#CULTURE_COMPOSITION, localization-culture#RTL_MIRRORING
+├── Evidence/
+│   └── EvidenceRail.cs         # EvidenceReceipt, EvidenceJoin, Captures, ProofEngine, DevLoop, HudSample, FlameNode, SolveScrub, Repl — diagnostics-evidence#RECEIPT_UNION, diagnostics-evidence#CORRELATION_JOIN, diagnostics-evidence#CAPTURE_LANES, diagnostics-evidence#HEADLESS_DERIVATION, diagnostics-evidence#DEV_LOOP
+├── Viewport/
+│   └── ViewportPipeline.cs     # RenderPass, RenderGraph, MeshletCluster, ResidencyBudget, PathTracePass, SimVisual, Viewpoint, ViewportFault — viewport-pipeline#RENDER_GRAPH, viewport-pipeline#GEOMETRY_VIRTUAL, viewport-pipeline#RESIDENCY_BUDGET, viewport-pipeline#PATH_TRACE, viewport-pipeline#SIM_VISUAL, viewport-pipeline#VIEWPOINT_CODEC
+├── Drafting/
+│   └── DraftingRail.cs         # SheetSet, SheetSize, TitleBlock, Viewport2D, ProjectionBasis, Dimension, Annotation, GdtFrame, DraftEmit, DraftFault — drafting-sheets#SHEET_SET, drafting-sheets#PROJECTION, drafting-sheets#DIMENSIONING, drafting-sheets#DRAFT_EMIT
+├── Notebook/
+│   └── NotebookRail.cs         # NotebookCell, CapabilityPin, DependencyGraph, NotebookCrdt, CrdtOp, ReplayBundle, NotebookFault — notebook-document#CELL_MODEL, notebook-document#DEPENDENCY_GRAPH, notebook-document#CRDT_COEDIT, notebook-document#REPLAY_BUNDLE
+└── Animation/
+    └── AnimationRail.cs        # Track, Keyframe, Easing, Timeline, Playhead, TimelineSample, Scrub, Walkthrough — animation-timeline#TRACK_MODEL, animation-timeline#TIMELINE, animation-timeline#SCRUB, animation-timeline#WALKTHROUGH
 ```
 
 Folders are namespace groups; the file count equals the BUILD_ORDER file set. New capability deepens the owning rail through rows, cases, and policy values inside an existing leaf, never a new file beside it.
@@ -83,18 +91,22 @@ Rails are owner surfaces, not filenames. New capability deepens the owning rail 
 | [4] | commands | CommandIntent, CommandDeck, CommandGate, CommandExecution, CommandProjections | commands-availability#INTENT_TABLE |
 | [5] | live data | DataSource, PipelineInputs, BindingCapsule, LiveDataOps | live-data#DATA_SOURCES |
 | [6] | tables + hierarchy | TableColumnRow, TableViewState, TableProjection, TableCommit | tables-hierarchy#GRID_SUBSTRATE |
-| [7] | inspector + editing | InspectorSurface, EditorFactory, EditGate, OptionsInspector, ConflictPane, CodePane | inspector-editing#EDITOR_FACTORIES |
-| [8] | charts + dashboards | ChartSeriesSpec, ChartAxisKind, ChartPolicy, ChartFolds, DashboardTile | charts-dashboards#SERIES_TABLE |
-| [9] | offscreen visuals | DrawSource, Thumbnails, PreviewRow, VisualCodec, VisualExport | visuals-offscreen#DRAW_CAPSULE |
+| [7] | inspector + editing | InspectorSurface, EditorFactory, EditGate, OptionsInspector, ConflictPane, ThreeWay, GeometryDiff, CodePane | inspector-editing#EDITOR_FACTORIES |
+| [8] | charts + dashboards | ChartSeriesSpec, ChartAxisKind, ChartPolicy, ChartFolds, DashboardTile, CrossFilter, DimensionIndex, PolygonBrush, BoardState, GeoOverlay | charts-dashboards#SERIES_TABLE |
+| [9] | offscreen visuals | DrawSource, Thumbnails, PreviewRow, VisualCodec, VisualExport, FlowBlock, OfficeExport | visuals-offscreen#DRAW_CAPSULE |
 | [10] | theme | TokenRow, ThemeVariantRow, DensityRow, ThemeCell, ThemeRail | theme-tokens#TOKEN_CATALOG |
 | [11] | typography | TypographyRole, FontChain, ShapingSurface, MarkdownProjection, TextMetricsPolicy | typography-shaping#ROLE_AXIS |
 | [12] | icons + assets | IconSource, IconSurface, SvgPipeline, RasterAssets, AssetCatalog | icons-assets#ICON_AXIS |
 | [13] | dialogs + notices | DialogIntent, DialogTopology, DialogSurface, ToastGate, PickOps | dialogs-notifications#DIALOG_INTENTS |
 | [14] | input + interaction | GesturePolicy, BehaviorRail, PanZoomRow, DragPayload, ClipboardRow | input-interaction#HOTKEY_DERIVATION |
 | [15] | motion | MotionToken, MotionApplication, PhaseMotion, ReducedMotion | motion-tokens#MOTION_AXIS |
-| [16] | accessibility | AccessOps, FocusOps, ContrastGate, AccessProof | accessibility#CONTRAST_GATE |
-| [17] | localization | LocaleRow, LocaleStrings, LocaleRuntime, MirrorPolicy | localization-culture#LOCALE_AXIS |
-| [18] | evidence | EvidenceReceipt, EvidenceJoin, Captures, ProofEngine, DevLoop | diagnostics-evidence#RECEIPT_UNION |
+| [16] | accessibility | AccessOps, FocusOps, ContrastGate, AccessProof, SceneAccessNode, SpatialCue | accessibility#CONTRAST_GATE |
+| [17] | localization | LocaleRow, LocaleStrings, LocaleRuntime, MirrorPolicy, ShapedAnnotation, LiveCaption | localization-culture#LOCALE_AXIS |
+| [18] | evidence | EvidenceReceipt, EvidenceJoin, Captures, ProofEngine, DevLoop, HudSample, FlameNode, SolveScrub, Repl | diagnostics-evidence#RECEIPT_UNION |
+| [19] | viewport pipeline | RenderGraph, RenderPass, MeshletCluster, ResidencyBudget, PathTracePass, SimVisual, Viewpoint, ViewportFault | viewport-pipeline#RENDER_GRAPH |
+| [20] | drafting + sheets | SheetSet, SheetSize, TitleBlock, Viewport2D, ProjectionBasis, Dimension, Annotation, DraftEmit, DraftFault | drafting-sheets#SHEET_SET |
+| [21] | notebook document | NotebookCell, CapabilityPin, DependencyGraph, NotebookCrdt, ReplayBundle, NotebookFault | notebook-document#CELL_MODEL |
+| [22] | animation timeline | Track, Keyframe, Easing, Timeline, Playhead, TimelineSample, Scrub, Walkthrough | animation-timeline#TRACK_MODEL |
 
 ## [4]-[DEPENDENCY_DIRECTION]
 
@@ -119,6 +131,11 @@ Consumed seams — mechanics live with the named owner; AppUi carries the conseq
 | [15] | progress phases | Compute progress-and-observation | PhaseMotion frozen map; conformance sweep fails on phase-set drift by design |
 | [16] | receipt streams | Compute receipts-and-benchmarks | DataSource.ComputeReceiptStream, progress dialogs, provenance projection |
 | [17] | host mount + document | Rasm.Rhino / Rasm.Grasshopper | SurfaceSeam columns, WatchEvent-to-HostDocumentFact projection, ViewCapture thumbnails, FileFormat tuples, DocumentEdit.Commit transaction routing |
+| [18] | geometry payload | Compute GeometryPayload proto oneof | MeshSource projection feeds MeshletCluster.Build and Viewport2D.Project; never re-tessellated |
+| [19] | field receipts | Compute field receipts | SimField projection feeds SimVisual render passes; never re-computed |
+| [20] | capability registry | Compute capability-and-determinism | CapabilityPin verify and ReplayBundle bit-identity ride the settled checksum, not a notebook-local hash |
+| [21] | shared GPU context | surface-hosts EMBED_CAPSULE platform lease | RenderGraph leases the host GRContext; no second context minted; SPIKE on the live host surface |
+| [22] | host-shared device fabric | SurfaceSeam device delegate columns | InputFabric Map/Drive bind SpaceMouse/controller/gaze/voice/MIDI input and CNC/robot/haptic output at composition |
 
 ## [5]-[CROSS_PACKAGE_SEAMS]
 
@@ -132,6 +149,8 @@ Provided seams — AppUi owns the mechanics; consumers take the consequence:
 | [4] | gesture conflicts | CommandDeck freeze-time conflict fold | input Bindings consumes the frozen deck first-wins |
 | [5] | focus-walk execution | ProofEngine ProofCheck.FocusWalk | accessibility AccessAudit folds the engine result |
 | [6] | visual egress split | tables ExportDestination (tabular text) · visuals VisualDestination (rendered media) | ratified two-owner split — distinct media, no overlap |
+| [7] | viewpoint codec | Viewpoint + ViewpointCodec (BCF-compatible) | dashboard markup, cross-process coordination, and BCF tools share one portable view-state receipt |
+| [8] | frame + replay wire | FrameReceipt wire · ReplayBundle manifest | web performance HUD reads frame budget; notebook replay reproduces bit-identically off the pinned manifest |
 
 ## [6]-[BOUNDARIES]
 
@@ -139,4 +158,6 @@ Provided seams — AppUi owns the mechanics; consumers take the consequence:
 - AppUi owns retained composition and offscreen raster; Persistence owns store queries and durable state — blobs cross as opaque versioned payloads through port delegates.
 - AppUi owns progress presentation; Compute owns execution and progress receipts.
 - AppUi owns scheduler-bound UI observation; AppHost owns runtime scheduling, lifecycle, configuration, and the correlation spine.
-- Provider types (Avalonia, ReactiveUI, SkiaSharp, LiveCharts, Dock, Eto, host APIs) stay internal; the public vocabulary is the axis owners in [3].
+- The viewport, simulation render, path trace, and residency owners are fence-complete GPU surfaces SPIKE-gated on the live host-shared `GRContext`; every owner ships its CPU/2D-Skia fallback today (composite raster, CPU meshlet cull, reference path tracer, CPU marching-cubes, blob-backed residency plan) so the rail is fully shaped now, never a deferred surface, and the GPU dispatch binds through the embed-capsule lease.
+- Frame budget is the residency and render-graph invariant — a plan that would exceed the VRAM budget evicts before it admits and a pass overrunning the frame budget defers; an unbounded resident set or a wall-clock-paced frame is structurally impossible.
+- Provider types (Avalonia, ReactiveUI, SkiaSharp, LiveCharts, Dock, Eto, OpenXML, host APIs) stay internal; the public vocabulary is the axis owners in [3].

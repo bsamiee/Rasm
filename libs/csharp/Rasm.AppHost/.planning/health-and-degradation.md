@@ -4,12 +4,13 @@ Capability health and the usable-failure degradation rail for every Rasm.AppHost
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                               |
-| :-----: | ---------------- | -------------------------------------------------------------------- |
-|   [1]   | HEALTH_FOLD      | Contributor rows, resource pressure, peer reads, one snapshot fold   |
-|   [2]   | DEGRADATION_RAIL | Level vocabulary, retained capabilities, derivation fold, hysteresis |
-|   [3]   | WIRE_HEALTH      | Tag-predicate wire mapping and the inbound set-degradation route     |
-|   [4]   | TS_PROJECTION    | Health snapshot and degradation level wire shapes                    |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                              |
+| :-----: | ---------------- | ----------------------------------------------------------------------------------- |
+|   [1]   | HEALTH_FOLD      | Contributor rows, resource pressure, peer reads, one snapshot fold                  |
+|   [2]   | DEGRADATION_RAIL | Level vocabulary, retained capabilities, derivation fold, hysteresis                |
+|   [3]   | WIRE_HEALTH      | Tag-predicate wire mapping and the inbound set-degradation route                    |
+|   [4]   | ALERT_ENGINE     | Declarative alert rules over continuous queries; hysteresis, escalation, versioning |
+|   [5]   | TS_PROJECTION    | Health snapshot, degradation level, and alert wire shapes                           |
 
 ## [2]-[HEALTH_FOLD]
 
@@ -301,12 +302,149 @@ public static class WireHealth {
 }
 ```
 
-## [5]-[TS_PROJECTION]
+## [5]-[ALERT_ENGINE]
 
-- Owner: `HealthSnapshotWire` and `DegradationWire` transcribe the snapshot and level records the dashboard ingests.
+- Owner: `AlertSeverity` `[SmartEnum<int>]` the rank-ordered severity ladder; `AlertCondition` `[Union]` the declarative condition family (threshold, anomaly, forecast-band); `AlertRule` the versioned rule record carrying hysteresis and debounce; `AlertState` the per-rule firing-state cell; `AlertEngine` the static evaluate-and-escalate surface over the continuous health snapshot stream.
+- Cases: 4 severity rows — info(0), warning(1), error(2), critical(3); `AlertCondition` = Threshold | AnomalyBand | ForecastBand — Threshold fires on a value crossing a bound, AnomalyBand on a value outside a rolling mean ± k·sigma band, ForecastBand on a value outside a linear-trend forecast envelope.
+- Entry: `Observe(AlertEngine.Runtime runtime, AlertRule rule, AlertState state, HealthSnapshot snapshot, Instant at)` is the health-stream entry — it resolves `rule.Metric` to a continuous value off the snapshot through `AlertEngine.Project` and delegates to the value-fold `Evaluate(AlertEngine.Runtime runtime, AlertRule rule, AlertState state, double value, Instant at)`; both return `(AlertState State, Option<AlertReceipt> Fired)` — the fold runs one sample through the rule's condition with hysteresis and debounce, returning the next firing state and an alert receipt only on a confirmed transition; `Backtest(AlertEngine.Runtime runtime, AlertRule rule, Seq<(Instant At, double Value)> history)` returns `Seq<AlertReceipt>` — replays the same value-fold over historical samples so a new rule's firing behavior is proven against past data before it goes live. One fold, two front doors: the live health stream resolves its value through `Project`, the back-test feeds the raw historical value.
+- Auto: the threshold condition fires only after the value holds past the rule's debounce window so a momentary spike does not fire, and recovers only after the value clears the hysteresis band so a value oscillating at the bound does not flap; the anomaly band tracks a rolling mean and standard deviation over the rule's window so a value outside k sigma fires without a hand-set threshold; the forecast band fits a linear trend over the window and fires on a value outside the prediction envelope so a slow drift toward a limit fires before the limit is crossed; a firing alert escalates its severity if it stays fired past the escalation dwell so a persistent warning becomes an error becomes critical, and a recovered alert resets the escalation; the rule version stamps every receipt so a rule edit is auditable and a back-test pins the rule version it ran against.
+- Receipt: `AlertReceipt` — rule id, rule version, severity, condition kind, the firing value, the transition (fired/recovered/escalated), `Instant`, correlation id; fanned through `ReceiptSinkPort.Send` and routed to the delivery fan-out for multi-channel notification.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: one severity is one `AlertSeverity` row; one condition shape is one `AlertCondition` case breaking every evaluate arm; a rule edit is one new `AlertRule` version, never a mutated rule; zero new surface.
+- Boundary: the alert engine is the only declarative-alerting owner — an ad hoc threshold check, a per-metric alarm, and a parallel alert store are the deleted forms; the engine evaluates over the continuous `HealthSnapshot` stream the health fold already produces so alerting reads the existing health signal, never a second metric source — `AlertEngine.Project(AlertRule, HealthSnapshot)` is the named-metric resolution that turns the rule's `Metric` string into a continuous double off the snapshot the fold consumes: the reserved metric keys `status` (the overall snapshot status rank), `pressure` (the `Pressure`-tagged entry status rank, the same signal `UtilizationCell` feeds), and a per-entry `{name}.status` route project the matching `HealthSnapshot.Entry` status onto a 0..3 rank, and an unmatched metric yields `Option<double>.None` so `Observe` holds the prior state and fires no spurious alert rather than fabricating a value — so the engine rides the existing health stream end to end with no hand-fed double and no second metric pipeline; the alert engine and the degradation rail are distinct concerns — degradation is the host's own capability state derived from health, while alerting is the user-facing notification product over arbitrary continuous queries, so a degradation transition is one alert input but an alert never forces a degradation level; the hysteresis and debounce reuse the same consecutive-confirm and minimum-dwell semantics the degradation derivation uses so the host-health alerting shape and the dashboard alerting share one anti-flap law; a fired alert routes to the delivery fan-out so multi-channel alert delivery is the existing outbound delivery, never a second sender; rule versioning makes a rule edit a new immutable version so an alert receipt traces to the exact rule that fired it, and a back-test proves a rule against history before it fires on live data.
+
+```csharp signature
+[SmartEnum<int>]
+public sealed partial class AlertSeverity {
+    public static readonly AlertSeverity Info = new(0);
+    public static readonly AlertSeverity Warning = new(1);
+    public static readonly AlertSeverity Error = new(2);
+    public static readonly AlertSeverity Critical = new(3);
+
+    public AlertSeverity Escalated => Value >= Critical.Value ? Critical : FromValue(Value + 1);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AlertCondition {
+    private AlertCondition() { }
+    public sealed record Threshold(double Bound, bool Above, double Hysteresis) : AlertCondition;
+    public sealed record AnomalyBand(double Sigma, int Window) : AlertCondition;
+    public sealed record ForecastBand(double EnvelopeWidth, int Window) : AlertCondition;
+}
+
+public sealed record AlertRule(
+    string RuleId,
+    int Version,
+    string Metric,
+    AlertCondition Condition,
+    AlertSeverity Severity,
+    Duration Debounce,
+    Duration EscalationDwell);
+
+public readonly record struct AlertState(
+    bool Firing,
+    AlertSeverity Current,
+    int ConfirmStreak,
+    Option<Instant> FiredSince,
+    Seq<double> Window) {
+    public static readonly AlertState Clear = new(false, AlertSeverity.Info, 0, None, []);
+}
+
+public readonly record struct AlertReceipt(
+    string RuleId,
+    int Version,
+    AlertSeverity Severity,
+    string Condition,
+    double Value,
+    string Transition,
+    Instant At,
+    CorrelationId Correlation) {
+    public const string Fired = "fired";
+    public const string Recovered = "recovered";
+    public const string Escalated = "escalated";
+}
+
+public static class AlertEngine {
+    public const string StatusMetric = "status";
+    public const string PressureMetric = "pressure";
+    public const string EntryStatusSuffix = ".status";
+
+    public sealed record Runtime(int ConfirmCount, Func<AlertReceipt, IO<Unit>> Deliver, ClockPolicy Clocks);
+
+    static double Rank(HealthStatus status) => status switch {
+        HealthStatus.Unhealthy => 3d,
+        HealthStatus.Degraded => 2d,
+        HealthStatus.Healthy => 1d,
+        _ => 0d,
+    };
+
+    public static Option<double> Project(AlertRule rule, HealthSnapshot snapshot) =>
+        rule.Metric switch {
+            StatusMetric => Some(Rank(snapshot.Status)),
+            PressureMetric => snapshot.Entries
+                .Find(entry => entry.Tags.Contains(HealthContributorRow.Pressure))
+                .Map(entry => Rank(entry.Status)),
+            var key when key.EndsWith(EntryStatusSuffix, StringComparison.Ordinal) =>
+                snapshot.Entries
+                    .Find(entry => entry.Name == key[..^EntryStatusSuffix.Length])
+                    .Map(entry => Rank(entry.Status)),
+            _ => None,
+        };
+
+    public static (AlertState State, Option<AlertReceipt> Fired) Observe(Runtime runtime, AlertRule rule, AlertState state, HealthSnapshot snapshot, Instant at) =>
+        Project(rule, snapshot).Match(
+            Some: value => Evaluate(runtime, rule, state, value, at),
+            None: () => (state, Option<AlertReceipt>.None));
+
+    public static (AlertState State, Option<AlertReceipt> Fired) Evaluate(Runtime runtime, AlertRule rule, AlertState state, double value, Instant at) {
+        var window = (state.Window.Add(value) is var w && w.Count > Window(rule.Condition) ? w.Tail : w).Strict();
+        var breached = Breached(rule.Condition, value, window, state.Firing);
+        var streak = breached ? state.ConfirmStreak + 1 : 0;
+        return (breached, state.Firing) switch {
+            (true, false) when streak >= runtime.ConfirmCount =>
+                (state with { Firing = true, Current = rule.Severity, ConfirmStreak = 0, FiredSince = Some(at), Window = window },
+                 Some(new AlertReceipt(rule.RuleId, rule.Version, rule.Severity, Kind(rule.Condition), value, AlertReceipt.Fired, at, Correlation.Mint()))),
+            (true, true) when state.FiredSince.Map(since => at - since >= rule.EscalationDwell).IfNone(false) && state.Current.Value < AlertSeverity.Critical.Value =>
+                (state with { Current = state.Current.Escalated, FiredSince = Some(at), Window = window },
+                 Some(new AlertReceipt(rule.RuleId, rule.Version, state.Current.Escalated, Kind(rule.Condition), value, AlertReceipt.Escalated, at, Correlation.Mint()))),
+            (false, true) =>
+                (AlertState.Clear with { Window = window },
+                 Some(new AlertReceipt(rule.RuleId, rule.Version, rule.Severity, Kind(rule.Condition), value, AlertReceipt.Recovered, at, Correlation.Mint()))),
+            _ => (state with { ConfirmStreak = streak, Window = window }, None),
+        };
+    }
+
+    public static Seq<AlertReceipt> Backtest(Runtime runtime, AlertRule rule, Seq<(Instant At, double Value)> history) =>
+        history.Fold((State: AlertState.Clear, Fired: Seq<AlertReceipt>()), (acc, sample) =>
+            Evaluate(runtime, rule, acc.State, sample.Value, sample.At) is var step
+                ? (step.State, step.Fired.Match(Some: acc.Fired.Add, None: () => acc.Fired))
+                : acc).Fired;
+
+    static bool Breached(AlertCondition condition, double value, Seq<double> window, bool firing) => condition.Switch(
+        threshold: t => firing
+            ? (t.Above ? value >= t.Bound - t.Hysteresis : value <= t.Bound + t.Hysteresis)
+            : (t.Above ? value > t.Bound : value < t.Bound),
+        anomalyBand: a => window.Count >= a.Window && Math.Abs(value - Mean(window)) > a.Sigma * Sigma(window),
+        forecastBand: f => window.Count >= f.Window && Math.Abs(value - Forecast(window)) > f.EnvelopeWidth);
+
+    static int Window(AlertCondition condition) => condition.Switch(
+        threshold: static _ => 1, anomalyBand: static a => a.Window, forecastBand: static f => f.Window);
+
+    static string Kind(AlertCondition condition) => condition.Switch(
+        threshold: static _ => "threshold", anomalyBand: static _ => "anomaly-band", forecastBand: static _ => "forecast-band");
+
+    static double Mean(Seq<double> window) => window.Average();
+    static double Sigma(Seq<double> window) => Math.Sqrt(window.Map(v => Math.Pow(v - Mean(window), 2)).Average());
+    static double Forecast(Seq<double> window) => window.Last + (window.Last - window.Head) / Math.Max(window.Count - 1, 1);
+}
+```
+
+## [6]-[TS_PROJECTION]
+
+- Owner: `HealthSnapshotWire`, `DegradationWire`, and `AlertReceiptWire` transcribe the snapshot, level, and alert records the dashboard ingests.
 - Packages: BCL inbox
-- Growth: one capability key row or one field on an owning wire record, zero new surface.
-- Boundary: instants cross as extended-ISO text and elapsed spans as ISO-8601 duration text; level, cascade, and capability keys are the smart-enum string keys, status crosses as the camel-case enum name, never ordinals; `cascade` is the parent-floored level a child reports, distinct from `forced` operator override.
+- Growth: one capability key row, one alert field, or one field on an owning wire record, zero new surface.
+- Boundary: instants cross as extended-ISO text and elapsed spans as ISO-8601 duration text; level, cascade, capability, and severity keys are the smart-enum string and int keys, status crosses as the camel-case enum name, never ordinals; `cascade` is the parent-floored level a child reports, distinct from `forced` operator override; the alert condition crosses as a literal-discriminated union on the condition kind and the alert transition crosses as the fired/recovered/escalated literal.
 
 ```ts contract
 type HealthStatusWire = "healthy" | "degraded" | "unhealthy";
@@ -341,9 +479,22 @@ interface DegradationWire {
   readonly cascade: DegradationLevelKey | null;
   readonly since: string | null;
 }
+
+type AlertSeverityKey = "info" | "warning" | "error" | "critical";
+
+interface AlertReceiptWire {
+  readonly ruleId: string;
+  readonly version: number;
+  readonly severity: AlertSeverityKey;
+  readonly condition: "threshold" | "anomaly-band" | "forecast-band";
+  readonly value: number;
+  readonly transition: "fired" | "recovered" | "escalated";
+  readonly at: string;
+  readonly correlation: string;
+}
 ```
 
-## [6]-[RESEARCH]
+## [7]-[RESEARCH]
 
 - [WIRE_REGISTRATION]: the `grpc.health.v1` wire-service registration surface behind the app-root pin, with the default status-to-serving projection; the tag-predicate evaluation rides the confirmed `HealthCheckService.CheckHealthAsync(Func<HealthCheckRegistration, bool>?, CancellationToken)` overload.
 - [MEMORY_RATIO_SEMANTIC]: `dotnet.process.memory.virtual.ratio` is read as the memory-pressure ratio the `Gauge` grade compares against `MemoryDegraded`/`MemoryUnhealthy`; whether this instrument and `process.cpu.utilization` report over the cgroup `MaxMemoryInBytes`/`MaxCpuInCores` ceilings or over the host total under `UseLinuxCalculationV2`+`UseZeroToOneRangeForLinuxMetrics` settles whether a `Container`-row grade rides the meter as published or threads a `ResourceQuotaProvider.GetResourceQuota()`-sourced `ResourceQuota` into a quota-relative recompute and the provider-registration surface that supplies `PressurePolicy.Quota` to the runtime — resolved against the ResourceMonitoring metric exporter and `ResourceQuotaProvider` registration before the container-row grade finalizes.

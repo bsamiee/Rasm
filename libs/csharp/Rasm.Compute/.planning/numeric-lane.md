@@ -6,12 +6,12 @@ Wire posture: this page is HOST-LOCAL and carries no TS_PROJECTION cluster — n
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                |
-| :-----: | :--------------- | :------------------------------------------------------------------- |
-|   [1]   | DENSE_ALGEBRA    | RID-keyed provider table; dense GEMM/solve fold; factorization union |
-|   [2]   | SPARSE_SOLVE     | Sparse-format ingestion axis; direct and iterative sparse solve      |
-|   [3]   | KERNEL_LOWERING  | Tensor matrix/structural rows lower onto real GEMM/im2col/pool       |
-|   [4]   | PROVIDER_CLAIMS  | Provider rank reads benchmark claims; every solve emits a receipt    |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                               |
+| :-----: | :-------------- | :------------------------------------------------------------------- |
+|   [1]   | DENSE_ALGEBRA   | RID-keyed provider table; dense GEMM/solve fold; factorization union |
+|   [2]   | SPARSE_SOLVE    | Sparse-format ingestion axis; direct and iterative sparse solve      |
+|   [3]   | KERNEL_LOWERING | Tensor matrix/structural rows lower onto real GEMM/im2col/pool       |
+|   [4]   | PROVIDER_CLAIMS | Provider rank reads benchmark claims; every solve emits a receipt    |
 
 ## [2]-[DENSE_ALGEBRA]
 
@@ -22,7 +22,7 @@ Wire posture: this page is HOST-LOCAL and carries no TS_PROJECTION cluster — n
 - Receipt: every dense solve materializes the `Factorization` `ComputeReceipt` case carrying provider key, decomposition kind, row and column extents, zero nnz, and `dense` format; emission rides the sink port at the composition edge.
 - Packages: MathNet.Numerics, MathNet.Numerics.Providers.MKL, MathNet.Numerics.Providers.OpenBLAS, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new native provider is one `LinearProvider` row with its RID predicate, rank, and `Control.TryUse*` probe; a new decomposition is one `Factorization` case with its `FactorizationKind` row; zero new surface.
-- Boundary: the decomposition union is `Factorization` and the per-solve receipt case is `ComputeReceipt.Factorization` — distinct C# symbols, the unqualified `Factorization` inside `Numeric/Lane.cs` is always the union; `DenseOps` composes MathNet `Matrix<double>`/`Vector<double>` directly — a package-local `RasmMatrix`, `DenseMatrix`, or matrix-wrapper face is the deleted form mirroring the tensor-lane no-`TensorService` law; provider selection runs ONCE through `LinearProvider.Select` binding `LinearAlgebraControl.Provider`, and a per-call-site `Control.UseNativeOpenBLAS()` is the named defect mirroring the model-lane thread-count law; the x64-only MKL row is dropped from the live osx-arm64 axis (no osx-arm64 MKL asset, its `Control.UseNativeMKL` member spelling is the win/linux-x64 design record re-entering as one row only behind a MKL-carrying RID) so the axis is the managed terminal plus the `native-openblas` row whose `Control.TryUseNativeOpenBLAS()` probe returns `true` only where an osx-arm64 OpenBLAS asset resolves and otherwise degrades to managed; the `Try*` provider probes return `false` rather than throwing, so `Available` never lifts an exception into the rail; provider rank reads `BenchmarkRow.Claim` and never a static default, so a native lane wins only behind a fingerprint-matched claim.
+- Boundary: the decomposition union is `Factorization` and the per-solve receipt case is `ComputeReceipt.Factorization` — distinct C# symbols, the unqualified `Factorization` inside `Numeric/Lane.cs` is always the union; `DenseOps` composes MathNet `Matrix<double>`/`Vector<double>` directly — a package-local `RasmMatrix`, `DenseMatrix`, or matrix-wrapper face is the deleted form mirroring the tensor-lane no-`TensorService` law; provider selection runs ONCE through `LinearProvider.Select` binding `LinearAlgebraControl.Provider`, and a per-call-site `Control.UseNativeOpenBLAS()` is the named defect mirroring the model-lane thread-count law; the x64-only MKL row is dropped from the live osx-arm64 axis (no osx-arm64 MKL asset, its `Control.UseNativeMKL` member spelling is the win/linux-x64 design record re-entering as one row only behind a MKL-carrying RID) so the axis is the managed terminal plus the `native-openblas` row whose `Control.TryUseNativeOpenBLAS()` probe returns `true` only where an osx-arm64 OpenBLAS asset resolves and otherwise degrades to managed; the `Try*` provider probes return `false` rather than throwing, so `Available` never lifts an exception into the rail; provider rank reads `BenchmarkRow.Claim` and never a static default, so a native lane wins only behind a fingerprint-matched claim; the provider-determinism contract holds that managed, native-MKL, and native-OpenBLAS diverge at the bit level, so `DeterminismTag` names the active `ILinearAlgebraProvider` type and the degree-of-parallelism and `SolveDedupKey` folds that tag into the content-addressed solve-dedup fingerprint — a solve result cached under one provider never serves a request that resolved a different provider, and the alternative pin-one-provider posture binds `Managed` as the dedup-stable terminal when a deployment requires bit-identical reproducibility; a solve-dedup key that omits the provider tag is the named correctness defect because a cross-provider cache hit returns bit-divergent numbers.
 
 ```csharp signature
 public sealed class NumericKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -59,6 +59,12 @@ public sealed partial class LinearProvider {
             .HeadOrNone()
             .Map(static row => { row.activate(); return row; })
             .IfNone(static () => { Managed.activate(); return Managed; });
+
+    public string DeterminismTag =>
+        $"{Key}:{Control.LinearAlgebraProvider.GetType().Name}:{Control.MaxDegreeOfParallelism}";
+
+    public static UInt128 SolveDedupKey(LinearProvider provider, UInt128 problemDigest) =>
+        XxHash128.HashToUInt128(MemoryMarshal.AsBytes(provider.DeterminismTag.AsSpan()), unchecked((long)problemDigest));
 }
 
 [SmartEnum<string>]
@@ -132,7 +138,7 @@ public static class DenseOps {
 
 - Owner: `SparseFormat` `[SmartEnum<string>]` ingestion-axis rows; `SparseOps` direct-and-iterative sparse-solve fold over the CSR-backed MathNet storage and CSparse direct factorizations.
 - Cases: `SparseFormat` rows csr · csc · coo · dok.
-- Entry: `public static Fin<SparseCompressedRowMatrixStorage<double>> Ingest(SparseFormat format, int rows, int columns, int[] majorIndices, int[] minorIndices, double[] values)` — `Fin<T>` aborts on a length or bound mismatch; `Solve` over the ingested CSR storage dispatches the direct or iterative route by the case row.
+- Entry: `public static Fin<SparseCompressedRowMatrixStorage<double>> Ingest(SparseFormat format, int rows, int columns, int[] majorIndices, int[] minorIndices, double[] values)` — `Fin<T>` aborts on a length or bound mismatch; `SolveDirect` factors a CSparse CSC and `SolveIterative` runs the MathNet `IIterativeSolver<double>` under an `Iterator<double>` stop-criteria control, returning the field plus the real iteration count, final relative residual, and converged flag.
 - Auto: every format row maps to one CSR ingestion conversion — csr direct, csc through `OfCompressedSparseColumnFormat`, coo through `OfCoordinateFormat`, dok through `OfIndexedEnumerable` over the indexed-entry buffer — so the format axis is an ingestion discriminant over one storage type, never four storage types; direct solves factor a CSparse `CompressedColumnStorage<double>` through `SparseCholesky`/`SparseLU`/`SparseQR` and iterative solves run `BiCgStab`/`GpBiCg`/`TFQMR` under an `Iterator<double>` stop-criteria control.
 - Receipt: every sparse solve materializes the `Factorization` `ComputeReceipt` case carrying provider key, decomposition or solver kind, row and column extents, the non-zero count, and the source format key; emission rides the sink port.
 - Packages: MathNet.Numerics, CSparse, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Persistence (project), BCL inbox
@@ -172,6 +178,22 @@ public static class SparseOps {
             _ => Fin.Fail<double[]>(ComputeFault.Create($"<sparse-direct-miss:{kind.Key}>")),
         };
     }
+
+    public static Fin<(double[] Field, int Iterations, double Residual, bool Converged)> SolveIterative(SparseCompressedRowMatrixStorage<double> csr, string method, double[] rhs, int maxIterations, double tolerance) =>
+        Try.lift(() => {
+            var matrix = SparseMatrix.OfStorage(csr);
+            var b = Vector<double>.Build.DenseOfArray(rhs);
+            var x = Vector<double>.Build.Dense(rhs.Length);
+            var iterator = new Iterator<double>(new IterationCountStopCriterion<double>(maxIterations), new ResidualStopCriterion<double>(tolerance));
+            IIterativeSolver<double> solver = method switch {
+                "gmres" => new GpBiCg(),
+                "tfqmr" => new TFQMR(),
+                _ => new BiCgStab(),
+            };
+            solver.Solve(matrix, b, x, iterator, new DiagonalPreconditioner());
+            double residual = (matrix.Multiply(x) - b).L2Norm() / Math.Max(1.0, b.L2Norm());
+            return (x.ToArray(), iterator.NumberOfIterations, residual, iterator.Status == IterationStatus.Converged);
+        }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected(error.Message));
 
     public static ComputeReceipt.Factorization Receipt(LinearProvider provider, FactorizationKind kind, SparseCompressedRowMatrixStorage<double> csr, SparseFormat format, CorrelationId correlation, Duration elapsed) =>
         new(provider.Key, kind.Key, csr.RowCount, csr.ColumnCount, csr.Values.Length, format.Key) {
@@ -312,3 +334,7 @@ public static class KernelLowering {
 - Packages: Rasm.Persistence (project), LanguageExt.Core, BCL inbox
 - Growth: a new claim dimension is one column on the existing `BenchmarkClaim`; a new solve instrument is one row on `ReceiptSurface.Instruments`; zero new surface.
 - Boundary: provider rank is the `BenchmarkClaim` `Provider` column gated exactly like the SIMD and partition claims — a static native default beside the claim is the named defect; the claim is resolved by the Persistence `BenchmarkRow.Claim` owner against the recency horizon read by reference from the Persistence model-result index owner and threaded in, never re-resolved and never a second horizon; the solve and shard instruments live on the `ReceiptSurface.Instruments` stream and a second numeric-lane-local instrument owner is the deleted form.
+
+## [6]-[RESEARCH]
+
+- [ITERATIVE_SOLVE]: the `SparseOps.SolveIterative` body binds the catalogued `IIterativeSolver<double>.Solve(matrix, b, x, iterator)` and `Iterator<double>` control; the iterator construction and convergence-evidence member spellings — `ResidualStopCriterion<double>`/`IterationCountStopCriterion<double>` constructor arity, `Iterator<double>.Status` returning `IterationStatus.Converged`, `Iterator<double>.NumberOfIterations`, `DiagonalPreconditioner`, and `SparseMatrix.OfStorage(SparseCompressedRowMatrixStorage<double>)` — confirm against the admitted MathNet.Numerics 6.0.0-beta2 `MathNet.Numerics.LinearAlgebra.Solvers`/`.Double.Solvers` surface by tier-1 decompile; the verified iteration count and final relative residual fold into the `SolveResult` the `solver-and-optimization#SOLVE_CONTRACT` iterative route reads, replacing the prior direct-solve mislabel.

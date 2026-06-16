@@ -66,11 +66,13 @@ migration source the consuming page deletes.
 [ENTRYPOINT_SCOPE]: monitor operations
 - rail: observability
 
-| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                     | [CAPABILITY]                          |
-| :-----: | :------------------- | :----------------------------------------------- | :------------------------------------ |
-|   [1]   | `GetUtilization`     | `TimeSpan` window                                | computes utilization over the window  |
-|   [2]   | `PublishAsync`       | utilization plus cancellation token              | delivers utilization to a publisher   |
-|   [3]   | `GetResourceQuota`   | `ResourceQuotaProvider.GetResourceQuota()` -> `ResourceQuota`; `GetResourceQuota(out ResourceQuota)` try-shape | reads the current container resource quota |
+| [INDEX] | [SURFACE]          | [CALL_SHAPE]                  | [CAPABILITY]                               |
+| :-----: | :----------------- | :---------------------------- | :----------------------------------------- |
+|   [1]   | `GetUtilization`   | `TimeSpan` window             | computes utilization over the window       |
+|   [2]   | `PublishAsync`     | utilization plus cancellation | delivers utilization to a publisher        |
+|   [3]   | `GetResourceQuota` | quota read                    | reads the current container resource quota |
+
+`GetResourceQuota()` returns `ResourceQuota`; the `out ResourceQuota` overload is the try-shape for callers that branch on quota availability.
 
 [ENTRYPOINT_SCOPE]: option policy
 - rail: observability

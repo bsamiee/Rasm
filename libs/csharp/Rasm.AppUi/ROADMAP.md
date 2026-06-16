@@ -6,7 +6,7 @@ The `.planning/` corpus is finalized; implementation transcribes pages in the ch
 
 | [INDEX] | [SURFACE]         | [STATE]                                       |
 | :-----: | :---------------- | :-------------------------------------------- |
-|   [1]   | planning corpus   | 19 pages finalized (+custom-visuals); charter complete |
+|   [1]   | planning corpus   | 23 pages finalized; charter complete (viewport/drafting/notebook/animation authored, GPU+writer SPIKE-gated) |
 |   [2]   | package graph     | runtime closure admitted and lock-tracked     |
 |   [3]   | production source | absent                                        |
 |   [4]   | test project      | `Rasm.AppUi.Tests` node present, empty         |
@@ -26,6 +26,10 @@ Implementation-start gates: bridge-proofed spikes and research-resolution probes
 |   [6]   | macOS reduce-motion preference probe                | `libs/csharp/Rasm.AppUi/scenarios/reduced-motion-probe.verify.csx`                                       | motion-tokens#REDUCED_MOTION                          |
 |   [7]   | VoiceOver reach across the embedded root            | `tests/csharp/libs/Rasm.Rhino/UI/scenarios/avalonia-embed-a11y.verify.csx`                               | accessibility#AUTOMATION_PEERS                        |
 |   [8]   | input-interaction member re-grounding               | `uv run python -m tools.assay api resolve --pattern behaviors` then specs against the re-grounded trigger and clipboard rows | input-interaction#POINTER_GESTURES, #DRAG_CLIPBOARD   |
+|   [9]   | host-shared `GRContext` GPU viewport spike          | `uv run python -m tools.assay bridge verify --pattern viewport_gpu_lease` (+ `viewport_gpu_meshlet`, `viewport_gpu_pathtrace`) under live RhinoWIP; standalone windowed `GRContext` first | viewport-pipeline#RENDER_GRAPH, #GEOMETRY_VIRTUAL, #RESIDENCY_BUDGET, #PATH_TRACE, #SIM_VISUAL |
+|  [10]   | OpenXML Office writer surface                       | `uv run python -m tools.assay api resolve --pattern openxml` then writer round-trip against the admitted OpenXML package | visuals-offscreen#DOCUMENT_EXPORT (OfficeExport) |
+|  [11]   | DWG/DXF entity-writer surface                       | `uv run python -m tools.assay api resolve --pattern dwg` then entity-table round-trip against the admitted entity-writer package | drafting-sheets#DRAFT_EMIT |
+|  [12]   | alternative-input + device-output SDK surfaces      | `uv run python -m tools.assay api resolve` against the admitted SpaceMouse/controller/gaze/voice/MIDI/CNC packages bound through `SurfaceSeam` delegates | input-interaction#INPUT_FABRIC |
 
 ## [3]-[IMPLEMENTATION_TASKS]
 
@@ -54,6 +58,10 @@ Ordered by the charter BUILD_ORDER; each task transcribes its clusters verbatim,
 |  [19]   | `Visuals/VisualRail.cs`        | visuals-offscreen#DRAW_CAPSULE, #THUMBNAIL_PIPELINE, #PREVIEW_SURFACES, #ENCODE_IDENTITY, #DOCUMENT_EXPORT      | G6 render-hash                           |
 |  [20]   | `Access/AccessRail.cs`         | accessibility#AUTOMATION_PEERS, #KEYBOARD_NAV, #CONTRAST_GATE, #COMPLIANCE_PROOF                                | G4 contrast-floor rows + audit sweep over the typed (variant, density) grid |
 |  [21]   | `Evidence/EvidenceRail.cs`     | diagnostics-evidence#RECEIPT_UNION, #CORRELATION_JOIN, #CAPTURE_LANES, #HEADLESS_DERIVATION, #DEV_LOOP, #TS_PROJECTION | G6 render-hash + G5 bridge; full `ProofEngine.Derive` matrix; journal replay under `FakeTimeProvider` |
+|  [22]   | `Viewport/ViewportPipeline.cs` | viewport-pipeline#RENDER_GRAPH, #GEOMETRY_VIRTUAL, #RESIDENCY_BUDGET, #PATH_TRACE, #SIM_VISUAL, #VIEWPOINT_CODEC, #TS_PROJECTION | G5 bridge (GPU lease/meshlet/path-trace spikes) + G6 render-hash (CPU/2D-Skia fallback frame); frame-budget invariant spec |
+|  [23]   | `Drafting/DraftingRail.cs`     | drafting-sheets#SHEET_SET, #PROJECTION, #DIMENSIONING, #DRAFT_EMIT | G6 render-hash (PDF/SVG) + G5 bridge (DWG/DXF entity-writer spike); sheet-bounds and projection-basis specs |
+|  [24]   | `Notebook/NotebookRail.cs`     | notebook-document#CELL_MODEL, #DEPENDENCY_GRAPH, #CRDT_COEDIT, #REPLAY_BUNDLE | G4 specs (recompute closure O(downstream), CRDT convergence, replay bit-identity under `FakeTimeProvider`) |
+|  [25]   | `Animation/AnimationRail.cs`   | animation-timeline#TRACK_MODEL, #TIMELINE, #SCRUB, #WALKTHROUGH | G4 specs (deterministic frame-indexed sample) + G6 render-hash (walkthrough frame sequence) |
 
 G1 and G2 run once before task [1] and again on any manifest or catalogue change; G7 runs on any page-diagram edit. The BUILD_ORDER seam notes are binding at transcription: `AssetKeys` nameof spellings are the only cross-file asset references; the `PhaseMotion` map keys mirror the Compute `ProgressPhase` nine-case set; `AccessProof.Sweep` and `ProofEngine.Derive` share the typed `(ThemeVariantRow, DensityRow)` grid.
 
@@ -83,10 +91,14 @@ N/A rails: BenchmarkDotNet — `specialized-rails.md [2]` reject bars UI surface
 
 ## [5]-[EXIT]
 
-The package exits implementation when every BUILD_ORDER file is transcribed `Hosts/SurfaceVocabulary.cs` through `Evidence/EvidenceRail.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static build`, G4 `test run`, G5 `bridge verify`, G6 headless render-hash lanes, G7 `mmdc` render), the charter GAP_LEDGER stays fully CLOSED, and the charter `spec` gate passes on the full suite.
+The package exits implementation when every BUILD_ORDER file is transcribed `Hosts/SurfaceVocabulary.cs` through `Animation/AnimationRail.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static build`, G4 `test run`, G5 `bridge verify`, G6 headless render-hash lanes, G7 `mmdc` render), the charter GAP_LEDGER stays fully CLOSED, and the charter `spec` gate passes on the full suite.
 
 Residual host-bridge work is the charter DENSITY_BAR `SPIKE` set discharging against its page RESEARCH clusters; each exits when its bridge or native probe lands as a settled fence row rather than a re-opened gate:
-- Embedding seam (`SurfaceHost`, `SurfaceFact`) — surface-hosts#RESEARCH [EMBED_SPIKE]: the only DENSITY_BAR `SPIKE` set, gated on the live Rhino-owned AppKit run-loop and NSView panel host, de-risked standalone with only the in-host confirmation remaining.
+- Embedding seam (`SurfaceHost`, `SurfaceFact`) — surface-hosts#RESEARCH [EMBED_SPIKE]: gated on the live Rhino-owned AppKit run-loop and NSView panel host, de-risked standalone with only the in-host confirmation remaining.
+- Viewport GPU surface (`RenderPass`, `RenderGraph`, `MeshletCluster`, `ResidencyBudget`, `PathTracePass`, `SimVisual`, `ViewportFault`) — viewport-pipeline#RESEARCH [VIEWPORT_GPU]: the host-shared `GRContext` lease, per-backend bindless/acceleration-structure spellings, and `SKRuntimeEffect` mesh/ray-gen emit gated on the live host GPU context; every owner ships its CPU/2D-Skia fallback today, de-risked against a windowed `GRContext`.
+- Drafting entity writer (`DraftEmit`, `DraftFault`) — drafting-sheets#RESEARCH [DRAFT_ENTITY]: the DWG/DXF model-space entity-writer member set; PDF (`SKDocument`) and SVG (`SKSvgCanvas`) emit ship today.
+- Office export (`OfficeExport`, `OfficeSpec`, `OfficeSheet`) — visuals-offscreen#RESEARCH [OFFICE_OPENXML]: the OOXML part-graph and font-embedding member set gated on the admitted OpenXML writer; the `FlowFold`-shared deterministic pagination is settled.
+- Input fabric SDKs (`InputDevice`, `DeviceOutput`) — input-interaction#RESEARCH [INPUT_DEVICE_SDK]: the SpaceMouse/controller/gaze/switch/voice/MIDI and CNC/robot/haptic driver member spellings bound through `SurfaceSeam` delegate columns; the device-to-intent and intent-to-device folds are settled.
 
 Implementation-bound refinements ride FINALIZED owners and carry no `SPIKE` state; each is a settled fence whose remaining detail binds against the live closure at transcription:
 - Embedded notification, picker, and host-object-drag capsule rides the embedding seam — dialogs-notifications#RESEARCH [EMBEDDED_TOPLEVEL], input-interaction#RESEARCH [EMBEDDED_DRAG]: the embedded-root `TopLevel` resolution resolves with the embed capsule.

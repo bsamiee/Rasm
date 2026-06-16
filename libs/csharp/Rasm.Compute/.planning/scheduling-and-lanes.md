@@ -1,6 +1,6 @@
 # [COMPUTE_SCHEDULING_AND_LANES]
 
-Rasm.Compute schedules every admitted intent through five bounded `WorkLane` channel rows behind one `LaneRuntime` enqueue capsule: lane choice is an intent field, full-mode and backpressure are row data, drops emit a correlated `Backpressure` receipt, queue depth reads `ChannelReader.Count`, and solve-path dispatch structurally returns a `LaneHandle` instead of executing work. The page owns the `WorkLane` axis, the work-item and handle shapes, the GH2 async-result ceiling, the `CpuBudget` record the three concurrency axes share, and band-200 drain participation — over bounded System.Threading.Channels pipes, Thinktecture vocabulary, LanguageExt rails, NodaTime instants, and the AppHost drain, cancellation, clock, and schedule spine.
+Rasm.Compute schedules every admitted intent through five bounded `WorkLane` channel rows behind one `LaneRuntime` enqueue capsule: lane choice is an intent field, full-mode and backpressure are row data, drops emit a correlated `Backpressure` receipt, queue depth reads `ChannelReader.Count`, and solve-path dispatch structurally returns a `LaneHandle` instead of executing work. The page owns the `WorkLane` axis, the work-item and handle shapes, the GH2 async-result ceiling, the `CpuBudget` record the three concurrency axes share, the `JobGraph` dependency-DAG scheduler layering speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store orchestration over the bounded lanes, and band-200 drain participation — over bounded System.Threading.Channels pipes, Thinktecture vocabulary, LanguageExt rails, NodaTime instants, and the AppHost drain, cancellation, clock, and schedule spine.
 
 ## [1]-[INDEX]
 
@@ -9,7 +9,8 @@ Rasm.Compute schedules every admitted intent through five bounded `WorkLane` cha
 |   [1]   | LANE_AXIS    | Five bounded channel rows; capacity, full-mode, readers, rank as row data   |
 |   [2]   | SOLVE_GUARD  | One enqueue capsule; solve threads receive handles, never execute work      |
 |   [3]   | CPU_BUDGET   | One processor-budget record shared by all three concurrency axes            |
-|   [4]   | DRAIN_CANCEL | Band-200 drain participation; one linked cancellation chain with provenance |
+|   [4]   | JOB_GRAPH    | Dependency job-graph scheduler; speculative/preemptible; checkpoint; spill  |
+|   [5]   | DRAIN_CANCEL | Band-200 drain participation; one linked cancellation chain with provenance |
 
 ## [2]-[LANE_AXIS]
 
@@ -179,7 +180,119 @@ The posture row supplies `hostReserve` per host-profile row at composition:
 |   [7]   | web-service        |       0        |
 |   [8]   | test-host          |       0        |
 
-## [5]-[DRAIN_CANCEL]
+## [5]-[JOB_GRAPH]
+
+- Owner: `JobNode` the dependency-graph node record carrying its `AdmittedIntent`, upstream dependency set, and scheduling columns; `JobState` `[SmartEnum<string>]` node-lifecycle rows; `JobGraph` the topological dependency-graph scheduler that admits a DAG of compute jobs, runs ready nodes onto the `LaneRuntime`, and reconciles speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store columns; `JobCheckpoint` the resume-state carrier the spill writes.
+- Cases: `JobState` rows pending · ready · running · speculative · preempted · completed · spilled · faulted.
+- Entry: `public IO<Fin<HashMap<string, JobState>>> Run(Seq<JobNode> nodes, LaneRuntime lanes, ClockPolicy clocks)` — `IO<Fin<...>>` carries the schedule effect; a cyclic dependency aborts `ComputeFault` before any node runs, and the topological frontier enqueues every ready node onto its declared `WorkLane` returning the final state map.
+- Auto: `Run` computes the ready frontier (nodes whose upstream set is all `completed`), enqueues each onto the `LaneRuntime` by its node-declared lane, and advances the state map as handles complete — a node marked speculative runs ahead of its confirmation and its result is discarded on a mispredict, a preemptible node yields its lane slot to a higher-fair-share tenant and resumes from its `JobCheckpoint`, and a node past its memory budget spills its intermediate state to the Persistence blob lane keyed by the node content-hash; accelerator affinity reorders the ready frontier so a node whose EP-context blob is warm on a node routes there through the same `Substrate` warm-affinity column the selection fold reads, never a second router; fair-share reads the per-tenant in-flight count off the `TenantContext` so no tenant starves the frontier.
+- Receipt: the `Sweep` `ComputeReceipt` case carries the graph node count, the completed/spilled/faulted split, and elapsed; each node's own execution rides its lane's existing receipts, so the graph adds the orchestration fact and never a per-node receipt union.
+- Packages: BCL inbox, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
+- Growth: a new node lifecycle is one `JobState` row; a new scheduling policy (speculation, preemption, fair-share, affinity, spill) is one column on `JobNode`; zero new surface — a `JobScheduler`/`WorkflowEngine`/`DagRunner` sibling surface is the rejected form collapsed onto the one `JobGraph` over the existing lanes.
+- Boundary: the job graph is the dependency-DAG layer over the existing bounded lanes — it enqueues `AdmittedIntent`s onto the `LaneRuntime` and never executes work itself, so the solve-path guard and backpressure the lanes own hold for graph nodes exactly as for direct enqueues, and a graph node that runs work outside a lane is the rejected form; speculative execution discards mispredicted results before they emit a receipt so a speculative node's side effects are receipt-gated, preemption resumes from the `JobCheckpoint` the spill wrote so a preempted long solve never restarts from zero, and spill-to-store rides the Persistence blob lane content-addressed by the node hash so a re-run reuses the spilled intermediate — a second checkpoint store is the rejected form; accelerator affinity and fair-share are `JobNode` columns the ready-frontier ordering reads, so distributed solve orchestration (the dependency scheduler the farm lacked) lands without a `FarmRouter`, reusing the `Substrate` warm-affinity and the AppHost `PeerRoster` load the selection fold already consumes; the cycle check runs once at admission and a cyclic graph faults before any node runs, never mid-schedule; `MarkDirty` is the real-time incremental parametric re-solve primitive — a changed input node transitively marks its downstream cone `Pending` and `Run` recomputes only the dirty subgraph against the still-`Completed` clean nodes, so a server-side headless merge-preview solve re-runs the touched parametric subgraph rather than the whole model, the dirty-set propagation reuses the same dependency edges the scheduler already walks, and a full recompute on a single-input change is the named defect this layer deletes.
+
+```csharp signature
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComputeKeyPolicy, string>]
+[KeyMemberComparer<ComputeKeyPolicy, string>]
+public sealed partial class JobState {
+    public static readonly JobState Pending = new("pending", terminal: false);
+    public static readonly JobState Ready = new("ready", terminal: false);
+    public static readonly JobState Running = new("running", terminal: false);
+    public static readonly JobState Speculative = new("speculative", terminal: false);
+    public static readonly JobState Preempted = new("preempted", terminal: false);
+    public static readonly JobState Completed = new("completed", terminal: true);
+    public static readonly JobState Spilled = new("spilled", terminal: false);
+    public static readonly JobState Faulted = new("faulted", terminal: true);
+
+    public bool Terminal { get; }
+}
+
+public sealed record JobCheckpoint(string NodeId, UInt128 ContentKey, ReadOnlyMemory<byte> State, Instant At);
+
+public sealed record JobNode(
+    string Id,
+    AdmittedIntent Intent,
+    Seq<string> DependsOn,
+    WorkLane Lane,
+    bool Speculative,
+    bool Preemptible,
+    int FairShareWeight,
+    Option<string> AcceleratorAffinity,
+    long MemoryBudgetBytes) {
+    public bool Ready(HashMap<string, JobState> states) =>
+        DependsOn.ForAll(dep => states.Find(dep).Map(static state => state == JobState.Completed).IfNone(false));
+}
+
+public sealed class JobGraph(Func<string, IO<Option<JobCheckpoint>>> spill) {
+    public IO<Fin<HashMap<string, JobState>>> Run(Seq<JobNode> nodes, LaneRuntime lanes, ClockPolicy clocks) =>
+        Cyclic(nodes)
+            ? IO.pure(Fin.Fail<HashMap<string, JobState>>(ComputeFault.Create("<job-graph-cycle>")))
+            : Schedule(nodes, lanes, clocks, nodes.Fold(HashMap<string, JobState>(), static (acc, node) => acc.Add(node.Id, JobState.Pending)));
+
+    IO<Fin<HashMap<string, JobState>>> Schedule(Seq<JobNode> nodes, LaneRuntime lanes, ClockPolicy clocks, HashMap<string, JobState> states) =>
+        states.Values.ForAll(static state => state.Terminal)
+            ? IO.pure(Fin.Succ(states))
+            : Frontier(nodes, states)
+                .OrderBy(node => node.AcceleratorAffinity.IsSome ? 0 : 1)
+                .ThenByDescending(static node => node.FairShareWeight)
+                .ToSeq()
+                .TraverseM(node => lanes.Enqueue(node.Intent).Map(handle => (node.Id, handle)))
+                .Bind(launched => Schedule(nodes, lanes, clocks, launched.Fold(states, static (acc, pair) => acc.SetItem(pair.Id, JobState.Running))));
+
+    public static HashMap<string, JobState> MarkDirty(Seq<JobNode> nodes, HashMap<string, JobState> states, Seq<string> changed) {
+        var dirty = changed.ToHashSet();
+        bool grew = true;
+        while (grew) {
+            grew = false;
+            foreach (var node in nodes.Filter(n => n.DependsOn.Exists(dirty.Contains) && !dirty.Contains(n.Id))) {
+                dirty = dirty.Add(node.Id);
+                grew = true;
+            }
+        }
+        return dirty.Fold(states, static (acc, id) => acc.SetItem(id, JobState.Pending));
+    }
+
+    static Seq<JobNode> Frontier(Seq<JobNode> nodes, HashMap<string, JobState> states) =>
+        nodes.Filter(node => states.Find(node.Id).Map(static state => state == JobState.Pending).IfNone(false) && node.Ready(states));
+
+    static bool Cyclic(Seq<JobNode> nodes) {
+        var ids = nodes.Map(static node => node.Id).ToHashSet();
+        var indegree = nodes.Fold(HashMap<string, int>(), static (acc, node) => acc.Add(node.Id, node.DependsOn.Count));
+        var queue = toSeq(indegree.Filter(static degree => degree == 0).Keys);
+        int visited = 0;
+        while (queue.HeadOrNone().Case is string head) {
+            queue = queue.Tail;
+            visited++;
+            foreach (var node in nodes.Filter(n => n.DependsOn.Contains(head))) {
+                indegree = indegree.SetItem(node.Id, indegree[node.Id] - 1);
+                if (indegree[node.Id] == 0) { queue = queue.Add(node.Id); }
+            }
+        }
+        return visited != ids.Count;
+    }
+}
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending
+    Pending --> Ready : upstream completed
+    Ready --> Running : enqueue
+    Ready --> Speculative : run-ahead
+    Running --> Preempted : yield slot
+    Preempted --> Running : resume checkpoint
+    Running --> Spilled : over memory budget
+    Spilled --> Running : reload spill
+    Speculative --> Completed : confirmed
+    Speculative --> Pending : mispredict discard
+    Running --> Completed
+    Running --> Faulted
+    Completed --> [*]
+    Faulted --> [*]
+```
+
+## [6]-[DRAIN_CANCEL]
 
 - Owner: `LaneDrain` — the participant fold projecting lane rows onto the drain conductor.
 - Cases: user cancel (handle scope), deadline expiry (scope deadline at the execution edge), shutdown drain (spine under the conductor) — provenance-preserved end to end through `CancelScope` path segments.
@@ -203,6 +316,6 @@ public static class LaneDrain {
 }
 ```
 
-## [6]-[RESEARCH]
+## [7]-[RESEARCH]
 
 - [LANE_EVIDENCE]: the bounded-channel `itemDropped` callback runs on the writer thread synchronously, so the drop-path `Backpressure` projection allocates only the receipt envelope at the sink edge; the per-drop allocation profile under sustained `DropOldest` capture-ingest load is the implementation-time measurement that confirms the steady-state path stays envelope-only.

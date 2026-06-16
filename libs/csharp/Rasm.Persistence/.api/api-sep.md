@@ -18,17 +18,19 @@ parallel enumeration.
 [ENTRY_TYPES]: specification and options
 - rail: interchange-codec
 
-| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]   | [CAPABILITY]              |
-| :-----: | :------------------- | :--------------- | :------------------------ |
-|   [1]   | `Sep`                | separator root   | selects separator         |
-|   [2]   | `SepSpec`            | specification    | carries separator culture |
-|   [3]   | `SepDefaults`        | default anchors  | states default policy     |
-|   [4]   | `SepReaderOptions`   | reader options   | configures parsing        |
-|   [5]   | `SepWriterOptions`   | writer options   | configures emission       |
-|   [6]   | `SepTrim`            | trim classifier  | selects trimming          |
-|   [7]   | `SepColNotSetOption` | unset classifier | values `Throw`/`Empty`/`Skip`; binds writer leg via `SepWriterOptions.ColNotSetOption` (reader options carry no unset knob) |
-|   [8]   | `SepToString`        | string pool root | pools column strings      |
-|   [9]   | `SepCreateToString`  | pool factory     | creates string pools      |
+`SepColNotSetOption` values are `Throw`, `Empty`, and `Skip`; the knob binds through `SepWriterOptions.ColNotSetOption`, not reader options.
+
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]   | [CAPABILITY]          |
+| :-----: | :------------------- | :--------------- | :-------------------- |
+|   [1]   | `Sep`                | separator root   | selects separator     |
+|   [2]   | `SepSpec`            | specification    | carries culture       |
+|   [3]   | `SepDefaults`        | default anchors  | states default policy |
+|   [4]   | `SepReaderOptions`   | reader options   | configures parsing    |
+|   [5]   | `SepWriterOptions`   | writer options   | configures emission   |
+|   [6]   | `SepTrim`            | trim classifier  | selects trimming      |
+|   [7]   | `SepColNotSetOption` | unset classifier | handles unset columns |
+|   [8]   | `SepToString`        | string pool root | pools column strings  |
+|   [9]   | `SepCreateToString`  | pool factory     | creates string pools  |
 
 [READER_TYPES]: read surfaces
 - rail: interchange-codec
@@ -76,20 +78,22 @@ parallel enumeration.
 [ENTRYPOINT_SCOPE]: row and column access
 - rail: interchange-codec
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]    | [CAPABILITY]                          |
-| :-----: | :----------------- | :-------------- | :------------------------------------ |
-|   [1]   | `MoveNext`         | reader call     | advances row                          |
-|   [2]   | `MoveNextAsync`    | reader call     | advances row async                    |
-|   [3]   | `Current`          | reader property | exposes current row                   |
-|   [4]   | `Row[..]`          | row indexer     | selects cols by index, name, or range |
-|   [5]   | `Col.Span`         | col property    | exposes column chars                  |
-|   [6]   | `Col.Parse`        | col call        | parses `ISpanParsable`                |
-|   [7]   | `Col.TryParse`     | col call        | parses optionally                     |
-|   [8]   | `Cols.Parse`       | cols call       | parses column set                     |
-|   [9]   | `Cols.Select`      | cols call       | projects column set                   |
-|  [10]   | `Header.IndexOf`   | header call     | resolves column index                 |
-|  [11]   | `Header.IndicesOf` | header call     | resolves column indices               |
-|  [12]   | `Header.NamesStartingWith` | header call | resolves prefixed column-name window (`(string prefix, StringComparison comparison = StringComparison.Ordinal)`) |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]    | [CAPABILITY]                         |
+| :-----: | :------------------------- | :-------------- | :----------------------------------- |
+|   [1]   | `MoveNext`                 | reader call     | advances row                         |
+|   [2]   | `MoveNextAsync`            | reader call     | advances row async                   |
+|   [3]   | `Current`                  | reader property | exposes current row                  |
+|   [4]   | `Row[..]`                  | row indexer     | selects columns                      |
+|   [5]   | `Col.Span`                 | col property    | exposes column chars                 |
+|   [6]   | `Col.Parse`                | col call        | parses `ISpanParsable`               |
+|   [7]   | `Col.TryParse`             | col call        | parses optionally                    |
+|   [8]   | `Cols.Parse`               | cols call       | parses column set                    |
+|   [9]   | `Cols.Select`              | cols call       | projects column set                  |
+|  [10]   | `Header.IndexOf`           | header call     | resolves column index                |
+|  [11]   | `Header.IndicesOf`         | header call     | resolves column indices              |
+|  [12]   | `Header.NamesStartingWith` | header call     | resolves prefixed column-name window |
+
+`Header.NamesStartingWith` accepts a prefix and optional `StringComparison`, defaulting to `StringComparison.Ordinal`.
 
 [ENTRYPOINT_SCOPE]: row enumeration
 - rail: interchange-codec

@@ -4,40 +4,47 @@ The `.planning/` corpus is finalized; this roadmap carries the implementation se
 
 ## [1]-[CURRENT_POSITION]
 
-| [INDEX] | [SURFACE]         | [STATE]                                   |
-| :-----: | :---------------- | :---------------------------------------- |
-|   [1]   | planning corpus   | finalized; charter complete               |
-|   [2]   | package graph     | runtime closure admitted and lock-tracked |
-|   [3]   | production source | absent                                    |
-|   [4]   | test project      | `Rasm.AppHost.Tests` node present, empty  |
+| [INDEX] | [SURFACE]         | [STATE]                                                |
+| :-----: | :---------------- | :----------------------------------------------------- |
+|   [1]   | planning corpus   | finalized; charter complete                            |
+|   [2]   | package graph     | runtime closure admitted and lock-tracked              |
+|   [3]   | production source | absent                                                 |
+|   [4]   | test project      | `Rasm.AppHost.Tests` node present, empty               |
 |   [5]   | API catalogues    | current; app-root pins catalogued at app-root creation |
 
 ## [2]-[START_GATES]
 
 Implementation-start gates are the bridge-proofed spikes and research-resolution probes that need a live host or scratch process. Decompile-grade research items (`assay api query`) resolve inline inside the owning task and are not listed.
 
-| [INDEX] | [GATE]                                                             | [PROBE]                                                                             | [UNBLOCKS]                              |
-| :-----: | :----------------------------------------------------------------- | :---------------------------------------------------------------------------------- | :-------------------------------------- |
-|   [1]   | Generic Host boot and unload in plugin ALC                         | `uv run python -m tools.assay bridge verify --pattern host_boot_drain`              | host-profiles#LIFETIME_ADAPTERS         |
-|   [2]   | Kestrel/ASP.NET shared framework in RhinoWIP plugin ALC            | bridge scenario at the Rhino app root serving grpc.health over UDS                  | outbound-resilience#DISCOVERY_ATTACH    |
-|   [3]   | drain ForceFlush latency inside the cooperative allotment          | `libs/csharp/Rasm.AppHost/scenarios/drain-deadlines.verify.csx` under live RhinoWIP | time-and-deadlines#DEADLINE_TAXONOMY    |
-|   [4]   | SIGHUP delivery under launchd and systemd                          | `dotnet run` scratch headless host; `kill -HUP` asserts one reload, zero drains     | lifecycle-and-drain#FAULT_SPINE         |
-|   [5]   | secrets-store keychain provider route                              | `dotnet run` keychain spike: P/Invoke versus `/usr/bin/security` child              | configuration-and-options#SOURCE_AXIS   |
-|   [6]   | binder generator interception of `Get<T>` with fail-closed options | `dotnet build` probe project + binlog inspection of emitted interceptors            | configuration-and-options#TYPED_BINDING |
-|   [7]   | host-document transition reload over the in-memory mount           | `dotnet run` ConfigurationManager probe asserting one monitor invocation            | configuration-and-options#SOURCE_AXIS   |
-|   [8]   | UDS peer-credential raw-option read on macOS and Linux             | `dotnet run` UDS accept spike asserting LOCAL_PEERCRED                              | outbound-resilience#DISCOVERY_ATTACH    |
-|   [9]   | dump and gcdump tool admission for the process-dump row            | `dotnet package search dotnet-gcdump --exact-match`                                 | support-bundles#CAPTURE_PIPELINE        |
-|  [10]   | web app-root static-asset compile under the shared framework       | `dotnet build` scratch web root compiling `UseStaticFiles` + `MapFallbackToFile`    | host-profiles#PROFILE_AXIS              |
-|  [11]   | assay test rail row for the package test project                   | `uv run python -m tools.assay test run --target Rasm.AppHost.Tests`                 | every G4 proof below                    |
-|  [12]   | Velopack `VelopackHook` delegate-signature probe                   | `dotnet build` probe project reflecting `typeof(VelopackHook)` at the app-root bootstrap | provisioning-and-update#UPDATE_RAIL |
-|  [13]   | `ServiceMappingCollection.Map` versus `MapService` distinction     | `dotnet build` probe inspecting `GrpcHealthChecksOptions.Services` member behavior  | companion-sidecar#CONTROL_SERVICE       |
-|  [14]   | cross-process degradation-cascade convergence under the live host  | bridge scenario: companion observes parent level over the control hop, floors its cell, re-derives on release | companion-sidecar#DEGRADATION_CASCADE |
+| [INDEX] | [GATE]                                                             | [PROBE]                                                                                                       | [UNBLOCKS]                              |
+| :-----: | :----------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :-------------------------------------- |
+|   [1]   | Generic Host boot and unload in plugin ALC                         | `uv run python -m tools.assay bridge verify --pattern host_boot_drain`                                        | host-profiles#LIFETIME_ADAPTERS         |
+|   [2]   | Kestrel/ASP.NET shared framework in RhinoWIP plugin ALC            | bridge scenario at the Rhino app root serving grpc.health over UDS                                            | outbound-resilience#DISCOVERY_ATTACH    |
+|   [3]   | drain ForceFlush latency inside the cooperative allotment          | `libs/csharp/Rasm.AppHost/scenarios/drain-deadlines.verify.csx` under live RhinoWIP                           | time-and-deadlines#DEADLINE_TAXONOMY    |
+|   [4]   | SIGHUP delivery under launchd and systemd                          | `dotnet run` scratch headless host; `kill -HUP` asserts one reload, zero drains                               | lifecycle-and-drain#FAULT_SPINE         |
+|   [5]   | secrets-store keychain provider route                              | `dotnet run` keychain spike: P/Invoke versus `/usr/bin/security` child                                        | configuration-and-options#SOURCE_AXIS   |
+|   [6]   | binder generator interception of `Get<T>` with fail-closed options | `dotnet build` probe project + binlog inspection of emitted interceptors                                      | configuration-and-options#TYPED_BINDING |
+|   [7]   | host-document transition reload over the in-memory mount           | `dotnet run` ConfigurationManager probe asserting one monitor invocation                                      | configuration-and-options#SOURCE_AXIS   |
+|   [8]   | UDS peer-credential raw-option read on macOS and Linux             | `dotnet run` UDS accept spike asserting LOCAL_PEERCRED                                                        | outbound-resilience#DISCOVERY_ATTACH    |
+|   [9]   | dump and gcdump tool admission for the process-dump row            | `dotnet package search dotnet-gcdump --exact-match`                                                           | support-bundles#CAPTURE_PIPELINE        |
+|  [10]   | web app-root static-asset compile under the shared framework       | `dotnet build` scratch web root compiling `UseStaticFiles` + `MapFallbackToFile`                              | host-profiles#PROFILE_AXIS              |
+|  [11]   | assay test rail row for the package test project                   | `uv run python -m tools.assay test run --target Rasm.AppHost.Tests`                                           | every G4 proof below                    |
+|  [12]   | Velopack `VelopackHook` delegate-signature probe                   | `dotnet build` probe project reflecting `typeof(VelopackHook)` at the app-root bootstrap                      | provisioning-and-update#UPDATE_RAIL     |
+|  [13]   | `ServiceMappingCollection.Map` versus `MapService` distinction     | `dotnet build` probe inspecting `GrpcHealthChecksOptions.Services` member behavior                            | companion-sidecar#CONTROL_SERVICE       |
+|  [14]   | cross-process degradation-cascade convergence under the live host  | bridge scenario: companion observes parent level over the control hop, floors its cell, re-derives on release | companion-sidecar#DEGRADATION_CASCADE   |
+|  [15]   | cross-RID floating-point determinism harness                       | tier-2 harness running a `FloatMode.CrossPlatform` workload on osx-arm64, linux-x64, win-x64 asserting bit-identity | determinism-and-replay#DETERMINISM_KERNEL |
+|  [16]   | MCP streaming/cancellation/resume over the server-stream substrate  | live agent transport at the service app root; `IServerStreamWriter<ProgressFrame>` fan + `notifications/cancelled` + resume cursor | mcp-projection#STREAM_PROGRESS          |
+|  [17]   | WASM component instantiation with a scope-derived import table       | integrated host with the admitted WASM runtime; fuel/memory counters feed the quota cell                       | sandbox-host#ISOLATION_AXIS             |
+|  [18]   | artifact signature + SLSA attestation verification                  | admitted cryptography surface; detached-signature check against the pinned publisher key, attestation parse     | sandbox-host#SUPPLY_CHAIN               |
+|  [19]   | solver representation negotiation lossless round-trip               | integrated host against the Compute equivalence-interop surface; canonical `EncodedTensor` round-trip           | solver-plugin#SOLVER_HOSTING            |
+|  [20]   | industrial-transport read/write + bidirectional feedback-loop guard  | integrated host against the admitted protocol clients and a live industrial source                             | live-wire#TRANSPORT_AXIS                |
+|  [21]   | macOS IOKit power-source + SMC thermal-pressure live read           | running device; `IOPSCopyPowerSourcesInfo` + `NSProcessInfo.thermalState`                                      | host-profiles#POWER_AND_FIDELITY        |
 
 ## [3]-[IMPLEMENTATION_TASKS]
 
 Ordered by the charter BUILD_ORDER; each task transcribes its page clusters verbatim, resolves the RESEARCH items those pages carry, and exits on the named proof.
 
-| [INDEX] | [TASK]             | [EXITS_AGAINST]                                                                                                            | [PROOF]                                                                                       |
+| [INDEX] | [TASK]             | [EXITS_AGAINST]                                                                                                            | [PROOF]                                                                                      |
 | :-----: | :----------------- | :------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
 |   [1]   | `Time.cs`          | time-and-deadlines#CLOCK_SPLIT, #DEADLINE_TAXONOMY, #SCHEDULE_PORT                                                         | G3 + G4: deadline receipts and cron occurrences under `FakeClock`/`FakeTimeProvider`         |
 |   [2]   | `Profiles.cs`      | host-profiles#PROFILE_AXIS, #LIFETIME_ADAPTERS, #RESOURCE_IDENTITY                                                         | G3 + G4: Resolve/Roots law matrix; G5: gate [1]                                              |
@@ -50,8 +57,14 @@ Ordered by the charter BUILD_ORDER; each task transcribes its page clusters verb
 |   [9]   | `Support.cs`       | support-bundles#TRIGGER_UNION, #CAPTURE_PIPELINE, #MANIFEST_RECEIPT                                                        | G3 + G4: coalesce gate, caps with truncation receipts, eviction sweep                        |
 |  [10]   | `Outbound.cs`      | outbound-resilience#HOP_AXIS, #HTTP_PIPELINES, #KEYED_PIPELINES, #OWNERSHIP_LAW, #DISCOVERY_ATTACH                         | G3 + G4: admission fold, owner-conflict evidence, breaker enforcement; G5: gates [2] and [8] |
 |  [11]   | `Ports.cs`         | runtime-ports#PORT_RECORDS, #WIRE_LAW                                                                                      | G3 + G4: HLC advance law, wire round-trip incl. NodaTime converter precedence                |
-|  [12]   | `Provisioning.cs`  | provisioning-and-update#UPDATE_RAIL, #CHANNEL_AXIS, #ROLLOVER_DRAIN                                                         | G3 + G4: downgrade foreclosure, per-phase receipts, drain-before-swap, staged-pending resume |
-|  [13]   | `Companion.cs`     | companion-sidecar#PROCESS_MODALITY, #CONTROL_SERVICE, #SERVICE_HOST, #DEGRADATION_CASCADE, #PEER_ADMISSION                  | G3 + G4 + G7: modality dispatch, verb folds, peer-cred read; G5: gates [2], [8], [12], [13]  |
+|  [12]   | `Provisioning.cs`  | provisioning-and-update#UPDATE_RAIL, #CHANNEL_AXIS, #ROLLOVER_DRAIN                                                        | G3 + G4: downgrade foreclosure, per-phase receipts, drain-before-swap, staged-pending resume |
+|  [13]   | `Companion.cs`     | companion-sidecar#PROCESS_MODALITY, #CONTROL_SERVICE, #SERVICE_HOST, #DEGRADATION_CASCADE, #PEER_ADMISSION                 | G3 + G4 + G7: modality dispatch, verb folds, peer-cred read; G5: gates [2], [8], [12], [13]  |
+|  [14]   | `CapabilityRegistry.cs` | capability-registry#DESCRIPTOR_AXIS, #DISCOVERY_FOLD, #COMMAND_ALGEBRA, #GRANT_BROKER, #SDK_CODEGEN                  | G3 + G4: descriptor totality, discovery shape-dispatch, commit-or-rollback, grant ceiling, schema-identity codegen |
+|  [15]   | `Determinism.cs`   | determinism-and-replay#DETERMINISM_KERNEL, #EVENT_LOG, #REPLAY_VERIFY, #MACRO_ENGINE, #RECOMPUTE_GRAPH                      | G3 + G4: chain-verify, replay hash identity, macro atomicity, recompute prune; G5: gate [15] |
+|  [16]   | `Mcp.cs`           | mcp-projection#METHOD_AXIS, #TOOL_DISPATCH, #STREAM_PROGRESS                                                               | G3 + G4 + G7: tool projection, dry-run-equals-charge, resumable reattach; G5: gate [16] |
+|  [17]   | `Sandbox.cs`       | sandbox-host#ISOLATION_AXIS, #GRANT_HANDLE, #QUOTA_CONTROL, #SUPPLY_CHAIN                                                  | G3 + G4: no-ambient import scope, quota breach kill, fail-closed admission; G5: gates [17], [18] |
+|  [18]   | `SolverPlugin.cs`  | solver-plugin#SOLVER_KIND, #PLUGIN_CONTRACT, #SOLVER_HOSTING                                                               | G3 + G4: kind-contract totality, representation negotiation; G5: gate [19] |
+|  [19]   | `LiveWire.cs`      | live-wire#TRANSPORT_AXIS, #BINDING_SPEC, #WRITE_BACK, #BINDING_HEALTH                                                      | G3 + G4: edge coercion totality, write-back rollback; G5: gate [20] |
 
 G1 and G2 run once before task [1] and again on any manifest or catalogue change; G6 runs on any page-diagram edit.
 
@@ -59,37 +72,37 @@ G1 and G2 run once before task [1] and again on any manifest or catalogue change
 
 Universal rails carry one shared legend (owner plus resolved member identical across the four packages); versions live in `Directory.Packages.props` and `.config/dotnet-tools.json`, never restated here.
 
-| [RAIL]                      | [OWNER]                  | [RESOLVED MEMBER / TOKEN]                                                                                       |
-| :-------------------------- | :----------------------- | :------------------------------------------------------------------------------------------------------------- |
-| xUnit v3 managed law        | `managed-laws.md [1]`    | `[Fact]`, `[Theory]`, `TheoryData<…>`, `[AssemblyFixture]`, `IClassFixture<T>`, `Assert.Throws*` (boundary-only) |
-| CsCheck PBT                 | `managed-laws.md [3]`    | `Spec.ForAll`, `Spec.Metamorphic`, `Spec.ModelBased`, `Spec.MetamorphicOps`; `Check.Sample`, `Check.SampleParallel`, `Check.Faster` |
-| coverlet.MTP coverage       | `evidence-rails.md [1]`  | `--coverlet`, `--coverlet-output-format`, `--coverlet-exclude-by-attribute`                                     |
-| dotnet-stryker mutation     | `evidence-rails.md [2]`  | `dotnet-stryker` modes `off` / `changed` / `full`                                                              |
-| Verify.XunitV3 snapshot     | `evidence-rails.md [3]`  | `Verify.XunitV3`                                                                                               |
-| ArchUnitNET architecture    | `specialized-rails.md [1]` | `TngTech.ArchUnitNET.xUnitV3`; rail `tests/csharp/_architecture`                                               |
+| [RAIL]                   | [OWNER]                    | [RESOLVED MEMBER / TOKEN]                                                                                                           |
+| :----------------------- | :------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+| xUnit v3 managed law     | `managed-laws.md [1]`      | `[Fact]`, `[Theory]`, `TheoryData<…>`, `[AssemblyFixture]`, `IClassFixture<T>`, `Assert.Throws*` (boundary-only)                    |
+| CsCheck PBT              | `managed-laws.md [3]`      | `Spec.ForAll`, `Spec.Metamorphic`, `Spec.ModelBased`, `Spec.MetamorphicOps`; `Check.Sample`, `Check.SampleParallel`, `Check.Faster` |
+| coverlet.MTP coverage    | `evidence-rails.md [1]`    | `--coverlet`, `--coverlet-output-format`, `--coverlet-exclude-by-attribute`                                                         |
+| dotnet-stryker mutation  | `evidence-rails.md [2]`    | `dotnet-stryker` modes `off` / `changed` / `full`                                                                                   |
+| Verify.XunitV3 snapshot  | `evidence-rails.md [3]`    | `Verify.XunitV3`                                                                                                                    |
+| ArchUnitNET architecture | `specialized-rails.md [1]` | `TngTech.ArchUnitNET.xUnitV3`; rail `tests/csharp/_architecture`                                                                    |
 
 Universal-rail concept differentiator:
 
-| [RAIL]                   | [CONCEPT PROVEN]                                                                                                                          |
-| :----------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| [RAIL]                   | [CONCEPT PROVEN]                                                                                                                                                                                               |
+| :----------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | xUnit v3 managed law     | boot-fold descriptor receipt (lifetime / dormant / decorated counts), schema and rank folds, options-admission validator law; `Assert.Throws*` only at the post-seal `HostApplicationBuilderSettings` boundary |
-| CsCheck PBT              | stamp-algebra causal-monotone order (`Advance` / `Receive`), degradation-rank FSM with hysteresis, `Atom` / `Ref` cell races on the phase spine |
-| coverlet.MTP coverage    | managed reachability of fold / projection / validator surfaces; runtime-owned native host paths classified out                            |
-| dotnet-stryker mutation  | killing oracle over rank-advance gradient, drain-band ordering, options relational `Validate` rows, schema-verdict switch                  |
-| Verify.XunitV3 snapshot  | redaction-projection reload-receipt JSON + composition-receipt JSON as normalized evidence JSON; scrub clocks and paths                   |
-| ArchUnitNET architecture | module / registration dependency direction; testing seams never enter production composition; no ambient-`TimeProvider`-now admission     |
+| CsCheck PBT              | stamp-algebra causal-monotone order (`Advance` / `Receive`), degradation-rank FSM with hysteresis, `Atom` / `Ref` cell races on the phase spine                                                                |
+| coverlet.MTP coverage    | managed reachability of fold / projection / validator surfaces; runtime-owned native host paths classified out                                                                                                 |
+| dotnet-stryker mutation  | killing oracle over rank-advance gradient, drain-band ordering, options relational `Validate` rows, schema-verdict switch                                                                                      |
+| Verify.XunitV3 snapshot  | redaction-projection reload-receipt JSON + composition-receipt JSON as normalized evidence JSON; scrub clocks and paths                                                                                        |
+| ArchUnitNET architecture | module / registration dependency direction; testing seams never enter production composition; no ambient-`TimeProvider`-now admission                                                                          |
 
 Package-specific rails:
 
-| [RAIL]                                      | [OWNER]                  | [CONCEPT PROVEN]                                                                                  | [RESOLVED MEMBER / TOKEN]                                                                              |
-| :------------------------------------------ | :----------------------- | :----------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-| telemetry-seam law (rides xUnit + runtime)  | `api-testing-seams.md`   | counter / log assertions over diagnostics signal governance — instrument tap + record sink       | `MetricCollector<T>`, `FakeLogCollector`, `FakeLogCollectorOptions`, `AddFakeLogging`, `GetSnapshot`, `GetMeasurementSnapshot` |
-| host/runtime scenarios                      | `testing/README.md [3]`  | live host boot, lifetime tokens, drain-band native settle; the deterministic-clock seam pairs both clock authorities | `FakeTimeProvider`, `FakeClock`, `SetUtcNow`, `Advance`, `FromUtc`                                     |
+| [RAIL]                                     | [OWNER]                 | [CONCEPT PROVEN]                                                                                                     | [RESOLVED MEMBER / TOKEN]                                                                                                      |
+| :----------------------------------------- | :---------------------- | :------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- |
+| telemetry-seam law (rides xUnit + runtime) | `api-testing-seams.md`  | counter / log assertions over diagnostics signal governance — instrument tap + record sink                           | `MetricCollector<T>`, `FakeLogCollector`, `FakeLogCollectorOptions`, `AddFakeLogging`, `GetSnapshot`, `GetMeasurementSnapshot` |
+| host/runtime scenarios                     | `testing/README.md [3]` | live host boot, lifetime tokens, drain-band native settle; the deterministic-clock seam pairs both clock authorities | `FakeTimeProvider`, `FakeClock`, `SetUtcNow`, `Advance`, `FromUtc`                                                             |
 
 N/A rails: BenchmarkDotNet — AppHost owns no durable managed numeric kernel (`specialized-rails.md [2]` reject names host / runtime surfaces). SharpFuzz — AppHost admits no parser / decoder / grammar surface; config binding is generator-on-generator (`specialized-rails.md [3]`).
 
 ## [5]-[EXIT]
 
-The package exits implementation when every BUILD_ORDER file is transcribed `Time.cs` through `Companion.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static build`, G4 `test run`, G5 `bridge verify`, G6 `mmdc` render, G7 `Grpc.Core.Api` spec compile), and the charter `spec` gate passes on the full suite.
+The package exits implementation when every BUILD_ORDER file is transcribed `Time.cs` through `LiveWire.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static build`, G4 `test run`, G5 `bridge verify`, G6 `mmdc` render, G7 `Grpc.Core.Api` spec compile), and the charter `spec` gate passes on the full suite.
 
 The residual host-bridge work is the close-out: every charter DENSITY_BAR `[STATE]=SPIKE` owner discharges its probe — named in that owner's page RESEARCH cluster — under live RhinoWIP or its scratch host, and every START_GATES row above lands as a settled fence row rather than a re-opened gate. The settled-spike targets and their entry route are carried by the charter REFINEMENT_HORIZON; this roadmap does not duplicate them.

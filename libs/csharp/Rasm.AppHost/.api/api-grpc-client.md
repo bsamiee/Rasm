@@ -20,75 +20,75 @@ compression, and HttpHandler injection are all owned here.
 [PUBLIC_TYPE_SCOPE]: channel family
 - rail: outbound-resilience
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]       | [RAIL]                    |
-| :-----: | :---------------------- | :------------------ | :------------------------ |
-|   [1]   | `GrpcChannel`           | channel             | outbound hop entry point  |
-|   [2]   | `GrpcChannelOptions`    | options record      | channel configuration     |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [RAIL]                   |
+| :-----: | :------------------- | :------------- | :----------------------- |
+|   [1]   | `GrpcChannel`        | channel        | outbound hop entry point |
+|   [2]   | `GrpcChannelOptions` | options record | channel configuration    |
 
 [PUBLIC_TYPE_SCOPE]: credential family (Grpc.Core)
 - rail: outbound-resilience
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]       | [RAIL]                       |
-| :-----: | :----------------------------------- | :------------------ | :--------------------------- |
-|   [1]   | `ChannelCredentials`                 | transport cred base | TLS / insecure selector      |
-|   [2]   | `CallCredentials`                    | per-call cred       | auth interceptor wrapper     |
-|   [3]   | `CallInvoker`                        | abstract invoker    | RPC dispatch surface         |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]       | [RAIL]                   |
+| :-----: | :------------------- | :------------------ | :----------------------- |
+|   [1]   | `ChannelCredentials` | transport cred base | TLS / insecure selector  |
+|   [2]   | `CallCredentials`    | per-call cred       | auth interceptor wrapper |
+|   [3]   | `CallInvoker`        | abstract invoker    | RPC dispatch surface     |
 
 [PUBLIC_TYPE_SCOPE]: configuration family
 - rail: outbound-resilience
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]       | [RAIL]                     |
-| :-----: | :-------------------- | :------------------ | :------------------------- |
-|   [1]   | `ServiceConfig`       | service config      | retry / hedging / LB root  |
-|   [2]   | `MethodConfig`        | per-method config   | retry or hedging policy    |
-|   [3]   | `RetryPolicy`         | retry config        | method-level retry         |
-|   [4]   | `HedgingPolicy`       | hedging config      | method-level hedging       |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]     | [RAIL]                    |
+| :-----: | :-------------- | :---------------- | :------------------------ |
+|   [1]   | `ServiceConfig` | service config    | retry / hedging / LB root |
+|   [2]   | `MethodConfig`  | per-method config | retry or hedging policy   |
+|   [3]   | `RetryPolicy`   | retry config      | method-level retry        |
+|   [4]   | `HedgingPolicy` | hedging config    | method-level hedging      |
 
 [PUBLIC_TYPE_SCOPE]: compression family (Grpc.Net.Common)
 - rail: outbound-resilience
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [RAIL]                    |
-| :-----: | :----------------------- | :------------------ | :------------------------ |
-|   [1]   | `ICompressionProvider`   | compression port    | encode/decode contract    |
-|   [2]   | `GzipCompressionProvider`| built-in impl       | gzip codec                |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]    | [RAIL]                 |
+| :-----: | :------------------------ | :--------------- | :--------------------- |
+|   [1]   | `ICompressionProvider`    | compression port | encode/decode contract |
+|   [2]   | `GzipCompressionProvider` | built-in impl    | gzip codec             |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: channel factory
 - rail: outbound-resilience
 
-| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [RAIL]                    |
-| :-----: | :------------------------------------------------- | :-------------- | :------------------------ |
-|   [1]   | `GrpcChannel.ForAddress(string)`                   | static factory  | address-only channel      |
-|   [2]   | `GrpcChannel.ForAddress(Uri)`                      | static factory  | uri-only channel          |
-|   [3]   | `GrpcChannel.ForAddress(string, GrpcChannelOptions)` | static factory | configured channel        |
-|   [4]   | `GrpcChannel.ForAddress(Uri, GrpcChannelOptions)`  | static factory  | configured channel (uri)  |
-|   [5]   | `GrpcChannel.CreateCallInvoker()`                  | invoker factory | returns `CallInvoker`     |
-|   [6]   | `GrpcChannel.ConnectAsync(CancellationToken)`      | explicit connect | pre-warm connection      |
-|   [7]   | `GrpcChannel.WaitForStateChangedAsync(ConnectivityState, CancellationToken)` | state observe | await connectivity transition |
-|   [8]   | `GrpcChannel.Dispose()`                            | disposal        | channel teardown          |
+| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY]   | [RAIL]                        |
+| :-----: | :--------------------------------------------------------------------------- | :--------------- | :---------------------------- |
+|   [1]   | `GrpcChannel.ForAddress(string)`                                             | static factory   | address-only channel          |
+|   [2]   | `GrpcChannel.ForAddress(Uri)`                                                | static factory   | uri-only channel              |
+|   [3]   | `GrpcChannel.ForAddress(string, GrpcChannelOptions)`                         | static factory   | configured channel            |
+|   [4]   | `GrpcChannel.ForAddress(Uri, GrpcChannelOptions)`                            | static factory   | configured channel (uri)      |
+|   [5]   | `GrpcChannel.CreateCallInvoker()`                                            | invoker factory  | returns `CallInvoker`         |
+|   [6]   | `GrpcChannel.ConnectAsync(CancellationToken)`                                | explicit connect | pre-warm connection           |
+|   [7]   | `GrpcChannel.WaitForStateChangedAsync(ConnectivityState, CancellationToken)` | state observe    | await connectivity transition |
+|   [8]   | `GrpcChannel.Dispose()`                                                      | disposal         | channel teardown              |
 
 [ENTRYPOINT_SCOPE]: credential composition
 - rail: outbound-resilience
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]    | [RAIL]                        |
-| :-----: | :----------------------------------------------------------- | :---------------- | :---------------------------- |
-|   [1]   | `ChannelCredentials.Create(ChannelCredentials, CallCredentials)` | static compose | composite cred construction |
-|   [2]   | `ChannelCredentials.Insecure`                                | static singleton  | http:// transport             |
-|   [3]   | `ChannelCredentials.SecureSsl`                               | static singleton  | https:// transport            |
-|   [4]   | `CallCredentials.FromInterceptor(AsyncAuthInterceptor)`      | static factory    | auth header interceptor       |
-|   [5]   | `CallCredentials.Compose(CallCredentials[])`                 | static compose    | multi-interceptor chain       |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY]   | [RAIL]                      |
+| :-----: | :--------------------------------------------------------------- | :--------------- | :-------------------------- |
+|   [1]   | `ChannelCredentials.Create(ChannelCredentials, CallCredentials)` | static compose   | composite cred construction |
+|   [2]   | `ChannelCredentials.Insecure`                                    | static singleton | http:// transport           |
+|   [3]   | `ChannelCredentials.SecureSsl`                                   | static singleton | https:// transport          |
+|   [4]   | `CallCredentials.FromInterceptor(AsyncAuthInterceptor)`          | static factory   | auth header interceptor     |
+|   [5]   | `CallCredentials.Compose(CallCredentials[])`                     | static compose   | multi-interceptor chain     |
 
 [ENTRYPOINT_SCOPE]: CallInvoker dispatch (Grpc.Core abstract)
 - rail: outbound-resilience
 
-| [INDEX] | [SURFACE]                     | [ENTRY_FAMILY]   | [RAIL]                     |
-| :-----: | :---------------------------- | :--------------- | :------------------------- |
-|   [1]   | `AsyncUnaryCall`              | abstract method  | unary RPC                  |
-|   [2]   | `BlockingUnaryCall`           | abstract method  | blocking unary RPC         |
-|   [3]   | `AsyncServerStreamingCall`    | abstract method  | server-streaming RPC       |
-|   [4]   | `AsyncClientStreamingCall`    | abstract method  | client-streaming RPC       |
-|   [5]   | `AsyncDuplexStreamingCall`    | abstract method  | bidirectional streaming    |
+| [INDEX] | [SURFACE]                  | [ENTRY_FAMILY]  | [RAIL]                  |
+| :-----: | :------------------------- | :-------------- | :---------------------- |
+|   [1]   | `AsyncUnaryCall`           | abstract method | unary RPC               |
+|   [2]   | `BlockingUnaryCall`        | abstract method | blocking unary RPC      |
+|   [3]   | `AsyncServerStreamingCall` | abstract method | server-streaming RPC    |
+|   [4]   | `AsyncClientStreamingCall` | abstract method | client-streaming RPC    |
+|   [5]   | `AsyncDuplexStreamingCall` | abstract method | bidirectional streaming |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

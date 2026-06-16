@@ -300,12 +300,12 @@ flowchart LR
 
 ## [6]-[CONFLICT_RESOLUTION]
 
-- Owner: `ConflictPane<TReceipt>` projection record with its `Project` fold.
-- Cases: kind keys local-win, remote-win, merged, rejected arrive as projection values from the Persistence conflict union; four resolution intent keys — conflict.accept-local, conflict.accept-remote, conflict.merge, conflict.discard.
-- Entry: `Project(TReceipt receipt, Func<TReceipt, string> kind, Func<TReceipt, string> target, Func<TReceipt, string> local, Func<TReceipt, string> remote, Func<TReceipt, string> stamp)` — total projection, zero re-modeling of the source union.
+- Owner: `ConflictPane<TReceipt>` projection record with its `Project` fold; `ThreeWay` the base-local-remote hunk differ; `ConflictSide` the resolution-side axis; `GeometryDiff` the geometry-delta projection.
+- Cases: kind keys local-win, remote-win, merged, rejected arrive as projection values from the Persistence conflict union; `ConflictSide` = local | remote | base; seven resolution intent keys — conflict.accept-local, conflict.accept-remote, conflict.merge, conflict.discard, conflict.hunk-local, conflict.hunk-remote, conflict.preview-resolve.
+- Entry: `Project(TReceipt receipt, Func<TReceipt, string> kind, ..., Func<TReceipt, string> baseText, Func<TReceipt, string> stamp, Func<TReceipt, Option<GeometryDiff>> geometry)` — total projection, zero re-modeling of the source union; `PreviewMerge(HashMap<int, ConflictSide> choices)` — the live merge-preview fold over the hunk choices.
 - Packages: LanguageExt.Core
-- Growth: one resolution intent row; zero new surface — resolution verbs derive into the command table, never a conflict-local command registry.
-- Boundary: the receipt enters generically with delegate extraction columns because Persistence owns the conflict vocabulary — the pane re-declares nothing; `Stamp` carries the HLC text of the op-log envelope; modal presentation reuses the Form dialog intent with one conflict content-template row, never a new dialog case; the side-by-side body renders `Local` and `Remote` through two read-only `CodePane` viewers; chosen verbs sink an `EditReceipt` conflict kind whose outcome carries the resolution.
+- Growth: one resolution intent row; one `ConflictSide` value; zero new surface — resolution verbs derive into the command table, never a conflict-local command registry.
+- Boundary: the receipt enters generically with delegate extraction columns because Persistence owns the conflict vocabulary — the pane re-declares nothing; `Stamp` carries the HLC text of the op-log envelope; the three-way resolver folds the base, local, and remote texts into `ThreeWayHunk` rows where a hunk is conflicted only when both sides diverge from base differently, so an auto-mergeable hunk takes the changed side and only a genuine conflict surfaces — a two-way diff that flags every divergence is the deleted form; per-hunk resolution rides the `conflict.hunk-local`/`conflict.hunk-remote` intents so a user takes one side per conflicted hunk and `PreviewMerge` folds the chosen sides into the merged text live, the merge-preview that re-solves on every choice without committing; the geometry-diff viewport is the `GeometryDiff` projection — the added, removed, and modified element ids plus the local and remote `Viewpoint` cameras so the side-by-side geometry compare renders two viewport surfaces framed by the same camera through the viewport-pipeline owner and the changed elements highlight through the viewpoint color overrides, blocked at runtime on the viewport GPU surface but fence-complete now over the 2D-fallback projection; modal presentation reuses the Form dialog intent with one conflict content-template row, never a new dialog case; the side-by-side text body renders `Local`, `Remote`, and `Base` through three read-only `CodePane` viewers; chosen verbs sink an `EditReceipt` conflict kind whose outcome carries the resolution.
 
 ```csharp signature
 public sealed record ConflictPane<TReceipt>(
@@ -314,12 +314,18 @@ public sealed record ConflictPane<TReceipt>(
     string Target,
     string Local,
     string Remote,
+    string Base,
     string Stamp,
+    Seq<ThreeWayHunk> Hunks,
+    Option<GeometryDiff> Geometry,
     Seq<string> ResolutionIntents) {
     public const string AcceptLocalIntent = "conflict.accept-local";
     public const string AcceptRemoteIntent = "conflict.accept-remote";
     public const string MergeIntent = "conflict.merge";
     public const string DiscardIntent = "conflict.discard";
+    public const string TakeHunkLocalIntent = "conflict.hunk-local";
+    public const string TakeHunkRemoteIntent = "conflict.hunk-remote";
+    public const string PreviewIntent = "conflict.preview-resolve";
 
     public static ConflictPane<TReceipt> Project(
         TReceipt receipt,
@@ -327,9 +333,51 @@ public sealed record ConflictPane<TReceipt>(
         Func<TReceipt, string> target,
         Func<TReceipt, string> local,
         Func<TReceipt, string> remote,
-        Func<TReceipt, string> stamp) =>
-        new(receipt, kind(receipt), target(receipt), local(receipt), remote(receipt), stamp(receipt),
-            Seq(AcceptLocalIntent, AcceptRemoteIntent, MergeIntent, DiscardIntent));
+        Func<TReceipt, string> baseText,
+        Func<TReceipt, string> stamp,
+        Func<TReceipt, Option<GeometryDiff>> geometry) =>
+        new(receipt, kind(receipt), target(receipt), local(receipt), remote(receipt), baseText(receipt), stamp(receipt),
+            ThreeWay.Diff(baseText(receipt), local(receipt), remote(receipt)),
+            geometry(receipt),
+            Seq(AcceptLocalIntent, AcceptRemoteIntent, MergeIntent, DiscardIntent, TakeHunkLocalIntent, TakeHunkRemoteIntent, PreviewIntent));
+
+    public string PreviewMerge(HashMap<int, ConflictSide> choices) =>
+        string.Join("\n", Hunks.Map((hunk, index) =>
+            hunk.Conflicted
+                ? choices.Find(index).Match(Some: side => hunk.Side(side), None: () => hunk.Local)
+                : hunk.Base));
+}
+
+[SmartEnum<string>]
+public sealed partial class ConflictSide {
+    public static readonly ConflictSide Local = new("local");
+    public static readonly ConflictSide Remote = new("remote");
+    public static readonly ConflictSide Base = new("base");
+}
+
+public readonly record struct ThreeWayHunk(string Base, string Local, string Remote, bool Conflicted) {
+    public string Side(ConflictSide side) => side.Switch(local: _ => Local, remote: _ => Remote, @base: _ => Base);
+}
+
+public readonly record struct GeometryDiff(
+    Seq<string> AddedIds,
+    Seq<string> RemovedIds,
+    Seq<string> ModifiedIds,
+    Option<Viewpoint> LocalView,
+    Option<Viewpoint> RemoteView);
+
+public static class ThreeWay {
+    public static Seq<ThreeWayHunk> Diff(string baseText, string local, string remote) =>
+        Zip(Lines(baseText), Lines(local), Lines(remote))
+            .Map(static line => new ThreeWayHunk(
+                line.Base, line.Local, line.Remote,
+                Conflicted: line.Local != line.Base && line.Remote != line.Base && line.Local != line.Remote));
+
+    static Seq<string> Lines(string text) => toSeq(text.Split('\n'));
+
+    static Seq<(string Base, string Local, string Remote)> Zip(Seq<string> b, Seq<string> l, Seq<string> r) =>
+        toSeq(Enumerable.Range(0, Math.Max(b.Count, Math.Max(l.Count, r.Count)))
+            .Select(i => (i < b.Count ? b[i] : "", i < l.Count ? l[i] : "", i < r.Count ? r[i] : "")));
 }
 ```
 

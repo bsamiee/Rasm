@@ -14,12 +14,12 @@ Schema truth for every store the suite opens: `IdentityPolicy` is the three-row 
 
 ## [2]-[IDENTITY_POLICY]
 
-- Owner: `IdentityPolicy` `[SmartEnum<string>]` three rows under the `StoreKeyPolicy` ordinal accessor.
-- Cases: uuid-v7 (default), content-hash, natural-key — uuid-v7 orders B-tree inserts, content-hash addresses immutable payloads, natural-key admits caller-owned identifiers.
-- Entry: `public static Guid NextKey()` mints the uuid-v7 default; `public static UInt128 ContentKey(ReadOnlySpan<byte> content)` derives content identity — pure values.
-- Packages: Thinktecture.Runtime.Extensions, System.IO.Hashing, LanguageExt.Core, BCL inbox
-- Growth: one `IdentityPolicy` row (key text, clr type, per-provider default SQL, client-generated precedence); a v3/v5 namespace key is one future row on the same axis; zero new surface.
-- Boundary: every persisted key strategy in the package traces to one row here — uuid-ossp is the deleted extension route; the per-provider default-SQL columns feed column defaults as data, and the `ClientGenerated` precedence column resolves the double-generation gate — when it is set the model configures the key column `ValueGeneratedNever` so the client `Guid.CreateVersion7` value is authoritative and the provider default never fires on the same key, while a `false` value defers to the column default for server-minted rows; the sqlite `"uuid7()"` leg executes through the native function-registration rows; content identity is non-cryptographic XxHash128 with no security claim.
+- Owner: `IdentityPolicy` `[SmartEnum<string>]` three rows under the `StoreKeyPolicy` ordinal accessor; `ObjectAcl` is the per-object/per-branch capability-and-RBAC grant row; `SignedAuthorship` is the actor-identity attestation tying an op to a blame agent; `Authz` is the static surface folding object-level admission and authorship verification.
+- Cases: uuid-v7 (default), content-hash, natural-key — uuid-v7 orders B-tree inserts, content-hash addresses immutable payloads, natural-key admits caller-owned identifiers; `ObjectAcl` grants `Read | Write | Delete | Grant | Admin` per principal per object scope; `SignedAuthorship` carries the actor, the signing key id, and the op-digest signature.
+- Entry: `public static Guid NextKey()` mints the uuid-v7 default; `public static UInt128 ContentKey(ReadOnlySpan<byte> content)` derives content identity — pure values; `public static Fin<AclGrant> Admit(ObjectAcl acl, string principal, Seq<string> roles, AclGrant demand, UInt128 scope)` is the object-level admission fold and `public static bool Verify(SignedAuthorship authorship, UInt128 opDigest, Func<string, ReadOnlyMemory<byte>> publicKey)` checks an op's authorship.
+- Packages: Thinktecture.Runtime.Extensions, System.IO.Hashing, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
+- Growth: one `IdentityPolicy` row (key text, clr type, per-provider default SQL, client-generated precedence); a v3/v5 namespace key is one future row on the same axis; one `AclGrant` flag per new capability; one `ObjectAcl` scope per new gated object kind; zero new surface.
+- Boundary: every persisted key strategy in the package traces to one row here — uuid-ossp is the deleted extension route; the per-provider default-SQL columns feed column defaults as data, and the `ClientGenerated` precedence column resolves the double-generation gate — when it is set the model configures the key column `ValueGeneratedNever` so the client `Guid.CreateVersion7` value is authoritative and the provider default never fires on the same key, while a `false` value defers to the column default for server-minted rows; the sqlite `"uuid7()"` leg executes through the native function-registration rows; content identity is non-cryptographic XxHash128 with no security claim; object-level authorization is the per-object/per-branch RBAC-plus-capability grant — `ObjectAcl` scopes a grant to a document, a branch (the `version-control#COMMIT_DAG` `BranchAcl` is the branch-scoped projection of this fold), an element-set, or a tenant, and `Admit` folds the principal's direct grants with its role grants so a capability is the union, denying by default — a coarse table-level grant or a tenancy-only gate is the deleted form because the gate scopes to the object; signed authorship is the actor-identity-to-blame seam — every op carries a `SignedAuthorship` whose signature is over the op digest so a blame attribution (`version-control#TIME_TRAVEL`, `provenance#CAUSAL_DAG`) names a verified actor, not an unauthenticated `Actor` string, and the signing key id resolves through the AppHost identity seam (the signed actor identity is host-resolved, never minted here) so a forged authorship is detectable; the tenancy RLS gate (`server-tier#TENANCY_RLS`) stays the row-level coarse scope and the object-ACL is the fine within-tenant scope, two altitudes never duplicated.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -45,6 +45,58 @@ public sealed partial class IdentityPolicy {
     public static Guid NextKey() => Guid.CreateVersion7();
 
     public static UInt128 ContentKey(ReadOnlySpan<byte> content) => XxHash128.HashToUInt128(content);
+}
+
+[Flags]
+public enum AclGrant {
+    None = 0,
+    Read = 1,
+    Write = 2,
+    Delete = 4,
+    Grant = 8,
+    Admin = 16,
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
+public sealed partial class AclScope {
+    public static readonly AclScope Document = new("document");
+    public static readonly AclScope Branch = new("branch");
+    public static readonly AclScope ElementSet = new("element-set");
+    public static readonly AclScope Tenant = new("tenant");
+}
+
+public sealed record ObjectAcl(
+    UInt128 Scope,
+    AclScope Kind,
+    HashMap<string, AclGrant> Principals,
+    HashMap<string, AclGrant> Roles);
+
+public sealed record SignedAuthorship(
+    string Actor,
+    string SigningKeyId,
+    UInt128 OpDigest,
+    ReadOnlyMemory<byte> Signature,
+    Instant At);
+
+public static class Authz {
+    public static AclGrant Effective(ObjectAcl acl, string principal, Seq<string> roles) =>
+        roles.Fold(
+            acl.Principals.Find(principal).IfNone(AclGrant.None),
+            (acc, role) => acc | acl.Roles.Find(role).IfNone(AclGrant.None));
+
+    public static Fin<AclGrant> Admit(ObjectAcl acl, string principal, Seq<string> roles, AclGrant demand, UInt128 scope) =>
+        acl.Scope != scope
+            ? Fin.Fail<AclGrant>(Error.New($"<acl-scope-mismatch:{scope:x32}>"))
+            : Effective(acl, principal, roles) is var grant && (grant & demand) == demand
+                ? Fin.Succ(grant)
+                : Fin.Fail<AclGrant>(Error.New($"<acl-denied:{principal}:{demand}:{scope:x32}>"));
+
+    public static SignedAuthorship Attest(string actor, string signingKeyId, UInt128 opDigest, Func<UInt128, string, ReadOnlyMemory<byte>> sign, ClockPolicy clocks) =>
+        new(actor, signingKeyId, opDigest, sign(opDigest, signingKeyId), clocks.Now);
+
+    public static bool Verify(SignedAuthorship authorship, UInt128 opDigest, Func<string, ReadOnlyMemory<byte>, UInt128, bool> verify) =>
+        authorship.OpDigest == opDigest && verify(authorship.SigningKeyId, authorship.Signature, opDigest);
 }
 ```
 
@@ -244,6 +296,7 @@ public static class ConverterRail {
 
 ## [7]-[RESEARCH]
 
+- [AUTHORSHIP_SIGNING_KEY]: the AppHost-resolved signing-key seam the `Authz.Attest`/`Verify` fold consumes — the host credential-store key handle (macOS keychain / DPAPI / credential store) the signing key id resolves through, proven by tier-1 decompile member-shape only because an unattended credential-store read prompts the operator, with the op-digest signature algorithm and the public-key verification confirmed against the host identity seam at the integrated host.
 - [COMPOSITE_DDL]: the `MapComposite` runtime overload arity for a `(Type, name)` pair and the migration-side `CREATE TYPE` emission path for a `SchemaDdl.Composite` row — whether the EF model annotation surface emits the composite-type DDL or a manual `MigrationBuilder.Sql` row carries it; the `Composites` set stays empty until a real composite landmark resolves this.
 - [ENUM_DDL]: the `MapEnum<TEnum>` data-source-builder overload arity carrying the `(pgName, INpgsqlNameTranslator)` pair and the migration-side `CREATE TYPE ... AS ENUM` emission path for a `SchemaDdl.Enum` row through `HasPostgresEnum<TEnum>` — whether the `PostgresEnum` model annotation emits the enum-type DDL directly; the `Enums` set stays empty until a native pg enum landmark resolves this.
 - [TEMPORAL_PATTERN_MEMBERS]: the exact NodaTime round-trip static pattern instance per CLR type for the `SqlitePatterns` table — `DurationPattern`, `PeriodPattern`, `LocalDatePattern`, `LocalTimePattern`, `ZonedDateTimePattern`, and `OffsetDateTimePattern` carry one ISO round-trip instance each beside the confirmed `InstantPattern.ExtendedIso`, resolved against the installed NodaTime assembly before the per-type rows land beside the instant row.

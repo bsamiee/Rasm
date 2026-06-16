@@ -19,35 +19,35 @@ READY/STOPPING state and the watchdog keep-alive over the notify socket.
 [PUBLIC_TYPE_SCOPE]: systemd lifetime family
 - rail: composition
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]    | [CAPABILITY]                   |
-| :-----: | :----------------------------- | :---------------- | :----------------------------- |
-|   [1]   | `SystemdHostBuilderExtensions` | builder surface   | systemd lifetime registration  |
-|   [2]   | `SystemdLifetime`              | host lifetime     | notify-aware start and stop    |
-|   [3]   | `ISystemdNotifier`             | notifier contract | sd_notify channel              |
-|   [4]   | `SystemdNotifier`              | notifier          | notify socket writer           |
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]    | [CAPABILITY]                     |
+| :-----: | :----------------------------- | :---------------- | :------------------------------- |
+|   [1]   | `SystemdHostBuilderExtensions` | builder surface   | systemd lifetime registration    |
+|   [2]   | `SystemdLifetime`              | host lifetime     | notify-aware start and stop      |
+|   [3]   | `ISystemdNotifier`             | notifier contract | sd_notify channel                |
+|   [4]   | `SystemdNotifier`              | notifier          | notify socket writer             |
 |   [5]   | `ServiceState`                 | state value       | READY/STOPPING/WATCHDOG payloads |
-|   [6]   | `SystemdHelpers`               | environment probe | systemd service detection      |
+|   [6]   | `SystemdHelpers`               | environment probe | systemd service detection        |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: lifetime registration
 - rail: composition
 
-| [INDEX] | [SURFACE]           | [CALL_SHAPE]                                        | [CAPABILITY]                 |
-| :-----: | :------------------ | :-------------------------------------------------- | :--------------------------- |
-|   [1]   | `UseSystemd`        | `IHostBuilder` extension                            | conditional systemd lifetime |
-|   [2]   | `AddSystemd`        | `IServiceCollection` extension                      | systemd lifetime services    |
+| [INDEX] | [SURFACE]    | [CALL_SHAPE]                   | [CAPABILITY]                 |
+| :-----: | :----------- | :----------------------------- | :--------------------------- |
+|   [1]   | `UseSystemd` | `IHostBuilder` extension       | conditional systemd lifetime |
+|   [2]   | `AddSystemd` | `IServiceCollection` extension | systemd lifetime services    |
 
 [ENTRYPOINT_SCOPE]: lifetime operations
 - rail: composition
 
-| [INDEX] | [SURFACE]           | [CALL_SHAPE]             | [CAPABILITY]                       |
-| :-----: | :------------------ | :----------------------- | :--------------------------------- |
-|   [1]   | `IsSystemdService`  | static environment probe | detects systemd service host       |
-|   [2]   | `Notify`            | `ServiceState` payload   | sends sd_notify state              |
-|   [3]   | `IsEnabled`         | notifier property        | reports notify socket presence     |
-|   [4]   | `WaitForStartAsync` | lifetime start hook      | signals READY running state        |
-|   [5]   | `StopAsync`         | lifetime stop hook       | signals STOPPING                   |
+| [INDEX] | [SURFACE]           | [CALL_SHAPE]             | [CAPABILITY]                   |
+| :-----: | :------------------ | :----------------------- | :----------------------------- |
+|   [1]   | `IsSystemdService`  | static environment probe | detects systemd service host   |
+|   [2]   | `Notify`            | `ServiceState` payload   | sends sd_notify state          |
+|   [3]   | `IsEnabled`         | notifier property        | reports notify socket presence |
+|   [4]   | `WaitForStartAsync` | lifetime start hook      | signals READY running state    |
+|   [5]   | `StopAsync`         | lifetime stop hook       | signals STOPPING               |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

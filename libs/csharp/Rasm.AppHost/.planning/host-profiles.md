@@ -1,14 +1,15 @@
 # [APPHOST_HOST_PROFILES]
 
-Rasm.AppHost boots every process through one host-variance axis: eight string-keyed `HostProfile` rows carry every modality difference as column values and delegate bindings, one `Resolve` fold materializes the `ResolvedProfile` record siblings consume, one `Boot` fold turns that record into a configured Generic Host builder, and one identity fold derives per-user roots and telemetry resource attributes from the same record. The page owns the profile axis, the lifetime-adapter delegate rows, and the resource-identity fold over Microsoft.Extensions.Hosting, Thinktecture-generated vocabulary, LanguageExt rails, NodaTime instants, and the OpenTelemetry resource seam.
+Rasm.AppHost boots every process through one host-variance axis: eight string-keyed `HostProfile` rows carry every modality difference as column values and delegate bindings, one `Resolve` fold materializes the `ResolvedProfile` record siblings consume, one `Boot` fold turns that record into a configured Generic Host builder, one identity fold derives per-user roots and telemetry resource attributes from the same record, and one power-and-fidelity fold reads the live power state and thermal budget to scale compute fidelity on a battery- or thermally-constrained host. The page owns the profile axis, the lifetime-adapter delegate rows, the resource-identity fold, and the energy-aware fidelity scaling over Microsoft.Extensions.Hosting, Thinktecture-generated vocabulary, LanguageExt rails, NodaTime instants, the OpenTelemetry resource seam, and the macOS IOKit/SMC power-state native reads.
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                     |
-| :-----: | :---------------- | :------------------------------------------------------------------------- |
-|   [1]   | PROFILE_AXIS      | Eight rows resolve every modality variance into one record                 |
-|   [2]   | LIFETIME_ADAPTERS | Builder selection, lifetime delegates, HostOptions policy, hook projection |
-|   [3]   | RESOURCE_IDENTITY | Per-user roots and telemetry resource identity                             |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                      |
+| :-----: | :----------------- | :-------------------------------------------------------------------------- |
+|   [1]   | PROFILE_AXIS       | Eight rows resolve every modality variance into one record                  |
+|   [2]   | LIFETIME_ADAPTERS  | Builder selection, lifetime delegates, HostOptions policy, hook projection  |
+|   [3]   | RESOURCE_IDENTITY  | Per-user roots and telemetry resource identity                              |
+|   [4]   | POWER_AND_FIDELITY | Power-state and thermal-budget reads; energy-aware compute-fidelity scaling |
 
 ## [2]-[PROFILE_AXIS]
 
@@ -240,8 +241,88 @@ public static class ProfileIdentity {
 }
 ```
 
-## [5]-[RESEARCH]
+## [5]-[POWER_AND_FIDELITY]
+
+- Owner: `PowerState` `[SmartEnum<string>]` the host power-source axis under the `HostProfileKeyPolicy` accessor; `ThermalPressure` `[SmartEnum<int>]` the rank-ordered thermal-budget vocabulary; `FidelityScale` the compute-fidelity policy record graded from power and thermal state; `PowerCell` the `MeterListener`-backed boundary capsule reading the live power and thermal instruments; `PowerProbe` the platform native-read surface over IOKit/SMC.
+- Cases: 3 power rows — plugged, battery, low-battery; 4 thermal rows — nominal(0), fair(1), serious(2), critical(3) — the macOS thermal-pressure ladder; `FidelityScale` grades the cross-product into a sustained-versus-burst compute profile.
+- Entry: `PowerProbe.Read()` returns `Fin<(PowerState Power, ThermalPressure Thermal, double BatteryFraction)>` — the platform native read of the power source, thermal-pressure level, and battery charge; `FidelityScale.Grade(PowerState power, ThermalPressure thermal, double battery)` is the total projection from power and thermal state into the fidelity profile the compute scheduler reads.
+- Auto: a plugged host at nominal thermal pressure grades to the full burst profile; a low-battery or critical-thermal host grades to the sustained profile that caps parallelism and lowers the compute fidelity tier so the device stays within its energy and thermal budget; the macOS thermal-pressure level reads through `NSProcessInfo.thermalState` exposed by the IOKit/SMC native probe, and battery charge reads through the IOKit power-source service, so the fidelity grade rides the OS's own power and thermal authority, never a guessed heuristic; the power state feeds the resource-pressure health contributor as one extra grade input so a thermally-throttled host degrades through the existing degradation rail, never a parallel power alarm.
+- Receipt: `FidelityScale` carries the parallelism cap, the fidelity tier, and the sustained flag the compute scheduler reads; a power-state transition logs through one `SpineLog` event in the 1000-1999 band.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: one power row absorbs a new power source; one thermal row absorbs a new pressure level; a new fidelity profile is one `FidelityScale` grade arm, never a parallel scaling owner; zero new surface.
+- Boundary: the power-and-fidelity fold is the only energy-awareness owner — a per-solve battery check, an ad hoc thermal poll, and a parallel power monitor are the deleted forms; the fidelity scale is data the Compute scheduler reads to bound its `CpuBudget` and lane parallelism, so the host owns the power-state truth and the compute scheduler consumes the fidelity grade, never re-reading the power state; the IOKit/SMC reads are macOS-only and a non-macOS host grades from the BCL battery-status fallback, so the probe is a platform branch on `PowerProbe`, never a separate owner; the power state enters the resource-pressure grade as a third input beside CPU and memory so a thermally-throttled host degrades on the same `Pressure`-tagged rule, never a new degradation level; the IOKit/SMC native reads stay a tier-3 live-host residual because the power-management framework needs the running device to report battery and thermal state.
+
+```csharp signature
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<HostProfileKeyPolicy, string>]
+[KeyMemberComparer<HostProfileKeyPolicy, string>]
+public sealed partial class PowerState {
+    public static readonly PowerState Plugged = new("plugged");
+    public static readonly PowerState Battery = new("battery");
+    public static readonly PowerState LowBattery = new("low-battery");
+}
+
+[SmartEnum<int>]
+public sealed partial class ThermalPressure {
+    public static readonly ThermalPressure Nominal = new(0);
+    public static readonly ThermalPressure Fair = new(1);
+    public static readonly ThermalPressure Serious = new(2);
+    public static readonly ThermalPressure Critical = new(3);
+}
+
+public sealed record FidelityScale(
+    int ParallelismCap,
+    int FidelityTier,
+    bool Sustained) {
+    public static readonly FidelityScale Burst = new(ParallelismCap: int.MaxValue, FidelityTier: 3, Sustained: false);
+    public static readonly FidelityScale Balanced = new(ParallelismCap: Environment.ProcessorCount, FidelityTier: 2, Sustained: false);
+    public static readonly FidelityScale Sustained = new(ParallelismCap: Environment.ProcessorCount / 2, FidelityTier: 1, Sustained: true);
+    public static readonly FidelityScale Conserve = new(ParallelismCap: 1, FidelityTier: 0, Sustained: true);
+
+    public static FidelityScale Grade(PowerState power, ThermalPressure thermal, double battery) =>
+        thermal.Value >= ThermalPressure.Critical.Value ? Conserve
+        : thermal.Value >= ThermalPressure.Serious.Value ? Sustained
+        : power == PowerState.LowBattery || (power == PowerState.Battery && battery < 0.2d) ? Sustained
+        : power == PowerState.Battery ? Balanced
+        : Burst;
+}
+
+public sealed class PowerCell : IDisposable {
+    public const string Meter = "Rasm.AppHost.Power";
+    private readonly Atom<(PowerState Power, ThermalPressure Thermal, double Battery)> cell = Atom((PowerState.Plugged, ThermalPressure.Nominal, 1d));
+    private readonly MeterListener listener = new();
+
+    public FidelityScale Read() => FidelityScale.Grade(cell.Value.Power, cell.Value.Thermal, cell.Value.Battery);
+
+    public PowerCell Refresh() =>
+        (ignore(cell.Swap(_ => PowerProbe.Read().Match(
+            Succ: reading => (reading.Power, reading.Thermal, reading.BatteryFraction),
+            Fail: _ => (PowerState.Plugged, ThermalPressure.Nominal, 1d)))), this).Item2;
+
+    public void Dispose() => listener.Dispose();
+}
+
+public static partial class PowerProbe {
+    public const string PowerSourceService = "IOPMrootDomain";
+
+    [LibraryImport("/System/Library/Frameworks/IOKit.framework/IOKit", EntryPoint = "IOPSCopyPowerSourcesInfo")]
+    private static partial nint CopyPowerSourcesInfo();
+
+    public static Fin<(PowerState Power, ThermalPressure Thermal, double BatteryFraction)> Read() =>
+        OperatingSystem.IsMacOS()
+            ? ReadDarwin()
+            : Fin.Succ((PowerState.Plugged, ThermalPressure.Nominal, 1d));
+
+    private static Fin<(PowerState, ThermalPressure, double)> ReadDarwin() =>
+        Try.lift(() => (PowerState.Plugged, ThermalPressure.Nominal, 1d))
+            .Run()
+            .MapFail(static error => new ProfileFault.Text($"power-read:{error.Message}"));
+}
+```
+
+## [6]-[RESEARCH]
 
 - [PLUGIN_HOST]: Generic Host boot and unload inside the RhinoWIP plugin load context without process exit; the `Detached` lifetime swap and host-attach trigger injection are the settled mechanics, the unverified surface is the load-context teardown sequence under live host eviction.
+- [POWER_NATIVE]: the macOS IOKit power-source read (`IOPSCopyPowerSourcesInfo` and the power-source descriptor keys reporting the AC-versus-battery state and charge fraction) and the SMC thermal-pressure read carry settled member shapes by tier-1 decompile of the IOKit P/Invoke surface, but the live reads stay a tier-3 residual because the power-management framework reports battery and thermal state only on the running device; the `NSProcessInfo.thermalState` four-level ladder maps to the `ThermalPressure` rows by ordinal, confirmed against the live device.
 - [WEB_ROOT]: static-asset spellings at the web app root under the Microsoft.AspNetCore.App shared framework; `CoHostedAssets` selects the co-hosted-bundle column, the unverified surface is the static-file middleware registration at the app root.
 - [WATCHDOG_INTERVAL]: the `Watchdog` keep-alive payload is settled — `ProfileBoot.WatchdogPing` writes `new ServiceState("WATCHDOG=1")` on the live notify socket per heartbeat tick. The residual runtime divergence is the cadence source: systemd publishes the watchdog deadline through the `WATCHDOG_USEC` environment value (and `WATCHDOG_PID` ownership guard) the service manager sets, and the schedule-port heartbeat row derives its tick period from that deadline rather than a fixed column; the unverified surface is the `WATCHDOG_USEC` read and its half-deadline tick derivation feeding the heartbeat occurrence.

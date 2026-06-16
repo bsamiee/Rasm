@@ -105,10 +105,10 @@ public static class TensorLayout {
 ## [4]-[GEOMETRY_ENCODING]
 
 - Owner: `GeometryEncoding`
-- Cases: `PointCloud(VectorCloud, Option<CloudNeighborhoodPcaResult>, Option<ReadOnlyMemory<float>>)` | `MeshPatch(MeshSpace)` | `VoxelGrid(ReadOnlyMemory<float>, Dimension, Dimension, Dimension, VolumeGridPolicy)`
+- Cases: `PointCloud(VectorCloud, Option<CloudNeighborhoodPcaResult>, Option<ReadOnlyMemory<float>>)` | `MeshPatch(MeshSpace)` | `VoxelGrid(ReadOnlyMemory<float>, Dimension, Dimension, Dimension, VolumeGridPolicy)` | `BrepPatch(ReadOnlyMemory<float>, ReadOnlyMemory<float>, int, int, Dimension, Dimension)`
 - Entry: `public static Fin<EncodedTensor> Of(GeometryEncoding source, Tensor<float> values, Option<Tensor<long>> indices = default, Seq<(string Name, long Extent)> freeDimensions = default)` — `Fin<T>` aborts when rank or free-dimension names miss the case row.
 - Packages: Rasm (project), System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new encoding is one `GeometryEncoding` case with its `Row` and `ChannelRows` arms; a new feature channel is one `EncodingChannel` row carrying its width column (six rows close the axis); zero new surface.
+- Growth: a new encoding is one `GeometryEncoding` case with its `Row` and `ChannelRows` arms — the `BrepPatch` case carries the NURBS control-point grid, knot vectors, and U/V degrees as the canonical B-rep/NURBS encoding feeding the model and solver lanes; a new feature channel is one `EncodingChannel` row carrying its width column (the `weight` row admits rational NURBS control-point weights, closing the axis at seven); zero new surface.
 - Boundary: packing kernels are the page's declared boundary capsules beside the union — host geometry coordinate access stays inside the capsule and host geometry types never enter lane signatures; each case's `Row` carries the model-zoo conformance triad — named `WireShape`, `LayoutForm`, declared free-dimension rank — and `Of` rejects a payload missing that triad, so the conformance gate is the case row, never an external architecture name; the free-dimension rows feed the model-lane `AddFreeDimensionOverrideByName` admission and the wire-shape names mirror one-to-one onto the remote-lane proto geometry family; mesh face indices ride the int64 row as `Tensor<long>`; voxel grids ride nchw with z-slices as channel planes and pack occupancy through `BitHelper` bit-flag words, never a `bool[]`; `FeatureWidth` folds the `EncodingChannel` widths present on the payload, where `curvature`, `geodesic`, and `intensity` widen the channel axis as SmartEnum rows — a `PointCloudV2` sibling case is the rejected anticipatory form.
 
 ```csharp signature
@@ -122,6 +122,7 @@ public sealed partial class EncodingChannel {
     public static readonly EncodingChannel Curvature = new("curvature", width: 1);
     public static readonly EncodingChannel Geodesic = new("geodesic", width: 1);
     public static readonly EncodingChannel Intensity = new("intensity", width: 1);
+    public static readonly EncodingChannel Weight = new("weight", width: 1);
 
     public int Width { get; }
 }
@@ -136,17 +137,21 @@ public abstract partial record GeometryEncoding {
 
     public sealed record VoxelGrid(ReadOnlyMemory<float> Cells, Dimension Channels, Dimension Height, Dimension Width, VolumeGridPolicy Grid) : GeometryEncoding;
 
+    public sealed record BrepPatch(ReadOnlyMemory<float> ControlPoints, ReadOnlyMemory<float> Knots, int UDegree, int VDegree, Dimension UCount, Dimension VCount) : GeometryEncoding;
+
     public (TensorDtype Dtype, LayoutForm Layout, string WireShape, Seq<string> FreeDimensionNames) Row =>
         Switch(
             pointCloud: static _ => (TensorDtype.Float32, LayoutForm.NxC, "PointCloudTensor", Seq("N", "C")),
             meshPatch: static _ => (TensorDtype.Float32, LayoutForm.VertexFace, "MeshTensor", Seq("V", "F")),
-            voxelGrid: static _ => (TensorDtype.Float32, LayoutForm.Nchw, "VoxelGridTensor", Seq("C", "H", "W")));
+            voxelGrid: static _ => (TensorDtype.Float32, LayoutForm.Nchw, "VoxelGridTensor", Seq("C", "H", "W")),
+            brepPatch: static _ => (TensorDtype.Float32, LayoutForm.NxC, "NurbsControlTensor", Seq("U", "V")));
 
     public Seq<EncodingChannel> ChannelRows =>
         Switch(
             pointCloud: static c => Seq1(EncodingChannel.Position) + c.Normals.Map(static _ => Seq(EncodingChannel.Normal, EncodingChannel.Curvature, EncodingChannel.Geodesic)).IfNone(Seq<EncodingChannel>()) + c.Colors.Map(static _ => EncodingChannel.ColorRgba).ToSeq(),
             meshPatch: static _ => Seq1(EncodingChannel.Position),
-            voxelGrid: static _ => Seq1(EncodingChannel.Intensity));
+            voxelGrid: static _ => Seq1(EncodingChannel.Intensity),
+            brepPatch: static _ => Seq(EncodingChannel.Position, EncodingChannel.Weight));
 
     public int FeatureWidth => ChannelRows.Sum(static channel => channel.Width);
 }
@@ -478,12 +483,12 @@ public readonly struct MapBlock<T>(ReadOnlyMemory<T> source, Memory<T> destinati
 
 ## [7]-[EQUIVALENCE_INTEROP]
 
-- Owner: `EquivalencePolicy`
-- Entry: `public static EquivalenceProof Prove(ClockPolicy clocks, CorrelationId correlation, EquivalencePolicy policy, ReadOnlySpan<double> baseline, ReadOnlySpan<double> candidate)` — pure value; a non-holding proof aborts dispatch through the `EquivalenceMiss` fault case on the intent rail.
+- Owner: `EquivalencePolicy`; `AdjointMode` `[SmartEnum<string>]` forward/reverse rows; `DifferentiableOp` the per-`TensorOpFamily` binding table carrying the reverse-mode vector-Jacobian-product, the `Diagonal` flag, and the optional forward-mode Jacobian-vector-product; `SensitivityLaw` the static dual-mode adjoint and tape-chain surface.
+- Entry: `public static EquivalenceProof Prove(ClockPolicy clocks, CorrelationId correlation, EquivalencePolicy policy, ReadOnlySpan<double> baseline, ReadOnlySpan<double> candidate)` — pure value; a non-holding proof aborts dispatch through the `EquivalenceMiss` fault case on the intent rail; `public static Fin<ReadOnlyMemory<float>> Adjoint(TensorOpFamily op, AdjointMode mode, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> seed)` is the forward/reverse-mode differentiable-operator adjoint and `Chain` folds a recorded op tape into the reverse-mode gradient.
 - Receipt: equivalence runs and explicit copy points materialize as TensorRun receipt evidence at the sink edge, stamped through `ClockPolicy` and keyed by `CorrelationId`.
 - Packages: Rasm (project), System.Numerics.Tensors, CommunityToolkit.HighPerformance, NodaTime, LanguageExt.Core
-- Growth: a new kernel route is one `TensorOpFamily` row with one `EquivalencePolicy` row; convolution lands as one matrix-kind row lowered through `numeric-lane#KERNEL_LOWERING` im2col and pooling as one structural-kind row lowered to the strided-window route; zero new surface.
-- Boundary: TensorPrimitives carries no matrix kernels — the matmul and convolution rows lower through `numeric-lane#KERNEL_LOWERING` (matmul to the numeric-lane GEMM, each convolution to the live `Im2Col` patch projection then one GEMM call carrying the `ConvWindow` geometry) so a convolution row inherits the matmul tolerance proof the lowering row carries, and the pooling rows fold each window through the `TensorPrimitives.Max`/composed-`Average` kernels over `GetDimensionSpan` cursors on the same lowering; numeric-lane owns the lowering table and the tensor-lane `Map` consults it, so a matrix or structural row resolves to a live kernel and `Map`-misses only when a convolution row arrives without its `ConvWindow` geometry, never silently resolving to a wrong kernel; zero-copy projections cross at three receipted copy points — tensor span to `OrtValue` through `CreateTensorValueFromSystemNumericsTensorObject` (model lane), to `Span2D` planes (staging views), to `ByteString` through `UnsafeByteOperations` (remote edge); equivalence sample tensors fill through `Tensor.FillUniformDistribution` and `FillGaussianNormalDistribution` — a hand-rolled sample-RNG loop is the deleted form; every designed-only row inherits proof coverage because its `ToleranceClass` rides the `TensorOpFamily` row, so `EquivalenceLaw.Prove` covers a new kernel by data with no `Prove` argument; loosening a `ToleranceClass` bound to pass equivalence is the named production-slack defect — the kernel is fixed, never the bound.
+- Growth: a new kernel route is one `TensorOpFamily` row with one `EquivalencePolicy` row; convolution lands as one matrix-kind row lowered through `numeric-lane#KERNEL_LOWERING` im2col and pooling as one structural-kind row lowered to the strided-window route; a new differentiable operator is one `DifferentiableOp` row binding its vector-Jacobian-product, so a DDG operator (Laplacian, heat-flow, spectral, remeshing) gains reverse-mode adjoint coverage by one row, never a parallel autodiff surface; zero new surface.
+- Boundary: TensorPrimitives carries no matrix kernels — the matmul and convolution rows lower through `numeric-lane#KERNEL_LOWERING` (matmul to the numeric-lane GEMM, each convolution to the live `Im2Col` patch projection then one GEMM call carrying the `ConvWindow` geometry) so a convolution row inherits the matmul tolerance proof the lowering row carries, and the pooling rows fold each window through the `TensorPrimitives.Max`/composed-`Average` kernels over `GetDimensionSpan` cursors on the same lowering; numeric-lane owns the lowering table and the tensor-lane `Map` consults it, so a matrix or structural row resolves to a live kernel and `Map`-misses only when a convolution row arrives without its `ConvWindow` geometry, never silently resolving to a wrong kernel; zero-copy projections cross at three receipted copy points — tensor span to `OrtValue` through `CreateTensorValueFromSystemNumericsTensorObject` (model lane), to `Span2D` planes (staging views), to `ByteString` through `UnsafeByteOperations` (remote edge); equivalence sample tensors fill through `Tensor.FillUniformDistribution` and `FillGaussianNormalDistribution` — a hand-rolled sample-RNG loop is the deleted form; the differentiable-operator dual mode is `DifferentiableOp.Diagonal`-gated — an elementwise row carries a diagonal Jacobian so its reverse-mode VJP and forward-mode JVP are the one `cotangent .* f'(primal)` fold and the row supplies both directions, while a non-diagonal row (MatMul transposes its operands, SoftMax forms the Jacobian-minus-outer-product) carries only the reverse-mode VJP and `Some`-less `Jvp`, so a forward-mode adjoint on a non-diagonal op faults `<no-forward-jvp>` rather than returning the wrong gradient — a single `Vjp .* tangent` body for every op is the deleted form because it silently mislabels the MatMul/SoftMax forward map; every designed-only row inherits proof coverage because its `ToleranceClass` rides the `TensorOpFamily` row, so `EquivalenceLaw.Prove` covers a new kernel by data with no `Prove` argument; loosening a `ToleranceClass` bound to pass equivalence is the named production-slack defect — the kernel is fixed, never the bound.
 
 ```csharp signature
 public sealed record EquivalencePolicy(TensorOpFamily Family, int SampleCount) {
@@ -504,9 +509,56 @@ public static class EquivalenceLaw {
         return new(policy.Family, deviation, policy.Family.Tolerance.RelativeBound, policy.SampleCount, clocks.Elapsed(mark), clocks.Now, correlation);
     }
 }
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<TensorKeyPolicy, string>]
+[KeyMemberComparer<TensorKeyPolicy, string>]
+public sealed partial class AdjointMode {
+    public static readonly AdjointMode Forward = new("forward");
+    public static readonly AdjointMode Reverse = new("reverse");
+}
+
+public sealed record DifferentiableOp(
+    TensorOpFamily Forward,
+    bool Diagonal,
+    Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, ReadOnlyMemory<float>> Vjp,
+    Option<Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, ReadOnlyMemory<float>>> Jvp) {
+    public static readonly FrozenDictionary<TensorOpFamily, DifferentiableOp> Rows = new Dictionary<TensorOpFamily, DifferentiableOp> {
+        [TensorOpFamily.Tanh] = Diag(TensorOpFamily.Tanh, static (primal, seed) => Elementwise(primal, seed, static p => 1f - p * p)),
+        [TensorOpFamily.Sigmoid] = Diag(TensorOpFamily.Sigmoid, static (primal, seed) => Elementwise(primal, seed, static p => p * (1f - p))),
+        [TensorOpFamily.Exp] = Diag(TensorOpFamily.Exp, static (primal, seed) => Elementwise(primal, seed, static p => p)),
+        [TensorOpFamily.Log] = Diag(TensorOpFamily.Log, static (primal, seed) => Elementwise(primal, seed, static p => 1f / p)),
+        [TensorOpFamily.MatMul] = new(TensorOpFamily.MatMul, Diagonal: false, static (primal, seed) => Backward.MatMul(primal, seed), None),
+        [TensorOpFamily.SoftMax] = new(TensorOpFamily.SoftMax, Diagonal: false, static (primal, seed) => Backward.SoftMax(primal, seed), None),
+    }.ToFrozenDictionary();
+
+    static DifferentiableOp Diag(TensorOpFamily forward, Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, ReadOnlyMemory<float>> derivative) =>
+        new(forward, Diagonal: true, derivative, Some(derivative));
+
+    static ReadOnlyMemory<float> Elementwise(ReadOnlyMemory<float> primal, ReadOnlyMemory<float> cotangent, Func<float, float> derivative) {
+        float[] result = new float[cotangent.Length];
+        for (int i = 0; i < result.Length; i++) { result[i] = cotangent.Span[i] * derivative(primal.Span[i]); }
+        return result;
+    }
+}
+
+public static class SensitivityLaw {
+    public static Fin<ReadOnlyMemory<float>> Adjoint(TensorOpFamily op, AdjointMode mode, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> seed) =>
+        DifferentiableOp.Rows.TryGetValue(op, out var differentiable)
+            ? mode == AdjointMode.Reverse
+                ? Fin.Succ(differentiable.Vjp(primal, seed))
+                : differentiable.Jvp.Match(
+                    Some: jvp => Fin.Succ(jvp(primal, seed)),
+                    None: () => Fin.Fail<ReadOnlyMemory<float>>(ComputeFault.Create($"<no-forward-jvp:{op.Key}>")))
+            : Fin.Fail<ReadOnlyMemory<float>>(ComputeFault.Create($"<no-adjoint-row:{op.Key}>"));
+
+    public static Fin<ReadOnlyMemory<float>> Chain(Seq<TensorOpFamily> tape, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> upstream) =>
+        tape.Rev().Fold(Fin.Succ(upstream), (grad, op) => grad.Bind(g => Adjoint(op, AdjointMode.Reverse, primal, g)));
+}
 ```
 
 ## [8]-[RESEARCH]
 
 - [OPERATOR_BACKLOG]: `Normalize` has no `TensorPrimitives` member and never becomes a single-call row — vector normalization composes `Norm` then `Divide` against the reduced magnitude.
 - [KERNEL_LOWERING]: the matrix and structural rows resolve through the live `numeric-lane#KERNEL_LOWERING` GEMM, `Im2Col` patch-projection, and strided-window fold against the MathNet provider; the residual is the fingerprint-matched `BenchmarkClaim` that gates a partition route over the lowered GEMM on the live host.
+- [DDG_ADJOINT]: the elementwise differentiable-operator rows (Tanh, Sigmoid, Exp, Log) carry their reverse-mode VJP and forward-mode JVP as transcription-complete diagonal-Jacobian folds, and the `MatMul` reverse-mode VJP is the operand-transpose product the `numeric-lane#KERNEL_LOWERING` GEMM lowers — these need no probe; the residual cross-folder leaves are the non-diagonal `Backward.MatMul`/`Backward.SoftMax` exact operand-transpose/Jacobian-minus-outer spellings and the differentiable-geometry operator adjoints — the reverse-mode VJP of the DDG Laplacian, heat-flow, and spectral operators and the remeshing-step adjoint — which compose the `Rasm`/Vectors operator kernel's forward primitives and ground against the `Rasm`/Vectors operator member surface at cross-folder alignment (the `Rasm`/Vectors operator kernel owns the forward operator and adjoint-coefficient derivation, this lane owns the reverse-mode tape chain the `solver-and-optimization#OPTIMIZER_LANE` gradient-adjoint row consumes for shape optimization and inverse design); a non-diagonal operator carries no forward-mode JVP until its forward Jacobian map is grounded, so `AdjointMode.Forward` on `MatMul`/`SoftMax` faults rather than fabricating a gradient.

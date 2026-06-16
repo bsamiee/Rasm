@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_ARCHITECTURE]
 
-`Rasm.Persistence` owns durable state for the app suite through nine polymorphic rails, each a dispatch surface whose variance lives in axis rows, cases, and policy values. This page leads on the planned implementation source tree, then names the boot spine, the rails and their owning axes, the dependency direction, and the cross-package seams; the finalized pages under [.planning](.planning/README.md) carry the transcription-complete signatures.
+`Rasm.Persistence` owns durable state for the app suite through seventeen polymorphic rails, each a dispatch surface whose variance lives in axis rows, cases, and policy values. This page leads on the planned implementation source tree, then names the boot spine, the rails and their owning axes, the dependency direction, and the cross-package seams; the finalized pages under [.planning](.planning/README.md) carry the transcription-complete signatures.
 
 ## [1]-[SOURCE_TREE]
 
@@ -26,12 +26,24 @@ Rasm.Persistence/
 ├── Snapshots/
 │   └── Codecs.cs             # SnapshotCodec, CompressionPolicy, HashPolicy — snapshot-codecs#CODEC_AXIS, snapshot-codecs#COMPRESSION_HASHING, snapshot-codecs#SNAPSHOT_PROTOCOL, snapshot-codecs#RESTORE_AND_DIFF
 ├── Sync/
-│   └── Collaboration.cs      # SyncOpKind, SyncTransport, PresenceRow — sync-collaboration#OPLOG_CHANGEFEED, sync-collaboration#MERGE_LAW, sync-collaboration#TRANSPORT_AXIS, sync-collaboration#PRESENCE_AND_BLOB
-└── Retention/
-    └── Redaction.cs          # RetentionPolicy, ArtifactClasses, ClosureGc, AuditBinding — redaction-retention#CLASSIFICATION_ENFORCEMENT, redaction-retention#RETENTION_SWEEPS, redaction-retention#EXPORT_PROOF, redaction-retention#AUDIT_BINDING
+│   └── Collaboration.cs      # SyncOpKind, SyncTransport, PresenceRow, Awareness, Replication — sync-collaboration#OPLOG_CHANGEFEED, sync-collaboration#MERGE_LAW, sync-collaboration#TRANSPORT_AXIS, sync-collaboration#PRESENCE_AND_BLOB
+├── Retention/
+│   └── Redaction.cs          # RetentionPolicy, ArtifactClasses, ClosureGc, AuditBinding — redaction-retention#CLASSIFICATION_ENFORCEMENT, redaction-retention#RETENTION_SWEEPS, redaction-retention#EXPORT_PROOF, redaction-retention#AUDIT_BINDING
+├── Versioning/
+│   └── VersionControl.cs     # CommitGraph, Crdt, TimeTravel, StructuralMerge — version-control#COMMIT_DAG, version-control#CRDT_ALGEBRA, version-control#TIME_TRAVEL, version-control#STRUCTURAL_DIFF
+├── Federation/
+│   └── Federation.cs         # EntityGraph, ElementSetAlgebra, LinkStore, RulePlan, FusionRank, FederatedPlan — federation#ENTITY_GRAPH, federation#ELEMENT_SET_ALGEBRA, federation#CROSS_DOC_LINKS, federation#RULE_PLAN, federation#FUSION_RANK, federation#FEDERATED_PLAN
+├── Provenance/
+│   └── Provenance.cs         # Provenance, AttestedLedger, LineageCdc — provenance#CAUSAL_DAG, provenance#ATTESTED_LEDGER, provenance#LINEAGE_CDC
+├── Annotation/
+│   └── Annotation.cs         # Anchors, Bcf, CdeSync — annotation#ANCHOR_ALGEBRA, annotation#BCF_PROTOCOL, annotation#CDE_SYNC
+├── Catalog/
+│   └── CatalogCost.cs        # Catalog, CostRollup — catalog-cost#CLASSIFICATION_CATALOG, catalog-cost#COST_ROLLUP
+└── Schedule/
+    └── ScheduleInterchange.cs # ScheduleImport, FourDState — schedule-interchange#SCHEDULE_STORE, schedule-interchange#TASK_LINK_4D
 ```
 
-`Cache/Indexes.cs` precedes `Snapshots/Codecs.cs` and the two gate as one build closure: `PersistenceWireContext` declares the `CacheIndexFact` serializable row while `IndexSurface` consumes the generated context. `Stores/Lifecycle.cs` precedes `Schema/SchemaRail.cs` so `StoreOpenReceipt.SchemaFingerprint` stays a bare `ulong` ledger seam until `SchemaFingerprint` owns it. `StoreProfile` and `StorePlacement` land together in `Stores/Profiles.cs`, never split. `Stores/ServerTier.cs` follows `Stores/Lifecycle.cs` and `Schema/SchemaRail.cs` — it consumes `ExtensionRequirement` and `SchemaDdl` as settled vocabulary. `Stores/RemoteStores.cs` follows `Stores/Profiles.cs` and the snapshot/sync closure — it consumes the `BlobRemote` contract, the Compute `ARTIFACT_FRAMES` frame constants, and the `OpLogEntry` op-log as settled, never re-declaring a frame width or a second sync engine.
+`Cache/Indexes.cs` precedes `Snapshots/Codecs.cs` and the two gate as one build closure: `PersistenceWireContext` declares the `CacheIndexFact` serializable row while `IndexSurface` consumes the generated context. `Stores/Lifecycle.cs` precedes `Schema/SchemaRail.cs` so `StoreOpenReceipt.SchemaFingerprint` stays a bare `ulong` ledger seam until `SchemaFingerprint` owns it. `StoreProfile` and `StorePlacement` land together in `Stores/Profiles.cs`, never split. `Stores/ServerTier.cs` follows `Stores/Lifecycle.cs` and `Schema/SchemaRail.cs` — it consumes `ExtensionRequirement` and `SchemaDdl` as settled vocabulary. `Stores/RemoteStores.cs` follows `Stores/Profiles.cs` and the snapshot/sync closure — it consumes the `BlobRemote` contract, the Compute `ARTIFACT_FRAMES` frame constants, and the `OpLogEntry` op-log as settled, never re-declaring a frame width or a second sync engine. The BIM-currency leaves close in dependency order: `Versioning/VersionControl.cs` follows the sync/snapshot closure (its CRDT algebra supersedes the LWW `Adjudicate` scalar through the op-log wire-vocabulary amendment); `Federation/Federation.cs` follows it and the data-lanes PostGIS substrate (the federated entity is the substrate the next four ride); then `Provenance/Provenance.cs`, `Annotation/Annotation.cs`, `Catalog/CatalogCost.cs`, and `Schedule/ScheduleInterchange.cs` follow, each consuming the federated entity, the element-set currency, the op-log, and the time-travel fold as settled vocabulary.
 
 ## [2]-[SPINE]
 
@@ -74,8 +86,14 @@ Text equivalent: the resolved profile folds to a placement, locality admission g
 |   [9]   | Redaction retention | `RetentionPolicy` · `ArtifactClasses` · `ClosureGc` · `ExportProof` · `AuditBinding`                                     | redaction-retention#CLASSIFICATION_ENFORCEMENT |
 |  [10]   | Server tier         | `TimescaleProvisioning` · `SearchProvisioning` · `ClusterConfig` · `TenancyModel` · `MigrationBundle`                    | server-tier#TIMESCALE_PROVISIONING             |
 |  [11]   | Remote stores       | `ObjectStore` · `MultipartTransfer` · `ObjectResidence` · `ArtifactSyncFeed` · `RemoteStoreFault`                        | remote-stores#OBJECT_STORE                     |
+|  [12]   | Version control     | `CommitGraph` · `VersionVector` · `Crdt` · `TimeTravel` · `StructuralMerge` · `MergeConflict`                            | version-control#COMMIT_DAG                     |
+|  [13]   | Federation          | `EntityGraph` · `ElementSet` · `SetExpr` · `LinkStore` · `RulePlan` · `FusionRank` · `FederatedPlan`                     | federation#ENTITY_GRAPH                        |
+|  [14]   | Provenance          | `Provenance` · `ProvEdge` · `LineageSlice` · `AttestedLedger` · `LineageCdc`                                             | provenance#CAUSAL_DAG                          |
+|  [15]   | Annotation          | `Anchor` · `Thread` · `Anchors` · `Bcf` · `BcfTopic` · `CdeSync`                                                         | annotation#ANCHOR_ALGEBRA                      |
+|  [16]   | Catalog + cost      | `Catalog` · `ClassificationCode` · `CostCode` · `CostRollup`                                                             | catalog-cost#CLASSIFICATION_CATALOG            |
+|  [17]   | Schedule + 4D       | `ScheduleImport` · `ScheduleTask` · `TaskElementLink` · `FourDState`                                                     | schedule-interchange#SCHEDULE_STORE            |
 
-Provider variance is row data on these axes. Public code selects profiles, lanes, operations, codecs, and policies; it never selects provider packages.
+Provider variance is row data on these axes. Public code selects profiles, lanes, operations, codecs, and policies; it never selects provider packages. The BIM-currency rails ([12]-[17]) ride the existing substrate — the op-log changefeed, the content-addressed snapshots, and the PostGIS GiST + jsonb + ltree lanes — and never admit a new engine.
 
 ## [4]-[DEPENDENCY_DIRECTION]
 
@@ -109,6 +127,13 @@ Seam altitudes record in the suite ledger [SEAM_SPLITS](../.planning/region-map/
 |  [17]   | Tenancy threading         | AppHost runtime-ports `TenantContext`                          | server-tier#TENANCY_RLS RLS policy + content-address cache-key partition consume the tenant id, never mint it     |
 |  [18]   | pgaudit category binding  | Persistence redaction-retention#AUDIT_BINDING                  | server-tier#TENANCY_RLS RLS policy ties to the audit category the binding owns; mechanics split, never duplicated |
 |  [19]   | ArtifactSync object frame | Compute remote-lane frame constants                            | remote-stores#MULTIPART_TRANSFER windows whole 64-KiB frames; #ARTIFACT_SYNC_FEED consumes the op-log changefeed  |
+|  [20]   | CRDT op-log wire amendment | Persistence version-control#CRDT_ALGEBRA                       | `OpLogEntry.Payload` carries a `CrdtOp` delta for `column-family=crdt` rows; supersedes LWW `Adjudicate`; TS-web/Python decode `CrdtOpWire` — a breaking suite wire-vocabulary amendment, recorded as a seam-split |
+|  [21]   | Structural-diff node identity | Persistence version-control#STRUCTURAL_DIFF                   | federation#ENTITY_GRAPH keys on the same `(GeometryHash, PropertyHash)` signature; annotation re-anchors over the `EditOp` script; one node identity, never duplicated |
+|  [22]   | Lineage join dimension    | Persistence provenance#CAUSAL_DAG                              | federation#FUSION_RANK carries per-hit provenance head; version-control blame reads the same winning op; the attested ledger chains the audit category |
+|  [23]   | Federated element-set currency | Persistence federation#ELEMENT_SET_ALGEBRA                   | rule-plan results, catalog-cost takeoff subjects, schedule task-element links, and BCF viewpoints all consume the one `ElementSet`; never a parallel selection shape |
+|  [24]   | BCF/CDE OAuth2 hop         | AppHost outbound-resilience HTTP pipelines                     | annotation#CDE_SYNC rides the OAuth2 outbound hop; token lifecycle owned at AppHost, never a second OAuth2 client |
+|  [25]   | Compute interchange graph | Compute interchange IFC parse + GLB tessellation               | federation#ENTITY_GRAPH ingests the `IfcSemantic` model graph as one source; the geometry-hash canonical adjacency is the same the structural diff reads; schedule consumes the Compute P6/XER parse companion bytes |
+|  [26]   | Object-level authz seam   | Persistence schema-rail#IDENTITY_POLICY                        | version-control#COMMIT_DAG `BranchAcl` is the branch-scoped projection of `ObjectAcl`; signed authorship resolves the signing key through the AppHost identity seam; server-tier RLS is the coarse tenant scope, object-ACL the fine within-tenant scope |
 
 ## [6]-[BOUNDARIES]
 

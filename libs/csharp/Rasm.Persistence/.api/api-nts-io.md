@@ -57,11 +57,13 @@ GeoPackage stores.
 [ENTRYPOINT_SCOPE]: GeoJSON serializer admission
 - rail: spatial-values
 
-| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]        | [CAPABILITY]                                                                        |
-| :-----: | :---------------------------------------------- | :------------------ | :---------------------------------------------------------------------------------- |
-|   [1]   | `new GeoJsonConverterFactory(GeometryFactory factory, bool writeGeometryBBox, string idPropertyName, RingOrientationOption ringOrientationOption, bool allowModifyingAttributesTables)` | factory constructor | carries `GeometryFactory`, bbox, id, ring, mutability policy |
-|   [2]   | `JsonSerializerOptions.Converters.Add`          | options admission   | enables GeoJSON for `Geometry`, `IFeature`, `FeatureCollection`, `IAttributesTable` |
-|   [3]   | `GeoJsonConverterFactory.DefaultIdPropertyName` | policy constant     | names the attribute carrying a feature `id` (`_NetTopologySuite_id`)                |
+`GeoJsonConverterFactory` receives geometry factory, bbox, id-property, ring-orientation, and attribute-table mutability policy.
+
+| [INDEX] | [SURFACE]                              | [CALL_SHAPE]        | [CAPABILITY]                     |
+| :-----: | :------------------------------------- | :------------------ | :------------------------------- |
+|   [1]   | `GeoJsonConverterFactory`              | factory constructor | carries GeoJSON converter policy |
+|   [2]   | `JsonSerializerOptions.Converters.Add` | options admission   | enables GeoJSON converters       |
+|   [3]   | `DefaultIdPropertyName`                | policy constant     | names the feature `id` attribute |
 
 [ENTRYPOINT_SCOPE]: attribute value projection
 - rail: spatial-values

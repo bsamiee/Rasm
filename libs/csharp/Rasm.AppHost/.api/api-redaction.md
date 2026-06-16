@@ -22,53 +22,55 @@ log, trace, support-bundle, and HTTP route-parameter exporter seam.
 [REDACTION_TYPES]: redactor and provider surfaces
 - rail: redaction
 
-| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]     | [CAPABILITY]              |
-| :-----: | :---------------------- | :----------------- | :------------------------ |
-|   [1]   | `Redactor`              | redactor contract  | redacts values into spans |
-|   [2]   | `IRedactorProvider`     | provider contract  | resolves redactors        |
-|   [3]   | `IRedactionBuilder`     | builder contract   | configures redaction      |
-|   [4]   | `ErasingRedactor`       | redactor           | erases sensitive values   |
-|   [5]   | `HmacRedactor`          | redactor           | hashes sensitive values   |
-|   [6]   | `HmacRedactorOptions`   | redactor options   | HMAC key id and discriminator |
-|   [7]   | `NullRedactor`          | redactor           | passes values unchanged   |
-|   [8]   | `RedactionExtensions`   | builder extension  | HMAC builder registration |
+| [INDEX] | [SYMBOL]              | [PACKAGE_ROLE]    | [CAPABILITY]                  |
+| :-----: | :-------------------- | :---------------- | :---------------------------- |
+|   [1]   | `Redactor`            | redactor contract | redacts values into spans     |
+|   [2]   | `IRedactorProvider`   | provider contract | resolves redactors            |
+|   [3]   | `IRedactionBuilder`   | builder contract  | configures redaction          |
+|   [4]   | `ErasingRedactor`     | redactor          | erases sensitive values       |
+|   [5]   | `HmacRedactor`        | redactor          | hashes sensitive values       |
+|   [6]   | `HmacRedactorOptions` | redactor options  | HMAC key id and discriminator |
+|   [7]   | `NullRedactor`        | redactor          | passes values unchanged       |
+|   [8]   | `RedactionExtensions` | builder extension | HMAC builder registration     |
 
 [CLASSIFICATION_TYPES]: classification keys (contract assembly)
 - rail: redaction
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]      | [CAPABILITY]                  |
-| :-----: | :----------------------------- | :------------------ | :---------------------------- |
-|   [1]   | `DataClassification`           | classification key  | category-plus-name value      |
-|   [2]   | `DataClassificationSet`        | classification set  | keys redactor selection       |
-|   [3]   | `DataClassificationAttribute`  | annotation base     | annotates classified members  |
-|   [4]   | `NoDataClassification`         | classification key  | absence-of-classification key |
-|   [5]   | `UnknownDataClassification`    | classification key  | unmapped-classification key   |
+| [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE]     | [CAPABILITY]                  |
+| :-----: | :---------------------------- | :----------------- | :---------------------------- |
+|   [1]   | `DataClassification`          | classification key | category-plus-name value      |
+|   [2]   | `DataClassificationSet`       | classification set | keys redactor selection       |
+|   [3]   | `DataClassificationAttribute` | annotation base    | annotates classified members  |
+|   [4]   | `NoDataClassification`        | classification key | absence-of-classification key |
+|   [5]   | `UnknownDataClassification`   | classification key | unmapped-classification key   |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration and policy operations
 - rail: redaction
 
-| [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]      | [CAPABILITY]              |
-| :-----: | :------------------------------------------------------------------------------ | :---------------- | :----------------------- |
-|   [1]   | `AddRedaction(this IServiceCollection)`                                         | service extension | registers redaction      |
-|   [2]   | `AddRedaction(this IServiceCollection, Action<IRedactionBuilder>)`              | service extension | registers and configures |
-|   [3]   | `IRedactionBuilder.SetRedactor<T>(params DataClassificationSet[])`              | builder call      | maps redactor per class  |
-|   [4]   | `RedactionExtensions.SetHmacRedactor(IRedactionBuilder, Action<HmacRedactorOptions>, params DataClassificationSet[])` | builder extension | maps HMAC redactor by action |
-|   [5]   | `RedactionExtensions.SetHmacRedactor(IRedactionBuilder, IConfigurationSection, params DataClassificationSet[])` | builder extension | maps HMAC redactor by section |
-|   [6]   | `IRedactionBuilder.SetFallbackRedactor<T>()`                                    | builder call      | fail-closed default redactor |
-|   [7]   | `IRedactorProvider.GetRedactor(DataClassificationSet) : Redactor`               | provider call     | resolves redactor by set |
-|   [8]   | `Redactor.Redact(ReadOnlySpan<char> source, Span<char> destination) : int`     | redactor call     | redacts value into buffer |
-|   [9]   | `Redactor.GetRedactedLength(ReadOnlySpan<char> input) : int`                    | redactor call     | measures redacted output |
-|  [10]   | `NullRedactor.Instance` / `ErasingRedactor.Instance`                            | static accessor   | settled pass / erase redactor |
+Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor calls use span inputs and return the redacted length or resolved `Redactor`.
+
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]       | [CAPABILITY]                  |
+| :-----: | :----------------------- | :----------------- | :---------------------------- |
+|   [1]   | `AddRedaction`           | service extension  | registers redaction           |
+|   [2]   | `AddRedaction`           | configured service | registers and configures      |
+|   [3]   | `SetRedactor<T>`         | builder mapping    | maps redactor per class       |
+|   [4]   | `SetHmacRedactor`        | options mapping    | maps HMAC redactor by action  |
+|   [5]   | `SetHmacRedactor`        | section mapping    | maps HMAC redactor by section |
+|   [6]   | `SetFallbackRedactor<T>` | builder fallback   | fail-closed default redactor  |
+|   [7]   | `GetRedactor`            | provider lookup    | resolves redactor by set      |
+|   [8]   | `Redact`                 | span redaction     | redacts value into buffer     |
+|   [9]   | `GetRedactedLength`      | span measurement   | measures redacted output      |
+|  [10]   | redactor singletons      | static accessor    | settled pass / erase redactor |
 
 [ENTRYPOINT_SCOPE]: HMAC options
 - rail: redaction
 
-| [INDEX] | [SURFACE]                         | [CALL_SHAPE]    | [CAPABILITY]                       |
-| :-----: | :-------------------------------- | :-------------- | :--------------------------------- |
-|   [1]   | `HmacRedactorOptions.KeyId`       | options value   | key-version discriminator integer  |
-|   [2]   | `HmacRedactorOptions.Key`         | options value   | base64 HMAC key material           |
+| [INDEX] | [SURFACE]                   | [CALL_SHAPE]  | [CAPABILITY]                      |
+| :-----: | :-------------------------- | :------------ | :-------------------------------- |
+|   [1]   | `HmacRedactorOptions.KeyId` | options value | key-version discriminator integer |
+|   [2]   | `HmacRedactorOptions.Key`   | options value | base64 HMAC key material          |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

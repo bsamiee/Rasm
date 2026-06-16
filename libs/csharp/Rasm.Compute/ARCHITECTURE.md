@@ -27,7 +27,9 @@ Rasm.Compute/
 ├── Numeric/
 │   └── Lane.cs                # LinearProvider, FactorizationKind, Factorization, DenseOps, SparseFormat, SparseOps, KernelLowering, ShardPlan, NumericKeyPolicy — numeric-lane#DENSE_ALGEBRA, numeric-lane#SPARSE_SOLVE, numeric-lane#KERNEL_LOWERING, numeric-lane#PROVIDER_CLAIMS
 ├── Interchange/
-│   └── Interchange.cs         # InterchangeFormat, InterchangeCodec, InterchangeIo, IfcSemanticModel, TessellationRequest, InterchangeIdentity, InterchangeKeyPolicy — interchange#FORMAT_AXIS, interchange#IMPORT_RAIL, interchange#EXPORT_RAIL, interchange#TWO_HOP_TESSELLATION, interchange#CONTENT_ADDRESSING
+│   └── Interchange.cs         # InterchangeFormat, InterchangeCodec, InterchangeIo, FrameNormalization, UpAxis, Handedness, IfcSemanticModel, PointScan, FieldCodec, FieldArtifact, DeltaCodec, GeometryDeltaKind, GeometryDelta, TileSet, TessellationRequest, InterchangeIdentity, InterchangeKeyPolicy — interchange#FORMAT_AXIS, interchange#IMPORT_RAIL, interchange#EXPORT_RAIL, interchange#FIELD_RESULT_CODEC, interchange#GEOMETRY_DELTA, interchange#TWO_HOP_TESSELLATION, interchange#CONTENT_ADDRESSING
+├── Solver/
+│   └── Lane.cs                # ElementClass, MeshAlgorithm, FieldStation, FieldSpace, DiscreteMesh, MeshKernel, PhysicsKind, BoundaryCondition, SolveMethod, SolveProblem, SolveResult, SolveLane, OptimizerKind, DesignVariable, ObjectiveSense, DesignProblem, ParetoFront, Optimizer, Surrogate, SweepAxis, SweepGrid, FrameBudget, SensitivityTornado, SweepLane, AccelerationStructure, ClashScale, ClashPair, DigitalTwin, TwinSignal, SolverKeyPolicy — solver-and-optimization#DISCRETIZATION_MESH, solver-and-optimization#SOLVE_CONTRACT, solver-and-optimization#OPTIMIZER_LANE, solver-and-optimization#SWEEP_AND_BUDGET, solver-and-optimization#CLASH_AND_TWIN
 ├── Remote/
 │   ├── Contract.cs            # ContractDrift, ContractGuard — remote-lane#CONTRACT_EVOLUTION, remote-lane#FAULT_PROJECTION
 │   ├── Frames.cs              # FrameEdge — remote-lane#ARTIFACT_FRAMES
@@ -85,34 +87,47 @@ Text equivalent: `ComputeIntent` admits through `IntentAdmission` into an `Admit
 
 ## [4]-[AXES]
 
-| [INDEX] | [AXIS]              | [OWNER]             | [ROWS/CASES] | [PAGE#CLUSTER]                           |
-| :-----: | :------------------ | :------------------ | :----------: | :--------------------------------------- |
-|   [1]   | Intent family       | `ComputeIntent`     |      6       | intent-and-selection#INTENT_FAMILY       |
-|   [2]   | Substrate axis      | `Substrate`         |      4       | intent-and-selection#SUBSTRATE_AXIS      |
-|   [3]   | Fault family        | `ComputeFault`      |      13      | intent-and-selection#DISPATCH_SPINE      |
-|   [4]   | Tensor dtypes       | `TensorDtype`       |      10      | tensor-lane#TENSOR_VOCABULARY            |
-|   [5]   | Tensor op families  | `TensorOpFamily`    |      84      | tensor-lane#OPERATION_TABLE              |
-|   [6]   | Layout algebra      | `LayoutForm`        |      5       | tensor-lane#LAYOUT_ALGEBRA               |
-|   [7]   | Geometry encodings  | `GeometryEncoding`  |      3       | tensor-lane#GEOMETRY_ENCODING            |
-|   [8]   | Model acquisition   | `ModelSource`       |      4       | model-lane#MODEL_IDENTITY                |
-|   [9]   | Execution providers | `ExecutionProvider` |      2       | model-lane#EP_AXIS                       |
-|  [10]   | Cache postures      | `CachePolicy`       |      4       | model-lane#RESULT_CACHE                  |
-|  [11]   | Wire services       | `WireServices`      |  5 / 18 rpc  | remote-lane#PROTO_VOCABULARY             |
-|  [12]   | Contract drift      | `ContractDrift`     |      3       | remote-lane#CONTRACT_EVOLUTION           |
-|  [13]   | Transports          | `RemoteTransport`   |      4       | remote-lane#TRANSPORT_AXIS               |
-|  [14]   | Credentials         | `CredentialPolicy`  |      4       | remote-lane#CALL_POLICY                  |
-|  [15]   | Allocation classes  | `AllocationClass`   |      5       | staging-and-streams#ALLOCATION_AXIS      |
-|  [16]   | Work lanes          | `WorkLane`          |      5       | scheduling-and-lanes#LANE_AXIS           |
-|  [17]   | Progress phases     | `ProgressPhase`     |      9       | progress-and-observation#PHASE_FAMILY    |
-|  [18]   | Quantity families   | `QuantityFamily`    |      15      | units-boundary#QUANTITY_TABLE            |
-|  [19]   | Receipt union       | `ComputeReceipt`    |      15      | receipts-and-benchmarks#RECEIPT_UNION    |
-|  [20]   | Claim bands         | `BenchmarkClaim`    |      4       | receipts-and-benchmarks#BENCHMARK_CLAIMS |
-|  [21]   | BLAS provider table | `LinearProvider`    |      3       | numeric-lane#DENSE_ALGEBRA               |
-|  [22]   | Factorization union | `Factorization`     |      5       | numeric-lane#DENSE_ALGEBRA               |
-|  [23]   | Sparse format axis  | `SparseFormat`      |      4       | numeric-lane#SPARSE_SOLVE                |
-|  [24]   | Shard plan          | `ShardPlan`         |      2       | numeric-lane#KERNEL_LOWERING             |
-|  [25]   | Generation policy   | `GenerationPolicy`  |   14 cols    | model-lane#GENERATIVE_RUN                |
-|  [26]   | Guidance constraint | `GuidanceKind`      |      5       | model-lane#GENERATIVE_RUN                |
+| [INDEX] | [AXIS]              | [OWNER]                 | [ROWS/CASES] | [PAGE#CLUSTER]                              |
+| :-----: | :------------------ | :---------------------- | :----------: | :------------------------------------------ |
+|   [1]   | Intent family       | `ComputeIntent`         |      6       | intent-and-selection#INTENT_FAMILY          |
+|   [2]   | Substrate axis      | `Substrate`             |      4       | intent-and-selection#SUBSTRATE_AXIS         |
+|   [3]   | Fault family        | `ComputeFault`          |      13      | intent-and-selection#DISPATCH_SPINE         |
+|   [4]   | Tensor dtypes       | `TensorDtype`           |      10      | tensor-lane#TENSOR_VOCABULARY               |
+|   [5]   | Tensor op families  | `TensorOpFamily`        |      84      | tensor-lane#OPERATION_TABLE                 |
+|   [6]   | Layout algebra      | `LayoutForm`            |      5       | tensor-lane#LAYOUT_ALGEBRA                  |
+|   [7]   | Geometry encodings  | `GeometryEncoding`      |      3       | tensor-lane#GEOMETRY_ENCODING               |
+|   [8]   | Model acquisition   | `ModelSource`           |      4       | model-lane#MODEL_IDENTITY                   |
+|   [9]   | Execution providers | `ExecutionProvider`     |      2       | model-lane#EP_AXIS                          |
+|  [10]   | Cache postures      | `CachePolicy`           |      4       | model-lane#RESULT_CACHE                     |
+|  [11]   | Wire services       | `WireServices`          |  5 / 18 rpc  | remote-lane#PROTO_VOCABULARY                |
+|  [12]   | Contract drift      | `ContractDrift`         |      3       | remote-lane#CONTRACT_EVOLUTION              |
+|  [13]   | Transports          | `RemoteTransport`       |      4       | remote-lane#TRANSPORT_AXIS                  |
+|  [14]   | Credentials         | `CredentialPolicy`      |      4       | remote-lane#CALL_POLICY                     |
+|  [15]   | Allocation classes  | `AllocationClass`       |      5       | staging-and-streams#ALLOCATION_AXIS         |
+|  [16]   | Work lanes          | `WorkLane`              |      5       | scheduling-and-lanes#LANE_AXIS              |
+|  [17]   | Progress phases     | `ProgressPhase`         |      9       | progress-and-observation#PHASE_FAMILY       |
+|  [18]   | Quantity families   | `QuantityFamily`        |      15      | units-boundary#QUANTITY_TABLE               |
+|  [19]   | Receipt union       | `ComputeReceipt`        |      21      | receipts-and-benchmarks#RECEIPT_UNION       |
+|  [20]   | Claim bands         | `BenchmarkClaim`        |      4       | receipts-and-benchmarks#BENCHMARK_CLAIMS    |
+|  [21]   | BLAS provider table | `LinearProvider`        |      3       | numeric-lane#DENSE_ALGEBRA                  |
+|  [22]   | Factorization union | `Factorization`         |      5       | numeric-lane#DENSE_ALGEBRA                  |
+|  [23]   | Sparse format axis  | `SparseFormat`          |      4       | numeric-lane#SPARSE_SOLVE                   |
+|  [24]   | Shard plan          | `ShardPlan`             |      2       | numeric-lane#KERNEL_LOWERING                |
+|  [25]   | Generation policy   | `GenerationPolicy`      |   14 cols    | model-lane#GENERATIVE_RUN                   |
+|  [26]   | Guidance constraint | `GuidanceKind`          |      5       | model-lane#GENERATIVE_RUN                   |
+|  [27]   | Interchange format  | `InterchangeFormat`     |      22      | interchange#FORMAT_AXIS                     |
+|  [28]   | Interchange codec   | `InterchangeCodec`      |      7       | interchange#FORMAT_AXIS                     |
+|  [29]   | Geometry delta kind | `GeometryDeltaKind`     |      5       | interchange#GEOMETRY_DELTA                  |
+|  [30]   | Job state           | `JobState`              |      8       | scheduling-and-lanes#JOB_GRAPH              |
+|  [31]   | Element topology    | `ElementClass`          |      9       | solver-and-optimization#DISCRETIZATION_MESH |
+|  [32]   | Mesh algorithm      | `MeshAlgorithm`         |      5       | solver-and-optimization#DISCRETIZATION_MESH |
+|  [33]   | Physics axis        | `PhysicsKind`           |      9       | solver-and-optimization#SOLVE_CONTRACT      |
+|  [34]   | Boundary condition  | `BoundaryCondition`     |      4       | solver-and-optimization#SOLVE_CONTRACT      |
+|  [35]   | Solve method        | `SolveMethod`           |      6       | solver-and-optimization#SOLVE_CONTRACT      |
+|  [36]   | Optimizer axis      | `OptimizerKind`         |      6       | solver-and-optimization#OPTIMIZER_LANE      |
+|  [37]   | Design variable     | `DesignVariable`        |      4       | solver-and-optimization#OPTIMIZER_LANE      |
+|  [38]   | Sweep axis          | `SweepAxis`             |      4       | solver-and-optimization#SWEEP_AND_BUDGET    |
+|  [39]   | Acceleration index  | `AccelerationStructure` |      3       | solver-and-optimization#CLASH_AND_TWIN      |
 
 ## [5]-[CONSUMED_SEAMS]
 
@@ -136,16 +151,19 @@ Each row cites the suite ledger SEAM_SPLITS: mechanics live at the named owner; 
 
 ## [6]-[PROVIDED_SEAMS]
 
-| [INDEX] | [SEAM]                           | [MECHANICS_HERE]                      | [CONSEQUENCE]                                                                       |
-| :-----: | :------------------------------- | :------------------------------------ | :--------------------------------------------------------------------------------- |
-|   [1]   | Suite wire vocabulary            | remote-lane#PROTO_VOCABULARY          | AppHost runtime-ports carries the suite wire law and TS tooling map                 |
-|   [2]   | ArtifactSync frame law           | remote-lane#ARTIFACT_FRAMES           | Persistence BlobRemote and sync rows consume the 64 KiB, Crc32, XxHash128 constants |
-|   [3]   | `WorkLane` name                  | scheduling-and-lanes#LANE_AXIS        | AppHost owns `DrainQueue`; one altitude per name                                    |
-|   [4]   | Phase-key set                    | progress-and-observation#PHASE_FAMILY | AppUi motion mapping mirrors the nine keys; its conformance sweep fails on drift    |
-|   [5]   | Receipt and progress wire shapes | receipts-and-benchmarks#TS_PROJECTION | AppUi evidence joins and dashboard ingestion consume the projections               |
-|   [6]   | Interchange content identity     | interchange#CONTENT_ADDRESSING        | Persistence blob lane stores the addressed interchange bytes via `ArtifactIndexRow.Admit`; Compute owns the `XxHash128` key, Persistence owns blob residence |
-|   [7]   | IFC semantic graph               | interchange#IMPORT_RAIL               | Persistence data-lanes ingests the `IfcSemanticModel` model graph as a managed in-proc semantic artifact, content-addressed, never a tessellated BRep |
-|   [8]   | Tessellated GLB visual           | interchange#TWO_HOP_TESSELLATION      | AppUi visual seam consumes the GLB the two-hop hop emits; the IFC semantic graph never crosses to the visual surface |
+| [INDEX] | [SEAM]                           | [MECHANICS_HERE]                                        | [CONSEQUENCE]                                                                                                                                                                  |
+| :-----: | :------------------------------- | :------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | Suite wire vocabulary            | remote-lane#PROTO_VOCABULARY                            | AppHost runtime-ports carries the suite wire law and TS tooling map                                                                                                            |
+|   [2]   | ArtifactSync frame law           | remote-lane#ARTIFACT_FRAMES                             | Persistence BlobRemote and sync rows consume the 64 KiB, Crc32, XxHash128 constants                                                                                            |
+|   [3]   | `WorkLane` name                  | scheduling-and-lanes#LANE_AXIS                          | AppHost owns `DrainQueue`; one altitude per name                                                                                                                               |
+|   [4]   | Phase-key set                    | progress-and-observation#PHASE_FAMILY                   | AppUi motion mapping mirrors the nine keys; its conformance sweep fails on drift                                                                                               |
+|   [5]   | Receipt and progress wire shapes | receipts-and-benchmarks#TS_PROJECTION                   | AppUi evidence joins and dashboard ingestion consume the projections                                                                                                           |
+|   [6]   | Interchange content identity     | interchange#CONTENT_ADDRESSING                          | Persistence blob lane stores the addressed interchange bytes via `ArtifactIndexRow.Admit`; Compute owns the `XxHash128` key, Persistence owns blob residence                   |
+|   [7]   | IFC semantic graph               | interchange#IMPORT_RAIL                                 | Persistence data-lanes ingests the `IfcSemanticModel` model graph as a managed in-proc semantic artifact, content-addressed, never a tessellated BRep                          |
+|   [8]   | Tessellated GLB visual           | interchange#TWO_HOP_TESSELLATION                        | AppUi visual seam consumes the GLB the two-hop hop emits; the IFC semantic graph never crosses to the visual surface                                                           |
+|   [9]   | Clash collision primitive        | solver-and-optimization#CLASH_AND_TWIN                  | The `Rasm` CAM/motion kernel composes `ClashScale.Detect` as its toolpath reachability/singularity collision primitive, never re-deriving an intersection test                 |
+|  [10]   | Solver field + twin verdict      | solver-and-optimization#SOLVE_CONTRACT, #CLASH_AND_TWIN | AppHost industrial-output port consumes the `TwinVerdict` control suggestion (receipt-gated); the `SolveResult` field crosses to Persistence as a content-keyed field artifact |
+|  [11]   | Pareto front artifact            | solver-and-optimization#OPTIMIZER_LANE                  | Persistence vector index stores the `ParetoFront`; AppUi charts query the front by objective-space region                                                                      |
 
 ## [7]-[REFERENCE_DIRECTION]
 

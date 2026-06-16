@@ -28,11 +28,22 @@ Rasm.AppHost/
 │   └── Ports.cs                     # ReceiptSinkPort + six siblings, TenantId, TenantContext, AppHostWireContext — runtime-ports#PORT_RECORDS, #WIRE_LAW
 ├── Provisioning/
 │   └── Provisioning.cs              # UpdatePhase, UpdateChannel, UpdateRail, RolloverDrain, FleetRoll — provisioning-and-update#UPDATE_RAIL, #CHANNEL_AXIS, #ROLLOVER_DRAIN
-└── Companion/
-    └── Companion.cs                 # ProcessModality, PeerRoster, ControlInbound, ServiceHost, DegradationCascade, PeerAdmission — companion-sidecar#PROCESS_MODALITY, #CONTROL_SERVICE, #SERVICE_HOST, #DEGRADATION_CASCADE, #PEER_ADMISSION
+├── Companion/
+│   └── Companion.cs                 # ProcessModality, PeerRoster, ControlInbound, ServiceHost, DegradationCascade, PeerAdmission — companion-sidecar#PROCESS_MODALITY, #CONTROL_SERVICE, #SERVICE_HOST, #DEGRADATION_CASCADE, #PEER_ADMISSION
+├── Capability/
+│   └── CapabilityRegistry.cs        # CapabilityDescriptor, CapabilityRegistry, CommandAlgebra, GrantBroker, SdkCodegen — capability-registry#DESCRIPTOR_AXIS, #DISCOVERY_FOLD, #COMMAND_ALGEBRA, #GRANT_BROKER, #SDK_CODEGEN
+├── Determinism/
+│   └── Determinism.cs               # DeterminismContext, EventLog, ReplayVerify, MacroEngine, RecomputeGraph — determinism-and-replay#DETERMINISM_KERNEL, #EVENT_LOG, #REPLAY_VERIFY, #MACRO_ENGINE, #RECOMPUTE_GRAPH
+├── Agent/
+│   └── Mcp.cs                       # McpMethod, ToolProjection, McpDispatch, StreamProgress — mcp-projection#METHOD_AXIS, #TOOL_DISPATCH, #STREAM_PROGRESS
+├── Sandbox/
+│   ├── Sandbox.cs                   # SandboxIsolation, GrantHandle, QuotaControl, SupplyChainGate — sandbox-host#ISOLATION_AXIS, #GRANT_HANDLE, #QUOTA_CONTROL, #SUPPLY_CHAIN
+│   └── SolverPlugin.cs              # SolverKind, SolverPluginContract, SolverHosting — solver-plugin#SOLVER_KIND, #PLUGIN_CONTRACT, #SOLVER_HOSTING
+└── LiveWire/
+    └── LiveWire.cs                  # ExternalTransport, BindingSpec, LiveWire, WriteBackSurface, BindingHealth — live-wire#TRANSPORT_AXIS, #BINDING_SPEC, #WRITE_BACK, #BINDING_HEALTH
 ```
 
-`Ports.cs` lands before the two inbound files because `AppHostWireContext` rows reference receipts every earlier file declares. `Outbound.cs` transcribes `outbound-resilience.md` including its DISCOVERY_ATTACH cluster: the `LocalIpc` hop case carries the `DiscoveryManifest` payload and `Discovery.Connect` consumes `GrpcChannelPolicy`, so discovery is one symbol closure in one file. `Provisioning.cs` owns the post-fetch update state machine over `UpdateManager`; the `UpdateCheck` detect-leg stays at `Outbound.cs`. `Companion.cs` lands last: it is the inbound serving counterpart to `Outbound.cs`, composing `Discovery`/`CompanionChild`/`GrpcChannelPolicy` (Outbound), `DegradationCell` (Health), `OptionsAdmission` (Configuration), and `SupportCapture` (Support) without re-declaring them, and the gRPC server-host packages enter only at service app roots behind the app-root pin. `DrainQueue` is the AppHost lane name; `WorkLane` stays at Compute.
+`Ports.cs` lands before the two inbound files because `AppHostWireContext` rows reference receipts every earlier file declares. `Outbound.cs` transcribes `outbound-resilience.md` including its DISCOVERY_ATTACH cluster: the `LocalIpc` hop case carries the `DiscoveryManifest` payload and `Discovery.Connect` consumes `GrpcChannelPolicy`, so discovery is one symbol closure in one file. `Provisioning.cs` owns the post-fetch update state machine over `UpdateManager`; the `UpdateCheck` detect-leg stays at `Outbound.cs`. `Companion.cs` lands last: it is the inbound serving counterpart to `Outbound.cs`, composing `Discovery`/`CompanionChild`/`GrpcChannelPolicy` (Outbound), `DegradationCell` (Health), `OptionsAdmission` (Configuration), and `SupportCapture` (Support) without re-declaring them, and the gRPC server-host packages enter only at service app roots behind the app-root pin. `DrainQueue` is the AppHost lane name; `WorkLane` stays at Compute. The six capability-and-extension files land after `Companion.cs`: `CapabilityRegistry.cs` is the self-describing op catalog generated from the canonical Compute op surfaces, the command algebra commit-or-rollback over the Compute dispatch rail, and the grant/cost broker; `Determinism.cs` is the reproducibility kernel and content-addressed event log riding the Persistence `OpLog`; `Mcp.cs`, `Sandbox.cs`, `SolverPlugin.cs`, and `LiveWire.cs` are each a projection of or a consumer of the registry. `Mcp.cs` projects the discovery fold onto the agent transport over the gRPC server-stream substrate; `Sandbox.cs` brokers no-ambient-authority plugin access and reuses `Discovery`/`CompanionPeer`/`PeerAdmission`; `SolverPlugin.cs` projects declared solver ops into the registry under the sandbox; `LiveWire.cs` coerces external values through the Compute `QuantityFamily` unit algebra and pushes them as registered commands over `OutboundHop`. The WASM component-model runtime and the industrial-protocol clients enter only at service or plugin-host app roots behind the app-root pin.
 
 ## [2]-[SPINE]
 
@@ -114,6 +125,33 @@ Text equivalent: `ProfileSurface.Resolve` materializes the one `ResolvedProfile`
 |  [48]   | fleet roll              | `FleetRoll`                        | 1 health-gated wave | provisioning-and-update#ROLLOVER_DRAIN      |
 |  [49]   | tenant context          | `TenantContext`                    | 1 boot mint        | runtime-ports#PORT_RECORDS                   |
 |  [50]   | trace context           | `TraceContext`                     | 1 W3C fold         | diagnostics-and-telemetry#CORRELATION_SPINE |
+|  [51]   | power and fidelity      | `FidelityScale`                    | 3 power × 4 thermal | host-profiles#POWER_AND_FIDELITY            |
+|  [52]   | delivery fan-out        | `DeliveryChannel`                  | 4 channel rows     | outbound-resilience#DELIVERY_FANOUT          |
+|  [53]   | alert engine            | `AlertRule`                        | 3 condition cases  | health-and-degradation#ALERT_ENGINE          |
+|  [54]   | descriptor axis         | `CapabilityDescriptor`             | 5 effect × 4 idemp | capability-registry#DESCRIPTOR_AXIS          |
+|  [55]   | discovery fold          | `CapabilityRegistry`               | 5 query cases      | capability-registry#DISCOVERY_FOLD           |
+|  [56]   | command algebra         | `CommandAlgebra`                   | 4 txn cases        | capability-registry#COMMAND_ALGEBRA          |
+|  [57]   | grant broker            | `GrantBroker`                      | 4 consent cases    | capability-registry#GRANT_BROKER             |
+|  [58]   | SDK codegen             | `SdkCodegen`                       | 3 targets          | capability-registry#SDK_CODEGEN              |
+|  [59]   | MCP method axis         | `McpMethod`                        | 8 rows             | mcp-projection#METHOD_AXIS                   |
+|  [60]   | MCP dispatch            | `McpDispatch`                      | 5 fault cases      | mcp-projection#TOOL_DISPATCH                 |
+|  [61]   | MCP stream progress     | `StreamProgress`                   | 6 frame cases      | mcp-projection#STREAM_PROGRESS               |
+|  [62]   | sandbox isolation       | `SandboxIsolation`                 | 2 rows             | sandbox-host#ISOLATION_AXIS                  |
+|  [63]   | grant handle            | `GrantHandle`                      | 1 brokered bridge  | sandbox-host#GRANT_HANDLE                    |
+|  [64]   | quota control           | `QuotaShape`                       | 4 quarantine cases | sandbox-host#QUOTA_CONTROL                   |
+|  [65]   | supply chain            | `SupplyChainGate`                  | 4 fault cases      | sandbox-host#SUPPLY_CHAIN                    |
+|  [66]   | solver kind             | `SolverKind`                       | 7 rows             | solver-plugin#SOLVER_KIND                    |
+|  [67]   | plugin contract         | `SolverPluginContract`             | 1 manifest fold    | solver-plugin#PLUGIN_CONTRACT                |
+|  [68]   | solver hosting          | `SolverHosting`                    | 1 load fold        | solver-plugin#SOLVER_HOSTING                 |
+|  [69]   | external transport      | `ExternalTransport`                | 8 rows             | live-wire#TRANSPORT_AXIS                     |
+|  [70]   | binding spec            | `BindingSpec`                      | 3 direction flags  | live-wire#BINDING_SPEC                       |
+|  [71]   | write-back              | `WriteBack`                        | 4 disposition cases | live-wire#WRITE_BACK                        |
+|  [72]   | binding health          | `BindingState`                     | 5 rows             | live-wire#BINDING_HEALTH                     |
+|  [73]   | determinism kernel      | `DeterminismContext`               | 3 float modes      | determinism-and-replay#DETERMINISM_KERNEL    |
+|  [74]   | event log               | `EventLog`                         | 1 hash chain       | determinism-and-replay#EVENT_LOG             |
+|  [75]   | replay verify           | `ReplayVerify`                     | 4 outcome cases    | determinism-and-replay#REPLAY_VERIFY         |
+|  [76]   | macro engine            | `MacroEngine`                      | 1 record/replay    | determinism-and-replay#MACRO_ENGINE          |
+|  [77]   | recompute graph         | `RecomputeGraph`                   | 1 dependency walk  | determinism-and-replay#RECOMPUTE_GRAPH       |
 
 One rail per entrypoint, named in the return type: `Validation<ConfigError,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects. Receipts stamp NodaTime `Instant` and `Duration`; `TimeProvider` owns elapsed measurement.
 
@@ -153,12 +191,20 @@ Every two-package fact splits by altitude: mechanics live at the named AppHost c
 |  [15]   | tenant context         | runtime-ports#PORT_RECORDS                   | Persistence server-tier RLS `current_setting('rasm.tenant')` + cache-key partition; never re-minted |
 |  [16]   | trace context          | diagnostics-and-telemetry#CORRELATION_SPINE  | W3C `traceparent`/`tracestate` over companion-sidecar gRPC metadata on the control hop |
 |  [17]   | peer presence          | companion-sidecar#PROCESS_MODALITY           | Persistence sync-collaboration presence row per `RosterReceipt` over the op-log changefeed |
+|  [18]   | op catalog generation  | capability-registry#DESCRIPTOR_AXIS          | Compute op surfaces (`TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`) project descriptors; never a hand-listed catalog |
+|  [19]   | command dispatch       | capability-registry#COMMAND_ALGEBRA          | Compute `IntentAdmission`/`SubstrateSelection` executes; AppHost owns the transaction boundary, Compute owns substrate selection |
+|  [20]   | event log durability   | determinism-and-replay#EVENT_LOG             | Persistence sync-collaboration#OPLOG_CHANGEFEED stores each `LogEntry` as one `OpLogEntry`; one event-sourcing truth |
+|  [21]   | host fingerprint       | determinism-and-replay#DETERMINISM_KERNEL    | Compute receipts-and-benchmarks#BENCHMARK_CLAIMS `HostFingerprint`; reproducibility and benchmark gating share one host identity |
+|  [22]   | edge unit coercion     | live-wire#BINDING_SPEC                        | Compute units-boundary#QUANTITY_TABLE `QuantityFamily.Admit`/`Render`; the suite's single unit-conversion truth |
+|  [23]   | solver representation  | solver-plugin#SOLVER_HOSTING                 | Compute tensor-lane#GEOMETRY_ENCODING canonical `EncodedTensor`; plugin speaks its channel, the projection translates |
+|  [24]   | compute fidelity       | host-profiles#POWER_AND_FIDELITY             | Compute scheduling-and-lanes#CPU_BUDGET reads the `FidelityScale` parallelism cap; host owns power state |
 
 ## [6]-[BOUNDARIES]
 
 - AppHost is not a domain service layer, job framework, DI wrapper, telemetry wrapper, UI package, persistence package, compute implementation, or host-boundary package.
 - AppHost owns runtime state and policy; app roots own process attachment, host events, and app-root-only pins (OTLP exporter, Kestrel/gRPC surfaces, Serilog host bridge and sinks).
-- Statement carve-outs are named per fence: `Lifecycle`, `FaultSpine`, `ConfigLayer`, `Applied`, `Bundle`, `Evict`, `Publish`, `Connect`, and `Execute` are the boundary capsules; every other member stays expression-shaped on typed rails.
+- Statement carve-outs are named per fence: `Lifecycle`, `FaultSpine`, `ConfigLayer`, `Applied`, `Bundle`, `Evict`, `Publish`, `Connect`, `Execute`, `EventLog.Append`, `SandboxRows.Load`, `SupplyChainGate.Admit`, and `PowerProbe.Read` are the boundary capsules; every other member stays expression-shaped on typed rails.
+- AppHost owns the self-describing op catalog, command transaction, grant/cost broker, MCP projection, plugin sandbox, solver contract, reactive external binding, and reproducibility kernel as runtime-policy axes; op execution stays Compute, durability stays Persistence, and the WASM runtime and industrial-protocol clients stay app-root-pinned host surfaces.
 - Sentinels stop at the admission seam: `ClockPolicy.Admit` projects platform defaults to `Option<Instant>`; interiors never see nulls, sentinels, or provider shapes.
 - AppHost owns support trigger and correlation; contributing packages own artifact classification and payload projection through `SupportContributorPort` rows.
 - Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots.
