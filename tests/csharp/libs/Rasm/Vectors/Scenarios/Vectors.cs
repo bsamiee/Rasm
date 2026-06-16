@@ -17,6 +17,7 @@ namespace Rasm.Tests.Vectors.Scenarios;
 internal static class VectorsScenarios {
     [RhinoScenario(theme: "vectors")]
     internal static Fin<Unit> CloudShapes(ScenarioContext ctx) =>
+        from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
         from ring in ctx.Expect(label: "ring", projection: VectorCloud.Ring(
@@ -51,10 +52,11 @@ internal static class VectorsScenarios {
         let distanceFact = Note(ctx: ctx, key: "transport.distance", value: transport.Distance.ToString(format: "F6", provider: System.Globalization.CultureInfo.InvariantCulture))
         let coveredSourceFact = Note(ctx: ctx, key: "transport.coveredSource", value: transport.Correspondences.CoveredSourceCount)
         let coveredTargetFact = Note(ctx: ctx, key: "transport.coveredTarget", value: transport.Correspondences.CoveredTargetCount)
-        select unit;
+        select Done(scope: scope);
 
     [RhinoScenario(theme: "vectors")]
     internal static Fin<Unit> CloudNeighborhood(ScenarioContext ctx) =>
+        from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
         from neighbors in ctx.Expect(label: "neighbors", projection: op.AcceptValidated<Dimension>(candidate: 4))
@@ -110,10 +112,11 @@ internal static class VectorsScenarios {
         let radiusFact = Note(ctx: ctx, key: "curvature.radiusLimited", value: radiusCurvature.Receipt.RadiusLimited)
         let rangeFact = Note(ctx: ctx, key: "curvature.range", value: planeCurvature.Receipt.Range.Kind.Key)
         let meanFact = Note(ctx: ctx, key: "sphere.mean", value: sphereMean)
-        select unit;
+        select Done(scope: scope);
 
     [RhinoScenario(theme: "vectors")]
     internal static Fin<Unit> CloudHull(ScenarioContext ctx) =>
+        from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
         from tooFew in ctx.Expect(label: "too few cluster", projection: VectorCloud.Cluster(
@@ -166,10 +169,11 @@ internal static class VectorsScenarios {
         let facetsFact = Note(ctx: ctx, key: "hull.facets", value: result.Receipt.NativeFacetCount)
         let footprintFact = Note(ctx: ctx, key: "footprint.vertices", value: footprint.Receipt.OutputVertexCount)
         let collinearFact = Note(ctx: ctx, key: "collinear.status", value: Text(value: collinearFootprint.Receipt.Status))
-        select unit;
+        select Done(scope: scope);
 
     [RhinoScenario(theme: "vectors")]
     internal static Fin<Unit> FieldSdfIsosurface(ScenarioContext ctx) =>
+        from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
         let isoBounds = new BoundingBox(new Point3d(-6.0, -6.0, -6.0), new Point3d(6.0, 6.0, 6.0))
@@ -260,10 +264,11 @@ internal static class VectorsScenarios {
         let evaluatorReceiptFact = Note(ctx: ctx, key: "evaluatorFailureReceiptRejected", value: evaluatorFailureReceiptRejected)
         let threadsFact = Note(ctx: ctx, key: "threadIdsSeen", value: nativeProbe.Threads)
         let samplesFact = Note(ctx: ctx, key: "sampleCount", value: nativeProbe.Samples)
-        select unit;
+        select Done(scope: scope);
 
     [RhinoScenario(theme: "vectors")]
     internal static Fin<Unit> AtomsFrame(ScenarioContext ctx) =>
+        from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
         from x in ctx.Expect(label: "direction x", projection: Direction.Of(value: new Vector3d(x: 4.0, y: 0.0, z: 0.0), context: context, key: op))
@@ -297,10 +302,11 @@ internal static class VectorsScenarios {
         let coneFact = Note(ctx: ctx, key: "cone.axis", value: Text(value: coneAxis))
         let angleFact = Note(ctx: ctx, key: "angle.frameAccepted", value: angleFrameAccepted)
         let contourFact = Note(ctx: ctx, key: "contourPlaneAccepted", value: contourPlaneAccepted)
-        select unit;
+        select Done(scope: scope);
 
     [RhinoScenario(theme: "vectors")]
     internal static Fin<Unit> SpaceProjection(ScenarioContext ctx) =>
+        from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
         from sphere in ctx.Expect(label: "sphere support", projection: SupportSpace.Of(value: new Sphere(Point3d.Origin, 5.0), key: op))
@@ -331,10 +337,11 @@ internal static class VectorsScenarios {
         let awayFact = Note(ctx: ctx, key: "span.away", value: Text(value: outward))
         let uvFact = Note(ctx: ctx, key: "uv", value: Text(value: uv))
         let planeFact = Note(ctx: ctx, key: "planeSupportAccepted", value: planeSupportAccepted)
-        select unit;
+        select Done(scope: scope);
 
     [RhinoScenario(theme: "vectors")]
     internal static Fin<Unit> SampleDworkContinuous(ScenarioContext ctx) =>
+        from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
         let native = OpenGrid()
@@ -363,7 +370,7 @@ internal static class VectorsScenarios {
         let generatedFact = Note(ctx: ctx, key: "dwork.generated", value: dwork.GeneratedCandidates)
         let gridCellsFact = Note(ctx: ctx, key: "dwork.gridCells", value: dwork.BackgroundGridCells.IfNone(0))
         let spectrumFact = Note(ctx: ctx, key: "dwork.spectrumValidated", value: algorithm.MeshSpectrumValidated)
-        select unit;
+        select Done(scope: scope);
 
     [RhinoScenario(theme: "vectors")]
     internal static Fin<Unit> SpectralDec(ScenarioContext ctx) {
@@ -454,6 +461,11 @@ internal static class VectorsScenarios {
         return (Iso: iso, Samples: samples, Threads: threads.Count);
     }
 
+    private static Unit Done(DocumentScope scope) {
+        scope.Dispose();
+        return unit;
+    }
+
     private static T Note<T>(ScenarioContext ctx, string key, T value) {
         ctx.Fact(key: key, value: value);
         return value;
@@ -491,6 +503,7 @@ internal static class VectorsScenarios {
             .Bind(admitted => ctx.Expect(label: $"{label}: project", projection: admitted.Project<T>(context: context, key: key)));
 
     private static Fin<Unit> SpectralDecRail(ScenarioContext ctx, Mesh native, Mesh openNative, Mesh degenerateNative, Mesh torusNative) =>
+        from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
         from space in ctx.Expect(label: "space", projection: MeshSpace.Of(native: native, context: context, key: op))
@@ -569,9 +582,10 @@ internal static class VectorsScenarios {
         let railsFact = Note(ctx: ctx, key: "segmentation.rails", value: segmentationReceipts.Count)
         let spectrumFact = Note(ctx: ctx, key: "sample.spectrumValidated", value: sampleSpectrum.Validated)
         let logFact = Note(ctx: ctx, key: "log.vectorHeatBacked", value: logReceipt.VectorHeatBacked)
-        select unit;
+        select Done(scope: scope);
 
     private static Fin<Unit> SpectralDescriptorRail(ScenarioContext ctx, Mesh native) =>
+        from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
         from space in ctx.Expect(label: "space", projection: MeshSpace.Of(native: native, context: context, key: op))
@@ -608,9 +622,10 @@ internal static class VectorsScenarios {
         let comparisonFact = Note(ctx: ctx, key: "spectral.comparisonReady", value: spectralReceipt.ComparisonReady)
         let waveNormalizedFact = Note(ctx: ctx, key: "spectral.waveNormalized", value: wave.WksNormalized)
         let waveSumFact = Note(ctx: ctx, key: "spectral.waveWeightSum", value: wave.NormalizedWeightSum)
-        select unit;
+        select Done(scope: scope);
 
     private static Fin<Unit> SpectralEdgeConnectionRail(ScenarioContext ctx, Mesh native) =>
+        from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
         from space in ctx.Expect(label: "space", projection: MeshSpace.Of(native: native, context: context, key: op))
@@ -633,7 +648,7 @@ internal static class VectorsScenarios {
         let nonZerosFact = Note(ctx: ctx, key: "edgeNonZeros", value: edge.NonZeros)
         let factorFact = Note(ctx: ctx, key: "edgeFactorNonZeros", value: edge.FactorNonZeros.IfNone(0))
         let toleranceFact = Note(ctx: ctx, key: "solverTolerance", value: solver.ResidualTolerance.Value)
-        select unit;
+        select Done(scope: scope);
 
     private static Mesh TorusMesh(int uCount, int vCount) {
         Mesh mesh = new();

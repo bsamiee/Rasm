@@ -83,31 +83,33 @@ public abstract partial record SpectralFilter {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, Option<int> FactorNonZeros = default) {
+public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, Option<int> FactorNonZeros = default, double BoundaryCompositionTolerance = 0.0) {
     internal bool IsValid =>
         Kind is SpectralAssemblyKind kind
         && VertexCount >= 0 && EdgeCount >= 0 && FaceCount >= 0 && AdmittedFaceCount >= 0 && SkippedDegenerateFaces >= 0 && SkippedMissingEdges >= 0 && SkippedInvalidNormals >= 0 && SkippedInvalidTangents >= 0 && MatrixRows >= 0 && MatrixCols >= 0 && NonZeros >= 0 && PositiveStar0Count >= 0 && PositiveStar1Count >= 0 && PositiveStar2Count >= 0 && HarmonicDimension >= 0 && BoundaryEdgeCount >= 0 && BoundaryComponentCount >= 0 && NonManifoldEdgeCount >= 0 && ComponentCount >= 0 && PositiveMassCount >= 0
         && AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount
         && RhinoMath.IsValidDouble(x: BoundaryCompositionResidual)
         && RhinoMath.IsValidDouble(x: SymmetryResidual)
+        && RhinoMath.IsValidDouble(x: BoundaryCompositionTolerance) && BoundaryCompositionTolerance >= 0.0
         && FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)
         && (kind.Equals(SpectralAssemblyKind.EdgeConnection)
             ? ComponentCount == 2 && MatrixRows == EdgeCount * ComponentCount && MatrixCols == MatrixRows && PositiveMassCount <= EdgeCount
-            : ComponentCount == 1 && PositiveStar0Count <= VertexCount && PositiveStar1Count <= EdgeCount && PositiveStar2Count <= FaceCount && (Genus is { IsSome: true, Case: int genus } ? genus >= 0 && HarmonicDimension == 2 * genus : HarmonicDimension == 0));
+            : ComponentCount == 1 && PositiveStar0Count <= VertexCount && PositiveStar1Count <= EdgeCount && PositiveStar2Count <= FaceCount && (Genus is { IsSome: true, Case: int genus } ? genus >= 0 && HarmonicDimension == (2 * genus) + Math.Max(0, BoundaryComponentCount - 1) : HarmonicDimension == 0));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct HarmonicOneFormReceipt(Option<int> Genus, int ExpectedDimension, int ConstraintRows, int EdgeCount, int Rank, int Nullity, int BasisCount, double SvdTolerance, double EpsRank, double SpectralRadius, double NullspaceThreshold, double MinNullEigenvalue, double MaxNullEigenvalue, double MaxClosedResidual, double MaxCoClosedResidual, double Star1OrthonormalResidual, int PositiveStar1Count, EigenSolveReceipt<double, Arr<double>> Eigen) {
+public readonly record struct HarmonicOneFormReceipt(Option<int> Genus, int ExpectedDimension, int ConstraintRows, int EdgeCount, int Rank, int Nullity, int BasisCount, double SvdTolerance, double EpsRank, double SpectralRadius, double NullspaceThreshold, double MinNullEigenvalue, double MaxNullEigenvalue, double MaxClosedResidual, double MaxCoClosedResidual, double Star1OrthonormalResidual, int PositiveStar1Count, EigenSolveReceipt<double, Arr<double>> Eigen, int BoundaryComponentCount = 0) {
     public bool IsValid {
         get {
             int expected = ExpectedDimension;
+            int boundaryComponentCount = BoundaryComponentCount;
             double tolerance = SvdTolerance;
             return expected >= 0 && ConstraintRows >= 0 && EdgeCount >= 0 && Rank >= 0 && Nullity >= 0 && BasisCount >= 0 && PositiveStar1Count >= 0
                 && Rank + Nullity == EdgeCount
                 && BasisCount == expected
                 && Nullity >= expected
                 && PositiveStar1Count <= EdgeCount
-                && Genus.Map(genus => expected == 2 * genus).IfNone(expected == 0)
+                && Genus.Map(genus => expected == (2 * genus) + Math.Max(0, boundaryComponentCount - 1)).IfNone(expected == 0)
                 && RhinoMath.IsValidDouble(x: tolerance) && RhinoMath.IsValidDouble(x: EpsRank) && RhinoMath.IsValidDouble(x: SpectralRadius) && RhinoMath.IsValidDouble(x: NullspaceThreshold) && RhinoMath.IsValidDouble(x: MinNullEigenvalue) && RhinoMath.IsValidDouble(x: MaxNullEigenvalue) && RhinoMath.IsValidDouble(x: MaxClosedResidual) && RhinoMath.IsValidDouble(x: MaxCoClosedResidual) && RhinoMath.IsValidDouble(x: Star1OrthonormalResidual)
                 && tolerance > 0.0
                 && EpsRank > 0.0
@@ -137,7 +139,7 @@ public readonly record struct HarmonicOneFormBasis(Arr<Arr<double>> Forms, Harmo
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1, Arr<double> Star0, Arr<double> Star1, Arr<double> Star2, SpectralAssemblyReceipt Receipt, Option<SignpostTransportReceipt> Transport = default, Option<HarmonicOneFormBasis> Harmonic = default) {
-    public bool IsValid => D0.IsValid && D1.IsValid && Receipt.IsValid && Star0.Count == D0.Cols.Value && Star1.Count == D0.Rows.Value && Star2.Count == D1.Rows.Value && Star0.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Star1.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Star2.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Transport.Map(static receipt => receipt.IsValid).IfNone(noneValue: true) && Harmonic.Map(static basis => basis.IsValid).IfNone(noneValue: true);
+    public bool IsValid => D0.IsValid && D1.IsValid && Receipt.IsValid && Star0.Count == D0.Cols.Value && Star1.Count == D0.Rows.Value && Star2.Count == D1.Rows.Value && Star0.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Star1.Fold(0.0, static (max, v) => Math.Max(max, Math.Abs(v))) is double star1Scale && Star1.ForAll(v => RhinoMath.IsValidDouble(x: v) && v >= -(RhinoMath.SqrtEpsilon * Math.Max(1.0, star1Scale))) && Star2.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Transport.Map(static receipt => receipt.IsValid).IfNone(noneValue: true) && Harmonic.Map(static basis => basis.IsValid).IfNone(noneValue: true);
     internal Fin<TOut> Project<TOut>(Op key) {
         DiscreteCalculus self = this;
         return AtomProjection.Rows<DiscreteCalculus, TOut>(self: self, key: key,
@@ -414,7 +416,7 @@ internal static class SpectralCore {
         from topology in MeshKernel.TopologyDetailed(space: space)
         from dec in AssembleDecOperators(imesh: imesh, mass: laplacian.MassLumped, topology: topology, key: key)
         from transport in MeshKernel.SignpostTransportReceiptOf(space: space, imesh: imesh, key: key)
-        from harmonic in topology.Genus.Map(static genus => genus > 0).IfNone(noneValue: false)
+        from harmonic in topology.Genus.Map(genus => ((2 * genus) + Math.Max(0, topology.BoundaryComponents - 1)) > 0).IfNone(noneValue: false)
             ? BuildHarmonicOneForms(calculus: dec, topology: topology, epsRank: HarmonicEpsRankDefault, key: key).Map(static basis => Some(basis))
             : Fin.Succ(Option<HarmonicOneFormBasis>.None)
         let calculus = dec with { Transport = Some(transport), Harmonic = harmonic }
@@ -450,17 +452,19 @@ internal static class SpectralCore {
             }
         }
         double boundaryResidual = BoundaryCompositionResidual(d0: d0, d1: d1);
-        int harmonicDimension = topology.Genus.Map(static g => 2 * g).IfNone(0);
+        double compositionScale = d1.Aggregate(1.0, static (max, t) => Math.Max(max, Math.Abs(t.Value)));
+        double compositionTolerance = RhinoMath.SqrtEpsilon * compositionScale;
+        int harmonicDimension = topology.Genus.Map(g => (2 * g) + Math.Max(0, topology.BoundaryComponents - 1)).IfNone(0);
         return skippedDegenerate > 0 || skippedMissing > 0 || admitted != faceCount
             ? Fin.Fail<DiscreteCalculus>(key.Unsupported(geometryType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(DiscreteCalculus)))
             : mass.Count != vertCount
             || !mass.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)
-            || boundaryResidual > RhinoMath.SqrtEpsilon
+            || boundaryResidual > compositionTolerance
             ? Fin.Fail<DiscreteCalculus>(key.InvalidResult())
             : from D0 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: edgeCount), cols: Dimension.Create(value: vertCount), triplets: d0, key: key)
               from D1 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: faceCount), cols: Dimension.Create(value: edgeCount), triplets: d1, key: key)
               let boundaryEdgeCount = Enumerable.Range(start: 0, count: imesh.EdgeCount).Count(edgeIndex => imesh.EdgeAt(index: edgeIndex).Face1 < 0)
-              let receipt = new SpectralAssemblyReceipt(VertexCount: vertCount, EdgeCount: edgeCount, FaceCount: faceCount, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: imesh.HasFlips, MatrixRows: D0.Rows.Value + D1.Rows.Value, MatrixCols: D0.Cols.Value + D1.Cols.Value, NonZeros: D0.Values.Count + D1.Values.Count, PositiveStar0Count: mass.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar1Count: star1.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar2Count: star2.Count(static value => value > RhinoMath.ZeroTolerance), BoundaryCompositionResidual: boundaryResidual, Genus: topology.Genus, HarmonicDimension: harmonicDimension, BoundaryEdgeCount: boundaryEdgeCount, BoundaryComponentCount: topology.BoundaryComponents, NonManifoldEdgeCount: topology.NonManifoldEdges, EulerCharacteristic: topology.EulerCharacteristic, TopologyEulerValidated: topology.EulerValidated, Kind: SpectralAssemblyKind.Dec)
+              let receipt = new SpectralAssemblyReceipt(VertexCount: vertCount, EdgeCount: edgeCount, FaceCount: faceCount, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: imesh.HasFlips, MatrixRows: D0.Rows.Value + D1.Rows.Value, MatrixCols: D0.Cols.Value + D1.Cols.Value, NonZeros: D0.Values.Count + D1.Values.Count, PositiveStar0Count: mass.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar1Count: star1.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar2Count: star2.Count(static value => value > RhinoMath.ZeroTolerance), BoundaryCompositionResidual: boundaryResidual, Genus: topology.Genus, HarmonicDimension: harmonicDimension, BoundaryEdgeCount: boundaryEdgeCount, BoundaryComponentCount: topology.BoundaryComponents, NonManifoldEdgeCount: topology.NonManifoldEdges, EulerCharacteristic: topology.EulerCharacteristic, TopologyEulerValidated: topology.EulerValidated, Kind: SpectralAssemblyKind.Dec, BoundaryCompositionTolerance: compositionTolerance)
               select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>(star2), Receipt: receipt);
     }
 
@@ -468,7 +472,7 @@ internal static class SpectralCore {
         int edgeCount = calculus.D0.Rows.Value;
         int vertexCount = calculus.D0.Cols.Value;
         int faceCount = calculus.D1.Rows.Value;
-        int expected = topology.Genus.Map(static genus => 2 * genus).IfNone(0);
+        int expected = topology.Genus.Map(genus => (2 * genus) + Math.Max(0, topology.BoundaryComponents - 1)).IfNone(0);
         if (expected <= 0 || edgeCount <= 0 || expected > edgeCount || calculus.Star1.Count != edgeCount || !RhinoMath.IsValidDouble(x: epsRank) || epsRank <= 0.0)
             return Fin.Fail<HarmonicOneFormBasis>(key.InvalidInput());
         double[] normal = new double[edgeCount * edgeCount];
@@ -517,7 +521,8 @@ internal static class SpectralCore {
                    MaxCoClosedResidual: maxCoClosed,
                    Star1OrthonormalResidual: orthonormal,
                    PositiveStar1Count: calculus.Star1.Count(static value => value > 0.0),
-                   Eigen: eigen)
+                   Eigen: eigen,
+                   BoundaryComponentCount: topology.BoundaryComponents)
                let basis = new HarmonicOneFormBasis(Forms: forms, Receipt: receipt)
                from valid in basis.IsValid ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
                select basis;
