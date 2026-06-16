@@ -9,7 +9,7 @@ Per the single-state-surface law, page-finalization state lives in exactly one c
 | [INDEX] | [PAGE]              | [OWNS]                                                                                                                       | [STATE]     |
 | :-----: | :------------------ | :-------------------------------------------------------------------------------------------------------------------------- | :---------- |
 |   [1]   | binding.md          | AtomBinding + DeepLinkBinding + UndoStack + OfflineState + the dev-build atom inspector                                      | provisional |
-|   [2]   | render-surfaces.md  | the EvidenceTimelineRoute/BenchmarkRoute/CollectorPanel observation routes + GeoSeriesSurface over one GeoSeriesLayer union  | provisional |
+|   [2]   | render-surfaces.md  | the EvidenceTimelineRoute/BenchmarkRoute/CollectorPanel observation routes + GeoSeriesSurface over one GeoSeriesLayer union + GlbViewport WebGL mesh render | provisional |
 |   [3]   | component-system.md | the InteractionRole Schema.Literal owner-block + RoleBehavior + ThemeTokens + CssVarSync                                     | provisional |
 
 ## [2]-[WIRE_PAGES]
@@ -21,6 +21,7 @@ Per the single-state-surface law, page-finalization state lives in exactly one c
 | Compute/receipts-and-benchmarks | json-stj | render-surfaces#RENDER_SURFACES (`BenchmarkRoute`, fingerprint-gated, over `ReceiptStore`)   |
 | AppUi/diagnostics-evidence      | json-stj | render-surfaces#RENDER_SURFACES (`EvidenceTimelineRoute` + `SkewBand`, over `EvidenceFeed`)  |
 | Persistence/snapshot-codecs     | messagepack | render-surfaces#RENDER_SURFACES (`GeoSeriesSurface` over the `GeometryRail` GeoJSON projection) |
+| Compute/remote-lane             | proto       | render-surfaces#GLB_VIEWPORT (`GlbViewport` over the `ArtifactFrameRail` blob; mesh-decode seam BLOCKED on the not-yet-promoted `GeometryPayload(mesh)`/`MeshTensor` shape) |
 
 ## [3]-[GAP_LEDGER]
 
@@ -35,10 +36,12 @@ Per the single-state-surface law, page-finalization state lives in exactly one c
 |   [7]   | a `.tsx`-per-component library instead of a role vocabulary            | component-system#COMPONENT_SYSTEM (one `InteractionRole` owner-block + `RoleBehavior`)   |
 |   [8]   | a theme written direct to `document.documentElement.style`             | component-system#COMPONENT_SYSTEM (`CssVarSync` the single theme-to-runtime path)        |
 |   [9]   | a `ui->platform` import inverting the AppUi/AppHost direction           | the `ui/**`-specific import-ban rule in the centralized config (RULE_ENFORCEMENT row [7]) |
+|  [10]   | the GLB viewport re-decoding the mesh bytes beside the rail / a free GL ref | render-surfaces#GLB_VIEWPORT (`GlbViewport` reads only the `ArtifactFrameRail` blob; the GL context is one `Effect.acquireRelease` resource) |
+|  [11]   | a parallel viewport-camera gesture handler beside the role vocabulary    | render-surfaces#GLB_VIEWPORT (`ViewportCamera` is one `RoleBehavior` row on `core`/`gesture`; the `CameraGesture` `Data.TaggedEnum` folds total) |
 
 ## [4]-[DENSITY_BAR]
 
-A new feature is a row or case, never a new surface. The owner-finalization axis (`FINALIZED|SPIKE`) lives only in this column per the single-state-surface law. `ui` owns NO app-service — the closed five-app-service budget (`WireClients`/`CommandGateway` in `interchange`; `SnapshotFeed`/`RuntimeFeed`/`EvidenceFeed` in `projection`) holds none of these owners; every `ui` owner is a browser-stratum render/binding/vocabulary owner.
+A new feature is a row or case, never a new surface. The owner-finalization axis (`FINALIZED|SPIKE|BLOCKED`) lives only in this column per the single-state-surface law; `BLOCKED` marks an owner whose fence is authored but whose seam is gated on an unmet cross-branch precondition. `ui` owns NO app-service — the closed five-app-service budget (`WireClients`/`CommandGateway` in `interchange`; `SnapshotFeed`/`RuntimeFeed`/`EvidenceFeed` in `projection`) holds none of these owners; every `ui` owner is a browser-stratum render/binding/vocabulary owner.
 
 | [INDEX] | [AXIS/CONCERN]            | [OWNER]                            | [KIND]                  | [CASES]                                                                                  | [STATE]   |
 | :-----: | :------------------------ | :--------------------------------- | :---------------------- | :--------------------------------------------------------------------------------------- | :-------- |
@@ -48,8 +51,9 @@ A new feature is a row or case, never a new surface. The owner-finalization axis
 |   [4]   | observation routes        | `EvidenceTimelineRoute`/`BenchmarkRoute`/`CollectorPanel` | read-only leaves | HLC-ordered evidence + `SkewBand`, fingerprint-gated benchmark, telemetry collector reader | FINALIZED |
 |   [5]   | cartographic surface      | `GeoSeriesSurface` / `GeoSeriesLayer` | Schema.Union owner   | base (maplibre style-spec) vs overlay (`featureKind` × `overlayMode` `@deck.gl/react` `DeckGL` layer set over the maplibre child) | FINALIZED |
 |   [6]   | component vocabulary      | `InteractionRole` + `RoleBehavior` + `ThemeTokens` | Schema.Literal owner-block | eight roles × headless behavior + color-space tokens + `CssVarSync` runtime sync         | FINALIZED |
+|   [7]   | mesh render leaf          | `GlbViewport` / `RendererBackend`  | Schema.Literal backend axis | three/babylon/model-viewer/webgpu backend × in-memory `MeshView` upload/draw fold over the `ArtifactFrameRail` blob + the `ViewportCamera` `RoleBehavior` row on `core`/`gesture`; mesh-decode seam BLOCKED on upstream `GeometryPayload` promotion | BLOCKED |
 
-`GlbViewport` is NOT a DENSITY_BAR owner — it is the single `REFINEMENT_HORIZON` entry, fence-deferred behind the upstream C# mesh `#TS_PROJECTION`, and admits zero WebGL package until that fence exists.
+`GlbViewport` is the row [7] DENSITY_BAR owner with its backend/draw/camera owners authored against the in-memory `MeshView`, but its mesh-DECODE seam is BLOCKED: the upstream C# `remote-lane#TS_PROJECTION` promotion of `GeometryPayload(mesh)`/`MeshTensor` out of `[PROTO_VOCABULARY]` (the single true blocker per `region-map/seam-splits.md` line 50) has NOT landed, so the decode consumes the generated descriptor by reference only once that fence exists. State stays BLOCKED, not SPIKE, until `(a)` physically promotes the mesh wire type; the WebGL packages are admitted-on-precondition.
 
 ## [5]-[BUILD_ORDER]
 
@@ -59,7 +63,7 @@ The binding precedes every surface that subscribes through it; the component-sys
 | :-----: | :---------------------- | :----------------------------------- | :------------------------------ |
 |   [1]   | binding.ts              | binding#BINDING                      | tsgo `--noEmit` + unit-pbt      |
 |   [2]   | component-system/       | component-system#COMPONENT_SYSTEM    | tsgo + announce-arm exhaustive  |
-|   [3]   | render-surfaces.ts      | render-surfaces#RENDER_SURFACES      | tsgo + BrowserE2E DOM/navigation |
+|   [3]   | render-surfaces.ts      | render-surfaces#RENDER_SURFACES + #GLB_VIEWPORT | tsgo + BrowserE2E DOM/navigation + GL-context acquireRelease teardown |
 |   [4]   | index.ts                | the single `./ui` subpath export     | exports resolve                 |
 
 ## [6]-[PROOF_GATES]
@@ -74,7 +78,7 @@ The binding precedes every surface that subscribes through it; the component-sys
 
 ## [7]-[PROHIBITIONS]
 
-No second React state binding beside `AtomBinding`; no domain data in local component state; no parallel client-state library where `DeepLinkBinding`/`UndoStack`/`OfflineState` fold under the one binding; the atom inspector is a dev-build-only row stripped by `BuildPipeline` and never in the shipped bundle; no transport dialed directly — every mutation leaves only through the `interchange` `CommandGateway`; no benchmark claim displayed without the fingerprint gate; no second decode of geometry beside the `interchange` `GeometryRail`; the four geo aliases stay collapsed into one `GeoSeriesLayer` union and never restate as parallel const objects; no per-component `.tsx` library beside the `InteractionRole` vocabulary + `RoleBehavior` contract; no `document.documentElement.style` write outside `CssVarSync`; no WebGL package admitted before the `GlbViewport` mesh fence exists; no `ui/**` import of `platform/**` (the AppUi-analog never imports the AppHost-analog); no comment carrying task or process narration.
+No second React state binding beside `AtomBinding`; no domain data in local component state; no parallel client-state library where `DeepLinkBinding`/`UndoStack`/`OfflineState` fold under the one binding; the atom inspector is a dev-build-only row stripped by `BuildPipeline` and never in the shipped bundle; no transport dialed directly — every mutation leaves only through the `interchange` `CommandGateway`; no benchmark claim displayed without the fingerprint gate; no second decode of geometry beside the `interchange` `GeometryRail`; the four geo aliases stay collapsed into one `GeoSeriesLayer` union and never restate as parallel const objects; no per-component `.tsx` library beside the `InteractionRole` vocabulary + `RoleBehavior` contract; no `document.documentElement.style` write outside `CssVarSync`; no second decode of the GLB mesh bytes beside the `interchange` `ArtifactFrameRail` and no GL context held as a free React ref outside the `GlbViewport` `Effect.acquireRelease` resource; no parallel viewport-camera gesture handler beside the `ViewportCamera` `RoleBehavior` row on `core`/`gesture`; no `ui/**` import of `platform/**` (the AppUi-analog never imports the AppHost-analog); no comment carrying task or process narration.
 
 ## [8]-[ADMISSIONS_RECORD]
 
@@ -91,8 +95,8 @@ No second React state binding beside `AtomBinding`; no domain data in local comp
 |   [9]   | tailwindcss                                     | component-system.md | api-ui-stack   | admitted |
 |  [10]   | isomorphic-dompurify                            | component-system.md | api-ui-stack   | admitted |
 |  [11]   | effect                                          | all pages           | api-effect     | admitted |
-|  [12]   | three / babylon / model-viewer / @webgpu        | render-surfaces.md  | (no-admission) | NOT admitted — `GlbViewport` REFINEMENT_HORIZON; admitting any before the mesh fence is the named premature-admission defect |
+|  [12]   | three / @babylonjs/core / @google/model-viewer / @webgpu/types | render-surfaces.md  | api-ui-stack   | admitted-on-precondition — the four `RendererBackend` upload/draw rows over the in-memory `MeshView`; the mesh-DECODE seam stays BLOCKED until the upstream `remote-lane#TS_PROJECTION` mesh promotion `(a)` lands |
 
 ## [9]-[REFINEMENT_HORIZON]
 
-The single `ui` refinement-horizon owner is `GlbViewport`, the WebGL mesh render (render-surfaces.md#RESEARCH + the branch [seam-splits](../../.planning/region-map/seam-splits.md) four-end cross-branch precondition-DAG): admitted only when (a) the C# `remote-lane#TS_PROJECTION` promotes `GeometryPayload(mesh)`/`MeshTensor` from `[PROTO_VOCABULARY]` into the projection fence — the single true blocker; (b) C# `interchange.md` authoring is DISCHARGED; (c) the Python `libs/python/compute` IFC->GLB two-hop companion authors, observed not forced; and only then `ui` admits a WebGL viewer with a `Schema.Literal` renderer-backend axis over three/babylon/model-viewer plus a webgpu literal for the meshlet/cluster-LOD ambition. The GLB byte/artifact layer is NOT on this DAG — the `interchange` `ArtifactFrameRail` already reassembles the content-addressed GLB bytes today; only the WebGL render is deferred, and zero WebGL packages are admitted until (a) exists. The next deepening drives deeper render GPU paths and a richer interaction-role behavior set, each a row on its owner, never a parallel surface.
+The `GlbViewport` WebGL mesh render is a DENSITY_BAR owner (row [7], BLOCKED) whose backend/draw/camera owners are authored against the in-memory `MeshView` but whose mesh-DECODE seam is gated on an unmet cross-branch precondition. The four-end DAG (branch [seam-splits](../../.planning/region-map/seam-splits.md), line 50) resolves bottom-up: (a) the C# `remote-lane#TS_PROJECTION` must promote `GeometryPayload(mesh)`/`MeshTensor` from `[PROTO_VOCABULARY]` into the projection fence — the single true blocker, NOT YET LANDED upstream; (b) C# `interchange.md` SharpGLTF/GeometryGym pinning DISCHARGED; (c) the Python `libs/python/compute` IFC->GLB two-hop companion authors, observed not forced. The `ui` viewer is fenced with a `Schema.Literal` renderer-backend axis over three/babylon/model-viewer plus the webgpu literal, and the four WebGL packages are admitted-on-precondition. The blocking residual is precondition `(a)`: until the upstream cluster physically carries the promoted mesh wire type, `decodeMeshView` consumes only a blocked-on-upstream reference to the generated `GeometryPayload` descriptor and this owner stays BLOCKED, never a discharged spike (region-map `owner-symbols.md` records `GlbViewport` as `[REFINEMENT_HORIZON; no leaf this turn]`). Once `(a)` lands, the `GeometryPayload` `point_cloud`/`voxel` oneof decode cases land as sibling `Match` arms on the same `decodeMeshView` fold, each a row on its owner, never a parallel surface.

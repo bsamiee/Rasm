@@ -61,6 +61,17 @@ interface Crc32 {
   readonly of: (bytes: Uint8Array) => number;
 }
 
+// crc32 is the ONE concrete table-driven rail the whole branch reads — the IEEE 802.3 reflected polynomial table
+// built once, no package; ArtifactFrameRail reassembly and the transport-side splitFrames both consume THIS value,
+// never a free crc32Of duplicating the surface. The compare against the wire frameCrc fixed32 is a direct number eq.
+const CRC32_TABLE: Uint32Array = Uint32Array.from({ length: 256 }, (_, n) =>
+  Array.range(0, 7).reduce((c) => ((c & 1) !== 0 ? 0xedb88320 ^ (c >>> 1) : c >>> 1), n));
+
+const crc32: Crc32 = {
+  of: (bytes) =>
+    (bytes.reduce((c, b) => CRC32_TABLE[(c ^ b) & 0xff] ^ (c >>> 8), 0xffffffff) ^ 0xffffffff) >>> 0,
+};
+
 interface AssemblyState {
   readonly id: string;
   readonly sink: Option.Option<Uint8Array>;
@@ -128,7 +139,40 @@ const renderFault = (fault: FaultDetail): string =>
 
 interface FaultDetailRail {
   readonly fromTrailer: (error: ConnectError) => Effect.Effect<FaultDetail, ParseResult.ParseError>;
+  readonly fromConnect: (cause: unknown) => FaultDetail;
 }
+
+// fromConnect is the ONE polymorphic cause→FaultDetail entry keyed by error shape — the total infallible
+// projection every transport call site folds through (connect-es rejects a Promise/async-iterator with a
+// ConnectError or, on a non-connect throw, an arbitrary cause). ConnectError.from normalises any cause to a
+// ConnectError; findDetails(FaultDetailSchema) reads the typed grpc-status-details-bin trailer through the
+// generated FaultDetail descriptor when present and faultTagOf maps the (package, case) pair total; a cause
+// carrying no trailer lands FaultDetail.Quarantine keyed by the connect Code, never a throw and never a leaked
+// ParseResult.ParseError — fromTrailer stays the typed-failure entry the rails use, fromConnect is the
+// infallible boundary fold the transport stamps onto its E channel.
+// faultOf constructs the exact tagged case for a decoded wire detail — ComputeFault/StoreFault carry correlation,
+// HopFault/ConfigError/Quarantine carry only code+evidence, so the construction dispatches per tag rather than a
+// dynamic indexed FaultDetail[tag](...) that would violate each case's strict field shape.
+const faultOf = (wire: { readonly package: string; readonly case: string; readonly code: string; readonly evidence: Record<string, string>; readonly correlation: string }): FaultDetail =>
+  Match.value(faultTagOf(wire)).pipe(
+    Match.when("ComputeFault", () => FaultDetail.ComputeFault({ code: wire.code, evidence: wire.evidence, correlation: wire.correlation })),
+    Match.when("StoreFault", () => FaultDetail.StoreFault({ code: wire.code, evidence: wire.evidence, correlation: wire.correlation })),
+    Match.when("HopFault", () => FaultDetail.HopFault({ code: wire.code, evidence: wire.evidence })),
+    Match.when("ConfigError", () => FaultDetail.ConfigError({ code: wire.code, evidence: wire.evidence })),
+    Match.orElse(() => FaultDetail.Quarantine({ code: wire.code, evidence: wire.evidence })),
+  );
+
+const faultDetailRail: FaultDetailRail = {
+  fromConnect: (cause: unknown): FaultDetail => {
+    const error = ConnectError.from(cause);
+    return Option.match(Array.head(error.findDetails(FaultDetailSchema)), {
+      onNone: () => FaultDetail.Quarantine({ code: Code[error.code], evidence: { message: error.rawMessage } }),
+      onSome: faultOf,
+    });
+  },
+  fromTrailer: (error: ConnectError): Effect.Effect<FaultDetail, ParseResult.ParseError> =>
+    Effect.sync(() => faultDetailRail.fromConnect(error)),
+};
 ```
 
 ## [4]-[TS_PROJECTION]

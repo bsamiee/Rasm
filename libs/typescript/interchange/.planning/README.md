@@ -6,7 +6,7 @@
 
 | [INDEX] | [PAGE]                    | [OWNS]                                                                                                               | [STATE]     |
 | :-----: | :------------------------ | :------------------------------------------------------------------------------------------------------------------- | :---------- |
-|   [1]   | transport.md              | WireTransport + WireClients + TransportCapabilityWire + the buf codegen edge                                         | provisional |
+|   [1]   | transport.md              | WireTransport + WireClients + TransportCapabilityWire + ArtifactFrameStreaming + CapabilitySdk + the buf codegen edge | provisional |
 |   [2]   | codec-rails.md            | the six-codec DecodeRail family + EncodeRail + SchemaRefinement + GeometryRail + ArtifactFrameRail + FaultDetailRail | provisional |
 |   [3]   | gateway-and-quarantine.md | QuarantineFold + CONTRACT_INVENTORY + CommandGateway + IntentRegistry                                                | provisional |
 
@@ -42,7 +42,9 @@ A new feature is a row or case, never a new surface. The owner-count budget fold
 | :-----: | :----------------------- | :------------------------ | :----------------------- | :------------------------------------------------------------------------------ | :-------- |
 |   [1]   | outbound transport       | `WireTransport`           | Effect.Service           | one shared transport + one polymorphic interceptor stamp                        | FINALIZED |
 |   [2]   | generated clients        | `WireClients`             | derived record           | compute/document/control/health                                                 | FINALIZED |
-|   [3]   | transport capability     | `TransportCapabilityWire` | Schema.Literal axis      | http2 (4 shapes) vs grpcWeb (2 shapes)                                          | FINALIZED |
+|   [3]   | transport capability     | `TransportCapabilityWire` | two-key method-kind tuple | http2 (4 shapes) vs grpcWeb (2 shapes)                                          | FINALIZED |
+|  [3a]   | chunked frame transport  | `ArtifactFrameStreaming`  | FrameDirection fold      | server-stream-down (suspend buffer) / unary-chunked-up (sequenced await)         | FINALIZED |
+|  [3b]   | capability SDK codegen   | `CapabilitySdk`           | codegen leg + Service    | descriptor catalog / polymorphic invoke / MCP tool projection                    | FINALIZED |
 |   [4]   | byte-to-typed codec      | `DecodeRail`/`EncodeRail` | polymorphic family       | proto/messagepack/json-stj/geometry/artifact-frame/fault-detail × decode/encode | FINALIZED |
 |   [5]   | decode-enforcement       | `SchemaRefinement`        | brand/filter rows        | guid/contentKey/ordinal/hlcLogical/headerDiscriminant                           | FINALIZED |
 |   [6]   | embedded geometry        | `GeometryRail`            | rail row                 | GeoJSON projection off the proto GeometryPayload oneof                          | FINALIZED |
@@ -96,4 +98,4 @@ No new public surface beside the eleven budgeted owners; no wrapper or rename ad
 
 ## [10]-[REFINEMENT_HORIZON]
 
-The next deepening drives deeper codec streaming (chunked decode over very large server-streams) and the capability-descriptor codegen row: a capability descriptor emitted by the C# `capability-registry#CAPABILITY_CATALOG` generates a typed effect-classed capability SDK + MCP client through one more `buf`-style codegen stage on the transport input edge, gated on the upstream C# fence and recorded as a TS-downstream DAG seam. Closed by the bar: every codec, direction, refinement, frame, and fault case is one row on its owner, and the domain admits no parallel rail.
+The chunked frame streaming row and the capability-descriptor codegen row are now LANDED on `transport.md`: the `ArtifactFrameStreaming` `FrameDirection` fold owns the transport-level chunk boundary and backpressure (server-stream-down `Stream.buffer` suspend, unary-chunked-up sequenced await) feeding the `codec-rails#ArtifactFrameRail` reassembly, and the `CapabilitySdk` codegen leg consumes the C# `capability-registry#SDK_CODEGEN` `DiscoveryResultWire[]` descriptor as a SECOND plugin on the same `buf.gen.yaml` emitting a typed effect-classed capability command surface plus the MCP tool projection — both DERIVED from the C# descriptor, never hand-authored. The remaining horizon is deeper standing-query windowing over the assembled frame stream. Closed by the bar: every codec, direction, refinement, frame, and fault case is one row on its owner, and the domain admits no parallel rail.
