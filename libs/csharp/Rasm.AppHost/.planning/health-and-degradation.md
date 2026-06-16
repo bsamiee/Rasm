@@ -1,6 +1,6 @@
 # [APPHOST_HEALTH_AND_DEGRADATION]
 
-Capability health and the usable-failure degradation rail for every Rasm.AppHost process: a health-contributor row family folds package probes into one wire-neutral snapshot, the five-level DegradationLevel vocabulary carries one retained-capability set per row, and a wire-health mapping projects the registry onto the standard wire health service. Microsoft.Extensions.Diagnostics.HealthChecks and ResourceMonitoring supply probe mechanics, Thinktecture owns the vocabularies, LanguageExt and NodaTime carry the fold rails and stamps; every consumer reads one level value.
+Capability health and the usable-failure degradation rail for every Rasm.AppHost process: a health-contributor row family folds package probes into one wire-neutral snapshot, the five-level DegradationLevel vocabulary carries one retained-capability set per row, and a wire-health mapping projects the registry onto the standard wire health service. Microsoft.Extensions.Diagnostics.HealthChecks supplies probe mechanics, ResourceMonitoring publishes CPU/memory utilization and container limits through its OTel observable instruments and ResourceQuotaProvider, Thinktecture owns the vocabularies, LanguageExt and NodaTime carry the fold rails and stamps; every consumer reads one level value.
 
 ## [1]-[INDEX]
 
@@ -13,14 +13,14 @@ Capability health and the usable-failure degradation rail for every Rasm.AppHost
 
 ## [2]-[HEALTH_FOLD]
 
-- Owner: `HealthContributorRow` is the probe row and the `IHealthCheck`; `PressurePolicy` grades utilization with container-limit columns; `GradePublisher` is the cadence-coupled `IResourceUtilizationPublisher`; `HealthSnapshot` with nested `Entry` is the only health shape interiors read.
-- Cases: tag consts `Host`, `Remote`, `Store`, `Pressure` key the derivation rules and the wire predicates; `Gauge` and `Peer` are the canonical row factories.
+- Owner: `HealthContributorRow` is the probe row and the `IHealthCheck`; `PressurePolicy` grades utilization with a `ResourceQuota` container-limit column; `UtilizationCell` is the `MeterListener`-backed boundary capsule that records the ResourceMonitoring observable instruments and grades on read; `HealthSnapshot` with nested `Entry` is the only health shape interiors read.
+- Cases: tag consts `Host`, `Remote`, `Store`, `Pressure` key the derivation rules and the wire predicates; instrument-name consts `CpuInstrument` and `MemoryInstrument` key the meter subscription; `Gauge` and `Peer` are the canonical row factories and `Monitor` is the resource-monitoring registration fold.
 - Entry: `Register(params ReadOnlySpan<HealthContributorRow> rows)` composes registrations; `Snapshot(Instant at, CorrelationId correlation)` is the pure report fold.
-- Auto: rows project into `HealthCheckRegistration` — `FailureStatus`, `Tags`, `Timeout`, `Delay`, `Period` are registration policy, never probe-local exception handling; `AddResourceMonitoring` plus `ConfigureMonitor` align `CollectionWindow` with `PressurePolicy.Canonical.Window`, bind `SamplingInterval`, `PublishingWindow`, `CpuConsumptionRefreshInterval`, and `MemoryConsumptionRefreshInterval`, and set `UseLinuxCalculationV2` and `UseZeroToOneRangeForLinuxMetrics` on cgroup-v2 hosts with `EnableSystemDiskIoMetrics` for the disk-I/O instruments; `AddPublisher<GradePublisher>` fans the windowed utilization into the cadence-coupled publisher that records and returns, its sampling interval bounding every derived signal's reaction time.
+- Auto: rows project into `HealthCheckRegistration` — `FailureStatus`, `Tags`, `Timeout`, `Delay`, `Period` are registration policy, never probe-local exception handling; `Monitor` folds the policy onto `AddResourceMonitoring`, binding `CollectionWindow` to `PressurePolicy.Canonical.Window`, `SamplingInterval` to `PressurePolicy.Canonical.Sampling`, and `PublishingWindow`, `CpuConsumptionRefreshInterval`, and `MemoryConsumptionRefreshInterval`, setting `UseLinuxCalculationV2` from `CgroupV2` and `UseZeroToOneRangeForLinuxMetrics` so CPU rides the normalized zero-to-one range the grade reads, and turning on `EnableSystemDiskIoMetrics` from `DiskIoMetrics` for the disk-I/O instruments; `UtilizationCell.Attach` opens a `MeterListener` on the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, enables `process.cpu.utilization` and `dotnet.process.memory.virtual.ratio`, and records each observed double into the atom, the publishing window bounding every derived signal's reaction time.
 - Receipt: `HealthSnapshot` stamped with `Instant` and `CorrelationId`; `HealthReport` never crosses the fold.
 - Packages: Microsoft.Extensions.Diagnostics.HealthChecks, Microsoft.Extensions.Diagnostics.ResourceMonitoring, NodaTime, LanguageExt.Core
-- Growth: one contributor row per new capability probe — sibling packages extend the same `Register` span through the health port registration set, zero new surface; container-limit grading is one `Quota` column flip on `PressurePolicy`, a sampling retune is one `Sampling` value, and a derived utilization consumer is one `IResourceUtilizationPublisher` row, never a parallel policy.
-- Boundary: package health types stop at this seam — interiors read `HealthSnapshot` and one level value; `Peer` rows read a peer process over its wire health service, so cross-process health is a read, never shared state; `Gauge` grades against the container limit when the `ResourceUtilization` snapshot carries `SystemResources` — the OCI `headless` and `web` rows fold guaranteed-versus-maximum CPU units and memory bytes into the same percentage axis, so a cgroup-throttled process degrades on the limit it actually runs under, never the host total; `SystemResources` carries the `GuaranteedCpuUnits`/`MaximumCpuUnits` and `GuaranteedMemoryInBytes`/`MaximumMemoryInBytes` the limit grading reads, with `ResourceQuota` the configured baseline-and-maximum input the monitor publishes, and a bare host-percentage grade on a container row is the deleted form.
+- Growth: one contributor row per new capability probe — sibling packages extend the same `Register` span through the health port registration set, zero new surface; container-limit grading is one `ResourceQuota` value flip on `PressurePolicy.Quota`, a sampling retune is one `Sampling` value, and a new utilization signal is one enabled instrument name on `UtilizationCell.Attach`, never a parallel policy.
+- Boundary: package health types stop at this seam — interiors read `HealthSnapshot` and one level value; `Peer` rows read a peer process over its wire health service, so cross-process health is a read, never shared state; `Gauge` grades against the container limit when `PressurePolicy.Quota` carries a `ResourceQuota` — the OCI `headless` and `web` rows set `CgroupV2` so `Monitor` turns on `UseLinuxCalculationV2` and `UseZeroToOneRangeForLinuxMetrics`, folding the cgroup `MaxCpuInCores` and `MaxMemoryInBytes` ceilings into the same zero-to-one ratio axis the meter publishes, so a cgroup-throttled process degrades on the limit it actually runs under, never the host total; `ResourceQuota` carries the `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings, and whether the `process.cpu.utilization`/`dotnet.process.memory.virtual.ratio` instruments arrive already quota-normalized under that flag or require a `ResourceQuotaProvider.GetResourceQuota()` recompute rides `[MEMORY_RATIO_SEMANTIC]`; a bare host-ratio grade on a container row is the deleted form. The obsolete `IResourceMonitor`/`ResourceUtilization`/`SystemResources`/`IResourceUtilizationPublisher`/`ISnapshotProvider` pull path is the deleted form: utilization crosses as observable-instrument readings, container limits as `ResourceQuota`, never the windowed-snapshot interface.
 
 ```csharp signature
 public sealed record HealthContributorRow(
@@ -41,17 +41,17 @@ public sealed record HealthContributorRow(
     public static FrozenSet<string> TagSet(params ReadOnlySpan<string> tags) =>
         tags.ToArray().ToFrozenSet(StringComparer.Ordinal);
 
-    public static HealthContributorRow Gauge(IResourceMonitor monitor, PressurePolicy policy) => new(
+    public static HealthContributorRow Gauge(UtilizationCell cell, PressurePolicy policy) => new(
         Name: nameof(Gauge),
-        Probe: _ => ValueTask.FromResult(policy.Grade(monitor.GetUtilization(policy.Window.ToTimeSpan()))),
+        Probe: _ => ValueTask.FromResult(policy.Grade(cell.Read())),
         FailureStatus: HealthStatus.Degraded,
         Tags: TagSet(Pressure),
         Timeout: DeadlineClass.HealthProbe,
         Delay: policy.Window,
         Period: policy.Window);
 
-    public static IResourceMonitorBuilder Monitor(IResourceMonitorBuilder builder, PressurePolicy policy) =>
-        builder.ConfigureMonitor(options => {
+    public static IServiceCollection Monitor(IServiceCollection services, PressurePolicy policy) =>
+        services.AddResourceMonitoring(options => {
             options.CollectionWindow = policy.Window.ToTimeSpan();
             options.SamplingInterval = policy.Sampling.ToTimeSpan();
             options.PublishingWindow = policy.Window.ToTimeSpan();
@@ -59,8 +59,8 @@ public sealed record HealthContributorRow(
             options.MemoryConsumptionRefreshInterval = policy.Window.ToTimeSpan();
             options.EnableSystemDiskIoMetrics = policy.DiskIoMetrics;
             options.UseLinuxCalculationV2 = policy.CgroupV2;
-            options.UseZeroToOneRangeForLinuxMetrics = false;
-        }).AddPublisher<GradePublisher>();
+            options.UseZeroToOneRangeForLinuxMetrics = true;
+        });
 
     public static HealthContributorRow Peer(string name, string tag, Duration cadence, Func<CancellationToken, ValueTask<HealthCheckResult>> probe) => new(
         Name: name,
@@ -72,6 +72,8 @@ public sealed record HealthContributorRow(
         Period: cadence);
 }
 
+public readonly record struct Utilization(double CpuRatio, double MemoryRatio);
+
 public sealed record PressurePolicy(
     Duration Window,
     Duration Sampling,
@@ -79,31 +81,52 @@ public sealed record PressurePolicy(
     double CpuUnhealthy,
     double MemoryDegraded,
     double MemoryUnhealthy,
-    bool Quota,
+    Option<ResourceQuota> Quota,
     bool CgroupV2,
     bool DiskIoMetrics) {
     public static readonly PressurePolicy Canonical = new(
         Window: Duration.FromSeconds(5), Sampling: Duration.FromSeconds(1),
-        CpuDegraded: 80d, CpuUnhealthy: 92d, MemoryDegraded: 85d, MemoryUnhealthy: 95d,
-        Quota: false, CgroupV2: false, DiskIoMetrics: false);
+        CpuDegraded: 0.80d, CpuUnhealthy: 0.92d, MemoryDegraded: 0.85d, MemoryUnhealthy: 0.95d,
+        Quota: None, CgroupV2: false, DiskIoMetrics: false);
 
-    public static readonly PressurePolicy Container = Canonical with { Quota = true, CgroupV2 = true, DiskIoMetrics = true };
+    public static PressurePolicy Container(ResourceQuota quota) =>
+        Canonical with { Quota = Optional(quota), CgroupV2 = true, DiskIoMetrics = true };
 
-    public HealthCheckResult Grade(ResourceUtilization usage) =>
-        (Cpu: usage.CpuUsedPercentage, Memory: usage.MemoryUsedPercentage, Limit: Quota ? Optional(usage.SystemResources) : None) switch {
+    public HealthCheckResult Grade(Utilization usage) =>
+        (Cpu: usage.CpuRatio, Memory: usage.MemoryRatio) switch {
             var load when load.Cpu >= CpuUnhealthy || load.Memory >= MemoryUnhealthy =>
-                HealthCheckResult.Unhealthy($"cpu {load.Cpu:F0} memory {load.Memory:F0}"),
+                HealthCheckResult.Unhealthy($"cpu {load.Cpu:P0} memory {load.Memory:P0}"),
             var load when load.Cpu >= CpuDegraded || load.Memory >= MemoryDegraded =>
-                HealthCheckResult.Degraded($"cpu {load.Cpu:F0} memory {load.Memory:F0}"),
+                HealthCheckResult.Degraded($"cpu {load.Cpu:P0} memory {load.Memory:P0}"),
             _ => HealthCheckResult.Healthy(),
         };
 }
 
-public sealed class GradePublisher(PressurePolicy policy, Atom<Option<ResourceUtilization>> cell) : IResourceUtilizationPublisher {
-    public ValueTask PublishAsync(ResourceUtilization utilization, CancellationToken cancellationToken) =>
-        (cell.Swap(_ => Optional(utilization)), ValueTask.CompletedTask).Item2;
+public sealed class UtilizationCell : IDisposable {
+    public const string Meter = "Microsoft.Extensions.Diagnostics.ResourceMonitoring";
+    public const string CpuInstrument = "process.cpu.utilization";
+    public const string MemoryInstrument = "dotnet.process.memory.virtual.ratio";
+    private readonly Atom<Utilization> cell = Atom(new Utilization(0d, 0d));
+    private readonly MeterListener listener = new();
 
-    public Option<HealthCheckResult> Latest() => cell.Value.Map(policy.Grade);
+    public Utilization Read() => cell.Value;
+
+    public UtilizationCell Attach() {
+        listener.InstrumentPublished = (instrument, active) => {
+            if (instrument.Meter.Name == Meter && instrument.Name is CpuInstrument or MemoryInstrument)
+                active.EnableMeasurementEvents(instrument);
+        };
+        listener.SetMeasurementEventCallback<double>((instrument, measurement, _, _) =>
+            cell.Swap(current => instrument.Name switch {
+                CpuInstrument => current with { CpuRatio = measurement },
+                MemoryInstrument => current with { MemoryRatio = measurement },
+                _ => current,
+            }));
+        listener.Start();
+        return this;
+    }
+
+    public void Dispose() => listener.Dispose();
 }
 
 public sealed record HealthSnapshot(
@@ -145,12 +168,12 @@ public static class HealthSurface {
 
 - Owner: `Capability` and `DegradationLevel` vocabularies under one `HealthKeyPolicy` comparer accessor; `DegradationPolicy` with nested `Rule` rows is the derivation table; `DegradationState` is the fold receipt; `DegradationCell` is the boundary capsule owning the atom cell and the publisher seam.
 - Cases: `Full(0)`, `ReducedRemote(1)`, `LocalOnly(2)`, `ReadOnly(3)`, `Suspended(4)` in severity order; six `Capability` keys form the retained sets.
-- Entry: `Derive(DegradationState state, HealthSnapshot snapshot)` folds rules with escalation-immediate, recovery-hysteresis semantics; `Force(Option<DegradationLevel> forced)` is the single override entrypoint.
+- Entry: `Derive(DegradationState state, HealthSnapshot snapshot)` folds rules with escalation-immediate, recovery-hysteresis semantics; `Force(Option<DegradationLevel> forced)` is the single override entrypoint; `Cascade(Option<DegradationLevel> parent)` admits a parent-forced level as a derivation floor.
 - Auto: `DegradationCell` registers as the `IHealthCheckPublisher`; `HealthCheckPublisherOptions` binds `Delay` and `Period` from `DegradationPolicy.Canonical` and `Timeout` from `DeadlineClass.HealthProbe`; `OperatorOverride` projects onto `Force` at the composition root — forced beats derived, release re-derives.
-- Receipt: `DegradationState` carries derived level, forced input, recovery streak, and dwell anchor; a `Level` change rides the lifecycle transition receipt as the degraded trigger.
+- Receipt: `DegradationState` carries derived level, forced input, cascade floor, recovery streak, and dwell anchor; a `Level` change rides the lifecycle transition receipt as the degraded trigger.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one `Rule` row or one `Capability` case absorbs a new degradation driver; a new level is one `DegradationLevel` item — zero new surface.
-- Boundary: degradation is process-local and peer-health-informed — a peer level never propagates as this process's level; `LocalOnly` is the host-absent fold: `Capability.HostDocument` gates off and document sources yield absence; the container-limit pressure signal enters the rank algebra as data, not a new rule — a `PressurePolicy.Container` row grades against `SystemResources` so the `Pressure`-tagged `Gauge` row escalates on the cgroup limit, and the existing `Pressure`-Degraded and `Pressure`-Unhealthy rules carry that limit-relative status into `Derive` with the same retained-set hysteresis, so a container-throttled process degrades and recovers on its own limit with zero added `Rule` row.
+- Boundary: degradation is process-local, peer-health-informed, and parent-cascade-floored — a peer level never propagates as this process's level, but a parent process's forced level enters `Derive` as a floor through `Cascade`, never as shared state; `LocalOnly` is the host-absent fold: `Capability.HostDocument` gates off and document sources yield absence; the container-limit pressure signal enters the rank algebra as data, not a new rule — a `PressurePolicy.Container` row grades against `ResourceQuota` so the `Pressure`-tagged `Gauge` row escalates on the cgroup limit, and the existing `Pressure`-Degraded and `Pressure`-Unhealthy rules carry that limit-relative status into `Derive` with the same retained-set hysteresis, so a container-throttled process degrades and recovers on its own limit with zero added `Rule` row. The cross-process cascade is a seam-split: the READ — this process's own derived `Level` value — stays the owner here; the WRITE — a parent fanning its level to a child over the control hop — lands at `companion-sidecar#DEGRADATION_CASCADE`, which calls `Cascade` with the observed parent level; release passes `None` and the cell re-derives off its own snapshots, the cascade floor never escalating below local pressure.
 
 ```csharp signature
 public sealed class HealthKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -190,10 +213,13 @@ public sealed partial class DegradationLevel {
 public readonly record struct DegradationState(
     DegradationLevel Derived,
     Option<DegradationLevel> Forced,
+    Option<DegradationLevel> Cascade,
     int Streak,
     Option<Instant> Since) {
-    public static readonly DegradationState Boot = new(DegradationLevel.Full, None, Streak: 0, Since: None);
-    public DegradationLevel Level => Forced.IfNone(Derived);
+    public static readonly DegradationState Boot = new(DegradationLevel.Full, None, None, Streak: 0, Since: None);
+    public DegradationLevel Floor =>
+        Cascade.Match(parent => parent.Rank > Derived.Rank ? parent : Derived, () => Derived);
+    public DegradationLevel Level => Forced.IfNone(Floor);
 }
 
 public sealed record DegradationPolicy(
@@ -220,11 +246,11 @@ public sealed record DegradationPolicy(
     public DegradationState Derive(DegradationState state, HealthSnapshot snapshot) =>
         (Candidate: Candidate(snapshot), Rank: state.Derived.Rank) switch {
             var fold when fold.Candidate.Rank > fold.Rank =>
-                new DegradationState(fold.Candidate, state.Forced, Streak: 0, Since: Optional(snapshot.At)),
+                new DegradationState(fold.Candidate, state.Forced, state.Cascade, Streak: 0, Since: Optional(snapshot.At)),
             var fold when fold.Candidate.Rank == fold.Rank => state with { Streak = 0 },
             var fold when state.Streak + 1 >= ConsecutiveHealthy
                 && state.Since.Map(since => snapshot.At - since >= MinimumDwell).IfNone(true) =>
-                new DegradationState(fold.Candidate, state.Forced, Streak: 0, Since: Optional(snapshot.At)),
+                new DegradationState(fold.Candidate, state.Forced, state.Cascade, Streak: 0, Since: Optional(snapshot.At)),
             _ => state with { Streak = state.Streak + 1 },
         };
 
@@ -243,6 +269,9 @@ public sealed class DegradationCell(DegradationPolicy policy, IClock clock, Corr
 
     public DegradationState Force(Option<DegradationLevel> forced) =>
         cell.Swap(state => state with { Forced = forced });
+
+    public DegradationState Cascade(Option<DegradationLevel> parent) =>
+        cell.Swap(state => state with { Cascade = parent });
 
     public Task PublishAsync(HealthReport report, CancellationToken cancellationToken) =>
         Task.FromResult(cell.Swap(state => policy.Derive(state, report.Snapshot(clock.GetCurrentInstant(), correlation))));
@@ -277,7 +306,7 @@ public static class WireHealth {
 - Owner: `HealthSnapshotWire` and `DegradationWire` transcribe the snapshot and level records the dashboard ingests.
 - Packages: BCL inbox
 - Growth: one capability key row or one field on an owning wire record, zero new surface.
-- Boundary: instants cross as extended-ISO text and elapsed spans as ISO-8601 duration text; level and capability keys are the smart-enum string keys, status crosses as the camel-case enum name, never ordinals.
+- Boundary: instants cross as extended-ISO text and elapsed spans as ISO-8601 duration text; level, cascade, and capability keys are the smart-enum string keys, status crosses as the camel-case enum name, never ordinals; `cascade` is the parent-floored level a child reports, distinct from `forced` operator override.
 
 ```ts contract
 type HealthStatusWire = "healthy" | "degraded" | "unhealthy";
@@ -309,6 +338,7 @@ interface DegradationWire {
   readonly rank: number;
   readonly retains: readonly CapabilityKey[];
   readonly forced: DegradationLevelKey | null;
+  readonly cascade: DegradationLevelKey | null;
   readonly since: string | null;
 }
 ```
@@ -316,3 +346,4 @@ interface DegradationWire {
 ## [6]-[RESEARCH]
 
 - [WIRE_REGISTRATION]: the `grpc.health.v1` wire-service registration surface behind the app-root pin, with the default status-to-serving projection; the tag-predicate evaluation rides the confirmed `HealthCheckService.CheckHealthAsync(Func<HealthCheckRegistration, bool>?, CancellationToken)` overload.
+- [MEMORY_RATIO_SEMANTIC]: `dotnet.process.memory.virtual.ratio` is read as the memory-pressure ratio the `Gauge` grade compares against `MemoryDegraded`/`MemoryUnhealthy`; whether this instrument and `process.cpu.utilization` report over the cgroup `MaxMemoryInBytes`/`MaxCpuInCores` ceilings or over the host total under `UseLinuxCalculationV2`+`UseZeroToOneRangeForLinuxMetrics` settles whether a `Container`-row grade rides the meter as published or threads a `ResourceQuotaProvider.GetResourceQuota()`-sourced `ResourceQuota` into a quota-relative recompute and the provider-registration surface that supplies `PressurePolicy.Quota` to the runtime — resolved against the ResourceMonitoring metric exporter and `ResourceQuotaProvider` registration before the container-row grade finalizes.

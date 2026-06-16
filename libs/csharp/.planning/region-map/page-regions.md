@@ -15,6 +15,8 @@ Suite region map — row shapes and protocol live in the [suite standard](../REA
 - support-bundles.md [FINAL]: SupportTrigger union, window freeze, contributor fan-in, redaction, cap, manifest, receipt.
 - outbound-resilience.md [FINAL]: OutboundHop axis (7 cases incl. update-check), one keyed Polly pipeline per hop, single retry-owner conflict evidence and receipts; the DISCOVERY_ATTACH cluster owns DiscoveryManifest attach law, atomic publish, staleness probe, checksum gate, UDS connect, single-shot companion spawn, peer-credential probe.
 - runtime-ports.md [FINAL]: typed port records (TelemetryContributor, ReceiptSink with HLC envelope, DrainParticipant, HostAttach, UiScheduler, Support, Health), suite wire law, TS tooling map, contract-merge rule.
+- provisioning-and-update.md [FINAL]: post-fetch UpdateManager state machine (download/stage/rollover/rollback) with per-phase UpdateReceipt and source-gen instruments, three-row UpdateChannel feed axis with downgrade policy, drain-before-swap rollover folding DrainConductor ahead of ApplyUpdatesAndRestart.
+- companion-sidecar.md [FINAL]: ProcessModality axis (companion/sidecar/paired-peer spawn-attach-discovery-degradation), ControlInbound folding three ControlService verbs onto degradation/options/support owners, ServiceHost gRPC server over UDS and hardened Windows named pipe, parent-to-child DegradationCascade write, accept-side PeerAdmission credential read.
 
 [PERSISTENCE]:
 

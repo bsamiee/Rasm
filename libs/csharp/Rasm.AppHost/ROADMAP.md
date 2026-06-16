@@ -29,6 +29,9 @@ Implementation-start gates are the bridge-proofed spikes and research-resolution
 |   [9]   | dump and gcdump tool admission for the process-dump row            | `dotnet package search dotnet-gcdump --exact-match`                                 | support-bundles#CAPTURE_PIPELINE        |
 |  [10]   | web app-root static-asset compile under the shared framework       | `dotnet build` scratch web root compiling `UseStaticFiles` + `MapFallbackToFile`    | host-profiles#PROFILE_AXIS              |
 |  [11]   | assay test rail row for the package test project                   | `uv run python -m tools.assay test run --target Rasm.AppHost.Tests`                 | every G4 proof below                    |
+|  [12]   | Velopack `VelopackHook` delegate-signature probe                   | `dotnet build` probe project reflecting `typeof(VelopackHook)` at the app-root bootstrap | provisioning-and-update#UPDATE_RAIL |
+|  [13]   | `ServiceMappingCollection.Map` versus `MapService` distinction     | `dotnet build` probe inspecting `GrpcHealthChecksOptions.Services` member behavior  | companion-sidecar#CONTROL_SERVICE       |
+|  [14]   | cross-process degradation-cascade convergence under the live host  | bridge scenario: companion observes parent level over the control hop, floors its cell, re-derives on release | companion-sidecar#DEGRADATION_CASCADE |
 
 ## [3]-[IMPLEMENTATION_TASKS]
 
@@ -47,6 +50,8 @@ Ordered by the charter BUILD_ORDER; each task transcribes its page clusters verb
 |   [9]   | `Support.cs`       | support-bundles#TRIGGER_UNION, #CAPTURE_PIPELINE, #MANIFEST_RECEIPT                                                        | G3 + G4: coalesce gate, caps with truncation receipts, eviction sweep                        |
 |  [10]   | `Outbound.cs`      | outbound-resilience#HOP_AXIS, #HTTP_PIPELINES, #KEYED_PIPELINES, #OWNERSHIP_LAW, #DISCOVERY_ATTACH                         | G3 + G4: admission fold, owner-conflict evidence, breaker enforcement; G5: gates [2] and [8] |
 |  [11]   | `Ports.cs`         | runtime-ports#PORT_RECORDS, #WIRE_LAW                                                                                      | G3 + G4: HLC advance law, wire round-trip incl. NodaTime converter precedence                |
+|  [12]   | `Provisioning.cs`  | provisioning-and-update#UPDATE_RAIL, #CHANNEL_AXIS, #ROLLOVER_DRAIN                                                         | G3 + G4: downgrade foreclosure, per-phase receipts, drain-before-swap, staged-pending resume |
+|  [13]   | `Companion.cs`     | companion-sidecar#PROCESS_MODALITY, #CONTROL_SERVICE, #SERVICE_HOST, #DEGRADATION_CASCADE, #PEER_ADMISSION                  | G3 + G4 + G7: modality dispatch, verb folds, peer-cred read; G5: gates [2], [8], [12], [13]  |
 
 G1 and G2 run once before task [1] and again on any manifest or catalogue change; G6 runs on any page-diagram edit.
 
@@ -85,6 +90,6 @@ N/A rails: BenchmarkDotNet — AppHost owns no durable managed numeric kernel (`
 
 ## [5]-[EXIT]
 
-The package exits implementation when every BUILD_ORDER file is transcribed `Time.cs` through `Ports.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static build`, G4 `test run`, G5 `bridge verify`, G6 `mmdc` render, G7 `Grpc.Core.Api` spec compile), and the charter `spec` gate passes on the full suite.
+The package exits implementation when every BUILD_ORDER file is transcribed `Time.cs` through `Companion.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static build`, G4 `test run`, G5 `bridge verify`, G6 `mmdc` render, G7 `Grpc.Core.Api` spec compile), and the charter `spec` gate passes on the full suite.
 
 The residual host-bridge work is the close-out: every charter DENSITY_BAR `[STATE]=SPIKE` owner discharges its probe — named in that owner's page RESEARCH cluster — under live RhinoWIP or its scratch host, and every START_GATES row above lands as a settled fence row rather than a re-opened gate. The settled-spike targets and their entry route are carried by the charter REFINEMENT_HORIZON; this roadmap does not duplicate them.

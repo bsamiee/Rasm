@@ -76,7 +76,22 @@ The seven inward port records — the only cross-package seam — plus the suite
 |  [45]   | One Strict JSON wire law per package; app roots merge resolvers, emit schemas | `AppHostWireContext`  | runtime-ports#WIRE_LAW     |
 |  [46]   | TS dashboard contract: one envelope, schema-derived types, codec residence    | `AppHostWireContext`  | runtime-ports#TS_PROJECTION |
 
-## [5]-[ROUTING]
+## [5]-[PROVISIONING_AND_CONTROL]
+
+The post-fetch update rail and the inbound control-service host — the self-updating, operationally-controllable, multi-process legs the spine owns so a companion farm updates, serves its control plane, and cascades degradation with zero app-side ceremony.
+
+| [INDEX] | [FEATURE]                                                                      | [OWNER]              | [PAGE#CLUSTER]                          |
+| :-----: | :---------------------------------------------------------------------------- | :------------------- | :-------------------------------------- |
+|  [47]   | Post-fetch update state machine: download, stage, rollover, rollback receipts | `UpdateRail`         | provisioning-and-update#UPDATE_RAIL     |
+|  [48]   | Three-channel feed axis with explicit-channel and downgrade-policy columns     | `UpdateChannel`      | provisioning-and-update#CHANNEL_AXIS    |
+|  [49]   | Drain-before-swap rollover folding the conductor ahead of the restart          | `RolloverDrain`      | provisioning-and-update#ROLLOVER_DRAIN  |
+|  [50]   | Process-modality axis: companion, sidecar, paired-peer spawn-attach-discovery  | `ProcessModality`    | companion-sidecar#PROCESS_MODALITY      |
+|  [51]   | Inbound control-service host folding three verbs onto existing owners          | `ControlInbound`     | companion-sidecar#CONTROL_SERVICE       |
+|  [52]   | gRPC server host over UDS and hardened Windows named-pipe control intake       | `ServiceHost`        | companion-sidecar#SERVICE_HOST          |
+|  [53]   | Cross-process degradation cascade: parent floor written to the child cell      | `DegradationCascade` | companion-sidecar#DEGRADATION_CASCADE   |
+|  [54]   | Accept-side peer-credential read over the platform getsockopt route            | `PeerAdmission`      | companion-sidecar#PEER_ADMISSION        |
+
+## [6]-[ROUTING]
 
 - Concept mechanics: `.planning/<page>.md` at the cluster anchor on each row.
 - Owner budget, public-surface cap, and owner realization state: `.planning/README.md#DENSITY_BAR`.

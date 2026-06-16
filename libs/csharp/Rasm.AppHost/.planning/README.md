@@ -1,6 +1,6 @@
 # [APPHOST_PLANNING]
 
-Rasm.AppHost has zero consumers; the implementation is full-capability with no holding back. These pages are decision-complete blueprints an implementation agent transcribes — they are never re-designed downstream. The runtime spine owns host variance, lifecycle, time, configuration, composition, resource lanes, telemetry, health, support capture, outbound resilience, and the cross-package port surface; siblings adapt to its ports and never reverse the dependency.
+Rasm.AppHost has zero consumers; the implementation is full-capability with no holding back. These pages are decision-complete blueprints an implementation agent transcribes — they are never re-designed downstream. The runtime spine owns host variance, lifecycle, time, configuration, composition, resource lanes, telemetry, health, support capture, outbound resilience, post-fetch provisioning and update, the inbound control-service host with its process-modality and degradation-cascade legs, and the cross-package port surface; siblings adapt to its ports and never reverse the dependency.
 
 ## [1]-[PAGE_INDEX]
 
@@ -17,6 +17,8 @@ Rasm.AppHost has zero consumers; the implementation is full-capability with no h
 |   [9]   | [support-bundles](support-bundles.md)                     | bounded redacted diagnostic capture              | finalized |
 |  [10]   | [outbound-resilience](outbound-resilience.md)             | hop axis, single retry owner, discovery manifest, UDS attach, companion spawn | finalized |
 |  [11]   | [runtime-ports](runtime-ports.md)                         | port records, suite wire law, TS map             | finalized |
+|  [12]   | [provisioning-and-update](provisioning-and-update.md)     | post-fetch update rail, channel axis, rollover drain | finalized |
+|  [13]   | [companion-sidecar](companion-sidecar.md)                 | process modality, control-service host, degradation cascade, peer admission | finalized |
 
 ## [2]-[WIRE_PAGES]
 
@@ -52,6 +54,11 @@ Every row is CLOSED; `[CLOSED_BY]` names the page#cluster that absorbed the gap.
 |  [18]   | crash probe, support trigger, and host markers   | lifecycle-and-drain#FAULT_SPINE + support-bundles#TRIGGER_UNION                                                    |
 |  [19]   | service-mode control verbs                       | support-bundles#CAPTURE_PIPELINE + health-and-degradation#DEGRADATION_RAIL + configuration-and-options#KILL_SWITCH |
 |  [20]   | GC posture and DATAS benchmark gate              | host-profiles#PROFILE_AXIS                                                                                         |
+|  [21]   | post-fetch update orchestration (download/stage/rollover/rollback) | provisioning-and-update#UPDATE_RAIL + provisioning-and-update#CHANNEL_AXIS + provisioning-and-update#ROLLOVER_DRAIN |
+|  [22]   | inbound gRPC ControlService host (serving side of every control verb) | companion-sidecar#CONTROL_SERVICE + companion-sidecar#SERVICE_HOST                                  |
+|  [23]   | process-modality lifecycle (companion/sidecar/paired spawn-attach-discovery) | companion-sidecar#PROCESS_MODALITY                                                          |
+|  [24]   | cross-process degradation cascade (parent floor to child cell)    | companion-sidecar#DEGRADATION_CASCADE + health-and-degradation#DEGRADATION_RAIL                                    |
+|  [25]   | accept-side UDS peer-credential read                              | companion-sidecar#PEER_ADMISSION                                                                                   |
 
 ## [5]-[DENSITY_BAR]
 
@@ -80,7 +87,7 @@ shaped now, never a deferred surface.
 |   [9]   | cancellation spine      | `CancelScope`                    | record capsule          | 1 root                                                      | FINALIZED |
 |  [10]   | clock seam              | `ClockPolicy`                    | record                  | 2 admissions                                                | FINALIZED |
 |  [11]   | deadline taxonomy       | `DeadlineClass`                  | `[SmartEnum<string>]`   | 9 rows                                                      | FINALIZED |
-|  [12]   | schedule port           | `ScheduleEntry`                  | record port             | 3 `OccurrenceSpec` cases (cron, every, annual)             | FINALIZED |
+|  [12]   | schedule port           | `ScheduleEntry`                  | record port             | 4 `OccurrenceSpec` cases (cron, every, annual, fleet); `CronCadence` jitter-template axis, `Spread` schedule-key seed | FINALIZED |
 |  [13]   | config sources          | `ConfigSource`                   | `[SmartEnum<string>]`   | 8 rows                                                      | FINALIZED |
 |  [14]   | binding faults          | `ConfigError`                    | `[Union]` fault         | 7 cases                                                     | FINALIZED |
 |  [15]   | reload rail             | `ReloadOutcome`                  | `[Union]`               | 4 cases                                                     | FINALIZED |
@@ -90,13 +97,13 @@ shaped now, never a deferred surface.
 |  [19]   | boundary activation     | `BoundaryActivation`             | static surface          | 1 entry family                                              | FINALIZED |
 |  [20]   | cache lanes             | `CacheLane`                      | `[SmartEnum<string>]`   | 3 rows                                                      | FINALIZED |
 |  [21]   | object pools            | `PoolPolicy<T>`                  | policy row              | 1 row per type; `Pools` registration sub-surface            | FINALIZED |
-|  [22]   | drain queues            | `DrainQueue<T>`                  | `[Union]`               | 2 cases                                                     | FINALIZED |
+|  [22]   | drain queues            | `DrainQueue<T>`                  | `[Union]`               | 2 cases; `DrainKind` 5-row topology (pipe, network, fan-out, correlated-join, dual-coalesce), `DrainSurface` block builders | FINALIZED |
 |  [23]   | telemetry identity      | `TelemetrySource`                | `[SmartEnum<string>]`   | 6 rows                                                      | FINALIZED |
 |  [24]   | correlation spine       | `Correlation`                    | static surface          | 1 boot mint; `RootEnricher`/`CausalEnricher` cost-class seats | FINALIZED |
 |  [25]   | log arbitration         | `LogPipeline`                    | `[SmartEnum<string>]`   | 2 rows; `SpineLossFold` listener, `HostTags` tag-provider   | FINALIZED |
 |  [26]   | signal governance       | `TelemetrySignal`                | `[SmartEnum<string>]`   | 3 rows; `LatencyCheckpoint`/`LatencySpine` carrier          | FINALIZED |
 |  [27]   | classification taxonomy | `DataClassification`             | `[SmartEnum<string>]`   | 7 rows; `RedactorKind` column, `RedactionRegistration` fold | FINALIZED |
-|  [28]   | health fold             | `HealthContributorRow`           | record row + probe      | 4 tag families; `PressurePolicy` grade, `GradePublisher` publisher | FINALIZED |
+|  [28]   | health fold             | `HealthContributorRow`           | record row + probe      | 4 tag families; `PressurePolicy` `ResourceQuota` grade, `UtilizationCell` MeterListener seat over the ResourceMonitoring observable instruments | FINALIZED |
 |  [29]   | capability vocabulary   | `Capability`                     | `[SmartEnum<string>]`   | 6 rows                                                      | FINALIZED |
 |  [30]   | degradation rail        | `DegradationLevel`               | `[SmartEnum<string>]`   | 5 rows                                                      | FINALIZED |
 |  [31]   | wire health             | `WireHealthRow`                  | record row              | 1 row per service                                           | FINALIZED |
@@ -108,6 +115,15 @@ shaped now, never a deferred surface.
 |  [37]   | discovery attach        | `DiscoveryManifest`              | record + static surface | 1 manifest law                                              | SPIKE     |
 |  [38]   | runtime ports           | `ReceiptSinkPort` + six siblings | sealed records          | 7 ports                                                     | FINALIZED |
 |  [39]   | wire law                | `AppHostWireContext`             | JsonSerializerContext   | 9 contract rows; `NodaPatterns` pattern sub-surface         | FINALIZED |
+|  [40]   | update phases           | `UpdatePhase`                    | `[SmartEnum<string>]`   | 5 rows; `UpdateOutcome`/`UpdateFault` unions, `UpdateMetrics` source-gen instrument partial | FINALIZED |
+|  [41]   | update rail             | `UpdateRail`                     | boundary capsule        | 1 `UpdateManager` handle; `Stage`/`Rollover`/`Resume` rails, staged-pending probe | FINALIZED |
+|  [42]   | update channels         | `UpdateChannel`                  | `[SmartEnum<string>]`   | 3 rows (stable, beta, canary); feed/explicit-channel/downgrade columns | FINALIZED |
+|  [43]   | rollover drain          | `RolloverDrain`                  | static surface          | 1 drain-before-swap fold over `DrainConductor`              | FINALIZED |
+|  [44]   | process modality        | `ProcessModality`                | `[SmartEnum<string>]`   | 3 rows (companion, sidecar, paired-peer); `ModalityRow` columns, `CompanionPeer` capsule | FINALIZED |
+|  [45]   | control service host    | `ControlInbound`                 | static handler          | 3 verbs folding onto degradation/options/support owners; `ControlRuntime`/`VerbReceipt` | FINALIZED |
+|  [46]   | service host            | `ServiceHost`                    | static surface          | gRPC server registration; `ControlTransport` 2-case union (UDS, named-pipe), `PipeHardening` | FINALIZED |
+|  [47]   | degradation cascade     | `DegradationCascade`             | static write surface    | 1 parent-to-child `Cascade` write; `CascadeReceipt`        | SPIKE     |
+|  [48]   | peer admission          | `PeerAdmission`                  | static accept-side read | 2 platform branches (Linux `SO_PEERCRED`, macOS `LOCAL_PEERCRED`); `Ucred`/`Xucred`/`PeerCredential` | FINALIZED |
 
 ## [6]-[BUILD_ORDER]
 
@@ -137,6 +153,18 @@ Cluster names are page-local anchors; gates name the extra proof beyond the stan
 |   [9]   | `Support.cs`       | trigger union, capture pipeline, manifest      | coalescing, caps, and eviction              |
 |  [10]   | `Outbound.cs`      | hop axis, pipelines, discovery, ownership      | admission, owner conflicts, UDS attach      |
 |  [11]   | `Ports.cs`         | port records and wire law                      | HLC advance and wire round-trip             |
+|  [12]   | `Provisioning.cs`  | update rail, channel axis, rollover drain      | downgrade foreclosure, drain-before-swap, staged-pending resume |
+|  [13]   | `Companion.cs`     | process modality, control service, service host, cascade, peer admission | verb folds, UDS/named-pipe intake, cascade convergence, peer-cred read |
+
+`Provisioning.cs` lands after `Ports.cs` because `UpdateRail` consumes `Lifecycle`,
+`DrainConductor`, `ReceiptSinkPort`, and the `AppHostWireContext.UpdateReceipt` row every earlier
+file declares; the `UpdateCheck` detect-leg hop stays at `Outbound.cs`, so provisioning is the
+post-fetch state machine only. `Companion.cs` lands last because `ControlInbound` folds onto
+`DegradationCell` (Health), `OptionsAdmission` (Configuration), `SupportCapture` (Support), and
+`ProcessModality` composes `Discovery`/`CompanionChild`/`GrpcChannelPolicy` from `Outbound.cs`
+without re-declaring the dial-out mechanics; `DegradationCascade` is a write consumer of
+`DegradationCell.Cascade`, never a second degradation owner. The gRPC server-host packages enter
+only at service app roots behind the app-root pin and never below a plugin row.
 
 TS_PROJECTION clusters carry no C# build row; they transcribe into the TS workspace at web
 app-root creation.
@@ -249,14 +277,17 @@ admission status. Versions live in `Directory.Packages.props`; this table never 
 |  [35]   | Thinktecture.Runtime.Extensions.Json                    | runtime-ports             | api-thinktecture-json.md              | admitted          |
 |  [36]   | LanguageExt.Core                                        | every page                | stack doctrine (`docs/stacks/csharp`) | admitted          |
 |  [37]   | Thinktecture.Runtime.Extensions                         | every page                | stack doctrine (`docs/stacks/csharp`) | admitted          |
-|  [38]   | Grpc.Net.Client                                         | outbound-resilience       | —                                     | catalogue-pending |
-|  [39]   | NodaTime.Serialization.SystemTextJson                   | runtime-ports             | —                                     | catalogue-pending |
-|  [40]   | Microsoft.Extensions.TimeProvider.Testing               | time-and-deadlines        | api-testing-seams.md                  | tests-only        |
-|  [41]   | NodaTime.Testing                                        | time-and-deadlines        | api-testing-seams.md                  | tests-only        |
-|  [42]   | Microsoft.Extensions.Diagnostics.Testing                | diagnostics-and-telemetry | api-testing-seams.md                  | tests-only        |
+|  [38]   | Velopack                                                | provisioning-and-update   | api-velopack.md                       | admitted          |
+|  [39]   | Grpc.Net.Client                                         | outbound-resilience       | —                                     | catalogue-pending |
+|  [40]   | Grpc.AspNetCore                                          | companion-sidecar         | —                                     | app-root-pending  |
+|  [41]   | Grpc.AspNetCore.HealthChecks                             | companion-sidecar         | —                                     | app-root-pending  |
+|  [42]   | NodaTime.Serialization.SystemTextJson                   | runtime-ports             | —                                     | catalogue-pending |
+|  [43]   | Microsoft.Extensions.TimeProvider.Testing               | time-and-deadlines        | api-testing-seams.md                  | tests-only        |
+|  [44]   | NodaTime.Testing                                        | time-and-deadlines        | api-testing-seams.md                  | tests-only        |
+|  [45]   | Microsoft.Extensions.Diagnostics.Testing                | diagnostics-and-telemetry | api-testing-seams.md                  | tests-only        |
 
 ## [11]-[REFINEMENT_HORIZON]
 
-Folder-specific deepening targets beyond the closed corpus, each carrying its open probe. The operational control surface — the `ControlService` verb fold (`setDegradation`→`DegradationCell.Force`, `reloadOptions`→`ReloadClass`, `captureSupport`→`SupportTrigger`) riding configuration-and-options#POLICY_VALUES, health-and-degradation#WIRE_HEALTH and #DEGRADATION_RAIL, and support-bundles#TRIGGER_UNION — exercised against every service modality. The systemd watchdog heartbeat composed end-to-end with the support pipeline, gated on the host-profiles#WATCHDOG_PING keepalive-notify payload over `ISystemdNotifier`. The discovery/attach choreography rehearsed against the paired and companion topologies in `../../.planning/FEATURES.md`, gated on the outbound-resilience#PEER_CREDENTIAL `LOCAL_PEERCRED` read and the #DISCOVERY_ATTACH UDS connect. The keychain secrets-store route (configuration-and-options#SOURCE_ROUTES) and SIGHUP delivery (lifecycle-and-drain#FAULT_PROBES) resolved from their probes into settled rows. The bar: any host modality boots, degrades, drains, and reports through this spine with zero app-side ceremony.
+Folder-specific deepening targets beyond the closed corpus, each carrying its open probe. The Velopack `VelopackHook` delegate-signature probe resolves the exact parameter shape of the `OnFirstRun`/`OnRestarted`/`OnAfter*FastCallback` registrations at the `VelopackApp.Build()...Run()` app-root bootstrap (the only residual after provisioning-and-update lands). The `ServiceMappingCollection.Map` versus `MapService` behavioral distinction on `GrpcHealthChecksOptions.Services` settles the by-service-name versus predicate-routing wire-health registration row at companion-sidecar#CONTROL_SERVICE. The cross-process degradation-cascade convergence bridge scenario — a companion observes the parent level over the control hop, lands it as a `DegradationCell.Cascade` floor, and re-derives on release — runs against the paired and companion topologies inside the running integrated host (companion-sidecar#DEGRADATION_CASCADE `[CASCADE_CONVERGENCE]`, the legitimate tier-3 live-host residual). The keychain secrets-store route (configuration-and-options#SOURCE_ROUTES) and SIGHUP delivery (lifecycle-and-drain#FAULT_PROBES) resolved from their probes into settled rows. The bar: any host modality boots, updates, degrades, drains, serves its control plane, and reports through this spine with zero app-side ceremony.
 
 Testing-infrastructure horizon: the deterministic-clock seam pairs `FakeClock` (`NodaTime.Testing`) with `FakeTimeProvider` over the dual clock authority, and the telemetry-seam assertions ride `MetricCollector<T>`/`FakeLogCollector` against the diagnostics signal-governance fold.

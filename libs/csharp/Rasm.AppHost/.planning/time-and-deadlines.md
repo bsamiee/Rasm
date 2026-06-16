@@ -132,11 +132,27 @@ public static class DeadlineOps {
 - Cases: `OccurrenceSpec.Cron(CronExpression Expression)` | `OccurrenceSpec.Every(Duration Period)` | `OccurrenceSpec.Annual(AnnualDate Date, LocalTime At, DateTimeZone Zone)`
 - Entry: `public static IO<(Fin<Unit> Outcome, DeadlineReceipt Deadline)> Run(ClockPolicy clocks, ScheduleEntry entry, Option<Duration> allotted = default)` — `IO<T>` carries the deferred occurrence run; the work outcome rides `Fin<Unit>` beside the deadline receipt.
 - Receipt: every occurrence run yields its `DeadlineReceipt` paired with the work outcome, and `Heartbeat` folds a not-met receipt into `SupportTrigger.WatchdogTimeout` carrying the firing `ScheduleEntry` — the watchdog signal the support owner consumes, composed from the receipt with no watchdog service type.
-- Packages: Cronos, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new scheduled concern is one `ScheduleEntry` row registered by its consumer, and a new occurrence grammar is one case on `OccurrenceSpec`; zero new surface.
-- Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary; second-resolution rows admit through `CronFormat.IncludeSeconds` and a fleet-spread cron row admits through the `YearlyWithJitter` template family, while `H` fields hash deterministically from the four-arg `TryParse` jitter-seed integer, so fleet spreading of a shared cron row is one schedule-key-derived seed value, never a hand-edited expression; the `Annual` case carries a calendar-recurring `AnnualDate` resolved through `InYear(...).At(...).InZoneStrictly` so a once-a-year rollup row maps its local wall-time to a UTC instant under the strict resolver, never a hand-built leap-day branch; `Missed` detects a skipped occurrence through `GetPreviousOccurrence` against the last-fired stamp, `Window` audits a bounded ascending backfill through `GetOccurrences`, and `WindowDescending` reads the most-recent-first audit through `GetOccurrencesDescending`, so a missed-occurrence sweep reads occurrence history rather than tracking a running counter; `Span` reports the calendar gap between two stamps through `Period.Between` over zoned local date-times — the only calendar-difference surface a retention or lease-age report reads, never a `Duration`-to-days division; `OccurrenceSpec.Identical` compares two specs through `CronExpression.Equals` on the cron arm so a reload that re-parses an unchanged expression text is recognized as the same schedule and never re-registers; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `CrashStaleness` exceeds the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain; a watchdog is a heartbeat row plus a deadline class, never a service type.
+- Packages: Cronos, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing
+- Growth: a new scheduled concern is one `ScheduleEntry` row registered by its consumer, a new occurrence grammar is one case on `OccurrenceSpec`, a new fleet cadence is one `CronCadence` row, and a fleet-spread concern is one `ScheduleEntry.Spread` call; zero new surface.
+- Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary; second-resolution rows admit through `CronFormat.IncludeSeconds` and a fleet-spread cron row admits through `OccurrenceSpec.Fleet`, which routes the cadence keyword to the matching `{Yearly,Weekly,Monthly,Daily,Hourly,EveryMinute}WithJitter(int jitterSeed)` template and falls through to the four-arg `CronExpression.TryParse(expression, format, jitterSeed, out)` for a literal expression carrying an `H` field, while `EverySecond` carries no jitter template so a second-resolution fleet row is the rejected case; `ScheduleEntry.Spread` derives that `jitterSeed` from the schedule key through `XxHash3.HashToUInt64` over the UTF-8 key bytes, folded to `int`, so fleet spreading of a shared cron row is one cross-process-stable schedule-key-derived seed value rather than the per-process-randomized `string.GetHashCode`, and a process restart re-parses the identical spread expression, never a hand-edited expression; the `Annual` case carries a calendar-recurring `AnnualDate` resolved through `InYear(...).At(...).InZoneStrictly` so a once-a-year rollup row maps its local wall-time to a UTC instant under the strict resolver, never a hand-built leap-day branch; `Missed` detects a skipped occurrence through `GetPreviousOccurrence` against the last-fired stamp, `Window` audits a bounded ascending backfill through `GetOccurrences`, and `WindowDescending` reads the most-recent-first audit through `GetOccurrencesDescending`, so a missed-occurrence sweep reads occurrence history rather than tracking a running counter; `Span` reports the calendar gap between two stamps through `Period.Between` over zoned local date-times — the only calendar-difference surface a retention or lease-age report reads, never a `Duration`-to-days division; `OccurrenceSpec.Identical` compares two specs through `CronExpression.Equals` on the cron arm so a reload that re-parses an unchanged expression text is recognized as the same schedule and never re-registers; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `CrashStaleness` exceeds the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain; a watchdog is a heartbeat row plus a deadline class, never a service type.
 
 ```csharp signature
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<TimeKeyPolicy, string>]
+[KeyMemberComparer<TimeKeyPolicy, string>]
+public sealed partial class CronCadence {
+    public static readonly CronCadence Yearly = new("@yearly", CronExpression.YearlyWithJitter);
+    public static readonly CronCadence Weekly = new("@weekly", CronExpression.WeeklyWithJitter);
+    public static readonly CronCadence Monthly = new("@monthly", CronExpression.MonthlyWithJitter);
+    public static readonly CronCadence Daily = new("@daily", CronExpression.DailyWithJitter);
+    public static readonly CronCadence Hourly = new("@hourly", CronExpression.HourlyWithJitter);
+    public static readonly CronCadence EveryMinute = new("@every_minute", CronExpression.EveryMinuteWithJitter);
+
+    private readonly Func<int, CronExpression> jitter;
+
+    public CronExpression WithJitter(int jitterSeed) => jitter(jitterSeed);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OccurrenceSpec {
     private OccurrenceSpec() { }
@@ -153,6 +169,13 @@ public abstract partial record OccurrenceSpec {
             : CronExpression.TryParse(expression, format, out parsed))
             ? Fin.Succ<OccurrenceSpec>(new Cron(parsed!))
             : Fin.Fail<OccurrenceSpec>(Error.New($"<invalid-cron:{expression}>"));
+
+    public static Fin<OccurrenceSpec> Fleet(string template, CronFormat format, int jitterSeed) =>
+        CronCadence.TryGet(template, out var cadence)
+            ? Fin.Succ<OccurrenceSpec>(new Cron(cadence.WithJitter(jitterSeed)))
+            : CronExpression.TryParse(template, format, jitterSeed, out var parsed)
+                ? Fin.Succ<OccurrenceSpec>(new Cron(parsed!))
+                : Fin.Fail<OccurrenceSpec>(Error.New($"<invalid-fleet:{template}>"));
 
     public bool Identical(OccurrenceSpec other) =>
         (this, other) switch {
@@ -172,7 +195,20 @@ public sealed record ScheduleEntry(
     OccurrenceSpec Spec,
     DeadlineClass Deadline,
     Option<LeasePolicy> Lease,
-    Func<IO<Unit>> Work);
+    Func<IO<Unit>> Work) {
+    public static int Seed(string key) =>
+        unchecked((int)XxHash3.HashToUInt64(System.Text.Encoding.UTF8.GetBytes(key)));
+
+    public static Fin<ScheduleEntry> Spread(
+        string key,
+        string template,
+        CronFormat format,
+        DeadlineClass deadline,
+        Option<LeasePolicy> lease,
+        Func<IO<Unit>> work) =>
+        OccurrenceSpec.Fleet(template, format, Seed(key))
+            .Map(spec => new ScheduleEntry(key, spec, deadline, lease, work));
+}
 
 public static class SchedulePort {
     public static Option<Instant> Next(ScheduleEntry entry, Instant after) =>
@@ -250,7 +286,7 @@ public static class SchedulePort {
 }
 ```
 
-The watchdog spine composes end to end without a watchdog service type: `Run` emits the heartbeat row's paired `(Fin<Unit>, DeadlineReceipt)`, `Heartbeat` folds a not-met receipt into `SupportTrigger.WatchdogTimeout` carrying the same `ScheduleEntry`, and the support owner consumes that trigger; a missed occurrence is detected through `Missed`, which reads `GetPreviousOccurrence` against the last-fired stamp, an ascending backfill audit reads the bounded `GetOccurrences` window, and a most-recent-first audit reads `WindowDescending` over `GetOccurrencesDescending`. Six-field second-resolution rows admit through `CronFormat.IncludeSeconds`, a fleet-spread cron row admits through the `YearlyWithJitter` template family seeded from the schedule key, and a calendar-recurring rollup admits through the `Annual` case whose `AnnualDate` resolves under the strict zone resolver. `Span` reports the calendar gap between two stamps through `Period.Between`, and `OccurrenceSpec.Identical` proves schedule identity across a reload through `CronExpression.Equals`.
+The watchdog spine composes end to end without a watchdog service type: `Run` emits the heartbeat row's paired `(Fin<Unit>, DeadlineReceipt)`, `Heartbeat` folds a not-met receipt into `SupportTrigger.WatchdogTimeout` carrying the same `ScheduleEntry`, and the support owner consumes that trigger; a missed occurrence is detected through `Missed`, which reads `GetPreviousOccurrence` against the last-fired stamp, an ascending backfill audit reads the bounded `GetOccurrences` window, and a most-recent-first audit reads `WindowDescending` over `GetOccurrencesDescending`. Six-field second-resolution rows admit through `CronFormat.IncludeSeconds`, a fleet-spread cron row admits through `OccurrenceSpec.Fleet` over the `CronCadence` template table seeded by `ScheduleEntry.Spread` from the schedule key through `XxHash3.HashToUInt64`, and a calendar-recurring rollup admits through the `Annual` case whose `AnnualDate` resolves under the strict zone resolver. `Span` reports the calendar gap between two stamps through `Period.Between`, and `OccurrenceSpec.Identical` proves schedule identity across a reload through `CronExpression.Equals`.
 
 Consumers register rows, never ports — the registered set at composition:
 
@@ -261,5 +297,6 @@ Consumers register rows, never ports — the registered set at composition:
 |   [3]   | bundle-retention-eviction | support-owned cadence row | support-window    | none              |
 |   [4]   | compute-model-warmup      | consumer-declared         | consumer-declared | none              |
 |   [5]   | watchdog-heartbeat        | `Every` 3 × health-probe  | health-probe      | none              |
+|   [6]   | fleet-rollup              | `@yearly`+jitter          | support-window    | none              |
 
-The heartbeat period is one policy value fixed at 3 × the health-probe row; one heartbeat row exists per watched child or peer. Maintenance work executes only while the registering process holds the maintenance lease; `LeasePolicy.Maintenance` carries the reclamation value both release routes share.
+The heartbeat period is one policy value fixed at 3 × the health-probe row; one heartbeat row exists per watched child or peer. Maintenance work executes only while the registering process holds the maintenance lease; `LeasePolicy.Maintenance` carries the reclamation value both release routes share. The fleet-rollup row registers through `ScheduleEntry.Spread` so its `@yearly`+jitter occurrence carries a deterministic `XxHash3`-derived seed off the row key — every fleet node computes the identical seed from the shared key, the `H` field distributes the nodes across the cadence window, and each rollup run emits its `DeadlineReceipt` through the same `Run` path under the support-window deadline with no fleet-specific instrument; a not-met rollup folds through `Heartbeat` into `SupportTrigger.WatchdogTimeout` like every other watched row.

@@ -24,11 +24,15 @@ Rasm.AppHost/
 │   └── Support.cs                   # SupportTrigger, SupportReceipt — support-bundles#TRIGGER_UNION, #CAPTURE_PIPELINE, #MANIFEST_RECEIPT
 ├── Outbound/
 │   └── Outbound.cs                  # OutboundHop, HopFault, HopOutcome, OutboundSurface, DiscoveryManifest — outbound-resilience#HOP_AXIS, #HTTP_PIPELINES, #KEYED_PIPELINES, #OWNERSHIP_LAW, #DISCOVERY_ATTACH
-└── Ports/
-    └── Ports.cs                     # ReceiptSinkPort + six siblings, AppHostWireContext — runtime-ports#PORT_RECORDS, #WIRE_LAW
+├── Ports/
+│   └── Ports.cs                     # ReceiptSinkPort + six siblings, AppHostWireContext — runtime-ports#PORT_RECORDS, #WIRE_LAW
+├── Provisioning/
+│   └── Provisioning.cs              # UpdatePhase, UpdateChannel, UpdateRail, RolloverDrain — provisioning-and-update#UPDATE_RAIL, #CHANNEL_AXIS, #ROLLOVER_DRAIN
+└── Companion/
+    └── Companion.cs                 # ProcessModality, ControlInbound, ServiceHost, DegradationCascade, PeerAdmission — companion-sidecar#PROCESS_MODALITY, #CONTROL_SERVICE, #SERVICE_HOST, #DEGRADATION_CASCADE, #PEER_ADMISSION
 ```
 
-`Ports.cs` lands last because `AppHostWireContext` rows reference receipts every earlier file declares. `Outbound.cs` transcribes `outbound-resilience.md` including its DISCOVERY_ATTACH cluster: the `LocalIpc` hop case carries the `DiscoveryManifest` payload and `Discovery.Connect` consumes `GrpcChannelPolicy`, so discovery is one symbol closure in one file. `DrainQueue` is the AppHost lane name; `WorkLane` stays at Compute.
+`Ports.cs` lands before the two inbound files because `AppHostWireContext` rows reference receipts every earlier file declares. `Outbound.cs` transcribes `outbound-resilience.md` including its DISCOVERY_ATTACH cluster: the `LocalIpc` hop case carries the `DiscoveryManifest` payload and `Discovery.Connect` consumes `GrpcChannelPolicy`, so discovery is one symbol closure in one file. `Provisioning.cs` owns the post-fetch update state machine over `UpdateManager`; the `UpdateCheck` detect-leg stays at `Outbound.cs`. `Companion.cs` lands last: it is the inbound serving counterpart to `Outbound.cs`, composing `Discovery`/`CompanionChild`/`GrpcChannelPolicy` (Outbound), `DegradationCell` (Health), `OptionsAdmission` (Configuration), and `SupportCapture` (Support) without re-declaring them, and the gRPC server-host packages enter only at service app roots behind the app-root pin. `DrainQueue` is the AppHost lane name; `WorkLane` stays at Compute.
 
 ## [2]-[SPINE]
 
@@ -97,6 +101,15 @@ Text equivalent: `ProfileSurface.Resolve` materializes the one `ResolvedProfile`
 |  [35]   | retry ownership         | `OutboundSurface`                  | 3 outcome cases    | outbound-resilience#OWNERSHIP_LAW            |
 |  [36]   | runtime ports           | `ReceiptSinkPort` and six siblings | 7 records          | runtime-ports#PORT_RECORDS                   |
 |  [37]   | wire law                | `AppHostWireContext`               | 9 contract rows    | runtime-ports#WIRE_LAW                       |
+|  [38]   | update phases           | `UpdatePhase`                      | 5 rows             | provisioning-and-update#UPDATE_RAIL          |
+|  [39]   | update rail             | `UpdateRail`                       | 3 rails            | provisioning-and-update#UPDATE_RAIL          |
+|  [40]   | update channels         | `UpdateChannel`                    | 3 rows             | provisioning-and-update#CHANNEL_AXIS         |
+|  [41]   | rollover drain          | `RolloverDrain`                    | 1 fold             | provisioning-and-update#ROLLOVER_DRAIN       |
+|  [42]   | process modality        | `ProcessModality`                  | 3 rows             | companion-sidecar#PROCESS_MODALITY           |
+|  [43]   | control service         | `ControlInbound`                   | 3 verb folds       | companion-sidecar#CONTROL_SERVICE            |
+|  [44]   | service host            | `ServiceHost`                      | 2 transport cases  | companion-sidecar#SERVICE_HOST               |
+|  [45]   | degradation cascade     | `DegradationCascade`               | 1 write fold       | companion-sidecar#DEGRADATION_CASCADE        |
+|  [46]   | peer admission          | `PeerAdmission`                    | 2 platform branches | companion-sidecar#PEER_ADMISSION            |
 
 One rail per entrypoint, named in the return type: `Validation<ConfigError,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects. Receipts stamp NodaTime `Instant` and `Duration`; `TimeProvider` owns elapsed measurement.
 

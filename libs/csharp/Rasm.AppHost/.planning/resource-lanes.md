@@ -8,7 +8,7 @@ Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-
 | :-----: | :----------- | :------------------------------------------------------------------------ |
 |   [1]   | CACHE_PORT   | One read-through entry; lane rows bind tags, lifetimes, options, keyed L2 |
 |   [2]   | OBJECT_POOLS | Delegate-row pool policy; concrete text pool; rent, reset, leak tracking  |
-|   [3]   | DRAIN_QUEUES | DrainSpec frozen rows; pipe-versus-network split; conductor completion    |
+|   [3]   | DRAIN_QUEUES | DrainSpec frozen rows; DrainKind topology; fan-out, join, coalesce blocks |
 
 ## [2]-[CACHE_PORT]
 
@@ -137,17 +137,27 @@ public static class Pools {
 
 ## [4]-[DRAIN_QUEUES]
 
-- Owner: `DrainSpec` frozen rows materialized through the `DrainQueue<T>` union; `DrainSurface` carries options projection, open, and drain as one extension surface.
-- Cases: `Pipe(DrainSpec Spec, Channel<T> Channel)` for simple producer-consumer seams; `Network(DrainSpec Spec, ITargetBlock<T> Intake, IDataflowBlock Tail)` for completion-propagating block graphs.
+- Owner: `DrainSpec` frozen rows carrying the `DrainKind` `[SmartEnum<string>]` topology discriminant, materialized through the `DrainQueue<T>` union; `DrainSurface` carries options projection, open, drain, and the fan-out/join/coalesce block builders as one extension surface.
+- Cases: `Pipe(DrainSpec Spec, Channel<T> Channel)` for simple producer-consumer seams; `Network(DrainSpec Spec, ITargetBlock<T> Intake, IDataflowBlock Tail)` for every completion-propagating block graph — single-stage batch, `BroadcastBlock` fan-out, `JoinBlock` correlated-join, and `BatchedJoinBlock` dual-stream coalesce all land as `Network` whose `Row.Kind` names the topology.
 - Entry: `Task Drained(CancellationToken token)`.
-- Receipt: `DropOldest` rows surface every lost item through the open-time `onDrop` delegate; a faulted `Completion` projects typed evidence onto the lifecycle fault rail.
+- Receipt: `DropOldest` rows surface every lost item through the open-time `onDrop` delegate; a faulted `Completion` projects typed evidence onto the lifecycle fault rail; the `Network` tail's `Completion` carries the join-failure and coalesce-flush evidence.
 - Packages: BCL inbox; Thinktecture.Runtime.Extensions; LanguageExt.Core.
-- Growth: one `DrainSpec` row per queue; `JoinBlock` or `WriteOnceBlock` admission is one row when join or write-once semantics are receipt material; zero new surface.
-- Boundary: `System.Threading.Tasks.Dataflow` rides the shared framework and its central pin stays a transitive floor, never a direct project asset; `DrainQueue` names process-level drainable queues while `WorkLane` stays the Compute solve-path name; completion awaits land at the row's `DrainBand` under the conductor's cancellation scope — this family deletes per-lane queue classes and free-floating background loops.
+- Growth: one `DrainSpec` row per queue carrying its `DrainKind`; a fan-out clone, a correlated-join arity, or a dual-stream coalesce batch is one row column, never a new owner; `Greedy`, `MaxGroups`, and `PropagateCompletion` are policy columns on the row; zero new surface.
+- Boundary: `System.Threading.Tasks.Dataflow` rides the shared framework and its central pin stays a transitive floor, never a direct project asset; `DrainQueue` names process-level drainable queues while `WorkLane` stays the Compute solve-path name; `BroadcastBlock` fans the receipt stream to multiple sinks, `JoinBlock` correlates the watchdog heartbeat against the health snapshot, and `BatchedJoinBlock` coalesces the support artifact stream against the error stream — each is a `DrainSurface` builder over the same union, never a hand-rolled fan-out loop, correlation buffer, or dual-queue zip; completion awaits land at the row's `DrainBand` under the conductor's cancellation scope — this family deletes per-lane queue classes and free-floating background loops.
 
 ```csharp signature
+[SmartEnum<string>]
+public sealed partial class DrainKind {
+    public static readonly DrainKind Pipe = new("pipe");
+    public static readonly DrainKind Network = new("network");
+    public static readonly DrainKind FanOut = new("fan-out");
+    public static readonly DrainKind CorrelatedJoin = new("correlated-join");
+    public static readonly DrainKind DualCoalesce = new("dual-coalesce");
+}
+
 public sealed record DrainSpec(
     string Name,
+    DrainKind Kind,
     int Capacity,
     int MaxDegree,
     bool Ordered,
@@ -155,10 +165,19 @@ public sealed record DrainSpec(
     DrainBand Band,
     DeadlineClass Deadline,
     Option<int> Batch = default,
-    Option<TaskScheduler> Scheduler = default) {
-    public static readonly DrainSpec ReceiptFanIn = new(nameof(ReceiptFanIn), Capacity: 1024, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.Wait, Band: DrainBand.Telemetry, Deadline: DeadlineClass.DrainCooperative, Batch: 64);
+    Option<TaskScheduler> Scheduler = default,
+    bool Greedy = true,
+    long MaxGroups = -1,
+    bool PropagateCompletion = true) {
+    public static readonly DrainSpec ReceiptFanIn = new(nameof(ReceiptFanIn), DrainKind.Pipe, Capacity: 1024, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.Wait, Band: DrainBand.Telemetry, Deadline: DeadlineClass.DrainCooperative, Batch: 64);
 
-    public static readonly DrainSpec SupportCapture = new(nameof(SupportCapture), Capacity: 512, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.DropOldest, Band: DrainBand.Telemetry, Deadline: DeadlineClass.DrainCooperative);
+    public static readonly DrainSpec SupportCapture = new(nameof(SupportCapture), DrainKind.Pipe, Capacity: 512, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.DropOldest, Band: DrainBand.Telemetry, Deadline: DeadlineClass.DrainCooperative);
+
+    public static readonly DrainSpec ReceiptFanOut = new(nameof(ReceiptFanOut), DrainKind.FanOut, Capacity: 1024, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.Wait, Band: DrainBand.Telemetry, Deadline: DeadlineClass.DrainCooperative);
+
+    public static readonly DrainSpec WatchdogJoin = new(nameof(WatchdogJoin), DrainKind.CorrelatedJoin, Capacity: 256, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.Wait, Band: DrainBand.Telemetry, Deadline: DeadlineClass.DrainCooperative, Greedy: false, MaxGroups: -1);
+
+    public static readonly DrainSpec SupportCoalesce = new(nameof(SupportCoalesce), DrainKind.DualCoalesce, Capacity: 512, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.Wait, Band: DrainBand.Telemetry, Deadline: DeadlineClass.DrainCooperative, Batch: 32, Greedy: true, MaxGroups: -1);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -186,6 +205,26 @@ public static class DrainSurface {
             TaskScheduler = spec.Scheduler.IfNone(TaskScheduler.Default),
         };
 
+        public DataflowBlockOptions BroadcastOptions(CancellationToken token) => new() {
+            BoundedCapacity = spec.Capacity,
+            EnsureOrdered = spec.Ordered,
+            CancellationToken = token,
+            TaskScheduler = spec.Scheduler.IfNone(TaskScheduler.Default),
+        };
+
+        public GroupingDataflowBlockOptions GroupingOptions(CancellationToken token) => new() {
+            BoundedCapacity = spec.Capacity,
+            EnsureOrdered = spec.Ordered,
+            CancellationToken = token,
+            TaskScheduler = spec.Scheduler.IfNone(TaskScheduler.Default),
+            Greedy = spec.Greedy,
+            MaxNumberOfGroups = spec.MaxGroups,
+        };
+
+        public DataflowLinkOptions LinkOptions() => new() {
+            PropagateCompletion = spec.PropagateCompletion,
+        };
+
         public Fin<DrainQueue<T>> Open<T>(Option<Action<T>> onDrop = default) =>
             spec.FullMode is BoundedChannelFullMode.Wait || onDrop.IsSome
                 ? Fin.Succ<DrainQueue<T>>(new DrainQueue<T>.Pipe(spec, onDrop is { IsSome: true, Case: Action<T> drop }
@@ -195,6 +234,34 @@ public static class DrainSurface {
 
         public DrainQueue<T> Open<T>(ITargetBlock<T> intake, IDataflowBlock tail) =>
             new DrainQueue<T>.Network(spec, intake, tail);
+
+        public DrainQueue<T> Broadcast<T>(Func<T, T> clone, Seq<ITargetBlock<T>> sinks, CancellationToken token) =>
+            new BroadcastBlock<T>(clone, spec.BroadcastOptions(token)) is var head
+                ? new DrainQueue<T>.Network(spec, head, sinks.Fold(head as IDataflowBlock, (_, sink) =>
+                    (head.LinkTo(sink, spec.LinkOptions()), head).Item2))
+                : throw new UnreachableException();
+
+        public DrainQueue<Tuple<T1, T2>> Join<T1, T2>(ITargetBlock<Tuple<T1, T2>> sink, CancellationToken token) =>
+            new JoinBlock<T1, T2>(spec.GroupingOptions(token)) is var join
+                ? (join.LinkTo(sink, spec.LinkOptions()), new DrainQueue<Tuple<T1, T2>>.Network(spec, DataflowBlock.NullTarget<Tuple<T1, T2>>(), join)).Item2
+                : throw new UnreachableException();
+
+        public DrainQueue<Tuple<IList<T1>, IList<T2>>> Coalesce<T1, T2>(ITargetBlock<Tuple<IList<T1>, IList<T2>>> sink, CancellationToken token) =>
+            new BatchedJoinBlock<T1, T2>(spec.Batch.IfNone(spec.Capacity), spec.GroupingOptions(token)) is var coalesce
+                ? (coalesce.LinkTo(sink, spec.LinkOptions()), new DrainQueue<Tuple<IList<T1>, IList<T2>>>.Network(spec, DataflowBlock.NullTarget<Tuple<IList<T1>, IList<T2>>>(), coalesce)).Item2
+                : throw new UnreachableException();
+    }
+
+    extension<T1, T2>(DrainQueue<Tuple<T1, T2>> queue) {
+        public (ITargetBlock<T1> First, ITargetBlock<T2> Second) Arms => queue.Switch(
+            pipe: static _ => throw new UnreachableException(),
+            network: static n => (JoinBlock<T1, T2>)n.Tail is var join ? (join.Target1, join.Target2) : throw new UnreachableException());
+    }
+
+    extension<T1, T2>(DrainQueue<Tuple<IList<T1>, IList<T2>>> queue) {
+        public (ITargetBlock<T1> First, ITargetBlock<T2> Second) CoalesceArms => queue.Switch(
+            pipe: static _ => throw new UnreachableException(),
+            network: static n => (BatchedJoinBlock<T1, T2>)n.Tail is var coalesce ? (coalesce.Target1, coalesce.Target2) : throw new UnreachableException());
     }
 
     extension<T>(DrainQueue<T> queue) {
@@ -212,8 +279,12 @@ public static class DrainSurface {
 
 Queue semantics ride these rulings:
 
-- Kind split: `Channel.CreateBounded` owns simple pipe seams; Dataflow blocks own completion-propagating networks — the row's topology fixes the kind, never the call site.
-- Backpressure: `WriteAsync` and `SendAsync` await fullness on `Wait` rows; `TryWrite` and `Post` are legal only on receipted-loss rows; `NullTarget` absorption is spelled at the link site.
-- Loss: a `DropOldest` row opens only with an `onDrop` receipt delegate; `Open` rejects an unreceipted-loss row on the `Fin` rail.
-- Grouping: `BatchBlock` carries receipt-grade batched hand-off, with `TriggerBatch` flushing a partial batch at drain; the reservation rail, `Encapsulate`, `AsObservable`, and `AsObserver` stay out.
-- Drain and fault: `Drained` completes intake then awaits `Completion` under the conductor token at the row's band; evidence rows complete inside the final band before exporter flush; a faulted block or channel fails `Completion`, and the conductor folds the failure into the unload receipt instead of swallowing it.
+- Kind split: `DrainKind` fixes the topology on the row — `Pipe` rides `Channel.CreateBounded`; `Network`, `FanOut`, `CorrelatedJoin`, and `DualCoalesce` ride Dataflow blocks; the row's `Kind` selects the `DrainSurface` builder, never the call site.
+- Backpressure: `WriteAsync` and `SendAsync` await fullness on `Wait` rows; `TryWrite` and `Post` are legal only on receipted-loss rows; `NullTarget` absorption is spelled at the link site and stands in as the `Network` intake for join and coalesce rows whose live intake is the two arms.
+- Loss: a `DropOldest` row opens only with an `onDrop` receipt delegate; `Open` rejects an unreceipted-loss row on the `Fin` rail; fan-out, join, and coalesce rows are `Wait` rows because their completion-propagating tails carry no silent loss.
+- Grouping: `BatchBlock` carries receipt-grade batched hand-off, with `TriggerBatch` flushing a partial batch at drain; `GroupingDataflowBlockOptions` projects `Greedy` and `MaxNumberOfGroups` from the row's `Greedy`/`MaxGroups` columns while `BoundedCapacity` rides the base `DataflowBlockOptions` from `Capacity` — the reservation rail, `Encapsulate`, `AsObservable`, and `AsObserver` stay out.
+- Fan-out: `Broadcast` mints one `BroadcastBlock<T>(clone)` whose `BroadcastOptions` projection rides the base `DataflowBlockOptions` (`BoundedCapacity` from `Capacity`, no `MaxDegreeOfParallelism`), links the head to every sink under `LinkOptions` carrying the row's `PropagateCompletion`, and exposes the head as both intake and `Tail` so completing the head fans completion to all sinks; the clone delegate is the receipt-fan-out copy guard, never a shared-reference leak across sinks.
+- Correlated join: `Join<T1, T2>` mints one non-greedy `JoinBlock<T1, T2>` (`Greedy: false` so the watchdog heartbeat and the health snapshot pair atomically rather than buffering one stream unbounded), links it to the sink under `PropagateCompletion`, exposes `Target1`/`Target2` through `Arms`, and emits `Tuple<T1, T2>`; the producer completes both arms and `Drained` awaits the join `Tail.Completion`, so an unmatched residual on one arm at drain fails `Completion` and folds onto the lifecycle fault rail.
+- Dual coalesce: `Coalesce<T1, T2>` mints one greedy `BatchedJoinBlock<T1, T2>(batchSize)` reading `batchSize` from the row's `Batch` column, links it to the sink under `PropagateCompletion`, exposes `Target1`/`Target2` through `CoalesceArms`, and emits `Tuple<IList<T1>, IList<T2>>` so the support artifact stream and error stream coalesce into one batched hand-off; a partial pair flushes when either arm reaches `batchSize` or both arms complete at drain.
+- Drain and fault: `Drained` completes intake then awaits `Completion` under the conductor token at the row's band; for join and coalesce the `NullTarget` intake `Complete()` is inert and the producer-completed arms drive the tail; evidence rows complete inside the final band before exporter flush; a faulted block or channel fails `Completion`, and the conductor folds the failure into the unload receipt instead of swallowing it.
+- Telemetry: the fan-out, join, and coalesce rows export no new instrument by default — depth observability is a `rasm.apphost.drain.queue.depth` gauge raised only when a consumer reads it, a forward row, never a speculative instrument; queue lane counts leave as telemetry consequence of the registered `DrainSpec` set.

@@ -14,12 +14,12 @@ Outbound boundary ownership for the runtime spine: seven `OutboundHop` cases bin
 
 ## [2]-[HOP_AXIS]
 
-- Owner: `OutboundHop` `[Union]` seven sealed hop cases; `HopPolicy` per-case row record; `HopRows` frozen row set with the total dispatch; `HopIdempotency` keyless vocabulary; `HopTransport` keyless byte-mover vocabulary; `HopFault` `[Union]` fault family in the 4500 band; `ReleaseIdentity` vehicle-free update identity.
+- Owner: `OutboundHop` `[Union]` seven sealed hop cases; `HopPolicy` per-case row record; `HopRows` frozen row set with the total dispatch; `HopIdempotency` keyless vocabulary; `HopTransport` keyless byte-mover vocabulary; `HopRateLimit` keyless admission-shape vocabulary; `HopFault` `[Union]` fault family in the 4500 band; `ReleaseIdentity` vehicle-free update identity.
 - Cases: HttpApi, Grpc, ServerStream, CompanionSpawn, LocalIpc, WebhookPost, UpdateCheck — the stream case is gRPC server-stream; UpdateCheck carries `ReleaseIdentity` and is structurally excluded on plugin rows.
 - Entry: `HopPolicy Policy` — extension property; total state-free `Switch` from case to frozen row.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one case plus one `HopPolicy` row absorbs a new outbound boundary; the update vehicle lands as one `UpdatePort` row on the UpdateCheck case; zero new surface.
-- Boundary: deadline durations are the two hop deadline rows read by projection, never literals here; database retry is excluded from the hop law — the store execution strategy owns it; the `Transport` column names the byte mover on every row — `SocketsHttpHandler`, `GrpcChannel`, or process spawn — and resilience-event enrichment is the pipeline-key tag, never a second enrichment surface; the row's `Needs` capability is the degradation gate and `ExcludedOn` is the modality fence; webhook delivery identity is the case's `DeliveryKey` payload, never a header literal.
+- Growth: one case plus one `HopPolicy` row absorbs a new outbound boundary; the update vehicle lands as one `UpdatePort` row on the UpdateCheck case; the admission shape lands as one `HopRateLimit` key plus one `Admission` column value, never a second limiter rail; zero new surface.
+- Boundary: deadline durations are the two hop deadline rows read by projection, never literals here; database retry is excluded from the hop law — the store execution strategy owns it; the `Transport` column names the byte mover on every row — `SocketsHttpHandler`, `GrpcChannel`, or process spawn — and resilience-event enrichment is the pipeline-key tag, never a second enrichment surface; the `Admission` column names the pipeline-head limiter shape on every row — `Concurrency` for the bounded-permit default, `SlidingWindow` for the webhook segment cap, `TokenBucket` for the redial-paced peer hop — read by `KeyedLane.Limiter`, never a second limiter selector; the row's `Needs` capability is the degradation gate and `ExcludedOn` is the modality fence; webhook delivery identity is the case's `DeliveryKey` payload, never a header literal.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -65,6 +65,13 @@ public sealed partial class HopTransport {
     public static readonly HopTransport ProcessSpawn = new();
 }
 
+[SmartEnum]
+public sealed partial class HopRateLimit {
+    public static readonly HopRateLimit Concurrency = new();
+    public static readonly HopRateLimit SlidingWindow = new();
+    public static readonly HopRateLimit TokenBucket = new();
+}
+
 public sealed record ReleaseIdentity(string Product, string Channel, string Installed, Uri Feed);
 
 public sealed record HopPolicy(
@@ -74,19 +81,20 @@ public sealed record HopPolicy(
     DeadlineClass Total,
     Capability Needs,
     HopIdempotency Idempotency,
+    HopRateLimit Admission,
     Func<HostProfile, bool> ExcludedOn);
 
 public static class HopRows {
     static readonly Func<HostProfile, bool> Never = static _ => false;
     static readonly Func<HostProfile, bool> PluginRows = static profile => profile == HostProfile.RhinoPlugin || profile == HostProfile.Gh2Plugin;
 
-    public static readonly HopPolicy HttpApi = new(nameof(OutboundHop.HttpApi), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.MethodDerived, Never);
-    public static readonly HopPolicy Grpc = new(nameof(OutboundHop.Grpc), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Keyed, Never);
-    public static readonly HopPolicy ServerStream = new(nameof(OutboundHop.ServerStream), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Idempotent, Never);
-    public static readonly HopPolicy CompanionSpawn = new(nameof(OutboundHop.CompanionSpawn), HopTransport.ProcessSpawn, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.LocalCompute, HopIdempotency.SingleShot, Never);
-    public static readonly HopPolicy LocalIpc = new(nameof(OutboundHop.LocalIpc), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.LocalCompute, HopIdempotency.Keyed, Never);
-    public static readonly HopPolicy WebhookPost = new(nameof(OutboundHop.WebhookPost), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Keyed, Never);
-    public static readonly HopPolicy UpdateCheck = new(nameof(OutboundHop.UpdateCheck), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Idempotent, PluginRows);
+    public static readonly HopPolicy HttpApi = new(nameof(OutboundHop.HttpApi), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.MethodDerived, HopRateLimit.Concurrency, Never);
+    public static readonly HopPolicy Grpc = new(nameof(OutboundHop.Grpc), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Keyed, HopRateLimit.Concurrency, Never);
+    public static readonly HopPolicy ServerStream = new(nameof(OutboundHop.ServerStream), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Idempotent, HopRateLimit.Concurrency, Never);
+    public static readonly HopPolicy CompanionSpawn = new(nameof(OutboundHop.CompanionSpawn), HopTransport.ProcessSpawn, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.LocalCompute, HopIdempotency.SingleShot, HopRateLimit.Concurrency, Never);
+    public static readonly HopPolicy LocalIpc = new(nameof(OutboundHop.LocalIpc), HopTransport.GrpcChannel, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.LocalCompute, HopIdempotency.Keyed, HopRateLimit.TokenBucket, Never);
+    public static readonly HopPolicy WebhookPost = new(nameof(OutboundHop.WebhookPost), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Keyed, HopRateLimit.SlidingWindow, Never);
+    public static readonly HopPolicy UpdateCheck = new(nameof(OutboundHop.UpdateCheck), HopTransport.SocketsHttpHandler, DeadlineClass.HopAttempt, DeadlineClass.HopTotal, Capability.RemoteCompute, HopIdempotency.Idempotent, HopRateLimit.Concurrency, PluginRows);
 
     extension(OutboundHop hop) {
         public HopPolicy Policy => hop.Switch(
@@ -144,11 +152,11 @@ public static class HttpLane {
 ## [4]-[KEYED_PIPELINES]
 
 - Owner: `KeyedLane` — the one keyed registry registration fold for every non-HTTP hop; `GrpcChannelPolicy` canonical channel-policy record.
-- Entry: `Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, params ReadOnlySpan<HopPolicy> rows)` — one `AddResiliencePipeline` entry per row.
-- Auto: `ConfigureTelemetry` inserts the telemetry strategy at pipeline head; resilience events land under the pipeline key in the package meter and logger; each pipeline binds a `CircuitBreakerStateProvider` so the breaker state reads from Polly's own observation surface, never a parallel state delegate.
-- Packages: Polly.Core, Polly.Extensions, Polly.RateLimiting, LanguageExt.Core, BCL inbox
-- Growth: one strategy row inside one keyed pipeline; chaos rows attach on the test-host profile row as one `AddChaosLatency`, `AddChaosFault`, or `AddChaosOutcome` strategy row each — zero new surface.
-- Boundary: gRPC-native retry is rejected — the channel `ServiceConfig` retry and hedging are experimental and a second retry owner; admission is one `RateLimiterStrategyOptions` row at the pipeline head over `DefaultRateLimiterOptions` (typed `System.Threading.RateLimiting.ConcurrencyLimiterOptions`, the `int PermitLimit`/`int QueueLimit` settable members bound to `RateLimitPermits` 128, `RateLimitQueue` 64), its `OnRejected` delegate fanning the rejection onto the resilience meter, and a `RateLimiterRejectedException.RetryAfter` projection feeds the retry `DelayGenerator` so a server-advised back-pressure window is honored verbatim while every other fault keeps the exponential-jitter seed; the `LocalIpc` redial is one `AddFallback` strategy whose `FallbackStrategyOptions<HopOutcome>.FallbackAction` re-reads the peer manifest and reconnects, a hop-keyed policy value, never a coded retry loop — `FallbackAction` is typed `Func<FallbackActionArguments<HopOutcome>, ValueTask<Outcome<HopOutcome>>>`, and the `readonly struct FallbackActionArguments<HopOutcome>` carrier exposes `ResilienceContext Context` and the inbound `Outcome<HopOutcome> Outcome` the redial action reads to reconnect the peer; `CircuitBreakerManualControl` keyed per hop is the kill-switch write surface and `CircuitBreakerStateProvider` keyed per hop is the read-side state the receipt projects; the `allotted` projection is the deadline-row read so no duration literal lives in a strategy; the canonical channel record carries keepalive 60s/30s, infinite pooled-connection idle, multiplexed HTTP/2, and 4 MiB caps in both directions.
+- Entry: `Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, Func<HopPolicy, Func<FallbackActionArguments<HopOutcome>, ValueTask<Outcome<HopOutcome>>>> redial, Action<OnRateLimiterRejectedArguments> onRejected, params ReadOnlySpan<HopPolicy> rows)` — one `AddResiliencePipeline` entry per row, the `redial` projection seats the per-row fallback action and `onRejected` fans every rate-limiter rejection onto the meter.
+- Auto: `ConfigureTelemetry` inserts the telemetry strategy at pipeline head; resilience events land under the pipeline key in the package meter and logger; each pipeline binds a `CircuitBreakerStateProvider` so the breaker state reads from Polly's own observation surface, never a parallel state delegate; the pipeline-head limiter is `AutoReplenishment` true on every replenishing shape so the sliding-window and token-bucket rows self-refill without a parallel timer.
+- Packages: Polly.Core, Polly.Extensions, Polly.RateLimiting, System.Threading.RateLimiting, LanguageExt.Core, BCL inbox
+- Growth: one strategy row inside one keyed pipeline; one `HopRateLimit` key plus one `Limiter` switch arm absorbs a new admission shape; chaos rows attach on the test-host profile row as one `AddChaosLatency`, `AddChaosFault`, or `AddChaosOutcome` strategy row each — zero new surface.
+- Boundary: gRPC-native retry is rejected — the channel `ServiceConfig` retry and hedging are experimental and a second retry owner; admission is one `RateLimiterStrategyOptions` row at the pipeline head whose `RateLimiter` lease-producer delegate is the `KeyedLane.Limiter` projection over the row's `HopRateLimit Admission` column — `Concurrency` keeps the `DefaultRateLimiterOptions` typed `System.Threading.RateLimiting.ConcurrencyLimiterOptions` path (the `int PermitLimit`/`int QueueLimit` settable members bound to `RateLimitPermits` 128, `RateLimitQueue` 64), `SlidingWindow` leases from a `SlidingWindowRateLimiter` over `SlidingWindowRateLimiterOptions{Window,SegmentsPerWindow,PermitLimit,QueueLimit,QueueProcessingOrder}` and `TokenBucket` from a `TokenBucketRateLimiter` over `TokenBucketRateLimiterOptions{ReplenishmentPeriod,TokensPerPeriod,TokenLimit,QueueLimit}`, the generic `AddRateLimiter<TBuilder>(TBuilder, RateLimiterStrategyOptions)` of `Polly.RateLimiterResiliencePipelineBuilderExtensions` taking the builder by its own type; its `OnRejected` delegate fans the rejection onto the resilience meter, and a `RateLimiterRejectedException.RetryAfter` projection feeds the retry `DelayGenerator` so a server-advised back-pressure window is honored verbatim while every other fault keeps the exponential-jitter seed; the `LocalIpc` redial is one `AddFallback` strategy whose `FallbackStrategyOptions<HopOutcome>.FallbackAction` re-reads the peer manifest and reconnects, a hop-keyed policy value, never a coded retry loop — `FallbackAction` is typed `Func<FallbackActionArguments<HopOutcome>, ValueTask<Outcome<HopOutcome>>>`, and the `readonly struct FallbackActionArguments<HopOutcome>` carrier exposes `ResilienceContext Context` and the inbound `Outcome<HopOutcome> Outcome` the redial action reads to reconnect the peer; `CircuitBreakerManualControl` keyed per hop is the kill-switch write surface and `CircuitBreakerStateProvider` keyed per hop is the read-side state the receipt projects; the `allotted` projection is the deadline-row read so no duration literal lives in a strategy; the canonical channel record carries keepalive 60s/30s, infinite pooled-connection idle, multiplexed HTTP/2, and 4 MiB caps in both directions.
 
 ```csharp signature
 public sealed record GrpcChannelPolicy(
@@ -173,21 +181,52 @@ public static class KeyedLane {
     public const int RetryAttempts = 3;
     public const int RateLimitPermits = 128;
     public const int RateLimitQueue = 64;
+    public const int WindowSegments = 6;
+    public const int WindowPermits = 256;
+    public const int TokensPerPeriod = 32;
+    public const int TokenBucketCapacity = 128;
     public static readonly TimeSpan RetrySeed = TimeSpan.FromMilliseconds(200);
+    public static readonly TimeSpan SlidingWindowSpan = TimeSpan.FromSeconds(60);
+    public static readonly TimeSpan TokenReplenishment = TimeSpan.FromSeconds(1);
     static readonly ConcurrentDictionary<string, (CircuitBreakerManualControl Control, CircuitBreakerStateProvider State)> Breakers = new(StringComparer.Ordinal);
     static (CircuitBreakerManualControl Control, CircuitBreakerStateProvider State) Of(string key) =>
         Breakers.GetOrAdd(key, static _ => (new CircuitBreakerManualControl(), new CircuitBreakerStateProvider()));
     public static CircuitBreakerManualControl BreakerOf(string pipelineKey) => Of(pipelineKey).Control;
     public static CircuitBreakerStateProvider StateOf(string pipelineKey) => Of(pipelineKey).State;
 
+    static RateLimiterStrategyOptions Limiter(HopPolicy row, Action<OnRateLimiterRejectedArguments> onRejected) =>
+        row.Admission.Switch<RateLimiter?>(
+            concurrency: static () => null,
+            slidingWindow: static () => new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions {
+                Window = SlidingWindowSpan,
+                SegmentsPerWindow = WindowSegments,
+                AutoReplenishment = true,
+                PermitLimit = WindowPermits,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = RateLimitQueue,
+            }),
+            tokenBucket: static () => new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions {
+                ReplenishmentPeriod = TokenReplenishment,
+                TokensPerPeriod = TokensPerPeriod,
+                AutoReplenishment = true,
+                TokenLimit = TokenBucketCapacity,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = RateLimitQueue,
+            })) is { } limiter
+            ? new RateLimiterStrategyOptions {
+                RateLimiter = args => limiter.AcquireAsync(permitCount: 1, args.Context.CancellationToken),
+                OnRejected = args => { onRejected(args); return default; },
+            }
+            : new RateLimiterStrategyOptions {
+                DefaultRateLimiterOptions = new ConcurrencyLimiterOptions { PermitLimit = RateLimitPermits, QueueLimit = RateLimitQueue },
+                OnRejected = args => { onRejected(args); return default; },
+            };
+
     public static IServiceCollection Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, Func<HopPolicy, Func<FallbackActionArguments<HopOutcome>, ValueTask<Outcome<HopOutcome>>>> redial, Action<OnRateLimiterRejectedArguments> onRejected, params ReadOnlySpan<HopPolicy> rows) =>
         rows.ToArray().ToSeq().Fold(services, (graph, row) =>
             graph.AddResiliencePipeline<HopOutcome>(row.PipelineKey, builder => builder
                 .ConfigureTelemetry(telemetry)
-                .AddRateLimiter(new RateLimiterStrategyOptions {
-                    DefaultRateLimiterOptions = new ConcurrencyLimiterOptions { PermitLimit = RateLimitPermits, QueueLimit = RateLimitQueue },
-                    OnRejected = args => { onRejected(args); return default; },
-                })
+                .AddRateLimiter(Limiter(row, onRejected))
                 .AddConcurrencyLimiter(permitLimit: PermitLimit, queueLimit: QueueLimit)
                 .AddRetry(new RetryStrategyOptions<HopOutcome> {
                     MaxRetryAttempts = RetryAttempts,
@@ -209,7 +248,7 @@ public static class KeyedLane {
 }
 ```
 
-Every keyed-pipeline literal is a named frozen `const` on `KeyedLane` — `PermitLimit` 64, `QueueLimit` 256, `RetryAttempts` 3, `RateLimitPermits` 128, `RateLimitQueue` 64, `RetrySeed` 200 ms — so each strategy value traces to its declaring field, never an inline literal.
+Every keyed-pipeline literal is a named frozen `const` or `static readonly` on `KeyedLane` — `PermitLimit` 64, `QueueLimit` 256, `RetryAttempts` 3, `RateLimitPermits` 128, `RateLimitQueue` 64, `WindowSegments` 6, `WindowPermits` 256, `TokensPerPeriod` 32, `TokenBucketCapacity` 128, `RetrySeed` 200 ms, `SlidingWindowSpan` 60 s, `TokenReplenishment` 1 s — so each strategy value traces to its declaring field, never an inline literal; `permitCount` 1 on `AcquireAsync` is the single-call lease grain and `QueueProcessingOrder.OldestFirst` is the fairness fact on both replenishing shapes.
 
 ## [5]-[OWNERSHIP_LAW]
 
@@ -315,11 +354,11 @@ public static class OutboundSurface {
 
 ## [6]-[DISCOVERY_ATTACH]
 
-- Owner: `DiscoveryManifest` attach record; `CompanionChild` spawn capsule; `Discovery` static surface — path law, atomic publish, staleness probe, checksum gate, UDS connect, spawn, peer-credential admission.
+- Owner: `DiscoveryManifest` attach record; `CompanionChild` spawn capsule; `Discovery` static surface — path law, atomic publish, staleness probe, checksum gate, UDS connect, spawn, drain-fan producer.
 - Entry: `Read(ProfileRoots roots, int pid, JsonTypeInfo<DiscoveryManifest> contract)` — `Fin` aborts on missing, empty, or dead-pid manifests.
 - Packages: Grpc.Net.Client, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one named-pipe hardening row on the connect dispatch covers the Windows surface; the peer-credential read lands as one admission-probe row on the manifest read; zero new surface.
-- Boundary: `Publish` and `Connect` are the named boundary capsules carrying statement bodies — atomic temp-write-then-move publication and the UDS connect callback; the socket lives at the temp-root `rasm-{pid}.sock` path under the 104-byte `sun_path` cap; the manifest directory is created 0700 and directory mode is the credential boundary; `Compatible` takes the additive-versus-breaking classifier as a delegate — checksum equality or additive drift admits, breaking drift is a typed rejection; the spawn is single-shot and the post-spawn manifest read rides the CompanionSpawn keyed pipeline registered at KEYED_PIPELINES; `FanDrain` is the parent-to-child drain fan over the `LocalIpc` hop declared at HOP_AXIS, consumed by the parent's drain registration row; the accepted-socket peer-credential read is the admission row whose raw socket-option integers and struct layout are RESEARCH-gated on `[PEER_CREDENTIAL]`, so a connecting peer's uid and pid are read once at accept and never trusted from the manifest.
+- Growth: one named-pipe hardening row on the connect dispatch covers the Windows surface; zero new surface.
+- Boundary: `Publish` and `Connect` are the named boundary capsules carrying statement bodies — atomic temp-write-then-move publication and the UDS connect callback; the socket lives at the temp-root `rasm-{pid}.sock` path under the 104-byte `sun_path` cap; the manifest directory is created 0700 and directory mode is the credential boundary; `Compatible` takes the additive-versus-breaking classifier as a delegate — checksum equality or additive drift admits, breaking drift is a typed rejection; the spawn is single-shot and the post-spawn manifest read rides the CompanionSpawn keyed pipeline registered at KEYED_PIPELINES; `DrainFan` is the parent-to-child drain-fan producer — it dials the peer over the `LocalIpc` hop case through `OutboundSurface.Run` with the drain control message, returning the `IO<Unit>` that `Spawn` threads into `CompanionChild.FanDrain` as the `drainFan` arg, so the drain conductor fans onto a real owner instead of a dangling delegate field; the accepted-socket peer-credential read moves to `companion-sidecar#PEER_ADMISSION` (the serving side reads the connecting peer's uid and pid once at accept and never trusts the manifest) — a seam-split, not an owner here.
 
 ```csharp signature
 public sealed record DiscoveryManifest(
@@ -398,6 +437,21 @@ public static class Discovery {
             .Bind(child => manifestOf(child.Id).Map(manifest =>
                 new CompanionChild(child, manifest, cancel => drainFan(manifest, cancel))));
 
+    public static Func<DiscoveryManifest, CancellationToken, IO<Unit>> FanOf(OutboundRuntime runtime) =>
+        (peer, token) => DrainFan(peer, runtime, token);
+
+    public static IO<Unit> DrainFan(DiscoveryManifest peer, OutboundRuntime runtime, CancellationToken token) =>
+        OutboundSurface.Run(runtime, new OutboundHop.LocalIpc(peer), inner =>
+            Drain(Connect(peer, GrpcChannelPolicy.Canonical), CancellationTokenSource.CreateLinkedTokenSource(token, inner).Token))
+            .Map(static _ => unit);
+
+    static async Task<HopOutcome> Drain(GrpcChannel channel, CancellationToken token) {
+        await using (channel) {
+            await channel.ConnectAsync(token);
+            return new HopOutcome.Delivered();
+        }
+    }
+
     static Fin<DiscoveryManifest> Alive(DiscoveryManifest manifest) =>
         Try.lift(() => Process.GetProcessById(manifest.Pid))
             .Run()
@@ -408,4 +462,4 @@ public static class Discovery {
 
 ## [7]-[RESEARCH]
 
-- [PEER_CREDENTIAL]: peer-credential projection on accepted UDS sockets through the raw socket-option read on macOS and Linux — the `SocketOptionLevel`/`SocketOptionName` integers and the credential struct layout the accept-side `GetRawSocketOption` fills, yielding the connecting peer's uid and pid for the admission row.
+The dial-out boundary carries no open research. The accepted-socket peer-credential projection moves to the serving owner at `companion-sidecar#PEER_ADMISSION`, where the P/Invoke `getsockopt` route and the `ucred`/`xucred` blittable layout seat the admission fence.
