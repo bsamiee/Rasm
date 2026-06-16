@@ -1,0 +1,69 @@
+{
+    "name": "@rasm/services",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "import": "./src/index.ts"
+        },
+        "./node": {
+            "types": "./src/node.ts",
+            "import": "./src/node.ts"
+        },
+        "./provisioning": {
+            "types": "./src/provisioning/platform.ts",
+            "import": "./src/provisioning/platform.ts"
+        }
+    },
+    "nx": {
+        "tags": ["scope:node", "type:domain"]
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "catalog:",
+        "@effect-aws/client-s3": "catalog:",
+        "@effect/ai": "catalog:",
+        "@effect/ai-amazon-bedrock": "catalog:",
+        "@effect/ai-anthropic": "catalog:",
+        "@effect/ai-google": "catalog:",
+        "@effect/ai-openai": "catalog:",
+        "@effect/ai-openrouter": "catalog:",
+        "@effect/cli": "catalog:",
+        "@effect/cluster": "catalog:",
+        "@effect/experimental": "catalog:",
+        "@effect/opentelemetry": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@effect/rpc": "catalog:",
+        "@effect/sql": "catalog:",
+        "@effect/sql-pg": "catalog:",
+        "@effect/workflow": "catalog:",
+        "@opentelemetry/sdk-trace-node": "catalog:",
+        "@rasm/interchange": "workspace:*",
+        "@rasm/projection": "workspace:*",
+        "effect": "catalog:",
+        "exceljs": "catalog:",
+        "ioredis": "catalog:",
+        "jspdf": "catalog:",
+        "jszip": "catalog:",
+        "papaparse": "catalog:",
+        "rfc6902": "catalog:",
+        "sharp": "catalog:"
+    },
+    "optionalDependencies": {
+        "@dopplerhq/node-sdk": "catalog:",
+        "@pulumi/aws": "catalog:",
+        "@pulumi/awsx": "catalog:",
+        "@pulumi/command": "catalog:",
+        "@pulumi/docker": "catalog:",
+        "@pulumi/esc-sdk": "catalog:",
+        "@pulumi/kubernetes": "catalog:",
+        "@pulumi/policy": "catalog:",
+        "@pulumi/pulumi": "catalog:",
+        "@pulumi/random": "catalog:"
+    },
+    "devDependencies": {
+        "@types/papaparse": "catalog:"
+    }
+}

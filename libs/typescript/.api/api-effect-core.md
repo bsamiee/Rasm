@@ -429,35 +429,11 @@ declare const PlatformWorker: Context.Tag<PlatformWorker, PlatformWorker>
 
 ## [3] — @effect/sql
 
-### SqlClient
-
-```ts
-// @effect/sql/SqlClient
-interface SqlClient extends Constructor {
-  readonly [TypeId]: TypeId
-  readonly safe: this
-  readonly withoutTransforms: () => this
-  readonly reserve: Effect<Connection, SqlError, Scope>
-  readonly withTransaction: <R, E, A>(self: Effect<A, E, R>) => Effect<A, E | SqlError, R>
-  readonly reactive: <A, E, R>(
-    keys: ReadonlyArray<unknown> | ReadonlyRecord<string, ReadonlyArray<unknown>>,
-    effect: Effect<A, E, R>
-  ) => Stream<A, E, R>
-}
-
-declare const SqlClient: Context.Tag<SqlClient, SqlClient>
-```
-
-`SqlClient` is the abstract SQL surface; `@effect/sql-pg/PgClient` implements it for Postgres.
-
-### SqlError
-
-```ts
-// @effect/sql/SqlError
-interface SqlError extends Data.TaggedError<"SqlError"> {
-  readonly message: string
-}
-```
+The dialect-agnostic `@effect/sql` toolkit (`SqlClient`, `Statement`, `SqlConnection`, `SqlError`,
+`SqlSchema`, `SqlResolver`, `Model`, `Migrator`, `SqlStream`, and the durable
+`SqlEventJournal`/`SqlEventLogServer`/`SqlPersistedQueue` subsystems) is owned in full by its
+dedicated page [api-effect-sql.md](api-effect-sql.md). `SqlClient` is the abstract SQL surface;
+`@effect/sql-pg/PgClient` implements it for Postgres. Do not transcribe its member tables here.
 
 ---
 
