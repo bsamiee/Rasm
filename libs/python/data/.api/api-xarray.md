@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `xarray`
 - package: `xarray`
-- import: pending
+- import: `import xarray`
 - owner: `data`
 - rail: array
 - capability: labeled N-D datasets
@@ -14,18 +14,18 @@
 ## [2]-[CAPTURE]
 
 [PUBLIC_TYPES]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [ENTRYPOINTS]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [IMPLEMENTATION_LAW]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 ## [3]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `xarray`
 - Owns: labeled N-D datasets
-- Accept: pending package-owner capture
+- Accept: pending decompile capture once a cp315 wheel admits `xarray`
 - Reject: wrapper-renames and weaker local reimplementation

@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `h5py`
 - package: `h5py`
-- import: pending
+- import: `import h5py`
 - owner: `data`
 - rail: array
 - capability: HDF5 file exchange
@@ -14,18 +14,18 @@
 ## [2]-[CAPTURE]
 
 [PUBLIC_TYPES]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [ENTRYPOINTS]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [IMPLEMENTATION_LAW]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 ## [3]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `h5py`
 - Owns: HDF5 file exchange
-- Accept: pending package-owner capture
+- Accept: pending decompile capture once a cp315 wheel admits `h5py`
 - Reject: wrapper-renames and weaker local reimplementation

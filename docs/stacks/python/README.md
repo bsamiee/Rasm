@@ -1,6 +1,6 @@
 # [STACKS_PYTHON]
 
-This folder is the Python stack decision atlas. It routes language, type, shape, surface, rail, runtime, and proof decisions to the concept page that owns the coding choice. The atlas builds one declaration-first paradigm: raw ingress becomes typed payload, payload materializes into one canonical owner, owner operations flow through `Option` or `Result`, and projections leave through explicit boundary or egress surfaces.
+This folder is the Python stack decision atlas. It routes language, type, shape, surface, rail, boundary, numeric, system-API, runtime, and proof decisions to the concept page that owns the coding choice. The atlas builds one declaration-first paradigm: raw ingress becomes typed payload, payload materializes into one canonical owner, owner operations flow through `Option` or `Result`, and projections leave through explicit boundary or egress surfaces.
 
 Pages carry no outside-source blocks, release narration, provenance, process state, project anchors, tool context, source-footnote blocks, or meta commentary. Pages name exact code, package, operator, generated-surface, and command spellings in code spans; verification happens before authoring, and the page states doctrine as fact.
 
@@ -8,22 +8,25 @@ Pages carry no outside-source blocks, release narration, provenance, process sta
 
 This table is a lookup by reader decision.
 
-| [INDEX] | [DECISION]                       | [READ]                        | [STATE] |
-| :-----: | :------------------------------- | :---------------------------- | :------ |
-|   [1]   | language syntax and standards    | [language](language.md)       | partial |
-|   [2]   | type evidence and payloads       | [type system](type-system.md) | partial |
-|   [3]   | data shape                       | [shapes](shapes.md)           | partial |
-|   [4]   | surface and dispatch             | `surfaces-and-dispatch.md`    | planned |
-|   [5]   | rail and effect flow             | `rails-and-effects.md`        | planned |
-|   [6]   | concurrency, binary, diagnostics | [runtime](runtime.md)         | partial |
-|   [7]   | proof rail                       | `testing/README.md`           | planned |
+| [INDEX] | [DECISION]                       | [READ]                                            | [STATE]   |
+| :-----: | :------------------------------- | :------------------------------------------------ | :-------- |
+|   [1]   | language syntax and standards    | [language](language.md)                           | finalized |
+|   [2]   | type evidence and payloads       | [type system](type-system.md)                     | partial   |
+|   [3]   | data shape                       | [shapes](shapes.md)                               | finalized |
+|   [4]   | surface and dispatch             | [surfaces and dispatch](surfaces-and-dispatch.md) | finalized |
+|   [5]   | rail and effect flow             | [rails and effects](rails-and-effects.md)         | finalized |
+|   [6]   | host and wire boundary           | [boundaries](boundaries.md)                       | finalized |
+|   [7]   | numeric approach                 | [algorithms](algorithms.md)                       | finalized |
+|   [8]   | system API replacement           | [system APIs](system-apis.md)                     | finalized |
+|   [9]   | concurrency, binary, diagnostics | [runtime](runtime.md)                             | finalized |
+|  [10]   | proof rail                       | `testing/README.md`                               | planned   |
 
 ## [2]-[DOCTRINE]
 
 Sixteen laws in five groups govern every Python decision in this stack. Concept pages instantiate them; no page restates them.
 
 [FLOW]:
-- `EXPRESSION_SPINE` — all domain logic is expression-shaped and composes monadically; statements survive only inside measured kernels and platform-forced boundaries, and any page that shows one names the exemption. Composition runs through `pipe`, `compose`, `@effect.result`, comprehensions, and `match` used as an expression of record.
+- `EXPRESSION_SPINE` — all domain logic is expression-shaped; dependent steps compose monadically and independent computations compose applicatively — dependence licenses sequence through `bind`/`yield from`, independence licenses accumulation through `map2` and a fault-combining fold, and the carrier, never a flag, selects the combination algebra. A `bind` chain over independent operands reports only the first failure and silently discards the rest, so choosing abort versus accumulate is a correctness decision fixed once at the boundary. Statements survive only inside measured kernels and platform-forced boundaries, and any page that shows one names the exemption. Composition runs through `pipe`, `compose`, `@effect.result`, comprehensions, and `match` used as an expression of record.
 - `BOUNDARY_ADMISSION` — raw material is admitted exactly once into an evidence-carrying owner; interior code never re-validates and never sees `None`-as-failure, sentinels, or provider shapes. The lifecycle is `Raw -> Payload -> Canonical owner -> Rail -> Projection -> Egress`: `Option` carries non-failing absence, `Result` carries fallibility, exceptions convert at the owning boundary.
 
 [SHAPE]:
@@ -52,19 +55,31 @@ Sixteen laws in five groups govern every Python decision in this stack. Concept 
 
 Run this scan on every edit. Any signal triggers the move; three or more instances make it mandatory.
 
-| [INDEX] | [SIGNAL]                                          | [MOVE]                                   |
-| :-----: | :------------------------------------------------ | :--------------------------------------- |
-|   [1]   | sibling names share a prefix or suffix            | one modality-polymorphic entrypoint      |
-|   [2]   | same return rail, signatures differ only by arity | input-shape discrimination               |
-|   [3]   | functions differ only by a literal                | parameterize; the literal becomes policy |
-|   [4]   | boolean parameter selects between two bodies      | one derived body or one policy value     |
-|   [5]   | function calls exactly one other function         | delete the hop                           |
-|   [6]   | parallel dispatch arms repeat structure           | table or fold algebra                    |
-|   [7]   | several types share fields for one concept        | one closed family                        |
-|   [8]   | wrapper renames a package API                     | use the package surface directly         |
-|   [9]   | the same 2-4 wrappers recur together              | one parameterized aspect                 |
+| [INDEX] | [SIGNAL]                                            | [MOVE]                                   |
+| :-----: | :-------------------------------------------------- | :--------------------------------------- |
+|   [1]   | sibling names share a prefix or suffix              | one modality-polymorphic entrypoint      |
+|   [2]   | same return rail, signatures differ only by arity   | input-shape discrimination               |
+|   [3]   | `get`/`get_many`/`get_by_id` family for one concept | one polymorphic entrypoint, input-keyed  |
+|   [4]   | functions differ only by a literal                  | parameterize; the literal becomes policy |
+|   [5]   | boolean parameter selects between two bodies        | one derived body or one policy value     |
+|   [6]   | function calls exactly one other function           | delete the hop                           |
+|   [7]   | class exposes one public method                     | module function or fold-on-owner         |
+|   [8]   | parallel dispatch arms repeat structure             | table or fold algebra                    |
+|   [9]   | several types share fields for one concept          | one closed family                        |
+|  [10]   | three or more sibling module constants, one concept | one frozen table or `StrEnum`            |
+|  [11]   | wrapper renames a package API                       | use the package surface directly         |
+|  [12]   | the same 2-4 wrappers recur together                | one parameterized aspect                 |
 
-## [4]-[PAGE_CRAFT]
+## [4]-[RULE_ENFORCEMENT]
+
+Python has no compiler to make these laws structural, so the lint, type, and contract gate is the doctrine's only compiled form and is legislated harder than a language with a totality checker needs. `Ruff` (`select = ["ALL"]`, preview), strict `ty`, strict `mypy`, the custom AST analyzer under `tools/py_analyzer`, and `beartype` boundary contracts are the enforcement surfaces; the manifest owns every rule pin and message. The loop is one-directional — a doctrine page legislates, a gate enforces; a rule never introduces law of its own.
+
+- Mapping law: every doctrine law maps to its enforcing gate. Banned imports and rename-wrapper avoidance ride `flake8-tidy-imports.banned-api` and `banned-module-level-imports` (`asyncio` -> `anyio`, `abc.ABC`/`abstractmethod` -> `Protocol`, `contextlib.suppress` -> rails, `json.*` -> `msgspec`, `logging.*` -> `structlog`, `os.environ` -> pydantic-settings, raw sockets/subprocess -> `anyio`); totality and absence laws ride `match` exhaustiveness under `ty`/`mypy` with `assert_never`; immutability rides frozen-owner checks and `extend-immutable-calls`; boundary typing rides `beartype` and `runtime-evaluated-decorators`; relative-import and lazy-import bans ride `ban-relative-imports`/`ban-lazy`. A law with no mechanical gate is captured as a `tools/py_analyzer` AST rule.
+- Promotion law: a doctrine-breaking anti-pattern that no shipped Ruff rule, `ty` check, or `mypy` error already rejects — class/type/string/constant spam, a one-method class, a `get`/`get_many` family, a private-dunder enum probe, a thin rename wrapper — is captured as a `tools/py_analyzer` AST rule and promoted to error. Style preferences and anything an existing gate already rejects are not new rules.
+- Shape law: a rule describes the semantic shape of the anti-pattern — trigger, predicate, exemption — never a namespace, path, or one-off symbol; every rule ships with positive spans that fire and valid dense code that must not.
+- Finding law: a true positive is architecture pressure — fix the shape, never the diagnostic; a false positive or a fix that adds ceremony without improving the system is rule pressure — refine the rule. `# noqa`, `# type: ignore`, and `@beartype` opt-outs are neither, and a suppression that adds ceremony without improving correctness is itself the defect.
+
+## [5]-[PAGE_CRAFT]
 
 How pages in this folder are authored. The corpus is one body; these laws keep it coherent.
 
@@ -84,7 +99,7 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 - Route scope is README-local: lookup rows and conflict rules live in README files; concept pages carry only the law they own.
 - Manifest truth: package versions, admitted packages, tool settings, lock state, and graph admission live in `pyproject.toml`, `uv.lock`, and Python tool configuration; no package-named pages; a package is named only where it changes the implementation choice.
 
-## [5]-[CORPUS_LAW]
+## [6]-[CORPUS_LAW]
 
 How the corpus accretes. The folder is one cohesive body, not isolated pages; atlas order is implementation order. The atlas `[STATE]` column is the law registry: a `finalized` page is binding law for every page authored after it; a `partial` page carries no authority and awaits rebuild; a `target` page exists only as roadmap scope. Finalization is a one-way gate — a context-free cold grade of the full page and every snippet, converging to a zero-edit pass, flips the state; the producer's grade admits, the cold grade decides.
 

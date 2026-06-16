@@ -1,6 +1,6 @@
 # [PYTHON_LANGUAGE]
 
-Python `>=3.15` is the active language surface. This page is the version-feature law for choosing syntax, type-expression, annotation, import/export, template, and standard-library primitive forms before adding a local abstraction.
+Python `>=3.15` is the active language surface. This page is the version-feature law for choosing syntax, type-expression, annotation, import/export, template, and typing-protocol forms before adding a local abstraction; standard-library API replacement rides `system-apis.md` and runtime primitives ride `runtime.md`.
 
 `pyproject.toml` owns the interpreter floor, `uv`, and tool configuration facts. This page names those facts only when they change the language form a Python file may assume.
 
@@ -20,116 +20,55 @@ Treat source files as modern Python, not compatibility layers. Remove old import
 
 ## [2]-[CANONICAL_CHOOSER]
 
-Use the active Python surface directly. Replace older spellings and local machinery when syntax, typing, or the standard library owns the behavior.
+Use the active Python surface directly. This chooser owns language syntax, type-expression, annotation, import/export, template, and typing-protocol forms — the stable language-form law. Standard-library API replacement (paths, files, regex, datetime, numeric primitives, binary codecs, hashing, iteration) is the high-churn surface owned by `system-apis.md`; concurrency, interpreter isolation, and diagnostics primitives are owned by `runtime.md`. Replace an older spelling or local machinery when the active language surface owns the behavior.
 
-| [INDEX] | [CONCERN]                | [USE]                                                        | [REPLACE]                           |
-| :-----: | :----------------------- | :----------------------------------------------------------- | :---------------------------------- |
-|   [1]   | runtime annotations      | `annotationlib.get_annotations()`                            | direct `__annotations__` reads      |
-|   [2]   | conditional binding      | assignment expressions (`:=`)                                | precondition temporary variables    |
-|   [3]   | callable shape           | parameter-preserving decorators                              | `Callable[..., T]` erasure          |
-|   [4]   | generic shape            | inline type parameters and `type` aliases                    | `TypeVar`, `ParamSpec`, `TypeAlias` |
-|   [5]   | type predicates          | `TypeIs`                                                     | one-way `TypeGuard` predicates      |
-|   [6]   | type expressions         | `TypeForm`                                                   | `type[T]` or `object` forms         |
-|   [7]   | kwargs payload           | `Unpack[TypedDict]`                                          | homogeneous `**kwargs`              |
-|   [8]   | typed dict closure       | `closed=` and `extra_items=`                                 | open payload prose                  |
-|   [9]   | immutable keys           | `ReadOnly[T]` in `TypedDict`                                 | prose-only immutable key contracts  |
-|  [10]   | required keys            | `Required[]` and `NotRequired[]`                             | split `TypedDict` inheritance       |
-|  [11]   | method override          | `@typing.override`                                           | unmarked subclass overrides         |
-|  [12]   | self type                | `typing.Self`                                                | bound `TypeVar` self boilerplate    |
-|  [13]   | generic defaults         | type parameter defaults and `NoDefault`                      | overload families for defaults      |
-|  [14]   | typed disjointness       | `@typing.disjoint_base`                                      | prose-only disjointness             |
-|  [15]   | variadic generic options | `TypeVarTuple` bound, variance, and infer_variance args      | asymmetric variadic-generic shims   |
-|  [16]   | closed dispatch          | `match` with pattern narrowing                               | tag `if` chains                     |
-|  [17]   | exhaustiveness proof     | `Never` and `assert_never()`                                 | default-arm raises                  |
-|  [18]   | sentinel value           | `sentinel()`                                                 | `object()` or string sentinels      |
-|  [19]   | immutable update         | `copy.replace()` or `__replace__()`                          | mutate-then-freeze copies           |
-|  [20]   | immutable map            | `frozendict`                                                 | tuple-pair pseudo-maps              |
-|  [21]   | invariant arity          | `zip(strict=True)`                                           | post-truncation asserts             |
-|  [22]   | mapped arity             | `map(strict=True)`                                           | post-truncation asserts             |
-|  [23]   | string enum              | `enum.StrEnum`                                               | `str, Enum` mixins                  |
-|  [24]   | enum invariant           | `enum.verify()` and `EnumCheck`                              | local enum validation loops         |
-|  [25]   | literal text boundary    | `LiteralString`                                              | untyped sensitive `str`             |
-|  [26]   | safe templates           | t-strings and processors                                     | f-string pre-parsing                |
-|  [27]   | template AST             | `ast.TemplateStr`                                            | f-string AST rewrites               |
-|  [28]   | f-string expression      | full-expression f-strings                                    | quote juggling temporaries          |
-|  [29]   | signature annotations    | `inspect.signature(annotation_format=...)`                   | annotation string post-processing   |
-|  [30]   | static reflection        | `inspect.getmembers_static()`                                | descriptor-triggering scans         |
-|  [31]   | union introspection      | `typing.get_origin()` and `get_args()`                       | private union implementation checks |
-|  [32]   | protocol introspection   | `typing.get_protocol_members()` and `typing.is_protocol()`   | private protocol probes             |
-|  [33]   | generic bases            | `types.get_original_bases()`                                 | direct `__orig_bases__` reads       |
-|  [34]   | execution locals         | explicit `locals=` and `frame.f_locals`                      | mutating `locals()` snapshots       |
-|  [35]   | frame locals type        | `types.FrameLocalsProxyType`                                 | private frame-locals proxy checks   |
-|  [36]   | AST field schema         | `ast.AST._field_types`                                       | hand-maintained ASDL maps           |
-|  [37]   | AST equality             | `ast.compare()`                                              | `ast.dump()` string comparison      |
-|  [38]   | optimized AST            | `ast.parse(optimize=...)`                                    | local AST pruning                   |
-|  [39]   | source module name       | `module=` compile APIs                                       | filename-only warning filters       |
-|  [40]   | cold import              | tool-admitted module-scope `lazy import` or `lazy from`      | local-import startup hacks          |
-|  [41]   | startup hook             | `.start` entries                                             | executable `.pth` import lines      |
-|  [42]   | UTF-8 default            | UTF-8 default; `encoding="locale"`                           | locale-dependent implicit text I/O  |
-|  [43]   | I/O protocol             | `io.Reader` and `io.Writer`                                  | `typing.IO` pseudo-protocols        |
-|  [44]   | buffer protocol          | `collections.abc.Buffer`                                     | `ByteString` or bytes prose         |
-|  [45]   | generic slice            | `slice[T]`                                                   | unparameterized slice contracts     |
-|  [46]   | buffer flags             | `inspect.BufferFlags`                                        | magic integer buffer flags          |
-|  [47]   | resource materialization | `importlib.resources.as_file()`                              | `__file__` extraction loops         |
-|  [48]   | TOML parse               | `tomllib` TOML 1.1.0                                         | `tomli` or parser shims             |
-|  [49]   | file traversal           | `Path.walk()`                                                | stringly `os.walk()` flow           |
-|  [50]   | file tree transfer       | `Path.copy()` and `Path.move()`                              | `shutil` transfer wrappers          |
-|  [51]   | file type cache          | `Path.info`                                                  | repeated `stat()` probes            |
-|  [52]   | path glob match          | `PurePath.full_match()`                                      | ad hoc recursive glob predicates    |
-|  [53]   | symlink traversal        | `recurse_symlinks=` and `follow_symlinks=`                   | manual symlink branch logic         |
-|  [54]   | missing canonical path   | `os.path.realpath(strict=os.path.ALLOW_MISSING)`             | symlink-prefix resolution loops     |
-|  [55]   | path root split          | `os.path.splitroot()`                                        | drive/root string slicing           |
-|  [56]   | path subclassing         | `PurePath.with_segments()`                                   | path wrapper propagation            |
-|  [57]   | file URI path            | `Path.from_uri()`                                            | hand-parsed `file:` URLs            |
-|  [58]   | file MIME type           | `mimetypes.guess_file_type()`                                | path use of `guess_type()`          |
-|  [59]   | URL component presence   | `missing_as_none=` and `keep_empty=`                         | empty-string sentinel logic         |
-|  [60]   | temporary file reopen    | `NamedTemporaryFile(delete_on_close=...)`                    | `mkstemp()` unlink ladders          |
-|  [61]   | tree removal errors      | `shutil.rmtree(onexc=...)`                                   | `onerror` tuple handlers            |
-|  [62]   | Windows reserved path    | `os.path.isreserved()`                                       | reserved-name tables                |
-|  [63]   | context variable scope   | `ContextVar.set()` token context manager                     | `reset(token)` `finally` blocks     |
-|  [64]   | queue lifecycle          | `queue.Queue.shutdown()`                                     | sentinel queue items                |
-|  [65]   | worker sizing            | `os.process_cpu_count()`                                     | `os.cpu_count()` worker counts      |
-|  [66]   | interpreter isolation    | `concurrent.interpreters`                                    | process-only isolation wrappers     |
-|  [67]   | subinterpreter pool      | `concurrent.futures.InterpreterPoolExecutor`                 | process-only CPU pools              |
-|  [68]   | process interrupt        | `multiprocessing.Process.interrupt()`                        | cleanup-hostile `terminate()`       |
-|  [69]   | iterator sharing         | `threading.serialize_iterator()` or `.concurrent_tee()`      | generator lock wrappers             |
-|  [70]   | execution monitoring     | `sys.monitoring`                                             | `settrace()` event scrapers         |
-|  [71]   | sampling profiler        | `profiling.sampling`                                         | handwritten timers or `profile`     |
-|  [72]   | C-stack dump             | `faulthandler.dump_c_stack()`                                | external native stack probes        |
-|  [73]   | live debug attach        | `sys.remote_exec()`                                          | debugger injection hooks            |
-|  [74]   | ABI reflection           | `sys.abi_info`                                               | parsed SOABI strings                |
-|  [75]   | iterable batching        | `itertools.batched()`                                        | local chunk helper loops            |
-|  [76]   | partial holes            | `functools.Placeholder`                                      | lambda wrappers for partial gaps    |
-|  [77]   | none predicate           | `operator.is_none()`                                         | one-off `lambda x: x is None`       |
-|  [78]   | max heap                 | max-heap `heapq` APIs                                        | negated-priority heap wrappers      |
-|  [79]   | dot product              | `math.sumprod()`                                             | `zip()` product folds               |
-|  [80]   | multiset XOR             | `Counter` XOR                                                | manual count-difference folds       |
-|  [81]   | ordered identifiers      | `uuid.uuid7()`                                               | timestamp-prefixed UUID wrappers    |
-|  [82]   | UUID boundaries          | `uuid.NIL` and `uuid.MAX`                                    | magic UUID boundary literals        |
-|  [83]   | active exception         | `sys.exception()`                                            | `sys.exc_info()[1]`                 |
-|  [84]   | exception context        | `BaseException.add_note()`                                   | message concatenation               |
-|  [85]   | regex prefix             | `re.prefixmatch()`                                           | ambiguous `re.match()`              |
-|  [86]   | regex parse error        | `re.PatternError`                                            | generic `re.error` catches          |
-|  [87]   | target date parsing      | `datetime.date.strptime()` and `datetime.time.strptime()`    | `datetime.strptime()` slicing       |
-|  [88]   | file digest              | `hashlib.file_digest()`                                      | manual chunked hash loops           |
-|  [89]   | Zstandard payload        | `compression.zstd`                                           | subprocess or bespoke zstd adapters |
-|  [90]   | Z85 payload              | `base64.z85encode()` and `z85decode()`                       | local Z85 codecs                    |
-|  [91]   | base-N canonical         | `canonical=True` decoders                                    | padding-bit postchecks              |
-|  [92]   | base-N format control    | `padded=`, `wrapcol=`, `ignorechars=`                        | pre/post encode formatting          |
-|  [93]   | checksum combine         | `zlib.adler32_combine()` and `zlib.crc32_combine()`          | recompress-to-checksum loops        |
-|  [94]   | fd buffer read           | `os.readinto()`                                              | `os.read()` copy slices             |
-|  [95]   | byte buffer drain        | `bytearray.take_bytes()`                                     | `bytes(buffer)` plus `clear()`      |
-|  [96]   | FFI memory view          | `ctypes.memoryview_at()`                                     | `string_at()` copy scaffolds        |
-|  [97]   | binary numeric views     | `array` and `memoryview` complex codes                       | struct-packed numeric buffers       |
-|  [98]   | integer math             | `math.integer`                                               | float math for integers             |
-|  [99]   | fused multiply-add       | `math.fma()`                                                 | rounded multiply-add                |
-|  [100]  | float extrema            | `math.fmax()` and `math.fmin()`                              | NaN-aware min/max wrappers          |
-|  [101]  | float classification     | `math.isnormal()`, `math.issubnormal()`, `math.signbit()`    | bit-level float probes              |
-|  [102]  | fraction conversion      | `Fraction.from_number()`                                     | constructor branch ladders          |
-|  [103]  | Unicode identifier       | `unicodedata.isxidstart()` and `unicodedata.isxidcontinue()` | regex identifier tables             |
-|  [104]  | grapheme iteration       | `unicodedata.iter_graphemes()`                               | codepoint loops                     |
-|  [105]  | Unicode block            | `unicodedata.block()`                                        | block range tables                  |
-|  [106]  | XML text validity        | `xml.is_valid_name()` and `xml.is_valid_text()`              | XML character tables                |
+| [INDEX] | [CONCERN]                | [USE]                                                      | [REPLACE]                           |
+| :-----: | :----------------------- | :--------------------------------------------------------- | :---------------------------------- |
+|   [1]   | runtime annotations      | `annotationlib.get_annotations()`                          | direct `__annotations__` reads      |
+|   [2]   | conditional binding      | assignment expressions (`:=`)                              | precondition temporary variables    |
+|   [3]   | callable shape           | parameter-preserving decorators                            | `Callable[..., T]` erasure          |
+|   [4]   | generic shape            | inline type parameters and `type` aliases                  | `TypeVar`, `ParamSpec`, `TypeAlias` |
+|   [5]   | type predicates          | `TypeIs`                                                   | one-way `TypeGuard` predicates      |
+|   [6]   | type expressions         | `TypeForm`                                                 | `type[T]` or `object` forms         |
+|   [7]   | kwargs payload           | `Unpack[TypedDict]`                                        | homogeneous `**kwargs`              |
+|   [8]   | typed dict closure       | `closed=` and `extra_items=`                               | open payload prose                  |
+|   [9]   | immutable keys           | `ReadOnly[T]` in `TypedDict`                               | prose-only immutable key contracts  |
+|  [10]   | required keys            | `Required[]` and `NotRequired[]`                           | split `TypedDict` inheritance       |
+|  [11]   | method override          | `@typing.override`                                         | unmarked subclass overrides         |
+|  [12]   | self type                | `typing.Self`                                              | bound `TypeVar` self boilerplate    |
+|  [13]   | generic defaults         | type parameter defaults and `NoDefault`                    | overload families for defaults      |
+|  [14]   | typed disjointness       | `@typing.disjoint_base`                                    | prose-only disjointness             |
+|  [15]   | variadic generic options | `TypeVarTuple` bound, variance, and infer_variance args    | asymmetric variadic-generic shims   |
+|  [16]   | closed dispatch          | `match` with pattern narrowing                             | tag `if` chains                     |
+|  [17]   | exhaustiveness proof     | `Never` and `assert_never()`                               | default-arm raises                  |
+|  [18]   | sentinel value           | `sentinel()`                                               | `object()` or string sentinels      |
+|  [19]   | immutable update         | `copy.replace()` or `__replace__()`                        | mutate-then-freeze copies           |
+|  [20]   | immutable map            | `frozendict`                                               | tuple-pair pseudo-maps              |
+|  [21]   | invariant arity          | `zip(strict=True)`                                         | post-truncation asserts             |
+|  [22]   | mapped arity             | `map(strict=True)`                                         | post-truncation asserts             |
+|  [23]   | string enum              | `enum.StrEnum`                                             | `str, Enum` mixins                  |
+|  [24]   | enum invariant           | `enum.verify()` and `EnumCheck`                            | local enum validation loops         |
+|  [25]   | literal text boundary    | `LiteralString`                                            | untyped sensitive `str`             |
+|  [26]   | safe templates           | t-strings and processors                                   | f-string pre-parsing                |
+|  [27]   | template AST             | `ast.TemplateStr`                                          | f-string AST rewrites               |
+|  [28]   | f-string expression      | full-expression f-strings                                  | quote juggling temporaries          |
+|  [29]   | signature annotations    | `inspect.signature(annotation_format=...)`                 | annotation string post-processing   |
+|  [30]   | static reflection        | `inspect.getmembers_static()`                              | descriptor-triggering scans         |
+|  [31]   | union introspection      | `typing.get_origin()` and `get_args()`                     | private union implementation checks |
+|  [32]   | protocol introspection   | `typing.get_protocol_members()` and `typing.is_protocol()` | private protocol probes             |
+|  [33]   | generic bases            | `types.get_original_bases()`                               | direct `__orig_bases__` reads       |
+|  [34]   | execution locals         | explicit `locals=` and `frame.f_locals`                    | mutating `locals()` snapshots       |
+|  [35]   | frame locals type        | `types.FrameLocalsProxyType`                               | private frame-locals proxy checks   |
+|  [36]   | AST field schema         | `ast.AST._field_types`                                     | hand-maintained ASDL maps           |
+|  [37]   | AST equality             | `ast.compare()`                                            | `ast.dump()` string comparison      |
+|  [38]   | optimized AST            | `ast.parse(optimize=...)`                                  | local AST pruning                   |
+|  [39]   | source module name       | `module=` compile APIs                                     | filename-only warning filters       |
+|  [40]   | cold import              | tool-admitted module-scope `lazy import` or `lazy from`    | local-import startup hacks          |
+|  [41]   | startup hook             | `.start` entries                                           | executable `.pth` import lines      |
+|  [42]   | UTF-8 default            | UTF-8 default; `encoding="locale"`                         | locale-dependent implicit text I/O  |
+|  [43]   | I/O protocol             | `io.Reader` and `io.Writer`                                | `typing.IO` pseudo-protocols        |
+|  [44]   | buffer protocol          | `collections.abc.Buffer`                                   | `ByteString` or bytes prose         |
+|  [45]   | generic slice            | `slice[T]`                                                 | unparameterized slice contracts     |
 
 ## [3]-[LANGUAGE_FORM_CONTRACTS]
 

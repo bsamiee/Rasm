@@ -1,6 +1,6 @@
 # [PY_DATA_API_CATALOGUE]
 
-`data` API catalogue pages are flat placeholder files. Fill each `api-*.md` page with package surface, public types, entrypoints, and local admission law before source names that API.
+`data` API catalogue pages carry decompile-verified package surface, public types, entrypoints, and local admission law per rail. A page reflects from the installed distribution; a distribution with no cp315 wheel under the `>=3.15` lock carries an un-reflectable marker and a TASKLOG gap instead of invented members.
 
 ## [1]-[PACKAGE_PAGES]
 
@@ -37,6 +37,12 @@
   - [api-shapely.md](api-shapely.md)
   - [api-pyogrio.md](api-pyogrio.md)
   - [api-pyproj.md](api-pyproj.md)
+  - [api-rasterio.md](api-rasterio.md)
+
+[SCHEMA]:
+- rail: schema
+- pages:
+  - [api-pandera.md](api-pandera.md)
 
 [GRAPH]:
 - rail: graph
@@ -52,15 +58,7 @@
 
 [PENDING]:
 - rail: pending
-- pages:
-  - [api-ifcopenshell.md](api-ifcopenshell.md)
-  - [api-topologicpy.md](api-topologicpy.md)
-  - [api-open3d.md](api-open3d.md)
-  - [api-vtk.md](api-vtk.md)
-  - [api-pyvista.md](api-pyvista.md)
-  - [api-rasterio.md](api-rasterio.md)
-  - [api-compas.md](api-compas.md)
-  - [api-specklepy.md](api-specklepy.md)
+- distributions awaiting a `>=3.15` lock admission before a catalogue page: `ifcopenshell`, `topologicpy`, `open3d`, `vtk`, `pyvista`, `compas`, `specklepy`.
 
 ## [2]-[CATALOGUE_LAW]
 

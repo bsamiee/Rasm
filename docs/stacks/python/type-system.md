@@ -1,6 +1,6 @@
 # [PYTHON_TYPE_SYSTEM]
 
-Python `>=3.15` is the active typing surface. This page is the static-evidence law: declarations, predicates, payloads, and signatures carry type proof where they are declared, and callers never repair downstream what the declaration could have preserved. Each section owns one concern family: the chooser table names the form and the spelling it replaces, the family card states the placement law and names the PEPs that canonize its rows once, and the snippet proves the rule.
+Python `>=3.15` is the active typing surface. This page is the static-evidence law: declarations, predicates, payloads, and signatures carry type proof where they are declared, and callers never repair downstream what the declaration could have preserved. Each section owns one concern family: the chooser table names the form and the spelling it replaces, the family card states the placement law, and the snippet proves the rule.
 
 ## [1]-[TYPE_EVIDENCE]
 
@@ -27,14 +27,12 @@ Static evidence belongs at the declaration, predicate, or branch owner.
 |  [17]   | generic slice         | `slice[T]`                                   | unparameterized slice contracts     |
 
 [DECLARATION_EVIDENCE]:
-- PEPs: 695, 696, 646, 747, 800, 698, 673, 681, 544, 586, 585, 604, 591.
 - Use when: the defining declaration can carry type evidence that callers would otherwise repair downstream.
 - Accept: inline type parameters, `type` aliases, `TypeForm` for type-expression values, type parameter defaults, `NoDefault`, `*Ts` arguments, `@typing.override`, `typing.Self`, `@typing.disjoint_base`, `Protocol`, `Literal`, `final`, and `@dataclass_transform()`.
 - Reject: erased `Callable[..., T]`, remote alias repair, broad `type[T]` or `object` placeholders for type-form values, unmarked overrides, prose-only disjointness or finality, TypeVar farms, rank-specific generic classes, checker plugins for flags, and protocol shells created only to type an existing object.
 - Boundary: `TypeForm` carries type-expression values in APIs; `Protocol` is for real structural ports with independent implementers, not callback shells or nominal repair; runtime validation and object-family policy belong to the owning concept page.
 
 [PREDICATE_EVIDENCE]:
-- PEPs: 742, 647.
 - Use when: a reusable predicate proves exact type membership that inline narrowing cannot express.
 - Accept: `TypeIs[T]` over the concrete or owned structural target where the predicate is true exactly for `T`; `TypeGuard` only for non-subtype narrowing; disjoint nominal owners or tagged generic owners as the narrowing seam.
 - Reject: subtype-compatible predicates written as `TypeGuard`, subset predicates disguised as membership proofs, bool helpers followed by `cast`, and runtime-checkable protocols created only to satisfy `isinstance`.
@@ -131,7 +129,6 @@ Payload exactness and call contracts live in the shape and signature, not in pro
 |   [9]   | decorator signatures | parameter-preserving decorators  | erased wrapper signatures           |
 
 [PAYLOAD_SHAPE]:
-- PEPs: 589, 655, 705, 728, 692.
 - Use when: keyword or dictionary payload shape is part of the static callable, boundary, or data contract.
 - Accept: `Unpack[TypedDict]` for keyword payloads, `closed=` for exact-key constraints, `extra_items=` for typed extension slots, and `Required[]`, `NotRequired[]`, `ReadOnly[T]` on individual keys.
 - Reject: homogeneous `**kwargs`, open payload prose, split `TypedDict` inheritance for requiredness bookkeeping, `Mapping[str, object]` bags, mutable-key promises in comments, and runtime validation used to repair erased static payload shape.
@@ -166,7 +163,6 @@ def materialized(
 ```
 
 [SIGNATURE_SHAPE]:
-- PEPs: 612, 821, 570.
 - Use when: callable shape, decorator aspects, keyword payloads, or positional-only contracts must survive API boundaries.
 - Accept: inline `**P`, `Concatenate` only for real leading context, `Callable[[Unpack[TypedDict]], R]` for keyword-callable values, `/` positional-only parameters, and `functools.wraps`.
 - Reject: imported `ParamSpec` where inline `**P` can express the decorator, `Callable[..., Any]`, callback `Protocol` shells for keyword-callable aliases, wrapper signatures that erase parameters, and `*args` parsing for positional contracts.

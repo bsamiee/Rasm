@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_CATALOGUE]
 
-`artifacts` API catalogue pages are flat placeholder files. Fill each `api-*.md` page with package surface, public types, entrypoints, and local admission law before source names that API.
+`artifacts` API catalogue pages carry the external-package surface for each rail. A page is reflection-complete where its distribution installs and imports on the cp315 host: `jinja2`, `pypdf`, `pymupdf`, `pypdfium2`, `lxml`, `ruamel-yaml`, `tomlkit`, `python-docx`, `openpyxl`, `qrcode`, `python-magic`, `altair`, `plotly`, `vl-convert-python`, `kaleido`, `zstandard`, `lz4`, `brotli`, and `py7zr` carry fully reflected member tables and entrypoint signatures. The residual gaps are exactly eight distributions: `pillow` and its dependents `pikepdf`, `reportlab`, `weasyprint`, `python-pptx`, `matplotlib` (locked but not installable because `pillow` has no cp315 wheel and its source build needs absent libjpeg/zlib headers), plus `pyvista` and `vtk` (intentionally marker-gated `python_version<'3.13'` on the native VTK floor). Each gap page carries an explicit absence record naming its exact cause; its member surfaces stay a TASKLOG gap until the blocker clears. Source names a member only after its page captures the exact spelling.
 
 ## [1]-[PACKAGE_PAGES]
 
@@ -33,6 +33,11 @@
   - [api-lxml.md](api-lxml.md)
   - [api-ruamel-yaml.md](api-ruamel-yaml.md)
   - [api-tomlkit.md](api-tomlkit.md)
+
+[REPORT_TEMPLATING]:
+- rail: report-templating
+- pages:
+  - [api-jinja2.md](api-jinja2.md)
 
 [VISUALS]:
 - rail: visuals

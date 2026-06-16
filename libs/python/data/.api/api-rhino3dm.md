@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `rhino3dm`
 - package: `rhino3dm`
-- import: pending
+- import: `import rhino3dm`
 - owner: `data`
 - rail: aec
 - capability: OpenNURBS 3dm file exchange
@@ -14,18 +14,18 @@
 ## [2]-[CAPTURE]
 
 [PUBLIC_TYPES]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [ENTRYPOINTS]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [IMPLEMENTATION_LAW]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 ## [3]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `rhino3dm`
 - Owns: OpenNURBS 3dm file exchange
-- Accept: pending package-owner capture
+- Accept: pending decompile capture once a cp315 wheel admits `rhino3dm`
 - Reject: wrapper-renames and weaker local reimplementation

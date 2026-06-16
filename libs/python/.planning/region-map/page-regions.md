@@ -1,41 +1,46 @@
 # [PYTHON_PAGE_REGIONS]
 
-[CENTRAL_CHARTER]:
-- Page: `README.md`
-- Region: suite charter, page index, build sequence, proof gates, and prohibitions.
-- Owner: central campaign.
+Per-package planning page regions. A cluster token resides once, on its owning page. The central charter, architecture, method, catalogues, atlas, and ledger are the branch law; the package pages carry the transcription fences.
 
-[CENTRAL_ARCHITECTURE]:
-- Page: `architecture.md`
-- Region: package topology, direct source-root law, and dependency direction.
-- Owner: architecture.
+## [1]-[CENTRAL]
 
-[CAMPAIGN_METHOD]:
-- Page: `campaign-method.md`
-- Region: campaign mechanics, API capture cadence, red-team tasks, and closeout law.
-- Owner: planning.
+- `README.md` [FINAL]: branch charter — page index, owner records, build sequence, proof gates, prohibitions, refinement horizon.
+- `architecture.md` [FINAL]: re-derived five-package topology, interpreter floors, dependency direction, cross-boundary seams.
+- `campaign-method.md` [FINAL]: branch-local method aligned to the suite campaign method; the bar, fence law, named defect class, red-team passes.
+- `api-catalogues.md` [FINAL]: evidence protocol, capture order, capture-floor law over the final `.api` set.
+- `FEATURES.md` [FINAL]: branch capability atlas — feature, owner, page#cluster.
+- `TASKLOG.md` [FINAL]: open work and install/catalogue gaps only.
 
-[API_CATALOGUES]:
-- Page: `api-catalogues.md`
-- Region: flat API-page protocol and capture order.
-- Owner: API evidence.
+## [2]-[RUNTIME]
 
-[FEATURES]:
-- Page: `FEATURES.md`
-- Region: package capability atlas and future package pressure.
-- Owner: feature routing.
+- `context-settings.md` [FINAL]: caller-owned context, profile, correlation, deadline, settings admission. Clusters: CONTEXT, SETTINGS.
+- `rails-resilience.md` [FINAL]: the single boundary-fault tagged union, Result/Option rail, and one Retry policy owner. Clusters: FAULT, RESILIENCE.
+- `content-identity.md` [FINAL]: the single XxHash128 content-identity owner reproducing the C# seed. Cluster: IDENTITY.
+- `resources-lanes.md` [FINAL]: resource roots, transport resources, bounded anyio lanes, stage-plan DAG. Clusters: RESOURCE, LANE.
+- `observability.md` [FINAL]: local receipts, the contributor port, redaction, structlog/OTel/psutil signals. Cluster: RECEIPT.
+- `server-host.md` [FINAL]: the inbound companion gRPC server lifecycle and credential axis. Cluster: SERVE.
+- `evidence.md` [FINAL]: API + structural-parsing evidence and the private entrypoint grammar. Clusters: API, ENTRY.
 
-[TASKLOG]:
-- Page: `TASKLOG.md`
-- Region: open work only.
-- Owner: tasklog.
+## [3]-[DATA]
 
-[PACKAGE_PLANNING]:
-- Page: `../runtime/.planning/README.md`, `../data/.planning/README.md`, `../compute/.planning/README.md`, `../artifacts/.planning/README.md`
-- Region: package-local transcription plans and concept-page indexes.
-- Owner: package folders.
+- `columnar-query.md` [FINAL]: dataset refs, scan plans, columnar egress, query receipts. Clusters: DATASET, SCAN.
+- `schema-geo.md` [FINAL]: schema claims, contract gate, vector + raster geospatial. Clusters: SCHEMA, GEO.
+- `graph-mesh.md` [FINAL]: graph payloads and mesh-file exchange. Clusters: GRAPH, MESH.
 
-[REGION_MAP]:
-- Page: `region-map/owner-symbols.md`, `region-map/seam-splits.md`, `region-map/api-owners.md`
-- Region: symbol ownership, cross-owner boundaries, and API ownership.
-- Owner: region map.
+## [4]-[GEOMETRY]
+
+- `ifc-companion.md` [FINAL]: the IfcOpenShell tessellation daemon over the C# gRPC contract. Cluster: DAEMON.
+- `ifc-analysis.md` [FINAL]: IFC property/quantity/relationship analysis (QTO/clash/rule-check). Cluster: ANALYSIS.
+- `scan-processing.md` [FINAL]: point-cloud registration, reconstruction. Cluster: REGISTRATION.
+- `geometry-algebra.md` [FINAL]: non-manifold topology + AEC computational geometry. Cluster: ALGEBRA.
+
+## [5]-[COMPUTE]
+
+- `array-solver.md` [FINAL]: array admission, numeric-intent solver, symbolic derivation, accelerators. Clusters: ARRAY, SOLVER.
+- `units-study.md` [FINAL]: units/uncertainty claims, study + run-history orchestration, model assets. Clusters: QUANTITY, STUDY, MODEL.
+- `graduation.md` [FINAL]: the C# graduation receipt with the geometry handoff case. Cluster: GRADUATION.
+
+## [6]-[ARTIFACTS]
+
+- `documents.md` [FINAL]: the document/PDF/Office/structured-text plan, report templating, artifact receipt. Clusters: DOCUMENT, REPORT, RECEIPT.
+- `visual-export.md` [FINAL]: the VisualSpec/ExportPlan axis (2D + 3D), preview, compression. Clusters: VISUAL, EXPORT, PREVIEW, COMPRESSION.

@@ -6,26 +6,26 @@
 
 [PACKAGE_SURFACE]: `rasterio`
 - package: `rasterio`
-- import: pending
+- import: `import rasterio`
 - owner: `data`
-- rail: pending
-- capability: raster geospatial candidate
+- rail: geospatial
+- capability: raster geospatial file I/O
 
 ## [2]-[CAPTURE]
 
 [PUBLIC_TYPES]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [ENTRYPOINTS]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [IMPLEMENTATION_LAW]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 ## [3]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `rasterio`
-- Owns: raster geospatial candidate
-- Accept: pending package-owner capture
+- Owns: raster geospatial file I/O
+- Accept: pending decompile capture once a cp315 wheel admits `rasterio`
 - Reject: wrapper-renames and weaker local reimplementation

@@ -1,40 +1,34 @@
 # [PYTHON_RUNTIME]
 
-This page is the primitive-selection law for execution, transport, and observation: concurrency and interpreter isolation, binary payloads and numeric invariants, and diagnostics and exception flow. Each section owns one concern family: the chooser table names the form and the spelling it replaces, and the family card states the placement law and names the PEPs that canonize its rows once.
+This page is the primitive-selection law for execution, transport, and observation: structured concurrency and interpreter isolation, binary payloads and numeric invariants, and diagnostics and exception flow. `anyio` owns every async scheduling, deadline, and cancellation surface; the direct `asyncio` module API is the rejected form (the manifest bans the `asyncio` import outright, and `anyio` backs onto an asyncio event loop internally without exposing it). Subinterpreters, free-threading, and `sys.monitoring` are the named non-async-scheduling surfaces that have no `anyio` analog and ride the stdlib directly. Each section owns one concern family: the chooser names the form and the spelling it replaces, and the family card states the placement law.
 
 ## [1]-[CONCURRENCY_AND_INTERPRETERS]
 
-Mutation ownership and context propagation are explicit before code relies on scheduling or cache behavior.
+Mutation ownership and context propagation are explicit before code relies on scheduling or cache behavior. Structured-concurrency mechanics — task groups, deadlines, cancellation, blocking-call offload — are owned by `rails-and-effects.md`; this page owns the isolation and free-threading surfaces that sit beneath the rail and the few scheduling primitives `anyio` does not re-export.
 
-| [INDEX] | [CONCERN]                  | [USE]                                                  | [REPLACE]                       |
-| :-----: | :------------------------- | :----------------------------------------------------- | :------------------------------ |
-|   [1]   | async task group           | `asyncio.TaskGroup`                                    | `gather()` task sets            |
-|   [2]   | task-group stop            | `asyncio.TaskGroup.cancel()`                           | raiser-task sentinels           |
-|   [3]   | async deadline             | `asyncio.timeout()` or `asyncio.timeout_at()`          | `wait_for()` wrapper ladders    |
-|   [4]   | completed-task correlation | `async for` over `asyncio.as_completed()`              | task-result side maps           |
-|   [5]   | event-loop lifetime        | `asyncio.Runner`                                       | manual loop lifecycle stacks    |
-|   [6]   | async stream delimiter     | `asyncio.StreamReader.readuntil((...))`                | manual separator scans          |
-|   [7]   | server client shutdown     | `close_clients()` and `abort_clients()`                | transport registries            |
-|   [8]   | async eager execution      | `asyncio.eager_task_factory()`                         | cache-hit scheduling wrappers   |
-|   [9]   | async task CLI inspection  | `python -m asyncio ps` and `pstree`                    | private task graph scraping     |
-|  [10]   | async call graph           | `asyncio.capture_call_graph()` or `print_call_graph()` | private task graph scraping     |
-|  [11]   | queue lifecycle            | `queue.Queue.shutdown()`                               | sentinel queue items            |
-|  [12]   | async queue lifecycle      | `asyncio.Queue.shutdown()`                             | sentinel async-queue items      |
-|  [13]   | context variable scope     | `ContextVar.set()` token context manager               | `reset(token)` `finally` blocks |
-|  [14]   | bounded map                | `Executor.map(buffersize=...)`                         | submission throttling wrappers  |
-|  [15]   | worker sizing              | `os.process_cpu_count()`                               | `os.cpu_count()` worker counts  |
-|  [16]   | interpreter isolation      | `concurrent.interpreters`                              | process-only isolation wrappers |
-|  [17]   | subinterpreter pool        | `concurrent.futures.InterpreterPoolExecutor`           | process-only CPU pools          |
-|  [18]   | process-pool stop          | `terminate_workers()` or `kill_workers()`              | private worker traversal        |
-|  [19]   | process interrupt          | `multiprocessing.Process.interrupt()`                  | cleanup-hostile `terminate()`   |
-|  [20]   | iterator sharing           | `threading.serialize_iterator()` or `concurrent_tee()` | generator lock wrappers         |
+| [INDEX] | [CONCERN]              | [USE]                                                  | [REPLACE]                       |
+| :-----: | :--------------------- | :----------------------------------------------------- | :------------------------------ |
+|   [1]   | event-loop entry       | `anyio.run`                                            | `asyncio.run`/`asyncio.Runner`  |
+|   [2]   | structured task group  | `anyio.create_task_group`                              | `asyncio.TaskGroup`/`gather`    |
+|   [3]   | async deadline         | `anyio.fail_after` or `anyio.move_on_after`            | `asyncio.timeout` wrappers      |
+|   [4]   | blocking-call offload  | `anyio.to_thread.run_sync` + `CapacityLimiter`         | `ThreadPoolExecutor` submission |
+|   [5]   | CPU-bound subprocess   | `anyio.to_process.run_sync`                            | `ProcessPoolExecutor` map       |
+|   [6]   | subprocess handle      | `anyio.run_process` or `anyio.open_process`            | `subprocess.run`/`Popen`        |
+|   [7]   | context variable scope | `ContextVar.set()` token context manager               | `reset(token)` `finally` blocks |
+|   [8]   | sync queue lifecycle   | `queue.Queue.shutdown()`                               | sentinel queue items            |
+|   [9]   | worker sizing          | `os.process_cpu_count()`                               | `os.cpu_count()` worker counts  |
+|  [10]   | interpreter isolation  | `concurrent.interpreters`                              | process-only isolation wrappers |
+|  [11]   | subinterpreter pool    | `concurrent.futures.InterpreterPoolExecutor`           | process-only CPU pools          |
+|  [12]   | process-pool stop      | `terminate_workers()` or `kill_workers()`              | private worker traversal        |
+|  [13]   | process interrupt      | `multiprocessing.Process.interrupt()`                  | cleanup-hostile `terminate()`   |
+|  [14]   | iterator sharing       | `threading.serialize_iterator()` or `concurrent_tee()` | generator lock wrappers         |
 
 [FREE_THREADING]:
-- PEPs: 779, 703, 567.
 - Use when: shared mutation, context propagation, or supported-target claims depend on free-threaded execution.
 - Accept: free-threaded Python as a supported target, explicit synchronization for shared mutation, and `ContextVar` for async or thread context.
 - Reject: experimental no-GIL caveats, implicit GIL serialization, thread-local async state, mutable ambient globals, and import-time singleton mutation as coordination.
-- Law: free-threaded code makes mutation ownership and context propagation explicit before relying on scheduling or cache behavior.
+- Law: free-threaded code makes mutation ownership and context propagation explicit before relying on scheduling or cache behavior; a `threading.RLock` guards only the shared-mutable cell a free-threaded build no longer serializes by GIL.
+- Boundary: the async-scheduling axis — task groups, deadlines, cancellation — is owned by `anyio` on the rails page, never by a free-threading or `asyncio` surface here.
 
 ```python conceptual
 from collections.abc import Callable
@@ -53,7 +47,6 @@ def synchronized[**P, T](operation: Callable[P, T], /) -> Callable[P, T]:
 ```
 
 [INTERPRETER_ISOLATION]:
-- PEPs: 734, 684.
 - Use when: interpreter isolation, independent execution, or CPU separation owns the runtime boundary.
 - Accept: `concurrent.interpreters` and own-GIL interpreters.
 - Reject: process-only isolation wrappers where interpreter isolation is the owner, and shared module state across interpreter boundaries.
@@ -107,13 +100,11 @@ Binary boundaries carry buffer, compression, and serialization semantics directl
 |  [22]   | statistical density   | `statistics.kde()`                             | local kernel-density estimators     |
 
 [BINARY_TRANSPORT]:
-- PEPs: 688, 574, 784.
 - Use when: binary payloads, buffers, compressed data, or serialized streams cross boundaries.
 - Accept: `Buffer`, `__buffer__`, protocol 5 out-of-band buffers, and `compression.zstd`.
 - Reject: `bytes` or `ByteString` buffer aliases, copy-heavy pickle blobs, bespoke zstd adapters, subprocess compression shells, and pre-decoded byte piles that discard buffer ownership.
 
 [NUMERIC_INVARIANTS]:
-- PEPs: 791.
 - Use when: integer, float, fraction, or density invariants must run on the owning numeric primitive.
 - Accept: `math.integer` on integer algorithms, IEEE-aware extrema and classification, `Fraction.from_number()`, and `statistics.kde()`.
 - Reject: float-path integer helpers, NaN-aware wrappers, bit-level float probes, and local density estimators.
@@ -156,13 +147,11 @@ Diagnostics use runtime-owned observation surfaces; exception flow preserves the
 |  [13]   | warnings filter      | `/regex/` warning filters             | literal-only warning fields        |
 
 [RUNTIME_EVIDENCE]:
-- PEPs: 831, 799, 768, 669, 578, 626, 657.
-- Use when: runtime-owned evidence should explain execution behavior, performance, security observation, or failure location.
+- Use when: runtime-owned evidence explains execution behavior, performance, security observation, or failure location.
 - Accept: frame-pointer-preserving builds, profiling namespaces, safe debug attach points, `sys.monitoring`, audit hooks, `co_lines()`, and fine-grained traceback locations.
 - Reject: frame-pointer-stripped native builds, legacy `profile`, debugger injection hooks, `settrace()` event scrapers, monkeypatch security probes, `co_lnotab` decoding, and line-only diagnostics.
 
 [EXCEPTION_FLOW]:
-- PEPs: 765, 654, 678, 758.
 - Use when: exception structure, grouped failure transport, or handler syntax changes control-flow semantics.
 - Accept: `except*`, `BaseException.add_note()`, exits kept out of `finally`, and unparenthesized exception handlers without `as`.
 - Reject: single-error collapse, message concatenation, `return`, `break`, or `continue` that exits `finally`, tuple-wrapper noise, and handler branches that erase grouped-failure identity.

@@ -1,31 +1,32 @@
 # [PY_ARTIFACTS_API_REPORTLAB]
 
-`reportlab` API capture placeholder for `artifacts`.
+`reportlab` API capture for the `artifacts` pdf rail. The distribution is locked (`reportlab` in `uv.lock` under the `artifacts` group) but un-reflectable on this host: it depends on `pillow`, which has no cp315 binary wheel and whose source build fails on the local toolchain (absent libjpeg/zlib headers), so the dependency closure cannot install. Members below remain a TASKLOG gap; the owner names no `reportlab` member until `pillow` becomes installable (cp315 wheel or provisioned image toolchain) and a reflection pass captures exact spellings.
 
 ## [1]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `reportlab`
 - package: `reportlab`
-- import: pending
+- import: `reportlab`
 - owner: `artifacts`
 - rail: pdf
-- capability: programmatic PDF generation
+- installed: locked but not installed on cp315; blocked transitively by `pillow` (no cp315 wheel, source build needs absent libjpeg/zlib headers)
+- capability: programmatic PDF generation via the canvas and platypus document model
 
 ## [2]-[CAPTURE]
 
 [PUBLIC_TYPES]:
-- pending
+- un-reflectable on this host: locked but not installable; blocked transitively by `pillow`
 
 [ENTRYPOINTS]:
-- pending
+- un-reflectable on this host: locked but not installable; blocked transitively by `pillow`
 
 [IMPLEMENTATION_LAW]:
-- pending
+- un-reflectable on this host: locked but not installable; blocked transitively by `pillow`
 
 ## [3]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `reportlab`
-- Owns: programmatic PDF generation
-- Accept: pending package-owner capture
+- Owns: programmatic PDF generation via the canvas and platypus document model
+- Accept: pending reflection capture once `pillow` becomes installable and the dependency closure resolves
 - Reject: wrapper-renames and weaker local reimplementation

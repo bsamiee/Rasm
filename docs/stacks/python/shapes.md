@@ -85,21 +85,21 @@ def delivered(raw: object, /) -> Result[bytes, ShapeFault]:
 
 ## [2]-[OWNER_CHOOSER]
 
-Choose the invariant owner before choosing a package-backed model, wrapper, protocol, rail, enum, or immutable collection.
+Choose the invariant owner before choosing a package-backed model, wrapper, protocol, rail, enum, or immutable collection. Five discriminants make the choice mechanical, and every misplaced shape traces to one mis-answered discriminant: admission (is the material trusted, or does it cross an untrusted edge), identity regime (is equality by value, by tag, by key, or by reference), variant arity (one shape, a closed family, or an open extension set), payload timing (is the shape fixed at definition or admitted at runtime), and openness (is the family closed to the program, semi-closed at a versioned wire, or open to foreign code). The OWNER_INDEX rows below are keyed on the answer to these discriminants.
 
 [OWNER_INDEX]:
 
-| [INDEX] | [DECISION]             | [OWNER]              | [CHOOSE]                   | [REJECT]              |
-| :-----: | :--------------------- | :------------------- | :------------------------- | :-------------------- |
-|   [1]   | static keys            | `[BOUNDARY_SHAPES]`  | `TypedDict`                | `dict[str, object]`   |
-|   [2]   | untrusted admission    | `[BOUNDARY_SHAPES]`  | Pydantic                   | interior revalidation |
-|   [3]   | wire or row            | `[BOUNDARY_SHAPES]`  | `msgspec.Struct`           | domain wire owner     |
-|   [4]   | compact invariant      | `[DOMAIN_SHAPES]`    | frozen dataclass           | field rename class    |
-|   [5]   | durable schema or wire | `[DOMAIN_SHAPES]`    | frozen Pydantic or msgspec | second owner          |
-|   [6]   | behavior-dense owner   | `[DOMAIN_SHAPES]`    | rich class                 | forwarding helper     |
-|   [7]   | token or absence state | `[TOKEN_STATE_PORT]` | vocabulary, sentinel, rail | duplicate carriers    |
-|   [8]   | immutable evidence     | `[TOKEN_STATE_PORT]` | tuple, `frozendict`, `Map` | mutable staging       |
-|   [9]   | replaceable capability | `[TOKEN_STATE_PORT]` | `Protocol`                 | single implementation |
+| [INDEX] | [DECISION]             | [DISCRIMINANT]           | [OWNER]              | [CHOOSE]                   | [REJECT]              |
+| :-----: | :--------------------- | :----------------------- | :------------------- | :------------------------- | :-------------------- |
+|   [1]   | static keys            | untrusted, def-time      | `[BOUNDARY_SHAPES]`  | `TypedDict`                | `dict[str, object]`   |
+|   [2]   | untrusted admission    | untrusted, runtime       | `[BOUNDARY_SHAPES]`  | Pydantic                   | interior revalidation |
+|   [3]   | wire or row            | trusted, fixed layout    | `[BOUNDARY_SHAPES]`  | `msgspec.Struct`           | domain wire owner     |
+|   [4]   | compact invariant      | trusted, value-equal     | `[DOMAIN_SHAPES]`    | frozen dataclass           | field rename class    |
+|   [5]   | durable schema or wire | trusted, schema-bound    | `[DOMAIN_SHAPES]`    | frozen Pydantic or msgspec | second owner          |
+|   [6]   | behavior-dense owner   | trusted, behavior > data | `[DOMAIN_SHAPES]`    | rich class                 | forwarding helper     |
+|   [7]   | token or absence state | closed, tag identity     | `[TOKEN_STATE_PORT]` | vocabulary, sentinel, rail | duplicate carriers    |
+|   [8]   | immutable evidence     | trusted, key/order id    | `[TOKEN_STATE_PORT]` | tuple, `frozendict`, `Map` | mutable staging       |
+|   [9]   | replaceable capability | open, structural id      | `[TOKEN_STATE_PORT]` | `Protocol`                 | single implementation |
 
 [BOUNDARY_SHAPES]:
 - `TypedDict` admits static key presence, closure (`closed=True`), `extra_items` extension, and `ReadOnly` evidence before materialization.

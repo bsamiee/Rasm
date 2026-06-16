@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `adbc-driver-manager`
 - package: `adbc-driver-manager`
-- import: pending
+- import: `import adbc_driver_manager`
 - owner: `data`
 - rail: query
 - capability: Arrow database connectivity
@@ -14,18 +14,18 @@
 ## [2]-[CAPTURE]
 
 [PUBLIC_TYPES]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [ENTRYPOINTS]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [IMPLEMENTATION_LAW]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 ## [3]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `adbc-driver-manager`
 - Owns: Arrow database connectivity
-- Accept: pending package-owner capture
+- Accept: pending decompile capture once a cp315 wheel admits `adbc_driver_manager`
 - Reject: wrapper-renames and weaker local reimplementation

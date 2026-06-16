@@ -9,7 +9,6 @@ dependencies = [
     "msgspec>=0.21.1",
     "opentelemetry-api>=1.41.1",
     "opentelemetry-exporter-otlp-proto-http>=1.41.1",
-    "opentelemetry-instrumentation-logging>=0.62b1",  # stdlib-logging-to-OTel record bridging for future Python services; this repo's diagnostics ride structlog to stderr
     "opentelemetry-sdk>=1.41.1",
     "pydantic>=2.13.3",
     "pydantic-settings>=2.14.0",
@@ -23,8 +22,9 @@ dependencies = [
     "httpx>=0.28.1",    # Retain; never remove regardless of consumers existing or not
     "watchfiles>=1.2.0",
     "aiocron>=2.1",
-    "universal-pathlib>=0.0.22",
+    "universal-pathlib>=0.3.10",  # UPath 0.3 storage_options/protocol= resolution is load-bearing for the fsspec artifact store
     "asyncssh>=2.23.0",
+    "specklepy>=3.2.8",  # runtime TransportResource row: Speckle stream send/receive (remote AEC transport, never a durable store)
     "tree-sitter>=0.25.2",
     "tree-sitter-python>=0.25.0",
     "tree-sitter-typescript>=0.23.2",
@@ -60,17 +60,24 @@ scientific = [
     "duckdb",
     "geopandas",
     "h5py",
+    "jax>=0.10.1; python_version<'3.15'",  # compute NumericIntent XLA accelerator row; jaxlib ships no cp315 wheel
     "meshio",
     "networkx",
+    "numba>=0.65.1; python_version<'3.15'",  # compute NumericIntent LLVM JIT accelerator row; numba lags CPython, no cp315 wheel
     "numpy",
+    "onnx>=1.22.0; python_version<'3.15'",  # compute ModelAsset graph IR; no cp315 wheel
+    "onnxruntime>=1.27.0; python_version<'3.15'",  # compute ModelAsset runtime-check half; no cp315 wheel
     "pandas",
     "pandas-stubs",
+    "pandera>=0.31.1",  # data ContractGate: schema/quality-rule (IDS-style) validation gate SchemaClaim records but does not enforce
     "pint",
     "polars",
     "pyarrow",
     "pyogrio",
     "pyproj",
+    "rasterio>=1.5.0; python_version<'3.15'",  # data RasterGeoClaim axis (GDAL raster coverage); no cp315 wheel
     "rhino3dm",
+    "scikit-learn>=1.9.0; python_version<'3.15'",  # compute ModelAsset classical-ML + sklearn->ONNX export; no cp315 wheel
     "scipy",
     "scipy-stubs",
     "shapely",
@@ -82,6 +89,7 @@ scientific = [
 artifacts = [
     "altair",
     "brotli",
+    "jinja2>=3.1.6",  # artifacts ReportPlan: report-templating composition between VisualSpec outputs and DocumentPlan inputs
     "kaleido",
     "lxml",
     "lz4",
@@ -94,6 +102,7 @@ artifacts = [
     "pymupdf",
     "pypdf",
     "pypdfium2",
+    "pyvista>=0.48.4; python_version<'3.13'",  # artifacts VisualSpec 3D scientific viz; rides the vtk native interpreter floor
     "python-docx",
     "python-magic",
     "python-pptx",
@@ -102,8 +111,23 @@ artifacts = [
     "ruamel-yaml",
     "tomlkit",
     "vl-convert-python",
+    "vtk>=9.6.2; python_version<'3.13'",  # artifacts VisualSpec VTK engine backing pyvista; no cp315 wheel
     "weasyprint",
     "zstandard",
+]
+# Marker-gated native + companion-server stack on its own interpreter floor (python_version<'3.13'), the one sanctioned
+# divergence from the >=3.15 pure-Python runtime/data/artifacts floor. ifcopenshell hard-requires <3.15 and bundles OCCT;
+# open3d/topologicpy/compiled cores cap at cp312; the grpcio trio rides the same floor as the native geometry stack. The
+# isolated companion environment also keeps the LGPL-3.0-or-later ifcopenshell wheel out of the MIT/Apache library lock.
+geometry-companion = [
+    "compas>=2.15.1; python_version<'3.13'",            # geometry GeometryAlgebra: AEC computational geometry, networks, form-finding
+    "grpcio>=1.81.1; python_version<'3.13'",            # companion inbound wire speaking the EXISTING C# ComputeService/ArtifactSync gRPC contract
+    "grpcio-tools>=1.81.1; python_version<'3.13'",      # compiles the C# proto descriptors into Python server stubs
+    "ifcopenshell>=0.8.5; python_version<'3.13'",       # geometry IfcCompanion: the load-bearing IFC->mesh/GLB tessellation daemon (LGPL-3.0-or-later)
+    "open3d>=0.19.0; python_version<'3.13'",            # geometry ScanProcessing: point-cloud/3D-scan ICP registration, reconstruction
+    "protobuf>=7.35.1; python_version<'3.13'",          # protobuf runtime backing the companion gRPC server
+    "small-gicp>=1.0.1; python_version<'3.13'",         # geometry ScanProcessing speed-path: parallel GICP/VGICP fine registration
+    "topologicpy>=0.9.43; python_version<'3.13'",       # geometry GeometryAlgebra: non-manifold cell/aperture topology (gated against C# IfcSemanticModel)
 ]
 
 # --- [UV] ------------------------------------------------------------------
@@ -448,6 +472,8 @@ ignore = [
     "TRY003",  # raise-vanilla-args (descriptive domain error messages)
     "TRY301",  # raise-within-try (ROP @safe boundary patterns)
     "TRY400",  # error-instead-of-exception (structlog .error() outside handlers)
+    # -- Docstring exception sections (pydoclint) ---------------------------
+    "DOC502",  # extraneous-exception: a propagate-through-helper Raises: documents a callee-raised exception with no in-body raise; documenting every exception the function surfaces is the chosen convention (DOC501 still enforces the inverse)
     # -- Sorting rules (semantic section ordering preferred) ----------------
     "RUF022",  # unsorted-dunder-all (semantic > alphabetical)
     "RUF023",  # unsorted-dunder-slots (semantic > alphabetical)

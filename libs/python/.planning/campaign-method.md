@@ -1,36 +1,37 @@
 # [PYTHON_CAMPAIGN_METHOD]
 
-The Python campaign turns package ideas into transcribable package owners through manifest admission, package-local planning, `.api` evidence, and red-team passes before source.
+The branch-local method that produces the Python library corpus, aligned to the suite campaign method `libs/csharp/.planning/campaign-method.md` and run on its own cadence. `libs/python` is a first-class sibling library branch, not a thin coupling to the C# packages: an agnostic, universal, professional library re-derived from first principles every campaign, aligned hand-in-glove only where a shared concern crosses the boundary.
 
-## [1]-[INFRA_TRUTH]
+## [1]-[THE_BAR]
 
-- Manifest: `pyproject.toml` and `uv.lock` carry root dependency truth.
-- Stack: `docs/stacks/python/README.md` carries Python source doctrine.
-- Tooling: `tools/assay/README.md` and Assay owners carry proof and API-rail truth.
-- Package plan: `libs/python/<package>/.planning` carries package-local transcription law.
-- API evidence: `libs/python/<package>/.api/api-<distribution>.md` carries external API capability evidence.
+The bar for every package, current and future, is the suite bar instantiated in idiomatic modern Python:
 
-## [2]-[API_CAPTURE]
+- World-class library code a company would adopt if public: the library internalizes the heavy logic, native lifetimes, provider quirks, and failure handling so downstream apps compose capability instead of re-deriving it.
+- No wrappers, no rename adapters, no grab-bag abstractions; every surface adds real higher-order capability built FROM the admitted packages, never a thinner face over them.
+- Dense, polymorphic Python: one owner per axis, one entrypoint family per rail, one fault family per branch (runtime `BoundaryFault`), total dispatch via structural `match`/`case` with `assert_never`, fold algebras, and table-driven `frozendict` logic. Density is polymorphic collapse, never a line budget.
+- ROP via expression `Result`/`Option` rails; exceptions convert at the owning boundary only and never inside domain flow.
+- `msgspec.Struct(frozen=True)` or `pydantic` v2 owners with runtime validation; `beartype` boundary contracts; `anyio` structured concurrency; PEP 695 type syntax; `Protocol` over ABC.
+- Full doctrine adherence: `docs/stacks/python/` is law, composed as given, never restated.
 
-1. Put dependency admission in the root manifest or leave it out.
-2. Assign one package owner for the distribution.
-3. Capture import names, entry points, official API surfaces, and owner-boundary notes under that package's `.api` folder.
-4. Update central API-owner routing only when ownership changes.
-5. Update package-local planning only with owner consequences, not copied package metadata.
+## [2]-[FENCE_LAW]
 
-## [3]-[AUTHORING]
+The unit of work is the transcription-complete CODE FENCE, never prose. For every owner, planning authors the real Python declaration — the `msgspec.Struct`/tagged-union/`StrEnum` shape, the `@effect.result` rail body, the `match` dispatch, the exact `.api`-verified member spellings — so implementation copy-pastes it. An intent card frames a fence; it never substitutes for one. An item that adds only a card, a row, or a ledger registration without deepening the owner's code fence is UNDONE.
 
-Package pages are transcription blueprints. Each package planning folder carries an index, owner clusters, source-root law, API usage law, boundary rulings, tests to write later, and red-team tasks. Source starts only after those pages name the owner cluster and the API evidence route.
+## [3]-[NAMED_DEFECT_CLASS]
 
-## [4]-[RED_TEAM]
+Python is a fragile language with no totality checker, so the named defect class is class / type / string / constant SPAM, refused on sight: proliferated tiny classes, parallel near-identical dataclasses, stringly-typed dispatch, scattered module-level constants, one-method classes, `get`/`get_many`/`get_by_id` families, barrel re-export files, and thin wrappers that rename or forward an external API. Three-or-more parallel types/enums/dispatch arms collapse into one polymorphic owner: a tagged union + `match`, a `StrEnum` with a behavior table, a fold, or a `frozendict` data table. The lint/type/contract gate is the doctrine's only compiled form; `tools/py_analyzer` AST rules promote any spam pattern no shipped Ruff/ty rule rejects.
 
-Run these tasks after each package page and before any source transcription:
-- Owner collision: remove Python mechanics that belong to AppHost, AppUi, Compute, Persistence, Assay, bridge, or TypeScript.
-- API underuse: replace local reinvention with the admitted external package surface or hold the source work until `.api` evidence exists.
-- Shape count: collapse sibling names, duplicate record shapes, boolean knobs, and provider-specific handler families into one owner row, case, or policy axis.
-- Import boundary: keep heavy package imports out of import-time source until the package owner has an explicit adapter plan.
-- Page craft: remove state columns, release chatter, provenance tails, process narration, checklist history, and dependency tables that repeat root manifest facts.
+## [4]-[THE_METHOD]
 
-## [5]-[CLOSEOUT]
+1. INFRA TRUTH FIRST — the single root `pyproject.toml` and `uv.lock` are made honest before authoring; admissions execute with `uv lock --check` proof; every admitted distribution gets an `.api` catalogue verified against the installed surface (phantom members are the named defect). Marker-gated pins ride their interpreter floor; the geometry-companion group is the one sanctioned divergence.
+2. API CAPTURE — one package owner per distribution; capture import names, entrypoints, public types, and admission law under that package's `.api`. A fence names a member only after the `.api` page verifies its spelling.
+3. AUTHOR-THEN-REPAIR — runtime authors first (every sibling consumes its ports); the remaining packages author against the ledger's pinned seam contracts. Each page is graded cold against the suite standard and `docs/stacks/python/`; findings repair in the same pass.
+4. COHERENCE — the region ledger is the single registry of owner symbols and seam splits; the central charter owns the cross-cutting surface. One owner per axis, consumers reference and never re-mint, every seam recorded; the C# interchange companion seam, the `ContentIdentity` single-owner seam, and the geometry graduation case are registered.
 
-Close each pass by updating only the changed owner surface: central routing page, package-local planning page, region ledger, API owner record, `.api` evidence folder, or tasklog row. Closed work does not remain in `TASKLOG.md`.
+## [5]-[RED_TEAM]
+
+Every design decision earns three ordered passes before it is final: an ultra-harsh critique pass (grade each owner at the world-class bar, name what an ambitious app would still hand-roll), a distinct red-team pass (owner collision against C#/AppHost/Persistence/Compute/AppUi/Assay/bridge/TypeScript; API underuse; shape-count collapse; import-boundary; wire-vocabulary singularity), and a hardening pass (drive every closable `SPIKE` to `FINALIZED` against the installed distributions; fold verified member shapes back into the fence).
+
+## [6]-[CLOSEOUT]
+
+Close each pass by updating only the changed owner surface: the central charter, the package-local page, the region ledger, the API-owner record, the `.api` evidence folder, or a tasklog row. Owner state lives in exactly one surface — each package charter DENSITY_BAR `[STATE]` column; FEATURES and TASKLOG route to the owner for state. Closed work leaves `TASKLOG.md`. The forward-emitted ideation pool is the only thing a pass defers; every actionable shortfall lands on an existing owner or a justified new page now.

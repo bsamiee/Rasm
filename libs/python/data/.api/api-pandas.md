@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `pandas`
 - package: `pandas`
-- import: pending
+- import: `import pandas`
 - owner: `data`
 - rail: columnar
 - capability: compatibility tabular frames
@@ -14,18 +14,18 @@
 ## [2]-[CAPTURE]
 
 [PUBLIC_TYPES]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [ENTRYPOINTS]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 [IMPLEMENTATION_LAW]:
-- pending
+- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
 
 ## [3]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `pandas`
 - Owns: compatibility tabular frames
-- Accept: pending package-owner capture
+- Accept: pending decompile capture once a cp315 wheel admits `pandas`
 - Reject: wrapper-renames and weaker local reimplementation
