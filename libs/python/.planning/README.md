@@ -85,14 +85,14 @@
 
 ## [5]-[PROOF_GATES]
 
-| [GATE] | [RAIL]                          | [EVIDENCE]                                                     |
-| :----: | :------------------------------ | :------------------------------------------------------------ |
-|  [G1]  | layout                          | `libs/python` carries no `.py` source, no package manifest    |
-|  [G2]  | whitespace                      | `git diff --check -- libs/python pyproject.toml` is clean     |
-|  [G3]  | manifest                        | `uv lock --check` resolves clean against the root manifest    |
-|  [G4]  | catalogue                       | every fence member resolves to an `.api` evidence row         |
-|  [G5]  | anchor                          | every `page#cluster` reference resolves to a live heading     |
-|  [G6]  | companion floor                 | geometry/companion-server pins reflect on the cp312 floor     |
+| [GATE] | [RAIL]          | [EVIDENCE]                                                 |
+| :----: | :-------------- | :--------------------------------------------------------- |
+|  [G1]  | layout          | `libs/python` carries no `.py` source, no package manifest |
+|  [G2]  | whitespace      | `git diff --check -- libs/python pyproject.toml` is clean  |
+|  [G3]  | manifest        | `uv lock --check` resolves clean against the root manifest |
+|  [G4]  | catalogue       | every fence member resolves to an `.api` evidence row      |
+|  [G5]  | anchor          | every `page#cluster` reference resolves to a live heading  |
+|  [G6]  | companion floor | geometry/companion-server pins reflect on the cp312 floor  |
 
 ## [6]-[PROHIBITIONS]
 
