@@ -45,6 +45,12 @@
 - pages:
   - [api-sep.md](api-sep.md)
 
+[SEARCH_EXTENSIONS]:
+- rail: search-provisioning
+- pages:
+  - [api-pgvectorscale.md](api-pgvectorscale.md)
+  - [api-pg-search.md](api-pg-search.md)
+
 [SUPPORT]:
 - rail: support
 - pages:

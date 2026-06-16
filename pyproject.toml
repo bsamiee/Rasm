@@ -53,52 +53,76 @@ dev = [
 ]
 mutation = ["mutmut>=3.6.0"]
 scientific = [
-    "adbc-driver-manager",
-    "connectorx",
+    "adbc-driver-manager",  # data ADBC driver-manager (Arrow Flight SQL / DuckDB ADBC); Cython, source-builds on cp315
+    "arviz>=1.2.0",  # compute PY_INFER_001 Bayesian diagnostics; pure-Python
+    "awkward>=2.9.1",  # data PY_TENSOR_001 ragged/jagged arrays; pure-Python
+    "connectorx>=0.4.5; python_version<'3.15'",  # data fast SQL->Arrow; Rust/maturin, no cp315 wheel (lock pin 0.2.3 is stale cp39-linux)
+    "cubed>=0.28.0",  # data PY_TENSOR_001 bounded-memory distributed arrays; pure-Python
     "dask",
-    "deltalake",
-    "duckdb",
-    "geopandas",
-    "h5py",
+    "deltalake",  # data PY_LAKE_001 lakehouse; abi3 wheel installs on cp315
+    "duckdb",  # source-builds on cp315 (~2 min)
+    "geopandas; python_version<'3.15'",  # consequence of shapely/pyproj/pyogrio <3.15 gating
+    "h5py>=3.16.0; python_version<'3.15'",  # source-build-gated: system libhdf5; no cp315 wheel
+    "icechunk>=2.0.6; python_version<'3.15'",  # data PY_TENSOR_001 versioned tensor store; Rust pyo3 cp313, no cp315 wheel
     "jax>=0.10.1; python_version<'3.15'",  # compute NumericIntent XLA accelerator row; jaxlib ships no cp315 wheel
+    "laspy>=2.7.0",  # geometry PY_INGEST_001 LAS/LAZ point clouds; pure-Python
     "meshio",
+    "nanoarrow>=0.8.0; python_version<'3.15'",  # data PY_INTEROP_001 Arrow C-data zero-copy; C ext cp312, no cp315 wheel
+    "narwhals>=2.22.1",  # data PY_INTEROP_001 dataframe-agnostic API; pure-Python
+    "netcdf4>=1.7.4; python_version<'3.15'",  # compute PY_SIM_001 CFD/field IO; system netcdf, no cp315 wheel
     "networkx",
     "numba>=0.65.1; python_version<'3.15'",  # compute NumericIntent LLVM JIT accelerator row; numba lags CPython, no cp315 wheel
-    "numpy",
+    "numpy>=2.0",  # compute substrate; 2.x ships cp315 wheels (1.26 forced an sdist build)
+    "numpyro>=0.21.0; python_version<'3.15'",  # compute PY_INFER_001 JAX-based NUTS sampler; rides the jaxlib <3.15 floor (pymc+arviz are the cp315 Bayesian path)
     "onnx>=1.22.0; python_version<'3.15'",  # compute ModelAsset graph IR; no cp315 wheel
     "onnxruntime>=1.27.0; python_version<'3.15'",  # compute ModelAsset runtime-check half; no cp315 wheel
-    "pandas",
+    "optimistix>=0.1.0; python_version<'3.15'",  # compute PY_DIFF_001 JAX nonlinear/least-squares + adjoint VJP; rides the jaxlib <3.15 floor
+    "pandas",  # source-builds on cp315
     "pandas-stubs",
     "pandera>=0.31.1",  # data ContractGate: schema/quality-rule (IDS-style) validation gate SchemaClaim records but does not enforce
+    "pdal>=3.5.3; python_version<'3.15'",  # geometry PY_INGEST_001 point-cloud pipeline; sdist-only, prefer conda; no cp315 wheel
     "pint",
-    "polars",
-    "pyarrow",
-    "pyogrio",
-    "pyproj",
+    "polars",  # cp315 wheel available
+    "pyarrow>=20.0; python_version<'3.15'",  # source-build-gated: system libarrow; no cp315 wheel
+    "pye57>=0.4.19; python_version<'3.15'",  # geometry PY_INGEST_001 E57 scan IO; C++ ext cp314, no cp315 wheel
+    "pymc>=6.0.1",  # compute PY_INFER_001 probabilistic programming; pure-Python (PyTensor backend)
+    "pyogrio>=0.12.1; python_version<'3.15'",  # source-build-gated: system GDAL; no cp315 wheel
+    "pyproj>=3.7.2; python_version<'3.15'",  # source-build-gated: system PROJ; no cp315 wheel
+    "python-flint>=0.8.0; python_version<'3.15'",  # compute PY_RIGOR_001 validated/interval numerics (Arb); LGPL-2.1+ runtime, cp314, no cp315 wheel
     "rasterio>=1.5.0; python_version<'3.15'",  # data RasterGeoClaim axis (GDAL raster coverage); no cp315 wheel
-    "rhino3dm",
+    "rhino3dm>=8.17.0; python_version<'3.15'",  # geometry mesh IO; CMake C++ ext, no cp315 wheel
+    "rustworkx>=0.17.1",  # compute/data PY_GRAPH_001 fast graph algorithms; abi3 wheel installs on cp315
+    "scikit-fem>=12.0.2",  # compute PY_SIM_001 lightweight FEM assembly; pure-Python
+    "scikit-image>=0.26.0; python_version<'3.15'",  # artifacts PY_IMG_001 image processing; C/Cython cp314, no cp315 wheel
     "scikit-learn>=1.9.0; python_version<'3.15'",  # compute ModelAsset classical-ML + sklearn->ONNX export; no cp315 wheel
-    "scipy",
+    "scipy>=1.17.1; python_version<'3.15'",  # source-build-gated: gfortran/Fortran toolchain; no cp315 wheel
     "scipy-stubs",
-    "shapely",
+    "shapely>=2.1.2; python_version<'3.15'",  # source-build-gated: system libgeos; no cp315 wheel
     "sympy",
     "trimesh",
     "uncertainties",
     "xarray",
+    "xxhash>=3.7.0",  # runtime ContentIdentity: XxHash128/XxHash3_64 byte-identical to C# System.IO.Hashing; abi3 wheel
+    "zarr>=3.2.1",  # data PY_TENSOR_001 chunked N-D arrays; pure-Python
 ]
 artifacts = [
     "altair",
     "brotli",
+    "colour-science>=0.4.6",  # artifacts PY_COLOR_001 color science (CIE/spectral/appearance); pure-Python (NumPy)
+    "fonttools>=4.63.0",  # artifacts PY_CONF_001 font subsetting/instancing/shaping metadata; pure-Python
     "jinja2>=3.1.6",  # artifacts ReportPlan: report-templating composition between VisualSpec outputs and DocumentPlan inputs
     "kaleido",
     "lxml",
     "lz4",
     "matplotlib",
+    "nbclient>=0.11.0",  # artifacts PY_NB_001 headless notebook execution client; pure-Python
     "openpyxl",
+    "papermill>=2.7.0",  # artifacts PY_NB_001 parameterized notebook runs; pure-Python
     "pikepdf",
     "pillow",
     "plotly",
     "py7zr",
+    "pyhanko>=0.35.1",  # artifacts PY_CONF_001 PDF digital signing / PAdES; pure-Python
     "pymupdf",
     "pypdf",
     "pypdfium2",

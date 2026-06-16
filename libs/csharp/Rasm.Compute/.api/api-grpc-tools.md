@@ -48,16 +48,32 @@ item metadata, compiler binaries, import protos, and generated client seams.
 [ENTRYPOINT_SCOPE]: project inputs
 - rail: remote-contracts
 
-| [INDEX] | [SURFACE]                   | [CALL_SHAPE]  | [CAPABILITY]              |
-| :-----: | :-------------------------- | :------------ | :------------------------ |
-|   [1]   | `Protobuf` item             | MSBuild item  | declares proto input      |
-|   [2]   | `GrpcServices=Client`       | item metadata | selects client generation |
-|   [3]   | `ProtoRoot`                 | item metadata | scopes import roots       |
-|   [4]   | `AdditionalImportDirs`      | item metadata | resolves imports          |
-|   [5]   | `Access`                    | item metadata | controls generated access |
-|   [6]   | `OutputDir`                 | item metadata | sets generated directory  |
-|   [7]   | `CompileOutputs`            | item metadata | includes generated code   |
-|   [8]   | `AdditionalProtocArguments` | item metadata | passes generator args     |
+| [INDEX] | [SURFACE]                   | [CALL_SHAPE]  | [CAPABILITY]                                             |
+| :-----: | :-------------------------- | :------------ | :------------------------------------------------------- |
+|   [1]   | `Protobuf` item             | MSBuild item  | declares proto input                                     |
+|   [2]   | `GrpcServices`              | item metadata | `Both`/`Client`/`Server`/`None` stub generation selector |
+|   [3]   | `ProtoRoot`                 | item metadata | scopes import roots                                      |
+|   [4]   | `AdditionalImportDirs`      | item metadata | resolves additional import paths                         |
+|   [5]   | `Access`                    | item metadata | `Public`/`Internal` class access modifier                |
+|   [6]   | `OutputDir`                 | item metadata | sets generated output directory                          |
+|   [7]   | `CompileOutputs`            | item metadata | `True`/`False` — includes generated code in compilation  |
+|   [8]   | `AdditionalProtocArguments` | item metadata | passes extra arguments to protoc                         |
+|   [9]   | `ProtoCompile`              | item metadata | `True`/`False` — compiles or import-only                 |
+
+[ENTRYPOINT_SCOPE]: `Protobuf` item metadata decompile-verified rows
+- source: `Grpc.Tools` 2.81.1 — `Grpc.CSharp.xml` / `Protobuf.CSharp.xml` / `Google.Protobuf.Tools.targets` source
+- rail: remote-contracts
+
+| [INDEX] | [MEMBER]                    | [SIGNATURE]                                                  | [USED_BY]              | [EVIDENCE]                 |
+| :-----: | :-------------------------- | :----------------------------------------------------------- | :--------------------- | :------------------------- |
+|   [1]   | `GrpcServices`              | enum: `Both` (default), `Client`, `Server`, `None`           | remote-lane#CALL_SPINE | Grpc.CSharp.xml 2.81.1     |
+|   [2]   | `Access`                    | enum: `Public` (default), `Internal`                         | remote-lane#CALL_SPINE | Protobuf.CSharp.xml 2.81.1 |
+|   [3]   | `ProtoCompile`              | bool: `true` (default) — compile vs import-only              | remote-lane#CALL_SPINE | Protobuf.CSharp.xml 2.81.1 |
+|   [4]   | `ProtoRoot`                 | string — import root path; defaults to item relative dir     | remote-lane#CALL_SPINE | targets 2.81.1             |
+|   [5]   | `AdditionalImportDirs`      | string — semicolon-separated extra import directories        | remote-lane#CALL_SPINE | targets 2.81.1             |
+|   [6]   | `OutputDir`                 | string — generated file output directory                     | remote-lane#CALL_SPINE | targets 2.81.1             |
+|   [7]   | `CompileOutputs`            | bool: `True` (default) — adds generated files to compilation | remote-lane#CALL_SPINE | targets 2.81.1             |
+|   [8]   | `AdditionalProtocArguments` | string — extra arguments passed verbatim to `protoc`         | remote-lane#CALL_SPINE | targets 2.81.1             |
 
 [ENTRYPOINT_SCOPE]: generated outputs
 - rail: remote-contracts
@@ -78,6 +94,11 @@ item metadata, compiler binaries, import protos, and generated client seams.
 - dependency role: private tool asset
 - runtime rule: generated code is admitted, generator package is not a runtime surface
 - source rule: `.proto` files are boundary contracts and require owner-local folder placement
+
+[ITEM_METADATA]:
+- `GrpcServices=Client` is the Compute-admitted value; `Server` and `Both` are server-hosting values rejected by `[LOCAL_ADMISSION]`
+- `Access=Internal` is preferred for Compute-internal generated types; `Public` only when the contract crosses package boundaries
+- `OutputOptions` does not exist as a named metadata property — access modifier and service shape are controlled by `Access` and `GrpcServices` respectively
 
 [REMOTE_CONTRACT_OUTPUT]:
 - message output: generated `IMessage<T>` contracts

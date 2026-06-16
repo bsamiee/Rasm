@@ -250,3 +250,21 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 - Owns: ONNX session execution and native runtime assets
 - Accept: measured model inference
 - Reject: ML.NET training pipeline
+
+## [6]-[REGISTRATION_MEMBERS]
+
+[ENTRYPOINT_SCOPE]: custom-op and extension registration decompile-verified signatures
+- source: `Microsoft.ML.OnnxRuntime` 1.26.0 managed assembly — `SessionOptions` decompile
+- rail: model-lane#GENERATIVE_RUN
+
+| [INDEX] | [MEMBER]                    | [SIGNATURE]                                                                                                                                                                                                | [USED_BY]                 | [EVIDENCE]       |
+| :-----: | :-------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------ | :--------------- |
+|   [1]   | `RegisterCustomOpLibrary`   | `void RegisterCustomOpLibrary(string libraryPath)`                                                                                                                                                         | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
+|   [2]   | `RegisterCustomOpLibraryV2` | `void RegisterCustomOpLibraryV2(string libraryPath, out nint libraryHandle)`                                                                                                                               | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
+|   [3]   | `RegisterOrtExtensions`     | `void RegisterOrtExtensions()` — calls `OrtExtensionsNativeMethods.RegisterCustomOps`; throws `OnnxRuntimeException(ErrorCode.NoSuchFile)` if `Microsoft.ML.OnnxRuntime.Extensions` native asset is absent | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
+
+[REGISTRATION_LAW]:
+- `RegisterCustomOpLibrary(path)` maps to `OrtRegisterCustomOpsLibrary_V2` in the C API (load and register from path, no handle returned).
+- `RegisterCustomOpLibraryV2(path, out nint)` maps to `OrtRegisterCustomOpsLibrary` (load and register, returning a native handle for explicit unloading).
+- `RegisterOrtExtensions()` is a convenience wrapper that loads the `libortextensions` native asset shipped by `Microsoft.ML.OnnxRuntime.Extensions`; there is no separate public `OrtExtensions` class — `OrtExtensionsNativeMethods` is internal.
+- `OrtExtensions.RegisterCustomOps` does not exist as a public API in either the ORT managed assembly or the Extensions package; the correct entry point is `SessionOptions.RegisterOrtExtensions()`.

@@ -93,13 +93,131 @@ execution clients.
 |  [10]   | `ChannelCredentials`       | channel trust       | transport credential selection      |
 |  [11]   | `ConnectivityState`        | state enum          | channel connectivity taxonomy       |
 
-[INTERCEPTOR_CALLS]:
-- Overrides: `AsyncUnaryCall`, `AsyncServerStreamingCall`, `AsyncClientStreamingCall`, and `AsyncDuplexStreamingCall`.
-- Continuation shape: each override receives its matching continuation delegate.
+[ENTRYPOINT_SCOPE]: interceptor override signatures
+- source: `Grpc.Core.Api` 2.80.0 — `Grpc.Core.Interceptors.Interceptor` decompile
+- rail: remote-client#CALL_SPINE
 
-[CREDENTIAL_COMPOSITION]:
-- `CallCredentials.FromInterceptor` builds per-call credentials from `AsyncAuthInterceptor`.
-- `CallCredentials.Compose` stacks per-call credentials; `ChannelCredentials.Create` composes transport and call credentials.
+| [INDEX] | [MEMBER]                   | [SIGNATURE]                                                                                                                                                                                                                                      | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------- | :--------------- |
+|   [1]   | `BlockingUnaryCall`        | `virtual TResponse BlockingUnaryCall<TReq,TResp>(TReq request, ClientInterceptorContext<TReq,TResp> context, BlockingUnaryCallContinuation<TReq,TResp> continuation) where TReq : class where TResp : class`                                     | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `AsyncUnaryCall`           | `virtual AsyncUnaryCall<TResp> AsyncUnaryCall<TReq,TResp>(TReq request, ClientInterceptorContext<TReq,TResp> context, AsyncUnaryCallContinuation<TReq,TResp> continuation) where TReq : class where TResp : class`                               | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `AsyncServerStreamingCall` | `virtual AsyncServerStreamingCall<TResp> AsyncServerStreamingCall<TReq,TResp>(TReq request, ClientInterceptorContext<TReq,TResp> context, AsyncServerStreamingCallContinuation<TReq,TResp> continuation) where TReq : class where TResp : class` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `AsyncClientStreamingCall` | `virtual AsyncClientStreamingCall<TReq,TResp> AsyncClientStreamingCall<TReq,TResp>(ClientInterceptorContext<TReq,TResp> context, AsyncClientStreamingCallContinuation<TReq,TResp> continuation) where TReq : class where TResp : class`          | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [5]   | `AsyncDuplexStreamingCall` | `virtual AsyncDuplexStreamingCall<TReq,TResp> AsyncDuplexStreamingCall<TReq,TResp>(ClientInterceptorContext<TReq,TResp> context, AsyncDuplexStreamingCallContinuation<TReq,TResp> continuation) where TReq : class where TResp : class`          | remote-lane#CALL_SPINE | decompile 2.80.0 |
+
+[ENTRYPOINT_SCOPE]: `ClientInterceptorContext` struct members
+- source: `Grpc.Core.Api` 2.80.0 — `Grpc.Core.Interceptors.ClientInterceptorContext<TRequest,TResponse>` decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]  | [SIGNATURE]                                                                                      | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :-------- | :----------------------------------------------------------------------------------------------- | :--------------------- | :--------------- |
+|   [1]   | `Method`  | `Method<TRequest,TResponse> Method { get; }`                                                     | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `Host`    | `string? Host { get; }`                                                                          | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `Options` | `CallOptions Options { get; }`                                                                   | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `ctor`    | `ClientInterceptorContext(Method<TRequest,TResponse> method, string? host, CallOptions options)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+
+[ENTRYPOINT_SCOPE]: `CallOptions` struct members
+- source: `Grpc.Core.Api` 2.80.0 — `Grpc.Core.CallOptions` decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]                | [SIGNATURE]                                                              | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :---------------------- | :----------------------------------------------------------------------- | :--------------------- | :--------------- |
+|   [1]   | `Headers`               | `Metadata? Headers { get; }`                                             | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `Deadline`              | `DateTime? Deadline { get; }`                                            | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `CancellationToken`     | `CancellationToken CancellationToken { get; }`                           | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `Credentials`           | `CallCredentials? Credentials { get; }`                                  | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [5]   | `WithHeaders`           | `CallOptions WithHeaders(Metadata headers)`                              | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [6]   | `WithDeadline`          | `CallOptions WithDeadline(DateTime deadline)`                            | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [7]   | `WithCancellationToken` | `CallOptions WithCancellationToken(CancellationToken cancellationToken)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [8]   | `WithCredentials`       | `CallOptions WithCredentials(CallCredentials credentials)`               | remote-lane#CALL_SPINE | decompile 2.80.0 |
+
+[ENTRYPOINT_SCOPE]: `RpcException` members
+- source: `Grpc.Core.Api` 2.80.0 — `Grpc.Core.RpcException` decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]     | [SIGNATURE]                                                      | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :----------- | :--------------------------------------------------------------- | :--------------------- | :--------------- |
+|   [1]   | `Status`     | `Status Status { get; }`                                         | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `StatusCode` | `StatusCode StatusCode { get; }`                                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `Trailers`   | `Metadata Trailers { get; }`                                     | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `ctor`       | `RpcException(Status status)`                                    | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [5]   | `ctor`       | `RpcException(Status status, string message)`                    | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [6]   | `ctor`       | `RpcException(Status status, Metadata trailers)`                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [7]   | `ctor`       | `RpcException(Status status, Metadata trailers, string message)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+
+[ENTRYPOINT_SCOPE]: `StatusCode` enum members
+- source: `Grpc.Core.Api` 2.80.0 — `Grpc.Core.StatusCode` decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]             | [SIGNATURE]              | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :------------------- | :----------------------- | :--------------------- | :--------------- |
+|   [1]   | `OK`                 | `OK = 0`                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `Cancelled`          | `Cancelled = 1`          | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `Unknown`            | `Unknown = 2`            | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `InvalidArgument`    | `InvalidArgument = 3`    | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [5]   | `DeadlineExceeded`   | `DeadlineExceeded = 4`   | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [6]   | `NotFound`           | `NotFound = 5`           | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [7]   | `AlreadyExists`      | `AlreadyExists = 6`      | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [8]   | `PermissionDenied`   | `PermissionDenied = 7`   | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [9]   | `ResourceExhausted`  | `ResourceExhausted = 8`  | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [10]   | `FailedPrecondition` | `FailedPrecondition = 9` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [11]   | `Aborted`            | `Aborted = 10`           | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [12]   | `OutOfRange`         | `OutOfRange = 11`        | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [13]   | `Unimplemented`      | `Unimplemented = 12`     | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [14]   | `Internal`           | `Internal = 13`          | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [15]   | `Unavailable`        | `Unavailable = 14`       | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [16]   | `DataLoss`           | `DataLoss = 15`          | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [17]   | `Unauthenticated`    | `Unauthenticated = 16`   | remote-lane#CALL_SPINE | decompile 2.80.0 |
+
+[ENTRYPOINT_SCOPE]: credential composition members
+- source: `Grpc.Core.Api` 2.80.0 — `Grpc.Core.CallCredentials` / `Grpc.Core.ChannelCredentials` decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]                          | [SIGNATURE]                                                                                                | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :-------------------------------- | :--------------------------------------------------------------------------------------------------------- | :--------------------- | :--------------- |
+|   [1]   | `CallCredentials.Compose`         | `static CallCredentials Compose(params CallCredentials[] credentials)`                                     | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `CallCredentials.FromInterceptor` | `static CallCredentials FromInterceptor(AsyncAuthInterceptor interceptor)`                                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `ChannelCredentials.Create`       | `static ChannelCredentials Create(ChannelCredentials channelCredentials, CallCredentials callCredentials)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `ChannelCredentials.Insecure`     | `static ChannelCredentials Insecure { get; }`                                                              | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [5]   | `ChannelCredentials.SecureSsl`    | `static ChannelCredentials SecureSsl { get; }`                                                             | remote-lane#CALL_SPINE | decompile 2.80.0 |
+
+[ENTRYPOINT_SCOPE]: compression provider types
+- source: `Grpc.Net.Common` 2.80.0 — `Grpc.Net.Compression` namespace decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]                                         | [SIGNATURE]                                                                         | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :----------------------------------------------- | :---------------------------------------------------------------------------------- | :--------------------- | :--------------- |
+|   [1]   | `ICompressionProvider.EncodingName`              | `string EncodingName { get; }`                                                      | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `ICompressionProvider.CreateCompressionStream`   | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `ICompressionProvider.CreateDecompressionStream` | `Stream CreateDecompressionStream(Stream stream)`                                   | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `GzipCompressionProvider.ctor`                   | `GzipCompressionProvider(CompressionLevel defaultCompressionLevel)`                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [5]   | `GzipCompressionProvider.EncodingName`           | `string EncodingName { get; }` returns `"gzip"`                                     | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [6]   | `DeflateCompressionProvider.ctor`                | `DeflateCompressionProvider(CompressionLevel defaultCompressionLevel)`              | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [7]   | `DeflateCompressionProvider.EncodingName`        | `string EncodingName { get; }` returns `"deflate"`                                  | remote-lane#CALL_SPINE | decompile 2.80.0 |
+
+[ENTRYPOINT_SCOPE]: `GrpcChannelOptions` full property surface
+- source: `Grpc.Net.Client` 2.80.0 — `GrpcChannelOptions` decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]                                  | [SIGNATURE]                                                       | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :---------------------------------------- | :---------------------------------------------------------------- | :--------------------- | :--------------- |
+|   [1]   | `Credentials`                             | `ChannelCredentials? Credentials { get; set; }`                   | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `MaxSendMessageSize`                      | `int? MaxSendMessageSize { get; set; }`                           | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `MaxReceiveMessageSize`                   | `int? MaxReceiveMessageSize { get; set; }`                        | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `MaxRetryAttempts`                        | `int? MaxRetryAttempts { get; set; }`                             | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [5]   | `MaxRetryBufferSize`                      | `long? MaxRetryBufferSize { get; set; }`                          | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [6]   | `MaxRetryBufferPerCallSize`               | `long? MaxRetryBufferPerCallSize { get; set; }`                   | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [7]   | `CompressionProviders`                    | `IList<ICompressionProvider>? CompressionProviders { get; set; }` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [8]   | `HttpClient`                              | `HttpClient? HttpClient { get; set; }`                            | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [9]   | `HttpHandler`                             | `HttpMessageHandler? HttpHandler { get; set; }`                   | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [10]   | `DisposeHttpClient`                       | `bool DisposeHttpClient { get; set; }`                            | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [11]   | `ThrowOperationCanceledOnCancellation`    | `bool ThrowOperationCanceledOnCancellation { get; set; }`         | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [12]   | `UnsafeUseInsecureChannelCallCredentials` | `bool UnsafeUseInsecureChannelCallCredentials { get; set; }`      | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [13]   | `ServiceConfig`                           | `ServiceConfig? ServiceConfig { get; set; }`                      | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [14]   | `DisableResolverServiceConfig`            | `bool DisableResolverServiceConfig { get; set; }`                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [15]   | `ServiceProvider`                         | `IServiceProvider? ServiceProvider { get; set; }`                 | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [16]   | `HttpVersion`                             | `Version? HttpVersion { get; set; }`                              | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|  [17]   | `HttpVersionPolicy`                       | `HttpVersionPolicy? HttpVersionPolicy { get; set; }`              | remote-lane#CALL_SPINE | decompile 2.80.0 |
 
 [ENTRYPOINT_SCOPE]: policy and balancing operations
 - rail: remote-client
@@ -124,6 +242,25 @@ execution clients.
 - policy root: `GrpcChannelOptions`
 - transport root: HTTP handler selection stays explicit at channel creation
 - payload bounds: send and receive message sizes are part of remote execution policy
+
+[INTERCEPTOR_SURFACE]:
+- namespace: `Grpc.Core.Interceptors`
+- base class: `abstract class Interceptor` in `Grpc.Core.Api` 2.80.0
+- client overrides: `BlockingUnaryCall`, `AsyncUnaryCall`, `AsyncServerStreamingCall`, `AsyncClientStreamingCall`, `AsyncDuplexStreamingCall` — each virtual with a matching continuation delegate type
+- context type: `ClientInterceptorContext<TRequest,TResponse>` struct carrying `Method`, `Host`, and `Options`
+- server overrides: `UnaryServerHandler`, `ClientStreamingServerHandler`, `ServerStreamingServerHandler`, `DuplexStreamingServerHandler` — out of scope for the Compute client rail
+
+[KEEPALIVE_POLICY]:
+- keepalive is owned by `SocketsHttpHandler` (BCL) when passed as `GrpcChannelOptions.HttpHandler`
+- properties: `SocketsHttpHandler.KeepAlivePingDelay`, `KeepAlivePingTimeout`, `KeepAlivePingPolicy` (enum `HttpKeepAlivePingPolicy` with `Always`/`WithActiveRequests`)
+- these are BCL types and do not appear in `Grpc.Net.Client` or `Grpc.Core.Api` assemblies
+
+[COMPRESSION_SURFACE]:
+- namespace: `Grpc.Net.Compression` (in `Grpc.Net.Common` 2.80.0)
+- interface: `ICompressionProvider` with `EncodingName`, `CreateCompressionStream`, `CreateDecompressionStream`
+- built-in providers: `GzipCompressionProvider(CompressionLevel)` → encoding `"gzip"`; `DeflateCompressionProvider(CompressionLevel)` → encoding `"deflate"` (wraps `ZLibStream`)
+- registration: `GrpcChannelOptions.CompressionProviders` accepts `IList<ICompressionProvider>`
+- per-call selection: `grpc-internal-encoding-request` metadata key
 
 [REMOTE_RESILIENCE]:
 - namespace: `Grpc.Net.Client.Configuration`

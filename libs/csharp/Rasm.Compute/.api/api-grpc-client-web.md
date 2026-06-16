@@ -53,6 +53,19 @@ paths.
 | :-----: | :------------------------- | :---------------- | :------------------------------------- |
 |   [1]   | `GrpcWebHandler.SendAsync` | pipeline override | intercepts `application/grpc` requests |
 
+[ENTRYPOINT_SCOPE]: `GrpcWebHandler` and `GrpcWebMode` decompile-verified members
+- source: `Grpc.Net.Client.Web` 2.80.0 decompile
+- rail: remote-client#CALL_SPINE
+
+| [INDEX] | [MEMBER]                  | [SIGNATURE]                                                                | [USED_BY]              | [EVIDENCE]       |
+| :-----: | :------------------------ | :------------------------------------------------------------------------- | :--------------------- | :--------------- |
+|   [1]   | `GrpcWebHandler.ctor`     | `GrpcWebHandler()`                                                         | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [2]   | `GrpcWebHandler.ctor`     | `GrpcWebHandler(HttpMessageHandler innerHandler)`                          | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [3]   | `GrpcWebHandler.ctor`     | `GrpcWebHandler(GrpcWebMode grpcWebMode)`                                  | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [4]   | `GrpcWebHandler.ctor`     | `GrpcWebHandler(GrpcWebMode grpcWebMode, HttpMessageHandler innerHandler)` | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [5]   | `GrpcWebMode.GrpcWeb`     | `GrpcWeb = 0` — `application/grpc-web` binary wire format                  | remote-lane#CALL_SPINE | decompile 2.80.0 |
+|   [6]   | `GrpcWebMode.GrpcWebText` | `GrpcWebText = 1` — `application/grpc-web-text` base64 wire format         | remote-lane#CALL_SPINE | decompile 2.80.0 |
+
 ## [4]-[IMPLEMENTATION_LAW]
 
 [TRANSPORT_TRANSLATION]:

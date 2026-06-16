@@ -8,7 +8,7 @@ session-registration material for ONNX execution lanes.
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime.Extensions`
 - package: `Microsoft.ML.OnnxRuntime.Extensions`
-- assembly: native/build assets
+- assembly: native/build assets only — no managed public assembly in 0.14.0
 - namespace: package assets
 - asset: native runtime assets
 - rail: model
@@ -42,25 +42,38 @@ session-registration material for ONNX execution lanes.
 [ENTRYPOINT_SCOPE]: session registration
 - rail: model
 
-| [INDEX] | [SURFACE]                 | [CALL_SHAPE]     | [CAPABILITY]            |
-| :-----: | :------------------------ | :--------------- | :---------------------- |
-|   [1]   | `RegisterOrtExtensions`   | session option   | registers extension ops |
-|   [2]   | extension native library  | runtime asset    | supplies custom ops     |
-|   [3]   | tokenizer operations      | native op family | executes tokenization   |
-|   [4]   | preprocessing operations  | native op family | prepares model inputs   |
-|   [5]   | postprocessing operations | native op family | projects model outputs  |
-|   [6]   | native asset copy target  | build target     | places runtime assets   |
+| [INDEX] | [SURFACE]                              | [CALL_SHAPE]     | [CAPABILITY]                              |
+| :-----: | :------------------------------------- | :--------------- | :---------------------------------------- |
+|   [1]   | `SessionOptions.RegisterOrtExtensions` | session option   | registers extension ops via managed entry |
+|   [2]   | extension native library               | runtime asset    | supplies custom op implementations        |
+|   [3]   | tokenizer operations                   | native op family | executes tokenization                     |
+|   [4]   | preprocessing operations               | native op family | prepares model inputs                     |
+|   [5]   | postprocessing operations              | native op family | projects model outputs                    |
+|   [6]   | native asset copy target               | build target     | places runtime assets                     |
+
+[ENTRYPOINT_SCOPE]: decompile-verified registration facts
+- source: `Microsoft.ML.OnnxRuntime` 1.26.0 managed assembly decompile; `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0 package inspection
+- rail: model-lane#GENERATIVE_RUN
+
+| [INDEX] | [MEMBER]                                       | [SIGNATURE]                                                                                | [USED_BY]                 | [EVIDENCE]           |
+| :-----: | :--------------------------------------------- | :----------------------------------------------------------------------------------------- | :------------------------ | :------------------- |
+|   [1]   | `SessionOptions.RegisterOrtExtensions`         | `void RegisterOrtExtensions()` — defined on `SessionOptions` in `Microsoft.ML.OnnxRuntime` | model-lane#GENERATIVE_RUN | decompile ORT 1.26.0 |
+|   [2]   | `OrtExtensionsNativeMethods.RegisterCustomOps` | internal — invoked by `RegisterOrtExtensions()`; not a public API surface                  | model-lane#GENERATIVE_RUN | decompile ORT 1.26.0 |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
 [EXTENSION_ASSETS]:
 - package role: native custom-operator bundle
-- managed entry: `RegisterOrtExtensions`
-- binary root: `libortextensions` and `ortextensions`
+- managed entry: `SessionOptions.RegisterOrtExtensions()` (defined in `Microsoft.ML.OnnxRuntime`, not in this package)
+- binary root: `libortextensions` and `ortextensions` — placed by this package's MSBuild props/targets
 - build root: props, targets, and build-transitive asset copy
 
+[PHANTOM_CORRECTIONS]:
+- `OrtExtensions.RegisterCustomOps` — PHANTOM. No public `OrtExtensions` class exists in `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0. The package contains only native assets and MSBuild targets; there is no managed public assembly. The correct entry point is `SessionOptions.RegisterOrtExtensions()` defined in `Microsoft.ML.OnnxRuntime`.
+- `RegisterCustomOpLibraryV2` on `SessionOptions` — is a separate method for loading arbitrary custom op libraries by path; it is distinct from the Extensions package registration path.
+
 [LOCAL_ADMISSION]:
-- Extension operators enter through ONNX Runtime session registration.
+- Extension operators enter through ONNX Runtime session registration via `SessionOptions.RegisterOrtExtensions()`.
 - Tokenizer, preprocessing, and postprocessing operators stay model-rail assets.
 - Native asset presence is part of model evidence before model execution is admitted.
 - Extension packages do not create a separate preprocessing service family.
@@ -69,4 +82,4 @@ session-registration material for ONNX execution lanes.
 - Package: `Microsoft.ML.OnnxRuntime.Extensions`
 - Owns: ONNX extension native assets
 - Accept: declared custom-operator sessions
-- Reject: opaque model preprocessor services
+- Reject: opaque model preprocessor services; phantom `OrtExtensions.RegisterCustomOps` call site

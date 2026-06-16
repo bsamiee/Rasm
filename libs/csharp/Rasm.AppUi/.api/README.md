@@ -34,6 +34,7 @@
   - [api-skia-native.md](api-skia-native.md)
   - [api-harfbuzz-native.md](api-harfbuzz-native.md)
   - [api-svg-skia.md](api-svg-skia.md)
+  - [api-unicolour.md](api-unicolour.md)
 
 [CONTROLS]:
 - rail: controls

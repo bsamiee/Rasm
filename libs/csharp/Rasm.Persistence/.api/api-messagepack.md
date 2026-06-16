@@ -114,3 +114,66 @@ and annotation contracts.
 - Owns: binary snapshot codec
 - Accept: profile-declared snapshot serialization
 - Reject: serializer-branded public APIs
+
+## [5]-[STREAM_READER_MEMBERS]
+
+`MessagePackStreamReader` — decompile-verified against `MessagePack` 3.1.7 / `net9.0`
+
+[CLASS_SIGNATURE]: `public class MessagePackStreamReader : IDisposable`
+- namespace: `MessagePack`
+- not thread-safe; complete each async call (including the task) before issuing the next
+
+[MEMBER_CONTRACTS]:
+
+```csharp
+public MessagePackStreamReader(Stream stream)
+public MessagePackStreamReader(Stream stream, bool leaveOpen)
+public MessagePackStreamReader(Stream stream, bool leaveOpen, SequencePool pool)
+
+public ReadOnlySequence<byte> RemainingBytes { get; }
+
+public ValueTask<ReadOnlySequence<byte>?> ReadAsync(CancellationToken cancellationToken)
+public IAsyncEnumerable<ReadOnlySequence<byte>> ReadArrayAsync(CancellationToken cancellationToken)
+public ValueTask<int> ReadArrayHeaderAsync(CancellationToken cancellationToken)
+public ValueTask<int> ReadMapHeaderAsync(CancellationToken cancellationToken)
+public void DiscardBufferedData()
+public void Dispose()
+```
+
+[CONSTRUCTORS]:
+
+| [INDEX] | [PARAMETERS]                  | [CAPABILITY]             |
+| :-----: | :---------------------------- | :----------------------- |
+|   [1]   | `stream`                      | owned stream reader      |
+|   [2]   | `stream`, `leaveOpen`         | stream ownership control |
+|   [3]   | `stream`, `leaveOpen`, `pool` | pooled sequence reader   |
+
+`pool` is required when supplied; `null` throws `ArgumentNullException`.
+
+[PROPERTIES]:
+
+| [INDEX] | [PROPERTY]       | [TYPE]                   | [CAPABILITY]                  |
+| :-----: | :--------------- | :----------------------- | :---------------------------- |
+|   [1]   | `RemainingBytes` | `ReadOnlySequence<byte>` | buffered unread payload bytes |
+
+`RemainingBytes` is valid until the next read.
+
+[PUBLIC_METHODS]:
+
+| [INDEX] | [METHOD]               | [RETURN]                                   | [CAPABILITY]             |
+| :-----: | :--------------------- | :----------------------------------------- | :----------------------- |
+|   [1]   | `ReadAsync`            | `ValueTask<ReadOnlySequence<byte>?>`       | next top-level structure |
+|   [2]   | `ReadArrayAsync`       | `IAsyncEnumerable<ReadOnlySequence<byte>>` | streamed array elements  |
+|   [3]   | `ReadArrayHeaderAsync` | `ValueTask<int>`                           | array element count      |
+|   [4]   | `ReadMapHeaderAsync`   | `ValueTask<int>`                           | map entry count          |
+|   [5]   | `DiscardBufferedData`  | `void`                                     | buffer reset after seek  |
+|   [6]   | `Dispose`              | `void`                                     | stream and pool cleanup  |
+
+`ReadAsync` returns `null` at end of stream. Array and map header reads throw on
+end-of-stream; `ReadArrayAsync` throws on truncation.
+
+[LIFETIME_LAW]:
+- `ReadAsync` result sequence is valid until `Dispose` or the next `ReadAsync` call, whichever is first.
+- `ReadArrayAsync` result sequences carry the same validity window per element.
+- `DiscardBufferedData` is required after seeking the underlying stream between reads.
+- `SequencePool.Shared` is the default pool; inject a custom pool only for memory-budget profiling.

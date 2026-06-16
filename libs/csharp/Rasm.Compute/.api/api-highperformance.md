@@ -112,6 +112,28 @@ Partition helpers carry the partition shape; action contracts carry invocation a
 |   [3]   | `IInAction<T>.Invoke`  | read-only item | handles one input item   |
 |   [4]   | `IRefAction<T>.Invoke` | mutable item   | handles one mutable item |
 
+[ENTRYPOINT_SCOPE]: `BitHelper` decompile-verified member signatures
+- source: `CommunityToolkit.HighPerformance` 8.4.2 — `CommunityToolkit.HighPerformance.Helpers.BitHelper` decompile
+- namespace: `CommunityToolkit.HighPerformance.Helpers`
+- rail: staging-and-streams#STREAM_POOL
+
+| [INDEX] | [MEMBER]                              | [SIGNATURE]                                                                   | [USED_BY]                       | [EVIDENCE]      |
+| :-----: | :------------------------------------ | :---------------------------------------------------------------------------- | :------------------------------ | :-------------- |
+|   [1]   | `HasFlag(uint,int)`                   | `static bool HasFlag(uint value, int n)`                                      | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|   [2]   | `HasFlag(ulong,int)`                  | `static bool HasFlag(ulong value, int n)`                                     | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|   [3]   | `SetFlag(ref uint,int,bool)`          | `static void SetFlag(ref uint value, int n, bool flag)`                       | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|   [4]   | `SetFlag(uint,int,bool)`              | `static uint SetFlag(uint value, int n, bool flag)`                           | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|   [5]   | `SetFlag(ref ulong,int,bool)`         | `static void SetFlag(ref ulong value, int n, bool flag)`                      | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|   [6]   | `SetFlag(ulong,int,bool)`             | `static ulong SetFlag(ulong value, int n, bool flag)`                         | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|   [7]   | `ExtractRange(uint,byte,byte)`        | `static uint ExtractRange(uint value, byte start, byte length)`               | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|   [8]   | `ExtractRange(ulong,byte,byte)`       | `static ulong ExtractRange(ulong value, byte start, byte length)`             | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|   [9]   | `SetRange(ref uint,byte,byte,uint)`   | `static void SetRange(ref uint value, byte start, byte length, uint flags)`   | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|  [10]   | `SetRange(uint,byte,byte,uint)`       | `static uint SetRange(uint value, byte start, byte length, uint flags)`       | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|  [11]   | `SetRange(ref ulong,byte,byte,ulong)` | `static void SetRange(ref ulong value, byte start, byte length, ulong flags)` | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|  [12]   | `SetRange(ulong,byte,byte,ulong)`     | `static ulong SetRange(ulong value, byte start, byte length, ulong flags)`    | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|  [13]   | `HasLookupFlag(uint,int,int)`         | `static bool HasLookupFlag(uint table, int x, int min = 0)`                   | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+|  [14]   | `HasLookupFlag(ulong,int,int)`        | `static bool HasLookupFlag(ulong table, int x, int min = 0)`                  | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+
 ## [4]-[IMPLEMENTATION_LAW]
 
 [STAGING_MEMORY]:
@@ -134,7 +156,7 @@ Partition helpers carry the partition shape; action contracts carry invocation a
 - single-thread collapse: a partition count of one invokes the action inline on the calling thread
 
 [BIT_FLAGS]:
-- helper root: `BitHelper` static methods over `uint` and `ulong` words
+- helper root: `BitHelper` static class in namespace `CommunityToolkit.HighPerformance.Helpers`
 - flag forms: `bool HasFlag(value, int n)`; `void SetFlag(ref value, int n, bool flag)` in-place and `value SetFlag(value, int n, bool flag)` value-returning
 - range forms: `value ExtractRange(value, byte start, byte length)`; `void SetRange(ref value, byte start, byte length, flags)` in-place and value-returning, `flags` typed to the word width
 - word width: every method has a `uint` and a `ulong` overload; the staging allocation-axis word set/has-flag column binds the `ulong` overloads
