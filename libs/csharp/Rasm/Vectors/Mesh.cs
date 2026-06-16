@@ -641,6 +641,77 @@ internal sealed class LaplacianCache {
     internal Fin<Complex[]> VectorHeat(VectorHeatKey probe, Func<Fin<Complex[]>> compute) => vectorHeatCache.Of(probe, compute);
 }
 
+// --- [POWER_CELLS] ------------------------------------------------------------------------
+// Laguerre (power) diagram restricted to a triangle mesh: weighted-site radical clip per triangle.
+// OffsetI is Option<double>.None throughout item 6 — weights-unaware; the continuous-CCVT driver
+// recomputes the weighted offset d_ij = l_ij/2 + (w_i-w_j)/(2 l_ij) from live dual weights each outer
+// iteration, so a populated midpoint here would be silently trusted. A_ij==A_ji holds because the FIFO
+// incident-pair frontier pushes both cell views of every power facet.
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct PowerFacet(int SiteI, int SiteJ, double Length, Option<double> OffsetI, Point3d Centroid) {
+    public bool IsValid =>
+        SiteI >= 0 && SiteJ >= 0 && SiteI != SiteJ
+        && RhinoMath.IsValidDouble(x: Length) && Length >= 0.0
+        && OffsetI.Map(static value => RhinoMath.IsValidDouble(x: value)).IfNone(noneValue: true)
+        && Centroid.IsValid;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct PowerCell(int Site, int FragmentCount, double Area, double Mass, Point3d Barycenter, double TransportCost, bool Empty) {
+    public bool IsValid =>
+        Site >= 0 && FragmentCount >= 0
+        && RhinoMath.IsValidDouble(x: Area) && Area >= 0.0
+        && RhinoMath.IsValidDouble(x: Mass)
+        && RhinoMath.IsValidDouble(x: TransportCost) && TransportCost >= 0.0
+        && Empty == (Mass <= 0.0)
+        && (Empty || Barycenter.IsValid);
+}
+
+[SmartEnum<int>]
+public sealed partial class PowerDensityPolicy {
+    public static readonly PowerDensityPolicy Constant = new(key: 0, requiresField: false);
+    public static readonly PowerDensityPolicy ScalarFanQuadrature = new(key: 1, requiresField: true);
+    internal bool RequiresField { get; }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct RestrictedPowerReceipt(
+    int SiteCount, int ClippedTriangleCount, int FragmentCount, int IncidentPairCount, int QueuePeakDepth,
+    double FragmentAreaMin, double FragmentAreaMax, double TotalArea, double SurfaceArea, double IntegrationResidual,
+    int FirstMomentFiniteCount, int NeighborFacetCount, int EmptyCellCount, int BoundarySiteCount,
+    int DegenerateClipCount, int ClipDegeneracyCount, int NonFiniteDensityRejectionCount,
+    double AreaTolerance, double LengthTolerance, int KNearest, PowerDensityPolicy Density) {
+    public bool IsValid =>
+        SiteCount > 0 && ClippedTriangleCount >= 0 && FragmentCount >= 0 && IncidentPairCount >= 0 && QueuePeakDepth >= 0
+        && FirstMomentFiniteCount >= 0 && NeighborFacetCount >= 0 && EmptyCellCount >= 0 && BoundarySiteCount >= 0
+        && DegenerateClipCount >= 0 && ClipDegeneracyCount >= 0 && NonFiniteDensityRejectionCount >= 0
+        && FirstMomentFiniteCount <= FragmentCount && EmptyCellCount <= SiteCount && BoundarySiteCount <= SiteCount
+        && RhinoMath.IsValidDouble(x: FragmentAreaMin) && RhinoMath.IsValidDouble(x: FragmentAreaMax) && FragmentAreaMax >= FragmentAreaMin
+        && RhinoMath.IsValidDouble(x: TotalArea) && TotalArea >= 0.0
+        && RhinoMath.IsValidDouble(x: SurfaceArea) && SurfaceArea >= 0.0
+        && RhinoMath.IsValidDouble(x: IntegrationResidual) && IntegrationResidual >= 0.0
+        && RhinoMath.IsValidDouble(x: AreaTolerance) && AreaTolerance >= 0.0
+        && RhinoMath.IsValidDouble(x: LengthTolerance) && LengthTolerance >= 0.0
+        && KNearest >= 1 && Density is not null;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct RestrictedPowerDiagram(Arr<PowerCell> Cells, Arr<PowerFacet> Facets, RestrictedPowerReceipt Receipt) {
+    public bool IsValid =>
+        Cells.Count == Receipt.SiteCount && Receipt.IsValid
+        && Cells.All(static cell => cell.IsValid) && Facets.All(static facet => facet.IsValid)
+        && Cells.Filter(static cell => cell.Empty).Count == Receipt.EmptyCellCount
+        && Facets.Count == Receipt.NeighborFacetCount;
+    internal Fin<TOut> Project<TOut>(Op key) {
+        RestrictedPowerDiagram self = this;
+        return AtomProjection.Rows<RestrictedPowerDiagram, TOut>(self: self, key: key,
+            new ProjectionRow(typeof(Arr<PowerCell>), () => Fin.Succ<object>(self.Cells)),
+            new ProjectionRow(typeof(Arr<PowerFacet>), () => Fin.Succ<object>(self.Facets)),
+            new ProjectionRow(typeof(RestrictedPowerReceipt), () => Fin.Succ<object>(self.Receipt)),
+            new ProjectionRow(typeof(Seq<Point3d>), () => Fin.Succ<object>(toSeq(self.Cells.AsIterable().Filter(static cell => !cell.Empty).Map(static cell => cell.Barycenter)))));
+    }
+}
+
 internal static class MeshKernel {
     private const double DegenerateTriangleArea = 1e-14;
     private const double AspectRatioCeiling = 11.5;
@@ -725,6 +796,310 @@ internal static class MeshKernel {
         return samples.Count > 0 && samples.TrueForAll(static point => point.IsValid)
             ? Fin.Succ(toSeq(samples))
             : Fin.Fail<Seq<Point3d>>(key.InvalidResult());
+    }
+
+    // --- [POWER_CELLS] ----------------------------------------------------------------------
+    // NAMED STATEMENT-KERNEL EXEMPTION — the owned Sutherland-Hodgman radical clip, the FIFO incident-pair
+    // frontier, and the per-triangle shoelace area/first-moment accumulation run as in-place statement kernels
+    // (allocation-sensitive, no rail combinator owns the polygon mutation); the public surface returns
+    // Fin<RestrictedPowerDiagram>. Every threshold is scale-derived from the mesh bbox diagonal / mean edge.
+    private const int PowerClipKNearest = 16;
+    private const double PowerClipBandScale = 1e-9;
+    private const double PowerDenomFloorScale = 1e-12;
+    private const double PowerAreaFloorScale = 1e-10;
+    private const int PowerFanQuadraturePoints = 3;
+    // Dimensionless symmetric-stencil node radius (fraction of sqrt(area)) placing the 3 fan-quadrature nodes about the
+    // fragment centroid; a fixed quadrature-stencil position, not a convergence/admission epsilon.
+    private const double PowerFanQuadratureNodeFraction = 0.25;
+    internal readonly record struct PowerClipPolicy(double ClipBand, double DenomFloor, double AreaFloor, double EdgeBand, int KNearest, int MinPolygonVertices, PowerDensityPolicy Density) {
+        internal static Fin<PowerClipPolicy> Of(double diagonal, double meanEdge, PowerDensityPolicy density, Op key) =>
+            !RhinoMath.IsValidDouble(x: diagonal) || diagonal <= RhinoMath.ZeroTolerance || density is null
+                ? Fin.Fail<PowerClipPolicy>(key.InvalidInput())
+                : from band in key.AcceptValidated<PositiveMagnitude>(candidate: PowerClipBandScale * diagonal)
+                  from denom in key.AcceptValidated<PositiveMagnitude>(candidate: PowerDenomFloorScale * diagonal)
+                  from area in key.AcceptValidated<PositiveMagnitude>(candidate: PowerAreaFloorScale * diagonal * diagonal)
+                  from edge in key.AcceptValidated<PositiveMagnitude>(candidate: PowerClipBandScale * Math.Max(val1: meanEdge, val2: diagonal))
+                  select new PowerClipPolicy(ClipBand: band.Value, DenomFloor: denom.Value, AreaFloor: area.Value, EdgeBand: edge.Value, KNearest: PowerClipKNearest, MinPolygonVertices: 3, Density: density);
+    }
+    // Origin-shifted weighted sites: power(x) = |x-p|^2 - w, with x and p both shifted by the bbox centre so only
+    // weight DIFFERENCES survive the radical constant |p_j'|^2 - |p_i'|^2 - (w_j - w_i) and binary cancellation dies.
+    [StructLayout(LayoutKind.Auto)] private readonly record struct PowerSite(Point3d Shifted, double Weight, double NormShiftedSq);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct PowerFrame(Point3d Origin, Vector3d Ex, Vector3d Ey);
+    // Per-site fold accumulator: shoelace area + first moment (planar, in the triangle frame), transport cost
+    // integral, and the facet stubs keyed by neighbouring site. Mutable, operation-local, never escapes the run.
+    private sealed class PowerCellAccumulator {
+        internal double Area;
+        internal double MomentX, MomentY, MomentZ;
+        internal double Mass;
+        internal double Transport;
+        internal int FragmentCount;
+        internal bool FirstMomentFinite = true;
+        internal bool Boundary;
+        internal readonly Dictionary<int, (double Length, double Cx, double Cy, double Cz)> Facets = [];
+        internal void AddFragment(double area, Point3d centroid, double mass, double transport) {
+            Area += area; Mass += mass; Transport += transport; FragmentCount++;
+            MomentX += centroid.X * mass; MomentY += centroid.Y * mass; MomentZ += centroid.Z * mass;
+            if (!(RhinoMath.IsValidDouble(x: centroid.X) && RhinoMath.IsValidDouble(x: centroid.Y) && RhinoMath.IsValidDouble(x: centroid.Z) && RhinoMath.IsValidDouble(x: mass)))
+                FirstMomentFinite = false;
+        }
+        internal void AddFacet(int neighbour, double length, Point3d midpoint) {
+            (double Length, double Cx, double Cy, double Cz) prior = Facets.TryGetValue(key: neighbour, value: out (double Length, double Cx, double Cy, double Cz) existing) ? existing : default;
+            Facets[key: neighbour] = (Length: prior.Length + length, Cx: prior.Cx + (midpoint.X * length), Cy: prior.Cy + (midpoint.Y * length), Cz: prior.Cz + (midpoint.Z * length));
+        }
+    }
+    // Robust 2D power-cell clip: Sutherland-Hodgman against the world-space affine radical functions evaluated at the
+    // lifted 3D polygon vertices. g_ij(x) = 2 (p_j' - p_i') . x - (|p_j'|^2 - w_j - |p_i'|^2 + w_i); keep g <= band.
+    // No external predicate library exists; cocircular degeneracy near g==0 is counted as a clip-degeneracy rejection.
+    internal static Fin<RestrictedPowerDiagram> RestrictedPowerCells(MeshSpace space, Seq<Point3d> sites, Option<Arr<double>> weights, Option<ScalarField> density, Op key) {
+        BoundingBox box = space.Native.GetBoundingBox(accurate: true);
+        return !box.IsValid || box.Diagonal.Length <= RhinoMath.ZeroTolerance || sites.Count < 1
+            ? Fin.Fail<RestrictedPowerDiagram>(key.InvalidInput())
+            : FieldNabla.AllFinite(key, sites.ToArray()).Bind(_ => weights.Match(
+            Some: w => w.Count == sites.Count && FieldNabla.AllFiniteSpan(w.AsSpan()) ? Fin.Succ(w) : Fin.Fail<Arr<double>>(key.InvalidInput()),
+            None: () => Fin.Succ(new Arr<double>([.. Enumerable.Repeat(element: 0.0, count: sites.Count)]))))
+        .Bind(activeWeights => PowerClipPolicy.Of(diagonal: box.Diagonal.Length, meanEdge: MeanEdgeLengthOf(mesh: space.Native), density: density.IsSome ? PowerDensityPolicy.ScalarFanQuadrature : PowerDensityPolicy.Constant, key: key)
+            .Bind(policy => PowerDiagramRun(space: space, sites: sites, weights: activeWeights, density: density, center: box.Center, policy: policy, key: key)));
+    }
+    private static Fin<RestrictedPowerDiagram> PowerDiagramRun(MeshSpace space, Seq<Point3d> sites, Arr<double> weights, Option<ScalarField> density, Point3d center, PowerClipPolicy policy, Op key) {
+        using Mesh triangulated = space.Native.DuplicateMesh();
+        if (ContainsQuads(mesh: triangulated) && !triangulated.Faces.ConvertQuadsToTriangles()) return Fin.Fail<RestrictedPowerDiagram>(key.InvalidResult());
+        int siteCount = sites.Count;
+        Vector3d shift = new(x: center.X, y: center.Y, z: center.Z);
+        PowerSite[] powerSites = new PowerSite[siteCount];
+        for (int s = 0; s < siteCount; s++) {
+            Point3d shifted = sites[index: s] - shift;
+            powerSites[s] = new PowerSite(Shifted: shifted, Weight: weights[index: s], NormShiftedSq: (shifted.X * shifted.X) + (shifted.Y * shifted.Y) + (shifted.Z * shifted.Z));
+        }
+        Point3d[] siteArray = [.. sites];
+        int[][] neighbours = PowerSiteNeighbours(sites: siteArray, kNearest: Math.Min(val1: policy.KNearest, val2: siteCount));
+        int[][] faceAdjacency = FaceAdjacencyOf(mesh: triangulated);
+        bool[] boundaryFace = BoundaryFacesOf(mesh: triangulated);
+        int faceCount = triangulated.Faces.Count;
+        PowerCellAccumulator[] cells = [.. Enumerable.Range(start: 0, count: siteCount).Select(static _ => new PowerCellAccumulator())];
+        Queue<(int Site, int Face)> frontier = new();
+        System.Collections.Generic.HashSet<long> seen = [];
+        long Token(int site, int face) => ((long)site * faceCount) + face;
+        int[] faceNearest = NearestSitePerFace(triangulated: triangulated, powerSites: powerSites, shift: shift);
+        for (int f = 0; f < faceCount; f++)
+            if (faceNearest[f] >= 0 && seen.Add(item: Token(site: faceNearest[f], face: f)))
+                frontier.Enqueue(item: (Site: faceNearest[f], Face: f));
+        int incidentPairs = 0, queuePeak = 0, clippedTriangles = 0, degenerateClips = 0, clipDegeneracies = 0, densityRejections = 0;
+        double totalArea = 0.0, fragmentAreaMin = double.PositiveInfinity, fragmentAreaMax = 0.0;
+        PowerFrame?[] faceFrames = new PowerFrame?[faceCount];
+        (Point3d A, Point3d B, Point3d C)?[] faceVerts = new (Point3d A, Point3d B, Point3d C)?[faceCount];
+        while (frontier.Count > 0) {
+            queuePeak = Math.Max(val1: queuePeak, val2: frontier.Count);
+            (int site, int face) = frontier.Dequeue();
+            if (faceVerts[face] is null) {
+                MeshFace mf = triangulated.Faces[index: face];
+                if (!mf.IsTriangle) { faceVerts[face] = (A: Point3d.Unset, B: Point3d.Unset, C: Point3d.Unset); continue; }
+                Point3d va = triangulated.Vertices[index: mf.A], vb = triangulated.Vertices[index: mf.B], vc = triangulated.Vertices[index: mf.C];
+                Point3d a = va - shift, b = vb - shift, c = vc - shift;
+                faceVerts[face] = (A: a, B: b, C: c);
+                faceFrames[face] = PowerFrameOf(a: a, b: b, c: c);
+            }
+            if (faceFrames[face] is not PowerFrame frame || faceVerts[face] is not (Point3d, Point3d, Point3d) tri || !tri.A.IsValid) continue;
+            incidentPairs++;
+            (double fragArea, Point3d fragCentroid, double fragPolar, int fragVerts, bool degenerate, List<(int Neighbour, double Length, Point3d Midpoint)>? edgeFacets) = ClipPowerCell(tri: (tri.A, tri.B, tri.C), frame: frame, site: site, neighbours: neighbours[site], powerSites: powerSites, policy: policy);
+            if (degenerate) { clipDegeneracies++; }
+            if (fragVerts < policy.MinPolygonVertices || fragArea <= policy.AreaFloor) { degenerateClips++; continue; }
+            (double mass, double transport, bool densityOk) = IntegrateFragment(centroid: fragCentroid + shift, area: fragArea, polar: fragPolar, site: siteArray[site], density: density, policy: policy, space: space, key: key);
+            if (!densityOk) { densityRejections++; continue; }
+            cells[site].AddFragment(area: fragArea, centroid: fragCentroid + shift, mass: mass, transport: transport);
+            if (boundaryFace[face]) cells[site].Boundary = true;
+            totalArea += fragArea;
+            fragmentAreaMin = Math.Min(val1: fragmentAreaMin, val2: fragArea); fragmentAreaMax = Math.Max(val1: fragmentAreaMax, val2: fragArea);
+            clippedTriangles++;
+            foreach ((int neighbour, double length, Point3d midpoint) in edgeFacets) {
+                cells[site].AddFacet(neighbour: neighbour, length: length, midpoint: midpoint + shift);
+                if (neighbour >= 0 && neighbour < siteCount && seen.Add(item: Token(site: neighbour, face: face))) frontier.Enqueue(item: (Site: neighbour, Face: face));
+            }
+            foreach (int nf in faceAdjacency[face])
+                if (nf >= 0 && nf < faceCount && seen.Add(item: Token(site: site, face: nf))) frontier.Enqueue(item: (Site: site, Face: nf));
+        }
+        return AssembleDiagram(cells: cells, sites: siteArray, totalArea: totalArea, fragmentAreaMin: double.IsPositiveInfinity(d: fragmentAreaMin) ? 0.0 : fragmentAreaMin, fragmentAreaMax: fragmentAreaMax, incidentPairs: incidentPairs, queuePeak: queuePeak, clippedTriangles: clippedTriangles, degenerateClips: degenerateClips, clipDegeneracies: clipDegeneracies, densityRejections: densityRejections, policy: policy, space: space, key: key);
+    }
+    // Euclidean k-NN site adjacency seed: RTree.Point3dKNeighbors is Euclidean, NOT power-nearest, so with non-trivial
+    // weights the k-th neighbour may not bound the power-incident set (under-clip); KNearest is parameterised and
+    // IncidentPairCount/IntegrationResidual/QueuePeakDepth make any under-clip observable in the receipt.
+    private static int[][] PowerSiteNeighbours(Point3d[] sites, int kNearest) {
+        if (sites.Length <= 1) return [.. sites.Select(static _ => System.Array.Empty<int>())];
+        int amount = Math.Min(val1: Math.Max(val1: 2, val2: kNearest + 1), val2: sites.Length);
+        int[][] raw = [.. RTree.Point3dKNeighbors(hayPoints: sites, needlePts: sites, amount: amount)];
+        return [.. Enumerable.Range(start: 0, count: sites.Length).Select(i => raw[i].Where(j => j != i).ToArray())];
+    }
+    private static int[] NearestSitePerFace(Mesh triangulated, PowerSite[] powerSites, Vector3d shift) {
+        int faceCount = triangulated.Faces.Count;
+        int[] nearest = [.. Enumerable.Repeat(element: -1, count: faceCount)];
+        for (int f = 0; f < faceCount; f++) {
+            MeshFace mf = triangulated.Faces[index: f];
+            if (!mf.IsTriangle) continue;
+            Point3d va = triangulated.Vertices[index: mf.A], vb = triangulated.Vertices[index: mf.B], vc = triangulated.Vertices[index: mf.C];
+            Point3d centroid = ((va + vb + vc) / 3.0) - shift;
+            int best = -1; double bestPower = double.PositiveInfinity;
+            for (int s = 0; s < powerSites.Length; s++) {
+                Point3d d = centroid - new Vector3d(x: powerSites[s].Shifted.X, y: powerSites[s].Shifted.Y, z: powerSites[s].Shifted.Z);
+                double power = (d.X * d.X) + (d.Y * d.Y) + (d.Z * d.Z) - powerSites[s].Weight;
+                if (power < bestPower) { bestPower = power; best = s; }
+            }
+            nearest[f] = best;
+        }
+        return nearest;
+    }
+    // Faces touching a naked (boundary) edge — a topology edge wired to exactly one face — so a site whose surviving
+    // fragments include a boundary face is flagged boundary-incident; BoundarySiteCount then witnesses real evidence.
+    private static bool[] BoundaryFacesOf(Mesh mesh) {
+        bool[] boundary = new bool[mesh.Faces.Count];
+        for (int e = 0; e < mesh.TopologyEdges.Count; e++) {
+            int[] faces = mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: e);
+            if (faces.Length == 1 && faces[0] >= 0 && faces[0] < boundary.Length) boundary[faces[0]] = true;
+        }
+        return boundary;
+    }
+    private static PowerFrame? PowerFrameOf(Point3d a, Point3d b, Point3d c) {
+        Vector3d ex = b - a;
+        if (!ex.Unitize()) return null;
+        Vector3d normal = Vector3d.CrossProduct(a: b - a, b: c - a);
+        if (!normal.Unitize()) return null;
+        Vector3d ey = Vector3d.CrossProduct(a: normal, b: ex);
+        return ey.Unitize() ? new PowerFrame(Origin: a, Ex: ex, Ey: ey) : null;
+    }
+    private static (double Area, Point3d Centroid, double Polar, int Vertices, bool Degenerate, List<(int Neighbour, double Length, Point3d Midpoint)> EdgeFacets) ClipPowerCell(
+        (Point3d A, Point3d B, Point3d C) tri, PowerFrame frame, int site, int[] neighbours, PowerSite[] powerSites, PowerClipPolicy policy) {
+        (double U, double V, int Owner)[] poly = [(U: 0.0, V: 0.0, Owner: -1), (Dot2(p: tri.B, frame: frame).U, Dot2(p: tri.B, frame: frame).V, Owner: -1), (Dot2(p: tri.C, frame: frame).U, Dot2(p: tri.C, frame: frame).V, Owner: -1)];
+        List<(double U, double V, int Owner)> current = [.. poly];
+        bool degenerate = false;
+        PowerSite self = powerSites[site];
+        foreach (int j in neighbours) {
+            if (current.Count < policy.MinPolygonVertices) break;
+            PowerSite other = powerSites[j];
+            Vector3d grad = new(x: 2.0 * (other.Shifted.X - self.Shifted.X), y: 2.0 * (other.Shifted.Y - self.Shifted.Y), z: 2.0 * (other.Shifted.Z - self.Shifted.Z));
+            double constant = other.NormShiftedSq - other.Weight - (self.NormShiftedSq - self.Weight);
+            List<(double U, double V, int Owner)> next = [];
+            int n = current.Count;
+            for (int e = 0; e < n; e++) {
+                (double U, double V, int Owner) p0 = current[index: e];
+                (double U, double V, int Owner) = current[index: (e + 1) % n];
+                double g0 = Lift(u: p0.U, v: p0.V, frame: frame, grad: grad) - constant;
+                double g1 = Lift(u: U, v: V, frame: frame, grad: grad) - constant;
+                bool in0 = g0 <= policy.ClipBand, in1 = g1 <= policy.ClipBand;
+                if (Math.Abs(value: g0) <= policy.ClipBand || Math.Abs(value: g1) <= policy.ClipBand) degenerate = true;
+                if (in0) next.Add(item: p0);
+                if (in0 != in1) {
+                    double denom = g0 - g1;
+                    double t = Math.Abs(value: denom) > policy.DenomFloor ? g0 / denom : 0.5;
+                    next.Add(item: (U: p0.U + (t * (U - p0.U)), V: p0.V + (t * (V - p0.V)), Owner: j));
+                }
+            }
+            current = next;
+        }
+        if (current.Count < policy.MinPolygonVertices) return (Area: 0.0, Centroid: Point3d.Unset, Polar: 0.0, Vertices: current.Count, Degenerate: degenerate, EdgeFacets: []);
+        (double area, double cu, double cv, double polar) = ShoelaceMoment(poly: current);
+        Point3d centroid = LiftPoint(u: cu, v: cv, frame: frame);
+        List<(int Neighbour, double Length, Point3d Midpoint)> facets = [];
+        int m = current.Count;
+        for (int e = 0; e < m; e++) {
+            (double U, double V, _) = current[index: e];
+            (double U, double V, int Owner) p1 = current[index: (e + 1) % m];
+            int owner = p1.Owner;
+            if (owner < 0) continue;
+            Point3d q0 = LiftPoint(u: U, v: V, frame: frame), q1 = LiftPoint(u: p1.U, v: p1.V, frame: frame);
+            double length = q0.DistanceTo(other: q1);
+            if (length > policy.EdgeBand) facets.Add(item: (Neighbour: owner, Length: length, Midpoint: (q0 + q1) / 2.0));
+        }
+        return (Area: area, Centroid: centroid, Polar: polar, Vertices: current.Count, Degenerate: degenerate, EdgeFacets: facets);
+    }
+    private static (double U, double V) Dot2(Point3d p, PowerFrame frame) {
+        Vector3d d = p - frame.Origin;
+        return (U: d * frame.Ex, V: d * frame.Ey);
+    }
+    private static double Lift(double u, double v, PowerFrame frame, Vector3d grad) {
+        Point3d x = frame.Origin + (frame.Ex * u) + (frame.Ey * v);
+        return (grad.X * x.X) + (grad.Y * x.Y) + (grad.Z * x.Z);
+    }
+    private static Point3d LiftPoint(double u, double v, PowerFrame frame) => frame.Origin + (frame.Ex * u) + (frame.Ey * v);
+    // Planar shoelace area + first moment (centroid) + polar second moment about the centroid. The polar moment is the
+    // exact Integral_cell |x - c|^2 over the constant-density fragment: Integral(u^2+v^2) about the origin minus
+    // signedArea*(cu^2+cv^2) by the parallel-axis theorem, so item 7's TransportCost = Area*|c-q|^2 + Polar is the exact
+    // second-moment integral, not the dropped-polar midpoint surrogate.
+    private static (double Area, double Cu, double Cv, double Polar) ShoelaceMoment(List<(double U, double V, int Owner)> poly) {
+        double area2 = 0.0, cu = 0.0, cv = 0.0, iuuO = 0.0, ivvO = 0.0;
+        int n = poly.Count;
+        for (int e = 0; e < n; e++) {
+            (double U, double V, _) = poly[index: e];
+            (double U, double V, int Owner) p1 = poly[index: (e + 1) % n];
+            double cross = (U * p1.V) - (p1.U * V);
+            area2 += cross;
+            cu += (U + p1.U) * cross;
+            cv += (V + p1.V) * cross;
+            iuuO += ((U * U) + (U * p1.U) + (p1.U * p1.U)) * cross;
+            ivvO += ((V * V) + (V * p1.V) + (p1.V * p1.V)) * cross;
+        }
+        if (Math.Abs(value: area2) <= 0.0) return (Area: 0.0, Cu: 0.0, Cv: 0.0, Polar: 0.0);
+        double signedArea = 0.5 * area2;
+        double centroidU = cu / (3.0 * area2), centroidV = cv / (3.0 * area2);
+        double polar = Math.Abs(value: ((iuuO + ivvO) / 12.0) - (signedArea * ((centroidU * centroidU) + (centroidV * centroidV))));
+        return (Area: 0.5 * Math.Abs(value: area2), Cu: centroidU, Cv: centroidV, Polar: polar);
+    }
+    // Constant density (rho=1, mass=area) versus a scalar field integrated by symmetric fan quadrature about the
+    // fragment centroid; one PowerDensityPolicy.Switch owns the fork — no parallel density code path.
+    // Exact constant-density transport: Integral_cell |x - q|^2 = area * |centroid - q|^2 + polar (parallel-axis), the
+    // polar second moment about the cell centroid carried from the shoelace pass — not the dropped-polar midpoint surrogate.
+    private static (double Mass, double Transport, bool DensityOk) IntegrateFragment(Point3d centroid, double area, double polar, Point3d site, Option<ScalarField> density, PowerClipPolicy policy, MeshSpace space, Op key) =>
+        policy.Density.Switch(
+            state: (Centroid: centroid, Area: area, Polar: polar, Site: site, Density: density, Space: space, Key: key),
+            constant: static state => (Mass: state.Area, Transport: (state.Area * state.Centroid.DistanceToSquared(other: state.Site)) + state.Polar, DensityOk: true),
+            scalarFanQuadrature: static state => state.Density.Match(
+                Some: field => FanQuadratureDensity(field: field, centroid: state.Centroid, area: state.Area, polar: state.Polar, site: state.Site, space: state.Space, key: state.Key),
+                None: () => (Mass: state.Area, Transport: (state.Area * state.Centroid.DistanceToSquared(other: state.Site)) + state.Polar, DensityOk: true)));
+    private static (double Mass, double Transport, bool DensityOk) FanQuadratureDensity(ScalarField field, Point3d centroid, double area, double polar, Point3d site, MeshSpace space, Op key) {
+        double sum = 0.0; int finite = 0;
+        for (int q = 0; q < PowerFanQuadraturePoints; q++) {
+            double angle = RhinoMath.TwoPI * q / PowerFanQuadraturePoints;
+            Point3d sample = centroid + (new Vector3d(x: Math.Cos(angle), y: Math.Sin(angle), z: 0.0) * Math.Sqrt(d: Math.Max(val1: area, val2: 0.0)) * PowerFanQuadratureNodeFraction);
+            _ = field.SampleScalar(sample: sample, context: space.Tolerance, key: key).Match(
+                Succ: value => { if (RhinoMath.IsValidDouble(x: value) && value >= 0.0) { sum += value; finite++; } },
+                Fail: static _ => { });
+        }
+        if (finite == 0) return (Mass: 0.0, Transport: 0.0, DensityOk: false);
+        double rho = sum / finite;
+        double mass = rho * area;
+        return RhinoMath.IsValidDouble(x: mass) ? (Mass: mass, Transport: (mass * centroid.DistanceToSquared(other: site)) + (rho * polar), DensityOk: true) : (Mass: 0.0, Transport: 0.0, DensityOk: false);
+    }
+    private static Fin<RestrictedPowerDiagram> AssembleDiagram(PowerCellAccumulator[] cells, Point3d[] sites, double totalArea, double fragmentAreaMin, double fragmentAreaMax, int incidentPairs, int queuePeak, int clippedTriangles, int degenerateClips, int clipDegeneracies, int densityRejections, PowerClipPolicy policy, MeshSpace space, Op key) {
+        using AreaMassProperties? props = AreaMassProperties.Compute(mesh: space.Native, area: true, firstMoments: false, secondMoments: false, productMoments: false);
+        double meshArea = Optional(props).Map(static p => p.Area).IfNone(noneValue: 0.0);
+        List<PowerCell> powerCells = [];
+        Dictionary<(int, int), (double Length, Point3d Centroid)> facetTable = [];
+        int emptyCells = 0, firstMomentFinite = 0, fragmentCount = 0;
+        for (int s = 0; s < cells.Length; s++) {
+            PowerCellAccumulator acc = cells[s];
+            bool empty = acc.Mass <= 0.0;
+            Point3d barycenter = empty ? Point3d.Unset : new Point3d(x: acc.MomentX / acc.Mass, y: acc.MomentY / acc.Mass, z: acc.MomentZ / acc.Mass);
+            powerCells.Add(item: new PowerCell(Site: s, FragmentCount: acc.FragmentCount, Area: acc.Area, Mass: acc.Mass, Barycenter: barycenter, TransportCost: acc.Transport, Empty: empty));
+            if (empty) emptyCells++;
+            if (acc.FirstMomentFinite) firstMomentFinite += acc.FragmentCount;
+            fragmentCount += acc.FragmentCount;
+            foreach ((int neighbour, (double length, double cx, double cy, double cz)) in acc.Facets) {
+                if (length <= policy.EdgeBand) continue;
+                (int Lo, int Hi) keyPair = s < neighbour ? (Lo: s, Hi: neighbour) : (Lo: neighbour, Hi: s);
+                Point3d centroid = length > 0.0 ? new Point3d(x: cx / length, y: cy / length, z: cz / length) : Point3d.Unset;
+                facetTable[key: keyPair] = facetTable.TryGetValue(key: keyPair, value: out (double Length, Point3d Centroid) prior)
+                    ? (Length: Math.Max(val1: prior.Length, val2: length), Centroid: prior.Centroid.IsValid ? prior.Centroid : centroid)
+                    : (Length: length, Centroid: centroid);
+            }
+        }
+        List<PowerFacet> facets = [.. facetTable.Where(static row => row.Value.Centroid.IsValid).Select(static row => new PowerFacet(SiteI: row.Key.Item1, SiteJ: row.Key.Item2, Length: row.Value.Length, OffsetI: Option<double>.None, Centroid: row.Value.Centroid))];
+        int boundarySites = cells.Count(static acc => acc.Mass > 0.0 && acc.Boundary);
+        double integrationResidual = meshArea > 0.0 ? Math.Abs(value: totalArea - meshArea) / meshArea : Math.Abs(value: totalArea - meshArea);
+        RestrictedPowerReceipt receipt = new(
+            SiteCount: sites.Length, ClippedTriangleCount: clippedTriangles, FragmentCount: fragmentCount, IncidentPairCount: incidentPairs, QueuePeakDepth: queuePeak,
+            FragmentAreaMin: fragmentAreaMin, FragmentAreaMax: fragmentAreaMax, TotalArea: totalArea, SurfaceArea: meshArea, IntegrationResidual: integrationResidual,
+            FirstMomentFiniteCount: firstMomentFinite, NeighborFacetCount: facets.Count, EmptyCellCount: emptyCells, BoundarySiteCount: boundarySites,
+            DegenerateClipCount: degenerateClips, ClipDegeneracyCount: clipDegeneracies, NonFiniteDensityRejectionCount: densityRejections,
+            AreaTolerance: policy.AreaFloor, LengthTolerance: policy.EdgeBand, KNearest: policy.KNearest, Density: policy.Density);
+        RestrictedPowerDiagram diagram = new(Cells: new Arr<PowerCell>([.. powerCells]), Facets: new Arr<PowerFacet>([.. facets]), Receipt: receipt);
+        return diagram.IsValid ? Fin.Succ(diagram) : Fin.Fail<RestrictedPowerDiagram>(key.InvalidResult());
     }
 
     // --- [COTANGENT_ASSEMBLY] ---------------------------------------------------------------
