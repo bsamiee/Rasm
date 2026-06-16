@@ -1,5 +1,23 @@
 # Rasm.Vectors Architecture
 
+## Implementation Doctrine
+
+Every rail in this package is landed through one closed verification loop, not a single implementation pass. A build-clean tree is necessary but never sufficient: a green static gate routinely coexists with a structurally-wrong rail — a dead gauge that fails its own gate-fit on every iteration, a tautological const-0 residual that witnesses nothing, a forked near-duplicate kernel, a direction recovered from the wrong geometry. The loop below exists to catch exactly those, because the static gate cannot see them.
+
+### The per-implementation loop
+
+1. **Pre-flight (read-only).** Map every insertion point against the current tree — anchor, current symbol:line, current shape, drift, required action — plus the adaptations the design did not anticipate. Bank the map so the implementation inherits it. Stale line numbers and latent contradictions are caught here, not in code.
+2. **Author and audit the orchestration.** Each implementation is a deterministic multi-agent script (serial for coupled single-file work, parallel for disjoint files). Two independent audits clear the script before launch: one for structure and runtime-safety, one for plan and doctrine fidelity. The heaviest item is split into sub-waves so no single agent holds more than it can verify.
+3. **Implement.** One agent per item; items sharing a file edit serially. Each agent reads the binding spec and the route-owned standard in full, confirms every host or library member against the installed implementation (never from memory), lands the typed receipt, and gates the production static itself before returning.
+4. **Critique (adversarial, independent).** Five lenses attack the diff: plan-conformance, algorithms and numerics, doctrine, functionality, and build. Only the build lens rebuilds; the rest read the diff. The lenses are charged to find forged witnesses, re-rolled owners, magic literals, lost capability, and any place the diff diverges from the spec.
+5. **Harden.** Fix every true positive; reject false positives with a stated reason; collapse newly-exposed duplication; re-run the gate. Dead-lens fallbacks are mandatory — a missing build lens means the hardener re-runs the gate authoritatively; a missing numerics lens means it re-verifies the correctness non-negotiables itself.
+6. **Test-repair (baked in).** Repair the specs broken by the change surgically against the route-owned test standard — no new files, no delete-to-pass, the shared test kit leveraged — and drive the dual-folder static (production plus tests) green, including every style and formatting diagnostic.
+7. **Independent verification.** The orchestrator never trusts the self-report as the gate: re-run the dual-folder static, read the self-masking numeric diffs (residual recomputed against the original operator, symmetry forcing, scale-derived thresholds, terminal partition, finite admission, witnessed solves), and confirm no behavioral drift the static gate cannot catch. A stage that dies to a transient fault is recovered by replaying the cached prefix and re-running only the failed stage.
+
+### The "100% done" bar
+
+A rail is done only when all of these hold: the production tree is build-clean with zero style and formatting diagnostics; the adversarial critique is empty on re-review; the new behavior is witnessed by typed receipt fields carrying the algorithm's own evidence — the recomputed true relative residual against the original operator is the one correctness signal that survives preconditioning, breakdown, and cancellation — never a tautological or always-constant field; no test-only branch, hook, or flag exists in production; and the runtime law-matrix is proven by a live bridge scenario that reads the receipt fields through the failing-gate assertion. Witnessed correctness, not a green build, is the bar.
+
 ## Current State
 
 ### Claim Rules
@@ -16,7 +34,7 @@
 | Tier 2 | `[implemented]` | Shared admission routes through `FieldNabla`; `AtomProjection` remains the local raw projection utility; dense solve guards route through `DenseSolveGated`; hot-path validation has no extra helper file. | Further collapse is opportunistic only and must reduce code or remove duplication. |
 | Tier 3 | `[implemented]` | Cloud admission/neighborhood/curvature receipts, spectral wave/WKS normalization receipts, matrix solve/eigen receipts, and owner-local receipt projections are landed. | None at the current receipt-gap level. |
 | Tier 4 | `[implemented]` | Current executable rails are complete: mesh-candidate Bridson-style selection, Dwork candidate and continuous mesh active-list rails, scalar-density candidate priority, capacity-limited Lloyd residuals, thresholded mesh-spectrum receipts, mesh feature/segmentation receipts, vector-heat tangent log approximation, generalized winding SDF, boundary-source SignedHeat, closed regular-grid `VolumeGrid` SignedHeat, caller-supplied tet SignedHeat, affine MLS approximation, and RK event tracing with dense-output/bounded-bisection receipts. Bridge proof is landed for mesh Dwork, cloud neighborhood/curvature, mesh features, all six segmentation rails, sampling spectrum, tangent log approximation, scalar isolines, native iso-surface facts, and closed `VolumeGrid` sampling. | Proof hardening only: glyph/bundle runtime geometry and runtime bridge proof for newer Tier 5 rails such as GICP. |
-| Tier 5 | `[partial]` | Executable slices exist for continuous mesh Dwork, PCA-backed GICP, caller-supplied tet SignedHeat, generic RK dense output, reconstruction success/failure admission, tufted-intrinsic receipt assembly, signpost-style transport receipts, and DEC harmonic one-form receipts. | The backlog below is the complete Tier 5 closure problem set. No current receipt-backed approximation promotes to paper-complete, exact, continuous, or runtime-proven status until its item closes. |
+| Tier 5 | `[partial]` | Executable slices exist for continuous mesh Dwork, PCA-backed GICP, caller-supplied tet SignedHeat, generic RK dense output, reconstruction success/failure admission, tufted-intrinsic receipt assembly, signpost-style transport receipts, and DEC harmonic one-form receipts. | The fifteen-item algorithmic closure is code-complete (see Implementation Doctrine at top); the Remaining Work below is finalization only -- code smells, a line-by-line smell sweep, test hygiene, the exact-log-direction residuals, and the live-bridge proof. No rail promotes to runtime-proven status until its live-bridge scenario passes. |
 
 ### Status By Owner
 
@@ -35,97 +53,49 @@ Matrix, extraction admission, cloud/alignment/transport mass diagnostics, and Fl
 
 ### Remaining Work
 
-This backlog is dependency-ordered and limited to Tier 5 gaps. A current rail is done only for the executable behavior already named in this file; it does not promote stronger academic, exact, continuous, or runtime-proven variants.
+The Tier 5 algorithmic closure problem set — the fifteen dependency-ordered items (Matrix gauge and dual solves, real tufted cover, signpost transport and exact common subdivision, exact exponential and log maps, harmonic one-form and Hodge hardening, restricted power-cell substrate, continuous power CCVT, Levin MLS, APSS, Poisson, screened Poisson, GICP, method-specific dense output, extraction runtime receipts, native remesh/reduce policy) — is CODE-COMPLETE. Every rail landed through the Implementation Doctrine above with executable behavior and witnessing typed receipts. What remains below is FINALIZATION: the residual code smells, a line-by-line smell sweep, test hygiene, the one open code gap, and the live-bridge runtime proof that promotes each rail to `[implemented]`. The per-owner `[partial]` labels in the Status By Owner table are superseded by this checklist and promote per item only after that item's live-bridge scenario passes — de-backlogging is transactional, a row leaves only when its own scenario is green, never on static-green.
 
-1. **Matrix nullspace and dual solves**
-   - Owner: `Matrix.cs`
-   - Problem: Poisson, screened Poisson, harmonic forms, heat systems, and continuous OT need one Matrix-owned nullspace and gauge policy instead of local solve mutations.
-   - Required work: add gauge application and dual-solve surfaces with pinned-index or mean-zero policy, constraint rows, RHS mutation norm, nullspace status, and residual-after-gauge.
-   - Receipt closure: every consumer that solves a nullspace system attaches child solve facts plus `GaugeReceipt`; no Tier 5 consumer calls MathNet or CSparse directly.
+#### A. Code smell fixes (scale-derive every bare absolute threshold)
 
-2. **Real tufted cover**
-   - Owner: `Mesh.cs`
-   - Problem: `MeshLaplacian.TuftedIntrinsic` is mollified/IDT/collapsed cotan assembly, not a side-glued Sharp-Crane nonmanifold cover.
-   - Required work: build cover-local topology with front/back face copies, side ids, cover-local halfedges, face-side glue maps, circular face ordering, boundary gluing, cover-to-base collapse maps, and cover-local adjacency.
-   - Receipt closure: cover edge incident-side counts, glue completeness, collapse dimensions, intrinsic mollification, triangle-inequality residual, min cotan weight, negative weight count, mass positivity, and operator symmetry residual prove the substrate; `CoverAware=true` is only legal after this closes.
+`algorithms.md [RANK_AND_TOLERANCE]` rejects a bare absolute literal in `1e-4..1e-8` in domain logic. The audited outstanding literals:
 
-3. **Signpost transport and exact common subdivision**
-   - Owner: `Mesh.cs`, consumed by `Spectral.cs`
-   - Problem: current signpost-style receipts are non-exact and `ExactCommonSubdivision` remains false.
-   - Required work: store per-halfedge intrinsic lengths, tangent directions, frame residuals, traced path segments, crossed edge sequences, barycentric endpoints, snap handling, degenerate handling, subdivision points, source-face maps, ordered intersections, restriction matrices, and interpolation matrices.
-   - Receipt closure: every intrinsic edge consumed by a flipped-snapshot operator has a traced path, matrix row-sum residual, edge-length interpolation residual, intersection histogram, and exact common-subdivision facts.
+- `Mesh.cs` `SpdRegularization = 1e-8` const — a bare massScale on a cotangent-stiffness operator whose Frobenius scale varies with mesh resolution. Most severe (a const, not an overridable default). Replace with an operator-scale-relative shift (`||L||_F * machineEps^(2/3)`, or a `MeanEdgeLengthOf`-derived shift).
+- `Field.cs` `SparseCholesky(residualTolerance = 1.0e-8)` default — a bare absolute residual default; admitted and caller-overridable, so less severe, but make the default scale-relative (`||A||_F`-derived) or document the unit basis.
+- `Cloud.cs` mass-conservation guard `Math.Abs(inputTotal - outputTotal) > 1.0e-8` — make relative: `> eps * Math.Max(1, |inputTotal|)`.
+- `Spectral.cs` Gauss-Bonnet guard `Math.Abs(sumPrescribed - euler) > 1.0e-6` — express against the cone count, or keep as a documented dimensionless integer-rounding floor.
 
-4. **Exact exponential and exact log boundaries**
-   - Owner: `Mesh.cs`
-   - Problem: tangent log is still vector-heat approximate; exact global log is not single-valued outside a normal neighborhood.
-   - Required work: implement exact exp by face-unfolding path tracing with boundary/barrier/max-iteration stops; implement exact log only through a real shortest-path substrate such as MMP/window propagation and backtracing.
-   - Receipt closure: receipts expose path faces, crossed edges, path length, length residual, boundary/barrier stops, cut-locus ambiguity, non-unique path count, selected policy, and alternate path deltas. Exact log remains unsupported until those facts exist.
+Do NOT touch the audited-benign forms: admitted policy and kernel-tunable defaults constructed through validated factories (paper constants are legitimate `Of(...)` defaults), and the sanctioned `Math.Max(absolute_floor, tolerance * scale)` machine-precision-floor pattern (it yields to the relative term as the operator scales).
 
-5. **Harmonic one-form and Hodge runtime hardening**
-   - Owner: `Spectral.cs`, consumed by `Mesh.cs`
-   - Problem: harmonic one-form receipts exist, but genus-positive Hodge still needs final runtime proof and residual completeness.
-   - Required work: route Hodge through spectral harmonic basis when available, triangulate or fail non-triangle faces explicitly, and validate closed/co-closed residuals against the active DEC substrate.
-   - Receipt closure: expected dimension `2g`, basis count, edge count, finite vector length count, closed residual, co-closed residual, star-orthonormal residual, nullity/rank relation, positive `Star1` count, usable eigen receipt, and valid DEC substrate.
+#### B. Line-by-line smell sweep (all of this folder)
 
-6. **Restricted power-cell mesh substrate**
-   - Owner: `Mesh.cs`
-   - Problem: continuous CCVT/OT has no triangle-local restricted power-cell geometry.
-   - Required work: clip each triangle by power halfspaces, emit per-site fragments, integrate fragment area and first moments, track neighbor facets and empty cells, and admit constant density first before scalar-density quadrature.
-   - Receipt closure: clipped triangle count, fragment count, fragment area range, total area, first-moment finite count, neighbor facet count, empty-cell count, clipping tolerance, density policy, non-finite density rejection count, and integration residual.
+Read every production file line by line for any residual smell the per-phase critiques missed, and fix in place — densify through polymorphism, folds, and table-driven dispatch; never extract to a new file, never delete capability:
 
-7. **Continuous power CCVT and OT sampling**
-   - Owner: `Sample.cs`, with `Mesh.cs` and `Matrix.cs`
-   - Problem: `SampleKind.PowerCcvt` must not reuse candidate capacity Lloyd or discrete Sinkhorn evidence.
-   - Required work: initialize sites, solve gauge-fixed power weights, integrate restricted cells, move to density-weighted centroids, record OT energy and residual deltas, stop on capacity residual and centroid movement, and require mesh-spectrum validation for Tier 5 blue-noise claims.
-   - Receipt closure: `PowerCcvtReceipt` carries site count, density policy, target/actual mass ranges, max/L1/L2 residuals, outer/dual iterations, gauge policy, weight range, objective, OT energy delta, centroid shift, empty cells, step-halving count, fragment facts, child solve receipt, and child spectrum receipt.
+- Any bare absolute literal in `1e-4..1e-8` in domain logic not covered by A or the benign list.
+- Any receipt field that is structurally always `0` / `None` / a constant (a non-witnessing field) — make it witness its law, or remove it.
+- COLLAPSE_SCAN (`shapes.md`): three or more parallel shapes, sibling factories sharing a prefix, repeated near-identical dispatch arms, single-call private helpers, or wrappers renaming a package API — collapse into one owner, union, smart-enum, fold, or table.
+- Any exception-style control flow in domain logic, any mutable accumulation where an immutable fold belongs, any weak or unbounded type where the domain is precisely expressible, any double-admission past the one factory seam.
+- Any comment carrying task, process, proof, or session narration; any dead member; any stale comment-versus-code mismatch.
 
-8. **Levin MLS reconstruction**
-   - Owner: `Field.cs`
-   - Problem: current MLS is oriented affine approximation, not Levin nonlinear MLS projection.
-   - Required work: local weighted polynomial fit, nonlinear projection iteration, fixed-point residual, gradient evaluation, normal agreement, and support/rank/conditioning failures.
-   - Receipt closure: support count, rejected samples, weight sum, local plane origin/normal/offset, polynomial degree, basis size, projection iterations, fixed-point residual, rank, condition, weighted fit residual, gradient norm, normal agreement, and solve receipt.
+#### C. Exact-log-direction residuals (the one open code gap)
 
-9. **APSS reconstruction**
-   - Owner: `Field.cs`
-   - Problem: APSS is unsupported; there is no moving algebraic sphere fit or degeneracy-to-plane policy.
-   - Required work: weighted algebraic sphere fitting, degeneracy detection, plane fallback, curvature parameter, implicit gradient, nonlinear projection, and finite residual gates.
-   - Receipt closure: local radii range, global scale, curvature parameter, algebraic coefficients, coefficient conditioning, derivative residual, position residual, degenerate-plane flag, projection iterations, gradient validity, normal agreement, and solve receipt.
+The BVP geodesic tracer closed the common-subdivision overlay (real non-identity interpolation with a genuine edge-length residual), the exact exp map, the exact log distance field, and the exact log direction for the common case. Two honest residuals remain, both surfaced as typed failures (never forged):
 
-10. **Poisson reconstruction**
-    - Owner: `Field.cs`, with `Matrix.cs`
-    - Problem: there is no global indicator field from oriented samples with sparse Laplacian/divergence assembly and extraction proof.
-    - Required work: define domain/grid or adaptive cell policy, accumulate normal/vector contributions, assemble sparse Laplacian and divergence RHS, apply gauge, solve, choose isovalue, sample the field, and extract an iso mesh through a truthful native route.
-    - Receipt closure: grid/adaptive policy, contribution counts, rejected normal count, Laplacian nonzeros, divergence nonzeros, RHS norm, gauge receipt, solve receipt, isovalue, field residuals, sample residuals, extraction route, extraction validity, and Rhino regular-grid facts when used.
+- The log direction is rigorously witnessed only for 1-ring targets (the target face is source-incident). A 2-ring direct target — the source illuminates the owning edge but is not a vertex of the target face — returns `InvalidResult`. Generalize the source-outgoing seat to recover the direction for the multi-ring direct case.
+- A multi-saddle (cut-locus-bent) geodesic defers the direction to `IterationCap` with the MMP-exact distance recorded; a piecewise-through-saddle replay is needed to recover the bent direction. Unreachable under the default `SaddleAngleThreshold`; fires only with a custom low threshold.
 
-11. **Screened Poisson reconstruction**
-    - Owner: `Field.cs`, with `Matrix.cs`
-    - Problem: screened Poisson is unsupported and must not be represented as a diagonal shift.
-    - Required work: add sparse interpolation/data constraints, point weight, confidence/normal policy, data residual, gradient residual, separated energy components, and unscreened equivalence when `pointWeight=0`.
-    - Receipt closure: point weight, confidence policy, interpolation row count, screened matrix nonzeros, data residual, gradient residual, smoothness energy, screening energy, total energy, gauge receipt, solve receipt, extraction receipt, and unscreened-equivalence flag.
+#### D. Test hygiene (no dead or stale tests)
 
-12. **GICP runtime proof and optimizer receipts**
-    - Owner: `Align.cs`
-    - Problem: GICP has production code but lacks runtime bridge proof and complete optimizer/covariance receipt facts.
-    - Required work: keep `AlignKind.Generalized` as the only rail; add covariance policy, neighbor count, radius, eigen floor, accepted/rejected samples, rank clamps, fallback count, SPD batch facts, regularization facts, condition proxies, objective decrease, gradient norm, damping status, normal-equation status, step norm, line-search steps, initial cost, and final cost.
-    - Receipt closure: asymmetric nonplanar point-cloud alignment proves finite correspondences, usable 6x6 solve, PCA facts, finite Mahalanobis values, transform recovery, and cost reduction.
+Update the existing specs and the scenario file to the final API surgically — no new test files, no delete-to-pass. Leverage the shared test kit (`tests/csharp/_testkit`: Fixtures, Gens, Approx, Numeric, Spec, HostBundle, plus the package TestKit) rather than hand-rolling. Drive the dual-folder static gate green for BOTH the production folder and the test assembly, including every IDExxxx style and `.editorconfig` formatting diagnostic. Remove a genuinely-dead test (whose capability a closure removed) with a one-line note; never silence a stale assertion — fix it to the now-correct behavior. The bare-literal and dead-field findings of B apply to the test sources too.
 
-13. **Method-specific dense output**
-    - Owner: `Flow.cs`
-    - Problem: current dense output is generic moment-fit executable behavior, not a method-specific continuous extension.
-    - Required work: add method-keyed coefficient families only for audited Dormand-Prince/Shampine and Bogacki-Shampine coefficient matrices; keep Cash-Karp executable-only until a stronger source is admitted.
-    - Receipt closure: coefficient family, generic-vs-method-specific status, endpoint value residual, endpoint derivative residual, coefficient residual, method order, dense order, theta checks, correction solve receipt when used, and event localization residuals.
+#### E. Live-scenario runtime proof (the gate that promotes each rail to `[implemented]`)
 
-14. **Extraction runtime receipts**
-    - Owner: `Extraction.cs`
-    - Problem: glyph/grid/stream bundle paths need runtime proof with diagnosable failure categories.
-    - Required work: preserve vector span failures, scalar sampling failures, streamline trace failures, native route failures, dense-output usage, root-localization routes, termination causes, rejected-step counts, and residual bounds per aggregate receipt.
-    - Receipt closure: explicit seeds over constant vector/scalar fields produce glyph lines, grid samples, and RK streamlines with emitted/rejected counts and trace facts.
+A live Rhino host is available; `tools/assay` and `tools/rhino-bridge` own launch, connect, and verify, and the supervisor auto-spawns the host with no manual step.
 
-15. **Native remesh and reduce policy exposure**
-    - Owner: `Mesh.cs`
-    - Problem: native remesh/reduce receipts do not expose the full admitted Rhino policy surface.
-    - Required work: extend existing `RemeshKind` ownership for `QuadRemeshParameters` and `ReduceMeshParameters` without adding a parallel wrapper.
-    - Receipt closure: quad remesh receipts carry target length/count, adaptive size/count, hard-edge detection, guide influence, preserve-edge mode, symmetry axis, guide curves, face blocks, cancellation/progress/error, and before/after topology; reduce receipts carry desired polygon count, distortion, accuracy, normalize size, tags/locks, cancellation/progress/error, and before/after topology.
+- Command: `uv run python -m tools.assay bridge verify tests/csharp/libs/Rasm/Vectors`. Let it own the Release build (do NOT pre-build Debug, or it tests stale code); it is long-running and singleton (never run two concurrently). First-run caveat: if the endpoint never appears (`connect-failed`), install the bridge `.rhp` Stub via the `yak` lane, then re-verify.
+- Scenario-authoring law: every load-bearing law-matrix invariant MUST go through `ctx.Require` — the only failing gate. `ctx.Expect`, `Note`, and `Fact` emit evidence but do NOT fail the scenario; a receipt field read only in `Expect` is unproven.
+- Author or update one receipt-law scenario per rail in the existing scenario file, asserting the typed-receipt law-matrix. Banked critical corrections: item 10 — `Gauge.PinnedIndex.IsSome && PostShiftApplied == PinZero && ConstraintRows == 1` (not the stale `Gauge.MeanZero`); item 7 — `MeanZeroGaugeApplied` via `PostShiftApplied == MeanZero` and the dual gauge dimension `== siteCount` (guards the dead-`dimension:1` regression); item 12 — `GeneralizedAlign` (regularized-branch-only count plus the covariance ridge); item 14 — `ExtractionProof` (glyph/grid/RK over constant and NaN fields, the failure-category and Route fields); item 5 — add an ANNULUS fixture (genus 0, two boundary components) asserting `HarmonicDimension == 1` and `BoundaryComponentCount == 2`: it is the only simple fixture that witnesses the bounded-surface `2g + (b-1)` harmonic dimension (the tetrahedron, disk, and torus fixtures all agree under the old `2g`, so that fix is otherwise untested), and pair it with `Rank + Nullity == EdgeCount` so a too-coarse mesh fails loudly; the degenerate-mesh DEC case asserts the `Unsupported` rejection (a collapsed metric has no Hodge star — a genuine typed rejection), with a partially-degenerate fixture asserting the soft `SkippedDegenerateFaces > 0` plus success; items 3 and 4 — assert the real geodesic law-matrix (exp `PathRelativeResidual <= SqrtEpsilon`, log-direction success on a 1-ring target, the honest `InvalidResult` / `IterationCap` on the 2-ring and multi-saddle residuals, the non-identity overlay with a real `EdgeLengthInterpolationResidual`).
+- Coordination: a concurrent assay/bridge stream edits the same scenario file and `Spectral.cs` (the document-lifecycle wrap, the open-DEC and degenerate-DEC expectations, the harmonic-boundary-dimension fix). Rebase finalization onto its committed state and align — do not diverge — the shared spectral and DEC scenario block.
+- Promotion: for each rail with landed code AND a green `assay bridge verify` scenario, promote its Status-By-Owner row to `[implemented]` (the reconstruction rails labeled `ApproximateSdf`, not paper-exact) and the Tier 5 state accordingly. The Mesh/Spectral owner promotes once items 3 and 4 (with their residuals honestly labeled) are scenario-proven.
 
 ### Validation Centralization
 
