@@ -7,10 +7,10 @@ Rasm.Compute owns the suite wire vocabulary: five proto services compiled GrpcSe
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                    |
 | :-----: | ------------------ | ------------------------------------------------------------------------- |
 |   [1]   | PROTO_VOCABULARY   | Five wire services, canonical geometry messages, generated-client capsule |
-|   [2]   | CONTRACT_EVOLUTION | Descriptor-diff drift law, parse hardening, reserved-number policy        |
-|   [3]   | FAULT_PROJECTION   | One FaultDetail family carrying typed faults through status details       |
-|   [4]   | TRANSPORT_AXIS     | Four transport rows, streaming capability, dial dispatch, redial law      |
-|   [5]   | CALL_POLICY        | Credential axis, one stamping interceptor, deadline and payload edges     |
+|   [2]   | CONTRACT_EVOLUTION | Descriptor-diff drift law behind one XxHash128 checksum gate, parse hardening, reserved-number policy |
+|   [3]   | FAULT_PROJECTION   | One FaultDetail family plus a 10-row StatusCode→WireFault FrozenDictionary rail |
+|   [4]   | TRANSPORT_AXIS     | Four transport rows, streaming capability, keepalive/pooling/affinity columns, grpc-web binary framing, dial dispatch, redial law |
+|   [5]   | CALL_POLICY        | Five credential rows, three compression rows, one five-arity stamping interceptor threading the HopTotal deadline budget, payload edge |
 |   [6]   | ARTIFACT_FRAMES    | Suite frame law: 64 KiB frames, Crc32, zero-copy wrap                     |
 |   [7]   | TS_PROJECTION      | Browser wire posture, fault and frame contracts, method shapes            |
 
@@ -80,9 +80,9 @@ public sealed record WireServices(
 - Owner: `ContractDrift` `[Union]` three-way drift classification; `ContractGuard` — descriptor surface fold, classifier delegate, descriptor publication path, proto-name reconciliation; `ParseGuard` — inbound parse-hardening policy record carrying the bounded-reader factory, the proto2 `ExtensionRegistry`, and the dynamic open-envelope admission.
 - Cases: Identical, Additive (tolerated), Breaking (typed rejection carrying the missing surface rows).
 - Entry: `AdditiveOnly(Seq<ByteString> local, Func<string, Fin<Seq<ByteString>>> peerSetOf)` — the delegate `Discovery.Compatible` consumes; checksum equality or additive drift admits, breaking drift rejects on the hop fault rail.
-- Packages: Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
+- Packages: Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, Rasm.AppHost (project), BCL inbox
 - Growth: a removed field becomes one reserved row carrying its number and name — numbers never return to use; one surface-projection row absorbs a new descriptor dimension; the host↔companion capability negotiation and per-node EP-option bag ride the `Struct`/`Value`/`ListValue` open-envelope column under the same additive-only contract — open within an additive-only contract, never a drift escape hatch; zero new surface.
-- Boundary: contract identity is the serialized descriptor set built through `FileDescriptor.BuildFromByteStrings` at startup and published beside the discovery manifest at `DescriptorPath`; the descriptor key reads the proto field name reconciled through `OriginalNameAttribute` so a diverged C# identifier never enters the surface set; the manifest checksum derives from the published bytes through the settled XxHash128 identity row; `UnknownFieldSet` retention stays at the generated-parser default so forward-decoded payloads re-serialize with unknown fields intact — a discard-configured parser is the rejected form; `ParseGuard.Canonical` builds the inbound reader through `CodedInputStream.CreateWithLimits` so the size and recursion bounds are applied at construction, never held as inert numbers, symmetric with the send-side PayloadOverBounds pre-check; the proto2 `ExtensionRegistry` resolves declared extensions at the same parse boundary, and the `Struct` open envelope admits a forward-compatible option bag without a proto regen per option — a held-but-unapplied limit and a bare `CodedInputStream` construction are the deleted forms.
+- Boundary: contract identity is the serialized descriptor set built through `FileDescriptor.BuildFromByteStrings` at startup and published beside the discovery manifest at `DescriptorPath`; the descriptor key reads the proto field name reconciled through `OriginalNameAttribute` so a diverged C# identifier never enters the surface set; the manifest checksum derives from the published bytes through the settled XxHash128 identity row — `ContractGuard.Checksum` folds the descriptor `ByteString` set into one `XxHash128.Hash` digest so the `AdditiveOnly` gate admits on checksum equality before any descriptor parse and only descends into `Build`+`Classify` when the digests diverge, so an equal-descriptor peer never pays the surface-set diff and a checksum mismatch never admits on its own — descriptor-diff is the second gate behind the checksum gate, never a replacement for it; `UnknownFieldSet` retention stays at the generated-parser default so forward-decoded payloads re-serialize with unknown fields intact — a discard-configured parser is the rejected form; `ParseGuard.Canonical` builds the inbound reader through `CodedInputStream.CreateWithLimits` so the size and recursion bounds are applied at construction, never held as inert numbers, symmetric with the send-side PayloadOverBounds pre-check; the proto2 `ExtensionRegistry` resolves declared extensions at the same parse boundary, and the `Struct` open envelope admits a forward-compatible option bag without a proto regen per option — a held-but-unapplied limit and a bare `CodedInputStream` construction are the deleted forms.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -112,6 +112,9 @@ public static class ContractGuard {
     public static string DescriptorPath(ProfileRoots roots, int pid) =>
         Path.Join(roots.AppRoot, "discovery", $"rasm-{pid}.pb");
 
+    public static string Checksum(Seq<ByteString> serialized) =>
+        Convert.ToHexStringLower(XxHash128.Hash(serialized.Fold(Array.Empty<byte>(), static (acc, bytes) => [.. acc, .. bytes.Span])));
+
     public static Fin<Seq<FileDescriptor>> Build(Seq<ByteString> serialized) =>
         Try.lift(() => FileDescriptor.BuildFromByteStrings(serialized).ToSeq())
             .Run()
@@ -125,7 +128,9 @@ public static class ContractGuard {
         };
 
     public static Func<string, string, bool> AdditiveOnly(Seq<ByteString> local, Func<string, Fin<Seq<ByteString>>> peerSetOf) =>
-        (_, peerChecksum) =>
+        (localChecksum, peerChecksum) =>
+            Checksum(local) == localChecksum &&
+            peerChecksum == localChecksum ||
             (from peerBytes in peerSetOf(peerChecksum) from peerFiles in Build(peerBytes) from localFiles in Build(local) select Classify(localFiles, peerFiles))
                 .Map(static drift => drift is not ContractDrift.Breaking)
                 .IfFail(false);
@@ -140,15 +145,28 @@ public static class ContractGuard {
 
 ## [4]-[FAULT_PROJECTION]
 
-- Owner: `WireFault` — the client-edge decode of the one FaultDetail message family; the server edge packs at app roots.
-- Cases: every typed fault union crossing the wire — ComputeFault (band 2200), HopFault (band 4500), store faults at their app roots — projects through the same FaultDetail rows.
-- Entry: `Decode(RpcException error)` — `Option<FaultDetail>` from the status-details trailer; `Classify` converts the residual StatusCode taxonomy into the typed rail in one arm.
-- Packages: Google.Protobuf, Grpc.Net.Client, LanguageExt.Core
-- Growth: one evidence map row per new fault family; zero new surface.
-- Boundary: a gRPC status code plus string is never the terminal error shape — the server edge packs FaultDetail into `google.rpc.Status` details, the client edge unpacks back onto the typed rail, and TS reconstructs the identical literal-discriminated union; the Conflict receipt is the retry-owner complement of this law.
+- Owner: `WireFault` `[Union]` — the client-edge typed rail that the one FaultDetail message family decodes onto; the server edge packs FaultDetail at app roots.
+- Cases: `Cancelled`, `DeadlineExpired`, `Unreachable` (carrying the residual `StatusCode`), `InvalidRequest`, `NotFound`, `Conflict`, `PermissionDenied`, `Exhausted`, `Unauthenticated` — nine union arms; every typed wire-fault family — ComputeFault (band 2200), HopFault (band 4500), store faults at their app roots — packs into the same FaultDetail rows and the client decodes them back, while `Classify` lands the residual `StatusCode` taxonomy on these nine arms.
+- Entry: `Decode(RpcException error)` — `Option<FaultDetail>` from the status-details trailer; `Classify` converts the residual StatusCode taxonomy into the typed rail through the `StatusRail` `FrozenDictionary<StatusCode, Func<string, WireFault>>` fold keyed by the non-sequential numeric code, never 17 hand arms.
+- Packages: Google.Protobuf, Grpc.Net.Client, LanguageExt.Core, Thinktecture.Runtime.Extensions
+- Growth: one evidence map row per new fault family; one `StatusRail` entry per residual code reclassification; zero new surface.
+- Boundary: a gRPC status code plus string is never the terminal error shape — the server edge packs FaultDetail into `google.rpc.Status` details, the client edge unpacks back onto the typed rail, and TS reconstructs the identical literal-discriminated union; the Conflict receipt is the retry-owner complement of this law; the `StatusCode` taxonomy is non-sequential by value (`OK=0`..`Unauthenticated=16`, `Aborted=10`, `Unavailable=14`) so the fold keys by the decompile-verified numeric value through a `FrozenDictionary`, never by ordinal position — an ordinal-indexed table is the deleted form; a code absent from the rail folds to `EndpointUnreachable` carrying the spelled code, so the table is total without enumerating the OK success arm as a fault.
 
 ```csharp signature
-public static class WireFault {
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WireFault {
+    private WireFault() { }
+
+    public sealed record Cancelled(string Detail) : WireFault;
+    public sealed record DeadlineExpired(string Detail) : WireFault;
+    public sealed record Unreachable(StatusCode Code, string Detail) : WireFault;
+    public sealed record InvalidRequest(string Detail) : WireFault;
+    public sealed record NotFound(string Detail) : WireFault;
+    public sealed record Conflict(string Detail) : WireFault;
+    public sealed record PermissionDenied(string Detail) : WireFault;
+    public sealed record Exhausted(string Detail) : WireFault;
+    public sealed record Unauthenticated(string Detail) : WireFault;
+
     public const string DetailsTrailer = "grpc-status-details-bin";
 
     public static Option<FaultDetail> Decode(RpcException error) =>
@@ -158,12 +176,24 @@ public static class WireFault {
                 .Filter(static any => any.Is(FaultDetail.Descriptor)).HeadOrNone()
                 .Map(static any => any.Unpack<FaultDetail>()));
 
-    public static ComputeFault Classify(RpcException error) =>
-        error.StatusCode switch {
-            StatusCode.Cancelled => new ComputeFault.Cancelled(error.Status.Detail),
-            StatusCode.DeadlineExceeded => new ComputeFault.DeadlineExpired(error.Status.Detail),
-            _ => new ComputeFault.EndpointUnreachable($"{error.StatusCode}: {error.Status.Detail}"),
-        };
+    static readonly FrozenDictionary<StatusCode, Func<string, WireFault>> StatusRail =
+        new Dictionary<StatusCode, Func<string, WireFault>> {
+            [StatusCode.Cancelled] = static detail => new Cancelled(detail),
+            [StatusCode.DeadlineExceeded] = static detail => new DeadlineExpired(detail),
+            [StatusCode.InvalidArgument] = static detail => new InvalidRequest(detail),
+            [StatusCode.NotFound] = static detail => new NotFound(detail),
+            [StatusCode.AlreadyExists] = static detail => new Conflict(detail),
+            [StatusCode.Aborted] = static detail => new Conflict(detail),
+            [StatusCode.FailedPrecondition] = static detail => new Conflict(detail),
+            [StatusCode.PermissionDenied] = static detail => new PermissionDenied(detail),
+            [StatusCode.Unauthenticated] = static detail => new Unauthenticated(detail),
+            [StatusCode.ResourceExhausted] = static detail => new Exhausted(detail),
+        }.ToFrozenDictionary();
+
+    public static WireFault Classify(RpcException error) =>
+        StatusRail.TryGetValue(error.StatusCode, out var make)
+            ? make(error.Status.Detail)
+            : new Unreachable(error.StatusCode, error.Status.Detail);
 }
 ```
 
@@ -179,7 +209,7 @@ public static class WireFault {
 - Receipt: channel-state transitions and redial evidence emit through `ReceiptSinkPort.Send` keyed by the endpoint correlation; storeEpoch drift after redial is its own evidence row.
 - Packages: Grpc.Net.Client, Grpc.Net.Client.Web, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
 - Growth: one row absorbs a new byte path — the Windows-only `NamedPipe` (`PipeSecurity` ACL) and the bearer-plus-DACL `TcpLoopback` rows are dropped from the live macOS axis and their security-law member spelling stays the design record on `[PIPE_SECURITY]`, re-entering as one row each only on a host whose RID admits the byte path, the `PipeSecurity` ACL for the pipe and the DACL plus bearer for the loopback never blurred into one credential shape; one `NodeSelection` case absorbs a new farm strategy; zero new surface.
-- Boundary: `WireChannels` is the named boundary capsule on this fence; keepalive, pooled-idle, multiplexing, and the 4 MiB caps read from `GrpcChannelPolicy.Canonical` and are never re-declared; ArtifactSync bidi and CaptureEvents client-stream are structurally excluded on the GrpcWeb row — intent admission faults a stream shape the row cannot carry; reconnect on UnixDomainSocket is redial-only with the storeEpoch re-handshake after redial; a failed attach folds to the LocalOnly consequence — substrate predicates read the retained Capability set, never a second health probe; `NodeSelection.ModelWarmupAffinity` populates the endpoint affinity column from the warm-start session fingerprint so a cold companion routes to the node holding the matching EP-context blob, and the experimental resolver and balancer config surface never enters — node affinity rides endpoint identity rows, never a `ServiceConfig` load-balancing policy; this endpoint affinity is the single warm-start column the `SubstrateSelection.Plan` fold reads — `WarmAffinity` marking an endpoint affine through `nodeWarmBlobs.Contains(warmStartFingerprint)` projects the `RemoteGrpc.Key` into `SelectionContext.WarmAffinity` so the selection fold's `AffinityRank` tie-breaker reads the same warm fact from one substrate-keyed set, never a second affinity notion parallel to endpoint identity.
+- Boundary: `WireChannels` is the named boundary capsule on this fence; keepalive, pooled-idle, multiplexing, and the 4 MiB caps read from `GrpcChannelPolicy.Canonical` and are never re-declared — the `KeepAlivePingDelay`/`KeepAlivePingTimeout`/`EnableMultipleHttp2Connections` values are BCL `SocketsHttpHandler` members threaded from the channel-policy owner and the `KeepAlivePingPolicy = HttpKeepAlivePingPolicy.WithActiveRequests` is the BCL keepalive enum (not a `Grpc.Net.Client` member) so idle-pool connections never burn pings without an in-flight request, and a redeclared gRPC-package keepalive member is the deleted form (no such member exists on the `Grpc.Net.Client` or `Grpc.Core.Api` surface); channel pooling rides one `GrpcChannel` per `ComputeEndpoint` with `PooledConnectionIdleTimeout` set `Infinite` and `EnableMultipleHttp2Connections` true so a single warm channel multiplexes every stub call and a per-call channel is the deleted form, and the warm channel is reused across redials until the storeEpoch re-handshake replaces it; ArtifactSync bidi and CaptureEvents client-stream are structurally excluded on the GrpcWeb row — intent admission faults a stream shape the row cannot carry — because `GrpcWebMode.GrpcWeb` binary framing carries unary (request-chunked up, response framed down) and server-stream (genuine binary server-streaming over Fetch with trailers restored after the message frames) only, while `GrpcWebMode.GrpcWebText` base64 framing is the rejected google-client-only spelling that the binary mode supersedes on this host; reconnect on UnixDomainSocket is redial-only with the storeEpoch re-handshake after redial; a failed attach folds to the LocalOnly consequence — substrate predicates read the retained Capability set, never a second health probe; `NodeSelection.ModelWarmupAffinity` populates the endpoint affinity column from the warm-start session fingerprint so a cold companion routes to the node holding the matching EP-context blob, and the experimental resolver and balancer config surface never enters — node affinity rides endpoint identity rows, never a `ServiceConfig` load-balancing policy; this endpoint affinity is the single warm-start column the `SubstrateSelection.Plan` fold reads — `WarmAffinity` marking an endpoint affine through `nodeWarmBlobs.Contains(warmStartFingerprint)` projects the `RemoteGrpc.Key` into `SelectionContext.WarmAffinity` so the selection fold's `AffinityRank` tie-breaker reads the same warm fact from one substrate-keyed set inside the rank-equal tier, never a second affinity notion parallel to endpoint identity and never a rank override.
 
 ```csharp signature
 public sealed class WireKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -219,13 +249,17 @@ public static class WireChannels {
         CompressionProviders = CompressionProviders.Register,
         MaxSendMessageSize = GrpcChannelPolicy.Canonical.MaxSendBytes, MaxReceiveMessageSize = GrpcChannelPolicy.Canonical.MaxReceiveBytes,
         HttpHandler = new SocketsHttpHandler {
-            PooledConnectionIdleTimeout = GrpcChannelPolicy.Canonical.PooledConnectionIdle, KeepAlivePingDelay = GrpcChannelPolicy.Canonical.KeepAlivePingDelay,
-            KeepAlivePingTimeout = GrpcChannelPolicy.Canonical.KeepAlivePingTimeout, EnableMultipleHttp2Connections = GrpcChannelPolicy.Canonical.EnableMultipleHttp2Connections,
+            PooledConnectionIdleTimeout = GrpcChannelPolicy.Canonical.PooledConnectionIdle,
+            KeepAlivePingDelay = GrpcChannelPolicy.Canonical.KeepAlivePingDelay,
+            KeepAlivePingTimeout = GrpcChannelPolicy.Canonical.KeepAlivePingTimeout,
+            KeepAlivePingPolicy = HttpKeepAlivePingPolicy.WithActiveRequests,
+            EnableMultipleHttp2Connections = GrpcChannelPolicy.Canonical.EnableMultipleHttp2Connections,
         },
     };
 
     public static GrpcChannelOptions Web(ComputeEndpoint endpoint) => new() {
-        Credentials = endpoint.Credential.Channel(endpoint.Mints), HttpVersion = HttpVersion.Version11,
+        Credentials = endpoint.Credential.Channel(endpoint.Mints),
+        HttpVersion = HttpVersion.Version11, HttpVersionPolicy = HttpVersionPolicy.RequestVersionExact,
         MaxSendMessageSize = GrpcChannelPolicy.Canonical.MaxSendBytes, MaxReceiveMessageSize = GrpcChannelPolicy.Canonical.MaxReceiveBytes,
         HttpHandler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, endpoint.Handler.IfNone(static () => new HttpClientHandler())()),
     };
@@ -285,14 +319,14 @@ sequenceDiagram
 
 ## [6]-[CALL_POLICY]
 
-- Owner: `CredentialPolicy` `[SmartEnum<string>]` five rows projecting `ChannelCredentials`; `CompressionProviders` `[SmartEnum<string>]` the claim-gated encoding axis projecting inbox `ICompressionProvider` rows; `CallSpine` — the one client interceptor stamping correlation and traceparent, plus the deadline and payload edges.
-- Cases: InsecureLoopback (UnixDomainSocket-scoped), Tls, Mtls (client certificate rides the handler TLS options row), Bearer (browser; per-call token minted through `CallCredentials.FromInterceptor(AsyncAuthInterceptor)` and composed onto the channel through `ChannelCredentials.Create`), Composed (farm node dialing a hub; ≥2 per-call identity mints stacked through `CallCredentials.Compose(params CallCredentials[])` and bound to the TLS channel through `ChannelCredentials.Create`, a single-mint sequence collapsing to the bare `FromInterceptor` bind and an empty sequence to the plain `SecureSsl` channel). `CompressionProviders` rows: Identity (the default no-op `"identity"` accept-encoding), Gzip (`GzipCompressionProvider`), Deflate (`DeflateCompressionProvider`).
+- Owner: `CredentialPolicy` `[SmartEnum<string>]` five rows projecting `ChannelCredentials`; `CompressionProviders` `[SmartEnum<string>]` the claim-gated encoding axis projecting inbox `ICompressionProvider` rows; `CallSpine` — the one client interceptor stamping correlation, traceparent, and the `DeadlineClass.HopTotal` budget across all five client call shapes, plus the deadline and payload edges.
+- Cases: InsecureLoopback (UnixDomainSocket-scoped), Tls, Mtls (client certificate rides the handler TLS options row), Bearer (browser; per-call token minted through `CallCredentials.FromInterceptor(AsyncAuthInterceptor)` and composed onto the channel through `ChannelCredentials.Create`), Composed (farm node dialing a hub; ≥2 per-call identity mints stacked through `CallCredentials.Compose(params CallCredentials[])` and bound to the TLS channel through `ChannelCredentials.Create`, a single-mint sequence collapsing to the bare `FromInterceptor` bind and an empty sequence to the plain `SecureSsl` channel). `CompressionProviders` rows: Identity (the default no-op `"identity"` accept-encoding), Gzip (`GzipCompressionProvider`), Deflate (`DeflateCompressionProvider` wrapping `ZLibStream` for zlib framing per the decompile). `CallSpine` interceptor overrides: `BlockingUnaryCall`, `AsyncUnaryCall`, `AsyncServerStreamingCall`, `AsyncClientStreamingCall`, `AsyncDuplexStreamingCall` — the full `Grpc.Core.Interceptors.Interceptor` client family, one `Stamped` projection feeding every shape.
 - Entry: `Options(Instant deadline, CancellationToken token)` — the intent deadline Instant projects to DateTime exactly at this edge; `Bounded` is the `CalculateSize` pre-check faulting PayloadOverBounds before serialization.
-- Auto: every generated stub call crosses the interceptor — correlation metadata, W3C traceparent, and per-call receipt capture stamp without hand-threaded Metadata.
+- Auto: every generated stub call crosses the interceptor — correlation metadata, W3C traceparent, the budgeted deadline, and per-call receipt capture stamp without hand-threaded Metadata; the same `Stamped` projection runs for blocking unary, async unary, server-stream, client-stream, and duplex because the four request-and-context arities all route through one context rewrite.
 - Receipt: per-call route, byte sizes, and deadline outcome evidence emit through `ReceiptSinkPort.Send` at the interceptor seam.
-- Packages: Grpc.Net.Client, Grpc.Net.Compression (inbox `ICompressionProvider`/`GzipCompressionProvider`/`DeflateCompressionProvider`), Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox (`System.IO.Compression.CompressionLevel`), Rasm.AppHost (project)
+- Packages: Grpc.Net.Client, Grpc.Net.Common (inbox `Grpc.Net.Compression.ICompressionProvider`/`GzipCompressionProvider`/`DeflateCompressionProvider`), Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox (`System.IO.Compression.CompressionLevel`), Rasm.AppHost (project)
 - Growth: one credential row per new trust shape (Composed stacks N identity mints, never a new surface); one `CompressionProviders` row per new wire encoding; the compression flip rides one winning benchmark claim row through `CallSpine.Compressed` stamping the per-call `grpc-internal-encoding-request` metadata key (the `RequestEncodingKey` const) with the winning `CompressionProviders.Key` onto the call options, against the channel-side `GrpcChannelOptions.CompressionProviders` registration that `CompressionProviders.Register` materializes from the axis rows — the winning encoding is a claim-gated `Option<CompressionProviders>`, so an absent claim leaves the call uncompressed and a per-call default-on knob is the deleted form; zero new surface.
-- Boundary: the Bearer token is minted per call through `CallCredentials.FromInterceptor` reading the `AsyncAuthInterceptor` token producer, never a pre-built credential cached past its expiry — a stale cached token is the deleted form; `GrpcChannelOptions.ServiceConfig` is never set — the whole retry, hedging, and load-balancing config surface is experimental and a second retry owner; the AppHost keyed pipeline owns the hop retry and a detected second owner emits Conflict evidence instead of stacking; `UnsafeUseInsecureChannelCallCredentials` is never set; `ThrowOperationCanceledOnCancellation` stays unset — `RpcException` conversion lives in the one `WireFault.Classify` arm.
+- Boundary: the deadline budget threads through `CallOptions.WithDeadline(DateTime)` and `WithCancellationToken(CancellationToken)` at the `Options` edge and the interceptor re-stamps `WithHeaders` once per call so the `DeadlineClass.HopTotal` allotment — the one retry owner's horizon — projects to the `CallOptions.Deadline` DateTime on every shape without a per-call-shape branch; the deadline is held as the `Deadline` `DateTime?` the decompile spells, never re-projected past the `Options` edge; the Bearer token is minted per call through `CallCredentials.FromInterceptor` reading the `AsyncAuthInterceptor` token producer, never a pre-built credential cached past its expiry — a stale cached token is the deleted form; `GrpcChannelOptions.ServiceConfig` is never set — the whole retry, hedging, and load-balancing config surface is experimental and a second retry owner; the AppHost keyed pipeline owns the hop retry and a detected second owner emits Conflict evidence instead of stacking; `UnsafeUseInsecureChannelCallCredentials` is never set; `ThrowOperationCanceledOnCancellation` stays unset — `RpcException` conversion lives in the one `WireFault.Classify` arm; the per-call `grpc-internal-encoding-request` key is stamped by value only and the channel-side `GrpcChannelOptions.CompressionProviders` list is the sole registration site so a second per-call provider registration is the deleted form.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -325,17 +359,21 @@ public sealed partial class CompressionProviders {
 
     public Func<Option<ICompressionProvider>> Provider { get; }
 
+    public string EncodingName => Provider().Match(Some: static p => p.EncodingName, None: static () => Key);
+
     public static IList<ICompressionProvider> Register =>
         Items.ToSeq().Choose(static row => row.Provider()).ToList();
 }
 
-public sealed class CallSpine(CorrelationId correlation, Func<string> traceparent) : Interceptor {
+public sealed class CallSpine(CorrelationId correlation, Func<string> traceparent, Func<DeadlineClass, TimeSpan> allotted) : Interceptor {
     public const string CorrelationKey = "rasm-correlation";
     public const string TraceparentKey = "traceparent";
     public const string RequestEncodingKey = "grpc-internal-encoding-request";
 
     public static CallOptions Options(Instant deadline, CancellationToken token) =>
-        new(deadline: deadline.ToDateTimeUtc(), cancellationToken: token);
+        new CallOptions()
+            .WithDeadline(deadline.ToDateTimeUtc())
+            .WithCancellationToken(token);
 
     public static CallOptions Compressed(CallOptions options, Option<CompressionProviders> winningEncoding) =>
         winningEncoding.Match(
@@ -347,13 +385,21 @@ public sealed class CallSpine(CorrelationId correlation, Func<string> traceparen
             ? Fin.Succ(message)
             : Fin.Fail<T>(new ComputeFault.PayloadOverBounds($"{message.CalculateSize()} over {GrpcChannelPolicy.Canonical.MaxSendBytes}"));
 
+    public override TResponse BlockingUnaryCall<TRequest, TResponse>(TRequest request, ClientInterceptorContext<TRequest, TResponse> context, BlockingUnaryCallContinuation<TRequest, TResponse> continuation) => continuation(request, Stamped(context));
     public override AsyncUnaryCall<TResponse> AsyncUnaryCall<TRequest, TResponse>(TRequest request, ClientInterceptorContext<TRequest, TResponse> context, AsyncUnaryCallContinuation<TRequest, TResponse> continuation) => continuation(request, Stamped(context));
     public override AsyncServerStreamingCall<TResponse> AsyncServerStreamingCall<TRequest, TResponse>(TRequest request, ClientInterceptorContext<TRequest, TResponse> context, AsyncServerStreamingCallContinuation<TRequest, TResponse> continuation) => continuation(request, Stamped(context));
     public override AsyncClientStreamingCall<TRequest, TResponse> AsyncClientStreamingCall<TRequest, TResponse>(ClientInterceptorContext<TRequest, TResponse> context, AsyncClientStreamingCallContinuation<TRequest, TResponse> continuation) => continuation(Stamped(context));
     public override AsyncDuplexStreamingCall<TRequest, TResponse> AsyncDuplexStreamingCall<TRequest, TResponse>(ClientInterceptorContext<TRequest, TResponse> context, AsyncDuplexStreamingCallContinuation<TRequest, TResponse> continuation) => continuation(Stamped(context));
 
     ClientInterceptorContext<TRequest, TResponse> Stamped<TRequest, TResponse>(ClientInterceptorContext<TRequest, TResponse> context) where TRequest : class where TResponse : class =>
-        new(context.Method, context.Host, context.Options.WithHeaders(Merge(context.Options.Headers, new Metadata { { CorrelationKey, correlation.ToString() }, { TraceparentKey, traceparent() } })));
+        new(context.Method, context.Host,
+            Budgeted(context.Options)
+                .WithHeaders(Merge(context.Options.Headers, new Metadata { { CorrelationKey, correlation.ToString() }, { TraceparentKey, traceparent() } })));
+
+    CallOptions Budgeted(CallOptions options) =>
+        options.Deadline is { } pinned
+            ? options
+            : options.WithDeadline(DateTime.UtcNow + allotted(DeadlineClass.HopTotal));
 
     static Metadata Merge(Metadata? existing, Metadata stamped) =>
         (existing ?? Metadata.Empty).ToSeq().Fold(stamped, static (acc, entry) => { acc.Add(entry); return acc; });
@@ -417,10 +463,10 @@ public static class FrameEdge {
 
 ## [8]-[TS_PROJECTION]
 
-- Owner: `StreamKind`, `MethodShape`, `TransportCapabilityWire`, `FaultDetailWire`, `ArtifactFrameWire`, and the five service method-shape aliases — the TS posture for the whole suite wire.
+- Owner: `StreamKind`, `MethodShape`, `TransportCapabilityWire`, `TransportFramingWire`, `FaultDetailWire`, `ArtifactFrameWire`, and the five service method-shape aliases — the TS posture for the whole suite wire.
 - Packages: BCL inbox
 - Growth: one method-shape row per new rpc and one field row per new evidence slot; zero new surface.
-- Boundary: connect-es v2 `createClient` over `createGrpcWebTransport` consumes the app-root-emitted descriptor set through protoc-gen-es v2 single-plugin codegen — binary format with genuine binary server-streaming over Fetch, so the text mode never enters; unary resolves as await and server-stream consumes as for-await; client-stream and bidi are structurally absent in the browser; coalesced progress cadence is observer-side policy, never a wire knob; `FaultDetailWire` reconstructs the typed rail as a literal-discriminated union keyed by `case`.
+- Boundary: connect-es v2 `createClient` over `createGrpcWebTransport` consumes the app-root-emitted descriptor set through protoc-gen-es v2 single-plugin codegen — `binary` format with genuine binary server-streaming over Fetch, so the `application/grpc-web-text` base64 mode never enters; unary resolves as await and server-stream consumes as for-await; client-stream and bidi are structurally absent in the browser, so `ArtifactSyncShape.sync` (bidi) and `DocumentServiceShape.captureEvents` (clientStream) are wire shapes the browser transport cannot dial — the `TransportFramingWire.grpcWeb` tuple lists only the two shapes the binary frame carries; coalesced progress cadence is observer-side policy, never a wire knob; compression is a transport-level negotiation, never a per-method TS knob — the `grpc-internal-encoding-request` header is server-honored and the browser client reads the response `grpc-encoding` without a per-call selector; `FaultDetailWire` reconstructs the typed rail as a literal-discriminated union keyed by `case`.
 
 ```ts contract
 type StreamKind = "unary" | "serverStream" | "clientStream" | "bidi";
@@ -428,6 +474,8 @@ type StreamKind = "unary" | "serverStream" | "clientStream" | "bidi";
 interface MethodShape<K extends StreamKind, I extends string, O extends string> { kind: K; request: I; response: O; }
 
 interface TransportCapabilityWire { http2: ["unary", "serverStream", "clientStream", "bidi"]; grpcWeb: ["unary", "serverStream"]; }
+
+interface TransportFramingWire { http2: { mode: "binary"; carries: ["unary", "serverStream", "clientStream", "bidi"] }; grpcWeb: { mode: "binary"; mediaType: "application/grpc-web"; carries: ["unary", "serverStream"] }; }
 
 type ComputeServiceShape = { infer: MethodShape<"unary", "InferRequest", "InferResponse">; progress: MethodShape<"serverStream", "ProgressRequest", "ProgressUpdate">; capabilities: MethodShape<"unary", "Empty", "ComputeCapabilities">; solve: MethodShape<"unary", "SolveRequest", "SolveResponse">; generate: MethodShape<"serverStream", "GenerateRequest", "TokenChunk">; graphDiff: MethodShape<"unary", "GraphDiffRequest", "GraphDiffResponse">; subtreeFetch: MethodShape<"serverStream", "SubtreeFetchRequest", "GraphChunk">; };
 
@@ -448,4 +496,4 @@ interface ArtifactFrameWire { artifactId: string; artifactBytes: number; offset:
 
 - [TRANSPORTS]: `TestServer.CreateHandler` handler seam for the in-process row through the test-host pin surface; `Microsoft.AspNetCore.TestHost` admission lands the test-only package reference at the matched ASP.NET Core servicing line.
 - [PIPE_SECURITY]: `System.IO.Pipes` `PipeSecurity` ACL for the Windows-only NamedPipe byte path and the loopback DACL plus bearer-token shape for the TcpLoopback byte path — both rows dropped from the live macOS axis (no Windows ACL surface, the loopback path superseded by UDS on this host); the member spelling is the design record re-entering as one row each only on a host whose RID admits the byte path.
-- [COMPOSED_CREDENTIAL]: the `CredentialPolicy.Composed` arm and the `CompressionProviders` axis are authored against the catalogued `CallCredentials.Compose(params CallCredentials[])` and inbox `GzipCompressionProvider`/`DeflateCompressionProvider` spellings; the live-ALC dial of the composed identity through a running plugin channel — and the fingerprint-matched `BenchmarkClaim` that gates the compression flip on the live host — are the only residual probes.
+- [COMPOSED_CREDENTIAL]: the `CredentialPolicy.Composed` arm, the `CompressionProviders` axis, the full five-arity `CallSpine` interceptor surface, the `DeadlineClass.HopTotal` budget threading through `WithDeadline`/`WithCancellationToken`, and the `WireFault` `StatusCode` `FrozenDictionary` rail are authored against the catalogued `CallCredentials.Compose(params CallCredentials[])`, inbox `GzipCompressionProvider`/`DeflateCompressionProvider` (Deflate wraps `ZLibStream`), `BlockingUnaryCall`/`AsyncUnaryCall`/`AsyncServerStreamingCall`/`AsyncClientStreamingCall`/`AsyncDuplexStreamingCall`, and `CallOptions`/`StatusCode` decompile spellings; the live-ALC dial of the composed identity through a running plugin channel — and the fingerprint-matched `BenchmarkClaim` that gates the compression flip on the live host — are the only residual probes. [SPIKE] both remain genuine tier-3 LIVE-HOST probes: the composed-identity ALC dial and the benchmark-gated compression flip cannot be settled from decompile alone.
