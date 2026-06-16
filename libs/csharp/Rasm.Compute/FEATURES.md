@@ -50,6 +50,11 @@ The capabilities Rasm.Compute uniquely owns: a downstream app dev reaches for no
 |  [40]   | Search-option and native chat-template prompt assembly        | `GenerationPolicy`  | model-lane#GENERATIVE_RUN               |
 |  [41]   | Grammar-constrained structured output at generation           | `GuidanceKind`      | model-lane#GENERATIVE_RUN               |
 |  [42]   | Generative and numeric-solve intent cases                     | `ComputeIntent`     | intent-and-selection#INTENT_FAMILY      |
+|  [43]   | glTF/GLB managed mesh-and-scene import and export             | `InterchangeIo`     | interchange#IMPORT_RAIL                 |
+|  [44]   | In-process IFC semantic-graph ingest, never tessellated BRep  | `InterchangeIo`     | interchange#IMPORT_RAIL                 |
+|  [45]   | IFC STEP/XML/JSON managed model serialization                | `InterchangeIo`     | interchange#EXPORT_RAIL                 |
+|  [46]   | IFC-to-geometry two-hop tessellation over the companion rpc   | `TessellationRequest`| interchange#TWO_HOP_TESSELLATION       |
+|  [47]   | Content-addressed interchange artifacts, deflection-folded    | `InterchangeIdentity`| interchange#CONTENT_ADDRESSING         |
 
 ## [2]-[WIRE_AND_EVIDENCE_CONCEPTS]
 
@@ -60,9 +65,9 @@ The capabilities Rasm.Compute uniquely owns: a downstream app dev reaches for no
 |   [3]   | Contract evolution by descriptor diff                         | `ContractGuard`    | remote-lane#CONTRACT_EVOLUTION          |
 |   [4]   | Open-envelope option negotiation under additive-only contract | `ContractGuard`    | remote-lane#CONTRACT_EVOLUTION          |
 |   [5]   | Typed faults across the wire through FaultDetail              | `ContractGuard`    | remote-lane#FAULT_PROJECTION            |
-|   [6]   | Six-row transport axis with streaming-capability columns     | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
+|   [6]   | Four-row transport axis with streaming-capability columns     | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
 |   [7]   | In-process transport for the deterministic test host         | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
-|   [8]   | Loopback-byte-path transports with per-path security law      | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
+|   [8]   | UnixDomainSocket byte-path transport with peer-credential law | `RemoteTransport`  | remote-lane#TRANSPORT_AXIS              |
 |   [9]   | Warm-start node affinity as a selection tie-breaker           | `WireChannels`     | remote-lane#TRANSPORT_AXIS              |
 |  [10]   | Credential axis behind one stamping interceptor              | `CredentialPolicy` | remote-lane#CALL_POLICY                 |
 |  [11]   | Compression flip behind a winning benchmark claim            | `CallSpine`        | remote-lane#CALL_POLICY                 |
@@ -89,6 +94,10 @@ Higher-order isolation concepts this folder uniquely enables, each riding an exi
 - One processor budget as the suite's anti-oversubscription invariant: lane readers, ORT global pool, partition cap, and spin posture all derive from two inputs, so one budget edit re-caps every concurrency axis coherently (scheduling-and-lanes#CPU_BUDGET).
 - Claim-gated performance as a closed conjunction: equivalence proof AND fingerprint-matched speed claim — a fast wrong kernel is poisoned regardless of ratio, and an empty claims table is the correct cold start (receipts-and-benchmarks#BENCHMARK_CLAIMS · tensor-lane#EQUIVALENCE_INTEROP).
 - Every measured hop self-proves on one receipt rail: a farm hop, a tensor run, and a unit projection all materialize `ComputeReceipt` cases at the sink edge, so cross-process provenance joins by correlation with no per-view store (receipts-and-benchmarks#RECEIPT_UNION · receipts-and-benchmarks#FOLD_PROJECTIONS).
+- Generative run modes collapse onto one streaming owner: chunked decode, embedding extraction, and the tool-emit→dispatch→re-feed loop are run-mode cases on the same `GenerativeRun` capsule rather than parallel chat surfaces, so a batch of prompts and a single grammar-constrained stream share the session/EP spine (model-lane#GENERATIVE_RUN · model-lane#INFERENCE_MODES).
+- Load-aware substrate placement as a fold column: the `Substrate.GenAi` row reorders only behind a live placement probe, so generative load offloads to the companion or farm through the same selection fold that picks cpu-vs-onnx, never a generative-specific router (intent-and-selection#SUBSTRATE_AXIS · model-lane#GENERATIVE_RUN).
+- One content-keyed IFC artifact, two projections: the in-process semantic graph and the two-hop tessellated GLB join by the same `XxHash128` content-key the suite hash law owns, so a coarse and a fine tessellation key distinctly and a re-import keys identically — deflection and tolerance partition the key, never a cross-setting hit (interchange#TWO_HOP_TESSELLATION · interchange#CONTENT_ADDRESSING).
+- Diff-set proto wire as a Compute frame, Persistence algebra: `GraphDiff`/`SubtreeFetch` carry the content-key delta wire shape only, so the diff computation stays Persistence sync-collaboration mechanics and Compute owns the frame, never re-deriving the diff (remote-lane#PROTO_VOCABULARY).
 
 ## [4]-[ROUTING]
 

@@ -65,6 +65,8 @@ Every row is CLOSED: a gap is present only when absorbed by the named page#clust
 |  [23]   | headless render-hash and dashboard wire  | diagnostics-evidence + visuals-offscreen                     |
 |  [24]   | pan-zoom canvas rows                     | input-interaction                                            |
 |  [25]   | Skia custom-visual kinds + wide-gamut axis | custom-visuals                                            |
+|  [26]   | ReactiveUI code-behind view-binding reject | input-interaction                                          |
+|  [27]   | runtime `AvaloniaXamlLoader.Load` reject  | surface-hosts + diagnostics-evidence                       |
 
 ## [5]-[DENSITY_BAR]
 
@@ -229,7 +231,7 @@ The executed admissions ledger maps each package to its consuming page, `.api` c
 
 ## [11]-[REFINEMENT_HORIZON]
 
-Folder-specific deepening targets: the embedding capsule beyond the NSView bridge spike — the `surface-hosts` [EMBED_SPIKE] seam resolving the UI-thread predicate, the CADisplayLink-paced pump fallback, `RenderingMode` ordering against the host pipeline, and the shared-`GRContext` composite into the host-owned context, then the [WIN32_ROUTE] embed route activating the designed-only host-axis case against the Rhino Windows panel host once the WinForms interoperability host admission lands; viewport-in-panel and host-data-in-shell compositions rehearsed as concept rows (rhino panels, viewports, and host documents inside the one shell that runs standalone), gated by that same spike; every element family re-swept after the embedding spike answers its research items. The bar already set here is the suite bar: any app UI — panel, modal, standalone, companion console — composes from rows with dynamic sourcing and zero host-coupled code.
+Folder-specific deepening targets: the embedding capsule beyond the NSView bridge spike — the `surface-hosts` [EMBED_SPIKE] seam resolving the UI-thread predicate, the CADisplayLink-paced pump fallback, `RenderingMode` ordering against the host pipeline, and the shared-`GRContext` composite into the host-owned context; viewport-in-panel and host-data-in-shell compositions rehearsed as concept rows (rhino panels, viewports, and host documents inside the one shell that runs standalone), gated by that same spike; every element family re-swept after the embedding spike answers its research items. The bar already set here is the suite bar: any app UI — panel, modal, standalone, companion console — composes from rows with dynamic sourcing and zero host-coupled code.
 
 Dashboard-analytics horizon: the cross-tile linked-brushing `CrossFilter` fold and the board-layout-plus-filter-state `BoardState` row land on `DashboardSurface`/`STREAM_BINDING` over the Persistence server-side filtered re-query and the STJ `IDockSerializer` board-snapshot pattern; the live geometry overlay deepens the geo `SERIES_TABLE` row over the existing `IChangeSet` spine and the Persistence spatial-diff feed; the object-graph, farm-topology, and conversation scene surfaces are surfaced categorical frontiers evaluated against the rhino-viewport and live-data/inspector owners before a page is justified.
 

@@ -7,7 +7,7 @@ Rasm.Persistence enforces the AppHost data-classification taxonomy at every stor
 | [INDEX] | [CLUSTER]                  | [OWNS]                                                                 |
 | :-----: | :------------------------- | :--------------------------------------------------------------------- |
 |   [1]   | CLASSIFICATION_ENFORCEMENT | Artifact-class registry, write-guard admission, unpersistable classes  |
-|   [2]   | RETENTION_SWEEPS           | Four-row policy axis; hold-first receipted sweep fold; schedule row    |
+|   [2]   | RETENTION_SWEEPS           | Policy axis; hold-first sweep fold; object-store GC; schedule rows     |
 |   [3]   | EXPORT_PROOF               | Support contribution rows; redacted assembly; hash-proved export proof |
 |   [4]   | AUDIT_BINDING              | Classification-to-pgaudit category table; per-tenant binding; verification |
 
@@ -61,14 +61,14 @@ public static class ClassificationGuard {
 
 ## [3]-[RETENTION_SWEEPS]
 
-- Owner: `RetentionPolicy` `[SmartEnum<string>]` under the `RetentionKeyPolicy` ordinal accessor; `RetentionSweep` fold; `ArtifactFacts` survey row; `SweepReceipt`.
+- Owner: `RetentionPolicy` `[SmartEnum<string>]` under the `RetentionKeyPolicy` ordinal accessor; `RetentionSweep` fold; `ClosureGc` reachability-sweep fold; `ArtifactFacts` survey row; `SweepReceipt`; `ClosureGcReceipt`.
 - Cases: 4 policy rows — age-bound, count-bound, size-bound, legal-hold.
 - Entry: `public static IO<Seq<SweepReceipt>> Sweep(ClockPolicy clocks, Func<ArtifactClassRow, IO<Seq<ArtifactFacts>>> survey, Func<ArtifactClassRow, Seq<ArtifactFacts>, IO<(long Rows, long Bytes)>> evict)` — `IO<T>` carries the deletion effect.
 - Auto: `SweepEntry` registers the fold as one schedule row under the maintenance lease with the `@daily` config-sourced default, the store drain order invokes the same fold once before close, and receipts ride the receipt sink as `retention-sweep` kind rows stamped with the ambient correlation.
 - Receipt: one `SweepReceipt` per registry row — surveyed, held, eligible, deleted rows, bytes, `Instant` stamp; deletion is never silent.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project).
-- Growth: a new bound grammar is one `RetentionPolicy` case; a new cadence is one policy value on the schedule row; a new retained class lands as one `ArtifactClassRow` registry row and one matching `RetentionPolicy` reference, and the `Sweep` fold is the realized hold-first transformer — its `let live = facts.Filter(!Hold)` step precedes every `Eligible` evaluation so the `LegalHold` row dominates the `RetentionPolicy` bound by construction, composing the new class with zero consumer change; zero new surface.
-- Boundary: hold exclusion precedes every eligibility fold inside `Sweep`, so legal-hold beats sweep by construction and a held row is invisible to every bound; the idempotency-dedup registry row is the suite dedup-window horizon the transaction dedup table consumes; destructive migration steps wait on a `retention-approval` kind row on the same fact stream; survey orders rows newest-first so `Rank` and `RunningBytes` derive in recency order and count and size bounds evict oldest first; the kv-row class projects `Stamp` as the row expiry instant and every other class projects the creation instant; horizons and stamps read `ClockPolicy` only — `DateTime.UtcNow` and direct timers are the deleted patterns.
+- Growth: a new bound grammar is one `RetentionPolicy` case; a new cadence is one policy value on the schedule row; a new retained class lands as one `ArtifactClassRow` registry row and one matching `RetentionPolicy` reference, and the `Sweep` fold is the realized hold-first transformer — its `let live = facts.Filter(!Hold)` step precedes every `Eligible` evaluation so the `LegalHold` row dominates the `RetentionPolicy` bound by construction, composing the new class with zero consumer change; the object-store reachability GC is the `ClosureGc` fold beside `RetentionSweep`, not a new surface; zero new surface.
+- Boundary: hold exclusion precedes every eligibility fold inside `Sweep`, so legal-hold beats sweep by construction and a held row is invisible to every bound; the idempotency-dedup registry row is the suite dedup-window horizon the transaction dedup table consumes; destructive migration steps wait on a `retention-approval` kind row on the same fact stream; survey orders rows newest-first so `Rank` and `RunningBytes` derive in recency order and count and size bounds evict oldest first; the kv-row class projects `Stamp` as the row expiry instant and every other class projects the creation instant; horizons and stamps read `ClockPolicy` only — `DateTime.UtcNow` and direct timers are the deleted patterns; `ClosureGc.Collect` is the object-store garbage collector — it reads the live reachable content-key set as the union over every live sync `Closure` manifest (the `sync-collaboration#TRANSPORT_AXIS` descendant content-key manifest, consumed here as settled), set-differences it against the object-store residence listing (`remote-stores#OBJECT_RESIDENCE`), and evicts each unreferenced blob, holding any key in a `LegalHold` artifact class so a held blob is never collected regardless of reachability — a mark-and-sweep over loose blobs, a second reachability walk, or a polling scan that re-derives the closure is the deleted form, the reachable set composes the existing `Closure` manifest rather than re-walking the graph, and eviction routes through the same object-store delete the residence axis owns; the sweep stays SPIKE on the live object-store-plus-closure probe in this page's RESEARCH cluster.
 
 ```csharp signature
 public sealed class RetentionKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -130,6 +130,37 @@ public static class RetentionSweep {
             Deadline: DeadlineClass.SupportWindow,
             Lease: Optional(LeasePolicy.Maintenance),
             Work: () => sweep().Map(static _ => unit));
+}
+
+public readonly record struct ClosureGcReceipt(
+    int Listed,
+    int Reachable,
+    int Held,
+    long Collected,
+    long Bytes,
+    Instant At);
+
+public static class ClosureGc {
+    public static IO<ClosureGcReceipt> Collect(
+        ClockPolicy clocks,
+        IO<HashSet<UInt128>> reachable,
+        IO<Seq<(UInt128 ContentKey, long Bytes)>> residence,
+        Func<UInt128, bool> held,
+        Func<Seq<UInt128>, IO<(long Rows, long Bytes)>> evict) =>
+        from at in IO.lift(() => clocks.Now)
+        from live in reachable
+        from listed in residence
+        let unreferenced = listed.Filter(row => !live.Contains(row.ContentKey) && !held(row.ContentKey))
+        from swept in evict(unreferenced.Map(static row => row.ContentKey))
+        select new ClosureGcReceipt(listed.Count, live.Count, listed.Count(row => held(row.ContentKey)), swept.Rows, swept.Bytes, at);
+
+    public static ScheduleEntry GcEntry(OccurrenceSpec cadence, Func<IO<ClosureGcReceipt>> collect) =>
+        new(
+            Key: "persistence-object-store-gc",
+            Spec: cadence,
+            Deadline: DeadlineClass.SupportWindow,
+            Lease: Optional(LeasePolicy.Maintenance),
+            Work: () => collect().Map(static _ => unit));
 }
 ```
 
@@ -217,3 +248,4 @@ public static class AuditBinding {
 ## [6]-[RESEARCH]
 
 - [PGAUDIT_CATEGORIES]: pgaudit session-audit category semantics on PG18 under `shared_preload_libraries=pgaudit` against the `Categories` rows, and the per-tenant `BindTenant` category emission verified against a per-tenant `CREATE POLICY` (the policy mechanics owned on `server-tier#TENANCY_RLS`) on a live PG18 server.
+- [CLOSURE_GC]: `ClosureGc.Collect` reachable-set-versus-residence eviction verified against a live object-store residence listing and a live sync `Closure` membership union — the unreferenced-blob set, the `LegalHold` exemption under a live class registry, and the eviction-delete round-trip against the object-store delete the residence axis owns.

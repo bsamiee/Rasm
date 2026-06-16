@@ -119,11 +119,12 @@ and schema metadata collections.
 | [INDEX] | [SURFACE]                | [CALL_SHAPE]    | [CAPABILITY]            |
 | :-----: | :----------------------- | :-------------- | :---------------------- |
 |   [1]   | `RegisterScalarFunction` | connection call | registers scalar UDF    |
-|   [2]   | `RegisterTableFunction`  | connection call | registers table UDF     |
-|   [3]   | `GetValue`               | reader call     | reads vector value      |
-|   [4]   | `IsValid`                | reader call     | checks vector null mask |
-|   [5]   | `WriteValue`             | writer call     | writes vector value     |
-|   [6]   | `WriteNull`              | writer call     | writes vector null      |
+|   [2]   | `RegisterTableFunction`  | connection call | registers table UDF (high-level extension generic over `DuckDBConnectionTableFunctionExtensions`) |
+|   [3]   | `DuckDBConnection.RegisterTableFunction(string name, Func<TableFunction> resultCallback, Action<object?, IDuckDBDataWriter[], ulong> mapperCallback)` | connection call | low-level instance overload; result callback declares `TableFunction` columns/data/cardinality, mapper writes each row's cells through the `IDuckDBDataWriter[]` |
+|   [4]   | `GetValue`               | reader call     | reads vector value      |
+|   [5]   | `IsValid`                | reader call     | checks vector null mask |
+|   [6]   | `WriteValue`             | writer call     | writes vector value     |
+|   [7]   | `WriteNull`              | writer call     | writes vector null      |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

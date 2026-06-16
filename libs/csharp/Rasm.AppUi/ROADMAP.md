@@ -86,7 +86,7 @@ N/A rails: BenchmarkDotNet — `specialized-rails.md [2]` reject bars UI surface
 The package exits implementation when every BUILD_ORDER file is transcribed `Hosts/SurfaceVocabulary.cs` through `Evidence/EvidenceRail.cs`, every PROOF_GATES row is green (G1 restore, G2 `api doctor`/`resolve`, G3 `static build`, G4 `test run`, G5 `bridge verify`, G6 headless render-hash lanes, G7 `mmdc` render), the charter GAP_LEDGER stays fully CLOSED, and the charter `spec` gate passes on the full suite.
 
 Residual host-bridge work is the charter DENSITY_BAR `SPIKE` set discharging against its page RESEARCH clusters; each exits when its bridge or native probe lands as a settled fence row rather than a re-opened gate:
-- Embedding seam (`SurfaceHost`, `SurfaceFact`) — surface-hosts#RESEARCH [EMBED_SPIKE]/[WIN32_ROUTE]: the only DENSITY_BAR `SPIKE` set, gated on the live Rhino-owned AppKit run-loop and Win32 reparent host, de-risked standalone with only the in-host confirmation remaining.
+- Embedding seam (`SurfaceHost`, `SurfaceFact`) — surface-hosts#RESEARCH [EMBED_SPIKE]: the only DENSITY_BAR `SPIKE` set, gated on the live Rhino-owned AppKit run-loop and NSView panel host, de-risked standalone with only the in-host confirmation remaining.
 
 Implementation-bound refinements ride FINALIZED owners and carry no `SPIKE` state; each is a settled fence whose remaining detail binds against the live closure at transcription:
 - Embedded notification, picker, and host-object-drag capsule rides the embedding seam — dialogs-notifications#RESEARCH [EMBEDDED_TOPLEVEL], input-interaction#RESEARCH [EMBEDDED_DRAG]: the embedded-root `TopLevel` resolution resolves with the embed capsule.

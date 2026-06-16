@@ -125,7 +125,7 @@ shaped now, never a deferred surface.
 |  [43]   | rollover drain          | `RolloverDrain`                  | static surface          | 1 drain-before-swap fold over `DrainConductor`              | FINALIZED |
 |  [44]   | process modality        | `ProcessModality`                | `[SmartEnum<string>]`   | 3 rows (companion, sidecar, paired-peer); `ModalityRow` columns, `CompanionPeer` capsule | FINALIZED |
 |  [45]   | control service host    | `ControlInbound`                 | static handler          | 3 verbs folding onto degradation/options/support owners; `ControlRuntime`/`VerbReceipt` | FINALIZED |
-|  [46]   | service host            | `ServiceHost`                    | static surface          | gRPC server registration; `ControlTransport` 2-case union (UDS, named-pipe), `PipeHardening` | FINALIZED |
+|  [46]   | service host            | `ServiceHost`                    | static surface          | gRPC server registration; `ControlTransport` 1-case union (UDS) | FINALIZED |
 |  [47]   | degradation cascade     | `DegradationCascade`             | static write surface    | 1 parent-to-child `Cascade` write; `CascadeReceipt`        | SPIKE     |
 |  [48]   | peer admission          | `PeerAdmission`                  | static accept-side read | 2 platform branches (Linux `SO_PEERCRED`, macOS `LOCAL_PEERCRED`); `Ucred`/`Xucred`/`PeerCredential` | FINALIZED |
 |  [49]   | tenant context          | `TenantContext`                  | record port             | 4th cross-package primitive (`TenantId` `UInt128` value object, `TenantSlot` `rasm.tenant` GUC/baggage key, `Root` single-tenant default); threads to server-tier RLS + cache-key partition | FINALIZED |
@@ -162,7 +162,7 @@ Cluster names are page-local anchors; gates name the extra proof beyond the stan
 |  [10]   | `Outbound.cs`      | hop axis, pipelines, discovery, ownership      | admission, owner conflicts, UDS attach      |
 |  [11]   | `Ports.cs`         | port records and wire law                      | HLC advance and wire round-trip             |
 |  [12]   | `Provisioning.cs`  | update rail, channel axis, rollover drain      | downgrade foreclosure, drain-before-swap, staged-pending resume |
-|  [13]   | `Companion.cs`     | process modality, control service, service host, cascade, peer admission | verb folds, UDS/named-pipe intake, cascade convergence, peer-cred read |
+|  [13]   | `Companion.cs`     | process modality, control service, service host, cascade, peer admission | verb folds, UDS control intake, cascade convergence, peer-cred read |
 
 `Provisioning.cs` lands after `Ports.cs` because `UpdateRail` consumes `Lifecycle`,
 `DrainConductor`, `ReceiptSinkPort`, and the `AppHostWireContext.UpdateReceipt` row every earlier
@@ -252,7 +252,7 @@ admission status. Versions live in `Directory.Packages.props`; this table never 
 |   [2]   | FluentValidation                                        | configuration-and-options | api-validation.md                     | admitted          |
 |   [3]   | FluentValidation.DependencyInjectionExtensions          | composition-and-modules   | api-validation-di.md                  | admitted          |
 |   [4]   | Microsoft.Extensions.Caching.Hybrid                     | resource-lanes            | api-hybrid-cache.md                   | admitted          |
-|   [5]   | Microsoft.Extensions.Compliance.Redaction               | diagnostics-and-telemetry | api-telemetry.md                      | admitted          |
+|   [5]   | Microsoft.Extensions.Compliance.Redaction               | diagnostics-and-telemetry | api-redaction.md                      | admitted          |
 |   [6]   | Microsoft.Extensions.Configuration                      | configuration-and-options | api-config.md                         | admitted          |
 |   [7]   | Microsoft.Extensions.Configuration.Binder               | configuration-and-options | api-binder.md                         | admitted          |
 |   [8]   | Microsoft.Extensions.Configuration.CommandLine          | configuration-and-options | api-config-providers.md               | admitted          |
@@ -264,39 +264,38 @@ admission status. Versions live in `Directory.Packages.props`; this table never 
 |  [14]   | Microsoft.Extensions.Diagnostics.ResourceMonitoring     | health-and-degradation    | api-resource-monitoring.md            | admitted          |
 |  [15]   | Microsoft.Extensions.Hosting                            | host-profiles             | api-hosting.md                        | admitted          |
 |  [16]   | Microsoft.Extensions.Hosting.Systemd                    | host-profiles             | api-hosting-lifetimes.md              | admitted          |
-|  [17]   | Microsoft.Extensions.Hosting.WindowsServices            | host-profiles             | api-hosting-lifetimes.md              | admitted          |
-|  [18]   | Microsoft.Extensions.Http.Resilience                    | outbound-resilience       | api-resilience.md                     | admitted          |
-|  [19]   | Microsoft.Extensions.Logging.Abstractions               | diagnostics-and-telemetry | api-logging.md                        | admitted          |
-|  [20]   | Microsoft.Extensions.ObjectPool                         | resource-lanes            | api-objectpool.md                     | admitted          |
-|  [21]   | Microsoft.Extensions.Options                            | configuration-and-options | api-options.md                        | admitted          |
-|  [22]   | Microsoft.Extensions.Telemetry                          | diagnostics-and-telemetry | api-telemetry.md                      | admitted          |
-|  [23]   | Microsoft.Extensions.Telemetry.Abstractions             | diagnostics-and-telemetry | api-telemetry-abstractions.md         | admitted          |
-|  [24]   | NodaTime                                                | time-and-deadlines        | api-nodatime.md                       | admitted          |
-|  [25]   | OpenTelemetry                                           | diagnostics-and-telemetry | api-otel.md                           | admitted          |
-|  [26]   | OpenTelemetry.Extensions.Hosting                        | diagnostics-and-telemetry | api-otel-hosting.md                   | admitted          |
-|  [27]   | OpenTelemetry.Instrumentation.Http                      | diagnostics-and-telemetry | api-otel-instrumentation.md           | admitted          |
-|  [28]   | OpenTelemetry.Instrumentation.Runtime                   | diagnostics-and-telemetry | api-otel-instrumentation.md           | admitted          |
-|  [29]   | Polly.Core                                              | outbound-resilience       | api-polly-core.md                     | admitted          |
-|  [30]   | Polly.Extensions                                        | outbound-resilience       | api-polly-extensions.md               | admitted          |
-|  [31]   | Polly.RateLimiting                                      | outbound-resilience       | api-polly-ratelimiting.md             | admitted          |
-|  [32]   | Scrutor                                                 | composition-and-modules   | api-scrutor.md                        | admitted          |
-|  [33]   | Serilog                                                 | diagnostics-and-telemetry | api-serilog.md                        | admitted          |
-|  [34]   | System.Threading.Tasks.Dataflow                         | resource-lanes            | api-dataflow.md                       | admitted          |
-|  [35]   | Thinktecture.Runtime.Extensions.Json                    | runtime-ports             | api-thinktecture-json.md              | admitted          |
-|  [36]   | LanguageExt.Core                                        | every page                | stack doctrine (`docs/stacks/csharp`) | admitted          |
-|  [37]   | Thinktecture.Runtime.Extensions                         | every page                | stack doctrine (`docs/stacks/csharp`) | admitted          |
-|  [38]   | Velopack                                                | provisioning-and-update   | api-velopack.md                       | admitted          |
-|  [39]   | Grpc.Net.Client                                         | outbound-resilience       | api-grpc-client.md                    | admitted          |
-|  [40]   | Grpc.AspNetCore                                          | companion-sidecar         | —                                     | app-root-pending  |
-|  [41]   | Grpc.AspNetCore.HealthChecks                             | companion-sidecar         | —                                     | app-root-pending  |
-|  [42]   | NodaTime.Serialization.SystemTextJson                   | runtime-ports             | api-nodatime-stj.md                   | admitted          |
-|  [43]   | Microsoft.Extensions.TimeProvider.Testing               | time-and-deadlines        | api-testing-seams.md                  | tests-only        |
-|  [44]   | NodaTime.Testing                                        | time-and-deadlines        | api-testing-seams.md                  | tests-only        |
-|  [45]   | Microsoft.Extensions.Diagnostics.Testing                | diagnostics-and-telemetry | api-testing-seams.md                  | tests-only        |
-|  [46]   | Microsoft.Extensions.Options.ConfigurationExtensions    | configuration-and-options | api-config-providers.md               | admitted          |
+|  [17]   | Microsoft.Extensions.Http.Resilience                    | outbound-resilience       | api-resilience.md                     | admitted          |
+|  [18]   | Microsoft.Extensions.Logging.Abstractions               | diagnostics-and-telemetry | api-logging.md                        | admitted          |
+|  [19]   | Microsoft.Extensions.ObjectPool                         | resource-lanes            | api-objectpool.md                     | admitted          |
+|  [20]   | Microsoft.Extensions.Options                            | configuration-and-options | api-options.md                        | admitted          |
+|  [21]   | Microsoft.Extensions.Telemetry                          | diagnostics-and-telemetry | api-telemetry.md                      | admitted          |
+|  [22]   | Microsoft.Extensions.Telemetry.Abstractions             | diagnostics-and-telemetry | api-telemetry-abstractions.md         | admitted          |
+|  [23]   | NodaTime                                                | time-and-deadlines        | api-nodatime.md                       | admitted          |
+|  [24]   | OpenTelemetry                                           | diagnostics-and-telemetry | api-otel.md                           | admitted          |
+|  [25]   | OpenTelemetry.Extensions.Hosting                        | diagnostics-and-telemetry | api-otel-hosting.md                   | admitted          |
+|  [26]   | OpenTelemetry.Instrumentation.Http                      | diagnostics-and-telemetry | api-otel-instrumentation.md           | admitted          |
+|  [27]   | OpenTelemetry.Instrumentation.Runtime                   | diagnostics-and-telemetry | api-otel-instrumentation.md           | admitted          |
+|  [28]   | Polly.Core                                              | outbound-resilience       | api-polly-core.md                     | admitted          |
+|  [29]   | Polly.Extensions                                        | outbound-resilience       | api-polly-extensions.md               | admitted          |
+|  [30]   | Polly.RateLimiting                                      | outbound-resilience       | api-polly-ratelimiting.md             | admitted          |
+|  [31]   | Scrutor                                                 | composition-and-modules   | api-scrutor.md                        | admitted          |
+|  [32]   | Serilog                                                 | diagnostics-and-telemetry | api-serilog.md                        | admitted          |
+|  [33]   | System.Threading.Tasks.Dataflow                         | resource-lanes            | api-dataflow.md                       | admitted          |
+|  [34]   | Thinktecture.Runtime.Extensions.Json                    | runtime-ports             | api-thinktecture-json.md              | admitted          |
+|  [35]   | LanguageExt.Core                                        | every page                | stack doctrine (`docs/stacks/csharp`) | admitted          |
+|  [36]   | Thinktecture.Runtime.Extensions                         | every page                | stack doctrine (`docs/stacks/csharp`) | admitted          |
+|  [37]   | Velopack                                                | provisioning-and-update   | api-velopack.md                       | admitted          |
+|  [38]   | Grpc.Net.Client                                         | outbound-resilience       | api-grpc-client.md                    | admitted          |
+|  [39]   | Grpc.AspNetCore                                          | companion-sidecar         | —                                     | app-root-pending  |
+|  [40]   | Grpc.AspNetCore.HealthChecks                             | companion-sidecar         | —                                     | app-root-pending  |
+|  [41]   | NodaTime.Serialization.SystemTextJson                   | runtime-ports             | api-nodatime-stj.md                   | admitted          |
+|  [42]   | Microsoft.Extensions.TimeProvider.Testing               | time-and-deadlines        | api-testing-seams.md                  | tests-only        |
+|  [43]   | NodaTime.Testing                                        | time-and-deadlines        | api-testing-seams.md                  | tests-only        |
+|  [44]   | Microsoft.Extensions.Diagnostics.Testing                | diagnostics-and-telemetry | api-testing-seams.md                  | tests-only        |
+|  [45]   | Microsoft.Extensions.Options.ConfigurationExtensions    | configuration-and-options | api-config-providers.md               | admitted          |
 
 ## [11]-[REFINEMENT_HORIZON]
 
-Folder-specific deepening targets beyond the closed corpus, each carrying its open probe. The Velopack `VelopackHook` delegate-signature probe resolves the exact parameter shape of the `OnFirstRun`/`OnRestarted`/`OnAfter*FastCallback` registrations at the `VelopackApp.Build()...Run()` app-root bootstrap (the only residual after provisioning-and-update lands). The `ServiceMappingCollection.Map` versus `MapService` behavioral distinction on `GrpcHealthChecksOptions.Services` settles the by-service-name versus predicate-routing wire-health registration row at companion-sidecar#CONTROL_SERVICE. The cross-process degradation-cascade convergence bridge scenario — a companion observes the parent level over the control hop, lands it as a `DegradationCell.Cascade` floor, and re-derives on release — runs against the paired and companion topologies inside the running integrated host (companion-sidecar#DEGRADATION_CASCADE `[CASCADE_CONVERGENCE]`, the legitimate tier-3 live-host residual). The keychain secrets-store route (configuration-and-options#SOURCE_ROUTES) and SIGHUP delivery (lifecycle-and-drain#FAULT_PROBES) resolved from their probes into settled rows. A Phase-2 AppHost catalogue gap remains: `Microsoft.Extensions.Compliance.Redaction` (admission row [5]) rides `api-telemetry.md` here while its dedicated `api-redaction.md` catalogue lives only downstream in Persistence; the AppHost lane authors the local `api-redaction.md` page. The bar: any host modality boots, updates, degrades, drains, serves its control plane, and reports through this spine with zero app-side ceremony.
+Folder-specific deepening targets beyond the closed corpus, each carrying its open probe. The Velopack `VelopackHook` delegate-signature is closed by tier-1 decompile: `api-velopack.md` carries the exact `public delegate void VelopackHook(SemanticVersion version)` and the `OnFirstRun`/`OnRestarted`/`OnAfter*FastCallback` registrations at the `VelopackApp.Build()...Run()` app-root bootstrap, so provisioning-and-update#UPDATE_RAIL transcribes a settled member shape with no open residual. The `ServiceMappingCollection.Map` versus `MapService` behavioral distinction on `GrpcHealthChecksOptions.Services` settles the by-service-name versus predicate-routing wire-health registration row at companion-sidecar#CONTROL_SERVICE. The cross-process degradation-cascade convergence bridge scenario — a companion observes the parent level over the control hop, lands it as a `DegradationCell.Cascade` floor, and re-derives on release — runs against the paired and companion topologies inside the running integrated host (companion-sidecar#DEGRADATION_CASCADE `[CASCADE_CONVERGENCE]`, the legitimate tier-3 live-host residual). The macOS keychain secrets-store route (configuration-and-options#SOURCE_ROUTES) and the launchd/systemd SIGHUP delivery (lifecycle-and-drain#FAULT_PROBES) carry settled member shapes, but their live delivery stays a tier-3 residual: the keychain leg is a HARD BAN on unattended `SecItem*` reads (a live read prompts a macOS dialog) and the SIGHUP leg needs a live service-manager to deliver the signal, so both pages correctly keep their RESEARCH rows OPEN until the integrated-host probe lands. The bar: any host modality boots, updates, degrades, drains, serves its control plane, and reports through this spine with zero app-side ceremony.
 
 Testing-infrastructure horizon: the deterministic-clock seam pairs `FakeClock` (`NodaTime.Testing`) with `FakeTimeProvider` over the dual clock authority, and the telemetry-seam assertions ride `MetricCollector<T>`/`FakeLogCollector` against the diagnostics signal-governance fold.

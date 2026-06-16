@@ -35,7 +35,14 @@ monitoring option policy into the observability rail.
 |   [2]   | `SystemResources`           | limits value      | guaranteed and maximum units      |
 |   [3]   | `Snapshot`                  | sample value      | kernel/user time and memory bytes |
 |   [4]   | `ResourceQuota`             | quota value       | baseline and maximum quota        |
-|   [5]   | `ResourceMonitoringOptions` | option value      | windows, intervals, metric flags  |
+|   [5]   | `ResourceQuotaProvider`     | quota provider    | current container quota read      |
+|   [6]   | `ResourceMonitoringOptions` | option value      | windows, intervals, metric flags  |
+
+The pull-model contracts in the prior table (`IResourceMonitor`, `IResourceUtilizationPublisher`,
+`ISnapshotProvider`, `ResourceUtilization`, `SystemResources`) are obsolete as of v10.7.0; the
+current observability path reads CPU/memory pressure off OTel observable instruments and reads the
+container quota off `ResourceQuotaProvider`. The obsolete contracts stay catalogued only as the
+migration source the consuming page deletes.
 
 [PUBLIC_TYPE_SCOPE]: registration surfaces
 - rail: observability
@@ -59,10 +66,11 @@ monitoring option policy into the observability rail.
 [ENTRYPOINT_SCOPE]: monitor operations
 - rail: observability
 
-| [INDEX] | [SURFACE]        | [CALL_SHAPE]                        | [CAPABILITY]                         |
-| :-----: | :--------------- | :---------------------------------- | :----------------------------------- |
-|   [1]   | `GetUtilization` | `TimeSpan` window                   | computes utilization over the window |
-|   [2]   | `PublishAsync`   | utilization plus cancellation token | delivers utilization to a publisher  |
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                     | [CAPABILITY]                          |
+| :-----: | :------------------- | :----------------------------------------------- | :------------------------------------ |
+|   [1]   | `GetUtilization`     | `TimeSpan` window                                | computes utilization over the window  |
+|   [2]   | `PublishAsync`       | utilization plus cancellation token              | delivers utilization to a publisher   |
+|   [3]   | `GetResourceQuota`   | `ResourceQuotaProvider.GetResourceQuota()` -> `ResourceQuota`; `GetResourceQuota(out ResourceQuota)` try-shape | reads the current container resource quota |
 
 [ENTRYPOINT_SCOPE]: option policy
 - rail: observability
@@ -81,10 +89,10 @@ monitoring option policy into the observability rail.
 ## [4]-[IMPLEMENTATION_LAW]
 
 [MONITOR_TOPOLOGY]:
-- registration root: `AddResourceMonitoring` wires monitor service, snapshot provider, and publishers
-- read model: `IResourceMonitor.GetUtilization(window)` folds buffered snapshots into one utilization value
-- value model: `ResourceUtilization` carries usage percentages, used bytes, `SystemResources`, and the latest `Snapshot`
-- limit model: `SystemResources` distinguishes guaranteed from maximum CPU units and memory bytes
+- registration root: `AddResourceMonitoring` wires monitor service, snapshot provider, publishers, and the quota provider
+- observable-instrument read model: the current path reads CPU/memory pressure off the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, instruments `process.cpu.utilization` and `dotnet.process.memory.virtual.ratio`, via a `MeterListener` over observable instruments — never the obsolete `IResourceMonitor.GetUtilization` pull
+- quota model: `ResourceQuotaProvider.GetResourceQuota()` returns the current `ResourceQuota` carrying `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings so a container-row grade compares against the limit the process runs under, not the host total
+- obsolete pull model: `IResourceMonitor.GetUtilization(window)` folds buffered snapshots into `ResourceUtilization` (usage percentages, used bytes, `SystemResources`, latest `Snapshot`) — obsolete v10.7.0, kept only as the migration source
 - platform model: Linux and Windows snapshot sources stay internal behind `ISnapshotProvider`
 
 [LOCAL_ADMISSION]:

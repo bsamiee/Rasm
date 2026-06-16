@@ -10,7 +10,8 @@ Rasm.Persistence encodes every durable payload through one three-row `SnapshotCo
 |   [2]   | COMPRESSION_HASHING | Compression rows, hash rows, framing routes and identity values       |
 |   [3]   | SNAPSHOT_PROTOCOL   | Header law, atomic write fold, catalog row, orphan sweep              |
 |   [4]   | RESTORE_AND_DIFF    | Verified read, restore receipt parity, content-addressed diff         |
-|   [5]   | TS_PROJECTION       | Wire shapes and msgpack alignment the dashboard consumes              |
+|   [5]   | FUZZ_HARNESS        | Out-of-process SharpFuzz over the codec/restore untrusted boundary    |
+|   [6]   | TS_PROJECTION       | Wire shapes and msgpack alignment the dashboard consumes              |
 
 ## [2]-[CODEC_AXIS]
 
@@ -343,7 +344,55 @@ public static class SnapshotRestoreOps {
 }
 ```
 
-## [6]-[TS_PROJECTION]
+## [6]-[FUZZ_HARNESS]
+
+- Owner: `SnapshotCodecFuzz` — the dedicated `tests/csharp/_fuzz` out-of-process harness project entry point for the snapshot codec and restore-ladder untrusted-data boundary.
+- Entry: `public static void Main()` calling `Fuzzer.OutOfProcess.Run(Action<Stream>)` — the raw-byte stream overload, never the `Action<string>` overload, because the boundary admits binary frames with no UTF-8 assumption.
+- Auto: `afl-fuzz -i <corpus> -o <findings> -- dotnet <harness>.dll` drives the campaign; the in-process `Run(Action<Stream>)` falls through to a single standalone execution under CI when `__AFL_SHM_ID` is absent, so the same entry point gates as a one-shot smoke under `test run` and as a coverage-guided session under afl-fuzz with no second harness.
+- Receipt: no receipt — a survived input records a zero exit, an uncaught exception records the AFL FAULT_CRASH return code `2`, and a crashing input persists as a findings-dir artifact under the project artifact root.
+- Packages: SharpFuzz, MessagePack, K4os.Compression.LZ4, System.IO.Hashing, LanguageExt.Core, BCL inbox.
+- Growth: a new untrusted decode surface is one arm on the `Drive` fold, never a second harness project; a new seed shape is one corpus file under the findings root, never a code change.
+- Boundary: the harness asserts the total-rejection law — every malformed byte sequence resolves to a typed `Fin` rejection or a deserializer-internal fault the fold catches, never an unhandled escape past `Drive`, so the codec `Foreign` `UntrustedData` resolver, `CompressionPolicy.Unpack`, `SnapshotHeader.Parse`, and the `HashPolicy.Identity` verify together prove crash-safe under adversarial input; the round-trip-identity arm seeds the corpus with real sealed-snapshot bytes and asserts that a header-valid, hash-matching payload decodes to a value whose re-seal reproduces the same content address, so the fuzzer also exercises the success path that a malformed-only corpus would starve; the `Foreign` resolver (`MessagePackSecurity.UntrustedData`) is the only codec route the harness drives because it is the cross-process payload boundary the restore lane reads — the trusted `Binary` route is never fuzzed because no untrusted byte reaches it; `Drive` swallows only the deserializer and codec fault taxonomy and rethrows any `OutOfMemoryException`/`StackOverflowException`-class fault so an unbounded-allocation defect surfaces as a crash rather than a silent catch; the harness references the package codec owners directly and declares no parallel decode path, so a divergence between the fuzzed decode and the production `Restore` read is impossible by construction; this cluster owns the harness design only — the `tests/csharp/_fuzz` project is the implementation-session transcription deliverable.
+
+```csharp signature
+public static class SnapshotCodecFuzz {
+    public static void Main() => Fuzzer.OutOfProcess.Run(Drive);
+
+    private static void Drive(Stream data) {
+        Span<byte> prefix = stackalloc byte[SnapshotHeader.Size];
+        var read = data.ReadAtLeast(prefix, SnapshotHeader.Size, throwOnEndOfStream: false);
+        _ = SnapshotHeader.Parse(prefix[..read]).Match(
+            Succ: header => DriveBody(header, data),
+            Fail: static _ => unit);
+    }
+
+    private static Unit DriveBody(SnapshotHeader header, Stream data) {
+        using var rest = new MemoryStream();
+        data.CopyTo(rest);
+        var framed = rest.ToArray();
+        var compression = Seq(CompressionPolicy.None, CompressionPolicy.Lz4Fast, CompressionPolicy.Lz4High)
+            .Find(row => row.HeaderId == header.CompressionId);
+        var codec = Seq(SnapshotCodec.JsonStj, SnapshotCodec.MessagePackBinary, SnapshotCodec.FileRaw)
+            .Find(row => row.HeaderId == header.CodecId);
+        return (compression, codec).Sequence().Match(
+            Some: pair => {
+                try {
+                    var payload = pair.Item1.Unpack(framed);
+                    _ = HashPolicy.Identity.Tag(payload);
+                    _ = pair.Item2 == SnapshotCodec.MessagePackBinary
+                        ? MessagePackSerializer.Deserialize<object>(payload, SnapshotCodec.Foreign)
+                        : pair.Item2 == SnapshotCodec.JsonStj
+                            ? JsonSerializer.Deserialize(payload, typeof(SnapshotCatalogRow), SnapshotCodec.SnapshotJson)
+                            : payload;
+                } catch (Exception ex) when (ex is MessagePackSerializationException or JsonException or InvalidDataException or FormatException) { }
+                return unit;
+            },
+            None: static () => unit);
+    }
+}
+```
+
+## [7]-[TS_PROJECTION]
 
 - Owner: `SnapshotCodecKey`, `SnapshotCompressionKey`, `DataClassificationKey`, `SnapshotHeaderWire`, `SnapshotCatalogRowWire`, `SnapshotDeltaWire`, `RestoreReceiptWire`, `SnapshotDecodeOptions`, `SnapshotExtensionRows` — the page's wire transcription.
 - Packages: BCL inbox.
@@ -403,7 +452,7 @@ interface SnapshotDecodeOptions {
 type SnapshotExtensionRows = never;
 ```
 
-## [7]-[RESEARCH]
+## [8]-[RESEARCH]
 
 - [RENAME_DURABILITY]: the data-flush-before-rename order is settled; the residual is directory-entry durability — whether APFS guarantees the rename's directory entry survives a power loss without an explicit parent-directory fsync, and the managed route to that fsync if it does not.
 - [RESOLVER_PRECEDENCE]: `ThinktectureMessageFormatterResolver` coverage over keyed unions and complex value objects composed with `SourceGeneratedFormatterResolver` under Lz4BlockArray; the precedence of the `PersistenceResolver` `[CompositeResolver]`/`[GeneratedMessagePackResolver]` AOT landmark over the runtime `CompositeResolver.Create` chain and over `SourceGeneratedFormatterResolver` when both resolve one generated type; `GeoJsonConverterFactory` precedence over combined source-generated contract metadata for geometry-bearing wire records.

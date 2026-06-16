@@ -26,6 +26,8 @@ Rasm.Compute/
 │   └── Cache.cs               # CachePolicy, CacheOps — model-lane#RESULT_CACHE
 ├── Numeric/
 │   └── Lane.cs                # LinearProvider, FactorizationKind, Factorization, DenseOps, SparseFormat, SparseOps, KernelLowering, ShardPlan, NumericKeyPolicy — numeric-lane#DENSE_ALGEBRA, numeric-lane#SPARSE_SOLVE, numeric-lane#KERNEL_LOWERING, numeric-lane#PROVIDER_CLAIMS
+├── Interchange/
+│   └── Interchange.cs         # InterchangeFormat, InterchangeCodec, InterchangeIo, IfcSemanticModel, TessellationRequest, InterchangeIdentity, InterchangeKeyPolicy — interchange#FORMAT_AXIS, interchange#IMPORT_RAIL, interchange#EXPORT_RAIL, interchange#TWO_HOP_TESSELLATION, interchange#CONTENT_ADDRESSING
 ├── Remote/
 │   ├── Contract.cs            # ContractDrift, ContractGuard — remote-lane#CONTRACT_EVOLUTION, remote-lane#FAULT_PROJECTION
 │   ├── Frames.cs              # FrameEdge — remote-lane#ARTIFACT_FRAMES
@@ -93,11 +95,11 @@ Text equivalent: `ComputeIntent` admits through `IntentAdmission` into an `Admit
 |   [6]   | Layout algebra      | `LayoutForm`        |      5       | tensor-lane#LAYOUT_ALGEBRA               |
 |   [7]   | Geometry encodings  | `GeometryEncoding`  |      3       | tensor-lane#GEOMETRY_ENCODING            |
 |   [8]   | Model acquisition   | `ModelSource`       |      4       | model-lane#MODEL_IDENTITY                |
-|   [9]   | Execution providers | `ExecutionProvider` |      4       | model-lane#EP_AXIS                       |
+|   [9]   | Execution providers | `ExecutionProvider` |      2       | model-lane#EP_AXIS                       |
 |  [10]   | Cache postures      | `CachePolicy`       |      4       | model-lane#RESULT_CACHE                  |
 |  [11]   | Wire services       | `WireServices`      |  5 / 18 rpc  | remote-lane#PROTO_VOCABULARY             |
 |  [12]   | Contract drift      | `ContractDrift`     |      3       | remote-lane#CONTRACT_EVOLUTION           |
-|  [13]   | Transports          | `RemoteTransport`   |      6       | remote-lane#TRANSPORT_AXIS               |
+|  [13]   | Transports          | `RemoteTransport`   |      4       | remote-lane#TRANSPORT_AXIS               |
 |  [14]   | Credentials         | `CredentialPolicy`  |      4       | remote-lane#CALL_POLICY                  |
 |  [15]   | Allocation classes  | `AllocationClass`   |      5       | staging-and-streams#ALLOCATION_AXIS      |
 |  [16]   | Work lanes          | `WorkLane`          |      5       | scheduling-and-lanes#LANE_AXIS           |
@@ -141,6 +143,9 @@ Each row cites the suite ledger SEAM_SPLITS: mechanics live at the named owner; 
 |   [3]   | `WorkLane` name                  | scheduling-and-lanes#LANE_AXIS        | AppHost owns `DrainQueue`; one altitude per name                                    |
 |   [4]   | Phase-key set                    | progress-and-observation#PHASE_FAMILY | AppUi motion mapping mirrors the nine keys; its conformance sweep fails on drift    |
 |   [5]   | Receipt and progress wire shapes | receipts-and-benchmarks#TS_PROJECTION | AppUi evidence joins and dashboard ingestion consume the projections               |
+|   [6]   | Interchange content identity     | interchange#CONTENT_ADDRESSING        | Persistence blob lane stores the addressed interchange bytes via `ArtifactIndexRow.Admit`; Compute owns the `XxHash128` key, Persistence owns blob residence |
+|   [7]   | IFC semantic graph               | interchange#IMPORT_RAIL               | Persistence data-lanes ingests the `IfcSemanticModel` model graph as a managed in-proc semantic artifact, content-addressed, never a tessellated BRep |
+|   [8]   | Tessellated GLB visual           | interchange#TWO_HOP_TESSELLATION      | AppUi visual seam consumes the GLB the two-hop hop emits; the IFC semantic graph never crosses to the visual surface |
 
 ## [7]-[REFERENCE_DIRECTION]
 

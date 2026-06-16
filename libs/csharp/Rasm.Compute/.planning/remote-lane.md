@@ -1,6 +1,6 @@
 # [COMPUTE_REMOTE_LANE]
 
-Rasm.Compute owns the suite wire vocabulary: five proto services compiled GrpcServices=Client in this package and GrpcServices=Server at app roots, one descriptor-diff contract-evolution law, one FaultDetail family carrying every typed fault across the wire, six `RemoteTransport` rows with streaming-capability columns, and a four-row `CredentialPolicy` axis behind one stamping interceptor. The ArtifactSync frame law owns the 64 KiB `FrameEdge` fold with per-frame Crc32, whole-artifact XxHash128 identity, and the `IBufferMessage` zero-alloc parse-merge-write fast path, and the browser TS posture projects the whole suite wire as type-only contracts. Channel policy values arrive settled on `GrpcChannelPolicy.Canonical`; discovery, retry ownership, deadlines, correlation, degradation, and receipt sinks compose from the AppHost spine. The package spine is Google.Protobuf, Grpc.Tools, Grpc.Net.Client, Grpc.Net.Client.Web, NodaTime.Serialization.Protobuf, Microsoft.IO.RecyclableMemoryStream, CommunityToolkit.HighPerformance, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, and NodaTime.
+Rasm.Compute owns the suite wire vocabulary: five proto services compiled GrpcServices=Client in this package and GrpcServices=Server at app roots, one descriptor-diff contract-evolution law, one FaultDetail family carrying every typed fault across the wire, four `RemoteTransport` rows with streaming-capability columns, a five-row `CredentialPolicy` axis behind one stamping interceptor, and a claim-gated `CompressionProviders` encoding axis projecting the inbox `ICompressionProvider` rows. The ArtifactSync frame law owns the 64 KiB `FrameEdge` fold with per-frame Crc32, whole-artifact XxHash128 identity, and the `IBufferMessage` zero-alloc parse-merge-write fast path, and the browser TS posture projects the whole suite wire as type-only contracts. Channel policy values arrive settled on `GrpcChannelPolicy.Canonical`; discovery, retry ownership, deadlines, correlation, degradation, and receipt sinks compose from the AppHost spine. The package spine is Google.Protobuf, Grpc.Tools, Grpc.Net.Client, Grpc.Net.Client.Web, NodaTime.Serialization.Protobuf, Microsoft.IO.RecyclableMemoryStream, CommunityToolkit.HighPerformance, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, and NodaTime.
 
 ## [1]-[INDEX]
 
@@ -9,7 +9,7 @@ Rasm.Compute owns the suite wire vocabulary: five proto services compiled GrpcSe
 |   [1]   | PROTO_VOCABULARY   | Five wire services, canonical geometry messages, generated-client capsule |
 |   [2]   | CONTRACT_EVOLUTION | Descriptor-diff drift law, parse hardening, reserved-number policy        |
 |   [3]   | FAULT_PROJECTION   | One FaultDetail family carrying typed faults through status details       |
-|   [4]   | TRANSPORT_AXIS     | Six transport rows, streaming capability, dial dispatch, redial law        |
+|   [4]   | TRANSPORT_AXIS     | Four transport rows, streaming capability, dial dispatch, redial law        |
 |   [5]   | CALL_POLICY        | Credential axis, one stamping interceptor, deadline and payload edges     |
 |   [6]   | ARTIFACT_FRAMES    | Suite frame law: 64 KiB frames, Crc32, zero-copy wrap                     |
 |   [7]   | TS_PROJECTION      | Browser wire posture, fault and frame contracts, method shapes            |
@@ -173,12 +173,12 @@ public static class WireFault {
 
 ## [5]-[TRANSPORT_AXIS]
 
-- Owner: `RemoteTransport` `[SmartEnum<string>]` six rows with streaming, credential, affinity, and dial columns; `WireKeyPolicy` ordinal comparer accessor; `StreamShape` and `NodeSelection` row vocabularies; `ComputeEndpoint` endpoint identity record; `WireChannels` — attach, open, observe, redial.
-- Cases: Http2; GrpcWeb (unary and server-stream only, `GrpcWebMode.GrpcWeb` binary — the text mode is the rejected google-client-only spelling); UnixDomainSocket (current row: discovery manifest consumption, peer-credential and 0700-directory law); InProcess (current row: injected handler from the test composition root — the handler source is the test-host `TestServer.CreateHandler` seam carried on the RESEARCH item); NamedPipe and TcpLoopback (designed-only rows whose dial faults `HopFault.Excluded` until the byte path lands, their `PipeSecurity` ACL and DACL-plus-bearer security law on the Growth card and the member spelling on the `[PIPE_SECURITY]` RESEARCH row).
+- Owner: `RemoteTransport` `[SmartEnum<string>]` four rows with streaming, credential, affinity, and dial columns; `WireKeyPolicy` ordinal comparer accessor; `StreamShape` and `NodeSelection` row vocabularies; `ComputeEndpoint` endpoint identity record; `WireChannels` — attach, open, observe, redial.
+- Cases: Http2; GrpcWeb (unary and server-stream only, `GrpcWebMode.GrpcWeb` binary — the text mode is the rejected google-client-only spelling); UnixDomainSocket (discovery manifest consumption, peer-credential and 0700-directory law); InProcess (injected handler from the test composition root — the handler source is the test-host `TestServer.CreateHandler` seam carried on the RESEARCH item).
 - Entry: `Open(ComputeEndpoint endpoint, CallSpine spine)` — `Fin<WireServices>`; admission proves credential row membership before the dial column runs.
 - Receipt: channel-state transitions and redial evidence emit through `ReceiptSinkPort.Send` keyed by the endpoint correlation; storeEpoch drift after redial is its own evidence row.
 - Packages: Grpc.Net.Client, Grpc.Net.Client.Web, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
-- Growth: one row absorbs a new byte path — NamedPipe carrying its `PipeSecurity` ACL law is the named Windows hardening row and TcpLoopback carrying the bearer-token and DACL law is the named loopback row, both demoted designed-only with their security law travelling on the row, the `PipeSecurity` ACL for the pipe and the DACL plus bearer for the loopback never blurred into one credential shape; one `NodeSelection` case absorbs a new farm strategy; zero new surface.
+- Growth: one row absorbs a new byte path — the Windows-only `NamedPipe` (`PipeSecurity` ACL) and the bearer-plus-DACL `TcpLoopback` rows are dropped from the live macOS axis and their security-law member spelling stays the design record on `[PIPE_SECURITY]`, re-entering as one row each only on a host whose RID admits the byte path, the `PipeSecurity` ACL for the pipe and the DACL plus bearer for the loopback never blurred into one credential shape; one `NodeSelection` case absorbs a new farm strategy; zero new surface.
 - Boundary: `WireChannels` is the named boundary capsule on this fence; keepalive, pooled-idle, multiplexing, and the 4 MiB caps read from `GrpcChannelPolicy.Canonical` and are never re-declared; ArtifactSync bidi and CaptureEvents client-stream are structurally excluded on the GrpcWeb row — intent admission faults a stream shape the row cannot carry; reconnect on UnixDomainSocket is redial-only with the storeEpoch re-handshake after redial; a failed attach folds to the LocalOnly consequence — substrate predicates read the retained Capability set, never a second health probe; `NodeSelection.ModelWarmupAffinity` populates the endpoint affinity column from the warm-start session fingerprint so a cold companion routes to the node holding the matching EP-context blob, and the experimental resolver and balancer config surface never enters — node affinity rides endpoint identity rows, never a `ServiceConfig` load-balancing policy; this endpoint affinity is the single warm-start column the `SubstrateSelection.Plan` fold reads — `WarmAffinity` marking an endpoint affine through `nodeWarmBlobs.Contains(warmStartFingerprint)` projects the `RemoteGrpc.Key` into `SelectionContext.WarmAffinity` so the selection fold's `AffinityRank` tie-breaker reads the same warm fact from one substrate-keyed set, never a second affinity notion parallel to endpoint identity.
 
 ```csharp signature
@@ -194,18 +194,17 @@ public enum NodeSelection { RoundRobin, LeastLoaded, ModelWarmupAffinity }
 
 public sealed record ComputeEndpoint(
     Uri Address, RemoteTransport Transport, CredentialPolicy Credential, CorrelationId Correlation,
-    Option<DiscoveryManifest> Peer = default, Option<NodeSelection> Affinity = default, Option<Func<HttpMessageHandler>> Handler = default);
+    Option<DiscoveryManifest> Peer = default, Option<NodeSelection> Affinity = default, Option<Func<HttpMessageHandler>> Handler = default,
+    Seq<AsyncAuthInterceptor> Mints = default);
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<WireKeyPolicy, string>]
 [KeyMemberComparer<WireKeyPolicy, string>]
 public sealed partial class RemoteTransport {
-    public static readonly RemoteTransport Http2 = new("http2", streams: StreamShape.Unary | StreamShape.ServerStream | StreamShape.ClientStream | StreamShape.Bidi, credentials: Seq(CredentialPolicy.Tls, CredentialPolicy.Mtls, CredentialPolicy.Bearer), affinity: true, dial: static endpoint => Fin.Succ(GrpcChannel.ForAddress(endpoint.Address, WireChannels.Canonical(endpoint))));
+    public static readonly RemoteTransport Http2 = new("http2", streams: StreamShape.Unary | StreamShape.ServerStream | StreamShape.ClientStream | StreamShape.Bidi, credentials: Seq(CredentialPolicy.Tls, CredentialPolicy.Mtls, CredentialPolicy.Bearer, CredentialPolicy.Composed), affinity: true, dial: static endpoint => Fin.Succ(GrpcChannel.ForAddress(endpoint.Address, WireChannels.Canonical(endpoint))));
     public static readonly RemoteTransport GrpcWeb = new("grpc-web", streams: StreamShape.Unary | StreamShape.ServerStream, credentials: Seq(CredentialPolicy.Bearer, CredentialPolicy.Tls), affinity: false, dial: static endpoint => Fin.Succ(GrpcChannel.ForAddress(endpoint.Address, WireChannels.Web(endpoint))));
     public static readonly RemoteTransport UnixDomainSocket = new("uds", streams: StreamShape.Unary | StreamShape.ServerStream | StreamShape.ClientStream | StreamShape.Bidi, credentials: Seq(CredentialPolicy.InsecureLoopback), affinity: false, dial: static endpoint => endpoint.Peer.ToFin(new HopFault.StaleManifest(endpoint.Address.AbsoluteUri)).Map(static peer => Discovery.Connect(peer, GrpcChannelPolicy.Canonical)));
     public static readonly RemoteTransport InProcess = new("in-process", streams: StreamShape.Unary | StreamShape.ServerStream | StreamShape.ClientStream | StreamShape.Bidi, credentials: Seq(CredentialPolicy.InsecureLoopback), affinity: false, dial: static endpoint => endpoint.Handler.ToFin(new HopFault.Excluded(nameof(InProcess))).Map(static handler => GrpcChannel.ForAddress(endpoint.Address, new GrpcChannelOptions { HttpHandler = handler() })));
-    public static readonly RemoteTransport NamedPipe = new("named-pipe", streams: StreamShape.Unary | StreamShape.ServerStream | StreamShape.ClientStream | StreamShape.Bidi, credentials: Seq(CredentialPolicy.InsecureLoopback), affinity: false, dial: static _ => Fin.Fail<GrpcChannel>(new HopFault.Excluded(nameof(NamedPipe))));
-    public static readonly RemoteTransport TcpLoopback = new("tcp-loopback", streams: StreamShape.Unary | StreamShape.ServerStream | StreamShape.ClientStream | StreamShape.Bidi, credentials: Seq(CredentialPolicy.Bearer, CredentialPolicy.Tls), affinity: false, dial: static _ => Fin.Fail<GrpcChannel>(new HopFault.Excluded(nameof(TcpLoopback))));
     public StreamShape Streams { get; }
     public Seq<CredentialPolicy> Credentials { get; }
     public bool Affinity { get; }
@@ -216,7 +215,8 @@ public sealed partial class RemoteTransport {
 
 public static class WireChannels {
     public static GrpcChannelOptions Canonical(ComputeEndpoint endpoint) => new() {
-        Credentials = endpoint.Credential.Channel(None),
+        Credentials = endpoint.Credential.Channel(endpoint.Mints),
+        CompressionProviders = CompressionProviders.Register,
         MaxSendMessageSize = GrpcChannelPolicy.Canonical.MaxSendBytes, MaxReceiveMessageSize = GrpcChannelPolicy.Canonical.MaxReceiveBytes,
         HttpHandler = new SocketsHttpHandler {
             PooledConnectionIdleTimeout = GrpcChannelPolicy.Canonical.PooledConnectionIdle, KeepAlivePingDelay = GrpcChannelPolicy.Canonical.KeepAlivePingDelay,
@@ -225,7 +225,7 @@ public static class WireChannels {
     };
 
     public static GrpcChannelOptions Web(ComputeEndpoint endpoint) => new() {
-        Credentials = endpoint.Credential.Channel(None), HttpVersion = HttpVersion.Version11,
+        Credentials = endpoint.Credential.Channel(endpoint.Mints), HttpVersion = HttpVersion.Version11,
         MaxSendMessageSize = GrpcChannelPolicy.Canonical.MaxSendBytes, MaxReceiveMessageSize = GrpcChannelPolicy.Canonical.MaxReceiveBytes,
         HttpHandler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, endpoint.Handler.IfNone(static () => new HttpClientHandler())()),
     };
@@ -285,13 +285,13 @@ sequenceDiagram
 
 ## [6]-[CALL_POLICY]
 
-- Owner: `CredentialPolicy` `[SmartEnum<string>]` four rows projecting `ChannelCredentials`; `CallSpine` — the one client interceptor stamping correlation and traceparent, plus the deadline and payload edges.
-- Cases: InsecureLoopback (UnixDomainSocket-scoped), Tls, Mtls (client certificate rides the handler TLS options row), Bearer (browser; per-call token minted through `CallCredentials.FromInterceptor(AsyncAuthInterceptor)` and composed onto the channel through `ChannelCredentials.Create`).
+- Owner: `CredentialPolicy` `[SmartEnum<string>]` five rows projecting `ChannelCredentials`; `CompressionProviders` `[SmartEnum<string>]` the claim-gated encoding axis projecting inbox `ICompressionProvider` rows; `CallSpine` — the one client interceptor stamping correlation and traceparent, plus the deadline and payload edges.
+- Cases: InsecureLoopback (UnixDomainSocket-scoped), Tls, Mtls (client certificate rides the handler TLS options row), Bearer (browser; per-call token minted through `CallCredentials.FromInterceptor(AsyncAuthInterceptor)` and composed onto the channel through `ChannelCredentials.Create`), Composed (farm node dialing a hub; ≥2 per-call identity mints stacked through `CallCredentials.Compose(params CallCredentials[])` and bound to the TLS channel through `ChannelCredentials.Create`, a single-mint sequence collapsing to the bare `FromInterceptor` bind and an empty sequence to the plain `SecureSsl` channel). `CompressionProviders` rows: Identity (the default no-op `"identity"` accept-encoding), Gzip (`GzipCompressionProvider`), Deflate (`DeflateCompressionProvider`).
 - Entry: `Options(Instant deadline, CancellationToken token)` — the intent deadline Instant projects to DateTime exactly at this edge; `Bounded` is the `CalculateSize` pre-check faulting PayloadOverBounds before serialization.
 - Auto: every generated stub call crosses the interceptor — correlation metadata, W3C traceparent, and per-call receipt capture stamp without hand-threaded Metadata.
 - Receipt: per-call route, byte sizes, and deadline outcome evidence emit through `ReceiptSinkPort.Send` at the interceptor seam.
-- Packages: Grpc.Net.Client, Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: one credential row per new trust shape; the compression row flips on behind one winning benchmark claim row through `CallSpine.Compressed` stamping the per-call `grpc-internal-encoding-request` metadata key (the `RequestEncodingKey` const) onto the call options when the claim names a registered encoding, against the channel-side `GrpcChannelOptions.CompressionProviders` `ICompressionProvider` rows — the encoding name is a claim-gated `Option<string>`, so an absent claim leaves the call uncompressed and a per-call default-on knob is the deleted form; zero new surface.
+- Packages: Grpc.Net.Client, Grpc.Net.Compression (inbox `ICompressionProvider`/`GzipCompressionProvider`/`DeflateCompressionProvider`), Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox (`System.IO.Compression.CompressionLevel`), Rasm.AppHost (project)
+- Growth: one credential row per new trust shape (Composed stacks N identity mints, never a new surface); one `CompressionProviders` row per new wire encoding; the compression flip rides one winning benchmark claim row through `CallSpine.Compressed` stamping the per-call `grpc-internal-encoding-request` metadata key (the `RequestEncodingKey` const) with the winning `CompressionProviders.Key` onto the call options, against the channel-side `GrpcChannelOptions.CompressionProviders` registration that `CompressionProviders.Register` materializes from the axis rows — the winning encoding is a claim-gated `Option<CompressionProviders>`, so an absent claim leaves the call uncompressed and a per-call default-on knob is the deleted form; zero new surface.
 - Boundary: the Bearer token is minted per call through `CallCredentials.FromInterceptor` reading the `AsyncAuthInterceptor` token producer, never a pre-built credential cached past its expiry — a stale cached token is the deleted form; `GrpcChannelOptions.ServiceConfig` is never set — the whole retry, hedging, and load-balancing config surface is experimental and a second retry owner; the AppHost keyed pipeline owns the hop retry and a detected second owner emits Conflict evidence instead of stacking; `UnsafeUseInsecureChannelCallCredentials` is never set; `ThrowOperationCanceledOnCancellation` stays unset — `RpcException` conversion lives in the one `WireFault.Classify` arm.
 
 ```csharp signature
@@ -302,9 +302,31 @@ public sealed partial class CredentialPolicy {
     public static readonly CredentialPolicy InsecureLoopback = new("insecure-loopback", channel: static _ => ChannelCredentials.Insecure);
     public static readonly CredentialPolicy Tls = new("tls", channel: static _ => ChannelCredentials.SecureSsl);
     public static readonly CredentialPolicy Mtls = new("mtls", channel: static _ => ChannelCredentials.SecureSsl);
-    public static readonly CredentialPolicy Bearer = new("bearer", channel: static producer => producer switch { { IsSome: true, Case: AsyncAuthInterceptor mint } => ChannelCredentials.Create(ChannelCredentials.SecureSsl, CallCredentials.FromInterceptor(mint)), _ => ChannelCredentials.SecureSsl });
+    public static readonly CredentialPolicy Bearer = new("bearer", channel: static mints => mints.HeadOrNone().Match(
+        Some: static mint => ChannelCredentials.Create(ChannelCredentials.SecureSsl, CallCredentials.FromInterceptor(mint)),
+        None: static () => ChannelCredentials.SecureSsl));
+    public static readonly CredentialPolicy Composed = new("composed", channel: static mints => mints.Match(
+        Empty: static () => ChannelCredentials.SecureSsl,
+        Head: static mint => ChannelCredentials.Create(ChannelCredentials.SecureSsl, CallCredentials.FromInterceptor(mint)),
+        Tail: static (head, tail) => ChannelCredentials.Create(
+            ChannelCredentials.SecureSsl,
+            CallCredentials.Compose(head.Cons(tail).Map(CallCredentials.FromInterceptor).ToArray()))));
 
-    public Func<Option<AsyncAuthInterceptor>, ChannelCredentials> Channel { get; }
+    public Func<Seq<AsyncAuthInterceptor>, ChannelCredentials> Channel { get; }
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<WireKeyPolicy, string>]
+[KeyMemberComparer<WireKeyPolicy, string>]
+public sealed partial class CompressionProviders {
+    public static readonly CompressionProviders Identity = new("identity", provider: static () => Option<ICompressionProvider>.None);
+    public static readonly CompressionProviders Gzip = new("gzip", provider: static () => Some<ICompressionProvider>(new GzipCompressionProvider(CompressionLevel.Fastest)));
+    public static readonly CompressionProviders Deflate = new("deflate", provider: static () => Some<ICompressionProvider>(new DeflateCompressionProvider(CompressionLevel.Fastest)));
+
+    public Func<Option<ICompressionProvider>> Provider { get; }
+
+    public static IList<ICompressionProvider> Register =>
+        Items.ToSeq().Choose(static row => row.Provider()).ToList();
 }
 
 public sealed class CallSpine(CorrelationId correlation, Func<string> traceparent) : Interceptor {
@@ -315,9 +337,9 @@ public sealed class CallSpine(CorrelationId correlation, Func<string> traceparen
     public static CallOptions Options(Instant deadline, CancellationToken token) =>
         new(deadline: deadline.ToDateTimeUtc(), cancellationToken: token);
 
-    public static CallOptions Compressed(CallOptions options, Option<string> winningEncoding) =>
+    public static CallOptions Compressed(CallOptions options, Option<CompressionProviders> winningEncoding) =>
         winningEncoding.Match(
-            Some: encoding => options.WithHeaders(Merge(options.Headers, new Metadata { { RequestEncodingKey, encoding } })),
+            Some: encoding => options.WithHeaders(Merge(options.Headers, new Metadata { { RequestEncodingKey, encoding.Key } })),
             None: () => options);
 
     public static Fin<T> Bounded<T>(T message) where T : IMessage<T> =>
@@ -425,6 +447,5 @@ interface ArtifactFrameWire { artifactId: string; artifactBytes: number; offset:
 ## [9]-[RESEARCH]
 
 - [TRANSPORTS]: `TestServer.CreateHandler` handler seam for the in-process row through the test-host pin surface; `Microsoft.AspNetCore.TestHost` admission lands the test-only package reference at the matched ASP.NET Core servicing line.
-- [PIPE_SECURITY]: `System.IO.Pipes` `PipeSecurity` ACL for the designed-only NamedPipe row and the loopback DACL plus bearer-token shape for the designed-only TcpLoopback row.
-- [REQUEST_COMPRESSION]: the `GrpcChannelOptions.CompressionProviders` `ICompressionProvider` registration and the per-call `grpc-internal-encoding-request` metadata key bind the compression row only behind a winning `BenchmarkClaim` row whose fingerprint matches the running host; the row stays a claim-gated case on `CredentialPolicy`, never a default-on channel knob, until the claim lands.
-- [COMPOSED_CREDENTIAL]: the `Grpc.Core.Api` `CallCredentials.Compose(params CallCredentials[])` member stacks a node identity onto a hub identity for a farm node dialing through a hub, catalogued in `api-grpc-client.md`; the `CredentialPolicy` composed-identity arm builds the composite through `CallCredentials.Compose` and binds it to the channel through `ChannelCredentials.Create(ChannelCredentials.SecureSsl, CallCredentials)`, composed call credentials transmitting only over a TLS channel row — the live-ALC dial of the composed identity through a running plugin channel is the residual probe.
+- [PIPE_SECURITY]: `System.IO.Pipes` `PipeSecurity` ACL for the Windows-only NamedPipe byte path and the loopback DACL plus bearer-token shape for the TcpLoopback byte path — both rows dropped from the live macOS axis (no Windows ACL surface, the loopback path superseded by UDS on this host); the member spelling is the design record re-entering as one row each only on a host whose RID admits the byte path.
+- [COMPOSED_CREDENTIAL]: the `CredentialPolicy.Composed` arm and the `CompressionProviders` axis are authored against the catalogued `CallCredentials.Compose(params CallCredentials[])` and inbox `GzipCompressionProvider`/`DeflateCompressionProvider` spellings; the live-ALC dial of the composed identity through a running plugin channel — and the fingerprint-matched `BenchmarkClaim` that gates the compression flip on the live host — are the only residual probes.

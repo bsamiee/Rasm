@@ -52,7 +52,7 @@ for measured staging payloads.
 |   [8]   | `IAction` / `IAction2D`     | action contract | defines indexed work   |
 |   [9]   | `IInAction` / `IRefAction`  | action contract | defines item work      |
 |  [10]   | `BitHelper`                 | bit helper      | packs bit flags        |
-|  [11]   | `HashCode<T>`               | hash helper     | hashes value spans     |
+|  [11]   | `HashCode<T>`               | hash helper     | REJECTED — see `[REJECTED]` |
 |  [12]   | `ObjectMarshal`             | marshal helper  | reads object internals |
 
 ## [3]-[ENTRYPOINTS]
@@ -126,14 +126,21 @@ for measured staging payloads.
 - granularity: `minimumActionsPerThread` lower-bounds work per thread; degree of parallelism clamps to `Environment.ProcessorCount`
 - single-thread collapse: a partition count of one invokes the action inline on the calling thread
 
-[LOCAL_ADMISSION]:
+[BIT_FLAGS]:
+- helper root: `BitHelper` static methods over `uint` and `ulong` words
+- flag forms: `bool HasFlag(value, int n)`; `void SetFlag(ref value, int n, bool flag)` in-place and `value SetFlag(value, int n, bool flag)` value-returning
+- range forms: `value ExtractRange(value, byte start, byte length)`; `void SetRange(ref value, byte start, byte length, flags)` in-place and value-returning, `flags` typed to the word width
+- word width: every method has a `uint` and a `ulong` overload; the staging allocation-axis word set/has-flag column binds the `ulong` overloads
 - Compute staging uses package memory shapes before introducing package-local payload owners.
 - Ref carriers remain internal implementation material and never become public domain vocabulary.
 - Parallel helper entrypoints require benchmark receipts before becoming a default execution path.
 - Byte projections require explicit codec and endianness ownership at the calling rail.
 
+[REJECTED]:
+- `HashCode<T>.Combine` is not admitted: the suite identity-hashing surface is a single monopoly held by `System.IO.Hashing` — `XxHash128` for whole-artifact and content-address identity and `Crc32` for per-frame integrity (the `FrameEdge`/`InterchangeIdentity` owners). A second hashing helper for value-span digests would mint a parallel hash owner that fragments the content-address identity, so the `HashCode<T>` span-combine path stays out of the package and every value digest routes through the XxHash/Crc32 monopoly.
+
 [RAIL_LAW]:
 - Package: `CommunityToolkit.HighPerformance`
 - Owns: pooled memory, span planes, ref views, stream projection
 - Accept: bounded execution payload staging
-- Reject: package-local span wrappers
+- Reject: package-local span wrappers; `HashCode<T>.Combine` value-span hashing (XxHash128/Crc32 monopoly via `System.IO.Hashing`)

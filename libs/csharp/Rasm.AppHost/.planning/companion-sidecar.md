@@ -1,6 +1,6 @@
 # [APPHOST_COMPANION_SIDECAR]
 
-The inbound serving counterpart to the outbound boundary: one `ProcessModality` axis carries the companion, sidecar, and paired-peer spawn-attach-discovery-degradation rows, one `PeerRoster` folds every accepted connection into a lease-epoch attached-peer set on the serving side, one `ControlInbound` handler folds the three `ControlService` wire verbs onto the existing degradation, options, and support owners, one `ServiceHost` registration mounts the gRPC server over a Unix domain socket or a hardened Windows named pipe, one cross-process cascade writes a parent-observed level onto the child `DegradationCell.Cascade` floor, and one `PeerAdmission` reads the connecting peer's credentials at accept over the platform `getsockopt` route. The page owns the modality axis, the attached-peer roster, the verb-fold handler, the server-host registration, the cascade write, and the peer-credential read; it consumes `DegradationCell`, `OptionsAdmission`, `SupportTrigger`, `HostAttachPort`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
+The inbound serving counterpart to the outbound boundary: one `ProcessModality` axis carries the companion, sidecar, and paired-peer spawn-attach-discovery-degradation rows, one `PeerRoster` folds every accepted connection into a lease-epoch attached-peer set on the serving side, one `ControlInbound` handler folds the three `ControlService` wire verbs onto the existing degradation, options, and support owners, one `ServiceHost` registration mounts the gRPC server over a Unix domain socket, one cross-process cascade writes a parent-observed level onto the child `DegradationCell.Cascade` floor, and one `PeerAdmission` reads the connecting peer's credentials at accept over the platform `getsockopt` route. The page owns the modality axis, the attached-peer roster, the verb-fold handler, the server-host registration, the cascade write, and the peer-credential read; it consumes `DegradationCell`, `OptionsAdmission`, `SupportTrigger`, `HostAttachPort`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
 
 ## [1]-[INDEX]
 
@@ -8,7 +8,7 @@ The inbound serving counterpart to the outbound boundary: one `ProcessModality` 
 | :-----: | ------------------- | ------------------------------------------------------------------- |
 |   [1]   | PROCESS_MODALITY    | Three modality rows + lease-epoch attached-peer roster on the serving side |
 |   [2]   | CONTROL_SERVICE     | Three wire verbs folded onto degradation, options, support owners   |
-|   [3]   | SERVICE_HOST        | gRPC server registration over UDS and hardened Windows named pipe   |
+|   [3]   | SERVICE_HOST        | gRPC server registration over a Unix domain socket                  |
 |   [4]   | DEGRADATION_CASCADE | Parent floor written to the child cell over the control hop         |
 |   [5]   | PEER_ADMISSION      | Accept-side peer-credential read over the platform getsockopt route |
 
@@ -20,7 +20,7 @@ The inbound serving counterpart to the outbound boundary: one `ProcessModality` 
 - Auto: `Attach` reads the discovery manifest through the bound `Discovery.Read` projection and dials the control channel through `Discovery.Connect`, running the single-shot `Discovery.Spawn` only on rows whose `Spawns` column is set, and the `DegradesChild` column gates the cascade write; `Admit` keys the entry by the kernel-reported `PeerCredential.Pid` from the accept seam — never the manifest's self-asserted pid — and stamps the lease deadline from `LeasePolicy.Maintenance.CrashStaleness` so a peer's lease lapses on the same crash-staleness window the maintenance lease uses, `Renew` extends it, and `Sweep(Instant now)` drops every entry whose lease lapsed so a vanished peer leaves the roster without an explicit disconnect; every transition mints one `RosterReceipt` fanned through `ReceiptSinkPort.Send`.
 - Receipt: `ModalityReceipt` — modality key, peer pid, attach outcome, elapsed `Duration`, cascade-eligible flag; `RosterReceipt` — transition kind, peer pid+uid, lease epoch, attached-count after the fold, `Instant`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Grpc.Net.Client, BCL inbox
-- Growth: one case plus one `ModalityRow` absorbs a new process topology; the spawn, attach, and cascade legs are column flips on the row, never a parallel surface; a new roster transition is one `RosterTransition` case plus one fold arm; zero new surface.
+- Growth: one case plus one `ModalityRow` absorbs a new process topology; the spawn, attach, cascade, and write-forward legs are column flips on the row, never a parallel surface; a new roster transition is one `RosterTransition` case plus one fold arm; zero new surface. The `ForwardsWrites` column gates the sidecar durable-write forward — a row with the column set routes a local durable write up the control hop to the owner store rather than persisting locally, so a supervised sidecar never owns its own store; the live cross-process forward convergence is the `[FORWARD_WRITE]` live-host SPIKE.
 - Boundary: the modality row consumes `OutboundHop.CompanionSpawn` and `OutboundHop.LocalIpc` from the dial-out owner and never re-declares the spawn or connect mechanics — `Discovery.Spawn`, `Discovery.Connect`, and `Discovery.Read` carry the bytes; `Spawns` is the single-shot guard so a sidecar row attaches without ever starting a process and a paired-peer row both spawns and admits; `DegradesChild` is the cascade-eligibility column the `DEGRADATION_CASCADE` write reads, never a second degradation owner; the attach deadline is the `DeadlineClass.HopAttempt` row read by projection and the lease deadline is the `LeasePolicy.Maintenance.CrashStaleness` value, never a literal here; `CompanionPeer` carries the `CompanionChild` produced by the outbound spawn and the `GrpcChannel` produced by the control dial so one capsule owns both legs of an attached child; `PeerRoster` is the single host-side attached-connection owner — the lease epoch is a monotone `ulong` bumped on every join and drop so a stale peer reconnecting under a prior epoch is detectable, and the roster never re-mints presence: its consequence is an op-log-borne presence value at Persistence/sync-collaboration#PRESENCE_AND_BLOB where each `RosterReceipt` join/drop projects one `PresenceRow` (`Actor` = peer pid+uid, `EntityKind` = the serving service key, `ExpiresAt` = the lease deadline) through `Presence.Beat` over the existing op-log changefeed, so the roster mechanics live here and the durable presence value lives there; `WireHealth` reads the attached-count for per-peer serving status, never a second roster; `FleetRoll` and `ForwardWrite` read `PeerRoster.Attached` as settled vocabulary; the page is host-local and crosses no browser or peer TS wire of its own — the `ControlService` verb messages are Compute/remote-lane#PROTO_VOCABULARY-owned protobuf consumed here, the verb replies project the existing typed receipts field-for-field at that Compute-owned proto, and `RosterReceipt`/`ModalityReceipt` reconstruct through the existing `ReceiptEnvelopeWire` at runtime-ports#TS_PROJECTION, so the page authors no `TS_PROJECTION` cluster and mints no second wire shape.
 
 ```csharp signature
@@ -44,6 +44,7 @@ public sealed record ModalityRow(
     bool Spawns,
     bool Admits,
     bool DegradesChild,
+    bool ForwardsWrites,
     HopIdempotency Idempotency,
     DeadlineClass Attach);
 
@@ -61,9 +62,9 @@ public readonly record struct ModalityReceipt(
     bool CascadeEligible);
 
 public static class ModalityRows {
-    public static readonly ModalityRow Companion = new(ProcessModality.Companion, Spawns: true, Admits: false, DegradesChild: true, HopIdempotency.SingleShot, DeadlineClass.HopAttempt);
-    public static readonly ModalityRow Sidecar = new(ProcessModality.Sidecar, Spawns: false, Admits: true, DegradesChild: false, HopIdempotency.Keyed, DeadlineClass.HopAttempt);
-    public static readonly ModalityRow PairedPeer = new(ProcessModality.PairedPeer, Spawns: true, Admits: true, DegradesChild: true, HopIdempotency.Keyed, DeadlineClass.HopAttempt);
+    public static readonly ModalityRow Companion = new(ProcessModality.Companion, Spawns: true, Admits: false, DegradesChild: true, ForwardsWrites: false, HopIdempotency.SingleShot, DeadlineClass.HopAttempt);
+    public static readonly ModalityRow Sidecar = new(ProcessModality.Sidecar, Spawns: false, Admits: true, DegradesChild: false, ForwardsWrites: true, HopIdempotency.Keyed, DeadlineClass.HopAttempt);
+    public static readonly ModalityRow PairedPeer = new(ProcessModality.PairedPeer, Spawns: true, Admits: true, DegradesChild: true, ForwardsWrites: false, HopIdempotency.Keyed, DeadlineClass.HopAttempt);
 
     extension(ProcessModality modality) {
         public ModalityRow Row => modality.Switch(
@@ -169,7 +170,7 @@ stateDiagram-v2
 - Auto: each verb emits its existing typed receipt fanned to the lake through `ReceiptSinkPort.Send`; the wire level key admits through `DegradationLevel.TryGet` so an unknown key resolves to `None` and `Force` re-derives rather than forcing a phantom level; reload-options invalidates the options-monitor cache through the bound `InvalidateOptions` seam and stamps the same `ReloadOutcome.Applied` transition the `SIGHUP` signal and the options monitor enqueue, distinguished only by the `ReloadReceipt.ControlTrigger` trigger string carried on the `ReloadReceipt`.
 - Receipt: `DegradationState`, `ReloadReceipt` (wrapping `ReloadOutcome.Applied`), and `SupportReceipt` cross verbatim — `VerbReceipt` carries the verb kind and the serialized payload `JsonElement` the sink fans, never a generic control-receipt ledger.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Grpc.Core.Api, BCL inbox
-- Growth: a new control verb is one method on `ControlInbound` folding onto its existing owner plus one `VerbReceipt` kind; zero new surface — no `ControlReceipt` abstraction and no new state machine.
+- Growth: a new control verb is one method on `ControlInbound` folding onto its existing owner plus one `VerbReceipt` kind; zero new surface — no `ControlReceipt` abstraction and no new state machine. The host-side tool-dispatch verb is one such method — `DispatchTool(ControlRuntime runtime, string tool, JsonElement arguments)` folds the requested tool call through the redaction-and-audit seam (`RedactionRegistration` classifies the argument payload, `SupportTrigger.ExternalCommand` audits the invocation) before the dispatch lands, riding `VerbReceipt.DispatchTool`; the convergence of a tool call across the live control plane is the `[TOOL_DISPATCH]` live-host SPIKE.
 - Boundary: the generated `ControlService.ControlServiceBase` override methods sit at the boundary edge and delegate to these folds, carrying `ServerCallContext` and the generated request and reply messages whose spellings route the G7 spec-compile gate; the set-degradation verb is the service-modality route into the one `OperatorOverride` forcing concern and lands `DegradationCell.Force`, the reload-options verb is the service-modality route into the one `ReloadOutcome.Applied` transition stamped on a `ReloadReceipt` under `ControlTrigger`, and the capture-support verb admits `SupportTrigger.ExternalCommand` into the one support concern — the wire verb is the route in, never a parallel owner; the `Empty` request on reload-options and capture-support carries no payload so the handler reads runtime state, and `SetDegradationRequest` carries the level key text the `TryGet` admission validates; the reply messages project the typed receipts field-for-field at the Compute-owned proto, this page owns only the fold from wire to owner.
 
 ```csharp signature
@@ -190,6 +191,7 @@ public readonly record struct VerbReceipt(string Verb, JsonElement Payload) {
     public const string SetDegradation = "set-degradation";
     public const string ReloadOptions = "reload-options";
     public const string CaptureSupport = "capture-support";
+    public const string DispatchTool = "dispatch-tool";
 }
 
 public static class ControlInbound {
@@ -228,14 +230,14 @@ public static class ControlInbound {
 
 ## [4]-[SERVICE_HOST]
 
-- Owner: `ServiceHost` static registration surface mounting the gRPC server and the control intake transport; `ControlTransport` `[Union]` carrying the Unix-domain-socket and Windows-named-pipe intake legs; `PipeHardening` the Windows access-control policy record.
-- Cases: unix-domain-socket binds Kestrel over the `sun_path` endpoint, windows-named-pipe opens the hardened `NamedPipeServerStream` behind `OperatingSystem.IsWindows()`.
-- Entry: `Register(IServiceCollection services)` folds `AddGrpc` and the health-service registration; `Map(IEndpointRouteBuilder endpoints)` folds `MapGrpcService<ControlServiceImpl>` and the wire-health mapping; `Bind(KestrelServerOptions kestrel, ControlTransport transport)` folds the Unix `sun_path` Kestrel endpoint; `Listen(ControlTransport transport)` opens the Windows named-pipe intake stream and yields `None` on the Kestrel-bound Unix leg.
-- Auto: `AddGrpc` registers the server, `MapGrpcService<TService>` maps the `ControlService` implementation, `HealthServiceImpl.SetStatus` registers the wire-health serving status, `Bind` routes the Unix leg through `KestrelServerOptions.ListenUnixSocket` at the `sun_path` endpoint, and the Windows leg builds `NamedPipeServerStreamAcl.Create` with a `PipeSecurity` carrying one `PipeAccessRule` granting the current user `PipeAccessRights.ReadWrite` plus `PipeOptions.CurrentUserOnly` so the pipe restricts to the creating SID.
+- Owner: `ServiceHost` static registration surface mounting the gRPC server and the control intake transport; `ControlTransport` `[Union]` carrying the single Unix-domain-socket intake leg.
+- Cases: unix-domain-socket binds Kestrel over the `sun_path` endpoint — the one local control-plane transport on every supported platform.
+- Entry: `Register(IServiceCollection services)` folds `AddGrpc` and the health-service registration; `Map(IEndpointRouteBuilder endpoints)` folds `MapGrpcService<ControlServiceImpl>` and the wire-health mapping; `Bind(KestrelServerOptions kestrel, ControlTransport transport)` folds the Unix `sun_path` Kestrel endpoint.
+- Auto: `AddGrpc` registers the server, `MapGrpcService<TService>` maps the `ControlService` implementation, `HealthServiceImpl.SetStatus` registers the wire-health serving status, and `Bind` routes the Unix leg through `KestrelServerOptions.ListenUnixSocket` at the `sun_path` endpoint; filesystem mode on the socket path is the access guard, so the connecting peer's identity is read at accept by `PeerAdmission` rather than enforced by a transport ACL.
 - Receipt: the served `ServingStatus` transition logs through one `SpineLog` delegate in the 1000-1999 band; no parallel host receipt.
-- Packages: Grpc.AspNetCore, Grpc.AspNetCore.HealthChecks, System.IO.Pipes, System.IO.Pipes.AccessControl, LanguageExt.Core, BCL inbox
+- Packages: Grpc.AspNetCore, Grpc.AspNetCore.HealthChecks, LanguageExt.Core, BCL inbox
 - Growth: a new served service is one `MapGrpcService<TService>` row; a new intake transport is one `ControlTransport` case; zero new surface — no second server-host owner.
-- Boundary: the gRPC server-host packages enter only at service app roots behind the app-root pin and never below a plugin row; the Unix leg reuses the `Discovery` `sun_path` law at the 104-byte cap, the Windows leg is the named-pipe-hardened control intake guarded by `OperatingSystem.IsWindows()` and `PipeSecurity` is `[SupportedOSPlatform("windows")]` so a non-Windows call site never reaches it; `HealthServiceImpl()` is the parameterless wire-health owner whose `SetStatus(string, ServingStatus)` registration is the serving projection `WireHealth` only predicate-filters, with `ServingStatus.Serving=1` on healthy and degraded and `ServingStatus.NotServing=2` on unhealthy; the `Grpc.Core.Api` `ServerCallContext`, `IServerStreamWriter<T>`, and `ServerServiceDefinition` types route the G7 spec-compile gate; the `PipeAccessRights.ReadWrite=131483` and `PipeOptions.CurrentUserOnly=536870912` integers and the `ServingStatus` integers trace to the grounded enum tables, never invented here.
+- Boundary: the gRPC server-host packages enter only at service app roots behind the app-root pin and never below a plugin row; the Unix leg reuses the `Discovery` `sun_path` law at the 104-byte cap and is the one local control-plane transport — access is gated by the socket-file mode and the accept-side `PeerAdmission` credential read, never a transport-level ACL; `HealthServiceImpl()` is the parameterless wire-health owner whose `SetStatus(string, ServingStatus)` registration is the serving projection `WireHealth` only predicate-filters, with `ServingStatus.Serving=1` on healthy and degraded and `ServingStatus.NotServing=2` on unhealthy; the `Grpc.Core.Api` `ServerCallContext`, `IServerStreamWriter<T>`, and `ServerServiceDefinition` types route the G7 spec-compile gate; the `ServingStatus` integers trace to the grounded enum tables, never invented here.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -243,18 +245,6 @@ public abstract partial record ControlTransport {
     private ControlTransport() { }
 
     public sealed record UnixDomainSocket(string SocketPath) : ControlTransport;
-    public sealed record WindowsNamedPipe(string PipeName, PipeHardening Hardening) : ControlTransport;
-}
-
-public sealed record PipeHardening(
-    int MaxServerInstances,
-    int InBufferSize,
-    int OutBufferSize) {
-    public const int SingleInstance = 1;
-    public const int BufferBytes = 64 << 10;
-    public const PipeAccessRights CurrentUserRights = PipeAccessRights.ReadWrite;
-    public const PipeOptions Hardened = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly | PipeOptions.FirstPipeInstance;
-    public static readonly PipeHardening Canonical = new(MaxServerInstances: SingleInstance, InBufferSize: BufferBytes, OutBufferSize: BufferBytes);
 }
 
 public static class ServiceHost {
@@ -271,34 +261,7 @@ public static class ServiceHost {
         (health.SetStatus(service, status), unit).Item2;
 
     public static Unit Bind(KestrelServerOptions kestrel, ControlTransport transport) => transport.Switch(
-        unixDomainSocket: uds => (kestrel.ListenUnixSocket(uds.SocketPath), unit).Item2,
-        windowsNamedPipe: static _ => unit);
-
-    public static Option<NamedPipeServerStream> Listen(ControlTransport transport) => transport.Switch(
-        unixDomainSocket: static _ => Option<NamedPipeServerStream>.None,
-        windowsNamedPipe: static pipe => OperatingSystem.IsWindows()
-            ? Optional(Hardened(pipe.PipeName, pipe.Hardening))
-            : Option<NamedPipeServerStream>.None);
-
-    [SupportedOSPlatform("windows")]
-    static NamedPipeServerStream Hardened(string pipeName, PipeHardening hardening) {
-        var security = new PipeSecurity();
-        security.AddAccessRule(new PipeAccessRule(
-            WindowsIdentity.GetCurrent().User!,
-            PipeHardening.CurrentUserRights,
-            AccessControlType.Allow));
-        return NamedPipeServerStreamAcl.Create(
-            pipeName,
-            PipeDirection.InOut,
-            hardening.MaxServerInstances,
-            PipeTransmissionMode.Byte,
-            PipeHardening.Hardened,
-            hardening.InBufferSize,
-            hardening.OutBufferSize,
-            security,
-            HandleInheritability.None,
-            PipeAccessRights.FullControl);
-    }
+        unixDomainSocket: uds => (kestrel.ListenUnixSocket(uds.SocketPath), unit).Item2);
 }
 ```
 
@@ -404,5 +367,7 @@ public static partial class PeerAdmission {
 
 - [SPEC_COMPILE]: the generated `ControlService.ControlServiceBase`, `ControlService.ControlServiceClient`, `SetDegradationRequest`, `DegradationReply`, `ReloadReply`, `CaptureSupportReply`, and `Empty` members compile through the G7 spec-compile gate until the `Grpc.Core.Api` assay source map registers the transitive package; the `ServerCallContext` and `IServerStreamWriter<T>` parameter shapes on the base-class overrides resolve through the same rail.
 - [MAP_SERVICE]: the `GrpcHealthChecksOptions.Services` `Map(string, Func<HealthCheckMapContext, bool>)` versus `MapService(string, Func<HealthCheckMapContext, bool>)` behavioral distinction on `ServiceMappingCollection` for the by-service-name versus predicate-routing wire-health registration.
-- [KESTREL_ENDPOINT]: the `KestrelServerOptions.ListenUnixSocket(string)` `sun_path` endpoint binding and the gRPC-over-UDS plus named-pipe control intake under the plugin ALC shared framework ride the app-root Kestrel/ASP.NET surface behind the app-root pin.
+- [KESTREL_ENDPOINT]: the `KestrelServerOptions.ListenUnixSocket(string)` `sun_path` endpoint binding and the gRPC-over-UDS control intake under the plugin ALC shared framework ride the app-root Kestrel/ASP.NET surface behind the app-root pin.
 - [CASCADE_CONVERGENCE]: the live-host cross-process degradation-cascade convergence — a companion observes the parent level over the control hop, lands it as a `DegradationCell.Cascade` floor, and re-derives on release — confirmed against the paired and companion topologies inside the running integrated host; the inbound route that lands a parent-peer floor through `Cascade` rather than the operator `Force` the set-degradation verb owns is the open distinction the live host resolves.
+- [TOOL_DISPATCH]: the live-host tool-call dispatch verb convergence — `ControlInbound.DispatchTool` classifies and audits the argument payload through `RedactionRegistration` and `SupportTrigger.ExternalCommand` before the tool call lands, confirmed against the paired and companion topologies inside the running integrated control plane; the audit-then-dispatch ordering and the redacted-argument projection on `VerbReceipt.DispatchTool` are the open distinctions the live host resolves.
+- [FORWARD_WRITE]: the live-host sidecar durable-write forward convergence — a `ModalityRow.ForwardsWrites` row routes a local durable write up the control hop to the owner store rather than persisting locally, confirmed against the companion and sidecar topologies inside the running integrated host; the forward acknowledgement and the owner-store landing receipt are the open distinctions the live host resolves.

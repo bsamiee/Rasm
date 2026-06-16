@@ -13,7 +13,7 @@ The products this folder uniquely owns; each concept folds over one budgeted own
 |   [3]   | Cross-process writer lease + epoch fence               | `StoreLeaseRow`         | store-profiles#CROSS_PROCESS_LAW               |
 |   [4]   | Seven-lane durable shape axis                          | `DataLane`              | data-lanes#LANE_AXIS                           |
 |   [5]   | Aggregate document store + per-column JSON index       | `DataLane`              | data-lanes#DOCUMENT_LANE                       |
-|   [6]   | Vector + full-text semantic search                     | `DataLane`              | data-lanes#SEARCH_LANES                        |
+|   [6]   | Vector + full-text search (pgvector)                     | `DataLane`              | data-lanes#SEARCH_LANES                        |
 |   [7]   | Geospatial site-context lanes (PostGIS + GeoPackage)   | `GeoLayer`              | data-lanes#GEO_LANES                           |
 |   [8]   | Analytical projection lane + HLC changefeed to parquet | `TabularExportSpec`     | data-lanes#ANALYTICAL_LANE                     |
 |   [9]   | One operation algebra + Kleisli composition            | `StoreOp<T>`            | query-rail#OPERATION_ALGEBRA                   |
@@ -54,6 +54,16 @@ The products this folder uniquely owns; each concept folds over one budgeted own
 |  [44]   | Multi-tenant data isolation (RLS) axis                 | `TenancyModel`          | server-tier#TENANCY_RLS                        |
 |  [45]   | Migration-bundle service-deploy gate                   | `MigrationBundle`       | server-tier#MIGRATION_BUNDLE                   |
 |  [46]   | Tiered cache fabric (in-memory/sqlite/redis/pg)        | `CacheResidence`        | cache-indexes#L2_CONTRIBUTION                  |
+|  [47]   | IFC semantic-ingest model-graph residence (managed)    | `ArtifactIndexRow`      | cache-indexes#ARTIFACT_BLOB_INDEX             |
+|  [48]   | Object-store reachability GC by live Closure           | `RetentionPolicy`       | redaction-retention#RETENTION_SWEEPS          |
+|  [49]   | Partial-graph checkout at a sub-root                    | `SyncTransport`         | sync-collaboration#TRANSPORT_AXIS             |
+|  [50]   | Tenant provisioning lifecycle (create/destroy → RLS)   | `TenantProvision`       | server-tier#TENANCY_RLS                       |
+|  [51]   | Per-tenant resource quota / rate bound                 | `TenantQuota`           | server-tier#TENANCY_RLS                       |
+|  [52]   | Continuous-aggregate refresh push lane                 | `StoreInterceptor`      | query-rail#INTERCEPTOR_SPINE                  |
+|  [53]   | Hybrid RAG retrieval (dense + sparse + BM25 RRF)       | `DataLane`              | data-lanes#SEARCH_LANES                       |
+|  [54]   | Spatial op family (proximity/coverage/spatial-join)    | `GeoLayer`              | data-lanes#GEO_LANES                          |
+|  [55]   | Spatial change-detection over the changefeed           | `GeoLayer`              | data-lanes#GEO_LANES                          |
+|  [56]   | Spatial-analytical rollup to time-series series        | `TimescaleProvisioning` | server-tier#TIMESCALE_PROVISIONING           |
 
 ## [2]-[CAPABILITY_EXPANSION_REGISTER]
 
@@ -99,6 +109,8 @@ Capabilities a downstream app hand-rolls in this domain absent the owner, each m
 |  [36]   | TimescaleDB hyperfunction rollup projections (toolkit)         | `KeysetPage<TRow>`     | query-rail#PROJECTION_SHAPES        |
 |  [37]   | Resumable object-store transfer skip-on-committed-ETag         | `MultipartTransfer`    | remote-stores#MULTIPART_TRANSFER    |
 |  [38]   | Per-tenant content-address cache-key partitioning              | `TenancyModel`         | server-tier#TENANCY_RLS             |
+|  [39]   | Server-side filtered keyset re-query (no client filter)        | `KeysetPage<TRow>`     | query-rail#PROJECTION_SHAPES        |
+|  [40]   | Bulk-lane store-side backpressure shed fact                    | `BulkRoute`            | query-rail#BULK_LANE                |
 
 ## [3]-[FOLDER_CONCEPT_SEEDS]
 

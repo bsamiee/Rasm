@@ -41,6 +41,7 @@
   - [api-telemetry.md](api-telemetry.md)
   - [api-telemetry-abstractions.md](api-telemetry-abstractions.md)
   - [api-resource-monitoring.md](api-resource-monitoring.md)
+  - [api-redaction.md](api-redaction.md)
   - [api-serilog.md](api-serilog.md)
   - [api-otel.md](api-otel.md)
   - [api-otel-hosting.md](api-otel-hosting.md)

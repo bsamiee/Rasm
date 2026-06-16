@@ -27,6 +27,7 @@ Each gate resolves before or during its task's BUILD_ORDER position; the named c
 |   [7]   | APFS rename durability; migration-lock holder evidence           | snapshot-codecs#RESEARCH `[RENAME_DURABILITY]`                                                                   | snapshot-codecs#SNAPSHOT_PROTOCOL                                     |
 |   [8]   | Live-PG18 replication and audit probes                           | sync-collaboration#RESEARCH `[LIVE_REPLICATION]`; redaction-retention#RESEARCH `[PGAUDIT_CATEGORIES]`            | sync-collaboration#TRANSPORT_AXIS · redaction-retention#AUDIT_BINDING |
 |   [9]   | Unified self-hosted PG18 image packaging build + io_method observe | server-tier#RESEARCH `[CLUSTER_CONFIG_PORTABILITY]`; suite `TASKLOG.md` cross-folder row (first server app root) | server-tier#CLUSTER_CONFIG · store-profiles#PROVISIONING_ROWS         |
+|  [10]   | Object-store reachability GC against live residence + live Closure | redaction-retention#RESEARCH `[CLOSURE_GC]`                                                                       | redaction-retention#RETENTION_SWEEPS                                  |
 
 ## [3]-[IMPLEMENTATION_TASKS]
 

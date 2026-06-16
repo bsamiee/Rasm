@@ -72,7 +72,7 @@ Isolation-concept atlas for the product UI rail. Every concept rides one budgete
 | [12] | Suite-wide wide-gamut color-space vocabulary (srgb/p3/rec2020/scrgb-float) with ICC-primary working space + half-float encode surface | `ColorSpaceAxis` | custom-visuals#COLOR_SPACE |
 | [13] | Custom-tile placement + analytical-flow named dashboard over the residence-selected feed | `DashboardTile.Custom` | charts-dashboards#DASHBOARD_TILES |
 | [14] | Cross-tile linked brushing — one `FilterState` subject re-filters every non-source tile through the dynamic-predicate `Filter` on the shared `Connect()` spine | `CrossFilter` | charts-dashboards#DASHBOARD_TILES |
-| [15] | Dashboard board layout plus brush-state persistence over the STJ `IDockSerializer`, distinct from shell pane docking; restore re-applies the brush | `BoardState` | charts-dashboards#STREAM_BINDING |
+| [15] | Dashboard board layout plus brush-state persistence over the concrete `DockSerializer` (`Dock.Serializer.SystemTextJson`), distinct from shell pane docking; restore re-applies the brush | `BoardState` | charts-dashboards#STREAM_BINDING |
 | [16] | Live geometry overlay — Persistence `SpatialDiff` change-set folds onto `HeatLandSeries.Lands` in place, an incremental land swap never a re-load | `GeoOverlay` | charts-dashboards#SERIES_TABLE |
 
 ## [6]-[THEME_AND_TYPOGRAPHY]

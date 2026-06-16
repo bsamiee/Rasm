@@ -74,12 +74,12 @@ public static class SearchProvisioning {
 ## [4]-[CLUSTER_CONFIG]
 
 - Owner: `ClusterConfig` — the PG18 deploy-time GUC fragment table and its read-only verification probe; each row is a `(setting, value, fallback)` triple.
-- Cases: io_method with the io_uring value and the worker portable fallback; effective_io_concurrency; maintenance_io_concurrency; data_checksums.
+- Cases: io_method with the io_uring value and the worker portable fallback; effective_io_concurrency; maintenance_io_concurrency; data_checksums; the `Preload` shared_preload_libraries row carrying the full companion list.
 - Entry: `public static Fin<FrozenDictionary<string, string>> Verify(Seq<(string Setting, string Value, string Fallback)> rows, FrozenDictionary<string, string> observed)` — `Fin` aborts when an observed GUC is neither the row's value nor its declared fallback.
-- Auto: the cluster GUC rows are deploy-time `postgresql.conf` fragments verified read-only against `pg_settings`, never executed at runtime; the io_method row carries `io_uring` as the Linux-guest value and `worker` as the portable fallback so a deploy image whose kernel lacks io_uring satisfies the verify with `worker`; the data-checksums-by-default and effective/maintenance io-concurrency rows feed the analytical-lane read-throughput rationale.
+- Auto: the cluster GUC rows are deploy-time `postgresql.conf` fragments verified read-only against `pg_settings`, never executed at runtime; the io_method row carries `io_uring` as the Linux-guest value and `worker` as the portable fallback so a deploy image whose kernel lacks io_uring satisfies the verify with `worker`; the data-checksums-by-default and effective/maintenance io-concurrency rows feed the analytical-lane read-throughput rationale; the `Preload` row's `shared_preload_libraries` value (`timescaledb,pg_search,pg_squeeze,pgaudit,pg_cron`) is the unified deploy-image's preload contract verified read-only after boot.
 - Packages: Npgsql, LanguageExt.Core, BCL inbox
 - Growth: one `(setting, value, fallback)` triple per new GUC fragment; zero new surface.
-- Boundary: this cluster verifies, never executes — runtime `ALTER SYSTEM` is the rejected form, the GUC fragments land as physical `postgresql.conf` assets at the first headless or web app root; the verify admits a setting at either its value or its declared fallback so the portability split (io_uring on a Linux guest, worker elsewhere) is a row triple rather than a pinned literal; OAuth `pg_hba` posture and role grants are deploy-time `pg_hba`/grant assets verified through the same read-only probe, never executed; `SetPostgresVersion(18, 0)` is the provider feature-gate floor owned at `store-profiles#PROFILE_AXIS`, distinct from the PG18.4 deploy-image minimum these fragments target.
+- Boundary: this cluster verifies, never executes — runtime `ALTER SYSTEM` is the rejected form, the GUC fragments land as physical `postgresql.conf` assets at the first headless or web app root; the verify admits a setting at either its value or its declared fallback so the portability split (io_uring on a Linux guest, worker elsewhere) is a row triple rather than a pinned literal; OAuth `pg_hba` posture and role grants are deploy-time `pg_hba`/grant assets verified through the same read-only probe, never executed; `SetPostgresVersion(18, 0)` is the provider feature-gate floor owned at `store-profiles#PROFILE_AXIS`, distinct from the PG18.4 deploy-image minimum these fragments target; the deploy image these fragments and the `Preload` row target is the unified PG18.4 packaging artifact — a Dockerfile `FROM timescale/timescaledb-ha:pg18` adding `pg_partman`/`pgaudit`/`pg_squeeze` by apt and building `pg_search` (paradedb pgrx, AGPL in the DB deployment), `pgvectorscale`, and `pg_jsonschema` (pgrx prebuilt) into the image — a packaging build deliverable owned by the package `TASKLOG.md` `[UNIFIED_IMAGE_PACKAGING]` row, never a managed EF surface and never a research probe; the io_method observed value is read from `pg_settings` against that image as a deploy-image observation, not a capability gate.
 
 ```csharp signature
 public static class ClusterConfig {
@@ -88,6 +88,7 @@ public static class ClusterConfig {
         ("effective_io_concurrency", "16", "16"),
         ("maintenance_io_concurrency", "16", "16"),
         ("data_checksums", "on", "on"),
+        ("shared_preload_libraries", "timescaledb,pg_search,pg_squeeze,pgaudit,pg_cron", "timescaledb,pg_search,pg_squeeze,pgaudit,pg_cron"),
     ];
 
     public const string SettingsProbe = "SELECT name, setting FROM pg_settings WHERE name = ANY($names)";

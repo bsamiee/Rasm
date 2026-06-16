@@ -37,3 +37,11 @@ No single off-the-shelf image carries the full admitted extension set (pg_search
 | [INDEX] | [OWNER] | [PAGE#CLUSTER] | [EXIT] |
 | :-----: | ------ | ------ | ------ |
 | [1] | `ExtensionGate` | native-sqlite#EXTENSION_GATES | hardened-runtime dlopen of extension dylibs inside the signed Rhino host (`scenarios/extension-load.verify.csx`) succeeds; verify script passes |
+
+## [5]-[LIVE_OBJECT_STORE_GC]
+
+The object-store reachability garbage collector — the owner is fence-complete (`redaction-retention#RETENTION_SWEEPS` SPIKE on the DENSITY_BAR axis [20]); it gates on a live object-store residence listing crossed against a live sync `Closure` membership union, a cross-process integration the single-RID console probe cannot stand up unattended.
+
+| [INDEX] | [OWNER] | [PAGE#CLUSTER] | [EXIT] |
+| :-----: | ------ | ------ | ------ |
+| [1] | `ClosureGc` | redaction-retention#RETENTION_SWEEPS | `Collect` reachable-set-versus-residence eviction confirmed against a live object-store listing and a live `Closure` union; `LegalHold` exemption holds; eviction-delete round-trips through the residence-axis delete ([CLOSURE_GC]) |

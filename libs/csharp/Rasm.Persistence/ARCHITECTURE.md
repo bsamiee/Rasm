@@ -28,7 +28,7 @@ Rasm.Persistence/
 ├── Sync/
 │   └── Collaboration.cs      # SyncOpKind, SyncTransport, PresenceRow — sync-collaboration#OPLOG_CHANGEFEED, sync-collaboration#MERGE_LAW, sync-collaboration#TRANSPORT_AXIS, sync-collaboration#PRESENCE_AND_BLOB
 └── Retention/
-    └── Redaction.cs          # RetentionPolicy, ArtifactClasses, AuditBinding — redaction-retention#CLASSIFICATION_ENFORCEMENT, redaction-retention#RETENTION_SWEEPS, redaction-retention#EXPORT_PROOF, redaction-retention#AUDIT_BINDING
+    └── Redaction.cs          # RetentionPolicy, ArtifactClasses, ClosureGc, AuditBinding — redaction-retention#CLASSIFICATION_ENFORCEMENT, redaction-retention#RETENTION_SWEEPS, redaction-retention#EXPORT_PROOF, redaction-retention#AUDIT_BINDING
 ```
 
 `Cache/Indexes.cs` precedes `Snapshots/Codecs.cs` and the two gate as one build closure: `PersistenceWireContext` declares the `CacheIndexFact` serializable row while `IndexSurface` consumes the generated context. `Stores/Lifecycle.cs` precedes `Schema/SchemaRail.cs` so `StoreOpenReceipt.SchemaFingerprint` stays a bare `ulong` ledger seam until `SchemaFingerprint` owns it. `StoreProfile` and `StorePlacement` land together in `Stores/Profiles.cs`, never split. `Stores/ServerTier.cs` follows `Stores/Lifecycle.cs` and `Schema/SchemaRail.cs` — it consumes `ExtensionRequirement` and `SchemaDdl` as settled vocabulary. `Stores/RemoteStores.cs` follows `Stores/Profiles.cs` and the snapshot/sync closure — it consumes the `BlobRemote` contract, the Compute `ARTIFACT_FRAMES` frame constants, and the `OpLogEntry` op-log as settled, never re-declaring a frame width or a second sync engine.
@@ -66,12 +66,12 @@ Text equivalent: the resolved profile folds to a placement, locality admission g
 |   [1]   | Store profiles      | `StoreProfile` · `StoreLifecycle` · `StorePlacement` · `StoreLeaseRow` · `ExtensionRequirement`                          | store-profiles#PROFILE_AXIS                    |
 |   [2]   | Data lanes          | `DataLane` · `JsonIndex` · `VectorMetric` · `FullTextMode` · `GeoLayer` · `TabularExportSpec`                            | data-lanes#LANE_AXIS                           |
 |   [3]   | Schema rail         | `IdentityPolicy` · `SchemaFault` · `SchemaFingerprint` · `DerivedColumn` · `SchemaDdl` · `ConverterRail`                 | schema-rail#MIGRATION_LAW                      |
-|   [4]   | Query rail          | `StoreOp<T>` · `StoreFault` · `KeysetPage<TRow>` · `BulkRoute` · `StoreInterceptor` · `StoreFact`                        | query-rail#OPERATION_ALGEBRA                   |
+|   [4]   | Query rail          | `StoreOp<T>` · `StoreFault` · `KeysetPage<TRow>` · `FilterPredicate` · `BulkRoute` · `StoreFact.BulkShed` · `StoreInterceptor` · `StoreFact` | query-rail#OPERATION_ALGEBRA                   |
 |   [5]   | Native SQLite       | `SqlitePragma` · `SqliteFactKind` · `SqliteCompileSurface` · `SqliteMaintenance` · `ExtensionGate`                       | native-sqlite#PRAGMA_TABLE                     |
 |   [6]   | Snapshot codecs     | `SnapshotCodec` · `CompressionPolicy` · `HashPolicy` · `GeoJsonProjection` · `SnapshotHeader` · `PersistenceWireContext` | snapshot-codecs#CODEC_AXIS                     |
-|   [7]   | Cache indexes       | `CacheContribution` · `ModelResultKey` · `ArtifactIndexRow` · `BenchmarkRow`                                             | cache-indexes#L2_CONTRIBUTION                  |
+|   [7]   | Cache indexes       | `CacheContribution` · `ModelResultKey` · `ArtifactIndexRow` · `IfcSemantic` · `BenchmarkRow`                             | cache-indexes#L2_CONTRIBUTION                  |
 |   [8]   | Sync collaboration  | `SyncOpKind` · `OpLogEntry` · `ConflictOutcome` · `SyncTransport` · `PresenceRow`                                        | sync-collaboration#OPLOG_CHANGEFEED            |
-|   [9]   | Redaction retention | `RetentionPolicy` · `ArtifactClasses` · `ExportProof` · `AuditBinding`                                                   | redaction-retention#CLASSIFICATION_ENFORCEMENT |
+|   [9]   | Redaction retention | `RetentionPolicy` · `ArtifactClasses` · `ClosureGc` · `ExportProof` · `AuditBinding`                                     | redaction-retention#CLASSIFICATION_ENFORCEMENT |
 |  [10]   | Server tier         | `TimescaleProvisioning` · `SearchProvisioning` · `ClusterConfig` · `TenancyModel` · `MigrationBundle`                    | server-tier#TIMESCALE_PROVISIONING             |
 |  [11]   | Remote stores       | `ObjectStore` · `MultipartTransfer` · `ObjectResidence` · `ArtifactSyncFeed` · `RemoteStoreFault`                        | remote-stores#OBJECT_STORE                     |
 

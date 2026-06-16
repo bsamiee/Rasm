@@ -184,6 +184,8 @@ for measured Compute execution.
 |   [6]   | `Sign`                 | primitive call  | `(x, Span<int> dst)` element sign as `-1`/`0`/`1`                        |
 |   [7]   | `HammingBitDistance`   | similarity call | `long` count of differing bits across the integral pair                 |
 |   [8]   | `IsNaN` / `IsFinite`   | predicate call  | `(x, Span<bool> dst)` per-element mask; `*All` / `*Any` aggregate variants |
+|   [9]   | `MinNumber`            | reduction call  | `T MinNumber<T>(ReadOnlySpan<T>) where T : INumber<T>` NaN-skipping minimum |
+|  [10]   | `MaxNumber`            | reduction call  | `T MaxNumber<T>(ReadOnlySpan<T>) where T : INumber<T>` NaN-skipping maximum |
 
 [ENTRYPOINT_SCOPE]: marshalling operations
 - rail: tensor

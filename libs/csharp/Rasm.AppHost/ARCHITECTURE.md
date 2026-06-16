@@ -107,7 +107,7 @@ Text equivalent: `ProfileSurface.Resolve` materializes the one `ResolvedProfile`
 |  [41]   | rollover drain          | `RolloverDrain`                    | 1 fold             | provisioning-and-update#ROLLOVER_DRAIN       |
 |  [42]   | process modality        | `ProcessModality`                  | 3 rows             | companion-sidecar#PROCESS_MODALITY           |
 |  [43]   | control service         | `ControlInbound`                   | 3 verb folds       | companion-sidecar#CONTROL_SERVICE            |
-|  [44]   | service host            | `ServiceHost`                      | 2 transport cases  | companion-sidecar#SERVICE_HOST               |
+|  [44]   | service host            | `ServiceHost`                      | 1 transport case   | companion-sidecar#SERVICE_HOST               |
 |  [45]   | degradation cascade     | `DegradationCascade`               | 1 write fold       | companion-sidecar#DEGRADATION_CASCADE        |
 |  [46]   | peer admission          | `PeerAdmission`                    | 2 platform branches | companion-sidecar#PEER_ADMISSION            |
 |  [47]   | peer roster             | `PeerRoster`                       | 3 transitions      | companion-sidecar#PROCESS_MODALITY          |

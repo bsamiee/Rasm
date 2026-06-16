@@ -87,7 +87,7 @@ The post-fetch update rail and the inbound control-service host — the self-upd
 |  [49]   | Drain-before-swap rollover folding the conductor ahead of the restart          | `RolloverDrain`      | provisioning-and-update#ROLLOVER_DRAIN  |
 |  [50]   | Process-modality axis: companion, sidecar, paired-peer spawn-attach-discovery  | `ProcessModality`    | companion-sidecar#PROCESS_MODALITY      |
 |  [51]   | Inbound control-service host folding three verbs onto existing owners          | `ControlInbound`     | companion-sidecar#CONTROL_SERVICE       |
-|  [52]   | gRPC server host over UDS and hardened Windows named-pipe control intake       | `ServiceHost`        | companion-sidecar#SERVICE_HOST          |
+|  [52]   | gRPC server host over UDS with socket-mode and peer-credential intake gating   | `ServiceHost`        | companion-sidecar#SERVICE_HOST          |
 |  [53]   | Cross-process degradation cascade: parent floor written to the child cell      | `DegradationCascade` | companion-sidecar#DEGRADATION_CASCADE   |
 |  [54]   | Accept-side peer-credential read over the platform getsockopt route            | `PeerAdmission`      | companion-sidecar#PEER_ADMISSION        |
 |  [55]   | Host-side attached-peer roster: lease-epoch admit/renew/drop/sweep, presence fan | `PeerRoster`         | companion-sidecar#PROCESS_MODALITY      |

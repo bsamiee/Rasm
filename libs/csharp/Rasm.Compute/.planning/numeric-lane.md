@@ -1,6 +1,6 @@
 # [COMPUTE_NUMERIC_LANE]
 
-Rasm.Compute numeric lane: BLAS-class dense and sparse linear algebra over the admitted MathNet provider stack, the RID-keyed `LinearProvider` availability table that selects native MKL or OpenBLAS where the asset exists and falls back to managed on osx-arm64, the `SparseFormat` ingestion axis over the CSR-backed MathNet storage reality, the `Factorization` decomposition union collapsing LU, QR, Cholesky, SVD, and EVD to one solve admission, and the `KernelLowering` binding table that gives the tensor-lane matrix and structural rows a real kernel. The page owns the `LinearProvider`, `SparseFormat`, and `Factorization` axes, the `DenseOps`/`SparseOps` solve folds, the `KernelLowering` table, and the `ShardPlan` fan-out column, composing the tensor-lane operation rows, the `BenchmarkRow` claim authority, the `Substrate.RemoteGrpc` row, and the AppHost clock and CPU-budget ports as settled vocabulary.
+Rasm.Compute numeric lane: BLAS-class dense and sparse linear algebra over the admitted MathNet provider stack, the RID-keyed `LinearProvider` availability table that selects native OpenBLAS where an osx-arm64 asset resolves and falls back to the managed terminal otherwise, the `SparseFormat` ingestion axis over the CSR-backed MathNet storage reality, the `Factorization` decomposition union collapsing LU, QR, Cholesky, SVD, and EVD to one solve admission, and the `KernelLowering` binding table that gives the tensor-lane matrix and structural rows a real kernel. The page owns the `LinearProvider`, `SparseFormat`, and `Factorization` axes, the `DenseOps`/`SparseOps` solve folds, the `KernelLowering` table, and the `ShardPlan` fan-out column, composing the tensor-lane operation rows, the `BenchmarkRow` claim authority, the `Substrate.RemoteGrpc` row, and the AppHost clock and CPU-budget ports as settled vocabulary.
 
 Wire posture: this page is HOST-LOCAL and carries no TS_PROJECTION cluster — no numeric owner crosses the browser or peer wire directly. A distributed solve crosses solely through the EXISTING `remote-lane#PROTO_VOCABULARY` `Solve` rpc (`SolveRequest`/`SolveResponse`), which the `ShardPlan.Blocked` row-block sub-solve dials by reference; the `Solve` rpc and its `ComputeServiceShape` `MethodShape` are the single wire surface, owned and projected at `remote-lane`, never re-projected here. `Matrix<double>`, `SparseCompressedRowMatrixStorage<double>`, and the `Factorization` union are interior numeric types that never sit between wire and rail.
 
@@ -16,13 +16,13 @@ Wire posture: this page is HOST-LOCAL and carries no TS_PROJECTION cluster — n
 ## [2]-[DENSE_ALGEBRA]
 
 - Owner: `NumericKeyPolicy` ordinal accessor; `LinearProvider` `[SmartEnum<string>]` RID-keyed provider-availability rows; `DenseOps` GEMM/solve fold over MathNet `Matrix<double>`; `Factorization` `[Union]` one-case-per-decomposition collapsing to one solve admission.
-- Cases: `LinearProvider` rows managed · native-mkl · native-openblas; `Factorization` cases `Lu` · `Qr` · `Cholesky` · `Svd` · `Evd`.
+- Cases: `LinearProvider` rows managed · native-openblas; `Factorization` cases `Lu` · `Qr` · `Cholesky` · `Svd` · `Evd`.
 - Entry: `public static Fin<Factorization> Decompose(Matrix<double> matrix, FactorizationKind kind)` — `Fin<T>` aborts on a dimension mismatch or a non-SPD Cholesky reject; `Solve` over the resulting case threads the active provider with zero call-site selection.
 - Auto: `LinearProvider.Select` runs once at composition and returns the highest-rank available provider per RID, binding `LinearAlgebraControl.Provider` so every `Matrix<double>.Multiply` and factorization routes through the chosen `ILinearAlgebraProvider`; `Available` reads the RID plus the `Control.TryUse*` boolean probe so a missing native asset degrades to the next row instead of throwing; managed is the universal terminal.
 - Receipt: every dense solve materializes the `Factorization` `ComputeReceipt` case carrying provider key, decomposition kind, row and column extents, zero nnz, and `dense` format; emission rides the sink port at the composition edge.
 - Packages: MathNet.Numerics, MathNet.Numerics.Providers.MKL, MathNet.Numerics.Providers.OpenBLAS, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new native provider is one `LinearProvider` row with its RID predicate, rank, and `Control.TryUse*` probe; a new decomposition is one `Factorization` case with its `FactorizationKind` row; zero new surface.
-- Boundary: the decomposition union is `Factorization` and the per-solve receipt case is `ComputeReceipt.Factorization` — distinct C# symbols, the unqualified `Factorization` inside `Numeric/Lane.cs` is always the union; `DenseOps` composes MathNet `Matrix<double>`/`Vector<double>` directly — a package-local `RasmMatrix`, `DenseMatrix`, or matrix-wrapper face is the deleted form mirroring the tensor-lane no-`TensorService` law; provider selection runs ONCE through `LinearProvider.Select` binding `LinearAlgebraControl.Provider`, and a per-call-site `Control.UseNativeMKL()` is the named defect mirroring the model-lane thread-count law; MKL native assets are x64-only so the `native-mkl` row carries a win-x64/linux-x64 RID predicate and managed is the only osx-arm64 lane; the `Try*` provider probes return `false` rather than throwing, so `Available` never lifts an exception into the rail; provider rank reads `BenchmarkRow.Claim` and never a static default, so a native lane wins only behind a fingerprint-matched claim.
+- Boundary: the decomposition union is `Factorization` and the per-solve receipt case is `ComputeReceipt.Factorization` — distinct C# symbols, the unqualified `Factorization` inside `Numeric/Lane.cs` is always the union; `DenseOps` composes MathNet `Matrix<double>`/`Vector<double>` directly — a package-local `RasmMatrix`, `DenseMatrix`, or matrix-wrapper face is the deleted form mirroring the tensor-lane no-`TensorService` law; provider selection runs ONCE through `LinearProvider.Select` binding `LinearAlgebraControl.Provider`, and a per-call-site `Control.UseNativeOpenBLAS()` is the named defect mirroring the model-lane thread-count law; the x64-only MKL row is dropped from the live osx-arm64 axis (no osx-arm64 MKL asset, its `Control.UseNativeMKL` member spelling is the win/linux-x64 design record re-entering as one row only behind a MKL-carrying RID) so the axis is the managed terminal plus the `native-openblas` row whose `Control.TryUseNativeOpenBLAS()` probe returns `true` only where an osx-arm64 OpenBLAS asset resolves and otherwise degrades to managed; the `Try*` provider probes return `false` rather than throwing, so `Available` never lifts an exception into the rail; provider rank reads `BenchmarkRow.Claim` and never a static default, so a native lane wins only behind a fingerprint-matched claim.
 
 ```csharp signature
 public sealed class NumericKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -35,15 +35,7 @@ public sealed class NumericKeyPolicy : IEqualityComparerAccessor<string>, ICompa
 public static class LinearProviderProbes {
     public static bool Managed() => true;
 
-    public static bool NativeMkl() =>
-        (OperatingSystem.IsWindows() || OperatingSystem.IsLinux())
-        && RuntimeInformation.ProcessArchitecture is Architecture.X64
-        && Control.TryUseNativeMKL();
-
-    public static bool NativeOpenBlas() =>
-        (OperatingSystem.IsWindows() || OperatingSystem.IsLinux())
-        && RuntimeInformation.ProcessArchitecture is Architecture.X64
-        && Control.TryUseNativeOpenBLAS();
+    public static bool NativeOpenBlas() => Control.TryUseNativeOpenBLAS();
 }
 
 [SmartEnum<string>]
@@ -51,7 +43,6 @@ public static class LinearProviderProbes {
 [KeyMemberComparer<NumericKeyPolicy, string>]
 public sealed partial class LinearProvider {
     public static readonly LinearProvider Managed = new("managed", rank: 0, probe: LinearProviderProbes.Managed, activate: static () => Control.UseManaged());
-    public static readonly LinearProvider NativeMkl = new("native-mkl", rank: 2, probe: LinearProviderProbes.NativeMkl, activate: static () => Control.UseNativeMKL());
     public static readonly LinearProvider NativeOpenBlas = new("native-openblas", rank: 1, probe: LinearProviderProbes.NativeOpenBlas, activate: static () => Control.UseNativeOpenBLAS());
 
     private readonly Func<bool> probe;
@@ -205,13 +196,13 @@ public static class SparseOps {
 ## [4]-[KERNEL_LOWERING]
 
 - Owner: `KernelLowering` — the binding table that lowers the tensor-lane matrix and structural rows onto a real numeric kernel, plus the `ShardPlan` block-decomposition column the dense GEMM reads.
-- Cases: `KernelLowering` rows MatMul→GEMM (live) · Conv1D/Conv2D/Conv3D→im2col-then-GEMM (designed-only frontier) · MaxPool/AvgPool/GlobalAvgPool→strided-window fold; `ShardPlan` cases `Single` · `Blocked(int Tile)` (row-block partition).
-- Entry: `public static Fin<Matrix<double>> Lower(TensorOpFamily row, Matrix<double> left, Matrix<double> right, ShardPlan plan)` — `Fin<T>` aborts with `<lowering-row-miss>` on any row whose kernel arm is not yet landed, including the designed-only convolution rows; the pooling entrypoint takes its window as the span argument.
-- Auto: the tensor-lane `MatMul`/`Pool*` rows consult `KernelLowering` instead of `Map`-missing — `MatMul` lowers to `Matrix<double>.Multiply` over the active provider and each pooling row folds `TensorPrimitives.Max`/`Sum` over the window span; the convolution rows are the designed-only im2col-patch-projection frontier that fail until the im2col arm lands; a `Blocked` shard plan partitions the GEMM into row-blocks each routed through `Substrate.RemoteGrpc` and joined by the `Factorization`-receipt fold, with single-node solve as the `Single` leaf.
+- Cases: `KernelLowering` rows MatMul→GEMM (live) · Conv1D/Conv2D/Conv3D→im2col-then-GEMM (live, one `ConvWindow` descriptor carries the spatial geometry) · MaxPool/AvgPool/GlobalAvgPool→strided-window fold; `ConvWindow(int[] Kernel, int[] Stride, int[] Padding, int[] Dilation, int Channels, int Filters, int[] Spatial)` the lowering geometry descriptor; `ShardPlan` cases `Single` · `Blocked(int Tile)` (row-block partition).
+- Entry: `public static Fin<Matrix<double>> Lower(TensorOpFamily row, Matrix<double> left, Matrix<double> right, ShardPlan plan)` is the matmul lowering; the convolution overload `public static Fin<Matrix<double>> Lower(TensorOpFamily row, Matrix<double> input, Matrix<double> kernel, ConvWindow window, ShardPlan plan)` lowers Conv1D/Conv2D/Conv3D through `Im2Col` patch projection then one GEMM; `Fin<T>` aborts with `<lowering-row-miss>` only on a row outside the bound matrix set; the pooling entrypoint takes its window as the span argument.
+- Auto: the tensor-lane `MatMul`/`Conv*`/`Pool*` rows consult `KernelLowering` instead of `Map`-missing — `MatMul` lowers to `Matrix<double>.Multiply` over the active provider, each `Conv*` row lowers through the `Im2Col` patch projection that flattens every receptive field to a column then one `Matrix<double>.Multiply` GEMM against the reshaped kernel, and each pooling row folds `TensorPrimitives.Max`/`Sum` over the window span; a `Blocked` shard plan partitions the GEMM into row-blocks each routed through `Substrate.RemoteGrpc` and joined by the `Factorization`-receipt fold, with single-node solve as the `Single` leaf.
 - Receipt: a lowered matrix or structural run emits the tensor-lane `TensorRun` receipt and a `Blocked` fan-out emits one shard count per node; the join is a `Factorization`-receipt aggregation, never a new receipt union.
 - Packages: MathNet.Numerics, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new lowering is one `KernelLowering` table row binding the tensor-lane row to its numeric kernel; a new shard topology is one `ShardPlan` case; zero new surface.
-- Boundary: the lowering owner is the numeric lane and the tensor-lane `Map` consults it — the `MatMul` row inherits the GEMM kernel the moment its lowering row lands, replacing the tensor-lane `<kernel-row-miss>` Fin.Fail; the `Conv1D`/`Conv2D`/`Conv3D` rows are the designed-only im2col-patch-projection frontier, so `Lower` returns the `<lowering-row-miss>` Fin.Fail for a convolution row until the im2col arm lands and the GEMM step rides the single `MatMul` provider proof rather than a hand-rolled correlation kernel; the `Blocked` shard fan-out is a row-block partition column on the dense fold dispatching each row-block sub-solve through the existing `Substrate.RemoteGrpc` and the `Solve` rpc owned by `remote-lane#PROTO_VOCABULARY` — a 2-D block decomposition is a future `ShardPlan` case, and a `FarmRouter`, a second substrate, or a block-decomposition routing owner is the deleted form; the sub-block result keys on a sub-block content-address by reference to the Persistence model-result index so a re-run reuses computed blocks; the strided-window pooling folds reuse the tensor-lane `TensorPrimitives` reduction members and never a managed window loop.
+- Boundary: the lowering owner is the numeric lane and the tensor-lane `Map` consults it — the `MatMul` row inherits the GEMM kernel directly and the `Conv1D`/`Conv2D`/`Conv3D` rows inherit it through the `Im2Col` patch projection, so the GEMM step rides the single `MatMul` provider proof rather than a hand-rolled correlation kernel; `Im2Col` enumerates each output spatial position over the `ConvWindow` stride/padding/dilation lattice, gathers the dilated receptive field across every channel into one patch row, and the patch matrix `[outPositions × Channels·KernelVolume]` multiplies the reshaped kernel `[Channels·KernelVolume × Filters]` in one `Matrix<double>.Multiply` whose tolerance is the `MatMul` proof the convolution row inherits through its `ToleranceClass.Tight` column; a Conv row routed without a `ConvWindow` (the matmul overload) returns the `<lowering-row-miss>` Fin.Fail because the geometry is absent, never silently correlating; the `Blocked` shard fan-out is a row-block partition column on the dense fold dispatching each row-block sub-solve through the existing `Substrate.RemoteGrpc` and the `Solve` rpc owned by `remote-lane#PROTO_VOCABULARY` — a 2-D block decomposition is a future `ShardPlan` case, and a `FarmRouter`, a second substrate, or a block-decomposition routing owner is the deleted form; the sub-block result keys on a sub-block content-address by reference to the Persistence model-result index so a re-run reuses computed blocks; the strided-window pooling folds reuse the tensor-lane `TensorPrimitives` reduction members and never a managed window loop.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -238,7 +229,24 @@ public abstract partial record ShardPlan {
             });
 }
 
+public sealed record ConvWindow(int[] Kernel, int[] Stride, int[] Padding, int[] Dilation, int Channels, int Filters, int[] Spatial) {
+    public int Rank => Kernel.Length;
+    public int KernelVolume => Kernel.Aggregate(1, static (acc, extent) => acc * extent);
+    public int PatchWidth => Channels * KernelVolume;
+
+    public int[] OutputExtents =>
+        toSeq(Enumerable.Range(0, Rank))
+            .Map(axis => (Spatial[axis] + 2 * Padding[axis] - Dilation[axis] * (Kernel[axis] - 1) - 1) / Stride[axis] + 1)
+            .ToArray();
+
+    public int OutputPositions => OutputExtents.Aggregate(1, static (acc, extent) => acc * extent);
+}
+
 public static class KernelLowering {
+    static readonly FrozenSet<TensorOpFamily> ConvRows = new[] {
+        TensorOpFamily.Conv1D, TensorOpFamily.Conv2D, TensorOpFamily.Conv3D,
+    }.ToFrozenSet();
+
     static readonly FrozenSet<TensorOpFamily> MatrixRows = new[] {
         TensorOpFamily.MatMul, TensorOpFamily.Conv1D, TensorOpFamily.Conv2D, TensorOpFamily.Conv3D,
     }.ToFrozenSet();
@@ -250,6 +258,41 @@ public static class KernelLowering {
     public static Fin<Matrix<double>> Lower(TensorOpFamily row, Matrix<double> left, Matrix<double> right, ShardPlan plan) =>
         row == TensorOpFamily.MatMul ? Fin.Succ(plan.Lower(left, right))
         : Fin.Fail<Matrix<double>>(ComputeFault.Create($"<lowering-row-miss:{row.Key}>"));
+
+    public static Fin<Matrix<double>> Lower(TensorOpFamily row, Matrix<double> input, Matrix<double> kernel, ConvWindow window, ShardPlan plan) =>
+        ConvRows.Contains(row) && window.Rank == (int)(row.Key[^2] - '0')
+            ? Fin.Succ(plan.Lower(Im2Col(input, window), kernel))
+            : Fin.Fail<Matrix<double>>(ComputeFault.Create($"<lowering-row-miss:{row.Key}>"));
+
+    static Matrix<double> Im2Col(Matrix<double> input, ConvWindow window) {
+        int[] extents = window.OutputExtents;
+        var patch = Matrix<double>.Build.Dense(window.OutputPositions, window.PatchWidth);
+        toSeq(Enumerable.Range(0, window.OutputPositions)).Iter(position => {
+            int[] origin = Unravel(position, extents);
+            toSeq(Enumerable.Range(0, window.Channels)).Iter(channel =>
+                toSeq(Enumerable.Range(0, window.KernelVolume)).Iter(tap => {
+                    int[] offset = Unravel(tap, window.Kernel);
+                    int[] coords = toSeq(Enumerable.Range(0, window.Rank))
+                        .Map(axis => origin[axis] * window.Stride[axis] + offset[axis] * window.Dilation[axis] - window.Padding[axis])
+                        .ToArray();
+                    patch[position, channel * window.KernelVolume + tap] =
+                        toSeq(coords).Zip(toSeq(window.Spatial)).ForAll(static pair => pair.First >= 0 && pair.First < pair.Second)
+                            ? input[channel, Ravel(coords, window.Spatial)]
+                            : 0d;
+                }));
+        });
+        return patch;
+    }
+
+    static int[] Unravel(int flat, int[] extents) =>
+        toSeq(Enumerable.Range(0, extents.Length).Reverse())
+            .Fold((Rest: flat, Coords: new int[extents.Length]), static (acc, axis) => {
+                acc.Coords[axis] = acc.Rest % extents[axis];
+                return (acc.Rest / extents[axis], acc.Coords);
+            }).Coords;
+
+    static int Ravel(int[] coords, int[] extents) =>
+        toSeq(Enumerable.Range(0, extents.Length)).Fold(0, (index, axis) => index * extents[axis] + coords[axis]);
 
     public static Fin<double> Pool(TensorOpFamily row, ReadOnlySpan<double> window) =>
         row == TensorOpFamily.MaxPool ? Fin.Succ(TensorPrimitives.Max(window))

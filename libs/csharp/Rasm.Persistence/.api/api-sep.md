@@ -89,6 +89,7 @@ parallel enumeration.
 |   [9]   | `Cols.Select`      | cols call       | projects column set                   |
 |  [10]   | `Header.IndexOf`   | header call     | resolves column index                 |
 |  [11]   | `Header.IndicesOf` | header call     | resolves column indices               |
+|  [12]   | `Header.NamesStartingWith` | header call | resolves prefixed column-name window (`(string prefix, StringComparison comparison = StringComparison.Ordinal)`) |
 
 [ENTRYPOINT_SCOPE]: row enumeration
 - rail: interchange-codec

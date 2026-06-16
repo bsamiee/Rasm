@@ -25,9 +25,10 @@
 - pages:
   - [api-onnxruntime.md](api-onnxruntime.md)
   - [api-onnx-extensions.md](api-onnx-extensions.md)
+  - [api-onnxruntimegenai.md](api-onnxruntimegenai.md)
 
-[GEOMETRY]:
-- rail: geometry
+[INTERCHANGE]:
+- rail: interchange
 - pages:
   - [api-sharpgltf.md](api-sharpgltf.md)
   - [api-geometrygym-ifc.md](api-geometrygym-ifc.md)

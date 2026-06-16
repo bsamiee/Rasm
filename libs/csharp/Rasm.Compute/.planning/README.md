@@ -16,6 +16,7 @@ Rasm.Compute has zero consumers; the implementation is full-capability with no h
 |   [8]   | [progress-and-observation](progress-and-observation.md) | Monotonic phases; zero-alloc capsules; observation seams                         |
 |   [9]   | [units-boundary](units-boundary.md)                     | QuantityFamily rows; conversion-at-admission; unit evidence                      |
 |  [10]   | [receipts-and-benchmarks](receipts-and-benchmarks.md)   | Receipt union; fold projections; benchmark claims                                |
+|  [11]   | [interchange](interchange.md)                           | InterchangeFormat axis; glTF/IFC import-export; in-proc IFC semantic ingest; two-hop tessellation; content-addressing |
 
 ## [2]-[WIRE_PAGES]
 
@@ -24,7 +25,6 @@ remote-lane · progress-and-observation · receipts-and-benchmarks (each carries
 ## [3]-[CATALOGUE_PENDING]
 
 - App-root server packages (Grpc.AspNetCore trio) catalogued at app-root creation.
-- `Microsoft.AspNetCore.TestHost` — the `RemoteTransport.InProcess` row's `TestServer.CreateHandler` handler seam; lands as a test-only `<PackageReference>` in the spec project at the matched ASP.NET Core servicing line.
 - `NodaTime.Serialization.Protobuf` — the `Google.Type` calendar-date wire bridges on remote-lane and receipts-and-benchmarks (`api-nodatime-protobuf.md`); lands as a direct package reference only when the `Google.Api.CommonProtos` calendar surface does not resolve transitively through the admitted NodaTime and Grpc graph.
 
 ## [4]-[GAP_LEDGER]
@@ -65,10 +65,14 @@ Every adversarial-verifier gap finding for the package; a row is present only wh
 |  [30]   | grammar-constrained structured generation | model-lane                            |
 |  [31]   | numeric solve and generate wire rpcs      | remote-lane                           |
 |  [32]   | graph-diff and subtree-fetch wire family  | remote-lane                           |
+|  [33]   | glTF/GLB and IFC interchange import-export | interchange                           |
+|  [34]   | in-process IFC semantic-graph ingest      | interchange                           |
+|  [35]   | IFC-to-geometry two-hop tessellation rail | interchange                           |
+|  [36]   | content-addressed interchange artifacts   | interchange                           |
 
 ## [5]-[DENSITY_BAR]
 
-Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. Dispatch runs over row data through generated total Switches and frozen tables. Eight comparer accessors exist, one per axis owner and package-local; the `WorkLane` key accessor is `ComputeKeyPolicy`, never the AppHost `LaneKeyPolicy` (suite ledger key-policy posture); the numeric lane carries `NumericKeyPolicy` over its three string-keyed axes. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
+Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. Dispatch runs over row data through generated total Switches and frozen tables. Nine comparer accessors exist, one per axis owner and package-local; the `WorkLane` key accessor is `ComputeKeyPolicy`, never the AppHost `LaneKeyPolicy` (suite ledger key-policy posture); the numeric lane carries `NumericKeyPolicy` over its string-keyed axes and the interchange lane carries `InterchangeKeyPolicy` over its format and codec axes. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
 Axis owners (vocabulary budget):
 
@@ -86,7 +90,7 @@ Axis owners (vocabulary budget):
 |  [10]   | Encoding channels  | `EncodingChannel`   | SmartEnum\<string>       |      6      | FINALIZED |
 |  [11]   | Geometry encodings | `GeometryEncoding`  | [Union]                  |      3      | FINALIZED |
 |  [12]   | Model acquisition  | `ModelSource`       | [Union]                  |      4      | FINALIZED |
-|  [13]   | EP axis            | `ExecutionProvider` | SmartEnum\<string>       |      4      | FINALIZED |
+|  [13]   | EP axis            | `ExecutionProvider` | SmartEnum\<string>       |      2      | FINALIZED |
 |  [14]   | Cache postures     | `CachePolicy`       | SmartEnum\<string>       |      4      | FINALIZED |
 |  [15]   | Generation policy  | `GenerationPolicy`  | record + `Apply`/`Messages` fold |  14 cols | FINALIZED |
 |  [16]   | Guidance constraint| `GuidanceKind`      | SmartEnum\<string>       |      5      | FINALIZED |
@@ -95,31 +99,43 @@ Axis owners (vocabulary budget):
 | [INDEX] | [AXIS/CONCERN]    | [OWNER]                | [KIND]             | [CASES] |  [STATE]  |
 | :-----: | :---------------- | :--------------------- | :----------------- | :-----: | :-------: |
 |   [1]   | Contract drift    | `ContractDrift`        | [Union]            |    3    | FINALIZED |
-|   [2]   | Transport axis    | `RemoteTransport`      | SmartEnum\<string> |    6    | FINALIZED |
+|   [2]   | Transport axis    | `RemoteTransport`      | SmartEnum\<string> |    4    | FINALIZED |
 |   [3]   | Stream shapes     | `StreamShape`          | [Flags] enum       |    4    | FINALIZED |
 |   [4]   | Node selection    | `NodeSelection`        | enum               |    3    | FINALIZED |
-|   [5]   | Credential axis   | `CredentialPolicy`     | SmartEnum\<string> |    4    | FINALIZED |
-|   [6]   | Allocation axis   | `AllocationClass`      | SmartEnum\<string> |    5    | FINALIZED |
-|   [7]   | Work lanes        | `WorkLane`             | SmartEnum\<string> |    5    | FINALIZED |
-|   [8]   | Progress phases   | `ProgressPhase`        | SmartEnum\<string> |    9    | FINALIZED |
-|   [9]   | Cadence rows      | `SubscriptionPolicy`   | record rows        |    3    | FINALIZED |
-|  [10]   | Quantity families | `QuantityFamily`       | SmartEnum\<string> |   15    | FINALIZED |
-|  [11]   | Receipt union     | `ComputeReceipt`       | [Union]            |   15    | FINALIZED |
-|  [12]   | Claim bands       | `BenchmarkClaim.Bands` | frozen rows        |    4    | FINALIZED |
-|  [13]   | Key policies      | `*KeyPolicy`           | comparer accessors |    8    | FINALIZED |
+|   [5]   | Credential axis   | `CredentialPolicy`     | SmartEnum\<string> |    5    |   SPIKE   |
+|   [6]   | Compression axis  | `CompressionProviders` | SmartEnum\<string> |    3    |   SPIKE   |
+|   [7]   | Allocation axis   | `AllocationClass`      | SmartEnum\<string> |    5    | FINALIZED |
+|   [8]   | Work lanes        | `WorkLane`             | SmartEnum\<string> |    5    | FINALIZED |
+|   [9]   | Progress phases   | `ProgressPhase`        | SmartEnum\<string> |    9    | FINALIZED |
+|  [10]   | Cadence rows      | `SubscriptionPolicy`   | record rows        |    3    | FINALIZED |
+|  [11]   | Quantity families | `QuantityFamily`       | SmartEnum\<string> |   15    | FINALIZED |
+|  [12]   | Receipt union     | `ComputeReceipt`       | [Union]            |   15    | FINALIZED |
+|  [13]   | Claim bands       | `BenchmarkClaim.Bands` | frozen rows        |    4    | FINALIZED |
+|  [14]   | Key policies      | `*KeyPolicy`           | comparer accessors |    9    | FINALIZED |
 
-Numeric-lane owners (BLAS-class linear algebra; managed terminal proved end-to-end on osx-arm64 against the real MathNet + CSparse stack — native MKL/OpenBLAS EXECUTION is the documented per-RID build/deploy gate carried on the `LinearProvider` RID axis, never an open owner spike):
+Numeric-lane owners (BLAS-class linear algebra; managed terminal proved end-to-end on osx-arm64 against the real MathNet + CSparse stack — the x64-only native-MKL row is dropped from the live axis (its member spelling is the win/linux-x64 design record), and native-OpenBLAS EXECUTION is the documented per-RID build/deploy gate carried on the `LinearProvider` RID axis activating only where an osx-arm64 OpenBLAS asset resolves, never an open owner spike):
 
 | [INDEX] | [AXIS/CONCERN]      | [OWNER]             | [KIND]                | [CASES]              |  [STATE]  |
 | :-----: | :------------------ | :------------------ | :-------------------- | :------------------- | :-------: |
-|   [1]   | BLAS provider table | `LinearProvider`    | SmartEnum\<string>    |          3           | FINALIZED |
+|   [1]   | BLAS provider table | `LinearProvider`    | SmartEnum\<string>    |          2           | FINALIZED |
 |   [2]   | Factorization kind  | `FactorizationKind` | SmartEnum\<string>    |          5           | FINALIZED |
 |   [3]   | Decomposition union | `Factorization`     | [Union]               |          5           | FINALIZED |
 |   [4]   | Sparse format axis  | `SparseFormat`      | SmartEnum\<string>    |          4           | FINALIZED |
 |   [5]   | Dense solve fold    | `DenseOps`          | static surface        | `Decompose`/`Gemm`/`Receipt` | FINALIZED |
 |   [6]   | Sparse solve fold   | `SparseOps`         | static surface        | `Ingest`/`SolveDirect`/`Receipt` | FINALIZED |
-|   [7]   | Kernel lowering     | `KernelLowering`    | binding table         | `Lower`/`Pool`/`Lowers` | FINALIZED |
+|   [7]   | Kernel lowering     | `KernelLowering`    | binding table + `ConvWindow` | `Lower`(matmul)/`Lower`(conv im2col)/`Pool`/`Lowers` | FINALIZED |
 |   [8]   | Shard plan          | `ShardPlan`         | [Union]               |          2           | FINALIZED |
+
+Interchange-lane owners (managed glTF/IFC import-export + in-process IFC semantic ingest + two-hop tessellation; managed read-write proved end-to-end against SharpGLTF + GeometryGym, the IFC-to-geometry tessellation hop is host-local riding the existing remote-lane companion rpc to the IfcOpenShell PyPI companion):
+
+| [INDEX] | [AXIS/CONCERN]       | [OWNER]              | [KIND]                | [CASES]                              |  [STATE]  |
+| :-----: | :------------------- | :------------------ | :-------------------- | :----------------------------------- | :-------: |
+|   [1]   | Format axis          | `InterchangeFormat` | SmartEnum\<string>    |                  5                   | FINALIZED |
+|   [2]   | Codec owner          | `InterchangeCodec`  | SmartEnum\<string>    |                  2                   | FINALIZED |
+|   [3]   | Import/export fold   | `InterchangeIo`     | boundary capsule      | `ImportGeometry`/`ImportIfc`/`Export`/`ExportIfc` | FINALIZED |
+|   [4]   | IFC semantic graph   | `IfcSemanticModel`  | record + nested rows  | 6 entity-family projections          | FINALIZED |
+|   [5]   | Two-hop tessellation | `TessellationRequest`| record                | `Plan` — `Fin`                       |   SPIKE   |
+|   [6]   | Content addressing   | `InterchangeIdentity`| static surface        | `Key`/`Admit`                        | FINALIZED |
 
 Rail surfaces (one entrypoint family per rail):
 
@@ -173,6 +189,7 @@ Cluster cells use page-local anchor names; proof cells name evidence beyond the 
 |  [19]   | `Receipts.cs`           | receipts, folds, wire stamps             | specs            |
 |  [20]   | `Benchmarks.cs`         | benchmark claims                         | specs            |
 |  [21]   | `Numeric/Lane.cs`       | provider table, factorization union, sparse solve, kernel lowering, provider claims | specs |
+|  [22]   | `Interchange/Interchange.cs` | format axis, codec owner, import/export fold, IFC semantic graph, two-hop tessellation, content-addressing | specs + bridge |
 
 ## [7]-[FILE_PROCESS]
 
@@ -229,7 +246,7 @@ The executed admissions ledger maps each package to its consuming page, `.api` c
 |   [3]   | Grpc.Net.Client                      | remote-lane                                   | api-grpc-client.md                 | admitted          |
 |   [4]   | Grpc.Net.Client.Web                  | remote-lane                                   | api-grpc-client-web.md             | admitted          |
 |   [5]   | Grpc.Tools                           | remote-lane                                   | api-grpc-tools.md                  | admitted          |
-|   [6]   | Microsoft.AspNetCore.TestHost        | remote-lane                                   | api-microsoftaspnetcoretesthost.md | tests-only        |
+|   [6]   | Microsoft.AspNetCore.TestHost        | remote-lane                                   | api-microsoftaspnetcoretesthost.md | admitted          |
 |   [7]   | Microsoft.IO.RecyclableMemoryStream  | staging-and-streams, remote-lane              | api-recyclable-stream.md           | admitted          |
 |   [8]   | Microsoft.ML.OnnxRuntime             | model-lane, tensor-lane, intent-and-selection | api-onnxruntime.md                 | admitted          |
 |   [9]   | Microsoft.ML.OnnxRuntime.Extensions  | model-lane                                    | api-onnx-extensions.md             | admitted          |
@@ -237,12 +254,12 @@ The executed admissions ledger maps each package to its consuming page, `.api` c
 |  [11]   | Thinktecture.Runtime.Extensions      | all pages                                     | doctrine (stack atlas)             | admitted          |
 |  [12]   | Thinktecture.Runtime.Extensions.Json | receipts-and-benchmarks                       | doctrine (stack atlas)             | admitted          |
 |  [13]   | UnitsNet                             | units-boundary                                | api-unitsnet.md                    | admitted          |
-|  [14]   | SharpFuzz                            | remote-lane, tensor-lane                      | pending — NEEDS-ADMISSION          | catalogue-pending |
-|  [15]   | BenchmarkDotNet                      | model-lane                                    | pending                            | catalogue-pending |
+|  [14]   | SharpFuzz                            | remote-lane, tensor-lane                      | doctrine (testing-cs stack)        | admitted          |
+|  [15]   | BenchmarkDotNet                      | model-lane                                    | doctrine (testing-cs stack)        | admitted          |
 |  [16]   | MathNet.Numerics                     | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
 |  [17]   | CSparse                              | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
-|  [18]   | Microsoft.ML.OnnxRuntimeGenAI        | model-lane                                    | api-onnxruntime.md                 | admitted          |
-|  [19]   | Microsoft.Extensions.AI.Abstractions | model-lane                                    | api-onnxruntime.md                 | admitted          |
+|  [18]   | Microsoft.ML.OnnxRuntimeGenAI        | model-lane                                    | api-onnxruntimegenai.md            | admitted          |
+|  [19]   | Microsoft.Extensions.AI.Abstractions | model-lane                                    | api-onnxruntimegenai.md            | admitted          |
 |  [20]   | GeometryGymIFC_Core                  | interchange                                   | api-geometrygym-ifc.md             | admitted          |
 |  [21]   | SharpGLTF.Core                       | interchange                                   | api-sharpgltf.md                   | admitted          |
 |  [22]   | SharpGLTF.Toolkit                    | interchange                                   | api-sharpgltf.md                   | admitted          |
@@ -251,5 +268,7 @@ The executed admissions ledger maps each package to its consuming page, `.api` c
 ## [11]-[REFINEMENT_HORIZON]
 
 Entry for the next deepening session: `libs/csharp/.planning/campaign-method.md` then `TASKLOG.md` then this charter. Folder-specific deepening targets: geometry-to-tensor encoding widened against real model zoos as the uncatalogued `TensorPrimitives` operator surface on `tensor-lane#OPERATION_TABLE` resolves into `TensorOpFamily` rows; the compute farm topology — node affinity, EP-context warm-start artifacts — rehearsed end-to-end against the designed-only `RemoteTransport` byte paths whose `PipeSecurity` ACL and loopback DACL member spellings live on `remote-lane#[PIPE_SECURITY]`; load/offload choreography between Rhino-hosted and companion processes proven over the wire vocabulary once the Kestrel `ListenUnixSocket` server leg and the `Grpc.Core.Api` transitive route land from START_GATES [3] and [4]; the ALC spikes — ONNX dylib native load and `libortextensions.dylib` RID resolution from TASKLOG §7[4] — executed with the `RunOptions.Terminate` latch propagation cadence on the CoreML and CPU rows resolved at `model-lane#INFERENCE_MODES`. The bar: apps move compute between host, companion, and farm rows without new surfaces, with receipts proving every hop.
+
+Collapse horizon (next loop): `numeric-lane#DENSE_ALGEBRA` `DenseOps.Decompose` and `numeric-lane#SPARSE_SOLVE` `SparseOps.Ingest`/`SolveDirect` carry five and four near-identical `_ when kind == FactorizationKind.X` switch arms each — fold them onto the `FactorizationKind` SmartEnum as a `FrozenDictionary<FactorizationKind, Func<Matrix<double>, Factorization>>` factory table (collapse law, ≥3 repeated arms → data table), eliminating the arm proliferation in place. `numeric-lane#DENSE_ALGEBRA` `LinearProviderProbes` is a two-method static surface feeding the `probe:` delegate column; with the axis at two rows post-purge, inline the probe lambda onto each `LinearProvider` row (`probe: static () => Control.TryUseNativeOpenBLAS()`) and delete the `LinearProviderProbes` type and its owner-symbols `[static surface]` row once the MKL row is permanently a design-record.
 
 Testing-infrastructure horizon: the `RemoteTransport.InProcess` transport seam proves the hand-off through `TestServer.CreateHandler` (`Microsoft.AspNetCore.TestHost`, admitted) without a live remote; the protobuf decode and tensor binary-frame admission ride `SharpFuzz` `Fuzzer.OutOfProcess.Run` (`NEEDS-ADMISSION`); durable kernel speed and the zero-alloc `OrtIoBinding` posture land on the BenchmarkDotNet rail.

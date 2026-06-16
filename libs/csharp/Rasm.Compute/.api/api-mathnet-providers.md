@@ -122,8 +122,11 @@ factorizations beside the MathNet iterative solvers for the numeric lane.
 |   [6]   | `Matrix<T>.Evd`                    | matrix call       | builds `Evd<T>`                    |
 |   [7]   | `LU<T>.Solve`                      | factorization call| solves against a right-hand side   |
 |   [8]   | `Cholesky<T>.Solve`               | factorization call| solves SPD systems                 |
-|   [9]   | `Matrix<double>.Build.DenseOfArray`| factory call      | builds dense matrix from `[,]`     |
-|  [10]   | `Matrix<double>.Build.Dense`       | factory call      | builds dense matrix from extents   |
+|   [9]   | `QR<T>.Solve` / `Svd<T>.Solve` / `Evd<T>.Solve` | factorization call | `Solve(Matrix<T>)` and `Solve(Vector<T>)` via the shared `ISolver<T>` contract |
+|  [10]   | `Matrix<double>.Build.DenseOfArray`| factory call      | builds dense matrix from `[,]`     |
+|  [11]   | `Matrix<double>.Build.Dense`       | factory call      | `Dense(int,int)`, `Dense(int,int,T)`, `Dense(int,int,Func<int,int,T>)` |
+|  [12]   | `Matrix<T>.SubMatrix`              | matrix call       | `SubMatrix(int rowIndex, int rowCount, int columnIndex, int columnCount)` extracts a tile |
+|  [13]   | `Matrix<T>.SetSubMatrix`          | matrix call       | `SetSubMatrix(int rowIndex, int columnIndex, Matrix<T>)` writes a tile in place |
 
 [ENTRYPOINT_SCOPE]: sparse ingestion + solve
 - rail: numeric

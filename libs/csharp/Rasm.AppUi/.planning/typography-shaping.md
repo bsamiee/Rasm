@@ -119,9 +119,9 @@ public static class FontAdmission {
 - Owner: `ShapingSurface`
 - Entry: `public static Unit DrawLabel(SKCanvas canvas, SKShaper shaper, SKFont font, SKPaint paint, string text, float x, float y)` — boundary write onto a caller-leased canvas; the lease rail lives with the canvas owner.
 - Receipt: the first shaped draw on a profile emits the libHarfBuzzSharp load identity — version, path, RID — consumed as typography proof by the evidence stream.
-- Packages: SkiaSharp.HarfBuzz, SkiaSharp, HarfBuzzSharp.NativeAssets.macOS, HarfBuzzSharp.NativeAssets.Win32, HarfBuzzSharp.NativeAssets.Linux, LanguageExt.Core
+- Packages: SkiaSharp.HarfBuzz, SkiaSharp, HarfBuzzSharp.NativeAssets.macOS, HarfBuzzSharp.NativeAssets.Linux, LanguageExt.Core
 - Growth: a new script or feature requirement is one policy value on the role row riding the same shaping call; zero new surface.
-- Boundary: shaping precedes drawing for every Skia-rendered glyph — manual glyph placement, per-script branches, and per-control glyph positioning are the deleted patterns; bidi and complex-script resolution happen inside the shaper; one central HarfBuzz native line serves the retained text stack and the shaped rail on every desktop profile; per-role feature tags enter the shaped rail as `HarfBuzzSharp.Feature` values through `Font.Shape(Buffer, params Feature[])`, and `SKShaper.Result` exposes `Codepoints`, `Clusters`, `Points`, and `Width` for direct glyph runs.
+- Boundary: shaping precedes drawing for every Skia-rendered glyph — manual glyph placement, per-script branches, and per-control glyph positioning are the deleted patterns; bidi and complex-script resolution happen inside the shaper; one central HarfBuzz native line serves the retained text stack and the shaped rail on every admitted macOS and headless-Linux profile; per-role feature tags enter the shaped rail as `HarfBuzzSharp.Feature` values through `Font.Shape(Buffer, params Feature[])`, and `SKShaper.Result` exposes `Codepoints`, `Clusters`, `Points`, and `Width` for direct glyph runs.
 
 ```csharp signature
 public static class ShapingSurface {
