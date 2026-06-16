@@ -1,6 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <ItemGroup>
         <ProjectReference Include="../../../../libs/csharp/Rasm.Materials/Rasm.Materials.csproj" />
-        <ProjectReference Include="../../_testkit/Rasm.TestKit.csproj" />
     </ItemGroup>
 </Project>

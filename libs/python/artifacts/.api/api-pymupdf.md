@@ -18,65 +18,69 @@
 [PUBLIC_TYPE_SCOPE]: document, page, and rendering roots
 - rail: pdf
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `Document` | document root | open/save a document; page access, metadata, TOC, layers, embedded files, conversion |
-| [2] | `Page` | page unit | render, extract, draw, annotate, redact, geometry boxes |
-| [3] | `Pixmap` | raster buffer | rendered RGBA/CMYK bitmap with save/encode and color ops |
-| [4] | `TextPage` | text model | structured text/word/dict extraction from a page |
-| [5] | `DocumentWriter` | author sink | build a new document from drawn pages |
-| [6] | `Annot` | annotation | a single page annotation with update/appearance control |
-| [7] | `Font` | font handle | font for inserted text and glyph metrics |
-| [8] | `Story` | flow layout | reflowable HTML-to-PDF story layout |
+| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE] | [CAPABILITY]                                                                         |
+| :-----: | :--------------- | :------------- | :----------------------------------------------------------------------------------- |
+|   [1]   | `Document`       | document root  | open/save a document; page access, metadata, TOC, layers, embedded files, conversion |
+|   [2]   | `Page`           | page unit      | render, extract, draw, annotate, redact, geometry boxes                              |
+|   [3]   | `Pixmap`         | raster buffer  | rendered RGBA/CMYK bitmap with save/encode and color ops                             |
+|   [4]   | `TextPage`       | text model     | structured text/word/dict extraction from a page                                     |
+|   [5]   | `DocumentWriter` | author sink    | build a new document from drawn pages                                                |
+|   [6]   | `Annot`          | annotation     | a single page annotation with update/appearance control                              |
+|   [7]   | `Font`           | font handle    | font for inserted text and glyph metrics                                             |
+|   [8]   | `Story`          | flow layout    | reflowable HTML-to-PDF story layout                                                  |
 
 [PUBLIC_TYPE_SCOPE]: geometry and color value objects
 - rail: pdf
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `Rect` / `IRect` | rectangle | float/integer page rectangle algebra |
-| [2] | `Point` | point | 2D point |
-| [3] | `Matrix` | affine matrix | transform for render scale/rotate |
-| [4] | `Quad` | quadrilateral | rotated text/region bounds |
-| [5] | `Colorspace` | color space | CS_RGB/CS_GRAY/CS_CMYK pixmap color space |
+| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE] | [CAPABILITY]                              |
+| :-----: | :--------------- | :------------- | :---------------------------------------- |
+|   [1]   | `Rect` / `IRect` | rectangle      | float/integer page rectangle algebra      |
+|   [2]   | `Point`          | point          | 2D point                                  |
+|   [3]   | `Matrix`         | affine matrix  | transform for render scale/rotate         |
+|   [4]   | `Quad`           | quadrilateral  | rotated text/region bounds                |
+|   [5]   | `Colorspace`     | color space    | CS_RGB/CS_GRAY/CS_CMYK pixmap color space |
 
 [PUBLIC_TYPE_SCOPE]: fault family
 - rail: pdf
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `FileDataError` | data fault | corrupt or invalid document data |
-| [2] | `FileNotFoundError` | resolution fault | document path absent |
-| [3] | `EmptyFileError` | empty fault | zero-length document |
+| [INDEX] | [SYMBOL]            | [PACKAGE_ROLE]   | [CAPABILITY]                     |
+| :-----: | :------------------ | :--------------- | :------------------------------- |
+|   [1]   | `FileDataError`     | data fault       | corrupt or invalid document data |
+|   [2]   | `FileNotFoundError` | resolution fault | document path absent             |
+|   [3]   | `EmptyFileError`    | empty fault      | zero-length document             |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document open and save
 - rail: pdf
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `open` | `open(filename=None, stream=None, filetype=None, rect=None, width=0, height=0, fontsize=11) -> Document` | open from path or in-memory stream |
-| [2] | `Document` | `Document(filename=None, stream=None, filetype=None, rect=None, width=0, height=0, fontsize=11)` | document constructor (alias of `open`) |
-| [3] | `Document.save` | `save(filename, garbage=0, clean=0, deflate=0, deflate_images=0, deflate_fonts=0, incremental=0, ascii=0, expand=0, linear=0, pretty=0, encryption=1, permissions=-1, owner_pw=None, user_pw=None) -> None` | save with compaction/encryption knobs |
-| [4] | `Document.ez_save` | `ez_save(filename, **kwargs) -> None` | save with deflate/garbage defaults on |
-| [5] | `Document.convert_to_pdf` | `convert_to_pdf(from_page=0, to_page=-1, rotate=0) -> bytes` | convert a non-PDF document to PDF bytes |
-| [6] | `Document.authenticate` | `authenticate(password) -> int` | unlock an encrypted document |
-| [7] | `Document.insert_pdf` | `insert_pdf(docsrc, from_page=-1, to_page=-1, start_at=-1, rotate=-1, links=True, annots=True, show_progress=0, final=1) -> None` | splice pages from another document |
+Document rows carry path/stream/filetype input, save compaction, encryption, conversion, password, and splice policy.
+
+| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                       | [CAPABILITY]                            |
+| :-----: | :------------------------ | :--------------------------------- | :-------------------------------------- |
+|   [1]   | `open`                    | path or stream plus filetype       | open from path or in-memory stream      |
+|   [2]   | `Document`                | constructor alias policy           | document constructor (alias of `open`)  |
+|   [3]   | `Document.save`           | target plus save policy            | save with compaction/encryption knobs   |
+|   [4]   | `Document.ez_save`        | target plus defaulted kwargs       | save with deflate/garbage defaults on   |
+|   [5]   | `Document.convert_to_pdf` | page range plus rotation           | convert a non-PDF document to PDF bytes |
+|   [6]   | `Document.authenticate`   | password                           | unlock an encrypted document            |
+|   [7]   | `Document.insert_pdf`     | source document plus splice policy | splice pages from another document      |
 
 [ENTRYPOINT_SCOPE]: render and extraction
 - rail: pdf
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `Page.get_pixmap` | `get_pixmap(*, matrix=Identity, dpi=None, colorspace=csRGB, clip=None, alpha=False, annots=True) -> Pixmap` | rasterize a page |
-| [2] | `Page.get_text` | `get_text(option='text', *, clip=None, flags=None, textpage=None, sort=False, delimiters=None) -> str | list | dict` | extract text in plain/dict/json/words/html modes |
-| [3] | `Page.get_textpage` | `get_textpage(clip=None, flags=3) -> TextPage` | build a reusable text model |
-| [4] | `Page.search_for` | `search_for(needle, *, clip=None, quads=False, flags=..., textpage=None) -> list[Rect | Quad]` | locate text regions |
-| [5] | `Page.get_images` | `get_images(full=False) -> list[tuple]` | enumerate embedded images |
-| [6] | `Page.apply_redactions` | `apply_redactions(images=2, graphics=1, text=0) -> bool` | burn in redaction annotations |
-| [7] | `Pixmap.save` | `save(filename, output=None, jpg_quality=95) -> None` | encode raster to PNG/JPEG/etc. |
-| [8] | `Pixmap.tobytes` | `tobytes(output='png', jpg_quality=95) -> bytes` | encode raster to bytes |
+Render and extraction rows share matrix/dpi, color, clip, text mode, textpage, search, image, redaction, and raster-output policy.
+
+| [INDEX] | [SURFACE]               | [CALL_SHAPE]                     | [CAPABILITY]                                     |
+| :-----: | :---------------------- | :------------------------------- | :----------------------------------------------- |
+|   [1]   | `Page.get_pixmap`       | rasterization policy -> `Pixmap` | rasterize a page                                 |
+|   [2]   | `Page.get_text`         | text mode plus clip/sort policy  | extract text in plain/dict/json/words/html modes |
+|   [3]   | `Page.get_textpage`     | clip plus flags                  | build a reusable text model                      |
+|   [4]   | `Page.search_for`       | needle plus match policy         | locate text regions                              |
+|   [5]   | `Page.get_images`       | full-image flag                  | enumerate embedded images                        |
+|   [6]   | `Page.apply_redactions` | image/graphics/text policy       | burn in redaction annotations                    |
+|   [7]   | `Pixmap.save`           | target plus output policy        | encode raster to PNG/JPEG/etc.                   |
+|   [8]   | `Pixmap.tobytes`        | output format plus quality       | encode raster to bytes                           |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

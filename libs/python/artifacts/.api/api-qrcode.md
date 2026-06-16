@@ -18,27 +18,31 @@
 [PUBLIC_TYPE_SCOPE]: builder and constants
 - rail: image
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `QRCode` | builder | configure version/error-correction/box-size/border, add data, emit matrix or image |
-| [2] | `ERROR_CORRECT_L` / `ERROR_CORRECT_M` / `ERROR_CORRECT_Q` / `ERROR_CORRECT_H` | error-correction axis | redundancy-level selector |
-| [3] | `image.svg.SvgImage` / `SvgPathImage` / `SvgFillImage` / `SvgPathFillImage` / `SvgFragmentImage` | SVG factory | vector image factories (no raster dependency) |
-| [4] | `image.pil.PilImage` | raster factory | Pillow-backed raster factory |
+The error-correction constants are `ERROR_CORRECT_L`, `ERROR_CORRECT_M`, `ERROR_CORRECT_Q`, and `ERROR_CORRECT_H`; the SVG factory family covers `SvgImage`, `SvgPathImage`, `SvgFillImage`, `SvgPathFillImage`, and `SvgFragmentImage`.
+
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]        | [CAPABILITY]                   |
+| :-----: | :------------------- | :-------------------- | :----------------------------- |
+|   [1]   | `QRCode`             | builder               | QR symbol builder              |
+|   [2]   | `ERROR_CORRECT_*`    | error-correction axis | redundancy-level selector      |
+|   [3]   | `image.svg.*`        | SVG factory           | no-dependency vector factories |
+|   [4]   | `image.pil.PilImage` | raster factory        | Pillow-backed raster factory   |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build, encode, and render
 - rail: image
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `QRCode` | `QRCode(version=None, error_correction=ERROR_CORRECT_M, box_size=10, border=4, image_factory: type[GenericImage] | None = None, mask_pattern=None)` | configure a QR builder |
-| [2] | `QRCode.add_data` | `add_data(data, optimize=20) -> None` | append data segments |
-| [3] | `QRCode.make` | `make(fit=True) -> None` | compute the symbol (auto-fit version) |
-| [4] | `QRCode.get_matrix` | `get_matrix() -> list[list[bool]]` | the boolean module matrix |
-| [5] | `QRCode.make_image` | `make_image(image_factory=None, **kwargs) -> GenericImage` | render to SVG (default raster needs Pillow) |
-| [6] | `QRCode.print_ascii` | `print_ascii(out=None, tty=False, invert=False) -> None` | render to ASCII |
-| [7] | `make` | `make(data=None, **kwargs) -> GenericImage` | one-shot build-and-render helper |
+The constructor row carries version, error-correction, box-size, border, image-factory, and mask policy.
+
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]                 | [CAPABILITY]                                |
+| :-----: | :------------------- | :--------------------------- | :------------------------------------------ |
+|   [1]   | `QRCode`             | builder policy               | configure a QR builder                      |
+|   [2]   | `QRCode.add_data`    | data plus optimize policy    | append data segments                        |
+|   [3]   | `QRCode.make`        | fit flag                     | compute the symbol (auto-fit version)       |
+|   [4]   | `QRCode.get_matrix`  | no-arg matrix read           | the boolean module matrix                   |
+|   [5]   | `QRCode.make_image`  | image factory plus kwargs    | render to SVG (default raster needs Pillow) |
+|   [6]   | `QRCode.print_ascii` | output stream plus TTY flags | render to ASCII                             |
+|   [7]   | `make`               | data plus render kwargs      | one-shot build-and-render helper            |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

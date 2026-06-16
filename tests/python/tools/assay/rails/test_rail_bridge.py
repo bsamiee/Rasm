@@ -53,15 +53,9 @@ type _BridgeVerb = Callable[[AssaySettings, ArtifactScope, BridgeParams], Result
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_LIFECYCLE_VERBS: tuple[tuple[str, _BridgeVerb], ...] = (
-    ("quit", bridge_quit),
-    ("status", status),
-)
+_LIFECYCLE_VERBS: tuple[tuple[str, _BridgeVerb], ...] = (("quit", bridge_quit), ("status", status))
 
-register_laws(
-    (bridge_quit, ("lifecycle_verbs_fold_supervisor_completion",)),
-    (status, ("lifecycle_verbs_fold_supervisor_completion",)),
-)
+register_laws((bridge_quit, ("lifecycle_verbs_fold_supervisor_completion",)), (status, ("lifecycle_verbs_fold_supervisor_completion",)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -125,16 +119,7 @@ def test_bridge_params_pattern_and_arity() -> None:
 
 
 def test_bridge_module_public_surface() -> None:
-    expected = frozenset((
-        "BridgeParams",
-        "bridge_lease",
-        "build",
-        "client_run",
-        "first_fault",
-        "quit",
-        "status",
-        "verify",
-    ))
+    expected = frozenset(("BridgeParams", "bridge_lease", "build", "client_run", "first_fault", "quit", "status", "verify"))
     assert frozenset(_bridge_mod.__all__) == expected
 
 

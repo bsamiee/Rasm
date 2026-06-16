@@ -22,6 +22,12 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.1"
         }
       },
+      "JetBrains.Annotations": {
+        "type": "Direct",
+        "requested": "[2025.2.2, )",
+        "resolved": "2025.2.2",
+        "contentHash": "0X56ZRizuHdrnPpgXjWV7f2tQO1FlQg5O1967OGKnI/4ZRNOK642J8L7brM1nYvrxTTU5TP1yRyXLRLaXLPQ8A=="
+      },
       "K4os.Compression.LZ4": {
         "type": "Direct",
         "requested": "[1.3.8, )",
@@ -729,7 +735,10 @@
         "contentHash": "CB2efEemm7FEAhHi7zoxT8ANLMhHQ5MpVmTBd4H+GRb2GyHEdN8Uhb5c1U9sv/EXylcmfeLdnDukQrjUrKrRvQ=="
       },
       "csp.contracts": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "JetBrains.Annotations": "[2025.2.2, )"
+        }
       },
       "rasm.apphost": {
         "type": "Project",
@@ -738,6 +747,7 @@
           "Csp.Contracts": "[1.0.0, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
+          "JetBrains.Annotations": "[2025.2.2, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Microsoft.Extensions.Caching.Hybrid": "[10.7.0, )",
           "Microsoft.Extensions.Compliance.Redaction": "[10.7.0, )",

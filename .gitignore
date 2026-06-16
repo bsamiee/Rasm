@@ -73,6 +73,7 @@ mutants/
 # --- [CACHES] -----------------------------------------------------------------
 
 .cache/
+# .artifacts/build/{bin,obj}/<token>/ is the centralized .NET build-output root (Directory.Build.props); .artifacts/{assay,coverage,rhino} hold per-run scopes and agent scratch.
 **/.artifacts/
 /.remember/
 .nx/*

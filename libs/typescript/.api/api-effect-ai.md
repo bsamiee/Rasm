@@ -25,23 +25,23 @@ prompt/response/tool data model; all success/failure flows through the `AiError`
 [PUBLIC_TYPE_SCOPE]: language model service
 - rail: ai-core
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]       | [RAIL]                                                                            |
-| :-----: | :-------------------------------------- | :------------------ | :-------------------------------------------------------------------------------- |
-|   [1]   | `LanguageModel.LanguageModel`           | `Context.Tag` class | tag `"@effect/ai/LanguageModel"` → `Service`                                      |
-|   [2]   | `LanguageModel.Service`                 | interface           | `generateText` / `generateObject` / `streamText`                                  |
-|   [3]   | `LanguageModel.generateText`            | function            | tag-resolving free function (requires `LanguageModel`)                            |
-|   [4]   | `LanguageModel.generateObject`          | function            | schema-typed structured output                                                    |
-|   [5]   | `LanguageModel.streamText`              | function            | `Stream<Response.StreamPart<Tools>>`                                              |
-|   [6]   | `LanguageModel.make`                    | constructor         | builds `Service` from provider `ConstructorParams`                                |
-|   [7]   | `LanguageModel.GenerateTextOptions`     | options interface   | `prompt`, `toolkit?`, `toolChoice?`, `concurrency?`, `disableToolCallResolution?` |
-|   [8]   | `LanguageModel.GenerateObjectOptions`   | options interface   | extends text options + `schema`, `objectName?`                                    |
-|   [9]   | `LanguageModel.ToolChoice<Tools>`       | union               | `"auto" \| "none" \| "required" \| {tool} \| {mode?,oneOf}`                       |
-|  [10]   | `LanguageModel.GenerateTextResponse`    | class               | accessors `text`/`reasoning`/`toolCalls`/`usage`/`finishReason`                   |
-|  [11]   | `LanguageModel.GenerateObjectResponse`  | class               | extends text response + `value: A`                                                |
-|  [12]   | `LanguageModel.ProviderOptions`         | interface           | normalized options passed to provider impls                                       |
-|  [13]   | `LanguageModel.ConstructorParams`       | interface           | provider `generateText` / `streamText` impls                                      |
-|  [14]   | `LanguageModel.ExtractError<Options>`   | conditional type    | infers error rail from toolkit shape                                              |
-|  [15]   | `LanguageModel.ExtractContext<Options>` | conditional type    | infers required services from toolkit                                             |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]       | [CAPABILITY]                  |
+| :-----: | :-------------------------------------- | :------------------ | :---------------------------- |
+|   [1]   | `LanguageModel.LanguageModel`           | `Context.Tag` class | service tag                   |
+|   [2]   | `LanguageModel.Service`                 | interface           | generation contract           |
+|   [3]   | `LanguageModel.generateText`            | function            | text generation               |
+|   [4]   | `LanguageModel.generateObject`          | function            | schema-shaped generation      |
+|   [5]   | `LanguageModel.streamText`              | function            | streaming generation          |
+|   [6]   | `LanguageModel.make`                    | constructor         | provider service construction |
+|   [7]   | `LanguageModel.GenerateTextOptions`     | options interface   | text request options          |
+|   [8]   | `LanguageModel.GenerateObjectOptions`   | options interface   | object request options        |
+|   [9]   | `LanguageModel.ToolChoice<Tools>`       | union               | tool-selection policy         |
+|  [10]   | `LanguageModel.GenerateTextResponse`    | class               | generated-text receipt        |
+|  [11]   | `LanguageModel.GenerateObjectResponse`  | class               | generated-object receipt      |
+|  [12]   | `LanguageModel.ProviderOptions`         | interface           | provider-normalized request   |
+|  [13]   | `LanguageModel.ConstructorParams`       | interface           | provider implementation seam  |
+|  [14]   | `LanguageModel.ExtractError<Options>`   | conditional type    | tool error inference          |
+|  [15]   | `LanguageModel.ExtractContext<Options>` | conditional type    | tool context inference        |
 
 ```ts contract
 // LanguageModel.Service — the provider-agnostic contract
@@ -204,26 +204,38 @@ declare const fromExport: (data: unknown) => Effect.Effect<Service, ParseError, 
 declare const fromJson: (data: string) => Effect.Effect<Service, ParseError, LanguageModel.LanguageModel>
 ```
 
-[PUBLIC_TYPE_SCOPE]: tokenizer, id generator, telemetry
+[PUBLIC_TYPE_SCOPE]: tokenizer
 - rail: ai-core
 
-| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY]       | [RAIL]                                                                                        |
-| :-----: | :----------------------------------------- | :------------------ | :-------------------------------------------------------------------------------------------- |
-|   [1]   | `Tokenizer.Tokenizer`                      | `Context.Tag` class | tag `"@effect/ai/Tokenizer"` → `Service`                                                      |
-|   [2]   | `Tokenizer.Service`                        | interface           | `tokenize(input)` / `truncate(input, tokens)`                                                 |
-|   [3]   | `Tokenizer.make`                           | constructor         | from a `tokenize` impl                                                                        |
-|   [4]   | `IdGenerator.IdGenerator`                  | `Context.Tag` class | tag `"@effect/ai/IdGenerator"` → `Service`                                                    |
-|   [5]   | `IdGenerator.Service`                      | interface           | `generateId(): Effect<string>`                                                                |
-|   [6]   | `IdGenerator.MakeOptions`                  | options interface   | `alphabet`, `prefix?`, `separator`, `size`                                                    |
-|   [7]   | `IdGenerator.defaultIdGenerator`           | value               | default `Service`                                                                             |
-|   [8]   | `IdGenerator.make` / `.layer`              | constructor/layer   | `layer` fails with `Cause.IllegalArgumentException`                                           |
-|   [9]   | `Telemetry.addGenAIAnnotations`            | function            | writes GenAI semantic-convention span attributes                                              |
-|  [10]   | `Telemetry.addSpanAttributes`              | function            | low-level prefixed-attribute writer (`keyPrefix`, attrs) that `addGenAIAnnotations` builds on |
-|  [11]   | `Telemetry.GenAITelemetryAttributeOptions` | options             | `BaseAttributes` (system) + `operation?`, `request?`, `response?`, `token?`, `usage?`         |
-|  [12]   | `Telemetry.SpanTransformer`                | interface           | span-mutation callback shape held by the tag                                                  |
-|  [13]   | `Telemetry.CurrentSpanTransformer`         | `Context.Tag` class | tag `"@effect/ai/Telemetry/CurrentSpanTransformer"` → `SpanTransformer`                       |
-|  [14]   | `Telemetry.WellKnownSystem`                | union               | `"anthropic" \| "aws.bedrock" \| "openai" \| "gemini" \| …`                                   |
-|  [15]   | `Telemetry.WellKnownOperationName`         | union               | `"chat" \| "embeddings" \| "text_completion"`                                                 |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]       | [CAPABILITY]         |
+| :-----: | :-------------------- | :------------------ | :------------------- |
+|   [1]   | `Tokenizer.Tokenizer` | `Context.Tag` class | tokenizer service    |
+|   [2]   | `Tokenizer.Service`   | interface           | tokenize or truncate |
+|   [3]   | `Tokenizer.make`      | constructor         | service construction |
+
+[PUBLIC_TYPE_SCOPE]: id generator
+- rail: ai-core
+
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]       | [CAPABILITY]         |
+| :-----: | :------------------------------- | :------------------ | :------------------- |
+|   [1]   | `IdGenerator.IdGenerator`        | `Context.Tag` class | id service           |
+|   [2]   | `IdGenerator.Service`            | interface           | id generation        |
+|   [3]   | `IdGenerator.MakeOptions`        | options interface   | generator policy     |
+|   [4]   | `IdGenerator.defaultIdGenerator` | value               | default service      |
+|   [5]   | `IdGenerator.make` / `.layer`    | constructor/layer   | service construction |
+
+[PUBLIC_TYPE_SCOPE]: telemetry
+- rail: ai-core
+
+| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY]       | [CAPABILITY]               |
+| :-----: | :----------------------------------------- | :------------------ | :------------------------- |
+|   [1]   | `Telemetry.addGenAIAnnotations`            | function            | GenAI span annotation      |
+|   [2]   | `Telemetry.addSpanAttributes`              | function            | prefixed span attributes   |
+|   [3]   | `Telemetry.GenAITelemetryAttributeOptions` | options             | GenAI attribute payload    |
+|   [4]   | `Telemetry.SpanTransformer`                | interface           | span mutation callback     |
+|   [5]   | `Telemetry.CurrentSpanTransformer`         | `Context.Tag` class | span transformer tag       |
+|   [6]   | `Telemetry.WellKnownSystem`                | union               | provider system vocabulary |
+|   [7]   | `Telemetry.WellKnownOperationName`         | union               | operation vocabulary       |
 
 ```ts contract
 // Tokenizer.Service
@@ -256,21 +268,23 @@ type WellKnownOperationName = "chat" | "embeddings" | "text_completion"
 [PUBLIC_TYPE_SCOPE]: prompt model
 - rail: ai-core
 
-| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY]     | [RAIL]                                                                |
-| :-----: | :---------------------------------------------------- | :---------------- | :-------------------------------------------------------------------- |
-|   [1]   | `Prompt.Prompt`                                       | branded interface | conversation; `Prompt` Schema; `TypeId` `"~@effect/ai/Prompt"`        |
-|   [2]   | `Prompt.RawInput`                                     | union             | `string \| Iterable<MessageEncoded> \| Prompt`                        |
-|   [3]   | `Prompt.make`                                         | constructor       | `(input: RawInput) => Prompt`                                         |
-|   [4]   | `Prompt.empty` / `.fromMessages`                      | constructor       | empty prompt / from `ReadonlyArray<Message>`                          |
-|   [5]   | `Prompt.fromResponseParts`                            | constructor       | lift `Response.AnyPart[]` into a prompt                               |
-|   [6]   | `Prompt.merge`                                        | combinator        | concatenate prompts (dual)                                            |
-|   [7]   | `Prompt.setSystem` / `prependSystem` / `appendSystem` | combinator        | system-message manipulation (dual)                                    |
-|   [8]   | `Prompt.Message`                                      | union             | `System \| User \| Assistant \| Tool` message                         |
-|   [9]   | `Prompt.makeMessage` / `*Message`                     | constructor       | `systemMessage`/`userMessage`/`assistantMessage`/`toolMessage`        |
-|  [10]   | `Prompt.Part`                                         | union             | `Text \| Reasoning \| File \| ToolCall \| ToolResult` part            |
-|  [11]   | `Prompt.makePart` / `*Part`                           | constructor       | `textPart`/`reasoningPart`/`filePart`/`toolCallPart`/`toolResultPart` |
-|  [12]   | `Prompt.FromJson`                                     | Schema transform  | JSON ⇄ `Prompt`                                                       |
-|  [13]   | `Prompt.ProviderOptions`                              | Schema record     | per-provider option bag keyed by provider name                        |
+| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY]     | [CAPABILITY]             |
+| :-----: | :---------------------------------------------------- | :---------------- | :----------------------- |
+|   [1]   | `Prompt.Prompt`                                       | branded interface | conversation value       |
+|   [2]   | `Prompt.RawInput`                                     | union             | accepted prompt input    |
+|   [3]   | `Prompt.make`                                         | constructor       | input normalization      |
+|   [4]   | `Prompt.empty` / `.fromMessages`                      | constructor       | prompt construction      |
+|   [5]   | `Prompt.fromResponseParts`                            | constructor       | response-to-prompt lift  |
+|   [6]   | `Prompt.merge`                                        | combinator        | prompt concatenation     |
+|   [7]   | `Prompt.setSystem` / `prependSystem` / `appendSystem` | combinator        | system-message placement |
+|   [8]   | `Prompt.Message`                                      | union             | message algebra          |
+|   [9]   | `Prompt.makeMessage` / `*Message`                     | constructor       | message construction     |
+|  [10]   | `Prompt.Part`                                         | union             | message-part algebra     |
+|  [11]   | `Prompt.makePart` / `*Part`                           | constructor       | part construction        |
+|  [12]   | `Prompt.FromJson`                                     | Schema transform  | JSON conversion          |
+|  [13]   | `Prompt.ProviderOptions`                              | Schema record     | provider option metadata |
+
+Concrete message factories are `systemMessage`, `userMessage`, `assistantMessage`, and `toolMessage`; concrete part factories are `textPart`, `reasoningPart`, `filePart`, `toolCallPart`, and `toolResultPart`.
 
 ```ts contract
 type RawInput = string | Iterable<MessageEncoded> | Prompt
@@ -289,19 +303,19 @@ declare const makePart: <const Type extends Part["type"]>(type: Type, params: ..
 [PUBLIC_TYPE_SCOPE]: response model
 - rail: ai-core
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]  | [RAIL]                                                                                                 |
-| :-----: | :------------------------------------------------------ | :------------- | :----------------------------------------------------------------------------------------------------- |
-|   [1]   | `Response.AnyPart`                                      | union          | every decoded part (text/reasoning/tool/file/source/finish/error)                                      |
-|   [2]   | `Response.Part<Tools>`                                  | union          | non-streaming parts parameterized by toolkit                                                           |
-|   [3]   | `Response.StreamPart<Tools>`                            | union          | streaming parts incl. `*-start`/`*-delta`/`*-end` + `error`                                            |
-|   [4]   | `Response.makePart`                                     | constructor    | `(type, params) => Extract<AnyPart, {type}>`                                                           |
-|   [5]   | `Response.FinishReason`                                 | Schema literal | `"stop" \| "length" \| "content-filter" \| "tool-calls" \| "error" \| "pause" \| "other" \| "unknown"` |
-|   [6]   | `Response.Usage`                                        | Schema class   | `inputTokens`/`outputTokens`/`totalTokens`/`reasoningTokens?`/`cachedInputTokens?`                     |
-|   [7]   | `Response.ToolCallParts<Tools>`                         | mapped union   | tool-call parts narrowed to toolkit tool names                                                         |
-|   [8]   | `Response.ToolResultParts<Tools>`                       | mapped union   | tool-result parts narrowed to toolkit tool names                                                       |
-|   [9]   | `Response.ProviderMetadata`                             | Schema record  | per-provider metadata bag on every part                                                                |
-|  [10]   | `Response.TextPart` / `ToolCallPart` / `FinishPart` / … | Schema + ctor  | each part type has interface + `Schema` const + lowercase ctor                                         |
-|  [11]   | `Response.AllParts(toolkit)`                            | Schema factory | full decoded-parts schema for a toolkit                                                                |
+| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]  | [CAPABILITY]             |
+| :-----: | :------------------------------------------------------ | :------------- | :----------------------- |
+|   [1]   | `Response.AnyPart`                                      | union          | decoded part algebra     |
+|   [2]   | `Response.Part<Tools>`                                  | union          | settled response part    |
+|   [3]   | `Response.StreamPart<Tools>`                            | union          | streaming response part  |
+|   [4]   | `Response.makePart`                                     | constructor    | part construction        |
+|   [5]   | `Response.FinishReason`                                 | Schema literal | finish vocabulary        |
+|   [6]   | `Response.Usage`                                        | Schema class   | token usage receipt      |
+|   [7]   | `Response.ToolCallParts<Tools>`                         | mapped union   | toolkit call narrowing   |
+|   [8]   | `Response.ToolResultParts<Tools>`                       | mapped union   | toolkit result narrowing |
+|   [9]   | `Response.ProviderMetadata`                             | Schema record  | provider metadata        |
+|  [10]   | `Response.TextPart` / `ToolCallPart` / `FinishPart` / … | Schema + ctor  | concrete part family     |
+|  [11]   | `Response.AllParts(toolkit)`                            | Schema factory | toolkit-aware schema     |
 
 ```ts contract
 type FinishReason = "stop" | "length" | "content-filter" | "tool-calls" | "error" | "pause" | "other" | "unknown"
@@ -321,27 +335,33 @@ type StreamPart<Tools extends Record<string, Tool.Any>> =
 declare const makePart: <const Type extends AnyPart["type"]>(type: Type, params: ...) => Extract<AnyPart, { type: Type }>
 ```
 
-[PUBLIC_TYPE_SCOPE]: tool and toolkit model
+[PUBLIC_TYPE_SCOPE]: tool model
 - rail: ai-core
 
-| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]     | [RAIL]                                                                            |
-| :-----: | :------------------------------------------------------------- | :---------------- | :-------------------------------------------------------------------------------- |
-|   [1]   | `Tool.Tool<Name,Config,Req>`                                   | branded interface | user-defined tool; `TypeId` `"~@effect/ai/Tool"`                                  |
-|   [2]   | `Tool.Any`                                                     | interface         | erased tool; toolkit element bound                                                |
-|   [3]   | `Tool.ProviderDefined<Name,Cfg>`                               | branded interface | provider-executed tool; `ProviderDefinedTypeId`                                   |
-|   [4]   | `Tool.make`                                                    | constructor       | `(name, {description?,parameters?,success?,failure?,failureMode?,dependencies?})` |
-|   [5]   | `Tool.providerDefined`                                         | constructor       | `({id,toolkitName,providerName,args,…})` provider tool                            |
-|   [6]   | `Tool.fromTaggedRequest`                                       | constructor       | lift a `Schema.TaggedRequest` into a `Tool`                                       |
-|   [7]   | `Tool.FailureMode`                                             | union             | `"error" \| "return"`                                                             |
-|   [8]   | `Tool.Handler` / `HandlerResult` / `HandlerError`              | interface/type    | handler contract + per-tool error inference                                       |
-|   [9]   | `Tool.getJsonSchema` / `getDescription`                        | function          | JSON-schema + description extraction (plus `*FromSchemaAst` AST variants)         |
-|  [10]   | `Tool.isUserDefined` / `isProviderDefined`                     | guard             | discriminate `Tool` vs `ProviderDefined` on an `unknown`                          |
-|  [11]   | `Tool.Title`/`Readonly`/`Destructive`/`Idempotent`/`OpenWorld` | annotation refs   | MCP-style tool annotation tags (`"@effect/ai/Tool/<Name>"`)                       |
-|  [11]   | `Toolkit.Toolkit<Tools>`                                       | branded interface | tool collection; `TypeId` `"~@effect/ai/Toolkit"`                                 |
-|  [12]   | `Toolkit.make`                                                 | constructor       | `(...tools) => Toolkit`                                                           |
-|  [13]   | `Toolkit.merge`                                                | combinator        | merge multiple toolkits                                                           |
-|  [14]   | `Toolkit.WithHandler<Tools>`                                   | interface         | toolkit bound to handlers; `handle(name, params)`                                 |
-|  [15]   | `Toolkit.empty`                                                | value             | `Toolkit<{}>`                                                                     |
+| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]     | [CAPABILITY]           |
+| :-----: | :------------------------------------------------------------- | :---------------- | :--------------------- |
+|   [1]   | `Tool.Tool<Name,Config,Req>`                                   | branded interface | user-defined tool      |
+|   [2]   | `Tool.Any`                                                     | interface         | erased tool bound      |
+|   [3]   | `Tool.ProviderDefined<Name,Cfg>`                               | branded interface | provider-executed tool |
+|   [4]   | `Tool.make`                                                    | constructor       | user tool construction |
+|   [5]   | `Tool.providerDefined`                                         | constructor       | provider tool modeling |
+|   [6]   | `Tool.fromTaggedRequest`                                       | constructor       | tagged-request lift    |
+|   [7]   | `Tool.FailureMode`                                             | union             | failure routing policy |
+|   [8]   | `Tool.Handler` / `HandlerResult` / `HandlerError`              | interface/type    | handler contract       |
+|   [9]   | `Tool.getJsonSchema` / `getDescription`                        | function          | schema and description |
+|  [10]   | `Tool.isUserDefined` / `isProviderDefined`                     | guard             | tool discrimination    |
+|  [11]   | `Tool.Title`/`Readonly`/`Destructive`/`Idempotent`/`OpenWorld` | annotation refs   | MCP-style annotations  |
+
+[PUBLIC_TYPE_SCOPE]: toolkit model
+- rail: ai-core
+
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]     | [CAPABILITY]          |
+| :-----: | :--------------------------- | :---------------- | :-------------------- |
+|   [1]   | `Toolkit.Toolkit<Tools>`     | branded interface | tool collection       |
+|   [2]   | `Toolkit.make`               | constructor       | toolkit construction  |
+|   [3]   | `Toolkit.merge`              | combinator        | toolkit composition   |
+|   [4]   | `Toolkit.WithHandler<Tools>` | interface         | handler-bound toolkit |
+|   [5]   | `Toolkit.empty`              | value             | empty toolkit         |
 
 ```ts contract
 declare const make: <const Name extends string, Parameters, Success, Failure, Mode extends FailureMode | undefined = undefined, Dependencies extends Array<Context.Tag<any, any>> = []>(

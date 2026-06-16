@@ -83,79 +83,45 @@ public sealed class Driver : DiagnosticAnalyzer {
         SyntaxTree? tree = FirstTree(context.Compilation);
         if (tree is null) return;
         // Whole-compilation rules gate on assembly scope; per-tree overrides cannot apply.
-        CspScope scope = facts.ScopeOf(tree, context.Compilation.Assembly);
-        ScopeGate gate = GateOf(scope);
-        foreach (Slot slot in slots) {
-            if ((slot.Row.Scope & gate) == 0) continue;
-            slot.Check(new RuleContext(
-                descriptor: slot.Row.Descriptor,
-                report: context.ReportDiagnostic,
-                tier: slot.Row.Tier,
-                facts: facts,
-                scope: scope,
-                node: null,
-                operation: null,
-                symbol: context.Compilation.Assembly,
-                model: null,
-                cancel: context.CancellationToken));
-        }
+        Fan(facts, slots, facts.ScopeOf(tree, context.Compilation.Assembly), node: null, operation: null,
+            context.Compilation.Assembly, model: null, context.ReportDiagnostic, context.CancellationToken);
     }
 
-    private static void DispatchOperation(OperationAnalysisContext context, CompilationFacts facts, ImmutableArray<Slot> slots) {
-        CspScope scope = facts.ScopeOf(context.Operation.Syntax.SyntaxTree, context.ContainingSymbol);
-        ScopeGate gate = GateOf(scope);
-        foreach (Slot slot in slots) {
-            if ((slot.Row.Scope & gate) == 0) continue;
-            slot.Check(new RuleContext(
-                descriptor: slot.Row.Descriptor,
-                report: context.ReportDiagnostic,
-                tier: slot.Row.Tier,
-                facts: facts,
-                scope: scope,
-                node: context.Operation.Syntax,
-                operation: context.Operation,
-                symbol: context.ContainingSymbol,
-                model: context.Operation.SemanticModel,
-                cancel: context.CancellationToken));
-        }
-    }
+    private static void DispatchOperation(OperationAnalysisContext context, CompilationFacts facts, ImmutableArray<Slot> slots) =>
+        Fan(facts, slots, facts.ScopeOf(context.Operation.Syntax.SyntaxTree, context.ContainingSymbol),
+            context.Operation.Syntax, context.Operation, context.ContainingSymbol, context.Operation.SemanticModel,
+            context.ReportDiagnostic, context.CancellationToken);
 
     private static void DispatchSymbol(SymbolAnalysisContext context, CompilationFacts facts, ImmutableArray<Slot> slots) {
         if (context.Symbol.DeclaringSyntaxReferences.IsEmpty) return;
-        CspScope scope = facts.ScopeOf(context.Symbol.DeclaringSyntaxReferences[0].SyntaxTree, context.Symbol);
-        ScopeGate gate = GateOf(scope);
-        foreach (Slot slot in slots) {
-            if ((slot.Row.Scope & gate) == 0) continue;
-            slot.Check(new RuleContext(
-                descriptor: slot.Row.Descriptor,
-                report: context.ReportDiagnostic,
-                tier: slot.Row.Tier,
-                facts: facts,
-                scope: scope,
-                node: null,
-                operation: null,
-                symbol: context.Symbol,
-                model: null,
-                cancel: context.CancellationToken));
-        }
+        Fan(facts, slots, facts.ScopeOf(context.Symbol.DeclaringSyntaxReferences[0].SyntaxTree, context.Symbol),
+            node: null, operation: null, context.Symbol, model: null, context.ReportDiagnostic, context.CancellationToken);
     }
 
-    private static void DispatchSyntax(SyntaxNodeAnalysisContext context, CompilationFacts facts, ImmutableArray<Slot> slots) {
-        CspScope scope = facts.ScopeOf(context.Node.SyntaxTree, context.ContainingSymbol);
+    private static void DispatchSyntax(SyntaxNodeAnalysisContext context, CompilationFacts facts, ImmutableArray<Slot> slots) =>
+        Fan(facts, slots, facts.ScopeOf(context.Node.SyntaxTree, context.ContainingSymbol),
+            context.Node, operation: null, context.ContainingSymbol, context.SemanticModel,
+            context.ReportDiagnostic, context.CancellationToken);
+
+    // One scope-gated fan-out: the four trigger contexts differ only in which RuleContext slots they
+    // fill, so the gate loop and ref-struct construction live once here instead of per-trigger.
+    private static void Fan(CompilationFacts facts, ImmutableArray<Slot> slots, CspScope scope,
+        SyntaxNode? node, IOperation? operation, ISymbol? symbol, SemanticModel? model,
+        Action<Diagnostic> report, CancellationToken cancel) {
         ScopeGate gate = GateOf(scope);
         foreach (Slot slot in slots) {
             if ((slot.Row.Scope & gate) == 0) continue;
             slot.Check(new RuleContext(
                 descriptor: slot.Row.Descriptor,
-                report: context.ReportDiagnostic,
+                report: report,
                 tier: slot.Row.Tier,
                 facts: facts,
                 scope: scope,
-                node: context.Node,
-                operation: null,
-                symbol: context.ContainingSymbol,
-                model: context.SemanticModel,
-                cancel: context.CancellationToken));
+                node: node,
+                operation: operation,
+                symbol: symbol,
+                model: model,
+                cancel: cancel));
         }
     }
 

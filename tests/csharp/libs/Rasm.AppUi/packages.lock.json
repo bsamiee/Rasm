@@ -45,6 +45,12 @@
         "resolved": "4.7.0",
         "contentHash": "j1ddNwZJHtuXJo0haeDtEX/j/iDJYLlZdIvaEmb7ftxTN9p4e5/jn6hYGXH/Em6RFfDRGWaNQ17LOMR3MhYWwA=="
       },
+      "JetBrains.Annotations": {
+        "type": "Direct",
+        "requested": "[2025.2.2, )",
+        "resolved": "2025.2.2",
+        "contentHash": "0X56ZRizuHdrnPpgXjWV7f2tQO1FlQg5O1967OGKnI/4ZRNOK642J8L7brM1nYvrxTTU5TP1yRyXLRLaXLPQ8A=="
+      },
       "LanguageExt.Core": {
         "type": "Direct",
         "requested": "[5.0.0-beta-77, )",
@@ -968,13 +974,17 @@
         }
       },
       "csp.contracts": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "JetBrains.Annotations": "[2025.2.2, )"
+        }
       },
       "rasm": {
         "type": "Project",
         "dependencies": {
           "CSparse": "[4.4.0, )",
           "Csp.Contracts": "[1.0.0, )",
+          "JetBrains.Annotations": "[2025.2.2, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "MathNet.Symbolics": "[0.25.0, )",
@@ -989,6 +999,7 @@
           "Csp.Contracts": "[1.0.0, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
+          "JetBrains.Annotations": "[2025.2.2, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Microsoft.Extensions.Caching.Hybrid": "[10.7.0, )",
           "Microsoft.Extensions.Compliance.Redaction": "[10.7.0, )",
@@ -1042,6 +1053,7 @@
           "FluentIcons.Avalonia": "[2.1.328, )",
           "HarfBuzzSharp.NativeAssets.Linux": "[8.3.1.5, )",
           "HarfBuzzSharp.NativeAssets.macOS": "[8.3.1.5, )",
+          "JetBrains.Annotations": "[2025.2.2, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "LiveChartsCore.SkiaSharpView.Avalonia": "[2.0.4, )",
           "Markdig": "[1.2.0, )",
@@ -1076,6 +1088,7 @@
           "Google.Protobuf": "[3.35.1, )",
           "Grpc.Net.Client": "[2.80.0, )",
           "Grpc.Net.Client.Web": "[2.80.0, )",
+          "JetBrains.Annotations": "[2025.2.2, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Microsoft.IO.RecyclableMemoryStream": "[3.0.1, )",
           "Microsoft.ML.OnnxRuntime": "[1.26.0, )",
@@ -1093,6 +1106,7 @@
         "type": "Project",
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
+          "JetBrains.Annotations": "[2025.2.2, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Rasm": "[1.0.0, )",
           "System.Drawing.Common": "[10.0.9, )",
@@ -1105,6 +1119,7 @@
           "Csp.Contracts": "[1.0.0, )",
           "DuckDB.NET.Data.Full": "[1.5.3, )",
           "EFCore.NamingConventions": "[10.0.1, )",
+          "JetBrains.Annotations": "[2025.2.2, )",
           "K4os.Compression.LZ4": "[1.3.8, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MessagePack": "[3.1.7, )",
@@ -1134,6 +1149,7 @@
         "type": "Project",
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
+          "JetBrains.Annotations": "[2025.2.2, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Rasm": "[1.0.0, )",
           "System.Drawing.Common": "[10.0.9, )",
@@ -1144,6 +1160,7 @@
         "type": "Project",
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
+          "JetBrains.Annotations": "[2025.2.2, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Rasm": "[1.0.0, )",
           "System.Drawing.Common": "[10.0.9, )",

@@ -174,7 +174,8 @@ def test_build_app_root_configuration() -> None:
     app = build_app(REGISTRY)
     assert app.name == ("assay",)
     assert app.version == registry_mod._VERSION
-    assert app.help == "Rasm polyglot quality operator."
+    assert app.help.startswith("Rasm polyglot quality operator.")
+    assert "--exec" in app.help, "the root help must surface the agent-first --exec offload flag"
     assert (app.exit_on_error, app.print_error, app.help_on_error) == (False, False, False)
     assert app.result_action == ("return_value",)
     assert app.default_parameter is not None

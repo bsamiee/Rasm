@@ -4,12 +4,12 @@ The VisualSpec to ExportPlan axis, preview, and compression. `VisualSpec` is ONE
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                          |
-| :-----: | :----------- | :------------------------------------------------------------- |
-|   [1]   | VISUAL       | the visual-to-export axis (2D + 3D)                            |
-|   [2]   | EXPORT       | the export-backend rows                                        |
-|   [3]   | PREVIEW      | image/preview/media-detection                                  |
-|   [4]   | COMPRESSION  | the algorithm-row compression owner                            |
+| [INDEX] | [CLUSTER]   | [OWNS]                              |
+| :-----: | :---------- | :---------------------------------- |
+|   [1]   | VISUAL      | the visual-to-export axis (2D + 3D) |
+|   [2]   | EXPORT      | the export-backend rows             |
+|   [3]   | PREVIEW     | image/preview/media-detection       |
+|   [4]   | COMPRESSION | the algorithm-row compression owner |
 
 ## [2]-[VISUAL]
 

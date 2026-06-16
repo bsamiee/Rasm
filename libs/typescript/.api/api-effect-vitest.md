@@ -48,24 +48,24 @@ export {
 - rail: testing
 - entry: `@effect/vitest` (`Vitest.*`)
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [RAIL]                                                                                 |
-| :-----: | :---------------------------------------------- | :------------ | :------------------------------------------------------------------------------------- |
-|   [1]   | `Vitest.TestFunction<A, E, R, TestArgs>`        | interface     | call shape returning `Effect.Effect<A, E, R>` from `TestArgs`                          |
-|   [2]   | `Vitest.Test<R>`                                | interface     | callable `(name, self, timeout?)` registering one Effect test in requirement `R`       |
-|   [3]   | `Vitest.Arbitraries`                            | type alias    | array or record of `Schema.Schema.Any \| FC.Arbitrary<any>` — `prop` source vocabulary |
-|   [4]   | `Vitest.Tester<R>`                              | interface     | `Test<R>` + `skip`/`skipIf`/`runIf`/`only`/`fails`/`each`/`prop` modifiers             |
-|   [5]   | `Vitest.MethodsNonLive<R, ExcludeTestServices>` | interface     | extends `API`; `effect`/`scoped`/`flakyTest`/`layer`/`prop` (no real-clock testers)    |
-|   [6]   | `Vitest.Methods<R>`                             | interface     | extends `MethodsNonLive<R>`; adds `live`/`scopedLive` real-clock testers               |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]             |
+| :-----: | :---------------------------------------------- | :------------ | :----------------------- |
+|   [1]   | `Vitest.TestFunction<A, E, R, TestArgs>`        | interface     | Effect test callback     |
+|   [2]   | `Vitest.Test<R>`                                | interface     | Effect test registration |
+|   [3]   | `Vitest.Arbitraries`                            | type alias    | property source shape    |
+|   [4]   | `Vitest.Tester<R>`                              | interface     | tester plus modifiers    |
+|   [5]   | `Vitest.MethodsNonLive<R, ExcludeTestServices>` | interface     | shared-layer method tree |
+|   [6]   | `Vitest.Methods<R>`                             | interface     | full method tree         |
 
 [PUBLIC_TYPE_SCOPE]: package-private root types (reached only through `it`/`API`)
 - rail: testing
 - entry: `@effect/vitest`
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [RAIL]                                                                                                |
-| :-----: | :------------------------- | :------------ | :---------------------------------------------------------------------------------------------------- |
-|   [1]   | `API`                      | type alias    | `vitest` `TestAPI<{}>` remapped (`scoped`→`unknown`, adds `scopedFixtures`) `& TestCollectorCallable` |
-|   [2]   | `TestCollectorCallable<C>` | interface     | 3-overload callable test collector (`name`, `fn`/`options` in either order)                           |
-|   [3]   | `TestCollectorOptions`     | type alias    | `concurrent`/`sequential`/`only`/`skip`/`todo`/`fails`/`timeout`/`retry`/`repeats`                    |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]         |
+| :-----: | :------------------------- | :------------ | :------------------- |
+|   [1]   | `API`                      | type alias    | Vitest API overlay   |
+|   [2]   | `TestCollectorCallable<C>` | interface     | collector overloads  |
+|   [3]   | `TestCollectorOptions`     | type alias    | collector option bag |
 
 `Vitest.Methods` is the type of the exported `it`; `Vitest.MethodsNonLive` is what `layer(...)`
 hands to its callback (no `live`/`scopedLive`, because a shared `Layer` is already memoized and a
@@ -174,23 +174,30 @@ declare namespace Vitest {
 
 ### @effect/vitest — runner + harness values
 
-[PUBLIC_TYPE_SCOPE]: test runner entrypoints
+[PUBLIC_TYPE_SCOPE]: runner testers
 - rail: testing
 - entry: `@effect/vitest`
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]                                                   | [RAIL]                                                                                       |
-| :-----: | :------------------- | :-------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
-|   [1]   | `it`                 | const `Vitest.Methods`                                          | full method tree (the default runner namespace; `it.effect`/`it.scoped`/`it.live`/…)         |
-|   [2]   | `effect`             | const `Vitest.Tester<TestServices.TestServices>`                | test clock + test console; the standard Effect test runner                                   |
-|   [3]   | `scoped`             | const `Vitest.Tester<TestServices.TestServices \| Scope.Scope>` | `effect` + a `Scope` per test                                                                |
-|   [4]   | `live`               | const `Vitest.Tester<never>`                                    | real clock/console (no `TestServices`); use for wall-clock-dependent behavior                |
-|   [5]   | `scopedLive`         | const `Vitest.Tester<Scope.Scope>`                              | `live` + a `Scope` per test                                                                  |
-|   [6]   | `prop`               | const `Vitest.Methods["prop"]`                                  | standalone fast-check property runner (`name`, arbitraries, sync `self`)                     |
-|   [7]   | `flakyTest`          | const combinator                                                | retry an `Effect` until success or `timeout` (default 30s); erases the error channel         |
-|   [8]   | `layer`              | const harness ctor                                              | share one `Layer` across a block; yields a `MethodsNonLive` callback (named or anonymous)    |
-|   [9]   | `describeWrapped`    | const                                                           | `(name, f: (it: Vitest.Methods) => void) => V.SuiteCollector` — `describe` wrapper over `it` |
-|  [10]   | `makeMethods`        | const                                                           | `(it: API) => Vitest.Methods` — build a method tree from a custom Vitest `API`               |
-|  [11]   | `addEqualityTesters` | const                                                           | `() => void` — register the `Equal.equals`-trait Vitest equality tester (call once in setup) |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY]               |
+| :-----: | :----------- | :------------ | :------------------------- |
+|   [1]   | `it`         | const         | default method tree        |
+|   [2]   | `effect`     | const tester  | test-service runner        |
+|   [3]   | `scoped`     | const tester  | scoped test-service runner |
+|   [4]   | `live`       | const tester  | real-clock runner          |
+|   [5]   | `scopedLive` | const tester  | scoped real-clock runner   |
+|   [6]   | `prop`       | const runner  | property runner            |
+
+[PUBLIC_TYPE_SCOPE]: harness and setup values
+- rail: testing
+- entry: `@effect/vitest`
+
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [CAPABILITY]          |
+| :-----: | :------------------- | :--------------- | :-------------------- |
+|   [1]   | `flakyTest`          | const combinator | retry combinator      |
+|   [2]   | `layer`              | const harness    | shared-layer harness  |
+|   [3]   | `describeWrapped`    | const wrapper    | described method tree |
+|   [4]   | `makeMethods`        | const factory    | custom method tree    |
+|   [5]   | `addEqualityTesters` | const setup hook | equality tester setup |
 
 ```ts contract
 import type * as Duration from "effect/Duration"

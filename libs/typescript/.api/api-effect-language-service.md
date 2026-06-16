@@ -14,7 +14,7 @@ This package is admitted as **developer tooling**, not as a dependency any owner
 
 ---
 
-## [2] — Plugin options object (`tsconfig.json` `compilerOptions.plugins[]`)
+## [2]-[PLUGIN_OPTIONS]
 
 Exact key set, types, and defaults from `schema.json` (`compilerOptionsDefinition.properties.compilerOptions.properties.plugins.items.anyOf[0]`). The object is the sole configuration contract; every key is optional except `name`.
 
@@ -29,38 +29,63 @@ Exact key set, types, and defaults from `schema.json` (`compilerOptionsDefinitio
 }
 ```
 
-| Key                                    | Type                                                 | Default           | Notes                                                                                                                                                                   |
-| -------------------------------------- | ---------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                                 | `string` (enum)                                      | —                 | required; must be `"@effect/language-service"`                                                                                                                          |
-| `refactors`                            | `boolean`                                            | `true`            | enable Effect refactors                                                                                                                                                 |
-| `diagnostics`                          | `boolean`                                            | `true`            | enable Effect diagnostics                                                                                                                                               |
-| `diagnosticsName`                      | `boolean`                                            | `true`            | include the rule name in each diagnostic message                                                                                                                        |
-| `missingDiagnosticNextLine`            | `"off"\|"error"\|"warning"\|"message"\|"suggestion"` | `"warning"`       | severity for an unused `@effect-diagnostics-next-line` directive                                                                                                        |
-| `includeSuggestionsInTsc`              | `boolean`                                            | `true`            | with the `tsc` patch, report `suggestion`-severity diagnostics as `message` (prefixed `[suggestion]`) in `tsc` output                                                   |
-| `ignoreEffectWarningsInTscExitCode`    | `boolean`                                            | `false`           | Effect warnings do not change `tsc` exit code                                                                                                                           |
-| `ignoreEffectErrorsInTscExitCode`      | `boolean`                                            | `false`           | Effect errors do not change `tsc` exit code                                                                                                                             |
-| `ignoreEffectSuggestionsInTscExitCode` | `boolean`                                            | `true`            | Effect suggestions do not change `tsc` exit code                                                                                                                        |
-| `quickinfo`                            | `boolean`                                            | `true`            | enable Effect quickinfo hovers                                                                                                                                          |
-| `quickinfoEffectParameters`            | `"always"\|"never"\|"whenTruncated"`                 | `"whenTruncated"` | when to render Effect type parameters in hover (schema lowercases to `whentruncated`)                                                                                   |
-| `quickinfoMaximumLength`               | `number`                                             | `-1`              | max hover type length budget; `-1` = no truncation                                                                                                                      |
-| `completions`                          | `boolean`                                            | `true`            | enable Effect completions                                                                                                                                               |
-| `goto`                                 | `boolean`                                            | `true`            | enable Effect "go to definition" extensions (e.g. `RpcClient` → `Rpc` definition)                                                                                       |
-| `inlays`                               | `boolean`                                            | `true`            | enable Effect inlay hints                                                                                                                                               |
-| `renames`                              | `boolean`                                            | `true`            | propagate class renames to tag/identifier strings (`TaggedError`, `TaggedClass`, …)                                                                                     |
-| `noExternal`                           | `boolean`                                            | `false`           | disable links to external sites (e.g. mermaidchart.com)                                                                                                                 |
-| `skipDisabledOptimization`             | `boolean`                                            | `false`           | still process disabled diagnostics so per-line/per-section overrides are honored in patched `tsc` runs                                                                  |
-| `extendedKeyDetection`                 | `boolean`                                            | `false`           | enable slower detection of custom `extends MyApi("id")` key patterns (requires `/** @effect-identifier */` JSDoc on the identifier parameter)                           |
-| `allowedDuplicatedPackages`            | `string[]`                                           | `[]`              | package names allowed to be duplicated (suppresses `duplicatePackage`)                                                                                                  |
-| `namespaceImportPackages`              | `string[]`                                           | `[]`              | packages preferred as namespace imports, e.g. `["effect", "@effect/*"]`                                                                                                 |
-| `topLevelNamedReexports`               | `"ignore"\|"follow"`                                 | `"ignore"`        | for `namespaceImportPackages`, whether to rewrite top-level named re-exports (`{ pipe } from "effect"`) to their re-exported module (`{ pipe } from "effect/Function"`) |
-| `barrelImportPackages`                 | `string[]`                                           | `[]`              | packages preferred as imported from the top-level barrel                                                                                                                |
-| `importAliases`                        | `Record<string,string>`                              | `{}`              | rename import aliases when not importing the whole module, e.g. `{ "Array": "Arr" }`                                                                                    |
-| `pipeableMinArgCount`                  | `number`                                             | `2`               | minimum nested-call arg count before `missedPipeableOpportunity` fires                                                                                                  |
-| `effectFn`                             | `string[]`                                           | `["span"]`        | which `Effect.fn` shapes to suggest: `"untraced"`, `"span"`, `"suggested-span"`, `"inferred-span"`, `"no-span"`                                                         |
-| `layerGraphFollowDepth`                | `number`                                             | `0`               | layer-graph resolution depth when hovering a layer (depth counted on exit of the analyzed layer)                                                                        |
-| `mermaidProvider`                      | `string`                                             | `"mermaid.live"`  | mermaid rendering provider; may be a URI (e.g. a local `mermaid-live-editor`)                                                                                           |
-| `keyPatterns`                          | `KeyPattern[]`                                       | see below         | deterministic key-pattern configuration (drives `deterministicKeys`)                                                                                                    |
-| `diagnosticSeverity`                   | `Record<RuleName, Severity>`                         | `{}`              | per-rule severity overrides; see [4]                                                                                                                                    |
+Core plugin toggles and diagnostic output options share one object; every key is optional except `name`.
+
+[CORE_OPTIONS]:
+
+| [INDEX] | [KEY]             | [TYPE]     | [DEFAULT]        | [CONFIG_ROLE]         |
+| :-----: | :---------------- | :--------- | :--------------- | :-------------------- |
+|   [1]   | `name`            | `string`   | —                | plugin identity       |
+|   [2]   | `refactors`       | `boolean`  | `true`           | refactor toggle       |
+|   [3]   | `diagnostics`     | `boolean`  | `true`           | diagnostic toggle     |
+|   [4]   | `diagnosticsName` | `boolean`  | `true`           | diagnostic labeling   |
+|   [5]   | `noExternal`      | `boolean`  | `false`          | external-link policy  |
+|   [6]   | `effectFn`        | `string[]` | `["span"]`       | `Effect.fn` shape set |
+|   [7]   | `mermaidProvider` | `string`   | `"mermaid.live"` | diagram provider      |
+
+[TSC_DIAGNOSTIC_OPTIONS]:
+
+| [INDEX] | [KEY]                                  | [TYPE]     | [DEFAULT]   | [CONFIG_ROLE]             |
+| :-----: | :------------------------------------- | :--------- | :---------- | :------------------------ |
+|   [1]   | `missingDiagnosticNextLine`            | `Severity` | `"warning"` | unused directive severity |
+|   [2]   | `includeSuggestionsInTsc`              | `boolean`  | `true`      | suggestion projection     |
+|   [3]   | `ignoreEffectWarningsInTscExitCode`    | `boolean`  | `false`     | warning exit policy       |
+|   [4]   | `ignoreEffectErrorsInTscExitCode`      | `boolean`  | `false`     | error exit policy         |
+|   [5]   | `ignoreEffectSuggestionsInTscExitCode` | `boolean`  | `true`      | suggestion exit policy    |
+|   [6]   | `diagnosticSeverity`                   | `Record`   | `{}`        | per-rule overrides        |
+
+[EDITOR_FEATURE_OPTIONS]:
+
+| [INDEX] | [KEY]                       | [TYPE]            | [DEFAULT]         | [CONFIG_ROLE]          |
+| :-----: | :-------------------------- | :---------------- | :---------------- | :--------------------- |
+|   [1]   | `quickinfo`                 | `boolean`         | `true`            | hover toggle           |
+|   [2]   | `quickinfoEffectParameters` | `QuickinfoPolicy` | `"whenTruncated"` | hover parameter policy |
+|   [3]   | `quickinfoMaximumLength`    | `number`          | `-1`              | hover length budget    |
+|   [4]   | `completions`               | `boolean`         | `true`            | completion toggle      |
+|   [5]   | `goto`                      | `boolean`         | `true`            | definition navigation  |
+|   [6]   | `inlays`                    | `boolean`         | `true`            | inlay hint toggle      |
+|   [7]   | `renames`                   | `boolean`         | `true`            | rename propagation     |
+|   [8]   | `layerGraphFollowDepth`     | `number`          | `0`               | layer graph depth      |
+
+[IMPORT_KEY_OPTIONS]:
+
+| [INDEX] | [KEY]                       | [TYPE]         | [DEFAULT]  | [CONFIG_ROLE]               |
+| :-----: | :-------------------------- | :------------- | :--------- | :-------------------------- |
+|   [1]   | `skipDisabledOptimization`  | `boolean`      | `false`    | disabled-rule processing    |
+|   [2]   | `extendedKeyDetection`      | `boolean`      | `false`    | custom key detection        |
+|   [3]   | `allowedDuplicatedPackages` | `string[]`     | `[]`       | duplicate package allowlist |
+|   [4]   | `namespaceImportPackages`   | `string[]`     | `[]`       | namespace import policy     |
+|   [5]   | `topLevelNamedReexports`    | union          | `"ignore"` | re-export follow policy     |
+|   [6]   | `barrelImportPackages`      | `string[]`     | `[]`       | barrel import policy        |
+|   [7]   | `importAliases`             | `Record`       | `{}`       | import alias map            |
+|   [8]   | `pipeableMinArgCount`       | `number`       | `2`        | pipeable diagnostic floor   |
+|   [9]   | `keyPatterns`               | `KeyPattern[]` | see below  | deterministic key policy    |
+
+`Severity` is `"off" | "error" | "warning" | "message" | "suggestion"`. `QuickinfoPolicy` is `"always" | "never" | "whenTruncated"`; the schema lowercases the last value to `whentruncated`. `topLevelNamedReexports` is `"ignore" | "follow"`. The `name` value must be `"@effect/language-service"`.
+
+`includeSuggestionsInTsc` reports `suggestion` diagnostics as `[suggestion]`-prefixed `message` diagnostics when the `tsc` patch is active. The `ignoreEffect*InTscExitCode` keys prevent the matching Effect diagnostic severity from changing the `tsc` exit code when enabled. `extendedKeyDetection` requires `/** @effect-identifier */` on a custom identifier parameter; `effectFn` accepts `"untraced"`, `"span"`, `"suggested-span"`, `"inferred-span"`, and `"no-span"`.
+
+Import-policy arrays may name packages such as `["effect", "@effect/*"]`; `topLevelNamedReexports: "follow"` rewrites top-level named re-exports to the module that publishes them, and `importAliases` maps package names to local aliases such as `{ "Array": "Arr" }`.
 
 `keyPatterns[]` default: `[{ "target": "service", "pattern": "default", "skipLeadingPath": ["src/"] }, { "target": "custom", "pattern": "default", "skipLeadingPath": ["src/"] }]`. Each entry:
 
@@ -222,22 +247,32 @@ export function Repository(/** @effect-identifier */ identifier: string) {
 
 ---
 
-## [6] — CLI command surface (`effect-language-service`)
+## [6]-[CLI_SURFACE]
 
 Bin `effect-language-service` (→ `cli.js`). Global flags: `--help` / `-h`, `--version`, `--completions <bash|zsh|fish|sh>`, `--log-level <all|trace|debug|info|warn|warning|error|fatal|none>`. Run locally (not globally) so it loads the project's own `typescript` version.
 
-| Command       | Purpose                                                                                                                                                             | Local flags (exact, from `--help`)                                                                                                                                                                                                                                                                                           |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `setup`       | Interactive wizard to set up/update LSP functionality; keeps `tsconfig.json` `$schema` aligned with the published schema                                            | none (global flags only)                                                                                                                                                                                                                                                                                                     |
-| `config`      | Interactive per-rule severity picker for a selected `tsconfig.json`                                                                                                 | none (global flags only)                                                                                                                                                                                                                                                                                                     |
-| `patch`       | Patch the local `typescript` install (`typescript.js` + `_tsc.js`) so Effect diagnostics surface at `tsc` build time (works under `noEmit`, composite, incremental) | `--dir <directory>`, `--module <tsc\|typescript>`, `--force`                                                                                                                                                                                                                                                                 |
-| `unpatch`     | Revert a previously applied patch                                                                                                                                   | `--dir <directory>`, `--module <tsc\|typescript>`                                                                                                                                                                                                                                                                            |
-| `check`       | Report whether the local `typescript` install is patched                                                                                                            | `--dir <directory>`                                                                                                                                                                                                                                                                                                          |
-| `diagnostics` | Emit Effect diagnostics without patching                                                                                                                            | `--file <file>`, `--project <file>`, `--format <json\|pretty\|text\|github-actions>`, `--strict` (warnings → errors, affects exit code), `--severity <error,warning,message>` (comma-separated filter), `--progress` (stderr), `--lspconfig '<json>'` (inline plugin-option override, e.g. `'{ "effectFn": ["untraced"] }'`) |
-| `quickfixes`  | Show diagnostics that have quick fixes plus the proposed change diffs                                                                                               | `--file <file>`, `--project <file>`, `--code <string>` (diagnostic name or numeric code), `--line <integer>` (1-based), `--column <integer>` (1-based, requires `--line`), `--fix <string>` (fix name, e.g. `floatingEffect_yieldStar`)                                                                                      |
-| `codegen`     | Apply `@effect-codegens` directives across files                                                                                                                    | `--file <file>`, `--project <file>`, `--verbose`, `--force` (codegen even when no changes needed)                                                                                                                                                                                                                            |
-| `overview`    | Summarize Effect-related exports (yieldable errors / services / layers)                                                                                             | `--file <file>`, `--project <file>`, `--max-symbol-depth <integer>` (0 = root exports only; N = root + N levels)                                                                                                                                                                                                             |
-| `layerinfo`   | Detailed layer report: provides, requires, and a suggested composition order                                                                                        | `--file <file>`, `--name <string>` (exported layer name), `--outputs <string>` (comma-separated output indices, e.g. `1,2,3`; default all)                                                                                                                                                                                   |
+| [INDEX] | [COMMAND]     | [CAPABILITY]             | [LOCAL_FLAGS] |
+| :-----: | :------------ | :----------------------- | :------------ |
+|   [1]   | `setup`       | setup wizard             | —             |
+|   [2]   | `config`      | severity picker          | —             |
+|   [3]   | `patch`       | TypeScript patch         | record below  |
+|   [4]   | `unpatch`     | patch revert             | record below  |
+|   [5]   | `check`       | patch status             | record below  |
+|   [6]   | `diagnostics` | diagnostic report        | record below  |
+|   [7]   | `quickfixes`  | quick-fix diff report    | record below  |
+|   [8]   | `codegen`     | codegen directive runner | record below  |
+|   [9]   | `overview`    | export overview          | record below  |
+|  [10]   | `layerinfo`   | layer composition report | record below  |
+
+[CLI_FLAG_RECORDS]:
+- `patch`: `--dir <directory>`, `--module <tsc|typescript>`, `--force`.
+- `unpatch`: `--dir <directory>`, `--module <tsc|typescript>`.
+- `check`: `--dir <directory>`.
+- `diagnostics`: `--file <file>`, `--project <file>`, `--format <json|pretty|text|github-actions>`, `--strict`, `--severity <error,warning,message>`, `--progress`, `--lspconfig '<json>'`.
+- `quickfixes`: `--file <file>`, `--project <file>`, `--code <string>`, `--line <integer>`, `--column <integer>`, `--fix <string>`.
+- `codegen`: `--file <file>`, `--project <file>`, `--verbose`, `--force`.
+- `overview`: `--file <file>`, `--project <file>`, `--max-symbol-depth <integer>`.
+- `layerinfo`: `--file <file>`, `--name <string>`, `--outputs <string>`.
 
 `patch` is the build-time integration point: with it applied, the `includeSuggestionsInTsc` / `ignoreEffect*InTscExitCode` plugin options (from [2]) govern how Effect diagnostics map to `tsc` output and exit code.
 

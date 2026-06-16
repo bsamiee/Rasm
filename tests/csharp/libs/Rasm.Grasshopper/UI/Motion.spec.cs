@@ -136,9 +136,9 @@ public sealed class MotionVectorLaws {
     [Fact]
     public void CompositeVectorsRejectNonFiniteComponents() {
         Assert.False(condition: MotionVector.PointF.IsFinite(value: new PointF(x: float.NaN, y: 0f)));
-        Assert.False(condition: MotionVector.SizeF.IsFinite(value: new SizeF(width: 1f, height: float.PositiveInfinity)));
-        Assert.False(condition: MotionVector.RectangleF.IsFinite(value: new RectangleF(x: 0f, y: 0f, width: 1f, height: float.NaN)));
-        Assert.True(condition: MotionVector.Color.IsFinite(value: Colors.White));
+        Assert.False(condition: MotionVector.For<SizeF>().IsFinite(value: new SizeF(width: 1f, height: float.PositiveInfinity)));
+        Assert.False(condition: MotionVector.For<RectangleF>().IsFinite(value: new RectangleF(x: 0f, y: 0f, width: 1f, height: float.NaN)));
+        Assert.True(condition: MotionVector.For<Color>().IsFinite(value: Colors.White));
     }
 }
 

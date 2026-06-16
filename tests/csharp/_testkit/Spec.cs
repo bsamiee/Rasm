@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Rasm.Domain;
 using Rhino;
 using Rhino.Geometry;
@@ -8,6 +10,10 @@ namespace Rasm.TestKit;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 public delegate bool TryCreate<TIn, TOut>(TIn value, out TOut obj);
+
+// One metamorphic relation row: a follow-up-input transform paired with the source/follow-up output
+// relation it must satisfy. A table of these is the sweep's input — never parallel relation methods.
+public sealed record MetamorphicRelation<T, TResult>(string Name, Func<T, T> Transform, Func<TResult, TResult, bool> Relate);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public static class Spec {
@@ -55,6 +61,40 @@ public static class Spec {
             Holds(condition: relation(arg1: sample.Source, arg2: sample.Follow, arg3: source, arg4: follow),
                 label: label ?? $"Metamorphic relation failed: source={source}; followup={follow}");
         }, seed: seed, iter: iter, time: time, threads: threads);
+    // One generated input is swept through a relation table: f(x) is computed once and every relation
+    // checks it against f(transform(x)), so N metamorphic laws share one base evaluation per sample.
+    public static void MetamorphicSweep<T, TResult>(Gen<T> gen, Func<T, TResult> f, params MetamorphicRelation<T, TResult>[] relations) =>
+        ForAll(gen: gen, property: value => {
+            TResult @base = f(value);
+            _ = relations.AsIterable().Iter(relation => {
+                TResult follow = f(relation.Transform(value));
+                Holds(condition: relation.Relate(@base, follow),
+                    label: $"MetamorphicSweep '{relation.Name}' failed: base={@base}, followup={follow}");
+            });
+        });
+    // Refutes is the tautology guard: a known-broken witness MUST make `law` throw, or a surviving
+    // mutant exploits a law that proves nothing. The catch is this page's one boundary-licensed `try`.
+    public static void Refutes<T>(T witness, Action<T> law) {
+        ArgumentNullException.ThrowIfNull(argument: law);
+        try {
+            law(witness);
+        } catch (XunitException) {
+            return;
+        }
+        throw new XunitException($"law is a tautology — a surviving mutant exploits it (witness={witness})");
+    }
+    // RoundtripBytes proves deterministic encode -> decode -> re-encode byte identity through the
+    // contract's JsonTypeInfo<T>; the re-encode step catches non-deterministic codecs that the
+    // structural Roundtrip cannot see.
+    public static void RoundtripBytes<T>(Gen<T> gen, JsonTypeInfo<T> contract, string? seed = null, long? iter = null, int? time = null) {
+        ArgumentNullException.ThrowIfNull(argument: contract);
+        ForAll(gen: gen, property: value => {
+            byte[] raw = JsonSerializer.SerializeToUtf8Bytes(value: value, jsonTypeInfo: contract);
+            T decoded = JsonSerializer.Deserialize(utf8Json: raw, jsonTypeInfo: contract) ?? throw new XunitException($"RoundtripBytes decoded null for {typeof(T).Name}");
+            byte[] reencoded = JsonSerializer.SerializeToUtf8Bytes(value: decoded, jsonTypeInfo: contract);
+            Holds(condition: raw.AsSpan().SequenceEqual(reencoded), label: $"RoundtripBytes not byte-identical for {typeof(T).Name}");
+        }, seed: seed, iter: iter, time: time);
+    }
     public static void Regression<T>(Gen<T> gen, Action<T> property, string seed) =>
         ForAll(gen: gen, property: property, seed: seed, iter: 1);
 
@@ -298,6 +338,20 @@ public static class Spec {
     public static void ModelBased<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Func<TActual, TModel, bool> equal, params GenOperation<TActual, TModel>[] operations) {
         Cancel();
         init.SampleModelBased(operations: operations, equal: equal);
+    }
+    // The actual-vs-model pairing IS the stateful law; CsCheck has no RuleBasedStateMachine, so the
+    // operation sequence threads through SampleModelBased under the same SamplePolicy env resolution
+    // (CsCheck_Seed/Iter/Time) that ForAll uses, rather than re-implementing a state machine.
+    public static void Stateful<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Func<TActual, TModel, bool> equal, GenOperation<TActual, TModel>[] operations,
+        string? seed = null, long? iter = null, int? time = null) {
+        Cancel();
+        SamplePolicy policy = SamplePolicy.Of(seed: seed, iter: iter, time: time, threads: null);
+        Action sample = policy switch {
+            { IsDefault: true } => () => init.SampleModelBased(operations: operations, equal: equal),
+            { Seed: null } => () => init.SampleModelBased(operations: operations, equal: equal, iter: policy.IterOrDefault, time: policy.TimeOrDefault),
+            _ => () => init.SampleModelBased(operations: operations, equal: equal, seed: policy.Seed!, iter: policy.IterOrDefault, time: policy.TimeOrDefault),
+        };
+        sample();
     }
     public static void MetamorphicOps<T, TParam>(Gen<T> initial, Gen<TParam> paramGen, Func<TParam, string> name, Action<T, TParam> path1, Action<T, TParam> path2, Func<T, T, bool>? equal = null) {
         Cancel();

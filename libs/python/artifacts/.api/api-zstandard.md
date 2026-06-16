@@ -18,46 +18,53 @@
 [PUBLIC_TYPE_SCOPE]: codec roots and dictionary
 - rail: compression
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `ZstdCompressor` | compressor root | level/dict/params-configured compressor with one-shot and streaming methods |
-| [2] | `ZstdDecompressor` | decompressor root | dict-configured decompressor with one-shot and streaming methods |
-| [3] | `ZstdCompressionDict` | trained dictionary | a shared dictionary for small-payload compression |
-| [4] | `ZstdCompressionParameters` | parameter object | advanced window/hash/chain/strategy tuning |
-| [5] | `ZstdCompressionReader` / `ZstdCompressionWriter` | stream codec | file-like streaming compression endpoints |
-| [6] | `ZstdDecompressionReader` / `ZstdDecompressionWriter` | stream codec | file-like streaming decompression endpoints |
-| [7] | `FrameParameters` | frame header | parsed frame header view |
-| [8] | `BufferWithSegments` | batch buffer | a single buffer partitioned into segments for batch ops |
+| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]     | [CAPABILITY]                    |
+| :-----: | :-------------------------- | :----------------- | :------------------------------ |
+|   [1]   | `ZstdCompressor`            | compressor root    | configured compression root     |
+|   [2]   | `ZstdDecompressor`          | decompressor root  | configured decompression root   |
+|   [3]   | `ZstdCompressionDict`       | trained dictionary | shared small-payload dictionary |
+|   [4]   | `ZstdCompressionParameters` | parameter object   | advanced compression tuning     |
+|   [5]   | `ZstdCompressionReader`     | stream reader      | file-like compression source    |
+|   [6]   | `ZstdCompressionWriter`     | stream writer      | file-like compression sink      |
+|   [7]   | `ZstdDecompressionReader`   | stream reader      | file-like decompression source  |
+|   [8]   | `ZstdDecompressionWriter`   | stream writer      | file-like decompression sink    |
+|   [9]   | `FrameParameters`           | frame header       | parsed frame header view        |
+|  [10]   | `BufferWithSegments`        | batch buffer       | segmented buffer for batch ops  |
 
 [PUBLIC_TYPE_SCOPE]: faults and key constants
 - rail: compression
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `ZstdError` | codec fault | a zstd call failed |
-| [2] | `MAX_COMPRESSION_LEVEL` | level cap | maximum compression level |
-| [3] | `FLUSH_BLOCK` / `FLUSH_FRAME` | flush mode | streaming flush discriminants |
-| [4] | `DICT_TYPE_AUTO` / `DICT_TYPE_FULLDICT` / `DICT_TYPE_RAWCONTENT` | dict mode | dictionary interpretation discriminants |
+| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE] | [CAPABILITY]           |
+| :-----: | :---------------------- | :------------- | :--------------------- |
+|   [1]   | `ZstdError`             | codec fault    | zstd call failure      |
+|   [2]   | `MAX_COMPRESSION_LEVEL` | level cap      | maximum compression    |
+|   [3]   | `FLUSH_BLOCK`           | flush mode     | block flush            |
+|   [4]   | `FLUSH_FRAME`           | flush mode     | frame flush            |
+|   [5]   | `DICT_TYPE_AUTO`        | dict mode      | automatic dictionary   |
+|   [6]   | `DICT_TYPE_FULLDICT`    | dict mode      | full dictionary        |
+|   [7]   | `DICT_TYPE_RAWCONTENT`  | dict mode      | raw-content dictionary |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one-shot and streaming codec
 - rail: compression
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `compress` | `compress(data: collections.abc.Buffer, level: int = 3) -> bytes` | module-level one-shot compress |
-| [2] | `decompress` | `decompress(data: collections.abc.Buffer, max_output_size: int = 0) -> bytes` | module-level one-shot decompress |
-| [3] | `ZstdCompressor` | `ZstdCompressor(level=3, dict_data=None, compression_params=None, write_checksum=None, write_content_size=None, write_dict_id=None, threads=0)` | configured compressor |
-| [4] | `ZstdCompressor.compress` | `compress(data) -> bytes` | one-shot compress with the configured codec |
-| [5] | `ZstdCompressor.stream_writer` | `stream_writer(writer, size=-1, write_size=..., write_return_read=True, closefd=True) -> ZstdCompressionWriter` | streaming compress sink |
-| [6] | `ZstdCompressor.stream_reader` | `stream_reader(source, size=-1, read_size=..., closefd=False) -> ZstdCompressionReader` | streaming compress source |
-| [7] | `ZstdCompressor.compressobj` | `compressobj(size=-1) -> ZstdCompressionObj` | incremental compress object |
-| [8] | `ZstdCompressor.multi_compress_to_buffer` | `multi_compress_to_buffer(data, threads=0) -> BufferWithSegmentsCollection` | batch compress |
-| [9] | `ZstdDecompressor` | `ZstdDecompressor(dict_data=None, max_window_size=0, format=FORMAT_ZSTD1)` | configured decompressor |
-| [10] | `ZstdDecompressor.decompress` | `decompress(data, max_output_size=0, read_across_frames=True, allow_extra_data=True) -> bytes` | one-shot decompress |
-| [11] | `ZstdDecompressor.stream_reader` | `stream_reader(source, read_size=..., read_across_frames=False, closefd=False) -> ZstdDecompressionReader` | streaming decompress source |
-| [12] | `train_dictionary` | `train_dictionary(dict_size, samples, **kwargs) -> ZstdCompressionDict` | train a dictionary from samples |
+Constructor rows carry level, dictionary, parameter, format, and thread policy; stream rows carry source/sink sizing and close behavior.
+
+| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                   | [CAPABILITY]                                |
+| :-----: | :---------------------------------------- | :----------------------------- | :------------------------------------------ |
+|   [1]   | `compress`                                | buffer plus level              | module-level one-shot compress              |
+|   [2]   | `decompress`                              | buffer plus output cap         | module-level one-shot decompress            |
+|   [3]   | `ZstdCompressor`                          | compression policy             | configured compressor                       |
+|   [4]   | `ZstdCompressor.compress`                 | buffer input                   | one-shot compress with the configured codec |
+|   [5]   | `ZstdCompressor.stream_writer`            | writer sink plus sizing        | streaming compress sink                     |
+|   [6]   | `ZstdCompressor.stream_reader`            | source stream plus sizing      | streaming compress source                   |
+|   [7]   | `ZstdCompressor.compressobj`              | incremental size policy        | incremental compress object                 |
+|   [8]   | `ZstdCompressor.multi_compress_to_buffer` | buffer batch plus threads      | batch compress                              |
+|   [9]   | `ZstdDecompressor`                        | decompression policy           | configured decompressor                     |
+|  [10]   | `ZstdDecompressor.decompress`             | buffer plus frame policy       | one-shot decompress                         |
+|  [11]   | `ZstdDecompressor.stream_reader`          | source stream plus read policy | streaming decompress source                 |
+|  [12]   | `train_dictionary`                        | dictionary size plus samples   | train a dictionary from samples             |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

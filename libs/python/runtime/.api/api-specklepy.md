@@ -18,44 +18,44 @@
 [PUBLIC_TYPE_SCOPE]: client and resource family
 - rail: transport
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `api.client.SpeckleClient` | client | GraphQL API client |
-| [2] | `api.client.CoreSpeckleClient` | client | low-level core client |
-| [3] | `api.client.Account` | credential | server account/token |
-| [4] | `api.client.ProjectResource` | resource | project query/mutation surface |
-| [5] | `api.client.ModelResource` | resource | model query/mutation surface |
-| [6] | `api.client.VersionResource` | resource | version query/mutation surface |
-| [7] | `api.client.ServerResource` | resource | server-info surface |
-| [8] | `api.client.SubscriptionResource` | resource | live-subscription surface |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                         |
+| :-----: | :-------------------------------- | :------------ | :----------------------------- |
+|   [1]   | `api.client.SpeckleClient`        | client        | GraphQL API client             |
+|   [2]   | `api.client.CoreSpeckleClient`    | client        | low-level core client          |
+|   [3]   | `api.client.Account`              | credential    | server account/token           |
+|   [4]   | `api.client.ProjectResource`      | resource      | project query/mutation surface |
+|   [5]   | `api.client.ModelResource`        | resource      | model query/mutation surface   |
+|   [6]   | `api.client.VersionResource`      | resource      | version query/mutation surface |
+|   [7]   | `api.client.ServerResource`       | resource      | server-info surface            |
+|   [8]   | `api.client.SubscriptionResource` | resource      | live-subscription surface      |
 
 [PUBLIC_TYPE_SCOPE]: transport and object family
 - rail: transport
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `transports.server.ServerTransport` | transport | remote object store transport |
-| [2] | `objects.base.Base` | object model | detach/chunk-aware base object |
-| [3] | `objects.base.DataChunk` | object model | chunked-array payload |
-| [4] | `objects.base.SpeckleException` | fault | object/exchange error |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [RAIL]                         |
+| :-----: | :---------------------------------- | :------------ | :----------------------------- |
+|   [1]   | `transports.server.ServerTransport` | transport     | remote object store transport  |
+|   [2]   | `objects.base.Base`                 | object model  | detach/chunk-aware base object |
+|   [3]   | `objects.base.DataChunk`            | object model  | chunked-array payload          |
+|   [4]   | `objects.base.SpeckleException`     | fault         | object/exchange error          |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: exchange operations
 - rail: transport
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `SpeckleClient.authenticate_with_token` | auth | authenticate with a token |
-| [2] | `SpeckleClient.authenticate_with_account` | auth | authenticate with an account |
-| [3] | `SpeckleClient.execute_query` | query | run a raw GraphQL query |
-| [4] | `api.operations.send` | send | serialize and transmit objects |
-| [5] | `api.operations.receive` | receive | fetch and deserialize objects |
-| [6] | `api.operations.serialize` | serialize | object tree to JSON |
-| [7] | `api.operations.deserialize` | deserialize | JSON to object tree |
-| [8] | `ServerTransport.save_object` | transport | persist an object to the server |
-| [9] | `ServerTransport.get_object` | transport | fetch an object by id |
-| [10] | `ServerTransport.has_objects` | transport | existence check by id set |
+| [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                          |
+| :-----: | :---------------------------------------- | :------------- | :------------------------------ |
+|   [1]   | `SpeckleClient.authenticate_with_token`   | auth           | authenticate with a token       |
+|   [2]   | `SpeckleClient.authenticate_with_account` | auth           | authenticate with an account    |
+|   [3]   | `SpeckleClient.execute_query`             | query          | run a raw GraphQL query         |
+|   [4]   | `api.operations.send`                     | send           | serialize and transmit objects  |
+|   [5]   | `api.operations.receive`                  | receive        | fetch and deserialize objects   |
+|   [6]   | `api.operations.serialize`                | serialize      | object tree to JSON             |
+|   [7]   | `api.operations.deserialize`              | deserialize    | JSON to object tree             |
+|   [8]   | `ServerTransport.save_object`             | transport      | persist an object to the server |
+|   [9]   | `ServerTransport.get_object`              | transport      | fetch an object by id           |
+|  [10]   | `ServerTransport.has_objects`             | transport      | existence check by id set       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

@@ -153,8 +153,9 @@ public sealed class SnappingPolicyLaws {
             new SnapSetting.FeedbackCase(Enabled: true, XStyle: second),
             new SnapSetting.WireBoundsCase(Aggregate: false)));
 
-        Spec.Some(policy.FeedbackStyle, style => Assert.Equal(expected: first, actual: style.X));
-        Assert.False(condition: policy.UseAggregateWireBounds);
+        PolicyDecode decoded = policy.Decode();
+        Spec.Some(decoded.FeedbackStyle, style => Assert.Equal(expected: first, actual: style.X));
+        Assert.False(condition: decoded.UseAggregateWireBounds);
     }
 }
 

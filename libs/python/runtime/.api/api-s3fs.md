@@ -18,22 +18,22 @@
 [PUBLIC_TYPE_SCOPE]: filesystem family
 - rail: resources
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `S3FileSystem` | filesystem | async S3 fsspec filesystem |
-| [2] | `S3File` | file handle | S3 object file handle |
-| [3] | `S3Map` | mapping | dict-like view over an S3 prefix |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [RAIL]                           |
+| :-----: | :------------- | :------------ | :------------------------------- |
+|   [1]   | `S3FileSystem` | filesystem    | async S3 fsspec filesystem       |
+|   [2]   | `S3File`       | file handle   | S3 object file handle            |
+|   [3]   | `S3Map`        | mapping       | dict-like view over an S3 prefix |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: backend operations
 - rail: resources
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `S3FileSystem` | build | construct via fsspec `storage_options` |
-| [2] | `add_retryable_error` | resilience | extend the retryable-error set |
-| [3] | `set_custom_error_handler` | resilience | install a custom error handler |
+| [INDEX] | [SURFACE]                  | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :------------------------- | :------------- | :------------------------------------- |
+|   [1]   | `S3FileSystem`             | build          | construct via fsspec `storage_options` |
+|   [2]   | `add_retryable_error`      | resilience     | extend the retryable-error set         |
+|   [3]   | `set_custom_error_handler` | resilience     | install a custom error handler         |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

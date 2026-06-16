@@ -25,29 +25,33 @@ The module exposes a flat converter function family and helper functions; there 
 [ENTRYPOINT_SCOPE]: Vega-Lite converters
 - rail: visuals
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `vegalite_to_svg` | `vegalite_to_svg(vl_spec, vl_version=None, config=None, theme=None, show_warnings=None, allowed_base_urls=None, format_locale=None, time_format_locale=None) -> str` | render to SVG |
-| [2] | `vegalite_to_png` | `vegalite_to_png(vl_spec, vl_version=None, scale=None, ppi=None, config=None, theme=None, show_warnings=None, allowed_base_urls=None, format_locale=None, time_format_locale=None) -> bytes` | render to PNG |
-| [3] | `vegalite_to_jpeg` | `vegalite_to_jpeg(vl_spec, vl_version=None, scale=None, quality=None, config=None, theme=None, ...) -> bytes` | render to JPEG |
-| [4] | `vegalite_to_pdf` | `vegalite_to_pdf(vl_spec, vl_version=None, config=None, theme=None, ...) -> bytes` | render to PDF |
-| [5] | `vegalite_to_html` | `vegalite_to_html(vl_spec, vl_version=None, config=None, theme=None, bundle=None, ...) -> str` | render to HTML |
-| [6] | `vegalite_to_vega` | `vegalite_to_vega(vl_spec, vl_version=None, config=None, theme=None, ...) -> dict` | compile to a Vega spec |
-| [7] | `vegalite_to_scenegraph` | `vegalite_to_scenegraph(vl_spec, ...) -> dict` | render to scenegraph |
-| [8] | `vegalite_to_url` | `vegalite_to_url(vl_spec, fullscreen=False) -> str` | editor URL |
+Converter rows share version, config, theme, warning, allowed-base-url, and locale policy; raster rows also carry scale, ppi, or quality policy.
+
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]                        | [CAPABILITY]           |
+| :-----: | :----------------------- | :---------------------------------- | :--------------------- |
+|   [1]   | `vegalite_to_svg`        | spec plus render policy -> `str`    | render to SVG          |
+|   [2]   | `vegalite_to_png`        | spec plus raster policy -> `bytes`  | render to PNG          |
+|   [3]   | `vegalite_to_jpeg`       | spec plus quality policy -> `bytes` | render to JPEG         |
+|   [4]   | `vegalite_to_pdf`        | spec plus render policy -> `bytes`  | render to PDF          |
+|   [5]   | `vegalite_to_html`       | spec plus bundle policy -> `str`    | render to HTML         |
+|   [6]   | `vegalite_to_vega`       | spec plus compile policy -> `dict`  | compile to a Vega spec |
+|   [7]   | `vegalite_to_scenegraph` | spec plus render policy -> `dict`   | render to scenegraph   |
+|   [8]   | `vegalite_to_url`        | spec plus fullscreen flag -> `str`  | editor URL             |
 
 [ENTRYPOINT_SCOPE]: Vega converters and configuration
 - rail: visuals
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `vega_to_svg` | `vega_to_svg(vg_spec, allowed_base_urls=None, format_locale=None, time_format_locale=None) -> str` | render a Vega spec to SVG |
-| [2] | `vega_to_png` | `vega_to_png(vg_spec, scale=None, ppi=None, allowed_base_urls=None, ...) -> bytes` | render a Vega spec to PNG |
-| [3] | `vega_to_pdf` | `vega_to_pdf(vg_spec, ...) -> bytes` | render a Vega spec to PDF |
-| [4] | `register_font_directory` | `register_font_directory(font_dir) -> None` | register custom fonts |
-| [5] | `get_themes` | `get_themes() -> dict` | available named themes |
-| [6] | `get_vegalite_versions` | `get_vegalite_versions() -> list[str]` | supported Vega-Lite versions |
-| [7] | `javascript_bundle` | `javascript_bundle(snippet, vl_version=None) -> str` | bundle JS for embedding |
+Vega converter rows share allowed-base-url and locale policy; helper rows query or register render configuration.
+
+| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                       | [CAPABILITY]                 |
+| :-----: | :------------------------ | :--------------------------------- | :--------------------------- |
+|   [1]   | `vega_to_svg`             | spec plus render policy -> `str`   | render a Vega spec to SVG    |
+|   [2]   | `vega_to_png`             | spec plus raster policy -> `bytes` | render a Vega spec to PNG    |
+|   [3]   | `vega_to_pdf`             | spec plus render policy -> `bytes` | render a Vega spec to PDF    |
+|   [4]   | `register_font_directory` | font directory path                | register custom fonts        |
+|   [5]   | `get_themes`              | no-arg query -> `dict`             | available named themes       |
+|   [6]   | `get_vegalite_versions`   | no-arg query -> `list[str]`        | supported Vega-Lite versions |
+|   [7]   | `javascript_bundle`       | snippet plus Vega-Lite version     | bundle JS for embedding      |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

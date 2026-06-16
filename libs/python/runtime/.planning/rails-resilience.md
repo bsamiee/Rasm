@@ -4,10 +4,10 @@ The single fault family, Result/Option rail, and resilience policy for the whole
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                       |
-| :-----: | :----------- | :---------------------------------------------------------- |
-|   [1]   | FAULT        | the boundary-fault tagged union, the rail carrier, conversion |
-|   [2]   | RESILIENCE   | one Retry policy table, rows per retryable class            |
+| [INDEX] | [CLUSTER]  | [OWNS]                                                        |
+| :-----: | :--------- | :------------------------------------------------------------ |
+|   [1]   | FAULT      | the boundary-fault tagged union, the rail carrier, conversion |
+|   [2]   | RESILIENCE | one Retry policy table, rows per retryable class              |
 
 ## [2]-[FAULT]
 

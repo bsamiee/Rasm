@@ -21,7 +21,7 @@ public partial record EditorOp : IUiOp<EditorResult> {
     public static EditorOp BeginRhinoGetter(RhinoDoc document) => new BeginRhinoGetterCase(Document: document);
     private EditorOp() { }
 
-    // Show is Read-scoped: it opens the editor in-body; headless opens construct the singleton without StatusBar paint.
+    // Show is Read-scoped: headless opens construct the singleton without StatusBar paint.
     GrasshopperUiIntent<EditorResult> IUiOp<EditorResult>.Intent() =>
         new(
             policy: Switch(
@@ -70,32 +70,39 @@ internal static partial class Editor {
             None: () => Fin.Succ(value: EditorResult.Unit)));
 
     private static Fin<EditorResult> ApplyShell(GhEditor current, EditorOp.ShellCase shell) {
+        Op op = Op.Of(name: nameof(EditorOp.Shell));
         Option<GhCanvas> canvas = Optional(current.Canvas);
         bool requiresHistory = shell.ShowUndoHistory.IfNone(noneValue: false);
         return (requiresHistory, canvas.IsSome) switch {
-            (true, false) => Fin.Fail<EditorResult>(error: UiFault.GhEditor(op: Op.Of(name: nameof(EditorOp.Shell)), detail: "ShowUndoHistory requires an active canvas")),
-            _ => Fin.Succ<EditorResult>(ShellResultOf(current: current, shell: shell, canvas: canvas)),
+            (true, false) => Fin.Fail<EditorResult>(error: UiFault.GhEditor(op: op, detail: "ShowUndoHistory requires an active canvas")),
+            _ => ShellResultOf(op: op, current: current, shell: shell, canvas: canvas),
         };
     }
 
     private static (string Initial, Seq<string> Defined) LayoutDefaults() =>
         (Initial: GhEditor.InitialLayout, Defined: toSeq(GhEditor.DefinedLayouts));
 
-    private static EditorResult.ShellResult ShellResultOf(GhEditor current, EditorOp.ShellCase shell, Option<GhCanvas> canvas) {
-        // Shell snapshots after optional chrome writes; op.Attempt re-rails native throws to GhEditor.
-        _ = shell.Collapsed.Iter(value => current.Collapsed = value);
-        _ = shell.ShowNotes.Iter(value => current.ShowNotes = value);
-        _ = canvas.Iter(c => shell.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));
-        (string initial, Seq<string> defined) = LayoutDefaults();
-        return new EditorResult.ShellResult(Snapshot: new Snapshot<EditorShellSnapshot>(
-            OwnerId: Option<Guid>.None,
-            Payload: new EditorShellSnapshot(
-                Collapsed: current.Collapsed,
-                ShowNotes: current.ShowNotes,
-                ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(noneValue: false),
-                InitialLayout: initial,
-                DefinedLayouts: defined)));
-    }
+    private static Fin<EditorResult> ShellResultOf(Op op, GhEditor current, EditorOp.ShellCase shell, Option<GhCanvas> canvas) =>
+        op.Attempt(
+                body: () => {
+                    _ = shell.Collapsed.Iter(value => current.Collapsed = value);
+                    _ = shell.ShowNotes.Iter(value => current.ShowNotes = value);
+                    _ = canvas.Iter(c => shell.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));
+                    return unit;
+                },
+                what: "apply shell")
+            .MapFail(error => UiFault.GhEditor(op: op, detail: error.Message))
+            .Map(_ => {
+                (string initial, Seq<string> defined) = LayoutDefaults();
+                return (EditorResult)new EditorResult.ShellResult(Snapshot: new Snapshot<EditorShellSnapshot>(
+                    OwnerId: Option<Guid>.None,
+                    Payload: new EditorShellSnapshot(
+                        Collapsed: current.Collapsed,
+                        ShowNotes: current.ShowNotes,
+                        ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(noneValue: false),
+                        InitialLayout: initial,
+                        DefinedLayouts: defined)));
+            });
 
     private static Fin<EditorResult> DispatchState() =>
         Fin.Succ<EditorResult>(value: new EditorResult.StateResult(Snapshot: SnapshotEditor(editor: Optional(GhEditor.Instance))));

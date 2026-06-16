@@ -4,12 +4,12 @@
 
 ## [1]-[PAGE_INDEX]
 
-| [INDEX] | [PAGE]                                | [OWNS]                                                        | [STATE]   |
-| :-----: | :------------------------------------ | :----------------------------------------------------------- | :-------- |
-|   [1]   | [ifc-companion](ifc-companion.md)     | the IfcOpenShell tessellation daemon over the C# gRPC contract | finalized  |
-|   [2]   | [ifc-analysis](ifc-analysis.md)       | IFC property/quantity/relationship analysis (QTO/clash/rule-check) | finalized |
-|   [3]   | [scan-processing](scan-processing.md) | point-cloud/3D-scan registration, reconstruction              | finalized   |
-|   [4]   | [geometry-algebra](geometry-algebra.md)| non-manifold topology + AEC computational geometry           | finalized   |
+| [INDEX] | [PAGE]                                  | [OWNS]                                                             | [STATE]   |
+| :-----: | :-------------------------------------- | :----------------------------------------------------------------- | :-------- |
+|   [1]   | [ifc-companion](ifc-companion.md)       | the IfcOpenShell tessellation daemon over the C# gRPC contract     | finalized |
+|   [2]   | [ifc-analysis](ifc-analysis.md)         | IFC property/quantity/relationship analysis (QTO/clash/rule-check) | finalized |
+|   [3]   | [scan-processing](scan-processing.md)   | point-cloud/3D-scan registration, reconstruction                   | finalized |
+|   [4]   | [geometry-algebra](geometry-algebra.md) | non-manifold topology + AEC computational geometry                 | finalized |
 
 ## [2]-[CATALOGUE_PENDING]
 
@@ -19,29 +19,29 @@
 
 Implementation collapses to one owner per axis. The four owners are re-derived on altitude, not the noun: `IfcCompanion` (the deep flagship daemon), `IfcAnalysis` (the AEC QTO/clash/rule-check verbs the tessellation hop drops), `ScanProcessing` (registration discriminating by mode row), and `GeometryAlgebra` (topologicpy + compas folded into ONE algebra owner discriminating by algebra-kind row). `[STATE]` carries `SPIKE` where the fence is complete but its proof carries a residual companion-floor or live-server probe named in the page RESEARCH cluster.
 
-| [INDEX] | [AXIS/CONCERN]          | [OWNER]           | [KIND]                | [CASES]                                  |  [STATE]  |
-| :-----: | :---------------------- | :---------------- | :-------------------- | :--------------------------------------- | :-------: |
-|   [1]   | Tessellation daemon     | `IfcCompanion`    | boundary capsule      | `tessellate`/`semantic`/`warm`           |   SPIKE   |
-|   [2]   | IFC analysis            | `IfcAnalysis`     | static surface        | quantity/clash/space/pset/ids verbs      |   SPIKE   |
-|   [3]   | Scan registration       | `ScanProcessing`  | frozen owner + mode row | icp/colored-icp/generalized/vgicp        |   SPIKE   |
-|   [4]   | Geometry algebra        | `GeometryAlgebra` | tagged union          | topology/network/form-finding/numerical  |   SPIKE   |
+| [INDEX] | [AXIS/CONCERN]      | [OWNER]           | [KIND]                  | [CASES]                                 | [STATE] |
+| :-----: | :------------------ | :---------------- | :---------------------- | :-------------------------------------- | :-----: |
+|   [1]   | Tessellation daemon | `IfcCompanion`    | boundary capsule        | `tessellate`/`semantic`/`warm`          |  SPIKE  |
+|   [2]   | IFC analysis        | `IfcAnalysis`     | static surface          | quantity/clash/space/pset/ids verbs     |  SPIKE  |
+|   [3]   | Scan registration   | `ScanProcessing`  | frozen owner + mode row | icp/colored-icp/generalized/vgicp       |  SPIKE  |
+|   [4]   | Geometry algebra    | `GeometryAlgebra` | tagged union            | topology/network/form-finding/numerical |  SPIKE  |
 
 ## [4]-[BUILD_ORDER]
 
-| [INDEX] | [FILE]              | [TRANSCRIBES]                  | [GATE]            |
-| :-----: | :------------------ | :----------------------------- | :---------------- |
-|   [1]   | `companion.py`      | ifc-companion#DAEMON           | floor + bridge    |
-|   [2]   | `analysis.py`       | ifc-analysis#ANALYSIS          | floor             |
-|   [3]   | `scan.py`           | scan-processing#REGISTRATION   | floor             |
-|   [4]   | `algebra.py`        | geometry-algebra#ALGEBRA       | floor             |
+| [INDEX] | [FILE]         | [TRANSCRIBES]                | [GATE]         |
+| :-----: | :------------- | :--------------------------- | :------------- |
+|   [1]   | `companion.py` | ifc-companion#DAEMON         | floor + bridge |
+|   [2]   | `analysis.py`  | ifc-analysis#ANALYSIS        | floor          |
+|   [3]   | `scan.py`      | scan-processing#REGISTRATION | floor          |
+|   [4]   | `algebra.py`   | geometry-algebra#ALGEBRA     | floor          |
 
 ## [5]-[PROOF_GATES]
 
-| [GATE] | [RAIL]                       | [EVIDENCE]                                          |
-| :----: | :--------------------------- | :------------------------------------------------- |
-|  [G1]  | companion floor              | all five pins reflect on the cp312 companion interpreter |
-|  [G2]  | `.api` catalogue             | every fence member resolves to an `.api` row       |
-|  [G3]  | bridge                       | the `IfcCompanion` daemon serves the C# `ComputeService`/`ArtifactSync` contract; blocked on `PY_FLOOR_001` admitting the sub-3.13 companion environment first |
+| [GATE] | [RAIL]           | [EVIDENCE]                                                                                                                                                     |
+| :----: | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [G1]  | companion floor  | all five pins reflect on the cp312 companion interpreter                                                                                                       |
+|  [G2]  | `.api` catalogue | every fence member resolves to an `.api` row                                                                                                                   |
+|  [G3]  | bridge           | the `IfcCompanion` daemon serves the C# `ComputeService`/`ArtifactSync` contract; blocked on `PY_FLOOR_001` admitting the sub-3.13 companion environment first |
 
 ## [6]-[PROHIBITIONS]
 
@@ -54,13 +54,13 @@ Implementation collapses to one owner per axis. The four owners are re-derived o
 
 ## [7]-[ADMISSIONS_RECORD]
 
-| [INDEX] | [PACKAGE]     | [PAGE]            | [CATALOGUE]            | [STATUS]          |
-| :-----: | :------------ | :---------------- | :--------------------- | :---------------- |
-|   [1]   | ifcopenshell  | ifc-companion, ifc-analysis | api-ifcopenshell.md | catalogue-pending |
-|   [2]   | open3d        | scan-processing   | api-open3d.md          | catalogue-pending |
-|   [3]   | small-gicp    | scan-processing   | api-small_gicp.md      | catalogue-pending |
-|   [4]   | topologicpy   | geometry-algebra  | api-topologicpy.md     | catalogue-pending |
-|   [5]   | compas        | geometry-algebra  | api-compas.md          | catalogue-pending |
+| [INDEX] | [PACKAGE]    | [PAGE]                      | [CATALOGUE]         | [STATUS]          |
+| :-----: | :----------- | :-------------------------- | :------------------ | :---------------- |
+|   [1]   | ifcopenshell | ifc-companion, ifc-analysis | api-ifcopenshell.md | catalogue-pending |
+|   [2]   | open3d       | scan-processing             | api-open3d.md       | catalogue-pending |
+|   [3]   | small-gicp   | scan-processing             | api-small_gicp.md   | catalogue-pending |
+|   [4]   | topologicpy  | geometry-algebra            | api-topologicpy.md  | catalogue-pending |
+|   [5]   | compas       | geometry-algebra            | api-compas.md       | catalogue-pending |
 
 ## [8]-[REFINEMENT_HORIZON]
 

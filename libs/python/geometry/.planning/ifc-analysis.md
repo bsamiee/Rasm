@@ -4,9 +4,9 @@ IFC property/quantity/relationship analysis — the AEC verbs the tessellation h
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | ANALYSIS  | quantity takeoff, clash, space-program, Pset, IDS verbs        |
+| [INDEX] | [CLUSTER] | [OWNS]                                                  |
+| :-----: | :-------- | :------------------------------------------------------ |
+|   [1]   | ANALYSIS  | quantity takeoff, clash, space-program, Pset, IDS verbs |
 
 ## [2]-[ANALYSIS]
 

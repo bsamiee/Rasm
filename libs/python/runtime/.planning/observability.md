@@ -4,9 +4,9 @@ Local evidence production. `Receipt` is the one tagged-union evidence family (ad
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | RECEIPT   | the receipt union, the contributor port, redaction, signals    |
+| [INDEX] | [CLUSTER] | [OWNS]                                                      |
+| :-----: | :-------- | :---------------------------------------------------------- |
+|   [1]   | RECEIPT   | the receipt union, the contributor port, redaction, signals |
 
 ## [2]-[RECEIPT]
 

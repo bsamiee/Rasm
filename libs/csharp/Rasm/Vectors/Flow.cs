@@ -496,6 +496,7 @@ internal static class ButcherDenseOutput {
             if (!distinct.Exists(active => Math.Abs(value: active - c) <= ButcherTableau.CoefficientTolerance)) distinct.Add(c);
         return distinct.Count;
     }
+    // Scratch per-theta carrier: Receipt aggregates only CheckedConditionCount/FailedConditionCount/MaxResidual/CorrectionSolve from this; the endpoint/coefficient slots stay neutral and the surfaced receipt fills them from EndpointEvidence.
     private static Fin<DenseOutputReceipt> ReceiptAt(DenseOutputCoefficientFamily family, ButcherTableau tableau, int order, double theta, Op key) =>
         Weights(family: family, tableau: tableau, order: order, theta: theta, key: key).Bind(result => {
             Seq<double> weights = result.Values;

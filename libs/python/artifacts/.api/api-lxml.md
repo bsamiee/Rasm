@@ -18,54 +18,58 @@
 [PUBLIC_TYPE_SCOPE]: element, parser, and query roots (`lxml.etree`)
 - rail: structured documents
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `etree._Element` | element node | tree node with children/attrib/text/tail access |
-| [2] | `etree._ElementTree` | document tree | a rooted document with write/getroot |
-| [3] | `etree.XMLParser` | XML parser | tunable parser (recovery, schema, huge_tree, resolvers) |
-| [4] | `etree.HTMLParser` | HTML parser | lenient HTML parser |
-| [5] | `etree.XPath` | compiled query | a reusable XPath expression |
-| [6] | `etree.XSLT` | compiled transform | a reusable XSLT stylesheet |
-| [7] | `etree.XMLSchema` / `etree.RelaxNG` / `etree.Schematron` | validator | schema validation engines |
-| [8] | `etree.QName` | qualified name | namespace-aware name value object |
+| [INDEX] | [SYMBOL]                                                 | [PACKAGE_ROLE]     | [CAPABILITY]                                            |
+| :-----: | :------------------------------------------------------- | :----------------- | :------------------------------------------------------ |
+|   [1]   | `etree._Element`                                         | element node       | tree node with children/attrib/text/tail access         |
+|   [2]   | `etree._ElementTree`                                     | document tree      | a rooted document with write/getroot                    |
+|   [3]   | `etree.XMLParser`                                        | XML parser         | tunable parser (recovery, schema, huge_tree, resolvers) |
+|   [4]   | `etree.HTMLParser`                                       | HTML parser        | lenient HTML parser                                     |
+|   [5]   | `etree.XPath`                                            | compiled query     | a reusable XPath expression                             |
+|   [6]   | `etree.XSLT`                                             | compiled transform | a reusable XSLT stylesheet                              |
+|   [7]   | `etree.XMLSchema` / `etree.RelaxNG` / `etree.Schematron` | validator          | schema validation engines                               |
+|   [8]   | `etree.QName`                                            | qualified name     | namespace-aware name value object                       |
 
 [PUBLIC_TYPE_SCOPE]: faults
 - rail: structured documents
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `etree.XMLSyntaxError` | parse fault | malformed XML source |
-| [2] | `etree.XPathEvalError` | query fault | XPath evaluation failed |
-| [3] | `etree.XSLTApplyError` | transform fault | XSLT application failed |
-| [4] | `etree.DocumentInvalid` | validation fault | document failed schema validation |
+| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]   | [CAPABILITY]                      |
+| :-----: | :---------------------- | :--------------- | :-------------------------------- |
+|   [1]   | `etree.XMLSyntaxError`  | parse fault      | malformed XML source              |
+|   [2]   | `etree.XPathEvalError`  | query fault      | XPath evaluation failed           |
+|   [3]   | `etree.XSLTApplyError`  | transform fault  | XSLT application failed           |
+|   [4]   | `etree.DocumentInvalid` | validation fault | document failed schema validation |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse, build, and serialize
 - rail: structured documents
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `etree.parse` | `parse(source, parser=None, *, base_url=None) -> _ElementTree` | parse a file/stream into a tree |
-| [2] | `etree.fromstring` | `fromstring(text, parser=None, *, base_url=None) -> _Element` | parse a string into an element |
-| [3] | `etree.XML` | `XML(text, parser=None, *, base_url=None) -> _Element` | parse an XML string literal |
-| [4] | `etree.HTML` | `HTML(text, parser=None, *, base_url=None) -> _Element` | parse an HTML string |
-| [5] | `etree.Element` | `Element(_tag, attrib=None, nsmap=None, **_extra) -> _Element` | construct an element |
-| [6] | `etree.SubElement` | `SubElement(_parent, _tag, attrib=None, nsmap=None, **_extra) -> _Element` | construct and append a child |
-| [7] | `etree.tostring` | `tostring(element_or_tree, *, encoding=None, method='xml', xml_declaration=None, pretty_print=False, with_tail=True, standalone=None, doctype=None, exclusive=False, inclusive_ns_prefixes=None, with_comments=True, strip_text=False) -> bytes | str` | serialize a tree |
-| [8] | `etree.XMLParser` | `XMLParser(*, encoding=None, recover=False, huge_tree=False, resolve_entities=True, no_network=True, schema=None, remove_blank_text=False, ...) -> XMLParser` | tunable parser |
-| [9] | `etree.cleanup_namespaces` | `cleanup_namespaces(tree_or_element, top_nsmap=None, keep_ns_prefixes=None) -> None` | prune unused namespaces |
+Parser and serializer rows share source, parser, base-url, element, namespace, encoding, XML/HTML method, declaration, pretty-print, and comment policy.
+
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                     | [CAPABILITY]                    |
+| :-----: | :------------------------- | :------------------------------- | :------------------------------ |
+|   [1]   | `etree.parse`              | source plus parser/base-url      | parse a file/stream into a tree |
+|   [2]   | `etree.fromstring`         | text plus parser/base-url        | parse a string into an element  |
+|   [3]   | `etree.XML`                | XML text plus parser/base-url    | parse an XML string literal     |
+|   [4]   | `etree.HTML`               | HTML text plus parser/base-url   | parse an HTML string            |
+|   [5]   | `etree.Element`            | tag plus attributes/namespaces   | construct an element            |
+|   [6]   | `etree.SubElement`         | parent plus child element policy | construct and append a child    |
+|   [7]   | `etree.tostring`           | tree plus serializer policy      | serialize a tree                |
+|   [8]   | `etree.XMLParser`          | parser construction policy       | tunable parser                  |
+|   [9]   | `etree.cleanup_namespaces` | tree plus namespace policy       | prune unused namespaces         |
 
 [ENTRYPOINT_SCOPE]: query, transform, and validate
 - rail: structured documents
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `etree.XPath` | `XPath(path, *, namespaces=None, extensions=None, regexp=True, smart_strings=True) -> XPath` | compile a reusable XPath |
-| [2] | `_Element.xpath` | `xpath(path, namespaces=None, extensions=None, smart_strings=True, **kwargs) -> list | str | float | bool` | evaluate XPath against a node |
-| [3] | `etree.XSLT` | `XSLT(xslt_input, extensions=None, regexp=True, access_control=None) -> XSLT` | compile a stylesheet |
-| [4] | `etree.XMLSchema` | `XMLSchema(etree=None, file=None) -> XMLSchema` | build a schema validator |
-| [5] | `XMLSchema.assertValid` | `assertValid(etree_or_tree) -> None` | validate or raise `DocumentInvalid` |
+Query rows share namespace, extension, regexp, smart-string, access-control, and schema-source policy.
+
+| [INDEX] | [SURFACE]               | [CALL_SHAPE]                | [CAPABILITY]                        |
+| :-----: | :---------------------- | :-------------------------- | :---------------------------------- |
+|   [1]   | `etree.XPath`           | path plus query policy      | compile a reusable XPath            |
+|   [2]   | `_Element.xpath`        | path plus one-shot policy   | evaluate XPath against a node       |
+|   [3]   | `etree.XSLT`            | stylesheet plus XSLT policy | compile a stylesheet                |
+|   [4]   | `etree.XMLSchema`       | tree or file schema source  | build a schema validator            |
+|   [5]   | `XMLSchema.assertValid` | tree validation input       | validate or raise `DocumentInvalid` |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

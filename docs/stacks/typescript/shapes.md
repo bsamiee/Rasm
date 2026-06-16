@@ -8,18 +8,18 @@ The named defect class this page refuses: loose-schema spam (a fresh `Schema.Str
 
 When a concept matches several signatures, the most specific row wins.
 
-| [INDEX] | [CONCEPT_SIGNATURE]                            | [OWNER]                                  | [IDENTITY]      |
-| :-----: | :--------------------------------------------- | :--------------------------------------- | :-------------- |
-|   [1]   | invariant-bearing scalar                       | `Schema.brand` field modifier            | brand           |
-|   [2]   | N fields, one concept, decode authority        | `Schema.Class`                           | structural      |
-|   [3]   | persisted entity with SQL projections          | `Model.Class`                            | structural      |
-|   [4]   | bounded vocabulary, behavior rows              | `as const satisfies Record<...>`         | key             |
-|   [5]   | closed alternatives, per-occurrence payload    | `Data.TaggedEnum`                        | tag             |
-|   [6]   | cross-cutting boundary failure                 | `Data.TaggedError` / `Schema.TaggedError` | tag            |
-|   [7]   | wire-to-domain bidirectional projection        | `Schema.transform`                       | structural      |
-|   [8]   | interior product, no decode, no boundary       | inferred `as const` plain object         | structural      |
-|   [9]   | foreign wire enum or ordinal at the seam       | `Schema.Literal` / `Schema.Enums` at edge | ordinal        |
-|  [10]   | foreign code must add variants                 | interface or class hierarchy             | declared        |
+| [INDEX] | [CONCEPT_SIGNATURE]                         | [OWNER]                                   | [IDENTITY] |
+| :-----: | :------------------------------------------ | :---------------------------------------- | :--------- |
+|   [1]   | invariant-bearing scalar                    | `Schema.brand` field modifier             | brand      |
+|   [2]   | N fields, one concept, decode authority     | `Schema.Class`                            | structural |
+|   [3]   | persisted entity with SQL projections       | `Model.Class`                             | structural |
+|   [4]   | bounded vocabulary, behavior rows           | `as const satisfies Record<...>`          | key        |
+|   [5]   | closed alternatives, per-occurrence payload | `Data.TaggedEnum`                         | tag        |
+|   [6]   | cross-cutting boundary failure              | `Data.TaggedError` / `Schema.TaggedError` | tag        |
+|   [7]   | wire-to-domain bidirectional projection     | `Schema.transform`                        | structural |
+|   [8]   | interior product, no decode, no boundary    | inferred `as const` plain object          | structural |
+|   [9]   | foreign wire enum or ordinal at the seam    | `Schema.Literal` / `Schema.Enums` at edge | ordinal    |
+|  [10]   | foreign code must add variants              | interface or class hierarchy              | declared   |
 
 ## [2]-[DECISION_LAW]
 

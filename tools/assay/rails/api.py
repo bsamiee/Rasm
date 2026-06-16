@@ -76,6 +76,8 @@ type _PathKind = str  # resolve kind token: all | assembly | xml | nuspec | deps
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _API_ARITY: dict[str, int] = {"query": 1, "resolve": 2, "show": 1}
+# Each api verb is flag-only: a positional surplus names the exact flags the agent should have used instead, per slot.
+_API_VERB_FLAGS: dict[str, tuple[str, ...]] = {"query": ("--symbol",), "resolve": ("--key", "--kind"), "show": ("--token",)}
 _HOST_SPECS: dict[str, tuple[str, str]] = {
     "eto": ("Eto.dll", "Eto.xml"),
     "gh2": ("ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml"),
@@ -169,9 +171,10 @@ class ApiParams(BaseParams):
             Bound params, or a parse fault for surplus positional tokens.
         """
         head, tail = (self.paths[0] if self.paths else ""), (self.paths[1] if len(self.paths) > 1 else "")
+        arity = _API_ARITY.get(verb, 0)
         match (verb, len(self.paths)):
-            case (_, n) if n > _API_ARITY.get(verb, 0):
-                return self.surplus(verb, self.paths[_API_ARITY.get(verb, 0) :])
+            case (_, n) if n > arity:
+                return self.surplus(verb, self.paths[arity:], flags=_API_VERB_FLAGS.get(verb, ()), arity=arity)
             case ("query", _):
                 return replace(self, symbol=head or self.symbol, paths=())
             case ("resolve", _):

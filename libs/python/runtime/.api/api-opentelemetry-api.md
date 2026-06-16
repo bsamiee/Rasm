@@ -18,65 +18,65 @@
 [PUBLIC_TYPE_SCOPE]: trace family
 - rail: observability
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `trace.TracerProvider` | provider | tracer factory contract |
-| [2] | `trace.Tracer` | tracer | span factory |
-| [3] | `trace.Span` | span | trace span contract |
-| [4] | `trace.SpanContext` | context | span identity/flags |
-| [5] | `trace.SpanKind` | enum | span role classification |
-| [6] | `trace.Status` | status | span status value |
-| [7] | `trace.StatusCode` | enum | span status code |
-| [8] | `trace.Link` | link | inter-span link |
-| [9] | `trace.TraceFlags` | flags | sampling flags |
-| [10] | `trace.TraceState` | state | vendor trace state |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                   |
+| :-----: | :--------------------- | :------------ | :----------------------- |
+|   [1]   | `trace.TracerProvider` | provider      | tracer factory contract  |
+|   [2]   | `trace.Tracer`         | tracer        | span factory             |
+|   [3]   | `trace.Span`           | span          | trace span contract      |
+|   [4]   | `trace.SpanContext`    | context       | span identity/flags      |
+|   [5]   | `trace.SpanKind`       | enum          | span role classification |
+|   [6]   | `trace.Status`         | status        | span status value        |
+|   [7]   | `trace.StatusCode`     | enum          | span status code         |
+|   [8]   | `trace.Link`           | link          | inter-span link          |
+|   [9]   | `trace.TraceFlags`     | flags         | sampling flags           |
+|  [10]   | `trace.TraceState`     | state         | vendor trace state       |
 
 [PUBLIC_TYPE_SCOPE]: metrics and logs family
 - rail: observability
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `metrics.MeterProvider` | provider | meter factory contract |
-| [2] | `metrics.Meter` | meter | instrument factory |
-| [3] | `metrics.Counter` | instrument | monotonic counter |
-| [4] | `metrics.UpDownCounter` | instrument | bidirectional counter |
-| [5] | `metrics.Histogram` | instrument | value distribution |
-| [6] | `metrics.ObservableGauge` | instrument | callback gauge |
-| [7] | `metrics.Observation` | value | callback measurement |
-| [8] | `_logs.LoggerProvider` | provider | logger factory contract |
-| [9] | `_logs.Logger` | logger | log-record emitter |
-| [10] | `_logs.LogRecord` | record | structured log record |
-| [11] | `_logs.SeverityNumber` | enum | log severity |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [RAIL]                  |
+| :-----: | :------------------------ | :------------ | :---------------------- |
+|   [1]   | `metrics.MeterProvider`   | provider      | meter factory contract  |
+|   [2]   | `metrics.Meter`           | meter         | instrument factory      |
+|   [3]   | `metrics.Counter`         | instrument    | monotonic counter       |
+|   [4]   | `metrics.UpDownCounter`   | instrument    | bidirectional counter   |
+|   [5]   | `metrics.Histogram`       | instrument    | value distribution      |
+|   [6]   | `metrics.ObservableGauge` | instrument    | callback gauge          |
+|   [7]   | `metrics.Observation`     | value         | callback measurement    |
+|   [8]   | `_logs.LoggerProvider`    | provider      | logger factory contract |
+|   [9]   | `_logs.Logger`            | logger        | log-record emitter      |
+|  [10]   | `_logs.LogRecord`         | record        | structured log record   |
+|  [11]   | `_logs.SeverityNumber`    | enum          | log severity            |
 
 [PUBLIC_TYPE_SCOPE]: context and propagation family
 - rail: observability
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `context.Context` | context | immutable context map |
-| [2] | `baggage` | baggage | cross-cutting key/value carrier |
-| [3] | `propagate` | propagator | inject/extract context across wire |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [RAIL]                             |
+| :-----: | :---------------- | :------------ | :--------------------------------- |
+|   [1]   | `context.Context` | context       | immutable context map              |
+|   [2]   | `baggage`         | baggage       | cross-cutting key/value carrier    |
+|   [3]   | `propagate`       | propagator    | inject/extract context across wire |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: telemetry operations
 - rail: observability
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `trace.get_tracer` | tracer | obtain a named tracer |
-| [2] | `Tracer.start_as_current_span` | span | scoped active span |
-| [3] | `trace.get_current_span` | span | active span read |
-| [4] | `trace.use_span` | span | activate an existing span |
-| [5] | `metrics.get_meter` | meter | obtain a named meter |
-| [6] | `Meter.create_counter` | instrument | build a counter |
-| [7] | `Meter.create_histogram` | instrument | build a histogram |
-| [8] | `Meter.create_observable_gauge` | instrument | build a callback gauge |
-| [9] | `context.attach` / `context.detach` | context | activate/restore context |
-| [10] | `baggage.set_baggage` | baggage | set a baggage entry |
-| [11] | `baggage.get_baggage` | baggage | read a baggage entry |
-| [12] | `propagate.inject` | propagation | write context into a carrier |
-| [13] | `propagate.extract` | propagation | read context from a carrier |
+| [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [RAIL]                       |
+| :-----: | :---------------------------------- | :------------- | :--------------------------- |
+|   [1]   | `trace.get_tracer`                  | tracer         | obtain a named tracer        |
+|   [2]   | `Tracer.start_as_current_span`      | span           | scoped active span           |
+|   [3]   | `trace.get_current_span`            | span           | active span read             |
+|   [4]   | `trace.use_span`                    | span           | activate an existing span    |
+|   [5]   | `metrics.get_meter`                 | meter          | obtain a named meter         |
+|   [6]   | `Meter.create_counter`              | instrument     | build a counter              |
+|   [7]   | `Meter.create_histogram`            | instrument     | build a histogram            |
+|   [8]   | `Meter.create_observable_gauge`     | instrument     | build a callback gauge       |
+|   [9]   | `context.attach` / `context.detach` | context        | activate/restore context     |
+|  [10]   | `baggage.set_baggage`               | baggage        | set a baggage entry          |
+|  [11]   | `baggage.get_baggage`               | baggage        | read a baggage entry         |
+|  [12]   | `propagate.inject`                  | propagation    | write context into a carrier |
+|  [13]   | `propagate.extract`                 | propagation    | read context from a carrier  |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

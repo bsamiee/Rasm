@@ -5,7 +5,6 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="TngTech.ArchUnitNET.xUnitV3" PrivateAssets="all" />
-        <ProjectReference Include="../_testkit/Rasm.TestKit.csproj" />
         <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
         <ProjectReference Include="../../../libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
         <ProjectReference Include="../../../libs/csharp/Rasm.Materials/Rasm.Materials.csproj" />

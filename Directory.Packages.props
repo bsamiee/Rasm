@@ -5,6 +5,7 @@
     </PropertyGroup>
 
     <ItemGroup Label="Functional Core">
+        <PackageVersion Include="JetBrains.Annotations" Version="2025.2.2" />
         <PackageVersion Include="LanguageExt.Core" Version="5.0.0-beta-77" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions" Version="10.3.0" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions.Json" Version="10.3.0" />

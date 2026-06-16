@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Linq.Expressions;
 using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Vectors;
 
 namespace Rasm.Domain;
 
@@ -282,6 +283,12 @@ internal static class OpAcceptance {
             ComponentIndex c => Some(c is { ComponentIndexType: not ComponentIndexType.InvalidType } ci && ci.Index >= 0),
             ValueTuple<double, double> t => Some(t is (double x, double y) && RhinoMath.IsValidDouble(x) && RhinoMath.IsValidDouble(y)),
             ValueTuple<double, Vector3d> t => Some(t is (double m, Vector3d a) && RhinoMath.IsValidDouble(m) && m >= 0.0 && a.IsValid && a.Length > RhinoMath.ZeroTolerance),
+            CloudAdmissionReceipt r => Some(r.IsValid),
+            CloudNeighborhoodReceipt r => Some(r.IsValid),
+            CloudCurvatureReceipt r => Some(r.IsValid),
+            CloudCurvatureResult r => Some(r.IsValid),
+            VectorCloudShape s => Some(s.IsValid),
+            SymmetricMatrix m => Some(m.IsValid),
             _ => ValueValidity.GetValueOrDefault(source.GetType()) is Func<object, bool> fn ? Some(fn(source)) : Option<bool>.None,
         };
     private static Fin<T> Demand<T>(this Op key, bool condition, T value) =>

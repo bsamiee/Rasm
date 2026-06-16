@@ -18,55 +18,55 @@
 [PUBLIC_TYPE_SCOPE]: process family
 - rail: observability
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `Process` | process | per-process inspection/control handle |
-| [2] | `Popen` | process | psutil-aware subprocess wrapper |
+| [INDEX] | [SYMBOL]  | [TYPE_FAMILY] | [RAIL]                                |
+| :-----: | :-------- | :------------ | :------------------------------------ |
+|   [1]   | `Process` | process       | per-process inspection/control handle |
+|   [2]   | `Popen`   | process       | psutil-aware subprocess wrapper       |
 
 [PUBLIC_TYPE_SCOPE]: fault family
 - rail: observability
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `Error` | fault base | base psutil error |
-| [2] | `NoSuchProcess` | fault | pid no longer exists |
-| [3] | `AccessDenied` | fault | insufficient permission |
-| [4] | `ZombieProcess` | fault | defunct process |
-| [5] | `TimeoutExpired` | fault | wait timeout |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [RAIL]                  |
+| :-----: | :--------------- | :------------ | :---------------------- |
+|   [1]   | `Error`          | fault base    | base psutil error       |
+|   [2]   | `NoSuchProcess`  | fault         | pid no longer exists    |
+|   [3]   | `AccessDenied`   | fault         | insufficient permission |
+|   [4]   | `ZombieProcess`  | fault         | defunct process         |
+|   [5]   | `TimeoutExpired` | fault         | wait timeout            |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process operations
 - rail: observability
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `Process` | build | inspection handle for a pid |
-| [2] | `Process.oneshot` | batch | cached batched attribute read |
-| [3] | `Process.cpu_percent` | read | process CPU share |
-| [4] | `Process.memory_info` | read | RSS/VMS memory |
-| [5] | `Process.memory_full_info` | read | USS/PSS memory |
-| [6] | `Process.num_threads` | read | thread count |
-| [7] | `Process.open_files` | read | open file handles |
-| [8] | `Process.children` | read | child processes |
-| [9] | `Process.terminate` / `Process.kill` | control | signal the process |
-| [10] | `Process.wait` | control | await exit |
-| [11] | `process_iter` | enumerate | iterate live processes |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                        |
+| :-----: | :----------------------------------- | :------------- | :---------------------------- |
+|   [1]   | `Process`                            | build          | inspection handle for a pid   |
+|   [2]   | `Process.oneshot`                    | batch          | cached batched attribute read |
+|   [3]   | `Process.cpu_percent`                | read           | process CPU share             |
+|   [4]   | `Process.memory_info`                | read           | RSS/VMS memory                |
+|   [5]   | `Process.memory_full_info`           | read           | USS/PSS memory                |
+|   [6]   | `Process.num_threads`                | read           | thread count                  |
+|   [7]   | `Process.open_files`                 | read           | open file handles             |
+|   [8]   | `Process.children`                   | read           | child processes               |
+|   [9]   | `Process.terminate` / `Process.kill` | control        | signal the process            |
+|  [10]   | `Process.wait`                       | control        | await exit                    |
+|  [11]   | `process_iter`                       | enumerate      | iterate live processes        |
 
 [ENTRYPOINT_SCOPE]: system operations
 - rail: observability
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `cpu_percent` | read | system CPU utilisation |
-| [2] | `cpu_count` | read | logical/physical core count |
-| [3] | `virtual_memory` | read | system memory stats |
-| [4] | `swap_memory` | read | swap stats |
-| [5] | `disk_usage` | read | filesystem usage |
-| [6] | `disk_io_counters` | read | disk I/O counters |
-| [7] | `net_io_counters` | read | network I/O counters |
-| [8] | `getloadavg` | read | 1/5/15-minute load average |
-| [9] | `boot_time` | read | system boot timestamp |
+| [INDEX] | [SURFACE]          | [ENTRY_FAMILY] | [RAIL]                      |
+| :-----: | :----------------- | :------------- | :-------------------------- |
+|   [1]   | `cpu_percent`      | read           | system CPU utilisation      |
+|   [2]   | `cpu_count`        | read           | logical/physical core count |
+|   [3]   | `virtual_memory`   | read           | system memory stats         |
+|   [4]   | `swap_memory`      | read           | swap stats                  |
+|   [5]   | `disk_usage`       | read           | filesystem usage            |
+|   [6]   | `disk_io_counters` | read           | disk I/O counters           |
+|   [7]   | `net_io_counters`  | read           | network I/O counters        |
+|   [8]   | `getloadavg`       | read           | 1/5/15-minute load average  |
+|   [9]   | `boot_time`        | read           | system boot timestamp       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

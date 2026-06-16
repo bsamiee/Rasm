@@ -4,8 +4,8 @@ The persistent IfcOpenShell tessellation daemon — the load-bearing cross-bound
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
+| [INDEX] | [CLUSTER] | [OWNS]                                                               |
+| :-----: | :-------- | :------------------------------------------------------------------- |
 |   [1]   | DAEMON    | the tessellation daemon, the warm pool, the content-addressed output |
 
 ## [2]-[DAEMON]

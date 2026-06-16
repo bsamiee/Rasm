@@ -4,10 +4,10 @@ Schema claims, the data-contract validation gate, and the two-axis geospatial su
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | SCHEMA    | schema claims, frame admission, the contract gate              |
-|   [2]   | GEO       | vector and raster geospatial claims, spatial egress            |
+| [INDEX] | [CLUSTER] | [OWNS]                                              |
+| :-----: | :-------- | :-------------------------------------------------- |
+|   [1]   | SCHEMA    | schema claims, frame admission, the contract gate   |
+|   [2]   | GEO       | vector and raster geospatial claims, spatial egress |
 
 ## [2]-[SCHEMA]
 

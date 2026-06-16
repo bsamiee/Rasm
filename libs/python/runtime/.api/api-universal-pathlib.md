@@ -18,27 +18,27 @@
 [PUBLIC_TYPE_SCOPE]: path family
 - rail: resources
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `UPath` | path | fsspec-backed universal path |
-| [2] | `UnsupportedOperation` | fault | unsupported path operation |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                       |
+| :-----: | :--------------------- | :------------ | :--------------------------- |
+|   [1]   | `UPath`                | path          | fsspec-backed universal path |
+|   [2]   | `UnsupportedOperation` | fault         | unsupported path operation   |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: path operations
 - rail: resources
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `UPath(url, protocol=..., **storage_options)` | build | construct a backend-resolved path |
-| [2] | `UPath.fs` | filesystem | underlying fsspec filesystem |
-| [3] | `UPath.path` | path | backend-relative path string |
-| [4] | `UPath.protocol` | metadata | resolved protocol |
-| [5] | `UPath.storage_options` | metadata | resolved backend options |
-| [6] | `UPath.open` | access | open the target |
-| [7] | `UPath.glob` / `UPath.rglob` | traverse | pattern enumeration |
-| [8] | `UPath.iterdir` | traverse | directory listing |
-| [9] | `UPath.joinpath` / `/` | compose | child path composition |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                            |
+| :-----: | :-------------------------------------------- | :------------- | :-------------------------------- |
+|   [1]   | `UPath(url, protocol=..., **storage_options)` | build          | construct a backend-resolved path |
+|   [2]   | `UPath.fs`                                    | filesystem     | underlying fsspec filesystem      |
+|   [3]   | `UPath.path`                                  | path           | backend-relative path string      |
+|   [4]   | `UPath.protocol`                              | metadata       | resolved protocol                 |
+|   [5]   | `UPath.storage_options`                       | metadata       | resolved backend options          |
+|   [6]   | `UPath.open`                                  | access         | open the target                   |
+|   [7]   | `UPath.glob` / `UPath.rglob`                  | traverse       | pattern enumeration               |
+|   [8]   | `UPath.iterdir`                               | traverse       | directory listing                 |
+|   [9]   | `UPath.joinpath` / `/`                        | compose        | child path composition            |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

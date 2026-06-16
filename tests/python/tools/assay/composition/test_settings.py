@@ -436,8 +436,8 @@ def test_run_id_host_token_carves_the_per_host_prune_namespace(tmp_path: Path) -
     minted = _settings_mod._host_unique_run_id()
     assert run_id_host_token(minted) == _settings_mod._host_token(), "the minted run id must carry this host's blake2b token"
     assert AssaySettings(root=UPath(tmp_path), run_id=minted, exec_known_hosts=None).host_run_token == _settings_mod._host_token()
-    assert run_id_host_token("custom-run") == "", "a tokenless run id owns no host namespace"
-    assert AssaySettings(root=UPath(tmp_path), run_id="custom-run", exec_known_hosts=None).host_run_token == ""
+    assert not run_id_host_token("custom-run"), "a tokenless run id owns no host namespace"
+    assert not AssaySettings(root=UPath(tmp_path), run_id="custom-run", exec_known_hosts=None).host_run_token
 
 
 register_law(AssaySettings, "run_id_host_token_carves_the_per_host_prune_namespace")

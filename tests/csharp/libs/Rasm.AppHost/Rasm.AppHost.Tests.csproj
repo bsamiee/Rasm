@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <ItemGroup>
         <ProjectReference Include="../../../../libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj" />
-        <ProjectReference Include="../../_testkit/Rasm.TestKit.csproj" />
     </ItemGroup>
     <ItemGroup Label="Deterministic Time And Telemetry">
         <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" PrivateAssets="all" />

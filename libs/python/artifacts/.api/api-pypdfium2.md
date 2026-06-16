@@ -18,57 +18,59 @@
 [PUBLIC_TYPE_SCOPE]: document and page roots
 - rail: pdf
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `PdfDocument` | document root | open/new/save a PDF; page access, metadata, TOC, attachments, forms |
-| [2] | `PdfPage` | page unit | render, text page, object enumeration, box geometry, rotation |
-| [3] | `PdfBitmap` | render buffer | rasterized bitmap with PIL/NumPy bridges and fill ops |
-| [4] | `PdfTextPage` | text model | char/rect/range text extraction and search |
-| [5] | `PdfTextSearcher` | search cursor | forward/backward text search state |
-| [6] | `PdfObject` | page object | a single page content object (text/image/path) |
-| [7] | `PdfImage` | image object | embedded image with extract/render/metadata |
-| [8] | `PdfFont` | font handle | loaded font for inserted text |
-| [9] | `PdfBookmark` / `PdfDest` | outline | bookmark node and its destination |
-| [10] | `PdfFormEnv` | form env | interactive form environment handle |
-| [11] | `PdfAttachment` | attachment | embedded-file attachment |
-| [12] | `PdfMatrix` | affine matrix | transform value object for render/object placement |
+| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE] | [CAPABILITY]                                                        |
+| :-----: | :------------------------ | :------------- | :------------------------------------------------------------------ |
+|   [1]   | `PdfDocument`             | document root  | open/new/save a PDF; page access, metadata, TOC, attachments, forms |
+|   [2]   | `PdfPage`                 | page unit      | render, text page, object enumeration, box geometry, rotation       |
+|   [3]   | `PdfBitmap`               | render buffer  | rasterized bitmap with PIL/NumPy bridges and fill ops               |
+|   [4]   | `PdfTextPage`             | text model     | char/rect/range text extraction and search                          |
+|   [5]   | `PdfTextSearcher`         | search cursor  | forward/backward text search state                                  |
+|   [6]   | `PdfObject`               | page object    | a single page content object (text/image/path)                      |
+|   [7]   | `PdfImage`                | image object   | embedded image with extract/render/metadata                         |
+|   [8]   | `PdfFont`                 | font handle    | loaded font for inserted text                                       |
+|   [9]   | `PdfBookmark` / `PdfDest` | outline        | bookmark node and its destination                                   |
+|  [10]   | `PdfFormEnv`              | form env       | interactive form environment handle                                 |
+|  [11]   | `PdfAttachment`           | attachment     | embedded-file attachment                                            |
+|  [12]   | `PdfMatrix`               | affine matrix  | transform value object for render/object placement                  |
 
 [PUBLIC_TYPE_SCOPE]: faults
 - rail: pdf
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `PdfiumError` | engine fault | a PDFium call returned an error code |
-| [2] | `PdfiumWarning` | engine warning | a recoverable PDFium condition |
+| [INDEX] | [SYMBOL]        | [PACKAGE_ROLE] | [CAPABILITY]                         |
+| :-----: | :-------------- | :------------- | :----------------------------------- |
+|   [1]   | `PdfiumError`   | engine fault   | a PDFium call returned an error code |
+|   [2]   | `PdfiumWarning` | engine warning | a recoverable PDFium condition       |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document open, build, and save
 - rail: pdf
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `PdfDocument` | `PdfDocument(input, password=None, autoclose=False)` | open from path/bytes/buffer |
-| [2] | `PdfDocument.new` | `new() -> PdfDocument` | classmethod: build an empty document |
-| [3] | `PdfDocument.save` | `save(dest, version=None, flags=..., callback=None) -> None` | serialize to a writable buffer |
-| [4] | `PdfDocument.get_page` | `get_page(index: int) -> PdfPage` | page accessor |
-| [5] | `PdfDocument.import_pages` | `import_pages(pdf, pages=None, index=None) -> None` | splice pages from another document |
-| [6] | `PdfDocument.get_toc` | `get_toc(max_depth=15) -> typing.Iterator[PdfBookmark]` | walk the outline |
-| [7] | `PdfDocument.init_forms` | `init_forms(config=None) -> None` | enable the form environment |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                 | [CAPABILITY]                         |
+| :-----: | :------------------------- | :----------------------------------------------------------- | :----------------------------------- |
+|   [1]   | `PdfDocument`              | `PdfDocument(input, password=None, autoclose=False)`         | open from path/bytes/buffer          |
+|   [2]   | `PdfDocument.new`          | `new() -> PdfDocument`                                       | classmethod: build an empty document |
+|   [3]   | `PdfDocument.save`         | `save(dest, version=None, flags=..., callback=None) -> None` | serialize to a writable buffer       |
+|   [4]   | `PdfDocument.get_page`     | `get_page(index: int) -> PdfPage`                            | page accessor                        |
+|   [5]   | `PdfDocument.import_pages` | `import_pages(pdf, pages=None, index=None) -> None`          | splice pages from another document   |
+|   [6]   | `PdfDocument.get_toc`      | `get_toc(max_depth=15) -> typing.Iterator[PdfBookmark]`      | walk the outline                     |
+|   [7]   | `PdfDocument.init_forms`   | `init_forms(config=None) -> None`                            | enable the form environment          |
 
 [ENTRYPOINT_SCOPE]: render and text extraction
 - rail: pdf
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `PdfPage.render` | `render(scale=1, rotation=0, crop=(0,0,0,0), may_draw_forms=True, fill_color=(255,255,255,255), color_scheme=None, draw_annots=True, draw_forms=True, bitmap_maker=PdfBitmap.new_native, **kwargs) -> PdfBitmap` | rasterize a page |
-| [2] | `PdfBitmap.to_pil` | `to_pil() -> PIL.Image.Image` | bridge to a Pillow image |
-| [3] | `PdfBitmap.to_numpy` | `to_numpy() -> numpy.ndarray` | bridge to a NumPy array |
-| [4] | `PdfPage.get_textpage` | `get_textpage() -> PdfTextPage` | build a text model |
-| [5] | `PdfTextPage.get_text_range` | `get_text_range(index=0, count=-1, errors='ignore') -> str` | extract a character range |
-| [6] | `PdfTextPage.get_text_bounded` | `get_text_bounded(left=None, bottom=None, right=None, top=None, errors='ignore') -> str` | extract text in a region |
-| [7] | `PdfTextPage.search` | `search(text, index=0, count=-1, match_case=False, match_whole_word=False, consecutive=False) -> PdfTextSearcher` | build a search cursor |
-| [8] | `PdfPage.get_objects` | `get_objects(filter=None, max_depth=15) -> typing.Iterator[PdfObject]` | enumerate page objects |
+Render rows share scale, rotation, crop, form, color, annotation, and bitmap-maker policy; text rows share range, bounds, and search policy.
+
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                 | [CAPABILITY]              |
+| :-----: | :----------------------------- | :--------------------------- | :------------------------ |
+|   [1]   | `PdfPage.render`               | render policy -> `PdfBitmap` | rasterize a page          |
+|   [2]   | `PdfBitmap.to_pil`             | no-arg Pillow bridge         | bridge to a Pillow image  |
+|   [3]   | `PdfBitmap.to_numpy`           | no-arg NumPy bridge          | bridge to a NumPy array   |
+|   [4]   | `PdfPage.get_textpage`         | no-arg text-page build       | build a text model        |
+|   [5]   | `PdfTextPage.get_text_range`   | index/count text range       | extract a character range |
+|   [6]   | `PdfTextPage.get_text_bounded` | rectangle bounds plus errors | extract text in a region  |
+|   [7]   | `PdfTextPage.search`           | text plus match policy       | build a search cursor     |
+|   [8]   | `PdfPage.get_objects`          | filter plus depth policy     | enumerate page objects    |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

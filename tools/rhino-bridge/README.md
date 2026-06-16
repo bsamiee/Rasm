@@ -202,6 +202,7 @@ Scenario code does not write `#r`, `#load`, absolute build-output paths, or loca
 - Bundle discovery uses `RHINO_WIP_APP_PATH` when set; otherwise it admits the newest `/Applications/Rhino*.app` by `CFBundleVersion`.
 - Launch sets `RHINO_MCP_AUTOSTART_PORT=0`.
 - Reconcile clears only recovery markers that match supervised quit-journal windows; foreign Rhino state is reported and left intact.
+- The launch-edge recovery clear runs only when the supervisor actually launches (never on host reuse) and force-clears the recovery-dialog blockers — the `.rhl` recovery file and `Rhinoceros-*.ips` startup crash sentinels — independent of journal windows, so an unclean prior exit cannot wedge a headless launch behind a recovery prompt; foreign documents stay untouched.
 
 [STREAM_JSON_RPC]:
 - The shell exposes `IBridgeShell` over a named pipe with `SystemTextJsonFormatter`.
@@ -230,6 +231,12 @@ The bridge starts no MCP listener of its own. MCP tooling runs through McNeel's 
 [CROSS_SESSION_DRIFT]:
 - The `delta` rail folds `mcp.platform.version`, `mcp.listener`, `rhinoVersion`, and `rpc.streamjsonrpc` into per-session fact rows.
 - Any cross-session change to one of those facts surfaces as a `RunDelta.drift` row, so host and platform drift is auto-tracked across sessions without manual diffing.
+
+[RUN_CSHARP_CONSTRAINT]:
+- The McNeel platform's `run_csharp` tool evaluates a statement body, not an expression: a trailing `return <expr>;` is rejected at the top level. Emit results through `Console.WriteLine(...)` or assign to the ambient `__rhino_doc__`/document handle, then read stdout. Treat the snippet as a script body, never an expression-returning lambda.
+
+[VERIFY_IDLE_RULE]:
+- Keep MCP idle during a formal `bridge verify`. The platform's `run_csharp`, `run_python`, and command tools drive `RhinoApp` command history; an interactive probe interleaved with a verify run injects foreign lines into the same `command.history.tail`/`command.capture.tail` evidence the cargo runner spools, contaminating the per-scenario command-window evidence. Run interactive MCP exploration before or after a verify, never concurrently inside one live session.
 
 [VERDICT]:
 - The relationship is `additive_external`. The McNeel platform is interactive and conversational; the bridge is deterministic typed verification.

@@ -246,6 +246,27 @@ def test_api_params_bound_surplus_is_fault() -> None:
 register_law(ApiParams, "api_params_bound_surplus")
 
 
+@pytest.mark.parametrize(
+    "verb, paths, expected_flags",
+    [
+        ("query", ("a", "b"), "--symbol"),  # query arity 1; b is surplus
+        ("resolve", ("rhino-common", "all", "extra"), "--key --kind"),  # resolve arity 2; extra is surplus
+        ("show", ("x", "y"), "--token"),  # show arity 1; y is surplus
+    ],
+    ids=["query-surplus", "resolve-surplus", "show-surplus"],
+)
+def test_api_params_bound_surplus_names_expected_flags_and_arity(verb: str, paths: tuple[str, ...], expected_flags: str) -> None:
+    """A surplus-positional api fault names the exact flags and the resolved arity so an agent reads the corrected form."""
+    result = ApiParams(paths=paths).bound(verb)
+    assert isinstance(result, Fault)
+    arity = api_rail._API_ARITY[verb]
+    assert f"{verb}: unexpected positional(s)" in result.message
+    assert f"accepts at most {arity} positional(s) — use flags: {expected_flags}" in result.message
+
+
+register_law(ApiParams, "api_params_bound_surplus_names_flags")
+
+
 def test_api_params_bound_unknown_verb_passthrough() -> None:
     """ApiParams.bound for a verb with no positional slots (e.g. status) returns self unchanged."""
     p = ApiParams()

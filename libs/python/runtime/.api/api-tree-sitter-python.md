@@ -18,19 +18,19 @@
 [PUBLIC_TYPE_SCOPE]: grammar query-source family
 - rail: parsing
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `HIGHLIGHTS_QUERY` | query source | syntax-highlight query text |
-| [2] | `TAGS_QUERY` | query source | symbol-tags query text |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [RAIL]                      |
+| :-----: | :----------------- | :------------ | :-------------------------- |
+|   [1]   | `HIGHLIGHTS_QUERY` | query source  | syntax-highlight query text |
+|   [2]   | `TAGS_QUERY`       | query source  | symbol-tags query text      |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: grammar operations
 - rail: parsing
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `language` | grammar | grammar pointer for `tree_sitter.Language` |
+| [INDEX] | [SURFACE]  | [ENTRY_FAMILY] | [RAIL]                                     |
+| :-----: | :--------- | :------------- | :----------------------------------------- |
+|   [1]   | `language` | grammar        | grammar pointer for `tree_sitter.Language` |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

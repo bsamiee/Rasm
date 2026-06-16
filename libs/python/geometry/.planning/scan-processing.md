@@ -4,9 +4,9 @@ Point-cloud and 3D-scan processing. `ScanProcessing` is one registration owner d
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                        |
-| :-----: | :------------ | :----------------------------------------------------------- |
-|   [1]   | REGISTRATION  | mode-discriminated registration, estimation, reconstruction  |
+| [INDEX] | [CLUSTER]    | [OWNS]                                                      |
+| :-----: | :----------- | :---------------------------------------------------------- |
+|   [1]   | REGISTRATION | mode-discriminated registration, estimation, reconstruction |
 
 ## [2]-[REGISTRATION]
 

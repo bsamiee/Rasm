@@ -18,46 +18,46 @@
 [PUBLIC_TYPE_SCOPE]: parser and tree family
 - rail: parsing
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `Parser` | parser | incremental parse driver |
-| [2] | `Language` | grammar | compiled grammar object |
-| [3] | `Tree` | tree | parsed syntax tree |
-| [4] | `Node` | node | syntax-tree node |
-| [5] | `TreeCursor` | cursor | efficient tree walker |
-| [6] | `Range` | range | byte/point span |
-| [7] | `Point` | point | row/column position |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [RAIL]                   |
+| :-----: | :----------- | :------------ | :----------------------- |
+|   [1]   | `Parser`     | parser        | incremental parse driver |
+|   [2]   | `Language`   | grammar       | compiled grammar object  |
+|   [3]   | `Tree`       | tree          | parsed syntax tree       |
+|   [4]   | `Node`       | node          | syntax-tree node         |
+|   [5]   | `TreeCursor` | cursor        | efficient tree walker    |
+|   [6]   | `Range`      | range         | byte/point span          |
+|   [7]   | `Point`      | point         | row/column position      |
 
 [PUBLIC_TYPE_SCOPE]: query family
 - rail: parsing
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `Query` | query | compiled S-expression pattern |
-| [2] | `QueryCursor` | cursor | query execution cursor |
-| [3] | `QueryError` | fault | malformed query |
-| [4] | `LookaheadIterator` | iterator | grammar lookahead states |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                        |
+| :-----: | :------------------ | :------------ | :---------------------------- |
+|   [1]   | `Query`             | query         | compiled S-expression pattern |
+|   [2]   | `QueryCursor`       | cursor        | query execution cursor        |
+|   [3]   | `QueryError`        | fault         | malformed query               |
+|   [4]   | `LookaheadIterator` | iterator      | grammar lookahead states      |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse and query operations
 - rail: parsing
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `Parser(language)` | build | parser bound to a grammar |
-| [2] | `Parser.parse` | parse | bytes to a `Tree` |
-| [3] | `Parser.parse(old_tree=...)` | parse | incremental reparse |
-| [4] | `Tree.root_node` | navigate | tree root node |
-| [5] | `Tree.walk` | navigate | obtain a `TreeCursor` |
-| [6] | `Tree.edit` | edit | apply a source edit |
-| [7] | `Tree.changed_ranges` | diff | ranges differing from old tree |
-| [8] | `Node.children` / `Node.named_children` | navigate | child enumeration |
-| [9] | `Node.child_by_field_name` | navigate | field-named child |
-| [10] | `Node.descendant_for_byte_range` | navigate | node covering a byte span |
-| [11] | `Language.query` | build | compile a query |
-| [12] | `QueryCursor.captures` | match | capture-name to nodes |
-| [13] | `QueryCursor.matches` | match | full pattern matches |
+| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [RAIL]                         |
+| :-----: | :-------------------------------------- | :------------- | :----------------------------- |
+|   [1]   | `Parser(language)`                      | build          | parser bound to a grammar      |
+|   [2]   | `Parser.parse`                          | parse          | bytes to a `Tree`              |
+|   [3]   | `Parser.parse(old_tree=...)`            | parse          | incremental reparse            |
+|   [4]   | `Tree.root_node`                        | navigate       | tree root node                 |
+|   [5]   | `Tree.walk`                             | navigate       | obtain a `TreeCursor`          |
+|   [6]   | `Tree.edit`                             | edit           | apply a source edit            |
+|   [7]   | `Tree.changed_ranges`                   | diff           | ranges differing from old tree |
+|   [8]   | `Node.children` / `Node.named_children` | navigate       | child enumeration              |
+|   [9]   | `Node.child_by_field_name`              | navigate       | field-named child              |
+|  [10]   | `Node.descendant_for_byte_range`        | navigate       | node covering a byte span      |
+|  [11]   | `Language.query`                        | build          | compile a query                |
+|  [12]   | `QueryCursor.captures`                  | match          | capture-name to nodes          |
+|  [13]   | `QueryCursor.matches`                   | match          | full pattern matches           |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

@@ -112,7 +112,10 @@ public abstract partial record QuadTarget {
 }
 
 [SmartEnum<int>]
-public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0); }
+public sealed partial class RemeshStatus {
+    public static readonly RemeshStatus Completed = new(key: 0);
+    public static readonly RemeshStatus InvalidOutput = new(key: 1);
+}
 
 [Union]
 public abstract partial record RemeshKind {
@@ -282,9 +285,9 @@ public readonly record struct GeodesicTracePolicy(PositiveMagnitude TraceLengthF
 public readonly record struct WindowPropagationPolicy(Dimension MaxWindowsPerEdge, Dimension BacktraceMaxHops, PositiveMagnitude SaddleAngleThreshold, bool ReportCutLocus) {
     // SaddleAngleThreshold is a cone-angle gate, not a vector angle: a hyperbolic (saddle) cone point carries total
     // angle ABOVE 2pi, so the carrier must admit values past 2pi (PositiveMagnitude, unbounded above) and the default
-    // seats just above the flat-vertex boundary (2pi + scale epsilon) so the angle-defect sign test fires only on
-    // genuine cone points while every flat/convex vertex (<=2pi) stays below it.
-    public static readonly WindowPropagationPolicy Default = new(MaxWindowsPerEdge: Dimension.Create(value: 512), BacktraceMaxHops: Dimension.Create(value: 4096), SaddleAngleThreshold: PositiveMagnitude.Create(value: RhinoMath.TwoPI + RhinoMath.SqrtEpsilon), ReportCutLocus: false);
+    // seats at the flat-vertex boundary (2pi). The seeding and first-leg-replay tests use a strict `> 2pi` comparison,
+    // so the angle-defect sign fires only on genuine hyperbolic cone points while every flat/convex vertex (<=2pi) stays below it.
+    public static readonly WindowPropagationPolicy Default = new(MaxWindowsPerEdge: Dimension.Create(value: 512), BacktraceMaxHops: Dimension.Create(value: 4096), SaddleAngleThreshold: PositiveMagnitude.Create(value: RhinoMath.TwoPI), ReportCutLocus: false);
     public static Fin<WindowPropagationPolicy> Of(int maxWindowsPerEdge, int backtraceMaxHops, double saddleAngleThreshold, bool reportCutLocus, Op? key = null) =>
         key.OrDefault() switch {
             Op op =>
@@ -361,7 +364,7 @@ public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, P
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, bool NativeUnwrap, bool Valid, Option<double> EdgeLengthDistortionRms);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, bool Valid, Option<double> EdgeLengthDistortionRms);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, FlattenReceipt Receipt) {
@@ -390,7 +393,7 @@ public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt) {
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve, Option<SpectralAssemblyReceipt> EdgeAssembly = default);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve, Option<SpectralAssemblyReceipt> EdgeAssembly = default, Option<double> SpdMassShift = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct VolumeGridReceipt(BoundingBox Bounds, int Resolution, int XNodes, int YNodes, int ZNodes, double CellSize, double Padding, int NodeCount, int CellCount, int SourceTriangleCount, int DegenerateTriangleCount, double SourceArea, int InsideNodeCount, int OutsideNodeCount, int NearSurfaceNodeCount, int RejectedVectorCount, double HeatTime, int GaugeNode, double SurfaceShift, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition, VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual);
 
@@ -440,7 +443,7 @@ public readonly record struct HodgeDecompositionReceipt(int ExpectedGenus, int E
     public bool IsValid {
         get {
             double tolerance = Harmonic.SvdTolerance;
-            double residualGate = Math.Max(val1: 1.0e-6, val2: tolerance * 1.0e4);
+            double residualGate = Math.Max(val1: tolerance, val2: RhinoMath.SqrtEpsilon * Math.Max(val1: 1.0, val2: Harmonic.SpectralRadius)) * 1.0e4;
             return ExpectedGenus >= 1 && ExpectedDimension == 2 * ExpectedGenus
                 && BasisCount == ExpectedDimension
                 && EdgeCount > 0 && Rank >= 0 && Nullity >= 0
@@ -461,14 +464,14 @@ public readonly record struct HodgeDecompositionReceipt(int ExpectedGenus, int E
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TangentLogMapReceipt(TangentLogMapAlgorithm Algorithm, int SourceVertex, int TargetCount, bool VectorHeatBacked, bool RejectsFlippedIntrinsic, int FiniteLogCount, double MaxMagnitudeResidual, double HeatTime, Arr<int> PathFaces, Arr<int> CrossedEdges, double TracedLength, double PathRelativeResidual, int SegmentCount, int EdgeCrossingCount, int VertexPassCount, Option<GeodesicStopKind> StopKind = default, int WindowCount = 0, int OcclusionClampCount = 0, int PseudosourceCount = 0, int CutLocusCount = 0) {
+public readonly record struct TangentLogMapReceipt(TangentLogMapAlgorithm Algorithm, int SourceVertex, int TargetCount, bool VectorHeatBacked, bool RejectsFlippedIntrinsic, int FiniteLogCount, Option<double> MaxMagnitudeResidual, Option<double> HeatTime, Arr<int> PathFaces, Arr<int> CrossedEdges, double TracedLength, double PathRelativeResidual, int SegmentCount, int EdgeCrossingCount, int VertexPassCount, Option<GeodesicStopKind> StopKind = default, int WindowCount = 0, int OcclusionClampCount = 0, int PseudosourceCount = 0, int CutLocusCount = 0) {
     public bool IsValid =>
         Algorithm is not null && SourceVertex >= 0 && TargetCount >= 0 && FiniteLogCount >= 0
         && SegmentCount >= 0 && EdgeCrossingCount >= 0 && VertexPassCount >= 0 && WindowCount >= 0 && OcclusionClampCount >= 0 && PseudosourceCount >= 0 && CutLocusCount >= 0
         && PathFaces.Count == SegmentCount && CrossedEdges.Count == EdgeCrossingCount
         && PathFaces.All(static face => face >= 0) && CrossedEdges.All(static edge => edge >= 0)
-        && RhinoMath.IsValidDouble(x: MaxMagnitudeResidual) && MaxMagnitudeResidual >= 0.0
-        && RhinoMath.IsValidDouble(x: HeatTime) && HeatTime >= 0.0
+        && MaxMagnitudeResidual.Map(static residual => RhinoMath.IsValidDouble(x: residual) && residual >= 0.0).IfNone(noneValue: true)
+        && HeatTime.Map(static time => RhinoMath.IsValidDouble(x: time) && time >= 0.0).IfNone(noneValue: true)
         && RhinoMath.IsValidDouble(x: TracedLength) && TracedLength >= 0.0
         && RhinoMath.IsValidDouble(x: PathRelativeResidual) && PathRelativeResidual >= 0.0
         && (!StopKind.IsSome || SegmentCount == 0 || SegmentCount == EdgeCrossingCount + VertexPassCount + 1);
@@ -524,7 +527,6 @@ internal readonly record struct VolumeGridDomain(BoundingBox Bounds, int Resolut
 
 internal sealed class LaplacianCache {
     internal const int DefaultSpectralCount = 32;
-    private const double SpdRegularization = 1e-8;
     private static readonly ConditionalWeakTable<object, LaplacianCache> Table = [];
     private sealed class Memo<TKey, T> {
         private readonly Atom<HashMap<TKey, T>> cache = Atom(value: HashMap<TKey, T>());
@@ -577,10 +579,13 @@ internal sealed class LaplacianCache {
             from imesh in TuftedIntrinsicMeshSnapshot(key: key)
             from laplacian in MeshKernel.AssembleTuftedCotangentFromIntrinsic(imesh: imesh, policy: policy, key: key)
             select laplacian);
+    // Tikhonov SPD shift derived from mesh scale (mean edge length squared, gated at SqrtEpsilon), never a bare absolute
+    // literal: it travels as the named SpdMassShift field on the owning SignedHeatReceipt so the regularized solve is replayable.
+    internal double SpdMassShift => Math.Max(val1: MeanEdgeLength, val2: RhinoMath.ZeroTolerance) * Math.Max(val1: MeanEdgeLength, val2: RhinoMath.ZeroTolerance) * RhinoMath.SqrtEpsilon;
     internal Fin<CholeskySparse> Cholesky(Op key) =>
         cholesky.Of(probe: unit, compute: () =>
             from L in IntrinsicDelaunay(key: key)
-            from spd in MeshKernel.AssembleMassStiffnessSystem(laplacian: L, massScale: SpdRegularization, stiffnessScale: 1.0, key: key)
+            from spd in MeshKernel.AssembleMassStiffnessSystem(laplacian: L, massScale: SpdMassShift, stiffnessScale: 1.0, key: key)
             from factor in CholeskySparse.Of(symmetric: spd, key: key)
             select factor);
     internal Fin<MeshKernel.IntrinsicMesh> IntrinsicMeshSnapshot(Op key) =>
@@ -711,7 +716,6 @@ public readonly record struct RestrictedPowerDiagram(Arr<PowerCell> Cells, Arr<P
 }
 
 internal static class MeshKernel {
-    private const double DegenerateTriangleArea = 1e-14;
     private const double AspectRatioCeiling = 11.5;
     private const double MeshSpectrumLowFrequencyCeiling = 0.5;
     private const double VolumeGridKernelSofteningRatio = 0.0625;
@@ -1107,6 +1111,7 @@ internal static class MeshKernel {
         if (ContainsQuads(mesh: active) && !active.Faces.ConvertQuadsToTriangles())
             return Fin.Fail<SparseLaplacian>(key.InvalidResult());
         LaplacianTriplets triplets = new(vertexCount: active.Vertices.Count);
+        double degenerateAreaFloor = DegenerateAreaFloorOf(scale: MeanEdgeLengthOf(mesh: active));
         for (int f = 0; f < active.Faces.Count; f++) {
             MeshFace face = active.Faces[index: f];
             if (!face.IsTriangle) continue;
@@ -1114,7 +1119,7 @@ internal static class MeshKernel {
             Point3d pa = active.Vertices[index: va]; Point3d pb = active.Vertices[index: vb]; Point3d pc = active.Vertices[index: vc];
             Vector3d ab = pb - pa; Vector3d ac = pc - pa; Vector3d bc = pc - pb;
             double area = 0.5 * Vector3d.CrossProduct(a: ab, b: ac).Length;
-            if (area < DegenerateTriangleArea) { triplets.SkippedDegenerateFaces++; continue; }
+            if (area < degenerateAreaFloor) { triplets.SkippedDegenerateFaces++; continue; }
             double cotA = -ab * -ac / (2.0 * area);
             double cotB = ab * -bc / (2.0 * area);
             double cotC = ac * bc / (2.0 * area);
@@ -1388,6 +1393,7 @@ internal static class MeshKernel {
     }
     internal static Fin<SparseLaplacian> AssembleCotangentFromIntrinsic(IntrinsicMesh imesh, Op key) {
         LaplacianTriplets triplets = new(vertexCount: imesh.VertexCount);
+        double degenerateAreaFloor = DegenerateAreaFloorOf(scale: imesh.EdgeData.Count > 0 ? imesh.EdgeData.Values.Average(static e => e.Length) : 0.0);
         for (int f = 0; f < imesh.Triangles.Count; f++) {
             (int A, int B, int C)? slot = imesh.Triangles[index: f];
             if (slot is null) continue;
@@ -1397,7 +1403,7 @@ internal static class MeshKernel {
             double lAC = imesh.EdgeLengthOf(i: va, j: vc);
             double s = (lAB + lBC + lAC) * 0.5;
             double areaSq = s * (s - lAB) * (s - lBC) * (s - lAC);
-            if (areaSq < DegenerateTriangleArea * DegenerateTriangleArea) { triplets.SkippedDegenerateFaces++; continue; }
+            if (areaSq < degenerateAreaFloor * degenerateAreaFloor) { triplets.SkippedDegenerateFaces++; continue; }
             double area = Math.Sqrt(d: areaSq);
             double cotA = ((lAC * lAC) + (lAB * lAB) - (lBC * lBC)) / (4.0 * area);
             double cotB = ((lAB * lAB) + (lBC * lBC) - (lAC * lAC)) / (4.0 * area);
@@ -1484,6 +1490,7 @@ internal static class MeshKernel {
             MollificationEpsilon = epsilon;
             MinTriangleInequalitySlack = double.IsFinite(d: minSlack) ? minSlack + epsilon : 0.0;
             int degenerate = 0;
+            double degenerateAreaFloor = DegenerateAreaFloorOf(scale: h);
             for (int t = 0; t < liveFaces.Length; t++) {
                 (int a, int b, int c) = baseMesh.Triangles[index: liveFaces[t]]!.Value;
                 double lab = baseMesh.EdgeLengthOf(i: a, j: b) + epsilon;
@@ -1492,7 +1499,7 @@ internal static class MeshKernel {
                 WriteFace(face: 2 * t, va: a, vb: b, vc: c, lab: lab, lbc: lbc, lca: lca);
                 WriteFace(face: (2 * t) + 1, va: a, vb: c, vc: b, lab: lca, lbc: lbc, lca: lab);
                 double s = (lab + lbc + lca) * 0.5;
-                if (s * (s - lab) * (s - lbc) * (s - lca) < DegenerateTriangleArea * DegenerateTriangleArea) degenerate += 2;
+                if (s * (s - lab) * (s - lbc) * (s - lca) < degenerateAreaFloor * degenerateAreaFloor) degenerate += 2;
             }
             DegenerateTriangleCount = degenerate;
         }
@@ -1697,13 +1704,14 @@ internal static class MeshKernel {
         internal Fin<SparseLaplacian> Assemble(TuftedCoverPolicy policy, Op key) {
             double energyScale = policy.EnergyScaleFactor.Value;
             LaplacianTriplets triplets = new(vertexCount: baseMesh.VertexCount);
+            double degenerateAreaFloor = DegenerateAreaFloorOf(scale: LengthScaleH);
             int negativeWeights = 0; double minCotan = double.PositiveInfinity; double minBoundaryCotan = double.PositiveInfinity; double coveredArea = 0.0;
             for (int cf = 0; cf < coverFaceCount; cf++) {
                 int va = faceVertexA[cf]; int vb = faceVertexB[cf]; int vc = faceVertexC[cf];
                 double lab = faceLenAB[cf]; double lbc = faceLenBC[cf]; double lca = faceLenCA[cf];
                 double s = (lab + lbc + lca) * 0.5;
                 double areaSq = s * (s - lab) * (s - lbc) * (s - lca);
-                if (areaSq < DegenerateTriangleArea * DegenerateTriangleArea) { triplets.SkippedDegenerateFaces++; continue; }
+                if (areaSq < degenerateAreaFloor * degenerateAreaFloor) { triplets.SkippedDegenerateFaces++; continue; }
                 double area = Math.Sqrt(d: areaSq);
                 coveredArea += area;
                 double cotA = ((lca * lca) + (lab * lab) - (lbc * lbc)) / (4.0 * area);
@@ -1838,6 +1846,10 @@ internal static class MeshKernel {
         }
         return count > 0 ? sum / count : 0.0;
     }
+    // Degenerate-triangle area floor derived from the local mesh length scale: (mean edge length)^2 * SqrtEpsilon, the same
+    // scale-relative form SpdMassShift uses, guarded against a zero scale. Linear-area guards compare against this floor; the
+    // signed-area-squared guards compare against its square — one owner so no raw absolute literal scatters across the face loops.
+    private static double DegenerateAreaFloorOf(double scale) => Math.Max(val1: scale, val2: RhinoMath.ZeroTolerance) * Math.Max(val1: scale, val2: RhinoMath.ZeroTolerance) * RhinoMath.SqrtEpsilon;
     internal static Fin<TopologyReceipt> TopologyDetailed(MeshSpace space) {
         Mesh mesh = space.Native;
         bool manifold = mesh.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool hasBoundary);
@@ -1974,7 +1986,7 @@ internal static class MeshKernel {
             double rms = Math.Sqrt(d: Math.Max(val1: 0.0, val2: rmsSquared));
             distortion = RhinoMath.IsValidDouble(x: scale) && scale > RhinoMath.SqrtEpsilon && RhinoMath.IsValidDouble(x: rms) ? Some(rms) : Option<double>.None;
         }
-        return Fin.Succ(new FlattenResult(Uvs: uvs, Mesh: output, Receipt: new FlattenReceipt(VertexCount: output.Vertices.Count, UvCount: uvs.Count, TextureCoordinateCount: output.TextureCoordinates.Count, BoundaryComponents: boundaryComponents, NativeUnwrap: true, Valid: output.IsValid, EdgeLengthDistortionRms: distortion)));
+        return Fin.Succ(new FlattenResult(Uvs: uvs, Mesh: output, Receipt: new FlattenReceipt(VertexCount: output.Vertices.Count, UvCount: uvs.Count, TextureCoordinateCount: output.TextureCoordinates.Count, BoundaryComponents: boundaryComponents, Valid: output.IsValid, EdgeLengthDistortionRms: distortion)));
         static void AccumulateUvEdge(Mesh mesh, Arr<Point2d> uvs, int faceIndex, IndexPair pair, double modelLength, ref double numerator, ref double denominator, ref double sumRatio, ref double sumRatioSquared, ref int comparable) {
             int[] topology = mesh.TopologyVertices.IndicesFromFace(faceIndex: faceIndex);
             MeshFace face = mesh.Faces[faceIndex];
@@ -2471,6 +2483,11 @@ internal static class MeshKernel {
         select value;
     // Cone path bypasses the cache because the factor depends on the cone prescription.
     private const double ConstrainedShiftReciprocal = 1.0e9;
+    // The LOBPCG residual gate compares the ABSOLUTE block-defect Frobenius norm ‖Lconn·V − V·Λ‖_F against tolerance, so a bare
+    // absolute floor misreads the connection Laplacian's magnitude; the floor travels relative to the operator scale (the full-
+    // Hermitian Frobenius norm) at RhinoMath.SqrtEpsilon (the canonical relative-residual unit). The iteration ceiling travels off
+    // the Krylov dimension that resolves the smallest pair of an n×n Laplacian (Θ(√n)) times a Krylov budget, clamped to n.
+    private const int CrossFieldKrylovBudget = 16;
     private static Fin<Complex[]> ComputeCrossField(MeshSpace space, int symmetry,
         Option<Seq<(int Vertex, Direction Hint)>> constraints,
         Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, Op key) =>
@@ -2486,12 +2503,33 @@ internal static class MeshKernel {
               select Some(adjustment);
     private static Fin<Complex[]> SolveSmoothestCrossField(MeshSpace space, int symmetry, Option<Arr<double>> edgeAdjustment, Op key) =>
         BuildConnectionLaplacian(space: space, symmetry: symmetry, edgeAdjustment: edgeAdjustment, key: key)
-            .Bind(Lconn => Lconn.SmallestEigenpairsDetailed(k: 1, tolerance: 1e-6, maxIterations: 200, key: key)
+            .Bind(Lconn => Lconn.SmallestEigenpairsDetailed(
+                    k: 1,
+                    tolerance: RhinoMath.SqrtEpsilon * ConnectionOperatorScale(connection: Lconn),
+                    maxIterations: KrylovIterationCap(order: Lconn.Order.Value, blocks: 1),
+                    key: key)
                 .Bind(receipt => receipt.Stop.Equals(EigenSolveStop.ResidualConverged) ? Fin.Succ(receipt.Pairs) : Fin.Fail<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>>(key.InvalidResult())))
             .Bind(pairs => pairs.Count > 0
                 ? Fin.Succ(pairs[index: 0])
                 : Fin.Fail<(double Eigenvalue, Arr<Complex> Eigenvector)>(error: key.InvalidResult()))
             .Map(head => NormaliseComplexEigenvector(eigenvector: head.Eigenvector));
+    // Operator scale of the upper-triangular Hermitian connection Laplacian: the full-matrix Frobenius norm, reconstructing the
+    // mirrored lower triangle (off-diagonal magnitudes count twice, the real diagonal once). Floored at SqrtEpsilon so a zero
+    // operator never yields a zero tolerance. This is the σ-scale the relative LOBPCG residual floor is measured against.
+    private static double ConnectionOperatorScale(SparseHermitian connection) {
+        double diagSq = 0.0; double offSq = 0.0;
+        for (int row = 0; row < connection.Order.Value; row++)
+            for (int p = connection.RowPtr[index: row]; p < connection.RowPtr[index: row + 1]; p++) {
+                double magSq = (connection.Values[index: p] * Complex.Conjugate(value: connection.Values[index: p])).Real;
+                if (connection.ColInd[index: p] == row) diagSq += magSq; else offSq += magSq;
+            }
+        return Math.Max(val1: RhinoMath.SqrtEpsilon, val2: Math.Sqrt(d: diagSq + (2.0 * offSq)));
+    }
+    // Krylov-dimension-relative iteration ceiling: the smallest eigenpair of an n×n Laplacian resolves in Θ(√n) Krylov steps, so
+    // the cap travels off ceil(√n) times the block count and the Krylov budget, clamped to the matrix order (an exact subspace
+    // basis cannot exceed n). Replaces a fixed magic ceiling with a dimension-relative bound per CRITERION_PRECEDENCE.
+    private static int KrylovIterationCap(int order, int blocks) =>
+        Math.Min(val1: Math.Max(val1: 1, val2: order), val2: Math.Max(val1: blocks, val2: 1) * CrossFieldKrylovBudget * (int)Math.Ceiling(a: Math.Sqrt(d: Math.Max(val1: 1, val2: order))));
     private static Fin<Complex[]> SolveConstrainedCrossField(MeshSpace space, int symmetry,
         Seq<(int Vertex, Direction Hint)> hints, Option<Arr<double>> edgeAdjustment, Op key) {
         int n = space.Native.Vertices.Count;
@@ -2578,7 +2616,7 @@ internal static class MeshKernel {
                 if (clone.Reduce(parameters: simplify.Parameters) && clone.IsValid)
                     return Fin.Succ(new RemeshResult(Mesh: clone, Receipt: ReduceReceiptOf(kind: simplify, source: state.Space.Native, output: clone)));
                 clone.Dispose();
-                return Fin.Fail<RemeshResult>(error: state.Key.InvalidResult());
+                return Fin.Fail<RemeshResult>(error: state.Key.InvalidResult(detail: Optional(simplify.Parameters.Error).Filter(static text => !string.IsNullOrWhiteSpace(value: text)).IfNone(() => $"{nameof(RemeshStatus.InvalidOutput)}: mesh reduction produced no valid output")));
             })));
     private static QuadRemeshParameters QuadParametersOf(RemeshKind.QuadCase quad) {
         QuadRemeshParameters parameters = new() { DetectHardEdges = quad.DetectHardEdges, GuideCurveInfluence = quad.GuideInfluence.Key, PreserveMeshArrayEdgesMode = quad.PreserveEdges.Key, SymmetryAxis = quad.SymmetryAxis };
@@ -2718,11 +2756,12 @@ internal static class MeshKernel {
         System.Array.Fill(array: faceValues, value: double.NaN);
         int skippedDegenerate = 0, skippedNonFinite = 0, finite = 0;
         double min = double.PositiveInfinity, max = double.NegativeInfinity;
+        double degenerateAreaFloor = DegenerateAreaFloorOf(scale: MeanEdgeLengthOf(mesh: mesh));
         for (int f = 0; f < mesh.Faces.Count; f++) {
             MeshFace face = mesh.Faces[index: f];
             Point3d a = mesh.Vertices[index: face.A], b = mesh.Vertices[index: face.B], c = mesh.Vertices[index: face.C];
             double area = 0.5 * Vector3d.CrossProduct(a: b - a, b: c - a).Length;
-            if ((face.IsTriangle ? area : area + (0.5 * Vector3d.CrossProduct(a: c - a, b: mesh.Vertices[index: face.D] - a).Length)) < DegenerateTriangleArea) { skippedDegenerate++; continue; }
+            if ((face.IsTriangle ? area : area + (0.5 * Vector3d.CrossProduct(a: c - a, b: mesh.Vertices[index: face.D] - a).Length)) < degenerateAreaFloor) { skippedDegenerate++; continue; }
             double value = valuesAreVertices ? (values[index: face.A] + values[index: face.B] + values[index: face.C] + (face.IsQuad ? values[index: face.D] : 0.0)) / (face.IsQuad ? 4.0 : 3.0) : values[index: f];
             if (!RhinoMath.IsValidDouble(x: value)) { skippedNonFinite++; continue; }
             faceValues[f] = value; min = Math.Min(val1: min, val2: value); max = Math.Max(val1: max, val2: value); finite++;
@@ -3286,7 +3325,7 @@ internal static class MeshKernel {
                from transported in VectorHeatAt(space: space, sources: toSeq([(Vertex: source, Direction: sourceDirection)]), time: time, sample: sample, key: key)
                from tangent in distance <= space.Tolerance.Absolute.Value ? key.AcceptValue(value: Vector3d.Zero) : TransportedLog(value: transported, scale: distance)
                let residual = Math.Abs(value: tangent.Length - distance)
-               select new TangentLogMapResult(Tangent: tangent, Receipt: new TangentLogMapReceipt(Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate, SourceVertex: source, TargetCount: 1, VectorHeatBacked: true, RejectsFlippedIntrinsic: true, FiniteLogCount: tangent.IsValid && RhinoMath.IsValidDouble(x: tangent.Length) ? 1 : 0, MaxMagnitudeResidual: residual, HeatTime: time, PathFaces: [], CrossedEdges: [], TracedLength: distance, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0));
+               select new TangentLogMapResult(Tangent: tangent, Receipt: new TangentLogMapReceipt(Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate, SourceVertex: source, TargetCount: 1, VectorHeatBacked: true, RejectsFlippedIntrinsic: true, FiniteLogCount: tangent.IsValid && RhinoMath.IsValidDouble(x: tangent.Length) ? 1 : 0, MaxMagnitudeResidual: Some(residual), HeatTime: Some(time), PathFaces: [], CrossedEdges: [], TracedLength: distance, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0));
         Fin<Vector3d> TransportedLog(Vector3d value, double scale) {
             Vector3d tangent = value;
             return tangent.IsValid && RhinoMath.IsValidDouble(x: scale) && scale >= 0.0 && tangent.Unitize()
@@ -3338,8 +3377,8 @@ internal static class MeshKernel {
                         VectorHeatBacked: false,
                         RejectsFlippedIntrinsic: false,
                         FiniteLogCount: finiteLog,
-                        MaxMagnitudeResidual: 0.0,
-                        HeatTime: 0.0,
+                        MaxMagnitudeResidual: Option<double>.None,
+                        HeatTime: Option<double>.None,
                         PathFaces: new Arr<int>([.. trace.PathFaces]),
                         CrossedEdges: new Arr<int>([.. trace.CrossedEdges]),
                         TracedLength: trace.TracedLength,
@@ -3601,16 +3640,19 @@ internal static class MeshKernel {
         // fieldDistance is the converged wavefront's own interpolated distance at the target (the witness reference the INDEPENDENT
         // chart geodesic distance is compared against, never a replay length fed back).
         if (!RhinoMath.IsValidDouble(x: fieldDistance) || fieldDistance < 0.0) return None;
-        // Walk the saddle chain target->source to confirm reachability. The accept is gated to the DIRECT case (owning pseudosource
-        // == source: the geodesic is a single straight source-incident leg) — the case the rigorous independent witness below covers.
-        // A genuine multi-saddle (cut-locus-bent) chain is confirmed monotone-decreasing toward the source but is NOT reported as a
-        // straight-ray path: it terminates IterationCap with the MMP-exact distance recorded, the honest terminal partition until a
-        // piecewise-through-saddle replay lands, rather than asserting a bent path the wavefront never took. With the default policy
-        // (SaddleAngleThreshold = 2pi+eps) no saddle pseudosource is ever seeded, so the direct case is the realized path.
+        // Walk the saddle chain target->source to confirm reachability. The DIRECT case (owning pseudosource == source: a single
+        // straight source-incident leg) is covered by the rigorous independent witness below. A genuine multi-saddle (cut-locus-bent)
+        // chain is confirmed monotone-decreasing toward the source; with the default policy (SaddleAngleThreshold = 2pi) seeded saddle
+        // pseudosources are admitted only at hyperbolic cone points (theta > 2pi), so a chain can exist. When the chain reaches the
+        // source AND its FIRST leg (source -> firstSaddle, the last pivot before source) develops back to a hyperbolic interior cone
+        // point, replay only that first leg through the SAME strip-development + seat + WalkChart kernel the direct case uses, reporting
+        // the realized first-leg direction. An unconfirmed bend (no reach, no interior cone, or a failed replay) keeps the honest
+        // IterationCap terminal partition with the MMP-exact distance recorded, never asserting a path the wavefront never took.
         int maxHops = Math.Max(val1: 1, val2: policy.BacktraceMaxHops.Value);
         bool directLeg = owningPseudosource == source;
         if (!directLeg) {
             int pivot = owningPseudosource;
+            int firstSaddle = -1;
             GeodesicStopKind chainStop = GeodesicStopKind.IterationCap;
             for (int hop = 0; hop < maxHops; hop++) {
                 if (pivot == source) { chainStop = GeodesicStopKind.LengthReached; break; }
@@ -3620,10 +3662,26 @@ internal static class MeshKernel {
                 if (step.IsNone) return None;
                 int next = step.IfNone(source);
                 double nextReach = next == source ? 0.0 : SaddleReach(imesh: imesh, field: field, saddle: next);
-                if (next != source && nextReach >= pivotReach - RhinoMath.SqrtEpsilon) break;
+                if (next == source) { firstSaddle = pivot; chainStop = GeodesicStopKind.LengthReached; break; }
+                if (nextReach >= pivotReach - RhinoMath.SqrtEpsilon) break;
                 pivot = next;
             }
-            // Multi-saddle path confirmed (or exhausted): record the MMP-exact distance and defer the bent-path direction to IterationCap.
+            // First-leg replay: when the chain reached the source through a hyperbolic interior cone firstSaddle, develop source->firstSaddle
+            // into one plane, seat the source-outgoing angle, and replay through WalkChart stopping at firstSaddle. The realized first leg's
+            // direction is reported; TracedLength is the INDEPENDENT strip-chart distance and FieldDistance the saddle's converged reach.
+            if (chainStop == GeodesicStopKind.LengthReached && firstSaddle >= 0 && imesh.IsInteriorVertex(vertex: firstSaddle) && ConeAngleAt(imesh: imesh, vertex: firstSaddle) > RhinoMath.TwoPI
+                && StripAngleToVertex(imesh: imesh, field: field, source: source, target: firstSaddle, maxHops: maxHops) is { IsSome: true, Case: ValueTuple<double, double, int> leg }
+                && SeatSourceOutgoing(imesh: imesh, mesh: mesh, source: source, seatFace: leg.Item3, chartAngle: leg.Item1) is { IsSome: true, Case: ValueTuple<int, int, int, int, double, Vector3d> legSeat }
+                && legSeat.Item1 >= 0 && legSeat.Item6.IsValid) {
+                double legChart = leg.Item2;
+                ExpTrace legWalk = WalkChart(imesh: imesh, startFace: legSeat.Item1, va: legSeat.Item2, vb: legSeat.Item3, vc: legSeat.Item4, seatAngle: legSeat.Item5, seatedWorldDir: legSeat.Item6, traceLength: legChart, mode: GeodesicWalkMode.Straightest, stopAtVertex: firstSaddle, policy: GeodesicTracePolicy.Default);
+                if (legWalk.Stop == GeodesicStopKind.LengthReached && legWalk.ReachedStopVertex)
+                    return new BvpTrace(WorldLogDir: legChart * legWalk.SeatedWorldDir, TracedLength: legChart,
+                        FieldDistance: SaddleReach(imesh: imesh, field: field, saddle: firstSaddle),
+                        PathFaces: legWalk.PathFaces, CrossedEdges: legWalk.CrossedEdges, EdgeCrossingCount: legWalk.EdgeCrossingCount,
+                        VertexPassCount: legWalk.VertexPassCount, Stop: GeodesicStopKind.LengthReached);
+            }
+            // Unconfirmed bend: record the MMP-exact distance and defer the bent-path direction to the honest IterationCap partition.
             return new BvpTrace(WorldLogDir: Vector3d.Zero, TracedLength: chainStop == GeodesicStopKind.LengthReached ? fieldDistance : 0.0, FieldDistance: fieldDistance, PathFaces: [], CrossedEdges: [], EdgeCrossingCount: 0, VertexPassCount: 0, Stop: GeodesicStopKind.IterationCap);
         }
         // Direct geodesic: aim at the ACTUAL barycentric target POINT in the source-rooted chart (not a face corner) so the outgoing
@@ -3631,10 +3689,14 @@ internal static class MeshKernel {
         // layout, a pure geometry quantity) is the INDEPENDENT witness length — compared against fieldDistance (the MMP wavefront's own
         // distance) it catches a wrong owning-window pick that disagrees the two. Inverse-seat to world through the same basis the IVP
         // forward seat inverts, then replay through WalkChart to produce the path evidence (PathFaces / CrossedEdges / segment law).
-        Option<(double Angle, double ChartDistance)> target = ChartAngleToTargetPoint(imesh: imesh, source: source, targetFace: targetFace, weights: targetWeights);
+        Option<(double Angle, double ChartDistance, int RootFace)> target =
+            ChartAngleToTargetPoint(imesh: imesh, source: source, targetFace: targetFace, weights: targetWeights) is { IsSome: true, Case: ValueTuple<double, double> direct }
+                ? Some((Angle: direct.Item1, ChartDistance: direct.Item2, RootFace: targetFace))
+                : StripAngleToTargetPoint(imesh: imesh, field: field, source: source, targetFace: targetFace, targetWeights: targetWeights, maxHops: maxHops);
         if (target.IsNone) return None;
-        (double directAngle, double chartDistance) = target.IfNone((Angle: 0.0, ChartDistance: 0.0));
-        Option<(int StartFace, int Va, int Vb, int Vc, double ChartAngle, Vector3d WorldDir)> seat = SeatSourceOutgoing(imesh: imesh, mesh: mesh, source: source, seatFace: targetFace, chartAngle: directAngle);
+        (double directAngle, double chartDistance, int rootFace) = target.IfNone((Angle: 0.0, ChartDistance: 0.0, RootFace: -1));
+        if (rootFace < 0 || !(chartDistance > RhinoMath.ZeroTolerance)) return None;
+        Option<(int StartFace, int Va, int Vb, int Vc, double ChartAngle, Vector3d WorldDir)> seat = SeatSourceOutgoing(imesh: imesh, mesh: mesh, source: source, seatFace: rootFace, chartAngle: directAngle);
         if (seat.IsNone) return None;
         (int startFace, int va, int vb, int vc, double chartAngle, Vector3d worldDir) = seat.IfNone((StartFace: -1, Va: -1, Vb: -1, Vc: -1, ChartAngle: 0.0, WorldDir: Vector3d.Zero));
         if (startFace < 0 || !worldDir.IsValid) return None;
@@ -3734,6 +3796,108 @@ internal static class MeshKernel {
         Vector3d worldDir = (Math.Cos(d: chartAngle) * worldEdge) + (Math.Sin(a: chartAngle) * worldPerp);
         return worldDir.IsValid && worldDir.Unitize() ? Some((StartFace: seatFace, Va: va, Vb: vb, Vc: vc, ChartAngle: chartAngle, WorldDir: worldDir)) : None;
     }
+    // Isometric edge-strip development for a target whose owning window is a seeded saddle pseudosource (the multi-saddle /
+    // bent-path case the 1-ring ChartAngleToTargetPoint cannot reach): backtrace face-to-face from the target toward the source
+    // image, laying each crossed edge flat in one shared 2D plane (pure Euclidean, no MathNet/CSparse). The strip terminates at the
+    // face incident to the source; the source-rooted chord is then read by atan2. The source image inside each strip face is
+    // reconstructed by the SAME ProjectPseudosource (sy<=0) geometry the forward cast used and the SAME UnfoldNeighbor interiorSide
+    // sign — the mirror-image side-sign is load-bearing, so the developed chord agrees with the forward wavefront's chirality.
+    private static Option<(double Tx, double Ty, int RootFace)> DevelopStripToSource(IntrinsicMesh imesh, WindowField field, int source, int targetFace, double targetX, double targetY, int maxHops) {
+        int face = targetFace;
+        double[] px = new double[3]; double[] py = new double[3];
+        (int a, int b, int c) = imesh.Triangles[index: face]!.Value;
+        int[] vid = [a, b, c];
+        LayoutFace(imesh: imesh, va: a, vb: b, vc: c, px: px, py: py);
+        double tx = targetX; double ty = targetY;
+        System.Collections.Generic.HashSet<int> seen = [face];
+        for (int hop = 0; hop < maxHops; hop++) {
+            int sLocal = vid[0] == source ? 0 : vid[1] == source ? 1 : vid[2] == source ? 2 : -1;
+            if (sLocal >= 0) {
+                double ox = px[sLocal]; double oy = py[sLocal];
+                int nLocal = (sLocal + 1) % 3;
+                double ex = px[nLocal] - ox; double ey = py[nLocal] - oy;
+                double elen = Math.Sqrt(d: (ex * ex) + (ey * ey));
+                if (!(elen > RhinoMath.ZeroTolerance)) return None;
+                double cx = ex / elen; double cy = ey / elen;
+                double rx = tx - ox; double ry = ty - oy;
+                return ((rx * cx) + (ry * cy), (-rx * cy) + (ry * cx), face);
+            }
+            (int exitLocal, _, _) = RayExitOfFace(px: px, py: py, qx: tx, qy: ty, dx: SourceImageDirX(imesh, field, vid, px, py, tx, ty), dy: SourceImageDirY(imesh, field, vid, px, py, tx, ty));
+            if (exitLocal < 0) return None;
+            int ea = vid[exitLocal]; int eb = vid[(exitLocal + 1) % 3];
+            int across = imesh.FaceAcrossEdge(faceIdx: face, i: ea, j: eb);
+            if (across < 0 || !seen.Add(item: across)) return None;
+            (px, py, vid) = UnfoldNeighbor(imesh: imesh, face: across, ea: ea, eb: eb, sharedAx: px[exitLocal], sharedAy: py[exitLocal], sharedBx: px[(exitLocal + 1) % 3], sharedBy: py[(exitLocal + 1) % 3], interiorX: px[(exitLocal + 2) % 3], interiorY: py[(exitLocal + 2) % 3]);
+            face = across;
+        }
+        return None;
+    }
+    private static double SourceImageDirX(IntrinsicMesh imesh, WindowField field, int[] vid, double[] px, double[] py, double tx, double ty) =>
+        StripSourceImage(imesh, field, vid, px, py).Map(s => s.Ix - tx).IfNone(noneValue: 0.0);
+    private static double SourceImageDirY(IntrinsicMesh imesh, WindowField field, int[] vid, double[] px, double[] py, double tx, double ty) =>
+        StripSourceImage(imesh, field, vid, px, py).Map(s => s.Iy - ty).IfNone(noneValue: 0.0);
+    // Reconstruct the source image inside one strip face from the cheapest shadow-covering window over its three edges, projecting
+    // the pseudosource by the forward ProjectPseudosource (sy<=0) into the laid-out edge frame and offsetting by sy on the interior
+    // side (the UnfoldNeighbor sign convention). The image steers the strip's next backtrace hop toward the source.
+    private static Option<(double Ix, double Iy)> StripSourceImage(IntrinsicMesh imesh, WindowField field, int[] vid, double[] px, double[] py) {
+        double best = double.PositiveInfinity; Option<(double Ix, double Iy)> image = None;
+        for (int e = 0; e < 3; e++) {
+            int vi = vid[e]; int vj = vid[(e + 1) % 3];
+            int edgeIndex = imesh.IndexOfEdge(lo: Math.Min(val1: vi, val2: vj), hi: Math.Max(val1: vi, val2: vj));
+            if (edgeIndex < 0) continue;
+            IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
+            foreach (GeodesicWindow window in field.Windows) {
+                if (window.Edge != edgeIndex) continue;
+                (double sx, double sy) = ProjectPseudosource(b0: window.B0, b1: window.B1, d0: window.D0, d1: window.D1);
+                double reach = window.Sigma + Math.Min(val1: window.D0, val2: window.D1);
+                if (reach >= best) continue;
+                double ax = px[e]; double ay = py[e]; double bx = px[(e + 1) % 3]; double by = py[(e + 1) % 3];
+                bool eIsLo = edge.Lo == vi;
+                double frac = eIsLo ? sx / Math.Max(val1: edge.Length, val2: RhinoMath.ZeroTolerance) : 1.0 - (sx / Math.Max(val1: edge.Length, val2: RhinoMath.ZeroTolerance));
+                double ux = bx - ax; double uy = by - ay; double ulen = Math.Sqrt(d: (ux * ux) + (uy * uy));
+                if (!(ulen > RhinoMath.ZeroTolerance)) continue;
+                double tnx = ux / ulen; double tny = uy / ulen; double nx = -tny; double ny = tnx;
+                double interiorSide = ((px[(e + 2) % 3] - ax) * nx) + ((py[(e + 2) % 3] - ay) * ny);
+                double sign = interiorSide >= 0.0 ? 1.0 : -1.0;
+                double along = frac * ulen;
+                best = reach; image = (ax + (along * tnx) + (sign * Math.Abs(value: sy) * nx), ay + (along * tny) + (sign * Math.Abs(value: sy) * ny));
+            }
+        }
+        return image;
+    }
+    // Strip read-off to an interior barycentric target point: develop the strip from the target face to the source, then read the
+    // source-rooted chord angle + radius by atan2. The radius IS the chart geodesic distance (the INDEPENDENT witness length), so
+    // it inherits the SAME single seat rescale the 1-ring path applies — never doubled. None on a degenerate (zero-radius) chord.
+    private static Option<(double Angle, double ChartDistance, int RootFace)> StripAngleToTargetPoint(IntrinsicMesh imesh, WindowField field, int source, int targetFace, double[] targetWeights, int maxHops) {
+        (int a, int b, int c) = imesh.Triangles[index: targetFace]!.Value;
+        double[] px = new double[3]; double[] py = new double[3];
+        LayoutFace(imesh: imesh, va: a, vb: b, vc: c, px: px, py: py);
+        double tx = (targetWeights[0] * px[0]) + (targetWeights[1] * px[1]) + (targetWeights[2] * px[2]);
+        double ty = (targetWeights[0] * py[0]) + (targetWeights[1] * py[1]) + (targetWeights[2] * py[2]);
+        return DevelopStripToSource(imesh: imesh, field: field, source: source, targetFace: targetFace, targetX: tx, targetY: ty, maxHops: maxHops)
+            .Bind(dev => Math.Sqrt(d: (dev.Tx * dev.Tx) + (dev.Ty * dev.Ty)) is double r && r > RhinoMath.ZeroTolerance
+                ? Some((Angle: Math.Atan2(y: dev.Ty, x: dev.Tx), ChartDistance: r, dev.RootFace)) : None);
+    }
+    // Strip read-off to a saddle vertex (the first-leg replay target of the multi-saddle arm): develop to the source, then accept
+    // only when the developed radius matches the saddle's converged field reach within a scale-relative band (the geometric witness
+    // that the strip is the geodesic the wavefront took). The band travels off SaddleReach, not a bare literal.
+    private static Option<(double Angle, double ChartDistance, int RootFace)> StripAngleToVertex(IntrinsicMesh imesh, WindowField field, int source, int target, int maxHops) {
+        int targetFace = imesh.AnyLiveFaceAtVertex(vertex: target);
+        if (targetFace < 0) return None;
+        (int a, int b, int c) = imesh.Triangles[index: targetFace]!.Value;
+        int tLocal = a == target ? 0 : b == target ? 1 : c == target ? 2 : -1;
+        if (tLocal < 0) return None;
+        double[] px = new double[3]; double[] py = new double[3];
+        LayoutFace(imesh: imesh, va: a, vb: b, vc: c, px: px, py: py);
+        double reach = SaddleReach(imesh: imesh, field: field, saddle: target);
+        return DevelopStripToSource(imesh: imesh, field: field, source: source, targetFace: targetFace, targetX: px[tLocal], targetY: py[tLocal], maxHops: maxHops)
+            .Bind(dev => {
+                double radius = Math.Sqrt(d: (dev.Tx * dev.Tx) + (dev.Ty * dev.Ty));
+                double band = RhinoMath.SqrtEpsilon * Math.Max(val1: 1.0, val2: reach);
+                return radius > RhinoMath.ZeroTolerance && RhinoMath.IsValidDouble(x: reach) && Math.Abs(value: radius - reach) <= band
+                    ? Some((Angle: Math.Atan2(y: dev.Ty, x: dev.Tx), ChartDistance: radius, dev.RootFace)) : None;
+            });
+    }
 
     // --- [STRAIGHTEST_GEODESIC_EXP] ----------------------------------------------------------
     // Polthier straightest-geodesic IVP: seat the world tangent toward the sample into the source-face intrinsic chart,
@@ -3752,7 +3916,7 @@ internal static class MeshKernel {
         double chord = worldDir.Length;
         if (!worldDir.Unitize()) worldDir = frames.X[source];
         return chord <= space.Tolerance.Absolute.Value
-            ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Receipt: new TangentLogMapReceipt(Algorithm: TangentLogMapAlgorithm.ExactStraightestExp, SourceVertex: source, TargetCount: 1, VectorHeatBacked: false, RejectsFlippedIntrinsic: false, FiniteLogCount: 1, MaxMagnitudeResidual: 0.0, HeatTime: 0.0, PathFaces: [], CrossedEdges: [], TracedLength: 0.0, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0, StopKind: Some(GeodesicStopKind.LengthReached))))
+            ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Receipt: new TangentLogMapReceipt(Algorithm: TangentLogMapAlgorithm.ExactStraightestExp, SourceVertex: source, TargetCount: 1, VectorHeatBacked: false, RejectsFlippedIntrinsic: false, FiniteLogCount: 1, MaxMagnitudeResidual: Option<double>.None, HeatTime: Option<double>.None, PathFaces: [], CrossedEdges: [], TracedLength: 0.0, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0, StopKind: Some(GeodesicStopKind.LengthReached))))
             : space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.IntrinsicDelaunay, key: key).Bind(imesh => {
                 int startFace = imesh.AnyLiveFaceAtVertex(vertex: source);
                 if (startFace < 0) return Fin.Fail<TangentLogMapResult>(key.InvalidResult());
@@ -3772,8 +3936,8 @@ internal static class MeshKernel {
                     VectorHeatBacked: false,
                     RejectsFlippedIntrinsic: false,
                     FiniteLogCount: 1,
-                    MaxMagnitudeResidual: residual,
-                    HeatTime: 0.0,
+                    MaxMagnitudeResidual: Option<double>.None,
+                    HeatTime: Option<double>.None,
                     PathFaces: new Arr<int>([.. result.PathFaces]),
                     CrossedEdges: new Arr<int>([.. result.CrossedEdges]),
                     TracedLength: result.TracedLength,
@@ -4046,7 +4210,7 @@ internal static class MeshKernel {
                from shifted in ShiftSignedHeat(phi: poissonSolve.Solution, sourceVertices: admitted.Source.SourceVertices, vertexCount: mesh.Vertices.Count, key: key)
                select new SignedHeatSolution(
                    Values: shifted,
-                   Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: admitted.Source.SourceVertices.Count, BoundaryEncodedEdgeSourceCount: admitted.Source.EncodedEdgeSourceCount, BoundaryRejectedPointCount: admitted.Source.RejectedBoundaryPointCount, BoundaryUnmatchedSegmentCount: admitted.Source.UnmatchedBoundarySegmentCount, HeatSolve: Some(heatSolve), PoissonSolve: poissonSolve, EdgeAssembly: Some(heatFactor.Receipt)),
+                   Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: admitted.Source.SourceVertices.Count, BoundaryEncodedEdgeSourceCount: admitted.Source.EncodedEdgeSourceCount, BoundaryRejectedPointCount: admitted.Source.RejectedBoundaryPointCount, BoundaryUnmatchedSegmentCount: admitted.Source.UnmatchedBoundarySegmentCount, HeatSolve: Some(heatSolve), PoissonSolve: poissonSolve, EdgeAssembly: Some(heatFactor.Receipt), SpdMassShift: Some(space.Cache.SpdMassShift)),
                    Topology: admitted.Topology);
     }
     internal static Fin<ClosedSignedHeatSolution> ComputeClosedSignedHeatDetailed(MeshSpace space, SdfMeshPolicy policy, Op key) =>
@@ -4098,13 +4262,14 @@ internal static class MeshKernel {
         List<VolumeSource> sources = new(capacity: triangulated.Faces.TriangleCount);
         double total = 0.0;
         int degenerate = 0;
+        double degenerateAreaFloor = DegenerateAreaFloorOf(scale: MeanEdgeLengthOf(mesh: triangulated));
         for (int f = 0; f < triangulated.Faces.Count; f++) {
             MeshFace face = triangulated.Faces[index: f];
             if (!face.IsTriangle) continue;
             Point3d a = triangulated.Vertices[index: face.A], b = triangulated.Vertices[index: face.B], c = triangulated.Vertices[index: face.C];
             Vector3d normal = Vector3d.CrossProduct(a: b - a, b: c - a);
             double area = 0.5 * normal.Length;
-            if (!RhinoMath.IsValidDouble(x: area) || area <= DegenerateTriangleArea) { degenerate++; continue; }
+            if (!RhinoMath.IsValidDouble(x: area) || area <= degenerateAreaFloor) { degenerate++; continue; }
             _ = normal.Unitize(); normal *= normalSign;
             Point3d center = new(x: (a.X + b.X + c.X) / 3.0, y: (a.Y + b.Y + c.Y) / 3.0, z: (a.Z + b.Z + c.Z) / 3.0);
             sources.Add(item: new VolumeSource(Center: center, Normal: normal, Area: area));

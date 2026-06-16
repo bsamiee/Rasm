@@ -12,36 +12,41 @@ using Op = Rasm.Domain.Op;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// Theme-reactive: live Skin supplies GH2 tokens; Eto fills unmapped or pre-canvas colours.
+// Theme-reactive: live Skin supplies GH2 tokens; Eto fills unmapped or pre-canvas colours. Each item is one
+// (source, fallback) policy row — shade-keyed and canvas-keyed sources collapse to two factories, LinkText has no skin token.
 [SmartEnum<int>]
 public sealed partial class SystemColorKind {
     private delegate Color ColorSource(Option<Skin> skin);
 
-    public static readonly SystemColorKind ControlText = new(key: 0, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Normal].Text, SystemColors.ControlText));
-    public static readonly SystemColorKind Control = new(key: 1, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Normal].Slab, SystemColors.Control));
-    public static readonly SystemColorKind ControlBackground = new(key: 2, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Normal].Apex, SystemColors.ControlBackground));
-    public static readonly SystemColorKind WindowBackground = new(key: 3, resolve: static skin => Token(skin, static s => s.Canvasses[CanvasKind.Normal].Background, SystemColors.WindowBackground));
-    public static readonly SystemColorKind Highlight = new(key: 4, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.NormalSelected].Apex, SystemColors.Highlight));
-    public static readonly SystemColorKind HighlightText = new(key: 5, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.NormalSelected].Text, SystemColors.HighlightText));
-    public static readonly SystemColorKind Selection = new(key: 6, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.NormalSelected].Slab, SystemColors.Selection));
-    public static readonly SystemColorKind SelectionText = new(key: 7, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.NormalSelected].TextY, SystemColors.SelectionText));
-    public static readonly SystemColorKind DisabledText = new(key: 8, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Disabled].Text, SystemColors.DisabledText));
+    public static readonly SystemColorKind ControlText = ShadeBased(key: 0, shade: ShadeKind.Normal, component: static s => s.Text, fallback: SystemColors.ControlText);
+    public static readonly SystemColorKind Control = ShadeBased(key: 1, shade: ShadeKind.Normal, component: static s => s.Slab, fallback: SystemColors.Control);
+    public static readonly SystemColorKind ControlBackground = ShadeBased(key: 2, shade: ShadeKind.Normal, component: static s => s.Apex, fallback: SystemColors.ControlBackground);
+    public static readonly SystemColorKind WindowBackground = CanvasBased(key: 3, component: static c => c.Background, fallback: SystemColors.WindowBackground);
+    public static readonly SystemColorKind Highlight = ShadeBased(key: 4, shade: ShadeKind.NormalSelected, component: static s => s.Apex, fallback: SystemColors.Highlight);
+    public static readonly SystemColorKind HighlightText = ShadeBased(key: 5, shade: ShadeKind.NormalSelected, component: static s => s.Text, fallback: SystemColors.HighlightText);
+    public static readonly SystemColorKind Selection = ShadeBased(key: 6, shade: ShadeKind.NormalSelected, component: static s => s.Slab, fallback: SystemColors.Selection);
+    public static readonly SystemColorKind SelectionText = ShadeBased(key: 7, shade: ShadeKind.NormalSelected, component: static s => s.TextY, fallback: SystemColors.SelectionText);
+    public static readonly SystemColorKind DisabledText = ShadeBased(key: 8, shade: ShadeKind.Disabled, component: static s => s.Text, fallback: SystemColors.DisabledText);
     public static readonly SystemColorKind LinkText = new(key: 9, resolve: static _ => SystemColors.LinkText);
-    public static readonly SystemColorKind NormalEdge = new(key: 10, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Normal].Edge, SystemColors.ControlText));
-    public static readonly SystemColorKind NormalGlint = new(key: 11, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Normal].Glint, SystemColors.ControlBackground));
-    public static readonly SystemColorKind DisabledBackground = new(key: 12, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Disabled].Slab, SystemColors.Control));
-    public static readonly SystemColorKind HiddenText = new(key: 13, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Hidden].Text, SystemColors.DisabledText));
-    public static readonly SystemColorKind HiddenEdge = new(key: 14, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Hidden].Edge, SystemColors.ControlText));
-    public static readonly SystemColorKind TentativeText = new(key: 15, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Tentative].Text, SystemColors.ControlText));
-    public static readonly SystemColorKind CanvasForeground = new(key: 16, resolve: static skin => Token(skin, static s => s.Canvasses[CanvasKind.Normal].Foreground, SystemColors.ControlText));
-    public static readonly SystemColorKind CanvasEdge = new(key: 17, resolve: static skin => Token(skin, static s => s.Canvasses[CanvasKind.Normal].Edge, SystemColors.ControlText));
-    public static readonly SystemColorKind CanvasShadow = new(key: 18, resolve: static skin => Token(skin, static s => s.Canvasses[CanvasKind.Normal].Shadow, SystemColors.ControlText));
+    public static readonly SystemColorKind NormalEdge = ShadeBased(key: 10, shade: ShadeKind.Normal, component: static s => s.Edge, fallback: SystemColors.ControlText);
+    public static readonly SystemColorKind NormalGlint = ShadeBased(key: 11, shade: ShadeKind.Normal, component: static s => s.Glint, fallback: SystemColors.ControlBackground);
+    public static readonly SystemColorKind DisabledBackground = ShadeBased(key: 12, shade: ShadeKind.Disabled, component: static s => s.Slab, fallback: SystemColors.Control);
+    public static readonly SystemColorKind HiddenText = ShadeBased(key: 13, shade: ShadeKind.Hidden, component: static s => s.Text, fallback: SystemColors.DisabledText);
+    public static readonly SystemColorKind HiddenEdge = ShadeBased(key: 14, shade: ShadeKind.Hidden, component: static s => s.Edge, fallback: SystemColors.ControlText);
+    public static readonly SystemColorKind TentativeText = ShadeBased(key: 15, shade: ShadeKind.Tentative, component: static s => s.Text, fallback: SystemColors.ControlText);
+    public static readonly SystemColorKind CanvasForeground = CanvasBased(key: 16, component: static c => c.Foreground, fallback: SystemColors.ControlText);
+    public static readonly SystemColorKind CanvasEdge = CanvasBased(key: 17, component: static c => c.Edge, fallback: SystemColors.ControlText);
+    public static readonly SystemColorKind CanvasShadow = CanvasBased(key: 18, component: static c => c.Shadow, fallback: SystemColors.ControlText);
 
     [UseDelegateFromConstructor]
     internal partial Color Resolve(Option<Skin> skin);
 
-    private static Color Token(Option<Skin> skin, Func<Skin, Color> fromSkin, Color fallback) =>
-        skin.Match(Some: fromSkin, None: () => fallback);
+    // Shade-keyed rows read s.Shades[shade].component; canvas-keyed rows read s.Canvasses[Normal].component; both fall to an Eto colour pre-skin.
+    private static SystemColorKind ShadeBased(int key, ShadeKind shade, Func<Shade, Color> component, Color fallback) =>
+        new(key: key, resolve: skin => skin.Match(Some: s => component(arg: s.Shades[shade]), None: () => fallback));
+
+    private static SystemColorKind CanvasBased(int key, Func<Grasshopper2.UI.Skinning.CanvasSkin, Color> component, Color fallback) =>
+        new(key: key, resolve: skin => skin.Match(Some: s => component(arg: s.Canvasses[CanvasKind.Normal]), None: () => fallback));
 }
 
 // Mirrors host IconContext filters: disabled, greyscale, fade, or identity.
@@ -120,7 +125,7 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
             .Bind(valid => valid.Apply(scope: current));
     }
 
-    // TextMeasure-routed: Eto.Mac 2.11 GraphicsHandler.MeasureString leaks FormattedText state across calls.
+    // TextMetricsCache-routed: Eto.Mac 2.11 GraphicsHandler.MeasureString leaks FormattedText state across calls.
     // None maxSize is the unbounded default (SizeF is not const-expressible as a default parameter).
     public Fin<PaintTextMeasurement> MeasureText(
         string value,
@@ -135,7 +140,7 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
                 font.IfNone(UiFont.Empty()).Use(run: resolved =>
                     new PaintTextMeasurement(
                         Text: valid,
-                        Size: TextMeasure.Measure(
+                        Size: TextMetricsCache.Measure(
                             font: resolved,
                             text: valid,
                             wrap: wrap,
@@ -144,29 +149,16 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
                             maxSize: maxSize.IfNone(() => new SizeF(width: float.MaxValue, height: float.MaxValue))))
                 )).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MeasureText)), detail: error.Message)));
 
-    // SaveTransformState does NOT capture clipping; ResetClip in finally is mandatory. Path-clip rejects nesting
-    // (Eto restores no clip stack and has no path-intersect primitive).
-    public Fin<Unit> Clip(IGraphicsPath path, Func<PaintScope, Fin<Unit>> body) {
+    // SaveTransformState does NOT capture clipping; ResetClip in finally is mandatory. One polymorphic ClipGeometry
+    // discriminates path versus rect; both reject nesting (Eto restores no clip stack and has no path-intersect primitive).
+    public Fin<Unit> Clip(ClipGeometry region, Func<PaintScope, Fin<Unit>> body) {
         PaintScope self = this;
         Graphics graphics = self.Graphics.Content;
-        return Optional(path)
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "clip path is required"))
-            .Bind(validPath => self.ClipActive
+        return Optional(region)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "clip region is required"))
+            .Bind(valid => self.ClipActive
                 ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "nested clipped draw marks are not supported by Eto clip restoration"))
-                : DoClip(scope: self, graphics: graphics, body: body, setClip: () => graphics.SetClip(path: validPath)));
-    }
-
-    // Eto exposes ResetClip but no clip-stack restore, so even intersecting rectangle clips must stay single-depth.
-    public Fin<Unit> Clip(RectangleF rect, Func<PaintScope, Fin<Unit>> body, bool intersect = false) {
-        PaintScope self = this;
-        Graphics graphics = self.Graphics.Content;
-        return self.ClipActive
-            ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "nested clipped draw marks are not supported by Eto clip restoration"))
-            : DoClip(
-                scope: self,
-                graphics: graphics,
-                body: body,
-                setClip: () => graphics.SetClip(rectangle: intersect ? RectangleF.Intersect(graphics.ClipBounds, rect) : rect));
+                : DoClip(scope: self, graphics: graphics, body: body, setClip: () => valid.SetClip(graphics: graphics)));
     }
 
     // One cull predicate: culling disabled, degenerate bounds, or in-viewport runs the draw; otherwise succeeds idle.
@@ -190,6 +182,26 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
             });
 }
 
+// Clip region as a closed family: a path clip or an optionally-intersecting rect clip. The discriminant is the value
+// shape, never a name suffix; both apply through Eto's stackless SetClip at a single depth.
+[Union]
+public abstract partial record ClipGeometry {
+    private ClipGeometry() { }
+    public sealed record PathCase(IGraphicsPath Geometry) : ClipGeometry;
+    public sealed record RectCase(RectangleF Bounds, bool Intersect = false) : ClipGeometry;
+
+    public static ClipGeometry Path(IGraphicsPath geometry) => new PathCase(Geometry: geometry);
+    public static ClipGeometry Rect(RectangleF bounds, bool intersect = false) => new RectCase(Bounds: bounds, Intersect: intersect);
+
+    public static implicit operator ClipGeometry(RectangleF bounds) => new RectCase(Bounds: bounds);
+
+    // BOUNDARY ADAPTER -- Eto SetClip: the rect arm intersects against the live ClipBounds when requested; otherwise replaces.
+    internal Unit SetClip(Graphics graphics) =>
+        Switch(state: graphics,
+            pathCase: static (g, p) => { g.SetClip(path: p.Geometry); return unit; },
+            rectCase: static (g, r) => { g.SetClip(rectangle: r.Intersect ? RectangleF.Intersect(g.ClipBounds, r.Bounds) : r.Bounds); return unit; });
+}
+
 [ComplexValueObject]
 [ValidationError<UiFault>]
 [StructLayout(LayoutKind.Auto)]
@@ -210,7 +222,7 @@ public readonly partial struct PaintStyle {
     public Option<FillSource> FillBrush { get; }
     public Option<FillSource> EdgeBrush { get; }
 
-    private const float DefaultMiterLimit = 10f;
+    private const float MiterLimitDefault = 10f;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -257,7 +269,7 @@ public readonly partial struct PaintStyle {
             lineCap: PenLineCap.Butt,
             lineJoin: PenLineJoin.Miter,
             dash: default,
-            miterLimit: DefaultMiterLimit,
+            miterLimit: MiterLimitDefault,
             antiAlias: true,
             imageInterpolation: ImageInterpolation.Default,
             pixelOffset: PixelOffsetMode.None,
@@ -286,7 +298,7 @@ public readonly partial struct PaintStyle {
 
     private DashStyle OffsetDash() {
         DashStyle baseline = Dash.IfNone(DashStyles.Solid);
-        return DashOffset == 0f ? baseline : DashStyleIntern.WithOffset(baseline: baseline, offset: DashOffset);
+        return DashOffset == 0f ? baseline : DashStyleCache.WithOffset(baseline: baseline, offset: DashOffset);
     }
 }
 
@@ -502,9 +514,22 @@ public partial record DrawMark {
 
     internal Fin<Unit> Apply(PaintScope scope) =>
         Switch(state: scope,
-            lineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(LineCase)), what: "line draw", bounds: Some(BoundsOf(a: c.A, b: c.B)), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Line(a: c.A, b: c.B))),
-            rectangleCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(RectangleCase)), what: "rectangle draw", bounds: Some(c.Bounds), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Rectangle(bounds: c.Bounds))),
-            roundedCornersCase: static (s, c) => DrawPathStyled(
+            // Shaped arms share the DrawMarked base: cull on bounds, save transform state, assign style, fill then stroke via one PaintShape.
+            lineCase: static (s, c) => DrawMarked(scope: s, style: c.Style, op: Op.Of(name: nameof(LineCase)), what: "line draw", bounds: Some(BoundsOf(c.A, c.B)), shape: PaintShape.Line(a: c.A, b: c.B)),
+            rectangleCase: static (s, c) => DrawMarked(scope: s, style: c.Style, op: Op.Of(name: nameof(RectangleCase)), what: "rectangle draw", bounds: Some(c.Bounds), shape: PaintShape.Rectangle(bounds: c.Bounds)),
+            ellipseCase: static (s, c) => DrawMarked(scope: s, style: c.Style, op: Op.Of(name: nameof(EllipseCase)), what: "ellipse draw", bounds: Some(c.Bounds), shape: PaintShape.Ellipse(bounds: c.Bounds)),
+            pathCase: static (s, c) => DrawMarked(scope: s, style: c.Style, op: Op.Of(name: nameof(PathCase)), what: "path draw", bounds: Some(c.Geometry.Bounds), shape: PaintShape.Path(path: c.Geometry)),
+            polylineCase: static (s, c) => DrawMarked(scope: s, style: c.Style, op: Op.Of(name: nameof(PolylineCase)), what: "polyline draw", bounds: Some(BoundsOf(c.Points.Span)), shape: PaintShape.Polyline(points: c.Points)),
+            polygonCase: static (s, c) => DrawMarked(scope: s, style: c.Style, op: Op.Of(name: nameof(PolygonCase)), what: "polygon draw", bounds: Some(BoundsOf(c.Points.Span)), shape: PaintShape.Polygon(points: c.Points)),
+            arcCase: static (s, c) => DrawMarked(
+                scope: s,
+                // System-coloured arc re-resolves its edge against the live skin; a plain arc keeps its admitted style.
+                style: c.SystemColor is { IsSome: true, Case: SystemColorKind kind } ? PaintStyle.ForSystemColor(kind: kind, skin: Some(s.Skin), thickness: c.Style.Thickness) : c.Style,
+                op: Op.Of(name: nameof(ArcCase)),
+                what: "arc draw",
+                bounds: Some(c.Bounds),
+                shape: PaintShape.Arc(bounds: c.Bounds, startAngle: c.StartAngle, sweepAngle: c.SweepAngle)),
+            roundedCornersCase: static (s, c) => DrawMarked(
                 scope: s,
                 style: c.Style,
                 op: Op.Of(name: nameof(RoundedCornersCase)),
@@ -518,8 +543,44 @@ public partial record DrawMark {
                         neRadius: c.Radii.TopRight,
                         seRadius: c.Radii.BottomRight,
                         swRadius: c.Radii.BottomLeft)),
-            ellipseCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(EllipseCase)), what: "ellipse draw", bounds: Some(c.Bounds), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Ellipse(bounds: c.Bounds))),
-            pathCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PathCase)), what: "path draw", bounds: Some(c.Geometry.Bounds), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Path(path: c.Geometry))),
+            // Pie wedge as one closed figure (centre -> arc start -> arc -> back to centre) so fill AND both
+            // radii stroke together; FillPie + DrawArc could not stroke the radii.
+            pieCase: static (s, c) => DrawMarked(
+                scope: s,
+                style: c.Style,
+                op: Op.Of(name: nameof(PieCase)),
+                what: "pie draw",
+                bounds: Some(c.Bounds),
+                path: () => {
+                    GraphicsPath path = new();
+                    path.MoveTo(new PointF(x: c.Bounds.X + (c.Bounds.Width / 2f), y: c.Bounds.Y + (c.Bounds.Height / 2f)));
+                    path.AddArc(c.Bounds.X, c.Bounds.Y, c.Bounds.Width, c.Bounds.Height, c.StartAngle, c.SweepAngle);
+                    path.CloseFigure();
+                    return path;
+                }),
+            bezierCase: static (s, c) => DrawMarked(
+                scope: s,
+                style: c.Style,
+                op: Op.Of(name: nameof(BezierCase)),
+                what: "bezier draw",
+                bounds: Some(BoundsOf(c.Start, c.Control1, c.Control2, c.End)),
+                path: () => {
+                    GraphicsPath path = new();
+                    path.AddBezier(start: c.Start, control1: c.Control1, control2: c.Control2, end: c.End);
+                    return path;
+                }),
+            curveCase: static (s, c) => DrawMarked(
+                scope: s,
+                style: c.Style,
+                op: Op.Of(name: nameof(CurveCase)),
+                what: "curve draw",
+                bounds: Some(BoundsOf(c.Points.Span)),
+                // Eto IGraphicsPath.AddCurve takes IEnumerable<PointF>; there is no ReadOnlySpan overload, so ToEnumerable stays.
+                path: () => {
+                    GraphicsPath path = new();
+                    path.AddCurve(points: MemoryMarshal.ToEnumerable(c.Points), tension: c.Tension);
+                    return path;
+                }),
             // Text fill uses the same inert brush cache as shapes; no `using` around cached brushes.
             textCase: static (s, c) => c.Frame.Size == SizeF.Empty
                 ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(TextCase)), detail: "text frame size must be non-empty"))
@@ -540,108 +601,60 @@ public partial record DrawMark {
                     background: c.Style.Background)));
                 return unit;
             }),
-            wireCase: static (s, w) => {
+            // Skin indexer and shape build are host touches kept inside the guarded body so an absent-key throw lands in the Fin rail;
+            // bounds are omitted because the WireShape bezier bow can exceed the endpoint chord box, and the cull bounds derive from that host shape.
+            wireCase: static (s, w) => DrawStyled(scope: s, style: w.Style, op: Op.Of(name: nameof(WireCase)), what: "wire draw", draw: graphics => {
                 WireSkin skin = s.Skin.Wires[w.Kind];
                 WireShape shape = WireShape.Create(source: w.Source, target: w.Target);
-                Color outerColour = (w.SourceSelected, w.TargetSelected) switch {
-                    (false, false) => skin.Normal,
-                    (true, true) => skin.SelectedGlow,
-                    _ => skin.Normal,
-                };
-                return DrawStyled(scope: s, style: w.Style, op: Op.Of(name: nameof(WireCase)), what: "wire draw", bounds: Some(shape.Bounds), draw: graphics => {
-                    using Pen outerPen = new(color: outerColour, thickness: skin.Outer.Width);
-                    skin.Outer.AssignToPen(pen: outerPen);
-                    shape.Draw(graphics: graphics, edge: outerPen);
-                    // Inner glow is the selection highlight: draw it only when the wire touches a selected endpoint.
-                    _ = Optional(skin.Inner).Filter(_ => w.SourceSelected || w.TargetSelected).Iter(inner => {
-                        using Pen innerPen = new(color: skin.SelectedGlow, thickness: inner.Width);
-                        inner.AssignToPen(pen: innerPen);
-                        shape.Draw(graphics: graphics, edge: innerPen);
-                    });
-                    return unit;
+                Color outerColour = w.SourceSelected && w.TargetSelected ? skin.SelectedGlow : skin.Normal;
+                using Pen outerPen = new(color: outerColour, thickness: skin.Outer.Width);
+                skin.Outer.AssignToPen(pen: outerPen);
+                shape.Draw(graphics: graphics, edge: outerPen);
+                // Inner glow is the selection highlight: draw it only when the wire touches a selected endpoint.
+                _ = Optional(skin.Inner).Filter(_ => w.SourceSelected || w.TargetSelected).Iter(inner => {
+                    using Pen innerPen = new(color: skin.SelectedGlow, thickness: inner.Width);
+                    inner.AssignToPen(pen: innerPen);
+                    shape.Draw(graphics: graphics, edge: innerPen);
                 });
-            },
-            arcCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(ArcCase)), what: "arc draw", bounds: Some(c.Bounds), draw: g => {
-                using Pen pen = (c.SystemColor is { IsSome: true, Case: SystemColorKind kind }
-                    ? PaintStyle.ForSystemColor(kind: kind, skin: Some(s.Skin), thickness: c.Style.Thickness)
-                    : c.Style).Pen();
-                g.DrawArc(pen, c.Bounds, c.StartAngle, c.SweepAngle);
                 return unit;
             }),
-            // Pie wedge as one closed figure (centre -> arc start -> arc -> back to centre) so fill AND both
-            // radii stroke together; FillPie + DrawArc could not stroke the radii.
-            pieCase: static (s, c) => DrawPathStyled(
-                scope: s,
-                style: c.Style,
-                op: Op.Of(name: nameof(PieCase)),
-                what: "pie draw",
-                bounds: Some(c.Bounds),
-                path: () => {
-                    GraphicsPath path = new();
-                    path.MoveTo(new PointF(x: c.Bounds.X + (c.Bounds.Width / 2f), y: c.Bounds.Y + (c.Bounds.Height / 2f)));
-                    path.AddArc(c.Bounds, c.StartAngle, c.SweepAngle);
-                    path.CloseFigure();
-                    return path;
-                }),
-            polylineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolylineCase)), what: "polyline draw", bounds: Some(BoundsOf(points: c.Points)),
-                draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Polyline(points: c.Points))),
-            polygonCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolygonCase)), what: "polygon draw", bounds: Some(BoundsOf(points: c.Points)),
-                draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Polygon(points: c.Points))),
-            bezierCase: static (s, c) => DrawPathStyled(
-                scope: s,
-                style: c.Style,
-                op: Op.Of(name: nameof(BezierCase)),
-                what: "bezier draw",
-                bounds: Some(BoundsOf(a: c.Start, b: c.Control1, c: c.Control2, d: c.End)),
-                path: () => {
-                    GraphicsPath path = new();
-                    path.AddBezier(start: c.Start, control1: c.Control1, control2: c.Control2, end: c.End);
-                    return path;
-                }),
-            curveCase: static (s, c) => DrawPathStyled(
-                scope: s,
-                style: c.Style,
-                op: Op.Of(name: nameof(CurveCase)),
-                what: "curve draw",
-                bounds: Some(BoundsOf(points: c.Points)),
-                path: () => {
-                    GraphicsPath path = new();
-                    path.AddCurve(points: MemoryMarshal.ToEnumerable(c.Points), tension: c.Tension);
-                    return path;
-                }),
             capsuleCase: static (s, c) => s.WhenVisible(
                 bounds: c.Bounds.IfNone(() => c.Value.Bounds),
                 draw: () => Op.Of(name: nameof(CapsuleCase)).Attempt(body: () => {
                     c.Value.Draw(graphics: s.Graphics.Content, elements: c.Elements, shade: c.Shade, skin: s.Skin);
                     return unit;
                 }, what: "capsule draw")),
-            clippedCase: static (s, c) => s.Clip(path: c.Clip, body: clipScope => c.Plan.Apply(scope: clipScope)),
-            transformedCase: static (s, c) => {
+            clippedCase: static (s, c) => s.Clip(region: ClipGeometry.Path(geometry: c.Clip), body: clipScope => c.Plan.Apply(scope: clipScope)),
+            // Host transform mutations route through op.Attempt like every sibling arm; the saved state stays live across the plan
+            // and disposes via the using when the body returns. The inner plan rail flattens through Bind-identity (no doubled Fin).
+            transformedCase: static (s, c) => Op.Of(name: nameof(TransformedCase)).Attempt(body: () => {
                 Graphics graphics = s.Graphics.Content;
                 using IDisposable state = graphics.SaveTransformState();
                 graphics.MultiplyTransform(matrix: c.Transform);
                 return c.Plan.Apply(scope: s with { VisibilityCulling = false });
-            });
+            }, what: "transformed draw").Bind(static inner => inner));
 
-    // RectangleF.Union owns bounds reduction; fixed-arity overloads avoid per-frame PointF[] wrapping.
-    private static RectangleF BoundsOf(PointF a, PointF b) =>
-        RectangleF.Union(new RectangleF(a, SizeF.Empty), new RectangleF(b, SizeF.Empty));
-
-    private static RectangleF BoundsOf(PointF a, PointF b, PointF c, PointF d) =>
-        RectangleF.Union(
-            RectangleF.Union(new RectangleF(a, SizeF.Empty), new RectangleF(b, SizeF.Empty)),
-            RectangleF.Union(new RectangleF(c, SizeF.Empty), new RectangleF(d, SizeF.Empty)));
-
-    private static RectangleF BoundsOf(ReadOnlyMemory<PointF> points) {
-        ReadOnlySpan<PointF> span = points.Span;
-        // BOUNDARY ADAPTER -- ReadOnlySpan has no IEnumerable; span-index fold is the only zero-alloc path. The
-        // (point, SizeF.Empty) seed is an exact zero-size rect; the (point, point) ctor inflates +1px per axis.
-        RectangleF acc = span.Length == 0 ? RectangleF.Empty : new RectangleF(span[0], SizeF.Empty);
-        for (int i = 1; i < span.Length; i++) {
-            acc = RectangleF.Union(acc, new RectangleF(span[i], SizeF.Empty));
+    // RectangleF.Union owns bounds reduction; one params-span absorber serves fixed-arity vertices and point runs alike.
+    // The (point, SizeF.Empty) seed is an exact zero-size rect; the (point, point) ctor inflates +1px per axis.
+    private static RectangleF BoundsOf(params ReadOnlySpan<PointF> points) {
+        // BOUNDARY ADAPTER -- ReadOnlySpan has no IEnumerable; span-index fold is the only zero-alloc path.
+        RectangleF acc = points.Length == 0 ? RectangleF.Empty : new RectangleF(points[0], SizeF.Empty);
+        for (int i = 1; i < points.Length; i++) {
+            acc = RectangleF.Union(acc, new RectangleF(points[i], SizeF.Empty));
         }
         return acc;
     }
+
+    // DrawMarked is the shaped-arm base: cull, transform-state save, style assign, then fill+stroke through one PaintShape.
+    private static Fin<Unit> DrawMarked(PaintScope scope, PaintStyle style, Op op, string what, PaintShape shape, Option<RectangleF> bounds = default) =>
+        DrawStyled(scope: scope, style: style, op: op, what: what, bounds: bounds, draw: g => DrawShape(style: style, graphics: g, shape: shape));
+
+    // Path-producing shaped arms own a transient IGraphicsPath; the owned path is disposed after one fill+stroke pass.
+    private static Fin<Unit> DrawMarked(PaintScope scope, PaintStyle style, Op op, string what, Func<IGraphicsPath> path, Option<RectangleF> bounds = default) =>
+        DrawStyled(scope: scope, style: style, op: op, what: what, bounds: bounds, draw: g => {
+            using IGraphicsPath owned = path();
+            return DrawShape(style: style, graphics: g, shape: PaintShape.Path(path: owned));
+        });
 
     private static Fin<Unit> DrawStyled(PaintScope scope, PaintStyle style, Op op, string what, Func<Graphics, Unit> draw, Option<RectangleF> bounds = default) {
         Fin<Unit> drawn() =>
@@ -655,12 +668,6 @@ public partial record DrawMark {
         return bounds.Match(Some: b => scope.WhenVisible(bounds: b, draw: drawn), None: drawn);
     }
 
-    private static Fin<Unit> DrawPathStyled(PaintScope scope, PaintStyle style, Op op, string what, Func<IGraphicsPath> path, Option<RectangleF> bounds = default) =>
-        DrawStyled(scope: scope, style: style, op: op, what: what, bounds: bounds, draw: g => {
-            using IGraphicsPath owned = path();
-            return DrawShape(style: style, graphics: g, shape: PaintShape.Path(path: owned));
-        });
-
     private static Unit DrawShape(PaintStyle style, Graphics graphics, PaintShape shape) {
         _ = style.FillBrush.IfSome(source => shape.Fill(graphics, source.CachedBrush()));
         _ = style.FillBrush.IfNone(() => style.Fill.IfSome(colour => {
@@ -673,6 +680,8 @@ public partial record DrawMark {
         });
     }
 
+    // PaintShape is the fill+stroke pair every shaped arm reduces to; stroke-only shapes carry an inert fill.
+    // Eto's DrawLines accepts IEnumerable<PointF> and FillPolygon/DrawPolygon accept params PointF[]; neither has a span overload.
     private readonly record struct PaintShape(Action<Graphics, Brush> Fill, Action<Graphics, Pen> Stroke) {
         internal static PaintShape Line(PointF a, PointF b) =>
             new(
@@ -704,6 +713,16 @@ public partial record DrawMark {
             new(
                 Fill: static (_, _) => { },
                 Stroke: (graphics, pen) => graphics.DrawLines(pen, MemoryMarshal.ToEnumerable(points)));
+
+        // Stroke-only: an arc is an open curve drawn via a transient AddArc path (proven six-float AddArc + DrawPath).
+        internal static PaintShape Arc(RectangleF bounds, float startAngle, float sweepAngle) =>
+            new(
+                Fill: static (_, _) => { },
+                Stroke: (graphics, pen) => {
+                    using GraphicsPath path = new();
+                    path.AddArc(bounds.X, bounds.Y, bounds.Width, bounds.Height, startAngle, sweepAngle);
+                    graphics.DrawPath(pen: pen, path: path);
+                });
     }
 
 }
@@ -855,20 +874,13 @@ public static partial class Paint {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 // Key includes FontDecoration explicitly -- Eto.Drawing.Font equality excludes it. AppKit text APIs
 // are main-thread-only; [ThreadStatic] scratch FormattedText avoids cross-thread reuse.
-file static class TextMeasure {
+file static class TextMetricsCache {
     private readonly record struct Key(Font Font, string Text, FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming, float MaxWidth, float MaxHeight, FontDecoration Decoration);
 
     private static readonly BoundedCache<Key, SizeF> Cache = new(capacity: 1024);
     [ThreadStatic] private static FormattedText? scratch;
 
     private static FormattedText Scratch() => scratch ??= new FormattedText();
-
-    internal static SizeF Single(Font font, string text) =>
-        Measure(font: font, text: text,
-            wrap: FormattedTextWrapMode.None,
-            alignment: FormattedTextAlignment.Left,
-            trimming: FormattedTextTrimming.None,
-            maxSize: new SizeF(float.MaxValue, float.MaxValue));
 
     internal static SizeF Measure(Font font, string text,
         FormattedTextWrapMode wrap, FormattedTextAlignment alignment, FormattedTextTrimming trimming,
@@ -890,7 +902,7 @@ file static class TextMeasure {
 
 // Dedupes by (dashes array identity, quantized offset). Quantum 0.01 matches DashStyle.Equals
 // tolerance and is perceptually identical at any pen thickness.
-file static class DashStyleIntern {
+file static class DashStyleCache {
     private const float Quantum = 0.01f;
     private static readonly BoundedCache<(int DashesRef, int Bucket), DashStyle> Cache = new(capacity: 4096);
 

@@ -18,24 +18,24 @@
 [PUBLIC_TYPE_SCOPE]: change and filter family
 - rail: automation
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `Change` | enum | added/modified/deleted classification |
-| [2] | `BaseFilter` | filter base | change-filter contract |
-| [3] | `DefaultFilter` | filter | dotfile/ignore default filter |
-| [4] | `PythonFilter` | filter | Python-source change filter |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [RAIL]                                |
+| :-----: | :-------------- | :------------ | :------------------------------------ |
+|   [1]   | `Change`        | enum          | added/modified/deleted classification |
+|   [2]   | `BaseFilter`    | filter base   | change-filter contract                |
+|   [3]   | `DefaultFilter` | filter        | dotfile/ignore default filter         |
+|   [4]   | `PythonFilter`  | filter        | Python-source change filter           |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: watch operations
 - rail: automation
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `watch` | watch | blocking change generator |
-| [2] | `awatch` | watch | async change generator |
-| [3] | `run_process` | reload | run+restart a process on change |
-| [4] | `arun_process` | reload | async run+restart driver |
+| [INDEX] | [SURFACE]      | [ENTRY_FAMILY] | [RAIL]                          |
+| :-----: | :------------- | :------------- | :------------------------------ |
+|   [1]   | `watch`        | watch          | blocking change generator       |
+|   [2]   | `awatch`       | watch          | async change generator          |
+|   [3]   | `run_process`  | reload         | run+restart a process on change |
+|   [4]   | `arun_process` | reload         | async run+restart driver        |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

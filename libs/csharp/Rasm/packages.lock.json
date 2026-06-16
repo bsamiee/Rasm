@@ -8,6 +8,12 @@
         "resolved": "4.4.0",
         "contentHash": "MgiHddgPDkcFr9KtYK3mJFUBEsjcCblGmEGlSvXVT1999EIOyH6XO6vVeuw9YFmYb7JyR8U+/++vZyhgVxDWbg=="
       },
+      "JetBrains.Annotations": {
+        "type": "Direct",
+        "requested": "[2025.2.2, )",
+        "resolved": "2025.2.2",
+        "contentHash": "0X56ZRizuHdrnPpgXjWV7f2tQO1FlQg5O1967OGKnI/4ZRNOK642J8L7brM1nYvrxTTU5TP1yRyXLRLaXLPQ8A=="
+      },
       "LanguageExt.Core": {
         "type": "Direct",
         "requested": "[5.0.0-beta-77, )",
@@ -77,7 +83,10 @@
         "contentHash": "CB2efEemm7FEAhHi7zoxT8ANLMhHQ5MpVmTBd4H+GRb2GyHEdN8Uhb5c1U9sv/EXylcmfeLdnDukQrjUrKrRvQ=="
       },
       "csp.contracts": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "JetBrains.Annotations": "[2025.2.2, )"
+        }
       },
       "FParsec": {
         "type": "CentralTransitive",

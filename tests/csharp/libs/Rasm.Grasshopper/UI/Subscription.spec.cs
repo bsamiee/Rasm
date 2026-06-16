@@ -132,7 +132,7 @@ public sealed class SubscriptionTeardownLaws {
         Fin<Subscription> result = Subscription.Bind(attach: static () => { }, detach: static () => { }, detachOnce: true);
         Spec.Succ(result: result, then: sub => {
             Subscription.AtomCase atom = Assert.IsType<Subscription.AtomCase>(@object: sub);
-            Assert.Equal(expected: SubscriptionTeardown.DetachOnce, actual: atom.Teardown);
+            _ = Assert.IsType<Teardown.OnceCase>(@object: atom.Teardown);
         });
     }
     [Fact]
@@ -140,10 +140,10 @@ public sealed class SubscriptionTeardownLaws {
         Fin<Subscription> result = Subscription.Bind(
             attach: static () => { },
             detach: static () => { },
-            teardown: SubscriptionTeardown.TokenGated);
+            teardown: Teardown.Gated(owner: Atom(Option<Guid>.None)));
         Spec.Succ(result: result, then: sub => {
             Subscription.AtomCase atom = Assert.IsType<Subscription.AtomCase>(@object: sub);
-            Assert.Equal(expected: SubscriptionTeardown.TokenGated, actual: atom.Teardown);
+            _ = Assert.IsType<Teardown.GatedCase>(@object: atom.Teardown);
         });
     }
 }
@@ -155,10 +155,10 @@ public sealed class RepaintRequestAbsorptionLaws {
         { RepaintRequest.Canvas, RepaintRequest.Object(id: Guid.NewGuid()), typeof(RepaintRequest.CanvasCase) },
         { RepaintRequest.Scheduled, RepaintRequest.Region(bounds: new RectangleF(x: 0f, y: 0f, width: 1f, height: 1f)), typeof(RepaintRequest.ScheduledCase) },
         { RepaintRequest.Object(id: Guid.NewGuid()), RepaintRequest.Object(id: Guid.NewGuid()), typeof(RepaintRequest.CanvasCase) },
-        { RepaintRequest.Solution, RepaintRequest.Canvas, typeof(RepaintRequest.SolutionCase) },
-        { RepaintRequest.Display, RepaintRequest.Canvas, typeof(RepaintRequest.DisplayCase) },
-        { RepaintRequest.Solution, RepaintRequest.Display, typeof(RepaintRequest.SolutionAndDisplayCase) },
-        { RepaintRequest.SolutionAndDisplay, RepaintRequest.None, typeof(RepaintRequest.SolutionAndDisplayCase) },
+        { RepaintRequest.Solution, RepaintRequest.Canvas, typeof(RepaintRequest.BoundaryCase) },
+        { RepaintRequest.Display, RepaintRequest.Canvas, typeof(RepaintRequest.BoundaryCase) },
+        { RepaintRequest.Solution, RepaintRequest.Display, typeof(RepaintRequest.BoundaryCase) },
+        { RepaintRequest.SolutionAndDisplay, RepaintRequest.None, typeof(RepaintRequest.BoundaryCase) },
     };
 
     [Theory]
@@ -174,7 +174,7 @@ public sealed class RepaintRequestAbsorptionLaws {
     [Fact]
     public void SolutionAndDisplayBeatsSolutionAndDisplayParts() {
         RepaintRequest merged = RepaintRequest.Solution | RepaintRequest.Display;
-        _ = Assert.IsType<RepaintRequest.SolutionAndDisplayCase>(@object: merged);
+        _ = Assert.IsType<RepaintRequest.BoundaryCase>(@object: merged);
     }
     [Fact]
     public void SameObjectIdIsIdempotent() {

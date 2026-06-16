@@ -10,6 +10,8 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="StreamJsonRpc" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+        <Using Include="Thinktecture" />
         <ProjectReference Include="../Contract/Contract.csproj" />
     </ItemGroup>
 </Project>

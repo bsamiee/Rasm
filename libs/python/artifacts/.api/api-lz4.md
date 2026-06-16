@@ -18,44 +18,46 @@
 [PUBLIC_TYPE_SCOPE]: frame codec types
 - rail: compression
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `lz4.frame.LZ4FrameCompressor` | frame compressor | incremental begin/chunk/flush frame compression |
-| [2] | `lz4.frame.LZ4FrameDecompressor` | frame decompressor | incremental frame decompression |
-| [3] | `lz4.frame.LZ4FrameFile` | file codec | file-like framed read/write endpoint |
-| [4] | `lz4.block.LZ4BlockError` | block fault | raw block codec failure |
+| [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]     | [CAPABILITY]                                    |
+| :-----: | :------------------------------- | :----------------- | :---------------------------------------------- |
+|   [1]   | `lz4.frame.LZ4FrameCompressor`   | frame compressor   | incremental begin/chunk/flush frame compression |
+|   [2]   | `lz4.frame.LZ4FrameDecompressor` | frame decompressor | incremental frame decompression                 |
+|   [3]   | `lz4.frame.LZ4FrameFile`         | file codec         | file-like framed read/write endpoint            |
+|   [4]   | `lz4.block.LZ4BlockError`        | block fault        | raw block codec failure                         |
 
 [PUBLIC_TYPE_SCOPE]: frame constants
 - rail: compression
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `BLOCKSIZE_DEFAULT` / `BLOCKSIZE_MAX64KB` / `BLOCKSIZE_MAX256KB` / `BLOCKSIZE_MAX1MB` / `BLOCKSIZE_MAX4MB` | block-size axis | frame max-block-size selector |
-| [2] | `COMPRESSIONLEVEL_MIN` / `COMPRESSIONLEVEL_MINHC` / `COMPRESSIONLEVEL_MAX` | level axis | compression-level bounds |
+| [INDEX] | [SYMBOL_FAMILY]      | [PACKAGE_ROLE]  | [CAPABILITY]                  |
+| :-----: | :------------------- | :-------------- | :---------------------------- |
+|   [1]   | `BLOCKSIZE_*`        | block-size axis | frame max-block-size selector |
+|   [2]   | `COMPRESSIONLEVEL_*` | level axis      | compression-level bounds      |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: frame one-shot, streaming, and file
 - rail: compression
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `lz4.frame.compress` | `compress(data, compression_level=0, block_size=0, content_checksum=0, block_linked=True, store_size=True, return_bytearray=False) -> bytes` | one-shot framed compress |
-| [2] | `lz4.frame.decompress` | `decompress(data, return_bytearray=False, return_bytes_read=False) -> bytes` | one-shot framed decompress |
-| [3] | `lz4.frame.compress_begin` | `compress_begin(ctx, ...) -> bytes` | start a streaming frame |
-| [4] | `lz4.frame.compress_chunk` | `compress_chunk(ctx, data) -> bytes` | feed a streaming chunk |
-| [5] | `lz4.frame.compress_flush` | `compress_flush(ctx, end_frame=True) -> bytes` | finalize the frame |
-| [6] | `lz4.frame.create_compression_context` | `create_compression_context() -> ctx` | allocate a streaming context |
-| [7] | `lz4.frame.open` | `open(filename, mode='rb', compression_level=0, block_size=0, ...) -> LZ4FrameFile` | file-like framed endpoint |
-| [8] | `lz4.frame.get_frame_info` | `get_frame_info(frame) -> dict` | parse a frame header |
+Frame rows share compression level, block size, checksum, linked-block, stored-size, bytearray, and file-mode policy.
+
+| [INDEX] | [SURFACE]                              | [CALL_SHAPE]              | [CAPABILITY]                 |
+| :-----: | :------------------------------------- | :------------------------ | :--------------------------- |
+|   [1]   | `lz4.frame.compress`                   | data plus frame policy    | one-shot framed compress     |
+|   [2]   | `lz4.frame.decompress`                 | data plus output policy   | one-shot framed decompress   |
+|   [3]   | `lz4.frame.compress_begin`             | context plus frame policy | start a streaming frame      |
+|   [4]   | `lz4.frame.compress_chunk`             | context plus data chunk   | feed a streaming chunk       |
+|   [5]   | `lz4.frame.compress_flush`             | context plus end flag     | finalize the frame           |
+|   [6]   | `lz4.frame.create_compression_context` | no-arg context factory    | allocate a streaming context |
+|   [7]   | `lz4.frame.open`                       | filename plus mode policy | file-like framed endpoint    |
+|   [8]   | `lz4.frame.get_frame_info`             | frame bytes               | parse a frame header         |
 
 [ENTRYPOINT_SCOPE]: raw block codec
 - rail: compression
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `lz4.block.compress` | `compress(source, mode='default', acceleration=1, compression=0, store_size=True, return_bytearray=False) -> bytes` | raw block compress |
-| [2] | `lz4.block.decompress` | `decompress(source, uncompressed_size=-1, return_bytearray=False) -> bytes` | raw block decompress |
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]             | [CAPABILITY]         |
+| :-----: | :--------------------- | :----------------------- | :------------------- |
+|   [1]   | `lz4.block.compress`   | source plus block policy | raw block compress   |
+|   [2]   | `lz4.block.decompress` | source plus size policy  | raw block decompress |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

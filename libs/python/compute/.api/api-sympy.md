@@ -101,16 +101,21 @@
 [ENTRYPOINT_SCOPE]: simplification and rewriting
 - rail: symbolic
 
-| [INDEX] | [SURFACE]                                             | [CALL_SHAPE]                                                                             | [CAPABILITY]                                     |
-| :-----: | :---------------------------------------------------- | :--------------------------------------------------------------------------------------- | :----------------------------------------------- |
-|   [1]   | `simplify`                                            | `simplify(expr, ratio=1.7, measure=count_ops, rational=False, inverse=False, doit=True)` | heuristic canonicalization                       |
-|   [2]   | `expand`                                              | `expand(expr)`                                                                           | distribute products and powers                   |
-|   [3]   | `factor`                                              | `factor(expr)`                                                                           | polynomial factorization                         |
-|   [4]   | `collect`                                             | `collect(expr, syms)`                                                                    | group by powers of a symbol                      |
-|   [5]   | `cancel`                                              | `cancel(expr)`                                                                           | reduce rational expression to lowest terms       |
-|   [6]   | `apart` `together`                                    | `apart(expr)` / `together(expr)`                                                         | partial-fraction split / common-denominator join |
-|   [7]   | `trigsimp` `radsimp` `ratsimp` `powsimp` `logcombine` | `trigsimp(expr)`                                                                         | domain-specific rewriting passes                 |
-|   [8]   | `nsimplify`                                           | `nsimplify(expr)`                                                                        | float-to-exact reconstruction                    |
+| [INDEX] | [SURFACE]    | [CALL_SHAPE]                | [CAPABILITY]                   |
+| :-----: | :----------- | :-------------------------- | :----------------------------- |
+|   [1]   | `simplify`   | `simplify(expr, **options)` | heuristic canonicalization     |
+|   [2]   | `expand`     | `expand(expr)`              | product and power distribution |
+|   [3]   | `factor`     | `factor(expr)`              | polynomial factorization       |
+|   [4]   | `collect`    | `collect(expr, syms)`       | symbolic term grouping         |
+|   [5]   | `cancel`     | `cancel(expr)`              | rational reduction             |
+|   [6]   | `apart`      | `apart(expr)`               | partial-fraction split         |
+|   [7]   | `together`   | `together(expr)`            | common-denominator join        |
+|   [8]   | `trigsimp`   | `trigsimp(expr)`            | trigonometric rewriting        |
+|   [9]   | `radsimp`    | `radsimp(expr)`             | radical rewriting              |
+|  [10]   | `ratsimp`    | `ratsimp(expr)`             | rational rewriting             |
+|  [11]   | `powsimp`    | `powsimp(expr)`             | power rewriting                |
+|  [12]   | `logcombine` | `logcombine(expr)`          | logarithm rewriting            |
+|  [13]   | `nsimplify`  | `nsimplify(expr)`           | float-to-exact reconstruction  |
 
 [ENTRYPOINT_SCOPE]: matrix algebra
 - rail: symbolic
@@ -128,16 +133,16 @@
 [ENTRYPOINT_SCOPE]: numeric evaluation and code generation (C# graduation path)
 - rail: symbolic
 
-| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                                                                                                              | [CAPABILITY]                                     |
-| :-----: | :---------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------- |
-|   [1]   | `N`                           | `N(x, n=15)`                                                                                                                                              | exact-to-decimal evaluation at precision `n`     |
-|   [2]   | `Expr.evalf`                  | `expr.evalf(n)`                                                                                                                                           | arbitrary-precision numeric evaluation           |
-|   [3]   | `lambdify`                    | `lambdify(args, expr, modules=None, printer=None, use_imps=True, dummify=False, cse=False, docstring_limit=1000)`                                         | compile expression to a Python/NumPy callable    |
-|   [4]   | `cse`                         | `cse(exprs, symbols=None, optimizations=None, postprocess=None, order='canonical', ignore=(), list=True)`                                                  | common-subexpression elimination for codegen     |
-|   [5]   | `Poly.all_coeffs`             | `Poly(expr, x).all_coeffs()`                                                                                                                              | ordered coefficient vector for numeric handoff   |
-|   [6]   | `printing.c.ccode`            | `ccode(expr, assign_to=None, standard='c99', **settings)`                                                                                                 | emit C99 source for the C# numeric owner         |
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                                                                                                                                                       | [CAPABILITY]                                     |
+| :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------- |
+|   [1]   | `N`                           | `N(x, n=15)`                                                                                                                                                                                       | exact-to-decimal evaluation at precision `n`     |
+|   [2]   | `Expr.evalf`                  | `expr.evalf(n)`                                                                                                                                                                                    | arbitrary-precision numeric evaluation           |
+|   [3]   | `lambdify`                    | `lambdify(args, expr, modules=None, printer=None, use_imps=True, dummify=False, cse=False, docstring_limit=1000)`                                                                                  | compile expression to a Python/NumPy callable    |
+|   [4]   | `cse`                         | `cse(exprs, symbols=None, optimizations=None, postprocess=None, order='canonical', ignore=(), list=True)`                                                                                          | common-subexpression elimination for codegen     |
+|   [5]   | `Poly.all_coeffs`             | `Poly(expr, x).all_coeffs()`                                                                                                                                                                       | ordered coefficient vector for numeric handoff   |
+|   [6]   | `printing.c.ccode`            | `ccode(expr, assign_to=None, standard='c99', **settings)`                                                                                                                                          | emit C99 source for the C# numeric owner         |
 |   [7]   | `utilities.codegen.codegen`   | `codegen(name_expr, language=None, prefix=None, project='project', to_files=False, header=True, empty=True, argument_sequence=None, global_vars=None, standard=None, code_gen=None, printer=None)` | emit a named code module (C/Fortran/Octave)      |
-|   [8]   | `printing.numpy.NumPyPrinter` | `NumPyPrinter()`                                                                                                                                          | printer backing `lambdify(..., modules='numpy')` |
+|   [8]   | `printing.numpy.NumPyPrinter` | `NumPyPrinter()`                                                                                                                                                                                   | printer backing `lambdify(..., modules='numpy')` |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

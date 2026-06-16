@@ -19,50 +19,50 @@
 [PUBLIC_TYPE_SCOPE]: message and descriptor family
 - rail: transport
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `message.Message` | message base | generated-message base class |
-| [2] | `descriptor.Descriptor` | descriptor | message descriptor |
-| [3] | `descriptor.FieldDescriptor` | descriptor | field descriptor |
-| [4] | `descriptor.EnumDescriptor` | descriptor | enum descriptor |
-| [5] | `descriptor.FileDescriptor` | descriptor | file descriptor |
-| [6] | `descriptor.ServiceDescriptor` | descriptor | service descriptor |
-| [7] | `descriptor_pool.DescriptorPool` | pool | descriptor registry |
-| [8] | `symbol_database.SymbolDatabase` | registry | symbol-to-message map |
-| [9] | `message_factory.MessageFactory` | factory | descriptor-to-class factory |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [RAIL]                       |
+| :-----: | :------------------------------- | :------------ | :--------------------------- |
+|   [1]   | `message.Message`                | message base  | generated-message base class |
+|   [2]   | `descriptor.Descriptor`          | descriptor    | message descriptor           |
+|   [3]   | `descriptor.FieldDescriptor`     | descriptor    | field descriptor             |
+|   [4]   | `descriptor.EnumDescriptor`      | descriptor    | enum descriptor              |
+|   [5]   | `descriptor.FileDescriptor`      | descriptor    | file descriptor              |
+|   [6]   | `descriptor.ServiceDescriptor`   | descriptor    | service descriptor           |
+|   [7]   | `descriptor_pool.DescriptorPool` | pool          | descriptor registry          |
+|   [8]   | `symbol_database.SymbolDatabase` | registry      | symbol-to-message map        |
+|   [9]   | `message_factory.MessageFactory` | factory       | descriptor-to-class factory  |
 
 [PUBLIC_TYPE_SCOPE]: well-known and fault family
 - rail: transport
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `timestamp_pb2.Timestamp` | well-known | RFC-3339 timestamp |
-| [2] | `duration_pb2.Duration` | well-known | signed duration |
-| [3] | `struct_pb2.Struct` | well-known | dynamic struct |
-| [4] | `any_pb2.Any` | well-known | type-erased message |
-| [5] | `wrappers_pb2.StringValue` | well-known | boxed scalar |
-| [6] | `field_mask_pb2.FieldMask` | well-known | field selector |
-| [7] | `empty_pb2.Empty` | well-known | empty message |
-| [8] | `message.DecodeError` | fault | malformed wire bytes |
-| [9] | `message.EncodeError` | fault | unencodable message |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [RAIL]               |
+| :-----: | :------------------------- | :------------ | :------------------- |
+|   [1]   | `timestamp_pb2.Timestamp`  | well-known    | RFC-3339 timestamp   |
+|   [2]   | `duration_pb2.Duration`    | well-known    | signed duration      |
+|   [3]   | `struct_pb2.Struct`        | well-known    | dynamic struct       |
+|   [4]   | `any_pb2.Any`              | well-known    | type-erased message  |
+|   [5]   | `wrappers_pb2.StringValue` | well-known    | boxed scalar         |
+|   [6]   | `field_mask_pb2.FieldMask` | well-known    | field selector       |
+|   [7]   | `empty_pb2.Empty`          | well-known    | empty message        |
+|   [8]   | `message.DecodeError`      | fault         | malformed wire bytes |
+|   [9]   | `message.EncodeError`      | fault         | unencodable message  |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: message operations
 - rail: transport
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `Message.SerializeToString` | encode | message to wire bytes |
-| [2] | `Message.ParseFromString` | decode | wire bytes into a message |
-| [3] | `Message.MergeFrom` | merge | merge another message |
-| [4] | `Message.CopyFrom` | copy | replace contents |
-| [5] | `Message.WhichOneof` | oneof | active oneof field |
-| [6] | `json_format.MessageToJson` | convert | message to JSON |
-| [7] | `json_format.Parse` | convert | JSON to message |
-| [8] | `text_format.MessageToString` | convert | message to text format |
-| [9] | `message_factory.GetMessageClass` | factory | class from a descriptor |
-| [10] | `Timestamp.FromDatetime` / `ToDatetime` | well-known | datetime conversion |
+| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [RAIL]                    |
+| :-----: | :-------------------------------------- | :------------- | :------------------------ |
+|   [1]   | `Message.SerializeToString`             | encode         | message to wire bytes     |
+|   [2]   | `Message.ParseFromString`               | decode         | wire bytes into a message |
+|   [3]   | `Message.MergeFrom`                     | merge          | merge another message     |
+|   [4]   | `Message.CopyFrom`                      | copy           | replace contents          |
+|   [5]   | `Message.WhichOneof`                    | oneof          | active oneof field        |
+|   [6]   | `json_format.MessageToJson`             | convert        | message to JSON           |
+|   [7]   | `json_format.Parse`                     | convert        | JSON to message           |
+|   [8]   | `text_format.MessageToString`           | convert        | message to text format    |
+|   [9]   | `message_factory.GetMessageClass`       | factory        | class from a descriptor   |
+|  [10]   | `Timestamp.FromDatetime` / `ToDatetime` | well-known     | datetime conversion       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

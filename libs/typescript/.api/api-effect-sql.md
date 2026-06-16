@@ -142,24 +142,31 @@ class SafeIntegers extends Context.Reference<SafeIntegers>()("@effect/sql/SqlCli
 - rail: persistence
 - entry: `@effect/sql/Statement`
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [RAIL]                                                                                                                                                       |
-| :-----: | :------------------------- | :------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `Constructor`              | interface     | the callable template builder (what `SqlClient` extends)                                                                                                     |
-|   [2]   | `Statement<A>`             | interface     | a `Fragment` that is also `Effect<ReadonlyArray<A>, SqlError>`                                                                                               |
-|   [3]   | `Fragment`                 | interface     | `{ segments: ReadonlyArray<Segment> }` — the compile unit                                                                                                    |
-|   [4]   | `Segment`                  | type union    | `Literal \| Identifier \| Parameter \| ArrayHelper \| RecordInsertHelper \| RecordUpdateHelper \| RecordUpdateHelperSingle \| Custom` (no `Fragment` member) |
-|   [5]   | `Dialect`                  | string union  | `"sqlite" \| "pg" \| "mysql" \| "mssql" \| "clickhouse"`                                                                                                     |
-|   [6]   | `Literal`                  | interface     | `_tag: "Literal"`; `{ value; params? }` raw-SQL leaf segment                                                                                                 |
-|   [7]   | `Identifier` / `Parameter` | interface     | tagged leaf segments                                                                                                                                         |
-|   [8]   | `ArrayHelper`              | interface     | `in (…)` value list                                                                                                                                          |
-|   [9]   | `RecordInsertHelper`       | interface     | `insert(…)` builder with `.returning`                                                                                                                        |
-|  [10]   | `RecordUpdateHelper`       | interface     | `updateValues(…, alias)` builder with `.returning`                                                                                                           |
-|  [11]   | `RecordUpdateHelperSingle` | interface     | `update(…)` single-row builder with `.returning`                                                                                                             |
-|  [12]   | `Custom<T,A,B,C>`          | interface     | `_tag: "Custom"`; `{ kind: T; i0; i1; i2 }` dialect extension point                                                                                          |
-|  [13]   | `Helper`                   | type union    | `ArrayHelper \| RecordInsertHelper \| RecordUpdateHelper \| RecordUpdateHelperSingle \| Identifier \| Custom`                                                |
-|  [14]   | `PrimitiveKind`            | string union  | runtime parameter classification                                                                                                                             |
-|  [15]   | `Compiler`                 | interface     | `{ dialect; compile; withoutTransform }`                                                                                                                     |
-|  [16]   | `Transformer`              | type alias    | `Statement.Transformer` fiber-ref transform hook                                                                                                             |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [CAPABILITY]              |
+| :-----: | :------------- | :------------ | :------------------------ |
+|   [1]   | `Constructor`  | interface     | callable template builder |
+|   [2]   | `Statement<A>` | interface     | query effect              |
+|   [3]   | `Fragment`     | interface     | compile unit              |
+|   [4]   | `Segment`      | type union    | fragment node algebra     |
+|   [5]   | `Dialect`      | string union  | compiler dialect          |
+|   [6]   | `Compiler`     | interface     | dialect compiler          |
+|   [7]   | `Transformer`  | type alias    | statement transform hook  |
+
+[PUBLIC_TYPE_SCOPE]: fragment helper algebra
+- rail: persistence
+- entry: `@effect/sql/Statement`
+
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]             |
+| :-----: | :------------------------- | :------------ | :----------------------- |
+|   [1]   | `Literal`                  | interface     | raw SQL segment          |
+|   [2]   | `Identifier` / `Parameter` | interface     | escaped name or bind     |
+|   [3]   | `ArrayHelper`              | interface     | value-list helper        |
+|   [4]   | `RecordInsertHelper`       | interface     | insert helper            |
+|   [5]   | `RecordUpdateHelper`       | interface     | multi-row update helper  |
+|   [6]   | `RecordUpdateHelperSingle` | interface     | single-row update helper |
+|   [7]   | `Custom<T,A,B,C>`          | interface     | dialect extension point  |
+|   [8]   | `Helper`                   | type union    | helper union             |
+|   [9]   | `PrimitiveKind`            | string union  | parameter kind           |
 
 [PUBLIC_TYPE_SCOPE]: free functions
 - rail: persistence
@@ -460,14 +467,14 @@ export { void_ as void }
 - rail: persistence
 - entry: `@effect/sql/SqlResolver`
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                                                                                                           |
-| :-----: | :------------------ | :------------ | :--------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `SqlResolver<T,…>`  | interface     | extends `RequestResolver`; carries `execute`/`makeExecute`/`cachePopulate`/`cacheInvalidate`/`request` accessors |
-|   [2]   | `SqlRequest<T,A,E>` | interface     | the tagged `Request` shape backing a resolver                                                                    |
-|   [3]   | `ordered`           | constructor   | one-to-one request↔result ordering; `ResultLengthMismatch` on mismatch                                           |
-|   [4]   | `grouped`           | constructor   | many-results-per-request keyed by request/result group key                                                       |
-|   [5]   | `findById`          | constructor   | id-keyed resolver yielding `Option<A>` per id                                                                    |
-|   [6]   | `void`              | constructor   | side-effecting resolver (exported as `void`, internal `void_`); result `void`                                    |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                          |
+| :-----: | :------------------- | :------------ | :------------------------------------ |
+|   [1]   | `SqlResolver<T,...>` | interface     | request resolver with cache accessors |
+|   [2]   | `SqlRequest<T,A,E>`  | interface     | tagged request shape                  |
+|   [3]   | `ordered`            | constructor   | one-to-one request resolver           |
+|   [4]   | `grouped`            | constructor   | grouped result resolver               |
+|   [5]   | `findById`           | constructor   | id-keyed option resolver              |
+|   [6]   | `void`               | constructor   | side-effecting resolver               |
 
 Each builder has a `withContext: false` (default) and a `withContext: true` overload; the latter
 threads the result-schema context `RA`/`R` into the requirement channel.
@@ -527,25 +534,33 @@ export { void_ as void }
 - rail: persistence
 - entry: `@effect/sql/Model`
 
-| [INDEX] | [SYMBOL]                                                                                                                                                                          | [TYPE_FAMILY]       | [RAIL]                                                                      |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------ | :-------------------------------------------------------------------------- |
-|   [1]   | `Class<Self>`                                                                                                                                                                     | class factory       | `Model.Class<Self>("Id")({ …fields })` — the variant schema class           |
-|   [2]   | `Any` / `AnyNoContext`                                                                                                                                                            | type alias          | model upper bounds for builder generics                                     |
-|   [3]   | `VariantsDatabase`                                                                                                                                                                | string union        | `"select" \| "insert" \| "update"`                                          |
-|   [4]   | `VariantsJson`                                                                                                                                                                    | string union        | `"json" \| "jsonCreate" \| "jsonUpdate"`                                    |
-|   [5]   | `fields`                                                                                                                                                                          | accessor            | extract the raw field map from a model                                      |
-|   [6]   | `Field`/`FieldOnly`/`FieldExcept`/`fieldEvolve`/`fieldFromKey`                                                                                                                    | field combinators   | per-variant field shaping (returned alongside `Class` from the same module) |
-|   [7]   | `extract`                                                                                                                                                                         | combinator          | extract one variant schema (`extract(variant)` or `extract(self, variant)`) |
-|   [8]   | `Struct` / `Union`                                                                                                                                                                | constructors        | variant-aware struct / tagged-union schema builders (mirror `Model.Class`)  |
-|   [9]   | `Override`                                                                                                                                                                        | brand ctor          | `<A>(value) => A & Brand<"Override">`                                       |
-|  [10]   | `Generated`                                                                                                                                                                       | field ctor          | DB-generated: select+update+json, not insert                                |
-|  [11]   | `GeneratedByApp`                                                                                                                                                                  | field ctor          | app-generated: required by DB, not by JSON variants                         |
-|  [12]   | `Sensitive`                                                                                                                                                                       | field ctor          | select+insert+update, excluded from JSON variants                           |
-|  [13]   | `FieldOption`                                                                                                                                                                     | field ctor          | nullable in DB variants, optional in JSON variants                          |
-|  [14]   | `JsonFromString`                                                                                                                                                                  | field ctor          | parse/stringify JSON column                                                 |
-|  [15]   | `Date`/`DateTimeFromDate`/`DateWithNow`/`DateTimeWithNow`/`DateTimeInsert`/`DateTimeUpdate` (+`DateTime{Insert,Update}{FromDate,FromNumber}`, `DateTimeFrom{Date,Number}WithNow`) | overrideable fields | timestamp columns                                                           |
-|  [16]   | `UuidV4Insert`/`UuidV4WithGenerate`                                                                                                                                               | overrideable fields | generated UUID columns                                                      |
-|  [17]   | `BooleanFromNumber`                                                                                                                                                               | field schema        | 0/1 boolean column                                                          |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]           |
+| :-----: | :--------------------- | :------------ | :--------------------- |
+|   [1]   | `Class<Self>`          | class factory | variant schema class   |
+|   [2]   | `Any` / `AnyNoContext` | type alias    | builder generic bounds |
+|   [3]   | `VariantsDatabase`     | string union  | database variants      |
+|   [4]   | `VariantsJson`         | string union  | JSON variants          |
+|   [5]   | `fields`               | accessor      | raw field map          |
+|   [6]   | `extract`              | combinator    | variant schema extract |
+|   [7]   | `Struct` / `Union`     | constructors  | variant-aware schemas  |
+|   [8]   | `Override`             | brand ctor    | override marker        |
+
+[PUBLIC_TYPE_SCOPE]: model field families
+- rail: persistence
+- entry: `@effect/sql/Model`
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]       | [CAPABILITY]               |
+| :-----: | :------------------------------------ | :------------------ | :------------------------- |
+|   [1]   | `Field` / `FieldOnly` / `FieldExcept` | field combinators   | variant field shaping      |
+|   [2]   | `fieldEvolve` / `fieldFromKey`        | field combinators   | field derivation           |
+|   [3]   | `Generated` / `GeneratedByApp`        | field ctor          | generated value policy     |
+|   [4]   | `Sensitive` / `FieldOption`           | field ctor          | visibility and nullability |
+|   [5]   | `JsonFromString`                      | field ctor          | JSON column conversion     |
+|   [6]   | `Date*` / `DateTime*`                 | overrideable fields | temporal columns           |
+|   [7]   | `UuidV4Insert` / `UuidV4WithGenerate` | overrideable fields | generated UUID columns     |
+|   [8]   | `BooleanFromNumber`                   | field schema        | numeric boolean column     |
+
+Temporal constructors include `Date`, `DateTimeFromDate`, `DateWithNow`, `DateTimeWithNow`, `DateTimeInsert`, `DateTimeUpdate`, `DateTime{Insert,Update}{FromDate,FromNumber}`, and `DateTimeFrom{Date,Number}WithNow`.
 
 [PUBLIC_TYPE_SCOPE]: repository builders
 - rail: persistence

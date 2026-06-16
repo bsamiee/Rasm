@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Reflection;
 using Eto.Forms;
@@ -87,6 +88,10 @@ public partial record CanvasLocus {
                 .Map(value => Bounds(value: state.Canvas.Map(rectangle: value, from: state.From, to: state.To))));
 }
 
+// A CanvasPosition anchor resolves against document and content at navigation time, not construction time.
+[Union<CanvasLocus, CanvasPosition>(T1Name = "Locus", T2Name = "Anchor")]
+public readonly partial struct NavTarget;
+
 public enum CanvasFitTarget { Content, Selection, Viewport }
 
 [SkipUnionOps]
@@ -128,7 +133,7 @@ public partial record CanvasOp : IUiOp<CanvasResult> {
     public sealed partial record InlineEditCase(RectangleF Frame, string Initial, Func<string, Fin<Unit>> Apply, Option<Func<Fin<Unit>>> Cancel) : CanvasOp;
     public sealed partial record ValueEditorCase(AbstractParameter Parameter, Option<Control> Control) : CanvasOp;
     public sealed partial record SparkleCase(ISparkle Instance) : CanvasOp;
-    public sealed partial record WireShapeCase(WireRouter Router, Option<Type> Custom, Option<float> CornerRadius = default, Option<float> SplitRatio = default) : CanvasOp;
+    public sealed partial record WireShapeCase(WireStyle Style, float CornerRadius, float SplitRatio, WireRoutingProfile Profile, Option<Type> CustomShape = default, Option<Func<RectangleF, Seq<RectangleF>>> ObstaclesOverride = default) : CanvasOp;
     public sealed partial record SnapSettingsCase(bool AsForm) : CanvasOp;
     public sealed partial record BackgroundOverrideCase(CanvasPaintPhase Phase) : CanvasOp;
 
@@ -154,8 +159,8 @@ public partial record CanvasOp : IUiOp<CanvasResult> {
     public static CanvasOp ValueEditor(AbstractParameter parameter, Control? control = null) =>
         new ValueEditorCase(Parameter: parameter, Control: Optional(control));
     public static CanvasOp Sparkle(ISparkle instance) => new SparkleCase(Instance: instance);
-    public static CanvasOp WireShape(WireRouter router, Option<Type> custom = default, Option<float> cornerRadius = default, Option<float> splitRatio = default) =>
-        new WireShapeCase(Router: router ?? WireRouter.Default, Custom: custom, CornerRadius: cornerRadius, SplitRatio: splitRatio);
+    public static CanvasOp WireShape(WireStyle style, float cornerRadius = 8f, float splitRatio = 0.5f, WireRoutingProfile? profile = default, Option<Type> customShape = default, Option<Func<RectangleF, Seq<RectangleF>>> obstaclesOverride = default) =>
+        new WireShapeCase(Style: style ?? WireStyle.Default, CornerRadius: cornerRadius, SplitRatio: splitRatio, Profile: profile ?? WireRoutingProfile.Balanced, CustomShape: customShape, ObstaclesOverride: obstaclesOverride);
     public static CanvasOp SnapSettings(bool asForm = false) => new SnapSettingsCase(AsForm: asForm);
     public static CanvasOp BackgroundOverride(CanvasPaintPhase? phase = null) =>
         new BackgroundOverrideCase(Phase: phase ?? CanvasPaintPhase.BeforeBackground);
@@ -184,6 +189,17 @@ public partial record CanvasResult {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+// SelectionFit padding inflates in content-space before the zoom-to-fit projection, never in control pixels.
+[SmartEnum<string>]
+public sealed partial class ZoomPolicy {
+    public float MinimumZoom { get; }
+    public float MaximumZoom { get; }
+    public float Padding { get; }
+
+    public static readonly ZoomPolicy Standard = new(key: "standard", minimumZoom: CanvasViewPolicy.DefaultMinimumZoom, maximumZoom: CanvasViewPolicy.DefaultMaximumZoom, padding: CanvasViewPolicy.DefaultPadding);
+    public static readonly ZoomPolicy SelectionFit = new(key: "selection-fit", minimumZoom: CanvasViewPolicy.DefaultMinimumZoom, maximumZoom: CanvasViewPolicy.DefaultMaximumZoom, padding: 48f);
+}
+
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasViewPolicy(
     float MinimumZoom = CanvasViewPolicy.DefaultMinimumZoom,
@@ -193,8 +209,6 @@ public readonly record struct CanvasViewPolicy(
     public const float DefaultMinimumZoom = 0.05f;
     public const float DefaultMaximumZoom = 2f;
     public const float DefaultPadding = 0f;
-    // Content-space, not control pixels: Inflate runs before the zoom-to-fit projection.
-    public const float SelectionFitPadding = 48f;
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -362,8 +376,34 @@ public readonly record struct CanvasActionPolicy(Option<bool> AllowDrag = defaul
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasDetailSnapshot(bool ShowUndoHistory, float ZuiVariableParameterThreshold, float ZuiVariableParameterState, float ZuiWireDetailingThreshold, float ZuiWireDetailingState, CursorMode Mode, CanvasActionSnapshot Actions);
 
+// Each case carries the geometry the cosmetic layer draws; Silent is the stateless no-guide case.
+[SkipUnionOps]
+[Union]
+public partial record SnapVisualizationMode {
+    private SnapVisualizationMode() { }
+    public sealed record SilentCase : SnapVisualizationMode;
+    public sealed record GridOverlayCase(float Spacing, Color Tint) : SnapVisualizationMode;
+    public sealed record VectorFieldCase(Seq<LineF> Vectors, Color Tint) : SnapVisualizationMode;
+    public sealed record TangentGuidanceCase(SnappingSnapshot Guides, SnapGuideStyle Style) : SnapVisualizationMode;
+    public sealed record MagneticCase(PointF Anchor, float Radius, Color Tint) : SnapVisualizationMode;
+
+    internal static readonly Color GuideTint = new(red: 0.27f, green: 0.51f, blue: 0.71f, alpha: 1f);
+
+    public static readonly SnapVisualizationMode Silent = new SilentCase();
+    public static SnapVisualizationMode GridOverlay(float spacing, Color tint) => new GridOverlayCase(Spacing: spacing, Tint: tint);
+    public static SnapVisualizationMode VectorField(Seq<LineF> vectors, Color tint) => new VectorFieldCase(Vectors: vectors, Tint: tint);
+    public static SnapVisualizationMode TangentGuidance(SnappingSnapshot guides, SnapGuideStyle style) => new TangentGuidanceCase(Guides: guides, Style: style);
+    public static SnapVisualizationMode Magnetic(PointF anchor, float radius, Color tint) => new MagneticCase(Anchor: anchor, Radius: radius, Tint: tint);
+
+    // Captured snap channels project to TangentGuidance under a default guide style; absent feedback is Silent.
+    internal static SnapVisualizationMode Of(Option<SnappingSnapshot> snap, Option<SnapGuideStyle> style = default) =>
+        snap.Match(
+            Some: guides => TangentGuidance(guides: guides, style: style.IfNone(SnapGuideStyle.Dashed(tint: GuideTint))),
+            None: () => Silent);
+}
+
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasSnapFeedbackSnapshot(Option<SnappingSnapshot> Snap);
+public readonly record struct CanvasSnapFeedbackSnapshot(Option<SnappingSnapshot> Snap, SnapVisualizationMode Mode);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasBitmap(int Width, int Height, ReadOnlyMemory<byte> Png, Option<WireDrawnSnapshot> Wires = default);
@@ -576,12 +616,14 @@ internal static partial class UiRail {
                 from instance in Optional(sp.Instance).ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.SparkleCase.SelfOp, detail: "sparkle is required"))
                 from _ in Op.Of(name: nameof(CanvasOp.Sparkle)).Attempt(body: () => { canvas.AddSparkle(sparkle: instance); return unit; }, what: "Canvas.AddSparkle")
                 select CanvasResult.Unit),
-            wireShapeCase: static shape => GhUi.Canvas(repaint: RepaintRequest.Canvas, run: scope =>
-                scope.NeedCanvas()
-                    .Bind(_ => shape.Router.Resolve(@override: shape.Custom)
-                        .ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.WireShapeCase.SelfOp, detail: "wire-shape router resolves to no concrete WireShape type"))
-                        .Bind(t => WireShapeInstall.Push(shapeType: t, cornerRadius: shape.CornerRadius.IfNone(8f), splitRatio: shape.SplitRatio.IfNone(0.5f))))
-                    .Map(static sub => (CanvasResult)new CanvasResult.SubscriptionResult(Subscription: sub))),
+            wireShapeCase: static shape => Wire.InstallShape(
+                    style: shape.Style,
+                    cornerRadius: shape.CornerRadius,
+                    splitRatio: shape.SplitRatio,
+                    profile: shape.Profile,
+                    customShape: shape.CustomShape,
+                    obstaclesOverride: shape.ObstaclesOverride)
+                .Map(static sub => (CanvasResult)new CanvasResult.SubscriptionResult(Subscription: sub)),
             snapSettingsCase: static ss => GhUi.Canvas(run: scope =>
                 scope.NeedCanvas()
                     .Bind(canvas => RequireParentWindow(canvas: canvas, op: CanvasOp.SnapSettingsCase.SelfOp))
@@ -614,17 +656,6 @@ internal static partial class UiRail {
             Interaction: new CanvasInteractionSnapshot(Before: before, After: InteractionOf(canvas: canvas, document: scope.Document)));
 
     private readonly record struct ViewTarget(GhCanvas Canvas, GhDocument Document, GhObjectList Objects);
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct CanvasViewPlan(RectangleF Region, (float Minimum, float Maximum) Limits) {
-        internal Fin<Unit> Apply(GhCanvas canvas, TimeSpan duration, string what) {
-            RectangleF region = Region;
-            (float Minimum, float Maximum) limits = Limits;
-            return Op.Of(name: nameof(CanvasViewPlan)).Attempt(body: () => {
-                canvas.Navigate(frame: region, zoomLimits: limits, duration: duration);
-                return unit;
-            }, what: what);
-        }
-    }
 
     private static Fin<ViewTarget> NeedViewTarget(GrasshopperUi.Scope scope) =>
         from canvas in scope.NeedCanvas()
@@ -641,8 +672,12 @@ internal static partial class UiRail {
         from target in NeedViewTarget(scope)
         let policy = ResolveView(raw: rawPolicy, defaultPadding: defaultPadding)
         from resolvedFrame in frame(arg1: target, arg2: policy)
-        from plan in CanvasViewPlanOf(frame: resolvedFrame, limits: (policy.MinimumZoom, policy.MaximumZoom), op: op)
-        from _ in plan.Apply(canvas: target.Canvas, duration: policy.Duration, what: "FlexControl.Navigate(RectangleF)")
+        from _ in NavigateTo(
+            canvas: target.Canvas,
+            document: target.Document,
+            target: CanvasLocus.Bounds(value: resolvedFrame),
+            policy: policy,
+            op: op)
         select (CanvasResult)new CanvasResult.SnapshotResult(
             Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects));
 
@@ -662,7 +697,7 @@ internal static partial class UiRail {
                 NavigateView(
                     scope: scope,
                     rawPolicy: f.Policy,
-                    defaultPadding: CanvasViewPolicy.SelectionFitPadding,
+                    defaultPadding: ZoomPolicy.SelectionFit.Padding,
                     op: Op.Of(name: nameof(CanvasViewOp.Selection)),
                     frame: (target, policy) => {
                         float padding = policy.Padding;
@@ -688,7 +723,7 @@ internal static partial class UiRail {
                     CanvasFitTarget.Selection => NavigateView(
                         scope: scope,
                         rawPolicy: ft.Policy,
-                        defaultPadding: CanvasViewPolicy.SelectionFitPadding,
+                        defaultPadding: ZoomPolicy.SelectionFit.Padding,
                         op: Op.Of(name: $"{nameof(CanvasViewOp.Fit)}.{nameof(CanvasFitTarget.Selection)}"),
                         frame: static (target, _) => FrameOf(targets: target.Objects.SelectedObjects)
                             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: $"{nameof(CanvasViewOp.Fit)}.{nameof(CanvasFitTarget.Selection)}"), detail: "no selected objects to fit"))),
@@ -702,7 +737,7 @@ internal static partial class UiRail {
                 },
             positionCase: static (scope, pos) =>
                 from target in NeedViewTarget(scope)
-                from _ in NavigatePosition(target: target, position: pos.Where, policy: pos.Policy)
+                from _ in NavigateCanvasPosition(canvas: target.Canvas, document: target.Document, position: pos.Where, policy: pos.Policy)
                 select (CanvasResult)new CanvasResult.SnapshotResult(
                     Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)),
             zoomAroundCase: static (scope, za) =>
@@ -723,57 +758,49 @@ internal static partial class UiRail {
         from realized in canvas.InnerBounds.IsEmpty
             ? Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(CanvasViewOp.Projection)), detail: "projection requires a realized canvas"))
             : Fin.Succ(value: unit)
-        let centre = policy.Centre.IfNone(document.Projection.centre)
-        from zoom in Op.Of(name: nameof(CanvasViewOp.Projection)).Attempt(
-            body: () => ZoomFactor.Create(policy.Zoom.IfNone(document.Projection.zoom)),
-            what: nameof(ZoomFactor))
-        from validCentre in Op.Of(name: nameof(CanvasViewOp.Projection)).AcceptPoint(value: centre, detail: "non-finite centre")
+        from zoom in ZoomFactor.Validate(value: policy.Zoom.IfNone(document.Projection.zoom), provider: CultureInfo.InvariantCulture, out ZoomFactor zoomFactor) is { } fault
+            ? Fin.Fail<ZoomFactor>(error: fault)
+            : Fin.Succ(value: zoomFactor)
+        from validCentre in Op.Of(name: nameof(CanvasViewOp.Projection)).AcceptPoint(value: policy.Centre.IfNone(document.Projection.centre), detail: "non-finite centre")
         from _ in Op.Of(name: nameof(CanvasViewOp.Projection)).Attempt(
             body: () => { canvas.Projection = canvas.Projection.SetZoom(zoom: zoom.Value).SetCentre(centre: validCentre, frame: canvas.InnerBounds); return unit; },
             what: "Canvas.Projection assign")
         select unit;
 
     internal static Fin<Unit> NavigateCanvasPosition(GhCanvas canvas, GhDocument document, CanvasPosition position, CanvasViewPolicy policy) =>
-        NavigatePositionCore(canvas: canvas, document: document, position: position, policy: policy);
-
-    private static Fin<Unit> NavigatePosition(ViewTarget target, CanvasPosition position, CanvasViewPolicy policy) =>
-        NavigatePositionCore(canvas: target.Canvas, document: target.Document, position: position, policy: policy);
-
-    private static Fin<Unit> NavigatePositionCore(GhCanvas canvas, GhDocument document, CanvasPosition position, CanvasViewPolicy policy) =>
         Optional(position)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Position)), detail: "canvas position is required"))
-            .Bind(valid => {
-                CanvasViewPolicy resolved = ResolveView(raw: policy, defaultPadding: CanvasViewPolicy.DefaultPadding);
-                return valid.Position switch {
-                    ContentPosition.Fit =>
-                        from plan in CanvasViewPlanOf(frame: canvas.ContentBounds, limits: (resolved.MinimumZoom, resolved.MaximumZoom), op: Op.Of(name: nameof(CanvasViewOp.Position)))
-                        from _ in plan.Apply(canvas: canvas, duration: resolved.Duration, what: "FlexControl.Navigate(RectangleF)")
-                        select unit,
-                    ContentPosition.HundredPercent => NavigatePoint(
-                        canvas: canvas,
-                        point: document.Projection.centre,
-                        limits: (1f, 1f),
-                        duration: resolved.Duration,
-                        op: Op.Of(name: nameof(CanvasViewOp.Position)),
-                        what: "FlexControl.Navigate(PointF)"),
-                    _ => NavigatePoint(
-                        canvas: canvas,
-                        point: PositionAnchor(position: valid.Position, content: canvas.ContentBounds, viewport: ContentViewport(canvas: canvas, document: document).Size),
-                        limits: CurrentZoomLimits(document: document, policy: resolved),
-                        duration: resolved.Duration,
-                        op: Op.Of(name: nameof(CanvasViewOp.Position)),
-                        what: "FlexControl.Navigate(PointF)"),
-                };
-            });
+            .Bind(valid => NavigateTo(
+                canvas: canvas,
+                document: document,
+                target: valid,
+                policy: ResolveView(raw: policy, defaultPadding: CanvasViewPolicy.DefaultPadding),
+                op: Op.Of(name: nameof(CanvasViewOp.Position))));
 
-    private static Fin<Unit> NavigatePoint(GhCanvas canvas, PointF point, (float Minimum, float Maximum) limits, TimeSpan duration, Op op, string what) =>
-        op.AcceptPoint(value: point, detail: "non-finite navigation point")
-            .Bind(valid => limits.Maximum >= limits.Minimum && limits.Minimum > 0f
-                ? op.Attempt(body: () => {
-                    canvas.Navigate(point: valid, zoomLimits: limits, duration: duration <= TimeSpan.Zero ? GhDuration.Abrupt : GhDuration.Normal);
-                    return unit;
-                }, what: what)
-                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: "invalid zoom range")));
+    // HundredPercent clamps to unit zoom; edge anchors hold the current clamped zoom. A point recentres, bounds zoom-to-fit.
+    private static Fin<Unit> NavigateTo(GhCanvas canvas, GhDocument document, NavTarget target, CanvasViewPolicy policy, Op op) {
+        (CanvasLocus Locus, (float Minimum, float Maximum) Limits) plan = target.IsLocus
+            ? (target.AsLocus, (policy.MinimumZoom, policy.MaximumZoom))
+            : target.AsAnchor.Position switch {
+                ContentPosition.Fit => (CanvasLocus.Bounds(value: canvas.ContentBounds), (policy.MinimumZoom, policy.MaximumZoom)),
+                ContentPosition.HundredPercent => (CanvasLocus.Point(value: document.Projection.centre), (1f, 1f)),
+                var anchor => (CanvasLocus.Point(value: PositionAnchor(position: anchor, content: canvas.ContentBounds, viewport: ContentViewport(canvas: canvas, document: document).Size)), CurrentZoomLimits(document: document, policy: policy)),
+            };
+        return plan.Limits.Maximum >= plan.Limits.Minimum && plan.Limits.Minimum > 0f
+            ? plan.Locus.Switch(
+                state: (Canvas: canvas, plan.Limits, policy.Duration, Op: op),
+                pointCase: static (s, p) => s.Op.AcceptPoint(value: p.Value, detail: "non-finite navigation point")
+                    .Bind(valid => s.Op.Attempt(body: () => {
+                        s.Canvas.Navigate(point: valid, zoomLimits: s.Limits, duration: s.Duration <= TimeSpan.Zero ? GhDuration.Abrupt : GhDuration.Normal);
+                        return unit;
+                    }, what: "FlexControl.Navigate(PointF)")),
+                boundsCase: static (s, b) => s.Op.AcceptRect(value: b.Value, detail: "non-finite navigation frame")
+                    .Bind(valid => s.Op.Attempt(body: () => {
+                        s.Canvas.Navigate(frame: valid, zoomLimits: s.Limits, duration: s.Duration);
+                        return unit;
+                    }, what: "FlexControl.Navigate(RectangleF)")))
+            : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: "invalid zoom range"));
+    }
 
     private static (float Minimum, float Maximum) CurrentZoomLimits(GhDocument document, CanvasViewPolicy policy) {
         float zoom = float.IsFinite(document.Projection.zoom)
@@ -827,12 +854,6 @@ internal static partial class UiRail {
         float padding = float.IsFinite(raw.Padding) ? raw.Padding : defaultPadding;
         return new(MinimumZoom: minimum, MaximumZoom: maximum, Duration: duration, Padding: padding);
     }
-
-    private static Fin<CanvasViewPlan> CanvasViewPlanOf(RectangleF frame, (float Minimum, float Maximum) limits, Op op) =>
-        op.AcceptRect(value: frame, detail: "non-finite navigation frame")
-            .Bind(valid => limits.Maximum >= limits.Minimum && limits.Minimum > 0f
-                ? Fin.Succ(value: new CanvasViewPlan(Region: valid, Limits: limits))
-                : Fin.Fail<CanvasViewPlan>(error: UiFault.InvalidInput(op: op, detail: "invalid zoom range")));
 
     private static RectangleF ContentViewport(ViewTarget target) =>
         ContentViewport(canvas: target.Canvas, document: target.Document);
@@ -916,12 +937,18 @@ internal static partial class UiRail {
                 .IfNone(PickSnapshotOf(result: Resolve(probe: content)));
         }, what: "Canvas.ResolvePick"));
 
-    // Probe offsets ordered by Manhattan distance from centre: hit, 4 cardinals, 4 diagonals (matches the prior OrderBy).
-    private static readonly (int Dx, int Dy)[] ProbeOffsets =
-        [(0, 0), (-1, 0), (0, -1), (0, 1), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)];
+    // Offsets are ordered by Manhattan distance from centre so the first hit nearest the cursor wins.
+    [SmartEnum<int>]
+    internal sealed partial class ProbeMode {
+        public ImmutableArray<(int Dx, int Dy)> Offsets { get; }
 
-    private static Seq<PointF> ProbeLattice(PointF centre, float radius) =>
-        toSeq(ProbeOffsets).Map(offset => new PointF(x: centre.X + (offset.Dx * radius), y: centre.Y + (offset.Dy * radius)));
+        public static readonly ProbeMode Ring = new(key: 0, offsets: [(0, 0), (-1, 0), (0, -1), (0, 1), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)]);
+        public static readonly ProbeMode Cross = new(key: 1, offsets: [(0, 0), (-1, 0), (0, -1), (0, 1), (1, 0)]);
+        public static readonly ProbeMode Diagonal = new(key: 2, offsets: [(0, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)]);
+    }
+
+    private static Seq<PointF> ProbeLattice(PointF centre, float radius, ProbeMode? mode = null) =>
+        toSeq((mode ?? ProbeMode.Ring).Offsets).Map(offset => new PointF(x: centre.X + (offset.Dx * radius), y: centre.Y + (offset.Dy * radius)));
 
     // Only IInteraction carries domain Nomen; native sentinel types stay Option.None.
     internal static Option<string> FocusNomenOf(GhCanvas canvas) =>
@@ -953,8 +980,10 @@ internal static partial class UiRail {
         return unit;
     }
 
-    private static CanvasSnapFeedbackSnapshot SnapFeedbackOf(GhCanvas canvas) =>
-        new(Snap: SnapChannels(x: Optional(canvas.SnapXAction), y: Optional(canvas.SnapYAction)));
+    private static CanvasSnapFeedbackSnapshot SnapFeedbackOf(GhCanvas canvas) {
+        Option<SnappingSnapshot> snap = SnapChannels(x: Optional(canvas.SnapXAction), y: Optional(canvas.SnapYAction));
+        return new(Snap: snap, Mode: SnapVisualizationMode.Of(snap: snap));
+    }
 
     // The live "Layout Alignment" widget persists through SnappingSettings.Current; returned Form/Control is caller-owned.
     private static Fin<CanvasResult> SnapPreferencesSurface(bool asForm) =>
@@ -1017,11 +1046,12 @@ internal static partial class UiRail {
 
     private readonly record struct CanvasRenderFrame(Bitmap Bitmap, Option<WireDrawnSnapshot> Wires);
 
-    private static Fin<CanvasRenderFrame> RenderBitmap(GhCanvas canvas, CanvasRenderPolicy policy) =>
+    private static Fin<CanvasRenderFrame> RenderBitmap(GhCanvas canvas, CanvasRenderPolicy policy) {
         // BOUNDARY ADAPTER — AfterObjects has no return rail; capture overlay faults in Atom, then detach symmetrically.
-        Op.Of(name: nameof(CanvasOp.Render)).Attempt(body: () => {
-            Atom<Option<Error>> overlayFault = Atom(value: Option<Error>.None);
-            Atom<Option<WireDrawnSnapshot>> wires = Atom(value: Option<WireDrawnSnapshot>.None);
+        // The cell lives outside Attempt so an overlay fault surfaces as the captured typed Error, never a stringified re-throw.
+        Atom<Option<Error>> overlayFault = Atom(value: Option<Error>.None);
+        Atom<Option<WireDrawnSnapshot>> wires = Atom(value: Option<WireDrawnSnapshot>.None);
+        return Op.Of(name: nameof(CanvasOp.Render)).Attempt(body: () => {
             CanvasBitmapLayers layers = policy.EffectiveLayers;
             (int Width, int Height) = EffectiveRenderDimensions(canvas: canvas, policy: policy);
             CanvasPaintPhase overlayPhase = policy.Overlay.Phase.IfNone(CanvasPaintPhase.AfterObjects);
@@ -1043,20 +1073,23 @@ internal static partial class UiRail {
             _ = Optional(handler).Iter(h => overlayPhase.Attach(canvas: canvas, handler: h));
             _ = Optional(wireCapture).Iter(h => CanvasPaintPhase.AfterWires.Attach(canvas: canvas, handler: h));
             try {
-                Bitmap bitmap = canvas.DrawToBitmap(
-                    width: Width,
-                    height: Height,
-                    drawBackground: (layers & CanvasBitmapLayers.Background) == CanvasBitmapLayers.Background,
-                    drawWires: (layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires,
-                    drawMessages: (layers & CanvasBitmapLayers.Messages) == CanvasBitmapLayers.Messages);
-                return overlayFault.Value is { IsSome: true, Case: Error error }
-                    ? throw new InvalidOperationException(message: error.Message)
-                    : new CanvasRenderFrame(Bitmap: bitmap, Wires: wires.Value);
+                return new CanvasRenderFrame(
+                    Bitmap: canvas.DrawToBitmap(
+                        width: Width,
+                        height: Height,
+                        drawBackground: (layers & CanvasBitmapLayers.Background) == CanvasBitmapLayers.Background,
+                        drawWires: (layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires,
+                        drawMessages: (layers & CanvasBitmapLayers.Messages) == CanvasBitmapLayers.Messages),
+                    Wires: wires.Value);
             } finally {
                 _ = Optional(wireCapture).Iter(h => CanvasPaintPhase.AfterWires.Detach(canvas: canvas, handler: h));
                 _ = Optional(handler).Iter(h => overlayPhase.Detach(canvas: canvas, handler: h));
             }
-        }, what: "Canvas.DrawToBitmap");
+        }, what: "Canvas.DrawToBitmap")
+        .Bind(frame => overlayFault.Value is { IsSome: true, Case: Error error }
+            ? Fin.Fail<CanvasRenderFrame>(error: error)
+            : Fin.Succ(value: frame));
+    }
 
     private static Fin<CanvasResult> EncodeBitmap(Bitmap? bitmap, int width, int height, Op op, Option<WireDrawnSnapshot> wires = default) =>
         Optional(bitmap)
@@ -1148,7 +1181,7 @@ internal static partial class UiRail {
         scope.NeedObjects().Bind(objs => ResolveObject(objects: objs, id: id, op: op));
 
     internal static int RunDelete(GhDocumentMethods methods, IDocumentObject[]? targets, bool dataOnly, Seq<WireEnds> wires, ActionList actions) =>
-        DocumentDeleteMode.Resolve(targets: targets, dataOnly: dataOnly).Run(methods: methods, targets: targets, wires: wires, actions: actions);
+        DocumentDeleteMode.OfScope(targets: targets, dataOnly: dataOnly).Run(methods: methods, targets: targets, wires: wires, actions: actions);
 
     internal static Fin<ClipboardKind> ValidateClipboard(string name, ClipboardKind clipboard) =>
         clipboard switch {

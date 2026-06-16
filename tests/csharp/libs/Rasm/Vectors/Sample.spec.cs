@@ -271,7 +271,7 @@ public sealed class SampleDensityLaws {
                 Assert.Equal(expected: SampleAlgorithmKind.YukselWeightedSampleElimination, actual: algorithm.Kind);
                 Assert.Equal(expected: (23, 2, SampleGens.DensePoints.Count, 2, 3), actual: (algorithm.Seed.IfNone(0), algorithm.TargetCount.IfNone(0), algorithm.OversampleCount.IfNone(0), algorithm.OversampleFactor.IfNone(0), algorithm.Eliminated.IfNone(0)));
                 Assert.True(condition: algorithm.NeighborUpdates.IfNone(0) > 0);
-                Assert.Equal(expected: (true, true, false, false, false, false), actual: (algorithm.DeterministicCandidateSource, algorithm.EuclideanMetric, algorithm.MaximalCoverageGuaranteed, algorithm.CapacityResidualValidated, algorithm.TransportAssignmentValidated, algorithm.MeshSpectrumValidated));
+                Assert.Equal(expected: (false, false, false, false), actual: (algorithm.MaximalCoverageGuaranteed, algorithm.CapacityResidualValidated, algorithm.TransportAssignmentValidated, algorithm.MeshSpectrumValidated));
             });
         });
     }
@@ -293,7 +293,6 @@ public sealed class SampleDensityLaws {
                 Spec.Some(algorithm.Dwork, proof => {
                     Assert.Equal(expected: DworkSamplingDomain.CandidateSet, actual: proof.Domain);
                     Assert.True(condition: proof.CandidateOnly && !proof.ContinuousMesh);
-                    Assert.Equal(expected: (false, true, true), actual: (proof.ActiveListAnnulusSampling, proof.LocalRadiusConflictChecks, proof.DeterministicSeed));
                     Assert.True(condition: proof.BackgroundCellSize.IsNone && proof.BackgroundGridCells.IsNone);
                     Spec.Equal(left: proof.RMin, right: 0.4, tolerance: 0.0, what: "candidate dwork rMin");
                 });

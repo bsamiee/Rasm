@@ -18,23 +18,23 @@
 [PUBLIC_TYPE_SCOPE]: schedule family
 - rail: automation
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `Cron` | schedule | cron-driven coroutine runner |
-| [2] | `CronSim` | simulator | next-fire-time iterator |
+| [INDEX] | [SYMBOL]  | [TYPE_FAMILY] | [RAIL]                       |
+| :-----: | :-------- | :------------ | :--------------------------- |
+|   [1]   | `Cron`    | schedule      | cron-driven coroutine runner |
+|   [2]   | `CronSim` | simulator     | next-fire-time iterator      |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: schedule operations
 - rail: automation
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `crontab` | build | construct a `Cron` from an expression |
-| [2] | `Cron.start` | control | begin firing on schedule |
-| [3] | `Cron.stop` | control | stop the schedule |
-| [4] | `Cron.next` | query | await the next fire |
-| [5] | `CronSim` | iterate | enumerate upcoming fire times |
+| [INDEX] | [SURFACE]    | [ENTRY_FAMILY] | [RAIL]                                |
+| :-----: | :----------- | :------------- | :------------------------------------ |
+|   [1]   | `crontab`    | build          | construct a `Cron` from an expression |
+|   [2]   | `Cron.start` | control        | begin firing on schedule              |
+|   [3]   | `Cron.stop`  | control        | stop the schedule                     |
+|   [4]   | `Cron.next`  | query          | await the next fire                   |
+|   [5]   | `CronSim`    | iterate        | enumerate upcoming fire times         |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

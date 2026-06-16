@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Eto.Forms;
@@ -19,6 +20,16 @@ using SolutionMode = Grasshopper2.Doc.SolutionMode;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+// Declaration order is the apply order: Solution runs before Display so a paired pass never degrades to the weaker single side.
+[SmartEnum<int>]
+public sealed partial class RepaintBoundarySide {
+    public static readonly RepaintBoundarySide Solution = new(key: 0, apply: static doc => { _ = doc.Solution.Start(mode: SolutionMode.Regular); return unit; });
+    public static readonly RepaintBoundarySide Display = new(key: 1, apply: static doc => { doc.Display.UpdateDisplay(); return unit; });
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Apply(GhDocument doc);
+}
+
 [SkipUnionOps]
 [Union]
 public partial record RepaintRequest {
@@ -28,29 +39,26 @@ public partial record RepaintRequest {
     public sealed record RegionCase(RectangleF Bounds) : RepaintRequest;
     public sealed record CanvasCase : RepaintRequest;
     public sealed record ScheduledCase(Option<TimeSpan> Delay = default) : RepaintRequest;
-    public sealed record SolutionCase : RepaintRequest;
-    public sealed record DisplayCase : RepaintRequest;
-    public sealed record SolutionAndDisplayCase : RepaintRequest;
+    public sealed record BoundaryCase(ImmutableHashSet<RepaintBoundarySide> Sides) : RepaintRequest;
 
     public static readonly RepaintRequest None = new NoneCase();
     public static readonly RepaintRequest Canvas = new CanvasCase();
     public static readonly RepaintRequest Scheduled = new ScheduledCase(Delay: Option<TimeSpan>.None);
-    public static readonly RepaintRequest Solution = new SolutionCase();
-    public static readonly RepaintRequest Display = new DisplayCase();
-    public static readonly RepaintRequest SolutionAndDisplay = new SolutionAndDisplayCase();
+    public static readonly RepaintRequest Solution = new BoundaryCase(Sides: [RepaintBoundarySide.Solution]);
+    public static readonly RepaintRequest Display = new BoundaryCase(Sides: [RepaintBoundarySide.Display]);
+    public static readonly RepaintRequest SolutionAndDisplay = new BoundaryCase(Sides: [RepaintBoundarySide.Solution, RepaintBoundarySide.Display]);
     public static RepaintRequest Object(Guid id) => new ObjectCase(Id: id);
     public static RepaintRequest Region(RectangleF bounds) => new RegionCase(Bounds: bounds);
     public static RepaintRequest Delayed(TimeSpan delay) => new ScheduledCase(Delay: Some(delay));
 
-    // Repaint absorption collapses intents before the single ApplyTo at GrasshopperUi.Use exit.
+    // Absorption lattice (top absorbs all): Boundary (set-union) > Canvas > Scheduled > Region(union) / Object(same-id).
+    // Arm order is load-bearing: boundary-set escalation precedes canvas/scheduled collapse so a paired pass never degrades to a single side.
     public static RepaintRequest operator |(RepaintRequest left, RepaintRequest right) =>
         (left, right) switch {
             (NoneCase, _) => right,
             (_, NoneCase) => left,
-            (SolutionAndDisplayCase, _) or (_, SolutionAndDisplayCase) => SolutionAndDisplay,
-            (SolutionCase, DisplayCase) or (DisplayCase, SolutionCase) => SolutionAndDisplay,
-            (SolutionCase, _) or (_, SolutionCase) => Solution,
-            (DisplayCase, _) or (_, DisplayCase) => Display,
+            (BoundaryCase l, BoundaryCase r) => new BoundaryCase(Sides: l.Sides.Union(r.Sides)),
+            (BoundaryCase, _) or (_, BoundaryCase) => left is BoundaryCase ? left : right,
             (CanvasCase, _) or (_, CanvasCase) => Canvas,
             (ScheduledCase l, ScheduledCase r) => new ScheduledCase(
                 Delay: (l.Delay, r.Delay) switch {
@@ -63,6 +71,10 @@ public partial record RepaintRequest {
             _ => Canvas,
         };
 
+    // Folds a batch through the absorption lattice; the empty batch is None because None is operator|'s identity.
+    public static RepaintRequest Batch(Seq<RepaintRequest> requests) =>
+        requests.Fold(None, static (absorbed, next) => absorbed | next);
+
     internal Unit ApplyTo(GrasshopperUi.Scope scope) =>
         Switch(state: scope,
             noneCase: static (_, _) => unit,
@@ -73,54 +85,86 @@ public partial record RepaintRequest {
                 None: () => { canvas.Invalidate(); return unit; })),
             regionCase: static (s, r) => s.Canvas.IfSome(canvas => canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: r.Bounds))),
             canvasCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.Invalidate()),
-            scheduledCase: static (s, sc) => s.Canvas.IfSome(canvas => Redraw(canvas: canvas, delay: sc.Delay)),
-            solutionCase: static (s, op) => s.Document.IfSome(static doc => { _ = doc.Solution.Start(mode: SolutionMode.Regular); return unit; }),
-            displayCase: static (s, _) => s.Document.IfSome(static doc => { doc.Display.UpdateDisplay(); return unit; }),
-            solutionAndDisplayCase: static (s, op) => s.Document.IfSome(static doc => {
-                _ = doc.Solution.Start(mode: SolutionMode.Regular);
-                doc.Display.UpdateDisplay();
-                return unit;
-            }));
+            scheduledCase: static (s, sc) => s.Canvas.IfSome(canvas => Redraw(canvas: canvas, delay: sc.Delay, cancellation: s.Cancellation)),
+            // Fold the membership in declaration (rank) order, invoking each present pass's apply column once.
+            boundaryCase: static (s, b) => s.Document.IfSome(doc =>
+                toSeq(RepaintBoundarySide.Items).Filter(side => b.Sides.Contains(side)).Fold(unit, (_, side) => side.Apply(doc: doc))));
 
-    private static Unit Redraw(GhCanvas canvas, Option<TimeSpan> delay) =>
-        delay is { IsSome: true, Case: TimeSpan wait } && wait > TimeSpan.Zero
-            ? Defer(canvas: canvas, wait: wait)
+    // GH2 Canvas exposes only arg-less ScheduleRedraw() (Eto-coalesced); a positive delay has no native entry, so it is
+    // deferred by a one-shot timer marshalling the arg-less redraw to the UI thread, its outcome folded into the fault sink.
+    private static Unit Redraw(GhCanvas canvas, Option<TimeSpan> delay, CancellationToken cancellation) =>
+        cancellation.IsCancellationRequested ? unit
+        : delay.Filter(static span => span > TimeSpan.Zero) is { IsSome: true, Case: TimeSpan wait }
+            ? Defer(canvas: canvas, wait: wait, cancellation: cancellation)
             : Op.Side(canvas.ScheduleRedraw);
 
-    // BOUNDARY ADAPTER — GH2 exposes no delayed-redraw entry; a one-shot timer defers the arg-less ScheduleRedraw and
-    // marshals it back to the UI thread (mirrors SolutionControl.Start's discarded fire-and-forget continuation).
-    private static Unit Defer(GhCanvas canvas, TimeSpan wait) {
-        _ = Task.Delay(delay: wait, timeProvider: TimeProvider.System, cancellationToken: CancellationToken.None).ContinueWith(
-            _ => GrasshopperUi.OnUiThread(run: () => { canvas.ScheduleRedraw(); return Fin.Succ(value: unit); }, cancellation: CancellationToken.None).Ignore(),
-            cancellationToken: CancellationToken.None,
-            continuationOptions: TaskContinuationOptions.ExecuteSynchronously,
-            scheduler: TaskScheduler.Default);
-        return unit;
-    }
+    private static Unit Defer(GhCanvas canvas, TimeSpan wait, CancellationToken cancellation) =>
+        Op.Side(() => _ = Task.Delay(delay: wait, timeProvider: TimeProvider.System, cancellationToken: cancellation).ContinueWith(
+            _ => ignore(GrasshopperUi.Handler(valid: () => GrasshopperUi.OnUiThread(
+                run: () => { canvas.ScheduleRedraw(); return Fin.Succ(value: unit); },
+                cancellation: cancellation))),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnRanToCompletion,
+            TaskScheduler.Default));
 }
 
-[SmartEnum<int>]
-public sealed partial class SubscriptionTeardown {
-    public static readonly SubscriptionTeardown RunAlways = new(key: 0);
-    public static readonly SubscriptionTeardown DetachOnce = new(key: 1);
-    public static readonly SubscriptionTeardown TokenGated = new(key: 2);
+// Teardown lifecycle for one detacher: Always repeats the detach on every Dispose; Once latches it to fire exactly
+// once; Gated fires once only while a minted token still owns the live slot (compare-and-clear lease).
+[SkipUnionOps]
+[Union]
+public partial record Teardown {
+    private Teardown() { }
+    public sealed record AlwaysCase : Teardown;
+    public sealed record OnceCase(Atom<bool> Fired) : Teardown;
+    public sealed record GatedCase(Atom<Option<Guid>> Owner, Guid Token) : Teardown;
+
+    public static readonly Teardown Always = new AlwaysCase();
+    public static Teardown Once() => new OnceCase(Fired: Atom(value: false));
+    // Gated mints a fresh token over the supplied ownership cell; the first attach commits the token, detach fires
+    // only while the cell still holds it, and the winning detach clears the cell so a stale teardown cannot fire.
+    public static Teardown Gated(Atom<Option<Guid>> owner) => new GatedCase(Owner: owner, Token: Guid.NewGuid());
+
+    // First-writer-wins: the token installs only into an unowned cell, so a second racing attach never clobbers the
+    // first. A lost commit means the caller must release itself.
+    internal bool CommitWon() => Switch(
+        alwaysCase: static _ => true,
+        onceCase: static _ => true,
+        gatedCase: static g => {
+            bool won = false;
+            _ = g.Owner.Swap(current => (won = current.IsNone, won ? Some(g.Token) : current).Item2);
+            return won;
+        });
+
+    // CAS-atomic gate: Once flips false->true and only the flipping caller fires; Gated clears the cell only while its
+    // token still owns it and only that owner fires. Swap captures the pre-swap snapshot to report the winner.
+    internal bool ShouldFire() => Switch(
+        alwaysCase: static _ => true,
+        onceCase: static o => {
+            bool already = true;
+            _ = o.Fired.Swap(current => (already = current, true).Item2);
+            return !already;
+        },
+        gatedCase: static g => {
+            bool owned = false;
+            _ = g.Owner.Swap(current => (owned = current is { IsSome: true, Case: Guid held } && held == g.Token, owned ? Option<Guid>.None : current).Item2);
+            return owned;
+        });
 }
 
 [SkipUnionOps]
 [Union]
 public partial record Subscription : IDisposable {
     private Subscription() { }
-    // Teardown: RunAlways (LIFO composite, repeat detach), DetachOnce (pacer/timer), TokenGated (OwnedSubscription).
-    public sealed record AtomCase(System.Action Detach, bool MarshalToUi, SubscriptionTeardown Teardown) : Subscription;
+    public sealed record AtomCase(System.Action Detach, bool MarshalToUi, Teardown Teardown) : Subscription;
     public sealed record CompositeCase(Seq<Subscription> Members) : Subscription;
     public sealed record EmptyCase : Subscription;
 
     public static readonly Subscription Empty = new EmptyCase();
     public static Subscription Atom(System.Action detach, bool marshalToUi = false, bool detachOnce = false) =>
         new AtomCase(
-            Detach: GuardDetach(detach: detach, detachOnce: detachOnce),
+            Detach: detach,
             MarshalToUi: marshalToUi,
-            Teardown: detachOnce ? SubscriptionTeardown.DetachOnce : SubscriptionTeardown.RunAlways);
+            Teardown: detachOnce ? Teardown.Once() : Teardown.Always);
 
     // Members stored LIFO so Dispose iterates in detach order without a reversed view allocation.
     public static Subscription Composite(Seq<Subscription> members) =>
@@ -145,15 +189,37 @@ public partial record Subscription : IDisposable {
         GC.SuppressFinalize(obj: this);
     }
 
-    protected virtual void Dispose(bool disposing) =>
-        _ = disposing
-            ? Switch(
-                atomCase: static a => a.MarshalToUi
-                    ? GrasshopperUi.DetachOnUiThread(run: a.Detach)
-                    : GrasshopperUi.Protect(valid: () => { a.Detach(); return Fin.Succ(value: unit); }),
-                compositeCase: static c => { _ = c.Members.Iter(static s => s.Dispose()); return Fin.Succ(value: unit); },
-                emptyCase: static _ => Fin.Succ(value: unit))
-            : Fin.Succ(value: unit);
+    // Iterative drain (named exemption): a pathologically nested composite would overflow on recursion, so children
+    // flatten onto an explicit stack; each per-child throw is captured so one failure never orphans the rest.
+    protected virtual void Dispose(bool disposing) {
+        if (!disposing) {
+            return;
+        }
+
+        Stack<Subscription> pending = new();
+        pending.Push(this);
+        while (pending.Count > 0) {
+            switch (pending.Pop()) {
+                case AtomCase atom:
+                    // Each per-child detach Fin folds into the observable fault sink so a failed detach is recorded rather than discarded.
+                    _ = GrasshopperUi.ObserveDetach(
+                        atom.Teardown.ShouldFire()
+                            ? atom.MarshalToUi
+                                ? GrasshopperUi.DetachOnUiThread(run: atom.Detach)
+                                : GrasshopperUi.Protect(valid: () => { atom.Detach(); return Fin.Succ(value: unit); })
+                            : Fin.Succ(value: unit));
+                    break;
+                case CompositeCase composite:
+                    // Push reversed so pop yields members in their stored LIFO detach order; nested composites flatten onto the same stack.
+                    foreach (Subscription member in composite.Members.Rev()) {
+                        pending.Push(member);
+                    }
+                    break;
+                case EmptyCase:
+                    break;
+            }
+        }
+    }
 
     [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "Composite owns the pacer atom; caller disposes the returned subscription.")]
     internal static Subscription PaintPacer(Subscription paintHook, System.Action pacerRelease) =>
@@ -162,44 +228,42 @@ public partial record Subscription : IDisposable {
     internal static Subscription DisposeOnce(Subscription inner) =>
         inner switch {
             EmptyCase => Empty,
-            AtomCase atom when atom.Teardown != SubscriptionTeardown.RunAlways => inner,
+            AtomCase { Teardown: not Teardown.AlwaysCase } => inner,
             _ => Atom(detach: inner.Dispose, detachOnce: true),
         };
 
-    internal static System.Action GuardDetach(System.Action detach, bool detachOnce) =>
-        detachOnce switch {
-            false => detach,
-            true => Latch(detach: detach),
-        };
+    // Token-gated subscription: attach mints a token over the ownership cell and commits it after attach succeeds;
+    // detach fires once only while the cell still holds the token, then clears it so a stale teardown cannot hide a live successor.
+    internal static Fin<Subscription> TokenGated(Atom<Option<Guid>> owner, System.Action inner, System.Action detach, bool marshalToUi = true) =>
+        Optional(owner)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(TokenGated)), detail: "ownership cell is required"))
+            .Bind(cell => {
+                Teardown gate = Teardown.Gated(owner: cell);
+                // A lost commit means a concurrent attach already owns the slot, so this acquisition releases itself immediately.
+                return Bind(
+                    attach: () => { inner(); if (!gate.CommitWon()) { detach(); } },
+                    detach: detach,
+                    marshalToUi: marshalToUi,
+                    teardown: gate);
+            });
 
     internal static Fin<Subscription> Bind(
         System.Action attach,
         System.Action detach,
         bool marshalToUi = false,
         bool detachOnce = false,
-        SubscriptionTeardown? teardown = null) =>
+        Teardown? teardown = null) =>
         Try.lift(f: () => { attach(); return unit; }).Run()
             .Map(_ => (Subscription)new AtomCase(
-                Detach: detachOnce ? GuardDetach(detach: detach, detachOnce: true) : detach,
+                Detach: detach,
                 MarshalToUi: marshalToUi,
-                Teardown: teardown ?? (detachOnce ? SubscriptionTeardown.DetachOnce : SubscriptionTeardown.RunAlways)))
+                Teardown: teardown ?? (detachOnce ? Teardown.Once() : Teardown.Always)))
             .MapFail(attachError => {
                 Error primary = UiFault.MutationRejected(op: Op.Of(name: nameof(Bind)), detail: $"attach failed: {attachError.Message}");
                 return Try.lift(f: () => { detach(); return unit; }).Run().Match(
                     Succ: _ => primary,
                     Fail: rollbackError => primary + UiFault.MutationRejected(op: Op.Of(name: nameof(Bind)), detail: $"rollback failed: {rollbackError.Message}"));
             });
-
-    // Atom.Swap is CAS-atomic: the first caller observes the prior false and fires detach, every later caller
-    // observes true and no-ops — replaces the Interlocked.Exchange(ref gate) mutable-int gate.
-    private static System.Action Latch(System.Action detach) {
-        Atom<bool> fired = Prelude.Atom(value: false);
-        return () => {
-            bool already = true;
-            _ = fired.Swap(current => (already = current, true).Item2);
-            _ = already ? unit : Op.Side(detach);
-        };
-    }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -237,20 +301,22 @@ public readonly record struct LayoutArrangeDelta(Seq<LayoutMoveDelta> Moves) {
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct UndoEntry(VerbNoun Name, ActionList Actions);
 
-internal sealed class UndoGroup {
-    private readonly ActionList actions = ActionList.Empty;
-    public VerbNoun Name { get; private set; }
-    internal UndoGroup(string verb, string noun) => Name = (verb, noun);
-    internal Unit Add(ActionList list) {
-        actions.Add(list);
-        return unit;
-    }
+// Cross-intent undo accumulator: one boundary cell threads the grouped label and the immutable list of contributed
+// action segments across the nested intent tree; Commit folds every segment into one fresh ActionList at the document boundary.
+public sealed class UndoGroup {
+    private readonly Atom<(VerbNoun Name, Seq<ActionList> Segments)> state;
+    internal UndoGroup(string verb, string noun) => state = Atom(value: ((VerbNoun)(verb, noun), Seq<ActionList>()));
+    public VerbNoun Name => state.Value.Name;
+    internal Unit Add(ActionList list) =>
+        ignore(state.Swap(current => current with { Segments = current.Segments.Add(list) }));
     // Nested labels concatenate via VerbNoun so History preserves grouped provenance.
-    internal Unit Annotate(string verb, string noun) {
-        Name += (verb, noun);
-        return unit;
+    internal Unit Annotate(string verb, string noun) =>
+        ignore(state.Swap(current => current with { Name = current.Name + (verb, noun) }));
+    internal UndoEntry ToEntry() {
+        (VerbNoun name, Seq<ActionList> segments) = state.Value;
+        ActionList merged = segments.Fold(ActionList.Empty, static (acc, segment) => acc + segment);
+        return new UndoEntry(Name: name, Actions: merged);
     }
-    internal UndoEntry ToEntry() => new(Name: Name, Actions: actions);
     internal Fin<Unit> Commit(GhDocument document) {
         UndoEntry entry = ToEntry();
         return UiRail.CommitActions(document: document, name: entry.Name, actions: entry.Actions);
@@ -376,8 +442,9 @@ public abstract partial record UiFault : Expected, IValidationError<UiFault> {
     public static UiFault ThreadMarshal(string detail) => new ThreadMarshalCase(Detail: detail);
     public static UiFault Cancelled(Op op) => new CancelledCase(Op: op);
 
-    // IValidationError<UiFault> contract; Op-bearing overload preserves VO call-site provenance.
-    public static UiFault Create(string message) => Create(op: Op.Of(name: "Validation"), message: message);
+    internal static readonly Op Validation = Op.Of(name: nameof(Validation));
+
+    public static UiFault Create(string message) => Create(op: Validation, message: message);
     public static UiFault Create(Op op, string message) => InvalidInput(op: op, detail: message);
 }
 
@@ -462,14 +529,19 @@ public sealed partial record GrasshopperUi {
 
     // Host callbacks have no return rail; keep swallowed handler faults observable.
     internal static Fin<Unit> Handler(Func<Fin<Unit>> valid) =>
-        Protect(valid: valid).Match(
+        ObserveDetach(Protect(valid: valid));
+
+    // Folds an already-captured boundary Fin into the observable fault sink: a Succ passes through, a Fail appends to
+    // HandlerFaultSink and resolves to Succ so a non-aborting sweep continues with the failure recorded.
+    internal static Fin<Unit> ObserveDetach(Fin<Unit> outcome) =>
+        outcome.Match(
             Succ: static _ => Fin.Succ(value: unit),
             Fail: static error => HandlerFaultSink.Swap(faults => faults.Add(value: error)) switch {
                 _ => Fin.Succ(value: unit),
             });
 
     [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas, Option<GhDocument> Document, Option<GhDocumentMethods> Methods, Option<GhObjectList> Objects, Option<CanvasSkin> Skin, Option<UndoGroup> UndoGroup, CancellationToken Cancellation) {
+    public readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas, Option<GhDocument> Document, Option<GhDocumentMethods> Methods, Option<GhObjectList> Objects, Option<CanvasSkin> Skin, Option<UndoGroup> UndoGroup, CancellationToken Cancellation) {
         [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "AcquireEditor yields GH2's process-static Editor singleton (Editor.Instance); it is owned for the host lifetime and must never be disposed here — disposing would tear down the live editor and its canvas.")]
         internal static Fin<Scope> Resolve(GrasshopperUiPolicy policy, CancellationToken cancellation, Option<UndoGroup> undo = default) =>
             cancellation.IsCancellationRequested
@@ -532,11 +604,15 @@ public sealed partial record GrasshopperUi {
                 (false, _) => Marshal(valid: valid, cancellation: cancellation),
             });
 
+    // The cancellation token is observed twice — on the posting thread before enqueue and inside the posted continuation
+    // at dispatch instant — so a callback enqueued against a target torn down between enqueue and dequeue short-circuits to Cancelled.
     private static Fin<T> Marshal<T>(Func<Fin<T>> valid, CancellationToken cancellation) =>
         from app in NeedApplication(op: Op.Of(name: nameof(Marshal)))
         from result in Try.lift<Fin<T>>(f: () => cancellation.IsCancellationRequested
                 ? Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))
-                : app.Invoke(func: () => Protect(valid: valid)))
+                : app.Invoke(func: () => cancellation.IsCancellationRequested
+                    ? Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))
+                    : Protect(valid: valid)))
             .Run()
             .MapFail(error => UiFault.ThreadMarshal(detail: $"Application.Invoke threw: {error.Message}"))
             .Bind(static result => result)
@@ -560,8 +636,10 @@ public sealed partial record GrasshopperUi {
     internal static Fin<Application> NeedApplication(Op op) =>
         Optional(Application.Instance).ToFin(Fail: UiFault.ThreadMarshal(detail: $"{op}: Eto Application.Instance is not initialized"));
 
+    // Post-commit repaint: the host paint/solution primitives fold their failure into the observable fault sink, so a
+    // repaint-side-effect throw never retroactively fails the already-resolved intent value, which returns unconditionally.
     internal static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
-        _ = policy.RepaintOrNone.ApplyTo(scope: scope);
+        _ = ObserveDetach(Protect(valid: () => policy.RepaintOrNone.ApplyTo(scope: scope) switch { _ => Fin.Succ(value: unit) }));
         return value;
     }
 
@@ -594,6 +672,14 @@ internal static class UiDocumentIdentity {
 }
 
 // Canonical bounded-recency cache for UI state. Value factories run outside the lock; evict owns discarded values.
+// Capacity is a working-set bound per consumer, sized to the live recency window the producer can realistically hold:
+//   fonts 128       — distinct (family, size, style) faces on screen at once across all rendered glyph runs.
+//   brushes 256     — distinct fill sources (solid, gradient, texture) live across simultaneously painted objects.
+//   textMeasure 1024 — distinct (text, font) measured layouts per paint pass; the largest hot churn surface.
+//   dashStyle 4096  — distinct (dash-array, width-bucket) pen styles; wide because bucketing keeps near-dupes apart.
+//   wireRoute 256   — distinct routed wire paths held between solves on a busy canvas.
+//   wireDrawn 8     — recently drawn wire-geometry sets; a tiny per-frame window, only the latest few matter.
+//   wireIndex 8     — recently resolved (source, target) endpoint index sets; same tiny per-frame window as wireDrawn.
 internal sealed class BoundedCache<TKey, TValue> where TKey : notnull {
     private readonly Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>> entries;
     private readonly LinkedList<KeyValuePair<TKey, TValue>> order = new();
@@ -761,6 +847,6 @@ public static partial class OpUiExtensions {
         validation.Match(
             Succ: Fin.Succ,
             Fail: static faults => Fin.Fail<T>(error: faults.IsEmpty
-                ? UiFault.InvalidInput(op: Op.Of(name: "Validation"), detail: "empty failure")
+                ? UiFault.InvalidInput(op: UiFault.Validation, detail: "empty failure")
                 : faults.Skip(1).Fold((Error)faults[0], static (acc, fault) => acc + fault)));
 }

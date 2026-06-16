@@ -4,8 +4,8 @@ The single content-addressing owner the whole branch consumes. `ContentIdentity`
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                            |
-| :-----: | :-------- | :--------------------------------------------------------------- |
+| [INDEX] | [CLUSTER] | [OWNS]                                                                |
+| :-----: | :-------- | :-------------------------------------------------------------------- |
 |   [1]   | IDENTITY  | the XxHash128 content key, the settings-folded seed, the value object |
 
 ## [2]-[IDENTITY]

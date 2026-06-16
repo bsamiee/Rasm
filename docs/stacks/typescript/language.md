@@ -26,51 +26,51 @@ Use the active TypeScript surface directly. This chooser owns type-expression, i
 
 [TYPE_DERIVATION_FORMS]: which inference primitive lifts a runtime anchor into the type the program already knows.
 
-| [INDEX] | [CONCERN]                       | [USE]                                              | [REPLACE]                              |
-| :-----: | :------------------------------ | :------------------------------------------------- | :------------------------------------- |
-|   [1]   | type from a runtime authority   | `typeof anchor.Type`, `typeof vocab`               | standalone `type X = { ... }`          |
-|   [2]   | discriminant union from keys    | `keyof typeof vocabulary`                          | hand-listed string-literal union       |
-|   [3]   | per-key output type             | indexed access `(typeof V)[K]["field"]`            | parallel mapped declarations           |
-|   [4]   | function-shape decomposition    | `ReturnType`, `Parameters`                         | re-declared parameter/return interfaces |
-|   [5]   | structural validation           | `as const satisfies Record<...>`                   | untyped `as const` then manual checks  |
-|   [6]   | projection from a canonical type | `Pick`, `Omit`, `Partial`, `Extract`, `Exclude`   | parallel sibling interface declarations |
-|   [7]   | accessor/event-name family      | mapped type with template-literal key remapping    | N hand-written accessor signatures     |
-|   [8]   | deep structural transform       | one parameterized recursive type with depth budget | `DeepPartial`/`DeepReadonly` copies     |
+| [INDEX] | [CONCERN]                        | [USE]                                              | [REPLACE]                               |
+| :-----: | :------------------------------- | :------------------------------------------------- | :-------------------------------------- |
+|   [1]   | type from a runtime authority    | `typeof anchor.Type`, `typeof vocab`               | standalone `type X = { ... }`           |
+|   [2]   | discriminant union from keys     | `keyof typeof vocabulary`                          | hand-listed string-literal union        |
+|   [3]   | per-key output type              | indexed access `(typeof V)[K]["field"]`            | parallel mapped declarations            |
+|   [4]   | function-shape decomposition     | `ReturnType`, `Parameters`                         | re-declared parameter/return interfaces |
+|   [5]   | structural validation            | `as const satisfies Record<...>`                   | untyped `as const` then manual checks   |
+|   [6]   | projection from a canonical type | `Pick`, `Omit`, `Partial`, `Extract`, `Exclude`    | parallel sibling interface declarations |
+|   [7]   | accessor/event-name family       | mapped type with template-literal key remapping    | N hand-written accessor signatures      |
+|   [8]   | deep structural transform        | one parameterized recursive type with depth budget | `DeepPartial`/`DeepReadonly` copies     |
 
 [DISPATCH_FORMS]: how a value-returning decision states its whole law as one total expression.
 
-| [INDEX] | [CONCERN]                    | [USE]                                       | [REPLACE]                             |
-| :-----: | :--------------------------- | :------------------------------------------ | :------------------------------------ |
-|   [1]   | closed tagged domain fold    | `Data.taggedEnum().$match` / `Match.valueTags` | `switch (x._tag)` ladders          |
-|   [2]   | structural/predicate dispatch | `Match.type().pipe(Match.when, ...)`       | `if`/`else` chains                    |
-|   [3]   | typed return constraint      | `Match.withReturnType` before any arm       | per-arm return-type drift             |
-|   [4]   | multi-dimension predicate    | `Match.whenAnd`/`whenOr`/`not`              | nested boolean branching              |
-|   [5]   | literal-prefix routing       | `Match.discriminatorStartsWith`             | string `startsWith` chains            |
-|   [6]   | non-`_tag` discriminant fold | `Match.discriminatorsExhaustive(field)`     | hand-keyed `Record` dispatch + assert |
-|   [7]   | class-prototype narrowing    | `Match.instanceOf` + open terminal          | `instanceof` ladders                  |
-|   [8]   | completion stance            | `Match.exhaustive` / `option` / `either`    | catch-all `orElse` masking a variant  |
-|   [9]   | keyed-domain classification  | vocabulary lookup / threshold iteration     | `Match.when` chains duplicating a vocab |
-|  [10]   | conditional return over a generic | conditional type + generic constraint   | 3+ overload signatures                |
+| [INDEX] | [CONCERN]                         | [USE]                                          | [REPLACE]                               |
+| :-----: | :-------------------------------- | :--------------------------------------------- | :-------------------------------------- |
+|   [1]   | closed tagged domain fold         | `Data.taggedEnum().$match` / `Match.valueTags` | `switch (x._tag)` ladders               |
+|   [2]   | structural/predicate dispatch     | `Match.type().pipe(Match.when, ...)`           | `if`/`else` chains                      |
+|   [3]   | typed return constraint           | `Match.withReturnType` before any arm          | per-arm return-type drift               |
+|   [4]   | multi-dimension predicate         | `Match.whenAnd`/`whenOr`/`not`                 | nested boolean branching                |
+|   [5]   | literal-prefix routing            | `Match.discriminatorStartsWith`                | string `startsWith` chains              |
+|   [6]   | non-`_tag` discriminant fold      | `Match.discriminatorsExhaustive(field)`        | hand-keyed `Record` dispatch + assert   |
+|   [7]   | class-prototype narrowing         | `Match.instanceOf` + open terminal             | `instanceof` ladders                    |
+|   [8]   | completion stance                 | `Match.exhaustive` / `option` / `either`       | catch-all `orElse` masking a variant    |
+|   [9]   | keyed-domain classification       | vocabulary lookup / threshold iteration        | `Match.when` chains duplicating a vocab |
+|  [10]   | conditional return over a generic | conditional type + generic constraint          | 3+ overload signatures                  |
 
 [TYPE_PARAMETER_FORMS]: how a type parameter's distribution, variance, and inference are pinned.
 
-| [INDEX] | [CONCERN]                  | [USE]                                  | [REPLACE]                            |
-| :-----: | :------------------------- | :------------------------------------- | :----------------------------------- |
-|   [1]   | per-member union evaluation | naked `T extends ... ? ... : ...`     | manual union enumeration             |
-|   [2]   | union-as-unit evaluation   | `[T] extends [U]`                      | accidental distributive blow-up      |
-|   [3]   | multi-channel decomposition | multi-clause `infer A`/`infer E`/`infer R` | sequential conditional extraction |
-|   [4]   | declaration-site variance  | `in`/`out` annotations                 | lazily-inferred variance surprises   |
-|   [5]   | inference position control | `NoInfer<T>`                           | ambiguous two-position widening      |
-|   [6]   | recursion budget           | tuple accumulator at a depth limit     | unbudgeted recursion hitting the cap |
+| [INDEX] | [CONCERN]                   | [USE]                                      | [REPLACE]                            |
+| :-----: | :-------------------------- | :----------------------------------------- | :----------------------------------- |
+|   [1]   | per-member union evaluation | naked `T extends ... ? ... : ...`          | manual union enumeration             |
+|   [2]   | union-as-unit evaluation    | `[T] extends [U]`                          | accidental distributive blow-up      |
+|   [3]   | multi-channel decomposition | multi-clause `infer A`/`infer E`/`infer R` | sequential conditional extraction    |
+|   [4]   | declaration-site variance   | `in`/`out` annotations                     | lazily-inferred variance surprises   |
+|   [5]   | inference position control  | `NoInfer<T>`                               | ambiguous two-position widening      |
+|   [6]   | recursion budget            | tuple accumulator at a depth limit         | unbudgeted recursion hitting the cap |
 
 [MODULE_FORMS]: how a module declares its public surface and consumes another.
 
-| [INDEX] | [CONCERN]              | [USE]                                  | [REPLACE]                        |
-| :-----: | :--------------------- | :------------------------------------- | :------------------------------- |
-|   [1]   | public surface         | one or two named exports               | export sprawl, default exports   |
-|   [2]   | type-only import       | `import type` under `verbatimModuleSyntax` | value import elided at emit   |
-|   [3]   | private substrate      | `_`-prefixed module-local declaration  | exported helper consumed once    |
-|   [4]   | cross-module package edge | the Nx browser/node/neutral tag graph | ad-hoc cross-package import     |
+| [INDEX] | [CONCERN]                 | [USE]                                      | [REPLACE]                      |
+| :-----: | :------------------------ | :----------------------------------------- | :----------------------------- |
+|   [1]   | public surface            | one or two named exports                   | export sprawl, default exports |
+|   [2]   | type-only import          | `import type` under `verbatimModuleSyntax` | value import elided at emit    |
+|   [3]   | private substrate         | `_`-prefixed module-local declaration      | exported helper consumed once  |
+|   [4]   | cross-module package edge | the Nx browser/node/neutral tag graph      | ad-hoc cross-package import    |
 
 ## [3]-[LANGUAGE_FORM_CONTRACTS]
 

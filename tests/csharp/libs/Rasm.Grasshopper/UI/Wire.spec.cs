@@ -117,7 +117,7 @@ public sealed class WireQueryAndPolicyLaws {
         Guid target = Guid.NewGuid();
         WireSnapshot.ConnectedCase wire = new(Source: source, Target: target, SourceResolved: true, TargetResolved: true, Connected: true, Selected: false);
         WireOp[] documentQueries = [WireOp.Query(WireQuery.All)];
-        WireOp[] canvasQueries = [WireOp.InstallShape(shapeType: typeof(object))];
+        WireOp[] canvasQueries = [WireOp.InstallShape(style: WireStyle.Custom)];
         WireOp[] canvasHooks = [WireOp.Overlay(style: new WireOverlayStyle(Style: PaintStyle.Style(edge: Colors.Transparent))), WireOp.WirePaintObserve()];
         WireOp[] mutating = [WireOp.Select(WireSelectionOp.DeselectAll), WireOp.Split(wire: wire, location: PointF.Empty), WireOp.Edit(wire: wire, edit: WireEdit.Disconnect), WireOp.EditBatch((wire, WireEdit.Disconnect, default))];
         Assert.All(collection: documentQueries, action: op => {

@@ -18,43 +18,47 @@
 [PUBLIC_TYPE_SCOPE]: document and content types
 - rail: office
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `document.Document` | document object | the root document with content-add family and accessors (returned by `docx.Document(...)`) |
-| [2] | `text.paragraph.Paragraph` | paragraph | a paragraph with runs and style |
-| [3] | `text.run.Run` | run | a styled text run |
-| [4] | `table.Table` | table | a grid of cells |
-| [5] | `section.Section` | section | a page-layout section |
-| [6] | `styles.style.ParagraphStyle` / `CharacterStyle` | style | named paragraph/character styles |
-| [7] | `shared.Inches` / `Pt` / `Cm` / `Length` | unit | typed measurement value objects |
+| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]  | [CAPABILITY]                  |
+| :-----: | :------------------------- | :-------------- | :---------------------------- |
+|   [1]   | `document.Document`        | document object | root document object          |
+|   [2]   | `text.paragraph.Paragraph` | paragraph       | paragraph with runs and style |
+|   [3]   | `text.run.Run`             | run             | styled text run               |
+|   [4]   | `table.Table`              | table           | grid of cells                 |
+|   [5]   | `section.Section`          | section         | page-layout section           |
+|   [6]   | `ParagraphStyle`           | style           | named paragraph style         |
+|   [7]   | `CharacterStyle`           | style           | named character style         |
+|   [8]   | `shared.Inches`            | unit            | inch measurement value        |
+|   [9]   | `Pt` / `Cm` / `Length`     | unit            | point/centimeter/EMU units    |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document open and content authoring
 - rail: office
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `Document` | `Document(docx: str | IO[bytes] | None = None) -> document.Document` | open or create a document (factory function) |
-| [2] | `Document.add_paragraph` | `add_paragraph(text: str = '', style: str | ParagraphStyle | None = None) -> Paragraph` | add a paragraph |
-| [3] | `Document.add_heading` | `add_heading(text='', level=1) -> Paragraph` | add a heading |
-| [4] | `Document.add_table` | `add_table(rows: int, cols: int, style: str | _TableStyle | None = None) -> Table` | add a table |
-| [5] | `Document.add_picture` | `add_picture(image_path_or_stream: str | IO[bytes], width: int | Length | None = None, height: int | Length | None = None) -> InlineShape` | add an inline picture |
-| [6] | `Document.add_section` | `add_section(start_type=WD_SECTION.NEW_PAGE) -> Section` | add a section |
-| [7] | `Document.add_page_break` | `add_page_break() -> Paragraph` | add a page break |
-| [8] | `Document.save` | `save(path_or_stream: str | IO[bytes]) -> None` | serialize the document |
+Input rows use path-or-stream sources and optional style/unit policies; content rows return the created document object.
+
+| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                   | [CAPABILITY]                                 |
+| :-----: | :------------------------ | :----------------------------- | :------------------------------------------- |
+|   [1]   | `Document`                | optional path or stream source | open or create a document (factory function) |
+|   [2]   | `Document.add_paragraph`  | text plus optional style       | add a paragraph                              |
+|   [3]   | `Document.add_heading`    | text plus heading level        | add a heading                                |
+|   [4]   | `Document.add_table`      | row/column count plus style    | add a table                                  |
+|   [5]   | `Document.add_picture`    | image source plus size policy  | add an inline picture                        |
+|   [6]   | `Document.add_section`    | section-start policy           | add a section                                |
+|   [7]   | `Document.add_page_break` | no-arg page-break insertion    | add a page break                             |
+|   [8]   | `Document.save`           | path or stream target          | serialize the document                       |
 
 [ENTRYPOINT_SCOPE]: accessors and properties
 - rail: office
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `Document.paragraphs` | `paragraphs -> list[Paragraph]` | document paragraphs |
-| [2] | `Document.tables` | `tables -> list[Table]` | document tables |
-| [3] | `Document.sections` | `sections -> Sections` | document sections |
-| [4] | `Document.styles` | `styles -> Styles` | the style catalog |
-| [5] | `Document.core_properties` | `core_properties -> CoreProperties` | author/title/created metadata |
-| [6] | `Paragraph.add_run` | `add_run(text=None, style=None) -> Run` | add a styled run to a paragraph |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                            | [CAPABILITY]                    |
+| :-----: | :------------------------- | :-------------------------------------- | :------------------------------ |
+|   [1]   | `Document.paragraphs`      | `paragraphs -> list[Paragraph]`         | document paragraphs             |
+|   [2]   | `Document.tables`          | `tables -> list[Table]`                 | document tables                 |
+|   [3]   | `Document.sections`        | `sections -> Sections`                  | document sections               |
+|   [4]   | `Document.styles`          | `styles -> Styles`                      | the style catalog               |
+|   [5]   | `Document.core_properties` | `core_properties -> CoreProperties`     | author/title/created metadata   |
+|   [6]   | `Paragraph.add_run`        | `add_run(text=None, style=None) -> Run` | add a styled run to a paragraph |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

@@ -18,59 +18,59 @@
 [PUBLIC_TYPE_SCOPE]: struct and metadata family
 - rail: serialization
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `Struct` | model base | slotted typed wire struct |
-| [2] | `StructMeta` | metaclass | struct construction metaclass |
-| [3] | `Meta` | annotation | field constraint metadata |
-| [4] | `field` | field spec | default/rename field descriptor |
-| [5] | `Raw` | deferred | un-decoded payload holder |
-| [6] | `UnsetType` | sentinel | absent-field marker type |
-| [7] | `UNSET` | sentinel value | absent-field sentinel |
-| [8] | `NODEFAULT` | sentinel value | no-default marker |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]  | [RAIL]                          |
+| :-----: | :----------- | :------------- | :------------------------------ |
+|   [1]   | `Struct`     | model base     | slotted typed wire struct       |
+|   [2]   | `StructMeta` | metaclass      | struct construction metaclass   |
+|   [3]   | `Meta`       | annotation     | field constraint metadata       |
+|   [4]   | `field`      | field spec     | default/rename field descriptor |
+|   [5]   | `Raw`        | deferred       | un-decoded payload holder       |
+|   [6]   | `UnsetType`  | sentinel       | absent-field marker type        |
+|   [7]   | `UNSET`      | sentinel value | absent-field sentinel           |
+|   [8]   | `NODEFAULT`  | sentinel value | no-default marker               |
 
 [PUBLIC_TYPE_SCOPE]: codec family
 - rail: serialization
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `json.Encoder` | encoder | reusable JSON encoder |
-| [2] | `json.Decoder` | decoder | typed reusable JSON decoder |
-| [3] | `msgpack.Encoder` | encoder | reusable MessagePack encoder |
-| [4] | `msgpack.Decoder` | decoder | typed MessagePack decoder |
-| [5] | `inspect.Type` | schema node | introspected type node |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [RAIL]                       |
+| :-----: | :---------------- | :------------ | :--------------------------- |
+|   [1]   | `json.Encoder`    | encoder       | reusable JSON encoder        |
+|   [2]   | `json.Decoder`    | decoder       | typed reusable JSON decoder  |
+|   [3]   | `msgpack.Encoder` | encoder       | reusable MessagePack encoder |
+|   [4]   | `msgpack.Decoder` | decoder       | typed MessagePack decoder    |
+|   [5]   | `inspect.Type`    | schema node   | introspected type node       |
 
 [PUBLIC_TYPE_SCOPE]: fault family
 - rail: serialization
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `MsgspecError` | fault | base codec error |
-| [2] | `DecodeError` | fault | malformed-input error |
-| [3] | `EncodeError` | fault | unencodable-value error |
-| [4] | `ValidationError` | fault | schema-constraint violation |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [RAIL]                      |
+| :-----: | :---------------- | :------------ | :-------------------------- |
+|   [1]   | `MsgspecError`    | fault         | base codec error            |
+|   [2]   | `DecodeError`     | fault         | malformed-input error       |
+|   [3]   | `EncodeError`     | fault         | unencodable-value error     |
+|   [4]   | `ValidationError` | fault         | schema-constraint violation |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: codec operations
 - rail: serialization
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `json.encode` | encode | value to JSON bytes |
-| [2] | `json.decode` | decode | JSON bytes to typed value |
-| [3] | `json.Decoder.decode` | decode | reusable typed decode |
-| [4] | `json.Decoder.decode_lines` | decode | NDJSON line decode |
-| [5] | `json.Encoder.encode_into` | encode | encode into a buffer |
-| [6] | `json.Encoder.encode_lines` | encode | NDJSON line encode |
-| [7] | `msgpack.encode` / `msgpack.decode` | codec | MessagePack round-trip |
-| [8] | `toml.encode` / `toml.decode` | codec | TOML round-trip |
-| [9] | `yaml.encode` / `yaml.decode` | codec | YAML round-trip |
-| [10] | `convert` | transform | builtins to typed value |
-| [11] | `to_builtins` | transform | typed value to builtins |
-| [12] | `defstruct` | factory | runtime struct definition |
-| [13] | `json.schema` | schema | JSON schema for a type |
-| [14] | `inspect.type_info` | schema | introspect a type's schema |
+| [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [RAIL]                     |
+| :-----: | :---------------------------------- | :------------- | :------------------------- |
+|   [1]   | `json.encode`                       | encode         | value to JSON bytes        |
+|   [2]   | `json.decode`                       | decode         | JSON bytes to typed value  |
+|   [3]   | `json.Decoder.decode`               | decode         | reusable typed decode      |
+|   [4]   | `json.Decoder.decode_lines`         | decode         | NDJSON line decode         |
+|   [5]   | `json.Encoder.encode_into`          | encode         | encode into a buffer       |
+|   [6]   | `json.Encoder.encode_lines`         | encode         | NDJSON line encode         |
+|   [7]   | `msgpack.encode` / `msgpack.decode` | codec          | MessagePack round-trip     |
+|   [8]   | `toml.encode` / `toml.decode`       | codec          | TOML round-trip            |
+|   [9]   | `yaml.encode` / `yaml.decode`       | codec          | YAML round-trip            |
+|  [10]   | `convert`                           | transform      | builtins to typed value    |
+|  [11]   | `to_builtins`                       | transform      | typed value to builtins    |
+|  [12]   | `defstruct`                         | factory        | runtime struct definition  |
+|  [13]   | `json.schema`                       | schema         | JSON schema for a type     |
+|  [14]   | `inspect.type_info`                 | schema         | introspect a type's schema |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

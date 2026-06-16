@@ -20,13 +20,19 @@ public sealed partial class LayoutAxis {
         key: 0,
         origin: static bounds => bounds.Left,
         span: static bounds => bounds.Width,
-        delta: static (cursor, bounds) => (Dx: cursor - bounds.Left, Dy: 0f));
+        delta: static (cursor, bounds) => (Dx: cursor - bounds.Left, Dy: 0f),
+        offset: static (dx, _) => dx,
+        crossExtent: static frame => frame.Height,
+        tick: static (centre, anchor, len) => new LineF(centre, anchor.Top - len, centre, anchor.Top));
 
     public static readonly LayoutAxis Vertical = new(
         key: 1,
         origin: static bounds => bounds.Top,
         span: static bounds => bounds.Height,
-        delta: static (cursor, bounds) => (Dx: 0f, Dy: cursor - bounds.Top));
+        delta: static (cursor, bounds) => (Dx: 0f, Dy: cursor - bounds.Top),
+        offset: static (_, dy) => dy,
+        crossExtent: static frame => frame.Width,
+        tick: static (centre, anchor, len) => new LineF(anchor.Left - len, centre, anchor.Left, centre));
 
     [UseDelegateFromConstructor]
     internal partial float Origin(RectangleF bounds);
@@ -37,7 +43,16 @@ public sealed partial class LayoutAxis {
     [UseDelegateFromConstructor]
     internal partial (float Dx, float Dy) Delta(float cursor, RectangleF bounds);
 
-    internal float Offset(float dx, float dy) => Equals(Horizontal) ? dx : dy;
+    [UseDelegateFromConstructor]
+    internal partial float Offset(float dx, float dy);
+
+    // CrossExtent selects the viewport dimension orthogonal to the axis for tick-length scaling; Tick builds the guide
+    // segment anchored to the probe rectangle.
+    [UseDelegateFromConstructor]
+    internal partial float CrossExtent(RectangleF frame);
+
+    [UseDelegateFromConstructor]
+    internal partial LineF Tick(float centre, RectangleF anchor, float length);
 }
 
 [SmartEnum<int>]
@@ -52,10 +67,13 @@ public sealed partial class ResizeAxis {
 
 [SmartEnum<int>]
 public sealed partial class LayoutGapPolicy {
-    public static readonly LayoutGapPolicy Stretch = new(key: 0, contentSlack: 1e-4f);
-    public static readonly LayoutGapPolicy Fixed = new(key: 1, contentSlack: 0f);
-    // Sub-pixel slack keeps marginal overflows on the fixed cursor before the stretch solver takes over.
+    public static readonly LayoutGapPolicy Stretch = new(key: 0, contentSlack: 1e-4f, forcePack: false);
+    public static readonly LayoutGapPolicy Fixed = new(key: 1, contentSlack: 0f, forcePack: true);
+    // Sub-pixel slack keeps marginal overflows on the fixed cursor before the stretch solver takes over; ForcePack forces
+    // the cursor pack regardless of measured extent.
     internal float ContentSlack { get; }
+
+    internal bool ForcePack { get; }
 }
 
 [ValueObject<float>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -84,12 +102,17 @@ public partial record LayoutArrangement {
     public sealed record MoveCase(Guid Id, float Dx, float Dy, SnappingPolicy Policy = default) : LayoutArrangement;
     public sealed record PlaceCase(Guid Id, PointF Pivot, Option<SnappingPolicy> Policy = default) : LayoutArrangement;
     public sealed record AlignCase(Guid Anchor, Seq<Guid> Targets, OCD.Fixed Fix) : LayoutArrangement;
+    // AlignWires straightens connecting wires: the geometry source is wire endpoints, not object bounds.
+    public sealed record AlignWiresCase(Seq<Guid> Ids, SnappingPolicy Policy = default) : LayoutArrangement;
     public sealed record ChainCase(LayoutChainKind Kind, LayoutAxis Axis, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
     public sealed record GridCase(int Rows, int Cols, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
     public sealed record NudgeCase(Seq<Guid> Ids, float Separation, SnappingPolicy Policy = default) : LayoutArrangement;
 
     public static LayoutArrangement Align(Guid anchor, Seq<Guid> targets, OCD.Fixed fix = OCD.Fixed.None) =>
         new AlignCase(Anchor: anchor, Targets: targets, Fix: fix);
+
+    public static LayoutArrangement AlignWires(Seq<Guid> ids, SnappingPolicy policy = default) =>
+        new AlignWiresCase(Ids: ids, Policy: policy);
 
     public static LayoutArrangement Distribute(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
         new ChainCase(Kind: LayoutChainKind.Distribute, Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Stretch);
@@ -150,11 +173,11 @@ public partial record SnapSetting {
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SnappingPolicy(bool IncludeSelected = true, bool IncludeUnselected = true, Seq<SnapSetting> Settings = default) {
-    // One fold lowers all settings into a PolicyDecode: native settings accumulate while the cosmetic/spatial slots take
-    // their first match. FeedbackStyle defaults YStyle to XStyle; UseAggregateWireBounds defaults to true when unset.
+    // One fold lowers all settings into a PolicyDecode carrier so the O(N) settings scan runs once per operation.
+    // FeedbackStyle defaults YStyle to XStyle; UseAggregateWireBounds defaults to true when unset.
     internal PolicyDecode Decode() =>
         Settings.Fold(
-            new PolicyDecode(Native: SnappingSettings.Current, FeedbackStyle: default, Spaces: Seq<SnapSpace>(), Geometry: default, SmartGap: default, UseAggregateWireBounds: true),
+            new PolicyDecode(Native: SnappingSettings.Current, FeedbackStyle: default, Spaces: Seq<SnapSpace>(), Geometry: default, SmartGap: default, UseAggregateWireBounds: true, IncludeSelected: IncludeSelected, IncludeUnselected: IncludeUnselected),
             static (acc, op) => op switch {
                 SnapSetting.WithRuleCase rule => acc with { Native = acc.Native.WithRules(rules: rule.Rule) },
                 SnapSetting.WithoutRuleCase rule => acc with { Native = acc.Native.WithoutRules(rules: rule.Rule) },
@@ -169,13 +192,9 @@ public readonly record struct SnappingPolicy(bool IncludeSelected = true, bool I
                 SnapSetting.WireBoundsCase wire => acc with { UseAggregateWireBounds = wire.Aggregate },
                 _ => acc,
             });
-
-    // Slim accessors for the cosmetic/bounds slots used outside SnapCore's cached decode; SnapCore folds once via Decode.
-    internal Option<(SnapGuideStyle X, SnapGuideStyle Y)> FeedbackStyle => Decode().FeedbackStyle;
-    internal bool UseAggregateWireBounds => Decode().UseAggregateWireBounds;
 }
 
-// Single-pass projection of a SnappingPolicy's settings: one fold replaces six independent O(N) Choose/Fold scans.
+// Single-pass projection of a SnappingPolicy's settings; consumed by Measure, SnapCore, and the guide read.
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct PolicyDecode(
     SnappingSettings Native,
@@ -183,7 +202,9 @@ internal readonly record struct PolicyDecode(
     Seq<SnapSpace> Spaces,
     Option<(SnapProjection Projection, double Radius)> Geometry,
     Option<SnapSetting.SmartGapCase> SmartGap,
-    bool UseAggregateWireBounds);
+    bool UseAggregateWireBounds,
+    bool IncludeSelected,
+    bool IncludeUnselected);
 
 [SkipUnionOps]
 [Union]
@@ -227,10 +248,7 @@ public partial record LayoutResult {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Layout {
-    // Bounded relaxation budget for Nudge: enough passes for typical selections to settle without an open loop.
-    private const int NudgeIterations = 24;
-
-    private readonly record struct SnapRun(SnappingPolicy Policy, Func<GrasshopperUi.Scope, Fin<Option<SnappingSnapshot>>> Run);
+    private readonly record struct SnapRun(PolicyDecode Decoded, Func<GrasshopperUi.Scope, Fin<Option<SnappingSnapshot>>> Run);
 
     internal static GrasshopperUiIntent<LayoutResult> Measure(ObjectScope scope) =>
         scope.Switch(
@@ -248,6 +266,7 @@ internal static partial class Layout {
             placeCase: static place => Place(id: place.Id, pivot: place.Pivot, snap: place.Policy)
                 .Map(static delta => delta.Map(static payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
             alignCase: static align => Align(anchor: align.Anchor, fix: align.Fix, targets: [.. align.Targets]),
+            alignWiresCase: static alignWires => AlignWires(snap: alignWires.Policy, ids: [.. alignWires.Ids]),
             chainCase: static chain => chain.Kind.Arrange(axis: chain.Axis, gap: chain.Gap, ids: chain.Ids, gapPolicy: chain.GapPolicy),
             gridCase: static grid => Grid(
                 rows: grid.Rows,
@@ -270,48 +289,54 @@ internal static partial class Layout {
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Move(Guid id, float dx, float dy, SnappingPolicy snap = default) =>
         GhUi.Document(
-            repaint: RepaintRequest.Object(id: id),
-            run: scope =>
-                from canvas in scope.NeedCanvas()
-                from moved in UiRail.RunMutation(
-                    scope: scope,
-                    op: Op.Of(name: nameof(Move)),
-                    mutate: (methods, document, objects, actions) =>
-                        from delta in Op.Of(name: nameof(Move)).AcceptPoint(value: new PointF(x: dx, y: dy), detail: "non-finite delta")
-                        from obj in UiRail.ResolveObject(objects: objects, id: id, op: Op.Of(name: nameof(Move)))
-                        let applied = ApplyMove(
-                            obj: obj,
-                            document: document,
-                            delta: delta,
-                            snap: Some(snap),
-                            visibleLimit: canvas.VisibleFrame,
-                            actions: actions)
-                        select (DocumentMutationReceipt.Count(changed: 1), applied))
-                from _ in EmitSnapGuide(scope: scope, style: snap.FeedbackStyle, snapshot: moved.Payload.Snap)
-                select moved);
+            repaint: RepaintRequest.Batch(requests: Seq(RepaintRequest.Object(id: id))),
+            run: scope => {
+                PolicyDecode decoded = snap.Decode();
+                return
+                    from canvas in scope.NeedCanvas()
+                    from moved in UiRail.RunMutation(
+                        scope: scope,
+                        op: Op.Of(name: nameof(Move)),
+                        mutate: (methods, document, objects, actions) =>
+                            from delta in Op.Of(name: nameof(Move)).AcceptPoint(value: new PointF(x: dx, y: dy), detail: "non-finite delta")
+                            from obj in UiRail.ResolveObject(objects: objects, id: id, op: Op.Of(name: nameof(Move)))
+                            let applied = ApplyMove(
+                                obj: obj,
+                                document: document,
+                                delta: delta,
+                                snap: Some(decoded),
+                                visibleLimit: canvas.VisibleFrame,
+                                actions: actions)
+                            select (DocumentMutationReceipt.Count(changed: 1), applied))
+                    from _ in EmitSnapGuide(scope: scope, style: decoded.FeedbackStyle, snapshot: moved.Payload.Snap)
+                    select moved;
+            });
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Place(Guid id, PointF pivot, Option<SnappingPolicy> snap = default) =>
         GhUi.Document(
-            repaint: RepaintRequest.Object(id: id),
-            run: scope =>
-                from canvas in scope.NeedCanvas()
-                from placed in UiRail.RunMutation(
-                    scope: scope,
-                    op: Op.Of(name: nameof(Place)),
-                    mutate: (methods, document, objects, actions) =>
-                        from valid in Op.Of(name: nameof(Place)).AcceptPoint(value: pivot, detail: "non-finite pivot")
-                        from obj in UiRail.ResolveObject(objects: objects, id: id, op: Op.Of(name: nameof(Place)))
-                        let before = SnapshotOf(attributes: obj.Attributes)
-                        let applied = ApplyMove(
-                            obj: obj,
-                            document: document,
-                            delta: new PointF(x: valid.X - before.Pivot.X, y: valid.Y - before.Pivot.Y),
-                            snap: snap,
-                            visibleLimit: canvas.VisibleFrame,
-                            actions: actions)
-                        select (DocumentMutationReceipt.Count(changed: 1), applied))
-                from _ in EmitSnapGuide(scope: scope, style: snap.Bind(static policy => policy.FeedbackStyle), snapshot: placed.Payload.Snap)
-                select placed);
+            repaint: RepaintRequest.Batch(requests: Seq(RepaintRequest.Object(id: id))),
+            run: scope => {
+                Option<PolicyDecode> decoded = snap.Map(static policy => policy.Decode());
+                return
+                    from canvas in scope.NeedCanvas()
+                    from placed in UiRail.RunMutation(
+                        scope: scope,
+                        op: Op.Of(name: nameof(Place)),
+                        mutate: (methods, document, objects, actions) =>
+                            from valid in Op.Of(name: nameof(Place)).AcceptPoint(value: pivot, detail: "non-finite pivot")
+                            from obj in UiRail.ResolveObject(objects: objects, id: id, op: Op.Of(name: nameof(Place)))
+                            let before = SnapshotOf(attributes: obj.Attributes)
+                            let applied = ApplyMove(
+                                obj: obj,
+                                document: document,
+                                delta: new PointF(x: valid.X - before.Pivot.X, y: valid.Y - before.Pivot.Y),
+                                snap: decoded,
+                                visibleLimit: canvas.VisibleFrame,
+                                actions: actions)
+                            select (DocumentMutationReceipt.Count(changed: 1), applied))
+                    from _ in EmitSnapGuide(scope: scope, style: decoded.Bind(static d => d.FeedbackStyle), snapshot: placed.Payload.Snap)
+                    select placed;
+            });
 
     internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Align(Guid anchor, OCD.Fixed fix = OCD.Fixed.None, params ReadOnlySpan<Guid> targets) {
         Guid[] snapshot = targets.ToArray();
@@ -346,16 +371,25 @@ internal static partial class Layout {
         from aligned in AlignVia(a: anchor, b: targetObj, fix: fix)
         select MovedDelta(before: targetBefore, after: SnapshotOf(attributes: targetObj.Attributes));
 
-    // OCD.AlignObjects exposes exactly four (Component|IParameter)^2 overloads; unsupported pairs stay explicit. Each arm
-    // fences its own native call directly because static overload resolution forbids a single hoisted delegate.
+    // OCD.AlignObjects exposes four (Component|IParameter)^2 overloads bound by static resolution; dispatch on the left
+    // operand's alignable shape yields a closure that dispatches the right, so the 2x2 collapses to left-then-right
+    // polymorphic dispatch — one rejection rail at each axis, one fenced native seam, never a flat four-tuple of arms.
     private static Fin<Unit> AlignVia(IDocumentObject a, IDocumentObject b, OCD.Fixed fix) =>
-        (a, b) switch {
-            (Component left, Component right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
-            (Component left, IParameter right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
-            (IParameter left, Component right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
-            (IParameter left, IParameter right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
-            _ => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(AlignVia)), detail: $"OCD.AlignObjects unsupported pair ({a.GetType().Name}, {b.GetType().Name})")),
-        };
+        (a switch {
+            Component left => b switch {
+                Component right => Optional(() => OCD.AlignObjects(left, right, fix)),
+                IParameter right => Optional(() => OCD.AlignObjects(left, right, fix)),
+                _ => Option<System.Action>.None,
+            },
+            IParameter left => b switch {
+                Component right => Optional(() => OCD.AlignObjects(left, right, fix)),
+                IParameter right => Optional(() => OCD.AlignObjects(left, right, fix)),
+                _ => Option<System.Action>.None,
+            },
+            _ => Option<System.Action>.None,
+        })
+        .Map(align => Op.Of(name: nameof(AlignVia)).Attempt(body: align, what: "OCD.AlignObjects"))
+        .IfNone(() => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(AlignVia)), detail: $"OCD.AlignObjects unsupported pair ({a.GetType().Name}, {b.GetType().Name})")));
 
     private static Option<LayoutMoveDelta> MovedDelta(LayoutSnapshot before, LayoutSnapshot after) =>
         before.Pivot != after.Pivot
@@ -367,7 +401,8 @@ internal static partial class Layout {
         GhUi.Document(
             repaint: RepaintRequest.Canvas,
             run: scope => {
-                RectangleF visibleLimit = snap.Bind(_ => scope.NeedCanvas().Map(static canvas => canvas.VisibleFrame).ToOption()).IfNone(RectangleF.Empty);
+                Option<PolicyDecode> decoded = snap.Map(static policy => policy.Decode());
+                RectangleF visibleLimit = decoded.Bind(_ => scope.NeedCanvas().Map(static canvas => canvas.VisibleFrame).ToOption()).IfNone(RectangleF.Empty);
                 return UiRail.RunMutation(
                     scope: scope,
                     op: Op.Of(name: noun),
@@ -384,14 +419,14 @@ internal static partial class Layout {
                                 obj: obj,
                                 document: document,
                                 delta: new PointF(x: move.Dx, y: move.Dy),
-                                snap: snap,
+                                snap: decoded,
                                 visibleLimit: visibleLimit,
                                 actions: actions)
                             select delta).As()
                         select (
                             DocumentMutationReceipt.Count(changed: deltas.Count),
                             new LayoutArrangeDelta(Moves: deltas)))
-                    .Bind(committed => EmitSnapGuide(scope: scope, style: snap.Bind(static policy => policy.FeedbackStyle), snapshot: committed.Payload.Moves.Choose(static move => move.Snap).Head)
+                    .Bind(committed => EmitSnapGuide(scope: scope, style: decoded.Bind(static d => d.FeedbackStyle), snapshot: committed.Payload.Moves.Choose(static move => move.Snap).Head)
                         .Map(_ => committed));
             });
 
@@ -422,6 +457,17 @@ internal static partial class Layout {
             noun: string.Create(CultureInfo.InvariantCulture, $"Nudge {separation:0.###}"),
             minimum: 2,
             compute: objs => ComputeNudge(objects: objs, ids: toSeq(snapshot), separation: separation),
+            snap: snap.Equals(default) ? Option<SnappingPolicy>.None : Some(snap));
+    }
+
+    // AlignWires straightens connections inside the selection: each object slides on Y to its first predecessor's wire
+    // endpoint. The geometry source is Wire.AllWireEnds, not object bounds — the invariant that separates it from Align.
+    internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> AlignWires(SnappingPolicy snap = default, params ReadOnlySpan<Guid> ids) {
+        Guid[] snapshot = ids.ToArray();
+        return ArrangeMoves(
+            noun: nameof(AlignWires),
+            minimum: 1,
+            compute: objs => ComputeWireAlignment(objects: objs, ids: toSeq(snapshot)),
             snap: snap.Equals(default) ? Option<SnappingPolicy>.None : Some(snap));
     }
 
@@ -459,9 +505,8 @@ internal static partial class Layout {
                 ? Fin.Succ(co!)
                 : Fin.Fail<ConnectiveObject>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(SortCausally)), detail: $"object {id} not found in connectivity")))
             .As()
-            // Rank = longest-path depth over the causally-sorted predecessors (co.In, intersected with the selection):
-            // parallel nodes share a band so Flow distributes them; a plain topological index makes every rank unique,
-            // collapsing every Flow band to a singleton (no moves).
+            // Rank = longest-path depth over the in-selection predecessors (co.In intersected with the selection), so
+            // parallel nodes share a band; a topological index would make every rank unique, leaving each band a singleton.
             .Map(nodes => {
                 GuidSet idSet = [.. ids];
                 Seq<ConnectiveObject> sorted = toSeq(connectivity.SortCausally(objects: [.. nodes]));
@@ -478,7 +523,7 @@ internal static partial class Layout {
             from valid in Optional(probe).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "snap probe is required"))
             let plan = SnapPlan(probe: valid)
             from snapshot in plan.Run(arg: scope)
-            from _ in EmitSnapGuide(scope: scope, style: plan.Policy.FeedbackStyle, snapshot: snapshot)
+            from _ in EmitSnapGuide(scope: scope, style: plan.Decoded.FeedbackStyle, snapshot: snapshot)
             select snapshot);
 
     // GH2 object drags draw native SnapXAction/SnapYAction feedback; suppress duplicate cosmetics during drag focus.
@@ -495,72 +540,66 @@ internal static partial class Layout {
             : Fin.Succ(value: unit);
 
     private static Unit AlignmentHaptic(GrasshopperUi.Scope scope) =>
-        MotionAccessibility.ShouldReduceMotion
+        AccessibilityMotionGate.ShouldReduceMotion
             ? unit
             : Motion.Cosmetic(intent: new CosmeticIntent.HapticCase(Pattern: HapticPattern.Alignment)).Run(scope: scope).Ignore();
 
+    // Decodes the policy exactly once per probe and threads the carrier through the per-case Run builder, so the settings
+    // fold never repeats and FeedbackStyle reaches the guide-emission site.
+    private static SnapRun Plan(SnappingPolicy policy, Func<PolicyDecode, Func<GrasshopperUi.Scope, Fin<Option<SnappingSnapshot>>>> build) {
+        PolicyDecode decoded = policy.Decode();
+        return new SnapRun(Decoded: decoded, Run: build(arg: decoded));
+    }
+
     private static SnapRun SnapPlan(SnapProbe probe) =>
         probe.Switch(
-            pointCase: static point => new SnapRun(
-                Policy: point.Policy,
-                Run: scope =>
-                    from probe in Op.Of(name: nameof(Snap)).AcceptPoint(value: point.Probe, detail: "non-finite probe")
-                    from radius in Op.Of(name: nameof(Snap)).AcceptFinite(value: point.Radius, detail: "radius must be finite and positive", requirePositive: true)
-                    from snapped in SnapRectangle(scope: scope, id: point.ObjectId, bounds: new RectangleF(x: probe.X - radius, y: probe.Y - radius, width: radius * 2f, height: radius * 2f), policy: point.Policy)
-                    select snapped),
-            rectangleCase: static rectangle => new SnapRun(
-                Policy: rectangle.Policy,
-                Run: scope => SnapRectangle(scope: scope, id: rectangle.ObjectId, bounds: rectangle.Bounds, policy: rectangle.Policy)),
-            objectCase: static obj => new SnapRun(
-                Policy: obj.Policy,
-                Run: scope => ObjectOf(scope: scope, id: obj.ObjectId).Bind(target =>
+            pointCase: static point => Plan(policy: point.Policy, build: decoded => scope =>
+                from p in Op.Of(name: nameof(Snap)).AcceptPoint(value: point.Probe, detail: "non-finite probe")
+                from radius in Op.Of(name: nameof(Snap)).AcceptFinite(value: point.Radius, detail: "radius must be finite and positive", requirePositive: true)
+                from snapped in SnapRectangle(scope: scope, id: point.ObjectId, bounds: new RectangleF(x: p.X - radius, y: p.Y - radius, width: radius * 2f, height: radius * 2f), decoded: decoded)
+                select snapped),
+            rectangleCase: static rectangle => Plan(policy: rectangle.Policy, build: decoded => scope =>
+                SnapRectangle(scope: scope, id: rectangle.ObjectId, bounds: rectangle.Bounds, decoded: decoded)),
+            objectCase: static obj => Plan(policy: obj.Policy, build: decoded => scope =>
+                ObjectOf(scope: scope, id: obj.ObjectId).Bind(target =>
                     from document in scope.NeedDocument()
                     from canvas in scope.NeedCanvas()
-                    select SnapCore(document: document, obj: target, policy: obj.Policy, visibleLimit: canvas.VisibleFrame, bounds: Option<RectangleF>.None, wireCandidates: Seq(target)))),
-            groupCase: static g => new SnapRun(
-                Policy: g.Policy,
-                Run: scope =>
-                    from document in scope.NeedDocument()
-                    from canvas in scope.NeedCanvas()
-                    from members in g.ObjectIds.TraverseM(id => UiRail.ResolveObject(objects: document.Objects, id: id, op: Op.Of(name: nameof(Snap)))).As()
-                    from snapped in members.IsEmpty
-                        ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "group snap requires at least one resolvable member"))
-                        : Fin.Succ(value: SnapGroup(document: document, members: members, policy: g.Policy, visibleLimit: canvas.VisibleFrame))
-                    select snapped),
-            dragCase: static drag => new SnapRun(
-                Policy: drag.Policy,
-                Run: scope =>
-                    from document in scope.NeedDocument()
-                    from canvas in scope.NeedCanvas()
-                    from frame in Op.Of(name: nameof(SnapProbe.Drag)).AcceptRect(value: drag.Bounds, detail: "invalid drag bounds", requirePositive: true)
-                    from members in drag.ObjectIds.TraverseM(id => UiRail.ResolveObject(objects: document.Objects, id: id, op: Op.Of(name: nameof(Snap)))).As()
-                    from snapped in members.IsEmpty
-                        ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(SnapProbe.Drag)), detail: "drag snap requires at least one member"))
-                        : Fin.Succ(value: SnapCore(document: document, obj: members[0], policy: drag.Policy, visibleLimit: canvas.VisibleFrame, bounds: Some(frame), wireCandidates: members, excludeIds: Some(new GuidSet([.. members.Bind(static m => toSeq(m.EntireFamily).Map(static f => f.InstanceId))]))))
-                    select snapped),
-            resizeCase: static resize => new SnapRun(
-                Policy: resize.Policy,
-                Run: scope =>
-                    from frame in Op.Of(name: nameof(SnapProbe.ResizeCase)).AcceptRect(value: resize.PreviewBounds, detail: "invalid resize preview bounds", requirePositive: true)
-                    from snapped in SnapRectangle(scope: scope, id: resize.ObjectId, bounds: frame, policy: resize.Policy)
-                        // All-zero resize masks collapse to None so consumers see no snap.
-                    select snapped.Bind(s => resize.Axis.Mask(dx: s.Dx, dy: s.Dy) is (float mx, float my) && (mx != 0f || my != 0f)
-                        ? Some(s with { Dx = mx, Dy = my, Magnitude = MathF.Sqrt((mx * mx) + (my * my)) })
-                        : Option<SnappingSnapshot>.None)),
-            rotatedCase: static rotated => new SnapRun(
-                Policy: rotated.Policy,
+                    select SnapCore(document: document, obj: target, decoded: decoded, visibleLimit: canvas.VisibleFrame, bounds: Option<RectangleF>.None, wireCandidates: Seq(target)))),
+            groupCase: static g => Plan(policy: g.Policy, build: decoded => scope =>
+                from document in scope.NeedDocument()
+                from canvas in scope.NeedCanvas()
+                from members in g.ObjectIds.TraverseM(id => UiRail.ResolveObject(objects: document.Objects, id: id, op: Op.Of(name: nameof(Snap)))).As()
+                from snapped in members.IsEmpty
+                    ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "group snap requires at least one resolvable member"))
+                    : Fin.Succ(value: SnapGroup(document: document, members: members, decoded: decoded, visibleLimit: canvas.VisibleFrame))
+                select snapped),
+            dragCase: static drag => Plan(policy: drag.Policy, build: decoded => scope =>
+                from document in scope.NeedDocument()
+                from canvas in scope.NeedCanvas()
+                from frame in Op.Of(name: nameof(SnapProbe.Drag)).AcceptRect(value: drag.Bounds, detail: "invalid drag bounds", requirePositive: true)
+                from members in drag.ObjectIds.TraverseM(id => UiRail.ResolveObject(objects: document.Objects, id: id, op: Op.Of(name: nameof(Snap)))).As()
+                from snapped in members.IsEmpty
+                    ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(SnapProbe.Drag)), detail: "drag snap requires at least one member"))
+                    : Fin.Succ(value: SnapCore(document: document, obj: members[0], decoded: decoded, visibleLimit: canvas.VisibleFrame, bounds: Some(frame), wireCandidates: members, excludeIds: Some(new GuidSet([.. members.Bind(static m => toSeq(m.EntireFamily).Map(static f => f.InstanceId))]))))
+                select snapped),
+            resizeCase: static resize => Plan(policy: resize.Policy, build: decoded => scope =>
+                from frame in Op.Of(name: nameof(SnapProbe.ResizeCase)).AcceptRect(value: resize.PreviewBounds, detail: "invalid resize preview bounds", requirePositive: true)
+                from snapped in SnapRectangle(scope: scope, id: resize.ObjectId, bounds: frame, decoded: decoded)
+                    // All-zero resize masks collapse to None so consumers see no snap.
+                select snapped.Bind(s => resize.Axis.Mask(dx: s.Dx, dy: s.Dy) is (float mx, float my) && (mx != 0f || my != 0f)
+                    ? Some(s with { Dx = mx, Dy = my, Magnitude = MathF.Sqrt((mx * mx) + (my * my)) })
+                    : Option<SnappingSnapshot>.None)),
+            rotatedCase: static rotated => Plan(policy: rotated.Policy, build: _ => _ =>
                 // GH2 SnappingConstraints is translation-only; rotation snap is pure angle quantisation.
-                Run: _ => Fin.Succ(value: SnapAngle(angle: rotated.Angle, increment: rotated.Increment, tolerance: rotated.Tolerance, pivot: rotated.Pivot))));
+                Fin.Succ(value: SnapAngle(angle: rotated.Angle, increment: rotated.Increment, tolerance: rotated.Tolerance, pivot: rotated.Pivot))));
 
-    private static Fin<Option<SnappingSnapshot>> SnapRectangle(GrasshopperUi.Scope scope, Guid id, RectangleF bounds, SnappingPolicy policy) =>
+    // One Scope-marshalled rectangle probe: validate, resolve the object, then SnapCore over the pre-decoded carrier.
+    private static Fin<Option<SnappingSnapshot>> SnapRectangle(GrasshopperUi.Scope scope, Guid id, RectangleF bounds, PolicyDecode decoded) =>
         Op.Of(name: nameof(SnapRectangle)).AcceptRect(value: bounds, detail: "invalid rectangle probe", requirePositive: true)
             .Bind(valid => ObjectOf(scope: scope, id: id).Bind(obj =>
                 from document in scope.NeedDocument()
                 from canvas in scope.NeedCanvas()
-                select SnapRectangle(document: document, obj: obj, bounds: valid, policy: policy, visibleLimit: canvas.VisibleFrame)));
-
-    private static Option<SnappingSnapshot> SnapRectangle(GhDocument document, IDocumentObject obj, RectangleF bounds, SnappingPolicy policy, RectangleF visibleLimit) =>
-        SnapCore(document: document, obj: obj, policy: policy, visibleLimit: visibleLimit, bounds: Some(bounds), wireCandidates: Seq(obj));
+                select SnapCore(document: document, obj: obj, decoded: decoded, visibleLimit: canvas.VisibleFrame, bounds: Some(valid), wireCandidates: Seq(obj))));
 
     private static Fin<IDocumentObject> ObjectOf(GrasshopperUi.Scope scope, Guid id) =>
         UiRail.ResolveObject(scope: scope, id: id, op: Op.Of(name: nameof(ObjectOf)));
@@ -572,17 +611,17 @@ internal static partial class Layout {
             AggregateBounds: attributes.AggregateBounds,
             Snappable: attributes.Snappable);
 
-    private static LayoutMoveDelta ApplyMove(IDocumentObject obj, GhDocument document, PointF delta, Option<SnappingPolicy> snap, RectangleF visibleLimit, ActionList actions) {
+    private static LayoutMoveDelta ApplyMove(IDocumentObject obj, GhDocument document, PointF delta, Option<PolicyDecode> snap, RectangleF visibleLimit, ActionList actions) {
         actions.Add(new PivotAction(obj: obj));
         IAttributes attributes = obj.Attributes;
         attributes.Layout(shape: Grasshopper2.UI.Skinning.Shape.Default);
-        RectangleF bounds = snap.Map(policy => TargetBounds(attributes: attributes, policy: policy)).IfNone(attributes.AggregateBounds);
-        Option<SnappingSnapshot> snapped = snap.Bind(policy => attributes.Snappable
-            ? SnapRectangle(
-                document: document, obj: obj,
-                bounds: new RectangleF(x: bounds.X + delta.X, y: bounds.Y + delta.Y, width: bounds.Width, height: bounds.Height),
-                policy: policy,
-                visibleLimit: visibleLimit)
+        RectangleF bounds = snap.Map(decoded => TargetBounds(attributes: attributes, decoded: decoded)).IfNone(attributes.AggregateBounds);
+        Option<SnappingSnapshot> snapped = snap.Bind(decoded => attributes.Snappable
+            ? SnapCore(
+                document: document, obj: obj, decoded: decoded,
+                visibleLimit: visibleLimit,
+                bounds: Some(new RectangleF(x: bounds.X + delta.X, y: bounds.Y + delta.Y, width: bounds.Width, height: bounds.Height)),
+                wireCandidates: Seq(obj))
             : Option<SnappingSnapshot>.None);
         (float deltaDx, float deltaDy) = snapped.Map(static s => (s.Dx, s.Dy)).IfNone((0f, 0f));
         float effDx = delta.X + deltaDx;
@@ -595,35 +634,35 @@ internal static partial class Layout {
             Snap: snapped);
     }
 
-    private static RectangleF TargetBounds(IAttributes attributes, SnappingPolicy policy) =>
-        policy.UseAggregateWireBounds ? attributes.AggregateBounds : attributes.Bounds;
+    private static RectangleF TargetBounds(IAttributes attributes, PolicyDecode decoded) =>
+        decoded.UseAggregateWireBounds ? attributes.AggregateBounds : attributes.Bounds;
 
     // Group snap uses union bounds and all member wire families, not only members[0].
-    private static Option<SnappingSnapshot> SnapGroup(GhDocument document, Seq<IDocumentObject> members, SnappingPolicy policy, RectangleF visibleLimit) =>
+    private static Option<SnappingSnapshot> SnapGroup(GhDocument document, Seq<IDocumentObject> members, PolicyDecode decoded, RectangleF visibleLimit) =>
         SnapCore(
             document: document,
             obj: members[0],
-            policy: policy,
+            decoded: decoded,
             visibleLimit: visibleLimit,
             bounds: Some(members.Tail.Fold(members[0].Attributes.AggregateBounds, static (acc, m) => RectangleF.Union(rect1: acc, rect2: m.Attributes.AggregateBounds))),
             wireCandidates: members,
             excludeIds: Some(new GuidSet([.. members.Bind(static m => toSeq(m.EntireFamily).Map(static f => f.InstanceId))])));
 
+    // Decoded carrier is threaded in already-folded so the settings fold never repeats per object across a batch.
     internal static Option<SnappingSnapshot> SnapCore(
         GhDocument document,
         IDocumentObject obj,
-        SnappingPolicy policy,
+        PolicyDecode decoded,
         RectangleF visibleLimit,
         Option<RectangleF> bounds,
         Seq<IDocumentObject> wireCandidates = default,
         Option<GuidSet> excludeIds = default) {
         // Exclude the whole component family so multi-part components never snap against their own siblings.
         GuidSet filter = excludeIds.IfNone(() => new GuidSet([.. obj.EntireFamily.Select(static m => m.InstanceId)]));
-        PolicyDecode decoded = policy.Decode();
         SnappingConstraints constraints = SnappingConstraints.CreateFromDocument(
             document: document,
-            includeSelected: policy.IncludeSelected,
-            includeUnselected: policy.IncludeUnselected,
+            includeSelected: decoded.IncludeSelected,
+            includeUnselected: decoded.IncludeUnselected,
             filter: filter);
         // Bypass SnapObject because it always uses AggregateBounds; policy may request tight Bounds.
         RectangleF wireBounds = bounds.IfNone(decoded.UseAggregateWireBounds ? obj.Attributes.AggregateBounds : obj.Attributes.Bounds);
@@ -654,7 +693,7 @@ internal static partial class Layout {
     }
 
     // GeometryCase aligns the target's edges/centres to other objects' edges/centres via direct arithmetic over the
-    // decoded geometry projection. BOUNDARY ADAPTER -- bypasses two GH2 native defects: SnapLine.Project(double,double,
+    // decoded geometry projection. BOUNDARY ADAPTER — bypasses two GH2 native defects: SnapLine.Project(double,double,
     // bool,out,out,out string) is a stub (returns false), and SnapSpace.Snap's ISnapElement branch measures the Y
     // distance as y'-x not y'-y. Geometry snap must never route through ISnapElement; only the grid SnapSpace path
     // (SnapNumeric) stays sound (SpaceCase). Per-axis feature slots pair a coordinate extractor with the native
@@ -684,7 +723,7 @@ internal static partial class Layout {
             return (X: x, Y: y);
         }).IfNone((default, default));
 
-    // BOUNDARY ADAPTER -- SnapSpace.Snap(x, y, cutoff, out x', out y', out description) is a void out-param API whose
+    // BOUNDARY ADAPTER — SnapSpace.Snap(x, y, cutoff, out x', out y', out description) is a void out-param API whose
     // cutoff is a LINEAR radius (the implementation applies Maths.DistanceToQuadrance internally), so the float radius is
     // passed through unsquared; per-axis actions are rebuilt from the snapped coordinates and the whole probe is fenced
     // because the native out-param call can throw inside a degenerate SnapSpace.
@@ -717,13 +756,9 @@ internal static partial class Layout {
             .Map(o => Centre(o.Attributes.AggregateBounds)) + Seq(Centre(anchor));
         Seq<float> ordered = toSeq(centres.Distinct().Order());
         Seq<float> gaps = ordered.Zip(ordered.Tail).Map(static pair => pair.Second - pair.First);
-        float tickLength = axis.Equals(LayoutAxis.Horizontal)
-            ? MathF.Max(tolerance, visibleLimit.Height * 0.01f)
-            : MathF.Max(tolerance, visibleLimit.Width * 0.01f);
+        float tickLength = MathF.Max(tolerance, axis.CrossExtent(frame: visibleLimit) * 0.01f);
         return gaps.Count >= 2 && gaps.Tail.ForAll(g => MathF.Abs(g - gaps.Head.IfNone(0f)) <= tolerance)
-            ? ordered.Map(c => axis.Equals(LayoutAxis.Horizontal)
-                ? new LineF(c, anchor.Top - tickLength, c, anchor.Top)
-                : new LineF(anchor.Left - tickLength, c, anchor.Left, c))
+            ? ordered.Map(c => axis.Tick(centre: c, anchor: anchor, length: tickLength))
             : [];
     }
 
@@ -751,75 +786,58 @@ internal static partial class Layout {
         });
     }
 
-    [SmartEnum<int>]
-    private sealed partial class DistributeMode {
-        public static readonly DistributeMode Cursor = new(key: 0, compute: ComputeCursor);
-        public static readonly DistributeMode Stretch = new(key: 1, compute: ComputeStretch);
+    // The gap policy plus measured extent-vs-content selects the cursor pack or the stretch solve.
+    private static Seq<(Guid Id, float Dx, float Dy)> PackDistribution(Seq<(Guid Id, RectangleF Bounds)> sorted, LayoutAxis axis, float gap, LayoutGapPolicy gapPolicy) {
+        int count = sorted.Count;
+        float extent = axis.Origin(bounds: sorted[count - 1].Bounds) + axis.Span(bounds: sorted[count - 1].Bounds) - axis.Origin(bounds: sorted[0].Bounds);
+        float content = sorted.Fold(0f, (sum, item) => sum + axis.Span(bounds: item.Bounds)) + ((count - 1) * gap);
+        return gapPolicy.ForcePack || extent <= content + gapPolicy.ContentSlack
+            ? PackCursor(sorted: sorted, axis: axis, gap: gap)
+            : PackStretch(sorted: sorted, axis: axis, gap: gap);
+    }
 
-        [UseDelegateFromConstructor]
-        internal partial Seq<(Guid Id, float Dx, float Dy)> Compute(
-            Seq<(Guid Id, RectangleF Bounds)> sorted,
-            LayoutAxis axis,
-            float gap);
+    // Cursor-pack threads a span-cursor through the fold; moves prepend then reverse once so the fold never forces the
+    // lazy Seq backing per element.
+    private static Seq<(Guid Id, float Dx, float Dy)> PackCursor(Seq<(Guid Id, RectangleF Bounds)> sorted, LayoutAxis axis, float gap) =>
+        sorted
+            .Fold(
+                (Moves: Seq<(Guid Id, float Dx, float Dy)>(), Cursor: axis.Origin(bounds: sorted[0].Bounds), Index: 0),
+                (state, item) => {
+                    (float dx, float dy) = axis.Delta(cursor: state.Cursor, bounds: item.Bounds);
+                    float nextCursor = state.Cursor + axis.Span(bounds: item.Bounds) + (state.Index < sorted.Count - 1 ? gap : 0f);
+                    return (Moves: (item.Id, dx, dy).Cons(state.Moves), Cursor: nextCursor, Index: state.Index + 1);
+                })
+            .Moves
+            .Rev();
 
-        internal static DistributeMode Of(LayoutGapPolicy gapPolicy, Seq<(Guid Id, RectangleF Bounds)> sorted, LayoutAxis axis, float gap) {
-            int count = sorted.Count;
-            float extent = axis.Origin(bounds: sorted[count - 1].Bounds) + axis.Span(bounds: sorted[count - 1].Bounds) - axis.Origin(bounds: sorted[0].Bounds);
-            float content = sorted.Fold(0f, (sum, item) => sum + axis.Span(bounds: item.Bounds)) + ((count - 1) * gap);
-            return gapPolicy.Equals(LayoutGapPolicy.Fixed) || extent <= content + gapPolicy.ContentSlack ? Cursor : Stretch;
-        }
-
-        private static Seq<(Guid Id, float Dx, float Dy)> ComputeCursor(
-            Seq<(Guid Id, RectangleF Bounds)> sorted,
-            LayoutAxis axis,
-            float gap) {
-            float cursor = axis.Origin(bounds: sorted[0].Bounds);
-            return sorted
-                .Fold(
-                    (Moves: Seq<(Guid Id, float Dx, float Dy)>(), Cursor: cursor, Index: 0),
-                    (state, item) => {
-                        (float dx, float dy) = axis.Delta(cursor: state.Cursor, bounds: item.Bounds);
-                        float nextCursor = state.Cursor + axis.Span(bounds: item.Bounds) + (state.Index < sorted.Count - 1 ? gap : 0f);
-                        return (
-                            Moves: state.Moves.Add((item.Id, dx, dy)),
-                            Cursor: nextCursor,
-                            Index: state.Index + 1);
-                    })
-                .Moves;
-        }
-
-        // StretchLayoutSolver interleaves fixed object spans with stretchable gaps, keyed by SpanSlot/GapSlot.
-        private static int SpanSlot(int i) => i * 2;
-        private static int GapSlot(int i) => (i * 2) + 1;
-
-        [BoundaryAdapter]
-        private static Seq<(Guid Id, float Dx, float Dy)> ComputeStretch(
-            Seq<(Guid Id, RectangleF Bounds)> sorted,
-            LayoutAxis axis,
-            float gap) {
-            int count = sorted.Count;
-            float firstOrigin = axis.Origin(bounds: sorted[0].Bounds);
-            float lastEnd = axis.Origin(bounds: sorted[count - 1].Bounds) + axis.Span(bounds: sorted[count - 1].Bounds);
-            StretchLayoutSolver solver = new();
-            // BOUNDARY ADAPTER -- StretchLayoutSolver requires imperative Add/Solve/Round.
-            for (int index = 0; index < count; index++) {
-                float span = axis.Span(bounds: sorted[index].Bounds);
-                solver.Add(min: span, max: span, ideal: span);
-                if (index < count - 1) {
-                    solver.Add(min: gap, max: float.MaxValue, ideal: gap);
-                }
+    // StretchLayoutSolver interleaves fixed object spans with stretchable gaps at even/odd slots (span 2*i, gap 2*i+1).
+    [BoundaryAdapter]
+    private static Seq<(Guid Id, float Dx, float Dy)> PackStretch(Seq<(Guid Id, RectangleF Bounds)> sorted, LayoutAxis axis, float gap) {
+        ReadOnlySpan<(Guid Id, RectangleF Bounds)> span = [.. sorted];
+        int count = span.Length;
+        float firstOrigin = axis.Origin(bounds: span[0].Bounds);
+        float lastEnd = axis.Origin(bounds: span[count - 1].Bounds) + axis.Span(bounds: span[count - 1].Bounds);
+        StretchLayoutSolver solver = new();
+        // BOUNDARY ADAPTER — StretchLayoutSolver requires imperative Add/Solve/Round; the assembling and emitting span
+        // loops are the named measured-kernel statement exemption.
+        for (int index = 0; index < count; index++) {
+            float itemSpan = axis.Span(bounds: span[index].Bounds);
+            solver.Add(min: itemSpan, max: itemSpan, ideal: itemSpan);
+            if (index < count - 1) {
+                solver.Add(min: gap, max: float.MaxValue, ideal: gap);
             }
-            _ = solver.Solve(target: lastEnd - firstOrigin);
-            solver.Round();
-            return toSeq(Enumerable.Range(start: 0, count: count)).Fold(
-                (Moves: Seq<(Guid Id, float Dx, float Dy)>(), Cursor: firstOrigin),
-                (state, index) => {
-                    (Guid id, RectangleF bounds) = sorted[index];
-                    (float dx, float dy) = axis.Delta(cursor: state.Cursor, bounds: bounds);
-                    float advance = solver[SpanSlot(i: index)] + (index < count - 1 ? solver[GapSlot(i: index)] : 0f);
-                    return (Moves: state.Moves.Add((id, dx, dy)), Cursor: state.Cursor + advance);
-                }).Moves;
         }
+        _ = solver.Solve(target: lastEnd - firstOrigin);
+        solver.Round();
+        (Guid Id, float Dx, float Dy)[] moves = new (Guid, float, float)[count];
+        float cursor = firstOrigin;
+        for (int index = 0; index < count; index++) {
+            (Guid id, RectangleF bounds) = span[index];
+            (float dx, float dy) = axis.Delta(cursor: cursor, bounds: bounds);
+            moves[index] = (id, dx, dy);
+            cursor += solver[index * 2] + (index < count - 1 ? solver[(index * 2) + 1] : 0f);
+        }
+        return toSeq(moves);
     }
 
     private static Fin<Seq<(Guid Id, float Dx, float Dy)>> ComputeDistribution(
@@ -838,8 +856,7 @@ internal static partial class Layout {
                     : toSeq(resolved.OrderBy(s => axis.Origin(bounds: s.Bounds)).ThenBy(s => s.Id));
                 return sorted.Count switch {
                     < 2 => Seq<(Guid Id, float Dx, float Dy)>(),
-                    _ => DistributeMode.Of(gapPolicy: gapPolicy, sorted: sorted, axis: axis, gap: gap.Value)
-                        .Compute(sorted: sorted, axis: axis, gap: gap.Value),
+                    _ => PackDistribution(sorted: sorted, axis: axis, gap: gap.Value, gapPolicy: gapPolicy),
                 };
             });
     }
@@ -856,27 +873,44 @@ internal static partial class Layout {
                 .Map(o => (Id: id, Bounds: o.Attributes.AggregateBounds)))
             .As()
             .Bind(resolvedAll => {
-                Seq<(Guid Id, RectangleF Bounds)> resolved = toSeq(resolvedAll
+                (Guid Id, RectangleF Bounds)[] resolved = [.. toSeq(resolvedAll
                         .OrderBy(static s => s.Bounds.Top)
                         .ThenBy(static s => s.Bounds.Left))
-                    .Take(Math.Max(0, rows * cols));
-                int count = resolved.Count;
+                    .Take(Math.Max(0, rows * cols))];
+                int count = resolved.Length;
                 int rowCount = count > 0 ? ((count - 1) / cols) + 1 : 0;
-                HashMap<Guid, RectangleF> bounds = toHashMap(resolved.Map(static item => (item.Id, item.Bounds)));
+                HashMap<Guid, RectangleF> bounds = toHashMap(toSeq(resolved).Map(static item => (item.Id, item.Bounds)));
+                // Representative ids: the first row spans the columns, the first column spans the rows.
+                Seq<Guid> colReps = Seq<Guid>();
+                for (int col = 0; col < Math.Min(cols, count); col++) {
+                    colReps = colReps.Add(resolved[col].Id);
+                }
+                Seq<Guid> rowReps = Seq<Guid>();
+                for (int row = 0; row < rowCount; row++) {
+                    rowReps = rowReps.Add(resolved[row * cols].Id);
+                }
 
                 Fin<HashMap<Guid, float>> AxisTargets(LayoutAxis axis, Func<RectangleF, float> origin, Seq<Guid> repIds) =>
                     ComputeDistribution(objects: objects, ids: repIds, axis: axis, gap: gap, gapPolicy: gapPolicy)
                         .Map(moves => toHashMap(moves.Choose(move => bounds.Find(move.Id).Map(b => (move.Id, origin(b) + axis.Offset(dx: move.Dx, dy: move.Dy))))));
 
-                return from colLeft in AxisTargets(axis: LayoutAxis.Horizontal, origin: static b => b.Left, repIds: resolved.Take(cols).Map(static item => item.Id))
-                       from rowTop in AxisTargets(axis: LayoutAxis.Vertical, origin: static b => b.Top, repIds: toSeq(Enumerable.Range(start: 0, count: rowCount).Select(row => resolved[row * cols].Id)))
-                       select toSeq(Enumerable.Range(start: 0, count: count).Select(index => {
-                           (Guid id, RectangleF box) = resolved[index];
-                           float left = colLeft.Find(resolved[index % cols].Id).IfNone(box.Left);
-                           float top = rowTop.Find(resolved[index / cols * cols].Id).IfNone(box.Top);
-                           return (id, left - box.Left, top - box.Top);
-                       }));
+                return from colLeft in AxisTargets(axis: LayoutAxis.Horizontal, origin: static b => b.Left, repIds: colReps)
+                       from rowTop in AxisTargets(axis: LayoutAxis.Vertical, origin: static b => b.Top, repIds: rowReps)
+                       select GridMoves(resolved: resolved, cols: cols, colLeft: colLeft, rowTop: rowTop);
             });
+    }
+
+    // Each cell's target reads its column-left and row-top from the per-axis maps keyed on the row/column rep; the index
+    // loop is the named measured-kernel exemption.
+    private static Seq<(Guid Id, float Dx, float Dy)> GridMoves(ReadOnlySpan<(Guid Id, RectangleF Bounds)> resolved, int cols, HashMap<Guid, float> colLeft, HashMap<Guid, float> rowTop) {
+        (Guid Id, float Dx, float Dy)[] moves = new (Guid, float, float)[resolved.Length];
+        for (int index = 0; index < resolved.Length; index++) {
+            (Guid id, RectangleF box) = resolved[index];
+            float left = colLeft.Find(resolved[index % cols].Id).IfNone(box.Left);
+            float top = rowTop.Find(resolved[index / cols * cols].Id).IfNone(box.Top);
+            moves[index] = (id, left - box.Left, top - box.Top);
+        }
+        return toSeq(moves);
     }
 
     // Pairwise repulsion pushes overlapping centres apart by half the deficit across a bounded schedule.
@@ -890,12 +924,42 @@ internal static partial class Layout {
                     from i in Enumerable.Range(start: 0, count: resolved.Count)
                     from j in Enumerable.Range(start: i + 1, count: resolved.Count - (i + 1))
                     select (A: resolved[i].Id, B: resolved[j].Id));
-                HashMap<Guid, PointF> relaxed = toSeq(Enumerable.Range(start: 0, count: NudgeIterations)).Fold(
+                // Iteration budget tracks selection size: a worst-case repulsion chain settles in O(count) passes, so the
+                // schedule scales with the count it relaxes rather than a fixed literal that under- or over-runs.
+                HashMap<Guid, PointF> relaxed = toSeq(Enumerable.Range(start: 0, count: NudgePasses(count: resolved.Count))).Fold(
                     toHashMap(resolved.Map(static s => (s.Id, s.Centre))),
                     (positions, _) => pairs.Fold(positions, (acc, pair) => RepelPair(positions: acc, a: pair.A, b: pair.B, separation: separation)));
                 return resolved.Choose(s => relaxed.Find(s.Id)
                     .Map(centre => (s.Id, Dx: centre.X - s.Centre.X, Dy: centre.Y - s.Centre.Y))
                     .Filter(static move => move.Dx != 0f || move.Dy != 0f));
+            });
+
+    // Pairwise repulsion converges in at most one pass per object; clamp into [4, 64] so tiny selections still settle
+    // and a large selection cannot open the UI-thread budget unbounded.
+    private static int NudgePasses(int count) => Math.Clamp(value: count, min: 4, max: 64);
+
+    // Straighten wires inside the selection. Wire.AllWireEnds yields parameter-keyed endpoints, so each endpoint maps to
+    // its owning selected object through EntireFamily; a single projection picks each object's first in-selection
+    // predecessor and aligns its centre Y. One pass (no successor walk) makes cycles inert: a member moves at most once.
+    private static Fin<Seq<(Guid Id, float Dx, float Dy)>> ComputeWireAlignment(GhObjectList objects, Seq<Guid> ids) =>
+        ids.TraverseM(id => UiRail.ResolveObject(objects: objects, id: id, op: Op.Of(name: nameof(ComputeWireAlignment)))
+                .Map(o => (Owner: o, Centre: o.Attributes.AggregateBounds.Center)))
+            .As()
+            .Map(resolved => {
+                HashMap<Guid, Guid> ownerOfParameter = toHashMap(resolved.Bind(r => toSeq(r.Owner.EntireFamily).Map(m => (m.InstanceId, r.Owner.InstanceId))));
+                HashMap<Guid, float> centreY = toHashMap(resolved.Map(static r => (r.Owner.InstanceId, r.Centre.Y)));
+                // Each selected object inherits the Y of the source owner on its first in-selection incoming wire.
+                HashMap<Guid, float> targetY = Wire.AllWireEnds(objects: objects).Fold(
+                    HashMap<Guid, float>(),
+                    (acc, wire) => (ownerOfParameter.Find(wire.Source), ownerOfParameter.Find(wire.Target)) switch {
+                        ( { IsSome: true, Case: Guid src }, { IsSome: true, Case: Guid tgt })
+                            when src != tgt && acc.Find(tgt).IsNone =>
+                            centreY.Find(src).Map(y => acc.AddOrUpdate(tgt, y)).IfNone(acc),
+                        _ => acc,
+                    });
+                return resolved.Choose(r => targetY.Find(r.Owner.InstanceId)
+                    .Map(y => (r.Owner.InstanceId, Dx: 0f, Dy: y - r.Centre.Y))
+                    .Filter(static move => move.Dy != 0f));
             });
 
     // Coincident centres fall back to +X so overlap splitting stays deterministic.

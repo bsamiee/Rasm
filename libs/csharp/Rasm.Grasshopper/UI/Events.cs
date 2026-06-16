@@ -60,11 +60,21 @@ public partial record UiEvent : IUiOp<Subscription> {
         new WindowLifecycleCase(Window: window, Kind: kind, Handler: handler);
     public static UiEvent NativeInput(Func<NativeInputSnapshot, Fin<Unit>> handler, NSEventMask mask = NSEventMask.AnyEvent) =>
         new NativeInputCase(Handler: handler, Mask: mask);
-    // Live reduce-motion edge: fires on NSWorkspace display-options changes so consumers re-read MotionAccessibility.
+    // Live reduce-motion edge: fires on NSWorkspace display-options changes so consumers re-read AccessibilityMotionGate.
     public static UiEvent AccessibilityPrefs(Func<AccessibilityPrefsSnapshot, Fin<Unit>> handler) =>
         new AccessibilityPrefsCase(Handler: handler);
     public static UiEvent Many(Seq<UiEvent> events) =>
         new ManyCase(Events: events);
+
+    // Builder algebra over ManyCase: `a | b` flattens into one Many, splicing existing Many operands so the tree stays
+    // one level deep (mirrors Subscription.operator |); the flattened Seq feeds SubscribeMany's TraverseM directly.
+    public static UiEvent operator |(UiEvent left, UiEvent right) =>
+        (left, right) switch {
+            (ManyCase l, ManyCase r) => new ManyCase(Events: l.Events + r.Events),
+            (ManyCase l, _) => new ManyCase(Events: l.Events.Add(right)),
+            (_, ManyCase r) => new ManyCase(Events: left.Cons(r.Events)),
+            _ => new ManyCase(Events: Seq(left, right)),
+        };
 
     GrasshopperUiIntent<Subscription> IUiOp<Subscription>.Intent() => Events.Subscribe(uiEvent: this);
 
@@ -74,12 +84,11 @@ public partial record UiEvent : IUiOp<Subscription> {
     }
 }
 
-[SmartEnum<int>]
+[SmartEnum]
 public sealed partial class CanvasEvent {
     private delegate Fin<Subscription> SubscribeFn(GhCanvas canvas, Func<CanvasEventSnapshot, Fin<Unit>> handler);
 
     public static readonly CanvasEvent DocumentLoaded = new(
-        key: 0,
         subscribe: static (canvas, handler) => {
             void Changed(object? _, EventArgs __) =>
                 _ = UiEvent.Publish(handler: handler, snapshot: new CanvasEventSnapshot(Kind: DocumentLoaded!));
@@ -90,7 +99,6 @@ public sealed partial class CanvasEvent {
         });
 
     public static readonly CanvasEvent ProjectionChanged = new(
-        key: 1,
         subscribe: static (canvas, handler) => {
             void Changed(object? _, ProjectionChangedEventArgs e) {
                 CanvasProjectionDelta delta = new(
@@ -107,7 +115,6 @@ public sealed partial class CanvasEvent {
         });
 
     public static readonly CanvasEvent WindowSelection = new(
-        key: 2,
         subscribe: static (canvas, handler) => {
             void Selected(object? _, WindowSelectionEventArgs e) =>
                 _ = UiEvent.Publish(handler: handler, snapshot: new CanvasEventSnapshot(
@@ -120,7 +127,6 @@ public sealed partial class CanvasEvent {
         });
 
     public static readonly CanvasEvent DocumentModified = new(
-        key: 3,
         subscribe: static (canvas, handler) => {
             void Changed(object? _, EventArgs __) =>
                 _ = UiEvent.Publish(handler: handler, snapshot: new CanvasEventSnapshot(Kind: DocumentModified!, Modified: canvas.Document?.Modified ?? false));
@@ -131,7 +137,6 @@ public sealed partial class CanvasEvent {
         });
 
     public static readonly CanvasEvent MouseHover = new(
-        key: 4,
         subscribe: static (canvas, handler) => {
             void Hovered(object? _, MouseHoverEventArgs e) =>
                 _ = UiEvent.Publish(handler: handler, snapshot: new CanvasEventSnapshot(Kind: MouseHover!, Hover: Some(e.ControlPoint)));
@@ -141,9 +146,7 @@ public sealed partial class CanvasEvent {
                 marshalToUi: true);
         });
 
-    // [?] FlexControl.Draw args are assumed EventArgs; update EventHandler<TArgs> if build reveals DrawEventArgs.
     public static readonly CanvasEvent Draw = new(
-        key: 5,
         subscribe: static (canvas, handler) => {
             void Drawn(object? _, EventArgs __) =>
                 _ = UiEvent.Publish(handler: handler, snapshot: new CanvasEventSnapshot(Kind: Draw!));
@@ -162,36 +165,34 @@ public sealed partial class CanvasEvent {
                 .Map(mode => new CanvasWindowDelta(Window: e.Window, Mode: mode)));
 }
 
-[SmartEnum<int>]
+[SmartEnum]
 public sealed partial class WindowLifecycle {
     private delegate Fin<Subscription> SubscribeFn(Window window, Func<WindowLifecycleSnapshot, Fin<Unit>> handler);
 
+    private static readonly Func<Window, Option<WindowState>> NoState = static _ => Option<WindowState>.None;
+
     public static readonly WindowLifecycle Closing = new(
-        key: 0,
         subscribe: static (window, handler) => Bind<System.ComponentModel.CancelEventArgs>(
             window: window,
             handler: handler,
-            stateOf: static _ => Option<WindowState>.None,
+            stateOf: NoState,
             attach: static (w, on) => w.Closing += on,
             detach: static (w, on) => w.Closing -= on));
     public static readonly WindowLifecycle Closed = new(
-        key: 1,
         subscribe: static (window, handler) => Bind<EventArgs>(
             window: window,
             handler: handler,
-            stateOf: static _ => Option<WindowState>.None,
+            stateOf: NoState,
             attach: static (w, on) => w.Closed += on,
             detach: static (w, on) => w.Closed -= on));
     public static readonly WindowLifecycle LocationChanged = new(
-        key: 2,
         subscribe: static (window, handler) => Bind<EventArgs>(
             window: window,
             handler: handler,
-            stateOf: static _ => Option<WindowState>.None,
+            stateOf: NoState,
             attach: static (w, on) => w.LocationChanged += on,
             detach: static (w, on) => w.LocationChanged -= on));
     public static readonly WindowLifecycle WindowStateChanged = new(
-        key: 3,
         subscribe: static (window, handler) => Bind<EventArgs>(
             window: window,
             handler: handler,
@@ -215,6 +216,20 @@ public sealed partial class WindowLifecycle {
 
     [UseDelegateFromConstructor]
     internal partial Fin<Subscription> Subscribe(Window window, Func<WindowLifecycleSnapshot, Fin<Unit>> handler);
+}
+
+// NSEvent.ModifierFlags ABI bit offsets (Cocoa NSEventModifierFlags) — language enum at the foreign seam; the offset is
+// the bit position, `1UL << offset` derives the mask, so the magic-constant derivation lives once on the enum value.
+internal enum NSEventModifierMask {
+    Shift = 17,
+    Option = 19,
+    Command = 20,
+}
+
+internal static class NSEventModifierMaskOps {
+    extension(NSEventModifierMask offset) {
+        internal bool IsSet(ulong modifiers) => (modifiers & (1UL << (int)offset)) != 0UL;
+    }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -283,100 +298,21 @@ public readonly record struct EventKind<TOwner, THandlers, TSnapshot> {
     }
 }
 
-public sealed record DocumentEventPipe(
-    GhDocument Document,
-    GhObjectList Objects,
-    Func<DocumentEventSnapshot, Fin<Unit>> Handler) {
-    internal Unit PublishSelection(DocumentEvent kind) =>
-        Publish(
-            kind: kind,
-            objects: toSeq(Objects.SelectedObjects.Select(UiRail.DocumentObjectSnapshotOf)),
-            wires: Wire.SnapshotConnectedBatch(objects: Objects, document: Document, wires: Objects.SelectedWires ?? []));
-
-    internal Unit PublishObject(DocumentEvent kind, Option<IDocumentObject> changed, Option<string> detail = default) =>
-        Publish(
-            kind: kind,
-            objects: changed.Map(obj => Seq(UiRail.DocumentObjectSnapshotOf(obj))).IfNone(Seq<DocumentObjectSnapshot>()),
-            wires: Seq<WireSnapshot.ConnectedCase>(),
-            detail: detail);
-
-    private Unit Publish(
-        DocumentEvent kind,
-        Seq<DocumentObjectSnapshot> objects,
-        Seq<WireSnapshot.ConnectedCase> wires,
-        Option<string> detail = default) {
-        _ = UiEvent.Publish(handler: Handler, snapshot: new DocumentEventSnapshot(
-            Kind: kind,
-            Document: UiRail.DocumentSnapshotOf(document: Document, objects: Objects),
-            Objects: objects,
-            Wires: wires,
-            Detail: detail));
-        return unit;
-    }
-}
-
 public readonly record struct SolutionEventHandlers(EventHandler<SolutionIdEventArgs> About, EventHandler<SolutionEventArgs> Plain, EventHandler<SolutionExceptionEventArgs> Faulted, EventHandler Enabled) {
     internal static SolutionEventHandlers Empty => default;
-}
-
-public sealed record SolutionEventPipe(SolutionServer Server, GhDocument Document, GhObjectList Objects, Func<SolutionEventSnapshot, Fin<Unit>> Handler) {
-    internal Unit Publish(SolutionEvent kind, Option<string> solutionKey = default, Option<string> faultMessage = default, Option<string> faultType = default) {
-        _ = UiEvent.Publish(handler: Handler, snapshot: new SolutionEventSnapshot(
-            Kind: kind,
-            Document: UiRail.DocumentSnapshotOf(document: Document, objects: Objects),
-            SolutionKey: solutionKey,
-            FaultMessage: faultMessage,
-            FaultType: faultType));
-        return unit;
-    }
-
-    internal Unit PublishAbout(SolutionEvent kind, SolutionIdEventArgs args) =>
-        Publish(kind: kind, solutionKey: Some(args.Id.ToString()));
-
-    internal Unit PublishPlain(SolutionEvent kind) => Publish(kind: kind);
-
-    internal Unit PublishFaulted(SolutionEvent kind, SolutionExceptionEventArgs args) =>
-        Publish(
-            kind: kind,
-            faultMessage: Optional(args.Exception?.Message),
-            faultType: Optional(args.Exception?.GetType().FullName));
 }
 
 public readonly record struct UndoEventHandlers(EventHandler<UndoEventArgs> Plain, EventHandler<UndoNodeEventArgs> Node, EventHandler<UndoNodeMovedEventArgs> Moved) {
     internal static UndoEventHandlers Empty => default;
 }
 
-public sealed record UndoEventPipe(History History, GhDocument Document, Func<UndoEventSnapshot, Fin<Unit>> Handler) {
-    internal Unit Publish(UndoEvent kind, Option<string> nodeName = default, Option<int> nodeCount = default) {
-        _ = UiEvent.Publish(handler: Handler, snapshot: new UndoEventSnapshot(
-            Kind: kind,
-            History: UiRail.HistorySnapshotOf(document: Document),
-            NodeName: nodeName,
-            NodeCount: nodeCount));
-        return unit;
-    }
-
-    internal Unit PublishPlain(UndoEvent kind) => Publish(kind: kind);
-
-    internal Unit PublishNode(UndoEvent kind, UndoNodeEventArgs args) =>
-        Publish(
-            kind: kind,
-            nodeName: Optional(args.Node?.Record?.Name.ToString()),
-            nodeCount: Optional(args.Node?.Record?.Count));
-
-    internal Unit PublishMoved(UndoEvent kind, UndoNodeMovedEventArgs args) =>
-        Publish(
-            kind: kind,
-            nodeName: toSeq(args.Nodes).Head.Bind(static n => Optional(n.Record?.Name.ToString())),
-            nodeCount: Optional(args.Nodes).Map(static nodes => nodes.Length));
-}
-
 public readonly record struct ControlEventHandlers(EventHandler<EventArgs> Plain, EventHandler<KeyEventArgs> Key, EventHandler<TextInputEventArgs> Text, EventHandler<MouseEventArgs> Mouse, EventHandler<DragEventArgs> Drag) {
     internal static ControlEventHandlers Empty => default;
 }
 
-public sealed record ControlEventPipe(Control Source, Func<ControlEventSnapshot, Fin<Unit>> Handler) {
-    internal Unit Publish(ControlEventSnapshot snapshot) {
+// One snapshot sink per owner family; each *EventKind builds its own typed snapshot from captured owner context and Emits it.
+public readonly record struct Publisher<TSnapshot>(Func<TSnapshot, Fin<Unit>> Handler) {
+    internal Unit Emit(TSnapshot snapshot) {
         _ = UiEvent.Publish(handler: Handler, snapshot: snapshot);
         return unit;
     }
@@ -437,10 +373,6 @@ public readonly record struct NativeInputSnapshot(
     Option<ulong> ButtonMask = default,
     Option<(double X, double Y)> Tilt = default,
     Option<ulong> KeyCode = default) {
-    private const ulong ShiftMask = 1UL << 17;
-    private const ulong OptionMask = 1UL << 19;
-    private const ulong CommandMask = 1UL << 20;
-
     internal static NativeInputSnapshot Of(NSEvent e) {
         ulong modifiers = (ulong)e.ModifierFlags;
         return new(
@@ -449,9 +381,9 @@ public readonly record struct NativeInputSnapshot(
             MomentumPhase: e.MomentumPhase,
             PreciseScrolling: Guard(read: () => e.HasPreciseScrollingDeltas).IfNone(noneValue: false),
             Modifiers: new InputModifierSnapshot(
-                Shift: (modifiers & ShiftMask) != 0UL,
-                Command: (modifiers & CommandMask) != 0UL,
-                Option: (modifiers & OptionMask) != 0UL),
+                Shift: NSEventModifierMask.Shift.IsSet(modifiers),
+                Command: NSEventModifierMask.Command.IsSet(modifiers),
+                Option: NSEventModifierMask.Option.IsSet(modifiers)),
             RawModifiers: modifiers,
             DeltaX: Guard(read: () => (double)e.ScrollingDeltaX),
             DeltaY: Guard(read: () => (double)e.ScrollingDeltaY),
@@ -467,7 +399,7 @@ public readonly record struct NativeInputSnapshot(
     }
 
     // BOUNDARY ADAPTER — NSEvent getter failures vary by MarshalObjectiveCExceptionMode; local monitors must project inapplicable reads to None.
-#pragma warning disable CA1031 // broad catch is the boundary contract — see native-getter rationale above
+#pragma warning disable CA1031 // broad catch is the boundary contract: any native-getter failure projects to None
     private static Option<T> Guard<T>(Func<T> read) {
         try {
             return Some(read());
@@ -525,14 +457,15 @@ public static class DocumentEventKind {
         Attach: static (owner, handlers) => owner.Objs.ObjectNameChanged += handlers.Name,
         Detach: static (owner, handlers) => owner.Objs.ObjectNameChanged -= handlers.Name,
         Build: static (kind, owner, handler) => DocumentEventHandlers.Empty with {
-            Name = (_, e) => PipeOf(owner: owner, handler: handler).PublishObject(kind: kind, changed: Optional(e.Owner), detail: Some($"{e.Old}->{e.New}")),
+            Name = (_, e) => EmitObject(owner: owner, handler: handler, kind: kind, changed: Optional(e.Owner), detail: Some($"{e.Old}->{e.New}")),
         });
-    public static readonly DocumentEvent Selection = OnSelection(
-        name: nameof(Selection),
-        attach: static (o, h) => o.ObjectSelectionChanged += h,
-        detach: static (o, h) => o.ObjectSelectionChanged -= h,
-        select: static h => h.Selection,
-        assign: static (left, right) => left with { Selection = right });
+    public static readonly DocumentEvent Selection = new(
+        Name: nameof(Selection),
+        Attach: static (owner, handlers) => owner.Objs.ObjectSelectionChanged += handlers.Selection,
+        Detach: static (owner, handlers) => owner.Objs.ObjectSelectionChanged -= handlers.Selection,
+        Build: static (kind, owner, handler) => DocumentEventHandlers.Empty with {
+            Selection = (_, _) => EmitSelection(owner: owner, handler: handler, kind: kind),
+        });
     public static readonly DocumentEvent ObjectEnabled = OnObject(nameof(ObjectEnabled), static (o, h) => o.ObjectEnabledChanged += h, static (o, h) => o.ObjectEnabledChanged -= h, static h => h.Enabled, static (h, next) => h with { Enabled = next }, static e => e.Object);
     public static readonly DocumentEvent ObjectRelevance = OnObject(nameof(ObjectRelevance), static (o, h) => o.ObjectRelevanceChanged += h, static (o, h) => o.ObjectRelevanceChanged -= h, static h => h.Relevance, static (h, next) => h with { Relevance = next }, static e => e.Object);
     public static readonly DocumentEvent ObjectLayout = OnObject(nameof(ObjectLayout), static (o, h) => o.ObjectLayoutChanged += h, static (o, h) => o.ObjectLayoutChanged -= h, static h => h.Layout, static (h, next) => h with { Layout = next }, static e => e.Object);
@@ -542,7 +475,7 @@ public static class DocumentEventKind {
         Attach: static (owner, handlers) => owner.Objs.ObjectInstanceIdChanged += handlers.Id,
         Detach: static (owner, handlers) => owner.Objs.ObjectInstanceIdChanged -= handlers.Id,
         Build: static (kind, owner, handler) => DocumentEventHandlers.Empty with {
-            Id = (_, e) => PipeOf(owner: owner, handler: handler).PublishObject(kind: kind, changed: Optional(e.Object), detail: Some($"{e.OldId}->{e.NewId}")),
+            Id = (_, e) => EmitObject(owner: owner, handler: handler, kind: kind, changed: Optional(e.Object), detail: Some($"{e.OldId}->{e.NewId}")),
         });
     public static readonly DocumentEvent AnyChanged = DocumentEvent.Composite(
         name: nameof(AnyChanged),
@@ -550,8 +483,21 @@ public static class DocumentEventKind {
         Modified, StateChanged, ParentChanged, UndoTopologyChanged, ObjectAdded, ObjectRemoved, ObjectExpired, ObjectName, Selection,
         ObjectEnabled, ObjectRelevance, ObjectLayout, ObjectDisplay, ObjectInstanceId);
 
-    private static DocumentEventPipe PipeOf((GhDocument Doc, GhObjectList Objs) owner, Func<DocumentEventSnapshot, Fin<Unit>> handler) =>
-        new(Document: owner.Doc, Objects: owner.Objs, Handler: handler);
+    private static Unit EmitObject((GhDocument Doc, GhObjectList Objs) owner, Func<DocumentEventSnapshot, Fin<Unit>> handler, DocumentEvent kind, Option<IDocumentObject> changed, Option<string> detail = default) =>
+        new Publisher<DocumentEventSnapshot>(Handler: handler).Emit(snapshot: new DocumentEventSnapshot(
+            Kind: kind,
+            Document: UiRail.DocumentSnapshotOf(document: owner.Doc, objects: owner.Objs),
+            Objects: changed.Map(obj => Seq(UiRail.DocumentObjectSnapshotOf(obj))).IfNone(Seq<DocumentObjectSnapshot>()),
+            Wires: Seq<WireSnapshot.ConnectedCase>(),
+            Detail: detail));
+
+    private static Unit EmitSelection((GhDocument Doc, GhObjectList Objs) owner, Func<DocumentEventSnapshot, Fin<Unit>> handler, DocumentEvent kind) =>
+        new Publisher<DocumentEventSnapshot>(Handler: handler).Emit(snapshot: new DocumentEventSnapshot(
+            Kind: kind,
+            Document: UiRail.DocumentSnapshotOf(document: owner.Doc, objects: owner.Objs),
+            Objects: toSeq(owner.Objs.SelectedObjects.Select(UiRail.DocumentObjectSnapshotOf)),
+            Wires: Wire.SnapshotConnectedBatch(objects: owner.Objs, document: owner.Doc, wires: owner.Objs.SelectedWires ?? []),
+            Detail: default));
 
     private static DocumentEvent OnDoc<TArgs>(
         string name,
@@ -566,7 +512,7 @@ public static class DocumentEventKind {
             Detach: (owner, handlers) => detach(arg1: owner.Doc, arg2: select(arg: handlers)),
             Build: (kind, owner, handler) => assign(
                 arg1: DocumentEventHandlers.Empty,
-                arg2: (_, e) => PipeOf(owner: owner, handler: handler).PublishObject(kind: kind, changed: default, detail: detail(arg: e))));
+                arg2: (_, e) => EmitObject(owner: owner, handler: handler, kind: kind, changed: default, detail: detail(arg: e))));
     private static DocumentEvent OnObject<TArgs>(
         string name,
         Action<GhObjectList, EventHandler<TArgs>> attach,
@@ -580,20 +526,7 @@ public static class DocumentEventKind {
             Detach: (owner, handlers) => detach(arg1: owner.Objs, arg2: select(arg: handlers)),
             Build: (kind, owner, handler) => assign(
                 arg1: DocumentEventHandlers.Empty,
-                arg2: (_, e) => PipeOf(owner: owner, handler: handler).PublishObject(kind: kind, changed: Optional(changed(arg: e)))));
-    private static DocumentEvent OnSelection<TArgs>(
-        string name,
-        Action<GhObjectList, EventHandler<TArgs>> attach,
-        Action<GhObjectList, EventHandler<TArgs>> detach,
-        Func<DocumentEventHandlers, EventHandler<TArgs>> select,
-        Func<DocumentEventHandlers, EventHandler<TArgs>, DocumentEventHandlers> assign) where TArgs : EventArgs =>
-        new(
-            Name: name,
-            Attach: (owner, handlers) => attach(arg1: owner.Objs, arg2: select(arg: handlers)),
-            Detach: (owner, handlers) => detach(arg1: owner.Objs, arg2: select(arg: handlers)),
-            Build: (kind, owner, handler) => assign(
-                arg1: DocumentEventHandlers.Empty,
-                arg2: (_, _) => PipeOf(owner: owner, handler: handler).PublishSelection(kind: kind)));
+                arg2: (_, e) => EmitObject(owner: owner, handler: handler, kind: kind, changed: Optional(changed(arg: e)))));
 }
 
 public static class SolutionEventKind {
@@ -603,7 +536,7 @@ public static class SolutionEventKind {
         detach: static (s, h) => s.SolutionAboutToStart -= h,
         select: static e => e.About,
         assign: static (left, right) => left with { About = right },
-        handler: static (kind, pipe) => (_, e) => pipe.PublishAbout(kind: kind, args: e));
+        handler: static (kind, owner, sink) => (_, e) => Emit(owner: owner, handler: sink, kind: kind, solutionKey: Some(e.Id.ToString())));
     public static readonly SolutionEvent Started = OnPlain(name: nameof(Started), attach: static (s, h) => s.SolutionStarted += h, detach: static (s, h) => s.SolutionStarted -= h);
     public static readonly SolutionEvent Stopped = OnPlain(name: nameof(Stopped), attach: static (s, h) => s.SolutionStopped += h, detach: static (s, h) => s.SolutionStopped -= h);
     public static readonly SolutionEvent Cancelled = OnPlain(name: nameof(Cancelled), attach: static (s, h) => s.SolutionCancelled += h, detach: static (s, h) => s.SolutionCancelled -= h);
@@ -614,17 +547,22 @@ public static class SolutionEventKind {
         detach: static (s, h) => s.SolutionFaulted -= h,
         select: static e => e.Faulted,
         assign: static (left, right) => left with { Faulted = right },
-        handler: static (kind, pipe) => (_, e) => pipe.PublishFaulted(kind: kind, args: e));
+        handler: static (kind, owner, sink) => (_, e) => Emit(owner: owner, handler: sink, kind: kind, faultMessage: Optional(e.Exception?.Message), faultType: Optional(e.Exception?.GetType().FullName)));
 
     // EnabledChanged is a static EventHandler with null sender/args, so it uses a dedicated slot instead of On<TArgs>.
     public static readonly SolutionEvent EnabledChanged = new(
         Name: nameof(EnabledChanged),
         Attach: static (_, handlers) => SolutionServer.EnabledChanged += handlers.Enabled,
         Detach: static (_, handlers) => SolutionServer.EnabledChanged -= handlers.Enabled,
-        Build: static (kind, owner, handler) => SolutionEventHandlers.Empty with { Enabled = (_, _) => PipeOf(owner: owner, handler: handler).PublishPlain(kind: kind) });
+        Build: static (kind, owner, handler) => SolutionEventHandlers.Empty with { Enabled = (_, _) => Emit(owner: owner, handler: handler, kind: kind) });
 
-    private static SolutionEventPipe PipeOf((SolutionServer Server, GhDocument Document, GhObjectList Objects) owner, Func<SolutionEventSnapshot, Fin<Unit>> handler) =>
-        new(Server: owner.Server, Document: owner.Document, Objects: owner.Objects, Handler: handler);
+    private static Unit Emit((SolutionServer Server, GhDocument Document, GhObjectList Objects) owner, Func<SolutionEventSnapshot, Fin<Unit>> handler, SolutionEvent kind, Option<string> solutionKey = default, Option<string> faultMessage = default, Option<string> faultType = default) =>
+        new Publisher<SolutionEventSnapshot>(Handler: handler).Emit(snapshot: new SolutionEventSnapshot(
+            Kind: kind,
+            Document: UiRail.DocumentSnapshotOf(document: owner.Document, objects: owner.Objects),
+            SolutionKey: solutionKey,
+            FaultMessage: faultMessage,
+            FaultType: faultType));
 
     private static SolutionEvent OnPlain(string name, Action<SolutionServer, EventHandler<SolutionEventArgs>> attach, Action<SolutionServer, EventHandler<SolutionEventArgs>> detach) =>
         On(
@@ -633,7 +571,7 @@ public static class SolutionEventKind {
             detach: detach,
             select: static e => e.Plain,
             assign: static (left, right) => left with { Plain = right },
-            handler: static (kind, pipe) => (_, _) => pipe.PublishPlain(kind: kind));
+            handler: static (kind, owner, sink) => (_, _) => Emit(owner: owner, handler: sink, kind: kind));
 
     private static SolutionEvent On<TArgs>(
         string name,
@@ -641,12 +579,12 @@ public static class SolutionEventKind {
         Action<SolutionServer, EventHandler<TArgs>> detach,
         Func<SolutionEventHandlers, EventHandler<TArgs>> select,
         Func<SolutionEventHandlers, EventHandler<TArgs>, SolutionEventHandlers> assign,
-        Func<SolutionEvent, SolutionEventPipe, EventHandler<TArgs>> handler) where TArgs : EventArgs =>
+        Func<SolutionEvent, (SolutionServer Server, GhDocument Document, GhObjectList Objects), Func<SolutionEventSnapshot, Fin<Unit>>, EventHandler<TArgs>> handler) where TArgs : EventArgs =>
         new(
             Name: name,
             Attach: (owner, handlers) => attach(arg1: owner.Server, arg2: select(arg: handlers)),
             Detach: (owner, handlers) => detach(arg1: owner.Server, arg2: select(arg: handlers)),
-            Build: (kind, owner, sink) => assign(arg1: SolutionEventHandlers.Empty, arg2: handler(arg1: kind, arg2: PipeOf(owner: owner, handler: sink))));
+            Build: (kind, owner, sink) => assign(arg1: SolutionEventHandlers.Empty, arg2: handler(arg1: kind, arg2: owner, arg3: sink)));
 }
 
 public static class UndoEventKind {
@@ -662,7 +600,7 @@ public static class UndoEventKind {
         detach: static (h, x) => h.NodeMoved -= x,
         select: static e => e.Moved,
         assign: static (left, right) => left with { Moved = right },
-        handler: static (kind, pipe) => (_, e) => pipe.PublishMoved(kind: kind, args: e));
+        handler: static (kind, owner, sink) => (_, _) => Emit(owner: owner, handler: sink, kind: kind));
 
     private static UndoEvent OnPlain(string name, Action<History, EventHandler<UndoEventArgs>> attach, Action<History, EventHandler<UndoEventArgs>> detach) =>
         On(
@@ -671,7 +609,7 @@ public static class UndoEventKind {
             detach: detach,
             select: static e => e.Plain,
             assign: static (left, right) => left with { Plain = right },
-            handler: static (kind, pipe) => (_, _) => pipe.PublishPlain(kind: kind));
+            handler: static (kind, owner, sink) => (_, _) => Emit(owner: owner, handler: sink, kind: kind));
 
     private static UndoEvent OnNode(string name, Action<History, EventHandler<UndoNodeEventArgs>> attach, Action<History, EventHandler<UndoNodeEventArgs>> detach) =>
         On(
@@ -680,10 +618,14 @@ public static class UndoEventKind {
             detach: detach,
             select: static e => e.Node,
             assign: static (left, right) => left with { Node = right },
-            handler: static (kind, pipe) => (_, e) => pipe.PublishNode(kind: kind, args: e));
+            handler: static (kind, owner, sink) => (_, _) => Emit(owner: owner, handler: sink, kind: kind));
 
-    private static UndoEventPipe PipeOf((History History, GhDocument Document) owner, Func<UndoEventSnapshot, Fin<Unit>> handler) =>
-        new(History: owner.History, Document: owner.Document, Handler: handler);
+    private static Unit Emit((History History, GhDocument Document) owner, Func<UndoEventSnapshot, Fin<Unit>> handler, UndoEvent kind, Option<string> nodeName = default, Option<int> nodeCount = default) =>
+        new Publisher<UndoEventSnapshot>(Handler: handler).Emit(snapshot: new UndoEventSnapshot(
+            Kind: kind,
+            History: UiRail.HistorySnapshotOf(document: owner.Document),
+            NodeName: nodeName,
+            NodeCount: nodeCount));
 
     private static UndoEvent On<TArgs>(
         string name,
@@ -691,12 +633,12 @@ public static class UndoEventKind {
         Action<History, EventHandler<TArgs>> detach,
         Func<UndoEventHandlers, EventHandler<TArgs>> select,
         Func<UndoEventHandlers, EventHandler<TArgs>, UndoEventHandlers> assign,
-        Func<UndoEvent, UndoEventPipe, EventHandler<TArgs>> handler) where TArgs : EventArgs =>
+        Func<UndoEvent, (History History, GhDocument Document), Func<UndoEventSnapshot, Fin<Unit>>, EventHandler<TArgs>> handler) where TArgs : EventArgs =>
         new(
             Name: name,
             Attach: (owner, handlers) => attach(arg1: owner.History, arg2: select(arg: handlers)),
             Detach: (owner, handlers) => detach(arg1: owner.History, arg2: select(arg: handlers)),
-            Build: (kind, owner, sink) => assign(arg1: UndoEventHandlers.Empty, arg2: handler(arg1: kind, arg2: PipeOf(owner: owner, handler: sink))));
+            Build: (kind, owner, sink) => assign(arg1: UndoEventHandlers.Empty, arg2: handler(arg1: kind, arg2: owner, arg3: sink)));
 }
 
 public static class ControlEventKind {
@@ -825,7 +767,7 @@ public static class ControlEventKind {
             Detach: (source, handlers) => detach(arg1: source, arg2: select(arg: handlers)),
             Build: (kind, source, sink) => assign(
                 arg1: ControlEventHandlers.Empty,
-                arg2: (_, e) => new ControlEventPipe(Source: source, Handler: sink).Publish(snapshot: snapshot(arg1: kind, arg2: source, arg3: e))));
+                arg2: (_, e) => new Publisher<ControlEventSnapshot>(Handler: sink).Emit(snapshot: snapshot(arg1: kind, arg2: source, arg3: e))));
 }
 
 internal static partial class Events {
@@ -904,22 +846,22 @@ internal static partial class Events {
     private static GrasshopperUiIntent<Subscription> SubscribeKeyboardModifiers(Func<InputModifierSnapshot, Fin<Unit>> handler) =>
         GhUi.Read(run: _ =>
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeKeyboardModifiers)), detail: "null handler"))
-            let tick = (EventHandler<EventArgs>)((_, _) => GrasshopperUi.Handler(valid: () => valid(arg: Input.ModifierOf(keys: Keyboard.Modifiers))).Ignore())
             from sub in BindEtoChanged(
-                attach: () => Keyboard.ModifiersChanged += tick,
-                detach: () => Keyboard.ModifiersChanged -= tick,
-                initialTick: () => GrasshopperUi.Handler(valid: () => valid(arg: Input.ModifierOf(keys: Keyboard.Modifiers))).Ignore())
+                read: static () => Input.ModifierOf(keys: Keyboard.Modifiers),
+                handler: valid,
+                attach: tick => Keyboard.ModifiersChanged += tick,
+                detach: tick => Keyboard.ModifiersChanged -= tick)
             select sub);
 
     private static GrasshopperUiIntent<Subscription> SubscribeLogicalPixelSize(Window window, Func<float, Fin<Unit>> handler) =>
         GhUi.Read(run: _ =>
             from validWindow in Optional(window).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeLogicalPixelSize)), detail: "null window"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeLogicalPixelSize)), detail: "null handler"))
-            let tick = (EventHandler<EventArgs>)((_, _) => GrasshopperUi.Handler(valid: () => valid(arg: validWindow.LogicalPixelSize)).Ignore())
             from sub in BindEtoChanged(
-                attach: () => validWindow.LogicalPixelSizeChanged += tick,
-                detach: () => validWindow.LogicalPixelSizeChanged -= tick,
-                initialTick: () => GrasshopperUi.Handler(valid: () => valid(arg: validWindow.LogicalPixelSize)).Ignore())
+                read: () => validWindow.LogicalPixelSize,
+                handler: valid,
+                attach: tick => validWindow.LogicalPixelSizeChanged += tick,
+                detach: tick => validWindow.LogicalPixelSizeChanged -= tick)
             select sub);
 
     private static GrasshopperUiIntent<Subscription> SubscribeWindowLifecycle(Window window, WindowLifecycle kind, Func<WindowLifecycleSnapshot, Fin<Unit>> handler) =>
@@ -932,28 +874,38 @@ internal static partial class Events {
 
     private static GrasshopperUiIntent<Subscription> SubscribeNativeInput(Func<NativeInputSnapshot, Fin<Unit>> handler, NSEventMask mask) =>
         GhUi.Read(run: _scope => {
-            NSObject? monitor = null;
+            Atom<Option<NSObject>> monitor = Atom(value: Option<NSObject>.None);
             return
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeNativeInput)), detail: "null handler"))
             from sub in BindMarshaled(
-                attach: () => monitor = NSEvent.AddLocalMonitorForEventsMatchingMask(mask, e =>
-                    Optional(e).Map(evt => UiEvent.Publish(handler: valid, snapshot: NativeInputSnapshot.Of(e: evt))).Map(_ => e).IfNone(e)),
-                detach: () => Optional(monitor).Iter(NSEvent.RemoveMonitor),
+                attach: () => monitor.Swap(_ => Optional(NSEvent.AddLocalMonitorForEventsMatchingMask(mask, e =>
+                    Optional(e).Map(evt => UiEvent.Publish(handler: valid, snapshot: NativeInputSnapshot.Of(e: evt))).Map(_ => e).IfNone(e)))).Ignore(),
+                detach: () => {
+                    // Read-then-clear the cell before removal so a throwing RemoveMonitor cannot strand the native monitor.
+                    Option<NSObject> live = monitor.Value;
+                    _ = monitor.Swap(static _ => Option<NSObject>.None);
+                    _ = live.Iter(NSEvent.RemoveMonitor);
+                },
                 detachOnce: true)
             select sub;
         });
 
     private static GrasshopperUiIntent<Subscription> SubscribeAccessibilityPrefs(Func<AccessibilityPrefsSnapshot, Fin<Unit>> handler) =>
         GhUi.Read(run: _scope => {
-            NSObject? observer = null;
+            Atom<Option<NSObject>> observer = Atom(value: Option<NSObject>.None);
             return
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeAccessibilityPrefs)), detail: "null handler"))
             from sub in BindMarshaled(
-                attach: () => observer = NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(
+                attach: () => observer.Swap(_ => Optional(NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(
                     aName: NSWorkspace.DisplayOptionsDidChangeNotification,
-                    notify: _ => GrasshopperUi.Handler(valid: () => valid(arg: new AccessibilityPrefsSnapshot(ReduceMotion: MotionAccessibility.ShouldReduceMotion))).Ignore(),
-                    fromObject: null),
-                detach: () => Optional(observer).Iter(o => NSWorkspace.SharedWorkspace.NotificationCenter.RemoveObserver(o)),
+                    notify: _ => GrasshopperUi.Handler(valid: () => valid(arg: new AccessibilityPrefsSnapshot(ReduceMotion: AccessibilityMotionGate.ShouldReduceMotion))).Ignore(),
+                    fromObject: null))).Ignore(),
+                detach: () => {
+                    // Read-then-clear the cell before removal so a throwing RemoveObserver cannot strand the observer.
+                    Option<NSObject> live = observer.Value;
+                    _ = observer.Swap(static _ => Option<NSObject>.None);
+                    _ = live.Iter(o => NSWorkspace.SharedWorkspace.NotificationCenter.RemoveObserver(o));
+                },
                 detachOnce: true)
             select sub;
         });
@@ -967,12 +919,16 @@ internal static partial class Events {
     internal static Fin<Subscription> BindMarshaled(System.Action attach, System.Action detach, bool detachOnce = false) =>
         Subscription.Bind(attach: attach, detach: detach, marshalToUi: true, detachOnce: detachOnce);
 
-    // Eto state subscriptions publish once on attach so handlers see current modifiers/pixel size immediately.
-    private static Fin<Subscription> BindEtoChanged(System.Action attach, System.Action detach, System.Action initialTick) =>
-        BindMarshaled(
-            attach: () => {
-                attach();
-                initialTick();
-            },
-            detach: detach);
+    // Publishes once on attach so handlers see the current value; one thunk drives both the change tick and the on-attach fire.
+    private static Fin<Subscription> BindEtoChanged<TValue>(
+        Func<TValue> read,
+        Func<TValue, Fin<Unit>> handler,
+        Action<EventHandler<EventArgs>> attach,
+        Action<EventHandler<EventArgs>> detach) {
+        Unit fire() => GrasshopperUi.Handler(valid: () => handler(arg: read())).Ignore();
+        void tick(object? _, EventArgs __) => fire();
+        return BindMarshaled(
+            attach: () => { attach(tick); _ = fire(); },
+            detach: () => detach(tick));
+    }
 }

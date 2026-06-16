@@ -4,9 +4,9 @@ The inbound companion server-runtime and credential owner. `ServerHost` owns the
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | SERVE     | the inbound gRPC server lifecycle, the credential axis          |
+| [INDEX] | [CLUSTER] | [OWNS]                                                 |
+| :-----: | :-------- | :----------------------------------------------------- |
+|   [1]   | SERVE     | the inbound gRPC server lifecycle, the credential axis |
 
 ## [2]-[SERVE]
 

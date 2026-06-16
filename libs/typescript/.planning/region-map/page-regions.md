@@ -40,5 +40,5 @@ TS branch ledger — one ledger with five per-domain blocks plus the branch non-
 [BRANCH] (CROSS_PACKAGE_LAWS, non-domain):
 
 - architecture-posture.md: the seven-altitude one-form grammar, the closed five-app-service budget, the platform-neutrality strata, the held Effect-v3 runtime + dual-compiler tsgo floor, the admission doctrine, the anti-spam cluster law + altitude-co-location law, and the RULE_ENFORCEMENT guard table.
-- test-strategy.md: the algebraic PBT spine with per-file LOC and coverage floors, the one browser-mode runner covering both ui and platform specs and the end-to-end runner, and the mutation kill-ratio gate plus durable-cluster harness — per-domain project rows in one shared vitest.workspace.ts.
+- test-strategy.md: the algebraic PBT spine with per-file LOC and coverage floors, the one browser-mode runner covering both ui and platform specs and the end-to-end runner, and the mutation kill-ratio gate plus durable-cluster harness — per-domain project rows in the centralized root vitest setup.
 - architecture-tree.md: the flat five-domain single-package source tree, the inter-domain folder-stratum import graph, the browser/node/neutral publication split as a subpath-export attribute, the descriptor-pipeline placement in interchange, the ui->platform intra-browser dependency direction, and the GlbViewport refinement-horizon entry.

@@ -18,60 +18,64 @@
 [PUBLIC_TYPE_SCOPE]: archive root and info records
 - rail: compression
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `SevenZipFile` | archive root | open/read/write/test a 7z archive |
-| [2] | `ArchiveInfo` | archive view | container-level metadata |
-| [3] | `FileInfo` | entry view | per-entry metadata |
-| [4] | `Py7zIO` / `WriterFactory` | io hooks | custom per-entry IO sinks for streamed extraction |
+| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE] | [CAPABILITY]                                      |
+| :-----: | :------------------------- | :------------- | :------------------------------------------------ |
+|   [1]   | `SevenZipFile`             | archive root   | open/read/write/test a 7z archive                 |
+|   [2]   | `ArchiveInfo`              | archive view   | container-level metadata                          |
+|   [3]   | `FileInfo`                 | entry view     | per-entry metadata                                |
+|   [4]   | `Py7zIO` / `WriterFactory` | io hooks       | custom per-entry IO sinks for streamed extraction |
 
 [PUBLIC_TYPE_SCOPE]: filter codec table
 - rail: compression
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `FILTER_LZMA2` / `FILTER_LZMA` | primary codec | default LZMA family compression |
-| [2] | `FILTER_ZSTD` / `FILTER_BROTLI` / `FILTER_BZIP2` / `FILTER_PPMD` / `FILTER_DEFLATE` / `FILTER_COPY` | alt codec | alternative compression codecs and the store-only pass-through |
-| [3] | `FILTER_CRYPTO_AES256_SHA256` | crypto filter | AES256 content/header encryption |
-| [4] | `FILTER_DELTA` / `FILTER_X86` / `FILTER_ARM` / `FILTER_ARMTHUMB` / `FILTER_POWERPC` / `FILTER_SPARC` / `FILTER_IA64` | preprocessor | BCJ/delta pre-filters |
-| [5] | `PRESET_DEFAULT` / `PRESET_EXTREME` | preset | LZMA preset level |
+Filter rows are filter-chain vocabulary; exact constants remain in the package namespace and are consumed as `filters` row values.
+
+| [INDEX] | [SYMBOL_FAMILY]               | [PACKAGE_ROLE] | [CAPABILITY]                          |
+| :-----: | :---------------------------- | :------------- | :------------------------------------ |
+|   [1]   | `FILTER_LZMA*`                | primary codec  | default LZMA family compression       |
+|   [2]   | `FILTER_ZSTD` / alternatives  | alt codec      | additional codecs and store-only copy |
+|   [3]   | `FILTER_CRYPTO_AES256_SHA256` | crypto filter  | AES256 content/header encryption      |
+|   [4]   | `FILTER_DELTA` / BCJ filters  | preprocessor   | BCJ/delta pre-filters                 |
+|   [5]   | `PRESET_*`                    | preset         | LZMA preset level                     |
 
 [PUBLIC_TYPE_SCOPE]: faults
 - rail: compression
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `Bad7zFile` | format fault | corrupt or invalid 7z container |
-| [2] | `PasswordRequired` | auth fault | encrypted archive opened without a password |
-| [3] | `DecompressionError` | codec fault | a decode step failed |
-| [4] | `UnsupportedCompressionMethodError` | codec fault | an unimplemented filter was encountered |
+| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE] | [CAPABILITY]                                |
+| :-----: | :---------------------------------- | :------------- | :------------------------------------------ |
+|   [1]   | `Bad7zFile`                         | format fault   | corrupt or invalid 7z container             |
+|   [2]   | `PasswordRequired`                  | auth fault     | encrypted archive opened without a password |
+|   [3]   | `DecompressionError`                | codec fault    | a decode step failed                        |
+|   [4]   | `UnsupportedCompressionMethodError` | codec fault    | an unimplemented filter was encountered     |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: archive open, read, and write
 - rail: compression
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `SevenZipFile` | `SevenZipFile(file: IO[bytes] | str | pathlib.Path, mode: str = 'r', *, filters: list[dict[str, int]] | None = None, dereference=False, password: str | None = None, header_encryption: bool = False, blocksize: int | None = None, mp: bool = False) -> None` | open/create an archive |
-| [2] | `SevenZipFile.extractall` | `extractall(path=None, callback=None) -> None` | extract every entry |
-| [3] | `SevenZipFile.extract` | `extract(path=None, targets=None, recursive=None, callback=None) -> None` | extract selected entries |
-| [4] | `SevenZipFile.writeall` | `writeall(path, arcname=None) -> None` | add a tree to the archive |
-| [5] | `SevenZipFile.write` | `write(file, arcname=None) -> None` | add one file |
-| [6] | `SevenZipFile.writestr` | `writestr(data, arcname) -> None` | add in-memory bytes |
-| [7] | `SevenZipFile.writef` | `writef(bio, arcname) -> None` | add from a file-like object |
-| [8] | `SevenZipFile.list` | `list() -> list[FileInfo]` | enumerate entries |
-| [9] | `SevenZipFile.test` | `test() -> bool | None` | verify CRCs |
-| [10] | `SevenZipFile.needs_password` | `needs_password() -> bool` | encryption probe |
+The archive constructor row carries source, mode, filter chain, dereference, password, header-encryption, blocksize, and multiprocessing policy.
+
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                  | [CAPABILITY]                |
+| :-----: | :---------------------------- | :---------------------------- | :-------------------------- |
+|   [1]   | `SevenZipFile`                | archive open/create policy    | open/create an archive      |
+|   [2]   | `SevenZipFile.extractall`     | target path plus callback     | extract every entry         |
+|   [3]   | `SevenZipFile.extract`        | target path plus selection    | extract selected entries    |
+|   [4]   | `SevenZipFile.writeall`       | source tree plus archive name | add a tree to the archive   |
+|   [5]   | `SevenZipFile.write`          | source file plus archive name | add one file                |
+|   [6]   | `SevenZipFile.writestr`       | bytes plus archive name       | add in-memory bytes         |
+|   [7]   | `SevenZipFile.writef`         | file-like object plus name    | add from a file-like object |
+|   [8]   | `SevenZipFile.list`           | no-arg listing                | enumerate entries           |
+|   [9]   | `SevenZipFile.test`           | CRC verification query        | verify CRCs                 |
+|  [10]   | `SevenZipFile.needs_password` | password-state query          | encryption probe            |
 
 [ENTRYPOINT_SCOPE]: predicate and shutil registration
 - rail: compression
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `is_7zfile` | `is_7zfile(file: SupportsReadAndSeek | IO[bytes] | str | os.PathLike[str]) -> bool` | format predicate |
-| [2] | `pack_7zarchive` | `pack_7zarchive(base_name, base_dir, owner=None, group=None, dry_run=None, logger=None)` | shutil pack hook |
-| [3] | `unpack_7zarchive` | `unpack_7zarchive(archive, path, extra=None)` | shutil unpack hook |
+| [INDEX] | [SURFACE]          | [CALL_SHAPE]                    | [CAPABILITY]       |
+| :-----: | :----------------- | :------------------------------ | :----------------- |
+|   [1]   | `is_7zfile`        | readable source or path         | format predicate   |
+|   [2]   | `pack_7zarchive`   | base name, directory, and hooks | shutil pack hook   |
+|   [3]   | `unpack_7zarchive` | archive, target path, and extra | shutil unpack hook |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

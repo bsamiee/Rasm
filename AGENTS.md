@@ -46,6 +46,10 @@ Every repo tool must route generated storage, caches, benchmark output, mutation
 
 ## [5]-[MONOREPO_TOPOLOGY]
 
+Rasm is a RhinoWIP, GH2, and product-neutral AEC/design-geometry workspace. Interpret library, tool, app, service, web, Python, TypeScript, and C# work through that domain frame before choosing shape: reusable capability lands in the deepest owner that can absorb it, while product shells bind intent, host edges, and output.
+
+AEC pressure informs geometry, topology, units, tolerances, host documents, object graphs, exchange, visualization, compute, persistence, and evidence; it never collapses runtime, UI, compute, persistence, Python, TypeScript, Assay, or Bridge into generic app/plugin code.
+
 The C# library split is owner law, not folder trivia:
 - `libs/csharp/Rasm` is the RhinoCommon-aware geometry and numeric kernel.
 - `libs/csharp/Rasm.Rhino` owns in-process RhinoCommon command, document, UI, camera, file, block, and event boundaries.

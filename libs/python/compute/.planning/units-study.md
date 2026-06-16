@@ -4,11 +4,11 @@ Quantity claims, study orchestration, and model-asset validation. `QuantityClaim
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | QUANTITY  | unit + uncertainty quantity claims                             |
-|   [2]   | STUDY     | study orchestration, benchmark mode, run history               |
-|   [3]   | MODEL     | model-asset file identity, validation, sklearn-to-ONNX export  |
+| [INDEX] | [CLUSTER] | [OWNS]                                                        |
+| :-----: | :-------- | :------------------------------------------------------------ |
+|   [1]   | QUANTITY  | unit + uncertainty quantity claims                            |
+|   [2]   | STUDY     | study orchestration, benchmark mode, run history              |
+|   [3]   | MODEL     | model-asset file identity, validation, sklearn-to-ONNX export |
 
 ## [2]-[QUANTITY]
 

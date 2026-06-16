@@ -50,20 +50,20 @@
 
 ## [2]-[REFLECTION_STATUS]
 
-| [INDEX] | [DISTRIBUTION] | [RAIL] | [REFLECTED] |
-| :-----: | :------------- | :----- | :---------- |
-| [1] | `sympy` | symbolic | `1.14.0` member-complete via `assay api query --key sympy` |
-| [2] | `numpy` | arrays | ABSENT on cp315; submodule/type facts only |
-| [3] | `xarray` | arrays | ABSENT on cp315; submodule/type facts only |
-| [4] | `scipy` | solvers | ABSENT on cp315; submodule/type facts only |
-| [5] | `dask` | studies | ABSENT on cp315; submodule/type facts only |
-| [6] | `pint` | units | ABSENT on cp315; type facts only |
-| [7] | `uncertainties` | uncertainty | ABSENT on cp315; type facts only |
-| [8] | `jax` | accelerator | ABSENT on cp315 (marker `<'3.15'`); transform facts only |
-| [9] | `numba` | accelerator | ABSENT on cp315 (marker `<'3.15'`); decorator facts only |
-| [10] | `onnx` | model | ABSENT on cp315 (marker `<'3.15'`); message/submodule facts only |
-| [11] | `onnxruntime` | model | ABSENT on cp315 (marker `<'3.15'`); type facts only |
-| [12] | `scikit-learn` | model | ABSENT on cp315 (marker `<'3.15'`); submodule/type facts only |
+| [INDEX] | [DISTRIBUTION]  | [RAIL]      | [REFLECTED]                                                      |
+| :-----: | :-------------- | :---------- | :--------------------------------------------------------------- |
+|   [1]   | `sympy`         | symbolic    | `1.14.0` member-complete via `assay api query --key sympy`       |
+|   [2]   | `numpy`         | arrays      | ABSENT on cp315; submodule/type facts only                       |
+|   [3]   | `xarray`        | arrays      | ABSENT on cp315; submodule/type facts only                       |
+|   [4]   | `scipy`         | solvers     | ABSENT on cp315; submodule/type facts only                       |
+|   [5]   | `dask`          | studies     | ABSENT on cp315; submodule/type facts only                       |
+|   [6]   | `pint`          | units       | ABSENT on cp315; type facts only                                 |
+|   [7]   | `uncertainties` | uncertainty | ABSENT on cp315; type facts only                                 |
+|   [8]   | `jax`           | accelerator | ABSENT on cp315 (marker `<'3.15'`); transform facts only         |
+|   [9]   | `numba`         | accelerator | ABSENT on cp315 (marker `<'3.15'`); decorator facts only         |
+|  [10]   | `onnx`          | model       | ABSENT on cp315 (marker `<'3.15'`); message/submodule facts only |
+|  [11]   | `onnxruntime`   | model       | ABSENT on cp315 (marker `<'3.15'`); type facts only              |
+|  [12]   | `scikit-learn`  | model       | ABSENT on cp315 (marker `<'3.15'`); submodule/type facts only    |
 
 ## [3]-[CATALOGUE_LAW]
 

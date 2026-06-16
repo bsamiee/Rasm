@@ -165,6 +165,10 @@ internal sealed class CargoGate : IDisposable {
     private static UnloadReceipt UnloadKernel(CargoLease lease) {
         long started = Stopwatch.GetTimestamp();
         bool debugger = Debugger.IsAttached;
+        // Release sheds its own frame (NoInlining) before the WeakReference probe so no caller local
+        // pins the context; a leak-free ALC then collects within the retry budget because each cycle's
+        // GC.Collect plus finalizer drain reclaims the unreferenced load context, while a genuine leak
+        // (a host-rooted reference into cargo) stays alive past the budget and reports Confirmed=false.
         WeakReference probe = Release(lease: lease);
         int retries = 0;
         while (probe.IsAlive && retries < GcRetryBudget) {

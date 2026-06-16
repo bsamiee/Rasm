@@ -17,12 +17,12 @@
 [PUBLIC_TYPE_SCOPE]: labelled-array owners
 - rail: arrays
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `xarray.DataArray` | labelled array | array plus named dims and coords |
-| [2] | `xarray.Dataset` | labelled collection | named DataArrays sharing dimensions |
-| [3] | `xarray.Variable` | dim-aware buffer | array with attached dimension names |
-| [4] | `xarray.Coordinates` | coordinate index | label index for a dimension |
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]      | [CAPABILITY]                        |
+| :-----: | :------------------- | :------------------ | :---------------------------------- |
+|   [1]   | `xarray.DataArray`   | labelled array      | array plus named dims and coords    |
+|   [2]   | `xarray.Dataset`     | labelled collection | named DataArrays sharing dimensions |
+|   [3]   | `xarray.Variable`    | dim-aware buffer    | array with attached dimension names |
+|   [4]   | `xarray.Coordinates` | coordinate index    | label index for a dimension         |
 
 [ENTRYPOINTS]:
 - UN_REFLECTED: exact method spellings (`DataArray.sel`, `DataArray.isel`, `Dataset.groupby`, `DataArray.chunk`, `DataArray.dims`, `DataArray.coords`) and verified signatures require a reflectable install to capture; type names above are stable package facts, not reflected members.

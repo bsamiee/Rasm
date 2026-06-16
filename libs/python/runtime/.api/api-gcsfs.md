@@ -18,20 +18,20 @@
 [PUBLIC_TYPE_SCOPE]: filesystem family
 - rail: resources
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `GCSFileSystem` | filesystem | async GCS fsspec filesystem |
-| [2] | `GCSMap` | mapping | dict-like view over a GCS prefix |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [RAIL]                           |
+| :-----: | :-------------- | :------------ | :------------------------------- |
+|   [1]   | `GCSFileSystem` | filesystem    | async GCS fsspec filesystem      |
+|   [2]   | `GCSMap`        | mapping       | dict-like view over a GCS prefix |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: backend operations
 - rail: resources
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `GCSFileSystem` | build | construct via fsspec `storage_options` |
-| [2] | `GCSFileSystem.credentials` | auth | resolved credential surface |
+| [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :-------------------------- | :------------- | :------------------------------------- |
+|   [1]   | `GCSFileSystem`             | build          | construct via fsspec `storage_options` |
+|   [2]   | `GCSFileSystem.credentials` | auth           | resolved credential surface            |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

@@ -17,13 +17,13 @@
 [PUBLIC_TYPE_SCOPE]: estimator-protocol owners
 - rail: model
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `sklearn.base.BaseEstimator` | estimator root | base of every estimator |
-| [2] | `sklearn.pipeline.Pipeline` | composition root | chains transformers and a final estimator |
-| [3] | `sklearn.preprocessing` | transformer submodule | scaling, encoding, normalization |
-| [4] | `sklearn.model_selection` | selection submodule | cross-validation and hyperparameter search |
-| [5] | `sklearn.linear_model` `sklearn.ensemble` `sklearn.cluster` | estimator submodules | supervised and unsupervised estimators |
+| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE]        | [CAPABILITY]                               |
+| :-----: | :---------------------------------------------------------- | :-------------------- | :----------------------------------------- |
+|   [1]   | `sklearn.base.BaseEstimator`                                | estimator root        | base of every estimator                    |
+|   [2]   | `sklearn.pipeline.Pipeline`                                 | composition root      | chains transformers and a final estimator  |
+|   [3]   | `sklearn.preprocessing`                                     | transformer submodule | scaling, encoding, normalization           |
+|   [4]   | `sklearn.model_selection`                                   | selection submodule   | cross-validation and hyperparameter search |
+|   [5]   | `sklearn.linear_model` `sklearn.ensemble` `sklearn.cluster` | estimator submodules  | supervised and unsupervised estimators     |
 
 [ENTRYPOINTS]:
 - UN_REFLECTED: exact estimator-protocol method spellings (`fit`, `predict`, `transform`, `fit_transform`, `score`) and verified constructor signatures require a reflectable install to capture; the submodule/type names above are stable package facts, not reflected members.

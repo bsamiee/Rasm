@@ -4,11 +4,11 @@
 
 ## [1]-[PAGE_INDEX]
 
-| [INDEX] | [PAGE]                          | [OWNS]                                                        | [STATE]   |
-| :-----: | :------------------------------ | :----------------------------------------------------------- | :-------- |
+| [INDEX] | [PAGE]                          | [OWNS]                                                             | [STATE]   |
+| :-----: | :------------------------------ | :----------------------------------------------------------------- | :-------- |
 |   [1]   | [array-solver](array-solver.md) | array admission, the numeric-intent solver, symbolic, accelerators | finalized |
-|   [2]   | [units-study](units-study.md)   | units/uncertainty claims, study + run-history, model assets  | finalized   |
-|   [3]   | [graduation](graduation.md)     | the C# graduation receipt with the geometry handoff case     | finalized   |
+|   [2]   | [units-study](units-study.md)   | units/uncertainty claims, study + run-history, model assets        | finalized |
+|   [3]   | [graduation](graduation.md)     | the C# graduation receipt with the geometry handoff case           | finalized |
 
 ## [2]-[CATALOGUE_PENDING]
 
@@ -19,33 +19,33 @@
 
 Implementation collapses to one owner per axis. `NumericIntent` is ONE route-discriminated solver owner subsuming the former standalone `SolverPlan`; the `numba`/`jax` accelerator rows ride the same owner, never parallel methods. `BenchmarkData` collapses into the study receipt with a measurement-mode discriminant; `RunHistory` rides the same study spine. `[STATE]` carries `SPIKE` on the marker-floor probe.
 
-| [INDEX] | [AXIS/CONCERN]      | [OWNER]              | [KIND]                  | [CASES]                                        |  [STATE]  |
-| :-----: | :------------------ | :------------------ | :---------------------- | :--------------------------------------------- | :-------: |
-|   [1]   | Array admission     | `ArrayPayload`      | frozen owner + `NamedAxis` | dtype/shape/named-axes/finite/layout/chunking |   SPIKE   |
-|   [2]   | Numeric intent      | `NumericIntent`     | tagged union            | dense-LA/sparse/nonlinear/integrate/interpolate/symbolic |   SPIKE   |
-|   [3]   | Symbolic derivation | `SymbolicDerivation`| static surface          | lambdify codegen, C# handoff                   | FINALIZED |
-|   [4]   | Accelerator rows    | `NumericIntent`     | row on the owner        | numba LLVM JIT, jax XLA jit/grad/vmap          |   SPIKE   |
-|   [5]   | Quantity claim      | `QuantityClaim`     | value object pair       | unit-expr/conversion-path + nominal/stddev     |   SPIKE   |
-|   [6]   | Study plan          | `StudyPlan`         | frozen owner + `RunHistory` | param-axis/sample-grid/route/measurement-mode |   SPIKE   |
-|   [7]   | Model asset         | `ModelAsset`        | frozen owner + manifest | file identity/checksum/io-names/validation     |   SPIKE   |
-|   [8]   | Graduation receipt  | `GraduationReceipt` | tagged union + `HandoffAxis` | solver/symbolic/model/array/unit/uncertainty/geometry | FINALIZED |
+| [INDEX] | [AXIS/CONCERN]      | [OWNER]              | [KIND]                       | [CASES]                                                  |  [STATE]  |
+| :-----: | :------------------ | :------------------- | :--------------------------- | :------------------------------------------------------- | :-------: |
+|   [1]   | Array admission     | `ArrayPayload`       | frozen owner + `NamedAxis`   | dtype/shape/named-axes/finite/layout/chunking            |   SPIKE   |
+|   [2]   | Numeric intent      | `NumericIntent`      | tagged union                 | dense-LA/sparse/nonlinear/integrate/interpolate/symbolic |   SPIKE   |
+|   [3]   | Symbolic derivation | `SymbolicDerivation` | static surface               | lambdify codegen, C# handoff                             | FINALIZED |
+|   [4]   | Accelerator rows    | `NumericIntent`      | row on the owner             | numba LLVM JIT, jax XLA jit/grad/vmap                    |   SPIKE   |
+|   [5]   | Quantity claim      | `QuantityClaim`      | value object pair            | unit-expr/conversion-path + nominal/stddev               |   SPIKE   |
+|   [6]   | Study plan          | `StudyPlan`          | frozen owner + `RunHistory`  | param-axis/sample-grid/route/measurement-mode            |   SPIKE   |
+|   [7]   | Model asset         | `ModelAsset`         | frozen owner + manifest      | file identity/checksum/io-names/validation               |   SPIKE   |
+|   [8]   | Graduation receipt  | `GraduationReceipt`  | tagged union + `HandoffAxis` | solver/symbolic/model/array/unit/uncertainty/geometry    | FINALIZED |
 
 ## [4]-[BUILD_ORDER]
 
-| [INDEX] | [FILE]              | [TRANSCRIBES]                          | [GATE]         |
-| :-----: | :------------------ | :------------------------------------- | :------------- |
-|   [1]   | `arrays.py`         | array-solver#ARRAY                     | static + floor |
-|   [2]   | `solver.py`         | array-solver#SOLVER                    | static + floor |
-|   [3]   | `units_study.py`    | units-study#QUANTITY, #STUDY, #MODEL   | static + floor |
-|   [4]   | `graduation.py`     | graduation#GRADUATION                  | static         |
+| [INDEX] | [FILE]           | [TRANSCRIBES]                        | [GATE]         |
+| :-----: | :--------------- | :----------------------------------- | :------------- |
+|   [1]   | `arrays.py`      | array-solver#ARRAY                   | static + floor |
+|   [2]   | `solver.py`      | array-solver#SOLVER                  | static + floor |
+|   [3]   | `units_study.py` | units-study#QUANTITY, #STUDY, #MODEL | static + floor |
+|   [4]   | `graduation.py`  | graduation#GRADUATION                | static         |
 
 ## [5]-[PROOF_GATES]
 
-| [GATE] | [RAIL]                       | [EVIDENCE]                                          |
-| :----: | :--------------------------- | :------------------------------------------------- |
-|  [G1]  | `uv lock --check`            | compute pins resolve against the root manifest     |
-|  [G2]  | `.api` catalogue             | every fence member resolves to an `.api` row       |
-|  [G3]  | wheel floor                  | cp315/marker-floor wheels install before re-reflect |
+| [GATE] | [RAIL]            | [EVIDENCE]                                          |
+| :----: | :---------------- | :-------------------------------------------------- |
+|  [G1]  | `uv lock --check` | compute pins resolve against the root manifest      |
+|  [G2]  | `.api` catalogue  | every fence member resolves to an `.api` row        |
+|  [G3]  | wheel floor       | cp315/marker-floor wheels install before re-reflect |
 
 ## [6]-[PROHIBITIONS]
 
@@ -57,13 +57,13 @@ Implementation collapses to one owner per axis. `NumericIntent` is ONE route-dis
 
 ## [7]-[ADMISSIONS_RECORD]
 
-| [INDEX] | [PACKAGE]                      | [PAGE]        | [CATALOGUE]              | [STATUS]          |
-| :-----: | :----------------------------- | :------------ | :----------------------- | :---------------- |
-|   [1]   | numpy                          | array-solver  | api-numpy.md             | catalogue-pending |
-|   [2]   | scipy, sympy                   | array-solver  | api-scipy.md, api-sympy.md | catalogue-pending |
-|   [3]   | numba, jax                     | array-solver  | api-numba.md, api-jax.md | catalogue-pending |
-|   [4]   | pint, uncertainties            | units-study   | api-pint.md, api-uncertainties.md | catalogue-pending |
-|   [5]   | onnx, onnxruntime, scikit-learn | units-study   | api-onnx.md ...          | catalogue-pending |
+| [INDEX] | [PACKAGE]                       | [PAGE]       | [CATALOGUE]                       | [STATUS]          |
+| :-----: | :------------------------------ | :----------- | :-------------------------------- | :---------------- |
+|   [1]   | numpy                           | array-solver | api-numpy.md                      | catalogue-pending |
+|   [2]   | scipy, sympy                    | array-solver | api-scipy.md, api-sympy.md        | catalogue-pending |
+|   [3]   | numba, jax                      | array-solver | api-numba.md, api-jax.md          | catalogue-pending |
+|   [4]   | pint, uncertainties             | units-study  | api-pint.md, api-uncertainties.md | catalogue-pending |
+|   [5]   | onnx, onnxruntime, scikit-learn | units-study  | api-onnx.md ...                   | catalogue-pending |
 
 ## [8]-[REFINEMENT_HORIZON]
 

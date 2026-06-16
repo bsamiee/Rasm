@@ -1,8 +1,13 @@
 # [ASSAY_OPERATOR]
 
-`tools.assay` is the Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, and API proof. Assay is the replacement quality surface, not a compatibility wrapper.
+`tools.assay` is the Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, and API proof.
 
 ## [1][STATUS]
+
+[KNOWN_DEFECTS] (surfaces fewer/divergent errors than raw `dotnet build`/`format`; fix these):
+- `static` runs `dotnet format` in the fix phase before build, mutating source — `IDE0053` strips single-statement-block lambda braces (flips `Action`/`Func` overload binding), `IDE0001` simplifies names — introducing compile breaks and making the error set non-deterministic vs a clean `dotnet build`; skip/gate the fix phase (or add a diagnose-only mode) when the target does not already compile.
+- `static` under-reports the compile-error surface vs `dotnet build` (~13 reported where `dotnet build` showed ~40 across more files): the failing/short-circuiting format phase plus the SARIF/stderr extraction caps and dedups, hiding cascade layers and whole-file clusters; surface the build's full diagnostic set.
+- `api query` serves a stale/partial fingerprint cache (~13ms cache hits): truncated index (only generated display-class types for `gh2`), cannot resolve real types (e.g. `Grasshopper2.Doc.Document`), and `--grep` without a positional symbol returns the cached scope index regardless of pattern — a no-match is not proof of absence; invalidate/rebuild the per-source ilspy cache.
 
 [STATUS]:
 - Status: active replacement operator.
@@ -10,6 +15,7 @@
 - Machine contract: normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr.
 - Automation: programmatic arm through `drive(trigger, action, settings)`; no registered root `watch` CLI.
 - Compatibility: no stale command aliases or shim surfaces.
+- Mutation: staged gate (multi-hour) — run `cd .artifacts/python/mutmut/work && COVERAGE_RCFILE=.config/coverage-mutmut.ini uv run mutmut run`, then score the completed cache against the 0.80 kill-floor with `rails/mutation_gate.py` (`[tool.mutmut]` pins `source_paths = ["tools/assay"]`).
 
 ## [2][FIRST_COMMAND]
 
@@ -132,6 +138,7 @@ This table is a lookup by command surface and verb set:
 - Verbs: `resolve`, `query`, `show`, `status`
 - Inputs: `--key`, `--symbol`, `--kind`, `--token`, `--max-lines`, `--lines`, `--grep`, `--full`, `--strict`
 - Output: `ApiSurface` or `ApiResolution` detail.
+- Flag-only: the verbs are driven by flags, not positionals — `resolve` keys on `--key`/`--kind`, `query` on `--symbol`, `show` on `--token`. A surplus positional (e.g. the reflexive `api resolve rhino-common all`) is a parse fault whose message names the exact flags that own the slots and the verb's resolved positional arity, so the corrected `--key`/`--kind` form is in the error itself.
 - Use: sources include host assemblies, NuGet packages, Python distributions, and TypeScript declarations; `show latest` resolves through artifact-store root priority rather than a workspace scan.
 - Row text: each `status` inventory `Match.text` is the stable key=value health grammar `<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->` (fixed key order, single-space-separated) so downstream parsers key off names, not positions.
 - Example: `uv run python -m tools.assay api query --key rhino-common --symbol Rhino.Geometry.Mesh`
@@ -237,7 +244,7 @@ Integrations are grouped by the reader action they change. They are capability n
 - Boundary: most CLI operation still assumes local or shared paths.
 
 [ASYNCSSH]:
-- Enables: remote process execution through `ASSAY_EXEC_TARGET=ssh://...`.
+- Enables: remote process execution through the `--exec ssh://...` flag (or the `ASSAY_EXEC_TARGET` env fallback).
 - Boundary: moves command execution only; routing, artifacts, and locks still need local or shared paths.
 
 [RUNTIME_MODELS]:
@@ -294,15 +301,16 @@ Artifacts, logs, tracing, and remote execution are operator surfaces. They do no
 - Absent endpoint: no tracing export.
 
 [ENVIRONMENT]:
-- README-worthy vars: `ASSAY_RUN_ID`, `ASSAY_AGENT_TASK_ID`, `ASSAY_ARTIFACT_RETENTION`, `ASSAY_ARTIFACT_BACKEND__PROTOCOL`, `ASSAY_ARTIFACT_BACKEND__ROOT`, `ASSAY_EXEC_TARGET`, and `ASSAY_EXEC_KNOWN_HOSTS`.
-- Use: correlation, retention, and execution target control only where settings expose the behavior.
+- README-worthy vars: `ASSAY_RUN_ID`, `ASSAY_AGENT_TASK_ID`, `ASSAY_ARTIFACT_RETENTION`, `ASSAY_ARTIFACT_BACKEND__PROTOCOL`, `ASSAY_ARTIFACT_BACKEND__ROOT`, `ASSAY_EXEC_TARGET`, `ASSAY_EXEC_KNOWN_HOSTS`, `ASSAY_SFTP_PUSH_CONCURRENCY`, and `ASSAY_SFTP_MAX_REQUESTS`.
+- Use: correlation, retention, execution target, and SFTP push throttle control only where settings expose the behavior. `--exec` is the primary execution-target surface; `ASSAY_EXEC_TARGET` is its env fallback.
 
 [REMOTE_EXECUTION]:
-- Target switch: `ASSAY_EXEC_TARGET` unset (`""`) keeps execution local — the default for agent ergonomics. Set to `ssh://[user@]host[:port]` it offloads process execution over SSH; the scheme, host, and port are validated at settings load, so a malformed target fails before any spawn. The env form takes a raw, unquoted URL — `ASSAY_EXEC_TARGET=ssh://root@host` — admitted directly through the modal value object without JSON quoting; a missing port defaults to 22 at connect time while the canonical URL keeps the no-`:22` rendering.
+- Target switch: the `--exec` global flag is the primary, `--help`-visible offload surface so an agent discovers offload from the root usage line; `--exec local` (the default) keeps execution local, `--exec ssh://[user@]host[:port]` offloads process execution over SSH. The flag is admitted through the same validated path as `ASSAY_EXEC_TARGET`, which stays a fallback override (the flag wins when both are present); the scheme, host, and port are validated at settings load, so a malformed target fails before any spawn. Both forms take a raw, unquoted URL — `--exec ssh://root@host` or `ASSAY_EXEC_TARGET=ssh://root@host` — admitted directly through the modal value object without JSON quoting; a missing port defaults to 22 at connect time while the canonical URL keeps the no-`:22` rendering. Remote is never implicit: only an explicit flag or env value selects it.
 - Offload-capable lanes: heavy closures — mutation `full`, the full `static` lane, and `.NET` build graphs — run on the remote host. The calling agent always receives the same one-`Envelope` result locally: the engine streams stdout/stderr into the agent-local store, resolves the remote exit status (signalled kills synthesize exit 255 with an `ssh.signal=<name>` note), and returns a normal `Completed` receipt with full status, diagnostics, and artifact rows. The remote-execution facts (target URL, host, exit status, signal, pushed/pulled file counts) ride a dedicated `exec` `ExecReceipt` carrier threaded `Completed` → `Report` → `Envelope.exec`. Remote runs carry no process-stall telemetry — `psutil` cannot inspect remote pids across the SSH boundary.
 - Host-bound reject: `bridge` and `package` claims are host-bound by definition (live Rhino/Yak resources, leases) and are rejected under `exec_target` with status `unsupported` and `host-bound tools require local execution`. Copy-staged tools reject the same way. The reject is a typed receipt, not a fault.
 - Home resolution: the remote `~` in `ASSAY_EXEC_WORKROOT` (default `~/.assay-work`) is resolved to an absolute path once per connection via `sftp.realpath('.')`. The same absolute workroot anchors the SFTP push/makedirs, the derived offload backend root, the exec `cd`, and the injected `PATH` — no literal `~` reaches SFTP, so the pushed tree and the login-shell `cd` land in the same dir. An already-absolute workroot resolves to itself.
-- Working-tree push: before the remote exec, the engine pushes the git-tracked working tree to `<workroot>/<run_id>` (the remote `cwd`) over the same pooled SFTP connection. `git ls-files` is the set-algebraic manifest — gitignored roots (`.git`, `.cache`, `.artifacts`, `bin`, `obj`, `node_modules`, `.venv`) never cross. Per-file upload failures fold into receipt notes; the push and the pull each run under their own shielded budget — guaranteeing both transfer legs complete atomically — while the bracketed remote exec between them stays cancellable by the check deadline, so a large transfer degrades to a note rather than reclassifying a completed run as timeout, yet a wedged remote tool is still reclaimed on deadline. The push budget scales with manifest size (`max(transfer_budget_s, file_count × transfer_per_file_s)`, both operator-tunable) so a large tree does not degrade mid-push on a real link; manifest lane-scoping (pushing only the build closure rather than the whole working tree) is the standing follow-up.
+- Working-tree push: before the remote exec, the engine pushes the build closure to `<workroot>/<run_id>` (the remote `cwd`) over the same pooled SFTP connection. `git ls-files` is the set-algebraic source universe — gitignored roots (`.git`, `.cache`, `.artifacts`, `bin`, `obj`, `node_modules`, `.venv`) never cross — and the manifest is then lane-scoped to the build closure rather than the whole tree: a C# lane derives the transitive `<ProjectReference>` closure (seeded from the build's project tokens, walked forward through the reference graph so cross-directory refs survive — naive subtree-scope is rejected) plus the root build-config anchors (`Directory.Build.*`, `Directory.Packages.props`, `global.json`, `.config/dotnet-tools.json`, `Workspace.slnx`, `.editorconfig`, `nuget.config`); a Python lane is package source + tests + dependency/config anchors; any lane with no project graph keeps the full universe. Per-file upload failures fold into receipt notes; the push and the pull each run under their own shielded budget — guaranteeing both transfer legs complete atomically — while the bracketed remote exec between them stays cancellable by the check deadline, so a large transfer degrades to a note rather than reclassifying a completed run as timeout, yet a wedged remote tool is still reclaimed on deadline. The push budget scales with manifest size (`max(transfer_budget_s, file_count × transfer_per_file_s)`, both operator-tunable); per-directory put concurrency and per-put request pipelining are operator-tunable (`sftp_push_concurrency`/`sftp_max_requests`) for throttled or low-`MaxSessions` servers. Scope paths the local store seeded into the build argv (`CspSarifDir`, `--artifacts-path`) are rebased from their host-absolute form to `<workroot>/<run_id>/…` before remote argv composition, so a remote Linux build never sees a macOS-absolute path (CS0016).
+- Remote retention: the remote workroot accumulates one source closure per offloaded run; the local backend prunes itself but the remote orphans. A once-per-fan sweep, hoisted to the pooled-ssh teardown, lists `<workroot>` a single time and `rmtree`s all but `artifact_retention` newest of this host's own run dirs — never another host's, because the run-id host token partitions a shared workroot into disjoint per-host namespaces.
 - Toolchain pre-flight: the engine probes the remote `PATH` for the runner's leading tool (e.g. `uv`, `dotnet`) before committing to the exec; the probe runs under the same injected toolchain `PATH` the exec exports, so a tool reachable only on the injected `PATH` (uv at `~/.local/bin`, dotnet at `/usr/local/dotnet`) is never falsely `UNSUPPORTED`. An absent tool returns a typed `UNSUPPORTED` receipt naming the missing tool, never an opaque non-zero `cd && exec`. The injected `PATH` is a fixed Linux toolchain prefix — the agent's local `PATH` never crosses to the remote host.
 - Artifact pull-back: `sftp` is the default — and currently only — admitted remote backend, derived from the SSH host as the per-run store pinned under `<workroot>/<run_id>/.artifacts/assay` (host/backend inconsistency is unrepresentable, never separately configured). The remote tool writes its scope artifacts (SARIF, coverage, results) there; after the process exits, a shielded SFTP download under the transfer budget lands them in the agent-local file store, degrading to a `remote.artifacts.degraded` note rather than reclassifying a completed run as timeout.
 - Uniform path semantics: scope paths are root-down across local and SSH — the store root is stripped so the parts agree on every backend. `Artifact.path` never carries an absolute host path; landed remote artifacts are recorded at agent-local, scope-relative paths.
@@ -310,5 +318,6 @@ Artifacts, logs, tracing, and remote execution are operator surfaces. They do no
 - Local/shared requirement: routing, locks, package staging, bridge discovery, API discovery, and history still need local or shared paths; remote execution moves command execution only.
 
 [FSSPEC_STORE]:
-- Shape: `ArtifactStore` is fsspec-shaped.
+- Shape: `ArtifactStore` is fsspec-shaped; `UPath` (`universal-pathlib`) routes the artifact root, and the `storage_options`/`protocol=` resolution the store relies on is load-bearing for the memory/object-store backends.
 - Default: normal CLI use is local file storage.
+- Intentional asymmetry: the artifact store is the only fsspec/`UPath`-routed surface — source enumeration (`git ls-files`) and check staging stay git/local-fs by design, because routing, leases, and the push manifest need real local paths. This split is deliberate, not a gap; no abstraction layer unifies them.

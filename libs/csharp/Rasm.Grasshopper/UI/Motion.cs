@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -97,15 +98,14 @@ public sealed partial class EmitterProfile {
     public float LifetimeRangeRatio { get; }
     public float VelocityRangeRatio { get; }
     public float ScaleRangeRatio { get; }
-    // SpinRange owns absolute spin spread (rad/s variance); AccelerationX/Y/Z are per-cell gravity (px/s², +Y down in CA layer space).
-    // Render is compositing mode; Additive blooms overlapping sparks toward white.
+    // SpinRange is absolute spin spread (rad/s variance); AccelerationX/Y/Z are per-cell gravity (px/s², +Y down in CA layer space).
     public float SpinRange { get; }
     public float AccelerationX { get; }
     public float AccelerationY { get; }
     public float AccelerationZ { get; }
+    // Render is the compositing mode; Additive blooms overlapping sparks toward white.
     public EmitterRenderMode Render { get; }
 
-    // SpinRange is absolute rad/s variance; per-profile values approximate the prior |Spin|*ratio defaults (Spark 4.8, Smoke 0.4, Confetti 2.4) and should be recalibrated against captured emitter spin spread.
     public static readonly EmitterProfile Spark = new(key: 0, scale: 0.2f, scaleSpeed: -0.12f, alphaSpeed: -0.7f, colorRange: 0.1f, lifetimeRangeRatio: 0.3f, velocityRangeRatio: 0.5f, scaleRangeRatio: 0.5f, spinRange: 4.8f, accelerationX: 0f, accelerationY: 60f, accelerationZ: 0f, render: EmitterRenderMode.Additive);
     public static readonly EmitterProfile Smoke = new(key: 1, scale: 0.5f, scaleSpeed: 0.4f, alphaSpeed: -0.5f, colorRange: 0.05f, lifetimeRangeRatio: 0.5f, velocityRangeRatio: 0.3f, scaleRangeRatio: 0.4f, spinRange: 0.4f, accelerationX: 0f, accelerationY: -20f, accelerationZ: 0f, render: EmitterRenderMode.Unordered);
     public static readonly EmitterProfile Confetti = new(key: 2, scale: 0.3f, scaleSpeed: -0.05f, alphaSpeed: -0.4f, colorRange: 0.4f, lifetimeRangeRatio: 0.4f, velocityRangeRatio: 0.7f, scaleRangeRatio: 0.6f, spinRange: 2.4f, accelerationX: 0f, accelerationY: 120f, accelerationZ: 0f, render: EmitterRenderMode.BackToFront);
@@ -153,7 +153,7 @@ public sealed partial class VibrancyMaterial {
     public static readonly VibrancyMaterial Titlebar = new(key: 7, native: NSVisualEffectMaterial.Titlebar, blending: NSVisualEffectBlendingMode.WithinWindow);
     public static readonly VibrancyMaterial Selection = new(key: 8, native: NSVisualEffectMaterial.Selection, blending: NSVisualEffectBlendingMode.WithinWindow);
     public static readonly VibrancyMaterial HeaderView = new(key: 9, native: NSVisualEffectMaterial.HeaderView, blending: NSVisualEffectBlendingMode.WithinWindow);
-    // [?] ToolTip vibrancy legibility is unverified; flagged for the optional bridge pass.
+    // [?] ToolTip vibrancy legibility is unverified.
     public static readonly VibrancyMaterial Tooltip = new(key: 10, native: NSVisualEffectMaterial.ToolTip, blending: NSVisualEffectBlendingMode.BehindWindow);
     public static readonly VibrancyMaterial FullScreenUI = new(key: 11, native: NSVisualEffectMaterial.FullScreenUI, blending: NSVisualEffectBlendingMode.BehindWindow);
     public static readonly VibrancyMaterial UnderWindowBackground = new(key: 12, native: NSVisualEffectMaterial.UnderWindowBackground, blending: NSVisualEffectBlendingMode.BehindWindow);
@@ -227,8 +227,8 @@ public partial record CosmeticIntent {
         RepeatPolicy Repeat = default,
         GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     public sealed record TextLayerCase(string Text, PointF Origin, Color Tint, float FontSize, GhDuration Duration, RepeatPolicy Repeat = default, Option<string> FontFamily = default, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
-    // Count/Spacing replicate along X; CountY/SpacingY (default 1/0 => 1D row, prior behaviour) replicate the X-row
-    // along Y by nesting an outer CAReplicatorLayer over the inner, yielding a Count x CountY grid (M-MOT-14b).
+    // Count/Spacing replicate along X; CountY/SpacingY (default 1/0 => 1D row) replicate the X-row along Y by
+    // nesting an outer CAReplicatorLayer over the inner, yielding a Count x CountY grid.
     public sealed record ReplicatorCase(RectangleF SourceBounds, int Count, float Spacing, Color Tint, GhDuration Duration, float InstanceDelay = 0f, float InstanceAlphaOffset = 0f, Option<Color> InstanceColour = default, float Rotation = 0f, float SpacingY = 0f, int CountY = 1, RepeatPolicy Repeat = default, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     public sealed record EmitterCase(
         RectangleF Bounds,
@@ -326,9 +326,12 @@ public interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf> {
     public bool IsActive { get; }
 }
 
-// Robert Penner closed-form curves (easings.net).
+// Robert Penner closed-form curves. Native rows wrap the GH MotionEquations blend, sampled rows carry the closed-form
+// delegate, and Custom admits a caller curve — all three feed the one [UseDelegateFromConstructor] Apply(double).
+// Custom uses the CustomKey sentinel: dispatch is by Apply alone (no key lookup), so a runtime curve never collides.
 [SmartEnum<int>]
 public sealed partial class Easing {
+    private const int CustomKey = -1;
     private const double BackC1 = 1.70158;
     private const double BackC3 = BackC1 + 1.0;
     private const double BackC2 = BackC1 * 1.525;
@@ -353,6 +356,10 @@ public sealed partial class Easing {
     [UseDelegateFromConstructor]
     public partial double Apply(double t);
 
+    // Caller-supplied curve; dispatched only through Apply, so the CustomKey sentinel never reaches a key lookup.
+    public static Easing Custom(Func<double, double> apply) =>
+        new(key: CustomKey, apply: apply ?? throw new ArgumentNullException(nameof(apply)));
+
     private static Easing Native(int key, GhMotion motion) =>
         new(key: key, apply: t => MotionEquations.Blend(motion: motion, parameter: t));
 
@@ -363,6 +370,50 @@ public sealed partial class Easing {
             < 2.5 / BounceD1 => (BounceN1 * (t - (2.25 / BounceD1)) * (t - (2.25 / BounceD1))) + 0.9375,
             _ => (BounceN1 * (t - (2.625 / BounceD1)) * (t - (2.625 / BounceD1))) + 0.984375,
         };
+}
+
+// Colour-channel interpolation regime selecting the perceptual space a colour spring/pulse tweens through. Each row
+// owns its blend delegate (sRGB = naive channel lerp, the rest avoid the dead-grey midpoint); MotionVector.ForColorSpace
+// projects the row to an IMotionVector<Color>. The blend bodies live in MotionVector (the owner of the OKLab matrices).
+[SmartEnum<int>]
+public sealed partial class ColorInterpolationSpace {
+    public static readonly ColorInterpolationSpace SRgb = new(key: 0, blend: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+    public static readonly ColorInterpolationSpace Hsl = new(key: 1, blend: MotionVector.HslBlend);
+    public static readonly ColorInterpolationSpace OkLab = new(key: 2, blend: MotionVector.OklabBlend);
+    public static readonly ColorInterpolationSpace OkLch = new(key: 3, blend: MotionVector.OklchBlend);
+
+    [UseDelegateFromConstructor]
+    internal partial Color Blend(Color value0, Color value1, double factor);
+}
+
+// Frame-rate policy anchors: the lowest preferred Hz a spring requests, the CPU-fallback refresh when no
+// vsync timestamp is available, and the assumed panel ceiling when a screen cannot report its MinimumRefreshInterval.
+[SmartEnum<int>]
+public sealed partial class FrameRatePolicy {
+    public float Hz { get; }
+
+    public static readonly FrameRatePolicy Floor = new(key: 0, hz: 30f);
+    public static readonly FrameRatePolicy Default = new(key: 1, hz: 60f);
+    public static readonly FrameRatePolicy Fallback = new(key: 2, hz: 120f);
+}
+
+// Explicit CADisplayLink lifecycle vocabulary owned by Pacer: the shared runner refcount projects to Active
+// (>0 runners want frames) or Inactive (rested), and teardown selects Disposed. Paused is the row-owned
+// CADisplayLink.Paused projection; Disposed pins Paused so a post-teardown transition cannot re-arm the handle.
+[SmartEnum<int>]
+public sealed partial class LinkState {
+    public bool Paused { get; }
+
+    public static readonly LinkState Active = new(key: 0, paused: false);
+    public static readonly LinkState Inactive = new(key: 1, paused: true);
+    public static readonly LinkState Disposed = new(key: 2, paused: true);
+
+    // BOUNDARY ADAPTER — the only CADisplayLink touch; the platform gate rides this member, not the vocabulary.
+    [SupportedOSPlatform("macos14.0")]
+    internal Unit ApplyTo(CADisplayLink link) {
+        link.Paused = Paused;
+        return unit;
+    }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -654,12 +705,15 @@ public sealed class PulseHandle<T> : MotionHandle<PulseRunnerState<T>, T> {
     }
 }
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
 public static class MotionVector {
     private const float ScalarRest = 0.001f;
     private const float PixelRest = 0.5f;
     private const float ChannelRest = 1f / 255f;
 
-    public static readonly IMotionVector<float> Float = new MotionVectorImpl<float>(
+    // Typed-vector table keyed by element type: For<T>() reads the closed instance, ForColorSpace selects the colour blend.
+    // Float and PointF also surface as named accessors for callers binding by canonical name (Float.RestEpsilon, Motion.Spring<PointF>).
+    private static readonly IMotionVector<float> FloatVector = new MotionVectorImpl<float>(
         zero: 0f,
         restEpsilon: ScalarRest,
         add: static (a, b) => a + b,
@@ -668,7 +722,7 @@ public static class MotionVector {
         norm: static v => Math.Abs(v),
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t),
         isFinite: static v => float.IsFinite(v));
-    public static readonly IMotionVector<double> Double = new MotionVectorImpl<double>(
+    private static readonly IMotionVector<double> DoubleVector = new MotionVectorImpl<double>(
         zero: 0.0,
         restEpsilon: ScalarRest,
         add: static (a, b) => a + b,
@@ -677,7 +731,7 @@ public static class MotionVector {
         norm: static v => (float)Math.Abs(v),
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t),
         isFinite: static v => double.IsFinite(v));
-    public static readonly IMotionVector<PointF> PointF = new MotionVectorImpl<PointF>(
+    private static readonly IMotionVector<PointF> PointVector = new MotionVectorImpl<PointF>(
         zero: Eto.Drawing.PointF.Empty,
         restEpsilon: PixelRest,
         add: static (a, b) => a + b,
@@ -686,8 +740,8 @@ public static class MotionVector {
         norm: static v => v.Length,
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t),
         isFinite: static v => float.IsFinite(v.X) && float.IsFinite(v.Y));
-    public static readonly IMotionVector<SizeF> SizeF = new MotionVectorImpl<SizeF>(
-        zero: Eto.Drawing.SizeF.Empty,
+    private static readonly IMotionVector<SizeF> SizeVector = new MotionVectorImpl<SizeF>(
+        zero: SizeF.Empty,
         restEpsilon: PixelRest,
         add: static (a, b) => a + b,
         subtract: static (a, b) => a - b,
@@ -695,8 +749,8 @@ public static class MotionVector {
         norm: static v => MathF.Sqrt((v.Width * v.Width) + (v.Height * v.Height)),
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t),
         isFinite: static v => float.IsFinite(v.Width) && float.IsFinite(v.Height));
-    public static readonly IMotionVector<RectangleF> RectangleF = new MotionVectorImpl<RectangleF>(
-        zero: Eto.Drawing.RectangleF.Empty,
+    private static readonly IMotionVector<RectangleF> RectVector = new MotionVectorImpl<RectangleF>(
+        zero: RectangleF.Empty,
         restEpsilon: PixelRest,
         add: static (a, b) => new RectangleF(a.X + b.X, a.Y + b.Y, a.Width + b.Width, a.Height + b.Height),
         subtract: static (a, b) => new RectangleF(a.X - b.X, a.Y - b.Y, a.Width - b.Width, a.Height - b.Height),
@@ -704,22 +758,37 @@ public static class MotionVector {
         norm: static v => Math.Max(Math.Max(Math.Abs(v.X), Math.Abs(v.Y)), Math.Max(Math.Abs(v.Width), Math.Abs(v.Height))),
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t),
         isFinite: static v => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Width) && float.IsFinite(v.Height));
-    public static readonly IMotionVector<Color> Color = ColorChannels(static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+
+    // typeof(T) dispatch over the closed payload set; the Color slot defaults to sRGB and ForColorSpace selects a
+    // perceptual blend. A T with no entry is a programming error (the closed set is exhaustive over animatable payloads).
+    private static readonly FrozenDictionary<Type, object> Vectors = new KeyValuePair<Type, object>[] {
+        new(typeof(float), FloatVector),
+        new(typeof(double), DoubleVector),
+        new(typeof(PointF), PointVector),
+        new(typeof(SizeF), SizeVector),
+        new(typeof(RectangleF), RectVector),
+        new(typeof(Color), ForColorSpace(ColorInterpolationSpace.SRgb)),
+    }.ToFrozenDictionary();
+
+    public static readonly IMotionVector<float> Float = FloatVector;
+    public static readonly IMotionVector<PointF> PointF = PointVector;
+
+    public static IMotionVector<T> For<T>() =>
+        Vectors.TryGetValue(typeof(T), out object? vector)
+            ? (IMotionVector<T>)vector
+            : throw new NotSupportedException($"no motion vector for {typeof(T).FullName}");
+
+    public static IMotionVector<Color> ForColorSpace(ColorInterpolationSpace space) {
+        ArgumentNullException.ThrowIfNull(space);
+        return ColorChannels(space.Blend);
+    }
+
     public static double Phase(TimeSpan period, TimeProvider? clock = null) {
         TimeProvider source = clock ?? TimeProvider.System;
         double seconds = (double)source.GetTimestamp() / source.TimestampFrequency;
         double cycle = period.TotalSeconds;
         return cycle <= 0d ? 0d : seconds % cycle / cycle;
     }
-
-    // Shortest-arc HSL interpolation.
-    public static readonly IMotionVector<Color> ColorHSL = ColorChannels(HslInterpolate);
-
-    // OKLab perceptual interpolation (Ottosson 2020 / CSS Color Level 4). Avoids sRGB dead-grey midpoint.
-    public static readonly IMotionVector<Color> ColorOklab = ColorChannels(OklabInterpolate);
-
-    // OKLCH: cylindrical OKLab. Hue takes shortest arc; L/C interpolate in OKLab.
-    public static readonly IMotionVector<Color> ColorOklch = ColorChannels(OklchInterpolate);
 
     private static MotionVectorImpl<Color> ColorChannels(Func<Color, Color, double, Color> interpolate) =>
         new(
@@ -732,7 +801,8 @@ public static class MotionVector {
             interpolate: interpolate,
             isFinite: static v => float.IsFinite(v.R) && float.IsFinite(v.G) && float.IsFinite(v.B) && float.IsFinite(v.A));
 
-    private static Color HslInterpolate(Color a, Color b, double factor) {
+    // Shortest-arc HSL interpolation.
+    internal static Color HslBlend(Color a, Color b, double factor) {
         ColorHSL ha = a;
         ColorHSL hb = b;
         float tf = (float)factor;
@@ -752,8 +822,9 @@ public static class MotionVector {
     }
 
     // --- [OKLAB_CONVERSION] ----------------------------------------------------------------
-    // Ottosson 2020 with CSS premultiplied alpha: transparent endpoints contribute no colour.
-    private static Color OklabInterpolate(Color a, Color b, double factor) {
+    // OKLab perceptual interpolation (Ottosson 2020 / CSS Color Level 4). Avoids the sRGB dead-grey midpoint;
+    // CSS premultiplied alpha makes transparent endpoints contribute no colour.
+    internal static Color OklabBlend(Color a, Color b, double factor) {
         (float la, float aa, float ba) = SrgbToOklab(a);
         (float lb, float ab, float bb) = SrgbToOklab(b);
         float tf = (float)factor;
@@ -769,7 +840,8 @@ public static class MotionVector {
         return OklabToSrgb(mix, alpha: aMix);
     }
 
-    private static Color OklchInterpolate(Color a, Color b, double factor) {
+    // OKLCH: cylindrical OKLab. Hue takes the shortest arc; L/C interpolate in OKLab.
+    internal static Color OklchBlend(Color a, Color b, double factor) {
         (float la, float aa, float ba) = SrgbToOklab(a);
         (float lb, float ab, float bb) = SrgbToOklab(b);
         float ca = MathF.Sqrt((aa * aa) + (ba * ba));
@@ -882,7 +954,7 @@ public static class Glyph {
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-internal static class MotionAccessibility {
+internal static class AccessibilityMotionGate {
     internal static bool ShouldReduceMotion =>
         NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
 
@@ -896,17 +968,12 @@ internal static class MotionAccessibility {
         ShouldReduceMotion || ShouldDifferentiateWithoutColor || ShouldReduceTransparency;
 }
 
+// --- [COMPOSITION] ------------------------------------------------------------------------
 public static class Motion {
     // Default retina backing scale when a screen cannot be resolved.
     private const float RetinaScaleDefault = 2f;
     // GPU keyframe sampling density for the sampled-curve CAKeyFrameAnimation path.
     private const int KeyframeSamples = 60;
-    // CPU fallback refresh when no Pacer vsync timestamp is available (Eto coalesces near this rate).
-    private const float DefaultRefreshHz = 60f;
-    // Physics-derived frame-rate ceiling/floor (M-MOT-9). FallbackRefreshHz is the assumed panel ceiling when a
-    // screen cannot report its MinimumRefreshInterval; FloorRefreshHz is the lowest preferred Hz a spring requests.
-    private const float FallbackRefreshHz = 120f;
-    private const float FloorRefreshHz = 30f;
     private static readonly (CAGradientLayerType Type, CGPoint Start, CGPoint End)[] CosmeticGradientProfile = [
         (CAGradientLayerType.Axial, CGPoint.Empty, new CGPoint(x: 1, y: 0)),
         (CAGradientLayerType.Radial, new CGPoint(x: 0.5, y: 0.5), new CGPoint(x: 1, y: 1)),
@@ -914,9 +981,9 @@ public static class Motion {
     ];
 
     // Clock selection is internal: reduce-motion uses the message loop; DisplayLink failures demote to message loop.
-    // DisplayLink rate stays None so PacerOption resolves the panel ceiling.
+    // DisplayLink rate stays None so PacerOption resolves the panel ceiling; canvas reserves the panel-aware-selection seam.
     internal static MotionClock ResolveClock(Grasshopper2.UI.Canvas.Canvas canvas) =>
-        MotionAccessibility.ShouldReduceMotion ? MotionClock.MessageLoop : MotionClock.DisplayLink();
+        AccessibilityMotionGate.ShouldReduceMotion ? MotionClock.MessageLoop : MotionClock.DisplayLink();
 
     // Shared NeedCanvas + PacerOption + Paint.Hook scaffold; variants provide their own runner state.
     internal static GrasshopperUiIntent<Subscription> Pipeline(
@@ -944,7 +1011,7 @@ public static class Motion {
         GhUi.Canvas(run: scope =>
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Tween)), detail: "sink delegate is required"))
             from canvas0 in scope.NeedCanvas()
-            from result in MotionAccessibility.ShouldReduceMotion
+            from result in AccessibilityMotionGate.ShouldReduceMotion
                 ? from _ in Op.Of(name: nameof(Tween)).Attempt(body: () => { validSink(animated.Value1); return unit; }, what: "tween reduce-motion settle")
                   select Subscription.Empty
                 : Pipeline(opName: nameof(Tween), phase: CanvasPaintPhase.BeforeBackground, clock: ResolveClock(canvas: canvas0),
@@ -1002,7 +1069,7 @@ public static class Motion {
         Func<Atom<TState>, Subscription, Action, bool, THandle> handle)
         where TState : struct, IMotionState<TState> =>
         GhUi.Canvas(run: scope =>
-            MotionAccessibility.ShouldReduceMotion
+            AccessibilityMotionGate.ShouldReduceMotion
                 ? from _ in Op.Of(name: opName).Attempt(body: () => { restEmit(); return unit; }, what: $"{opName} reduce-motion settle")
                   select handle(arg1: Atom(restState), arg2: Subscription.Empty, arg3: canvas.ScheduleRedraw, arg4: true)
                 : from pacer in PacerOption(canvas: canvas, clock: clock)
@@ -1013,7 +1080,9 @@ public static class Motion {
 
     internal static (Subscription Subscription, Action Wake) MotionBundleOf(
         Option<Pacer> pacer, Subscription sub, Grasshopper2.UI.Canvas.Canvas canvas) {
-        Action wake = canvas.ScheduleRedraw;
+        // ResumeOr arms the adopted DisplayLink on the kickoff 0->1 edge (one Resume, balancing the detach ReleaseOnce);
+        // with no pacer it falls back to ScheduleRedraw. The per-frame PauseWhen-on-finish then rests the link.
+        void wake() => _ = pacer.ResumeOr(canvas);
         return (Subscription: Subscription.DisposeOnce(sub), Wake: wake);
     }
 
@@ -1021,7 +1090,7 @@ public static class Motion {
     internal static Fin<Option<Pacer>> PacerOption(Grasshopper2.UI.Canvas.Canvas canvas, MotionClock clock) =>
         clock.Switch(state: canvas,
             messageLoopCase: static (_, _) => Fin.Succ(Option<Pacer>.None),
-            displayLinkCase: static (c, d) => MotionAccessibility.ShouldReduceMotion
+            displayLinkCase: static (c, d) => AccessibilityMotionGate.ShouldReduceMotion
                 ? Fin.Succ(Option<Pacer>.None)
                 : Fin.Succ(Pacer.For(canvas: c, rate: d.Rate.ToNullable()).Map(static pacer => Some(pacer)).IfFail(Option<Pacer>.None)));
 
@@ -1112,9 +1181,9 @@ public static class Motion {
                         interpolator: static (value0, value1, factor) => 1.0);
                     return paintScope => Try.lift(f: () => {
                         using Pen pen = style.Pen();
-                        Animated<double> animated = MotionAccessibility.ShouldReduceMotion ? settled : progress;
+                        Animated<double> animated = AccessibilityMotionGate.ShouldReduceMotion ? settled : progress;
                         validPath.Draw(paintScope.Graphics.Content, pen, canvas.Animate(animated: animated), validOrigin, validScale, validAngle);
-                        return MotionAccessibility.ShouldReduceMotion ? unit : pacer.PauseWhen(finished: progress.State == GhState.Finished);
+                        return AccessibilityMotionGate.ShouldReduceMotion ? unit : pacer.PauseWhen(finished: progress.State == GhState.Finished);
                     }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Stroke)), detail: $"draw threw: {error.Message}"));
                 }).Run(scope: scope)
             select result);
@@ -1138,13 +1207,13 @@ public static class Motion {
             from _ in guard(validMax >= validMin, (Error)UiFault.InvalidInput(op: Op.Of(name: nameof(Navigate)), detail: "max zoom below min zoom")).ToFin()
                 // Reduce-motion collapses the tween to an Abrupt (0ms) host frame; the Point case additionally snaps
                 // the document projection so the persisted centre/zoom matches the host's framing immediately.
-            let effectiveDuration = MotionAccessibility.ShouldReduceMotion ? GhDuration.Abrupt : duration
+            let effectiveDuration = AccessibilityMotionGate.ShouldReduceMotion ? GhDuration.Abrupt : duration
             let navigation = (Canvas: canvas, Document: document, Min: validMin, Max: validMax, Effective: effectiveDuration)
             from result in target.Switch(
                 state: navigation,
                 pointCase: static (s, p) =>
                     from validCentre in Op.Of(name: nameof(Navigate)).AcceptPoint(value: p.Centre, detail: "non-finite centre")
-                    from __ in MotionAccessibility.ShouldReduceMotion switch {
+                    from __ in AccessibilityMotionGate.ShouldReduceMotion switch {
                         true => Op.Of(name: nameof(Navigate)).Attempt(body: () => {
                             float zoom = Math.Clamp(value: s.Document.Projection.zoom, min: s.Min, max: s.Max);
                             s.Canvas.Projection = s.Canvas.Projection.SetZoom(zoom: zoom).SetCentre(centre: validCentre, frame: s.Canvas.VisibleFrame);
@@ -1419,7 +1488,7 @@ public static class Motion {
             End: points.End.Map(static value => ToCGPoint(value)).IfNone(profileEnd));
     }
 
-    // CoreText metrics are AppKit-main-thread-bound; unresolved fonts fall back to the prior estimate.
+    // CoreText metrics are AppKit-main-thread-bound; unresolved fonts fall back to the size-based estimate.
     [SupportedOSPlatform("macos14.0")]
     private static (float Width, float Height) MeasureText(string text, float fontSize, Option<string> family) {
         Option<NSFont> font = Optional(family is { IsSome: true, Case: string name } ? NSFont.FromFontName(name, fontSize) : null)
@@ -1446,8 +1515,8 @@ public static class Motion {
             .Map(point => canvas.Map(point: point, from: CoordinateSystem.Content, to: CoordinateSystem.Control))
             .ToArray();
 
-    // Haptic is non-visual; every decorative case resolves the host CALayer or returns a typed fault. IsHaptic collapses
-    // the twelve identical visual arms into one boolean dispatch (Motion-Q5).
+    // Haptic is non-visual; every decorative case resolves the host CALayer or returns a typed fault. IsHaptic
+    // collapses the identical visual arms into one boolean dispatch.
     [SupportedOSPlatform("macos14.0")]
     private static Fin<Unit> CosmeticAttach(NSView view, CosmeticIntent intent, NSString key) {
         Op op = Op.Of(name: nameof(CosmeticAttach));
@@ -1456,7 +1525,7 @@ public static class Motion {
         Fin<Unit> visualPath() {
             _ = Op.Side(() => view.WantsLayer = true);
             return Optional(view.Layer).ToFin(Fail: UiFault.MutationRejected(op: op, detail: "host layer absent"))
-                .Bind(host => MotionAccessibility.ShouldSkipDecorativeMotion
+                .Bind(host => AccessibilityMotionGate.ShouldSkipDecorativeMotion
                     ? runCompletion()
                     : AttachDecorative(host: host, view: view, intent: intent, key: key));
         }
@@ -1474,10 +1543,9 @@ public static class Motion {
         CALayer layer = attachment.Layer;
         NFloat scale = Optional(view.Window?.Screen).Map(static screen => screen.BackingScaleFactor).IfNone((NFloat)RetinaScaleDefault);
         layer.ContentsScale = scale;
-        // BOUNDARY ADAPTER — EDR flag moved from WantsExtendedDynamicRangeContent to PreferredDynamicRange on macOS 26.
-        // ToneMapMode.Automatic is macOS 15+; Disabled keeps the SDR path unchanged.
-        // CA1416 false positive: every EDR write IS runtime-gated by OperatingSystem.IsMacOSVersionAtLeast, but
-        // the analyzer cannot trace the version guard through the Op.Side action-lambda boundary.
+        // BOUNDARY ADAPTER — PreferredDynamicRange is the macOS 26 EDR flag, WantsExtendedDynamicRangeContent earlier;
+        // ToneMapMode.Automatic is macOS 15+. CA1416 EXEMPTION: each write is runtime-gated, but the analyzer cannot
+        // trace the version guard through the Op.Side action-lambda boundary.
 #pragma warning disable CA1416
         _ = OperatingSystem.IsMacOSVersionAtLeast(26)
             ? Op.Side(() => layer.PreferredDynamicRange = edr.Enabled ? CADynamicRange.High : CADynamicRange.Standard)
@@ -1594,8 +1662,8 @@ public static class Motion {
             ShadowOpacity = 0f,
         };
         _ = glow.BorderColor.IfSome(colour => shape.BorderColor = ToCGColor(c: colour, space: space));
-        // BlurRadius routes to BackgroundFilters (frosted backdrop, M-MOT-5) when BackdropBlur is set — which also
-        // arms LayerUsesCoreImageFilters on the host view once — else to the prior self-content Filters slot.
+        // BlurRadius routes to BackgroundFilters (frosted backdrop) and arms LayerUsesCoreImageFilters when
+        // BackdropBlur is set; otherwise it targets the self-content Filters slot.
         _ = Optional(glow.BlurRadius).Filter(static radius => radius > 0f).IfSome(radius =>
             glow.BackdropBlur
                 ? Op.Side(() => {
@@ -1964,12 +2032,14 @@ public static class Motion {
 
     // CAFrameRateRange tracks the panel ceiling; preferred Hz is ~4x spring natural frequency, clamped to floor/max.
     [SupportedOSPlatform("macos14.0")]
-    private static CAFrameRateRange ResolveRange(NSScreen screen, SpringConfig spring) {
+    private static CAFrameRateRange ResolveSpringRange(NSScreen screen, SpringConfig spring) {
         double minimumInterval = screen.MinimumRefreshInterval;
-        float maximum = minimumInterval > 0d ? (float)(1.0 / minimumInterval) : FallbackRefreshHz;
+        float maximum = minimumInterval > 0d ? (float)(1.0 / minimumInterval) : FrameRatePolicy.Fallback.Hz;
         float naturalHz = MathF.Sqrt(spring.Stiffness / spring.Mass) / MathF.Tau;
-        float preferred = Math.Clamp(value: naturalHz * 4f, min: FloorRefreshHz, max: maximum);
-        return CAFrameRateRange.Create(minimum: FloorRefreshHz, maximum: maximum, preferred: preferred);
+        // Floor clamps below maximum so a sub-30Hz panel ceiling cannot invert the range or throw (mirrors Pacer.ResolveRange).
+        float floor = MathF.Min(x: FrameRatePolicy.Floor.Hz, y: maximum);
+        float preferred = Math.Clamp(value: naturalHz * 4f, min: floor, max: maximum);
+        return CAFrameRateRange.Create(minimum: floor, maximum: maximum, preferred: preferred);
     }
 
     [SupportedOSPlatform("macos14.0")]
@@ -2006,13 +2076,13 @@ public static class Motion {
         anim.Duration = Animators.DurationToTimeSpan(duration: duration).TotalSeconds;
         anim.SetFrom(value: NSNumber.FromFloat(from));
         anim.SetTo(value: NSNumber.FromFloat(to));
-        anim.TimingFunction = CAMediaTimingFunction.FromName(name: TimingName(easing: easing));
+        anim.TimingFunction = CAMediaTimingFunction.FromName(name: MotionToTimingFunction(easing: easing));
         return anim;
     }
 
     // GH2's rich easing vocabulary collapses onto the five media-timing curves; the GPU layer cannot host
     // Penner closed-forms, so non-linear in/out variants fold to ease-in-ease-out (Keyframe escapes this).
-    private static NSString TimingName(GhMotion easing) =>
+    private static NSString MotionToTimingFunction(GhMotion easing) =>
         easing switch {
             GhMotion.Linear or GhMotion.LinearDelayed => CAMediaTimingFunction.Linear,
             GhMotion.EaseIn or GhMotion.EaseInDelayed or GhMotion.SnapIn or GhMotion.SnapInDelayed => CAMediaTimingFunction.EaseIn,
@@ -2020,8 +2090,8 @@ public static class Motion {
             _ => CAMediaTimingFunction.EaseInEaseOut,
         };
 
-    // RepeatCount is float on CAMediaTiming; infinite => PositiveInfinity. AutoReverses gives the
-    // fade-out half of each cycle (default yoyo=true preserves the prior 0->alpha->0 pulse shape).
+    // RepeatCount is float on CAMediaTiming; infinite => PositiveInfinity. AutoReverses gives the fade-out
+    // half of each cycle (yoyo=true yields the 0->alpha->0 pulse shape).
     [SupportedOSPlatform("macos14.0")]
     private static T ApplyRepeat<T>(T animation, RepeatPolicy repeat) where T : CAAnimation {
         animation.RepeatCount = repeat.Infinite ? float.PositiveInfinity : repeat.Count;
@@ -2060,7 +2130,7 @@ public static class Motion {
 
     [SupportedOSPlatform("macos14.0")]
     private static Option<CAFrameRateRange> AnimationRate(NSView view, CosmeticIntent intent) =>
-        intent.Spring.Bind(config => Optional(view.Window?.Screen).Map(screen => ResolveRange(screen: screen, spring: config)));
+        intent.Spring.Bind(config => Optional(view.Window?.Screen).Map(screen => ResolveSpringRange(screen: screen, spring: config)));
 
     [SupportedOSPlatform("macos14.0")]
     private static Option<CAFrameRateRange> MergeRates(Seq<CAFrameRateRange> ranges) =>
@@ -2096,7 +2166,7 @@ public static class Motion {
     private static CABasicAnimation PathAnimation(CosmeticIntent.PathMorphCase morph, Option<CAFrameRateRange> rate) {
         CABasicAnimation anim = CABasicAnimation.FromKeyPath(path: "path");
         anim.Duration = Animators.DurationToTimeSpan(duration: morph.Duration).TotalSeconds;
-        anim.TimingFunction = CAMediaTimingFunction.FromName(name: TimingName(easing: morph.Easing));
+        anim.TimingFunction = CAMediaTimingFunction.FromName(name: MotionToTimingFunction(easing: morph.Easing));
         anim.SetFrom(value: morph.From);
         anim.SetTo(value: morph.To);
         _ = rate.IfSome(range => anim.PreferredFrameRateRange = range);
@@ -2142,7 +2212,7 @@ public static class Motion {
     // BOUNDARY ADAPTER — reduce-motion suppresses Force Touch pulses; missing haptic hardware is a no-op.
     [SupportedOSPlatform("macos14.0")]
     private static Unit PerformHaptic(HapticPattern pattern) =>
-        MotionAccessibility.ShouldReduceMotion
+        AccessibilityMotionGate.ShouldReduceMotion
             ? unit
             : Optional(NSHapticFeedbackManager.DefaultPerformer).Map(performer =>
                 Op.Side(() => performer.PerformFeedback(
@@ -2238,7 +2308,7 @@ public static class Motion {
         }
 
         private float ResolveFrameDelta() {
-            const float fallback = 1f / DefaultRefreshHz;
+            float fallback = 1f / FrameRatePolicy.Default.Hz;
             if (pacer is not { IsSome: true, Case: Pacer paced }) {
                 return 0f;
             }
@@ -2250,6 +2320,7 @@ public static class Motion {
             }
             double delta = lastVsyncTimestamp > 0d ? timestamp - lastVsyncTimestamp : frame;
             lastVsyncTimestamp = timestamp;
+            // 3-frame clamp caps a resumed/back-grounded link's stale present gap so one giant dt cannot analytically overshoot; non-finite/non-positive delta falls back to one frame.
             double clamped = double.IsFinite(delta) && delta > 0d ? Math.Min(delta, frame * 3d) : frame;
             return (float)clamped;
         }
@@ -2333,8 +2404,8 @@ public static class Motion {
             }
             float maximum = view.Window?.Screen is NSScreen active && active.MinimumRefreshInterval > 0d
                 ? (float)(1.0 / active.MinimumRefreshInterval)
-                : FallbackRefreshHz;
-            float floor = MathF.Min(x: FloorRefreshHz, y: maximum);
+                : FrameRatePolicy.Fallback.Hz;
+            float floor = MathF.Min(x: FrameRatePolicy.Floor.Hz, y: maximum);
             return CAFrameRateRange.Create(minimum: floor, maximum: maximum, preferred: maximum);
         }
 
@@ -2396,23 +2467,27 @@ public static class Motion {
         internal double LastTargetTimestamp => Volatile.Read(ref lastTargetTimestamp);
         internal double LastDuration => Volatile.Read(ref lastDuration);
 
-        internal Unit Resume() {
-            if (Interlocked.Increment(ref active) == 1) {
-                link.Paused = false;
-            }
-            return unit;
-        }
+        // active is the shared runner refcount (a pooled Pacer drives N concurrent runners); LinkState is the binary
+        // pause projection. The link is written only on the crossing edge (0->1 arms, 1->0 rests), so nested
+        // Resume/Pause never touch the run-loop handle off-edge — material because RebindLink swaps link concurrently.
+        internal Unit Resume() =>
+            Interlocked.Increment(ref active) == 1 ? LinkState.Active.ApplyTo(link) : unit;
 
-        internal Unit Pause() {
-            int next = Interlocked.Decrement(ref active);
-            if (next < 0) {
-                _ = Interlocked.CompareExchange(ref active, 0, next);
-                next = 0;
+        // FlooredDecrement is a single CAS-clamped mutation: the count never drifts below zero, so a later
+        // Resume's 0->1 edge always re-arms.
+        internal Unit Pause() =>
+            FlooredDecrement() == 0 ? LinkState.Inactive.ApplyTo(link) : unit;
+
+        private int FlooredDecrement() {
+            int current = Volatile.Read(ref active);
+            while (true) {
+                int next = current > 0 ? current - 1 : 0;
+                int seen = Interlocked.CompareExchange(ref active, next, current);
+                if (seen == current) {
+                    return next;
+                }
+                current = seen;
             }
-            if (next <= 0) {
-                link.Paused = true;
-            }
-            return unit;
         }
 
         // PoolGate prevents adoption mid-teardown.
@@ -2427,8 +2502,9 @@ public static class Motion {
             return unit;
         }
 
+        // Disposed pins Paused before invalidation so the run-loop handle parks before the owns:false link is released.
         private void TearDownLink() {
-            link.Paused = true;
+            _ = LinkState.Disposed.ApplyTo(link);
             link.Invalidate();
         }
 

@@ -2,20 +2,16 @@
     <PropertyGroup Label="Yak Packaging">
         <YakManifestDirectory Condition="'$(YakManifestDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakPackagesRoot)', '$(YakPackageSlug)'))</YakManifestDirectory>
         <IsYakPackageProject Condition="'$(IsYakPackageProject)' == '' and '$(YakPackageSlug)' != '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true')">true</IsYakPackageProject>
-        <IsYakPackageProject Condition="'$(IsYakPackageProject)' == ''">false</IsYakPackageProject>
         <YakPackageDirectory Condition="'$(YakPackageDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakStageRoot)', '$(YakPackageSlug)', 'package'))</YakPackageDirectory>
         <YakPackagePattern Condition="'$(YakPackagePattern)' == '' and '$(YakPackageSlug)' != ''">*-$(Version)-rh9_*-$(YakPlatform).yak</YakPackagePattern>
     </PropertyGroup>
 
-    <!--
-        Grasshopper2.dll embeds resources (icons, color dictionaries, .3dm crystal models,
-        .ghicon bitmaps, .ghdic) and extracts them on demand to the current working directory
-        when an unusual host context cannot resolve a writable Grasshopper2.Folders.ResourcesFolder
-        path. Build hosts (`dotnet build` invoked from the repo root) hit this case sporadically.
-        The scrub target removes the spillover after every build; .gitignore root-anchors the
-        pattern so accidental commits cannot occur. The pattern is deliberately root-anchored:
-        the real `apps/grasshopper/` and `libs/csharp/Rasm.Grasshopper/` trees are unaffected.
-    -->
+    <!-- Make the SARIF-dir-exists invariant a property of the build graph for every caller (assay, IDE, direct dotnet build): Roslyn /errorlog ($(CspSarifDir)) fails CoreCompile when the parent directory is absent or pruned mid-build. -->
+    <Target Name="EnsureCspSarifDir" BeforeTargets="CoreCompile" Condition="'$(CspSarifDir)' != ''">
+        <MakeDir Directories="$(CspSarifDir)" />
+    </Target>
+
+    <!-- Grasshopper2.dll extracts embedded resources to the `dotnet build` cwd when it cannot resolve a writable ResourcesFolder; the scrub removes the root spillover after every build and .gitignore root-anchors the pattern so the real apps/grasshopper and Rasm.Grasshopper trees are unaffected. -->
     <Target Name="ScrubGrasshopperResourceSpillover" AfterTargets="Build" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <ItemGroup>
             <_GrasshopperSpillover Include="$(MSBuildThisFileDirectory)Grasshopper.*" />

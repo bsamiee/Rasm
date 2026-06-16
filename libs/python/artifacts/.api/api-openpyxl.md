@@ -18,45 +18,49 @@
 [PUBLIC_TYPE_SCOPE]: workbook and sheet roots
 - rail: office
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `Workbook` | workbook root | a workbook with sheets, named styles, and save |
-| [2] | `worksheet.worksheet.Worksheet` | sheet grid | cell/row access, dimensions, freeze panes, formatting |
-| [3] | `cell.cell.Cell` | cell | a single cell value/formula/style |
-| [4] | `chartsheet.Chartsheet` | chart sheet | a full-sheet chart |
-| [5] | `styles` | style module | `Font`/`Fill`/`Border`/`Alignment`/`NamedStyle` |
-| [6] | `chart` | chart module | `BarChart`/`LineChart`/`ScatterChart`/`PieChart` and `Reference` |
-| [7] | `formatting` | conditional module | conditional-formatting rules |
-| [8] | `utils` | coordinate utils | column-letter/coordinate conversion |
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                     |
+| :-----: | :------------------------------ | :----------------- | :--------------------------------------------------------------- |
+|   [1]   | `Workbook`                      | workbook root      | a workbook with sheets, named styles, and save                   |
+|   [2]   | `worksheet.worksheet.Worksheet` | sheet grid         | cell/row access, dimensions, freeze panes, formatting            |
+|   [3]   | `cell.cell.Cell`                | cell               | a single cell value/formula/style                                |
+|   [4]   | `chartsheet.Chartsheet`         | chart sheet        | a full-sheet chart                                               |
+|   [5]   | `styles`                        | style module       | `Font`/`Fill`/`Border`/`Alignment`/`NamedStyle`                  |
+|   [6]   | `chart`                         | chart module       | `BarChart`/`LineChart`/`ScatterChart`/`PieChart` and `Reference` |
+|   [7]   | `formatting`                    | conditional module | conditional-formatting rules                                     |
+|   [8]   | `utils`                         | coordinate utils   | column-letter/coordinate conversion                              |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: workbook open, build, and save
 - rail: office
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `Workbook` | `Workbook(write_only=False, iso_dates=False)` | build a workbook (write-only streaming mode optional) |
-| [2] | `load_workbook` | `load_workbook(filename, read_only=False, keep_vba=False, data_only=False, keep_links=True, rich_text=False) -> Workbook` | open an existing workbook |
-| [3] | `Workbook.active` | `active -> Worksheet` | the active sheet |
-| [4] | `Workbook.create_sheet` | `create_sheet(title=None, index=None) -> Worksheet` | add a sheet |
-| [5] | `Workbook.copy_worksheet` | `copy_worksheet(from_worksheet) -> Worksheet` | duplicate a sheet |
-| [6] | `Workbook.add_named_style` | `add_named_style(style: NamedStyle) -> None` | register a named style |
-| [7] | `Workbook.save` | `save(filename) -> None` | serialize the workbook |
+Workbook rows carry streaming, ISO-date, macro, formula-data, link, rich-text, sheet-order, style, and save-target policy.
+
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                 | [CAPABILITY]                                          |
+| :-----: | :------------------------- | :--------------------------- | :---------------------------------------------------- |
+|   [1]   | `Workbook`                 | workbook construction policy | build a workbook (write-only streaming mode optional) |
+|   [2]   | `load_workbook`            | filename plus load policy    | open an existing workbook                             |
+|   [3]   | `Workbook.active`          | active-sheet property        | the active sheet                                      |
+|   [4]   | `Workbook.create_sheet`    | title plus insertion index   | add a sheet                                           |
+|   [5]   | `Workbook.copy_worksheet`  | source worksheet             | duplicate a sheet                                     |
+|   [6]   | `Workbook.add_named_style` | named style value            | register a named style                                |
+|   [7]   | `Workbook.save`            | filename target              | serialize the workbook                                |
 
 [ENTRYPOINT_SCOPE]: sheet cell, row, and feature access
 - rail: office
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `Worksheet.cell` | `cell(row: int, column: int, value=None) -> Cell` | addressed cell access |
-| [2] | `Worksheet.append` | `append(iterable) -> None` | append a row |
-| [3] | `Worksheet.iter_rows` | `iter_rows(min_row=None, max_row=None, min_col=None, max_col=None, values_only=False) -> Iterator` | row iteration |
-| [4] | `Worksheet.merge_cells` | `merge_cells(range_string=None, start_row=None, start_column=None, end_row=None, end_column=None) -> None` | merge a region |
-| [5] | `Worksheet.add_chart` | `add_chart(chart, anchor=None) -> None` | embed a chart |
-| [6] | `Worksheet.add_image` | `add_image(img, anchor=None) -> None` | embed an image |
-| [7] | `Worksheet.freeze_panes` | `freeze_panes` | freeze-pane property |
-| [8] | `Worksheet.conditional_formatting.add` | `add(range_string, cfRule) -> None` | add a conditional rule |
+Worksheet rows carry address, range, values-only, merge, anchor, pane, and conditional-format policy.
+
+| [INDEX] | [SURFACE]                              | [CALL_SHAPE]            | [CAPABILITY]           |
+| :-----: | :------------------------------------- | :---------------------- | :--------------------- |
+|   [1]   | `Worksheet.cell`                       | row/column plus value   | addressed cell access  |
+|   [2]   | `Worksheet.append`                     | iterable row            | append a row           |
+|   [3]   | `Worksheet.iter_rows`                  | range plus value policy | row iteration          |
+|   [4]   | `Worksheet.merge_cells`                | range or coordinate box | merge a region         |
+|   [5]   | `Worksheet.add_chart`                  | chart plus anchor       | embed a chart          |
+|   [6]   | `Worksheet.add_image`                  | image plus anchor       | embed an image         |
+|   [7]   | `Worksheet.freeze_panes`               | freeze-pane property    | freeze-pane property   |
+|   [8]   | `Worksheet.conditional_formatting.add` | range plus rule         | add a conditional rule |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

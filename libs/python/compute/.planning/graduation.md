@@ -4,9 +4,9 @@ The C# graduation receipt. `GraduationReceipt` moves useful Python evidence into
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]   | [OWNS]                                                          |
-| :-----: | :---------- | :------------------------------------------------------------- |
-|   [1]   | GRADUATION  | the graduation receipt, the handoff axis, cross-owner rules    |
+| [INDEX] | [CLUSTER]  | [OWNS]                                                      |
+| :-----: | :--------- | :---------------------------------------------------------- |
+|   [1]   | GRADUATION | the graduation receipt, the handoff axis, cross-owner rules |
 
 ## [2]-[GRADUATION]
 

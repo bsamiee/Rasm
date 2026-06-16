@@ -18,52 +18,52 @@
 [PUBLIC_TYPE_SCOPE]: logger family
 - rail: observability
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `BoundLogger` | logger | context-bound structured logger |
-| [2] | `BoundLoggerBase` | logger base | custom bound-logger base |
-| [3] | `stdlib.BoundLogger` | logger | stdlib-shaped bound logger |
-| [4] | `PrintLogger` | logger | stdout writer logger |
-| [5] | `BytesLogger` | logger | bytes-emitting logger |
-| [6] | `PrintLoggerFactory` | factory | print-logger factory |
-| [7] | `stdlib.LoggerFactory` | factory | stdlib logger factory |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                          |
+| :-----: | :--------------------- | :------------ | :------------------------------ |
+|   [1]   | `BoundLogger`          | logger        | context-bound structured logger |
+|   [2]   | `BoundLoggerBase`      | logger base   | custom bound-logger base        |
+|   [3]   | `stdlib.BoundLogger`   | logger        | stdlib-shaped bound logger      |
+|   [4]   | `PrintLogger`          | logger        | stdout writer logger            |
+|   [5]   | `BytesLogger`          | logger        | bytes-emitting logger           |
+|   [6]   | `PrintLoggerFactory`   | factory       | print-logger factory            |
+|   [7]   | `stdlib.LoggerFactory` | factory       | stdlib logger factory           |
 
 [PUBLIC_TYPE_SCOPE]: processor family
 - rail: observability
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `processors.JSONRenderer` | renderer | JSON event renderer |
-| [2] | `processors.LogfmtRenderer` | renderer | logfmt event renderer |
-| [3] | `processors.KeyValueRenderer` | renderer | key=value renderer |
-| [4] | `processors.TimeStamper` | processor | timestamp injector |
-| [5] | `processors.CallsiteParameterAdder` | processor | callsite metadata injector |
-| [6] | `processors.StackInfoRenderer` | processor | stack-info attacher |
-| [7] | `processors.UnicodeDecoder` | processor | bytes-to-text normaliser |
-| [8] | `processors.EventRenamer` | processor | event-key rename |
-| [9] | `stdlib.ProcessorFormatter` | formatter | stdlib-handler bridge formatter |
-| [10] | `stdlib.add_log_level` | processor | level-name injector |
-| [11] | `dev.ConsoleRenderer` | renderer | colorised dev renderer |
-| [12] | `testing.LogCapture` | capture | test event recorder |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [RAIL]                          |
+| :-----: | :---------------------------------- | :------------ | :------------------------------ |
+|   [1]   | `processors.JSONRenderer`           | renderer      | JSON event renderer             |
+|   [2]   | `processors.LogfmtRenderer`         | renderer      | logfmt event renderer           |
+|   [3]   | `processors.KeyValueRenderer`       | renderer      | key=value renderer              |
+|   [4]   | `processors.TimeStamper`            | processor     | timestamp injector              |
+|   [5]   | `processors.CallsiteParameterAdder` | processor     | callsite metadata injector      |
+|   [6]   | `processors.StackInfoRenderer`      | processor     | stack-info attacher             |
+|   [7]   | `processors.UnicodeDecoder`         | processor     | bytes-to-text normaliser        |
+|   [8]   | `processors.EventRenamer`           | processor     | event-key rename                |
+|   [9]   | `stdlib.ProcessorFormatter`         | formatter     | stdlib-handler bridge formatter |
+|  [10]   | `stdlib.add_log_level`              | processor     | level-name injector             |
+|  [11]   | `dev.ConsoleRenderer`               | renderer      | colorised dev renderer          |
+|  [12]   | `testing.LogCapture`                | capture       | test event recorder             |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: configuration and logging operations
 - rail: observability
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `configure` | config | install processor chain and factory |
-| [2] | `configure_once` | config | idempotent configuration |
-| [3] | `get_logger` | logger | obtain a bound logger |
-| [4] | `make_filtering_bound_logger` | logger | level-filtered bound-logger class |
-| [5] | `BoundLogger.bind` | context | add bound key/value context |
-| [6] | `BoundLogger.unbind` | context | remove bound context keys |
-| [7] | `BoundLogger.new` | context | replace bound context |
-| [8] | `contextvars.bind_contextvars` | context | bind ambient contextvar context |
-| [9] | `contextvars.merge_contextvars` | processor | merge contextvar context into event |
-| [10] | `contextvars.clear_contextvars` | context | reset ambient context |
-| [11] | `contextvars.bound_contextvars` | context | scoped contextvar binding |
+| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [RAIL]                              |
+| :-----: | :------------------------------ | :------------- | :---------------------------------- |
+|   [1]   | `configure`                     | config         | install processor chain and factory |
+|   [2]   | `configure_once`                | config         | idempotent configuration            |
+|   [3]   | `get_logger`                    | logger         | obtain a bound logger               |
+|   [4]   | `make_filtering_bound_logger`   | logger         | level-filtered bound-logger class   |
+|   [5]   | `BoundLogger.bind`              | context        | add bound key/value context         |
+|   [6]   | `BoundLogger.unbind`            | context        | remove bound context keys           |
+|   [7]   | `BoundLogger.new`               | context        | replace bound context               |
+|   [8]   | `contextvars.bind_contextvars`  | context        | bind ambient contextvar context     |
+|   [9]   | `contextvars.merge_contextvars` | processor      | merge contextvar context into event |
+|  [10]   | `contextvars.clear_contextvars` | context        | reset ambient context               |
+|  [11]   | `contextvars.bound_contextvars` | context        | scoped contextvar binding           |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

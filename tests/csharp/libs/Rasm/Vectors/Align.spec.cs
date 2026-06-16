@@ -51,8 +51,6 @@ public sealed class AlignKindLaws {
     [Fact]
     public void KeysAreDistinctAndNonClusterInputsFail() {
         Spec.SmartEnumKeysUnique(items: AlignGens.Kinds, key: static k => k.Key);
-        Assert.Equal(expected: AlignmentApproximationStatus.SymmetricNormalSumLinearized, actual: AlignKind.Symmetric.Approximation);
-        Assert.Equal(expected: AlignmentApproximationStatus.GeneralizedIterativeClosestPoint, actual: AlignKind.Generalized.Approximation);
         Assert.Equal(expected: AlignGens.Kinds.Length, actual: AlignKind.Items.Count);
         VectorCloud polyline = Spec.SuccValue(VectorCloud.Polyline(points: AlignGens.Tetra, context: AlignGens.Model, key: AlignGens.Key), label: "polyline");
         VectorCloud cluster = Spec.SuccValue(VectorCloud.Cluster(points: AlignGens.Tetra, context: AlignGens.Model, key: AlignGens.Key), label: "cluster");

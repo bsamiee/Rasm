@@ -121,7 +121,7 @@ public sealed class MeshDescriptorAndRemeshLaws {
     }
     [Fact]
     public void DiscreteCalculusAssemblyReceiptPreservesMatrixAndTopologyFacts() {
-        SpectralAssemblyReceipt receipt = new(VertexCount: 4, EdgeCount: 6, FaceCount: 4, AdmittedFaceCount: 4, SkippedDegenerateFaces: 0, SkippedMissingEdges: 0, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: false, MatrixRows: 10, MatrixCols: 10, NonZeros: 36, PositiveStar0Count: 4, PositiveStar1Count: 6, PositiveStar2Count: 4, BoundaryCompositionResidual: 0.0, Genus: Some(0), HarmonicDimension: 0, BoundaryEdgeCount: 0, BoundaryComponentCount: 0, NonManifoldEdgeCount: 0, EulerCharacteristic: 2, TopologyEulerValidated: true, Kind: SpectralAssemblyKind.Dec);
+        SpectralAssemblyReceipt receipt = new(VertexCount: 4, EdgeCount: 6, FaceCount: 4, AdmittedFaceCount: 4, SkippedDegenerateFaces: 0, SkippedMissingEdges: 0, FlippedIntrinsicRejected: false, MatrixRows: 10, MatrixCols: 10, NonZeros: 36, PositiveStar0Count: 4, PositiveStar1Count: 6, PositiveStar2Count: 4, BoundaryCompositionResidual: 0.0, Genus: Some(0), HarmonicDimension: 0, BoundaryEdgeCount: 0, BoundaryComponentCount: 0, NonManifoldEdgeCount: 0, EulerCharacteristic: 2, TopologyEulerValidated: true, Kind: SpectralAssemblyKind.Dec);
         SpectralAssemblyReceipt genusPositive = receipt with { Genus = Some(2), HarmonicDimension = 4 };
         Assert.True(condition: receipt.IsValid);
         Assert.True(condition: genusPositive.IsValid);
@@ -132,7 +132,7 @@ public sealed class MeshDescriptorAndRemeshLaws {
         Assert.False(condition: (receipt with { AdmittedFaceCount = 5 }).IsValid);
         FeatureReceipt features = new(Edges: Seq<FeatureEdge>(), BoundaryEdges: 0, CreaseEdges: 0, NonManifoldEdges: 0, UnweldedEdges: 0, NgonInteriorSkippedEdges: 0, DihedralThresholdRadians: 0.25, Algorithm: MeshFeatureAlgorithm.DihedralProxy);
         MeshSamplingSpectrumReceipt spectrum = new(VertexCount: 4, SampleCount: 2, EigenpairCount: 2, LowFrequencyEnergy: 0.5, TotalEnergy: 1.0, SuppressionRatio: 0.25, ValidationThreshold: 0.5, Validated: true, Algorithm: MeshSamplingSpectrumAlgorithm.CandidateSpectrum);
-        TangentLogMapReceipt tangent = new(SourceVertex: 0, TargetCount: 1, HeatTime: 0.1, VectorHeatBacked: true, RejectsFlippedIntrinsic: true, FiniteLogCount: 1, MaxMagnitudeResidual: 0.0, Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate, PathFaces: [], CrossedEdges: [], TracedLength: 0.0, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0);
+        TangentLogMapReceipt tangent = new(SourceVertex: 0, TargetCount: 1, HeatTime: Some(0.1), VectorHeatBacked: true, RejectsFlippedIntrinsic: true, FiniteLogCount: 1, MaxMagnitudeResidual: Some(0.0), Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate, PathFaces: [], CrossedEdges: [], TracedLength: 0.0, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0);
         Assert.True(condition: features.Algorithm?.Equals(MeshFeatureAlgorithm.DihedralProxy) == true);
         Assert.True(condition: spectrum.Algorithm?.Equals(MeshSamplingSpectrumAlgorithm.CandidateSpectrum) == true);
         Assert.True(condition: tangent.Algorithm?.Equals(TangentLogMapAlgorithm.VectorHeatApproximate) == true);
@@ -140,7 +140,7 @@ public sealed class MeshDescriptorAndRemeshLaws {
     }
     [Fact]
     public void EdgeConnectionAssemblyReceiptUsesEdgeSpaceCounts() {
-        SpectralAssemblyReceipt receipt = new(VertexCount: 0, EdgeCount: 6, FaceCount: 4, AdmittedFaceCount: 4, SkippedDegenerateFaces: 0, SkippedMissingEdges: 0, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: false, MatrixRows: 12, MatrixCols: 12, NonZeros: 48, PositiveStar0Count: 0, PositiveStar1Count: 0, PositiveStar2Count: 4, BoundaryCompositionResidual: 0.0, Genus: Option<int>.None, HarmonicDimension: 0, ComponentCount: 2, PositiveMassCount: 6, SymmetryResidual: 0.0, FactorNonZeros: Some(32), Kind: SpectralAssemblyKind.EdgeConnection);
+        SpectralAssemblyReceipt receipt = new(VertexCount: 0, EdgeCount: 6, FaceCount: 4, AdmittedFaceCount: 4, SkippedDegenerateFaces: 0, SkippedMissingEdges: 0, FlippedIntrinsicRejected: false, MatrixRows: 12, MatrixCols: 12, NonZeros: 48, PositiveStar0Count: 0, PositiveStar1Count: 0, PositiveStar2Count: 4, BoundaryCompositionResidual: 0.0, Genus: Option<int>.None, HarmonicDimension: 0, ComponentCount: 2, PositiveMassCount: 6, SymmetryResidual: 0.0, FactorNonZeros: Some(32), Kind: SpectralAssemblyKind.EdgeConnection);
         Assert.True(condition: receipt.IsValid);
         Assert.False(condition: (receipt with { ComponentCount = 3 }).IsValid);
         Assert.False(condition: (receipt with { MatrixRows = 6 }).IsValid);

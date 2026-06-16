@@ -4,10 +4,10 @@ Graph payloads and mesh-file exchange. `GraphPayload` carries graph kind/nodes/e
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | GRAPH     | graph payloads and graph egress                                |
-|   [2]   | MESH      | mesh-file identity, cell-block topology, preview export        |
+| [INDEX] | [CLUSTER] | [OWNS]                                                  |
+| :-----: | :-------- | :------------------------------------------------------ |
+|   [1]   | GRAPH     | graph payloads and graph egress                         |
+|   [2]   | MESH      | mesh-file identity, cell-block topology, preview export |
 
 ## [2]-[GRAPH]
 

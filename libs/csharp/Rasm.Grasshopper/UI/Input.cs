@@ -25,7 +25,6 @@ public sealed partial class SelectionMode {
     internal static SelectionMode FromGh(GhSelectionMode gh) => ByGh.Value.GetValueOrDefault(key: gh) ?? Inverse;
 }
 [SmartEnum<int>]
-[ValidationError<UiFault>]
 public sealed partial class CursorKind {
     private delegate Cursor CursorSource(Grasshopper2.UI.Canvas.Canvas canvas);
 
@@ -83,18 +82,20 @@ public sealed partial class DialogPresentation {
 public sealed partial class FileDialogMode {
     private delegate PathDialogSnapshot DialogRun(Control? parent, PathDialogSpec spec);
 
+    // MultiSelect is meaningful only on Open; Save and Folder ignore it (one selection by definition), so each row
+    // applies the knob exactly where it has a host effect — Open threads it, Save/Folder drop it silently.
     public static readonly FileDialogMode Open = new(
         key: 0,
         run: static (parent, spec) =>
-            Input.RunFileDialog(dialog: new OpenFileDialog { MultiSelect = spec.MultiSelect }, parent: parent, spec: spec));
+            Input.ExecuteFileDialog(dialog: new OpenFileDialog { MultiSelect = spec.MultiSelect }, parent: parent, spec: spec));
     public static readonly FileDialogMode Save = new(
         key: 1,
         run: static (parent, spec) =>
-            Input.RunFileDialog(dialog: new SaveFileDialog(), parent: parent, spec: spec));
+            Input.ExecuteFileDialog(dialog: new SaveFileDialog(), parent: parent, spec: spec));
     public static readonly FileDialogMode Folder = new(
         key: 2,
         run: static (parent, spec) =>
-            Input.RunFolderDialog(parent: parent, spec: spec));
+            Input.ExecuteFolderDialog(parent: parent, spec: spec));
 
     [UseDelegateFromConstructor]
     internal partial PathDialogSnapshot Run(Control? parent, PathDialogSpec spec);
@@ -102,31 +103,39 @@ public sealed partial class FileDialogMode {
 
 [SmartEnum<int>]
 public sealed partial class MenuCommandKind {
-    private delegate Command MenuBuild(ContextMenu menu, UiCommand command, bool checkedState, Func<bool, Fin<Unit>> onChange);
+    // Each row yields only the diverging command instance plus its checked-state reader; shared identity, visuals,
+    // and Executed wiring live in Build. Radio binds to the menu's shared controller.
+    private delegate (Command Command, Func<bool> Checked) MenuCreate(ContextMenu menu, bool checkedState);
 
-    public static readonly MenuCommandKind Button = new(key: 0, build: static (_, command, _, _) => {
-        Func<Fin<Unit>> run = command.Run;
-        Command etoCommand = new() { ID = command.Name, MenuText = command.Name, ToolBarText = command.Name, ToolTip = command.Info, Enabled = command.EffectiveEnabled() };
-        etoCommand.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: run);
-        return etoCommand;
+    public static readonly MenuCommandKind Button = new(key: 0, create: static (_, _) =>
+        (Command: new Command(), Checked: static () => false));
+    public static readonly MenuCommandKind Check = new(key: 1, create: static (_, checkedState) => {
+        CheckCommand command = new() { Checked = checkedState };
+        return (Command: command, Checked: () => command.Checked);
     });
-    public static readonly MenuCommandKind Check = new(key: 1, build: static (_menu, command, checkedState, onChange) => {
-        CheckCommand menuCommand = new() { ID = command.Name, MenuText = command.Name, ToolTip = command.Info, Enabled = command.EffectiveEnabled(), Checked = checkedState };
-        menuCommand.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: () => onChange(arg: menuCommand.Checked));
-        return menuCommand;
-    });
-    public static readonly MenuCommandKind Radio = new(key: 2, build: static (menu, command, checkedState, onChange) => {
-        RadioCommand radio = new() {
-            ID = command.Name, MenuText = command.Name, ToolTip = command.Info,
-            Enabled = command.EffectiveEnabled(), Checked = checkedState,
+    public static readonly MenuCommandKind Radio = new(key: 2, create: static (menu, checkedState) => {
+        RadioCommand command = new() {
+            Checked = checkedState,
             Controller = ToolbarItem.RadioControllers.GetValue(key: menu, createValueCallback: static _ => new RadioCommand()),
         };
-        radio.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: () => onChange(arg: radio.Checked));
-        return radio;
+        return (Command: command, Checked: () => command.Checked);
     });
 
     [UseDelegateFromConstructor]
-    internal partial Command Build(ContextMenu menu, UiCommand command, bool checkedState, Func<bool, Fin<Unit>> onChange);
+    private partial (Command Command, Func<bool> Checked) Create(ContextMenu menu, bool checkedState);
+
+    // BOUNDARY ADAPTER — build the diverging command instance, set the shared identity/visual surface, and wire the
+    // single Executed handler that forwards the current checked state through the validated UI handler.
+    internal Command Build(ContextMenu menu, UiCommand command, bool checkedState, Func<bool, Fin<Unit>> onChange) {
+        (Command etoCommand, Func<bool> read) = Create(menu: menu, checkedState: checkedState);
+        etoCommand.ID = command.Name;
+        etoCommand.MenuText = command.Name;
+        etoCommand.ToolBarText = command.Name;
+        etoCommand.ToolTip = command.Info;
+        etoCommand.Enabled = command.EffectiveEnabled();
+        etoCommand.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: () => onChange(arg: read()));
+        return etoCommand;
+    }
 }
 
 [SmartEnum<int>]
@@ -141,10 +150,10 @@ public sealed partial class ToggleKind {
     public static readonly ToggleKind Radio = new(
         key: 1,
         barProject: static (bar, command, checkedState, onChange) => ProjectBarToggle(op: Op.Of(name: nameof(Radio)), bar: bar, command: command, checkedState: checkedState, optional: false, onChange: onChange, noun: "radio"),
-        menuProject: static (_, _, _, _) => RejectSurface(item: nameof(Radio), surface: "a context menu"));
+        menuProject: static (_, _, _, _) => ToolbarItem.Reject(item: nameof(Radio), surface: "a context menu"));
     public static readonly ToggleKind MenuRadio = new(
         key: 2,
-        barProject: static (_, _, _, _) => RejectSurface(item: nameof(MenuRadio), surface: "a toolbar"),
+        barProject: static (_, _, _, _) => ToolbarItem.Reject(item: nameof(MenuRadio), surface: "a toolbar"),
         menuProject: static (menu, command, checkedState, onChange) => ProjectMenuToggle(op: Op.Of(name: nameof(MenuRadio)), kind: MenuCommandKind.Radio, menu: menu, command: command, checkedState: checkedState, onChange: onChange, noun: "radio"));
 
     [UseDelegateFromConstructor]
@@ -161,9 +170,6 @@ public sealed partial class ToggleKind {
         from changed in op.NeedChanged(onChange, noun: noun)
         from added in op.Attempt(body: () => UiCommand.BindMenu(kind: kind, menu: menu, command: command, checkedState: checkedState, onChange: changed), what: $"menu {noun}")
         select added;
-
-    private static Fin<Unit> RejectSurface(string item, string surface) =>
-        Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{item} cannot be projected to {surface}"));
 }
 
 [SkipUnionOps]
@@ -362,9 +368,11 @@ public readonly partial struct UiCommand {
                 .Map(bitmap => Optional<Image>(bitmap))
                 .IfFail(Option<Image>.None));
 
-    // BOUNDARY ADAPTER — append an Eto menu command of the requested kind and wire its shared visual/validity surface.
+    // BOUNDARY ADAPTER — append an Eto menu command of the requested kind. Button has no toggle channel, so the
+    // default onChange forwards Run and ignores the checked-state argument that toggle kinds consume.
     internal static Unit BindMenu(MenuCommandKind kind, ContextMenu menu, UiCommand command, bool checkedState = false, Func<bool, Fin<Unit>>? onChange = null) {
-        Command etoCommand = kind.Build(menu: menu, command: command, checkedState: checkedState, onChange: onChange ?? (static _ => Fin.Succ(value: unit)));
+        Func<bool, Fin<Unit>> change = onChange ?? (_ => command.Run());
+        Command etoCommand = kind.Build(menu: menu, command: command, checkedState: checkedState, onChange: change);
         _ = command.MenuImage.Iter(image => etoCommand.Image = image);
         _ = command.Shortcut.Iter(shortcut => etoCommand.Shortcut = shortcut.Keys);
         MenuItem menuItem = etoCommand.CreateMenuItem();
@@ -429,11 +437,11 @@ public partial record ToolbarItem {
         Optional(surface)
             .ToFin(Fail: UiFault.MissingScope(field: nameof(UiCommandSurface)))
             .Bind(valid => valid.Switch(
-                toolbarCase: toolbar => ProjectToolbar(bar: toolbar.Bar),
-                menuCase: menu => ProjectMenu(menu: menu.Target),
-                inputPanelCase: panel => ProjectPanel(panel: panel.Panel)));
+                toolbarCase: toolbar => ApplyToToolbar(bar: toolbar.Bar),
+                menuCase: menu => ApplyToMenu(menu: menu.Target),
+                inputPanelCase: panel => ApplyToPanel(panel: panel.Panel)));
 
-    private Fin<Unit> ProjectToolbar(Bar bar) => Switch(
+    private Fin<Unit> ApplyToToolbar(Bar bar) => Switch(
         state: bar,
         buttonCase: static (bar, item) => Fin.Succ(item.Command).Map(command => {
             PushButton pushed = bar.AddPushButton(
@@ -459,10 +467,9 @@ public partial record ToolbarItem {
             }, what: "AddTextField")
             select added,
         numberCase: static (bar, item) =>
-            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: NumberCase.SelfOp, detail: "number change delegate is required"))
-            from value in Optional(item.Value).ToFin(Fail: UiFault.InvalidInput(op: NumberCase.SelfOp, detail: "UiNumber is required"))
+            from changed in NumberCase.SelfOp.NeedChanged(item.Changed, noun: "number")
             from added in NumberCase.SelfOp.Attempt(
-                body: () => bar.Add(new NumberSlider(nomen: new Nomen(name: item.Name, info: item.Name), number: value, callback: current => _ = GrasshopperUi.Handler(valid: () => changed(arg: current)))),
+                body: () => bar.Add(new NumberSlider(nomen: new Nomen(name: item.Name, info: item.Name), number: item.Value, callback: current => _ = GrasshopperUi.Handler(valid: () => changed(arg: current)))),
                 what: "NumberSlider")
             select added,
         swatchInputCase: static (bar, item) =>
@@ -474,14 +481,18 @@ public partial record ToolbarItem {
         colourBarsCase: static (bar, item) =>
             from changed in ColourBarsCase.SelfOp.NeedChanged(item.Changed, noun: "colour")
             from added in ColourBarsCase.SelfOp.Attempt(body: () => {
-                void Assign(OpenColor.Family value) => _ = GrasshopperUi.Handler(valid: () => changed(arg: value));
                 Nomen nomen = new(name: $"{item.Name} {{family}}", info: $"{item.Name} {{family}}");
-                Bar.CreateStandardColourBars(nomen: nomen, initial: item.Family, assignment: Assign, out Bar life, out Bar cool, out Bar warm);
+                Bar.CreateStandardColourBars(nomen: nomen, initial: item.Family, assignment: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)), out Bar life, out Bar cool, out Bar warm);
                 Seq<Seq<RadioToggle>> groups = Seq(life, cool, warm).Map(static toolbar => toSeq(toolbar.ActiveElements.OfType<RadioToggle>())).ToSeq();
                 _ = groups.Bind(static toggles => toggles).Iter(bar.Add);
                 _ = toSeq(Enumerable.Range(start: 0, count: groups.Count)).Iter(index =>
-                    groups[index].Iter(toggle => toggle.StateChanged += (_, active) =>
-                        _ = Optional(active).Filter(static selected => selected).Iter(_ => toSeq(groups.Where((_, i) => i != index)).Bind(static toggles => toggles).Iter(static t => Op.Side(() => t.SetState(state: false))))));
+                    groups[index].Iter(toggle => toggle.StateChanged += (_, active) => {
+                        if (!active) { return; }
+                        for (int other = 0; other < groups.Count; other++) {
+                            if (other == index) { continue; }
+                            _ = groups[other].Iter(t => _ = GrasshopperUi.Handler(valid: () => { t.SetState(state: false); return Fin.Succ(unit); }));
+                        }
+                    }));
                 return unit;
             }, what: "Bar.CreateStandardColourBars")
             select added,
@@ -501,7 +512,7 @@ public partial record ToolbarItem {
         submenuCase: static (_, _) => Reject(item: nameof(SubmenuCase), surface: "a toolbar"));
 
     // Context menus accept only menu-capable items; generated Switch rejects the rest exhaustively.
-    private Fin<Unit> ProjectMenu(ContextMenu menu) => Switch(
+    private Fin<Unit> ApplyToMenu(ContextMenu menu) => Switch(
         state: menu,
         buttonCase: static (menu, item) => ButtonCase.SelfOp.Attempt(body: () => UiCommand.BindMenu(kind: MenuCommandKind.Button, menu: menu, command: item.Command), what: "menu button"),
         toggleItem: static (menu, item) => item.Kind.MenuProject(menu: menu, command: item.Command, checkedState: item.Checked, onChange: item.OnChange),
@@ -518,11 +529,10 @@ public partial record ToolbarItem {
         spectrumCase: static (_, _) => Reject(item: nameof(SpectrumCase), surface: "a context menu"));
 
     private static Fin<Unit> PushSubmenu(ContextMenu menu, string name, CommandPlan plan) {
-#pragma warning disable CA2000 // scratch render target: child items reparent into the submenu on Add; the empty husk is transient and host-collected
-        ContextMenu child = new();
-#pragma warning restore CA2000
+        // BOUNDARY ADAPTER — the husk is a scratch render target whose items reparent into the submenu on Add; it is
+        // disposed deterministically once reparenting completes rather than left for host collection, on both rails.
+        using ContextMenu child = new();
         return plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Menu(menu: child))).As().Map(_seq => {
-            // BOUNDARY ADAPTER - ContextMenu.Items reparent into the submenu on Add.
             SubMenuItem submenu = new() { Text = name };
             _ = toSeq(child.Items.ToArray()).Iter(item => submenu.Items.Add(item: item));
             menu.Items.Add(item: submenu);
@@ -530,10 +540,10 @@ public partial record ToolbarItem {
         });
     }
 
-    private static Fin<Unit> Reject(string item, string surface) =>
+    internal static Fin<Unit> Reject(string item, string surface) =>
         Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{item} cannot be projected to {surface}"));
 
-    private Fin<Unit> ProjectPanel(InputPanel panel) => Switch(
+    private Fin<Unit> ApplyToPanel(InputPanel panel) => Switch(
         state: panel,
         labelCase: static (panel, item) => LabelCase.SelfOp.Attempt(body: () => {
             _ = panel.AddLabel(text: item.Caption);
@@ -687,7 +697,7 @@ public readonly record struct CommandPlan(Seq<ToolbarItem> Items) {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal sealed class ScopedCursor(Grasshopper2.UI.Canvas.Canvas target, Cursor previous, IDisposable? busy = null) : IDisposable {
-    // BOUNDARY ADAPTER - restore the canvas cursor and release any WaitCursor lease exactly once.
+    // BOUNDARY ADAPTER — restore the canvas cursor and release any WaitCursor lease exactly once.
     public void Dispose() {
         busy?.Dispose();
         target.Cursor = previous;
@@ -698,7 +708,7 @@ file static class WaitCursorLease {
     private static readonly Atom<(int Count, Rhino.UI.WaitCursor? Cursor)> State = Atom<(int Count, Rhino.UI.WaitCursor? Cursor)>(value: (Count: 0, Cursor: null));
 
     internal static IDisposable Enter() {
-        // BOUNDARY ADAPTER - WaitCursor sets the app cursor; the Atom lease prevents duplicate clears.
+        // BOUNDARY ADAPTER — WaitCursor sets the app cursor; the Atom lease prevents duplicate clears.
         Rhino.UI.WaitCursor? candidate = new();
         try {
             (int Count, Rhino.UI.WaitCursor? Cursor) swapped = State.Swap(current =>
@@ -714,7 +724,7 @@ file static class WaitCursorLease {
         private int disposed;
 
         public void Dispose() {
-            // BOUNDARY ADAPTER - one-shot guard prevents doubled Dispose from underflowing the lease.
+            // BOUNDARY ADAPTER — one-shot guard prevents doubled Dispose from underflowing the lease.
             Rhino.UI.WaitCursor? release = Interlocked.Exchange(ref disposed, 1) == 1
                 ? null
                 : Released();
@@ -801,11 +811,7 @@ public static partial class Input {
         Form? form = null;
         return Subscription.Bind(
             attach: () => form = panel.ShowAsForm(owner, location, screen),
-            // BOUNDARY ADAPTER - Form.Close alone does not release the macOS NSWindow; dispose after closing.
-            detach: () => {
-                form?.Close();
-                form?.Dispose();
-            },
+            detach: () => CloseThenDispose(form: form),
             marshalToUi: true,
             detachOnce: true);
     }
@@ -814,7 +820,7 @@ public static partial class Input {
         Option<Window> ownerWindow = Optional(owner.ParentWindow);
         FloatingForm? form = null;
         return Subscription.Bind(
-            // BOUNDARY ADAPTER - borderless, non-focusing FloatingForm at the clamped canvas point.
+            // BOUNDARY ADAPTER — borderless, non-focusing FloatingForm at the clamped canvas point.
             attach: () => {
                 form = new FloatingForm(owner: ownerWindow) {
                     Content = control,
@@ -824,12 +830,19 @@ public static partial class Input {
                 };
                 form.Show();
             },
-            detach: () => {
-                form?.Close();
-                form?.Dispose();
-            },
+            detach: () => CloseThenDispose(form: form),
             marshalToUi: true,
             detachOnce: true);
+    }
+
+    // BOUNDARY ADAPTER — Form.Close alone does not release the macOS NSWindow, and Close can itself throw on a
+    // torn-down native window; the finally guarantees Dispose runs even when Close throws so the handle never leaks.
+    private static void CloseThenDispose(Form? form) {
+        try {
+            form?.Close();
+        } finally {
+            form?.Dispose();
+        }
     }
 
     internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(Func<Bar, Fin<Unit>> populate) =>
@@ -937,7 +950,7 @@ public static partial class Input {
         GhUi.Read(run: _scope =>
             from validSource in Optional(source).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Drag)), detail: "null drag source"))
             from started in Op.Of(name: nameof(Drag)).Attempt(body: () => {
-                // BOUNDARY ADAPTER - populate an Eto DataObject and run the platform drag loop.
+                // BOUNDARY ADAPTER — populate an Eto DataObject and run the platform drag loop.
                 DataObject data = new();
                 _ = payload.Clipboard.Text.Iter(text => data.Text = text);
                 _ = payload.Clipboard.Html.Iter(html => data.Html = html);
@@ -1070,7 +1083,7 @@ public static partial class Input {
     private static Fin<Subscription> NotifySubscription(Option<TrayIndicator> indicator, Notification notification, Option<Func<Fin<Unit>>> onActivated) {
         EventHandler<NotificationEventArgs>? handler = null;
         return Subscription.Bind(
-            // BOUNDARY ADAPTER - register the activation handler only after Show() so a failed Show leaks neither handler nor native objects.
+            // BOUNDARY ADAPTER — register the activation handler only after Show() so a failed Show leaks neither handler nor native objects.
             attach: () => {
                 notification.Show(indicator: indicator.Map(static tray => (TrayIndicator?)tray).IfNone((TrayIndicator?)null));
                 handler = onActivated is { IsSome: true, Case: Func<Fin<Unit>> activated }
@@ -1078,7 +1091,7 @@ public static partial class Input {
                     : null;
                 _ = Optional(handler).Iter(h => Application.Instance.NotificationActivated += h);
             },
-            // BOUNDARY ADAPTER - detach the activation handler, then dispose the native notification and tray indicator.
+            // BOUNDARY ADAPTER — detach the activation handler, then dispose the native notification and tray indicator.
             detach: () => {
                 _ = Optional(handler).Iter(h => Application.Instance.NotificationActivated -= h);
                 notification.Dispose();
@@ -1092,7 +1105,7 @@ public static partial class Input {
         GhUi.Read(run: _scope =>
             from valid in Optional(content).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Scrollable)), detail: "null content"))
             from built in Op.Of(name: nameof(Scrollable)).Attempt(body: () => {
-                // BOUNDARY ADAPTER - explicit virtual size disables Eto content expansion.
+                // BOUNDARY ADAPTER — explicit virtual size disables Eto content expansion.
                 Scrollable scrollable = new() { Content = valid };
                 _ = Optional(virtualSize).Filter(static size => size.Width > 0 && size.Height > 0)
                     .Iter(size => {
@@ -1109,7 +1122,7 @@ public static partial class Input {
             from validFirst in Optional(p1).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: "null first panel"))
             from validSecond in Optional(p2).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: "null second panel"))
             from built in Op.Of(name: nameof(Split)).Attempt(body: () => {
-                // BOUNDARY ADAPTER - positive position seeds Eto Splitter.Position.
+                // BOUNDARY ADAPTER — positive position seeds Eto Splitter.Position.
                 Splitter splitter = new() { Panel1 = validFirst, Panel2 = validSecond, Orientation = orientation };
                 _ = Optional(position).Filter(static p => p > 0).Iter(p => splitter.Position = p);
                 return (Control)splitter;
@@ -1147,7 +1160,7 @@ public static partial class Input {
             scope.Canvas.Map(static c => (Control?)c.ControlObject)
                 .IfNone((Control?)null));
 
-    internal static PathDialogSnapshot RunFileDialog(FileDialog dialog, Control? parent, PathDialogSpec spec) {
+    internal static PathDialogSnapshot ExecuteFileDialog(FileDialog dialog, Control? parent, PathDialogSpec spec) {
         using FileDialog owned = dialog;
         _ = spec.InitialPath.Filter(static path => !string.IsNullOrWhiteSpace(path))
             .IfSome(path => {
@@ -1178,7 +1191,7 @@ public static partial class Input {
     }
 
     // SelectFolderDialog derives from CommonDialog, not FileDialog, so folder mode dispatches separately.
-    internal static PathDialogSnapshot RunFolderDialog(Control? parent, PathDialogSpec spec) {
+    internal static PathDialogSnapshot ExecuteFolderDialog(Control? parent, PathDialogSpec spec) {
         using SelectFolderDialog dialog = new();
         _ = spec.InitialPath.Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => {
             string fullPath = System.IO.Path.GetFullPath(path: path);

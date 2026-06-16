@@ -189,7 +189,7 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
     public static Fin<SparseMatrix> FromTriplets(Dimension rows, Dimension cols, IEnumerable<(int Row, int Col, double Value)> triplets, Op? key = null) { Op op = key.OrDefault(); return Optional(triplets).ToFin(op.InvalidInput()).Bind(active => MatrixKernel.AssembleSparse(rows: rows, cols: cols, triplets: active, op: op)); }
     public bool IsValid => RowPtr.Count == Rows.Value + 1 && ColInd.Count == Values.Count && FieldNabla.AllFiniteSpan(Values.AsSpan()) && RowPtr[0] == 0 && RowPtr[Rows.Value] == Values.Count && RowPointersAreMonotone(RowPtr) && RowColumnsAreStrict(rowPtr: RowPtr, colInd: ColInd, minCol: static _ => 0, maxCol: Cols.Value);
     public int NonZeros => Values.Count;
-    public Fin<Arr<double>> Multiply(Arr<double> vector, Op? key = null) => !IsValid || vector.Count != Cols.Value || vector.AsIterable().Any(static value => !RhinoMath.IsValidDouble(x: value)) ? Fin.Fail<Arr<double>>(key.OrDefault().InvalidInput()) : MatrixKernel.SparseMatVec(self: this, x: vector, key: key.OrDefault());
+    public Fin<Arr<double>> Multiply(Arr<double> vector, Op? key = null) => !IsValid || vector.Count != Cols.Value || !FieldNabla.AllFiniteSpan(vector.AsSpan()) ? Fin.Fail<Arr<double>>(key.OrDefault().InvalidInput()) : MatrixKernel.SparseMatVec(self: this, x: vector, key: key.OrDefault());
     public Matrix ToDense() => MatrixKernel.SparseToDense(self: this);
     public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) =>
         MatrixKernel.SparseSolve(matrix: this, rhs: rhs, key: key.OrDefault());
@@ -220,20 +220,18 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
 public readonly record struct SparseHermitian(Dimension Order, Arr<int> RowPtr, Arr<int> ColInd, Arr<Complex> Values) {
     public static Fin<SparseHermitian> FromTriplets(Dimension order, IEnumerable<(int Row, int Col, Complex Value)> upperTriplets, Op? key = null) { Op op = key.OrDefault(); return Optional(upperTriplets).ToFin(op.InvalidInput()).Bind(active => MatrixKernel.AssembleHermitian(order: order, triplets: active, op: op)); }
     // Upper-triangular storage; Multiply reconstructs the lower triangle by conjugate transpose.
-    public bool IsValid => RowPtr.Count == Order.Value + 1 && ColInd.Count == Values.Count && Values.All(static c => RhinoMath.IsValidDouble(c.Real) && RhinoMath.IsValidDouble(c.Imaginary)) && RowPtr[0] == 0 && RowPtr[Order.Value] == Values.Count && SparseMatrix.RowPointersAreMonotone(RowPtr) && SparseMatrix.RowColumnsAreStrict(rowPtr: RowPtr, colInd: ColInd, minCol: static row => row, maxCol: Order.Value) && DiagonalIsReal;
+    public bool IsValid => RowPtr.Count == Order.Value + 1 && ColInd.Count == Values.Count && FieldNabla.AllFiniteComplexSpan(Values.AsSpan()) && RowPtr[0] == 0 && RowPtr[Order.Value] == Values.Count && SparseMatrix.RowPointersAreMonotone(RowPtr) && SparseMatrix.RowColumnsAreStrict(rowPtr: RowPtr, colInd: ColInd, minCol: static row => row, maxCol: Order.Value) && FieldNabla.HermitianDiagonalRealSpan(DiagonalEntries().AsSpan());
     public int NonZeros => Values.Count;
-    public Fin<Arr<Complex>> Multiply(Arr<Complex> vector, Op? key = null) => !IsValid || vector.Count != Order.Value || vector.AsIterable().Any(static value => !RhinoMath.IsValidDouble(x: value.Real) || !RhinoMath.IsValidDouble(x: value.Imaginary)) ? Fin.Fail<Arr<Complex>>(key.OrDefault().InvalidInput()) : MatrixKernel.HermitianMatVec(self: this, x: vector, key: key.OrDefault());
+    public Fin<Arr<Complex>> Multiply(Arr<Complex> vector, Op? key = null) => !IsValid || vector.Count != Order.Value || FieldNabla.AllFiniteComplex(vector.AsSpan(), key.OrDefault()).IsFail ? Fin.Fail<Arr<Complex>>(key.OrDefault().InvalidInput()) : MatrixKernel.HermitianMatVec(self: this, x: vector, key: key.OrDefault());
     public Fin<EigenSolveReceipt<double, Arr<Complex>>> SmallestEigenpairsDetailed(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.LobpcgHermitian(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
-    private bool DiagonalIsReal {
-        get {
-            Dimension order = Order;
-            Arr<int> rowPtr = RowPtr;
-            Arr<int> colInd = ColInd;
-            Arr<Complex> values = Values;
-            return Enumerable.Range(start: 0, count: order.Value).All(row => Enumerable.Range(start: rowPtr[row], count: rowPtr[row + 1] - rowPtr[row])
-                .All(k => colInd[k] != row || Math.Abs(value: values[k].Imaginary) <= RhinoMath.SqrtEpsilon));
-        }
+    private Complex[] DiagonalEntries() {
+        Arr<int> rowPtr = RowPtr;
+        Arr<int> colInd = ColInd;
+        Arr<Complex> values = Values;
+        return [.. Enumerable.Range(start: 0, count: Order.Value).SelectMany(row => Enumerable.Range(start: rowPtr[row], count: rowPtr[row + 1] - rowPtr[row])
+            .Where(k => colInd[k] == row)
+            .Select(k => values[k]))];
     }
 }
 
@@ -283,8 +281,8 @@ public readonly record struct EigenSolveReceipt<TEigen, TVector>(Seq<(TEigen Eig
 }
 
 public readonly record struct GaugeReceipt(
-    GaugeSolverKind Solver, int NullspaceDim, Option<int> NullspaceDimNumeric, Option<double> SpectralGap,
-    double LambdaMax, double ResidualCompatibility, bool RhsProjected, double ResidualAfterGauge, double ResidualAfterGaugeM,
+    GaugeSolverKind Solver, int NullspaceDim, Option<int> NullspaceDimNumeric,
+    double OperatorFrobeniusScale, double ResidualCompatibility, bool RhsProjected, double ResidualAfterGauge, double ResidualAfterGaugeM,
     double ResidualRelative, Option<int> PinnedIndex, Arr<int> PinIndices, int ConstraintRows, GaugeShift PostShiftApplied,
     double RhsMutationNorm, double MultiplierNorm, Option<int> Iterations, double GaugeOrthogonalityCheck, double RegularizationEpsUsed,
     bool NumericalBreakdown) {
@@ -295,8 +293,8 @@ public readonly record struct GaugeReceipt(
                 && PostShiftApplied is not null
                 && nullspaceDim >= 0
                 && ConstraintRows >= 0
-                && RhinoMath.IsValidDouble(x: LambdaMax)
-                && LambdaMax > 0.0
+                && RhinoMath.IsValidDouble(x: OperatorFrobeniusScale)
+                && OperatorFrobeniusScale > 0.0
                 && RhinoMath.IsValidDouble(x: ResidualCompatibility)
                 && ResidualCompatibility >= 0.0
                 && RhinoMath.IsValidDouble(x: ResidualAfterGauge)
@@ -313,7 +311,6 @@ public readonly record struct GaugeReceipt(
                 && RegularizationEpsUsed >= 0.0
                 && PinnedIndex.Map(static index => index >= 0).IfNone(noneValue: true)
                 && NullspaceDimNumeric.Map(count => count >= 0 && count <= nullspaceDim).IfNone(noneValue: true)
-                && SpectralGap.Map(static gap => RhinoMath.IsValidDouble(x: gap) && gap >= 0.0).IfNone(noneValue: true)
                 && Iterations.Map(static iter => iter >= 0).IfNone(noneValue: true);
         }
     }
@@ -384,6 +381,10 @@ public sealed record CholeskySparse {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class MatrixKernel {
+    // Relative-increase ceiling for the BiCgStab divergence criterion and the full-partial-pivot
+    // column-relative threshold for the KKT saddle SparseLU factorization (CSparse tol in [0,1]).
+    private const double BiCgStabDivergenceFactor = 1e3;
+    private const double KktPivotTolerance = 1.0;
     private static Fin<List<(int Row, int Col, double Value)>> NormalizeSymmetricUpperEntries(SparseMatrix s, Op key) {
         if (!s.IsValid || s.Rows.Value != s.Cols.Value) return Fin.Fail<List<(int Row, int Col, double Value)>>(key.InvalidInput());
         List<(int Row, int Col, double[] Values)> grouped = [.. Enumerable.Range(start: 0, count: s.Rows.Value)
@@ -398,30 +399,9 @@ internal static class MatrixKernel {
             .OrderBy(static e => e.Row).ThenBy(static e => e.Col)
             .ToList());
     }
-    internal static Fin<CSparse.Double.SparseMatrix> ToCSparseSymmetric(SparseMatrix s, Op key) =>
-        NormalizeSymmetricUpperEntries(s: s, key: key).Map(upper => {
-            int n = s.Rows.Value;
-            List<(int Row, int Col, double Value)> ordered = [.. upper.OrderBy(static e => e.Col).ThenBy(static e => e.Row)];
-            int[] columnPointers = new int[n + 1];
-            int[] rowIndices = new int[ordered.Count];
-            double[] values = new double[ordered.Count];
-            int cursor = 0;
-            for (int col = 0; col < n; col++) {
-                columnPointers[col] = cursor;
-                while (cursor < ordered.Count && ordered[cursor].Col == col) {
-                    rowIndices[cursor] = ordered[cursor].Row;
-                    values[cursor] = ordered[cursor].Value;
-                    cursor++;
-                }
-            }
-            columnPointers[n] = cursor;
-            return new CSparse.Double.SparseMatrix(
-                rowCount: n,
-                columnCount: n,
-                values: values,
-                rowIndices: rowIndices,
-                columnPointers: columnPointers);
-        });
+    internal static Fin<CSparse.Storage.CompressedColumnStorage<double>> ToCSparseSymmetric(SparseMatrix s, Op key) =>
+        NormalizeSymmetricUpperEntries(s: s, key: key).Map(upper =>
+            CSparse.Double.SparseMatrix.OfIndexed(rows: s.Rows.Value, columns: s.Rows.Value, enumerable: upper));
 
     internal static DenseMatrixD ToMathNet(Matrix m) =>
         (DenseMatrixD)DenseMatrixD.Build.DenseOfRowMajor(m.Rows.Value, m.Cols.Value, m.Entries.AsIterable());
@@ -686,7 +666,7 @@ internal static class MatrixKernel {
                 int iterationCap = Math.Max(val1: 64, val2: matrix.Rows.Value * 8);
                 MathNet.Numerics.LinearAlgebra.Solvers.Iterator<double> iterator = new([
                     new MathNet.Numerics.LinearAlgebra.Solvers.FailureStopCriterion<double>(),
-                    new MathNet.Numerics.LinearAlgebra.Solvers.DivergenceStopCriterion<double>(maximumRelativeIncrease: 1e3, minimumIterations: 8),
+                    new MathNet.Numerics.LinearAlgebra.Solvers.DivergenceStopCriterion<double>(maximumRelativeIncrease: BiCgStabDivergenceFactor, minimumIterations: 8),
                     new MathNet.Numerics.LinearAlgebra.Solvers.ResidualStopCriterion<double>(maximum: RhinoMath.SqrtEpsilon, minimumIterationsBelowMaximum: 2),
                     new MathNet.Numerics.LinearAlgebra.Solvers.IterationCountStopCriterion<double>(maximumNumberOfIterations: iterationCap),
                 ]);
@@ -760,8 +740,8 @@ internal static class MatrixKernel {
                       double residualM = MassResidual(a: aSym, mass: mass, x: shifted, b: b);
                       double orthogonality = GaugeOrthogonality(nullspace: nullspace, mass: mass, x: shifted) / Math.Max(val1: 1.0, val2: shifted.L2Norm());
                       GaugeReceipt receipt = new(
-                          Solver: gauge.SolverKind, NullspaceDim: gauge.NullspaceDim, NullspaceDimNumeric: None, SpectralGap: None,
-                          LambdaMax: operatorScale, ResidualCompatibility: compatibility, RhsProjected: projectRhs, ResidualAfterGauge: stage.Residual, ResidualAfterGaugeM: residualM,
+                          Solver: gauge.SolverKind, NullspaceDim: gauge.NullspaceDim, NullspaceDimNumeric: stage.NullspaceDimNumeric,
+                          OperatorFrobeniusScale: operatorScale, ResidualCompatibility: compatibility, RhsProjected: projectRhs, ResidualAfterGauge: stage.Residual, ResidualAfterGaugeM: residualM,
                           ResidualRelative: relative, PinnedIndex: GaugePinnedIndex(gauge: gauge), PinIndices: GaugePinIndices(gauge: gauge), ConstraintRows: gauge.NullspaceDim, PostShiftApplied: gauge.Shift,
                           RhsMutationNorm: rhsMutation, MultiplierNorm: stage.MultiplierNorm, Iterations: stage.Iterations, GaugeOrthogonalityCheck: orthogonality, RegularizationEpsUsed: stage.RegularizationEps,
                           NumericalBreakdown: stage.NumericalBreakdown);
@@ -810,16 +790,41 @@ internal static class MatrixKernel {
     private static LinearVector MassTimes(Matrix<double> mass, LinearVector x) => mass.Multiply(x);
     private static double CompatibilityResidual(Matrix<double> nullspace, LinearVector b) =>
         nullspace.TransposeThisAndMultiply(b).L2Norm();
-    private static LinearVector ProjectRange(Matrix<double> nullspace, Matrix<double> mass, LinearVector x) {
+    // Shared M-orthogonal Gram solve: factor the SPD Gram Nᵀ M N, applying a diagonal-scaled Tikhonov
+    // shift only when the plain Cholesky breaks down, and surface the actual shift plus the numeric
+    // nullspace dimension (Cholesky factor diagonal entries above a scale-relative floor).
+    private static (LinearVector Coords, double Shift, int NumericRank) RegularizedGramSolve(Matrix<double> gram, LinearVector rhs) {
+        double scale = Math.Max(val1: RhinoMath.SqrtEpsilon, val2: gram.Diagonal().Enumerate().Aggregate(0.0, static (acc, value) => Math.Max(acc, Math.Abs(value))));
+        (MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> factor, double shift) =
+            TryGram(gram: gram).Match(
+                Some: chol => (Factor: chol, Shift: 0.0),
+                None: () => RegularizedGramFactor(gram: gram, scale: scale));
+        double floor = RhinoMath.SqrtEpsilon * scale;
+        int numericRank = factor.Factor.Diagonal().Enumerate().Count(value => value * value > floor);
+        return (Coords: factor.Solve(rhs), shift, NumericRank: numericRank);
+    }
+    // MathNet Cholesky throws a bare Exception on SPD pivot loss / zero-diagonal breakdown (not a typed numerical error); the
+    // algorithms route catches broadly and converts to None, so the general catch is the intended boundary form here.
+    private static Option<MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double>> TryGram(Matrix<double> gram) {
+#pragma warning disable CA1031
+        try { return Some(gram.Cholesky()); } catch (Exception) { return None; }
+#pragma warning restore CA1031
+    }
+    private static (MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> Factor, double Shift) RegularizedGramFactor(Matrix<double> gram, double scale) {
+        double shift = RhinoMath.SqrtEpsilon * scale;
+        Matrix<double> shifted = gram + (DenseMatrixD.CreateIdentity(order: gram.RowCount) * shift);
+        return (Factor: shifted.Cholesky(), Shift: shift);
+    }
+    private static (LinearVector Projected, double Shift, int NumericRank) ProjectRange(Matrix<double> nullspace, Matrix<double> mass, LinearVector x) {
         Matrix<double> massNullspace = mass.Multiply(nullspace);
         Matrix<double> gram = nullspace.TransposeThisAndMultiply(massNullspace);
-        LinearVector coords = gram.Cholesky().Solve(nullspace.TransposeThisAndMultiply(MassTimes(mass: mass, x: x)));
-        return x - (nullspace * coords);
+        (LinearVector coords, double shift, int numericRank) = RegularizedGramSolve(gram: gram, rhs: nullspace.TransposeThisAndMultiply(MassTimes(mass: mass, x: x)));
+        return (Projected: x - (nullspace * coords), Shift: shift, NumericRank: numericRank);
     }
     private static LinearVector DeflateRhs(Matrix<double> nullspace, Matrix<double> mass, LinearVector b) {
         Matrix<double> massNullspace = mass.Multiply(nullspace);
         Matrix<double> gram = nullspace.TransposeThisAndMultiply(massNullspace);
-        LinearVector coords = gram.Cholesky().Solve(nullspace.TransposeThisAndMultiply(b));
+        (LinearVector coords, _, _) = RegularizedGramSolve(gram: gram, rhs: nullspace.TransposeThisAndMultiply(b));
         return b - (massNullspace * coords);
     }
     private static double GaugeOrthogonality(Matrix<double> nullspace, Matrix<double> mass, LinearVector x) =>
@@ -870,8 +875,9 @@ internal static class MatrixKernel {
     private static Fin<GaugeStage> SolveMeanZeroDeflation(SparseMatrix matrix, Matrix<double> mass, Matrix<double> nullspace, LinearVector b, Op key) =>
         SparseSolve(matrix: matrix, rhs: new Arr<double>(b.ToArray()), key: key).Map(receipt => {
             LinearVector raw = DenseVectorD.OfArray([.. receipt.Solution.AsIterable()]);
-            LinearVector projected = ProjectRange(nullspace: nullspace, mass: mass, x: raw);
-            return new GaugeStage(X: projected, Residual: receipt.Residual, Stop: receipt.Stop, MultiplierNorm: 0.0, Iterations: receipt.Iterations, RegularizationEps: 0.0, NumericalBreakdown: false, FactorNonZeros: receipt.FactorNonZeros);
+            (LinearVector projected, double shift, int numericRank) = ProjectRange(nullspace: nullspace, mass: mass, x: raw);
+            double projectedResidual = RelativeResidual(a: ToMathNetSparse(s: matrix), x: projected, b: b);
+            return new GaugeStage(X: projected, Residual: projectedResidual, Stop: receipt.Stop, MultiplierNorm: 0.0, Iterations: receipt.Iterations, RegularizationEps: shift, NumericalBreakdown: false, FactorNonZeros: receipt.FactorNonZeros, NullspaceDimNumeric: Some(numericRank));
         });
     private static Fin<GaugeStage> SolveKkt(Matrix<double> aSym, Matrix<double> massNullspace, LinearVector b, double operatorScale, Op key) {
         int n = aSym.RowCount, m = massNullspace.ColumnCount, total = n + m;
@@ -888,15 +894,15 @@ internal static class MatrixKernel {
         return key.Catch(() => {
             CSparse.Storage.CompressedColumnStorage<double> saddle = CSparse.Double.SparseMatrix.OfIndexed(rows: total, columns: total, enumerable: entries);
             double[] solution = new double[total];
-            CSparse.Double.Factorization.SparseLU lu = CSparse.Double.Factorization.SparseLU.Create(A: saddle, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, tol: 1.0);
+            CSparse.Double.Factorization.SparseLU lu = CSparse.Double.Factorization.SparseLU.Create(A: saddle, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, tol: KktPivotTolerance);
             lu.Solve(input: rhs.AsSpan(), result: solution.AsSpan());
             LinearVector x = DenseVectorD.OfArray([.. solution.Take(count: n)]);
             LinearVector lambda = DenseVectorD.OfArray([.. solution.Skip(count: n)]);
             double residual = (b - aSym.Multiply(x)).L2Norm() / Math.Max(val1: 1.0, val2: b.L2Norm());
-            return Fin.Succ(new GaugeStage(X: x, Residual: residual, Stop: SolveStop.DirectSolved, MultiplierNorm: lambda.L2Norm(), Iterations: None, RegularizationEps: 0.0, NumericalBreakdown: false, FactorNonZeros: None));
+            return Fin.Succ(new GaugeStage(X: x, Residual: residual, Stop: SolveStop.DirectSolved, MultiplierNorm: lambda.L2Norm(), Iterations: None, RegularizationEps: 0.0, NumericalBreakdown: false, FactorNonZeros: Some(lu.NonZerosCount)));
         }).BindFail(_ => Fin.Succ(new GaugeStage(X: DenseVectorD.Create(n, static _ => 0.0), Residual: double.PositiveInfinity, Stop: SolveStop.FallbackRejected, MultiplierNorm: 0.0, Iterations: None, RegularizationEps: 0.0, NumericalBreakdown: true, FactorNonZeros: None)));
     }
-    private readonly record struct GaugeStage(LinearVector X, double Residual, SolveStop Stop, double MultiplierNorm, Option<int> Iterations, double RegularizationEps, bool NumericalBreakdown, Option<int> FactorNonZeros);
+    private readonly record struct GaugeStage(LinearVector X, double Residual, SolveStop Stop, double MultiplierNorm, Option<int> Iterations, double RegularizationEps, bool NumericalBreakdown, Option<int> FactorNonZeros, Option<int> NullspaceDimNumeric = default);
     // --- [GENERALIZED_EIGEN] -----------------------------------------------------------------
     internal static Fin<EigenSolveReceipt<double, Arr<double>>> GeneralizedEigenpairsDetailed(SparseMatrix stiffness, SparseMatrix mass, int k, Op key) =>
         !stiffness.IsValid || !mass.IsValid || stiffness.Rows.Value != stiffness.Cols.Value || mass.Rows.Value != mass.Cols.Value || stiffness.Rows.Value != mass.Rows.Value || k < 1 || k >= stiffness.Rows.Value

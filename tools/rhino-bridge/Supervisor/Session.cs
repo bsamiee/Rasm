@@ -188,12 +188,17 @@ internal static class SessionKernel {
                     string.Create(
                         provider: CultureInfo.InvariantCulture,
                         $"gcRetries={unload.GcRetries};elapsedMs={unload.ElapsedMs:F0};debugger={unload.DebuggerAttached}")));
+                // After-leak recycle: the WeakReference-unconfirmed ALC is recovered by the quit ladder
+                // (supervised host recycle), never a forced in-host unload. The gcdump is best-effort
+                // forensics — GcDump projects a collect timeout or non-zero exit to None, so the recycle
+                // fact stays honest about whether the dump landed rather than implying a dump always exists.
                 if (!unload.Confirmed && !unload.DebuggerAttached) {
-                    string gcdump = Evidence.GcDump(pid: negotiated.Pid, reportDir: reportDir, deadline: runtime.Policy.ForensicsDeadline).IfNone(string.Empty);
-                    if (gcdump.Length > 0) {
-                        stream.Add(item: Fact("cargo.gcdump", gcdump));
-                    }
-                    stream.Add(item: Fact("cargo.recycle.after-leak", gcdump.Length > 0 ? $"quit-ladder;gcdump={gcdump}" : "quit-ladder"));
+                    Option<string> gcdump = Evidence.GcDump(pid: negotiated.Pid, reportDir: reportDir, deadline: runtime.Policy.ForensicsDeadline);
+                    stream.Add(item: gcdump.Case is string captured
+                        ? Fact("cargo.gcdump", captured)
+                        : Fact("cargo.gcdump.unavailable", string.Create(provider: CultureInfo.InvariantCulture,
+                            $"dotnet-gcdump collect did not produce an artifact within {runtime.Policy.ForensicsDeadline.TotalMilliseconds:F0}ms")));
+                    stream.Add(item: Fact("cargo.recycle.after-leak", gcdump.Case is string dump ? $"quit-ladder;gcdump={dump}" : "quit-ladder;gcdump=unavailable"));
                 }
                 Phase(SessionPhase.Unload, PhaseStatus.Ok, durationMs: unload.ElapsedMs);
                 await connection.PrepareQuitAsync(ct: runtime.Root).ConfigureAwait(false);
@@ -249,6 +254,8 @@ internal static class SessionKernel {
 
         private Fin<LiveHost> LaunchAndPoll() {
             long started = Environment.TickCount64;
+            // Launch-edge recovery clear precedes only an actual launch; host reuse never wedges on a dialog.
+            stream.AddRange(collection: Reconcile.ClearRecovery(bundle: runtime.Bundle, sessionId: sessionId).Run(runtime).IfFail(Seq<BridgeEvent>()).AsEnumerable());
             Fin<Unit> launched = runtime.Bundle.Launch(toolDeadline: runtime.Policy.ToolDeadline);
             if (launched is Fin<Unit>.Fail(Error launchError)) {
                 BridgeFault.LaunchFailed launchFault = new(Detail: launchError.Message);

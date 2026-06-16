@@ -18,19 +18,19 @@
 [PUBLIC_TYPE_SCOPE]: grammar family
 - rail: parsing
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `_binding` | extension | compiled grammar extension module |
+| [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [RAIL]                            |
+| :-----: | :--------- | :------------ | :-------------------------------- |
+|   [1]   | `_binding` | extension     | compiled grammar extension module |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: grammar operations
 - rail: parsing
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `language_typescript` | grammar | TypeScript grammar pointer |
-| [2] | `language_tsx` | grammar | TSX grammar pointer |
+| [INDEX] | [SURFACE]             | [ENTRY_FAMILY] | [RAIL]                     |
+| :-----: | :-------------------- | :------------- | :------------------------- |
+|   [1]   | `language_typescript` | grammar        | TypeScript grammar pointer |
+|   [2]   | `language_tsx`        | grammar        | TSX grammar pointer        |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

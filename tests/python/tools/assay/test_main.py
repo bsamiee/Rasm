@@ -344,6 +344,50 @@ def test_main_returncode_non_envelope_arms(result: object, expected: int) -> Non
     assert _main_mod._returncode(result) == expected
 
 
+# --- [MAIN_EXEC_FLAG]
+
+
+@pytest.mark.parametrize(
+    "argv, stripped, target",
+    [
+        (("static", "--all"), ("static", "--all"), None),  # no flag: tokens unchanged, env untouched
+        (("--exec", "ssh://h", "static"), ("static",), "ssh://h"),  # spaced form
+        (("--exec=ssh://u@h:2222", "static"), ("static",), "ssh://u@h:2222"),  # inline form
+        (("static", "--exec", "local", "--all"), ("static", "--all"), "local"),  # mid-stream spaced form survives
+        (("--exec", "local"), (), "local"),  # local target, no subcommand
+    ],
+    ids=["absent", "spaced", "inline", "mid-stream", "local-only"],
+)
+def test_extract_exec_splits_global_flag(argv: tuple[str, ...], stripped: tuple[str, ...], target: str | None) -> None:
+    """``_extract_exec`` lifts the agent-first ``--exec`` global flag out of the token stream in spaced and inline forms."""
+    assert _main_mod._extract_exec(argv) == (stripped, target)
+
+
+@pytest.mark.parametrize(
+    "flag_value, expected_env",
+    [("ssh://h:22", "ssh://h:22"), ("local", ""), ("", "")],
+    ids=["ssh-target", "local-normalizes-empty", "empty-is-local"],
+)
+def test_admit_exec_routes_flag_through_validated_env_path(flag_value: str, expected_env: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``_admit_exec`` admits the flag value through ASSAY_EXEC_TARGET so settings validate it; ``local`` normalizes to empty."""
+    monkeypatch.delenv("ASSAY_EXEC_TARGET", raising=False)
+    stripped = _main_mod._admit_exec(("--exec", flag_value, "static"))
+    assert stripped == ("static",)
+    assert _main_mod.os.environ["ASSAY_EXEC_TARGET"] == expected_env
+
+    from tools.assay.composition.settings import AssaySettings, Local, Ssh  # noqa: PLC0415  # admission round-trip through the validated env path
+
+    target = AssaySettings(exec_known_hosts=None).exec_target
+    assert isinstance(target, Ssh if expected_env else Local), f"flag {flag_value!r} did not admit the expected exec target: {target!r}"
+
+
+def test_admit_exec_absent_flag_leaves_env_untouched(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``_admit_exec`` with no ``--exec`` flag preserves any pre-existing ASSAY_EXEC_TARGET env override (env is the fallback)."""
+    monkeypatch.setenv("ASSAY_EXEC_TARGET", "ssh://envhost")
+    assert _main_mod._admit_exec(("static", "--all")) == ("static", "--all")
+    assert _main_mod.os.environ["ASSAY_EXEC_TARGET"] == "ssh://envhost", "absent flag must not clobber the env override"
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 # Import-time registration keeps the law manifest complete before collection.
 
@@ -367,6 +411,9 @@ register_laws(
             "test_main_subprocess_bootstrap_error_config_fault",
             "test_main_subprocess_failing_rail_channel_separation",
             "test_main_subprocess_human_renderer_console_stderr",
+            "test_extract_exec_splits_global_flag",
+            "test_admit_exec_routes_flag_through_validated_env_path",
+            "test_admit_exec_absent_flag_leaves_env_untouched",
         ),
     ),
     (install_tracing, ("test_install_tracing_empty_endpoint_is_noop", "test_install_tracing_non_empty_endpoint_builds_real_provider")),

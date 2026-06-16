@@ -4,10 +4,10 @@
 
 ## [1]-[PAGE_INDEX]
 
-| [INDEX] | [PAGE]                          | [OWNS]                                                        | [STATE]   |
-| :-----: | :------------------------------ | :----------------------------------------------------------- | :-------- |
-|   [1]   | [documents](documents.md)       | the document/PDF/Office/structured-text plan, report templating, artifact receipt | finalized |
-|   [2]   | [visual-export](visual-export.md)| the VisualSpec/ExportPlan axis (2D + 3D), preview, compression | finalized |
+| [INDEX] | [PAGE]                            | [OWNS]                                                                            | [STATE]   |
+| :-----: | :-------------------------------- | :-------------------------------------------------------------------------------- | :-------- |
+|   [1]   | [documents](documents.md)         | the document/PDF/Office/structured-text plan, report templating, artifact receipt | finalized |
+|   [2]   | [visual-export](visual-export.md) | the VisualSpec/ExportPlan axis (2D + 3D), preview, compression                    | finalized |
 
 ## [2]-[CATALOGUE_PENDING]
 
@@ -19,30 +19,30 @@
 
 Implementation collapses to one owner per axis. `DocumentPlan` is ONE dispatch axis with backend-per-mode policy rows collapsing 6 PDF + 3 Office + 3 structured-text backends; `VisualSpec` collapses 2D chart engines and 3D scientific viz into one visual-to-export axis with export backends as rows; `ArtifactReceipt` is one kind-discriminated receipt family replacing scattered per-type receipts. `[STATE]` carries `SPIKE` on the pillow-toolchain or native-floor probe.
 
-| [INDEX] | [AXIS/CONCERN]     | [OWNER]           | [KIND]                | [CASES]                                        |  [STATE]  |
-| :-----: | :----------------- | :--------------- | :-------------------- | :--------------------------------------------- | :-------: |
-|   [1]   | Document plan      | `DocumentPlan`    | tagged union + backend rows | pdf×6 / office×3 / structured-text×3       |   SPIKE   |
-|   [2]   | Report templating  | `ReportPlan`      | frozen owner          | sections/data-figure bind/TOC over jinja2      | FINALIZED |
-|   [3]   | Visual spec        | `VisualSpec`      | tagged union          | 2D chart engines + 3D pyvista scene            |   SPIKE   |
-|   [4]   | Export plan        | `ExportPlan`      | frozen owner + backend rows | vl-convert/kaleido/pillow                  |   SPIKE   |
-|   [5]   | Preview            | `Preview`         | static surface        | image/preview/media-detection                  |   SPIKE   |
-|   [6]   | Compression        | `Compression`     | StrEnum + algo rows   | zstd/lz4/brotli/7z                             | FINALIZED |
-|   [7]   | Artifact receipt   | `ArtifactReceipt` | tagged union          | document/pdf/office/report/preview/export modes | FINALIZED |
+| [INDEX] | [AXIS/CONCERN]    | [OWNER]           | [KIND]                      | [CASES]                                         |  [STATE]  |
+| :-----: | :---------------- | :---------------- | :-------------------------- | :---------------------------------------------- | :-------: |
+|   [1]   | Document plan     | `DocumentPlan`    | tagged union + backend rows | pdf×6 / office×3 / structured-text×3            |   SPIKE   |
+|   [2]   | Report templating | `ReportPlan`      | frozen owner                | sections/data-figure bind/TOC over jinja2       | FINALIZED |
+|   [3]   | Visual spec       | `VisualSpec`      | tagged union                | 2D chart engines + 3D pyvista scene             |   SPIKE   |
+|   [4]   | Export plan       | `ExportPlan`      | frozen owner + backend rows | vl-convert/kaleido/pillow                       |   SPIKE   |
+|   [5]   | Preview           | `Preview`         | static surface              | image/preview/media-detection                   |   SPIKE   |
+|   [6]   | Compression       | `Compression`     | StrEnum + algo rows         | zstd/lz4/brotli/7z                              | FINALIZED |
+|   [7]   | Artifact receipt  | `ArtifactReceipt` | tagged union                | document/pdf/office/report/preview/export modes | FINALIZED |
 
 ## [4]-[BUILD_ORDER]
 
-| [INDEX] | [FILE]              | [TRANSCRIBES]                                   | [GATE]         |
-| :-----: | :------------------ | :--------------------------------------------- | :------------- |
-|   [1]   | `documents.py`      | documents#DOCUMENT, #REPORT, #RECEIPT          | static + floor |
-|   [2]   | `visual_export.py`  | visual-export#VISUAL, #EXPORT, #PREVIEW, #COMPRESSION | static + floor |
+| [INDEX] | [FILE]             | [TRANSCRIBES]                                         | [GATE]         |
+| :-----: | :----------------- | :---------------------------------------------------- | :------------- |
+|   [1]   | `documents.py`     | documents#DOCUMENT, #REPORT, #RECEIPT                 | static + floor |
+|   [2]   | `visual_export.py` | visual-export#VISUAL, #EXPORT, #PREVIEW, #COMPRESSION | static + floor |
 
 ## [5]-[PROOF_GATES]
 
-| [GATE] | [RAIL]                       | [EVIDENCE]                                          |
-| :----: | :--------------------------- | :------------------------------------------------- |
-|  [G1]  | `uv lock --check`            | artifacts pins resolve against the root manifest   |
-|  [G2]  | `.api` catalogue             | every fence member resolves to an `.api` row       |
-|  [G3]  | toolchain floor              | pillow + the native VTK floor install before re-reflect |
+| [GATE] | [RAIL]            | [EVIDENCE]                                              |
+| :----: | :---------------- | :------------------------------------------------------ |
+|  [G1]  | `uv lock --check` | artifacts pins resolve against the root manifest        |
+|  [G2]  | `.api` catalogue  | every fence member resolves to an `.api` row            |
+|  [G3]  | toolchain floor   | pillow + the native VTK floor install before re-reflect |
 
 ## [6]-[PROHIBITIONS]
 
@@ -54,15 +54,15 @@ Implementation collapses to one owner per axis. `DocumentPlan` is ONE dispatch a
 
 ## [7]-[ADMISSIONS_RECORD]
 
-| [INDEX] | [PACKAGE]                                            | [PAGE]        | [CATALOGUE]            | [STATUS]          |
-| :-----: | :-------------------------------------------------- | :------------ | :--------------------- | :---------------- |
-|   [1]   | pymupdf, pypdf, pikepdf, pypdfium2, reportlab, weasyprint | documents | api-pymupdf.md ...     | catalogue-pending |
-|   [2]   | python-docx, python-pptx, openpyxl, lxml, ruamel-yaml, tomlkit | documents | api-python-docx.md ... | catalogue-pending |
-|   [3]   | jinja2                                              | documents     | api-jinja2.md          | admitted          |
-|   [4]   | altair, plotly, matplotlib, vl-convert-python, kaleido | visual-export | api-altair.md ...     | catalogue-pending |
-|   [5]   | pyvista, vtk                                        | visual-export | api-pyvista.md, api-vtk.md | catalogue-pending |
-|   [6]   | pillow, qrcode, python-magic                        | visual-export | api-pillow.md ...      | catalogue-pending |
-|   [7]   | zstandard, lz4, brotli, py7zr                       | visual-export | api-zstandard.md ...   | admitted          |
+| [INDEX] | [PACKAGE]                                                      | [PAGE]        | [CATALOGUE]                | [STATUS]          |
+| :-----: | :------------------------------------------------------------- | :------------ | :------------------------- | :---------------- |
+|   [1]   | pymupdf, pypdf, pikepdf, pypdfium2, reportlab, weasyprint      | documents     | api-pymupdf.md ...         | catalogue-pending |
+|   [2]   | python-docx, python-pptx, openpyxl, lxml, ruamel-yaml, tomlkit | documents     | api-python-docx.md ...     | catalogue-pending |
+|   [3]   | jinja2                                                         | documents     | api-jinja2.md              | admitted          |
+|   [4]   | altair, plotly, matplotlib, vl-convert-python, kaleido         | visual-export | api-altair.md ...          | catalogue-pending |
+|   [5]   | pyvista, vtk                                                   | visual-export | api-pyvista.md, api-vtk.md | catalogue-pending |
+|   [6]   | pillow, qrcode, python-magic                                   | visual-export | api-pillow.md ...          | catalogue-pending |
+|   [7]   | zstandard, lz4, brotli, py7zr                                  | visual-export | api-zstandard.md ...       | admitted          |
 
 ## [8]-[REFINEMENT_HORIZON]
 

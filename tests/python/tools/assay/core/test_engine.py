@@ -1729,10 +1729,7 @@ async def test_push_repo_pipelines_nested_tree_preserving_structure(assay_root: 
         pushed, notes = await engine_mod._push_repo(conn, plan, tuple(sorted(manifest)))
         run_dir = tmp_path / "work" / run_id
         landed = {
-            rel: (run_dir / rel).read_bytes()
-            for p in run_dir.rglob("*")
-            if p.is_file()
-            for rel in (str(p.relative_to(run_dir)).replace("\\", "/"),)
+            rel: (run_dir / rel).read_bytes() for p in run_dir.rglob("*") if p.is_file() for rel in (str(p.relative_to(run_dir)).replace("\\", "/"),)
         }
     finally:
         conn.close()
@@ -1751,7 +1748,7 @@ def test_stale_remote_runs_keeps_newest_per_host_namespace() -> None:
     """
     from tools.assay.composition.settings import run_id_host_token  # noqa: PLC0415  # token owner under test for the namespace filter
 
-    mine, theirs = "aaaaaaaa", "bbbbbbbb"
+    mine, theirs, absent = "aaaaaaaa", "bbbbbbbb", "cccccccc"
     rows = (
         (f"2026-01-01T00-00-00.0-{mine}-100", 100.0),
         (f"2026-01-02T00-00-00.0-{mine}-101", 200.0),
@@ -1764,7 +1761,7 @@ def test_stale_remote_runs_keeps_newest_per_host_namespace() -> None:
     assert keep1 == (rows[0][0], rows[1][0]), f"keep=1 must drop this host's two oldest, newest-first retained: {keep1!r}"
     assert all(theirs not in run_id and "custom" not in run_id for run_id in keep1), "a foreign or tokenless run leaked into the prune set"
     assert engine_mod._stale_remote_runs(rows, token=mine, keep=3) == (), "keep>=own count prunes nothing"
-    assert engine_mod._stale_remote_runs(rows, token="cccccccc", keep=0) == (), "an absent host token owns no runs to prune"
+    assert engine_mod._stale_remote_runs(rows, token=absent, keep=0) == (), "an absent host token owns no runs to prune"
 
 
 @pytest.mark.anyio
@@ -1777,7 +1774,6 @@ async def test_remote_prune_sweeps_only_this_hosts_stale_run_dirs(assay_root: As
     """
     from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # real sftp loopback for scandir + rmtree
     from tools.assay.composition.settings import AssaySettings  # noqa: PLC0415  # runtime settings carry the host token + retention
-    from tools.assay.core.engine import _ExecPlan  # noqa: PLC0415  # plan carries the exec target the prune reads the workroot off
 
     remote = AssaySettings.model_validate({
         "root": UPath(assay_root.root),
@@ -1799,20 +1795,8 @@ async def test_remote_prune_sweeps_only_this_hosts_stale_run_dirs(assay_root: As
         (workdir / run_id / "src" / "f.cs").write_bytes(payload)
 
     conn = await provision(SshHost(sftp_root=tmp_path)).client_factory()
-    plan = _ExecPlan(
-        argv=("echo",),
-        check=Check(tool=_stream_tool("prune-law", ("/bin/echo", "x"))),
-        cwd=remote.exec_target.remote_workroot(mine_new) if isinstance(remote.exec_target, engine_mod.Ssh) else "",
-        env={},
-        settings=remote,
-        scope=None,
-        streaming=False,
-        tail_cap=4096,
-        chunk=65536,
-        thread_limiter=None,
-    )
     try:
-        notes = await engine_mod._remote_prune(conn, plan)
+        notes = await engine_mod._remote_prune(conn, remote)
         survivors = {p.name for p in workdir.iterdir() if p.is_dir()}
     finally:
         conn.close()
@@ -1820,6 +1804,113 @@ async def test_remote_prune_sweeps_only_this_hosts_stale_run_dirs(assay_root: As
 
     assert notes == ("remote.prune.removed runs=2",), f"prune note must report exactly this host's two removed runs: {notes!r}"
     assert survivors == {mine_new, theirs}, f"prune must keep the newest own run and the foreign run, drop the rest: {survivors!r}"
+
+
+def _manifest_plan(harness: AssayHarness, tool: Tool, paths: tuple[str, ...] = ()) -> engine_mod._ExecPlan:
+    # Minimal _ExecPlan carrying just the lane discriminant (runner) and the seed tokens the manifest scoper reads.
+    return engine_mod._ExecPlan(
+        argv=tool.command,
+        check=Check(tool=tool, paths=paths),
+        cwd="",
+        env={},
+        settings=harness.settings,
+        scope=None,
+        streaming=False,
+        tail_cap=4096,
+        chunk=65536,
+        thread_limiter=None,
+    )
+
+
+def test_lane_manifest_csharp_scopes_to_transitive_project_closure(assay_root: AssayHarness) -> None:
+    """The C# lane manifest is the transitive ProjectReference closure plus root build config, not the whole git tree.
+
+    A naive subtree scope would drop ``libs/B`` when the build seeds ``libs/A`` that references it across directories;
+    the closure walk keeps B and its files while excluding the unrelated ``libs/C`` project tree entirely.
+    """
+    root = Path(str(assay_root.settings.local_root))
+    (root / "libs/A").mkdir(parents=True)
+    (root / "libs/B").mkdir(parents=True)
+    (root / "libs/C").mkdir(parents=True)
+    (root / "libs/A/A.csproj").write_bytes(b'<Project><ItemGroup><ProjectReference Include="../B/B.csproj"/></ItemGroup></Project>')
+    (root / "libs/B/B.csproj").write_bytes(b"<Project/>")
+    (root / "libs/C/C.csproj").write_bytes(b"<Project/>")
+    universe = (
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "README.md",  # repo-root non-config file: excluded (not on the closure, not a build-config anchor)
+        "libs/A/A.csproj",
+        "libs/A/Owner.cs",
+        "libs/B/B.csproj",
+        "libs/B/Dep.cs",
+        "libs/C/C.csproj",  # unrelated project: excluded
+        "libs/C/Other.cs",
+    )
+    tool = Tool("cs-build", Runner.DOTNET, ("build", str(root / "libs/A/A.csproj")), Input.OWNED, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
+    scoped = frozenset(engine_mod._lane_manifest(_manifest_plan(assay_root, tool), universe))
+    closure_files = frozenset({"libs/A/Owner.cs", "libs/B/Dep.cs"})
+    config_files = frozenset({"Directory.Build.props", "Directory.Packages.props"})
+    assert closure_files <= scoped, f"closure dropped a transitive project file: {scoped!r}"
+    assert config_files <= scoped, f"root build config must always cross: {scoped!r}"
+    assert not any(p.startswith("libs/C/") for p in scoped), f"unrelated project tree must not cross: {scoped!r}"
+    assert "README.md" not in scoped, f"a non-config repo-root file is off the C# closure: {scoped!r}"
+
+
+register_law(engine_mod._lane_manifest, "lane_manifest_csharp_scopes_to_transitive_project_closure")
+register_law(engine_mod._project_closure, "lane_manifest_csharp_scopes_to_transitive_project_closure")
+
+
+def test_lane_manifest_python_scopes_to_package_tests_and_config(assay_root: AssayHarness) -> None:
+    """The Python lane manifest is package source + tests + config anchors, never the whole git tree or C# sources."""
+    universe = ("pyproject.toml", "uv.lock", "tools/assay/core/engine.py", "tests/python/conftest.py", "libs/csharp/Rasm/Foo.cs", "docs/x.md")
+    tool = Tool("py-lint", Runner.UV, ("ruff", "check"), Input.NONE, Language.PYTHON, Claim.STATIC)
+    scoped = set(engine_mod._lane_manifest(_manifest_plan(assay_root, tool), universe))
+    expected = {"pyproject.toml", "uv.lock", "tools/assay/core/engine.py", "tests/python/conftest.py"}
+    assert scoped == expected, f"python lane scope drifted: {scoped!r}"
+
+
+register_law(engine_mod._lane_manifest, "lane_manifest_python_scopes_to_package_tests_and_config")
+register_law(engine_mod._python_manifest, "lane_manifest_python_scopes_to_package_tests_and_config")
+
+
+def test_lane_manifest_unknown_lane_keeps_full_universe(assay_root: AssayHarness) -> None:
+    """A lane with no project graph (DIRECT runner) keeps the full git universe: nothing to scope against."""
+    universe = ("a", "b/c", "d/e/f")
+    tool = Tool("direct", Runner.DIRECT, ("echo",), Input.NONE, Language.CSHARP, Claim.STATIC)
+    assert engine_mod._lane_manifest(_manifest_plan(assay_root, tool), universe) == universe
+
+
+register_law(engine_mod._lane_manifest, "lane_manifest_unknown_lane_keeps_full_universe")
+
+
+def test_remote_scope_argv_rebases_host_absolute_scope_paths(assay_root: AssayHarness) -> None:
+    """``_remote_scope_argv`` rebases CspSarifDir and --artifacts-path host-absolute paths under the remote workroot.
+
+    A remote Linux build never sees a macOS-absolute scope path (CS0016): the ``prop=<abs>`` value tail and the bare
+    ``<abs>`` token both rebind ``<local_root>/X -> <remote_root>/X``, while flags and non-local tokens pass through.
+    """
+    local_root = str(assay_root.settings.local_root)
+    remote_root = "/work/run-1"
+    argv = (
+        "dotnet",
+        "build",
+        f"-p:CspSarifDir={local_root}/.artifacts/assay/build/bridge/Release/sarif",
+        "--artifacts-path",
+        f"{local_root}/.artifacts/assay/build/bridge/Release",
+        "/p:Unrelated=value",
+        f"{local_root}/libs/A/A.csproj",
+    )
+    rebased = engine_mod._remote_scope_argv(argv, local_root=local_root, remote_root=remote_root)
+    assert rebased[2] == f"-p:CspSarifDir={remote_root}/.artifacts/assay/build/bridge/Release/sarif", f"CspSarifDir not rebased: {rebased[2]!r}"
+    assert rebased[4] == f"{remote_root}/.artifacts/assay/build/bridge/Release", f"--artifacts-path value not rebased: {rebased[4]!r}"
+    assert rebased[:2] == ("dotnet", "build"), "leading runner/verb tokens must survive the rebase"
+    assert rebased[3] == "--artifacts-path", "the --artifacts-path flag token must survive the rebase"
+    assert rebased[5] == "/p:Unrelated=value", "a prop token carrying no local-root path must pass through untouched"
+    assert rebased[6] == f"{remote_root}/libs/A/A.csproj", "a bare absolute project token under local_root rebases whole"
+
+
+register_law(engine_mod._remote_scope_argv, "remote_scope_argv_rebases_host_absolute_scope_paths")
+register_law(engine_mod._resolve_remote_plan, "remote_scope_argv_rebases_host_absolute_scope_paths")
 
 
 @contextlib.contextmanager
@@ -1852,7 +1943,10 @@ async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(  
     folding ``Artifact`` rows scope-relative with byte counts from backend metadata — no SFTP, no payload crossing the
     wire (``cat_file`` is never reached on this arm). A prefix with no keys is the absent-tree signal and degrades to a note.
     """
-    from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # ssh double satisfies the _Transfer conn type; the SHARED arm never touches it
+    from tests.python._testkit.env import (  # noqa: PLC0415  # ssh double satisfies the _Transfer conn type; the SHARED arm never touches it
+        provision,
+        SshHost,
+    )
     from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: PLC0415  # runtime scope/settings construction
     from tools.assay.core.engine import _ExecPlan, _Transfer  # noqa: PLC0415  # the transfer dispatches pull on the offload strategy
 
@@ -2043,7 +2137,9 @@ async def test_pooled_ssh_logs_close_failures(exc_factory: str) -> None:
         raise boom
 
     conn = SimpleNamespace(close=_mark_closed, wait_closed=_wait_closed)
-    async with engine_mod._pooled_ssh():
+    # Local-target settings: the teardown's once-per-fan prune is Ssh-gated, so it skips the structural conn double here.
+    settings = AssaySettings(exec_known_hosts=None)
+    async with engine_mod._pooled_ssh(settings):
         cache = engine_mod._SSH_CACHE.get()
         assert cache is not None, "_pooled_ssh did not seed the connection cache"
         cache.conns["ssh://x@host:22"] = conn  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # structural conn double

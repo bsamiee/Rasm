@@ -553,7 +553,9 @@ internal static class QuitJournal {
 }
 
 // Ownership: quit ladder. Rungs are AE terminate, Cocoa forceTerminate, then kill(2) SIGKILL;
-// SIGTERM is banned. Each rung emits a PhaseCase, and confirmed closes journal reconcile windows.
+// SIGTERM is banned. Each rung emits a PhaseCase, and every rung — confirmed close or deadline
+// elapse read as a modal block — journals its window so the next launch's Reconcile can classify
+// any recovery marker written during the quit attempt; the modal block escalates to the next rung.
 internal static class QuitLadder {
     internal static Eff<SupervisorRuntime, PhaseStatus> Run(LiveHost host, Guid sessionId, Action<BridgeEvent> publish) {
         ArgumentNullException.ThrowIfNull(argument: host);
@@ -585,20 +587,40 @@ internal static class QuitLadder {
         publish(new BridgeEvent.PhaseCase(Phase: rung, Status: closed ? PhaseStatus.Ok : PhaseStatus.Failed, DurationMs: endedMs - startedMs, Fault: null) {
             Stamp = new EventStamp(SessionId: sessionId, Sequence: 0, AtUnixMs: endedMs, Scenario: null),
         });
-        if (!closed)
-            return Option<PhaseStatus>.None;
+        // The window journals on every rung — a modal-blocked rung's RetiredAtUnixMs still bounds any
+        // marker written during the elapsed deadline, so Reconcile classifies it as supervised next launch.
         _ = QuitJournal.Append(path: runtime.JournalPath, entry: new QuitJournalEntry(
             Pid: host.Pid, StartedAtUnixMs: host.StartedAtUnixMs, RetiredAtUnixMs: endedMs, Rung: rung.Key, PipeName: host.Endpoint.PipeName));
-        return Some(value: PhaseStatus.Ok);
+        return closed ? Some(value: PhaseStatus.Ok) : Option<PhaseStatus>.None;
     }
 }
 
-// Ownership: pre-launch crash-marker reconcile. Only markers inside supervised journal windows are
-// cleared; foreign recovery state is reported and preserved.
+// Ownership: pre-launch crash-marker reconcile. Markers inside supervised journal windows clear and
+// foreign document recovery state is reported and preserved, while the recovery-dialog blockers — the
+// .rhl recovery file and the Rhinoceros-*.ips startup crash sentinels — clear unconditionally at the
+// launch edge so an unclean prior exit can never wedge a headless launch behind a recovery dialog.
 internal static class Reconcile {
     internal static Eff<SupervisorRuntime, Seq<BridgeEvent>> Run(BundleInfo bundle, Guid sessionId) {
         ArgumentNullException.ThrowIfNull(argument: bundle);
         return Eff<SupervisorRuntime, Seq<BridgeEvent>>.Lift(f: runtime => Fin.Succ(value: Sweep(runtime: runtime, bundle: bundle, sessionId: sessionId)));
+    }
+
+    // Launch-edge recovery clear: independent of journal windows, force-clears only the recovery-dialog
+    // blockers so the headless launch never stalls on a recovery prompt; foreign documents are untouched.
+    internal static Eff<SupervisorRuntime, Seq<BridgeEvent>> ClearRecovery(BundleInfo bundle, Guid sessionId) {
+        ArgumentNullException.ThrowIfNull(argument: bundle);
+        return Eff<SupervisorRuntime, Seq<BridgeEvent>>.Lift(f: runtime => Fin.Succ(value: RecoveryClear(runtime: runtime, bundle: bundle, sessionId: sessionId)));
+    }
+
+    private static Seq<BridgeEvent> RecoveryClear(SupervisorRuntime runtime, BundleInfo bundle, Guid sessionId) {
+        long now = runtime.Clock.GetUtcNow().ToUnixTimeMilliseconds();
+        string library = Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: "Library");
+        Seq<string> blockers = Seq(value: Path.Combine(path1: library, path2: "Autosave Information", path3: bundle.AutosaveMarker + ".rhl")).Filter(f: File.Exists)
+            + Reports(directory: Path.Combine(path1: library, path2: "Logs", path3: "DiagnosticReports"), pattern: bundle.CrashReportPattern);
+        return blockers.Map(f: BridgeEvent (path) => HostEvents.Fact(
+            key: TryDelete(path: path) ? "recovery.cleared" : "recovery.clear-failed",
+            sessionId: sessionId, atUnixMs: now,
+            payload: new JsonObject { ["path"] = path, ["reason"] = "pre-launch recovery-dialog blocker" }));
     }
 
     private static Seq<BridgeEvent> Sweep(SupervisorRuntime runtime, BundleInfo bundle, Guid sessionId) {

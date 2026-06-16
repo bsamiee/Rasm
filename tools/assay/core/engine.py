@@ -9,10 +9,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from enum import StrEnum
 import fcntl
-from functools import cache
+from functools import cache, reduce
 from hashlib import sha256
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shlex
 import shutil
 import signal
@@ -35,6 +35,7 @@ from tools.assay.composition.settings import (  # unconditional: beartype resolv
     AssaySettings,
     Local,
     PullStrategy,
+    resolve_tilde,
     run_id_host_token,
     size_from_info,
     Ssh,
@@ -59,7 +60,7 @@ from tools.assay.core.model import (  # noqa: TC001  # beartype resolves the Too
     Tool,
     ToolGroup,
 )
-from tools.assay.core.routing import place, Routed
+from tools.assay.core.routing import parse_csproj, place, Routed
 from tools.assay.core.status import RailStatus
 
 
@@ -121,12 +122,27 @@ _SSH_SIGNAL_STATUS: int = 255
 # The budget floor and per-file scale are operator-owned settings (transfer_budget_s / transfer_per_file_s); this constant is the
 # manifest-discovery limit only, where no settings instance is in scope yet. _transfer_budget folds (floor, file_count * per-file).
 _TRANSFER_BUDGET_S: float = 120.0
-# git ls-files is the set-algebraic push manifest: .git/.cache/.artifacts/bin/obj/node_modules/.venv are gitignored, so they never cross.
+# git ls-files is the set-algebraic source universe the lane manifest scopes: .git/.cache/.artifacts/bin/obj/node_modules/.venv are
+# gitignored, so they never cross; the build-closure derivation then narrows the universe to the lane's transitive closure.
 _PUSH_MANIFEST_ARGV: tuple[str, ...] = ("git", "ls-files", "-z")
-_SFTP_MAX_REQUESTS: int = 64
-# Per-directory put coroutines run concurrently over the one SFTP channel: asyncssh multiplexes each open/write/close on a unique
-# request id, so in-flight puts overlap their round-trip latency instead of serializing. This cap bounds memory across the fan of dirs.
-_SFTP_PUSH_CONCURRENCY: int = 16
+# Push throttle (per-directory put concurrency over the one channel, and per-put request pipelining) is operator-owned on
+# AssaySettings.sftp_push_concurrency / sftp_max_requests so a throttled or low-MaxSessions server can tune it down.
+# Root build-config files always cross with a C# closure: a transitive ProjectReference set still resolves versions, props,
+# and SDK against these repo-root anchors, so the lane manifest keeps them regardless of which project dir a closure spans.
+_CSHARP_CONFIG_FILES: frozenset[str] = frozenset((
+    ".config/dotnet-tools.json",
+    ".editorconfig",
+    "Directory.Build.props",
+    "Directory.Build.targets",
+    "Directory.Packages.props",
+    "Workspace.slnx",
+    "global.json",
+    "nuget.config",
+))
+# A Python lane pushes the package source, the test corpus, and the dependency/config anchors; nothing else in the tree is on
+# the import or test path. The prefixes are repo-relative dir roots; the files are repo-root anchors that resolve the env.
+_PYTHON_MANIFEST_PREFIXES: tuple[str, ...] = ("tools/", "tests/python/", "libs/python/", "src/")
+_PYTHON_CONFIG_FILES: frozenset[str] = frozenset((".python-version", "pyproject.toml", "uv.lock"))
 # SFTP v3 directory file-type discriminant (FILEXFER_TYPE_DIRECTORY); the remote prune sweeps only run dirs, never stray files.
 _SFTP_DIR_TYPE: int = 2
 _DOTNET_PROBE_TIMEOUT_S: float = 15.0
@@ -863,6 +879,26 @@ class _Outcome:
     signal: str
 
 
+def _remap_scope_path(token: str, *, local_root: str, remote_root: str) -> str:
+    # One derived rule remaps every build-scope path the local store seeded into argv (CspSarifDir, --artifacts-path,
+    # any future scope flag) from its macOS-absolute form to the remote workroot, so a remote Linux build never sees a
+    # host-absolute path (CS0016). The flag/value frame is preserved: a `prop=<abs>` token rebinds only the value tail,
+    # a bare `<abs>` token rebinds whole, and a token carrying no local-root path passes through untouched.
+    prefix, sep, value = token.rpartition("=")
+    target = value if sep else token
+    rebased = f"{remote_root}/{target[len(local_root) + 1 :]}" if target.startswith(f"{local_root}/") else target
+    return f"{prefix}{sep}{rebased}" if sep else rebased
+
+
+def _remote_scope_argv(argv: tuple[str, ...], *, local_root: str, remote_root: str) -> tuple[str, ...]:
+    """Rewrite every host-absolute build-scope path in argv to the remote workroot before remote argv composition.
+
+    Returns:
+        The argv with ``CspSarifDir``/``--artifacts-path``/scope paths rebased ``<local_root>/X -> <remote_root>/X``.
+    """
+    return tuple(_remap_scope_path(token, local_root=local_root, remote_root=remote_root) for token in argv)
+
+
 async def _resolve_remote_plan(plan: _ExecPlan, target: Ssh, conn: asyncssh.SSHClientConnection) -> _ExecPlan:
     # Resolve the remote ``~`` once (sftp.realpath('.') canonicalizes the SFTP login dir to the absolute home; a chroot returns '/')
     # so the SFTP push, the offload backend root, the exec ``cd``, and the injected toolchain PATH all share one absolute workroot.
@@ -872,7 +908,9 @@ async def _resolve_remote_plan(plan: _ExecPlan, target: Ssh, conn: asyncssh.SSHC
     row_env = frozenset(key for key, _ in plan.check.tool.env)
     env = settings.remote_env(dict(plan.env), home=home, forward=row_env)
     target_resolved = settings.exec_target if isinstance(settings.exec_target, Ssh) else target
-    return replace(plan, cwd=target_resolved.remote_workroot(settings.run_id), env=env, settings=settings)
+    remote_root = target_resolved.remote_workroot(settings.run_id)
+    argv = _remote_scope_argv(plan.argv, local_root=str(plan.settings.local_root), remote_root=remote_root)
+    return replace(plan, argv=argv, cwd=remote_root, env=env, settings=settings)
 
 
 async def _run_remote(plan: _ExecPlan, target: Ssh) -> Completed:
@@ -1001,15 +1039,14 @@ async def _remote_transfer(conn: asyncssh.SSHClientConnection, plan: _ExecPlan) 
     """
     manifest = await _push_manifest(plan)
     budget = _transfer_budget(plan.settings, len(manifest))
-    prune_notes: tuple[str, ...] = ()
+    # Retention prune is hoisted to the fan-level pooled-ssh teardown (once per fan), so the push leg no longer pays the
+    # per-check scandir: the current run dir always survives the sweep because it is the newest under the workroot.
     try:
         with anyio.CancelScope(shield=True), anyio.fail_after(budget):
             pushed, push_notes = await _push_repo(conn, plan, manifest)
-            # The current run dir now exists and is the newest, so the retention sweep always keeps it; orphaned prior runs prune here.
-            prune_notes = await _remote_prune(conn, plan)
     except TimeoutError:
         pushed, push_notes = 0, (f"remote.push.degraded budget_s={budget:g} files={len(manifest)}",)
-    yield _Transfer(conn=conn, plan=plan, pushed=pushed, notes=(*push_notes, *prune_notes))
+    yield _Transfer(conn=conn, plan=plan, pushed=pushed, notes=push_notes)
 
 
 def _transfer_budget(settings: AssaySettings, file_count: int = 0) -> float:
@@ -1018,13 +1055,13 @@ def _transfer_budget(settings: AssaySettings, file_count: int = 0) -> float:
 
 
 async def _push_repo(conn: asyncssh.SSHClientConnection, plan: _ExecPlan, manifest: tuple[str, ...]) -> tuple[int, tuple[str, ...]]:
-    """Push the git-tracked working tree to the remote run dir, pipelining per-directory puts over one SFTP channel.
+    """Push the lane-scoped build closure to the remote run dir, pipelining per-directory puts over one SFTP channel.
 
-    ``git ls-files`` is the set-algebraic manifest: gitignored roots (``.git``/``.cache``/``.artifacts``/``bin``/``obj``/
-    ``node_modules``/``.venv``) never cross. Each repo-relative directory group is one ``put(list, remotedir)`` preserving
-    the exact tree (``<abs-workroot>/<run_id>/<relpath>``, never a literal ``~``); the groups run concurrently under a
-    capacity limiter so asyncssh multiplexes each open/write/close on the single channel, overlapping round-trip latency
-    instead of serializing hundreds of single-file directories. Per-file ``put`` failures fold into receipt notes.
+    The manifest is the lane-scoped build closure (``_lane_manifest``) over the ``git ls-files`` universe, so gitignored
+    roots never cross and only the closure's files do. Each repo-relative directory group is one ``put(list, remotedir)``
+    preserving the exact tree (``<abs-workroot>/<run_id>/<relpath>``, never a literal ``~``); the groups run concurrently
+    under an operator-tuned capacity limiter so asyncssh multiplexes each open/write/close on the single channel,
+    overlapping round-trip latency instead of serializing single-file directories. Per-file ``put`` failures fold into notes.
 
     Returns:
         The pushed-file count and any per-file failure or empty-manifest notes.
@@ -1032,7 +1069,8 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: _ExecPlan, manife
     local_root = Path(str(plan.settings.local_root))
     remote_root = plan.cwd.rstrip("/")
     failures: list[str] = []
-    limiter = anyio.CapacityLimiter(_SFTP_PUSH_CONCURRENCY)
+    limiter = anyio.CapacityLimiter(plan.settings.sftp_push_concurrency)
+    max_requests = plan.settings.sftp_max_requests
 
     def _on_error(exc: Exception) -> None:
         failures.append(f"remote.push.failed {type(exc).__name__}: {str(exc)[:120]}")
@@ -1046,7 +1084,7 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: _ExecPlan, manife
                 remote_dir = "/".join((remote_root, *parent.split("/"))) if parent else remote_root
                 await sftp.makedirs(remote_dir, exist_ok=True)
                 locals_in_dir = [str(local_root / (f"{parent}/{name}" if parent else name)) for name in names]
-                await sftp.put(locals_in_dir, remote_dir, max_requests=_SFTP_MAX_REQUESTS, error_handler=_on_error)
+                await sftp.put(locals_in_dir, remote_dir, max_requests=max_requests, error_handler=_on_error)
 
         async with anyio.create_task_group() as tg:
             for parent, names in _grouped_by_parent(manifest).items():
@@ -1057,8 +1095,80 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: _ExecPlan, manife
 
 async def _push_manifest(plan: _ExecPlan) -> tuple[str, ...]:
     # git ls-files -z is NUL-delimited so paths with spaces/newlines survive; the agent-local root is the manifest source.
+    # The full git universe is then lane-scoped to the build closure so a remote run pushes the closure, never the whole tree.
     listed = await discover_async(_PUSH_MANIFEST_ARGV, root=plan.settings.local_root, limit_s=_TRANSFER_BUDGET_S)
-    return listed.map(lambda out: tuple(p for p in out.decode(errors="replace").split("\x00") if p)).default_value(())
+    universe = listed.map(lambda out: tuple(p for p in out.decode(errors="replace").split("\x00") if p)).default_value(())
+    return _lane_manifest(plan, universe)
+
+
+def _lane_manifest(plan: _ExecPlan, universe: tuple[str, ...]) -> tuple[str, ...]:
+    # One dispatch on the lane's runner scopes the universe to the build closure: a C# closure is the transitive
+    # ProjectReference set plus root build config; a Python lane is package + tests + config; every other lane keeps the
+    # full universe (it carries no project graph to scope against). Naive subtree-scope is rejected: cross-project refs
+    # would be dropped, so the C# arm walks ProjectReference transitively rather than trusting directory containment alone.
+    match plan.check.tool.runner:
+        case Runner.DOTNET:
+            return _csharp_manifest(plan, universe)
+        case Runner.UV | Runner.MODULE | Runner.PNPM:
+            return _python_manifest(universe)
+        case _:
+            return universe
+
+
+def _csharp_manifest(plan: _ExecPlan, universe: tuple[str, ...]) -> tuple[str, ...]:
+    seeds = _csharp_seeds(plan)
+    if not seeds:
+        return universe
+    local_root = Path(str(plan.settings.local_root))
+    projects = frozenset(p for p in universe if p.endswith(".csproj"))
+    closure = _project_closure(seeds, projects, local_root)
+    dirs = tuple(f"{rel.rpartition('/')[0]}/" if "/" in rel else "" for rel in closure)
+    return tuple(
+        rel for rel in universe if rel in _CSHARP_CONFIG_FILES or any(prefix and rel.startswith(prefix) for prefix in dirs) or rel in closure
+    )
+
+
+def _csharp_seeds(plan: _ExecPlan) -> frozenset[str]:
+    # Seeds are the closure roots: the .csproj project tokens the composed build argv carries. The project tail is bound by
+    # `place(routed, ...)` at argv composition for a `--project`/closure route, so it lands in `plan.argv`, never in
+    # `tool.command` or `check.paths` (those stay empty for a project route). Reading the composed argv keeps the seed in one
+    # source regardless of whether the project arrived as `check.tail`, an unpinned `place()` tail, or a routed file token.
+    # Absolute argv tokens are rebased to repo-relative against the agent-local root so they key into the git universe.
+    local_root = str(plan.settings.local_root)
+    return frozenset(
+        rel
+        for token in plan.argv
+        if token.endswith(".csproj")
+        for rel in (token[len(local_root) + 1 :] if token.startswith(f"{local_root}/") else token,)
+        if rel and not rel.startswith("/")
+    )
+
+
+def _project_closure(seeds: frozenset[str], projects: frozenset[str], local_root: Path) -> frozenset[str]:
+    # Forward-dependency fixed-point over the ProjectReference graph: the build of a seed needs every project the seed
+    # transitively references, so each pass folds in the references of the current members. A cross-directory reference
+    # (libs/A -> libs/B) survives because the walk follows the edge, not directory containment; subtree-scope would drop it.
+    # Complete in at most len(projects) passes since each pass adds at least one node or terminates.
+    graph = {rel: _csproj_refs(rel, local_root) & projects for rel in projects}
+    seeded = seeds & projects
+    return reduce(
+        lambda current, _: current | frozenset(ref for member in current for ref in graph.get(member, frozenset())), range(len(graph)), seeded
+    )
+
+
+def _csproj_refs(rel: str, local_root: Path) -> frozenset[str]:
+    # An unreadable or malformed project becomes an isolated graph node; the closure derivation never faults on one bad file.
+    parent = PurePosixPath(rel).parent
+    try:
+        raw = (local_root / rel).read_bytes()
+    except OSError:
+        return frozenset()
+    normalized = (os.path.normpath(str(parent / inc.replace("\\", "/"))) for inc in parse_csproj(raw, "ProjectReference", "Include"))
+    return frozenset(PurePosixPath(ref).as_posix() for ref in normalized)
+
+
+def _python_manifest(universe: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(rel for rel in universe if rel in _PYTHON_CONFIG_FILES or any(rel.startswith(prefix) for prefix in _PYTHON_MANIFEST_PREFIXES))
 
 
 def _grouped_by_parent(manifest: tuple[str, ...]) -> dict[str, tuple[str, ...]]:
@@ -1085,12 +1195,13 @@ def _stale_remote_runs(rows: tuple[tuple[str, float], ...], *, token: str, keep:
     return tuple(run_id for _, run_id in own[: max(0, len(own) - keep)])
 
 
-async def _remote_prune(conn: asyncssh.SSHClientConnection, plan: _ExecPlan) -> tuple[str, ...]:
-    """Sweep this host's stale ``<workroot>/<run_id>`` dirs on the remote over the pooled SFTP connection.
+async def _remote_prune(conn: asyncssh.SSHClientConnection, settings: AssaySettings) -> tuple[str, ...]:
+    """Sweep this host's stale ``<workroot>/<run_id>`` dirs on the remote over the pooled SFTP connection, once per fan.
 
-    The remote workroot accumulates one full git-tracked source copy per offloaded run; the local backend prunes itself
-    but the remote orphans. This bounded sweep lists ``<workroot>`` once, ranks this host's own run dirs by the same
-    ``(mtime, run_id)`` order the local retention uses, and ``rmtree``s all but ``artifact_retention`` newest — never
+    The remote workroot accumulates one git-tracked source closure per offloaded run; the local backend prunes itself
+    but the remote orphans. This bounded sweep is hoisted to the fan-level pooled-ssh teardown so it runs once for the
+    whole fan rather than once per check: it lists ``<workroot>`` a single time, ranks this host's own run dirs by the
+    same ``(mtime, run_id)`` order the local retention uses, and ``rmtree``s all but ``artifact_retention`` newest — never
     another host's runs, because the run-id host token partitions a shared workroot into disjoint per-host namespaces.
 
     Returns:
@@ -1098,13 +1209,12 @@ async def _remote_prune(conn: asyncssh.SSHClientConnection, plan: _ExecPlan) -> 
     """
     import asyncssh  # noqa: PLC0415  # lazy: bind asyncssh.Error before the except evaluates it; defer the ~83ms cold-start past import time
 
-    target = plan.settings.exec_target
-    if not isinstance(target, Ssh):  # pragma: no cover  # the remote arm only reaches here under an Ssh target
+    target = settings.exec_target
+    if not isinstance(target, Ssh):  # pragma: no cover  # the pooled-ssh teardown only prunes under an Ssh target
         return ()
-    workroot = target.workroot.rstrip("/")
-    token, keep = plan.settings.host_run_token, plan.settings.artifact_retention
+    token, keep = settings.host_run_token, settings.artifact_retention
     try:
-        stale = await _sweep_remote_runs(conn, workroot, token=token, keep=keep)
+        stale = await _sweep_remote_runs(conn, target.workroot.rstrip("/"), token=token, keep=keep)
     except (OSError, asyncssh.Error) as exc:
         return (f"remote.prune.degraded {type(exc).__name__}: {str(exc)[:120]}",)
     return (f"remote.prune.removed runs={len(stale)}",) if stale else ()
@@ -1113,11 +1223,15 @@ async def _remote_prune(conn: asyncssh.SSHClientConnection, plan: _ExecPlan) -> 
 async def _sweep_remote_runs(conn: asyncssh.SSHClientConnection, workroot: str, *, token: str, keep: int) -> tuple[str, ...]:
     """List ``<workroot>`` once, select this host's stale run dirs, and ``rmtree`` them over the pooled SFTP connection.
 
+    The ``~`` in the configured workroot is resolved against the connection's realpath on this same prune client, so the
+    sweep folds its own home resolution rather than opening a separate realpath channel.
+
     Returns:
         The run-dir basenames removed, oldest-first within this host's namespace.
     """
     rows: list[tuple[str, float]] = []
     async with await conn.start_sftp_client() as sftp:
+        workroot = resolve_tilde(workroot, str(await sftp.realpath(".")))
         async for entry in sftp.scandir(workroot):
             name = str(entry.filename)
             if name not in {".", ".."} and entry.attrs.type == _SFTP_DIR_TYPE:
@@ -1651,7 +1765,7 @@ def fan_out(
             with _TRACER.start_as_current_span("assay.fan_out") as parent:
                 parent.set_attribute("assay.checks_total", len(checks))
                 parent.set_attribute("assay.checks_concurrency", limit)
-                async with _pooled_ssh():
+                async with _pooled_ssh(settings):
                     results.update(await _fan_schedule(checks, settings=settings, scope=scope, routed=routed, deadline=deadline, limit=limit))
         finally:
             _FAN_LIMITER.reset(token)
@@ -1707,7 +1821,7 @@ async def _fan_worker(
 
 
 @contextlib.asynccontextmanager
-async def _pooled_ssh() -> AsyncIterator[None]:
+async def _pooled_ssh(settings: AssaySettings) -> AsyncIterator[None]:
     import asyncssh  # noqa: PLC0415  # lazy: the finally except evaluates asyncssh.Error; must bind before the try frame
 
     cache = _SshCache({}, anyio.Lock())
@@ -1716,6 +1830,8 @@ async def _pooled_ssh() -> AsyncIterator[None]:
         yield None
     finally:
         _SSH_CACHE.reset(token)
+        # Once-per-fan remote retention sweep, before the connections close, bounding the remote workroot's run-dir pile.
+        await _fan_prune(cache, settings)
         for conn in cache.conns.values():
             conn.close()
         for conn in cache.conns.values():
@@ -1725,6 +1841,18 @@ async def _pooled_ssh() -> AsyncIterator[None]:
                 _LOG.warning("ssh.close_failed", error=str(exc)[:200])
             except OSError as exc:
                 _LOG.warning("ssh.close_failed", error=str(exc)[:200])
+
+
+async def _fan_prune(cache: _SshCache, settings: AssaySettings) -> None:
+    # Every cached connection ran offloaded checks under this fan's exec target, so one shielded prune per pooled
+    # connection sweeps this host's stale run dirs exactly once for the whole fan rather than once per check.
+    if not isinstance(settings.exec_target, Ssh):
+        return
+    for conn in cache.conns.values():
+        with anyio.CancelScope(shield=True):
+            notes = await _remote_prune(conn, settings)
+        if notes:
+            _LOG.info("remote.prune", run_id=settings.run_id, notes=notes)
 
 
 def _total(slot: Result[Completed, Fault] | None) -> Result[Completed, Fault]:

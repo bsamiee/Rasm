@@ -19,18 +19,18 @@
 [PUBLIC_TYPE_SCOPE]: compiler surface
 - rail: transport
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `grpc_tools.protoc` | compiler module | proto compilation entry |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]   | [RAIL]                  |
+| :-----: | :------------------ | :-------------- | :---------------------- |
+|   [1]   | `grpc_tools.protoc` | compiler module | proto compilation entry |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: generation operations
 - rail: transport
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `grpc_tools.protoc.main` | generate | run the protoc compiler over `.proto` inputs |
+| [INDEX] | [SURFACE]                | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :----------------------- | :------------- | :------------------------------------------- |
+|   [1]   | `grpc_tools.protoc.main` | generate       | run the protoc compiler over `.proto` inputs |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

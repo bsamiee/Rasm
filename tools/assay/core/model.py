@@ -748,11 +748,22 @@ class BaseParams:
                 return self
 
     @staticmethod
-    def surplus(verb: str, tokens: tuple[str, ...]) -> Fault:
-        """Return a parse fault describing surplus positional tokens."""
+    def surplus(verb: str, tokens: tuple[str, ...], *, flags: tuple[str, ...] = (), arity: int | None = None) -> Fault:
+        """Return a parse fault describing surplus positional tokens.
+
+        ``flags``/``arity`` append a flag-routing tail naming the exact flags that own the slots, so a verb whose
+        positionals are all flag-backed reports which flags the surplus tokens should have used; the full body then
+        clips at the hint cap. Without them the bare token list clips at the surplus-token cap.
+        """
         joined = " ".join(tokens)
-        clipped = joined[:_SURPLUS_TOKEN_CAP] + ("…" if len(joined) > _SURPLUS_TOKEN_CAP else "")
-        return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: unexpected positional(s): {clipped}")
+        match (flags, arity):
+            case ((_, *_), int()):
+                use = f"; {verb} accepts at most {arity} positional(s) — use flags: {' '.join(flags)}"
+                body = f"{Step.PARSE}: {verb}: unexpected positional(s): {joined}{use}"
+                return Fault((), RailStatus.FAULTED, body[:_HINT_CAP] + ("…" if len(body) > _HINT_CAP else ""))
+            case _:
+                clipped = joined[:_SURPLUS_TOKEN_CAP] + ("…" if len(joined) > _SURPLUS_TOKEN_CAP else "")
+                return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: unexpected positional(s): {clipped}")
 
 
 def language_choice(verb: str, *, csharp: bool = False, python: bool = False, typescript: bool = False) -> Language | Fault | None:

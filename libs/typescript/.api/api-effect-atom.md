@@ -42,26 +42,38 @@ the combinator family that decorates an atom in place, the `Context`/`WriteConte
 the `AtomRuntime`/`RuntimeFactory` layer-scoped sub-atom builders, the `Reset`/`Interrupt` write symbols, the
 `AtomResultFn`/`PullResult` result-function shapes, the optimistic-update pair, and the registry-bound conversions.
 
-[PUBLIC_TYPE_SCOPE]: cell model, brands, read environments
+[PUBLIC_TYPE_SCOPE]: cell and runtime model
 - rail: state-cell
 
-| [INDEX] | [SYMBOL]                                                                                                                      | [TYPE_FAMILY]      | [RAIL]                                                                                                                                |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-|   [1]   | `Atom<A>`                                                                                                                     | interface          | read node (`Pipeable`+`Inspectable`); `keepAlive`/`lazy`/`idleTTL`/`read`                                                             |
-|   [2]   | `Writable<R, W=R>`                                                                                                            | interface          | `Atom<R>` + `write(ctx, value)`                                                                                                       |
-|   [3]   | `AtomRuntime<R, ER>`                                                                                                          | interface          | layer-backed atom of `Runtime<R>` + scoped `atom`/`fn`/`pull`/`subscriptionRef`/`subscribable`                                        |
-|   [4]   | `RuntimeFactory`                                                                                                              | interface          | `(layer) => AtomRuntime`; `memoMap`/`addGlobalLayer`/`withReactivity`                                                                 |
-|   [5]   | `Context`                                                                                                                     | interface          | read env (`get`/`result`/`stream`/`subscribe`/`set`/`mount`/`registry`)                                                               |
-|   [6]   | `WriteContext<A>`                                                                                                             | interface          | write env (`get`/`refreshSelf`/`setSelf`/`set`)                                                                                       |
-|   [7]   | `FnContext`                                                                                                                   | interface          | fn-atom read env (no `once`/`someOnce`/`resultOnce`)                                                                                  |
-|   [8]   | `AtomResultFn<Arg,A,E>`                                                                                                       | interface          | `Writable<Result<A,E>, Arg \| Reset \| Interrupt>`                                                                                    |
-|   [9]   | `PullResult<A,E>`                                                                                                             | type alias         | `Result<{done; items: NonEmptyArray<A>}, E \| NoSuchElementException>`                                                                |
-|  [10]   | `Type<T>` / `Success<T>` / `PullSuccess<T>` / `Failure<T>`                                                                    | type proj          | extract value / result success / pull success / result failure                                                                        |
-|  [11]   | `WithoutSerializable<T>`                                                                                                      | type proj          | drop the `Serializable` annotation (combinators return this)                                                                          |
-|  [12]   | `Serializable<S>`                                                                                                             | interface          | `[SerializableTypeId]` key+encode+decode                                                                                              |
-|  [13]   | `Reset` / `Interrupt`                                                                                                         | unique symbol      | result-fn write signals                                                                                                               |
-|  [14]   | `SerializableTypeId` (`"~effect-atom/atom/Atom/Serializable"`) / `ServerValueTypeId` (`"~effect-atom/atom/Atom/ServerValue"`) | exported brand     | nominal brands; `TypeId`/`WritableTypeId` are module-internal (not exported), surfacing only as the `Atom`/`Writable` `[TypeId]` keys |
-|  [15]   | `isAtom` / `isWritable` / `isSerializable`                                                                                    | guard / refinement | erased-cell predicates                                                                                                                |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]         |
+| :-----: | :------------------- | :------------ | :------------------- |
+|   [1]   | `Atom<A>`            | interface     | read cell            |
+|   [2]   | `Writable<R, W=R>`   | interface     | writable cell        |
+|   [3]   | `AtomRuntime<R, ER>` | interface     | layer-backed cells   |
+|   [4]   | `RuntimeFactory`     | interface     | runtime construction |
+
+[PUBLIC_TYPE_SCOPE]: read and write environments
+- rail: state-cell
+
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]      |
+| :-----: | :---------------- | :------------ | :---------------- |
+|   [1]   | `Context`         | interface     | read environment  |
+|   [2]   | `WriteContext<A>` | interface     | write environment |
+|   [3]   | `FnContext`       | interface     | result-fn context |
+
+[PUBLIC_TYPE_SCOPE]: projections, brands, guards
+- rail: state-cell
+
+| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]      | [CAPABILITY]             |
+| :-----: | :--------------------------------------------------------- | :----------------- | :----------------------- |
+|   [1]   | `AtomResultFn<Arg,A,E>`                                    | interface          | result function atom     |
+|   [2]   | `PullResult<A,E>`                                          | type alias         | stream pull result       |
+|   [3]   | `Type<T>` / `Success<T>` / `PullSuccess<T>` / `Failure<T>` | type projection    | atom type extraction     |
+|   [4]   | `WithoutSerializable<T>`                                   | type projection    | serializable drop        |
+|   [5]   | `Serializable<S>`                                          | interface          | serialization annotation |
+|   [6]   | `Reset` / `Interrupt`                                      | unique symbol      | result-fn write signals  |
+|   [7]   | `SerializableTypeId` / `ServerValueTypeId`                 | exported brand     | public brand ids         |
+|   [8]   | `isAtom` / `isWritable` / `isSerializable`                 | guard / refinement | erased-cell predicates   |
 
 ```ts contract
 // @effect-atom/atom/Atom — model + brands
@@ -291,21 +303,33 @@ union `Initial | Success | Failure`, each a `Result.Proto` carrying a `waiting` 
 lifecycle helpers, the guard/refinement family, the `match`/`matchWithError`/`matchWithWaiting` folds, the chainable
 `builder` render DSL, the `all` combinator, and the `Schema`/`Encoded`/`PartialEncoded` serialization family.
 
-[PUBLIC_TYPE_SCOPE]: union, brands, guards, constructors
+[PUBLIC_TYPE_SCOPE]: result union and proto
 - rail: state-cell
 
-| [INDEX] | [SYMBOL]                                                                                              | [SHAPE]                                                                                           |
-| :-----: | :---------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ |
-|   [1]   | `Result<A, E>`                                                                                        | `Initial<A,E> \| Success<A,E> \| Failure<A,E>`                                                    |
-|   [2]   | `Result.Proto<A,E>`                                                                                   | `Pipeable` + `[TypeId]` variance witness + `waiting`                                              |
-|   [3]   | `Initial` / `Success` / `Failure`                                                                     | `_tag`-tagged interfaces; `Success.value`+`timestamp`, `Failure.cause`+`previousSuccess`          |
-|   [4]   | `Result.Success<R>` / `Result.Failure<R>`                                                             | type-level value/error extractors                                                                 |
-|   [5]   | `With<R, A, E>`                                                                                       | re-tag a result preserving its `_tag` variant                                                     |
-|   [6]   | `isResult` / `isInitial` / `isNotInitial` / `isSuccess` / `isFailure` / `isInterrupted` / `isWaiting` | guards/refinements                                                                                |
-|   [7]   | `initial` / `success` / `failure` / `fail`                                                            | base constructors                                                                                 |
-|   [8]   | `fromExit` / `fromExitWithPrevious`                                                                   | `Exit` → `Success \| Failure`                                                                     |
-|   [9]   | `failureWithPrevious` / `failWithPrevious` / `waitingFrom` / `replacePrevious`                        | previous-value lifecycle                                                                          |
-|  [10]   | `TypeId` (`"~effect-atom/atom/Result"`)                                                               | module-internal brand (not exported); surfaces only as the `Result.Proto` `[TypeId]` variance key |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]  | [CAPABILITY]             |
+| :-----: | :------------------ | :------------- | :----------------------- |
+|   [1]   | `Result<A, E>`      | union          | three-state result       |
+|   [2]   | `Result.Proto<A,E>` | interface      | shared result protocol   |
+|   [3]   | `Initial`           | interface      | initial variant          |
+|   [4]   | `Success`           | interface      | success variant          |
+|   [5]   | `Failure`           | interface      | failure variant          |
+|   [6]   | `Result.Success<R>` | type alias     | success extraction       |
+|   [7]   | `Result.Failure<R>` | type alias     | failure extraction       |
+|   [8]   | `With<R, A, E>`     | type alias     | variant-preserving retag |
+|   [9]   | `TypeId`            | internal brand | proto brand key          |
+
+[PUBLIC_TYPE_SCOPE]: result constructors and guards
+- rail: state-cell
+
+| [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY] | [CAPABILITY]              |
+| :-----: | :-------------------------------------------------------- | :------------ | :------------------------ |
+|   [1]   | `isResult` / `isInitial` / `isNotInitial`                 | guard         | result-state refinement   |
+|   [2]   | `isSuccess` / `isFailure` / `isInterrupted` / `isWaiting` | guard         | result-state refinement   |
+|   [3]   | `initial` / `success`                                     | constructor   | initial or success value  |
+|   [4]   | `failure` / `fail`                                        | constructor   | failure value             |
+|   [5]   | `fromExit` / `fromExitWithPrevious`                       | constructor   | `Exit` conversion         |
+|   [6]   | `failureWithPrevious` / `failWithPrevious`                | constructor   | failure with history      |
+|   [7]   | `waitingFrom` / `waiting` / `touch` / `replacePrevious`   | lifecycle     | waiting/previous handling |
 
 ```ts contract
 // @effect-atom/atom/Result — union + proto

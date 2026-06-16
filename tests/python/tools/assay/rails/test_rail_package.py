@@ -339,7 +339,7 @@ register_law(publish, "fault_propagation")
 def test_verbs_acquire_slug_lease(
     verb_fn: _VerbFn, verb_name: str, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """publish wraps the pipeline under a package-<slug> slug-level lease."""
+    """Publish wraps the pipeline under a package-<slug> slug-level lease."""
     meta = yak_shape.materialize(assay_root)
     staged_report = fold(Claim.PACKAGE, verb_name, ())
     leased_resources = []
@@ -360,7 +360,7 @@ def test_verbs_acquire_slug_lease(
 
 @pytest.mark.parametrize("verb_fn, verb_name", _VERBS)
 def test_verbs_propagate_slug_resolution_fault(verb_fn: _VerbFn, verb_name: str, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """publish propagates the Fault when slug resolution fails."""
+    """Publish propagates the Fault when slug resolution fails."""
     slug_fault = Fault(("package", "missing"), message="expected one package project for missing, found 0")
     monkeypatch.setattr(_pkg_mod, "_resolve_project", lambda *_a, **_kw: Error(slug_fault))
     assert_error_status(

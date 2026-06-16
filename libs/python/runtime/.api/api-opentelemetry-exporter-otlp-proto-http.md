@@ -18,43 +18,43 @@
 [PUBLIC_TYPE_SCOPE]: exporter family
 - rail: observability
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `trace_exporter.OTLPSpanExporter` | exporter | OTLP/HTTP span exporter |
-| [2] | `metric_exporter.OTLPMetricExporter` | exporter | OTLP/HTTP metric exporter |
-| [3] | `_log_exporter.OTLPLogExporter` | exporter | OTLP/HTTP log exporter |
-| [4] | `Compression` | enum | gzip/none payload compression |
-| [5] | `trace_exporter.SpanExportResult` | result | export success/failure value |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [RAIL]                        |
+| :-----: | :----------------------------------- | :------------ | :---------------------------- |
+|   [1]   | `trace_exporter.OTLPSpanExporter`    | exporter      | OTLP/HTTP span exporter       |
+|   [2]   | `metric_exporter.OTLPMetricExporter` | exporter      | OTLP/HTTP metric exporter     |
+|   [3]   | `_log_exporter.OTLPLogExporter`      | exporter      | OTLP/HTTP log exporter        |
+|   [4]   | `Compression`                        | enum          | gzip/none payload compression |
+|   [5]   | `trace_exporter.SpanExportResult`    | result        | export success/failure value  |
 
 [PUBLIC_TYPE_SCOPE]: configuration constant family
 - rail: observability
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `trace_exporter.DEFAULT_ENDPOINT` | constant | default collector base URL |
-| [2] | `trace_exporter.DEFAULT_TRACES_EXPORT_PATH` | constant | default traces path |
-| [3] | `trace_exporter.DEFAULT_TIMEOUT` | constant | default export timeout |
-| [4] | `trace_exporter.DEFAULT_COMPRESSION` | constant | default compression |
-| [5] | `OTEL_EXPORTER_OTLP_ENDPOINT` | env knob | collector endpoint override |
-| [6] | `OTEL_EXPORTER_OTLP_HEADERS` | env knob | auth/header override |
-| [7] | `OTEL_EXPORTER_OTLP_TIMEOUT` | env knob | timeout override |
-| [8] | `OTEL_EXPORTER_OTLP_COMPRESSION` | env knob | compression override |
-| [9] | `OTEL_EXPORTER_OTLP_CERTIFICATE` | env knob | TLS CA certificate |
-| [10] | `OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE` | env knob | mTLS client certificate |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [RAIL]                      |
+| :-----: | :------------------------------------------ | :------------ | :-------------------------- |
+|   [1]   | `trace_exporter.DEFAULT_ENDPOINT`           | constant      | default collector base URL  |
+|   [2]   | `trace_exporter.DEFAULT_TRACES_EXPORT_PATH` | constant      | default traces path         |
+|   [3]   | `trace_exporter.DEFAULT_TIMEOUT`            | constant      | default export timeout      |
+|   [4]   | `trace_exporter.DEFAULT_COMPRESSION`        | constant      | default compression         |
+|   [5]   | `OTEL_EXPORTER_OTLP_ENDPOINT`               | env knob      | collector endpoint override |
+|   [6]   | `OTEL_EXPORTER_OTLP_HEADERS`                | env knob      | auth/header override        |
+|   [7]   | `OTEL_EXPORTER_OTLP_TIMEOUT`                | env knob      | timeout override            |
+|   [8]   | `OTEL_EXPORTER_OTLP_COMPRESSION`            | env knob      | compression override        |
+|   [9]   | `OTEL_EXPORTER_OTLP_CERTIFICATE`            | env knob      | TLS CA certificate          |
+|  [10]   | `OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE`     | env knob      | mTLS client certificate     |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: exporter operations
 - rail: observability
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `OTLPSpanExporter(endpoint=..., headers=..., timeout=..., compression=...)` | build | construct span exporter |
-| [2] | `OTLPMetricExporter(...)` | build | construct metric exporter |
-| [3] | `OTLPLogExporter(...)` | build | construct log exporter |
-| [4] | `OTLPSpanExporter.export` | export | transmit a span batch |
-| [5] | `OTLPSpanExporter.shutdown` | drain | stop the exporter |
-| [6] | `OTLPSpanExporter.force_flush` | drain | flush pending spans |
+| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY] | [RAIL]                    |
+| :-----: | :-------------------------------------------------------------------------- | :------------- | :------------------------ |
+|   [1]   | `OTLPSpanExporter(endpoint=..., headers=..., timeout=..., compression=...)` | build          | construct span exporter   |
+|   [2]   | `OTLPMetricExporter(...)`                                                   | build          | construct metric exporter |
+|   [3]   | `OTLPLogExporter(...)`                                                      | build          | construct log exporter    |
+|   [4]   | `OTLPSpanExporter.export`                                                   | export         | transmit a span batch     |
+|   [5]   | `OTLPSpanExporter.shutdown`                                                 | drain          | stop the exporter         |
+|   [6]   | `OTLPSpanExporter.force_flush`                                              | drain          | flush pending spans       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

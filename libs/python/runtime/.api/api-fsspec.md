@@ -18,40 +18,40 @@
 [PUBLIC_TYPE_SCOPE]: filesystem family
 - rail: resources
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `AbstractFileSystem` | filesystem | protocol-agnostic filesystem base |
-| [2] | `asyn.AsyncFileSystem` | filesystem | async filesystem base |
-| [3] | `FSMap` | mapping | dict-like key/value over a filesystem |
-| [4] | `Callback` | callback | transfer-progress hook |
-| [5] | `caching.BaseCache` | cache | block-cache strategy base |
-| [6] | `registry` | registry | protocol→implementation map |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                                |
+| :-----: | :--------------------- | :------------ | :------------------------------------ |
+|   [1]   | `AbstractFileSystem`   | filesystem    | protocol-agnostic filesystem base     |
+|   [2]   | `asyn.AsyncFileSystem` | filesystem    | async filesystem base                 |
+|   [3]   | `FSMap`                | mapping       | dict-like key/value over a filesystem |
+|   [4]   | `Callback`             | callback      | transfer-progress hook                |
+|   [5]   | `caching.BaseCache`    | cache         | block-cache strategy base             |
+|   [6]   | `registry`             | registry      | protocol→implementation map           |
 
 [PUBLIC_TYPE_SCOPE]: fault family
 - rail: resources
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `FSTimeoutError` | fault | backend operation timeout |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [RAIL]                    |
+| :-----: | :--------------- | :------------ | :------------------------ |
+|   [1]   | `FSTimeoutError` | fault         | backend operation timeout |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: resolution and access operations
 - rail: resources
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `filesystem` | resolve | filesystem from protocol + options |
-| [2] | `url_to_fs` | resolve | filesystem + path from a URL |
-| [3] | `get_fs_token_paths` | resolve | filesystem, cache token, and paths |
-| [4] | `get_filesystem_class` | resolve | implementation class for protocol |
-| [5] | `open` | access | open a single file |
-| [6] | `open_files` | access | open a glob of files |
-| [7] | `open_local` | access | materialise remote to a local path |
-| [8] | `get_mapper` | access | `FSMap` view over a root |
-| [9] | `register_implementation` | registry | register a protocol backend |
-| [10] | `available_protocols` | registry | list registered protocols |
-| [11] | `available_compressions` | registry | list compression codecs |
+| [INDEX] | [SURFACE]                 | [ENTRY_FAMILY] | [RAIL]                             |
+| :-----: | :------------------------ | :------------- | :--------------------------------- |
+|   [1]   | `filesystem`              | resolve        | filesystem from protocol + options |
+|   [2]   | `url_to_fs`               | resolve        | filesystem + path from a URL       |
+|   [3]   | `get_fs_token_paths`      | resolve        | filesystem, cache token, and paths |
+|   [4]   | `get_filesystem_class`    | resolve        | implementation class for protocol  |
+|   [5]   | `open`                    | access         | open a single file                 |
+|   [6]   | `open_files`              | access         | open a glob of files               |
+|   [7]   | `open_local`              | access         | materialise remote to a local path |
+|   [8]   | `get_mapper`              | access         | `FSMap` view over a root           |
+|   [9]   | `register_implementation` | registry       | register a protocol backend        |
+|  [10]   | `available_protocols`     | registry       | list registered protocols          |
+|  [11]   | `available_compressions`  | registry       | list compression codecs            |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

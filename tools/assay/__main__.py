@@ -6,6 +6,7 @@ unexpected faults, then drains tracing outside the command result channel.
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
+import os
 import sys
 from typing import Annotated, Final
 
@@ -25,7 +26,45 @@ from tools.assay.core.model import wire_safe
 from tools.assay.core.status import Step
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+# The agent-first offload surface: `--exec ssh://[user@]host[:port]` (or `--exec local`) is the primary, --help-visible
+# way to select the execution target; it is admitted through the same validated ASSAY_EXEC_TARGET env path, which stays
+# the fallback override. The flag is extracted at the entrypoint boundary so the rest of the token stream dispatches unchanged.
+_EXEC_FLAG: Final[str] = "--exec"
+_EXEC_ENV: Final[str] = "ASSAY_EXEC_TARGET"
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _extract_exec(tokens: tuple[str, ...]) -> tuple[tuple[str, ...], str | None]:
+    """Split a leading-or-inline ``--exec <target>`` global flag out of the raw token stream.
+
+    The flag admits ``--exec ssh://...`` (two tokens), ``--exec=ssh://...`` (one token), and ``--exec local`` / ``--exec ""``
+    for the local case. The first occurrence wins; the value is admitted downstream through the validated exec-target path.
+
+    Returns:
+        The token stream with the flag removed, and the extracted target value (``None`` when the flag is absent).
+    """
+    inline = next((i for i, token in enumerate(tokens) if token.startswith(f"{_EXEC_FLAG}=")), None)
+    spaced = next((i for i, token in enumerate(tokens) if token == _EXEC_FLAG and i + 1 < len(tokens)), None)
+    match (inline, spaced):
+        case (int() as i, _) if spaced is None or i <= spaced:
+            return (*tokens[:i], *tokens[i + 1 :]), tokens[i][len(_EXEC_FLAG) + 1 :]
+        case (_, int() as i):
+            return (*tokens[:i], *tokens[i + 2 :]), tokens[i + 1]
+        case _:
+            return tokens, None
+
+
+def _admit_exec(tokens: tuple[str, ...]) -> tuple[str, ...]:
+    # Extract --exec and admit it through the validated ASSAY_EXEC_TARGET env path so the flag is the primary surface and
+    # the env var stays a fallback override; `local` normalizes to the empty (Local) value the modal value object admits.
+    stripped, target = _extract_exec(tokens)
+    if target is not None:
+        os.environ[_EXEC_ENV] = "" if target == "local" else target  # noqa: TID251  # entrypoint admission: flag -> validated settings env path
+    return stripped
 
 
 def _no_command(tokens: tuple[str, ...]) -> bool:
@@ -91,8 +130,8 @@ def main(argv: list[str] | None = None) -> int:
         Process exit code derived from the dispatched Envelope.
     """
     configure_logging()  # explicit call aligns subprocess and import-time logging state
-    # Scrub surrogateescape tokens so untrusted argv cannot crash the wire encoder.
-    tokens = tuple(wire_safe(token) for token in (sys.argv[1:] if argv is None else argv))
+    # Scrub surrogateescape tokens so untrusted argv cannot crash the wire encoder, then admit the agent-first --exec flag.
+    tokens = _admit_exec(tuple(wire_safe(token) for token in (sys.argv[1:] if argv is None else argv)))
 
     def _install() -> None:
         try:

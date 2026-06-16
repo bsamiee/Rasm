@@ -4,10 +4,10 @@ External-API and structural-parsing evidence, plus the private entrypoint gramma
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | API       | API + structural-parsing evidence records                      |
-|   [2]   | ENTRY     | the private companion entrypoint grammar                       |
+| [INDEX] | [CLUSTER] | [OWNS]                                    |
+| :-----: | :-------- | :---------------------------------------- |
+|   [1]   | API       | API + structural-parsing evidence records |
+|   [2]   | ENTRY     | the private companion entrypoint grammar  |
 
 ## [2]-[API]
 

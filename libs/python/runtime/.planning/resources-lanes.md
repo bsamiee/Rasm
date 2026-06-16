@@ -4,10 +4,10 @@ Resource roots, transport resources, and bounded structured-concurrency lanes. `
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | RESOURCE  | resource roots, references, transport resources                |
-|   [2]   | LANE      | bounded anyio task groups, drain receipts, the stage DAG       |
+| [INDEX] | [CLUSTER] | [OWNS]                                                   |
+| :-----: | :-------- | :------------------------------------------------------- |
+|   [1]   | RESOURCE  | resource roots, references, transport resources          |
+|   [2]   | LANE      | bounded anyio task groups, drain receipts, the stage DAG |
 
 ## [2]-[RESOURCE]
 

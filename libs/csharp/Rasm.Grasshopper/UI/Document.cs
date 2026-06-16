@@ -75,7 +75,7 @@ internal sealed partial class DocumentDeleteMode {
     internal partial int Run(GhDocumentMethods methods, IDocumentObject[]? targets, Seq<WireEnds> wires, ActionList actions);
 
     // Key bit-packing: bit1 = targets present (0 selection, 2 objects), bit0 = full (0 data-only, 1 full).
-    internal static DocumentDeleteMode Resolve(IDocumentObject[]? targets, bool dataOnly) =>
+    internal static DocumentDeleteMode OfScope(IDocumentObject[]? targets, bool dataOnly) =>
         Get((targets is null ? 0 : 2) | (dataOnly ? 0 : 1));
 }
 
@@ -232,27 +232,55 @@ public sealed partial class GripKind {
 
 [SkipUnionOps]
 [Union]
-public partial record FindCriterion {
-    private FindCriterion() { }
-    public sealed record NearPointCase(PointF Point, int MaxResults, float MaxDistance) : FindCriterion;
-    public sealed record ByDrawOrderCase(bool Foreground, bool Background) : FindCriterion;
-    public sealed record GraphCase(GraphKey Anchor, WireTraversal Direction, WireObjectLimit MaxObjects) : FindCriterion;
-    public sealed record ByNameCase(string Substring, bool CaseInsensitive, ObjectScope Scope) : FindCriterion;
-    public sealed record ByActivityCase(bool Enabled) : FindCriterion;
-    public sealed record ByGroupCase(Guid GroupId) : FindCriterion;
+public partial record FindStrategy {
+    private FindStrategy() { }
+    public sealed record ProximityCase(PointF Point, int MaxResults, float MaxDistance) : FindStrategy;
+    public sealed record OrderCase(bool Foreground, bool Background) : FindStrategy;
+    public sealed record GraphCase(GraphKey Anchor, WireTraversal Direction, WireObjectLimit MaxObjects) : FindStrategy;
+    public sealed record NameCase(string Substring, bool CaseInsensitive, ObjectScope Scope) : FindStrategy;
+    public sealed record StateCase(bool Enabled) : FindStrategy;
+    public sealed record MembershipCase(Guid GroupId) : FindStrategy;
 
     // 32f mirrors Layout.PickRadius.Default; a compile-time default cannot reference the static-readonly value object.
-    public static FindCriterion Near(PointF point, int maxResults = 16, float maxDistance = 32f) => new NearPointCase(Point: point, MaxResults: maxResults, MaxDistance: maxDistance);
-    public static FindCriterion DrawOrder(bool foreground = true, bool background = true) => new ByDrawOrderCase(Foreground: foreground, Background: background);
-    public static FindCriterion Upstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Upstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
-    public static FindCriterion Upstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Upstream, MaxObjects: maxObjects ?? WireObjectLimit.Default);
-    public static FindCriterion Downstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Downstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
-    public static FindCriterion Downstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Downstream, MaxObjects: maxObjects ?? WireObjectLimit.Default);
-    public static FindCriterion ByName(string substring, bool caseInsensitive = true, ObjectScope? scope = null) => new ByNameCase(Substring: substring, CaseInsensitive: caseInsensitive, Scope: scope ?? ObjectScope.Primary);
+    public static FindStrategy Near(PointF point, int maxResults = 16, float maxDistance = 32f) => new ProximityCase(Point: point, MaxResults: maxResults, MaxDistance: maxDistance);
+    public static FindStrategy DrawOrder(bool foreground = true, bool background = true) => new OrderCase(Foreground: foreground, Background: background);
+    public static FindStrategy Upstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Upstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
+    public static FindStrategy Upstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Upstream, MaxObjects: maxObjects ?? WireObjectLimit.Default);
+    public static FindStrategy Downstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Downstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
+    public static FindStrategy Downstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Downstream, MaxObjects: maxObjects ?? WireObjectLimit.Default);
+    public static FindStrategy ByName(string substring, bool caseInsensitive = true, ObjectScope? scope = null) => new NameCase(Substring: substring, CaseInsensitive: caseInsensitive, Scope: scope ?? ObjectScope.Primary);
     // Host FindBySearch is an empty-array stub, so Search aliases name matching over all primary/secondary objects.
-    public static FindCriterion Search(string query, bool caseInsensitive = true) => new ByNameCase(Substring: query, CaseInsensitive: caseInsensitive, Scope: ObjectScope.PrimaryAndSecondary);
-    public static FindCriterion ByActivity(bool enabled) => new ByActivityCase(Enabled: enabled);
-    public static FindCriterion ByGroup(Guid groupId) => new ByGroupCase(GroupId: groupId);
+    public static FindStrategy Search(string query, bool caseInsensitive = true) => new NameCase(Substring: query, CaseInsensitive: caseInsensitive, Scope: ObjectScope.PrimaryAndSecondary);
+    public static FindStrategy ByActivity(bool enabled) => new StateCase(Enabled: enabled);
+    public static FindStrategy ByGroup(Guid groupId) => new MembershipCase(GroupId: groupId);
+
+    internal Fin<Seq<DocumentObjectSnapshot>> Apply(GhObjectList objects) =>
+        Switch(
+            state: objects,
+            // FindNear ranks by bounding-box edge distance (0 inside the box), nearest first, capped at maxResults/maxDistance.
+            proximityCase: static (objs, n) =>
+                from point in Op.Of(name: nameof(Near)).AcceptPoint(value: n.Point, detail: "non-finite point")
+                from maxResults in Optional(n.MaxResults).Filter(static count => count > 0)
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Near)), detail: "maxResults must be positive"))
+                from maxDistance in Op.Of(name: nameof(Near)).AcceptFinite(value: n.MaxDistance, detail: "maxDistance must be finite and non-negative", nonNegative: true)
+                select toSeq(objs.FindNear<IDocumentObject>(locus: point, maxResults: maxResults, maxDistance: maxDistance)).Map(UiRail.DocumentObjectSnapshotOf),
+            orderCase: static (objs, d) =>
+                Fin.Succ(value: toSeq(objs.ObjectsByDrawOrder(includeForeground: d.Foreground, includeBackground: d.Background)).Map(UiRail.DocumentObjectSnapshotOf)),
+            graphCase: static (objs, graph) => Wire.GraphObjects(objects: objs, anchor: graph.Anchor, direction: graph.Direction, maxObjects: graph.MaxObjects)
+                .Map(matches => matches.Map(UiRail.DocumentObjectSnapshotOf)),
+            nameCase: static (objs, n) =>
+                Op.Of(name: nameof(ByName)).AcceptText(value: n.Substring)
+                    .Map(text => toSeq(n.Scope.Resolve(objects: objs))
+                        .Filter(o => o.Nomen.Name.Contains(value: text, comparisonType: n.CaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                        .Map(UiRail.DocumentObjectSnapshotOf)),
+            stateCase: static (objs, a) =>
+                Fin.Succ(value: toSeq(objs.Forwards)
+                    .Filter(o => o.Activity == (a.Enabled ? ObjectActivity.Enabled : ObjectActivity.Disabled))
+                    .Map(UiRail.DocumentObjectSnapshotOf)),
+            membershipCase: static (objs, g) =>
+                Fin.Succ(value: Optional(objs.FindGroup(instanceId: g.GroupId))
+                    .Map(grp => toSeq(grp.ContentIds).Choose(id => Optional(objs.Find(instanceId: id))).Map(UiRail.DocumentObjectSnapshotOf))
+                    .IfNone(Seq<DocumentObjectSnapshot>())));
 }
 
 [SkipUnionOps]
@@ -264,7 +292,7 @@ public partial record DocumentQuery {
     public sealed record ObjectCase(Guid Id) : DocumentQuery;
     public sealed record ParameterCase(Guid Id) : DocumentQuery;
     public sealed record GripCase(PointF Point, GripKind Kind) : DocumentQuery;
-    public sealed record FindCase(FindCriterion Criterion) : DocumentQuery;
+    public sealed record FindCase(FindStrategy Strategy) : DocumentQuery;
     public sealed record MetaNamesCase : DocumentQuery;
     public sealed record MetaValuesCase : DocumentQuery;
     public sealed record UniverseCase : DocumentQuery;
@@ -277,7 +305,7 @@ public partial record DocumentQuery {
     public static DocumentQuery Object(Guid id) => new ObjectCase(Id: id);
     public static DocumentQuery Parameter(Guid id) => new ParameterCase(Id: id);
     public static DocumentQuery Grip(PointF point, GripKind? kind = null) => new GripCase(Point: point, Kind: kind ?? GripKind.InletOrOutlet);
-    public static DocumentQuery Find(FindCriterion criterion) => new FindCase(Criterion: criterion);
+    public static DocumentQuery Find(FindStrategy strategy) => new FindCase(Strategy: strategy);
     public static readonly DocumentQuery MetaNames = new MetaNamesCase();
     public static readonly DocumentQuery MetaValues = new MetaValuesCase();
     public static readonly DocumentQuery Universe = new UniverseCase();
@@ -566,21 +594,31 @@ public sealed partial class SolutionControl {
     internal partial Fin<Unit> Run(SolutionServer server, GhDocument document, SolutionMode mode);
 }
 
+[SmartEnum<int>]
+public sealed partial class DocumentHistoryMode {
+    public static readonly DocumentHistoryMode Undo = new(key: 0, op: Op.Of(name: nameof(Undo)), run: static document => { document.Undo.Undo(); return unit; });
+    public static readonly DocumentHistoryMode Redo = new(key: 1, op: Op.Of(name: nameof(Redo)), run: static document => { document.Undo.Redo(); return unit; });
+    public static readonly DocumentHistoryMode Clear = new(key: 2, op: Op.Of(name: nameof(Clear)), run: static document => { document.Undo.Clear(); return unit; });
+
+    public Op Op { get; }
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Run(GhDocument document);
+}
+
 [GenerateUnionOps]
 [Union(SwitchMapStateParameterName = "scope")]
 public partial record DocumentHistory {
     private DocumentHistory() { }
     public sealed partial record QueryCase : DocumentHistory;
-    public sealed partial record UndoCase : DocumentHistory;
-    public sealed partial record RedoCase : DocumentHistory;
-    public sealed partial record ClearCase : DocumentHistory;
+    public sealed partial record MutateCase(DocumentHistoryMode Mode) : DocumentHistory;
     public sealed partial record ShowHistoryCase : DocumentHistory;
     public sealed partial record TargetCase(int Ordinal, bool IsRedo) : DocumentHistory;
 
     public static readonly DocumentHistory Query = new QueryCase();
-    public static readonly DocumentHistory Undo = new UndoCase();
-    public static readonly DocumentHistory Redo = new RedoCase();
-    public static readonly DocumentHistory Clear = new ClearCase();
+    public static readonly DocumentHistory Undo = new MutateCase(Mode: DocumentHistoryMode.Undo);
+    public static readonly DocumentHistory Redo = new MutateCase(Mode: DocumentHistoryMode.Redo);
+    public static readonly DocumentHistory Clear = new MutateCase(Mode: DocumentHistoryMode.Clear);
     public static readonly DocumentHistory ShowHistory = new ShowHistoryCase();
     public static DocumentHistory Target(int ordinal, bool redo = false) => new TargetCase(Ordinal: ordinal, IsRedo: redo);
 
@@ -589,14 +627,8 @@ public partial record DocumentHistory {
             queryCase: static _ => GhUi.Document(
                 run: static scope => scope.NeedDocument().Map(document => (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document))),
                 repaint: RepaintRequest.None),
-            undoCase: static _ => GhUi.Document(
-                run: static scope => Document.MutateHistory(scope: scope, op: Op.Of(name: nameof(Undo)), run: static document => document.Undo.Undo()),
-                repaint: RepaintRequest.Canvas),
-            redoCase: static _ => GhUi.Document(
-                run: static scope => Document.MutateHistory(scope: scope, op: Op.Of(name: nameof(Redo)), run: static document => document.Undo.Redo()),
-                repaint: RepaintRequest.Canvas),
-            clearCase: static _ => GhUi.Document(
-                run: static scope => Document.MutateHistory(scope: scope, op: Op.Of(name: nameof(Clear)), run: static document => document.Undo.Clear()),
+            mutateCase: static m => GhUi.Document(
+                run: scope => Document.MutateHistory(scope: scope, op: m.Mode.Op, run: m.Mode.Run),
                 repaint: RepaintRequest.Canvas),
             showHistoryCase: static _ => GhUi.Canvas(run: static scope => Document.ShowHistory(scope: scope), repaint: RepaintRequest.None),
             targetCase: static t => GhUi.Document(
@@ -1161,7 +1193,7 @@ public abstract partial record DocumentMutation {
                         actions: s.actions);
                     return unit;
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: $"IsolateObject threw: {error.Message}"))
-                select DocumentMutationReceipt.From(changed: s.actions.Count > before)),
+                select DocumentMutationReceipt.Count(changed: s.actions.Count > before ? 1 : 0)),
             migrateCase: static (s, migrate) => {
                 Op op = Op.Of(name: nameof(Migrate));
                 return from location in op.AcceptPoint(value: migrate.Location, detail: "non-finite location")
@@ -1201,7 +1233,7 @@ public abstract partial record DocumentMutation {
             },
             mergeCase: static (s, merge) => Op.Of(name: nameof(Merge)).Attempt(
                 body: () => {
-                    // Absorb already runs RepairPins (decompile-verified); no second pass.
+                    // Absorb already runs RepairPins, so no second pass.
                     int changed = s.objects.Absorb(other: merge.Source, reinstateInputs: merge.ReinstateInputs, reinstateOutputs: merge.ReinstateOutputs, actions: s.actions);
                     return DocumentMutationReceipt.Count(changed: changed);
                 },
@@ -1322,10 +1354,11 @@ internal static partial class Document {
                 repaint: m.Policy.RepaintOrDefault),
             clipboardCase: static c => new GrasshopperUiIntent<DocumentResult>(
                 policy: c.Op.Switch(
-                    verbCase: static v => (v.Verb == ClipboardVerb.Copy) switch {
-                        true => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-                        false => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-                    }),
+                    verbCase: static v => v.Verb.Switch(
+                        copy: static () => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+                        cut: static () => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+                        paste: static () => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+                        pasteGh1Xml: static () => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas))),
                 run: scope => RunClipboard(scope: scope, op: c.Op)
                     .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta))),
             historyCase: static h => h.Request.Plan(),
@@ -1384,7 +1417,7 @@ internal static partial class Document {
                 from objs in s.NeedObjects()
                 select (DocumentResult)new DocumentResult.GripResult(Grip: g.Kind.Resolve(objs: objs, point: point)),
             findCase: static (s, f) =>
-                s.NeedObjects().Bind(objs => Find(objects: objs, criterion: f.Criterion)
+                s.NeedObjects().Bind(objs => f.Strategy.Apply(objects: objs)
                     .Map(matches => (DocumentResult)new DocumentResult.FindResult(Matches: matches))),
             metaNamesCase: static (s, _) =>
                 s.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.MetaNamesResult(Names: toSeq(objs.MetaNames()))),
@@ -1422,10 +1455,10 @@ internal static partial class Document {
             what: "Document.CustomValues")
         select (DocumentResult)new DocumentResult.CustomValueResult(Key: validKey, Value: doc.CustomValues.Get(key: validKey, @default: string.Empty));
 
-    internal static Fin<DocumentResult> MutateHistory(GrasshopperUi.Scope scope, Op op, Action<GhDocument> run) =>
+    internal static Fin<DocumentResult> MutateHistory(GrasshopperUi.Scope scope, Op op, Func<GhDocument, Unit> run) =>
         from document in scope.NeedDocument()
         let before = document.Modifications
-        from _ in Try.lift(f: () => { run(document); return unit; }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: error.Message))
+        from _ in Try.lift(f: () => run(document)).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: error.Message))
         from changed in document.Modifications == before
             ? Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "nothing to undo/redo/clear"))
             : Fin.Succ(value: unit)
@@ -1447,7 +1480,7 @@ internal static partial class Document {
         from node in toSeq(redo ? document.Undo.CentralRedoSequence : document.Undo.CentralUndoSequence)
             .Skip(validOrdinal).Head
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: string.Create(CultureInfo.InvariantCulture, $"no history node at ordinal {ordinal}")))
-        from _gate in (node.IsRoot, node.Record.State == (redo ? Grasshopper2.Undo.State.Redo : Grasshopper2.Undo.State.Undo)) switch {
+        from _gate in (node.IsRoot, node.Record is { } record && record.State == (redo ? Grasshopper2.Undo.State.Redo : Grasshopper2.Undo.State.Undo)) switch {
             (true, _) => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: "root history node cannot be replayed")),
             (_, false) => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: redo ? "history node is not in a redoable state" : "history node is not in an undoable state")),
             _ => Fin.Succ(value: unit),
@@ -1471,14 +1504,19 @@ internal static partial class Document {
     private static Fin<Snapshot<DocumentMutationDelta>> RunClipboard(GrasshopperUi.Scope scope, ClipboardOp op) =>
         op.Switch(
             state: scope,
-            verbCase: static (s, clipboard) =>
-                clipboard.Verb == ClipboardVerb.Copy ? CopyClipboard(scope: s, clipboard: clipboard)
-                : clipboard.Verb == ClipboardVerb.PasteGh1Xml ? UiRail.RunDocumentMutation(scope: s, op: Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)), mutate: PasteGh1Clipboard)
-                : UiRail.RunDocumentMutation(
-                    scope: s,
-                    op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Clipboard.{clipboard.Verb}")),
-                    mutate: (methods, _, actions) => clipboard.Verb.Run(methods: methods, kind: clipboard.Kind, behaviour: clipboard.Behaviour, actions: actions)
-                        .Map(DocumentMutationReceipt.Count)));
+            verbCase: static (s, clipboard) => clipboard.Verb.Switch(
+                state: (Scope: s, Clipboard: clipboard),
+                copy: static st => CopyClipboard(scope: st.Scope, clipboard: st.Clipboard),
+                cut: static st => RunVerbMutation(scope: st.Scope, clipboard: st.Clipboard),
+                paste: static st => RunVerbMutation(scope: st.Scope, clipboard: st.Clipboard),
+                pasteGh1Xml: static st => UiRail.RunDocumentMutation(scope: st.Scope, op: Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)), mutate: PasteGh1Clipboard)));
+
+    private static Fin<Snapshot<DocumentMutationDelta>> RunVerbMutation(GrasshopperUi.Scope scope, ClipboardOp.VerbCase clipboard) =>
+        UiRail.RunDocumentMutation(
+            scope: scope,
+            op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Clipboard.{clipboard.Verb}")),
+            mutate: (methods, _, actions) => clipboard.Verb.Run(methods: methods, kind: clipboard.Kind, behaviour: clipboard.Behaviour, actions: actions)
+                .Map(DocumentMutationReceipt.Count));
 
     private static Fin<DocumentMutationReceipt> PasteGh1Clipboard(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
         Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)).Attempt(body: () => {
@@ -1509,34 +1547,6 @@ internal static partial class Document {
                 After: UiRail.DocumentSnapshotOf(document: document, objects: objects),
                 Created: receipt.Created),
             OwnerId: Some(UiDocumentIdentity.Of(document: document)));
-
-    private static Fin<Seq<DocumentObjectSnapshot>> Find(GhObjectList objects, FindCriterion criterion) =>
-        criterion.Switch(
-            state: objects,
-            // FindNear ranks by bounding-box edge distance (0 inside the box), nearest first, capped at maxResults/maxDistance.
-            nearPointCase: static (objs, n) =>
-                from point in Op.Of(name: nameof(Find)).AcceptPoint(value: n.Point, detail: "non-finite point")
-                from maxResults in Optional(n.MaxResults).Filter(static count => count > 0)
-                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Find)), detail: "maxResults must be positive"))
-                from maxDistance in Op.Of(name: nameof(Find)).AcceptFinite(value: n.MaxDistance, detail: "maxDistance must be finite and non-negative", nonNegative: true)
-                select toSeq(objs.FindNear<IDocumentObject>(locus: point, maxResults: maxResults, maxDistance: maxDistance)).Map(UiRail.DocumentObjectSnapshotOf),
-            byDrawOrderCase: static (objs, d) =>
-                Fin.Succ(value: toSeq(objs.ObjectsByDrawOrder(includeForeground: d.Foreground, includeBackground: d.Background)).Map(UiRail.DocumentObjectSnapshotOf)),
-            graphCase: static (objs, graph) => Wire.GraphObjects(objects: objs, anchor: graph.Anchor, direction: graph.Direction, maxObjects: graph.MaxObjects)
-                .Map(matches => matches.Map(UiRail.DocumentObjectSnapshotOf)),
-            byNameCase: static (objs, n) =>
-                Op.Of(name: nameof(FindCriterion.ByName)).AcceptText(value: n.Substring)
-                    .Map(text => toSeq(n.Scope.Resolve(objects: objs))
-                        .Filter(o => o.Nomen.Name.Contains(value: text, comparisonType: n.CaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-                        .Map(UiRail.DocumentObjectSnapshotOf)),
-            byActivityCase: static (objs, a) =>
-                Fin.Succ(value: toSeq(objs.Forwards)
-                    .Filter(o => o.Activity == (a.Enabled ? ObjectActivity.Enabled : ObjectActivity.Disabled))
-                    .Map(UiRail.DocumentObjectSnapshotOf)),
-            byGroupCase: static (objs, g) =>
-                Fin.Succ(value: Optional(objs.FindGroup(instanceId: g.GroupId))
-                    .Map(grp => toSeq(grp.ContentIds).Choose(id => Optional(objs.Find(instanceId: id))).Map(UiRail.DocumentObjectSnapshotOf))
-                    .IfNone(Seq<DocumentObjectSnapshot>())));
 
     private static Fin<DocumentUniverseSnapshot> Universe() =>
         Optional(GhEditor.Instance?.Documents)

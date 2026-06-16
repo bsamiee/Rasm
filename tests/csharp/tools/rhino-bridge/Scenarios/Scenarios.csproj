@@ -2,7 +2,4 @@
     <PropertyGroup>
         <AssemblyName>Rasm.Bridge.Scenarios.Tests</AssemblyName>
     </PropertyGroup>
-    <ItemGroup>
-        <ProjectReference Include="../../../_testkit/Rasm.TestKit.csproj" />
-    </ItemGroup>
 </Project>

@@ -4,10 +4,10 @@ Typed dataset refs, columnar lazy/streaming scans across engines, and columnar e
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | DATASET   | the dataset ref owner discriminating by source shape           |
-|   [2]   | SCAN      | engine scan plans, columnar egress, the query receipt          |
+| [INDEX] | [CLUSTER] | [OWNS]                                                |
+| :-----: | :-------- | :---------------------------------------------------- |
+|   [1]   | DATASET   | the dataset ref owner discriminating by source shape  |
+|   [2]   | SCAN      | engine scan plans, columnar egress, the query receipt |
 
 ## [2]-[DATASET]
 

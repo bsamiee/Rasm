@@ -4,11 +4,11 @@ The document/PDF/Office/structured-text plan, report templating, and the artifac
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | DOCUMENT  | the document plan dispatch axis with backend rows              |
-|   [2]   | REPORT    | the report-templating composition owner                        |
-|   [3]   | RECEIPT   | the kind-discriminated artifact receipt family                 |
+| [INDEX] | [CLUSTER] | [OWNS]                                            |
+| :-----: | :-------- | :------------------------------------------------ |
+|   [1]   | DOCUMENT  | the document plan dispatch axis with backend rows |
+|   [2]   | REPORT    | the report-templating composition owner           |
+|   [3]   | RECEIPT   | the kind-discriminated artifact receipt family    |
 
 ## [2]-[DOCUMENT]
 

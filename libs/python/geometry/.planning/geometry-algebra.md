@@ -4,9 +4,9 @@ Non-manifold topology AND AEC computational geometry folded into ONE algebra own
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | ALGEBRA   | non-manifold topology + AEC computational geometry, one owner   |
+| [INDEX] | [CLUSTER] | [OWNS]                                                        |
+| :-----: | :-------- | :------------------------------------------------------------ |
+|   [1]   | ALGEBRA   | non-manifold topology + AEC computational geometry, one owner |
 
 ## [2]-[ALGEBRA]
 

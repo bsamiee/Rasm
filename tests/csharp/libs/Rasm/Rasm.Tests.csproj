@@ -5,6 +5,5 @@
     </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="../../../../libs/csharp/Rasm/Rasm.csproj" />
-        <ProjectReference Include="../../_testkit/Rasm.TestKit.csproj" />
     </ItemGroup>
 </Project>

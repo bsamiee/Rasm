@@ -1,6 +1,6 @@
 # [PROJECTION_PLANNING]
 
-`projection` owns the unified key-discriminated transport-free fold algebra — every store folds a wire-vocabulary discriminant verbatim over a `Stream` or receipt sequence into an immutable `SubscriptionRef`-backed keyed map, parameterized by ONE `StreamPolicy`. Zero consumers exist; implementation is full-capability with no holding back; pages are transcribed, not re-designed. The domain collapses the three prior state pages into one fold-algebra owner because envelope folds and availability are identical in kind to the stream folds — co-located by altitude, not payload. It depends ONLY on `interchange`'s decoded `Schema` shapes, dials nothing, and the `no-restricted-imports` ban on `@connectrpc/*` is the sole mechanical guard keeping the fold interior transport-free now that both neutral domains sit in one tag stratum.
+`projection` owns the unified key-discriminated transport-free fold algebra — every store folds a wire-vocabulary discriminant verbatim over a `Stream` or receipt sequence into an immutable `SubscriptionRef`-backed keyed map, parameterized by ONE `StreamPolicy`. Zero consumers exist; implementation is full-capability with no holding back; pages are transcribed, not re-designed. The domain collapses the three prior state pages into one fold-algebra owner because envelope folds and availability are identical in kind to the stream folds — co-located by altitude, not payload. It depends ONLY on `interchange`'s decoded `Schema` shapes, dials nothing, and the `@connectrpc/*` import ban in the monorepo's centralized config (nx module boundaries + root eslint) is the sole mechanical guard keeping the fold interior transport-free now that both neutral domains sit in one tag stratum.
 
 ## [1]-[PAGE_INDEX]
 
@@ -27,7 +27,7 @@ None. The domain depends only on `effect` (Stream/SubscriptionRef/Schedule/Schem
 |   [1]   | three parallel state pages for one fold algebra                   | fold-algebra#FOLD_ALGEBRA + envelope-and-evidence#ENVELOPE_AND_EVIDENCE (one combinator, fold rows) |
 |   [2]   | an improvised reconnect loop or unbounded retry per fold          | fold-algebra#FOLD_ALGEBRA (one StreamPolicy)                                                        |
 |   [3]   | the SPA recomputing the HLC skew fold to render clock-uncertainty | envelope-and-evidence#ENVELOPE_AND_EVIDENCE (SkewBand confidence-interval projection output)        |
-|   [4]   | a transport dial leaking into the fold interior                   | the @connectrpc/* no-restricted-imports ban (RULE_ENFORCEMENT)                                      |
+|   [4]   | a transport dial leaking into the fold interior                   | the @connectrpc/* import ban in the centralized config (RULE_ENFORCEMENT)                            |
 
 ## [5]-[DENSITY_BAR]
 
@@ -55,7 +55,7 @@ None. The domain depends only on `effect` (Stream/SubscriptionRef/Schedule/Schem
 | :-------------- | :-------------------------- | :----------------------------------------------- |
 | catalog resolve | `pnpm install`              | catalogMode strict resolves @rasm/ts             |
 | typecheck       | tsgo `--noEmit`             | zero diagnostics                                 |
-| import ban      | eslint flat-config          | zero `@connectrpc/*` imports under the domain    |
+| import ban      | centralized config (nx + root eslint) | zero `@connectrpc/*` imports under the domain    |
 | unit-pbt        | vitest project `projection` | fold associativity/idempotence/monotonicity pass |
 
 ## [8]-[PROHIBITIONS]

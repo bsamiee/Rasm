@@ -26,6 +26,7 @@ from pydantic_settings import (  # noqa: TC002  # Runtime annotations call the P
     SettingsConfigDict,
 )
 from upath import UPath
+import zstandard
 
 from tools.assay.core.model import (  # noqa: TC001  # Settings/model field hooks evaluate these annotations at runtime.
     ArtifactKind,
@@ -125,6 +126,16 @@ _ARTIFACTS: Final[str] = ".artifacts"
 _ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
 _ASSAY: Final[str] = "assay"
 _BUILD: Final[str] = "build"
+# Run history accretes one encoded Envelope (+ optional full Report) per run; the JSON-shaped payloads compress an order of
+# magnitude under zstd. The store frames history-kind writes and every byte read sniffs the frame magic and inflates lazily,
+# so the codec is one store-owned boundary no caller re-derives. Content size rides the frame header; plain decompress inflates.
+_HISTORY_COMPRESSOR: Final[zstandard.ZstdCompressor] = zstandard.ZstdCompressor(level=10)
+_HISTORY_DECOMPRESSOR: Final[zstandard.ZstdDecompressor] = zstandard.ZstdDecompressor()
+# A cold build-closure scope points DOTNET_CLI_HOME at an empty tree, so the first dotnet invocation pays the full
+# first-run experience (NuGet warm-up, ASP.NET dev-cert primer, tool-path init) and writes three sentinels under
+# `<home>/.dotnet/<sdk>.<suffix>`. The SDK is pinned in `global.json` (rollForward disabled), so the sentinel names are
+# deterministic and the scope pre-seeds all three, draining the first build's first-run cost to a no-op.
+_DOTNET_FIRST_RUN_SENTINELS: Final[tuple[str, ...]] = ("dotnetFirstUseSentinel", "aspNetCertificateSentinel", "toolpath.sentinel")
 _MARKER: Final[str] = "Workspace.slnx"
 _RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
 # Workroot tilde is resolved to the absolute remote home once per connection (sftp.realpath) so the SFTP push and the exec `cd` agree.
@@ -323,6 +334,18 @@ def backend_capability(protocol: str) -> tuple[bool, bool, PullStrategy]:
         The policy row for ``protocol``; an unknown protocol is unreachable, not admitted, and pulls nothing.
     """
     return _BACKEND_CAPABILITY.get(protocol, (False, False, PullStrategy.NONE))
+
+
+def unframe(payload: bytes) -> bytes:
+    """Inflate a zstd-framed payload, passing an unframed payload through unchanged.
+
+    The frame-magic prefix discriminates history frames from plain artifacts, so a single store-owned read boundary
+    serves both compressed history and uncompressed SARIF/coverage payloads with no per-consumer codec knowledge.
+
+    Returns:
+        The inflated bytes for a zstd frame, or the original bytes when the magic prefix is absent.
+    """
+    return _HISTORY_DECOMPRESSOR.decompress(payload) if payload[:4] == zstandard.FRAME_HEADER else payload
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -538,6 +561,10 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
     # large git-tracked tree (1000+ files, latency-bound at one round-trip each) does not degrade mid-push on a real WAN link.
     transfer_budget_s: Annotated[float, Field(gt=0)] = 120.0
     transfer_per_file_s: Annotated[float, Field(gt=0)] = 2.5
+    # SFTP push throttle: a throttled or low-MaxSessions server caps how many directory put coroutines run concurrently
+    # over the one channel and how many open/write/close requests each put pipelines. Tunable down for restrictive hosts.
+    sftp_push_concurrency: Annotated[int, Field(ge=1, le=256)] = 16
+    sftp_max_requests: Annotated[int, Field(ge=1, le=1024)] = 64
     artifact_backend: ArtifactBackend = Field(default_factory=ArtifactBackend)
     scoped_verbs: frozenset[str] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test"))
     trigger_files: frozenset[str] = frozenset((
@@ -610,6 +637,25 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
     def solution(self) -> UPath:
         """Resolve Workspace.slnx under the anchored root."""
         return self.root / _MARKER
+
+    @property
+    def dotnet_sdk_version(self) -> str:
+        """Project the pinned .NET SDK version from ``global.json`` under the anchored root.
+
+        The version (``rollForward: disable``) names the deterministic first-run sentinel band a cold build scope pre-seeds.
+
+        Returns:
+            The pinned ``sdk.version``, or ``""`` when ``global.json`` is absent or omits it.
+        """
+        try:
+            decoded = msgspec.json.decode((self.root / "global.json").read_bytes())
+        except (OSError, msgspec.MsgspecError):
+            return ""
+        match decoded:
+            case {"sdk": {"version": str() as version}}:
+                return version
+            case _:
+                return ""
 
     @computed_field  # type: ignore[prop-decorator]  # mypy lacks computed_field+property support.
     @property
@@ -830,12 +876,12 @@ class ArtifactStore:
         return bool(self.fs.exists(self.path(*parts)))
 
     def read_bytes(self, *parts: str | UPath) -> bytes:
-        """Read bytes from a validated store-relative path.
+        """Read bytes from a validated store-relative path, inflating a zstd-framed history payload.
 
         Returns:
-            File payload bytes.
+            File payload bytes, inflated when the file carries the zstd frame magic.
         """
-        return self.fs.cat_file(self.path(*parts))
+        return unframe(self.fs.cat_file(self.path(*parts)))
 
     def read_text(self, *parts: str | UPath, encoding: str = "utf-8", errors: str = "replace") -> str:
         """Read text from a validated store-relative path.
@@ -846,12 +892,12 @@ class ArtifactStore:
         return self.read_bytes(*parts).decode(encoding, errors=errors)
 
     def read_path(self, path: str | UPath) -> bytes:
-        """Read bytes from a validated backend path returned by the store.
+        """Read bytes from a validated backend path returned by the store, inflating a zstd-framed history payload.
 
         Returns:
-            File payload bytes.
+            File payload bytes, inflated when the file carries the zstd frame magic.
         """
-        return self.fs.cat_file(self.backend_path(path))
+        return unframe(self.fs.cat_file(self.backend_path(path)))
 
     def read_text_path(self, path: str | UPath, encoding: str = "utf-8", errors: str = "replace") -> str:
         """Read text from a validated backend path returned by the store.
@@ -954,21 +1000,21 @@ class ArtifactStore:
         return self.fs.rm(self.backend_path(path), recursive=recursive)
 
     def write_history(self, run_id: str, payload: bytes) -> str:
-        """Persist one encoded Envelope in run history.
+        """Persist one encoded Envelope in run history under a zstd frame.
 
         Returns:
             Backend path written.
         """
-        return self.write_bytes(payload, ArtifactKind.HISTORY.value, run_id, "envelope.json")
+        return self.write_bytes(_HISTORY_COMPRESSOR.compress(payload), ArtifactKind.HISTORY.value, run_id, "envelope.json")
 
     def write_full_report(self, run_id: str, name: str, report: Report) -> tuple[str, int]:
-        """Persist an unclipped Report before previewing or clipping.
+        """Persist an unclipped Report under a zstd frame before previewing or clipping.
 
         Returns:
-            Backend path and payload byte count.
+            Backend path and uncompressed payload byte count.
         """
         payload = wire_encode(report)
-        return self.write_bytes(payload, ArtifactKind.HISTORY.value, run_id, name), len(payload)
+        return self.write_bytes(_HISTORY_COMPRESSOR.compress(payload), ArtifactKind.HISTORY.value, run_id, name), len(payload)
 
     def _sorted_run_ids(self, root: str) -> tuple[str, ...]:
         # Omitted mtimes fold to 0.0, leaving run_id as the chronological tiebreaker.
@@ -1105,7 +1151,7 @@ class ArtifactScope:
 
     @classmethod
     def build(cls, settings: AssaySettings, closure: str, configuration: Configuration | str | None = None) -> ArtifactScope:
-        """Open a stable build-closure artifact scope.
+        """Open a stable build-closure artifact scope, pre-seeding the cold ``DOTNET_CLI_HOME`` first-run sentinels.
 
         Returns:
             Artifact scope rooted under the build closure id.
@@ -1113,7 +1159,18 @@ class ArtifactScope:
         store = settings.store()
         config = configuration.value if isinstance(configuration, Configuration) else configuration or settings.configuration.value
         path = store.ensure(_BUILD, closure, config)
-        return cls(store, path, (_ARTIFACTS_PATH_FLAG, path))
+        scope = cls(store, path, (_ARTIFACTS_PATH_FLAG, path))
+        scope._preseed_dotnet_first_run(settings.dotnet_sdk_version)
+        return scope
+
+    def _preseed_dotnet_first_run(self, sdk_version: str) -> None:
+        # A first invocation against a fresh DOTNET_CLI_HOME runs the first-run experience and writes these sentinels;
+        # writing them up-front (idempotently, only when the SDK band is known) drains that cost from the first build.
+        marker = f"{self.path}/dotnet-cli/.dotnet/{sdk_version}.{_DOTNET_FIRST_RUN_SENTINELS[0]}"
+        if not sdk_version or self.store.exists_path(marker):
+            return
+        for suffix in _DOTNET_FIRST_RUN_SENTINELS:
+            self.store.write_bytes_path(b"", f"{self.path}/dotnet-cli/.dotnet/{sdk_version}.{suffix}")
 
     def ensure(self) -> str:
         """Materialize this scope's directory through the store boundary.
@@ -1129,8 +1186,9 @@ class ArtifactScope:
 
         VBCSCompiler shared compilation stays on; the per-closure ``--artifacts-path`` is the isolation boundary because
         the build-server pipe identity is per-user and per-SDK, so concurrent closures share servers without cross-talk.
+        ``DOTNET_NOLOGO``/``DOTNET_CLI_TELEMETRY_OPTOUT`` pair with the pre-seeded sentinels to silence the first-run primer.
         """
-        return {"DOTNET_CLI_HOME": f"{self.path}/dotnet-cli"}
+        return {"DOTNET_CLI_HOME": f"{self.path}/dotnet-cli", "DOTNET_NOLOGO": "1", "DOTNET_CLI_TELEMETRY_OPTOUT": "1"}
 
     @property
     def sarif_dir(self) -> str:
@@ -1187,4 +1245,5 @@ __all__ = [
     "resolve_tilde",
     "run_id_host_token",
     "size_from_info",
+    "unframe",
 ]

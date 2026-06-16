@@ -4,11 +4,11 @@
 
 ## [1]-[PAGE_INDEX]
 
-| [INDEX] | [PAGE]                              | [OWNS]                                                        | [STATE]   |
-| :-----: | :---------------------------------- | :----------------------------------------------------------- | :-------- |
-|   [1]   | [columnar-query](columnar-query.md) | dataset refs, scan plans, columnar egress, query receipts    | finalized   |
-|   [2]   | [schema-geo](schema-geo.md)         | schema claims, contract gate, vector + raster geospatial     | finalized   |
-|   [3]   | [graph-mesh](graph-mesh.md)         | graph payloads and mesh-file exchange                        | finalized   |
+| [INDEX] | [PAGE]                              | [OWNS]                                                    | [STATE]   |
+| :-----: | :---------------------------------- | :-------------------------------------------------------- | :-------- |
+|   [1]   | [columnar-query](columnar-query.md) | dataset refs, scan plans, columnar egress, query receipts | finalized |
+|   [2]   | [schema-geo](schema-geo.md)         | schema claims, contract gate, vector + raster geospatial  | finalized |
+|   [3]   | [graph-mesh](graph-mesh.md)         | graph payloads and mesh-file exchange                     | finalized |
 
 ## [2]-[CATALOGUE_PENDING]
 
@@ -19,35 +19,35 @@
 
 Implementation collapses to one owner per axis. A new data source is a `DatasetKind` row, a new engine is a `ScanPlan` case, a new geometry family is a column. `[STATE]` carries `SPIKE` where the fence is complete but its proof carries a residual cp315-wheel or marker-floor probe named in the page RESEARCH cluster.
 
-| [INDEX] | [AXIS/CONCERN]          | [OWNER]          | [KIND]                  | [CASES]                                  |  [STATE]  |
-| :-----: | :---------------------- | :--------------- | :---------------------- | :--------------------------------------- | :-------: |
-|   [1]   | Dataset identity        | `DatasetRef`     | frozen owner + kind row | csv/parquet/arrow/delta/3dm/mesh/hdf      |   SPIKE   |
-|   [2]   | Scan plan               | `ScanPlan`       | tagged union            | polars-lazy/duckdb/pyarrow-dataset        |   SPIKE   |
-|   [3]   | Columnar egress         | `ColumnarEgress` | static surface          | arrow/parquet/ipc/lazy-scan               |   SPIKE   |
-|   [4]   | Query receipt           | `QueryReceipt`   | receipt                 | engine/source/columns/predicate/row-count |   SPIKE   |
-|   [5]   | Schema claim            | `SchemaClaim`    | value object            | field/logical-type/required/nullable      |   SPIKE   |
-|   [6]   | Contract gate           | `ContractGate`   | rail                    | schema/quality rules over pandera         |   SPIKE   |
-|   [7]   | Vector geospatial       | `VectorGeoClaim` | value object            | crs/units/axis-order/geometry-family      |   SPIKE   |
-|   [8]   | Raster geospatial       | `RasterGeoClaim` | value object            | coverage/band/resampling/nodata           |   SPIKE   |
-|   [9]   | Graph payload           | `GraphPayload`   | frozen owner            | kind/nodes/edges/attrs/directionality     | FINALIZED |
-|  [10]   | Mesh payload            | `MeshPayload`    | frozen owner            | identity/cell-block/units/metadata        |   SPIKE   |
+| [INDEX] | [AXIS/CONCERN]    | [OWNER]          | [KIND]                  | [CASES]                                   |  [STATE]  |
+| :-----: | :---------------- | :--------------- | :---------------------- | :---------------------------------------- | :-------: |
+|   [1]   | Dataset identity  | `DatasetRef`     | frozen owner + kind row | csv/parquet/arrow/delta/3dm/mesh/hdf      |   SPIKE   |
+|   [2]   | Scan plan         | `ScanPlan`       | tagged union            | polars-lazy/duckdb/pyarrow-dataset        |   SPIKE   |
+|   [3]   | Columnar egress   | `ColumnarEgress` | static surface          | arrow/parquet/ipc/lazy-scan               |   SPIKE   |
+|   [4]   | Query receipt     | `QueryReceipt`   | receipt                 | engine/source/columns/predicate/row-count |   SPIKE   |
+|   [5]   | Schema claim      | `SchemaClaim`    | value object            | field/logical-type/required/nullable      |   SPIKE   |
+|   [6]   | Contract gate     | `ContractGate`   | rail                    | schema/quality rules over pandera         |   SPIKE   |
+|   [7]   | Vector geospatial | `VectorGeoClaim` | value object            | crs/units/axis-order/geometry-family      |   SPIKE   |
+|   [8]   | Raster geospatial | `RasterGeoClaim` | value object            | coverage/band/resampling/nodata           |   SPIKE   |
+|   [9]   | Graph payload     | `GraphPayload`   | frozen owner            | kind/nodes/edges/attrs/directionality     | FINALIZED |
+|  [10]   | Mesh payload      | `MeshPayload`    | frozen owner            | identity/cell-block/units/metadata        |   SPIKE   |
 
 ## [4]-[BUILD_ORDER]
 
-| [INDEX] | [FILE]              | [TRANSCRIBES]              | [GATE]         |
-| :-----: | :------------------ | :------------------------ | :------------- |
-|   [1]   | `datasets.py`       | columnar-query#DATASET    | static         |
-|   [2]   | `scan.py`           | columnar-query#SCAN       | static         |
-|   [3]   | `schema_geo.py`     | schema-geo#SCHEMA, #GEO   | static + floor |
-|   [4]   | `graph_mesh.py`     | graph-mesh#GRAPH, #MESH   | static         |
+| [INDEX] | [FILE]          | [TRANSCRIBES]           | [GATE]         |
+| :-----: | :-------------- | :---------------------- | :------------- |
+|   [1]   | `datasets.py`   | columnar-query#DATASET  | static         |
+|   [2]   | `scan.py`       | columnar-query#SCAN     | static         |
+|   [3]   | `schema_geo.py` | schema-geo#SCHEMA, #GEO | static + floor |
+|   [4]   | `graph_mesh.py` | graph-mesh#GRAPH, #MESH | static         |
 
 ## [5]-[PROOF_GATES]
 
-| [GATE] | [RAIL]                       | [EVIDENCE]                                          |
-| :----: | :--------------------------- | :------------------------------------------------- |
-|  [G1]  | `uv lock --check`            | data pins resolve against the root manifest        |
-|  [G2]  | `.api` catalogue             | every fence member resolves to an `.api` row       |
-|  [G3]  | wheel floor                  | cp315/marker-floor wheels install before re-reflect |
+| [GATE] | [RAIL]            | [EVIDENCE]                                          |
+| :----: | :---------------- | :-------------------------------------------------- |
+|  [G1]  | `uv lock --check` | data pins resolve against the root manifest         |
+|  [G2]  | `.api` catalogue  | every fence member resolves to an `.api` row        |
+|  [G3]  | wheel floor       | cp315/marker-floor wheels install before re-reflect |
 
 ## [6]-[PROHIBITIONS]
 
@@ -59,15 +59,15 @@ Implementation collapses to one owner per axis. A new data source is a `DatasetK
 
 ## [7]-[ADMISSIONS_RECORD]
 
-| [INDEX] | [PACKAGE]                                       | [PAGE]          | [CATALOGUE]              | [STATUS]          |
-| :-----: | :--------------------------------------------- | :-------------- | :----------------------- | :---------------- |
-|   [1]   | polars, pyarrow, pandas, dask, xarray          | columnar-query  | api-polars.md ...        | catalogue-pending |
-|   [2]   | duckdb, adbc-driver-manager, connectorx, deltalake | columnar-query | api-duckdb.md ...      | catalogue-pending |
-|   [3]   | geopandas, shapely, pyogrio, pyproj            | schema-geo      | api-geopandas.md ...     | catalogue-pending |
-|   [4]   | rasterio                                       | schema-geo      | api-rasterio.md          | catalogue-pending |
-|   [5]   | pandera                                        | schema-geo      | api-pandera.md           | catalogue-pending |
-|   [6]   | networkx                                       | graph-mesh      | api-networkx.md          | admitted          |
-|   [7]   | rhino3dm, meshio, trimesh, h5py                | graph-mesh      | api-meshio.md ...        | catalogue-pending |
+| [INDEX] | [PACKAGE]                                          | [PAGE]         | [CATALOGUE]          | [STATUS]          |
+| :-----: | :------------------------------------------------- | :------------- | :------------------- | :---------------- |
+|   [1]   | polars, pyarrow, pandas, dask, xarray              | columnar-query | api-polars.md ...    | catalogue-pending |
+|   [2]   | duckdb, adbc-driver-manager, connectorx, deltalake | columnar-query | api-duckdb.md ...    | catalogue-pending |
+|   [3]   | geopandas, shapely, pyogrio, pyproj                | schema-geo     | api-geopandas.md ... | catalogue-pending |
+|   [4]   | rasterio                                           | schema-geo     | api-rasterio.md      | catalogue-pending |
+|   [5]   | pandera                                            | schema-geo     | api-pandera.md       | catalogue-pending |
+|   [6]   | networkx                                           | graph-mesh     | api-networkx.md      | admitted          |
+|   [7]   | rhino3dm, meshio, trimesh, h5py                    | graph-mesh     | api-meshio.md ...    | catalogue-pending |
 
 ## [8]-[REFINEMENT_HORIZON]
 

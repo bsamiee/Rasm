@@ -19,50 +19,50 @@
 [PUBLIC_TYPE_SCOPE]: async server/channel family
 - rail: transport
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `aio.Server` | server | async gRPC server |
-| [2] | `aio.Channel` | channel | async client channel |
-| [3] | `aio.ServicerContext` | context | per-call server context |
-| [4] | `aio.UnaryUnaryCall` | call | async unary-unary call |
-| [5] | `aio.StreamStreamCall` | call | async bidi-stream call |
-| [6] | `aio.ServerInterceptor` | interceptor | server-side interceptor |
-| [7] | `aio.ClientInterceptor` | interceptor | client-side interceptor |
-| [8] | `aio.Metadata` | metadata | call metadata map |
-| [9] | `aio.AioRpcError` | fault | async RPC error |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [RAIL]                  |
+| :-----: | :---------------------- | :------------ | :---------------------- |
+|   [1]   | `aio.Server`            | server        | async gRPC server       |
+|   [2]   | `aio.Channel`           | channel       | async client channel    |
+|   [3]   | `aio.ServicerContext`   | context       | per-call server context |
+|   [4]   | `aio.UnaryUnaryCall`    | call          | async unary-unary call  |
+|   [5]   | `aio.StreamStreamCall`  | call          | async bidi-stream call  |
+|   [6]   | `aio.ServerInterceptor` | interceptor   | server-side interceptor |
+|   [7]   | `aio.ClientInterceptor` | interceptor   | client-side interceptor |
+|   [8]   | `aio.Metadata`          | metadata      | call metadata map       |
+|   [9]   | `aio.AioRpcError`       | fault         | async RPC error         |
 
 [PUBLIC_TYPE_SCOPE]: status and credential family
 - rail: transport
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `StatusCode` | enum | canonical RPC status codes |
-| [2] | `Status` | status | trailing status value |
-| [3] | `Compression` | enum | gzip/deflate/none compression |
-| [4] | `ServerCredentials` | credential | server TLS credentials |
-| [5] | `ChannelCredentials` | credential | channel TLS credentials |
-| [6] | `CallCredentials` | credential | per-call credentials |
-| [7] | `RpcError` | fault | sync RPC error |
-| [8] | `RpcMethodHandler` | handler | method dispatch descriptor |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                        |
+| :-----: | :------------------- | :------------ | :---------------------------- |
+|   [1]   | `StatusCode`         | enum          | canonical RPC status codes    |
+|   [2]   | `Status`             | status        | trailing status value         |
+|   [3]   | `Compression`        | enum          | gzip/deflate/none compression |
+|   [4]   | `ServerCredentials`  | credential    | server TLS credentials        |
+|   [5]   | `ChannelCredentials` | credential    | channel TLS credentials       |
+|   [6]   | `CallCredentials`    | credential    | per-call credentials          |
+|   [7]   | `RpcError`           | fault         | sync RPC error                |
+|   [8]   | `RpcMethodHandler`   | handler       | method dispatch descriptor    |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: server and channel operations
 - rail: transport
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `aio.server` | build | construct an async server |
-| [2] | `aio.Server.add_insecure_port` | bind | bind a plaintext port |
-| [3] | `aio.Server.add_secure_port` | bind | bind a TLS port |
-| [4] | `aio.Server.start` | lifecycle | start serving |
-| [5] | `aio.Server.stop` | drain | graceful shutdown with grace period |
-| [6] | `aio.Server.wait_for_termination` | lifecycle | await shutdown |
-| [7] | `aio.secure_channel` | connect | TLS client channel |
-| [8] | `aio.insecure_channel` | connect | plaintext client channel |
-| [9] | `ssl_server_credentials` | credential | build server TLS credentials |
-| [10] | `ssl_channel_credentials` | credential | build channel TLS credentials |
-| [11] | `ServicerContext.abort` | fault | abort a call with a status |
+| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [RAIL]                              |
+| :-----: | :-------------------------------- | :------------- | :---------------------------------- |
+|   [1]   | `aio.server`                      | build          | construct an async server           |
+|   [2]   | `aio.Server.add_insecure_port`    | bind           | bind a plaintext port               |
+|   [3]   | `aio.Server.add_secure_port`      | bind           | bind a TLS port                     |
+|   [4]   | `aio.Server.start`                | lifecycle      | start serving                       |
+|   [5]   | `aio.Server.stop`                 | drain          | graceful shutdown with grace period |
+|   [6]   | `aio.Server.wait_for_termination` | lifecycle      | await shutdown                      |
+|   [7]   | `aio.secure_channel`              | connect        | TLS client channel                  |
+|   [8]   | `aio.insecure_channel`            | connect        | plaintext client channel            |
+|   [9]   | `ssl_server_credentials`          | credential     | build server TLS credentials        |
+|  [10]   | `ssl_channel_credentials`         | credential     | build channel TLS credentials       |
+|  [11]   | `ServicerContext.abort`           | fault          | abort a call with a status          |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

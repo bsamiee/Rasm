@@ -1,3 +1,4 @@
+using System.Numerics.Tensors;
 using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Vectors;
@@ -83,13 +84,15 @@ public abstract partial record SpectralFilter {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, Option<int> FactorNonZeros = default, double BoundaryCompositionTolerance = 0.0) {
+public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, double SymmetryTolerance = 0.0, Option<int> FactorNonZeros = default, double BoundaryCompositionTolerance = 0.0) {
     internal bool IsValid =>
         Kind is SpectralAssemblyKind kind
-        && VertexCount >= 0 && EdgeCount >= 0 && FaceCount >= 0 && AdmittedFaceCount >= 0 && SkippedDegenerateFaces >= 0 && SkippedMissingEdges >= 0 && SkippedInvalidNormals >= 0 && SkippedInvalidTangents >= 0 && MatrixRows >= 0 && MatrixCols >= 0 && NonZeros >= 0 && PositiveStar0Count >= 0 && PositiveStar1Count >= 0 && PositiveStar2Count >= 0 && HarmonicDimension >= 0 && BoundaryEdgeCount >= 0 && BoundaryComponentCount >= 0 && NonManifoldEdgeCount >= 0 && ComponentCount >= 0 && PositiveMassCount >= 0
+        && VertexCount >= 0 && EdgeCount >= 0 && FaceCount >= 0 && AdmittedFaceCount >= 0 && SkippedDegenerateFaces >= 0 && SkippedMissingEdges >= 0 && MatrixRows >= 0 && MatrixCols >= 0 && NonZeros >= 0 && PositiveStar0Count >= 0 && PositiveStar1Count >= 0 && PositiveStar2Count >= 0 && HarmonicDimension >= 0 && BoundaryEdgeCount >= 0 && BoundaryComponentCount >= 0 && NonManifoldEdgeCount >= 0 && ComponentCount >= 0 && PositiveMassCount >= 0
         && AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount
         && RhinoMath.IsValidDouble(x: BoundaryCompositionResidual)
-        && RhinoMath.IsValidDouble(x: SymmetryResidual)
+        && RhinoMath.IsValidDouble(x: SymmetryResidual) && SymmetryResidual >= 0.0
+        && RhinoMath.IsValidDouble(x: SymmetryTolerance) && SymmetryTolerance >= 0.0
+        && SymmetryResidual <= SymmetryTolerance
         && RhinoMath.IsValidDouble(x: BoundaryCompositionTolerance) && BoundaryCompositionTolerance >= 0.0
         && FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)
         && (kind.Equals(SpectralAssemblyKind.EdgeConnection)
@@ -104,6 +107,10 @@ public readonly record struct HarmonicOneFormReceipt(Option<int> Genus, int Expe
             int expected = ExpectedDimension;
             int boundaryComponentCount = BoundaryComponentCount;
             double tolerance = SvdTolerance;
+            // Residual gate is operator-scale-relative: the eigen-tolerance and the √machineEps floor both
+            // carry max(1, spectralRadius), and 1e3 is the dimensionless rounding-accumulation slack the
+            // applied differential residuals incur above the eigenvalue tolerance — never a bare absolute.
+            double residualTolerance = Math.Max(val1: SvdTolerance, val2: RhinoMath.SqrtEpsilon * Math.Max(val1: 1.0, val2: SpectralRadius)) * 1.0e3;
             return expected >= 0 && ConstraintRows >= 0 && EdgeCount >= 0 && Rank >= 0 && Nullity >= 0 && BasisCount >= 0 && PositiveStar1Count >= 0
                 && Rank + Nullity == EdgeCount
                 && BasisCount == expected
@@ -119,9 +126,9 @@ public readonly record struct HarmonicOneFormReceipt(Option<int> Genus, int Expe
                 && NullspaceThreshold <= (EpsRank * Math.Max(val1: 1.0, val2: SpectralRadius)) + RhinoMath.SqrtEpsilon
                 && MinNullEigenvalue >= -RhinoMath.SqrtEpsilon
                 && MaxNullEigenvalue >= MinNullEigenvalue - RhinoMath.SqrtEpsilon
-                && MaxClosedResidual <= Math.Max(val1: 1.0e-7, val2: tolerance * 1.0e3)
-                && MaxCoClosedResidual <= Math.Max(val1: 1.0e-7, val2: tolerance * 1.0e3)
-                && Star1OrthonormalResidual <= Math.Max(val1: 1.0e-7, val2: tolerance * 1.0e3)
+                && MaxClosedResidual <= residualTolerance
+                && MaxCoClosedResidual <= residualTolerance
+                && Star1OrthonormalResidual <= residualTolerance
                 && Eigen.IsUsable;
         }
     }
@@ -230,7 +237,6 @@ public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<Spec
 internal static class SpectralCore {
     internal const double WaveBandwidthFloor = 1e-9;
     internal const double HarmonicEpsRankDefault = 1e-10;
-    private const double DegenerateTriangleArea = 1e-14;
     private readonly record struct IntrinsicTriangle(int A, int B, int C, int[] Edges, double Area, double LAb, double LBc, double LCa) {
         internal double QuadArea => 4.0 * Area;
         internal (double A, double B, double C) Cotangents => (A: ((Length(side: 0) * Length(side: 0)) + (Length(side: 2) * Length(side: 2)) - (Length(side: 1) * Length(side: 1))) / QuadArea, B: ((Length(side: 0) * Length(side: 0)) + (Length(side: 1) * Length(side: 1)) - (Length(side: 2) * Length(side: 2))) / QuadArea, C: ((Length(side: 1) * Length(side: 1)) + (Length(side: 2) * Length(side: 2)) - (Length(side: 0) * Length(side: 0))) / QuadArea);
@@ -350,11 +356,11 @@ internal static class SpectralCore {
             _ => MathNet.Numerics.Distance.Euclidean(a, b),
         };
     private static Fin<double[]> NormalizeValues(double[] values, SpectralDescriptorPolicy policy, Op key) {
-        if (!values.All(RhinoMath.IsValidDouble)) return Fin.Fail<double[]>(key.InvalidResult());
+        if (!FieldNabla.AllFiniteSpan(values.AsSpan())) return Fin.Fail<double[]>(key.InvalidResult());
         if (policy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw)) return Fin.Succ(values);
         double[] result = [.. values];
         if (policy.EnergyNormalization.Equals(SpectralEnergyNormalization.UnitL1) || policy.EnergyNormalization.Equals(SpectralEnergyNormalization.UnitL2))
-            return (policy.EnergyNormalization.Equals(SpectralEnergyNormalization.UnitL1) ? result.Sum(static value => Math.Abs(value: value)) : Math.Sqrt(d: result.Sum(static value => value * value))) switch {
+            return (policy.EnergyNormalization.Equals(SpectralEnergyNormalization.UnitL1) ? TensorPrimitives.SumOfMagnitudes(result) : TensorPrimitives.Norm(result)) switch {
                 double scale when scale > RhinoMath.SqrtEpsilon => Fin.Succ<double[]>([.. result.Select(value => value / scale)]),
                 _ => Fin.Fail<double[]>(key.InvalidResult()),
             };
@@ -371,7 +377,9 @@ internal static class SpectralCore {
         int[] edges = imesh.EdgesOfFace(faceIdx: faceIdx);
         double area = imesh.AreaOfFace(faceIdx: faceIdx);
         missingEdges = edges.Length != 3 || edges.Any(static edge => edge < 0);
-        degenerate = slot is null || area < DegenerateTriangleArea;
+        double faceScale = missingEdges ? 0.0 : Math.Max(val1: imesh.EdgeAt(index: edges[0]).Length, val2: Math.Max(val1: imesh.EdgeAt(index: edges[1]).Length, val2: imesh.EdgeAt(index: edges[2]).Length));
+        double degenerateAreaFloor = Math.Max(val1: faceScale, val2: RhinoMath.ZeroTolerance) * Math.Max(val1: faceScale, val2: RhinoMath.ZeroTolerance) * RhinoMath.SqrtEpsilon;
+        degenerate = slot is null || area < degenerateAreaFloor;
         return slot is null || missingEdges || degenerate
             ? null
             : new IntrinsicTriangle(A: slot.Value.A, B: slot.Value.B, C: slot.Value.C, Edges: edges, Area: area, LAb: imesh.EdgeAt(index: edges[0]).Length, LBc: imesh.EdgeAt(index: edges[1]).Length, LCa: imesh.EdgeAt(index: edges[2]).Length);
@@ -431,7 +439,9 @@ internal static class SpectralCore {
         List<(int Row, int Col, double Value)> d0 = new(capacity: 2 * edgeCount);
         List<(int Row, int Col, double Value)> d1 = new(capacity: 3 * faceCount);
         Arr<double> star1 = ComputeIntrinsicStar1(imesh: imesh);
-        double[] star2 = new double[faceCount];
+        // Degenerate and edge-incomplete faces are excluded from the boundary operator: D1 and *2 span only
+        // admitted faces so ∂∂=0 holds per admitted triangle, while the receipt witnesses the skip count.
+        List<double> star2 = new(capacity: faceCount);
         int admitted = 0;
         int skippedDegenerate = 0;
         int skippedMissing = 0;
@@ -445,27 +455,27 @@ internal static class SpectralCore {
                 skippedDegenerate += missingEdges ? 0 : 1;
                 continue;
             }
-            admitted++;
-            star2[row] = 1.0 / face.Area;
+            star2.Add(item: 1.0 / face.Area);
             for (int side = 0; side < 3; side++) {
-                d1.Add(item: (row, face.Edge(side: side), face.Orientation(imesh: imesh, side: side)));
+                d1.Add(item: (admitted, face.Edge(side: side), face.Orientation(imesh: imesh, side: side)));
             }
+            admitted++;
         }
         double boundaryResidual = BoundaryCompositionResidual(d0: d0, d1: d1);
         double compositionScale = d1.Aggregate(1.0, static (max, t) => Math.Max(max, Math.Abs(t.Value)));
         double compositionTolerance = RhinoMath.SqrtEpsilon * compositionScale;
         int harmonicDimension = topology.Genus.Map(g => (2 * g) + Math.Max(0, topology.BoundaryComponents - 1)).IfNone(0);
-        return skippedDegenerate > 0 || skippedMissing > 0 || admitted != faceCount
+        return admitted <= 0 || admitted + skippedDegenerate + skippedMissing != faceCount
             ? Fin.Fail<DiscreteCalculus>(key.Unsupported(geometryType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(DiscreteCalculus)))
             : mass.Count != vertCount
             || !mass.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)
             || boundaryResidual > compositionTolerance
             ? Fin.Fail<DiscreteCalculus>(key.InvalidResult())
             : from D0 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: edgeCount), cols: Dimension.Create(value: vertCount), triplets: d0, key: key)
-              from D1 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: faceCount), cols: Dimension.Create(value: edgeCount), triplets: d1, key: key)
+              from D1 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: admitted), cols: Dimension.Create(value: edgeCount), triplets: d1, key: key)
               let boundaryEdgeCount = Enumerable.Range(start: 0, count: imesh.EdgeCount).Count(edgeIndex => imesh.EdgeAt(index: edgeIndex).Face1 < 0)
-              let receipt = new SpectralAssemblyReceipt(VertexCount: vertCount, EdgeCount: edgeCount, FaceCount: faceCount, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: imesh.HasFlips, MatrixRows: D0.Rows.Value + D1.Rows.Value, MatrixCols: D0.Cols.Value + D1.Cols.Value, NonZeros: D0.Values.Count + D1.Values.Count, PositiveStar0Count: mass.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar1Count: star1.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar2Count: star2.Count(static value => value > RhinoMath.ZeroTolerance), BoundaryCompositionResidual: boundaryResidual, Genus: topology.Genus, HarmonicDimension: harmonicDimension, BoundaryEdgeCount: boundaryEdgeCount, BoundaryComponentCount: topology.BoundaryComponents, NonManifoldEdgeCount: topology.NonManifoldEdges, EulerCharacteristic: topology.EulerCharacteristic, TopologyEulerValidated: topology.EulerValidated, Kind: SpectralAssemblyKind.Dec, BoundaryCompositionTolerance: compositionTolerance)
-              select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>(star2), Receipt: receipt);
+              let receipt = new SpectralAssemblyReceipt(VertexCount: vertCount, EdgeCount: edgeCount, FaceCount: faceCount, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, FlippedIntrinsicRejected: imesh.HasFlips, MatrixRows: D0.Rows.Value + D1.Rows.Value, MatrixCols: D0.Cols.Value + D1.Cols.Value, NonZeros: D0.Values.Count + D1.Values.Count, PositiveStar0Count: mass.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar1Count: star1.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar2Count: star2.Count(static value => value > RhinoMath.ZeroTolerance), BoundaryCompositionResidual: boundaryResidual, Genus: topology.Genus, HarmonicDimension: harmonicDimension, BoundaryEdgeCount: boundaryEdgeCount, BoundaryComponentCount: topology.BoundaryComponents, NonManifoldEdgeCount: topology.NonManifoldEdges, EulerCharacteristic: topology.EulerCharacteristic, TopologyEulerValidated: topology.EulerValidated, Kind: SpectralAssemblyKind.Dec, BoundaryCompositionTolerance: compositionTolerance)
+              select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>([.. star2]), Receipt: receipt);
     }
 
     private static Fin<HarmonicOneFormBasis> BuildHarmonicOneForms(DiscreteCalculus calculus, TopologyReceipt topology, double epsRank, Op key) {
@@ -670,8 +680,21 @@ internal static class SpectralCore {
                 EmitCrouzeixRaviartPair(triplets: triplets, eCount: eCount, pair: face.CrouzeixPair(imesh: mesh, side: side), area: face.Area, time: time);
         }
         for (int e = 0; e < eCount; e++) triplets.AddRange([(e, e, mass[e]), (e + eCount, e + eCount, mass[e])]);
-        return SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2 * eCount), cols: Dimension.Create(value: 2 * eCount), triplets: triplets, key: key)
-            .Map(matrix => (Matrix: matrix, Receipt: new SpectralAssemblyReceipt(VertexCount: 0, EdgeCount: eCount, FaceCount: mesh.Triangles.Count, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: mesh.HasFlips, MatrixRows: matrix.Rows.Value, MatrixCols: matrix.Cols.Value, NonZeros: matrix.Values.Count, PositiveStar0Count: 0, PositiveStar1Count: 0, PositiveStar2Count: admitted, BoundaryCompositionResidual: 0.0, Genus: Option<int>.None, HarmonicDimension: 0, ComponentCount: 2, PositiveMassCount: mass.Count(static value => value > RhinoMath.ZeroTolerance), SymmetryResidual: 0.0, FactorNonZeros: Option<int>.None, Kind: SpectralAssemblyKind.EdgeConnection)));
+        // The block heat operator M = (mass + time·∇) must be exactly symmetric; the Hermitian-real block layout
+        // emits transpose-paired off-diagonals, so the assembled max|M − Mᵀ| witnesses any orientation-sign or
+        // length-degeneracy defect. The gate is machine-epsilon scaled by the largest assembled magnitude.
+        Dictionary<(int Row, int Col), double> coalesced = new(capacity: triplets.Count);
+        foreach ((int row, int col, double value) in triplets) {
+            ref double slot = ref CollectionsMarshal.GetValueRefOrAddDefault(coalesced, (row, col), out _);
+            slot += value;
+        }
+        double blockScale = coalesced.Aggregate(seed: 0.0, func: static (max, entry) => Math.Max(val1: max, val2: Math.Abs(value: entry.Value)));
+        double symmetryResidual = coalesced.Aggregate(seed: 0.0, func: (max, entry) => Math.Max(val1: max, val2: Math.Abs(value: entry.Value - (coalesced.TryGetValue((entry.Key.Col, entry.Key.Row), out double mirror) ? mirror : 0.0))));
+        double symmetryTolerance = RhinoMath.Epsilon * Math.Max(val1: 1.0, val2: blockScale);
+        return symmetryResidual > symmetryTolerance
+            ? Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.InvalidResult())
+            : SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2 * eCount), cols: Dimension.Create(value: 2 * eCount), triplets: triplets, key: key)
+            .Map(matrix => (Matrix: matrix, Receipt: new SpectralAssemblyReceipt(VertexCount: 0, EdgeCount: eCount, FaceCount: mesh.Triangles.Count, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, FlippedIntrinsicRejected: mesh.HasFlips, MatrixRows: matrix.Rows.Value, MatrixCols: matrix.Cols.Value, NonZeros: matrix.Values.Count, PositiveStar0Count: 0, PositiveStar1Count: 0, PositiveStar2Count: admitted, BoundaryCompositionResidual: 0.0, Genus: Option<int>.None, HarmonicDimension: 0, ComponentCount: 2, PositiveMassCount: mass.Count(static value => value > RhinoMath.ZeroTolerance), SymmetryResidual: symmetryResidual, SymmetryTolerance: symmetryTolerance, FactorNonZeros: Option<int>.None, Kind: SpectralAssemblyKind.EdgeConnection)));
     }
     private static void EmitCrouzeixRaviartPair(List<(int Row, int Col, double Value)> triplets, int eCount, (int I, int J, double Sign, double LA, double LB, double LOpp) pair, double area, double time) {
         double dot = (pair.LA * pair.LA) + (pair.LB * pair.LB) - (pair.LOpp * pair.LOpp);
@@ -745,7 +768,10 @@ internal static class SpectralCore {
         double sumK = Enumerable.Sum(defects.AsIterable());
         double euler = sumK / (2.0 * Math.PI);
         double sumPrescribed = Enumerable.Sum(cones.AsIterable(), static c => c.ConeIndex);
-        return !valid || Math.Abs(value: sumPrescribed - euler) > 1.0e-6
+        // Discrete Gauss-Bonnet: Σκ/2π equals the integer Euler characteristic and the prescribed cone indices
+        // are integer-valued, so their balance is integer-valued. The half-unit floor accepts any accumulation
+        // that rounds to the correct integer and is count-independent (never divided by the cone count).
+        return !valid || Math.Abs(value: sumPrescribed - euler) > 0.25
             ? Fin.Fail<Unit>(error: key.InvalidInput())
             : Fin.Succ(unit);
     }

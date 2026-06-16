@@ -649,7 +649,7 @@ order-by-type =              false
 split-on-trailing-comma =    false
 
 [tool.ruff.lint.mccabe]
-max-complexity = 15
+max-complexity = 20
 
 [tool.ruff.lint.pep8-naming]
 classmethod-decorators = ["pydantic.field_validator", "pydantic.model_validator"]

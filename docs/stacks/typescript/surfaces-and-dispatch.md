@@ -6,18 +6,18 @@ A concern with many features keeps one dense surface, never a family of shallow 
 
 When a concern matches several rows, the most specific wins; the carrier axis is read after the form is fixed.
 
-| [INDEX] | [CONCERN_SIGNATURE]                           | [FORM]                                       | [REJECTED_FORM]                       |
-| :-----: | :-------------------------------------------- | :------------------------------------------- | :------------------------------------ |
-|   [1]   | verb family, shared preamble                  | request `Data.TaggedEnum` + `$match`         | sibling `create`/`update` methods     |
-|   [2]   | one verb, varying arity                       | `[T, ...ReadonlyArray<T>]` + `Effect.forEach` | per-arity overload family             |
-|   [3]   | closed tagged domain projection               | `Match.tagsExhaustive` / `$match`            | distributed `switch (x._tag)`         |
-|   [4]   | keyed domain is the behavior                  | `as const satisfies Record` vocabulary lookup | repeated full-coverage `Match`        |
-|   [5]   | non-`_tag` literal discriminant               | `Match.discriminatorsExhaustive(field)`      | hand-keyed `Record` + assert          |
-|   [6]   | structural / multi-dimension predicate        | `Match.whenAnd`/`whenOr`/`not`               | nested boolean branching              |
-|   [7]   | input shape, not nominal type, discriminates  | `Match.type().pipe(Match.when, ...)`         | `if`-chain over open input            |
-|   [8]   | one body over success / fail / context        | one Effect pipeline                          | per-channel sibling family            |
-|   [9]   | optional context with identity                | one `Option<ContextRecord>`                  | `a?: T, b?: T, mode?: boolean` tail   |
-|  [10]   | partial classification, absence is valid      | `Match.value(...).pipe(..., Match.option)`   | catch-all `orElse` masking a variant  |
+| [INDEX] | [CONCERN_SIGNATURE]                          | [FORM]                                        | [REJECTED_FORM]                      |
+| :-----: | :------------------------------------------- | :-------------------------------------------- | :----------------------------------- |
+|   [1]   | verb family, shared preamble                 | request `Data.TaggedEnum` + `$match`          | sibling `create`/`update` methods    |
+|   [2]   | one verb, varying arity                      | `[T, ...ReadonlyArray<T>]` + `Effect.forEach` | per-arity overload family            |
+|   [3]   | closed tagged domain projection              | `Match.tagsExhaustive` / `$match`             | distributed `switch (x._tag)`        |
+|   [4]   | keyed domain is the behavior                 | `as const satisfies Record` vocabulary lookup | repeated full-coverage `Match`       |
+|   [5]   | non-`_tag` literal discriminant              | `Match.discriminatorsExhaustive(field)`       | hand-keyed `Record` + assert         |
+|   [6]   | structural / multi-dimension predicate       | `Match.whenAnd`/`whenOr`/`not`                | nested boolean branching             |
+|   [7]   | input shape, not nominal type, discriminates | `Match.type().pipe(Match.when, ...)`          | `if`-chain over open input           |
+|   [8]   | one body over success / fail / context       | one Effect pipeline                           | per-channel sibling family           |
+|   [9]   | optional context with identity               | one `Option<ContextRecord>`                   | `a?: T, b?: T, mode?: boolean` tail  |
+|  [10]   | partial classification, absence is valid     | `Match.value(...).pipe(..., Match.option)`    | catch-all `orElse` masking a variant |
 
 ## [2]-[ENTRYPOINT_LAW]
 

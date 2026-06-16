@@ -17,12 +17,12 @@
 [PUBLIC_TYPE_SCOPE]: lazy-computation owners
 - rail: studies
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `dask.array.Array` | chunked array | blocked NumPy-compatible array |
-| [2] | `dask.dataframe.DataFrame` | partitioned frame | blocked pandas-compatible frame |
-| [3] | `dask.delayed` | deferred call | wraps a call into a task-graph node |
-| [4] | `dask.distributed.Client` | scheduler client | submits the graph to a cluster |
+| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]    | [CAPABILITY]                        |
+| :-----: | :------------------------- | :---------------- | :---------------------------------- |
+|   [1]   | `dask.array.Array`         | chunked array     | blocked NumPy-compatible array      |
+|   [2]   | `dask.dataframe.DataFrame` | partitioned frame | blocked pandas-compatible frame     |
+|   [3]   | `dask.delayed`             | deferred call     | wraps a call into a task-graph node |
+|   [4]   | `dask.distributed.Client`  | scheduler client  | submits the graph to a cluster      |
 
 [ENTRYPOINTS]:
 - UN_REFLECTED: exact callable spellings (`dask.array.from_array`, `dask.compute`, `Array.compute`, `delayed.compute`, `Client.submit`) and verified signatures require a reflectable install to capture; type/submodule names above are stable package facts, not reflected members.

@@ -4,10 +4,10 @@ Caller-owned context and settings admission. One immutable `RuntimeContext` carr
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                       |
-| :-----: | :-------- | :---------------------------------------------------------- |
-|   [1]   | CONTEXT   | profile, correlation, deadline, the one context admission   |
-|   [2]   | SETTINGS  | local settings source order over pydantic-settings          |
+| [INDEX] | [CLUSTER] | [OWNS]                                                    |
+| :-----: | :-------- | :-------------------------------------------------------- |
+|   [1]   | CONTEXT   | profile, correlation, deadline, the one context admission |
+|   [2]   | SETTINGS  | local settings source order over pydantic-settings        |
 
 ## [2]-[CONTEXT]
 

@@ -18,38 +18,42 @@
 [PUBLIC_TYPE_SCOPE]: figure model and submodules
 - rail: visuals
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `graph_objects.Figure` | figure model | a complete figure with traces, layout, and frames |
-| [2] | `graph_objects.Scatter` / `Bar` / `Heatmap` / `Surface` / `Scatter3d` / `Mesh3d` / `Choropleth` | trace types | the trace family across 2D/3D/statistical/geo |
-| [3] | `graph_objects.Layout` | layout | axes/legend/annotation/scene configuration |
-| [4] | `io` | serialization module | JSON/HTML/image emit and the renderer/template registries |
-| [5] | `io.templates` | template registry | named figure-theme axis |
-| [6] | `io.renderers` | renderer registry | output renderer axis |
+Trace rows cover `Scatter`, `Bar`, `Heatmap`, `Surface`, `Scatter3d`, `Mesh3d`, and `Choropleth` as one figure trace family.
+
+| [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]       | [CAPABILITY]                    |
+| :-----: | :----------------------- | :------------------- | :------------------------------ |
+|   [1]   | `graph_objects.Figure`   | figure model         | traces, layout, and frames      |
+|   [2]   | `graph_objects.*` traces | trace types          | 2D/3D/statistical/geo traces    |
+|   [3]   | `graph_objects.Layout`   | layout               | axes, legend, annotation, scene |
+|   [4]   | `io`                     | serialization module | JSON/HTML/image emit            |
+|   [5]   | `io.templates`           | template registry    | named figure-theme axis         |
+|   [6]   | `io.renderers`           | renderer registry    | output renderer axis            |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: figure construction
 - rail: visuals
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `graph_objects.Figure` | `Figure(data=None, layout=None, frames=None, skip_invalid=False, **kwargs)` | build a figure |
-| [2] | `Figure.add_trace` | `add_trace(trace, row=None, col=None, secondary_y=None) -> Figure` | append a trace |
-| [3] | `Figure.update_layout` | `update_layout(dict1=None, overwrite=False, **kwargs) -> Figure` | configure layout |
-| [4] | `Figure.update_traces` | `update_traces(patch=None, selector=None, row=None, col=None, **kwargs) -> Figure` | patch traces |
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                       | [CAPABILITY]     |
+| :-----: | :--------------------- | :--------------------------------------------------------------------------------- | :--------------- |
+|   [1]   | `graph_objects.Figure` | `Figure(data=None, layout=None, frames=None, skip_invalid=False, **kwargs)`        | build a figure   |
+|   [2]   | `Figure.add_trace`     | `add_trace(trace, row=None, col=None, secondary_y=None) -> Figure`                 | append a trace   |
+|   [3]   | `Figure.update_layout` | `update_layout(dict1=None, overwrite=False, **kwargs) -> Figure`                   | configure layout |
+|   [4]   | `Figure.update_traces` | `update_traces(patch=None, selector=None, row=None, col=None, **kwargs) -> Figure` | patch traces     |
 
 [ENTRYPOINT_SCOPE]: serialization and export (`plotly.io`)
 - rail: visuals
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `io.to_image` | `to_image(fig: dict | Figure, format=None, width=None, height=None, scale=None, validate=True, engine=None) -> bytes` | static image bytes (PNG/SVG/PDF) |
-| [2] | `io.write_image` | `write_image(fig, file: str | pathlib.Path, format=None, scale=None, width=None, height=None, validate=True, engine=None)` | write static image to file |
-| [3] | `io.to_json` | `to_json(fig, validate=True, pretty=False, remove_uids=True, engine=None) -> str` | figure JSON |
-| [4] | `io.from_json` | `from_json(value, output_type='Figure', skip_invalid=False, engine=None) -> Figure` | parse figure JSON |
-| [5] | `io.write_html` | `write_html(fig, file, config=None, auto_play=True, include_plotlyjs=True, include_mathjax=False, post_script=None, full_html=True, animation_opts=None, validate=True, default_width='100%', default_height='100%', auto_open=False, div_id=None)` | interactive HTML export |
-| [6] | `io.to_html` | `to_html(fig, config=None, auto_play=True, include_plotlyjs=True, ...) -> str` | interactive HTML string |
+Static export rows share format, size, scale, validation, and `kaleido` engine policy; HTML rows share config, bundle, animation, size, and div-id policy.
+
+| [INDEX] | [SURFACE]        | [CALL_SHAPE]                     | [CAPABILITY]                     |
+| :-----: | :--------------- | :------------------------------- | :------------------------------- |
+|   [1]   | `io.to_image`    | figure plus static export policy | static image bytes (PNG/SVG/PDF) |
+|   [2]   | `io.write_image` | figure, file, and export policy  | write static image to file       |
+|   [3]   | `io.to_json`     | figure plus JSON policy          | figure JSON                      |
+|   [4]   | `io.from_json`   | JSON value plus output policy    | parse figure JSON                |
+|   [5]   | `io.write_html`  | figure, file, and HTML policy    | interactive HTML export          |
+|   [6]   | `io.to_html`     | figure plus HTML policy -> `str` | interactive HTML string          |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

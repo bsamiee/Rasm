@@ -18,41 +18,41 @@
 [PUBLIC_TYPE_SCOPE]: retry-caller family
 - rail: resilience
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `RetryingCaller` | caller | reusable sync retry wrapper |
-| [2] | `AsyncRetryingCaller` | caller | reusable async retry wrapper |
-| [3] | `BoundRetryingCaller` | caller | policy-bound sync caller |
-| [4] | `BoundAsyncRetryingCaller` | caller | policy-bound async caller |
-| [5] | `Attempt` | attempt | per-iteration retry context |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [RAIL]                       |
+| :-----: | :------------------------- | :------------ | :--------------------------- |
+|   [1]   | `RetryingCaller`           | caller        | reusable sync retry wrapper  |
+|   [2]   | `AsyncRetryingCaller`      | caller        | reusable async retry wrapper |
+|   [3]   | `BoundRetryingCaller`      | caller        | policy-bound sync caller     |
+|   [4]   | `BoundAsyncRetryingCaller` | caller        | policy-bound async caller    |
+|   [5]   | `Attempt`                  | attempt       | per-iteration retry context  |
 
 [PUBLIC_TYPE_SCOPE]: instrumentation family
 - rail: resilience
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `instrumentation.RetryHook` | hook | on-retry callback contract |
-| [2] | `instrumentation.RetryHookFactory` | hook factory | lazy hook construction |
-| [3] | `instrumentation.RetryDetails` | record | per-retry detail payload |
-| [4] | `instrumentation.StructlogOnRetryHook` | hook | structlog retry emitter |
-| [5] | `instrumentation.LoggingOnRetryHook` | hook | stdlib-logging retry emitter |
-| [6] | `instrumentation.PrometheusOnRetryHook` | hook | prometheus retry counter |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [RAIL]                       |
+| :-----: | :-------------------------------------- | :------------ | :--------------------------- |
+|   [1]   | `instrumentation.RetryHook`             | hook          | on-retry callback contract   |
+|   [2]   | `instrumentation.RetryHookFactory`      | hook factory  | lazy hook construction       |
+|   [3]   | `instrumentation.RetryDetails`          | record        | per-retry detail payload     |
+|   [4]   | `instrumentation.StructlogOnRetryHook`  | hook          | structlog retry emitter      |
+|   [5]   | `instrumentation.LoggingOnRetryHook`    | hook          | stdlib-logging retry emitter |
+|   [6]   | `instrumentation.PrometheusOnRetryHook` | hook          | prometheus retry counter     |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: retry operations
 - rail: resilience
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `retry` | decorator | retry callable on listed exceptions |
-| [2] | `retry_context` | iterator | retry inline statement block |
-| [3] | `RetryingCaller` | caller build | construct reusable sync caller |
-| [4] | `AsyncRetryingCaller` | caller build | construct reusable async caller |
-| [5] | `is_active` / `set_active` | toggle | enable/disable retrying globally |
-| [6] | `is_testing` / `set_testing` | toggle | deterministic test mode |
-| [7] | `instrumentation.set_on_retry_hooks` | instrumentation | register retry hooks |
-| [8] | `instrumentation.get_on_retry_hooks` | instrumentation | read active retry hooks |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]  | [RAIL]                              |
+| :-----: | :----------------------------------- | :-------------- | :---------------------------------- |
+|   [1]   | `retry`                              | decorator       | retry callable on listed exceptions |
+|   [2]   | `retry_context`                      | iterator        | retry inline statement block        |
+|   [3]   | `RetryingCaller`                     | caller build    | construct reusable sync caller      |
+|   [4]   | `AsyncRetryingCaller`                | caller build    | construct reusable async caller     |
+|   [5]   | `is_active` / `set_active`           | toggle          | enable/disable retrying globally    |
+|   [6]   | `is_testing` / `set_testing`         | toggle          | deterministic test mode             |
+|   [7]   | `instrumentation.set_on_retry_hooks` | instrumentation | register retry hooks                |
+|   [8]   | `instrumentation.get_on_retry_hooks` | instrumentation | read active retry hooks             |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

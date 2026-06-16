@@ -17,13 +17,13 @@
 [PUBLIC_TYPE_SCOPE]: session owners
 - rail: model
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `onnxruntime.InferenceSession` | session root | loads and runs a model |
-| [2] | `onnxruntime.SessionOptions` | session policy | configures graph optimization and threads |
-| [3] | `onnxruntime.RunOptions` | run policy | configures a single inference run |
-| [4] | `onnxruntime.NodeArg` | io descriptor | named input/output with type and shape |
-| [5] | `onnxruntime.OrtValue` | value carrier | native typed tensor value |
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE] | [CAPABILITY]                              |
+| :-----: | :----------------------------- | :------------- | :---------------------------------------- |
+|   [1]   | `onnxruntime.InferenceSession` | session root   | loads and runs a model                    |
+|   [2]   | `onnxruntime.SessionOptions`   | session policy | configures graph optimization and threads |
+|   [3]   | `onnxruntime.RunOptions`       | run policy     | configures a single inference run         |
+|   [4]   | `onnxruntime.NodeArg`          | io descriptor  | named input/output with type and shape    |
+|   [5]   | `onnxruntime.OrtValue`         | value carrier  | native typed tensor value                 |
 
 [ENTRYPOINTS]:
 - UN_REFLECTED: exact method spellings (`InferenceSession.run`, `InferenceSession.get_inputs`, `InferenceSession.get_outputs`, `get_providers`) and verified signatures require a reflectable install to capture; type names above are stable package facts, not reflected members.

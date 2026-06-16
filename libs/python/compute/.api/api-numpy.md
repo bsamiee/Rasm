@@ -17,13 +17,13 @@
 [PUBLIC_TYPE_SCOPE]: array owners
 - rail: arrays
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `numpy.ndarray` | array container | strided n-dimensional buffer |
-| [2] | `numpy.dtype` | type descriptor | element type and itemsize |
-| [3] | `numpy.linalg` | linear algebra submodule | dense factorizations and solve |
-| [4] | `numpy.random` | random submodule | Generator-based random sampling |
-| [5] | `numpy.typing.NDArray` | typing alias | shape/dtype-parametric array annotation |
+| [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]           | [CAPABILITY]                            |
+| :-----: | :--------------------- | :----------------------- | :-------------------------------------- |
+|   [1]   | `numpy.ndarray`        | array container          | strided n-dimensional buffer            |
+|   [2]   | `numpy.dtype`          | type descriptor          | element type and itemsize               |
+|   [3]   | `numpy.linalg`         | linear algebra submodule | dense factorizations and solve          |
+|   [4]   | `numpy.random`         | random submodule         | Generator-based random sampling         |
+|   [5]   | `numpy.typing.NDArray` | typing alias             | shape/dtype-parametric array annotation |
 
 [ENTRYPOINTS]:
 - UN_REFLECTED: exact callable spellings (`numpy.asarray`, `numpy.array`, `numpy.isfinite`, `numpy.ascontiguousarray`, `numpy.linalg.solve`, `numpy.random.default_rng`) and verified signatures require a reflectable install to capture; type/submodule names above are stable package facts, not reflected members.

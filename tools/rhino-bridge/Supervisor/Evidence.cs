@@ -19,6 +19,10 @@ internal sealed record ClosureManifest(string[] Assemblies, Guid[] HostPlugins, 
 // Ownership: workstation-side evidence outside the session fold: staged refs, .ips summaries,
 // spool harvest, and unload-leak gcdumps.
 internal static class Evidence {
+    // Best-effort unload-leak forensics. The collect runs under the forensics deadline; a deadline
+    // elapse (Exec kills the child tree and returns Fin.Fail), a non-zero exit, or a missing artifact
+    // all project to None, so the caller's after-leak recycle fact stays the host-recycle quit ladder
+    // and never blocks or faults on an unavailable dump.
     internal static Option<string> GcDump(int pid, string reportDir, TimeSpan deadline) {
         string artifact = Path.Combine(path1: reportDir, path2: string.Create(provider: CultureInfo.InvariantCulture, $"{pid}.gcdump"));
         return Exec.Run(file: "dotnet",

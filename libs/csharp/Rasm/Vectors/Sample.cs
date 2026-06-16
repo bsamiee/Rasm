@@ -222,7 +222,7 @@ public abstract partial record SampleKind {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct DworkReceipt(DworkSamplingDomain Domain, double RMin, Option<double> BackgroundCellSize, Option<int> BackgroundGridCells, int AttemptsPerActive, int GeneratedCandidates, int ActivePops, int RejectedTooClose, int RejectedDomain, double LocalRadiusMin, double LocalRadiusMax, bool ActiveListAnnulusSampling, bool LocalRadiusConflictChecks, bool DeterministicSeed) {
+public readonly record struct DworkReceipt(DworkSamplingDomain Domain, double RMin, Option<double> BackgroundCellSize, Option<int> BackgroundGridCells, int AttemptsPerActive, int GeneratedCandidates, int ActivePops, int RejectedTooClose, int RejectedDomain, double LocalRadiusMin, double LocalRadiusMax) {
     public bool CandidateOnly => Domain.Equals(DworkSamplingDomain.CandidateSet);
     public bool ContinuousMesh => Domain.Equals(DworkSamplingDomain.ContinuousMesh);
 }
@@ -277,7 +277,7 @@ public readonly record struct PowerCcvtReceipt(
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SampleAlgorithmReceipt(SampleAlgorithmKind Kind, Option<int> Seed, Option<int> TargetCount, Option<int> OversampleCount, Option<int> OversampleFactor, Option<double> Alpha, Option<double> Beta, Option<double> Gamma, Option<double> Radius, Option<double> WeightLimitRadius, Option<int> Eliminated, Option<int> NeighborUpdates, bool DeterministicCandidateSource, bool EuclideanMetric, bool MaximalCoverageGuaranteed, bool CapacityResidualValidated, bool TransportAssignmentValidated, bool MeshSpectrumValidated, Option<int> Attempts = default, Option<int> ActivePops = default, Option<int> RejectedTooClose = default, Option<int> RejectedDomain = default, Option<double> DensityMin = default, Option<double> DensityMax = default, Option<double> LocalRadiusMin = default, Option<double> LocalRadiusMax = default, Option<double> CapacityResidual = default, Option<MeshSamplingSpectrumReceipt> Spectrum = default, Option<DworkReceipt> Dwork = default, Option<int> CapacityAssignedCandidates = default, Option<int> CapacityUnassignedCandidates = default, Option<PowerCcvtReceipt> PowerCcvt = default);
+public readonly record struct SampleAlgorithmReceipt(SampleAlgorithmKind Kind, Option<int> Seed, Option<int> TargetCount, Option<int> OversampleCount, Option<int> OversampleFactor, Option<double> Alpha, Option<double> Beta, Option<double> Gamma, Option<double> Radius, Option<double> WeightLimitRadius, Option<int> Eliminated, Option<int> NeighborUpdates, bool MaximalCoverageGuaranteed, bool CapacityResidualValidated, bool TransportAssignmentValidated, bool MeshSpectrumValidated, Option<int> Attempts = default, Option<int> ActivePops = default, Option<int> RejectedTooClose = default, Option<int> RejectedDomain = default, Option<double> DensityMin = default, Option<double> DensityMax = default, Option<double> LocalRadiusMin = default, Option<double> LocalRadiusMax = default, Option<double> CapacityResidual = default, Option<MeshSamplingSpectrumReceipt> Spectrum = default, Option<DworkReceipt> Dwork = default, Option<int> CapacityAssignedCandidates = default, Option<int> CapacityUnassignedCandidates = default, Option<PowerCcvtReceipt> PowerCcvt = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SampleReceipt(int Attempted, int Emitted, int Rejected, Option<int> CandidateCount, Option<double> MinSpacing, Option<double> MeanSpacing, Option<double> MaxSpacing, Option<double> DensityError, Option<int> DensityAccepted, Option<int> DensityRejected, Option<int> Iterations, SampleStopKind Stop, SampleDomainStatus DomainStatus, Option<SampleAlgorithmReceipt> Algorithm);
@@ -412,7 +412,7 @@ internal static class SampleKernel {
     private static Seq<Point3d> DensityImportanceSites(Seq<Point3d> candidates, int count, Option<ScalarField> density, Context context, int seed, Op key) =>
         density.Match(
             Some: field => toSeq(Enumerable.Range(start: 0, count: candidates.Count)
-                .Select(i => (Index: i, Weight: field.SampleScalar(sample: candidates[index: i], context: context, key: key).Match(Succ: value => RhinoMath.IsValidDouble(x: value) && value > 0.0 ? value : 0.0, Fail: static _ => 0.0)))
+                .Select(i => (Index: i, Weight: field.SampleScalar(sample: candidates[index: i], context: context, key: key).Match(Succ: value => key.AcceptValidated<PositiveMagnitude>(candidate: value).IsSucc ? value : 0.0, Fail: static _ => 0.0)))
                 .Where(static row => row.Weight > 0.0)
                 .OrderBy(row => -Math.Log(d: UnitInterval(point: candidates[index: row.Index], salt: 0, seed: seed)) / row.Weight)
                 .Take(count: count)
@@ -894,14 +894,14 @@ internal static class SampleKernel {
                 };
     private static Fin<Arr<double>> NormalizeMass(Seq<double> mass, Op key) =>
         CloudKernel.MassOf(mass: new Arr<double>([.. mass.AsIterable()]), count: mass.Count, key: key);
-    private static SampleAlgorithmReceipt AlgorithmFacts(SampleAlgorithmKind kind, Option<int> seed = default, Option<int> targetCount = default, Option<int> oversampleCount = default, Option<int> oversampleFactor = default, Option<double> alpha = default, Option<double> beta = default, Option<double> gamma = default, Option<double> radius = default, Option<double> weightLimitRadius = default, Option<int> eliminated = default, Option<int> neighborUpdates = default, bool capacityResidualValidated = false, bool transportAssignmentValidated = false, bool meshSpectrumValidated = false, Option<int> attempts = default, Option<int> activePops = default, Option<int> rejectedTooClose = default, Option<int> rejectedDomain = default, Option<double> densityMin = default, Option<double> densityMax = default, Option<double> localRadiusMin = default, Option<double> localRadiusMax = default, Option<double> capacityResidual = default, Option<MeshSamplingSpectrumReceipt> spectrum = default, Option<DworkReceipt> dwork = default, Option<int> capacityAssignedCandidates = default, Option<int> capacityUnassignedCandidates = default, Option<PowerCcvtReceipt> powerCcvt = default) =>
-        new(Kind: kind, Seed: seed, TargetCount: targetCount, OversampleCount: oversampleCount, OversampleFactor: oversampleFactor, Alpha: alpha, Beta: beta, Gamma: gamma, Radius: radius, WeightLimitRadius: weightLimitRadius, Eliminated: eliminated, NeighborUpdates: neighborUpdates, DeterministicCandidateSource: true, EuclideanMetric: true, MaximalCoverageGuaranteed: false, CapacityResidualValidated: capacityResidualValidated, TransportAssignmentValidated: transportAssignmentValidated, MeshSpectrumValidated: meshSpectrumValidated, Attempts: attempts, ActivePops: activePops, RejectedTooClose: rejectedTooClose, RejectedDomain: rejectedDomain, DensityMin: densityMin, DensityMax: densityMax, LocalRadiusMin: localRadiusMin, LocalRadiusMax: localRadiusMax, CapacityResidual: capacityResidual, Spectrum: spectrum, Dwork: dwork, CapacityAssignedCandidates: capacityAssignedCandidates, CapacityUnassignedCandidates: capacityUnassignedCandidates, PowerCcvt: powerCcvt);
+    private static SampleAlgorithmReceipt AlgorithmFacts(SampleAlgorithmKind kind, Option<int> seed = default, Option<int> targetCount = default, Option<int> oversampleCount = default, Option<int> oversampleFactor = default, Option<double> alpha = default, Option<double> beta = default, Option<double> gamma = default, Option<double> radius = default, Option<double> weightLimitRadius = default, Option<int> eliminated = default, Option<int> neighborUpdates = default, bool maximalCoverageGuaranteed = false, bool capacityResidualValidated = false, bool transportAssignmentValidated = false, bool meshSpectrumValidated = false, Option<int> attempts = default, Option<int> activePops = default, Option<int> rejectedTooClose = default, Option<int> rejectedDomain = default, Option<double> densityMin = default, Option<double> densityMax = default, Option<double> localRadiusMin = default, Option<double> localRadiusMax = default, Option<double> capacityResidual = default, Option<MeshSamplingSpectrumReceipt> spectrum = default, Option<DworkReceipt> dwork = default, Option<int> capacityAssignedCandidates = default, Option<int> capacityUnassignedCandidates = default, Option<PowerCcvtReceipt> powerCcvt = default) =>
+        new(Kind: kind, Seed: seed, TargetCount: targetCount, OversampleCount: oversampleCount, OversampleFactor: oversampleFactor, Alpha: alpha, Beta: beta, Gamma: gamma, Radius: radius, WeightLimitRadius: weightLimitRadius, Eliminated: eliminated, NeighborUpdates: neighborUpdates, MaximalCoverageGuaranteed: maximalCoverageGuaranteed, CapacityResidualValidated: capacityResidualValidated, TransportAssignmentValidated: transportAssignmentValidated, MeshSpectrumValidated: meshSpectrumValidated, Attempts: attempts, ActivePops: activePops, RejectedTooClose: rejectedTooClose, RejectedDomain: rejectedDomain, DensityMin: densityMin, DensityMax: densityMax, LocalRadiusMin: localRadiusMin, LocalRadiusMax: localRadiusMax, CapacityResidual: capacityResidual, Spectrum: spectrum, Dwork: dwork, CapacityAssignedCandidates: capacityAssignedCandidates, CapacityUnassignedCandidates: capacityUnassignedCandidates, PowerCcvt: powerCcvt);
     private static Fin<SampleSelection> DensitySelection(Seq<SampleCandidate> candidates, ScalarField density, int count, double minSpacing, SampleAlgorithmKind algorithm, Context context, Op key) {
         double[] weights = new double[candidates.Count];
         return toSeq(Enumerable.Range(start: 0, count: candidates.Count)).Fold(
             initialState: Fin.Succ((Accepted: 0, Rejected: 0, MinWeight: double.PositiveInfinity, MaxWeight: 0.0)),
             f: (state, i) => state.Bind(current => density.SampleScalar(sample: candidates[index: i].Point, context: context, key: key)
-                .Bind(value => RhinoMath.IsValidDouble(x: value) && value > 0.0
+                .Bind(value => key.AcceptValidated<PositiveMagnitude>(candidate: value).IsSucc
                     ? key.AcceptValue(value: value * candidates[index: i].Mass.IfNone(1.0)).Map(valid => { weights[i] = valid; return (Accepted: current.Accepted + 1, current.Rejected, MinWeight: Math.Min(val1: current.MinWeight, val2: valid), MaxWeight: Math.Max(val1: current.MaxWeight, val2: valid)); })
                     : Fin.Succ((current.Accepted, Rejected: current.Rejected + 1, current.MinWeight, current.MaxWeight)))))
             .Bind(stats => stats.Accepted > 0 ? PrioritySelection(candidates: candidates, weights: weights, count: count, minSpacing: minSpacing, minWeight: stats.MinWeight, maxWeight: stats.MaxWeight, accepted: stats.Accepted, rejected: stats.Rejected, algorithm: algorithm, key: key) : Fin.Fail<SampleSelection>(key.InvalidResult()));
@@ -940,7 +940,7 @@ internal static class SampleKernel {
         return toSeq(Enumerable.Range(start: 0, count: candidates.Count)).Fold(
             initialState: Fin.Succ((Accepted: 0, Rejected: 0, MinRadius: double.PositiveInfinity, MaxRadius: 0.0)),
             f: (state, i) => state.Bind(current => radius.SampleScalar(sample: candidates[index: i].Point, context: context, key: key)
-                .Bind(value => RhinoMath.IsValidDouble(x: value) && value > 0.0
+                .Bind(value => key.AcceptValidated<PositiveMagnitude>(candidate: value).IsSucc
                     ? key.AcceptValue(value: Math.Max(val1: minRadius, val2: value)).Map(local => {
                         admitted[current.Accepted] = new DworkCandidate(Index: i, Radius: local);
                         return (Accepted: current.Accepted + 1, current.Rejected, MinRadius: Math.Min(val1: current.MinRadius, val2: local), MaxRadius: Math.Max(val1: current.MaxRadius, val2: local));
@@ -952,7 +952,41 @@ internal static class SampleKernel {
     }
     private static Fin<SampleSelection> DworkVariableDensitySelection(Seq<SampleCandidate> candidates, DworkCandidate[] admitted, int count, int attempts, int seed, double radiusMin, double radiusMax, int rejectedDomain, Op key) {
         DworkCandidate[] ordered = [.. admitted.OrderBy(item => CandidateOrderKey(point: candidates[index: item.Index].Point, seed: seed))];
+        // Spatial hash over the admitted candidate cloud: each ordered candidate scatters into the cell of its point so
+        // the per-parent annulus band [r, 2r] resolves through a bounded ring query instead of rejection sampling the
+        // whole cloud. The cell pitch is r_min/sqrt(3) (the variable-density Bridson covering pitch), so an [r, 2r]
+        // band is reached by ceil(2r / cellSize) shells regardless of the parent's local radius.
+        double cellSize = Math.Max(val1: radiusMin / Math.Sqrt(d: 3.0), val2: RhinoMath.SqrtEpsilon);
+        Point3d gridOrigin = ordered.Length > 0 ? new BoundingBox(points: ordered.Select(item => candidates[index: item.Index].Point)).Min : Point3d.Origin;
+        DworkCell CellOf(Point3d point) => new(X: (long)Math.Floor(d: (point.X - gridOrigin.X) / cellSize), Y: (long)Math.Floor(d: (point.Y - gridOrigin.Y) / cellSize), Z: (long)Math.Floor(d: (point.Z - gridOrigin.Z) / cellSize));
+        Dictionary<DworkCell, List<int>> cloudGrid = [];
+        for (int o = 0; o < ordered.Length; o++) {
+            DworkCell cell = CellOf(point: candidates[index: ordered[o].Index].Point);
+            if (!cloudGrid.TryGetValue(key: cell, value: out List<int>? bucket)) { bucket = []; cloudGrid.Add(key: cell, value: bucket); }
+            bucket.Add(item: o);
+        }
         List<DworkCandidate> chosen = ordered.Length > 0 ? [ordered[0]] : [];
+        Dictionary<DworkCell, List<int>> chosenGrid = [];
+        void Record(DworkCandidate candidate) {
+            DworkCell cell = CellOf(point: candidates[index: candidate.Index].Point);
+            if (!chosenGrid.TryGetValue(key: cell, value: out List<int>? bucket)) { bucket = []; chosenGrid.Add(key: cell, value: bucket); }
+            bucket.Add(item: chosen.Count - 1);
+        }
+        if (chosen.Count > 0) Record(candidate: chosen[0]);
+        bool Conflicts(DworkCandidate candidate) {
+            Point3d at = candidates[index: candidate.Index].Point;
+            int shells = Math.Max(val1: 1, val2: (int)Math.Ceiling(a: Math.Max(val1: candidate.Radius, val2: radiusMax) / cellSize));
+            DworkCell home = CellOf(point: at);
+            for (int dx = -shells; dx <= shells; dx++)
+                for (int dy = -shells; dy <= shells; dy++)
+                    for (int dz = -shells; dz <= shells; dz++)
+                        if (chosenGrid.TryGetValue(key: new DworkCell(X: home.X + dx, Y: home.Y + dy, Z: home.Z + dz), value: out List<int>? bucket))
+                            foreach (int slot in bucket) {
+                                DworkCandidate other = chosen[index: slot];
+                                if (at.DistanceTo(other: candidates[index: other.Index].Point) < Math.Max(val1: other.Radius, val2: candidate.Radius)) return true;
+                            }
+            return false;
+        }
         List<DworkCandidate> active = ordered.Length > 0 ? [ordered[0]] : [];
         int activePops = 0;
         int tooClose = 0;
@@ -960,36 +994,46 @@ internal static class SampleKernel {
         while (active.Count > 0 && chosen.Count < count) {
             int activeOffset = (int)(CandidateOrderKey(point: candidates[index: active[0].Index].Point, seed: seed + activePops) % (ulong)active.Count);
             DworkCandidate parent = active[activeOffset];
+            Point3d parentPoint = candidates[index: parent.Index].Point;
+            DworkCell parentCell = CellOf(point: parentPoint);
+            int bandShells = Math.Max(val1: 1, val2: (int)Math.Ceiling(a: 2.0 * parent.Radius / cellSize));
+            // Gather the cloud candidates whose cells intersect the parent's [r, 2r] band, then exact-test the annulus.
+            List<DworkCandidate> annulus = [];
+            for (int dx = -bandShells; dx <= bandShells; dx++)
+                for (int dy = -bandShells; dy <= bandShells; dy++)
+                    for (int dz = -bandShells; dz <= bandShells; dz++)
+                        if (cloudGrid.TryGetValue(key: new DworkCell(X: parentCell.X + dx, Y: parentCell.Y + dy, Z: parentCell.Z + dz), value: out List<int>? bucket))
+                            foreach (int o in bucket) {
+                                DworkCandidate candidate = ordered[o];
+                                double distance = parentPoint.DistanceTo(other: candidates[index: candidate.Index].Point);
+                                if (distance >= parent.Radius && distance <= 2.0 * parent.Radius) annulus.Add(item: candidate);
+                            }
             bool accepted = false;
-            for (int attempt = 0; attempt < attempts && !accepted; attempt++) {
-                DworkCandidate candidate = ordered[(int)(CandidateOrderKey(point: candidates[index: parent.Index].Point, seed: seed + activePops + attempt + 1) % (ulong)ordered.Length)];
+            for (int attempt = 0; attempt < attempts && !accepted && annulus.Count > 0; attempt++) {
+                DworkCandidate candidate = annulus[(int)(CandidateOrderKey(point: parentPoint, seed: seed + activePops + attempt + 1) % (ulong)annulus.Count)];
                 if (chosen.Exists(item => item.Index == candidate.Index)) { tooClose++; continue; }
-                double distance = candidates[index: parent.Index].Point.DistanceTo(other: candidates[index: candidate.Index].Point);
-                if (distance < parent.Radius || distance > 2.0 * parent.Radius) { outside++; continue; }
-                bool conflict = chosen.Exists(item => candidates[index: item.Index].Point.DistanceTo(other: candidates[index: candidate.Index].Point) < Math.Max(val1: item.Radius, val2: candidate.Radius));
-                if (conflict) { tooClose++; continue; }
+                if (Conflicts(candidate: candidate)) { tooClose++; continue; }
                 chosen.Add(item: candidate);
+                Record(candidate: candidate);
                 active.Add(item: candidate);
                 accepted = true;
             }
+            if (!accepted && annulus.Count == 0) outside++;
             if (!accepted) active.RemoveAt(index: activeOffset);
             activePops++;
         }
         DworkReceipt dwork = new(
             Domain: DworkSamplingDomain.CandidateSet,
             RMin: radiusMin,
-            BackgroundCellSize: Option<double>.None,
-            BackgroundGridCells: Option<int>.None,
+            BackgroundCellSize: Some(cellSize),
+            BackgroundGridCells: Some(cloudGrid.Count),
             AttemptsPerActive: attempts,
             GeneratedCandidates: chosen.Count + tooClose + outside + rejectedDomain,
             ActivePops: activePops,
             RejectedTooClose: tooClose,
             RejectedDomain: rejectedDomain + outside,
             LocalRadiusMin: radiusMin,
-            LocalRadiusMax: radiusMax,
-            ActiveListAnnulusSampling: false,
-            LocalRadiusConflictChecks: true,
-            DeterministicSeed: true);
+            LocalRadiusMax: radiusMax);
         SampleAlgorithmReceipt algorithm = AlgorithmFacts(kind: SampleAlgorithmKind.DworkVariableDensity, seed: Some(seed), targetCount: Some(count), oversampleCount: Some(admitted.Length), attempts: Some(attempts), activePops: Some(activePops), rejectedTooClose: Some(tooClose), rejectedDomain: Some(rejectedDomain + outside), localRadiusMin: Some(radiusMin), localRadiusMax: Some(radiusMax), dwork: Some(dwork));
         return SelectionOf(candidates: candidates, indices: [.. chosen.Select(static item => item.Index)], algorithm: Some(algorithm), key: key);
     }
@@ -1103,7 +1147,7 @@ internal static class SampleKernel {
         }
         private Option<DworkSurfacePoint> RadiusAt(Point3d point) =>
             radius.SampleScalar(sample: point, context: context, key: key).Match(
-                Succ: value => RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Some(new DworkSurfacePoint(Point: point, Radius: Math.Max(val1: minRadius, val2: value))) : Option<DworkSurfacePoint>.None,
+                Succ: value => key.AcceptValidated<PositiveMagnitude>(candidate: value).IsSucc ? Some(new DworkSurfacePoint(Point: point, Radius: Math.Max(val1: minRadius, val2: value))) : Option<DworkSurfacePoint>.None,
                 Fail: _ => Option<DworkSurfacePoint>.None);
         private Option<DworkSurfacePoint> AnnulusCandidate(DworkSurfacePoint parent, int attempt) {
             double angle = RhinoMath.TwoPI * UnitInterval(point: parent.Point, salt: (activePops * attempts * 4) + (attempt * 4) + 7, seed: seed);
@@ -1170,10 +1214,7 @@ internal static class SampleKernel {
                 RejectedTooClose: rejectedTooClose,
                 RejectedDomain: rejectedDomain,
                 LocalRadiusMin: radiusMin,
-                LocalRadiusMax: radiusMax,
-                ActiveListAnnulusSampling: true,
-                LocalRadiusConflictChecks: true,
-                DeterministicSeed: true);
+                LocalRadiusMax: radiusMax);
             SampleAlgorithmReceipt algorithm = AlgorithmFacts(kind: SampleAlgorithmKind.DworkVariableDensity, seed: Some(seed), targetCount: Some(count), oversampleCount: Some(proposals), attempts: Some(attempts), activePops: Some(activePops), rejectedTooClose: Some(rejectedTooClose), rejectedDomain: Some(rejectedDomain), localRadiusMin: Some(radiusMin), localRadiusMax: Some(radiusMax), dwork: Some(dwork));
             return Fin.Succ(new SampleSelection(Points: [.. chosen.Select(static sample => sample.Point)], Mass: Option<Arr<double>>.None, DensityAccepted: Option<int>.None, DensityRejected: Option<int>.None, Algorithm: Some(algorithm)));
         }
@@ -1209,7 +1250,8 @@ internal static class SampleKernel {
             if (!accepted) active.RemoveAt(index: activeOffset);
             activePops++;
         }
-        SampleAlgorithmReceipt algorithm = AlgorithmFacts(kind: SampleAlgorithmKind.BridsonActiveListPoisson, seed: Some(seed), radius: Some(radius), attempts: Some(attempts), activePops: Some(activePops), rejectedTooClose: Some(tooClose), rejectedDomain: Some(outside));
+        bool maximalCoverage = active.Count == 0;
+        SampleAlgorithmReceipt algorithm = AlgorithmFacts(kind: SampleAlgorithmKind.BridsonActiveListPoisson, seed: Some(seed), radius: Some(radius), attempts: Some(attempts), maximalCoverageGuaranteed: maximalCoverage, activePops: Some(activePops), rejectedTooClose: Some(tooClose), rejectedDomain: Some(outside));
         return SelectionOf(candidates: candidates, indices: [.. chosen.Distinct()], algorithm: Some(algorithm), key: key);
     }
     private static Fin<SampleSelection> CapacityCvtSelection(Seq<SampleCandidate> candidates, int count, int limit, int iterations, double tolerance, Op key) =>

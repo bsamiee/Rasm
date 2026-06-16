@@ -18,33 +18,37 @@
 [PUBLIC_TYPE_SCOPE]: pool and page generator
 - rail: visuals
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `Kaleido` | pool manager | a managed pool of headless-Chrome tabs for rendering |
-| [2] | `PageGenerator` | page template | the HTML page template injecting plotly.js/MathJax |
+| [INDEX] | [SYMBOL]        | [PACKAGE_ROLE] | [CAPABILITY]                                         |
+| :-----: | :-------------- | :------------- | :--------------------------------------------------- |
+|   [1]   | `Kaleido`       | pool manager   | a managed pool of headless-Chrome tabs for rendering |
+|   [2]   | `PageGenerator` | page template  | the HTML page template injecting plotly.js/MathJax   |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pool construction and managed render
 - rail: visuals
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `Kaleido` | `Kaleido(n: int = 1, timeout: float | None = 90, page_generator: None | PageGenerator | str | Path = None, plotlyjs: str | Path | None = None, mathjax: str | Path | Literal[False] | None = None, headers: dict[str, str] | None = None, **kwargs) -> None` | build a render pool |
-| [2] | `Kaleido.write_fig` | `write_fig(fig, path=None, opts=None, *, topojson=None, kopts=None, **kwargs)` | render and write via the pool |
-| [3] | `Kaleido.calc_fig` | `calc_fig(fig, opts=None, *, topojson=None, kopts=None)` | render to bytes via the pool |
-| [4] | `Kaleido.write_fig_from_object` | `write_fig_from_object(generator, ...)` | render from a fig-spec generator |
+Pool rows carry tab count, timeout, page generator, Plotly.js, MathJax, header, topology, and engine kwargs policy.
+
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                    | [CAPABILITY]                     |
+| :-----: | :------------------------------ | :------------------------------ | :------------------------------- |
+|   [1]   | `Kaleido`                       | render-pool policy              | build a render pool              |
+|   [2]   | `Kaleido.write_fig`             | figure, path, and render policy | render and write via the pool    |
+|   [3]   | `Kaleido.calc_fig`              | figure plus render policy       | render to bytes via the pool     |
+|   [4]   | `Kaleido.write_fig_from_object` | figure-generator input          | render from a fig-spec generator |
 
 [ENTRYPOINT_SCOPE]: one-shot sync and async functions
 - rail: visuals
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `write_fig` | `write_fig(fig, path=None, opts: LayoutOpts | None = None, *, topojson=None, kopts=None, **kwargs)` | async write to file |
-| [2] | `write_fig_sync` | `write_fig_sync(fig, path=None, opts=None, *, topojson=None, kopts=None, **kwargs)` | sync write to file |
-| [3] | `calc_fig` | `calc_fig(fig, opts: LayoutOpts | None = None, *, topojson=None, kopts=None)` | async render to bytes |
-| [4] | `calc_fig_sync` | `calc_fig_sync(fig, opts=None, *, topojson=None, kopts=None)` | sync render to bytes |
-| [5] | `get_chrome` / `get_chrome_sync` | `get_chrome() / get_chrome_sync()` | provision the headless Chrome binary |
+One-shot rows share figure, path, layout options, topojson, and Kaleido-options policy.
+
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]               | [CAPABILITY]                         |
+| :-----: | :------------------------------- | :------------------------- | :----------------------------------- |
+|   [1]   | `write_fig`                      | async write policy         | async write to file                  |
+|   [2]   | `write_fig_sync`                 | sync write policy          | sync write to file                   |
+|   [3]   | `calc_fig`                       | async bytes-render policy  | async render to bytes                |
+|   [4]   | `calc_fig_sync`                  | sync bytes-render policy   | sync render to bytes                 |
+|   [5]   | `get_chrome` / `get_chrome_sync` | sync or async provisioning | provision the headless Chrome binary |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

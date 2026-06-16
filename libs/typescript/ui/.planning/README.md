@@ -34,7 +34,7 @@ Per the single-state-surface law, page-finalization state lives in exactly one c
 |   [6]   | four loose geo aliases relocated instead of collapsed                  | render-surfaces#RENDER_SURFACES (one `GeoSeriesLayer` union owner)                       |
 |   [7]   | a `.tsx`-per-component library instead of a role vocabulary            | component-system#COMPONENT_SYSTEM (one `InteractionRole` owner-block + `RoleBehavior`)   |
 |   [8]   | a theme written direct to `document.documentElement.style`             | component-system#COMPONENT_SYSTEM (`CssVarSync` the single theme-to-runtime path)        |
-|   [9]   | a `ui->platform` import inverting the AppUi/AppHost direction           | the `ui/**`-specific `no-restricted-imports` rule (RULE_ENFORCEMENT row [7])             |
+|   [9]   | a `ui->platform` import inverting the AppUi/AppHost direction           | the `ui/**`-specific import-ban rule in the centralized config (RULE_ENFORCEMENT row [7]) |
 
 ## [4]-[DENSITY_BAR]
 
@@ -68,7 +68,7 @@ The binding precedes every surface that subscribes through it; the component-sys
 | :-------------- | :------------------------------------- | :--------------------------------------------------------- |
 | catalog resolve | `pnpm install`                         | catalogMode strict resolves the browser-stratum admissions |
 | typecheck       | tsgo `--noEmit` over the domain        | zero diagnostics                                           |
-| stratum lint    | eslint flat-config over `ui/**`        | no `ui->platform` import, no `services`/node-platform import |
+| stratum lint    | centralized config over `ui/**`        | no `ui->platform` import, no `services`/node-platform import |
 | unit-pbt        | vitest project `browser`               | the `UndoStack` fold and `announceFor` total-dispatch laws pass |
 | browser-e2e     | vitest browser-mode (playwright)       | leaf subscriber renders the projection fold via `AtomBinding` |
 

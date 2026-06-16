@@ -6,21 +6,21 @@ Foreign material crosses once: a boundary owner decodes bytes, sentinels, callba
 
 This table selects the owner for a foreign signal; when a signal matches several rows, the most specific wins, and lifetime rows are read before transport rows.
 
-| [INDEX] | [FOREIGN_SIGNAL]      | [SEAM_OWNER]                | [INTERIOR_FORM]                       | [REJECT]                  |
-| :-----: | :-------------------- | :-------------------------- | :------------------------------------ | :------------------------ |
-|   [1]   | untyped input payload | `Schema.decodeUnknown`      | decoded owner in the rail             | interior revalidation     |
-|   [2]   | throwing async call   | `Effect.tryPromise`         | typed `Effect` failure                | raw `Promise` in domain   |
-|   [3]   | null or sentinel      | `Option.fromNullable`       | `Option<T>` or tagged family          | nullable payload past seam |
-|   [4]   | cause-bearing absence | tagged `Data.TaggedError`   | closed failure family                 | `Option.none` for a cause |
-|   [5]   | resource lifetime     | `Effect.acquireRelease`     | scoped value, LIFO finalizer          | manual cleanup, leaked fiber |
-|   [6]   | worker/main-thread call | marshal `Effect`          | `Effect` with captured runtime        | ambient main-thread read  |
-|   [7]   | high-frequency callback | `Queue`/`PubSub` or `SubscriptionRef` | drained `Stream` or latest cell | blocked/mutating callback |
-|   [8]   | event or subscription | scoped `PubSub`/`Queue`     | drained `Stream` of decoded signals   | orphan handler            |
-|   [9]   | isolated-axis lifetime | derived `Scope`/`Layer.fresh` | one-axis-isolated instance         | shared cancellation/registry |
-|  [10]   | keyed recomputation   | `Equivalence`-keyed memo    | full-dimension cache key              | path-only/type-only cache |
-|  [11]   | capability dependency | `Layer` + `Effect.Service`  | provided context, `R = never` at root | service location          |
-|  [12]   | protocol payload      | `Schema.transform` codec    | decoded owner                         | codec-bearing domain owner |
-|  [13]   | signed byte field     | raw-bytes-then-hash capture | canonical octets plus hash            | parse-reserialize         |
+| [INDEX] | [FOREIGN_SIGNAL]        | [SEAM_OWNER]                          | [INTERIOR_FORM]                       | [REJECT]                     |
+| :-----: | :---------------------- | :------------------------------------ | :------------------------------------ | :--------------------------- |
+|   [1]   | untyped input payload   | `Schema.decodeUnknown`                | decoded owner in the rail             | interior revalidation        |
+|   [2]   | throwing async call     | `Effect.tryPromise`                   | typed `Effect` failure                | raw `Promise` in domain      |
+|   [3]   | null or sentinel        | `Option.fromNullable`                 | `Option<T>` or tagged family          | nullable payload past seam   |
+|   [4]   | cause-bearing absence   | tagged `Data.TaggedError`             | closed failure family                 | `Option.none` for a cause    |
+|   [5]   | resource lifetime       | `Effect.acquireRelease`               | scoped value, LIFO finalizer          | manual cleanup, leaked fiber |
+|   [6]   | worker/main-thread call | marshal `Effect`                      | `Effect` with captured runtime        | ambient main-thread read     |
+|   [7]   | high-frequency callback | `Queue`/`PubSub` or `SubscriptionRef` | drained `Stream` or latest cell       | blocked/mutating callback    |
+|   [8]   | event or subscription   | scoped `PubSub`/`Queue`               | drained `Stream` of decoded signals   | orphan handler               |
+|   [9]   | isolated-axis lifetime  | derived `Scope`/`Layer.fresh`         | one-axis-isolated instance            | shared cancellation/registry |
+|  [10]   | keyed recomputation     | `Equivalence`-keyed memo              | full-dimension cache key              | path-only/type-only cache    |
+|  [11]   | capability dependency   | `Layer` + `Effect.Service`            | provided context, `R = never` at root | service location             |
+|  [12]   | protocol payload        | `Schema.transform` codec              | decoded owner                         | codec-bearing domain owner   |
+|  [13]   | signed byte field       | raw-bytes-then-hash capture           | canonical octets plus hash            | parse-reserialize            |
 
 ## [2]-[ADMISSION]
 

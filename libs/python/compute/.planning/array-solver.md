@@ -4,9 +4,9 @@ Array admission and one route-discriminated numeric solver. `ArrayPayload` admit
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                          |
-| :-----: | :-------- | :------------------------------------------------------------- |
-|   [1]   | ARRAY     | array admission, named axes, finite policy                     |
+| [INDEX] | [CLUSTER] | [OWNS]                                                            |
+| :-----: | :-------- | :---------------------------------------------------------------- |
+|   [1]   | ARRAY     | array admission, named axes, finite policy                        |
 |   [2]   | SOLVER    | the route-discriminated solver, symbolic derivation, accelerators |
 
 ## [2]-[ARRAY]

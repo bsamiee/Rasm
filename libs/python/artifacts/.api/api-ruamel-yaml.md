@@ -18,38 +18,40 @@
 [PUBLIC_TYPE_SCOPE]: engine and container roots
 - rail: structured documents
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `YAML` | engine root | typ-selected load/dump engine with indent/width/version config |
-| [2] | `CommentedMap` | mapping container | dict preserving comments, order, and merge keys |
-| [3] | `CommentedSeq` | sequence container | list preserving comments and styling |
-| [4] | `CommentToken` | comment node | a parsed comment attached to a node |
-| [5] | `RoundTripConstructor` / `RoundTripRepresenter` | round-trip codec | the load/dump halves preserving fidelity |
-| [6] | `SafeConstructor` / `SafeRepresenter` | safe codec | the safe typ load/dump halves |
+| [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                   |
+| :-----: | :---------------------------------------------- | :----------------- | :------------------------------------------------------------- |
+|   [1]   | `YAML`                                          | engine root        | typ-selected load/dump engine with indent/width/version config |
+|   [2]   | `CommentedMap`                                  | mapping container  | dict preserving comments, order, and merge keys                |
+|   [3]   | `CommentedSeq`                                  | sequence container | list preserving comments and styling                           |
+|   [4]   | `CommentToken`                                  | comment node       | a parsed comment attached to a node                            |
+|   [5]   | `RoundTripConstructor` / `RoundTripRepresenter` | round-trip codec   | the load/dump halves preserving fidelity                       |
+|   [6]   | `SafeConstructor` / `SafeRepresenter`           | safe codec         | the safe typ load/dump halves                                  |
 
 [PUBLIC_TYPE_SCOPE]: faults
 - rail: structured documents
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `YAMLError` | engine fault | base YAML failure |
-| [2] | `MarkedYAMLError` | located fault | a failure carrying source marks |
+| [INDEX] | [SYMBOL]          | [PACKAGE_ROLE] | [CAPABILITY]                    |
+| :-----: | :---------------- | :------------- | :------------------------------ |
+|   [1]   | `YAMLError`       | engine fault   | base YAML failure               |
+|   [2]   | `MarkedYAMLError` | located fault  | a failure carrying source marks |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine construction and load/dump
 - rail: structured documents
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `YAML` | `YAML(*, typ: Optional[Union[List[str], str]] = None, pure: Any = False, output: Any = None, plug_ins: Any = None) -> None` | engine (typ in 'rt'/'safe'/'unsafe'/'base') |
-| [2] | `YAML.load` | `load(stream) -> Any` | parse one document |
-| [3] | `YAML.load_all` | `load_all(stream) -> Iterator[Any]` | parse a multi-document stream |
-| [4] | `YAML.dump` | `dump(data, stream, *, transform=None) -> None` | emit one document |
-| [5] | `YAML.dump_all` | `dump_all(documents, stream, *, transform=None) -> None` | emit a multi-document stream |
-| [6] | `YAML.register_class` | `register_class(cls) -> cls` | register a custom round-trip class |
-| [7] | `YAML.indent` | `indent(mapping=None, sequence=None, offset=None) -> None` | configure indentation |
-| [8] | `YAML.version` | `version` | YAML version property (1.1/1.2) |
+The `YAML` row carries typ, pure-Python, output, and plugin policy; load/dump rows reuse that configured engine.
+
+| [INDEX] | [SURFACE]             | [CALL_SHAPE]               | [CAPABILITY]                                |
+| :-----: | :-------------------- | :------------------------- | :------------------------------------------ |
+|   [1]   | `YAML`                | engine construction policy | engine (typ in 'rt'/'safe'/'unsafe'/'base') |
+|   [2]   | `YAML.load`           | one stream                 | parse one document                          |
+|   [3]   | `YAML.load_all`       | multi-document stream      | parse a multi-document stream               |
+|   [4]   | `YAML.dump`           | data plus target stream    | emit one document                           |
+|   [5]   | `YAML.dump_all`       | documents plus stream      | emit a multi-document stream                |
+|   [6]   | `YAML.register_class` | round-trip class           | register a custom round-trip class          |
+|   [7]   | `YAML.indent`         | indentation policy         | configure indentation                       |
+|   [8]   | `YAML.version`        | version property           | YAML version property (1.1/1.2)             |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

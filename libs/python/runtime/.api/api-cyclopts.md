@@ -18,55 +18,55 @@
 [PUBLIC_TYPE_SCOPE]: app and parameter family
 - rail: entry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `App` | app | command registry and runner |
-| [2] | `Parameter` | annotation | option/flag specification |
-| [3] | `Argument` | annotation | positional argument spec |
-| [4] | `Group` | grouping | command/parameter group |
-| [5] | `Token` | token | parsed argument token |
-| [6] | `Parameter.env_var` | binding | environment-variable source |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                      |
+| :-----: | :------------------ | :------------ | :-------------------------- |
+|   [1]   | `App`               | app           | command registry and runner |
+|   [2]   | `Parameter`         | annotation    | option/flag specification   |
+|   [3]   | `Argument`          | annotation    | positional argument spec    |
+|   [4]   | `Group`             | grouping      | command/parameter group     |
+|   [5]   | `Token`             | token         | parsed argument token       |
+|   [6]   | `Parameter.env_var` | binding       | environment-variable source |
 
 [PUBLIC_TYPE_SCOPE]: config and validation family
 - rail: entry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `config.Toml` | config source | TOML config layer |
-| [2] | `config.Yaml` | config source | YAML config layer |
-| [3] | `config.Json` | config source | JSON config layer |
-| [4] | `config.Env` | config source | environment config layer |
-| [5] | `validators.Number` | validator | numeric-range validator |
-| [6] | `validators.Path` | validator | path-existence validator |
-| [7] | `validators.LimitedChoice` | validator | enumerated-choice validator |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [RAIL]                      |
+| :-----: | :------------------------- | :------------ | :-------------------------- |
+|   [1]   | `config.Toml`              | config source | TOML config layer           |
+|   [2]   | `config.Yaml`              | config source | YAML config layer           |
+|   [3]   | `config.Json`              | config source | JSON config layer           |
+|   [4]   | `config.Env`               | config source | environment config layer    |
+|   [5]   | `validators.Number`        | validator     | numeric-range validator     |
+|   [6]   | `validators.Path`          | validator     | path-existence validator    |
+|   [7]   | `validators.LimitedChoice` | validator     | enumerated-choice validator |
 
 [PUBLIC_TYPE_SCOPE]: fault family
 - rail: entry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| :-----: | :------- | :------------ | :----- |
-| [1] | `CycloptsError` | fault base | base CLI error |
-| [2] | `ValidationError` | fault | argument-validation failure |
-| [3] | `MissingArgumentError` | fault | required argument absent |
-| [4] | `CommandCollisionError` | fault | duplicate command name |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [RAIL]                      |
+| :-----: | :---------------------- | :------------ | :-------------------------- |
+|   [1]   | `CycloptsError`         | fault base    | base CLI error              |
+|   [2]   | `ValidationError`       | fault         | argument-validation failure |
+|   [3]   | `MissingArgumentError`  | fault         | required argument absent    |
+|   [4]   | `CommandCollisionError` | fault         | duplicate command name      |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: CLI operations
 - rail: entry
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-| [1] | `App` | build | construct the CLI app |
-| [2] | `App.command` | register | register a subcommand |
-| [3] | `App.default` | register | register the default command |
-| [4] | `App.meta.command` | register | register a meta/global command |
-| [5] | `App.__call__` | run | parse argv and dispatch |
-| [6] | `App.run_async` | run | async parse and dispatch |
-| [7] | `App.parse_args` | parse | bind argv to a command signature |
-| [8] | `App.interactive_shell` | shell | run an interactive REPL |
-| [9] | `App.install_completion` | completion | install shell completion |
-| [10] | `App.generate_docs` | docs | emit command documentation |
+| [INDEX] | [SURFACE]                | [ENTRY_FAMILY] | [RAIL]                           |
+| :-----: | :----------------------- | :------------- | :------------------------------- |
+|   [1]   | `App`                    | build          | construct the CLI app            |
+|   [2]   | `App.command`            | register       | register a subcommand            |
+|   [3]   | `App.default`            | register       | register the default command     |
+|   [4]   | `App.meta.command`       | register       | register a meta/global command   |
+|   [5]   | `App.__call__`           | run            | parse argv and dispatch          |
+|   [6]   | `App.run_async`          | run            | async parse and dispatch         |
+|   [7]   | `App.parse_args`         | parse          | bind argv to a command signature |
+|   [8]   | `App.interactive_shell`  | shell          | run an interactive REPL          |
+|   [9]   | `App.install_completion` | completion     | install shell completion         |
+|  [10]   | `App.generate_docs`      | docs           | emit command documentation       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

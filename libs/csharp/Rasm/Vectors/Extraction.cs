@@ -387,7 +387,7 @@ internal abstract partial record Extraction {
                 from output in typeof(TOut) switch {
                     Type t when t.Equals(typeof(Mesh)) => result.Receipt.Valid ? AtomProjection.Value<Mesh, TOut>(value: result.Mesh, key: state.Key, owner: typeof(IsoSurfaceCase)) : Fin.Fail<TOut>(state.Key.InvalidResult()),
                     Type t when t == typeof(IsoSurfaceReceipt) => Fin.Succ((TOut)(object)result.Receipt),
-                    Type t when t == typeof(IsoSurfaceResult) => Fin.Succ((TOut)(object)result),
+                    Type t when t == typeof(IsoSurfaceResult) => result.Receipt.Valid ? Fin.Succ((TOut)(object)result) : Fin.Fail<TOut>(state.Key.InvalidResult()),
                     Type t when t == typeof(ExtractionReceipt) => ExtractionReceipt.Of(status: result.Receipt.Valid ? ExtractionStatus.Complete : ExtractionStatus.Approximate, attempted: 1, emitted: result.Receipt.Valid ? 1 : 0, nativeRouted: result.Receipt.NativeRouted, toleranceSource: result.Receipt.FixedTolerance.IsSome ? ToleranceSource.RhinoDefault : ToleranceSource.NotApplicable, tolerance: result.Receipt.FixedTolerance, parallelCallback: result.Receipt.ParallelCallback, key: state.Key, isoSurface: Some(result.Receipt), nativeRouteFailures: result.Receipt.Valid ? Option<int>.None : Some(1)).Map(static receipt => (TOut)(object)receipt),
                     _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(IsoSurfaceCase), outputType: typeof(TOut))),
                 }

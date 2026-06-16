@@ -10,7 +10,7 @@ Branch-level open work for `libs/typescript`. Per-domain open work lives in each
 
 - Cold all-PASS sweep flipping every charter PAGE_INDEX `[STATE]` to finalized once the twelve domain pages and four branch pages read clean against the suite review law.
 - Reconcile `architecture-tree.md` and `test-strategy.md` against the four-domain owner set each loop; re-derive the source tree from the charter BUILD_ORDER.
-- Verify the RULE_ENFORCEMENT guards materialize inside the ONE package: the `projection/**` `no-restricted-imports` `@connectrpc/*` ban, the `./provisioning` subpath export isolating the `services/provisioning/**` closure, and the folder-scoped `browser`/`node`/`neutral` `no-restricted-imports` strata land as real ESLint flat-config + single-`package.json`-subpath-`exports` facts at implementation start.
+- Verify the RULE_ENFORCEMENT guards materialize at implementation start through the monorepo's centralized config (nx module boundaries + root eslint) plus the implementation-time `package.json` `exports`: the `projection/**` `@connectrpc/*` import ban, the `./provisioning` subpath export isolating the `services/provisioning/**` closure, and the folder-scoped `browser`/`node`/`neutral` import strata — all authored in the centralized root config at implementation, not as branch-local scaffold now.
 
 ## [3]-[CROSS_BRANCH_PRECONDITION_DAG]
 

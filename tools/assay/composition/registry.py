@@ -880,7 +880,7 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     """
     root = App(
         name="assay",
-        help="Rasm polyglot quality operator.",
+        help="Rasm polyglot quality operator. Global: --exec <local|ssh://[user@]host[:port]> offloads execution (default local).",
         version=_VERSION,
         # Disable global --version so verb params can own the token and stdout remains envelope-only.
         version_flags=(),

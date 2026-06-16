@@ -16,6 +16,23 @@ using StreamJsonRpc;
 
 namespace Rasm.Bridge.Shell;
 
+// --- [TYPES] --------------------------------------------------------------------------------
+
+// Ownership: closed GH2 quit-scrub outcome. The reflective Document.AllDocuments + Unmodify path
+// projects to one of these cases so its failure surfaces as a typed fact instead of a sentinel string.
+[Union]
+internal abstract partial record Gh2ScrubOutcome {
+    private Gh2ScrubOutcome() { }
+    public sealed record NotLoaded : Gh2ScrubOutcome;
+    public sealed record Scrubbed(int Documents, int Unmodified) : Gh2ScrubOutcome;
+    public sealed record Failed(string Detail) : Gh2ScrubOutcome;
+
+    public string Summary => Switch(
+        notLoaded: static _ => "not-loaded",
+        scrubbed: static s => string.Create(provider: CultureInfo.InvariantCulture, $"documents={s.Documents};unmodified={s.Unmodified}"),
+        failed: static f => $"reflective-scrub-failed:{f.Detail}");
+}
+
 // --- [SERVICES] -----------------------------------------------------------------------------
 
 // Ownership: shell composition root and RPC target seam. It owns pipe lifecycle, endpoint
@@ -207,13 +224,20 @@ public sealed class ShellHost : IDisposable {
 
     private async Task PrepareQuitAsync(Connection connection, CancellationToken ct) {
         Admit(connection: connection);
-        (bool hadModified, string gh2) = await pump.OnUiThreadAsync(job: static () => {
+        // The scrub runs on the UI thread before the quit ladder so doc.Modified and GH2 Unmodify land
+        // on the host thread that owns those documents; the reflective GH2 path's failure is a typed fact.
+        (bool hadModified, Gh2ScrubOutcome gh2) = await pump.OnUiThreadAsync(job: static () => {
             RhinoDoc[] open = RhinoDoc.OpenDocuments();
             bool modified = open.Any(predicate: static doc => doc.Modified);
             Array.ForEach(array: open, action: static doc => doc.Modified = false);
             return (modified, CleanGrasshopper2());
         }, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-        Publish(evt: Fact(key: "quit.prepared", value: $"{(hadModified ? "rhino-docs-marked-clean" : "rhino-docs-already-clean")}; gh2={gh2}"));
+        Publish(evt: Fact(
+            key: "quit.prepared",
+            value: $"{(hadModified ? "rhino-docs-marked-clean" : "rhino-docs-already-clean")}; gh2={gh2.Summary}"));
+        if (gh2 is Gh2ScrubOutcome.Failed failed) {
+            Publish(evt: Fact(key: "quit.scrub.gh2-reflective-failed", value: failed.Detail));
+        }
     }
 
     // --- [ADMISSION]
@@ -367,20 +391,25 @@ public sealed class ShellHost : IDisposable {
             themesCase: static (all, themes) => [.. all.Where(entry => themes.Themes.Contains(value: entry.Theme, comparer: StringComparer.Ordinal))],
             namesCase: static (all, names) => [.. all.Where(entry => names.Names.Contains(value: entry.Name, comparer: StringComparer.Ordinal))]);
 
-    private static string CleanGrasshopper2() {
+    private static Gh2ScrubOutcome CleanGrasshopper2() {
+        // BOUNDARY ADAPTER: the reflective GH2 Document.AllDocuments + Unmodify scrub projects loader
+        // drift and reflection faults onto the typed Failed case, never a swallow folded into success.
         try {
             Type? documentType = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(selector: static assembly => SafeTypes(assembly: assembly))
                 .FirstOrDefault(predicate: static type => string.Equals(a: type.FullName, b: "Grasshopper2.Doc.Document", comparisonType: StringComparison.Ordinal));
-            object? all = documentType?.GetProperty(name: "AllDocuments", bindingAttr: BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null);
+            if (documentType is null) {
+                return new Gh2ScrubOutcome.NotLoaded();
+            }
+            object? all = documentType.GetProperty(name: "AllDocuments", bindingAttr: BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null);
             object[] documents = [.. Enumerate(value: all)];
             int unmodified = 0;
             foreach (object document in documents) {
                 unmodified += Invoke(document, methodName: "Unmodify") ? 1 : 0;
             }
-            return documentType is null ? "not-loaded" : $"documents={documents.Length};unmodified={unmodified}";
+            return new Gh2ScrubOutcome.Scrubbed(Documents: documents.Length, Unmodified: unmodified);
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
-            return $"cleanup-failed:{error.GetType().Name}:{error.Message}";
+            return new Gh2ScrubOutcome.Failed(Detail: $"{error.GetType().Name}: {error.Message}");
         }
     }
 

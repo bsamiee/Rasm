@@ -18,57 +18,61 @@
 [PUBLIC_TYPE_SCOPE]: document roots and geometry
 - rail: pdf
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `PdfReader` | reader root | open, decrypt, and read an existing PDF; exposes pages, metadata, outline, XMP |
-| [2] | `PdfWriter` | writer root | build or clone a PDF; append pages, encrypt, write outline/annotations/attachments |
-| [3] | `PageObject` | page unit | one page; text/image extraction, transform, merge, rotate, scale, box geometry |
-| [4] | `Transformation` | affine algebra | composable CTM for translate/rotate/scale applied to a page |
-| [5] | `PageRange` | page selector | a parsed slice expression over a page index space |
-| [6] | `PaperSize` | size table | named physical page dimensions |
-| [7] | `DocumentInformation` | metadata view | the document info dictionary projection |
-| [8] | `Transformation` | affine algebra | composable CTM applied via `add_transformation` |
+| [INDEX] | [SYMBOL]              | [PACKAGE_ROLE] | [CAPABILITY]                                                                       |
+| :-----: | :-------------------- | :------------- | :--------------------------------------------------------------------------------- |
+|   [1]   | `PdfReader`           | reader root    | open, decrypt, and read an existing PDF; exposes pages, metadata, outline, XMP     |
+|   [2]   | `PdfWriter`           | writer root    | build or clone a PDF; append pages, encrypt, write outline/annotations/attachments |
+|   [3]   | `PageObject`          | page unit      | one page; text/image extraction, transform, merge, rotate, scale, box geometry     |
+|   [4]   | `Transformation`      | affine algebra | composable CTM for translate/rotate/scale applied to a page                        |
+|   [5]   | `PageRange`           | page selector  | a parsed slice expression over a page index space                                  |
+|   [6]   | `PaperSize`           | size table     | named physical page dimensions                                                     |
+|   [7]   | `DocumentInformation` | metadata view  | the document info dictionary projection                                            |
+|   [8]   | `Transformation`      | affine algebra | composable CTM applied via `add_transformation`                                    |
 
 [PUBLIC_TYPE_SCOPE]: enums and faults
 - rail: pdf
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `ImageType` | image enum | image extraction output kind |
-| [2] | `PasswordType` | auth enum | decrypt result discriminant (owner/user/not-decrypted) |
-| [3] | `ObjectDeletionFlag` | cleanup flag | object-removal selector for compaction |
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE] | [CAPABILITY]                                           |
+| :-----: | :------------------- | :------------- | :----------------------------------------------------- |
+|   [1]   | `ImageType`          | image enum     | image extraction output kind                           |
+|   [2]   | `PasswordType`       | auth enum      | decrypt result discriminant (owner/user/not-decrypted) |
+|   [3]   | `ObjectDeletionFlag` | cleanup flag   | object-removal selector for compaction                 |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: read, write, and clone construction
 - rail: pdf
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `PdfReader` | `PdfReader(stream: str | IO[Any] | pathlib.Path, strict: bool = False, password: None | str | bytes = None, *, root_object_recovery_limit: int | None = 10000) -> None` | open and decrypt an existing PDF |
-| [2] | `PdfWriter` | `PdfWriter(fileobj: None | PdfReader | str | IO[Any] | pathlib.Path = '', clone_from: None | PdfReader | str | IO[Any] | pathlib.Path = None, incremental: bool = False, full: bool = False, strict: bool = False, *, incremental_clone_object_count_limit: int | None = 500000, incremental_clone_object_id_limit: int | None = 1000000) -> None` | build or clone a writer |
-| [3] | `PdfReader.decrypt` | `decrypt(password: str | bytes) -> PasswordType` | decrypt with the given password |
-| [4] | `PdfReader.is_encrypted` | `is_encrypted -> bool` | encryption-state probe |
-| [5] | `PdfReader.xmp_metadata` | `xmp_metadata -> XmpInformation | None` | XMP metadata view |
+Constructor rows carry stream/path input, password, strictness, cloning, and recovery-limit policy.
+
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]                   | [CAPABILITY]                     |
+| :-----: | :----------------------- | :----------------------------- | :------------------------------- |
+|   [1]   | `PdfReader`              | source plus reader policy      | open and decrypt an existing PDF |
+|   [2]   | `PdfWriter`              | target plus clone/write policy | build or clone a writer          |
+|   [3]   | `PdfReader.decrypt`      | text or bytes password         | decrypt with the given password  |
+|   [4]   | `PdfReader.is_encrypted` | encryption-state property      | encryption-state probe           |
+|   [5]   | `PdfReader.xmp_metadata` | optional XMP metadata property | XMP metadata view                |
 
 [ENTRYPOINT_SCOPE]: page assembly, transform, and extraction
 - rail: pdf
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `PdfWriter.add_page` | `add_page(page: PageObject, excluded_keys=()) -> PageObject` | append one page |
-| [2] | `PdfWriter.append` | `append(fileobj, outline_item=None, pages=None, import_outline=True, excluded_fields=None) -> None` | append a whole source document or page range |
-| [3] | `PdfWriter.add_blank_page` | `add_blank_page(width=None, height=None) -> PageObject` | append a blank page |
-| [4] | `PdfWriter.encrypt` | `encrypt(user_password, owner_password=None, use_128bit=True, permissions_flag=-1, *, algorithm=None) -> None` | encrypt the output |
-| [5] | `PdfWriter.add_metadata` | `add_metadata(infos: dict[str, Any]) -> None` | set the info dictionary |
-| [6] | `PdfWriter.write` | `write(stream: str | IO[Any] | pathlib.Path) -> tuple[bool, IO[Any]]` | serialize to a stream |
-| [7] | `PageObject.extract_text` | `extract_text(*args, orientations=(0,90,180,270), space_width=200.0, visitor_operand_before=None, visitor_operand_after=None, visitor_text=None, extraction_mode='plain', **kwargs) -> str` | extract page text |
-| [8] | `PageObject.images` | `images -> list[ImageFile]` | extract embedded page images |
-| [9] | `PageObject.add_transformation` | `add_transformation(ctm: Transformation | tuple, expand: bool = False) -> PageObject` | apply an affine transform |
-| [10] | `PageObject.merge_page` | `merge_page(page2: PageObject, expand=False, over=True) -> None` | overlay another page |
-| [11] | `PageObject.rotate` | `rotate(angle: int) -> PageObject` | rotate the page clockwise |
-| [12] | `PageObject.scale` | `scale(sx: float, sy: float) -> None` | scale the page |
-| [13] | `Transformation` | `Transformation(ctm: tuple[float,float,float,float,float,float] = (1,0,0,1,0,0)) -> None` | build an affine transform; `.translate/.rotate/.scale` compose |
+Assembly rows share source-document, page-range, metadata, encryption, stream-target, text-mode, and transform policy.
+
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                  | [CAPABILITY]              |
+| :-----: | :------------------------------ | :---------------------------- | :------------------------ |
+|   [1]   | `PdfWriter.add_page`            | page plus excluded-key policy | append one page           |
+|   [2]   | `PdfWriter.append`              | source plus page range        | append source pages       |
+|   [3]   | `PdfWriter.add_blank_page`      | optional width/height         | append a blank page       |
+|   [4]   | `PdfWriter.encrypt`             | password plus permissions     | encrypt the output        |
+|   [5]   | `PdfWriter.add_metadata`        | info dictionary               | set document info         |
+|   [6]   | `PdfWriter.write`               | path or stream target         | serialize to a stream     |
+|   [7]   | `PageObject.extract_text`       | extraction mode plus visitors | extract page text         |
+|   [8]   | `PageObject.images`             | images property               | extract embedded images   |
+|   [9]   | `PageObject.add_transformation` | transform plus expand flag    | apply affine transform    |
+|  [10]   | `PageObject.merge_page`         | source page plus overlay      | overlay another page      |
+|  [11]   | `PageObject.rotate`             | clockwise angle               | rotate clockwise          |
+|  [12]   | `PageObject.scale`              | x/y scale factors             | scale the page            |
+|  [13]   | `Transformation`                | affine matrix seed            | compose affine transforms |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

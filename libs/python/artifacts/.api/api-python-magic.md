@@ -18,25 +18,27 @@
 [PUBLIC_TYPE_SCOPE]: cookie and fault
 - rail: file control
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| :-----: | :------- | :------------- | :----------- |
-| [1] | `Magic` | detector cookie | a configured libmagic handle (mime/description/encoding flags, custom DB) |
-| [2] | `MagicException` | engine fault | a libmagic call failed |
+| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]  | [CAPABILITY]                                                              |
+| :-----: | :--------------- | :-------------- | :------------------------------------------------------------------------ |
+|   [1]   | `Magic`          | detector cookie | a configured libmagic handle (mime/description/encoding flags, custom DB) |
+|   [2]   | `MagicException` | engine fault    | a libmagic call failed                                                    |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: detection functions and cookie
 - rail: file control
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| :-----: | :-------- | :----------- | :----------- |
-| [1] | `from_buffer` | `from_buffer(buffer, mime=False) -> str` | detect from in-memory bytes |
-| [2] | `from_file` | `from_file(filename, mime=False) -> str` | detect from a path |
-| [3] | `from_descriptor` | `from_descriptor(fd, mime=False) -> str` | detect from a file descriptor |
-| [4] | `Magic` | `Magic(mime=False, magic_file=None, mime_encoding=False, keep_going=False, uncompress=False, raw=False, extension=False)` | configured detector cookie |
-| [5] | `Magic.from_buffer` | `from_buffer(buf) -> str` | detect from bytes with the cookie config |
-| [6] | `Magic.from_file` | `from_file(filename) -> str` | detect from a path with the cookie config |
-| [7] | `version` | `version() -> int` | libmagic version |
+The `Magic` row carries MIME, encoding, extension, decompression, raw-output, and custom-database policy.
+
+| [INDEX] | [SURFACE]           | [CALL_SHAPE]              | [CAPABILITY]                              |
+| :-----: | :------------------ | :------------------------ | :---------------------------------------- |
+|   [1]   | `from_buffer`       | bytes plus MIME flag      | detect from in-memory bytes               |
+|   [2]   | `from_file`         | path plus MIME flag       | detect from a path                        |
+|   [3]   | `from_descriptor`   | file descriptor plus flag | detect from a file descriptor             |
+|   [4]   | `Magic`             | detector-cookie policy    | configured detector cookie                |
+|   [5]   | `Magic.from_buffer` | bytes with cookie config  | detect from bytes with the cookie config  |
+|   [6]   | `Magic.from_file`   | path with cookie config   | detect from a path with the cookie config |
+|   [7]   | `version`           | no-arg query -> `int`     | libmagic version                          |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

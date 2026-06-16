@@ -52,7 +52,7 @@ internal static class BlocksScenarios {
         let captureFact = Note(ctx: ctx, key: "command.capture.count", value: captured.Length)
         let historyFact = Note(ctx: ctx, key: "command.history.length", value: history.Length)
         from runLaw in ctx.Require(label: "run harmless command", observed: ran)
-        from captureLaw in ctx.Require(label: "command capture/history non-empty", observed: captured.Length > 0 || !string.IsNullOrWhiteSpace(value: history))
+        from historyLaw in ctx.Require(label: "command history non-empty", observed: !string.IsNullOrWhiteSpace(value: history))
         select Done(scope: scope);
 
     [RhinoScenario(theme: "blocks")]

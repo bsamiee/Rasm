@@ -97,7 +97,7 @@ The `[STATE]` column carries `FINALIZED` where the owner is a transcription-comp
 | :---------------- | :--------------------------------------- | :--------------------------------------------------------------- |
 | catalog resolve   | `pnpm install`                           | catalogMode strict resolves the browser-stratum catalog; no router/web-vitals package present |
 | typecheck         | tsgo `--noEmit` over the domain          | zero diagnostics; isolatedDeclarations emits `.d.ts`             |
-| import stratum    | eslint flat-config                       | `platform/**` imports only browser + neutral; `ui/**` -> `platform/**` rejected |
+| import stratum    | centralized config (nx + root eslint)    | `platform/**` imports only browser + neutral; `ui/**` -> `platform/**` rejected |
 | browser-e2e       | vitest browser-mode (playwright) project | routing transition + SW registration + crash-boundary + flag-eval DOM scenarios pass |
 | sw lifecycle spike | live-browser SW probe                   | install/activate/skipWaiting + offline-queue redial drain prove (SPIKE) |
 | crash capture spike | live-browser error probe               | window.onerror + unhandledrejection marshal into FaultDetail (SPIKE) |

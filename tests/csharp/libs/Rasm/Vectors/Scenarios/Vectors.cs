@@ -360,7 +360,6 @@ internal static class VectorsScenarios {
             && native.ClosestMeshPoint(testPoint: first[index], maximumDistance: context.Absolute.Value) is { FaceIndex: >= 0 }))
         from domainLaw in ctx.Require(label: "dwork domain", observed: dwork.Domain.Equals(other: DworkSamplingDomain.ContinuousMesh) && dwork.ContinuousMesh && !dwork.CandidateOnly)
         from gridLaw in ctx.Require(label: "dwork grid", observed: receipt.CandidateCount.IsNone && dwork.BackgroundCellSize.IsSome && dwork.BackgroundGridCells.IfNone(0) > 0)
-        from flagsLaw in ctx.Require(label: "dwork flags", observed: dwork.ActiveListAnnulusSampling && dwork.LocalRadiusConflictChecks && dwork.DeterministicSeed)
         from countsLaw in ctx.Require(label: "dwork counts", observed: dwork.GeneratedCandidates == receipt.Attempted && receipt.Rejected == dwork.RejectedTooClose + dwork.RejectedDomain)
         from spacingLaw in ctx.Require(label: "spacing", observed: receipt.MinSpacing.Exists(min => min + context.Absolute.Value >= 0.30))
         from validationLaw in ctx.Require(label: "algorithm validation flags", observed: !algorithm.TransportAssignmentValidated && !algorithm.CapacityResidualValidated)
@@ -378,7 +377,8 @@ internal static class VectorsScenarios {
         using Mesh openNative = OpenSquare();
         using Mesh degenerateNative = DegenerateFaceMesh();
         using Mesh torusNative = TorusMesh(uCount: 8, vCount: 6);
-        return SpectralDecRail(ctx: ctx, native: native, openNative: openNative, degenerateNative: degenerateNative, torusNative: torusNative);
+        using Mesh annulusNative = Annulus(radialCount: 12, innerRadius: 1.0, outerRadius: 3.0);
+        return SpectralDecRail(ctx: ctx, native: native, openNative: openNative, degenerateNative: degenerateNative, torusNative: torusNative, annulusNative: annulusNative);
     }
 
     [RhinoScenario(theme: "vectors")]
@@ -502,7 +502,7 @@ internal static class VectorsScenarios {
         ctx.Expect(label: $"{label}: intent", projection: intent)
             .Bind(admitted => ctx.Expect(label: $"{label}: project", projection: admitted.Project<T>(context: context, key: key)));
 
-    private static Fin<Unit> SpectralDecRail(ScenarioContext ctx, Mesh native, Mesh openNative, Mesh degenerateNative, Mesh torusNative) =>
+    private static Fin<Unit> SpectralDecRail(ScenarioContext ctx, Mesh native, Mesh openNative, Mesh degenerateNative, Mesh torusNative, Mesh annulusNative) =>
         from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
         let op = Op.Of()
@@ -520,6 +520,11 @@ internal static class VectorsScenarios {
         from degenerateReceipt in Project<SpectralAssemblyReceipt>(ctx: ctx, intent: VectorIntent.DiscreteCalculus(space: degenerateSpace, key: op), context: context, key: op, label: "degenerate dec")
         from torusSpace in ctx.Expect(label: "torus space", projection: MeshSpace.Of(native: torusNative, context: context, key: op))
         from torusTopology in Project<TopologyReceipt>(ctx: ctx, intent: VectorIntent.Topology(space: torusSpace, key: op), context: context, key: op, label: "torus topology")
+        from annulusSpace in ctx.Expect(label: "annulus space", projection: MeshSpace.Of(native: annulusNative, context: context, key: op))
+        from annulusTopology in Project<TopologyReceipt>(ctx: ctx, intent: VectorIntent.Topology(space: annulusSpace, key: op), context: context, key: op, label: "annulus topology")
+        from annulusCalculus in Project<DiscreteCalculus>(ctx: ctx, intent: VectorIntent.DiscreteCalculus(space: annulusSpace, key: op), context: context, key: op, label: "annulus dec")
+        from annulusBasis in Project<HarmonicOneFormBasis>(ctx: ctx, intent: VectorIntent.DiscreteCalculus(space: annulusSpace, key: op), context: context, key: op, label: "annulus harmonic basis")
+        from annulusHarmonic in Project<HarmonicOneFormReceipt>(ctx: ctx, intent: VectorIntent.DiscreteCalculus(space: annulusSpace, key: op), context: context, key: op, label: "annulus harmonic receipt")
         let genusPositiveHodgeUnsupported = VectorField.Hodge(source: VectorField.Constant(value: Vector3d.XAxis), space: torusSpace, key: op)
             .Bind(field => VectorIntent.Probe(source: ExtractionProbe.Vector(source: field), sample: torusNative.Vertices[0], key: op))
             .Bind(intent => intent.Project<Vector3d>(context: context, key: op)) switch {
@@ -567,6 +572,9 @@ internal static class VectorsScenarios {
         from remeshLaw in ctx.Require(label: "remesh completed", observed: remesh.Mesh.IsValid && remesh.Receipt.Status.Equals(other: RemeshStatus.Completed) && remeshReceipt.Status.Equals(other: RemeshStatus.Completed))
         from degenerateLaw in ctx.Require(label: "degenerate receipt", observed: degenerateReceipt.Kind.Equals(other: SpectralAssemblyKind.Dec) && degenerateReceipt.SkippedDegenerateFaces > 0)
         from torusLaw in ctx.Require(label: "torus topology", observed: torusTopology.Genus.Exists(static genus => genus > 0) && genusPositiveHodgeUnsupported)
+        from annulusTopologyLaw in ctx.Require(label: "annulus topology", observed: annulusTopology.Genus.Exists(static genus => genus == 0) && annulusTopology.BoundaryComponents == 2 && annulusCalculus.Receipt.BoundaryComponentCount == 2 && annulusCalculus.Receipt.HarmonicDimension == 1)
+        from annulusHarmonicLaw in ctx.Require(label: "annulus harmonic forms", observed: annulusBasis.Receipt.ExpectedDimension == 1 && annulusBasis.Forms.Count == 1 && annulusBasis.Forms.AsIterable().All(form => form.Count == annulusCalculus.Receipt.EdgeCount) && annulusBasis.IsValid)
+        from annulusOrthonormalLaw in ctx.Require(label: "annulus star1 orthonormal", observed: annulusHarmonic.BoundaryComponentCount == 2 && annulusHarmonic.ExpectedDimension == 1 && annulusHarmonic.BasisCount == 1 && annulusHarmonic.Star1OrthonormalResidual <= Math.Max(val1: 1.0e-7, val2: annulusHarmonic.SvdTolerance * 1.0e3) && annulusHarmonic.MaxClosedResidual <= Math.Max(val1: 1.0e-7, val2: annulusHarmonic.SvdTolerance * 1.0e3) && annulusHarmonic.MaxCoClosedResidual <= Math.Max(val1: 1.0e-7, val2: annulusHarmonic.SvdTolerance * 1.0e3))
         from curvatureFeatureLaw in ctx.Require(label: "curvature features", observed: curvatureFeatures.Algorithm?.Equals(other: MeshFeatureAlgorithm.DihedralProxy) == true && curvatureFeatures.Edges.Count > 0 && curvatureFeatures.Edges.AsIterable().Any(static edge => edge.SignedDihedralRadians.IsSome))
         from regionFeatureLaw in ctx.Require(label: "region features", observed: regionFeatures.Algorithm?.Equals(other: MeshFeatureAlgorithm.DihedralProxy) == true && regionFeatures.RegionBoundaryEdges > 0 && regionFeatures.Edges.AsIterable().Any(static edge => edge.Kind.Equals(other: MeshFeatureKind.RegionBoundary)))
         from segmentationLaw in ctx.Require(label: "segmentation rails", observed: segmentationReceipts.Map(f: static row => row.Algorithm.Key).Distinct().Count == 6 && segmentationReceipts.ForAll(static row => row.AssignedFaceCount > 0 && (row.Status.Equals(other: MeshSegmentationStatus.Completed) || row.Status.Equals(other: MeshSegmentationStatus.MaxIterationsExhausted))))
@@ -578,6 +586,9 @@ internal static class VectorsScenarios {
         let distortionFact = Note(ctx: ctx, key: "flatten.distortion", value: flattenReceipt.EdgeLengthDistortionRms.IfNone(-1.0))
         let remeshFact = Note(ctx: ctx, key: "remesh.faces", value: remeshReceipt.PostFaceCount)
         let genusFact = Note(ctx: ctx, key: "torus.genus", value: torusTopology.Genus.IfNone(-1))
+        let annulusBoundaryFact = Note(ctx: ctx, key: "annulus.boundaryComponents", value: annulusTopology.BoundaryComponents)
+        let annulusDimensionFact = Note(ctx: ctx, key: "annulus.harmonicDimension", value: annulusCalculus.Receipt.HarmonicDimension)
+        let annulusOrthonormalFact = Note(ctx: ctx, key: "annulus.star1Orthonormal", value: annulusHarmonic.Star1OrthonormalResidual)
         let regionFact = Note(ctx: ctx, key: "features.regionBoundary", value: regionFeatures.RegionBoundaryEdges)
         let railsFact = Note(ctx: ctx, key: "segmentation.rails", value: segmentationReceipts.Count)
         let spectrumFact = Note(ctx: ctx, key: "sample.spectrumValidated", value: sampleSpectrum.Validated)
@@ -649,6 +660,25 @@ internal static class VectorsScenarios {
         let factorFact = Note(ctx: ctx, key: "edgeFactorNonZeros", value: edge.FactorNonZeros.IfNone(0))
         let toleranceFact = Note(ctx: ctx, key: "solverTolerance", value: solver.ResidualTolerance.Value)
         select Done(scope: scope);
+
+    private static Mesh Annulus(int radialCount, double innerRadius, double outerRadius) {
+        Mesh mesh = new();
+        foreach (int i in Enumerable.Range(start: 0, count: radialCount)) {
+            double theta = 2.0 * Math.PI * i / radialCount;
+            _ = mesh.Vertices.Add(x: innerRadius * Math.Cos(d: theta), y: innerRadius * Math.Sin(a: theta), z: 0.0);
+            _ = mesh.Vertices.Add(x: outerRadius * Math.Cos(d: theta), y: outerRadius * Math.Sin(a: theta), z: 0.0);
+        }
+        foreach (int i in Enumerable.Range(start: 0, count: radialCount)) {
+            int inner = 2 * i;
+            int outer = inner + 1;
+            int nextInner = 2 * ((i + 1) % radialCount);
+            int nextOuter = nextInner + 1;
+            _ = mesh.Faces.AddFace(vertex1: inner, vertex2: outer, vertex3: nextOuter, vertex4: nextInner);
+        }
+        _ = mesh.Normals.ComputeNormals();
+        _ = mesh.Compact();
+        return mesh;
+    }
 
     private static Mesh TorusMesh(int uCount, int vCount) {
         Mesh mesh = new();

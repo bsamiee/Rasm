@@ -6,18 +6,18 @@ The Effect ecosystem owns result rails, effect execution, immutable traversal, s
 
 Choose the narrowest carrier that preserves the real outcome. A wider rail is earned only by a capability the narrower one cannot carry: typed failure, accumulated faults, required context, resource lifetime, schedule, transactional state, or concurrency.
 
-| [INDEX] | [SURFACE]                  | [OWNS]                          | [REJECT]                       |
-| :-----: | :------------------------- | :------------------------------ | :----------------------------- |
-|   [1]   | `Option<T>`                | absence, no cause               | hidden failure, `null` leak    |
-|   [2]   | `Either<E, A>`             | pure synchronous branching      | `throw` for control flow       |
-|   [3]   | `Effect.Effect<A, E>`      | typed fallibility, deferral     | `Promise`, eager side effect   |
-|   [4]   | `Effect.Effect<A, E, R>`   | required context capability     | service location, ambient global |
-|   [5]   | `Cause<E>`                 | full failure tree at a boundary | flat error after composition   |
-|   [6]   | `Schedule`                 | retry, repeat, backoff policy   | ad-hoc delay loop              |
-|   [7]   | `Chunk<T>` / `Array` module | immutable traversal             | mutable `Array.push` flow      |
-|   [8]   | `HashMap<K,V>` / `HashSet` | immutable keyed lookup          | `new Map()` `.set` mutation    |
-|   [9]   | `Ref<T>` / `STM` / `TMap`  | managed and transactional state | `let` accumulator, shared `var` |
-|  [10]   | `Stream<A, E, R>`          | back-pressured async sequence   | unbounded buffered array       |
+| [INDEX] | [SURFACE]                   | [OWNS]                          | [REJECT]                         |
+| :-----: | :-------------------------- | :------------------------------ | :------------------------------- |
+|   [1]   | `Option<T>`                 | absence, no cause               | hidden failure, `null` leak      |
+|   [2]   | `Either<E, A>`              | pure synchronous branching      | `throw` for control flow         |
+|   [3]   | `Effect.Effect<A, E>`       | typed fallibility, deferral     | `Promise`, eager side effect     |
+|   [4]   | `Effect.Effect<A, E, R>`    | required context capability     | service location, ambient global |
+|   [5]   | `Cause<E>`                  | full failure tree at a boundary | flat error after composition     |
+|   [6]   | `Schedule`                  | retry, repeat, backoff policy   | ad-hoc delay loop                |
+|   [7]   | `Chunk<T>` / `Array` module | immutable traversal             | mutable `Array.push` flow        |
+|   [8]   | `HashMap<K,V>` / `HashSet`  | immutable keyed lookup          | `new Map()` `.set` mutation      |
+|   [9]   | `Ref<T>` / `STM` / `TMap`   | managed and transactional state | `let` accumulator, shared `var`  |
+|  [10]   | `Stream<A, E, R>`           | back-pressured async sequence   | unbounded buffered array         |
 
 `Option<T>` carries absence with zero failure semantics; promote to a typed `Effect` error when the caller must know why; the error channel `E` accumulates only when `Effect.all({ mode: "validate" })` or `Effect.validateAll` is the seam, otherwise it short-circuits.
 
@@ -105,17 +105,17 @@ const traverseRaw = (raw: ReadonlyArray<string>) =>
 
 Apply carrier-qualified failure transforms before collapse; a rail transform never throws.
 
-| [INDEX] | [COMBINATOR]                | [USE]                                  |
-| :-----: | :-------------------------- | :------------------------------------- |
-|   [1]   | `Effect.mapError(f)`        | reshape the typed failure              |
-|   [2]   | `Effect.catchTag(tag, f)`   | recover one tagged variant             |
-|   [3]   | `Effect.catchTags({...})`   | recover several tags with coverage     |
-|   [4]   | `Effect.catchIf(refine, f)` | recover by `$is` refinement            |
-|   [5]   | `Effect.tapError(f)`        | observe without channel widening       |
-|   [6]   | `Effect.catchAllCause(f)`   | fold the full cause at a boundary      |
-|   [7]   | `Effect.matchEffect(...)`   | branch both channels into one rail     |
-|   [8]   | `Effect.either` / `option`  | project failure into data              |
-|   [9]   | `Effect.sandbox`/`unsandbox` | lift `Cause<E>` and re-promote        |
+| [INDEX] | [COMBINATOR]                 | [USE]                              |
+| :-----: | :--------------------------- | :--------------------------------- |
+|   [1]   | `Effect.mapError(f)`         | reshape the typed failure          |
+|   [2]   | `Effect.catchTag(tag, f)`    | recover one tagged variant         |
+|   [3]   | `Effect.catchTags({...})`    | recover several tags with coverage |
+|   [4]   | `Effect.catchIf(refine, f)`  | recover by `$is` refinement        |
+|   [5]   | `Effect.tapError(f)`         | observe without channel widening   |
+|   [6]   | `Effect.catchAllCause(f)`    | fold the full cause at a boundary  |
+|   [7]   | `Effect.matchEffect(...)`    | branch both channels into one rail |
+|   [8]   | `Effect.either` / `option`   | project failure into data          |
+|   [9]   | `Effect.sandbox`/`unsandbox` | lift `Cause<E>` and re-promote     |
 
 [CAUSE_NORMALIZATION]:
 - Law: parallel and sequential composition produce composite cause trees that `catchTag` cannot dispatch; `Cause.match` is the exhaustive catamorphism with `onEmpty`/`onFail`/`onDie`/`onInterrupt`/`onSequential`/`onParallel`, and `onSequential`/`onParallel` receive already-reduced values.
