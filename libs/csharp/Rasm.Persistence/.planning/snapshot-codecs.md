@@ -262,7 +262,7 @@ public static class Snapshots {
         Func<SnapshotCatalogRow, IO<Unit>> persist) =>
         IO.lift(() => Seal(directory, Guid.CreateVersion7(), codec, compression, schemaFingerprint, codec.Serialize(typeof(T), value)))
             .Bind(file => sink
-                .Send(correlation, "Rasm.Persistence", kind, JsonSerializer.SerializeToElement(file, SnapshotCodec.SnapshotJson))
+                .Send(correlation, TenantContext.Current, "Rasm.Persistence", kind, JsonSerializer.SerializeToElement(file, SnapshotCodec.SnapshotJson))
                 .Map(envelope => new SnapshotCatalogRow(
                     file.Id, kind, codec, compression, file.Hash, file.Length,
                     envelope.Physical, retentionClass, classification,

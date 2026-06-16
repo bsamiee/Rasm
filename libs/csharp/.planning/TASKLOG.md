@@ -12,13 +12,10 @@ Cross-folder and infrastructure open work no single folder owns; per-folder open
 
 | [INDEX] | [ITEM] | [GATE] |
 | :-----: | ------ | ------ |
-| [1] | Velopack (vpk) — UpdatePort vehicle | standalone notarization spike |
-| [2] | SharpGLTF / Xbim interchange | named interchange need (Rasm.Rhino owns host formats today) |
-| [3] | Avalonia.Win32.Interoperability (Win32 embed route) | Windows panel-host spike |
-| [4] | Dock.Serializer.* package naming | first app-root layout persistence |
-| [5] | Microsoft.Extensions.Caching.StackExchangeRedis (web L2) | first web app root |
-| [6] | Microsoft.Extensions.Options.ConfigurationExtensions central-pin policy (directly-invoked lock-pinned transitive) | repo policy decision |
-| [7] | TimescaleDB / pg_partman / pg_repack / HypoPG / pgaudit operator provisioning | self-provisioned server era |
+| [1] | SharpGLTF / Xbim interchange | named interchange need (Rasm.Rhino owns host formats today) |
+| [2] | Avalonia.Win32.Interoperability (Win32 embed route) | Windows panel-host spike; consumed by AppUi surface-hosts#WIN32_ROUTE |
+| [3] | Dock.Serializer.* package naming | first app-root layout persistence (AppUi DockSerializer round-trip spec) |
+| [4] | Microsoft.Extensions.Options.ConfigurationExtensions central-pin policy (directly-invoked lock-pinned transitive) | repo policy decision |
 
 ## [3]-[ASSAY_AND_INFRA_INTEGRATION]
 
@@ -68,9 +65,14 @@ Entry: `libs/typescript/.planning/README.md`.
 | [4] | Stage D: planning corpus completion to the suite review-law bar with a TS region ledger; register the five TS service owners (WireClients, SnapshotFeed, RuntimeFeed, CommandGateway, EvidenceFeed) |
 | [5] | Pin @bufbuild/buf + remaining unpinned rows at catalogue truth; the connect peer set moves in one resolve |
 | [6] | Phase-6 wire-drift reconcile from the Phase-1 deepening (all additive-tolerable per `wire-consumption.md` §4, none breaking): (a) Compute remote-lane `RemoteTransport` widened to six rows incl. designed-only `NamedPipe`/`TcpLoopback` — `TransportCapabilityWire` enumerates more transport rows but the browser surface stays grpc-web unary + server-stream only, both byte paths structurally absent in the browser; (b) the Compute receipts `Selection` case payload gained a warm-affinity flag — one additive JSON member on the Selection case interface; (c) AppHost `HealthEntryWire`/`DegradationWire` unaffected by the new `PressurePolicy` container-limit columns (internal policy, the limit grade folds into the existing status field); (d) AppUi telemetry contribution (`AppUiTelemetry`) crosses no wire per the inventory — confirm at closeout. No TS authored here. |
+| [7] | TS-consumption absorption of this turn's C# wire surfaces (post-Gate-3 transcription track): the four new C# pages (numeric-lane, remote-stores, server-tier, custom-visuals) each declared their wire posture this turn — all four are host-local and author no `#TS_PROJECTION`, so the browser-dialable surface this turn mints stays exactly the existing remote-lane `Solve`/`Generate`/`GraphDiff`/`SubtreeFetch` `ComputeServiceShape` MethodShapes plus the `TenantContext`→`TenantContextWire` and W3C `TraceContext` primitives owned at `AppHost/runtime-ports#TS_PROJECTION` and `AppHost/diagnostics-and-telemetry#CORRELATION_SPINE`. `libs/typescript/.planning/wire-consumption.md` `[1]-[CONTRACT_INVENTORY]` + `wire-contracts.md` decode rails absorb the four MethodShapes + `TenantContextWire` (tenant-scoped read partition) + `TraceContext` (traceparent metadata read); no new TS contract surface beyond these. Confirm at closeout that the four host-local pages remain absent from any WIRE_PAGES set. |
 
 ## [6]-[PLANNING_CLOSE_OUT_SPIKES]
 
-The total planning-phase close-out: these bridge-proofed spikes run ONLY after every other TASKLOG section is done — including rows added later — as the final gate before implementation. They are not per-folder work and never run incrementally while planning is still moving.
+The total planning-phase close-out: these bridge-proofed spikes run ONLY after every other TASKLOG section is done — including rows added later — as the final gate before implementation. They are not per-folder work and never run incrementally while planning is still moving. Each per-folder member of the residual tier-3 host-bridge set is named on its own folder TASKLOG; this section records only the cross-folder boot/drain/wire choreography that no single folder owns and that closes against the running integrated host as the final implementation-start gate.
 
-No open cross-folder spikes. Per-folder close-out spikes live in each package TASKLOG.md.
+| [INDEX] | [ITEM] | [SPANS] | [CLOSURE_ENV] |
+| :-----: | ------ | ------- | ------------- |
+| [1] | In-host Generic Host boot + cooperative-then-forced drain choreography across all four packages in one live RhinoWIP/GH2 plugin ALC without process exit: AppHost `ProfileBoot`/`FAULT_SPINE` conducts, Persistence store lease + migration gate, Compute ORT dylib load + pool teardown, AppUi `SurfaceHost` NSView embed all boot and drain in the one load-context eviction cycle | AppHost + Persistence + Compute + AppUi | live RhinoWIP/GH2 plugin ALC; `bridge verify --pattern host_boot_drain` after every per-folder bridge spike passes |
+| [2] | Cross-process wire choreography rehearsed live: the `ReceiptSinkPort` HLC fan-in + `TenantContext` threading + W3C `TraceContext` traceparent propagation over the UDS/HTTP2 hop carry one correlation across AppHost (mint) → Compute (solve/generate rpc) → Persistence (op-log + RLS) → AppUi (evidence join) with the boot-minted correlation id and tenant identity preserved end-to-end | AppHost + Compute + Persistence + AppUi | paired + companion topologies inside the running integrated host; correlation/tenant drill-down join confirmed against multi-process receipts |
+| [3] | DocumentTransaction typed receipt ↔ DocumentService proto response field-for-field parity confirmed live, with the Rasm.Rhino host-seam sibling committing a Compute solve result into the live document at the grid edge | Compute + Rasm.Rhino + AppUi | live Rhino host + UDS attach; proto round-trip parity verified at the live grid commit |

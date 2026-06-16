@@ -2,6 +2,8 @@
 
 Rasm.Persistence owns the self-provisioned PostgreSQL 18.4 server tier as five raw-SQL provisioning surfaces distinct from the `schema-rail#EXTENSION_DDL` self-provisioned `CREATE EXTENSION` set and the `store-profiles#PROVISIONING_ROWS` operator-verify manifest: `TimescaleProvisioning` folds hypertable, continuous-aggregate, retention, and columnstore DDL over the `OpLogEntry`-rollup table; `SearchProvisioning` lands pgvectorscale diskann and pg_search BM25 index DDL through `MigrationBuilder.Sql`; `ClusterConfig` carries the deploy-time GUC fragments verified read-only against `pg_settings`; `TenancyModel` is the multi-tenancy and RLS axis tying the host profile to a `CREATE POLICY`, deepened by the `TenantProvision` tenant-lifecycle fold and the `TenantQuota` per-tenant resource-bound column; and `MigrationBundle` is the service-deploy gate over idempotent script output and the self-contained bundle artifact. The page spine is Npgsql, the Npgsql EF provider, Microsoft.EntityFrameworkCore.Design, Thinktecture vocabulary, LanguageExt rails, and NodaTime.
 
+Wire posture: this page is host-local — every owner emits raw provisioning SQL executed server-side against the deploy-image PostgreSQL, crossing no browser or peer wire, so it carries no `TS_PROJECTION` cluster and is absent from the charter `WIRE_PAGES` set. The tenancy primitive it consumes (`TenantContext`) crosses the wire only as `TenantContextWire` owned at `AppHost/runtime-ports#TS_PROJECTION`; this cluster reads `TenantId` as the `current_setting('rasm.tenant')::uuid` RLS predicate and never mints a client-facing projection.
+
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]               | [OWNS]                                                          |

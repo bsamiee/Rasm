@@ -17,7 +17,7 @@ One fifteen-case `ComputeReceipt` union is the package's only fact vocabulary fo
 - Owner: `ComputeReceipt`, `ComputeWireContext`, `ReceiptSurface` — the fact union, the package's one `JsonSerializerContext` partial joining the suite Strict resolver merge, and the emission-plus-telemetry surface.
 - Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · cache · unit-projection · backpressure · drain · conflict · factorization · generate
 - Entry: `public IO<ReceiptEnvelope> Emit(ReceiptSinkPort sink, JsonSerializerOptions wire)` — `IO` carries the sink effect; the returned envelope is the emission evidence.
-- Auto: the wire kind derives from the polymorphic metadata pinned on the union, the HLC stamp and `SkewBound` derive inside `Send`, and the instrument rows register once at composition through `TelemetryContributorPort` — `TelemetrySource.Compute` mints the activity spine so receipt correlation joins the OTel rail with zero call-site ceremony; `ComputeWireContext` joins the suite Strict resolver merge so the polymorphic `kind` discriminator round-trips through one shared `JsonSerializerOptions`, every Thinktecture spine field crosses as its key scalar through the merged Thinktecture resolver, and the union deserializes back to the exact case with `Seq<string>` collections intact — `UnmappedMemberHandling.Disallow` rejects any drifted field at the consuming edge rather than dropping it.
+- Auto: the wire kind derives from the polymorphic metadata pinned on the union, the HLC stamp and `SkewBound` derive inside `Send`, the ambient `TenantContext.Current` threads into `Send` so the envelope `Tenant` field partitions evidence by the boot-minted tenancy primitive AppHost owns — Compute reads `TenantContext` as settled vocabulary and never re-mints it, and the instrument rows register once at composition through `TelemetryContributorPort` — `TelemetrySource.Compute` mints the activity spine so receipt correlation joins the OTel rail with zero call-site ceremony; `ComputeWireContext` joins the suite Strict resolver merge so the polymorphic `kind` discriminator round-trips through one shared `JsonSerializerOptions`, every Thinktecture spine field crosses as its key scalar through the merged Thinktecture resolver, and the union deserializes back to the exact case with `Seq<string>` collections intact — `UnmappedMemberHandling.Disallow` rejects any drifted field at the consuming edge rather than dropping it.
 - Receipt: union cases materialize at the sink edge only; hot-path capsules upstream stay allocation-free and the envelope is the sole cross-process causal carrier.
 - Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
 - Growth: a new measured concern is one case row on `ComputeReceipt` plus one `[JsonDerivedType]` row and one TS payload row, zero new surface.
@@ -123,7 +123,7 @@ public static class ReceiptSurface {
     extension(ComputeReceipt fact) {
         public IO<ReceiptEnvelope> Emit(ReceiptSinkPort sink, JsonSerializerOptions wire) =>
             IO.lift(() => JsonSerializer.SerializeToElement(fact, typeof(ComputeReceipt), wire))
-                .Bind(payload => sink.Send(fact.Correlation, "Rasm.Compute", payload.GetProperty("kind").ToString(), payload));
+                .Bind(payload => sink.Send(fact.Correlation, TenantContext.Current, "Rasm.Compute", payload.GetProperty("kind").ToString(), payload));
     }
 }
 ```

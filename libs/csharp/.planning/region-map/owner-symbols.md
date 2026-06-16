@@ -251,6 +251,7 @@ Suite region map — row shapes and protocol live in the [suite standard](../REA
 - ReceiptEnvelopeWire — AppHost/runtime-ports#TS_PROJECTION [ts interface]
 - HlcStampWire — AppHost/runtime-ports#TS_PROJECTION [ts interface]
 - RasmPackage — AppHost/runtime-ports#TS_PROJECTION [ts literal union]
+- TenantContextWire — AppHost/runtime-ports#TS_PROJECTION [ts interface]
 - ComputeIntent — Compute/intent-and-selection#INTENT_FAMILY [Union + nested Spec]
 - AdmittedIntent — Compute/intent-and-selection#INTENT_FAMILY [record]
 - IntentAdmission — Compute/intent-and-selection#INTENT_FAMILY [static surface]

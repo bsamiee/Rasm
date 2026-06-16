@@ -90,6 +90,10 @@ The post-fetch update rail and the inbound control-service host — the self-upd
 |  [52]   | gRPC server host over UDS and hardened Windows named-pipe control intake       | `ServiceHost`        | companion-sidecar#SERVICE_HOST          |
 |  [53]   | Cross-process degradation cascade: parent floor written to the child cell      | `DegradationCascade` | companion-sidecar#DEGRADATION_CASCADE   |
 |  [54]   | Accept-side peer-credential read over the platform getsockopt route            | `PeerAdmission`      | companion-sidecar#PEER_ADMISSION        |
+|  [55]   | Host-side attached-peer roster: lease-epoch admit/renew/drop/sweep, presence fan | `PeerRoster`         | companion-sidecar#PROCESS_MODALITY      |
+|  [56]   | Fleet-wide health-gated rolling-update wave over the attached-peer roster        | `FleetRoll`          | provisioning-and-update#ROLLOVER_DRAIN  |
+|  [57]   | Boot-minted tenant context: 4th cross-process primitive stamped on the envelope | `TenantContext`      | runtime-ports#PORT_RECORDS              |
+|  [58]   | W3C trace-context propagation over the control hop via gRPC metadata             | `TraceContext`       | diagnostics-and-telemetry#CORRELATION_SPINE |
 
 ## [6]-[ROUTING]
 

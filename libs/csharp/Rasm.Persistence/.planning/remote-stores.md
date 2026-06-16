@@ -2,6 +2,8 @@
 
 Rasm.Persistence anchors cloud object-store residence on one `ObjectStore` provider axis behind the settled `BlobRemote` contract: three string-keyed rows (s3, azure-blob, gcs) each project a `BlobRemote` placement whose Put/Get/Stat/Delete/List run through the provider SDK, `MultipartTransfer` folds the staged sequence into ArtifactSync-sized chunks with resumable per-part upload, `ObjectResidence` round-trips the content-key descriptor with conditional-write ETag/generation concurrency, and `ArtifactSyncFeed` threads the content-address object key plus the managed durable op-log so a blob written once is fetched by any peer. `RemoteStoreFault` lifts every SDK boundary exception into the typed rail and `ObjectTransferFact` deepens the receipt-sink spine. The page spine is AWSSDK.S3, Azure.Storage.Blobs, Google.Cloud.Storage.V1, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, and NodaTime.
 
+Wire posture: this page is host-local — every owner runs server-side against the provider SDK and crosses no browser or peer wire, so it carries no `TS_PROJECTION` cluster and is absent from the charter `WIRE_PAGES` set. The artifact-sync feed's only cross-process face is the content-address object key plus the existing `sync-collaboration#OPLOG_CHANGEFEED` op-log row, whose wire shape is owned at `sync-collaboration#TS_PROJECTION`; `ObjectTransferFact` reaches any dashboard solely as a `ReceiptSinkPort` envelope whose `ReceiptEnvelopeWire`/`TenantContextWire` projection is owned at `AppHost/runtime-ports#TS_PROJECTION`, never re-spelled here.
+
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                               |

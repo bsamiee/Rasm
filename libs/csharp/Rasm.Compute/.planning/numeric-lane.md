@@ -2,6 +2,8 @@
 
 Rasm.Compute numeric lane: BLAS-class dense and sparse linear algebra over the admitted MathNet provider stack, the RID-keyed `LinearProvider` availability table that selects native MKL or OpenBLAS where the asset exists and falls back to managed on osx-arm64, the `SparseFormat` ingestion axis over the CSR-backed MathNet storage reality, the `Factorization` decomposition union collapsing LU, QR, Cholesky, SVD, and EVD to one solve admission, and the `KernelLowering` binding table that gives the tensor-lane matrix and structural rows a real kernel. The page owns the `LinearProvider`, `SparseFormat`, and `Factorization` axes, the `DenseOps`/`SparseOps` solve folds, the `KernelLowering` table, and the `ShardPlan` fan-out column, composing the tensor-lane operation rows, the `BenchmarkRow` claim authority, the `Substrate.RemoteGrpc` row, and the AppHost clock and CPU-budget ports as settled vocabulary.
 
+Wire posture: this page is HOST-LOCAL and carries no TS_PROJECTION cluster — no numeric owner crosses the browser or peer wire directly. A distributed solve crosses solely through the EXISTING `remote-lane#PROTO_VOCABULARY` `Solve` rpc (`SolveRequest`/`SolveResponse`), which the `ShardPlan.Blocked` row-block sub-solve dials by reference; the `Solve` rpc and its `ComputeServiceShape` `MethodShape` are the single wire surface, owned and projected at `remote-lane`, never re-projected here. `Matrix<double>`, `SparseCompressedRowMatrixStorage<double>`, and the `Factorization` union are interior numeric types that never sit between wire and rail.
+
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                |
@@ -267,7 +269,3 @@ public static class KernelLowering {
 - Packages: Rasm.Persistence (project), LanguageExt.Core, BCL inbox
 - Growth: a new claim dimension is one column on the existing `BenchmarkClaim`; a new solve instrument is one row on `ReceiptSurface.Instruments`; zero new surface.
 - Boundary: provider rank is the `BenchmarkClaim` `Provider` column gated exactly like the SIMD and partition claims — a static native default beside the claim is the named defect; the claim is resolved by the Persistence `BenchmarkRow.Claim` owner against the recency horizon read by reference from the Persistence model-result index owner and threaded in, never re-resolved and never a second horizon; the solve and shard instruments live on the `ReceiptSurface.Instruments` stream and a second numeric-lane-local instrument owner is the deleted form.
-
-## [6]-[RESEARCH]
-
-- [NATIVE_BLAS_EXECUTION]: the native-mkl and native-openblas dense GEMM and the CSparse direct sparse solve are member-shape FINALIZED and managed-provider-proven on arm64; native MKL execution is x64-only behind the documented RID gate (no osx-arm64 asset) and the native-openblas osx-arm64 asset presence is the live-host probe; the row predicates and `Control.TryUse*` boolean fall-throughs are the residual host-asset confirmation, never an open member spelling.

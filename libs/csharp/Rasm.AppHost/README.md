@@ -1,6 +1,6 @@
 # [RASM_APPHOST]
 
-`Rasm.AppHost` is the host-neutral runtime spine for the Rasm app packages: host variance, lifecycle and drain, time and deadlines, configuration and options, composition, resource lanes, diagnostics and telemetry, health and degradation, support capture, outbound resilience, and the seven cross-package runtime ports.
+`Rasm.AppHost` is the host-neutral runtime spine for the Rasm app packages: host variance, lifecycle and drain, time and deadlines, configuration and options, composition, resource lanes, diagnostics and telemetry, health and degradation, support capture, outbound resilience, post-fetch provisioning and update, the inbound control-service companion host, and the seven cross-package runtime ports.
 
 ## [1]-[DOCUMENTS]
 

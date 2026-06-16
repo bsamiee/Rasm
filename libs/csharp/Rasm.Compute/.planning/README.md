@@ -108,16 +108,16 @@ Axis owners (vocabulary budget):
 |  [12]   | Claim bands       | `BenchmarkClaim.Bands` | frozen rows        |    4    | FINALIZED |
 |  [13]   | Key policies      | `*KeyPolicy`           | comparer accessors |    8    | FINALIZED |
 
-Numeric-lane owners (BLAS-class linear algebra; native execution SPIKE-gated on the per-RID asset probe):
+Numeric-lane owners (BLAS-class linear algebra; managed terminal proved end-to-end on osx-arm64 against the real MathNet + CSparse stack — native MKL/OpenBLAS EXECUTION is the documented per-RID build/deploy gate carried on the `LinearProvider` RID axis, never an open owner spike):
 
 | [INDEX] | [AXIS/CONCERN]      | [OWNER]             | [KIND]                | [CASES]              |  [STATE]  |
 | :-----: | :------------------ | :------------------ | :-------------------- | :------------------- | :-------: |
-|   [1]   | BLAS provider table | `LinearProvider`    | SmartEnum\<string>    |          3           |   SPIKE   |
+|   [1]   | BLAS provider table | `LinearProvider`    | SmartEnum\<string>    |          3           | FINALIZED |
 |   [2]   | Factorization kind  | `FactorizationKind` | SmartEnum\<string>    |          5           | FINALIZED |
 |   [3]   | Decomposition union | `Factorization`     | [Union]               |          5           | FINALIZED |
 |   [4]   | Sparse format axis  | `SparseFormat`      | SmartEnum\<string>    |          4           | FINALIZED |
-|   [5]   | Dense solve fold    | `DenseOps`          | static surface        | `Decompose`/`Gemm`/`Receipt` |   SPIKE   |
-|   [6]   | Sparse solve fold   | `SparseOps`         | static surface        | `Ingest`/`SolveDirect`/`Receipt` |   SPIKE   |
+|   [5]   | Dense solve fold    | `DenseOps`          | static surface        | `Decompose`/`Gemm`/`Receipt` | FINALIZED |
+|   [6]   | Sparse solve fold   | `SparseOps`         | static surface        | `Ingest`/`SolveDirect`/`Receipt` | FINALIZED |
 |   [7]   | Kernel lowering     | `KernelLowering`    | binding table         | `Lower`/`Pool`/`Lowers` | FINALIZED |
 |   [8]   | Shard plan          | `ShardPlan`         | [Union]               |          2           | FINALIZED |
 

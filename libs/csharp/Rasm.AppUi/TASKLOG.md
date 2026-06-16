@@ -14,11 +14,14 @@ Open work owned by this folder; closed items do not appear.
 
 ## [2]-[PLANNING_CLOSE_OUT_SPIKES]
 
+The genuine tier-3 host-bridge residual: the only DENSITY_BAR `SPIKE` owners — `SurfaceHost` (charter row [1]) and `SurfaceFact` (charter row [2]) — gated on the live Rhino-owned AppKit run-loop and Win32 reparent host per surface-hosts#RESEARCH [EMBED_SPIKE]/[WIN32_ROUTE]; member shape is fence-complete, only the in-host confirmation remains. Closure environment: live RhinoWIP plugin ALC + NSView panel host (and the WinForms-interop Windows panel host for [WIN32_ROUTE]).
+
 | [INDEX] | [ITEM] | [EXIT] |
 | :-----: | ------ | ------ |
-| [1] | Avalonia-12-in-Rhino NSView embedding (pump coexistence, resize sync, render-backend contention scenarios) | all three scenarios pass without pump conflict or render regression |
-| [2] | Embedded-TopLevel service resolution (toasts, storage pickers) inside the rhino-panel root | service resolution succeeds inside the panel root |
-| [3] | Host-object drag across the NSView boundary; VoiceOver reach across the embedding | drag and VoiceOver reach confirmed across boundary |
+| [1] | `SurfaceHost`/`SurfaceFact` Avalonia-12-in-Rhino NSView embedding (pump coexistence, resize sync, render-backend contention) — surface-hosts#RESEARCH [EMBED_SPIKE]; closes DENSITY_BAR rows [1]/[2] SPIKE->FINALIZED | all three scenarios pass without pump conflict or render regression under live RhinoWIP |
+| [2] | `SurfaceHost` [WIN32_ROUTE] raw-HWND reparent against the WinForms-interop host + Rhino Windows panel host — surface-hosts#RESEARCH [WIN32_ROUTE] (host package outside current restore set) | designed-only host-axis case activates against the Rhino Windows panel host once the interop admission lands |
+| [3] | Embedded-TopLevel service resolution (toasts, storage pickers) inside the rhino-panel root — dialogs-notifications#RESEARCH [EMBEDDED_TOPLEVEL], rides the embedding seam | service resolution succeeds inside the panel root |
+| [4] | Host-object drag across the NSView boundary (input-interaction#RESEARCH [EMBEDDED_DRAG]); VoiceOver reach across the embedding (accessibility#AUTOMATION_PEERS) | drag and VoiceOver reach confirmed across boundary under live RhinoWIP |
 
 ## [3]-[DEEPENING_FINDINGS]
 

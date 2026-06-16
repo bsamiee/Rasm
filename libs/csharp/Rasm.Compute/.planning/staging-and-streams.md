@@ -223,7 +223,7 @@ public sealed class StreamPool : IDisposable {
 |   [9]   | segment handoff  | `MemoryOwner<byte>.DangerousGetArray` hands the rented `ArraySegment<byte>` to `UnsafeByteOperations.UnsafeWrap` so a pooled payload becomes a `ByteString` with zero copy; the owner outlives the wrap and disposes after send |
 |  [10]   | block diagnostic | `BlockAndOffset`/`BlockSegment` address pooled-block boundaries on the `Diagnostic` policy row so a frame-straddle assertion reads exact block positions; production reads only `GetReadOnlySequence` segment counts            |
 
-The eleven manager events fold to evidence through one `ReceiptSinkPort.Send` per event with no per-event allocation: each handler closure captures the sink once at construction, projects its `EventArgs` to an `AllocationEvidence` value, serializes that value to the `JsonElement` payload the 4-argument `Send` carries, and the detacher chain detaches LIFO at dispose. The drop-callback the channel rows pass for the `DropWrite`/`DropOldest` lanes routes a dropped item through the same projection rather than a per-drop allocation, so a dropped payload is an `AllocationEvidence` stamp under the renter correlation, never silent loss.
+The eleven manager events fold to evidence through one `ReceiptSinkPort.Send` per event with no per-event allocation: each handler closure captures the sink once at construction, projects its `EventArgs` to an `AllocationEvidence` value, serializes that value to the `JsonElement` payload the `Send` arity carries, threads the ambient `TenantContext.Current` so the evidence partitions by tenant beside the renter correlation, and the detacher chain detaches LIFO at dispose. The drop-callback the channel rows pass for the `DropWrite`/`DropOldest` lanes routes a dropped item through the same projection rather than a per-drop allocation, so a dropped payload is an `AllocationEvidence` stamp under the renter correlation, never silent loss.
 
 ```csharp signature
 public static class PoolEvidence {
@@ -240,7 +240,7 @@ public static class PoolEvidence {
     }
 
     static IO<ReceiptEnvelope> Stamp(ReceiptSinkPort sink, JsonSerializerOptions wire, AllocationEvidence e) =>
-        sink.Send(e.Correlation, "Rasm.Compute", e.Class.Key, JsonSerializer.SerializeToElement(e, wire));
+        sink.Send(e.Correlation, TenantContext.Current, "Rasm.Compute", e.Class.Key, JsonSerializer.SerializeToElement(e, wire));
 }
 ```
 

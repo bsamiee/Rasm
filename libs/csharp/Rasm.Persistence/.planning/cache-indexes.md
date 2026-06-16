@@ -148,7 +148,7 @@ public static class IndexSurface {
 
     extension(ReceiptSinkPort sink) {
         public IO<ReceiptEnvelope> Fact(CorrelationId correlation, CacheIndexFact fact) =>
-            sink.Send(correlation, "Rasm.Persistence", fact.Kind, JsonSerializer.SerializeToElement(fact, PersistenceWireContext.Default.CacheIndexFact));
+            sink.Send(correlation, TenantContext.Current, "Rasm.Persistence", fact.Kind, JsonSerializer.SerializeToElement(fact, PersistenceWireContext.Default.CacheIndexFact));
     }
 }
 ```

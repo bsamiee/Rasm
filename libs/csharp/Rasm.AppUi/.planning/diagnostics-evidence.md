@@ -22,9 +22,9 @@ rows, and the evidence wire contract — composing AppHost ports and the settled
 
 - Owner: `EvidenceReceipt` — the one `[Union]` evidence vocabulary; `EvidenceOps` — the sibling-receipt projection fold; `AppUiWireContext` — the package wire context.
 - Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity under the locked kind literals surface, focus, render, disposal, edit, command, native-asset.
-- Entry: `public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, JsonSerializerOptions wire)` — `IO` carries the sink effect; the returned envelope is the emission evidence.
+- Entry: `public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant, JsonSerializerOptions wire)` — `IO` carries the sink effect; the returned envelope is the emission evidence carrying both cross-process primitives, the ambient `TenantContext` threaded from `TenantContext.Current` at composition; the tenant is consumed as settled AppHost vocabulary and never re-minted here.
 - Auto: composition binds the settled sibling delegates onto case constructors — `ScreenRuntime.Disposed` to Disposal, `VisualRuntime.Sink` to Render through `ToEvidence`, the inspector receipt sink to the Edit flatten, the mount transaction and its fact stream to Surface and Focus, and the native load-identity probe to NativeAssetIdentity — so every existing receipt stream folds into one union with zero new emitters.
-- Receipt: the sealed `ReceiptEnvelope` is the emission evidence; its HLC stamp is the only time authority on evidence, so a second stamp field on a case payload is the deleted form.
+- Receipt: the sealed `ReceiptEnvelope` is the emission evidence; its HLC stamp is the only time authority on evidence, so a second stamp field on a case payload is the deleted form; the envelope's `Tenant` field partitions evidence per tenant from the same threaded `TenantContext`, so a per-tenant evidence view derives from the envelope partition rather than a second tenant field on a case payload.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one case row absorbs a new evidence family and one `[JsonSerializable]` row extends the context; zero new surface.
 - Boundary: receipts are process-local and HLC-correlated, never globally shared; a generic receipt or ledger abstraction is the rejected form — the typed union with slot metadata is the absorbing owner; cases nest a sibling receipt when its wire form is settled and flatten to scalars when the sibling shape carries non-wire members — the render flatten absorbs the optional destination and the render-row color-space tag so a wide-gamut baseline keys distinctly on the timeline, and the edit flatten absorbs the literal-free outcome union, and a third parallel evidence shape is the named defect; the kind literal reads from the serialized payload, so a second literal table is the deleted form; `AppUiTelemetry.Contribute(version, instruments)` is the one parameterized telemetry-contribution surface every owner calls with its own instrument-name constants — a hand-rolled per-owner `TelemetryContributorPort` factory is the deleted form, the instrument names stay owned by the contributing page, and the contribution shape stays single.
@@ -49,10 +49,10 @@ public abstract partial record EvidenceReceipt {
     public sealed record Command(CommandReceipt Receipt) : EvidenceReceipt;
     public sealed record NativeAssetIdentity(NativeAssetFact Fact) : EvidenceReceipt;
 
-    public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, JsonSerializerOptions wire) =>
+    public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant, JsonSerializerOptions wire) =>
         IO.lift(() => JsonSerializer.SerializeToElement<EvidenceReceipt>(this, wire))
             .Bind(payload => sink.Send(
-                correlation, "Rasm.AppUi", payload.GetProperty("kind").GetString() ?? string.Empty, payload));
+                correlation, tenant, "Rasm.AppUi", payload.GetProperty("kind").GetString() ?? string.Empty, payload));
 }
 
 public static class EvidenceOps {

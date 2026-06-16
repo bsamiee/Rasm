@@ -88,15 +88,15 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |   [2]   | lifecycle            | StoreLifecycle, receipts                         | enum + fold       | 5 states          | FINALIZED |
 |   [3]   | placement            | StorePlacement                                   | record + fold     | 8 arms            | FINALIZED |
 |   [4]   | cross-process        | StoreLeaseRow, StoreLocality                     | record + guard    | 2 lease kinds     |   SPIKE   |
-|   [5]   | provisioning         | ExtensionRequirement                             | table + verify    | 7 rows            |   SPIKE   |
+|   [5]   | provisioning         | ExtensionRequirement                             | table + verify    | 11 rows           | FINALIZED |
 |   [6]   | lane axis            | DataLane, KvEntry                                | union + fold      | 7 cases           | FINALIZED |
-|   [7]   | document/search      | JsonIndex, VectorMetric, FullTextMode            | enums             | 4 · 6 · 4         |   SPIKE   |
-|   [8]   | geo + analytical     | GeoLayer, TabularExportSpec, TabularDirection    | policy + enum     | concern rows      |   SPIKE   |
+|   [7]   | document/search      | JsonIndex, VectorMetric, FullTextMode            | enums             | 4 · 6 · 4         | FINALIZED |
+|   [8]   | geo + analytical     | GeoLayer, TabularExportSpec, TabularDirection    | policy + enum     | concern rows      | FINALIZED |
 |   [9]   | identity             | IdentityPolicy                                   | enum              | 3 rows            | FINALIZED |
 |  [10]   | schema law           | faults, fingerprint, columns, SchemaDdl, TemporalShape | fault + DDL | 5 codes · 19 ext. · 3 temporal shapes | FINALIZED |
 |  [11]   | operation algebra    | StoreOp, StoreFault, StoreRail, StoreOpCompose   | unions + dispatch | 8 ops · 6 faults  | FINALIZED |
 |  [12]   | projection egress    | KeysetPage, ProjectionRail                       | record + fold     | 3 filter keys     | FINALIZED |
-|  [13]   | bulk lane            | BulkRoute, receipts, deltas                      | enum + receipts   | 3 routes          |   SPIKE   |
+|  [13]   | bulk lane            | BulkRoute, receipts, deltas                      | enum + receipts   | 3 routes          | FINALIZED |
 |  [14]   | interceptor spine    | interceptors, policies, facts                    | capsule + policy  | 4 hooks · 7 kinds | FINALIZED |
 |  [15]   | native policy tables | pragmas, facts, compile surface                  | tables + probe    | 10 · 14           | FINALIZED |
 |  [16]   | maintenance + gates  | maintenance, functions, extensions, DbConfig     | verbs + gates     | 9 verbs · 8 gates | FINALIZED |

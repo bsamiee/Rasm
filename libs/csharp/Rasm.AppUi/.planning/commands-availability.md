@@ -65,6 +65,7 @@ public sealed record CommandDeck(
     IScheduler Scheduler,
     TimeProvider Time,
     CorrelationId Correlation,
+    TenantContext Tenant,
     ReceiptSinkPort Sink,
     JsonSerializerOptions Wire) {
     public const string ConflictKind = "hotkey-conflict";
@@ -72,13 +73,13 @@ public sealed record CommandDeck(
     public static Fin<CommandDeck> Freeze(
         SurfaceHost surface, string surfaceKey, Func<KeyGesture, KeyGesture> chord, Func<string, string> label,
         IObservable<CommandIntent.Availability> inputs, Func<CommandIntent.Availability> snapshot,
-        IScheduler scheduler, TimeProvider time, CorrelationId correlation, ReceiptSinkPort sink,
+        IScheduler scheduler, TimeProvider time, CorrelationId correlation, TenantContext tenant, ReceiptSinkPort sink,
         JsonSerializerOptions wire, params ReadOnlySpan<CommandIntent> rows) =>
         Admitted(toSeq(rows.ToArray()).Filter(row => row.Surfaces(surface)), label)
             .Map(admitted => new CommandDeck(
                 admitted.Map(static row => KeyValuePair.Create(row.Key, row)).ToFrozenDictionary(StringComparer.Ordinal),
                 admitted.Map(row => KeyValuePair.Create(label(row.Key).ToLowerInvariant(), row.Key)).ToFrozenDictionary(StringComparer.Ordinal),
-                surfaceKey, chord, inputs, snapshot, scheduler, time, correlation, sink, wire));
+                surfaceKey, chord, inputs, snapshot, scheduler, time, correlation, tenant, sink, wire));
 
     public Seq<(KeyGesture Gesture, Seq<string> Keys)> GestureConflicts() =>
         toSeq(Rows.Values)
@@ -134,7 +135,7 @@ public static class CommandGate {
 - Cases: `CommandOutcome` = Completed | Cancelled | Rejected | Faulted under the locked kind literals completed, cancelled, rejected, faulted.
 - Entry: `public ReactiveCommand<CommandPayload, CommandReceipt> Materialize(CommandDeck deck)` — one generated command per admitted row; the receipt is the command result.
 - Auto: the `Catch` rail makes the outcome total, so every execution seals a receipt before any fault surfaces; residual throws ride `ThrownExceptions` into the one screen fault state and the error dialog intent row — never per-control handling; elapsed derives from the injected `TimeProvider` timestamp pair; `Combine` resolves each batch key through one `TryGetValue` probe and a fail-closed `Traverse` into `Fin`, so an unknown intent key aborts the macro rather than silently dropping, and the admitted child rows fold into one `CombinedReactiveCommand` whose availability is the all-true fold over child `CanExecute` — a macro verb spending several rows in one gesture is a `CreateCombined` projection over existing rows, never a new payload case.
-- Receipt: `CommandReceipt` — intent key, surface key, elapsed `Duration`, outcome, payload digest, `CorrelationId` — sealed through `ReceiptSinkPort.Send` as kind `command`; the HLC envelope is the only cross-process correlation carrier; `TelemetryRow` contributes the command-outcome and command-elapsed instruments inward through the AppHost `TelemetryContributorPort`.
+- Receipt: `CommandReceipt` — intent key, surface key, elapsed `Duration`, outcome, payload digest, `CorrelationId` — sealed through `ReceiptSinkPort.Send` as kind `command` with the boot-bound `CommandDeck.Tenant` threaded so the envelope partitions per tenant; the HLC envelope is the only cross-process correlation carrier and `TenantContext` rides the deck as settled AppHost vocabulary, never re-minted; `TelemetryRow` contributes the command-outcome and command-elapsed instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: ReactiveUI, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm.AppHost (project), BCL inbox
 - Growth: one `CommandOutcome` case absorbs a new result class and breaks every dispatch site at compile time, and one command instrument is one `InstrumentRow` on `CommandExecution.TelemetryRow`; zero new surface.
 - Boundary: the receipt record lands as one `[JsonSerializable]` row on the package wire context merged at app roots; ICommand wrapper classes are the deleted form and a generic receipt or ledger abstraction is the rejected form; the digest is the XxHash128 hex of the serialized payload, so receipt payloads stay fixed-size on the hot path; `Combine` is the only batch-verb spelling — a sibling `Batch` payload case beside the closed four-case union and a per-macro registry are the rejected forms, an unknown batch key aborts the macro on the `Fin` rail rather than dropping under a `ContainsKey` filter, and the combined command's child execution still seals one `CommandReceipt` per child through the same sink so batch evidence never collapses into one opaque receipt.
@@ -186,7 +187,7 @@ public static class CommandExecution {
         public IO<CommandReceipt> Seal(string key, CommandOutcome outcome, Duration elapsed, string digest) =>
             IO.pure(new CommandReceipt(key, deck.SurfaceKey, elapsed, outcome, digest, deck.Correlation))
                 .Bind(receipt => deck.Sink
-                    .Send(deck.Correlation, "Rasm.AppUi", CommandReceipt.Kind, JsonSerializer.SerializeToElement(receipt, deck.Wire))
+                    .Send(deck.Correlation, deck.Tenant, "Rasm.AppUi", CommandReceipt.Kind, JsonSerializer.SerializeToElement(receipt, deck.Wire))
                     .Map(_ => receipt));
 
         public Fin<CombinedReactiveCommand<CommandPayload, CommandReceipt>> Combine(params ReadOnlySpan<string> keys) =>

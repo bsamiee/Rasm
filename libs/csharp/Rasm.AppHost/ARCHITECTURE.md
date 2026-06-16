@@ -19,17 +19,17 @@ Rasm.AppHost/
 ├── Resources/
 │   └── ResourceLanes.cs             # CacheLane, PoolPolicy<T>, DrainQueue<T> — resource-lanes#CACHE_PORT, #OBJECT_POOLS, #DRAIN_QUEUES
 ├── Observability/
-│   ├── Diagnostics.cs               # TelemetrySource, Correlation, LogPipeline, TelemetrySignal, DataClassification — diagnostics-and-telemetry#TELEMETRY_IDENTITY, #CORRELATION_SPINE, #LOG_PROJECTION, #SIGNAL_GOVERNANCE, #REDACTION_TAXONOMY
+│   ├── Diagnostics.cs               # TelemetrySource, Correlation, TraceContext, LogPipeline, TelemetrySignal, DataClassification — diagnostics-and-telemetry#TELEMETRY_IDENTITY, #CORRELATION_SPINE, #LOG_PROJECTION, #SIGNAL_GOVERNANCE, #REDACTION_TAXONOMY
 │   ├── Health.cs                    # HealthContributorRow, Capability, DegradationLevel, WireHealthRow — health-and-degradation#HEALTH_FOLD, #DEGRADATION_RAIL, #WIRE_HEALTH
 │   └── Support.cs                   # SupportTrigger, SupportReceipt — support-bundles#TRIGGER_UNION, #CAPTURE_PIPELINE, #MANIFEST_RECEIPT
 ├── Outbound/
 │   └── Outbound.cs                  # OutboundHop, HopFault, HopOutcome, OutboundSurface, DiscoveryManifest — outbound-resilience#HOP_AXIS, #HTTP_PIPELINES, #KEYED_PIPELINES, #OWNERSHIP_LAW, #DISCOVERY_ATTACH
 ├── Ports/
-│   └── Ports.cs                     # ReceiptSinkPort + six siblings, AppHostWireContext — runtime-ports#PORT_RECORDS, #WIRE_LAW
+│   └── Ports.cs                     # ReceiptSinkPort + six siblings, TenantId, TenantContext, AppHostWireContext — runtime-ports#PORT_RECORDS, #WIRE_LAW
 ├── Provisioning/
-│   └── Provisioning.cs              # UpdatePhase, UpdateChannel, UpdateRail, RolloverDrain — provisioning-and-update#UPDATE_RAIL, #CHANNEL_AXIS, #ROLLOVER_DRAIN
+│   └── Provisioning.cs              # UpdatePhase, UpdateChannel, UpdateRail, RolloverDrain, FleetRoll — provisioning-and-update#UPDATE_RAIL, #CHANNEL_AXIS, #ROLLOVER_DRAIN
 └── Companion/
-    └── Companion.cs                 # ProcessModality, ControlInbound, ServiceHost, DegradationCascade, PeerAdmission — companion-sidecar#PROCESS_MODALITY, #CONTROL_SERVICE, #SERVICE_HOST, #DEGRADATION_CASCADE, #PEER_ADMISSION
+    └── Companion.cs                 # ProcessModality, PeerRoster, ControlInbound, ServiceHost, DegradationCascade, PeerAdmission — companion-sidecar#PROCESS_MODALITY, #CONTROL_SERVICE, #SERVICE_HOST, #DEGRADATION_CASCADE, #PEER_ADMISSION
 ```
 
 `Ports.cs` lands before the two inbound files because `AppHostWireContext` rows reference receipts every earlier file declares. `Outbound.cs` transcribes `outbound-resilience.md` including its DISCOVERY_ATTACH cluster: the `LocalIpc` hop case carries the `DiscoveryManifest` payload and `Discovery.Connect` consumes `GrpcChannelPolicy`, so discovery is one symbol closure in one file. `Provisioning.cs` owns the post-fetch update state machine over `UpdateManager`; the `UpdateCheck` detect-leg stays at `Outbound.cs`. `Companion.cs` lands last: it is the inbound serving counterpart to `Outbound.cs`, composing `Discovery`/`CompanionChild`/`GrpcChannelPolicy` (Outbound), `DegradationCell` (Health), `OptionsAdmission` (Configuration), and `SupportCapture` (Support) without re-declaring them, and the gRPC server-host packages enter only at service app roots behind the app-root pin. `DrainQueue` is the AppHost lane name; `WorkLane` stays at Compute.
@@ -110,6 +110,10 @@ Text equivalent: `ProfileSurface.Resolve` materializes the one `ResolvedProfile`
 |  [44]   | service host            | `ServiceHost`                      | 2 transport cases  | companion-sidecar#SERVICE_HOST               |
 |  [45]   | degradation cascade     | `DegradationCascade`               | 1 write fold       | companion-sidecar#DEGRADATION_CASCADE        |
 |  [46]   | peer admission          | `PeerAdmission`                    | 2 platform branches | companion-sidecar#PEER_ADMISSION            |
+|  [47]   | peer roster             | `PeerRoster`                       | 3 transitions      | companion-sidecar#PROCESS_MODALITY          |
+|  [48]   | fleet roll              | `FleetRoll`                        | 1 health-gated wave | provisioning-and-update#ROLLOVER_DRAIN      |
+|  [49]   | tenant context          | `TenantContext`                    | 1 boot mint        | runtime-ports#PORT_RECORDS                   |
+|  [50]   | trace context           | `TraceContext`                     | 1 W3C fold         | diagnostics-and-telemetry#CORRELATION_SPINE |
 
 One rail per entrypoint, named in the return type: `Validation<ConfigError,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects. Receipts stamp NodaTime `Instant` and `Duration`; `TimeProvider` owns elapsed measurement.
 
@@ -146,6 +150,9 @@ Every two-package fact splits by altitude: mechanics live at the named AppHost c
 |  [12]   | clock seam             | time-and-deadlines#CLOCK_SPLIT               | Persistence TTL/retention/HLC/lease stamps; Compute elapsed                    |
 |  [13]   | wire vocabulary        | Compute remote-lane proto suite              | runtime-ports#WIRE_LAW suite merge + TS tooling map                            |
 |  [14]   | lane naming            | resource-lanes#DRAIN_QUEUES                  | `DrainQueue` here; `WorkLane` stays the Compute solve-path name                |
+|  [15]   | tenant context         | runtime-ports#PORT_RECORDS                   | Persistence server-tier RLS `current_setting('rasm.tenant')` + cache-key partition; never re-minted |
+|  [16]   | trace context          | diagnostics-and-telemetry#CORRELATION_SPINE  | W3C `traceparent`/`tracestate` over companion-sidecar gRPC metadata on the control hop |
+|  [17]   | peer presence          | companion-sidecar#PROCESS_MODALITY           | Persistence sync-collaboration presence row per `RosterReceipt` over the op-log changefeed |
 
 ## [6]-[BOUNDARIES]
 
