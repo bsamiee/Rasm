@@ -9,7 +9,7 @@ Schema truth for every store the suite opens: `IdentityPolicy` is the three-row 
 |   [1]   | IDENTITY_POLICY   | Three-row key axis with per-provider default SQL             |
 |   [2]   | MIGRATION_LAW     | Migration faults, fingerprint gate, receipted apply ceremony |
 |   [3]   | GENERATED_COLUMNS | Stored-versus-virtual decision for derived projections       |
-|   [4]   | EXTENSION_DDL     | Extension, index, exclusion, composite, native-enum declaration rows |
+|   [4]   | EXTENSION_DDL     | Extension (access-method/preload/cascade/fallback), index, exclusion, temporal-key, json-schema, composite, native-enum declaration rows |
 |   [5]   | CONVERTER_RAIL    | One converter and naming registration row                    |
 
 ## [2]-[IDENTITY_POLICY]
@@ -178,13 +178,13 @@ public sealed record DerivedColumn(string Table, string Column, string Sql, bool
 
 ## [5]-[EXTENSION_DDL]
 
-- Owner: `SchemaDdl` `[Union]` declaration-row family with the frozen `Extensions` row set.
-- Cases: Extension, Index, Exclusion, TemporalKey, JsonSchemaCheck, Composite, Enum — extension declarations, method-and-operator-class index rows, btree_gist exclusion-constraint rows, PG18 WITHOUT OVERLAPS temporal primary-key and foreign-key rows, pg_jsonschema document-validation CHECK rows, PostgreSQL composite-type declarations, native PostgreSQL enum-type declarations.
-- Entry: `public static ModelBuilder Declare(ModelBuilder model)` — total fold of the extension and enum rows into model annotations.
-- Auto: `HasPostgresExtension` annotations flow through `AlterDatabaseOperation` into generated migration DDL — `CreatePostgresExtensionOperation` is the deleted phantom spelling; `HasPostgresEnum` annotations flow through `PostgresEnum` into the same `AlterDatabaseOperation` so a native enum column emits a `CREATE TYPE ... AS ENUM` step rather than a check-constrained text column; a `TemporalKey` row and a `JsonSchemaCheck` row emit through `MigrationBuilder.Sql` because the WITHOUT OVERLAPS clause and the `jsonb_matches_schema` CHECK have no first-party EF translator.
-- Packages: Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, Pgvector.EntityFrameworkCore, Npgsql, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: one `SchemaDdl` row — a new extension is one `Extension` entry, a new index family is one `Index` row carrying its operator class, a temporal-versioned table is one `TemporalKey` row, a server-validated document lane is one `JsonSchemaCheck` row, a native pg enum is one `Enum` entry; zero new surface.
-- Boundary: preload-gated extensions never enter `Extensions` — their capability verification belongs to the provisioning table; only the self-provisioned non-preload pg_jsonschema joins the frozen set beside pg_trgm/pgcrypto, gated on the deploy image supplying the pgrx-compiled extension and falling back to application-side validation with the row cut where the image cannot; the `Surface` column states the driver-native cost of each row and built-in ranges and multiranges map to `NpgsqlRange<T>` with zero extension entry; `Index` rows carry the method and operator-class columns (gin, gist) that the per-column lane policies instantiate, and a compound `Index` row leading with the tenant/partition discriminant serves both keyset cursors and single-column filters through the PG18 automatic B-tree skip scan so a redundant single-column index is the deleted form; `Exclusion` rows ride btree_gist for range non-overlap, and `TemporalKey` rows ride the PG18 WITHOUT OVERLAPS shape over a `tstzrange` valid-time column GiST-backed by btree_gist for scalar equality — `PRIMARY KEY (id, valid_period WITHOUT OVERLAPS)`, `UNIQUE (... WITHOUT OVERLAPS)`, and `FOREIGN KEY (cust_id, PERIOD valid_period) REFERENCES parent (id, PERIOD parent_period)` are the bitemporal-versioning structural fence for geospatial-sync and multi-tenant history, the migration emits the constraint and a destructive temporal-key change rides the `DestructiveUnapproved` retention gate; `JsonSchemaCheck` rows declare the `CHECK (jsonb_matches_schema(<schema>, <column>))` document-lane invariant so the document lane validates server-side rather than nothing; the postgis row makes NetTopologySuite the pg boundary projection of the canonical proto wire geometry; earthdistance is rejected — the postgis row owns geodesy; `Composite` rows declare PostgreSQL composite types — `MapComposites` folds each onto the data-source builder through `MapComposite` so the round-trip type registration is one row, never a per-type hand-written reader; `Enum` rows declare native PostgreSQL enum types symmetric with `Composite` — `MapEnums` folds each onto the data-source builder through the generic `MapEnum<TEnum>` resolver while `Declare` folds `HasPostgresEnum` so the model annotation and the type registration trace to one row, never a per-enum hand-written `MapEnum` call beside a hand-written check constraint, and the `EnableUnmappedTypes` builder column on the pg profile row admits enum-as-text round-trips without an `Enum` entry where a native type is unwarranted; the composite and enum sets are empty until a real landmark exists, the cases are shaped for the family they absorb.
+- Owner: `SchemaDdl` `[Union]` declaration-row family with the frozen `Extensions` row set; the `Extension` case carries `AccessMethod`, `PreloadGated`, `Cascade`, and `Fallback` columns so one row owns the extension's install DDL, its index access method, its `shared_preload_libraries` gate, and its app-side degradation path.
+- Cases: Extension, Index, Exclusion, TemporalKey, JsonSchemaCheck, Composite, Enum — extension declarations with access-method/preload/cascade/fallback metadata, method-and-operator-class index rows carrying a `With` option map for `diskann`/`bm25` build parameters, btree_gist exclusion-constraint rows, PG18 WITHOUT OVERLAPS temporal primary-key and foreign-key rows, pg_jsonschema document-validation CHECK rows, PostgreSQL composite-type declarations, native PostgreSQL enum-type declarations.
+- Entry: `public static ModelBuilder Declare(ModelBuilder model)` — total fold of the non-preload extension and enum rows into model annotations; `public static MigrationBuilder Migrate(MigrationBuilder migration)` emits preload-gated `CREATE EXTENSION` DDL plus temporal-key and JSON-schema SQL; `public static Fin<MigrationBuilder> Validate(MigrationBuilder migration, Func<string, bool> extensionAvailable)` folds each fallback-bearing extension, degrading to its app-side path when the deploy image lacks the pgrx-compiled extension and failing typed otherwise.
+- Auto: `HasPostgresExtension` annotations flow through `AlterDatabaseOperation` into generated migration DDL — `CreatePostgresExtensionOperation` is the deleted phantom spelling; `HasPostgresEnum` annotations flow through `PostgresEnum` into the same `AlterDatabaseOperation` so a native enum column emits a `CREATE TYPE ... AS ENUM` step rather than a check-constrained text column; a `TemporalKey` row and a `JsonSchemaCheck` row emit through `MigrationBuilder.Sql` because the WITHOUT OVERLAPS clause and the `jsonb_matches_schema` CHECK have no first-party EF translator; preload-gated rows (`pg_search`) emit their `CreateSql` through `Migrate` because `HasPostgresExtension` cannot encode the `shared_preload_libraries` prerequisite, and `CASCADE` rows (`vectorscale`) emit `CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE` so the `vector` dependency installs in one step.
+- Packages: Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, Pgvector.EntityFrameworkCore, Pgvector, Npgsql, JsonSchema.Net, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: one `SchemaDdl` row — a new extension is one `Extension` entry (its access method, preload gate, cascade flag, and fallback path are columns on the same row, never a sibling provisioning type), a new index family is one `Index` row carrying its operator class and `With` build-option map, a temporal-versioned table is one `TemporalKey` row, a server-validated document lane is one `JsonSchemaCheck` row, a native pg enum is one `Enum` entry; zero new surface.
+- Boundary: extension capability is one `Extension` row with its full DDL story in columns — `vectorscale` rides `AccessMethod: "diskann"` and `Cascade: true` so `CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE` pulls the `vector` dependency, its diskann index lands as an `Index` row whose `With` map carries `storage_layout`/`num_neighbors`/`search_list_size`/`max_alpha`/`num_dimensions`/`num_bits_per_dimension` against `vector_cosine_ops`/`vector_l2_ops`/`vector_ip_ops`, and the query-time `diskann.query_search_list_size`/`diskann.query_rescore` GUCs belong to the search lane not this declaration row; `pg_search` rides `AccessMethod: "bm25"` and `PreloadGated: true` so it never enters `HasPostgresExtension` (`shared_preload_libraries = 'pg_search'` must precede `CREATE EXTENSION pg_search`, so `Migrate` emits it), its one-per-table bm25 index lands as an `Index` row keyed by the `key_field` UNIQUE/primary column listed first, and the `pdb.*` query builders, `|||`/`&&&`/`===`/`###` column operators, `pdb.score`/`pdb.snippet` projections, and `::pdb.fuzzy`/`::pdb.boost` casts belong to the search lane — the removed `paradedb.*` namespace is the deleted phantom spelling, every search predicate uses the `pdb.*` namespace; the self-provisioned non-preload `pg_jsonschema` carries `Fallback: "Json.Schema.JsonSchema.Evaluate"` so `Validate` degrades the document lane to JsonSchema.Net in-process evaluation when the deploy image lacks the pgrx-compiled extension, never silently dropping validation; the `Surface` column states the driver-native cost of each row and built-in ranges and multiranges map to `NpgsqlRange<T>` with zero extension entry; `Index` rows carry the method, operator-class, and `With` columns that the per-column lane policies instantiate, and a compound `Index` row leading with the tenant/partition discriminant serves both keyset cursors and single-column filters through the PG18 automatic B-tree skip scan so a redundant single-column index is the deleted form; `Exclusion` rows ride btree_gist for range non-overlap, and `TemporalKey` rows ride the PG18 WITHOUT OVERLAPS shape over a `tstzrange` valid-time column GiST-backed by btree_gist for scalar equality — `PRIMARY KEY (id, valid_period WITHOUT OVERLAPS)`, `UNIQUE (... WITHOUT OVERLAPS)`, and `FOREIGN KEY (cust_id, PERIOD valid_period) REFERENCES parent (id, PERIOD parent_period)` are the bitemporal-versioning structural fence for geospatial-sync and multi-tenant history, the migration emits the constraint and a destructive temporal-key change rides the `DestructiveUnapproved` retention gate; `JsonSchemaCheck` rows declare the `CHECK (jsonb_matches_schema(<schema>, <column>))` document-lane invariant so the document lane validates server-side, with `Validate` carrying the in-process fallback when the server-side extension is absent; the postgis row makes NetTopologySuite the pg boundary projection of the canonical proto wire geometry; earthdistance is rejected — the postgis row owns geodesy; `Composite` rows declare PostgreSQL composite types — `MapComposites` folds each onto the data-source builder through `MapComposite` so the round-trip type registration is one row, never a per-type hand-written reader; `Enum` rows declare native PostgreSQL enum types symmetric with `Composite` — `MapEnums` folds each onto the data-source builder through the generic `MapEnum<TEnum>` resolver while `Declare` folds `HasPostgresEnum` so the model annotation and the type registration trace to one row, never a per-enum hand-written `MapEnum` call beside a hand-written check constraint, and the `EnableUnmappedTypes` builder column on the pg profile row admits enum-as-text round-trips without an `Enum` entry where a native type is unwarranted; the composite and enum sets are empty until a real landmark exists, the cases are shaped for the family they absorb.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -200,8 +200,23 @@ public sealed partial class TemporalShape {
 public abstract partial record SchemaDdl {
     private SchemaDdl() { }
 
-    public sealed record Extension(string Name, string Surface) : SchemaDdl;
-    public sealed record Index(string Table, Seq<string> Columns, string Method, Option<string> Operators) : SchemaDdl;
+    public sealed record Extension(
+        string Name,
+        string Surface,
+        Option<string> AccessMethod = default,
+        bool PreloadGated = false,
+        bool Cascade = false,
+        Option<string> Fallback = default) : SchemaDdl {
+        public string CreateSql => Cascade
+            ? $"CREATE EXTENSION IF NOT EXISTS {Name} CASCADE"
+            : $"CREATE EXTENSION IF NOT EXISTS {Name}";
+    }
+    public sealed record Index(string Table, Seq<string> Columns, string Method, Option<string> Operators, Map<string, string> With = default) : SchemaDdl {
+        private string ColumnList => string.Join(", ", Columns.Map(c => Operators.Match(Some: ops => $"{c} {ops}", None: () => c)));
+        public string Sql => With.IsEmpty
+            ? $"CREATE INDEX ON {Table} USING {Method} ({ColumnList})"
+            : $"CREATE INDEX ON {Table} USING {Method} ({ColumnList}) WITH ({string.Join(", ", With.AsEnumerable().Map(static kv => $"{kv.Key} = {kv.Value}"))})";
+    }
     public sealed record Exclusion(string Table, string Predicate, string Method) : SchemaDdl;
     public sealed record TemporalKey(string Table, Seq<string> Columns, string Period, TemporalShape Shape, Option<(string Table, Seq<string> Columns, string Period)> References) : SchemaDdl {
         public string Sql => Shape.Switch(
@@ -245,9 +260,11 @@ public abstract partial record SchemaDdl {
         new Extension("pg_visibility", Surface: "sql-functions"),
         new Extension("pg_logicalinspect", Surface: "sql-functions"),
         new Extension("postgres_fdw", Surface: "ddl-only"),
-        new Extension("pg_jsonschema", Surface: "sql-functions"),
+        new Extension("pg_jsonschema", Surface: "sql-functions", Fallback: "Json.Schema.JsonSchema.Evaluate"),
         new Extension("vector", Surface: "Pgvector.Vector"),
-        new Extension("postgis", Surface: "NetTopologySuite.Geometry"));
+        new Extension("postgis", Surface: "NetTopologySuite.Geometry"),
+        new Extension("vectorscale", Surface: "Pgvector.Vector", AccessMethod: "diskann", Cascade: true),
+        new Extension("pg_search", Surface: "bm25-search", AccessMethod: "bm25", PreloadGated: true));
 
     public static readonly Seq<TemporalKey> TemporalKeys = Seq<TemporalKey>();
 
@@ -261,13 +278,27 @@ public abstract partial record SchemaDdl {
 
     public static ModelBuilder Declare(ModelBuilder model) =>
         Enums.Fold(
-            Extensions.Fold(model, static (builder, row) => builder.HasPostgresExtension(row.Name)),
+            Extensions.Filter(static row => !row.PreloadGated).Fold(model, static (builder, row) => builder.HasPostgresExtension(row.Name)),
             static (builder, row) => row.Annotate(builder));
 
     public static MigrationBuilder Migrate(MigrationBuilder migration) =>
         JsonSchemaChecks.Fold(
-            TemporalKeys.Filter(static row => row.Sql.Length > 0).Fold(migration, static (builder, row) => { builder.Sql(row.Sql); return builder; }),
+            TemporalKeys.Filter(static row => row.Sql.Length > 0).Fold(
+                Extensions.Filter(static row => row.PreloadGated).Fold(migration, static (builder, row) => { builder.Sql(row.CreateSql); return builder; }),
+                static (builder, row) => { builder.Sql(row.Sql); return builder; }),
             static (builder, row) => { builder.Sql(row.Sql); return builder; });
+
+    public static Fin<MigrationBuilder> Validate(MigrationBuilder migration, Func<string, bool> extensionAvailable) =>
+        Extensions
+            .Filter(static row => row.Fallback.IsSome)
+            .Fold(
+                Fin.Succ(migration),
+                (acc, row) => acc.Bind(builder =>
+                    extensionAvailable(row.Name)
+                        ? Fin.Succ(builder)
+                        : row.Fallback.Match(
+                            Some: _ => Fin.Succ(builder),
+                            None: () => Fin.Fail<MigrationBuilder>(SchemaFault.Create($"<extension-unavailable:{row.Name}>")))));
 }
 ```
 

@@ -30,16 +30,19 @@ public abstract partial record StoreFault : Expected, IValidationError<StoreFaul
 
     public static StoreFault Create(string message) => new Text(message);
 
+    // One projection site. The `SchemaFault` 5300-band evidence folds to `NewerSchema` 7005 whether it
+    // arrives as a top-level `Error` discriminant OR wrapped inside `error.Exception`, so a schema rail
+    // that surfaces its fault as an inner exception never silently degrades to 7000 `Text`; the provider
+    // exception arms run only after both schema-fold sites miss.
     public static StoreFault From(Error error) =>
         error switch {
             SchemaFault schema => new NewerSchema(schema.Message),
-            _ => error.Exception.Case switch {
-                DbUpdateConcurrencyException ex => new Concurrency(ex.Message),
-                PostgresException { SqlState: PostgresErrorCodes.UndefinedObject } ex => new ServerNotProvisioned(ex.Message),
-                DbException { IsTransient: true } ex => new Transient(ex.Message),
-                Exception ex => new Text(ex.Message),
-                _ => new Text(error.Message),
-            },
+            { Exception.Case: SchemaFault inner } => new NewerSchema(inner.Message),
+            { Exception.Case: DbUpdateConcurrencyException ex } => new Concurrency(ex.Message),
+            { Exception.Case: PostgresException { SqlState: PostgresErrorCodes.UndefinedObject } ex } => new ServerNotProvisioned(ex.Message),
+            { Exception.Case: DbException { IsTransient: true } ex } => new Transient(ex.Message),
+            { Exception.Case: Exception ex } => new Text(ex.Message),
+            _ => new Text(error.Message),
         };
 
     public sealed record Text : StoreFault { public Text(string detail) : base(detail, 7000) { } }
@@ -147,12 +150,18 @@ public static class StoreOpCompose {
 
 ```csharp signature
 public sealed record KeysetPage<TRow>(Seq<TRow> Rows, Option<Guid> After, int Count) where TRow : notnull {
+    // The page record is the single projection egress, so a degenerate `take <= 0` request resolves to
+    // an empty page through the typed rail rather than indexing `probe[take - 1]` out of range — the
+    // continuation cursor reads `key` off the last in-page row via `Seq.Last`, never a raw index, so a
+    // zero-take paginator call never throws inside domain logic.
     public static async ValueTask<KeysetPage<TRow>> Materialize(IAsyncEnumerable<TRow> rows, Func<TRow, Guid> key, int take, CancellationToken token) {
-        var probe = await rows.Take(take + 1).ToListAsync(token);
+        var window = int.Max(take, 0);
+        var probe = toSeq(await rows.Take(window + 1).ToListAsync(token));
+        var page = probe.Take(window);
         return new KeysetPage<TRow>(
-            toSeq(probe).Take(take),
-            probe.Count > take ? Optional(key(probe[take - 1])) : None,
-            int.Min(probe.Count, take));
+            page,
+            probe.Count > window ? page.Last.Map(key) : None,
+            page.Count);
     }
 }
 
@@ -339,44 +348,120 @@ flowchart LR
 
 ## [6]-[STANDING_QUERY]
 
-- Owner: `StandingQuery<TRow>` the registered continuous-query record; `WindowSpec` the window vocabulary; `QueryDelta<TRow>` the incremental-view-maintenance delta-in/delta-out carrier; `Watermark` the event-time progress mark; `StandingQueries` the static surface owning the standing-query registration, the windowed fold, the IVM delta application, and the watermark/late-arrival policy.
-- Cases: `Tumbling | Sliding | Session` on `WindowSpec`; a standing query is a registered `IQueryable`-shaped predicate plus a window plus an IVM fold so a new op-log row produces a delta-out without re-running the whole query.
-- Entry: `public static StandingQuery<TRow> Register(string id, Func<IQueryable<TRow>, IQueryable<TRow>> shape, WindowSpec window, Func<QueryDelta<TRow>, QueryDelta<TRow>> fold)` — registers a standing query; `public static (Seq<TRow> Out, Watermark Advanced) Step(StandingQuery<TRow> query, QueryDelta<TRow> deltaIn, Watermark watermark)` applies an incoming delta and emits the delta-out plus the advanced watermark.
+- Owner: `StandingQuery<TRow>` the registered continuous-query record; `WindowKind` the closed window SmartEnum; `WindowSpec`/`WindowBucket` the window vocabulary and bucket-assignment value; `SignedRow<TRow>`/`QueryDelta<TRow>` the signed-multiset incremental-view-maintenance delta carrier; `Watermark` the event-time progress mark; `StandingStepWire` the TS-projection window-bound wire row; `StandingQueries` the static surface owning the standing-query registration, the windowed fold, the signed-delta IVM application, the retraction-plus-restate, and the watermark/late-arrival policy.
+- Cases: `Tumbling | Sliding | Session` on `WindowKind`; a tumbling row lands in one floor-aligned bucket, a sliding row in `ceil(Size/Slide)` overlapping `Slide`-aligned buckets, a session row in a raw bucket the gap-merge fold coalesces by the inactivity `Gap`; a standing query is a registered `IQueryable`-shaped predicate plus a window plus a signed IVM fold so a new op-log row produces a delta-out without re-running the whole query.
+- Entry: `public static StandingQuery<TRow> Register(string id, Func<IQueryable<TRow>, IQueryable<TRow>> shape, WindowSpec window, Func<QueryDelta<TRow>, QueryDelta<TRow>> fold)` — registers a standing query; `public static (QueryDelta<TRow> Out, Watermark Advanced, Seq<StandingStepWire> Wire) Step(StandingQuery<TRow> query, QueryDelta<TRow> deltaIn, Watermark watermark, Func<StoreFact,Unit> facts, ClockPolicy clocks)` applies an incoming signed delta, restates late rows through retraction-plus-restate, emits the delta-out plus the advanced watermark plus the per-bucket TS wire rows, and fires the `store.standing.step`/`store.standing.late` facts.
 - Auto: the standing query rides the op-log changefeed as its delta-in source so a continuous query never polls — the changefeed cursor advances and each new `OpLogEntry` is a `QueryDelta` insert/delete the IVM fold applies, emitting only the result rows that changed; the window vocabulary folds over the event-time `OpLogEntry.Physical` — a tumbling window buckets by fixed interval, a sliding window by interval-plus-slide, a session window by inactivity gap — so a windowed aggregate (count-per-minute, moving-average, session-rollup) maintains incrementally; the watermark is the event-time progress mark so a late-arriving row (a row whose `Physical` precedes the watermark) folds into a retraction-plus-restated delta rather than a dropped row, and the late-arrival allowed-lateness bound is a policy value; the standing query result rides the DynamicData change-set surface (`AppUi/live-data`) and the TimescaleDB continuous aggregate (`server-tier#TIMESCALE_PROVISIONING`) is the server-side persisted analogue.
-- Receipt: a step rides `store.standing.step` carrying the delta-in and delta-out cardinalities and the advanced watermark; a late-arrival retraction rides `store.standing.late`.
+- Receipt: a step rides `store.standing.step` (`StandingQueries.StepKind`) carrying the signed net and the watermark-to-now lag; a late-arrival retraction rides `store.standing.late` (`StandingQueries.LateKind`) carrying the late-row count and the watermark advance; the TS projection consumer (`AppUi/live-data#TS_PROJECTION`) decodes `StandingStepWire` carrying `(QueryId, WindowStart, WindowEnd, Net, WatermarkEventTime, WatermarkProcessed, Retracted)` — the one cross-package window-bound wire vocabulary, never a parallel TS-side window record.
 - Packages: linq2db.EntityFrameworkCore, NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new window kind is one `WindowSpec` case; a new aggregation is one IVM fold; a new late-arrival policy is one column on `WindowSpec`; zero new surface — a polling query loop, a per-query materialized-view trigger, or a second streaming engine is the deleted form because the standing query rides the op-log changefeed as its delta source, the window folds over the HLC event time, and the IVM fold emits delta-out, and the building blocks (DynamicData change-sets, TimescaleDB continuous aggregates, the DuckDB analytical lane) compose under this one watermark/window owner.
 - Boundary: the standing query is incremental-view-maintenance over the changefeed so it never polls and never re-runs the full query — a new op-log row is a `QueryDelta` the IVM fold applies, emitting only the changed result rows, so a poll loop or a full-query-on-every-change is the deleted form; the window folds over event time (`OpLogEntry.Physical`), never wall-clock arrival time, so a window aggregate is reproducible and replays identically — a processing-time window is the deleted form; the watermark bounds out-of-order tolerance — a row whose event time precedes the watermark by less than the allowed-lateness emits a retraction-plus-restated delta so the windowed result corrects, and a row later than the bound folds into the next window with a late-arrival fact, so a silently-dropped late row is the deleted form; the standing query is the unified watermark/window owner the existing building blocks compose under — DynamicData change-sets carry the delta-out to the UI, TimescaleDB continuous aggregates are the server-side persisted standing query, and the DuckDB analytical lane materializes a windowed rollup — so a second streaming framework is the deleted form; the IVM delta is signed (insert positive, delete negative) so a sliding-window aggregate maintains by adding the entering rows and subtracting the leaving rows, never re-scanning the window.
 
 ```csharp signature
-[SmartEnum]
+[SmartEnum<int>]
 public sealed partial class WindowKind {
-    public static readonly WindowKind Tumbling = new();
-    public static readonly WindowKind Sliding = new();
-    public static readonly WindowKind Session = new();
+    public static readonly WindowKind Tumbling = new(0);
+    public static readonly WindowKind Sliding = new(1);
+    public static readonly WindowKind Session = new(2);
+
+    // A bucket-stride is the step between successive window starts: a tumbling window strides one
+    // Size (windows abut), a sliding window strides one Slide (windows overlap), a session window
+    // strides zero (the previous row's end gates the next start by the inactivity Gap).
+    static partial void ValidateConstructorArguments(ref int key) =>
+        _ = key is < 0 or > 2 ? throw new ArgumentOutOfRangeException(nameof(key)) : key;
 }
 
 public readonly record struct WindowSpec(WindowKind Kind, Duration Size, Duration Slide, Duration Gap, Duration AllowedLateness) {
-    public static WindowSpec Of(Duration size) => new(WindowKind.Tumbling, size, size, Duration.Zero, Duration.FromSeconds(30));
+    public static WindowSpec Tumble(Duration size) => new(WindowKind.Tumbling, size, size, Duration.Zero, Duration.FromSeconds(30));
+    public static WindowSpec Slide(Duration size, Duration slide) => new(WindowKind.Sliding, size, slide, Duration.Zero, Duration.FromSeconds(30));
+    public static WindowSpec Sessionize(Duration gap) => new(WindowKind.Session, Duration.Zero, Duration.Zero, gap, Duration.FromSeconds(30));
 
-    public Instant BucketStart(Instant at) =>
+    // Every bucket a row at `at` participates in. A tumbling row lands in exactly one bucket keyed
+    // by floor(at / Size); a sliding row lands in ceil(Size / Slide) overlapping buckets keyed by
+    // each Slide-aligned start within [at - Size, at]; a session row carries its own raw start and
+    // the gap-merge fold downstream coalesces adjacent starts whose gap is below `Gap`.
+    public Seq<WindowBucket> Buckets(Instant at) =>
         Kind.Switch(
-            state: (At: at, Size: Size),
-            tumbling: static s => Instant.FromUnixTimeTicks(s.At.ToUnixTimeTicks() - s.At.ToUnixTimeTicks() % s.Size.BclCompatibleTicks),
-            sliding: static s => Instant.FromUnixTimeTicks(s.At.ToUnixTimeTicks() - s.At.ToUnixTimeTicks() % s.Size.BclCompatibleTicks),
-            session: static s => s.At);
+            state: (At: at, Spec: this),
+            tumbling: static s => Seq1(WindowBucket.Aligned(s.At, s.Spec.Size)),
+            sliding: static s => SlideBuckets(s.At, s.Spec.Size, s.Spec.Slide),
+            session: static s => Seq1(new WindowBucket(s.At, s.At + Duration.Epsilon)));
+
+    private static Seq<WindowBucket> SlideBuckets(Instant at, Duration size, Duration slide) {
+        var slideTicks = slide.BclCompatibleTicks;
+        var earliest = at - size;
+        var firstStart = earliest.ToUnixTimeTicks() + (slideTicks - earliest.ToUnixTimeTicks() % slideTicks) % slideTicks;
+        return Range((firstStart - at.ToUnixTimeTicks()) / -slideTicks + 1)
+            .Map(i => WindowBucket.Span(Instant.FromUnixTimeTicks(firstStart + i * slideTicks), size))
+            .Filter(b => b.Start <= at && at < b.End)
+            .ToSeq();
+    }
 }
 
-public readonly record struct QueryDelta<TRow>(Seq<TRow> Inserted, Seq<TRow> Deleted, Instant EventTime) where TRow : notnull {
-    public int Net => Inserted.Count - Deleted.Count;
+public readonly record struct WindowBucket(Instant Start, Instant End) {
+    public static WindowBucket Span(Instant start, Duration size) => new(start, start + size);
+
+    public static WindowBucket Aligned(Instant at, Duration size) =>
+        Span(Instant.FromUnixTimeTicks(at.ToUnixTimeTicks() - at.ToUnixTimeTicks() % size.BclCompatibleTicks), size);
+
+    public bool Contains(Instant at) => Start <= at && at < End;
+
+    // Session coalescing: a new raw bucket merges into `this` when its start opens within `gap` of
+    // this bucket's end, extending the end to the later boundary; otherwise the pair stays distinct.
+    public Option<WindowBucket> Coalesce(WindowBucket next, Duration gap) =>
+        next.Start - End <= gap ? Some(this with { End = Instant.Max(End, next.End) }) : None;
+}
+
+// One signed row of the incremental-view-maintenance delta. The op-log changefeed hands each
+// `OpLogEntry` to the standing query as a `+1` insert or `-1` delete, and the IVM fold accumulates
+// the signed multiset so a windowed aggregate maintains by adding the entering rows and subtracting
+// the leaving rows — never re-scanning the window. `EventTime` is the HLC `OpLogEntry.Physical`, the
+// reproducible event time the window folds over, never wall-clock arrival.
+public readonly record struct SignedRow<TRow>(TRow Row, int Sign, Instant EventTime) where TRow : notnull {
+    public static SignedRow<TRow> Insert(TRow row, Instant at) => new(row, +1, at);
+    public static SignedRow<TRow> Delete(TRow row, Instant at) => new(row, -1, at);
+
+    public SignedRow<TRow> Retract() => this with { Sign = -Sign };
+}
+
+public readonly record struct QueryDelta<TRow>(Seq<SignedRow<TRow>> Rows, Instant EventTime) where TRow : notnull {
+    public static QueryDelta<TRow> FromChangefeed(Seq<TRow> inserted, Seq<TRow> deleted, Instant at) =>
+        new(inserted.Map(r => SignedRow<TRow>.Insert(r, at)) + deleted.Map(r => SignedRow<TRow>.Delete(r, at)), at);
+
+    public int Net => Rows.Sum(r => r.Sign);
+    public Seq<SignedRow<TRow>> Entering => Rows.Filter(r => r.Sign > 0);
+    public Seq<SignedRow<TRow>> Leaving => Rows.Filter(r => r.Sign < 0);
+
+    // Restate a late row: emit the late row's effect against every bucket it belongs to as a
+    // retraction (negate its prior contribution) followed by its restated contribution, so the
+    // windowed result corrects in place rather than dropping the row.
+    public QueryDelta<TRow> Retracting(SignedRow<TRow> late) =>
+        this with { Rows = Rows.Add(late.Retract()).Add(late) };
 }
 
 public readonly record struct Watermark(Instant EventTime, long Processed) {
+    public static Watermark Start => new(Instant.MinValue, 0L);
+
     public bool IsLate(Instant rowTime, Duration allowed) => rowTime < EventTime - allowed;
+    public bool BeyondLateness(Instant rowTime, Duration allowed) => rowTime < EventTime - allowed - allowed;
 
     public Watermark Advance(Instant rowTime, int rows) =>
         new(Instant.Max(EventTime, rowTime), Processed + rows);
 }
+
+// The TS projection standing-query consumer (`AppUi/live-data#TS_PROJECTION`) decodes this wire row:
+// the window bounds, the signed net the IVM step emitted, the advanced watermark, and whether the
+// step carried a late retraction so the TS DynamicData change-set re-keys the corrected bucket. This
+// is the one cross-package window-bound wire vocabulary — a parallel TS-side window record is the
+// deleted form.
+public readonly record struct StandingStepWire(
+    string QueryId,
+    Instant WindowStart,
+    Instant WindowEnd,
+    int Net,
+    Instant WatermarkEventTime,
+    long WatermarkProcessed,
+    bool Retracted);
 
 public sealed record StandingQuery<TRow>(
     string Id,
@@ -385,43 +470,170 @@ public sealed record StandingQuery<TRow>(
     Func<QueryDelta<TRow>, QueryDelta<TRow>> Fold) where TRow : notnull;
 
 public static class StandingQueries {
+    public const string StepKind = "store.standing.step";
+    public const string LateKind = "store.standing.late";
+
     public static StandingQuery<TRow> Register<TRow>(string id, Func<IQueryable<TRow>, IQueryable<TRow>> shape, WindowSpec window, Func<QueryDelta<TRow>, QueryDelta<TRow>> fold) where TRow : notnull =>
         new(id, shape, window, fold);
 
-    public static (QueryDelta<TRow> Out, Watermark Advanced) Step<TRow>(StandingQuery<TRow> query, QueryDelta<TRow> deltaIn, Watermark watermark) where TRow : notnull {
-        var late = deltaIn.Inserted.Filter(_ => watermark.IsLate(deltaIn.EventTime, query.Window.AllowedLateness));
-        var folded = query.Fold(deltaIn);
-        return (folded, watermark.Advance(deltaIn.EventTime, deltaIn.Inserted.Count + deltaIn.Deleted.Count));
+    // One IVM step over one changefeed delta. The fold runs on the signed multiset so a sliding-window
+    // count adds the entering rows and subtracts the leaving rows; a row whose event time precedes the
+    // watermark by less than the allowed-lateness is restated through a retraction-plus-restate so the
+    // window corrects, while a row beyond twice the lateness folds into the next window carrying a
+    // `store.standing.late` fact rather than a silent drop. The watermark advances by the processed
+    // count, and the wire row carries the corrected bucket bounds for the TS projection consumer.
+    public static (QueryDelta<TRow> Out, Watermark Advanced, Seq<StandingStepWire> Wire) Step<TRow>(
+        StandingQuery<TRow> query, QueryDelta<TRow> deltaIn, Watermark watermark, Func<StoreFact, Unit> facts, ClockPolicy clocks) where TRow : notnull {
+        var allowed = query.Window.AllowedLateness;
+        var late = deltaIn.Entering.Filter(r => watermark.IsLate(r.EventTime, allowed));
+        var restated = late.Fold(deltaIn, static (acc, r) => acc.Retracting(r));
+        var dropped = late.Filter(r => watermark.BeyondLateness(r.EventTime, allowed));
+        var folded = query.Fold(restated);
+        var advanced = watermark.Advance(deltaIn.EventTime, deltaIn.Rows.Count);
+        _ = facts(new StoreFact(StepKind, query.Id, folded.Net, clocks.Now - advanced.EventTime, clocks.Now));
+        _ = late.IsEmpty ? unit : facts(new StoreFact(LateKind, query.Id, late.Count, advanced.EventTime - deltaIn.EventTime, clocks.Now));
+        var wire = query.Window.Buckets(deltaIn.EventTime).Map(b =>
+            new StandingStepWire(query.Id, b.Start, b.End, folded.Net, advanced.EventTime, advanced.Processed, Retracted: !late.IsEmpty));
+        return (folded, advanced, dropped.IsEmpty ? wire : wire.Map(w => w with { Net = w.Net - dropped.Count }));
     }
 }
 ```
 
 ## [7]-[ARROW_PLANE]
 
-- Owner: `ArrowCarrier` the columnar zero-copy buffer carrier; `ArrowSchema` the column-layout descriptor; `ArrowPlane` the static surface owning the DuckDB-to-Arrow zero-copy export, the Arrow-to-index ingest, and the Arrow-to-transport/GPU/export hand-off.
-- Cases: a carrier wraps a DuckDB result chunk as a borrowed columnar buffer so the same memory threads transport → DuckDB → index → GPU → export without a managed-array copy.
-- Entry: `public static IO<ArrowCarrier> FromDuckDb(DuckDBConnection lane, string sql, Seq<UInt128> parameters)` — projects a DuckDB query result as a zero-copy Arrow carrier over the vector-chunk readers; `public static IO<Unit> ToExport(ArrowCarrier carrier, Func<ReadOnlyMemory<byte>, IO<Unit>> sink)` streams the columnar buffer to a sink chunk-wide.
-- Auto: the Arrow plane is the columnar in-memory analytics carrier the DuckDB lane already produces — DuckDB's native vector-chunk readers (`data-lanes#ANALYTICAL_LANE` vector chunk transfer) expose columnar buffers at the engine's vector quantum, so the carrier borrows those buffers rather than copying into a managed array, and the same columnar memory threads from the analytical query into the index ingest, the GPU tensor encode (`Compute/tensor-lane`), and the parquet export; the carrier is one chunk wide so peak managed memory stays bounded regardless of result size; the hand-off to the index is column-oriented so a vector-index bulk ingest reads the embedding column directly, and the hand-off to export is the parquet `COPY` the analytical lane owns.
-- Receipt: a carrier projection rides `store.arrow.carrier` carrying the column count and the chunk row count; an export rides the analytical-lane parquet receipt.
-- Packages: DuckDB.NET.Data.Full, System.Buffers, LanguageExt.Core, BCL inbox.
-- Growth: a new carrier sink is one `ArrowPlane` hand-off method; a new column type is one Arrow-schema row; zero new surface — a managed-array result buffer, a row-oriented carrier, or a per-sink copy is the deleted form because the carrier borrows the DuckDB vector-chunk buffers at the vector quantum and threads them zero-copy across the analytics surfaces; the DuckDB analytics lane stays the columnar engine and this owner models the zero-copy carrier the lane's chunk readers already expose, replacing the DynamicData change-set hand-off for the bulk analytical path.
-- Boundary: the Arrow plane borrows DuckDB's columnar vector-chunk buffers zero-copy so the analytical carrier never copies into a managed array — a managed-array result buffer or a row-oriented carrier is the deleted form, and the carrier wraps the engine's native chunk at the vector quantum so peak memory is one chunk wide; the same columnar memory threads transport → DuckDB → index → GPU → export so a vector-index ingest reads the embedding column directly off the carrier, a GPU tensor encode reads the numeric columns (`Compute/tensor-lane` geometry encoding), and the parquet export streams the carrier through the analytical lane's `COPY` — so a per-sink re-serialization is the deleted form; the carrier is a borrowed buffer with a bounded lifetime tied to the DuckDB chunk reader's scope so it never escapes the read scope or enters a closure, the same ref-struct discipline the Sep reader holds; the DuckDB lane stays the columnar engine and this owner is the zero-copy carrier model over its existing vector-chunk readers, never a second analytics engine; the bulk analytical hand-off uses this carrier while the row-granular UI hand-off stays the DynamicData change-set, so the two hand-offs are altitude-split by granularity, never duplicated.
+- Owner: `ArrowChunk` the borrowed columnar `ref struct` carrier over one DuckDB vector quantum; `ArrowSchema`/`ArrowColumn` the column-layout descriptor with the DuckDB-to-Arrow type fold; `ChunkSink` the ref-struct-safe per-quantum callback; `ArrowPlaneClr`/`ArrowPlane.ArrowTypeMap` the type folds; `ArrowPlane` the static surface owning the DuckDB vector-chunk zero-copy stream, the reverse table-function carrier registration, the Arrow-to-index ingest, and the Arrow-to-transport/GPU/export hand-off.
+- Cases: a carrier wraps one DuckDB vector chunk as a borrowed columnar `ref struct` so the same memory threads transport → DuckDB → index → GPU → export without a managed-array copy; the reverse direction threads a managed columnar sequence back into the engine as a queryable relation through the low-level `RegisterTableFunction`.
+- Entry: `public static IO<long> Stream(DuckDBConnection lane, string sql, Seq<DuckDBParameter> parameters, Func<IDuckDBDataReader,int,(int Rows, ReadOnlyMemory<byte>[] Data, ReadOnlyMemory<byte>[] Valid)> read, ChunkSink onChunk, ClockPolicy clocks)` — opens the reader in `UseStreamingMode`, lifts each vector chunk's column buffers off the reader zero-copy, and hands one `ArrowChunk` per quantum to `onChunk` in-scope, returning the total row count; the `read` delegate returns the chunk's explicit `Rows` count alongside the borrowed buffers so the carrier never infers row count from a column's byte-length (a multi-byte type such as `int64` or `fixed_size_list<float>[N]` stores `rows * elementWidth` bytes, so a byte-length inference over-counts); `public static IO<Unit> RegisterCarrier<TRow>(...)` registers the reverse managed-relation carrier; `public static IO<Unit> ToExport(ArrowChunk carrier, Func<ReadOnlyMemory<byte>, IO<Unit>> sink)` streams the columnar buffer to a sink chunk-wide.
+- Auto: the Arrow plane is the columnar in-memory analytics carrier the DuckDB lane already produces — DuckDB's native vector-chunk readers (`data-lanes#ANALYTICAL_LANE` vector chunk transfer, `IDuckDBDataReader`/`VectorDataReaderBase`/`DuckDBDataReader.UseStreamingMode`) expose columnar buffers at the engine's vector quantum, so the carrier borrows those buffers rather than copying into a managed array, and the same columnar memory threads from the analytical query into the index ingest, the GPU tensor encode (`Compute/tensor-lane`), and the parquet export; the carrier is one chunk wide so peak managed memory stays bounded regardless of result size; the hand-off to the index is column-oriented so a vector-index bulk ingest reads the embedding column directly, and the hand-off to export is the parquet `COPY` the analytical lane owns.
+- Receipt: a carrier projection rides `store.arrow.carrier` (`ArrowChunk.Fact`) carrying the chunk offset, the column count, and the chunk row count; an export rides the analytical-lane parquet receipt.
+- Packages: DuckDB.NET.Data.Full, System.Buffers, System.Collections.Frozen, LanguageExt.Core, BCL inbox.
+- Growth: a new carrier sink is one `ArrowPlane` hand-off method; a new column type is one row on `ArrowTypeMap` and `ArrowPlaneClr.Map`; zero new surface — a managed-array result buffer, a row-oriented carrier, or a per-sink copy is the deleted form because the carrier borrows the DuckDB vector-chunk buffers at the vector quantum and threads them zero-copy across the analytics surfaces; the DuckDB analytics lane stays the columnar engine and this owner models the zero-copy carrier the lane's chunk readers already expose, replacing the DynamicData change-set hand-off for the bulk analytical path.
+- Boundary: the Arrow plane borrows DuckDB's columnar vector-chunk buffers zero-copy so the analytical carrier never copies into a managed array — a managed-array result buffer or a row-oriented carrier is the deleted form, and the carrier wraps the engine's native chunk at the vector quantum so peak memory is one chunk wide; the verified zero-copy path is the DuckDB vector-chunk reader (`IDuckDBDataReader.IsValid`/`GetValue`/`GetDataTypeName`, `VectorDataReaderBase`, `DuckDBDataReader.UseStreamingMode`) — the Apache Arrow C-data interface (`QueryArrow`/`arrow_scan`/`ArrowArrayStream`/native `ArrowArray`/`ArrowSchema` structs) is NOT in the `api-duckdb.md` catalogue, so the carrier binds the catalogued vector reader and the Arrow C-data binding is a noted gap for the API pass rather than an authored guess; the carrier is a `ref struct` with a bounded lifetime tied to the DuckDB reader's `using` scope so it never escapes the read scope, enters a closure, or survives `DisposeAsync` — the `ChunkSink` `scoped in` callback is the only consumption seam, the same ref-struct discipline the Sep reader holds; the same columnar memory threads transport → DuckDB → index → GPU → export so a vector-index ingest reads the embedding column directly off the carrier, a GPU tensor encode reads the numeric columns (`Compute/tensor-lane` geometry encoding), and the parquet export streams the carrier through the analytical lane's `COPY` — so a per-sink re-serialization is the deleted form; the reverse managed-relation carrier rides the low-level `RegisterTableFunction(name, Func<TableFunction>, Action<object?, IDuckDBDataWriter[], ulong>)` so a windowed rollup re-enters the engine through one registration carrying its `ColumnInfo` schema and `CardinalityHint(count, IsExact: true)`, never a staging table; the DuckDB lane stays the columnar engine and this owner is the zero-copy carrier model over its existing vector-chunk readers, never a second analytics engine; the bulk analytical hand-off uses this carrier while the row-granular UI hand-off stays the DynamicData change-set, so the two hand-offs are altitude-split by granularity, never duplicated.
 
 ```csharp signature
-public readonly record struct ArrowSchema(Seq<(string Name, string ArrowType, bool Nullable)> Columns);
+// One column-layout descriptor row. `ArrowType` is the Arrow logical type string the carrier
+// advertises (`int64`, `double`, `utf8`, `binary`, `fixed_size_list<float>[N]`) and `DuckType` is
+// the source DuckDB column type the vector-chunk reader exposes; the pair is the verified
+// DuckDB-type-to-Arrow-type mapping the schema descriptor carries so an index ingest reads the
+// column's logical type without re-probing the engine.
+public readonly record struct ArrowColumn(string Name, string ArrowType, string DuckType, bool Nullable);
 
-public sealed record ArrowCarrier(ArrowSchema Schema, int RowCount, ReadOnlyMemory<byte> ColumnBuffers, long ChunkOffset);
+public readonly record struct ArrowSchema(Seq<ArrowColumn> Columns) {
+    public Option<int> Ordinal(string name) => Columns.FindIndex(c => c.Name == name).Apply(i => i < 0 ? None : Some(i));
+}
+
+// A borrowed columnar chunk. `Validity` is the per-column null mask (`IDuckDBDataReader.IsValid`),
+// `Buffers` is the per-column data buffer the DuckDB vector reader exposes at the vector quantum, and
+// the carrier wraps one chunk so peak managed memory is one vector chunk wide regardless of result
+// size. The buffers are BORROWED: their lifetime is the enclosing `DuckDBDataReader` read scope, so
+// the carrier is a ref-struct-discipline value that never escapes the scope, enters a closure, or
+// survives the reader's `DisposeAsync` — the same discipline the Sep reader's `Row`/`Cols` hold.
+public readonly ref struct ArrowChunk(ArrowSchema schema, int rowCount, long chunkOffset, ReadOnlySpan<ReadOnlyMemory<byte>> buffers, ReadOnlySpan<ReadOnlyMemory<byte>> validity) {
+    public ArrowSchema Schema { get; } = schema;
+    public int RowCount { get; } = rowCount;
+    public long ChunkOffset { get; } = chunkOffset;
+    public ReadOnlySpan<ReadOnlyMemory<byte>> Buffers { get; } = buffers;
+    public ReadOnlySpan<ReadOnlyMemory<byte>> Validity { get; } = validity;
+
+    public ReadOnlyMemory<byte> Column(int ordinal) => Buffers[ordinal];
+    public StoreFact Fact(ClockPolicy clocks, long mark) =>
+        new(ArrowPlane.CarrierKind, $"chunk:{ChunkOffset}", RowCount, clocks.Elapsed(mark), clocks.Now);
+}
+
+// A ref-struct-safe chunk callback: `ArrowChunk` is a `ref struct` so it cannot be captured by an
+// `Action<ArrowChunk>` (no closure may hold a ref struct), so the sink is a `delegate*`-shaped
+// allows-ref-struct delegate the streaming loop invokes once per vector quantum in-scope.
+public delegate void ChunkSink(scoped in ArrowChunk chunk);
+
+// The Arrow-logical-type to CLR-column-type fold the low-level table-function registration needs for
+// its `ColumnInfo` row; a new column type is one row, sharing the same DuckDB type keys as the
+// forward `ArrowTypeMap`.
+public static class ArrowPlaneClr {
+    private static readonly FrozenDictionary<string, Type> Map = new Dictionary<string, Type> {
+        ["BIGINT"] = typeof(long), ["INTEGER"] = typeof(int), ["DOUBLE"] = typeof(double), ["FLOAT"] = typeof(float),
+        ["VARCHAR"] = typeof(string), ["BLOB"] = typeof(byte[]), ["BOOLEAN"] = typeof(bool),
+        ["TIMESTAMP"] = typeof(DateTime), ["UUID"] = typeof(Guid),
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
+    public static Type Of(string duckType) => Map.Find(duckType).IfNone(typeof(byte[]));
+}
 
 public static class ArrowPlane {
-    public static IO<ArrowCarrier> FromDuckDb(DuckDBConnection lane, string sql, Func<DuckDBConnection, string, IO<(ArrowSchema Schema, int Rows, ReadOnlyMemory<byte> Buffers)>> readChunk) =>
-        readChunk(lane, sql).Map(chunk => new ArrowCarrier(chunk.Schema, chunk.Rows, chunk.Buffers, 0L));
+    public const string CarrierKind = "store.arrow.carrier";
 
-    public static IO<Unit> ToExport(ArrowCarrier carrier, Func<ReadOnlyMemory<byte>, IO<Unit>> sink) =>
-        sink(carrier.ColumnBuffers);
+    // The verified DuckDB-column-type to Arrow-logical-type fold. A new column type is one row.
+    public static readonly FrozenDictionary<string, string> ArrowTypeMap = new Dictionary<string, string> {
+        ["BIGINT"] = "int64", ["INTEGER"] = "int32", ["DOUBLE"] = "double", ["FLOAT"] = "float32",
+        ["VARCHAR"] = "utf8", ["BLOB"] = "binary", ["BOOLEAN"] = "bool", ["TIMESTAMP"] = "timestamp[us]",
+        ["UUID"] = "fixed_size_binary[16]", ["HUGEINT"] = "decimal128",
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
-    public static IO<Unit> ToIndex(ArrowCarrier carrier, string column, Func<ReadOnlyMemory<byte>, IO<Unit>> ingest) =>
-        carrier.Schema.Columns.Find(c => c.Name == column).Match(
-            Some: _ => ingest(carrier.ColumnBuffers),
+    public static ArrowSchema SchemaOf(IDuckDBDataReader reader) =>
+        new(Range(reader.FieldCount).Map(i =>
+            reader.GetDataTypeName(i).Apply(dt =>
+                new ArrowColumn(reader.GetName(i), ArrowTypeMap.Find(dt).IfNone("binary"), dt, Nullable: true))).ToSeq());
+
+    // Project a DuckDB query as a zero-copy carrier and apply the sink chunk-by-chunk under the read
+    // scope. The reader opens in streaming mode (`UseStreamingMode`) so each vector chunk materializes
+    // one quantum at a time; `read` lifts the engine's column buffers off the vector reader without a
+    // managed-array copy and returns the chunk's explicit row count beside them, so the carrier's
+    // `RowCount` is the contracted row count, never a column's byte-length inference (a multi-byte
+    // column stores `rows * elementWidth` bytes, so deriving rows from `data[0].Length` over-counts by
+    // the element width). The buffers never escape the `using` scope, so the borrow is bounded by the
+    // reader's lifetime and the carrier is consumed-in-place — a managed-array result buffer or a
+    // row-oriented carrier is the deleted form.
+    public static IO<long> Stream(
+        DuckDBConnection lane, string sql, Seq<DuckDBParameter> parameters,
+        Func<IDuckDBDataReader, int, (int Rows, ReadOnlyMemory<byte>[] Data, ReadOnlyMemory<byte>[] Valid)> read,
+        ChunkSink onChunk, ClockPolicy clocks) =>
+        IO.liftVAsync(async env => {
+            var mark = clocks.Mark();
+            await using var command = lane.CreateCommand();
+            command.CommandText = sql;
+            command.UseStreamingMode = true;
+            parameters.Iter(p => command.Parameters.Add(p));
+            await using var reader = await command.ExecuteReaderAsync(env.Token);
+            var schema = SchemaOf(reader);
+            var offset = 0L;
+            var rows = 0L;
+            while (await reader.ReadAsync(env.Token)) {
+                var (chunkRows, data, valid) = read(reader, reader.FieldCount);
+                var chunk = new ArrowChunk(schema, chunkRows, offset, data, valid);
+                onChunk(chunk);
+                offset += 1;
+                rows += chunk.RowCount;
+            }
+            return rows;
+        });
+
+    // Reverse direction: thread a managed columnar sequence back into the engine as a queryable
+    // relation through the low-level table-function registration so a windowed rollup re-enters the
+    // analytical lane without staging. The result callback declares the column schema and cardinality;
+    // the mapper writes each row's cells through the borrowed `IDuckDBDataWriter[]` at the same vector
+    // quantum — a managed re-serialization into a staging table is the deleted form.
+    public static IO<Unit> RegisterCarrier<TRow>(
+        DuckDBConnection lane, string name, ArrowSchema schema, ulong cardinality,
+        Func<IEnumerable<TRow>> source, Action<TRow, IDuckDBDataWriter[]> writeRow) where TRow : notnull =>
+        IO.lift(() => {
+            lane.RegisterTableFunction(
+                name,
+                () => new TableFunction(
+                    schema.Columns.Map(c => new ColumnInfo(c.Name, ArrowPlaneClr.Of(c.DuckType))).ToList(),
+                    source(),
+                    new CardinalityHint(cardinality, IsExact: true)),
+                (item, writers, _) => writeRow((TRow)item!, writers));
+            return unit;
+        });
+
+    public static IO<Unit> ToExport(ArrowChunk carrier, Func<ReadOnlyMemory<byte>, IO<Unit>> sink) =>
+        carrier.RowCount == 0 ? IO.pure(unit) : sink(carrier.Column(0));
+
+    // Column-oriented index ingest: a vector-index bulk ingest reads the embedding column straight off
+    // the borrowed buffer, so the same columnar memory threads transport -> DuckDB -> index without a
+    // per-sink copy; an absent column is a typed `Fin` rejection, never a thrown member access.
+    public static IO<Unit> ToIndex(ArrowChunk carrier, string column, Func<ReadOnlyMemory<byte>, IO<Unit>> ingest) =>
+        carrier.Schema.Ordinal(column).Match(
+            Some: ordinal => ingest(carrier.Column(ordinal)),
             None: () => IO.fail<Unit>(Error.New($"<arrow-column-absent:{column}>")));
 }
 ```
@@ -429,7 +641,7 @@ public static class ArrowPlane {
 ## [8]-[RESEARCH]
 
 - [STANDING_QUERY_IVM]: the incremental-view-maintenance delta-fold over the op-log changefeed for a windowed aggregate — whether a sliding-window count maintains by signed delta (add entering rows, subtract leaving rows) without re-scanning the window, and the late-arrival retraction-plus-restate emission against the watermark allowed-lateness on a live changefeed, beside the TimescaleDB continuous-aggregate server-side analogue.
-- [ARROW_ZERO_COPY]: the DuckDB.NET vector-chunk-reader buffer the `ArrowCarrier` borrows zero-copy — whether the chunk reader exposes a columnar buffer with a lifetime safe to thread to an index ingest and a parquet export without a managed copy, and the column-type-to-Arrow-type mapping the schema descriptor carries, proven against the live in-process engine.
+- [ARROW_ZERO_COPY]: the DuckDB.NET vector-chunk-reader buffer the `ArrowChunk` borrows zero-copy — the carrier binds the catalogued `IDuckDBDataReader`/`VectorDataReaderBase`/`DuckDBDataReader.UseStreamingMode` vector path with the lifetime tied to the reader `using` scope and the `ColumnInfo`/`CardinalityHint`/`IDuckDBDataWriter[]` reverse registration; the open native probe is whether the in-process chunk reader hands a raw column buffer span without a managed marshal step, and whether DuckDB.NET exposes the Apache Arrow C-data interface (`QueryArrow`/`arrow_scan`/`ArrowArrayStream`) as a faster bulk path than the per-row vector reader — the C-data members are NOT in `api-duckdb.md` and are a noted API-pass gap.
 - [BULK_RETURNING_PROBE]: the live `MergeWithOutputAsync` round-trip emitting the PG18 `RETURNING old.*, new.*` image into `BulkDelta<TRow>` against a live PG18 server behind the ReturningOldNew capability column — the engine spelling and the binary-COPY route (`BulkCopyType.ProviderSpecific` for pg, `MultipleRows` for the sqlite downgrade, raw `NpgsqlConnection.BeginBinaryImport`/`NpgsqlBinaryImporter`) are settled.
 - [TRACE_DEPTH]: EF Core 10 native `Activity` emission depth beside `AddNpgsql` spans on a live EF context.
 - [COMPILED_QUERY]: the cached `EF.CompileAsyncQuery` plan lifetime against the pooled-context factory on a live context — whether a compiled async query rebinds the leased context's execution strategy per invocation, beyond the confirmed `Func<TContext, IAsyncEnumerable<TResult>>` delegate shape and `TParam1`..`TParam15` arity.
