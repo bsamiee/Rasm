@@ -83,7 +83,7 @@ public sealed record ModelIdentity(
 - Auto: the admission fold runs options, EP-context keys, free-dim overrides, device policy, EP registration, custom ops, and resident admission as one rail; every lease touches `LastUsed`; eviction past `ResidentSessions` captures the least-recently-used residents inside the swap and disposes them only after the map commits; on first open the compiled EP-context blob is read back from the artifact directory through `WarmStart` inside the success arm and the resulting `ArtifactIndexRow` — content-addressed by the model checksum under the `WarmStartClassification`/`WarmStartRetention` policy columns — rides out of `Open` for the composition edge to route to the Persistence blob lane, so a cold companion warms from the same blob the host wrote.
 - Receipt: the Warmup receipt rides the representative-shape first run on the sweep row and carries the warm-start `ArtifactIndexRow` checksum and byte size from the `Lease` evidence when the compiled context lands; the Drain receipt counts unloaded sessions on the band-200 row.
 - Packages: Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
-- Growth: a lifecycle change is one policy value on `SessionPolicy`; the EP-context warm-start route is one artifact column on the open fold, never a second cache or artifact owner; zero new surface.
+- Growth: a lifecycle change is one policy value on `SessionPolicy`; the EP-context warm-start route is one artifact column on the open fold, never a second cache or artifact owner; a quantized session is the `SessionPolicy.Precision` column set to `ModelPrecision.Int8`/`Int4` so the precision flows through the existing `ep.Register(options, artifactDir, policy.Precision)` rail and the resident map keys on the model checksum unchanged — a quantization-specific session owner is the rejected form; zero new surface.
 - Boundary: `ModelSessions` is the page's boundary capsule and its fence carries language-owned statement forms; ORT sessions are thread-safe for concurrent `Run`, so all lanes share ONE `InferenceSession` per checksum — a session pool is the rejected form; `DisablePerSessionThreads` puts every session on the global pool `Boot` constructs from the `CpuBudget` row — `OrtThreadingOptions.GlobalIntraOpNumThreads` and `GlobalInterOpNumThreads` take the budget's `OrtIntraOp` and `OrtInterOp` and `GlobalSpinControl` takes its `SpinControl` latency-versus-CPU posture, so a thread count or spin flag set outside this one boot fence is the named defect; `DisableTelemetryEvents` runs at boot because the telemetry spine owns signals; the sweep entry folds idle eviction before re-warm on the registered `compute-model-warmup` row; the compiled `ep.context_*` artifact and profile outputs land under the blob-lane artifact directory through `ArtifactIndexRow.Admit`, never as stray temp files, and the warm-start blob is content-addressed by the session fingerprint the capsule already computes — a managed copy of the context bytes is the rejected form.
 
 ```csharp signature
@@ -91,11 +91,13 @@ public sealed record SessionPolicy(
     int ResidentSessions, Duration IdleUnload, Duration WarmupSweep,
     GraphOptimizationLevel Optimization, bool MemoryPattern, bool Profiling,
     bool OrtExtensions, Seq<string> CustomOpLibraries, Seq<(string Dim, long Value)> FreeDims,
+    ModelPrecision Precision,
     DataClassification WarmStartClassification, string WarmStartRetention) {
     public static readonly SessionPolicy Canonical = new(
         ResidentSessions: 4, IdleUnload: Duration.FromMinutes(10), WarmupSweep: Duration.FromMinutes(5),
         Optimization: GraphOptimizationLevel.ORT_ENABLE_ALL, MemoryPattern: true, Profiling: false,
         OrtExtensions: false, CustomOpLibraries: Seq<string>(), FreeDims: Seq<(string Dim, long Value)>(),
+        Precision: ModelPrecision.Full,
         WarmStartClassification: DataClassification.Operational, WarmStartRetention: "blob-index");
 }
 
@@ -149,7 +151,7 @@ public static class ModelSessions {
             options.AddSessionConfigEntry("ep.share_ep_contexts", "1");
             policy.FreeDims.Iter(dim => options.AddFreeDimensionOverrideByName(dim.Dim, dim.Value));
             ep.DevicePolicy.Iter(options.SetEpSelectionPolicy);
-            ep.Register(options, artifactDir);
+            ep.Register(options, artifactDir, policy.Precision);
             return CustomOps.Register(options, policy)
                 .MapFail(fault => { options.Dispose(); return fault; })
                 .Map(ready => {
@@ -177,12 +179,12 @@ public static class ModelSessions {
 
 ## [4]-[EP_AXIS]
 
-- Owner: `ModelKeyPolicy` ordinal accessor; `ExecutionProvider` `[SmartEnum<string>]` rows with probe name, OS gate, frozen option table, device policy, and register delegate columns.
-- Cases: `Cpu`, `CoreMl`.
-- Auto: `Available` reads the `GetAvailableProviders` probe plus the macOS 12 gate riding the `ModelFormat` row value; `ResultKey` stamps EP key, ORT version, and option-table hash for the deterministic cache key with zero call-site hashing.
+- Owner: `ModelKeyPolicy` ordinal accessor; `ExecutionProvider` `[SmartEnum<string>]` rows with probe name, OS gate, `ModelPrecision` quantization posture, frozen option table, device policy, and register delegate columns; `ModelPrecision` `[SmartEnum<string>]` int8/int4 quantization rows.
+- Cases: `ExecutionProvider` rows `Cpu`, `CoreMl`; `ModelPrecision` rows full · int8 · int4.
+- Auto: `Available` reads the `GetAvailableProviders` probe plus the macOS 12 gate riding the `ModelFormat` row value; `ResultKey(ortVersion, precision)` stamps EP key, ORT version, the `ModelPrecision` key, and the precision-folded option-table hash for the deterministic cache key with zero call-site hashing; the `Register(options, artifactDir, precision)` rail folds the int8/int4 quantization posture into the CoreML option table through `CoreMlRowsFor(precision)` — the row writes `AllowLowPrecisionAccumulationOnGPU` from the `ModelPrecision.LowPrecisionAccumulation` flag and the precision XORs into the cache-key option hash so a quantized session keys distinctly from a full-precision one with zero call-site ceremony.
 - Packages: Microsoft.ML.OnnxRuntime, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new accelerator is one `ExecutionProvider` row with its probe name, OS gate, and device policy columns — the GPU `Cuda`/`DirectMl` registration member spelling stays the design record on the `[EP_EXECUTION]` RESEARCH row (member shape `AppendExecutionProvider_CUDA(0)`/`_DML(0)` FINALIZED for win/linux-x64) and re-enters as one row only on a host whose RID carries the GPU asset; the generative token-streaming successor lands as the `GENERATIVE_RUN` run-mode cluster composing this EP axis, never a chat-client surface; zero new surface.
-- Boundary: `AppendExecutionProvider_CoreML(CoreMLFlags coremlFlags)` is the canonical typed registration carrying the `CoreMlFlag` flag column, and `AppendExecutionProvider("CoreMLExecutionProvider", options)` is the proved option-rich fallback for the string-keyed `ModelCacheDirectory`/`MLComputeUnits`/`SpecializationStrategy` keys — a bare `"CoreML"` provider name faults `InvalidArgument` and is the deleted spelling; the axis is the two live osx-arm64 rows `Cpu` and `CoreMl` because no GPU asset ships on this single-RID host — the `Cuda`/`DirectMl` GPU rows are dropped from the live axis and their grounded `AppendExecutionProvider_CUDA(0)`/`AppendExecutionProvider_DML(0)` member spelling is the FINALIZED design record on `[EP_EXECUTION]`, re-entering as a row only behind a GPU-carrying RID; the macOS 12 gate is per `ModelFormat` value because the legacy NeuralNetwork format alone reaches back to macOS 10.15; the CoreML option keys and their value domains are catalogued and the `MLComputeUnits` value domain (`ALL`/`CPUAndGPU`/`CPUAndNeuralEngine`/`CPUOnly`) and the `SpecializationStrategy` value domain (`Default`/`FastPrediction`) ride the option-table rows; the default CoreML flag is `COREML_FLAG_USE_NONE` (proved working) and `COREML_FLAG_CREATE_MLPROGRAM` is the MLProgram-backend column matching the `ModelFormat=MLProgram` option while `COREML_FLAG_USE_CPU_AND_GPU` is the `UInt32` 32 flag opening the CPU-and-GPU compute path; `ModelCacheDirectory` binds at registration to the blob-lane artifact directory so compiled CoreML caches are catalogued inventory; a vetoed row degrades to the next with its reason in the receipt and `Cpu` is the implicit terminal; dylib-presence heuristics are the deleted probe form.
+- Growth: a new accelerator is one `ExecutionProvider` row with its probe name, OS gate, and device policy columns — the GPU `Cuda`/`DirectMl` registration member spelling stays the design record on the `[EP_EXECUTION]` RESEARCH row (member shape `AppendExecutionProvider_CUDA(0)`/`_DML(0)` FINALIZED for win/linux-x64) and re-enters as one row only on a host whose RID carries the GPU asset; a new model-quantization posture is one `ModelPrecision` row plus its option-table contribution folded into the same registration rail, never a second session-options owner; the generative token-streaming successor lands as the `GENERATIVE_RUN` run-mode cluster composing this EP axis, never a chat-client surface; zero new surface.
+- Boundary: `AppendExecutionProvider_CoreML(CoreMLFlags coremlFlags)` is the canonical typed registration carrying the `CoreMlFlag` flag column, and `AppendExecutionProvider("CoreMLExecutionProvider", options)` is the proved option-rich fallback for the string-keyed `ModelCacheDirectory`/`MLComputeUnits`/`SpecializationStrategy` keys — a bare `"CoreML"` provider name faults `InvalidArgument` and is the deleted spelling; the axis is the two live osx-arm64 rows `Cpu` and `CoreMl` because no GPU asset ships on this single-RID host — the `Cuda`/`DirectMl` GPU rows are dropped from the live axis and their grounded `AppendExecutionProvider_CUDA(0)`/`AppendExecutionProvider_DML(0)` member spelling is the FINALIZED design record on `[EP_EXECUTION]`, re-entering as a row only behind a GPU-carrying RID; the macOS 12 gate is per `ModelFormat` value because the legacy NeuralNetwork format alone reaches back to macOS 10.15; the CoreML option keys and their value domains are catalogued and the `MLComputeUnits` value domain (`ALL`/`CPUAndGPU`/`CPUAndNeuralEngine`/`CPUOnly`) and the `SpecializationStrategy` value domain (`Default`/`FastPrediction`) ride the option-table rows; the default CoreML flag is `COREML_FLAG_USE_NONE` (proved working) and `COREML_FLAG_CREATE_MLPROGRAM` is the MLProgram-backend column matching the `ModelFormat=MLProgram` option while `COREML_FLAG_USE_CPU_AND_GPU` is the `UInt32` 32 flag opening the CPU-and-GPU compute path; `ModelCacheDirectory` binds at registration to the blob-lane artifact directory so compiled CoreML caches are catalogued inventory; the `ModelPrecision` column carries the int8/int4 model-quantization posture — `Full` leaves accumulation full-precision, `Int8`/`Int4` flip `AllowLowPrecisionAccumulationOnGPU=1` on the CoreML option table (the only catalogued ORT low-precision session knob) so a quantized weight layout accumulates in low precision on the GPU compute path while the int4/int8 weight quantization itself is the packaged ONNX model's own graph property (ORT executes the quantized operators the exported graph carries, never a runtime re-quantization pass), and the precision row folds into `OptionsHash` so a quantized run keys distinctly in the result cache — a managed re-quantization kernel or a second session-options owner is the rejected form; a vetoed row degrades to the next with its reason in the receipt and `Cpu` is the implicit terminal; dylib-presence heuristics are the deleted probe form.
 
 ```csharp signature
 public sealed class ModelKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -190,6 +192,17 @@ public sealed class ModelKeyPolicy : IEqualityComparerAccessor<string>, ICompare
 
     public static IEqualityComparer<string> EqualityComparer => Policy;
     public static IComparer<string> Comparer => Policy;
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ModelKeyPolicy, string>]
+[KeyMemberComparer<ModelKeyPolicy, string>]
+public sealed partial class ModelPrecision {
+    public static readonly ModelPrecision Full = new("full", lowPrecisionAccumulation: false);
+    public static readonly ModelPrecision Int8 = new("int8", lowPrecisionAccumulation: true);
+    public static readonly ModelPrecision Int4 = new("int4", lowPrecisionAccumulation: true);
+
+    public bool LowPrecisionAccumulation { get; }
 }
 
 [SmartEnum<string>]
@@ -206,14 +219,19 @@ public sealed partial class ExecutionProvider {
         ["AllowLowPrecisionAccumulationOnGPU"] = "0",
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    public static readonly ExecutionProvider Cpu = new("cpu", providerName: "CPUExecutionProvider", minMacOsMajor: 0, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, coreMlFlag: CoreMLFlags.COREML_FLAG_USE_NONE, devicePolicy: Option<ExecutionProviderDevicePolicy>.None, register: static (_, _) => { });
+    static FrozenDictionary<string, string> CoreMlRowsFor(ModelPrecision precision) =>
+        new Dictionary<string, string>(CoreMlRows, StringComparer.Ordinal) {
+            ["AllowLowPrecisionAccumulationOnGPU"] = precision.LowPrecisionAccumulation ? "1" : "0",
+        }.ToFrozenDictionary(StringComparer.Ordinal);
+
+    public static readonly ExecutionProvider Cpu = new("cpu", providerName: "CPUExecutionProvider", minMacOsMajor: 0, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, coreMlFlag: CoreMLFlags.COREML_FLAG_USE_NONE, devicePolicy: Option<ExecutionProviderDevicePolicy>.None, register: static (sessionOptions, cacheDir, precision) => { });
 
     public static readonly ExecutionProvider CoreMl = new(
         "coreml", providerName: "CoreMLExecutionProvider", minMacOsMajor: 12, optionsHash: Hash(CoreMlRows),
         options: CoreMlRows, coreMlFlag: CoreMLFlags.COREML_FLAG_USE_NONE, devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_NPU),
-        register: static (sessionOptions, cacheDir) => {
+        register: static (sessionOptions, cacheDir, precision) => {
             sessionOptions.AppendExecutionProvider_CoreML(CoreMLFlags.COREML_FLAG_USE_NONE);
-            sessionOptions.AppendExecutionProvider("CoreMLExecutionProvider", new Dictionary<string, string>(CoreMlRows, StringComparer.Ordinal) { ["ModelCacheDirectory"] = cacheDir });
+            sessionOptions.AppendExecutionProvider("CoreMLExecutionProvider", new Dictionary<string, string>(CoreMlRowsFor(precision), StringComparer.Ordinal) { ["ModelCacheDirectory"] = cacheDir });
         });
 
     public string ProviderName { get; }
@@ -222,13 +240,14 @@ public sealed partial class ExecutionProvider {
     public FrozenDictionary<string, string> Options { get; }
     public CoreMLFlags CoreMlFlag { get; }
     public Option<ExecutionProviderDevicePolicy> DevicePolicy { get; }
-    public Action<SessionOptions, string> Register { get; }
+    public Action<SessionOptions, string, ModelPrecision> Register { get; }
 
     public bool Available =>
         OrtEnv.Instance().GetAvailableProviders().Contains(ProviderName, StringComparer.Ordinal)
         && (MinMacOsMajor is 0 || OperatingSystem.IsMacOSVersionAtLeast(MinMacOsMajor));
 
-    public string ResultKey(string ortVersion) => $"{Key}:{ortVersion}:{OptionsHash:x16}";
+    public string ResultKey(string ortVersion, ModelPrecision precision) =>
+        $"{Key}:{ortVersion}:{precision.Key}:{Hash(CoreMlRowsFor(precision)) ^ OptionsHash:x16}";
 
     static ulong Hash(FrozenDictionary<string, string> rows) =>
         XxHash3.HashToUInt64(Encoding.UTF8.GetBytes(string.Join(';',
@@ -417,14 +436,14 @@ public static class RunOps {
 
 ## [7]-[GENERATIVE_RUN]
 
-- Owner: `GenerationPolicy` search-option and prompt-assembly record; `GuidanceKind` `[SmartEnum<string>]` structured-output constraint rows; `GenerativeRun` boundary capsule owning the ORT-GenAI handle chain, the token-stream loop, and the tool-call arm over Microsoft.ML.OnnxRuntimeGenAI.
-- Cases: `GuidanceKind` rows none · json-schema · regex · lark-grammar · choice.
-- Entry: `public static async IAsyncEnumerable<string> Stream(ModelIdentity model, string modelDir, GenerationPolicy policy, ExecutionProvider ep, [EnumeratorCancellation] CancellationToken token)` — the stream yields incremental decoded pieces; a `OnnxRuntimeGenAIException` lifts into `ComputeFault.ModelRejected` at the boundary so domain code never sees the native exception.
-- Auto: the search-option fold writes every `GenerationPolicy` numeric column through `GeneratorParams.SetSearchOption(string, double)` and every flag through `SetSearchOption(string, bool)` — no string-valued overload exists; `Guidance` writes through `GeneratorParams.SetGuidance(string type, string data, bool enableFFTokens)` before `Generator` construction so a constrained run can only emit syntactically valid tokens; the prompt assembles through `Tokenizer.ApplyChatTemplate(template, messages, tools, add_generation_prompt)` then `Encode`, so system prompt, history, retrieved context, and tool schemas serialize through the native template primitive, never a hand-rolled string concat; the loop decodes the newest token per step through `TokenizerStream.Decode(int)` over `GetSequence(0UL)[^1]`.
-- Receipt: the `Generate` `ComputeReceipt` case carries model checksum, EP, model-type from `Model.GetModelType()`, token count, tokens-per-second, the `GuidanceKind` dimension, the constrained-token count, and the tool-call count; the `streaming` `ProgressPhase` and a `StreamSegment` receipt emit per chunk; instrument `rasm.compute.generate.tokens` counts emitted tokens.
+- Owner: `GenerationPolicy` search-option and prompt-assembly record carrying the `SearchKey` `[SmartEnum<string>]` recognized-key axis and the `GenerationPolicy.SearchRows` value table; `GuidanceKind` `[SmartEnum<string>]` structured-output constraint rows; `RunMode` `[SmartEnum<string>]` text/multimodal generative-shape rows; `Adapters`-backed `AdapterSet` LoRA hot-swap registry; `GenerativeRun` boundary capsule owning the ORT-GenAI handle chain, the token-stream loop, the LoRA-activation arm, and the tool-call arm over Microsoft.ML.OnnxRuntimeGenAI.
+- Cases: `GuidanceKind` rows none · json-schema · regex · lark-grammar · choice; `SearchKey` rows num_beams · length_penalty · repetition_penalty · top_k · top_p · temperature · do_sample · max_length · min_length · early_stopping; `RunMode` rows text · multimodal.
+- Entry: `public static async IAsyncEnumerable<string> Stream(ModelIdentity model, string modelDir, GenerationPolicy policy, string prompt, ExecutionProvider ep, Option<AdapterSet> adapters, [EnumeratorCancellation] CancellationToken token)` — the stream yields incremental decoded pieces; a `OnnxRuntimeGenAIException` lifts into `ComputeFault.ModelRejected` at the boundary so domain code never sees the native exception.
+- Auto: the search-option fold folds the `GenerationPolicy.SearchRows` value table over the `SearchKey` axis through `GeneratorParams.SetSearchOption(string, double)` for every numeric row and `SetSearchOption(string, bool)` for every flag row — no string-valued overload exists, the recognized key strings (`num_beams`/`length_penalty`/`repetition_penalty`/`top_k`/`top_p`/`temperature`/`do_sample`/`max_length`/`min_length`/`early_stopping`) live as `SearchKey.Key` not as call-site literals, and `Echo` reads any row back through `GetSearchNumber(string)`/`GetSearchBool(string)` for the receipt; `Guidance` writes through `GeneratorParams.SetGuidance(string type, string data, bool enableFFTokens)` before `Generator` construction so a constrained run can only emit syntactically valid tokens; the LoRA arm loads each named adapter once through `Adapters.LoadAdapter(path, name)` and activates the policy's adapter mid-generation through `Generator.SetActiveAdapter(Adapters, string)` so a fine-tune swap is a name on the policy, never a second model load; the prompt assembles through `Tokenizer.ApplyChatTemplate(template, messages, tools, add_generation_prompt)` then `Encode`, so system prompt, history, retrieved context, and tool schemas serialize through the native template primitive, never a hand-rolled string concat; the loop decodes the newest token per step through `TokenizerStream.Decode(int)` over `GetSequence(0UL)[^1]`.
+- Receipt: the `Generate` `ComputeReceipt` case carries model checksum, EP (whose `Precision.Key` rides the `ExecutionProvider` key so a quantized run is receipt-distinct), model-type from `Model.GetModelType()`, token count read back through `Generator.TokenCount()`, tokens-per-second, the `GuidanceKind` dimension, the constrained-token count, and the tool-call count — the catalogued 8-field `Generate` case at `receipts-and-benchmarks#RECEIPT_UNION`; the `RunMode` and active-adapter dimensions ride the `rasm.compute.generate.tokens` instrument tags (`run.mode`, `lora.adapter`) rather than minting receipt fields, so a `RunMode`/adapter receipt column is a `receipts-and-benchmarks` owner change, never invented here; the `streaming` `ProgressPhase` and a `StreamSegment` receipt emit per chunk.
 - Packages: Microsoft.ML.OnnxRuntimeGenAI, Microsoft.Extensions.AI.Abstractions, Microsoft.ML.OnnxRuntime, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
-- Growth: a new search option is one column on `GenerationPolicy` folded into a `SetSearchOption` call; a new output constraint is one `GuidanceKind` row; the built-in `OnnxRuntimeGenAIChatClient : IChatClient` composes the same handle chain when the M.E.AI streaming abstraction is the consumer; zero new surface.
-- Boundary: token-streaming is a run mode on this owned model lane composing the session and EP spine and is HOST-LOCAL — the cluster carries no TS_PROJECTION; a remote generative run crosses solely through the EXISTING `remote-lane#PROTO_VOCABULARY` `Generate` rpc (`GenerateRequest` → `TokenChunk` server-stream) projected once as the `ComputeServiceShape.generate` `MethodShape` at `remote-lane`, never re-projected here, and the decoded token pieces and `IAsyncEnumerable<string>` stream are interior types that never sit between wire and rail; a `GenerativeService`, `ChatClient`, `Conversation`, or `PromptService` is the rejected form, and the `Tokenizer`/`TokenizerStream` are session assets, never a tokenizer service family; every ORT-GenAI type is `IDisposable` wrapping a native handle and the `using` order is LIFO with `OgaHandle` outermost (process-global init/teardown); spans returned by `GetSequence`/`GetNextTokens` are views over native memory owned by the live `Generator` — the newest token copies out before the next iteration and never retains past the loop; `TokenizerStream` is obtained ONLY through `Tokenizer.CreateStream()` (no public constructor) and `GetSequence` takes `ulong` (`0UL`); the sole error rail is `OnnxRuntimeGenAIException` lifted to `ComputeFault.ModelRejected` at the boundary, never a per-call catch; numeric search options pass as `double` and flags as `bool`; provider selection rides `Config.AppendProvider`/`SetProviderOption` before `new Model(config)` as a policy column, never per-generation; the tool-call arm surfaces a decoded tool request to the AppHost control dispatch and re-feeds the typed result through `Generator.AppendTokens`/`AppendTokenSequences` or rewinds a partial turn through `RewindTo(ulong)`, with the conversation and turn state owned by the caller, never here; grammar-constrained structured output is enforced at generation through `SetGuidance` and a managed JSON-schema validator over the output is the rejected form.
+- Growth: a new search option is one `SearchKey` row plus one `SearchRows` value entry folded into the `SetSearchOption` rail — never a new fence statement; a new output constraint is one `GuidanceKind` row; a new generative shape is one `RunMode` row; a new fine-tune is one named adapter on `AdapterSet`; the built-in `OnnxRuntimeGenAIChatClient : IChatClient` composes the same handle chain when the M.E.AI streaming abstraction is the consumer; zero new surface.
+- Boundary: token-streaming is a run mode on this owned model lane composing the session and EP spine and is HOST-LOCAL — the cluster carries no TS_PROJECTION; a remote generative run crosses solely through the EXISTING `remote-lane#PROTO_VOCABULARY` `Generate` rpc (`GenerateRequest` → `TokenChunk` server-stream) projected once as the `ComputeServiceShape.generate` `MethodShape` at `remote-lane`, never re-projected here, and the decoded token pieces and `IAsyncEnumerable<string>` stream are interior types that never sit between wire and rail; a `GenerativeService`, `ChatClient`, `Conversation`, or `PromptService` is the rejected form, and the `Tokenizer`/`TokenizerStream` are session assets, never a tokenizer service family; every ORT-GenAI type is `IDisposable` wrapping a native handle and the `using` order is LIFO with `OgaHandle` outermost (process-global init/teardown); `Adapters : SafeHandle` is created per `Model` and lives for the adapter set's lifetime, released through `ReleaseHandle`→`OgaDestroyAdapters` at the `SafeHandle` GC boundary, so `AdapterSet` holds it for the model's resident lifetime and never re-creates per generation; the recognized `SetSearchOption` key strings are not validated at the managed boundary and an unrecognized key faults `OnnxRuntimeGenAIException` from native — the `SearchKey` axis is the managed registry the binary itself does not carry, so a literal key string at a call site is the named defect; spans returned by `GetSequence`/`GetNextTokens` are views over native memory owned by the live `Generator` — the newest token copies out before the next iteration and never retains past the loop, and `GetNextTokens()` (most-recently-generated span) is distinct from `GetSequence(ulong)` (full-sequence view); `TokenizerStream` is obtained ONLY through `Tokenizer.CreateStream()` (no public constructor) and `GetSequence`/`RewindTo`/`TokenCount` take/return `ulong` (`0UL`); the sole error rail is `OnnxRuntimeGenAIException` lifted to `ComputeFault.ModelRejected` at the boundary, never a per-call catch; numeric search options pass as `double` and flags as `bool`; provider selection rides `Config.AppendProvider`/`SetProviderOption` before `new Model(config)` as a policy column, never per-generation, and int8/int4 model quantization is a packaged genai-format model property (the `genai_config.json` the `Config(modelDir)` opens already carries the quantized weight layout) never a managed quantization knob here — the EP-side quantization knobs live on `EP_AXIS`, never a second quantization owner on this cluster; the tool-call arm surfaces a decoded tool request to the AppHost control dispatch and re-feeds the typed result through `Generator.AppendTokens(ReadOnlySpan<int>)`/`AppendTokenSequences(Sequences)` or rewinds a partial turn through `RewindTo(ulong)`, with the conversation and turn state owned by the caller, never here; grammar-constrained structured output is enforced at generation through `SetGuidance` and a managed JSON-schema validator over the output is the rejected form; the `RunMode.Multimodal` image/audio-token row is a live `Stream` dispatch arm on the same handle chain — `MultiModalProcessor(Model)`, `StreamingProcessor`, `Images`/`Audios`, `NamedTensors`, `Tensor`, and `ElementType` are all public in the 0.14.1 managed assembly, so the multimodal arm stages `Images.Load(paths)`/`Audios.Load(paths)` through `MultiModalProcessor.ProcessImagesAndAudios(prompt, images, audios)` into a `NamedTensors` batch fed to `Generator.SetInputs(NamedTensors)` (a single named tensor injects through `SetModelInput(string, Tensor)` over a `Tensor(IntPtr, long[], ElementType)`) and decodes through the processor's own `CreateStream()`/`Decode(ReadOnlySpan<int>)`, never the text-mode `Tokenizer` seam; a second multimodal owner beside this `Stream` arm or a hand-rolled image-preprocessing kernel is the rejected form, and the only remaining `[GENAI_MULTIMODAL]` residual is a live vision-language genai-format asset for runtime validation.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -440,37 +459,84 @@ public sealed partial class GuidanceKind {
     public string Type { get; }
 }
 
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ModelKeyPolicy, string>]
+[KeyMemberComparer<ModelKeyPolicy, string>]
+public sealed partial class SearchKey {
+    public static readonly SearchKey NumBeams = new("num_beams", flag: false);
+    public static readonly SearchKey LengthPenalty = new("length_penalty", flag: false);
+    public static readonly SearchKey RepetitionPenalty = new("repetition_penalty", flag: false);
+    public static readonly SearchKey TopK = new("top_k", flag: false);
+    public static readonly SearchKey TopP = new("top_p", flag: false);
+    public static readonly SearchKey Temperature = new("temperature", flag: false);
+    public static readonly SearchKey DoSample = new("do_sample", flag: true);
+    public static readonly SearchKey MaxLength = new("max_length", flag: false);
+    public static readonly SearchKey MinLength = new("min_length", flag: false);
+    public static readonly SearchKey EarlyStopping = new("early_stopping", flag: true);
+
+    public bool Flag { get; }
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ModelKeyPolicy, string>]
+[KeyMemberComparer<ModelKeyPolicy, string>]
+public sealed partial class RunMode {
+    public static readonly RunMode Text = new("text", multimodal: false);
+    public static readonly RunMode Multimodal = new("multimodal", multimodal: true);
+
+    public bool Multimodal { get; }
+}
+
+public sealed record MultiModalAssets(Seq<string> ImagePaths, Seq<string> AudioPaths) {
+    public static readonly MultiModalAssets None = new(Seq<string>(), Seq<string>());
+}
+
 public sealed record GenerationPolicy(
-    double MaxLength,
-    double Temperature,
-    double TopP,
-    double TopK,
-    double RepetitionPenalty,
-    bool DoSample,
+    FrozenDictionary<SearchKey, double> SearchRows,
+    RunMode Mode,
     GuidanceKind Guidance,
     string GuidanceData,
     bool FastForwardTokens,
+    Option<string> Adapter,
     string SystemPrompt,
     string ChatTemplate,
     Seq<(string Role, string Content)> History,
     Seq<string> RetrievedContext,
-    string Tools) {
+    string Tools,
+    MultiModalAssets Assets) {
     public static readonly GenerationPolicy Canonical = new(
-        MaxLength: 512.0, Temperature: 0.7, TopP: 0.9, TopK: 50.0, RepetitionPenalty: 1.0, DoSample: true,
-        Guidance: GuidanceKind.None, GuidanceData: "", FastForwardTokens: false,
-        SystemPrompt: "", ChatTemplate: "", History: Seq<(string, string)>(), RetrievedContext: Seq<string>(), Tools: "");
+        SearchRows: new Dictionary<SearchKey, double> {
+            [SearchKey.MaxLength] = 512.0, [SearchKey.MinLength] = 0.0, [SearchKey.Temperature] = 0.7,
+            [SearchKey.TopP] = 0.9, [SearchKey.TopK] = 50.0, [SearchKey.RepetitionPenalty] = 1.0,
+            [SearchKey.DoSample] = 1.0, [SearchKey.NumBeams] = 1.0, [SearchKey.LengthPenalty] = 1.0,
+            [SearchKey.EarlyStopping] = 0.0,
+        }.ToFrozenDictionary(),
+        Mode: RunMode.Text, Guidance: GuidanceKind.None, GuidanceData: "", FastForwardTokens: false, Adapter: None,
+        SystemPrompt: "", ChatTemplate: "", History: Seq<(string, string)>(), RetrievedContext: Seq<string>(), Tools: "",
+        Assets: MultiModalAssets.None);
+
+    public static GenerationPolicy Beam(int beams, double lengthPenalty = 1.0) =>
+        Canonical with {
+            SearchRows = new Dictionary<SearchKey, double>(Canonical.SearchRows) {
+                [SearchKey.NumBeams] = beams, [SearchKey.DoSample] = 0.0,
+                [SearchKey.LengthPenalty] = lengthPenalty, [SearchKey.EarlyStopping] = 1.0,
+            }.ToFrozenDictionary(),
+        };
 
     public void Apply(GeneratorParams generatorParams) {
-        generatorParams.SetSearchOption("max_length", MaxLength);
-        generatorParams.SetSearchOption("temperature", Temperature);
-        generatorParams.SetSearchOption("top_p", TopP);
-        generatorParams.SetSearchOption("top_k", TopK);
-        generatorParams.SetSearchOption("repetition_penalty", RepetitionPenalty);
-        generatorParams.SetSearchOption("do_sample", DoSample);
+        SearchRows.Iter(row => {
+            if (row.Key.Flag) { generatorParams.SetSearchOption(row.Key.Key, row.Value != 0.0); }
+            else { generatorParams.SetSearchOption(row.Key.Key, row.Value); }
+        });
         if (Guidance != GuidanceKind.None) {
             generatorParams.SetGuidance(Guidance.Type, GuidanceData, FastForwardTokens);
         }
     }
+
+    public FrozenDictionary<SearchKey, double> Echo(GeneratorParams generatorParams) =>
+        SearchRows.Keys.ToFrozenDictionary(
+            static key => key,
+            key => key.Flag ? (generatorParams.GetSearchBool(key.Key) ? 1.0 : 0.0) : generatorParams.GetSearchNumber(key.Key));
 
     public string Messages(string prompt) =>
         JsonSerializer.Serialize(
@@ -478,8 +544,34 @@ public sealed record GenerationPolicy(
                 .Map(static turn => new { role = turn.Item1, content = turn.Item2 }));
 }
 
+public sealed class AdapterSet : IDisposable {
+    readonly Adapters adapters;
+    Set<string> loaded = Set<string>();
+
+    public AdapterSet(Model model) => adapters = new Adapters(model);
+
+    public Fin<AdapterSet> Load(string name, string adapterPath) {
+        if (loaded.Contains(name)) { return Fin.Succ(this); }
+        if (!File.Exists(adapterPath)) { return Fin.Fail<AdapterSet>(new ComputeFault.ExtensionAssetMissing(adapterPath)); }
+        adapters.LoadAdapter(adapterPath, name);
+        loaded = loaded.Add(name);
+        return Fin.Succ(this);
+    }
+
+    public Fin<Unit> Unload(string name) {
+        if (!loaded.Contains(name)) { return Fin.Succ(unit); }
+        adapters.UnloadAdapter(name);
+        loaded = loaded.Remove(name);
+        return Fin.Succ(unit);
+    }
+
+    public void Activate(Generator generator, string name) => generator.SetActiveAdapter(adapters, name);
+
+    public void Dispose() => adapters.Dispose();
+}
+
 public static class GenerativeRun {
-    public static async IAsyncEnumerable<string> Stream(ModelIdentity model, string modelDir, GenerationPolicy policy, string prompt, ExecutionProvider ep, [EnumeratorCancellation] CancellationToken token) {
+    public static async IAsyncEnumerable<string> Stream(ModelIdentity model, string modelDir, GenerationPolicy policy, string prompt, ExecutionProvider ep, Option<AdapterSet> adapters, [EnumeratorCancellation] CancellationToken token) {
         using var oga = new OgaHandle();
         using var config = new Config(modelDir);
         if (ep != ExecutionProvider.Cpu) {
@@ -487,18 +579,34 @@ public static class GenerativeRun {
             ep.Options.Iter(option => config.SetProviderOption(ep.Key, option.Key, option.Value));
         }
         using var session = new Model(config);
-        using var tokenizer = new Tokenizer(session);
-        using var stream = tokenizer.CreateStream();
-        using var encoded = tokenizer.Encode(tokenizer.ApplyChatTemplate(policy.ChatTemplate, policy.Messages(prompt), policy.Tools, true));
         using var generatorParams = new GeneratorParams(session);
         policy.Apply(generatorParams);
         using var generator = new Generator(session, generatorParams);
-        generator.AppendTokenSequences(encoded);
-        while (!generator.IsDone()) {
-            token.ThrowIfCancellationRequested();
-            generator.GenerateNextToken();
-            var sequence = generator.GetSequence(0UL);
-            yield return stream.Decode(sequence[sequence.Length - 1]);
+        adapters.Iter(set => policy.Adapter.Iter(name => set.Activate(generator, name)));
+        if (policy.Mode.Multimodal) {
+            using var processor = new MultiModalProcessor(session);
+            using var stream = processor.CreateStream();
+            using var images = Images.Load(policy.Assets.ImagePaths.ToArray());
+            using var audios = Audios.Load(policy.Assets.AudioPaths.ToArray());
+            using var staged = processor.ProcessImagesAndAudios(policy.Messages(prompt), images, audios);
+            generator.SetInputs(staged);
+            while (!generator.IsDone()) {
+                token.ThrowIfCancellationRequested();
+                generator.GenerateNextToken();
+                var sequence = generator.GetSequence(0UL);
+                yield return stream.Decode(sequence[sequence.Length - 1]);
+            }
+        } else {
+            using var tokenizer = new Tokenizer(session);
+            using var stream = tokenizer.CreateStream();
+            using var encoded = tokenizer.Encode(tokenizer.ApplyChatTemplate(policy.ChatTemplate, policy.Messages(prompt), policy.Tools, true));
+            generator.AppendTokenSequences(encoded);
+            while (!generator.IsDone()) {
+                token.ThrowIfCancellationRequested();
+                generator.GenerateNextToken();
+                var sequence = generator.GetSequence(0UL);
+                yield return stream.Decode(sequence[sequence.Length - 1]);
+            }
         }
     }
 
@@ -509,10 +617,10 @@ public static class GenerativeRun {
             Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.Onnx, AllocationClass = AllocationClass.NativeOrt, Elapsed = elapsed,
         };
 
-    public static async Task<Fin<Seq<string>>> Collect(ModelIdentity model, string modelDir, GenerationPolicy policy, string prompt, ExecutionProvider ep, CancellationToken token) {
+    public static async Task<Fin<Seq<string>>> Collect(ModelIdentity model, string modelDir, GenerationPolicy policy, string prompt, ExecutionProvider ep, Option<AdapterSet> adapters, CancellationToken token) {
         var pieces = Seq<string>();
         try {
-            await foreach (var piece in Stream(model, modelDir, policy, prompt, ep, token)) {
+            await foreach (var piece in Stream(model, modelDir, policy, prompt, ep, adapters, token)) {
                 pieces = pieces.Add(piece);
             }
             return Fin.Succ(pieces);
@@ -564,8 +672,8 @@ public sealed partial class CachePolicy {
 }
 
 public static class CacheOps {
-    public static ModelResultKey Key(ModelIdentity model, UInt128 inputDigest, ExecutionProvider ep) =>
-        new(model.Key, inputDigest, ep.ResultKey(OrtEnv.Instance().GetVersionString()));
+    public static ModelResultKey Key(ModelIdentity model, UInt128 inputDigest, ExecutionProvider ep, ModelPrecision precision) =>
+        new(model.Key, inputDigest, ep.ResultKey(OrtEnv.Instance().GetVersionString(), precision));
 
     public static Fin<T> Validated<T>(ModelResultKey key, string echo, T value) =>
         StringComparer.Ordinal.Equals(echo, key.ModelChecksum)
@@ -595,5 +703,6 @@ public static class CacheOps {
 ## [9]-[RESEARCH]
 
 - [EP_EXECUTION]: the `Cuda` and `DirectMl` GPU registration members `AppendExecutionProvider_CUDA(int)` and `AppendExecutionProvider_DML(int)` are member-shape FINALIZED and compile, with device id `0`, kept as the win/linux-x64 design record; the rows are dropped from the live osx-arm64 `ExecutionProvider` axis (no NVIDIA-Linux/Windows RID, no GPU asset on this single-RID host) and re-enter as one row each only on a host whose RID carries the GPU EP asset, with the registration spelling transcribing verbatim from this record.
-- [GENAI_LIVE_STREAM]: `OgaHandle` native dylib load (`libonnxruntime-genai.dylib`) is confirmed on osx-arm64; `OnnxRuntimeGenAIException` is the sole fault rail at `Model`/`Config` construction (`Config(modelDir)` opens `{modelDir}/genai_config.json`); the streaming member shape is FINALIZED against v0.14.1; the full multi-token loop is gated on an operator-provisioned genai-format model asset (`genai_config.json` + ONNX weights + tokenizer).
+- [GENAI_LIVE_STREAM]: `OgaHandle` native dylib load (`libonnxruntime-genai.dylib`) is confirmed on osx-arm64; `OnnxRuntimeGenAIException` is the sole fault rail at `Model`/`Config` construction (`Config(modelDir)` opens `{modelDir}/genai_config.json`); the streaming member shape is FINALIZED against v0.14.1, including the `SearchKey` recognized-key fold over `SetSearchOption(string,double)`/`(string,bool)` with `GetSearchNumber`/`GetSearchBool` readback, the beam-search/stopping-criteria rows (`num_beams`/`length_penalty`/`early_stopping`/`min_length`), and the LoRA adapter-activation arm (`Adapters(Model)`/`LoadAdapter(path,name)`/`UnloadAdapter(name)` + `Generator.SetActiveAdapter(Adapters,string)`, `Adapters : SafeHandle`); the full multi-token loop and the LoRA hot-swap are gated on an operator-provisioned genai-format model asset (`genai_config.json` + ONNX weights + tokenizer + optional adapter `.onnx_adapter` files) — int8/int4 quantization is a packaged property of that asset's exported graph, not a managed pass.
+- [GENAI_MULTIMODAL]: the `RunMode.Multimodal` arm is FINALIZED against the 0.14.1 managed surface — `MultiModalProcessor(Model)`, `StreamingProcessor(Model)`, `Images.Load`/`Audios.Load`, `NamedTensors`, `Tensor(IntPtr, long[], ElementType)`, and the `ElementType` enum (`float32`/`float16`/`int64`/… 14 cases) are all public, and the `Stream` multimodal dispatch stages `ProcessImagesAndAudios → NamedTensors → Generator.SetInputs` with decode through `MultiModalProcessor.CreateStream()`/`Decode(ReadOnlySpan<int>)`; the sole residual is a tier-3 live-asset probe — a vision-language genai-format asset (image/audio processor config + ONNX weights) to runtime-validate the staged-tensor shapes against the exported graph and to confirm whether image/audio token counts force a `receipts-and-benchmarks#RECEIPT_UNION` measured column beyond the current `rasm.compute.generate.tokens` `run.mode` tag.
 - [CANCELLATION]: `RunOptions.Terminate` is a one-way `get;set;` latch — a latched `RunOptions` aborts both `Run` and `RunWithBinding` with the native `OnnxRuntimeException` `[ErrorCode:Fail] Exiting due to terminate flag being set to true`, which the `Bracket` arm classifies by scope provenance; the residual probe is the latch propagation latency and the deadline poll cadence on the CoreML and CPU rows inside the live plugin ALC.

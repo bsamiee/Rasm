@@ -1,6 +1,12 @@
 # [COMPUTE_TENSOR_LANE]
 
-The cpu-tensor execution vocabulary and operation algebra: `Tensor<T>` spans and factories as the only tensor shapes, one dtype map between `TensorElementType` and CLR carriers, one `LayoutForm` algebra over the layout member surface, geometry-to-tensor encoding rows as the canonical geometry-ML input vocabulary, one `TensorOpFamily` table of eighty-four rows over twelve `TensorOpKind` rows under the closed `ToleranceClass` band, the arity kernel-delegate dispatch binding each row to its TensorPrimitives member, the claim-gated `ParallelHelper` partition column, and the equivalence law proving lane kernels against Rasm baselines. The page owns the `TensorDtype`, `LayoutForm`, `EncodingChannel`, `GeometryEncoding`, `TensorOpKind`, `TensorOpFamily`, and `ToleranceClass` axes, the `TensorKeyPolicy` accessor, and the kernel registries; AppHost `ClockPolicy`, `CorrelationId`, and `CpuBudget` arrive settled, the matrix and structural rows lower through `numeric-lane#KERNEL_LOWERING`, and the substrate row, fault union, and receipt cases ride their owning pages.
+| [OWNER]            | [AXES]                                                                                                  | [STATE] | [DEPTH]                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------ | :-----: | ----------------------------------------------- |
+| `tensor-lane`      | `TensorDtype` · `LayoutForm` · `EncodingChannel` · `GeometryEncoding` · `TensorOpKind` · `TensorOpFamily` · `ToleranceClass` · `TensorOps` · `DifferentiableOp` | SPIKE   | 96 families / 12 kinds / 5 layouts; 5 fences     |
+
+[STATE] is SPIKE because three tier-3 LIVE-HOST residuals remain unresolved against the running numeric-lane and `Rasm`/Vectors surfaces; each is a named [8]-[RESEARCH] cluster entry: (a) the fingerprint-matched partition `BenchmarkClaim` gating the partition route over the lowered GEMM on the live host (`[KERNEL_LOWERING]`), (b) the cross-folder `Backward.MatMul`/`Backward.SoftMax` non-diagonal VJP spellings (`[DDG_ADJOINT]`), (c) the DDG operator adjoints (Laplacian, heat-flow, spectral, remeshing) grounded against the `Rasm`/Vectors operator member surface (`[DDG_ADJOINT]`). The five fences are transcription-complete; FINALIZED is withheld until these probes land.
+
+The cpu-tensor execution vocabulary and operation algebra: `Tensor<T>` spans and factories as the only tensor shapes, one dtype map between `TensorElementType` and CLR carriers, one `LayoutForm` algebra over the layout member surface, geometry-to-tensor encoding rows as the canonical geometry-ML input vocabulary, one `TensorOpFamily` table of ninety-six rows over twelve `TensorOpKind` rows under the closed `ToleranceClass` band, the arity kernel-delegate dispatch binding each row to its TensorPrimitives member, the claim-gated `ParallelHelper` partition column, and the equivalence law proving lane kernels against Rasm baselines. The page owns the `TensorDtype`, `LayoutForm`, `EncodingChannel`, `GeometryEncoding`, `TensorOpKind`, `TensorOpFamily`, and `ToleranceClass` axes, the `TensorKeyPolicy` accessor, and the kernel registries; AppHost `ClockPolicy`, `CorrelationId`, and `CpuBudget` arrive settled, the matrix and structural rows lower through `numeric-lane#KERNEL_LOWERING`, and the substrate row, fault union, and receipt cases ride their owning pages.
 
 ## [1]-[INDEX]
 
@@ -23,14 +29,7 @@ The cpu-tensor execution vocabulary and operation algebra: `Tensor<T>` spans and
 - Boundary: `Tensor<T>`, `TensorSpan<T>`, `ReadOnlyTensorSpan<T>`, `TensorShape`, and `TensorDimensionSpan<T>` are the only tensor shapes — package-local tensor wrappers and a TensorService are the deleted forms; `Tensor.CreateFromArray`, `CreateFromMemory`, `CreateFromSequence`, and `CreateFromDiagonal` are the deleted phantom spellings — `Tensor.Create`, `CreateFromShape`, and `CreateFromShapeUninitialized` are the factory surface, and zero-copy admission rides `TensorSpan<T>` constructors over spans plus `Tensor.Create` over rented `MemoryOwner<T>` arrays through the `DangerousGetArray` seam; `TensorMarshal.CreateTensorSpan` is the write-polarity native bridge over ref-rooted foreign memory and `TensorMarshal.CreateReadOnlyTensorSpan` the read-polarity bridge admitting pooled-plane and model-output buffers whose lifetime is the caller's proof obligation, with `TensorMarshal.GetReference` and `Tensor<T>.GetPinnableReference` the ref roots; one generic kernel serves each operation family — per-dtype kernel copies are the deleted form; quantized rows project through `ConvertSaturating` with `QuantizationPolicy` values; a chunked tensor frame requiring one contiguous backing stages through the `staging-and-streams#ALLOCATION_AXIS` contiguous-frame route (the `asContiguousBuffer:true` `GetStream` overload), never a hand-rolled array concatenation; the string row admits only at the model boundary for tokenizer extension ops.
 
 ```csharp signature
-public sealed class TensorKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
-
-public readonly record struct QuantizationPolicy(double Scale, int ZeroPoint);
-
+// --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<TensorKeyPolicy, string>]
 [KeyMemberComparer<TensorKeyPolicy, string>]
@@ -53,6 +52,17 @@ public sealed partial class TensorDtype {
     public bool ModelBoundaryOnly { get; }
 }
 
+// --- [MODELS] ------------------------------------------------------------------------------
+public readonly record struct QuantizationPolicy(double Scale, int ZeroPoint);
+
+// --- [SERVICES] ----------------------------------------------------------------------------
+public sealed class TensorKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
+    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
+
+    public static IComparer<string> Comparer => StringComparer.Ordinal;
+}
+
+// --- [OPERATIONS] --------------------------------------------------------------------------
 public static class TensorVocabulary {
     private static readonly FrozenDictionary<TensorElementType, TensorDtype> ByElement =
         TensorDtype.Items.ToFrozenDictionary(static row => row.Element, static row => row);
@@ -75,6 +85,7 @@ public static class TensorVocabulary {
 - Boundary: the layout family — `PermuteDimensions`, `Transpose`, `Squeeze`, `SqueezeDimension`, `Unsqueeze`, `SetSlice`, `Split`, `Stack`, `StackAlongDimension`, `Concatenate`, `ConcatenateOnDimension`, `Reverse`, `Resize`, `Broadcast`, `BroadcastTo`, `Reshape`, `FlattenTo`, `ToDenseTensor`, and `Slice` with `NIndex`/`NRange` — is the only layout surface, replacing the deleted phantom construction factories; the nchw↔nhwc permute rows are the mandatory CoreML image-model pre/post route; `Span2D` planes are views and never substitute for rank permutation; broadcast compatibility and rank/stride invariants ride `Broadcast`/`BroadcastTo` and the dimension spans, stated here once for the lane.
 
 ```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<TensorKeyPolicy, string>]
 [KeyMemberComparer<TensorKeyPolicy, string>]
@@ -88,6 +99,7 @@ public sealed partial class LayoutForm {
     public int Rank { get; }
 }
 
+// --- [OPERATIONS] --------------------------------------------------------------------------
 public static class TensorLayout {
     private static readonly FrozenDictionary<(LayoutForm Origin, LayoutForm Target), int[]> PermuteRows =
         new Dictionary<(LayoutForm Origin, LayoutForm Target), int[]> {
@@ -112,6 +124,7 @@ public static class TensorLayout {
 - Boundary: packing kernels are the page's declared boundary capsules beside the union — host geometry coordinate access stays inside the capsule and host geometry types never enter lane signatures; each case's `Row` carries the model-zoo conformance triad — named `WireShape`, `LayoutForm`, declared free-dimension rank — and `Of` rejects a payload missing that triad, so the conformance gate is the case row, never an external architecture name; the free-dimension rows feed the model-lane `AddFreeDimensionOverrideByName` admission and the wire-shape names mirror one-to-one onto the remote-lane proto geometry family; mesh face indices ride the int64 row as `Tensor<long>`; voxel grids ride nchw with z-slices as channel planes and pack occupancy through `BitHelper` bit-flag words, never a `bool[]`; `FeatureWidth` folds the `EncodingChannel` widths present on the payload, where `curvature`, `geodesic`, and `intensity` widen the channel axis as SmartEnum rows — a `PointCloudV2` sibling case is the rejected anticipatory form.
 
 ```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<TensorKeyPolicy, string>]
 [KeyMemberComparer<TensorKeyPolicy, string>]
@@ -156,6 +169,7 @@ public abstract partial record GeometryEncoding {
     public int FeatureWidth => ChannelRows.Sum(static channel => channel.Width);
 }
 
+// --- [MODELS] ------------------------------------------------------------------------------
 public sealed record EncodedTensor(Tensor<float> Values, Option<Tensor<long>> Indices, TensorDtype Dtype, LayoutForm Layout, string WireShape, Seq<(string Name, long Extent)> FreeDimensions) {
     public static Fin<EncodedTensor> Of(GeometryEncoding source, Tensor<float> values, Option<Tensor<long>> indices = default, Seq<(string Name, long Extent)> freeDimensions = default) =>
         values.Rank == source.Row.Layout.Rank && freeDimensions.Map(static d => d.Name) == source.Row.FreeDimensionNames
@@ -167,12 +181,13 @@ public sealed record EncodedTensor(Tensor<float> Values, Option<Tensor<long>> In
 ## [5]-[OPERATION_TABLE]
 
 - Owner: `TensorOpFamily`
-- Cases: eighty-four rows across twelve `TensorOpKind` rows — elementwise, rounding, transcendental, reduction, statistics, bitwise, population, similarity, conversion, predicate, matrix, structural — each carrying its `ToleranceClass` equivalence column
+- Cases: ninety-six rows across twelve `TensorOpKind` rows — elementwise, rounding, transcendental, reduction, statistics, bitwise, population, similarity, conversion, predicate, matrix, structural — each carrying its `ToleranceClass` equivalence column; the activation family (`ReLU`, `Gelu`, `SiLU`, `LogSoftMax` beside the direct `Sigmoid`/`Tanh`/`SoftMax` members), the four pooling rows (`MaxPool`/`AvgPool`/`GlobalMaxPool`/`GlobalAvgPool`), and the element-domain rows (`ComplexAbs`/`ComplexExp`/`ComplexLog`/`Conjugate` over `System.Numerics.Complex`, `QuaternionMultiply`/`QuaternionConjugate`/`QuaternionNormalize` over `System.Numerics.Quaternion`) ride the existing kind axis as rows, never sibling op types
 - Packages: System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new operation is one `TensorOpFamily` row carrying its kind and tolerance columns; a new tolerance band is one `ToleranceClass` row; a new operation kind is one `TensorOpKind` row; zero new surface.
-- Boundary: the `ToleranceClass` vocabulary closes the equivalence axis — exact (integer and predicate rows), tight (fused-triad and reduction rows), transcendental (ULP-banded same-route rows), statistical (accumulation-scaled rows) — and a row's `Tolerance` column is the equivalence proof key the `EquivalenceLaw` reads by data, never a `Prove` argument; the eighty-four rows partition exactly across the kind axis; `MinNumber`/`MaxNumber` are the NaN-as-missing reduction pair distinct from the NaN-propagating `Min`/`Max` rows, binding the `T.MinNumber`/`T.MaxNumber` reduction members on the `Fold` table; the matrix and structural rows carry no `TensorPrimitives` member and lower through `numeric-lane#KERNEL_LOWERING` (matmul to GEMM, convolution to im2col, pooling to a strided-window fold); the table keys through the ordinal `TensorKeyPolicy` so every binding index resolves the same comparer.
+- Boundary: the `ToleranceClass` vocabulary closes the equivalence axis — exact (integer and predicate rows), tight (fused-triad and reduction rows), transcendental (ULP-banded same-route rows), statistical (accumulation-scaled rows) — and a row's `Tolerance` column is the equivalence proof key the `EquivalenceLaw` reads by data, never a `Prove` argument; the ninety-six rows partition exactly across the kind axis; `MinNumber`/`MaxNumber` are the NaN-as-missing reduction pair distinct from the NaN-propagating `Min`/`Max` rows, binding the `T.MinNumber`/`T.MaxNumber` reduction members on the `Fold` table; the four structural pooling rows fold in-lane through the shared strided-window `Pool` kernel over the verified `TensorPrimitives.Max`/`Average` window reducers, while the matrix rows (`MatMul`, `Conv1D`/`Conv2D`/`Conv3D`) carry no `TensorPrimitives` member and lower through `numeric-lane#KERNEL_LOWERING` (matmul to GEMM, convolution to im2col); the table keys through the ordinal `TensorKeyPolicy` so every binding index resolves the same comparer.
 
 ```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<TensorKeyPolicy, string>]
 [KeyMemberComparer<TensorKeyPolicy, string>]
@@ -234,6 +249,10 @@ public sealed partial class TensorOpFamily {
     public static readonly TensorOpFamily Tanh = new("tanh", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
     public static readonly TensorOpFamily Sigmoid = new("sigmoid", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
     public static readonly TensorOpFamily SoftMax = new("softmax", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
+    public static readonly TensorOpFamily LogSoftMax = new("log-softmax", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
+    public static readonly TensorOpFamily ReLU = new("relu", TensorOpKind.Transcendental, ToleranceClass.Exact);
+    public static readonly TensorOpFamily Gelu = new("gelu", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
+    public static readonly TensorOpFamily SiLU = new("silu", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
     public static readonly TensorOpFamily Pow = new("pow", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
     public static readonly TensorOpFamily Sqrt = new("sqrt", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
     public static readonly TensorOpFamily Cbrt = new("cbrt", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
@@ -289,8 +308,16 @@ public sealed partial class TensorOpFamily {
     public static readonly TensorOpFamily Conv3D = new("conv-3d", TensorOpKind.Matrix, ToleranceClass.Tight);
     public static readonly TensorOpFamily MaxPool = new("max-pool", TensorOpKind.Structural, ToleranceClass.Exact);
     public static readonly TensorOpFamily AvgPool = new("avg-pool", TensorOpKind.Structural, ToleranceClass.Statistical);
+    public static readonly TensorOpFamily GlobalMaxPool = new("global-max-pool", TensorOpKind.Structural, ToleranceClass.Exact);
     public static readonly TensorOpFamily GlobalAvgPool = new("global-avg-pool", TensorOpKind.Structural, ToleranceClass.Statistical);
     public static readonly TensorOpFamily MaskedWrite = new("masked-write", TensorOpKind.Structural, ToleranceClass.Exact);
+    public static readonly TensorOpFamily ComplexAbs = new("complex-abs", TensorOpKind.Elementwise, ToleranceClass.Transcendental);
+    public static readonly TensorOpFamily ComplexExp = new("complex-exp", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
+    public static readonly TensorOpFamily ComplexLog = new("complex-log", TensorOpKind.Transcendental, ToleranceClass.Transcendental);
+    public static readonly TensorOpFamily Conjugate = new("conjugate", TensorOpKind.Elementwise, ToleranceClass.Exact);
+    public static readonly TensorOpFamily QuaternionMultiply = new("quaternion-multiply", TensorOpKind.Elementwise, ToleranceClass.Tight);
+    public static readonly TensorOpFamily QuaternionConjugate = new("quaternion-conjugate", TensorOpKind.Elementwise, ToleranceClass.Exact);
+    public static readonly TensorOpFamily QuaternionNormalize = new("quaternion-normalize", TensorOpKind.Elementwise, ToleranceClass.Transcendental);
 
     public TensorOpKind Kind { get; }
     public ToleranceClass Tolerance { get; }
@@ -300,12 +327,13 @@ public sealed partial class TensorOpFamily {
 ## [6]-[KERNEL_DISPATCH]
 
 - Owner: `TensorOps`
-- Entry: `public static Fin<Unit> Map<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> destination)` — `Fin<Unit>` aborts on a kernel-row miss; the arity siblings `Zip`, `Fuse`, `Dual`, `Bits`, `Shift`, `Population`, `Convert`, `ToHalf`, `Root`, `Fold`, `FoldPair`, `IndexOf`, `Polarity`, `Test`, `Hamming`, `HammingBits`, `Mask`, and the claim-gated `Partition` dispatch the same `TensorOpFamily` table; `Partition` reads `CpuBudget.PartitionCap` and falls through to inline `Map` when no winning claim is supplied.
+- Entry: `public static Fin<Unit> Map<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> destination)` — `Fin<Unit>` aborts on a kernel-row miss; the arity siblings `Zip`, `Fuse`, `Dual`, `Bits`, `Shift`, `Population`, `Convert`, `ToHalf`, `Root`, `Fold`, `FoldPair`, `IndexOf`, `Polarity`, `Test`, `Hamming`, `HammingBits`, `Mask`, `Pool`, the element-domain `ComplexZip`/`ComplexMap`/`ComplexAbs` and `QuaternionZip`/`QuaternionMap`, and the claim-gated `Partition` dispatch the same `TensorOpFamily` table; `Pool` is the strided-window fold the four pooling rows share over one `PoolReducers<T>` reducer table; `Partition` reads `CpuBudget.PartitionCap` and falls through to inline `Map` when no winning claim is supplied.
 - Packages: System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new operation binds one entry on its arity kernel table; a matrix or structural kernel is one lowering row read from `numeric-lane#KERNEL_LOWERING`, never a span-kernel entry; the partition column is one claim-gated execution path reading `CpuBudget.PartitionCap`, never a new owner; zero new surface.
-- Boundary: every span row binds the TensorPrimitives member matching its Pascal-cased key (shift-right binds the arithmetic-shift member, shift-right-logical the logical member) and only the `MaskedWrite` row carries a full-tensor binding — `SetSlice`/`FilteredUpdate` over `NRange`/`NIndex` through the `Mask` arity; the predicate rows write non-`T` destinations — `Sign` fills `Span<int>` through `Polarity`, `IsNaN`/`IsFinite` fill `Span<bool>` through `Test`; `SinCos` writes the two destination spans through `Dual` under the `ITrigonometricFunctions<T>` constraint; `RootN`/`ScaleB` take the integer parameter through `Root` under `IRootFunctions<T>`; `PopCount`/`LeadingZeroCount`/`TrailingZeroCount`/`OnesComplement` ride the integer `Population` arity, `BitwiseOr`/`Xor` the integer binary table, and `RotateLeft`/`RotateRight`/`ShiftRightLogical` the integer shift table; `ConvertToHalf` binds the fixed `(float→Half)` `ToHalf` row and `HammingBitDistance` the `HammingBits` integer-pair reduce; `MinNumber`/`MaxNumber` bind the `TensorPrimitives.MinNumber`/`MaxNumber` reduction members (`T MinNumber<T>(ReadOnlySpan<T>)`/`T MaxNumber<T>(ReadOnlySpan<T>)` under `INumber<T>`, which the `IFloatingPointIeee754<T>` table constraint satisfies) on the `Fold` table, paired against the NaN-propagating `Min`/`Max` rows; `Average` and `StdDev` bind the direct `TensorPrimitives.Average`/`StdDev` reduction members (`T Average<T>(ReadOnlySpan<T>)` under `INumberBase<T>` and `T StdDev<T>(ReadOnlySpan<T>)` under `IRootFunctions<T>`, both satisfied by the `IFloatingPointIeee754<T>` table constraint) on the `Fold` table — a hand-composed `Sum/n` mean or `Sqrt(SumOfSquares/n − mean²)` std-dev beside the admitted members is the deleted form; the `MatMul`, `Conv1D`/`Conv2D`/`Conv3D`, and `MaxPool`/`AvgPool`/`GlobalAvgPool` rows hold no TensorPrimitives or in-package member and `Map` resolves each through the `numeric-lane#KERNEL_LOWERING` binding table behind a winning benchmark-claim row — matmul lowers to the numeric-lane GEMM, convolution to im2col-then-GEMM, pooling to the strided-window fold over `GetDimensionSpan` cursors — returning a `<kernel-row-miss>` `Fin.Fail` only when no lowering row is bound; the partition column dispatches a struct `IAction` span-kernel through `ParallelHelper.For<TAction>(int start, int end, in TAction action, int minimumActionsPerThread)` clamped at `CpuBudget.PartitionCap`, taken only when a winning `BenchmarkClaim` names the partition route — a partition count of one collapses inline and an unbudgeted `Parallel.For` over spans is the deleted form; the binding tables are `FrozenDictionary` indexes keyed through the ordinal `TensorKeyPolicy`, span kernels iterate rows by reference through `RefEnumerable<T>`/`SpanEnumerable<T>` rather than flat indexing, and integer dtypes enter the real-constrained entries through the conversion rows first.
+- Growth: a new operation binds one entry on its arity kernel table; a new activation is one `Activations<T>` composed fold plus one `Unary` row, a new pooling row is one `PoolReducers<T>` window-reducer entry on the shared `Pool` fold, and a new element-domain op is one `ComplexKernels`/`QuaternionKernels` entry — never a sibling activation/pooling/complex method; a matrix kernel is one lowering row read from `numeric-lane#KERNEL_LOWERING`, never a span-kernel entry; the partition column is one claim-gated execution path reading `CpuBudget.PartitionCap`, never a new owner; zero new surface.
+- Boundary: every span row binds the TensorPrimitives member matching its Pascal-cased key (shift-right binds the arithmetic-shift member, shift-right-logical the logical member) and only the `MaskedWrite` row carries a full-tensor binding — `SetSlice`/`FilteredUpdate` over `NRange`/`NIndex` through the `Mask` arity; the predicate rows write non-`T` destinations — `Sign` fills `Span<int>` through `Polarity`, `IsNaN`/`IsFinite` fill `Span<bool>` through `Test`; `SinCos` writes the two destination spans through `Dual` under the `ITrigonometricFunctions<T>` constraint; `RootN`/`ScaleB` take the integer parameter through `Root` under `IRootFunctions<T>`; `PopCount`/`LeadingZeroCount`/`TrailingZeroCount`/`OnesComplement` ride the integer `Population` arity, `BitwiseOr`/`Xor` the integer binary table, and `RotateLeft`/`RotateRight`/`ShiftRightLogical` the integer shift table; `ConvertToHalf` binds the fixed `(float→Half)` `ToHalf` row and `HammingBitDistance` the `HammingBits` integer-pair reduce; `MinNumber`/`MaxNumber` bind the `TensorPrimitives.MinNumber`/`MaxNumber` reduction members (`T MinNumber<T>(ReadOnlySpan<T>)`/`T MaxNumber<T>(ReadOnlySpan<T>)` under `INumber<T>`, which the `IFloatingPointIeee754<T>` table constraint satisfies) on the `Fold` table, paired against the NaN-propagating `Min`/`Max` rows; `Average` and `StdDev` bind the direct `TensorPrimitives.Average`/`StdDev` reduction members (`T Average<T>(ReadOnlySpan<T>)` under `INumberBase<T>` and `T StdDev<T>(ReadOnlySpan<T>)` under `IRootFunctions<T>`, both satisfied by the `IFloatingPointIeee754<T>` table constraint) on the `Fold` table — a hand-composed `Sum/n` mean or `Sqrt(SumOfSquares/n − mean²)` std-dev beside the admitted members is the deleted form; the activation family binds in-lane on the `Unary` table — `Sigmoid`/`Tanh`/`SoftMax` to their direct `TensorPrimitives` members and `ReLU`/`Gelu`/`SiLU`/`LogSoftMax` to the `Activations<T>` composed author-folds (`ReLU` is `Clamp(x, 0, +inf)`, `SiLU` is `x .* Sigmoid(x)`, `Gelu` the tanh-approximation `MultiplyAdd`/`Tanh` chain, `LogSoftMax` the numerically-stable `x − logsumexp(x)` max-shift), never a per-element activation loop or a fabricated `TensorPrimitives.Relu`/`Gelu`/`SiLU`/`LogSoftmax` phantom; the four pooling rows fold in-lane through `Pool` over one `PoolReducers<T>` window-reducer table — `MaxPool`/`GlobalMaxPool` reduce each window through `TensorPrimitives.Max` and `AvgPool`/`GlobalAvgPool` through `TensorPrimitives.Average`, the global rows collapsing the whole spatial plane to one window (window = stride = length) — so pooling carries verified members and only `MatMul`/`Conv1D`/`Conv2D`/`Conv3D` hold no in-lane member; the element-domain rows ride `System.Numerics.Complex` and `System.Numerics.Quaternion` carriers — Complex arithmetic (`Add`/`Subtract`/`Multiply`/`Divide`/`Negate`) binds the verified `INumberBase<Complex>`-generic `TensorPrimitives` members through `ComplexZip`/`ComplexMap`, while `ComplexAbs`/`ComplexExp`/`ComplexLog`/`Conjugate` are author-folds over the BCL `Complex` intrinsics (no `TensorPrimitives` Complex specialization exists) and `ComplexAbs` writes the `Span<double>` magnitude polarity through the `MagnitudeKernel`; Quaternion implements neither numeric interface so `QuaternionMultiply` (the non-commutative Hamilton product), `QuaternionConjugate`, and `QuaternionNormalize` are author-folds over the BCL `Quaternion` operators through `QuaternionZip`/`QuaternionMap`; the `MatMul`, `Conv1D`/`Conv2D`/`Conv3D` rows hold no TensorPrimitives or in-package member and `Map` resolves each through the `numeric-lane#KERNEL_LOWERING` binding table behind a winning benchmark-claim row — matmul lowers to the numeric-lane GEMM and convolution to im2col-then-GEMM — returning a `<kernel-row-miss>` `Fin.Fail` only when no lowering row is bound; the partition column dispatches a struct `IAction` span-kernel through `ParallelHelper.For<TAction>(int start, int end, in TAction action, int minimumActionsPerThread)` clamped at `CpuBudget.PartitionCap`, taken only when a winning `BenchmarkClaim` names the partition route — a partition count of one collapses inline and an unbudgeted `Parallel.For` over spans is the deleted form; the binding tables are `FrozenDictionary` indexes keyed through the ordinal `TensorKeyPolicy`, span kernels iterate rows by reference through `RefEnumerable<T>`/`SpanEnumerable<T>` rather than flat indexing, and integer dtypes enter the real-constrained entries through the conversion rows first.
 
 ```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
 public delegate void UnaryKernel<T>(ReadOnlySpan<T> x, Span<T> destination);
 public delegate void BinaryKernel<T>(ReadOnlySpan<T> x, ReadOnlySpan<T> y, Span<T> destination);
 public delegate void TernaryKernel<T>(ReadOnlySpan<T> x, ReadOnlySpan<T> y, ReadOnlySpan<T> z, Span<T> destination);
@@ -317,6 +345,68 @@ public delegate void MaskKernel<T>(ReadOnlySpan<T> x, Span<bool> destination);
 public delegate T FoldKernel<T>(ReadOnlySpan<T> x);
 public delegate T PairFoldKernel<T>(ReadOnlySpan<T> x, ReadOnlySpan<T> y);
 public delegate int IndexKernel<T>(ReadOnlySpan<T> x);
+public delegate void MagnitudeKernel(ReadOnlySpan<Complex> x, Span<double> destination);
+public delegate T WindowReducer<T>(ReadOnlySpan<T> window);
+
+// --- [OPERATIONS] --------------------------------------------------------------------------
+// Elementwise / ElementwisePair: the two scalar-projection folds every author-fold kernel binds to, so each
+// Complex/Quaternion row is one row -> scalar function, never a hand-copied index loop. One fold owns the variation.
+public static class Projection {
+    public static UnaryKernel<TElem> Elementwise<TElem>(Func<TElem, TElem> f) =>
+        (x, dst) => { for (int i = 0; i < x.Length; i++) { dst[i] = f(x[i]); } };
+    public static BinaryKernel<TElem> ElementwisePair<TElem>(Func<TElem, TElem, TElem> g) =>
+        (x, y, dst) => { for (int i = 0; i < x.Length; i++) { dst[i] = g(x[i], y[i]); } };
+    public static MagnitudeKernel Magnitude(Func<Complex, double> m) =>
+        (x, dst) => { for (int i = 0; i < x.Length; i++) { dst[i] = m(x[i]); } };
+}
+
+public static class Activations<T> where T : IFloatingPointIeee754<T> {
+    // ReLU = Clamp(x, 0, +inf): the single verified-member elementwise lower-bound, never a per-element branch loop.
+    public static void ReLU(ReadOnlySpan<T> x, Span<T> destination) =>
+        TensorPrimitives.Clamp(x, T.Zero, T.PositiveInfinity, destination);
+
+    // SiLU(x) = x * Sigmoid(x): Sigmoid into the destination, then a fused in-place Multiply against the primal.
+    public static void SiLU(ReadOnlySpan<T> x, Span<T> destination) {
+        TensorPrimitives.Sigmoid(x, destination);
+        TensorPrimitives.Multiply(destination, x, destination);
+    }
+
+    // GELU(x) = 0.5*x*(1 + Tanh(sqrt(2/pi)*(x + 0.044715*x^3))): the tanh approximation composed from verified members.
+    public static void Gelu(ReadOnlySpan<T> x, Span<T> destination) {
+        T c = T.Sqrt(T.CreateChecked(2) / T.Pi);
+        T a = T.CreateChecked(0.044715);
+        TensorPrimitives.Multiply(x, x, destination);          // x^2
+        TensorPrimitives.Multiply(destination, x, destination); // x^3
+        TensorPrimitives.MultiplyAdd(destination, a, x, destination); // x + a*x^3
+        TensorPrimitives.Multiply(destination, c, destination); // c*(x + a*x^3)
+        TensorPrimitives.Tanh(destination, destination);
+        TensorPrimitives.Add(destination, T.One, destination);  // 1 + tanh(...)
+        TensorPrimitives.Multiply(destination, x, destination); // x*(1 + tanh(...))
+        TensorPrimitives.Multiply(destination, T.CreateChecked(0.5), destination);
+    }
+
+    // LogSoftMax(x) = x - logsumexp(x): the numerically-stable max-shift fold, never Log(SoftMax(x)). The exp scratch
+    // rents from the pool (T is IFloatingPointIeee754, not unmanaged, so no stackalloc) and the rent is sized to x, not
+    // destination; the Map boundary rails the x.Length == destination.Length equality before this kernel runs.
+    public static void LogSoftMax(ReadOnlySpan<T> x, Span<T> destination) {
+        T shift = TensorPrimitives.Max(x);
+        TensorPrimitives.Subtract(x, shift, destination);         // x - max
+        using MemoryOwner<T> scratch = MemoryOwner<T>.Allocate(x.Length);
+        Span<T> exps = scratch.Span;
+        TensorPrimitives.Exp(destination, exps);
+        T logSumExp = T.Log(TensorPrimitives.Sum(exps));          // x - logsumexp = (x - max) - log(sum(exp(x - max)))
+        TensorPrimitives.Subtract(destination, logSumExp, destination);
+    }
+}
+
+// The four pooling rows collapse to one window-reducer table: Max for the max rows, Average for the avg rows, both
+// verified TensorPrimitives reduction members; the strided-window fold in TensorOps.Pool reads this by data.
+public static class PoolReducers<T> where T : IFloatingPointIeee754<T> {
+    public static readonly FrozenDictionary<TensorOpFamily, WindowReducer<T>> Rows = new Dictionary<TensorOpFamily, WindowReducer<T>> {
+        [TensorOpFamily.MaxPool] = TensorPrimitives.Max, [TensorOpFamily.GlobalMaxPool] = TensorPrimitives.Max,
+        [TensorOpFamily.AvgPool] = TensorPrimitives.Average, [TensorOpFamily.GlobalAvgPool] = TensorPrimitives.Average,
+    }.ToFrozenDictionary();
+}
 
 public static class TensorKernels<T> where T : IFloatingPointIeee754<T> {
     public static readonly FrozenDictionary<TensorOpFamily, UnaryKernel<T>> Unary = new Dictionary<TensorOpFamily, UnaryKernel<T>> {
@@ -326,6 +416,8 @@ public static class TensorKernels<T> where T : IFloatingPointIeee754<T> {
         [TensorOpFamily.Tanh] = TensorPrimitives.Tanh, [TensorOpFamily.Sigmoid] = TensorPrimitives.Sigmoid, [TensorOpFamily.SoftMax] = TensorPrimitives.SoftMax,
         [TensorOpFamily.Sqrt] = TensorPrimitives.Sqrt, [TensorOpFamily.Cbrt] = TensorPrimitives.Cbrt, [TensorOpFamily.DegreesToRadians] = TensorPrimitives.DegreesToRadians,
         [TensorOpFamily.Reciprocal] = TensorPrimitives.Reciprocal, [TensorOpFamily.ReciprocalSqrt] = TensorPrimitives.ReciprocalSqrt,
+        [TensorOpFamily.ReLU] = Activations<T>.ReLU, [TensorOpFamily.Gelu] = Activations<T>.Gelu, [TensorOpFamily.SiLU] = Activations<T>.SiLU,
+        [TensorOpFamily.LogSoftMax] = Activations<T>.LogSoftMax,
     }.ToFrozenDictionary();
     public static readonly FrozenDictionary<TensorOpFamily, BinaryKernel<T>> Binary = new Dictionary<TensorOpFamily, BinaryKernel<T>> {
         [TensorOpFamily.Add] = TensorPrimitives.Add, [TensorOpFamily.Subtract] = TensorPrimitives.Subtract, [TensorOpFamily.Multiply] = TensorPrimitives.Multiply,
@@ -388,78 +480,117 @@ public static class HalfConvertKernels {
     }.ToFrozenDictionary();
 }
 
+// System.Numerics.Complex : INumberBase<Complex>, so the elementwise arithmetic rows ride the verified generic
+// TensorPrimitives.Add/Subtract/Multiply/Divide/Negate members directly; Abs/Exp/Log/Conjugate carry no Complex
+// TensorPrimitives specialization in the .api catalogue and are author-folds over System.Numerics.Complex.
+public static class ComplexKernels {
+    public static readonly FrozenDictionary<TensorOpFamily, BinaryKernel<Complex>> Binary = new Dictionary<TensorOpFamily, BinaryKernel<Complex>> {
+        [TensorOpFamily.Add] = TensorPrimitives.Add, [TensorOpFamily.Subtract] = TensorPrimitives.Subtract,
+        [TensorOpFamily.Multiply] = TensorPrimitives.Multiply, [TensorOpFamily.Divide] = TensorPrimitives.Divide,
+    }.ToFrozenDictionary();
+    public static readonly FrozenDictionary<TensorOpFamily, UnaryKernel<Complex>> Unary = new Dictionary<TensorOpFamily, UnaryKernel<Complex>> {
+        [TensorOpFamily.Negate] = TensorPrimitives.Negate,
+        [TensorOpFamily.Conjugate] = Projection.Elementwise<Complex>(Complex.Conjugate),
+        [TensorOpFamily.ComplexExp] = Projection.Elementwise<Complex>(Complex.Exp),
+        [TensorOpFamily.ComplexLog] = Projection.Elementwise<Complex>(static x => Complex.Log(x)),
+    }.ToFrozenDictionary();
+    public static readonly FrozenDictionary<TensorOpFamily, MagnitudeKernel> Magnitude = new Dictionary<TensorOpFamily, MagnitudeKernel> {
+        [TensorOpFamily.ComplexAbs] = Projection.Magnitude(static x => x.Magnitude),
+    }.ToFrozenDictionary();
+}
+
+// System.Numerics.Quaternion implements neither INumberBase nor IFloatingPointIeee754, so every quaternion op is an
+// author-fold over the BCL Quaternion intrinsics; quaternion multiply is the non-commutative Hamilton product.
+public static class QuaternionKernels {
+    public static readonly FrozenDictionary<TensorOpFamily, BinaryKernel<Quaternion>> Binary = new Dictionary<TensorOpFamily, BinaryKernel<Quaternion>> {
+        [TensorOpFamily.QuaternionMultiply] = Projection.ElementwisePair<Quaternion>(static (a, b) => a * b),
+    }.ToFrozenDictionary();
+    public static readonly FrozenDictionary<TensorOpFamily, UnaryKernel<Quaternion>> Unary = new Dictionary<TensorOpFamily, UnaryKernel<Quaternion>> {
+        [TensorOpFamily.QuaternionConjugate] = Projection.Elementwise<Quaternion>(Quaternion.Conjugate),
+        [TensorOpFamily.QuaternionNormalize] = Projection.Elementwise<Quaternion>(Quaternion.Normalize),
+    }.ToFrozenDictionary();
+}
+
 public static class TensorOps {
-    public static Fin<Unit> Map<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> destination) where T : IFloatingPointIeee754<T> {
-        UnaryKernel<T>? kernel = TensorKernels<T>.Unary.GetValueOrDefault(row);
-        kernel?.Invoke(x, destination);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
-    public static Fin<Unit> Zip<T>(TensorOpFamily row, ReadOnlySpan<T> x, ReadOnlySpan<T> y, Span<T> destination) where T : IFloatingPointIeee754<T> {
-        BinaryKernel<T>? kernel = TensorKernels<T>.Binary.GetValueOrDefault(row);
-        kernel?.Invoke(x, y, destination);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
-    public static Fin<Unit> Fuse<T>(TensorOpFamily row, ReadOnlySpan<T> x, ReadOnlySpan<T> y, ReadOnlySpan<T> z, Span<T> destination) where T : IFloatingPointIeee754<T> {
-        TernaryKernel<T>? kernel = TensorKernels<T>.Ternary.GetValueOrDefault(row);
-        kernel?.Invoke(x, y, z, destination);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
-    public static Fin<Unit> Bits<T>(TensorOpFamily row, ReadOnlySpan<T> x, ReadOnlySpan<T> y, Span<T> destination) where T : IBinaryInteger<T> {
-        BinaryKernel<T>? kernel = IntegerKernels<T>.Binary.GetValueOrDefault(row);
-        kernel?.Invoke(x, y, destination);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
-    public static Fin<Unit> Shift<T>(TensorOpFamily row, ReadOnlySpan<T> x, int shiftCount, Span<T> destination) where T : IBinaryInteger<T> {
-        ShiftKernel<T>? kernel = IntegerKernels<T>.Shift.GetValueOrDefault(row);
-        kernel?.Invoke(x, shiftCount, destination);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
-    public static Fin<Unit> Convert<TFrom, TTo>(TensorOpFamily row, ReadOnlySpan<TFrom> source, Span<TTo> destination) where TFrom : INumberBase<TFrom> where TTo : INumberBase<TTo> {
-        ConvertKernel<TFrom, TTo>? kernel = ConvertKernels<TFrom, TTo>.Rows.GetValueOrDefault(row);
-        kernel?.Invoke(source, destination);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
+    // Dispatch: the one table-lookup-then-invoke fold every void-kernel arity sibling shares. A null kernel rails to
+    // Miss; a present kernel runs its closure-captured invoker (the spans live in the closure, ref-struct-safe) and
+    // returns Succ. Every Map/Zip/Fuse/Bits/Shift/Convert/Dual/Polarity/Test/Population/ToHalf/Complex*/Quaternion*
+    // entry is one row binding its FrozenDictionary table + invoker, never a hand-copied body.
+    private static Fin<Unit> Dispatch<TKernel>(TensorOpFamily row, FrozenDictionary<TensorOpFamily, TKernel> table, Action<TKernel> invoke) where TKernel : Delegate =>
+        table.GetValueOrDefault(row) is { } kernel ? Tap(() => invoke(kernel)) : Miss<Unit>(row);
+    // EqualLength: the one length-equality boundary rail the elementwise/destination-writing arities gate on before a
+    // kernel touches a span indexer, so a mismatched destination rails <length-mismatch> rather than throwing IndexOutOfRange.
+    private static Fin<Unit> EqualLength(TensorOpFamily row, int source, int destination, Fin<Unit> next) =>
+        source == destination ? next : Fin.Fail<Unit>(ComputeFault.Create($"<length-mismatch:{row.Key}:{source}!={destination}>"));
+
+    public static Fin<Unit> Map<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> destination) where T : IFloatingPointIeee754<T> =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, TensorKernels<T>.Unary, k => k(x, destination)));
+    public static Fin<Unit> Zip<T>(TensorOpFamily row, ReadOnlySpan<T> x, ReadOnlySpan<T> y, Span<T> destination) where T : IFloatingPointIeee754<T> =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, TensorKernels<T>.Binary, k => k(x, y, destination)));
+    public static Fin<Unit> Fuse<T>(TensorOpFamily row, ReadOnlySpan<T> x, ReadOnlySpan<T> y, ReadOnlySpan<T> z, Span<T> destination) where T : IFloatingPointIeee754<T> =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, TensorKernels<T>.Ternary, k => k(x, y, z, destination)));
+    public static Fin<Unit> Bits<T>(TensorOpFamily row, ReadOnlySpan<T> x, ReadOnlySpan<T> y, Span<T> destination) where T : IBinaryInteger<T> =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, IntegerKernels<T>.Binary, k => k(x, y, destination)));
+    public static Fin<Unit> Shift<T>(TensorOpFamily row, ReadOnlySpan<T> x, int shiftCount, Span<T> destination) where T : IBinaryInteger<T> =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, IntegerKernels<T>.Shift, k => k(x, shiftCount, destination)));
+    public static Fin<Unit> Convert<TFrom, TTo>(TensorOpFamily row, ReadOnlySpan<TFrom> source, Span<TTo> destination) where TFrom : INumberBase<TFrom> where TTo : INumberBase<TTo> =>
+        EqualLength(row, source.Length, destination.Length, Dispatch(row, ConvertKernels<TFrom, TTo>.Rows, k => k(source, destination)));
+    public static Fin<Unit> Dual<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> first, Span<T> second) where T : ITrigonometricFunctions<T> =>
+        EqualLength(row, x.Length, first.Length, EqualLength(row, x.Length, second.Length, Dispatch(row, TensorKernels<T>.Dual, k => k(x, first, second))));
+    public static Fin<Unit> Polarity<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<int> destination) where T : INumberBase<T> =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, TensorKernels<T>.Sign, k => k(x, destination)));
+    public static Fin<Unit> Test<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<bool> destination) where T : INumberBase<T> =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, TensorKernels<T>.Mask, k => k(x, destination)));
+    public static Fin<Unit> Population<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> destination) where T : IBinaryInteger<T> =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, IntegerKernels<T>.Unary, k => k(x, destination)));
+    public static Fin<Unit> ToHalf(TensorOpFamily row, ReadOnlySpan<float> source, Span<Half> destination) =>
+        EqualLength(row, source.Length, destination.Length, Dispatch(row, HalfConvertKernels.Rows, k => k(source, destination)));
+    public static Fin<Unit> ComplexZip(TensorOpFamily row, ReadOnlySpan<Complex> x, ReadOnlySpan<Complex> y, Span<Complex> destination) =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, ComplexKernels.Binary, k => k(x, y, destination)));
+    public static Fin<Unit> ComplexMap(TensorOpFamily row, ReadOnlySpan<Complex> x, Span<Complex> destination) =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, ComplexKernels.Unary, k => k(x, destination)));
+    public static Fin<Unit> ComplexAbs(TensorOpFamily row, ReadOnlySpan<Complex> x, Span<double> destination) =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, ComplexKernels.Magnitude, k => k(x, destination)));
+    public static Fin<Unit> QuaternionZip(TensorOpFamily row, ReadOnlySpan<Quaternion> x, ReadOnlySpan<Quaternion> y, Span<Quaternion> destination) =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, QuaternionKernels.Binary, k => k(x, y, destination)));
+    public static Fin<Unit> QuaternionMap(TensorOpFamily row, ReadOnlySpan<Quaternion> x, Span<Quaternion> destination) =>
+        EqualLength(row, x.Length, destination.Length, Dispatch(row, QuaternionKernels.Unary, k => k(x, destination)));
+
+    // The value-returning folds carry a typed return, not Unit, so they read the table directly rather than through Dispatch.
     public static Fin<T> Fold<T>(TensorOpFamily row, ReadOnlySpan<T> x) where T : IFloatingPointIeee754<T> =>
         TensorKernels<T>.Fold.GetValueOrDefault(row) is { } kernel ? Fin.Succ(kernel(x)) : Miss<T>(row);
     public static Fin<T> FoldPair<T>(TensorOpFamily row, ReadOnlySpan<T> x, ReadOnlySpan<T> y) where T : IFloatingPointIeee754<T> =>
         TensorKernels<T>.PairFold.GetValueOrDefault(row) is { } kernel ? Fin.Succ(kernel(x, y)) : Miss<T>(row);
     public static Fin<int> IndexOf<T>(TensorOpFamily row, ReadOnlySpan<T> x) where T : IFloatingPointIeee754<T> =>
         TensorKernels<T>.Index.GetValueOrDefault(row) is { } kernel ? Fin.Succ(kernel(x)) : Miss<int>(row);
-    public static Fin<Unit> Dual<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> first, Span<T> second) where T : ITrigonometricFunctions<T> {
-        DualKernel<T>? kernel = TensorKernels<T>.Dual.GetValueOrDefault(row);
-        kernel?.Invoke(x, first, second);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
-    public static Fin<Unit> Polarity<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<int> destination) where T : INumberBase<T> {
-        SignKernel<T>? kernel = TensorKernels<T>.Sign.GetValueOrDefault(row);
-        kernel?.Invoke(x, destination);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
-    public static Fin<Unit> Test<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<bool> destination) where T : INumberBase<T> {
-        MaskKernel<T>? kernel = TensorKernels<T>.Mask.GetValueOrDefault(row);
-        kernel?.Invoke(x, destination);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
-    public static Fin<Unit> Population<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> destination) where T : IBinaryInteger<T> {
-        UnaryKernel<T>? kernel = IntegerKernels<T>.Unary.GetValueOrDefault(row);
-        kernel?.Invoke(x, destination);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
+    public static Fin<int> Hamming<T>(ReadOnlySpan<T> x, ReadOnlySpan<T> y) where T : IEquatable<T> => Fin.Succ(TensorPrimitives.HammingDistance(x, y));
+    public static Fin<long> HammingBits<T>(ReadOnlySpan<T> x, ReadOnlySpan<T> y) where T : IBinaryInteger<T> => Fin.Succ(TensorPrimitives.HammingBitDistance(x, y));
+
+    // Root takes the integer parameter, so it dispatches over a two-row switch on the parameterised member, not a kernel table.
     public static Fin<Unit> Root<T>(TensorOpFamily row, ReadOnlySpan<T> x, int n, Span<T> destination) where T : IFloatingPointIeee754<T>, IRootFunctions<T> =>
-        row switch {
+        EqualLength(row, x.Length, destination.Length, row switch {
             _ when row == TensorOpFamily.RootN => Tap(() => TensorPrimitives.RootN(x, n, destination)),
             _ when row == TensorOpFamily.ScaleB => Tap(() => TensorPrimitives.ScaleB(x, n, destination)),
             _ => Miss<Unit>(row),
-        };
-    public static Fin<int> Hamming<T>(ReadOnlySpan<T> x, ReadOnlySpan<T> y) where T : IEquatable<T> => Fin.Succ(TensorPrimitives.HammingDistance(x, y));
-    public static Fin<long> HammingBits<T>(ReadOnlySpan<T> x, ReadOnlySpan<T> y) where T : IBinaryInteger<T> => Fin.Succ(TensorPrimitives.HammingBitDistance(x, y));
-    public static Fin<Unit> ToHalf(TensorOpFamily row, ReadOnlySpan<float> source, Span<Half> destination) {
-        ConvertKernel<float, Half>? kernel = HalfConvertKernels.Rows.GetValueOrDefault(row);
-        kernel?.Invoke(source, destination);
-        return kernel is null ? Miss<Unit>(row) : Fin.Succ(unit);
-    }
+        });
+    // Mask is the deliberate boundary exception: T : unmanaged (not IFloatingPointIeee754) and a full-tensor SetSlice
+    // return, so it cannot ride the span-Dispatch fold and stays a single-row guard over Tensor.SetSlice.
     public static Fin<Tensor<T>> Mask<T>(TensorOpFamily row, Tensor<T> destination, in ReadOnlyTensorSpan<T> values, ReadOnlySpan<NRange> region) where T : unmanaged =>
         row == TensorOpFamily.MaskedWrite ? Fin.Succ(Tensor.SetSlice(destination, values, region)) : Miss<Tensor<T>>(row);
+    // Pool: the strided-window fold shared by MaxPool/AvgPool/GlobalMaxPool/GlobalAvgPool. The pooling rows differ only
+    // in their WindowReducer (Max vs Average over the window span) and in window extent — a global pool collapses the
+    // whole spatial plane to one window (window = length, stride = length). One fold, four rows; no parallel kernels.
+    public static Fin<Unit> Pool<T>(TensorOpFamily row, ReadOnlySpan<T> plane, int window, int stride, Span<T> destination) where T : IFloatingPointIeee754<T> {
+        WindowReducer<T>? reduce = PoolReducers<T>.Rows.GetValueOrDefault(row); // ref-struct spans cannot close over Tap; the fold runs inline.
+        if (reduce is null) { return Miss<Unit>(row); }
+        (int win, int step) = row == TensorOpFamily.GlobalMaxPool || row == TensorOpFamily.GlobalAvgPool
+            ? (plane.Length, plane.Length)
+            : (window, stride);
+        int outputs = (plane.Length - win) / step + 1;
+        if (destination.Length < outputs) { return Fin.Fail<Unit>(ComputeFault.Create($"<pool-destination-undersized:{row.Key}:{destination.Length}<{outputs}>")); }
+        for (int o = 0; o < outputs; o++) { destination[o] = reduce(plane.Slice(o * step, win)); }
+        return Fin.Succ(unit);
+    }
     public static Fin<Unit> Partition<T>(TensorOpFamily row, ReadOnlyMemory<T> x, Memory<T> destination, CpuBudget budget, Option<BenchmarkRow> claim) where T : IFloatingPointIeee754<T> =>
         claim.IsNone
             ? Map(row, x.Span, destination.Span)
@@ -472,6 +603,7 @@ public static class TensorOps {
     private static Fin<A> Miss<A>(TensorOpFamily row) => Fin.Fail<A>(ComputeFault.Create($"<kernel-row-miss:{row.Key}>"));
 }
 
+// --- [COMPOSITION] -------------------------------------------------------------------------
 public readonly struct MapBlock<T>(ReadOnlyMemory<T> source, Memory<T> destination, int blockSize, UnaryKernel<T> kernel) : IAction {
     public void Invoke(int block) {
         int start = block * blockSize;
@@ -491,6 +623,16 @@ public readonly struct MapBlock<T>(ReadOnlyMemory<T> source, Memory<T> destinati
 - Boundary: TensorPrimitives carries no matrix kernels — the matmul and convolution rows lower through `numeric-lane#KERNEL_LOWERING` (matmul to the numeric-lane GEMM, each convolution to the live `Im2Col` patch projection then one GEMM call carrying the `ConvWindow` geometry) so a convolution row inherits the matmul tolerance proof the lowering row carries, and the pooling rows fold each window through the `TensorPrimitives.Max`/composed-`Average` kernels over `GetDimensionSpan` cursors on the same lowering; numeric-lane owns the lowering table and the tensor-lane `Map` consults it, so a matrix or structural row resolves to a live kernel and `Map`-misses only when a convolution row arrives without its `ConvWindow` geometry, never silently resolving to a wrong kernel; zero-copy projections cross at three receipted copy points — tensor span to `OrtValue` through `CreateTensorValueFromSystemNumericsTensorObject` (model lane), to `Span2D` planes (staging views), to `ByteString` through `UnsafeByteOperations` (remote edge); equivalence sample tensors fill through `Tensor.FillUniformDistribution` and `FillGaussianNormalDistribution` — a hand-rolled sample-RNG loop is the deleted form; the differentiable-operator dual mode is `DifferentiableOp.Diagonal`-gated — an elementwise row carries a diagonal Jacobian so its reverse-mode VJP and forward-mode JVP are the one `cotangent .* f'(primal)` fold and the row supplies both directions, while a non-diagonal row (MatMul transposes its operands, SoftMax forms the Jacobian-minus-outer-product) carries only the reverse-mode VJP and `Some`-less `Jvp`, so a forward-mode adjoint on a non-diagonal op faults `<no-forward-jvp>` rather than returning the wrong gradient — a single `Vjp .* tangent` body for every op is the deleted form because it silently mislabels the MatMul/SoftMax forward map; every designed-only row inherits proof coverage because its `ToleranceClass` rides the `TensorOpFamily` row, so `EquivalenceLaw.Prove` covers a new kernel by data with no `Prove` argument; loosening a `ToleranceClass` bound to pass equivalence is the named production-slack defect — the kernel is fixed, never the bound.
 
 ```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<TensorKeyPolicy, string>]
+[KeyMemberComparer<TensorKeyPolicy, string>]
+public sealed partial class AdjointMode {
+    public static readonly AdjointMode Forward = new("forward");
+    public static readonly AdjointMode Reverse = new("reverse");
+}
+
+// --- [MODELS] ------------------------------------------------------------------------------
 public sealed record EquivalencePolicy(TensorOpFamily Family, int SampleCount) {
     public static EquivalencePolicy For(TensorOpFamily family) => new(family, SampleCount: 256);
 }
@@ -499,23 +641,27 @@ public readonly record struct EquivalenceProof(TensorOpFamily Family, double Max
     public bool Holds => MaxDeviation <= Bound;
 }
 
-public static class EquivalenceLaw {
-    public static EquivalenceProof Prove(ClockPolicy clocks, CorrelationId correlation, EquivalencePolicy policy, ReadOnlySpan<double> baseline, ReadOnlySpan<double> candidate) {
-        long mark = clocks.Mark();
-        double[] gap = new double[baseline.Length];
-        TensorPrimitives.Subtract(baseline, candidate, gap);
-        TensorPrimitives.Abs(gap, gap);
-        double deviation = TensorPrimitives.Max(gap) / Math.Max(1.0, TensorPrimitives.MaxMagnitude(baseline));
-        return new(policy.Family, deviation, policy.Family.Tolerance.RelativeBound, policy.SampleCount, clocks.Elapsed(mark), clocks.Now, correlation);
-    }
-}
+// --- [OPERATIONS] --------------------------------------------------------------------------
+// Backward: the two non-diagonal reverse-mode VJP bodies the DifferentiableOp.Rows table binds; declared ahead of the
+// table that reads it (read-before-use dependency cluster). MatMul's VJP is the operand-transpose product the
+// numeric-lane GEMM lowers; SoftMax's is the Jacobian-minus-outer-product J·v = y .* (v - (y·v)) over the softmaxed primal.
+public static class Backward {
+    // dL/dX = dL/dY · Wᵀ for the row-major operand pair carried in the lowering row's ConvWindow-free MatMul geometry;
+    // the transpose-product lowers to one numeric-lane GEMM call, never an in-lane O(n³) loop.
+    public static ReadOnlyMemory<float> MatMul(ReadOnlyMemory<float> primal, ReadOnlyMemory<float> seed) =>
+        KernelLowering.MatMulTransposeProduct(primal, seed); // numeric-lane#KERNEL_LOWERING GEMM, operand-B transposed.
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<TensorKeyPolicy, string>]
-[KeyMemberComparer<TensorKeyPolicy, string>]
-public sealed partial class AdjointMode {
-    public static readonly AdjointMode Forward = new("forward");
-    public static readonly AdjointMode Reverse = new("reverse");
+    // SoftMax VJP: with y = softmax(primal) the full Jacobian J = diag(y) - y·yᵀ collapses to J·v = y .* (v - <y,v>),
+    // so the outer product never materializes — one Dot for the scalar projection, one Subtract, one Multiply.
+    public static ReadOnlyMemory<float> SoftMax(ReadOnlyMemory<float> primal, ReadOnlyMemory<float> seed) {
+        float[] y = new float[primal.Length];
+        TensorPrimitives.SoftMax(primal.Span, y);
+        float dot = TensorPrimitives.Dot<float>(y, seed.Span); // <y, v>
+        float[] gradient = new float[primal.Length];
+        TensorPrimitives.Subtract(seed.Span, dot, gradient);   // v - <y, v>
+        TensorPrimitives.Multiply<float>(y, gradient, gradient); // y .* (v - <y, v>)
+        return gradient;
+    }
 }
 
 public sealed record DifferentiableOp(
@@ -554,6 +700,21 @@ public static class SensitivityLaw {
 
     public static Fin<ReadOnlyMemory<float>> Chain(Seq<TensorOpFamily> tape, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> upstream) =>
         tape.Rev().Fold(Fin.Succ(upstream), (grad, op) => grad.Bind(g => Adjoint(op, AdjointMode.Reverse, primal, g)));
+}
+
+public static class EquivalenceLaw {
+    public static EquivalenceProof Prove(ClockPolicy clocks, CorrelationId correlation, EquivalencePolicy policy, ReadOnlySpan<double> baseline, ReadOnlySpan<double> candidate) {
+        long mark = clocks.Mark();
+        double[] gap = new double[baseline.Length];
+        TensorPrimitives.Subtract(baseline, candidate, gap);
+        TensorPrimitives.Abs(gap, gap);
+        // MaxMagnitude returns the signed extremum (the element of largest |·|, with its sign), so the relative-error
+        // denominator must be abs-normalized: a baseline whose extremal element is negative would otherwise yield a
+        // negative denominator and defeat the Holds => MaxDeviation <= Bound proof. The floor keeps a near-zero baseline finite.
+        double scale = Math.Max(1.0, double.Abs(TensorPrimitives.MaxMagnitude(baseline)));
+        double deviation = TensorPrimitives.Max(gap) / scale;
+        return new(policy.Family, deviation, policy.Family.Tolerance.RelativeBound, policy.SampleCount, clocks.Elapsed(mark), clocks.Now, correlation);
+    }
 }
 ```
 

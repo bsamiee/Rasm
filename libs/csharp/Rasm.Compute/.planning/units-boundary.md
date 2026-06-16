@@ -1,6 +1,6 @@
 # [COMPUTE_UNITS_BOUNDARY]
 
-The UnitsNet boundary for measured execution: fifteen frozen `QuantityFamily` rows admit every
+The UnitsNet boundary for measured execution: twenty frozen `QuantityFamily` rows admit every
 unit-bearing input exactly once, canonicalize through `As`/`ToUnit`, and emit dual `UnitEvidence`;
 interior numerics stay raw doubles owned by Rasm core, and no quantity type crosses an interior
 signature or a wire. The page owns the `QuantityFamily` axis with canonical, display, and tolerance
@@ -11,18 +11,19 @@ UnitsNet, Thinktecture.Runtime.Extensions, and LanguageExt.Core over the settled
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                             |
 | :-----: | --------------- | ------------------------------------------------------------------ |
-|   [1]   | QUANTITY_TABLE  | Fifteen frozen quantity rows; conversion exactly once at admission |
+|   [1]   | QUANTITY_TABLE  | Twenty frozen quantity rows; conversion exactly once at admission  |
 |   [2]   | DIMENSIONAL_LAW | Compound dimensional consistency and the SI baseline policy row    |
 |   [3]   | PARSE_FORMAT    | Culture-scoped parse and format edges; dual unit evidence          |
 
 ## [2]-[QUANTITY_TABLE]
 
-- Owner: `QuantityFamily` `[SmartEnum<string>]` fifteen rows; `QuantityKeyPolicy` single ordinal-ignore-case key accessor.
-- Cases: length, area, volume, mass, duration, speed, acceleration, force, pressure, energy, power, temperature, angle, torque, ratio — each row carries `QuantityInfo` metadata, canonical unit, display unit, and a tolerance column feeding equivalence proofs.
+- Owner: `QuantityFamily` `[SmartEnum<string>]` twenty rows; `QuantityKeyPolicy` single ordinal-ignore-case key accessor; `UnitMetadata` metadata-sourcing owner over `QuantityInfo.BaseUnitInfo`/`UnitInfos`.
+- Cases: length, area, volume, mass, duration, speed, acceleration, force, pressure, energy, power, temperature, angle, torque, ratio, density, area-moment-of-inertia, heat-transfer-coefficient, thermal-resistance, illuminance — each row carries `QuantityInfo` metadata, a `BaseUnitInfo.Value`-sourced canonical unit, an explicit display unit defaulting to canonical, and a tolerance column feeding equivalence proofs.
 - Entry: `Admit(IQuantity quantity, UnitPolicy policy, Guid correlation)` — `Fin<UnitEvidence>` aborts; text, value-plus-unit, and value-plus-abbreviation arities discriminate on payload shape and converge on the same rail.
 - Packages: UnitsNet, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: one table row on `QuantityFamily` — the AEC successors HeatTransferCoefficient, ThermalInsulance, AreaMomentOfInertia, and Illuminance each land as one designed-only row carrying its canonical and display column, landing when an AEC consumer exists; zero new surface.
-- Boundary: conversion runs exactly once at admission and interior numerics are raw doubles owned by Rasm core — a quantity type in an interior signature is the seam violation this table deletes; each row carries its canonical and display unit as an explicit `Enum` column, and the generated-quantity `DefaultUnitAttribute`/`DisplayAsUnitAttribute`/`ConvertToUnitAttribute` declarations the row mirrors are the designed-only attribute-sourcing path deferred to the `[ATTRIBUTE_SOURCING]` RESEARCH row — until the reflection spelling lands, the column is the hand-passed `Enum` the fence carries, never the attribute; abbreviation resolution runs through `UnitParser.Default` rather than the `"1 {unit}"` probe-string parse, which is the deleted hack; unit-admission failures mint `ComputeFault` through the dual-tier `Create` text route on the 2200 code band, the units-boundary contribution to the intent-and-selection fault union; `UnitsNetSetup.Default` is the single setup root composed once at the composition root, with `UnitConverter` riding it and a second setup instance rejected; NodaTime owns interior time, so the duration row exists only to canonicalize boundary text to seconds before rail time takes over; `UnitProject` intents enter this entrypoint and the `Pipeline` intent case composes it.
+- Growth: one table row on `QuantityFamily` — the structural Density row and AEC successors AreaMomentOfInertia, HeatTransferCoefficient, ThermalResistance, and Illuminance land as rows whose canonical column sources from `QuantityInfo.BaseUnitInfo.Value` and whose display column is an explicit per-row `Enum`; further AEC quantities land as one row each when a consumer exists; zero new surface.
+- Boundary: conversion runs exactly once at admission and interior numerics are raw doubles owned by Rasm core — a quantity type in an interior signature is the seam violation this table deletes; each row's canonical `Enum` column sources from `QuantityInfo.BaseUnitInfo.Value` once at static construction and the display `Enum` is an explicit constructor arg that defaults to canonical — the hand-passed canonical `Enum` arg is deleted, the metadata is the column (UnitsNet emits no `DefaultUnitAttribute`/`DisplayAsUnitAttribute` on the generated types, so attribute reflection would resolve to nothing); abbreviation resolution runs through `UnitParser.Default.TryParse(string, Type, IFormatProvider, out Enum)` rather than the `"1 {unit}"` probe-string parse, which is the deleted hack; unit-admission failures mint `ComputeFault` through the dual-tier `Create` text route on the 2200 code band, the units-boundary contribution to the intent-and-selection fault union; `UnitsNetSetup.Default` is the single setup root composed once at the composition root, with `UnitConverter` riding it and a second setup instance rejected; NodaTime owns interior time, so the duration row exists only to canonicalize boundary text to seconds before rail time takes over; `UnitProject` intents enter this entrypoint and the `Pipeline` intent case composes it.
+- Metadata sourcing: the canonical `Enum` column reads `QuantityInfo.BaseUnitInfo.Value` directly — `BaseUnitInfo` is the base-`UnitInfo` and `.Value` is the base-unit `Enum`; the read runs once per row at static construction, the display column is the explicit presentation `Enum` (defaulting to canonical), the dashboard picker's conversion targets enumerate `QuantityInfo.UnitInfos` (each `UnitInfo` exposes `.Value`/`.Name`/`.PluralName`) with zero custom-attribute reflection, and a family whose `QuantityInfo` lacks a `BaseUnitInfo` mints `ComputeFault` at composition through `Probe()` rather than silently defaulting.
 
 ```csharp signature
 public sealed class QuantityKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -33,26 +34,58 @@ public sealed class QuantityKeyPolicy : IEqualityComparerAccessor<string>, IComp
     public static IComparer<string> Comparer => Policy;
 }
 
+// --- [BOUNDARIES] ----------------------------------------------------------------------
+// Canonical unit is read off the metadata directly: QuantityInfo.BaseUnitInfo.Value IS the
+// base-unit Enum, no custom-attribute reflection. UnitsNet emits no DefaultUnit/DisplayAsUnit
+// attributes on the generated types, so the canonical column sources from BaseUnitInfo and the
+// display column is an explicit per-row Enum (defaulting to canonical). The dashboard picker
+// enumerates QuantityInfo.UnitInfos directly — every UnitInfo carries .Value/.Name/.PluralName —
+// so the conversion-target axis needs no attribute reflection either.
+internal static class UnitMetadata {
+    // Picker conversion targets sourced from the metadata's own UnitInfo set, not custom attributes.
+    public static Seq<Enum> ConvertTargets(QuantityInfo info) =>
+        info.UnitInfos.ToSeq().Map(static u => u.Value);
+
+    // Composition-time fold: any family whose metadata lacks a base-unit handle drifts here, not
+    // silently at admission. Folds the SmartEnum item set; one ComputeFault carries the drift keys.
+    public static Fin<Unit> Probe() =>
+        QuantityFamily.Items.ToSeq()
+            .Filter(static row => row.Info.BaseUnitInfo is null)
+            .Map(static row => row.Key) is { IsEmpty: false } missing
+            ? ComputeFault.Create($"unit-metadata: {string.Join(", ", missing)} missing BaseUnitInfo")
+            : FinSucc(unit);
+}
+
 [SmartEnum<string>]
 [ValidationError<ComputeFault>]
 [KeyMemberEqualityComparer<QuantityKeyPolicy, string>]
 [KeyMemberComparer<QuantityKeyPolicy, string>]
 public sealed partial class QuantityFamily {
-    public static readonly QuantityFamily Length = new("length", info: UnitsNet.Length.Info, canonical: LengthUnit.Meter, display: LengthUnit.Millimeter, tolerance: 1e-9);
-    public static readonly QuantityFamily Area = new("area", info: UnitsNet.Area.Info, canonical: AreaUnit.SquareMeter, display: AreaUnit.SquareMeter, tolerance: 1e-9);
-    public static readonly QuantityFamily Volume = new("volume", info: UnitsNet.Volume.Info, canonical: VolumeUnit.CubicMeter, display: VolumeUnit.CubicMeter, tolerance: 1e-9);
-    public static readonly QuantityFamily Mass = new("mass", info: UnitsNet.Mass.Info, canonical: MassUnit.Kilogram, display: MassUnit.Kilogram, tolerance: 1e-9);
-    public static readonly QuantityFamily Duration = new("duration", info: UnitsNet.Duration.Info, canonical: DurationUnit.Second, display: DurationUnit.Second, tolerance: 1e-9);
-    public static readonly QuantityFamily Speed = new("speed", info: UnitsNet.Speed.Info, canonical: SpeedUnit.MeterPerSecond, display: SpeedUnit.MeterPerSecond, tolerance: 1e-9);
-    public static readonly QuantityFamily Acceleration = new("acceleration", info: UnitsNet.Acceleration.Info, canonical: AccelerationUnit.MeterPerSecondSquared, display: AccelerationUnit.MeterPerSecondSquared, tolerance: 1e-9);
-    public static readonly QuantityFamily Force = new("force", info: UnitsNet.Force.Info, canonical: ForceUnit.Newton, display: ForceUnit.Newton, tolerance: 1e-9);
-    public static readonly QuantityFamily Pressure = new("pressure", info: UnitsNet.Pressure.Info, canonical: PressureUnit.Pascal, display: PressureUnit.Kilopascal, tolerance: 1e-9);
-    public static readonly QuantityFamily Energy = new("energy", info: UnitsNet.Energy.Info, canonical: EnergyUnit.Joule, display: EnergyUnit.KilowattHour, tolerance: 1e-9);
-    public static readonly QuantityFamily Power = new("power", info: UnitsNet.Power.Info, canonical: PowerUnit.Watt, display: PowerUnit.Watt, tolerance: 1e-9);
-    public static readonly QuantityFamily Temperature = new("temperature", info: UnitsNet.Temperature.Info, canonical: TemperatureUnit.Kelvin, display: TemperatureUnit.DegreeCelsius, tolerance: 1e-6);
-    public static readonly QuantityFamily Angle = new("angle", info: UnitsNet.Angle.Info, canonical: AngleUnit.Radian, display: AngleUnit.Degree, tolerance: 1e-9);
-    public static readonly QuantityFamily Torque = new("torque", info: UnitsNet.Torque.Info, canonical: TorqueUnit.NewtonMeter, display: TorqueUnit.NewtonMeter, tolerance: 1e-9);
-    public static readonly QuantityFamily Ratio = new("ratio", info: UnitsNet.Ratio.Info, canonical: RatioUnit.DecimalFraction, display: RatioUnit.Percent, tolerance: 1e-9);
+    // Base SI families — canonical sourced from QuantityInfo.BaseUnitInfo.Value; display is the
+    // explicit presentation Enum (defaults to canonical when the SI base unit is the rendered unit).
+    public static readonly QuantityFamily Length = new("length", UnitsNet.Length.Info, display: LengthUnit.Millimeter, tolerance: 1e-9);
+    public static readonly QuantityFamily Area = new("area", UnitsNet.Area.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Volume = new("volume", UnitsNet.Volume.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Mass = new("mass", UnitsNet.Mass.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Duration = new("duration", UnitsNet.Duration.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Speed = new("speed", UnitsNet.Speed.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Acceleration = new("acceleration", UnitsNet.Acceleration.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Force = new("force", UnitsNet.Force.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Pressure = new("pressure", UnitsNet.Pressure.Info, display: PressureUnit.Kilopascal, tolerance: 1e-9);
+    public static readonly QuantityFamily Energy = new("energy", UnitsNet.Energy.Info, display: EnergyUnit.KilowattHour, tolerance: 1e-9);
+    public static readonly QuantityFamily Power = new("power", UnitsNet.Power.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Temperature = new("temperature", UnitsNet.Temperature.Info, display: TemperatureUnit.DegreeCelsius, tolerance: 1e-6);
+    public static readonly QuantityFamily Angle = new("angle", UnitsNet.Angle.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Torque = new("torque", UnitsNet.Torque.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Ratio = new("ratio", UnitsNet.Ratio.Info, display: RatioUnit.Percent, tolerance: 1e-9);
+    // AEC-domain families — structural, thermal, and luminous quantities the building-model boundary
+    // admits; each is one row on this axis, canonical from BaseUnitInfo, zero new surface. Density
+    // closes the mass/volume structural pair; the derived four land on AEC consumer.
+    public static readonly QuantityFamily Density = new("density", UnitsNet.Density.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily AreaMomentOfInertia = new("area-moment-of-inertia", UnitsNet.AreaMomentOfInertia.Info, tolerance: 1e-12);
+    public static readonly QuantityFamily HeatTransferCoefficient = new("heat-transfer-coefficient", UnitsNet.HeatTransferCoefficient.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily ThermalResistance = new("thermal-resistance", UnitsNet.ThermalResistance.Info, tolerance: 1e-9);
+    public static readonly QuantityFamily Illuminance = new("illuminance", UnitsNet.Illuminance.Info, tolerance: 1e-6);
 
     public QuantityInfo Info { get; }
 
@@ -61,6 +94,13 @@ public sealed partial class QuantityFamily {
     public Enum Display { get; }
 
     public double Tolerance { get; }
+
+    private QuantityFamily(string key, QuantityInfo info, double tolerance, Enum display = null) : base(key) {
+        Info = info;
+        Canonical = info.BaseUnitInfo.Value; // QuantityInfo.BaseUnitInfo.Value is the base-unit Enum
+        Display = display ?? Canonical;
+        Tolerance = tolerance;
+    }
 
     public Fin<UnitEvidence> Admit(IQuantity quantity, UnitPolicy policy, Guid correlation) =>
         quantity.QuantityInfo.Name == Info.Name && quantity.Dimensions.Equals(Info.BaseDimensions)
@@ -83,21 +123,23 @@ public sealed partial class QuantityFamily {
             : ComputeFault.Create($"unit-admission {Key}: '{unit}' outside {Info.Name}");
 
     public Option<Enum> Resolve(string unit, UnitPolicy policy) =>
-        Try.lift(() => UnitParser.Default.Parse(unit, Canonical.GetType())).Run().ToOption();
+        UnitParser.Default.TryParse(unit, Info.UnitType, policy.Culture, out var resolved)
+            ? Some(resolved)
+            : Option<Enum>.None;
 
     public string Render(double canonicalValue, UnitPolicy policy, Option<Enum> target = default) =>
-        Quantity.From(canonicalValue, Canonical).ToUnit(target.IfNone(Display)).ToString(policy.Format, policy.Culture);
+        ((IFormattable)Quantity.From(canonicalValue, Canonical).ToUnit(target.IfNone(Display))).ToString(policy.Format, policy.Culture);
 }
 ```
 
 ## [3]-[DIMENSIONAL_LAW]
 
 - Owner: `UnitPolicy` configuration-bound policy record; `UnitAlgebra` static dimensional surface.
-- Cases: speed, acceleration, force, pressure, energy, power, torque — seven compound relation rows, each verifying the composed `BaseDimensions` of its factors equals the compound row's declared dimensions.
-- Entry: `Consistency()` — `Fin<Unit>` aborts with the drifted row keys at composition.
+- Cases: speed, acceleration, force, pressure, energy, power, torque, density — eight compound relation rows, each verifying the composed `BaseDimensions` of its factors equals the compound row's declared dimensions; one reciprocal-pair row (heat-transfer-coefficient · thermal-resistance is dimensionless); one dimensionless-family row (ratio).
+- Entry: `Consistency()` — `Fin<Unit>` aborts with the drifted row keys at composition, then chains `UnitMetadata.Probe()` so metadata-sourcing drift closes the same sweep.
 - Packages: UnitsNet, LanguageExt.Core, BCL inbox
 - Growth: one relation row in `Relations` per compound admission; zero new surface.
-- Boundary: `UnitPolicy` binds at its `Section` symbol through the configuration rail and `CultureName` arrives as a settled row value; `Baseline` pins `UnitSystem.SI` as the unit-system policy row; per-admission dimensional equality rides `Admit` through `Dimensions.Equals(Info.BaseDimensions)` while the relation sweep runs once at composition; the Ratio row's dimensionlessness asserts through `BaseDimensions.Dimensionless` in the same sweep so a dimension-bearing Ratio drifts at composition rather than silently at runtime; a numeric-only conversion that crosses no quantity type rides `UnitConverter.TryConvert` — the non-throwing converter that never constructs an `IQuantity`; `UnitMath` and `GenericMathExtensions` are admitted for boundary-side aggregation only, with `DecimalGenericMathExtensions` owning the decimal-precision aggregation path for the Energy- and Power-class boundary sums where double rounding loses precision, aggregate at `Baseline`, and re-enter `Admit` before any value reaches the rails — per-quantity converter helpers, throwing converters, and extension forests are the deleted form.
+- Boundary: `UnitPolicy` binds at its `Section` symbol through the configuration rail and `CultureName` arrives as a settled row value; `Baseline` pins `UnitSystem.SI` as the unit-system policy row; per-admission dimensional equality rides `Admit` through `Dimensions.Equals(Info.BaseDimensions)` while the relation sweep runs once at composition; the `Density` row joins `Relations` as `Mass / Volume` so a structural-quantity drift surfaces at composition, while the `HeatTransferCoefficient`/`ThermalResistance` U-value/R-value pair asserts as a `Reciprocals` row whose dimension product must equal `BaseDimensions.Dimensionless` — `ThermalResistance` is the area-specific m²·K/W form (base unit `SquareMeterKelvinPerKilowatt`) whose dimensions are the exact inverse of `HeatTransferCoefficient`; the Ratio row's dimensionlessness asserts through the `Dimensionless` seq against `BaseDimensions.Dimensionless` in the same sweep so a dimension-bearing Ratio drifts at composition rather than silently at runtime; `UnitMetadata.Probe()` chains last in `Consistency()` so a row whose `QuantityInfo` lacks a `BaseUnitInfo` drifts in the same composition fault rather than at first admission; a numeric-only conversion that crosses no quantity type rides `UnitConverter.TryConvert` — the non-throwing converter that never constructs an `IQuantity`; `UnitMath` and `GenericMathExtensions` are admitted for boundary-side aggregation only, with `DecimalGenericMathExtensions` owning the decimal-precision aggregation path for the Energy- and Power-class boundary sums where double rounding loses precision, aggregate at `Baseline`, and re-enter `Admit` before any value reaches the rails — per-quantity converter helpers, throwing converters, and extension forests are the deleted form.
 
 ```csharp signature
 public sealed record UnitPolicy(string CultureName, string Format = "G") {
@@ -120,13 +162,24 @@ public static class UnitAlgebra {
         (QuantityFamily.Pressure, QuantityFamily.Force, QuantityFamily.Area, Quotient),
         (QuantityFamily.Energy, QuantityFamily.Force, QuantityFamily.Length, Product),
         (QuantityFamily.Power, QuantityFamily.Energy, QuantityFamily.Duration, Quotient),
-        (QuantityFamily.Torque, QuantityFamily.Force, QuantityFamily.Length, Product));
+        (QuantityFamily.Torque, QuantityFamily.Force, QuantityFamily.Length, Product),
+        (QuantityFamily.Density, QuantityFamily.Mass, QuantityFamily.Volume, Quotient));
+
+    // Reciprocal pairs: the product of the two families' dimensions is dimensionless (U-value · R-value).
+    // HeatTransferCoefficient ([Mass][Time]^-3[Temperature]^-1) · ThermalResistance (its exact inverse,
+    // the area-specific m²·K/W form, base unit SquareMeterKelvinPerKilowatt) equals Dimensionless.
+    public static readonly Seq<(QuantityFamily Left, QuantityFamily Right)> Reciprocals = Seq(
+        (QuantityFamily.HeatTransferCoefficient, QuantityFamily.ThermalResistance));
+
+    // Dimensionless families assert against BaseDimensions.Dimensionless rather than a compound relation.
+    public static readonly Seq<QuantityFamily> Dimensionless = Seq(QuantityFamily.Ratio);
 
     public static Fin<Unit> Consistency() =>
         (Relations.Filter(static row => !row.Compose(row.Left.Info.BaseDimensions, row.Right.Info.BaseDimensions).Equals(row.Compound.Info.BaseDimensions)).Map(static row => row.Compound.Key)
-                + (QuantityFamily.Ratio.Info.BaseDimensions.Equals(BaseDimensions.Dimensionless) ? Seq<string>() : Seq(QuantityFamily.Ratio.Key))) is { IsEmpty: false } drift
+                + Reciprocals.Filter(static row => !Product(row.Left.Info.BaseDimensions, row.Right.Info.BaseDimensions).Equals(BaseDimensions.Dimensionless)).Map(static row => row.Left.Key)
+                + Dimensionless.Filter(static row => !row.Info.BaseDimensions.Equals(BaseDimensions.Dimensionless)).Map(static row => row.Key)) is { IsEmpty: false } drift
             ? ComputeFault.Create($"unit-dimensions: {string.Join(", ", drift)} drift at composition")
-            : Fin<Unit>.Succ(unit);
+            : UnitMetadata.Probe(); // metadata sourcing closes the same composition sweep — a row whose QuantityInfo lacks a BaseUnitInfo drifts here, not at admission
 
     public static Fin<double> Numeric(double value, Enum from, Enum to) =>
         UnitConverter.TryConvert(value, from, to, out var converted)
@@ -142,7 +195,7 @@ public static class UnitAlgebra {
 - Receipt: `UnitEvidence` — family key, original unit and value, canonical unit and value, correlation id; the receipt union's unit-projection case carries it verbatim.
 - Packages: UnitsNet, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one `QuantityInfo` catalogue row per admitted family — the dashboard quantity picker derives from `Catalogue()`; zero new surface.
-- Boundary: boundary text parses culture-scoped through `Quantity.TryParse(policy.Culture, ...)` with `Resolve` owning abbreviation resolution through `UnitParser.Default` backed by `UnitAbbreviationsCache.Default`, whose lookup falls back to the invariant-culture abbreviation set when the policy culture lacks a localized one, a `UnitProject` target unit entering `Render` as the resolved target override, and `QuantityFormatter.Format` owning the rendered text behind a culture-scoped format string — the precision column is the format-string row carried on `UnitPolicy`, never a per-call-site `ToString` overload, with `UnitFormatter` owning bare-unit rendering for the dashboard picker; `Catalogue()` projects the fifteen `Info` rows for the dashboard quantity picker with zero call-site reflection; evidence fields are plain strings and doubles, so the record serializes through the package wire context while UnitsNet types never cross a JSON or proto wire — the recorded UnitsNet-serialization SKIP stays law and conversion-at-admission is what enforces it.
+- Boundary: boundary text parses culture-scoped through `Quantity.TryParse(policy.Culture, ...)` with `Resolve` owning abbreviation resolution through `UnitParser.Default` backed by `UnitAbbreviationsCache.Default`, whose lookup falls back to the invariant-culture abbreviation set when the policy culture lacks a localized one, a `UnitProject` target unit entering `Render` as the resolved target override, and `QuantityFormatter.Format` owning the rendered text behind a culture-scoped format string — the precision column is the format-string row carried on `UnitPolicy`, never a per-call-site `ToString` overload, with `UnitFormatter` owning bare-unit rendering for the dashboard picker; `Catalogue()` projects the twenty `Info` rows for the dashboard quantity picker with zero call-site reflection, and `UnitMetadata.ConvertTargets` supplies each picker row's conversion targets by enumerating `QuantityInfo.UnitInfos` (each `UnitInfo.Value`) so the picker mirrors the metadata surface with no custom-attribute reflection; evidence fields are plain strings and doubles, so the record serializes through the package wire context while UnitsNet types never cross a JSON or proto wire — the recorded UnitsNet-serialization SKIP stays law and conversion-at-admission is what enforces it.
 
 ```csharp signature
 public sealed record UnitEvidence(
@@ -173,4 +226,4 @@ public sealed record UnitEvidence(
 ## [5]-[RESEARCH]
 
 - [NEXT_MAJOR]: UnitsNet next-major `QuantityInfo` and `QuantityValue` reshape against the frozen row record, run as a staged-restore reshape check before the adoption-gate decision; the adoption gate is GA, and the pin stays at the charter admission.
-- [ATTRIBUTE_SOURCING]: the reflection spelling that reads `DefaultUnitAttribute`/`DisplayAsUnitAttribute`/`ConvertToUnitAttribute` off the generated quantity or unit type to source the canonical and display `Enum` columns — `QuantityInfo` catalogues `ValueType` and `BaseDimensions` but no base-unit accessor, so the attribute-sourced column replaces the hand-passed `Enum` args only once the custom-attribute read confirms against the UnitsNet generated-quantity surface.
+- [METADATA_SOURCING] [FINALIZED]: the canonical `Enum` column reads `QuantityInfo.BaseUnitInfo.Value` directly — `BaseUnitInfo` is the base-`UnitInfo` and `.Value` is the base-unit `Enum`; the display column is an explicit per-row `Enum` defaulting to canonical (UnitsNet 5.75.0 emits no `DefaultUnitAttribute`/`DisplayAsUnitAttribute` on the generated quantity or unit-enum types, so attribute reflection would resolve to nothing). The dashboard picker's `ConvertTargets` enumerates `QuantityInfo.UnitInfos` (each `UnitInfo` carries `.Value`/`.Name`/`.PluralName`), the read runs once per row at static construction, and `Probe()` chains into `Consistency()` so a `QuantityInfo` lacking a `BaseUnitInfo` drifts at composition. `QuantityInfo` exposes `BaseUnitInfo`, `UnitInfos`, `UnitType`, `ValueType`, and `BaseDimensions` — the base-unit handle is `BaseUnitInfo.Value`, not a custom-attribute read.
