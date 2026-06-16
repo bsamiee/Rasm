@@ -51,7 +51,7 @@ public sealed partial class SessionPhase {
     public static readonly SessionPhase QuitForce = new(key: "quit.force");
     public static readonly SessionPhase QuitKill = new(key: "quit.kill");
     public static readonly SessionPhase Install = new(key: "install");
-    public static readonly SessionPhase Doctor = new(key: "doctor");
+    public static readonly SessionPhase Status = new(key: "status");
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
@@ -116,7 +116,7 @@ public abstract partial record BridgeFault {
         dialogSuspected: static f => string.Create(provider: CultureInfo.InvariantCulture, $"host alive but silent {f.SilentForMs:F0}ms after launch: modal dialog suspected"),
         uiWedged: static f => string.Create(provider: CultureInfo.InvariantCulture, $"UI thread silent {f.SilentForMs:F0}ms inside '{f.Scenario}'"),
         executeDeadline: static f => string.Create(provider: CultureInfo.InvariantCulture, $"'{f.Scenario}' exceeded the session deadline at {f.ElapsedMs:F0}ms"),
-        redeployIncomplete: static f => $"relaunched shell failed doctor check '{f.FailingCheck}'");
+        redeployIncomplete: static f => $"relaunched shell failed status check '{f.FailingCheck}'");
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------

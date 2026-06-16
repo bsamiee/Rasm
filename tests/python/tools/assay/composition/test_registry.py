@@ -305,7 +305,7 @@ def test_parse_fault_dispatch_and_fallback() -> None:
     validity_matrix(
         (
             ValidityCase(label="static/static → static", value=("static", "static"), expected=True),
-            ValidityCase(label="api/doctor → api", value=("api", "doctor"), expected=True),
+            ValidityCase(label="api/status → api", value=("api", "status"), expected=True),
             ValidityCase(label="bridge/verify → bridge", value=("bridge", "verify"), expected=True),
             ValidityCase(label="test/run → test", value=("test", "run"), expected=True),
         ),
@@ -849,8 +849,8 @@ def test_delta_host_drift_from_bridge_facts() -> None:
     from tools.assay.composition.registry import _delta_report  # noqa: PLC0415
 
     def bridge_env(version: str) -> Envelope:
-        detail = BridgeLifecycle(verb="doctor", host=(("rhinoVersion", "9.0"),), capabilities=(("mcp.platform.version", "Ok", version),))
-        return envelope(Report(Claim.BRIDGE, "doctor", detail=detail), claim=Claim.BRIDGE, verb="doctor")
+        detail = BridgeLifecycle(verb="status", host=(("rhinoVersion", "9.0"),), capabilities=(("mcp.platform.version", "Ok", version),))
+        return envelope(Report(Claim.BRIDGE, "status", detail=detail), claim=Claim.BRIDGE, verb="status")
 
     drifted = _delta_report("b", "a", bridge_env("1.0.4"), bridge_env("1.0.5"))
     assert isinstance(drifted.detail, RunDelta)

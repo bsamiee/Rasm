@@ -88,13 +88,13 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
 
-# --- [TYPES] ----------------------------------------------------------------------------
+# --- [TYPES] -----------------------------------------------------------------------------
 
 # `P` is a verb-params type, not a ParamSpec.
 type Handler[P] = Callable[[AssaySettings, ArtifactScope, P], Result[Report, Fault]]
 type ReportLayer = Layer[[AssaySettings, ArtifactScope, object], Report]
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+# --- [CONSTANTS] -------------------------------------------------------------------------
 
 _ARTIFACT_CAP: Final = 100
 # Mirrors the msgspec-enforced cap on Fault.message so history round-trips without silent truncation.
@@ -227,7 +227,8 @@ def _distill(
     budgeted = reason[: max(_HINT_CAP - len(framing) - 1, 0)]
     hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
     truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
-    # _measure is the one resource owner; the fallback carries proc.children/proc.children_rss_bytes, matching the streaming receipt key set.
+    # One-hop into private engine._measure is intentional: engine owns the Measurements/to_resources shape — a co-owned
+    # seam beside the _RESOURCE/fan_out reach. The fallback carries proc.children/proc.children_rss_bytes for the streaming receipt keys.
     snap = resource or _RESOURCE.get() or _measure().to_resources()
     ctx = trace.get_current_span().get_span_context()
     ids = (f"{ctx.trace_id:032x}", f"{ctx.span_id:016x}") if ctx.is_valid else ("", "")
@@ -781,11 +782,7 @@ def self_test(*, rhino: bool = False) -> Envelope:
 # compose sorts layers by Slot; rails apply checked/logged/traced without spawn retry.
 # PEP 696: the aspect-owned checked layer's free vars do not unify with ReportLayer; same seam as engine._spawn's compose.
 _CHECKED: ReportLayer = _CHECKED_LAYER  # ty: ignore[invalid-assignment]
-_RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (
-    _CHECKED,
-    logged(event="rail", keys=_correlate),
-    traced(span="assay.rail", attrs=_correlate),
-)
+_RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (_CHECKED, logged(event="rail", keys=_correlate), traced(span="assay.rail", attrs=_correlate))
 
 REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.STATIC, "static", static_rail.run, StaticParams, "Polyglot quality: auto-fix + diagnose + build per language."),
@@ -794,22 +791,17 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.TEST, "run", test_rail.run, TestParams, "Unit + coverage + mutation fold."),
     Bind(Claim.TEST, "list", test_rail.list, TestParams, "Bounded discovery JSON."),
     Bind(Claim.TEST, "coverage", test_rail.coverage, TestParams, "Coverlet json + cobertura."),
-    Bind(Claim.BRIDGE, "verify", bridge_rail.verify, BridgeParams, "Live RhinoWIP scenario fold."),
-    Bind(Claim.BRIDGE, "doctor", bridge_rail.doctor, BridgeParams, "Bridge host health."),
-    Bind(Claim.BRIDGE, "launch", bridge_rail.launch, BridgeParams, "Start RhinoWIP under lease."),
-    Bind(Claim.BRIDGE, "quit", bridge_rail.quit, BridgeParams, "Clean Cocoa terminate."),
-    Bind(Claim.BRIDGE, "check", bridge_rail.check, BridgeParams, "Liveness probe."),
-    Bind(Claim.BRIDGE, "clean", bridge_rail.clean, BridgeParams, "Clear crash markers + autosave."),
     Bind(Claim.BRIDGE, "build", bridge_rail.build, BridgeParams, "Compile rasm-bridge plugin."),
-    Bind(Claim.PACKAGE, "stage", package_rail.stage, PackageParams, "Yak stage commit under lease."),
-    Bind(Claim.PACKAGE, "deploy", package_rail.deploy, PackageParams, "Yak install to live host."),
-    Bind(Claim.PACKAGE, "publish", package_rail.publish, PackageParams, "Yak push to server."),
+    Bind(Claim.BRIDGE, "verify", bridge_rail.verify, BridgeParams, "Live RhinoWIP scenario fold."),
+    Bind(Claim.BRIDGE, "status", bridge_rail.status, BridgeParams, "Bridge host health."),
+    Bind(Claim.BRIDGE, "quit", bridge_rail.quit, BridgeParams, "Clean Cocoa terminate."),
+    Bind(Claim.PACKAGE, "publish", package_rail.publish, PackageParams, "Yak stage + install + push under lease."),
+    Bind(Claim.PACKAGE, "plan", package_rail.plan, PackageParams, "Publish dry-run: package metadata into notes."),
     Bind(Claim.PACKAGE, "list", package_rail.list, PackageParams, "Package project roster: slug/csproj pairs."),
-    Bind(Claim.PACKAGE, "plan", package_rail.plan, PackageParams, "Stage plan into notes."),
-    Bind(Claim.API, "doctor", api_rail.doctor, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
     Bind(Claim.API, "resolve", api_rail.resolve, ApiParams, "Asset path resolution."),
     Bind(Claim.API, "query", api_rail.query, ApiParams, "Polymorphic ilspy surface; fingerprint cache."),
     Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
+    Bind(Claim.API, "status", api_rail.status, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
     Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown + Mermaid validation."),
 )
 

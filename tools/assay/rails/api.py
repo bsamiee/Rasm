@@ -93,7 +93,7 @@ _FRAMEWORK_RANK: tuple[str, ...] = ("net10.0", "net9.0", "net8.0", "net7.0", "ne
 _ASSET_DIRS: tuple[str, ...] = ("lib", "ref", "runtimes", "build", "buildTransitive", "analyzers", "tools")
 _SURFACE_KINDS: frozenset[str] = frozenset(("Class", "Struct", "Interface", "Delegate", "Enum"))
 _PACKAGE_KINDS: frozenset[SourceKind] = frozenset((SourceKind.NUGET, SourceKind.PYDIST, SourceKind.TSDECL))  # key is also a package name
-_COMPACT_VISIBLE: frozenset[SourceKind] = frozenset((SourceKind.ASSEMBLY, SourceKind.NUGET, SourceKind.TOOL))  # doctor compact-output source kinds
+_COMPACT_VISIBLE: frozenset[SourceKind] = frozenset((SourceKind.ASSEMBLY, SourceKind.NUGET, SourceKind.TOOL))  # status compact-output source kinds
 _COMPACT_SUMMARY_IDS: frozenset[str] = frozenset(("python-dists", "ts-decls"))  # polyglot summary rows always shown in compact output
 _PREVIEW_ROWS: int = 12
 _CANDIDATE_CAP: int = 8
@@ -156,7 +156,7 @@ class ApiParams(BaseParams):
     grep: str = ""
     full: bool = False
     strict: bool = False
-    sources: tuple[str, ...] = ()  # non-empty → restrict doctor inventory to source_ids matching these prefixes
+    sources: tuple[str, ...] = ()  # non-empty → restrict status inventory to source_ids matching these prefixes
 
     @override
     def bound(self, verb: str) -> ApiParams | Fault:
@@ -253,7 +253,7 @@ def _rhino_app(settings: AssaySettings) -> Path | None:
 
 
 def _host_source(settings: AssaySettings, key: str) -> _Source | None:
-    # Empty sources let doctor report absent bundles instead of hiding the row.
+    # Empty sources let status report absent bundles instead of hiding the row.
     match _HOST_SPECS.get(key):
         case None:
             return None
@@ -1102,7 +1102,7 @@ def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[t
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
+def status(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
     """Inventory API source health.
 
     Returns:
@@ -1116,7 +1116,7 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
     artifacts = _inventory_artifacts(settings, sources)
     compact = _compact_sources(sources)
     done = Completed(
-        ("api", "doctor"),
+        ("api", "status"),
         0,
         status=RailStatus.OK if len(healthy) == len(sources) else RailStatus.EMPTY,
         notes=(f"{len(healthy)}/{len(sources)} inventory sources healthy",),
@@ -1135,13 +1135,13 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
         Match(
             id=f"inventory:{source.source_id}",
             kind=ArtifactKind.SCOPE,
-            text=_doctor_row_text(source),
+            text=_status_row_text(source),
             score=100 if source.status is RailStatus.OK else 0,
             severity=None if source.status is RailStatus.OK else "missing",
         )
         for source in compact
     )
-    return _strict(msgspec.structs.replace(fold(Claim.API, "doctor", (done,), detail=detail), artifacts=artifacts, results=results), p)
+    return _strict(msgspec.structs.replace(fold(Claim.API, "status", (done,), detail=detail), artifacts=artifacts, results=results), p)
 
 
 def _filtered_sources(all_sources: tuple[ApiSource, ...], prefixes: tuple[str, ...]) -> tuple[ApiSource, ...]:
@@ -1151,18 +1151,18 @@ def _filtered_sources(all_sources: tuple[ApiSource, ...], prefixes: tuple[str, .
 def _inventory_artifacts(settings: AssaySettings, sources: tuple[ApiSource, ...]) -> tuple[Artifact, ...]:
     # One durable inventory artifact: the structured JSON. The compact preview rides the envelope; the TSV had no reader.
     json_raw = _ENCODER.encode(sources)
-    json_path = settings.store().write_bytes(json_raw, Claim.API.value, settings.run_id, "doctor-inventory.json")
-    return (Artifact(id="doctor-inventory-json", kind=ArtifactKind.SCOPE, path=json_path, bytes=len(json_raw), lines=len(sources)),)
+    json_path = settings.store().write_bytes(json_raw, Claim.API.value, settings.run_id, "status-inventory.json")
+    return (Artifact(id="status-inventory-json", kind=ArtifactKind.SCOPE, path=json_path, bytes=len(json_raw), lines=len(sources)),)
 
 
-def _doctor_row_text(source: ApiSource) -> str:
+def _status_row_text(source: ApiSource) -> str:
     """Project one inventory source into the stable ``key=value`` health grammar.
 
     Grammar (single-space-separated, fixed key order):
     ``<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->``.
 
     Returns:
-        The keyed health row text consumed by Match parsers and pinned by the doctor row-text law.
+        The keyed health row text consumed by Match parsers and pinned by the status row-text law.
     """
     presence = (
         ("assembly", "present" if source.primary_assembly or source.package_root else "missing"),
@@ -1546,4 +1546,4 @@ def _slice(text: str, *, lines: str, grep: str, max_lines: int, full: bool) -> t
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ApiParams", "doctor", "query", "resolve", "shape_of", "show"]
+__all__ = ["ApiParams", "query", "resolve", "shape_of", "show", "status"]

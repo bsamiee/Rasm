@@ -25,14 +25,24 @@ internal sealed record BundleInfo(string AppPath, string CFBundleName, string CF
     public string CrashReportPattern => $"{CFBundleExecutable}-*.ips";
 
     private Version Numeric => Version.TryParse(input: CFBundleVersion, result: out Version? parsed) ? parsed : new Version(major: 0, minor: 0);
+    private bool IsWip => CFBundleName.Contains(value: "WIP", comparisonType: StringComparison.OrdinalIgnoreCase);
+
+    // The bridge leases the Rhino 9 line (RhinoWIP today, GA next): auto-discovery excludes Rhino 8 so a missing
+    // WIP install faults loudly instead of silently leasing an unsupported host. An explicit RHINO_WIP_APP_PATH
+    // override is honored verbatim — it carries metadata-only derivation (Gate GA-marker probe), never an unattended lease.
+    private const int RhinoLineMajor = 9;
 
     public static Fin<BundleInfo> Discover(TimeSpan toolDeadline) {
         string? narrowed = Environment.GetEnvironmentVariable(variable: "RHINO_WIP_APP_PATH");
         Seq<string> candidates = narrowed is { Length: > 0 } ? Seq(value: narrowed) : Candidates();
-        Seq<BundleInfo> admitted = candidates.Choose(selector: path => Read(appPath: path, toolDeadline: toolDeadline));
-        return toSeq(value: admitted.OrderByDescending(keySelector: static bundle => bundle.Numeric)).Head.Case is BundleInfo newest
+        Seq<BundleInfo> admitted = candidates.Choose(selector: path =>
+            Read(appPath: path, toolDeadline: toolDeadline).Case is BundleInfo bundle && (narrowed is { Length: > 0 } || bundle.Numeric.Major >= RhinoLineMajor)
+                ? Some(value: bundle)
+                : Option<BundleInfo>.None);
+        return toSeq(value: admitted.OrderByDescending(keySelector: static bundle => bundle.Numeric).ThenByDescending(keySelector: static bundle => bundle.IsWip)).Head.Case is BundleInfo newest
             ? Fin.Succ(value: newest)
-            : Fin.Fail<BundleInfo>(error: Error.New(message: "no Rhino*.app bundle discovered under /Applications; set RHINO_WIP_APP_PATH to narrow"));
+            : Fin.Fail<BundleInfo>(error: Error.New(message: string.Create(provider: CultureInfo.InvariantCulture,
+                $"no RhinoWIP/Rhino {RhinoLineMajor}+ bundle under /Applications (Rhino 8 is not a supported host); set RHINO_WIP_APP_PATH to narrow")));
     }
 
     public Fin<Unit> Launch(TimeSpan toolDeadline) =>

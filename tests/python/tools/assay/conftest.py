@@ -51,6 +51,9 @@ _UV = shutil.which("uv")
 # Law coverage walks this package's public surface.
 SUT_PACKAGE: Final = "tools.assay"
 
+# pytest-benchmark's repo-root storage fallback; the configure hook rebinds it to the canonical artifact URI.
+_BENCHMARK_ROOT_DEFAULT: Final = "file://./.benchmarks"
+
 # Exempt aliases and ContextVar seams with no independent behavior; model.Bind remains covered.
 _EXEMPT: Final = frozenset({
     "Attrs", "Bind", "Hom", "Layer", "Inversion",   # aspect: type aliases + decoration-time TypeError
@@ -65,6 +68,22 @@ _EXEMPT: Final = frozenset({
 register_sut(SUT_PACKAGE, exempt=_EXEMPT)
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Pin benchmark storage off pytest-benchmark's repo-root default before its session builds.
+
+    The ``--benchmark-storage`` pin rides ``addopts``; an ad-hoc ``-o addopts=`` that drops the pin but keeps the
+    plugin loaded would fall back to ``file://./.benchmarks`` and litter the repo root the instant
+    ``BenchmarkSession`` constructs its ``FileStorage`` (eager ``mkdir``). This conftest is auto-discovered by path
+    even when ``addopts`` is empty — unlike the runtime ``-p`` plugin — so the rebind survives the escape. The
+    pin is unconditional for the assay tree: pytest-benchmark registers its session ``trylast``, so this option
+    write lands before it reads ``benchmark_storage``.
+    """
+    if hasattr(config.pluginmanager.hook, "pytest_benchmark_update_json") and config.getoption("benchmark_storage") == _BENCHMARK_ROOT_DEFAULT:
+        from tools.assay.composition.catalog import BENCHMARK_STORAGE_URI  # noqa: PLC0415  # canonical URI imported only on the ad-hoc escape path
+
+        config.option.benchmark_storage = BENCHMARK_STORAGE_URI
 
 
 @pytest.fixture(autouse=True)

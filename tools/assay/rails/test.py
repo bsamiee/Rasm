@@ -299,13 +299,13 @@ def _test_detail(done: Completed) -> TestRun:
 def _detail(done: tuple[Completed, ...], params: TestParams, root: Path) -> AnyDetail | None:
     # Mutation evidence is stdout-derived; use the first decoded receipt carrying a real mutation lane.
     mutation = next((d for c in done if (d := _test_detail(c)).mutation is not MutationLane.OFF), TestRun())
-    coverage = coverage_percent(root)
-    match (params.mutation, params.coverage, coverage):
-        case (MutationLane.OFF, False, _):
+    # coverage_percent reads/decodes the artifact; only pay that cost on the coverage-requested arm.
+    match (params.mutation, params.coverage):
+        case (MutationLane.OFF, False):
             return None
-        case (_, True, float() as total):
+        case (_, True) if (total := coverage_percent(root)) is not None:
             return msgspec.structs.replace(mutation, coverage=total)
-        case (MutationLane.CHANGED | MutationLane.FULL, _, _):
+        case (MutationLane.CHANGED | MutationLane.FULL, _):
             return mutation if mutation.mutation is not MutationLane.OFF else None
         case _:
             return None
@@ -390,6 +390,7 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
     Returns:
         Folded test report, or routing/spawn/lease fault.
     """
+
     def _resolved(languages: tuple[Language, ...]) -> Result[Report, Fault]:
         eligible = tuple(
             t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation is not MutationLane.OFF else mode)
@@ -494,12 +495,14 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         )
 
     return resolve_languages(params.language, params.paths, claim=Claim.TEST).bind(
-        lambda languages: _routed(languages, params.paths, settings)
-        .map(lambda routed: tuple(_select(r, params, settings) for r in routed))
-        .bind(
-            lambda selected: sequence(
-                block.of_seq(row for r in selected for row in _dispatch(r, params, settings=settings, scope=scope, mode=Mode.LIST))
-            ).map(lambda done: _settle(done, selected))
+        lambda languages: (
+            _routed(languages, params.paths, settings)
+            .map(lambda routed: tuple(_select(r, params, settings) for r in routed))
+            .bind(
+                lambda selected: sequence(
+                    block.of_seq(row for r in selected for row in _dispatch(r, params, settings=settings, scope=scope, mode=Mode.LIST))
+                ).map(lambda done: _settle(done, selected))
+            )
         )
     )
 

@@ -14,19 +14,19 @@ namespace Rasm.Bridge.Supervisor;
 internal abstract partial record SupervisorVerb {
     private SupervisorVerb() { }
     internal sealed record Verify(ScenarioSelection Selection, string ClosureManifest) : SupervisorVerb;
-    internal sealed record Doctor : SupervisorVerb;
+    internal sealed record Status : SupervisorVerb;
     internal sealed record Redeploy(string PackagePath) : SupervisorVerb;
     internal sealed record Quit : SupervisorVerb;
 
     public string Key => Switch(
         verify: static _ => "verify",
-        doctor: static _ => "doctor",
+        status: static _ => "status",
         redeploy: static _ => "redeploy",
         quit: static _ => "quit");
 
     public SessionPhase EntryPhase => Switch(
         verify: static _ => SessionPhase.Launch,
-        doctor: static _ => SessionPhase.Doctor,
+        status: static _ => SessionPhase.Status,
         redeploy: static _ => SessionPhase.Install,
         quit: static _ => SessionPhase.QuitAe);
 }
@@ -61,10 +61,10 @@ internal static class Verbs {
         return argv switch {
             ["verify", { } selection, { } manifest] => Selection(raw: selection)
                 .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted, ClosureManifest: manifest)),
-            ["doctor"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Doctor()),
+            ["status"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Status()),
             ["redeploy", { } package] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Redeploy(PackagePath: package)),
             ["quit"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Quit()),
-            _ => Fin.Fail<SupervisorVerb>(error: Error.New(message: "unrecognized invocation: verify <selection-json> <closure-manifest> | doctor | redeploy <package> | quit")),
+            _ => Fin.Fail<SupervisorVerb>(error: Error.New(message: "unrecognized invocation: verify <selection-json> <closure-manifest> | status | redeploy <package> | quit")),
         };
     }
 
@@ -133,7 +133,7 @@ internal static class Program {
     }
 
     private static SupervisorRuntime Compose(CancellationToken root) {
-        // Discovery misses degrade to the narrowed path stem so doctor can name the precondition.
+        // Discovery misses degrade to the narrowed path stem so status can name the precondition.
         string appPath = Environment.GetEnvironmentVariable(variable: "RHINO_WIP_APP_PATH") ?? "/Applications/RhinoWIP.app";
         string stem = Path.GetFileNameWithoutExtension(path: appPath);
         BundleInfo bundle = BundleInfo.Discover(toolDeadline: SessionPolicy.Default.ToolDeadline) is Fin<BundleInfo>.Succ(BundleInfo discovered)

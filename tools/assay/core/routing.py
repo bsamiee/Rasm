@@ -200,7 +200,8 @@ def _refs(rel: str, source: Source) -> frozenset[str]:
     # Unreadable or malformed .csproj becomes an isolated graph node; fault does not propagate.
     base = PurePosixPath(rel).parent
     return (
-        source.read(rel)
+        source
+        .read(rel)
         .map(lambda raw: frozenset(normpath(str(base / inc.replace("\\", "/"))) for inc in parse_csproj(raw, "ProjectReference", "Include")))
         .default_value(frozenset())
     )
@@ -229,12 +230,6 @@ def parse_csproj(raw: bytes, tag: str, *attrs: str) -> tuple[str, ...]:
             return tuple(text.strip() for el in nodes if (text := el.text) and text.strip())
         case _:
             return tuple(value for el in nodes if (value := next((v for a in attrs if (v := el.get(a))), "")))
-
-
-def _host_bound(rel: str, source: Source) -> bool:
-    # Only the explicit marker is authoritative; path shape and RhinoCommon-awareness are non-signals.
-    marked = source.read(rel).map(lambda raw: any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound")))
-    return marked.default_value(False)  # noqa: FBT003  # expression sentinel default, not a behavior flag
 
 
 def _dependents(seeds: frozenset[str], index: ProjectIndex, source: Source) -> frozenset[str]:
@@ -269,7 +264,14 @@ def _resolve(language: Language, changed: tuple[str, ...], universe: tuple[str, 
     seeds = frozenset(index[owner] for owner in owned.values())
     closure = _dependents(seeds, index, source)
     groups = tuple((owner_proj, tuple(sorted(f for f, owner in owned.items() if index[owner] == owner_proj))) for owner_proj in sorted(seeds))
-    host = tuple(sorted(p for p in closure if _host_bound(p, source)))
+    # Only the explicit marker is authoritative; path shape and RhinoCommon-awareness are non-signals.
+    host = tuple(
+        sorted(
+            p
+            for p in closure
+            if source.read(p).map(lambda raw: any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound"))).default_value(False)  # noqa: FBT003  # expression sentinel default, not a behavior flag
+        )
+    )
     files = _norm(tuple(owned.keys()))
     return Ok(Routed(language=language, scope=Scope.CHANGED, files=files, projects=tuple(sorted(closure)), groups=groups, host_bound=host))
 

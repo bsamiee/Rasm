@@ -30,13 +30,10 @@ from tools.assay.rails.bridge import (
     bridge_lease,
     BridgeParams,
     build,
-    check,
-    clean,
     client_run,
-    doctor,
     first_fault,
-    launch,
     quit as bridge_quit,
+    status,
     verify,
 )
 
@@ -57,19 +54,13 @@ type _BridgeVerb = Callable[[AssaySettings, ArtifactScope, BridgeParams], Result
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _LIFECYCLE_VERBS: tuple[tuple[str, _BridgeVerb], ...] = (
-    ("check", check),
-    ("clean", clean),
-    ("doctor", doctor),
-    ("launch", launch),
     ("quit", bridge_quit),
+    ("status", status),
 )
 
 register_laws(
-    (check, ("lifecycle_verbs_fold_supervisor_completion",)),
-    (clean, ("lifecycle_verbs_fold_supervisor_completion",)),
-    (doctor, ("lifecycle_verbs_fold_supervisor_completion",)),
-    (launch, ("lifecycle_verbs_fold_supervisor_completion",)),
     (bridge_quit, ("lifecycle_verbs_fold_supervisor_completion",)),
+    (status, ("lifecycle_verbs_fold_supervisor_completion",)),
 )
 
 
@@ -138,13 +129,10 @@ def test_bridge_module_public_surface() -> None:
         "BridgeParams",
         "bridge_lease",
         "build",
-        "check",
-        "clean",
         "client_run",
-        "doctor",
         "first_fault",
-        "launch",
         "quit",
+        "status",
         "verify",
     ))
     assert frozenset(_bridge_mod.__all__) == expected
@@ -273,11 +261,11 @@ register_law(bridge_lease, "serializes_bridge_resource")
 
 def test_client_run_invokes_canonical_supervisor_project(assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
     rail_probe.install(monkeypatch, _bridge_mod, "run_check", Ok(receipt(("dotnet",), 0, stdout=_envelope())))
-    done = assert_ok(client_run(assay_root.settings, "doctor"))
+    done = assert_ok(client_run(assay_root.settings, "status"))
     check = rail_probe.checks[0]
     assert done.status is RailStatus.OK
     assert any(Path(part).as_posix().endswith("tools/rhino-bridge/Supervisor/Supervisor.csproj") for part in check.tool.command)
-    assert check.tool.command[-1] == "doctor"
+    assert check.tool.command[-1] == "status"
     assert check.cwd == assay_root.root
 
 
@@ -312,7 +300,7 @@ register_law(BridgeLifecycle, "lifecycle_detail_projects_host_and_capabilities")
 def test_lifecycle_detail_projects_host_and_capabilities(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A lifecycle fold projects the supervisor host versions and capability rows into a wire-round-tripping BridgeLifecycle detail."""
     envelope = _envelope(
-        report_dir="report/doctor",
+        report_dir="report/status",
         host={"bundleVersion": "9.0", "rhinoCommonVersion": "9.0", "grasshopper2Version": "", "runtimeVersion": "10.0"},
         capabilities=({"key": "rail.core", "outcome": "ok", "receipt": "warm"}, {"key": "rail.vectors", "outcome": "skipped", "receipt": ""}),
     )
@@ -320,10 +308,10 @@ def test_lifecycle_detail_projects_host_and_capabilities(assay_root: AssayHarnes
     monkeypatch.setattr(
         _bridge_mod, "client_run", lambda _settings, *args, **_kw: Ok(receipt(("rasm-bridge", *args), 0, stdout=envelope, status=RailStatus.OK))
     )
-    report = assert_ok(doctor(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
+    report = assert_ok(status(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
     detail = report.detail
     assert isinstance(detail, BridgeLifecycle)
-    assert (detail.verb, detail.report_dir) == ("doctor", "report/doctor")
+    assert (detail.verb, detail.report_dir) == ("status", "report/status")
     # Empty grasshopper2 version is elided; surviving rows keep fingerprint order.
     assert detail.host == (("bundle", "9.0"), ("rhinoCommon", "9.0"), ("runtime", "10.0"))
     # Capability admission rows keep their key/outcome/receipt triple.

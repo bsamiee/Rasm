@@ -57,7 +57,6 @@ _SCENARIO_TIMEOUT_S: Final[float] = 600.0
 _VERIFY_TTL_S: Final[float] = 300.0
 _PATH_GLYPHS: Final[str] = "/*?["
 _ALL_TOKENS: Final[frozenset[str]] = frozenset(("", "all", "*"))
-_LIFECYCLE_ALIASES: Final[dict[str, str]] = {"check": "doctor", "clean": "quit", "launch": "doctor", "refresh": "doctor"}
 _TEXT_ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset((".json", ".jsonl", ".log", ".txt"))
 _BRIDGE_ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset((".gcdump", ".json", ".jsonl", ".png"))
 
@@ -267,7 +266,7 @@ def _routed() -> Routed:
 
 
 def _client_check(settings: AssaySettings, *args: str) -> Check:
-    verb = _LIFECYCLE_ALIASES.get(args[0], args[0]) if args else "doctor"
+    verb = args[0] if args else "status"
     tail = (str(settings.root / _SUPERVISOR_PROJECT), "--configuration", settings.configuration.value, "--", verb, *args[1:])
     return Check(tool=msgspec.structs.replace(_SUPERVISOR_TOOL, command=(*_SUPERVISOR_TOOL.command, *tail)), cwd=Path(str(settings.root)))
 
@@ -580,7 +579,7 @@ def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) 
     """Verify typed bridge scenarios under the live host lease.
 
     Returns:
-        Verification report, or a lease/build/launch fault.
+        Verification report, or a lease/build/session fault.
     """
     argv = ("bridge", "verify", params.pattern)
     return bridge_lease(settings, lambda: _verify_locked(settings, scope, params, argv))
@@ -678,24 +677,14 @@ def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report,
     return bridge_lease(settings, lambda: client_run(settings, verb, *args).map(_fold_lifecycle))
 
 
-def doctor(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
+def status(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
     """Run the bridge host health probe.
 
     Returns:
         Bridge lifecycle report or operational fault.
     """
     _ = (scope, params)
-    return _lifecycle(settings, "doctor")
-
-
-def launch(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Launch the bridge host under the live host lease.
-
-    Returns:
-        Bridge lifecycle report or operational fault.
-    """
-    _ = (scope, params)
-    return _lifecycle(settings, "launch")
+    return _lifecycle(settings, "status")
 
 
 def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:  # noqa: A001
@@ -708,26 +697,6 @@ def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) ->
     """
     _ = (scope, params)
     return _lifecycle(settings, "quit")
-
-
-def check(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Probe bridge host liveness.
-
-    Returns:
-        Bridge lifecycle report or operational fault.
-    """
-    _ = (scope, params)
-    return _lifecycle(settings, "check")
-
-
-def clean(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Clean bridge crash and autosave state.
-
-    Returns:
-        Bridge lifecycle report or operational fault.
-    """
-    _ = (scope, params)
-    return _lifecycle(settings, "clean")
 
 
 def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
@@ -751,4 +720,4 @@ def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BridgeParams", "bridge_lease", "build", "check", "clean", "client_run", "doctor", "first_fault", "launch", "quit", "verify"]
+__all__ = ["BridgeParams", "bridge_lease", "build", "client_run", "first_fault", "quit", "status", "verify"]

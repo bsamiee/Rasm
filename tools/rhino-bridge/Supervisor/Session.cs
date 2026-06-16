@@ -122,7 +122,7 @@ internal static class SessionKernel {
             }
             try {
                 return verb switch {
-                    SupervisorVerb.Doctor => await DoctorAsync().ConfigureAwait(false),
+                    SupervisorVerb.Status => await StatusAsync().ConfigureAwait(false),
                     SupervisorVerb.Verify verify => await VerifyAsync(verify: verify).ConfigureAwait(false),
                     SupervisorVerb.Quit => await QuitAsync().ConfigureAwait(false),
                     SupervisorVerb.Redeploy => Fold(
@@ -139,11 +139,11 @@ internal static class SessionKernel {
             }
         }
 
-        private Task<SessionEnvelope> DoctorAsync() =>
-            WithHostAsync(connectPhase: SessionPhase.Doctor, body: async (connection, live) => {
+        private Task<SessionEnvelope> StatusAsync() =>
+            WithHostAsync(connectPhase: SessionPhase.Status, body: async (connection, live) => {
                 Handshake peer = await connection.HelloAsync(ct: runtime.Root).ConfigureAwait(false);
                 LiveHost negotiated = live with { Fingerprint = peer.Fingerprint ?? live.Fingerprint, Endpoint = peer.Endpoint ?? live.Endpoint };
-                stream.Add(item: Fact("doctor.endpoint", peer.Endpoint?.PipeName ?? live.Endpoint.PipeName));
+                stream.Add(item: Fact("status.endpoint", peer.Endpoint?.PipeName ?? live.Endpoint.PipeName));
                 return new SessionProjection(
                     Final: new SessionState.Ready(Host: negotiated, Peer: peer),
                     SpoolTail: (0L, 0L));

@@ -48,12 +48,20 @@ def test_benchmark_storage_uri_matches_catalog_constant() -> None:
     assert uri == BENCHMARK_STORAGE_URI, f"addopts URI {uri!r} != catalog.BENCHMARK_STORAGE_URI {BENCHMARK_STORAGE_URI!r}"
 
 
-def test_benchmark_storage_not_duplicated_in_conftest_files() -> None:
-    """No conftest.py file under ``tests/`` carries a benchmark-storage override."""
+def test_benchmark_storage_uri_not_hardcoded_in_conftest_files() -> None:
+    """No conftest.py under ``tests/`` hardcodes a benchmark-storage ``file://`` URI.
+
+    addopts is the single source of the storage value; the assay conftest's belt-and-suspenders
+    ``pytest_configure`` may rebind the option off pytest-benchmark's repo-root default, but only by
+    importing ``catalog.BENCHMARK_STORAGE_URI`` — never by restating a ``file://`` literal that could drift.
+    """
     violators: list[str] = [
-        str(cf.relative_to(REPO_ROOT)) for cf in (REPO_ROOT / "tests").rglob("conftest.py") if "--benchmark-storage" in cf.read_text(encoding="utf-8")
+        str(cf.relative_to(REPO_ROOT))
+        for cf in (REPO_ROOT / "tests").rglob("conftest.py")
+        for text in (cf.read_text(encoding="utf-8"),)
+        if "benchmark_storage" in text and "file://.artifacts" in text
     ]
-    assert not violators, f"--benchmark-storage found in conftest file(s) outside addopts: {violators!r}"
+    assert not violators, f"hardcoded benchmark-storage URI in conftest — rebind via catalog.BENCHMARK_STORAGE_URI instead: {violators!r}"
 
 
 def test_catalog_module_exposes_benchmark_storage_uri() -> None:

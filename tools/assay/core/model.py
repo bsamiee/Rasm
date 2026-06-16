@@ -10,7 +10,7 @@ from enum import StrEnum
 from pathlib import Path
 import re
 import shlex
-from typing import Annotated, Literal, Self
+from typing import Annotated, Final, Literal, Self
 from urllib.parse import unquote, urlparse
 
 from cyclopts import Parameter
@@ -232,6 +232,9 @@ _CS_DIAGNOSTIC = re.compile(
     r"(?P<severity>error|warning|info)\s+(?P<rule>[A-Z][A-Z0-9]*\d+):\s*(?P<message>.*?)(?:\s+\[(?P<project>[^\]]+)\])?$",
     re.IGNORECASE,
 )
+# Forward-slash-normalized, lowercased path fragments and suffix that mark generated/build-output rows as evidence-only.
+_GENERATED_MARKERS: Final[tuple[str, ...]] = ("/obj/", "/.artifacts/assay/")
+_GENERATED_SUFFIX: Final[str] = ".g.cs"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -1042,11 +1045,7 @@ _PAYLOAD_POLICIES: tuple[_PayloadPolicy, ...] = (
 
 def _generated(row: Match) -> bool:
     path = (row.path or row.text.split(": ", 1)[0]).replace("\\", "/").lower()
-    return "/obj/" in path or "/.artifacts/assay/" in path or path.endswith(".g.cs")
-
-
-def _diagnostic_body(row: Match) -> str:
-    return row.message or (row.text.split(": ", 1)[1] if ": " in row.text else row.text)
+    return any(marker in path for marker in _GENERATED_MARKERS) or path.endswith(_GENERATED_SUFFIX)
 
 
 def _dedupe(rows: tuple[Match, ...]) -> tuple[Match, ...]:
@@ -1064,7 +1063,8 @@ def _dedupe(rows: tuple[Match, ...]) -> tuple[Match, ...]:
 def _group_generated(rows: tuple[Match, ...]) -> tuple[Match, ...]:
     grouped: dict[tuple[str, str | None, str, str], int] = {}
     for row in rows:
-        key = (row.id, row.severity, row.project.replace("\\", "/").lower(), _diagnostic_body(row))
+        body = row.message or (row.text.split(": ", 1)[1] if ": " in row.text else row.text)
+        key = (row.id, row.severity, row.project.replace("\\", "/").lower(), body)
         grouped[key] = grouped.get(key, 0) + 1
     return tuple(
         Match(

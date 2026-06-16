@@ -195,13 +195,17 @@ def logged[**P, T: HasStatus](*, event: str, keys: Bind[P]) -> Layer[P, T]:
     """Return a logging layer for rail completion events.
 
     Faults at ``FAILED`` severity or above log at error level; lower-severity faults and successes log at info level.
+
+    A raised exception bypasses the ``Result`` rail entirely, so the wrapper emits a ``FAULTED`` finish event and
+    re-propagates; downstream ``_guard`` owns fault classification. Type checking: ``@wraps`` re-scopes the
+    ``Result[T]`` return under ty and mypy ``--strict`` even though the runtime shape is correct.
     """
 
     def dec(fn: Hom[P, T]) -> Hom[P, T]:
         @wraps(fn)
         def woven(*a: P.args, **k: P.kwargs) -> Result[T, Fault]:
             with bound_contextvars(**keys(*a, **k)):
-                try:  # raised faults bypass the Result rail; emit FAULTED finish then re-propagate (_guard owns classification)
+                try:
                     res = fn(*a, **k)
                 except BaseException:
                     _LOG.error(f"{event}.finish", status=RailStatus.FAULTED, exc_info=True)
@@ -216,7 +220,7 @@ def logged[**P, T: HasStatus](*, event: str, keys: Bind[P]) -> Layer[P, T]:
                                 _LOG.error(finish, status=f.status, message=f.message, argv=f.argv)
                             case False:
                                 _LOG.info(finish, status=f.status, message=f.message, argv=f.argv)
-                return res  # @wraps re-scopes Result[T] under ty and mypy --strict; runtime shape is correct
+                return res
 
         return woven
 
@@ -281,7 +285,7 @@ def traced[**P, T: HasStatus](*, span: str, attrs: Callable[P, Attrs], agent: Ca
     return (Slot.traced, dec)
 
 
-# --- [EXPORTS] --------------------------------------------------------------------------
+# --- [EXPORTS] -------------------------------------------------------------------------
 
 __all__ = [
     "Attrs",

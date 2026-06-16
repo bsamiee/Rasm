@@ -120,6 +120,39 @@ public static class ShapeOps {
 }
 ```
 
+[VALUE_TRAIT_AXES]:
+- Law: LanguageExt value traits are the algebraic axis layer over generated admission — `Amount<TSelf,TScalar>` owns ordered scalable-quantity arithmetic, `VectorSpace<TSelf,TScalar>` its orderless linear fragment, and `Locus<TPos,TDist,TScalar>` affine position algebra whose `TPos - TPos` resolves to the `TDist` owner.
+- Law: position safety is structural, not guarded — the `Locus` owner denies the homogeneous operator grants and the implicit key egress (`OperatorsGeneration.None`, explicit `ConversionToKeyMemberType`), so position-plus-position finds no operator and cannot fold to the scalar key, leaving the category error a compile failure.
+- Law: an algorithm binds the weakest axis it consumes — a `VectorSpace` routine rejects a `Locus` position at the constraint, ordered and affine reach are the cost of widening to `Amount` and `Locus`, and the unconsumed axis stays unreachable from the signature.
+- Boundary: the axes ride generated admission — `Validate` stays the sole factory and the `DomainType<TSelf,TRepr>` egress fork projects the representation without opening a second construction path.
+
+```csharp conceptual
+[ValueObject<double>(
+    MultiplyOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
+    DivisionOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
+public readonly partial struct Offset : Amount<Offset, double> {
+    public static Offset operator -(Offset value) => Create(-(double)value);
+}
+
+[ValueObject<double>(
+    AdditionOperators = OperatorsGeneration.None,
+    SubtractionOperators = OperatorsGeneration.None,
+    MultiplyOperators = OperatorsGeneration.None,
+    DivisionOperators = OperatorsGeneration.None,
+    ConversionToKeyMemberType = ConversionOperatorsGeneration.Explicit)]
+public readonly partial struct Station : Locus<Station, Offset, double> {
+    public static Offset operator -(Station head, Station tail) => Offset.Create((double)head - (double)tail);
+    public static Station operator +(Station origin, Offset delta) => Create((double)origin + (double)delta);
+    public static Station operator -(Station value) => Create(-(double)value);
+    public static Station AdditiveIdentity => Create(0d);
+}
+
+public static class AxisAlgebra {
+    public static T Lerp<T>(T from, T to, double t) where T : VectorSpace<T, double> => from + (to - from) * t;
+    public static Station Midpoint(Station lo, Station hi) => lo + (hi - lo) / 2d;
+}
+```
+
 [ABSENCE_AND_DEFAULT]:
 - Law: null-yield modes turn blank input into success-with-null; only `EmptyStringInFactoryMethodsYieldsNull` removes `NotNullWhen`, so bridges audit generated attributes and project `Option<T>`.
 - Law: struct owners reject `default`, but arrays, unconstrained generic `default`, and field zero-init still mint ghosts; one outer storage seam reads the key member and rejects them.

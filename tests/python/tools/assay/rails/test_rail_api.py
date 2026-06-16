@@ -35,7 +35,7 @@ from tools.assay.core.model import (
 )
 from tools.assay.core.status import RailStatus
 from tools.assay.rails import api as api_rail
-from tools.assay.rails.api import ApiParams, doctor, query, resolve, shape_of, show
+from tools.assay.rails.api import ApiParams, query, resolve, shape_of, show, status
 from tools.assay.rails.code import ts_language  # shared tree-sitter primitive owned by code.py, re-bound in api.py
 
 
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from tools.assay.composition.settings import ArtifactScope, AssaySettings
     from tools.assay.core.model import Report
 
-    type Verb = Callable[[AssaySettings, ArtifactScope, ApiParams], Result[Report, Fault]]  # query/resolve/show/doctor share this shape
+    type Verb = Callable[[AssaySettings, ArtifactScope, ApiParams], Result[Report, Fault]]  # query/resolve/show/status share this shape
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -247,9 +247,9 @@ register_law(ApiParams, "api_params_bound_surplus")
 
 
 def test_api_params_bound_unknown_verb_passthrough() -> None:
-    """ApiParams.bound for a verb with no positional slots (e.g. doctor) returns self unchanged."""
+    """ApiParams.bound for a verb with no positional slots (e.g. status) returns self unchanged."""
     p = ApiParams()
-    assert p.bound("doctor") is p  # doctor arity 0, no paths → fall-through case _
+    assert p.bound("status") is p  # status arity 0, no paths → fall-through case _
 
 
 register_law(ApiParams, "api_params_bound_passthrough")
@@ -269,38 +269,38 @@ def test_api_params_field_identity(p: ApiParams) -> None:
     assert replace(p, key=p.key) == p
 
 
-# --- [DOCTOR]
+# --- [STATUS]
 
 
-def test_doctor_returns_ok_report(assay_root: AssayHarness) -> None:
-    """Doctor always returns an Ok Result in the absence of Rhino bundles."""
-    r = assert_ok(_run(doctor, assay_root))
-    assert r.verb == "doctor"
+def test_status_returns_ok_report(assay_root: AssayHarness) -> None:
+    """Status always returns an Ok Result in the absence of Rhino bundles."""
+    r = assert_ok(_run(status, assay_root))
+    assert r.verb == "status"
     assert r.counts.total == IsInt(ge=1)
 
 
-register_law(doctor, "doctor_returns_ok_report")
+register_law(status, "status_returns_ok_report")
 
 
-def _doctor_lines(assay_root: AssayHarness, sources: tuple[str, ...]) -> int:
-    detail = assert_ok(_run(doctor, assay_root, sources=sources)).detail
+def _status_lines(assay_root: AssayHarness, sources: tuple[str, ...]) -> int:
+    detail = assert_ok(_run(status, assay_root, sources=sources)).detail
     return detail.lines if isinstance(detail, ApiSurface) else -1
 
 
 @pytest.mark.parametrize("prefix", ["rhino-", "eto", "ilspy", "python-dists", "ts-decls"], ids=["rhino", "eto", "ilspy", "py-dists", "ts-decls"])
-def test_doctor_sources_prefix_filters(assay_root: AssayHarness, prefix: str) -> None:
-    """Doctor with a sources prefix reduces the inventory monotonically (filtered lines <= unfiltered)."""
-    lines_all = _doctor_lines(assay_root, ())
-    lines_flt = _doctor_lines(assay_root, (prefix,))
+def test_status_sources_prefix_filters(assay_root: AssayHarness, prefix: str) -> None:
+    """Status with a sources prefix reduces the inventory monotonically (filtered lines <= unfiltered)."""
+    lines_all = _status_lines(assay_root, ())
+    lines_flt = _status_lines(assay_root, (prefix,))
     assert lines_flt == IsInt(ge=0)
     assert lines_flt <= lines_all, f"prefix {prefix!r}: {lines_flt} > {lines_all}"
 
 
-def test_doctor_sources_validity_matrix(assay_root: AssayHarness) -> None:
-    """Doctor source filtering preserves all >= matching >= non-matching == 0."""
-    lines_all = _doctor_lines(assay_root, ())
-    lines_rhino = _doctor_lines(assay_root, ("rhino-",))
-    lines_none = _doctor_lines(assay_root, ("xyz-no-match-xyzzy-",))
+def test_status_sources_validity_matrix(assay_root: AssayHarness) -> None:
+    """Status source filtering preserves all >= matching >= non-matching == 0."""
+    lines_all = _status_lines(assay_root, ())
+    lines_rhino = _status_lines(assay_root, ("rhino-",))
+    lines_none = _status_lines(assay_root, ("xyz-no-match-xyzzy-",))
     validity_matrix(
         [
             ValidityCase("all>=rhino", lines_all, lines_all >= lines_rhino),
@@ -314,15 +314,15 @@ def test_doctor_sources_validity_matrix(assay_root: AssayHarness) -> None:
     refutes([ValidityCase("contradiction", lines_none, expected=True)], validity_matrix, lambda v: v > 0)  # 0 > 0 is False ≠ True
 
 
-register_law(doctor, "doctor_sources_prefix_monotone")
-register_law(doctor, "doctor_nomatch_prefix_zero")
-register_law(doctor, "doctor_sources_validity_matrix")
+register_law(status, "status_sources_prefix_monotone")
+register_law(status, "status_nomatch_prefix_zero")
+register_law(status, "status_sources_validity_matrix")
 
 
-def test_doctor_strict_promotes_fault_when_not_all_ok(assay_root: AssayHarness) -> None:
-    """Doctor strict=True promotes an incomplete inventory to a FAULTED error rail."""
-    result = _run(doctor, assay_root, strict=True)
-    # In a minimal tmp-tree without Rhino bundles, doctor status is EMPTY → strict faults.
+def test_status_strict_promotes_fault_when_not_all_ok(assay_root: AssayHarness) -> None:
+    """Status strict=True promotes an incomplete inventory to a FAULTED error rail."""
+    result = _run(status, assay_root, strict=True)
+    # In a minimal tmp-tree without Rhino bundles, status is EMPTY → strict faults.
     match result.tag:
         case "error":
             assert assert_error(result).status is RailStatus.FAULTED
@@ -330,16 +330,16 @@ def test_doctor_strict_promotes_fault_when_not_all_ok(assay_root: AssayHarness) 
             assert result.ok.status is RailStatus.OK  # unexpectedly fully-OK environment → strict passes through
 
 
-register_law(doctor, "doctor_strict_promotes_fault")
+register_law(status, "status_strict_promotes_fault")
 
 
-def test_doctor_inventory_includes_nuget_and_polyglot_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Doctor folds NuGet and polyglot rows into one inventory report."""
+def test_status_inventory_includes_nuget_and_polyglot_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Status folds NuGet and polyglot rows into one inventory report."""
     _nuget_fixture(assay_root)
     # Pin the version probe so the ilspycmd row reports a concrete version instead of 'unavailable'.
     monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.receipt(("ilspycmd",), 0, stdout=b"ilspycmd: 9.1.0.7988\n"))
 
-    r = assert_ok(_run(doctor, assay_root))
+    r = assert_ok(_run(status, assay_root))
     detail = r.detail
     assert isinstance(detail, ApiSurface)
     assert "ilspycmd" in detail.preview  # canned version row surfaced
@@ -348,22 +348,22 @@ def test_doctor_inventory_includes_nuget_and_polyglot_rows(assay_root: AssayHarn
     assert detail.lines == IsInt(ge=3)  # rhino-app + ilspycmd + at least the NuGet package
 
 
-register_law(doctor, "doctor_inventory_population")
+register_law(status, "status_inventory_population")
 
 
-def test_doctor_inventory_artifacts_live_under_retained_api_claim_root(assay_root: AssayHarness) -> None:
-    """Doctor inventory artifacts live under the API claim root so retain_scopes(Claim.API) owns them."""
-    r = assert_ok(_run(doctor, assay_root, sources=("ilspy",)))
+def test_status_inventory_artifacts_live_under_retained_api_claim_root(assay_root: AssayHarness) -> None:
+    """Status inventory artifacts live under the API claim root so retain_scopes(Claim.API) owns them."""
+    r = assert_ok(_run(status, assay_root, sources=("ilspy",)))
     store = assay_root.settings.store()
     run_id = assay_root.settings.run_id
-    expected = (store.path(Claim.API.value, run_id, "doctor-inventory.json"),)
+    expected = (store.path(Claim.API.value, run_id, "status-inventory.json"),)
     assert tuple(a.path for a in r.artifacts) == expected
     assert all(a.kind is ArtifactKind.SCOPE for a in r.artifacts)
-    assert store.exists(Claim.API.value, run_id, "doctor-inventory.json")
-    assert not store.exists(ArtifactKind.SCOPE.value, Claim.API.value, run_id, "doctor-inventory.json")
+    assert store.exists(Claim.API.value, run_id, "status-inventory.json")
+    assert not store.exists(ArtifactKind.SCOPE.value, Claim.API.value, run_id, "status-inventory.json")
 
 
-register_law(doctor, "doctor_inventory_artifacts_retained_api_claim_root")
+register_law(status, "status_inventory_artifacts_retained_api_claim_root")
 
 
 def test_inventory_sources_keep_full_rows_without_pydist_file_expansion(assay_root: AssayHarness) -> None:
@@ -374,40 +374,40 @@ def test_inventory_sources_keep_full_rows_without_pydist_file_expansion(assay_ro
     nuget = next(row for row in sources if row.source_id == "Pkg.Core")
     pydist = next(row for row in sources if row.source_kind is SourceKind.PYDIST and row.source_id != "python-dists")
     assert {"rhino-app", "ilspycmd", "rhino-code-remote", "python-dists", "ts-decls"} <= by_id
-    assert nuget.assets == ()  # doctor inventory skips NuGet asset expansion (include_assets=False)
+    assert nuget.assets == ()  # status inventory skips NuGet asset expansion (include_assets=False)
     assert pydist.package_root  # pydist row keeps its root...
     assert pydist.assets == ()  # ...but not its per-file asset list
 
 
-register_law(doctor, "inventory_sources_full_rows")
+register_law(status, "inventory_sources_full_rows")
 
 
-def test_doctor_result_ids_are_identity_shaped(assay_root: AssayHarness) -> None:
-    """Doctor inventory result ids stay stable across repeated runs."""
-    first = assert_ok(_run(doctor, assay_root))
-    second = assert_ok(_run(doctor, assay_root))
+def test_status_result_ids_are_identity_shaped(assay_root: AssayHarness) -> None:
+    """Status inventory result ids stay stable across repeated runs."""
+    first = assert_ok(_run(status, assay_root))
+    second = assert_ok(_run(status, assay_root))
     assert first.results
     assert all(m.id.startswith("inventory:") for m in first.results)
     assert tuple(m.id for m in first.results) == tuple(m.id for m in second.results)
 
 
-register_law(doctor, "doctor_result_ids_identity_shaped")
+register_law(status, "status_result_ids_identity_shaped")
 
 
-_DOCTOR_ROW = re.compile(r"^\S+ status=\S+ assembly=(?:present|missing) xml=(?:present|missing) version=\S+$")
+_STATUS_ROW = re.compile(r"^\S+ status=\S+ assembly=(?:present|missing) xml=(?:present|missing) version=\S+$")
 
 
-def test_doctor_row_text_is_stable_key_value_grammar(assay_root: AssayHarness) -> None:
-    """Doctor row text keeps the fixed key=value health grammar."""
-    report = assert_ok(_run(doctor, assay_root))
+def test_status_row_text_is_stable_key_value_grammar(assay_root: AssayHarness) -> None:
+    """Status row text keeps the fixed key=value health grammar."""
+    report = assert_ok(_run(status, assay_root))
     assert report.results
     for match in report.results:
-        assert _DOCTOR_ROW.fullmatch(match.text), f"doctor row text broke the key=value grammar: {match.text!r}"
+        assert _STATUS_ROW.fullmatch(match.text), f"status row text broke the key=value grammar: {match.text!r}"
         keys = tuple(token.split("=", 1)[0] for token in match.text.split(" ")[1:])
-        assert keys == ("status", "assembly", "xml", "version"), f"doctor row key order drifted: {match.text!r}"
+        assert keys == ("status", "assembly", "xml", "version"), f"status row key order drifted: {match.text!r}"
 
 
-register_law(doctor, "doctor_row_text_is_stable_key_value_grammar")
+register_law(status, "status_row_text_is_stable_key_value_grammar")
 
 # --- [RESOLVE]
 
@@ -579,7 +579,7 @@ register_law(show, "show_latest_api_scope_preference")
 def test_show_latest_prefers_api_claim_root_before_api_scope_cache(assay_root: AssayHarness) -> None:
     """Show latest selects retained API-claim evidence before reusable API scope cache artifacts."""
     store = assay_root.settings.store()
-    api_path = store.write_text("api claim artifact\n", Claim.API.value, "run-a", "doctor-inventory.json")
+    api_path = store.write_text("api claim artifact\n", Claim.API.value, "run-a", "status-inventory.json")
     store.write_text("api scope cache artifact\n", "scope", "api", "pkg", "surface.txt")
     store.write_text("newer generic artifact\n", "scope", "zzz", "surface.txt")
 

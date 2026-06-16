@@ -7,7 +7,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { playwright } from '@vitest/browser-playwright';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type ViteUserConfig } from 'vitest/config';
 
 // --- [TYPES] -----------------------------------------------------------------
 
@@ -104,7 +104,7 @@ const _CONFIG = {
 
 // --- [EXPORTS] ---------------------------------------------------------------
 
-export default defineConfig({
+const config: ViteUserConfig = defineConfig({
     cacheDir: _CONFIG.cacheDir,
     optimizeDeps: { include: [..._CONFIG.optimizeDeps] },
     test: {
@@ -201,3 +201,5 @@ export default defineConfig({
         unstubGlobals: true,
     },
 });
+
+export default config;

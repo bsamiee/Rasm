@@ -30,13 +30,11 @@ from tools.assay.rails.package import (
     _resolve_package_file,
     _safe_package_pattern,
     _stamp_version,
-    deploy,
     evaluate_meta,
     list,  # noqa: A004
     PackageParams,
     plan,
     publish,
-    stage,
     YakMeta,
 )
 
@@ -85,7 +83,7 @@ _VALIDATE_FAILURE_CASES: tuple[tuple[str, str | None, _MetaMutator | None, str],
 
 _NON_OK_STATUSES: tuple[RailStatus, ...] = (RailStatus.FAILED, RailStatus.FAULTED, RailStatus.TIMEOUT, RailStatus.BUSY)
 
-_VERBS: tuple[tuple[_VerbFn, str], ...] = ((stage, "stage"), (deploy, "deploy"), (publish, "publish"))
+_VERBS: tuple[tuple[_VerbFn, str], ...] = ((publish, "publish"),)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -112,9 +110,9 @@ def test_packageparams_roundtrip(p: PackageParams) -> None:
 
 def test_package_arity_is_zero() -> None:
     """PackageParams._arity is zero for every verb; positional tokens are surplus."""
-    assert PackageParams()._arity("stage") == 0
     assert PackageParams()._arity("publish") == 0
-    surplus = PackageParams(paths=("extra",)).bound("stage")
+    assert PackageParams()._arity("plan") == 0
+    surplus = PackageParams(paths=("extra",)).bound("publish")
     assert isinstance(surplus, Fault)
     assert "unexpected positional" in surplus.message
 
@@ -333,11 +331,7 @@ def test_list_ignores_non_yak_csproj(assay_root: AssayHarness) -> None:
 
 # --- [STAGE_DEPLOY_PUBLISH]
 
-register_law(stage, "slug_lease_acquired")
-register_law(deploy, "slug_lease_acquired")
 register_law(publish, "slug_lease_acquired")
-register_law(stage, "fault_propagation")
-register_law(deploy, "fault_propagation")
 register_law(publish, "fault_propagation")
 
 
@@ -345,7 +339,7 @@ register_law(publish, "fault_propagation")
 def test_verbs_acquire_slug_lease(
     verb_fn: _VerbFn, verb_name: str, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """stage/deploy/publish all wrap the pipeline under a package-<slug> slug-level lease."""
+    """publish wraps the pipeline under a package-<slug> slug-level lease."""
     meta = yak_shape.materialize(assay_root)
     staged_report = fold(Claim.PACKAGE, verb_name, ())
     leased_resources = []
@@ -366,7 +360,7 @@ def test_verbs_acquire_slug_lease(
 
 @pytest.mark.parametrize("verb_fn, verb_name", _VERBS)
 def test_verbs_propagate_slug_resolution_fault(verb_fn: _VerbFn, verb_name: str, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """stage/deploy/publish propagate the Fault when slug resolution fails."""
+    """publish propagates the Fault when slug resolution fails."""
     slug_fault = Fault(("package", "missing"), message="expected one package project for missing, found 0")
     monkeypatch.setattr(_pkg_mod, "_resolve_project", lambda *_a, **_kw: Error(slug_fault))
     assert_error_status(
@@ -420,11 +414,11 @@ def _flow_run_check(
     return fake
 
 
-register_law(stage, "full_flow_commits_distribution")
-register_law(deploy, "full_flow_runs_install_step")
-register_law(publish, "full_flow_runs_install_and_push_steps")
-register_law(stage, "build_failure_short_circuits_before_yak")
-register_law(stage, "yak_stage_failure_short_circuits_before_commit")
+register_law(publish, "full_flow_commits_distribution")
+register_law(publish, "non_bridge_slug_runs_install_and_push_without_bridge")
+register_law(publish, "bridge_slug_cycles_host_with_install_and_push")
+register_law(publish, "build_failure_short_circuits_before_yak")
+register_law(publish, "yak_stage_failure_short_circuits_before_commit")
 
 
 def _install_flow(
@@ -447,56 +441,52 @@ def _install_flow(
     return verb_fn(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="9.9.9")), calls
 
 
-def test_stage_full_flow_commits_distribution(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stage commits the distribution and records project/version detail."""
-    result, bridge_calls = _install_flow(stage, assay_root, yak_shape, monkeypatch)
-    report = assert_ok(result)
-    assert report.status is RailStatus.OK
-    assert isinstance(report.detail, PackageRun)
-    assert report.detail.version == "9.9.9"
-    assert report.detail.project == yak_shape.project.as_posix()
-    assert (assay_root.root / yak_shape.project.parent / "yak" / yak_shape.package_pattern).is_file()
-    assert bridge_calls == []
-
-
-def test_deploy_full_flow_runs_install_step(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Deploy folds an install step (yak install) for a non-bridge slug — no bridge client call."""
+def test_publish_non_bridge_slug_runs_install_and_push(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Publish commits the distribution and folds install + push for a non-bridge slug — no bridge client call."""
     from tests.python.tools.assay.kit import YakShape  # noqa: PLC0415
 
     non_bridge = YakShape(slug="other-pkg", project=Path("apps/widget/widget.csproj"), assembly_name="Widget")
-    result, bridge_calls = _install_flow(deploy, assay_root, non_bridge, monkeypatch)
+    result, bridge_calls = _install_flow(publish, assay_root, non_bridge, monkeypatch)
     report = assert_ok(result)
     assert report.status is RailStatus.OK
-    assert report.verb == "deploy"
+    assert report.verb == "publish"
+    assert isinstance(report.detail, PackageRun)
+    assert report.detail.version == "9.9.9"
+    assert report.detail.project == non_bridge.project.as_posix()
+    assert (assay_root.root / non_bridge.project.parent / "yak" / non_bridge.package_pattern).is_file()
     assert bridge_calls == []
-    assert report.counts.ok >= 2
+    assert report.counts.ok >= 3  # stage + install + push
 
 
-def test_publish_full_flow_runs_install_and_push_steps(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Publish folds install + push steps onto the stage report; merged counts include post-stage rows."""
-    result, _ = _install_flow(publish, assay_root, yak_shape, monkeypatch)
+def test_publish_bridge_slug_cycles_host_with_install_and_push(
+    assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Publish for the rasm-bridge slug folds quit/install/status-refresh/push; the bridge verbs ride the live host."""
+    result, bridge_calls = _install_flow(publish, assay_root, yak_shape, monkeypatch)
     report = assert_ok(result)
     assert report.status is RailStatus.OK
     assert report.verb == "publish"
     assert report.counts.total >= 3
     assert report.counts.ok >= 3
+    # Bridge slug cycles the live host: quit before install, status refresh after.
+    assert bridge_calls == ["quit", "status"]
 
 
 @pytest.mark.parametrize("build_status, stage_status", [(RailStatus.FAILED, RailStatus.OK), (RailStatus.OK, RailStatus.FAILED)])
-def test_stage_step_failure_short_circuits(
+def test_publish_stage_step_failure_short_circuits(
     build_status: RailStatus, stage_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Failed build or yak build folds into the report without committing."""
+    """Failed build or yak build folds into the report without committing or running post-stage steps."""
     meta = yak_shape.materialize(assay_root)
     monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta, build_status=build_status, stage_status=stage_status))
-    report = assert_ok(stage(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
+    report = assert_ok(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
     assert report.status is RailStatus.FAILED
     assert not (assay_root.root / yak_shape.project.parent / "yak").exists()
 
 
 # --- [POST_STAGE_POLICY]
 
-register_law(_finish, "stage_verb_short_circuits_policy")
+register_law(_finish, "empty_policy_returns_staged_verbatim")
 register_law(_finish, "non_ok_stage_skips_steps")
 register_law(_drive_steps, "bridge_steps_acquire_bridge_lock")
 register_law(_resolve_package_file, "ambiguous_glob_faults")
@@ -506,37 +496,37 @@ register_law(_commit_or_fail, "non_ok_done_folds_without_commit")
 register_law(_read_bytes, "absent_file_is_empty_oserror_is_fault")
 
 
-def test_finish_stage_verb_returns_staged_unchanged(assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """_finish with verb='stage' returns the staged report verbatim, never resolving a package file."""
+def test_finish_empty_policy_returns_staged_unchanged(assay_root: AssayHarness, yak_shape: YakShape) -> None:
+    """_finish with a verb carrying no policy row returns the staged report verbatim, never resolving a package file."""
     meta = yak_shape.materialize(assay_root)
-    staged = fold(Claim.PACKAGE, "stage", (receipt(("yak", "build"), 0, status=RailStatus.OK),))
-    assert assert_ok(_finish(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta, yak_shape.slug, "stage", staged)) is staged
+    staged = fold(Claim.PACKAGE, "plan", (receipt(("yak", "build"), 0, status=RailStatus.OK),))
+    assert assert_ok(_finish(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta, yak_shape.slug, "plan", staged)) is staged
 
 
 @pytest.mark.parametrize("bad_status", _NON_OK_STATUSES)
 def test_finish_non_ok_stage_skips_post_steps(
     bad_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """_finish skips deploy/publish steps after non-OK stage status."""
+    """_finish skips publish post-stage steps after a non-OK stage status."""
     meta = yak_shape.materialize(assay_root)
-    staged = msgspec.structs.replace(fold(Claim.PACKAGE, "deploy", ()), status=bad_status)
+    staged = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", ()), status=bad_status)
     monkeypatch.setattr(_pkg_mod, "_resolve_package_file", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("must not run")))
-    assert assert_ok(_finish(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta, yak_shape.slug, "deploy", staged)).status is bad_status
+    assert assert_ok(_finish(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta, yak_shape.slug, "publish", staged)).status is bad_status
 
 
 def test_drive_steps_bridge_policy_acquires_bridge_lock(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bridge deploy steps serialize on the shared bridge lease."""
+    """Bridge publish steps serialize on the shared bridge lease."""
     meta = yak_shape.materialize(assay_root)
     monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
     monkeypatch.setattr(_pkg_mod, "client_run", lambda *_a, **_kw: Ok(receipt(("rasm-bridge",), 0, status=RailStatus.OK)))
-    staged = fold(Claim.PACKAGE, "deploy", (receipt(("yak", "build"), 0, status=RailStatus.OK),))
-    steps = _pkg_mod._STEP_POLICY["deploy", True]
+    staged = fold(Claim.PACKAGE, "publish", (receipt(("yak", "build"), 0, status=RailStatus.OK),))
+    steps = _pkg_mod._STEP_POLICY["publish", True]
     package_file = assay_root.write(yak_shape.project.parent / "yak" / yak_shape.package_pattern, "yak")
     scope = assay_root.scope(Claim.PACKAGE)
     with exclusive_lease("bridge", "holder", settings=assay_root.settings) as held:
         assert_ok(held)
-        assert_error_status(_drive_steps(assay_root.settings, scope, meta, "deploy", staged, package_file, steps), RailStatus.BUSY)
-    assert_ok(_drive_steps(assay_root.settings, scope, meta, "deploy", staged, package_file, steps))
+        assert_error_status(_drive_steps(assay_root.settings, scope, meta, "publish", staged, package_file, steps), RailStatus.BUSY)
+    assert_ok(_drive_steps(assay_root.settings, scope, meta, "publish", staged, package_file, steps))
 
 
 def test_resolve_package_file_ambiguous_glob_faults(assay_root: AssayHarness, yak_shape: YakShape) -> None:
@@ -549,8 +539,8 @@ def test_resolve_package_file_ambiguous_glob_faults(assay_root: AssayHarness, ya
 
 def test_merge_stage_combines_evidence() -> None:
     """_merge_stage sums counts and concatenates results/artifacts/notes, joining the worst status."""
-    staged = msgspec.structs.replace(fold(Claim.PACKAGE, "deploy", (receipt(("yak", "build"), 0, status=RailStatus.OK),)), notes=("staged-note",))
-    steps = msgspec.structs.replace(fold(Claim.PACKAGE, "deploy", (receipt(("yak", "install"), 1, status=RailStatus.FAILED),)), notes=("step-note",))
+    staged = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", (receipt(("yak", "build"), 0, status=RailStatus.OK),)), notes=("staged-note",))
+    steps = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", (receipt(("yak", "install"), 1, status=RailStatus.FAILED),)), notes=("step-note",))
     merged = _merge_stage(staged, steps)
     assert merged.counts.total == staged.counts.total + steps.counts.total
     assert merged.counts.ok == staged.counts.ok + steps.counts.ok
@@ -599,7 +589,7 @@ register_law(_pkg_mod._yak_tool, "no_catalog_row_faults")
 register_law(_pkg_mod._stage_artifacts, "missing_manifest_or_primary_faults")
 register_law(_pkg_mod._copy_tree, "copy_oserror_faults")
 register_law(_pkg_mod._commit, "swap_oserror_rolls_back")
-register_law(stage, "build_outputs_fault_cleans_staged_tree")
+register_law(publish, "build_outputs_fault_cleans_staged_tree")
 
 
 def test_yak_tool_no_catalog_row_faults(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -645,7 +635,7 @@ def test_stage_build_outputs_fault_cleans_staged_tree(assay_root: AssayHarness, 
     parents_before = {p.name for p in (assay_root.root / yak_shape.project.parent).iterdir()}
     spawn_fault = Fault(("dotnet", "build"), message="spawn failed: ENOENT")
     monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta, build_fault=spawn_fault))
-    e = assert_error(stage(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
+    e = assert_error(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
     assert "spawn failed" in e.message
     parents_after = {p.name for p in (assay_root.root / yak_shape.project.parent).iterdir()}
     assert parents_after == parents_before, f"leaked staged tree: {parents_after - parents_before}"
@@ -660,7 +650,7 @@ register_law(_pkg_mod._recover, "live_pid_marker_is_busy")
 register_law(_pkg_mod._recover, "liveness_delegates_to_engine_proc_dead")
 register_law(_pkg_mod._recover, "corrupt_marker_clears")
 register_law(_pkg_mod._commit, "success_clears_pending_marker")
-register_law(stage, "stage_heals_dead_pid_marker_under_lease")
+register_law(publish, "stage_heals_dead_pid_marker_under_lease")
 
 
 def _marker_path(meta: YakMeta) -> Path:
@@ -756,12 +746,13 @@ def test_commit_success_clears_pending_marker(assay_root: AssayHarness, yak_shap
 
 
 def test_stage_heals_dead_pid_marker_under_lease(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stage heals dead-pid markers inside the package lease."""
+    """Publish heals dead-pid stage markers inside the package lease before committing the distribution."""
     meta = yak_shape.materialize(assay_root)
     previous = _seed_previous(meta)
     marker = _seed_marker(meta, _DEAD_PID, previous)
     monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
-    report = assert_ok(stage(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
+    monkeypatch.setattr(_pkg_mod, "client_run", lambda *_a, **_kw: Ok(receipt(("rasm-bridge",), 0, status=RailStatus.OK)))
+    report = assert_ok(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
     assert report.status is RailStatus.OK
     assert not marker.exists()
     assert not previous.exists()

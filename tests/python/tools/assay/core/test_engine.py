@@ -24,6 +24,7 @@ from typing import override, TYPE_CHECKING, TypedDict
 import anyio
 from dirty_equals import Contains, IsInt, IsPartialDict, IsPositiveFloat
 from expression import Error, Ok
+import fsspec
 from hypothesis import given, HealthCheck, settings as hyp_settings, strategies as st, target
 from hypothesis.stateful import Bundle, consumes, invariant, rule, RuleBasedStateMachine
 import msgspec
@@ -49,7 +50,7 @@ from tests.python._testkit.spec import (
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
 from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness, fault_st  # noqa: TC001
-from tools.assay.composition.settings import AssaySettings
+from tools.assay.composition.settings import AssaySettings, PullStrategy
 from tools.assay.core.aspect import _RING  # ring seam seeded directly for ring-content assertions
 import tools.assay.core.engine as engine_mod
 from tools.assay.core.engine import (
@@ -83,6 +84,7 @@ if TYPE_CHECKING:
 
     import asyncssh
     from expression import Result
+    from fsspec.spec import AbstractFileSystem
 
     from tests.python._testkit.env import Provisioned
     from tools.assay.composition.settings import ArtifactScope
@@ -179,6 +181,11 @@ _LAWS: tuple[tuple[object, str], ...] = (
     (engine_mod._run_remote, "remote_transfer_keeps_exec_cancellable_under_deadline"),
     (engine_mod._sftp_pull_scope, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
     (engine_mod._push_repo, "remote_transfer_pushes_manifest_then_pulls_scope_tree"),
+    (engine_mod._push_repo, "push_repo_pipelines_nested_tree_preserving_structure"),
+    (engine_mod._grouped_by_parent, "push_repo_pipelines_nested_tree_preserving_structure"),
+    (engine_mod._stale_remote_runs, "stale_remote_runs_keeps_newest_per_host_namespace"),
+    (engine_mod._remote_prune, "remote_prune_sweeps_only_this_hosts_stale_run_dirs"),
+    (engine_mod._sweep_remote_runs, "remote_prune_sweeps_only_this_hosts_stale_run_dirs"),
     (engine_mod._probe_toolchain, "probe_toolchain_faults_unsupported_on_missing_remote_tool"),
     (engine_mod._fold_receipt, "fold_receipt_projects_exec_facts_onto_completed"),
     (discover, "discover_runs_at_root_and_pins_fault_evidence"),
@@ -1672,6 +1679,248 @@ async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(  # noqa: P
 
 
 @pytest.mark.anyio
+async def test_push_repo_pipelines_nested_tree_preserving_structure(assay_root: AssayHarness, tmp_path: Path) -> None:
+    """``_push_repo`` pipelines per-directory puts concurrently yet lands the exact ``git ls-files`` tree, no flattening.
+
+    A deep manifest with many single-file directories (the ``.claude/skills``/``docs`` shape) stresses the concurrent
+    push: the same file set must land at ``<abs-workroot>/<run_id>/<relpath>`` with the relative tree intact and no
+    literal ``~`` anywhere. The chrooted loopback SFTP server is the remote; success is byte-for-byte path-and-content parity.
+    """
+    from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # real sftp loopback for the concurrent put/makedirs
+    from tools.assay.composition.settings import AssaySettings  # noqa: PLC0415  # runtime settings construction
+    from tools.assay.core.engine import _ExecPlan  # noqa: PLC0415  # plan carries the resolved absolute workroot the push lands under
+
+    remote = AssaySettings.model_validate({
+        "root": UPath(assay_root.root),
+        "exec_target": "ssh://x@127.0.0.1",
+        "exec_known_hosts": None,
+        "exec_workroot": "/work",
+    })
+    run_id = remote.run_id
+    # Many single-file directories plus repeated basenames across dirs: a flat-basename push would collide/flatten these.
+    manifest = {
+        "Workspace.slnx": b"slnx\n",
+        "a.txt": b"root-a\n",
+        ".claude/skills/one/SKILL.md": b"one\n",
+        ".claude/skills/two/SKILL.md": b"two\n",
+        ".claude/skills/three/SKILL.md": b"three\n",
+        "docs/x/index.md": b"x\n",
+        "docs/y/index.md": b"y\n",
+        "docs/y/deep/leaf.md": b"leaf\n",
+    }
+    await _git_seed(Path(str(remote.local_root)), manifest)
+    remote_cwd = remote.exec_target.remote_workroot(run_id) if isinstance(remote.exec_target, engine_mod.Ssh) else ""
+    assert "~" not in remote_cwd, f"workroot must be absolute, not a literal tilde: {remote_cwd!r}"
+
+    conn = await provision(SshHost(sftp_root=tmp_path)).client_factory()
+    plan = _ExecPlan(
+        argv=("echo",),
+        check=Check(tool=_stream_tool("push-shape-law", ("/bin/echo", "x"))),
+        cwd=remote_cwd,
+        env={},
+        settings=remote,
+        scope=None,
+        streaming=False,
+        tail_cap=4096,
+        chunk=65536,
+        thread_limiter=None,
+    )
+    try:
+        pushed, notes = await engine_mod._push_repo(conn, plan, tuple(sorted(manifest)))
+        run_dir = tmp_path / "work" / run_id
+        landed = {
+            rel: (run_dir / rel).read_bytes()
+            for p in run_dir.rglob("*")
+            if p.is_file()
+            for rel in (str(p.relative_to(run_dir)).replace("\\", "/"),)
+        }
+    finally:
+        conn.close()
+        await conn.wait_closed()
+
+    assert notes == (), f"a clean concurrent push must add no failure note: {notes!r}"
+    assert pushed == len(manifest), f"push count != manifest size: {pushed} != {len(manifest)}"
+    assert landed == manifest, f"concurrent push flattened or dropped the nested tree: {set(landed)} != {set(manifest)}"
+
+
+def test_stale_remote_runs_keeps_newest_per_host_namespace() -> None:
+    """``_stale_remote_runs`` prunes only this host's surplus run dirs, oldest-first, never another host's namespace.
+
+    The run-id host token partitions a shared workroot: rows for a foreign token are inert regardless of age, and within
+    this host the oldest ``len-keep`` dirs by ``(mtime, run_id)`` are returned. ``keep >= own`` selects nothing.
+    """
+    from tools.assay.composition.settings import run_id_host_token  # noqa: PLC0415  # token owner under test for the namespace filter
+
+    mine, theirs = "aaaaaaaa", "bbbbbbbb"
+    rows = (
+        (f"2026-01-01T00-00-00.0-{mine}-100", 100.0),
+        (f"2026-01-02T00-00-00.0-{mine}-101", 200.0),
+        (f"2026-01-03T00-00-00.0-{mine}-102", 300.0),
+        (f"2026-01-01T00-00-00.0-{theirs}-999", 50.0),  # foreign host: never selected
+        ("custom-no-token", 10.0),  # tokenless id: filtered out by every host token
+    )
+    assert run_id_host_token(rows[0][0]) == mine, "host token must round-trip out of the canonical run id"
+    keep1 = engine_mod._stale_remote_runs(rows, token=mine, keep=1)
+    assert keep1 == (rows[0][0], rows[1][0]), f"keep=1 must drop this host's two oldest, newest-first retained: {keep1!r}"
+    assert all(theirs not in run_id and "custom" not in run_id for run_id in keep1), "a foreign or tokenless run leaked into the prune set"
+    assert engine_mod._stale_remote_runs(rows, token=mine, keep=3) == (), "keep>=own count prunes nothing"
+    assert engine_mod._stale_remote_runs(rows, token="cccccccc", keep=0) == (), "an absent host token owns no runs to prune"
+
+
+@pytest.mark.anyio
+async def test_remote_prune_sweeps_only_this_hosts_stale_run_dirs(assay_root: AssayHarness, tmp_path: Path) -> None:
+    """``_remote_prune`` removes this host's orphaned ``<workroot>/<run_id>`` dirs over SFTP, sparing another host's runs.
+
+    Prior offloads orphan a full source copy per run under the shared workroot; the sweep keeps ``artifact_retention``
+    newest of this host's own runs and ``rmtree``s the rest, while a foreign-token run dir is untouched on the shared root.
+    The chrooted loopback SFTP server is the remote; success is the surviving directory set plus the receipt note.
+    """
+    from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # real sftp loopback for scandir + rmtree
+    from tools.assay.composition.settings import AssaySettings  # noqa: PLC0415  # runtime settings carry the host token + retention
+    from tools.assay.core.engine import _ExecPlan  # noqa: PLC0415  # plan carries the exec target the prune reads the workroot off
+
+    remote = AssaySettings.model_validate({
+        "root": UPath(assay_root.root),
+        "exec_target": "ssh://x@127.0.0.1",
+        "exec_known_hosts": None,
+        "exec_workroot": "/work",
+        "artifact_retention": 1,
+    })
+    token = remote.host_run_token
+    assert token, "the default run id must embed a host token for the namespace filter"
+    workdir = tmp_path / "work"
+    # Three of this host's runs (only the newest survives at retention=1), plus one foreign-token run that must persist.
+    mine_old = f"2026-01-01T00-00-00.0-{token}-1"
+    mine_mid = f"2026-01-02T00-00-00.0-{token}-2"
+    mine_new = remote.run_id  # the current run: newest, always retained
+    theirs = "2026-06-01T00-00-00.0-deadbeef-9"
+    for run_id, payload in ((mine_old, b"old"), (mine_mid, b"mid"), (mine_new, b"new"), (theirs, b"foreign")):
+        (workdir / run_id / "src").mkdir(parents=True)
+        (workdir / run_id / "src" / "f.cs").write_bytes(payload)
+
+    conn = await provision(SshHost(sftp_root=tmp_path)).client_factory()
+    plan = _ExecPlan(
+        argv=("echo",),
+        check=Check(tool=_stream_tool("prune-law", ("/bin/echo", "x"))),
+        cwd=remote.exec_target.remote_workroot(mine_new) if isinstance(remote.exec_target, engine_mod.Ssh) else "",
+        env={},
+        settings=remote,
+        scope=None,
+        streaming=False,
+        tail_cap=4096,
+        chunk=65536,
+        thread_limiter=None,
+    )
+    try:
+        notes = await engine_mod._remote_prune(conn, plan)
+        survivors = {p.name for p in workdir.iterdir() if p.is_dir()}
+    finally:
+        conn.close()
+        await conn.wait_closed()
+
+    assert notes == ("remote.prune.removed runs=2",), f"prune note must report exactly this host's two removed runs: {notes!r}"
+    assert survivors == {mine_new, theirs}, f"prune must keep the newest own run and the foreign run, drop the rest: {survivors!r}"
+
+
+@contextlib.contextmanager
+def _moto_s3(monkeypatch: pytest.MonkeyPatch) -> Iterator[AbstractFileSystem]:
+    # A moto-backed S3FileSystem double: ambient AWS env (creds + endpoint) is production parity — the SHARED-pull store
+    # reads them off the executor env, never a settings knob. One real loopback object store, zero local fixtures.
+    from moto.server import ThreadedMotoServer  # noqa: PLC0415  # loopback object-store double for the real s3fs read
+
+    for key, value in (("AWS_ACCESS_KEY_ID", "test"), ("AWS_SECRET_ACCESS_KEY", "test"), ("AWS_DEFAULT_REGION", "us-east-1")):
+        monkeypatch.setenv(key, value)
+    server = ThreadedMotoServer(ip_address="127.0.0.1", port=0, verbose=False)
+    server.start()
+    try:
+        host, port = server.get_host_and_port()
+        monkeypatch.setenv("AWS_ENDPOINT_URL", f"http://{host}:{port}")
+        fs = fsspec.filesystem("s3", skip_instance_cache=True)
+        fs.mkdirs("bkt", exist_ok=True)  # the bucket pre-exists in production; create it once so the tool-written seed lands
+        yield fs
+    finally:
+        server.stop()
+
+
+@pytest.mark.anyio
+async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(  # noqa: PLR0914, PLR0915  # one SHARED-pull law: seed a remote-written s3 tree, read it scope-relative with zero transfer, and degrade a missing tree to a note
+    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, socket_enabled: None
+) -> None:
+    """A SHARED cloud offload reads the tool-written scope tree straight from the object store with zero byte transfer.
+
+    The remote tool writes scope artifacts to the shared s3 store; the agent opens the SAME universal paths directly,
+    folding ``Artifact`` rows scope-relative with byte counts from backend metadata — no SFTP, no payload crossing the
+    wire (``cat_file`` is never reached on this arm). A prefix with no keys is the absent-tree signal and degrades to a note.
+    """
+    from tests.python._testkit.env import provision, SshHost  # noqa: PLC0415  # ssh double satisfies the _Transfer conn type; the SHARED arm never touches it
+    from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: PLC0415  # runtime scope/settings construction
+    from tools.assay.core.engine import _ExecPlan, _Transfer  # noqa: PLC0415  # the transfer dispatches pull on the offload strategy
+
+    _ = socket_enabled  # lifts the INET socket ban for the moto loopback server; the hook auto-applies the network marker
+    with _moto_s3(monkeypatch) as fs:
+        # The SHARED offload pins the s3 store at <root>/<run_id>/.artifacts/assay; this is the universal path both sides address.
+        remote = AssaySettings.model_validate({
+            "root": UPath(assay_root.root),
+            "exec_target": "ssh://x@127.0.0.1",
+            "exec_known_hosts": None,
+            "artifact_backend": {"protocol": "s3", "root": "bkt/runs"},
+        })
+        offload = remote.offload
+        assert offload is not None
+        assert offload.pull_strategy is PullStrategy.SHARED
+        backend_root, run_id, claim = offload.backend.root, remote.run_id, Claim.STATIC.value
+        # The scope's store is the same SHARED backend: _scope_relative yields <claim>/<run_id>, the parts both sides agree on.
+        shared = remote.store(protocol="s3", root=backend_root, skip_instance_cache=True)
+        scope = ArtifactScope(store=shared, path=shared.path(claim, run_id), dotnet_flags=())
+        plan = _ExecPlan(
+            argv=("echo",),
+            check=Check(tool=_stream_tool("shared-pull-law", ("/bin/echo", "x"))),
+            cwd=offload.target.remote_workroot(run_id),
+            env={},
+            settings=remote,
+            scope=scope,
+            streaming=False,
+            tail_cap=4096,
+            chunk=65536,
+            thread_limiter=None,
+        )
+        conn = await provision(SshHost()).client_factory()
+        transfer = _Transfer(conn=conn, plan=plan, pushed=0, notes=())
+        try:
+            # Absent tree first: no keys under the scope prefix degrade to a note, no artifacts, parity with the sftp degrade path.
+            missing = await transfer.pull({})
+            assert (missing.count, missing.artifacts) == (0, ()), f"absent shared tree must fold no artifacts: {missing!r}"
+            assert missing.notes == ("remote.artifacts.degraded missing_tree",), f"absent shared tree must degrade to a note: {missing.notes!r}"
+
+            # The remote tool writes the scope tree to the shared store: coverage.xml nests under sarif/ to exercise the recursive walk.
+            scope_prefix = f"{backend_root}/{claim}/{run_id}"
+            fs.pipe_file(f"{scope_prefix}/results.sarif", b'{"runs":[]}\n')
+            fs.pipe_file(f"{scope_prefix}/sarif/coverage.xml", b"<coverage/>\nline2\n")
+
+            pulled = await transfer.pull({})
+        finally:
+            conn.close()
+            await conn.wait_closed()
+
+    assert pulled.notes == (), f"a present shared tree must add no degrade note: {pulled.notes!r}"
+    assert pulled.count == 2, f"pull count != shared scope tree size: {pulled.count}"
+    by_name = {a.path.rsplit("/", 1)[-1]: a for a in pulled.artifacts}
+    assert {"results.sarif", "coverage.xml"} == set(by_name), f"shared read lost a scope file: {by_name.keys()}"
+    for name, expected in (("results.sarif", 12), ("coverage.xml", 18)):
+        row = by_name[name]
+        assert (row.kind, row.bytes) == (ArtifactKind.SCOPE, expected), f"wrong kind/size for {name}: {row!r}"
+        # The shared scope-relative path carries <claim>/<run_id> and is a bucket-rooted key, never an absolute s3:// URL.
+        assert f"/{claim}/{run_id}/" in f"/{row.path}/", f"scope-relative path lost for {name}: {row.path!r}"
+        assert not row.path.startswith("s3://"), f"absolute cloud URL leaked into {name}: {row.path!r}"
+        assert row.path.startswith(f"{backend_root}/"), f"shared path not rooted at the backend store: {row.path!r}"
+    assert by_name["coverage.xml"].path.endswith("/sarif/coverage.xml"), "recursive walk dropped the nested scope file"
+
+
+register_law(engine_mod._Transfer, "remote_transfer_reads_shared_cloud_scope_without_byte_transfer")
+register_law(engine_mod._shared_read_scope, "remote_transfer_reads_shared_cloud_scope_without_byte_transfer")
+
+
+@pytest.mark.anyio
 async def test_remote_transfer_keeps_exec_cancellable_under_deadline(  # noqa: PLR0915  # deadline + shielded push-leg + cancellation integration scenario
     assay_root: AssayHarness, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2044,7 +2293,8 @@ def test_local_spawn_arms_honor_check_cwd_and_exit_code(mode: Mode, assay_root: 
 def test_run_process_backend_routes_on_exec_target(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """``_run_process_backend`` dispatches to ``_run_remote`` exactly when ``exec_target`` is set — no real SSH.
 
-    The recorder pins remote dispatch and row-env forwarding while ambient undeclared env stays local.
+    The recorder pins remote dispatch and that the declared row env reaches ``_run_remote``; the allowlist projection and
+    PATH injection now run inside ``_run_remote`` once the connection resolves the remote home (owned by ``remote_env``).
     """
     recorded: list[tuple[str, dict[str, str]]] = []
 
@@ -2062,10 +2312,9 @@ def test_run_process_backend_routes_on_exec_target(assay_root: AssayHarness, mon
     remote = assay_root.remote("ssh://x@127.0.0.1:2222")
     done = assert_ok(run_check(Check(tool=env_tool, cwd=assay_root.root), settings=remote, scope=None, routed=_ROUTED_CHANGED))
     assert (done.stdout, len(recorded)) == (b"recorded", 1), f"remote target did not route to _run_remote: {recorded!r}"
-    target, remote_env = recorded[0]
+    target, plan_env = recorded[0]
     assert target == "ssh://x@127.0.0.1:2222", f"_run_remote received the wrong target: {target!r}"
-    assert remote_env.get("ASSAY_ROW_DECLARED") == "row-value", f"declared row env did not cross the SSH boundary: {remote_env!r}"
-    assert "ASSAY_AMBIENT_UNDECLARED" not in remote_env, f"ambient non-allowlisted env leaked across SSH: {remote_env!r}"
+    assert plan_env.get("ASSAY_ROW_DECLARED") == "row-value", f"declared row env did not reach _run_remote: {plan_env!r}"
 
 
 def test_discover_runs_at_root_and_pins_fault_evidence(tmp_path: Path) -> None:

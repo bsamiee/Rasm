@@ -6,18 +6,19 @@ System APIs replace local machinery only when they own the concern. They do not 
 
 This table is a lookup by repeated local smell.
 
-| [INDEX] | [SMELL]                               | [OWNER]                       |
-| :-----: | :------------------------------------ | :---------------------------- |
-|   [1]   | manual hex loop                       | `Convert.ToHexString`         |
-|   [2]   | regex count allocation                | `Regex.Count`                 |
-|   [3]   | regex character filter                | `SearchValues<T>`             |
-|   [4]   | mutable public payload                | immutable boundary collection |
-|   [5]   | primitive branded value               | generated domain shape        |
-|   [6]   | matrix algorithm                      | numeric concept page          |
-|   [7]   | `DateTime.Now` delta                  | `TimeProvider`                |
-|   [8]   | guard-block argument throw            | throw-helper statics          |
-|   [9]   | `string.Split` on a parse path        | `MemoryExtensions.Split`      |
-|  [10]   | `Encoding.UTF8.GetBytes` on a literal | `u8` literal                  |
+| [INDEX] | [SMELL]                                | [OWNER]                       |
+| :-----: | :------------------------------------- | :---------------------------- |
+|   [1]   | manual hex loop                        | `Convert.ToHexString`         |
+|   [2]   | regex count allocation                 | `Regex.Count`                 |
+|   [3]   | regex character filter                 | `SearchValues<T>`             |
+|   [4]   | mutable public payload                 | immutable boundary collection |
+|   [5]   | primitive branded value                | generated domain shape        |
+|   [6]   | matrix algorithm                       | numeric concept page          |
+|   [7]   | `DateTime.Now` delta                   | `TimeProvider`                |
+|   [8]   | guard-block argument throw             | throw-helper statics          |
+|   [9]   | `string.Split` on a parse path         | `MemoryExtensions.Split`      |
+|  [10]   | `Encoding.UTF8.GetBytes` on a literal  | `u8` literal                  |
+|  [11]   | `[DllImport]` runtime marshalling stub | `[LibraryImport]`             |
 
 ## [2]-[TEXT_AND_WIRE]
 
@@ -213,7 +214,8 @@ public static class RowIndex {
 - Boundary: these guard host and library seams only; data annotations validate wire DTOs, never domain admission — domain admission stays on generated owners and typed rails.
 
 [COMPILER_AND_INTEROP]:
-- Owner: `CallerArgumentExpression`, `MethodImpl`, `CallerMemberName`, custom interpolated string handlers, `CollectionBuilder`, `StructLayout`, `MemoryMarshal`, `NativeMemory`, and `SuppressGCTransition`.
+- Owner: `CallerArgumentExpression`, `MethodImpl`, `CallerMemberName`, custom interpolated string handlers, `CollectionBuilder`, `StructLayout`, `MemoryMarshal`, `NativeMemory`, `SuppressGCTransition`, `[LibraryImport]` with `StringMarshalling` and `StringMarshallingCustomType`, and `[UnmanagedCallConv]`.
+- Rule: `[LibraryImport]` source-generates the marshalling stub at compile time and is the trim-safe, NativeAOT-compatible P/Invoke seam; `[DllImport]` emits a runtime IL marshalling stub and is the rejected form under a trimming owner.
 - Gate: `unsafe` interop requires measured proof and a boundary owner.
 
 [DRAWING]:

@@ -38,7 +38,7 @@ internal static class SessionGens {
         new(Key: key, Value: JsonSerializer.SerializeToElement(value: 1.0, jsonTypeInfo: BridgeJsonContext.Default.Double)) { Stamp = Stamp(sequence: sequence, scenario: scenario) };
 
     public static SessionEnvelope Fold(SessionState final, Seq<BridgeEvent> stream = default, (long Count, long LastSequence) spoolTail = default) =>
-        SessionFold.Run(runId: Sid.ToString(format: "n"), verb: new SupervisorVerb.Doctor(), final: final, stream: stream, spoolTail: spoolTail, reportDir: "/tmp/rbx");
+        SessionFold.Run(runId: Sid.ToString(format: "n"), verb: new SupervisorVerb.Status(), final: final, stream: stream, spoolTail: spoolTail, reportDir: "/tmp/rbx");
 
     public static BridgeEvent.PhaseCase Phase(long sequence, SessionPhase phase, PhaseStatus status, BridgeFault? fault = null) =>
         new(Phase: phase, Status: status, DurationMs: 5.0, Fault: fault) { Stamp = Stamp(sequence: sequence) };
@@ -345,7 +345,7 @@ public sealed class VerbLaws {
         ScenarioSelection.ThemesCase themes = Assert.IsType<ScenarioSelection.ThemesCase>(@object: verify.Selection);
         Assert.Equal(expected: ["blocks"], actual: themes.Themes);
         Assert.Equal(expected: "/tmp/closure.json", actual: verify.ClosureManifest);
-        _ = Assert.IsType<SupervisorVerb.Doctor>(@object: Succ(argv: ["doctor"]));
+        _ = Assert.IsType<SupervisorVerb.Status>(@object: Succ(argv: ["status"]));
         Assert.Equal(expected: "/tmp/p.yak", actual: Assert.IsType<SupervisorVerb.Redeploy>(@object: Succ(argv: ["redeploy", "/tmp/p.yak"])).PackagePath);
         _ = Assert.IsType<SupervisorVerb.Quit>(@object: Succ(argv: ["quit"]));
     }
@@ -361,7 +361,7 @@ public sealed class VerbLaws {
     public void HelpDerivesFromTheUnionMetadata() {
         using JsonDocument help = JsonDocument.Parse(json: Verbs.Help());
         string[] verbs = [.. help.RootElement.GetProperty(propertyName: "verbs").EnumerateArray().Select(selector: static verb => verb.GetProperty(propertyName: "verb").GetString() ?? string.Empty)];
-        Assert.Equal(expected: ["verify", "doctor", "redeploy", "quit"], actual: verbs);
+        Assert.Equal(expected: ["verify", "status", "redeploy", "quit"], actual: verbs);
         string selectionShape = help.RootElement.GetProperty(propertyName: "verbs")[0].GetProperty(propertyName: "args")[0].GetProperty(propertyName: "shape").GetString() ?? string.Empty;
         Assert.Contains(expectedSubstring: "all|themes|names", actualString: selectionShape, comparisonType: StringComparison.Ordinal);
         JsonElement exitCodes = help.RootElement.GetProperty(propertyName: "exitCodes");
@@ -374,7 +374,7 @@ public sealed class VerbLaws {
     public void VerbProjectionsRouteKeysAndEntryPhases() {
         Assert.Equal(expected: "verify", actual: Succ(argv: ["verify", """{"$type":"all"}""", "/tmp/closure.json"]).Key);
         Assert.Same(expected: SessionPhase.Launch, actual: Succ(argv: ["verify", """{"$type":"all"}""", "/tmp/closure.json"]).EntryPhase);
-        Assert.Same(expected: SessionPhase.Doctor, actual: new SupervisorVerb.Doctor().EntryPhase);
+        Assert.Same(expected: SessionPhase.Status, actual: new SupervisorVerb.Status().EntryPhase);
         Assert.Same(expected: SessionPhase.Install, actual: new SupervisorVerb.Redeploy(PackagePath: "/tmp/p.yak").EntryPhase);
         Assert.Same(expected: SessionPhase.QuitAe, actual: new SupervisorVerb.Quit().EntryPhase);
     }

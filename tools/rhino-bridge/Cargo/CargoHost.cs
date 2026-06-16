@@ -178,7 +178,13 @@ public sealed class CargoHost : IBridgeCargo {
             commandCaptureFailure = $"{error.GetType().Name}: {error.Message}";
         }
         try {
-            if (RhinoDoc.ActiveDoc is { } doc) {
+            // Provision a host ActiveDoc when absent: RhinoDoc.Create registers it (CreateHeadless would not) and the host owns its lifetime — the quit scrub closes it, never disposed here, hence CA2000 is suppressed.
+            RhinoDoc? prior = RhinoDoc.ActiveDoc;
+#pragma warning disable CA2000
+            RhinoDoc? resolved = prior ?? RhinoDoc.Create(modelTemplateFileName: null);
+#pragma warning restore CA2000
+            if (resolved is { } doc) {
+                fact(key: "scenario.doc.source", value: prior is null ? "created" : "active");
                 context = new ScenarioContext(doc: doc, sink: fact);
                 Capture.Hook = label => doc.Views.ActiveView is { } view
                     ? Shoot(spool: spool, view: view, scenario: scenario.Name, label: label, onFailure: false, emit: emit, fact: fact)
@@ -191,7 +197,7 @@ public sealed class CargoHost : IBridgeCargo {
                     AutoCapture(spool: spool, context: context, scenario: scenario, emit: emit, fact: fact);
                 }
             } else {
-                fact(key: "scenario.doc.absent", value: "no active document in the host");
+                fact(key: "scenario.doc.absent", value: "RhinoDoc.Create(null) returned null; host cannot provision an active document");
             }
         } finally {
             // Footer facts ride the same write-through spool as per-event crash evidence.

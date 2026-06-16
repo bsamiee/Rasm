@@ -66,16 +66,16 @@ Command rows are the curated operator surface, not generated help. Run nested co
 
 This table is a lookup by command surface and verb set:
 
-| [INDEX] | [SURFACE] | [VERBS]                                                         |
-| :-----: | :-------- | :-------------------------------------------------------------- |
-|   [1]   | root      | `self-test`, `delta`                                            |
-|   [2]   | `static`  | _(leaf — value-driven targets, no sub-verbs)_                   |
-|   [3]   | `code`    | `search`, `query`                                               |
-|   [4]   | `test`    | `run`, `list`, `coverage`                                       |
-|   [5]   | `bridge`  | `verify`, `doctor`, `launch`, `quit`, `check`, `clean`, `build` |
-|   [6]   | `package` | `stage`, `deploy`, `publish`, `list`, `plan`                    |
-|   [7]   | `api`     | `doctor`, `resolve`, `query`, `show`                            |
-|   [8]   | `docs`    | `check`                                                         |
+| [INDEX] | [SURFACE] | [VERBS]                                       |
+| :-----: | :-------- | :-------------------------------------------- |
+|   [1]   | root      | `self-test`, `delta`                          |
+|   [2]   | `static`  | _(leaf — value-driven targets, no sub-verbs)_ |
+|   [3]   | `code`    | `search`, `query`                             |
+|   [4]   | `test`    | `run`, `list`, `coverage`                     |
+|   [5]   | `bridge`  | `build`, `verify`, `status`, `quit`           |
+|   [6]   | `package` | `publish`, `plan`, `list`                     |
+|   [7]   | `api`     | `resolve`, `query`, `show`, `status`          |
+|   [8]   | `docs`    | `check`                                       |
 
 [ROOT_COMMANDS]:
 - Verbs: `self-test`, `delta`
@@ -114,26 +114,26 @@ This table is a lookup by command surface and verb set:
 - Example: `uv run python -m tools.assay test run --csharp tests/csharp`
 
 [BRIDGE_COMMANDS]:
-- Verbs: `verify`, `doctor`, `launch`, `quit`, `check`, `clean`, `build`
+- Verbs: `build`, `verify`, `status`, `quit`
 - Inputs: `--pattern`
 - Output: `VerifySummary` detail where applicable.
-- Use: `verify` discovers direct file, directory, then worktree glob; no matched scenario returns `unsupported`.
+- Use: `build` compiles bridge projects and typed scenario closures; `status` launches or reuses RhinoWIP and reports host facts; `quit` runs the document-cleanup quit ladder; `verify` discovers direct file, directory, then worktree glob, and no matched scenario returns `unsupported`.
 - Example: `uv run python -m tools.assay bridge verify --pattern tests/csharp/libs/Rasm.Rhino`
 
 [PACKAGE_COMMANDS]:
-- Verbs: `stage`, `deploy`, `publish`, `list`, `plan`
+- Verbs: `publish`, `plan`, `list`
 - Inputs: `--slug`, `--version`
 - Output: `PackageRun` detail.
-- Use: slug and version are flags, not positionals; stage/deploy/publish are Yak/Rhino-package operations.
+- Use: slug and version are flags, not positionals; `publish` is the Yak/Rhino-package operation, `plan` dry-runs the closure, and `list` enumerates discovered package targets.
 - Version routing: the root app declares no global `--version` flag, so `package plan --version <v>` routes the token into `PackageParams.version` rather than printing the app version on bare stdout (which would break the one-`Envelope` contract). Version reporting lives in `self-test`.
 - Example: `uv run python -m tools.assay package plan --slug <yak-slug> --version <version>`
 
 [API_COMMANDS]:
-- Verbs: `doctor`, `resolve`, `query`, `show`
+- Verbs: `resolve`, `query`, `show`, `status`
 - Inputs: `--key`, `--symbol`, `--kind`, `--token`, `--max-lines`, `--lines`, `--grep`, `--full`, `--strict`
 - Output: `ApiSurface` or `ApiResolution` detail.
 - Use: sources include host assemblies, NuGet packages, Python distributions, and TypeScript declarations; `show latest` resolves through artifact-store root priority rather than a workspace scan.
-- Row text: each `doctor` inventory `Match.text` is the stable key=value health grammar `<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->` (fixed key order, single-space-separated) so downstream parsers key off names, not positions.
+- Row text: each `status` inventory `Match.text` is the stable key=value health grammar `<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->` (fixed key order, single-space-separated) so downstream parsers key off names, not positions.
 - Example: `uv run python -m tools.assay api query --key rhino-common --symbol Rhino.Geometry.Mesh`
 
 [DOCS_COMMANDS]:
@@ -213,7 +213,7 @@ Integrations are grouped by the reader action they change. They are capability n
 - Boundary: `mmdc` only; no generic Markdown validation. One `mmdc` invocation per routed file carries its own input placement (`-i <file> -a <scope_dir> -o <scope_dir>/<slug>.md`); the slugged `-o` sink keeps concurrent fan-out writes collision-free.
 
 [RHINO_BRIDGE_YAK]:
-- Enables: live scenario verification and package stage, deploy, or publish.
+- Enables: live scenario verification and package publish.
 - Boundary: exclusive bridge/package resources use leases.
 
 [API_EXTRACTION]:
@@ -298,12 +298,13 @@ Artifacts, logs, tracing, and remote execution are operator surfaces. They do no
 - Use: correlation, retention, and execution target control only where settings expose the behavior.
 
 [REMOTE_EXECUTION]:
-- Target switch: `ASSAY_EXEC_TARGET` unset (`""`) keeps execution local — the default for agent ergonomics. Set to `ssh://[user@]host[:port]` it offloads process execution over SSH; the scheme, host, and port are validated at settings load, so a malformed target fails before any spawn.
+- Target switch: `ASSAY_EXEC_TARGET` unset (`""`) keeps execution local — the default for agent ergonomics. Set to `ssh://[user@]host[:port]` it offloads process execution over SSH; the scheme, host, and port are validated at settings load, so a malformed target fails before any spawn. The env form takes a raw, unquoted URL — `ASSAY_EXEC_TARGET=ssh://root@host` — admitted directly through the modal value object without JSON quoting; a missing port defaults to 22 at connect time while the canonical URL keeps the no-`:22` rendering.
 - Offload-capable lanes: heavy closures — mutation `full`, the full `static` lane, and `.NET` build graphs — run on the remote host. The calling agent always receives the same one-`Envelope` result locally: the engine streams stdout/stderr into the agent-local store, resolves the remote exit status (signalled kills synthesize exit 255 with an `ssh.signal=<name>` note), and returns a normal `Completed` receipt with full status, diagnostics, and artifact rows. The remote-execution facts (target URL, host, exit status, signal, pushed/pulled file counts) ride a dedicated `exec` `ExecReceipt` carrier threaded `Completed` → `Report` → `Envelope.exec`. Remote runs carry no process-stall telemetry — `psutil` cannot inspect remote pids across the SSH boundary.
 - Host-bound reject: `bridge` and `package` claims are host-bound by definition (live Rhino/Yak resources, leases) and are rejected under `exec_target` with status `unsupported` and `host-bound tools require local execution`. Copy-staged tools reject the same way. The reject is a typed receipt, not a fault.
-- Working-tree push: before the remote exec, the engine pushes the git-tracked working tree to `<workroot>/<run_id>` (the remote `cwd`) over the same pooled SFTP connection. `git ls-files` is the set-algebraic manifest — gitignored roots (`.git`, `.cache`, `.artifacts`, `bin`, `obj`, `node_modules`, `.venv`) never cross. Per-file upload failures fold into receipt notes; the push and the pull each run under their own shielded budget — guaranteeing both transfer legs complete atomically — while the bracketed remote exec between them stays cancellable by the check deadline, so a large transfer degrades to a note rather than reclassifying a completed run as timeout, yet a wedged remote tool is still reclaimed on deadline.
-- Toolchain pre-flight: the engine probes the remote `PATH` for the runner's leading tool (e.g. `uv`, `dotnet`) before committing to the exec; an absent tool returns a typed `UNSUPPORTED` receipt naming the missing tool, never an opaque non-zero `cd && exec`.
-- Artifact pull-back: `sftp` is the default — and currently only — admitted remote backend, derived from the SSH host as the per-run store pinned under `<workroot>/<run_id>/.artifacts/assay` (host/backend inconsistency is unrepresentable, never separately configured). The remote tool writes its scope artifacts (SARIF, coverage, results) there; after the process exits, a shielded SFTP download under a fixed budget lands them in the agent-local file store, degrading to a `remote.artifacts.degraded` note rather than reclassifying a completed run as timeout.
+- Home resolution: the remote `~` in `ASSAY_EXEC_WORKROOT` (default `~/.assay-work`) is resolved to an absolute path once per connection via `sftp.realpath('.')`. The same absolute workroot anchors the SFTP push/makedirs, the derived offload backend root, the exec `cd`, and the injected `PATH` — no literal `~` reaches SFTP, so the pushed tree and the login-shell `cd` land in the same dir. An already-absolute workroot resolves to itself.
+- Working-tree push: before the remote exec, the engine pushes the git-tracked working tree to `<workroot>/<run_id>` (the remote `cwd`) over the same pooled SFTP connection. `git ls-files` is the set-algebraic manifest — gitignored roots (`.git`, `.cache`, `.artifacts`, `bin`, `obj`, `node_modules`, `.venv`) never cross. Per-file upload failures fold into receipt notes; the push and the pull each run under their own shielded budget — guaranteeing both transfer legs complete atomically — while the bracketed remote exec between them stays cancellable by the check deadline, so a large transfer degrades to a note rather than reclassifying a completed run as timeout, yet a wedged remote tool is still reclaimed on deadline. The push budget scales with manifest size (`max(transfer_budget_s, file_count × transfer_per_file_s)`, both operator-tunable) so a large tree does not degrade mid-push on a real link; manifest lane-scoping (pushing only the build closure rather than the whole working tree) is the standing follow-up.
+- Toolchain pre-flight: the engine probes the remote `PATH` for the runner's leading tool (e.g. `uv`, `dotnet`) before committing to the exec; the probe runs under the same injected toolchain `PATH` the exec exports, so a tool reachable only on the injected `PATH` (uv at `~/.local/bin`, dotnet at `/usr/local/dotnet`) is never falsely `UNSUPPORTED`. An absent tool returns a typed `UNSUPPORTED` receipt naming the missing tool, never an opaque non-zero `cd && exec`. The injected `PATH` is a fixed Linux toolchain prefix — the agent's local `PATH` never crosses to the remote host.
+- Artifact pull-back: `sftp` is the default — and currently only — admitted remote backend, derived from the SSH host as the per-run store pinned under `<workroot>/<run_id>/.artifacts/assay` (host/backend inconsistency is unrepresentable, never separately configured). The remote tool writes its scope artifacts (SARIF, coverage, results) there; after the process exits, a shielded SFTP download under the transfer budget lands them in the agent-local file store, degrading to a `remote.artifacts.degraded` note rather than reclassifying a completed run as timeout.
 - Uniform path semantics: scope paths are root-down across local and SSH — the store root is stripped so the parts agree on every backend. `Artifact.path` never carries an absolute host path; landed remote artifacts are recorded at agent-local, scope-relative paths.
 - Cloud posture: `s3`, `gs`, and `gcs` are carried in the backend-capability table as explicit `(reachable, admitted=False, SHARED)` not-admitted rows. Re-admitting a shared object store is a one-row `admitted=True` flip plus a `SHARED` pull arm; until the `s3fs`/`gcsfs` backend and its test law land, `sftp` is the sole admitted remote-exec backend.
 - Local/shared requirement: routing, locks, package staging, bridge discovery, API discovery, and history still need local or shared paths; remote execution moves command execution only.

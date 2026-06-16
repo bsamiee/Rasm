@@ -21,6 +21,7 @@ import msgspec
 from pydantic import AfterValidator, AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, model_validator
 from pydantic_settings import (  # noqa: TC002  # Runtime annotations call the Pydantic source hook.
     BaseSettings,
+    NoDecode,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
 )
@@ -126,17 +127,29 @@ _ASSAY: Final[str] = "assay"
 _BUILD: Final[str] = "build"
 _MARKER: Final[str] = "Workspace.slnx"
 _RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
-# Literal remote-shell tilde: the agent cannot resolve a remote ~, so the push target and derived sftp backend root expand host-side.
+# Workroot tilde is resolved to the absolute remote home once per connection (sftp.realpath) so the SFTP push and the exec `cd` agree.
 _REMOTE_WORKROOT_DEFAULT: Final[str] = "~/.assay-work"
+# Injected remote PATH: a Linux toolchain prefix the agent exports for both the toolchain probe and the exec, so a non-login
+# PATH still reaches uv (~/.local/bin) and dotnet (/usr/local/dotnet). The agent's own macOS PATH never crosses to a Linux host.
+_REMOTE_PATH_PREFIX: Final[tuple[str, ...]] = (
+    "~/.local/bin",
+    "/usr/local/dotnet",
+    "/usr/local/sbin",
+    "/usr/local/bin",
+    "/usr/sbin",
+    "/usr/bin",
+    "/sbin",
+    "/bin",
+)
 # Backend admission is data, not a dispatch chain: one row per protocol carries reachability, admission, and the pull strategy the
-# Ssh case selects. Only sftp is end-to-end proven; the cloud rows are explicit not-admitted facts so re-admitting a shared object
-# store (s3fs/gcsfs + moto law) is a one-row admitted=True flip, never a multi-file edit.
+# Ssh case selects. sftp downloads bytes (TRANSFER); the cloud rows are admitted shared object stores (s3fs/gcsfs) the remote tool
+# writes and the agent reads at the same universal paths (SHARED, zero byte transfer), so the backend never re-derives provider shapes.
 _BACKEND_CAPABILITY: Final[dict[str, tuple[bool, bool, PullStrategy]]] = {
     "file": (False, True, PullStrategy.NONE),
     "sftp": (True, True, PullStrategy.TRANSFER),
-    "s3": (True, False, PullStrategy.SHARED),
-    "gs": (True, False, PullStrategy.SHARED),
-    "gcs": (True, False, PullStrategy.SHARED),
+    "s3": (True, True, PullStrategy.SHARED),
+    "gs": (True, True, PullStrategy.SHARED),
+    "gcs": (True, True, PullStrategy.SHARED),
 }
 _REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
     "ASSAY_AGENT_TASK_ID",
@@ -145,13 +158,11 @@ _REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
     "ASSAY_ARTIFACT_RETENTION",
     "ASSAY_EXEC_TARGET",
     "ASSAY_RUN_ID",
-    "HOME",
     "LANG",
     "LC_ALL",
     "OTEL_EXPORTER_OTLP_ENDPOINT",
     "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
     "OTEL_SERVICE_NAME",
-    "PATH",
     "RHINO_WIP_APP_PATH",
 ))
 # W3C Trace Context keys are lowercase; propagate.inject emits them verbatim.
@@ -216,10 +227,30 @@ def _default_cpu_count() -> int:
     return min(256, max(1, os.process_cpu_count() or 8))
 
 
+def _host_token() -> str:
+    # Stable per-host token: the blake2b(hostname) digest embedded in every run id keeps run dirs disjoint per host on a shared root.
+    return hashlib.blake2b(socket.gethostname().encode(), digest_size=4).hexdigest()
+
+
 def _host_unique_run_id() -> str:
-    # timestamp-pid alone collides across machines on a shared backend root; a stable host token keeps run dirs disjoint per host.
-    host = hashlib.blake2b(socket.gethostname().encode(), digest_size=4).hexdigest()
-    return f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{host}-{os.getpid()}"
+    # timestamp-token-pid: the embedded host token (above) carves a per-host run-id namespace a remote prune can sweep without cross-deleting.
+    return f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{_host_token()}-{os.getpid()}"
+
+
+def run_id_host_token(run_id: str) -> str:
+    """Extract the embedded host token from a ``<timestamp>-<token>-<pid>`` run id.
+
+    The token is the blake2b(hostname) digest ``_host_unique_run_id`` embeds between the timestamp and the pid, so a
+    remote prune over a shared workroot can select exactly the runs minted by one host without touching another host's runs.
+
+    Returns:
+        The host token segment, or ``""`` when the run id does not carry a ``-<token>-<pid>`` tail.
+    """
+    match run_id.rsplit("-", maxsplit=2):
+        case [_, token, pid] if token and pid:
+            return token
+        case _:
+            return ""
 
 
 def _parse_exec_target(value: object) -> Local | Ssh:
@@ -243,6 +274,31 @@ def _expand_or_none(value: str | UPath | None) -> str | None:
             return None
         case _:
             return str(UPath(value).expanduser())
+
+
+def resolve_tilde(path: str, home: str) -> str:
+    """Rewrite a leading ``~`` in a remote path against an absolute remote home, leaving an absolute path unchanged.
+
+    Returns:
+        The path with ``~``/``~/`` rebound to ``home``, or the original path when no leading tilde is present.
+    """
+    base = home.rstrip("/")
+    match path:
+        case "~":
+            return base
+        case _ if path.startswith("~/"):
+            return f"{base}/{path[2:]}"
+        case _:
+            return path
+
+
+def remote_path(home: str) -> str:
+    """Project the injected remote ``PATH`` with the toolchain prefix's leading ``~`` resolved to the absolute remote home.
+
+    Returns:
+        A ``:``-joined Linux PATH covering ``~/.local/bin`` (uv) and ``/usr/local/dotnet`` (dotnet) for probe and exec parity.
+    """
+    return ":".join(resolve_tilde(part, home) for part in _REMOTE_PATH_PREFIX)
 
 
 def _root_parts(root: str) -> tuple[str, ...]:
@@ -379,28 +435,53 @@ class Ssh(BaseModel):
     def connect_kwargs(self) -> dict[str, object]:
         """Project asyncssh connect kwargs the agent owns (host/port/username/known_hosts).
 
+        ``port`` defaults to 22 when the URL omits it: asyncssh binds ``port=None`` as port 0 and raises ``EADDRNOTAVAIL``,
+        so the value object resolves the default here while ``url`` keeps the canonical no-``:22`` rendering.
+
         Returns:
             Mapping passed to ``asyncssh.connect``; timeouts/keepalive are engine-owned constants.
         """
-        return {"host": self.host, "port": self.port, "username": self.user, "known_hosts": self.known_hosts}
+        return {"host": self.host, "port": self.port or 22, "username": self.user, "known_hosts": self.known_hosts}
+
+    def resolve_home(self, home: str) -> Ssh:
+        """Rebind this target's workroot against an absolute remote home, replacing a leading ``~``.
+
+        The agent resolves the remote ``~`` once per connection (``sftp.realpath('.')``) so the SFTP push and the login-shell
+        ``cd`` land in the same absolute dir; an already-absolute workroot is returned unchanged.
+
+        Returns:
+            This target with ``workroot`` rewritten to an absolute path, or unchanged when no leading ``~`` is present.
+        """
+        resolved = resolve_tilde(self.workroot, home)
+        return self if resolved == self.workroot else self.model_copy(update={"workroot": resolved})
 
     def remote_workroot(self, run_id: str) -> str:
         """Derive the per-run remote working tree root ``<workroot>/<run_id>``.
 
-        The workroot tilde is a literal the remote shell expands; the agent never resolves a remote ``~``.
+        The workroot is absolute once ``resolve_home`` rebinds a leading ``~`` to the connection's resolved home.
 
         Returns:
             Remote run-dir path the pushed tree lands under and the remote cwd resolves to.
         """
         return f"{self.workroot.rstrip('/')}/{_safe_segment(run_id)}"
 
-    def offload(self, run_id: str) -> Offload:
-        """Derive the offload binding for this run: target plus the sftp backend co-located under the run dir.
+    def offload(self, run_id: str, configured: ArtifactBackend) -> Offload:
+        """Derive the offload binding for this run: target plus the artifact backend co-located under the run dir.
+
+        A SHARED-strategy cloud backend (s3/gs/gcs) is pinned at ``<configured.root>/<run_id>/.artifacts/assay`` so the
+        remote tool writes and the agent reads the same universal store with zero byte transfer; every other case derives
+        the per-run sftp store under the remote workroot. The backend is host-derived, never a separate knob.
 
         Returns:
-            Offload value object whose backend is derived from this host, never separately configured.
+            Offload value object whose backend is derived from this host and the configured store.
         """
-        return Offload(target=self, backend=ArtifactBackend(protocol="sftp", root=f"{self.remote_workroot(run_id)}/{_ARTIFACTS}/{_ASSAY}"))
+        match configured.capability[2]:
+            case PullStrategy.SHARED:
+                root = f"{configured.root.rstrip('/')}/{_safe_segment(run_id)}/{_ARTIFACTS}/{_ASSAY}"
+                backend = ArtifactBackend(protocol=configured.protocol, root=root)
+            case _:
+                backend = ArtifactBackend(protocol="sftp", root=f"{self.remote_workroot(run_id)}/{_ARTIFACTS}/{_ASSAY}")
+        return Offload(target=self, backend=backend)
 
 
 class Offload(BaseModel):
@@ -453,6 +534,10 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
     machine_lock_root: Path = Field(default_factory=lambda: Path.home() / ".rasm" / "locks")
     artifact_retention: Annotated[int, Field(ge=1, le=10000)] = 50
     build_scope_retention: Annotated[int, Field(ge=1, le=1000)] = 24
+    # Remote push/pull budget: the floor covers the pull leg and small manifests; the per-file term scales the push ceiling so a
+    # large git-tracked tree (1000+ files, latency-bound at one round-trip each) does not degrade mid-push on a real WAN link.
+    transfer_budget_s: Annotated[float, Field(gt=0)] = 120.0
+    transfer_per_file_s: Annotated[float, Field(gt=0)] = 2.5
     artifact_backend: ArtifactBackend = Field(default_factory=ArtifactBackend)
     scoped_verbs: frozenset[str] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test"))
     trigger_files: frozenset[str] = frozenset((
@@ -472,13 +557,18 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
     log_level: Literal["debug", "info", "warning", "error", "critical"] = "info"
     run_id: RunId = Field(default_factory=_host_unique_run_id)
     agent_task_id: WireSafeText = ""
-    exec_target: ExecTargetValue = Field(default_factory=Local, description="execution target; '' = local, ssh://[user@]host[:port] = remote")
+    # NoDecode keeps the raw env string (e.g. `ssh://host`) unparsed: the union type would otherwise drive pydantic-settings to
+    # `json.loads` the env value before the BeforeValidator, raising SettingsError on a bare `ssh://` URL.
+    exec_target: Annotated[ExecTargetValue, NoDecode] = Field(
+        default_factory=Local, description="execution target; '' = local, ssh://[user@]host[:port] = remote"
+    )
     exec_known_hosts: ExpandedKnownHosts = Field(
         default=str(UPath("~/.ssh/known_hosts").expanduser()),
         description="asyncssh known_hosts path for ssh:// exec_target; empty disables the host-key check",
     )
     exec_workroot: str = Field(
-        default=_REMOTE_WORKROOT_DEFAULT, description="remote working-tree root for ssh:// exec_target; the remote shell expands a leading ~"
+        default=_REMOTE_WORKROOT_DEFAULT,
+        description="remote working-tree root for ssh:// exec_target; a leading ~ resolves to the connection's remote home",
     )
     otel_endpoint: str = Field(
         default="", validation_alias=AliasChoices("ASSAY_OTEL_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
@@ -534,6 +624,15 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
         return {key: str(local / rel) for key, rel in _PYTHON_TOOL_ENV_REL.items()}
 
     @property
+    def host_run_token(self) -> str:
+        """Project this run's host token: the per-host namespace key a remote prune sweeps without cross-deleting another host's runs.
+
+        Returns:
+            The blake2b(hostname) token embedded in this run id, or ``""`` for a custom run id that omits the host tail.
+        """
+        return run_id_host_token(self.run_id)
+
+    @property
     def offload(self) -> Offload | None:
         """Derive the per-run offload binding when the target is remote.
 
@@ -542,7 +641,7 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
         """
         match self.exec_target:
             case Ssh() as ssh:
-                return ssh.offload(self.run_id)
+                return ssh.offload(self.run_id, self.artifact_backend)
             case _:
                 return None
 
@@ -588,21 +687,23 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
         """
         return self.store_root.joinpath(kind.value, *(_safe_segment(p) for p in parts))
 
-    def remote_env(self, env: dict[str, str], *, forward: frozenset[str] = frozenset()) -> dict[str, str]:
+    def remote_env(self, env: dict[str, str], *, home: str, forward: frozenset[str] = frozenset()) -> dict[str, str]:
         """Project the environment subset safe to export through an SSH command string.
 
         `forward` names row-owned `Tool.env` keys that may cross SSH alongside the
-        ambient allowlist.
+        ambient allowlist. `home` is the connection-resolved absolute remote home that
+        anchors the injected toolchain ``PATH``.
 
         Returns:
-            Environment variables allowed to cross the SSH execution boundary.
+            Environment variables allowed to cross the SSH execution boundary, with an injected Linux ``PATH``.
         """
-        # RUN_ID and the offload-derived backend live in validated settings, so inject them before allowlist projection.
+        # RUN_ID, the injected toolchain PATH, and the offload-derived backend live in validated settings, so inject them before
+        # allowlist projection. The agent's macOS PATH never crosses; the remote PATH is a host-side Linux toolchain prefix.
         # The remote executor writes scope artifacts to the backend the agent pulls from: the per-run sftp root, never the local file root.
-        safe_names = frozenset((*self.python_tool_env, *_REMOTE_ENV_NAMES, *_TRACE_CONTEXT_ENV, *forward))
+        safe_names = frozenset(("PATH", *self.python_tool_env, *_REMOTE_ENV_NAMES, *_TRACE_CONTEXT_ENV, *forward))
         store = self.offload.backend if self.offload is not None else self.artifact_backend
         backend = {"ASSAY_ARTIFACT_BACKEND__PROTOCOL": store.protocol, "ASSAY_ARTIFACT_BACKEND__ROOT": store.root}
-        source = {"ASSAY_RUN_ID": self.run_id, **backend, **env}
+        source = {"ASSAY_RUN_ID": self.run_id, **backend, **env, "PATH": remote_path(home)}
         return {k: v for k, v in source.items() if k in safe_names and v}
 
 
@@ -1082,5 +1183,8 @@ __all__ = [
     "backend_capability",
     "mtime_from_info",
     "prune_python_artifacts",
+    "remote_path",
+    "resolve_tilde",
+    "run_id_host_token",
     "size_from_info",
 ]

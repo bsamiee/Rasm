@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha256
 from pathlib import PurePosixPath
-from typing import Annotated, TYPE_CHECKING
+from typing import Annotated, Self, TYPE_CHECKING
 
 from cyclopts import Parameter
 from expression import Error, Ok, Result
@@ -48,12 +48,20 @@ if TYPE_CHECKING:
 
 
 class Phase(StrEnum):
-    """Static-lane phase in fixed execution order: writes, diagnostics, restore, build."""
+    """Static-lane phase in fixed execution order, each carrying the lane Mode that produces it."""
 
-    FIX = "fix"
-    DIAGNOSTIC = "diagnostic"
-    RESTORE = "restore"
-    BUILD = "build"
+    mode: Mode
+
+    FIX = "fix", Mode.WRITE
+    DIAGNOSTIC = "diagnostic", Mode.CHECK
+    RESTORE = "restore", Mode.RESTORE
+    BUILD = "build", Mode.BUILD
+
+    def __new__(cls, value: str, mode: Mode) -> Self:
+        """Attach the producing lane Mode not represented by the StrEnum value."""
+        m = str.__new__(cls, value)
+        m._value_, m.mode = value, mode
+        return m
 
 
 type PhaseChecks = tuple[tuple[Phase, tuple[Check, ...]], ...]
@@ -63,8 +71,8 @@ type SkipRows = tuple[tuple[Phase, str, str], ...]
 
 # Fixed per-language order: writes land before diagnostics; restore precedes closure builds.
 _MODES: tuple[Mode, ...] = (Mode.WRITE, Mode.CHECK, Mode.RESTORE, Mode.BUILD)
-# The lane-mode -> Phase projection; `_MODES` is the closed input domain, so a non-lane mode is a loud KeyError, not a silent default.
-_PHASE: dict[Mode, Phase] = {Mode.WRITE: Phase.FIX, Mode.CHECK: Phase.DIAGNOSTIC, Mode.RESTORE: Phase.RESTORE, Mode.BUILD: Phase.BUILD}
+# Reverse of the Phase->Mode payload; a non-lane mode is a loud KeyError, not a silent default.
+_PHASE: dict[Mode, Phase] = {phase.mode: phase for phase in Phase}
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -524,11 +532,11 @@ def _fold(
 def run(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
     """Run the static quality lane for the selected target scope.
 
-    The target value selects whole-workspace, project, folder/file, or changed-default routing. Every
+    The target value alone selects whole-workspace, project, folder/file, or changed-default routing. Every
     touched language runs write-capable tools before diagnostics, and C# closure builds observe restored outputs.
 
     Returns:
-        Static report with receipts, route detail, resources, and artifacts.
+        Folded static report, or a routing/restore/strict-promotion fault.
     """
     return _target_result(settings, params).bind(
         lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed, plan=params.plan))

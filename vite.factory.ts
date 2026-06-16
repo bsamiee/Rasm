@@ -75,7 +75,7 @@ const CfgSchema = S.Union(
 
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
 const _ENV: BuildRuntimeEnv = process.env;
-const B = Object.freeze({
+const _B = {
     artifacts: { compression: { dir: 'entries', exts: ['.br', '.gz'] } },
     assets: ['bin', 'exr', 'fbx', 'glb', 'gltf', 'hdr', 'mtl', 'obj', 'wasm'],
     builder: { sharedConfigBuild: true, sharedPlugins: true },
@@ -85,7 +85,7 @@ const B = Object.freeze({
         { n: 'vendor-effect', p: '@effect', w: 2 },
         { n: 'vendor', p: 'node_modules', w: 1 },
     ],
-    comp: { f: /\.(js|mjs|json|css|html|svg)$/i, t: 10240 },
+    comp: { f: /\.(js|mjs|json|css|html|svg)$/i as RegExp, t: 10240 },
     csp: {
         'connect-src': ["'self'", 'https:', 'wss:', 'ws:'],
         'default-src': ["'self'"],
@@ -127,7 +127,8 @@ const B = Object.freeze({
         sourcemap: true,
         template: 'treemap' as const,
     },
-} as const);
+} as const;
+const B: Readonly<typeof _B> = Object.freeze(_B);
 
 // --- [OPERATIONS] ------------------------------------------------------------
 

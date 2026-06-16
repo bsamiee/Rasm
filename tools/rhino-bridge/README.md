@@ -14,10 +14,10 @@
 
 ```bash copy-safe
 uv run python -m tools.assay bridge build
-uv run python -m tools.assay bridge doctor
+uv run python -m tools.assay bridge status
 ```
 
-Expected signal: each command returns one Assay envelope, and the doctor receipt carries `bridge.reportDir=<path>` when the supervisor emitted a `SessionEnvelope`.
+Expected signal: each command returns one Assay envelope, and the status receipt carries `bridge.reportDir=<path>` when the supervisor emitted a `SessionEnvelope`.
 
 ## [3]-[VERIFY]
 
@@ -44,14 +44,11 @@ Public Assay bridge verbs map to these effects.
 | [INDEX] | [COMMAND]                 | [EFFECT]                                                                         |
 | :-----: | :------------------------ | :------------------------------------------------------------------------------- |
 |   [1]   | `bridge build`            | Compile bridge projects and test-owned typed scenario closures.                  |
-|   [2]   | `bridge doctor`           | Launch or reuse RhinoWIP; return endpoint, host, RPC, MCP, and capability facts. |
-|   [3]   | `bridge launch`           | Public lifecycle alias for doctor semantics.                                     |
-|   [4]   | `bridge check`            | Public lifecycle alias for doctor semantics.                                     |
-|   [5]   | `bridge verify [PATTERN]` | Build, stage, run, unload, prepare quit, and fold selected typed scenarios.      |
-|   [6]   | `bridge quit`             | Prepare Rhino/GH2 documents, then run the quit ladder.                           |
-|   [7]   | `bridge clean`            | Public lifecycle alias for quit semantics.                                       |
+|   [2]   | `bridge verify [PATTERN]` | Build, stage, run, unload, prepare quit, and fold selected typed scenarios.      |
+|   [3]   | `bridge status`           | Launch or reuse RhinoWIP; return endpoint, host, RPC, MCP, and capability facts. |
+|   [4]   | `bridge quit`             | Prepare Rhino/GH2 documents, then run the quit ladder.                           |
 
-The direct supervisor accepts `doctor`, `quit`, `redeploy <package>`, and `verify <selection-json> <closure-manifest>`. `redeploy` returns `RedeployIncomplete`; Assay owns stable operator spelling, build closure preparation, artifact routing, and the outer lease.
+The direct supervisor accepts `status`, `quit`, `redeploy <package>`, and `verify <selection-json> <closure-manifest>`. `redeploy` returns `RedeployIncomplete`; Assay owns stable operator spelling, build closure preparation, artifact routing, and the outer lease.
 
 ## [5]-[MACHINE_CONTRACT]
 
@@ -172,7 +169,7 @@ Terminal signals map to one first repair surface. Read `fault`, `probeReceipt`, 
 - Lease: inspect or release `~/.rasm/rhino-bridge-rbx.lease`.
 - Package: read `fault`, then rebuild or redeploy `rasm-bridge`.
 - Launch: check launch, endpoint liveness, and shell load evidence.
-- Contract: redeploy `rasm-bridge`, then rerun `bridge doctor`.
+- Contract: redeploy `rasm-bridge`, then rerun `bridge status`.
 - Capability: read `probeReceipt`, then change the scenario requirement or host lane.
 - Host: rebuild closures against the active RhinoWIP bundle.
 - UI: read spool tail, captures, and host exceptions under `reportDir`.
@@ -215,10 +212,28 @@ Scenario code does not write `#r`, `#load`, absolute build-output paths, or loca
 - Deploy and publish paths cycle the live host through quit and refresh steps.
 
 [MCP]:
-- The bridge starts no MCP listener of its own; MCP tooling runs through McNeel's Rhino MCP platform, registered out-of-band with the agent.
-- Install: add McNeel `Rhino-MCP-Platform` 0.1.5 to the Rhino 9.0 package store via the Rhino PackageManager (Yak); this provides the `rhino-mcp-router` stdio server.
-- Register: declare `rhino-mcp-router` to Claude Code at USER scope in `~/.claude.json` as a `type: stdio` server. Never commit a project-scope `.mcp.json` for it; the platform is a per-operator host capability, not a checked-in workspace dependency.
-- Health: `bridge doctor` exposes `mcp.platform.version` and `mcp.listener` as capability facts read from the loaded host state. Cross-session changes to either fact (or `rhinoVersion`/`rpc.streamjsonrpc`) surface in `delta` as `RunDelta.drift` rows, so host drift is auto-tracked across sessions.
+
+The bridge starts no MCP listener of its own. MCP tooling runs through McNeel's Rhino MCP platform, registered out-of-band with the agent. Assay is NOT an MCP server: it is the deterministic typed-verification boundary, and the McNeel platform is the interactive conversational host. The two are orthogonal capabilities that share one live RhinoWIP session.
+
+[INSTALL]:
+- Add McNeel `Rhino-MCP-Platform` 0.1.5 to the Rhino 9.0 package store via the Rhino PackageManager (Yak).
+- The package provides the `rhino-mcp-router` stdio server; the bridge does not bundle, launch, or supervise it.
+
+[REGISTER]:
+- Declare `rhino-mcp-router` to Claude Code at USER scope in `~/.claude.json` as a `type: stdio` server.
+- Never commit a project-scope `.mcp.json` for it. The platform is a per-operator host capability, not a checked-in workspace dependency, so a repo-scoped registration is rejected.
+
+[HEALTH]:
+- `bridge status` surfaces `mcp.platform.version` and `mcp.listener` as capability facts read from the loaded host state.
+- A present `mcp.platform.version` with an active `mcp.listener` confirms the McNeel platform loaded into the same host the bridge supervises.
+
+[CROSS_SESSION_DRIFT]:
+- The `delta` rail folds `mcp.platform.version`, `mcp.listener`, `rhinoVersion`, and `rpc.streamjsonrpc` into per-session fact rows.
+- Any cross-session change to one of those facts surfaces as a `RunDelta.drift` row, so host and platform drift is auto-tracked across sessions without manual diffing.
+
+[VERDICT]:
+- The relationship is `additive_external`. The McNeel platform is interactive and conversational; the bridge is deterministic typed verification.
+- Neither replaces the other: the platform drives exploratory host interaction, the bridge drives reproducible `[RhinoScenario]` closure, and `bridge status` is the single seam that reports both as capability facts.
 
 ## [11]-[BOUNDARIES]
 

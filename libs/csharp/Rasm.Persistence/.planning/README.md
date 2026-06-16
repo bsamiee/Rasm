@@ -87,7 +87,7 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |   [1]   | engine + blob        | StoreProfile, StoreRows, BlobRemote              | enum + records    | 6 rows            | FINALIZED |
 |   [2]   | lifecycle            | StoreLifecycle, receipts                         | enum + fold       | 5 states          | FINALIZED |
 |   [3]   | placement            | StorePlacement                                   | record + fold     | 8 arms            | FINALIZED |
-|   [4]   | cross-process        | StoreLeaseRow, StoreLocality                     | record + guard    | 2 lease kinds     |   SPIKE   |
+|   [4]   | cross-process        | StoreLeaseRow, StoreLocality                     | record + guard    | 2 lease kinds     | FINALIZED |
 |   [5]   | provisioning         | ExtensionRequirement                             | table + verify    | 11 rows           | FINALIZED |
 |   [6]   | lane axis            | DataLane, KvEntry                                | union + fold      | 7 cases           | FINALIZED |
 |   [7]   | document/search      | JsonIndex, VectorMetric, FullTextMode            | enums             | 4 · 6 · 4         | FINALIZED |
@@ -102,7 +102,7 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |  [16]   | maintenance + gates  | maintenance, functions, extensions, DbConfig     | verbs + gates     | 9 verbs · 8 gates | FINALIZED |
 |  [17]   | snapshot protocol    | codecs, compression, hashing, restore            | rows + wire       | 3 · 3 · 5         | FINALIZED |
 |  [18]   | cache + indexes      | contribution, result, artifact, benchmark        | capsule + keys    | 1 + 3 indexes     | FINALIZED |
-|  [19]   | sync spine           | op kind, log, merge, conflicts                   | vocab + dispatch  | 3 · 4 · 3         |   SPIKE   |
+|  [19]   | sync spine           | op kind, log, merge, conflicts                   | vocab + dispatch  | 3 · 4 · 3         | FINALIZED |
 |  [20]   | retention + classes  | policies, classes, guards, evidence              | axes + guards     | 4 · 7 · 5         |   SPIKE   |
 |  [21]   | object-store         | ObjectStore, MultipartTransfer, ObjectResidence, ArtifactSyncFeed, RemoteStoreFault | SmartEnum + Union + records | 3 providers · 5 faults | FINALIZED |
 |  [22]   | server-tier          | TimescaleProvisioning, SearchProvisioning, ClusterConfig, TenancyModel, TenantProvision, TenantQuota, MigrationBundle | static folds + SmartEnum | 5 clusters · 4 tenancy · 2 lifecycle | FINALIZED |

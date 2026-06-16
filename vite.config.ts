@@ -5,12 +5,12 @@
  */
 
 import { Effect } from 'effect';
-import { defineConfig } from 'vite';
+import { defineConfig, type UserConfig } from 'vite';
 import { createConfig } from './vite.factory.ts';
 
 // --- [EXPORTS] ---------------------------------------------------------------
 
-export default defineConfig(
+const config: UserConfig = defineConfig(
     Effect.runSync(
         createConfig({
             entry: './vite.factory.ts',
@@ -34,3 +34,5 @@ export default defineConfig(
         }),
     ),
 );
+
+export default config;

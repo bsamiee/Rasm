@@ -44,6 +44,9 @@ from tools.assay.composition.settings import (
     PullStrategy,
     PY_ARTIFACT_ROOTS,
     PY_COVERAGE_FILES,
+    remote_path,
+    resolve_tilde,
+    run_id_host_token,
     size_from_info,
     Ssh,
 )
@@ -423,6 +426,24 @@ def test_assay_settings_wire_safe_scrubs_surrogates(tmp_path: Path) -> None:
 register_law(AssaySettings, "assay_settings_wire_safe_scrubs_surrogates")
 
 
+def test_run_id_host_token_carves_the_per_host_prune_namespace(tmp_path: Path) -> None:
+    """``run_id_host_token`` extracts the embedded host token so a remote prune sweeps one host's namespace only.
+
+    The default ``<timestamp>-<token>-<pid>`` run id yields its blake2b host token, which ``host_run_token`` surfaces;
+    a custom tokenless run id yields ``""`` so no remote prune ever claims another host's runs on a shared workroot.
+    """
+    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
+    minted = _settings_mod._host_unique_run_id()
+    assert run_id_host_token(minted) == _settings_mod._host_token(), "the minted run id must carry this host's blake2b token"
+    assert AssaySettings(root=UPath(tmp_path), run_id=minted, exec_known_hosts=None).host_run_token == _settings_mod._host_token()
+    assert run_id_host_token("custom-run") == "", "a tokenless run id owns no host namespace"
+    assert AssaySettings(root=UPath(tmp_path), run_id="custom-run", exec_known_hosts=None).host_run_token == ""
+
+
+register_law(AssaySettings, "run_id_host_token_carves_the_per_host_prune_namespace")
+register_law(run_id_host_token, "run_id_host_token_carves_the_per_host_prune_namespace")
+
+
 @pytest.mark.parametrize(
     "exec_target, error_match",
     [("ssh://user@host:notaport", "non-numeric ssh port"), ("http://host/path", "without path/query/fragment")],
@@ -441,6 +462,22 @@ def test_assay_settings_exec_target_valid_ssh_with_port(tmp_path: Path) -> None:
     s = AssaySettings.model_validate({"root": UPath(tmp_path), "exec_target": "ssh://user@host:22", "exec_known_hosts": None})
     assert isinstance(s.exec_target, Ssh)
     assert (s.exec_target.host, s.exec_target.port, s.exec_target.user, s.exec_target.url) == ("host", 22, "user", "ssh://user@host:22")
+
+
+def test_assay_settings_exec_target_admits_raw_ssh_url_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``ASSAY_EXEC_TARGET=ssh://...`` admits a raw, unquoted env URL: NoDecode keeps the union field off pydantic-settings' json.loads.
+
+    The env path is the live agent ergonomic — a bare ``ssh://host`` (no JSON quoting). Without ``NoDecode`` the ``Local | Ssh``
+    union drives pydantic-settings to ``json.loads('ssh://...')``, raising ``SettingsError`` before the BeforeValidator runs.
+    """
+    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
+    monkeypatch.setenv("ASSAY_ROOT", str(tmp_path))
+    monkeypatch.setenv("ASSAY_EXEC_TARGET", "ssh://root@31.97.131.41")
+    monkeypatch.setenv("ASSAY_EXEC_KNOWN_HOSTS", "")
+    s = AssaySettings()
+    assert isinstance(s.exec_target, Ssh)
+    assert (s.exec_target.host, s.exec_target.user, s.exec_target.port) == ("31.97.131.41", "root", None)
+    assert s.exec_target.url == "ssh://root@31.97.131.41"
 
 
 def test_assay_settings_exec_target_local_is_falsy_modal_identity(tmp_path: Path) -> None:
@@ -471,20 +508,45 @@ def test_settings_offload_derives_sftp_backend_under_run_dir(tmp_path: Path) -> 
     assert offload.pull_strategy is PullStrategy.TRANSFER
 
 
+def test_settings_offload_derives_shared_cloud_backend_under_run_dir(tmp_path: Path) -> None:
+    """A remote target with a configured SHARED cloud backend derives the offload at that cloud store under the run dir.
+
+    Host/backend inconsistency stays unrepresentable: the SHARED protocol is read off the configured backend's capability
+    row, never a separate knob, and the derived store is pinned at ``<root>/<run_id>/.artifacts/assay`` so the remote tool
+    writes and the agent reads the same universal paths with the SHARED pull strategy — no sftp byte download.
+    """
+    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
+    s = AssaySettings.model_validate({
+        "root": UPath(tmp_path),
+        "exec_target": "ssh://host:22",
+        "exec_known_hosts": None,
+        "run_id": "run-7",
+        "exec_workroot": "/srv/work",
+        "artifact_backend": {"protocol": "s3", "root": "bucket/runs"},
+    })
+    offload = s.offload
+    assert offload is not None
+    assert (offload.backend.protocol, offload.backend.root) == ("s3", "bucket/runs/run-7/.artifacts/assay")
+    assert offload.pull_strategy is PullStrategy.SHARED
+
+
 register_law(Ssh, "assay_settings_exec_target_rejected")
+register_law(Ssh, "assay_settings_exec_target_admits_raw_ssh_url_from_env")
 register_law(Ssh, "assay_settings_exec_target_valid_ssh_with_port")
 register_law(Local, "assay_settings_exec_target_local_is_falsy_modal_identity")
 register_law(Offload, "settings_offload_derives_sftp_backend_under_run_dir")
+register_law(Offload, "settings_offload_derives_shared_cloud_backend_under_run_dir")
+register_law(Ssh, "settings_offload_derives_shared_cloud_backend_under_run_dir")
 
 
 @pytest.mark.parametrize(
     "protocol, reachable, admitted, strategy",
     [
         ("file", False, True, PullStrategy.NONE),  # local landing store: reachable=False, no pull
-        ("sftp", True, True, PullStrategy.TRANSFER),  # the one end-to-end proven remote-exec backend
-        ("s3", True, False, PullStrategy.SHARED),  # cloud rows are explicit not-admitted facts until s3fs/gcsfs + moto law land
-        ("gs", True, False, PullStrategy.SHARED),
-        ("gcs", True, False, PullStrategy.SHARED),
+        ("sftp", True, True, PullStrategy.TRANSFER),  # byte-download remote-exec backend
+        ("s3", True, True, PullStrategy.SHARED),  # admitted shared object store: agent reads the tool-written tree, zero byte transfer
+        ("gs", True, True, PullStrategy.SHARED),
+        ("gcs", True, True, PullStrategy.SHARED),
         ("http", False, False, PullStrategy.NONE),  # unknown protocol: unreachable, not admitted, pulls nothing
     ],
     ids=["file", "sftp", "s3", "gs", "gcs", "unknown"],
@@ -533,6 +595,26 @@ def _ssh_parse_ok(url: str) -> bool:
 register_law(Ssh, "ssh_parse_accepts_root_path_only")
 
 
+def test_ssh_resolve_home_rebinds_tilde_to_absolute_workroot() -> None:
+    """``resolve_home`` rebinds a leading ``~`` workroot to the connection's absolute home; an absolute workroot is unchanged.
+
+    The agent resolves the remote ``~`` once (``sftp.realpath('.')``) so the SFTP push and the login-shell ``cd`` share one
+    absolute run dir — no literal ``~`` reaches SFTP. ``connect_kwargs`` defaults the port to 22 (asyncssh binds ``None`` as 0).
+    """
+    tilde = Ssh.parse("ssh://root@host")  # default workroot ~/.assay-work, no explicit port
+    resolved = tilde.resolve_home("/root")
+    assert resolved.remote_workroot("run-9") == "/root/.assay-work/run-9", "leading ~ must rebind to the absolute home"
+    absolute = tilde.model_copy(update={"workroot": "/srv/work"})
+    assert absolute.resolve_home("/root") is absolute, "an absolute workroot must resolve to itself (no copy)"
+    tildes = (resolve_tilde("~", "/home/u"), resolve_tilde("~/x/y", "/home/u/"), resolve_tilde("/abs/path", "/home/u"))
+    assert tildes == ("/home/u", "/home/u/x/y", "/abs/path"), "resolve_tilde rebinds ~/~/x and passes an absolute path through"
+    assert tilde.connect_kwargs["port"] == 22, "a portless URL must default to 22 for asyncssh (None binds as port 0)"
+    assert remote_path("/root") == "/root/.local/bin:/usr/local/dotnet:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+
+register_law(Ssh, "ssh_resolve_home_rebinds_tilde_to_absolute_workroot")
+
+
 @pytest.mark.parametrize(
     "value, expected",
     [(None, None), ("", None), ("/abs/host_keys", "/abs/host_keys"), ("~", str(UPath("~").expanduser()))],
@@ -572,12 +654,17 @@ def test_assay_settings_remote_env_filters_and_injects_run_id(assay_root: AssayH
     The ``forward`` set carries deliberately-declared row-Tool env keys across the SSH boundary while the
     ambient allowlist keeps gating undeclared host env — an asymmetry fix for the local-vs-remote env merge.
     """
-    source = {"traceparent": "00-a-b-01", "baggage": "k=v", "UNSAFE": "x", "ROW_DECLARED": "row", "ROW_UNDECLARED": "drop"}
-    env = assay_root.settings.remote_env(source, forward=frozenset({"ROW_DECLARED"}))
+    # The agent PATH in the source is the macOS PATH; remote_env must replace it with the injected Linux toolchain PATH, not forward it.
+    source = {"traceparent": "00-a-b-01", "baggage": "k=v", "UNSAFE": "x", "ROW_DECLARED": "row", "ROW_UNDECLARED": "drop", "PATH": "/mac/path"}
+    env = assay_root.settings.remote_env(source, home="/root", forward=frozenset({"ROW_DECLARED"}))
     assert env == IsPartialDict({"ASSAY_RUN_ID": IsStr, "traceparent": "00-a-b-01", "baggage": "k=v", "ROW_DECLARED": "row"})
     assert "UNSAFE" not in env, "ambient non-allowlisted key leaked across SSH"
     assert "ROW_UNDECLARED" not in env, "an undeclared row key must not cross the boundary on the allowlist alone"
-    assert "ROW_DECLARED" not in assay_root.settings.remote_env(source), "forward must be opt-in: the bare allowlist still gates row keys"
+    # The injected Linux toolchain PATH replaces the agent's local PATH and resolves ~ against the connection home for uv/dotnet reach.
+    assert env["PATH"] == "/root/.local/bin:/usr/local/dotnet:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    assert "/mac/path" not in env["PATH"], "the agent's local macOS PATH must never cross to a Linux host"
+    bare = assay_root.settings.remote_env(source, home="/root")
+    assert "ROW_DECLARED" not in bare, "forward must be opt-in: the bare allowlist still gates row keys"
 
 
 register_law(AssaySettings, "assay_settings_remote_env_filters_and_injects_run_id")

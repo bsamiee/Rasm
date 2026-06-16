@@ -1,7 +1,8 @@
-"""Manage yak package stage, deploy, publish, list, and plan rails.
+"""Manage yak package publish, plan, and list rails.
 
-Stage commits package directories through a same-filesystem swap with a recovery sentinel. Deploy
-and publish extend stage through policy-driven install/push and bridge refresh steps under slug leases.
+Publish commits package directories through a same-filesystem swap with a recovery sentinel, then
+extends the staged commit with policy-driven install/push and bridge refresh steps under slug leases.
+Plan is publish's dry-run metadata evaluation; list rosters package projects and slugs.
 """
 
 from dataclasses import dataclass
@@ -61,18 +62,19 @@ type _Step = tuple[str, ...]
 
 
 class _LifecycleStep(StrEnum):
-    """Post-stage yak or bridge step with its run mode and lease requirement."""
+    """Post-stage yak or bridge step with its run mode, lease requirement, and supervisor argv verb."""
 
     mode: Mode
     needs_bridge: bool
-    INSTALL = "install", Mode.DEPLOY, False
-    PUSH = "push", Mode.PUBLISH, False
-    QUIT = "quit", Mode.CLIENT, True
-    REFRESH = "refresh", Mode.CLIENT, True
+    wire: str
+    INSTALL = "install", Mode.DEPLOY, False, ""
+    PUSH = "push", Mode.PUBLISH, False, ""
+    QUIT = "quit", Mode.CLIENT, True, "quit"
+    REFRESH = "refresh", Mode.CLIENT, True, "status"
 
-    def __new__(cls, value: str, mode: Mode, needs_bridge: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
+    def __new__(cls, value: str, mode: Mode, needs_bridge: bool, wire: str) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
         member = str.__new__(cls, value)
-        member._value_, member.mode, member.needs_bridge = value, mode, needs_bridge
+        member._value_, member.mode, member.needs_bridge, member.wire = value, mode, needs_bridge, wire
         return member
 
 
@@ -223,10 +225,9 @@ class YakMeta(Base, frozen=True, gc=False):
 _DECODER: Final[msgspec.json.Decoder[_MsbuildProps]] = msgspec.json.Decoder(_MsbuildProps)
 _MARKER_DECODER: Final[msgspec.json.Decoder[_CommitMarker]] = msgspec.json.Decoder(_CommitMarker)
 
-# Keyed by (verb, is_rasm_bridge_slug); bridge slug forces quit/refresh to cycle the live host.
+# Keyed by (verb, is_rasm_bridge_slug); publish folds the full stage->install->push pipeline, and the
+# bridge slug additionally cycles the live host via quit before install and a status refresh after it.
 _STEP_POLICY: Final[dict[tuple[str, bool], tuple[_LifecycleStep, ...]]] = {
-    ("deploy", False): (_LifecycleStep.INSTALL,),
-    ("deploy", True): (_LifecycleStep.QUIT, _LifecycleStep.INSTALL, _LifecycleStep.REFRESH),
     ("publish", False): (_LifecycleStep.INSTALL, _LifecycleStep.PUSH),
     ("publish", True): (_LifecycleStep.QUIT, _LifecycleStep.INSTALL, _LifecycleStep.REFRESH, _LifecycleStep.PUSH),
 }
@@ -552,7 +553,7 @@ def _run_step(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, pack
         case _LifecycleStep.PUSH:
             return _run_yak(meta, _yak_push_tail(meta, package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope)
         case _:
-            return client_run(settings, str(step))
+            return client_run(settings, step.wire)
 
 
 def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:
@@ -566,11 +567,13 @@ def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:
 
 
 def _finish(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, verb: str, staged: Report) -> Result[Report, Fault]:
-    match (verb, staged.status):
-        case ("stage", _) | (_, RailStatus.FAILED | RailStatus.FAULTED | RailStatus.TIMEOUT | RailStatus.BUSY):
+    # A non-OK stage commit short-circuits before any post-stage step; an empty policy yields the staged report verbatim.
+    match staged.status:
+        case RailStatus.FAILED | RailStatus.FAULTED | RailStatus.TIMEOUT | RailStatus.BUSY:
+            return Ok(staged)
+        case _ if not (steps := _STEP_POLICY.get((verb, slug == _RASM_BRIDGE_SLUG), ())):
             return Ok(staged)
         case _:
-            steps = _STEP_POLICY.get((verb, slug == _RASM_BRIDGE_SLUG), ())
             return _resolve_package_file(meta).bind(lambda package_file: _drive_steps(settings, scope, meta, verb, staged, package_file, steps))
 
 
@@ -650,29 +653,11 @@ def _plan_report(meta: YakMeta, version: str) -> Report:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def stage(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
-    """Stage one yak distribution.
-
-    Returns:
-        Package lifecycle report, or a staging fault.
-    """
-    return _lifecycle(settings, scope, params, "stage")
-
-
-def deploy(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
-    """Stage and install one yak distribution.
-
-    Returns:
-        Package lifecycle report, or a staging/install fault.
-    """
-    return _lifecycle(settings, scope, params, "deploy")
-
-
 def publish(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
-    """Stage, install, and publish one yak distribution.
+    """Run the full yak pipeline: stage commit, then install, push, and bridge refresh under lease.
 
     Returns:
-        Package lifecycle report, or a staging/install/publish fault.
+        Package lifecycle report, or a stage/install/push fault.
     """
     return _lifecycle(settings, scope, params, "publish")
 
@@ -714,4 +699,4 @@ def plan(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PackageParams", "YakMeta", "deploy", "evaluate_meta", "list", "plan", "publish", "stage"]
+__all__ = ["PackageParams", "YakMeta", "evaluate_meta", "list", "plan", "publish"]
