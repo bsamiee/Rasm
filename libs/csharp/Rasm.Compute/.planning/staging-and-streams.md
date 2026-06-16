@@ -24,7 +24,7 @@ edge. `CorrelationId`/`ReceiptSinkPort` bind identity and emission; pooled owner
 - Receipt: `AllocationEvidence` — correlation, class row, requested and granted bytes, copy reason, native allocator slots; it materializes at the receipt sink edge from hot-path structs.
 - Packages: CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
 - Growth: one `AllocationClass` row with its predicate values; a cap change is one policy value; zero new surface.
-- Boundary: the class is intent-declared data, never a call-site choice; a false `Admits` folds to the `ComputeFault` rail at the admission edge as the allocation-over-class case; the sync-only row gates async lanes because a `SpanOwner<T>` never escapes its declaring scope; `MemoryOwner<T>`/`SpanOwner<T>` are the lifetime boundary composed bare while `Ref<T>` carriers and `DangerousGetReference` stay kernel-internal and `DangerousGetArray` is the ArraySegment-handoff seam for the tensor-lane rented-array factory and the `StreamPool` zero-copy byte handoff; `BitHelper` packs voxel-occupancy and symbolic-dimension masks in place over the `PooledMemory` row so a `VoxelGrid` payload carries one bit per cell instead of one byte; `SpanTokenizer<T>`/`ReadOnlySpanTokenizer<T>` complete the codec-text split begun at `Tokenize` so receipt and codec spans partition without intermediate strings; `ArrayPoolExtensions.Resize`/`EnsureCapacity` grow a rented array in place during incremental codec emit so the `PooledMemory` and `RecyclableStream` rows never reallocate through a second rent; the native row's allocator slots receive their values from the model lane's allocator read; `HashCode<T>.Combine` over a flattened staging span is the rejected content-key route here — content hashing rides the suite XxHash owner (`XxHash3`/`XxHash128`) at the intent and model lanes, never a second staging-local hash; this axis deletes per-call-site pool choices, naked `ArrayPool<T>.Shared` rents, `byte`-per-cell occupancy buffers, intermediate split strings, `System.IO.Pipelines` admission, `HashCode<T>` content keys, and every unowned buffer type without a row.
+- Boundary: the class is intent-declared data, never a call-site choice; a false `Admits` folds to the `ComputeFault` rail at the admission edge as the allocation-over-class case; the sync-only row gates async lanes because a `SpanOwner<T>` never escapes its declaring scope; `MemoryOwner<T>`/`SpanOwner<T>` are the lifetime boundary composed bare while `Ref<T>` carriers and `DangerousGetReference` stay kernel-internal and `DangerousGetArray` is the ArraySegment-handoff seam for the tensor-lane rented-array factory and the `StreamPool` zero-copy byte handoff; `BitHelper.HasFlag`/`SetFlag`/`ExtractRange`/`SetRange` pack voxel-occupancy and symbolic-dimension masks over the `PooledMemory` row so a `VoxelGrid` payload carries one bit per cell instead of one byte — the branchless members operate on a `ulong` word the `StagingViews` extension writes back through a `ref` slot, never a hand-rolled shift-and-test; `SpanTokenizer<T>`/`ReadOnlySpanTokenizer<T>` complete the codec-text split begun at `Tokenize` so receipt and codec spans partition without intermediate strings; `ArrayPoolExtensions.Resize`/`EnsureCapacity` grow a rented array in place during incremental codec emit so the `PooledMemory` and `RecyclableStream` rows never reallocate through a second rent; the native row's allocator slots receive their values from the model lane's allocator read; `HashCode<T>.Combine` over a flattened staging span is the rejected content-key route here — content hashing rides the suite XxHash owner (`XxHash3`/`XxHash128`) at the intent and model lanes, never a second staging-local hash; this axis deletes per-call-site pool choices, naked `ArrayPool<T>.Shared` rents, `byte`-per-cell occupancy buffers, intermediate split strings, `System.IO.Pipelines` admission, `HashCode<T>` content keys, and every unowned buffer type without a row.
 
 ```csharp signature
 public sealed class StagingKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -69,17 +69,27 @@ public readonly record struct AllocationEvidence(
 |   [5]   | native evidence   | native grants happen inside the model lane; `NativeAllocator` and `NativeReservedBytes` slots carry the allocator name and reserved byte count                                                                                                                                                                                  |
 |   [6]   | edge copy         | a grant on the copy-receipted row carries a reason; every array materialization and stream flatten routes through it                                                                                                                                                                                                            |
 |   [7]   | text interning    | `StringPool.GetOrAdd` interns receipt and diagnostic text at the sink edge only; `Tokenize` splits codec text spans without intermediate strings                                                                                                                                                                                |
-|   [8]   | bit packing       | the `BitHelper` row owns voxel-occupancy and symbolic-dimension bit-flag packing over a `Span<ulong>` window of `PooledMemory` (sixty-four cells per word); one bit per cell replaces a byte buffer through the mask-word shift-and-test the fence carries and the encoded mask stages for the tensor-lane `VoxelGrid` encoding |
+|   [8]   | bit packing       | `BitHelper.HasFlag(ulong, int)`/`SetFlag(ulong, int, bool)`/`ExtractRange(ulong, byte, byte)` own voxel-occupancy and symbolic-dimension bit-flag packing over a `Span<ulong>` window of `PooledMemory` (sixty-four cells per word); one bit per cell replaces a byte buffer through the branchless members the `StagingViews` fence carries and the encoded mask stages for the tensor-lane `VoxelGrid` encoding |
 |   [9]   | in-place growth   | `ArrayPoolExtensions.Resize`/`EnsureCapacity` grow the rented backing array during incremental codec emit; the writer never reallocates through a second `MemoryOwner<T>.Allocate` and the granted-byte slot reflects the grown capacity                                                                                        |
-|  [10]   | span tokenizing   | `ReadOnlySpanTokenizer<T>` partitions a codec or diagnostic span by separator without materializing intermediate strings; `SpanTokenizer<T>` rewrites a mutable staged span in the same pass                                                                                                                                    |
+|  [10]   | span tokenizing   | `ReadOnlySpanTokenizer<T>` partitions a codec or diagnostic span by separator without materializing intermediate strings; `SpanTokenizer<T>` rewrites a mutable staged span in the same pass
+|  [11]   | contiguous frame  | `RecyclableMemoryStreamManager.GetStream(tag, requiredSize, asContiguousBuffer: true)` forces one large-buffer allocation for a chunked tensor frame the tensor lane requires contiguous; the grant rides the `RecyclableStream` row, the `requiredSize` fills the granted-byte slot, and the route replaces a hand-rolled array concatenation of chunk frames                                                                                                                                    |
 
 ```csharp signature
 public static class StagingViews {
     extension(MemoryOwner<ulong> mask) {
-        public bool Cell(int index) => (mask.Span[index >> 6] & (1UL << (index & 63))) != 0UL;
+        public bool Cell(int index) => BitHelper.HasFlag(mask.Span[index >> 6], index & 63);
 
-        public void Mark(int index) =>
-            mask.Span[index >> 6] |= 1UL << (index & 63);
+        public void Mark(int index) {
+            ref ulong word = ref mask.Span[index >> 6];
+            word = BitHelper.SetFlag(word, index & 63, true);
+        }
+
+        public void Clear(int index) {
+            ref ulong word = ref mask.Span[index >> 6];
+            word = BitHelper.SetFlag(word, index & 63, false);
+        }
+
+        public ulong Range(int start, byte length) => BitHelper.ExtractRange(mask.Span[start >> 6], (byte)(start & 63), length);
     }
 
     public static Span<byte> Grow(this ArrayPool<byte> pool, ref byte[]? backing, int capacity) {
@@ -119,12 +129,12 @@ public static Span<TTo> Cast<TFrom, TTo>(this Span<TFrom> span) where TFrom : un
 ## [4]-[STREAM_POOL]
 
 - Owner: `StreamPool` boundary capsule owning the one process `RecyclableMemoryStreamManager`; `StreamPoolPolicy` carries every pool policy value.
-- Entry: `RecyclableMemoryStream Get(CorrelationId correlation, Option<long> requiredSize = default)`.
+- Entry: `RecyclableMemoryStream Get(CorrelationId correlation, Option<long> requiredSize = default, bool contiguous = false)`.
 - Auto: the constructor attaches all eleven manager events and every event projects into `AllocationEvidence` riding `ReceiptSinkPort` `Send` with zero call-site code; `Get` passes the correlation as the stream id and the `RecyclableStream` row key as the tag, so every later event rejoins its intent.
 - Receipt: double-dispose, finalization, and discarded-buffer events are leak diagnostics, never log noise; an array-conversion event without a matching copy reason is the named call-site defect.
 - Packages: Microsoft.IO.RecyclableMemoryStream, CommunityToolkit.HighPerformance, Google.Protobuf, LanguageExt.Core, Rasm.AppHost (project)
 - Growth: one policy value on `StreamPoolPolicy`; a new evidence slot is one `AllocationEvidence` field; zero new surface.
-- Boundary: `StreamPool` is the named boundary capsule for the statement carve-out — the constructor's manager creation, eleven-event wiring, and detacher collection carry language-owned statement forms, and the `PoolEvidence.Project` attach pair and `StagingViews.Grow` ref-array growth are the two further platform-forced statement seams (event add/remove and a `ref T[]` mutation the package returns through `void`) while every other member stays expression-shaped; `PoolEvidence.Project` is the foreign-receiver/local-behavior extension form — the AppHost `ReceiptSinkPort` is the foreign receiver read only to stamp evidence while the subscription-value detacher holding the exact handler identity is Compute-owned behavior, so the block adds no second disposer registry and mutates no port state; one capsule per process composed as a singleton contribution at the app root, and the `Diagnostic` policy row binds on debug and test-host profile rows; memory, owners, writers, and sequences become streams only through the `AsStream` extension family at IO edges — the package-internal stream classes never enter vocabulary; `GetBuffer` serves the contiguous-codec read past `MaximumBufferSize`, `DangerousGetArray` hands the rented segment to `UnsafeByteOperations.UnsafeWrap` for the zero-copy `ByteString`, and `BlockAndOffset`/`BlockSegment` stay on the `Diagnostic` policy row; this capsule deletes per-call-site manager instances, raw `MemoryStream` construction, copy-shaped `ByteString.CopyFrom`, and unreceipted `ToArray` flattens.
+- Boundary: `StreamPool` is the named boundary capsule for the statement carve-out — the constructor's manager creation, eleven-event wiring, and detacher collection carry language-owned statement forms, and the `PoolEvidence.Project` attach pair and `StagingViews.Grow` ref-array growth are the two further platform-forced statement seams (event add/remove and a `ref T[]` mutation the package returns through `void`) while every other member stays expression-shaped; `PoolEvidence.Project` is the foreign-receiver/local-behavior extension form — the AppHost `ReceiptSinkPort` is the foreign receiver read only to stamp evidence while the subscription-value detacher holding the exact handler identity is Compute-owned behavior, so the block adds no second disposer registry and mutates no port state; one capsule per process composed as a singleton contribution at the app root, and the `Diagnostic` policy row binds on debug and test-host profile rows; memory, owners, writers, and sequences become streams only through the `AsStream` extension family at IO edges — the package-internal stream classes never enter vocabulary; `GetBuffer` serves the contiguous-codec read past `MaximumBufferSize`, `DangerousGetArray` hands the rented segment to `UnsafeByteOperations.UnsafeWrap` for the zero-copy `ByteString`, and `BlockAndOffset`/`BlockSegment` stay on the `Diagnostic` policy row; `GetReadOnlySequence` is the zero-copy chunked read every tensor-frame and model-stream consumer takes — the model-lane `Chunked` and `GenerativeRun` token-stream paths read sequence segments through it without flattening, and `Get(correlation, requiredSize, contiguous: true)` forces one large pooled buffer through the `asContiguousBuffer:true` overload only for the tensor frame the tensor lane requires contiguous; this capsule deletes per-call-site manager instances, raw `MemoryStream` construction, copy-shaped `ByteString.CopyFrom`, and unreceipted `ToArray` flattens.
 
 ```csharp signature
 public sealed record StreamPoolPolicy(
@@ -175,9 +185,11 @@ public sealed class StreamPool : IDisposable {
 
     public StreamPool(StreamPoolPolicy policy, ReceiptSinkPort sink);
 
-    public RecyclableMemoryStream Get(CorrelationId correlation, Option<long> requiredSize = default) =>
+    public RecyclableMemoryStream Get(CorrelationId correlation, Option<long> requiredSize = default, bool contiguous = false) =>
         requiredSize is { IsSome: true, Case: long size }
-            ? manager.GetStream(correlation, AllocationClass.RecyclableStream.Key, size)
+            ? contiguous
+                ? manager.GetStream($"{AllocationClass.RecyclableStream.Key}/{correlation}", size, asContiguousBuffer: true)
+                : manager.GetStream(correlation, AllocationClass.RecyclableStream.Key, size)
             : manager.GetStream(correlation, AllocationClass.RecyclableStream.Key);
 
     public void Dispose() => detachers.Rev().Iter(static detach => detach());
@@ -235,4 +247,3 @@ public static class PoolEvidence {
 ## [5]-[RESEARCH]
 
 - [POOL_EVIDENCE]: bound `RecyclableMemoryStreamManager` event-arg field availability across single-block and large-buffer streams (`AllocationStack` populated only on the `GenerateCallStacks` policy row) for the zero-allocation projection.
-- [BIT_FLAG_MEMBERS]: the `BitHelper` bit-flag-packing member surface — the set-flag and has-flag spellings over a sixty-four-bit mask word — uncatalogued against the package surface; the `StagingViews` bit-pack route rides the mask-word shift-and-test until the `BitHelper` member names and word-width overload confirm in the high-performance catalogue.

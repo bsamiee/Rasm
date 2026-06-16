@@ -1,6 +1,6 @@
 # [COMPUTE_MODEL_LANE]
 
-Rasm.Compute model lane: ONNX model identity and provenance, the one shared session capsule with its EP-context warm-start route, the EP-parameterized execution-provider axis across CPU, CoreML, and the designed GPU rows, custom-operator admission, the OrtValue-only run-mode fold with its `BoundLoop` zero-allocation hot path, and the version-stamped deterministic result cache. The page owns the `ModelSource`/`ModelIdentity` vocabulary, the `SessionPolicy` lifecycle rows, the `ExecutionProvider` axis, the extension-op admission fold, the `RunConfig`/`RunOps` inference fold, and the `CachePolicy`/`CacheOps` read-through over Microsoft.ML.OnnxRuntime. The lane composes AppHost clocks, deadlines, drain, schedule, and cache ports plus Persistence index, blob, and `ModelResultKey` rows as settled vocabulary.
+Rasm.Compute model lane: ONNX model identity and provenance, the one shared session capsule with its EP-context warm-start route, the EP-parameterized execution-provider axis across CPU, CoreML, and the GPU-RID-gated rows, custom-operator admission, the OrtValue-only run-mode fold with its `BoundLoop` zero-allocation hot path, the ORT-GenAI token-streaming generative run owner, and the version-stamped deterministic result cache. The page owns the `ModelSource`/`ModelIdentity` vocabulary, the `SessionPolicy` lifecycle rows, the `ExecutionProvider` axis, the extension-op admission fold, the `RunConfig`/`RunOps` inference fold, the `GenerationPolicy`/`GenerativeRun` token-streaming owner over Microsoft.ML.OnnxRuntimeGenAI, and the `CachePolicy`/`CacheOps` read-through over Microsoft.ML.OnnxRuntime. The lane composes AppHost clocks, deadlines, drain, schedule, and cache ports plus Persistence index, blob, and `ModelResultKey` rows as settled vocabulary.
 
 ## [1]-[INDEX]
 
@@ -11,7 +11,8 @@ Rasm.Compute model lane: ONNX model identity and provenance, the one shared sess
 |   [3]   | EP_AXIS         | Execution-provider rows with probe, OS gate, option table            |
 |   [4]   | EXTENSION_OPS   | Extension and custom-op registration with asset evidence             |
 |   [5]   | INFERENCE_MODES | OrtValue-only run modes; cancellation edge; profiling artifacts      |
-|   [6]   | RESULT_CACHE    | Version-stamped deterministic keys; cache-policy rows                |
+|   [6]   | GENERATIVE_RUN  | ORT-GenAI token-streaming owner; search-option table; guidance       |
+|   [7]   | RESULT_CACHE    | Version-stamped deterministic keys; cache-policy rows                |
 
 ## [2]-[MODEL_IDENTITY]
 
@@ -180,8 +181,8 @@ public static class ModelSessions {
 - Cases: `Cpu`, `CoreMl`, `Cuda`, `DirectMl`.
 - Auto: `Available` reads the `GetAvailableProviders` probe plus the macOS 12 gate riding the `ModelFormat` row value and the `RequiresWindows` gate on the GPU rows; `ResultKey` stamps EP key, ORT version, and option-table hash for the deterministic cache key with zero call-site hashing.
 - Packages: Microsoft.ML.OnnxRuntime, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new accelerator is one `ExecutionProvider` row with its probe name, OS gate, and device policy columns — `Cuda` and `DirectMl` are the designed-only Windows-gated rows carrying the `PREFER_GPU` and `MAX_PERFORMANCE` device policies; the generative token-streaming successor lands as one designed substrate row, never a chat-client surface; zero new surface.
-- Boundary: `AppendExecutionProvider("CoreML", options)` with the seven frozen option keys is the canonical spelling — `AppendExecutionProvider_CoreML(CoreMLFlags)` is the rejected legacy flags route; the `Cuda` and `DirectMl` rows carry only their `PREFER_GPU` and `MAX_PERFORMANCE` device-policy columns and a no-op register delegate, the GPU registration spelling binding from the EP_OPTIONS research row, and stay designed-only behind the `RequiresWindows` gate; the macOS 12 gate is per `ModelFormat` value because the legacy NeuralNetwork format alone reaches back to macOS 10.15; the CoreML option keys and their value domains are catalogued and the seven frozen rows are the canonical spelling; `ModelCacheDirectory` binds at registration to the blob-lane artifact directory so compiled CoreML caches are catalogued inventory; a vetoed row degrades to the next with its reason in the receipt and `Cpu` is the implicit terminal; dylib-presence heuristics are the deleted probe form.
+- Growth: a new accelerator is one `ExecutionProvider` row with its probe name, OS gate, and device policy columns — `Cuda` and `DirectMl` are the GPU-RID-gated rows carrying the `PREFER_GPU` and `MAX_PERFORMANCE` device policies with their grounded `_CUDA(0)`/`_DML(0)` register members; the generative token-streaming successor lands as the `GENERATIVE_RUN` run-mode cluster composing this EP axis, never a chat-client surface; zero new surface.
+- Boundary: `AppendExecutionProvider_CoreML(CoreMLFlags coremlFlags)` is the canonical typed registration carrying the `CoreMlFlag` flag column, and `AppendExecutionProvider("CoreMLExecutionProvider", options)` is the proved option-rich fallback for the string-keyed `ModelCacheDirectory`/`MLComputeUnits` keys — a bare `"CoreML"` provider name faults `InvalidArgument` and is the deleted spelling; the `Cuda` and `DirectMl` rows carry their `PREFER_GPU` and `MAX_PERFORMANCE` device policies and the grounded `AppendExecutionProvider_CUDA(0)`/`AppendExecutionProvider_DML(0)` register members behind the `RequiresWindows`/GPU-RID gate — the registration member shape is FINALIZED and the GPU-hardware execution is the residual tier-3 probe; the macOS 12 gate is per `ModelFormat` value because the legacy NeuralNetwork format alone reaches back to macOS 10.15; the CoreML option keys and their value domains are catalogued and the seven frozen rows are the canonical spelling; the default CoreML flag is `COREML_FLAG_USE_NONE` (proved working) and `COREML_FLAG_CREATE_MLPROGRAM` is the MLProgram-backend column matching the `ModelFormat=MLProgram` option; `ModelCacheDirectory` binds at registration to the blob-lane artifact directory so compiled CoreML caches are catalogued inventory; a vetoed row degrades to the next with its reason in the receipt and `Cpu` is the implicit terminal; dylib-presence heuristics are the deleted probe form.
 
 ```csharp signature
 public sealed class ModelKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -205,22 +206,26 @@ public sealed partial class ExecutionProvider {
         ["AllowLowPrecisionAccumulationOnGPU"] = "0",
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    public static readonly ExecutionProvider Cpu = new("cpu", providerName: "CPUExecutionProvider", minMacOsMajor: 0, requiresWindows: false, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, devicePolicy: Option<ExecutionProviderDevicePolicy>.None, register: static (_, _) => { });
+    public static readonly ExecutionProvider Cpu = new("cpu", providerName: "CPUExecutionProvider", minMacOsMajor: 0, requiresWindows: false, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, coreMlFlag: CoreMLFlags.COREML_FLAG_USE_NONE, devicePolicy: Option<ExecutionProviderDevicePolicy>.None, register: static (_, _) => { });
 
     public static readonly ExecutionProvider CoreMl = new(
         "coreml", providerName: "CoreMLExecutionProvider", minMacOsMajor: 12, requiresWindows: false, optionsHash: Hash(CoreMlRows),
-        options: CoreMlRows, devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_NPU),
-        register: static (sessionOptions, cacheDir) => sessionOptions.AppendExecutionProvider("CoreML", new Dictionary<string, string>(CoreMlRows, StringComparer.Ordinal) { ["ModelCacheDirectory"] = cacheDir }));
+        options: CoreMlRows, coreMlFlag: CoreMLFlags.COREML_FLAG_USE_NONE, devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_NPU),
+        register: static (sessionOptions, cacheDir) => {
+            sessionOptions.AppendExecutionProvider_CoreML(CoreMLFlags.COREML_FLAG_USE_NONE);
+            sessionOptions.AppendExecutionProvider("CoreMLExecutionProvider", new Dictionary<string, string>(CoreMlRows, StringComparer.Ordinal) { ["ModelCacheDirectory"] = cacheDir });
+        });
 
-    public static readonly ExecutionProvider Cuda = new("cuda", providerName: "CUDAExecutionProvider", minMacOsMajor: 0, requiresWindows: true, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_GPU), register: static (_, _) => { });
+    public static readonly ExecutionProvider Cuda = new("cuda", providerName: "CUDAExecutionProvider", minMacOsMajor: 0, requiresWindows: true, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, coreMlFlag: CoreMLFlags.COREML_FLAG_USE_NONE, devicePolicy: Some(ExecutionProviderDevicePolicy.PREFER_GPU), register: static (opts, _) => opts.AppendExecutionProvider_CUDA(0));
 
-    public static readonly ExecutionProvider DirectMl = new("directml", providerName: "DmlExecutionProvider", minMacOsMajor: 0, requiresWindows: true, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, devicePolicy: Some(ExecutionProviderDevicePolicy.MAX_PERFORMANCE), register: static (_, _) => { });
+    public static readonly ExecutionProvider DirectMl = new("directml", providerName: "DmlExecutionProvider", minMacOsMajor: 0, requiresWindows: true, optionsHash: 0UL, options: FrozenDictionary<string, string>.Empty, coreMlFlag: CoreMLFlags.COREML_FLAG_USE_NONE, devicePolicy: Some(ExecutionProviderDevicePolicy.MAX_PERFORMANCE), register: static (opts, _) => opts.AppendExecutionProvider_DML(0));
 
     public string ProviderName { get; }
     public int MinMacOsMajor { get; }
     public bool RequiresWindows { get; }
     public ulong OptionsHash { get; }
     public FrozenDictionary<string, string> Options { get; }
+    public CoreMLFlags CoreMlFlag { get; }
     public Option<ExecutionProviderDevicePolicy> DevicePolicy { get; }
     public Action<SessionOptions, string> Register { get; }
 
@@ -236,6 +241,18 @@ public sealed partial class ExecutionProvider {
             rows.OrderBy(static row => row.Key, StringComparer.Ordinal).Select(static row => $"{row.Key}={row.Value}"))));
 }
 ```
+
+The `CoreMlFlag` column binds the package `Microsoft.ML.OnnxRuntime.CoreMLFlags` `[Flags]` enum (`UInt32`) values:
+
+| [INDEX] | [FLAG]                                       | [VALUE] |
+| :-----: | :------------------------------------------- | :-----: |
+|   [1]   | `COREML_FLAG_USE_NONE`                       |    0    |
+|   [2]   | `COREML_FLAG_USE_CPU_ONLY`                   |    1    |
+|   [3]   | `COREML_FLAG_ENABLE_ON_SUBGRAPH`             |    2    |
+|   [4]   | `COREML_FLAG_ONLY_ENABLE_DEVICE_WITH_ANE`    |    4    |
+|   [5]   | `COREML_FLAG_ONLY_ALLOW_STATIC_INPUT_SHAPES` |    8    |
+|   [6]   | `COREML_FLAG_CREATE_MLPROGRAM`               |   16    |
+|   [7]   | `COREML_FLAG_USE_CPU_AND_GPU`                |   32    |
 
 ## [5]-[EXTENSION_OPS]
 
@@ -271,13 +288,13 @@ public static class CustomOps {
 ## [6]-[INFERENCE_MODES]
 
 - Owner: `RunOps` — the run-mode fold over the shared session: single, lane-enqueued, bound-batch, and windowed runs discriminated by intent payload shape.
-- Cases: single `Run`; lane-enqueued async (the lane seam owns the thread hop — the native `RunAsync` requires pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so it is the rejected spelling); `RunWithBinding` bound batch over a populated `OrtIoBinding`; the `BoundLoop` steady-state hot path; streaming windows over chunked inputs.
+- Cases: single `Run`; lane-enqueued async (the lane seam owns the thread hop — the native `RunAsync` requires pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so it is the rejected spelling); `RunWithBinding` bound batch over a populated `OrtIoBinding`; the `BoundLoop` steady-state hot path; `Chunked` streaming windows over chunked inputs through `RecyclableMemoryStream.GetReadOnlySequence`; `Embed` text-to-vector projection over an embedding model.
 - Entry: `public Fin<T> Infer<T>(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, Seq<string> outputs, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project)` — the projection runs inside the native-result bracket.
 - Auto: `Plan` wires deadline expiry into the `Terminate` one-way latch from the linked `CancelScope`, attaches LoRA adapters, and folds the `RunConfig` row table into `AddRunConfigEntry` calls so a posture change selects a row rather than editing the fence; one conversion arm classifies failures into `DeadlineExpired`/`Cancelled` by scope provenance.
 - Receipt: the ModelRun receipt carries route, elapsed, allocation class, and `OrtMemoryInfo` allocator evidence slots; profiling chrome-trace artifacts land as `ArtifactIndexRow.OnnxProfile` rows with the artifact path in the receipt.
 - Packages: Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
-- Growth: a new run shape is one payload-shape case on the intent family; a new run-config posture is one `RunConfig` row carrying its `AddRunConfigEntry` key-value pairs and its `OrtAllocatorType` arena column; zero new surface.
-- Boundary: `RunOps` extends the `ModelSessions` boundary capsule and this fence carries bracketed statement forms with deterministic native disposal; OrtValue-only law — `NamedOnnxValue`, `DisposableNamedOnnxValue`, and `FixedBufferOnnxValue` are superseded spellings that never appear; `CreateTensorValueFromMemory` binds rented staging arrays without copies; the `Terminate` latch is the single cancellation propagation path and the deadline-poll cadence binds from the CANCELLATION research row; `InferBound` runs `RunWithBinding` over a populated `OrtIoBinding`, bracketing the run between `SynchronizeBoundInputs` and `SynchronizeBoundOutputs` and projecting `GetOutputValues`; the `BoundLoop` capsule is the zero-allocation steady-state posture for repeated same-shape inference — `CreateIoBinding`, `BindInput`/`BindOutput` once, a `MemoryOwner<float>` input plane refreshed by span copy, a `CreateAllocatedTensorValue` output sink, and `RunWithBinding` per `Pulse` with no per-call marshal — and a shape-class transition rebinds through `ClearBoundInputs`/`ClearBoundOutputs` with `BindOutputToDevice` routing device outputs; the `RunConfig.Arena` column classifies the run allocator through `OrtAllocatorType` (`ArenaAllocator` steady, `DeviceAllocator` device-resident); output projection scopes native memory inside `project` and sentinel or NaN values project to `Option` at the boundary, never inward.
+- Growth: a new run shape is one payload-shape case on the intent family; a new run-config posture is one `RunConfig` row carrying its `AddRunConfigEntry` key-value pairs and its `OrtAllocatorType` arena column; an embedding model is one more `Embed` run over the same session capsule, never a new model lane; zero new surface.
+- Boundary: `RunOps` extends the `ModelSessions` boundary capsule and this fence carries bracketed statement forms with deterministic native disposal; OrtValue-only law — `NamedOnnxValue`, `DisposableNamedOnnxValue`, and `FixedBufferOnnxValue` are superseded spellings that never appear; `CreateTensorValueFromMemory` binds rented staging arrays without copies; the `Terminate` latch is the single cancellation propagation path and the deadline-poll cadence binds from the CANCELLATION research row; `InferBound` runs `RunWithBinding` over a populated `OrtIoBinding`, bracketing the run between `SynchronizeBoundInputs` and `SynchronizeBoundOutputs` and projecting `GetOutputValues`; the `BoundLoop` capsule is the zero-allocation steady-state posture for repeated same-shape inference — `CreateIoBinding`, `BindInput`/`BindOutput` once, a `MemoryOwner<float>` input plane refreshed by span copy, a `CreateAllocatedTensorValue` output sink, and `RunWithBinding` per `Pulse` with no per-call marshal — and a shape-class transition rebinds through `ClearBoundInputs`/`ClearBoundOutputs` with `BindOutputToDevice` routing device outputs; `Chunked` reads the chunked input through `RecyclableMemoryStream.GetReadOnlySequence` (zero-copy) and drives one `BoundLoop.Pulse` per window emitting the `streaming` `ProgressPhase` and a `StreamSegment` receipt per chunk, never a hand-rolled contiguous frame; `Embed` runs one inference over an embedding model and projects the last-hidden-state mean-pool or CLS-token slice to a `float[]`/`Half[]` vector feeding the Persistence vector lane by reference, keying on the content-hash and model-id reuse identity the Persistence owner holds; the `RunConfig.Arena` column classifies the run allocator through `OrtAllocatorType` (`ArenaAllocator` steady, `DeviceAllocator` device-resident); output projection scopes native memory inside `project` and sentinel or NaN values project to `Option` at the boundary, never inward.
 
 ```csharp signature
 public sealed record RunConfig(FrozenDictionary<string, string> Entries, OrtAllocatorType Arena) {
@@ -311,7 +328,20 @@ public static class RunOps {
             var path = session.EndProfiling();
             return ArtifactIndexRow.Admit(ArtifactIndexRow.OnnxProfile, path, File.ReadAllBytes(path), classification, retentionClass, at);
         }
+
+        public Fin<Seq<T>> Chunked<T>(RunOptions options, CancelScope scope, BoundLoop loop, ReadOnlySequence<byte> windows, int windowFloats, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project) =>
+            toSeq(Frames(windows, windowFloats)).TraverseM(window => loop.Pulse(options, scope, window.Span, project)).As();
+
+        public Fin<float[]> Embed(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, string output) =>
+            session.Infer(options, scope, inputs, Seq(output), static results => Fin.Succ(results.First().GetTensorDataAsSpan<float>().ToArray()));
     }
+
+    static IEnumerable<ReadOnlyMemory<float>> Frames(ReadOnlySequence<byte> windows, int windowFloats) =>
+        toSeq(Enumerable.Range(0, checked((int)(windows.Length / (windowFloats * sizeof(float))))))
+            .Map(index => {
+                var slice = windows.Slice((long)index * windowFloats * sizeof(float), windowFloats * sizeof(float)).ToArray();
+                return new ReadOnlyMemory<float>(MemoryMarshal.Cast<byte, float>(slice).ToArray());
+            });
 
     static Fin<T> Bracket<T>(CancelScope scope, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project, Func<IDisposableReadOnlyCollection<OrtValue>> run) {
         IDisposableReadOnlyCollection<OrtValue>? results = null;
@@ -367,7 +397,129 @@ public static class RunOps {
 }
 ```
 
-## [7]-[RESULT_CACHE]
+## [7]-[GENERATIVE_RUN]
+
+- Owner: `GenerationPolicy` search-option and prompt-assembly record; `GuidanceKind` `[SmartEnum<string>]` structured-output constraint rows; `GenerativeRun` boundary capsule owning the ORT-GenAI handle chain, the token-stream loop, and the tool-call arm over Microsoft.ML.OnnxRuntimeGenAI.
+- Cases: `GuidanceKind` rows none · json-schema · regex · lark-grammar · choice.
+- Entry: `public static async IAsyncEnumerable<string> Stream(ModelIdentity model, string modelDir, GenerationPolicy policy, ExecutionProvider ep, [EnumeratorCancellation] CancellationToken token)` — the stream yields incremental decoded pieces; a `OnnxRuntimeGenAIException` lifts into `ComputeFault.ModelRejected` at the boundary so domain code never sees the native exception.
+- Auto: the search-option fold writes every `GenerationPolicy` numeric column through `GeneratorParams.SetSearchOption(string, double)` and every flag through `SetSearchOption(string, bool)` — no string-valued overload exists; `Guidance` writes through `GeneratorParams.SetGuidance(string type, string data, bool enableFFTokens)` before `Generator` construction so a constrained run can only emit syntactically valid tokens; the prompt assembles through `Tokenizer.ApplyChatTemplate(template, messages, tools, add_generation_prompt)` then `Encode`, so system prompt, history, retrieved context, and tool schemas serialize through the native template primitive, never a hand-rolled string concat; the loop decodes the newest token per step through `TokenizerStream.Decode(int)` over `GetSequence(0UL)[^1]`.
+- Receipt: the `Generate` `ComputeReceipt` case carries model checksum, EP, model-type from `Model.GetModelType()`, token count, tokens-per-second, the `GuidanceKind` dimension, the constrained-token count, and the tool-call count; the `streaming` `ProgressPhase` and a `StreamSegment` receipt emit per chunk; instrument `rasm.compute.generate.tokens` counts emitted tokens.
+- Packages: Microsoft.ML.OnnxRuntimeGenAI, Microsoft.Extensions.AI.Abstractions, Microsoft.ML.OnnxRuntime, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
+- Growth: a new search option is one column on `GenerationPolicy` folded into a `SetSearchOption` call; a new output constraint is one `GuidanceKind` row; the built-in `OnnxRuntimeGenAIChatClient : IChatClient` composes the same handle chain when the M.E.AI streaming abstraction is the consumer; zero new surface.
+- Boundary: token-streaming is a run mode on this owned model lane composing the session and EP spine — a `GenerativeService`, `ChatClient`, `Conversation`, or `PromptService` is the rejected form, and the `Tokenizer`/`TokenizerStream` are session assets, never a tokenizer service family; every ORT-GenAI type is `IDisposable` wrapping a native handle and the `using` order is LIFO with `OgaHandle` outermost (process-global init/teardown); spans returned by `GetSequence`/`GetNextTokens` are views over native memory owned by the live `Generator` — the newest token copies out before the next iteration and never retains past the loop; `TokenizerStream` is obtained ONLY through `Tokenizer.CreateStream()` (no public constructor) and `GetSequence` takes `ulong` (`0UL`); the sole error rail is `OnnxRuntimeGenAIException` lifted to `ComputeFault.ModelRejected` at the boundary, never a per-call catch; numeric search options pass as `double` and flags as `bool`; provider selection rides `Config.AppendProvider`/`SetProviderOption` before `new Model(config)` as a policy column, never per-generation; the tool-call arm surfaces a decoded tool request to the AppHost control dispatch and re-feeds the typed result through `Generator.AppendTokens`/`AppendTokenSequences` or rewinds a partial turn through `RewindTo(ulong)`, with the conversation and turn state owned by the caller, never here; grammar-constrained structured output is enforced at generation through `SetGuidance` and a managed JSON-schema validator over the output is the rejected form.
+
+```csharp signature
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ModelKeyPolicy, string>]
+[KeyMemberComparer<ModelKeyPolicy, string>]
+public sealed partial class GuidanceKind {
+    public static readonly GuidanceKind None = new("none", type: "");
+    public static readonly GuidanceKind JsonSchema = new("json-schema", type: "json_schema");
+    public static readonly GuidanceKind Regex = new("regex", type: "regex");
+    public static readonly GuidanceKind LarkGrammar = new("lark-grammar", type: "lark_grammar");
+    public static readonly GuidanceKind Choice = new("choice", type: "choice");
+
+    public string Type { get; }
+}
+
+public sealed record GenerationPolicy(
+    double MaxLength,
+    double Temperature,
+    double TopP,
+    double TopK,
+    double RepetitionPenalty,
+    bool DoSample,
+    GuidanceKind Guidance,
+    string GuidanceData,
+    bool FastForwardTokens,
+    string SystemPrompt,
+    string ChatTemplate,
+    Seq<(string Role, string Content)> History,
+    Seq<string> RetrievedContext,
+    string Tools) {
+    public static readonly GenerationPolicy Canonical = new(
+        MaxLength: 512.0, Temperature: 0.7, TopP: 0.9, TopK: 50.0, RepetitionPenalty: 1.0, DoSample: true,
+        Guidance: GuidanceKind.None, GuidanceData: "", FastForwardTokens: false,
+        SystemPrompt: "", ChatTemplate: "", History: Seq<(string, string)>(), RetrievedContext: Seq<string>(), Tools: "");
+
+    public void Apply(GeneratorParams generatorParams) {
+        generatorParams.SetSearchOption("max_length", MaxLength);
+        generatorParams.SetSearchOption("temperature", Temperature);
+        generatorParams.SetSearchOption("top_p", TopP);
+        generatorParams.SetSearchOption("top_k", TopK);
+        generatorParams.SetSearchOption("repetition_penalty", RepetitionPenalty);
+        generatorParams.SetSearchOption("do_sample", DoSample);
+        if (Guidance != GuidanceKind.None) {
+            generatorParams.SetGuidance(Guidance.Type, GuidanceData, FastForwardTokens);
+        }
+    }
+
+    public string Messages(string prompt) =>
+        JsonSerializer.Serialize(
+            (Seq(("system", SystemPrompt)) + History + Seq(("user", $"{string.Join('\n', RetrievedContext)}\n{prompt}")))
+                .Map(static turn => new { role = turn.Item1, content = turn.Item2 }));
+}
+
+public static class GenerativeRun {
+    public static async IAsyncEnumerable<string> Stream(ModelIdentity model, string modelDir, GenerationPolicy policy, string prompt, ExecutionProvider ep, [EnumeratorCancellation] CancellationToken token) {
+        using var oga = new OgaHandle();
+        using var config = new Config(modelDir);
+        if (ep != ExecutionProvider.Cpu) {
+            config.AppendProvider(ep.Key);
+            ep.Options.Iter(option => config.SetProviderOption(ep.Key, option.Key, option.Value));
+        }
+        using var session = new Model(config);
+        using var tokenizer = new Tokenizer(session);
+        using var stream = tokenizer.CreateStream();
+        using var encoded = tokenizer.Encode(tokenizer.ApplyChatTemplate(policy.ChatTemplate, policy.Messages(prompt), policy.Tools, true));
+        using var generatorParams = new GeneratorParams(session);
+        policy.Apply(generatorParams);
+        using var generator = new Generator(session, generatorParams);
+        generator.AppendTokenSequences(encoded);
+        while (!generator.IsDone()) {
+            token.ThrowIfCancellationRequested();
+            generator.GenerateNextToken();
+            var sequence = generator.GetSequence(0UL);
+            yield return stream.Decode(sequence[sequence.Length - 1]);
+        }
+    }
+
+    public static ComputeReceipt.Generate Receipt(ModelIdentity model, ExecutionProvider ep, string modelType, GenerationPolicy policy, CorrelationId correlation, ulong tokenCount, Duration elapsed) =>
+        new(model.Key, ep, modelType, checked((int)tokenCount),
+            elapsed.TotalSeconds > 0.0 ? tokenCount / elapsed.TotalSeconds : 0.0,
+            policy.Guidance.Key, 0, 0) {
+            Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.Onnx, AllocationClass = AllocationClass.NativeOrt, Elapsed = elapsed,
+        };
+
+    public static async Task<Fin<Seq<string>>> Collect(ModelIdentity model, string modelDir, GenerationPolicy policy, string prompt, ExecutionProvider ep, CancellationToken token) {
+        var pieces = Seq<string>();
+        try {
+            await foreach (var piece in Stream(model, modelDir, policy, prompt, ep, token)) {
+                pieces = pieces.Add(piece);
+            }
+            return Fin.Succ(pieces);
+        }
+        catch (OnnxRuntimeGenAIException error) {
+            return Fin.Fail<Seq<string>>(new ComputeFault.ModelRejected(error.Message));
+        }
+    }
+}
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> OgaHandle
+    OgaHandle --> Config
+    Config --> Model
+    Model --> Tokenizer
+    Tokenizer --> Generator
+    Generator --> Streaming
+    Streaming --> Streaming : GenerateNextToken
+    Streaming --> Done : IsDone
+    Done --> [*]
+```
+
+## [8]-[RESULT_CACHE]
 
 - Owner: `CachePolicy` `[SmartEnum<string>]` serve/store/cut rows; `CacheOps` key derivation, checksum-echo validation, and the policy-dispatched read-through.
 - Cases: `Bypass`, `ReadThrough`, `WriteThrough`, `Refresh`.
@@ -422,7 +574,7 @@ public static class CacheOps {
 }
 ```
 
-## [8]-[RESEARCH]
+## [9]-[RESEARCH]
 
-- [EP_OPTIONS]: the `Cuda` and `DirectMl` GPU registration members — `AppendExecutionProvider_CUDA(int)` and `AppendExecutionProvider_DML(int)` — uncatalogued against the Compute-graph package surface because they ship in the app-root-only `Microsoft.ML.OnnxRuntime.Gpu`/`.DirectML` packages; the no-op register delegate stands in until the GPU package admission lands these member spellings at the Windows-profile implementation.
+- [EP_EXECUTION]: the `Cuda` and `DirectMl` GPU registration members `AppendExecutionProvider_CUDA(int)` and `AppendExecutionProvider_DML(int)` are member-shape FINALIZED and compile, with device id `0`; the residual is the GPU-hardware execution probe — no NVIDIA-Linux/Windows RID or driver on this host — so the rows stay behind the `RequiresWindows`/GPU-RID gate until live-hardware execution confirms.
 - [CANCELLATION]: `RunOptions.Terminate` is a one-way `get;set;` latch — a latched `RunOptions` aborts both `Run` and `RunWithBinding` with the native `OnnxRuntimeException` `[ErrorCode:Fail] Exiting due to terminate flag being set to true`, which the `Bracket` arm classifies by scope provenance; the residual probe is the latch propagation latency and the deadline poll cadence on the CoreML and CPU rows inside the live plugin ALC.

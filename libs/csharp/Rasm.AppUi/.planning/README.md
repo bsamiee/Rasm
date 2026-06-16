@@ -24,6 +24,7 @@ Rasm.AppUi has zero consumers; the implementation is full-capability with no hol
 |  [16]   | [accessibility](accessibility.md)                 | automation, contrast, motion law            | finalized |
 |  [17]   | [localization-culture](localization-culture.md)   | locale rows and culture composition         | finalized |
 |  [18]   | [diagnostics-evidence](diagnostics-evidence.md)   | evidence union, correlation, headless proof | finalized |
+|  [19]   | [custom-visuals](custom-visuals.md)               | Skia diagram kinds and wide-gamut axis      | finalized |
 
 ## [2]-[WIRE_PAGES]
 
@@ -63,6 +64,7 @@ Every row is CLOSED: a gap is present only when absorbed by the named page#clust
 |  [22]   | Avalonia-in-Rhino embedding gate         | surface-hosts                                                |
 |  [23]   | headless render-hash and dashboard wire  | diagnostics-evidence + visuals-offscreen                     |
 |  [24]   | pan-zoom canvas rows                     | input-interaction                                            |
+|  [25]   | Skia custom-visual kinds + wide-gamut axis | custom-visuals                                            |
 
 ## [5]-[DENSITY_BAR]
 
@@ -82,9 +84,9 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |  [10]   | editor rows             | `EditorFactory`                                             | SmartEnum    | 11            | FINALIZED |
 |  [11]   | chart series            | `ChartSeriesSpec`                                           | SmartEnum    | 15            | FINALIZED |
 |  [12]   | chart scales            | `ChartAxisKind`                                             | SmartEnum    | 5             | FINALIZED |
-|  [13]   | dashboard tiles         | `DashboardTile`                                             | [Union]      | 4             | FINALIZED |
+|  [13]   | dashboard tiles         | `DashboardTile`                                             | [Union]      | 5             | FINALIZED |
 |  [14]   | draw sources            | `DrawSource`                                                | [Union]      | 2             | FINALIZED |
-|  [15]   | visual destinations     | `VisualDestination` · `ExportDestination` (+ `VisualCodec` encode) | union pair   | 3 · 3         | FINALIZED |
+|  [15]   | visual destinations     | `VisualDestination` · `ExportDestination` (+ `VisualCodec` encode, EncodeRow 4 gamut rows) | union pair   | 3 · 3         | FINALIZED |
 |  [16]   | theme tokens            | `TokenRow`                                                  | [Union]      | 5             | FINALIZED |
 |  [17]   | variant and density     | `ThemeVariantRow` · `DensityRow`                            | enum pair    | 4 × 2         | FINALIZED |
 |  [18]   | typography roles        | `TypographyRole`                                            | SmartEnum    | 10            | FINALIZED |
@@ -100,6 +102,8 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |  [28]   | proof checks            | `ProofCheck`                                                | SmartEnum    | 8             | FINALIZED |
 |  [29]   | fault bands             | surface, asset, dialog, edit faults          | fault unions | 5 · 4 · 3 · 7 | FINALIZED |
 |  [30]   | export flow blocks      | `FlowBlock` (+ `HeaderFooterBand` band, `BreakRule` policy on `VisualExportSpec`) | [Union]      | 3             | FINALIZED |
+|  [31]   | custom-visual kinds     | `CustomVisual` (+ `CustomVisualData`, `CustomVisuals`)      | [Union]      | 4             | FINALIZED |
+|  [32]   | wide-gamut axis         | `ColorSpaceAxis` (+ `ColorSpaceKeyPolicy`)                 | SmartEnum    | 4             | FINALIZED |
 
 ## [6]-[BUILD_ORDER]
 
@@ -128,8 +132,9 @@ Cluster cells use page-local anchor names; proof cells name evidence beyond the 
 |  [17]   | `Shell/ShellRail.cs`           | routing, docks, chrome, adaptive layout        | specs                |
 |  [18]   | `Charts/ChartRail.cs`          | series, axes, interaction, streams, tiles      | render-hash          |
 |  [19]   | `Visuals/VisualRail.cs`        | draw, thumbnails, previews, encode, export     | render-hash          |
-|  [20]   | `Access/AccessRail.cs`         | peers, keyboard, contrast, proof               | specs                |
-|  [21]   | `Evidence/EvidenceRail.cs`     | receipts, correlation, capture, headless, TS   | render-hash + bridge |
+|  [20]   | `Charts/CustomVisualRail.cs`   | custom-visual kinds, layout folds, render twins, wide-gamut axis | render-hash |
+|  [21]   | `Access/AccessRail.cs`         | peers, keyboard, contrast, proof               | specs                |
+|  [22]   | `Evidence/EvidenceRail.cs`     | receipts, correlation, capture, headless, TS   | render-hash + bridge |
 
 ## [7]-[FILE_PROCESS]
 
@@ -226,5 +231,7 @@ The executed admissions ledger maps each package to its consuming page, `.api` c
 ## [11]-[REFINEMENT_HORIZON]
 
 Folder-specific deepening targets: the embedding capsule beyond the NSView bridge spike — the `surface-hosts` [EMBED_SPIKE] seam resolving the UI-thread predicate, the CADisplayLink-paced pump fallback, `RenderingMode` ordering against the host pipeline, and the shared-`GRContext` composite into the host-owned context, then the [WIN32_ROUTE] embed route activating the designed-only host-axis case against the Rhino Windows panel host once the WinForms interoperability host admission lands; viewport-in-panel and host-data-in-shell compositions rehearsed as concept rows (rhino panels, viewports, and host documents inside the one shell that runs standalone), gated by that same spike; every element family re-swept after the embedding spike answers its research items. The bar already set here is the suite bar: any app UI — panel, modal, standalone, companion console — composes from rows with dynamic sourcing and zero host-coupled code.
+
+Dashboard-analytics horizon: the cross-tile linked-brushing `CrossFilter` fold and the board-layout-plus-filter-state `BoardState` row land on `DashboardSurface`/`STREAM_BINDING` over the Persistence server-side filtered re-query and the STJ `IDockSerializer` board-snapshot pattern; the live geometry overlay deepens the geo `SERIES_TABLE` row over the existing `IChangeSet` spine and the Persistence spatial-diff feed; the object-graph, farm-topology, and conversation scene surfaces are surfaced categorical frontiers evaluated against the rhino-viewport and live-data/inspector owners before a page is justified.
 
 Testing-infrastructure horizon: the headless render-hash baselines drive `[AvaloniaFact]` UI-thread dispatch through `SetRenderScaling`/`CaptureRenderedFrame`, snapshotting the content-addressed render-hash receipt text under `Verify.XunitV3`, never floating pixels.

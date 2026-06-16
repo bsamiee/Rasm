@@ -20,7 +20,7 @@ Typed property inspection and value editing for product state: one `InspectorPol
 - Receipt: `EditReceipt` focus kind — surface, member path, `Instant`, correlation; `TelemetryRow` contributes the edit-committed and edit-rejected instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: bodong.Avalonia.PropertyGrid, System.Reactive, NodaTime, LanguageExt.Core
 - Growth: one policy value on `InspectorPolicy`; one inspector instrument is one `InstrumentRow` on `InspectorSurface.TelemetryRow`; zero new surface.
-- Boundary: `Mount` is the page's PropertyGrid boundary capsule — the inspected subject enters through `DataContext` (the grid's only subject channel) as object because the grid inspects arbitrary shapes, and canonical typing re-enters at the editor rows; every grid event is a routed `EventHandler<RoutedEventArgs>` whose args narrow to `CustomPropertyDescriptorFilterEventArgs` (`TargetObject`, `PropertyDescriptor`, settable `IsVisible`) and `PropertyGotFocusEventArgs` (`Context`), so host-API variance lives in the policy's delegate columns (`Admit` descriptor filter, `FocusTarget` member-path projection) and no call site beyond the capsule reads grid event internals; the `CustomNameBlock` event binds the `RenderName` column at `Mount` so property display names resolve through the localization string vocabulary as a name projection, deleting per-grid name-template forks, with the name-block args narrowing research-gated under NAME_BLOCK_ARGS; `OperationIntents` surface operation controls as command-table intent keys and the derivation fold lives with the command table — a per-screen operation registry is deleted; quick-filter, category, and read-only state are policy values, never control state.
+- Boundary: `Mount` is the page's PropertyGrid boundary capsule — the inspected subject enters through `PropertyGridViewModel.Context` (the `object?` subject channel) bound onto the grid's `ViewModel` property (type `PropertyGridViewModel`, field `ViewModelProperty`), not `DataContext` and not a `SelectedObject` placeholder, because the grid inspects arbitrary shapes, and canonical typing re-enters at the editor rows; `LayoutStyle` and `CellEdit` are `InspectorPolicy` values over the catalogued `PropertyGridLayoutStyle { Tree, Inline }` and `CellEditAlignmentType { Default, Stretch, Compact }` domains, so a per-grid layout literal is the deleted form; every grid event is a routed `EventHandler<RoutedEventArgs>` whose args narrow to `CustomPropertyDescriptorFilterEventArgs` (`TargetObject`, `PropertyDescriptor`, settable `IsVisible`) and `PropertyGotFocusEventArgs` (`Context`), so host-API variance lives in the policy's delegate columns (`Admit` descriptor filter, `FocusTarget` member-path projection) and no call site beyond the capsule reads grid event internals; the `CustomNameBlock` event binds the `RenderName` column at `Mount` so property display names resolve through the localization string vocabulary as a name projection, deleting per-grid name-template forks, with the name-block args narrowing research-gated under NAME_BLOCK_ARGS; `OperationIntents` surface operation controls as command-table intent keys and the derivation fold lives with the command table — a per-screen operation registry is deleted; quick-filter, category, and read-only state are policy values, never control state.
 
 ```csharp signature
 public sealed record InspectorPolicy(
@@ -29,6 +29,8 @@ public sealed record InspectorPolicy(
     bool QuickFilter,
     bool CategoriesExpanded,
     bool Draft,
+    PropertyGridLayoutStyle LayoutStyle,
+    CellEditAlignmentType CellEdit,
     string Surface,
     Seq<string> OperationIntents,
     Action<CustomPropertyDescriptorFilterEventArgs> Admit,
@@ -38,8 +40,10 @@ public sealed record InspectorPolicy(
 
 public static partial class InspectorSurface {
     public static IDisposable Mount(PropertyGrid grid, InspectorPolicy policy, object subject, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink) {
-        grid.DataContext = subject;
+        grid.ViewModel = new PropertyGridViewModel { Context = subject };
         grid.IsReadOnly = policy.ReadOnly;
+        grid.LayoutStyle = policy.LayoutStyle;
+        grid.CellEditAlignment = policy.CellEdit;
         grid.IsCategoryVisible = policy.CategoriesVisible;
         grid.IsQuickFilterVisible = policy.QuickFilter;
         grid.AllCategoriesExpanded = policy.CategoriesExpanded;

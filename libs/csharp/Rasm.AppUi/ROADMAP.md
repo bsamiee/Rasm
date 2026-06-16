@@ -6,7 +6,7 @@ The `.planning/` corpus is finalized; implementation transcribes pages in the ch
 
 | [INDEX] | [SURFACE]         | [STATE]                                       |
 | :-----: | :---------------- | :-------------------------------------------- |
-|   [1]   | planning corpus   | 18 pages finalized; charter complete          |
+|   [1]   | planning corpus   | 19 pages finalized (+custom-visuals); charter complete |
 |   [2]   | package graph     | runtime closure admitted and lock-tracked     |
 |   [3]   | production source | absent                                        |
 |   [4]   | test project      | `Rasm.AppUi.Tests` node present, empty         |

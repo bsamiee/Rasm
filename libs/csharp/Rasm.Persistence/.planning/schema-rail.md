@@ -57,7 +57,7 @@ public sealed partial class IdentityPolicy {
 - Receipt: `MigrationReceipt` — profile, applied ids, failed step, lock holder, compiled fingerprint, elapsed `Duration`, `Instant`, correlation.
 - Packages: Microsoft.EntityFrameworkCore.Design, Microsoft.EntityFrameworkCore.Sqlite, Npgsql.EntityFrameworkCore.PostgreSQL, System.IO.Hashing, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
 - Growth: one case on `SchemaFault` or one slot on `MigrationReceipt`; zero new surface.
-- Boundary: one migrations source emits two provider SQL generators through `MigrationsAssembly`; `MigrateAsync` acquires the provider migration lock itself — hand-acquired `SqliteMigrationDatabaseLock` ceremony and pg advisory-lock acquisition are the deleted patterns, and the public lock surface `IMigrationsDatabaseLock` is a bare disposable handle carrying no holder identity, so `LockHolder` fills from the `StoreLeaseRow` first-opener row, never from `Migrations/Internal` types; a store history ahead of the compiled assembly folds to `NewerSchema`, never best-effort open; `HasPendingModelChanges` feeds `Gate` on the development profile only; `SchemaFingerprint.From` hashes the compiled model snapshot, the store metadata row persists it, and the open ceremony folds the persisted value through `Gate` before any provider open completes; service deploys ride idempotent `ScriptMigration` output and `MigrationsBundle` artifacts; compiled-model adoption waits on the naming research gate; expand precedes contract, and a destructive step lands only behind a retention-approval receipt or folds to `DestructiveUnapproved`; design tooling stays a private asset.
+- Boundary: one migrations source emits two provider SQL generators through `MigrationsAssembly`; `MigrateAsync` acquires the provider migration lock itself — hand-acquired `SqliteMigrationDatabaseLock` ceremony and pg advisory-lock acquisition are the deleted patterns, and the public lock surface `IMigrationsDatabaseLock` is a bare disposable handle carrying no holder identity, so `LockHolder` fills from the `StoreLeaseRow` first-opener row, never from `Migrations/Internal` types; a store history ahead of the compiled assembly folds to `NewerSchema`, never best-effort open; `HasPendingModelChanges` feeds `Gate` on the development profile only; `SchemaFingerprint.From` hashes the compiled model snapshot, the store metadata row persists it, and the open ceremony folds the persisted value through `Gate` before any provider open completes; service deploys ride idempotent `ScriptMigration` output and `MigrationsBundle` artifacts; compiled-model adoption waits on the naming research gate; expand precedes contract, and a destructive step lands only behind a retention-approval receipt or folds to `DestructiveUnapproved`; a NOT NULL constraint added to a large table rides the PG18 lock-light two-step — `ADD CONSTRAINT c NOT NULL (col) NOT VALID` then `VALIDATE CONSTRAINT c` so the validate scan takes no full-table AccessExclusiveLock — and a deferred CHECK rides `CHECK (...) NOT ENFORCED` with `ALTER CONSTRAINT ... INHERIT` for the partition tree, both emitted as `MigrationBuilder.Sql` steps inside one migration; design tooling stays a private asset.
 
 ```csharp signature
 [Union]
@@ -116,7 +116,7 @@ public sealed record MigrationReceipt(
 - Entry: `public bool Stored` — derived; `Replicated || Indexed` is the whole decision.
 - Packages: Npgsql.EntityFrameworkCore.PostgreSQL, Microsoft.EntityFrameworkCore.Sqlite
 - Growth: one `DerivedColumn` row per derived projection; zero new surface.
-- Boundary: both providers emit VIRTUAL generated columns by default and a STORED column exists only where the `Stored` flag derives true; a replicated row is STORED so the logical-replication publication's publish_generated_columns field carries it; an indexed row is STORED so the index reads materialized bytes; tsvector search columns are `DerivedColumn` rows whose instances land on their owning lane; a derived projection computed in application code beside a store-computed twin is the deleted pattern — one `Sql` expression owns the derivation.
+- Boundary: the pg provider emits VIRTUAL generated columns by default at the Npgsql-v10 provider floor over PG18 — the provider emits VIRTUAL when `stored:true` is omitted and PG18 is the target — and the sqlite provider emits its own VIRTUAL/STORED form; a STORED column exists only where the `Stored` flag derives true; a replicated row is STORED so the logical-replication publication's publish_generated_columns field carries it; an indexed row is STORED so the index reads materialized bytes; tsvector search columns are `DerivedColumn` rows whose instances land on their owning lane; a derived projection computed in application code beside a store-computed twin is the deleted pattern — one `Sql` expression owns the derivation.
 
 ```csharp signature
 public sealed record DerivedColumn(string Table, string Column, string Sql, bool Replicated, bool Indexed) {
@@ -127,14 +127,23 @@ public sealed record DerivedColumn(string Table, string Column, string Sql, bool
 ## [5]-[EXTENSION_DDL]
 
 - Owner: `SchemaDdl` `[Union]` declaration-row family with the frozen `Extensions` row set.
-- Cases: Extension, Index, Exclusion, Composite, Enum — extension declarations, method-and-operator-class index rows, btree_gist exclusion-constraint rows, PostgreSQL composite-type declarations, native PostgreSQL enum-type declarations.
+- Cases: Extension, Index, Exclusion, TemporalKey, JsonSchemaCheck, Composite, Enum — extension declarations, method-and-operator-class index rows, btree_gist exclusion-constraint rows, PG18 WITHOUT OVERLAPS temporal primary-key and foreign-key rows, pg_jsonschema document-validation CHECK rows, PostgreSQL composite-type declarations, native PostgreSQL enum-type declarations.
 - Entry: `public static ModelBuilder Declare(ModelBuilder model)` — total fold of the extension and enum rows into model annotations.
-- Auto: `HasPostgresExtension` annotations flow through `AlterDatabaseOperation` into generated migration DDL — `CreatePostgresExtensionOperation` is the deleted phantom spelling; `HasPostgresEnum` annotations flow through `PostgresEnum` into the same `AlterDatabaseOperation` so a native enum column emits a `CREATE TYPE ... AS ENUM` step rather than a check-constrained text column.
+- Auto: `HasPostgresExtension` annotations flow through `AlterDatabaseOperation` into generated migration DDL — `CreatePostgresExtensionOperation` is the deleted phantom spelling; `HasPostgresEnum` annotations flow through `PostgresEnum` into the same `AlterDatabaseOperation` so a native enum column emits a `CREATE TYPE ... AS ENUM` step rather than a check-constrained text column; a `TemporalKey` row and a `JsonSchemaCheck` row emit through `MigrationBuilder.Sql` because the WITHOUT OVERLAPS clause and the `jsonb_matches_schema` CHECK have no first-party EF translator.
 - Packages: Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, Pgvector.EntityFrameworkCore, Npgsql, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: one `SchemaDdl` row — a new extension is one `Extension` entry, a new index family is one `Index` row carrying its operator class, a native pg enum is one `Enum` entry; zero new surface.
-- Boundary: preload-gated extensions never enter `Extensions` — their capability verification belongs to the provisioning table; the `Surface` column states the driver-native cost of each row and built-in ranges and multiranges map to `NpgsqlRange<T>` with zero extension entry; `Index` rows carry the method and operator-class columns (gin, gist) that the per-column lane policies instantiate, and `Exclusion` rows ride btree_gist; the postgis row makes NetTopologySuite the pg boundary projection of the canonical proto wire geometry; earthdistance is rejected — the postgis row owns geodesy; `Composite` rows declare PostgreSQL composite types — `MapComposites` folds each onto the data-source builder through `MapComposite` so the round-trip type registration is one row, never a per-type hand-written reader; `Enum` rows declare native PostgreSQL enum types symmetric with `Composite` — `MapEnums` folds each onto the data-source builder through the generic `MapEnum<TEnum>` resolver while `Declare` folds `HasPostgresEnum` so the model annotation and the type registration trace to one row, never a per-enum hand-written `MapEnum` call beside a hand-written check constraint, and the `EnableUnmappedTypes` builder column on the pg profile row admits enum-as-text round-trips without an `Enum` entry where a native type is unwarranted; the composite and enum sets are empty until a real landmark exists, the cases are shaped for the family they absorb.
+- Growth: one `SchemaDdl` row — a new extension is one `Extension` entry, a new index family is one `Index` row carrying its operator class, a temporal-versioned table is one `TemporalKey` row, a server-validated document lane is one `JsonSchemaCheck` row, a native pg enum is one `Enum` entry; zero new surface.
+- Boundary: preload-gated extensions never enter `Extensions` — their capability verification belongs to the provisioning table; only the self-provisioned non-preload pg_jsonschema joins the frozen set beside pg_trgm/pgcrypto, gated on the deploy image supplying the pgrx-compiled extension and falling back to application-side validation with the row cut where the image cannot; the `Surface` column states the driver-native cost of each row and built-in ranges and multiranges map to `NpgsqlRange<T>` with zero extension entry; `Index` rows carry the method and operator-class columns (gin, gist) that the per-column lane policies instantiate, and a compound `Index` row leading with the tenant/partition discriminant serves both keyset cursors and single-column filters through the PG18 automatic B-tree skip scan so a redundant single-column index is the deleted form; `Exclusion` rows ride btree_gist for range non-overlap, and `TemporalKey` rows ride the PG18 WITHOUT OVERLAPS shape over a `tstzrange` valid-time column GiST-backed by btree_gist for scalar equality — `PRIMARY KEY (id, valid_period WITHOUT OVERLAPS)`, `UNIQUE (... WITHOUT OVERLAPS)`, and `FOREIGN KEY (cust_id, PERIOD valid_period) REFERENCES parent (id, PERIOD parent_period)` are the bitemporal-versioning structural fence for geospatial-sync and multi-tenant history, the migration emits the constraint and a destructive temporal-key change rides the `DestructiveUnapproved` retention gate; `JsonSchemaCheck` rows declare the `CHECK (jsonb_matches_schema(<schema>, <column>))` document-lane invariant so the document lane validates server-side rather than nothing; the postgis row makes NetTopologySuite the pg boundary projection of the canonical proto wire geometry; earthdistance is rejected — the postgis row owns geodesy; `Composite` rows declare PostgreSQL composite types — `MapComposites` folds each onto the data-source builder through `MapComposite` so the round-trip type registration is one row, never a per-type hand-written reader; `Enum` rows declare native PostgreSQL enum types symmetric with `Composite` — `MapEnums` folds each onto the data-source builder through the generic `MapEnum<TEnum>` resolver while `Declare` folds `HasPostgresEnum` so the model annotation and the type registration trace to one row, never a per-enum hand-written `MapEnum` call beside a hand-written check constraint, and the `EnableUnmappedTypes` builder column on the pg profile row admits enum-as-text round-trips without an `Enum` entry where a native type is unwarranted; the composite and enum sets are empty until a real landmark exists, the cases are shaped for the family they absorb.
 
 ```csharp signature
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
+[KeyMemberComparer<StoreKeyPolicy, string>]
+public sealed partial class TemporalShape {
+    public static readonly TemporalShape PrimaryKey = new("primary-key");
+    public static readonly TemporalShape Unique = new("unique");
+    public static readonly TemporalShape ForeignKey = new("foreign-key");
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SchemaDdl {
     private SchemaDdl() { }
@@ -142,6 +151,18 @@ public abstract partial record SchemaDdl {
     public sealed record Extension(string Name, string Surface) : SchemaDdl;
     public sealed record Index(string Table, Seq<string> Columns, string Method, Option<string> Operators) : SchemaDdl;
     public sealed record Exclusion(string Table, string Predicate, string Method) : SchemaDdl;
+    public sealed record TemporalKey(string Table, Seq<string> Columns, string Period, TemporalShape Shape, Option<(string Table, Seq<string> Columns, string Period)> References) : SchemaDdl {
+        public string Sql => Shape.Switch(
+            state: this,
+            primaryKey: static self => $"ALTER TABLE {self.Table} ADD PRIMARY KEY ({string.Join(", ", self.Columns)}, {self.Period} WITHOUT OVERLAPS)",
+            unique: static self => $"ALTER TABLE {self.Table} ADD UNIQUE ({string.Join(", ", self.Columns)}, {self.Period} WITHOUT OVERLAPS)",
+            foreignKey: static self => self.References.Match(
+                Some: parent => $"ALTER TABLE {self.Table} ADD FOREIGN KEY ({string.Join(", ", self.Columns)}, PERIOD {self.Period}) REFERENCES {parent.Table} ({string.Join(", ", parent.Columns)}, PERIOD {parent.Period})",
+                None: () => string.Empty));
+    }
+    public sealed record JsonSchemaCheck(string Table, string Column, string Constraint, string Schema) : SchemaDdl {
+        public string Sql => $"ALTER TABLE {Table} ADD CONSTRAINT {Constraint} CHECK (jsonb_matches_schema('{Schema}', {Column}))";
+    }
     public sealed record Composite(string Name, Type ClrType) : SchemaDdl;
     public sealed record Enum(string Name, Type ClrType, Func<NpgsqlDataSourceBuilder, string, INpgsqlNameTranslator?, NpgsqlDataSourceBuilder> Map, Func<ModelBuilder, ModelBuilder> Annotate) : SchemaDdl {
         public static Enum Of<TEnum>(string name) where TEnum : struct, System.Enum =>
@@ -172,8 +193,13 @@ public abstract partial record SchemaDdl {
         new Extension("pg_visibility", Surface: "sql-functions"),
         new Extension("pg_logicalinspect", Surface: "sql-functions"),
         new Extension("postgres_fdw", Surface: "ddl-only"),
+        new Extension("pg_jsonschema", Surface: "sql-functions"),
         new Extension("vector", Surface: "Pgvector.Vector"),
         new Extension("postgis", Surface: "NetTopologySuite.Geometry"));
+
+    public static readonly Seq<TemporalKey> TemporalKeys = Seq<TemporalKey>();
+
+    public static readonly Seq<JsonSchemaCheck> JsonSchemaChecks = Seq<JsonSchemaCheck>();
 
     public static NpgsqlDataSourceBuilder MapComposites(NpgsqlDataSourceBuilder builder) =>
         Composites.Fold(builder, static (mapper, row) => mapper.MapComposite(row.ClrType, row.Name));
@@ -185,6 +211,11 @@ public abstract partial record SchemaDdl {
         Enums.Fold(
             Extensions.Fold(model, static (builder, row) => builder.HasPostgresExtension(row.Name)),
             static (builder, row) => row.Annotate(builder));
+
+    public static MigrationBuilder Migrate(MigrationBuilder migration) =>
+        JsonSchemaChecks.Fold(
+            TemporalKeys.Filter(static row => row.Sql.Length > 0).Fold(migration, static (builder, row) => { builder.Sql(row.Sql); return builder; }),
+            static (builder, row) => { builder.Sql(row.Sql); return builder; });
 }
 ```
 

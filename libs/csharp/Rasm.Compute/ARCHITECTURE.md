@@ -22,8 +22,10 @@ Rasm.Compute/
 ├── Models/
 │   ├── Providers.cs           # ExecutionProvider — model-lane#EP_AXIS
 │   ├── Identity.cs            # ModelSource — model-lane#MODEL_IDENTITY
-│   ├── Sessions.cs            # ModelSessions, RunOps — model-lane#SESSION_CAPSULE, model-lane#INFERENCE_MODES
+│   ├── Sessions.cs            # ModelSessions, RunOps, GenerationPolicy, GuidanceKind, GenerativeRun — model-lane#SESSION_CAPSULE, model-lane#INFERENCE_MODES, model-lane#GENERATIVE_RUN
 │   └── Cache.cs               # CachePolicy, CacheOps — model-lane#RESULT_CACHE
+├── Numeric/
+│   └── Lane.cs                # LinearProvider, FactorizationKind, Factorization, DenseOps, SparseFormat, SparseOps, KernelLowering, ShardPlan, NumericKeyPolicy — numeric-lane#DENSE_ALGEBRA, numeric-lane#SPARSE_SOLVE, numeric-lane#KERNEL_LOWERING, numeric-lane#PROVIDER_CLAIMS
 ├── Remote/
 │   ├── Contract.cs            # ContractDrift, ContractGuard — remote-lane#CONTRACT_EVOLUTION, remote-lane#FAULT_PROJECTION
 │   ├── Frames.cs              # FrameEdge — remote-lane#ARTIFACT_FRAMES
@@ -76,24 +78,24 @@ Text equivalent: `ComputeIntent` admits through `IntentAdmission` into an `Admit
 |   [2]   | Faults    | `ComputeFault` union, band 2200 | Dual-tier `Create`; projects through `FaultDetail` at the wire edge             |
 |   [3]   | Effects   | `IO<T>`                         | Enqueue, dispatch, emission, channel observation; no exceptions in domain logic |
 |   [4]   | Absence   | `Option<T>`                     | Substrate vetoes, forced overrides, fallback rows, sentinel projection          |
-|   [5]   | Receipts  | `ComputeReceipt` union          | Thirteen cases materialize at the sink edge; hot paths stay struct-only         |
+|   [5]   | Receipts  | `ComputeReceipt` union          | Fifteen cases materialize at the sink edge; hot paths stay struct-only          |
 |   [6]   | Progress  | `ProgressCell` CAS rank guard   | Monotonic rank; observers structurally never observe regress                    |
 
 ## [4]-[AXES]
 
 | [INDEX] | [AXIS]              | [OWNER]             | [ROWS/CASES] | [PAGE#CLUSTER]                           |
 | :-----: | :------------------ | :------------------ | :----------: | :--------------------------------------- |
-|   [1]   | Intent family       | `ComputeIntent`     |      5       | intent-and-selection#INTENT_FAMILY       |
-|   [2]   | Substrate axis      | `Substrate`         |      3       | intent-and-selection#SUBSTRATE_AXIS      |
+|   [1]   | Intent family       | `ComputeIntent`     |      6       | intent-and-selection#INTENT_FAMILY       |
+|   [2]   | Substrate axis      | `Substrate`         |      4       | intent-and-selection#SUBSTRATE_AXIS      |
 |   [3]   | Fault family        | `ComputeFault`      |      13      | intent-and-selection#DISPATCH_SPINE      |
 |   [4]   | Tensor dtypes       | `TensorDtype`       |      10      | tensor-lane#TENSOR_VOCABULARY            |
-|   [5]   | Tensor op families  | `TensorOpFamily`    |      82      | tensor-lane#OPERATION_TABLE              |
+|   [5]   | Tensor op families  | `TensorOpFamily`    |      84      | tensor-lane#OPERATION_TABLE              |
 |   [6]   | Layout algebra      | `LayoutForm`        |      5       | tensor-lane#LAYOUT_ALGEBRA               |
 |   [7]   | Geometry encodings  | `GeometryEncoding`  |      3       | tensor-lane#GEOMETRY_ENCODING            |
 |   [8]   | Model acquisition   | `ModelSource`       |      4       | model-lane#MODEL_IDENTITY                |
 |   [9]   | Execution providers | `ExecutionProvider` |      4       | model-lane#EP_AXIS                       |
 |  [10]   | Cache postures      | `CachePolicy`       |      4       | model-lane#RESULT_CACHE                  |
-|  [11]   | Wire services       | `WireServices`      |  5 / 14 rpc  | remote-lane#PROTO_VOCABULARY             |
+|  [11]   | Wire services       | `WireServices`      |  5 / 18 rpc  | remote-lane#PROTO_VOCABULARY             |
 |  [12]   | Contract drift      | `ContractDrift`     |      3       | remote-lane#CONTRACT_EVOLUTION           |
 |  [13]   | Transports          | `RemoteTransport`   |      6       | remote-lane#TRANSPORT_AXIS               |
 |  [14]   | Credentials         | `CredentialPolicy`  |      4       | remote-lane#CALL_POLICY                  |
@@ -101,8 +103,14 @@ Text equivalent: `ComputeIntent` admits through `IntentAdmission` into an `Admit
 |  [16]   | Work lanes          | `WorkLane`          |      5       | scheduling-and-lanes#LANE_AXIS           |
 |  [17]   | Progress phases     | `ProgressPhase`     |      9       | progress-and-observation#PHASE_FAMILY    |
 |  [18]   | Quantity families   | `QuantityFamily`    |      15      | units-boundary#QUANTITY_TABLE            |
-|  [19]   | Receipt union       | `ComputeReceipt`    |      13      | receipts-and-benchmarks#RECEIPT_UNION    |
+|  [19]   | Receipt union       | `ComputeReceipt`    |      15      | receipts-and-benchmarks#RECEIPT_UNION    |
 |  [20]   | Claim bands         | `BenchmarkClaim`    |      4       | receipts-and-benchmarks#BENCHMARK_CLAIMS |
+|  [21]   | BLAS provider table | `LinearProvider`    |      3       | numeric-lane#DENSE_ALGEBRA               |
+|  [22]   | Factorization union | `Factorization`     |      5       | numeric-lane#DENSE_ALGEBRA               |
+|  [23]   | Sparse format axis  | `SparseFormat`      |      4       | numeric-lane#SPARSE_SOLVE                |
+|  [24]   | Shard plan          | `ShardPlan`         |      2       | numeric-lane#KERNEL_LOWERING             |
+|  [25]   | Generation policy   | `GenerationPolicy`  |   14 cols    | model-lane#GENERATIVE_RUN                |
+|  [26]   | Guidance constraint | `GuidanceKind`      |      5       | model-lane#GENERATIVE_RUN                |
 
 ## [5]-[CONSUMED_SEAMS]
 

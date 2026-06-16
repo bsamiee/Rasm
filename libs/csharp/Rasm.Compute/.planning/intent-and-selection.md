@@ -1,8 +1,8 @@
 # [COMPUTE_INTENT_AND_SELECTION]
 
-Rasm.Compute admits every execution request through one five-case `ComputeIntent` union with one nested `Spec`
-policy record, routes it over one three-row `Substrate` axis whose availability predicates, cost ranks, payload
-caps, and fallback successors are row columns, and dispatches through generated total Switches — selection is a
+Rasm.Compute admits every execution request through one six-case `ComputeIntent` union with one nested `Spec`
+policy record, routes it over one four-row `Substrate` axis whose availability predicates, cost ranks, payload
+caps, load tie-breaks, and fallback successors are row columns, and dispatches through generated total Switches — selection is a
 fold over row data, never an if-ladder, and every walk lands a `SelectionReceipt`. The page owns the intent
 vocabulary, the substrate axis, the `ComputeFault` family in the 2200 code band, and the dispatch spine over
 Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled AppHost vocabulary.
@@ -11,19 +11,19 @@ Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                     |
 | :-----: | -------------- | -------------------------------------------------------------------------- |
-|   [1]   | INTENT_FAMILY  | Five intent cases, one shared Spec record, one boundary admission fold     |
-|   [2]   | SUBSTRATE_AXIS | Three substrate rows; predicates, ranks, caps, fallback as row columns     |
+|   [1]   | INTENT_FAMILY  | Six intent cases, one shared Spec record, one boundary admission fold      |
+|   [2]   | SUBSTRATE_AXIS | Four substrate rows; predicates, ranks, caps, load, fallback as columns    |
 |   [3]   | DISPATCH_SPINE | Fault band 2200, ordered selection fold, total dispatch, selection receipt |
 
 ## [2]-[INTENT_FAMILY]
 
-- Owner: `ComputeIntent` `[Union]` five cases with the nested `Spec` shared-policy record; `AdmittedIntent` admitted carrier; `IntentAdmission` boundary fold.
-- Cases: TensorOp | ModelInfer | RemoteCall | UnitProject | Pipeline; `Spec` carries deadline row, lane row, allocation row, cache-policy row, payload caps, forced-substrate `Option`, progress-subscription `Option`.
+- Owner: `ComputeIntent` `[Union]` six cases with the nested `Spec` shared-policy record; `AdmittedIntent` admitted carrier; `IntentAdmission` boundary fold.
+- Cases: TensorOp | ModelInfer | RemoteCall | UnitProject | Pipeline | Generate; `Spec` carries deadline row, lane row, allocation row, cache-policy row, payload caps, forced-substrate `Option`, progress-subscription `Option`.
 - Entry: `public static Fin<AdmittedIntent> Admit(ComputeIntent intent, ComputeIntent.Spec spec, CorrelationId correlation, CancelScope parent, ClockPolicy clocks)` — `Fin<T>` aborts; admission runs exactly once at the boundary and interiors never re-validate.
 - Auto: the intent digest derives from operation symbol plus payload bytes and feeds the model-lane cache key and every receipt correlation; the admitted `CancelScope` child binds the allotted deadline so expiry rides the linked token.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, BCL inbox
 - Growth: one intent case breaks every total Switch at compile time; one shared policy value lands as one `Spec` field; zero new surface.
-- Boundary: arity discriminates on the case payload shape — one value, a buffered span handle, or a stream handle — and name suffixes or mode flags are the deleted forms; payload spans admit at the edge into `ReadOnlyMemory<byte>` handles owned by the declared allocation row; an `Allotted` override past the `DeadlineClass` row allotment is legal only as a traced literal at the declaring row; the pipeline case shares one `Spec` and one correlation across its stages; the model identity field is the XxHash128 model checksum — the rich identity record stays a model-lane concern.
+- Boundary: arity discriminates on the case payload shape — one value, a buffered span handle, or a stream handle — and name suffixes or mode flags are the deleted forms; payload spans admit at the edge into `ReadOnlyMemory<byte>` handles owned by the declared allocation row; an `Allotted` override past the `DeadlineClass` row allotment is legal only as a traced literal at the declaring row; the pipeline case shares one `Spec` and one correlation across its stages; the model identity field is the XxHash128 model checksum — the rich identity record stays a model-lane concern; the `Generate` case carries the model checksum, the prompt, and the model-lane `GenerationPolicy` (search options, guidance constraint, prompt-assembly inputs) so token-streaming admits through the one admission fold the same as every intent — a separate `GenerateRequest` admission path or a chat-client surface is the deleted form.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -39,6 +39,8 @@ public abstract partial record ComputeIntent {
     public sealed record UnitProject(QuantityFamily Family, double Value, string Unit, string TargetUnit) : ComputeIntent;
 
     public sealed record Pipeline(Seq<ComputeIntent> Stages) : ComputeIntent;
+
+    public sealed record Generate(UInt128 Model, string Prompt, GenerationPolicy Policy) : ComputeIntent;
 
     public sealed record Spec(
         DeadlineClass Deadline,
@@ -80,6 +82,7 @@ public static class IntentAdmission {
             modelInfer: static op => ((long)op.Input.Length, op.Shape.Aggregate(1L, static (acc, dim) => acc * dim)),
             remoteCall: static op => ((long)op.Payload.Length, 0L),
             unitProject: static _ => (0L, 1L),
+            generate: static op => ((long)Encoding.UTF8.GetByteCount(op.Prompt), 0L),
             pipeline: static line => line.Stages.Map(Measured).Fold((Bytes: 0L, Elements: 0L), static (acc, next) => (acc.Bytes + next.Bytes, acc.Elements + next.Elements)));
 
     static UInt128 Digest(ComputeIntent intent) =>
@@ -88,6 +91,7 @@ public static class IntentAdmission {
             modelInfer: static op => XxHash128.HashToUInt128(op.Input.Span, unchecked((long)op.Model)),
             remoteCall: static op => Seeded(op.Method, op.Payload.Span),
             unitProject: static op => Seeded(op.Family.Key, MemoryMarshal.AsBytes($"{op.Value:R}{op.Unit}>{op.TargetUnit}".AsSpan())),
+            generate: static op => Seeded(op.Model.ToString(), MemoryMarshal.AsBytes(op.Prompt.AsSpan())),
             pipeline: static line => XxHash128.HashToUInt128(MemoryMarshal.AsBytes(line.Stages.Map(Digest).ToArray().AsSpan())));
 
     static UInt128 Seeded(string operation, ReadOnlySpan<byte> payload) =>
@@ -97,13 +101,13 @@ public static class IntentAdmission {
 
 ## [3]-[SUBSTRATE_AXIS]
 
-- Owner: `Substrate` `[SmartEnum<string>]` three rows under the `ComputeKeyPolicy` ordinal accessor; `SubstrateProbes` veto delegates; `SelectionContext` resolved selection inputs; `BenchmarkRank` boot-frozen rank projection.
-- Cases: cpu-tensor, onnx (one EP-parameterized row — EP variance is model-lane row data, never substrate-row twins), remote-grpc.
+- Owner: `Substrate` `[SmartEnum<string>]` four rows under the `ComputeKeyPolicy` ordinal accessor; `SubstrateProbes` veto delegates; `SelectionContext` resolved selection inputs; `BenchmarkRank` boot-frozen rank projection.
+- Cases: cpu-tensor, onnx (one EP-parameterized row — EP variance is model-lane row data, never substrate-row twins), genai (token-streaming over the model-lane GenAI session), remote-grpc.
 - Entry: `public partial Option<string> Veto(SelectionContext context)` — `Option<T>` carries the rejection reason; `None` admits the row; one delegate collapses the availability predicate and its evidence.
-- Auto: `EffectiveRank` reads the boot-frozen `BenchmarkRank` projection and falls through to the static cost rank when the host fingerprint mismatches; provider names arrive boot-frozen in `SelectionContext.Providers` from the model-lane environment probe; the warm-start affinity column reorders the eligible chain so a cold companion routes to the node holding the matching EP-context blob — the same fold that picks cpu-vs-onnx picks host-vs-companion-vs-farm because the discriminant is a column, never an `if (warm)` branch.
+- Auto: `EffectiveRank` reads the boot-frozen `BenchmarkRank` projection and falls through to the static cost rank when the host fingerprint mismatches; provider names arrive boot-frozen in `SelectionContext.Providers` from the model-lane environment probe; the warm-start affinity column reorders the eligible chain so a cold companion routes to the node holding the matching EP-context blob — the same fold that picks cpu-vs-onnx picks host-vs-companion-vs-farm because the discriminant is a column, never an `if (warm)` branch; the `LoadRank` column is the third tie-break key (rank → warm-affinity → load) reading the per-node load value from the AppHost `PeerRoster` health so among rank-equal-and-warm nodes the least-loaded wins.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Microsoft.ML.OnnxRuntime, BCL inbox
-- Growth: one substrate row — key, rank, cap, fallback key, veto delegate — absorbs a new execution substrate; gpu-direct and the ONNX Runtime GenAI token-streaming successor each land as one row on `Substrate`; warm-start affinity is a column the selection fold already reads, so farm load-and-offload lands without a `FarmRouter`; zero new surface.
-- Boundary: wasm is a platform predicate column — `OperatingSystem.IsBrowser` structurally excludes the onnx row while cpu-tensor and remote-grpc admit it, and a wasm substrate row is the deleted form; substrate predicates read the retained `Capability` set so remote health rides the AppHost degradation fold and a second health probe is the named defect — Rhino-absent folds to `DegradationLevel.LocalOnly` and the remote row vetoes itself through `Capability.RemoteCompute`; the remote payload cap composes `GrpcChannelPolicy.Canonical.MaxSendBytes`, never a re-declared literal; warm-start affinity reorders only within the rank-equal tier so a benchmark rank never loses to an affinity preference — affinity is a tie-breaker column, never a rank override.
+- Growth: one substrate row — key, rank, cap, fallback key, veto delegate — absorbs a new execution substrate; gpu-direct lands as one row on `Substrate`; warm-start affinity and the `LoadRank` load value are columns the selection fold already reads, so farm load-and-offload lands without a `FarmRouter`; zero new surface.
+- Boundary: wasm is a platform predicate column — `OperatingSystem.IsBrowser` structurally excludes the onnx row while cpu-tensor and remote-grpc admit it, and a wasm substrate row is the deleted form; substrate predicates read the retained `Capability` set so remote health rides the AppHost degradation fold and a second health probe is the named defect — Rhino-absent folds to `DegradationLevel.LocalOnly` and the remote row vetoes itself through `Capability.RemoteCompute`; the remote payload cap composes `GrpcChannelPolicy.Canonical.MaxSendBytes`, never a re-declared literal; warm-start affinity reorders only within the rank-equal tier so a benchmark rank never loses to an affinity preference — affinity is a tie-breaker column, never a rank override, and the `LoadRank` load value breaks ties only beneath affinity so a least-loaded node never outranks a warm one; the genai row vetoes itself when the GenAI native dylib is absent or the requested model is not genai-format — its veto reads the same `Providers`/`Capability` set as the onnx row and a second GenAI health probe is the named defect, and the genai token-streaming path falls back to remote-grpc, never to the cpu-tensor row.
 
 ```csharp signature
 public sealed class ComputeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -126,10 +130,13 @@ public sealed record SelectionContext(
     string Fingerprint,
     Option<BenchmarkRank> Ranks,
     FrozenSet<string> WarmAffinity,
+    FrozenDictionary<string, double> Loads,
     ClockPolicy Clocks) {
     public int EffectiveRank(Substrate row) => Ranks.Bind(ranks => ranks.For(row, Fingerprint)).IfNone(row.Rank);
 
     public int AffinityRank(Substrate row) => WarmAffinity.Contains(row.Key) ? 0 : 1;
+
+    public double LoadRank(Substrate row) => Loads.TryGetValue(row.Key, out double load) ? load : 0.0;
 }
 
 public static class SubstrateProbes {
@@ -142,6 +149,12 @@ public static class SubstrateProbes {
         : context.Providers.Count == 0 ? Some(nameof(SelectionContext.Providers))
         : None;
 
+    public static Option<string> GenAi(SelectionContext context) =>
+        OperatingSystem.IsBrowser() ? Some(nameof(OperatingSystem.IsBrowser))
+        : !context.Level.Permits(Capability.LocalCompute) ? Some(Capability.LocalCompute.Key)
+        : !context.Providers.Contains(Substrate.GenAi.Key) ? Some(Substrate.GenAi.Key)
+        : None;
+
     public static Option<string> Remote(SelectionContext context) =>
         context.Level.Permits(Capability.RemoteCompute) ? None : Some(Capability.RemoteCompute.Key);
 }
@@ -152,6 +165,7 @@ public static class SubstrateProbes {
 public sealed partial class Substrate {
     public static readonly Substrate CpuTensor = new("cpu-tensor", rank: 0, payloadCapBytes: null, fallback: null, veto: SubstrateProbes.Cpu);
     public static readonly Substrate Onnx = new("onnx", rank: 1, payloadCapBytes: null, fallback: "cpu-tensor", veto: SubstrateProbes.Onnx);
+    public static readonly Substrate GenAi = new("genai", rank: 1, payloadCapBytes: null, fallback: "remote-grpc", veto: SubstrateProbes.GenAi);
     public static readonly Substrate RemoteGrpc = new("remote-grpc", rank: 2, payloadCapBytes: GrpcChannelPolicy.Canonical.MaxSendBytes, fallback: "cpu-tensor", veto: SubstrateProbes.Remote);
 
     private readonly long? payloadCapBytes;
@@ -228,6 +242,7 @@ public static class SubstrateSelection {
             modelInfer: static _ => Seq(Substrate.Onnx, Substrate.RemoteGrpc),
             remoteCall: static _ => Seq(Substrate.RemoteGrpc),
             unitProject: static _ => Seq(Substrate.CpuTensor),
+            generate: static _ => Seq(Substrate.GenAi, Substrate.RemoteGrpc),
             pipeline: static _ => Seq<Substrate>());
 
     public static Fin<Seq<SelectionReceipt>> Plan(AdmittedIntent admitted, SelectionContext context) =>
@@ -242,7 +257,7 @@ public static class SubstrateSelection {
             : Routed(admitted, context, Chain(Eligible(admitted.Intent), context));
 
     static Seq<Substrate> Chain(Seq<Substrate> eligible, SelectionContext context) =>
-        toSeq(eligible.OrderBy(context.EffectiveRank).ThenBy(context.AffinityRank))
+        toSeq(eligible.OrderBy(context.EffectiveRank).ThenBy(context.AffinityRank).ThenBy(context.LoadRank))
             .Bind(static row => Seq(row) + row.Fallback.ToSeq())
             .Filter(eligible.Contains)
             .Distinct();
@@ -264,12 +279,14 @@ public static class SubstrateSelection {
 public sealed record DispatchTable(
     Func<AdmittedIntent, IO<Unit>> CpuTensor,
     Func<AdmittedIntent, IO<Unit>> Onnx,
+    Func<AdmittedIntent, IO<Unit>> GenAi,
     Func<AdmittedIntent, IO<Unit>> RemoteGrpc) {
     public IO<Unit> Run(SelectionReceipt selection, AdmittedIntent admitted) =>
         selection.Route.Switch(
             state: (Table: this, Work: admitted),
             cpuTensor: static s => s.Table.CpuTensor(s.Work),
             onnx: static s => s.Table.Onnx(s.Work),
+            genAi: static s => s.Table.GenAi(s.Work),
             remoteGrpc: static s => s.Table.RemoteGrpc(s.Work));
 }
 ```

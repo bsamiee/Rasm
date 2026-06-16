@@ -1,6 +1,6 @@
 # [COMPUTE_PLANNING]
 
-Rasm.Compute has zero consumers; the implementation is full-capability with no holding back. These pages are decision-complete blueprints an implementation agent transcribes — never re-designed downstream. The package owns measured execution: intent and substrate selection, tensor and model lanes, the remote lane carrying the suite wire vocabulary, staging memory, scheduling, progress, the units boundary, and typed receipts — consuming AppHost ports and Persistence stores as settled vocabulary.
+Rasm.Compute has zero consumers; the implementation is full-capability with no holding back. These pages are decision-complete blueprints an implementation agent transcribes — never re-designed downstream. The package owns measured execution: intent and substrate selection, tensor and model lanes, the numeric BLAS lane carrying dense and sparse linear algebra, the remote lane carrying the suite wire vocabulary, staging memory, scheduling, progress, the units boundary, and typed receipts — consuming AppHost ports and Persistence stores as settled vocabulary.
 
 ## [1]-[PAGE_INDEX]
 
@@ -8,13 +8,14 @@ Rasm.Compute has zero consumers; the implementation is full-capability with no h
 | :-----: | ------------------------------------------------------- | -------------------------------------------------------------------------------- |
 |   [1]   | [intent-and-selection](intent-and-selection.md)         | Typed intent family; substrate-selection rail; total dispatch                    |
 |   [2]   | [tensor-lane](tensor-lane.md)                           | Tensor shapes, dtype map, layout algebra, geometry encoding; TensorOpFamily table; tolerance vocabulary; kernel dispatch |
-|   [3]   | [model-lane](model-lane.md)                             | ONNX identity, session capsule, EP rows, extension-op admission; OrtValue run modes; bound-loop hot path; result cache |
-|   [4]   | [remote-lane](remote-lane.md)                           | Proto wire vocabulary; transports; channel capsule; credential axis; artifact frame law; buffer fast path; suite TS wire posture |
-|   [5]   | [staging-and-streams](staging-and-streams.md)           | AllocationClass rows; pooled memory; recyclable streams                          |
-|   [6]   | [scheduling-and-lanes](scheduling-and-lanes.md)         | WorkLane channels; solve-path guard; drain participation                         |
-|   [7]   | [progress-and-observation](progress-and-observation.md) | Monotonic phases; zero-alloc capsules; observation seams                         |
-|   [8]   | [units-boundary](units-boundary.md)                     | QuantityFamily rows; conversion-at-admission; unit evidence                      |
-|   [9]   | [receipts-and-benchmarks](receipts-and-benchmarks.md)   | Receipt union; fold projections; benchmark claims                                |
+|   [3]   | [model-lane](model-lane.md)                             | ONNX identity, session capsule, EP rows, extension-op admission; OrtValue run modes; bound-loop hot path; generative token-streaming run; result cache |
+|   [4]   | [numeric-lane](numeric-lane.md)                         | RID-keyed BLAS provider table; dense factorization union; sparse-format ingestion and solve; kernel-lowering binding; claim-gated provider rank |
+|   [5]   | [remote-lane](remote-lane.md)                           | Proto wire vocabulary; transports; channel capsule; credential axis; artifact frame law; buffer fast path; suite TS wire posture |
+|   [6]   | [staging-and-streams](staging-and-streams.md)           | AllocationClass rows; pooled memory; recyclable streams                          |
+|   [7]   | [scheduling-and-lanes](scheduling-and-lanes.md)         | WorkLane channels; solve-path guard; drain participation                         |
+|   [8]   | [progress-and-observation](progress-and-observation.md) | Monotonic phases; zero-alloc capsules; observation seams                         |
+|   [9]   | [units-boundary](units-boundary.md)                     | QuantityFamily rows; conversion-at-admission; unit evidence                      |
+|  [10]   | [receipts-and-benchmarks](receipts-and-benchmarks.md)   | Receipt union; fold projections; benchmark claims                                |
 
 ## [2]-[WIRE_PAGES]
 
@@ -56,22 +57,30 @@ Every adversarial-verifier gap finding for the package; a row is present only wh
 |  [22]   | canonical proto geometry                  | remote-lane                           |
 |  [23]   | UnitsNet `QuantityInfo` research row      | units-boundary                        |
 |  [24]   | discovery manifest on UDS transport       | remote-lane                           |
+|  [25]   | numeric BLAS solver service               | numeric-lane                          |
+|  [26]   | RID-keyed native-provider availability    | numeric-lane                          |
+|  [27]   | sparse-format ingestion and direct solve  | numeric-lane                          |
+|  [28]   | tensor matrix/structural kernel lowering  | numeric-lane + tensor-lane            |
+|  [29]   | token-streaming generative substrate      | model-lane                            |
+|  [30]   | grammar-constrained structured generation | model-lane                            |
+|  [31]   | numeric solve and generate wire rpcs      | remote-lane                           |
+|  [32]   | graph-diff and subtree-fetch wire family  | remote-lane                           |
 
 ## [5]-[DENSITY_BAR]
 
-Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. Dispatch runs over row data through generated total Switches and frozen tables. Seven comparer accessors exist, one per axis owner and package-local; the `WorkLane` key accessor is `ComputeKeyPolicy`, never the AppHost `LaneKeyPolicy` (suite ledger key-policy posture). `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
+Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. Dispatch runs over row data through generated total Switches and frozen tables. Eight comparer accessors exist, one per axis owner and package-local; the `WorkLane` key accessor is `ComputeKeyPolicy`, never the AppHost `LaneKeyPolicy` (suite ledger key-policy posture); the numeric lane carries `NumericKeyPolicy` over its three string-keyed axes. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
 Axis owners (vocabulary budget):
 
 | [INDEX] | [AXIS/CONCERN]     | [OWNER]             | [KIND]                   |   [CASES]   |  [STATE]  |
 | :-----: | :----------------- | :------------------ | :----------------------- | :---------: | :-------: |
-|   [1]   | Intent family      | `ComputeIntent`     | [Union] + nested `Spec`  |      5      | FINALIZED |
-|   [2]   | Substrate axis     | `Substrate`         | SmartEnum\<string>       |      3      | FINALIZED |
+|   [1]   | Intent family      | `ComputeIntent`     | [Union] + nested `Spec`  |      6      | FINALIZED |
+|   [2]   | Substrate axis     | `Substrate`         | SmartEnum\<string>       |      4      | FINALIZED |
 |   [3]   | Fault family       | `ComputeFault`      | [Union] fault, band 2200 |     13      | FINALIZED |
-|   [4]   | Total dispatch     | `DispatchTable`     | record                   | 3 delegates | FINALIZED |
+|   [4]   | Total dispatch     | `DispatchTable`     | record                   | 4 delegates | FINALIZED |
 |   [5]   | Tensor dtypes      | `TensorDtype`       | SmartEnum\<string>       |     10      | FINALIZED |
 |   [6]   | Tensor op kinds    | `TensorOpKind`      | SmartEnum\<string>       |     12      | FINALIZED |
-|   [7]   | Tensor op families | `TensorOpFamily`    | SmartEnum\<string>       |     82      | FINALIZED |
+|   [7]   | Tensor op families | `TensorOpFamily`    | SmartEnum\<string>       |     84      | FINALIZED |
 |   [8]   | Tolerance classes  | `ToleranceClass`    | SmartEnum\<string>       |      4      | FINALIZED |
 |   [9]   | Layout forms       | `LayoutForm`        | SmartEnum\<string>       |      5      | FINALIZED |
 |  [10]   | Encoding channels  | `EncodingChannel`   | SmartEnum\<string>       |      6      | FINALIZED |
@@ -79,6 +88,9 @@ Axis owners (vocabulary budget):
 |  [12]   | Model acquisition  | `ModelSource`       | [Union]                  |      4      | FINALIZED |
 |  [13]   | EP axis            | `ExecutionProvider` | SmartEnum\<string>       |      4      | FINALIZED |
 |  [14]   | Cache postures     | `CachePolicy`       | SmartEnum\<string>       |      4      | FINALIZED |
+|  [15]   | Generation policy  | `GenerationPolicy`  | record + `Apply`/`Messages` fold |  14 cols | FINALIZED |
+|  [16]   | Guidance constraint| `GuidanceKind`      | SmartEnum\<string>       |      5      | FINALIZED |
+|  [17]   | Generative run     | `GenerativeRun`     | boundary capsule         | `Stream`/`Collect`/`Receipt` | FINALIZED |
 
 | [INDEX] | [AXIS/CONCERN]    | [OWNER]                | [KIND]             | [CASES] |  [STATE]  |
 | :-----: | :---------------- | :--------------------- | :----------------- | :-----: | :-------: |
@@ -92,9 +104,22 @@ Axis owners (vocabulary budget):
 |   [8]   | Progress phases   | `ProgressPhase`        | SmartEnum\<string> |    9    | FINALIZED |
 |   [9]   | Cadence rows      | `SubscriptionPolicy`   | record rows        |    3    | FINALIZED |
 |  [10]   | Quantity families | `QuantityFamily`       | SmartEnum\<string> |   15    | FINALIZED |
-|  [11]   | Receipt union     | `ComputeReceipt`       | [Union]            |   13    | FINALIZED |
+|  [11]   | Receipt union     | `ComputeReceipt`       | [Union]            |   15    | FINALIZED |
 |  [12]   | Claim bands       | `BenchmarkClaim.Bands` | frozen rows        |    4    | FINALIZED |
-|  [13]   | Key policies      | `*KeyPolicy`           | comparer accessors |    7    | FINALIZED |
+|  [13]   | Key policies      | `*KeyPolicy`           | comparer accessors |    8    | FINALIZED |
+
+Numeric-lane owners (BLAS-class linear algebra; native execution SPIKE-gated on the per-RID asset probe):
+
+| [INDEX] | [AXIS/CONCERN]      | [OWNER]             | [KIND]                | [CASES]              |  [STATE]  |
+| :-----: | :------------------ | :------------------ | :-------------------- | :------------------- | :-------: |
+|   [1]   | BLAS provider table | `LinearProvider`    | SmartEnum\<string>    |          3           |   SPIKE   |
+|   [2]   | Factorization kind  | `FactorizationKind` | SmartEnum\<string>    |          5           | FINALIZED |
+|   [3]   | Decomposition union | `Factorization`     | [Union]               |          5           | FINALIZED |
+|   [4]   | Sparse format axis  | `SparseFormat`      | SmartEnum\<string>    |          4           | FINALIZED |
+|   [5]   | Dense solve fold    | `DenseOps`          | static surface        | `Decompose`/`Gemm`/`Receipt` |   SPIKE   |
+|   [6]   | Sparse solve fold   | `SparseOps`         | static surface        | `Ingest`/`SolveDirect`/`Receipt` |   SPIKE   |
+|   [7]   | Kernel lowering     | `KernelLowering`    | binding table         | `Lower`/`Pool`/`Lowers` | FINALIZED |
+|   [8]   | Shard plan          | `ShardPlan`         | [Union]               |          2           | FINALIZED |
 
 Rail surfaces (one entrypoint family per rail):
 
@@ -147,6 +172,7 @@ Cluster cells use page-local anchor names; proof cells name evidence beyond the 
 |  [18]   | `LaneRuntime.cs`        | work items, solve guard, drain cancel    | specs            |
 |  [19]   | `Receipts.cs`           | receipts, folds, wire stamps             | specs            |
 |  [20]   | `Benchmarks.cs`         | benchmark claims                         | specs            |
+|  [21]   | `Numeric/Lane.cs`       | provider table, factorization union, sparse solve, kernel lowering, provider claims | specs |
 
 ## [7]-[FILE_PROCESS]
 
@@ -183,7 +209,7 @@ Assay rows use `uv run python -m tools.assay`; proof runs at the planned phase g
 - [NEVER] add a second cache owner: `CacheSurface` over `CacheLane.ModelResult` is the single cache; hand-rolled memoization beside it is the named defect.
 - [NEVER] add a second retry owner: `GrpcChannelOptions.ServiceConfig` is never set; the AppHost keyed Polly hop owns retry; a detected second owner raises `RetryOwnerConflict`.
 - [NEVER] mint a second correlation, HLC stamp, health probe, or wire phase vocabulary.
-- [NEVER] write the superseded ONNX spellings: `NamedOnnxValue`, `DisposableNamedOnnxValue`, `FixedBufferOnnxValue`, `AppendExecutionProvider_CoreML(CoreMLFlags)`; OrtValue-only law holds.
+- [NEVER] write the superseded ONNX spellings: `NamedOnnxValue`, `DisposableNamedOnnxValue`, `FixedBufferOnnxValue`; OrtValue-only law holds. `AppendExecutionProvider_CoreML(CoreMLFlags)` is the canonical typed CoreML registration and `AppendExecutionProvider("CoreMLExecutionProvider", options)` is the proved option-rich fallback — a bare `"CoreML"` provider name is the deleted spelling.
 - [NEVER] pool sessions: one shared `InferenceSession` per checksum; per-dtype kernel copies and phantom `Tensor.CreateFrom*` factory spellings stay deleted.
 - [NEVER] admit `System.IO.Pipelines`, naked `ArrayPool<T>.Shared` rents, raw `MemoryStream` construction, unbounded channels, Dataflow lanes, or `IProgress<T>` plumbing — the owning axes delete those forms.
 - [NEVER] re-declare settled constants: channel policy values, frame constants, drain budgets, and the dedup window quote their owners.
@@ -213,6 +239,12 @@ The executed admissions ledger maps each package to its consuming page, `.api` c
 |  [13]   | UnitsNet                             | units-boundary                                | api-unitsnet.md                    | admitted          |
 |  [14]   | SharpFuzz                            | remote-lane, tensor-lane                      | pending — NEEDS-ADMISSION          | catalogue-pending |
 |  [15]   | BenchmarkDotNet                      | model-lane                                    | pending                            | catalogue-pending |
+|  [16]   | MathNet.Numerics                     | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
+|  [17]   | MathNet.Numerics.Providers.MKL       | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
+|  [18]   | MathNet.Numerics.Providers.OpenBLAS  | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
+|  [19]   | CSparse                              | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
+|  [20]   | Microsoft.ML.OnnxRuntimeGenAI        | model-lane                                    | api-onnxruntime.md                 | admitted          |
+|  [21]   | Microsoft.Extensions.AI.Abstractions | model-lane                                    | api-onnxruntime.md                 | admitted          |
 
 ## [11]-[REFINEMENT_HORIZON]
 

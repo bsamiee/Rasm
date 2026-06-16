@@ -15,6 +15,8 @@ Rasm.Persistence has zero consumers; the implementation is full-capability with 
 |   [7]   | [cache-indexes](cache-indexes.md)             | cache contribution, serializers, result and artifact indexes | finalized |
 |   [8]   | [sync-collaboration](sync-collaboration.md)   | sync transports, op-log, diffs, presence, conflicts          | finalized |
 |   [9]   | [redaction-retention](redaction-retention.md) | retention, classification, audit binding                     | finalized |
+|  [10]   | [remote-stores](remote-stores.md)             | object-store axis, multipart transfer, residence, sync feed  | authored  |
+|  [11]   | [server-tier](server-tier.md)                 | time-series, search, cluster GUC, tenancy/RLS, migration bundle | authored  |
 
 ## [2]-[WIRE_PAGES]
 
@@ -58,10 +60,24 @@ Every row is CLOSED; `[CLOSED_BY]` names the page that absorbed the gap. A row i
 |  [26]   | SQLCipher research gate                     | native-sqlite                                 |
 |  [27]   | pgaudit and legal-hold ordering             | redaction-retention                           |
 |  [28]   | Thinktecture codec rows                     | schema-rail + snapshot-codecs                 |
+|  [29]   | cloud object-store residence topology       | remote-stores#OBJECT_STORE                    |
+|  [30]   | chunked resumable multipart transfer        | remote-stores#MULTIPART_TRANSFER              |
+|  [31]   | cloud object-store sync hub seam            | remote-stores#ARTIFACT_SYNC_FEED              |
+|  [32]   | self-provisioned PG18 time-series tier      | server-tier#TIMESCALE_PROVISIONING            |
+|  [33]   | diskann + BM25 index provisioning           | server-tier#SEARCH_PROVISIONING               |
+|  [34]   | cluster GUC deploy fragments + verify       | server-tier#CLUSTER_CONFIG                    |
+|  [35]   | multi-tenancy + RLS isolation axis          | server-tier#TENANCY_RLS                       |
+|  [36]   | migration-bundle service-deploy gate        | server-tier#MIGRATION_BUNDLE                  |
+|  [37]   | Redis L2 cache residence                    | cache-indexes#L2_CONTRIBUTION                 |
+|  [38]   | bit-vector columns + Hamming/Jaccard        | data-lanes#SEARCH_LANES                       |
+|  [39]   | DuckDB in-process table-function relation   | data-lanes#ANALYTICAL_LANE                    |
+|  [40]   | OLD/NEW RETURNING bulk emission             | query-rail#BULK_LANE                          |
+|  [41]   | Sep header-range column projection          | data-lanes#ANALYTICAL_LANE                    |
+|  [42]   | pg_jsonschema document-shape invariant      | schema-rail#EXTENSION_DDL + data-lanes#DOCUMENT_LANE |
 
 ## [5]-[DENSITY_BAR]
 
-Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. The budget below is the complete public-owner set; a type outside it is a defect. `[OWNER]` cells fold every extension block and mapping descriptor under the axis owner — `StoreOpCompose` rides axis [11], `TabularDirection`/`TabularSpec`/`AnalyticalTraversal`/`DuckDBOpLogMap` ride axis [8], `DbConfig` rides axis [16], `Composite`/`MapComposites`/`Enum`/`MapEnums`/`SqlitePatterns` ride axis [10], `GeoJsonProjection`/`PersistenceResolver`/`GeneratedMessagePackResolver` ride axis [17] — so the complete-owner claim holds. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
+Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. The budget below is the complete public-owner set; a type outside it is a defect. `[OWNER]` cells fold every extension block and mapping descriptor under the axis owner — `StoreOpCompose` rides axis [11], `TabularDirection`/`TabularSpec`/`AnalyticalTraversal`/`DuckDBOpLogMap`/`RelationSource`/`RelationSchema`/`RelationLane` ride axis [8], `EmbeddingArity`/`EmbeddingIdentity`/`VectorQuery`/`FullTextQuery` ride axis [7], `DbConfig` rides axis [16], `Composite`/`MapComposites`/`Enum`/`MapEnums`/`SqlitePatterns` ride axis [10], `GeoJsonProjection`/`PersistenceResolver`/`GeneratedMessagePackResolver` ride axis [17], `CacheResidence` rides axis [18], `ObjectClient`/`TransferReceipt`/`ObjectTransferFact` ride axis [21], `RlsPolicy`/`MigrationPlan` ride axis [22] — so the complete-owner claim holds. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
 | [INDEX] | [AXIS]               | [OWNER]                                          | [KIND]            | [CASES]           |  [STATE]  |
 | :-----: | :------------------- | :----------------------------------------------- | :---------------- | :---------------- | :-------: |
@@ -85,8 +101,10 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |  [18]   | cache + indexes      | contribution, result, artifact, benchmark        | capsule + keys    | 1 + 3 indexes     | FINALIZED |
 |  [19]   | sync spine           | op kind, log, merge, conflicts                   | vocab + dispatch  | 3 · 4 · 3         |   SPIKE   |
 |  [20]   | retention + classes  | policies, classes, guards, evidence              | axes + guards     | 4 · 7 · 5         |   SPIKE   |
+|  [21]   | object-store         | ObjectStore, MultipartTransfer, ObjectResidence, ArtifactSyncFeed, RemoteStoreFault | SmartEnum + Union + records | 3 providers · 5 faults | SPIKE |
+|  [22]   | server-tier          | TimescaleProvisioning, SearchProvisioning, ClusterConfig, TenancyModel, MigrationBundle | static folds + SmartEnum | 5 clusters · 4 tenancy | SPIKE |
 
-Comparer accessors (`StoreKeyPolicy`, `SqliteKeyPolicy`, `SnapshotKeyPolicy`, `SyncKeyPolicy`, `RetentionKeyPolicy`) ride inside their owner files, one per axis family, package-local.
+Comparer accessors (`StoreKeyPolicy`, `SqliteKeyPolicy`, `SnapshotKeyPolicy`, `SyncKeyPolicy`, `RetentionKeyPolicy`, `CacheResidenceKeyPolicy`) ride inside their owner files, one per axis family, package-local. `ObjectStore`, `TenancyModel`, and the data-lanes string-keyed axes (`JsonIndex`/`VectorMetric`/`FullTextMode`/`EmbeddingArity`) reuse the package-wide `StoreKeyPolicy` accessor.
 
 ## [6]-[BUILD_ORDER]
 
@@ -104,11 +122,15 @@ Cluster cells use page-local anchor names; proof cells name evidence beyond the 
 |   [8]   | `Snapshots/Codecs.cs`    | codecs, compression, protocol, restore       | round-trip, header, restore     |
 |   [9]   | `Sync/Collaboration.cs`  | op-log, merge, transport, presence/blob      | merge idempotency, adjudication |
 |  [10]   | `Retention/Redaction.cs` | classification, sweeps, export, audits       | sweep, guard, audit binding     |
+|  [11]   | `Stores/ServerTier.cs`   | timescale, search, cluster GUC, tenancy/RLS, migration bundle | live-PG18 provisioning roundtrip |
+|  [12]   | `Stores/RemoteStores.cs` | object-store, multipart transfer, residence, sync feed | object-store emulator roundtrip |
 
 Seam ordering law:
 - Fingerprint slot: `StoreOpenReceipt.SchemaFingerprint` stays bare `ulong` (ledger seam), so [2] precedes [3] with zero forward reference; `SchemaFingerprint` in [3] is the typed owner.
 - Wire-context pairing: [7] precedes [8] and the two files gate as one build closure — `PersistenceWireContext` declares the `CacheIndexFact` serializable row while `IndexSurface` consumes the generated context.
 - Mutual placement: `StoreProfile` delegate columns consume `StorePlacement` and the placement record carries `StoreProfile` fields — both land in [1], never split.
+- Server-tier ordering: `Stores/ServerTier.cs` consumes `ExtensionRequirement` (from [2]) and `SchemaDdl` (from [3]) as settled vocabulary, so [11] follows both with zero forward reference; the `TenancyModel` RLS row consumes the AppHost `TenantContext` and the `redaction-retention#AUDIT_BINDING` category binding as settled.
+- Remote-stores ordering: `Stores/RemoteStores.cs` consumes the `BlobRemote`/`BlobRemote.Descriptor` contract (from [1]) and the Compute `ARTIFACT_FRAMES` 64-KiB/Crc32/XxHash128 frame constants plus the `sync-collaboration#OPLOG_CHANGEFEED` op-log as settled, so [12] follows [1] and the snapshot/sync closure with zero re-declared frame width.
 - TS_PROJECTION clusters transcribe into the TS workspace under the suite wire law, never into `.cs` files.
 
 ## [7]-[FILE_PROCESS]
@@ -184,12 +206,17 @@ The executed admissions ledger maps each package to its consuming page, `.api` c
 |  [24]   | Thinktecture.Runtime.Extensions.EntityFrameworkCore10  | schema-rail         | thinktecture-serialization | admitted          |
 |  [25]   | Thinktecture.Runtime.Extensions.Json                  | snapshot-codecs     | thinktecture-serialization | admitted          |
 |  [26]   | Thinktecture.Runtime.Extensions.MessagePack            | snapshot-codecs     | thinktecture-serialization | admitted          |
-|  [27]   | BenchmarkDotNet                                        | data-lanes          | pending                    | catalogue-pending |
-|  [28]   | Verify.XunitV3                                         | snapshot-codecs     | pending                    | catalogue-pending |
-|  [29]   | SharpFuzz                                              | snapshot-codecs     | pending                    | catalogue-pending |
+|  [27]   | AWSSDK.S3                                              | remote-stores       | aws-s3                     | admitted          |
+|  [28]   | Azure.Storage.Blobs                                    | remote-stores       | azure-blobs                | admitted          |
+|  [29]   | Google.Cloud.Storage.V1                               | remote-stores       | gcs-storage                | admitted          |
+|  [30]   | StackExchange.Redis                                    | cache-indexes       | stackexchange-redis        | admitted          |
+|  [31]   | Microsoft.Extensions.Caching.StackExchangeRedis        | cache-indexes       | caching-redis              | admitted          |
+|  [32]   | BenchmarkDotNet                                        | data-lanes          | pending                    | catalogue-pending |
+|  [33]   | Verify.XunitV3                                         | snapshot-codecs     | pending                    | catalogue-pending |
+|  [34]   | SharpFuzz                                              | snapshot-codecs     | pending                    | catalogue-pending |
 
 ## [11]-[REFINEMENT_HORIZON]
 
-Deepening targets, each open against a named page RESEARCH probe: the GIS lanes pushed to full pipeline capability — heterogeneous ingestion through GeoPackage/GeoJSON/PostGIS rows into the analytical lane — gated by data-lanes#RESEARCH `[MANAGED_REFINE_OPS]` constructive-geometry forms and `[REGISTER_TABLE_FUNCTION]` chunk-fill; sync topologies rehearsed against the hub and collaboration concepts, gated by sync-collaboration#RESEARCH `[LIVE_REPLICATION]` publication-parameter and conflict-stat facts on a live PG18 server; the extension gates — vec0, SQLCipher, sqlean — resolved from native-sqlite#RESEARCH `[EXTENSION_LOADING]` live-load and hardened-runtime dlopen probes into settled rows; server self-provisioning rows exercised against store-profiles#PROVISIONING_ROWS — postgresql.conf preload fragments, pg_hba fragments, role grants, and server-side extension enablement — when the first server root lands, with the redaction-retention#RESEARCH `[PGAUDIT_CATEGORIES]` session-audit category semantics verified against the `AuditBinding.Categories` rows under `shared_preload_libraries=pgaudit` on that same live PG18 root. The bar: any data product — offline-first field store, telemetry lake, geospatial sync hub — composes from rows with zero app-side persistence code.
+Deepening targets, each open against a named page RESEARCH probe: the GIS lanes pushed to full pipeline capability — heterogeneous ingestion through GeoPackage/GeoJSON/PostGIS rows into the analytical lane — gated by data-lanes#RESEARCH `[MANAGED_REFINE_OPS]` constructive-geometry forms and `[REGISTER_TABLE_FUNCTION]` chunk-fill; sync topologies rehearsed against the hub and collaboration concepts, gated by sync-collaboration#RESEARCH `[LIVE_REPLICATION]` publication-parameter and conflict-stat facts on a live PG18 server; the extension gates — vec0, SQLCipher, sqlean — resolved from native-sqlite#RESEARCH `[EXTENSION_LOADING]` live-load and hardened-runtime dlopen probes into settled rows; server self-provisioning rows exercised against store-profiles#PROVISIONING_ROWS — postgresql.conf preload fragments, pg_hba fragments, role grants, and server-side extension enablement — when the first server root lands, with the redaction-retention#RESEARCH `[PGAUDIT_CATEGORIES]` session-audit category semantics verified against the `AuditBinding.Categories` rows under `shared_preload_libraries=pgaudit` on that same live PG18 root; the server tier exercised against server-tier#RESEARCH `[SERVER_PROVISIONING_PROBE]` (create_hypertable/continuous-aggregate/columnstore apply contract, diskann-over-`halfvec` `storage_layout=memory_optimized`, pg_search BM25 `@@@`/`paradedb.score`, and the RLS `current_setting('rasm.tenant')` per-tenant isolation), `[CLUSTER_CONFIG_PORTABILITY]` (io_uring vs worker on the deploy-image kernel), and `[MIGRATION_BUNDLE_PROBE]` (the self-contained bundle executable and the NOT-VALID/NOT-ENFORCED lock-light apply-then-validate contract) on the colima timescaledb/paradedb PG18 image; the cloud object-store tier exercised against remote-stores#RESEARCH `[OBJECT_ROUNDTRIP]` (the multipart-resume skip-on-committed-ETag and conditional-write `412` surface), `[OBJECT_MEMBER_SPELLINGS]` (the get/head/list/delete member set decompile-verified at admission), and `[REMOTE_FAULT_LIFT]` (the three boundary-exception types) against the MinIO/Azurite/fake-gcs-server emulators; the Redis L2 residence exercised against the local redis-server roundtrip behind `cache-indexes#L2_CONTRIBUTION`. The bar: any data product — offline-first field store, telemetry lake, geospatial sync hub, multi-tenant SaaS, cloud object-store sync hub — composes from rows with zero app-side persistence code.
 
 Testing-infrastructure horizon: the snapshot-codec decode and sealed-artifact rejection ladder ride `SharpFuzz` `Fuzzer.OutOfProcess.Run` over the restore lane's untrusted-data boundary (`NEEDS-ADMISSION`); the `StoreProfile.SqliteMemory` placement is the deterministic in-memory store row and the DuckDB analytical lane the live-engine round-trip; bulk-write lane throughput lands on the BenchmarkDotNet rail.

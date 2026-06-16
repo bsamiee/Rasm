@@ -15,6 +15,12 @@ Open work owned by this folder; closed items do not appear.
 | [7] | DuckDB sqlite_scanner ATTACH snapshot visibility under a concurrent WAL writer | visibility semantics confirmed under concurrent WAL |
 | [8] | uuidv7 double-generation precedence (client CreateVersion7 vs pg column default) | precedence rule grounded; one generation site confirmed |
 | [9] | APFS rename durability without directory fsync; migration-lock holder evidence | durability posture confirmed; lock-holder evidence captured |
+| [10] | Live-PG18 server-tier: create_hypertable/continuous-aggregate/columnstore apply, diskann-over-halfvec storage_layout, pg_search BM25 @@@, RLS current_setting per-tenant | all server-tier provisioning shapes verified against colima PG18 image |
+| [11] | Cluster GUC portability: io_method=io_uring vs worker on the deploy-image kernel | observed pg_settings value confirms io_uring or worker fallback |
+| [12] | Migration bundle: self-contained executable + idempotent ScriptMigration + NOT-VALID/NOT-ENFORCED lock-light apply-then-validate | bundle apply and lock-light constraint contract verified |
+| [13] | Object-store multipart resume: skip-on-committed-ETag, 412 conditional-write conflict, range-read resume against MinIO/Azurite/fake-gcs-server | resume/conflict/range contract verified per provider |
+| [14] | Object-store member spellings + boundary-exception types decompile-verified at admission | get/head/list/delete members + AmazonS3Exception/RequestFailedException/GoogleApiException confirmed |
+| [15] | StackExchange.Redis L2 residence roundtrip (RedisCache : IBufferDistributedCache via AddStackExchangeRedisCache) | local redis-server roundtrip + buffer-contract zero-copy path verified |
 
 ## [2]-[PLANNING_CLOSE_OUT_SPIKES]
 

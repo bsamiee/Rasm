@@ -57,27 +57,30 @@
 [PAINT_PIPELINE_TYPES]: color, shader, filter, and runtime render surfaces
 - rail: visuals
 
-| [INDEX] | [SYMBOL]          | [RAIL]          |
-| :-----: | :---------------- | :-------------- |
-|   [1]   | `SKColor`         | byte color      |
-|   [2]   | `SKColorF`        | float color     |
-|   [3]   | `SKColors`        | color constants |
-|   [4]   | `SKColorSpace`    | color space     |
-|   [5]   | `SKShader`        | shader object   |
-|   [6]   | `SKImageFilter`   | image filter    |
-|   [7]   | `SKColorFilter`   | color filter    |
-|   [8]   | `SKPathEffect`    | path effect     |
-|   [9]   | `SKMaskFilter`    | mask filter     |
-|  [10]   | `SKRuntimeEffect` | runtime shader  |
+| [INDEX] | [SYMBOL]                 | [RAIL]          |
+| :-----: | :----------------------- | :-------------- |
+|   [1]   | `SKColor`                | byte color      |
+|   [2]   | `SKColorF`               | float color     |
+|   [3]   | `SKColors`               | color constants |
+|   [4]   | `SKColorSpace`           | color space     |
+|   [5]   | `SKColorSpaceXyz`        | ICC primaries   |
+|   [6]   | `SKColorSpaceTransferFn` | transfer curve  |
+|   [7]   | `SKShader`               | shader object   |
+|   [8]   | `SKShaderTileMode`       | gradient tile   |
+|   [9]   | `SKImageFilter`          | image filter    |
+|  [10]   | `SKColorFilter`          | color filter    |
+|  [11]   | `SKPathEffect`           | path effect     |
+|  [12]   | `SKMaskFilter`           | mask filter     |
+|  [13]   | `SKRuntimeEffect`        | runtime shader  |
 
 [CODEC_AND_FORMAT_TYPES]: encode format, pixel layout, and alpha enums
 - rail: visuals
 
-| [INDEX] | [SYMBOL]                | [RAIL]          |
-| :-----: | :---------------------- | :-------------- |
-|   [1]   | `SKEncodedImageFormat`  | encode format   |
-|   [2]   | `SKColorType`           | pixel layout    |
-|   [3]   | `SKAlphaType`           | alpha mode      |
+| [INDEX] | [SYMBOL]               | [RAIL]        |
+| :-----: | :--------------------- | :------------ |
+|   [1]   | `SKEncodedImageFormat` | encode format |
+|   [2]   | `SKColorType`          | pixel layout  |
+|   [3]   | `SKAlphaType`          | alpha mode    |
 
 [GPU_TYPES]: GPU context and backend surface
 - rail: visuals
@@ -146,8 +149,11 @@
 |   [6]   | `Abort`            | `SKDocument`   | document abort    |
 |   [7]   | `CreateSrgb`       | `SKColorSpace` | sRGB space        |
 |   [8]   | `CreateSrgbLinear` | `SKColorSpace` | linear space      |
-|   [9]   | `Equal`            | `SKColorSpace` | space identity    |
-|  [10]   | `WithColorSpace`   | `SKImageInfo`  | space retag       |
+|   [9]   | `CreateRgb`        | `SKColorSpace` | ICC-primary space |
+|  [10]   | `Equal`            | `SKColorSpace` | space identity    |
+|  [11]   | `WithColorSpace`   | `SKImageInfo`  | space retag       |
+
+> `SKColorSpace.CreateRgb(SKColorSpaceTransferFn transferFn, SKColorSpaceXyz toXyzD50)` composes an ICC-primary working space. `SKColorSpaceXyz` carries the static primary matrices `Srgb`, `DisplayP3`, `Rec2020`, `AdobeRgb`; `SKColorSpaceTransferFn` carries the static curves `Srgb`, `Linear`, `TwoDotTwo`, `Hlg`, `Pq`. `SKShader.CreateLinearGradient(SKPoint start, SKPoint end, SKColorF[] colors, SKColorSpace colorspace, SKShaderTileMode mode)` is the float wide-gamut gradient overload; `SKShaderTileMode` carries `Clamp`, `Repeat`, `Mirror`, `Decal`. `SKColorType.RgbaF16` is the half-float surface format for scrgb-float reproject.
 
 [TEXT_AND_PAINT_ENTRYPOINTS]: text, color, shader, and render operations
 - rail: visuals

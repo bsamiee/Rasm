@@ -8,6 +8,8 @@ Open work owned by this folder; closed items do not appear.
 | :-----: | ------ | ------ |
 | [1] | CoreML option value domains (MLComputeUnits, SpecializationStrategy); Terminate-latch latency cadence | value domains grounded against CoreML surface; latch cadence measured |
 | [2] | GH2 async result readback ceiling (solver idle-loop) | readback ceiling measured; idle-loop behaviour documented |
+| [3] | Native-BLAS asset presence per RID for `LinearProvider` rows (native-mkl x64-only documented gate; native-openblas osx-arm64 asset checked empirically; managed fallback proven on arm64) | per-RID `Control.TryUse*` boolean fall-through confirmed against the restored native asset graph; managed terminal proven |
+| [4] | ORT-GenAI live multi-token generation against a genai-format model directory (streaming contract runtime-proved; model artifact is the residual gate) | `GenerativeRun.Stream` yields incremental pieces against a real genai-format model; the member shape is FINALIZED |
 
 ## [2]-[SPEC_PROOFS_AT_IMPLEMENTATION]
 

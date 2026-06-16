@@ -68,6 +68,9 @@ Isolation-concept atlas for the product UI rail. Every concept rides one budgete
 | [8] | Receipt-keyed zoomable previews; geometry families from Compute receipt streams as rows; HUD stays host-side | `PreviewRow<TReceipt>` | visuals-offscreen#PREVIEW_SURFACES |
 | [9] | Content-hashed encode identity; codec axis; color-managed float reproject with color-space receipt tag; XxHash128 frame hash | `VisualCodec` | visuals-offscreen#ENCODE_IDENTITY |
 | [10] | Paged `SKDocument` export — `FlowFold` over `FlowBlock` under `BreakRule` with `HeaderFooterBand`; three destinations | `FlowBlock` | visuals-offscreen#DOCUMENT_EXPORT |
+| [11] | Skia diagram kinds LiveCharts cannot supply — sankey/treemap/waterfall/funnel as `[Union]` cases, squarified worst-aspect treemap packing, per-cell render-hash twin per kind | `CustomVisual` | custom-visuals#SKIA_KINDS |
+| [12] | Suite-wide wide-gamut color-space vocabulary (srgb/p3/rec2020/scrgb-float) with ICC-primary working space + half-float encode surface | `ColorSpaceAxis` | custom-visuals#COLOR_SPACE |
+| [13] | Custom-tile placement + analytical-flow named dashboard over the residence-selected feed | `DashboardTile.Custom` | charts-dashboards#DASHBOARD_TILES |
 
 ## [6]-[THEME_AND_TYPOGRAPHY]
 

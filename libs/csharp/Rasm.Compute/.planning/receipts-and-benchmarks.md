@@ -1,12 +1,12 @@
 # [COMPUTE_RECEIPTS_AND_BENCHMARKS]
 
-One thirteen-case `ComputeReceipt` union is the package's only fact vocabulary for measured execution: every operational view derives as a fold over that stream, NodaTime-protobuf bridges own the instant, duration, and calendar wire edge, and fingerprint-gated benchmark claims decide every performance-motivated route in the suite. The page owns the receipt union with its Strict-resolver round-trip emission surface, the fold-projection family, the wire-stamp bridges, the claim table with its host fingerprint, and `ComputeWireContext` — composing `ReceiptSinkPort`, `ReceiptEnvelope`, `ClockPolicy`, `ScheduleEntry`, `TelemetryContributorPort`, and the Persistence benchmark and artifact index contracts as settled vocabulary.
+One fifteen-case `ComputeReceipt` union is the package's only fact vocabulary for measured execution: every operational view derives as a fold over that stream, NodaTime-protobuf bridges own the instant, duration, and calendar wire edge, and fingerprint-gated benchmark claims decide every performance-motivated route in the suite. The page owns the receipt union with its Strict-resolver round-trip emission surface, the fold-projection family, the wire-stamp bridges, the claim table with its host fingerprint, and `ComputeWireContext` — composing `ReceiptSinkPort`, `ReceiptEnvelope`, `ClockPolicy`, `ScheduleEntry`, `TelemetryContributorPort`, and the Persistence benchmark and artifact index contracts as settled vocabulary.
 
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                         |
 | :-----: | :--------------- | :------------------------------------------------------------- |
-|   [1]   | RECEIPT_UNION    | Thirteen-case fact union; one wire context; sink-port emission |
+|   [1]   | RECEIPT_UNION    | Fifteen-case fact union; one wire context; sink-port emission  |
 |   [2]   | FOLD_PROJECTIONS | Operational views derive as folds over the fact stream         |
 |   [3]   | WIRE_STAMPS      | NodaTime-protobuf bridges own the temporal wire edge           |
 |   [4]   | BENCHMARK_CLAIMS | Fingerprint-gated claim rows decide performance routes         |
@@ -15,13 +15,13 @@ One thirteen-case `ComputeReceipt` union is the package's only fact vocabulary f
 ## [2]-[RECEIPT_UNION]
 
 - Owner: `ComputeReceipt`, `ComputeWireContext`, `ReceiptSurface` — the fact union, the package's one `JsonSerializerContext` partial joining the suite Strict resolver merge, and the emission-plus-telemetry surface.
-- Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · cache · unit-projection · backpressure · drain · conflict
+- Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · cache · unit-projection · backpressure · drain · conflict · factorization · generate
 - Entry: `public IO<ReceiptEnvelope> Emit(ReceiptSinkPort sink, JsonSerializerOptions wire)` — `IO` carries the sink effect; the returned envelope is the emission evidence.
 - Auto: the wire kind derives from the polymorphic metadata pinned on the union, the HLC stamp and `SkewBound` derive inside `Send`, and the instrument rows register once at composition through `TelemetryContributorPort` — `TelemetrySource.Compute` mints the activity spine so receipt correlation joins the OTel rail with zero call-site ceremony; `ComputeWireContext` joins the suite Strict resolver merge so the polymorphic `kind` discriminator round-trips through one shared `JsonSerializerOptions`, every Thinktecture spine field crosses as its key scalar through the merged Thinktecture resolver, and the union deserializes back to the exact case with `Seq<string>` collections intact — `UnmappedMemberHandling.Disallow` rejects any drifted field at the consuming edge rather than dropping it.
 - Receipt: union cases materialize at the sink edge only; hot-path capsules upstream stay allocation-free and the envelope is the sole cross-process causal carrier.
 - Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
 - Growth: a new measured concern is one case row on `ComputeReceipt` plus one `[JsonDerivedType]` row and one TS payload row, zero new surface.
-- Boundary: receipts are process-local and HLC-correlated, never globally shared — the envelope stamp is the only cross-process causal primitive; a generic IReceipt/ledger abstraction, a second correlation or HLC stamp, and emission bypassing the sink port are the rejected forms; the `Conflict` case is the receipt complement of the wire fault projection, carrying retry-owner and contract-checksum evidence; spine fields serialize as Thinktecture key scalars and the format members make every receipt span-writable without runtime format strings.
+- Boundary: receipts are process-local and HLC-correlated, never globally shared — the envelope stamp is the only cross-process causal primitive; a generic IReceipt/ledger abstraction, a second correlation or HLC stamp, and emission bypassing the sink port are the rejected forms; the `Conflict` case is the receipt complement of the wire fault projection, carrying retry-owner and contract-checksum evidence; the `Factorization` case carries the numeric-lane dense and sparse solve evidence (provider, decomposition kind, dimensions, nnz, storage format) and the `Generate` case the generative-run evidence (model checksum, EP, model type, token count, tokens-per-second, `GuidanceKind` dimension, constrained-token count, tool-call count) — a `SolveReceipt`, `GenerationReceipt`, or `BatchReceipt` standalone type is the rejected form, a batch result is a `Seq<ComputeReceipt>` under one correlation tag and an `Embed` run rides the `Generate` family slot; `TensorRun.Partitions` carries the `ParallelHelper` partition count so a partitioned kernel is operator-attributable on the existing receipt; spine fields serialize as Thinktecture key scalars and the format members make every receipt span-writable without runtime format strings.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -39,6 +39,8 @@ One thirteen-case `ComputeReceipt` union is the package's only fact vocabulary f
 [JsonDerivedType(typeof(Backpressure), "backpressure")]
 [JsonDerivedType(typeof(Drain), "drain")]
 [JsonDerivedType(typeof(Conflict), "conflict")]
+[JsonDerivedType(typeof(Factorization), "factorization")]
+[JsonDerivedType(typeof(Generate), "generate")]
 public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanFormattable {
     private ComputeReceipt() { }
 
@@ -54,7 +56,7 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
 
     public sealed record Selection(Seq<string> Evaluated, Seq<string> Rejected, int FallbackHops, Substrate? Forced) : ComputeReceipt;
 
-    public sealed record TensorRun(TensorOpFamily Family, string Dtype, long Elements, string SimdWidth) : ComputeReceipt;
+    public sealed record TensorRun(TensorOpFamily Family, string Dtype, long Elements, string SimdWidth, int Partitions) : ComputeReceipt;
 
     public sealed record ModelLoad(string ModelChecksum, string Source, ExecutionProvider Ep, int Opset) : ComputeReceipt;
 
@@ -77,6 +79,10 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
     public sealed record Drain(int Drained, int Faulted, int Refused) : ComputeReceipt;
 
     public sealed record Conflict(string Subject, string Evidence) : ComputeReceipt;
+
+    public sealed record Factorization(string Provider, string Decomposition, int Rows, int Cols, long Nnz, string Format) : ComputeReceipt;
+
+    public sealed record Generate(string ModelChecksum, ExecutionProvider Ep, string ModelType, int Tokens, double TokensPerSecond, string GuidanceKind, int ConstrainedTokens, int ToolCalls) : ComputeReceipt;
 
     public string ToString(string? format, IFormatProvider? formatProvider) => ToString();
 
@@ -102,6 +108,14 @@ public static class ReceiptSurface {
         new InstrumentRow(TelemetrySource.Compute, "rasm.compute.receipts.emitted", "{receipt}", "receipts emitted through the sink port",
             static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)),
         new InstrumentRow(TelemetrySource.Compute, "rasm.compute.claims.bound", "{claim}", "benchmark claims bound by fingerprint match",
+            static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)),
+        new InstrumentRow(TelemetrySource.Compute, "rasm.compute.solve.factorizations", "{factorization}", "dense and sparse factorizations by provider and kind",
+            static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)),
+        new InstrumentRow(TelemetrySource.Compute, "rasm.compute.solve.residual", "1", "iterative-solver convergence residual",
+            static (meter, name, unit, text) => meter.CreateHistogram<double>(name, unit, text)),
+        new InstrumentRow(TelemetrySource.Compute, "rasm.compute.solve.shards", "{shard}", "sharded solve sub-blocks by node",
+            static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)),
+        new InstrumentRow(TelemetrySource.Compute, "rasm.compute.generate.tokens", "{token}", "tokens emitted through the generative run loop",
             static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)));
 
     public static TelemetryContributorPort Telemetry(string version) => new(TelemetrySource.Compute, version, Instruments);
@@ -218,7 +232,7 @@ public static class WireStamps {
 - Receipt: every sweep run emits `TensorRun`/`ModelRun` receipts beside the persisted row; artifacts — chrome-trace profiles, BenchmarkDotNet exports, EP-context caches — land as `ArtifactIndexRow` paths on the blob lane and ride the `Artifacts` rows on the claim.
 - Packages: BenchmarkDotNet, NodaTime, LanguageExt.Core, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox
 - Growth: a new performance surface is one claim row; a new claim dimension is one column on `BenchmarkClaim`; zero new surface.
-- Boundary: the claim-gate law — a SIMD default route, compression enable, ParallelHelper partitioning, or a DATAS knob binds only behind a winning claim row whose fingerprint matches the running host; tolerance classes arrive settled from the operation-family rows and loosening one to pass equivalence is the named production-slack defect; `Claim` resolves the most-recent fingerprint-matching `BenchmarkRow` against the recency horizon read by reference from the Persistence `ModelResultKey` index owner — the single horizon owner — so a stale benchmark never wins and Compute never mints a second `Duration horizon` beside the claim; a second benchmark store, BenchmarkDotNet profiler add-ons, and prose performance claims are the rejected forms.
+- Boundary: the claim-gate law — a SIMD default route, compression enable, ParallelHelper partitioning, a DATAS knob, or a numeric BLAS provider rank (managed vs native-mkl vs native-openblas) binds only behind a winning claim row whose fingerprint matches the running host; the `Provider` column carries the winning numeric-lane `LinearProvider` key so a native-BLAS selection is fingerprint-gated exactly like a SIMD route and the `Substrate` column stays the substrate discriminant; tolerance classes arrive settled from the operation-family rows and loosening one to pass equivalence is the named production-slack defect; `Claim` resolves the most-recent fingerprint-matching `BenchmarkRow` against the recency horizon read by reference from the Persistence `ModelResultKey` index owner — the single horizon owner — so a stale benchmark never wins and Compute never mints a second `Duration horizon` beside the claim; a second benchmark store, BenchmarkDotNet profiler add-ons, and prose performance claims are the rejected forms.
 
 ```csharp signature
 public sealed record HostFingerprint(string Os, string Arch, int Processors, FrozenDictionary<string, string> Stamps) : ISpanFormattable, IUtf8SpanFormattable {
@@ -247,6 +261,7 @@ public sealed record BenchmarkClaim(
     Substrate Substrate,
     string Family,
     string Route,
+    string Provider,
     Duration Median,
     Duration P95,
     long AllocatedBytes,
@@ -267,9 +282,9 @@ public sealed record BenchmarkClaim(
     public static ScheduleEntry Sweep(Func<IO<Unit>> work) =>
         new("compute-equivalence-sweep", new OccurrenceSpec.Every(Duration.FromDays(7)), DeadlineClass.SupportWindow, None, work);
 
-    public string Key() => string.Create(CultureInfo.InvariantCulture, $"{Band}|{Dtype}|{Substrate}|{Family}");
+    public string Key() => string.Create(CultureInfo.InvariantCulture, $"{Band}|{Dtype}|{Substrate}|{Family}|{Provider}");
 
-    public BenchmarkRow Persist() => new(Key(), Route, Median, P95, AllocatedBytes, Fingerprint.ToString(), At);
+    public BenchmarkRow Persist() => new(Key(), Route, Median, P95, AllocatedBytes, Fingerprint.ToString(), BenchmarkRow.BenchmarkRowClass, At);
 
     public bool Stale(HostFingerprint current) => !StringComparer.Ordinal.Equals(Fingerprint.StampLine(), current.StampLine());
 }
@@ -285,13 +300,14 @@ public sealed record BenchmarkClaim(
 ```ts contract
 type ComputeReceiptKind =
   | "selection" | "tensor-run" | "model-load" | "warmup" | "model-run" | "remote-call"
-  | "stream-segment" | "allocation" | "cache" | "unit-projection" | "backpressure" | "drain" | "conflict";
+  | "stream-segment" | "allocation" | "cache" | "unit-projection" | "backpressure" | "drain" | "conflict"
+  | "factorization" | "generate";
 
 interface ComputeReceiptSpineWire { kind: ComputeReceiptKind; correlation: string; lane: string; substrate: string; allocationClass: string; elapsed: string; }
 
 interface SelectionWire extends ComputeReceiptSpineWire { kind: "selection"; evaluated: string[]; rejected: string[]; fallbackHops: number; forced: string | null; }
 
-interface TensorRunWire extends ComputeReceiptSpineWire { kind: "tensor-run"; family: string; dtype: string; elements: number; simdWidth: string; }
+interface TensorRunWire extends ComputeReceiptSpineWire { kind: "tensor-run"; family: string; dtype: string; elements: number; simdWidth: string; partitions: number; }
 
 interface ModelLoadWire extends ComputeReceiptSpineWire { kind: "model-load"; modelChecksum: string; source: string; ep: string; opset: number; }
 
@@ -315,15 +331,19 @@ interface DrainWire extends ComputeReceiptSpineWire { kind: "drain"; drained: nu
 
 interface ConflictWire extends ComputeReceiptSpineWire { kind: "conflict"; subject: "retry-owner" | "contract-checksum"; evidence: string; }
 
+interface FactorizationWire extends ComputeReceiptSpineWire { kind: "factorization"; provider: string; decomposition: string; rows: number; cols: number; nnz: number; format: string; }
+
+interface GenerateWire extends ComputeReceiptSpineWire { kind: "generate"; modelChecksum: string; ep: string; modelType: string; tokens: number; tokensPerSecond: number; guidanceKind: string; constrainedTokens: number; toolCalls: number; }
+
 type ComputeReceiptWire =
   | SelectionWire | TensorRunWire | ModelLoadWire | WarmupWire | ModelRunWire | RemoteCallWire | StreamSegmentWire
-  | AllocationWire | CacheWire | UnitProjectionWire | BackpressureWire | DrainWire | ConflictWire;
+  | AllocationWire | CacheWire | UnitProjectionWire | BackpressureWire | DrainWire | ConflictWire | FactorizationWire | GenerateWire;
 
 type ComputeReceiptEnvelopeWire = ReceiptEnvelopeWire<ComputeReceiptWire>;
 
 interface HostFingerprintWire { os: string; arch: string; processors: number; stamps: Record<string, string>; }
 
-interface BenchmarkClaimWire { band: "micro" | "small" | "medium" | "large"; dtype: string; substrate: string; family: string; route: string; median: string; p95: string; allocatedBytes: number; equivalenceMaxDeviation: number; toleranceClass: string; fingerprint: HostFingerprintWire; artifacts: string[]; at: string; }
+interface BenchmarkClaimWire { band: "micro" | "small" | "medium" | "large"; dtype: string; substrate: string; family: string; route: string; provider: string; median: string; p95: string; allocatedBytes: number; equivalenceMaxDeviation: number; toleranceClass: string; fingerprint: HostFingerprintWire; artifacts: string[]; at: string; }
 ```
 
 ## [7]-[RESEARCH]

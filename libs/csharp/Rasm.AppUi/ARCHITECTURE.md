@@ -24,7 +24,8 @@ Rasm.AppUi/
 ├── Inspector/
 │   └── InspectorRail.cs        # EditorFactory, InspectorSurface, EditGate, OptionsInspector, ConflictPane, CodePane — inspector-editing#INSPECTOR_SURFACE, inspector-editing#EDITOR_FACTORIES, inspector-editing#COMMIT_VALIDATION, inspector-editing#OPTIONS_INSPECTOR, inspector-editing#CONFLICT_RESOLUTION, inspector-editing#CODE_EDITING
 ├── Charts/
-│   └── ChartRail.cs            # ChartSeriesSpec, ChartAxisKind, ChartPolicy, ChartFolds, DashboardTile — charts-dashboards#SERIES_TABLE, charts-dashboards#AXES_SECTIONS, charts-dashboards#CHART_INTERACTION, charts-dashboards#STREAM_BINDING, charts-dashboards#DASHBOARD_TILES
+│   ├── ChartRail.cs            # ChartSeriesSpec, ChartAxisKind, ChartPolicy, ChartFolds, DashboardTile — charts-dashboards#SERIES_TABLE, charts-dashboards#AXES_SECTIONS, charts-dashboards#CHART_INTERACTION, charts-dashboards#STREAM_BINDING, charts-dashboards#DASHBOARD_TILES
+│   └── CustomVisualRail.cs     # CustomVisual, ColorSpaceAxis — custom-visuals#SKIA_KINDS, custom-visuals#COLOR_SPACE (CustomVisual.Materialize composes DrawSource.Owned/VisualCodec; follows VisualRail)
 ├── Visuals/
 │   └── VisualRail.cs           # DrawSource, Thumbnails, PreviewRow, VisualCodec, VisualExport, FlowBlock — visuals-offscreen#DRAW_CAPSULE, visuals-offscreen#THUMBNAIL_PIPELINE, visuals-offscreen#PREVIEW_SURFACES, visuals-offscreen#ENCODE_IDENTITY, visuals-offscreen#DOCUMENT_EXPORT
 ├── Theme/

@@ -145,9 +145,11 @@ public static class Surfaces {
 
     public const string MountInstrument = "rasm.appui.surface.mounted";
     public const string ScaleInstrument = "rasm.appui.surface.scaled";
+    public const string FactInstrument = "rasm.appui.surface.fact";
+    public const string AffinityInstrument = "rasm.appui.surface.affinity-violation";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, MountInstrument, ScaleInstrument);
+        AppUiTelemetry.Contribute(version, MountInstrument, ScaleInstrument, FactInstrument, AffinityInstrument);
 }
 ```
 
@@ -158,7 +160,7 @@ public static class Surfaces {
 - Auto: construction runs the load-bearing order in one body — `EnforceClientSize` value, `Content`, `Prepare` — and `Mounted` appends retained-view capture, seam attach, and `StartRendering`; teardown composes `StopRendering`, seam detach, `Dispose` in declared order.
 - Packages: Avalonia, System.Reactive, LanguageExt.Core, Rasm.Rhino (project)
 - Growth: one `EmbedOptions` policy value per new platform knob; zero new surface.
-- Boundary: `EmbedCapsule` is the named boundary capsule for the statement carve-out — the constructor carries the ordered statements; `GetNSViewRetained` hands a retained pointer whose release belongs to the host seam after detach, and the accessor carries Avalonia's unstable-API obsolete marker, so the capsule's `RetainedView` body is the single acknowledged suppression site; `EnforceClientSize` is a protected setter reachable only inside the derived capsule, and the host seam pushes frame sync on every panel-resize fact while it holds true; `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values enter only through `EmbedOptions.Admit` and a hardcoded platform knob in boot code is the rejected form — `ShowInDock` false keeps embedded rows out of the macOS Dock, `DisableDefaultApplicationMenuItems` strips the default app menu under the host menu bar, and `RenderingMode` over `AvaloniaNativeRenderingMode` is the backend policy column over Metal, OpenGl, and Software whose embedded value the render research row decides; Avalonia owns GPU backend selection through `RenderingMode`, so a direct `GRContext.CreateMetal`/`CreateVulkan`/`CreateDirect3D`/`CreateGl` call inside a dispatch arm is the rejected form (PROHIBITION host-API-in-arm) — a shared-context requirement against the host pipeline rides one `SurfaceSeam` delegate column bound at composition, never a per-host GPU call site, and the exact shared-context spelling is the EMBED_SPIKE render research row; the win32 reparent column and the dispatcher-pump regime stay research-gated.
+- Boundary: every successful `Mounted` and its composed teardown ride the `Surfaces.MountInstrument` count through the one `AppUiTelemetry.Contribute` spine, and a handle-absent or seam-rejected `Fin` failure folds its `SurfaceFault` into the same mount-outcome evidence, so the foreign-view boundary mints no second telemetry surface; `EmbedCapsule` is the named boundary capsule for the statement carve-out — the constructor carries the ordered statements; `GetNSViewRetained` hands a retained pointer whose release belongs to the host seam after detach, and the accessor carries Avalonia's unstable-API obsolete marker, so the capsule's `RetainedView` body is the single acknowledged suppression site; `EnforceClientSize` is a protected setter reachable only inside the derived capsule, and the host seam pushes frame sync on every panel-resize fact while it holds true; `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values enter only through `EmbedOptions.Admit` and a hardcoded platform knob in boot code is the rejected form — `ShowInDock` false keeps embedded rows out of the macOS Dock, `DisableDefaultApplicationMenuItems` strips the default app menu under the host menu bar, `DisableNativeMenus`/`DisableSetProcessName`/`DisableAvaloniaAppDelegate` complete the plugin-host menu and process-identity policy, and `RenderingMode` is the `AvaloniaNativePlatformOptions.RenderingMode` `IReadOnlyList<AvaloniaNativeRenderingMode>` backend policy column whose three rows are `Metal`, `OpenGl`, and `Software` (Avalonia's own default ordering is `[OpenGl, Software]` and the embedded backend ordering the render research row decides), with `AvaloniaNativeLibraryPath` carrying the optional native-binary override and `AppSandboxEnabled`/`OverlayPopups` the remaining platform knobs; Avalonia owns GPU backend selection through `RenderingMode`, so a direct `GRContext.CreateMetal`/`CreateVulkan`/`CreateDirect3D`/`CreateGl` call inside a dispatch arm is the rejected form (PROHIBITION host-API-in-arm) — a shared-context requirement against the host pipeline rides one `SurfaceSeam` delegate column bound at composition, never a per-host GPU call site, and the exact shared-context spelling is the EMBED_SPIKE render research row; the win32 reparent column and the dispatcher-pump regime stay research-gated.
 
 ```csharp signature
 public sealed record EmbedOptions(
@@ -239,7 +241,7 @@ stateDiagram-v2
 - Auto: `Port` completes `UiSchedulerPort.Marshal` from this boundary at the composition root — `Phases` and `Degradation` arrive already bound; `UseReactiveUI` admission wires the reactive main-thread scheduler onto `AvaloniaScheduler`.
 - Packages: ReactiveUI.Avalonia, Avalonia, System.Reactive, LanguageExt.Core, BCL inbox
 - Growth: one marshal column per new host thread regime; carrier swap on the virtual-time slot; zero new surface.
-- Boundary: `Affinity` is the single thread-affinity assertion and a per-call-site access check is the rejected form; the UI-thread predicate originates once at the seam's `OnUiThread` column and flows through `row.OnUiThread` into the scheduler — one source, no parallel parameter — so the access-assertion spelling stays a seam delegate and never a hardcoded dispatcher call inside a dispatch arm; embedded rows marshal through the seam's host column, windowed and headless rows post through the `AvaloniaScheduler` UI scheduler; the headless row receives its virtual `TimeProvider` from the test composition so the command-journal replay lane runs under deterministic time; `ObserveOn` rides `Ui` exactly once inside binding capsules, never at call sites.
+- Boundary: `Affinity` is the single thread-affinity assertion and a per-call-site access check is the rejected form; the UI-thread predicate originates once at the seam's `OnUiThread` column and flows through `row.OnUiThread` into the scheduler — one source, no parallel parameter — so the access-assertion spelling stays a seam delegate and never a hardcoded dispatcher call inside a dispatch arm; a failed `Affinity` assertion folds its `SurfaceFault.ThreadAffinity` into the `Surfaces.AffinityInstrument` count through the one `AppUiTelemetry.Contribute` spine, so off-thread access is counted evidence on the timeline and a scheduler-local meter is the deleted form; embedded rows marshal through the seam's host column, windowed and headless rows post through the `AvaloniaScheduler` UI scheduler; the headless row receives its virtual `TimeProvider` from the test composition so the command-journal replay lane runs under deterministic time; `ObserveOn` rides `Ui` exactly once inside binding capsules, never at call sites.
 
 ```csharp signature
 public sealed record SurfaceScheduler(IScheduler Ui, Func<Action, IO<Unit>> Marshal, Func<bool> OnUiThread, Option<TimeProvider> VirtualTime) {
@@ -263,10 +265,10 @@ public sealed record SurfaceScheduler(IScheduler Ui, Func<Action, IO<Unit>> Mars
 
 - Owner: `NativeAssetRow` — per-RID asset rows; `NativeAssetReceipt` — load-identity evidence; `NativeAssets` — the frozen row table and identity fold.
 - Entry: `Fin<Seq<NativeAssetReceipt>> Identity(NativeAssetRow row)` — traverses the row's native libraries into receipts.
-- Receipt: `NativeAssetReceipt` — library, version, path, RID.
+- Receipt: `NativeAssetReceipt` — library, version, path, RID; `TelemetryRow` contributes the asset-resolved and asset-absent instruments inward through the AppHost `TelemetryContributorPort`, so a missing-architecture load is a counted absence on the spine, never a silent draw fault.
 - Packages: SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Win32, SkiaSharp.NativeAssets.Linux.NoDependencies, HarfBuzzSharp.NativeAssets.macOS, HarfBuzzSharp.NativeAssets.Win32, HarfBuzzSharp.NativeAssets.Linux, LanguageExt.Core, BCL inbox
-- Growth: one `NativeAssetRow` per new RID; zero new surface.
-- Boundary: one shaping family rides every desktop row — each Skia asset row pairs its HarfBuzz row across the full desktop RID matrix (osx universal, win-x64/x86/arm64, linux-x64/arm64, linux-musl-x64) so cross-architecture load identity is one row per RID and a missing-architecture load surfaces as an absent receipt; the fontconfig-dependent Linux Skia variant stays pinned and excluded at the AppUi admission, so NoDependencies is the only Linux Skia asset and the glibc and musl rows share it; the WebAssembly native pins stay dormant transitive floors with no row while `WebBrowser` stays a designed growth case; identity receipts run at mount, so a wrong-RID load surfaces as a receipt, never a draw fault.
+- Growth: one `NativeAssetRow` per new RID; one native-asset instrument is one `InstrumentRow` on `NativeAssets.TelemetryRow`; zero new surface.
+- Boundary: one shaping family rides every desktop row — each Skia asset row pairs its HarfBuzz row across the full desktop RID matrix (osx universal, win-x64/x86/arm64, linux-x64/arm64, linux-musl-x64) so cross-architecture load identity is one row per RID and a missing-architecture load surfaces as an absent receipt; the fontconfig-dependent Linux Skia variant stays pinned and excluded at the AppUi admission, so NoDependencies is the only Linux Skia asset and the glibc and musl rows share it; the WebAssembly native pins stay dormant transitive floors with no row while `WebBrowser` stays a designed growth case; identity receipts run at mount, so a wrong-RID load surfaces as a receipt, never a draw fault; the load-identity probe folds its per-row receipt count into the asset-resolved instrument and an absent receipt into the asset-absent instrument, so the native-asset evidence rides the same `AppUiTelemetry.Contribute` spine every owner uses and a per-row meter is the deleted form.
 
 ```csharp signature
 public sealed record NativeAssetReceipt(string Library, string Version, string Path, string Rid);
@@ -286,6 +288,12 @@ public static class NativeAssets {
     public static Fin<Seq<NativeAssetReceipt>> Identity(NativeAssetRow row) =>
         row.Libraries.TraverseM(library => Probe(row, library)).As();
 
+    public const string ResolvedInstrument = "rasm.appui.nativeasset.resolved";
+    public const string AbsentInstrument = "rasm.appui.nativeasset.absent";
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, ResolvedInstrument, AbsentInstrument);
+
     static Fin<NativeAssetReceipt> Probe(NativeAssetRow row, string library) =>
         Process.GetCurrentProcess().Modules.Cast<ProcessModule>()
             .Where(module => module.ModuleName.Contains(library, StringComparison.OrdinalIgnoreCase))
@@ -303,7 +311,7 @@ public static class NativeAssets {
 - Cases: ScaleChanged, VisibilityChanged, FocusChanged, AppearanceChanged.
 - Packages: Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one fact case per new host signal extends the `SurfaceFact` family; every subscriber is a total fold over the closed family, zero new surface.
-- Boundary: facts enter only through the seam's `HostFacts` column — macOS rows feed `NSScreen` `BackingScaleFactor` flips and appearance changes host-side, panel rows feed visibility and focus from panel events through the Rasm.Rhino port; visibility facts feed the activation rail and live-data suspend-resume, appearance facts feed the host-matched variant re-probe, scale facts feed DPI-variant selection; a second host event channel beside this union is the rejected form.
+- Boundary: facts enter only through the seam's `HostFacts` column — macOS rows feed `NSScreen` `BackingScaleFactor` flips and appearance changes host-side, panel rows feed visibility and focus from panel events through the Rasm.Rhino port; visibility facts feed the activation rail and live-data suspend-resume, appearance facts feed the host-matched variant re-probe, scale facts feed DPI-variant selection; every fact folds one observation into the `Surfaces.FactInstrument` count keyed by its case kind through the one `AppUiTelemetry.Contribute` spine, so host-signal volume is attributable per case and a second host event channel or a per-fact meter beside this union is the rejected form.
 
 ```csharp signature
 [Union]

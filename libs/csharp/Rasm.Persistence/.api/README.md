@@ -20,6 +20,11 @@
   - [api-linq2db-ef.md](api-linq2db-ef.md)
   - [api-duckdb.md](api-duckdb.md)
 
+[OBJECT_STORE]:
+- rail: object-store
+- pages:
+  - [api-objectstore.md](api-objectstore.md)
+
 [SPATIAL_VALUES]:
 - rail: spatial-values
 - pages:

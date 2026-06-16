@@ -9,7 +9,7 @@ Rasm.Persistence enforces the AppHost data-classification taxonomy at every stor
 |   [1]   | CLASSIFICATION_ENFORCEMENT | Artifact-class registry, write-guard admission, unpersistable classes  |
 |   [2]   | RETENTION_SWEEPS           | Four-row policy axis; hold-first receipted sweep fold; schedule row    |
 |   [3]   | EXPORT_PROOF               | Support contribution rows; redacted assembly; hash-proved export proof |
-|   [4]   | AUDIT_BINDING              | Classification-to-pgaudit category table; provisioning verification    |
+|   [4]   | AUDIT_BINDING              | Classification-to-pgaudit category table; per-tenant binding; verification |
 
 ## [2]-[CLASSIFICATION_ENFORCEMENT]
 
@@ -188,12 +188,12 @@ public static class StoreEvidence {
 
 ## [5]-[AUDIT_BINDING]
 
-- Owner: `AuditBinding` category table.
+- Owner: `AuditBinding` category table with the per-tenant audit-binding projection.
 - Cases: 5 binding rows over the persistable classification values in escalating rank order.
 - Entry: `public static string Bind(Seq<DataClassification> present)` — pure value.
 - Packages: LanguageExt.Core, BCL inbox, Rasm.AppHost (project).
-- Growth: one classification binding is one `Categories` row; zero new surface.
-- Boundary: audit execution is server-log-side operations — the runtime obligation is the bound `pgaudit.log` value verified against `pg_settings` through the store provisioning probe, and a client-side audit log pipeline is the rejected form; the provisioning verifier folds the registry classification column plus observed per-row classifications through `Bind`, and a mismatch or missing `shared_preload_libraries` entry folds into the provisioning fault; `Bind` admits only persistable rows because the write guard rejects Credential and Secret upstream.
+- Growth: one classification binding is one `Categories` row; a tenant-scoped audit binding is one `BindTenant` projection over the same table, never a second category vocabulary; zero new surface.
+- Boundary: audit execution is server-log-side operations — the runtime obligation is the bound `pgaudit.log` value verified against `pg_settings` through the store provisioning probe, and a client-side audit log pipeline is the rejected form; the provisioning verifier folds the registry classification column plus observed per-row classifications through `Bind`, and a mismatch or missing `shared_preload_libraries=pgaudit` entry folds into the provisioning fault; the RLS-policy mechanics — the per-tenant `CREATE POLICY` and the `TenancyModel` single/schema/rls/db-per-tenant axis — are owned on `server-tier#TENANCY_RLS`, and this binding owns only the consequence: a tenant-id-bearing classification binds to one pgaudit category through `BindTenant`, so a per-tenant policy ties to the audit category and a per-tenant RLS-policy-applied fact plus the `Bind` result fact fold into the provisioning verifier where a tenant-isolation mismatch is a typed provisioning fault rather than silent; `Bind` admits only persistable rows because the write guard rejects Credential and Secret upstream.
 
 ```csharp signature
 public static class AuditBinding {
@@ -208,9 +208,12 @@ public static class AuditBinding {
     public static string Bind(Seq<DataClassification> present) =>
         Categories[present.Fold(DataClassification.None, static (acc, row) =>
             Categories[row].Rank > Categories[acc].Rank ? row : acc)].Log;
+
+    public static (string Tenant, string Log) BindTenant(string tenant, Seq<DataClassification> present) =>
+        (tenant, Bind(present));
 }
 ```
 
 ## [6]-[RESEARCH]
 
-- [PGAUDIT_CATEGORIES]: pgaudit session-audit category semantics on PG18 under `shared_preload_libraries=pgaudit` against the `Categories` rows.
+- [PGAUDIT_CATEGORIES]: pgaudit session-audit category semantics on PG18 under `shared_preload_libraries=pgaudit` against the `Categories` rows, and the per-tenant `BindTenant` category emission verified against a per-tenant `CREATE POLICY` (the policy mechanics owned on `server-tier#TENANCY_RLS`) on a live PG18 server.

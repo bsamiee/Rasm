@@ -38,6 +38,18 @@ The capabilities Rasm.Compute uniquely owns: a downstream app dev reaches for no
 |  [28]   | Units-aware AEC admission with dual unit evidence              | `QuantityFamily`    | units-boundary#QUANTITY_TABLE           |
 |  [29]   | AEC successor quantity rows                                    | `QuantityFamily`    | units-boundary#QUANTITY_TABLE           |
 |  [30]   | Compound dimensional consistency at composition               | `QuantityFamily`    | units-boundary#DIMENSIONAL_LAW          |
+|  [31]   | NaN-as-missing min/max reductions, distinct from Min/Max      | `TensorOpFamily`    | tensor-lane#OPERATION_TABLE             |
+|  [32]   | Claim-gated parallel partition column over the SIMD lane      | `TensorOps`         | tensor-lane#KERNEL_DISPATCH             |
+|  [33]   | RID-keyed BLAS provider table with managed fallback           | `LinearProvider`    | numeric-lane#DENSE_ALGEBRA              |
+|  [34]   | Dense GEMM/solve over a five-case factorization union         | `DenseOps`          | numeric-lane#DENSE_ALGEBRA              |
+|  [35]   | Sparse-format ingestion and direct/iterative solve            | `SparseOps`         | numeric-lane#SPARSE_SOLVE               |
+|  [36]   | Kernel lowering binding for tensor matrix/structural rows     | `KernelLowering`    | numeric-lane#KERNEL_LOWERING            |
+|  [37]   | Row-block shard fan-out over the dense fold                   | `ShardPlan`         | numeric-lane#KERNEL_LOWERING            |
+|  [38]   | Claim-gated numeric provider rank                             | `LinearProvider`    | numeric-lane#PROVIDER_CLAIMS            |
+|  [39]   | Token-streaming generative run over the session/EP spine      | `GenerativeRun`     | model-lane#GENERATIVE_RUN               |
+|  [40]   | Search-option and native chat-template prompt assembly        | `GenerationPolicy`  | model-lane#GENERATIVE_RUN               |
+|  [41]   | Grammar-constrained structured output at generation           | `GuidanceKind`      | model-lane#GENERATIVE_RUN               |
+|  [42]   | Generative and numeric-solve intent cases                     | `ComputeIntent`     | intent-and-selection#INTENT_FAMILY      |
 
 ## [2]-[WIRE_AND_EVIDENCE_CONCEPTS]
 
@@ -57,11 +69,14 @@ The capabilities Rasm.Compute uniquely owns: a downstream app dev reaches for no
 |  [12]   | Artifact frame law: 64 KiB, Crc32, zero-copy wrap            | `FrameEdge`        | remote-lane#ARTIFACT_FRAMES             |
 |  [13]   | Zero-alloc IBufferMessage frame steady state                 | `FrameEdge`        | remote-lane#ARTIFACT_FRAMES             |
 |  [14]   | Progress observation and cancellation spine                  | `ProgressCell`     | progress-and-observation#PROGRESS_CELL  |
-|  [15]   | Thirteen-case receipt union with fold projections            | `ComputeReceipt`   | receipts-and-benchmarks#RECEIPT_UNION   |
+|  [15]   | Fifteen-case receipt union with fold projections             | `ComputeReceipt`   | receipts-and-benchmarks#RECEIPT_UNION   |
 |  [16]   | Unified telemetry contribution through AppHost ports         | `ReceiptSurface`   | receipts-and-benchmarks#RECEIPT_UNION   |
 |  [17]   | NodaTime-protobuf wire stamps at the temporal edge           | `ReceiptSurface`   | receipts-and-benchmarks#WIRE_STAMPS     |
 |  [18]   | Benchmark and profiling evidence farm, fingerprint-gated     | `BenchmarkClaim`   | receipts-and-benchmarks#BENCHMARK_CLAIMS |
 |  [19]   | TS dashboard projections, wire, progress, receipts           | `ComputeReceipt`   | receipts-and-benchmarks#TS_PROJECTION   |
+|  [20]   | Numeric solve and remote-generate rpc legs                   | `WireServices`     | remote-lane#PROTO_VOCABULARY            |
+|  [21]   | Graph-diff and subtree-fetch wire message family             | `WireServices`     | remote-lane#PROTO_VOCABULARY            |
+|  [22]   | Factorization and generate receipt cases                    | `ComputeReceipt`   | receipts-and-benchmarks#RECEIPT_UNION   |
 
 ## [3]-[CONCEPT_SEEDS]
 

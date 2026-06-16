@@ -29,6 +29,8 @@ Suite region map — row shapes and protocol live in the [suite standard](../REA
 - cache-indexes.md [FINAL]: L2 IDistributedCache + serializer factory rows, model-result and artifact-blob indexes.
 - sync-collaboration.md [FINAL]: SyncTransport axis with M1-M5 rows, op-log HLC changefeed, HttpDelta + JSON-Patch fallback, presence, conflict receipts, BlobRemote frame consumption.
 - redaction-retention.md [FINAL]: RetentionPolicy rows, classification enforcement consuming the AppHost taxonomy, clock-seam stamping, audit binding.
+- remote-stores.md [PROVISIONAL]: cloud object-store residence on one ObjectStore provider axis behind the BlobRemote contract — S3/Azure/GCS rows, chunked resumable multipart at the ArtifactSync frame width, content-key residence with conditional-write concurrency, content-address cloud-sync-hub seam over the op-log.
+- server-tier.md [PROVISIONAL]: the self-provisioned PostgreSQL 18.4 server tier — TimescaleDB time-series DDL, pgvectorscale diskann + pg_search BM25 index DDL, cluster GUC deploy fragments, the TenancyModel multi-tenancy/RLS axis, and the migration-bundle deploy gate.
 
 [COMPUTE]:
 
@@ -41,6 +43,7 @@ Suite region map — row shapes and protocol live in the [suite standard](../REA
 - progress-and-observation.md [FINAL]: monotonic ProgressPhase rows, zero-alloc capsules, scheduler-policy-carrying subscriptions, remote projection.
 - units-boundary.md [FINAL]: QuantityFamily rows, conversion-at-admission, parse/format edges, unit evidence.
 - receipts-and-benchmarks.md [FINAL]: 13-case receipt union, fold projections, NodaTime-protobuf stamps, fingerprint-gated benchmark claims, artifact blob routing.
+- numeric-lane.md [FINAL]: RID-keyed LinearProvider BLAS availability table (managed terminal / native-mkl x64-only / native-openblas) over MathNet Control.TryUse* probes, five-case Factorization union (LU/QR/Cholesky/SVD/EVD), SparseFormat csr/csc/coo/dok ingestion over CSR storage + CSparse direct solve, KernelLowering binding lowering tensor matrix/structural rows onto GEMM, ShardPlan row-block fan-out; native-BLAS execution rides numeric-lane#RESEARCH [NATIVE_BLAS_EXECUTION].
 
 [APPUI]:
 
@@ -62,3 +65,4 @@ Suite region map — row shapes and protocol live in the [suite standard](../REA
 - accessibility.md [FINAL]: automation peers, contrast governance, reduced-motion law.
 - localization-culture.md [FINAL]: LocaleRow on inbox resx/ICU/NodaTime, culture composition.
 - diagnostics-evidence.md [FINAL]: EvidenceReceipt union, correlation join fold, headless proof derivation, provenance projection.
+- custom-visuals.md [FINAL]: four Skia-drawn CustomVisual kinds LiveCharts cannot supply (sankey/treemap/waterfall/funnel) as pure layout folds with per-cell render-hash twins, plus the single suite-wide ColorSpaceAxis wide-gamut vocabulary the codec working-space consumes.
