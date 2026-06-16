@@ -148,11 +148,11 @@ Interchange-lane owners (managed glTF/IFC import-export + in-process IFC semanti
 | :-----: | :------------------- | :-------------------- | :--------------------------------------------------- | :------------------------------------------------------------------------------------------- | :-------: |
 |   [1]   | Format axis          | `InterchangeFormat`   | SmartEnum\<string>                                   | 22                                                                                           | FINALIZED |
 |   [2]   | Codec owner          | `InterchangeCodec`    | SmartEnum\<string>                                   | 7                                                                                            | FINALIZED |
-|   [3]   | Import/export fold   | `InterchangeIo`       | boundary capsule                                     | `ImportGeometry`/`ImportPoints`/`ImportField`/`ImportIfc`/`Export`/`ExportIfc`/`ExportTiles` | FINALIZED |
+|   [3]   | Import/export fold   | `InterchangeIo`       | boundary capsule + `InterchangePolicy`/`TileSet`/`TileNode` | `ImportGeometry`/`ImportPoints`/`ImportField`/`ImportIfc`/`Export`/`ExportIfc`/`ExportTiles`/`TileSet.Build` | FINALIZED |
 |   [4]   | Frame normalization  | `FrameNormalization`  | static surface + `UpAxis`/`Handedness`               | `Canonicalize`/`Basis`                                                                       | FINALIZED |
 |   [5]   | IFC semantic graph   | `IfcSemanticModel`    | record + nested rows                                 | 6 entity-family projections                                                                  | FINALIZED |
 |   [6]   | Field/result codec   | `FieldCodec`          | static surface + `FieldArtifact`/`FieldCodecPolicy`  | `FieldDecode`/`FieldEncode`/`ChunkSequence`                                                  |   SPIKE   |
-|   [7]   | Geometry delta codec | `DeltaCodec`          | static surface + `GeometryDeltaKind`/`GeometryDelta` | `Diff`/`Apply` (FastCDC)                                                                     | FINALIZED |
+|   [7]   | Geometry delta codec | `DeltaCodec`          | static surface + `GeometryDeltaKind`/`GeometryDelta`/`DeltaPolicy` | `Diff`/`Apply` (FastCDC)                                                        | FINALIZED |
 |   [8]   | Two-hop tessellation | `TessellationRequest` | record                                               | `Plan` — `Fin`                                                                               |   SPIKE   |
 |   [9]   | Content addressing   | `InterchangeIdentity` | static surface                                       | `Key`/`Admit`                                                                                | FINALIZED |
 
@@ -168,11 +168,11 @@ Solver-and-optimization-lane owners (volumetric discretization + uniform physics
 |   [6]   | Physics axis         | `PhysicsKind`           | SmartEnum\<string>                                                  | 9                                | FINALIZED |
 |   [7]   | Boundary condition   | `BoundaryCondition`     | [Union]                                                             | 4                                | FINALIZED |
 |   [8]   | Solve method         | `SolveMethod`           | SmartEnum\<string>                                                  | 6                                | FINALIZED |
-|   [9]   | Solve contract fold  | `SolveLane`             | static surface + `SolveProblem`/`SolveResult`                       | `Solve`/`Receipt`                |   SPIKE   |
+|   [9]   | Solve contract fold  | `SolveLane`             | static surface + `SolveProblem`/`SolveResult`/`SolvePolicy`         | `Solve`/`Receipt`                |   SPIKE   |
 |  [10]   | Optimizer axis       | `OptimizerKind`         | SmartEnum\<string>                                                  | 6                                | FINALIZED |
 |  [11]   | Design variable      | `DesignVariable`        | [Union]                                                             | 4                                | FINALIZED |
 |  [12]   | Objective sense      | `ObjectiveSense`        | SmartEnum\<string>                                                  | 2                                | FINALIZED |
-|  [13]   | Optimizer fold       | `Optimizer`             | static surface + `DesignProblem`/`ParetoFront`/`OptimizationResult` | `Optimize`/`Receipt`             |   SPIKE   |
+|  [13]   | Optimizer fold       | `Optimizer`             | static surface + `DesignProblem`/`ParetoFront`/`OptimizationResult`/`OptimizerPolicy` | `Optimize`/`Receipt`   |   SPIKE   |
 |  [14]   | Surrogate duality    | `Surrogate`             | record                                                              | `Predict`/`Fit`                  |   SPIKE   |
 |  [15]   | Sweep axis           | `SweepAxis`             | [Union]                                                             | 4                                | FINALIZED |
 |  [16]   | Sweep + budget fold  | `SweepLane`             | static surface + `SweepGrid`/`FrameBudget`/`SensitivityTornado`     | `Run`/`Governed`                 | FINALIZED |
@@ -199,6 +199,7 @@ Rail surfaces (one entrypoint family per rail):
 |  [12]   | Frame rail          | `FrameEdge`                          | static surface        | `Frames`/`Parse`/`Write`/`Prefixed`/`Merge`/`Valid` | FINALIZED |
 |  [13]   | Stream capsule      | `StreamPool`                         | boundary capsule      | `Get` + 11-event fold                               | FINALIZED |
 |  [14]   | Lane capsule        | `LaneRuntime`                        | boundary capsule      | `Enqueue`/`Pump`/`Drain` — `IO`                     | FINALIZED |
+|  [14a]  | Job-graph scheduler | `JobGraph`                           | class + `JobState`/`JobNode`/`JobCheckpoint` | `Run`/`Schedule`/`MarkDirty`/`Frontier` — `IO<Fin<HashMap<string,JobState>>>` | FINALIZED |
 |  [15]   | Progress capsule    | `ProgressCell`                       | capsule               | `Advance`/`Subscribe`/`Cancel`                      | FINALIZED |
 |  [16]   | Units rail          | `QuantityFamily.Admit`               | row members           | 4 arities — `Fin<UnitEvidence>`                     | FINALIZED |
 |  [17]   | Receipt rail        | `ReceiptSurface` / `ReceiptFolds`    | static + fold         | `Emit` — `IO`; 6 fold views                         | FINALIZED |

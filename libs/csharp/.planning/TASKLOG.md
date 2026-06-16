@@ -13,9 +13,8 @@ Cross-folder and infrastructure open work no single folder owns; per-folder open
 | [INDEX] | [ITEM] | [GATE] |
 | :-----: | ------ | ------ |
 | [1] | SharpGLTF / Xbim interchange | named interchange need (Rasm.Rhino owns host formats today) |
-| [2] | Avalonia.Win32.Interoperability (Win32 embed route) | Windows panel-host spike; consumed by AppUi surface-hosts#WIN32_ROUTE |
-| [3] | Dock.Serializer.* package naming | first app-root layout persistence (AppUi DockSerializer round-trip spec) |
-| [4] | Microsoft.Extensions.Options.ConfigurationExtensions central-pin policy (directly-invoked lock-pinned transitive) | repo policy decision |
+| [2] | Dock.Serializer.* package naming | first app-root layout persistence (AppUi DockSerializer round-trip spec) |
+| [3] | Microsoft.Extensions.Options.ConfigurationExtensions central-pin policy (directly-invoked lock-pinned transitive) | repo policy decision |
 
 ## [3]-[ASSAY_AND_INFRA_INTEGRATION]
 
@@ -53,21 +52,26 @@ Host-neutral testkit-split (future implementation session, no `.cs` authored thi
 | [3] | DATAS GC knobs stay claim-gated behind a losing benchmark | AppHost host-profiles at benchmark lane |
 | [4] | Package atlas anchor-column header harmonization on [ANCHORS] (cosmetic) | suite root |
 
-## [5]-[TS_CAMPAIGN]
+## [5]-[SIBLING_BRANCHES]
 
-Entry: `libs/typescript/.planning/README.md`.
+The two first-class sibling library branches. Each runs on its own cadence and owns its OWN additive `FEATURES.md`/`TASKLOG.md`/next-loop pool — the suite does NOT track their internal work (single-owner). This section carries only the entry pointers and the cross-branch SEAMS (the operational coupling points); the closeout distillation is tri-language and unified (central C# driving + python + typescript additive).
 
-| [INDEX] | [ITEM] |
-| :-----: | ------ |
-| [1] | Stage A: root TS infra finalization (catalog refresh to newest stable incl. TS 7, dependency-usage truth, lock law, engine pins) |
-| [2] | Stage B: lib scaffolding as a real workspace package, Effect rails, wire-contract-only integration |
-| [3] | Stage C: TS dependency catalogue extraction (the .api equivalent) |
-| [4] | Stage D: planning corpus completion to the suite review-law bar with a TS region ledger; register the five TS service owners (WireClients, SnapshotFeed, RuntimeFeed, CommandGateway, EvidenceFeed) |
-| [5] | Pin @bufbuild/buf + remaining unpinned rows at catalogue truth; the connect peer set moves in one resolve |
-| [6] | Phase-6 wire-drift reconcile from the Phase-1 deepening (all additive-tolerable per `wire-consumption.md` §4, none breaking): (a) Compute remote-lane `RemoteTransport` widened to six rows incl. designed-only `NamedPipe`/`TcpLoopback` — `TransportCapabilityWire` enumerates more transport rows but the browser surface stays grpc-web unary + server-stream only, both byte paths structurally absent in the browser; (b) the Compute receipts `Selection` case payload gained a warm-affinity flag — one additive JSON member on the Selection case interface; (c) AppHost `HealthEntryWire`/`DegradationWire` unaffected by the new `PressurePolicy` container-limit columns (internal policy, the limit grade folds into the existing status field); (d) AppUi telemetry contribution (`AppUiTelemetry`) crosses no wire per the inventory — confirm at closeout. No TS authored here. |
-| [7] | TS-consumption absorption of this turn's C# wire surfaces (post-Gate-3 transcription track): the four new C# pages (numeric-lane, remote-stores, server-tier, custom-visuals) each declared their wire posture this turn — all four are host-local and author no `#TS_PROJECTION`, so the browser-dialable surface this turn mints stays exactly the existing remote-lane `Solve`/`Generate`/`GraphDiff`/`SubtreeFetch` `ComputeServiceShape` MethodShapes plus the `TenantContext`→`TenantContextWire` and W3C `TraceContext` primitives owned at `AppHost/runtime-ports#TS_PROJECTION` and `AppHost/diagnostics-and-telemetry#CORRELATION_SPINE`. `libs/typescript/.planning/wire-consumption.md` `[1]-[CONTRACT_INVENTORY]` + `wire-contracts.md` decode rails absorb the four MethodShapes + `TenantContextWire` (tenant-scoped read partition) + `TraceContext` (traceparent metadata read); no new TS contract surface beyond these. Confirm at closeout that the four host-local pages remain absent from any WIRE_PAGES set. |
+| [INDEX] | [BRANCH] | [ENTRY] | [CROSS-BRANCH SEAM — the only coupling] |
+| :-----: | -------- | ------- | --------------------------------------- |
+| [1] | `libs/typescript` — web/edge branch, flat domains `interchange`/`projection`/`services`/`web` (re-derived + committed) | `libs/typescript/.planning/README.md` | consumes the C# wire contracts ONLY — the `remote-lane#TS_PROJECTION` MethodShapes + `TenantContextWire` + W3C `TraceContext`; no C# interior coupling; host-local C# pages stay absent from its WIRE_PAGES |
+| [2] | `libs/python` — science/data/geometry/artifacts/runtime branch (re-derived + committed) | `libs/python/.planning/README.md` | the `runtime/ServerHost` companion serves the EXISTING C# `ComputeService`/`ArtifactSync` gRPC over the `remote-lane#TRANSPORT_AXIS` UDS leg; `ContentIdentity` reproduces the C# `InterchangeIdentity` XxHash128 seed; data/artifact bundle shapes + graduation evidence; never C# interiors |
 
-## [6]-[PLANNING_CLOSE_OUT_SPIKES]
+Driving `docs/stacks/python` / `docs/stacks/typescript` to C#-parity is an operator-requested OPTIONAL side-track, not a standing step.
+
+## [6]-[DEFERRED_NEW_PACKAGE_CANDIDATES]
+
+Forward-emitted next-loop candidates: a genuinely new categorical concern that would warrant a new C# package, surfaced as such and NOT implemented this loop — record only. Each carries the contradiction or seam it must ratify before a charter is justified.
+
+| [INDEX] | [CANDIDATE] | [SCOPE] | [COUPLES_TO] | [RATIFY_BEFORE_CHARTER] |
+| :-----: | ----------- | ------- | ------------ | ----------------------- |
+| [1] | `Rasm.GeometryCore` — a C# geometry-core kernel | Robust adaptive-precision predicates (orientation/incircle/insphere), geometric constraint solver, persistent topological naming, B-rep build/rebuild receipts, healing/defeaturing, 3D-to-2D hidden-line extraction, CAM + motion (toolpath/kinematics), and nesting | `Rasm.Vectors` (OPERATOR territory — composes its surfaces, never modifies them); Compute solver-and-optimization `ClashScale.Detect` as the collision primitive; AppUi drafting-sheets `Viewport2D` hidden-line consumer; Persistence version-control `GeometryHash` structural-diff identity | The units-boundary interior-double contradiction: Compute units-boundary declares "interior numerics stay raw doubles owned by Rasm core" while robust adaptive-precision predicates require exact/expansion arithmetic interior to the kernel — the candidate must ratify whether exact-predicate arithmetic is a sanctioned interior exception (filter-then-exact, double output at the seam) or a new numeric-domain owner, and how persistent topological naming reconciles with the content-addressed `GeometryHash` one-node-identity law the structural diff already owns |
+
+## [7]-[PLANNING_CLOSE_OUT_SPIKES]
 
 The total planning-phase close-out: these bridge-proofed spikes run ONLY after every other TASKLOG section is done — including rows added later — as the final gate before implementation. They are not per-folder work and never run incrementally while planning is still moving. Each per-folder member of the residual tier-3 host-bridge set is named on its own folder TASKLOG; this section records only the cross-folder boot/drain/wire choreography that no single folder owns and that closes against the running integrated host as the final implementation-start gate.
 

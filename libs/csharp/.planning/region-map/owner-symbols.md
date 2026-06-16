@@ -270,10 +270,10 @@ Suite region map — row shapes and protocol live in the [suite standard](../REA
 - TensorDtype — Compute/tensor-lane#TENSOR_VOCABULARY [SmartEnum<string>]
 - TensorVocabulary — Compute/tensor-lane#TENSOR_VOCABULARY [static surface]
 - ToleranceClass — Compute/tensor-lane#TENSOR_VOCABULARY [SmartEnum<string>]
-- TensorOpKind — Compute/tensor-lane#OPERATION_FAMILIES [SmartEnum<string>]
-- TensorOpFamily — Compute/tensor-lane#OPERATION_FAMILIES [frozen table]
-- TensorKernels<T> — Compute/tensor-lane#OPERATION_FAMILIES [kernel registry + delegate family]
-- TensorOps — Compute/tensor-lane#OPERATION_FAMILIES [static surface]
+- TensorOpKind — Compute/tensor-lane#OPERATION_TABLE [SmartEnum<string>]
+- TensorOpFamily — Compute/tensor-lane#OPERATION_TABLE [frozen table]
+- TensorKernels<T> — Compute/tensor-lane#KERNEL_DISPATCH [kernel registry + delegate family]
+- TensorOps — Compute/tensor-lane#KERNEL_DISPATCH [static surface]
 - LayoutForm — Compute/tensor-lane#LAYOUT_ALGEBRA [SmartEnum<string>]
 - TensorLayout — Compute/tensor-lane#LAYOUT_ALGEBRA [static surface]
 - EncodingChannel — Compute/tensor-lane#GEOMETRY_ENCODING [SmartEnum<string>]
@@ -642,3 +642,431 @@ Suite region map — row shapes and protocol live in the [suite standard](../REA
 - FilterState — AppUi/charts-dashboards#DASHBOARD_TILES [record] (brush state carrier)
 - BoardState — AppUi/charts-dashboards#STREAM_BINDING [record] (board snapshot over STJ IDockSerializer; brush reapply at mount)
 - GeoOverlay — AppUi/charts-dashboards#SERIES_TABLE [static fold] (in-place HeatLand swap over the SpatialDiff IChangeSet under the SyncContext lock)
+
+- CompressionProviders — Compute/remote-lane#CALL_POLICY [SmartEnum<string>] (claim-gated wire-encoding axis Identity/Gzip/Deflate projecting inbox ICompressionProvider; Register materializes GrpcChannelOptions.CompressionProviders; CallSpine.Compressed stamps grpc-internal-encoding-request per winning benchmark claim)
+- ConvWindow — Compute/numeric-lane#KERNEL_LOWERING [record] (Conv1D/Conv2D/Conv3D spatial-geometry descriptor Kernel/Stride/Padding/Dilation/Channels/Filters/Spatial; KernelLowering.Lower convolution overload drives Im2Col patch projection then one GEMM)
+- InputDevice — AppUi/input-interaction#INPUT_FABRIC [Union] (alternative-input source family — 3Dconnexion/MIDI/gamepad/stylus/eye-tracker; AU-14 new cluster)
+- DeviceAxis — AppUi/input-interaction#INPUT_FABRIC [readonly record struct] (normalized continuous-axis sample)
+- DeviceOutput — AppUi/input-interaction#INPUT_FABRIC [Union] (device-output sink family — haptic/LED feedback)
+- InputFabric — AppUi/input-interaction#INPUT_FABRIC [static surface] (device-to-intent and intent-to-device fold onto the CommandIntent table; no second input owner)
+
+- EffectClass — AppHost/capability-registry#DESCRIPTOR_AXIS [SmartEnum<string>] (five-row effect taxonomy under CapabilityKeyPolicy ordinal accessor)
+- CapabilityKeyPolicy — AppHost/capability-registry#DESCRIPTOR_AXIS [comparer accessor] (the one AppHost capability-suite ordinal accessor reused by live-wire/mcp-projection/sandbox-host/solver-plugin axes)
+- Idempotency — AppHost/capability-registry#DESCRIPTOR_AXIS [SmartEnum<string>] (four-row repeat-safety vocabulary)
+- CostUnit — AppHost/capability-registry#DESCRIPTOR_AXIS [SmartEnum<string>] (metered-resource axis)
+- CostModel — AppHost/capability-registry#DESCRIPTOR_AXIS [record] (per-descriptor cost record)
+- PermissionShape — AppHost/capability-registry#DESCRIPTOR_AXIS [record] (object-set × op-class scope)
+- CapabilityDescriptor — AppHost/capability-registry#DESCRIPTOR_AXIS [record] (self-describing op row)
+- DescriptorReceipt — AppHost/capability-registry#DESCRIPTOR_AXIS [record] (per-registration projection)
+- CapabilityRegistry — AppHost/capability-registry#DISCOVERY_FOLD [frozen catalog static surface]
+- DiscoveryQuery — AppHost/capability-registry#DISCOVERY_FOLD [Union] (shape-discriminated query family)
+- DiscoveryResult — AppHost/capability-registry#DISCOVERY_FOLD [record] (matched-descriptor projection)
+- CommandTxn — AppHost/capability-registry#COMMAND_ALGEBRA [Union] (transaction disposition)
+- CommandFault — AppHost/capability-registry#COMMAND_ALGEBRA [Union fault] (4600 band)
+- CommandReceipt — AppHost/capability-registry#COMMAND_ALGEBRA [record] (per-command evidence; repo homonym with AppUi/commands-availability#EXECUTION_RECEIPTS CommandReceipt — distinct bounded contexts, command-algebra transaction vs UI command execution)
+- CommandAlgebra — AppHost/capability-registry#COMMAND_ALGEBRA [static surface] (commit-or-rollback over GrantBroker + Compute ComputeIntent dispatch)
+- GrantScope — AppHost/capability-registry#GRANT_BROKER [record] (object-set × op-class × cost-ceiling × time-window scope)
+- Consent — AppHost/capability-registry#GRANT_BROKER [Union] (elevation-request disposition)
+- Budget — AppHost/capability-registry#GRANT_BROKER [record] (per-scope live-metering cell)
+- GrantFault — AppHost/capability-registry#GRANT_BROKER [Union fault] (4620 band)
+- GrantBroker — AppHost/capability-registry#GRANT_BROKER [static surface] (admission-and-metering)
+- SdkTarget — AppHost/capability-registry#SDK_CODEGEN [SmartEnum<string>] (three language emission targets)
+- SdkArtifact — AppHost/capability-registry#SDK_CODEGEN [record] (emitted-source projection)
+- SdkCodegen — AppHost/capability-registry#SDK_CODEGEN [static surface] (emission fold over the registry)
+- CapabilityDescriptorWire — AppHost/capability-registry#TS_PROJECTION [ts interface]
+- CapabilityCommandReceiptWire — AppHost/capability-registry#TS_PROJECTION [ts interface] (force-disambiguated from AppUi/commands-availability#TS_PROJECTION CommandReceiptWire per the wire-projection no-collision rule)
+- DiscoveryResultWire — AppHost/capability-registry#TS_PROJECTION [ts interface]
+
+- FloatMode — AppHost/determinism-and-replay#DETERMINISM_KERNEL [SmartEnum<string>] (floating-point determinism mode)
+- DeterminismContext — AppHost/determinism-and-replay#DETERMINISM_KERNEL [record] (pinned-run context)
+- EnvFingerprint — AppHost/determinism-and-replay#DETERMINISM_KERNEL [record] (environment-identity)
+- DeterminismKernel — AppHost/determinism-and-replay#DETERMINISM_KERNEL [static surface]
+- LogEntry — AppHost/determinism-and-replay#EVENT_LOG [record] (content-addressed command-log entry)
+- ContentHash — AppHost/determinism-and-replay#EVENT_LOG [value object] (chain-hash)
+- EventLog — AppHost/determinism-and-replay#EVENT_LOG [static surface] (append-and-verify; consumes OpLog/OpLogEntry changefeed)
+- ReplayOutcome — AppHost/determinism-and-replay#REPLAY_VERIFY [Union] (per-step replay disposition)
+- ReplayFault — AppHost/determinism-and-replay#REPLAY_VERIFY [Union fault] (4760 band)
+- ReplayVerify — AppHost/determinism-and-replay#REPLAY_VERIFY [static surface] (per-step content-hash replay proof; the notebook bit-identity check is the suite-unique NotebookReplay riding this proof law)
+- Macro — AppHost/determinism-and-replay#MACRO_ENGINE [record] (recorded-command-sequence)
+- MacroParameter — AppHost/determinism-and-replay#MACRO_ENGINE [record] (parameterized-substitution row)
+- MacroEngine — AppHost/determinism-and-replay#MACRO_ENGINE [static surface]
+- RecomputeNode — AppHost/determinism-and-replay#RECOMPUTE_GRAPH [record] (content-addressed dependency node)
+- RecomputeGraph — AppHost/determinism-and-replay#RECOMPUTE_GRAPH [static surface]
+- LogEntryWire — AppHost/determinism-and-replay#TS_PROJECTION [ts interface]
+- ReplayOutcomeWire — AppHost/determinism-and-replay#TS_PROJECTION [ts type]
+- DeterminismContextWire — AppHost/determinism-and-replay#TS_PROJECTION [ts interface]
+
+- ExternalTransport — AppHost/live-wire#TRANSPORT_AXIS [SmartEnum<string>] (eight-row industrial-transport axis under CapabilityKeyPolicy: OPC-UA/Modbus/MQTT/serial/REST/GraphQL/spreadsheet/ERP-PLM)
+- TransportRow — AppHost/live-wire#TRANSPORT_AXIS [record] (per-transport policy)
+- TransportRows — AppHost/live-wire#TRANSPORT_AXIS [frozen table]
+- WireFault — AppHost/live-wire#TRANSPORT_AXIS [Union fault] (4720 band) (repo homonym with Compute/remote-lane#FAULT_PROJECTION WireFault — distinct bounded contexts, external-transport edge vs gRPC fault projection)
+- ExternalValue — AppHost/live-wire#TRANSPORT_AXIS [record] (at-edge value carrier)
+- BindingDirection — AppHost/live-wire#BINDING_SPEC [Flags enum] (read/write direction)
+- BindingSpec — AppHost/live-wire#BINDING_SPEC [record] (source-target binding)
+- CoercedValue — AppHost/live-wire#BINDING_SPEC [record] (unit-coerced inbound value over Compute UnitAlgebra)
+- LiveWire — AppHost/live-wire#BINDING_SPEC [static surface] (reactive binding engine)
+- WriteBack — AppHost/live-wire#WRITE_BACK [Union] (write-back transaction disposition)
+- WriteReceipt — AppHost/live-wire#WRITE_BACK [record] (per-write evidence)
+- WriteBackSurface — AppHost/live-wire#WRITE_BACK [static surface] (commit-or-rollback)
+- BindingState — AppHost/live-wire#BINDING_HEALTH [SmartEnum<string>] (per-binding lifecycle)
+- BindingHealth — AppHost/live-wire#BINDING_HEALTH [static surface] (projects binding state onto the health fold)
+- BindingStatusWire — AppHost/live-wire#TS_PROJECTION [ts interface]
+- WriteReceiptWire — AppHost/live-wire#TS_PROJECTION [ts interface]
+- CoercedValueWire — AppHost/live-wire#TS_PROJECTION [ts interface]
+
+- McpMethod — AppHost/mcp-projection#METHOD_AXIS [SmartEnum<string>] (MCP method vocabulary under CapabilityKeyPolicy)
+- ToolProjection — AppHost/mcp-projection#METHOD_AXIS [static fold] (descriptor-to-tool projection over CapabilityRegistry)
+- McpTool — AppHost/mcp-projection#METHOD_AXIS [record] (projected tool descriptor)
+- McpResource — AppHost/mcp-projection#METHOD_AXIS [record] (projected resource handle)
+- McpPrompt — AppHost/mcp-projection#METHOD_AXIS [record] (projected prompt template)
+- McpFault — AppHost/mcp-projection#TOOL_DISPATCH [Union fault] (4640 JSON-RPC error band)
+- CostPreview — AppHost/mcp-projection#TOOL_DISPATCH [record] (dry-run pricing over GrantBroker)
+- ToolResult — AppHost/mcp-projection#TOOL_DISPATCH [record] (structured tool-call result)
+- McpDispatch — AppHost/mcp-projection#TOOL_DISPATCH [static surface] (brokered dispatch over CommandAlgebra/ControlInbound.DispatchTool)
+- ProgressFrame — AppHost/mcp-projection#STREAM_PROGRESS [Union] (streaming-frame vocabulary)
+- ResumeToken — AppHost/mcp-projection#STREAM_PROGRESS [record] (resumable handle)
+- AgentSession — AppHost/mcp-projection#STREAM_PROGRESS [record] (per-agent stream-and-backpressure cell)
+- StreamProgress — AppHost/mcp-projection#STREAM_PROGRESS [static surface] (server-stream fan over OutboundHop.ServerStream + CancelScope)
+- McpToolWire — AppHost/mcp-projection#TS_PROJECTION [ts interface]
+- ProgressFrameWire — AppHost/mcp-projection#TS_PROJECTION [ts type]
+- CostPreviewWire — AppHost/mcp-projection#TS_PROJECTION [ts interface]
+
+- SandboxIsolation — AppHost/sandbox-host#ISOLATION_AXIS [SmartEnum<string>] (two-row WASM-component/out-of-process isolation topology under CapabilityKeyPolicy)
+- SandboxRow — AppHost/sandbox-host#ISOLATION_AXIS [record] (per-isolation policy)
+- SandboxRows — AppHost/sandbox-host#ISOLATION_AXIS [frozen table]
+- PluginInstance — AppHost/sandbox-host#ISOLATION_AXIS [capsule] (loaded-plugin)
+- SandboxFault — AppHost/sandbox-host#ISOLATION_AXIS [Union fault] (4660 band)
+- GrantHandle — AppHost/sandbox-host#GRANT_HANDLE [record] (brokered capability handle; zero ambient authority)
+- BrokeredCall — AppHost/sandbox-host#GRANT_HANDLE [record] (per-call mediation)
+- GrantHandleSurface — AppHost/sandbox-host#GRANT_HANDLE [static surface]
+- QuotaShape — AppHost/sandbox-host#QUOTA_CONTROL [record] (per-plugin resource ceiling)
+- QuotaCell — AppHost/sandbox-host#QUOTA_CONTROL [boundary capsule] (live metering)
+- Quarantine — AppHost/sandbox-host#QUOTA_CONTROL [Union] (eviction disposition)
+- QuotaControl — AppHost/sandbox-host#QUOTA_CONTROL [static surface] (enforcement)
+- PluginArtifact — AppHost/sandbox-host#SUPPLY_CHAIN [record] (candidate plugin)
+- Attestation — AppHost/sandbox-host#SUPPLY_CHAIN [record] (SLSA-provenance)
+- SemverGate — AppHost/sandbox-host#SUPPLY_CHAIN [record] (version-compatibility check)
+- SupplyChainFault — AppHost/sandbox-host#SUPPLY_CHAIN [Union fault] (4680 band)
+- SupplyChainGate — AppHost/sandbox-host#SUPPLY_CHAIN [static surface] (signature/attestation/semver admission)
+
+- SolverKind — AppHost/solver-plugin#SOLVER_KIND [SmartEnum<string>] (seven extension-category axis under CapabilityKeyPolicy: solver/mesher/optimizer/CAM-post/material-model/field-codec)
+- KindContract — AppHost/solver-plugin#SOLVER_KIND [record] (per-kind contract shape)
+- KindContracts — AppHost/solver-plugin#SOLVER_KIND [frozen table]
+- SolverFault — AppHost/solver-plugin#SOLVER_KIND [Union fault] (4700 band)
+- SolverManifest — AppHost/solver-plugin#PLUGIN_CONTRACT [record] (plugin's declared contract)
+- OpDeclaration — AppHost/solver-plugin#PLUGIN_CONTRACT [record] (single declared op shape)
+- SolverPluginContract — AppHost/solver-plugin#PLUGIN_CONTRACT [static surface] (contract-validation)
+- HostedSolver — AppHost/solver-plugin#SOLVER_HOSTING [capsule] (loaded-and-projected solver)
+- Negotiation — AppHost/solver-plugin#SOLVER_HOSTING [record] (representation-negotiation)
+- SolverHosting — AppHost/solver-plugin#SOLVER_HOSTING [static surface] (load-and-project over SandboxIsolation, projects into CapabilityRegistry)
+
+- InterchangeKeyPolicy — Compute/interchange#FORMAT_AXIS [comparer accessor]
+- InterchangeFormat — Compute/interchange#FORMAT_AXIS [SmartEnum<string>] (interchange-format rows: media-type, extension set, CanImport/CanExport, codec-owner, TessellationRequiresCompanion, UpAxis/Handedness columns)
+- InterchangeCodec — Compute/interchange#FORMAT_AXIS [SmartEnum<string>] (codec-owner vocabulary: managed package or companion)
+- UpAxis — Compute/interchange#FORMAT_AXIS [enum] (per-importer local-frame)
+- Handedness — Compute/interchange#FORMAT_AXIS [enum] (per-importer local-frame)
+- FrameNormalization — Compute/interchange#FORMAT_AXIS [static surface] (coerce imported coordinate into canonical DDG-kernel frame)
+- InterchangeIo — Compute/interchange#IMPORT_RAIL [static surface] (import + export fold over InterchangeFormat; also owns EXPORT_RAIL)
+- ImportedGeometry — Compute/interchange#IMPORT_RAIL [record] (decoded mesh-scene carrier)
+- PointScan — Compute/interchange#IMPORT_RAIL [record] (point-cloud carrier)
+- FieldArtifact — Compute/interchange#IMPORT_RAIL [record] (chunked simulation-field carrier; also FIELD_RESULT_CODEC)
+- IfcSemanticModel — Compute/interchange#IMPORT_RAIL [record] (IFC model-graph projection)
+- ExportArtifact — Compute/interchange#EXPORT_RAIL [record] (emitted-bytes carrier)
+- TessellationRequest — Compute/interchange#TWO_HOP_TESSELLATION [record] (two-hop IFC→IfcOpenShell IfcConvert→GLB bridge over the remote-lane companion rpc)
+- FieldCodecPolicy — Compute/interchange#FIELD_RESULT_CODEC [record] (chunked-layout + error-bound policy)
+- FieldCodec — Compute/interchange#FIELD_RESULT_CODEC [static surface] (FieldSpace→Zarr/VTK chunked layout, error-bounded lossy/lossless, zero-copy solver↔store↔viz)
+- GeometryDeltaKind — Compute/interchange#GEOMETRY_DELTA [SmartEnum<string>] (structural-diff target rows)
+- GeometryDelta — Compute/interchange#GEOMETRY_DELTA [record] (content-addressed delta)
+- DeltaCodec — Compute/interchange#GEOMETRY_DELTA [static surface] (FastCDC-chunked structural diff over mesh/B-rep/point-cloud/NURBS)
+- InterchangeIdentity — Compute/interchange#CONTENT_ADDRESSING [static surface] (XxHash128 content-key folding bytes + deflection + tolerance; lands on ArtifactIndexRow.Admit, mirrors ModelIdentity.Snapshot)
+
+- SolverKeyPolicy — Compute/solver-and-optimization#DISCRETIZATION_MESH [comparer accessor]
+- ElementClass — Compute/solver-and-optimization#DISCRETIZATION_MESH [SmartEnum<string>] (element-topology rows)
+- MeshAlgorithm — Compute/solver-and-optimization#DISCRETIZATION_MESH [SmartEnum<string>] (generation-strategy rows)
+- MeshKernel — Compute/solver-and-optimization#DISCRETIZATION_MESH [static surface] (DiscreteMesh from ImportedGeometry/MeshSpace, adaptive h/p refine)
+- DiscreteMesh — Compute/solver-and-optimization#DISCRETIZATION_MESH [record] (conforming/non-conforming volumetric mesh)
+- FieldSpace — Compute/solver-and-optimization#DISCRETIZATION_MESH [record] (integration-point/nodal scalar/vector/tensor field; consumed by interchange FieldCodec + animation transient scrub)
+- PhysicsKind — Compute/solver-and-optimization#SOLVE_CONTRACT [SmartEnum<string>] (physics-domain rows)
+- BoundaryCondition — Compute/solver-and-optimization#SOLVE_CONTRACT [Union] (BC cases)
+- SolveMethod — Compute/solver-and-optimization#SOLVE_CONTRACT [SmartEnum<string>] (linear/iterative method rows)
+- SolveProblem — Compute/solver-and-optimization#SOLVE_CONTRACT [record] (uniform problem: physics, BC set, element class, assembled operator)
+- SolveLane — Compute/solver-and-optimization#SOLVE_CONTRACT [static surface] (assemble operator over DiscreteMesh, dispatch to numeric-lane Factorization/iterative)
+- SolveResult — Compute/solver-and-optimization#SOLVE_CONTRACT [record] (field-plus-evidence)
+- OptimizerKind — Compute/solver-and-optimization#OPTIMIZER_LANE [SmartEnum<string>] (search-algorithm rows)
+- DesignVariable — Compute/solver-and-optimization#OPTIMIZER_LANE [Union] (typed variable cases)
+- ObjectiveSense — Compute/solver-and-optimization#OPTIMIZER_LANE [SmartEnum<string>] (minimize/maximize)
+- DesignProblem — Compute/solver-and-optimization#OPTIMIZER_LANE [record] (variable/constraint/objective)
+- Optimizer — Compute/solver-and-optimization#OPTIMIZER_LANE [static surface] (search fold by OptimizerKind)
+- Surrogate — Compute/solver-and-optimization#OPTIMIZER_LANE [record] (reduced-order/learned model in place of full solve)
+- ParetoFront — Compute/solver-and-optimization#OPTIMIZER_LANE [record] (queryable non-dominated-set artifact)
+- SweepGrid — Compute/solver-and-optimization#SWEEP_AND_BUDGET [record] (N-dim DOE orchestration)
+- SweepAxis — Compute/solver-and-optimization#SWEEP_AND_BUDGET [Union] (per-dimension sampling cases)
+- FrameBudget — Compute/solver-and-optimization#SWEEP_AND_BUDGET [record] (early-stop governor over iterative per-iteration residual receipt)
+- SensitivityTornado — Compute/solver-and-optimization#SWEEP_AND_BUDGET [static fold] (sensitivity ranking projection)
+- SweepLane — Compute/solver-and-optimization#SWEEP_AND_BUDGET [static surface] (fan-out onto WorkLane, reduce to ParetoFront + tornado)
+- AccelerationStructure — Compute/solver-and-optimization#CLASH_AND_TWIN [Union] (spatial-index cases over federated geometry)
+- ClashScale — Compute/solver-and-optimization#CLASH_AND_TWIN [static fold] (collision-compute over the persistent index)
+- ClashPair — Compute/solver-and-optimization#CLASH_AND_TWIN [record] (typed clash result)
+- TwinSignal — Compute/solver-and-optimization#CLASH_AND_TWIN [record] (live-telemetry sample)
+- DigitalTwin — Compute/solver-and-optimization#CLASH_AND_TWIN [static surface] (ROM-eval loop scoring TwinSignal against Surrogate baseline, anomaly verdict + control suggestion)
+
+- Keyframe<T> — AppUi/animation-timeline#TRACK_MODEL [record] (timed value with easing)
+- Track — AppUi/animation-timeline#TRACK_MODEL [Union] (track-kind family: parameter/camera/visibility/transient-field)
+- Easing — AppUi/animation-timeline#TRACK_MODEL [record] (motion-token interpolation projection)
+- Playhead — AppUi/animation-timeline#TIMELINE [record] (deterministic playback clock)
+- Timeline — AppUi/animation-timeline#TIMELINE [record] (track composition)
+- TimelineSample — AppUi/animation-timeline#TIMELINE [record] (sampled state at playhead)
+- ScrubState — AppUi/animation-timeline#SCRUB [record] (interactive playhead binding)
+- Scrub — AppUi/animation-timeline#SCRUB [static fold] (kinematic + transient-field scrub over Compute SimField frame index)
+- WalkthroughSpec — AppUi/animation-timeline#WALKTHROUGH [record] (offline-render spec)
+- Walkthrough — AppUi/animation-timeline#WALKTHROUGH [static fold] (frame-sequence render over the visuals encode rail)
+
+- SheetSize — AppUi/drafting-sheets#SHEET_SET [SmartEnum<string>] (standard sheet-size catalog)
+- TitleBlock — AppUi/drafting-sheets#SHEET_SET [record] (locale-aware title block)
+- Sheet — AppUi/drafting-sheets#SHEET_SET [record] (single sheet with regions)
+- SheetSet — AppUi/drafting-sheets#SHEET_SET [record] (sheet collection)
+- ProjectionBasis — AppUi/drafting-sheets#PROJECTION [record] (view-direction-and-scale projection)
+- Viewport2D — AppUi/drafting-sheets#PROJECTION [record] (model-view frame on a sheet region)
+- HiddenLine — AppUi/drafting-sheets#PROJECTION [static fold] (visible-edge fold over Compute geometry payload)
+- Dimension — AppUi/drafting-sheets#DIMENSIONING [Union] (dimension vocabulary)
+- Tolerance — AppUi/drafting-sheets#DIMENSIONING [record] (tolerance value)
+- Annotation — AppUi/drafting-sheets#DIMENSIONING [Union] (GD&T and text annotation vocabulary)
+- GdtFrame — AppUi/drafting-sheets#DIMENSIONING [record] (feature-control frame)
+- DraftFormat — AppUi/drafting-sheets#DRAFT_EMIT [SmartEnum<string>] (DWG/DXF/PDF/SVG emit-format axis)
+- DraftFault — AppUi/drafting-sheets#DRAFT_EMIT [Union fault]
+- DraftEmit — AppUi/drafting-sheets#DRAFT_EMIT [static surface] (multi-format emit over the SKDocument document rail)
+
+- CapabilityPin — AppUi/notebook-document#CELL_MODEL [record] (pinned-capability fingerprint over Compute capability registry/receipt determinism)
+- NotebookCell — AppUi/notebook-document#CELL_MODEL [Union] (cell-kind family: code/markdown/chart/render/viewpoint/parameter)
+- CellOutput — AppUi/notebook-document#CELL_MODEL [Union] (materialized output)
+- Notebook — AppUi/notebook-document#CELL_MODEL [record] (cell sequence)
+- DependencyGraph — AppUi/notebook-document#DEPENDENCY_GRAPH [record] (cell DAG)
+- RecomputePlan — AppUi/notebook-document#DEPENDENCY_GRAPH [record] (affected-closure plan)
+- NotebookOp — AppUi/notebook-document#CRDT_COEDIT [Union] (notebook cell-edit delta Insert/Delete/Edit; projects onto Persistence/version-control#CRDT_ALGEBRA CrdtOp + OpLogEntry at the op-log seam)
+- NotebookCrdt — AppUi/notebook-document#CRDT_COEDIT [record] (conflict-free replicated document over the Persistence op-log)
+- ReplayManifest — AppUi/notebook-document#REPLAY_BUNDLE [record] (pinned-input-and-capability manifest)
+- ReplayBundle — AppUi/notebook-document#REPLAY_BUNDLE [record] (export-to-replay artifact)
+- NotebookReplay — AppUi/notebook-document#REPLAY_BUNDLE [static surface] (notebook bit-identity check riding AppHost/determinism-and-replay#REPLAY_VERIFY proof law; suite-unique name distinct from ReplayVerify)
+
+- RenderPass — AppUi/viewport-pipeline#RENDER_GRAPH [Union] (frame-pass vocabulary)
+- RenderGraph — AppUi/viewport-pipeline#RENDER_GRAPH [static surface] (pass-DAG executor over host-shared GRContext via the embed capsule)
+- RenderTarget — AppUi/viewport-pipeline#RENDER_GRAPH [record] (lease-bound GPU surface)
+- FrameReceipt — AppUi/viewport-pipeline#RENDER_GRAPH [record] (per-frame evidence)
+- ViewportFault — AppUi/viewport-pipeline#RENDER_GRAPH [Union fault]
+- Meshlet — AppUi/viewport-pipeline#GEOMETRY_VIRTUAL [readonly record struct] (cluster vertex-and-index run)
+- MeshletCluster — AppUi/viewport-pipeline#GEOMETRY_VIRTUAL [record] (GPU-driven cluster-LOD scene)
+- ClusterCull — AppUi/viewport-pipeline#GEOMETRY_VIRTUAL [static fold] (GPU-culling)
+- BindlessTable — AppUi/viewport-pipeline#GEOMETRY_VIRTUAL [record] (bindless resource table)
+- ResidencyTile — AppUi/viewport-pipeline#RESIDENCY_BUDGET [record] (streamable geometry page)
+- ResidencyBudget — AppUi/viewport-pipeline#RESIDENCY_BUDGET [static surface] (VRAM-budget residency manager)
+- Prefetch — AppUi/viewport-pipeline#RESIDENCY_BUDGET [static fold] (predictive prefetch)
+- InstanceBuffer — AppUi/viewport-pipeline#RESIDENCY_BUDGET [record] (massive-instancing draw row)
+- Bvh — AppUi/viewport-pipeline#PATH_TRACE [record] (bounding-volume hierarchy)
+- Reservoir — AppUi/viewport-pipeline#PATH_TRACE [readonly record struct] (ReSTIR sample reservoir)
+- PathTracePass — AppUi/viewport-pipeline#PATH_TRACE [record] (progressive accumulation pass)
+- Denoiser — AppUi/viewport-pipeline#PATH_TRACE [static fold] (edge-aware denoise)
+- SimField — AppUi/viewport-pipeline#SIM_VISUAL [record] (Compute field-receipt projection; consumed by animation-timeline transient scrub)
+- SimVisual — AppUi/viewport-pipeline#SIM_VISUAL [Union] (simulation render-pass family: isosurface/volume/streamline/glyph/deformation)
+- TransferFunction — AppUi/viewport-pipeline#SIM_VISUAL [record] (volume opacity-and-color map)
+- Viewpoint — AppUi/viewport-pipeline#VIEWPOINT_CODEC [record] (portable BCF-compatible view-state receipt; consumed by animation camera tracks + drafting projection basis; mirrors Persistence/annotation BcfViewpoint)
+- SectionBox — AppUi/viewport-pipeline#VIEWPOINT_CODEC [record] (clip volume)
+- VisibilityOverride — AppUi/viewport-pipeline#VIEWPOINT_CODEC [record] (per-element visibility-and-color row)
+- ViewpointCodec — AppUi/viewport-pipeline#VIEWPOINT_CODEC [static surface] (BCF-compatible serializer)
+- ViewpointWire — AppUi/viewport-pipeline#TS_PROJECTION [ts interface]
+- ViewCameraWire — AppUi/viewport-pipeline#TS_PROJECTION [ts interface]
+- SectionBoxWire — AppUi/viewport-pipeline#TS_PROJECTION [ts interface]
+- VisibilityOverrideWire — AppUi/viewport-pipeline#TS_PROJECTION [ts interface]
+- FrameReceiptWire — AppUi/viewport-pipeline#TS_PROJECTION [ts interface]
+
+- Anchor — Persistence/annotation#ANCHOR_ALGEBRA [Union] (annotation-target binding family: node-id/sub-entity/parameter-path/world-point-plus-view)
+- Thread — Persistence/annotation#ANCHOR_ALGEBRA [record] (threaded annotation: comments/mentions/status/assignment over the op-log)
+- Mention — Persistence/annotation#ANCHOR_ALGEBRA [record] (@-reference)
+- AnnotationStatus — Persistence/annotation#ANCHOR_ALGEBRA [SmartEnum<string>] (lifecycle)
+- Anchors — Persistence/annotation#ANCHOR_ALGEBRA [static surface] (anchor projection, re-anchor against structural diff, thread fold)
+- BcfTopic — Persistence/annotation#BCF_PROTOCOL [record] (BCF issue)
+- BcfComment — Persistence/annotation#BCF_PROTOCOL [record] (topic comment)
+- BcfViewpoint — Persistence/annotation#BCF_PROTOCOL [record] (portable viewpoint receipt; mirrors AppUi/viewport-pipeline Viewpoint)
+- BcfVersion — Persistence/annotation#BCF_PROTOCOL [SmartEnum<string>] (schema-version axis 2.1/3.0)
+- Bcf — Persistence/annotation#BCF_PROTOCOL [static surface] (BCF archive read/write + topic/comment/viewpoint lifecycle)
+- BcfApiEndpoint — Persistence/annotation#CDE_SYNC [record] (BCF-API REST surface descriptor)
+- CdeSession — Persistence/annotation#CDE_SYNC [record] (OAuth2-backed CDE session over the AppHost OAuth2 outbound hop)
+- CdeSync — Persistence/annotation#CDE_SYNC [static surface] (bidirectional topic/comment/viewpoint sync, conflict-aware merge)
+- AnchorWire — Persistence/annotation#TS_PROJECTION [ts interface]
+- ThreadWire — Persistence/annotation#TS_PROJECTION [ts interface]
+- CommentWire — Persistence/annotation#TS_PROJECTION [ts interface]
+- BcfTopicWire — Persistence/annotation#TS_PROJECTION [ts interface]
+- BcfViewpointWire — Persistence/annotation#TS_PROJECTION [ts interface]
+
+- ClassificationStandard — Persistence/catalog-cost#CLASSIFICATION_CATALOG [SmartEnum<string>] (Uniclass/OmniClass/MasterFormat/IfcClassification axis)
+- ClassificationCode — Persistence/catalog-cost#CLASSIFICATION_CATALOG [record] (hierarchical code carrying the ltree path)
+- ClassificationMap — Persistence/catalog-cost#CLASSIFICATION_CATALOG [record] (federated-entity-to-codes resolution)
+- Catalog — Persistence/catalog-cost#CLASSIFICATION_CATALOG [static surface] (catalog load, hierarchical lookup, cross-standard mapping, entity-classification fold)
+- CostCode — Persistence/catalog-cost#COST_ROLLUP [record] (classification-to-cost-code mapping with rate)
+- CostLineItem — Persistence/catalog-cost#COST_ROLLUP [record] (formula-evaluated takeoff line)
+- CostRollup — Persistence/catalog-cost#COST_ROLLUP [static surface] (formula eval, quantity-takeoff projection, hierarchical DuckDB rollup over data-lanes#ANALYTICAL_LANE)
+
+- FederatedEntity — Persistence/federation#ENTITY_GRAPH [record] (source-agnostic element keyed by stable composite identity)
+- EntityIdentity — Persistence/federation#ENTITY_GRAPH [record] (five-axis identity value)
+- SourceRef — Persistence/federation#ENTITY_GRAPH [record] (originating-document pointer)
+- EntityGraph — Persistence/federation#ENTITY_GRAPH [static surface] (identity derivation, upsert, spatial-containment fold, source-agnostic merge)
+- ElementSet — Persistence/federation#ELEMENT_SET_ALGEBRA [record] (polymorphic composable selection with stable content-addressed set receipt; consumed by catalog-cost QTO + schedule-interchange 4D link)
+- SetExpr — Persistence/federation#ELEMENT_SET_ALGEBRA [Union] (selection algebra)
+- ElementSetAlgebra — Persistence/federation#ELEMENT_SET_ALGEBRA [static surface] (literal/boolean/spatial/property/classification combinators, stable-receipt fold)
+- CrossDocLink — Persistence/federation#CROSS_DOC_LINKS [record] (typed inter-document reference, pin-versus-float)
+- LinkKind — Persistence/federation#CROSS_DOC_LINKS [SmartEnum<string>] (reference-type vocabulary)
+- ImpactNode — Persistence/federation#CROSS_DOC_LINKS [record] (transitive-impact node)
+- LinkStore — Persistence/federation#CROSS_DOC_LINKS [static surface] (link upsert, pin/float resolution, transitive impact, change-propagation fold)
+- RuleAst — Persistence/federation#RULE_PLAN [Union] (declarative rule DSL parsed shape)
+- RuleResult — Persistence/federation#RULE_PLAN [Union] (typed result family: pass/fail/element-set/viewpoint)
+- RulePlan — Persistence/federation#RULE_PLAN [static surface] (lower rule AST into predicate/query plan over the graph + element-set algebra)
+- FusionCandidate — Persistence/federation#FUSION_RANK [record] (scored hit with per-index rank and lineage)
+- FusionWeights — Persistence/federation#FUSION_RANK [record] (per-index reciprocal-rank-fusion weight policy)
+- FusionRank — Persistence/federation#FUSION_RANK [static surface] (fuse pgvector HNSW + PostGIS GiST + pg_search/FTS into one scored result with provenance)
+- PlanNode — Persistence/federation#FEDERATED_PLAN [Union] (cross-store query AST)
+- EngineCost — Persistence/federation#FEDERATED_PLAN [record] (per-engine cost estimate)
+- FederatedPlan — Persistence/federation#FEDERATED_PLAN [static surface] (predicate pushdown across stores, cost-based engine selection, partial-pushdown, cross-store join)
+
+- ProvEdge — Persistence/provenance#CAUSAL_DAG [Union] (W3C-PROV causal relation family)
+- ProvNode — Persistence/provenance#CAUSAL_DAG [record] (agent/activity/entity vertex)
+- LineageSlice — Persistence/provenance#CAUSAL_DAG [record] (slice result)
+- Provenance — Persistence/provenance#CAUSAL_DAG [static surface] (edge emission over op-log, backward/forward slicing, blame, impact, deterministic replay)
+- AttestedEntry — Persistence/provenance#ATTESTED_LEDGER [record] (hash-chained ledger row)
+- LedgerHead — Persistence/provenance#ATTESTED_LEDGER [record] (chain-head proof)
+- AttestedLedger — Persistence/provenance#ATTESTED_LEDGER [static surface] (chain-append fold, head-digest, verification, redaction-preserving projection)
+- CdcScope — Persistence/provenance#LINEAGE_CDC [record] (lineage-filter scope)
+- CdcEnvelope — Persistence/provenance#LINEAGE_CDC [record] (redaction-aware change record)
+- LineageCdc — Persistence/provenance#LINEAGE_CDC [static surface] (lineage-scoped CDC filter, redaction-preserving payload, per-consumer feed fold)
+- ProvEdgeWire — Persistence/provenance#TS_PROJECTION [ts type]
+- LineageSliceWire — Persistence/provenance#TS_PROJECTION [ts interface]
+- AttestedEntryWire — Persistence/provenance#TS_PROJECTION [ts interface]
+- LedgerHeadWire — Persistence/provenance#TS_PROJECTION [ts interface]
+- CdcEnvelopeWire — Persistence/provenance#TS_PROJECTION [ts interface]
+
+- ScheduleFormat — Persistence/schedule-interchange#SCHEDULE_STORE [SmartEnum<string>] (interchange-format axis: P6 XER, MS-Project XML)
+- ScheduleTask — Persistence/schedule-interchange#SCHEDULE_STORE [record] (typed activity)
+- TaskRelation — Persistence/schedule-interchange#SCHEDULE_STORE [record] (predecessor/successor dependency)
+- ScheduleImport — Persistence/schedule-interchange#SCHEDULE_STORE [static surface] (XER tab-delimited + MS-Project XML read over data-lanes#ANALYTICAL_LANE, activity-network projection, WBS fold)
+- TaskElementLink — Persistence/schedule-interchange#TASK_LINK_4D [record] (schedule-activity-to-ElementSet binding over federation#CROSS_DOC_LINKS)
+- FourDStatus — Persistence/schedule-interchange#TASK_LINK_4D [SmartEnum<string>] (per-element construction-state axis)
+- FourDState — Persistence/schedule-interchange#TASK_LINK_4D [static surface] (task-element link, as-of 4D state fold over version-control#TIME_TRAVEL, planned-vs-actual variance)
+- ScheduleTaskWire — Persistence/schedule-interchange#TS_PROJECTION [ts interface]
+- TaskRelationWire — Persistence/schedule-interchange#TS_PROJECTION [ts interface]
+- TaskElementLinkWire — Persistence/schedule-interchange#TS_PROJECTION [ts interface]
+- FourDStateWire — Persistence/schedule-interchange#TS_PROJECTION [ts interface]
+
+- CommitNode — Persistence/version-control#COMMIT_DAG [record] (content-addressed commit)
+- BranchRef — Persistence/version-control#COMMIT_DAG [record] (named-branch pointer with per-branch ACL)
+- VersionVector — Persistence/version-control#COMMIT_DAG [record] (per-origin sequence map)
+- MerkleRange — Persistence/version-control#COMMIT_DAG [record] (reconciliation node)
+- CommitGraph — Persistence/version-control#COMMIT_DAG [static surface] (hash, parent-link, merge-base, vector-compare, Merkle range-fold)
+- CrdtField — Persistence/version-control#CRDT_ALGEBRA [Union] (convergent op-based/delta-state field family: RGA sequence / add-wins OR-set / LWW-by-HLC register; strict superset of sync-collaboration#MERGE_LAW Adjudicate)
+- Crdt — Persistence/version-control#CRDT_ALGEBRA [static surface] (Merge join-semilattice LUB commutative/associative/idempotent over the op multiset; CrdtOp delta carried by OpLogEntry.Payload — CROSS_PACKAGE_LAW wire amendment)
+- AsOfQuery — Persistence/version-control#TIME_TRAVEL [record] (reconstruction request)
+- RangeDiff — Persistence/version-control#TIME_TRAVEL [record] (two-instant delta)
+- BlameRow — Persistence/version-control#TIME_TRAVEL [record] (per-node authorship)
+- ScrubFrame — Persistence/version-control#TIME_TRAVEL [record] (replay frame)
+- TimeTravel — Persistence/version-control#TIME_TRAVEL [static surface] (AS-OF materialization, range diff, blame fold, scrub iteration, branch-from-past)
+- GraphNode — Persistence/version-control#STRUCTURAL_DIFF [record] (identity-keyed node in the model graph)
+- EditOp — Persistence/version-control#STRUCTURAL_DIFF [Union] (tree-edit-distance operation family)
+- MergeConflict — Persistence/version-control#STRUCTURAL_DIFF [Union] (typed conflict-class family)
+- StructuralMerge — Persistence/version-control#STRUCTURAL_DIFF [static surface] (node-identity match, cheapest-edit-script tree diff, three-way merge, topological brep/mesh delta classification)
+- CommitNodeWire — Persistence/version-control#TS_PROJECTION [ts interface]
+- BranchRefWire — Persistence/version-control#TS_PROJECTION [ts interface]
+- VersionVectorWire — Persistence/version-control#TS_PROJECTION [ts interface]
+- CrdtOpWire — Persistence/version-control#TS_PROJECTION [ts type]
+- MergeConflictWire — Persistence/version-control#TS_PROJECTION [ts type]
+- BlameRowWire — Persistence/version-control#TS_PROJECTION [ts interface]
+- RangeDiffWire — Persistence/version-control#TS_PROJECTION [ts interface]
+
+- PowerState — AppHost/host-profiles#POWER_AND_FIDELITY [SmartEnum<string>] (battery/charging/AC power-source rows)
+- ThermalPressure — AppHost/host-profiles#POWER_AND_FIDELITY [SmartEnum<string>] (nominal/fair/serious/critical thermal ladder)
+- FidelityScale — AppHost/host-profiles#POWER_AND_FIDELITY [record] (power/thermal-derived render+compute fidelity scale)
+- PowerCell — AppHost/host-profiles#POWER_AND_FIDELITY [boundary capsule] (IOPowerSources/thermal observable seam)
+- PowerProbe — AppHost/host-profiles#POWER_AND_FIDELITY [static surface] (power/thermal sample fold to FidelityScale)
+- DeliveryTarget — AppHost/outbound-resilience#DELIVERY_FANOUT [Union] (notification-channel target family)
+- DeliveryChannel — AppHost/outbound-resilience#DELIVERY_FANOUT [SmartEnum<string>] (email/webhook/slack/sms channel axis)
+- DeliveryMessage — AppHost/outbound-resilience#DELIVERY_FANOUT [record] (channel-agnostic message)
+- DeliveryRuntime — AppHost/outbound-resilience#DELIVERY_FANOUT [record] (per-fanout runtime cell)
+- DeliveryFanout — AppHost/outbound-resilience#DELIVERY_FANOUT [static surface] (multi-channel fanout over the outbound hop, alert-receipt routed)
+- AlertSeverity — AppHost/health-and-degradation#ALERT_ENGINE [SmartEnum<int>] (info/warning/error/critical rank ladder)
+- AlertCondition — AppHost/health-and-degradation#ALERT_ENGINE [Union] (threshold/anomaly-band/forecast-band condition family)
+- AlertRule — AppHost/health-and-degradation#ALERT_ENGINE [record] (versioned rule with hysteresis+debounce)
+- AlertState — AppHost/health-and-degradation#ALERT_ENGINE [readonly record struct] (per-rule firing-state cell)
+- AlertReceipt — AppHost/health-and-degradation#ALERT_ENGINE [readonly record struct] (firing/recovered/escalated transition evidence; routes to DeliveryFanout)
+- AlertEngine — AppHost/health-and-degradation#ALERT_ENGINE [static surface] (evaluate/backtest fold over the health snapshot stream)
+
+- JobState — Compute/scheduling-and-lanes#JOB_GRAPH [SmartEnum<string>] (8-row node lifecycle pending/ready/running/speculative/preempted/completed/spilled/faulted)
+- JobCheckpoint — Compute/scheduling-and-lanes#JOB_GRAPH [record] (resume-state carrier the spill writes)
+- JobNode — Compute/scheduling-and-lanes#JOB_GRAPH [record] (dependency-graph node carrying AdmittedIntent + scheduling columns)
+- JobGraph — Compute/scheduling-and-lanes#JOB_GRAPH [class] (topological dependency-DAG scheduler over LaneRuntime; speculative/preemptible/fair-share/affinity/spill + MarkDirty incremental re-solve; never a FarmRouter/JobScheduler sibling)
+- InterchangePolicy — Compute/interchange#EXPORT_RAIL [record] (deflection/tolerance/compression/quantization export policy with Canonical/Web rows)
+- TileNode — Compute/interchange#EXPORT_RAIL [record] (3D-Tiles octree node)
+- TileSet — Compute/interchange#EXPORT_RAIL [record] (3D-Tiles octree partition over ImportedGeometry)
+- DeltaPolicy — Compute/interchange#GEOMETRY_DELTA [record] (FastCDC min/avg/max chunk + quantization/tolerance/progressive policy)
+- FieldStation — Compute/solver-and-optimization#DISCRETIZATION_MESH [SmartEnum<string>] (nodal/integration-point/cell field-station axis; FieldSpace discriminates over it)
+- MeshPolicy — Compute/solver-and-optimization#DISCRETIZATION_MESH [record] (mesh quality/refinement policy)
+- SolvePolicy — Compute/solver-and-optimization#SOLVE_CONTRACT [record] (solve method/tolerance/iteration policy)
+- OptimizerPolicy — Compute/solver-and-optimization#OPTIMIZER_LANE [record] (search-budget/convergence policy)
+- OptimizationResult — Compute/solver-and-optimization#OPTIMIZER_LANE [record] (optimizer outcome + Pareto/sensitivity evidence)
+- ClashPolicy — Compute/solver-and-optimization#CLASH_AND_TWIN [record] (collision-tolerance/incremental-retest policy)
+- TwinVerdict — Compute/solver-and-optimization#CLASH_AND_TWIN [record] (digital-twin anomaly verdict + control suggestion; AppHost industrial-output port consumes receipt-gated)
+
+- AwarenessKind — Persistence/sync-collaboration#PRESENCE_AND_BLOB [SmartEnum<string>] (cursor/selection/viewport awareness-beat axis)
+- Awareness — Persistence/sync-collaboration#PRESENCE_AND_BLOB [static surface] (ephemeral awareness-beat fold over presence)
+- CheckoutDimension — Persistence/sync-collaboration#PRESENCE_AND_BLOB [SmartEnum<string>] (partial-replication selection dimension)
+- ReplicationQuery — Persistence/sync-collaboration#PRESENCE_AND_BLOB [record] (partial-replication working-set query)
+- WorkingSet — Persistence/sync-collaboration#PRESENCE_AND_BLOB [record] (resolved partial-replication subset)
+- Replication — Persistence/sync-collaboration#PRESENCE_AND_BLOB [static surface] (working-set resolution + partial-replication fold over the op-log)
+- CrsSource — Persistence/data-lanes#GEO_LANES [record] (EPSG/proj coordinate-reference source)
+- MapConversion — Persistence/data-lanes#GEO_LANES [record] (CRS map-conversion parameters)
+- CrsTransform — Persistence/data-lanes#GEO_LANES [record] (source-to-target CRS transform)
+- CrsReconcile — Persistence/data-lanes#GEO_LANES [static surface] (CRS reprojection fold over NTS/PROJ)
+- RelationSource<TData,TProjection> — Persistence/data-lanes#ANALYTICAL_LANE [record] (DuckDB managed-sequence relation source; corrects the prior bare RelationSource entry arity)
+- AclGrant — Persistence/schema-rail#IDENTITY_POLICY [enum] (object-ACL grant kind)
+- AclScope — Persistence/schema-rail#IDENTITY_POLICY [SmartEnum<string>] (object-ACL scope axis)
+- ObjectAcl — Persistence/schema-rail#IDENTITY_POLICY [record] (per-object access-control row)
+- SignedAuthorship — Persistence/schema-rail#IDENTITY_POLICY [record] (signed-authorship attestation)
+- Authz — Persistence/schema-rail#IDENTITY_POLICY [static surface] (object-ACL + signed-authorship fold)
+- WireFormat — Persistence/snapshot-codecs#SCHEMA_EVOLUTION [SmartEnum<string>] (codec wire-format version axis)
+- SchemaEvolution — Persistence/snapshot-codecs#SCHEMA_EVOLUTION [static surface] (forward/backward codec-lineage migration fold)
+- ClosureGc — Persistence/redaction-retention#RETENTION_SWEEPS [static surface] (Closure-membership unreferenced-blob GC sweep; reads the artifact-blob index, never a parallel reachability tracker)
+- WindowKind — Persistence/query-rail#STANDING_QUERY [SmartEnum<string>] (tumbling/sliding/session window axis)
+- StandingQuery<TRow> — Persistence/query-rail#STANDING_QUERY [record] (windowed standing-query definition with watermark)
+- StandingQueries — Persistence/query-rail#STANDING_QUERY [static surface] (incremental-view-maintenance fold collapsing DynamicData + Timescale + DuckDB windowing into one temporal primitive)
+- ArrowCarrier — Persistence/query-rail#ARROW_PLANE [record] (zero-copy Arrow columnar chunk carrier)
+- ArrowPlane — Persistence/query-rail#ARROW_PLANE [static surface] (Arrow IPC zero-copy egress fold)
+- VersionKeyPolicy — Persistence/version-control#COMMIT_DAG [comparer accessor] (package-local; one per axis owner, never cross-package reuse)
+- FederationKeyPolicy — Persistence/federation#ENTITY_GRAPH [comparer accessor]
+- ProvenanceKeyPolicy — Persistence/provenance#CAUSAL_DAG [comparer accessor]
+- AnnotationKeyPolicy — Persistence/annotation#ANCHOR_ALGEBRA [comparer accessor]
+- CatalogKeyPolicy — Persistence/catalog-cost#CLASSIFICATION_CATALOG [comparer accessor]
+- ScheduleKeyPolicy — Persistence/schedule-interchange#SCHEDULE_STORE [comparer accessor]
+
+- Colormap — AppUi/theme-tokens#TOKEN_CATALOG [SmartEnum<string>] (perceptual colormap ramp axis; consumed by viewport TransferFunction)
+- ConflictSide — AppUi/inspector-editing#CONFLICT_RESOLUTION [SmartEnum<string>] (base/local/remote three-way side axis)
+- ThreeWay — AppUi/inspector-editing#CONFLICT_RESOLUTION [static surface] (three-way merge fold over the conflict pane)
+- SceneAccessNode — AppUi/accessibility#AUTOMATION_PEERS [record] (3D-scene accessibility-tree node with spatial cue)
+- OfficeFormat — AppUi/visuals-offscreen#DOCUMENT_EXPORT [SmartEnum<string>] (xlsx/docx/pptx office-export format axis)
+- OfficeSpec — AppUi/visuals-offscreen#DOCUMENT_EXPORT [record] (office-export spec)
+- OfficeSheet — AppUi/visuals-offscreen#DOCUMENT_EXPORT [Union] (office-document section family)
+- OfficeExport — AppUi/visuals-offscreen#DOCUMENT_EXPORT [static surface] (office-document emit over the open-xml rail)
+- BreakRule — AppUi/visuals-offscreen#DOCUMENT_EXPORT [SmartEnum<string>] (paginator page-break policy axis)
+- ReloadIntent — AppUi/diagnostics-evidence#DEV_LOOP [Union] (hot-reload intent family)
+- FlameNode — AppUi/diagnostics-evidence#DEV_LOOP [record] (flamegraph self/children node)
+- SolveFrame — AppUi/diagnostics-evidence#DEV_LOOP [record] (solve time-travel frame)
+- SolveScrub — AppUi/diagnostics-evidence#DEV_LOOP [record] (solve-debugger scrub over the frame sequence)
+- ReplResult — AppUi/diagnostics-evidence#DEV_LOOP [Union] (REPL evaluation-result family)
+- Repl — AppUi/diagnostics-evidence#DEV_LOOP [record] (live REPL over the command deck)
+- GpuBackend — AppUi/viewport-pipeline#RENDER_GRAPH [SmartEnum<string>] (Metal/Vulkan/GL GPU-backend axis)
+- ViewportClock — AppUi/viewport-pipeline#RENDER_GRAPH [record] (frame-clock + correlation seam)
+- FrameBudget — AppUi/viewport-pipeline#RENDER_GRAPH [record] (per-frame triangle/VRAM/duration budget; bounded-context homonym with Compute/solver-and-optimization#SWEEP_AND_BUDGET FrameBudget — distinct concepts)
+- LodPolicy — AppUi/viewport-pipeline#GEOMETRY_VIRTUAL [record] (cluster-LOD pixel-threshold policy)
+- MeshSource — AppUi/viewport-pipeline#GEOMETRY_VIRTUAL [record] (mesh-cluster build input)
+- Frustum — AppUi/viewport-pipeline#GEOMETRY_VIRTUAL [readonly record struct] (six-plane culling frustum)
+- BvhNode — AppUi/viewport-pipeline#PATH_TRACE [readonly record struct] (bounding-volume hierarchy node)
+- BoundingSphere — AppUi/viewport-pipeline#GEOMETRY_VIRTUAL [readonly record struct] (cluster bound)
+- BcfCamera — AppUi/viewport-pipeline#VIEWPOINT_CODEC [record] (BCF perspective/orthographic camera projection)
+- ResidencyPlan — AppUi/viewport-pipeline#RESIDENCY_BUDGET [record] (resident/evict/prefetch VRAM-budget plan)
+- SamplePolicy — AppUi/viewport-pipeline#PATH_TRACE [SmartEnum<string>] (ReSTIR sampling-policy axis)
+- DimensionIndex<TRow,TKey> — AppUi/charts-dashboards#DASHBOARD_TILES [class] (word-aligned bitset categorical cross-filter index; absorbs categorical brushing, no per-tile GroupBy re-scan)
+- PolygonBrush — AppUi/charts-dashboards#DASHBOARD_TILES [readonly record struct] (even-odd ray-cast point-in-polygon spatial-brush ring; the one point-in-polygon law)

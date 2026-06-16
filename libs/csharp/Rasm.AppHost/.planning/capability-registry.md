@@ -423,7 +423,7 @@ public sealed partial class SdkTarget {
         $"public IO<CommandReceipt> {Method(d)}(CommandArguments arguments) => CommandAlgebra.Run(runtime, \"{d.Descriptor}\", arguments);";
 
     static string Typescript(DiscoveryResult d) =>
-        $"{Method(d)}(args: CommandArguments): Promise<ReceiptEnvelopeWire<CommandReceiptWire>> {{ return this.run(\"{d.Descriptor}\", args); }}";
+        $"{Method(d)}(args: CommandArguments): Promise<ReceiptEnvelopeWire<CapabilityCommandReceiptWire>> {{ return this.run(\"{d.Descriptor}\", args); }}";
 
     static string Python(DiscoveryResult d) =>
         $"def {Method(d)}(self, args: CommandArguments) -> CommandReceipt: return self._run(\"{d.Descriptor}\", args)";
@@ -445,8 +445,8 @@ public static class SdkCodegen {
 
 ## [7]-[TS_PROJECTION]
 
-- Owner: `CapabilityDescriptorWire`, `CommandReceiptWire`, `DiscoveryResultWire` — the descriptor catalog and command-envelope wire shapes; per-record wire payloads ride the existing `ReceiptEnvelopeWire` and bind here as `TPayload`.
-- Entry: the descriptor catalog crosses as the `DiscoveryResultWire[]` the dashboard command palette ingests, and the command receipt reconstructs through the existing `ReceiptEnvelopeWire<CommandReceiptWire>`; the SDK codegen TS target emits methods over these same shapes.
+- Owner: `CapabilityDescriptorWire`, `CapabilityCommandReceiptWire`, `DiscoveryResultWire` — the descriptor catalog and command-envelope wire shapes; per-record wire payloads ride the existing `ReceiptEnvelopeWire` and bind here as `TPayload`.
+- Entry: the descriptor catalog crosses as the `DiscoveryResultWire[]` the dashboard command palette ingests, and the command receipt reconstructs through the existing `ReceiptEnvelopeWire<CapabilityCommandReceiptWire>`; the SDK codegen TS target emits methods over these same shapes.
 - Packages: BCL inbox
 - Growth: one wire-member row per new descriptor or receipt field; the transaction disposition crosses as a literal-discriminated union; zero new surface.
 - Boundary: effect, idempotency, and cost-unit keys cross as their smart-enum string keys; the cost vector crosses as a record of unit-keyed numbers; the transaction disposition reconstructs in TS as a literal-discriminated union on the disposition kind, mirroring the `CommandTxn` union cases; `scopeHash` crosses as the deterministic permission-scope string so the dashboard groups commands by scope without re-deriving the permission shape.
@@ -467,7 +467,7 @@ interface DiscoveryResultWire {
   readonly scopeHash: string;
 }
 
-interface CommandReceiptWire {
+interface CapabilityCommandReceiptWire {
   readonly descriptor: string;
   readonly txn:
     | { readonly kind: "committed"; readonly dispatch: string }

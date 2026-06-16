@@ -16,7 +16,7 @@ Rasm.Compute/
 ├── Units.cs                   # QuantityFamily — units-boundary#QUANTITY_TABLE, units-boundary#PARSE_FORMAT
 ├── Staging.cs                 # AllocationClass, StreamPool — staging-and-streams#ALLOCATION_AXIS, staging-and-streams#STREAM_POOL
 ├── Progress.cs                # ProgressPhase, SubscriptionPolicy, ProgressCell — progress-and-observation#PHASE_FAMILY, progress-and-observation#OBSERVATION_SEAMS
-├── Lanes.cs                   # WorkLane — scheduling-and-lanes#LANE_AXIS, scheduling-and-lanes#CPU_BUDGET
+├── Lanes.cs                   # WorkLane, CpuBudget — scheduling-and-lanes#LANE_AXIS, scheduling-and-lanes#CPU_BUDGET
 ├── Protos/
 │   └── Compute.proto          # WireServices, FaultDetail, ArtifactFrame — remote-lane#PROTO_VOCABULARY, remote-lane#ARTIFACT_FRAMES
 ├── Models/
@@ -27,7 +27,7 @@ Rasm.Compute/
 ├── Numeric/
 │   └── Lane.cs                # LinearProvider, FactorizationKind, Factorization, DenseOps, SparseFormat, SparseOps, KernelLowering, ShardPlan, NumericKeyPolicy — numeric-lane#DENSE_ALGEBRA, numeric-lane#SPARSE_SOLVE, numeric-lane#KERNEL_LOWERING, numeric-lane#PROVIDER_CLAIMS
 ├── Interchange/
-│   └── Interchange.cs         # InterchangeFormat, InterchangeCodec, InterchangeIo, FrameNormalization, UpAxis, Handedness, IfcSemanticModel, PointScan, FieldCodec, FieldArtifact, DeltaCodec, GeometryDeltaKind, GeometryDelta, TileSet, TessellationRequest, InterchangeIdentity, InterchangeKeyPolicy — interchange#FORMAT_AXIS, interchange#IMPORT_RAIL, interchange#EXPORT_RAIL, interchange#FIELD_RESULT_CODEC, interchange#GEOMETRY_DELTA, interchange#TWO_HOP_TESSELLATION, interchange#CONTENT_ADDRESSING
+│   └── Interchange.cs         # InterchangeFormat, InterchangeCodec, InterchangeIo, FrameNormalization, UpAxis, Handedness, IfcSemanticModel, PointScan, FieldCodec, FieldArtifact, DeltaCodec, GeometryDeltaKind, GeometryDelta, DeltaPolicy, InterchangePolicy, TileSet, TileNode, TessellationRequest, InterchangeIdentity, InterchangeKeyPolicy — interchange#FORMAT_AXIS, interchange#IMPORT_RAIL, interchange#EXPORT_RAIL, interchange#FIELD_RESULT_CODEC, interchange#GEOMETRY_DELTA, interchange#TWO_HOP_TESSELLATION, interchange#CONTENT_ADDRESSING
 ├── Solver/
 │   └── Lane.cs                # ElementClass, MeshAlgorithm, FieldStation, FieldSpace, DiscreteMesh, MeshKernel, PhysicsKind, BoundaryCondition, SolveMethod, SolveProblem, SolveResult, SolveLane, OptimizerKind, DesignVariable, ObjectiveSense, DesignProblem, ParetoFront, Optimizer, Surrogate, SweepAxis, SweepGrid, FrameBudget, SensitivityTornado, SweepLane, AccelerationStructure, ClashScale, ClashPair, DigitalTwin, TwinSignal, SolverKeyPolicy — solver-and-optimization#DISCRETIZATION_MESH, solver-and-optimization#SOLVE_CONTRACT, solver-and-optimization#OPTIMIZER_LANE, solver-and-optimization#SWEEP_AND_BUDGET, solver-and-optimization#CLASH_AND_TWIN
 ├── Remote/
@@ -35,7 +35,7 @@ Rasm.Compute/
 │   ├── Frames.cs              # FrameEdge — remote-lane#ARTIFACT_FRAMES
 │   └── Transports.cs          # RemoteTransport, CredentialPolicy, WireChannels, CallSpine — remote-lane#TRANSPORT_AXIS, remote-lane#CALL_POLICY
 ├── Intent.cs                  # ComputeIntent, Substrate, DispatchTable, IntentAdmission, SubstrateSelection — intent-and-selection#INTENT_FAMILY, intent-and-selection#SUBSTRATE_AXIS
-├── LaneRuntime.cs             # LaneRuntime — scheduling-and-lanes#SOLVE_GUARD, scheduling-and-lanes#DRAIN_CANCEL
+├── LaneRuntime.cs             # LaneRuntime, JobState, JobCheckpoint, JobNode, JobGraph — scheduling-and-lanes#SOLVE_GUARD, scheduling-and-lanes#DRAIN_CANCEL, scheduling-and-lanes#JOB_GRAPH
 ├── Receipts.cs                # ComputeReceipt, ReceiptSurface, HostFingerprint — receipts-and-benchmarks#RECEIPT_UNION, receipts-and-benchmarks#WIRE_STAMPS
 └── Benchmarks.cs              # BenchmarkClaim — receipts-and-benchmarks#BENCHMARK_CLAIMS
 ```
@@ -102,7 +102,8 @@ Text equivalent: `ComputeIntent` admits through `IntentAdmission` into an `Admit
 |  [11]   | Wire services       | `WireServices`          |  5 / 18 rpc  | remote-lane#PROTO_VOCABULARY                |
 |  [12]   | Contract drift      | `ContractDrift`         |      3       | remote-lane#CONTRACT_EVOLUTION              |
 |  [13]   | Transports          | `RemoteTransport`       |      4       | remote-lane#TRANSPORT_AXIS                  |
-|  [14]   | Credentials         | `CredentialPolicy`      |      4       | remote-lane#CALL_POLICY                     |
+|  [14]   | Credentials         | `CredentialPolicy`      |      5       | remote-lane#CALL_POLICY                     |
+|  [14a]  | Compression axis    | `CompressionProviders`  |      3       | remote-lane#CALL_POLICY                     |
 |  [15]   | Allocation classes  | `AllocationClass`       |      5       | staging-and-streams#ALLOCATION_AXIS         |
 |  [16]   | Work lanes          | `WorkLane`              |      5       | scheduling-and-lanes#LANE_AXIS              |
 |  [17]   | Progress phases     | `ProgressPhase`         |      9       | progress-and-observation#PHASE_FAMILY       |

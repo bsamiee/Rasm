@@ -163,12 +163,12 @@ public sealed record DependencyGraph(
 
 ## [4]-[CRDT_COEDIT]
 
-- Owner: `CrdtOp` `[Union]` the replicated edit operation; `NotebookCrdt` the conflict-free replicated document.
-- Entry: `public NotebookCrdt Apply(CrdtOp op)` — applies one replicated op idempotently; `public NotebookCrdt Merge(NotebookCrdt other)` — folds another replica's op-log into this one, converging without conflict.
-- Auto: each edit is a `CrdtOp` carrying its replica id and HLC stamp so the op-log totally orders by HLC with the replica id as the deterministic tiebreaker; cell insertion uses a fractional position index so two replicas inserting at the same spot converge to a stable order, cell deletion is a tombstone so a deleted cell never resurrects on merge, and cell-content edit is a last-writer-wins register keyed by HLC so concurrent edits to one cell resolve deterministically; `Merge` is commutative, associative, and idempotent so any two replicas that have seen the same op set hold the same document — the CRDT convergence law.
+- Owner: `NotebookOp` `[Union]` the replicated edit operation; `NotebookCrdt` the conflict-free replicated document.
+- Entry: `public NotebookCrdt Apply(NotebookOp op)` — applies one replicated op idempotently; `public NotebookCrdt Merge(NotebookCrdt other)` — folds another replica's op-log into this one, converging without conflict.
+- Auto: each edit is a `NotebookOp` carrying its replica id and HLC stamp so the op-log totally orders by HLC with the replica id as the deterministic tiebreaker; cell insertion uses a fractional position index so two replicas inserting at the same spot converge to a stable order, cell deletion is a tombstone so a deleted cell never resurrects on merge, and cell-content edit is a last-writer-wins register keyed by HLC so concurrent edits to one cell resolve deterministically; `Merge` is commutative, associative, and idempotent so any two replicas that have seen the same op set hold the same document — the CRDT convergence law.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project)
-- Growth: a new replicated edit is one `CrdtOp` case; zero new surface.
-- Boundary: the op-log rides the Persistence op-log and change-feed so co-editing transports through the settled sync vocabulary and the notebook mints no second sync — the `CrdtOp` projects onto the Persistence `OpLogEntry` at the seam; convergence is the CRDT law so a central merge server is the deleted form — two offline replicas reconcile on reconnect; the fractional-index insertion order and the tombstone deletion make merge conflict-free so a three-way merge dialog for cell order is structurally unnecessary; content edits are last-writer-wins by HLC so a concurrent same-cell edit resolves deterministically and the loser's text surfaces as a superseded op in the log, never silently dropped.
+- Growth: a new replicated edit is one `NotebookOp` case; zero new surface.
+- Boundary: the op-log rides the Persistence op-log and change-feed so co-editing transports through the settled sync vocabulary and the notebook mints no second sync — the `NotebookOp` projects onto the Persistence `OpLogEntry` at the seam; convergence is the CRDT law so a central merge server is the deleted form — two offline replicas reconcile on reconnect; the fractional-index insertion order and the tombstone deletion make merge conflict-free so a three-way merge dialog for cell order is structurally unnecessary; content edits are last-writer-wins by HLC so a concurrent same-cell edit resolves deterministically and the loser's text surfaces as a superseded op in the log, never silently dropped.
 
 ```csharp signature
 public readonly record struct HlcStamp(long Physical, int Logical, string Replica) {
@@ -179,11 +179,11 @@ public readonly record struct HlcStamp(long Physical, int Logical, string Replic
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record CrdtOp {
-    private CrdtOp() { }
-    public sealed record Insert(string CellId, double Position, NotebookCell Cell, HlcStamp At) : CrdtOp;
-    public sealed record Delete(string CellId, HlcStamp At) : CrdtOp;
-    public sealed record Edit(string CellId, string Source, HlcStamp At) : CrdtOp;
+public abstract partial record NotebookOp {
+    private NotebookOp() { }
+    public sealed record Insert(string CellId, double Position, NotebookCell Cell, HlcStamp At) : NotebookOp;
+    public sealed record Delete(string CellId, HlcStamp At) : NotebookOp;
+    public sealed record Edit(string CellId, string Source, HlcStamp At) : NotebookOp;
 
     public HlcStamp At => Switch(insert: static i => i.At, delete: static d => d.At, edit: static e => e.At);
 
@@ -194,10 +194,10 @@ public sealed record NotebookCrdt(
     string Key,
     HashMap<string, (double Position, NotebookCell Cell, HlcStamp At)> Live,
     Set<string> Tombstones,
-    Seq<CrdtOp> Log) {
-    public static NotebookCrdt Empty(string key) => new(key, HashMap<string, (double, NotebookCell, HlcStamp)>(), Set<string>(), Seq<CrdtOp>());
+    Seq<NotebookOp> Log) {
+    public static NotebookCrdt Empty(string key) => new(key, HashMap<string, (double, NotebookCell, HlcStamp)>(), Set<string>(), Seq<NotebookOp>());
 
-    public NotebookCrdt Apply(CrdtOp op) =>
+    public NotebookCrdt Apply(NotebookOp op) =>
         Log.Exists(seen => seen.At.Equals(op.At) && seen.CellId == op.CellId)
             ? this
             : op.Switch(
@@ -225,7 +225,7 @@ public sealed record NotebookCrdt(
 
 ## [5]-[REPLAY_BUNDLE]
 
-- Owner: `ReplayManifest` the pinned-input-and-capability manifest; `ReplayBundle` the export-to-replay artifact; `ReplayVerify` the bit-identity check.
+- Owner: `ReplayManifest` the pinned-input-and-capability manifest; `ReplayBundle` the export-to-replay artifact; `NotebookReplay` the bit-identity check.
 - Entry: `public static Fin<ReplayBundle> Export(Notebook notebook, HashMap<string, CellOutput> outputs, Func<string, IO<ReadOnlyMemory<byte>>> blob)` — `Fin` aborts when a code or chart cell carries no pin; the bundle packs the cells, the pinned capabilities, the input blobs, and the recorded outputs; `public static IO<Fin<bool>> Verify(ReplayBundle bundle, NotebookRuntime runtime)` — re-runs the notebook and compares each cell's output hash to the recorded hash.
 - Auto: the manifest records every cell's `CapabilityPin` and the content hash of every input blob so the bundle is self-contained — a replay resolves its capabilities from the manifest and its inputs from the packed blobs, never the live environment; `Verify` re-runs the dependency graph under the manifest's pins and asserts each output hash equals the recorded hash so a reproducibility regression surfaces as a named cell mismatch; the bundle is a versioned Persistence artifact so it crosses the blob lane as an opaque payload.
 - Receipt: `Verify` seals a render or evidence receipt per re-run cell; a mismatch folds the cell id into the replay-mismatch instrument.
@@ -258,7 +258,7 @@ public sealed record ReplayBundle(ReplayManifest Manifest, Notebook Notebook, Ha
                 notebook, blobs));
 }
 
-public static class ReplayVerify {
+public static class NotebookReplay {
     public const string MismatchInstrument = "rasm.appui.notebook.replay-mismatch";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
@@ -285,10 +285,10 @@ flowchart LR
     NotebookCell --> CapabilityPin
     Notebook --> DependencyGraph
     DependencyGraph --> RecomputePlan
-    NotebookCell --> CrdtOp
-    CrdtOp --> NotebookCrdt
+    NotebookCell --> NotebookOp
+    NotebookOp --> NotebookCrdt
     Notebook --> ReplayBundle
-    ReplayBundle --> ReplayVerify
+    ReplayBundle --> NotebookReplay
 ```
 
 ## [6]-[RESEARCH]
