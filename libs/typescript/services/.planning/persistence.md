@@ -4,11 +4,11 @@ One page owns the durable tier's SQL persistence boundary and the full entity-mo
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                       |
-| :-----: | :--------------- | :--------------------------------------------------------- |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                            |
+| :-----: | :--------------- | :-------------------------------------------------------------------------------- |
 |   [1]   | STORE_BOUNDARY   | the single PgClient/Migrator boundary and the one-Model.Class-per-entity registry |
-|   [2]   | TENANCY          | the multi-tenant RLS axis, lifecycle, and purge handler family |
-|   [3]   | WORK_AND_SIGNALS | jobs/DLQ, events, notifications, asset-export codec, feature-flag buckets |
+|   [2]   | TENANCY          | the multi-tenant RLS axis, lifecycle, and purge handler family                    |
+|   [3]   | WORK_AND_SIGNALS | jobs/DLQ, events, notifications, asset-export codec, feature-flag buckets         |
 
 ## [2]-[STORE_BOUNDARY]
 

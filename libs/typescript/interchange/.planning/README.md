@@ -1,14 +1,14 @@
 # [INTERCHANGE_PLANNING]
 
-`@rasm/interchange` owns the entire byte-to-typed-and-back wire boundary of the TS branch — the single grpc-web transport over four browser-dialable generated services, the six-codec polymorphic decode/encode rail family, the content-addressed artifact-frame reassembly, the exhaustive .NET-fault reconstruction, the contract-drift quarantine, and the outbound command gateway. Zero consumers exist; implementation is full-capability with no holding back; pages are transcribed, not re-designed. This is the inbound dependency root of the whole branch (descriptor set -> wire -> everything) and the SINGLE boundary at which the eleven C#->TS `#TS_PROJECTION` fences are transcribed verbatim — the domain authors no wire shape.
+`interchange` owns the entire byte-to-typed-and-back wire boundary of the TS branch — the single grpc-web transport over four browser-dialable generated services, the six-codec polymorphic decode/encode rail family, the content-addressed artifact-frame reassembly, the exhaustive .NET-fault reconstruction, the contract-drift quarantine, and the outbound command gateway. Zero consumers exist; implementation is full-capability with no holding back; pages are transcribed, not re-designed. This is the inbound dependency root of the whole branch (descriptor set -> wire -> everything) and the SINGLE boundary at which the eleven C#->TS `#TS_PROJECTION` fences are transcribed verbatim — the domain authors no wire shape.
 
 ## [1]-[PAGE_INDEX]
 
-| [INDEX] | [PAGE]                       | [OWNS]                                                                       | [STATE]   |
-| :-----: | :--------------------------- | :-------------------------------------------------------------------------- | :-------- |
-|   [1]   | transport.md                 | WireTransport + WireClients + TransportCapabilityWire + the buf codegen edge | provisional |
-|   [2]   | codec-rails.md               | the six-codec DecodeRail family + EncodeRail + SchemaRefinement + GeometryRail + ArtifactFrameRail + FaultDetailRail | provisional |
-|   [3]   | gateway-and-quarantine.md    | QuarantineFold + CONTRACT_INVENTORY + CommandGateway + IntentRegistry        | provisional |
+| [INDEX] | [PAGE]                    | [OWNS]                                                                                                               | [STATE]     |
+| :-----: | :------------------------ | :------------------------------------------------------------------------------------------------------------------- | :---------- |
+|   [1]   | transport.md              | WireTransport + WireClients + TransportCapabilityWire + the buf codegen edge                                         | provisional |
+|   [2]   | codec-rails.md            | the six-codec DecodeRail family + EncodeRail + SchemaRefinement + GeometryRail + ArtifactFrameRail + FaultDetailRail | provisional |
+|   [3]   | gateway-and-quarantine.md | QuarantineFold + CONTRACT_INVENTORY + CommandGateway + IntentRegistry                                                | provisional |
 
 ## [2]-[WIRE_PAGES]
 
@@ -26,31 +26,31 @@ Each page carries exactly one TS_PROJECTION cluster where it transcribes a C# `#
 
 ## [4]-[GAP_LEDGER]
 
-| [INDEX] | [GAP]                                                                 | [CLOSED_BY (page#cluster)]                          |
-| :-----: | :------------------------------------------------------------------- | :-------------------------------------------------- |
-|   [1]   | the six-codec rail proliferating into a parallel rail per codec       | codec-rails#CODEC_RAILS (one DecodeRail, codec key)  |
-|   [2]   | a SPA hand-rolling .NET-fault rendering per rail                      | codec-rails#CODEC_RAILS (FaultDetailRail Match.tagsExhaustive over the full fault set) |
-|   [3]   | the content-addressed cache silently diverging across C#/TS/Python    | codec-rails#CODEC_RAILS (ArtifactFrameRail ContentKey byte-identity, SPIKE) |
-|   [4]   | an unrecognized wire shape tearing the stream                         | gateway-and-quarantine#GATEWAY_AND_QUARANTINE (QuarantineFold) |
-|   [5]   | the dialing gateway leaking @connectrpc into the fold interior        | gateway-and-quarantine#GATEWAY_AND_QUARANTINE (gateway co-located in the transport-owning domain) |
+| [INDEX] | [GAP]                                                              | [CLOSED_BY (page#cluster)]                                                                        |
+| :-----: | :----------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ |
+|   [1]   | the six-codec rail proliferating into a parallel rail per codec    | codec-rails#CODEC_RAILS (one DecodeRail, codec key)                                               |
+|   [2]   | a SPA hand-rolling .NET-fault rendering per rail                   | codec-rails#CODEC_RAILS (FaultDetailRail Match.tagsExhaustive over the full fault set)            |
+|   [3]   | the content-addressed cache silently diverging across C#/TS/Python | codec-rails#CODEC_RAILS (ArtifactFrameRail ContentKey byte-identity, SPIKE)                       |
+|   [4]   | an unrecognized wire shape tearing the stream                      | gateway-and-quarantine#GATEWAY_AND_QUARANTINE (QuarantineFold)                                    |
+|   [5]   | the dialing gateway leaking @connectrpc into the fold interior     | gateway-and-quarantine#GATEWAY_AND_QUARANTINE (gateway co-located in the transport-owning domain) |
 
 ## [5]-[DENSITY_BAR]
 
 A new feature is a row or case, never a new surface. The owner-count budget folds every extension and mapping descriptor under its axis owner.
 
-| [INDEX] | [AXIS/CONCERN]            | [OWNER]                 | [KIND]                | [CASES]                                                  | [STATE]    |
-| :-----: | :------------------------ | :---------------------- | :-------------------- | :------------------------------------------------------- | :--------- |
-|   [1]   | outbound transport        | `WireTransport`         | Effect.Service         | one shared transport + one polymorphic interceptor stamp  | FINALIZED  |
-|   [2]   | generated clients         | `WireClients`           | derived record         | compute/document/control/health                          | FINALIZED  |
-|   [3]   | transport capability      | `TransportCapabilityWire` | Schema.Literal axis  | http2 (4 shapes) vs grpcWeb (2 shapes)                   | FINALIZED  |
-|   [4]   | byte-to-typed codec       | `DecodeRail`/`EncodeRail` | polymorphic family    | proto/messagepack/json-stj/geometry/artifact-frame/fault-detail × decode/encode | FINALIZED  |
-|   [5]   | decode-enforcement        | `SchemaRefinement`      | brand/filter rows      | guid/contentKey/ordinal/hlcLogical/headerDiscriminant     | FINALIZED  |
-|   [6]   | embedded geometry         | `GeometryRail`          | rail row               | GeoJSON projection off the proto GeometryPayload oneof    | FINALIZED  |
-|   [7]   | content-addressed frames  | `ArtifactFrameRail`     | rail row               | 64-KiB/Crc32/XxHash128 reassembly                         | SPIKE      |
-|   [8]   | exhaustive fault family   | `FaultDetailRail`       | Data.TaggedError + Match | ComputeFault/StoreFault/HopFault/ConfigError full set    | FINALIZED  |
-|   [9]   | contract-drift tolerance  | `QuarantineFold`        | fold terminal          | unknown/disconnect/additive/breaking                      | FINALIZED  |
-|  [10]   | outbound verb face        | `CommandGateway`        | Effect.Service         | captureSupport/setDegradation/reloadOptions               | FINALIZED  |
-|  [11]   | deep-link intents         | `IntentRegistry`        | key vocabulary         | stable string keys -> gateway verb + payload              | FINALIZED  |
+| [INDEX] | [AXIS/CONCERN]           | [OWNER]                   | [KIND]                   | [CASES]                                                                         | [STATE]   |
+| :-----: | :----------------------- | :------------------------ | :----------------------- | :------------------------------------------------------------------------------ | :-------- |
+|   [1]   | outbound transport       | `WireTransport`           | Effect.Service           | one shared transport + one polymorphic interceptor stamp                        | FINALIZED |
+|   [2]   | generated clients        | `WireClients`             | derived record           | compute/document/control/health                                                 | FINALIZED |
+|   [3]   | transport capability     | `TransportCapabilityWire` | Schema.Literal axis      | http2 (4 shapes) vs grpcWeb (2 shapes)                                          | FINALIZED |
+|   [4]   | byte-to-typed codec      | `DecodeRail`/`EncodeRail` | polymorphic family       | proto/messagepack/json-stj/geometry/artifact-frame/fault-detail × decode/encode | FINALIZED |
+|   [5]   | decode-enforcement       | `SchemaRefinement`        | brand/filter rows        | guid/contentKey/ordinal/hlcLogical/headerDiscriminant                           | FINALIZED |
+|   [6]   | embedded geometry        | `GeometryRail`            | rail row                 | GeoJSON projection off the proto GeometryPayload oneof                          | FINALIZED |
+|   [7]   | content-addressed frames | `ArtifactFrameRail`       | rail row                 | 64-KiB/Crc32/XxHash128 reassembly                                               | SPIKE     |
+|   [8]   | exhaustive fault family  | `FaultDetailRail`         | Data.TaggedError + Match | ComputeFault/StoreFault/HopFault/ConfigError full set                           | FINALIZED |
+|   [9]   | contract-drift tolerance | `QuarantineFold`          | fold terminal            | unknown/disconnect/additive/breaking                                            | FINALIZED |
+|  [10]   | outbound verb face       | `CommandGateway`          | Effect.Service           | captureSupport/setDegradation/reloadOptions                                     | FINALIZED |
+|  [11]   | deep-link intents        | `IntentRegistry`          | key vocabulary           | stable string keys -> gateway verb + payload                                    | FINALIZED |
 
 `ArtifactFrameRail` is SPIKE pending the tier-2 XxHash128 byte-identity harness; it is fully shaped now, not a deferred surface.
 
@@ -58,23 +58,23 @@ A new feature is a row or case, never a new surface. The owner-count budget fold
 
 The descriptor codegen edge precedes every runtime module; transport precedes the rails that read the descriptor registry; the gateway precedes nothing it does not read.
 
-| [INDEX] | [FILE]                    | [TRANSCRIBES]                                                        | [GATE]                          |
-| :-----: | :------------------------ | :------------------------------------------------------------------ | :------------------------------ |
-|   [1]   | buf.gen.yaml + gen/        | transport#CODEGEN_TOOLING                                           | buf generate emits src/gen      |
-|   [2]   | src/transport.ts          | transport#TRANSPORT_AND_CLIENTS + #CODEGEN_TOOLING                  | tsgo --noEmit clean             |
-|   [3]   | src/codec-rails.ts        | codec-rails#CODEC_RAILS                                              | tsgo + XxHash128 harness        |
-|   [4]   | src/gateway-and-quarantine.ts | gateway-and-quarantine (all three clusters)                     | tsgo + unit-pbt specs           |
-|   [5]   | src/index.ts              | the single neutral "." export                                       | exports resolve                 |
+| [INDEX] | [FILE]                        | [TRANSCRIBES]                                      | [GATE]                     |
+| :-----: | :---------------------------- | :------------------------------------------------- | :------------------------- |
+|   [1]   | buf.gen.yaml + gen/           | transport#CODEGEN_TOOLING                          | buf generate emits src/gen |
+|   [2]   | src/transport.ts              | transport#TRANSPORT_AND_CLIENTS + #CODEGEN_TOOLING | tsgo --noEmit clean        |
+|   [3]   | src/codec-rails.ts            | codec-rails#CODEC_RAILS                            | tsgo + XxHash128 harness   |
+|   [4]   | src/gateway-and-quarantine.ts | gateway-and-quarantine (all three clusters)        | tsgo + unit-pbt specs      |
+|   [5]   | src/index.ts                  | the single neutral "." export                      | exports resolve            |
 
 ## [7]-[PROOF_GATES]
 
-| [GATE]              | [COMMAND]                                  | [EVIDENCE]                                       |
-| :------------------ | :----------------------------------------- | :----------------------------------------------- |
-| catalog resolve     | `pnpm install`                             | catalogMode strict resolves @rasm/interchange    |
-| codegen             | `pnpm --filter @rasm/interchange buf:generate` | src/gen/*_pb.ts present                       |
-| typecheck           | tsgo `--noEmit` over the domain            | zero diagnostics                                 |
-| unit-pbt            | vitest project `interchange`               | codec-fold and frame-stitch algebraic laws pass  |
-| content-key spike   | tier-2 XxHash128 harness                   | byte-identity vs C# XxHash128 seed=0             |
+| [GATE]            | [COMMAND]                                      | [EVIDENCE]                                      |
+| :---------------- | :--------------------------------------------- | :---------------------------------------------- |
+| catalog resolve   | `pnpm install`                                 | catalogMode strict resolves @rasm/ts            |
+| codegen           | `pnpm --filter @rasm/ts buf:generate`          | interchange/gen/*_pb.ts present                 |
+| typecheck         | tsgo `--noEmit` over the domain                | zero diagnostics                                |
+| unit-pbt          | vitest project `interchange`                   | codec-fold and frame-stitch algebraic laws pass |
+| content-key spike | tier-2 XxHash128 harness                       | byte-identity vs C# XxHash128 seed=0            |
 
 ## [8]-[PROHIBITIONS]
 
@@ -82,17 +82,17 @@ No new public surface beside the eleven budgeted owners; no wrapper or rename ad
 
 ## [9]-[ADMISSIONS_RECORD]
 
-| [INDEX] | [PACKAGE]                | [PAGE]                     | [CATALOGUE]              | [STATUS]   |
-| :-----: | :----------------------- | :------------------------- | :----------------------- | :--------- |
-|   [1]   | @connectrpc/connect      | transport.md               | api-transport-wire       | admitted   |
-|   [2]   | @connectrpc/connect-web  | transport.md, gateway      | api-transport-wire       | admitted   |
-|   [3]   | @bufbuild/protobuf       | transport.md, codec-rails  | api-transport-wire       | admitted   |
-|   [4]   | @bufbuild/protoc-gen-es  | transport.md               | api-transport-wire       | admitted   |
-|   [5]   | @bufbuild/buf            | transport.md               | api-transport-wire       | admitted   |
-|   [6]   | @msgpack/msgpack         | codec-rails.md             | api-transport-wire       | admitted   |
-|   [7]   | xxhash-wasm              | codec-rails.md             | api-transport-wire       | admitted   |
-|   [8]   | rfc6902                  | codec-rails.md             | api-transport-wire       | admitted   |
-|   [9]   | effect                   | all pages                  | api-effect               | admitted   |
+| [INDEX] | [PACKAGE]               | [PAGE]                    | [CATALOGUE]        | [STATUS] |
+| :-----: | :---------------------- | :------------------------ | :----------------- | :------- |
+|   [1]   | @connectrpc/connect     | transport.md              | api-transport-wire | admitted |
+|   [2]   | @connectrpc/connect-web | transport.md, gateway     | api-transport-wire | admitted |
+|   [3]   | @bufbuild/protobuf      | transport.md, codec-rails | api-transport-wire | admitted |
+|   [4]   | @bufbuild/protoc-gen-es | transport.md              | api-transport-wire | admitted |
+|   [5]   | @bufbuild/buf           | transport.md              | api-transport-wire | admitted |
+|   [6]   | @msgpack/msgpack        | codec-rails.md            | api-transport-wire | admitted |
+|   [7]   | xxhash-wasm             | codec-rails.md            | api-transport-wire | admitted |
+|   [8]   | rfc6902                 | codec-rails.md            | api-transport-wire | admitted |
+|   [9]   | effect                  | all pages                 | api-effect         | admitted |
 
 ## [10]-[REFINEMENT_HORIZON]
 

@@ -15,9 +15,9 @@ Branch-level open work for `libs/typescript`. Per-domain open work lives in each
 ## [3]-[CROSS_BRANCH_PRECONDITION_DAG]
 
 - GlbViewport WebGL mesh render: waits on C# `remote-lane#TS_PROJECTION` promoting `GeometryPayload(mesh)`/`MeshTensor`, then the Python `libs/python/compute` IFC->GLB companion; TS is the last node. Recorded in region-map/seam-splits.md.
-- GraphFork CRDT projection-fold row: waits on the C# `sync-collaboration#MERGE_LAW` op-log amendment before `@rasm/projection` folds a CRDT op vocabulary.
-- Capability-descriptor SDK + MCP client codegen row on `@rasm/interchange`: waits on the C# `capability-registry#CAPABILITY_CATALOG`.
-- BCF anchor-algebra web render-surface + interchange anchor-codec: waits on the C# `annotation#ANCHOR_ALGEBRA`.
+- GraphFork CRDT projection-fold row: waits on the C# `sync-collaboration#MERGE_LAW` op-log amendment before `projection` folds a CRDT op vocabulary.
+- Capability-descriptor SDK + MCP client codegen row on `interchange`: waits on the C# `capability-registry#CAPABILITY_CATALOG`.
+- BCF anchor-algebra `ui` render-surface + `interchange` anchor-codec: waits on the C# `annotation#ANCHOR_ALGEBRA`.
 
 ## [4]-[NEXT_LOOP_DEEPENING]
 

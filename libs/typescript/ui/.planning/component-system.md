@@ -1,12 +1,12 @@
-# [WEB_COMPONENT_SYSTEM]
+# [UI_COMPONENT_SYSTEM]
 
 One page owns the role-based headless component taxonomy as ONE interaction-role vocabulary owner-block plus the theme-token surface and runtime CSS-var sync. The taxonomy is harvested as a vocabulary, not a component library: the eight interaction roles are one `Schema.Literal` owner-block of role leaves sorted internally, and a component is one headless behavior keyed by its role, never a parallel `.tsx` per component. The react-aria per-component implementation patterns are discarded — only the role vocabulary and the headless-behavior contract are owned. The theme tokens are a color-space-aware token owner synced to runtime CSS variables. The page composes the `binding.md` `AtomBinding` for any stateful role and holds no domain state.
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                       |
-| :-----: | :---------------- | :--------------------------------------------------------- |
-|   [1]   | COMPONENT_SYSTEM  | the interaction-role vocabulary owner-block and the theme tokens |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                           |
+| :-----: | :--------------- | :--------------------------------------------------------------- |
+|   [1]   | COMPONENT_SYSTEM | the interaction-role vocabulary owner-block and the theme tokens |
 
 ## [2]-[COMPONENT_SYSTEM]
 

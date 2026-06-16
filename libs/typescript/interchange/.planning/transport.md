@@ -4,10 +4,10 @@ One page owns the outbound transport edge of the platform-neutral wire boundary 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]             | [OWNS]                                                          |
-| :-----: | :-------------------- | :-------------------------------------------------------------- |
-|   [1]   | TRANSPORT_AND_CLIENTS | one shared transport, one client per service, the capability shape |
-|   [2]   | CODEGEN_TOOLING       | the committed-descriptor buf pipeline as the transport input    |
+| [INDEX] | [CLUSTER]             | [OWNS]                                                                  |
+| :-----: | :-------------------- | :---------------------------------------------------------------------- |
+|   [1]   | TRANSPORT_AND_CLIENTS | one shared transport, one client per service, the capability shape      |
+|   [2]   | CODEGEN_TOOLING       | the committed-descriptor buf pipeline as the transport input            |
 |   [3]   | TS_PROJECTION         | the proto service shapes and transport-capability the transport derives |
 
 ## [2]-[TRANSPORT_AND_CLIENTS]
@@ -17,7 +17,7 @@ One page owns the outbound transport edge of the platform-neutral wire boundary 
 - Entry: outbound calls cross one transport whose interceptor stamp axis is polymorphic over the correlation identifier, the trace parent, and the bearer credential, mirroring the `CallSpine.CorrelationKey`/`TraceparentKey` constants named on `remote-lane.md#TS_PROJECTION`; the interceptor is a connect-es async interceptor over a captured `Effect.runtime` snapshot taken once at service construction, never a generator — a single `Runtime.runPromise` per call resolves the live token producer (`AuthSession.tokenHeader`, the `Option<string>` full `Bearer` header value) and the active span in one effect, so a token cached past expiry never ships and the W3C `traceparent` is authored from the runtime-resolved span context, never a per-call double promise round-trip; the credential row is designed-only growth activating with the cross-origin deployment exactly as the C# `CredentialPolicy.Bearer` row gates the per-call mint; per-call cancellation threads interruption into transport cancellation through the call signal; one interceptor stamps all three header rows in one pass, never three parallel interceptors.
 - Packages: `@connectrpc/connect` for `createClient`, `@connectrpc/connect-web` for `createGrpcWebTransport`, `@bufbuild/protobuf` for the descriptor runtime, and `effect` for the transport-as-`Effect.Service` composition.
 - Growth: a new browser-dialable service lands as one generated client row over the same transport; a new remote verb lands as one generated method row; a cross-origin deployment lands the credential and CORS rows as designed-only growth mirrored from the C# boundary.
-- Boundary: the transport is same-origin under the co-hosted topology and configures no cross-origin header; the excluded client-stream and bidi lanes carry no browser path because the C# boundary excludes them, never because the branch invents an exclusion; `AuthSession` is consumed as a per-call token producer from `@rasm/web` and never owned here, so `@rasm/interchange` declares no OIDC dependency.
+- Boundary: the transport is same-origin under the co-hosted topology and configures no cross-origin header; the excluded client-stream and bidi lanes carry no browser path because the C# boundary excludes them, never because the branch invents an exclusion; `AuthSession` is consumed as a per-call token producer from `platform` and never owned here, so `interchange` declares no OIDC dependency.
 
 ```ts contract
 type StreamKind = "unary" | "serverStream" | "clientStream" | "bidi";
@@ -42,7 +42,7 @@ interface WireClients {
   readonly health: Client<typeof HealthService>;
 }
 
-class WireTransportLive extends Effect.Service<WireTransportLive>()("@rasm/interchange/WireTransport", {
+class WireTransportLive extends Effect.Service<WireTransportLive>()("@rasm/ts/interchange/WireTransport", {
   effect: Effect.gen(function* () {
     const config = yield* RuntimeConfig;
     const session = yield* AuthSession;

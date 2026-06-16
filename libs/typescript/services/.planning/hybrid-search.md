@@ -4,9 +4,9 @@ One page owns the fused hybrid-retrieval search owner — `HybridSearch`, the si
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                       |
-| :-----: | :------------- | :--------------------------------------------------------- |
-|   [1]   | HYBRID_SEARCH  | the fused semantic+lexical+trigram+phonetic weighted-rank owner |
+| [INDEX] | [CLUSTER]     | [OWNS]                                                          |
+| :-----: | :------------ | :-------------------------------------------------------------- |
+|   [1]   | HYBRID_SEARCH | the fused semantic+lexical+trigram+phonetic weighted-rank owner |
 
 ## [2]-[HYBRID_SEARCH]
 

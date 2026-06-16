@@ -6,20 +6,21 @@ The branch evidence protocol over the `.api/` catalogue set — the single decom
 
 - Source of truth: the installed `.d.ts` under `node_modules`, member-by-member, at the version the workspace catalog pins. `assay api query --key <pkg> --symbol <Name>` is the resolver; where the resolver mis-fuzzes across same-named exports (the `effect` 176-module case) or is unavailable on a non-interactive PATH, direct `.d.ts` grep is the authoritative fallback and is equivalent or stronger.
 - Completeness bar: every documented symbol exists with exact spelling, count=1; zero phantom APIs; no load-bearing surface missing. Overload sets render as the single canonical curried/data-last arm; large inferred conditional types render as the load-bearing call shape with the variant set spelled out.
-- Scope discipline: a catalogue is non-exhaustive by charter where a package ships hundreds of modules — it scopes to the load-bearing surfaces the four charters consume and records the deliberately-elided modules as scope decisions, never gaps.
+- Scope discipline: a catalogue is non-exhaustive by charter where a package ships hundreds of modules — it scopes to the load-bearing surfaces the five charters consume and records the deliberately-elided modules as scope decisions, never gaps.
 - Tier tag: where no Nx `project.json` tag exists yet, the catalogue records the stratum by import-graph inference (`node:*` imports → node; browser-only peers → browser; effect+platform only → neutral) and flags it as inference until the project graph materializes.
 
 ## [2]-[CATALOGUE_TO_DOMAIN_MAP]
 
-The four prior `.api` topology folders re-home under the four flat domains; the decompile-grounded surfaces are reused verbatim, only their owner-symbol references re-derive to the new owner set. The vestigial five-folder `.api` topology (wire-contracts/state-stores/runtime-host/view-surfaces/node-tier) is discarded.
+The four prior `.api` topology folders re-home under the five flat domains (the prior single browser `ui-stack` cluster splits across the `ui` render surface and the `platform` infrastructure surface); the decompile-grounded surfaces are reused verbatim, only their owner-symbol references re-derive to the new owner set. The vestigial five-folder `.api` topology (wire-contracts/state-stores/runtime-host/view-surfaces/node-tier) is discarded.
 
-| [PRIOR .API CLUSTER] | [DOMAIN]            | [LOAD-BEARING CATALOGUES]                                                                 |
-| :------------------- | :------------------ | :---------------------------------------------------------------------------------------- |
-| transport-wire       | `@rasm/interchange` | effect, @effect/platform, @effect/rpc surface for descriptors; the connect/buf/protobuf/msgpack/xxhash set |
+| [PRIOR .API CLUSTER] | [DOMAIN]            | [LOAD-BEARING CATALOGUES]                                                                                                                                             |
+| :------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| transport-wire       | `interchange`       | effect, @effect/platform, @effect/rpc surface for descriptors; the connect/buf/protobuf/msgpack/xxhash set                                                            |
 | effect-core          | branch (shared)     | effect — Effect/Service/Layer/Runtime/Scope/Fiber/Ref/SubscriptionRef/Schedule/Stream/Schema/Match/Metric/Logger/Tracer/Data/Option/Either/Exit/Cause/Config/Duration |
-| (state, derived)     | `@rasm/projection`  | effect (Stream/SubscriptionRef/Schedule/Schema), @effect-atom/atom as the cell bridge      |
-| ui-stack             | `@rasm/web`         | @effect/platform-browser, @effect-atom/atom + atom-react, @effect/opentelemetry, react-aria set, deck.gl/maplibre, arctic |
-| infra-data           | `@rasm/services`    | @effect/cluster, @effect/workflow, @effect/rpc, @effect/experimental, @effect/sql + sql-pg, @effect/ai set, @effect/cli, ioredis, @pulumi/* |
+| (state, derived)     | `projection`        | effect (Stream/SubscriptionRef/Schedule/Schema), @effect-atom/atom as the cell bridge                                                                                 |
+| ui-stack (render)    | `ui`                | @effect-atom/atom + atom-react, react-aria set, deck.gl/maplibre                                                                                                      |
+| ui-stack (infra)     | `platform`          | @effect/platform-browser, @effect/opentelemetry (sdk-trace-web), arctic, idb-keyval, nuqs, react-error-boundary, vite-plugin-pwa/workbox                              |
+| infra-data           | `services`          | @effect/cluster, @effect/workflow, @effect/rpc, @effect/experimental, @effect/sql + sql-pg, @effect/ai set, @effect/cli, ioredis, @pulumi/*                           |
 
 ## [3]-[VERIFIED_GAP_POSTURE]
 

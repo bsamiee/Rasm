@@ -4,11 +4,11 @@ One page owns the wire boundary's tolerance terminal and its outbound-verb face 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]                | [OWNS]                                                            |
-| :-----: | :----------------------- | :--------------------------------------------------------------- |
-|   [1]   | CONTRACT_INVENTORY       | the eleven-cluster contract map and the codec-posture and versioning fences |
-|   [2]   | GATEWAY_AND_QUARANTINE    | the tolerance fold plus the command gateway and intent registry  |
-|   [3]   | TS_PROJECTION            | the command, availability, and envelope wire shapes the gateway binds |
+| [INDEX] | [CLUSTER]              | [OWNS]                                                                      |
+| :-----: | :--------------------- | :-------------------------------------------------------------------------- |
+|   [1]   | CONTRACT_INVENTORY     | the eleven-cluster contract map and the codec-posture and versioning fences |
+|   [2]   | GATEWAY_AND_QUARANTINE | the tolerance fold plus the command gateway and intent registry             |
+|   [3]   | TS_PROJECTION          | the command, availability, and envelope wire shapes the gateway binds       |
 
 ## [2]-[CONTRACT_INVENTORY]
 
@@ -19,28 +19,28 @@ One page owns the wire boundary's tolerance terminal and its outbound-verb face 
 - Growth: a new wire contract lands as one inventory row under its owning package and codec; a new suite anchor lands as one cross-cluster binding row; a new versioning invariant lands as one `SchemaRefinement` row on `codec-rails.md#CODEC_RAILS`, never a prose assertion here; the four host-local .NET pages carry no `#TS_PROJECTION` cluster and never enter the inventory.
 - Boundary: telemetry crosses no wire contract — the AppHost OTLP exporter ships signals from the app roots to the collector and dashboards read the collector; the four host-local .NET pages reconstruct solely through `ReceiptEnvelopeWire` and author no second wire shape; the branch stamps no tenancy onto an outbound call — tenancy is a server-minted receipt dimension the TS side only reads; every invariant names the `SchemaRefinement` row that enforces it rather than restating it untyped.
 
-| [INDEX] | [C# CLUSTER]                     | [CODEC]     | [TS RAIL/FOLD]                                       |
-| :-----: | :------------------------------- | :---------- | :--------------------------------------------------- |
-|   [1]   | AppHost/lifecycle-and-drain      | json-stj    | RuntimeFeed                                           |
-|   [2]   | AppHost/health-and-degradation   | json-stj    | HealthStore                                           |
-|   [3]   | AppHost/support-bundles          | json-stj    | CommandGateway capture-support                        |
-|   [4]   | AppHost/runtime-ports            | json-stj    | ReceiptEnvelopeCarrier                                |
-|   [5]   | Persistence/snapshot-codecs      | messagepack | GeometryRail + SnapshotFeed                           |
-|   [6]   | Persistence/sync-collaboration   | messagepack | DecodeRail + ConflictPresenceStore                    |
-|   [7]   | Compute/remote-lane              | proto       | WireClients + ArtifactFrameRail + FaultDetailRail     |
-|   [8]   | Compute/progress-and-observation | proto       | ProgressStore                                         |
-|   [9]   | Compute/receipts-and-benchmarks  | json-stj    | ReceiptStore + BenchmarkRoute                         |
-|  [10]   | AppUi/commands-availability      | json-stj    | CommandGateway + AvailabilityStore                    |
-|  [11]   | AppUi/diagnostics-evidence       | json-stj    | EvidenceFeed + EvidenceTimelineRoute                  |
+| [INDEX] | [C# CLUSTER]                     | [CODEC]     | [TS RAIL/FOLD]                                    |
+| :-----: | :------------------------------- | :---------- | :------------------------------------------------ |
+|   [1]   | AppHost/lifecycle-and-drain      | json-stj    | RuntimeFeed                                       |
+|   [2]   | AppHost/health-and-degradation   | json-stj    | HealthStore                                       |
+|   [3]   | AppHost/support-bundles          | json-stj    | CommandGateway capture-support                    |
+|   [4]   | AppHost/runtime-ports            | json-stj    | ReceiptEnvelopeCarrier                            |
+|   [5]   | Persistence/snapshot-codecs      | messagepack | GeometryRail + SnapshotFeed                       |
+|   [6]   | Persistence/sync-collaboration   | messagepack | DecodeRail + ConflictPresenceStore                |
+|   [7]   | Compute/remote-lane              | proto       | WireClients + ArtifactFrameRail + FaultDetailRail |
+|   [8]   | Compute/progress-and-observation | proto       | ProgressStore                                     |
+|   [9]   | Compute/receipts-and-benchmarks  | json-stj    | ReceiptStore + BenchmarkRoute                     |
+|  [10]   | AppUi/commands-availability      | json-stj    | CommandGateway + AvailabilityStore                |
+|  [11]   | AppUi/diagnostics-evidence       | json-stj    | EvidenceFeed + EvidenceTimelineRoute              |
 
 ## [3]-[GATEWAY_AND_QUARANTINE]
 
-- Owner: `QuarantineFold`, the single tolerance terminal every decode passes through, plus `CommandGateway`, the single gateway over the control verbs as the outbound-dial face of `WireClients`, and `IntentRegistry`, the deep-link key vocabulary the gateway resolves. The gateway is generated-client unary calls and a receipt fold — wire-consumption, co-located with the transport-owning domain because dialing dispatch is its outbound-effect surface even though it reads the availability fold, never folded into the platform-neutral `@rasm/projection` interior where it would leak `@connectrpc/connect-web` into the fold tier.
-- Cases: an unknown discriminant folds to a quarantine case so the stream survives; a disconnect marks the value stale with a typed retry; an additive member skip-decodes; a breaking drift surfaces as a typed fault through `FaultDetailRail`. `CommandGateway` turns a UI intent into a unary call and folds the receipt back toward the `@rasm/projection` `AvailabilityStore` fold (an intra-package module edge, the store provided through the `invoke` `R` channel); the three verbs — capture a support bundle, set a degradation level, reload options — dial the control-service verbs on `remote-lane.md#TS_PROJECTION` and the support capture verb against `support-bundles.md#TS_PROJECTION`, payloads and outcomes carried by the command wire shapes against `commands-availability.md#TS_PROJECTION`; each dial runs through `Effect.tryPromise` whose `catch` hands the `ConnectError` to `FaultDetailRail.fromTrailer` so the dial surfaces the typed fault the rail reconstructs rather than swallowing the `ConnectError` as an opaque defect, and a fault-decode failure folds to the typed `FaultDetail.Quarantine` case. `IntentRegistry` addresses command intents by stable string keys against `commands-availability.md#TS_PROJECTION` so deep links survive a reload; a resolved intent dispatches through `CommandGateway` carrying its payload.
-- Entry: the exhaustive case-fold proves at the type level that every wire discriminant the C# side enumerated has a landing, the quarantine case being the landing for the not-yet-enumerated; `CommandGateway` reads the `AvailabilityStore` fold as a gate so a disabled command never fires and holds no domain state of its own — the `AvailabilityStore` requirement rides the `invoke` `R` channel explicitly so the capability is never silently dropped, the fold being provided at the SPA composition root, not closed over here; intents resolve from the `@rasm/web` `DeepLinkBinding` query string, the key being the stable identifier never a re-derived display string.
+- Owner: `QuarantineFold`, the single tolerance terminal every decode passes through, plus `CommandGateway`, the single gateway over the control verbs as the outbound-dial face of `WireClients`, and `IntentRegistry`, the deep-link key vocabulary the gateway resolves. The gateway is generated-client unary calls and a receipt fold — wire-consumption, co-located with the transport-owning domain because dialing dispatch is its outbound-effect surface even though it reads the availability fold, never folded into the platform-neutral `projection` interior where it would leak `@connectrpc/connect-web` into the fold tier.
+- Cases: an unknown discriminant folds to a quarantine case so the stream survives; a disconnect marks the value stale with a typed retry; an additive member skip-decodes; a breaking drift surfaces as a typed fault through `FaultDetailRail`. `CommandGateway` turns a UI intent into a unary call and folds the receipt back toward the `projection` `AvailabilityStore` fold (an intra-package module edge, the store provided through the `invoke` `R` channel); the three verbs — capture a support bundle, set a degradation level, reload options — dial the control-service verbs on `remote-lane.md#TS_PROJECTION` and the support capture verb against `support-bundles.md#TS_PROJECTION`, payloads and outcomes carried by the command wire shapes against `commands-availability.md#TS_PROJECTION`; each dial runs through `Effect.tryPromise` whose `catch` hands the `ConnectError` to `FaultDetailRail.fromTrailer` so the dial surfaces the typed fault the rail reconstructs rather than swallowing the `ConnectError` as an opaque defect, and a fault-decode failure folds to the typed `FaultDetail.Quarantine` case. `IntentRegistry` addresses command intents by stable string keys against `commands-availability.md#TS_PROJECTION` so deep links survive a reload; a resolved intent dispatches through `CommandGateway` carrying its payload.
+- Entry: the exhaustive case-fold proves at the type level that every wire discriminant the C# side enumerated has a landing, the quarantine case being the landing for the not-yet-enumerated; `CommandGateway` reads the `AvailabilityStore` fold as a gate so a disabled command never fires and holds no domain state of its own — the `AvailabilityStore` requirement rides the `invoke` `R` channel explicitly so the capability is never silently dropped, the fold being provided at the SPA composition root, not closed over here; intents resolve from the `ui` `DeepLinkBinding` query string, the key being the stable identifier never a re-derived display string.
 - Packages: `@connectrpc/connect-web` for the unary dial, `@bufbuild/protobuf` for the request message construction, and `effect` for the `Match` primitive and the gateway-and-registry `Effect.Service` composition.
 - Growth: a new union case the C# side adds lands as one literal on the owning rail and one fold arm; a new control verb lands as one `CommandGateway` method, never a sibling gateway; a new addressable intent lands as one `IntentRegistry` key bound to one gateway verb.
-- Boundary: tolerance is a consumption behavior layered over the settled shape, never a modification of it; the `runtime-ports.md#WIRE_LAW` anchor is read only for the converter-precedence and HLC-stamp envelope-payload-binding discipline, never for token grounding; a second gateway beside `CommandGateway` is the named defect, and the gateway reads availability as a gate but never holds it — `AvailabilityStore` lives in `@rasm/projection`; a transport interceptor reading `AuthSession` is the only credential path and `@rasm/interchange` owns no session state.
+- Boundary: tolerance is a consumption behavior layered over the settled shape, never a modification of it; the `runtime-ports.md#WIRE_LAW` anchor is read only for the converter-precedence and HLC-stamp envelope-payload-binding discipline, never for token grounding; a second gateway beside `CommandGateway` is the named defect, and the gateway reads availability as a gate but never holds it — `AvailabilityStore` lives in `projection`; a transport interceptor reading `AuthSession` is the only credential path and `interchange` owns no session state.
 
 ```ts contract
 type StaleMarker = { readonly _tag: "Stale"; readonly since: number };
@@ -59,7 +59,7 @@ interface IntentRegistry {
   readonly resolve: (key: string) => Option.Option<{ readonly verb: ControlVerb; readonly payload: CommandPayloadWire }>;
 }
 
-class CommandGatewayLive extends Effect.Service<CommandGatewayLive>()("@rasm/interchange/CommandGateway", {
+class CommandGatewayLive extends Effect.Service<CommandGatewayLive>()("@rasm/ts/interchange/CommandGateway", {
   effect: Effect.gen(function* () {
     const clients = yield* WireClients;
     const rail = yield* FaultDetailRail;
