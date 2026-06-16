@@ -1,6 +1,6 @@
 # [PERSISTENCE_SERVER_TIER]
 
-Rasm.Persistence owns the self-provisioned PostgreSQL 18.4 server tier as five raw-SQL provisioning surfaces distinct from the `schema-rail#EXTENSION_DDL` self-provisioned `CREATE EXTENSION` set and the `store-profiles#PROVISIONING_ROWS` operator-verify manifest: `TimescaleProvisioning` folds hypertable, continuous-aggregate, retention, and columnstore DDL over the `OpLogEntry`-rollup table; `SearchProvisioning` lands pgvectorscale diskann and pg_search BM25 index DDL through `MigrationBuilder.Sql`; `ClusterConfig` carries the deploy-time GUC fragments verified read-only against `pg_settings`; `TenancyModel` is the multi-tenancy and RLS axis tying the host profile to a `CREATE POLICY`; and `MigrationBundle` is the service-deploy gate over idempotent script output and the self-contained bundle artifact. The page spine is Npgsql, the Npgsql EF provider, Microsoft.EntityFrameworkCore.Design, Thinktecture vocabulary, LanguageExt rails, and NodaTime.
+Rasm.Persistence owns the self-provisioned PostgreSQL 18.4 server tier as five raw-SQL provisioning surfaces distinct from the `schema-rail#EXTENSION_DDL` self-provisioned `CREATE EXTENSION` set and the `store-profiles#PROVISIONING_ROWS` operator-verify manifest: `TimescaleProvisioning` folds hypertable, continuous-aggregate, retention, and columnstore DDL over the `OpLogEntry`-rollup table; `SearchProvisioning` lands pgvectorscale diskann and pg_search BM25 index DDL through `MigrationBuilder.Sql`; `ClusterConfig` carries the deploy-time GUC fragments verified read-only against `pg_settings`; `TenancyModel` is the multi-tenancy and RLS axis tying the host profile to a `CREATE POLICY`, deepened by the `TenantProvision` tenant-lifecycle fold and the `TenantQuota` per-tenant resource-bound column; and `MigrationBundle` is the service-deploy gate over idempotent script output and the self-contained bundle artifact. The page spine is Npgsql, the Npgsql EF provider, Microsoft.EntityFrameworkCore.Design, Thinktecture vocabulary, LanguageExt rails, and NodaTime.
 
 ## [1]-[INDEX]
 
@@ -9,7 +9,7 @@ Rasm.Persistence owns the self-provisioned PostgreSQL 18.4 server tier as five r
 |   [1]   | TIMESCALE_PROVISIONING  | Hypertable, continuous-aggregate, retention, columnstore DDL   |
 |   [2]   | SEARCH_PROVISIONING     | diskann and BM25 index DDL over the preload-gated companions   |
 |   [3]   | CLUSTER_CONFIG          | Deploy-time GUC fragments verified read-only against settings  |
-|   [4]   | TENANCY_RLS             | Multi-tenancy axis tying the host profile to an RLS policy     |
+|   [4]   | TENANCY_RLS             | Multi-tenancy axis, tenant lifecycle provisioning, per-tenant quota |
 |   [5]   | MIGRATION_BUNDLE        | Idempotent script output and the self-contained deploy gate    |
 
 ## [2]-[TIMESCALE_PROVISIONING]
@@ -101,14 +101,14 @@ public static class ClusterConfig {
 
 ## [5]-[TENANCY_RLS]
 
-- Owner: `TenancyModel` — the multi-tenancy `[SmartEnum<string>]` axis under the `StoreKeyPolicy` ordinal accessor; `RlsPolicy` is the per-tenant `CREATE POLICY` projection.
-- Cases: single | schema | rls | db-per-tenant.
-- Entry: `public static string Policy(TenancyModel model, string table, string tenantColumn)` — projects the RLS-policy SQL; only the `rls` row emits an `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY` pair, every other row projects the empty string.
-- Auto: the `rls` row emits `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` plus a `CREATE POLICY` keyed on the tenant-id column the op-log carries so sync converges per tenant and content-address cache keys partition by tenant; the tenant id rides the `current_setting('rasm.tenant')::uuid` session GUC; the per-tenant RLS-policy-applied fact plus the pgaudit-category binding fact fold into the provisioning verifier.
-- Receipt: a per-tenant RLS-policy-applied `StoreFact` row plus the `AuditBinding.BindTenant` result fact fold into the open receipt's proof rows; a tenant-isolation mismatch is a typed provisioning fault, never silent.
-- Packages: Npgsql, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
-- Growth: one `TenancyModel` row per new isolation strategy; zero new surface.
-- Boundary: `TenancyModel` is one axis row tying the host profile to an RLS policy, never a forked store family — PostgreSQL with RLS is the same `store-profiles#PROFILE_AXIS` `PostgresServer` profile, never a new engine, and the charter prohibition against admitting a new engine row holds; the tenant id arrives from the AppHost `TenantContext` threading owned at `AppHost/runtime-ports#PORT_RECORDS`, never minted here; the audit-category consequence — a tenant-id-bearing classification binding to one pgaudit category — is owned at `redaction-retention#AUDIT_BINDING`, and this cluster owns only the RLS-policy mechanics; the `schema`/`db-per-tenant` rows carry no policy SQL because their isolation is a connection-routing concern resolved by the host placement, not a row-level predicate.
+- Owner: `TenancyModel` — the multi-tenancy `[SmartEnum<string>]` axis under the `StoreKeyPolicy` ordinal accessor; `RlsPolicy` is the per-tenant `CREATE POLICY` projection; `TenantProvision` is the per-model tenant-lifecycle fold projecting the create-and-destroy DDL over the `TenantContext` resolution; `TenantQuota` is the per-tenant resource-bound column the write path and interceptor enforce; `TenantReceipt` is the typed lifecycle evidence.
+- Cases: `TenancyModel` single | schema | rls | db-per-tenant; `TenantProvision` create | destroy over each `TenancyModel` row; `TenantQuota` carries the connection-cap, statement-timeout, and write-byte-rate bounds per tenant.
+- Entry: `public static string Policy(TenancyModel model, string table, string tenantColumn)` projects the RLS-policy SQL; `public static Seq<string> Provision(TenancyModel model, TenantContext tenant, TenantQuota quota)` folds the per-model create DDL — schema/role/policy/GUC steps keyed on the tenant slug and id; `public static Seq<string> Destroy(TenancyModel model, TenantContext tenant)` folds the per-model teardown; only the `rls` row emits an `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY` pair from `Policy`, every other row projects the empty string.
+- Auto: the `rls` row emits `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` plus a `CREATE POLICY` keyed on the tenant-id column the op-log carries so sync converges per tenant and content-address cache keys partition by tenant; the tenant id rides the `current_setting('rasm.tenant')::uuid` session GUC; `Provision` derives every create step from the resolved `TenantContext` — the `schema` row creates the tenant schema and search-path role, the `rls` row seeds the policy and the per-tenant GUC defaults, the `db-per-tenant` row emits the `CREATE DATABASE` template clone, and each row folds the `TenantQuota` bounds as `ALTER ROLE ... CONNECTION LIMIT` and `ALTER ROLE ... SET statement_timeout` GUC rows so the quota is a deploy-time role constraint rather than a runtime branch; `Destroy` mirrors each create with its idempotent `DROP ... IF EXISTS` step; the per-tenant RLS-policy-applied fact, the per-tenant quota-set fact, and the pgaudit-category binding fact fold into the provisioning verifier.
+- Receipt: `TenantReceipt(TenantId, Slug, TenancyModel Model, Seq<string> Applied, TenantQuota Quota, CorrelationId Correlation, Instant At)` is the lifecycle evidence; a per-tenant RLS-policy-applied `StoreFact` row, a `tenant.quota.applied` fact carrying the connection-cap and statement-timeout values, and the `AuditBinding.BindTenant` result fact fold into the open receipt's proof rows; a tenant-isolation mismatch or a quota-set failure is a typed provisioning fault, never silent.
+- Packages: Npgsql, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
+- Growth: one `TenancyModel` row per new isolation strategy; one `TenantQuota` field per new resource bound; one `TenantProvision` step per new per-model create/destroy fragment; zero new surface.
+- Boundary: `TenancyModel` is one axis row tying the host profile to an RLS policy, never a forked store family — PostgreSQL with RLS is the same `store-profiles#PROFILE_AXIS` `PostgresServer` profile, never a new engine, and the charter prohibition against admitting a new engine row holds; the tenant id arrives from the AppHost `TenantContext` threading owned at `AppHost/runtime-ports#PORT_RECORDS`, never minted here — `TenantProvision`/`Destroy` consume the resolved `TenantContext.TenantId`/`Slug` as settled input, so the tenant-id resolution stays the AppHost concern and only the per-model DDL lifecycle is owned here; the audit-category consequence — a tenant-id-bearing classification binding to one pgaudit category — is owned at `redaction-retention#AUDIT_BINDING`, and this cluster owns only the RLS-policy and lifecycle mechanics; `TenantQuota` is a column on the tenant-lifecycle fold, never a second rate-limiter — the runtime write-path enforcement reads the same quota bounds at `query-rail#BULK_LANE` and the connection-cap enforcement rides the role `CONNECTION LIMIT` the provisioning emits, so the AppHost resource governor and this server-side bound are one declared set rather than parallel limiters; the `schema`/`db-per-tenant` rows carry no `Policy` SQL because their isolation is a connection-routing concern resolved by the host placement, not a row-level predicate, but they carry full `Provision`/`Destroy` lifecycle DDL because schema and database creation are server-tier concerns.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -121,6 +121,12 @@ public sealed partial class TenancyModel {
     public static readonly TenancyModel DbPerTenant = new("db-per-tenant");
 }
 
+public sealed record TenantQuota(int ConnectionLimit, string StatementTimeout, long WriteBytesPerSecond);
+
+public sealed record TenantReceipt(
+    UInt128 TenantId, string Slug, TenancyModel Model, Seq<string> Applied,
+    TenantQuota Quota, CorrelationId Correlation, Instant At);
+
 public static class RlsPolicy {
     public static string Policy(TenancyModel model, string table, string tenantColumn) =>
         model.Switch(
@@ -129,6 +135,34 @@ public static class RlsPolicy {
             schema: static _ => string.Empty,
             rls: static s => $"ALTER TABLE {s.Table} ENABLE ROW LEVEL SECURITY; CREATE POLICY {s.Table}_tenant ON {s.Table} USING ({s.Tenant} = current_setting('rasm.tenant')::uuid)",
             dbPerTenant: static _ => string.Empty);
+}
+
+public static class TenantProvision {
+    public static Seq<string> Provision(TenancyModel model, TenantContext tenant, TenantQuota quota) =>
+        model.Switch(
+            state: (Tenant: tenant, Quota: quota),
+            single: static _ => Seq<string>(),
+            schema: static s => Seq(
+                $"CREATE SCHEMA IF NOT EXISTS tenant_{s.Tenant.Slug}",
+                $"CREATE ROLE tenant_{s.Tenant.Slug} WITH LOGIN CONNECTION LIMIT {s.Quota.ConnectionLimit}",
+                $"ALTER ROLE tenant_{s.Tenant.Slug} SET search_path = tenant_{s.Tenant.Slug}",
+                $"ALTER ROLE tenant_{s.Tenant.Slug} SET statement_timeout = '{s.Quota.StatementTimeout}'"),
+            rls: static s => Seq(
+                $"CREATE ROLE tenant_{s.Tenant.Slug} WITH LOGIN CONNECTION LIMIT {s.Quota.ConnectionLimit}",
+                $"ALTER ROLE tenant_{s.Tenant.Slug} SET rasm.tenant = '{s.Tenant.TenantId}'",
+                $"ALTER ROLE tenant_{s.Tenant.Slug} SET statement_timeout = '{s.Quota.StatementTimeout}'"),
+            dbPerTenant: static s => Seq(
+                $"CREATE DATABASE tenant_{s.Tenant.Slug} TEMPLATE rasm_template CONNECTION LIMIT {s.Quota.ConnectionLimit}"));
+
+    public static Seq<string> Destroy(TenancyModel model, TenantContext tenant) =>
+        model.Switch(
+            state: tenant,
+            single: static _ => Seq<string>(),
+            schema: static t => Seq(
+                $"DROP SCHEMA IF EXISTS tenant_{t.Slug} CASCADE",
+                $"DROP ROLE IF EXISTS tenant_{t.Slug}"),
+            rls: static t => Seq($"DROP ROLE IF EXISTS tenant_{t.Slug}"),
+            dbPerTenant: static t => Seq($"DROP DATABASE IF EXISTS tenant_{t.Slug} WITH (FORCE)"));
 }
 ```
 

@@ -155,14 +155,14 @@ public static class SyncMerge {
 
 ## [4]-[TRANSPORT_AXIS]
 
-- Owner: `SyncTopology` and `SyncDirection` keyless vocabularies; `SyncTransport` `[Union]`; the `SyncPump` dispatch surface with the `CopyGraph` transport bridge.
-- Cases: 3 transport cases — PgLogicalReplication, HttpDelta, SpeckleLikeDiff — widened by the `Topology` and `Direction` fields; fan-in, fan-out, and capture direction are field values, never new cases.
-- Entry: `public static IO<SyncApplyReceipt> Run(SyncSession session, SyncTransport transport)` — one total state-threaded dispatch.
+- Owner: `SyncTopology` and `SyncDirection` keyless vocabularies; `SyncTransport` `[Union]`; the `SyncPump` dispatch surface with the `CopyGraph` transport bridge; `GraphDiff` is the named set-difference diff-algebra `CopyGraph` and `SubtreeFetch` both dial — the closure-manifest set-difference over `Holds` membership that yields the missing content-key set; `SubtreeFetch` is the partial-graph checkout route fetching only the descendants of a chosen root rather than the whole graph.
+- Cases: 3 transport cases — PgLogicalReplication, HttpDelta, SpeckleLikeDiff — widened by the `Topology` and `Direction` fields; fan-in, fan-out, and capture direction are field values, never new cases; `GraphDiff` carries the two diff operands — the source closure manifest and the target `Holds` predicate — never a new transport case.
+- Entry: `public static IO<SyncApplyReceipt> Run(SyncSession session, SyncTransport transport)` — one total state-threaded dispatch; `public static Seq<UInt128> GraphDiff(OpLogEntry root, Func<UInt128, bool> holds)` is the set-difference diff-algebra projecting the missing-key set; `public static IO<SyncApplyReceipt> SubtreeFetch(SyncSession source, SyncSession target, UInt128 root)` is the partial-graph checkout over the diff.
 - Auto: `Options` fixes the non-obsolete pgoutput spelling — protocol V4, parallel streaming, binary wire; `Open` is the slot-attach stream with `StartReplication` taking a non-optional cancellation token; `CreatePgOutputReplicationSlot` creates the slot and acknowledgement rides `SetReplicationStatus` with the applied-and-flushed LSN after each committed apply, flushed by `SendStatusUpdate` or the 10-second `WalReceiverStatusInterval` feedback cadence.
 - Receipt: every pump run yields one `SyncApplyReceipt`; slot lifecycle evidence rides `ReceiptSinkPort` kinds.
 - Packages: Npgsql, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
-- Growth: a new transport is one case row plus one dispatch arm, zero new surface; future PowerSync lands as one case behind its admission gate; future cr-sqlite lands as native-sqlite extension rows plus merge-law rows, never a case here.
-- Boundary: HttpDelta rides the AppHost `OutboundHop` http-api keyed pipeline — retry, backoff, and hop deadlines are owned there and the database stays excluded from the hop law; the document-granular fallback is the RFC 6902 patch payload, subordinate to the op-log changefeed, and RFC 7386 merge-patch is the rejected form; SSE and WebSocket transports are rejected — server-stream verbs own streaming; the obsolete ulong-protocol `PgOutputReplicationOptions` constructor is the rejected spelling, and `TestDecodingOptions` is the named rejected alternative output plugin — its human-readable text frames carry no typed message family, so pgoutput's binary `PgOutputReplicationMessage` leaves stay the only decode path; `Decode` folds the pgoutput message family — `InsertMessage`, the `DefaultUpdateMessage`/`FullUpdateMessage`/`IndexUpdateMessage` update leaves, the `KeyDeleteMessage`/`FullDeleteMessage` delete leaves, `TruncateMessage`, and the stream control frames — over `RelationMessage` schema context into op-log entries behind the session delegate; a transport bridge is two sessions composed through `CopyGraph` — transport state and op-log mechanics live here, the wire leg is the settled proto vocabulary.
+- Growth: a new transport is one case row plus one dispatch arm, zero new surface; future PowerSync lands as one case behind its admission gate; future cr-sqlite lands as native-sqlite extension rows plus merge-law rows, never a case here; a new graph-checkout shape is one entry over `GraphDiff`, never a second diff algebra.
+- Boundary: HttpDelta rides the AppHost `OutboundHop` http-api keyed pipeline — retry, backoff, and hop deadlines are owned there and the database stays excluded from the hop law; the document-granular fallback is the RFC 6902 patch payload, subordinate to the op-log changefeed, and RFC 7386 merge-patch is the rejected form; SSE and WebSocket transports are rejected — server-stream verbs own streaming; the obsolete ulong-protocol `PgOutputReplicationOptions` constructor is the rejected spelling, and `TestDecodingOptions` is the named rejected alternative output plugin — its human-readable text frames carry no typed message family, so pgoutput's binary `PgOutputReplicationMessage` leaves stay the only decode path; `Decode` folds the pgoutput message family — `InsertMessage`, the `DefaultUpdateMessage`/`FullUpdateMessage`/`IndexUpdateMessage` update leaves, the `KeyDeleteMessage`/`FullDeleteMessage` delete leaves, `TruncateMessage`, and the stream control frames — over `RelationMessage` schema context into op-log entries behind the session delegate; a transport bridge is two sessions composed through `CopyGraph` — transport state and op-log mechanics live here, the wire leg is the settled proto vocabulary; `GraphDiff` is the one set-difference diff-algebra — the closure-manifest minus the target `Holds` set yields the missing content keys — and both `CopyGraph` (whole-graph bridge from the root) and `SubtreeFetch` (partial-graph checkout of a chosen sub-root's descendants) dial it, so a second walk-and-diff implementation is the deleted form and `OpLog.TransferSet` is the leaf the algebra composes; `SubtreeFetch` fetches only the chosen sub-root entry and traverses its `Closure` manifest, so a partial checkout never pulls the full graph and a client that holds a parent reuses its held keys through the same diff; the wire leg of `GraphDiff`/`SubtreeFetch` is owned at `Compute/remote-lane#PROTO_VOCABULARY` as the `GraphDiff`/`SubtreeFetch` message family — the walk-and-diff computation lives here and the wire shape lives there, so the remote-lane rpc dials this algebra over the transport and never re-implements the set-difference.
 
 ```csharp signature
 [SmartEnum]
@@ -211,9 +211,18 @@ public static class SyncPump {
     public static IAsyncEnumerable<PgOutputReplicationMessage> Open(LogicalReplicationConnection connection, SyncTransport.PgLogicalReplication row, CancellationToken token) =>
         connection.StartReplication(new PgOutputReplicationSlot(row.Slot), Options(row), token);
 
+    public static Seq<UInt128> GraphDiff(OpLogEntry root, Func<UInt128, bool> holds) =>
+        OpLog.TransferSet(root, holds);
+
     public static IO<SyncApplyReceipt> CopyGraph(SyncSession source, SyncSession target, UInt128 root) =>
         source.Fetch(root).Bind(entry =>
-            OpLog.TransferSet(entry, target.Holds)
+            GraphDiff(entry, target.Holds)
+                .TraverseM(source.Fetch).As()
+                .Bind(missing => SyncMerge.Apply(target, missing)));
+
+    public static IO<SyncApplyReceipt> SubtreeFetch(SyncSession source, SyncSession target, UInt128 root) =>
+        source.Fetch(root).Bind(entry =>
+            GraphDiff(entry, target.Holds)
                 .TraverseM(source.Fetch).As()
                 .Bind(missing => SyncMerge.Apply(target, missing)));
 
@@ -246,6 +255,7 @@ public static class SyncPump {
 |   [2]   | idle slot reclamation           | config-sourced `IdleSlotTimeout`                 | server setting verified by the provisioning probe rows |
 |   [3]   | replication conflict statistics | subscription-stats read view                     | the live-replication research gate carries the columns |
 |   [4]   | session admission               | schema-fingerprint equality                      | mismatch is the typed `SyncRejectionWire` refusal      |
+|   [5]   | graph checkout granularity      | `GraphDiff` set-difference over `Holds`          | whole-graph `CopyGraph` and partial `SubtreeFetch` dial one algebra; wire family at `Compute/remote-lane#PROTO_VOCABULARY` |
 
 ## [5]-[PRESENCE_AND_BLOB]
 

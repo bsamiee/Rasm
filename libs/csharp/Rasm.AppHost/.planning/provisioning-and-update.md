@@ -1,6 +1,6 @@
 # [APPHOST_PROVISIONING_AND_UPDATE]
 
-Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state machine that downloads a found release, stages it, drains the node, rolls it over through `ApplyUpdatesAndRestart`, and mints a typed `UpdateReceipt` on every phase, plus a three-row `UpdateChannel` vocabulary carrying feed routing and downgrade policy. The page owns the update rail, the channel axis, and the rollover-drain handshake that runs `DrainConductor` before the restart hands the process to Velopack. The `UpdateCheck(ReleaseIdentity)` outbound hop stays the detect leg at outbound-resilience; everything after a release is found composes here over Velopack, the `DrainConductor` fold, `ReceiptSinkPort`, and the generated metric attributes.
+Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state machine that downloads a found release, stages it, drains the node, rolls it over through `ApplyUpdatesAndRestart`, and mints a typed `UpdateReceipt` on every phase, plus a three-row `UpdateChannel` vocabulary carrying feed routing and downgrade policy, plus a fleet-wide rolling-update conductor that walks the attached-peer roster in health-gated waves. The page owns the update rail, the channel axis, and the rollover-drain handshake that runs `DrainConductor` before the restart hands the process to Velopack and the `FleetRoll` fleet conductor that paces the wave over `PeerRoster`. The `UpdateCheck(ReleaseIdentity)` outbound hop stays the detect leg at outbound-resilience; everything after a release is found composes here over Velopack, the `DrainConductor` fold, `ReceiptSinkPort`, and the generated metric attributes.
 
 ## [1]-[INDEX]
 
@@ -8,7 +8,7 @@ Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state m
 | :-----: | :------------- | :----------------------------------------------------------------------------- |
 |   [1]   | UPDATE_RAIL    | Post-fetch state machine, fault band, per-phase receipt, generated instruments |
 |   [2]   | CHANNEL_AXIS   | Three feed rows binding explicit channel and downgrade policy onto options     |
-|   [3]   | ROLLOVER_DRAIN | Drain-before-swap handshake folding `DrainConductor` ahead of the restart      |
+|   [3]   | ROLLOVER_DRAIN | Drain-before-swap handshake + health-gated fleet-wide rolling-update wave       |
 
 ## [2]-[UPDATE_RAIL]
 
@@ -141,7 +141,7 @@ public sealed class UpdateRail {
     IO<UpdateReceipt> Mint(UpdatePhase phase, string target, bool downgrade, int deltas, Duration elapsed, UpdateOutcome outcome) =>
         from at in IO.lift(() => host.Clock.GetCurrentInstant())
         let receipt = new UpdateReceipt(phase, channel.Key, target, Prior, downgrade, deltas, at, elapsed, outcome, host.CorrelationId)
-        from _ in sink.Send(host.CorrelationId, TelemetrySource.AppHost.Key, phase.Key, JsonSerializer.SerializeToElement(receipt, AppHostWireContext.Default.UpdateReceipt))
+        from _ in sink.Send(host.CorrelationId, TenantContext.Current, TelemetrySource.AppHost.Key, phase.Key, JsonSerializer.SerializeToElement(receipt, AppHostWireContext.Default.UpdateReceipt))
         select receipt;
 
     static string Target(VelopackAsset asset) => asset.Version.ToString();
@@ -193,13 +193,14 @@ public sealed partial class UpdateChannel {
 
 ## [4]-[ROLLOVER_DRAIN]
 
-- Owner: `RolloverDrain` static surface composing `DrainConductor.Drain` ahead of `UpdateRail.Rollover` so a node empties before its process is replaced.
-- Entry: `IO<UpdateReceipt> Conduct(UpdateRail rail, VelopackAsset staged, DeadlineClass cooperative, DeadlineClass forced)` — `IO` carries the drain-then-restart effect; the drain receipt seats the rollover.
-- Auto: the conductor's first act is the draining transition, so inbound admission ceases before the staged release rolls over; the cooperative and forced budgets arrive from the `DrainCooperative` and `DrainForced` deadline rows; the rollover histogram records the span from drain settle to restart handoff; on a fleet node the parent's drain registration fans the signal to the child over the local-ipc hop before the parent itself rolls over.
-- Receipt: the `RollingOver` `UpdateReceipt` carries the `DrainReceipt.Elapsed` as its drain span and the rollover outcome; a straggled drain step does not abort the rollover — the restart proceeds and the straggler surfaces on the drain receipt the rollover receipt references by correlation id.
+- Owner: `RolloverDrain` static surface composing `DrainConductor.Drain` ahead of `UpdateRail.Rollover` so a node empties before its process is replaced; `FleetRoll` the fleet-wide rolling-update conductor walking `PeerRoster.Attached` in health-gated waves; `FleetRollReceipt` the per-wave fleet-progress projection riding the existing receipt stream.
+- Cases: two conduct paths on the local node — `Conduct` for a staged asset, `ConductPending` for a post-bounce resume; one fleet conduct — `FleetRoll.Roll` paces the wave across the roster, gating each next node on the prior node's recovered serving status.
+- Entry: `IO<UpdateReceipt> Conduct(UpdateRail rail, VelopackAsset staged, DeadlineClass cooperative, DeadlineClass forced)` — `IO` carries the drain-then-restart effect; the drain receipt seats the rollover; `IO<Seq<FleetRollReceipt>> Roll(PeerRoster roster, int batch, Func<RosterEntry, IO<UpdateReceipt>> rollNode, Func<RosterEntry, IO<HealthReport>> probe, ReceiptSinkPort sink, IClock clock, TenantContext tenant)` walks the roster in fixed-size batches, rolling each batch and waiting on the post-roll `WireHealth.Evaluate` serving probe before advancing.
+- Auto: the conductor's first act is the draining transition, so inbound admission ceases before the staged release rolls over; the cooperative and forced budgets arrive from the `DrainCooperative` and `DrainForced` deadline rows; the rollover histogram records the span from drain settle to restart handoff; on a fleet node the parent's drain registration fans the signal to the child over the local-ipc hop before the parent itself rolls over; `FleetRoll.Roll` reads `PeerRoster.Attached` as the wave membership, batches at the caller's `batch` width, and after each batch's `rollNode` it folds the `probe` serving status so a node that fails to recover halts the wave before the next batch — the rolling update never proceeds past an unhealthy node.
+- Receipt: the `RollingOver` `UpdateReceipt` carries the `DrainReceipt.Elapsed` as its drain span and the rollover outcome; a straggled drain step does not abort the rollover — the restart proceeds and the straggler surfaces on the drain receipt the rollover receipt references by correlation id; each `FleetRoll` wave mints one `FleetRollReceipt` — wave index, node pid, the node's terminal `UpdateOutcome`, post-roll serving status, nodes-remaining — fanned through the existing receipt stream beside the per-node `UpdateReceipt`, never a parallel fleet instrument.
 - Packages: Velopack, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions.
-- Growth: one drain participant row per update-sensitive subsystem registered through `DrainParticipantPort` at its declared band; zero new surface.
-- Boundary: drain-before-swap is the law — `ApplyUpdatesAndRestart` is never reached until `DrainConductor.Drain` settles, so the replaced process leaves no half-flushed store write or in-flight hop; the cooperative and forced deadline values are the `DrainCooperative`/`DrainForced` rows, never an inline literal; the staged asset is `UpdatePendingRestart` read at composition, so a rollover after a process bounce resumes from the staged phase without re-staging; the rollover is the single restart path — the bare `ApplyUpdatesAndExit` and `WaitExitThenApplyUpdates` forms are deleted because the drain-gated restart owns the handoff.
+- Growth: one drain participant row per update-sensitive subsystem registered through `DrainParticipantPort` at its declared band; a wider fleet wave is one `batch` value, never a second conductor; zero new surface.
+- Boundary: drain-before-swap is the law — `ApplyUpdatesAndRestart` is never reached until `DrainConductor.Drain` settles, so the replaced process leaves no half-flushed store write or in-flight hop; the cooperative and forced deadline values are the `DrainCooperative`/`DrainForced` rows, never an inline literal; the staged asset is `UpdatePendingRestart` read at composition, so a rollover after a process bounce resumes from the staged phase without re-staging; the rollover is the single restart path — the bare `ApplyUpdatesAndExit` and `WaitExitThenApplyUpdates` forms are deleted because the drain-gated restart owns the handoff; `FleetRoll` is a conductor over the existing owners, never a new update surface — it consumes `PeerRoster.Attached` from companion-sidecar#PROCESS_MODALITY as the wave membership and `WireHealthRow` from health-and-degradation#WIRE_HEALTH as the per-node recovery gate, both as settled vocabulary, and each node's actual roll is the same `RolloverDrain.Conduct` the local node runs dialed over the control hop, so the fleet wave never re-implements the drain-gated restart; the wave halts on the first unrecovered node so a bad release never rolls the whole fleet.
 
 ```csharp signature
 public static class RolloverDrain {
@@ -210,6 +211,48 @@ public static class RolloverDrain {
         rail.PendingRestart
             ? rail.Resume(cooperative.Allotted, forced.Allotted)
             : IO.fail<UpdateReceipt>(new UpdateFault.StagePending(nameof(rail.PendingRestart)));
+}
+
+public readonly record struct FleetRollReceipt(
+    int Wave,
+    int Pid,
+    UpdateOutcome Outcome,
+    ServingStatus Serving,
+    int Remaining,
+    Instant At);
+
+public static class FleetRoll {
+    public static IO<Seq<FleetRollReceipt>> Roll(
+        PeerRoster roster,
+        int batch,
+        Func<RosterEntry, IO<UpdateReceipt>> rollNode,
+        Func<RosterEntry, IO<HealthReport>> probe,
+        ReceiptSinkPort sink,
+        IClock clock,
+        TenantContext tenant) =>
+        Wave(roster.Attached.AsEnumerable().Chunk(batch).Select(static nodes => nodes.ToSeq()).ToSeq(), 0, roster, rollNode, probe, sink, clock, tenant);
+
+    static IO<Seq<FleetRollReceipt>> Wave(
+        Seq<Seq<RosterEntry>> waves, int index, PeerRoster roster,
+        Func<RosterEntry, IO<UpdateReceipt>> rollNode, Func<RosterEntry, IO<HealthReport>> probe,
+        ReceiptSinkPort sink, IClock clock, TenantContext tenant) =>
+        waves.IsEmpty
+            ? IO.pure(Seq<FleetRollReceipt>())
+            : waves.Head.Value
+                .TraverseM(node =>
+                    from rolled in rollNode(node)
+                    from report in probe(node)
+                    from at in IO.lift(() => clock.GetCurrentInstant())
+                    let receipt = new FleetRollReceipt(index, node.Pid, rolled.Outcome, Serving(report), roster.Attached.Count, at)
+                    from _ in sink.Send(Correlation.Mint(), tenant, TelemetrySource.AppHost.Key, nameof(FleetRoll), JsonSerializer.SerializeToElement(receipt, AppHostWireContext.Default.FleetRollReceipt))
+                    select receipt)
+                .As()
+                .Bind(here => here.Exists(static row => row.Serving == ServingStatus.NotServing)
+                    ? IO.pure(here)
+                    : Wave(waves.Tail, index + 1, roster, rollNode, probe, sink, clock, tenant).Map(rest => here + rest));
+
+    static ServingStatus Serving(HealthReport report) =>
+        report.Status == HealthStatus.Unhealthy ? ServingStatus.NotServing : ServingStatus.Serving;
 }
 ```
 

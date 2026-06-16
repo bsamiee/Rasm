@@ -15,8 +15,8 @@ Rasm.Persistence has zero consumers; the implementation is full-capability with 
 |   [7]   | [cache-indexes](cache-indexes.md)             | cache contribution, serializers, result and artifact indexes | finalized |
 |   [8]   | [sync-collaboration](sync-collaboration.md)   | sync transports, op-log, diffs, presence, conflicts          | finalized |
 |   [9]   | [redaction-retention](redaction-retention.md) | retention, classification, audit binding                     | finalized |
-|  [10]   | [remote-stores](remote-stores.md)             | object-store axis, multipart transfer, residence, sync feed  | authored  |
-|  [11]   | [server-tier](server-tier.md)                 | time-series, search, cluster GUC, tenancy/RLS, migration bundle | authored  |
+|  [10]   | [remote-stores](remote-stores.md)             | object-store axis, multipart transfer, residence, sync feed  | finalized |
+|  [11]   | [server-tier](server-tier.md)                 | time-series, search, cluster GUC, tenancy/RLS, migration bundle | finalized |
 
 ## [2]-[WIRE_PAGES]
 
@@ -74,10 +74,13 @@ Every row is CLOSED; `[CLOSED_BY]` names the page that absorbed the gap. A row i
 |  [40]   | OLD/NEW RETURNING bulk emission             | query-rail#BULK_LANE                          |
 |  [41]   | Sep header-range column projection          | data-lanes#ANALYTICAL_LANE                    |
 |  [42]   | pg_jsonschema document-shape invariant      | schema-rail#EXTENSION_DDL + data-lanes#DOCUMENT_LANE |
+|  [43]   | tenant provisioning lifecycle (create/destroy → RLS + seed) | server-tier#TENANCY_RLS                |
+|  [44]   | per-tenant resource quota / rate bound      | server-tier#TENANCY_RLS                       |
+|  [45]   | PG18 WITHOUT OVERLAPS temporal-key shape    | schema-rail#EXTENSION_DDL                     |
 
 ## [5]-[DENSITY_BAR]
 
-Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. The budget below is the complete public-owner set; a type outside it is a defect. `[OWNER]` cells fold every extension block and mapping descriptor under the axis owner — `StoreOpCompose` rides axis [11], `TabularDirection`/`TabularSpec`/`AnalyticalTraversal`/`DuckDBOpLogMap`/`RelationSource`/`RelationSchema`/`RelationLane` ride axis [8], `EmbeddingArity`/`EmbeddingIdentity`/`VectorQuery`/`FullTextQuery` ride axis [7], `DbConfig` rides axis [16], `Composite`/`MapComposites`/`Enum`/`MapEnums`/`SqlitePatterns` ride axis [10], `GeoJsonProjection`/`PersistenceResolver`/`GeneratedMessagePackResolver` ride axis [17], `CacheResidence` rides axis [18], `ObjectClient`/`TransferReceipt`/`ObjectTransferFact` ride axis [21], `RlsPolicy`/`MigrationPlan` ride axis [22] — so the complete-owner claim holds. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
+Implementation collapses to one owner per axis and one entrypoint family per rail; density means no parallel rails, no near-duplicate shapes, no re-derived logic — a file is as large as its owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a new surface. The budget below is the complete public-owner set; a type outside it is a defect. `[OWNER]` cells fold every extension block and mapping descriptor under the axis owner — `StoreOpCompose` rides axis [11], `TabularDirection`/`TabularSpec`/`AnalyticalTraversal`/`DuckDBOpLogMap`/`RelationSource`/`RelationSchema`/`RelationLane` ride axis [8], `EmbeddingArity`/`EmbeddingIdentity`/`VectorQuery`/`FullTextQuery` ride axis [7], `DbConfig` rides axis [16], `Composite`/`MapComposites`/`Enum`/`MapEnums`/`SqlitePatterns` ride axis [10], `GeoJsonProjection`/`PersistenceResolver`/`GeneratedMessagePackResolver` ride axis [17], `CacheResidence` rides axis [18], `ObjectClient`/`TransferReceipt`/`ObjectTransferFact` ride axis [21], `RlsPolicy`/`TenantProvision`/`TenantQuota`/`TenantReceipt`/`MigrationPlan` ride axis [22], `TemporalShape`/`TemporalKey` ride axis [10] — so the complete-owner claim holds. `[STATE]` carries `FINALIZED` where the owner is a transcription-complete fence with no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual native, bridge, or live-server probe named in the page's RESEARCH cluster — a SPIKE owner is fully shaped now, never a deferred surface.
 
 | [INDEX] | [AXIS]               | [OWNER]                                          | [KIND]            | [CASES]           |  [STATE]  |
 | :-----: | :------------------- | :----------------------------------------------- | :---------------- | :---------------- | :-------: |
@@ -90,7 +93,7 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |   [7]   | document/search      | JsonIndex, VectorMetric, FullTextMode            | enums             | 4 · 6 · 4         |   SPIKE   |
 |   [8]   | geo + analytical     | GeoLayer, TabularExportSpec, TabularDirection    | policy + enum     | concern rows      |   SPIKE   |
 |   [9]   | identity             | IdentityPolicy                                   | enum              | 3 rows            | FINALIZED |
-|  [10]   | schema law           | faults, fingerprint, columns, SchemaDdl          | fault + DDL       | 5 codes · 19 ext. |   SPIKE   |
+|  [10]   | schema law           | faults, fingerprint, columns, SchemaDdl, TemporalShape | fault + DDL | 5 codes · 19 ext. · 3 temporal shapes | FINALIZED |
 |  [11]   | operation algebra    | StoreOp, StoreFault, StoreRail, StoreOpCompose   | unions + dispatch | 8 ops · 6 faults  | FINALIZED |
 |  [12]   | projection egress    | KeysetPage, ProjectionRail                       | record + fold     | 3 filter keys     | FINALIZED |
 |  [13]   | bulk lane            | BulkRoute, receipts, deltas                      | enum + receipts   | 3 routes          |   SPIKE   |
@@ -101,8 +104,8 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 |  [18]   | cache + indexes      | contribution, result, artifact, benchmark        | capsule + keys    | 1 + 3 indexes     | FINALIZED |
 |  [19]   | sync spine           | op kind, log, merge, conflicts                   | vocab + dispatch  | 3 · 4 · 3         |   SPIKE   |
 |  [20]   | retention + classes  | policies, classes, guards, evidence              | axes + guards     | 4 · 7 · 5         |   SPIKE   |
-|  [21]   | object-store         | ObjectStore, MultipartTransfer, ObjectResidence, ArtifactSyncFeed, RemoteStoreFault | SmartEnum + Union + records | 3 providers · 5 faults | SPIKE |
-|  [22]   | server-tier          | TimescaleProvisioning, SearchProvisioning, ClusterConfig, TenancyModel, MigrationBundle | static folds + SmartEnum | 5 clusters · 4 tenancy | SPIKE |
+|  [21]   | object-store         | ObjectStore, MultipartTransfer, ObjectResidence, ArtifactSyncFeed, RemoteStoreFault | SmartEnum + Union + records | 3 providers · 5 faults | FINALIZED |
+|  [22]   | server-tier          | TimescaleProvisioning, SearchProvisioning, ClusterConfig, TenancyModel, TenantProvision, TenantQuota, MigrationBundle | static folds + SmartEnum | 5 clusters · 4 tenancy · 2 lifecycle | FINALIZED |
 
 Comparer accessors (`StoreKeyPolicy`, `SqliteKeyPolicy`, `SnapshotKeyPolicy`, `SyncKeyPolicy`, `RetentionKeyPolicy`, `CacheResidenceKeyPolicy`) ride inside their owner files, one per axis family, package-local. `ObjectStore`, `TenancyModel`, and the data-lanes string-keyed axes (`JsonIndex`/`VectorMetric`/`FullTextMode`/`EmbeddingArity`) reuse the package-wide `StoreKeyPolicy` accessor.
 

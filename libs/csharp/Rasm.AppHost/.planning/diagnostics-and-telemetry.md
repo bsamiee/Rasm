@@ -7,7 +7,7 @@ Telemetry identity, the correlation spine, log projection, signal governance, an
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                      |
 | :-----: | :----------------- | :-------------------------------------------------------------------------- |
 |   [1]   | TELEMETRY_IDENTITY | Minted source and meter identity plus the instrument registry               |
-|   [2]   | CORRELATION_SPINE  | One boot-minted root id stamped across every signal and hop                 |
+|   [2]   | CORRELATION_SPINE  | One boot-minted root id plus W3C trace-context propagated across every hop   |
 |   [3]   | LOG_PROJECTION     | Generated lib-level delegates and per-profile pipeline-owner arbitration    |
 |   [4]   | SIGNAL_GOVERNANCE  | Per-signal sampling, buffering, enrichment, exporter placement, drain flush |
 |   [5]   | REDACTION_TAXONOMY | Seven classification rows binding redactor policy at every exporter seam    |
@@ -72,13 +72,13 @@ public static class TelemetryIdentity {
 
 ## [3]-[CORRELATION_SPINE]
 
-- Owner: `Correlation` spine surface stamping the boot-minted `CorrelationId` across every signal and hop; `RootEnricher` `IStaticLogEnricher` stamps process constants once per provider; `CausalEnricher` `ILogEnricher` stamps the request-scoped correlation per record.
-- Cases: two enrichment seats split by cost class — `RootEnricher` for the boot mint, resource instance id, and host generation; `CausalEnricher` for the ambient correlation key.
-- Entry: `Correlation.Stamp(CorrelationId root)` returning the `IDisposable` ambient scope; `Correlation.Capture()` snapshots the ambient context for deferred work, `Correlation.Restore(value)` rehydrates it at the work entry.
-- Auto: one boot mint stamps `LogContext` properties, `Baggage`, meter tags, receipts, and support manifests — deletes per-call-site correlation parameters across the suite; the two enrichers feed `IEnrichmentTagCollector` under one bounded prefix, registered through `AddStaticLogEnricher` and `AddLogEnricher`; pooled-callback, native-callback, and manual-thread ambient breaks share one repair — `LogContext.Clone` captures the context as a value, `Push` restores it at deferred-work entry.
-- Packages: OpenTelemetry, Serilog, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new stamped carrier is one stamp row inside `Stamp` plus one policy value; a new process-constant dimension is one `RootEnricher` line, a new request dimension one `CausalEnricher` line; zero new surface.
-- Boundary: the composite registers as `Propagators.DefaultTextMapPropagator` and crosses every hop through `TextMapPropagator.Inject` and `TextMapPropagator.Extract`, riding gRPC metadata on the local-ipc leg; the Serilog event trace-id and span-id fields bind to the live `Activity` ids, never to a parallel identifier; `RuntimeContext` slots carry the ambient value where async flow demands it; a constant placed in `CausalEnricher` is waste and a request value placed in `RootEnricher` is a bug — the cost-class split is structural, and the captured `LogContext.Clone` value, never the ambient current at execution time, seeds deferred children.
+- Owner: `Correlation` spine surface stamping the boot-minted `CorrelationId` across every signal and hop; `RootEnricher` `IStaticLogEnricher` stamps process constants once per provider; `CausalEnricher` `ILogEnricher` stamps the request-scoped correlation per record; `TraceContext` the W3C distributed-trace propagation fold injecting and extracting `traceparent`/`tracestate` over the gRPC metadata carrier so a remote span continues the parent trace.
+- Cases: two enrichment seats split by cost class — `RootEnricher` for the boot mint, resource instance id, and host generation; `CausalEnricher` for the ambient correlation key; two propagation directions plus the inbound continued-span start on `TraceContext` — `Inject` writes the current `Activity` context onto outbound gRPC metadata, `Extract` reads the parent context from inbound metadata, and `Continue` extracts then seeds `Baggage.Current` and starts the inbound server `Activity` from the extracted context.
+- Entry: `Correlation.Stamp(CorrelationId root)` returning the `IDisposable` ambient scope; `Correlation.Capture()` snapshots the ambient context for deferred work, `Correlation.Restore(value)` rehydrates it at the work entry; `TraceContext.Inject(Metadata carrier)` writes the active context, `TraceContext.Extract(Metadata carrier)` reads the parent context, and `TraceContext.Continue(Metadata carrier, string name)` is the inbound primitive the companion-sidecar#CONTROL_SERVICE handler reads — it extracts the parent, sets `Baggage.Current`, and starts the continued server `Activity` from the parent `ActivityContext`.
+- Auto: one boot mint stamps `LogContext` properties, `Baggage`, meter tags, receipts, and support manifests — deletes per-call-site correlation parameters across the suite; the two enrichers feed `IEnrichmentTagCollector` under one bounded prefix, registered through `AddStaticLogEnricher` and `AddLogEnricher`; pooled-callback, native-callback, and manual-thread ambient breaks share one repair — `LogContext.Clone` captures the context as a value, `Push` restores it at deferred-work entry; `TraceContext` rides the same `Correlation.Spine` composite, so the W3C `traceparent`/`tracestate` carrier and the `Baggage` carrier inject and extract in one pass and a continued remote span shares the in-process correlation id automatically.
+- Packages: OpenTelemetry, Serilog, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions, Grpc.Core.Api, BCL inbox.
+- Growth: a new stamped carrier is one stamp row inside `Stamp` plus one policy value; a new process-constant dimension is one `RootEnricher` line, a new request dimension one `CausalEnricher` line; a new propagation carrier is one `IPropagator`-backed adapter on the same `Spine` composite, never a second tracer; zero new surface.
+- Boundary: the composite registers as `Propagators.DefaultTextMapPropagator` and crosses every hop through `TextMapPropagator.Inject` and `TextMapPropagator.Extract`, riding gRPC metadata on the local-ipc leg; `TraceContext` is the seam owner of that crossing — its `Inject`/`Extract` are the gRPC `Metadata` getter/setter adapters the companion-sidecar#CONTROL_SERVICE handler reads on the inbound call and the outbound dial writes, so the W3C trace continues across the control hop and the propagation mechanics live here while the gRPC call boundary at companion-sidecar#CONTROL_SERVICE consumes them; the Serilog event trace-id and span-id fields bind to the live `Activity` ids, never to a parallel identifier; `RuntimeContext` slots carry the ambient value where async flow demands it; a constant placed in `CausalEnricher` is waste and a request value placed in `RootEnricher` is a bug — the cost-class split is structural, and the captured `LogContext.Clone` value, never the ambient current at execution time, seeds deferred children; `ActivitySource.StartActivity(name, kind, parentContext)` seeds the continued span from the extracted `ActivityContext`, never a fresh root, so a flat per-process trace is the deleted form.
 
 ```csharp signature
 public static class Correlation {
@@ -97,6 +97,30 @@ public static class Correlation {
     public static ILogEventEnricher Capture() => LogContext.Clone();
 
     public static IDisposable Restore(ILogEventEnricher captured) => LogContext.Push(captured);
+}
+
+public static class TraceContext {
+    public static readonly ActivitySource Source = new(TelemetrySource.AppHost.Key);
+
+    static void Set(Metadata carrier, string key, string value) => carrier.Add(key, value);
+
+    static IEnumerable<string> Get(Metadata carrier, string key) =>
+        carrier.GetAll(key).Select(static entry => entry.Value);
+
+    public static void Inject(Metadata carrier) =>
+        Correlation.Spine.Inject(
+            new PropagationContext(Activity.Current?.Context ?? default, Baggage.Current),
+            carrier,
+            Set);
+
+    public static PropagationContext Extract(Metadata carrier) =>
+        Correlation.Spine.Extract(default, carrier, Get);
+
+    public static Activity? Continue(Metadata carrier, string name) {
+        var parent = Extract(carrier);
+        Baggage.Current = parent.Baggage;
+        return Source.StartActivity(name, ActivityKind.Server, parent.ActivityContext);
+    }
 }
 
 public sealed class RootEnricher(CorrelationId root, string instanceId) : IStaticLogEnricher {
@@ -203,7 +227,7 @@ public static class SerilogProjectionPolicy {
 - Owner: `TelemetrySignal` `[SmartEnum<string>]` governance rows and the `SignalGovernance` registration fold; `LatencyCheckpoint` `[SmartEnum<string>]` the three-phase in-flight vocabulary; `LatencySpine` the checkpoint recorder.
 - Cases: 3 signal rows — log, trace, metric — each binding ratio, buffering, and redaction policy; 3 latency checkpoint rows — drain, hop, capture.
 - Entry: `SignalGovernance.Govern(IServiceCollection services, HostProfile profile, Action<ResourceBuilder> identity)` returning the host-owned `OpenTelemetryBuilder`; `LatencySpine.Mark(ILatencyContext context, CheckpointToken phase)` records one checkpoint, `LatencySpine.Seal` freezes the context for export at drain.
-- Auto: provider `ForceFlush` and `Shutdown` ride the telemetry drain band; the fault transition lands the `GlobalLogBuffer.Flush` window inside support capture; `AddRandomProbabilisticSampler` carries a `RandomProbabilisticSamplerFilterRule` row keyed by maximum level so it thins the chatty floor and never the error ceiling, while a `LogBufferingFilterRule` row holds the verbose tiers until an incident flushes them; `AddHttpClientInstrumentation` binds `HttpClientTraceInstrumentationOptions` — `RecordException` projects exceptions as `ActivityEvent`, `FilterHttpRequestMessage` drops the loopback leg, `EnrichWithException` stamps the exception type, and URL-query redaction stays the package default; `Views` folds one `MetricStreamConfiguration` per instrument through `AddView` to cap cardinality and project tag keys, and the service-app-root metric exemplar policy rides `SetExemplarFilter` per the trace-based governance row; `EnableEnrichment` activates the `RootEnricher`/`CausalEnricher` seats; the latency vocabulary registers once through `RegisterCheckpointNames` at composition, `ILatencyContextTokenIssuer.GetCheckpointToken(string)` resolves each name to a `CheckpointToken`, and runtime code records through those resolved handles only — durations never derive from stamp differences; a value-bearing `MeasureToken` recording from `GetMeasureToken(string)` is a forward row admitted only when a measure consumer exists.
+- Auto: provider `ForceFlush` and `Shutdown` ride the telemetry drain band; the fault transition lands the `GlobalLogBuffer.Flush` window inside support capture; `AddRandomProbabilisticSampler` carries a `RandomProbabilisticSamplerFilterRule` row keyed by maximum level so it thins the chatty floor and never the error ceiling, while a `LogBufferingFilterRule` row holds the verbose tiers until an incident flushes them; `AddHttpClientInstrumentation` binds `HttpClientTraceInstrumentationOptions` — `RecordException` projects exceptions as `ActivityEvent`, `FilterHttpRequestMessage` drops the loopback leg, `EnrichWithException` stamps the exception type, and URL-query redaction stays the package default; `Views` folds one `MetricStreamConfiguration` per instrument through `AddView` to cap cardinality and project tag keys — the named-instrument rows cap the drain-band and classification dimensions, and the trailing `*` wildcard row caps the `TenantContext.TenantSlot` (`rasm.tenant`) tag at `256` series across every minted meter so the per-tenant dimension `TenantContext.Tag` rides on each instrument never fans unbounded; the service-app-root metric exemplar policy rides `SetExemplarFilter` per the trace-based governance row; `EnableEnrichment` activates the `RootEnricher`/`CausalEnricher` seats; the latency vocabulary registers once through `RegisterCheckpointNames` at composition, `ILatencyContextTokenIssuer.GetCheckpointToken(string)` resolves each name to a `CheckpointToken`, and runtime code records through those resolved handles only — durations never derive from stamp differences; a value-bearing `MeasureToken` recording from `GetMeasureToken(string)` is a forward row admitted only when a measure consumer exists.
 - Receipt: `LatencyData` — the frozen checkpoint spans `ILatencyDataExporter` exports at the drain band; one span per drain, hop, and capture phase.
 - Packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry, OpenTelemetry.Instrumentation.Http, Microsoft.Extensions.Telemetry, Microsoft.Extensions.Telemetry.Abstractions, OpenTelemetry.Exporter.OpenTelemetryProtocol, Microsoft.Extensions.Diagnostics.Testing.
 - Growth: one governance decision is one policy value row; one stream reshaping is one `AddView` row over `MetricStreamConfiguration`; one measured phase is one `LatencyCheckpoint` row recorded by one `LatencySpine.Mark` call; zero new surface.
@@ -261,6 +285,7 @@ public static class SignalGovernance {
     public static readonly Seq<(string Instrument, MetricStreamConfiguration Shape)> Views = [
         ("rasm.apphost.drain.duration", new MetricStreamConfiguration { TagKeys = ["drain.band"], CardinalityLimit = 64 }),
         ("rasm.apphost.redaction.tags", new MetricStreamConfiguration { TagKeys = [nameof(DataClassification)], CardinalityLimit = 32 }),
+        ("*", new MetricStreamConfiguration { TagKeys = [TenantContext.TenantSlot], CardinalityLimit = 256 }),
     ];
 
     public static OpenTelemetryBuilder Govern(IServiceCollection services, HostProfile profile, Action<ResourceBuilder> identity) =>
@@ -321,6 +346,7 @@ public static class SignalGovernance {
 |  [16]   | otlp span batch square                         | package defaults            | `BatchExportProcessorOptions<Activity>` at service roots |
 |  [17]   | http route-parameter redaction                 | erase                       | `HttpRouteParameterRedactionMode` on `RequestMetadata` |
 |  [18]   | otel processor admission                       | test-row `BaseProcessor<Activity>` | `AddProcessor` over `CompositeProcessor<Activity>`     |
+|  [19]   | tenant meter-tag cardinality cap               | 256                         | `*` `AddView` row over `TenantContext.TenantSlot`      |
 
 ## [6]-[REDACTION_TAXONOMY]
 
@@ -375,4 +401,5 @@ public static class RedactionRegistration {
 
 - [APP_ROOT_BRIDGE]: `AddSerilog` host-bridge registration shape for serilog-projection app roots, resolved at app-root creation from the app-root-pinned `Serilog.Extensions.Hosting` package with no restored closure.
 - [NATIVE_ACTIVITY]: EF Core and grpc-dotnet native `Activity` emission depth replacing the rejected instrumentation packages.
+- [GRPC_METADATA_CARRIER]: the `Grpc.Core.Api` `Metadata.Add(string, string)` setter, `Metadata.GetAll(string)` getter, and `Metadata.Entry.Value` accessor that `TraceContext.Set`/`Get`/`Inject`/`Extract`/`Continue` read as the W3C `traceparent`/`tracestate` carrier compile through the G7 spec-compile gate until the `Grpc.Core.Api` assay source map registers the transitive package, the same rail the companion-sidecar#CONTROL_SERVICE generated members route.
 - [OTLP_EXPORT]: the `OpenTelemetry.Exporter.OpenTelemetryProtocol` single-call exporter-registration surface bound once after all three signals at the service app root — the `UseOtlpExporter` builder spelling and its `OTEL_EXPORTER_OTLP_{ENDPOINT,PROTOCOL,HEADERS}` environment binding that selects the Prometheus, Tempo, Loki, or Alloy backend by row, never a hardcoded endpoint; the exporter package is app-root-pinned with no restored closure, so the registration call resolves at app-root creation, not from a package catalogue.

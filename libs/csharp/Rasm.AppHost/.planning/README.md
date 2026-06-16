@@ -59,6 +59,10 @@ Every row is CLOSED; `[CLOSED_BY]` names the page#cluster that absorbed the gap.
 |  [23]   | process-modality lifecycle (companion/sidecar/paired spawn-attach-discovery) | companion-sidecar#PROCESS_MODALITY                                                          |
 |  [24]   | cross-process degradation cascade (parent floor to child cell)    | companion-sidecar#DEGRADATION_CASCADE + health-and-degradation#DEGRADATION_RAIL                                    |
 |  [25]   | accept-side UDS peer-credential read                              | companion-sidecar#PEER_ADMISSION                                                                                   |
+|  [26]   | tenant-identity threading (4th cross-package primitive)           | runtime-ports#PORT_RECORDS                                                                                         |
+|  [27]   | W3C distributed trace-context propagation over the control hop    | diagnostics-and-telemetry#CORRELATION_SPINE + companion-sidecar#CONTROL_SERVICE                                    |
+|  [28]   | host-side multi-peer session roster (attached/lease-epoch/presence) | companion-sidecar#PROCESS_MODALITY                                                                               |
+|  [29]   | fleet-wide health-gated rolling-update wave                       | provisioning-and-update#ROLLOVER_DRAIN                                                                             |
 
 ## [5]-[DENSITY_BAR]
 
@@ -67,7 +71,7 @@ no parallel rails, no near-duplicate shapes, no re-derived logic — a file is a
 owner's concern requires, never trimmed to a line count. A new feature is a row or case, never a
 new surface. The owner budget below is the public-surface cap. Key policies, receipts, policy
 records, runtime records, and wire shapes ride inside their owner's signature region (ledger rows
-AH-01 through AH-11 and AH-04a-d); a public type outside those regions is the named defect.
+AH-01 through AH-13 and AH-04a-d); a public type outside those regions is the named defect.
 
 The `[STATE]` column carries `FINALIZED` where the owner is a transcription-complete fence with
 no open gate and `SPIKE` where the owner is fence-complete but its proof carries a residual
@@ -124,6 +128,10 @@ shaped now, never a deferred surface.
 |  [46]   | service host            | `ServiceHost`                    | static surface          | gRPC server registration; `ControlTransport` 2-case union (UDS, named-pipe), `PipeHardening` | FINALIZED |
 |  [47]   | degradation cascade     | `DegradationCascade`             | static write surface    | 1 parent-to-child `Cascade` write; `CascadeReceipt`        | SPIKE     |
 |  [48]   | peer admission          | `PeerAdmission`                  | static accept-side read | 2 platform branches (Linux `SO_PEERCRED`, macOS `LOCAL_PEERCRED`); `Ucred`/`Xucred`/`PeerCredential` | FINALIZED |
+|  [49]   | tenant context          | `TenantContext`                  | record port             | 4th cross-package primitive (`TenantId` `UInt128` value object, `TenantSlot` `rasm.tenant` GUC/baggage key, `Root` single-tenant default); threads to server-tier RLS + cache-key partition | FINALIZED |
+|  [50]   | trace context           | `TraceContext`                   | static fold             | W3C `traceparent`/`tracestate` propagation over the `Correlation` composite (`Inject`/`Extract`/`Continue` gRPC-metadata carrier) | FINALIZED |
+|  [51]   | peer roster             | `PeerRoster`                     | record fold             | host-side attached-peer/lease-epoch/presence roster (`Boot`/`Admit`/`Renew`/`Drop`/`Sweep`); `RosterReceipt` per-mutation projection | FINALIZED |
+|  [52]   | fleet roll              | `FleetRoll`                      | static surface          | fleet-wide health-gated rolling-update conductor over `PeerRoster.Attached`; `FleetRollReceipt` per-wave projection | FINALIZED |
 
 ## [6]-[BUILD_ORDER]
 

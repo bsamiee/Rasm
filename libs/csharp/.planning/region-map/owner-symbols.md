@@ -618,3 +618,26 @@ Suite region map — row shapes and protocol live in the [suite standard](../REA
 - CustomVisuals — AppUi/custom-visuals#SKIA_KINDS [static surface]
 - ColorSpaceKeyPolicy — AppUi/custom-visuals#COLOR_SPACE [comparer accessor]
 - ColorSpaceAxis — AppUi/custom-visuals#COLOR_SPACE [SmartEnum<string>]
+- TenantId — AppHost/runtime-ports#PORT_RECORDS [ValueObject<UInt128>] (4th CROSS_PACKAGE_LAW tenancy identity; KeyMemberName=Value public; RLS uuid cast + cache-key partition)
+- TenantSlot — AppHost/runtime-ports#PORT_RECORDS [const string] (the one rasm.tenant GUC + Baggage + meter-tag spelling)
+- TenantContext — AppHost/runtime-ports#PORT_RECORDS [record port] (4th CROSS_PACKAGE_LAW: AppHost mints+threads inbound->op-log->cache-key->receipt->RLS; consumed by Persistence/server-tier#TENANCY_RLS + cache-indexes#L2_CONTRIBUTION, never re-minted)
+- TraceContext — AppHost/diagnostics-and-telemetry#CORRELATION_SPINE [static fold] (W3C traceparent/tracestate Inject/Extract/Continue over gRPC Metadata; DefaultTextMapPropagator)
+- PeerRoster — AppHost/companion-sidecar#PROCESS_MODALITY [record fold] (host-side attached-peer/lease-epoch/presence roster Boot/Admit/Renew/Drop/Sweep; owns nested RosterEntry/RosterTransition)
+- RosterReceipt — AppHost/companion-sidecar#PROCESS_MODALITY [readonly record struct]
+- FleetRoll — AppHost/provisioning-and-update#ROLLOVER_DRAIN [static surface] (health-gated fleet rolling-update conductor over PeerRoster.Attached; column/conductor not a new owner)
+- FleetRollReceipt — AppHost/provisioning-and-update#ROLLOVER_DRAIN [readonly record struct]
+- TemporalShape — Persistence/schema-rail#EXTENSION_DDL [SmartEnum<string>] (PG18 WITHOUT OVERLAPS temporal-key shape primary-key/unique/foreign-key; TemporalKey.Shape; G10 landed-owner ledger correction)
+- TenantProvision — Persistence/server-tier#TENANCY_RLS [static surface] (per-TenancyModel tenant-lifecycle Provision/Destroy fold consuming AppHost TenantContext)
+- TenantQuota — Persistence/server-tier#TENANCY_RLS [record] (per-tenant connection-cap/statement-timeout/write-byte-rate; one bound shared w/ query-rail#BULK_LANE, never a 2nd limiter)
+- TenantReceipt — Persistence/server-tier#TENANCY_RLS [record] (typed tenant-lifecycle evidence)
+- HybridRetrieve — Persistence/data-lanes#SEARCH_LANES [static surface] (reciprocal-rank-fusion over vector diskann + pg_search BM25, rrfConstant 60; degrades to native ts_rank)
+- SpatialOp — Persistence/data-lanes#GEO_LANES [SmartEnum<string>] (proximity/coverage/spatial-join translated-predicate family)
+- SpatialDeltaKind — Persistence/data-lanes#GEO_LANES [SmartEnum<string>] (enter/exit/move/reshape change-detection axis)
+- SpatialDelta — Persistence/data-lanes#GEO_LANES [record]
+- SpatialDiff — Persistence/data-lanes#GEO_LANES [static surface] (change-detection fold over op-log OLD/NEW geometry; feeds AppUi live-geo overlay)
+- GraphDiff — Persistence/sync-collaboration#TRANSPORT_AXIS [static op on SyncPump] (named set-difference over Closure; CopyGraph + SubtreeFetch dial it; Compute remote-lane GraphDiff rpc dials over transport)
+- SubtreeFetch — Persistence/sync-collaboration#TRANSPORT_AXIS [static op on SyncPump] (partial-graph checkout at a sub-root over GraphDiff)
+- CrossFilter — AppUi/charts-dashboards#DASHBOARD_TILES [class fold over DashboardSurface] (board-scoped linked brushing via DynamicData dynamic-predicate; source tile self-excludes)
+- FilterState — AppUi/charts-dashboards#DASHBOARD_TILES [record] (brush state carrier)
+- BoardState — AppUi/charts-dashboards#STREAM_BINDING [record] (board snapshot over STJ IDockSerializer; brush reapply at mount)
+- GeoOverlay — AppUi/charts-dashboards#SERIES_TABLE [static fold] (in-place HeatLand swap over the SpatialDiff IChangeSet under the SyncContext lock)

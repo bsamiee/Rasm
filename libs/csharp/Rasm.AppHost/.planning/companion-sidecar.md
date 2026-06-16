@@ -1,12 +1,12 @@
 # [APPHOST_COMPANION_SIDECAR]
 
-The inbound serving counterpart to the outbound boundary: one `ProcessModality` axis carries the companion, sidecar, and paired-peer spawn-attach-discovery-degradation rows, one `ControlInbound` handler folds the three `ControlService` wire verbs onto the existing degradation, options, and support owners, one `ServiceHost` registration mounts the gRPC server over a Unix domain socket or a hardened Windows named pipe, one cross-process cascade writes a parent-observed level onto the child `DegradationCell.Cascade` floor, and one `PeerAdmission` reads the connecting peer's credentials at accept over the platform `getsockopt` route. The page owns the modality axis, the verb-fold handler, the server-host registration, the cascade write, and the peer-credential read; it consumes `DegradationCell`, `OptionsAdmission`, `SupportTrigger`, `HostAttachPort`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
+The inbound serving counterpart to the outbound boundary: one `ProcessModality` axis carries the companion, sidecar, and paired-peer spawn-attach-discovery-degradation rows, one `PeerRoster` folds every accepted connection into a lease-epoch attached-peer set on the serving side, one `ControlInbound` handler folds the three `ControlService` wire verbs onto the existing degradation, options, and support owners, one `ServiceHost` registration mounts the gRPC server over a Unix domain socket or a hardened Windows named pipe, one cross-process cascade writes a parent-observed level onto the child `DegradationCell.Cascade` floor, and one `PeerAdmission` reads the connecting peer's credentials at accept over the platform `getsockopt` route. The page owns the modality axis, the attached-peer roster, the verb-fold handler, the server-host registration, the cascade write, and the peer-credential read; it consumes `DegradationCell`, `OptionsAdmission`, `SupportTrigger`, `HostAttachPort`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
 
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                              |
 | :-----: | ------------------- | ------------------------------------------------------------------- |
-|   [1]   | PROCESS_MODALITY    | Three modality rows over spawn, attach, discovery, degradation      |
+|   [1]   | PROCESS_MODALITY    | Three modality rows + lease-epoch attached-peer roster on the serving side |
 |   [2]   | CONTROL_SERVICE     | Three wire verbs folded onto degradation, options, support owners   |
 |   [3]   | SERVICE_HOST        | gRPC server registration over UDS and hardened Windows named pipe   |
 |   [4]   | DEGRADATION_CASCADE | Parent floor written to the child cell over the control hop         |
@@ -14,14 +14,14 @@ The inbound serving counterpart to the outbound boundary: one `ProcessModality` 
 
 ## [2]-[PROCESS_MODALITY]
 
-- Owner: `ProcessModality` `[SmartEnum<string>]` three rows under one `ProcessModalityKeyPolicy` comparer accessor; `ModalityRow` per-case policy record; `ModalityRows` frozen row set with the total dispatch; `CompanionPeer` the attached-child capsule the modality row produces.
-- Cases: companion, sidecar, paired-peer — companion is the host-spawned single-shot child, sidecar is the externally-supervised attach-only peer, paired-peer is the symmetric dual-attach where each side both spawns and admits.
-- Entry: `ModalityRow Row` is the extension property total state-free `Switch` from case to frozen row; `Attach(ModalityRow row, ProcessStartInfo spec, Func<int, Fin<DiscoveryManifest>> manifestOf, Func<DiscoveryManifest, CancellationToken, IO<Unit>> drainFan, GrpcChannelPolicy policy)` returns `IO<CompanionPeer>` and carries the spawn-and-dial effect.
-- Auto: `Attach` reads the discovery manifest through the bound `Discovery.Read` projection and dials the control channel through `Discovery.Connect`, running the single-shot `Discovery.Spawn` only on rows whose `Spawns` column is set, and the `DegradesChild` column gates the cascade write.
-- Receipt: `ModalityReceipt` — modality key, peer pid, attach outcome, elapsed `Duration`, cascade-eligible flag.
+- Owner: `ProcessModality` `[SmartEnum<string>]` three rows under one `ProcessModalityKeyPolicy` comparer accessor; `ModalityRow` per-case policy record; `ModalityRows` frozen row set with the total dispatch; `CompanionPeer` the attached-child capsule the modality row produces; `PeerRoster` the `Atom`-backed serving-side attached-connection set carrying a monotone lease epoch; `RosterEntry` the per-connection lease record; `RosterReceipt` the join/renew/drop transition projection the sink fans.
+- Cases: companion, sidecar, paired-peer — companion is the host-spawned single-shot child, sidecar is the externally-supervised attach-only peer, paired-peer is the symmetric dual-attach where each side both spawns and admits; three roster transitions — join on accept, renew on heartbeat, drop on lease expiry or disconnect.
+- Entry: `ModalityRow Row` is the extension property total state-free `Switch` from case to frozen row; `Attach(ModalityRow row, ProcessStartInfo spec, Func<int, Fin<DiscoveryManifest>> manifestOf, Func<DiscoveryManifest, CancellationToken, IO<Unit>> drainFan, GrpcChannelPolicy policy)` returns `IO<CompanionPeer>` and carries the spawn-and-dial effect; `PeerRoster.Admit(PeerCredential credential, DiscoveryManifest manifest, Instant now)`, `.Renew(int pid, Instant now)`, and `.Drop(int pid, Instant now)` each fold one transition over the `Atom` and return `IO<RosterReceipt>` carrying the lease epoch.
+- Auto: `Attach` reads the discovery manifest through the bound `Discovery.Read` projection and dials the control channel through `Discovery.Connect`, running the single-shot `Discovery.Spawn` only on rows whose `Spawns` column is set, and the `DegradesChild` column gates the cascade write; `Admit` keys the entry by the kernel-reported `PeerCredential.Pid` from the accept seam — never the manifest's self-asserted pid — and stamps the lease deadline from `LeasePolicy.Maintenance.CrashStaleness` so a peer's lease lapses on the same crash-staleness window the maintenance lease uses, `Renew` extends it, and `Sweep(Instant now)` drops every entry whose lease lapsed so a vanished peer leaves the roster without an explicit disconnect; every transition mints one `RosterReceipt` fanned through `ReceiptSinkPort.Send`.
+- Receipt: `ModalityReceipt` — modality key, peer pid, attach outcome, elapsed `Duration`, cascade-eligible flag; `RosterReceipt` — transition kind, peer pid+uid, lease epoch, attached-count after the fold, `Instant`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Grpc.Net.Client, BCL inbox
-- Growth: one case plus one `ModalityRow` absorbs a new process topology; the spawn, attach, and cascade legs are column flips on the row, never a parallel surface; zero new surface.
-- Boundary: the modality row consumes `OutboundHop.CompanionSpawn` and `OutboundHop.LocalIpc` from the dial-out owner and never re-declares the spawn or connect mechanics — `Discovery.Spawn`, `Discovery.Connect`, and `Discovery.Read` carry the bytes; `Spawns` is the single-shot guard so a sidecar row attaches without ever starting a process and a paired-peer row both spawns and admits; `DegradesChild` is the cascade-eligibility column the `DEGRADATION_CASCADE` write reads, never a second degradation owner; the attach deadline is the `DeadlineClass.HopAttempt` row read by projection, never a literal here; `CompanionPeer` carries the `CompanionChild` produced by the outbound spawn and the `GrpcChannel` produced by the control dial so one capsule owns both legs of an attached child.
+- Growth: one case plus one `ModalityRow` absorbs a new process topology; the spawn, attach, and cascade legs are column flips on the row, never a parallel surface; a new roster transition is one `RosterTransition` case plus one fold arm; zero new surface.
+- Boundary: the modality row consumes `OutboundHop.CompanionSpawn` and `OutboundHop.LocalIpc` from the dial-out owner and never re-declares the spawn or connect mechanics — `Discovery.Spawn`, `Discovery.Connect`, and `Discovery.Read` carry the bytes; `Spawns` is the single-shot guard so a sidecar row attaches without ever starting a process and a paired-peer row both spawns and admits; `DegradesChild` is the cascade-eligibility column the `DEGRADATION_CASCADE` write reads, never a second degradation owner; the attach deadline is the `DeadlineClass.HopAttempt` row read by projection and the lease deadline is the `LeasePolicy.Maintenance.CrashStaleness` value, never a literal here; `CompanionPeer` carries the `CompanionChild` produced by the outbound spawn and the `GrpcChannel` produced by the control dial so one capsule owns both legs of an attached child; `PeerRoster` is the single host-side attached-connection owner — the lease epoch is a monotone `ulong` bumped on every join and drop so a stale peer reconnecting under a prior epoch is detectable, and the roster never re-mints presence: its consequence is an op-log-borne presence value at Persistence/sync-collaboration#PRESENCE_AND_BLOB where each `RosterReceipt` join/drop projects one `PresenceRow` (`Actor` = peer pid+uid, `EntityKind` = the serving service key, `ExpiresAt` = the lease deadline) through `Presence.Beat` over the existing op-log changefeed, so the roster mechanics live here and the durable presence value lives there; `WireHealth` reads the attached-count for per-peer serving status, never a second roster; `FleetRoll` and `ForwardWrite` read `PeerRoster.Attached` as settled vocabulary.
 
 ```csharp signature
 public sealed class ProcessModalityKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -82,6 +82,69 @@ public static class ModalityRows {
                 .Bind(read => read.Match(
                     Succ: manifest => IO.pure(new CompanionPeer(row.Modality, None, Discovery.Connect(manifest, policy), manifest)),
                     Fail: fault => IO.fail<CompanionPeer>(fault)));
+}
+
+[SmartEnum]
+public sealed partial class RosterTransition {
+    public static readonly RosterTransition Joined = new();
+    public static readonly RosterTransition Renewed = new();
+    public static readonly RosterTransition Dropped = new();
+}
+
+public sealed record RosterEntry(
+    int Pid,
+    uint Uid,
+    DiscoveryManifest Manifest,
+    ulong Epoch,
+    Instant JoinedAt,
+    Instant LeaseUntil);
+
+public readonly record struct RosterReceipt(
+    RosterTransition Transition,
+    int Pid,
+    uint Uid,
+    ulong Epoch,
+    int Attached,
+    Instant At);
+
+public sealed record PeerRoster(
+    string Service,
+    Atom<(HashMap<int, RosterEntry> Entries, ulong Epoch)> Cell,
+    ReceiptSinkPort Sink,
+    IClock Clock,
+    TenantContext Tenant) {
+    public static PeerRoster Boot(string service, ReceiptSinkPort sink, IClock clock, TenantContext tenant) =>
+        new(service, Atom((HashMap<int, RosterEntry>.Empty, 0UL)), sink, clock, tenant);
+
+    public Seq<RosterEntry> Attached => Cell.Value.Entries.Values.ToSeq();
+
+    public IO<RosterReceipt> Admit(PeerCredential credential, DiscoveryManifest manifest, Instant now) =>
+        Commit(RosterTransition.Joined, credential.Pid, credential.Uid, now, state => {
+            var epoch = state.Epoch + 1UL;
+            var entry = new RosterEntry(credential.Pid, credential.Uid, manifest, epoch, now, now + LeasePolicy.Maintenance.CrashStaleness);
+            return (state.Entries.AddOrUpdate(credential.Pid, entry), epoch);
+        });
+
+    public IO<RosterReceipt> Renew(int pid, Instant now) =>
+        Commit(RosterTransition.Renewed, pid, Uid(pid), now, state =>
+            (state.Entries.Find(pid).Match(
+                entry => state.Entries.SetItem(pid, entry with { LeaseUntil = now + LeasePolicy.Maintenance.CrashStaleness }),
+                () => state.Entries),
+             state.Epoch));
+
+    public IO<RosterReceipt> Drop(int pid, Instant now) =>
+        Commit(RosterTransition.Dropped, pid, Uid(pid), now, state => (state.Entries.Remove(pid), state.Epoch + 1UL));
+
+    public IO<Seq<RosterReceipt>> Sweep(Instant now) =>
+        Cell.Value.Entries.Values.Filter(entry => entry.LeaseUntil <= now).ToSeq()
+            .TraverseM(entry => Drop(entry.Pid, now)).As();
+
+    uint Uid(int pid) => Cell.Value.Entries.Find(pid).Match(entry => entry.Uid, () => 0U);
+
+    IO<RosterReceipt> Commit(RosterTransition transition, int pid, uint uid, Instant now, Func<(HashMap<int, RosterEntry> Entries, ulong Epoch), (HashMap<int, RosterEntry> Entries, ulong Epoch)> fold) =>
+        IO.lift(() => Cell.Swap(state => fold((state.Entries, state.Epoch))))
+            .Map(state => new RosterReceipt(transition, pid, uid, state.Epoch, state.Entries.Count, now))
+            .Bind(receipt => Sink.Send(Correlation.Mint(), Tenant, TelemetrySource.AppHost.Key, nameof(PeerRoster), JsonSerializer.SerializeToElement(receipt, AppHostWireContext.Default.RosterReceipt)).Map(_ => receipt));
 }
 ```
 
@@ -156,6 +219,7 @@ public static class ControlInbound {
     static IO<Unit> Fan<T>(ControlRuntime runtime, string verb, T payload) where T : notnull =>
         runtime.Sink.Send(
             runtime.Support.Active.Value.IfNone(Correlation.Mint),
+            TenantContext.Current,
             ControlRuntime.Package,
             verb,
             JsonSerializer.SerializeToElement(payload, runtime.Wire)).Map(static _ => unit);

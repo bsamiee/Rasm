@@ -8,6 +8,9 @@ Open work owned by this folder; closed items do not appear.
 | :-----: | ------ | ------ |
 | [1] | DockSerializer round-trip preserving dockable identity; render-hash lanes pass as executed specs | round-trip preserves identity; render-hash lanes pass |
 | [2] | Heat-land geo payload projection from the Compute `GeometryPayload` proto into the `GeoMap` land records (GEO_PAYLOAD wire boundary) | land-record projection verified against the settled Compute wire contract |
+| [3] | `CrossFilter` dynamic-predicate brushing — `Filter(IObservable<Func<TRow,bool>>)` re-filters every non-source tile from one `FilterState` subject without a feed re-subscribe; the source tile self-excludes | brushing one tile filters siblings on the shared `Connect()` spine; self-filter loop is structurally impossible |
+| [4] | `BoardState` STJ round-trip through the `IDockSerializer` impl preserving tile arrangement plus `FilterState`; `Version` mismatch falls back to the named dashboard row; restore re-pushes the brush onto `CrossFilter` | board snapshot round-trips and re-applies the persisted brush at mount; version-mismatch fallback holds |
+| [5] | `GeoOverlay.Bind` folds the Persistence `SpatialDiff` `IChangeSet<HeatLand,string>` onto `HeatLandSeries.Lands` in place inside the `SyncContext` lock; `Change<HeatLand,string>` accessor and `Lands` setter spellings (GEO_OVERLAY_DELTAS) re-ground against decompiled DynamicData/LiveCharts | live overlay refresh is an incremental land swap, never a re-load; change-set accessor spellings confirmed at implementation |
 
 ## [2]-[PLANNING_CLOSE_OUT_SPIKES]
 
