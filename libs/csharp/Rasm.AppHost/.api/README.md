@@ -10,10 +10,12 @@
   - [api-hybrid-cache.md](api-hybrid-cache.md)
   - [api-logging.md](api-logging.md)
   - [api-nodatime.md](api-nodatime.md)
+  - [api-nodatime-stj.md](api-nodatime-stj.md)
   - [api-cronos.md](api-cronos.md)
   - [api-dataflow.md](api-dataflow.md)
   - [api-objectpool.md](api-objectpool.md)
   - [api-thinktecture-json.md](api-thinktecture-json.md)
+  - [api-velopack.md](api-velopack.md)
 
 [COMPOSITION]:
 - rail: composition
@@ -32,6 +34,7 @@
 - pages:
   - [api-health.md](api-health.md)
   - [api-resilience.md](api-resilience.md)
+  - [api-grpc-client.md](api-grpc-client.md)
   - [api-polly-core.md](api-polly-core.md)
   - [api-polly-extensions.md](api-polly-extensions.md)
   - [api-polly-ratelimiting.md](api-polly-ratelimiting.md)

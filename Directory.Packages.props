@@ -18,10 +18,6 @@
         <PackageVersion Include="MathNet.Numerics" Version="6.0.0-beta2" />
         <PackageVersion Include="MathNet.Numerics.FSharp" Version="6.0.0-beta2" />
         <PackageVersion Include="MathNet.Symbolics" Version="0.25.0" />
-        <PackageVersion Include="MathNet.Numerics.Providers.MKL" Version="6.0.0-beta2" />
-        <PackageVersion Include="MathNet.Numerics.Providers.OpenBLAS" Version="5.0.0" />
-        <PackageVersion Include="MathNet.Numerics.MKL.Win-x64" Version="3.0.0" />
-        <PackageVersion Include="MathNet.Numerics.MKL.Linux-x64" Version="2.0.0" />
     </ItemGroup>
 
     <ItemGroup Label="Rhino UI Compile Surface">
@@ -44,7 +40,6 @@
         <PackageVersion Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring" Version="10.7.0" />
         <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.7.0" />
         <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="10.0.9" />
@@ -124,6 +119,22 @@
         <PackageVersion Include="UnitsNet" Version="5.75.0" />
     </ItemGroup>
 
+    <!-- Interchange: Compute owns multi-format bidirectional codecs — glTF through SharpGLTF
+         (Core read/write, Toolkit scene/mesh build, Runtime decode) and the IFC semantic model
+         through GeometryGymIFC_Core (pure-managed IL-only AnyCPU, IFC2x3->IFC4.3+, MIT). macOS-only
+         target: no managed IFC tessellation engine exists, so parametric IFC->mesh runs out-of-process
+         via an IfcOpenShell companion node (PyPI, libs/python/compute) — never a NuGet pin; IFC
+         semantic ingest (model graph, property sets, spatial hierarchy, quantities, materials, type
+         objects) is fully managed in-process. Xbim is rejected: its sole differentiator
+         Xbim.Geometry ships win-x64 native OpenCASCADE only (dead on osx-arm64) and its model layer
+         carries nothing GeometryGym lacks. -->
+    <ItemGroup Label="Interchange">
+        <PackageVersion Include="GeometryGymIFC_Core" Version="25.7.30" />
+        <PackageVersion Include="SharpGLTF.Core" Version="1.0.6" />
+        <PackageVersion Include="SharpGLTF.Runtime" Version="1.0.6" />
+        <PackageVersion Include="SharpGLTF.Toolkit" Version="1.0.6" />
+    </ItemGroup>
+
     <!-- App-root-only pins: versions are central so app roots stay versionless, but no library
          project references these; companion/standalone app roots compose them at publish time. -->
     <ItemGroup Label="App Roots">
@@ -139,6 +150,10 @@
         <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
         <PackageVersion Include="Microsoft.Build.Framework" Version="18.7.1" />
         <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="10.0.9" />
+        <!-- Directly-invoked by AppHost configuration-and-options (OptionsBuilder.Bind/BindConfiguration,
+             Configure<T>(IConfiguration), validation-on-start); explicitly pinned on the 10.0.9 servicing
+             line so the central transitive pin stays deterministic. -->
+        <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.9" />
         <PackageVersion Include="Microsoft.NET.StringTools" Version="18.7.1" />
         <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageVersion Include="System.CodeDom" Version="10.0.9" />
@@ -176,12 +191,12 @@
         <PackageVersion Include="DialogHost.Avalonia" Version="0.12.2" />
         <PackageVersion Include="Dock.Avalonia" Version="12.0.0.2" />
         <PackageVersion Include="Dock.Model.ReactiveUI" Version="12.0.0.2" />
+        <!-- STJ layout serializer over Newtonsoft per system-apis doctrine; rides the Dock 12.0.0.2 line. -->
+        <PackageVersion Include="Dock.Serializer.SystemTextJson" Version="12.0.0.2" />
         <PackageVersion Include="DynamicData" Version="9.4.31" />
         <PackageVersion Include="FluentIcons.Avalonia" Version="2.1.328" />
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.5" />
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS" Version="8.3.1.5" />
-        <PackageVersion Include="HarfBuzzSharp.NativeAssets.WebAssembly" Version="8.3.1.5" />
-        <PackageVersion Include="HarfBuzzSharp.NativeAssets.Win32" Version="8.3.1.5" />
         <PackageVersion Include="HotAvalonia" Version="3.1.1" />
         <PackageVersion Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.4" />
         <PackageVersion Include="Markdig" Version="1.2.0" />
@@ -197,8 +212,6 @@
         <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
         <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
         <PackageVersion Include="SkiaSharp.NativeAssets.macOS" Version="3.119.4" />
-        <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="3.119.4" />
-        <PackageVersion Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4" />
         <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.11" />
         <!-- Direct engine pin: headless document/export processes compose SKSvg without the
              Avalonia closure; 5.0.0 is exactly the floor the Avalonia-coupled package declares. -->

@@ -339,7 +339,7 @@
         </AssemblyAttribute>
     </ItemGroup>
 
-    <!-- AppUi ships cross-platform (Win32/Linux Skia natives), and TestKit exports neutral
+    <!-- AppUi ships macOS + headless-Linux Skia natives, and TestKit exports neutral
          test helpers consumed by ordinary test assemblies; platform guards live in their
          host-boundary capsules, not in an assembly-wide macOS attribute. -->
     <ItemGroup Label="macOS Host Platform Metadata" Condition="'$(NeedsRhinoHostUiSurface)' == 'true' and '$(IsAppUiProject)' != 'true' and '$(IsTestKitProject)' != 'true'">

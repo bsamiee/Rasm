@@ -240,11 +240,13 @@ The executed admissions ledger maps each package to its consuming page, `.api` c
 |  [14]   | SharpFuzz                            | remote-lane, tensor-lane                      | pending — NEEDS-ADMISSION          | catalogue-pending |
 |  [15]   | BenchmarkDotNet                      | model-lane                                    | pending                            | catalogue-pending |
 |  [16]   | MathNet.Numerics                     | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
-|  [17]   | MathNet.Numerics.Providers.MKL       | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
-|  [18]   | MathNet.Numerics.Providers.OpenBLAS  | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
-|  [19]   | CSparse                              | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
-|  [20]   | Microsoft.ML.OnnxRuntimeGenAI        | model-lane                                    | api-onnxruntime.md                 | admitted          |
-|  [21]   | Microsoft.Extensions.AI.Abstractions | model-lane                                    | api-onnxruntime.md                 | admitted          |
+|  [17]   | CSparse                              | numeric-lane                                  | api-mathnet-providers.md           | admitted          |
+|  [18]   | Microsoft.ML.OnnxRuntimeGenAI        | model-lane                                    | api-onnxruntime.md                 | admitted          |
+|  [19]   | Microsoft.Extensions.AI.Abstractions | model-lane                                    | api-onnxruntime.md                 | admitted          |
+|  [20]   | GeometryGymIFC_Core                  | interchange                                   | api-geometrygym-ifc.md             | admitted          |
+|  [21]   | SharpGLTF.Core                       | interchange                                   | api-sharpgltf.md                   | admitted          |
+|  [22]   | SharpGLTF.Toolkit                    | interchange                                   | api-sharpgltf.md                   | admitted          |
+|  [23]   | SharpGLTF.Runtime                    | interchange                                   | api-sharpgltf.md                   | admitted          |
 
 ## [11]-[REFINEMENT_HORIZON]
 

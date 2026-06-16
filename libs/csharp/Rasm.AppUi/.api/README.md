@@ -42,6 +42,7 @@
   - [api-dialoghost.md](api-dialoghost.md)
   - [api-panandzoom.md](api-panandzoom.md)
   - [api-dock.md](api-dock.md)
+  - [api-dock-serializer.md](api-dock-serializer.md)
   - [api-avaloniaedit.md](api-avaloniaedit.md)
   - [api-fluenticons.md](api-fluenticons.md)
   - [api-asyncimageloader.md](api-asyncimageloader.md)

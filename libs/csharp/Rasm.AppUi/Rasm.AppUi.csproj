@@ -35,16 +35,15 @@
         <PackageReference Include="System.Reactive" />
     </ItemGroup>
 
-    <!-- Self-contained native posture across the three desktop platforms. The glibc-coupled
-         Linux flavor that Avalonia.Skia drags is excluded in favor of NoDependencies. -->
+    <!-- Native posture: macOS desktop (live) plus the headless-Linux raster backend
+         (server/container/headless-CI). The glibc-coupled Linux flavor that Avalonia.Skia
+         drags is excluded in favor of the self-contained NoDependencies asset. -->
     <ItemGroup Label="Native Text And Raster Assets">
         <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" />
         <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
-        <PackageReference Include="HarfBuzzSharp.NativeAssets.Win32" />
         <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
         <PackageReference Include="SkiaSharp.NativeAssets.Linux" ExcludeAssets="all" PrivateAssets="all" />
         <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
-        <PackageReference Include="SkiaSharp.NativeAssets.Win32" />
     </ItemGroup>
 
     <ItemGroup Label="Product Controls">

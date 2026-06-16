@@ -205,28 +205,27 @@ The executed admissions ledger maps each package to its consuming page, `.api` c
 |  [16]   | SkiaSharp.HarfBuzz                          | typography-shaping          | skia-harfbuzz         | admitted     |
 |  [17]   | Svg.Controls.Skia.Avalonia                  | icons-assets                | svg-skia              | admitted     |
 |  [18]   | SkiaSharp.NativeAssets.macOS                | surface-hosts               | skia-native           | admitted     |
-|  [19]   | SkiaSharp.NativeAssets.Win32                | surface-hosts               | skia-native           | admitted     |
-|  [20]   | SkiaSharp.NativeAssets.Linux.NoDependencies | surface-hosts               | skia-native           | admitted     |
-|  [21]   | SkiaSharp.NativeAssets.Linux                | surface-hosts               | skia-native           | admitted     |
-|  [22]   | HarfBuzzSharp.NativeAssets.macOS            | surface-hosts               | harfbuzz-native       | admitted     |
-|  [23]   | HarfBuzzSharp.NativeAssets.Win32            | surface-hosts               | harfbuzz-native       | admitted     |
-|  [24]   | HarfBuzzSharp.NativeAssets.Linux            | surface-hosts               | harfbuzz-native       | admitted     |
-|  [25]   | AsyncImageLoader.Avalonia                   | icons + visuals             | asyncimageloader      | admitted     |
-|  [26]   | Avalonia.AvaloniaEdit                       | inspector-editing           | avaloniaedit          | admitted     |
-|  [27]   | AvaloniaEdit.TextMate                       | inspector-editing           | avaloniaedit          | admitted     |
-|  [28]   | bodong.Avalonia.PropertyGrid                | inspector-editing           | propertygrid          | admitted     |
-|  [29]   | bodong.PropertyModels                       | inspector-editing           | propertygrid          | admitted     |
-|  [30]   | DialogHost.Avalonia                         | dialogs-notifications       | dialoghost            | admitted     |
-|  [31]   | Dock.Avalonia                               | shell-navigation            | dock                  | admitted     |
-|  [32]   | Dock.Model.ReactiveUI                       | shell-navigation            | dock                  | admitted     |
-|  [33]   | PanAndZoom                                  | input + charts              | panandzoom            | admitted     |
-|  [34]   | FluentIcons.Avalonia                        | icons-assets                | fluenticons           | admitted     |
-|  [35]   | Markdig                                     | typography-shaping          | markdig               | admitted     |
-|  [36]   | Thinktecture.Runtime.Extensions.Json        | commands + diagnostics      | docs/stacks/csharp    | admitted     |
-|  [37]   | HotAvalonia                                 | diagnostics-evidence        | hotavalonia           | admitted     |
-|  [38]   | Avalonia.Headless                           | diagnostics + accessibility | headless              | admitted     |
-|  [39]   | Avalonia.Headless.XUnit                     | diagnostics-evidence        | headless              | admitted     |
-|  [40]   | Verify.XunitV3                              | diagnostics-evidence        | headless              | catalogue-pending |
+|  [19]   | SkiaSharp.NativeAssets.Linux.NoDependencies | surface-hosts               | skia-native           | admitted     |
+|  [20]   | SkiaSharp.NativeAssets.Linux                | surface-hosts               | skia-native           | admitted     |
+|  [21]   | HarfBuzzSharp.NativeAssets.macOS            | surface-hosts               | harfbuzz-native       | admitted     |
+|  [22]   | HarfBuzzSharp.NativeAssets.Linux            | surface-hosts               | harfbuzz-native       | admitted     |
+|  [23]   | AsyncImageLoader.Avalonia                   | icons + visuals             | asyncimageloader      | admitted     |
+|  [24]   | Avalonia.AvaloniaEdit                       | inspector-editing           | avaloniaedit          | admitted     |
+|  [25]   | AvaloniaEdit.TextMate                       | inspector-editing           | avaloniaedit          | admitted     |
+|  [26]   | bodong.Avalonia.PropertyGrid                | inspector-editing           | propertygrid          | admitted     |
+|  [27]   | bodong.PropertyModels                       | inspector-editing           | propertygrid          | admitted     |
+|  [28]   | DialogHost.Avalonia                         | dialogs-notifications       | dialoghost            | admitted     |
+|  [29]   | Dock.Avalonia                               | shell-navigation            | dock                  | admitted     |
+|  [30]   | Dock.Model.ReactiveUI                       | shell-navigation            | dock                  | admitted     |
+|  [31]   | Dock.Serializer.SystemTextJson              | shell-navigation            | dock-serializer       | admitted     |
+|  [32]   | PanAndZoom                                  | input + charts              | panandzoom            | admitted     |
+|  [33]   | FluentIcons.Avalonia                        | icons-assets                | fluenticons           | admitted     |
+|  [34]   | Markdig                                     | typography-shaping          | markdig               | admitted     |
+|  [35]   | Thinktecture.Runtime.Extensions.Json        | commands + diagnostics      | docs/stacks/csharp    | admitted     |
+|  [36]   | HotAvalonia                                 | diagnostics-evidence        | hotavalonia           | admitted     |
+|  [37]   | Avalonia.Headless                           | diagnostics + accessibility | headless              | admitted     |
+|  [38]   | Avalonia.Headless.XUnit                     | diagnostics-evidence        | headless              | admitted     |
+|  [39]   | Verify.XunitV3                              | diagnostics-evidence        | headless              | catalogue-pending |
 
 ## [11]-[REFINEMENT_HORIZON]
 

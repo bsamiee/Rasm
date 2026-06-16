@@ -26,6 +26,12 @@
   - [api-onnxruntime.md](api-onnxruntime.md)
   - [api-onnx-extensions.md](api-onnx-extensions.md)
 
+[GEOMETRY]:
+- rail: geometry
+- pages:
+  - [api-sharpgltf.md](api-sharpgltf.md)
+  - [api-geometrygym-ifc.md](api-geometrygym-ifc.md)
+
 [MATH]:
 - rail: math
 - pages:
