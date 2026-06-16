@@ -1,6 +1,6 @@
 # [PYTHON_CAMPAIGN_METHOD]
 
-The branch-local method that produces the Python library corpus, aligned to the suite campaign method `libs/csharp/.planning/campaign-method.md` and run on its own cadence. `libs/python` is a first-class sibling library branch, not a thin coupling to the C# packages: an agnostic, universal, professional library re-derived from first principles every campaign, aligned hand-in-glove only where a shared concern crosses the boundary.
+The branch-local method that produces the Python library corpus, named in the suite [campaign-method](../../csharp/.planning/campaign-method.md) `[SIBLING_BRANCHES]` law and held to the same `[THE_BAR]`, `[THE_METHOD]`, `[TWO_MODES]`, `[FENCE_LAW]`, and `[IDEATION_LAW]`, run on its own cadence. `libs/python` is a first-class sibling library branch, not a thin coupling to the C# packages: an agnostic, universal, professional library re-derived from first principles every campaign, aligned hand-in-glove only where a shared concern crosses the boundary.
 
 ## [1]-[THE_BAR]
 
