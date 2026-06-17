@@ -54,7 +54,7 @@ catalog:
   '@effect/sql-sqlite-node': 0.52.0
   '@effect/sql-sqlite-react-native': 0.54.0
   '@effect/sql-sqlite-wasm': 0.52.0
-  '@effect/tsgo': 0.14.3
+  '@effect/tsgo': 0.14.4
   '@effect/typeclass': 0.40.0
   '@effect/vitest': 0.29.0
   '@effect/workflow': 0.18.2
@@ -83,8 +83,8 @@ catalog:
   '@opentelemetry/sdk-trace-node': 2.8.0
   '@opentelemetry/sdk-trace-web': 2.8.0
   '@opentelemetry/semantic-conventions': 1.41.1
-  '@playwright/test': 1.60.0
-  '@pulumi/aws': 7.32.0
+  '@playwright/test': 1.61.0
+  '@pulumi/aws': 7.33.0
   '@pulumi/awsx': 3.6.0
   '@pulumi/command': 1.2.1
   '@pulumi/docker': 5.0.0
@@ -93,9 +93,9 @@ catalog:
   '@pulumi/policy': 1.21.0
   '@pulumi/pulumi': 3.246.0
   '@pulumi/random': 4.21.0
-  '@radix-ui/react-label': 2.1.9
-  '@radix-ui/react-separator': 1.1.9
-  '@radix-ui/react-slot': 1.2.5
+  '@radix-ui/react-label': 2.1.10
+  '@radix-ui/react-separator': 1.1.10
+  '@radix-ui/react-slot': 1.3.0
   '@radix-ui/react-visually-hidden': 1.2.5
   '@react-aria/live-announcer': 3.5.1
   '@rolldown/plugin-babel': 0.2.3
@@ -107,7 +107,7 @@ catalog:
   '@swc/core': 1.15.41
   '@tailwindcss/vite': 4.3.1
   '@tanstack/react-table': 8.21.3
-  '@tanstack/react-virtual': 3.14.2
+  '@tanstack/react-virtual': 3.14.3
   '@types/k6': 2.0.0
   '@types/node': 25.9.3
   '@types/nodemailer': 8.0.1
@@ -115,12 +115,12 @@ catalog:
   '@types/react': 19.2.17
   '@types/react-dom': 19.2.3
   '@types/sax': 1.2.7
-  '@typescript/native-preview': 7.0.0-dev.20260612.1
+  '@typescript/native-preview': 7.0.0-dev.20260616.1
   '@use-gesture/react': 10.3.1
   '@vitejs/plugin-react': 6.0.2
-  '@vitest/browser-playwright': 4.1.8
-  '@vitest/coverage-v8': 4.1.8
-  '@vitest/ui': 4.1.8
+  '@vitest/browser-playwright': 4.1.9
+  '@vitest/coverage-v8': 4.1.9
+  '@vitest/ui': 4.1.9
   arctic: 3.7.0
   babel-plugin-react-compiler: 1.0.0
   browserslist: 4.28.2
@@ -129,9 +129,8 @@ catalog:
   cmdk: 1.1.1
   colorjs.io: 0.6.1
   effect: 3.21.3
-  exceljs: 4.4.0
   fast-check: 4.8.0
-  happy-dom: 20.10.3
+  happy-dom: 20.10.5
   idb-keyval: 6.2.5
   ioredis: 5.11.1
   isomorphic-dompurify: 3.16.0
@@ -139,7 +138,7 @@ catalog:
   jspdf: 4.2.1
   jszip: 3.10.1
   lightningcss: 1.32.0
-  lucide-react: 1.18.0
+  lucide-react: 1.20.0
   maplibre-gl: 5.24.0
   nodemailer: 8.0.11
   nuqs: 2.8.9
@@ -153,6 +152,7 @@ catalog:
   react-dom: 19.2.7
   react-error-boundary: 6.1.2
   react-stately: 3.47.0
+  read-excel-file: 9.2.0
   rfc6902: 5.2.0
   rollup-plugin-visualizer: 7.0.1
   sax: 1.6.0
@@ -174,9 +174,10 @@ catalog:
   vite-plugin-pwa: 1.3.0
   vite-plugin-svgr: 5.2.0
   vite-plugin-webfont-dl: 3.12.0
-  vitest: 4.1.8
+  vitest: 4.1.9
   workbox-build: 7.4.1
   workbox-window: 7.4.1
+  write-excel-file: 4.1.1
   xxhash-wasm: 1.1.0
   yaml: 2.9.0
 
@@ -201,7 +202,7 @@ overrides:
   minimatch: 10.2.5
   node-forge: 1.4.0
   puppeteer: 25.1.0
-  rollup: 4.61.1
+  rollup: 4.62.0
   svgo: 4.0.1
   tar: 7.5.16
 
@@ -209,7 +210,7 @@ peerDependencyRules:
   allowedVersions:
     puppeteer: 25.1.0
     typescript: 6.0.3
-    vitest: 4.1.8
+    vitest: 4.1.9
 
 allowBuilds:
   '@ast-grep/cli': true
@@ -240,3 +241,15 @@ saveExact: true
 strictSsl: true
 
 verifyDepsBeforeRun: warn
+
+minimumReleaseAgeExclude:
+  - '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260616.1'
+  - '@typescript/native-preview-darwin-x64@7.0.0-dev.20260616.1'
+  - '@typescript/native-preview-linux-arm64@7.0.0-dev.20260616.1'
+  - '@typescript/native-preview-linux-arm@7.0.0-dev.20260616.1'
+  - '@typescript/native-preview-linux-x64@7.0.0-dev.20260616.1'
+  - '@typescript/native-preview-win32-arm64@7.0.0-dev.20260616.1'
+  - '@typescript/native-preview-win32-x64@7.0.0-dev.20260616.1'
+  - '@typescript/native-preview@7.0.0-dev.20260616.1'
+  - happy-dom@20.10.5
+  - lucide-react@1.20.0
