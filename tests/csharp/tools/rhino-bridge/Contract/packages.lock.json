@@ -22,9 +22,9 @@
       },
       "JetBrains.Annotations": {
         "type": "Direct",
-        "requested": "[2025.2.2, )",
-        "resolved": "2025.2.2",
-        "contentHash": "0X56ZRizuHdrnPpgXjWV7f2tQO1FlQg5O1967OGKnI/4ZRNOK642J8L7brM1nYvrxTTU5TP1yRyXLRLaXLPQ8A=="
+        "requested": "[2025.2.4, )",
+        "resolved": "2025.2.4",
+        "contentHash": "TwbgxAkXxY+vNEhNVx/QXjJ4vqxmepOjsgRvvImQPbHkHMMb4W+ahL3laMsxXKtNT7iMy+E1B3xkqao2hf1n3A=="
       },
       "LanguageExt.Core": {
         "type": "Direct",
@@ -237,14 +237,14 @@
       "csp.contracts": {
         "type": "Project",
         "dependencies": {
-          "JetBrains.Annotations": "[2025.2.2, )"
+          "JetBrains.Annotations": "[2025.2.4, )"
         }
       },
       "Rasm.Bridge.Contract": {
         "type": "Project",
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
-          "JetBrains.Annotations": "[2025.2.2, )",
+          "JetBrains.Annotations": "[2025.2.4, )",
           "StreamJsonRpc": "[2.25.29, )",
           "Thinktecture.Runtime.Extensions": "[10.3.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.3.0, )"

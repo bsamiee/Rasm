@@ -24,9 +24,9 @@
       },
       "JetBrains.Annotations": {
         "type": "Direct",
-        "requested": "[2025.2.2, )",
-        "resolved": "2025.2.2",
-        "contentHash": "0X56ZRizuHdrnPpgXjWV7f2tQO1FlQg5O1967OGKnI/4ZRNOK642J8L7brM1nYvrxTTU5TP1yRyXLRLaXLPQ8A=="
+        "requested": "[2025.2.4, )",
+        "resolved": "2025.2.4",
+        "contentHash": "TwbgxAkXxY+vNEhNVx/QXjJ4vqxmepOjsgRvvImQPbHkHMMb4W+ahL3laMsxXKtNT7iMy+E1B3xkqao2hf1n3A=="
       },
       "K4os.Compression.LZ4": {
         "type": "Direct",
@@ -218,9 +218,9 @@
       },
       "Sep": {
         "type": "Direct",
-        "requested": "[0.14.1, )",
-        "resolved": "0.14.1",
-        "contentHash": "yliFcwYWxcLXwCR+XI0IviKCChtMWP6Tx4DWs3rW9QYhj147zW7ZLKQteg5v7T9zIB/Ki0Bo2FM0F4ndcaPP+A==",
+        "requested": "[0.15.0, )",
+        "resolved": "0.15.0",
+        "contentHash": "x4euJeBMZaHwPx4vqYu2MUo5uefllW3CkSu0X/pdX0bn6sHTl3af2lDC+p5MuQLMfCHi7bOpt/rwdmcY42zbPg==",
         "dependencies": {
           "csFastFloat": "4.1.5"
         }
@@ -658,14 +658,6 @@
           "OpenTelemetry.Api": "1.16.0"
         }
       },
-      "Pgvector": {
-        "type": "Transitive",
-        "resolved": "0.3.2",
-        "contentHash": "n7M5LuNejHUmtWky3zCbNO+tP1Gnjiuv9Qtu4LyvB1602dD8RiBxxCQp9jEjM0ZFDxAZF1oOWkNIkXw46KT00Q==",
-        "dependencies": {
-          "Npgsql": "8.0.5"
-        }
-      },
       "SourceGear.sqlite3": {
         "type": "Transitive",
         "resolved": "3.50.4.5",
@@ -737,7 +729,7 @@
       "csp.contracts": {
         "type": "Project",
         "dependencies": {
-          "JetBrains.Annotations": "[2025.2.2, )"
+          "JetBrains.Annotations": "[2025.2.4, )"
         }
       },
       "rasm.apphost": {
@@ -747,7 +739,7 @@
           "Csp.Contracts": "[1.0.0, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
-          "JetBrains.Annotations": "[2025.2.2, )",
+          "JetBrains.Annotations": "[2025.2.4, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Microsoft.Extensions.Caching.Hybrid": "[10.7.0, )",
           "Microsoft.Extensions.Compliance.Redaction": "[10.7.0, )",
@@ -1170,6 +1162,15 @@
         "contentHash": "cpPwlUT5HXcLGPaIgsbSy0W9eFYAPGVbTP1p8/uyQ4Osvf5BJuPpEXE7crL09SmEd44r0DGNKDtsqxaAz0HxQw==",
         "dependencies": {
           "OpenTelemetry.Api": "[1.15.3, 2.0.0)"
+        }
+      },
+      "Pgvector": {
+        "type": "CentralTransitive",
+        "requested": "[0.3.2, )",
+        "resolved": "0.3.2",
+        "contentHash": "n7M5LuNejHUmtWky3zCbNO+tP1Gnjiuv9Qtu4LyvB1602dD8RiBxxCQp9jEjM0ZFDxAZF1oOWkNIkXw46KT00Q==",
+        "dependencies": {
+          "Npgsql": "8.0.5"
         }
       },
       "Polly.Core": {
