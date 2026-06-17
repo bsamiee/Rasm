@@ -87,6 +87,7 @@ public abstract partial record FileExchange {
     public sealed record Export(FileEndpoint Target, Option<DocumentTarget> Objects, FileProfile Profile) : FileExchange;
     public sealed record Save : FileExchange;
     public sealed record Write(FilePhase Phase, FileEndpoint Target, FileProfile Profile) : FileExchange;
+    public sealed record WriteGeometry(Seq<GeometryBase> Geometry, FileEndpoint Target) : FileExchange;
     public sealed record Publish(FilePublish Spec) : FileExchange;
     public sealed record NativeTable(FileNativeTable Change) : FileExchange;
     public sealed record ArchiveRead(FileArchiveSource Source, ArchiveProfile Profile) : FileExchange;
@@ -112,7 +113,7 @@ public readonly record struct FilePositionReport(string Name, Guid Id, Seq<Guid>
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public readonly partial record struct FileGeoLocation {
     public static Fin<Option<FileGeoLocation>> Read(RhinoDoc document) {
-        Op op = Op.Of(name: nameof(Read));
+        Op op = Op.Of();
         return Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
             using EarthAnchorPoint? anchor = active.EarthAnchorPoint;
             return Fin.Succ(value: From(anchor: anchor));
@@ -120,7 +121,7 @@ public readonly partial record struct FileGeoLocation {
     }
 
     public static Fin<DocumentReceipt> Set(RhinoDoc document, FileGeoLocation location) {
-        Op op = Op.Of(name: nameof(Set));
+        Op op = Op.Of();
         return Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
             using EarthAnchorPoint anchor = new();
             _ = location.Latitude.Iter(value => anchor.EarthBasepointLatitude = value);
@@ -138,15 +139,15 @@ public readonly partial record struct FileGeoLocation {
     }
 
     public static Fin<Plane> AnchorPlane(RhinoDoc document) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(AnchorPlane)), requireModel: true, use: static (anchor, op) =>
+        UseAnchor(document: document, op: Op.Of(), requireModel: true, use: static (anchor, op) =>
             op.AcceptValue(value: anchor.GetEarthAnchorPlane(anchorNorth: out _)));
 
     public static Fin<Plane> Compass(RhinoDoc document) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(Compass)), requireModel: true, use: static (anchor, op) =>
+        UseAnchor(document: document, op: Op.Of(), requireModel: true, use: static (anchor, op) =>
             op.AcceptValue(value: anchor.GetModelCompass()));
 
     public static Fin<Transform> OrientPlane(RhinoDoc document, Plane source) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(OrientPlane)), requireModel: true, use: (anchor, op) => {
+        UseAnchor(document: document, op: Op.Of(), requireModel: true, use: (anchor, op) => {
             Plane target = anchor.GetEarthAnchorPlane(anchorNorth: out _);
             return (source.IsValid, target.IsValid) switch {
                 (true, true) => Fin.Succ(value: Transform.PlaneToPlane(plane0: source, plane1: target)),
@@ -155,7 +156,7 @@ public readonly partial record struct FileGeoLocation {
         });
 
     public static Fin<Seq<(double Latitude, double Longitude, double Elevation)>> ProjectToEarth(RhinoDoc document, Seq<Point3d> points, LengthUnit modelUnits) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(ProjectToEarth)), requireEarth: true, use: (anchor, op) => {
+        UseAnchor(document: document, op: Op.Of(), requireEarth: true, use: (anchor, op) => {
             Transform xform = anchor.GetModelToEarthTransform(modelUnits: modelUnits);
             return xform.IsValid switch {
                 false => Fin.Fail<Seq<(double, double, double)>>(error: op.InvalidResult()),
@@ -168,7 +169,7 @@ public readonly partial record struct FileGeoLocation {
         });
 
     public static Fin<Seq<Point3d>> ProjectToModel(RhinoDoc document, Seq<(double Latitude, double Longitude, double Elevation)> coordinates, LengthUnit modelUnits) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(ProjectToModel)), requireEarth: true, use: (anchor, op) => {
+        UseAnchor(document: document, op: Op.Of(), requireEarth: true, use: (anchor, op) => {
             Transform xform = anchor.GetModelToEarthTransform(modelUnits: modelUnits);
             return xform.TryGetInverse(inverseTransform: out Transform inverse) switch {
                 false => Fin.Fail<Seq<Point3d>>(error: op.InvalidResult()),
@@ -181,7 +182,7 @@ public readonly partial record struct FileGeoLocation {
         });
 
     public static Fin<DocumentReceipt> SyncSun(RhinoDoc document) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(SyncSun)), requireEarth: true, requireModel: true, use: (anchor, op) => op.Catch(() => {
+        UseAnchor(document: document, op: Op.Of(), requireEarth: true, requireModel: true, use: (anchor, op) => op.Catch(() => {
             global::Rhino.Render.Sun sun = document.RenderSettings.Sun;
             Vector3d north = anchor.ModelNorth;
             sun.Latitude = anchor.EarthBasepointLatitude;
@@ -204,7 +205,7 @@ public readonly partial record struct FileGeoLocation {
 public static class FileOp {
     public static Eff<FileRuntime, FileReport> Do(FileExchange exchange) =>
         Lift(run: runtime =>
-            from active in Optional(exchange).ToFin(Fail: Op.Of(name: nameof(Do)).InvalidInput())
+            from active in Optional(exchange).ToFin(Fail: Op.Of().InvalidInput())
             from result in active.Switch(
                 runtime,
                 open: static (_, open) => OpenCore(source: open.Source, profile: open.Profile),
@@ -212,6 +213,7 @@ public static class FileOp {
                 export: static (runtime, export) => WriteCore(runtime: runtime, target: Some(export.Target), objects: export.Objects, profile: export.Profile, phase: FilePhase.Export),
                 save: static (runtime, _) => WriteCore(runtime: runtime, target: Option<FileEndpoint>.None, profile: FileProfile.Model, phase: FilePhase.Save),
                 write: static (runtime, write) => WriteCore(runtime: runtime, target: Some(write.Target), profile: write.Profile, phase: write.Phase),
+                writeGeometry: static (_, write) => WriteGeometryCore(geometry: write.Geometry, target: write.Target),
                 publish: static (runtime, publish) => PublishCore(runtime: runtime, publish: publish.Spec),
                 nativeTable: static (runtime, state) => Commit(runtime: runtime, phase: state.Change.Phase, name: nameof(FileExchange.NativeTable), change: state.Change, apply: static (document, change, op) => change.Apply(document: document, op: op).Map(static changed => DocumentReceipt.Resources(changes: Seq(changed)))),
                 archiveRead: static (_, archive) => FileArchiveOps.Read(source: archive.Source, profile: archive.Profile),
@@ -232,27 +234,27 @@ public static class FileOp {
 
     public static Eff<FileRuntime, Seq<FileEndpoint>> Prompt(FilePrompt prompt) =>
         Lift(run: runtime =>
-            from active in Optional(prompt).ToFin(Fail: Op.Of(name: nameof(Prompt)).InvalidInput())
-            from ui in runtime.Ui.ToFin(Fail: Op.Of(name: nameof(Prompt)).MissingContext())
+            from active in Optional(prompt).ToFin(Fail: Op.Of().InvalidInput())
+            from ui in runtime.Ui.ToFin(Fail: Op.Of().MissingContext())
             from result in ui.Use(intent: UiIntent.ExchangeFile(prompt: active))
             select result);
 
     public static Eff<FileRuntime, T> Headless<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
         Lift(run: runtime =>
-            from active in Optional(scope).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidInput())
+            from active in Optional(scope).ToFin(Fail: Op.Of().InvalidInput())
             from result in HeadlessScope(scope: active, body: body, scheduler: runtime.Scheduler)
             select result);
 
     public static Eff<FileRuntime, FileReport> PublishPlan(FilePublish publish) =>
         Lift(run: runtime =>
-            from live in Live(runtime: runtime, op: Op.Of(name: nameof(PublishPlan)))
-            from active in Optional(publish).ToFin(Fail: Op.Of(name: nameof(PublishPlan)).InvalidInput())
+            from live in Live(runtime: runtime, op: Op.Of())
+            from active in Optional(publish).ToFin(Fail: Op.Of().InvalidInput())
             let views = active.Views.IsEmpty ? Seq(new FileView(Source: new FileViewSource.Pages())) : active.Views
-            from pages in views.TraverseM(view => view.Source.Resolve(document: live.Document, spec: view, op: Op.Of(name: nameof(PublishPlan)))).As().Map(static groups => groups.Bind(static items => items))
-            from _ in guard(!pages.IsEmpty, Op.Of(name: nameof(PublishPlan)).InvalidInput())
+            from pages in views.TraverseM(view => view.Source.Resolve(document: live.Document, spec: view, op: Op.Of())).As().Map(static groups => groups.Bind(static items => items))
+            from _ in guard(!pages.IsEmpty, Op.Of().InvalidInput())
             from reports in pages.TraverseM(page =>
-                from settings in page.Settings(op: Op.Of(name: nameof(PublishPlan)))
-                from report in Op.Of(name: nameof(PublishPlan)).Catch(() => {
+                from settings in page.Settings(op: Op.Of())
+                from report in Op.Of().Catch(() => {
                     try {
                         return Fin.Succ(value: page.ReportOf(settings: settings));
                     } finally {
@@ -274,14 +276,14 @@ public static class FileOp {
 
     public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query, DetailQuery detail = default) =>
         Lift(run: runtime =>
-            Live(runtime: runtime, op: Op.Of(name: nameof(Sheets)))
-                .Bind(live => SheetOps.Inspect(document: live.Document, query: query, detail: detail, op: Op.Of(name: nameof(Sheets)))));
+            Live(runtime: runtime, op: Op.Of())
+                .Bind(live => SheetOps.Inspect(document: live.Document, query: query, detail: detail, op: Op.Of())));
 
     public static Eff<FileRuntime, Seq<string>> NamedLayerStates() =>
-        Lift(run: runtime => Live(runtime: runtime, op: Op.Of(name: nameof(NamedLayerStates))).Map(static live => toSeq(live.Document.NamedLayerStates.Names)));
+        Lift(run: runtime => Live(runtime: runtime, op: Op.Of()).Map(static live => toSeq(live.Document.NamedLayerStates.Names)));
 
     public static Eff<FileRuntime, Seq<FilePositionReport>> NamedPositions() =>
-        Lift(run: runtime => Live(runtime: runtime, op: Op.Of(name: nameof(NamedPositions)))
+        Lift(run: runtime => Live(runtime: runtime, op: Op.Of())
             .Map(static live => toSeq(live.Document.NamedPositions.Ids)
                 .Map(id => new FilePositionReport(
                     Name: live.Document.NamedPositions.Name(id: id) ?? string.Empty,
@@ -294,13 +296,13 @@ public static class FileOp {
                 operation.Run(runtime).BindFail(error => guard(policy.ContinueOnError, error).ToFin()
                     .Map(_ => FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(FileIssue.Of(code: FileIssueCode.BatchFailure, message: error.Message)) }))).As()
                     .Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
-            _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
+            _ => Fin.Fail<FileReport>(error: Op.Of().InvalidInput()),
         });
 
     internal static Eff<FileRuntime, T> Lift<T>(Func<FileRuntime, Fin<T>> run) =>
         Eff<FileRuntime, T>.Lift(runtime =>
             Optional(run)
-                .ToFin(Fail: Op.Of(name: nameof(Lift)).InvalidInput())
+                .ToFin(Fail: Op.Of().InvalidInput())
                 .Bind(valid => valid(arg: runtime)));
 
     private static Fin<T> HeadlessScope<T>(HeadlessExchange scope, Eff<FileRuntime, T> body, IoScheduler scheduler) =>
@@ -383,7 +385,7 @@ public static class FileOp {
         select FileReport.Of(phase: FilePhase.Import, source: Some(endpoint), target: Option<FileEndpoint>.None, format: FileFormat.Resolve(endpoint: endpoint, profile: profile), receipt: Some(receipt));
 
     private static Fin<FileReport> WriteCore(FileRuntime runtime, Option<FileEndpoint> target, FileProfile profile, FilePhase phase, Option<DocumentTarget> objects = default) {
-        Op op = Op.Of(name: nameof(WriteCore));
+        Op op = Op.Of();
         bool archive = phase == FilePhase.SaveAs || phase == FilePhase.Write3dmFile || phase == FilePhase.SaveTemplate;
         return from live in Live(runtime: runtime, op: op)
                from endpoint in phase == FilePhase.Save
@@ -409,6 +411,27 @@ public static class FileOp {
                        _ => profile.Format,
                    },
                    receipt: Some(receipt));
+    }
+
+    private static Fin<FileReport> WriteGeometryCore(Seq<GeometryBase> geometry, FileEndpoint target) {
+        Op op = Op.Of(name: nameof(FileExchange.WriteGeometry));
+        return from valid in guard(!geometry.IsEmpty, op.InvalidInput()).ToFin().Map(_ => geometry)
+               from fmt3dm in FileFormat.KnownFormat(key: "3dm", op: op)
+               from endpoint in target.WithFormat(format: fmt3dm).Output(op: op)
+               from written in op.Catch(() => {
+                   // Headless geometry-only authoring: rebuild a File3dm so the write honors version + user-data control,
+                   // which the static File3dm.WriteMultipleObjects path cannot. Seq arity absorbs singular and plural.
+                   using global::Rhino.FileIO.File3dm model = new();
+                   using ObjectAttributes attributes = new();
+                   _ = valid.Iter(item => model.Objects.Add(item: item, attributes: attributes));
+                   global::Rhino.FileIO.File3dmWriteOptions options = new() { Version = endpoint.Write.Normalized.Version, SaveUserData = endpoint.Write.Normalized.WriteUserData };
+                   return op.Confirm(success: model.Write(path: endpoint.Path, options: options));
+               })
+               select FileReport.Of(
+                   phase: FilePhase.WriteFile,
+                   target: Some(endpoint),
+                   format: Some(fmt3dm),
+                   receipt: Some(DocumentReceipt.Resource(kind: DocumentResourceKind.FileReference, name: endpoint.Path)));
     }
 
     private static Fin<DocumentReceipt> ExportTarget(RhinoDoc document, DocumentTarget target, FileEndpoint endpoint, FileProfile profile, Op op) =>
@@ -449,7 +472,7 @@ public static class FileOp {
         target switch {
             FilePublishTarget.Pdf value => (
                 Target: Some(value.Target),
-                Format: Some(FileFormat.KnownFormat(key: "pdf", op: Op.Of(name: nameof(PublishMeta))).ThrowIfFail()),
+                Format: Some(FileFormat.KnownFormat(key: "pdf", op: Op.Of()).ThrowIfFail()),
                 Issues: Seq(FileIssue.Native(message: "RhinoCommon FilePdf exposes no public metadata, bookmark, outline, encryption, or password surface."))),
             FilePublishTarget.Raster value => (
                 Target: Some(value.Target),
@@ -466,7 +489,7 @@ public static class FileOp {
                         : Seq<FileIssue>())),
             FilePublishTarget.Svg value => (
                 Target: Some(value.Target),
-                Format: Some(FileFormat.KnownFormat(key: "svg", op: Op.Of(name: nameof(PublishMeta))).ThrowIfFail()),
+                Format: Some(FileFormat.KnownFormat(key: "svg", op: Op.Of()).ThrowIfFail()),
                 Issues: Seq<FileIssue>()),
             _ => (Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Issues: Seq<FileIssue>()),
         };

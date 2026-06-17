@@ -54,6 +54,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from tests.python.tools.assay.kit import AssayHarness
+    from tools.assay.core.model import Report
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -520,7 +521,7 @@ def test_query_forced_cap_emits_saturation_note(assay_root: AssayHarness) -> Non
     ],
     ids=["query_ok_on_valid_tree", "query_empty_on_no_match"],
 )
-def test_query_public(assay_root: AssayHarness, content: str, pattern: str, check_fn: Callable) -> None:
+def test_query_public(assay_root: AssayHarness, content: str, pattern: str, check_fn: Callable[[Report], bool]) -> None:
     """query() returns Ok Report matching expected status and count predicate."""
     assay_root.write("pkg/mod.py", content)
     params = CodeParams(pattern=pattern, language=Language.PYTHON, paths=("pkg/mod.py",))

@@ -95,7 +95,7 @@ public abstract partial record MotionClock {
     public static Fin<MotionClock> UITimer(double intervalSeconds = 1.0 / 60.0) =>
         new TimerCase(IntervalSeconds: intervalSeconds) switch {
             { IsValid: true } c => Fin.Succ<MotionClock>(value: c),
-            _ => Fin.Fail<MotionClock>(error: Op.Of(name: nameof(UITimer)).InvalidInput()),
+            _ => Fin.Fail<MotionClock>(error: Op.Of().InvalidInput()),
         };
 }
 
@@ -152,6 +152,7 @@ public sealed partial class SpringPreset {
 }
 
 internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf> {
+    // Step MUST be idempotent within one vsync tick: Pacer.RebindLink adds the new CADisplayLink to the run loop before invalidating the old one, so across a screen-parameter change both links can fire Tick once for the same frame. Reading the absolute TargetTimestamp keeps this benign; accumulating a delta-time per call would double the frame advance.
     public TSelf Step();
     public Unit Emit();
     public bool IsActive { get; }
@@ -297,12 +298,12 @@ internal sealed class MotionPoseVector : IMotionVector<Transform, (Quaternion R,
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class MotionRail {
     public static Fin<MotionHandle<TValue, TVelocity>> Animate<TState, TValue, TVelocity>(this UiCanvas<TState> canvas, MotionSpec<TValue, TVelocity> spec, Action<TValue> sink, MotionClock? clock = null, TimeProvider? timeSource = null) =>
-        Op.Of(name: nameof(Animate)).Need(canvas).Bind(valid => Motion.Run(spec: spec, sink: sink, target: new RedrawTarget.Canvas(valid.Invalidate), clock: clock ?? MotionClock.IdleLoop, timeSource: timeSource));
+        Op.Of().Need(canvas).Bind(valid => Motion.Run(spec: spec, sink: sink, target: new RedrawTarget.Canvas(valid.Invalidate), clock: clock ?? MotionClock.IdleLoop, timeSource: timeSource));
 
     public static Fin<MotionHandle<TValue, TVelocity>> Animate<TState, TValue, TVelocity>(this RasmOverlay<TState> overlay, RhinoDoc document, MotionSpec<TValue, TVelocity> spec, Func<TState, TValue, TState> transition, MotionClock? clock = null, TimeProvider? timeSource = null) =>
-        from validOverlay in Op.Of(name: nameof(Animate)).Need(overlay)
-        from validDocument in Op.Of(name: nameof(Animate)).Need(document)
-        from validTransition in Op.Of(name: nameof(Animate)).Need(transition)
+        from validOverlay in Op.Of().Need(overlay)
+        from validDocument in Op.Of().Need(document)
+        from validTransition in Op.Of().Need(transition)
         from handle in Motion.Run(
             spec: spec,
             sink: value => _ = validOverlay.Transition(transition: state => validTransition(arg1: state, arg2: value), document: validDocument),
@@ -420,11 +421,11 @@ internal static class Motion {
             ? Some(MakeVsync(fallback: fallback))   // vsync-anchored clock baked into the runner; the Pacer advances it from CADisplayLink.TargetTimestamp
             : Option<PacerTimeProvider>.None;
         TimeProvider resolved = vsync.Map(static provider => (TimeProvider)provider).IfNone(fallback);
-        return from validSink in Op.Of(name: nameof(Run)).Need(sink)
-               from validSpec in Op.Of(name: nameof(Run)).Need(spec)
+        return from validSink in Op.Of().Need(sink)
+               from validSpec in Op.Of().Need(spec)
                from _ in Admit(spec: validSpec)
                from validClock in clock switch {
-                   MotionClock.TimerCase { IsValid: false } => Fin.Fail<MotionClock>(error: Op.Of(name: nameof(Run)).InvalidInput()),
+                   MotionClock.TimerCase { IsValid: false } => Fin.Fail<MotionClock>(error: Op.Of().InvalidInput()),
                    _ => Fin.Succ(value: clock),
                }
                from handle in ReduceMotion
@@ -518,8 +519,12 @@ internal static class Motion {
 
     [SupportedOSPlatform("macos14.0")]
     private static CAFrameRateRange SpringRate(NSView view, SpringConfig config) {
-        float max = Optional(view.Window?.Screen).Map(static screen => (float)screen.MaximumFramesPerSecond).Filter(static rate => rate > 0f).IfNone(120f);
-        float floor = MathF.Min(x: 30f, y: max);
+        Option<NSScreen> screen = Optional(view.Window?.Screen);
+        float max = screen.Map(static s => (float)s.MaximumFramesPerSecond).Filter(static rate => rate > 0f).IfNone(120f);
+        // ProMotion panels report MaximumRefreshInterval (the longest frame interval); 1/interval is the true adaptive Hz floor, replacing the hardcoded 30f
+        float floor = MathF.Min(
+            x: screen.Map(static s => s.MaximumRefreshInterval).Filter(static interval => interval > 0.0).Map(static interval => (float)(1.0 / interval)).IfNone(30f),
+            y: max);
         float naturalHz = MathF.Sqrt(config.Stiffness / config.Mass) / MathF.Tau;
         return CAFrameRateRange.Create(minimum: floor, maximum: max, preferred: Math.Clamp(value: naturalHz * 4f, min: floor, max: max));
     }
@@ -691,7 +696,7 @@ internal static class Motion {
         internal Fin<Unit> Wake() =>
             attach is { } restart && Interlocked.CompareExchange(ref state, 1, 0) == 0
                 ? restart(arg: this).BiBind(
-                    Succ: _ => guard(Volatile.Read(ref state) != 2, Op.Of(name: nameof(Wake)).InvalidResult()).ToFin(),
+                    Succ: _ => guard(Volatile.Read(ref state) != 2, Op.Of().InvalidResult()).ToFin(),
                     Fail: error => {
                         _ = Interlocked.CompareExchange(ref state, 0, 1);
                         return Fin.Fail<Unit>(error: error);

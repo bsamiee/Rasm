@@ -553,17 +553,18 @@ def _recv_of(chunks: tuple[bytes, ...]) -> engine_mod.ByteRecv:
 
 @given(chunks=st.lists(st.binary(max_size=64), max_size=24).map(tuple))
 def test_drain_stream_aggregates_tail_size_and_lines(chunks: tuple[bytes, ...]) -> None:
-    """``Captured`` aggregates tail, size, and line totals for concatenated ``ByteRecv`` chunks."""
-    tail_cap = 16
+    """A stdout drain under the spill cap carries the full payload while aggregating size and line totals."""
     whole = b"".join(chunks)
-    captured = anyio.run(lambda: drain_stream(_recv_of(chunks), tail_cap=tail_cap))
+    captured = anyio.run(lambda: drain_stream(_recv_of(chunks), tail_cap=16, spill_cap=1 << 20, kind="out"))
     expected_lines = whole.count(b"\n") + (1 if whole and not whole.endswith(b"\n") else 0)
-    assert (captured.tail, captured.size, captured.lines) == (whole[-tail_cap:], len(whole), expected_lines), f"drain aggregate wrong: {captured!r}"
+    assert (captured.full, captured.spilled, captured.size, captured.lines) == (whole, False, len(whole), expected_lines), (
+        f"drain aggregate wrong: {captured!r}"
+    )
 
 
 def test_drain_stream_empty_source_is_zero_capture() -> None:
     """A ``ByteRecv`` at immediate EOF drains to the zero ``Captured`` while preserving the recorded path."""
-    captured = anyio.run(lambda: drain_stream(_recv_of(()), tail_cap=16, path="art/out.log"))
+    captured = anyio.run(lambda: drain_stream(_recv_of(()), tail_cap=16, spill_cap=1 << 20, kind="out", path="art/out.log"))
     assert captured == Captured(path="art/out.log")
 
 
@@ -580,18 +581,25 @@ class _ListSink:
 
 @given(chunks=st.lists(st.binary(min_size=1, max_size=48), min_size=1, max_size=16).map(tuple))
 def test_write_sink_receives_every_drained_chunk(chunks: tuple[bytes, ...]) -> None:
-    """The tee sink receives the full stream while the captured tail remains bounded."""
+    """The tee sink receives the full stream while the captured stderr preview remains bounded."""
     sink: WriteSink = _ListSink()
     whole = b"".join(chunks)
     target(float(len(whole)), label="drained_bytes")
-    captured = anyio.run(lambda: drain_stream(_recv_of(chunks), tail_cap=8, sink=sink))
+    captured = anyio.run(lambda: drain_stream(_recv_of(chunks), tail_cap=8, spill_cap=1 << 20, kind="err", sink=sink))
     assert isinstance(sink, _ListSink)
-    assert (b"".join(sink.chunks), captured.size, captured.tail) == (whole, len(whole), whole[-8:]), "sink/capture lost or clipped a chunk"
+    assert (b"".join(sink.chunks), captured.size, captured.preview) == (whole, len(whole), whole[-8:]), "sink/capture lost or clipped a chunk"
 
 
 def test_captured_defaults_are_the_empty_aggregate() -> None:
-    """``Captured()`` is the empty drain identity: blank tail/path and zero size/line counts."""
-    assert (Captured().tail, Captured().path, Captured().size, Captured().lines) == (b"", "", 0, 0)
+    """``Captured()`` is the empty drain identity: blank full/preview/path, no spill, and zero size/line counts."""
+    assert (Captured().full, Captured().spilled, Captured().preview, Captured().path, Captured().size, Captured().lines) == (
+        b"",
+        False,
+        b"",
+        "",
+        0,
+        0,
+    )
 
 
 # --- [DISCOVER]
@@ -993,13 +1001,13 @@ def test_inproc_thunk_outcomes(assay_root: AssayHarness) -> None:
 
 _STREAM_LOCAL: tuple[tuple[str, tuple[str, ...], Language, bytes, bool], ...] = (
     ("scoped-persists-full", ("/bin/echo", "stream-ok"), Language.CSHARP, b"stream-ok\n", True),
-    ("8kib-clips-tail-full-persists", (sys.executable, "-c", "import sys; sys.stdout.write('x' * 8192)"), Language.PYTHON, b"x" * 8192, True),
-    ("noscope-bounded-tail-no-artifact", ("/bin/echo", "stream-ok"), Language.CSHARP, b"stream-ok\n", False),
+    ("8kib-full-payload-persists", (sys.executable, "-c", "import sys; sys.stdout.write('x' * 8192)"), Language.PYTHON, b"x" * 8192, True),
+    ("noscope-full-inline-no-artifact", ("/bin/echo", "stream-ok"), Language.CSHARP, b"stream-ok\n", False),
 )
 
 
 @pytest.mark.parametrize("label, command, language, payload, scoped", _STREAM_LOCAL, ids=[c[0] for c in _STREAM_LOCAL])
-def test_streaming_local_tail_clips_while_full_artifact_persists(
+def test_streaming_local_receipt_carries_full_payload_and_artifact(
     label: str,
     command: tuple[str, ...],
     language: Language,
@@ -1007,14 +1015,13 @@ def test_streaming_local_tail_clips_while_full_artifact_persists(
     scoped: bool,  # noqa: FBT001
     assay_root: AssayHarness,
 ) -> None:
-    """Streaming local tools persist the full payload while receipts keep a bounded tail.
+    """Streaming local tools resolve the receipt stdout to the full sub-cap payload, persisting the scoped artifact.
 
-    ``scope=None`` is the no-sink tee arm; the large row pins clipped receipt tail versus full artifact payload.
+    ``scope=None`` is the no-sink tee arm carrying the full payload inline; the scoped rows round-trip the artifact.
     """
     scope = assay_root.scope(Claim.STATIC) if scoped else None
-    cap = assay_root.settings.stream_tail_bytes
     done = assert_ok(_run(Check(tool=_stream_tool(f"{label}-tool", command, language)), assay_root, scope=scope))
-    assert done.stdout == payload[-cap:], f"tail not clipped to {cap}: len={len(done.stdout)}"
+    assert done.stdout == payload, f"receipt stdout not the full payload: len={len(done.stdout)}"
     artifact = next((a for a in done.artifacts if a.id.startswith(f"{label}-tool-") and a.id.endswith("-out")), None)
     match scope:
         case None:
@@ -1025,19 +1032,71 @@ def test_streaming_local_tail_clips_while_full_artifact_persists(
 
 
 def test_nonstreaming_scoped_process_persists_output_artifacts(assay_root: AssayHarness) -> None:
-    """Scoped non-streaming tools persist full stdout/stderr artifacts while receipts carry bounded tails."""
+    """Scoped non-streaming tools persist full stdout/stderr artifacts while the receipt carries the full sub-cap payload."""
     payload = b"x" * (assay_root.settings.stream_tail_bytes + 8)
     script = f"import sys; sys.stdout.buffer.write({payload!r}); sys.stderr.buffer.write(b'err-tail')"
     tool = Tool("nonstream-artifact-law", Runner.DIRECT, (sys.executable, "-c", script), Input.NONE, Language.PYTHON, Claim.STATIC)
     scope = assay_root.scope(Claim.STATIC)
     done = assert_ok(_run(Check(tool=tool), assay_root, scope=scope))
-    assert done.stdout == payload[-assay_root.settings.stream_tail_bytes :]
+    assert done.stdout == payload
     artifact = next((a for a in done.artifacts if a.id.startswith("nonstream-artifact-law-") and a.id.endswith("-out")), None)
     assert artifact is not None, f"non-streaming process emitted no stdout artifact: {done.artifacts!r}"
     assert scope.store.read_path(artifact.path) == payload
     # The non-streaming receipt carries the unified _measure key set, child-tree rows included, matching the streaming path.
     keys = {name for name, _ in done.resources}
     assert {"proc.children", "proc.children_rss_bytes", "process.duration_ms"} <= keys, f"non-streaming receipt key set drifted: {sorted(keys)!r}"
+
+
+def _spill_plan(assay_root: AssayHarness, scope: ArtifactScope, spill_cap: int) -> engine_mod._ExecPlan:
+    """Build a scoped ``_ExecPlan`` with a small spill cap for capture-boundary laws.
+
+    Returns:
+        Streaming plan whose ``spill_cap`` forces the inline/spill split at a unit-testable threshold.
+    """
+    return engine_mod._ExecPlan(
+        argv=("/bin/echo", "spill-law"),
+        check=Check(tool=_stream_tool("spill-law", ("/bin/echo", "x"))),
+        cwd=str(assay_root.root),
+        env={},
+        settings=assay_root.settings,
+        scope=scope,
+        streaming=True,
+        tail_cap=assay_root.settings.stream_tail_bytes,
+        spill_cap=spill_cap,
+        chunk=assay_root.settings.stream_chunk_bytes,
+        thread_limiter=None,
+    )
+
+
+@pytest.mark.parametrize("size, expect_spill", [(64, False), (65, True)], ids=("at-cap-inline", "over-cap-spills"))
+def test_capture_spill_boundary_is_strict_greater_than(size: int, expect_spill: bool, assay_root: AssayHarness) -> None:  # noqa: FBT001
+    """At exactly ``spill_cap`` capture stays inline; one byte past it spills and ``read`` resolves from the store.
+
+    Both the non-streaming ``_capture_payload`` and the streaming ``drain_stream`` paths share one spill predicate.
+    """
+    spill_cap, scope = 64, assay_root.scope(Claim.STATIC)
+    payload = b"x" * size
+    plan = _spill_plan(assay_root, scope, spill_cap)
+    captured = engine_mod._capture_payload(plan, "out", payload)
+    assert captured.spilled is expect_spill, f"_capture_payload spill verdict wrong at size={size}: {captured!r}"
+    assert (captured.full == b"") is expect_spill, f"inline ``full`` retained iff not spilled: {captured!r}"
+    assert captured.read(scope.store) == payload, "capture-payload read did not resolve the full payload"
+
+    path, handle = engine_mod._stream_writer(plan, "out")
+    assert handle is not None, "scoped plan must return a real _WriteContext"
+    with handle as sink:
+        drained = anyio.run(
+            functools.partial(drain_stream, _recv_of((payload,)), tail_cap=spill_cap, spill_cap=spill_cap, kind="out", sink=sink, path=path)
+        )
+    assert drained.spilled is expect_spill, f"drain spill verdict wrong at size={size}: {drained!r}"
+    assert (drained.full == b"") is expect_spill, f"drain inline ``full`` retained iff not spilled: {drained!r}"
+    assert drained.read(scope.store) == payload, "drain read did not resolve the full payload"
+
+
+def test_capture_inline_read_never_touches_store(assay_root: AssayHarness) -> None:
+    """An at-cap inline capture resolves ``read`` from ``full`` without dereferencing the store."""
+    captured = Captured(full=b"x" * 64, spilled=False, preview=b"x" * 64, path="art/out.log", size=64, lines=1)
+    assert captured.read(None) == b"x" * 64, "inline read must not require a store"
 
 
 # --- [STALL_TELEMETRY]
@@ -1640,6 +1699,7 @@ async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(  # noqa: P
         scope=scope,
         streaming=False,
         tail_cap=4096,
+        spill_cap=1 << 20,
         chunk=65536,
         thread_limiter=None,
     )
@@ -1722,6 +1782,7 @@ async def test_push_repo_pipelines_nested_tree_preserving_structure(assay_root: 
         scope=None,
         streaming=False,
         tail_cap=4096,
+        spill_cap=1 << 20,
         chunk=65536,
         thread_limiter=None,
     )
@@ -1817,6 +1878,7 @@ def _manifest_plan(harness: AssayHarness, tool: Tool, paths: tuple[str, ...] = (
         scope=None,
         streaming=False,
         tail_cap=4096,
+        spill_cap=1 << 20,
         chunk=65536,
         thread_limiter=None,
     )
@@ -1975,6 +2037,7 @@ async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(  
             scope=scope,
             streaming=False,
             tail_cap=4096,
+            spill_cap=1 << 20,
             chunk=65536,
             thread_limiter=None,
         )
@@ -2063,6 +2126,7 @@ async def test_remote_transfer_keeps_exec_cancellable_under_deadline(  # noqa: P
         scope=None,
         streaming=False,
         tail_cap=4096,
+        spill_cap=1 << 20,
         chunk=65536,
         thread_limiter=None,
     )
@@ -2151,7 +2215,9 @@ async def test_pooled_ssh_logs_close_failures(exc_factory: str) -> None:
 
 def test_drain_none_stream_is_empty_tail() -> None:
     """``_recv_anyio(None, ...)`` (the inherited-fd / absent-pipe arm) drains to the empty capture immediately."""
-    assert anyio.run(lambda: drain_stream(engine_mod._recv_anyio(None, 32), tail_cap=128)) == Captured(), "None stream did not drain to empty"
+    assert anyio.run(lambda: drain_stream(engine_mod._recv_anyio(None, 32), tail_cap=128, spill_cap=1 << 20)) == Captured(), (
+        "None stream did not drain to empty"
+    )
 
 
 def test_total_backfills_none_slot_as_timeout() -> None:
@@ -2197,6 +2263,7 @@ def test_stream_writer_rejects_non_context_backend_handle(assay_root: AssayHarne
         scope=scope,
         streaming=True,
         tail_cap=assay_root.settings.stream_tail_bytes,
+        spill_cap=assay_root.settings.capture_spill_bytes,
         chunk=assay_root.settings.stream_chunk_bytes,
         thread_limiter=None,
     )
@@ -2524,7 +2591,7 @@ def test_drain_stream_newline_terminus_rows() -> None:
     """
     rows: tuple[tuple[tuple[bytes, ...], int], ...] = (((b"ab\n",), 1), ((b"ab",), 1), ((b"ab\n", b""), 1), ((b"a\nb",), 2))
     for chunks, expected_lines in rows:
-        captured = anyio.run(functools.partial(drain_stream, _recv_of(chunks), tail_cap=16))
+        captured = anyio.run(functools.partial(drain_stream, _recv_of(chunks), tail_cap=16, spill_cap=1 << 20, kind="out"))
         assert captured.lines == expected_lines, f"{chunks!r} drained to {captured.lines} lines, expected {expected_lines}"
 
 

@@ -8,7 +8,28 @@ using DrawingColor = System.Drawing.Color;
 namespace Rasm.Rhino.Exchange;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum FileDetailLayoutMode { Grid, Align, DistributeHorizontal, DistributeVertical, FitPage }
+[SmartEnum<int>]
+public sealed partial class FileDetailLayoutMode {
+    public static readonly FileDetailLayoutMode Grid = new(key: 0, frame: static c =>
+        Fin.Succ(value: SheetOps.GridCell(content: c.Content, layout: c.Layout, size: c.Size, index: c.Index, columns: c.Layout.Columns, spacingX: c.Layout.SpacingX, spacingY: c.Layout.SpacingY, fromOrigin: true)));
+    public static readonly FileDetailLayoutMode FitPage = new(key: 1, frame: static c =>
+        Fin.Succ(value: SheetOps.GridCell(content: c.Content, layout: c.Layout, size: c.Size, index: c.Index, columns: c.FitGrid.Columns, spacingX: c.Layout.SpacingX, spacingY: c.Layout.SpacingY, fromOrigin: false)));
+    public static readonly FileDetailLayoutMode Align = new(key: 2, frame: static c =>
+        Fin.Succ(value: SheetOps.AnchorFrame(content: c.Content, layout: c.Layout, size: c.Size)));
+    public static readonly FileDetailLayoutMode DistributeHorizontal = new(key: 3, frame: static c =>
+        Fin.Succ(value: new FileDetailFrame(
+            X: c.Count <= 1 ? c.Content.X : c.Content.X + (c.Index * (Math.Max(val1: 0.0, val2: c.Content.Width - c.Size.Width) / (c.Count - 1))),
+            Y: c.Current.Y, Width: c.Size.Width, Height: c.Size.Height)));
+    public static readonly FileDetailLayoutMode DistributeVertical = new(key: 4, frame: static c =>
+        Fin.Succ(value: new FileDetailFrame(
+            X: c.Current.X,
+            Y: c.Count <= 1 ? c.Content.Y : c.Content.Y + (c.Index * (Math.Max(val1: 0.0, val2: c.Content.Height - c.Size.Height) / (c.Count - 1))),
+            Width: c.Size.Width, Height: c.Size.Height)));
+
+    [UseDelegateFromConstructor] internal partial Fin<FileDetailFrame> Frame(LayoutContext c);
+
+    internal bool NeedsFitGrid => this == FitPage;
+}
 
 [SmartEnum<int>]
 public sealed partial class FileDetailAnchor {
@@ -24,6 +45,123 @@ public sealed partial class FileDetailAnchor {
 
     public double XFactor { get; }
     public double YFactor { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class NamedViewOp {
+    public static readonly NamedViewOp Save = new(key: 0, apply: static (doc, detail, name, op) =>
+        op.Catch(() => doc.NamedViews.Add(name: name, viewportId: detail.Viewport.Id) switch {
+            int created when created >= 0 => Fin.Succ(value: unit),
+            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+        }));
+    public static readonly NamedViewOp Restore = new(key: 1, apply: static (doc, detail, name, op) =>
+        op.Catch(() =>
+            from index in doc.NamedViews.FindByName(name: name) switch {
+                int found when found >= 0 => Fin.Succ(value: found),
+                _ => Fin.Fail<int>(error: op.MissingContext()),
+            }
+            from _r in op.Confirm(success: doc.NamedViews.RestoreWithAspectRatio(index: index, viewport: detail.Viewport))
+            from _c in new DetailCommit(Viewport: true).Apply(detail: detail, op: op)
+            select unit));
+
+    [UseDelegateFromConstructor] internal partial Fin<Unit> Apply(RhinoDoc doc, DetailViewObject detail, string name, Op op);
+}
+
+[Union(SwitchMapStateParameterName = "ctx")]
+public abstract partial record LayerOverrideField {
+    private LayerOverrideField() { }
+    public sealed record Color(FileOverride<DrawingColor> Op) : LayerOverrideField;
+    public sealed record Visible(FileOverride<bool> Op) : LayerOverrideField;
+    public sealed record PersistentVisible(FileOverride<bool> Op) : LayerOverrideField;
+    public sealed record PlotColor(FileOverride<DrawingColor> Op) : LayerOverrideField;
+    public sealed record PlotWeight(FileOverride<double> Op) : LayerOverrideField;
+
+    internal int Key => Switch(color: static _ => 0, visible: static _ => 1, persistentVisible: static _ => 2, plotColor: static _ => 3, plotWeight: static _ => 4);
+
+    internal bool IsActive => Switch(
+        color: static f => f.Op.IsActive,
+        visible: static f => f.Op.IsActive,
+        persistentVisible: static f => f.Op.IsActive,
+        plotColor: static f => f.Op.IsActive,
+        plotWeight: static f => f.Op.IsActive);
+
+    internal LayerOverrideField Merge(LayerOverrideField right) => (this, right) switch {
+        (Color l, Color r) => new Color(Op: l.Op | r.Op),
+        (Visible l, Visible r) => new Visible(Op: l.Op | r.Op),
+        (PersistentVisible l, PersistentVisible r) => new PersistentVisible(Op: l.Op | r.Op),
+        (PlotColor l, PlotColor r) => new PlotColor(Op: l.Op | r.Op),
+        (PlotWeight l, PlotWeight r) => new PlotWeight(Op: l.Op | r.Op),
+        _ => right,
+    };
+
+    internal Unit Apply(Layer layer, Guid viewport) => Switch(
+        (Layer: layer, Viewport: viewport),
+        color: static (ctx, f) => f.Op.Apply(
+            set: value => ctx.Layer.SetPerViewportColor(viewportId: ctx.Viewport, color: value),
+            inherit: () => ctx.Layer.DeletePerViewportColor(viewportId: ctx.Viewport)),
+        visible: static (ctx, f) => f.Op.Apply(
+            set: value => ctx.Layer.SetPerViewportVisible(viewportId: ctx.Viewport, visible: value),
+            inherit: () => ctx.Layer.DeletePerViewportVisible(viewportId: ctx.Viewport)),
+        persistentVisible: static (ctx, f) => f.Op.Apply(
+            set: value => ctx.Layer.SetPerViewportPersistentVisibility(viewportId: ctx.Viewport, persistentVisibility: value),
+            inherit: () => ctx.Layer.UnsetPerViewportPersistentVisibility(viewportId: ctx.Viewport)),
+        plotColor: static (ctx, f) => f.Op.Apply(
+            set: value => ctx.Layer.SetPerViewportPlotColor(viewportId: ctx.Viewport, color: value),
+            inherit: () => ctx.Layer.DeletePerViewportPlotColor(viewportId: ctx.Viewport)),
+        plotWeight: static (ctx, f) => f.Op.Apply(
+            set: value => ctx.Layer.SetPerViewportPlotWeight(viewportId: ctx.Viewport, plotWeight: value),
+            inherit: () => ctx.Layer.DeletePerViewportPlotWeight(viewportId: ctx.Viewport)));
+}
+
+[SmartEnum<int>]
+public sealed partial class CommitTarget {
+    public static readonly CommitTarget Geometry = new(key: 0, commit: static d => d.CommitChanges());
+    public static readonly CommitTarget Viewport = new(key: 1, commit: static d => d.CommitViewportChanges());
+    [UseDelegateFromConstructor] internal partial bool Commit(DetailViewObject detail);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DetailCommit(bool Geometry = false, bool Viewport = false) {
+    public static DetailCommit Of(CommitTarget target) => new(Geometry: target == CommitTarget.Geometry, Viewport: target == CommitTarget.Viewport);
+
+    public static DetailCommit operator |(DetailCommit left, DetailCommit right) => new(Geometry: left.Geometry || right.Geometry, Viewport: left.Viewport || right.Viewport);
+
+    // Geometry commits before viewport (CommitTarget key order), each at most once.
+    internal Fin<Unit> Apply(DetailViewObject detail, Op op) =>
+        ((Geometry ? Seq(CommitTarget.Geometry) : Seq<CommitTarget>()) + (Viewport ? Seq(CommitTarget.Viewport) : Seq<CommitTarget>())) switch {
+            { IsEmpty: true } => Fin.Succ(value: unit),
+            Seq<CommitTarget> targets => targets.TraverseM(target => op.Confirm(success: target.Commit(detail: detail))).As().Map(static _ => unit),
+        };
+}
+
+[Union(SwitchMapStateParameterName = "ctx")]
+public abstract partial record DetailConfigOp {
+    private DetailConfigOp() { }
+    public sealed record LockProjection(bool Value) : DetailConfigOp;
+    public sealed record LockCamera(bool Value) : DetailConfigOp;
+    public sealed record SetDisplay(Guid Mode) : DetailConfigOp;
+    public sealed record SetProjection(DefinedViewportProjection Projection) : DetailConfigOp;
+    public sealed record Rename(string Name) : DetailConfigOp;
+
+    internal Fin<Option<CommitTarget>> Apply(RhinoDoc document, DetailViewObject view, Op op) => Switch(
+        (Doc: document, View: view, Op: op),
+        lockProjection: static (ctx, c) => ctx.Op.Catch(() => { ctx.View.DetailGeometry.IsProjectionLocked = c.Value; return Fin.Succ(value: Some(CommitTarget.Geometry)); }),
+        lockCamera: static (ctx, c) => ctx.Op.Catch(() => { ctx.View.Viewport.LockedProjection = c.Value; return Fin.Succ(value: Some(CommitTarget.Viewport)); }),
+        setDisplay: static (ctx, c) =>
+            from mode in Optional(DisplayModeDescription.GetDisplayMode(id: c.Mode)).ToFin(Fail: ctx.Op.InvalidInput())
+            from _set in ctx.Op.Catch(() => { ctx.View.Viewport.DisplayMode = mode; return Fin.Succ(value: unit); })
+            select Some(CommitTarget.Viewport),
+        setProjection: static (ctx, c) => ctx.Op.Catch(() =>
+            ctx.Op.Confirm(success: ctx.View.Viewport.SetProjection(projection: c.Projection, viewName: ctx.View.Viewport.Name, updateConstructionPlane: false))
+                .Map(_ => Some(CommitTarget.Viewport))),
+        rename: static (ctx, c) =>
+            from name in FileEndpoint.NonBlank(value: c.Name, op: ctx.Op)
+            from _named in ctx.Op.Catch(() => {
+                ObjectAttributes attributes = ctx.View.Attributes.Duplicate();
+                attributes.Name = name;
+                return ctx.Op.Confirm(success: ctx.Doc.Objects.ModifyAttributes(objectId: ctx.View.Id, newAttributes: attributes, quiet: true));
+            })
+            select Option<CommitTarget>.None);
 }
 
 [Union(SwitchMapStateParameterName = "ctx")]
@@ -109,21 +247,28 @@ public abstract partial record FileSheetEdit {
     public sealed record Reorder(Seq<string> SheetNames) : FileSheetEdit;
     public sealed record AddDetail(string SheetName, FileDetailSpec Spec) : FileSheetEdit;
     public sealed record Resize(string SheetName, Option<FileSheetSize> Size = default, Option<string> Description = default) : FileSheetEdit;
-    public sealed record ScaleDetail(string SheetName, DetailQuery Detail, FileScale Scale) : FileSheetEdit;
+    public sealed record PageUnits(UnitSystem Units, bool Scale = true) : FileSheetEdit;
     public sealed record Import(FileEndpoint Source, Guid SourceViewportId, string Name) : FileSheetEdit;
     public sealed record RemoveDetail(string SheetName, DetailQuery Detail) : FileSheetEdit;
     public sealed record ActivateDetail(string SheetName, Option<DetailQuery> Detail = default) : FileSheetEdit;
     public sealed record LayerOverride(string SheetName, DetailQuery Detail, Seq<FileLayerOverride> Overrides) : FileSheetEdit;
     public sealed record ClipDetail(string SheetName, DetailQuery Detail, FileClipOp Op) : FileSheetEdit;
-    public sealed record SaveDetailView(string SheetName, DetailQuery Detail, string ViewName) : FileSheetEdit;
-    public sealed record RestoreDetailView(string SheetName, DetailQuery Detail, string ViewName) : FileSheetEdit;
+    public sealed record NamedDetailView(string SheetName, DetailQuery Detail, string ViewName, NamedViewOp Op) : FileSheetEdit;
     public sealed record FrameDetail(string SheetName, DetailQuery Detail, Seq<CameraEdit> Edits, Option<FileScale> Scale = default, Option<BoundingBox> Clipping = default) : FileSheetEdit;
     public sealed record ComposeDetail(string SheetName, DetailQuery Detail, CameraShot Shot, Option<FileScale> Scale = default) : FileSheetEdit;
     public sealed record Configure(SheetQuery Query, FileSheetConfig Config) : FileSheetEdit;
-    public sealed record ConfigureDetail(string SheetName, DetailQuery Detail, FileDetailConfig Config) : FileSheetEdit;
+    public sealed record ConfigureDetail(string SheetName, DetailQuery Detail, Seq<DetailConfigOp> Ops) : FileSheetEdit;
     public sealed record Number(SheetQuery Query, FileNumbering Numbering) : FileSheetEdit;
     public sealed record ArrangeDetails(SheetQuery Query, FileDetailLayout Layout) : FileSheetEdit;
     public sealed record GroupAssign(SheetQuery Query, string Group, bool RemoveFromOthers = false) : FileSheetEdit;
+}
+
+[Union]
+public abstract partial record ScaleConflict {
+    private ScaleConflict() { }
+    public sealed record RatioMismatch(string Sheet, string Detail, string Formatted, double LiveRatio, double DeclaredRatio) : ScaleConflict;
+    public sealed record PerspectiveScale(string Sheet, string Detail) : ScaleConflict;
+    public sealed record PageUnitDrift(string Sheet, string Detail, UnitSystem PageUnits) : ScaleConflict;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -230,20 +375,11 @@ public readonly record struct FileSheetConfig(
     Option<string> Group = default,
     Option<string> Description = default,
     Option<FileScale> DetailScale = default,
-    Option<UnitSystem> DocumentPageUnits = default,
     Seq<FileUserString> UserStrings = default,
     Option<string> GroupDescription = default) {
     internal bool Applies =>
-        Size.IsSome || Group.IsSome || Description.IsSome || DetailScale.IsSome || DocumentPageUnits.IsSome
+        Size.IsSome || Group.IsSome || Description.IsSome || DetailScale.IsSome
         || !UserStrings.IsEmpty || GroupDescription.IsSome;
-}
-
-public readonly record struct FileDetailConfig(
-    Option<bool> ProjectionLocked = default,
-    Option<bool> CameraLocked = default,
-    Option<Guid> DisplayMode = default,
-    Option<string> Name = default) {
-    internal bool Applies => ProjectionLocked.IsSome || CameraLocked.IsSome || DisplayMode.IsSome || Name.IsSome;
 }
 
 public readonly record struct FileNumbering(string SheetPattern, int Start = 1, Option<string> DetailPattern = default);
@@ -263,7 +399,7 @@ public readonly record struct FileDetailPlan(
     Seq<CameraEdit> Edits = default,
     Option<FileScale> Scale = default,
     Option<BoundingBox> Clipping = default,
-    FileDetailConfig Config = default);
+    Seq<DetailConfigOp> Config = default);
 
 public readonly record struct FileSheetPlan(
     FileSheetSpec Sheet,
@@ -280,7 +416,7 @@ public readonly record struct FileDetailLayout(
     Point2d Origin = default,
     DetailQuery Detail = default,
     Option<Point2d> Size = default,
-    FileDetailLayoutMode Mode = FileDetailLayoutMode.Grid,
+    FileDetailLayoutMode? Mode = null,
     FileDetailAnchor? Anchor = null,
     double Margin = 0.0,
     Option<CaptureMargins> Margins = default,
@@ -306,29 +442,31 @@ public readonly record struct FileDetailFrame(double X, double Y, double Width, 
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct FileLayerOverrideSpec(
-    FileOverride<DrawingColor> Color = default,
-    FileOverride<bool> Visible = default,
-    FileOverride<bool> PersistentVisible = default,
-    FileOverride<DrawingColor> PlotColor = default,
-    FileOverride<double> PlotWeight = default,
-    bool ResetAll = false) {
-    public static FileLayerOverrideSpec Reset => new(ResetAll: true);
+internal readonly record struct FitGrid(int Columns, int Rows, double Width, double Height);
 
-    internal bool HasFieldOperation => Color.IsActive || Visible.IsActive || PersistentVisible.IsActive || PlotColor.IsActive || PlotWeight.IsActive;
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct LayoutContext(FileDetailFrame Content, FileDetailFrame Current, FileDetailLayout Layout, FitGrid FitGrid, (double Width, double Height) Size, int Index, int Count, Op Op);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FileLayerOverride(string LayerPath, Seq<LayerOverrideField> Fields = default, bool ResetAll = false) {
+    public static FileLayerOverride Reset(string path) => new(LayerPath: path, ResetAll: true);
+
+    internal bool HasFieldOperation => Fields.Exists(static entry => entry.IsActive);
 
     internal bool Applies => ResetAll || HasFieldOperation;
 
-    public static FileLayerOverrideSpec operator |(FileLayerOverrideSpec left, FileLayerOverrideSpec right) =>
-        right.ResetAll ? right : right.HasFieldOperation ? new(
-            Color: left.Color | right.Color,
-            Visible: left.Visible | right.Visible,
-            PersistentVisible: left.PersistentVisible | right.PersistentVisible,
-            PlotColor: left.PlotColor | right.PlotColor,
-            PlotWeight: left.PlotWeight | right.PlotWeight) : left;
+    public static FileLayerOverride operator |(FileLayerOverride left, FileLayerOverride right) =>
+        right.ResetAll
+            ? right
+            : right.HasFieldOperation
+                ? left with {
+                    Fields = right.Fields.Fold(initialState: left.Fields, f: static (merged, field) =>
+                        merged.Exists(existing => existing.Key == field.Key)
+                            ? merged.Map(slot => slot.Key == field.Key ? slot.Merge(right: field) : slot)
+                            : merged.Add(field)),
+                }
+                : left;
 }
-
-public readonly record struct FileLayerOverride(string LayerPath, FileLayerOverrideSpec Spec);
 
 public readonly record struct FileClipReport(
     Guid Id,
@@ -347,13 +485,14 @@ public readonly record struct FileDetailReport(
     bool Active,
     bool ProjectionLocked,
     FileDetailFrame Frame,
-    double PageToModelRatio,
+    Option<double> PageToModelRatio,
     Transform WorldToPage,
     Transform PageToWorld,
     Option<double> PaperLengthPerModelUnit,
     Option<double> ModelLengthPerPaperUnit,
     Seq<FileClipReport> ClippingPlanes,
     Seq<string> OverriddenLayers,
+    Option<(double Left, double Right, double Bottom, double Top)> Frustum,
     Option<(double Near, double Far)> ClipRange);
 
 public readonly record struct FileSheetReport(
@@ -370,8 +509,8 @@ public readonly record struct FileSheetReport(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static partial class SheetOps {
-    [GeneratedRegex(pattern: "\\{n(?::(?<fmt>[^{}]+))?\\}", options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, matchTimeoutMilliseconds: 250)]
-    private static partial Regex NumberPattern { get; }
+    [GeneratedRegex(pattern: "\\{(?<tok>[ng])(?::(?<fmt>[^{}]+))?\\}", options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, matchTimeoutMilliseconds: 250)]
+    private static partial Regex TokenPattern { get; }
 
     private static readonly Seq<(Vector3d Direction, DefinedViewportProjection Projection)> AxisTable = Seq(
         (new Vector3d(0.0, 0.0, -1.0), DefinedViewportProjection.Top),
@@ -392,25 +531,22 @@ internal static partial class SheetOps {
             reorder: static (ctx, e) => ReorderSheets(document: ctx.Document, sheetNames: e.SheetNames, op: ctx.Op),
             addDetail: static (ctx, e) => AddDetail(document: ctx.Document, sheetName: e.SheetName, spec: e.Spec, op: ctx.Op),
             resize: static (ctx, e) => ResizeSheet(document: ctx.Document, sheetName: e.SheetName, size: e.Size, description: e.Description, op: ctx.Op),
-            scaleDetail: static (ctx, e) => FrameDetail(
-                document: ctx.Document,
-                sheetName: e.SheetName,
-                detail: e.Detail,
-                edits: Seq<CameraEdit>(),
-                scale: Some(e.Scale),
-                clipping: Option<BoundingBox>.None,
-                op: ctx.Op),
+            pageUnits: static (ctx, e) =>
+                from valid in guard(e.Units is not UnitSystem.None and not UnitSystem.Unset and not UnitSystem.CustomUnits, ctx.Op.InvalidInput()).ToFin()
+                from _set in ctx.Op.Catch(() => { ctx.Document.AdjustPageUnitSystem(newUnitSystem: e.Units, scale: e.Scale); return Fin.Succ(value: unit); })
+                select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Attributes,
+                    ids: toSeq(ctx.Document.Views.GetPageViews()).Map(static page => page.MainViewport.Id),
+                    resources: toSeq(ctx.Document.Views.GetPageViews()).Map(static page => DocumentResourceKind.Layout.Change(name: page.PageName))),
             import: static (ctx, e) => ImportSheet(document: ctx.Document, source: e.Source, sourceViewportId: e.SourceViewportId, name: e.Name, op: ctx.Op),
             removeDetail: static (ctx, e) => RemoveDetail(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, op: ctx.Op),
             activateDetail: static (ctx, e) => ActivateDetail(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, op: ctx.Op),
             layerOverride: static (ctx, e) => ApplyLayerOverride(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, overrides: e.Overrides, op: ctx.Op),
             clipDetail: static (ctx, e) => ApplyClipDetail(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, clipOp: e.Op, op: ctx.Op),
-            saveDetailView: static (ctx, e) => ApplySaveDetailView(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, viewName: e.ViewName, op: ctx.Op),
-            restoreDetailView: static (ctx, e) => ApplyRestoreDetailView(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, viewName: e.ViewName, op: ctx.Op),
+            namedDetailView: static (ctx, e) => NamedDetailView(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, viewName: e.ViewName, mode: e.Op, op: ctx.Op),
             frameDetail: static (ctx, e) => FrameDetail(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, edits: e.Edits, scale: e.Scale, clipping: e.Clipping, op: ctx.Op),
             composeDetail: static (ctx, e) => ComposeDetail(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, shot: e.Shot, scale: e.Scale, op: ctx.Op),
             configure: static (ctx, e) => Configure(document: ctx.Document, query: e.Query, config: e.Config, op: ctx.Op),
-            configureDetail: static (ctx, e) => ConfigureDetail(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, config: e.Config, op: ctx.Op),
+            configureDetail: static (ctx, e) => ConfigureDetail(document: ctx.Document, sheetName: e.SheetName, detail: e.Detail, ops: e.Ops, op: ctx.Op),
             number: static (ctx, e) => Number(document: ctx.Document, query: e.Query, numbering: e.Numbering, op: ctx.Op),
             arrangeDetails: static (ctx, e) => ArrangeDetails(document: ctx.Document, query: e.Query, layout: e.Layout, op: ctx.Op),
             groupAssign: static (ctx, e) => GroupAssign(document: ctx.Document, query: e.Query, label: e.Group, removeFromOthers: e.RemoveFromOthers, op: ctx.Op));
@@ -419,6 +555,43 @@ internal static partial class SheetOps {
         from pages in query.Resolve(document: document, op: op)
         from reports in pages.TraverseM(page => ReportOf(document: document, page: page, detail: detail, op: op)).As()
         select reports;
+
+    // Pure correlation over already-materialized reports: the three scale axes (declared formatted scale,
+    // live parallel PageToModelRatio, document page-unit space) only conflict when read together, so the
+    // audit folds the conflict family out of the report projection without re-reading the host.
+    internal static Seq<ScaleConflict> ScaleAudit(Seq<FileSheetReport> reports, UnitSystem pageUnits, double tolerance = 1e-6) =>
+        reports.Bind(sheet => sheet.Details.Bind(detail => ConflictsOf(sheet: sheet.Name, detail: detail, pageUnits: pageUnits, tolerance: tolerance)));
+
+    private static Seq<ScaleConflict> ConflictsOf(string sheet, FileDetailReport detail, UnitSystem pageUnits, double tolerance) =>
+        (detail.Scale.Case, detail.PageToModelRatio.Case) switch {
+            (string formatted, double live) =>
+                (DeclaredRatio(formatted: formatted).Filter(declared => Math.Abs(value: live - declared) > tolerance).Case switch {
+                    double declared => Seq<ScaleConflict>(new ScaleConflict.RatioMismatch(Sheet: sheet, Detail: detail.Name, Formatted: formatted, LiveRatio: live, DeclaredRatio: declared)),
+                    _ => Seq<ScaleConflict>(),
+                }) + DriftOf(sheet: sheet, detail: detail.Name, pageUnits: pageUnits),
+            (string, _) => Seq<ScaleConflict>(new ScaleConflict.PerspectiveScale(Sheet: sheet, Detail: detail.Name)),
+            _ => Seq<ScaleConflict>(),
+        };
+
+    private static Seq<ScaleConflict> DriftOf(string sheet, string detail, UnitSystem pageUnits) =>
+        pageUnits is UnitSystem.None or UnitSystem.Unset
+            ? Seq<ScaleConflict>(new ScaleConflict.PageUnitDrift(Sheet: sheet, Detail: detail, PageUnits: pageUnits))
+            : Seq<ScaleConflict>();
+
+    private static Option<double> DeclaredRatio(string formatted) {
+        using ScaleValue scale = ScaleValue.Create(s: formatted, ps: StringParserSettings.DefaultParseSettings);
+        return scale is { } value && !value.IsUnset()
+            ? Op.Of().Catch(() => {
+                using LengthValue page = value.LeftLengthValue();
+                using LengthValue model = value.RightLengthValue();
+                double pageLen = page.Length(units: page.Units);
+                double modelLen = model.Length(units: model.Units);
+                return RhinoMath.IsValidDouble(x: pageLen) && RhinoMath.IsValidDouble(x: modelLen) && modelLen > 0.0
+                    ? Fin.Succ(value: pageLen / modelLen)
+                    : Fin.Fail<double>(error: Op.Of().InvalidResult());
+            }).ToOption()
+            : Option<double>.None;
+    }
 
     private static Fin<RhinoPageView> Sheet(RhinoDoc document, string name, Op op) =>
         from valid in FileEndpoint.NonBlank(value: name, op: op)
@@ -461,8 +634,8 @@ internal static partial class SheetOps {
                 ? FrameDetail(document: document, sheetName: name, detail: DetailQuery.Named(name: detail.Spec.Name), edits: detail.Edits, scale: detail.Scale, clipping: detail.Clipping, op: op)
                 : Fin.Succ(value: DocumentReceipt.Empty)).As()
         from configuredDetails in plan.Details.TraverseM(detail =>
-            detail.Config.Applies
-                ? ConfigureDetail(document: document, sheetName: name, detail: DetailQuery.Named(name: detail.Spec.Name), config: detail.Config, op: op)
+            !detail.Config.IsEmpty
+                ? ConfigureDetail(document: document, sheetName: name, detail: DetailQuery.Named(name: detail.Spec.Name), ops: detail.Config, op: op)
                 : Fin.Succ(value: DocumentReceipt.Empty)).As()
         from arranged in plan.Layout.Map(layout => ArrangeDetails(document: document, query: query, layout: layout, op: op)).IfNone(Fin.Succ(value: DocumentReceipt.Empty))
         from numbered in plan.Numbering.Map(numbering => Number(document: document, query: query, numbering: numbering, op: op)).IfNone(Fin.Succ(value: DocumentReceipt.Empty))
@@ -556,7 +729,7 @@ internal static partial class SheetOps {
                        from scaledDetail in spec.Scale.Map(scale => scale.Apply(detail: detail, document: document, op: op))
                            .IfNone(Fin.Succ(value: detail))
                        from locked in op.Catch(() => { scaledDetail.DetailGeometry.IsProjectionLocked = spec.ProjectionLocked; return Fin.Succ(value: unit); })
-                       from committed in op.Catch(() => op.Confirm(success: scaledDetail.CommitChanges()))
+                       from committed in new DetailCommit(Geometry: true).Apply(detail: scaledDetail, op: op)
                        from framed in ApplyDetailView(document: document, page: page, detail: scaledDetail, edits: spec.View)
                        from _redraw in op.Catch(() => { document.Views.Redraw(); return Fin.Succ(value: unit); })
                        select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Created, ids: Seq(framed.Id), kind: DocumentResourceKind.Layout, name: name);
@@ -591,10 +764,22 @@ internal static partial class SheetOps {
         from page in Sheet(document: document, name: sheetName, op: op)
         from details in detail.Resolve(page: page, op: op)
         let names = details.Map(DetailQuery.NameOf).Somes()
+        from pruned in details.TraverseM(item => PruneClips(document: document, detail: item, op: op)).As()
         from _ in details.TraverseM(item => op.Confirm(success: document.Objects.Delete(obj: item, quiet: true))).As()
-        select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Deleted, ids: details.Map(static item => item.Id), resources: (names.IsEmpty ? Seq(DocumentResourceKind.Layout.Change(name: sheetName))
+        select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Deleted, ids: details.Map(static item => item.Id) + pruned.Bind(static p => p), resources: (names.IsEmpty ? Seq(DocumentResourceKind.Layout.Change(name: sheetName))
                     : names.Map(static name => DocumentResourceKind.Layout.Change(name: name)))
                 .Distinct());
+
+    private static Fin<Seq<Guid>> PruneClips(RhinoDoc document, DetailViewObject detail, Op op) =>
+        op.Catch(() => Fin.Succ(value: toSeq(document.Objects.FindClippingPlanesForViewport(viewport: detail.Viewport))
+            .Choose(plane => Optional(plane.ClippingPlaneGeometry).Map(geom => {
+                Guid[] viewports = geom.ViewportIds();
+                // Sole binding to the removed detail's viewport -> delete the orphan; a shared plane only detaches.
+                _ = viewports is [Guid only] && only == detail.Viewport.Id
+                    ? Op.Side(() => document.Objects.Delete(objectId: plane.Id, quiet: true))
+                    : Op.Side(() => plane.RemoveClipViewport(viewport: detail.Viewport, commit: true));
+                return plane.Id;
+            }))));
 
     private static Fin<DocumentReceipt> ActivateDetail(RhinoDoc document, string sheetName, Option<DetailQuery> detail, Op op) =>
         from page in Sheet(document: document, name: sheetName, op: op)
@@ -608,7 +793,7 @@ internal static partial class SheetOps {
         select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Attributes, ids: target.Map(item => Seq(item.Id)).IfNone(Seq(page.MainViewport.Id)), kind: DocumentResourceKind.Layout, name: target.Bind(DetailQuery.NameOf).IfNone(sheetName));
 
     private static Fin<DocumentReceipt> ApplyLayerOverride(RhinoDoc document, string sheetName, DetailQuery detail, Seq<FileLayerOverride> overrides, Op op) =>
-        from _valid in guard(!overrides.IsEmpty && overrides.ForAll(static entry => entry.Spec.Applies), op.InvalidInput())
+        from _valid in guard(!overrides.IsEmpty && overrides.ForAll(static entry => entry.Applies), op.InvalidInput())
         from receipt in MutateDetails(document: document, sheetName: sheetName, detail: detail, op: op, mutate: (page, detail) =>
             overrides.TraverseM(entry =>
                 from path in FileEndpoint.NonBlank(value: entry.LayerPath, op: op)
@@ -616,19 +801,11 @@ internal static partial class SheetOps {
                     int index when index >= 0 => Optional(document.Layers[index]).ToFin(Fail: op.InvalidInput()),
                     _ => Fin.Fail<Layer>(error: op.InvalidInput()),
                 }
-                from _reset in entry.Spec.ResetAll
+                from _reset in entry.ResetAll
                     ? op.Catch(() => Fin.Succ(value: Op.Side(() => layer.DeletePerViewportSettings(viewportId: detail.Viewport.Id))))
                     : Fin.Succ(value: unit)
-                from _fields in entry.Spec.HasFieldOperation
-                    ? op.Catch(() => {
-                        _ = entry.Spec.Color.Apply(set: value => layer.SetPerViewportColor(viewportId: detail.Viewport.Id, color: value), inherit: () => layer.DeletePerViewportColor(viewportId: detail.Viewport.Id));
-                        _ = entry.Spec.Visible.Apply(set: value => layer.SetPerViewportVisible(viewportId: detail.Viewport.Id, visible: value), inherit: () => layer.DeletePerViewportVisible(viewportId: detail.Viewport.Id));
-                        _ = entry.Spec.PersistentVisible.Apply(set: value => layer.SetPerViewportPersistentVisibility(viewportId: detail.Viewport.Id, persistentVisibility: value), inherit: () => layer.UnsetPerViewportPersistentVisibility(viewportId: detail.Viewport.Id));
-                        _ = entry.Spec.PlotColor.Apply(set: value => layer.SetPerViewportPlotColor(viewportId: detail.Viewport.Id, color: value), inherit: () => layer.DeletePerViewportPlotColor(viewportId: detail.Viewport.Id));
-                        _ = entry.Spec.PlotWeight.Apply(set: value => layer.SetPerViewportPlotWeight(viewportId: detail.Viewport.Id, plotWeight: value), inherit: () => layer.DeletePerViewportPlotWeight(viewportId: detail.Viewport.Id));
-                        return Fin.Succ(value: unit);
-                    })
-                    : Fin.Succ(value: unit)
+                from _fields in op.Catch(() => Fin.Succ(value: entry.Fields.Iter(field =>
+                    field.Apply(layer: layer, viewport: detail.Viewport.Id))))
                 select path).As()
                 .Map(paths => (detail.Id, Resources: paths.Distinct().Map(static path => DocumentResourceKind.Layer.Change(name: path)))))
         select receipt;
@@ -669,25 +846,10 @@ internal static partial class SheetOps {
                     })
                     select (view.Id, Resources: Seq(DocumentResourceKind.Object.Change(name: cmd.PlaneId.ToString())))));
 
-    private static Fin<DocumentReceipt> ApplySaveDetailView(RhinoDoc document, string sheetName, DetailQuery detail, string viewName, Op op) =>
+    private static Fin<DocumentReceipt> NamedDetailView(RhinoDoc document, string sheetName, DetailQuery detail, string viewName, NamedViewOp mode, Op op) =>
         from name in FileEndpoint.NonBlank(value: viewName, op: op)
-        from receipt in MutateDetails(document: document, sheetName: sheetName, detail: detail, op: op, mutate: (RhinoPageView _, DetailViewObject view) =>
-            from _index in op.Catch(() => document.NamedViews.Add(name: name, viewportId: view.Viewport.Id) switch {
-                int created when created >= 0 => Fin.Succ(value: created),
-                _ => Fin.Fail<int>(error: op.InvalidResult()),
-            })
-            select (view.Id, Resources: Seq(DocumentResourceKind.NamedView.Change(name: name))))
-        select receipt;
-
-    private static Fin<DocumentReceipt> ApplyRestoreDetailView(RhinoDoc document, string sheetName, DetailQuery detail, string viewName, Op op) =>
-        from name in FileEndpoint.NonBlank(value: viewName, op: op)
-        from index in document.NamedViews.FindByName(name: name) switch {
-            int found when found >= 0 => Fin.Succ(value: found),
-            _ => Fin.Fail<int>(error: op.MissingContext()),
-        }
         from receipt in MutateDetails(document: document, sheetName: sheetName, detail: detail, op: op, mutate: (_, view) =>
-            from _restored in op.Confirm(success: document.NamedViews.Restore(index: index, viewport: view.Viewport))
-            from _committed in op.Confirm(success: view.CommitViewportChanges())
+            from _applied in mode.Apply(doc: document, detail: view, name: name, op: op)
             select (view.Id, Resources: Seq(DocumentResourceKind.NamedView.Change(name: name))))
         select receipt;
 
@@ -708,47 +870,15 @@ internal static partial class SheetOps {
             select (scaled.Id, changed.Resources))
         select receipt;
 
-    private static Fin<DocumentReceipt> ConfigureDetail(RhinoDoc document, string sheetName, DetailQuery detail, FileDetailConfig config, Op op) =>
-        from _requested in guard(config.Applies, op.InvalidInput()).ToFin()
-        from displayMode in config.DisplayMode
-            .Map(id => Optional(DisplayModeDescription.GetDisplayMode(id: id)).ToFin(Fail: op.InvalidInput()).Map(Some))
-            .IfNone(Fin.Succ(value: Option<DisplayModeDescription>.None))
-        from name in config.Name.Map(value => FileEndpoint.NonBlank(value: value, op: op).Map(Some)).IfNone(Fin.Succ(value: Option<string>.None))
-        from receipt in MutateDetails(document: document, sheetName: sheetName, detail: detail, op: op, mutate: (RhinoPageView page, DetailViewObject view) =>
-            from geometryViewport in op.Catch(() => {
-                _ = page;
-                bool geometryTouched = false;
-                bool viewportTouched = false;
-                _ = config.ProjectionLocked.Case switch {
-                    bool value => Op.Side(() => {
-                        view.DetailGeometry.IsProjectionLocked = value;
-                        geometryTouched = true;
-                    }),
-                    _ => unit,
-                };
-                _ = config.CameraLocked.Case switch {
-                    bool value => Op.Side(() => {
-                        view.Viewport.LockedProjection = value;
-                        viewportTouched = true;
-                    }),
-                    _ => unit,
-                };
-                _ = displayMode.Case switch {
-                    DisplayModeDescription value => Op.Side(() => {
-                        view.Viewport.DisplayMode = value;
-                        viewportTouched = true;
-                    }),
-                    _ => unit,
-                };
-                return geometryTouched && !view.CommitChanges()
-                    ? Fin.Fail<Unit>(error: op.InvalidResult())
-                    : viewportTouched && !view.CommitViewportChanges() ? Fin.Fail<Unit>(error: op.InvalidResult()) : Fin.Succ(value: unit);
-            })
-            from named in name.Map(value => op.Catch(() => {
-                ObjectAttributes attributes = view.Attributes.Duplicate();
-                attributes.Name = value;
-                return op.Confirm(success: document.Objects.ModifyAttributes(objectId: view.Id, newAttributes: attributes, quiet: true));
-            })).IfNone(Fin.Succ(value: unit))
+    private static Fin<DocumentReceipt> ConfigureDetail(RhinoDoc document, string sheetName, DetailQuery detail, Seq<DetailConfigOp> ops, Op op) =>
+        from _requested in guard(!ops.IsEmpty, op.InvalidInput()).ToFin()
+        from receipt in MutateDetails(document: document, sheetName: sheetName, detail: detail, op: op, mutate: (_, view) =>
+            from targets in ops.TraverseM(o => o.Apply(document: document, view: view, op: op)).As()
+            from _committed in targets.Somes().Fold(default(DetailCommit), static (acc, target) => acc | DetailCommit.Of(target: target)).Apply(detail: view, op: op)
+            from name in ops.Fold(Option<DetailConfigOp.Rename>.None, static (found, o) => found.IsSome ? found : o is DetailConfigOp.Rename r ? Some(r) : found).Case switch {
+                DetailConfigOp.Rename rename => FileEndpoint.NonBlank(value: rename.Name, op: op).Map(Some),
+                _ => Fin.Succ(value: Option<string>.None),
+            }
             select (view.Id, Resources: name.Map(value => Seq(DocumentResourceKind.Layout.Change(name: value))).IfNone(Seq<DocumentResourceChange>())))
         select receipt;
 
@@ -760,7 +890,6 @@ internal static partial class SheetOps {
             string groupName => ResolveOrCreateGroup(document: document, groupName: groupName, pages: pages, op: op).Map(Some),
             _ => Fin.Succ(value: Option<PageViewGroup>.None),
         }
-        from _units in config.DocumentPageUnits.Map(units => op.Catch(() => Fin.Succ(value: Op.Side(() => document.AdjustPageUnitSystem(newUnitSystem: units, scale: true))))).IfNone(Fin.Succ(value: unit))
         from perPage in pages.TraverseM(page => ConfigurePage(document: document, page: page, config: config, op: op)).As()
         from _meta in groupSlot.Map(active => ApplyGroupMeta(pageGroup: active, config: config, op: op)).IfNone(Fin.Succ(value: unit))
         select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Attributes, ids: perPage, resources: pages.Map(static page => DocumentResourceKind.Layout.Change(name: page.PageName))
@@ -812,8 +941,13 @@ internal static partial class SheetOps {
         from pages in query.Resolve(document: document, op: op)
         from _valid in guard(!pages.IsEmpty, op.InvalidInput())
         let ordered = toSeq(pages.OrderBy(static page => page.PageNumber))
-        from numbered in ordered.Map((page, index) => (Page: page, Value: numbering.Start + index)).TraverseM(item =>
-            from label in FileEndpoint.NonBlank(value: Substitute(pattern: pattern, value: item.Value), op: op)
+        let grouped = ordered.Map((page, index) => (
+            Page: page,
+            Sheet: numbering.Start + index,
+            Group: toSeq(page.GetPageViewGroupList()).Find(static _ => true).Map(g =>
+                numbering.Start + ordered.Take(index + 1).Filter(p => toSeq(p.GetPageViewGroupList()).Exists(x => x == g)).Count - 1)))
+        from numbered in grouped.TraverseM(item =>
+            from label in FileEndpoint.NonBlank(value: Substitute(pattern: pattern, sheet: item.Sheet, groupOrdinal: item.Group), op: op)
             from _ in op.Catch(() => {
                 item.Page.PageName = label;
                 return Fin.Succ(value: unit);
@@ -823,9 +957,9 @@ internal static partial class SheetOps {
         select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Attributes, ids: numbered.Map(static n => n.Page) + numbered.Bind(static n => n.Details), resources: numbered.Map(static n => DocumentResourceKind.Layout.Change(name: n.Label)));
 
     private static Fin<Seq<Guid>> NumberDetails(RhinoDoc document, RhinoPageView page, string pattern, Op op) {
-        Seq<DetailViewObject> ordered = OrderedDetails(toSeq(page.GetDetailViews()));
+        Seq<DetailViewObject> ordered = OrderedDetails(details: toSeq(page.GetDetailViews()), op: op);
         return ordered.Map((detail, index) => (Detail: detail, Value: index + 1)).TraverseM(item =>
-            from label in FileEndpoint.NonBlank(value: Substitute(pattern: pattern, value: item.Value), op: op)
+            from label in FileEndpoint.NonBlank(value: Substitute(pattern: pattern, sheet: item.Value, groupOrdinal: Option<int>.None), op: op)
             from attributes in Optional(item.Detail.Attributes?.Duplicate()).ToFin(Fail: op.InvalidResult())
             from _ in op.Catch(() => {
                 attributes.Name = label;
@@ -834,17 +968,16 @@ internal static partial class SheetOps {
             select item.Detail.Id).As();
     }
 
-    private static string Substitute(string pattern, int value) =>
-        NumberPattern.Replace(input: pattern, evaluator: match =>
-            match.Groups["fmt"].Success
+    private static string Substitute(string pattern, int sheet, Option<int> groupOrdinal) =>
+        TokenPattern.Replace(input: pattern, evaluator: match => {
+            int value = match.Groups["tok"].Value switch { "g" => groupOrdinal.IfNone(noneValue: sheet), _ => sheet };
+            return match.Groups["fmt"].Success
                 ? value.ToString(format: match.Groups["fmt"].Value, provider: CultureInfo.InvariantCulture)
-                : value.ToString(provider: CultureInfo.InvariantCulture));
+                : value.ToString(provider: CultureInfo.InvariantCulture);
+        });
 
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct DetailMove(Guid SourceId, Guid TargetId, bool Duplicate);
-
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct FitGrid(int Columns, int Rows, double Width, double Height);
 
     private static Fin<DocumentReceipt> ArrangeDetails(RhinoDoc document, SheetQuery query, FileDetailLayout layout, Op op) =>
         from _cols in guard(layout.Columns > 0 && layout.SpacingX >= 0.0 && layout.SpacingY >= 0.0 && (layout.Margins.IsSome || layout.Margin >= 0.0), op.InvalidInput())
@@ -903,7 +1036,7 @@ internal static partial class SheetOps {
     private static Fin<Seq<DetailMove>> ArrangePage(RhinoDoc document, RhinoPageView page, FileDetailLayout layout, Op op) =>
         from matched in layout.Detail.Resolve(page: page, op: op)
         from content in ContentFrame(document: document, page: page, layout: layout, op: op)
-        let ordered = OrderedDetails(details: matched)
+        let ordered = OrderedDetails(details: matched, op: op)
         from frames in ordered.Map((detail, index) => (Detail: detail, Index: index)).TraverseM(item =>
             from current in FrameOf(detail: item.Detail, op: op)
             from target in TargetFrame(content: content, current: current, layout: layout, index: item.Index, count: ordered.Count, op: op)
@@ -911,16 +1044,14 @@ internal static partial class SheetOps {
         from moved in frames.TraverseM(item => MoveDetailFrame(document: document, detail: item.Detail, xform: FrameTransform(current: item.current, target: item.target), duplicate: layout.Duplicate, op: op)).As()
         select moved;
 
-    private static Seq<DetailViewObject> OrderedDetails(Seq<DetailViewObject> details, Option<Func<DetailViewObject, bool>> filter = default) {
-        Op op = Op.Of(name: nameof(OrderedDetails));
-        return toSeq(
+    private static Seq<DetailViewObject> OrderedDetails(Seq<DetailViewObject> details, Op op, Option<Func<DetailViewObject, bool>> filter = default) =>
+        toSeq(
             details
                 .Filter(d => filter.Map(p => p(arg: d)).IfNone(noneValue: true))
                 .Select(d => (Detail: d, Frame: FrameOf(detail: d, op: op)))
                 .OrderByDescending(static pair => pair.Frame.Map(static f => f.Y).IfFail(0.0))
                 .ThenBy(static pair => pair.Frame.Map(static f => f.X).IfFail(0.0))
                 .Select(static pair => pair.Detail));
-    }
 
     private static Fin<FileDetailFrame> FrameOf(DetailViewObject detail, Op op) =>
         FileDetailFrame.Of(detail: detail, op: op);
@@ -954,49 +1085,31 @@ internal static partial class SheetOps {
                 },
         };
 
-    private static Fin<FileDetailFrame> TargetFrame(FileDetailFrame content, FileDetailFrame current, FileDetailLayout layout, int index, int count, Op op) =>
-        from fitGrid in layout.Mode == FileDetailLayoutMode.FitPage
-            ? ComputeFitGrid(content: content, layout: layout, count: count, op: op)
-            : Fin.Succ(value: default(FitGrid))
-        from size in TargetSize(layout: layout, current: current, fitGrid: fitGrid, op: op)
-        let column = index % layout.Columns
-        let row = index / layout.Columns
-        let grid = new FileDetailFrame(
-            X: layout.Origin.X + (column * layout.SpacingX),
-            Y: layout.Origin.Y + (row * layout.SpacingY),
-            Width: size.Width,
-            Height: size.Height)
-        from target in layout.Mode switch {
-            FileDetailLayoutMode.Grid => Fin.Succ(value: grid),
-            FileDetailLayoutMode.FitPage => Fin.Succ(value: new FileDetailFrame(
-                X: content.X + (index % fitGrid.Columns * (size.Width + layout.SpacingX)),
-                Y: content.Y + (index / fitGrid.Columns * (size.Height + layout.SpacingY)),
-                Width: size.Width,
-                Height: size.Height)),
-            FileDetailLayoutMode.Align => Fin.Succ(value: AnchorFrame(content: content, layout: layout, size: size)),
-            FileDetailLayoutMode.DistributeHorizontal => Fin.Succ(value: new FileDetailFrame(
-                X: count <= 1 ? content.X : content.X + (index * (Math.Max(val1: 0.0, val2: content.Width - size.Width) / (count - 1))),
-                Y: current.Y,
-                Width: size.Width,
-                Height: size.Height)),
-            FileDetailLayoutMode.DistributeVertical => Fin.Succ(value: new FileDetailFrame(
-                X: current.X,
-                Y: count <= 1 ? content.Y : content.Y + (index * (Math.Max(val1: 0.0, val2: content.Height - size.Height) / (count - 1))),
-                Width: size.Width,
-                Height: size.Height)),
-            _ => Fin.Fail<FileDetailFrame>(error: op.InvalidResult()),
-        }
-        from valid in target.IsValid ? Fin.Succ(value: target) : Fin.Fail<FileDetailFrame>(error: op.InvalidResult())
-        select valid;
+    private static Fin<FileDetailFrame> TargetFrame(FileDetailFrame content, FileDetailFrame current, FileDetailLayout layout, int index, int count, Op op) {
+        FileDetailLayoutMode mode = layout.Mode ?? FileDetailLayoutMode.Grid;
+        return from fitGrid in mode.NeedsFitGrid ? ComputeFitGrid(content: content, layout: layout, count: count, op: op) : Fin.Succ(value: default(FitGrid))
+               from size in TargetSize(mode: mode, layout: layout, current: current, fitGrid: fitGrid, op: op)
+               from target in mode.Frame(c: new LayoutContext(Content: content, Current: current, Layout: layout, FitGrid: fitGrid, Size: size, Index: index, Count: count, Op: op))
+               from valid in target.IsValid ? Fin.Succ(value: target) : Fin.Fail<FileDetailFrame>(error: op.InvalidResult())
+               select valid;
+    }
 
-    private static Fin<(double Width, double Height)> TargetSize(FileDetailLayout layout, FileDetailFrame current, FitGrid fitGrid, Op op) =>
-        layout.Mode == FileDetailLayoutMode.FitPage
+    private static Fin<(double Width, double Height)> TargetSize(FileDetailLayoutMode mode, FileDetailLayout layout, FileDetailFrame current, FitGrid fitGrid, Op op) =>
+        mode.NeedsFitGrid
             ? Fin.Succ(value: (fitGrid.Width, fitGrid.Height))
             : layout.Size.Case switch {
                 Point2d size when size.X > RhinoMath.ZeroTolerance && size.Y > RhinoMath.ZeroTolerance => Fin.Succ(value: (Width: size.X, Height: size.Y)),
                 Point2d => Fin.Fail<(double Width, double Height)>(error: op.InvalidInput()),
                 _ => Fin.Succ(value: (current.Width, current.Height)),
             };
+
+    internal static FileDetailFrame GridCell(FileDetailFrame content, FileDetailLayout layout, (double Width, double Height) size, int index, int columns, double spacingX, double spacingY, bool fromOrigin) {
+        int column = index % columns;
+        int row = index / columns;
+        return fromOrigin
+            ? new FileDetailFrame(X: layout.Origin.X + (column * spacingX), Y: layout.Origin.Y + (row * spacingY), Width: size.Width, Height: size.Height)
+            : new FileDetailFrame(X: content.X + (column * (size.Width + spacingX)), Y: content.Y + (row * (size.Height + spacingY)), Width: size.Width, Height: size.Height);
+    }
 
     private static Fin<FitGrid> ComputeFitGrid(FileDetailFrame content, FileDetailLayout layout, int count, Op op) {
         int cols = Math.Min(layout.Columns, Math.Max(count, 1));
@@ -1007,7 +1120,7 @@ internal static partial class SheetOps {
             .ToFin().Map(_ => new FitGrid(Columns: cols, Rows: rows, Width: w, Height: h));
     }
 
-    private static FileDetailFrame AnchorFrame(FileDetailFrame content, FileDetailLayout layout, (double Width, double Height) size) {
+    internal static FileDetailFrame AnchorFrame(FileDetailFrame content, FileDetailLayout layout, (double Width, double Height) size) {
         FileDetailAnchor anchor = layout.Anchor ?? FileDetailAnchor.TopLeft;
         Point2d origin = content.AnchorPoint(anchor: anchor, offset: layout.Origin);
         return new FileDetailFrame(
@@ -1069,13 +1182,14 @@ internal static partial class SheetOps {
             : DefinedViewportProjection.None;
     }
 
-    private static FileDetailReport DetailReportOf(RhinoDoc document, DetailViewObject detail) {
+    private static FileDetailReport DetailReportOf(RhinoDoc document, DetailViewObject detail, Op op) {
         Guid viewportId = detail.Viewport.Id;
+        Option<DetailView> geometry = Optional(detail.DetailGeometry);
+        bool parallel = geometry.Map(static g => g.IsParallelProjection).IfNone(noneValue: false);
+        bool hasFrustum = detail.Viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out double far);
         Seq<string> overridden = toSeq(document.Layers)
             .Filter(layer => !layer.IsDeleted && layer.HasPerViewportSettings(viewportId: viewportId))
             .Map(static layer => layer.FullPath);
-        bool hasRange = detail.Viewport.GetFrustum(out _, out _, out _, out _, out double near, out double far);
-        FileDetailFrame frame = FrameOf(detail: detail, op: Op.Of(name: nameof(DetailReportOf))).IfFail(default(FileDetailFrame));
         return new FileDetailReport(
             Name: DetailQuery.NameOf(detail: detail).IfNone(string.Empty),
             DescriptiveTitle: detail.DescriptiveTitle,
@@ -1084,9 +1198,9 @@ internal static partial class SheetOps {
             ViewportId: viewportId,
             ParentViewportId: Optional(detail.ParentPageView).Map(static page => page.MainViewport.Id),
             Active: detail.IsActive,
-            ProjectionLocked: detail.DetailGeometry.IsProjectionLocked,
-            Frame: frame,
-            PageToModelRatio: detail.DetailGeometry.PageToModelRatio,
+            ProjectionLocked: geometry.Map(static g => g.IsProjectionLocked).IfNone(noneValue: false),
+            Frame: FrameOf(detail: detail, op: op).IfFail(default(FileDetailFrame)),
+            PageToModelRatio: parallel ? geometry.Map(static g => g.PageToModelRatio).Filter(RhinoMath.IsValidDouble) : Option<double>.None,
             WorldToPage: detail.WorldToPageTransform,
             PageToWorld: detail.PageToWorldTransform,
             PaperLengthPerModelUnit: Length(value: 1.0, convert: detail.TryGetPaperLength),
@@ -1103,7 +1217,10 @@ internal static partial class SheetOps {
                         Exclusive: exclusive);
                 })),
             OverriddenLayers: overridden,
-            ClipRange: hasRange && RhinoMath.IsValidDouble(x: near) && RhinoMath.IsValidDouble(x: far)
+            Frustum: hasFrustum && RhinoMath.IsValidDouble(x: left) && RhinoMath.IsValidDouble(x: right) && RhinoMath.IsValidDouble(x: bottom) && RhinoMath.IsValidDouble(x: top)
+                ? Some((Left: left, Right: right, Bottom: bottom, Top: top))
+                : Option<(double, double, double, double)>.None,
+            ClipRange: hasFrustum && RhinoMath.IsValidDouble(x: near) && RhinoMath.IsValidDouble(x: far)
                 ? Some((Near: near, Far: far))
                 : Option<(double, double)>.None);
     }
@@ -1122,7 +1239,7 @@ internal static partial class SheetOps {
                 ActiveDetailId: activeDetailId == Guid.Empty ? Option<Guid>.None : Some(activeDetailId),
                 Size: (Width: page.PageWidth, Height: page.PageHeight),
                 Groups: groups.Map(static item => item.Name),
-                Details: detailViews.Map(detail => DetailReportOf(document: document, detail: detail)),
+                Details: detailViews.Map(detail => DetailReportOf(document: document, detail: detail, op: op)),
                 GroupMetadata: groups.Map(static item => (Group: item.Name, Strings: UserStringsOf(pageGroup: item)))));
         });
 

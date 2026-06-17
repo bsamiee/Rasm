@@ -1,27 +1,28 @@
 # [PERSISTENCE_VERSION_CONTROL]
 
-Rasm.Persistence owns Git-grade version control over the durable object graph: a content-addressed commit-DAG with named branches, lightweight commits, and merge-base computation; a convergent op-based/delta-state CRDT replacing the LWW `Adjudicate` scalar with RGA sequence, add-wins observed-remove set, and LWW-by-HLC register types over the parametric DAG; a version-vector concurrency detector plus a Merkle-DAG range-reconciliation handshake for anti-entropy; an AS-OF time-travel engine reconstructing, diffing, blaming, scrubbing, and branching-from-past over the HLC op-log and the content-addressed snapshots; and a geometry-aware structural diff/merge engine doing tree-edit-distance node-identity matching, three-way merge, and typed conflict classification. The op-log (`OpLogEntry`, HLC stamp, `Closure` manifest), the content-addressed snapshot identity (`Snapshots.ContentAddress`, `XxHash128`), and the merge receipts (`ConflictReceipt`) arrive settled and compose inside the fences; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, and `TenantContext` arrive from AppHost.
+Rasm.Persistence owns Git-grade version control over the durable object graph: a content-addressed commit-DAG with named branches, lightweight commits, and merge-base computation; a convergent op-based/delta-state CRDT replacing the LWW `Adjudicate` scalar with RGA sequence, add-wins observed-remove set, multi-value register, PN-counter, and LWW-by-HLC register types over the parametric DAG; an HLC `Hlc` stamp that is the one causal-ordering primitive shared by the op-log, the CRDT merge, and the wire seam; a `CrdtOpWire` op/CRDT encoding (HLC cell, op kinds, causal metadata) that amends the one-wire-vocabulary law field-for-field across the version-control owner and the AppHost wire seam; a version-vector concurrency detector plus a Merkle-DAG range-reconciliation handshake for anti-entropy; an AS-OF time-travel engine reconstructing, diffing, blaming, scrubbing, checkpointing, and branching-from-past over the HLC op-log and the content-addressed snapshots; and a geometry-aware structural diff/merge engine doing tree-edit-distance node-identity matching, three-way merge, and typed conflict classification. The op-log (`OpLogEntry`, HLC stamp, `Closure` manifest), the content-addressed snapshot identity (`Snapshots.ContentAddress`, `XxHash128`), the MessagePack codec profile (`ThinktectureMessageFormatterResolver`, `GeneratedMessagePackResolver`, `Lz4BlockArray`, `UntrustedData` restore lane), and the merge receipts (`ConflictReceipt`) arrive settled and compose inside the fences; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, and `TenantContext` arrive from AppHost.
 
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                              |
 | :-----: | :--------------- | :----------------------------------------------------------------- |
 |   [1]   | COMMIT_DAG       | Content-addressed commit-DAG, named branches, merge-base, vectors  |
-|   [2]   | CRDT_ALGEBRA     | RGA / OR-set / LWW-register convergent op-based CRDT over the DAG   |
-|   [3]   | TIME_TRAVEL      | AS-OF reconstruction, range diff, per-node blame, scrub, branch-from-past |
-|   [4]   | STRUCTURAL_DIFF  | Tree-edit node-identity match, three-way merge, typed conflict classes |
-|   [5]   | TS_PROJECTION    | Commit, branch, version-vector, conflict, blame wire shapes        |
+|   [2]   | CRDT_ALGEBRA     | RGA / OR-set / MV-register / PN-counter / LWW convergent CRDT       |
+|   [3]   | CRDT_WIRE        | HLC stamp, `CrdtOp` codec, `CrdtOpWire` op-log payload amendment    |
+|   [4]   | TIME_TRAVEL      | AS-OF reconstruction, checkpoint, range diff, blame, scrub, branch-from-past |
+|   [5]   | STRUCTURAL_DIFF  | Tree-edit node-identity match, three-way merge, typed conflict classes |
+|   [6]   | TS_PROJECTION    | Commit, branch, version-vector, op, conflict, blame, Merkle wire shapes |
 
 ## [2]-[COMMIT_DAG]
 
-- Owner: `CommitNode` content-addressed commit record; `BranchRef` named-branch pointer with per-branch ACL; `VersionVector` per-origin sequence map; `MerkleRange` reconciliation node; `CommitGraph` static surface owning hash, parent-link, merge-base, vector-compare, and Merkle range-fold.
-- Cases: `CommitGraph.Order` compares two `VersionVector` values into `Before | After | Concurrent | Equal`; `MerkleRange` folds a content-key range into one `XxHash128` digest over its sorted children so a peer compares one digest before descending.
-- Entry: `public static CommitNode Commit(VersionVector parents, Seq<UInt128> opKeys, BranchRef branch, string actor, Instant physical, ulong logical)` — pure value; the commit content key is `XxHash128` over the canonical parent-set, op-key-set, and HLC cell, so an identical commit on two peers shares one identity; `public static Option<UInt128> MergeBase(Func<UInt128, Option<CommitNode>> resolve, UInt128 left, UInt128 right)` walks both parent closures to the lowest common ancestor.
+- Owner: `CommitNode` content-addressed commit record; `BranchRef` named-branch pointer with per-branch ACL; `VersionVector` per-origin sequence map; `MerkleRange` reconciliation node; `CommitGraph` static surface owning hash, parent-link, merge-base, vector-compare, Merkle range-fold, and the recursive anti-entropy descent.
+- Cases: `CommitGraph.Order` compares two `VersionVector` values into `Before | After | Concurrent | Equal`; `MerkleRange` folds a content-key range into one `XxHash128` digest over its sorted children so a peer compares one digest before descending, and `CommitGraph.Reconcile` recursively bisects only divergent subranges.
+- Entry: `public static CommitNode Commit(VersionVector parents, Seq<UInt128> opKeys, BranchRef branch, string actor, Hlc cell)` — pure value; the commit content key is `XxHash128` over the canonical parent-set, op-key-set, and HLC cell, so an identical commit on two peers shares one identity; `public static Option<UInt128> MergeBase(Func<UInt128, Option<CommitNode>> resolve, UInt128 left, UInt128 right)` walks both parent closures to the lowest common ancestor; `public static Seq<MerkleRange> Reconcile(Func<MerkleRange, Seq<MerkleRange>> children, MerkleRange local, MerkleRange remote)` returns the divergent leaf ranges to transfer.
 - Auto: a commit appends one `OpLogEntry` of `SyncOpKind.Upsert` on the `commit` column family carrying the `CommitNode` payload so the commit-DAG rides the one op-log changefeed, never a second store; the `VersionVector` advances the committing origin's slot by the committed op count so concurrency detection reads one vector per commit; `MerkleRange.Of` folds a sorted content-key window into a digest so anti-entropy compares digests top-down and transfers only the divergent subtree through the settled `SyncPump.GraphDiff` set-difference.
 - Receipt: a commit rides `ReceiptSinkPort` under the `store.commit` kind; a branch mutation rides `store.branch`; the range-reconciliation transfer count rides the settled `SyncApplyReceipt`.
 - Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new ref kind (tag, remote-tracking) is one `BranchRef.Kind` row; a new ACL grant is one `BranchAcl` flag; a new reconciliation fan-out is one policy value on `MerkleRange.Fanout`; zero new surface — a parallel commit store, a second DAG walker, or a `git`-shaped object database is the deleted form because the commit rides the op-log and the content address rides `Snapshots.ContentAddress`.
-- Boundary: the commit content key derives from `XxHash128` over the canonical `(SortedParents, SortedOpKeys, Physical, Logical, Actor)` tuple so two peers minting the same logical commit converge on one node — a wall-clock or random commit id is the deleted form; `MergeBase` walks the parent closure breadth-first over the `resolve` delegate and returns `None` for disjoint histories so a cross-document merge surfaces a typed absence rather than a false ancestor; the `VersionVector` is the one concurrency primitive — `Order` returns `Concurrent` exactly when neither vector dominates, and a merge commit carries both parents so the vector join is the per-slot max; `BranchAcl` is a per-branch capability flag set (`Read | Write | Merge | Rebase | ForcePush | Admin`) gated at the write path, never a second authz taxonomy — object-level grants ride the AppHost identity seam and this flag set scopes the branch ref; tags are immutable `BranchRef` rows whose `Kind` is `Tag` and whose `Acl` denies `Write`; `MerkleRange` is the anti-entropy accelerator — a peer exchanges one root digest, descends only divergent ranges, and the leaf transfer rides `SyncPump.GraphDiff`, so a full op-log replay for reconciliation is the deleted form.
+- Growth: a new ref kind (tag, remote-tracking) is one `RefKind` row; a new ACL grant is one `BranchAcl` flag; a new reconciliation fan-out is one policy value on `CommitGraph.Fanout`; zero new surface — a parallel commit store, a second DAG walker, or a `git`-shaped object database is the deleted form because the commit rides the op-log and the content address rides `Snapshots.ContentAddress`.
+- Boundary: the commit content key derives from `XxHash128` over the canonical `(SortedParents, SortedOpKeys, Hlc)` tuple so two peers minting the same logical commit converge on one node — a wall-clock or random commit id is the deleted form; `MergeBase` walks the parent closure breadth-first over the `resolve` delegate and returns `None` for disjoint histories so a cross-document merge surfaces a typed absence rather than a false ancestor; the `VersionVector` is the one concurrency primitive — `Order` returns `Concurrent` exactly when neither vector dominates, and a merge commit carries both parents so the vector join is the per-slot max; `BranchAcl` is a per-branch capability flag set (`Read | Write | Merge | Rebase | ForcePush | Admin`) gated at the write path, never a second authz taxonomy — object-level grants ride the AppHost identity seam and this flag set scopes the branch ref; tags are immutable `BranchRef` rows whose `Kind` is `Tag` and whose `Acl` denies `Write`; `MerkleRange` is the anti-entropy accelerator — a peer exchanges one root digest, `Reconcile` descends only divergent ranges, and the leaf transfer rides `SyncPump.GraphDiff`, so a full op-log replay for reconciliation is the deleted form.
 
 ```csharp signature
 public sealed class VersionKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -70,6 +71,8 @@ public readonly record struct VersionVector(HashMap<Guid, long> Slots) {
 
     public bool Dominates(VersionVector other) =>
         other.Slots.ForAll(slot => Slots.Find(slot.Key).IfNone(0L) >= slot.Value);
+
+    public long At(Guid origin) => Slots.Find(origin).IfNone(0L);
 }
 
 public sealed record BranchRef(string Name, RefKind Kind, UInt128 Head, BranchAcl Acl, Guid Origin, Instant At) {
@@ -83,25 +86,27 @@ public readonly record struct CommitNode(
     string Branch,
     VersionVector Vector,
     string Actor,
-    Instant Physical,
-    ulong Logical);
+    Hlc Cell);
 
 public readonly record struct MerkleRange(UInt128 Low, UInt128 High, UInt128 Digest, int Count);
 
 public static class CommitGraph {
     public const int Fanout = 16;
 
-    public static CommitNode Commit(VersionVector parents, Seq<UInt128> opKeys, BranchRef branch, string actor, Instant physical, ulong logical) {
+    public static CommitNode Commit(VersionVector parents, Seq<UInt128> opKeys, BranchRef branch, string actor, Hlc cell) {
         var advanced = parents.Advance(branch.Origin, opKeys.Count);
+        var parentSet = branch.Head == default ? Seq<UInt128>() : Seq(branch.Head);
         var canonical = new ArrayBufferWriter<byte>();
-        foreach (var parent in branch.Head == default ? Seq<UInt128>() : Seq(branch.Head))
+        foreach (var parent in parentSet.OrderBy(static k => k))
             BinaryPrimitives.WriteUInt128LittleEndian(canonical.GetSpan(16)[..16], parent);
+        canonical.Advance(parentSet.Count * 16);
         foreach (var key in opKeys.OrderBy(static k => k))
             BinaryPrimitives.WriteUInt128LittleEndian(canonical.GetSpan(16)[..16], key);
+        canonical.Advance(opKeys.Count * 16);
+        cell.WriteTo(canonical);
         return new CommitNode(
             XxHash128.HashToUInt128(canonical.WrittenSpan),
-            branch.Head == default ? Seq<UInt128>() : Seq(branch.Head),
-            opKeys, branch.Name, advanced, actor, physical, logical);
+            parentSet, opKeys, branch.Name, advanced, actor, cell);
     }
 
     public static VectorOrder Order(VersionVector left, VersionVector right) =>
@@ -121,12 +126,28 @@ public static class CommitGraph {
         var buffer = new ArrayBufferWriter<byte>();
         foreach (var key in sortedKeys)
             BinaryPrimitives.WriteUInt128LittleEndian(buffer.GetSpan(16)[..16], key);
+        buffer.Advance(sortedKeys.Count * 16);
         return new MerkleRange(
             sortedKeys.HeadOrNone().IfNone(UInt128.Zero),
             sortedKeys.LastOrNone().IfNone(UInt128.Zero),
             XxHash128.HashToUInt128(buffer.WrittenSpan),
             sortedKeys.Count);
     }
+
+    public static Seq<MerkleRange> Reconcile(Func<MerkleRange, Seq<MerkleRange>> children, MerkleRange local, MerkleRange remote) =>
+        local.Digest == remote.Digest
+            ? Seq<MerkleRange>()
+            : remote.Count <= Fanout
+                ? Seq(remote)
+                : children(remote)
+                    .Filter(child => Overlaps(local, child))
+                    .Bind(child => Reconcile(children, Lookup(children, local, child), child))
+                    .Concat(children(remote).Filter(child => !Overlaps(local, child)));
+
+    private static bool Overlaps(MerkleRange a, MerkleRange b) => a.Low <= b.High && b.Low <= a.High;
+
+    private static MerkleRange Lookup(Func<MerkleRange, Seq<MerkleRange>> children, MerkleRange local, MerkleRange remote) =>
+        children(local).Find(child => Overlaps(child, remote)).IfNone(new MerkleRange(remote.Low, remote.High, UInt128.Zero, 0));
 
     private static HashSet<UInt128> Ancestry(Func<UInt128, Option<CommitNode>> resolve, UInt128 root) =>
         Bfs(resolve, root).ToHashSet();
@@ -154,14 +175,14 @@ public static class CommitGraph {
 
 ## [3]-[CRDT_ALGEBRA]
 
-- Owner: `CrdtField` `[Union]` — the convergent op-based/delta-state field family carrying the three replicated data types; `CrdtOp` the delta payload an `OpLogEntry` carries; `Crdt` the merge-fold surface whose `Merge` is commutative, associative, and idempotent over the op multiset.
-- Cases: `LwwRegister` (last-write-wins-by-HLC scalar), `OrSet` (add-wins observed-remove set with per-element unique tags), `RgaSequence` (replicated growable array with tombstone-stable ordering) on `CrdtField`; `Set | Add | Remove | InsertAfter | Delete` on `CrdtOp`.
-- Entry: `public static CrdtField Merge(CrdtField left, CrdtField right)` — the join-semilattice least-upper-bound over two field states, total over the three cases and idempotent so replaying the same op converges; `public static CrdtField Apply(CrdtField state, CrdtOp op, Hlc cell)` folds one delta op into the state.
-- Auto: a CRDT mutation appends one `OpLogEntry` carrying the `CrdtOp` delta as `Payload` so the convergent merge rides the existing changefeed and the existing `Closure` content-key manifest, and a peer's `SyncMerge.Apply` dispatches the `CrdtOp` arm into `Crdt.Apply` rather than the LWW `Adjudicate` scalar — the op-based CRDT supersedes LWW so a concurrent edit converges by merge rather than discarding the loser; the OR-set tags are `(Guid Origin, ulong Logical)` HLC pairs so an add and a concurrent remove of the same element resolve add-wins by tag-set difference; the RGA insert position is the causal predecessor element id plus the inserting origin's HLC so two concurrent inserts after the same predecessor order deterministically by `(Logical, Origin)`.
-- Receipt: a converged merge rides the settled `SyncApplyReceipt`; a tombstone count and a live-element count fold into the `store.crdt.merge` fact on the interceptor stream.
+- Owner: `CrdtField` `[Union]` — the convergent op-based/delta-state field family carrying the five replicated data types; `CrdtOp` the delta payload an `OpLogEntry` carries; `Crdt` the merge-fold surface whose `Merge` is commutative, associative, and idempotent over the op multiset, plus the version-vector-gated tombstone compaction.
+- Cases: `LwwRegister` (last-write-wins-by-HLC scalar), `MvRegister` (concurrent-keep multi-value register), `OrSet` (add-wins observed-remove set with per-element unique tags), `PnCounter` (positive-negative per-origin counter), `RgaSequence` (replicated growable array with tombstone-stable ordering) on `CrdtField`; `Set | Write | Add | Remove | Increment | InsertAfter | Delete | Maintain` on `CrdtOp`.
+- Entry: `public static CrdtField Merge(CrdtField left, CrdtField right)` — the join-semilattice least-upper-bound over two field states, total over the five cases and idempotent so replaying the same op converges; `public static CrdtField Apply(CrdtField state, CrdtOp op)` folds one delta op into the state carrying its HLC cell; `public static CrdtField Compact(CrdtField state, VersionVector quiescent)` reclaims tombstones the quiescence horizon proves every peer has observed.
+- Auto: a CRDT mutation appends one `OpLogEntry` carrying the `CrdtOp` delta as `Payload` so the convergent merge rides the existing changefeed and the existing `Closure` content-key manifest, and a peer's `SyncMerge.Apply` dispatches the `column-family=crdt` op-log row into `Crdt.Apply` rather than the LWW `Adjudicate` scalar — the op-based CRDT supersedes LWW so a concurrent edit converges by merge rather than discarding the loser; the OR-set tags are `(Guid Origin, ulong Logical)` HLC pairs so an add and a concurrent remove of the same element resolve add-wins by tag-set difference; the RGA insert position is the causal predecessor element id plus the inserting origin's HLC so two concurrent inserts after the same predecessor order deterministically by `(Logical, Origin)`; the PN-counter folds per-origin increment maps so a counter converges by per-origin max of monotone partial counts; the MV-register keeps every causally-concurrent write and collapses a dominated write so a later causal write supersedes but a concurrent pair survives for caller resolution.
+- Receipt: a converged merge rides the settled `SyncApplyReceipt`; a tombstone count, a live-element count, and a compacted-tombstone count fold into the `store.crdt.merge` fact on the interceptor stream.
 - Packages: NodaTime, System.IO.Hashing, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new replicated type is one `CrdtField` case plus one `CrdtOp` arm plus one `Merge`/`Apply` arm; a counter CRDT is one `PnCounter` case carrying per-origin increment/decrement maps; zero new surface — a per-type merge service, a second convergence engine, or an op-transform (OT) rebase is the deleted form because the join-semilattice subsumes idempotency, commutativity, and reorder tolerance.
-- Boundary: `Merge` is a join-semilattice least-upper-bound so any partition of any permutation of the op multiset applied any number of times converges to identical state — this is the strict superset of the `sync-collaboration#MERGE_LAW` LWW `Adjudicate`, which survives only as the `LwwRegister` arm; the `RgaSequence` carries tombstones so a deleted element's position stays stable for later concurrent inserts and a compaction pass (a `Maintain` op gated on a quiescence horizon) reclaims tombstones only when every peer's `VersionVector` dominates the tombstone's HLC; the `OrSet` is add-wins so a concurrent add-remove keeps the element and a remove only erases observed add-tags, never a later add; the RGA element id is `(Guid Origin, ulong Logical)` so identity is HLC-stable across peers and never positional; `Crdt.Merge` reads no wall clock — the HLC `Hlc` cell from the op-log stamp is the only ordering input, so convergence is deterministic; the CROSS_PACKAGE_LAW amendment this carries is the op-log wire-vocabulary change — `OpLogEntry.Payload` now carries a `CrdtOp` delta for `column-family=crdt` rows and the TS-web/Python legs decode the `CrdtOpWire` discriminated union, a breaking amendment to the one-wire-vocabulary law owned at the suite CROSS_PACKAGE_LAWS, recorded as a seam-split, never an additive parallel surface.
+- Growth: a new replicated type is one `CrdtField` case plus one `CrdtOp` arm plus one `Merge`/`Apply` arm; zero new surface — a per-type merge service, a second convergence engine, or an op-transform (OT) rebase is the deleted form because the join-semilattice subsumes idempotency, commutativity, and reorder tolerance.
+- Boundary: `Merge` is a join-semilattice least-upper-bound so any partition of any permutation of the op multiset applied any number of times converges to identical state — this is the strict superset of the `sync-collaboration#MERGE_LAW` LWW `Adjudicate`, which survives only as the `LwwRegister` arm; the `RgaSequence` carries tombstones so a deleted element's position stays stable for later concurrent inserts and `Compact` reclaims a tombstone only when the supplied `VersionVector` quiescence horizon dominates the tombstone's HLC for every peer — the [CRDT_COMPACTION] proof harness replays permuted op multisets and confirms the LUB holds under tombstone removal; the `OrSet` is add-wins so a concurrent add-remove keeps the element and a remove only erases observed add-tags, never a later add; the `MvRegister` is a causal anti-chain — a write supersedes only writes its `VersionVector` dominates and keeps every concurrent value, so the register never silently discards a divergent edit; the `PnCounter` is two grow-only per-origin maps whose value is positive-minus-negative, monotone under merge so no decrement is ever lost; the RGA element id is `(Guid Origin, ulong Logical)` so identity is HLC-stable across peers and never positional; `Crdt.Merge` reads no wall clock — the HLC `Hlc` cell from the op-log stamp is the only ordering input, so convergence is deterministic; the CROSS_PACKAGE_LAW amendment this carries is owned at `#CRDT_WIRE`.
 
 ```csharp signature
 public readonly record struct ElementId(Guid Origin, ulong Logical) : IComparable<ElementId> {
@@ -173,123 +194,290 @@ public readonly record struct ElementId(Guid Origin, ulong Logical) : IComparabl
 public abstract partial record CrdtOp {
     private CrdtOp() { }
 
-    public sealed record Set(string Field, ReadOnlyMemory<byte> Value, Instant Physical, ulong Logical, Guid Origin) : CrdtOp;
+    public sealed record Set(string Field, ReadOnlyMemory<byte> Value, Hlc Cell, Guid Origin) : CrdtOp;
+    public sealed record Write(string Field, ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell, Guid Origin) : CrdtOp;
     public sealed record Add(string Field, UInt128 Element, ElementId Tag) : CrdtOp;
     public sealed record Remove(string Field, UInt128 Element, Seq<ElementId> ObservedTags) : CrdtOp;
+    public sealed record Increment(string Field, Guid Origin, long Delta) : CrdtOp;
     public sealed record InsertAfter(string Field, ElementId Predecessor, ElementId Id, ReadOnlyMemory<byte> Value) : CrdtOp;
     public sealed record Delete(string Field, ElementId Id) : CrdtOp;
+    public sealed record Maintain(string Field, VersionVector Quiescent) : CrdtOp;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CrdtField {
     private CrdtField() { }
 
-    public sealed record LwwRegister(ReadOnlyMemory<byte> Value, Instant Physical, ulong Logical, Guid Origin) : CrdtField;
+    public sealed record LwwRegister(ReadOnlyMemory<byte> Value, Hlc Cell, Guid Origin) : CrdtField;
+    public sealed record MvRegister(Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> Values) : CrdtField;
     public sealed record OrSet(HashMap<UInt128, Set<ElementId>> Live, Set<ElementId> Tombstoned) : CrdtField;
-    public sealed record RgaSequence(Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone)> Cells) : CrdtField;
+    public sealed record PnCounter(HashMap<Guid, long> Positive, HashMap<Guid, long> Negative) : CrdtField;
+    public sealed record RgaSequence(Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone, Hlc Cell)> Cells) : CrdtField;
 }
 
 public static class Crdt {
     public static CrdtField Merge(CrdtField left, CrdtField right) =>
         (left, right) switch {
             (CrdtField.LwwRegister l, CrdtField.LwwRegister r) =>
-                (r.Physical, r.Logical, r.Origin).CompareTo((l.Physical, l.Logical, l.Origin)) > 0 ? r : l,
+                (r.Cell, r.Origin).CompareTo((l.Cell, l.Origin)) > 0 ? r : l,
+            (CrdtField.MvRegister l, CrdtField.MvRegister r) => new CrdtField.MvRegister(AntiChain(l.Values + r.Values)),
             (CrdtField.OrSet l, CrdtField.OrSet r) => new CrdtField.OrSet(
                 r.Live.Fold(l.Live, static (acc, slot) =>
-                    acc.AddOrUpdate(slot.Key, existing => existing.Union(slot.Value), slot.Value)),
-                l.Tombstoned.Union(r.Tombstoned)) is var merged
-                    ? new CrdtField.OrSet(
-                        merged.Live.Map(static (_, tags) => tags).Filter(tags => true) is var _ ? merged.Live : merged.Live,
-                        merged.Tombstoned)
-                    : merged,
-            (CrdtField.RgaSequence l, CrdtField.RgaSequence r) => new CrdtField.RgaSequence(
-                Weave(l.Cells, r.Cells)),
+                    acc.AddOrUpdate(slot.Key, existing => existing.Union(slot.Value), slot.Value))
+                    .Map(static (_, tags) => tags) is var union
+                    ? union.Map((element, tags) => tags.Remove(l.Tombstoned.Union(r.Tombstoned))).Filter(static tags => tags.Count > 0)
+                    : union,
+                l.Tombstoned.Union(r.Tombstoned)),
+            (CrdtField.PnCounter l, CrdtField.PnCounter r) => new CrdtField.PnCounter(
+                MergeMax(l.Positive, r.Positive), MergeMax(l.Negative, r.Negative)),
+            (CrdtField.RgaSequence l, CrdtField.RgaSequence r) => new CrdtField.RgaSequence(Weave(l.Cells, r.Cells)),
             _ => left,
         };
 
-    public static CrdtField Apply(CrdtField state, CrdtOp op, Hlc cell) =>
+    public static CrdtField Apply(CrdtField state, CrdtOp op) =>
         (state, op) switch {
             (CrdtField.LwwRegister reg, CrdtOp.Set set) =>
-                (set.Physical, set.Logical, set.Origin).CompareTo((reg.Physical, reg.Logical, reg.Origin)) > 0
-                    ? new CrdtField.LwwRegister(set.Value, set.Physical, set.Logical, set.Origin) : reg,
+                (set.Cell, set.Origin).CompareTo((reg.Cell, reg.Origin)) > 0
+                    ? new CrdtField.LwwRegister(set.Value, set.Cell, set.Origin) : reg,
+            (CrdtField.MvRegister mv, CrdtOp.Write write) => new CrdtField.MvRegister(
+                AntiChain(mv.Values.Filter(held => !write.Context.Dominates(held.Context)).Add((write.Value, write.Context, write.Cell)))),
             (CrdtField.OrSet s, CrdtOp.Add add) => new CrdtField.OrSet(
                 s.Live.AddOrUpdate(add.Element, existing => existing.Add(add.Tag), Set(add.Tag)), s.Tombstoned),
             (CrdtField.OrSet s, CrdtOp.Remove rem) => new CrdtField.OrSet(
-                s.Live.AddOrUpdate(rem.Element, existing => existing.Remove(toSet(rem.ObservedTags)), Set<ElementId>()),
+                s.Live.AddOrUpdate(rem.Element, existing => existing.Remove(toSet(rem.ObservedTags)), Set<ElementId>())
+                    .Filter(static tags => tags.Count > 0),
                 s.Tombstoned.Union(toSet(rem.ObservedTags))),
+            (CrdtField.PnCounter c, CrdtOp.Increment inc) when inc.Delta >= 0 => new CrdtField.PnCounter(
+                c.Positive.AddOrUpdate(inc.Origin, held => held + inc.Delta, inc.Delta), c.Negative),
+            (CrdtField.PnCounter c, CrdtOp.Increment dec) => new CrdtField.PnCounter(
+                c.Positive, c.Negative.AddOrUpdate(dec.Origin, held => held - dec.Delta, -dec.Delta)),
             (CrdtField.RgaSequence seq, CrdtOp.InsertAfter ins) => new CrdtField.RgaSequence(
-                Insert(seq.Cells, ins.After, ins.Id, ins.Value)),
+                Weave(seq.Cells, Seq((ins.Id, ins.After, ins.Value, false, new Hlc(default, ins.Id.Logical))))),
             (CrdtField.RgaSequence seq, CrdtOp.Delete del) => new CrdtField.RgaSequence(
-                seq.Cells.Map(cell2 => cell2.Id == del.Id ? cell2 with { Tombstone = true } : cell2)),
+                seq.Cells.Map(cell => cell.Id == del.Id ? cell with { Tombstone = true } : cell)),
+            (CrdtField.RgaSequence seq, CrdtOp.Maintain m) => Compact(seq, m.Quiescent),
             _ => state,
         };
+
+    public static CrdtField Compact(CrdtField state, VersionVector quiescent) =>
+        state is CrdtField.RgaSequence seq
+            ? new CrdtField.RgaSequence(seq.Cells.Filter(cell =>
+                !cell.Tombstone || quiescent.At(cell.Id.Origin) < (long)cell.Id.Logical))
+            : state;
+
+    public static long Value(CrdtField.PnCounter counter) =>
+        counter.Positive.Values.Sum() - counter.Negative.Values.Sum();
 
     public static Seq<ReadOnlyMemory<byte>> Materialize(CrdtField.RgaSequence seq) =>
         seq.Cells.Filter(static cell => !cell.Tombstone).Map(static cell => cell.Value);
 
-    private static Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone)> Weave(
-        Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone)> left,
-        Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone)> right) =>
+    private static HashMap<Guid, long> MergeMax(HashMap<Guid, long> left, HashMap<Guid, long> right) =>
+        right.Fold(left, static (acc, slot) => acc.AddOrUpdate(slot.Key, held => long.Max(held, slot.Value), slot.Value));
+
+    private static Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> AntiChain(
+        Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> values) =>
+        values.Filter(candidate => !values.Exists(other => other.Cell != candidate.Cell && other.Context.Dominates(candidate.Context)));
+
+    private static Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone, Hlc Cell)> Weave(
+        Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone, Hlc Cell)> left,
+        Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone, Hlc Cell)> right) =>
         toSeq((left + right)
             .GroupBy(static cell => cell.Id)
             .Select(static group => group.Aggregate(static (a, b) => a with { Tombstone = a.Tombstone || b.Tombstone }))
-            .OrderBy(static cell => cell.After)
-            .ThenBy(static cell => cell.Id));
-
-    private static Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone)> Insert(
-        Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone)> cells, ElementId after, ElementId id, ReadOnlyMemory<byte> value) =>
-        Weave(cells, Seq((id, after, value, false)));
+            .OrderByDescending(static cell => cell.After)
+            .ThenByDescending(static cell => cell.Id));
 }
 ```
 
 | [INDEX] | [TYPE]        | [CRDT_CLASS]                        | [CONVERGENCE]                                  |
 | :-----: | :------------ | :---------------------------------- | :--------------------------------------------- |
 |   [1]   | LwwRegister   | last-write-wins by (HLC, origin)    | total order on the stamp tuple; superset of `Adjudicate` |
-|   [2]   | OrSet         | add-wins observed-remove set        | per-element tag-set union minus observed removes |
-|   [3]   | RgaSequence   | replicated growable array           | tombstone-stable causal order by `(After, Id)` |
+|   [2]   | MvRegister    | multi-value concurrent-keep         | causal anti-chain; dominated writes collapse   |
+|   [3]   | OrSet         | add-wins observed-remove set        | per-element tag-set union minus observed removes |
+|   [4]   | PnCounter     | positive-negative per-origin        | per-origin max of monotone partial counts      |
+|   [5]   | RgaSequence   | replicated growable array           | tombstone-stable causal order; `Compact` reclaims at quiescence |
 
-## [4]-[TIME_TRAVEL]
+## [4]-[CRDT_WIRE]
 
-- Owner: `AsOfQuery` reconstruction request; `RangeDiff` two-instant delta record; `BlameRow` per-node authorship attribution; `ScrubFrame` a replay frame; `TimeTravel` the static surface owning AS-OF materialization, range diff, blame fold, scrub iteration, and branch-from-past.
-- Cases: `AsOfQuery` reconstructs at an `Instant` by folding every op whose HLC `Physical` precedes the cut; `RangeDiff` projects added/removed/changed entity keys between two cuts; `BlameRow` attributes the surviving value of one entity-key column-family to the winning `OpLogEntry`; `ScrubFrame` is one step in the ordered replay sequence.
-- Entry: `public static IO<HashMap<string, CrdtField>> Reconstruct(AsOfQuery query, Func<Instant, IO<Seq<OpLogEntry>>> upTo)` — `IO` carries the op-log read; the fold replays the prefix through `Crdt.Apply` into the as-of materialized state; `public static IO<BranchRef> BranchFromPast(CommitGraph.Fanout, AsOfQuery query, string newBranch, Func<Instant, IO<Seq<OpLogEntry>>> upTo, Func<CommitNode, IO<Unit>> appendCommit, ClockPolicy clocks)` forks a new branch whose head is the reconstructed commit at the cut.
-- Auto: AS-OF reconstruction reads the op-log prefix up to the cut and folds it through the same `Crdt.Apply` the live path uses so a historical materialization is bit-identical to the live state at that instant — no second materializer; range diff reconstructs both cuts and set-differences the materialized maps; blame folds the winning op per `(EntityKey, ColumnFamily)` by the HLC stamp the merge selected so authorship is the same `(HLC, origin)` ordering the convergence uses; scrub iterates the ordered op prefix as `ScrubFrame` values so a debugger steps the history; branch-from-past mints a `CommitNode` whose parents are the commit at the cut and appends one `branch` op so a past state becomes a live branch head.
-- Receipt: a reconstruction rides `store.timetravel.asof` carrying the op count folded and the cut instant; a branch-from-past rides `store.branch`.
-- Packages: NodaTime, LanguageExt.Core, System.IO.Hashing, BCL inbox.
-- Growth: a new replay projection is one method on `TimeTravel`; a new attribution dimension is one column on `BlameRow`; zero new surface — a temporal-table mirror, a second history store, or a snapshot-per-instant materialization is the deleted form because reconstruction folds the op-log prefix the changefeed already holds and pins the heavy cuts to the content-addressed snapshots (`Snapshots.ContentAddress`) as fold checkpoints.
-- Boundary: reconstruction is a pure left-fold of the op-log prefix through `Crdt.Apply`, so the AS-OF state at any instant is reproducible from the changefeed and the content-addressed snapshot checkpoints — a checkpoint is a sealed snapshot whose `Hash` is the materialized-state content address at a commit boundary, so a deep history folds from the nearest checkpoint forward rather than from genesis; `RangeDiff` reconstructs both endpoints and set-differences the materialized maps so a range diff is two AS-OF folds, never a stored delta chain; `BlameRow` reads the same `(HLC, origin)` winner the convergence selected so blame never disagrees with the materialized value; scrub frames are read-only op projections and a scrub never mutates the live state; branch-from-past consumes `CommitGraph.Commit` so a forked head is a real commit node on the DAG, and the cut instant rides `ClockPolicy`, never `DateTime.UtcNow`.
+- Owner: `Hlc` the hybrid-logical-clock stamp value — the one causal-ordering primitive the op-log stamp, the CRDT merge, the commit cell, and the wire all read; `CrdtOpWire` the `[MessagePack.Union]` op/CRDT encoding the `OpLogEntry.Payload` carries for `column-family=crdt` rows; `CrdtWire` the static codec surface owning the byte-canonical content key, the `Encode`/`Decode` pair through the settled `ThinktectureMessageFormatterResolver`+`GeneratedMessagePackResolver` chain, and the `UntrustedData` restore-lane decode.
+- Cases: 8 op rows — `set | write | add | remove | increment | insertAfter | delete | maintain` on `CrdtOpWire`; the `[Key]` sequence IS the wire schema, dense and append-only, a retired key never reassigned.
+- Entry: `public static UInt128 ContentKey(CrdtOpWire op)` — the byte-canonical content key over the MessagePack-encoded delta so an identical op on two peers shares one identity; `public static ReadOnlyMemory<byte> Encode(CrdtOp op)` writes the delta through the version-control resolver under `Lz4BlockArray`; `public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload)` reads the delta under `MessagePackSecurity.UntrustedData` with the depth ceiling because a synced payload crossed a rest boundary.
+- Auto: `Hlc.Advance` swaps the local cell forward past both the wall clock and the observed remote cell so a received op never rewinds the local logical counter — the same `ReceiptSinkPort.Advance` algebra the op-log stamp and every receipt envelope ride; `CrdtWire.Encode` rides the durability codec profile so a `CrdtOp` delta crosses as `OpLogEntry.Payload` bytes that the restore ladder and the snapshot codec already verify, never a second framing; the wire union and the `CrdtOp` union share one case vocabulary so a new op arm is one wire row plus one `CrdtOp` arm plus one map case, zero schema fork.
+- Receipt: an encoded delta carries no receipt (the `OpLogEntry` carries the codec, content key, and HLC cell); a decode failure folds into the `store.crdt.decode` fault on the interceptor stream as a typed contract-drift rejection.
+- Packages: MessagePack, Thinktecture.Runtime.Extensions.MessagePack, System.IO.Hashing, NodaTime, LanguageExt.Core, BCL inbox.
+- Growth: a new op is one `CrdtOpWire` `[MessagePack.Union]` tag plus one `[Key]` member plus one `Map`/`Lift` arm; a retired tag is never reassigned because reuse silently re-types history; zero new surface — a typeless payload, a JSON-array delta, or a per-type formatter beside the resolver chain is the deleted form.
+- Boundary: this is the FLAGSHIP CrdtOpWire amendment to the one-wire-vocabulary law — `OpLogEntry.Payload` now carries a `CrdtOpWire` discriminated union for `column-family=crdt` rows, LWW `Adjudicate` survives only as the `set` arm reconstructing `LwwRegister`, and the breaking descriptor change is owned at `AppHost/runtime-ports#WIRE_LAW` with the TS-web `wire-consumption` leg and the Python `runtime/ServerHost` companion decoding the amended payload — recorded as a seam-split at the suite CROSS_PACKAGE_LAWS, never an additive parallel surface; the `Hlc` is one packed `(Instant Physical, ulong Logical)` whose ordering is `Physical` then `Logical` so two peers compare causality without a wall clock, and `WriteTo` emits the canonical 16-byte cell the commit content key and the op content key both hash; the wire `[Key]` sequence and the `[MessagePack.Union]` tags obey the durability retirement law so contract drift is a build diagnostic through the `MessagePackAnalyzer`, never a first-restore discovery; the restore lane reads under `UntrustedData` plus the object-graph depth ceiling because a synced delta's provenance is unprovable, while the write lane keeps the trusted default; `ContentKey` hashes the encoded canonical bytes so the op content key the `OpLogEntry` carries is reproducible across peers and is the same `XxHash128` identity the structural diff and the federation keys consume.
 
 ```csharp signature
-public readonly record struct AsOfQuery(Instant Cut, Option<string> Branch, Option<string> EntityKeyPrefix);
+public readonly record struct Hlc(Instant Physical, ulong Logical) : IComparable<Hlc> {
+    public static readonly Hlc Zero = new(Instant.MinValue, 0UL);
+
+    public int CompareTo(Hlc other) =>
+        Physical.CompareTo(other.Physical) is var byPhysical && byPhysical != 0 ? byPhysical : Logical.CompareTo(other.Logical);
+
+    public Hlc Advance(Instant wall) =>
+        wall > Physical ? new Hlc(wall, 0UL) : new Hlc(Physical, Logical + 1UL);
+
+    public Hlc Observe(Hlc remote, Instant wall) =>
+        (Instant.Max(Instant.Max(Physical, remote.Physical), wall)) is var lead
+            ? new Hlc(lead, lead == Physical && lead == remote.Physical ? ulong.Max(Logical, remote.Logical) + 1UL
+                : lead == Physical ? Logical + 1UL
+                : lead == remote.Physical ? remote.Logical + 1UL : 0UL)
+            : this;
+
+    public void WriteTo(IBufferWriter<byte> sink) {
+        var span = sink.GetSpan(16);
+        BinaryPrimitives.WriteInt64LittleEndian(span, Physical.ToUnixTimeTicks());
+        BinaryPrimitives.WriteUInt64LittleEndian(span[8..], Logical);
+        sink.Advance(16);
+    }
+}
+
+[MessagePack.Union(0, typeof(Set))]
+[MessagePack.Union(1, typeof(Write))]
+[MessagePack.Union(2, typeof(Add))]
+[MessagePack.Union(3, typeof(Remove))]
+[MessagePack.Union(4, typeof(Increment))]
+[MessagePack.Union(5, typeof(InsertAfter))]
+[MessagePack.Union(6, typeof(Delete))]
+[MessagePack.Union(7, typeof(Maintain))]
+public abstract record CrdtOpWire {
+    [MessagePackObject]
+    public sealed record Set([property: Key(0)] string Field, [property: Key(1)] ReadOnlyMemory<byte> Value, [property: Key(2)] long PhysicalTicks, [property: Key(3)] ulong Logical, [property: Key(4)] Guid Origin) : CrdtOpWire;
+    [MessagePackObject]
+    public sealed record Write([property: Key(0)] string Field, [property: Key(1)] ReadOnlyMemory<byte> Value, [property: Key(2)] (Guid Origin, long Seq)[] Context, [property: Key(3)] long PhysicalTicks, [property: Key(4)] ulong Logical, [property: Key(5)] Guid Origin) : CrdtOpWire;
+    [MessagePackObject]
+    public sealed record Add([property: Key(0)] string Field, [property: Key(1)] UInt128 Element, [property: Key(2)] Guid TagOrigin, [property: Key(3)] ulong TagLogical) : CrdtOpWire;
+    [MessagePackObject]
+    public sealed record Remove([property: Key(0)] string Field, [property: Key(1)] UInt128 Element, [property: Key(2)] (Guid Origin, ulong Logical)[] ObservedTags) : CrdtOpWire;
+    [MessagePackObject]
+    public sealed record Increment([property: Key(0)] string Field, [property: Key(1)] Guid Origin, [property: Key(2)] long Delta) : CrdtOpWire;
+    [MessagePackObject]
+    public sealed record InsertAfter([property: Key(0)] string Field, [property: Key(1)] Guid PredOrigin, [property: Key(2)] ulong PredLogical, [property: Key(3)] Guid IdOrigin, [property: Key(4)] ulong IdLogical, [property: Key(5)] ReadOnlyMemory<byte> Value) : CrdtOpWire;
+    [MessagePackObject]
+    public sealed record Delete([property: Key(0)] string Field, [property: Key(1)] Guid IdOrigin, [property: Key(2)] ulong IdLogical) : CrdtOpWire;
+    [MessagePackObject]
+    public sealed record Maintain([property: Key(0)] string Field, [property: Key(1)] (Guid Origin, long Seq)[] Quiescent) : CrdtOpWire;
+}
+
+[GeneratedMessagePackResolver]
+public sealed partial class CrdtWireResolver;
+
+public static class CrdtWire {
+    private static readonly MessagePackSerializerOptions Write = MessagePackSerializerOptions.Standard
+        .WithResolver(CompositeResolver.Create(
+            ThinktectureMessageFormatterResolver.Instance,
+            CrdtWireResolver.Instance,
+            StandardResolver.Instance))
+        .WithCompression(MessagePackCompression.Lz4BlockArray);
+
+    private static readonly MessagePackSerializerOptions Restore =
+        Write.WithSecurity(MessagePackSecurity.UntrustedData.WithMaximumObjectGraphDepth(64));
+
+    public static CrdtOpWire Lift(CrdtOp op) =>
+        op switch {
+            CrdtOp.Set s => new CrdtOpWire.Set(s.Field, s.Value, s.Cell.Physical.ToUnixTimeTicks(), s.Cell.Logical, s.Origin),
+            CrdtOp.Write w => new CrdtOpWire.Write(w.Field, w.Value, [.. w.Context.Slots.Map(static (k, v) => (k, v))], w.Cell.Physical.ToUnixTimeTicks(), w.Cell.Logical, w.Origin),
+            CrdtOp.Add a => new CrdtOpWire.Add(a.Field, a.Element, a.Tag.Origin, a.Tag.Logical),
+            CrdtOp.Remove r => new CrdtOpWire.Remove(r.Field, r.Element, [.. r.ObservedTags.Map(static t => (t.Origin, t.Logical))]),
+            CrdtOp.Increment i => new CrdtOpWire.Increment(i.Field, i.Origin, i.Delta),
+            CrdtOp.InsertAfter ins => new CrdtOpWire.InsertAfter(ins.Field, ins.Predecessor.Origin, ins.Predecessor.Logical, ins.Id.Origin, ins.Id.Logical, ins.Value),
+            CrdtOp.Delete d => new CrdtOpWire.Delete(d.Field, d.Id.Origin, d.Id.Logical),
+            CrdtOp.Maintain m => new CrdtOpWire.Maintain(m.Field, [.. m.Quiescent.Slots.Map(static (k, v) => (k, v))]),
+            _ => throw new MessagePack.MessagePackSerializationException("<crdt-op-unmapped>"),
+        };
+
+    public static CrdtOp Map(CrdtOpWire op) =>
+        op switch {
+            CrdtOpWire.Set s => new CrdtOp.Set(s.Field, s.Value, new Hlc(Instant.FromUnixTimeTicks(s.PhysicalTicks), s.Logical), s.Origin),
+            CrdtOpWire.Write w => new CrdtOp.Write(w.Field, w.Value, new VersionVector(toHashMap(w.Context)), new Hlc(Instant.FromUnixTimeTicks(w.PhysicalTicks), w.Logical), w.Origin),
+            CrdtOpWire.Add a => new CrdtOp.Add(a.Field, a.Element, new ElementId(a.TagOrigin, a.TagLogical)),
+            CrdtOpWire.Remove r => new CrdtOp.Remove(r.Field, r.Element, toSeq(r.ObservedTags).Map(static t => new ElementId(t.Origin, t.Logical))),
+            CrdtOpWire.Increment i => new CrdtOp.Increment(i.Field, i.Origin, i.Delta),
+            CrdtOpWire.InsertAfter ins => new CrdtOp.InsertAfter(ins.Field, new ElementId(ins.PredOrigin, ins.PredLogical), new ElementId(ins.IdOrigin, ins.IdLogical), ins.Value),
+            CrdtOpWire.Delete d => new CrdtOp.Delete(d.Field, new ElementId(d.IdOrigin, d.IdLogical)),
+            CrdtOpWire.Maintain m => new CrdtOp.Maintain(m.Field, new VersionVector(toHashMap(m.Quiescent))),
+            _ => throw new MessagePack.MessagePackSerializationException("<crdt-wire-unmapped>"),
+        };
+
+    public static ReadOnlyMemory<byte> Encode(CrdtOp op) =>
+        MessagePackSerializer.Serialize(Lift(op), Write);
+
+    public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload) =>
+        Try.lift(() => Map(MessagePackSerializer.Deserialize<CrdtOpWire>(payload, Restore)))
+            .Run()
+            .MapFail(static error => Error.New(8261, $"<crdt-decode-drift:{error.Message}>"));
+
+    public static UInt128 ContentKey(CrdtOpWire op) =>
+        XxHash128.HashToUInt128(MessagePackSerializer.Serialize(op, Write).Span);
+}
+```
+
+| [INDEX] | [POLICY]               | [VALUE]                          | [BINDING]                                            |
+| :-----: | :--------------------- | :------------------------------- | :--------------------------------------------------- |
+|   [1]   | crdt column family     | `crdt`                           | `OpLogEntry.Payload` carries `CrdtOpWire`            |
+|   [2]   | wire-law owner         | `AppHost/runtime-ports#WIRE_LAW` | breaking descriptor change; LWW survives as `set`    |
+|   [3]   | restore decode lane    | `UntrustedData` depth 64         | synced delta crossed a rest boundary                 |
+|   [4]   | op content key         | `XxHash128` over canonical bytes | reproducible across peers; one identity              |
+
+## [5]-[TIME_TRAVEL]
+
+- Owner: `AsOfQuery` reconstruction request; `Checkpoint` a sealed materialized-state fold anchor; `RangeDiff` two-instant delta record; `BlameRow` per-node authorship attribution; `ScrubFrame` a replay frame; `TimeTravel` the static surface owning AS-OF materialization, checkpoint sealing, range diff, blame fold, scrub iteration, and branch-from-past.
+- Cases: `AsOfQuery` reconstructs at an `Instant` by folding every op whose HLC `Physical` precedes the cut; `Checkpoint` seals the materialized state content address at a commit boundary so a deep history folds from the nearest checkpoint; `RangeDiff` projects added/removed/changed entity keys between two cuts; `BlameRow` attributes the surviving value of one entity-key column-family to the winning `OpLogEntry`; `ScrubFrame` is one step in the ordered replay sequence.
+- Entry: `public static IO<HashMap<string, CrdtField>> Reconstruct(AsOfQuery query, Func<Hlc, IO<Seq<OpLogEntry>>> upTo, Func<AsOfQuery, IO<Option<Checkpoint>>> nearest)` — `IO` carries the op-log read; the fold replays the prefix forward from the nearest checkpoint through `Crdt.Apply` into the as-of materialized state; `public static IO<BranchRef> BranchFromPast(AsOfQuery query, string newBranch, BranchAcl acl, Guid origin, Func<Hlc, IO<Seq<OpLogEntry>>> upTo, Func<CommitNode, IO<Unit>> appendCommit, ClockPolicy clocks)` forks a new branch whose head is the reconstructed commit at the cut.
+- Auto: AS-OF reconstruction reads the op-log prefix up to the cut and folds it through the same `Crdt.Apply` the live path uses so a historical materialization is bit-identical to the live state at that instant — no second materializer; range diff reconstructs both cuts and set-differences the materialized maps by content-key inequality; blame folds the winning op per `(EntityKey, ColumnFamily)` by the `(Hlc, origin)` stamp the merge selected so authorship is the same ordering the convergence uses; scrub iterates the ordered op prefix as `ScrubFrame` values so a debugger steps the history; branch-from-past mints a `CommitNode` whose parents are the commit at the cut and appends one `branch` op so a past state becomes a live branch head; a checkpoint seals the materialized-state content address at a commit boundary so reconstruction folds from the nearest checkpoint forward rather than from genesis.
+- Receipt: a reconstruction rides `store.timetravel.asof` carrying the op count folded, the checkpoint hit, and the cut instant; a branch-from-past rides `store.branch`; a checkpoint seal rides `store.timetravel.checkpoint`.
+- Packages: NodaTime, LanguageExt.Core, System.IO.Hashing, BCL inbox.
+- Growth: a new replay projection is one method on `TimeTravel`; a new attribution dimension is one column on `BlameRow`; zero new surface — a temporal-table mirror, a second history store, or a snapshot-per-instant materialization is the deleted form because reconstruction folds the op-log prefix the changefeed already holds and pins the heavy cuts to the content-addressed snapshots (`Snapshots.ContentAddress`) as `Checkpoint` fold anchors.
+- Boundary: reconstruction is a pure left-fold of the op-log prefix through `Crdt.Apply`, so the AS-OF state at any instant is reproducible from the changefeed and the `Checkpoint` anchors — a checkpoint is a sealed snapshot whose `Hash` is the materialized-state content address at a commit boundary, so a deep history folds from the nearest checkpoint forward; `RangeDiff` reconstructs both endpoints and set-differences the materialized maps so a range diff is two AS-OF folds, never a stored delta chain, and a `Changed` key is one whose live `CrdtField` content key differs at the two cuts; `BlameRow` reads the same `(Hlc, origin)` winner the convergence selected so blame never disagrees with the materialized value; scrub frames are read-only op projections and a scrub never mutates the live state; branch-from-past consumes `CommitGraph.Commit` so a forked head is a real commit node on the DAG, and the cut instant rides `ClockPolicy`, never `DateTime.UtcNow`.
+
+```csharp signature
+public readonly record struct AsOfQuery(Instant Cut, Option<string> Branch, Option<string> EntityKeyPrefix) {
+    public Hlc Ceiling => new(Cut, ulong.MaxValue);
+}
+
+public readonly record struct Checkpoint(Instant At, UInt128 Hash, HashMap<string, CrdtField> State, long OpCount);
 
 public readonly record struct RangeDiff(
     Instant From, Instant To,
     ImmutableArray<string> Added, ImmutableArray<string> Removed, ImmutableArray<string> Changed);
 
 public readonly record struct BlameRow(
-    string EntityKey, string ColumnFamily, string Actor, Guid Origin, Instant Physical, ulong Logical, UInt128 ContentKey);
+    string EntityKey, string ColumnFamily, string Actor, Guid Origin, Hlc Cell, UInt128 ContentKey);
 
-public readonly record struct ScrubFrame(long Index, OpLogEntry Entry, Instant At);
+public readonly record struct ScrubFrame(long Index, OpLogEntry Entry, Hlc At);
 
 public static class TimeTravel {
-    public static IO<HashMap<string, CrdtField>> Reconstruct(AsOfQuery query, Func<Instant, IO<Seq<OpLogEntry>>> upTo) =>
-        upTo(query.Cut).Map(entries => entries
-            .Filter(entry => query.Branch.Map(b => entry.ColumnFamily == b).IfNone(true) && entry.Physical <= query.Cut)
+    public static IO<HashMap<string, CrdtField>> Reconstruct(
+        AsOfQuery query, Func<Hlc, IO<Seq<OpLogEntry>>> upTo, Func<AsOfQuery, IO<Option<Checkpoint>>> nearest) =>
+        from anchor in nearest(query)
+        from entries in upTo(query.Ceiling)
+        let seed = anchor.Map(static c => c.State).IfNone(HashMap<string, CrdtField>())
+        let floor = anchor.Map(static c => new Hlc(c.At, 0UL)).IfNone(Hlc.Zero)
+        select entries
+            .Filter(entry => query.Branch.Map(b => entry.ColumnFamily == b).IfNone(true) && entry.Physical <= query.Cut && new Hlc(entry.Physical, entry.Logical).CompareTo(floor) > 0)
             .Filter(entry => query.EntityKeyPrefix.Map(p => entry.EntityKey.StartsWith(p, StringComparison.Ordinal)).IfNone(true))
-            .Fold(HashMap<string, CrdtField>(), static (state, entry) =>
+            .Fold(seed, static (state, entry) =>
                 state.AddOrUpdate(
                     $"{entry.EntityKey}:{entry.ColumnFamily}",
                     existing => Fold(existing, entry),
-                    Fold(new CrdtField.LwwRegister(default, Instant.MinValue, 0UL, Guid.Empty), entry))));
+                    Fold(new CrdtField.LwwRegister(default, Hlc.Zero, Guid.Empty), entry)));
 
-    public static IO<RangeDiff> Diff(AsOfQuery from, AsOfQuery to, Func<Instant, IO<Seq<OpLogEntry>>> upTo) =>
-        from a in Reconstruct(from, upTo)
-        from b in Reconstruct(to, upTo)
+    public static Checkpoint Seal(Instant at, HashMap<string, CrdtField> state, long opCount) {
+        var buffer = new ArrayBufferWriter<byte>();
+        foreach (var slot in state.OrderBy(static s => s.Key, StringComparer.Ordinal))
+            buffer.Write(MessagePackSerializer.Serialize(slot.Value));
+        return new Checkpoint(at, XxHash128.HashToUInt128(buffer.WrittenSpan), state, opCount);
+    }
+
+    public static IO<RangeDiff> Diff(AsOfQuery from, AsOfQuery to, Func<Hlc, IO<Seq<OpLogEntry>>> upTo, Func<AsOfQuery, IO<Option<Checkpoint>>> nearest) =>
+        from a in Reconstruct(from, upTo, nearest)
+        from b in Reconstruct(to, upTo, nearest)
         select new RangeDiff(
             from.Cut, to.Cut,
             [.. b.Keys.Where(k => !a.ContainsKey(k))],
             [.. a.Keys.Where(k => !b.ContainsKey(k))],
-            [.. b.Keys.Where(k => a.Find(k).Map(v => !ReferenceEquals(v, b[k])).IfNone(false))]);
+            [.. b.Keys.Where(k => a.Find(k).Map(v => Identity(v) != Identity(b[k])).IfNone(false))]);
 
     public static Seq<BlameRow> Blame(Seq<OpLogEntry> entries) =>
         toSeq(entries
@@ -299,31 +487,41 @@ public static class TimeTravel {
                 .First())
             .Select(static winner => new BlameRow(
                 winner.EntityKey, winner.ColumnFamily, winner.Actor, winner.OriginStoreId,
-                winner.Physical, winner.Logical, winner.ContentKey)));
+                new Hlc(winner.Physical, winner.Logical), winner.ContentKey)));
 
-    public static IO<Seq<ScrubFrame>> Scrub(AsOfQuery query, Func<Instant, IO<Seq<OpLogEntry>>> upTo, ClockPolicy clocks) =>
-        upTo(query.Cut).Map(entries => toSeq(entries
+    public static IO<Seq<ScrubFrame>> Scrub(AsOfQuery query, Func<Hlc, IO<Seq<OpLogEntry>>> upTo) =>
+        upTo(query.Ceiling).Map(entries => toSeq(entries
             .OrderBy(static entry => (entry.Physical, entry.Logical, entry.OriginStoreId))
-            .Select((entry, index) => new ScrubFrame(index, entry, clocks.Now))));
+            .Select((entry, index) => new ScrubFrame(index, entry, new Hlc(entry.Physical, entry.Logical)))));
 
     public static IO<BranchRef> BranchFromPast(
         AsOfQuery query, string newBranch, BranchAcl acl, Guid origin,
-        Func<Instant, IO<Seq<OpLogEntry>>> upTo, Func<CommitNode, IO<Unit>> appendCommit, ClockPolicy clocks) =>
-        from entries in upTo(query.Cut)
+        Func<Hlc, IO<Seq<OpLogEntry>>> upTo, Func<CommitNode, IO<Unit>> appendCommit, ClockPolicy clocks) =>
+        from entries in upTo(query.Ceiling)
         let opKeys = toSeq(entries.Where(e => e.Physical <= query.Cut).Select(static e => e.ContentKey))
+        let cell = new Hlc(clocks.Now, 0UL)
         let seed = new BranchRef(newBranch, RefKind.Branch, default, acl, origin, clocks.Now)
-        let cell = clocks.Now
-        let commit = CommitGraph.Commit(VersionVector.Empty, opKeys, seed, "branch-from-past", cell, 0UL)
+        let commit = CommitGraph.Commit(VersionVector.Empty, opKeys, seed, "branch-from-past", cell)
         from _ in appendCommit(commit)
         select seed with { Head = commit.ContentKey };
 
+    private static UInt128 Identity(CrdtField field) =>
+        XxHash128.HashToUInt128(MessagePackSerializer.Serialize(field).AsSpan());
+
     private static CrdtField Fold(CrdtField state, OpLogEntry entry) =>
-        Crdt.Apply(state, new CrdtOp.Set(entry.ColumnFamily, entry.Payload, entry.Physical, entry.Logical, entry.OriginStoreId),
-            new Hlc(entry.Physical, entry.Logical));
+        CrdtWire.Decode(entry.Payload).Match(
+            Succ: op => Crdt.Apply(state, op),
+            Fail: _ => Crdt.Apply(state, new CrdtOp.Set(entry.ColumnFamily, entry.Payload, new Hlc(entry.Physical, entry.Logical), entry.OriginStoreId)));
 }
 ```
 
-## [5]-[STRUCTURAL_DIFF]
+| [INDEX] | [POLICY]               | [VALUE]                          | [BINDING]                                            |
+| :-----: | :--------------------- | :------------------------------- | :--------------------------------------------------- |
+|   [1]   | checkpoint anchor      | sealed snapshot content address  | `Snapshots.ContentAddress`; fold floor               |
+|   [2]   | as-of cut ceiling      | `(Cut, ulong.MaxValue)` HLC      | every op at-or-before the instant folds              |
+|   [3]   | change-key diff        | `CrdtField` content-key inequality | two AS-OF folds, never a stored delta chain        |
+
+## [6]-[STRUCTURAL_DIFF]
 
 - Owner: `GraphNode` an identity-keyed node in the model graph; `EditOp` `[Union]` the tree-edit-distance operation family; `MergeConflict` `[Union]` the typed conflict-class family; `StructuralMerge` the static surface owning node-identity matching, the cheapest-edit-script tree diff, the three-way merge, and the topological brep/mesh delta classification.
 - Cases: `Match | Insert | Delete | Update | Move` on `EditOp`; `ParallelEdit | DeleteUpdate | MoveMove | TypeChange | TopologyBreak` on `MergeConflict`.
@@ -371,8 +569,8 @@ public static class StructuralMerge {
         var toById = to.ToHashMap(static node => node.Id);
         var matched = to.Map(node => fromById.Find(node.Id).Match(
             Some: prior => prior.GeometryHash == node.GeometryHash && prior.PropertyHash == node.PropertyHash
-                ? prior.Parent == node.Parent ? new EditOp.Match(node.Id) : new EditOp.Move(node.Id, prior.Parent, node.Parent)
-                : (EditOp)new EditOp.Update(node.Id, prior.PropertyHash, node.PropertyHash, prior.GeometryHash, node.GeometryHash),
+                ? prior.Parent == node.Parent ? new EditOp.Match(node.Id) : (EditOp)new EditOp.Move(node.Id, prior.Parent, node.Parent)
+                : new EditOp.Update(node.Id, prior.PropertyHash, node.PropertyHash, prior.GeometryHash, node.GeometryHash),
             None: () => new EditOp.Insert(node)));
         var deletes = from.Filter(node => !toById.ContainsKey(node.Id)).Map(static node => (EditOp)new EditOp.Delete(node.Id));
         return matched + deletes;
@@ -381,15 +579,15 @@ public static class StructuralMerge {
     public static (Seq<EditOp> Merged, Seq<MergeConflict> Conflicts) ThreeWay(Seq<GraphNode> baseGraph, Seq<GraphNode> ours, Seq<GraphNode> theirs) {
         var ourEdits = Diff(baseGraph, ours).ToHashMap(TargetId);
         var theirEdits = Diff(baseGraph, theirs).ToHashMap(TargetId);
-        var conflicts = ourEdits.Keys
+        var conflicts = toSeq(ourEdits.Keys
             .Where(theirEdits.ContainsKey)
-            .Choose(id => Classify(id, ourEdits[id], theirEdits[id]));
+            .Choose(id => Classify(id, ourEdits[id], theirEdits[id])));
         var conflicted = conflicts.Map(Subject).ToHashSet();
         var merged = ourEdits
             .Filter((id, _) => !conflicted.Contains(id))
             .Values
             .Append(theirEdits.Filter((id, _) => !ourEdits.ContainsKey(id) && !conflicted.Contains(id)).Values);
-        return (toSeq(merged), toSeq(conflicts));
+        return (toSeq(merged), conflicts);
     }
 
     public static ConflictReceipt Project(MergeConflict conflict, CorrelationId correlation, Instant at) =>
@@ -422,17 +620,22 @@ public static class StructuralMerge {
 }
 ```
 
-## [6]-[TS_PROJECTION]
+## [7]-[TS_PROJECTION]
 
-- Owner: `CommitNodeWire`, `BranchRefWire`, `VersionVectorWire`, `VectorOrderKind`, `CrdtOpWire`, `MergeConflictWire`, `BlameRowWire`, `RangeDiffWire` — the version-control wire surface the dashboard and peers decode.
+- Owner: `CommitNodeWire`, `BranchRefWire`, `VersionVectorWire`, `HlcWire`, `VectorOrderKind`, `CrdtOpWire`, `MerkleRangeWire`, `MergeConflictWire`, `BlameRowWire`, `RangeDiffWire` — the version-control wire surface the dashboard and peers decode.
 - Packages: BCL inbox.
 - Growth: a new wire payload is one interface decoded through the same options, zero new surface.
-- Boundary: 64-bit fields decode as bigint under useBigInt64; content keys cross as 16-byte binary; instants cross as ISO-8601 extended strings; the `VersionVector` slots cross as a string-keyed bigint map (origin GUID string to sequence); the `CrdtOpWire` is the breaking wire-vocabulary amendment — it is a literal-discriminated union the TS-web and Python legs decode for `column-family=crdt` op-log rows, replacing the prior scalar payload assumption; `MergeConflictWire` and `BlameRowWire` reconstruct as literal unions from the case names.
+- Boundary: 64-bit fields decode as bigint under useBigInt64; content keys cross as 16-byte binary; instants cross as ISO-8601 extended strings; the `Hlc` crosses as `{ physical: string; logical: bigint }` so the TS leg compares causality without a wall clock; the `VersionVector` slots cross as a string-keyed bigint map (origin GUID string to sequence); the `CrdtOpWire` is the breaking wire-vocabulary amendment — it is a literal-discriminated union the TS-web and Python legs decode for `column-family=crdt` op-log rows, replacing the prior scalar payload assumption and adding the `write`/`increment`/`maintain` arms for the multi-value register, PN-counter, and tombstone compaction; `MergeConflictWire` and `BlameRowWire` reconstruct as literal unions from the case names; `MerkleRangeWire` carries the anti-entropy descent digest.
 
 ```ts contract
 type VectorOrderKind = "Before" | "After" | "Concurrent" | "Equal";
 
 type RefKindWire = "branch" | "tag" | "remote-tracking";
+
+interface HlcWire {
+  physical: string;
+  logical: bigint;
+}
 
 interface VersionVectorWire {
   slots: Record<string, bigint>;
@@ -445,8 +648,7 @@ interface CommitNodeWire {
   branch: string;
   vector: VersionVectorWire;
   actor: string;
-  physical: string;
-  logical: bigint;
+  cell: HlcWire;
 }
 
 interface BranchRefWire {
@@ -458,12 +660,22 @@ interface BranchRefWire {
   at: string;
 }
 
+interface MerkleRangeWire {
+  low: Uint8Array;
+  high: Uint8Array;
+  digest: Uint8Array;
+  count: number;
+}
+
 type CrdtOpWire =
-  | { op: "set"; field: string; value: Uint8Array; physical: string; logical: bigint; origin: string }
+  | { op: "set"; field: string; value: Uint8Array; cell: HlcWire; origin: string }
+  | { op: "write"; field: string; value: Uint8Array; context: Record<string, bigint>; cell: HlcWire; origin: string }
   | { op: "add"; field: string; element: Uint8Array; tagOrigin: string; tagLogical: bigint }
   | { op: "remove"; field: string; element: Uint8Array; observedTags: { origin: string; logical: bigint }[] }
+  | { op: "increment"; field: string; origin: string; delta: bigint }
   | { op: "insertAfter"; field: string; predecessor: { origin: string; logical: bigint }; id: { origin: string; logical: bigint }; value: Uint8Array }
-  | { op: "delete"; field: string; id: { origin: string; logical: bigint } };
+  | { op: "delete"; field: string; id: { origin: string; logical: bigint } }
+  | { op: "maintain"; field: string; quiescent: Record<string, bigint> };
 
 type MergeConflictWire =
   | { kind: "ParallelEdit"; id: string }
@@ -477,8 +689,7 @@ interface BlameRowWire {
   columnFamily: string;
   actor: string;
   origin: string;
-  physical: string;
-  logical: bigint;
+  cell: HlcWire;
   contentKey: Uint8Array;
 }
 
@@ -490,8 +701,3 @@ interface RangeDiffWire {
   changed: readonly string[];
 }
 ```
-
-## [7]-[RESEARCH]
-
-- [CRDT_COMPACTION]: the RGA tombstone-reclamation quiescence horizon — the `VersionVector`-dominance condition under which every peer has observed a tombstone so the `Maintain` compaction op safely drops it, verified against a multi-peer convergence harness replaying permuted op multisets to confirm the join-semilattice least-upper-bound holds under tombstone removal.
-- [STRUCTURAL_DIFF_COST]: the tree-edit-distance bound over the matched forest — whether the signature-match prefilter keeps the edit-script computation linear in the changed-node count for a 10^6-node federated graph, and the brep/mesh canonical-adjacency encoding the `GeometryHash` reads so a face split and a control-point morph hash distinctly.

@@ -110,6 +110,13 @@ public abstract partial record UiCurveSeg {    // screen-space (px) path segment
             (float rx, float ry) when rx > 0f && Math.Abs(rx - ry) < 1e-3f => Some<Curve>(new ArcCurve(new global::Rhino.Geometry.Arc(
                 new Circle(new Plane(new Point3d(a.Bounds.X + rx, a.Bounds.Y + ry, 0d), Vector3d.ZAxis), rx),
                 new Interval(a.StartAngle * Math.PI / 180.0, (a.StartAngle + a.SweepAngle) * Math.PI / 180.0)))),
+            // elliptical arc (rx != ry): ToNurbsCurve yields the FULL ellipse, so trim its domain to the swept sub-arc (sweep fraction of 2π) instead of degrading to polyline sampling
+            (float rx, float ry) when rx > 0f && ry > 0f =>
+                new Ellipse(new Plane(new Point3d(a.Bounds.X + rx, a.Bounds.Y + ry, 0d), Vector3d.ZAxis), rx, ry).ToNurbsCurve() is { } full
+                    ? Optional(full.Trim(domain: new Interval(
+                        full.Domain.ParameterAt(normalizedParameter: a.StartAngle / 360.0),
+                        full.Domain.ParameterAt(normalizedParameter: (a.StartAngle + a.SweepAngle) / 360.0))))
+                    : Option<Curve>.None,
             _ => Option<Curve>.None,
         },
         bezier: static b => Some<Curve>(new BezierCurve([new Point3d(b.Start.X, b.Start.Y, 0d), new Point3d(b.Control1.X, b.Control1.Y, 0d), new Point3d(b.Control2.X, b.Control2.Y, 0d), new Point3d(b.End.X, b.End.Y, 0d)]).ToNurbsCurve()));
@@ -330,7 +337,9 @@ public abstract partial record UiSurface {
                 : Op.Side(() => { c.Graphics.FillRectangle(brush, rect); c.Graphics.DrawRectangle(pen, rect); }));
         }));
     internal Unit Sprite(UiSprite sprite) => Switch(
-        pipeline: p => Optional(p.Atlas).Bind(atlas => atlas.Resolve(source: sprite.Source)).Iter(bitmap => Draw(display: p.Display, bitmap: bitmap, sprite: sprite)),
+        pipeline: p => Optional(p.Atlas)
+            .Bind(atlas => sprite.Blend.IfNone((BlendMode.SourceAlpha, BlendMode.OneMinusSourceAlpha)) switch { var (src, dst) => atlas.Resolve(source: sprite.Source, src: src, dst: dst) })
+            .Iter(bitmap => Draw(display: p.Display, bitmap: bitmap, sprite: sprite)),
         canvas: c => Optional(c.Atlas).Bind(atlas => atlas.ResolveEto(source: sprite.Source)).Iter(image => Op.Side(() => {
             float w = image.Width * sprite.Size;
             float h = image.Height * sprite.Size;
@@ -393,9 +402,7 @@ public abstract partial record UiSurface {
             });
     }
     private static Unit Draw(DisplayPipeline display, DisplayBitmap bitmap, UiSprite sprite) {
-        (BlendMode source, BlendMode destination) = sprite.Blend.IfNone((BlendMode.SourceAlpha, BlendMode.OneMinusSourceAlpha));
-        bitmap.SetBlendFunction(source: source, destination: destination);
-        DrawingColor tint = sprite.Tint.IfNone(DrawingColor.White);
+        DrawingColor tint = sprite.Tint.IfNone(DrawingColor.White);   // blend set once at admission (UiSpriteAtlas.Resolve, MEMO_KEY); tint stays out of the key, applied as blendColor at draw
         return sprite.Place.Switch(
             state: (Display: display, Bitmap: bitmap, Sprite: sprite, Tint: tint),
             screen: static (state, s) => Op.Side(() => {
@@ -520,15 +527,35 @@ public readonly record struct UiHudLayout(System.Drawing.RectangleF Bounds, floa
             (System.Drawing.RectangleF region, UiHudLayout remaining) = acc.layout.Stack(anchor: item.Anchor, content: item.Size);
             return (acc.Item1.Add(region), remaining);
         });
+    // Third reduction over the same Place/AnchorFrac algebra Stack/StackMany own: a 2D left-to-right flow that wraps to a new row when the next item would exceed maxWidth (MODALITY_FOLD: singular/plural-vertical/plural-2D).
+    public Seq<System.Drawing.RectangleF> Wrap(Seq<System.Drawing.SizeF> items, float maxWidth) {
+        float margin = 8f * DpiScale;
+        float left = Bounds.Left;   // readonly record struct: the fold lambda cannot capture `this`, so the row origin is hoisted to a local
+        float limit = Math.Min(val1: maxWidth, val2: Bounds.Width) - (2f * margin);
+        return items.Fold(
+            (Regions: Seq<System.Drawing.RectangleF>(), CursorX: left + margin, CursorY: Bounds.Top + margin, RowHeight: 0f),
+            (acc, size) => {
+                (float x, float y) = acc.CursorX - left - margin + size.Width > limit
+                    ? (left + margin, acc.CursorY + acc.RowHeight + margin)
+                    : (acc.CursorX, acc.CursorY);
+                return (
+                    acc.Regions.Add(new System.Drawing.RectangleF(x, y, size.Width, size.Height)),
+                    x + size.Width + margin,
+                    y,
+                    x == left + margin ? size.Height : Math.Max(val1: acc.RowHeight, val2: size.Height));
+            }).Regions;
+    }
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class UiSpriteAtlas : IDisposable {
     public static UiSpriteAtlas Empty => new();
 
-    // BOUNDARY ADAPTER — DisplayBitmap is IDisposable native sprite-decode interop; an Atom.Swap retry under contention would leak the undisposed bitmap, so the cache stays a ConcurrentDictionary (D6)
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteSource, DisplayBitmap> cache = new();
-    // BOUNDARY ADAPTER — Eto.Drawing.Bitmap is IDisposable; same swap-retry leak hazard as cache, so this stays a ConcurrentDictionary (D6)
+    // MEMO_KEY — DisplayBitmap.SetBlendFunction mutates per-instance GPU upload params, so the cache key carries the blend pair: each (source, src, dst) admits one bitmap with its blend set once, never racing a per-draw mutation on a shared instance.
+    internal readonly record struct SpriteKey(SpriteSource Source, BlendMode Src, BlendMode Dst);
+    // BOUNDARY ADAPTER — DisplayBitmap is IDisposable native sprite-decode interop; ConcurrentDictionary avoids swap-retry leaks under contention.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteKey, DisplayBitmap> cache = new();
+    // BOUNDARY ADAPTER — Eto.Drawing.Bitmap is IDisposable; same swap-retry leak hazard as cache, so this stays a ConcurrentDictionary (D6). The Eto draw path (Graphics.DrawImage) carries no per-draw GPU state, so this twin keys on SpriteSource alone.
     private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteSource, Eto.Drawing.Bitmap> etoCache = new();
     private int disposed;
 
@@ -542,9 +569,13 @@ public sealed class UiSpriteAtlas : IDisposable {
         GC.SuppressFinalize(obj: this);
     }
 
-    internal Option<DisplayBitmap> Resolve(SpriteSource source) =>
+    internal Option<DisplayBitmap> Resolve(SpriteSource source, BlendMode src, BlendMode dst) =>
         Volatile.Read(ref disposed) == 0
-            ? Optional(cache.GetOrAdd(key: source, valueFactory: static key => key.Load()))
+            ? Optional(cache.GetOrAdd(key: new SpriteKey(Source: source, Src: src, Dst: dst), valueFactory: static key => {
+                DisplayBitmap bitmap = key.Source.Load();
+                bitmap.SetBlendFunction(source: key.Src, destination: key.Dst);   // set once at admission, never per-draw
+                return bitmap;
+            }))
             : Option<DisplayBitmap>.None;
     internal Option<Eto.Drawing.Bitmap> ResolveEto(SpriteSource source) =>
         Volatile.Read(ref disposed) == 0
@@ -585,7 +616,7 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
     public TState State => state.Value;
 
     public Fin<Unit> Transition(Func<TState, TState> transition) =>
-        Op.Of(name: nameof(Transition)).Need(transition).Map(apply => { _ = state.Swap(apply); Invalidate(); return unit; });
+        Op.Of().Need(transition).Map(apply => { _ = state.Swap(apply); Invalidate(); return unit; });
 
     protected override void OnPaint(Eto.Forms.PaintEventArgs e) =>
         _ = RhinoUi.Protect(valid: () => { _ = hint.Apply(g: e.Graphics); return paint(arg1: state.Value, arg2: Size).Bind(hud => hud.Render(surface: new UiSurface.Canvas(Graphics: e.Graphics, Atlas: atlas))); });
@@ -636,11 +667,11 @@ internal static class DrawingConvert {
 
 public static class UiInput {
     extension<TState>(IUiInput<TState> input) {
-        public MouseDecision<TState> Pass => MouseDecision.Pass(input.State);
+        public MouseDecision<TState> Pass => MouseDecisionSurface.Of(input.State);
 
         public MouseDecision<TState> Next(TState state, bool cancel = false, Option<string> toolTip = default) =>
-            MouseDecision.Next(state, cancel, toolTip);
+            MouseDecisionSurface.Of(state, cancel, toolTip);
 
-        public MouseDecision<TState> Hint(string value) => MouseDecision.Hint(input.State, value);
+        public MouseDecision<TState> Hint(string value) => MouseDecisionSurface.Hint(input.State, value);
     }
 }

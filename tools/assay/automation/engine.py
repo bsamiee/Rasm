@@ -23,7 +23,7 @@ import psutil  # typed via the types-psutil stub (psutil ships no py.typed marke
 import structlog
 from watchfiles import awatch, DefaultFilter, PythonFilter
 
-from tools.assay.automation.model import Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
+from tools.assay.automation.model import Debounce, describe, Edge, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
 from tools.assay.composition.registry import rail, REGISTRY
 from tools.assay.composition.settings import ArtifactScope
 from tools.assay.core.engine import run_check_async
@@ -80,13 +80,14 @@ def is_governed(threshold: float | None) -> bool:
     later calls reuse non-blocking samples.
 
     Args:
-        threshold: Fractional CPU ceiling in [0, 1]; None disables suppression.
+        threshold: Fractional CPU ceiling in (0, 1]; ``None`` and ``0.0`` both disable suppression
+            (never gate on CPU), so the governor only engages above a positive ceiling.
 
     Returns:
-        True when the current CPU sample meets or exceeds the ceiling.
+        True when the current CPU sample meets or exceeds the positive ceiling.
     """
     match threshold:
-        case None:
+        case None | 0.0:
             return False
         case _:
             if not _CPU_PRIMED.get():
@@ -100,6 +101,7 @@ def _resolve(action: Rail) -> Bind | None:
 
 
 def _label(action: Action) -> tuple[Claim, str]:
+    # Canonical (claim, verb) routing pair for the Envelope; the human telemetry string is owned by model.describe.
     match action:
         case Rail(claim=c, verb=v):
             return c, v
@@ -170,8 +172,8 @@ async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.Capac
     match is_governed(cpu_threshold):
         case True:
             claim, verb = _label(leaf)
-            # Counts(1, 0, 1) preserves one governed leaf even though SKIP bypasses the rail fold.
-            skip = Report(claim, verb, RailStatus.SKIP, Counts(1, 0, 1), notes=(f"governed: cpu>={cpu_threshold or 0.0:.0%}",))
+            # Counts(1, 0, 1) preserves one governed leaf even though SKIP bypasses the rail fold; describe owns the label string.
+            skip = Report(claim, verb, RailStatus.SKIP, Counts(1, 0, 1), notes=(f"governed: {describe(leaf)} cpu>={cpu_threshold or 0.0:.0%}",))
             return _emitted(envelope(skip, claim=claim, verb=verb)).status
         # Recursive Sequence/Debounce leaves reuse the held limiter token; re-acquire raises in anyio.
         case False:
@@ -211,14 +213,9 @@ async def _sequence(leaves: tuple[Action, ...], settings: AssaySettings, limiter
 
 
 def _fire(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> Fire:
+    # _emit_leaf is total over Action (Rail/Program/Sequence/Debounce), so the fire closure dispatches there once.
     async def fire(_changes: ChangeBatch) -> None:
-        match action:
-            case Sequence(actions=acts):
-                _ = await _sequence(acts, settings, limiter, cpu_threshold)
-            case Rail() | Program():
-                _ = await _emit_leaf(action, settings, limiter, cpu_threshold)
-            case Debounce(action=inner):
-                _ = await _emit_leaf(inner, settings, limiter, cpu_threshold)
+        _ = await _emit_leaf(action, settings, limiter, cpu_threshold)
 
     return fire
 
@@ -372,23 +369,24 @@ async def _co_resident(tg: TaskGroup, resident: Worker | None, stop: anyio.Event
         case None:
             return
         case _:
-            tg.start_soon(resident)
+            _ = tg.start_soon(resident)
             await stop.wait()
             tg.cancel_scope.cancel()
 
 
-async def _drive_watch(spec: Watch, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event) -> None:
+async def _drive(
+    spec: Watch | Schedule, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event, harden: bool
+) -> None:
+    # One driver for watch and schedule: spec selects the wakeup source; harden coalesces missed schedule ticks while
+    # watch relies on watchfiles' own debounce, and a debounce worker (worker is not None) already owns its catch-up.
     fire, worker = _armed(action, settings, limiter=limiter, ceiling=spec.cpu_threshold)
+    driven = _hardened_fire(fire, settings, action) if harden and worker is None else fire
     async with anyio.create_task_group() as tg:
-        tg.start_soon(_watch, spec, fire, stop)
-        await _co_resident(tg, worker, stop)
-
-
-async def _drive_schedule(spec: Schedule, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event) -> None:
-    fire, worker = _armed(action, settings, limiter=limiter, ceiling=spec.cpu_threshold)
-    scheduled = _hardened_fire(fire, settings, action) if worker is None else fire
-    async with anyio.create_task_group() as tg:
-        tg.start_soon(_schedule, spec, scheduled, stop)
+        match spec:
+            case Watch():
+                _ = tg.start_soon(_watch, spec, driven, stop)
+            case Schedule():
+                _ = tg.start_soon(_schedule, spec, driven, stop)
         await _co_resident(tg, worker, stop)
 
 
@@ -397,9 +395,9 @@ async def _run_trigger(trigger: Trigger, action: Action, settings: AssaySettings
         case Manual():
             await _fire(action, settings, limiter=limiter, cpu_threshold=None)(_NO_CHANGES)
         case Watch() as spec:
-            await _drive_watch(spec, action, settings, limiter=limiter, stop=stop)
+            await _drive(spec, action, settings, limiter=limiter, stop=stop, harden=False)
         case Schedule() as spec:
-            await _drive_schedule(spec, action, settings, limiter=limiter, stop=stop)
+            await _drive(spec, action, settings, limiter=limiter, stop=stop, harden=True)
 
 
 async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> None:

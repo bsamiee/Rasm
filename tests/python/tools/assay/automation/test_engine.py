@@ -41,7 +41,7 @@ _GOVERNOR_CASES: list[tuple[float | None, float, bool]] = [
     (0.9, 91.0, True),
     (0.95, 91.0, False),
     (None, 91.0, False),
-    (0.0, 0.0, True),
+    (0.0, 0.0, False),
     (1.0, 100.0, True),
     (1.0, 99.9, False),
     (0.91, 91.0, True),
@@ -124,12 +124,12 @@ def _fake_awatch(batches: tuple[tuple[tuple[str, str], ...], ...]) -> object:
 @pytest.mark.parametrize(
     "threshold,cpu,expected",
     _GOVERNOR_CASES,
-    ids=["t0.9-skip", "t0.95-run", "tNone-run", "t0.0-skip", "t1.0-100-skip", "t1.0-99.9-run", "t0.91-skip"],
+    ids=["t0.9-skip", "t0.95-run", "tNone-run", "t0.0-run", "t1.0-100-skip", "t1.0-99.9-run", "t0.91-skip"],
 )
 def test_is_governed_boundary(threshold: float | None, cpu: float, *, expected: bool, cpu_double: CpuDoubleInstaller) -> None:
-    """``is_governed`` returns True iff ``cpu_percent >= threshold * 100`` (None disables it).
+    """``is_governed`` returns True iff a positive ceiling trips (``cpu_percent >= threshold * 100``); ``None`` and ``0.0`` disable it.
 
-    Falsified by: removing the ``>= threshold * 100`` check, negating the None branch,
+    Falsified by: removing the ``>= threshold * 100`` check, gating instead of disabling on ``0.0``,
     or treating the boundary as strict-greater-than instead of >=.
     """
     # Isolate the decision predicate from warmup.
@@ -329,7 +329,8 @@ def test_drive_governed_skip_emits_one_skip_envelope(
 ) -> None:
     """A tripped CPU governor emits one SKIP Envelope and never runs the leaf.
 
-    Falsified by: ``_emit_leaf`` running the leaf despite the governor, mis-counting the governed leaf, or dropping the ``governed: cpu>=`` note.
+    Falsified by: ``_emit_leaf`` running the leaf despite the governor, mis-counting the governed leaf, or
+    dropping the ``governed:``-prefixed ``cpu>=`` note.
     """
     _eng._CPU_PRIMED.set(True)
     cpu_double(lambda *_a, **_k: 100.0)
@@ -344,7 +345,7 @@ def test_drive_governed_skip_emits_one_skip_envelope(
     assert env.status is RailStatus.SKIP
     assert env.report is not None
     assert env.report.counts == Counts(1, 0, 1)
-    assert any("governed: cpu>=" in note for note in env.report.notes)
+    assert any(note.startswith("governed:") and "cpu>=" in note for note in env.report.notes)
 
 
 register_law(_eng.drive, "test_drive_governed_skip_emits_one_skip_envelope")
@@ -454,7 +455,7 @@ def test_debounce_signal_after_close_is_silent() -> None:
     async def _run() -> None:
         signal, worker = _eng._debounce(_inner, 40, edge=Edge.TRAILING)
         async with anyio.create_task_group() as tg:
-            tg.start_soon(worker)
+            _ = tg.start_soon(worker)
             await anyio.lowlevel.checkpoint()
             tg.cancel_scope.cancel()
         await signal(_FIRST)
@@ -491,7 +492,7 @@ def test_drive_watch_fires_per_canned_batch(
 ) -> None:
     """Watch drive fires once per canned ``awatch`` batch when no worker co-resides.
 
-    Falsified by: ``_watch`` dropping a batch, ``_drive_watch`` deadlocking with no debounce worker, or ``_watch_filter`` returning the wrong filter.
+    Falsified by: ``_watch`` dropping a batch, ``_drive`` deadlocking with no debounce worker, or ``_watch_filter`` returning the wrong filter.
     """
     rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
     monkeypatch.setattr(_eng, "awatch", _fake_awatch((_FIRST, _SECOND)))
@@ -581,8 +582,8 @@ def test_drive_watch_debounce_collapses_storm(
             stop.set()
 
         async with anyio.create_task_group() as tg:
-            tg.start_soon(_release)
-            await _eng._drive_watch(spec, action, assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop)
+            _ = tg.start_soon(_release)
+            await _eng._drive(spec, action, assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop, harden=False)
 
     anyio.run(_run)
 
@@ -623,7 +624,7 @@ def test_drive_schedule_fires_then_stops(
 
         monkeypatch.setattr(_eng, "aiocron", SimpleNamespace(crontab=_crontab))
         with anyio.move_on_after(5.0) as scope:
-            await _eng._drive_schedule(spec, Program(argv=("tool",)), assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop)
+            await _eng._drive(spec, Program(argv=("tool",)), assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop, harden=True)
         assert not scope.cancelled_caught, "schedule drive must stop, not hang"
 
     anyio.run(_drive)
@@ -668,8 +669,8 @@ def test_drive_schedule_debounce_co_resides_worker(
             stop.set()
 
         async with anyio.create_task_group() as tg:
-            tg.start_soon(_release)
-            await _eng._drive_schedule(spec, action, assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop)
+            _ = tg.start_soon(_release)
+            await _eng._drive(spec, action, assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop, harden=True)
 
     anyio.run(_run)
 
@@ -697,7 +698,7 @@ def test_quiesce_drains_until_quiet_window() -> None:
             send.send_nowait(_SECOND)
 
         async with anyio.create_task_group() as tg, send, recv:
-            tg.start_soon(_produce)
+            _ = tg.start_soon(_produce)
             latest.append(await _eng._quiesce(recv, 50))
 
     anyio.run(_run)
@@ -811,7 +812,7 @@ async def test_debounce_fires_once_per_storm(*, edge: Edge) -> None:
 
     signal, worker = _eng._debounce(_inner, 40, edge=edge)
     async with anyio.create_task_group() as tg:
-        tg.start_soon(worker)
+        _ = tg.start_soon(worker)
         await signal(_FIRST)
         await anyio.lowlevel.checkpoint()
         await signal(_SECOND)
@@ -840,7 +841,7 @@ def test_debounce_signal_ignores_when_buffer_full() -> None:
     async def _run() -> None:
         signal, worker = _eng._debounce(_inner, 40, edge=Edge.LEADING)
         async with anyio.create_task_group() as tg:
-            tg.start_soon(worker)
+            _ = tg.start_soon(worker)
             await signal(_FIRST)
             await anyio.sleep(0.02)
             await signal(_SECOND)

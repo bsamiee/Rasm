@@ -267,9 +267,6 @@ public sealed record FileEndpoint {
             _ => this,
         };
 
-    internal FileEndpoint WithRelative(Option<string> relative) =>
-        new(path: Path, format: Format, name: Name, write: Write, relative: relative);
-
     internal Fin<FileEndpoint> Input(Op op) =>
         guard(IOFile.Exists(path: Path), op.InvalidInput()).ToFin().Map(_ => this);
 
@@ -499,6 +496,9 @@ public sealed record FileProfile {
     public FileAxis Order { get; }
     public Option<FileFormat> Format { get; }
     public Option<FileVectorScale> Scale { get; }
+
+    internal bool LayerGrouped => Group == FileAxis.Layer || Order == FileAxis.Layer;
+    internal bool ExportMaterials => Resources != FileResourcePolicy.Reference;
 
     public FileProfile With(FileFidelity? fidelity = null, FileResourcePolicy? resources = null, FileAxis? group = null, FileAxis? order = null, FileOverride<FileFormat> format = default, FileOverride<FileVectorScale> scale = default) =>
         new(

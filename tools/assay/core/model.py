@@ -7,6 +7,7 @@ from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import cache
 from pathlib import Path
 import re
 import shlex
@@ -46,6 +47,7 @@ class Claim(StrEnum):
     PACKAGE = "package"
     API = "api"
     DOCS = "docs"
+    SPIKE = "spike"
 
 
 class Input(StrEnum):
@@ -207,7 +209,7 @@ _DEFECT_TAIL: int = 4096
 # SARIF 2.1 result levels -> assay severities; analyzer notes (e.g. CSP0903) surface as info-grade evidence.
 _SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
 _DIAGNOSTIC_SEVERITY_RANK: dict[str, int] = {"error": 0, "warning": 1, "info": 2, "failed": 3}
-_PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE)
+_PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE, Claim.SPIKE)
 # host-bound claims cannot run off-host; remote execution rejects them before argv composition.
 _HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE))
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
@@ -393,7 +395,12 @@ class Match(Base, frozen=True):
     message: Annotated[str, msgspec.Meta(max_length=4096)] = ""
 
 
+# --- [SARIF] ----------------------------------------------------------------------------
 # SARIF carries tool/schema fields outside the assay wire contract; unknown fields must pass.
+# Eight structs model distinct SARIF 2.1 schema levels (log -> run -> result -> location -> region); they are not parallel
+# shapes for one concept, so they stay separate owners under one navigation label.
+
+
 class _SarifMessage(msgspec.Struct, frozen=True, gc=False):
     text: str = ""
 
@@ -416,11 +423,16 @@ class _SarifLocation(msgspec.Struct, frozen=True, gc=False, rename="camel"):
     physical_location: _SarifPhysicalLocation = msgspec.field(default_factory=_SarifPhysicalLocation)
 
 
+class _SarifSuppression(msgspec.Struct, frozen=True, gc=False):
+    kind: str = ""
+
+
 class _SarifResult(msgspec.Struct, frozen=True, gc=False, rename="camel"):
     rule_id: str = ""
     level: str = ""
     message: _SarifMessage = msgspec.field(default_factory=_SarifMessage)
     locations: tuple[_SarifLocation, ...] = ()
+    suppressions: tuple[_SarifSuppression, ...] = ()  # non-empty => suppressed in-source; the build honors it, so the rail must too
 
 
 class _SarifRun(msgspec.Struct, frozen=True, gc=False):
@@ -829,12 +841,42 @@ def _count(done: Completed) -> tuple[int, int]:
             return 0, 0
 
 
-def _sarif_log(path: Path) -> _SarifLog:
+@cache
+def _sarif_decode(path: Path, stat_key: tuple[int, int]) -> _SarifLog:
     # SARIF rows are evidence only: unreadable or malformed documents fold to the empty log, never a fault.
+    _ = stat_key  # content fingerprint participates in the cache key, not the read
     try:
         return _SARIF_LOG.decode(path.read_bytes())
     except OSError, msgspec.MsgspecError:
         return _SarifLog()
+
+
+def _sarif_log(path: Path) -> _SarifLog:
+    # Decode once per (path, mtime, size): rows/status/results read the same build-written document inside one fold, so
+    # the fingerprint collapses those redundant decodes; a rebuild that rewrites the document in a long-lived process
+    # (the automation daemon re-fires one stable build closure) shifts the fingerprint, so the stale log never sticks.
+    try:
+        info = path.stat()
+    except OSError:
+        return _SarifLog()
+    return _sarif_decode(path, (info.st_mtime_ns, info.st_size))
+
+
+def _code_match(rule_id: str, severity: str, path: str, line: int, column: int, message: str, *, text: str, project: str = "") -> Match:
+    # One source-diagnostic projection: SARIF, C# console, and text/JSON tool rows differ only in id/text/severity/project
+    # derivation; the Match skeleton (CODE kind, score=column, capped text) is one owner.
+    return Match(
+        id=rule_id,
+        kind=ArtifactKind.CODE,
+        text=text[:_MATCH_TEXT_CAP],
+        line=line,
+        column=column,
+        score=column,
+        severity=severity,
+        path=path,
+        project=project,
+        message=message,
+    )
 
 
 def _sarif_match(result: _SarifResult) -> Match:
@@ -844,22 +886,23 @@ def _sarif_match(result: _SarifResult) -> Match:
     parsed = urlparse(uri)
     path = unquote(parsed.path if parsed.scheme == "file" else uri)
     message = result.message.text.strip()
-    return Match(
-        id=result.rule_id.lower(),
-        kind=ArtifactKind.CODE,
-        text=f"{path}({line},{column}): {message}"[:_MATCH_TEXT_CAP],
-        line=line,
-        column=column,
-        score=column,
-        severity=_SARIF_SEVERITY.get(result.level, "warning"),
-        path=path,
-        message=message,
+    return _code_match(
+        result.rule_id.lower(), _SARIF_SEVERITY.get(result.level, "warning"), path, line, column, message, text=f"{path}({line},{column}): {message}"
     )
 
 
-def _sarif_rows(sarif_dir: str | None) -> tuple[Match, ...]:
-    files = sorted(Path(sarif_dir).glob("*.sarif")) if sarif_dir else ()
-    return tuple(_sarif_match(result) for path in files for run in _sarif_log(path).runs for result in run.results)
+def _sarif_rows(sarif_dir: str | None, outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
+    if not sarif_dir:
+        return ()
+    base = Path(sarif_dir)
+    targets = tuple(t for done in outcomes if "dotnet" in done.argv and "build" in done.argv for t in _build_targets(done.argv))
+    # A .csproj target keys only its own <stem>.sarif so a dependency project never leaks cross-project findings into a
+    # single-project gate; a .slnx target (or a non-build fold with no target) keys the whole directory.
+    csproj_scoped = bool(targets) and not any(slnx for _, slnx in targets)
+    files = tuple(base / f"{stem}.sarif" for stem, _ in targets) if csproj_scoped else sorted(base.glob("*.sarif"))
+    return tuple(
+        _sarif_match(result) for path in files if path.is_file() for run in _sarif_log(path).runs for result in run.results if not result.suppressions
+    )
 
 
 def _build_targets(argv: tuple[str, ...]) -> tuple[tuple[str, bool], ...]:
@@ -895,25 +938,21 @@ def _sarif_results(base: Path | None, stem: str, *, slnx: bool) -> int:
     if base is None:
         return 0
     files = tuple(base.glob("*.sarif")) if slnx else ((base / f"{stem}.sarif"),) if stem else ()
-    return sum(len(run.results) for path in files if path.is_file() for run in _sarif_log(path).runs)
+    return sum(1 for path in files if path.is_file() for run in _sarif_log(path).runs for result in run.results if not result.suppressions)
 
 
 def _csharp_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
     rows = tuple(
-        Match(
-            id=found.group("rule").lower(),
-            kind=ArtifactKind.CODE,
-            text=(
-                f"{found.group('path')}({found.group('line')},{found.group('column')}): {found.group('message').strip()}"
-                + (f" [project={project}]" if (project := (found.group("project") or "").strip()) else "")
-            )[:_MATCH_TEXT_CAP],
-            line=int(found.group("line")),
-            column=int(found.group("column")),
-            score=int(found.group("column")),
-            severity=found.group("severity").lower(),
-            path=found.group("path"),
+        _code_match(
+            found.group("rule").lower(),
+            found.group("severity").lower(),
+            found.group("path"),
+            int(found.group("line")),
+            int(found.group("column")),
+            message := found.group("message").strip(),
+            text=f"{found.group('path')}({found.group('line')},{found.group('column')}): {message}"
+            + (f" [project={project}]" if (project := (found.group("project") or "").strip()) else ""),
             project=project,
-            message=found.group("message").strip(),
         )
         for done in outcomes
         for line in (done.stdout + b"\n" + done.stderr).decode(errors="replace").splitlines()
@@ -956,52 +995,34 @@ def _text_rows(tool: str, payload: str) -> tuple[Match, ...]:
     return tuple(rows)
 
 
-def _py_analyzer_rows(payload: str) -> tuple[Match, ...]:
-    try:
-        diagnostics = _PY_ANALYZER_LOG.decode(payload.encode())
-    except msgspec.MsgspecError:
-        return ()
-    return tuple(
-        _diagnostic_match("py-analyzer", row.rule_id, row.severity, row.path, str(row.line), str(row.column), row.message or row.title)
-        for row in diagnostics
-    )
-
-
-def _biome_rows(payload: str) -> tuple[Match, ...]:
-    json_payload = _json_object(payload)
-    if json_payload:
-        try:
-            decoded = _BIOME_LOG.decode(json_payload.encode())
-        except msgspec.MsgspecError:
-            decoded = _BiomeReport()
-        rows = tuple(
-            _diagnostic_match(
-                "biome",
-                row.category or "biome",
-                row.severity,
-                row.location.path,
-                str(row.location.start.line),
-                str(row.location.start.column),
-                row.message,
-            )
-            for row in decoded.diagnostics
-        )
-        if rows:
-            return rows
-    return _text_rows(tool="biome", payload=payload)
-
-
-def _json_object(payload: str) -> str:
+def _json_object[T](payload: str, decoder: msgspec.json.Decoder[T]) -> str:
     start = payload.find("{")
     end = payload.rfind("}") + 1
     if start < 0 or end <= start:
         return ""
     try:
         candidate = payload[start:end]
-        _ = _BIOME_LOG.decode(candidate.encode())
+        _ = decoder.decode(candidate.encode())
     except msgspec.MsgspecError:
         return ""
     return candidate
+
+
+def _json_rows[T](
+    payload: str, *, decoder: msgspec.json.Decoder[T], project: str, rows: Callable[[T], tuple[Match, ...]], embedded: bool = False
+) -> tuple[Match, ...]:
+    # One JSON-diagnostic projection: a tool whose stdout is a bare diagnostic document decodes the whole payload; a tool
+    # that frames its JSON inside log chatter (``embedded``) carves the object span first, then folds to text rows when the
+    # decode yields nothing. The decoder, project label, and per-schema row map are the only axes that vary.
+    span = _json_object(payload, decoder) if embedded else payload
+    if not span:
+        return _text_rows(tool=project, payload=payload)
+    try:
+        decoded = decoder.decode(span.encode())
+    except msgspec.MsgspecError:
+        return _text_rows(tool=project, payload=payload) if embedded else ()
+    projected = rows(decoded)
+    return projected if projected or not embedded else _text_rows(tool=project, payload=payload)
 
 
 def _severity(raw: str) -> str:
@@ -1009,20 +1030,16 @@ def _severity(raw: str) -> str:
 
 
 def _diagnostic_match(tool: str, rule: str, severity: str, path: str, line: str, column: str, message: str) -> Match:
-    line_number = int(line)
-    column_number = int(column)
-    rule_id = rule.lower()
-    return Match(
-        id=f"{tool}:{rule_id}",
-        kind=ArtifactKind.CODE,
-        text=f"{tool}: {path}:{line_number}:{column_number}: {rule_id}: {message}"[:_MATCH_TEXT_CAP],
-        line=line_number,
-        column=column_number,
-        score=column_number,
-        severity=_severity(severity),
-        path=path,
+    line_number, column_number, rule_id = int(line), int(column), rule.lower()
+    return _code_match(
+        f"{tool}:{rule_id}",
+        _severity(severity),
+        path,
+        line_number,
+        column_number,
+        message,
+        text=f"{tool}: {path}:{line_number}:{column_number}: {rule_id}: {message}",
         project=tool,
-        message=message,
     )
 
 
@@ -1048,8 +1065,39 @@ _PAYLOAD_POLICIES: tuple[_PayloadPolicy, ...] = (
     _PayloadPolicy(lambda argv: "ruff" in argv, lambda payload: _text_rows("ruff", payload)),
     _PayloadPolicy(lambda argv: "ty" in argv, lambda payload: _text_rows("ty", payload)),
     _PayloadPolicy(lambda argv: "mypy" in argv, lambda payload: _text_rows("mypy", payload)),
-    _PayloadPolicy(lambda argv: "tools.py_analyzer" in argv, _py_analyzer_rows),
-    _PayloadPolicy(lambda argv: "biome" in argv, _biome_rows),
+    _PayloadPolicy(
+        lambda argv: "tools.py_analyzer" in argv,
+        lambda payload: _json_rows(
+            payload,
+            decoder=_PY_ANALYZER_LOG,
+            project="py-analyzer",
+            rows=lambda diagnostics: tuple(
+                _diagnostic_match("py-analyzer", row.rule_id, row.severity, row.path, str(row.line), str(row.column), row.message or row.title)
+                for row in diagnostics
+            ),
+        ),
+    ),
+    _PayloadPolicy(
+        lambda argv: "biome" in argv,
+        lambda payload: _json_rows(
+            payload,
+            decoder=_BIOME_LOG,
+            project="biome",
+            embedded=True,
+            rows=lambda report: tuple(
+                _diagnostic_match(
+                    "biome",
+                    row.category or "biome",
+                    row.severity,
+                    row.location.path,
+                    str(row.location.start.line),
+                    str(row.location.start.column),
+                    row.message,
+                )
+                for row in report.diagnostics
+            ),
+        ),
+    ),
     _PayloadPolicy(lambda argv: "tsc" in argv, lambda payload: _text_rows("tsc", payload)),
 )
 
@@ -1059,12 +1107,17 @@ def _generated(row: Match) -> bool:
     return any(marker in path for marker in _GENERATED_MARKERS) or path.endswith(_GENERATED_SUFFIX)
 
 
+def _norm_path(path: str) -> str:
+    # Cross-channel dedup canonical form: the console emits a cwd-relative path while the SARIF uri is absolute, so the
+    # same diagnostic keys differently unless both anchor on the assay cwd (the repo root every dotnet build runs from).
+    return Path(path.replace("\\", "/")).absolute().as_posix().lower() if path else ""
+
+
 def _dedupe(rows: tuple[Match, ...]) -> tuple[Match, ...]:
     seen: set[tuple[str, str | None, str, int, int, str]] = set()
     out: list[Match] = []
     for row in rows:
-        path = row.path.replace("\\", "/").lower()
-        key = (row.id, row.severity, path, row.line, row.column, row.message or row.text)
+        key = (row.id, row.severity, _norm_path(row.path), row.line, row.column, row.message or row.text)
         if key not in seen:
             seen.add(key)
             out.append(row)
@@ -1100,7 +1153,7 @@ def _rank(rows: tuple[Match, ...]) -> tuple[Match, ...]:
 
 
 def _result_rows(claim: Claim, outcomes: tuple[Completed, ...], defects: tuple[Match, ...], sarif_dir: str | None) -> tuple[Match, ...]:
-    sarif = _sarif_rows(sarif_dir)
+    sarif = _sarif_rows(sarif_dir, outcomes)
     diagnostics = (*tuple(row for done in outcomes for row in _rows_of(done)), *_csharp_rows(outcomes), *sarif)
     if claim is not Claim.STATIC:
         return (*defects, *sarif)

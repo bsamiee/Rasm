@@ -14,7 +14,7 @@ public partial interface IBridgeShell {
     public Task<ScenarioReceipt[]> RunAsync(ScenarioSelection selection, CancellationToken ct);
     public Task<UnloadReceipt> UnloadCargoAsync(CancellationToken ct);
     public Task<long> PingAsync(CancellationToken ct);
-    public Task PrepareQuitAsync(CancellationToken ct);
+    public Task<QuitPrepareReceipt> PrepareQuitAsync(CancellationToken ct);
 }
 
 // Ownership: shell->supervisor evidence; the event union is the only channel discriminator.
@@ -45,5 +45,6 @@ public interface IBridgeCargo : IDisposable {
 [JsonSerializable(typeof(ScenarioSelection))]
 [JsonSerializable(typeof(ScenarioReceipt[]))]
 [JsonSerializable(typeof(UnloadReceipt))]
+[JsonSerializable(typeof(QuitPrepareReceipt))]
 [JsonSerializable(typeof(SessionEnvelope))]
 public sealed partial class BridgeJsonContext : JsonSerializerContext;

@@ -259,6 +259,14 @@ public readonly record struct ScenarioReceipt(string Scenario, PhaseStatus Statu
 public readonly record struct CrashFact(string IpsPath, string CrashThread, string ExceptionType, string Detail);
 public readonly record struct UnloadReceipt(bool Confirmed, bool DebuggerAttached, int GcRetries, double ElapsedMs);
 
+// Ownership: quit-scrub receipt. The shell marks every open RhinoDoc clean and re-reads to report
+// the residual still-Modified count and any persisted doc Path that would raise the AppKit save sheet
+// on terminate; ResidualDirty == 0 is the supervisor's AE-rung precondition. SavedPaths carries the
+// on-disk Path of any doc the scrub could not fully clean so a dirty terminate is typed evidence.
+public readonly record struct QuitPrepareReceipt(int Documents, int MarkedClean, int ResidualDirty, string Gh2, string[] SavedPaths) {
+    public bool Scrubbed => ResidualDirty == 0;
+}
+
 // Ownership: per-session cargo carrier; SessionId and ReportDir source all in-host stamps and
 // artifacts, while content-hash reuse stays inside the shell swap.
 public sealed record CargoManifest(

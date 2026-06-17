@@ -4,14 +4,14 @@
 
 ## [1]-[DOCUMENTS]
 
-| [INDEX] | [READ_FOR] | [OPEN] |
-| :-----: | :--------- | :----- |
-|   [1]   | rails, axes, source tree, cross-package seams, boundaries | [architecture](ARCHITECTURE.md) |
-|   [2]   | implementation tasks, start gates, completion signals | [roadmap](ROADMAP.md) |
-|   [3]   | capability atlas keyed to planning clusters | [features](FEATURES.md) |
-|   [4]   | open work owned by this folder | [tasklog](TASKLOG.md) |
-|   [5]   | charter: page index, density bar, build order, gates | [planning charter](.planning/README.md) |
-|   [6]   | package API catalogues per admitted surface | [API catalogues](.api/README.md) |
-|   [7]   | C# stack doctrine and decision routing | [C# stack](../../../docs/stacks/csharp/README.md) |
+| [INDEX] | [READ_FOR]                                                | [OPEN]                                            |
+| :-----: | :-------------------------------------------------------- | :------------------------------------------------ |
+|   [1]   | rails, axes, source tree, cross-package seams, boundaries | [architecture](ARCHITECTURE.md)                   |
+|   [2]   | implementation tasks, start gates, completion signals     | [roadmap](ROADMAP.md)                             |
+|   [3]   | capability atlas keyed to planning clusters               | [features](FEATURES.md)                           |
+|   [4]   | open work owned by this folder                            | [tasklog](TASKLOG.md)                             |
+|   [5]   | charter: page index, density bar, build order, gates      | [planning charter](.planning/README.md)           |
+|   [6]   | package API catalogues per admitted surface               | [API catalogues](.api/README.md)                  |
+|   [7]   | C# stack doctrine and decision routing                    | [C# stack](../../../docs/stacks/csharp/README.md) |
 
 The planning charter `.planning/README.md` is the only linking file in the planning set.

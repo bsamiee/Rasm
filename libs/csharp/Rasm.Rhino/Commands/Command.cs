@@ -44,7 +44,7 @@ public abstract partial record PromptTransition<TStep> {
     public sealed record Exit : PromptTransition<TStep>;
 
     internal Fin<CommandStageContext<TStep>> Apply(CommandStageContext<TStep> context) =>
-        Optional(context).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(active =>
+        Optional(context).ToFin(Fail: Op.Of().InvalidInput()).Bind(active =>
             Switch(
                 active,
                 stay: static (ctx, c) => (ctx with { State = c.State }).Run(),
@@ -78,7 +78,7 @@ public sealed record CommandGraph<TState>(
     CommandGraphEvents<TState> Events = default,
     Option<CommandStateMemory<TState>> Memory = default) {
     public Fin<CommandGraph<TState>> Append(CommandStep<TState> stage) =>
-        from valid in Optional(stage).ToFin(Fail: Op.Of(name: nameof(Append)).InvalidInput())
+        from valid in Optional(stage).ToFin(Fail: Op.Of().InvalidInput())
         select this with { Stages = Stages + Seq(valid) };
 
     internal Fin<Result> Run(RhinoCommandContext context) =>
@@ -112,8 +112,8 @@ public readonly record struct CommandGraphEvents<TState>(
         Optional(ScriptedFilePrompt)
             .Map(project => project(arg1: context, arg2: prompt))
             .IfNone(() =>
-                from valid in Optional(prompt).ToFin(Fail: Op.Of(name: nameof(Files)).InvalidInput())
-                from defaults in valid.Defaults(op: Op.Of(name: nameof(Files)))
+                from valid in Optional(prompt).ToFin(Fail: Op.Of().InvalidInput())
+                from defaults in valid.Defaults(op: Op.Of())
                 select defaults);
 }
 
@@ -134,8 +134,8 @@ public sealed record CommandStageContext<TState>(
         Context.Ui.Use(intent: UI.UiIntent.Status(status: status));
 
     public Fin<T> Use<T>(UI.UiIntent<T> intent, Func<CommandStageContext<TState>, Fin<T>> scripted) =>
-        from validIntent in Optional(intent).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
-        from run in Optional(scripted).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from validIntent in Optional(intent).ToFin(Fail: Op.Of().InvalidInput())
+        from run in Optional(scripted).ToFin(Fail: Op.Of().InvalidInput())
         from result in Context.Ui.Use(intent: validIntent.WithScripted(fallback: (_, _) => run(arg: this)))
         select result;
 
@@ -146,7 +146,7 @@ public sealed record CommandStageContext<TState>(
         };
 
     private Fin<CommandStageContext<TState>> Apply(PromptTransition<TState> transition) =>
-        Optional(transition).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(valid => valid.Apply(context: this));
+        Optional(transition).ToFin(Fail: Op.Of().InvalidInput()).Bind(valid => valid.Apply(context: this));
 }
 
 public readonly record struct PromptEventContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
@@ -255,19 +255,19 @@ public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSe
     protected abstract Fin<Result> Run(RhinoCommandContext context);
 
     protected Fin<Result> Run<TState>(RhinoCommandContext context, CommandGraph<TState> graph) =>
-        from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
-        from valid in Optional(graph).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
+        from active in Optional(context).ToFin(Fail: Op.Of().InvalidInput())
+        from valid in Optional(graph).ToFin(Fail: Op.Of().InvalidInput())
         from result in valid.Run(context: active)
         select result;
 
     protected virtual Fin<Unit> Ready(RhinoCommandContext context) =>
-        from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(Ready)).InvalidInput())
+        from active in Optional(context).ToFin(Fail: Op.Of().InvalidInput())
         from _ in active.Scope.Context.Map(static _ => unit)
         select unit;
 
     // pass-through: DocumentEdit.Commit already issues Views.Redraw on DocumentRedraw.After; commands mutating outside Commit override Complete to redraw explicitly.
     protected virtual Fin<Result> Complete(RhinoCommandContext context, Result result) =>
-        Optional(context).ToFin(Fail: Op.Of(name: nameof(Complete)).InvalidInput()).Map(_ => result);
+        Optional(context).ToFin(Fail: Op.Of().InvalidInput()).Map(_ => result);
 
     protected virtual Result FailureResult(Error fault) =>
         fault switch {

@@ -153,7 +153,7 @@ public sealed class ShellHost : IDisposable {
         public Task<long> PingAsync(CancellationToken ct) =>
             Task.FromResult(result: Environment.TickCount64);
 
-        public Task PrepareQuitAsync(CancellationToken ct) =>
+        public Task<QuitPrepareReceipt> PrepareQuitAsync(CancellationToken ct) =>
             host.PrepareQuitAsync(connection: this, ct: ct);
     }
 
@@ -222,23 +222,34 @@ public sealed class ShellHost : IDisposable {
         return receipt;
     }
 
-    private async Task PrepareQuitAsync(Connection connection, CancellationToken ct) {
+    private async Task<QuitPrepareReceipt> PrepareQuitAsync(Connection connection, CancellationToken ct) {
         Admit(connection: connection);
         // The scrub runs on the UI thread before the quit ladder so doc.Modified and GH2 Unmodify land
         // on the host thread that owns those documents; the reflective GH2 path's failure is a typed fact.
-        (bool hadModified, Gh2ScrubOutcome gh2) = await pump.OnUiThreadAsync(job: static () => {
+        // It then re-reads OpenDocuments so the residual still-Modified count and any persisted doc Path
+        // are reported as the AE-rung precondition: ResidualDirty == 0 is what keeps `terminate` off the
+        // AppKit "Save changes?" sheet, and a retried scrub on the supervisor side reaches the same fixpoint.
+        QuitPrepareReceipt receipt = await pump.OnUiThreadAsync(job: static () => {
             RhinoDoc[] open = RhinoDoc.OpenDocuments();
-            bool modified = open.Any(predicate: static doc => doc.Modified);
+            int markedClean = open.Count(predicate: static doc => doc.Modified);
             Array.ForEach(array: open, action: static doc => doc.Modified = false);
-            return (modified, CleanGrasshopper2());
+            Gh2ScrubOutcome gh2 = CleanGrasshopper2();
+            RhinoDoc[] residual = RhinoDoc.OpenDocuments();
+            int residualDirty = residual.Count(predicate: static doc => doc.Modified);
+            string[] savedPaths = [.. residual.Where(predicate: static doc => doc.Modified && doc.Path is { Length: > 0 }).Select(selector: static doc => doc.Path)];
+            return new QuitPrepareReceipt(Documents: open.Length, MarkedClean: markedClean, ResidualDirty: residualDirty, Gh2: gh2.Summary, SavedPaths: savedPaths);
         }, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
         Publish(evt: Fact(
             key: "quit.prepared",
-            value: $"{(hadModified ? "rhino-docs-marked-clean" : "rhino-docs-already-clean")}; gh2={gh2.Summary}"));
-        if (gh2 is Gh2ScrubOutcome.Failed failed) {
-            Publish(evt: Fact(key: "quit.scrub.gh2-reflective-failed", value: failed.Detail));
+            value: string.Create(provider: CultureInfo.InvariantCulture,
+                $"{(receipt.Scrubbed ? "rhino-docs-marked-clean" : "rhino-docs-residual-dirty")}; documents={receipt.Documents};markedClean={receipt.MarkedClean};residualDirty={receipt.ResidualDirty}; gh2={receipt.Gh2}")));
+        if (CleanGrasshopper2Failed(gh2: receipt.Gh2)) {
+            Publish(evt: Fact(key: "quit.scrub.gh2-reflective-failed", value: receipt.Gh2));
         }
+        return receipt;
     }
+
+    private static bool CleanGrasshopper2Failed(string gh2) => gh2.StartsWith(value: "reflective-scrub-failed:", comparisonType: StringComparison.Ordinal);
 
     // --- [ADMISSION]
 

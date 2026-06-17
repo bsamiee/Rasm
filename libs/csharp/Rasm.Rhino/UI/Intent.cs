@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Reflection;
 using Eto.Forms;
 using Rasm.Rhino.Exchange;
@@ -49,9 +50,9 @@ public sealed record UiIntent<T> {
 
     public UiIntent<TNext> Map<TNext>(Func<T, TNext> project) =>
         new(
-            run: scope => Op.Of(name: nameof(Map)).Need(project).Bind(valid => run(arg: scope).Map(value => valid(arg: value))),
+            run: scope => Op.Of().Need(project).Bind(valid => run(arg: scope).Map(value => valid(arg: value))),
             interactive: Interactive,
-            scripted: Scripted.Map<Func<RhinoUi.Scope, Fin<TNext>>>(script => scope => Op.Of(name: nameof(Map)).Need(project).Bind(valid => script(arg: scope).Map(value => valid(arg: value)))));
+            scripted: Scripted.Map<Func<RhinoUi.Scope, Fin<TNext>>>(script => scope => Op.Of().Need(project).Bind(valid => script(arg: scope).Map(value => valid(arg: value)))));
 
     public UiIntent<T> WithScripted(Func<RhinoDoc, RunMode, Fin<T>> fallback) =>
         new(
@@ -60,7 +61,7 @@ public sealed record UiIntent<T> {
             scripted: Optional(fallback).Map<Func<RhinoUi.Scope, Fin<T>>>(project => scope => project(arg1: scope.Document, arg2: scope.Mode)));
 
     public UiIntent<T> WithScripted(Func<RhinoDoc, Fin<T>> fallback) =>
-        WithScripted(fallback: (document, _) => Op.Of(name: nameof(WithScripted)).Need(fallback).Bind(project => project(arg: document)));
+        WithScripted(fallback: (document, _) => Op.Of().Need(fallback).Bind(project => project(arg: document)));
 
     internal Fin<T> Run(RhinoUi.Scope scope) => run(arg: scope);
 }
@@ -78,31 +79,31 @@ public readonly record struct UiWindowHandle(uint DocumentSerialNumber, string W
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class UiIntent {
     public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run) =>
-        new(run: scope => Op.Of(name: nameof(Of)).Need(run).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)), interactive: true);
+        new(run: scope => Op.Of().Need(run).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)), interactive: true);
 
     public static UiIntent<T> Operation<T>(Func<RhinoDoc, RunMode, Fin<T>> run) =>
         OfScope(
-            run: scope => Op.Of(name: nameof(Operation)).Need(run).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)),
+            run: scope => Op.Of().Need(run).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)),
             interactive: false);
 
     public static UiIntent<T> Request<T>(UiRequest<T> request) =>
         OfScope(
-            run: scope => Op.Of(name: nameof(Request)).Need(request).Bind(valid => valid.Run(scope: scope)),
+            run: scope => Op.Of().Need(request).Bind(valid => valid.Run(scope: scope)),
             interactive: Optional(request).Map(static value => value.Interactive).IfNone(noneValue: false));
 
     public static UiIntent<Unit> Enqueue(Action run, string name = nameof(Enqueue)) =>
         OfScope(_ => RhinoUi.Enqueue(run: run, name: name), interactive: false);
 
     public static UiIntent<T> Window<T>(Dialog<T> dialog, UiWindowMode mode = UiWindowMode.Modal) =>
-        Request(name: nameof(Window), run: scope => Op.Of(name: nameof(Window)).Need(dialog).Bind(valid => mode switch {
+        Request(name: nameof(Window), run: scope => Op.Of().Need(dialog).Bind(valid => mode switch {
             // ShowSemiModal's parent is non-nullable Control and carries no button prerequisite — fall back to the doc main window when no Owner is set
             UiWindowMode.SemiModal => Fin.Succ(value: global::Rhino.UI.EtoExtensions.ShowSemiModal(valid, scope.Document, parent: scope.Parent ?? global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(scope.Document))),
             UiWindowMode.Modal => Fin.Succ(value: valid.ShowModal(owner: scope.Parent)),
-            _ => Fin.Fail<T>(error: Op.Of(name: nameof(Window)).InvalidInput()),
+            _ => Fin.Fail<T>(error: Op.Of().InvalidInput()),
         }));
 
     public static UiIntent<UiWindowHandle> Window(Form form, bool restoreLocation = false, bool savePosition = false) =>
-        Request(name: nameof(Window), run: scope => Op.Of(name: nameof(Window)).Need(form).Map(valid => {
+        Request(name: nameof(Window), run: scope => Op.Of().Need(form).Map(valid => {
             global::Rhino.UI.EtoExtensions.UseRhinoStyle(valid);
             bool restored = restoreLocation && global::Rhino.UI.EtoExtensions.RestorePosition(window: valid);
             _ = Op.SideWhen(savePosition, () => valid.Closed += (_, _) => global::Rhino.UI.EtoExtensions.SavePosition(window: valid));
@@ -114,34 +115,34 @@ public static partial class UiIntent {
         OfScope(_ => status.Apply());
 
     public static UiIntent<Unit> Redraw(RedrawTarget target) =>
-        OfScope(run: _ => RhinoUi.Protect(valid: () => Op.Of(name: nameof(Redraw)).Need(target).Map(valid => valid.Repaint())), interactive: false);
+        OfScope(run: _ => RhinoUi.Protect(valid: () => Op.Of().Need(target).Map(valid => valid.Repaint())), interactive: false);
 
     public static UiIntent<Unit> Float(RhinoView view, bool floating = true) =>
-        OfScope(run: _ => RhinoUi.Protect(valid: () => Op.Of(name: nameof(Float)).Need(view).Map(valid => Op.Side(() => valid.Floating = floating))), interactive: false);
+        OfScope(run: _ => RhinoUi.Protect(valid: () => Op.Of().Need(view).Map(valid => Op.Side(() => valid.Floating = floating))), interactive: false);
 
     public static UiIntent<T> Wait<T>(Func<Fin<T>> run) =>
-        OfScope(run: _ => RhinoUi.Protect(valid: () => Op.Of(name: nameof(Wait)).Need(run).Bind(valid => {
+        OfScope(run: _ => RhinoUi.Protect(valid: () => Op.Of().Need(run).Bind(valid => {
             using global::Rhino.UI.WaitCursor cursor = new();
             return valid();
         })), interactive: true);
 
     public static UiIntent<T> Progress<T>(UiProgressSpec spec, Func<UiProgress, Fin<T>> run) =>
-        OfScope(scope => Op.Of(name: nameof(Progress)).Need(run).Bind(valid => UiProgress.Use(document: scope.Document, spec: spec, run: valid)));
+        OfScope(scope => Op.Of().Need(run).Bind(valid => UiProgress.Use(document: scope.Document, spec: spec, run: valid)));
 
     public static UiIntent<T> Gumball<T>(UiGumballSpec spec, Func<UiGumball, Fin<T>> run, bool interactive = true) =>
-        OfScope(scope => Op.Of(name: nameof(Gumball)).Need(run).Bind(valid => UiGumball.Use(document: scope.Document, spec: spec, run: valid)), interactive: interactive);
+        OfScope(scope => Op.Of().Need(run).Bind(valid => UiGumball.Use(document: scope.Document, spec: spec, run: valid)), interactive: interactive);
 
     public static UiIntent<global::Rhino.UI.ShowMessageResult> Message(UiMessageSpec spec) =>
         Request(
             name: nameof(Message),
-            run: scope => guard(!string.IsNullOrWhiteSpace(value: spec.Message), Op.Of(name: nameof(Message)).InvalidInput()).ToFin()
+            run: scope => guard(!string.IsNullOrWhiteSpace(value: spec.Message), Op.Of().InvalidInput()).ToFin()
                 .Map(_ => global::Rhino.UI.Dialogs.ShowMessage(parent: scope.Parent, message: spec.Message, title: spec.Title, buttons: spec.Buttons, icon: spec.Icon, defaultButton: spec.DefaultButton, options: spec.Options, mode: spec.Mode)));
 
     public static UiIntent<Unit> Text(string body, string title = "") =>
         Request(
             name: nameof(Text),
-            run: _ => guard(!string.IsNullOrWhiteSpace(value: body), Op.Of(name: nameof(Text)).InvalidInput()).ToFin()
-                .Bind(_ => Op.Of(name: nameof(Text)).Catch(() => {
+            run: _ => guard(!string.IsNullOrWhiteSpace(value: body), Op.Of().InvalidInput()).ToFin()
+                .Bind(_ => Op.Of().Catch(() => {
                     global::Rhino.UI.Dialogs.ShowTextDialog(message: body, title: title ?? string.Empty);
                     return Fin.Succ(value: unit);
                 })));
@@ -151,7 +152,7 @@ public static partial class UiIntent {
             .Bind(choices => Picked(selected.Case switch {
                 T current => global::Rhino.UI.Dialogs.ShowListBox(title: title, message: message, items: choices.ToList(), selectedItem: current),
                 _ => global::Rhino.UI.Dialogs.ShowListBox(title: title, message: message, items: choices.ToList()),
-            }).Bind(result => result is T typed ? Fin.Succ(value: typed) : Fin.Fail<T>(error: Op.Of(name: nameof(Choice)).InvalidResult()))));
+            }).Bind(result => result is T typed ? Fin.Succ(value: typed) : Fin.Fail<T>(error: Op.Of().InvalidResult()))));
 
     public static UiIntent<Seq<string>> MultiChoice(string title, string message, IEnumerable<string> items, IEnumerable<string>? selected = null) =>
         Request(name: nameof(MultiChoice), run: _ => Items(values: items, name: nameof(MultiChoice))
@@ -162,9 +163,9 @@ public static partial class UiIntent {
                 defaults: [.. Optional(selected).Map(static current => toSeq(current)).IfNone(Seq<string>())])).Map(static result => toSeq(result))));
 
     public static UiIntent<Seq<bool>> Checklist(string title, string message, IEnumerable<string> items, IEnumerable<bool> states) =>
-        Request(name: nameof(Checklist), run: _ => (Items(values: items, name: nameof(Checklist)), Op.Of(name: nameof(Checklist)).Need(states).Map(static source => toSeq(source))).Apply(static (values, checks) => (Values: values, Checks: checks)).As().Bind(values => values switch {
+        Request(name: nameof(Checklist), run: _ => (Items(values: items, name: nameof(Checklist)), Op.Of().Need(states).Map(static source => toSeq(source))).Apply(static (values, checks) => (Values: values, Checks: checks)).As().Bind(values => values switch {
             (Seq<string> choices, Seq<bool> checks) when !choices.IsEmpty && choices.Count == checks.Count => Picked(global::Rhino.UI.Dialogs.ShowCheckListBox(title: title, message: message, items: (string[])[.. choices], checkState: (bool[])[.. checks])).Map(static result => toSeq(result)),
-            _ => Fin.Fail<Seq<bool>>(error: Op.Of(name: nameof(Checklist)).InvalidInput()),
+            _ => Fin.Fail<Seq<bool>>(error: Op.Of().InvalidInput()),
         }));
 
     public static UiIntent<Seq<(string Name, string Value)>> Properties(string title, string message, IEnumerable<(string Name, string Value)> values) =>
@@ -172,12 +173,12 @@ public static partial class UiIntent {
                 Picked(global::Rhino.UI.Dialogs.ShowPropertyListBox(title: title, message: message, items: (string[])[.. items.Map(static item => item.Name)], values: (string[])[.. items.Map(static item => item.Value)]))
                 .Bind(result => toSeq(result) switch {
                     Seq<string> updated when updated.Count == items.Count => Fin.Succ(value: items.Zip(updated).Map(static pair => (pair.First.Name, pair.Second))),
-                    _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of(name: nameof(Properties)).InvalidResult()),
+                    _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of().InvalidResult()),
                 })));
 
     public static UiIntent<int> ContextMenu(IEnumerable<string> items, System.Drawing.Point screenPoint, IEnumerable<int>? modes = null) =>
         Request(name: nameof(ContextMenu), run: _ => Items(values: items, name: nameof(ContextMenu)).Bind(menuItems => (menuItems, Optional(modes).Map(static value => toSeq(value)).IfNone(Seq<int>())) switch {
-            (Seq<string> entries, Seq<int> flags) when !flags.IsEmpty && flags.Count != entries.Count => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
+            (Seq<string> entries, Seq<int> flags) when !flags.IsEmpty && flags.Count != entries.Count => Fin.Fail<int>(error: Op.Of().InvalidInput()),
             (Seq<string> entries, Seq<int> flags) => global::Rhino.UI.Dialogs.ShowContextMenu(items: entries.AsIterable(), screenPoint: screenPoint, modes: (flags.IsEmpty ? entries.Map(static _ => 0) : flags).AsIterable()) switch {   // mode 0 = enabled (1 = disabled, 2 = separator) — default-1 rendered every no-modes item unclickable
                 int index when index >= 0 => Fin.Succ(value: index),
                 _ => Fin.Fail<int>(error: new Fault.Cancelled()),
@@ -192,7 +193,7 @@ public static partial class UiIntent {
             // native min/max constrain the spinbox, not the initial display — clamp the seed (always >= lower post-clamp) instead of rejecting an out-of-bounds value
             (double lower, double upper) when lower <= upper && (value = Math.Clamp(value, lower, upper)) >= lower =>
                 Picked(global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value, minimum: lower, maximum: upper), value),
-            (double, double) => Fin.Fail<double>(error: Op.Of(name: nameof(Number)).InvalidInput()),
+            (double, double) => Fin.Fail<double>(error: Op.Of().InvalidInput()),
             _ => Picked(global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value), value),
         });
 
@@ -203,7 +204,7 @@ public static partial class UiIntent {
                 Seq<int> selected = single.Selected.IfNone(Seq<int>());
                 int index = selected.IsEmpty ? -1 : selected[0];
                 return selected.Count switch {
-                    > 1 => Fin.Fail<UiLayerResult>(error: Op.Of(name: nameof(Layer)).InvalidInput()),
+                    > 1 => Fin.Fail<UiLayerResult>(error: Op.Of().InvalidInput()),
                     _ => global::Rhino.UI.Dialogs.ShowSelectLayerDialog(
                             layerIndex: ref index, dialogTitle: single.Title,
                             showNewLayerButton: single.ShowNewLayer,
@@ -243,7 +244,7 @@ public static partial class UiIntent {
         Request(name: nameof(Sun), run: scope => Picked(global::Rhino.UI.Dialogs.ShowSunDialog(sun: scope.Document.Lights.Sun), unit));
 
     public static UiIntent<Color4f> Color(UiColorSpec spec) =>
-        Dialog((parent, _) => Op.Of(name: nameof(Color)).Catch(() => {
+        Dialog((parent, _) => Op.Of().Catch(() => {
             Color4f color = spec.Initial;
             global::Rhino.UI.NamedColorList? named = spec.Named.Case switch { global::Rhino.UI.NamedColorList v => v, _ => null };
             return global::Rhino.UI.Dialogs.ShowColorDialog(parent: parent, color: ref color, allowAlpha: spec.AllowAlpha, namedColorList: named, colorCallback: spec.Changed)
@@ -259,32 +260,32 @@ public static partial class UiIntent {
         Of(
             name: nameof(Mesh),
             run: (document, _) =>
-                (Op.Of(name: nameof(Mesh)).Need(meshes).Bind(static source => toSeq(source).TraverseM(mesh => Op.Of(name: nameof(Mesh)).Need(mesh)).As()),
-                 Optional(colors).Map(static source => toSeq(source)).IfNone(Seq<DrawingColor>()).TraverseM(static color => guard(!color.IsEmpty, Op.Of(name: nameof(Mesh)).InvalidInput()).ToFin().Map(_ => color)).As())
+                (Op.Of().Need(meshes).Bind(static source => toSeq(source).TraverseM(mesh => Op.Of().Need(mesh)).As()),
+                 Optional(colors).Map(static source => toSeq(source)).IfNone(Seq<DrawingColor>()).TraverseM(static color => guard(!color.IsEmpty, Op.Of().InvalidInput()).ToFin().Map(_ => color)).As())
                 .Apply(static (geometry, swatches) => (Meshes: geometry, Colors: swatches))
                 .As()
                 .Bind(values =>
-                    from _ in guard(!values.Meshes.IsEmpty && size.Width > 0 && size.Height > 0, Op.Of(name: nameof(Mesh)).InvalidInput())
+                    from _ in guard(!values.Meshes.IsEmpty && size.Width > 0 && size.Height > 0, Op.Of().InvalidInput())
                     from colors in values.Colors.Count switch {
                         0 => Fin.Succ(value: values.Meshes.Map(_ => document.CreateDefaultAttributes().DrawColor(document))),
                         1 => Fin.Succ(value: values.Meshes.Map(_ => values.Colors[0])),
                         int count when count == values.Meshes.Count => Fin.Succ(value: values.Colors),
-                        _ => Fin.Fail<Seq<DrawingColor>>(error: Op.Of(name: nameof(Mesh)).InvalidInput()),
+                        _ => Fin.Fail<Seq<DrawingColor>>(error: Op.Of().InvalidInput()),
                     }
-                    from bitmap in Project(op: Op.Of(name: nameof(Mesh)), native: () => global::Rhino.UI.DrawingUtilities.CreateMeshPreviewImage(doc: document, meshes: values.Meshes, colors: colors, size: size))
+                    from bitmap in Project(op: Op.Of(), native: () => global::Rhino.UI.DrawingUtilities.CreateMeshPreviewImage(doc: document, meshes: values.Meshes, colors: colors, size: size))
                     select bitmap));
 
     public static UiIntent<Seq<Point2f[]>> Curve(Curve curve, Linetype linetype, DrawingSize size) =>
         Of(
             name: nameof(Curve),
             run: (_, _) =>
-                (Op.Of(name: nameof(Curve)).Need(curve),
-                 Op.Of(name: nameof(Curve)).Need(linetype))
+                (Op.Of().Need(curve),
+                 Op.Of().Need(linetype))
                 .Apply(static (validCurve, validLinetype) => (Curve: validCurve, Linetype: validLinetype))
                 .As()
                 .Bind(values =>
-                    from _ in guard(size.Width > 0 && size.Height > 0, Op.Of(name: nameof(Curve)).InvalidInput())
-                    from preview in Project(op: Op.Of(name: nameof(Curve)), native: () => global::Rhino.UI.DrawingUtilities.CreateCurvePreviewGeometry(curve: values.Curve, linetype: values.Linetype, width: size.Width, height: size.Height))
+                    from _ in guard(size.Width > 0 && size.Height > 0, Op.Of().InvalidInput())
+                    from preview in Project(op: Op.Of(), native: () => global::Rhino.UI.DrawingUtilities.CreateCurvePreviewGeometry(curve: values.Curve, linetype: values.Linetype, width: size.Width, height: size.Height))
                     select toSeq(preview)));
 
     public static UiIntent<CaptureResult> CaptureFrame(RhinoView view, CaptureFormat format, CaptureRecipe recipe = default) =>
@@ -294,46 +295,50 @@ public static partial class UiIntent {
             rewrite: static (decor, _) => decor).Render(
             view: view,
             viewport: recipe.Viewport(view: view),
-            project: settings => CaptureCodec.Of(format: format).Render(settings: settings, op: Op.Of(name: nameof(CaptureFrame))),
-            op: Op.Of(name: nameof(CaptureFrame))));
+            project: settings => format.Render(settings: settings, op: Op.Of()),
+            op: Op.Of()));
+
+    // POLICY_VALUES: the (output type, scaleDown) pair is the policy key; the row is the native loader, so the bool moves into the key and one lookup replaces the 3-arm typeof switch + dual scaleDown ternary. Image has no scale-down variant — both rows resolve to ImageFromResource, made explicit by the table.
+    private static readonly FrozenDictionary<(Type Output, bool ScaleDown), Func<string, DrawingSize, Assembly, object?>> ResourceLoaders =
+        new Dictionary<(Type, bool), Func<string, DrawingSize, Assembly, object?>> {
+            [(typeof(DrawingBitmap), false)] = static (name, size, asm) => global::Rhino.UI.DrawingUtilities.BitmapFromIconResource(name, size, asm),
+            [(typeof(DrawingBitmap), true)] = static (name, size, asm) => global::Rhino.UI.DrawingUtilities.LoadBitmapWithScaleDown(iconName: name, sizeDesired: size.Width, assembly: asm),
+            [(typeof(System.Drawing.Icon), false)] = static (name, size, asm) => global::Rhino.UI.DrawingUtilities.IconFromResource(name, size, asm),
+            [(typeof(System.Drawing.Icon), true)] = static (name, size, asm) => global::Rhino.UI.DrawingUtilities.LoadIconWithScaleDown(iconName: name, sizeDesired: size.Width, assembly: asm),
+            [(typeof(System.Drawing.Image), false)] = static (name, _, asm) => global::Rhino.UI.DrawingUtilities.ImageFromResource(name, asm),
+            [(typeof(System.Drawing.Image), true)] = static (name, _, asm) => global::Rhino.UI.DrawingUtilities.ImageFromResource(name, asm),
+        }.ToFrozenDictionary();
 
     public static UiIntent<TOut> Resource<TOut>(string resourceName, DrawingSize size, Assembly assembly, bool scaleDown = false) where TOut : class =>
         Of(
             name: nameof(Resource),
             run: (_, _) =>
-                from name in Op.Of(name: nameof(Resource)).AcceptText(value: resourceName).MapFail(_ => Op.Of(name: nameof(Resource)).InvalidInput())
-                from validAssembly in Op.Of(name: nameof(Resource)).Need(assembly)
-                from _ in guard(size.Width > 0 && size.Height > 0, Op.Of(name: nameof(Resource)).InvalidInput())
-                from resource in typeof(TOut) switch {
-                    Type t when t == typeof(DrawingBitmap) => Project(op: Op.Of(name: nameof(Resource)), native: () => (TOut?)(object?)(scaleDown
-                        ? global::Rhino.UI.DrawingUtilities.LoadBitmapWithScaleDown(iconName: name, sizeDesired: size.Width, assembly: validAssembly)
-                        : global::Rhino.UI.DrawingUtilities.BitmapFromIconResource(name, size, validAssembly))),
-                    Type t when t == typeof(System.Drawing.Icon) => Project(op: Op.Of(name: nameof(Resource)), native: () => (TOut?)(object?)(scaleDown
-                        ? global::Rhino.UI.DrawingUtilities.LoadIconWithScaleDown(iconName: name, sizeDesired: size.Width, assembly: validAssembly)
-                        : global::Rhino.UI.DrawingUtilities.IconFromResource(name, size, validAssembly))),
-                    Type t when t == typeof(System.Drawing.Image) => Project(op: Op.Of(name: nameof(Resource)), native: () => (TOut?)(object?)global::Rhino.UI.DrawingUtilities.ImageFromResource(name, validAssembly)),
-                    _ => Fin.Fail<TOut>(error: Op.Of(name: nameof(Resource)).Unsupported(geometryType: typeof(TOut), outputType: typeof(TOut))),
-                }
+                from name in Op.Of().AcceptText(value: resourceName).MapFail(_ => Op.Of().InvalidInput())
+                from validAssembly in Op.Of().Need(assembly)
+                from _ in guard(size.Width > 0 && size.Height > 0, Op.Of().InvalidInput())
+                from resource in ResourceLoaders.TryGetValue((typeof(TOut), scaleDown), out Func<string, DrawingSize, Assembly, object?>? load)
+                    ? Project(op: Op.Of(), native: () => (TOut?)load(arg1: name, arg2: size, arg3: validAssembly))
+                    : Fin.Fail<TOut>(error: Op.Of().Unsupported(geometryType: typeof(TOut), outputType: typeof(TOut)))
                 select resource);
 
     public static UiIntent<DrawingBitmap> Svg(string svg, int width, int height) =>
         Of(
             name: nameof(Svg),
             run: (_, _) =>
-                from source in Op.Of(name: nameof(Svg)).AcceptText(value: svg).MapFail(_ => Op.Of(name: nameof(Svg)).InvalidInput())
-                from _ in guard(width > 0 && height > 0, Op.Of(name: nameof(Svg)).InvalidInput())
-                from bitmap in Project(op: Op.Of(name: nameof(Svg)), native: () => global::Rhino.UI.DrawingUtilities.BitmapFromSvg(svg: source, width: width, height: height, adjustForDarkMode: global::Rhino.Runtime.HostUtils.RunningInDarkMode))
+                from source in Op.Of().AcceptText(value: svg).MapFail(_ => Op.Of().InvalidInput())
+                from _ in guard(width > 0 && height > 0, Op.Of().InvalidInput())
+                from bitmap in Project(op: Op.Of(), native: () => global::Rhino.UI.DrawingUtilities.BitmapFromSvg(svg: source, width: width, height: height, adjustForDarkMode: global::Rhino.Runtime.HostUtils.RunningInDarkMode))
                 select bitmap);
 
     internal static UiIntent<T> OfScope<T>(Func<RhinoUi.Scope, Fin<T>> run, bool interactive = false, Option<Func<RhinoUi.Scope, Fin<T>>> scripted = default) =>
         new(run: run, interactive: interactive, scripted: scripted);
 
     internal static UiIntent<T> Dialog<T>(Func<Window?, RhinoDoc, Fin<T>> show) =>
-        Request(name: nameof(Dialog), run: scope => Op.Of(name: nameof(Dialog)).Need(show).Bind(valid => valid(arg1: scope.Parent, arg2: scope.Document)));
+        Request(name: nameof(Dialog), run: scope => Op.Of().Need(show).Bind(valid => valid(arg1: scope.Parent, arg2: scope.Document)));
 
     internal static UiIntent<Seq<FileEndpoint>> ExchangeFile(FilePrompt prompt) =>
         Request(name: nameof(ExchangeFile), run: scope =>
-            from spec in Op.Of(name: nameof(ExchangeFile)).Need(prompt)
+            from spec in Op.Of().Need(prompt)
             from paths in spec.Mode switch {
                 FilePromptMode.Save => new global::Rhino.UI.SaveFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty) } switch {
                     global::Rhino.UI.SaveFileDialog dialog => Picked(dialog.ShowSaveDialog(), Seq(dialog.FileName)),
@@ -347,7 +352,7 @@ public static partial class UiIntent {
                         _ => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
                     },
                 },
-                _ => Fin.Fail<Seq<string>>(error: Op.Of(name: nameof(ExchangeFile)).InvalidInput()),
+                _ => Fin.Fail<Seq<string>>(error: Op.Of().InvalidInput()),
             }
             from endpoints in paths.TraverseM(path => FileEndpoint.From(path: path, name: spec.Name, write: spec.Write)).As()
             select endpoints);

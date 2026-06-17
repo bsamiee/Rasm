@@ -20,6 +20,22 @@ public sealed partial class PanelEventKind {
     public static readonly PanelEventKind Hidden = new(key: 2, emit: static (panelId, serial) => Fin.Succ(value: Op.Side(() => global::Rhino.UI.Panels.OnShowPanel(panelId: panelId, documentSerialNumber: serial.IfNone(0u), show: false))));
     public static readonly PanelEventKind Closed = new(key: 3, emit: static (panelId, serial) => Fin.Succ(value: Op.Side(() => global::Rhino.UI.Panels.OnClosePanel(panelId: panelId, documentSerialNumber: serial.IfNone(0u)))));
 
+    // One declared kind<->phase correspondence keyed on the smart-enum key; both the subscription-phase map and the native-state projection read it so the 1<->Shown/2<->Hidden/3<->Closed law lives once.
+    internal Option<WatchPhase> Watch => Key switch {
+        1 => Some(WatchPhase.PanelShown),
+        2 => Some(WatchPhase.PanelHidden),
+        3 => Some(WatchPhase.PanelClosed),
+        _ => Option<WatchPhase>.None,
+    };
+
+    internal static PanelEventKind FromPanelState(WatchPanelState state) =>
+        state switch {
+            WatchPanelState.Shown => Shown,
+            WatchPanelState.Hidden => Hidden,
+            WatchPanelState.Closed => Closed,
+            _ => None,
+        };
+
     [UseDelegateFromConstructor]
     internal partial Fin<Unit> Emit(Guid panelId, Option<uint> documentSerial);
 }
@@ -40,18 +56,52 @@ public abstract partial record PanelIcon {
 
     public virtual string? ResourceName => null;
     internal Fin<Unit> Register(global::Rhino.PlugIns.PlugIn plugin, Type type, string caption, global::Rhino.UI.PanelType mode) =>
-        Switch(
-            context: (Plugin: plugin, Type: type, Caption: caption, Mode: mode),
-            native: static (context, icon) => Op.Of(name: nameof(Native)).Need(icon.Value).Bind(value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(context.Plugin, context.Type, context.Caption, value, context.Mode); return Fin.Succ(value: unit); })),
-            standardResource: static (context, resource) => Op.Of(name: nameof(StandardResource)).AcceptText(value: resource.Name).MapFail(static _ => Op.Of(name: nameof(StandardResource)).InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugIn: context.Plugin, type: context.Type, caption: context.Caption, iconAssembly: null, iconResourceId: name, panelType: context.Mode); return Fin.Succ(value: unit); })),
-            assemblyResource: static (context, resource) => Op.Of(name: nameof(AssemblyResource)).AcceptText(value: resource.Name).MapFail(static _ => Op.Of(name: nameof(AssemblyResource)).InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(context.Plugin, context.Type, context.Caption, resource.Assembly, name, context.Mode); return Fin.Succ(value: unit); })));
+        Dispatch(
+            onNative: icon => { global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, icon, mode); return Fin.Succ(value: unit); },
+            onResource: (name, assembly) => { global::Rhino.UI.Panels.RegisterPanel(plugIn: plugin, type: type, caption: caption, iconAssembly: assembly.Case as ReflectionAssembly, iconResourceId: name, panelType: mode); return Fin.Succ(value: unit); });
 
     internal Fin<Unit> Change(Type type) =>
+        Dispatch(
+            onNative: icon => { global::Rhino.UI.Panels.ChangePanelIcon(type, icon); return Fin.Succ(value: unit); },
+            onResource: (name, _) => { global::Rhino.UI.Panels.ChangePanelIcon(type, name); return Fin.Succ(value: unit); });
+
+    // The register-vs-change terminal is the only variant across six near-identical arms; thread it as a captured delegate so the icon-case preamble (text-accept + native marshal) lives once (DERIVED_LOGIC).
+    private Fin<Unit> Dispatch(Func<DrawingIcon, Fin<Unit>> onNative, Func<string, Option<ReflectionAssembly>, Fin<Unit>> onResource) =>
         Switch(
-            context: type,
-            native: static (context, icon) => Op.Of(name: nameof(Native)).Need(icon.Value).Bind(value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(context, value); return Fin.Succ(value: unit); })),
-            standardResource: static (context, resource) => Op.Of(name: nameof(StandardResource)).AcceptText(value: resource.Name).MapFail(static _ => Op.Of(name: nameof(StandardResource)).InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(context, name); return Fin.Succ(value: unit); })),
-            assemblyResource: static (context, resource) => Op.Of(name: nameof(AssemblyResource)).AcceptText(value: resource.Name).MapFail(static _ => Op.Of(name: nameof(AssemblyResource)).InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(context, name); return Fin.Succ(value: unit); })));
+            context: (OnNative: onNative, OnResource: onResource),
+            native: static (terminal, icon) => Op.Of(name: nameof(Native)).Need(icon.Value).Bind(value => RhinoUi.Protect(valid: () => terminal.OnNative(arg: value))),
+            standardResource: static (terminal, resource) => Op.Of(name: nameof(StandardResource)).AcceptText(value: resource.Name).MapFail(static _ => Op.Of(name: nameof(StandardResource)).InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => terminal.OnResource(arg1: name, arg2: Option<ReflectionAssembly>.None))),
+            assemblyResource: static (terminal, resource) => Op.Of(name: nameof(AssemblyResource)).AcceptText(value: resource.Name).MapFail(static _ => Op.Of(name: nameof(AssemblyResource)).InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => terminal.OnResource(arg1: name, arg2: Some(resource.Assembly)))));
+}
+
+// Native dock-open returns Guid.Empty both for a genuine failure (non-Mac) and for the macOS degenerate path where the dock target is silently ignored and the panel still opens plain. The mask `id != Guid.Empty || IsMacOS()` erased that distinction; PanelOpened dispatches it as explicit cases — DockUnsupported degrades to a plain open, Unknown is the genuine failure.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PanelOpened {
+    private PanelOpened() { }
+    public sealed record Docked(Guid DockBar) : PanelOpened;
+    public sealed record Floated : PanelOpened;
+    public sealed record DockUnsupported : PanelOpened;
+    public sealed record Handled : PanelOpened;
+    public sealed record Unknown : PanelOpened;
+
+    internal static PanelOpened FromDock(Guid result) =>
+        (result != Guid.Empty, OperatingSystem.IsMacOS()) switch {
+            (true, _) => new Docked(DockBar: result),
+            (false, true) => new DockUnsupported(),
+            _ => new Unknown(),
+        };
+    internal static PanelOpened FromFlag(bool ok) => ok ? new Handled() : new Unknown();
+
+    internal Fin<Unit> Settle(Type panelType, bool selected) => Switch(
+        state: (Type: panelType, Selected: selected),
+        docked: static (_, _) => Fin.Succ(value: unit),
+        floated: static (_, _) => Fin.Succ(value: unit),
+        handled: static (_, _) => Fin.Succ(value: unit),
+        dockUnsupported: static (ctx, _) => {   // macOS ignores the dock target — degrade to a plain open rather than masquerading the empty result as success
+            global::Rhino.UI.Panels.OpenPanel(panelType: ctx.Type, makeSelectedPanel: ctx.Selected);
+            return Fin.Succ(value: unit);
+        },
+        unknown: static (_, _) => Fin.Fail<Unit>(error: Op.Of().InvalidResult()));
 }
 
 [Union(SwitchMapStateParameterName = "context")]
@@ -59,14 +109,16 @@ public abstract partial record PanelPlacement {
     public sealed record Auto : PanelPlacement;
     public sealed record AtDockBar(Guid DockBarId) : PanelPlacement;
     public sealed record AsSibling(Guid SiblingPanelId) : PanelPlacement;
+    public sealed record FloatCase(global::Rhino.UI.Panels.FloatPanelMode Mode) : PanelPlacement;
 
     private PanelPlacement() { }
 
     public static PanelPlacement Default { get; } = new Auto();
+    public static PanelPlacement Floating(global::Rhino.UI.Panels.FloatPanelMode mode = global::Rhino.UI.Panels.FloatPanelMode.Show) => new FloatCase(Mode: mode);
     public static Fin<PanelPlacement> Dock(Guid dockBarId) =>
-        guard(dockBarId != Guid.Empty, Op.Of(name: nameof(Dock)).InvalidInput()).ToFin().Map(_ => (PanelPlacement)new AtDockBar(dockBarId));
+        guard(dockBarId != Guid.Empty, Op.Of().InvalidInput()).ToFin().Map(_ => (PanelPlacement)new AtDockBar(dockBarId));
     public static Fin<PanelPlacement> Sibling(Guid panelId) =>
-        guard(panelId != Guid.Empty, Op.Of(name: nameof(Sibling)).InvalidInput()).ToFin().Map(_ => (PanelPlacement)new AsSibling(panelId));
+        guard(panelId != Guid.Empty, Op.Of().InvalidInput()).ToFin().Map(_ => (PanelPlacement)new AsSibling(panelId));
 
     internal Fin<Unit> Open(Type panelType, Guid panelId, bool selected) =>
         RhinoUi.Protect(valid: () => Switch<(Type Type, Guid Id, bool Selected), Fin<Unit>>(
@@ -75,11 +127,13 @@ public abstract partial record PanelPlacement {
                 global::Rhino.UI.Panels.OpenPanel(panelType: ctx.Type, makeSelectedPanel: ctx.Selected);
                 return Fin.Succ(value: unit);
             },
-            atDockBar: static (ctx, dock) => global::Rhino.UI.Panels.OpenPanel(dockBarId: dock.DockBarId, panelType: ctx.Type, makeSelectedPanel: ctx.Selected) switch {
-                Guid id when id != Guid.Empty || OperatingSystem.IsMacOS() => Fin.Succ(value: unit),
-                _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()),
-            },
-            asSibling: static (ctx, sibling) => Op.Of(name: nameof(Open)).Confirm(success: global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: ctx.Id, siblingPanelId: sibling.SiblingPanelId, makeSelectedPanel: ctx.Selected))));
+            atDockBar: static (ctx, dock) =>
+                PanelOpened.FromDock(result: global::Rhino.UI.Panels.OpenPanel(dockBarId: dock.DockBarId, panelType: ctx.Type, makeSelectedPanel: ctx.Selected))
+                    .Settle(panelType: ctx.Type, selected: ctx.Selected),
+            asSibling: static (ctx, sibling) => Op.Of().Confirm(success: global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: ctx.Id, siblingPanelId: sibling.SiblingPanelId, makeSelectedPanel: ctx.Selected)),
+            floatCase: static (ctx, programmatic) =>
+                PanelOpened.FromFlag(ok: global::Rhino.UI.Panels.FloatPanel(panelType: ctx.Type, mode: programmatic.Mode))
+                    .Settle(panelType: ctx.Type, selected: ctx.Selected)));
 }
 
 public abstract record UiChromeOp<T> {
@@ -172,15 +226,15 @@ public abstract record UiChromeOp<T> {
         select ((Func<TBar>)(() => { TBar bar = create(); _ = items.Iter(item => add(arg1: bar, arg2: item)); return bar; }))();
 
     private static Fin<global::Rhino.UI.ToolbarFile> FindFile(Option<Guid> fileId, Option<string> path, Option<string> name, bool ignoreCase) =>
-        Op.Of(name: nameof(FindFile)).Need(
+        Op.Of().Need(
             fileId.Bind(id => toSeq(RhinoApp.ToolbarFiles).Choose(Optional).Find(file => file.Id == id)) |
             path.Bind(value => Optional(RhinoApp.ToolbarFiles.FindByPath(path: value))) |
             name.Bind(value => Optional(RhinoApp.ToolbarFiles.FindByName(name: value, ignoreCase: ignoreCase))));
 
     private static Fin<string> NonBlank(Option<string> value) =>
-        Op.Of(name: nameof(NonBlank)).Need(value)
-          .Bind(text => Op.Of(name: nameof(NonBlank)).AcceptText(value: text)
-              .MapFail(_ => Op.Of(name: nameof(NonBlank)).InvalidInput()));
+        Op.Of().Need(value)
+          .Bind(text => Op.Of().AcceptText(value: text)
+              .MapFail(_ => Op.Of().InvalidInput()));
 
     private static Fin<PanelChromeSnapshot> Snapshot() {
         Seq<global::Rhino.UI.ToolbarFile> files = toSeq(RhinoApp.ToolbarFiles).Choose(Optional);
@@ -262,10 +316,10 @@ public sealed record UiAction(
         this with { Kind = UiActionKind.Radio, State = Some(state) };
 
     internal Fin<Eto.Forms.Command> ToCommand(RhinoDoc document) =>
-        from validDocument in Op.Of(name: nameof(ToCommand)).Need(document)
-        from action in Op.Of(name: nameof(ToCommand)).Need(Run)
-        from id in Op.Of(name: nameof(ToCommand)).AcceptText(value: Id).MapFail(_ => Op.Of(name: nameof(ToCommand)).InvalidInput())
-        from text in Op.Of(name: nameof(ToCommand)).AcceptText(value: Text).MapFail(_ => Op.Of(name: nameof(ToCommand)).InvalidInput())
+        from validDocument in Op.Of().Need(document)
+        from action in Op.Of().Need(Run)
+        from id in Op.Of().AcceptText(value: Id).MapFail(_ => Op.Of().InvalidInput())
+        from text in Op.Of().AcceptText(value: Text).MapFail(_ => Op.Of().InvalidInput())
         select ((Func<Eto.Forms.Command>)(() => {
             Eto.Forms.Command command = new() { ID = id, MenuText = text, ToolBarText = text, ToolTip = ToolTip.IfNone(text), Enabled = Kind != UiActionKind.Separator };
             _ = Image.Iter(active => command.Image = active);
@@ -295,8 +349,8 @@ public sealed record UiAction(
     private static Seq<MenuItem> OneMenu(MenuItem item) => Seq(item);
 
     private Fin<ButtonMenuItem> ToSubMenu(RhinoDoc document) =>
-        from id in Op.Of(name: nameof(ToSubMenu)).AcceptText(value: Id).MapFail(_ => Op.Of(name: nameof(ToSubMenu)).InvalidInput())
-        from text in Op.Of(name: nameof(ToSubMenu)).AcceptText(value: Text).MapFail(_ => Op.Of(name: nameof(ToSubMenu)).InvalidInput())
+        from id in Op.Of().AcceptText(value: Id).MapFail(_ => Op.Of().InvalidInput())
+        from text in Op.Of().AcceptText(value: Text).MapFail(_ => Op.Of().InvalidInput())
         from children in Children.TraverseM(child => child.ToMenuItems(document: document)).As().Map(static groups => groups.Bind(static item => item))
         select ((Func<ButtonMenuItem>)(() => {
             ButtonMenuItem item = new() { ID = id, Text = text, ToolTip = ToolTip.IfNone(text) };
@@ -372,12 +426,12 @@ public readonly record struct PanelMenuState(
         Atom(HashMap<(Guid File, Guid Menu, Guid Item), Func<PanelMenuState, Fin<PanelMenuState>>>());
 
     internal static Fin<Unit> Bind(global::Rhino.UI.RuiUpdateUi ui, Func<PanelMenuState, Fin<PanelMenuState>> update) =>
-        from source in Op.Of(name: nameof(Bind)).Need(Of(ui: ui))
-        from state in Op.Of(name: nameof(Bind)).Need(update).Bind(valid => valid(arg: source))
+        from source in Op.Of().Need(Of(ui: ui))
+        from state in Op.Of().Need(update).Bind(valid => valid(arg: source))
         select state.Apply(ui: ui);
 
     internal static Fin<Unit> BindMany(Seq<(Guid File, Guid Menu, Guid Item)> ids, Func<PanelMenuState, Fin<PanelMenuState>> update) =>
-        Op.Of(name: nameof(BindMany)).Need(update).Bind(valid =>
+        Op.Of().Need(update).Bind(valid =>
             ids.Filter(static id => id.File != Guid.Empty && id.Menu != Guid.Empty && id.Item != Guid.Empty)
                 .TraverseM(id => RhinoUi.Protect(valid: () => BindOne(id: id, update: valid))).As().Map(static _ => unit));
 
@@ -426,7 +480,7 @@ public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
 
     internal static Fin<PanelIdentity> PanelIdentityOf<TPanel>() where TPanel : RasmPanel {
         Type type = typeof(TPanel);
-        Op op = Op.Of(name: nameof(PanelIdentityOf));
+        Op op = Op.Of();
         return
             from _ in guard(
                 type.GetConstructor(types: [typeof(uint)]) is not null ||
@@ -569,23 +623,13 @@ public static class PanelOp {
             from valid in Op.Of(name: nameof(Watch)).Need(change)
             from body in Op.Of(name: nameof(Watch)).Need(run)
             let serial = scope.Document.RuntimeSerialNumber
-            let activePhases = phases.IsEmpty   // empty = all three; otherwise map each PanelEventKind to its WatchPhase via the kind key
+            let activePhases = phases.IsEmpty   // empty = all three; otherwise project each PanelEventKind to its WatchPhase column
                 ? Seq(WatchPhase.PanelShown, WatchPhase.PanelHidden, WatchPhase.PanelClosed)
-                : phases.Choose(static kind => kind.Key switch {
-                    1 => Some(WatchPhase.PanelShown),
-                    2 => Some(WatchPhase.PanelHidden),
-                    3 => Some(WatchPhase.PanelClosed),
-                    _ => Option<WatchPhase>.None,
-                })
+                : phases.Choose(static kind => kind.Watch)
             from subscription in RhinoUi.Protect(valid: () => {
                 Subscription? box = null;   // forward ref so an `until` match can self-detach mid-run
                 Fin<Unit> Fire(WatchPayload.Panel host, uint documentSerial) {
-                    PanelEvent local = host.State switch {
-                        WatchPanelState.Shown => new PanelEvent(Kind: PanelEventKind.Shown, Id: host.Id, DocumentSerial: Some(documentSerial)),
-                        WatchPanelState.Hidden => new PanelEvent(Kind: PanelEventKind.Hidden, Id: host.Id, DocumentSerial: Some(documentSerial)),
-                        WatchPanelState.Closed => new PanelEvent(Kind: PanelEventKind.Closed, Id: host.Id, DocumentSerial: Some(documentSerial)),
-                        _ => new PanelEvent(Kind: PanelEventKind.None, Id: host.Id, DocumentSerial: Some(documentSerial)),
-                    };
+                    PanelEvent local = new(Kind: PanelEventKind.FromPanelState(state: host.State), Id: host.Id, DocumentSerial: Some(documentSerial));
                     return valid(arg: local).Map(_ => Optional(until).Filter(predicate => predicate(arg: local)).Iter(_ => box?.Dispose()));
                 }
                 Fin<Unit> Deliver(WatchEvent native) =>

@@ -180,7 +180,7 @@ public partial record CanvasResult {
     public sealed record WindowResult(CanvasWindowSnapshot Window) : CanvasResult;
     public sealed record DetailResult(CanvasDetailSnapshot Detail) : CanvasResult;
     public sealed record SnapFeedbackResult(CanvasSnapFeedbackSnapshot Feedback) : CanvasResult;
-    public sealed record FocusResult(Option<string> FocusedNomen) : CanvasResult;
+    public sealed record FocusResult(Option<string> FocusObjectType) : CanvasResult;
     // Exactly one live native preferences widget is populated; callers own show/dispose, never a snapshot read.
     public sealed record SnapSettingsResult(Option<Form> Form, Option<Control> Control) : CanvasResult;
     public sealed record SubscriptionResult(Subscription Subscription) : CanvasResult;
@@ -529,7 +529,7 @@ internal static partial class UiRail {
                                 return CanvasResult.Unit;
                             })))),
             focusCase: static _ => GhUi.Canvas(run: static scope =>
-                scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.FocusResult(FocusedNomen: FocusNomenOf(canvas: canvas)))),
+                scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.FocusResult(FocusObjectType: FocusObjectTypeOf(canvas: canvas)))),
             detailCase: static _ => GhUi.Canvas(run: static scope =>
                 scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.DetailResult(
                     Detail: new CanvasDetailSnapshot(
@@ -950,12 +950,8 @@ internal static partial class UiRail {
     private static Seq<PointF> ProbeLattice(PointF centre, float radius, ProbeMode? mode = null) =>
         toSeq((mode ?? ProbeMode.Ring).Offsets).Map(offset => new PointF(x: centre.X + (offset.Dx * radius), y: centre.Y + (offset.Dy * radius)));
 
-    // Only IInteraction carries domain Nomen; native sentinel types stay Option.None.
-    internal static Option<string> FocusNomenOf(GhCanvas canvas) =>
-        Optional(canvas.FocusObject).Bind(static target => target switch {
-            IInteraction interaction => Optional(interaction.Nomen.Name),
-            _ => Option<string>.None,
-        });
+    internal static Option<string> FocusObjectTypeOf(GhCanvas canvas) =>
+        Optional(canvas.FocusObject).Map(static focus => focus.GetType().Name);
 
     private static CanvasInteractionPolicy InteractionOf(GhCanvas canvas, Option<GhDocument> document = default) =>
         CanvasInteractionPolicy.Create(

@@ -4,13 +4,13 @@ Typed dataset refs, columnar lazy/streaming scans across engines, columnar egres
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                |
-| :-----: | :-------- | :---------------------------------------------------- |
-|   [1]   | DATASET   | the dataset ref owner discriminating by source shape  |
-|   [2]   | SCAN      | engine scan plans, columnar egress, the query receipt |
-|   [3]   | LAKEHOUSE | the Delta lakehouse owner: write/read/time-travel/optimize/vacuum/CDF |
+| [INDEX] | [CLUSTER] | [OWNS]                                                                           |
+| :-----: | :-------- | :------------------------------------------------------------------------------- |
+|   [1]   | DATASET   | the dataset ref owner discriminating by source shape                             |
+|   [2]   | SCAN      | engine scan plans, columnar egress, the query receipt                            |
+|   [3]   | LAKEHOUSE | the Delta lakehouse owner: write/read/time-travel/optimize/vacuum/CDF            |
 |   [4]   | QUERY     | the relational query engine over one `QuerySpec` axis (duckdb sql/rel, narwhals) |
-|   [5]   | QUALITY   | the data-quality validation owner over pandera + the schema claim receipt |
+|   [5]   | QUALITY   | the data-quality validation owner over pandera + the schema claim receipt        |
 
 ## [2]-[DATASET]
 

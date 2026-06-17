@@ -136,7 +136,7 @@ public static class Archive {
         DepthPolicy policy,
         bool flatLeaves,
         Op key) =>
-        DefinitionId.From(value: def.Id, key: key).ToOption().Map(defId => {
+        DefinitionId.FromOption(value: def.Id).Map(defId => {
             ImmutableArray<DefinitionId> nextPath = frame.Path.Add(item: defId);
             Seq<DefinitionWalkNode> prefix = flatLeaves
                 ? Seq<DefinitionWalkNode>()

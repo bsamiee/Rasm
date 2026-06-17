@@ -124,7 +124,8 @@ public readonly record struct FileResourceEntry(
     Option<Guid> PlugInId = default,
     Option<Guid> RenderEngineId = default,
     Option<Guid> GroupId = default,
-    Option<string> Source = default);
+    Option<string> Source = default,
+    Option<ulong> Size = default);
 
 public readonly record struct FileResourceEdge(
     DocumentResourceKind FromKind,
@@ -168,7 +169,7 @@ public readonly record struct FileResourceGraph(
             .Bind(values => Stat.Of(values: values, key: op));
 
     public Fin<Seq<FileIssue>> Validate(FileArchiveSource source, IoScheduler scheduler) {
-        Op op = Op.Of(name: nameof(Validate));
+        Op op = Op.Of();
         Option<string> folder = source switch {
             FileArchiveSource.Path path => Optional(IOPath.GetDirectoryName(path: path.Value.Path)),
             _ => Option<string>.None,
@@ -243,7 +244,7 @@ internal static class FileArchiveOps {
         select result;
 
     internal static Fin<FileReport> Read(FileArchiveSource source, ArchiveProfile profile) =>
-        from archive in UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Read)), use: (endpoint, model, log) => Snapshot(source: source, model: model, profile: profile).Map(result => (Endpoint: endpoint, result.Archive, result.Issues, Log: log)))
+        from archive in UseArchive(source: source, profile: profile, op: Op.Of(), use: (endpoint, model, log) => Snapshot(source: source, model: model, profile: profile).Map(result => (Endpoint: endpoint, result.Archive, result.Issues, Log: log)))
         select FileReport.Of(
             phase: FilePhase.ArchiveRead,
             source: archive.Endpoint,
@@ -254,12 +255,12 @@ internal static class FileArchiveOps {
             archive: Some(archive.Archive));
 
     internal static Fin<FileReport> Extract(FileArchiveSource source, FileEndpoint target, ArchiveProfile profile) =>
-        from folder in target.Folder(op: Op.Of(name: nameof(Extract)))
+        from folder in target.Folder(op: Op.Of())
         let full = profile with { Slice = ArchiveSlice.Full }
-        from extracted in UseArchive(source: source, profile: full, op: Op.Of(name: nameof(Extract)), use: (endpoint, model, log) =>
+        from extracted in UseArchive(source: source, profile: full, op: Op.Of(), use: (endpoint, model, log) =>
                 Rows(() => model.EmbeddedFiles)
                 .Filter(file => profile.Includes(file: file.Filename))
-                .TraverseM(file => ExtractFile(file: file, folder: folder, op: Op.Of(name: nameof(Extract))))
+                .TraverseM(file => ExtractFile(file: file, folder: folder, op: Op.Of()))
                 .As()
                 .Map(paths => (Endpoint: endpoint, Paths: paths, Log: log)))
         select FileReport.Of(
@@ -272,9 +273,9 @@ internal static class FileArchiveOps {
             receipt: Some(DocumentReceipt.Resources(changes: extracted.Paths.Map(static endpoint => DocumentResourceKind.EmbeddedFile.Change(name: endpoint.Path)))));
 
     internal static Fin<FileReport> Update(FileArchiveSource source, FileEndpoint target, ArchiveUpdate update, ArchiveProfile profile) =>
-        from fmt3dm in FileFormat.KnownFormat(key: "3dm", op: Op.Of(name: nameof(Update)))
-        from output in target.WithFormat(format: fmt3dm).Output(op: Op.Of(name: nameof(Update)))
-        let op = Op.Of(name: nameof(Update))
+        from fmt3dm in FileFormat.KnownFormat(key: "3dm", op: Op.Of())
+        from output in target.WithFormat(format: fmt3dm).Output(op: Op.Of())
+        let op = Op.Of()
         from result in UseArchive(source: source, profile: profile with { Slice = ArchiveSlice.Full }, op: op, use: (endpoint, model, readLog) =>
             from metadataChange in update.Metadata.Case switch {
                 FileArchiveMetadataPatch patch => op.Catch(() => {
@@ -332,21 +333,21 @@ internal static class FileArchiveOps {
             receipt: Some(result.Receipt));
 
     internal static Fin<FileArchiveMetadata> Inspect(FileEndpoint source) =>
-        from path in source.Input(op: Op.Of(name: nameof(Inspect)))
+        from path in source.Input(op: Op.Of())
         from metadata in UseArchive(
             source: new FileArchiveSource.Path(Value: path),
             profile: ArchiveProfile.Full with { Projection = FileArchiveProjection.Metadata },
-            op: Op.Of(name: nameof(Inspect)),
+            op: Op.Of(),
             use: (_, model, _) => Metadata(source: new FileArchiveSource.Path(Value: path), model: model, layouts: ReadLayouts(source: new FileArchiveSource.Path(Value: path))))
         select metadata;
 
     internal static Fin<FileArchiveDiff> Diff(FileEndpoint source, FileEndpoint other) =>
-        from before in GraphOf(endpoint: source, op: Op.Of(name: nameof(Diff)))
-        from after in GraphOf(endpoint: other, op: Op.Of(name: nameof(Diff)))
+        from before in GraphOf(endpoint: source, op: Op.Of())
+        from after in GraphOf(endpoint: other, op: Op.Of())
         select FileArchiveDiff.Of(before: before.Entries, after: after.Entries);
 
     internal static Fin<FileReport> Validate(FileArchiveSource source, ArchiveProfile profile, IoScheduler scheduler) =>
-        from result in UseArchive(source: source, profile: profile with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph }, op: Op.Of(name: nameof(Validate)), use: (endpoint, model, log) =>
+        from result in UseArchive(source: source, profile: profile with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph }, op: Op.Of(), use: (endpoint, model, log) =>
             from snapshot in Snapshot(source: source, model: model, profile: profile with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph })
             from resourceIssues in snapshot.Archive.Resources.Validate(source: snapshot.Archive.Source, scheduler: scheduler)
             select (Endpoint: endpoint, snapshot.Archive, Issues: snapshot.Issues + resourceIssues, Log: log))
@@ -360,10 +361,10 @@ internal static class FileArchiveOps {
             archive: Some(result.Archive));
 
     internal static Fin<byte[]> Bytes(FileArchiveSource source, ArchiveProfile profile) =>
-        UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Bytes)), use: (_, model, _) =>
+        UseArchive(source: source, profile: profile, op: Op.Of(), use: (_, model, _) =>
             Optional(model.ToByteArray(options: FileFormat.ArchiveWriteOptions(profile: profile)))
                 .Filter(static value => value.Length > 0)
-                .ToFin(Fail: Op.Of(name: nameof(Bytes)).InvalidResult()));
+                .ToFin(Fail: Op.Of().InvalidResult()));
 
     internal static Fin<FileQueryResult> Query(FileArchiveSource source, FileArchiveQuery query, Op op) =>
         query.Switch(
@@ -413,21 +414,16 @@ internal static class FileArchiveOps {
         }
     }
 
-    private static Option<int> NamedViewIndex(File3dmViewTable table, string name) =>
-        toSeq(Enumerable.Range(start: 0, count: Native(read: () => table.Count).IfNone(0)))
-            .Find(index => string.Equals(a: table[index].Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase));
-
     private static Fin<Option<DocumentResourceChange>> ApplyNamedViewPatch(File3dmViewTable table, FileNamedViewPatch patch, Op op) =>
         from name in FileEndpoint.NonBlank(value: patch.Name, op: op)
-        from index in NamedViewIndex(table: table, name: name).ToFin(Fail: op.MissingContext())
+        from view in Optional(table.FindName(name: name)).ToFin(Fail: op.MissingContext())
         from change in (patch.Delete, patch.Rename.Case) switch {
-            (true, _) => op.Confirm(success: table.Delete(index: index))
+            (true, _) => op.Confirm(success: table.Delete(item: view))
                 .Map(_ => Some(DocumentResourceKind.NamedView.Change(name: name))),
             (false, string next) => op.Catch(() => {
                 // ViewInfo edits do not persist through the live table reference; reinsert the renamed copy.
-                ViewInfo view = table[index];
                 view.Name = next;
-                return op.Confirm(success: table.Delete(index: index))
+                return op.Confirm(success: table.Delete(item: view))
                     .Map(_ => Op.Side(() => table.Add(item: view)))
                     .Map(_ => Some(DocumentResourceKind.NamedView.Change(name: next)));
             }),
@@ -503,7 +499,7 @@ internal static class FileArchiveOps {
 
     private static Fin<(FileArchive Archive, Seq<FileIssue> Issues)> Snapshot(FileArchiveSource source, File3dmModel model, ArchiveProfile profile) =>
         profile.Projection switch {
-            FileArchiveProjection.None => Fin.Fail<(FileArchive Archive, Seq<FileIssue> Issues)>(error: Op.Of(name: nameof(Snapshot)).InvalidInput()),
+            FileArchiveProjection.None => Fin.Fail<(FileArchive Archive, Seq<FileIssue> Issues)>(error: Op.Of().InvalidInput()),
             FileArchiveProjection projection =>
                 from layouts in Fin.Succ(value: (projection & (FileArchiveProjection.Metadata | FileArchiveProjection.Graph)) != FileArchiveProjection.None
                     ? ReadLayouts(source: source)
@@ -533,11 +529,11 @@ internal static class FileArchiveOps {
         source.Bind(static endpoint => endpoint.Format).Case switch {
             FileFormat format => Some(format),
             // "3dm" is a guaranteed builtin key; the fail rail is unreachable but keeps FormatOf total.
-            _ => FileFormat.KnownFormat(key: "3dm", op: Op.Of(name: nameof(FormatOf))).ToOption(),
+            _ => FileFormat.KnownFormat(key: "3dm", op: Op.Of()).ToOption(),
         };
 
     private static Fin<(FileResourceGraph Graph, Seq<FileIssue> Issues)> Resources(File3dmModel model, FileArchiveSource source, Seq<(string Name, Guid Id)> layouts) {
-        Op key = Op.Of(name: nameof(Resources));
+        Op key = Op.Of();
         Option<string> archivePath = source switch {
             FileArchiveSource.Path path => Some(path.Value.Path),
             _ => Option<string>.None,
@@ -625,7 +621,7 @@ internal static class FileArchiveOps {
                 .Filter(static entry => (entry.Name.Case is string name && !name.Contains('\\', StringComparison.Ordinal)) || (entry.Name.Case is not string && entry.Value.Case is string)))
             .IfNone(Seq<FileResourceEntry>());
         Seq<FileResourceEntry> entries =
-            embeddedFiles.Map(file => new FileResourceEntry(Kind: DocumentResourceKind.EmbeddedFile, Name: TextOption(value: IOPath.GetFileName(path: file.Filename)), Path: TextOption(value: file.Filename), Id: Option<Guid>.None, Source: TextOption(value: file.ComponentType.ToString())))
+            embeddedFiles.Map(file => new FileResourceEntry(Kind: DocumentResourceKind.EmbeddedFile, Name: TextOption(value: IOPath.GetFileName(path: file.Filename)), Path: TextOption(value: file.Filename), Id: Option<Guid>.None, Source: TextOption(value: file.ComponentType.ToString()), Size: Some(file.CompressedLength)))
             + plugInData.Map(data => new FileResourceEntry(Kind: DocumentResourceKind.Metadata, Name: Option<string>.None, Path: Option<string>.None, Id: GuidOption(value: data.PlugInId), PlugInId: GuidOption(value: data.PlugInId), Source: Some("File3dmPlugInData")))
             + textEntries
             + renderEntries
@@ -648,7 +644,11 @@ internal static class FileArchiveOps {
                 : Seq<FileResourceEdge>();
             return parentEdge + textureEdge;
         }));
-        Seq<FileResourceEdge> edges = objects.Bind(fileObject => ObjectEdges(fileObject: fileObject, layers: layers, materials: materials, linetypes: linetypes, groups: groups))
+        HashMap<int, Layer> layerIndex = ComponentIndex(source: layers);
+        HashMap<int, Material> materialIndex = ComponentIndex(source: materials);
+        HashMap<int, Linetype> linetypeIndex = ComponentIndex(source: linetypes);
+        HashMap<int, Group> groupIndex = ComponentIndex(source: groups);
+        Seq<FileResourceEdge> edges = objects.Bind(fileObject => ObjectEdges(fileObject: fileObject, layers: layerIndex, materials: materialIndex, linetypes: linetypeIndex, groups: groupIndex))
             + Blocks.Archive.ToFileResourceEdges(graph: blockGraph)
             + renderEdges;
         return new FileResourceGraph(
@@ -704,16 +704,18 @@ internal static class FileArchiveOps {
             ? Seq<FileIssue>()
             : Seq(FileIssue.Native(message: "File3dm.ReadPageViews requires a file path; byte archive layout manifests and page-view counts are unavailable through public RhinoCommon.")));
 
-    private static Seq<FileObjectManifest> Objects(File3dmModel model, Seq<File3dmObject> objects, Seq<Layer> layers, Seq<Material> materials) =>
-        objects.Map(fileObject => {
+    private static Seq<FileObjectManifest> Objects(File3dmModel model, Seq<File3dmObject> objects, Seq<Layer> layers, Seq<Material> materials) {
+        HashMap<int, Layer> layerIndex = ComponentIndex(source: layers);
+        HashMap<int, Material> materialIndex = ComponentIndex(source: materials);
+        return objects.Map(fileObject => {
             Option<GeometryBase> geometry = Optional(fileObject.Geometry);
             Option<ObjectAttributes> attributes = Optional(fileObject.Attributes);
             return new FileObjectManifest(
                 Id: attributes.Map(static a => a.ObjectId).IfNone(Guid.Empty),
                 Name: attributes.Bind(static a => TextOption(value: a.Name)),
-                Layer: attributes.Bind(a => Component(source: layers, index: a.LayerIndex).Bind(layer => TextOption(value: layer.FullPath))),
+                Layer: attributes.Bind(a => Component(index: layerIndex, key: a.LayerIndex).Bind(layer => TextOption(value: layer.FullPath))),
                 ObjectType: geometry.Map(static g => g.ObjectType).IfNone(ObjectType.None),
-                Material: attributes.Bind(a => MaterialOf(layers: layers, materials: materials, attributes: a)).Bind(material => TextOption(value: material.Name)),
+                Material: attributes.Bind(a => MaterialOf(layers: layerIndex, materials: materialIndex, attributes: a)).Bind(material => TextOption(value: material.Name)),
                 UserStrings: (attributes.Bind(static a => Optional(a.GetUserStrings()?.AllKeys)).Case switch {
                     string[] keys => toSeq(keys).Choose(static value => TextOption(value: value)),
                     _ => Seq<string>(),
@@ -722,6 +724,7 @@ internal static class FileArchiveOps {
                     _ => Seq<string>(),
                 }));
         });
+    }
 
     private static int ObjectCount(File3dmModel model) =>
         Native(read: () => model.Manifest)
@@ -762,42 +765,45 @@ internal static class FileArchiveOps {
     private static Seq<T> Rows<T>(Func<IEnumerable<T>?> read) =>
         Native(read: read).Map(source => Rows(source: source)).IfNone(Seq<T>());
 
-    private static Option<T> Component<T>(Seq<T> source, int index)
-        where T : ModelComponent =>
-        source.Find(item => item.Index == index);
+    // One O(n) index per component table replaces the per-edge O(n) Seq scan that made ObjectEdges x objects O(n^2);
+    // ModelComponent.Index is the manifest index, so the keyed lookup resolves the exact same component the scan did.
+    private static HashMap<int, T> ComponentIndex<T>(Seq<T> source) where T : ModelComponent =>
+        source.Fold(HashMap<int, T>(), static (acc, item) => acc.AddOrUpdate(key: item.Index, value: item));
 
-    private static Option<Material> MaterialOf(Seq<Layer> layers, Seq<Material> materials, ObjectAttributes attributes) =>
+    private static Option<T> Component<T>(HashMap<int, T> index, int key) where T : ModelComponent => index.Find(key: key);
+
+    private static Option<Material> MaterialOf(HashMap<int, Layer> layers, HashMap<int, Material> materials, ObjectAttributes attributes) =>
         attributes.MaterialSource switch {
-            ObjectMaterialSource.MaterialFromObject => Component(source: materials, index: attributes.MaterialIndex),
-            ObjectMaterialSource.MaterialFromLayer => Component(source: layers, index: attributes.LayerIndex)
-                .Bind(layer => Component(source: materials, index: layer.RenderMaterialIndex)),
+            ObjectMaterialSource.MaterialFromObject => Component(index: materials, key: attributes.MaterialIndex),
+            ObjectMaterialSource.MaterialFromLayer => Component(index: layers, key: attributes.LayerIndex)
+                .Bind(layer => Component(index: materials, key: layer.RenderMaterialIndex)),
             _ => Option<Material>.None,
         };
 
-    private static Seq<FileResourceEdge> ObjectEdges(File3dmObject fileObject, Seq<Layer> layers, Seq<Material> materials, Seq<Linetype> linetypes, Seq<Group> groups) =>
+    private static Seq<FileResourceEdge> ObjectEdges(File3dmObject fileObject, HashMap<int, Layer> layers, HashMap<int, Material> materials, HashMap<int, Linetype> linetypes, HashMap<int, Group> groups) =>
         Optional(fileObject.Attributes).Map(attributes => {
             Option<Guid> objectId = GuidOption(value: attributes.ObjectId);
             Seq<FileResourceEdge> layerEdge = Seq(new FileResourceEdge(
                 FromKind: DocumentResourceKind.Object,
                 FromId: objectId,
                 ToKind: DocumentResourceKind.Layer,
-                ToId: Component(source: layers, index: attributes.LayerIndex).Bind(layer => GuidOption(value: layer.Id)),
+                ToId: Component(index: layers, key: attributes.LayerIndex).Bind(layer => GuidOption(value: layer.Id)),
                 Role: FileResourceRole.Layer));
             Seq<FileResourceEdge> materialEdge = MaterialOf(layers: layers, materials: materials, attributes: attributes)
                 .Bind(material => GuidOption(value: material.Id))
                 .Map(id => Seq(new FileResourceEdge(FromKind: DocumentResourceKind.Object, FromId: objectId, ToKind: DocumentResourceKind.Material, ToId: Some(id), Role: FileResourceRole.Material)))
                 .IfNone(Seq<FileResourceEdge>());
             Seq<FileResourceEdge> linetypeEdge = (attributes.LinetypeSource switch {
-                ObjectLinetypeSource.LinetypeFromObject => Component(source: linetypes, index: attributes.LinetypeIndex),
-                ObjectLinetypeSource.LinetypeFromLayer => Component(source: layers, index: attributes.LayerIndex)
-                    .Bind(layer => Component(source: linetypes, index: layer.LinetypeIndex)),
+                ObjectLinetypeSource.LinetypeFromObject => Component(index: linetypes, key: attributes.LinetypeIndex),
+                ObjectLinetypeSource.LinetypeFromLayer => Component(index: layers, key: attributes.LayerIndex)
+                    .Bind(layer => Component(index: linetypes, key: layer.LinetypeIndex)),
                 _ => Option<Linetype>.None,
             })
             .Bind(linetype => GuidOption(value: linetype.Id))
             .Map(id => Seq(new FileResourceEdge(FromKind: DocumentResourceKind.Object, FromId: objectId, ToKind: DocumentResourceKind.Linetype, ToId: Some(id), Role: FileResourceRole.Linetype)))
             .IfNone(Seq<FileResourceEdge>());
             Seq<FileResourceEdge> groupEdges = toSeq(attributes.GetGroupList() ?? [])
-                .Choose(index => Component(source: groups, index: index)
+                .Choose(index => Component(index: groups, key: index)
                     .Bind(group => GuidOption(value: group.Id))
                     .Map(id => new FileResourceEdge(FromKind: DocumentResourceKind.Object, FromId: objectId, ToKind: DocumentResourceKind.Group, ToId: Some(id), Role: FileResourceRole.Group)));
             return layerEdge + materialEdge + linetypeEdge + groupEdges;
@@ -816,7 +822,7 @@ internal static class FileArchiveOps {
         + Rows(() => content.Children).Bind(child => TraverseRender(content: child, parent: Some(content), project: project));
 
     private static Fin<FileArchiveMetadata> Metadata(FileArchiveSource source, File3dmModel model, Seq<(string Name, Guid Id)> layouts) =>
-        Op.Of(name: nameof(Metadata)).Catch(() => {
+        Op.Of().Catch(() => {
             Option<DateTime> createdOn = DateTimeOption(read: () => model.Created);
             Option<DateTime> lastEditedOn = DateTimeOption(read: () => model.LastEdited);
             DrawingBitmap? preview = model.GetPreviewImage();

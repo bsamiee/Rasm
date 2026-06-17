@@ -204,17 +204,17 @@ public sealed partial record CommandSelection {
         }
 
         public Fin<T> Use<T>(RhinoDoc document, Func<ObjRef, Fin<T>> use) =>
-            Use(document: document, op: Op.Of(name: nameof(Use)), use: use);
+            Use(document: document, op: Op.Of(), use: use);
 
         public Fin<RhinoView> View() =>
             SelectionViewRuntimeSerialNumber
                 .Bind(static serial => Optional(RhinoView.FromRuntimeSerialNumber(serialNumber: serial)))
-                .ToFin(Fail: Op.Of(name: nameof(View)).MissingContext());
+                .ToFin(Fail: Op.Of().MissingContext());
         internal static Fin<T> Extract<T>(ObjRef reference, Op op) where T : class =>
             NativeOf<T>(reference: reference).ToFin(Fail: op.InvalidResult(detail: $"{typeof(T).Name} not extractable"));
 
         public Fin<TGeometry> Geometry<TGeometry>(RhinoDoc document) where TGeometry : GeometryBase {
-            Op op = Op.Of(name: nameof(Geometry));
+            Op op = Op.Of();
             return Use(document: document, op: op, use: reference =>
                 Extract<TGeometry>(reference: reference, op: op)
                     .Bind(geometry => Optional(geometry.Duplicate() as TGeometry).ToFin(Fail: op.InvalidResult())));
@@ -222,7 +222,7 @@ public sealed partial record CommandSelection {
 
         public Fin<T> Project<TPart, T>(RhinoDoc document, Func<TPart, Fin<T>> use) where TPart : class {
             Reference snapshot = this;
-            Op op = Op.Of(name: nameof(Project));
+            Op op = Op.Of();
             return Optional(use).ToFin(Fail: op.InvalidInput())
                 .Bind(valid => snapshot.Use(document: document, op: op, use: reference => Extract<TPart>(reference: reference, op: op).Bind(valid)));
         }
@@ -333,16 +333,16 @@ public sealed partial record CommandSelection {
     }
 
     internal static Fin<CommandSelection> FromObjects(RhinoDoc document, IEnumerable<Guid> objectIds, CommandObjectSelection policy) =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidInput())
-        from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidInput())
+        from validDocument in Optional(document).ToFin(Fail: Op.Of().InvalidInput())
+        from active in Optional(policy).ToFin(Fail: Op.Of().InvalidInput())
         from target in DocumentTarget.Objects(objectIds: objectIds)
-        from ids in target.Ids(document: validDocument, op: Op.Of(name: nameof(FromObjects)))
-        from references in ids.TraverseM(id => Optional(validDocument.Objects.FindId(id)).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidResult()).Map(native => new ObjRef(rhinoObject: native))).As()
+        from ids in target.Ids(document: validDocument, op: Op.Of())
+        from references in ids.TraverseM(id => Optional(validDocument.Objects.FindId(id)).ToFin(Fail: Op.Of().InvalidResult()).Map(native => new ObjRef(rhinoObject: native))).As()
         from selection in Fin.Succ(value: From(document: validDocument, references: references, preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
         from trimmed in selection.Trim(policy: active)
         select trimmed;
 
-    public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
+    public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of().InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
 
     public Fin<Seq<T>> Project<T>(CommandObjectSelection policy, Func<Reference, Fin<T>> project) =>
         from trimmed in Trim(policy: policy)
@@ -355,7 +355,7 @@ public sealed partial record CommandSelection {
     public Fin<Reference> Single() =>
         Items.Count switch {
             1 => Fin.Succ(value: Items[0]),
-            _ => Fin.Fail<Reference>(error: Op.Of(name: nameof(Single)).InvalidInput()),
+            _ => Fin.Fail<Reference>(error: Op.Of().InvalidInput()),
         };
 
     public Fin<CommandSelection> Trim(CommandObjectSelection policy) =>
@@ -364,7 +364,7 @@ public sealed partial record CommandSelection {
         select selection;
 
     public Fin<TrimResult> Trimmed(CommandObjectSelection policy) =>
-        from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(Trimmed)).InvalidInput())
+        from active in Optional(policy).ToFin(Fail: Op.Of().InvalidInput())
         let values = toSeq(Items
             .Filter(item => active.SubObjects || !item.IsSubObject)
             .Filter(item => item.Preselected || active.AlreadySelected || !item.Selected)

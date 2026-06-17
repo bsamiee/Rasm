@@ -85,34 +85,34 @@ internal static class ExchangeScenarios {
         let sheetC = Stamp(stem: "RasmSheetC")
         from createReceipt in Receipt(ctx: ctx, label: "sheet create", outcome: files.Run(operation: FileOp.Do(exchange: new FileExchange.SheetEdit(
             new FileSheetEdit.Create(new FileSheetSpec(Name: sheetC, Size: Some(new FileSheetSize(Units: pageUnits, Width: Some(297.0), Height: Some(210.0)))))))))
-        from createLaw in ctx.Require(label: "sheet create one Created id", observed: createReceipt.Created.Count == 1)
+        from createLaw in ctx.Require(label: "sheet create one Created id", observed: createReceipt.Ids(slot: DocumentReceiptSlot.Created).Count == 1)
         from createdC in PageByName(doc: doc, name: sheetC)
         let beforeWidth = createdC.PageWidth
         from resizeReceipt in Receipt(ctx: ctx, label: "sheet resize", outcome: files.Run(operation: FileOp.Do(exchange: new FileExchange.SheetEdit(
             new FileSheetEdit.Resize(SheetName: sheetC, Size: Some(new FileSheetSize(Units: pageUnits, Width: Some(420.0), Height: Some(297.0))))))))
-        from resizeLaw in ctx.Require(label: "resize is AttributeChanged receipt", observed: resizeReceipt.AttributeChanged.Count == 1)
+        from resizeLaw in ctx.Require(label: "resize is AttributeChanged receipt", observed: resizeReceipt.Ids(slot: DocumentReceiptSlot.Attributes).Count == 1)
         from resizedC in PageByName(doc: doc, name: sheetC)
         let widthBeforeFact = Note(ctx: ctx, key: "sheet.width.before", value: beforeWidth)
         let widthAfterFact = Note(ctx: ctx, key: "sheet.width.after", value: resizedC.PageWidth)
         from widthLaw in ctx.Require(label: "PageWidth setter applied in place", observed: resizedC.PageWidth > beforeWidth)
         from reorderReceipt in Receipt(ctx: ctx, label: "sheet reorder", outcome: files.Run(operation: FileOp.Do(exchange: new FileExchange.SheetEdit(
             new FileSheetEdit.Reorder(SheetNames: Seq(sheetC, sheetAName, sheetBName))))))
-        from reorderLaw in ctx.Require(label: "reorder rebinds three page numbers", observed: reorderReceipt.AttributeChanged.Count == 3)
+        from reorderLaw in ctx.Require(label: "reorder rebinds three page numbers", observed: reorderReceipt.Ids(slot: DocumentReceiptSlot.Attributes).Count == 3)
         from detailReceipt in Receipt(ctx: ctx, label: "add detail", outcome: files.Run(operation: FileOp.Do(exchange: new FileExchange.SheetEdit(
             new FileSheetEdit.AddDetail(SheetName: sheetC, Spec: new FileDetailSpec(Name: "Plan", Corner: new Point2d(20.0, 20.0), Opposite: new Point2d(260.0, 180.0), Projection: DefinedViewportProjection.Top))))))
-        from detailLaw in ctx.Require(label: "add detail one Created id", observed: detailReceipt.Created.Count == 1)
+        from detailLaw in ctx.Require(label: "add detail one Created id", observed: detailReceipt.Ids(slot: DocumentReceiptSlot.Created).Count == 1)
         from scaleReceipt in Receipt(ctx: ctx, label: "scale detail (explicit lengths)", outcome: files.Run(operation: FileOp.Do(exchange: new FileExchange.SheetEdit(
-            new FileSheetEdit.ScaleDetail(SheetName: sheetC, Detail: DetailQuery.Named(name: "Plan"), Scale: new FileScale.Lengths(ModelLength: 1.0, ModelUnit: LengthUnit.Meters, PageLength: 1.0, PageUnit: LengthUnit.Millimeters))))))
-        from scaleLaw in ctx.Require(label: "scale detail is AttributeChanged receipt", observed: scaleReceipt.AttributeChanged.Count == 1)
+            new FileSheetEdit.FrameDetail(SheetName: sheetC, Detail: DetailQuery.Named(name: "Plan"), Edits: Seq<CameraEdit>(), Scale: Some<FileScale>(new FileScale.Lengths(ModelLength: 1.0, ModelUnit: LengthUnit.Meters, PageLength: 1.0, PageUnit: LengthUnit.Millimeters)))))))
+        from scaleLaw in ctx.Require(label: "scale detail is AttributeChanged receipt", observed: scaleReceipt.Ids(slot: DocumentReceiptSlot.Attributes).Count == 1)
 
             // 5b) native named-scale parse + batch, page-wide Configure, Sheets inspection, numbering
         from namedScaleReceipt in Receipt(ctx: ctx, label: "scale detail named 1:100 (batch)", outcome: files.Run(operation: FileOp.Do(exchange: new FileExchange.SheetEdit(
-            new FileSheetEdit.ScaleDetail(SheetName: sheetC, Detail: DetailQuery.All, Scale: new FileScale.Named(Value: "1:100"))))))
-        from namedScaleLaw in ctx.Require(label: "named-scale batch touched a detail", observed: namedScaleReceipt.AttributeChanged.Count >= 1)
+            new FileSheetEdit.FrameDetail(SheetName: sheetC, Detail: DetailQuery.All, Edits: Seq<CameraEdit>(), Scale: Some<FileScale>(new FileScale.Named(Value: "1:100")))))))
+        from namedScaleLaw in ctx.Require(label: "named-scale batch touched a detail", observed: namedScaleReceipt.Ids(slot: DocumentReceiptSlot.Attributes).Count >= 1)
         from scaleReadback in NamedScaleReadback(ctx: ctx, doc: doc, sheetName: sheetC)
         from imperialReceipt in Receipt(ctx: ctx, label: "scale detail imperial fraction", outcome: files.Run(operation: FileOp.Do(exchange: new FileExchange.SheetEdit(
-            new FileSheetEdit.ScaleDetail(SheetName: sheetC, Detail: DetailQuery.Named(name: "Plan"), Scale: new FileScale.Named(Value: "1/4\"=1'-0\""))))))
-        from imperialLaw in ctx.Require(label: "imperial named scale applied", observed: imperialReceipt.AttributeChanged.Count == 1)
+            new FileSheetEdit.FrameDetail(SheetName: sheetC, Detail: DetailQuery.Named(name: "Plan"), Edits: Seq<CameraEdit>(), Scale: Some<FileScale>(new FileScale.Named(Value: "1/4\"=1'-0\"")))))))
+        from imperialLaw in ctx.Require(label: "imperial named scale applied", observed: imperialReceipt.Ids(slot: DocumentReceiptSlot.Attributes).Count == 1)
         let sheetGroup = Stamp(stem: "RasmGroup")
         from configureReceipt in Receipt(ctx: ctx, label: "configure sheet page-wide", outcome: files.Run(operation: FileOp.Do(exchange: new FileExchange.SheetEdit(
             new FileSheetEdit.Configure(
@@ -122,7 +122,7 @@ internal static class ExchangeScenarios {
                     Group: Some(sheetGroup),
                     GroupDescription: Some("rasm sheet set"),
                     UserStrings: Seq(new FileUserString(Key: "Discipline", Value: Some("A")))))))))
-        from configureLaw in ctx.Require(label: "Configure applied to one matched page", observed: configureReceipt.AttributeChanged.Count == 1)
+        from configureLaw in ctx.Require(label: "Configure applied to one matched page", observed: configureReceipt.Ids(slot: DocumentReceiptSlot.Attributes).Count == 1)
         from configureGroupLaw in ctx.Require(label: "Configure created page-view group", observed: configureReceipt.ResourceChanged.Exists(change => change.Kind == DocumentResourceKind.PageViewGroup))
         from sheetReports in ctx.Expect(label: "inspect sheetC", projection: files.Run(operation: FileOp.Sheets(query: new SheetQuery(Name: Some(sheetC)))))
         from inspectionLaw in ctx.Require(label: "Sheets inspection returns one report", observed: sheetReports.Count == 1)
@@ -136,7 +136,7 @@ internal static class ExchangeScenarios {
         let numberPrefix = $"{Stamp(stem: "RasmNum")}-"
         from numberReceipt in Receipt(ctx: ctx, label: "number sheet", outcome: files.Run(operation: FileOp.Do(exchange: new FileExchange.SheetEdit(
             new FileSheetEdit.Number(Query: new SheetQuery(Name: Some(sheetC)), Numbering: new FileNumbering(SheetPattern: $"{numberPrefix}{{n:000}}", Start: 7))))))
-        from numberLaw in ctx.Require(label: "Number rebinds one matched page", observed: numberReceipt.AttributeChanged.Count == 1)
+        from numberLaw in ctx.Require(label: "Number rebinds one matched page", observed: numberReceipt.Ids(slot: DocumentReceiptSlot.Attributes).Count == 1)
         from numberApplied in ctx.Require(label: "Number applied pattern with Start=7", observed: toSeq(doc.Views.GetPageViews()).Exists(page => string.Equals(a: page.PageName, b: $"{numberPrefix}007", comparisonType: StringComparison.Ordinal)))
 
             // 6) named layer state + named object position round-trip (B3)
@@ -223,8 +223,8 @@ internal static class ExchangeScenarios {
         from objEndpoint in ctx.Expect(label: "obj endpoint", projection: FileEndpoint.From(path: objPath))
         from exportReceipt in Receipt(ctx: ctx, label: "export selected obj", outcome: files.Run(operation: FileOp.Do(exchange: new FileExchange.Export(
             Target: objEndpoint, Objects: Some(exportTarget), Profile: FileProfile.Model))))
-        let exportFact = Note(ctx: ctx, key: "export.selected", value: exportReceipt.Selected.Count)
-        from exportLaw in ctx.Require(label: "export-selected reports one object", observed: exportReceipt.Selected.Count == 1)
+        let exportFact = Note(ctx: ctx, key: "export.selected", value: exportReceipt.Ids(slot: DocumentReceiptSlot.Selected).Count)
+        from exportLaw in ctx.Require(label: "export-selected reports one object", observed: exportReceipt.Ids(slot: DocumentReceiptSlot.Selected).Count == 1)
         from objWrittenLaw in ctx.Require(label: "selected.obj written non-interactively", observed: File.Exists(path: objPath))
 
             // cleanup: leave the document as found

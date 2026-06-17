@@ -51,17 +51,17 @@ transitive `Pgvector` package; the EF plugin depends on them.
 
 [SPARSEVECTOR_MEMBERS]: `Pgvector.SparseVector` — decompiled from `Pgvector.dll` 0.3.2
 
-| [INDEX] | [MEMBER]                                                                                  | [RETURN]                | [CAPABILITY]                      |
-| :-----: | :---------------------------------------------------------------------------------------- | :---------------------- | :-------------------------------- |
-|   [1]   | `SparseVector(int dimensions, ReadOnlyMemory<int> indices, ReadOnlyMemory<float> values)` | ctor                    | from pre-sorted sparse components |
-|   [2]   | `SparseVector(ReadOnlyMemory<float> v)`                                                   | ctor                    | dense-to-sparse conversion        |
-|   [3]   | `SparseVector(IDictionary<int, float> dictionary, int dimensions)`                        | ctor                    | from index→value dictionary       |
-|   [4]   | `SparseVector(string s)`                                                                  | ctor                    | parses `{i:v,...}/d` wire format  |
-|   [5]   | `Dimensions`                                                                              | `int`                   | total dimension count             |
-|   [6]   | `Indices`                                                                                 | `ReadOnlyMemory<int>`   | non-zero index positions          |
-|   [7]   | `Values`                                                                                  | `ReadOnlyMemory<float>` | non-zero element values           |
-|   [8]   | `ToArray()`                                                                               | `float[]`               | materialises dense float array    |
-|   [9]   | `Equals(SparseVector?)`, `==`, `!=`                                                       | `bool`                  | element-wise equality             |
+| [INDEX] | [MEMBER]                            | [SHAPE]                     | [RETURN]                | [CAPABILITY]                      |
+| :-----: | :---------------------------------- | :-------------------------- | :---------------------- | :-------------------------------- |
+|   [1]   | `SparseVector`                      | dimensions, indices, values | ctor                    | from pre-sorted sparse components |
+|   [2]   | `SparseVector`                      | dense memory                | ctor                    | dense-to-sparse conversion        |
+|   [3]   | `SparseVector`                      | dictionary plus dimensions  | ctor                    | from index-to-value dictionary    |
+|   [4]   | `SparseVector`                      | wire string                 | ctor                    | parses `{i:v,...}/d` wire format  |
+|   [5]   | `Dimensions`                        | property                    | `int`                   | total dimension count             |
+|   [6]   | `Indices`                           | property                    | `ReadOnlyMemory<int>`   | non-zero index positions          |
+|   [7]   | `Values`                            | property                    | `ReadOnlyMemory<float>` | non-zero element values           |
+|   [8]   | `ToArray()`                         | no args                     | `float[]`               | materialises dense float array    |
+|   [9]   | `Equals(SparseVector?)`, `==`, `!=` | comparison                  | `bool`                  | element-wise equality             |
 
 [PLUGIN_TYPES]: plugin admission and mapping — `Pgvector.EntityFrameworkCore` package
 - rail: store-provider

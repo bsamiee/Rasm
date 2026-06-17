@@ -31,7 +31,7 @@ public abstract partial record RedrawRequest {
             detailCommit: static (ctx, _) =>
                 ctx.Detail.Case switch {
                     DetailViewObject value when !value.CommitViewportChanges() =>
-                        Fin.Fail<Unit>(error: Op.Of(name: nameof(ApplyTo)).InvalidResult()),
+                        Fin.Fail<Unit>(error: Op.Of().InvalidResult()),
                     _ => Fin.Succ(value: Op.Side(() => ctx.View.Redraw())),
                 },
             deferred: static (ctx, _) => Fin.Succ(value: Op.Side(() => ctx.Document.Views.Redraw(deferred: true))));
@@ -76,11 +76,42 @@ public readonly record struct CameraScopeResult<T>(
                 Resources: Seq<Commands.DocumentResourceChange>()));
 }
 
-public readonly record struct CameraSyncPolicy(
-    bool StopOnFirstFailure = true,
-    bool MergeRedraw = true) {
-    public static CameraSyncPolicy Independent { get; } = new(StopOnFirstFailure: true, MergeRedraw: false);
-    public static CameraSyncPolicy Rig { get; } = new(StopOnFirstFailure: false, MergeRedraw: true);
+[SmartEnum<int>]
+public sealed partial class CameraSyncPolicy {
+    // AbortOnFirst polarity is load-bearing: Independent viewports are each their own authority, so the first
+    // failure short-circuits the whole rail (TraverseM monadic abort); Coordinated is a set that tolerates
+    // partial success, so every member runs and the fold guards on at-least-one-success (accumulate-then-guard).
+    public static readonly CameraSyncPolicy
+        Independent = new(key: 0, abortOnFirst: true, mergeRedraw: false),
+        Coordinated = new(key: 1, abortOnFirst: false, mergeRedraw: true);
+
+    private bool AbortOnFirst { get; }
+    public bool MergeRedraw { get; }
+
+    internal Fin<Seq<CameraScopeResult<T>>> Traverse<T>(
+        Seq<CameraScope> scopes,
+        Func<CameraScope, Fin<CameraOutcome<T>>> run) =>
+        Traverse(plan: scopes.Map(scope => (Scope: scope, Run: run)));
+
+    // Correlated overload: each scope carries its own run (the CameraRig case where every viewport
+    // gets a distinct CameraOp). The abort/accumulate algebra is the policy row's, identical to the
+    // shared-run overload above — only the per-element run differs.
+    internal Fin<Seq<CameraScopeResult<T>>> Traverse<T>(
+        Seq<(CameraScope Scope, Func<CameraScope, Fin<CameraOutcome<T>>> Run)> plan) =>
+        AbortOnFirst
+            ? plan.TraverseM(pair => pair.Run(arg: pair.Scope)
+                    .Map(outcome => CameraScopeResult<T>.FromOutcome(scope: pair.Scope, result: Fin.Succ(value: outcome))))
+                .As()
+            : plan.Traverse(pair => Fin.Succ(value: CameraScopeResult<T>.FromOutcome(
+                    scope: pair.Scope,
+                    result: pair.Run(arg: pair.Scope))))
+                .As()
+                .Bind(receipts => guard(
+                        receipts.Exists(static receipt => receipt.Succeeded),
+                        () => receipts.Find(static receipt => receipt.Failure.IsSome)
+                            .Bind(static receipt => receipt.Failure)
+                            .IfNone(() => Op.Of().InvalidResult())).ToFin()
+                    .Map(_ => receipts));
 
     public CameraOutcome<Seq<CameraScopeResult<T>>> FoldReceipts<T>(Seq<CameraScopeResult<T>> receipts) {
         Seq<CameraScopeResult<T>> succeeded = receipts.Filter(static receipt => receipt.Succeeded);
@@ -99,6 +130,7 @@ public readonly record struct CameraSyncPolicy(
 public sealed class RhinoCamera {
     private static readonly Op ScopeKey = Op.Of(name: nameof(Scope));
     private static readonly Op BroadcastKey = Op.Of(name: nameof(Broadcast));
+    private static readonly Op RigKey = Op.Of(name: nameof(Rig));
 
     private RhinoCamera(RhinoDoc document, RunMode mode) {
         Document = document ?? throw new ArgumentNullException(paramName: nameof(document));
@@ -125,13 +157,13 @@ public sealed class RhinoCamera {
         select scopes;
 
     public Fin<T> In<T>(ViewportTarget target, Func<CameraScope, Fin<T>> use) =>
-        from valid in Optional(use).ToFin(Fail: Op.Of(name: nameof(In)).InvalidInput())
+        from valid in Optional(use).ToFin(Fail: Op.Of().InvalidInput())
         from scope in Scope(target: target)
         from result in valid(arg: scope)
         select result;
 
     public Fin<CameraOutcome<T>> Run<T>(CameraOp<T> operation, ViewportTarget target) =>
-        from valid in Optional(operation).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
+        from valid in Optional(operation).ToFin(Fail: Op.Of().InvalidInput())
         from outcome in RhinoUi.DispatchThread(
             uiBound: valid.UiBound,
             mode: Mode,
@@ -155,6 +187,24 @@ public sealed class RhinoCamera {
                 from folded in ExecuteBroadcast(operation: valid, scopes: scopes, policy: policy)
                 select folded,
             name: nameof(Broadcast))
+        select outcome;
+
+    public Fin<CameraOutcome<Seq<CameraScopeResult<CameraChangeReceipt>>>> Rig(
+        Seq<(ViewportTarget Target, CameraOp<CameraChangeReceipt> Op)> assignments,
+        CameraSyncPolicy policy) =>
+        from valid in guard(!assignments.IsEmpty, RigKey.InvalidInput()).ToFin()
+        from chosen in Optional(policy).ToFin(Fail: RigKey.InvalidInput())
+        from outcome in RhinoUi.DispatchThread(
+            uiBound: true,
+            mode: Mode,
+            run: () =>
+                from plan in assignments.TraverseM(pair =>
+                    from op in Optional(pair.Op).ToFin(Fail: RigKey.InvalidInput())
+                    from scope in Scope(target: pair.Target)
+                    select (Scope: scope, Run: (Func<CameraScope, Fin<CameraOutcome<CameraChangeReceipt>>>)(s => ExecuteRunOnScope(operation: op, scope: s)))).As()
+                from folded in chosen.Traverse(plan: plan).Map(chosen.FoldReceipts)
+                select folded,
+            name: nameof(Rig))
         select outcome;
 
     public static UiIntent<CameraOutcome<T>> Intent<T>(CameraOp<T> operation, ViewportTarget target) =>
@@ -183,24 +233,6 @@ public sealed class RhinoCamera {
         CameraOp<T> operation,
         Seq<CameraScope> scopes,
         CameraSyncPolicy policy) =>
-        policy.StopOnFirstFailure switch {
-            true =>
-                from receipts in scopes.TraverseM(scope =>
-                        ExecuteRunOnScope(operation: operation, scope: scope)
-                            .Map(outcome => CameraScopeResult<T>.FromOutcome(scope: scope, result: Fin.Succ(value: outcome))))
-                    .As()
-                select policy.FoldReceipts(receipts: receipts),
-            false =>
-                from receipts in scopes
-                    .Traverse(scope => Fin.Succ(value: CameraScopeResult<T>.FromOutcome(
-                        scope: scope,
-                        result: ExecuteRunOnScope(operation: operation, scope: scope))))
-                    .As()
-                from folded in guard(receipts.Exists(static receipt => receipt.Succeeded), () => receipts.Find(static receipt => receipt.Failure.IsSome)
-                            .Bind(static receipt => receipt.Failure)
-                            .IfNone(() => BroadcastKey.InvalidResult())).ToFin()
-                    .Map(_ => policy.FoldReceipts(receipts: receipts))
-                select folded,
-        };
-
+        policy.Traverse(scopes: scopes, run: scope => ExecuteRunOnScope(operation: operation, scope: scope))
+            .Map(policy.FoldReceipts);
 }

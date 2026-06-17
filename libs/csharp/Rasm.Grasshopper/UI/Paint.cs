@@ -25,11 +25,11 @@ public sealed partial class SystemColorKind {
     public static readonly SystemColorKind Highlight = ShadeBased(key: 4, shade: ShadeKind.NormalSelected, component: static s => s.Apex, fallback: SystemColors.Highlight);
     public static readonly SystemColorKind HighlightText = ShadeBased(key: 5, shade: ShadeKind.NormalSelected, component: static s => s.Text, fallback: SystemColors.HighlightText);
     public static readonly SystemColorKind Selection = ShadeBased(key: 6, shade: ShadeKind.NormalSelected, component: static s => s.Slab, fallback: SystemColors.Selection);
-    public static readonly SystemColorKind SelectionText = ShadeBased(key: 7, shade: ShadeKind.NormalSelected, component: static s => s.TextY, fallback: SystemColors.SelectionText);
+    public static readonly SystemColorKind SelectionText = ShadeBased(key: 7, shade: ShadeKind.NormalSelected, component: static s => s.TextAlternate, fallback: SystemColors.SelectionText);
     public static readonly SystemColorKind DisabledText = ShadeBased(key: 8, shade: ShadeKind.Disabled, component: static s => s.Text, fallback: SystemColors.DisabledText);
     public static readonly SystemColorKind LinkText = new(key: 9, resolve: static _ => SystemColors.LinkText);
     public static readonly SystemColorKind NormalEdge = ShadeBased(key: 10, shade: ShadeKind.Normal, component: static s => s.Edge, fallback: SystemColors.ControlText);
-    public static readonly SystemColorKind NormalGlint = ShadeBased(key: 11, shade: ShadeKind.Normal, component: static s => s.Glint, fallback: SystemColors.ControlBackground);
+    public static readonly SystemColorKind NormalGlint = ShadeBased(key: 11, shade: ShadeKind.Normal, component: static s => s.Apex, fallback: SystemColors.ControlBackground);
     public static readonly SystemColorKind DisabledBackground = ShadeBased(key: 12, shade: ShadeKind.Disabled, component: static s => s.Slab, fallback: SystemColors.Control);
     public static readonly SystemColorKind HiddenText = ShadeBased(key: 13, shade: ShadeKind.Hidden, component: static s => s.Text, fallback: SystemColors.DisabledText);
     public static readonly SystemColorKind HiddenEdge = ShadeBased(key: 14, shade: ShadeKind.Hidden, component: static s => s.Edge, fallback: SystemColors.ControlText);

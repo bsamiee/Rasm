@@ -71,7 +71,7 @@ public abstract record CommandOption {
                 .Bind(parsed => policy.Bounds.Accept(value: parsed)
                     .Map(value => TypedScripted(key: name, value: value, type: CommandLineOptionType.Number, raw: pair.Value)))), varies: policy.Varies);
     private static Case Integer(string name, int initial, CommandOptionPolicy policy) =>
-        policy.Bounds.Project<int>(op: Op.Of(name: nameof(Integer))).ToOption().Case switch {
+        policy.Bounds.Project<int>(op: Op.Of()).ToOption().Case switch {
             (Option<int> lower, Option<int> upper) =>
                 Ref(name: name, create: () => BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static value => new OptionInteger(value), single: static (value, isLower, bound) => new OptionInteger(value, isLower, bound), bounded: static (value, lo, hi) => new OptionInteger(value, lo, hi)), prompt: Optional(policy.Prompt), localName: Optional(policy.LocalName), bind: Prompted(plain: static (getter, name, ref native) => getter.AddOptionInteger(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionInteger native, string label) => getter.AddOptionInteger(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => new CommandToken(Raw: pair.Value).Integer().Bind(parsed => CommandInputPolicy.Limit(lower: lower, upper: upper).Accept(value: parsed).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Number, stringValue: Some(pair.Value))))), varies: policy.Varies),
             _ => Invalid(name: name),
@@ -89,17 +89,17 @@ public abstract record CommandOption {
             name: name, values: values, label: label, current: current,
             localName: localName, varies: varies,
             bind: enumerated
-#pragma warning disable IDE0004 // cast gives the delegate-typed conditional its target type
-                ? (Func<GetBaseClass, global::Rhino.UI.LocalizeStringPair, Seq<T>, Seq<string>, int, int>)((GetBaseClass getter, global::Rhino.UI.LocalizeStringPair loc, Seq<T> items, Seq<string> _, int idx) =>
-#pragma warning restore IDE0004
+                ? static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair loc, Seq<T> items, Seq<string> _, int idx) =>
                     idx >= 0 && idx < items.Count
-#pragma warning disable IDE0305 // ToArray required: collection expression has no target type in the dynamic AddOptionEnumList call
-                        ? getter.AddOptionEnumList(englishOptionName: loc.English, defaultValue: (dynamic)items[idx]!, include: items.ToArray())
-#pragma warning restore IDE0305
-                        : -1)
-                : (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair loc, Seq<T> _, Seq<string> labels, int idx) =>
+                        ? AddEnumSelection(getter: getter, english: loc.English, items: items, index: idx)
+                        : -1
+                : static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair loc, Seq<T> _, Seq<string> labels, int idx) =>
                     getter.AddOptionList(loc, labels.Map(static v => new global::Rhino.UI.LocalizeStringPair(english: v, local: v)).AsIterable(), idx),
             capture: SnapshotList);
+
+    // BOUNDARY ADAPTER — the native AddOptionEnumSelectionList<T> constrains T : struct, IConvertible, which the unconstrained ListOption<T> reaches only when typeof(T).IsEnum holds; the runtime-bound call selects the constrained overload and passes the Seq<T> directly as IEnumerable<T> with no array copy or per-item cast.
+    private static int AddEnumSelection<T>(GetBaseClass getter, string english, Seq<T> items, int index) =>
+        ((dynamic)getter).AddOptionEnumSelectionList(english, (IEnumerable<T>)items, index);
 
     private static Case ListCore<T>(string name, Seq<T> values, Func<T, string> label, int current, Option<string> localName, bool varies, Func<GetBaseClass, global::Rhino.UI.LocalizeStringPair, Seq<T>, Seq<string>, int, int> bind, Func<string, GetBaseClass, Seq<T>, Fin<CommandOptionValue>> capture) =>
         new(Name: name, AddToGetter: (getter, validName) =>

@@ -287,7 +287,7 @@ public static class UiField {
                     .IfNone(noneValue: 0),
             },
             Read: control => control is DropDown { SelectedIndex: int index } && index >= 0 && index < choices.Count ? choices[index] : choices[0],
-            Admit: Some(() => guard(!choices.IsEmpty, Op.Of(name: nameof(Choice)).InvalidInput()).ToFin()));
+            Admit: Some(() => guard(!choices.IsEmpty, Op.Of().InvalidInput()).ToFin()));
 
     public static UiField<TState, Color4f> Color<TState>(string label, Func<TState, Color4f> get, Func<TState, Color4f, TState> set, bool allowAlpha = false, Option<global::Rhino.UI.NamedColorList> named = default) =>
         new(

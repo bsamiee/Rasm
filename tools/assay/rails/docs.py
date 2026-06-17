@@ -68,9 +68,12 @@ def _sink_stem(rel: str) -> str:
 
 
 def _produced(scope: ArtifactScope, stem: str) -> tuple[str, ...]:
-    # mmdc writes the -o markdown sink plus one -<n>.svg sibling per diagram; glob the scope dir for the slugged family.
+    # mmdc writes the -o markdown sink (``<stem>.md``) plus one ``<stem>-<n>.svg`` sibling per diagram. The ``<stem>*`` glob
+    # over-matches when one slug stem prefixes another (``a`` catches ``ab.md``), so keep only the exact ``<stem>.md`` sink and
+    # its ``<stem>-`` svg siblings — the boundary char severs a longer co-resident stem.
     run_dir = scope.path.removeprefix(f"{scope.store.root}/")
-    return scope.store.glob(f"{run_dir}/{stem}*")
+    sink, sibling = f"{stem}.md", f"{stem}-"
+    return tuple(p for p in scope.store.glob(f"{run_dir}/{stem}*") if (name := p.rsplit("/", 1)[-1]) == sink or name.startswith(sibling))
 
 
 def _rows(

@@ -47,23 +47,17 @@ public abstract partial record CaptureArea {
                     : Fin.Fail<Unit>(error: ctx.Op.InvalidInput())));
 }
 
-public readonly record struct CaptureCodec(CaptureFormat Format) {
-    public static CaptureCodec Of(CaptureFormat format) =>
-        new(Format: format);
+[SmartEnum<int>]
+public sealed partial class CaptureFormat {
+    public static readonly CaptureFormat Bitmap = new(key: 0,
+        render: static (settings, op) => Optional(ViewCapture.CaptureToBitmap(settings: settings)).ToFin(Fail: op.InvalidResult())
+            .Map(static value => (CaptureResult)new CaptureResult.Bitmap(Value: value)));
+    public static readonly CaptureFormat Svg = new(key: 1,
+        render: static (settings, op) => Optional(ViewCapture.CaptureToSvg(settings: settings)).ToFin(Fail: op.InvalidResult())
+            .Map(static value => (CaptureResult)new CaptureResult.Svg(Value: value)));
 
-    internal Fin<CaptureResult> Render(ViewCaptureSettings settings, Op op) =>
-        Format switch {
-            CaptureFormat.Bitmap => Optional(ViewCapture.CaptureToBitmap(settings: settings))
-                .ToFin(Fail: op.InvalidResult())
-                .Map(static value => (CaptureResult)new CaptureResult.Bitmap(Value: value)),
-            CaptureFormat.Svg => Optional(ViewCapture.CaptureToSvg(settings: settings))
-                .ToFin(Fail: op.InvalidResult())
-                .Map(static value => (CaptureResult)new CaptureResult.Svg(Value: value)),
-            _ => Fin.Fail<CaptureResult>(error: op.InvalidInput()),
-        };
+    [UseDelegateFromConstructor] internal partial Fin<CaptureResult> Render(ViewCaptureSettings settings, Op op);
 }
-
-public enum CaptureFormat { Bitmap, Svg }
 
 [Union]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1063:Implement IDisposable Correctly", Justification = "Closed [Union] (private ctor) with sealed leaf cases and no finalizer; the Switch-based Dispose owns the only managed handle. The virtual Dispose(bool) pattern guards external derivation and finalization, neither of which this union admits.")]

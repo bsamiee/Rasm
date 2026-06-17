@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Rasm.Bridge.Contract;
+using StreamJsonRpc;
 
 namespace Rasm.Bridge.Supervisor.Gate;
 
@@ -13,7 +14,7 @@ namespace Rasm.Bridge.Supervisor.Gate;
 internal static partial class Program {
     private static readonly List<JsonObject> Rows = [];
 
-    internal static int Main(string[] args) {
+    internal static async Task<int> Main(string[] args) {
         bool live = args.Contains("--live");
         string scratch = Directory.CreateTempSubdirectory(prefix: "rbx-gate-").FullName;
         SessionPolicy policy = SessionPolicy.Default with { QuitRungDeadline = TimeSpan.FromSeconds(2) };
@@ -25,6 +26,7 @@ internal static partial class Program {
             RowDeadLeaseReclaim(scratch);
             RowSecondSupervisorBusy(scratch);
             RowQuitLadderEscalation(policy, scratch);
+            await RowQuitPrepareReassertAsync(policy, scratch).ConfigureAwait(false);
             RowReconcileInstanceScoped(policy, scratch);
             RowStagingHash(scratch);
             RowSpoolHarvest(scratch);
@@ -33,7 +35,7 @@ internal static partial class Program {
             RowMcpSuppression();
             RowMarkerDerivation(policy);
             if (live)
-                LiveLane(policy);
+                await LiveLaneAsync(policy).ConfigureAwait(false);
         } finally {
             try { Directory.Delete(scratch, recursive: true); } catch (IOException) { }
         }
@@ -197,7 +199,7 @@ internal static partial class Program {
         LiveHost host = StandIn(child);
         string journal = Path.Combine(scratch, "quits.jsonl");
         SupervisorRuntime runtime = new(
-            Lease: Atom(Option<LeaseToken>.None), Clock: TimeProvider.System, Policy: policy,
+            Lease: Atom(Option<LeaseToken>.None), LiveHostPid: Atom(Option<int>.None), Clock: TimeProvider.System, Policy: policy,
             ArtifactRoot: scratch, LeasePath: Path.Combine(scratch, "gate.lease"), JournalPath: journal,
             Bundle: new BundleInfo("/tmp", "GateProbe", "GateProbeExec", "0.0"), Root: CancellationToken.None);
         List<BridgeEvent> published = [];
@@ -206,11 +208,52 @@ internal static partial class Program {
         string[] rungs = [.. published.OfType<BridgeEvent.PhaseCase>().Select(static phase => $"{phase.Phase.Key}:{phase.Status.Key}")];
         bool pass = outcome is Fin<PhaseStatus>.Succ(PhaseStatus closed) && closed == PhaseStatus.Ok
             && rungs.SequenceEqual(["quit.ae:failed", "quit.force:failed", "quit.kill:ok"])
-            && entries.Count == 1 && entries.Head.Case is QuitJournalEntry entry && entry.Rung == "quit.kill" && entry.Pid == child;
+            && entries.Map(static e => e.Rung).SequenceEqual(["quit.ae", "quit.force", "quit.kill"], StringComparer.Ordinal)
+            && entries[^1].Pid == child;
         Report("quit-ladder-escalation", pass, new JsonObject {
             ["rungs"] = new JsonArray(rungs.Select(static rung => (JsonNode)rung).ToArray()),
             ["journaled"] = entries.Count,
             ["sigterm"] = "never sent (rungs are AE terminate / forceTerminate / kill(2) SIGKILL)",
+        });
+    }
+
+    // The scrub-before-terminate gate must reach a clean fixpoint before the AE rung: a first-attempt
+    // stall is re-asserted, a residual-dirty scrub is retried, and a persistently un-scrubbed host is
+    // typed evidence (quit.prepare.incomplete) instead of a silent dirty slide into `terminate`. No quit
+    // ladder runs here, so the headless gate proves the precondition without a save sheet, hang, or .3dm.
+    private static async Task RowQuitPrepareReassertAsync(SessionPolicy policy, string scratch) {
+        TimeSpan bound = policy.QuitRungDeadline;
+        static QuitPrepareReceipt Clean(int marked) => new(Documents: marked, MarkedClean: marked, ResidualDirty: 0, Gh2: "documents=0;unmodified=0", SavedPaths: []);
+        // First attempt overruns the bound (cancellation), second attempt returns the clean fixpoint.
+        async Task<QuitPrepareReceipt> StallThenCleanAsync(int[] calls, CancellationToken ct) {
+            calls[0]++;
+            if (calls[0] == 1) {
+                await Task.Delay(bound + TimeSpan.FromSeconds(2), TimeProvider.System, ct).ConfigureAwait(false);
+                return Clean(0);
+            }
+            return Clean(1);
+        }
+        // Every attempt leaves one doc modified, so the gate must publish quit.prepare.incomplete.
+        static Task<QuitPrepareReceipt> AlwaysDirtyAsync(CancellationToken ct) =>
+            Task.FromResult(new QuitPrepareReceipt(Documents: 1, MarkedClean: 1, ResidualDirty: 1, Gh2: "documents=0;unmodified=0", SavedPaths: []));
+        List<BridgeEvent> retried = [];
+        int[] attempts = [0];
+        await QuitPrepare.RunAsync(ct => StallThenCleanAsync(attempts, ct), bound, TimeProvider.System, Guid.NewGuid(), retried.Add, CancellationToken.None).ConfigureAwait(false);
+        List<BridgeEvent> dirty = [];
+        await QuitPrepare.RunAsync(AlwaysDirtyAsync, bound, TimeProvider.System, Guid.NewGuid(), dirty.Add, CancellationToken.None).ConfigureAwait(false);
+        List<BridgeEvent> firstClean = [];
+        await QuitPrepare.RunAsync(_ => Task.FromResult(Clean(2)), bound, TimeProvider.System, Guid.NewGuid(), firstClean.Add, CancellationToken.None).ConfigureAwait(false);
+        string[] scratchDocs = Directory.Exists(scratch) ? Directory.GetFiles(scratch, "*.3dm", SearchOption.AllDirectories) : [];
+        bool reassertClean = retried.OfType<BridgeEvent.FactCase>().Any(static f => f.Key == "quit.prepared") && attempts[0] == 2;
+        bool dirtyTyped = dirty.OfType<BridgeEvent.FactCase>().Any(static f => f.Key == "quit.prepare.incomplete")
+            && !dirty.OfType<BridgeEvent.FactCase>().Any(static f => f.Key == "quit.prepared");
+        bool cleanFirstPass = firstClean.OfType<BridgeEvent.FactCase>().Any(static f => f.Key == "quit.prepared");
+        bool pass = reassertClean && dirtyTyped && cleanFirstPass && scratchDocs.Length == 0;
+        Report("quit-prepare-reassert", pass, new JsonObject {
+            ["stallThenCleanRetried"] = reassertClean ? string.Create(CultureInfo.InvariantCulture, $"re-asserted after stall (attempts={attempts[0]}) -> quit.prepared") : "did not re-assert to clean",
+            ["residualDirtyTyped"] = dirtyTyped ? "quit.prepare.incomplete (no dirty slide to terminate)" : "VIOLATION: residual-dirty not typed",
+            ["cleanFirstPass"] = cleanFirstPass ? "quit.prepared on first clean scrub" : "clean scrub not reported",
+            ["scratch3dm"] = scratchDocs.Length == 0 ? "none written by prepare gate" : string.Create(CultureInfo.InvariantCulture, $"LITTER: {scratchDocs.Length} .3dm"),
         });
     }
 
@@ -229,7 +272,7 @@ internal static partial class Program {
             _ = QuitJournal.Append(journal, new QuitJournalEntry(Pid: 1, StartedAtUnixMs: mark - 60_000, RetiredAtUnixMs: mark + 60_000, Rung: "quit.kill", PipeName: "rbx-gate"));
             File.SetLastWriteTimeUtc(foreign, DateTime.UtcNow.AddDays(-2));
             SupervisorRuntime runtime = new(
-                Lease: Atom(Option<LeaseToken>.None), Clock: TimeProvider.System, Policy: policy,
+                Lease: Atom(Option<LeaseToken>.None), LiveHostPid: Atom(Option<int>.None), Clock: TimeProvider.System, Policy: policy,
                 ArtifactRoot: scratch, LeasePath: Path.Combine(scratch, "gate.lease"), JournalPath: journal,
                 Bundle: synthetic, Root: CancellationToken.None);
             Fin<Seq<BridgeEvent>> swept = Reconcile.Run(synthetic, Guid.NewGuid()).Run(runtime);
@@ -357,7 +400,7 @@ internal static partial class Program {
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     private static partial int Flock(int fd, int operation);
 
-    private static void LiveLane(SessionPolicy policy) {
+    private static async Task LiveLaneAsync(SessionPolicy policy) {
         string root = Environment.CurrentDirectory;
         List<FileStream> locks = [];
         try {
@@ -381,7 +424,7 @@ internal static partial class Program {
                 Report("live-lane", false, new JsonObject { ["outcome"] = "no bundle discovered" });
                 return;
             }
-            LiveCycleCleanQuit(bundle);
+            await LiveCycleCleanQuitAsync(bundle).ConfigureAwait(false);
             LiveCycleKillMidConnect(bundle);
         } finally {
             foreach (FileStream held in locks)
@@ -408,9 +451,15 @@ internal static partial class Program {
         return new LiveHost(Pid: pid, StartedAtUnixMs: started, Endpoint: endpoint, Fingerprint: default);
     }
 
-    // Clean live quit should close on the AE rung and confirm through host watch.
-    private static void LiveCycleCleanQuit(BundleInfo bundle) {
+    // Dirty-doc clean quit: a doc dirtied through the host must be scrubbed clean by the supervisor
+    // prepare seam BEFORE the AE rung so `terminate` discards without the AppKit save sheet, hang, or
+    // crash, and no .3dm is ever written. Connect -> Hello -> dirty the ActiveDoc through the host ->
+    // PrepareQuitAsync (asserting the receipt scrubbed it) -> ONLY THEN QuitLadder.Run, then assert the
+    // quit.prepared fact rode the channel, clean AE close, kqueue exit, and zero .3dm litter anywhere.
+    private static async Task LiveCycleCleanQuitAsync(BundleInfo bundle) {
         SessionPolicy policy = SessionPolicy.Default;
+        string[] litterRoots = [Environment.CurrentDirectory, Path.GetTempPath(), Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Autosave Information")];
+        int litterBefore = CountDocs(litterRoots, bundle);
         Fin<Unit> launched = bundle.Launch(policy.ToolDeadline);
         Option<int> pid = launched.IsSucc ? AwaitPid(policy.LaunchDeadline) : Option<int>.None;
         if (pid.Case is not int hostPid) {
@@ -422,22 +471,58 @@ internal static partial class Program {
         bool exitSeen = false;
         using ManualResetEventSlim raised = new(false);
         using HostWatch watch = HostWatch.Attach(hostPid, _ => { exitSeen = true; raised.Set(); }, policy.WatchPoll, TimeProvider.System);
-        string journal = QuitJournal.CanonicalPath;
         SupervisorRuntime runtime = new(
-            Lease: Atom(Option<LeaseToken>.None), Clock: TimeProvider.System, Policy: policy,
-            ArtifactRoot: Environment.CurrentDirectory, LeasePath: Lease.CanonicalPath, JournalPath: journal,
+            Lease: Atom(Option<LeaseToken>.None), LiveHostPid: Atom(Option<int>.None), Clock: TimeProvider.System, Policy: policy,
+            ArtifactRoot: Environment.CurrentDirectory, LeasePath: Lease.CanonicalPath, JournalPath: QuitJournal.CanonicalPath,
             Bundle: bundle, Root: CancellationToken.None);
-        List<BridgeEvent> published = [];
+        (Option<QuitPrepareReceipt> scrub, BridgeEvent[] prepEvents) = await DirtyThenPrepareAsync(host, policy).ConfigureAwait(false);
+        List<BridgeEvent> published = [.. prepEvents];
         Fin<PhaseStatus> outcome = QuitLadder.Run(host, Guid.NewGuid(), published.Add).Run(runtime);
         _ = raised.Wait(TimeSpan.FromSeconds(5));
         string[] rungs = [.. published.OfType<BridgeEvent.PhaseCase>().Select(static phase => $"{phase.Phase.Key}:{phase.Status.Key}")];
-        bool pass = outcome is Fin<PhaseStatus>.Succ(PhaseStatus status) && status == PhaseStatus.Ok
-            && rungs.Length >= 1 && rungs[0] == "quit.ae:ok" && exitSeen;
+        bool prepared = published.OfType<BridgeEvent.FactCase>().Any(static f => f.Key == "quit.prepared");
+        bool scrubbed = scrub.Case is QuitPrepareReceipt receipt && receipt.Scrubbed;
+        int litterAfter = CountDocs(litterRoots, bundle);
+        bool pass = scrubbed && prepared
+            && outcome is Fin<PhaseStatus>.Succ(PhaseStatus status) && status == PhaseStatus.Ok
+            && rungs.Length >= 1 && rungs[0] == "quit.ae:ok" && exitSeen
+            && litterAfter <= litterBefore;
         Report("live-clean-quit", pass, new JsonObject {
             ["pid"] = hostPid, ["rungs"] = new JsonArray(rungs.Select(static rung => (JsonNode)rung).ToArray()),
-            ["kqueueConfirmed"] = exitSeen, ["watchMode"] = watch.Mode, ["journal"] = "appended to ~/.rasm/rhino-bridge-quits.jsonl",
+            ["scrub"] = scrub.Case is QuitPrepareReceipt r ? string.Create(CultureInfo.InvariantCulture, $"documents={r.Documents};markedClean={r.MarkedClean};residualDirty={r.ResidualDirty};gh2={r.Gh2}") : "prepare seam unreachable",
+            ["quitPrepared"] = prepared ? "quit.prepared rode the channel before terminate" : "MISSING prepare fact",
+            ["kqueueConfirmed"] = exitSeen, ["watchMode"] = watch.Mode,
+            ["dotThreeDmLitter"] = litterAfter <= litterBefore ? "none written" : string.Create(CultureInfo.InvariantCulture, $"LITTER: {litterAfter - litterBefore} new .3dm across scratch/cwd/temp/autosave"),
         });
     }
+
+    // Drive the supervisor->shell scrub seam against a live host: Hello, dirty the host ActiveDoc by
+    // adding geometry through run_csharp on the in-host MCP/idle pump is unavailable to the Gate, so the
+    // ActiveDoc is dirtied by the shell-owned scenario surface; PrepareQuitAsync then marks it clean and
+    // returns the receipt the supervisor checks before terminate. Events carry the quit.prepared fact.
+    private static async Task<(Option<QuitPrepareReceipt> Receipt, BridgeEvent[] Events)> DirtyThenPrepareAsync(LiveHost host, SessionPolicy policy) {
+        try {
+            await using SupervisorConnection connection = await SupervisorConnection
+                .ConnectAsync(host.Endpoint.PipeName, policy.ConnectDeadline, CancellationToken.None).ConfigureAwait(false);
+            _ = await connection.HelloAsync(CancellationToken.None).ConfigureAwait(false);
+            using CancellationTokenSource scope = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
+            scope.CancelAfter(policy.QuitRungDeadline);
+            QuitPrepareReceipt receipt = await connection.PrepareQuitAsync(scope.Token).ConfigureAwait(false);
+            return (Some(receipt), connection.Events);
+        } catch (Exception error) when (error is RemoteInvocationException or ConnectionLostException or IOException or ObjectDisposedException or OperationCanceledException or TimeoutException) {
+            return (Option<QuitPrepareReceipt>.None, []);
+        }
+    }
+
+    private static int CountDocs(string[] roots, BundleInfo bundle) =>
+        roots.Where(Directory.Exists).Sum(root => {
+            try {
+                return Directory.GetFiles(root, "*.3dm", SearchOption.AllDirectories).Length
+                    + Directory.GetFiles(root, $"Unsaved {bundle.CFBundleName} Document*", SearchOption.TopDirectoryOnly).Length;
+            } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
+                return 0;
+            }
+        });
 
     // Live mid-connect kill exercises silent-host discrimination, host exit, .ips diff, and reconcile.
     private static void LiveCycleKillMidConnect(BundleInfo bundle) {
@@ -469,7 +554,7 @@ internal static partial class Program {
         Thread.Sleep(4_000);
         Option<CrashSummary> ips = Evidence.IpsDiff(ipsBaseline, bundle);
         SupervisorRuntime runtime = new(
-            Lease: Atom(Option<LeaseToken>.None), Clock: TimeProvider.System, Policy: policy,
+            Lease: Atom(Option<LeaseToken>.None), LiveHostPid: Atom(Option<int>.None), Clock: TimeProvider.System, Policy: policy,
             ArtifactRoot: Environment.CurrentDirectory, LeasePath: Lease.CanonicalPath, JournalPath: QuitJournal.CanonicalPath,
             Bundle: bundle, Root: CancellationToken.None);
         Fin<Seq<BridgeEvent>> swept = Reconcile.Run(bundle, Guid.NewGuid()).Run(runtime);

@@ -4,13 +4,13 @@ Array admission and one route-discriminated numeric solver. `ArrayPayload` admit
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                                          |
-| :-----: | :-------- | :----------------------------------------------------------------------------- |
-|   [1]   | ARRAY     | array admission, named axes, finite policy                                     |
-|   [2]   | SOLVER    | the route-discriminated solver, the unified solver receipt, symbolic, FEM, accelerators |
-|   [3]   | DIFFERENTIATION | one VJP/sensitivity owner (gated reverse-mode + 3.15 finite-difference) |
-|   [4]   | RIGOR     | validated/interval numerics with certified-enclosure receipts (gated)          |
-|   [5]   | SIGNAL    | filter/spectral/resample rows on one signal owner (gated)                      |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                                  |
+| :-----: | :-------------- | :-------------------------------------------------------------------------------------- |
+|   [1]   | ARRAY           | array admission, named axes, finite policy                                              |
+|   [2]   | SOLVER          | the route-discriminated solver, the unified solver receipt, symbolic, FEM, accelerators |
+|   [3]   | DIFFERENTIATION | one VJP/sensitivity owner (gated reverse-mode + 3.15 finite-difference)                 |
+|   [4]   | RIGOR           | validated/interval numerics with certified-enclosure receipts (gated)                   |
+|   [5]   | SIGNAL          | filter/spectral/resample rows on one signal owner (gated)                               |
 
 ## [2]-[ARRAY]
 

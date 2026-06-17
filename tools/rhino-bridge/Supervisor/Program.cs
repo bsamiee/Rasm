@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -15,6 +16,9 @@ internal abstract partial record SupervisorVerb {
     private SupervisorVerb() { }
     internal sealed record Verify(ScenarioSelection Selection, string ClosureManifest) : SupervisorVerb;
     internal sealed record Status : SupervisorVerb;
+    // The direct supervisor does not own redeploy — Assay owns the stable operator spelling and the real
+    // package cycle. The verb is admitted only to report itself UNSUPPORTED (exit 3); PackagePath is no
+    // longer silently dropped into a constant exit-1 trap but surfaced verbatim in the unsupported receipt.
     internal sealed record Redeploy(string PackagePath) : SupervisorVerb;
     internal sealed record Quit : SupervisorVerb;
 
@@ -33,9 +37,11 @@ internal abstract partial record SupervisorVerb {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 
-// Ownership: composition-edge runtime surface; policy rows and storage paths are composed once.
+// Ownership: composition-edge runtime surface; policy rows and storage paths are composed once. The
+// Lease and LiveHostPid cells commit the acquired teardown state so the signal-edge shutdown owner
+// releases the lease and kills the orphaned host synchronously without reaching a blocked-await finally.
 internal sealed record SupervisorRuntime(
-    Atom<Option<LeaseToken>> Lease, TimeProvider Clock, SessionPolicy Policy,
+    Atom<Option<LeaseToken>> Lease, Atom<Option<int>> LiveHostPid, TimeProvider Clock, SessionPolicy Policy,
     string ArtifactRoot, string LeasePath, string JournalPath, BundleInfo Bundle, CancellationToken Root);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -116,6 +122,15 @@ internal static class Program {
         }
         using CancellationTokenSource interrupt = new();
         SupervisorRuntime runtime = Compose(root: interrupt.Token);
+        // assay kills the supervisor group SIGTERM -> 1.0s -> SIGKILL; a blocked await never reaches the
+        // RunAsync finally in that window, so the signal callback drives lease release, endpoint poison,
+        // and orphan-host kill synchronously and idempotently. ProcessExit is the parent-death backstop;
+        // SIGKILL stays uncatchable, covered by the dead-pid lease reclaim on the next acquire.
+        using PosixSignalRegistration sigterm = PosixSignalRegistration.Create(signal: PosixSignal.SIGTERM, handler: ctx => Quench(ctx: ctx, interrupt: interrupt, runtime: runtime));
+        using PosixSignalRegistration sigint = PosixSignalRegistration.Create(signal: PosixSignal.SIGINT, handler: ctx => Quench(ctx: ctx, interrupt: interrupt, runtime: runtime));
+        void OnExit(object? sender, EventArgs args) => _ = Shutdown.Drive(runtime: runtime, reason: "process-exit");
+        EventHandler onExit = OnExit;
+        AppDomain.CurrentDomain.ProcessExit += onExit;
         SessionEnvelope envelope;
         try {
             envelope = await SessionKernel.RunAsync(verb: verb, runtime: runtime).ConfigureAwait(false);
@@ -127,9 +142,21 @@ internal static class Program {
                     At: verb.EntryPhase, Done: Seq<ScenarioReceipt>()),
                 stream: Seq<BridgeEvent>(), spoolTail: (0L, 0L), reportDir: runtime.ArtifactRoot);
         }
+        // A normal terminal envelope means RunAsync already released the lease; detach the exit backstop
+        // so it cannot re-fire against teardown state after the process completes cleanly.
+        AppDomain.CurrentDomain.ProcessExit -= onExit;
         await Console.Out.WriteLineAsync(value: JsonSerializer.Serialize(value: envelope, jsonTypeInfo: BridgeJsonContext.Default.SessionEnvelope)).ConfigureAwait(false);
         Diagnose(@event: "session.terminal", detail: null, envelope: envelope);
         return envelope.Status.ExitCode;
+    }
+
+    // The signal callback runs inside the ~1s SIGTERM grace: drive teardown synchronously first, then
+    // cancel the interrupt so any in-flight await that can still unwind does, and let .NET terminate.
+    private static void Quench(PosixSignalContext ctx, CancellationTokenSource interrupt, SupervisorRuntime runtime) {
+        ArgumentNullException.ThrowIfNull(argument: ctx);
+        _ = Shutdown.Drive(runtime: runtime, reason: ctx.Signal.ToString());
+        if (!interrupt.IsCancellationRequested)
+            interrupt.Cancel();
     }
 
     private static SupervisorRuntime Compose(CancellationToken root) {
@@ -141,6 +168,7 @@ internal static class Program {
             : new BundleInfo(AppPath: appPath, CFBundleName: stem, CFBundleExecutable: stem, CFBundleVersion: string.Empty);
         return new SupervisorRuntime(
             Lease: Atom(value: Option<LeaseToken>.None),
+            LiveHostPid: Atom(value: Option<int>.None),
             Clock: TimeProvider.System,
             Root: root,
             Policy: SessionPolicy.Default,

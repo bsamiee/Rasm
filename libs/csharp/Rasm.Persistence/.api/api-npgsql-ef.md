@@ -19,15 +19,23 @@ query translation, type mapping, value generation, and scaffolding.
 [PROVIDER_TYPES]: provider admission and options
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                                                                                                                                                         |
-| :-----: | :---------------------------------------- | :----------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `NpgsqlDbContextOptionsBuilder`           | provider options   | `SetPostgresVersion`, `EnableRetryOnFailure`, `ConfigureDataSource`, `MapEnum`, `MapRange`, `UseAdminDatabase`, `UseRedshift`, `ProvidePasswordCallback`, `ProvideClientCertificatesCallback`, `RemoteCertificateValidationCallback` |
-|   [2]   | `NpgsqlDbContextOptionsBuilderExtensions` | builder extension  | `UseNpgsql` overloads: no-arg, connection string, `DbConnection`, `DbConnection+owned`, `DbDataSource` (generic and non-generic)                                                                                                     |
-|   [3]   | `NpgsqlServiceCollectionExtensions`       | service extension  | `AddNpgsql<TContext>`, `AddEntityFrameworkNpgsql`                                                                                                                                                                                    |
-|   [4]   | `NpgsqlOptionsExtension`                  | options extension  | carries provider policy                                                                                                                                                                                                              |
-|   [5]   | `NpgsqlDatabaseFacadeExtensions`          | database extension | `IsNpgsql`                                                                                                                                                                                                                           |
-|   [6]   | `NpgsqlDesignTimeServices`                | design services    | admits design tooling                                                                                                                                                                                                                |
-|   [7]   | `NpgsqlValueGenerationStrategy`           | value-gen enum     | `None`, `SequenceTrigger`, `Serial`, `IdentityAlwaysColumn`, `IdentityByDefaultColumn`, `Sequence`                                                                                                                                   |
+The compact rows below preserve these provider member sets:
+- `NpgsqlDbContextOptionsBuilder`: `SetPostgresVersion`, `EnableRetryOnFailure`, `ConfigureDataSource`, `MapEnum`, `MapRange`, `UseAdminDatabase`, `UseRedshift`
+- `NpgsqlDbContextOptionsBuilder`: `ProvidePasswordCallback`, `ProvideClientCertificatesCallback`, `RemoteCertificateValidationCallback`
+- `NpgsqlDbContextOptionsBuilderExtensions`: `UseNpgsql` overload families for no-arg, connection string, `DbConnection`, owned `DbConnection`, `DbDataSource`
+- `NpgsqlDbContextOptionsBuilderExtensions`: generic and non-generic `UseNpgsql` forms
+- `NpgsqlServiceCollectionExtensions`: `AddNpgsql<TContext>`, `AddEntityFrameworkNpgsql`
+- `NpgsqlValueGenerationStrategy`: `None`, `SequenceTrigger`, `Serial`, `IdentityAlwaysColumn`, `IdentityByDefaultColumn`, `Sequence`
+
+| [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]     | [CAPABILITY]                |
+| :-----: | :---------------------------------------- | :----------------- | :-------------------------- |
+|   [1]   | `NpgsqlDbContextOptionsBuilder`           | provider options   | configures provider options |
+|   [2]   | `NpgsqlDbContextOptionsBuilderExtensions` | builder extension  | admits provider             |
+|   [3]   | `NpgsqlServiceCollectionExtensions`       | service extension  | admits provider services    |
+|   [4]   | `NpgsqlOptionsExtension`                  | options extension  | carries provider policy     |
+|   [5]   | `NpgsqlDatabaseFacadeExtensions`          | database extension | exposes provider checks     |
+|   [6]   | `NpgsqlDesignTimeServices`                | design services    | admits design tooling       |
+|   [7]   | `NpgsqlValueGenerationStrategy`           | value-gen enum     | classifies value generation |
 
 [RELATIONAL_TYPES]: PostgreSQL EF services
 - rail: store-provider
@@ -148,6 +156,8 @@ query translation, type mapping, value generation, and scaffolding.
 [ENTRYPOINT_SCOPE]: full-text search extensions
 - rail: store-provider
 
+`And`, `Or`, and `ToNegative` map to `&&`, `||`, and `!!`.
+
 | [INDEX] | [SURFACE]                                | [CALL_SHAPE]            | [CAPABILITY]                                                  |
 | :-----: | :--------------------------------------- | :---------------------- | :------------------------------------------------------------ |
 |   [1]   | `ToTsVector` (DB function)               | `DbFunctions` extension | converts document string to `tsvector`; optional config       |
@@ -159,7 +169,7 @@ query translation, type mapping, value generation, and scaffolding.
 |   [7]   | `Unaccent`                               | `DbFunctions` extension | removes accents; optional dictionary name                     |
 |   [8]   | `Matches(NpgsqlTsVector, string)`        | LINQ extension          | `@@` operator: match vector against plain string              |
 |   [9]   | `Matches(NpgsqlTsVector, NpgsqlTsQuery)` | LINQ extension          | `@@` operator: match vector against typed query               |
-|  [10]   | `And` / `Or` / `ToNegative`              | LINQ extension          | query algebra: `&&`, `                                        |  | `, `!!` operators |
+|  [10]   | `And` / `Or` / `ToNegative`              | LINQ extension          | query algebra operators                                       |
 |  [11]   | `Rank` / `SetWeight` / `Concat`          | LINQ extension          | tsvector operations: ranking and weighting                    |
 |  [12]   | `GetResultHeadline`                      | LINQ extension          | generates highlighted headline; optional options string       |
 |  [13]   | `Rewrite`                                | LINQ extension          | rewrites tsquery via target/substitute pair or SQL SELECT     |
@@ -168,23 +178,28 @@ query translation, type mapping, value generation, and scaffolding.
 [ENTRYPOINT_SCOPE]: JSON and range DB-function extensions
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                                                                             | [CALL_SHAPE]            | [CAPABILITY]                                        |
-| :-----: | :---------------------------------------------------------------------------------------------------- | :---------------------- | :-------------------------------------------------- |
-|   [1]   | `JsonContains`                                                                                        | `DbFunctions` extension | jsonb `@>` containment                              |
-|   [2]   | `JsonContained`                                                                                       | `DbFunctions` extension | jsonb `<@` containment                              |
-|   [3]   | `JsonExists`                                                                                          | `DbFunctions` extension | jsonb `?` key-exists                                |
-|   [4]   | `JsonExistAny`                                                                                        | `DbFunctions` extension | jsonb `?                                            | ` any-key-exists |
-|   [5]   | `JsonExistAll`                                                                                        | `DbFunctions` extension | jsonb `?&` all-keys-exist                           |
-|   [6]   | `JsonTypeof`                                                                                          | `DbFunctions` extension | returns jsonb value type name                       |
-|   [7]   | `Contains<T>(NpgsqlRange<T>, T)`                                                                      | range extension         | range contains element                              |
-|   [8]   | `Contains<T>(NpgsqlRange<T>, NpgsqlRange<T>)`                                                         | range extension         | range contains range                                |
-|   [9]   | `ContainedBy<T>`                                                                                      | range extension         | range is contained by range                         |
-|  [10]   | `Overlaps<T>`                                                                                         | range extension         | ranges overlap                                      |
-|  [11]   | `IsStrictlyLeftOf<T>` / `IsStrictlyRightOf<T>` / `DoesNotExtendLeftOf<T>` / `DoesNotExtendRightOf<T>` | range extension         | directional range predicates                        |
-|  [12]   | `IsAdjacentTo<T>`                                                                                     | range extension         | ranges are adjacent                                 |
-|  [13]   | `Union<T>` / `Intersect<T>` / `Except<T>` / `Merge<T>`                                                | range extension         | range set algebra                                   |
-|  [14]   | `RangeAgg<T>`                                                                                         | range extension         | aggregate to range array                            |
-|  [15]   | `RangeIntersectAgg<T>`                                                                                | range extension         | aggregate range intersection (scalar or multirange) |
+The compact rows below preserve these operator and range member sets:
+- JSON operators: `JsonContains` maps to `@>`, `JsonContained` maps to `<@`, `JsonExists` maps to `?`, `JsonExistAny` maps to `?|`, and `JsonExistAll` maps to `?&`
+- directional range predicates: `IsStrictlyLeftOf<T>`, `IsStrictlyRightOf<T>`, `DoesNotExtendLeftOf<T>`, `DoesNotExtendRightOf<T>`
+- range set algebra: `Union<T>`, `Intersect<T>`, `Except<T>`, `Merge<T>`
+
+| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]            | [CAPABILITY]                                        |
+| :-----: | :-------------------------------------------- | :---------------------- | :-------------------------------------------------- |
+|   [1]   | `JsonContains`                                | `DbFunctions` extension | jsonb containment                                   |
+|   [2]   | `JsonContained`                               | `DbFunctions` extension | jsonb contained-by                                  |
+|   [3]   | `JsonExists`                                  | `DbFunctions` extension | jsonb key-exists                                    |
+|   [4]   | `JsonExistAny`                                | `DbFunctions` extension | jsonb any-key-exists                                |
+|   [5]   | `JsonExistAll`                                | `DbFunctions` extension | jsonb all-keys-exist                                |
+|   [6]   | `JsonTypeof`                                  | `DbFunctions` extension | returns jsonb value type name                       |
+|   [7]   | `Contains<T>(NpgsqlRange<T>, T)`              | range extension         | range contains element                              |
+|   [8]   | `Contains<T>(NpgsqlRange<T>, NpgsqlRange<T>)` | range extension         | range contains range                                |
+|   [9]   | `ContainedBy<T>`                              | range extension         | range is contained by range                         |
+|  [10]   | `Overlaps<T>`                                 | range extension         | ranges overlap                                      |
+|  [11]   | directional range predicates                  | range extension         | directional range predicates                        |
+|  [12]   | `IsAdjacentTo<T>`                             | range extension         | ranges are adjacent                                 |
+|  [13]   | range set algebra                             | range extension         | range set algebra                                   |
+|  [14]   | `RangeAgg<T>`                                 | range extension         | aggregate to range array                            |
+|  [15]   | `RangeIntersectAgg<T>`                        | range extension         | aggregate range intersection (scalar or multirange) |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

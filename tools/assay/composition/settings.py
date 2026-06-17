@@ -352,16 +352,22 @@ def unframe(payload: bytes) -> bytes:
 
 
 class ArtifactBackend(BaseModel):
-    """Validated artifact backend selected by settings."""
+    """Validated artifact backend selected by settings.
+
+    ``storage_options`` is the typed owner of every fsspec credential/endpoint knob a non-file backend needs —
+    cloud key/secret/token/endpoint_url for s3/gs/gcs, host/port/username/client_keys for sftp — passed verbatim to
+    ``fsspec.filesystem(protocol, **storage_options)``; the file backend needs none and defaults to empty.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     protocol: StoreProtocol = "file"
     root: str = ""
+    storage_options: dict[str, str | int | bool] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _bounded_non_file_root(self) -> ArtifactBackend:  # noqa: N804  # Pydantic v2 mode="after" passes the model instance, not cls.
-        # Non-file backend singletons need a non-empty root to avoid cross-store collisions.
+        # Non-file backend singletons need a non-empty root to avoid cross-store collisions; file backends ignore storage_options.
         match (self.protocol, self.root.strip(), ".." in _root_parts(self.root)):
             case ("file", _, _):
                 return self
@@ -550,8 +556,11 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
     mutation_max_cpu: Annotated[int, Field(ge=1, le=64)] = 2
     max_checks: Annotated[int, Field(ge=1, le=64)] = 8
     cpu_count: Annotated[int, Field(ge=1, le=256)] = Field(default_factory=_default_cpu_count)
+    # Bounded stderr diagnostic-preview window retained on the receipt; the full stdout payload spills to the PROCESS artifact instead.
     stream_tail_bytes: Annotated[int, Field(ge=512)] = 4096
     stream_chunk_bytes: Annotated[int, Field(ge=4096)] = 65536
+    # In-memory stdout-capture ceiling: at or below it the full payload rides the receipt inline; above it capture spills to the PROCESS artifact.
+    capture_spill_bytes: Annotated[int, Field(ge=65536)] = 1_048_576
     lease_drift_tolerance: Annotated[float, Field(gt=0)] = 1.0
     # Machine-wide dotnet admission-slot lock root: per-user, machine-stable, local-fs (flock-hostable), aligned with the bridge ~/.rasm home.
     machine_lock_root: Path = Field(default_factory=lambda: Path.home() / ".rasm" / "locks")
@@ -649,7 +658,7 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
         """
         try:
             decoded = msgspec.json.decode((self.root / "global.json").read_bytes())
-        except (OSError, msgspec.MsgspecError):
+        except OSError, msgspec.MsgspecError:
             return ""
         match decoded:
             case {"sdk": {"version": str() as version}}:
@@ -712,14 +721,17 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
     def store(self, *, protocol: str | None = None, root: str | None = None, **opts: object) -> ArtifactStore:
         """Create an artifact store backend.
 
+        The no-override common path reuses the settings-validated ``artifact_backend`` verbatim (no per-call
+        ``model_dump``/``model_validate`` round trip); a protocol/root override revalidates only the patched backend.
+        The resolved backend's typed ``storage_options`` is the persistent fsspec credential/endpoint config; ``**opts``
+        layers per-call overrides on top, both reaching ``fsspec.filesystem``.
+
         Returns:
             Artifact store bound to the requested backend.
         """
-        backend = ArtifactBackend.model_validate({
-            **self.artifact_backend.model_dump(),
-            **{k: v for k, v in {"protocol": protocol, "root": root}.items() if v is not None},
-        })
-        return ArtifactStore(fs=fsspec.filesystem(backend.protocol, **opts), root=backend.target(self))
+        override = {k: v for k, v in {"protocol": protocol, "root": root}.items() if v is not None}
+        backend = self.artifact_backend if not override else ArtifactBackend.model_validate({**self.artifact_backend.model_dump(), **override})
+        return ArtifactStore(fs=fsspec.filesystem(backend.protocol, **{**backend.storage_options, **opts}), root=backend.target(self))
 
     def with_configuration(self, configuration: Configuration) -> AssaySettings:
         """Return these settings rebound to a different build configuration."""

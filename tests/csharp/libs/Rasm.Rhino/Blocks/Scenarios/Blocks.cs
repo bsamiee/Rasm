@@ -106,7 +106,7 @@ internal static class BlocksScenarios {
             projection: blocks.Run(op: new BlockOp.Author(Spec: spec, Source: source, Conflict: ConflictPolicy.Fail), key: op))
         from receipt in As<BlockOutcome.Receipt>(outcome: outcome)
         from live in Found(doc: scope.Doc, name: name.Value)
-        let created = Note(ctx: ctx, key: "receipt.created", value: receipt.Value.Document.Created.Count)
+        let created = Note(ctx: ctx, key: "receipt.created", value: receipt.Value.Document.Ids(slot: DocumentReceiptSlot.Created).Count)
         let memberCount = Note(ctx: ctx, key: "member.count", value: live.ObjectCount)
         from authorMembers in ctx.Require(label: "author member count", observed: memberCount >= 1)
         from resourceReceipt in ctx.Require(label: "author resource receipt", observed: receipt.Value.Document.ResourceChanged.Count >= 1)
@@ -152,7 +152,7 @@ internal static class BlocksScenarios {
                 op: new BlockOp.Instance(Task: new BlockInstanceTask.Place(Ref: refer, At: Seq(Placement.Of(xform: Transform.Identity)), Policy: BatchPolicy.Default)),
                 key: op))
         from placed in As<BlockOutcome.Receipt>(outcome: placedOutcome)
-        from instanceId in placed.Value.Document.Created.Head.ToFin(Fail: Error.New(message: "place produced no created instance id"))
+        from instanceId in placed.Value.Document.Ids(slot: DocumentReceiptSlot.Created).Head.ToFin(Fail: Error.New(message: "place produced no created instance id"))
         let idFact = Note(ctx: ctx, key: "instanceId", value: instanceId)
         from writtenOutcome in ctx.Expect(
             label: "write attributes",
@@ -164,8 +164,8 @@ internal static class BlocksScenarios {
                     InstanceId: Some(instanceId))),
                 key: op))
         from written in As<BlockOutcome.Receipt>(outcome: writtenOutcome)
-        let changed = Note(ctx: ctx, key: "attributeChanged", value: written.Value.Document.AttributeChanged.Count)
-        from changedId in ctx.Require(label: "attribute changed id", observed: written.Value.Document.AttributeChanged.Exists(id => id == instanceId))
+        let changed = Note(ctx: ctx, key: "attributeChanged", value: written.Value.Document.Ids(slot: DocumentReceiptSlot.Attributes).Count)
+        from changedId in ctx.Require(label: "attribute changed id", observed: written.Value.Document.Ids(slot: DocumentReceiptSlot.Attributes).Exists(id => id == instanceId))
         from instance in Optional(scope.Doc.Objects.FindId(id: instanceId) as InstanceObject)
             .ToFin(Fail: Error.New(message: "instance missing"))
         let mark = Note(ctx: ctx, key: "readMark", value: instance.Attributes.GetUserString(key: "Mark") ?? string.Empty)
@@ -335,8 +335,8 @@ internal static class BlocksScenarios {
                     Ref: DefinitionRef.Of(name: linkedDefName), At: Seq(Placement.Of(xform: Transform.Identity, reference: true)))),
                 key: op))
         from placedReceipt in As<BlockOutcome.Receipt>(outcome: placeOutcome)
-        from placedCount in ctx.Require(label: "placed instance count", observed: placedReceipt.Value.Document.Created.Count == 1)
-        from instanceId in placedReceipt.Value.Document.Created.Head.ToFin(Fail: Error.New(message: "placed instance id missing"))
+        from placedCount in ctx.Require(label: "placed instance count", observed: placedReceipt.Value.Document.Ids(slot: DocumentReceiptSlot.Created).Count == 1)
+        from instanceId in placedReceipt.Value.Document.Ids(slot: DocumentReceiptSlot.Created).Head.ToFin(Fail: Error.New(message: "placed instance id missing"))
         from placedObject in Optional(scope.Doc.Objects.FindId(id: instanceId) as InstanceObject)
             .ToFin(Fail: Error.New(message: "placed instance missing"))
         let idFact = Note(ctx: ctx, key: "instance.id", value: instanceId)

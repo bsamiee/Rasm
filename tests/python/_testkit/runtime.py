@@ -201,7 +201,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
             item.add_marker(property_, append=False)
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def _otel_provider() -> InMemorySpanExporter:
     """Attach a fresh exporter to the set-once process-level ``TracerProvider``.
 
@@ -219,9 +219,9 @@ def _otel_provider() -> InMemorySpanExporter:
     return exp
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _profiling_sampler(_otel_provider: InMemorySpanExporter) -> None:
+def pytest_sessionstart(session: pytest.Session) -> None:
     """Start the optional out-of-process CPU sampler for the test session PID."""
+    _ = session
     profile_flag = os.environ.get("TESTS_PROFILE")  # noqa: TID251  # profiler activation gate
     if not profile_flag:
         return

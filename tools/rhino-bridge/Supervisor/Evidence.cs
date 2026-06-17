@@ -44,6 +44,27 @@ internal static class Evidence {
         }
     }
 
+    // Disk-keyed spool reconciliation: enumerate every durable `<scenario>.jsonl` under the report
+    // directory and fold it to (Count, LastSequence). On a crash the in-memory receipt set is empty
+    // or partial, so the report directory — not the receipts — is the authoritative spool source and
+    // the only one that lets the SessionFold divergence guard fire.
+    internal static (long Count, long LastSequence) SpoolTail(string reportDir) {
+        // BOUNDARY ADAPTER: an absent or denied report directory reads as an empty spool.
+        Seq<string> files;
+        try {
+            files = Directory.Exists(path: reportDir)
+                ? toSeq(value: Directory.EnumerateFiles(path: reportDir, searchPattern: "*.jsonl"))
+                : Seq<string>();
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
+            files = Seq<string>();
+        }
+        Seq<BridgeEvent> harvested = files
+            .Bind(f: path => HarvestSpool(reportDir: reportDir, scenario: Path.GetFileNameWithoutExtension(path: path)))
+            .Filter(f: static evt => evt is BridgeEvent.FactCase or BridgeEvent.CaptureCase);
+        return (harvested.Count, harvested.Map(f: static evt => evt.Stamp.Sequence)
+            .Fold(initialState: 0L, f: static (max, observed) => Math.Max(val1: max, val2: observed)));
+    }
+
     internal static Seq<string> IpsBaseline(BundleInfo bundle) {
         ArgumentNullException.ThrowIfNull(argument: bundle);
         // BOUNDARY ADAPTER: absent or denied crash-report access yields an empty baseline.

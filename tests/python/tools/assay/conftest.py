@@ -54,6 +54,8 @@ SUT_PACKAGE: Final = "tools.assay"
 # pytest-benchmark's repo-root storage fallback; the configure hook rebinds it to the canonical artifact URI.
 _BENCHMARK_ROOT_DEFAULT: Final = "file://./.benchmarks"
 
+_SUT_SEAMS: dict[str, ExitStack] = {}
+
 # Exempt aliases and ContextVar seams with no independent behavior; model.Bind remains covered.
 _EXEMPT: Final = frozenset({
     "Attrs", "Bind", "Hom", "Layer", "Inversion",   # aspect: type aliases + decoration-time TypeError
@@ -86,9 +88,8 @@ def pytest_configure(config: pytest.Config) -> None:
         config.option.benchmark_storage = BENCHMARK_STORAGE_URI
 
 
-@pytest.fixture(autouse=True)
-def _isolate_sut_state() -> Generator[None]:
-    """Reset SUT ContextVars and structlog context that persist across in-process tests."""
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    """Reset SUT ContextVars and structlog context before each in-process test."""
     import structlog  # noqa: PLC0415
 
     from tools.assay.automation.engine import _CPU_PRIMED  # noqa: PLC0415
@@ -96,12 +97,20 @@ def _isolate_sut_state() -> Generator[None]:
     from tools.assay.core.engine import _RESOURCE, _SSH_CACHE  # noqa: PLC0415
 
     structlog.contextvars.clear_contextvars()
-    with ExitStack() as seams:
-        seams.enter_context(isolate(_RING, None))
-        seams.enter_context(isolate(_CPU_PRIMED, value=False))
-        seams.enter_context(isolate(_RESOURCE, ()))
-        seams.enter_context(isolate(_SSH_CACHE, None))
-        yield
+    seams = ExitStack()
+    seams.enter_context(isolate(_RING, None))
+    seams.enter_context(isolate(_CPU_PRIMED, value=False))
+    seams.enter_context(isolate(_RESOURCE, ()))
+    seams.enter_context(isolate(_SSH_CACHE, None))
+    _SUT_SEAMS[item.nodeid] = seams
+
+
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> None:
+    """Close SUT ContextVar seams and clear structlog context after each test."""
+    import structlog  # noqa: PLC0415
+
+    _ = nextitem
+    _SUT_SEAMS.pop(item.nodeid).close()
     structlog.contextvars.clear_contextvars()
 
 

@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Events;
@@ -9,6 +8,23 @@ namespace Rasm.Rhino.Blocks;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 internal enum RefCacheMode { Snapshot, Preview }
+
+[Union]
+public abstract partial record UndoPolicy {
+    private UndoPolicy() { }
+    public sealed record Grouped : UndoPolicy;
+    public sealed record PerOp : UndoPolicy;
+
+    public static UndoPolicy Group { get; } = new Grouped();
+    public static UndoPolicy Each { get; } = new PerOp();
+
+    // Grouped brackets the whole batch in one undo record (all-or-nothing rollback); PerOp leaves each op its own record, batching without grouping. The bracketing behavior is the policy, selected by the value, not a flag.
+    internal Fin<Seq<BlockOutcome>> Bracket(RhinoDoc document, string name, Op key, Func<Fin<Seq<BlockOutcome>>> body) =>
+        Switch(
+            state: (Document: document, Name: name, Key: key, Body: body),
+            grouped: static (s, _) => UndoBracket.Run(document: s.Document, name: s.Name, key: s.Key, body: s.Body),
+            perOp: static (s, _) => s.Body());
+}
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class RhinoBlocks {
@@ -35,6 +51,22 @@ public sealed class RhinoBlocks {
             });
     }
 
+    // Transactional multi-op: the whole Seq<BlockOp> runs on one UI dispatch under one UndoPolicy bracket, so a Grouped batch is one undo record (all-or-nothing rollback). TraverseM aborts the batch on the first op failure, leaving the bracket to close the partial record.
+    public Fin<Seq<BlockOutcome>> Batch(Seq<BlockOp> ops, UndoPolicy? policy = null) {
+        Op key = Op.Of();
+        UndoPolicy active = policy ?? UndoPolicy.Group;
+        return Optional(ops).Filter(static s => !s.IsEmpty).ToFin(Fail: key.InvalidInput())
+            .Bind(valid => RhinoUi.DispatchThread(
+                uiBound: true,
+                mode: Mode,
+                run: () => active.Bracket(
+                    document: Document,
+                    name: nameof(Batch),
+                    key: key,
+                    body: () => valid.TraverseM(op => Run(op: op, key: key)).As()),
+                name: nameof(Batch)));
+    }
+
     public Subscription Subscribe(Action<BlockTableEvent> handler, BlockSubscriptionPolicy? policy = null) {
         ArgumentNullException.ThrowIfNull(argument: handler);
         return EventBridge.Attach(doc: Document, handler: handler, policy: policy ?? BlockSubscriptionPolicy.Default);
@@ -52,7 +84,7 @@ public sealed class RhinoBlocks {
 
     public Fin<Subscription> Watch(ArchivePath path, WatchPolicy? policy = null) =>
         (policy ?? WatchPolicy.Default)
-            .Admit(key: Op.Of(name: nameof(Watch)))
+            .Admit(key: Op.Of())
             .Bind(valid => WatchBus.SubscribeFile(
                 path: path.Value,
                 debounce: valid.Debounce,
@@ -217,20 +249,18 @@ internal static class PreviewVault {
         docSerial: null,
         dispose: static bmp => bmp.Dispose());
 
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "PreviewHandle release path disposes the bitmap.")]
     internal static Fin<PreviewHandle> Acquire(RhinoDoc doc, InstanceDefinition def, PreviewSpec spec, Op key) {
         (uint Serial, Guid DefId, ulong Spec, uint Version) cacheKey = Key(doc: doc, def: def, spec: spec);
-        return store.Borrow(key: cacheKey) switch {
-            { IsSome: true, Case: Bitmap bmp } => Fin.Succ(value: Handle(key: cacheKey, bitmap: bmp)),
+        return Lease(cache: store, key: cacheKey).Case switch {
+            PreviewHandle handle => Fin.Succ(value: handle),
             _ => Render(def: def, spec: spec, key: cacheKey, op: key),
         };
     }
 
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "PreviewHandle release path disposes the bitmap.")]
     internal static Fin<PreviewHandle> AcquireOffline(ArchivePath path, PreviewSpec spec, Op key) {
         (ulong PathHash, ulong Mtime, ulong Spec) cacheKey = OfflineKey(path: path, spec: spec);
-        return offlineStore.Borrow(key: cacheKey) switch {
-            { IsSome: true, Case: Bitmap bmp } => Fin.Succ(value: OfflineHandle(key: cacheKey, bitmap: bmp)),
+        return Lease(cache: offlineStore, key: cacheKey).Case switch {
+            PreviewHandle handle => Fin.Succ(value: handle),
             _ => RenderOffline(path: path, cacheKey: cacheKey, op: key),
         };
     }
@@ -245,7 +275,7 @@ internal static class PreviewVault {
         op.Catch(() =>
             from displayId in spec.ResolvedMode.Resolve(op: op)
             from rendered in RenderNative(def: def, spec: spec, displayId: displayId, op: op)
-            from stored in StoreRendered(key: key, rendered: rendered)
+            from stored in RenderInto(cache: store, key: key, rendered: rendered, opName: nameof(Acquire))
             select stored);
 
     private static Fin<Bitmap> RenderNative(InstanceDefinition def, PreviewSpec spec, Guid displayId, Op op) {
@@ -272,17 +302,17 @@ internal static class PreviewVault {
         };
     }
 
-    private static Fin<PreviewHandle> StoreRendered((uint Serial, Guid DefId, ulong Spec, uint Version) key, Bitmap rendered) {
-        (Option<Bitmap> selected, bool cached, Bitmap? rejectDispose) = store.Store(key: key, rendered: rendered);
+    private static Fin<PreviewHandle> RenderInto<TKey>(RefCache<TKey, Bitmap> cache, TKey key, Bitmap rendered, string opName) where TKey : notnull {
+        (Option<Bitmap> selected, bool cached, Bitmap? rejectDispose) = cache.Store(key: key, rendered: rendered);
         rejectDispose?.Dispose();
-        return selected.ToFin(Fail: Op.Of(name: nameof(StoreRendered)).InvalidResult())
+        return selected.ToFin(Fail: Op.Of(name: opName).InvalidResult())
             .Map(bitmap => cached
-                ? Handle(key: key, bitmap: bitmap)
+                ? new PreviewHandle(bitmap: bitmap, release: _ => cache.Release(key: key))
                 : new PreviewHandle(bitmap: bitmap, release: static handle => handle.Bitmap.Dispose()));
     }
 
-    private static PreviewHandle Handle((uint Serial, Guid DefId, ulong Spec, uint Version) key, Bitmap bitmap) =>
-        new(bitmap: bitmap, release: _ => store.Release(key: key));
+    private static Option<PreviewHandle> Lease<TKey>(RefCache<TKey, Bitmap> cache, TKey key) where TKey : notnull =>
+        cache.Borrow(key: key).Map(bmp => new PreviewHandle(bitmap: bmp, release: _ => cache.Release(key: key)));
 
     private static (ulong PathHash, ulong Mtime, ulong Spec) OfflineKey(ArchivePath path, PreviewSpec spec) =>
         (PathHash: Fnv64.HashText(value: path.Value.ToUpperInvariant()),
@@ -293,20 +323,8 @@ internal static class PreviewVault {
         op.Catch(() =>
             from bitmap in (File.Exists(path: path.Value) ? Optional(File3dm.ReadPreviewImage(path: path.Value)) : Option<Bitmap>.None)
                 .ToFin(Fail: op.InvalidResult())
-            from stored in StoreOfflineRendered(key: cacheKey, rendered: bitmap)
+            from stored in RenderInto(cache: offlineStore, key: cacheKey, rendered: bitmap, opName: nameof(AcquireOffline))
             select stored);
-
-    private static Fin<PreviewHandle> StoreOfflineRendered((ulong PathHash, ulong Mtime, ulong Spec) key, Bitmap rendered) {
-        (Option<Bitmap> selected, bool cached, Bitmap? rejectDispose) = offlineStore.Store(key: key, rendered: rendered);
-        rejectDispose?.Dispose();
-        return selected.ToFin(Fail: Op.Of(name: nameof(StoreOfflineRendered)).InvalidResult())
-            .Map(bitmap => cached
-                ? OfflineHandle(key: key, bitmap: bitmap)
-                : new PreviewHandle(bitmap: bitmap, release: static handle => handle.Bitmap.Dispose()));
-    }
-
-    private static PreviewHandle OfflineHandle((ulong PathHash, ulong Mtime, ulong Spec) key, Bitmap bitmap) =>
-        new(bitmap: bitmap, release: _ => offlineStore.Release(key: key));
 }
 
 internal static class SnapshotVault {
@@ -330,6 +348,17 @@ internal static class SnapshotVault {
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------
+internal static class BlockVaults {
+    // each row owns one vault's lifecycle: per-definition invalidation (Some when the vault keys by defId) and per-document eviction
+    private static readonly Seq<(Option<Action<Guid>> Invalidate, Action<uint> Evict)> Rows = Seq(
+        (Invalidate: Some<Action<Guid>>(static id => SnapshotVault.Invalidate(defId: id)), Evict: (Action<uint>)(static s => SnapshotVault.EvictDoc(serial: s))),
+        (Invalidate: Some<Action<Guid>>(static id => PreviewVault.Invalidate(defId: id)), Evict: static s => PreviewVault.EvictDoc(serial: s)),
+        (Invalidate: Option<Action<Guid>>.None, Evict: static s => ContentIndex.EvictDoc(serial: s)));
+
+    internal static Unit Invalidate(Guid defId) => Rows.Iter(row => row.Invalidate.Iter(invalidate => invalidate(obj: defId)));
+    internal static Unit Evict(uint serial) => Rows.Iter(row => row.Evict(obj: serial));
+}
+
 internal static class EventBridge {
     private static readonly EventDispatcher<InstanceDefinitionTableEventArgs, BlockTableEvent> Dispatcher = new(
         hook: static h => RhinoDoc.InstanceDefinitionTableEvent += h,
@@ -354,9 +383,7 @@ internal static class EventBridge {
     }
 
     private static Unit OnDocClose(uint serial) {
-        _ = SnapshotVault.EvictDoc(serial: serial);
-        _ = PreviewVault.EvictDoc(serial: serial);
-        _ = ContentIndex.EvictDoc(serial: serial);
+        _ = BlockVaults.Evict(serial: serial);
         return Dispatcher.DropSerial(serial: serial);
     }
     private static Unit Invalidate(uint serial, BlockTableEvent snapshot) {

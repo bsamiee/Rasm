@@ -138,11 +138,11 @@ public sealed partial class CanvasEvent {
 
     public static readonly CanvasEvent MouseHover = new(
         subscribe: static (canvas, handler) => {
-            void Hovered(object? _, MouseHoverEventArgs e) =>
+            void Hovered(object? _, MouseDwellEventArgs e) =>
                 _ = UiEvent.Publish(handler: handler, snapshot: new CanvasEventSnapshot(Kind: MouseHover!, Hover: Some(e.ControlPoint)));
             return Subscription.Bind(
-                attach: () => canvas.MouseHover += Hovered,
-                detach: () => canvas.MouseHover -= Hovered,
+                attach: () => canvas.MouseDwell += Hovered,
+                detach: () => canvas.MouseDwell -= Hovered,
                 marshalToUi: true);
         });
 

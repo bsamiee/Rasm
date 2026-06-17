@@ -35,6 +35,10 @@ def _ok_static_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Com
     return tuple(Ok(receipt((check.tool.name,), 0, status=RailStatus.OK)) for check in checks)
 
 
+def _compiling_probe(check: Check, **_kw: object) -> Result[Completed, Fault]:
+    return Ok(receipt((check.tool.name,), 0, status=RailStatus.OK))
+
+
 def _recording_fan(calls: list[tuple[Mode, ...]]) -> object:
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         calls.append(tuple(check.tool.mode for check in checks))
@@ -130,6 +134,7 @@ def test_csharp_project_lane_runs_full_ordered_lane(monkeypatch: pytest.MonkeyPa
     assay_root.write("src/App/App.csproj", "<Project />")
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
     monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
+    monkeypatch.setattr(static_rail, "run_check", _compiling_probe)
     report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(project="src/App/App.csproj")))
     assert isinstance(report.detail, StaticRun)
     assert report.detail.phases == ("fix", "diagnostic", "restore", "build")
@@ -148,6 +153,7 @@ def test_folder_lane_spans_python_typescript_and_csharp(monkeypatch: pytest.Monk
     assay_root.write("src/web/a.ts", "")
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
     monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
+    monkeypatch.setattr(static_rail, "run_check", _compiling_probe)
     report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src",))))
     assert isinstance(report.detail, StaticRun)
     planned_names = {name for _, name, _ in report.detail.planned}
@@ -300,6 +306,110 @@ def test_build_fan_restores_before_build_and_skips_after_restore_failure(monkeyp
 
 
 register_law(static_rail._build_fan, "restore_failure_skips_build_phase")
+
+
+# --- [PROBE_GATE_LAWS]
+
+
+def _csharp_closure_phases() -> static_rail.PhaseChecks:
+    fmt_write = Check(
+        Tool(
+            "dotnet-format",
+            Runner.DOTNET,
+            ("format", "--severity", "error"),
+            Input.INCLUDE,
+            Language.CSHARP,
+            Claim.STATIC,
+            mode=Mode.WRITE,
+        )
+    )
+    fmt_check = Check(
+        Tool(
+            "dotnet-format",
+            Runner.DOTNET,
+            ("format", "--verify-no-changes"),
+            Input.INCLUDE,
+            Language.CSHARP,
+            Claim.STATIC,
+        )
+    )
+    restore = Check(
+        Tool(
+            "dotnet-restore",
+            Runner.DOTNET,
+            ("restore",),
+            Input.PROJECT,
+            Language.CSHARP,
+            Claim.STATIC,
+            mode=Mode.RESTORE,
+        )
+    )
+    build = Check(
+        Tool(
+            "dotnet-build",
+            Runner.DOTNET,
+            ("build", "--no-restore"),
+            Input.PROJECT,
+            Language.CSHARP,
+            Claim.STATIC,
+            mode=Mode.BUILD,
+        ),
+        tail=("src/App/App.csproj",),
+    )
+    return (
+        (static_rail.Phase.FIX, (fmt_write,)),
+        (static_rail.Phase.DIAGNOSTIC, (fmt_check,)),
+        (static_rail.Phase.RESTORE, (restore,)),
+        (static_rail.Phase.BUILD, (build,)),
+    )
+
+
+def test_format_gate_drops_write_and_check_format_rows_when_target_does_not_compile(
+    monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness
+) -> None:
+    """A non-compiling probe drops both dotnet-format rows (write fix and its read-only check) but runs restore and build.
+
+    dotnet-format binds against the analyzer view and mutates a target the compiler itself rejects, so the format phase is
+    gated whole; the closure restore and build still run, proving compiles (probe) and blocked (restore->build) stay distinct.
+    """
+    routed = Routed(Language.CSHARP, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",))
+    ran: list[tuple[str, ...]] = []
+
+    def recording_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
+        ran.append(tuple(check.tool.name for check in checks))
+        return _ok_static_fan(checks)
+
+    monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
+    monkeypatch.setattr(static_rail, "fan_out", recording_fan)
+    monkeypatch.setattr(static_rail, "run_check", lambda check, **_kw: Ok(receipt((check.tool.name,), 1, status=RailStatus.FAILED)))
+    rows = static_rail._dispatch(routed, phases=_csharp_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC))
+    names_run = tuple(name for batch in ran for name in batch)
+    assert "dotnet-format" not in names_run, "the format phase is skipped entirely on a non-compiling target"
+    assert {"dotnet-restore", "dotnet-build"} <= set(names_run), "restore and build still run despite the gated format phase"
+    assert all(assert_ok(row).status is RailStatus.OK for row in rows)
+
+
+register_law(static_rail._dispatch, "format_gate_skips_format_when_probe_fails")
+
+
+def test_format_gate_runs_format_when_target_compiles(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """A compiling probe leaves the full lane intact: both format rows, restore, and build all run."""
+    routed = Routed(Language.CSHARP, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",))
+    ran: list[str] = []
+
+    def recording_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
+        ran.extend(check.tool.name for check in checks)
+        return _ok_static_fan(checks)
+
+    monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
+    monkeypatch.setattr(static_rail, "fan_out", recording_fan)
+    monkeypatch.setattr(static_rail, "run_check", _compiling_probe)
+    static_rail._dispatch(routed, phases=_csharp_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC))
+    assert ran.count("dotnet-format") == 2, "both the write fix and the read-only format check run when the target compiles"
+    assert {"dotnet-restore", "dotnet-build"} <= set(ran)
+
+
+register_law(static_rail._dispatch, "format_gate_runs_format_when_probe_compiles")
 
 
 def test_static_status_matrix() -> None:

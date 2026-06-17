@@ -1132,6 +1132,33 @@ def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, c
     assert (full.bytes, full.lines) == (len(full_raw), 0)
 
 
+def test_ok_envelope_cap_preserves_defects_over_generated_overflow(assay_root: AssayHarness) -> None:
+    """The display cap retains every error/failed row when generated diagnostics overflow it, and the count stays truthful.
+
+    A blind ``results[:_RESULT_CAP]`` slice would clip the trailing error rows that ``_result_rows`` ranks last; the
+    defect-preserving cap reserves them first, so the FAILED diagnostic count and the shown error rows both survive.
+    """
+    from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
+
+    generated = tuple(Match(id=f"gen-{i}", kind=ArtifactKind.PROCESS, text="x", severity="warning") for i in range(_RESULT_CAP))
+    errors = (
+        Match(id="cs0103", kind=ArtifactKind.CODE, text="undefined name", severity="error"),
+        Match(id="proc-fail", kind=ArtifactKind.PROCESS, text="tool failed", severity="failed"),
+    )
+    report = Report(Claim.STATIC, "static", RailStatus.FAILED, results=(*generated, *errors))
+    env = _ok_envelope(_STATIC_BIND, assay_root.settings, 1.0, report)
+    assert env.truncated
+    assert env.report is not None
+    assert len(env.report.results) == _RESULT_CAP
+    shown_defects = {m.id for m in env.report.results if m.severity in {"error", "failed"}}
+    assert shown_defects == {"cs0103", "proc-fail"}, "defect rows must survive the cap, not be clipped by the blind slice"
+    ctx = env.error_context
+    assert ctx is not None
+    assert "2 diagnostic(s) failed" in ctx.hint, "the fault count reads the full pre-cap results"
+    note = f"results: {_RESULT_CAP} of {_RESULT_CAP + len(errors)} (cap={_RESULT_CAP}); full report artifact under {assay_root.settings.run_id}"
+    assert note in env.report.notes
+
+
 def test_full_report_artifact_oserror_returns_empty(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_full_report_artifact returns () when write_full_report raises OSError.
 
@@ -1279,6 +1306,7 @@ register_laws((
         "ok_envelope_truncation_persists_full_report",
         "ok_envelope_result_cap_boundary_untruncated",
         "ok_envelope_failed_report_defects_diagnostic",
+        "ok_envelope_cap_preserves_defects_over_generated_overflow",
         "full_report_artifact_claim_verb_identity",
         "full_report_artifact_oserror_returns_empty",
         "probe_note_git_head_ok",

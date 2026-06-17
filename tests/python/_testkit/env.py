@@ -104,7 +104,7 @@ def provision(  # one dispatch surface owns both provision arms; splitting fragm
                 server_sock, client_sock = socket.socketpair()
                 # Both handshake halves block on auth, so the awaiting loop must drive them concurrently.
                 async with anyio.create_task_group() as tg:
-                    tg.start_soon(_serve, server_sock)
+                    _ = tg.start_soon(_serve, server_sock)
                     client = await asyncssh.connect("127.0.0.1", 22, sock=client_sock, username=user, known_hosts=None)
                 return client
 

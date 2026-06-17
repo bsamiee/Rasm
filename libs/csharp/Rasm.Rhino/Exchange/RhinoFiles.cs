@@ -56,7 +56,7 @@ public sealed class RhinoFiles {
         new(document: Option<RhinoDoc>.None, mode: mode, scheduler: scheduler ?? new IoScheduler.Parallel());
 
     public Fin<T> Run<T>(Eff<FileRuntime, T> operation) =>
-        from valid in Optional(operation).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
+        from valid in Optional(operation).ToFin(Fail: Op.Of().InvalidInput())
         from runtime in document.Case switch {
             RhinoDoc { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false } active =>
                 Context.Of(doc: active).ToFin().Map(domain => new FileRuntime(

@@ -4,11 +4,11 @@ Quantity claims, study orchestration, and model-asset validation. `UncertainQuan
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                        |
-| :-----: | :-------- | :------------------------------------------------------------ |
-|   [1]   | QUANTITY  | correlated uncertainty threaded through the pint unit algebra  |
+| [INDEX] | [CLUSTER] | [OWNS]                                                           |
+| :-----: | :-------- | :--------------------------------------------------------------- |
+|   [1]   | QUANTITY  | correlated uncertainty threaded through the pint unit algebra    |
 |   [2]   | STUDY     | DOE / sensitivity / surrogate study lake, benchmark, run history |
-|   [3]   | MODEL     | model-asset file identity, validation, sklearn-to-ONNX export |
+|   [3]   | MODEL     | model-asset file identity, validation, sklearn-to-ONNX export    |
 
 ## [2]-[QUANTITY]
 

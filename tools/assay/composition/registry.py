@@ -72,6 +72,7 @@ from tools.assay.rails import (
     code as code_rail,
     docs as docs_rail,
     package as package_rail,
+    spike as spike_rail,
     static as static_rail,
     test as test_rail,
 )
@@ -80,6 +81,7 @@ from tools.assay.rails.bridge import BridgeParams
 from tools.assay.rails.code import _cap_note, CodeParams  # noqa: PLC2701  # _cap_note: single truncation-note grammar owner
 from tools.assay.rails.docs import DocsParams, FaultedPromotion
 from tools.assay.rails.package import PackageParams
+from tools.assay.rails.spike import SpikeParams
 from tools.assay.rails.static import StaticParams
 from tools.assay.rails.test import TestParams
 
@@ -97,6 +99,8 @@ type ReportLayer = Layer[[AssaySettings, ArtifactScope, object], Report]
 # --- [CONSTANTS] -------------------------------------------------------------------------
 
 _ARTIFACT_CAP: Final = 100
+# Severities that name a real defect: the truthful fault count and the defect-preserving display cap both key on them.
+_DEFECT_SEVERITIES: Final[frozenset[str]] = frozenset(("error", "failed"))
 # Mirrors the msgspec-enforced cap on Fault.message so history round-trips without silent truncation.
 _MESSAGE_CAP: Final[int] = field_cap(Fault, "message", default=1 << 62)
 _DISPATCH_NONE: Final = f"{Step.DISPATCH}=none"
@@ -125,6 +129,7 @@ _CLAIM_SLOTS: Final[dict[Claim, str]] = {
     Claim.PACKAGE: "",
     Claim.API: "",
     Claim.DOCS: "[PATHS]...",
+    Claim.SPIKE: "",
 }
 _VERB_SLOTS: Final[dict[tuple[Claim, str], str]] = {
     (Claim.BRIDGE, "verify"): "[PATTERN]",
@@ -254,9 +259,28 @@ def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -
     return (Artifact(id="full-report", kind=ArtifactKind.HISTORY, path=path, bytes=size, lines=0),)
 
 
+def _defect_preserving_cap(rows: tuple[Match, ...]) -> tuple[Match, ...]:
+    # The blind slice clips real error/failed rows when generated diagnostics are numerous; reserving every defect row
+    # first, then filling the remaining budget with non-defects in original order, keeps the cap from hiding a fault while
+    # preserving the source-first/defects-last contract _result_rows pins.
+    defects = sum(1 for row in rows if row.severity in _DEFECT_SEVERITIES)
+    budget = max(_RESULT_CAP - defects, 0)
+    kept: list[Match] = []
+    spent = 0
+    for row in rows:
+        if row.severity in _DEFECT_SEVERITIES:
+            kept.append(row)
+        elif spent < budget:
+            kept.append(row)
+            spent += 1
+    return tuple(kept)
+
+
 def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report) -> Envelope:
     # FAILED reports carry a Diagnostic built from defect result rows, matching the fault-rail shape.
     # _cap_note owns the N-of-M grammar; the first cap tripped owns the (shown, total) pair.
+    # defect_rows reads the full pre-cap results so the fault count stays truthful even when the display slice drops rows.
+    defect_rows = tuple(m for m in report.results if m.severity in _DEFECT_SEVERITIES)
     truncated = len(report.results) > _RESULT_CAP or len(report.artifacts) > _ARTIFACT_CAP
     if truncated:
         artifact = _full_report_artifact(settings, bind, report)
@@ -264,11 +288,10 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
         cap, total = (_RESULT_CAP, len(report.results)) if len(report.results) > _RESULT_CAP else (_ARTIFACT_CAP, len(report.artifacts))
         report = msgspec.structs.replace(
             report,
-            results=report.results[:_RESULT_CAP],
+            results=_defect_preserving_cap(report.results),
             artifacts=artifacts,
             notes=(*report.notes, *_cap_note(cap, total, cap, tail=f"full report artifact under {settings.run_id}")),
         )
-    defect_rows = tuple(m for m in report.results if m.severity in {"error", "failed"})
     defect_events = tuple(f"{m.id}: {m.text[:120]}" for m in defect_rows[:16])
     ctx = (
         _distill(
@@ -434,7 +457,10 @@ def _persist(settings: AssaySettings, envelope: Envelope) -> None:
 
 
 def _emit_envelope(settings: AssaySettings, envelope: Envelope, *, persist: bool) -> Envelope:
+    # Per-envelope flush preserves newline framing under long-lived automation, where each fire reuses this writer
+    # and the default block-buffered stdout would otherwise coalesce or stall rows across fires.
     sys.stdout.buffer.write(_encode(envelope) + b"\n")
+    sys.stdout.buffer.flush()
     if persist:
         _persist(settings, envelope)
     return envelope
@@ -803,6 +829,11 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
     Bind(Claim.API, "status", api_rail.status, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
     Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown + Mermaid validation."),
+    Bind(Claim.SPIKE, "up", spike_rail.up, SpikeParams, "Start disposable PG18 spike services."),
+    Bind(Claim.SPIKE, "down", spike_rail.down, SpikeParams, "Stop labelled spike services and remove script-owned data."),
+    Bind(Claim.SPIKE, "status", spike_rail.status, SpikeParams, "Show disposable spike service status."),
+    Bind(Claim.SPIKE, "env", spike_rail.env, SpikeParams, "Print generated spike paths and DSNs."),
+    Bind(Claim.SPIKE, "verify", spike_rail.verify, SpikeParams, "Verify spike extensions and local scientific probes."),
 )
 
 
@@ -855,7 +886,7 @@ def _register[**P](
     help: str = "",  # noqa: A002  # cyclopts names this kwarg "help"; intentional shadow
     usage: str | None = None,
 ) -> App:
-    # App.command returns the registered sub-app, not the parent; returning app keeps reduce folds linear.
+    # App.command returns the registered object (the leaf command or sub-app), never the parent; returning app keeps reduce folds linear.
     extras: dict[str, str] = {key: value for key, value in (("help", help), ("usage", usage)) if value}
     match name:
         case None:

@@ -118,6 +118,9 @@ _SSH_CONNECT_TIMEOUT: float = 15.0
 _SSH_KEEPALIVE_INTERVAL_S: float = 15.0
 _SSH_KEEPALIVE_COUNT_MAX: int = 3
 _SSH_SIGNAL_STATUS: int = 255
+# Explicit opt-out POLICY_VALUE: an exec_known_hosts of this token maps to asyncssh known_hosts=None (host-key verification
+# off). The empty/unset path keeps the ~/.ssh/known_hosts default (settings env_ignore_empty), so this is the only disable route.
+_KNOWN_HOSTS_INSECURE: str = "insecure"
 # Repo push + artifact pull bracket the remote exec; a shielded ceiling stops a large transfer from reclassifying a completed run as TIMEOUT.
 # The budget floor and per-file scale are operator-owned settings (transfer_budget_s / transfer_per_file_s); this constant is the
 # manifest-discovery limit only, where no settings instance is in scope yet. _transfer_budget folds (floor, file_count * per-file).
@@ -273,8 +276,13 @@ class _ExecPlan:
     scope: ArtifactScope | None
     streaming: bool
     tail_cap: int
+    spill_cap: int
     chunk: int
     thread_limiter: anyio.CapacityLimiter | None
+
+    def local_store(self) -> ArtifactStore | None:
+        # The agent-side store a spilled stdout artifact landed in; None when no scope wrote one (Captured.read resolves accordingly).
+        return self.scope.store if isinstance(self.scope, ArtifactScope) else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -310,12 +318,30 @@ class _ConcurrencyPressure:
 
 @dataclass(frozen=True, slots=True)
 class Captured:
-    """Drained stream summary with tail bytes, artifact path, and size counters."""
+    """Drained stream payload carrier with spill state, diagnostic preview, artifact path, and size counters."""
 
-    tail: bytes = b""
+    full: bytes = b""
+    spilled: bool = False
+    preview: bytes = b""
     path: str = ""
     size: int = 0
     lines: int = 0
+
+    def read(self, store: ArtifactStore | None) -> bytes:
+        """Resolve the full captured payload from memory or the spilled PROCESS artifact.
+
+        Args:
+            store: Local artifact store, consulted only on the spilled path; ``None`` when no scope wrote the artifact.
+
+        Returns:
+            The inline ``full`` bytes when not spilled, else the artifact bytes read from ``store``. A spilled artifact is
+            best-effort under cancellation (the ``_reap`` shield bounds the write), so a truncated read carries whatever landed.
+        """
+        match self.spilled:
+            case False:
+                return self.full
+            case True:
+                return store.read_path(self.path) if store is not None else b""
 
 
 _SSH_CACHE: ContextVar[_SshCache | None] = ContextVar("assay_ssh_cache", default=None)
@@ -512,28 +538,59 @@ def _contained(root: Path, rel: str) -> Path | ValueError:
             return target if target.is_relative_to(root) else ValueError(f"stage path escaped root: {rel!r}")
 
 
-async def drain_stream(recv: ByteRecv, *, tail_cap: int, sink: WriteSink | None = None, path: str = "") -> Captured:
-    """Drain an async byte source to EOF while retaining a bounded tail.
+def _spilled(path: str, total: int, spill_cap: int) -> bool:
+    # One shared spill predicate, strict greater-than: a payload retains inline at or below the cap, spills past it.
+    return bool(path) and total > spill_cap
+
+
+async def drain_stream(
+    recv: ByteRecv, *, tail_cap: int, spill_cap: int, kind: str = "err", sink: WriteSink | None = None, path: str = "", notes: list[str] | None = None
+) -> Captured:
+    """Drain an async byte source to EOF, carrying the full stdout payload or a bounded stderr preview.
 
     Unterminated final bytes count as one logical line.
 
     Args:
         recv: Async read primitive returning the next chunk, or ``None`` at EOF.
-        tail_cap: Maximum retained tail bytes.
-        sink: Optional sink receiving every chunk.
-        path: Artifact path recorded on the resulting capture.
+        tail_cap: Maximum retained stderr preview bytes.
+        spill_cap: Inline stdout ceiling; a larger payload spills to the disk sink and drops its in-memory copy.
+        kind: ``"out"`` retains the full stdout payload (spilling past ``spill_cap``); any other value keeps the stderr preview window.
+        sink: Optional disk sink receiving every chunk; when present a spilled stdout payload survives on disk while the bytearray stops.
+        path: Artifact path recorded on the resulting capture and consulted by ``Captured.read`` on the spilled path.
+        notes: Optional receipt-note sink; a sink-less stdout overflow appends one ``capture.truncated`` note here.
 
     Returns:
-        Capture of the tail window, artifact path, total byte size, and line count.
+        Capture carrying the inline stdout payload or spill marker, the stderr preview, artifact path, byte size, and line count.
     """
-    tail, total, lines, last = b"", 0, 0, b""
+    body, preview, total, lines, last, spilled, stopped = bytearray(), b"", 0, 0, b"", False, False
     while (read := await recv()) is not None:
         _write_sink(sink, read)
-        tail = (tail + read)[-tail_cap:]
         total += len(read)
         lines += read.count(b"\n")
         last = read[-1:] or last  # an empty chunk must not clobber the newline-terminus probe
-    return Captured(tail=tail, path=path, size=total, lines=lines + (1 if total and last != b"\n" else 0))
+        match (kind, spilled or stopped):
+            case ("out", False) if _spilled(path, total, spill_cap):
+                # Crossing the cap with a disk sink: the sink keeps streaming, so drop the in-memory copy and mark spilled.
+                spilled, body = True, bytearray()
+            case ("out", False) if not path and total > spill_cap:
+                # No disk to spill to (scope=None stream): fill to the cap, stop appending, and surface one truncation note.
+                body += read
+                del body[spill_cap:]
+                stopped = True
+                if notes is not None:
+                    notes.append(f"capture.truncated kind={kind} total={total} cap={spill_cap}")
+            case ("out", False):
+                body += read
+            case _:
+                preview = (preview + read)[-tail_cap:]
+    return Captured(
+        full=b"" if spilled else bytes(body),
+        spilled=spilled,
+        preview=preview,
+        path=path,
+        size=total,
+        lines=lines + (1 if total and last != b"\n" else 0),
+    )
 
 
 def _recv_anyio(stream: ByteReceiveStream | None, chunk: int) -> ByteRecv:
@@ -576,7 +633,9 @@ def _write_sink(sink: WriteSink | None, payload: bytes) -> None:
             sink.write(payload)
 
 
-async def _drain_pair(plan: _ExecPlan, out: ByteRecv, err: ByteRecv, wait: Callable[[], Awaitable[object]]) -> dict[str, Captured]:
+async def _drain_pair(
+    plan: _ExecPlan, out: ByteRecv, err: ByteRecv, wait: Callable[[], Awaitable[object]], notes: list[str] | None = None
+) -> dict[str, Captured]:
     streams: dict[str, Captured] = {}
     async with anyio.create_task_group() as tg:
 
@@ -584,13 +643,15 @@ async def _drain_pair(plan: _ExecPlan, out: ByteRecv, err: ByteRecv, wait: Calla
             path, handle = _stream_writer(plan, name)
             match handle:
                 case None:
-                    streams[name] = await drain_stream(recv, tail_cap=plan.tail_cap, path=path)
+                    streams[name] = await drain_stream(recv, tail_cap=plan.tail_cap, spill_cap=plan.spill_cap, kind=name, path=path, notes=notes)
                 case _:
                     with handle as sink:
-                        streams[name] = await drain_stream(recv, tail_cap=plan.tail_cap, sink=sink, path=path)
+                        streams[name] = await drain_stream(
+                            recv, tail_cap=plan.tail_cap, spill_cap=plan.spill_cap, kind=name, sink=sink, path=path, notes=notes
+                        )
 
-        tg.start_soon(_tee, "out", out)
-        tg.start_soon(_tee, "err", err)
+                    _ = tg.start_soon(_tee, "out", out)
+                    _ = tg.start_soon(_tee, "err", err)
         await wait()
     return streams
 
@@ -637,6 +698,14 @@ def _proc_tree(pid: int) -> tuple[psutil.Process, ...]:
 
 def _reap_tree(pid: int) -> None:
     _safe_call(lambda: _terminate_process_tree(_proc_tree(pid), _child_pgid(pid)), None)
+
+
+def _tree_rss(procs: tuple[psutil.Process, ...]) -> float:
+    # One owner folds resident memory across a process set; each per-proc read degrades to 0.0 through _safe_call.
+    def _rss(proc: psutil.Process) -> float:
+        return _safe_call(lambda: float(proc.memory_info().rss), 0.0)
+
+    return sum(_rss(proc) for proc in procs)
 
 
 def _stall_sample(pid: int) -> StalledProcess:
@@ -694,9 +763,6 @@ async def _stall_monitor(pid: int, last_output: list[float], notes: list[str]) -
 
 
 def _resource_sample(pid: int, last_output: float) -> tuple[tuple[str, float], ...]:
-    def _rss(proc: psutil.Process) -> float:
-        return _safe_call(lambda: float(proc.memory_info().rss), 0.0)
-
     def _name(proc: psutil.Process) -> str:
         return _safe_call(proc.name, "")
 
@@ -708,8 +774,8 @@ def _resource_sample(pid: int, last_output: float) -> tuple[tuple[str, float], .
     sample = {
         "proc.pid": float(pid),
         "proc.children": float(len(children)),
-        "proc.children_rss_bytes": float(sum(_rss(proc) for proc in children)),
-        "proc.tree_rss_bytes": float(sum(_rss(proc) for proc in tree)),
+        "proc.children_rss_bytes": _tree_rss(children),
+        "proc.tree_rss_bytes": _tree_rss(tree),
         "proc.dotnet.count": float(dotnet),
         "proc.csc.count": float(csc),
         "proc.last_output_age_s": max(0.0, time.monotonic() - last_output),
@@ -747,13 +813,14 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:  # noqa: PLR0914  
                     try:
                         last_output, stall, samples = [time.monotonic()], list[str](), list[tuple[tuple[str, float], ...]]()
                         async with anyio.create_task_group() as tg:
-                            tg.start_soon(_stall_monitor, proc.pid, last_output, stall)
-                            tg.start_soon(_resource_monitor, proc.pid, last_output, samples, plan.check.tool.name)
+                            _ = tg.start_soon(_stall_monitor, proc.pid, last_output, stall)
+                            _ = tg.start_soon(_resource_monitor, proc.pid, last_output, samples, plan.check.tool.name)
                             streams = await _drain_pair(
                                 plan,
                                 _touched(_recv_anyio(proc.stdout, plan.chunk), last_output),
                                 _touched(_recv_anyio(proc.stderr, plan.chunk), last_output),
                                 proc.wait,
+                                stall,
                             )
                             tg.cancel_scope.cancel()
                         resources = _max_resources(tuple(samples) or (_resource_sample(proc.pid, last_output[0]),))
@@ -770,8 +837,8 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:  # noqa: PLR0914  
                             receipt(
                                 plan.argv,
                                 proc.returncode or 0,
-                                stdout=streams.get("out", Captured()).tail,
-                                stderr=streams.get("err", Captured()).tail,
+                                stdout=streams.get("out", Captured()).read(plan.local_store()),
+                                stderr=streams.get("err", Captured()).preview,
                                 notes=tuple(stall),
                                 artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
                             ),
@@ -797,8 +864,8 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:  # noqa: PLR0914  
                         receipt(
                             plan.argv,
                             done.returncode,
-                            stdout=streams.get("out", Captured()).tail,
-                            stderr=streams.get("err", Captured()).tail,
+                            stdout=streams.get("out", Captured()).read(plan.local_store()),
+                            stderr=streams.get("err", Captured()).preview,
                             artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
                         ),
                         resources=(*resources, ("process.duration_ms", duration_ms)),
@@ -847,7 +914,15 @@ def _capture_payload(plan: _ExecPlan, name: str, payload: bytes) -> Captured:
             path = store.write_bytes(payload, *_process_parts(plan, name))
         case None:
             pass
-    return Captured(tail=payload[-plan.tail_cap :], path=path, size=len(payload), lines=_line_count(payload))
+    # scope=None retains full inline regardless of size (one in-flight subprocess bounds it); a scoped payload past the cap spills to the artifact.
+    return Captured(
+        full=payload if not _spilled(path, len(payload), plan.spill_cap) else b"",
+        spilled=_spilled(path, len(payload), plan.spill_cap),
+        preview=payload[-plan.tail_cap :],
+        path=path,
+        size=len(payload),
+        lines=_line_count(payload),
+    )
 
 
 def _line_count(payload: bytes) -> int:
@@ -876,7 +951,8 @@ def _stream_writer(plan: _ExecPlan, name: str) -> tuple[str, _WriteContext | Non
 class _Outcome:
     streams: dict[str, Captured]
     exit_status: int | None
-    signal: str
+    signal: object | None  # raw asyncssh exit_signal: the (name, *) tuple or None; decoded once by ssh_outcome/_signal_name
+    notes: tuple[str, ...] = ()
 
 
 def _remap_scope_path(token: str, *, local_root: str, remote_root: str) -> str:
@@ -937,35 +1013,34 @@ def _remote_done(plan: _ExecPlan, target: Ssh, transfer: _Transfer, outcome: _Ou
     Returns:
         The completed receipt carrying the resolved exit code, signal/transfer notes, pulled artifacts, and exec facts.
     """
-    code, signal_notes = ssh_outcome(outcome.exit_status, (outcome.signal,) if outcome.signal else None)
+    code, signal_notes = ssh_outcome(outcome.exit_status, outcome.signal)
     notes = (*transfer.notes, *pulled.notes)
+    # The spilled stdout artifact is written agent-side to the LOCAL store during drain, distinct from the pulled SCOPE tree.
     done = receipt(
         plan.argv,
         code,
-        stdout=outcome.streams.get("out", Captured()).tail,
-        stderr=outcome.streams.get("err", Captured()).tail,
-        notes=(*signal_notes, *notes),
+        stdout=outcome.streams.get("out", Captured()).read(plan.local_store()),
+        stderr=outcome.streams.get("err", Captured()).preview,
+        notes=(*signal_notes, *outcome.notes, *notes),
         artifacts=pulled.artifacts,
     )
     return _fold_receipt(
-        done, target, exit_status=outcome.exit_status, signal=outcome.signal, notes=notes, pushed=transfer.pushed, pulled=pulled.count
+        done, target, exit_status=outcome.exit_status, signal=_signal_name(outcome.signal), notes=notes, pushed=transfer.pushed, pulled=pulled.count
     )
 
 
 async def _remote_exec(conn: asyncssh.SSHClientConnection, plan: _ExecPlan, command: str) -> _Outcome:
     import asyncssh  # noqa: PLC0415  # lazy: ~83ms cold-start cost; defer past import time
 
-    # asyncssh reports a signalled kill as a (name, *) tuple; the name is the receipt-bearing fact.
-    def signal_name(exit_signal: object | None) -> str:
-        return exit_signal[0] if isinstance(exit_signal, tuple) and exit_signal and isinstance(exit_signal[0], str) else ""
-
+    # The raw asyncssh exit_signal ((name, *) tuple or None) rides _Outcome verbatim; ssh_outcome/_signal_name own the decode.
     match plan.streaming:
         case True:
             # No stall telemetry on this branch: psutil cannot inspect remote pids across the SSH boundary.
             proc = await conn.create_process(command, encoding=None, stdin=asyncssh.DEVNULL)
             try:
-                streams = await _drain_pair(plan, _recv_ssh(proc.stdout, plan.chunk), _recv_ssh(proc.stderr, plan.chunk), proc.wait)
-                return _Outcome(streams, proc.exit_status, signal_name(getattr(proc, "exit_signal", None)))
+                drain_notes = list[str]()
+                streams = await _drain_pair(plan, _recv_ssh(proc.stdout, plan.chunk), _recv_ssh(proc.stderr, plan.chunk), proc.wait, drain_notes)
+                return _Outcome(streams, proc.exit_status, getattr(proc, "exit_signal", None), tuple(drain_notes))
             finally:
                 with anyio.CancelScope(shield=True):
                     proc.close()
@@ -973,7 +1048,7 @@ async def _remote_exec(conn: asyncssh.SSHClientConnection, plan: _ExecPlan, comm
         case False:
             run = await conn.run(command, encoding=None, check=False)
             streams = _captured_outputs(plan, _as_bytes(run.stdout), _as_bytes(run.stderr))
-            return _Outcome(streams, run.exit_status, signal_name(getattr(run, "exit_signal", None)))
+            return _Outcome(streams, run.exit_status, getattr(run, "exit_signal", None))
 
 
 @dataclass(frozen=True, slots=True)
@@ -1063,34 +1138,58 @@ async def _push_repo(conn: asyncssh.SSHClientConnection, plan: _ExecPlan, manife
     under an operator-tuned capacity limiter so asyncssh multiplexes each open/write/close on the single channel,
     overlapping round-trip latency instead of serializing single-file directories. Per-file ``put`` failures fold into notes.
 
+    A channel-open or run-root ``makedirs`` failure cannot proceed coherently, so it short-circuits to a single
+    ``remote.push.dir_failed`` note (degrade-to-note, never a FAULTED crash); a per-directory ``makedirs`` failure folds the
+    same note and drops only that subtree, leaving sibling directories to push. Per-file ``put`` failures fold into notes too.
+
     Returns:
-        The pushed-file count and any per-file failure or empty-manifest notes.
+        The pushed-file count and any per-file/per-dir failure or empty-manifest notes.
     """
+    import asyncssh  # noqa: PLC0415  # lazy: bind asyncssh.Error before the except evaluates it; defer the ~83ms cold-start
+
     local_root = Path(str(plan.settings.local_root))
     remote_root = plan.cwd.rstrip("/")
-    failures: list[str] = []
     limiter = anyio.CapacityLimiter(plan.settings.sftp_push_concurrency)
     max_requests = plan.settings.sftp_max_requests
+    # One failure stream owns both fault kinds as (note, dropped) facts: the dropped weight stays a typed int the pushed
+    # count folds directly, so the count is never re-parsed out of its own formatted note string.
+    failures: list[tuple[str, int]] = []
 
-    def _on_error(exc: Exception) -> None:
-        failures.append(f"remote.push.failed {type(exc).__name__}: {str(exc)[:120]}")
+    def _dir_failed(parent: str, dropped: int, exc: BaseException) -> tuple[str, int]:
+        return (f"remote.push.dir_failed dir={parent or '.'!r} {type(exc).__name__}: {str(exc)[:120]}", dropped)
 
-    async with await conn.start_sftp_client() as sftp:
-        # The run root is created unconditionally so the remote `cd <workroot>/<run_id>` is valid even for an empty manifest.
-        await sftp.makedirs(remote_root, exist_ok=True)
-
-        async def _push_dir(parent: str, names: tuple[str, ...]) -> None:
-            async with limiter:
-                remote_dir = "/".join((remote_root, *parent.split("/"))) if parent else remote_root
+    async def _push_dir(sftp: asyncssh.SFTPClient, parent: str, names: tuple[str, ...]) -> None:
+        async with limiter:
+            remote_dir = "/".join((remote_root, *parent.split("/"))) if parent else remote_root
+            # makedirs and the put both fault per-directory: a raise from either (channel-level error, or a source-stat
+            # FileNotFoundError that asyncssh raises before the transfer rather than routing through error_handler) drops
+            # only this subtree, leaving sibling directories to push. error_handler still folds remote-side transfer errors
+            # per file (weight 1); a put raise aborts before any transfer, so it carries the whole undelivered group weight.
+            locals_in_dir = [str(local_root / (f"{parent}/{name}" if parent else name)) for name in names]
+            handler = lambda exc: failures.append((f"remote.push.failed {type(exc).__name__}: {str(exc)[:120]}", 1))  # noqa: E731
+            try:
                 await sftp.makedirs(remote_dir, exist_ok=True)
-                locals_in_dir = [str(local_root / (f"{parent}/{name}" if parent else name)) for name in names]
-                await sftp.put(locals_in_dir, remote_dir, max_requests=max_requests, error_handler=_on_error)
+                await sftp.put(locals_in_dir, remote_dir, max_requests=max_requests, error_handler=handler)
+            except (OSError, asyncssh.Error) as exc:
+                failures.append(_dir_failed(parent, len(names), exc))
 
-        async with anyio.create_task_group() as tg:
-            for parent, names in _grouped_by_parent(manifest).items():
-                tg.start_soon(_push_dir, parent, names)
-    pushed = len(manifest) - len(failures)
-    return pushed, (("remote.push.empty",) if not manifest else tuple(failures))
+    async def _drive() -> None:
+        async with await conn.start_sftp_client() as sftp:
+            # The run root is created unconditionally so the remote `cd <workroot>/<run_id>` is valid even for an empty manifest.
+            await sftp.makedirs(remote_root, exist_ok=True)
+            async with anyio.create_task_group() as tg:
+                for parent, names in _grouped_by_parent(manifest).items():
+                    _ = tg.start_soon(_push_dir, sftp, parent, names)
+
+    aborted: tuple[tuple[str, int], ...] = ()
+    try:
+        await _drive()
+    except* (OSError, asyncssh.Error) as group:
+        # Channel-open or run-root makedirs failed (no subtree pushed): bind one whole-manifest degrade fact, return after the except* block.
+        aborted = tuple(_dir_failed("", len(manifest), exc) for exc in group.exceptions)
+    final = aborted or tuple(failures)
+    pushed = max(0, len(manifest) - sum(dropped for _, dropped in final))
+    return pushed, tuple(note for note, _ in final) or (() if manifest else ("remote.push.empty",))
 
 
 async def _push_manifest(plan: _ExecPlan) -> tuple[str, ...]:
@@ -1368,14 +1467,25 @@ async def _connect(target: Ssh) -> AsyncIterator[asyncssh.SSHClientConnection]:
 async def _connect_once(target: Ssh) -> asyncssh.SSHClientConnection:
     import asyncssh  # noqa: PLC0415  # lazy: ~83ms cold-start cost; defer past import time
 
-    # The Ssh value object owns host/port/username/known_hosts; the engine owns only the timeout/keepalive policy constants.
+    # The Ssh value object owns host/port/username/known_hosts; the engine owns the timeout/keepalive policy and the explicit
+    # insecure opt-out: an `insecure` known_hosts token rebinds to asyncssh known_hosts=None and warns once before connecting.
     return await asyncssh.connect(
-        **target.connect_kwargs,
+        **{**target.connect_kwargs, **_insecure_host_key(target.connect_kwargs.get("known_hosts"))},
         connect_timeout=_SSH_CONNECT_TIMEOUT,
         login_timeout=_SSH_CONNECT_TIMEOUT,
         keepalive_interval=_SSH_KEEPALIVE_INTERVAL_S,
         keepalive_count_max=_SSH_KEEPALIVE_COUNT_MAX,
     )
+
+
+def _insecure_host_key(known_hosts: object) -> Mapping[str, None]:
+    # Only the explicit `insecure` token disables host-key verification (-> known_hosts=None); every other value passes through.
+    match known_hosts:
+        case str() as token if token == _KNOWN_HOSTS_INSECURE:
+            _LOG.warning("ssh.host_key_verification_disabled")
+            return {"known_hosts": None}
+        case _:
+            return {}
 
 
 def remote_command(argv: tuple[str, ...], *, cwd: str, env: Mapping[str, str]) -> str:
@@ -1389,19 +1499,25 @@ def remote_command(argv: tuple[str, ...], *, cwd: str, env: Mapping[str, str]) -
     return f"cd {shlex.quote(cwd)} && {body}"
 
 
+def _signal_name(exit_signal: object | None) -> str:
+    # One owner decodes asyncssh's signalled-kill fact: a (name, *) tuple yields the receipt-bearing name, else the empty string.
+    match exit_signal:
+        case (str() as name, *_):
+            return name
+        case _:
+            return ""
+
+
 def ssh_outcome(status: int | None, signal: object | None) -> tuple[int, tuple[str, ...]]:
     """Resolve a remote exit status and optional signal into a numeric code plus receipt notes.
 
     Returns:
         The integer exit code (or synthetic 255 for a signalled kill) and any signal-name notes.
     """
-    match status, signal:
-        case int() as code, _:
-            return code, ()
-        case None, (str() as name, *_):
-            return _SSH_SIGNAL_STATUS, (f"ssh.signal={name}",)
-        case _:
-            return _SSH_SIGNAL_STATUS, ()
+    if isinstance(status, int):
+        return status, ()
+    name = _signal_name(signal)
+    return _SSH_SIGNAL_STATUS, (f"ssh.signal={name}",) if name else ()
 
 
 def _as_bytes(data: bytes | str | None) -> bytes:
@@ -1443,12 +1559,9 @@ def _measure() -> Measurements:
     # One oneshot batches self-process syscalls; one recursive children walk and one load read feed the unified owner.
     proc = psutil.Process()
 
-    def _rss(child: psutil.Process) -> float:
-        return _safe_call(lambda: float(child.memory_info().rss), 0.0)
-
     def _walk() -> _ChildrenInfo:
         kids = tuple(proc.children(recursive=True))
-        return _ChildrenInfo(count=float(len(kids)), rss_bytes=float(sum(_rss(child) for child in kids)))
+        return _ChildrenInfo(count=float(len(kids)), rss_bytes=_tree_rss(kids))
 
     with proc.oneshot():
         info = proc.memory_info()
@@ -1657,6 +1770,7 @@ async def _execute(
                     scope=scope,
                     streaming=check.tool.mode.stream,
                     tail_cap=settings.stream_tail_bytes,
+                    spill_cap=settings.capture_spill_bytes,
                     chunk=settings.stream_chunk_bytes,
                     thread_limiter=thread_limiter,
                 )
@@ -1789,7 +1903,7 @@ async def _fan_schedule(
         await recv.aclose()
         await out_send.aclose()
         for work_recv, result_send in zip(work_recvs, result_sends, strict=True):
-            tg.start_soon(_fan_worker, work_recv, result_send, settings, scope, routed, deadline)
+            _ = tg.start_soon(_fan_worker, work_recv, result_send, settings, scope, routed, deadline)
         async with send:
             with anyio.move_on_after(_remaining(deadline)):
                 for item in enumerate(checks):
@@ -1837,9 +1951,7 @@ async def _pooled_ssh(settings: AssaySettings) -> AsyncIterator[None]:
         for conn in cache.conns.values():
             try:
                 await conn.wait_closed()
-            except asyncssh.Error as exc:
-                _LOG.warning("ssh.close_failed", error=str(exc)[:200])
-            except OSError as exc:
+            except (OSError, asyncssh.Error) as exc:
                 _LOG.warning("ssh.close_failed", error=str(exc)[:200])
 
 

@@ -194,7 +194,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool("dotnet-restore", DOTNET, ("restore", "--locked-mode"), PROJECT, CS, Claim.STATIC, mode=Mode.RESTORE),
     # ArtifactScope supplies --artifacts-path; the static rail adds CspSarifDir for SARIF evidence rows.
     # fold() consumes SARIF as report detail, never as an exit-code substitute.
-    Tool("dotnet-build", DOTNET, ("build", "--no-restore", "-tl:off", "-v:quiet", "/clp:ErrorsOnly"), PROJECT, CS, Claim.STATIC, mode=Mode.BUILD),
+    Tool("dotnet-build", DOTNET, ("build", "--no-restore", "-tl:off", "-v:minimal"), PROJECT, CS, Claim.STATIC, mode=Mode.BUILD),
     Tool("dotnet-test", DOTNET, ("test", "--minimum-expected-tests", "1"), PROJECT, CS, Claim.TEST, mode=Mode.RUN),
     Tool("dotnet-test", DOTNET, ("test", "--list-tests"), PROJECT, CS, Claim.TEST, mode=Mode.LIST),
     Tool(

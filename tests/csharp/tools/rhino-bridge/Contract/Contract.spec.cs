@@ -41,7 +41,8 @@ internal sealed class ShellStub : IBridgeShell {
     public Task<UnloadReceipt> UnloadCargoAsync(CancellationToken ct) =>
         Task.FromResult(result: new UnloadReceipt(Confirmed: true, DebuggerAttached: false, GcRetries: 0, ElapsedMs: 2.5));
     public Task<long> PingAsync(CancellationToken ct) => Task.FromResult(result: 42L);
-    public Task PrepareQuitAsync(CancellationToken ct) => Task.CompletedTask;
+    public Task<QuitPrepareReceipt> PrepareQuitAsync(CancellationToken ct) =>
+        Task.FromResult(result: new QuitPrepareReceipt(Documents: 0, MarkedClean: 0, ResidualDirty: 0, Gh2: "documents=0;unmodified=0", SavedPaths: []));
 }
 
 // Future contract pins JSON-RPC method-not-found behavior instead of fallback.
@@ -102,7 +103,11 @@ public sealed class RpcProxyLaws {
             UnloadReceipt unload = await proxy.UnloadCargoAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false);
             Assert.True(condition: unload.Confirmed);
             Assert.Equal(expected: 42L, actual: await proxy.PingAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false));
-            await proxy.PrepareQuitAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            QuitPrepareReceipt quit = await proxy.PrepareQuitAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            Assert.Equal(expected: 0, actual: quit.Documents);
+            Assert.Equal(expected: 0, actual: quit.MarkedClean);
+            Assert.Equal(expected: 0, actual: quit.ResidualDirty);
+            Assert.Empty(collection: quit.SavedPaths);
             return true;
         }).ConfigureAwait(continueOnCapturedContext: true);
 }

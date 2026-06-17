@@ -4,6 +4,7 @@ using Grasshopper2.Doc;
 using Grasshopper2.Doc.Attributes;
 using Grasshopper2.Extensions;
 using Grasshopper2.UI.Canvas;
+using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.InputPanel;
 using Grasshopper2.UI.Primitives;
 using Grasshopper2.UI.Skinning;
@@ -21,7 +22,7 @@ namespace Rasm.Grasshopper.Components;
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly partial record struct ComponentUi {
-    public enum MouseKind { Down, Move, Up, SingleClick, DoubleClick }
+    public enum MouseKind { Down, Drag, Up, SingleClick, DoubleClick }
 
     public abstract record Callback(GhComponent Owner) {
         public sealed record Bounds(GhComponent Owner, UiShape Shape) : Callback(Owner: Owner);
@@ -34,8 +35,8 @@ public readonly partial record struct ComponentUi {
             public sealed record Hover(GhComponent Owner, PointF ContentPoint, PointF Control) : Pointer(Owner: Owner, ContentPoint: ContentPoint, ControlPoint: Optional(Control));
         }
 
-        public sealed record Mouse(GhComponent Owner, MouseKind Kind, MouseEventArgs Args) : Callback(Owner: Owner) {
-            public PointF Point => Args.Location;
+        public sealed record Mouse(GhComponent Owner, MouseKind Kind, ResponseMouseArgs Args) : Callback(Owner: Owner) {
+            public PointF Point => Args.ContentLocation;
         }
 
         public abstract record Key(GhComponent Owner, KeyEventArgs Args) : Callback(Owner: Owner) {
@@ -56,7 +57,7 @@ public readonly partial record struct ComponentUi {
         public static readonly Phase Cursor = new(key: 4, matches: static ctx => ctx is Callback.Pointer.Cursor);
         public static readonly Phase Hover = new(key: 5, matches: static ctx => ctx is Callback.Pointer.Hover);
         public static readonly Phase MouseDown = new(key: 6, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.Down });
-        public static readonly Phase MouseMove = new(key: 7, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.Move });
+        public static readonly Phase MouseDrag = new(key: 7, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.Drag });
         public static readonly Phase MouseUp = new(key: 8, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.Up });
         public static readonly Phase MouseSingleClick = new(key: 9, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.SingleClick });
         public static readonly Phase MouseDoubleClick = new(key: 10, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.DoubleClick });
@@ -168,12 +169,20 @@ public readonly partial record struct ComponentUi {
     private class RasmAttributes :
         ComponentAttributes,
         IContextMenuAware,
-        ICursorAwareAttributes,
-        IMouseHoverAttributes {
+        ICursorAwareAttributes {
         protected readonly ComponentUi ui;
 
-        internal RasmAttributes(GhComponent owner, ComponentUi ui) : base(owner: owner) =>
+        internal RasmAttributes(GhComponent owner, ComponentUi ui) : base(owner: owner) {
             this.ui = ui;
+            Responder.MouseDownHook += OnMouseDown;
+            Responder.MouseDragHook += OnMouseDrag;
+            Responder.MouseUpHook += OnMouseUp;
+            Responder.MouseSingleClickHook += OnMouseSingleClick;
+            Responder.MouseDoubleClickHook += OnMouseDoubleClick;
+            Responder.KeyDownHook += OnKeyDown;
+            Responder.KeyUpHook += OnKeyUp;
+            Responder.MouseOverHook += OnMouseOver;
+        }
 
         protected override void LayoutBounds(UiShape shape) {
             base.LayoutBounds(shape: shape);
@@ -198,18 +207,19 @@ public readonly partial record struct ComponentUi {
                 .Map(decision => decision.Cursor.IfNone(Cursors.Default))
                 .IfFail(_ => Cursors.Default);
 
-        bool IMouseHoverAttributes.RespondToMouseHover(PointF controlPoint, PointF contentPoint) =>
-            ui.Run(context: new Callback.Pointer.Hover(Owner: Owner, ContentPoint: contentPoint, Control: controlPoint))
-                .Map(decision => decision.Hover.IfNone(noneValue: false))
-                .IfFail(_ => false);
+        protected virtual UiResponse OnMouseDown(ResponseMouseArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Down, Args: e));
+        protected virtual UiResponse OnMouseDrag(ResponseMouseArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Drag, Args: e));
+        protected virtual UiResponse OnMouseUp(ResponseMouseArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Up, Args: e));
+        protected virtual UiResponse OnMouseSingleClick(ResponseMouseArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.SingleClick, Args: e));
+        protected virtual UiResponse OnMouseDoubleClick(ResponseMouseArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.DoubleClick, Args: e));
+        protected virtual UiResponse OnKeyDown(KeyEventArgs e) => Respond(context: new Callback.Key.Down(Owner: Owner, Args: e));
+        protected virtual UiResponse OnKeyUp(KeyEventArgs e) => Respond(context: new Callback.Key.Up(Owner: Owner, Args: e));
 
-        protected override UiResponse HandleMouseDown(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Down, Args: e));
-        protected override UiResponse HandleMouseMove(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Move, Args: e));
-        protected override UiResponse HandleMouseUp(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Up, Args: e));
-        protected override UiResponse HandleSingleClick(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.SingleClick, Args: e));
-        protected override UiResponse HandleDoubleClick(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.DoubleClick, Args: e));
-        protected override UiResponse HandleKeyDown(KeyEventArgs e) => Respond(context: new Callback.Key.Down(Owner: Owner, Args: e));
-        protected override UiResponse HandleKeyUp(KeyEventArgs e) => Respond(context: new Callback.Key.Up(Owner: Owner, Args: e));
+        protected virtual void OnMouseOver(ResponseMouseArgs e) =>
+            _ = ui.Run(context: new Callback.Pointer.Hover(Owner: Owner, ContentPoint: e.ContentLocation, Control: e.ControlLocation))
+                .Map(decision => decision.Hover.Match(
+                    Some: _ => { Responder.OnRedrawRequired(); return unit; },
+                    None: () => unit));
 
         protected override object TooltipDetails(PointF point, ObjectSolutionState state) {
             object fallback = base.TooltipDetails(point: point, state: state);
@@ -264,7 +274,7 @@ public readonly partial record struct ComponentUi {
                         size = admitted;
                         Owner.CustomValues.Set(key: resize.Key, value: admitted);
                         Bounds = new RectangleF(location: Pivot, size: size);
-                        Invalidate();
+                        InvalidateLayout();
                     });
             }
         }
@@ -274,7 +284,7 @@ public readonly partial record struct ComponentUi {
 
         protected override void PivotMoved(PointF oldPivot, PointF newPivot) {
             Bounds = new RectangleF(location: Pivot, size: size);
-            Invalidate();
+            InvalidateLayout();
         }
 
         protected override void LayoutBounds(UiShape shape) {
@@ -282,17 +292,17 @@ public readonly partial record struct ComponentUi {
             Size = Owner.CustomValues.Get(key: resize.Key, @default: Bounds.Size);
         }
 
-        protected override UiResponse HandleMouseDown(MouseEventArgs e) =>
-            BeginResize(args: e).IfNone(() => base.HandleMouseDown(e: e));
+        protected override UiResponse OnMouseDown(ResponseMouseArgs e) =>
+            BeginResize(args: e).IfNone(() => base.OnMouseDown(e: e));
 
-        protected override UiResponse HandleMouseMove(MouseEventArgs e) =>
-            ContinueResize(args: e).IfNone(() => base.HandleMouseMove(e: e));
+        protected override UiResponse OnMouseDrag(ResponseMouseArgs e) =>
+            ContinueResize(args: e).IfNone(() => base.OnMouseDrag(e: e));
 
-        protected override UiResponse HandleMouseUp(MouseEventArgs e) =>
-            EndResize(args: e).IfNone(() => base.HandleMouseUp(e: e));
+        protected override UiResponse OnMouseUp(ResponseMouseArgs e) =>
+            EndResize(args: e).IfNone(() => base.OnMouseUp(e: e));
 
-        protected override UiResponse HandleKeyDown(KeyEventArgs e) =>
-            ToggleResizeSnap(args: e).IfNone(() => base.HandleKeyDown(e: e));
+        protected override UiResponse OnKeyDown(KeyEventArgs e) =>
+            ToggleResizeSnap(args: e).IfNone(() => base.OnKeyDown(e: e));
 
         private SizeF AdmitSize(SizeF value) {
             SizeF clamped = resize.Clamp(value: value);
@@ -313,7 +323,7 @@ public readonly partial record struct ComponentUi {
                 ? Optional(new GhResizingFrame(Bounds, resize.Minimum, resize.Maximum).CursorAt(mouse: point, edges: ResizeEdges()))
                 : Option<Cursor>.None;
 
-        private Option<UiResponse> BeginResize(MouseEventArgs args) =>
+        private Option<UiResponse> BeginResize(ResponseMouseArgs args) =>
             args.Buttons == MouseButtons.Primary
                 ? new GhResizingFrame(
                     Bounds,
@@ -321,15 +331,15 @@ public readonly partial record struct ComponentUi {
                     resize.Maximum,
                     SnappingConstraints.CreateFromDocument(Owner.Document, Owner.InstanceId),
                     SnappingSettings.Current) switch {
-                        GhResizingFrame frame when frame.Begin(mouse: args.Location, edges: ResizeEdges()) =>
+                        GhResizingFrame frame when frame.Begin(mouse: args.ContentLocation, edges: ResizeEdges()) =>
                             Op.Side(() => { CaptureSnapState(); resizer = frame; resizeUndo = new ResizeAction(obj: Owner); }) switch { _ => Some(UiResponse.Capture) },
                         _ => Op.Side(() => { resizer = null; resizeUndo = null; ClearSnapState(); }) switch { _ => Option<UiResponse>.None },
                     }
                 : Option<UiResponse>.None;
 
-        private Option<UiResponse> ContinueResize(MouseEventArgs args) =>
+        private Option<UiResponse> ContinueResize(ResponseMouseArgs args) =>
             (args.Buttons, resizer) switch {
-                (MouseButtons.Primary, GhResizingFrame frame) => Some(ContinueResize(frame: frame, point: args.Location)),
+                (MouseButtons.Primary, GhResizingFrame frame) => Some(ContinueResize(frame: frame, point: args.ContentLocation)),
                 _ => Option<UiResponse>.None,
             };
 
@@ -340,7 +350,7 @@ public readonly partial record struct ComponentUi {
             return UiResponse.Handled;
         }
 
-        private Option<UiResponse> EndResize(MouseEventArgs args) =>
+        private Option<UiResponse> EndResize(ResponseMouseArgs args) =>
             (args.Buttons, resizer) switch {
                 (MouseButtons.Primary, GhResizingFrame) => Some(CommitResize()),
                 _ => Option<UiResponse>.None,

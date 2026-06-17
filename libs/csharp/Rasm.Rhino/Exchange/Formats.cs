@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using Rhino.Collections;
 using Rhino.FileIO;
 using Rhino.PlugIns;
+using IOFile = System.IO.File;
 using IOPath = System.IO.Path;
 
 namespace Rasm.Rhino.Exchange;
@@ -156,7 +157,7 @@ public sealed partial record FileFormat {
                 : CustomByExtension(extension: extension));
 
     public static Fin<FileFormat> Of(string keyOrExtension) =>
-        from key in FileEndpoint.NonBlank(value: keyOrExtension, op: Op.Of(name: nameof(Of)))
+        from key in FileEndpoint.NonBlank(value: keyOrExtension, op: Op.Of())
         let extension = NormalizeExtension(value: key)
         let clean = NormalizeKey(value: key)
         from format in (ByKey.TryGetValue(key: clean, value: out FileFormat? byKey)
@@ -164,21 +165,21 @@ public sealed partial record FileFormat {
                 : ByExtension.TryGetValue(key: extension, value: out FileFormat? byExtension)
                     ? Optional(byExtension)
                     : CustomFormat(key: clean, extension: extension))
-            .ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput())
+            .ToFin(Fail: Op.Of().InvalidInput())
         select format;
 
     public static Fin<FileFormat> Custom(string key, Seq<string> extensions, FileCapability capability,
         FileCapability scale = FileCapability.None,
         Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? read = null,
         Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? write = null) =>
-        from validKey in FileEndpoint.NonBlank(value: key, op: Op.Of(name: nameof(Custom))).Map(static k => NormalizeKey(value: k))
-        from exts in extensions.TraverseM(e => FileEndpoint.NonBlank(value: e, op: Op.Of(name: nameof(Custom)))
+        from validKey in FileEndpoint.NonBlank(value: key, op: Op.Of()).Map(static k => NormalizeKey(value: k))
+        from exts in extensions.TraverseM(e => FileEndpoint.NonBlank(value: e, op: Op.Of())
             .Map(static t => NormalizeExtension(value: t))).As().Map(static s => s.Distinct())
         from _ in guard(!exts.IsEmpty && capability != FileCapability.None
             && !ReservedKeys.Contains(item: validKey) && !exts.Exists(ReservedExtensions.Contains)
             && !ByKey.ContainsKey(key: validKey) && !exts.Exists(ByExtension.ContainsKey)
             && !exts.Exists(extension => CustomByExtension(extension: extension).IsSome)
-            && CustomCell.Value.Find(key: validKey).IsNone, Op.Of(name: nameof(Custom)).InvalidInput())
+            && CustomCell.Value.Find(key: validKey).IsNone, Op.Of().InvalidInput())
         let format = new FileFormat(key: validKey, extensions: exts, capability: capability, scale: scale,
             read: null, write: null, directRead: read, directWrite: write, directWriteOptions: write is not null)
         from __ in Fin.Succ(value: Op.Side(() => CustomCell.Swap(map => map.AddOrUpdate(key: validKey, value: format))))
@@ -251,37 +252,48 @@ public sealed partial record FileFormat {
         };
 
     internal Fin<Unit> Write(FileWriteOptions options, RhinoDoc document, FileEndpoint target, FileProfile profile) =>
-        ((directWriteOptions || options.Xform.IsIdentity) && !options.CreateBackupFiles && !options.CreateOtherBackupFiles, directWriteCall) switch {
-            (true, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) => write(arg1: profile, arg2: options, arg3: document, arg4: target),
+        // Backups are a native-WriteFile concern: the direct option-rich writers (FileObj.Write/FilePly.Write and
+        // peers) bypass document.WriteFile and carry no backup parameter, so the backup step relocates to a pre-write
+        // rename here; document.WriteFile honors CreateBackupFiles/CreateOtherBackupFiles internally on the native branch.
+        (directWriteOptions || options.Xform.IsIdentity, directWriteCall) switch {
+            (true, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) =>
+                from _backup in Backup(path: target.Path, requested: options.CreateBackupFiles || options.CreateOtherBackupFiles, op: Op.Of(name: $"{Key}Write"))
+                from written in write(arg1: profile, arg2: options, arg3: document, arg4: target)
+                select written,
             _ => NativeBool(run: () => document.WriteFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Write")),
         };
+
+    private static Fin<Unit> Backup(string path, bool requested, Op op) =>
+        requested && IOFile.Exists(path: path)
+            ? op.Catch(() => { IOFile.Copy(sourceFileName: path, destFileName: $"{path}.bak", overwrite: true); return Fin.Succ(value: unit); })
+            : Fin.Succ(value: unit);
 
     internal static Fin<Unit> Write(RhinoDoc document, Option<FileEndpoint> target, FileProfile profile, FilePhase phase, bool selected, Op op) =>
         phase == FilePhase.Save
             ? NativeBool(run: document.Save, op: op)
             : from endpoint in target.ToFin(Fail: op.InvalidInput())
               from result in phase switch {
-                  var p when p == FilePhase.SaveAs => op.Catch(() => {
-                      using FileWriteOptions opts = WriteOptions(endpoint: endpoint, profile: profile,
-                          phase: FilePhase.SaveAs, selected: false, updatePath: true);
-                      return NativeBool(run: () => document.WriteFile(path: endpoint.Path, options: opts), op: op);
-                  }),
-                  var p when p == FilePhase.Write3dmFile => op.Catch(() => {
-                      using FileWriteOptions opts = WriteOptions(endpoint: endpoint, profile: profile,
-                          phase: FilePhase.Write3dmFile, selected: selected, updatePath: false);
-                      return NativeBool(run: () => document.Write3dmFile(path: endpoint.Path, options: opts), op: op);
-                  }),
+                  var p when p == FilePhase.SaveAs => op.Catch(() =>
+                      WriteOptions(endpoint: endpoint, profile: profile, phase: FilePhase.SaveAs, selected: false, updatePath: true).Bind(opts => {
+                          using FileWriteOptions owned = opts;
+                          return NativeBool(run: () => document.WriteFile(path: endpoint.Path, options: owned), op: op);
+                      })),
+                  var p when p == FilePhase.Write3dmFile => op.Catch(() =>
+                      WriteOptions(endpoint: endpoint, profile: profile, phase: FilePhase.Write3dmFile, selected: selected, updatePath: false).Bind(opts => {
+                          using FileWriteOptions owned = opts;
+                          return NativeBool(run: () => document.Write3dmFile(path: endpoint.Path, options: owned), op: op);
+                      })),
                   var p when p == FilePhase.SaveTemplate =>
                       NativeBool(run: () => document.SaveAsTemplate(file3dmTemplatePath: endpoint.Path, version: endpoint.Write.Normalized.Version), op: op),
                   var p when p == FilePhase.Export || p == FilePhase.WriteFile =>
                       from format in Require(endpoint: endpoint, profile: profile, phase: phase, op: op)
-                      from written in op.Catch(() => {
-                          using FileWriteOptions opts = WriteOptions(endpoint: endpoint, profile: profile, phase: phase,
-                              selected: selected, updatePath: phase == FilePhase.WriteFile);
-                          return phase == FilePhase.Export
-                              ? format.Export(options: opts, document: document, target: endpoint, profile: profile)
-                              : format.Write(options: opts, document: document, target: endpoint, profile: profile);
-                      })
+                      from written in op.Catch(() =>
+                          WriteOptions(endpoint: endpoint, profile: profile, phase: phase, selected: selected, updatePath: phase == FilePhase.WriteFile).Bind(opts => {
+                              using FileWriteOptions owned = opts;
+                              return phase == FilePhase.Export
+                                  ? format.Export(options: owned, document: document, target: endpoint, profile: profile)
+                                  : format.Write(options: owned, document: document, target: endpoint, profile: profile);
+                          }))
                       select written,
                   _ => Fin.Fail<Unit>(error: op.InvalidInput()),
               }
@@ -314,10 +326,11 @@ public sealed partial record FileFormat {
 
     internal static Fin<Unit> Import(RhinoDoc document, FileEndpoint source, FileProfile profile, Op op) =>
         from format in Require(endpoint: source, profile: profile, phase: FilePhase.Import, op: op)
-        from imported in op.Catch(() => {
-            using FileReadOptions options = ReadOptions(endpoint: source, profile: profile);
-            return format.Read(options: options, document: document, source: source, profile: profile);
-        })
+        from imported in op.Catch(() =>
+            ReadOptions(endpoint: source, profile: profile).Bind(options => {
+                using FileReadOptions owned = options;
+                return format.Read(options: owned, document: document, source: source, profile: profile);
+            }))
         select imported;
 
     internal static File3dmWriteOptions ArchiveWriteOptions(ArchiveProfile profile) {
@@ -327,38 +340,43 @@ public sealed partial record FileFormat {
         return options;
     }
 
-    private static FileReadOptions ReadOptions(FileEndpoint endpoint, FileProfile profile) {
-        FileReadOptions options = new() {
-            ImportMode = true,
-            BatchMode = true,
-            UseScaleGeometry = true,
-            ScaleGeometry = true,
-        };
-        _ = Dictionary(endpoint: endpoint, profile: profile, phase: FilePhase.Import, op: Op.Of(name: nameof(ReadOptions))).Map(options.OptionsDictionary.AddContentsFrom);
-        return options;
-    }
+    private static Fin<FileReadOptions> ReadOptions(FileEndpoint endpoint, FileProfile profile) =>
+        Dictionary(endpoint: endpoint, profile: profile, phase: FilePhase.Import, op: Op.Of())
+            .Map(static dict => {
+                FileReadOptions options = new() {
+                    ImportMode = true,
+                    BatchMode = true,
+                    UseScaleGeometry = true,
+                    ScaleGeometry = true,
+                };
+                _ = options.OptionsDictionary.AddContentsFrom(source: dict);
+                return options;
+            });
 
-    private static FileWriteOptions WriteOptions(FileEndpoint endpoint, FileProfile profile, FilePhase phase, bool selected, bool updatePath) {
+    private static Fin<FileWriteOptions> WriteOptions(FileEndpoint endpoint, FileProfile profile, FilePhase phase, bool selected, bool updatePath) {
         FileWritePolicy write = endpoint.Write.Normalized;
-        FileWriteOptions options = new() {
-            UpdateDocumentPath = updatePath,
-            WriteSelectedObjectsOnly = selected,
-            IncludeRenderMeshes = write.IncludeRenderMeshes,
-            IncludePreviewImage = write.IncludePreviewImage,
-            IncludeBitmapTable = write.IncludeBitmapTable,
-            IncludeHistory = write.IncludeHistory,
-            SuppressDialogBoxes = true,
-            SuppressAllInput = true,
-            WriteGeometryOnly = profile.Fidelity == FileFidelity.GeometryOnly || write.GeometryOnly,
-            WriteUserData = write.WriteUserData,
-            FileVersion = write.Version,
-            UseCompression = write.UseCompression,
-            CreateBackupFiles = write.CreateBackupFiles,
-            CreateOtherBackupFiles = write.CreateOtherBackupFiles,
-            Xform = write.Xform.IfNone(Transform.Identity),
-        };
-        _ = Dictionary(endpoint: endpoint, profile: profile, phase: phase, op: Op.Of(name: nameof(WriteOptions))).Map(options.OptionsDictionary.AddContentsFrom);
-        return options;
+        return Dictionary(endpoint: endpoint, profile: profile, phase: phase, op: Op.Of())
+            .Map(dict => {
+                FileWriteOptions options = new() {
+                    UpdateDocumentPath = updatePath,
+                    WriteSelectedObjectsOnly = selected,
+                    IncludeRenderMeshes = write.IncludeRenderMeshes,
+                    IncludePreviewImage = write.IncludePreviewImage,
+                    IncludeBitmapTable = write.IncludeBitmapTable,
+                    IncludeHistory = write.IncludeHistory,
+                    SuppressDialogBoxes = true,
+                    SuppressAllInput = true,
+                    WriteGeometryOnly = profile.Fidelity == FileFidelity.GeometryOnly || write.GeometryOnly,
+                    WriteUserData = write.WriteUserData,
+                    FileVersion = write.Version,
+                    UseCompression = write.UseCompression,
+                    CreateBackupFiles = write.CreateBackupFiles,
+                    CreateOtherBackupFiles = write.CreateOtherBackupFiles,
+                    Xform = write.Xform.IfNone(Transform.Identity),
+                };
+                _ = options.OptionsDictionary.AddContentsFrom(source: dict);
+                return options;
+            });
     }
 
     private static string NormalizeKey(string value) =>
@@ -374,10 +392,6 @@ public sealed partial record FileFormat {
     private static Option<FileFormat> CustomFormat(string key, string extension) =>
         CustomCell.Value.Find(key: key) | CustomByExtension(extension: extension);
 
-    private static bool IsLayerGrouped(FileProfile profile) => profile.Group == FileAxis.Layer || profile.Order == FileAxis.Layer;
-
-    private static bool ShouldExportMaterials(FileResourcePolicy resources) => resources != FileResourcePolicy.Reference;
-
     private static File3dsWriteOptions ThreeDsWriteOptions(FileProfile profile) =>
         new() { SaveViews = profile.Fidelity.IsModel, SaveLights = profile.Fidelity.IsModel };
 
@@ -389,7 +403,7 @@ public sealed partial record FileFormat {
     private static FileAiWriteOptions AiWriteOptions(FileProfile profile) {
         FileAiWriteOptions options = new() {
             PreserveModelScale = profile.Fidelity.IsModel,
-            OrderLayers = IsLayerGrouped(profile),
+            OrderLayers = profile.LayerGrouped,
         };
         return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
     }
@@ -403,9 +417,9 @@ public sealed partial record FileFormat {
                 FileAxis.Block => FileObjWriteOptions.ObjGroupNames.GroupAsGroup,
                 _ => FileObjWriteOptions.ObjGroupNames.NoGroups,
             },
-            ExportMaterialDefinitions = ShouldExportMaterials(profile.Resources) && options.WriteUserData,
-            UseDisplayColorForMaterial = ShouldExportMaterials(profile.Resources),
-            ExportTcs = ShouldExportMaterials(profile.Resources),
+            ExportMaterialDefinitions = profile.ExportMaterials && options.WriteUserData,
+            UseDisplayColorForMaterial = profile.ExportMaterials,
+            ExportTcs = profile.ExportMaterials,
             ExportNormals = profile.Fidelity.IncludeMeasurements,
             UseRenderMeshes = profile.Fidelity == FileFidelity.Small || options.IncludeRenderMeshes,
             SortObjGroups = profile.Order is FileAxis.Layer or FileAxis.Block,
@@ -417,7 +431,7 @@ public sealed partial record FileFormat {
             ExportASCII = profile.Fidelity != FileFidelity.Small,
             ExportDoubles = profile.Fidelity.IsModel,
             ExportNormals = profile.Fidelity.IncludeMeasurements,
-            ExportColors = ShouldExportMaterials(profile.Resources),
+            ExportColors = profile.ExportMaterials,
             ExportMaterial = profile.Resources == FileResourcePolicy.Embed,
         };
 
@@ -426,7 +440,7 @@ public sealed partial record FileFormat {
             FullLayerPath = profile.Group == FileAxis.Layer,
             ExportSurfacesAs = profile.Fidelity == FileFidelity.GeometryOnly ? FileDwgWriteOptions.ExportSurfaceMode.Meshes : FileDwgWriteOptions.ExportSurfaceMode.Curves,
             UseLWPolylines = !profile.Fidelity.IsModel,
-            ColorMethod = ShouldExportMaterials(profile.Resources) ? FileDwgWriteOptions.ColorMethodType.RGB : FileDwgWriteOptions.ColorMethodType.ACI,
+            ColorMethod = profile.ExportMaterials ? FileDwgWriteOptions.ColorMethodType.RGB : FileDwgWriteOptions.ColorMethodType.ACI,
             UseColor = profile.Order == FileAxis.Material ? FileDwgWriteOptions.UseColorType.USEPRINT : FileDwgWriteOptions.UseColorType.USEDISPLAY,
         };
 
@@ -450,16 +464,16 @@ public sealed partial record FileFormat {
         new() { GroupObjects = profile.Group is FileAxis.Layer or FileAxis.Block };
 
     private static FileVrmlWriteOptions VrmlWriteOptions(FileProfile profile) =>
-        new() { ExportTextureCoordinates = ShouldExportMaterials(profile.Resources), ExportVertexNormals = profile.Fidelity.IsModel };
+        new() { ExportTextureCoordinates = profile.ExportMaterials, ExportVertexNormals = profile.Fidelity.IsModel };
 
     private static FileX3dvWriteOptions X3dvWriteOptions(FileProfile profile) =>
-        new() { ExportTextureCoordinates = ShouldExportMaterials(profile.Resources), ExportVertexNormals = profile.Fidelity.IsModel };
+        new() { ExportTextureCoordinates = profile.ExportMaterials, ExportVertexNormals = profile.Fidelity.IsModel };
 
     private static FileTxtWriteOptions TxtWriteOptions(FileProfile profile) =>
         new() { SurroundWithDoubleQuotes = profile.Group != FileAxis.Document };
 
     private static FileCsvWriteOptions CsvOptions(FileProfile profile) {
-        bool layer = IsLayerGrouped(profile);
+        bool layer = profile.LayerGrouped;
         bool group = profile.Group == FileAxis.Block || profile.Order == FileAxis.Block;
         bool material = profile.Group == FileAxis.Material || profile.Order == FileAxis.Material;
         bool user = profile.Group == FileAxis.UserString;
@@ -496,9 +510,9 @@ public sealed partial record FileFormat {
 
     private static FileGltfWriteOptions GltfWriteOptions(FileProfile profile) =>
         new() {
-            ExportMaterials = ShouldExportMaterials(profile.Resources),
+            ExportMaterials = profile.ExportMaterials,
             ExportLayers = profile.Group == FileAxis.Layer,
-            ExportTextureCoordinates = ShouldExportMaterials(profile.Resources),
+            ExportTextureCoordinates = profile.ExportMaterials,
             ExportVertexNormals = profile.Fidelity.IncludeMeasurements,
             UseDracoCompression = profile.Fidelity == FileFidelity.Small,
             DracoCompressionLevel = profile.Fidelity.Draco.Compression,

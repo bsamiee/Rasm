@@ -18,24 +18,37 @@ replication surfaces for provider store profiles.
 [CONNECTION_TYPES]: data source and command surfaces
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                               |
-| :-----: | :------------------------------ | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `NpgsqlDataSource`              | data source         | owns configured pool; `CreateConnection`, `OpenConnection`, `OpenConnectionAsync`, `CreateCommand`, `CreateBatch`, `ReloadTypes`, `ReloadTypesAsync`, `Clear`                                                                                                                                                                                                                                                              |
-|   [2]   | `NpgsqlDataSourceBuilder`       | data source builder | builds data source; `Build()`, `BuildMultiHost()`                                                                                                                                                                                                                                                                                                                                                                          |
-|   [3]   | `NpgsqlMultiHostDataSource`     | multi-host source   | multi-host pool; `TargetSessionAttributes` per acquisition                                                                                                                                                                                                                                                                                                                                                                 |
-|   [4]   | `NpgsqlConnection`              | connection          | opens PostgreSQL store; `BeginBinaryImport`/`Async`, `BeginBinaryExport`/`Async`, `BeginRawBinaryCopy`/`Async`, `ReloadTypes`/`Async`, `CreateBatch`                                                                                                                                                                                                                                                                       |
-|   [5]   | `NpgsqlConnectionStringBuilder` | connection builder  | builds connection strings; `MaxAutoPrepare`, `AutoPrepareMinUsages`, `NoResetOnClose`, `Multiplexing`, `TargetSessionAttributes`, `LoadBalanceHosts`, `Options`, `IncludeErrorDetail`, `IncludeFailedBatchedCommand`, `LogParameters`                                                                                                                                                                                      |
-|   [6]   | `NpgsqlCommand`                 | command             | executes statements                                                                                                                                                                                                                                                                                                                                                                                                        |
-|   [7]   | `NpgsqlTransaction`             | transaction         | bounds atomic work                                                                                                                                                                                                                                                                                                                                                                                                         |
-|   [8]   | `NpgsqlBatch`                   | batch command       | executes batched work; `EnableErrorBarriers` selects per-command fault granularity                                                                                                                                                                                                                                                                                                                                         |
-|   [9]   | `NpgsqlBatchCommand`            | batch member        | carries batched command                                                                                                                                                                                                                                                                                                                                                                                                    |
-|  [10]   | `NpgsqlParameter`               | parameter           | binds statement values                                                                                                                                                                                                                                                                                                                                                                                                     |
-|  [11]   | `NpgsqlDataReader`              | data reader         | reads result rows; `GetFieldValue<T>`, `GetFieldValueAsync<T>`, `GetStream`, `GetStreamAsync`, `GetTextReader`, `GetTextReaderAsync`, `GetPostgresType`, `GetDataTypeOID`, `GetColumnSchema`, `GetColumnSchemaAsync`                                                                                                                                                                                                       |
-|  [12]   | `NpgsqlException`               | provider exception  | reports provider failure; `IsTransient`                                                                                                                                                                                                                                                                                                                                                                                    |
-|  [13]   | `PostgresException`             | server exception    | carries `SqlState`, `ConstraintName`, `ColumnName`, `TableName`, `Detail`, `Hint`; `IsTransient`; `PostgresErrorCodes.UndefinedObject` = 42704                                                                                                                                                                                                                                                                             |
-|  [14]   | `PostgresErrorCodes`            | SQLSTATE constants  | names SQLSTATE values                                                                                                                                                                                                                                                                                                                                                                                                      |
-|  [15]   | `NpgsqlMetricsOptions`          | meter options       | shapes `AddNpgsqlInstrumentation` meter stream                                                                                                                                                                                                                                                                                                                                                                             |
-|  [16]   | `NpgsqlTracingOptionsBuilder`   | tracing options     | configures tracing via `ConfigureTracing`; `ConfigureCommandFilter`, `ConfigureBatchFilter`, `ConfigureCommandSpanNameProvider`, `ConfigureBatchSpanNameProvider`, `ConfigureCommandEnrichmentCallback`, `ConfigureBatchEnrichmentCallback`, `ConfigureCopyOperationFilter`, `ConfigureCopyOperationEnrichmentCallback`, `ConfigureCopyOperationSpanNameProvider`, `EnableFirstResponseEvent`, `EnablePhysicalOpenTracing` |
+The compact rows below preserve these member groups:
+- `NpgsqlDataSource`: `CreateConnection`, `OpenConnection`, `OpenConnectionAsync`, `CreateCommand`, `CreateBatch`, `ReloadTypes`, `ReloadTypesAsync`, `Clear`
+- `NpgsqlDataSourceBuilder`: `Build()`, `BuildMultiHost()`
+- `NpgsqlMultiHostDataSource`: `TargetSessionAttributes`
+- `NpgsqlConnection`: `BeginBinaryImport`/`Async`, `BeginBinaryExport`/`Async`, `BeginRawBinaryCopy`/`Async`, `ReloadTypes`/`Async`, `CreateBatch`
+- `NpgsqlConnectionStringBuilder`: `MaxAutoPrepare`, `AutoPrepareMinUsages`, `NoResetOnClose`, `Multiplexing`, `TargetSessionAttributes`, `LoadBalanceHosts`
+- `NpgsqlConnectionStringBuilder`: `Options`, `IncludeErrorDetail`, `IncludeFailedBatchedCommand`, `LogParameters`
+- `NpgsqlBatch`: `EnableErrorBarriers`
+- `NpgsqlDataReader`: `GetFieldValue<T>`, `GetFieldValueAsync<T>`, `GetStream`, `GetStreamAsync`, `GetTextReader`, `GetTextReaderAsync`
+- `NpgsqlDataReader`: `GetPostgresType`, `GetDataTypeOID`, `GetColumnSchema`, `GetColumnSchemaAsync`
+- `PostgresException`: `SqlState`, `ConstraintName`, `ColumnName`, `TableName`, `Detail`, `Hint`, `IsTransient`, `PostgresErrorCodes.UndefinedObject = 42704`
+- `NpgsqlTracingOptionsBuilder`: `ConfigureTracing`, command/batch/COPY filters, span-name providers, enrichment callbacks, `EnableFirstResponseEvent`, `EnablePhysicalOpenTracing`
+
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]      | [CAPABILITY]                        |
+| :-----: | :------------------------------ | :------------------ | :---------------------------------- |
+|   [1]   | `NpgsqlDataSource`              | data source         | owns configured pool                |
+|   [2]   | `NpgsqlDataSourceBuilder`       | data source builder | builds data source                  |
+|   [3]   | `NpgsqlMultiHostDataSource`     | multi-host source   | owns multi-host pool                |
+|   [4]   | `NpgsqlConnection`              | connection          | opens PostgreSQL store              |
+|   [5]   | `NpgsqlConnectionStringBuilder` | connection builder  | builds connection strings           |
+|   [6]   | `NpgsqlCommand`                 | command             | executes statements                 |
+|   [7]   | `NpgsqlTransaction`             | transaction         | bounds atomic work                  |
+|   [8]   | `NpgsqlBatch`                   | batch command       | executes batched work               |
+|   [9]   | `NpgsqlBatchCommand`            | batch member        | carries batched command             |
+|  [10]   | `NpgsqlParameter`               | parameter           | binds statement values              |
+|  [11]   | `NpgsqlDataReader`              | data reader         | reads result rows                   |
+|  [12]   | `NpgsqlException`               | provider exception  | reports provider failure            |
+|  [13]   | `PostgresException`             | server exception    | reports server failure              |
+|  [14]   | `PostgresErrorCodes`            | SQLSTATE constants  | names SQLSTATE values               |
+|  [15]   | `NpgsqlMetricsOptions`          | meter options       | shapes instrumentation meter stream |
+|  [16]   | `NpgsqlTracingOptionsBuilder`   | tracing options     | configures data-source tracing      |
 
 [TYPE_SYSTEM_TYPES]: PostgreSQL type surfaces
 - rail: store-provider
@@ -56,31 +69,44 @@ replication surfaces for provider store profiles.
 [COPY_TYPES]: binary COPY surfaces
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                                                                                                                                                  |
-| :-----: | :--------------------- | :----------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `NpgsqlBinaryImporter` | binary-COPY writer | streams typed rows to PostgreSQL; `StartRow`/`Async`, `Write<T>`/`Async` (3 overloads: bare, `NpgsqlDbType`, `dataTypeName`), `WriteNull`/`Async`, `WriteRow`/`Async`, `Complete`/`Async → ulong`, `Close`/`Async`, `Timeout` |
-|   [2]   | `NpgsqlBinaryExporter` | binary-COPY reader | reads typed rows from PostgreSQL; `StartRow`/`Async → int`, `Read<T>`/`Async` (2 overloads: bare, `NpgsqlDbType`), `Skip`/`Async`, `IsNull`, `Timeout`, `Cancel`/`Async`                                                      |
-|   [3]   | `NpgsqlRawCopyStream`  | raw-COPY stream    | zero-materialization table-to-table pipe; `Stream` subtype with `Read`/`Write`/`ReadAsync`/`WriteAsync`/`FlushAsync`, `Cancel`                                                                                                |
+The binary COPY surfaces expose these members:
+- `NpgsqlBinaryImporter`: `StartRow`/`Async`, `Write<T>`/`Async` overload families, `WriteNull`/`Async`, `WriteRow`/`Async`, `Complete`/`Async`, `Close`/`Async`, `Timeout`
+- `NpgsqlBinaryExporter`: `StartRow`/`Async`, `Read<T>`/`Async` overload families, `Skip`/`Async`, `IsNull`, `Timeout`, `Cancel`/`Async`
+- `NpgsqlRawCopyStream`: `Read`, `Write`, async read/write, `FlushAsync`, `Cancel`
+
+| [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]     | [CAPABILITY]                     |
+| :-----: | :--------------------- | :----------------- | :------------------------------- |
+|   [1]   | `NpgsqlBinaryImporter` | binary-COPY writer | streams typed rows to PostgreSQL |
+|   [2]   | `NpgsqlBinaryExporter` | binary-COPY reader | reads typed rows from PostgreSQL |
+|   [3]   | `NpgsqlRawCopyStream`  | raw-COPY stream    | streams raw COPY bytes           |
 
 [REPLICATION_TYPES]: logical replication surfaces
 - rail: store-provider
 
 Replication rows share the `Npgsql.Replication` namespace; pgoutput rows live under `PgOutput` and `PgOutput.Messages`.
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]       | [CAPABILITY]                                                                                                                                                          |
-| :-----: | :-------------------------------- | :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `LogicalReplicationConnection`    | replication root     | opens logical stream; `StartReplication`, `SetReplicationStatus`, `SendStatusUpdate`, `IdentifySystem`, `CreatePgOutputReplicationSlot`                               |
-|   [2]   | `NpgsqlLogSequenceNumber`         | LSN value            | WAL position; `Parse`, `TryParse`, comparison operators, `Larger`, `Invalid`                                                                                          |
-|   [3]   | `ReplicationSlot`                 | slot metadata        | identifies slot                                                                                                                                                       |
-|   [4]   | `PgOutputReplicationSlot`         | slot handle          | attaches pgoutput slot                                                                                                                                                |
-|   [5]   | `PgOutputReplicationOptions`      | replication policy   | configures pgoutput: publication names, `PgOutputProtocolVersion`, `binary`, `streamingMode`, `messages`, two-phase                                                   |
-|   [6]   | `TestDecodingOptions`             | replication policy   | rejected alternative output                                                                                                                                           |
-|   [7]   | `ReplicationMessage`              | replication message  | carries stream event                                                                                                                                                  |
-|   [8]   | `PgOutputProtocolVersion`         | protocol classifier  | classifies protocol version                                                                                                                                           |
-|   [9]   | `PgOutputStreamingMode`           | streaming classifier | classifies streaming mode (`Off`, `On`, `Parallel`)                                                                                                                   |
-|  [10]   | `PgOutputReplicationMessage`      | message base         | roots pgoutput message family                                                                                                                                         |
-|  [11]   | insert/update messages            | message leaves       | `InsertMessage`, `UpdateMessage`, `FullUpdateMessage`, `IndexUpdateMessage`                                                                                           |
-|  [12]   | delete/truncate/relation messages | message leaves       | `KeyDeleteMessage`, `FullDeleteMessage`, `TruncateMessage`, `RelationMessage`, `CommitMessage`, `StreamCommitMessage`, `StreamAbortMessage`, `LogicalDecodingMessage` |
+Replication detail rows preserve these members:
+- `LogicalReplicationConnection`: `StartReplication`, `SetReplicationStatus`, `SendStatusUpdate`, `IdentifySystem`, `CreatePgOutputReplicationSlot`
+- `NpgsqlLogSequenceNumber`: `Parse`, `TryParse`, comparison operators, `Larger`, `Invalid`
+- `PgOutputReplicationOptions`: publication names, `PgOutputProtocolVersion`, binary mode, streaming mode, messages, two-phase
+- insert/update messages: `InsertMessage`, `UpdateMessage`, `FullUpdateMessage`, `IndexUpdateMessage`
+- delete/truncate messages: `KeyDeleteMessage`, `FullDeleteMessage`, `TruncateMessage`
+- relation/commit messages: `RelationMessage`, `CommitMessage`, `StreamCommitMessage`, `StreamAbortMessage`, `LogicalDecodingMessage`
+
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]       | [CAPABILITY]                    |
+| :-----: | :-------------------------------- | :------------------- | :------------------------------ |
+|   [1]   | `LogicalReplicationConnection`    | replication root     | opens logical stream            |
+|   [2]   | `NpgsqlLogSequenceNumber`         | LSN value            | carries WAL position            |
+|   [3]   | `ReplicationSlot`                 | slot metadata        | identifies slot                 |
+|   [4]   | `PgOutputReplicationSlot`         | slot handle          | attaches pgoutput slot          |
+|   [5]   | `PgOutputReplicationOptions`      | replication policy   | configures pgoutput             |
+|   [6]   | `TestDecodingOptions`             | replication policy   | rejected alternative output     |
+|   [7]   | `ReplicationMessage`              | replication message  | carries stream event            |
+|   [8]   | `PgOutputProtocolVersion`         | protocol classifier  | classifies protocol version     |
+|   [9]   | `PgOutputStreamingMode`           | streaming classifier | classifies streaming mode       |
+|  [10]   | `PgOutputReplicationMessage`      | message base         | roots pgoutput message family   |
+|  [11]   | insert/update messages            | message leaves       | insert/update leaf frames       |
+|  [12]   | delete/truncate/relation messages | message leaves       | delete/truncate/relation frames |
 
 ## [3]-[ENTRYPOINTS]
 

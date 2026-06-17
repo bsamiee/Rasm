@@ -97,6 +97,41 @@ public abstract partial record ViewportTarget {
                 .Map(static scopes => scopes.Bind(static item => item)));
 }
 
+// Native GetFramePlaneCorners orders corners (0,1,2,3) = (BottomLeft, BottomRight, TopLeft, TopRight)
+// and returns Point3d[0] when camera or frustum is invalid — surfaced here as Fin.Fail.
+[Union]
+public abstract partial record ProjectionSource {
+    private ProjectionSource() { }
+
+    public sealed record Live(RhinoViewport Viewport) : ProjectionSource;
+    public sealed record Captured(ViewportInfo Projection) : ProjectionSource;
+
+    internal Fin<T> With<T>(Func<ViewportInfo, Fin<T>> project, Op op) =>
+        this switch {
+            Live live => op.Catch(() => {
+                using ViewportInfo p = new(rhinoViewport: live.Viewport);
+                return project(arg: p);
+            }),
+            Captured cap => op.Catch(() => project(arg: cap.Projection)),
+            _ => Fin.Fail<T>(error: op.InvalidInput()),
+        };
+
+    internal static Fin<(Point3d BottomLeft, Point3d BottomRight, Point3d TopLeft, Point3d TopRight)> FrustumRect(ProjectionSource source, double depth, Op op) =>
+        source.With(
+            project: p => p.GetFramePlaneCorners(depth: depth) is { Length: 4 } c
+                ? Fin.Succ(value: (BottomLeft: c[0], BottomRight: c[1], TopLeft: c[2], TopRight: c[3]))
+                : Fin.Fail<(Point3d, Point3d, Point3d, Point3d)>(error: op.InvalidResult()),
+            op: op);
+
+    internal static Fin<System.Drawing.PointF> ScreenPoint(ProjectionSource source, Point3d point, Op op) =>
+        source.With(
+            project: p => CameraScope.ProjectScreen(
+                xform: p.GetXform(sourceSystem: CoordinateSystem.World, destinationSystem: CoordinateSystem.Screen),
+                point: point,
+                op: op),
+            op: op);
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CameraDepth(double Near, double Far);
@@ -225,7 +260,9 @@ public readonly record struct CameraViewState(
     double CameraAngle,
     CameraDof Dof,
     DrawingRectangle ScreenPort,
-    (double X, double Y, double Z) ViewScale) {
+    (double X, double Y, double Z) ViewScale,
+    CameraLock Lock,
+    Option<Plane> ConstructionPlane) {
     public double TargetDistance => Frame.Location.DistanceTo(other: Frame.Target);
 
     internal Fin<ViewportInfo> Projection(Op op) {
@@ -247,6 +284,7 @@ public readonly record struct CameraViewState(
                     from _frustum in self.Frustum.Apply(projection: projection, op: op)
                     from _angle in Fin.Succ(value: Op.Side(() => projection.CameraAngle = self.CameraAngle))
                     from _scale in Fin.Succ(value: Op.Side(() => projection.SetViewScale(scaleX: self.ViewScale.X, scaleY: self.ViewScale.Y, scaleZ: self.ViewScale.Z)))
+                    from _lock in self.Lock.Apply(projection: projection, op: op)
                     select projection;
                 return state.BiBind(
                     Succ: value => {
@@ -272,7 +310,7 @@ public readonly record struct CameraViewState(
             using ViewInfo info = new(active);
             return Fin.Succ(value: CameraDof.Read(view: info));
         })
-        select state with { Dof = dof };
+        select state with { Dof = dof, ConstructionPlane = Some(value: active.ConstructionPlane()) };
 
     internal static Fin<CameraViewState> Of(ViewportInfo projection, Op op) =>
         Optional(projection).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
@@ -282,12 +320,14 @@ public readonly record struct CameraViewState(
                    select new CameraViewState(
                        Frame: frame,
                        Frustum: frustum,
-                       Mode: ModeOf(projection: copy),
+                       Mode: ModeFrom(isTwoPoint: copy.IsTwoPointPerspectiveProjection, isPerspective: copy.IsPerspectiveProjection),
                        LensLength: copy.Camera35mmLensLength,
                        CameraAngle: copy.CameraAngle,
                        Dof: default,
                        ScreenPort: copy.ScreenPort,
-                       ViewScale: ViewScaleOf(projection: copy));
+                       ViewScale: ViewScaleOf(projection: copy),
+                       Lock: CameraLock.Of(projection: copy),
+                       ConstructionPlane: Option<Plane>.None);
         }));
 
     internal static Fin<CameraViewState> Of(ViewInfo view, Op op) =>
@@ -298,17 +338,10 @@ public readonly record struct CameraViewState(
         })
         select state with { Dof = CameraDof.Read(view: active) };
 
-    private static CameraMode ModeOf(RhinoViewport viewport) =>
-        viewport switch {
-            { IsTwoPointPerspectiveProjection: true } => CameraMode.TwoPointPerspective,
-            { IsPerspectiveProjection: true } => CameraMode.Perspective,
-            _ => CameraMode.Parallel,
-        };
-
-    private static CameraMode ModeOf(ViewportInfo projection) =>
-        projection switch {
-            { IsTwoPointPerspectiveProjection: true } => CameraMode.TwoPointPerspective,
-            { IsPerspectiveProjection: true } => CameraMode.Perspective,
+    internal static CameraMode ModeFrom(bool isTwoPoint, bool isPerspective) =>
+        (isTwoPoint, isPerspective) switch {
+            (true, _) => CameraMode.TwoPointPerspective,
+            (_, true) => CameraMode.Perspective,
             _ => CameraMode.Parallel,
         };
 
@@ -350,41 +383,33 @@ public readonly record struct CameraScope(
         Probe(project: vp => {
             using ViewportInfo projection = new(rhinoViewport: vp);
             Transform transform = projection.GetXform(sourceSystem: sourceSystem, destinationSystem: destinationSystem);
-            return Op.Of(name: nameof(CoordinateTransform)).AcceptValue(value: transform);
+            return Op.Of().AcceptValue(value: transform);
         });
 
     public Fin<Line> FrustumLine(double screenX, double screenY) =>
         Probe(project: vp => vp.GetFrustumLine(screenX: screenX, screenY: screenY, worldLine: out Line line) switch {
             true when line.IsValid && line != Line.Unset => Fin.Succ(value: line),
-            _ => Fin.Fail<Line>(error: Op.Of(name: nameof(FrustumLine)).InvalidResult()),
+            _ => Fin.Fail<Line>(error: Op.Of().InvalidResult()),
         });
 
-    // Native GetFramePlaneCorners orders corners (0,1,2,3) = (BottomLeft, BottomRight, TopLeft, TopRight)
-    // and returns Point3d[0] when camera or frustum is invalid — surfaced here as Fin.Fail.
     public Fin<(Point3d BottomLeft, Point3d BottomRight, Point3d TopLeft, Point3d TopRight)> FrustumRect(double depth) =>
-        Probe(project: vp => Op.Of(name: nameof(FrustumRect)).Catch(() => {
-            using ViewportInfo projection = new(rhinoViewport: vp);
-            Point3d[] corners = projection.GetFramePlaneCorners(depth: depth);
-            return corners.Length == 4
-                ? Fin.Succ(value: (BottomLeft: corners[0], BottomRight: corners[1], TopLeft: corners[2], TopRight: corners[3]))
-                : Fin.Fail<(Point3d, Point3d, Point3d, Point3d)>(error: Op.Of(name: nameof(FrustumRect)).InvalidResult());
-        }));
+        Probe(project: vp => ProjectionSource.FrustumRect(source: new ProjectionSource.Live(Viewport: vp), depth: depth, op: Op.Of()));
 
     public Fin<CameraDepth> Depth(CameraSubject source) {
         RhinoViewport viewport = Viewport;
-        return Optional(source).ToFin(Fail: Op.Of(name: nameof(Depth)).InvalidInput()).Bind(valid => valid.Depth(viewport: viewport));
+        return Optional(source).ToFin(Fail: Op.Of().InvalidInput()).Bind(valid => valid.Depth(viewport: viewport));
     }
 
     public Fin<bool> Visible(CameraSubject source) {
         RhinoViewport viewport = Viewport;
-        return Optional(source).ToFin(Fail: Op.Of(name: nameof(Visible)).InvalidInput()).Bind(valid => valid.Visible(viewport: viewport));
+        return Optional(source).ToFin(Fail: Op.Of().InvalidInput()).Bind(valid => valid.Visible(viewport: viewport));
     }
 
     public Fin<double> TargetDistance(bool useFrustumCenterFallback = true) =>
         Probe(project: vp => {
             using ViewportInfo projection = new(rhinoViewport: vp);
             double distance = projection.TargetDistance(useFrustumCenterFallback: useFrustumCenterFallback);
-            return Op.Of(name: nameof(TargetDistance)).AcceptValue(value: distance);
+            return Op.Of().AcceptValue(value: distance);
         });
 
     public Fin<double> WorldToScreenScale(Point3d point) {
@@ -400,17 +425,13 @@ public readonly record struct CameraScope(
     public Fin<System.Drawing.PointF> ScreenPoint(Point3d point) {
         CameraScope self = this;
         return from _ in guard(point.IsValid, ScreenPointKey.InvalidInput())
-               from screen in self.Probe(project: vp => ScreenPointKey.Catch(() => {
-                   using ViewportInfo projection = new(rhinoViewport: vp);
-                   Transform xform = projection.GetXform(sourceSystem: CoordinateSystem.World, destinationSystem: CoordinateSystem.Screen);
-                   return ProjectScreen(xform: xform, point: point, op: ScreenPointKey);
-               }))
+               from screen in self.Probe(project: vp => ProjectionSource.ScreenPoint(source: new ProjectionSource.Live(Viewport: vp), point: point, op: ScreenPointKey))
                select screen;
     }
 
     public Fin<Unit> ApplyRedraw(RedrawRequest request) {
         CameraScope self = this;
-        return Optional(request).ToFin(Fail: Op.Of(name: nameof(ApplyRedraw)).InvalidInput())
+        return Optional(request).ToFin(Fail: Op.Of().InvalidInput())
             .Bind(valid => valid.ApplyTo(scope: self));
     }
 
@@ -554,11 +575,7 @@ public sealed record CameraSnapshot : IDisposable {
                         screenPort: captured.ScreenPort,
                         size: viewport.Size,
                         lockedProjection: viewport.LockedProjection,
-                        mode: viewport switch {
-                            { IsTwoPointPerspectiveProjection: true } => CameraMode.TwoPointPerspective,
-                            { IsPerspectiveProjection: true } => CameraMode.Perspective,
-                            _ => CameraMode.Parallel,
-                        },
+                        mode: CameraViewState.ModeFrom(isTwoPoint: viewport.IsTwoPointPerspectiveProjection, isPerspective: viewport.IsPerspectiveProjection),
                         lensLength: viewport.Camera35mmLensLength,
                         cameraAngle: viewport.CameraAngle,
                         dof: dof,
@@ -591,7 +608,7 @@ public sealed record CameraSnapshot : IDisposable {
 
     public Fin<CameraDepth> Depth(CameraSubject source) {
         CameraFrame frame = Frame;
-        Op op = Op.Of(name: nameof(Depth));
+        Op op = Op.Of();
         return Optional(source).ToFin(Fail: op.InvalidInput())
             .Bind(valid => valid.BoundsOf(op: op))
             .Bind(bounds => guard(bounds.IsValid, op.InvalidResult()).ToFin().Map(_ => toSeq(bounds.GetCorners())
@@ -603,20 +620,12 @@ public sealed record CameraSnapshot : IDisposable {
     }
 
     // Reuses the owned Projection ViewportInfo — zero allocation. Corner order matches CameraScope.FrustumRect.
-    public Fin<(Point3d BottomLeft, Point3d BottomRight, Point3d TopLeft, Point3d TopRight)> FrustumRect(double depth) {
-        ViewportInfo captured = Projection;
-        Op op = Op.Of(name: nameof(FrustumRect));
-        return op.Catch(() => {
-            Point3d[] corners = captured.GetFramePlaneCorners(depth: depth);
-            return corners.Length == 4
-                ? Fin.Succ(value: (BottomLeft: corners[0], BottomRight: corners[1], TopLeft: corners[2], TopRight: corners[3]))
-                : Fin.Fail<(Point3d, Point3d, Point3d, Point3d)>(error: op.InvalidResult());
-        });
-    }
+    public Fin<(Point3d BottomLeft, Point3d BottomRight, Point3d TopLeft, Point3d TopRight)> FrustumRect(double depth) =>
+        ProjectionSource.FrustumRect(source: new ProjectionSource.Captured(Projection: Projection), depth: depth, op: Op.Of());
 
     public Fin<bool> IsVisible(BoundingBox box) {
         ViewportInfo captured = Projection;
-        Op op = Op.Of(name: nameof(IsVisible));
+        Op op = Op.Of();
         return from _ in guard(box.IsValid, op.InvalidInput())
                from result in op.Catch(() => {
                    // FrustumNearPlane's normal points OUT of the frustum (toward the camera) while Far and the
@@ -644,10 +653,7 @@ public sealed record CameraSnapshot : IDisposable {
         ViewportInfo captured = Projection;
         Op op = Op.Of(name: nameof(ScreenPoint));
         return from _ in guard(point.IsValid, op.InvalidInput())
-               from screen in op.Catch(() => {
-                   Transform xform = captured.GetXform(sourceSystem: CoordinateSystem.World, destinationSystem: CoordinateSystem.Screen);
-                   return CameraScope.ProjectScreen(xform: xform, point: point, op: op);
-               })
+               from screen in ProjectionSource.ScreenPoint(source: new ProjectionSource.Captured(Projection: captured), point: point, op: op)
                select screen;
     }
 

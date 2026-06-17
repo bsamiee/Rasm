@@ -48,7 +48,7 @@ from tools.assay.core.model import (
     Tool,
 )
 from tools.assay.core.routing import parse_csproj, Routed, Scope
-from tools.assay.core.status import join, RailStatus
+from tools.assay.core.status import join, RailStatus, Step
 from tools.assay.rails.bridge import bridge_lease, client_run
 
 
@@ -135,6 +135,24 @@ class PackageParams(BaseParams):
     def _arity(self, verb: str) -> int:
         _ = verb
         return 0
+
+    @override
+    def bound(self, verb: str) -> Self | Fault:
+        """Validate package params at the boundary: ``publish``/``plan`` require a non-empty ``--slug``.
+
+        An empty slug identifies a non-yak project, so resolving ``publish``/``plan`` against it would target the
+        wrong project; ``list`` rosters every project and stays slug-agnostic.
+
+        Returns:
+            Validated params, or a parse fault for a surplus token or a missing required slug.
+        """
+        match super().bound(verb):
+            case Fault() as projected:
+                return projected
+            case bound_params if verb in {"publish", "plan"} and not bound_params.slug.strip():
+                return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: --slug is required and must be non-empty")
+            case bound_params:
+                return bound_params
 
 
 class _CommitMarker(Base, frozen=True, gc=False):

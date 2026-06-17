@@ -6,7 +6,8 @@ is pinned through count consistency and fold-specific projection laws.
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from typing import get_args, TYPE_CHECKING
+from pathlib import Path
+from typing import get_args
 
 from hypothesis import example, given, strategies as st, target
 import msgspec
@@ -90,10 +91,6 @@ from tools.assay.core.model import (
     wire_safe,
 )
 from tools.assay.core.status import RailStatus
-
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -302,6 +299,24 @@ def test_fold_sarif_error_rows_fail_static_report(tmp_path: Path) -> None:
     assert envelope(report, claim=Claim.STATIC, verb="build").exit_code == 1
 
 
+def test_fold_sarif_suppressed_error_is_dropped_and_does_not_gate(tmp_path: Path) -> None:
+    """A pragma-suppressed error-level SARIF result never surfaces or gates, so the rail tracks dotnet build rc=0."""
+    suppressed = {**_sarif_result("CA1822", "error", 5, "suppressed in source"), "suppressions": [{"kind": "inSource"}]}
+    sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(suppressed))
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
+    assert report.results == ()
+    assert report.status is RailStatus.OK
+
+
+def test_fold_sarif_findings_scope_to_built_project_stem(tmp_path: Path) -> None:
+    """A .csproj build keys only its own <stem>.sarif so a dependency project never leaks cross-project findings."""
+    sarif_dir = _sarif_drop(
+        tmp_path, a=_sarif_doc(_sarif_result("CSP0101", "error", 3, "target")), b=_sarif_doc(_sarif_result("CSP0202", "error", 7, "dependency"))
+    )
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build", "a.csproj"), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
+    assert [m.id for m in report.results] == ["csp0101"]
+
+
 def test_fold_static_source_diagnostics_precede_defect_rows(tmp_path: Path) -> None:
     """Static folds rank source diagnostics ahead of process-tail fallback rows."""
     sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0101", "error", 3, "alpha")))
@@ -464,6 +479,46 @@ def test_fold_static_dedupes_process_and_sarif_source_diagnostics(tmp_path: Path
     assert [(m.id, m.path, m.line, m.column) for m in report.results[:2]] == [("vsthrd002", source, 148, 71), ("dotnet build", "", 0, 0)]
     assert "diagnostics: total=1 source=1 generated=0 error=1 warning=0 info=0" in report.notes
     assert "diagnostics.rules: vsthrd002=1" in report.notes
+
+
+def test_fold_static_dedupes_relative_console_against_absolute_sarif(tmp_path: Path) -> None:
+    """A cwd-relative console path and an absolute SARIF uri at one location collapse to a single source row.
+
+    Dropping ``/clp:ErrorsOnly`` lets the console emit the cwd-relative path form while the analyzer's SARIF keeps the
+    absolute ``file://`` uri; both anchor on the assay cwd, so the cross-channel dedup key matches and the row appears once.
+    """
+    relative = "src/App/HostControl.cs"
+    absolute = str((Path.cwd() / relative).as_posix())
+    line = f"{relative}(148,71): error VSTHRD002: Synchronously waiting on tasks may deadlock".encode()
+    sarif_dir = _sarif_drop(
+        tmp_path,
+        probe=msgspec.json.encode({
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "results": [
+                        {
+                            "ruleId": "VSTHRD002",
+                            "level": "error",
+                            "message": {"text": "Synchronously waiting on tasks may deadlock"},
+                            "locations": [
+                                {
+                                    "physicalLocation": {
+                                        "artifactLocation": {"uri": f"file://{absolute}"},
+                                        "region": {"startLine": 148, "startColumn": 71},
+                                    }
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ],
+        }),
+    )
+    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 1, stdout=line),), sarif_dir=sarif_dir)
+    source_rows = tuple(m for m in report.results if m.id == "vsthrd002")
+    assert len(source_rows) == 1
+    assert "diagnostics: total=1 source=1 generated=0 error=1 warning=0 info=0" in report.notes
 
 
 def test_fold_static_groups_generated_diagnostics_after_source_rows() -> None:
@@ -779,6 +834,7 @@ register_laws(
             "failed_stderr_in_text",
             "static_source_diagnostics_precede_defect_rows",
             "csharp_process_output_parses_and_dedupes_source_diagnostics",
+            "static_dedupes_relative_console_against_absolute_sarif",
             "static_groups_generated_diagnostics_after_source_rows",
         ),
     ),

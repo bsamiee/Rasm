@@ -18,12 +18,19 @@ provider builders.
 [TELEMETRY_TYPES]: provider builder extensions
 - rail: telemetry
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                           |
-| :-----: | :-------------------------------- | :--------------- | :----------------------------------------------------------------------------------------------------- |
-|   [1]   | `TracerProviderBuilderExtensions` | tracer extension | `AddNpgsql(TracerProviderBuilder) : TracerProviderBuilder`                                             |
-|   [2]   | `MeterProviderBuilderExtensions`  | meter extension  | `AddNpgsqlInstrumentation(MeterProviderBuilder, Action<NpgsqlMetricsOptions>?) : MeterProviderBuilder` |
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]             |
+| :-----: | :-------------------------------- | :--------------- | :----------------------- |
+|   [1]   | `TracerProviderBuilderExtensions` | tracer extension | subscribes Npgsql spans  |
+|   [2]   | `MeterProviderBuilderExtensions`  | meter extension  | subscribes Npgsql meters |
 
-`NpgsqlMetricsOptions` is declared by the `Npgsql` driver package (parameterless ctor; histogram and cardinality posture ride OpenTelemetry meter-view configuration, not options properties). Tracing depth — command/batch/COPY filters, span-name providers, enrichment callbacks, `EnableFirstResponseEvent`, `EnablePhysicalOpenTracing` — is configured via `NpgsqlDataSourceBuilder.ConfigureTracing(Action<NpgsqlTracingOptionsBuilder>)`, which is a driver-level concern catalogued in `api-npgsql.md`.
+The extension signatures are:
+- `AddNpgsql(TracerProviderBuilder) : TracerProviderBuilder`
+- `AddNpgsqlInstrumentation(MeterProviderBuilder, Action<NpgsqlMetricsOptions>?) : MeterProviderBuilder`
+
+`NpgsqlMetricsOptions` is declared by the `Npgsql` driver package with a parameterless ctor.
+Histogram and cardinality posture ride OpenTelemetry meter-view configuration, not options properties.
+
+Tracing depth is configured via `NpgsqlDataSourceBuilder.ConfigureTracing(Action<NpgsqlTracingOptionsBuilder>)`, which is a driver-level concern catalogued in `api-npgsql.md`.
 
 ## [3]-[ENTRYPOINTS]
 
@@ -37,9 +44,10 @@ provider builders.
 [ENTRYPOINT_SCOPE]: metrics wiring
 - rail: telemetry
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                           | [CAPABILITY]             |
-| :-----: | :------------------------- | :----------------------------------------------------------------------------------------------------- | :----------------------- |
-|   [1]   | `AddNpgsqlInstrumentation` | `AddNpgsqlInstrumentation(MeterProviderBuilder, Action<NpgsqlMetricsOptions>?) : MeterProviderBuilder` | subscribes Npgsql meters |
+[METRICS_WIRING]:
+- Surface: `AddNpgsqlInstrumentation`
+- Call shape: `MeterProviderBuilder` plus optional `Action<NpgsqlMetricsOptions>`
+- Capability: subscribes Npgsql meters
 
 ## [4]-[IMPLEMENTATION_LAW]
 

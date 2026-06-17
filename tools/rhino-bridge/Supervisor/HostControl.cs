@@ -186,7 +186,7 @@ internal sealed class SupervisorConnection : IAsyncDisposable {
     internal Task<UnloadReceipt> UnloadAsync(CancellationToken ct) =>
         shell.UnloadCargoAsync(ct: ct);
 
-    internal Task PrepareQuitAsync(CancellationToken ct) =>
+    internal Task<QuitPrepareReceipt> PrepareQuitAsync(CancellationToken ct) =>
         shell.PrepareQuitAsync(ct: ct);
 
     public async ValueTask DisposeAsync() {
@@ -426,7 +426,10 @@ internal static class Lease {
         return claimed is Fin<LeaseToken>.Succ
             ? claimed
             : Holder(path: path).Case is LeaseClaim held
-                ? Posix.StartedAtUnixMs(pid: held.HolderPid).Case is long started && Math.Abs(value: started - held.HolderStartedAtUnixMs) <= 1_000
+                // Busy only when the holder pid is live AND its start time matches: a recycled pid that
+                // happens to fall inside the 1s start-time window is a dead holder, not a live one, so
+                // liveness gates the start-time identity rather than start-time alone.
+                ? Posix.Alive(pid: held.HolderPid) && Posix.StartedAtUnixMs(pid: held.HolderPid).Case is long started && Math.Abs(value: started - held.HolderStartedAtUnixMs) <= 1_000
                     ? Busy(held: held, now: now)
                     : Reclaim(path: path, held: held, sessionId: sessionId, now: now, publish: publish)
                 : Claim(path: path, now: now);
@@ -434,7 +437,8 @@ internal static class Lease {
 
     internal static Unit Release(LeaseToken token) {
         ArgumentNullException.ThrowIfNull(argument: token);
-        // BOUNDARY ADAPTER: release removes only this process's claim.
+        // BOUNDARY ADAPTER: release removes only this process's claim; absent or foreign holder is a no-op,
+        // so the same token releases idempotently across the finally path and a racing signal callback.
         try {
             if (Holder(path: token.Path).Case is LeaseClaim held && held.HolderPid == token.HolderPid)
                 File.Delete(path: token.Path);
@@ -484,6 +488,65 @@ internal static class Lease {
         publish(HostEvents.Fact(key: "lease.reclaimed", sessionId: sessionId, atUnixMs: now,
             payload: new JsonObject { ["holderPid"] = held.HolderPid, ["acquiredAtUnixMs"] = held.AcquiredAtUnixMs, ["path"] = path }));
         return Claim(path: path, now: now);
+    }
+}
+
+// Ownership: signal-edge teardown. assay kills the supervisor group with SIGTERM then SIGKILL after a
+// 1.0s grace, far too short to unwind a blocked RPC await, so the lease release, endpoint poison, and
+// orphan-host kill run synchronously and idempotently inside the signal callback — composing the
+// committed Lease token cell and the live-host pid cell rather than relying on a finally that the
+// blocked await would never reach. SIGKILL stays uncatchable; the dead-pid lease reclaim is its backstop.
+internal static class Shutdown {
+    internal static Unit Drive(SupervisorRuntime runtime, string reason) {
+        ArgumentNullException.ThrowIfNull(argument: runtime);
+        long now = runtime.Clock.GetUtcNow().ToUnixTimeMilliseconds();
+        string path = EndpointRecord.EndpointPath;
+        // Kill the orphan host so a deadline SIGTERM never leaves a launched RhinoWIP behind the dead
+        // supervisor; the committed pid cell is authoritative, falling back to the endpoint file when the
+        // process dies before negotiation commits a host.
+        if ((runtime.LiveHostPid.Value | LivePid(path: path)).Case is int pid && pid > 0 && Posix.Alive(pid: pid))
+            _ = Posix.Kill(pid: pid);
+        _ = Poison(path: path, reason: reason, now: now);
+        // SwapMaybe atomically lifts the committed token out (None aborts), so a racing finally and
+        // signal callback release the lease exactly once; the winner clears the cell and the loser aborts.
+        _ = runtime.Lease.SwapMaybe(f: static held => held.Map(f: static token => Released(token: token)));
+        return unit;
+    }
+
+    private static Option<LeaseToken> Released(LeaseToken token) {
+        _ = Lease.Release(token: token);
+        return Option<LeaseToken>.None;
+    }
+
+    private static Option<int> LivePid(string path) {
+        // BOUNDARY ADAPTER: an absent, poisoned, or unreadable endpoint projects to no host pid.
+        try {
+            if (!File.Exists(path: path))
+                return Option<int>.None;
+            using JsonDocument raw = JsonDocument.Parse(json: File.ReadAllText(path: path));
+            return raw.RootElement.TryGetProperty(propertyName: "rhinoPid", value: out JsonElement pid) && pid.TryGetInt32(value: out int rhinoPid)
+                ? Some(value: rhinoPid)
+                : Option<int>.None;
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException) {
+            return Option<int>.None;
+        }
+    }
+
+    // Poison overwrites the endpoint with an empty-pipe faulted record so a concurrent acquirer reads
+    // `poisoned endpoint` instead of admitting a host this supervisor is tearing down.
+    private static Unit Poison(string path, string reason, long now) {
+        // BOUNDARY ADAPTER: a poison write that loses to teardown leaves the dead-pid reclaim as backstop.
+        try {
+            if (!File.Exists(path: path))
+                return unit;
+            EndpointRecord poisoned = EndpointRecord.Create(
+                pipeName: string.Empty, rhinoPid: 0, rhinoStartedAtUnixMs: now,
+                contractVersion: Handshake.CurrentVersion, shellVersion: "supervisor", rhinoVersion: string.Empty,
+                fault: $"supervisor shutdown: {reason}");
+            File.WriteAllText(path: path, contents: JsonSerializer.Serialize(value: poisoned, jsonTypeInfo: BridgeJsonContext.Default.EndpointRecord));
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
+        }
+        return unit;
     }
 }
 
@@ -550,6 +613,58 @@ internal static class QuitJournal {
             return Option<QuitJournalEntry>.None;
         }
     }
+}
+
+// Ownership: the orderly scrub-before-terminate gate. The shell-owned PrepareQuitAsync marks every
+// open RhinoDoc clean and Unmodifies GH2, returning a receipt whose ResidualDirty==0 is the AE-rung
+// precondition. Each attempt is bounded at the quit-rung deadline so a wedged reflective GH2 scrub
+// cannot block forever; a cancelled/timed-out or residual-dirty first attempt is retried once (the
+// re-assert) and the terminal outcome is published as a typed `quit.prepared`/`quit.prepare.incomplete`
+// fact, so a not-clean host reaching `terminate` is evidence rather than a silent slide into the modal
+// "Save changes?" sheet that wedges the rung and forces the SIGKILL crash.
+internal static class QuitPrepare {
+    private const int MaxAttempts = 2;
+
+    internal static async Task RunAsync(Func<CancellationToken, Task<QuitPrepareReceipt>> prepare, TimeSpan deadline, TimeProvider clock, Guid sessionId, Action<BridgeEvent> publish, CancellationToken root) {
+        ArgumentNullException.ThrowIfNull(argument: prepare);
+        ArgumentNullException.ThrowIfNull(argument: clock);
+        ArgumentNullException.ThrowIfNull(argument: publish);
+        Option<QuitPrepareReceipt> scrubbed = Option<QuitPrepareReceipt>.None;
+        string lastDetail = "scrub never returned a receipt before the bound";
+        for (int attempt = 1; attempt <= MaxAttempts && scrubbed.IsNone; attempt++) {
+            (Option<QuitPrepareReceipt> receipt, string detail) = await AttemptAsync(prepare: prepare, deadline: deadline, root: root).ConfigureAwait(false);
+            lastDetail = detail;
+            // A clean fixpoint (ResidualDirty==0) ends the gate; a residual-dirty receipt is re-asserted
+            // because the scrub's second pass marks any doc the first pass raced clean before terminate.
+            scrubbed = receipt.Filter(pred: static settled => settled.Scrubbed);
+        }
+        publish(scrubbed.Case is QuitPrepareReceipt clean
+            ? Fact(key: "quit.prepared", value: string.Create(provider: CultureInfo.InvariantCulture,
+                $"rhino-docs-marked-clean; documents={clean.Documents};markedClean={clean.MarkedClean};residualDirty={clean.ResidualDirty}; gh2={clean.Gh2}"), sessionId: sessionId, clock: clock)
+            : Fact(key: "quit.prepare.incomplete", value: lastDetail, sessionId: sessionId, clock: clock));
+    }
+
+    private static async Task<(Option<QuitPrepareReceipt> Receipt, string Detail)> AttemptAsync(Func<CancellationToken, Task<QuitPrepareReceipt>> prepare, TimeSpan deadline, CancellationToken root) {
+        // BOUNDARY ADAPTER: a wedged or faulted scrub attempt projects to None with a typed detail; the
+        // bound is preserved so a reflective GH2 stall escalates to the ladder instead of blocking forever.
+        using CancellationTokenSource scope = CancellationTokenSource.CreateLinkedTokenSource(root);
+        scope.CancelAfter(delay: deadline);
+        try {
+            QuitPrepareReceipt receipt = await prepare(scope.Token).ConfigureAwait(false);
+            return (Some(value: receipt), receipt.Scrubbed
+                ? string.Empty
+                : string.Create(provider: CultureInfo.InvariantCulture, $"scrub left {receipt.ResidualDirty} doc(s) modified; savedPaths={string.Join(separator: ',', values: receipt.SavedPaths)}; gh2={receipt.Gh2}"));
+        } catch (OperationCanceledException) {
+            return (Option<QuitPrepareReceipt>.None, string.Create(provider: CultureInfo.InvariantCulture, $"scrub exceeded its {deadline.TotalMilliseconds:F0}ms bound"));
+        } catch (Exception error) when (error is RemoteInvocationException or ConnectionLostException or IOException or ObjectDisposedException) {
+            return (Option<QuitPrepareReceipt>.None, $"{error.GetType().Name}: {error.Message}");
+        }
+    }
+
+    private static BridgeEvent.FactCase Fact(string key, string value, Guid sessionId, TimeProvider clock) =>
+        new(Key: key, Value: JsonSerializer.SerializeToElement(value: value, jsonTypeInfo: BridgeJsonContext.Default.String)) {
+            Stamp = new EventStamp(SessionId: sessionId, Sequence: 0, AtUnixMs: clock.GetUtcNow().ToUnixTimeMilliseconds(), Scenario: null),
+        };
 }
 
 // Ownership: quit ladder. Rungs are AE terminate, Cocoa forceTerminate, then kill(2) SIGKILL;

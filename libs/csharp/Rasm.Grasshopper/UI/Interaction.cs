@@ -182,7 +182,7 @@ public partial record DecisionDelta {
 [Union]
 public partial record InteractionOp {
     private InteractionOp() { }
-    public sealed record PushCase(IInteraction Target) : InteractionOp;
+    public sealed record PushCase(IResponsive Target) : InteractionOp;
     public sealed record RegisterCase(IResponsive Responsive, CoordinateSystem System) : InteractionOp;
     public sealed record HoverCase(Option<TimeSpan> Delay, Func<MouseHoverSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record ContextMenuCase(Func<ContextMenuSnapshot, Fin<Unit>> Handler) : InteractionOp;
@@ -250,7 +250,7 @@ public readonly record struct FloatingButtonSnapshot(int Count, int NormalCount,
 public readonly record struct FloatingButtonInfo(string Name, string Info, FloatingPosition Position, FloatingState State, bool Enabled, bool HasFocus, Color Colour, Option<PointF> Anchor, Option<decimal> NumericValue = default);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct InteractionSnapshot(int InteractionCount, int ResponsiveCount, bool HasFocus, Option<string> FocusNomen);
+public readonly record struct InteractionSnapshot(int InteractionCount, int ResponsiveCount, bool HasFocus, Option<string> FocusObjectType);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ResizeSession(RectangleF Start, RectangleF Current, Option<SnappingSnapshot> Snap = default, Option<PointF> MouseContent = default);
@@ -549,7 +549,7 @@ internal static class FloatingButton {
 // Leases key by GC identity-hash (reusable after collection) + slot name; the cell is read only to restore a stacked
 // value, never to decide liveness, so a recycled hash cannot mis-restore a live canvas.
 internal static class CanvasLease {
-    internal static readonly CanvasLease<TimeSpan> HoverDelayLease = new(Slot: nameof(GhCanvas.MouseHoverDelay), Get: static c => c.MouseHoverDelay, Set: static (c, v) => c.MouseHoverDelay = v);
+    internal static readonly CanvasLease<TimeSpan> HoverDelayLease = new(Slot: nameof(GhCanvas.MouseDwellDelay), Get: static c => c.MouseDwellDelay, Set: static (c, v) => c.MouseDwellDelay = v);
     internal static readonly CanvasLease<bool> RedrawLease = new(Slot: nameof(GhCanvas.RedrawOnMouseMove), Get: static c => c.RedrawOnMouseMove, Set: static (c, v) => c.RedrawOnMouseMove = v);
     internal static readonly CanvasLease<NSPressureConfiguration> PressureLease = new(Slot: "PressureConfiguration", Get: static c => (c.ControlObject as NSView)?.PressureConfiguration!, Set: static (c, v) => Optional(c.ControlObject as NSView).Iter(view => view.PressureConfiguration = v));
 }
@@ -631,14 +631,13 @@ internal static class Interaction {
             keyboardCase: static k => CanvasChromePlan.SubscriptionOf(intent: Keyboard(k.Handle)),
             statusCase: static _ => CanvasChromePlan.Result(intent: SnapshotNow().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.InteractionStatusCase(Snapshot: snap))));
 
-    // PushInteraction has no public pop-by-reference; interactions self-release on completion.
-    internal static GrasshopperUiIntent<Subscription> Push(IInteraction target) =>
+    internal static GrasshopperUiIntent<Subscription> Push(IResponsive target) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
-            from valid in Optional(target).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Push)), detail: "interaction is required"))
+            from valid in Optional(target).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Push)), detail: "responsive is required"))
             from sub in Subscription.Bind(
-                attach: () => canvas.PushInteraction(interaction: valid),
-                detach: static () => { },
+                attach: () => canvas.PushFocus(responsive: valid),
+                detach: () => canvas.PopFocus(responsive: valid),
                 marshalToUi: true)
             select sub);
 
@@ -647,12 +646,12 @@ internal static class Interaction {
             from canvas in scope.NeedCanvas()
             from valid in Optional(responsive).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Register)), detail: "responsive is required"))
             from sub in Subscription.Bind(
-                attach: () => canvas.RegisterIResponsive(responsive: valid, system: system),
+                attach: () => canvas.RegisterIResponsive(responsive: valid),
                 detach: () => canvas.UnregisterIResponsive(responsive: valid),
                 marshalToUi: true)
             select sub);
 
-    // Delay None preserves current MouseHoverDelay; explicit delays are leased and restored on detach.
+    // Delay None preserves current MouseDwellDelay; explicit delays are leased and restored on detach.
     internal static GrasshopperUiIntent<Subscription> Hover(Option<TimeSpan> delay, Func<MouseHoverSnapshot, Fin<Unit>> handler) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
@@ -662,13 +661,13 @@ internal static class Interaction {
                     : Fin.Fail<Option<TimeSpan>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Hover)), detail: "hover delay must be positive")),
                 None: () => Fin.Succ(value: Option<TimeSpan>.None))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hover)), detail: "handler is required"))
-            let onHover = (EventHandler<MouseHoverEventArgs>)((_, e) =>
+            let onHover = (EventHandler<MouseDwellEventArgs>)((_, e) =>
                 _ = GrasshopperUi.Handler(valid: () => valid(arg: new MouseHoverSnapshot(ControlPoint: e.ControlPoint, ContentPoint: e.ContentPoint))))
             from sub in CanvasLease.HoverDelayLease.LeaseSubscription(
                 canvas: canvas,
                 value: validDelay,
-                attach: () => canvas.MouseHover += onHover,
-                detach: () => canvas.MouseHover -= onHover,
+                attach: () => canvas.MouseDwell += onHover,
+                detach: () => canvas.MouseDwell -= onHover,
                 marshalToUi: true)
             select sub);
 
@@ -692,9 +691,10 @@ internal static class Interaction {
             from validTarget in Optional(target).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Resize)), detail: "resize target is required"))
             from owner in Optional(validTarget as IAttributes).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Resize)), detail: "resize target must be a live IAttributes"))
             from validDecide in Optional(decide).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Resize)), detail: "decide is required"))
+            let interaction = new ResizeInteraction(target: validTarget, owner: owner, document: document, canvas: canvas, snap: snap, decide: validDecide)
             from sub in Subscription.Bind(
-                attach: () => canvas.PushInteraction(interaction: new ResizeInteraction(target: validTarget, owner: owner, document: document, canvas: canvas, snap: snap, decide: validDecide)),
-                detach: static () => { },
+                attach: () => canvas.PushFocus(responsive: interaction),
+                detach: () => canvas.PopFocus(responsive: interaction),
                 marshalToUi: true)
             select sub);
 
@@ -772,10 +772,10 @@ internal static class Interaction {
             from canvas in scope.NeedCanvas()
             from snap in Op.Of(name: nameof(SnapshotNow)).Attempt(
                 body: () => new InteractionSnapshot(
-                    InteractionCount: toSeq(canvas.Interactions).Count,
-                    ResponsiveCount: toSeq(canvas.Responsives).Count,
+                    InteractionCount: canvas.FocusObject is null ? 0 : 1,
+                    ResponsiveCount: toSeq(canvas.ResponsivesForwards).Count,
                     HasFocus: canvas.FocusObject is not null,
-                    FocusNomen: UiRail.FocusNomenOf(canvas: canvas)),
+                    FocusObjectType: UiRail.FocusObjectTypeOf(canvas: canvas)),
                 what: "FlexControl interaction snapshot")
             select snap);
 
@@ -793,9 +793,9 @@ internal static class Interaction {
         && local.Y >= view.Bounds.Y && local.Y <= view.Bounds.Y + view.Bounds.Height;
 }
 
-// BOUNDARY ADAPTER — IInteraction focus capsule; mouse-up releases focus and clears the snap overlay.
+// BOUNDARY ADAPTER -- GH2 focus capsule; mouse-up releases focus and clears the snap overlay.
 [BoundaryAdapter]
-internal sealed class ResizeInteraction : AbstractInteraction {
+internal sealed class ResizeInteraction : Responses, IResponsive {
     private readonly IResizableAttributes target;
     private readonly IAttributes owner;
     private readonly GhDocument document;
@@ -805,8 +805,8 @@ internal sealed class ResizeInteraction : AbstractInteraction {
     private readonly Atom<ResizeSession> session;
 
     internal ResizeInteraction(IResizableAttributes target, IAttributes owner, GhDocument document, GhCanvas canvas, SnapSetting snap, Func<ResizeSession, Fin<DecisionDelta>> decide)
-        : base(nomen: new Nomen(name: "Resize", info: "Rasm resize interaction"), icon: null) {
-        // decide is invoked unguarded on every RespondToMouseMove; a null delegate would NRE inside GH2's input pump.
+        : base(system: CoordinateSystem.Content) {
+        // decide is invoked unguarded on every MouseDrag; a null delegate would NRE inside GH2's input pump.
         ArgumentNullException.ThrowIfNull(argument: decide);
         this.target = target;
         this.owner = owner;
@@ -817,14 +817,16 @@ internal sealed class ResizeInteraction : AbstractInteraction {
         session = Atom(value: new ResizeSession(Start: owner.Bounds, Current: owner.Bounds, Snap: Option<SnappingSnapshot>.None));
     }
 
-    public override GhResponse RespondToMouseMove(MouseEventArgs e) {
-        _ = session.Swap(prev => prev with { MouseContent = Some(canvas.Map(point: e.Location, from: CoordinateSystem.Control, to: CoordinateSystem.Content)) });
+    Responses IResponsive.Responder => this;
+
+    public override GhResponse MouseDrag(ResponseMouseArgs e) {
+        _ = session.Swap(prev => prev with { MouseContent = Some(e.ContentLocation) });
         return decide(arg: session.Value)
             .Map(Apply)
             .IfFail(GhResponse.Ignored);
     }
 
-    public override GhResponse RespondToMouseUp(MouseEventArgs e) {
+    public override GhResponse MouseUp(ResponseMouseArgs e) {
         canvas.SnapXAction = null;
         canvas.SnapYAction = null;
         return GhResponse.Release;

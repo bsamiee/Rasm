@@ -5,19 +5,22 @@ using StatusBar = Rhino.UI.StatusBar;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] -----------------------------------------------------------------------------
+// ShowToast returns the toast id; capture it as a receipt so a future dismiss/replace has a target. RhinoView exposes no native toast-removal member, so the handle is host evidence only — no Dismiss/Replace op exists yet.
+public readonly record struct UiToastHandle(RhinoView View, uint Id);
+
 public readonly record struct UiToast(RhinoView View, string Message, Option<int> TextHeight = default, Option<System.Drawing.PointF> Location = default) {
-    internal Fin<Unit> Apply() {
+    internal Fin<UiToastHandle> Apply() {
         RhinoView? target = View;
         string text = Message;
         Option<int> textHeight = TextHeight;
         Option<System.Drawing.PointF> location = Location;
-        return from view in Op.Of(name: nameof(Apply)).Need(target)
-               from message in guard(!string.IsNullOrWhiteSpace(value: text), Op.Of(name: nameof(Apply)).InvalidInput()).ToFin().Map(_ => text.Trim())
-               select (textHeight.Case, location.Case) switch {
-                   (int height, System.Drawing.PointF point) when height > 0 => Op.Side(() => view.ShowToast(message, height, point)),
-                   (int height, _) when height > 0 => Op.Side(() => view.ShowToast(message, height)),
-                   _ => Op.Side(() => view.ShowToast(message)),
-               };
+        return from view in Op.Of().Need(target)
+               from message in guard(!string.IsNullOrWhiteSpace(value: text), Op.Of().InvalidInput()).ToFin().Map(_ => text.Trim())
+               select new UiToastHandle(View: view, Id: (textHeight.Case, location.Case) switch {
+                   (int height, System.Drawing.PointF point) when height > 0 => view.ShowToast(message, height, point),
+                   (int height, _) when height > 0 => view.ShowToast(message, height),
+                   _ => view.ShowToast(message),
+               });
     }
 }
 
@@ -67,12 +70,28 @@ public readonly record struct UiStatus(
             _ = status.Number.Iter(static value => StatusBar.SetNumberPane(number: value));
             _ = status.Point.Iter(static value => StatusBar.SetPointPane(point: value));
             _ = Op.SideWhen(status.HideProgress, static () => StatusBar.HideProgressMeter());
-            // best-effort toasts: each is recovered to success so one failed notification does not cross-cancel the rest
+            // best-effort toasts: each is recovered to success so one failed notification does not cross-cancel the rest; the captured handle is discarded at this batch boundary
             return status.Toasts
-                .TraverseM(static value => value.Apply() | Fin.Succ(value: unit))
+                .TraverseM(static value => value.Apply().Map(static _ => unit) | Fin.Succ(value: unit))
                 .As().Map(static _ => unit);
         });
     }
+}
+
+// StatusBar.ShowProgressMeter returns a tri-state int (1=created, 0=refused, -1=another process owns the meter). A borrowed (Foreign) meter exists but is not ours: it must never be updated or hidden, only Created owns the IDisposable lifecycle.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record MeterState {
+    private MeterState() { }
+    public sealed record Created(uint Serial) : MeterState;
+    public sealed record Refused : MeterState;
+    public sealed record Foreign : MeterState;
+
+    internal static MeterState Admit(int code, uint serial) =>
+        code switch {
+            1 => new Created(Serial: serial),
+            -1 => new Foreign(),
+            _ => new Refused(),
+        };
 }
 
 public readonly record struct UiProgressSpec(
@@ -110,11 +129,11 @@ public sealed partial record RhinoUi {
     }
 
     public Fin<T> Use<T>(UiIntent<T> intent) =>
-        Op.Of(name: nameof(Use)).Need(intent).Bind(valid => {
+        Op.Of().Need(intent).Bind(valid => {
             Scope scope = new(Document: document, Mode: mode);
             Func<Fin<T>> work = (valid.Interactive && mode == RunMode.Scripted, valid.Scripted.Case) switch {
                 (true, Func<Scope, Fin<T>> scripted) => () => scripted(arg: scope),
-                (true, _) => () => Fin.Fail<T>(error: Op.Of(name: nameof(Use)).InvalidInput()),
+                (true, _) => () => Fin.Fail<T>(error: Op.Of().InvalidInput()),
                 _ => () => valid.Run(scope: scope),
             };
             return DispatchThread(uiBound: valid.Interactive, mode: mode, run: work, name: nameof(Use));
@@ -183,14 +202,14 @@ public sealed partial record RhinoUi {
 }
 
 public sealed class UiProgress : IDisposable {
-    private readonly uint documentSerialNumber;
+    private readonly MeterState state;
     private readonly int lower;
     private readonly int upper;
     private int current;
     private bool disposed;
 
-    private UiProgress(uint documentSerialNumber, int lower, int upper) {
-        this.documentSerialNumber = documentSerialNumber;
+    private UiProgress(MeterState state, int lower, int upper) {
+        this.state = state;
         this.lower = lower;
         this.upper = upper;
         current = lower;
@@ -205,23 +224,29 @@ public sealed class UiProgress : IDisposable {
         select result;
 
     public Fin<int> Update(UiProgressStep step) {
-        int Commit(int value) { current = value; return value; }
-        Fin<int> Drive(int target, int rawPosition, string? label) {
+        UiProgress self = this;
+        int Commit(int value) { self.current = value; return value; }
+        Fin<int> Drive(uint serial, int target, int rawPosition, string? label) {
             _ = label switch {
-                string text => Op.Side(() => StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: text, position: rawPosition, absolute: step.Absolute)),
-                _ => Op.Side(() => StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: rawPosition, absolute: step.Absolute)),
+                string text => Op.Side(() => StatusBar.UpdateProgressMeter(docSerialNumber: serial, label: text, position: rawPosition, absolute: step.Absolute)),
+                _ => Op.Side(() => StatusBar.UpdateProgressMeter(docSerialNumber: serial, position: rawPosition, absolute: step.Absolute)),
             };
             return Fin.Succ(value: Commit(target));
         }
+        Fin<int> Owned(uint serial) =>
+            (step.Position.Map(position => step.Absolute ? position : self.current + position).Case, step.Position.Case, step.Label.Case) switch {
+                (int position, _, _) when position < self.lower || position > self.upper => Fin.Fail<int>(error: Op.Of().InvalidInput()),
+                (int target, int position, string label) => Drive(serial, target, position, label),
+                (_, _, string label) => (Op.Side(() => StatusBar.UpdateProgressMeter(docSerialNumber: serial, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)), Fin.Succ(value: self.current)).Item2,   // position = UnsetIntIndex → label-only update (native contract)
+                (int target, int position, _) => Drive(serial, target, position, label: null),
+                _ => Fin.Fail<int>(error: Op.Of().InvalidInput()),
+            };
         return disposed switch {
-            true => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
-            false => (step.Position.Map(position => step.Absolute ? position : current + position).Case, step.Position.Case, step.Label.Case) switch {
-                (int position, _, _) when position < lower || position > upper => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
-                (int target, int position, string label) => Drive(target, position, label),
-                (_, _, string label) => (Op.Side(() => StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)), Fin.Succ(value: current)).Item2,   // position = UnsetIntIndex → label-only update (native contract)
-                (int target, int position, _) => Drive(target, position, label: null),
-                _ => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
-            },
+            true => Fin.Fail<int>(error: Op.Of().InvalidInput()),
+            false => state.Switch(
+                created: c => Owned(serial: c.Serial),
+                foreign: static _ => Fin.Succ(value: 0),   // borrowed meter — no-op, not failure
+                refused: static _ => Fin.Fail<int>(error: Op.Of().InvalidResult())),
         };
     }
 
@@ -230,9 +255,9 @@ public sealed class UiProgress : IDisposable {
         TState initial,
         Func<TState, TItem, Fin<TState>> step,
         Func<TItem, UiProgressStep> progress) =>
-        from source in Op.Of(name: nameof(Fold)).Need(items).Map(static values => toSeq(values))
-        from transition in Op.Of(name: nameof(Fold)).Need(step)
-        from project in Op.Of(name: nameof(Fold)).Need(progress)
+        from source in Op.Of().Need(items).Map(static values => toSeq(values))
+        from transition in Op.Of().Need(step)
+        from project in Op.Of().Need(progress)
         from result in source.Fold(
             Fin.Succ(value: initial),
             (state, item) =>
@@ -245,7 +270,10 @@ public sealed class UiProgress : IDisposable {
     public void Dispose() {
         _ = disposed switch {
             true => unit,
-            false => Op.Side(() => StatusBar.HideProgressMeter(docSerialNumber: documentSerialNumber)),
+            false => state.Switch(   // only the owned (Created) meter hides; a borrowed Foreign meter belongs to another process and must not be torn down
+                created: static c => Op.Side(() => StatusBar.HideProgressMeter(docSerialNumber: c.Serial)),
+                foreign: static _ => unit,
+                refused: static _ => unit),
         };
         disposed = true;
         GC.SuppressFinalize(obj: this);
@@ -255,15 +283,17 @@ public sealed class UiProgress : IDisposable {
         from validDocument in Op.Of(name: nameof(UiProgress)).Need(document)
         from label in Op.Of(name: nameof(UiProgress)).Need(spec.Label)
         from _ in guard(spec.Upper >= spec.Lower, Op.Of(name: nameof(UiProgress)).InvalidInput())
-        from created in StatusBar.ShowProgressMeter(
-            docSerialNumber: validDocument.RuntimeSerialNumber,
-            lowerLimit: spec.Lower,
-            upperLimit: spec.Upper,
-            label: label,
-            embedLabel: spec.EmbedLabel,
-            showPercentComplete: spec.ShowPercentComplete) switch {
-                1 => Fin.Succ(value: new UiProgress(documentSerialNumber: validDocument.RuntimeSerialNumber, lower: spec.Lower, upper: spec.Upper)),
-                _ => Fin.Fail<UiProgress>(error: Op.Of(name: nameof(UiProgress)).InvalidResult()),
+        from created in MeterState.Admit(
+            code: StatusBar.ShowProgressMeter(
+                docSerialNumber: validDocument.RuntimeSerialNumber,
+                lowerLimit: spec.Lower,
+                upperLimit: spec.Upper,
+                label: label,
+                embedLabel: spec.EmbedLabel,
+                showPercentComplete: spec.ShowPercentComplete),
+            serial: validDocument.RuntimeSerialNumber) switch {
+                MeterState.Refused => Fin.Fail<UiProgress>(error: Op.Of(name: nameof(UiProgress)).InvalidResult()),
+                MeterState meter => Fin.Succ(value: new UiProgress(state: meter, lower: spec.Lower, upper: spec.Upper)),
             }
         select created;
 

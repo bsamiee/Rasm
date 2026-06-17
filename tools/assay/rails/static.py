@@ -16,7 +16,7 @@ import structlog
 
 from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # runtime: public rail signatures are inspected
-from tools.assay.core.engine import argv_for, fan_out, leased, resource_projection
+from tools.assay.core.engine import argv_for, fan_out, leased, resource_projection, run_check
 from tools.assay.core.model import (
     # _sarif_status is a model-owned reader the rail forwards; private cross-module reach is intentional.
     _sarif_status,  # noqa: PLC2701
@@ -73,6 +73,13 @@ type SkipRows = tuple[tuple[Phase, str, str], ...]
 _MODES: tuple[Mode, ...] = (Mode.WRITE, Mode.CHECK, Mode.RESTORE, Mode.BUILD)
 # Reverse of the Phase->Mode payload; a non-lane mode is a loud KeyError, not a silent default.
 _PHASE: dict[Mode, Phase] = {phase.mode: phase for phase in Phase}
+# Analyzer-free, SARIF-free compile probe: dotnet-format mutates and binds against the analyzer view, so a non-compiling
+# target must gate the format phase before any write lands. RunAnalyzers=false isolates the raw C# compile from analyzer
+# diagnostics; the throwaway scope's --artifacts-path keeps the probe's output off the real build scope and its SARIF drop.
+_PROBE_COMMAND: tuple[str, ...] = ("build", "-p:RunAnalyzers=false", "-tl:off", "-v:quiet")
+# Probe status that proves the target compiles; FAULTED/TIMEOUT/BUSY and any Error are infra-ambiguous and take the safe
+# no-mutation path, never read as "does not compile".
+_COMPILES: frozenset[RailStatus] = frozenset((RailStatus.OK, RailStatus.EMPTY))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -245,7 +252,10 @@ def _matches(targets: TargetFiles, routed: tuple[Routed, ...], skipped: SkipRows
             id=route_row.language.value,
             kind=ArtifactKind.SCOPE,
             text=(
-                f"scope={route_row.scope.value} files={len(route_row.files)} projects={len(route_row.projects)} "
+                # A --project target routes through the CHANGED machinery; the raw enum then reads as "changed files=0"
+                # and misleads agents into "stale cache", so the label names what was actually targeted.
+                f"scope={'project' if route_row.scope is Scope.CHANGED and route_row.projects else route_row.scope.value} "
+                f"files={len(route_row.files)} projects={len(route_row.projects)} "
                 f"triggers={len(route_row.full_triggers)} groups={len(route_row.groups)}"
             ),
         )
@@ -455,6 +465,37 @@ def _write_fan(checks: tuple[Check, ...], routed: Routed, settings: AssaySetting
     return _leased_run(resource, project, run, settings)
 
 
+def _probe_check(build_check: Check) -> Check:
+    # Reuse the build check's resolved input/tail/placement so the probe targets exactly what the closure build will,
+    # but swap in the analyzer-free, CspSarifDir-free command. CspSarifDir rides _dotnet_policy on the real build tool
+    # only; the fresh probe command never carries it, so the probe drops no SARIF the report could fold.
+    probe = msgspec.structs.replace(build_check.tool, name="dotnet-probe", command=_PROBE_COMMAND)
+    return msgspec.structs.replace(build_check, tool=probe)
+
+
+def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> bool:
+    # A throwaway per-closure scope isolates the probe's --artifacts-path from the real build scope; its receipt never
+    # reaches report.results. compiles is True only when every build target probes OK/EMPTY; a FAILED probe means
+    # "does not compile" and an Error/ambiguous probe takes the same safe no-mutation path.
+    builds = tuple(_probe_check(check) for phase, checks in closure_phases if phase is Phase.BUILD for check in checks)
+    if not builds:
+        return True
+    throwaway = ArtifactScope.build(settings, f"probe-{_build_sha(routed)}")
+    _LOG.info("phase.start", phase="probe", checks=len(builds), run_id=settings.run_id, route=routed.language.value)
+    outcomes = tuple(run_check(check, settings=settings, scope=throwaway, routed=routed) for check in builds)
+    compiles = all(outcome.map(lambda done: done.status in _COMPILES).default_value(False) for outcome in outcomes)  # noqa: FBT003  # expression sentinel default: an Error/ambiguous probe collapses to the safe no-compile path, not a behavior flag
+    _LOG.info("phase.end", phase="probe", checks=len(builds), compiles=compiles, run_id=settings.run_id, route=routed.language.value)
+    return compiles
+
+
+def _format_gated(checks: tuple[Check, ...], phases: PhaseChecks) -> tuple[Check, ...]:
+    # A non-compiling target drops both the write fix and its read-only check twin: the format tool binds against the
+    # analyzer view and may fault or emit spurious drift on a target the compiler itself rejects. The write-capable tool
+    # names drive the gate, so the format CHECK row falls with its WRITE sibling without naming the tool.
+    writable = frozenset(check.tool.name for _, lane in phases for check in lane if check.tool.mode.writes)
+    return tuple(check for check in checks if check.tool.name not in writable)
+
+
 def _dispatch(routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope) -> tuple[Result[Completed, Fault], ...]:
     if _empty_route(routed):
         return ()
@@ -463,14 +504,17 @@ def _dispatch(routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, s
     write = tuple(check for phase, checks in phases if phase is Phase.FIX for check in checks)
     closure_phases = tuple((phase, checks) for phase, checks in phases if phase in {Phase.RESTORE, Phase.BUILD})
     uses_closure = _uses_build_scope(routed, closure_phases)
+    # The probe gates the format phase before the write lease; it is orthogonal to _build_fan's RESTORE->BUILD block gate.
+    compiles = not (uses_closure and write) or _probe_compiles(closure_phases, routed, settings)
+    gated_write = write if compiles else _format_gated(write, phases)
     plain = tuple(
         check
         for phase, checks in phases
         if phase is not Phase.FIX and not (uses_closure and phase in {Phase.RESTORE, Phase.BUILD})
-        for check in checks
+        for check in (checks if compiles else _format_gated(checks, phases))
     )
     return (
-        *(_write_fan(write, routed, settings, scope) if write else ()),
+        *(_write_fan(gated_write, routed, settings, scope) if gated_write else ()),
         *(fan_out(plain, settings=settings, scope=scope, routed=routed) if plain else ()),
         *(_build_fan(closure_phases, routed, settings) if uses_closure else ()),
     )

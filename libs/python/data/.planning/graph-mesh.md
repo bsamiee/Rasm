@@ -4,11 +4,11 @@ Graph payloads, chunked N-D tensor stores, and mesh-file exchange. `GraphPayload
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                       |
+| [INDEX] | [CLUSTER] | [OWNS]                                                      |
 | :-----: | :-------- | :---------------------------------------------------------- |
 |   [1]   | GRAPH     | graph payloads, backend-dispatched algorithms, graph egress |
 |   [2]   | TENSOR    | chunked N-D tensor store, codec/region rows, ragged + cubed |
-|   [3]   | MESH      | mesh-file identity, cell-block topology, preview export      |
+|   [3]   | MESH      | mesh-file identity, cell-block topology, preview export     |
 
 ## [2]-[GRAPH]
 

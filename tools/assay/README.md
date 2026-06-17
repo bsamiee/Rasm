@@ -1,6 +1,6 @@
 # [ASSAY_OPERATOR]
 
-`tools.assay` is the Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, and API proof.
+`tools.assay` is the Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, API, and spike proof.
 
 ## [1][STATUS]
 
@@ -11,7 +11,7 @@
 
 [STATUS]:
 - Status: active replacement operator.
-- Use: repository quality, API, bridge, package, static, test, code, docs, and automation validation.
+- Use: repository quality, API, bridge, package, static, test, code, docs, spike, and automation validation.
 - Machine contract: normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr.
 - Automation: programmatic arm through `drive(trigger, action, settings)`; no registered root `watch` CLI.
 - Compatibility: no stale command aliases or shim surfaces.
@@ -82,6 +82,7 @@ This table is a lookup by command surface and verb set:
 |   [6]   | `package` | `publish`, `plan`, `list`                     |
 |   [7]   | `api`     | `resolve`, `query`, `show`, `status`          |
 |   [8]   | `docs`    | `check`                                       |
+|   [9]   | `spike`   | `up`, `down`, `status`, `env`, `verify`       |
 
 [ROOT_COMMANDS]:
 - Verbs: `self-test`, `delta`
@@ -150,6 +151,14 @@ This table is a lookup by command surface and verb set:
 - Use: Mermaid render validation through `mmdc`; not full Markdown standards, links, or anchor validation.
 - Worked-run envelope: a successful `check` reports `status: ok` with one `source:<file>:1` result row per routed file and `Artifact` rows for the produced SVG/MD under the per-run scope, so an agent reads artifact paths from the envelope. `mmdc` runs once per routed file with `-i <file> -a <scope_dir> -o <scope_dir>/<slug>.md`; the `-o` sink stem is the slugged full relative path, so two same-basename files never clobber a shared sink. Files land under `.artifacts/assay/docs/<run_id>/`.
 - Example: `uv run python -m tools.assay docs check tools/assay/README.md`
+
+[SPIKE_COMMANDS]:
+- Verbs: `up`, `down`, `status`, `env`, `verify`
+- Inputs: none.
+- Output: shared `Report`; stdout/stderr from the Forge-owned provisioning CLI and local tool probes fold into process `Match` rows on failure.
+- Use: `spike` is the Rasm-owned campaign surface over Forge machine provisioning. `up` starts the disposable PG18 Timescale and ParadeDB services, `down` tears down only labelled spike-owned containers and data, `status` reports Compose state, `env` prints generated paths and DSNs, and `verify` runs PostgreSQL extension probes plus local DuckDB, Python ABI, OpenBLAS, and ONNX Runtime checks.
+- Boundary: Docker compose generation and native toolchain exports stay in Parametric_Forge; Rasm owns this envelope surface, manifest markers, lockfile, and `.api` evidence that consume it.
+- Example: `uv run python -m tools.assay spike verify`
 
 ## [5][OUTPUT_CONTRACT]
 
@@ -226,6 +235,10 @@ Integrations are grouped by the reader action they change. They are capability n
 [API_EXTRACTION]:
 - Enables: host assembly, NuGet, Python distribution, and TypeScript declaration lookup.
 - Boundary: `api resolve`, `api query`, and `api show` expose the operator surface.
+
+[SPIKE_PROVISIONING]:
+- Enables: tier-2 server and native runtime closure proofs through the Forge-owned `rasm-spike-stack` and `forge-scientific-env` executables.
+- Boundary: `spike up|down|status|env|verify` is the campaign command surface; direct `rasm-spike-stack` use is Forge-level debugging.
 
 [TREE_SITTER]:
 - Enables: in-process `code query` for Python and TypeScript AST shapes.

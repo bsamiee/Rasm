@@ -150,17 +150,17 @@ public sealed class BlockStateAdmissionLaws {
         DocumentReceipt copy = TransformPolicy.Copy.InstanceTransform(instanceId: instanceId, resultId: resultId);
         DocumentReceipt move = TransformPolicy.Move.InstanceTransform(instanceId: instanceId, resultId: resultId);
         DocumentReceipt history = TransformPolicy.History.InstanceTransform(instanceId: instanceId, resultId: resultId);
-        Assert.Equal(expected: Seq(resultId), actual: copy.Created);
-        Assert.Equal(expected: Seq(resultId), actual: copy.Transformed);
-        Assert.Equal(expected: Seq(resultId), actual: move.Created);
-        Assert.Equal(expected: Seq(instanceId), actual: move.Deleted);
-        Assert.Equal(expected: Seq(resultId), actual: history.Created);
-        Assert.True(condition: history.Deleted.IsEmpty && history.Transformed.IsEmpty);
+        Assert.Equal(expected: Seq(resultId), actual: copy.Ids(slot: DocumentReceiptSlot.Created));
+        Assert.Equal(expected: Seq(resultId), actual: copy.Ids(slot: DocumentReceiptSlot.Transformed));
+        Assert.Equal(expected: Seq(resultId), actual: move.Ids(slot: DocumentReceiptSlot.Created));
+        Assert.Equal(expected: Seq(instanceId), actual: move.Ids(slot: DocumentReceiptSlot.Deleted));
+        Assert.Equal(expected: Seq(resultId), actual: history.Ids(slot: DocumentReceiptSlot.Created));
+        Assert.True(condition: history.Ids(slot: DocumentReceiptSlot.Deleted).IsEmpty && history.Ids(slot: DocumentReceiptSlot.Transformed).IsEmpty);
         MutationReceipt left = MutationReceipt.Named(name: "A");
         MutationReceipt right = MutationReceipt.Objects(slot: DocumentReceiptSlot.Lifecycle, ids: Seq(instanceId), kind: DocumentResourceKind.Block, name: "B");
         MutationReceipt combined = left + right;
         Assert.Equal(expected: 2, actual: combined.Document.ResourceChanged.Count);
-        Assert.Equal(expected: Seq(instanceId), actual: combined.Document.LifecycleChanged);
+        Assert.Equal(expected: Seq(instanceId), actual: combined.Document.Ids(slot: DocumentReceiptSlot.Lifecycle));
     }
 
     [Fact]

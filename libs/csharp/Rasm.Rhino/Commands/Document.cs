@@ -47,11 +47,12 @@ public abstract partial record DocumentOp {
             transform: static (ctx, edit) => from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                                              from _ in guard(edit.Xform.IsValid, ctx.Op.InvalidInput())
                                              from originals in target.Ids(document: ctx.Document, op: ctx.Op)
+                                                 // ObjectTable.Transform returns the new object's Guid on both branches; deleteOriginal:true mints a fresh identity that survives, so the new id lands in Transformed (the post-transform identity) and the originals move to Deleted+Lifecycle. deleteOriginal:false leaves the source as Transformed and records the copy in Created.
                                              from ids in target.Transform(document: ctx.Document, transform: edit.Xform, deleteOriginal: edit.DeleteOriginal, op: ctx.Op)
                                              select DocumentReceipt.Objects(groups: Seq(
                                                  (Slot: DocumentReceiptSlot.Created, Ids: edit.DeleteOriginal ? Seq<Guid>() : ids),
                                                  (Slot: DocumentReceiptSlot.Deleted, Ids: edit.DeleteOriginal ? originals : Seq<Guid>()),
-                                                 (Slot: DocumentReceiptSlot.Transformed, Ids: originals),
+                                                 (Slot: DocumentReceiptSlot.Transformed, Ids: edit.DeleteOriginal ? ids : originals),
                                                  (Slot: DocumentReceiptSlot.Lifecycle, Ids: edit.DeleteOriginal ? originals : Seq<Guid>()))),
             attributeChange: static (ctx, edit) =>
                 from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
@@ -222,22 +223,22 @@ public abstract partial record DocumentTarget {
     public static Fin<DocumentTarget> Layer(int layerIndex) =>
         layerIndex switch {
             >= 0 => Filter(settings: QuerySettings(configure: s => s.LayerIndexFilter = layerIndex)),
-            _ => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(Layer)).InvalidInput()),
+            _ => Fin.Fail<DocumentTarget>(error: Op.Of().InvalidInput()),
         };
 
     public static Fin<DocumentTarget> UserString(string key, Option<string> value = default) =>
-        DocumentEdit.NonBlank(value: key, op: Op.Of(name: nameof(UserString))).Map(valid => (DocumentTarget)new PredicateCase(QuerySettings(), Attribute(test: (attributes, _) =>
+        DocumentEdit.NonBlank(value: key, op: Op.Of()).Map(valid => (DocumentTarget)new PredicateCase(QuerySettings(), Attribute(test: (attributes, _) =>
             Optional(attributes.GetUserString(key: valid)).Map(stored => value.Case switch {
                 string expected => string.Equals(a: stored, b: expected, comparisonType: StringComparison.Ordinal),
                 _ => !string.IsNullOrEmpty(value: stored),
             }).IfNone(noneValue: false))));
 
     public static Fin<DocumentTarget> DrawColor(System.Drawing.Color color) =>
-        guard(!color.IsEmpty, Op.Of(name: nameof(DrawColor)).InvalidInput()).ToFin()
+        guard(!color.IsEmpty, Op.Of().InvalidInput()).ToFin()
             .Map(_ => (DocumentTarget)new PredicateCase(QuerySettings(), Attribute(test: (attributes, document) => attributes.DrawColor(document: document) == color)));
 
     public static Fin<DocumentTarget> Region(BoundingBox bounds, bool fullyInside = false, bool accurate = true, double tolerance = 0.0) =>
-        guard(bounds.IsValid && RhinoMath.IsValidDouble(x: tolerance) && tolerance >= 0.0, Op.Of(name: nameof(Region)).InvalidInput()).ToFin()
+        guard(bounds.IsValid && RhinoMath.IsValidDouble(x: tolerance) && tolerance >= 0.0, Op.Of().InvalidInput()).ToFin()
             .Map(_ => (DocumentTarget)new PredicateCase(QuerySettings(), (document, native) => {
                 BoundingBox region = bounds;
                 _ = tolerance > 0.0 ? Op.Side(() => region.Inflate(amount: tolerance)) : unit;
@@ -255,7 +256,7 @@ public abstract partial record DocumentTarget {
         Filter(settings: QuerySettings(configure: s => s.ObjectTypeFilter = ObjectType.ClipPlane));
 
     public static Fin<DocumentTarget> Pick(CommandPickPolicy policy) =>
-        Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()).Map(value => (DocumentTarget)new PickCase(value));
+        Optional(policy).ToFin(Fail: Op.Of().InvalidInput()).Map(value => (DocumentTarget)new PickCase(value));
 
     internal Fin<int> Select(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
         Resolve(document: document, op: op,
@@ -473,17 +474,6 @@ public readonly record struct DocumentReceipt {
     public static DocumentReceipt Empty { get; } = new(changes: Seq<Change>());
     public static Seq<DocumentReceiptSlot> Slots { get; } = toSeq(DocumentReceiptSlot.Items);
 
-    public Seq<Guid> Created => Ids(slot: DocumentReceiptSlot.Created);
-    public Seq<Guid> Replaced => Ids(slot: DocumentReceiptSlot.Replaced);
-    public Seq<Guid> Deleted => Ids(slot: DocumentReceiptSlot.Deleted);
-    public Seq<Guid> Transformed => Ids(slot: DocumentReceiptSlot.Transformed);
-    public Seq<Guid> Selected => Ids(slot: DocumentReceiptSlot.Selected);
-    public Seq<Guid> Unselected => Ids(slot: DocumentReceiptSlot.Unselected);
-    public Seq<Guid> Hidden => Ids(slot: DocumentReceiptSlot.Hidden);
-    public Seq<Guid> Locked => Ids(slot: DocumentReceiptSlot.Locked);
-    public Seq<Guid> Flashed => Ids(slot: DocumentReceiptSlot.Flashed);
-    public Seq<Guid> AttributeChanged => Ids(slot: DocumentReceiptSlot.Attributes);
-    public Seq<Guid> LifecycleChanged => Ids(slot: DocumentReceiptSlot.Lifecycle);
     public Seq<DocumentResourceChange> ResourceChanged => Changes.Choose(static change => change.ResourceChanged);
     public Seq<uint> UndoRecords => Changes.Choose(static change => change.UndoRecord);
     public Seq<string> CustomUndo => Changes.Choose(static change => change.CustomUndoName);
@@ -597,7 +587,7 @@ public sealed record DocumentEdit {
     public Context Domain { get; }
 
     public Fin<DocumentReceipt> Commit(DocumentTransaction transaction) {
-        Op op = Op.Of(name: nameof(Commit));
+        Op op = Op.Of();
         return from plan in Optional(transaction).ToFin(Fail: op.InvalidInput())
                from name in NonBlank(value: plan.Name, op: op)
                from _ in guard(!plan.Operations.IsEmpty || !plan.CustomUndo.IsEmpty, op.InvalidInput())
@@ -614,7 +604,7 @@ public sealed record DocumentEdit {
     }
 
     internal Fin<DocumentReceipt> Commit(string name, DocumentRedraw redraw, bool undoRecorded, Func<RhinoDoc, Context, Op, Fin<DocumentReceipt>> run) {
-        Op op = Op.Of(name: nameof(Commit));
+        Op op = Op.Of();
         return from document in Available(op: op)
                from label in NonBlank(value: name, op: op)
                from active in Optional(run).ToFin(Fail: Op.Of(name: label).InvalidInput())
@@ -624,7 +614,7 @@ public sealed record DocumentEdit {
     }
 
     internal Fin<Unit> Redraw() =>
-        Available(op: Op.Of(name: nameof(Redraw)))
+        Available(op: Op.Of())
             .Map(document => {
                 document.Views.Redraw();
                 return unit;
@@ -637,7 +627,7 @@ public sealed record DocumentEdit {
         Optional(document.Objects.GetSelectedObjects(includeLights: true, includeGrips: true)).ToFin(Fail: op.InvalidInput()).Map(static values => toSeq(values).Map(static native => native.Id).Distinct());
 
     internal static Fin<Seq<Guid>> LiveObjectIds(RhinoDoc document) =>
-        Optional(document).ToFin(Fail: Op.Of(name: nameof(LiveObjectIds)).InvalidInput()).Map(static value => toSeq(value.Objects.GetObjectIdList(settings: new ObjectEnumeratorSettings { NormalObjects = true, LockedObjects = true, HiddenObjects = true })).Distinct());
+        Optional(document).ToFin(Fail: Op.Of().InvalidInput()).Map(static value => toSeq(value.Objects.GetObjectIdList(settings: new ObjectEnumeratorSettings { NormalObjects = true, LockedObjects = true, HiddenObjects = true })).Distinct());
 
     internal static Fin<Seq<Guid>> ApplyState(Seq<Guid> ids, RhinoDoc document, Op op, Func<RhinoObject, bool> ready, Func<RhinoObject, bool> done, Func<Guid, bool> apply) =>
         ids.TraverseM(id => Optional(document.Objects.FindId(id))
@@ -663,10 +653,12 @@ public sealed record DocumentEdit {
             from geometry in GeometrySource.From(source: value)
             from id in geometry.Use(op: op, use: native =>
                 from _ in Requirement.Basic.Apply(context: validDomain, value: native, cancel: CancellationToken.None).ToFin()
+                    // Add(GeometryBase, ObjectAttributes, HistoryRecord, bool) is the only host overload carrying the reference flag; every arm routes through it with null attrs/history so a reference-object request is honored regardless of whether attributes or a history record are supplied.
                 from created in DocumentTarget.IdResult(id: (attributes, history) switch {
                     (ObjectAttributes attrs, HistoryRecord record) => validDocument.Objects.Add(native, attrs, record, reference),
-                    (ObjectAttributes attrs, _) => validDocument.Objects.Add(native, attrs),
-                    _ => validDocument.Objects.Add(native),
+                    (ObjectAttributes attrs, _) => validDocument.Objects.Add(native, attrs, history: null, reference),
+                    (_, HistoryRecord record) => validDocument.Objects.Add(native, attributes: null, record, reference),
+                    _ => validDocument.Objects.Add(native, attributes: null, history: null, reference),
                 }, op: op)
                 select created)
             select id).As()
@@ -675,45 +667,60 @@ public sealed record DocumentEdit {
     private Fin<RhinoDoc> Available(Op op) =>
         Document.IsReady() ? Fin.Succ(value: Document) : Fin.Fail<RhinoDoc>(error: op.InvalidInput());
 
-    private readonly ref struct UndoScope(RhinoDoc document, uint serial) {
-#pragma warning disable CA2213 // BOUNDARY ADAPTER — _doc is the caller-owned RhinoDoc; the scope borrows it to close the undo record and never owns its lifetime.
-        private readonly RhinoDoc _doc = document;
-#pragma warning restore CA2213
-        private readonly uint _serial = serial;
-        private readonly Atom<bool> _closed = Atom(value: false);
-        public bool IsOpen => _serial > 0u;
-        public static UndoScope Begin(RhinoDoc document, string name, bool recordsUndo) =>
-            new(document: document, serial: (recordsUndo, document.UndoRecordingIsActive) switch {
-                (true, false) => document.BeginUndoRecord(description: name),
-                _ => 0u,
-            });
-        // Seal closes the live undo record (capturing End success) and folds the serial; Dispose is the exception-path guard
-        public Fin<DocumentReceipt> Seal(DocumentReceipt receipt, Op op) =>
-            Close() switch {
-                true => Fin.Succ(value: receipt + DocumentReceipt.UndoRecord(serial: _serial)),
-                false => Fin.Fail<DocumentReceipt>(error: op.InvalidResult()),
-            };
-        private bool Close() =>
-            IsOpen switch {
-                false => true,
-                true => _closed.Swap(static _ => true) switch { _ => _doc.EndUndoRecord(undoRecordSerialNumber: _serial) },
-            };
-        public void Dispose() =>
-            _ = IsOpen && !_closed.Value && _doc.EndUndoRecord(undoRecordSerialNumber: _serial);
-    }
-
     private static Fin<DocumentReceipt> Mutate(RhinoDoc document, string name, bool recordsUndo, bool suppressRedraw, Func<Fin<DocumentReceipt>> run) =>
         Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid =>
             UI.RhinoUi.Protect(valid: () => {
-                // BOUNDARY ADAPTER — RhinoDoc.Views.EnableRedraw returns void and UndoScope is a ref struct, so redraw toggling and Seal stay as statements outside any capturing lambda.
+                // BOUNDARY ADAPTER — RhinoDoc.Views.EnableRedraw returns void and UndoBracket is a ref struct, so redraw toggling and Seal stay as statements outside any capturing lambda.
                 Op op = Op.Of(name: name);
                 bool priorRedraw = document.Views.RedrawEnabled;
                 _ = Op.SideWhen(suppressRedraw, () => document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false));
-                using UndoScope undo = UndoScope.Begin(document: document, name: name, recordsUndo: recordsUndo);
+                using UndoBracket undo = UndoBracket.Begin(document: document, name: name, recordsUndo: recordsUndo);
                 Fin<DocumentReceipt> inner = valid();
                 _ = Op.SideWhen(suppressRedraw, () => document.Views.EnableRedraw(enable: priorRedraw, redrawDocument: priorRedraw, redrawLayers: priorRedraw));
                 return inner.IsSucc
                     ? undo.Seal(receipt: inner.IfFail(DocumentReceipt.Empty), op: op)
                     : inner;
             }));
+}
+
+// --- [BOUNDARIES] -------------------------------------------------------------------------
+internal readonly ref struct UndoBracket(RhinoDoc document, uint serial) {
+#pragma warning disable CA2213 // BOUNDARY ADAPTER — _doc is the caller-owned RhinoDoc; the bracket borrows it to close the undo record and never owns its lifetime.
+    private readonly RhinoDoc _doc = document;
+#pragma warning restore CA2213
+    private readonly uint _serial = serial;
+    private readonly Atom<bool> _closed = Atom(value: false);
+    public bool IsOpen => _serial > 0u;
+
+    public static UndoBracket Begin(RhinoDoc document, string name, bool recordsUndo) =>
+        new(document: document, serial: (recordsUndo, document.UndoRecordingIsActive) switch {
+            (true, false) => document.BeginUndoRecord(description: name),
+            _ => 0u,
+        });
+
+    // Run brackets a body inside one undo record (begin -> body -> end); the end fires on every exit path so a failing body still closes the record. The begin/end statements are the platform-forced boundary-capsule seam.
+    internal static Fin<T> Run<T>(RhinoDoc document, string name, Op key, Func<Fin<T>> body) =>
+        Optional(body).ToFin(Fail: key.InvalidInput()).Bind(valid => {
+            using UndoBracket undo = Begin(document: document, name: name, recordsUndo: true);
+            Fin<T> inner = valid();
+            return undo.Close()
+                ? inner
+                : inner.IsSucc ? Fin.Fail<T>(error: key.InvalidResult()) : inner;
+        });
+
+    // Seal closes the live undo record (capturing End success) and folds the serial; Dispose is the exception-path guard.
+    public Fin<DocumentReceipt> Seal(DocumentReceipt receipt, Op op) =>
+        Close() switch {
+            true => Fin.Succ(value: receipt + DocumentReceipt.UndoRecord(serial: _serial)),
+            false => Fin.Fail<DocumentReceipt>(error: op.InvalidResult()),
+        };
+
+    private bool Close() =>
+        IsOpen switch {
+            false => true,
+            true => _closed.Swap(static _ => true) switch { _ => _doc.EndUndoRecord(undoRecordSerialNumber: _serial) },
+        };
+
+    public void Dispose() =>
+        _ = IsOpen && !_closed.Value && _doc.EndUndoRecord(undoRecordSerialNumber: _serial);
 }

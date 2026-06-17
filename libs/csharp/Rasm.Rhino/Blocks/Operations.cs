@@ -145,7 +145,7 @@ internal static class ContentIndex {
             None: () => Seq(defId)));
 
     internal static Unit RegisterDefinition(RhinoDoc doc, Guid defId) =>
-        DefinitionId.From(value: defId, key: Op.Of(name: nameof(RegisterDefinition))).ToOption()
+        DefinitionId.FromOption(value: defId)
             .Bind(id => Optional(doc.InstanceDefinitions.Find(
                     instanceId: id.Value, ignoreDeletedInstanceDefinitions: true))
                 .Bind(active => HashEntry(doc: doc, active: active)))
@@ -191,7 +191,7 @@ internal static class ContentIndex {
                 value: m.Find(key: kv.Key).IfNone(noneValue: Seq<DefinitionId>()).Add(value: kv.Value).Distinct()));
 
     private static Option<(ulong Key, DefinitionId Value)> HashEntry(RhinoDoc doc, InstanceDefinition active) =>
-        DefinitionId.From(value: active.Id).ToOption()
+        DefinitionId.FromOption(value: active.Id)
             .Bind(id => Operations.ReifyDefinitionMembers(definition: active, key: Op.Of(name: nameof(ContentIndex))).ToOption()
                 .Bind(provided => Op.Of(name: nameof(ContentIndex)).Catch(() => Fin.Succ(value: BlockContentHash.Of(members: provided).Value)).ToOption()
                     .Map(hash => (Key: hash, Value: id))));
@@ -316,8 +316,7 @@ internal static partial class Operations {
                 : Optional(ctx.Table.Find(instanceDefinitionName: r.Name.Value))).ToFin(Fail: ctx.Key.InvalidInput()),
             byPath: static (ctx, _) => Fin.Fail<InstanceDefinition>(error: ctx.Key.InvalidInput()));
     internal static Unit InvalidateDefinition(Guid defId, Option<RhinoDoc> doc = default) {
-        _ = SnapshotVault.Invalidate(defId: defId);
-        _ = PreviewVault.Invalidate(defId: defId);
+        _ = BlockVaults.Invalidate(defId: defId);
         return doc.Case switch {
             RhinoDoc active => ContentIndex.RegisterDefinition(doc: active, defId: defId),
             _ => unit,
@@ -705,8 +704,9 @@ internal static partial class Operations {
         Optional(definition?.GetObjects())
             .Filter(static objs => objs.Length > 0)
             .Map(static objs => toSeq(objs)
-                .Fold(BoundingBox.Empty, static (bb, o) => BoundingBox.Union(a: bb, b: Optional(o.Geometry).Map(static g => g.GetBoundingBox(accurate: false)).IfNone(BoundingBox.Empty)))
-                .Center)
+                .Fold(BoundingBox.Empty, static (bb, o) => BoundingBox.Union(a: bb, b: Optional(o.Geometry).Map(static g => g.GetBoundingBox(accurate: false)).IfNone(BoundingBox.Empty))))
+            .Filter(static box => box.IsValid)
+            .Map(static box => box.Center)
             .IfNone(Point3d.Origin);
 
     private static Fin<MutationReceipt> PerformReplaceDefinition(
@@ -1189,30 +1189,30 @@ internal static partial class Operations {
             Receipt: authored,
             LiveByArchiveId: liveByArchiveId.AddOrUpdate(key: definition.Id.Value, value: snap.Id.Value));
 
-    private static GeometryBase ScaleToHost(GeometryBase geometry, double rootScale) {
-        bool scaled = Math.Abs(value: rootScale - 1.0) > RhinoMath.ZeroTolerance
-            && geometry is not InstanceReferenceGeometry
-            && geometry.Transform(xform: Transform.Scale(anchor: Point3d.Origin, scaleFactor: rootScale));
-        return (scaled, result: geometry).result;
-    }
+    private static Fin<GeometryBase> ScaleToHost(GeometryBase geometry, double rootScale, Op op) =>
+        Math.Abs(value: rootScale - 1.0) <= RhinoMath.ZeroTolerance
+            ? Fin.Succ(value: geometry)
+            : op.Confirm(success: geometry.Transform(xform: Transform.Scale(anchor: Point3d.Origin, scaleFactor: rootScale)))
+                .Map(_ => geometry);
 
     private static Fin<Members> ReifyArchiveMembers(File3dm model, Definition definition, HashMap<Guid, Guid> liveByArchiveId, double rootScale, Op key) =>
         toSeq(definition.MemberIds)
             .Map(id => Optional(model.Objects.FindId(id: id)).ToFin(Fail: key.InvalidInput()))
             .TraverseM(identity).As()
-            .Bind(objs => Members.OfProvided(
-                geometry: objs
-                    .Choose(static o => Optional(o.Geometry))
-                    .Map(g => g switch {
-                        InstanceReferenceGeometry r => liveByArchiveId.Find(key: r.ParentIdefId).Case is Guid liveId
-                            ? new InstanceReferenceGeometry(instanceDefinitionId: liveId, transform: r.Xform)
-                            : r.Duplicate(),
-                        _ => ScaleToHost(geometry: g.Duplicate(), rootScale: rootScale),
-                    }),
-                attributes: objs
-                    .Filter(static o => Optional(o.Geometry).IsSome)
-                    .Map(static o => o.Attributes.Duplicate()),
-                key: key))
+            .Bind(objs => objs
+                .Choose(static o => Optional(o.Geometry))
+                .TraverseM(g => g switch {
+                    InstanceReferenceGeometry r => Fin.Succ(value: liveByArchiveId.Find(key: r.ParentIdefId).Case is Guid liveId
+                        ? new InstanceReferenceGeometry(instanceDefinitionId: liveId, transform: r.Xform)
+                        : r.Duplicate()),
+                    _ => ScaleToHost(geometry: g.Duplicate(), rootScale: rootScale, op: key),
+                }).As()
+                .Bind(geometry => Members.OfProvided(
+                    geometry: geometry,
+                    attributes: objs
+                        .Filter(static o => Optional(o.Geometry).IsSome)
+                        .Map(static o => o.Attributes.Duplicate()),
+                    key: key)))
             .Map(static provided => (Members)provided);
 
     private static Fin<MutationReceipt> BakeArchiveInstances(RhinoBlocks owner, Archive.Graph graph, Op key) {
@@ -1273,7 +1273,7 @@ internal static partial class Operations {
     private static Fin<BlockOutcome> PerformSnapshot(RhinoBlocks owner, Option<DefinitionRef> refer, Op key) =>
         refer.Case switch {
             DefinitionRef r => ResolveSnap(table: owner.Document.InstanceDefinitions, refer: r, key: key)
-                .Map(static snap => (BlockOutcome)new BlockOutcome.Snapshot(Value: snap)),
+                .Map(static snap => (BlockOutcome)new BlockOutcome.Snapshots(Values: Seq(snap))),
             _ => SnapshotPairs(table: owner.Document.InstanceDefinitions, key: key)
                 .Map(static pairs => (BlockOutcome)new BlockOutcome.Snapshots(Values: pairs.Map(static pair => pair.Snap))),
         };
@@ -1405,7 +1405,7 @@ internal static partial class Operations {
                 Definition.List(table: owner.Document.InstanceDefinitions)
                     .Choose(d => {
                         _ = ContentIndex.RegisterDefinition(doc: owner.Document, defId: d.Id);
-                        return DefinitionId.From(value: d.Id, key: key).ToOption();
+                        return DefinitionId.FromOption(value: d.Id);
                     }))),
         };
 

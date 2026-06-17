@@ -340,10 +340,10 @@ register_law(status, "status_nomatch_prefix_zero")
 register_law(status, "status_sources_validity_matrix")
 
 
-def test_status_strict_promotes_fault_when_not_all_ok(assay_root: AssayHarness) -> None:
-    """Status strict=True promotes an incomplete inventory to a FAULTED error rail."""
+def test_status_strict_faults_when_core_bundle_absent(assay_root: AssayHarness) -> None:
+    """Status strict=True faults when a required core bundle is absent (a minimal tmp-tree has no Rhino bundles)."""
     result = _run(status, assay_root, strict=True)
-    # In a minimal tmp-tree without Rhino bundles, status is EMPTY → strict faults.
+    # In a minimal tmp-tree without Rhino bundles, the core bundles are absent → strict faults.
     match result.tag:
         case "error":
             assert assert_error(result).status is RailStatus.FAULTED
@@ -351,7 +351,17 @@ def test_status_strict_promotes_fault_when_not_all_ok(assay_root: AssayHarness) 
             assert result.ok.status is RailStatus.OK  # unexpectedly fully-OK environment → strict passes through
 
 
+def test_status_strict_ignores_absent_non_core_source(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Strict status faults only on an absent core bundle, never an absent transitive package (System.IO.Pipelines)."""
+    core_ok = tuple(ApiSource(source_kind=SourceKind.ASSEMBLY, source_id=sid, status=RailStatus.OK) for sid in api_rail._REQUIRED_SOURCE_IDS)
+    transitive_absent = ApiSource(source_kind=SourceKind.NUGET, source_id="System.IO.Pipelines", status=RailStatus.EMPTY)
+    monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_k: RailProbe.receipt(("ilspycmd",), 0, stdout=b"ilspycmd: 9.1.0.7988\n"))
+    monkeypatch.setattr(api_rail, "_inventory_sources", lambda *_a, **_k: (*core_ok, transitive_absent))
+    assert assert_ok(_run(status, assay_root, strict=True)).status is RailStatus.OK
+
+
 register_law(status, "status_strict_promotes_fault")
+register_law(status, "status_strict_ignores_non_core")
 
 
 def test_status_inventory_includes_nuget_and_polyglot_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -700,6 +710,104 @@ def test_cs_query_type_window_renders_full_golden_surface(assay_root: AssayHarne
 
 
 register_law(query, "cs_query_type_window_golden")
+
+
+def _large_cisde_listing(types: int) -> tuple[bytes, int]:
+    # A real-shaped cisde roster exceeding capture_spill_bytes, plus one compiler synthetic and one generic-by-bare-name row.
+    rows = [f"Class Acme.Big.Type{i:06d}WithAVeryLongTrailingNameToInflateBytes" for i in range(types)]
+    payload = ("\n".join(rows) + "\nClass Acme.Big.GenericDictionary\nClass Acme.Big.<>c__DisplayClass0_0\n").encode()
+    return payload, types + 1  # +1 generic survives; the <>-synthetic is filtered
+
+
+def test_cs_query_index_count_survives_capture_spill_truncation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A cisde listing exceeding capture_spill_bytes rosters every real type, and the cache-hit read replays the full count.
+
+    Defect #3 (api stale cache) cached a 4 KB byte-tail, so a real type became false-absent. A >1 MB listing whose full
+    count survives both the first parse and the second cache-backed parse proves the receipt and cache now carry the whole payload.
+    """
+    payload, expected = _large_cisde_listing(40_000)
+    assert len(payload) > assay_root.settings.capture_spill_bytes  # the listing genuinely crosses the 1 MB spill ceiling
+    _install_ilspy(assay_root, monkeypatch, types=payload)
+
+    first = assert_ok(_run(query, assay_root, key="rhino-common", symbol=""))
+    assert any(note == f"{expected} types across 1 namespaces" for note in first.notes)
+
+    # A hard fault after the first call proves the second count is cache-backed, not a re-listing.
+    monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.error(("api",), "must-not-relist"))
+    second = assert_ok(_run(query, assay_root, key="rhino-common", symbol=""))
+    assert second.notes == first.notes  # the full type count round-trips through the persisted cache, never truncated
+
+
+register_law(query, "cs_query_index_count_survives_capture_spill")
+
+
+def test_cs_query_roster_filters_synthetics_keeps_generics(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The C# roster drops every <>-mangled compiler synthetic but keeps generic types rendered by bare name."""
+    listing = (
+        b"Class Acme.Mesh\n"
+        b"Class <Module>\n"
+        b"Class Acme.<>c__DisplayClass4_0\n"
+        b"Class Acme.Mesh.<GetEnumerator>d__84\n"
+        b"Class <PrivateImplementationDetails>\n"
+        b"Class Acme.AgnosticDictionary\n"  # cisde renders an open generic by bare name, no angle bracket
+        b"Struct Acme.Point\n"
+    )
+    _install_ilspy(assay_root, monkeypatch, types=listing)
+    detail = _cs_surface(assay_root, monkeypatch, "Acme", install=False)  # namespace roster surfaces the owned types directly
+    rostered = set(detail.preview.splitlines())
+    assert {"Acme.Mesh", "Acme.AgnosticDictionary", "Acme.Point"} <= rostered  # real types and the generic survive
+    assert not any("<" in row for row in rostered)  # every angle-bracket synthetic is filtered
+
+
+register_law(query, "cs_query_roster_filters_synthetics_keeps_generics")
+
+
+def test_cs_query_emits_decompiled_fidelity_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A C# surface report carries the SourceKind-derived fidelity note (decompiled)."""
+    _install_ilspy(assay_root, monkeypatch)
+    r = assert_ok(_run(query, assay_root, key="rhino-common", symbol=""))
+    assert "fidelity: decompiled" in r.notes
+
+
+register_law(query, "cs_query_fidelity_note")
+
+
+def test_cs_query_grep_member_fans_out_to_decompile(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A --grep member needle with no type hit fans out ilspycmd -t over candidate types and finds the member."""
+    _install_ilspy(assay_root, monkeypatch)  # decompile receipt declares Widget.Spin(int turns)
+    r = assert_ok(_run(query, assay_root, key="rhino-common", symbol="zzz-no-such-type", grep="Spin"))
+    assert r.status is RailStatus.OK
+    detail = r.detail
+    assert isinstance(detail, ApiSurface)
+    assert detail.shape is SymbolShape.SEARCH
+    assert "Spin" in detail.preview
+    assert any("member hits" in note for note in r.notes)
+
+
+register_law(query, "cs_query_grep_member_fanout")
+
+
+def test_cs_query_grep_member_caps_candidate_fanout(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A broad --grep needle decompiles at most _CANDIDATE_CAP candidate types, never an N-type explosion."""
+    listing = ("\n".join(f"Class Acme.Type{i:03d}" for i in range(50))).encode()
+    decompiled = {"count": 0}
+    asm = assay_root.write("RhinoCommon.dll", "MZ")
+    source = api_rail._Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
+
+    def _canned(check: Check, **_kw: object) -> Result[object, Fault]:
+        if "-t" in check.tool.command:
+            decompiled["count"] += 1
+            return RailProbe.receipt(("ilspycmd",), 0, stdout=b"// no Spin here\n")
+        return RailProbe.receipt(("ilspycmd",), 0, stdout=listing)
+
+    monkeypatch.setattr(api_rail, "run_check", _canned)
+    monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
+
+    assert_ok(_run(query, assay_root, key="rhino-common", symbol="nomatch", grep="Type"))
+    assert decompiled["count"] <= api_rail._CANDIDATE_CAP  # the cap is the explosion guard
+
+
+register_law(query, "cs_query_grep_member_cap")
 
 
 def test_cs_query_member_carries_xml_doc(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

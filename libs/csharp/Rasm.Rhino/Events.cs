@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Threading.Channels;
 using Rhino.DocObjects.Tables;
 using IODirectory = System.IO.Directory;
 using IOPath = System.IO.Path;
@@ -9,6 +10,17 @@ namespace Rasm.Rhino.Events;
 public enum DeferralPolicy { Immediate, Idle }
 
 public enum WatchPanelState { Shown, Hidden, Closed }
+
+[SmartEnum<int>]
+public sealed partial class DocumentTableKind {
+    public static readonly DocumentTableKind Material = new(key: 0, label: "material");
+    public static readonly DocumentTableKind Group = new(key: 1, label: "group");
+    public static readonly DocumentTableKind Linetype = new(key: 2, label: "linetype");
+    public static readonly DocumentTableKind Light = new(key: 3, label: "light");
+    public static readonly DocumentTableKind DimensionStyle = new(key: 4, label: "dimension-style");
+
+    public string Label { get; }
+}
 
 [Union]
 public abstract partial record WatchPayload {
@@ -25,6 +37,7 @@ public abstract partial record WatchPayload {
     public sealed record PageView(uint SerialNumber, Option<Guid> OldActiveDetailId, Option<Guid> NewActiveDetailId) : WatchPayload;
     public sealed record Panel(Guid Id, WatchPanelState State) : WatchPayload;
     public sealed record Draw(DisplayPipeline Display, RhinoViewport Vp) : WatchPayload;
+    public sealed record TableEvent(DocumentTableKind Kind, int Index, int EventType) : WatchPayload;
     public sealed record Document(
         Option<string> FileName = default,
         Option<bool> Merge = default,
@@ -59,6 +72,7 @@ public abstract partial record WatchPayload {
             displayMode: static (_, _) => Seq<Guid>(),
             panel: static (_, _) => Seq<Guid>(),
             draw: static (_, _) => Seq<Guid>(),
+            tableEvent: static (_, _) => Seq<Guid>(),
             document: static (_, _) => Seq<Guid>());
 
     public Option<TCase> As<TCase>() where TCase : WatchPayload => Optional(this as TCase);
@@ -86,7 +100,12 @@ public sealed partial class WatchPhase {
         ObjectDeleted = new(key: 9, bind: On<RhinoObjectEventArgs>(h => RhinoDoc.DeleteRhinoObject += h, h => RhinoDoc.DeleteRhinoObject -= h, static (a, doc) => Object(a: a, doc: doc))),
         ObjectReplaced = new(key: 10, bind: On<RhinoReplaceObjectEventArgs>(h => RhinoDoc.ReplaceRhinoObject += h, h => RhinoDoc.ReplaceRhinoObject -= h, static (a, doc) => Gate(eventDoc: a.Document, watched: doc, payload: new WatchPayload.Replace(Old: a.ObjectId, New: Optional(a.NewRhinoObject).Map(static o => o.Id).Filter(static id => id != Guid.Empty))))),
         AttributesModified = new(key: 11, bind: On<RhinoModifyObjectAttributesEventArgs>(h => RhinoDoc.ModifyObjectAttributes += h, h => RhinoDoc.ModifyObjectAttributes -= h, static (a, doc) => Gate(eventDoc: a.Document, watched: doc, payload: new WatchPayload.Attributes(Object: Optional(a.RhinoObject).Map(static o => o.Id))))),
-        LayerChanged = new(key: 12, bind: On<LayerTableEventArgs>(h => RhinoDoc.LayerTableEvent += h, h => RhinoDoc.LayerTableEvent -= h, static (a, doc) => Gate(eventDoc: a.Document, watched: doc, payload: new WatchPayload.LayerEvent(Event: a.EventType, Index: a.LayerIndex, Old: Optional(a.OldState), Next: Optional(a.NewState))))),
+        // LayerTableEventArgs.NewState is never null — it synthesizes a live-table Layer even for Deleted/Sorted/Cleared/Current — so Next is meaningful only on Added/Modified/Undeleted; the event-type law projects absence at the read site instead of trusting Optional to catch one the host never signals.
+        LayerChanged = new(key: 12, bind: On<LayerTableEventArgs>(h => RhinoDoc.LayerTableEvent += h, h => RhinoDoc.LayerTableEvent -= h, static (a, doc) => Gate(eventDoc: a.Document, watched: doc, payload: new WatchPayload.LayerEvent(
+            Event: a.EventType,
+            Index: a.LayerIndex,
+            Old: Optional(a.OldState),
+            Next: a.EventType is LayerTableEventType.Added or LayerTableEventType.Modified or LayerTableEventType.Undeleted ? Optional(a.NewState) : Option<Layer>.None)))),
         ViewProjectionChanged = new(key: 13, bind: Projection(h => DisplayPipeline.ViewportProjectionChanged += h, h => DisplayPipeline.ViewportProjectionChanged -= h)),
         ViewDisplayModeChanged = new(key: 14, bind: On<DisplayModeChangedEventArgs>(h => DisplayPipeline.DisplayModeChanged += h, h => DisplayPipeline.DisplayModeChanged -= h, static (a, doc) =>
             (Optional(a.Viewport).Map(static vp => vp.Id).Filter(static id => id != Guid.Empty)
@@ -112,7 +131,13 @@ public sealed partial class WatchPhase {
         // DrawForeground fires after all objects are drawn with depth testing still on; emits every frame while any subscriber exists. The all-phases default path includes it — callers should scope WatchSpec.Phases explicitly to avoid per-frame delivery.
         DrawForeground = new(key: 32, bind: DrawChannel(h => DisplayPipeline.DrawForeground += h, h => DisplayPipeline.DrawForeground -= h)),
         // DrawOverlay fires only while Rhino is in a feedback mode (GetPoint and similar); emits every frame in that state. The all-phases default path includes it — callers should scope WatchSpec.Phases explicitly to avoid per-frame delivery.
-        DrawOverlay = new(key: 33, bind: DrawChannel(h => DisplayPipeline.DrawOverlay += h, h => DisplayPipeline.DrawOverlay -= h));
+        DrawOverlay = new(key: 33, bind: DrawChannel(h => DisplayPipeline.DrawOverlay += h, h => DisplayPipeline.DrawOverlay -= h)),
+        // Non-draw document-table events. Explicit HIGH keys (100+) keep the persisted positional subscription keys 0-33 frozen so existing all-phases subscriptions and persisted phase sets never shift when this family grows; new families append above this band.
+        MaterialTable = new(key: 100, bind: On<MaterialTableEventArgs>(h => RhinoDoc.MaterialTableEvent += h, h => RhinoDoc.MaterialTableEvent -= h, static (a, doc) => TableEventOf(eventDoc: a.Document, watched: doc, kind: DocumentTableKind.Material, index: a.Index, eventType: (int)a.EventType))),
+        GroupTable = new(key: 101, bind: On<GroupTableEventArgs>(h => RhinoDoc.GroupTableEvent += h, h => RhinoDoc.GroupTableEvent -= h, static (a, doc) => TableEventOf(eventDoc: a.Document, watched: doc, kind: DocumentTableKind.Group, index: a.GroupIndex, eventType: (int)a.EventType))),
+        LinetypeTable = new(key: 102, bind: On<LinetypeTableEventArgs>(h => RhinoDoc.LinetypeTableEvent += h, h => RhinoDoc.LinetypeTableEvent -= h, static (a, doc) => TableEventOf(eventDoc: a.Document, watched: doc, kind: DocumentTableKind.Linetype, index: a.LinetypeIndex, eventType: (int)a.EventType))),
+        LightTable = new(key: 103, bind: On<LightTableEventArgs>(h => RhinoDoc.LightTableEvent += h, h => RhinoDoc.LightTableEvent -= h, static (a, doc) => TableEventOf(eventDoc: a.Document, watched: doc, kind: DocumentTableKind.Light, index: a.LightIndex, eventType: (int)a.EventType))),
+        DimensionStyleTable = new(key: 104, bind: On<DimStyleTableEventArgs>(h => RhinoDoc.DimensionStyleTableEvent += h, h => RhinoDoc.DimensionStyleTableEvent -= h, static (a, doc) => TableEventOf(eventDoc: a.Document, watched: doc, kind: DocumentTableKind.DimensionStyle, index: a.Index, eventType: (int)a.EventType)));
 
     [UseDelegateFromConstructor] internal partial Subscription Bind(WatchTarget target, Func<WatchEnvelope, Fin<Unit>> deliver);
 
@@ -190,6 +215,9 @@ public sealed partial class WatchPhase {
     private static Option<WatchEnvelope> Object(RhinoObjectEventArgs a, WatchTarget doc) =>
         Gate(eventDoc: a.TheObject?.Document, watched: doc, payload: new WatchPayload.Objects(Ids: Seq(a.ObjectId)));
 
+    private static Option<WatchEnvelope> TableEventOf(RhinoDoc? eventDoc, WatchTarget watched, DocumentTableKind kind, int index, int eventType) =>
+        Gate(eventDoc: eventDoc, watched: watched, payload: new WatchPayload.TableEvent(Kind: kind, Index: index, EventType: eventType));
+
     private static Option<WatchEnvelope> PageSpacePayload(PageViewSpaceChangeEventArgs args, WatchTarget watched) =>
         Optional(args.PageView).Bind(page =>
             Gate(eventDoc: page.Document, watched: watched, payload: new WatchPayload.PageView(
@@ -211,6 +239,7 @@ public readonly record struct WatchEvent(WatchPhase Phase, uint DocumentSerialNu
     public Option<WatchPayload.Panel> Panel => Payload.As<WatchPayload.Panel>();
     public Option<WatchPayload.PageView> PageView => Payload.As<WatchPayload.PageView>();
     public Option<WatchPayload.Draw> Draw => Payload.As<WatchPayload.Draw>();
+    public Option<WatchPayload.TableEvent> TableEvent => Payload.As<WatchPayload.TableEvent>();
     public Seq<Guid> ObjectIds => Payload.ObjectIds;
 }
 
@@ -224,7 +253,7 @@ internal readonly record struct WatchEnvelope(uint DocumentSerialNumber, Option<
 // --- [SERVICES] ---------------------------------------------------------------------------
 public static class WatchBus {
     public static Fin<Subscription> Subscribe(WatchTarget target, WatchSpec spec) {
-        Op op = Op.Of(name: nameof(Subscribe));
+        Op op = Op.Of();
         return from activeTarget in Optional(target).ToFin(Fail: op.InvalidInput())
                from activeSpec in Optional(spec).ToFin(Fail: op.InvalidInput())
                from sink in Optional(activeSpec.Sink).ToFin(Fail: op.InvalidInput())
@@ -240,8 +269,19 @@ public static class WatchBus {
                            Payload: payload.Payload)))));
     }
 
+    // Reactive carrier: composes Subscribe with a bounded channel so high-frequency phases (draw, projection) hand off to a paced consumer through declared back-pressure (BoundedChannelOptions.FullMode), instead of committing to synchronous on-event-thread Fin delivery. The TryWrite drop is the channel's declared policy; delivery never fails the subscription rail.
+    public static Fin<(Subscription Sub, ChannelReader<WatchEvent> Reader)> SubscribeChannel(WatchTarget target, Seq<WatchPhase> phases, BoundedChannelOptions options) =>
+        Optional(options).ToFin(Fail: Op.Of().InvalidInput())
+            .Bind(valid => {
+                Channel<WatchEvent> channel = Channel.CreateBounded<WatchEvent>(options: valid);
+                return Subscribe(target: target, spec: new WatchSpec(
+                    Sink: ev => { _ = channel.Writer.TryWrite(item: ev); return Fin.Succ(value: unit); },
+                    Phases: phases))
+                    .Map(sub => (Sub: sub, channel.Reader));
+            });
+
     public static Fin<Subscription> SubscribeFile(string path, TimeSpan debounce, TimeProvider clock, Func<Fin<Unit>> sink) {
-        Op op = Op.Of(name: nameof(SubscribeFile));
+        Op op = Op.Of();
         return from activePath in Optional(path)
                    .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
                    .ToFin(Fail: op.InvalidInput())
@@ -266,7 +306,7 @@ public static class WatchBus {
             Fin<Unit> Fire() {
                 DateTimeOffset now = clock.GetUtcNow();
                 bool accepted = false;
-                // tuple-capture side-channel: `(accepted = …, return).Item2` assigns the captured flag inside the returned expression (MA0140-safe, no ref/out) — mirrors Advanced; NOT the external-mutable anti-pattern
+                // tuple-capture side-channel: `(accepted = …, return).Item2` assigns the captured flag inside the returned expression — mirrors Advanced; NOT the external-mutable anti-pattern
                 _ = lastFired.Swap(f: last => (accepted = now - last >= debounce, accepted ? now : last).Item2);
                 return accepted ? sink() : Fin.Succ(value: unit);
             }
@@ -422,8 +462,10 @@ internal static class WatchIdle {
             : Op.Side(() => RhinoApp.Idle += static (_, _) => Drain());
 
     private static void Drain() {
-        Seq<Func<Fin<Unit>>> pending = Queue.Value;
-        _ = Queue.Swap(f: current => toSeq(current.Skip(count: pending.Count)));
+        // Cross-thread (FileSystemWatcher) enqueues can land between a read and a count-skip, so a read-then-skip drop-by-count silently discards a freshly-enqueued item; take the whole queue inside one CAS, capturing the drained prefix and publishing the empty successor.
+        // tuple-capture side-channel: `(pending = current, empty).Item2` assigns the captured prefix inside the returned expression — mirrors Fire/Advanced.
+        Seq<Func<Fin<Unit>>> pending = Seq<Func<Fin<Unit>>>();
+        _ = Queue.Swap(f: current => (pending = current, Seq<Func<Fin<Unit>>>()).Item2);
         _ = pending.Iter(static run => _ = UI.RhinoUi.Protect(valid: run));
     }
 }

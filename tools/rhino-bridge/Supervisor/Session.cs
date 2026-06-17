@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -56,7 +57,10 @@ internal sealed record SessionPolicy(
         LoadDeadline: TimeSpan.FromSeconds(value: 60),
         QuitRungDeadline: TimeSpan.FromSeconds(value: 15),
         FaultDeadline: TimeSpan.FromSeconds(value: 5),
-        SessionDeadline: TimeSpan.FromMinutes(value: 10),
+        // SessionDeadline sits strictly below assay's 600s scenario timeout so the supervisor always
+        // emits a typed terminal envelope (DeadlineHit -> Faulted) before assay's SIGTERM/SIGKILL ladder
+        // lands; a 600s == 600s tie would race and the operator could get a synthetic stderr envelope.
+        SessionDeadline: TimeSpan.FromSeconds(value: 540),
         ScenarioDefaultBudget: TimeSpan.FromSeconds(value: 30),
         HeartbeatWindow: TimeSpan.FromSeconds(value: 10),
         // WatchPoll is both kqueue wake cadence and degraded PID-poll cadence.
@@ -94,6 +98,12 @@ internal static class SessionKernel {
         new SessionRun(verb: verb, runtime: runtime).RunAsync();
 
     private sealed class SessionRun {
+        // The cursor's Negotiating arm only needs supervisor-side handshake evidence; the wire-side
+        // capabilities ride SupervisorConnection.HelloAsync, so this is the algebra's placeholder peer.
+        private static readonly Handshake SupervisorHandshake = new(
+            ContractVersion: Handshake.CurrentVersion, SenderVersion: "supervisor",
+            Capabilities: [], Fingerprint: null, Endpoint: null);
+
         private readonly SupervisorVerb verb;
         private readonly SupervisorRuntime runtime;
         private readonly Guid sessionId = Guid.NewGuid();
@@ -120,14 +130,17 @@ internal static class SessionKernel {
                 Phase(phase: verb.EntryPhase, status: fault.Status, fault: fault);
                 return Fold(final: Faulted(fault: fault, at: verb.EntryPhase), spoolTail: (0L, 0L));
             }
+            // Commit the claim into the runtime cell so the signal-edge shutdown owner releases it
+            // idempotently inside the SIGTERM callback when the finally cannot be reached in time.
+            _ = runtime.Lease.Swap(f: _ => Some(value: lease));
             try {
                 return verb switch {
                     SupervisorVerb.Status => await StatusAsync().ConfigureAwait(false),
                     SupervisorVerb.Verify verify => await VerifyAsync(verify: verify).ConfigureAwait(false),
                     SupervisorVerb.Quit => await QuitAsync().ConfigureAwait(false),
-                    SupervisorVerb.Redeploy => Fold(
-                        final: Faulted(new BridgeFault.RedeployIncomplete(FailingCheck: "redeploy.supervisor"), SessionPhase.Install),
-                        spoolTail: (0L, 0L)),
+                    SupervisorVerb.Redeploy redeploy => Fold(
+                        final: Faulted(new BridgeFault.CapabilityAbsent(Capability: "redeploy.supervisor", ProbeReceipt: $"the direct supervisor does not own redeploy; Assay owns the package cycle for '{redeploy.PackagePath}'"), SessionPhase.Install),
+                        spoolTail: Evidence.SpoolTail(reportDir: reportDir)),
                     _ => throw new InvalidOperationException(message: "unknown supervisor verb"),
                 };
             } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
@@ -135,13 +148,17 @@ internal static class SessionKernel {
                 Phase(phase: verb.EntryPhase, status: fault.Status, fault: fault);
                 return Fold(final: Faulted(fault: fault, at: verb.EntryPhase), spoolTail: (0L, 0L));
             } finally {
+                // Clearing the cell before release makes the signal-edge shutdown owner's SwapMaybe a
+                // no-op, so the lease is released exactly once whether the finally or the callback wins.
+                _ = runtime.Lease.Swap(f: _ => Option<LeaseToken>.None);
                 _ = Lease.Release(token: lease);
             }
         }
 
         private Task<SessionEnvelope> StatusAsync() =>
-            WithHostAsync(connectPhase: SessionPhase.Status, body: async (connection, live) => {
-                Handshake peer = await connection.HelloAsync(ct: runtime.Root).ConfigureAwait(false);
+            WithHostAsync(connectPhase: SessionPhase.Status, body: async (connection, live, machine) => {
+                Handshake peer = await machine.RunPhaseAsync(phase: SessionPhase.Hello, phaseState: new SessionState.Negotiating(Host: live, Ours: SupervisorHandshake),
+                    rpc: ct => connection.HelloAsync(ct: ct)).ConfigureAwait(false);
                 LiveHost negotiated = live with { Fingerprint = peer.Fingerprint ?? live.Fingerprint, Endpoint = peer.Endpoint ?? live.Endpoint };
                 stream.Add(item: Fact("status.endpoint", peer.Endpoint?.PipeName ?? live.Endpoint.PipeName));
                 return new SessionProjection(
@@ -150,13 +167,15 @@ internal static class SessionKernel {
             });
 
         private Task<SessionEnvelope> VerifyAsync(SupervisorVerb.Verify verify) =>
-            WithHostAsync(connectPhase: SessionPhase.Connect, body: async (connection, live) => {
-                Handshake peer = await connection.HelloAsync(ct: runtime.Root).ConfigureAwait(false);
+            WithHostAsync(connectPhase: SessionPhase.Connect, body: async (connection, live, machine) => {
+                Handshake peer = await machine.RunPhaseAsync(phase: SessionPhase.Hello, phaseState: new SessionState.Negotiating(Host: live, Ours: SupervisorHandshake),
+                    rpc: ct => connection.HelloAsync(ct: ct)).ConfigureAwait(false);
                 LiveHost negotiated = live with { Fingerprint = peer.Fingerprint ?? live.Fingerprint, Endpoint = peer.Endpoint ?? live.Endpoint };
+                machine.Track(host: negotiated);
                 if (peer.ContractVersion < Handshake.CurrentVersion) {
                     BridgeFault fault = new BridgeFault.ShellSkew(ShellContract: peer.ContractVersion, SupervisorContract: Handshake.CurrentVersion);
                     Phase(SessionPhase.Hello, fault.Status, fault: fault);
-                    return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Hello), SpoolTail: (0L, 0L));
+                    return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Hello), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
                 }
                 CapabilityEntry shellContent = peer.Capabilities.FirstOrDefault(predicate: static entry =>
                     string.Equals(a: entry.Key, b: Handshake.ShellContentCapability, comparisonType: StringComparison.Ordinal));
@@ -166,7 +185,7 @@ internal static class SessionKernel {
                         BuiltAgainst: live.Fingerprint,
                         Running: negotiated.Fingerprint);
                     Phase(SessionPhase.Hello, fault.Status, fault: fault);
-                    return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Hello), SpoolTail: (0L, 0L));
+                    return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Hello), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
                 }
                 Phase(SessionPhase.Hello, PhaseStatus.Ok);
                 Fin<CargoManifest> staged = Evidence.Stage(
@@ -176,13 +195,23 @@ internal static class SessionKernel {
                     BridgeFault fault = new BridgeFault.NugetLockDrift(
                         Detail: staged is Fin<CargoManifest>.Fail(Error error) ? error.Message : "closure staging unresolved");
                     Phase(SessionPhase.Stage, fault.Status, fault: fault);
-                    return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Stage), SpoolTail: (0L, 0L));
+                    return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Stage), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
                 }
                 Phase(SessionPhase.Stage, PhaseStatus.Ok);
-                CargoReceipt cargo = await connection.LoadAsync(manifest: manifest, ct: runtime.Root).ConfigureAwait(false);
+                CargoReceipt cargo = await machine.RunPhaseAsync(phase: SessionPhase.Load, phaseState: new SessionState.Loading(Host: negotiated, Peer: peer, Manifest: manifest),
+                    rpc: ct => connection.LoadAsync(manifest: manifest, ct: ct)).ConfigureAwait(false);
                 Phase(SessionPhase.Load, PhaseStatus.Ok, durationMs: cargo.SwapMs);
-                ScenarioReceipt[] receipts = await connection.RunAsync(selection: verify.Selection, ct: runtime.Root).ConfigureAwait(false);
-                UnloadReceipt unload = await connection.UnloadAsync(ct: runtime.Root).ConfigureAwait(false);
+                // Execute rides the per-scenario budget supervisor-side: a wedged synchronous UI invoke
+                // cannot self-cancel, so the running-phase deadline (entry budget or default) plus the host
+                // watch fold a DeadlineHit/UiWedged into Faulted and recover the host through the quit ladder.
+                Seq<ScenarioEntry> selected = toSeq(value: cargo.Scenarios);
+                ScenarioReceipt[] receipts = await machine.RunPhaseAsync(
+                    phase: SessionPhase.Execute,
+                    phaseState: new SessionState.Running(Host: negotiated, Cargo: cargo, Done: Seq<ScenarioReceipt>(), Remaining: selected, RestartBudget: runtime.Policy.RestartBudget),
+                    deadline: ExecuteBudget(selected: selected),
+                    rpc: ct => connection.RunAsync(selection: verify.Selection, ct: ct)).ConfigureAwait(false);
+                UnloadReceipt unload = await machine.RunPhaseAsync(phase: SessionPhase.Unload, phaseState: new SessionState.Loading(Host: negotiated, Peer: peer, Manifest: manifest),
+                    rpc: ct => connection.UnloadAsync(ct: ct)).ConfigureAwait(false);
                 stream.Add(item: Fact(
                     unload.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked",
                     string.Create(
@@ -201,7 +230,7 @@ internal static class SessionKernel {
                     stream.Add(item: Fact("cargo.recycle.after-leak", gcdump.Case is string dump ? $"quit-ladder;gcdump={dump}" : "quit-ladder;gcdump=unavailable"));
                 }
                 Phase(SessionPhase.Unload, PhaseStatus.Ok, durationMs: unload.ElapsedMs);
-                await connection.PrepareQuitAsync(ct: runtime.Root).ConfigureAwait(false);
+                await machine.QuiesceAsync(host: negotiated, sessionId: sessionId, prepare: ct => connection.PrepareQuitAsync(ct: ct), publish: stream.Add).ConfigureAwait(false);
                 _ = QuitLadder.Run(host: negotiated, sessionId: sessionId, publish: stream.Add).Run(runtime);
                 return new SessionProjection(
                     Final: new SessionState.Running(
@@ -216,10 +245,12 @@ internal static class SessionKernel {
                 stream.Add(item: Fact("quit.no-host", admitted is Fin<LiveHost>.Fail(Error error) ? error.Message : "no live endpoint"));
                 return Task.FromResult(Fold(final: new SessionState.Idle(Bundle: runtime.Bundle), spoolTail: (0L, 0L)));
             }
-            return WithConnectionAsync(host: host, connectPhase: SessionPhase.QuitAe, body: async (connection, live) => {
-                Handshake peer = await connection.HelloAsync(ct: runtime.Root).ConfigureAwait(false);
+            return WithConnectionAsync(host: host, connectPhase: SessionPhase.QuitAe, body: async (connection, live, machine) => {
+                Handshake peer = await machine.RunPhaseAsync(phase: SessionPhase.Hello, phaseState: new SessionState.Negotiating(Host: live, Ours: SupervisorHandshake),
+                    rpc: ct => connection.HelloAsync(ct: ct)).ConfigureAwait(false);
                 LiveHost negotiated = live with { Fingerprint = peer.Fingerprint ?? live.Fingerprint, Endpoint = peer.Endpoint ?? live.Endpoint };
-                await connection.PrepareQuitAsync(ct: runtime.Root).ConfigureAwait(false);
+                machine.Track(host: negotiated);
+                await machine.QuiesceAsync(host: negotiated, sessionId: sessionId, prepare: ct => connection.PrepareQuitAsync(ct: ct), publish: stream.Add).ConfigureAwait(false);
                 Fin<PhaseStatus> outcome = QuitLadder.Run(host: negotiated, sessionId: sessionId, publish: stream.Add).Run(runtime);
                 if (outcome is Fin<PhaseStatus>.Succ(PhaseStatus status) && status == PhaseStatus.Ok) {
                     return new SessionProjection(
@@ -235,6 +266,15 @@ internal static class SessionKernel {
             });
         }
 
+        private TimeSpan ExecuteBudget(Seq<ScenarioEntry> selected) {
+            // The running-phase deadline is the worst per-scenario budget across the selection (each
+            // scenario's BudgetMs when positive, else the policy default), so one wedged scenario in a
+            // batch still trips a supervisor-side DeadlineHit instead of waiting out the session budget.
+            long maxBudgetMs = selected.Map(f: static entry => entry.BudgetMs).Filter(f: static ms => ms > 0)
+                .Fold(initialState: 0L, f: static (max, ms) => Math.Max(val1: max, val2: ms));
+            return maxBudgetMs > 0 ? TimeSpan.FromMilliseconds(value: maxBudgetMs) : runtime.Policy.ScenarioDefaultBudget;
+        }
+
         private void ReconcileHost() =>
             stream.AddRange(collection: Reconcile.Run(bundle: runtime.Bundle, sessionId: sessionId).Run(runtime).IfFail(Seq<BridgeEvent>()).AsEnumerable());
 
@@ -243,7 +283,7 @@ internal static class SessionKernel {
                 ? Fin.Succ(value: live)
                 : LaunchAndPoll();
 
-        private Task<SessionEnvelope> WithHostAsync(SessionPhase connectPhase, Func<SupervisorConnection, LiveHost, Task<SessionProjection>> body) {
+        private Task<SessionEnvelope> WithHostAsync(SessionPhase connectPhase, Func<SupervisorConnection, LiveHost, SessionMachine, Task<SessionProjection>> body) {
             ReconcileHost();
             return EnsureHost() switch {
                 Fin<LiveHost>.Succ(LiveHost host) => WithConnectionAsync(host: host, connectPhase: connectPhase, body: body),
@@ -275,24 +315,34 @@ internal static class SessionKernel {
             return Fin.Fail<LiveHost>(error: Error.New(message: connectFault.Prescription));
         }
 
-        private async Task<SessionEnvelope> WithConnectionAsync(LiveHost host, SessionPhase connectPhase, Func<SupervisorConnection, LiveHost, Task<SessionProjection>> body) {
+        private async Task<SessionEnvelope> WithConnectionAsync(LiveHost host, SessionPhase connectPhase, Func<SupervisorConnection, LiveHost, SessionMachine, Task<SessionProjection>> body) {
             SessionProjection projection;
+            // The machine seats the connect-phase cursor and attaches the host watch over the whole
+            // connection lifetime; every RPC then folds host-exit, heartbeat-silence, and per-phase
+            // deadline signals through SessionDispatch.Apply, so a wedged or exited host trips a typed
+            // Faulted state supervisor-side instead of blocking on the raw RPC await.
+            using SessionMachine machine = SessionMachine.Open(host: host, runtime: runtime);
+            // Commit the live host pid so the signal-edge shutdown owner can kill the orphan synchronously.
+            _ = runtime.LiveHostPid.Swap(f: _ => Some(value: host.Pid));
             try {
                 SupervisorConnection connection = await SupervisorConnection
                     .ConnectAsync(pipeName: host.Endpoint.PipeName, timeout: runtime.Policy.ConnectDeadline, ct: runtime.Root)
                     .ConfigureAwait(false);
                 await using (connection.ConfigureAwait(false)) {
                     try {
-                        projection = await body(connection, host).ConfigureAwait(false);
+                        projection = await body(connection, host, machine).ConfigureAwait(false);
                     } finally {
                         stream.AddRange(collection: connection.Events);
                     }
                 }
+            } catch (SessionMachine.PhaseFaulted faulted) {
+                Phase(faulted.At, faulted.Fault.Status, fault: faulted.Fault);
+                projection = new SessionProjection(Final: Faulted(fault: faulted.Fault, at: faulted.At), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
             } catch (Exception error) when (error is RemoteMethodNotFoundException or RemoteInvocationException or ConnectionLostException
                 or IOException or TimeoutException or ObjectDisposedException) {
                 BridgeFault fault = FaultOf(error: error);
                 Phase(connectPhase, fault.Status, fault: fault);
-                projection = new SessionProjection(Final: Faulted(fault: fault, at: connectPhase), SpoolTail: (0L, 0L));
+                projection = new SessionProjection(Final: Faulted(fault: fault, at: connectPhase), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
             }
             return Fold(final: projection.Final, spoolTail: projection.SpoolTail);
         }
@@ -380,6 +430,105 @@ internal static class SessionKernel {
         }
 
         private static double Elapsed(long started) => Environment.TickCount64 - started;
+    }
+
+    // Ownership: the live composition of the session-state algebra. One cursor cell folds every raised
+    // SessionSignal through SessionDispatch.Apply, the host watch is the subscription that survives the
+    // whole connection, and each Phase arms a linked per-phase deadline so a wedged or exited host folds
+    // to Faulted instead of blocking the RPC await. The pure machine stays the deep owner; this only
+    // composes it at the live seam.
+    private sealed class SessionMachine : IDisposable {
+        private readonly Atom<SessionState> cursor;
+        private readonly SessionPolicy policy;
+        private readonly TimeProvider clock;
+        private readonly CancellationToken root;
+        private readonly HostWatch watch;
+        private readonly TaskCompletionSource<SessionState.Faulted> faultedGate =
+            new(creationOptions: TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private SessionMachine(Atom<SessionState> cursor, SessionPolicy policy, TimeProvider clock, int pid, CancellationToken root) {
+            this.cursor = cursor;
+            this.policy = policy;
+            this.clock = clock;
+            this.root = root;
+            cursor.Change += Observe;
+            watch = HostWatch.Attach(pid: pid, raise: Raise, poll: policy.WatchPoll, clock: clock);
+        }
+
+        internal static SessionMachine Open(LiveHost host, SupervisorRuntime runtime) =>
+            new(cursor: Atom(value: (SessionState)new SessionState.Connecting(Host: host, PollsRemaining: 0)),
+                policy: runtime.Policy, clock: runtime.Clock, pid: host.Pid, root: runtime.Root);
+
+        internal void Track(LiveHost host) => _ = cursor.Swap(f: _ => new SessionState.Connecting(Host: host, PollsRemaining: 0));
+
+        // One RPC under a per-phase deadline: the cursor seats the phase state, a linked CTS cancels the
+        // await at the phase deadline while a DeadlineHit folds the cursor to Faulted, and the host watch's
+        // HostExited/HeartbeatSilent fold the same way. The await races the faulted gate; whichever
+        // resolves first wins, and a faulted cursor cancels the in-flight RPC and throws the typed fault.
+        internal async Task<T> RunPhaseAsync<T>(SessionPhase phase, SessionState phaseState, Func<CancellationToken, Task<T>> rpc, TimeSpan? deadline = null) {
+            ArgumentNullException.ThrowIfNull(argument: rpc);
+            _ = cursor.Swap(f: _ => phaseState);
+            TimeSpan window = deadline ?? policy.DeadlineFor(state: phaseState).IfNone(policy.SessionDeadline);
+            using CancellationTokenSource scope = CancellationTokenSource.CreateLinkedTokenSource(root);
+            await using ConfiguredAsyncDisposable tripped = scope.Token.Register(callback: () =>
+                Raise(new SessionSignal.DeadlineHit(Phase: phase, Elapsed: window))).ConfigureAwait(false);
+            if (window != Timeout.InfiniteTimeSpan)
+                scope.CancelAfter(delay: window);
+            Task<T> work = rpc(scope.Token);
+            Task done = await Task.WhenAny(work, faultedGate.Task).ConfigureAwait(false);
+            if (ReferenceEquals(objA: done, objB: faultedGate.Task)) {
+                await scope.CancelAsync().ConfigureAwait(false);
+                throw new PhaseFaulted(faulted: await faultedGate.Task.ConfigureAwait(false));
+            }
+            return await work.ConfigureAwait(false);
+        }
+
+        // PrepareQuit under a bounded scope: PrepareQuitAsync was uncancellable, so a wedged GH2 reflective
+        // scrub blocked the supervisor with no escalation, and a stalled-then-swallowed scrub slid a dirty
+        // host straight into the `terminate` AE — the AppKit "Save changes?" sheet that wedges the rung and
+        // forces the SIGKILL crash. QuitPrepare.RunAsync bounds each scrub attempt at the quit-rung deadline and
+        // composes the receipt: a residual-dirty or incomplete scrub is retried once (the re-assert is the
+        // AE-rung precondition) and the outcome is published as a typed fact, so a not-clean host reaching
+        // `terminate` is evidence rather than a silent slide. The bound is preserved so a wedged GH2 scrub
+        // cannot block forever; the caller's quit ladder still recycles the host either way.
+        internal Task QuiesceAsync(LiveHost host, Guid sessionId, Func<CancellationToken, Task<QuitPrepareReceipt>> prepare, Action<BridgeEvent> publish) {
+            _ = cursor.Swap(f: _ => new SessionState.Quitting(Host: host, Rung: SessionPhase.QuitAe, RungStartedMs: clock.GetUtcNow().ToUnixTimeMilliseconds()));
+            return QuitPrepare.RunAsync(prepare: prepare, deadline: policy.QuitRungDeadline, clock: clock, sessionId: sessionId, publish: publish, root: root);
+        }
+
+        public void Dispose() {
+            cursor.Change -= Observe;
+            watch.Dispose();
+            _ = faultedGate.TrySetCanceled();
+        }
+
+        private void Observe(SessionState state) {
+            if (state is SessionState.Faulted faulted)
+                _ = faultedGate.TrySetResult(result: faulted);
+        }
+
+        private void Raise(SessionSignal signal) => _ = cursor.Swap(f: state => SessionDispatch.Apply(state: state, signal: signal, policy: policy));
+
+        // The faulted-gate sentinel crosses the body's straight-line awaits back to the connection seam,
+        // where it converts to the projection — the one boundary throw the live path raises by design,
+        // analogous to a cancellation token tripping an await. The carrying ctor pins the typed fault;
+        // the conventional ctors exist only to satisfy the exception-shape contract.
+        internal sealed class PhaseFaulted : Exception {
+            internal PhaseFaulted(SessionState.Faulted faulted) : base(message: faulted.Fault.Prescription) {
+                Fault = faulted.Fault;
+                At = faulted.At;
+            }
+
+            internal PhaseFaulted() : this(faulted: new SessionState.Faulted(Fault: new BridgeFault.LaunchFailed(Detail: "phase faulted"), At: SessionPhase.Connect, Done: Seq<ScenarioReceipt>())) { }
+            internal PhaseFaulted(string message) : this(faulted: new SessionState.Faulted(Fault: new BridgeFault.LaunchFailed(Detail: message), At: SessionPhase.Connect, Done: Seq<ScenarioReceipt>())) { }
+            internal PhaseFaulted(string message, Exception innerException) : base(message: message, innerException: innerException) {
+                Fault = new BridgeFault.LaunchFailed(Detail: message);
+                At = SessionPhase.Connect;
+            }
+
+            internal BridgeFault Fault { get; }
+            internal SessionPhase At { get; }
+        }
     }
 
     private sealed record SessionProjection(SessionState Final, (long Count, long LastSequence) SpoolTail);

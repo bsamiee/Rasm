@@ -92,7 +92,6 @@ public sealed partial class BlockEdgeKind {
 public abstract partial record BlockOutcome {
     private BlockOutcome() { }
     public sealed record Receipt(MutationReceipt Value) : BlockOutcome;
-    public sealed record Snapshot(Definition Value) : BlockOutcome;
     public sealed record Snapshots(Seq<Definition> Values) : BlockOutcome;
     public sealed record MembersResult(Seq<Member> Values) : BlockOutcome;
     public sealed record Inserts(Seq<Insert> Values) : BlockOutcome;
@@ -467,7 +466,7 @@ public readonly record struct ArchiveLink(ArchivePath Full, Option<string> Relat
     }
 
     public static bool Matches(string? stored, string candidate, Option<string> anchorDirectory) {
-        Op key = Op.Of(name: nameof(Matches));
+        Op key = Op.Of();
         bool fallback = string.Equals(a: stored ?? string.Empty, b: candidate, comparisonType: StringComparison.OrdinalIgnoreCase);
         return (from storedLink in Resolve(raw: stored ?? string.Empty, anchorDirectory: anchorDirectory, key: key)
                 from candidateLink in Resolve(raw: candidate, anchorDirectory: anchorDirectory, key: key)
@@ -632,7 +631,7 @@ public readonly partial struct BlockContentHash {
         geometry switch {
             null => acc,
             InstanceReferenceGeometry r => Fnv64.Mix(acc: Fnv64.Mix(acc: acc, v: Fnv64.HashGuid(value: r.ParentIdefId)), v: XformHash(x: r.Xform)),
-            _ => Fnv64.Mix(acc: Fnv64.Mix(acc: acc, v: BoundsAndKindHash(geometry: geometry)), v: geometry.DataCRC(currentRemainder: 0u)),
+            _ => Fnv64.Mix(acc: Fnv64.Mix(acc: acc, v: unchecked((ulong)(int)geometry.ObjectType)), v: geometry.DataCRC(currentRemainder: 0u)),
         };
 
     private static ulong HashDoubles(Seq<double> values) =>
@@ -640,11 +639,6 @@ public readonly partial struct BlockContentHash {
 
     private static ulong XformHash(Transform x) =>
         HashDoubles(values: Seq(x.M00, x.M01, x.M02, x.M03, x.M10, x.M11, x.M12, x.M13, x.M20, x.M21, x.M22, x.M23, x.M30, x.M31, x.M32, x.M33));
-
-    private static ulong BoundsAndKindHash(GeometryBase geometry) {
-        BoundingBox box = geometry.GetBoundingBox(accurate: true);
-        return HashDoubles(values: Seq((double)geometry.ObjectType, box.Min.X, box.Min.Y, box.Min.Z, box.Max.X, box.Max.Y, box.Max.Z));
-    }
 
     private static ulong HashAttributes(ObjectAttributes? a) =>
         a is null ? 0UL : Seq(
@@ -826,6 +820,9 @@ public sealed record Definition(
 public readonly partial struct DefinitionId {
     public static Fin<DefinitionId> From(Guid value, Op? key = null) =>
         guard(value != Guid.Empty, key.OrDefault().InvalidInput()).ToFin().Map(_ => Create(value: value));
+
+    public static Option<DefinitionId> FromOption(Guid value) =>
+        value != Guid.Empty ? Some(Create(value: value)) : Option<DefinitionId>.None;
 }
 
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]

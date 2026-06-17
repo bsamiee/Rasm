@@ -22,9 +22,11 @@ dependencies = [
     "obstore>=0.10.1",  # cp315-ready abi3 Rust object_store cloud seam; relieves s3fs/pyarrow cp315 wheel lag
     "httpx>=0.28.1",    # Retain; never remove regardless of consumers existing or not
     "watchfiles>=1.2.0",
+    "aiocron>=2.1",
     "apscheduler>=3.11.2",  # cron+interval+date Trigger union for the runtime StagePlan orchestration
     "universal-pathlib>=0.3.10",  # UPath 0.3 storage_options/protocol= resolution is load-bearing for the fsspec artifact store
     "asyncssh>=2.23.1",
+    "zstandard",
     "specklepy>=3.2.8",  # runtime TransportResource row: Speckle stream send/receive (remote AEC transport, never a durable store)
     "tree-sitter>=0.25.2",
     "tree-sitter-python>=0.25.0",
@@ -56,9 +58,9 @@ mutation = ["mutmut>=3.6.0"]
 scientific = [
     "adbc-driver-manager",  # data ADBC driver-manager (Arrow Flight SQL / DuckDB ADBC); Cython, source-builds on cp315
     "arro3-core>=0.8.1",  # data cp315-ready abi3 Arrow core; pyarrow-cp315-gap bridge
-    "arviz>=1.2.0",  # compute PY_INFER_001 Bayesian diagnostics; pure-Python
+    "arviz>=1.2.0; python_version<'3.15'",  # compute PY_INFER_001 Bayesian diagnostics; gated: scipy/Pythran cp315 beta lag
     "awkward>=2.9.1",  # data PY_TENSOR_001 ragged/jagged arrays; pure-Python
-    "compas>=2.15.1",  # geometry GeometryAlgebra: AEC computational geometry, networks, form-finding; pure-Python (requires_python>=3.9)
+    "compas>=2.15.1; python_version<'3.15'",  # geometry GeometryAlgebra; gated: scipy-family cp315 beta lag
     "connectorx>=0.4.5; python_version<'3.15'",  # data fast SQL->Arrow; Rust/maturin, no cp315 wheel (lock pin 0.2.3 is stale cp39-linux)
     "cubed>=0.28.0",  # data PY_TENSOR_001 bounded-memory distributed arrays; pure-Python
     "dask",
@@ -87,7 +89,7 @@ scientific = [
     "pdal>=3.5.3; python_version<'3.15'",  # geometry PY_INGEST_001 point-cloud pipeline; sdist-only, prefer conda; no cp315 wheel
     "pint",
     "polars",  # cp315 wheel available
-    "pyarrow>=24.0.0",  # source-build via Parametric_Forge Arrow C++ toolchain; 24.0 fixes the cp315 PyWeakref_GET_OBJECT build break
+    "pyarrow>=23.0.0,<24",  # source-build via Parametric_Forge Arrow C++ 23 toolchain; keep Python and C++ Arrow majors aligned
     "pye57>=0.4.19; python_version<'3.15'",  # geometry PY_INGEST_001 E57 scan IO; C++ ext cp314, no cp315 wheel
     "pymc>=6.0.1; python_version<'3.15'",  # compute PY_INFER_001 probabilistic programming; gated: pytensor->numba->llvmlite (cp314 ceiling); arviz is the cp315 Bayesian-diagnostics path
     "pyogrio>=0.12.1",  # source-build via Parametric_Forge GDAL toolchain
@@ -96,10 +98,10 @@ scientific = [
     "rasterio>=1.5.0",  # data RasterGeoClaim axis; source-build via Parametric_Forge GDAL toolchain
     "rhino3dm>=8.17.0",  # geometry mesh IO; CMake C++ source-build
     "rustworkx>=0.17.1",  # compute/data PY_GRAPH_001 fast graph algorithms; abi3 wheel installs on cp315
-    "scikit-fem>=12.0.2",  # compute PY_SIM_001 lightweight FEM assembly; pure-Python
+    "scikit-fem>=12.0.2; python_version<'3.15'",  # compute PY_SIM_001 lightweight FEM assembly; gated: scipy-family cp315 beta lag
     "scikit-image>=0.26.0; python_version<'3.15'",  # artifacts PY_IMG_001 image processing; C/Cython cp314, no cp315 wheel
     "scikit-learn>=1.9.0; python_version<'3.15'",  # compute ModelAsset classical-ML + sklearn->ONNX export; no cp315 wheel
-    "scipy>=1.17.1",  # source-build via Parametric_Forge Fortran/BLAS toolchain
+    "scipy>=1.17.1; python_version<'3.15'",  # gated: scipy/Pythran has no cp315 beta support yet
     "scipy-stubs",
     "shapely>=2.1.2",  # source-build via Parametric_Forge GEOS toolchain
     "sparse>=0.18.0; python_version<'3.15'",  # data PyData sparse n-D arrays; gated: hard-deps numba->llvmlite (cp314 ceiling); scipy.sparse covers sparse-LA on cp315
@@ -143,7 +145,6 @@ artifacts = [
     "vl-convert-python",
     "vtk>=9.6.2; python_version<'3.13'",  # artifacts VisualSpec VTK engine backing pyvista; no cp315 wheel
     "weasyprint",
-    "zstandard",
 ]
 # Marker-gated native + companion-server stack on its own interpreter floor (python_version<'3.13'), the one sanctioned
 # divergence from the >=3.15 pure-Python runtime/data/artifacts floor. ifcopenshell hard-requires <3.15 and bundles OCCT;

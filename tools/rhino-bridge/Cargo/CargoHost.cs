@@ -44,6 +44,48 @@ internal sealed partial class HostCapability {
     }
 }
 
+// --- [BOUNDARY] -----------------------------------------------------------------------------
+
+// Ownership: the per-scenario scratch redirect. Live scenarios root their File3dm/PDF/OBJ writes at
+// Path.GetTempPath(); pointing the OS temp vars at a <reportDir>/scratch/<scenario> tree for the
+// scenario bracket keeps those artifacts under the retained report dir (DrainScopes never touches
+// the filesystem) instead of leaking into the system temp tree. Dispose restores the prior env once.
+// Root is the honest artifact root in both states: the redirected scratch tree when live, else the
+// OS temp tree the un-redirected scenario actually writes to — never a reportDir the env never aimed at.
+internal readonly record struct ScratchRedirect(string Root, bool Redirected, string? PriorTmpDir, string? PriorTmp, string? PriorTemp) : IDisposable {
+    private static readonly string[] Keys = ["TMPDIR", "TMP", "TEMP"];
+
+    internal static ScratchRedirect Open(string reportDir, string scenario) {
+        // BOUNDARY ADAPTER: a filesystem fault degrades to an un-redirected scratch rooted at the
+        // report dir — the scenario stays live and Dispose is inert, never a raw throw across the rail.
+        string root = Path.Combine(path1: reportDir, path2: "scratch", path3: scenario);
+        try {
+            _ = Directory.CreateDirectory(path: root);
+            ScratchRedirect redirect = new(
+                Root: root,
+                Redirected: true,
+                PriorTmpDir: Environment.GetEnvironmentVariable(variable: "TMPDIR"),
+                PriorTmp: Environment.GetEnvironmentVariable(variable: "TMP"),
+                PriorTemp: Environment.GetEnvironmentVariable(variable: "TEMP"));
+            foreach (string key in Keys) {
+                Environment.SetEnvironmentVariable(variable: key, value: root);
+            }
+            return redirect;
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException) {
+            return new ScratchRedirect(Root: Path.GetTempPath(), Redirected: false, PriorTmpDir: null, PriorTmp: null, PriorTemp: null);
+        }
+    }
+
+    public void Dispose() {
+        if (!Redirected) {
+            return;
+        }
+        Environment.SetEnvironmentVariable(variable: "TMPDIR", value: PriorTmpDir);
+        Environment.SetEnvironmentVariable(variable: "TMP", value: PriorTmp);
+        Environment.SetEnvironmentVariable(variable: "TEMP", value: PriorTemp);
+    }
+}
+
 // --- [SERVICES] -----------------------------------------------------------------------------
 
 // Ownership: the collectible cargo host owns scenario discovery, capability probing, requires
@@ -161,6 +203,7 @@ public sealed class CargoHost : IBridgeCargo {
 
     private ScenarioReceipt Execute(ScenarioEntry scenario, MethodInfo entry, Action<BridgeEvent> publish, long started) {
         using Spool spool = new(reportDir: manifest.ReportDir, scenario: scenario.Name);
+        using ScratchRedirect scratch = ScratchRedirect.Open(reportDir: manifest.ReportDir, scenario: scenario.Name);
         void emit(BridgeEvent evt) => Emit(spool: spool, publish: publish, evt: evt);
         void fact(string key, object? value) => emit(Fact(key: key, value: value, scenario: scenario.Name));
         ScenarioContext? context = null;
@@ -170,9 +213,12 @@ public sealed class CargoHost : IBridgeCargo {
         bool commandCaptureAdmitted = false;
         string commandCaptureFailure = string.Empty;
         try {
+            // Both command surfaces clear per scenario: the capture buffer AND the persistent history
+            // window, so a warm host never carries prior scenarios' lines into command.*.tail evidence.
             commandCaptureWasEnabled = RhinoApp.CommandWindowCaptureEnabled;
             RhinoApp.CommandWindowCaptureEnabled = true;
             _ = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
+            RhinoApp.ClearCommandHistoryWindow();
             commandCaptureAdmitted = true;
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
             commandCaptureFailure = $"{error.GetType().Name}: {error.Message}";
@@ -185,6 +231,8 @@ public sealed class CargoHost : IBridgeCargo {
 #pragma warning restore CA2000
             if (resolved is { } doc) {
                 fact(key: "scenario.doc.source", value: prior is null ? "created" : "active");
+                fact(key: "scratch.root", value: scratch.Root);
+                fact(key: "scratch.redirected", value: scratch.Redirected);
                 context = new ScenarioContext(doc: doc, sink: fact);
                 Capture.Hook = label => doc.Views.ActiveView is { } view
                     ? Shoot(spool: spool, view: view, scenario: scenario.Name, label: label, onFailure: false, emit: emit, fact: fact)
