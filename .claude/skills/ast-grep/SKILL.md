@@ -10,7 +10,7 @@ description: >-
 
 # [H1][AST-GREP]
 
-Structural search is authored for the `assay code` rail, which vendors ast-grep and tree-sitter in-process — never the raw `ast-grep`/`sg` CLI. Every pattern runs through `uv run python -m tools.assay code search|query` and returns the same one-`Envelope`, artifact-backed contract as every other rail.
+Structural search is authored for the `assay code` rail, which vendors ast-grep and tree-sitter in-process — never the raw `ast-grep`/`sg` CLI. Every pattern runs through `uv run python -m tools.assay code search|query` and returns the same one-`Envelope`, artifact-backed contract as every other rail. The vendored ast-grep version is pinned in the pnpm catalog (`pnpm-workspace.yaml` `@ast-grep/cli`) and resolved through the lockfile; there is no globally installed CLI to match.
 
 ## Routing
 
@@ -38,6 +38,7 @@ For node-kind precision and field constraints, author a tree-sitter S-expression
 
 - Fields anchor structure: `(call_expression function: (identifier) @fn arguments: (arguments) @args)`.
 - Predicates filter captures: `(#eq? @fn "run_check")`, `(#match? @name "^_")`.
+- Content prefilter: a single-pattern query whose predicates are *only* `#eq?` and/or `#any-of?` auto-prefilters routed files by literal byte presence (zero false negatives) before any parse, so a literal-anchored sweep skips files that cannot match. Adding a `#match?`/`#not-eq?` predicate, or authoring multiple patterns, disables the prefilter and parses every routed file — prefer literal `#eq?`/`#any-of?` over regex `#match?` for repo-wide scans where a literal anchor exists.
 
 ## Discipline
 
@@ -65,4 +66,9 @@ uv run python -m tools.assay code query --pattern '(call_expression function: (i
 
 # literal fallback (routes to ripgrep)
 uv run python -m tools.assay code search --pattern run_check --python tools/assay
+
+# NEGATIVE — wrong node kind, silently zero matches (not an error): `?.` parses as a distinct
+# conditional-access node, so this skips every plain `recv.bar(...)`. An empty Envelope here means
+# shape mismatch, not an absent target — re-author against `$RECV.bar($$$ARGS)`.
+uv run python -m tools.assay code search --pattern '$RECV?.bar($$$ARGS)' --csharp src/
 ```

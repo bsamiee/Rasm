@@ -1,5 +1,10 @@
 [PASS] IDEATE over the `libs/` planning corpus. IDEATE builds the forward pool and distills it into tasks across all three tiers; it adds ideas and tasks, writes no code fence, and implements nothing. The method, the doc model, and the form are the routes below; this file scopes only the IDEATE pass.
 
+[TARGETS]: READ ALL OF: `libs/.planning/planning-targets.md` 
+- Contains all planning infrastructure folders that this session will target (lib scope, language scope, per folder).
+- Read: @AGENTS.md
+- Read: @README.md
+
 [ROUTES]:
 - `libs/.planning/campaign-method.md` — the method: the two modes, the bar, the universal principles, the IDEATE pass, the workflow orchestration, the loop.
 - `libs/.planning/architecture.md` — the strata, dependency direction, geometry/IFC flow, per-language roles, and the `.planning/` lifecycle. Every idea is grounded here, never in speculation.

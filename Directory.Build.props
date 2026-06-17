@@ -153,6 +153,11 @@
         <TargetExt>.rhp</TargetExt>
     </PropertyGroup>
 
+    <!-- Every bridge project pins a deterministic InformationalVersion; the source-revision suffix is the one cross-cutting bridge knob, so it lives on the IsRhinoBridgeProject marker rather than the plugin-only boundary group above. -->
+    <PropertyGroup Label="Bridge Versioning" Condition="'$(IsRhinoBridgeProject)' == 'true'">
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    </PropertyGroup>
+
     <PropertyGroup Label="Thinktecture Identity Generators" Condition="'$(UsesThinktecture)' == 'true'">
         <!-- Thinktecture source-generates an internal JetBrains.Annotations.InstantHandleAttribute polyfill per project; across the InternalsVisibleTo closure the duplicate source-declared+imported type triggers CS0436, and a non-friend consumer of the generated union sees the internal polyfill as CS0122. Suppress the polyfill and supply one shared public JetBrains.Annotations identity that the generated [InstantHandle] usages bind to. -->
         <ThinktectureRuntimeExtensions_SourceGenerator_GenerateJetBrainsAnnotations>false</ThinktectureRuntimeExtensions_SourceGenerator_GenerateJetBrainsAnnotations>

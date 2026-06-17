@@ -1,5 +1,10 @@
 [SESSION_ENTRY] This file is the session entry point and the only file a session must be handed. Read it first, then read the routes below; this prompt ROUTES, and the routed law GOVERNS. One method, one suite standard, three language doctrines — aligned, never coupled. This prompt owns only what the law does not: the planning-vs-implementation framing, the tri-language additive posture, the optional doctrine-hardening toggle, and the session orchestration discipline. It never restates the bar, the method, the loop, the gap-hunt, the spike tiers, or the standing enrichment mandates — those live in `campaign-method.md` and a session reads them there.
 
+[TARGETS]: READ ALL OF: `libs/.planning/planning-targets.md` 
+- Contains all planning infrastructure folders that this session will target (lib scope, language scope, per folder).
+- Read: @AGENTS.md
+- Read: @README.md
+
 [ROUTES] Read in order at session open; once read, each arrives settled and is never re-taught:
 - `libs/.planning/campaign-method.md` — the campaign law: `[TWO_MODES]`, `[FENCE_LAW]`, `[IDEATION_LAW]`, `[SIBLING_BRANCHES]`, THE_BAR, THE_METHOD, THE_LOOP, DEPTH_AND_GAP_HUNT, SPIKE_RESOLUTION, SESSION_ENTRY_PROTOCOL.
 - `libs/.planning/README.md` — the authoring standard: doc-set tiers, the one column schema per doc type, page#cluster notation, page grammar, signature law, language law, review law, ledger protocol, spike-finalization.

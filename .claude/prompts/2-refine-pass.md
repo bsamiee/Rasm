@@ -1,5 +1,10 @@
 [PASS] REFINE over the `libs/` planning corpus. REFINE is the objective code-quality pass: its MAIN goal is the best possible refactoring of the architecture, the fenced code, and the prose in the design docs — unified rails and pipelines, collapsed surface into denser, richer, more-advanced owners, reduced LOC, closed gaps, capability never removed — to the `docs/stacks/csharp/` bar for every language. It adjusts ideas and tasks in parallel only as that refactoring reshapes them; it never executes a task, and it never runs IDEATE's systematic pool-construction or coverage audit; it emits a deferral only for a growth-potential structure it preserves. It is the deep code-and-doc hardening before the IMPLEMENT pass acts. The method, the doc model, and the code doctrine are the routes below; this file scopes only the REFINE pass.
 
+[TARGETS]: READ ALL OF: `libs/.planning/planning-targets.md` 
+- Contains all planning infrastructure folders that this session will target (lib scope, language scope, per folder).
+- Read: @AGENTS.md
+- Read: @README.md
+
 [ROUTES]:
 - `libs/.planning/campaign-method.md` — the method: the bar, the universal principles, the REFINE pass, the workflow orchestration.
 - `libs/.planning/architecture.md` — the strata, the `.planning/` lifecycle (single `<pkg>/.planning/<sub-domain>/`, the mature-folder exemption), and the per-language roles; the standard for folder design.
