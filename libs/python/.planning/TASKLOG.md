@@ -35,13 +35,13 @@ Open work only. Closed rows move into the owning page or disappear. Owner state 
 
 [PY_API_002a]:
 - Owner: data
-- Work: 19 data distributions are absent from the `>=3.15` lock (polars, pyarrow, pandas, deltalake, duckdb, adbc-driver-manager, connectorx, dask, xarray, geopandas, shapely, pyogrio, pyproj, rasterio, rhino3dm, meshio, trimesh, h5py, pandera); `networkx` is captured. Each page carries the import name and the wheel-floor capture gap; no members are invented while the cp315 wheel is missing. `rasterio` additionally rides the `python_version<'3.15'` marker.
-- Exit: a cp315 wheel or the marker-floor environment admits each distribution, then `assay api query` fills public types, entrypoints, and implementation law.
+- Work: the data floor splits into default-floor source builds and genuine marker fences. `pyarrow`, `geopandas`, `shapely`, `pyogrio`, `pyproj`, `rasterio`, and `h5py` now resolve through `forge-scientific-env` on `>=3.15`; `connectorx`, `rhino3dm`, and the remaining hard-floor packages stay fenced until their upstream wheels or companion floor land. Each page carries the import name and verified capture gap; no members are invented while the distribution is absent.
+- Exit: `forge-scientific-env uv lock` admits the source-buildable set and `assay api query` fills their public types, entrypoints, and implementation law; marker-fenced packages fill only after their floor admits them.
 
 [PY_API_003]:
 - Owner: compute
-- Work: `numba`/`jax`/`onnx`/`onnxruntime`/`scikit-learn` ride the `python_version<'3.15'` marker (no cp315 wheel); `numpy`/`scipy`/`pint`/`uncertainties` carry no cp315 wheel; `sympy` is cp315-reflected. Fill the marker-floor catalogues once the environment installs them.
-- Exit: the marker-floor environment admits each distribution and `assay api query` fills the catalogue.
+- Work: `scipy` is a default-floor source build through `forge-scientific-env` Fortran/BLAS. `numba`/`jax`/`onnx`/`onnxruntime`/`scikit-learn` stay on the `python_version<'3.15'` marker because their blocker is an upstream runtime/CPython ceiling, not local native tooling. `numpy`/`pint`/`uncertainties` remain default-floor admissions; `sympy` is cp315-reflected.
+- Exit: `scipy` reflects in the default assay query after the source-build install; the marker-floor environment admits the hard-ceiling distributions and fills their catalogues separately.
 
 [PY_API_004]:
 - Owner: artifacts

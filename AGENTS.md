@@ -75,6 +75,8 @@ Host-bound work is local by contract. `ASSAY_EXEC_TARGET` moves admitted subproc
 
 Artifact paths emitted by Assay envelopes and bridge `reportDir` are authoritative. Inspect them before assuming layouts; root scratch output is a defect unless routed through the owning store, scope, or state file.
 
+Machine-level scientific and provisioning tools live in `Parametric_Forge`. Use `forge-scientific-env` for native Python source-build probes and `rasm-spike-stack` for disposable PG18/Timescale/ParadeDB spike services under `.artifacts/spikes/provisioning`. Rasm owns the manifest, lockfile, `.api` catalogues, and assay evidence that consume those tools.
+
 ## [7]-[DOCUMENTATION]
 
 Route README, ADR, architecture, roadmap, test strategy, API, reference, code documentation, support matrix, how-to, runbook, contributing, tutorial, onboarding, and instruction-file work through `docs/standards/README.md`.

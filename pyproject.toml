@@ -61,15 +61,15 @@ scientific = [
     "dask",
     "deltalake",  # data PY_LAKE_001 lakehouse; abi3 wheel installs on cp315
     "duckdb",  # source-builds on cp315 (~2 min)
-    "geopandas; python_version<'3.15'",  # consequence of shapely/pyproj/pyogrio <3.15 gating
-    "h5py>=3.16.0; python_version<'3.15'",  # source-build-gated: system libhdf5; no cp315 wheel
+"geopandas",  # source-build via Parametric_Forge scientific toolchain
+"h5py>=3.16.0",  # source-build via Parametric_Forge HDF5 toolchain
     "icechunk>=2.0.6; python_version<'3.15'",  # data PY_TENSOR_001 versioned tensor store; Rust pyo3 cp313, no cp315 wheel
     "jax>=0.10.1; python_version<'3.15'",  # compute NumericIntent XLA accelerator row; jaxlib ships no cp315 wheel
     "laspy>=2.7.0",  # geometry PY_INGEST_001 LAS/LAZ point clouds; pure-Python
     "meshio",
     "nanoarrow>=0.8.0; python_version<'3.15'",  # data PY_INTEROP_001 Arrow C-data zero-copy; C ext cp312, no cp315 wheel
     "narwhals>=2.22.1",  # data PY_INTEROP_001 dataframe-agnostic API; pure-Python
-    "netcdf4>=1.7.4; python_version<'3.15'",  # compute PY_SIM_001 CFD/field IO; system netcdf, no cp315 wheel
+"netcdf4>=1.7.4",  # compute PY_SIM_001 CFD/field IO; source-build via Parametric_Forge netCDF toolchain
     "networkx",
     "numba>=0.65.1; python_version<'3.15'",  # compute NumericIntent LLVM JIT accelerator row; numba lags CPython, no cp315 wheel
     "numpy>=2.0",  # compute substrate; 2.x ships cp315 wheels (1.26 forced an sdist build)
@@ -83,21 +83,21 @@ scientific = [
     "pdal>=3.5.3; python_version<'3.15'",  # geometry PY_INGEST_001 point-cloud pipeline; sdist-only, prefer conda; no cp315 wheel
     "pint",
     "polars",  # cp315 wheel available
-    "pyarrow>=20.0; python_version<'3.15'",  # source-build-gated: system libarrow; no cp315 wheel
+"pyarrow>=20.0",  # source-build via Parametric_Forge Arrow C++ toolchain
     "pye57>=0.4.19; python_version<'3.15'",  # geometry PY_INGEST_001 E57 scan IO; C++ ext cp314, no cp315 wheel
     "pymc>=6.0.1",  # compute PY_INFER_001 probabilistic programming; pure-Python (PyTensor backend)
-    "pyogrio>=0.12.1; python_version<'3.15'",  # source-build-gated: system GDAL; no cp315 wheel
-    "pyproj>=3.7.2; python_version<'3.15'",  # source-build-gated: system PROJ; no cp315 wheel
+"pyogrio>=0.12.1",  # source-build via Parametric_Forge GDAL toolchain
+"pyproj>=3.7.2",  # source-build via Parametric_Forge PROJ toolchain
     "python-flint>=0.8.0; python_version<'3.15'",  # compute PY_RIGOR_001 validated/interval numerics (Arb); LGPL-2.1+ runtime, cp314, no cp315 wheel
-    "rasterio>=1.5.0; python_version<'3.15'",  # data RasterGeoClaim axis (GDAL raster coverage); no cp315 wheel
+"rasterio>=1.5.0",  # data RasterGeoClaim axis; source-build via Parametric_Forge GDAL toolchain
     "rhino3dm>=8.17.0; python_version<'3.15'",  # geometry mesh IO; CMake C++ ext, no cp315 wheel
     "rustworkx>=0.17.1",  # compute/data PY_GRAPH_001 fast graph algorithms; abi3 wheel installs on cp315
     "scikit-fem>=12.0.2",  # compute PY_SIM_001 lightweight FEM assembly; pure-Python
     "scikit-image>=0.26.0; python_version<'3.15'",  # artifacts PY_IMG_001 image processing; C/Cython cp314, no cp315 wheel
     "scikit-learn>=1.9.0; python_version<'3.15'",  # compute ModelAsset classical-ML + sklearn->ONNX export; no cp315 wheel
-    "scipy>=1.17.1; python_version<'3.15'",  # source-build-gated: gfortran/Fortran toolchain; no cp315 wheel
+"scipy>=1.17.1",  # source-build via Parametric_Forge Fortran/BLAS toolchain
     "scipy-stubs",
-    "shapely>=2.1.2; python_version<'3.15'",  # source-build-gated: system libgeos; no cp315 wheel
+"shapely>=2.1.2",  # source-build via Parametric_Forge GEOS toolchain
     "sympy",
     "trimesh",
     "uncertainties",

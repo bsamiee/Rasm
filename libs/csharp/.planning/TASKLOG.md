@@ -7,6 +7,7 @@ Cross-folder and infrastructure open work no single folder owns; per-folder open
 | [INDEX] | [ITEM] | [OWNER] |
 | :-----: | ------ | ------- |
 | [1] | Deploy assets at first server app root: postgresql.conf preload fragments, pg_hba fragments, role grants; PostGIS 3.6.1+ server-side enablement | Persistence ROADMAP + first app root |
+| [2] | Disposable tier-2 server probes use `rasm-spike-stack` from Parametric_Forge; generated compose assets stay under `.artifacts/spikes/provisioning`, use public Timescale PG18 and ParadeDB PG18 images, and only labelled spike containers are torn down | Persistence ROADMAP + first app root |
 
 ## [2]-[ADMISSION_DECISIONS_PENDING]
 
