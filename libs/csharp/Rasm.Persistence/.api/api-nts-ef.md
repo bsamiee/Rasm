@@ -35,29 +35,35 @@ the geometry wire codecs on the ADO data source, and transitive
 [PLUGIN_TYPES]: EF plugin admission and services
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE]     | [CAPABILITY]                  |
-| :-----: | :---------------------------------------------------------- | :----------------- | :---------------------------- |
-|   [1]   | `NpgsqlNetTopologySuiteDbContextOptionsBuilderExtensions`   | builder extension  | admits plugin                 |
-|   [2]   | `NpgsqlNetTopologySuiteServiceCollectionExtensions`         | service extension  | admits plugin services        |
-|   [3]   | `NpgsqlNetTopologySuiteDbFunctionsExtensions`               | function surface   | projects PostGIS functions    |
-|   [4]   | `NpgsqlNetTopologySuiteOptionsExtension`                    | options extension  | carries plugin policy         |
-|   [5]   | `NetTopologySuiteDataSourceConfigurationPlugin`             | data source plugin | enables geometry wire         |
-|   [6]   | `NpgsqlNetTopologySuiteTypeMappingSourcePlugin`             | mapping plugin     | resolves geometry mappings    |
-|   [7]   | `NpgsqlGeometryTypeMapping`                                 | geometry mapping   | maps geometry and geography   |
-|   [8]   | `NpgsqlNetTopologySuiteMethodCallTranslatorPlugin`          | method plugin      | translates geometry methods   |
-|   [9]   | `NpgsqlNetTopologySuiteMemberTranslatorPlugin`              | member plugin      | translates geometry members   |
-|  [10]   | `NpgsqlNetTopologySuiteAggregateMethodCallTranslatorPlugin` | aggregate plugin   | translates spatial aggregates |
-|  [11]   | `NpgsqlNetTopologySuiteConventionSetPlugin`                 | convention plugin  | adds postgis extension        |
-|  [12]   | `NpgsqlNetTopologySuiteCodeGeneratorPlugin`                 | scaffolding plugin | emits plugin admission        |
-|  [13]   | `NpgsqlNetTopologySuiteDesignTimeServices`                  | design services    | admits design tooling         |
+| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE]       | [CAPABILITY]                          |
+| :-----: | :---------------------------------------------------------- | :------------------- | :------------------------------------ |
+|   [1]   | `NpgsqlNetTopologySuiteDbContextOptionsBuilderExtensions`   | builder extension    | admits plugin                         |
+|   [2]   | `NpgsqlNetTopologySuiteServiceCollectionExtensions`         | service extension    | admits plugin services                |
+|   [3]   | `NpgsqlNetTopologySuiteDbFunctionsExtensions`               | function surface     | projects PostGIS functions            |
+|   [4]   | `NpgsqlNetTopologySuiteOptionsExtension`                    | options extension    | carries plugin policy                 |
+|   [5]   | `NetTopologySuiteDataSourceConfigurationPlugin`             | data source plugin   | enables geometry wire on data source  |
+|   [6]   | `NpgsqlNetTopologySuiteTypeMappingSourcePlugin`             | mapping plugin       | resolves geometry column mappings     |
+|   [7]   | `NpgsqlGeometryTypeMapping<TGeometry>`                      | geometry mapping     | maps geometry and geography columns   |
+|   [8]   | `NpgsqlJsonGeometryWktReaderWriter`                         | JSON value writer    | reads and writes geometry as WKT JSON |
+|   [9]   | `NpgsqlNetTopologySuiteMethodCallTranslatorPlugin`          | method plugin        | translates geometry methods           |
+|  [10]   | `NpgsqlNetTopologySuiteMemberTranslatorPlugin`              | member plugin        | translates geometry members           |
+|  [11]   | `NpgsqlNetTopologySuiteAggregateMethodCallTranslatorPlugin` | aggregate plugin     | translates spatial aggregates         |
+|  [12]   | `NpgsqlNetTopologySuiteAggregateMethodTranslator`           | aggregate translator | implements spatial aggregate SQL      |
+|  [13]   | `NpgsqlGeometryMemberTranslator`                            | member translator    | implements geometry member SQL        |
+|  [14]   | `NpgsqlGeometryMethodTranslator`                            | method translator    | implements geometry method SQL        |
+|  [15]   | `NpgsqlNetTopologySuiteConventionSetPlugin`                 | convention plugin    | adds PostGIS extension convention     |
+|  [16]   | `NpgsqlNetTopologySuiteExtensionAddingConvention`           | convention           | finalizes PostGIS extension on model  |
+|  [17]   | `NpgsqlNetTopologySuiteSingletonOptions`                    | singleton options    | carries resolved geometry options     |
+|  [18]   | `INpgsqlNetTopologySuiteSingletonOptions`                   | singleton contract   | singleton options contract            |
+|  [19]   | `NpgsqlNetTopologySuiteCodeGeneratorPlugin`                 | scaffolding plugin   | emits plugin admission in scaffolding |
+|  [20]   | `NpgsqlNetTopologySuiteDesignTimeServices`                  | design services      | admits design tooling                 |
 
 [WIRE_TYPES]: ADO wire admission
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]        | [CAPABILITY]                |
-| :-----: | :---------------------------------------- | :-------------------- | :-------------------------- |
-|   [1]   | `NpgsqlNetTopologySuiteExtensions`        | type-mapper extension | admits geometry wire codecs |
-|   [2]   | `NetTopologySuiteTypeInfoResolverFactory` | resolver factory      | resolves geometry codecs    |
+| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]        | [CAPABILITY]                          |
+| :-----: | :--------------------------------- | :-------------------- | :------------------------------------ |
+|   [1]   | `NpgsqlNetTopologySuiteExtensions` | type-mapper extension | admits geometry wire codecs on mapper |
 
 [GEOMETRY_TYPES]: NetTopologySuite geometry model
 - rail: spatial-values
@@ -82,11 +88,14 @@ the geometry wire codecs on the ADO data source, and transitive
 [ENTRYPOINT_SCOPE]: plugin admission
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]          | [CAPABILITY]                                    |
-| :-----: | :----------------------------------------- | :-------------------- | :---------------------------------------------- |
-|   [1]   | `UseNetTopologySuite`                      | provider option       | maps geometry values in EF                      |
-|   [2]   | `AddEntityFrameworkNpgsqlNetTopologySuite` | service extension     | registers plugin services                       |
-|   [3]   | `UseNetTopologySuite`                      | type-mapper extension | admits wire codecs on `NpgsqlDataSourceBuilder` |
+`UseNetTopologySuite` on `NpgsqlDbContextOptionsBuilder` accepts optional `CoordinateSequenceFactory`, `PrecisionModel`, `Ordinates handleOrdinates`, and `bool geographyAsDefault`.
+`UseNetTopologySuite` on `INpgsqlTypeMapper` (generic `TMapper` overload) accepts the same parameters and is the ADO data-source admission seam.
+
+| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]          | [CAPABILITY]                                     |
+| :-----: | :----------------------------------------- | :-------------------- | :----------------------------------------------- |
+|   [1]   | `UseNetTopologySuite`                      | provider option       | maps geometry values in EF with precision policy |
+|   [2]   | `AddEntityFrameworkNpgsqlNetTopologySuite` | service extension     | registers plugin services                        |
+|   [3]   | `UseNetTopologySuite`                      | type-mapper extension | admits wire codecs on `INpgsqlTypeMapper`        |
 
 [ENTRYPOINT_SCOPE]: SQL function projections
 - rail: store-provider

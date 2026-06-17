@@ -18,10 +18,12 @@ provider builders.
 [TELEMETRY_TYPES]: provider builder extensions
 - rail: telemetry
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]          |
-| :-----: | :-------------------------------- | :--------------- | :-------------------- |
-|   [1]   | `TracerProviderBuilderExtensions` | tracer extension | admits Npgsql tracing |
-|   [2]   | `MeterProviderBuilderExtensions`  | meter extension  | admits Npgsql metrics |
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                           |
+| :-----: | :-------------------------------- | :--------------- | :----------------------------------------------------------------------------------------------------- |
+|   [1]   | `TracerProviderBuilderExtensions` | tracer extension | `AddNpgsql(TracerProviderBuilder) : TracerProviderBuilder`                                             |
+|   [2]   | `MeterProviderBuilderExtensions`  | meter extension  | `AddNpgsqlInstrumentation(MeterProviderBuilder, Action<NpgsqlMetricsOptions>?) : MeterProviderBuilder` |
+
+`NpgsqlMetricsOptions` is declared by the `Npgsql` driver package (parameterless ctor; histogram and cardinality posture ride OpenTelemetry meter-view configuration, not options properties). Tracing depth — command/batch/COPY filters, span-name providers, enrichment callbacks, `EnableFirstResponseEvent`, `EnablePhysicalOpenTracing` — is configured via `NpgsqlDataSourceBuilder.ConfigureTracing(Action<NpgsqlTracingOptionsBuilder>)`, which is a driver-level concern catalogued in `api-npgsql.md`.
 
 ## [3]-[ENTRYPOINTS]
 
@@ -35,24 +37,25 @@ provider builders.
 [ENTRYPOINT_SCOPE]: metrics wiring
 - rail: telemetry
 
-[METRICS_WIRING]:
-- Surface: `AddNpgsqlInstrumentation`.
-- Call shape: `MeterProviderBuilder` plus `Action<NpgsqlMetricsOptions>`.
-- Capability: subscribes Npgsql meters.
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                           | [CAPABILITY]             |
+| :-----: | :------------------------- | :----------------------------------------------------------------------------------------------------- | :----------------------- |
+|   [1]   | `AddNpgsqlInstrumentation` | `AddNpgsqlInstrumentation(MeterProviderBuilder, Action<NpgsqlMetricsOptions>?) : MeterProviderBuilder` | subscribes Npgsql meters |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
 [TELEMETRY_PROFILE]:
 - namespace: `Npgsql`
-- tracer root: `AddNpgsql`
-- meter root: `AddNpgsqlInstrumentation`
-- options root: `NpgsqlMetricsOptions` declared by the `Npgsql` driver (parameterless ctor, no settable property knobs at the admitted version; histogram and cardinality posture rides OpenTelemetry meter-view configuration)
+- tracer root: `AddNpgsql` on `TracerProviderBuilder`
+- meter root: `AddNpgsqlInstrumentation` on `MeterProviderBuilder` with optional `Action<NpgsqlMetricsOptions>`
+- options root: `NpgsqlMetricsOptions` declared by the `Npgsql` driver; parameterless ctor; no settable property knobs at the admitted version
+- tracing depth root: `NpgsqlTracingOptionsBuilder` via `NpgsqlDataSourceBuilder.ConfigureTracing` — driver-layer concern, not OTel package concern
 
 [LOCAL_ADMISSION]:
 - Npgsql telemetry enters through the composition-root telemetry pipeline only.
 - Span and meter names are driver facts, not Persistence vocabulary.
 - Metrics options are declared by the driver and configured at the telemetry boundary.
 - Telemetry wiring cannot leak into store profiles or query surfaces.
+- Tracing configuration (filters, span-name providers, enrichment, first-response event, physical-open tracing) belongs to `NpgsqlDataSourceBuilder.ConfigureTracing`, not to this package.
 
 [RAIL_LAW]:
 - Package: `Npgsql.OpenTelemetry`
