@@ -1,42 +1,55 @@
 # [COMPUTE_TASKLOG]
 
-Open work owned by this folder; closed items do not appear. The residual SPIKE owners carry their named closure environment — each is a transcription-complete fence whose only open gate is the live host, native asset, or GPU hardware named below.
+Open work owned by this folder; closed items do not appear. `[STATUS]` is one of `QUEUED`, `ACTIVE`, `BLOCKED`, `SPIKE`; owner state is read at `ARCHITECTURE.md` `[OWNER_REGISTRY]`. Every `SPIKE` row names the probe that flips its owner registry cell to `FINALIZED`.
 
 ## [1]-[RESIDUAL_TIER3_PROBES]
 
-Genuine tier-3 residuals: the owner member shape is FINALIZED and proved on the reachable half; the open gate is a host, native asset, or hardware this single-RID osx-arm64 host structurally cannot supply.
+Tier-3 residuals: the owner member shape is FINALIZED and proved on the reachable half; the open gate is a host, native asset, or hardware this single-RID osx-arm64 host structurally cannot supply. Each is named in its page RESEARCH cluster.
 
-| [INDEX] | [ITEM] | [CLOSURE_ENVIRONMENT] |
-| :-----: | ------ | --------------------- |
-| [1] | numeric-lane native-MKL / native-OpenBLAS dense GEMM + CSparse native sparse EXECUTION (`LinearProvider.native-mkl` / `native-openblas` rows; numeric-lane#DENSE_ALGEBRA + #SPARSE_SOLVE) — RID axis FINALIZED, managed terminal proved end-to-end on osx-arm64; native execution is a per-RID deploy-asset gate, not an open owner spike: the `Control.TryUse*` boolean fall-through returns false on this RID because no osx-arm64 native asset ships | win-x64 / linux-x64 host carrying the `MathNet.Numerics.MKL.Win-x64` / `.Linux-x64` (or OpenBLAS) native asset: `LinearProvider.Select` activates the native row and the dense/sparse solve runs through the native `ILinearAlgebraProvider` |
-| [2] | model-lane `Cuda` / `DirectMl` GPU-EP EXECUTION (`AppendExecutionProvider_CUDA(0)` / `_DML(0)`; model-lane#RESEARCH [EP_EXECUTION]) — registration member shape FINALIZED and compiled; CoreML EP proved tier-2 on this arm64 mac | NVIDIA-Linux / Windows RID + driver (CUDA) or Windows RID (DirectML): the GPU EP registers and inference executes on device |
-| [3] | model-lane `ModelSessions` / `RunOps` in-host ONNX dylib native load inside the RhinoWIP plugin ALC; `libortextensions.dylib` versioned-RID resolution; `RunOptions.Terminate` latch propagation latency + deadline-poll cadence on the CoreML and CPU rows (model-lane#RESEARCH [CANCELLATION]) | live Rhino/GH2 host process: dylib loads without ALC isolation failure, RID resolution confirmed, latch cadence measured under the plugin ALC (charter `bridge` gate, ROADMAP START_GATES [1]-[2]) |
-| [4] | remote-lane `WireChannels` / `CallSpine` Kestrel `ListenUnixSocket` server leg inside the Rhino plugin ALC; `Grpc.Core.Api` transitive route proof; CoreML option value domains (MLComputeUnits, SpecializationStrategy) grounded against the live CoreML surface | live Rhino-plugin app root + UDS attach scenario (charter `bridge` + `spec-rail` gates, ROADMAP START_GATES [3]-[4]) |
-| [5] | GH2 async result readback ceiling (solver idle-loop) | live GH2 host: readback ceiling measured, idle-loop behaviour documented |
+| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
+| :-----: | ------ | -------------- | :------: |
+| [1] | numeric-lane native-MKL / native-OpenBLAS dense GEMM + CSparse native sparse execution; the RID axis is FINALIZED and the managed terminal proved end-to-end on osx-arm64, the native row activates on a win-x64 / linux-x64 host carrying the `MathNet.Numerics.MKL.Win-x64` / `.Linux-x64` or OpenBLAS native asset where `LinearProvider.Select` activates the native `ILinearAlgebraProvider` | numeric-lane#DENSE_ALGEBRA · numeric-lane#SPARSE_SOLVE | SPIKE |
+| [2] | model-lane `Cuda` / `DirectMl` GPU-EP execution; `AppendExecutionProvider_CUDA(0)` / `_DML(0)` member shape FINALIZED and compiled, execution registers and runs on device on an NVIDIA-Linux / Windows RID + driver (CUDA) or Windows RID (DirectML) | model-lane#EP_AXIS | SPIKE |
+| [3] | model-lane in-host ONNX dylib native load inside the RhinoWIP plugin ALC; `libortextensions.dylib` versioned-RID resolution; `RunOptions.Terminate` latch propagation latency + deadline-poll cadence on the CoreML and CPU rows under the live Rhino/GH2 host process | model-lane#SESSION_CAPSULE · model-lane#INFERENCE_MODES | SPIKE |
+| [4] | remote-lane Kestrel `ListenUnixSocket` server leg inside the Rhino plugin ALC; `Grpc.Core.Api` transitive route proof; CoreML option value domains grounded against the live CoreML surface under the live Rhino-plugin app root + UDS attach scenario | remote-lane#TRANSPORT_AXIS · remote-lane#CALL_POLICY | SPIKE |
+| [5] | GH2 async result readback ceiling and solver idle-loop behaviour under the live GH2 host | scheduling-and-lanes#SOLVE_GUARD | SPIKE |
+| [6] | ONNX Runtime native dylib load inside the RhinoWIP plugin ALC, the bridge-gated start probe unblocking the session capsule | model-lane#SESSION_CAPSULE | SPIKE |
+| [7] | `libortextensions.dylib` resolution under the portable RID graph, the extension-op start probe with a bin-output native-asset listing | model-lane#EXTENSION_OPS | SPIKE |
+| [8] | Native-BLAS asset presence per RID — `Control.TryUseNativeMKL` / `TryUseNativeOpenBLAS` boolean probe over the restored native asset graph, managed fallback proven on osx-arm64 | numeric-lane#DENSE_ALGEBRA · numeric-lane#SPARSE_SOLVE | SPIKE |
+| [9] | ORT-GenAI live multi-token generation against a genai-format model asset; the token-streaming member shape is FINALIZED, the model artifact is the residual gate for `GenerativeRun.Stream` | model-lane#GENERATIVE_RUN | SPIKE |
 
-## [2]-[SPEC_PROOFS_AT_IMPLEMENTATION]
+## [2]-[IMPLEMENTATION_PROBES]
 
-| [INDEX] | [ITEM] | [EXIT] |
-| :-----: | ------ | ------ |
-| [1] | Zero-alloc stream-pool eleven-event fold (Check.Faster); drop-callback allocation profile | allocation profile clean; no alloc on the hot fold path |
-| [2] | Progress no-regress race (CsCheck SampleParallel over concurrent Advance) | no regress observed over parallel Advance calls |
-| [3] | ComputeWireContext + suite Strict resolver-merge round-trip over Thinktecture key scalars (15-case union incl. Factorization/Generate) | round-trip passes; key scalars and the two new cases survive merge without loss |
-| [4] | UnitsNet next-major QuantityInfo reshape staged-restore check | staged-restore passes against next-major QuantityInfo shape |
+Implementation-time probes discharged against scratch processes, the spec project, MathNet/Vectors cross-folder alignment, or a manifest decision — no live host required.
 
-## [3]-[ADMISSION_DECISIONS_PENDING]
+| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
+| :-----: | ------ | -------------- | :------: |
+| [1] | `Grpc.Core.Api` `Metadata` carrier members compile through the spec-compile fallback gate until the assay source map registers the transitive package | remote-lane#FAULT_PROJECTION | SPIKE |
+| [2] | Zero-alloc stream-pool eleven-event fold (`Check.Faster`) and the drop-callback allocation profile resolve with no alloc on the hot fold path | staging-and-streams#STREAM_POOL | SPIKE |
+| [3] | Progress no-regress race over concurrent `Advance` (CsCheck `SampleParallel`) holds with no observed rank regress | progress-and-observation#PHASE_FAMILY | SPIKE |
+| [4] | `ComputeWireContext` + suite Strict resolver-merge round-trip over Thinktecture key scalars, the 21-case union including Factorization/Generate, survives merge without loss | receipts-and-benchmarks#WIRE_STAMPS | SPIKE |
+| [5] | UnitsNet next-major `QuantityInfo` reshape staged-restore check passes against the next-major shape | units-boundary#QUANTITY_TABLE | SPIKE |
+| [6] | `MeshKernel` / `SolveLane` element-assembly kernels (Poisson/elasticity/Helmholtz shape-function + quadrature) ground against the `Rasm`/Vectors core kernel + `MeshSpace` boundary-extraction surface; tet10/hex20 shape-function and boundary-extraction member spellings confirmed at cross-folder alignment | solver-and-optimization#SOLVE_CONTRACT · solver-and-optimization#DISCRETIZATION_MESH | SPIKE |
+| [7] | `Surrogate.Fit` GP-covariance Cholesky + POD/SVD reduced-basis projection ground against the live MathNet SVD/factorization surface; reduced-basis projection + GP marginalization member shapes confirmed | solver-and-optimization#OPTIMIZER_LANE | SPIKE |
+| [8] | `FieldCodec` chunked-field decode + Zarr/VTK-class layout ground against the admitted field-format library surface; chunk policy, error-bound gate, and zero-copy handoff confirmed at the field-codec admission gate | interchange#FIELD_RESULT_CODEC | SPIKE |
+| [9] | `SensitivityLaw` DDG-operator VJP bodies (cotangent-Laplacian transpose, heat-flow backward-Euler adjoint, spectral-mode sensitivity) ground against the `Rasm`/Vectors operator kernel; adjoint-coefficient member spellings confirmed at cross-folder alignment | tensor-lane#EQUIVALENCE_INTEROP | SPIKE |
+| [10] | `TilePartition` leaf-tile content emit grounds against the `Rasm.Bim` b3dm/glTF tile-emit codec; the `TileSet` octree partition, per-node content-key, and quantization-bit policy are transcription-complete, the leaf emit body grounds at cross-package alignment | interchange#TILE_PARTITION | SPIKE |
+| [11] | NodaTime converter precedence over combined source-gen metadata in the Strict merge | receipts-and-benchmarks#WIRE_STAMPS | SPIKE |
 
-| [INDEX] | [ITEM] | [EXIT] |
-| :-----: | ------ | ------ |
-| [1] | Microsoft.AspNetCore.TestHost (InProcess transport row helper) | admitted at matched ASP.NET Core servicing line as test-only PackageReference |
-| [2] | Microsoft.ML.OnnxRuntime.Gpu / .DirectML (Cuda/DirectMl EP registration members) | Windows-profile verdict recorded; designed-only rows on model-lane RESEARCH [EP_EXECUTION] confirmed or promoted |
+## [3]-[ADMISSION_DECISIONS]
 
-## [4]-[DEEPENING_FINDINGS]
+Manifest admission verdicts pending; each lands a package row at its matched servicing line or confirms a designed-only EP execution row.
 
-| [INDEX] | [ITEM] | [EXIT] |
-| :-----: | ------ | ------ |
-| [1] | Optional NodaTime.Serialization.Protobuf direct admission gated on whether Google.Api.CommonProtos calendar surface resolves transitively through the admitted NodaTime + Grpc graph (receipts-and-benchmarks RESEARCH [CALENDAR_BRIDGE]; Compute GAP_LEDGER [20] + CATALOGUE_PENDING) | transitive resolution confirmed or denied; admission verdict recorded |
-| [2] | `MeshKernel`/`SolveLane` element assembly kernels (Poisson/elasticity/Helmholtz shape-function + quadrature) ground against the `Rasm`/Vectors core kernel + `MeshSpace` boundary-extraction surface (solver-and-optimization RESEARCH [ASSEMBLY_KERNELS]); the discretization fold and CSR handoff to numeric-lane are transcription-complete | shape-function member spellings for tet10/hex20 + boundary-extraction member confirmed at cross-folder alignment |
-| [3] | `Surrogate.Fit` GP-covariance Cholesky + POD/SVD reduced-basis projection ground against the live MathNet SVD/factorization surface (solver-and-optimization RESEARCH [SURROGATE_FIT]); the duality contract and error-bound gate are transcription-complete | reduced-basis projection + GP marginalization member shapes confirmed against MathNet |
-| [4] | `FieldCodec` chunked-field decode + Zarr/VTK-class layout ground against the admitted field-format library surface (interchange RESEARCH); the chunk policy, error-bound gate, and zero-copy handoff are transcription-complete | field-format decode member spellings confirmed at the field-codec admission gate |
-| [5] | `SensitivityLaw` DDG-operator VJP bodies (cotangent-Laplacian transpose, heat-flow backward-Euler adjoint, spectral-mode sensitivity) ground against the `Rasm`/Vectors operator kernel (tensor-lane RESEARCH [DDG_ADJOINT]); the elementwise/matmul VJP table and tape chain are transcription-complete | DDG-operator adjoint-coefficient member spellings confirmed at cross-folder alignment |
-| [6] | AP242/native/IFC5/Draco/Meshopt/3D-Tiles codec member spellings ground against the STEP, native-companion, GeometryGym IFC5, and SharpGLTF extension surfaces (interchange RESEARCH [AP242_CODEC], [NATIVE_FORMAT_BRIDGES], [IFC5_ECS], [MESH_COMPRESSION]); rows, codecs, capability/frame columns transcription-complete, native legs land at the Python-companion cross-branch touchpoint | codec/encode member spellings confirmed; native-companion legs sequenced at cross-branch alignment |
+| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
+| :-----: | ------ | -------------- | :------: |
+| [1] | `Microsoft.AspNetCore.TestHost` admitted at the matched ASP.NET Core servicing line as a test-only `PackageReference` for the InProcess transport row helper | remote-lane#TRANSPORT_AXIS | BLOCKED |
+| [2] | `Microsoft.ML.OnnxRuntime.Gpu` / `.DirectML` Windows-profile verdict for the Cuda/DirectMl EP registration members; designed-only EP execution rows confirmed or promoted | model-lane#EP_AXIS | BLOCKED |
+| [3] | `NodaTime.Serialization.Protobuf` direct admission gated on whether `Google.Api.CommonProtos` calendar surface resolves transitively through the admitted NodaTime + Grpc graph; admission verdict recorded | receipts-and-benchmarks#WIRE_STAMPS · remote-lane#PROTO_VOCABULARY | BLOCKED |
+
+## [4]-[TRANSCRIPTION]
+
+The implementation sequence is the `ARCHITECTURE.md` `[SOURCE_TREE]` build order (vocabulary owners before consumers, `Faults.cs` through `Solver/Lane.cs`); each file transcribes its page clusters verbatim and resolves the RESEARCH rows those pages carry. Production source is absent.
+
+| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
+| :-----: | ------ | -------------- | :------: |
+| [1] | Transcribe the build-order files per `ARCHITECTURE.md` `[SOURCE_TREE]`; the test project `Rasm.Compute.Tests` node is present and empty | intent-and-selection#DISPATCH_SPINE | QUEUED |

@@ -2,6 +2,8 @@
 
 Rasm is a RhinoWIP and Grasshopper2 monorepo for product-neutral AEC libraries, host-boundary packages, agent-operated tooling, and downstream Rhino/GH2 products. Apps and plugins are consumers; shared capability lands first in libraries that absorb geometry, host, runtime, UI, compute, persistence, packaging, and evidence concerns behind canonical owners.
 
+Rasm is one tri-language AEC platform organized into strict strata: the C# branch is the Rhino9(WIP)/GH2-aware producer (the geometry kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries); Python is the host-free science/compute/data/geometry/IFC companion; TypeScript is the host-free web/edge platform. The three branches couple only at the wire. The canonical hierarchy — the strata, the dependency direction, the universal-vs-Rhino-capture rule, and the geometry/mesh/IFC flow — is owned by `libs/.planning/architecture.md`.
+
 ## [1]-[TARGET]
 
 - RhinoWIP on macOS.
@@ -27,19 +29,7 @@ Rasm is a RhinoWIP and Grasshopper2 monorepo for product-neutral AEC libraries, 
 
 ## [3]-[LIBRARY_OWNERS]
 
-`libs/csharp/Rasm` is the RhinoCommon-aware geometry and numeric kernel. It owns domain context, tolerance, geometry admission, analysis queries, vector geometry, fields, clouds, mesh, sampling, flow, spectral, matrix, and typed receipts. It does not own Rhino commands, GH2 components, preview conduits, bake flows, UI, runtime launch, or bridge lifecycle.
-
-`libs/csharp/Rasm.Rhino` owns in-process RhinoCommon boundaries: commands, document mutation, input and selection, UI dispatch, camera, files, archive, publish, sheets, blocks, and events. It assumes an active Rhino host or explicit headless document and keeps command-string shims as narrow managed-API-gap boundaries.
-
-`libs/csharp/Rasm.Grasshopper` owns GH2 component and UI intent boundaries: component specs, ports, data access, bindings, GH2 canvas/document/wire/editor operations, realized editor/canvas/window state, Rhino main-thread/Eto dispatch, and reversible GH2 global mutation.
-
-`libs/csharp/Rasm.AppHost` owns the runtime spine: host variance, lifecycle, drain, time, deadlines, configuration, composition, resources, telemetry, health, support bundles, outbound resilience, and suite ports. Sibling packages adapt to AppHost ports; AppHost does not depend on sibling packages.
-
-`libs/csharp/Rasm.AppUi` owns the product UI rail: surface hosts, shell, navigation, screens, commands, live data, tables, inspectors, charts, offscreen visuals, theme, typography, icons, dialogs, input, motion, accessibility, localization, evidence, and TS-facing command/evidence projections.
-
-`libs/csharp/Rasm.Compute` owns measured execution: intent admission, substrate selection, tensors, model sessions, remote wire vocabulary, staging, lanes, progress, units, typed receipts, benchmark claims, and cross-process compute transport.
-
-`libs/csharp/Rasm.Persistence` owns durable state: store profiles, data lanes, schema rails, query rails, native SQLite truth, snapshots, cache indexes, sync/collaboration, redaction, retention, and store evidence.
+The C# library suite is organized into strict strata — the `Rasm` geometry/numeric kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries. The package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule are owned by `libs/.planning/architecture.md`. The polyglot branch roles — C# as the Rhino9(WIP)/GH2-aware producer, Python as the host-free science/compute/data/geometry/IFC companion, and TypeScript as the host-free web/edge platform — and the planning corpus are introduced in `libs/.planning/README.md`.
 
 ## [4]-[TOOL_OWNERS]
 

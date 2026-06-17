@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Host-neutral BIM object model and universal exchange semantics: the IFC semantic graph, element-set algebra, classification, host-neutral assembly, and the IFC/glTF/STEP import-export codec over GeometryGym and SharpGLTF, consuming the Rasm kernel geometry and the Compute content-identity and tessellation rail at the seam.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Using Include="System.Collections.Frozen" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Rasm\Rasm.csproj" />
+    </ItemGroup>
+</Project>

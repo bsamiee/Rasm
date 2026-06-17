@@ -20,8 +20,8 @@ For declaration-order passes, preserve generated semantic/key bands; split group
 Skills are execution aids and mining input, not durable documentation authority. Promote portable rules through `docs/`, source, manifests, generated contracts, tool owners, or trusted instruction overlays after current behavior is verified.
 
 Hidden and generated reservoirs have explicit roles:
-- `.planning/` drives planned library transcription when a package charter makes it the owner.
-- `.api/` is generated API evidence and catalog truth, not handwritten source.
+- `.planning/` holds decision-complete design pages and is tiered: `libs/.planning/` is the cross-language core (the topology law `architecture.md`, the campaign method, the authoring standard, and the cross-language `IDEAS.md`/`TASKLOG.md`), `libs/<lang>/.planning/` is each peer branch node, and each package owns four root index docs (`README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`) plus design pages under one `<pkg>/.planning/<sub-domain>/`. The doc-set, the index-doc templates, and the `.planning/` lifecycle are owned by `libs/.planning/README.md` and `architecture.md`; no `.planning/README.md` or `ROADMAP.md` exists.
+- `.api/` is generated API evidence and catalog truth, not handwritten source; each branch keeps one `.planning/.api/` with one catalogue per admitted package, never duplicated per folder.
 - `docs/stacks/csharp/.reports/` is mining material and region evidence for stack-page maintenance only; visible stack pages carry durable doctrine.
 
 Before finalizing non-trivial repository work, classify observed agent mistakes by owner: machine default, repo root policy, subtree overlay, source or documentation owner, tool README, or confidence gap. Refine an existing rule first; add a new rule only for a repeated mistake or a single high-risk miss such as wrong owner routing, destructive command risk, fake confirmation, unsupported claims, or code-quality regression. Do not copy session narration, report frames, memory notes, or research summaries into active instructions.
@@ -50,14 +50,9 @@ Rasm is a RhinoWIP, GH2, and product-neutral AEC/design-geometry workspace. Inte
 
 AEC pressure informs geometry, topology, units, tolerances, host documents, object graphs, exchange, visualization, compute, persistence, and evidence; it never collapses runtime, UI, compute, persistence, Python, TypeScript, Assay, or Bridge into generic app/plugin code.
 
-The C# library split is owner law, not folder trivia:
-- `libs/csharp/Rasm` is the RhinoCommon-aware geometry and numeric kernel.
-- `libs/csharp/Rasm.Rhino` owns in-process RhinoCommon command, document, UI, camera, file, block, and event boundaries.
-- `libs/csharp/Rasm.Grasshopper` owns the GH2 boundary library and GH2 UI intent adapter.
-- `libs/csharp/Rasm.AppHost` owns the runtime spine, host profiles, lifecycle, time, configuration, composition, resources, telemetry, health, support, outbound resilience, and suite ports.
-- `libs/csharp/Rasm.AppUi` owns product UI rails over host surfaces, commands, live data, tables, inspectors, charts, visuals, theme, typography, assets, dialogs, input, motion, accessibility, localization, and evidence.
-- `libs/csharp/Rasm.Compute` owns measured execution, intent/substrate selection, tensors, model lanes, remote wire vocabulary, staging, scheduling, progress, units, receipts, and benchmark claims.
-- `libs/csharp/Rasm.Persistence` owns durable state, store profiles, data lanes, schema/query rails, native SQLite truth, snapshots, caches, sync/collaboration, redaction, and retention.
+The C# package set follows the canonical strata — KERNEL, AEC-DOMAIN, APP-PLATFORM, HOST-BOUNDARY, then future APP shells — owned in full by `libs/.planning/architecture.md`: the package roster, each package's charter, and the dependency direction live there and are never restated here.
+
+"Universal" never means host-free C#: the whole C# branch is RhinoCommon-aware. A host-neutral owner exists only where a non-Rhino runtime (Python, TypeScript) consumes the contract; otherwise the Rhino-native surface is captured as a host-specific feature. Geometry, meshing, and IFC carry one owner per runtime, meeting only at the wire.
 
 Host lifecycle remains outside libraries. Rhino launch, endpoint discovery, package staging, bridge doctor/check/verify/quit/redeploy, cargo, spool, scenario evidence, and host-bound runtime facts belong to `tools/rhino-bridge` and the Assay bridge/package rails that consume it.
 

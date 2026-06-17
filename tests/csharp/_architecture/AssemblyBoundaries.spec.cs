@@ -2,7 +2,6 @@ using ArchUnitNET.Fluent;
 using ArchUnitNET.Loader;
 using ArchUnitNET.xUnitV3;
 using Rasm.Grasshopper.UI;
-using Rasm.Materials.Bricks;
 using Rasm.Rhino.Camera;
 using ArchitectureGraph = ArchUnitNET.Domain.Architecture;
 
@@ -19,7 +18,6 @@ internal static class ArchitectureModel {
         .LoadAssemblies(
             typeof(Op).Assembly,
             typeof(Subscription).Assembly,
-            typeof(Brick).Assembly,
             typeof(RhinoCamera).Assembly)
         .Build();
 }

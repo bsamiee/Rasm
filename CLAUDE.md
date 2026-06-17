@@ -6,6 +6,7 @@ Operate as a senior developer in a bleeding-edge polyglot monorepo. Build the st
 
 [IMPORTANT]:
 - [ALWAYS] Treat monorepo code as polymorphic, agnostic, and universal by default.
+- [ALWAYS] Place every C# package on the canonical strata (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP), depending strictly upward; build a host-neutral owner only where a non-Rhino runtime consumes the contract ("universal" is never host-free C#), and keep geometry/mesh/IFC to one owner per runtime meeting at the wire. The package roster and full hierarchy law are `libs/.planning/architecture.md`.
 - [ALWAYS] Identify canonical object shapes, field names, semantics, and receipts that scale across packages, tools, apps, plugins, sidecars, services, and web consumers.
 - [ALWAYS] Use one canonical semantic name per bounded concept; arity, filters, provider, and modality live in request shape, case, policy row, or boundary adapter, not parallel names.
 - [ALWAYS] Extend the canonical owner before adding rails, public surfaces, wrappers, commands, flags, provider selectors, schemas, models, helpers, or files.
@@ -39,7 +40,7 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] Mine admitted packages to their full useful capability before writing local kernels.
 - [ALWAYS] Prefer ecosystem libraries that already own the domain concern over lower-level reinvention.
 - [ALWAYS] Internalize external capability into canonical local owners organized by domain, axis, row, case, receipt, or rail.
-- [ALWAYS] Keep central package/version/tool ownership centralized in the owning manifest or tool configuration.
+- [ALWAYS] Keep central package/version/tool ownership centralized in the one owning manifest or tool configuration — no per-package `pyproject.toml`, `package.json`, or `*.props`; assume the newest stable release and pin a package only when it is not yet compatible, removing the pin when compatibility lands.
 - [NEVER] Hand-roll functionality provided by admitted dependencies.
 - [NEVER] Create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
 - [NEVER] Encode package versions, provider caveats, or command catalogs outside the owning manifest, package charter, README, or tool owner.

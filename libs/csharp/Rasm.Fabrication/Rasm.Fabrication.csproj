@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Portable fabrication frontier — exact hidden-line projection, CAM toolpath motion with DH/IK kinematics, and 2D true-shape nesting, composed atop the Rasm geometry kernel.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Rasm/Rasm.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="System.Collections.Frozen" />
+    </ItemGroup>
+</Project>

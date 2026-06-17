@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Architectural material catalogues and pure material-owned layout data for bricks, with regional standards, source-backed bonds, special shapes, joints, policies, and scalar assemblies.</Description>
+        <Description>Host-neutral AEC-domain materials: the polymorphic Profile owner over the masonry/CMU/steel/timber/glazing family axis, the measured appearance engine (node graph, closed BSDF lobe family, material library, procedural texture/photometric admission), and the host-neutral element-assembly-layout construction data model.</Description>
     </PropertyGroup>
 
     <ItemGroup>
