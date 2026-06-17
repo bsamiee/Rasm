@@ -89,7 +89,7 @@ scientific = [
     "polars",  # cp315 wheel available
     "pyarrow>=24.0.0",  # source-build via Parametric_Forge Arrow C++ toolchain; 24.0 fixes the cp315 PyWeakref_GET_OBJECT build break
     "pye57>=0.4.19; python_version<'3.15'",  # geometry PY_INGEST_001 E57 scan IO; C++ ext cp314, no cp315 wheel
-    "pymc>=6.0.1",  # compute PY_INFER_001 probabilistic programming; pure-Python (PyTensor backend)
+    "pymc>=6.0.1; python_version<'3.15'",  # compute PY_INFER_001 probabilistic programming; gated: pytensor->numba->llvmlite (cp314 ceiling); arviz is the cp315 Bayesian-diagnostics path
     "pyogrio>=0.12.1",  # source-build via Parametric_Forge GDAL toolchain
     "pyproj>=3.7.2",  # source-build via Parametric_Forge PROJ toolchain
     "python-flint>=0.8.0; python_version<'3.15'",  # compute PY_RIGOR_001 validated/interval numerics (Arb); LGPL-2.1+ runtime, cp314, no cp315 wheel
@@ -102,7 +102,7 @@ scientific = [
     "scipy>=1.17.1",  # source-build via Parametric_Forge Fortran/BLAS toolchain
     "scipy-stubs",
     "shapely>=2.1.2",  # source-build via Parametric_Forge GEOS toolchain
-    "sparse>=0.18.0",  # data PyData sparse n-D arrays
+    "sparse>=0.18.0; python_version<'3.15'",  # data PyData sparse n-D arrays; gated: hard-deps numba->llvmlite (cp314 ceiling); scipy.sparse covers sparse-LA on cp315
     "sympy",
     "trimesh",
     "uncertainties",
