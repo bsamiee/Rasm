@@ -1,45 +1,39 @@
 # [SERVICES]
 
-`services` is the complete node services tier of the TypeScript branch AND the infrastructure that hosts it as one concern — durable execution, the typed SQL persistence boundary with its entity registry and multi-tenant RLS, the fused hybrid-search owner, the internal RPC surface and the runner/scheduling backplane, and the two-mode IaC provisioning tier. Zero consumers exist; implementation is full-capability with no holding back; `.planning/` pages are transcribed, never re-designed. It is the node publication entry (Nx tag `scope:node`), participates in the wire topology as one peer over the same proto vocabulary (remote/companion/sidecar/hub/service), dials the capture-event client-stream that is structurally non-dialable from the browser, and integrates with the rest of the system only through the wire contracts and the companion seams routed through the Tier-0 seam ledger. The `./provisioning` exports subpath keeps the deploy-time IaC closure off the durable runtime hot path. Owner-state and the rails/axes registry live in `ARCHITECTURE.md`; the realized capability list in `FEATURES.md`; open work in `TASKLOG.md`.
+The host-free node tier of the TypeScript branch (Nx scope `scope:node`) and the deploy-time IaC that hosts it, as one concern. It is lib-grade general and meta capability — durable execution, the TS-owned Postgres store, hybrid search, internal RPC, provisioning — deliberately NOT coupled to the AEC or Rhino pipelines; it consumes the C# wire only through interchange and projection and owns no geometry. This README routes the design pages under `.planning/` and registers every external package the folder uses; the domain folder-map is in `ARCHITECTURE.md`, the forward concepts in `IDEAS.md`, open work in `TASKLOG.md`.
 
-## [1]-[PAGE_INDEX]
+## [1]-[PAGE_ROUTER]
 
-| [INDEX] | [PAGE]                                                  | [OWNS]                                                                            |
-| :-----: | :----------------------------------------------------- | :------------------------------------------------------------------------------- |
-|   [1]   | [durable-execution](.planning/durable-execution.md)   | WorkflowOwner, ActivityOwner, ClusterEngine, the AiProvider axis, agent journal, resilience |
-|   [2]   | [persistence](.planning/persistence.md)               | SqlBoundary, the entity-model registry, multi-tenant RLS, jobs/DLQ, events, notifications, assets, flags |
-|   [3]   | [hybrid-search](.planning/hybrid-search.md)           | the semantic+lexical+trigram+phonetic fused weighted-rank search owner             |
-|   [4]   | [internal-rpc](.planning/internal-rpc.md)             | InternalRpc RpcGroup, WorkflowProxy projection, RunnerBackplane, ScheduledWork     |
-|   [5]   | [provisioning](.planning/provisioning.md)             | the tier model, two-mode dispatch, the ./provisioning subpath, StackOutputs, bootstrap |
+The design pages under `.planning/`, grouped by sub-domain in build order; `ARCHITECTURE.md` carries the flat-module mapping and the build-chain rationale.
 
-## [2]-[ADMISSIONS_RECORD]
+- [persistence/store-boundary](.planning/persistence/store-boundary.md): the single `PgClient`/`Migrator` boundary and the one-`Model.Class`-per-entity registry.
+- [persistence/tenancy](.planning/persistence/tenancy.md): the multi-tenant RLS axis over the `app.current_tenant` GUC, the lifecycle, and the purge-handler family.
+- [persistence/work-and-signals](.planning/persistence/work-and-signals.md): jobs/DLQ, the event journal, notifications, the asset-export codec axis, the feature-flag buckets.
+- [hybrid-search/fused-rank](.planning/hybrid-search/fused-rank.md): the fused semantic+lexical+trigram+phonetic weighted-rank owner and the post-fusion `rerank` stage.
+- [runtime-backplane/backplane](.planning/runtime-backplane/backplane.md): the four-row runner backplane, the snowflake id source, the cluster singletons, the shard-pinned cron.
+- [durable-execution/engine](.planning/durable-execution/engine.md): the closed durable-unit family, the `ClusterEngine` wiring, the `DurableFault` rail.
+- [durable-execution/saga](.planning/durable-execution/saga.md): the `SagaStep` chain, the `StepOutcome`/`SagaTerminal` fold, the engine-compensated saga workflow.
+- [durable-execution/ai-activity](.planning/durable-execution/ai-activity.md): the `AiProvider` literal axis, the single AI activity, the `AgentJournal` ledger, the `Resilience` primitives.
+- [messaging/internal-rpc](.planning/messaging/internal-rpc.md): the one `RpcGroup` and the `WorkflowProxy` projection over the durable workflows.
+- [provisioning/contract](.planning/provisioning/contract.md): the data/compute/observe tier model, the cloud/self-hosted dispatch, secrets, `StackOutputs`, `PolicyGuard`, the `ObservabilityStack`.
+- [provisioning/drift](.planning/provisioning/drift.md): the `previewRefresh` drift fold, the typed `StackDriftSummary` receipt, the CI drift gate.
 
-Each package maps to its consuming page, central catalogue at `libs/typescript/.api/`, and admission status. Concrete coordinates live in the workspace catalog (`pnpm-workspace.yaml` `catalog:`); this table never carries a pin.
+The `eventing/` sub-domain (transactional-outbox reliable event publishing) is planned and holds no page yet; it is mapped in `ARCHITECTURE.md` and driven from `IDEAS.md`.
 
-| [INDEX] | [PACKAGE]                                               | [PAGE]                                | [CATALOGUE]                                        | [STATUS]                    |
-| :-----: | :----------------------------------------------------- | :------------------------------------ | :------------------------------------------------ | :-------------------------- |
-|   [1]   | @effect/cluster + @effect/workflow                     | durable-execution                     | `.api/api-effect-cluster.md` + `.api/api-effect-workflow.md` | admitted          |
-|   [2]   | @effect/ai + the five provider satellites               | durable-execution                     | `.api/api-effect-ai.md` + provider pages          | admitted                    |
-|   [3]   | @effect/experimental                                   | durable-execution, internal-rpc       | `.api/api-effect-experimental.md`                 | admitted                    |
-|   [4]   | rfc6902                                                | durable-execution                     | `.api/api-infra-data.md`                          | admitted                    |
-|   [5]   | @effect/sql + @effect/sql-pg                           | persistence, hybrid-search            | `.api/api-effect-sql.md` + `.api/api-effect-sql-pg.md` | admitted              |
-|   [6]   | exceljs/papaparse/jspdf/jszip/sharp                    | persistence                           | `.api/api-infra-data.md`                          | admitted                    |
-|   [7]   | @effect/rpc                                            | internal-rpc                          | `.api/api-effect-rpc.md`                          | admitted                    |
-|   [8]   | ioredis                                                | internal-rpc                          | `.api/api-infra-data.md`                          | admitted                    |
-|   [9]   | @effect/cli                                            | provisioning                          | `.api/api-effect-cli.md`                          | admitted                    |
-|  [10]   | @pulumi/* + @dopplerhq/node-sdk + @effect-aws/client-s3 | provisioning, persistence            | `.api/api-infra-data.md`                          | admitted (optional/subpath) |
-|  [11]   | @effect/opentelemetry + @opentelemetry/sdk-trace-node  | provisioning                          | `.api/api-effect-opentelemetry.md`               | admitted                    |
-|  [12]   | effect                                                 | all pages                             | `.api/api-effect.md`                              | admitted                    |
+## [2]-[PACKAGES]
 
-## [3]-[PROOF_GATES]
+Every external package the folder uses, planned or implemented, grouped by concern. Versions are centralized in the one workspace catalog; this registry carries no pin and no `.api` link.
 
-`[RAIL]` names the owning rail; the executable command lives with that rail owner, never restated here.
-
-| [INDEX] | [GATE]          | [RAIL]                            | [EVIDENCE]                                          |
-| :-----: | :-------------- | :-------------------------------- | :------------------------------------------------- |
-|  [G1]   | catalog resolve | `pnpm` install/restore            | `catalogMode` strict resolves `@rasm/ts`            |
-|  [G2]   | typecheck       | `tsgo` typecheck                  | zero diagnostics; isolatedDeclarations emits `.d.ts` |
-|  [G3]   | subpath split   | node subpath import probe          | the IaC closure not loaded on the runtime path      |
-|  [G4]   | durable harness | testcontainers Postgres + Redis    | exactly-once, durable-replay, RLS-scope prove       |
-|  [G5]   | search harness  | testcontainers Postgres + pg_trgm/HNSW | fused weighted-rank ranks correctly            |
-|  [G6]   | page render     | local mermaid-cli                 | page diagrams render through the local renderer      |
+- Effect runtime: `effect`, `@effect/platform-node`
+- Durable execution: `@effect/cluster`, `@effect/workflow`, `@effect/experimental`
+- Internal RPC: `@effect/rpc`
+- Persistence: `@effect/sql`, `@effect/sql-pg`
+- AI: `@effect/ai`, `@effect/ai-anthropic`, `@effect/ai-openai`, `@effect/ai-google`, `@effect/ai-amazon-bedrock`, `@effect/ai-openrouter`
+- Resilience and sync: `rfc6902`
+- Cache and metrics backplane: `ioredis`
+- Asset transfer codecs: `exceljs`, `papaparse`, `jspdf`, `jszip`, `sharp`
+- Object store and email: `@effect-aws/client-s3`, `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`, `@aws-sdk/client-sesv2`, `nodemailer`
+- CLI binding: `@effect/cli`
+- Provisioning IaC: `@pulumi/pulumi`, `@pulumi/aws`, `@pulumi/awsx`, `@pulumi/kubernetes`, `@pulumi/docker`, `@pulumi/command`, `@pulumi/random`, `@pulumi/policy`, `@pulumi/esc-sdk`, `@dopplerhq/node-sdk`
+- Observability: `@effect/opentelemetry`, `@opentelemetry/sdk-trace-node`, `@opentelemetry/sdk-metrics`
+- Test harness: `testcontainers`

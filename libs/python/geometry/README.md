@@ -1,39 +1,24 @@
 # [PY_GEOMETRY]
 
-`geometry` owns geometry and IFC/BIM interchange and is the load-bearing cross-boundary package of the branch: the IfcOpenShell tessellation companion daemon (IFC to mesh/GLB plus semantic XML/JSON), IFC property/quantity/relationship analysis, point-cloud/3D-scan registration and reconstruction, non-manifold topological modeling, and AEC computational geometry. It has zero consumers today and implementation is full-capability. It consumes the runtime `ServerHost`, `ContentIdentity`, rails, lanes, and `ReceiptContributor`, and graduates geometry evidence through the compute `HandoffAxis` geometry case. The package is pinned under a separate companion interpreter floor (`python_version<'3.13'`) divorced from the `>=3.15` runtime floor. Owner state and the axis registry live in `ARCHITECTURE.md`; the realized capability list in `FEATURES.md`; open work in `TASKLOG.md`. The design pages in `.planning/` are decision-complete blueprints an implementation agent transcribes; the package catalogues in `.api/` carry the external-surface evidence each page consumes.
+`geometry` is the host-free geometry and IFC/BIM companion of the Python branch: the IfcOpenShell GLB tessellation daemon (the load-bearing cross-boundary two-hop the C# Bim/Compute rail and the TS viewer consume), IFC analysis and buildingSMART validation, point-cloud/3D-scan registration, non-manifold topology, and AEC computational geometry. It is a peer producer, never a Rasm consumer — it meets C# only at the wire (content-identity plus the GLB tessellation rail over the existing `ComputeService`/`ArtifactSync` gRPC contract) and graduates evidence through the compute `HandoffAxis` geometry case. This file routes the design pages and registers the external packages the folder uses; `ARCHITECTURE.md` carries the domain map, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
-## [1]-[PAGE_INDEX]
+## [1]-[PAGES]
 
-| [INDEX] | [PAGE]                                        | [OWNS]                                                             |
-| :-----: | :-------------------------------------------- | :---------------------------------------------------------------- |
-|   [1]   | [ifc-companion](.planning/ifc-companion.md)     | the IfcOpenShell tessellation daemon over the inbound gRPC contract |
-|   [2]   | [ifc-analysis](.planning/ifc-analysis.md)       | IFC property/quantity/relationship analysis (QTO/clash/rule-check) |
-|   [3]   | [scan-processing](.planning/scan-processing.md) | point-cloud/3D-scan registration, reconstruction                   |
-|   [4]   | [geometry-algebra](.planning/geometry-algebra.md) | non-manifold topology + AEC computational geometry               |
+The design pages under `.planning/`, one sub-domain folder per eventual source sub-tree. The `step-bridge` and `mesh-utility` sub-domains are planned and carry no page yet; `ARCHITECTURE.md` shows them as visible gaps.
 
-## [2]-[ADMISSIONS_RECORD]
+- `.planning/tessellation/daemon.md` — the IfcOpenShell tessellation daemon: source bytes + tolerance into per-element GLB and a semantic header over the existing gRPC contract.
+- `.planning/ifc-analysis/analysis.md` — IFC quantity/Pset/IDS/clash/space-program/BCF analysis over the IfcOpenShell ecosystem.
+- `.planning/scan-registration/registration.md` — global, multi-scale tensor, VGICP, and multiway point-cloud registration.
+- `.planning/topology/nonmanifold.md` — non-manifold `CellComplex`/`Cell`/`Aperture` topology over topologicpy.
+- `.planning/computational-geometry/algebra.md` — compas network adjacency, form-finding, numerical primitives, and mesh algebra.
 
-The executed admissions ledger maps each package to its consuming page, `.api` catalogue, and admission status. Versions live in the root manifest; this table never carries a pin. `[STATUS]` is `catalogue-pending` for every distribution until the sub-3.13 companion lock scope is admitted; member proof currently rides a cp312 companion venv, not the default project resolver.
+## [2]-[PACKAGES]
 
-| [INDEX] | [PACKAGE]    | [PAGE]                      | [CATALOGUE]         | [STATUS]          |
-| :-----: | :----------- | :-------------------------- | :------------------ | :---------------- |
-|   [1]   | ifcopenshell | ifc-companion, ifc-analysis | api-ifcopenshell.md | catalogue-pending |
-|   [2]   | open3d       | scan-processing             | api-open3d.md       | catalogue-pending |
-|   [3]   | small-gicp   | scan-processing             | api-small_gicp.md   | catalogue-pending |
-|   [4]   | topologicpy  | geometry-algebra            | api-topologicpy.md  | catalogue-pending |
-|   [5]   | compas       | geometry-algebra            | api-compas.md       | catalogue-pending |
+Every external library the folder uses, planned or implemented, as a flat list; versions live in the one branch manifest. A `(admit)` tag marks a library a forward task draws on that the branch manifest does not yet declare — the task that needs it carries the manifest-admission as an integration step, so the registry never implies a phantom dependency.
 
-## [3]-[PROOF_GATES]
-
-Proof runs at the planned phase gate, not after each edit. `[RAIL]` names the owning rail; the executable command lives with that rail owner, never restated here.
-
-| [INDEX] | [GATE]                | [RAIL]      | [EVIDENCE]                                              |
-| :-----: | :-------------------- | :---------- | :----------------------------------------------------- |
-|  [G1]   | locked restore        | uv          | geometry pins resolve against the root manifest         |
-|  [G2]   | companion floor       | uv          | all five pins reflect on the cp312 companion interpreter |
-|  [G3]   | API catalogue resolve | assay api   | every fence member resolves to an `.api` row            |
-|  [G4]   | type check            | ty          | typed-signature transcription resolves clean            |
-|  [G5]   | lint and format       | ruff        | routed closure, zero diagnostics                        |
-|  [G6]   | spec law-matrix       | pytest      | geometry law-matrix specs pass                          |
-|  [G7]   | daemon bridge         | pytest      | the `IfcCompanion` daemon serves the inbound contract under the companion floor |
-|  [G8]   | page diagram render   | mermaid-cli | page diagrams render through the local renderer          |
+- IFC and BIM: `ifcopenshell`; `ifctester`, `ifcclash`, `bcf` (admit — the buildingSMART validation triad, separate PyPI distributions, not bundled with the `ifcopenshell` wheel)
+- Scan and point cloud: `open3d`, `small-gicp`, `laspy`, `pye57`, `pdal`
+- Topology and computational geometry: `topologicpy`, `compas`; `compas_dr`, `compas_tna` (admit — the structural form-finding solvers)
+- Mesh and CAD-STEP: `trimesh`, `rhino3dm`, `meshio`; `manifold3d` (admit — the robust exact-boolean backend), `pythonocc-core` (admit — the OCCT B-rep reader for the STEP/IGES hop)
+- Numerics and typing: `numpy`, `msgspec`, `expression`, `beartype`
+- Wire and runtime: `grpcio`, `grpcio-tools`, `protobuf`

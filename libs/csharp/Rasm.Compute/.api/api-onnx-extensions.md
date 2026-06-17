@@ -18,18 +18,18 @@ session-registration material for ONNX execution lanes.
 [PACKAGE_ASSET_SCOPE]: native runtime assets
 - rail: model
 
-| [INDEX] | [SYMBOL]                                       | [PACKAGE_ROLE]      | [CAPABILITY]          |
-| :-----: | :--------------------------------------------- | :------------------ | :-------------------- |
-|   [1]   | `libortextensions.dylib` (osx.10.14-arm64)     | native asset        | loads extension ops   |
-|   [2]   | `libortextensions.dylib` (osx.10.14-x64)       | native asset        | loads extension ops   |
-|   [3]   | `libortextensions.so` (linux-arm64)            | native asset        | loads extension ops   |
-|   [4]   | `libortextensions.so` (linux-x64)              | native asset        | loads extension ops   |
-|   [5]   | `ortextensions.dll` (win-arm64)                | native asset        | loads extension ops   |
-|   [6]   | `ortextensions.dll` (win-x64)                  | native asset        | loads extension ops   |
-|   [7]   | `ortextensions.dll` (win-x86)                  | native asset        | loads extension ops   |
-|   [8]   | `onnxruntime-extensions.aar`                   | native asset        | loads Android ops     |
-|   [9]   | `onnxruntime_extensions.xcframework.zip`       | native asset        | loads Apple ops       |
-|  [10]   | `runtimes/*/native`                            | runtime asset group | selects native binary |
+| [INDEX] | [SYMBOL]                                   | [PACKAGE_ROLE]      | [CAPABILITY]          |
+| :-----: | :----------------------------------------- | :------------------ | :-------------------- |
+|   [1]   | `libortextensions.dylib` (osx.10.14-arm64) | native asset        | loads extension ops   |
+|   [2]   | `libortextensions.dylib` (osx.10.14-x64)   | native asset        | loads extension ops   |
+|   [3]   | `libortextensions.so` (linux-arm64)        | native asset        | loads extension ops   |
+|   [4]   | `libortextensions.so` (linux-x64)          | native asset        | loads extension ops   |
+|   [5]   | `ortextensions.dll` (win-arm64)            | native asset        | loads extension ops   |
+|   [6]   | `ortextensions.dll` (win-x64)              | native asset        | loads extension ops   |
+|   [7]   | `ortextensions.dll` (win-x86)              | native asset        | loads extension ops   |
+|   [8]   | `onnxruntime-extensions.aar`               | native asset        | loads Android ops     |
+|   [9]   | `onnxruntime_extensions.xcframework.zip`   | native asset        | loads Apple ops       |
+|  [10]   | `runtimes/*/native`                        | runtime asset group | selects native binary |
 
 [PACKAGE_ASSET_SCOPE]: build assets
 - rail: model

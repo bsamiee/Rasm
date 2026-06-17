@@ -1,23 +1,80 @@
 # [UI_TASKLOG]
 
-Open work owned by this folder; closed items do not appear. `[STATUS]` is one of `QUEUED`, `ACTIVE`, `BLOCKED`, `SPIKE`; owner state is read at `ARCHITECTURE.md` `[OWNER_REGISTRY]`. Every `SPIKE` row names the probe that flips its owner registry cell to `FINALIZED`.
+Open and closed work for the host-free browser UI library, distilled from the ideas in `IDEAS.md`. Each open card carries a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` — plus the capability or file to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations. Cross-branch wire preconditions are tracked as blocked tasks against the C# fence that unblocks them.
 
-## [1]-[BLOCKED_SEAMS]
+## [1]-[OPEN]
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | `GlbViewport` mesh-DECODE seam: the upstream mesh wire type must be promoted out of the proto vocabulary into the projection fence (routed through the Tier-0 seam ledger) before `decodeMeshView` consumes the generated descriptor; the backend/draw/camera owners are authored against the in-memory `MeshView` | render-surfaces#GLB_VIEWPORT | BLOCKED |
+[T-BINDING-COLLAPSE] [QUEUED] — atom-native binding spine
+- Author `binding/atom-binding.md` to its full surface: `Atom.searchParam` for URL state, `Atom.kvs` for the offline cell, `Atom.family` for keyed subscription, `Atom.pull` for the `projection` feeds, the `UndoStack` history fold, and the `Result.builder` status-render chain; the dev-build atom inspector is one `Atom.runtime` row.
+- Integrate `@effect-atom/atom`, `@effect-atom/atom-react`, `effect`; the offline cell binds the `platform` `LocalPersistence` `KeyValueStore` through the `Atom.kvs` runtime option.
+- Wires internal to `binding/`; the offline cell reads `platform/platform-substrate#PLATFORM_SUBSTRATE` `LocalPersistence`, the streamed feeds source the `projection` folds, and mutations leave through the `interchange` `CommandGateway`, never a transport directly.
+- Consider that `Atom.searchParam` returns `Writable<Option<A>>` under a schema and `Atom.kvs` requires the runtime/key/schema/defaultValue quad; the React Compiler removes manual memoization so no leaf carries `useMemo`/`useCallback`.
 
-## [2]-[ADMISSION_GATES]
+[T-ROLE-VOCABULARY] [QUEUED] — interaction-role vocabulary and accessibility broadcast
+- Author `component-system/role-behavior.md` (the `InteractionRole` `Schema.Literal` owner-block over eight roles and the `RoleBehavior` contract) and `component-system/accessibility-broadcast.md` (the total `announceFor` politeness resolver, the one live-region path, and the external-store `ToastBroadcast` queue).
+- Integrate `react-aria`, `react-aria-components`, `react-stately`, `@react-aria/live-announcer`, the `@radix-ui` slot/label/separator/visually-hidden primitives, `isomorphic-dompurify`, `effect`.
+- Wires internal to `component-system/`; stateful roles read state through `binding/atom-binding#ATOM_BINDING`, overlay placement composes `overlay/floating-anchor#FLOATING_ANCHOR`, the gesture algebra composes `motion/gesture-algebra#GESTURE_ALGEBRA`, and tokens compose `theming/theme-tokens#THEME_TOKENS`.
+- Consider that only the role vocabulary and headless-behavior contract are owned, never a per-component `.tsx`; the announce path is total over the eight roles so a new role without a politeness arm is a typecheck failure.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | The four WebGL packages are admitted-on-precondition; their catalog rows activate only once the mesh wire promotion lands | render-surfaces#GLB_VIEWPORT | BLOCKED |
-| [2] | BCF anchor-algebra render surface waits on the upstream anchor-algebra fence routed through the Tier-0 seam ledger | render-surfaces#RENDER_SURFACES | BLOCKED |
-| [3] | Implementation-time root/folder `package.json` `./ui` subpath `exports` authored at transcription | component-system#COMPONENT_SYSTEM | QUEUED |
+[T-THEME-TOKENS] [QUEUED] — OKLCH token engine and CSS-variable sync
+- Author `theming/theme-tokens.md`: `ThemeTokens` generating the perceptually-uniform OKLCH scale and the derived contrast/dark/high-contrast records, and `CssVarSync` as the single Tailwind CSS-variable runtime path over one `Stream` fold.
+- Integrate `colorjs.io` for the OKLCH ramp and contrast pairing, `tailwindcss`/`tailwind-merge`/`class-variance-authority` for utility token consumption, `effect` for the `Stream` sync.
+- Wires internal to `theming/`; the active-theme cell reads `binding/atom-binding#ATOM_BINDING`; the token record feeds both the Tailwind `@theme` layer and the runtime `:root` custom properties.
+- Consider that the CSS-var sync is the single theme-to-runtime path so a theme swap is one record value with no re-render cascade; a direct `document.documentElement.style` write outside `CssVarSync` is the named defect.
 
-## [3]-[TRANSCRIPTION]
+[T-OBSERVATION-ROUTES] [QUEUED] — read-only dashboard routes
+- Author `observation/observation-routes.md`: `EvidenceTimelineRoute` (HLC order + `SkewBand`), `BenchmarkRoute` (fingerprint-gated through the `stampLine` projection), and `CollectorPanel` as leaf subscribers that read and never emit.
+- Integrate `react`, `react-dom`, `@tanstack/react-virtual` for the timeline, `@tanstack/react-table` for tabular reads, `@effect/opentelemetry` strictly as a collector reader, `effect`.
+- Wires the routes subscribe through `binding/atom-binding#ATOM_BINDING` to the `projection` evidence and receipt stores; the benchmark gate reads the host-fingerprint shape on `interchange` `receipts-and-benchmarks#TS_PROJECTION`; instrumentation belongs to `platform`, never a route.
+- Consider that a benchmark claim displayed without the fingerprint gate is the named defect; the `stampLine` projection reproduces the upstream `HostFingerprint.StampLine()` verbatim.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Transcribe the build-order modules per `ARCHITECTURE.md` `[SOURCE_TREE]` (`binding.ts` before `component-system/` before `render-surfaces.ts` before `index.ts`); each module transcribes its page clusters verbatim | binding#BINDING | QUEUED |
+[T-CARTOGRAPHY] [QUEUED] — GeoSeriesLayer cartographic surface
+- Author `cartography/geo-series-layer.md`: the one `GeoSeriesLayer` `Schema.Union` over the maplibre base substrate and the deck.gl overlay layers, deepened with the GeoArrow layer family and `TileLayer` for out-of-core data keyed by `featureKind`.
+- Integrate `maplibre-gl`, `@deck.gl/core`, `@deck.gl/layers`, `@deck.gl/mapbox`, `effect`.
+- Wires the surface sources geometry only through `interchange` `GeometryRail` decoded on `interchange` `snapshot-codecs#TS_PROJECTION`; the maplibre `Map` is an `Effect.acquireRelease` resource under `platform/host-runtime#HOST_RUNTIME` `BrowserPlatform`; the view state reads `binding/atom-binding#ATOM_BINDING`.
+- Consider that the four prior geo aliases are collapsed into the one union; a second decode beside `GeometryRail` and a free-React-ref `Map` are the named defects; the GeoArrow/`TileLayer` member spellings are a catalogue-verification dependency (see `T-API-CATALOGUE`).
+
+[T-VIEW-TRANSITIONS] [QUEUED] — view transitions and activity-preserved surfaces
+- Author `motion/view-transitions.md`: `RouteTransition` over the React `<ViewTransition>` keyed by the route axis, and `ActivitySurface` over `<Activity mode>` keeping a backgrounded surface mounted-but-hidden, with the non-reactive transition callback through `useEffectEvent`.
+- Integrate `react`, `react-dom`, `effect`; no gesture package on this card.
+- Wires internal to `motion/`; the `ActivitySurface` preserves the `viewport/glb-viewport#GLB_VIEWPORT` GL context, the tabbed `observation` routes, and the background `cartography` layers; the route cell reads `binding/atom-binding#ATOM_BINDING`.
+- Consider that the `<Activity>` mode preserves atom subscriptions and GPU buffers while effects unmount, so a re-show is instant; a teardown/rebuild on route or tab switch is the named defect; the React `<Activity>`/`<ViewTransition>`/`useEffectEvent` and `document.startViewTransition` member spellings are a catalogue-verification dependency (see `T-API-CATALOGUE`).
+
+[T-GESTURE-ALGEBRA] [QUEUED] — shared pointer-gesture algebra
+- Author `motion/gesture-algebra.md`: the `CameraGesture` `Data.TaggedEnum` over orbit/pan/dolly/frame, the total `applyGesture` fold under `Match.tagsExhaustive`, and the `GestureFold` recognizer binding mapping raw drag/pinch/wheel onto the gesture tags.
+- Integrate `@use-gesture/react`, `effect`.
+- Wires internal to `motion/`; the gesture fold drives state through `binding/atom-binding#ATOM_BINDING` and the `viewport/glb-viewport#GLB_VIEWPORT` camera `RoleBehavior` composes it by reference, never re-declaring it.
+- Consider that the algebra is owned once in `motion/` and a `CameraGesture`/`applyGesture` re-declaration on the viewport leaf is the named defect; the fold is pure and a state mutation inside `applyGesture` is the named defect; the `@use-gesture/react` recognizer-hook spellings are a catalogue-verification dependency (see `T-API-CATALOGUE`).
+
+[T-OVERLAY] [QUEUED] — floating-anchor positioning owner
+- Author `overlay/floating-anchor.md`: `FloatingAnchor` over the @floating-ui/react middleware stack keyed by the overlay kind, the CSS Anchor Positioning bridge, and the one focus-trap/dismiss contract.
+- Integrate `@floating-ui/react`, `@floating-ui/react-dom`, `react-aria`, `react-stately`, `effect`.
+- Wires internal to `overlay/`; the overlays and navigation `RoleBehavior` rows compose one `FloatingAnchor`; the open state reads `binding/atom-binding#ATOM_BINDING`.
+- Consider that placement is owned once, not per overlay; a hand-rolled `getBoundingClientRect` placement is the named defect; the floating-ui hook and middleware spellings are a catalogue-verification dependency (see `T-API-CATALOGUE`).
+
+[T-VIEWPORT-BACKEND] [QUEUED] — Three.js auto-backend collapse
+- Author the `viewport/glb-viewport.md` `RendererBackend` axis as the two-row reality: the `three` row over the `WebGPURenderer` with `init()` auto-detect and WebGL fallback, and the `model-viewer` zero-GL-handle embed row; the `acquireRelease` GL context and the camera `RoleBehavior` row are authored against the in-memory `MeshView`.
+- Integrate `three`, `@google/model-viewer`, `@webgpu/types`; each is admitted-on-precondition until the mesh-wire promotion lands.
+- Wires the camera fold composes `motion/gesture-algebra#GESTURE_ALGEBRA`; the GL context binds `platform/host-runtime#HOST_RUNTIME` `BrowserPlatform`; the backgrounded viewport composes `motion/view-transitions#VIEW_TRANSITIONS` `<Activity>`.
+- Consider that the Babylon and raw-WebGPU rows are deleted given universal WebGPU; the meshlet/cluster-LOD ambition rides Three.js TSL compute on the `three` row; the `WebGPURenderer` import path and `init()` contract are a catalogue-verification dependency (see `T-API-CATALOGUE`).
+
+[T-MESH-DECODE-SEAM] [BLOCKED] — GlbViewport mesh-DECODE seam
+- Wire `viewport/glb-viewport.md` `decodeMeshView` to consume the generated `GeometryPayload(mesh)`/`MeshTensor` descriptor by reference once the C# `interchange` `remote-lane#TS_PROJECTION` cluster promotes it out of the proto vocabulary into the projection fence; the backend/draw/camera owners already author against the in-memory `MeshView`.
+- Integrate the generated `remote_lane_pb` descriptor by reference; no branch-side wire struct.
+- Wires to the cross-language C# wire only — the GLB BYTE layer is unblocked through `interchange` `ArtifactFrameRail`, the mesh-TENSOR projection over the blob bytes is the blocked end; the camera state reads `binding/atom-binding#ATOM_BINDING`.
+- Blocked on the upstream C# mesh-shape promotion; re-authoring a branch-side `MeshTensorWire`, reaching a C# geometry interior, or a second GLB decode beside the rail is the named defect. The `point_cloud`/`voxel` oneof arms re-enter the same decode fold as sibling cases once their arms ride a draw row.
+
+[T-BCF-ANCHOR-SURFACE] [BLOCKED] — BCF anchor-algebra render surface
+- Author the BCF anchor-algebra render surface (a viewpoint/issue-anchored observation overlay) once the upstream C# anchor-algebra fence promotes the anchor shape into the projection fence.
+- Integrate the generated anchor descriptor by reference; reuses the existing `observation`/`viewport` leaves, never a new decode.
+- Wires to the cross-language C# wire only — the surface reads the promoted anchor shape through the `interchange` rail and composes the `viewport` viewpoint and the `observation` evidence fold.
+- Blocked on the upstream anchor-algebra fence; the surface is a projection over settled owners, not a second decode.
+
+[T-API-CATALOGUE] [BLOCKED] — folder .api catalogue rows for the new admissions
+- Add catalogue rows to the folder's own `ui/.api/ui-stack.md` for the members the new pages name as RESEARCH: effect-atom advanced constructors are verified, but the `react-aria-components` `ToastQueue`/`useToastRegion`/`Toast`, `@react-aria/live-announcer` `announce`, Three.js `WebGPURenderer`/`init`, `@google/model-viewer` element attributes, `@floating-ui/react` hooks/middleware, `@use-gesture/react` recognizers, `colorjs.io` OKLCH ramp/contrast, the deck.gl GeoArrow/`TileLayer` constructors, and the React `<Activity>`/`<ViewTransition>`/`useEffectEvent` surface are unverified.
+- Integrate the decompile/reflection evidence per package; no source change in `ui/`.
+- Wires to the folder `ui/.api/` catalogue, never a consolidated branch-level home; each RESEARCH fence member promotes to prose only after its catalogue row exists.
+- Blocked on admitting the rows into `ui/.api/`; an unverified member stays a RESEARCH item per the standard, never a transcribed signature.
+## [2]-[CLOSED]
+
+None.

@@ -20,13 +20,13 @@ For declaration-order passes, preserve generated semantic/key bands; split group
 Skills are execution aids and mining input, not durable documentation authority. Promote portable rules through `docs/`, source, manifests, generated contracts, tool owners, or trusted instruction overlays after current behavior is verified.
 
 Hidden and generated reservoirs have explicit roles:
-- `.planning/` holds decision-complete design pages and is tiered: `libs/.planning/` is the cross-language core (the topology law `architecture.md`, the campaign method, the authoring standard, and the cross-language `IDEAS.md`/`TASKLOG.md`), `libs/<lang>/.planning/` is each peer branch node, and each package owns four root index docs (`README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`) plus design pages under one `<pkg>/.planning/<sub-domain>/`. The doc-set, the index-doc templates, and the `.planning/` lifecycle are owned by `libs/.planning/README.md` and `architecture.md`; no `.planning/README.md` or `ROADMAP.md` exists.
-- `.api/` is generated API evidence and catalog truth, not handwritten source; each branch keeps one `.planning/.api/` with one catalogue per admitted package, never duplicated per folder.
+- `.planning/` holds decision-complete design pages and is tiered: `libs/.planning/` is the cross-language core, `libs/<lang>/.planning/` is each peer branch node, and each package owns four root index docs plus design pages under one `<pkg>/.planning/<sub-domain>/`. The doc-set, the index-doc templates, and the `.planning/` lifecycle are owned by `libs/.planning/README.md` and `architecture.md`; no `.planning/README.md` or `ROADMAP.md` exists.
+- `.api/` is generated API evidence and catalog truth, not handwritten source; each WIP folder keeps its own `<pkg>/.api/` of catalogues, one per external package it uses — the per-folder resource a planning pass reads to draw a package's real API without guessing.
 - `docs/stacks/csharp/.reports/` is mining material and region evidence for stack-page maintenance only; visible stack pages carry durable doctrine.
 
 Before finalizing non-trivial repository work, classify observed agent mistakes by owner: machine default, repo root policy, subtree overlay, source or documentation owner, tool README, or confidence gap. Refine an existing rule first; add a new rule only for a repeated mistake or a single high-risk miss such as wrong owner routing, destructive command risk, fake confirmation, unsupported claims, or code-quality regression. Do not copy session narration, report frames, memory notes, or research summaries into active instructions.
 
-Quality cadence is phase-gated, not edit-gated. Do not run `dotnet build`, repo quality commands, formatters, analyzers, or tests after ordinary edits, markdown changes, or one-off compiler fixes. Batch implementation first, then run at most one narrow owner-scoped proof at the planned gate unless the user explicitly asks for more. If proof fails, patch related diagnostics as one batch and rerun once; ask before entering any longer loop. Memory, skills, rollout summaries, and old command notes cannot override this rule.
+Quality cadence is gated at planned milestones, not after every edit. Do not run builds, repo quality commands, formatters, analyzers, or tests after ordinary edits, markdown changes, or one-off compiler fixes. Batch implementation first, then run at most one narrow owner-scoped proof at the planned gate unless the user explicitly asks for more. If proof fails, patch related diagnostics as one batch and rerun once; ask before entering any longer loop. Memory, skills, rollout summaries, and old command notes cannot override this rule.
 
 ## [4]-[ENGINEERING_CONTRACT]
 
@@ -52,7 +52,7 @@ AEC pressure informs geometry, topology, units, tolerances, host documents, obje
 
 The C# package set follows the canonical strata — KERNEL, AEC-DOMAIN, APP-PLATFORM, HOST-BOUNDARY, then future APP shells — owned in full by `libs/.planning/architecture.md`: the package roster, each package's charter, and the dependency direction live there and are never restated here.
 
-"Universal" never means host-free C#: the whole C# branch is RhinoCommon-aware. A host-neutral owner exists only where a non-Rhino runtime (Python, TypeScript) consumes the contract; otherwise the Rhino-native surface is captured as a host-specific feature. Geometry, meshing, and IFC carry one owner per runtime, meeting only at the wire.
+"Universal" never means host-free C#: the whole C# branch is RhinoCommon-aware. A host-neutral owner exists only where a non-Rhino runtime (Python, TypeScript) consumes the contract; otherwise the Rhino-native surface is captured as a host-specific feature. The universal-vs-capture rule and the one-owner-per-runtime geometry/mesh/IFC flow are owned in full by `architecture.md`.
 
 Host lifecycle remains outside libraries. Rhino launch, endpoint discovery, package staging, bridge doctor/check/verify/quit/redeploy, cargo, spool, scenario evidence, and host-bound runtime facts belong to `tools/rhino-bridge` and the Assay bridge/package rails that consume it.
 
@@ -76,14 +76,8 @@ Machine-level scientific and provisioning tools live in `Parametric_Forge`. Use 
 
 Route README, ADR, architecture, roadmap, test strategy, API, reference, code documentation, support matrix, how-to, runbook, contributing, tutorial, onboarding, and instruction-file work through `docs/standards/README.md`.
 
-Keep generated documentation, prompts, skills, standards, examples, templates, and reusable guidance project-agnostic by default. Do not mention Rasm, repository-specific paths, local commands, local package names, project functions, concrete source files, or project-only docs unless the target file explicitly exists to describe this repository's own usage, routing, or implementation. Generic examples use neutral names and abstract shapes that transfer to any project.
-
-For docs under `docs/`, use placeholder values in reusable, generic, standard, template, and example content: `<folder>`, `<file>`, `<surface>`, `<command>`, `<contract>`, `YYYY-MM-DD`, `HH:MM`, `NNNN`, `M<N>`, `ADR-NNNN`, and equivalent neutral forms. In reusable code examples, use language-valid neutral identifiers for code structure and placeholder literals only where the language accepts literal values; accepted families include `Shape`/`RefinedShape`, `Variant`/`PRIMARY`, `Field`/`KEY`, `Row`/`ROW_A`, and `"<value-a>"`/`"<result-a>"`.
-
-Use concrete repository names, paths, functions, commands, versions, dates, IDs, or package facts only when the document's job is to describe that exact source-backed repository surface.
+Keep generated documentation, prompts, skills, standards, examples, templates, and reusable guidance project-agnostic by default. Do not mention Rasm, repository-specific paths, local commands, local package names, project functions, concrete source files, or project-only docs unless the target file explicitly exists to describe this repository's own usage, routing, or implementation. Generic examples use the neutral names, placeholder alphabet, and code-safe shapes the form standards define. Use concrete repository names, paths, functions, commands, versions, dates, IDs, or package facts only when the document's job is to describe that exact source-backed repository surface.
 
 Future-facing standards, plans, and target designs do not inherit current drift; remove stale paths, stale commands, compatibility prose, old-baseline caveats, partial-adoption apologies, and invented routes instead of preserving them.
 
 Durable docs, prompts, standards, skills, examples, and reusable templates are agent-facing declarative law, not reports, walkthroughs, origin logs, or checklist tails.
-
-Tables are load-bearing only when headers make each cell meaningful in its row and column. Long cells, repeated columns, and tautological values move to prose, cards, or records.

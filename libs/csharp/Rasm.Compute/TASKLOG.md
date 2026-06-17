@@ -1,55 +1,55 @@
 # [COMPUTE_TASKLOG]
 
-Open work owned by this folder; closed items do not appear. `[STATUS]` is one of `QUEUED`, `ACTIVE`, `BLOCKED`, `SPIKE`; owner state is read at `ARCHITECTURE.md` `[OWNER_REGISTRY]`. Every `SPIKE` row names the probe that flips its owner registry cell to `FINALIZED`.
+The open and closed work for measured execution, distilled from `IDEAS.md`. Each open task carries a status marker and the capability-to-build, packages, integration points/boundaries, and key considerations; one idea spawns one or more tasks across one or more files. Closed cards record already-settled cleanup and the residual live-host probes whose owner shape is complete.
 
-## [1]-[RESIDUAL_TIER3_PROBES]
+## [1]-[OPEN]
 
-Tier-3 residuals: the owner member shape is FINALIZED and proved on the reachable half; the open gate is a host, native asset, or hardware this single-RID osx-arm64 host structurally cannot supply. Each is named in its page RESEARCH cluster.
+[T-NEURAL-SURROGATE] [QUEUED]: Add the neural-field surrogate row to the solver optimizer lane.
+- Capability: add a `Surrogate.NeuralField` evaluation row that predicts a field at a parametric point through the model-lane OrtValue run of a pre-trained coordinate-MLP/Fourier-feature implicit field, behind the same error-bounded duality the GP/POD rows already sit behind. C# owns inference and the train-trigger plus solve-result harvest only; the network fit itself is the Python offline-science companion, never an in-proc training loop. Lands in `.planning/solver/lane.md` #OPTIMIZER_LANE, transcribes to `solver/Lane.cs`.
+- Packages: Microsoft.ML.OnnxRuntime (the inference path; ORT carries no managed training, so the C# side never fits weights), System.IO.Hashing (the parametric-family digest key).
+- Integration: the surrogate evaluation composes `models#INFERENCE_MODES` for the OrtValue run and `solver#SWEEP_AND_BUDGET` for the DOE seed points, internal to the folder; the harvested solve-result corpus crosses to the Python companion over the existing `remote#PROTO_VOCABULARY` artifact transport (the offline-training seam, never coupled to a peer interior) and the returned trained network is one content-keyed ONNX artifact aligned to the `interchange#CONTENT_ADDRESSING` seed stored through the Persistence blob lane at the wire.
+- Considerations: the surrogate error bound gates fall-through to the true solve so a wrong fast prediction is poisoned by the existing dense/sparse residual witness; the trained field reuses the model-lane session capsule, warm-start blob, and result cache rather than a parallel surrogate store; the surrogate-hit count rides the existing `Optimization` receipt slot, never a new receipt case; an in-proc ORT-Training dependency is the rejected form because the training role belongs to the Python branch.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | numeric-lane native-MKL / native-OpenBLAS dense GEMM + CSparse native sparse execution; the RID axis is FINALIZED and the managed terminal proved end-to-end on osx-arm64, the native row activates on a win-x64 / linux-x64 host carrying the `MathNet.Numerics.MKL.Win-x64` / `.Linux-x64` or OpenBLAS native asset where `LinearProvider.Select` activates the native `ILinearAlgebraProvider` | numeric-lane#DENSE_ALGEBRA · numeric-lane#SPARSE_SOLVE | SPIKE |
-| [2] | model-lane `Cuda` / `DirectMl` GPU-EP execution; `AppendExecutionProvider_CUDA(0)` / `_DML(0)` member shape FINALIZED and compiled, execution registers and runs on device on an NVIDIA-Linux / Windows RID + driver (CUDA) or Windows RID (DirectML) | model-lane#EP_AXIS | SPIKE |
-| [3] | model-lane in-host ONNX dylib native load inside the RhinoWIP plugin ALC; `libortextensions.dylib` versioned-RID resolution; `RunOptions.Terminate` latch propagation latency + deadline-poll cadence on the CoreML and CPU rows under the live Rhino/GH2 host process | model-lane#SESSION_CAPSULE · model-lane#INFERENCE_MODES | SPIKE |
-| [4] | remote-lane Kestrel `ListenUnixSocket` server leg inside the Rhino plugin ALC; `Grpc.Core.Api` transitive route proof; CoreML option value domains grounded against the live CoreML surface under the live Rhino-plugin app root + UDS attach scenario | remote-lane#TRANSPORT_AXIS · remote-lane#CALL_POLICY | SPIKE |
-| [5] | GH2 async result readback ceiling and solver idle-loop behaviour under the live GH2 host | scheduling-and-lanes#SOLVE_GUARD | SPIKE |
-| [6] | ONNX Runtime native dylib load inside the RhinoWIP plugin ALC, the bridge-gated start probe unblocking the session capsule | model-lane#SESSION_CAPSULE | SPIKE |
-| [7] | `libortextensions.dylib` resolution under the portable RID graph, the extension-op start probe with a bin-output native-asset listing | model-lane#EXTENSION_OPS | SPIKE |
-| [8] | Native-BLAS asset presence per RID — `Control.TryUseNativeMKL` / `TryUseNativeOpenBLAS` boolean probe over the restored native asset graph, managed fallback proven on osx-arm64 | numeric-lane#DENSE_ALGEBRA · numeric-lane#SPARSE_SOLVE | SPIKE |
-| [9] | ORT-GenAI live multi-token generation against a genai-format model asset; the token-streaming member shape is FINALIZED, the model artifact is the residual gate for `GenerativeRun.Stream` | model-lane#GENERATIVE_RUN | SPIKE |
+[T-RESIDUAL-CODEC] [QUEUED]: Add the learned residual-prediction row to the field/result codec.
+- Capability: add a residual codec column to `FieldCodecPolicy` that predicts each grid-coordinate-indexed field chunk from its grid neighbours through a tiny pre-trained ONNX field model and stores the bounded residual against the prediction, with the existing lossless deflate as the terminal fall-through. The grid-coordinate chunk index is preserved (never reduced to content-defined byte chunking) so the predictor sees true spatial neighbours. Lands in `.planning/interchange/codecs.md` #FIELD_RESULT_CODEC, transcribes to `interchange/Codecs.cs`.
+- Packages: Microsoft.ML.OnnxRuntime (the chunk predictor inference; the predictor is trained offline by the Python companion, not in-proc), System.Numerics.Tensors (the residual span math), Microsoft.IO.RecyclableMemoryStream (existing chunk staging).
+- Integration: the predictor is one model-lane session shared across chunks, composing `models#INFERENCE_MODES` internal to the folder; the chunk handoff stays the `staging#STREAM_POOL` zero-copy read, and the residual blob rides the existing `interchange#CONTENT_ADDRESSING` key, never a second inference path; the predictor network is content-keyed and arrives over the same offline-training seam the surrogate task uses, never a peer-interior coupling.
+- Considerations: the achieved residual against the bound stays auditable on the `Cache` receipt; a chunk whose residual exceeds the bound falls back to lossless with no new failure mode; the predictor model is content-keyed so it warms from the same model-lane cache the surrogate row uses; the grid-locality requirement makes a content-defined-chunk rewrite of this codec the rejected form.
 
-## [2]-[IMPLEMENTATION_PROBES]
+[T-TILES-METADATA] [QUEUED]: Deepen the tile partition into a 3D-Tiles metadata layer.
+- Capability: attach the `EXT_structural_metadata` / `EXT_mesh_features` schema to each leaf tile as a property table carrying per-feature IFC classification and per-element solver field values, with a feature-id mapping a picked pixel to its element. Lands in `.planning/interchange/codecs.md` #TILE_PARTITION, transcribes to `interchange/Codecs.cs`.
+- Packages: SharpGLTF.Core, SharpGLTF.Toolkit (the glTF write path; `EXT_structural_metadata`/`EXT_mesh_features` are vendor extensions SharpGLTF does not model natively, so the schema and property tables emit through its raw glTF-extension write surface, verified against the SharpGLTF extension API before transcription), meshoptimizer (the leaf-tile geometry optimization).
+- Integration: the metadata reads the `Rasm.Bim` IFC semantic graph at the shared content-key (the companion seam aligned to a named boundary, never reaching into the Bim interior) and the `solver#DISCRETIZATION_MESH` `FieldSpace` field values internal to the folder; the AppUi viewer consumes the metadata at the wire.
+- Considerations: the metadata is one schema column on the leaf-tile content emit, never a parallel attribute store or a second tiling owner; the same content-key addresses geometry and metadata so a re-tessellation at a new deflection re-keys both together; the field-band styling reads the achieved per-element value, never a recomputed metric; the extension binary layout (property-table buffer views, feature-id attributes) is a RESEARCH item against the SharpGLTF and 3D-Tiles 1.1 specs, not an assumed SharpGLTF helper.
 
-Implementation-time probes discharged against scratch processes, the spec project, MathNet/Vectors cross-folder alignment, or a manifest decision — no live host required.
+[T-COMPILED-EP-CONTEXT] [QUEUED]: Generalize the EP-context warm-start into a device-keyed fleet-shared compiled context.
+- Capability: publish the compiled `ep.context_*` blob keyed by `(model checksum, OrtEpDevice fingerprint)` through the blob lane on first compile, and warm a cold peer on matching hardware from that blob over the frame leg, gated by the model-compatibility verdict. Lands in `.planning/models/sessions.md` #SESSION_CAPSULE, transcribes to `models/Sessions.cs`.
+- Packages: Microsoft.ML.OnnxRuntime (the EPContext compiled-model API), System.IO.Hashing (the device fingerprint key).
+- Integration: the warm-affinity reorder is the existing `intent#SUBSTRATE_AXIS` column and the cross-node fetch rides `remote#ARTIFACT_FRAMES`, internal to the folder; the device-keyed context is one `ArtifactIndexRow` family aligned to the Persistence blob lane at the wire, never a second EP-cache.
+- Considerations: the compatibility verdict from `OrtEnv.GetModelCompatibilityForEpDevices` is the gate and a mismatched fingerprint falls back to a fresh compile; the warm-start stays the one blob-lane owner the capsule already writes; a managed copy of the context bytes is the rejected form.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | `Grpc.Core.Api` `Metadata` carrier members compile through the spec-compile fallback gate until the assay source map registers the transitive package | remote-lane#FAULT_PROJECTION | SPIKE |
-| [2] | Zero-alloc stream-pool eleven-event fold (`Check.Faster`) and the drop-callback allocation profile resolve with no alloc on the hot fold path | staging-and-streams#STREAM_POOL | SPIKE |
-| [3] | Progress no-regress race over concurrent `Advance` (CsCheck `SampleParallel`) holds with no observed rank regress | progress-and-observation#PHASE_FAMILY | SPIKE |
-| [4] | `ComputeWireContext` + suite Strict resolver-merge round-trip over Thinktecture key scalars, the 21-case union including Factorization/Generate, survives merge without loss | receipts-and-benchmarks#WIRE_STAMPS | SPIKE |
-| [5] | UnitsNet next-major `QuantityInfo` reshape staged-restore check passes against the next-major shape | units-boundary#QUANTITY_TABLE | SPIKE |
-| [6] | `MeshKernel` / `SolveLane` element-assembly kernels (Poisson/elasticity/Helmholtz shape-function + quadrature) ground against the `Rasm`/Vectors core kernel + `MeshSpace` boundary-extraction surface; tet10/hex20 shape-function and boundary-extraction member spellings confirmed at cross-folder alignment | solver-and-optimization#SOLVE_CONTRACT · solver-and-optimization#DISCRETIZATION_MESH | SPIKE |
-| [7] | `Surrogate.Fit` GP-covariance Cholesky + POD/SVD reduced-basis projection ground against the live MathNet SVD/factorization surface; reduced-basis projection + GP marginalization member shapes confirmed | solver-and-optimization#OPTIMIZER_LANE | SPIKE |
-| [8] | `FieldCodec` chunked-field decode + Zarr/VTK-class layout ground against the admitted field-format library surface; chunk policy, error-bound gate, and zero-copy handoff confirmed at the field-codec admission gate | interchange#FIELD_RESULT_CODEC | SPIKE |
-| [9] | `SensitivityLaw` DDG-operator VJP bodies (cotangent-Laplacian transpose, heat-flow backward-Euler adjoint, spectral-mode sensitivity) ground against the `Rasm`/Vectors operator kernel; adjoint-coefficient member spellings confirmed at cross-folder alignment | tensor-lane#EQUIVALENCE_INTEROP | SPIKE |
-| [10] | `TilePartition` leaf-tile content emit grounds against the `Rasm.Bim` b3dm/glTF tile-emit codec; the `TileSet` octree partition, per-node content-key, and quantization-bit policy are transcription-complete, the leaf emit body grounds at cross-package alignment | interchange#TILE_PARTITION | SPIKE |
-| [11] | NodaTime converter precedence over combined source-gen metadata in the Strict merge | receipts-and-benchmarks#WIRE_STAMPS | SPIKE |
+[T-REACTIVE-GRAPH] [QUEUED]: Deepen the job-graph scheduler into a content-keyed reactive recompute engine.
+- Capability: key every `JobGraph` node on the `interchange#CONTENT_ADDRESSING` digest of its inputs, diff the new digests against the prior graph on re-run, mark only the nodes whose key moved dirty, schedule the transitive dirty closure on each node's declared `WorkLane`, and replay every clean node from its cached receipt without re-execution. Lands in `.planning/scheduling/runtime.md` #JOB_GRAPH, transcribes to `scheduling/Runtime.cs`.
+- Packages: System.IO.Hashing (the per-node input digest over the shared seed), LanguageExt.Core (the immutable dirty-closure fold), Microsoft.Extensions.Caching.Hybrid (the existing clean-node receipt cache surface).
+- Integration: the node key composes the one `interchange#CONTENT_ADDRESSING` `XxHash128` law and the clean-node short-circuit reads the `models#RESULT_CACHE` deterministic cache, both internal to the folder; the `solver#SWEEP_AND_BUDGET` `FrameBudget` bounds the dirty closure per frame; the AppUi twin and Persistence federation receive only the moved nodes' receipts at the wire, never coupled to a peer interior.
+- Considerations: the dirty mark is a content-key inequality, never a hand-tracked mutation flag; the clean-node replay is the existing cache hit, so no second memoization owner appears; a cycle in the dependency DAG faults on the existing `ComputeFault` rail; the engine reuses the one receipt union per node and never mints a per-node version stamp beside the content key.
 
-## [3]-[ADMISSION_DECISIONS]
+## [2]-[CLOSED]
 
-Manifest admission verdicts pending; each lands a package row at its matched servicing line or confirms a designed-only EP execution row.
+[T-DOC-MIGRATE] [COMPLETE]: Re-homed the 12 design pages into the single `.planning/<sub-domain>/<page>.md` tree, de-doubled each page stem off its folder, rebuilt `ARCHITECTURE.md` as a codemap, `README.md` as router-plus-package-registry, and authored `IDEAS.md`/`TASKLOG.md`. The per-folder `.api/` stays at the package root.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | `Microsoft.AspNetCore.TestHost` admitted at the matched ASP.NET Core servicing line as a test-only `PackageReference` for the InProcess transport row helper | remote-lane#TRANSPORT_AXIS | BLOCKED |
-| [2] | `Microsoft.ML.OnnxRuntime.Gpu` / `.DirectML` Windows-profile verdict for the Cuda/DirectMl EP registration members; designed-only EP execution rows confirmed or promoted | model-lane#EP_AXIS | BLOCKED |
-| [3] | `NodaTime.Serialization.Protobuf` direct admission gated on whether `Google.Api.CommonProtos` calendar surface resolves transitively through the admitted NodaTime + Grpc graph; admission verdict recorded | receipts-and-benchmarks#WIRE_STAMPS · remote-lane#PROTO_VOCABULARY | BLOCKED |
+[T-NATIVE-BLAS] [BLOCKED]: Activate the native-OpenBLAS/MKL dense and sparse execution row.
+- The `numeric#DENSE_ALGEBRA`/#SPARSE_SOLVE `LinearProvider` RID axis is shape-complete and the managed terminal is proved end-to-end on osx-arm64; the native row activates on a win-x64 / linux-x64 host carrying the `MathNet.Numerics.MKL.Win-x64`/`.Linux-x64` or OpenBLAS native asset where `LinearProvider.Select` binds the native `ILinearAlgebraProvider` and the `Control.TryUseNativeOpenBLAS`/`TryUseNativeMKL` probe returns true.
+- Blocked on a host RID that resolves the native asset; the managed fallback is the correct cold start until then.
 
-## [4]-[TRANSCRIPTION]
+[T-GPU-EP] [BLOCKED]: Register and run the CUDA/DirectML GPU execution-provider rows.
+- The `models#EP_AXIS` `AppendExecutionProvider_CUDA(0)`/`_DML(0)` member shapes are compiled; execution registers and runs on device on an NVIDIA-Linux/Windows RID + driver (CUDA) or Windows RID (DirectML), gated on the `Microsoft.ML.OnnxRuntime.Gpu`/`.DirectML` Windows-profile admission verdict.
+- Blocked on a GPU host RID and the manifest admission verdict.
 
-The implementation sequence is the `ARCHITECTURE.md` `[SOURCE_TREE]` build order (vocabulary owners before consumers, `Faults.cs` through `Solver/Lane.cs`); each file transcribes its page clusters verbatim and resolves the RESEARCH rows those pages carry. Production source is absent.
+[T-LIVE-HOST-ONNX] [BLOCKED]: Prove the in-host ONNX/GenAI native load under the live Rhino plugin ALC.
+- The `models#SESSION_CAPSULE`/#INFERENCE_MODES/#GENERATIVE_RUN owners are transcription-complete; the residual gates are the `libortextensions.dylib` versioned-RID resolution, the `RunOptions.Terminate` latch cadence, the ORT native dylib load inside the RhinoWIP plugin ALC, and a live multi-token generation against a genai-format model asset — each a live-host probe this osx-arm64 host structurally supplies only under the bridge scenario.
+- Blocked on the live Rhino/GH2 host process and the genai-format model artifact.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Transcribe the build-order files per `ARCHITECTURE.md` `[SOURCE_TREE]`; the test project `Rasm.Compute.Tests` node is present and empty | intent-and-selection#DISPATCH_SPINE | QUEUED |
+[T-LIVE-HOST-UDS] [BLOCKED]: Prove the Kestrel UDS server leg and GH2 solve-path ceiling under the live host.
+- The `remote#TRANSPORT_AXIS`/#CALL_POLICY UDS transport and the `scheduling#SOLVE_GUARD` async-result guard are shape-complete; the residual gates are the Kestrel `ListenUnixSocket` server leg inside the Rhino plugin ALC, the `Grpc.Core.Api` transitive route proof, the live CoreML option-value domains, and the GH2 async readback ceiling under the live GH2 host.
+- Blocked on the live Rhino-plugin app root + UDS attach scenario and the live GH2 host.

@@ -1,35 +1,54 @@
 # [CROSS_LIBS_IDEAS]
 
-Cross-language ideas only — concepts that span C# + Python + TypeScript at once. Open ideas drive cross-`libs/` tasks and distill into the per-branch pools; a finished or dropped idea moves to closed with a one-line disposition so it is never re-litigated. A concept that couples packages within one language lives in that branch's `IDEAS.md`, not here.
+Cross-language ideas only — concepts that span two or more of C# / Python / TypeScript at the wire and the companion/offline seams, distilled from the three branch concerts rather than re-aggregated from branch content. Each idea is a card grounded in the wire law: a bracketed slug, the capability, what it unlocks, and the shared-owner seam it draws on. A concept that couples packages within one language lives in that branch's `IDEAS.md`, never here. `[1]-[OPEN]` holds the live concert; `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition so it is never re-litigated.
 
 ## [1]-[OPEN]
 
-The flagship concert: one model authored in the C# desktop/host suite, computed across the Python science stack, and surfaced live in the TypeScript web/edge platform — three peer libraries meeting only at the wire contracts and the companion/offline seams, never at one another's interiors.
+[THE_CONCERT]: the flagship tri-language pipeline — one model authored in the C# host suite, computed across the Python science stack, and surfaced live in the TS web/edge platform.
+- A model sealed in `csharp:Rasm.Persistence` emits its canonical wire shapes once; the `python` companion recomputes them offline and the `typescript` web platform renders them, every leg decoding the one C#-owned wire vocabulary and reproducing the one content-identity seed bit-identically.
+- Unlocks three peer libraries meeting only at the wire contracts and the companion/offline seams, never at one another's interiors — a browser SPA, a node backend, and an offline companion that never hand-write a per-language client.
+- Draws on the shared-owner law: content-address identity, the proto wire vocabulary, the suite wire law, the op-log CRDT payload, the capability descriptor + SDK source, tenant/causal identity, the GLB tessellation rail, and graduation evidence are each named once and owned once across the three branches.
 
-[ONE_MODEL_THREE_FACES]:
-- A model sealed in the C# Persistence store emits its canonical wire shapes — snapshot, op-log delta, gRPC — once; the TS web platform renders them over grpc-web and the Python stack recomputes them offline, both decoding the same descriptor source.
-- Unlocks a browser SPA, a node backend, and an offline companion that never hand-write a per-language client.
+[ONE_MODEL_THREE_FACES]: one sealed model emits snapshot, op-log delta, and gRPC once; three runtimes decode the same descriptor source.
+- The `csharp:Rasm.Compute` suite wire (`remote/channels#PROTO_VOCABULARY`/#FAULT_PROJECTION) and `csharp:Rasm.Persistence` snapshot/op-log surfaces are the one wire vocabulary; the `typescript:interchange` codec rail decodes it over grpc-web and the `python:runtime/server-host` companion decodes the same proto, neither minting a parallel.
+- Unlocks a single canonical model shape every consumer reads — a re-decode in any runtime is field-for-field identical, so a new face is a decode row, never a second wire mint.
+- Draws on the C#-owns-the-wire / peers-decode law: a second mint of a shared wire shape in any branch is the named cross-language drift defect.
 
-[ONE_CONTENT_IDENTITY]:
-- The `XxHash128` content-address seed minted in C# Compute is reproduced bit-for-bit by the Python content-identity owner and read by the TS interchange layer.
-- Unlocks fetch-by-content-key across runtimes: a Python-recomputed artifact reuses a C#-computed sub-result; the gap is proving byte-identical reproduction against the one seed in each branch.
+[ONE_CONTENT_IDENTITY]: the `XxHash128` content-address seed minted in C# is reproduced bit-for-bit in Python and read in TypeScript.
+- `csharp:Rasm.Compute/interchange/codecs#CONTENT_ADDRESSING` mints the seed (seed zero, two-64-bit-half order); `python:runtime/identity/content-identity` reproduces it through `xxhash` and `typescript:interchange` reproduces it through a 128-bit wasm hash, each keying its own most-expensive output by that same key.
+- Unlocks fetch-by-content-key across runtimes — a Python-recomputed artifact reuses a C#-computed sub-result and a TS-assembled blob is byte-addressable identically; the gap is proving byte-identical reproduction against the one seed in each branch.
+- Draws on the content-addressed-build-graph technique over the one seed; the HLC two-half encoding rides the same parity because a logical off-by-one-half folds a fresh op as stale with no other signal.
 
-[ONE_TESSELLATION_RAIL]:
-- The two-hop `IFC → IfcOpenShell → GLB` companion is Python-native, producing the GLB the C# Bim/Compute rail and the TS viewer both consume; the AP242 CAD-STEP bridge rides the same OpenCascade companion shape.
-- Unlocks one geometry-evaluation companion with no duplicate mesh pipeline per runtime.
+[ONE_TESSELLATION_RAIL]: the two-hop `IFC → IfcOpenShell → GLB` companion is Python-native, producing the one GLB every runtime consumes.
+- `python:geometry` serves the IfcOpenShell GLB tessellation daemon; `csharp:Rasm.Bim/exchange/interchange` builds the tessellation request and `csharp:Rasm.Compute/interchange/codecs#TILE_PARTITION` content-addresses the result, and `typescript:ui` renders the GLB viewport — the AP242 CAD-STEP bridge rides the same OpenCascade companion shape.
+- Unlocks one geometry-evaluation companion with no duplicate mesh pipeline per runtime: meshing has one owner per runtime (Rasm-DEC, Py-scan, TS-render) and IFC one semantic owner per runtime (`Rasm.Bim`, `ifcopenshell`), meeting only at the content-keyed GLB.
+- Draws on the one-owner-per-runtime geometry law and the IfcOpenShell/OpenCascade companion two-hop; the per-tile `EXT_structural_metadata`/`EXT_mesh_features` schema carries the IFC class and field band on the same content key.
 
-[ONE_CAPABILITY_CATALOG]:
-- Every operation is a capability descriptor generated once in C# AppHost; the C#/TS/Python SDKs and the MCP agent projection are emitted from that one source.
-- Unlocks three SDKs and an agent surface with no hand-maintained per-service client.
+[ONE_CAPABILITY_CATALOG]: one capability-descriptor source emits the C#/TS/Python SDKs and the MCP agent projection.
+- `csharp:Rasm.AppHost/capability/registry#SDK_CODEGEN` mints every operation as a typed effect-classed cost-modeled `CapabilityDescriptor`; the MCP projection adopts each through `McpServerTool.Create`, and the `typescript:interchange` and `python:runtime/server-host` SDKs derive their command surfaces from the generated descriptor, never a hand-written client.
+- Unlocks three SDKs and an agent surface from one catalog — a new operation is a descriptor row, never a parallel client or a second op-metadata owner.
+- Draws on the official MCP C# SDK owning the protocol and the never-hand-roll rule; the polyglot SDK consumption is the capability-catalog wire seam, and the signed grant attestation chains into the determinism event log at the op-log wire.
 
-[LIVE_WEB_VIEWER_FEED]:
-- The browser consumes grpc-web unary and server-stream off the C# wire for a live viewer and dashboard, folding every decoded feed through one projection combinator.
-- Draws on the wire law, the transport axis, and the snapshot-codec TS projection.
+[CRDT_COLLABORATION]: the op-log CRDT payload (LWW surviving only as the register arm) is a breaking amendment to the one wire vocabulary that the TS and Python legs decode.
+- `csharp:Rasm.Persistence/versioning#CRDT_ALGEBRA` owns the `MvRegister`/`opMerge` op union and `sync/collaboration#TS_PROJECTION` projects the changefeed; the `typescript:projection/convergence#LWW_MERGE` fold and the `python` companion decode the amended payload as the one vocabulary, never an additive parallel surface.
+- Unlocks multi-runtime collaborative editing over the single op-log changefeed — divergent-delivery folds of the same op-set converge to a byte-identical state, the convergence law mechanically verified.
+- Draws on the closed-CRDT prohibition (a second composition surface broke it once and was dropped): a new op kind is one arm on the existing register-arm fold once it lands on the wire, never a second op vocabulary the fold authors branch-side.
 
-[CRDT_COLLABORATION]:
-- The op-log CRDT payload (LWW surviving only as the register arm) is decoded by the TS-web and Python legs as a breaking amendment to the one wire vocabulary, never an additive parallel surface.
-- Unlocks multi-runtime collaborative editing over the single op-log changefeed.
+[FAULT_WIRE_ROUNDTRIP]: the fault wire is a two-sided coherence contract — C# packs `(package, code, case)` and TS reconstructs it losslessly. (C#↔TS only.)
+- `csharp:Rasm.Compute/remote/channels#FAULT_PROJECTION` packs every typed fault into one `FaultDetail` family with disjoint code bands (ComputeFault 2200, HopFault 4500, WireFault 4520-4532, store/config at their app roots) so package selects the family and code selects the arm; `typescript:interchange/faults/fault-family` reconstructs the identical literal-discriminated union through `faultTagOf`/`FAULT_CTOR`, folding an unmapped package to `Quarantine` rather than throwing.
+- Unlocks one typed fault rail end-to-end — a status code plus string is never the terminal shape, and a misbanded code is a producer fault caught before emit rather than a wire ambiguity downstream.
+- Draws on the package-exclusive band law: neither `package` nor `code` alone is a total key, so the wire triple is the lossless identity and a round-trip property is the gate any new fault family passes. Python mints `FaultDetail` outbound but is not a package-keyed decoder, so the round-trip is C#↔TS.
+
+[ONE_CAUSAL_TENANT_IDENTITY]: the tenant/causal-identity wire is minted once in C# and read — never re-minted — by the Python receipt fan-in and the TS ordering fold.
+- `csharp:Rasm.AppHost/ports/runtime-ports` mints the HLC two-half stamp and threads tenant context across every cross-process hop; the `python:runtime` receipt/contributor owner stamps and propagates the same causal context inbound, and the `typescript:projection` skew-aware ordering fold reads the HLC band off the wire to mark concurrent-uncertain rows rather than forcing a spurious total order.
+- Unlocks one causal-and-tenant frame every runtime orders and attributes by — a receipt produced in any runtime carries a stamp the others can order against, and tenant isolation is a wire fact, not a per-runtime reinvention.
+- Draws on the HLC two-64-bit-half encoding that rides the same parity as the content seed (a logical off-by-one-half folds a fresh op as stale); the C#-owns-the-wire law makes a second causal stamp or tenant scheme in any peer the named drift defect.
+
+[ONE_GRADUATION_EVIDENCE]: the graduation-evidence rail is the single contract a Python offline result crosses outward on, content-keyed and read by the C# determinism closure.
+- `python:compute/graduation` packs every graduatable offline result (registration transforms, reconstructed meshes, topology graphs, form-finding, the ONNX surrogate fit) into the one `HandoffAxis` evidence shape keyed by `ContentIdentity`; `csharp:Rasm.AppHost/determinism/determinism-and-replay` re-imports it into the hash-chained event log and the cross-machine replay-verify references it by the one key, never a per-result handoff.
+- Unlocks a single inward contract for offline science — a result graduates the same way regardless of which Python package produced it, so the C# owner consumes one rail and the determinism chain references one key.
+- Draws on the one-graduation-rail-outward law (Python holds the rail singular) meeting the C#-owns-determinism law at the content-keyed seam; the surrogate fit crosses as a content-keyed ONNX artifact the C# side runs inference over, never an in-process training loop.
 
 ## [2]-[CLOSED]
 
-(none)
+[LIVE_WEB_VIEWER_FEED]: dropped — duplicative. The live grpc-web viewer leg is the live row of `ONE_MODEL_THREE_FACES`/`TS_CONSUMES_CSHARP_WIRE`, the off-thread blob reassembly is the TS-internal `CONTENT_ADDRESSED_OFF_THREAD` branch idea, and the GLB-render-on-content-key is `ONE_TESSELLATION_RAIL`; the only cross-language residue — the browser reads the AppHost telemetry collector and never re-mints a second telemetry surface — folds into the `TS_CONSUMES_CSHARP_WIRE` consideration, with no second mint introduced cross-language.

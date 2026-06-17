@@ -1,6 +1,6 @@
 # [APPHOST_SUPPORT_BUNDLES]
 
-Support capture is the runtime spine's bounded diagnostic evidence surface: one SupportTrigger union admits every capture cause, one capture fold freezes the evidence window, fans contributor artifact rows in declared order, redacts by classification before any byte is written, caps with truncation receipts, and lands one zip whose wire-neutral manifest and export receipt the dashboard ingests unchanged. The page owns the trigger axis, the artifact-row vocabulary, the capture and retention policy values, and the manifest and receipt wire shapes. A bundle is process-local evidence; cross-process incidents correlate by HLC stamp at the evidence layer.
+Support capture is the runtime spine's bounded diagnostic evidence surface: one `SupportTrigger` union admits every capture cause, one capture fold freezes the evidence window, fans contributor artifact rows in declared order, redacts by classification before any byte is written, caps with truncation receipts, and lands one zip whose wire-neutral manifest and export receipt the dashboard ingests unchanged. The page owns the trigger axis, the artifact-row vocabulary, the capture and retention policy values, and the manifest and receipt wire shapes. A bundle is process-local evidence; cross-process incidents correlate by HLC stamp at the evidence layer.
 
 ## [1]-[INDEX]
 
@@ -13,12 +13,12 @@ Support capture is the runtime spine's bounded diagnostic evidence surface: one 
 
 ## [2]-[TRIGGER_UNION]
 
-- Owner: `SupportTrigger` [Union]
-- Cases: UserRequested · FaultTransition · HealthThreshold · WatchdogTimeout · ExternalCommand · Scheduled
-- Auto: FaultTransition auto-arms on every FaultSource entry including the host-crash-marker boot probe; WatchdogTimeout fires on a missed heartbeat deadline and Scheduled fires from a ScheduleEntry row on the schedule port; ExternalCommand admits the ControlService capture-support verb for service modalities.
+- Owner: `SupportTrigger` `[Union]` six capture-cause cases.
+- Cases: `UserRequested`, `FaultTransition`, `HealthThreshold`, `WatchdogTimeout`, `ExternalCommand`, `Scheduled`.
+- Auto: `FaultTransition` auto-arms on every `FaultSource` entry including the host-crash-marker boot probe; `WatchdogTimeout` fires on a missed heartbeat deadline and `Scheduled` fires from a `ScheduleEntry` row on the schedule port; `ExternalCommand` admits the `ControlService` capture-support verb for service modalities.
 - Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core
-- Growth: one case lands a new capture cause and breaks the Facts dispatch at compile time — zero new surface.
-- Boundary: the private root constructor plus deleted value conversion seal ingress; fault, health, and schedule causes carry their typed evidence whole, and rendering happens exactly once inside the total Facts dispatch.
+- Growth: one case lands a new capture cause and breaks the `Facts` dispatch at compile time — zero new surface.
+- Boundary: the private root constructor plus deleted value conversion seal ingress; fault, health, and schedule causes carry their typed evidence whole, and rendering happens exactly once inside the total `Facts` dispatch.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -47,13 +47,13 @@ public static class SupportTriggerOps {
 
 ## [3]-[CAPTURE_PIPELINE]
 
-- Owner: `SupportCapture`
-- Entry: `public static IO<SupportReceipt> Capture(SupportRuntime runtime, SupportTrigger trigger)` — IO rail
-- Auto: the GlobalLogBuffer Flush replays the fault buffer into the frozen window before contributor fan-in; the support-window deadline class bounds the capture run on the cancel spine.
-- Receipt: per-artifact written bytes, truncated bytes, and redaction counts land as manifest entries.
+- Owner: `SupportCapture` — the window-freeze, ordered fan-in, redact, and cap fold; `SupportArtifact` the contributor factory row; `SupportPolicy` and `SupportRuntime` the bound capture context.
+- Entry: `Capture(SupportRuntime runtime, SupportTrigger trigger)` returns `IO<SupportReceipt>` — `IO` carries the freeze-fan-redact-cap-bundle effect.
+- Auto: `GlobalLogBuffer.Flush` replays the fault buffer into the frozen window before contributor fan-in; the `DeadlineClass.SupportWindow` row bounds the capture run on the cancel spine.
+- Receipt: per-artifact written bytes, truncated bytes, and redaction counts land as `SupportManifest.Entry` rows.
 - Packages: Microsoft.Extensions.Telemetry.Abstractions, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one `SupportArtifact` factory row lands a new contributor — `EffectiveConfig` is the config debug-view row and `ProcessDump` is the gated row that fails closed until the diagnostics-tool gate clears; zero new surface.
-- Boundary: the Active cell is the coalesce gate — a trigger arriving mid-capture folds to SupportReceipt.Coalesced and never opens a second window; classification resolves redaction at row registration, so Produce returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` and the redaction count rises per masked entry, carrying no unredacted secret; the `ProcessDump` row's `Produce` fails closed on the `[DUMP_ADMISSION]` gate, present as a fail-closed contributor, never an absent one.
+- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to `SupportReceipt.Coalesced` and never opens a second window; classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` and the redaction count rises per masked entry, carrying no unredacted secret; the `ProcessDump` row's `Produce` fails closed on the `[DUMP_ADMISSION]` gate, present as a fail-closed contributor, never an absent one.
 
 ```csharp signature
 public sealed record SupportArtifact(
@@ -181,14 +181,14 @@ Canonical AppHost artifact rows are current; `process-dump` is the designed capt
 
 ## [4]-[MANIFEST_RECEIPT]
 
-- Owner: `SupportManifest` · `SupportReceipt` [Union] · `SupportLedger`
-- Cases: Exported · Coalesced · Evicted
-- Entry: `public static IO<SupportReceipt> Sweep(SupportRuntime runtime)` — IO rail
-- Auto: Sweep registers as one ScheduleEntry row carrying the retention-sweep-cadence value; eviction emits SupportReceipt.Evicted into the receipt rail with bundle and byte counts.
-- Receipt: SupportReceipt is the wire receipt family; the kind discriminator is pinned by JsonPolymorphic metadata on the union root.
+- Owner: `SupportManifest` the wire-neutral manifest; `SupportReceipt` `[Union]` the wire receipt family; `SupportLedger` the zip-assembly and retention surface.
+- Cases: `Exported`, `Coalesced`, `Evicted`.
+- Entry: `Sweep(SupportRuntime runtime)` returns `IO<SupportReceipt>` — `IO` carries the retention-eviction effect.
+- Auto: `Sweep` registers as one `ScheduleEntry` row carrying the retention-sweep-cadence value; eviction emits `SupportReceipt.Evicted` into the receipt rail with bundle and byte counts.
+- Receipt: `SupportReceipt` is the wire receipt family; the kind discriminator is pinned by `JsonPolymorphic` metadata on the union root.
 - Packages: Thinktecture.Runtime.Extensions, NodaTime, BCL inbox
-- Growth: one policy value retunes caps or retention; one case extends SupportReceipt and breaks every consumer arm at compile time — zero new surface.
-- Boundary: Bundle and Evict are the named System.IO boundary capsules and carry statement bodies; a bundle captures exactly one process's evidence — cross-process incidents correlate by HLC stamp at the evidence layer, and contributor requests never cross the UDS hop.
+- Growth: one policy value retunes caps or retention; one case extends `SupportReceipt` and breaks every consumer arm at compile time — zero new surface.
+- Boundary: `Bundle` and `Evict` are the named `System.IO` boundary capsules and carry statement bodies; a bundle captures exactly one process's evidence — cross-process incidents correlate by HLC stamp at the evidence layer, and contributor requests never cross the UDS hop.
 
 ```csharp signature
 public sealed record SupportManifest(

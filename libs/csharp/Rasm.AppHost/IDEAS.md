@@ -1,0 +1,44 @@
+# [APPHOST_IDEAS]
+
+The forward pool of higher-order concepts for the runtime spine, each grounded in the folder's domain and current platform capability — some are new sub-domain folders that deepen a thin owner, others bind a concrete package to a settled abstract surface. Open ideas drive the tasks in `TASKLOG.md`; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition so it is never re-litigated.
+
+## [1]-[OPEN]
+
+[OFFICIAL_MCP_SDK_COLLAPSE]: Collapse the agent/mcp-projection JSON-RPC surface onto the official MCP C# SDK.
+- The page kept a hand-rolled protocol (`McpMethod` axis, manual `tools`/`resources`/`prompts` wire shapes, JSON-RPC dispatch); the official `ModelContextProtocol`/`ModelContextProtocol.Core`/`ModelContextProtocol.AspNetCore` SDK now owns the protocol, and AppHost keeps only the descriptor-to-tool projection and the brokered dispatch policy.
+- Unlocks spec-2025-11-25 conformance for free — SSE-resumable long-running tool calls, elicitation (incl. URL-mode), sampling-with-tool-calling, durable task primitives, PRM/OAuth discovery. `McpServerTool` inherits `AIFunction`, so one `CapabilityDescriptor` source drives MCP tools, in-process `Microsoft.Extensions.AI` function-calling, and SDK codegen.
+- Draws on the dependency-policy NEVER-hand-roll-an-admitted-domain rule: the manifest carries `Microsoft.Extensions.AI.Abstractions` but not the MCP SDK — the single largest admission gap in the folder.
+
+[FOURTH_SIGNAL_PROFILING]: Extend observability from three telemetry signals to four with a continuous-profiling rail.
+- Fold `Pyroscope.OpenTelemetry` span profiles (a `BaseProcessor<Activity>` linking CPU profiles to the minted `ActivitySource` span) and the OTel eBPF profiler into the existing `SignalGovernance` owner as a `profile`-signal row, not a parallel surface.
+- Unlocks production flame graphs scoped to the exact span that showed a latency regression — the missing link between the `LatencySpine` checkpoint recorder and the call-graph that explains it. Plus GenAI semantic conventions (`gen_ai.*` attributes, MCP spans, token-usage metrics) on the telemetry taxonomy, aligning AppHost telemetry with the agentic surface it serves.
+- Draws on the OTel 2025-2026 semantic conventions that cover profiles and GenAI as first-class signals; a `SpanProcessor` and a profile-signal row are additive to the existing identity/governance owners.
+
+[SIGNED_GRANT_ATTESTATION]: Mint a verifiable signed-grant receipt the broker issues so a downstream process verifies authorization without re-querying.
+- The `GrantBroker.Admit` decision currently lives and dies in-process; a runtime spine that brokers commands across the companion/sidecar/plugin boundary needs the admission to travel as a tamper-evident attestation — the broker mints a `GrantAttestation` carrying the descriptor id, the resolved `GrantScope` digest, the charged `CostVector`, the window, and a detached signature over those bytes, chained into the `EventLog` hash chain so the grant decision is itself a content-addressed, replayable fact.
+- Unlocks zero-trust cross-process command forwarding: the sidecar write-forward seam and the WASM/process plugin host verify a command was authorized by checking the attestation signature against the broker's key, never re-running the predicate or trusting the caller; a replay of the op-log re-derives every grant decision bit-identically, so an audit reconstructs who was authorized for what and when from the chain alone.
+- Draws on the verifiable-credential / detached-signature pattern and the existing hash-chained `EventLog` over the durable `OpLog`: the runtime that already owns the `XxHash128` content-address seed, the chained event log, and the permission/cost predicate is the natural owner of a signed admission that the determinism kernel replays and the cross-process boundary trusts — closing the in-process-only gap a transient `Fin<CostVector>` leaves open.
+
+[CERTIFIED_INDUSTRIAL_TRANSPORT]: Bind the LiveWire industrial-transport axis to the certified OPC-UA + MQTTnet stack.
+- Replace the abstract "OPC-UA / Modbus / MQTT / serial protocol clients" app-root pin with `OPCFoundation.NetStandard.Opc.Ua` (with `.PubSub` bundling MQTTnet 5 for the MQTT leg) as the concrete, central-manifest-admissible transport owners behind the binding contract.
+- Unlocks a certified, .NET 10, NativeAOT-friendly industrial-IoT binding the AEC live-wire studio can ship — session/subscription/monitored-item semantics, PubSub over MQTT, complex-type decoding — from a Microsoft-contributed open-source stack rather than a hand-rolled client.
+- Draws on the certified OPC-UA reference implementation and MQTTnet 5 as the obvious owners now that the previously-unresolved concrete stack is settled.
+
+[WASM_RUNTIME_OWNER]: Name `wasmtime-dotnet` as the concrete Sandbox isolation-axis host runtime.
+- Replace the abstract "WASM component-model host runtime" pin with the `wasmtime-dotnet` embedding and bind the no-ambient-authority grant model to WASI-Preview-2 capability-based imports; the WIT-to-C# host binding generation rides the BytecodeAlliance `componentize-dotnet` build tooling at the app root, never a runtime package the spine admits.
+- Unlocks WASI-Preview-2 capability-based isolation where clocks/files/sockets/http are granted explicitly through the component-model import table — the exact deny-by-default sandbox the page designs — backed by a real runtime with WIT-generated host bindings and `Store` fuel/memory counters for the quota cell.
+- Draws on the 2025-2026 stabilization of WASI 0.2 and the Wasmtime component model: WASI 0.2 is stable and `wasmtime-dotnet` is the maintained .NET embedding, turning the isolation algebra into a buildable plugin host without a hand-rolled interpreter.
+
+[SECRET_LIFECYCLE]: Promote secret handling from a single `ConfigSource` row to a `secrets/` sub-domain owning the credential lifecycle.
+- The `SecretsStore` source mounts a keychain provider once at boot, but a runtime spine owns the whole secret lifecycle — short-lived-credential acquisition, lease renewal ahead of expiry on the schedule port, in-memory zeroization on drain, and a rotation receipt — none of which a frozen config row carries; the new sub-domain folds a `SecretLease` row family over the existing `ScheduleEntry`/`LeasePolicy` and `DataClassification.Secret` redaction owners.
+- Unlocks no-static-secret operation: a credential is acquired from a workload-identity broker, held only as long as its lease, renewed on a deadline-class cadence, and zeroized at drain, so a leaked process memory image carries no long-lived secret and a rotated upstream credential propagates without a restart.
+- Draws on the 2025-2026 workload-identity-federation and short-lived-credential shift (OIDC/SPIFFE workload identity over static API keys) — the runtime that already owns config admission, the schedule port, and the redaction taxonomy is the natural owner of the lease cadence and the zeroization seam that a static config row structurally cannot express.
+
+[FENCING_COORDINATION]: Add a `coordination/` sub-domain owning distributed single-writer election with monotone fencing tokens.
+- The maintenance `LeasePolicy`, the `PeerRoster` epoch, and the `FleetRoll` wave each imply a single-writer guarantee but no owner mints the monotone fencing token that makes a stale lease holder's late write rejectable; the new sub-domain folds a `FencingToken` value object and a `LeaseElection` rail over the existing op-log HLC cursor and the `PeerRoster` epoch so every guarded write carries a token the store fences on.
+- Unlocks correct cross-process single-writer coordination — maintenance work, fleet-roll conductor election, and the sidecar write-forward owner each acquire a fenced lease whose monotone token a paused-then-resumed holder cannot reuse, closing the classic lease-expiry-during-GC-pause write-corruption window the bare `CrashStaleness` timeout leaves open.
+- Draws on the fencing-token correctness law for distributed locks (a timeout-only lease is unsafe under a paused holder; a monotone token the resource checks is the proof) — the runtime that owns the HLC stamp, the lease policy, and the roster epoch already holds the three inputs a fencing token composes from.
+
+## [2]-[CLOSED]
+
+[CEDAR_PERMISSION_GRAMMAR]: [DROPPED] Anchored on a Cedar .NET binding that does not exist — Cedar ships Rust/WASM/Java/Go/Ruby only, and a C# binding is an open feature request, not an admissible central package; the typed `PermissionShape` × `GrantScope.Covers` value-object predicate the broker already carries is correct functional ROP, not a hand-rolled defect to replace. The auditable-decision goal it chased is re-targeted at a real technique under `SIGNED_GRANT_ATTESTATION`.

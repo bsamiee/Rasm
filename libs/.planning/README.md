@@ -6,11 +6,11 @@ The authoring standard for the `libs/` planning corpus. It owns the doc-set per 
 
 Three tiers carry the same intent at widening scope: a folder owns one package's planning, a branch aggregates its language, and the cross-`libs/` core binds the three languages. Only the cross-`libs/` core names another language; a branch or folder consumes a peer only through the wire contracts.
 
-- Cross-`libs/` core (`libs/.planning/`): `architecture.md` (the topology law), `campaign-method.md` (the planning loop), `README.md` (this standard), `IDEAS.md`, `TASKLOG.md`, and `.api/` (project-level cross-cutting package catalogues).
-- Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`, and `.api/` — one API catalogue per package the language admits, the single home for that language's API evidence, never duplicated per folder.
-- Folder (`<pkg>/`): the four index docs at the package root — `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md` — plus design pages under one `<pkg>/.planning/<sub-domain>/<page>.md`. No per-folder `.api/`, no `FEATURES.md`, no `.planning/README.md`.
+- Cross-`libs/` core (`libs/.planning/`): `architecture.md` (the topology law), `campaign-method.md` (the planning loop), `README.md` (this standard), `IDEAS.md`, `TASKLOG.md`.
+- Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`.
+- Folder (`<pkg>/`): the four index docs at the package root — `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md` — plus design pages under one `<pkg>/.planning/<sub-domain>/<page>.md` and a `<pkg>/.api/` of generated package catalogues, one per external library the folder uses. No `FEATURES.md`, no `.planning/README.md`. The `.api/` lives per folder, never consolidated to a branch or project-level home: it is the resource a planning pass reads to draw an external package's real API without guessing.
 
-The `.planning/` lifecycle — a transient greenfield scaffold, the single-`.planning/`-per-package nesting rule, the central `libs/.planning/` and per language `<language>/.planning` are exceptions to this; once a folder (regardless of hierarchy) implements code, `.planning` is no longer wanted, all content from it's spec sheets are transferred to code files fully, and become stale artifacts to dispose afterwards.
+The `.planning/` lifecycle — the transient greenfield scaffold, the single-`.planning/`-per-package nesting rule, and the dissolution once a folder lands code — is owned by `architecture.md`; the cross-`libs/` core and each branch `<lang>/.planning/` are the standing exceptions that persist for the campaign duration. This standard owns only the doc-set, the templates, and the page grammar those folders carry.
 
 ## [2]-[INDEX_DOCS]
 
@@ -18,7 +18,7 @@ Each index doc opens with one or two declarative lines stating its own organizat
 
 [README] — the folder's file router and external-package registry.
 - Router: a short index of the design pages under `.planning/`, so a reader navigates the folder without scanning the tree.
-- Packages: every external library the folder uses, planned or implemented, as a flat list. No version pin (versions are centralized in the one owning manifest), and no link into `.api/` (the catalogue is expected at the branch `.planning/.api/<package>.md`; coupling the README to it is fragile). New admissions land here from the folder's ideas and tasks.
+- Packages: every external library the folder uses, planned or implemented, as a flat list. No version pin (versions are centralized in the one owning manifest), and no link into `.api/` (the catalogue is expected at the folder's own `.api/<package>.md`; coupling the README to it is fragile). New admissions land here from the folder's ideas and tasks.
 - Centralization is absolute: no per-package manifest exists (no per-folder `pyproject.toml`, `package.json`, or `*.props`); every package and version lives in the one language manifest.
 
 [ARCHITECTURE] — the folder's professional domain map.
@@ -40,7 +40,7 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - H1 `# [<PKG>_<PAGE>]`; one declarative lead paragraph; sections `## [k]-[TOKEN]` numbered from 1, section [1] the index of the page's clusters.
 - A cluster carries a card (owner, packages, growth, and the boundary/receipt/entry lines it earns), then transcription-complete signature fences, then at most one Mermaid diagram.
 - Signature fences are transcription-complete: every generated-owner knob, closed-family key, union case with its payload, and entrypoint signature is written so an agent copies it verbatim; bodies are written where the body is the law. Fences carry zero comments; invariants live on the card. Every literal traces to an axis on the page or an earlier page, or becomes a RESEARCH item.
-- An external member is written only after the branch `.api/` catalogue verifies its spelling; an unverified member is a RESEARCH item, never prose.
+- An external member is written only after the folder's `.api/` catalogue verifies its spelling; an unverified member is a RESEARCH item, never prose.
 
 ## [4]-[NOTATION]
 
@@ -59,4 +59,4 @@ Review is judgment against this standard and the route-owned code doctrine, not 
 
 ## [7]-[CROSS_CUTTING_PACKAGES]
 
-The cross-`libs/` core registers only the packages that are genuinely project-level — shared tooling spanning languages, or the dependencies of a future admin/meta `libs/<x>` that is not bound to the AEC/Rhino pipelines. Per-language packages stay in their branch README and are never duplicated here. Each registered package is expected to carry a catalogue at `libs/.planning/.api/<package>.md`; the registry names the package and its language scope, never a version or a link.
+The cross-`libs/` core registers only the packages that are genuinely project-level — shared tooling spanning languages, or the dependencies of a future admin/meta `libs/<x>` that is not bound to the AEC/Rhino pipelines. Per-language packages stay in their branch README and are never duplicated here. There is no project-level `.api/`; each such package's catalogue lives in the `.api/` of every folder that uses it. The registry names the package and its language scope, never a version or a link.

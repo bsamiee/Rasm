@@ -1,43 +1,75 @@
 # [UI]
 
-`ui` is the browser UI/UX/components library of the TypeScript branch — the AppUi-analog, the lower browser-stratum library beneath the `platform` AppHost-analog entry. It is the single sanctioned `AtomBinding` reactive-binding spine, the leaf render-surfaces over the decoded wire vocabulary, and the interaction-role component-system vocabulary. It holds no domain state and authors no decode: every domain read flows through a `projection` store and the one `AtomBinding`, every geometry read through the `interchange` `GeometryRail`, and every mutation leaves only through the `interchange` `CommandGateway`. Zero consumers exist; implementation is full-capability with no holding back; `.planning/` pages are transcribed, never re-designed. `ui/**` never imports `platform/**`; the `platform` CompositionRoot composes this library, never the reverse. Owner-state and the rails/axes registry live in `ARCHITECTURE.md`; the realized capability list in `FEATURES.md`; open work in `TASKLOG.md`.
+`ui` is the host-free browser UI/UX/components library of the TypeScript branch — the AppUi-analog, the lower browser-stratum library beneath the `platform` AppHost-analog. It is the single sanctioned `AtomBinding` reactive-binding spine, the headless interaction-role component vocabulary, and the leaf render-surfaces over the decoded C# wire. It holds no domain state and authors no decode: every domain read flows through a `projection` store and the one `AtomBinding`, every geometry read through the `interchange` `GeometryRail`, and every mutation leaves only through the `interchange` `CommandGateway`. Distinct in kind from the C# Avalonia AppUi (a desktop host-bound surface); this is a pure browser DOM/WebGL/WebGPU library. `ui/**` never imports `platform/**`. This README routes the `.planning/` design pages and registers every external package the folder draws on; the domain folder-map lives in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the open work in `TASKLOG.md`.
 
-## [1]-[PAGE_INDEX]
+## [1]-[PAGE_ROUTER]
 
-| [INDEX] | [PAGE]                                                  | [OWNS]                                                                            |
-| :-----: | :----------------------------------------------------- | :------------------------------------------------------------------------------- |
-|   [1]   | [binding](.planning/binding.md)                       | AtomBinding, DeepLinkBinding, UndoStack, OfflineState, the dev-build atom inspector |
-|   [2]   | [render-surfaces](.planning/render-surfaces.md)       | the observation routes, GeoSeriesSurface/GeoSeriesLayer, the GlbViewport WebGL render |
-|   [3]   | [component-system](.planning/component-system.md)     | the InteractionRole owner-block, RoleBehavior, ThemeTokens, CssVarSync             |
+The design pages under `.planning/`, grouped by sub-domain in build order; each page is one transcription unit per eventual source file, and `ARCHITECTURE.md` carries the per-folder charter.
 
-## [2]-[ADMISSIONS_RECORD]
+- binding: [atom-binding](.planning/binding/atom-binding.md) — the `AtomBinding` spine over `Atom.searchParam`/`kvs`/`family`/`pull`, the `UndoStack` fold, the `Result.builder` render chain.
+- component-system: [role-behavior](.planning/component-system/role-behavior.md) — the `InteractionRole` vocabulary owner-block and the `RoleBehavior` contract; [accessibility-broadcast](.planning/component-system/accessibility-broadcast.md) — the live-region announce path and the external-store toast queue.
+- theming: [theme-tokens](.planning/theming/theme-tokens.md) — the `ThemeTokens` OKLCH scale and the `CssVarSync` Tailwind CSS-variable sync.
+- observation: [observation-routes](.planning/observation/observation-routes.md) — `EvidenceTimelineRoute`, `BenchmarkRoute`, `CollectorPanel`.
+- cartography: [geo-series-layer](.planning/cartography/geo-series-layer.md) — the `GeoSeriesLayer` union over maplibre and deck.gl.
+- viewport: [glb-viewport](.planning/viewport/glb-viewport.md) — `GlbViewport`, `RendererBackend`, `ViewportResource`, the camera row.
+- motion: [gesture-algebra](.planning/motion/gesture-algebra.md) — the shared `CameraGesture`/`GestureFold` pointer-gesture algebra; [view-transitions](.planning/motion/view-transitions.md) — `RouteTransition` over `<ViewTransition>`, `ActivitySurface` over `<Activity>`.
+- overlay: [floating-anchor](.planning/overlay/floating-anchor.md) — `FloatingAnchor` placement, the CSS Anchor bridge, the dismiss law.
 
-Each package maps to its consuming page, central catalogue at `libs/typescript/.api/`, and admission status. Concrete coordinates live in the workspace catalog (`pnpm-workspace.yaml` `catalog:`); this table never carries a pin. `[STATUS]` is one of `admitted`, `admitted-on-precondition`.
+## [2]-[PACKAGES]
 
-| [INDEX] | [PACKAGE]                                        | [PAGE]                            | [CATALOGUE]                       | [STATUS]                  |
-| :-----: | :---------------------------------------------- | :------------------------------- | :-------------------------------- | :------------------------ |
-|   [1]   | react + react-dom                               | binding, render, component-system | `.api/api-ui-stack.md`           | admitted                  |
-|   [2]   | @effect-atom/atom + @effect-atom/atom-react     | binding                          | `.api/api-effect-atom.md`         | admitted                  |
-|   [3]   | maplibre-gl                                     | render-surfaces                  | `.api/api-infra-data.md`          | admitted                  |
-|   [4]   | @deck.gl/core + @deck.gl/layers + @deck.gl/react | render-surfaces                  | `.api/api-infra-data.md`          | admitted                  |
-|   [5]   | @tanstack/react-virtual                         | render-surfaces                  | `.api/api-ui-stack.md`            | admitted                  |
-|   [6]   | @effect/opentelemetry                           | render-surfaces                  | `.api/api-effect-opentelemetry.md` | admitted (collector reader) |
-|   [7]   | react-aria + react-aria-components + react-stately | component-system               | `.api/api-ui-stack.md`            | admitted                  |
-|   [8]   | colorjs.io                                      | component-system                 | `.api/api-ui-stack.md`            | admitted                  |
-|   [9]   | tailwindcss                                     | component-system                 | `.api/api-ui-stack.md`            | admitted                  |
-|  [10]   | isomorphic-dompurify                            | component-system                 | `.api/api-ui-stack.md`            | admitted                  |
-|  [11]   | effect                                          | all pages                        | `.api/api-effect.md`              | admitted                  |
-|  [12]   | three / @babylonjs/core / @google/model-viewer / @webgpu/types | render-surfaces    | `.api/api-ui-stack.md`            | admitted-on-precondition  |
+Every external library the folder uses, planned or implemented, as one flat registry. Versions are centralized in the one TypeScript manifest (`pnpm-workspace.yaml` `catalog:`) and never pinned here.
 
-## [3]-[PROOF_GATES]
+[REACT]:
+- react
+- react-dom
+- @types/react
+- @types/react-dom
+- babel-plugin-react-compiler
+- react-compiler-runtime
 
-`[RAIL]` names the owning rail; the executable command lives with that rail owner, never restated here.
+[BINDING]:
+- effect
+- @effect-atom/atom
+- @effect-atom/atom-react
+- @effect/opentelemetry
 
-| [INDEX] | [GATE]          | [RAIL]                            | [EVIDENCE]                                                  |
-| :-----: | :-------------- | :-------------------------------- | :--------------------------------------------------------- |
-|  [G1]   | catalog resolve | `pnpm` install/restore            | `catalogMode` strict resolves the browser-stratum admissions |
-|  [G2]   | typecheck       | `tsgo` typecheck                  | zero diagnostics over the domain                            |
-|  [G3]   | stratum lint    | centralized lint config over `ui/**` | no `ui`->`platform` import, no node-platform import      |
-|  [G4]   | unit-pbt        | `vitest` project `browser`        | the `UndoStack` fold and `announceFor` total-dispatch laws pass |
-|  [G5]   | browser-e2e     | `vitest` browser-mode (playwright) | leaf subscriber renders the projection fold via `AtomBinding` |
-|  [G6]   | page render     | local mermaid-cli                 | page diagrams render through the local renderer             |
+[HEADLESS_A11Y]:
+- react-aria
+- react-aria-components
+- react-stately
+- @react-aria/live-announcer
+- tailwindcss-react-aria-components
+- @radix-ui/react-slot
+- @radix-ui/react-label
+- @radix-ui/react-separator
+- @radix-ui/react-visually-hidden
+
+[POSITIONING_GESTURE]:
+- @floating-ui/react
+- @floating-ui/react-dom
+- @use-gesture/react
+
+[THEMING]:
+- colorjs.io
+- tailwindcss
+- tailwind-merge
+- class-variance-authority
+
+[CONTENT]:
+- lucide-react
+- cmdk
+- vaul
+- isomorphic-dompurify
+
+[DATA_SURFACES]:
+- @tanstack/react-virtual
+- @tanstack/react-table
+- maplibre-gl
+- @deck.gl/core
+- @deck.gl/layers
+- @deck.gl/mapbox
+
+[VIEWPORT]:
+- three
+- @google/model-viewer
+- @webgpu/types

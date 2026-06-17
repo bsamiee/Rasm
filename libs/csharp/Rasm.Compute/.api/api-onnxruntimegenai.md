@@ -31,25 +31,25 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 - rail: model
 - source: decompile-verified against `Microsoft.ML.OnnxRuntimeGenAI.Managed` 0.14.1
 
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]           | [CAPABILITY]                                           |
-| :-----: | :-------------------------- | :----------------------- | :----------------------------------------------------- |
-|   [1]   | `OgaHandle`                 | process-global handle    | owns native init/teardown (LIFO outermost)             |
-|   [2]   | `Config`                    | model configuration      | configures model dir, providers, and model data        |
-|   [3]   | `Model`                     | model root               | loads the generative model                             |
-|   [4]   | `Tokenizer`                 | tokenizer root           | encodes prompts, applies chat template                 |
-|   [5]   | `TokenizerStream`           | incremental decoder      | decodes one token per step                             |
-|   [6]   | `Sequences`                 | token-sequence carrier   | carries encoded/generated token sequences              |
-|   [7]   | `GeneratorParams`           | generation policy        | carries search options and guidance                    |
-|   [8]   | `Generator`                 | generation engine        | runs the per-step token loop                           |
-|   [9]   | `Adapters`                  | LoRA adapter registry    | loads/unloads named LoRA adapters (`SafeHandle`)       |
-|  [10]   | `OnnxRuntimeGenAIException` | fault rail               | the sole generative exception type                     |
-|  [11]   | `NamedTensors`              | named-tensor batch       | opaque batch of named tensors for multimodal injection |
-|  [12]   | `Tensor`                    | native tensor carrier    | wraps a native buffer with shape and element type      |
-|  [13]   | `ElementType`               | tensor element enum      | discriminates ONNX element types (float32, int32, …)  |
-|  [14]   | `Images`                    | image media loader       | loads images from paths or raw byte buffers            |
-|  [15]   | `Audios`                    | audio media loader       | loads audios from paths or raw byte buffers            |
-|  [16]   | `MultiModalProcessor`       | multimodal processor     | encodes image/audio/text batches into `NamedTensors`   |
-|  [17]   | `StreamingProcessor`        | streaming audio processor| incremental audio chunking to `NamedTensors`           |
+| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]            | [CAPABILITY]                                           |
+| :-----: | :-------------------------- | :------------------------ | :----------------------------------------------------- |
+|   [1]   | `OgaHandle`                 | process-global handle     | owns native init/teardown (LIFO outermost)             |
+|   [2]   | `Config`                    | model configuration       | configures model dir, providers, and model data        |
+|   [3]   | `Model`                     | model root                | loads the generative model                             |
+|   [4]   | `Tokenizer`                 | tokenizer root            | encodes prompts, applies chat template                 |
+|   [5]   | `TokenizerStream`           | incremental decoder       | decodes one token per step                             |
+|   [6]   | `Sequences`                 | token-sequence carrier    | carries encoded/generated token sequences              |
+|   [7]   | `GeneratorParams`           | generation policy         | carries search options and guidance                    |
+|   [8]   | `Generator`                 | generation engine         | runs the per-step token loop                           |
+|   [9]   | `Adapters`                  | LoRA adapter registry     | loads/unloads named LoRA adapters (`SafeHandle`)       |
+|  [10]   | `OnnxRuntimeGenAIException` | fault rail                | the sole generative exception type                     |
+|  [11]   | `NamedTensors`              | named-tensor batch        | opaque batch of named tensors for multimodal injection |
+|  [12]   | `Tensor`                    | native tensor carrier     | wraps a native buffer with shape and element type      |
+|  [13]   | `ElementType`               | tensor element enum       | discriminates ONNX element types (float32, int32, …)   |
+|  [14]   | `Images`                    | image media loader        | loads images from paths or raw byte buffers            |
+|  [15]   | `Audios`                    | audio media loader        | loads audios from paths or raw byte buffers            |
+|  [16]   | `MultiModalProcessor`       | multimodal processor      | encodes image/audio/text batches into `NamedTensors`   |
+|  [17]   | `StreamingProcessor`        | streaming audio processor | incremental audio chunking to `NamedTensors`           |
 
 [PUBLIC_TYPE_SCOPE]: M.E.AI projection
 - rail: model
@@ -68,25 +68,25 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 - rail: model
 - source: decompile-verified
 
-| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]                                                           | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------- | :--------------------------------------------------------------------- | :---------------------------------------------------- |
-|   [1]   | `new OgaHandle()`                                  | `OgaHandle()`                                                          | process-global init (`IDisposable`)                   |
-|   [2]   | `new Config(string)`                               | `Config(string modelPath)`                                             | reads `{modelPath}/genai_config.json`                 |
-|   [3]   | `Config.ClearProviders`                            | `void ClearProviders()`                                                | removes all configured providers                      |
-|   [4]   | `Config.AppendProvider`                            | `void AppendProvider(string provider)`                                 | injects an execution provider                         |
-|   [5]   | `Config.SetProviderOption`                         | `void SetProviderOption(string provider, string option, string value)` | sets a provider option key                            |
-|   [6]   | `Config.Overlay`                                   | `void Overlay(string json)`                                            | applies a JSON config overlay                         |
-|   [7]   | `Config.AddModelData`                              | `void AddModelData(string modelFilename, byte[] modelData)`            | injects in-memory model file data                     |
-|   [8]   | `Config.RemoveModelData`                           | `void RemoveModelData(string modelFilename)`                           | removes a previously added in-memory model file       |
-|   [9]   | `Config.SetDecoderProviderOptionsHardwareDeviceType` | `void SetDecoderProviderOptionsHardwareDeviceType(string provider, string hardware_device_type)` | sets hardware device type for decoder provider |
-|  [10]   | `Config.SetDecoderProviderOptionsHardwareDeviceId` | `void SetDecoderProviderOptionsHardwareDeviceId(string provider, uint hardware_device_id)`      | sets hardware device ID for decoder provider   |
-|  [11]   | `Config.SetDecoderProviderOptionsHardwareVendorId` | `void SetDecoderProviderOptionsHardwareVendorId(string provider, uint hardware_vendor_id)`      | sets hardware vendor ID for decoder provider   |
-|  [12]   | `Config.ClearDecoderProviderOptionsHardwareDeviceType` | `void ClearDecoderProviderOptionsHardwareDeviceType(string provider)` | clears hardware device type for decoder provider |
-|  [13]   | `Config.ClearDecoderProviderOptionsHardwareDeviceId`   | `void ClearDecoderProviderOptionsHardwareDeviceId(string provider)`   | clears hardware device ID for decoder provider   |
-|  [14]   | `Config.ClearDecoderProviderOptionsHardwareVendorId`   | `void ClearDecoderProviderOptionsHardwareVendorId(string provider)`   | clears hardware vendor ID for decoder provider   |
-|  [15]   | `new Model(string)`                                | `Model(string modelPath)`                                              | loads the model directly from path                    |
-|  [16]   | `new Model(Config)`                                | `Model(Config config)`                                                 | loads the model from config                           |
-|  [17]   | `Model.GetModelType`                               | `string GetModelType()`                                                | reports the model type string                         |
+| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]                                                                                     | [CAPABILITY]                                     |
+| :-----: | :----------------------------------------------------- | :----------------------------------------------------------------------------------------------- | :----------------------------------------------- |
+|   [1]   | `new OgaHandle()`                                      | `OgaHandle()`                                                                                    | process-global init (`IDisposable`)              |
+|   [2]   | `new Config(string)`                                   | `Config(string modelPath)`                                                                       | reads `{modelPath}/genai_config.json`            |
+|   [3]   | `Config.ClearProviders`                                | `void ClearProviders()`                                                                          | removes all configured providers                 |
+|   [4]   | `Config.AppendProvider`                                | `void AppendProvider(string provider)`                                                           | injects an execution provider                    |
+|   [5]   | `Config.SetProviderOption`                             | `void SetProviderOption(string provider, string option, string value)`                           | sets a provider option key                       |
+|   [6]   | `Config.Overlay`                                       | `void Overlay(string json)`                                                                      | applies a JSON config overlay                    |
+|   [7]   | `Config.AddModelData`                                  | `void AddModelData(string modelFilename, byte[] modelData)`                                      | injects in-memory model file data                |
+|   [8]   | `Config.RemoveModelData`                               | `void RemoveModelData(string modelFilename)`                                                     | removes a previously added in-memory model file  |
+|   [9]   | `Config.SetDecoderProviderOptionsHardwareDeviceType`   | `void SetDecoderProviderOptionsHardwareDeviceType(string provider, string hardware_device_type)` | sets hardware device type for decoder provider   |
+|  [10]   | `Config.SetDecoderProviderOptionsHardwareDeviceId`     | `void SetDecoderProviderOptionsHardwareDeviceId(string provider, uint hardware_device_id)`       | sets hardware device ID for decoder provider     |
+|  [11]   | `Config.SetDecoderProviderOptionsHardwareVendorId`     | `void SetDecoderProviderOptionsHardwareVendorId(string provider, uint hardware_vendor_id)`       | sets hardware vendor ID for decoder provider     |
+|  [12]   | `Config.ClearDecoderProviderOptionsHardwareDeviceType` | `void ClearDecoderProviderOptionsHardwareDeviceType(string provider)`                            | clears hardware device type for decoder provider |
+|  [13]   | `Config.ClearDecoderProviderOptionsHardwareDeviceId`   | `void ClearDecoderProviderOptionsHardwareDeviceId(string provider)`                              | clears hardware device ID for decoder provider   |
+|  [14]   | `Config.ClearDecoderProviderOptionsHardwareVendorId`   | `void ClearDecoderProviderOptionsHardwareVendorId(string provider)`                              | clears hardware vendor ID for decoder provider   |
+|  [15]   | `new Model(string)`                                    | `Model(string modelPath)`                                                                        | loads the model directly from path               |
+|  [16]   | `new Model(Config)`                                    | `Model(Config config)`                                                                           | loads the model from config                      |
+|  [17]   | `Model.GetModelType`                                   | `string GetModelType()`                                                                          | reports the model type string                    |
 
 [ENTRYPOINT_SCOPE]: tokenization and chat template
 - rail: model
@@ -113,11 +113,11 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 `Sequences` is created by `Tokenizer.Encode`/`EncodeBatch` or returned by `Generator.GetSequence`; direct construction is internal only.
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                   | [CAPABILITY]                                      |
-| :-----: | :--------------------- | :--------------------------------------------- | :------------------------------------------------ |
-|   [1]   | `Sequences.NumSequences` | `ulong NumSequences { get; }`                | count of sequences in the batch                   |
-|   [2]   | `Sequences[ulong]`     | `ReadOnlySpan<int> this[ulong sequenceIndex]`  | span view over one sequence by index              |
-|   [3]   | `Sequences.Append`     | `void Append(int token, ulong sequenceIndex)`  | appends one token to the sequence at `sequenceIndex` |
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                  | [CAPABILITY]                                         |
+| :-----: | :----------------------- | :-------------------------------------------- | :--------------------------------------------------- |
+|   [1]   | `Sequences.NumSequences` | `ulong NumSequences { get; }`                 | count of sequences in the batch                      |
+|   [2]   | `Sequences[ulong]`       | `ReadOnlySpan<int> this[ulong sequenceIndex]` | span view over one sequence by index                 |
+|   [3]   | `Sequences.Append`       | `void Append(int token, ulong sequenceIndex)` | appends one token to the sequence at `sequenceIndex` |
 
 [ENTRYPOINT_SCOPE]: generation loop and search options
 - rail: model
@@ -167,14 +167,14 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 `Tensor` in this namespace is `Microsoft.ML.OnnxRuntimeGenAI.Tensor` — a native-handle carrier distinct from `System.Numerics.Tensors.Tensor<T>`. It wraps an OGA-owned buffer with a shape and `ElementType` discriminant.
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                         | [CAPABILITY]                                     |
-| :-----: | :------------------------- | :--------------------------------------------------- | :----------------------------------------------- |
-|   [1]   | `new Tensor`               | `Tensor(nint data, long[] shape, ElementType type)`  | wraps a raw pointer buffer as a named OGA tensor |
-|   [2]   | `Tensor.Type`              | `ElementType Type()`                                 | returns the element type discriminant            |
-|   [3]   | `Tensor.Shape`             | `long[] Shape()`                                     | returns the dimension sizes                      |
-|   [4]   | `Tensor.NumElements`       | `long NumElements()`                                 | returns the total element count                  |
-|   [5]   | `Tensor.GetData<T>`        | `ReadOnlySpan<T> GetData<T>()`                       | exposes the native buffer as a typed span        |
-|   [6]   | `Tensor.ElementsFromShape` | `static long ElementsFromShape(long[] shape)`        | computes element count from a shape array        |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                        | [CAPABILITY]                                     |
+| :-----: | :------------------------- | :-------------------------------------------------- | :----------------------------------------------- |
+|   [1]   | `new Tensor`               | `Tensor(nint data, long[] shape, ElementType type)` | wraps a raw pointer buffer as a named OGA tensor |
+|   [2]   | `Tensor.Type`              | `ElementType Type()`                                | returns the element type discriminant            |
+|   [3]   | `Tensor.Shape`             | `long[] Shape()`                                    | returns the dimension sizes                      |
+|   [4]   | `Tensor.NumElements`       | `long NumElements()`                                | returns the total element count                  |
+|   [5]   | `Tensor.GetData<T>`        | `ReadOnlySpan<T> GetData<T>()`                      | exposes the native buffer as a typed span        |
+|   [6]   | `Tensor.ElementsFromShape` | `static long ElementsFromShape(long[] shape)`       | computes element count from a shape array        |
 
 `ElementType` values: `undefined`, `float32`, `uint8`, `int8`, `uint16`, `int16`, `int32`, `int64`, `string_t`, `bool_t`, `float16`, `float64`, `uint32`, `uint64`.
 
@@ -184,12 +184,12 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 `Images` and `Audios` are `IDisposable`; both expose only static `Load` factories — no public constructor.
 
-| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                  | [CAPABILITY]                                         |
-| :-----: | :---------------------------- | :-------------------------------------------- | :--------------------------------------------------- |
-|   [1]   | `Images.Load(string[])`       | `static Images Load(string[] imagePaths)`     | loads images from file paths                         |
-|   [2]   | `Images.Load(byte[])`         | `static Images Load(byte[] imageBytesData)`   | loads one image from a raw byte buffer               |
-|   [3]   | `Audios.Load(string[])`       | `static Audios Load(string[] audioPaths)`     | loads audios from file paths                         |
-|   [4]   | `Audios.Load(byte[])`         | `static Audios Load(byte[] audioBytesData)`   | loads one audio from a raw byte buffer               |
+| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                | [CAPABILITY]                           |
+| :-----: | :---------------------- | :------------------------------------------ | :------------------------------------- |
+|   [1]   | `Images.Load(string[])` | `static Images Load(string[] imagePaths)`   | loads images from file paths           |
+|   [2]   | `Images.Load(byte[])`   | `static Images Load(byte[] imageBytesData)` | loads one image from a raw byte buffer |
+|   [3]   | `Audios.Load(string[])` | `static Audios Load(string[] audioPaths)`   | loads audios from file paths           |
+|   [4]   | `Audios.Load(byte[])`   | `static Audios Load(byte[] audioBytesData)` | loads one audio from a raw byte buffer |
 
 [ENTRYPOINT_SCOPE]: MultiModalProcessor
 - rail: model
@@ -197,17 +197,17 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 `MultiModalProcessor : IDisposable` is constructed per `Model`; it encodes prompt+media batches into `NamedTensors` that feed `Generator.SetInputs`. It also exposes a `CreateStream` factory mirroring `Tokenizer.CreateStream`.
 
-| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]                                                                  | [CAPABILITY]                                                     |
-| :-----: | :----------------------------------------- | :---------------------------------------------------------------------------- | :--------------------------------------------------------------- |
-|   [1]   | `new MultiModalProcessor(Model)`           | `MultiModalProcessor(Model model)`                                            | creates the processor for a model                                |
-|   [2]   | `MultiModalProcessor.ProcessImages`        | `NamedTensors ProcessImages(string prompt, Images images)`                    | encodes one prompt + images into named tensors                   |
-|   [3]   | `MultiModalProcessor.ProcessImages`        | `NamedTensors ProcessImages(string[] prompts, Images images)`                 | encodes a batch of prompts + images into named tensors           |
-|   [4]   | `MultiModalProcessor.ProcessAudios`        | `NamedTensors ProcessAudios(string prompt, Audios audios)`                    | encodes one prompt + audios into named tensors                   |
-|   [5]   | `MultiModalProcessor.ProcessAudios`        | `NamedTensors ProcessAudios(string[] prompts, Audios audios)`                 | encodes a batch of prompts + audios into named tensors           |
-|   [6]   | `MultiModalProcessor.ProcessImagesAndAudios` | `NamedTensors ProcessImagesAndAudios(string prompt, Images images, Audios audios)` | encodes one prompt + images + audios             |
-|   [7]   | `MultiModalProcessor.ProcessImagesAndAudios` | `NamedTensors ProcessImagesAndAudios(string[] prompts, Images images, Audios audios)` | encodes batch of prompts + images + audios  |
-|   [8]   | `MultiModalProcessor.Decode`               | `string Decode(ReadOnlySpan<int> sequence)`                                   | decodes a full token span to string                              |
-|   [9]   | `MultiModalProcessor.CreateStream`         | `TokenizerStream CreateStream()`                                              | creates an incremental `TokenizerStream` from the processor      |
+| [INDEX] | [SURFACE]                                    | [CALL_SHAPE]                                                                          | [CAPABILITY]                                                |
+| :-----: | :------------------------------------------- | :------------------------------------------------------------------------------------ | :---------------------------------------------------------- |
+|   [1]   | `new MultiModalProcessor(Model)`             | `MultiModalProcessor(Model model)`                                                    | creates the processor for a model                           |
+|   [2]   | `MultiModalProcessor.ProcessImages`          | `NamedTensors ProcessImages(string prompt, Images images)`                            | encodes one prompt + images into named tensors              |
+|   [3]   | `MultiModalProcessor.ProcessImages`          | `NamedTensors ProcessImages(string[] prompts, Images images)`                         | encodes a batch of prompts + images into named tensors      |
+|   [4]   | `MultiModalProcessor.ProcessAudios`          | `NamedTensors ProcessAudios(string prompt, Audios audios)`                            | encodes one prompt + audios into named tensors              |
+|   [5]   | `MultiModalProcessor.ProcessAudios`          | `NamedTensors ProcessAudios(string[] prompts, Audios audios)`                         | encodes a batch of prompts + audios into named tensors      |
+|   [6]   | `MultiModalProcessor.ProcessImagesAndAudios` | `NamedTensors ProcessImagesAndAudios(string prompt, Images images, Audios audios)`    | encodes one prompt + images + audios                        |
+|   [7]   | `MultiModalProcessor.ProcessImagesAndAudios` | `NamedTensors ProcessImagesAndAudios(string[] prompts, Images images, Audios audios)` | encodes batch of prompts + images + audios                  |
+|   [8]   | `MultiModalProcessor.Decode`                 | `string Decode(ReadOnlySpan<int> sequence)`                                           | decodes a full token span to string                         |
+|   [9]   | `MultiModalProcessor.CreateStream`           | `TokenizerStream CreateStream()`                                                      | creates an incremental `TokenizerStream` from the processor |
 
 [ENTRYPOINT_SCOPE]: StreamingProcessor
 - rail: model
@@ -215,13 +215,13 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 `StreamingProcessor : IDisposable` handles incremental audio chunk delivery. `Process` returns `null` until enough context is accumulated; `Flush` drains remaining state.
 
-| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                         | [CAPABILITY]                                           |
-| :-----: | :------------------------------- | :--------------------------------------------------- | :----------------------------------------------------- |
-|   [1]   | `new StreamingProcessor(Model)`  | `StreamingProcessor(Model model)`                    | creates the streaming processor for a model            |
-|   [2]   | `StreamingProcessor.Process`     | `NamedTensors? Process(float[] audioData)`           | feeds an audio chunk; returns tensors when ready       |
-|   [3]   | `StreamingProcessor.Flush`       | `NamedTensors? Flush()`                              | drains remaining state; returns final tensors or null  |
-|   [4]   | `StreamingProcessor.SetOption`   | `void SetOption(string key, string value)`           | sets a processor option                                |
-|   [5]   | `StreamingProcessor.GetOption`   | `string GetOption(string key)`                       | gets a processor option value                          |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                               | [CAPABILITY]                                          |
+| :-----: | :------------------------------ | :----------------------------------------- | :---------------------------------------------------- |
+|   [1]   | `new StreamingProcessor(Model)` | `StreamingProcessor(Model model)`          | creates the streaming processor for a model           |
+|   [2]   | `StreamingProcessor.Process`    | `NamedTensors? Process(float[] audioData)` | feeds an audio chunk; returns tensors when ready      |
+|   [3]   | `StreamingProcessor.Flush`      | `NamedTensors? Flush()`                    | drains remaining state; returns final tensors or null |
+|   [4]   | `StreamingProcessor.SetOption`  | `void SetOption(string key, string value)` | sets a processor option                               |
+|   [5]   | `StreamingProcessor.GetOption`  | `string GetOption(string key)`             | gets a processor option value                         |
 
 [ENTRYPOINT_SCOPE]: recognized `SetSearchOption` key strings
 - source: doc-sourced (ORT-GenAI 0.14.x public documentation); key strings pass through to native `OgaGeneratorParamsSetSearchNumber`/`OgaGeneratorParamsSetSearchBool` without managed validation — no managed string registry exists in the binary

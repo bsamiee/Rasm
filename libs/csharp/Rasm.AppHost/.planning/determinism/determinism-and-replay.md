@@ -113,7 +113,7 @@ public static class EventLog {
             acc.Bind(state =>
                 entry.Predecessor == state.Prev && entry.Sequence == state.Seq + 1L
                     ? Fin.Succ((entry.Hash, entry.Sequence))
-                    : Fin.Fail<(ContentHash, long)>(Error.New(4660, $"chain-break:{entry.Sequence}"))))
+                    : Fin.Fail<(ContentHash, long)>(new ReplayFault.ChainBroken($"chain-break:{entry.Sequence}"))))
             .Map(static _ => unit);
 
     public static OpLogEntry ToOpLog(LogEntry entry, TenantContext tenant) =>

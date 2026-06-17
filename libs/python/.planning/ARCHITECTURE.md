@@ -1,64 +1,28 @@
 # [PYTHON_BRANCH_ARCHITECTURE]
 
-The Python branch atlas: the source tree and build order across the five packages, the inter-package dependency graph, and the intra-branch cross-folder seams. Per-folder owner registries (the one owner-state surface) live on each package `ARCHITECTURE.md`; this page carries only the branch-altitude topology. Cross-language consequences ride the Tier-0 `region-map/seam-splits.md` and are referenced as Tier-0 seams, never restated here.
+The Python branch domain map: five host-free peer packages of the science/compute/data/geometry/IFC companion, the dependency direction across them stated once, and the interpreter floor the whole branch sits below. The per-package sub-domain structure, owners, and charters live on each package `ARCHITECTURE.md` and are not restated here; this map carries only the branch-altitude topology. Cross-language wires live on the folder tasks that build them and in the cross-`libs/` `IDEAS.md`/`TASKLOG.md`, never in a branch seam ledger.
 
-## [1]-[SOURCE_TREE]
+## [1]-[PACKAGE_MAP]
 
-The package layout IS the branch build order: `runtime` is the foundation every sibling consumes, authored first as settled vocabulary; the remaining four author against the runtime ports and the ledger's pinned seam contracts. Within a package, the file layout is the package build order on its own `ARCHITECTURE.md`. Each package folder carries `README.md`, `.planning/` design pages, `.api/` catalogues, and the future source root directly under the package.
+Five packages, one foundation and four consumers. `runtime` mints the shared value shapes; `compute`, `data`, `geometry`, and `artifacts` are independent peer producers that compose those shapes at their boundary.
 
 ```text codemap
 libs/python/
-├── .planning/                 # branch charter, atlas, forward pool, open work, .api governance, region ledger
-│   ├── README.md              # [PYTHON_BRANCH] charter + topology + TEST_POLICY
-│   ├── ARCHITECTURE.md        # this atlas — source tree, dependency direction, seams
-│   ├── IDEAS.md               # [PYTHON_IDEAS] forward pool + concert + folder horizons
-│   ├── TASKLOG.md             # open work — manifest floors, .api gaps, page grades
-│   ├── api-catalogues.md      # .api evidence protocol + distribution→owner routing
-│   └── region-map/
-│       └── seam-splits.md     # intra-branch cross-folder seam ledger
-├── runtime/                   # FOUNDATION (>=3.15 core; companion-floor server leg)
-│   # context/settings, fault+rail, content identity, resources/lanes, receipts, ServerHost, evidence, Entrypoint
-├── compute/                   # offline scientific evidence that graduates (>=3.15 core; marker-floor rows)
-│   # ArrayPayload, NumericIntent solver, units/study/model, GraduationReceipt + HandoffAxis, StubCodegen, Inference
-├── data/                      # portable data interchange (>=3.15 core; cp315-wheel-gated rows)
-│   # DatasetRef, ScanPlan/Lakehouse/QueryEngine/DataQuality, FrameInterop/geospatial, GraphPayload/TensorStore/MeshPayload
-├── geometry/                  # geometry + IFC interchange, load-bearing companion (python_version<'3.13')
-│   # IfcCompanion daemon, IfcAnalysis, ScanProcessing, GeometryAlgebra
-└── artifacts/                 # artifact production (>=3.15 core; image-toolchain + native-VTK rows)
-    # DocumentPlan/ReportPlan/ArtifactReceipt, VisualSpec/ExportPlan/Preview/Compression
+├── runtime/      # the host-free execution foundation: the one content-identity owner, the one boundary-fault + Result/Option rail, the one resilience policy, caller-owned context/settings admission, resource roots + bounded anyio lanes, local receipts + the contributor port, the inbound companion gRPC server-runtime + credential axis, external-API/structural-parsing evidence, the private daemon entrypoint
+├── compute/      # offline scientific evidence that graduates: Array-API array admission, one route-discriminated solver folding one receipt, autodiff sensitivity, certified-enclosure validated numerics, signal processing, symbolic codegen, unit-bearing uncertainty, design-of-experiments + run history, model-asset validation, Bayesian inference, the graduation rail + the C# stub codegen
+├── data/         # portable data interchange: typed dataset refs, columnar lazy/streaming scan + egress, the transactional table-format lakehouse, cross-engine relational query, a data-contract gate, dataframe-agnostic interop over a pyarrow-free Arrow carrier, vector + raster geospatial, graph payloads, chunked tensor stores, mesh-file exchange
+├── geometry/     # the host-free geometry + IFC/BIM companion and the load-bearing cross-boundary owner: the IfcOpenShell GLB tessellation daemon, IFC analysis + buildingSMART validation, point-cloud/3D-scan registration, non-manifold topology, AEC computational geometry, the planned CAD-STEP hop and the shared mesh-utility
+└── artifacts/    # the self-contained artifact-production utility: documents/PDF/Office/structured-text, reproducible notebook reports, publication tables, 2D charts + offscreen 3D scientific visuals, archival signed PDFs, color-managed assets, raster previews, compressed bundles, all under one kind-discriminated ArtifactReceipt
 ```
-
-`runtime` lands first because every sibling consumes its `ContentIdentity`, `BoundaryFault`/`RuntimeRail`, `Retry`, `ResourceRoot`, `LanePolicy`, `ReceiptContributor`, and `ServerHost`/`Credential` ports as settled vocabulary. `compute`, `data`, `geometry`, and `artifacts` author against those ports and the pinned seam contracts; no sibling owner enters the runtime graph. The geometry companion daemon and the runtime server-host are the offline/companion legs that ride the `python_version<'3.13'` floor.
 
 ## [2]-[DEPENDENCY_DIRECTION]
 
-`runtime` is the foundation every package composes and references nothing first-wave; the other four consume runtime ports inward and never re-mint them. `compute` additionally composes `data` dataset/array shapes as study inputs and accepts `geometry` evidence through the graduation `HandoffAxis` geometry case, but imports no sibling interior beyond those two named seams. No package imports another package's interior except along a listed seam.
+The direction is stated once, here. `runtime` is the foundation: it mints `ContentIdentity`/`ContentKey`, `BoundaryFault`/`RuntimeRail`, `Retry`, `RuntimeContext`/`SettingsAdmission`, `ResourceRoot`/`TransportResource`, `LanePolicy`/`StagePlan`, `Receipt`/`ReceiptContributor`, and `ServerHost`/`Credential`, and references no sibling. `compute`, `data`, `geometry`, and `artifacts` compose those owners at their boundary as settled vocabulary and never re-mint a second content-identity, receipt, retry, transport, or wire owner. No package imports another package's interior.
 
-| [INDEX] | [PACKAGE]   | [DEPENDS_ON]                                                          | [DEPENDED_BY]                          |
-| :-----: | :---------- | :------------------------------------------------------------------- | :------------------------------------- |
-|   [1]   | `runtime`   | none (first-wave foundation; references no sibling)                  | `compute`, `data`, `geometry`, `artifacts` |
-|   [2]   | `data`      | `runtime` (`ContentIdentity`, `ReceiptContributor`, `TransportResource`) | `compute` (dataset/array shapes as study inputs) |
-|   [3]   | `geometry`  | `runtime` (`ServerHost`, `ContentIdentity`, rails, lanes, `ReceiptContributor`) | `compute` (evidence via `HandoffAxis` geometry case) |
-|   [4]   | `compute`   | `runtime` (`ContentIdentity`, `ReceiptContributor`), `data` (dataset/array shapes), `geometry` (evidence via `HandoffAxis`) | none |
-|   [5]   | `artifacts` | `runtime` (`ContentIdentity`, `ReceiptContributor`)                  | none |
+Two consumer-to-consumer compositions exist and are named here so neither is read as an interior import: `compute` composes `data` dataset and labelled-array shapes as study inputs, and `compute` accepts `geometry` evidence through the graduation `HandoffAxis` geometry case. Both are boundary compositions of a published shape, not interior coupling — `compute` re-catalogues neither, and `geometry` evidence crosses only on the single graduation rail. Every other cross-folder fact rides a folder task, never a per-folder seam ledger.
 
-The geometry companion daemon (served through the runtime `ServerHost`) and the runtime server-host are the offline/companion legs riding the `python_version<'3.13'` floor; the rest of the branch is `>=3.15` core. No Python package imports a managed-host interior, product host lifecycle, durable store, bridge lifecycle, or web UI state; every such coupling rides the Tier-0 ledger as a Tier-0 seam.
+The cross-language wire — the companion gRPC contract the geometry daemon serves, the content-identity seed parity with C#, the two-hop IFC/STEP tessellation rail, and the graduation-evidence seam — couples Python to C# only at the wire and lives on the owning folder tasks and the cross-`libs/` ledger, never on a Python-branch surface.
 
-## [3]-[SEAMS]
+## [3]-[INTERPRETER_FLOOR]
 
-Every two-folder fact splits by altitude: mechanics at the owning page, consequence at the consumer, in `pkg/page#CLUSTER` notation. A seam re-taught instead of consumed is the named drift defect repaired by routing to the owner. The companion gRPC wire, the content-identity seed parity, the two-hop IFC tessellation, and the graduation-evidence seam are cross-language and live in the Tier-0 ledger; this page carries only the intra-Python legs.
-
-| [INDEX] | [SEAM]              | [MECHANICS_AT]                       | [CONSEQUENCE_AT]                                                                                  |
-| :-----: | :------------------ | :----------------------------------- | :----------------------------------------------------------------------------------------------- |
-|   [1]   | content identity    | `runtime/content-identity#IDENTITY`  | `data/columnar-query#SCAN`, `geometry/ifc-companion#DAEMON`, `artifacts/documents#RECEIPT` key by one `ContentIdentity`; never re-minted |
-|   [2]   | contributor port    | `runtime/observability#RECEIPT`      | `data/columnar-query#SCAN`, `compute/graduation#GRADUATION`, `geometry/ifc-analysis#ANALYSIS`, `artifacts/documents#RECEIPT` typed receipts wire through one `ReceiptContributor` |
-|   [3]   | boundary-fault rail | `runtime/rails-resilience#FAULT`     | every sibling raises through `BoundaryFault` and returns the `RuntimeRail` carrier               |
-|   [4]   | resilience policy   | `runtime/rails-resilience#RESILIENCE`| sibling and transport retry ride one `Retry` table; never a second retry owner                   |
-|   [5]   | companion serve     | `runtime/server-host#SERVE`          | `geometry/ifc-companion#DAEMON` hosts its tessellation daemon through `ServerHost`; never a second wire vocabulary |
-|   [6]   | transport resource  | `runtime/resources-lanes#RESOURCE`   | `data/graph-mesh#MESH` and AEC remote streams acquire through `TransportResource`; never a second transport |
-|   [7]   | concurrency lanes   | `runtime/resources-lanes#LANE`       | sibling bounded fan-out rides `LanePolicy` task groups and `DrainReceipt`                        |
-|   [8]   | labelled-array catalogue | `data/.api` (`xarray`, `dask`)  | `compute/array-solver#ARRAY` composes the data catalogues as study-input shapes; deletes its duplicate stubs |
-|   [9]   | study-input shape   | `data/columnar-query#DATASET`        | `compute/array-solver#ARRAY` composes the dataset/array shape, never re-catalogued               |
-|  [10]   | mesh-file exchange  | `data/graph-mesh#MESH`               | `geometry` consumes mesh-file shapes as inputs; the IFC-to-GLB rail stays in `geometry`          |
-|  [11]   | geometry graduation | `compute/graduation#GRADUATION`      | `geometry/scan-processing#REGISTRATION` and `geometry/geometry-algebra#ALGEBRA` evidence reaches the managed owner system through the `HandoffAxis` geometry case |
-|  [12]   | report figure bind  | `artifacts/documents#REPORT`         | `artifacts/visual-export#VISUAL` outputs bind into the report-templating document tree           |
+The branch runs a `>=3.15` core on the normal-GIL CPython build for `runtime`, `compute`, `data`, and `artifacts`, with one sanctioned divergence: a `python_version<'3.13'` companion floor homing the native/OCCT/VTK and gRPC-server stack. The companion floor carries the geometry compiled geometry/IFC cores (isolating the copyleft `ifcopenshell` wheel at the process boundary), the planned OCCT CAD-STEP reader, the artifacts native VTK render path, and the `runtime` inbound `grpcio.aio` server-host leg. Every package consumes the floor as settled; admitting the companion environment is the one branch-altitude environment gate, carried as a `TASKLOG.md` task.

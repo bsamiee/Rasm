@@ -1,46 +1,53 @@
 # [APPHOST_TASKLOG]
 
-Open work owned by this folder; closed items do not appear. `[STATUS]` is one of `QUEUED`, `ACTIVE`, `BLOCKED`, `SPIKE`; owner state is read at `ARCHITECTURE.md` `[OWNER_REGISTRY]`. Every `SPIKE` row names the probe that flips its owner registry cell to `FINALIZED`.
+The open and closed work for the runtime spine, distilled from `IDEAS.md`. Each open task carries a status marker and the capability-to-build, packages, integration points/boundaries, and key considerations; one idea spawns one or more tasks across one or more files. Closed cards record already-settled cleanup.
 
-## [1]-[LIVE_HOST_PROBES]
+## [1]-[OPEN]
 
-Tier-3 probes that strictly require the running integrated host (RhinoWIP plugin ALC, the live service manager, or a paired companion process); each is named in its page RESEARCH cluster.
+[T-MCP-SDK] [QUEUED]: Rewrite agent/mcp-projection onto the official MCP SDK.
+- Capability: project each `CapabilityDescriptor` to one `AIFunction` adopted by `McpServerTool.Create`, mapping effect/idempotency to `McpServerToolCreateOptions` annotations; keep `McpDispatch` as the brokered dispatch and the `ProgressFrame`/`AgentSession` progress vocabulary, drop the JSON-RPC framing and the bespoke gRPC server-stream substrate. Lands in `.planning/agent/mcp-projection.md`, transcribes to `agent/Mcp.cs`.
+- Packages: ModelContextProtocol, ModelContextProtocol.Core, ModelContextProtocol.AspNetCore, Microsoft.Extensions.AI.Abstractions.
+- Integration: consumes capability#DESCRIPTOR_AXIS/#DISCOVERY_FOLD and #COMMAND_ALGEBRA/#GRANT_BROKER internal to the folder; `AddMcpServer().WithHttpTransport()` and the SSE transport are app-root pins, never an interior dependency.
+- Considerations: confirm the SDK `McpException`/`JsonRpcError` codes the 4640-band `McpFault` cases map onto; bind sampling to `IChatClient` and the dry-run cost confirmation to SDK elicitation; the long-running call adopts the SDK task primitive so status/poll/result and the resumable handle survive a transport bounce.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Generic Host boot and unload inside the RhinoWIP plugin load context without process exit | host-profiles#LIFETIME_ADAPTERS | SPIKE |
-| [2] | Kestrel + Grpc.AspNetCore hosting and gRPC-over-UDS control intake under the plugin ALC shared framework; socket-file mode + accept-side `PeerAdmission` credential read gate the connecting peer | companion-sidecar#SERVICE_HOST · outbound-resilience#DISCOVERY_ATTACH | SPIKE |
-| [3] | Cross-process degradation-cascade convergence: a companion floors its `DegradationCell.Cascade` from the parent level over the control hop and re-derives on release | companion-sidecar#DEGRADATION_CASCADE | SPIKE |
-| [4] | Drain-deadline conformance under live plugin unload within the cooperative allotment | time-and-deadlines#DEADLINE_TAXONOMY | SPIKE |
-| [5] | SIGHUP delivery under launchd and systemd; standalone crash-marker schema; macOS keychain secrets-store route | lifecycle-and-drain#FAULT_SPINE · configuration-and-options#SOURCE_AXIS | SPIKE |
-| [6] | macOS IOKit power-source and SMC thermal-pressure live reads feeding the fidelity grade | host-profiles#POWER_AND_FIDELITY | SPIKE |
-| [7] | WASM component-model instantiation with a scope-derived import table and fuel/memory counters | sandbox-host#ISOLATION_AXIS | SPIKE |
-| [8] | Artifact signature verification and SLSA in-toto attestation parse against the pinned publisher key | sandbox-host#SUPPLY_CHAIN | SPIKE |
-| [9] | Solver-plugin representation negotiation: lossless canonical `EncodedTensor` round-trip | solver-plugin#SOLVER_HOSTING | SPIKE |
-| [10] | Industrial-transport client reads/writes per OPC-UA/Modbus/MQTT/serial; bidirectional feedback-loop guard | live-wire#TRANSPORT_AXIS · live-wire#BINDING_SPEC | SPIKE |
-| [11] | Cross-platform floating-point determinism: bit-identical reproduction across RIDs | determinism-and-replay#DETERMINISM_KERNEL | SPIKE |
-| [12] | MCP streaming progress over the server-stream substrate; resumable handle reattach after a transport bounce | mcp-projection#STREAM_PROGRESS | SPIKE |
+[T-PROFILE-SIGNAL] [QUEUED]: Add the profile signal and GenAI conventions to observability.
+- Capability: add the `profile` row to `TelemetrySignal` and a `SpanProfileProcessor` `BaseProcessor<Activity>` linking CPU profiles to the minted span through the existing `AddProcessor` seat; stamp `gen_ai.*` attributes and token-usage instruments on MCP-served tool spans. Lands in `.planning/observability/diagnostics-and-telemetry.md`, transcribes to `observability/Diagnostics.cs`.
+- Packages: Pyroscope.OpenTelemetry, OpenTelemetry.Instrumentation.Runtime.
+- Integration: the profile-signal row and processor are additive to the existing `SignalGovernance`/`TelemetryIdentity` owners internal to the folder; the GenAI span shape aligns with agent#TOOL_DISPATCH; the profiler OTLP/gRPC endpoint is an app-root pin.
+- Considerations: gate the profile signal to service app roots where the profiler endpoint resolves; route token-usage instruments through the existing `AddView` cardinality caps; the processor links profile-to-span on `OnStart`/`OnEnd`, never a parallel profiling surface.
 
-## [2]-[SPEC_AND_TOOL_GATES]
+[T-GRANT-ATTESTATION] [QUEUED]: Mint a signed, hash-chained grant attestation off the broker decision.
+- Capability: add a `GrantAttestation` record (descriptor id, `GrantScope` digest, charged `CostVector`, window `Interval`, detached signature) the `GrantBroker.Admit` success path mints alongside the `Fin<CostVector>`, and a `VerifyAttestation` predicate a downstream process calls to confirm authorization without re-running `Covers`; chain each attestation into the `EventLog` so the grant decision is a content-addressed replayable fact. Lands in `.planning/capability/registry.md` #GRANT_BROKER (attestation mint) and `.planning/determinism/determinism-and-replay.md` #EVENT_LOG (chaining), transcribes to `capability/Registry.cs` and `determinism/Determinism.cs`.
+- Packages: System.IO.Hashing (existing, the `XxHash128` content-address seed); the detached-signature primitive rides the BCL `System.Security.Cryptography` inbox, no new central admission.
+- Integration: the attestation mint sits inside `GrantBroker.Admit` and the verify predicate inside the consumer, both internal to the folder; the chaining reuses the determinism#EVENT_LOG hash-chain over the durable `OpLog`, aligned to the Persistence op-log seam at the wire, never coupled to its interior; the cross-process verify is read by the sidecar `companion#PROCESS_MODALITY` write-forward and the `sandbox#ISOLATION_AXIS` plugin host.
+- Considerations: the signature covers the canonical attestation bytes, never the secret-bearing arguments; a `dryRun: true` admission mints no attestation so the audit chain records only real charges; the verify is a pure key-check with no broker round-trip so a degraded broker still lets a previously-attested forward proceed; the attestation digest derives from the same `XxHash128` seed the determinism kernel replays so a replayed op-log re-derives every grant bit-identically.
 
-Implementation-time gates discharged against scratch processes, the spec project, or a manifest decision — no live host required.
+[T-INDUSTRIAL-TRANSPORT] [QUEUED]: Bind the LiveWire transport axis to the certified OPC-UA + MQTTnet stack.
+- Capability: compose the OPC-UA leg over `OPCFoundation.NetStandard.Opc.Ua` (session/subscription/monitored-item/write, with `.PubSub` for PubSub-over-MQTT) and the MQTT leg over MQTTnet behind the one `TransportRow` adapter contract. Lands in `.planning/live-wire/live-wire.md` #TRANSPORT_AXIS, transcribes to `live-wire/LiveWire.cs`.
+- Packages: OPCFoundation.NetStandard.Opc.Ua, OPCFoundation.NetStandard.Opc.Ua.PubSub, MQTTnet.
+- Integration: each transport composes the `OutboundHop` row its bytes ride (resilience stays outbound#KEYED_PIPELINES) internal to the folder; edge unit coercion routes to Compute/units#DIMENSIONAL_LAW; Modbus and serial clients stay app-root-catalogued admitted packages.
+- Considerations: confirm read/write member shapes per transport against the certified stack and guard the bidirectional feedback loop; a flapping source breaks on the same circuit breaker an HTTP API breaks on; a missing protocol is one `ExternalTransport` row plus its admitted client, never a transport-page reimplementation.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Generated `ControlService` base/client and request/reply members plus the `Grpc.Core.Api` `Metadata` carrier `TraceContext` reads compile through the G7 spec-compile gate until the `Grpc.Core.Api` assay source map registers the transitive package | companion-sidecar#CONTROL_SERVICE · diagnostics-and-telemetry#CORRELATION_SPINE | SPIKE |
-| [2] | NodaTime converter precedence over combined source-gen metadata in the Strict merge | runtime-ports#WIRE_LAW | SPIKE |
-| [3] | Velopack `VelopackHook` delegate-signature probe at the app-root `VelopackApp.Build()...Run()` bootstrap | provisioning-and-update#UPDATE_RAIL | SPIKE |
-| [4] | `ServiceMappingCollection.Map` versus `MapService` behavioral distinction on `GrpcHealthChecksOptions.Services` | companion-sidecar#CONTROL_SERVICE | SPIKE |
-| [5] | dotnet-counters/trace/gcdump tool-manifest admission; re-verify the `.config/dotnet-tools.json` servicing line | support-bundles#CAPTURE_PIPELINE | QUEUED |
-| [6] | Production feed URIs per channel replace the placeholder authority on the `UpdateChannel` rows | provisioning-and-update#CHANNEL_AXIS | BLOCKED |
-| [7] | MCP `IServerStreamWriter<ProgressFrame>` server-stream fan and JSON-RPC error-code mapping for the 4640-band `McpFault` cases | mcp-projection#TOOL_DISPATCH · mcp-projection#STREAM_PROGRESS | SPIKE |
-| [8] | SDK codegen cross-language shape identity: C#/TS/Python emitted methods bind one `JsonSchemaExporter` schema per descriptor | capability-registry#SDK_CODEGEN | SPIKE |
-| [9] | `ComputeIntent.Spec` field arity and `SelectionReceipt.None` sentinel the command algebra constructs for a brokered command | capability-registry#COMMAND_ALGEBRA | SPIKE |
+[T-WASM-RUNTIME] [QUEUED]: Name wasmtime-dotnet as the Sandbox WASM runtime owner.
+- Capability: host the wasm-component isolation row on the `wasmtime-dotnet` embedding, instantiate with WASI-Preview-2 component-model imports scoped to the grant set, and read the quota cell from the `Store` fuel and linear-memory counters. Lands in `.planning/sandbox/sandbox-host.md` #ISOLATION_AXIS/#QUOTA_CONTROL, transcribes to `sandbox/Sandbox.cs`.
+- Packages: wasmtime-dotnet (runtime embedding); the WIT-to-C# host binding generation rides the BytecodeAlliance `componentize-dotnet` build tooling at the app root, not a runtime admission.
+- Integration: the import table is a projection of the granted `CapabilityDescriptor` set internal to the folder; the process isolation row reuses outbound#DISCOVERY_ATTACH spawn-attach verbatim; the supply-chain attestation gate is an app-root-pinned signature surface.
+- Considerations: confirm `wasmtime-dotnet` component instantiation with a scope-derived import set against the WASI 0.2 import surface; clocks/files/sockets/http granted explicitly through the import table is the no-ambient-authority law by construction; a quota breach kills the instance synchronously off the fuel counter; a bit-identical cross-RID float reproduction is the determinism#DETERMINISM_KERNEL live-host probe the plugin runtime resolves.
 
-## [3]-[TRANSCRIPTION]
+[T-SECRET-LIFECYCLE] [QUEUED]: Author the `secrets/` sub-domain owning the credential lifecycle.
+- Capability: a `SecretLease` row family carrying the credential handle, its lease window, and its rotation receipt; an acquire-renew-zeroize fold that pulls a short-lived credential, schedules renewal ahead of expiry, and zeroizes the in-memory copy on drain. Lands as a new `.planning/secrets/secret-lifecycle.md` page, transcribes to `secrets/Secrets.cs`.
+- Packages: Microsoft.Extensions.Configuration.UserSecrets (existing); the concrete workload-identity/credential-broker package admits here once the acquisition route settles from the secrets-store research item.
+- Integration: the lease renewal registers one `ScheduleEntry` on `time#SCHEDULE_PORT` at a credential-rotation `DeadlineClass` row, internal to the folder; the credential value carries `DataClassification.Secret` so observability#REDACTION_TAXONOMY erases it at every egress; the keychain acquisition reuses the `configuration#SOURCE_AXIS` `SecretsSource` boundary, never a parallel provider; the zeroization is a `hosting#DRAIN_CONDUCTOR` Stores-band participant row.
+- Considerations: a lease must renew strictly before expiry or the fold degrades through observability#DEGRADATION_RAIL, never a hard fault; the zeroization runs under the drain forced token so a hung renewal never strands a live secret; the rotation receipt carries no secret bytes, only the lease window and a redacted credential id.
 
-The implementation sequence is the `ARCHITECTURE.md` `[SOURCE_TREE]` build order (vocabulary owners before consumers, `Time.cs` through `LiveWire.cs`); each file transcribes its page clusters verbatim and resolves the RESEARCH rows those pages carry. Production source is absent.
+[T-FENCING-COORDINATION] [QUEUED]: Author the `coordination/` sub-domain owning fenced single-writer election.
+- Capability: a `FencingToken` `[ValueObject<UInt128>]` monotone token and a `LeaseElection` rail that acquires a fenced lease, mints a strictly-increasing token per acquisition, and rejects a write carrying a stale token. Lands as a new `.planning/coordination/lease-election.md` page, transcribes to `coordination/Coordination.cs`.
+- Packages: System.IO.Hashing (existing); no new central admission — the token composes from the op-log HLC cursor and the roster epoch.
+- Integration: the token derives from the `ports#PORT_RECORDS` HLC stamp and the `companion#PROCESS_MODALITY` `PeerRoster` epoch, internal to the folder; the maintenance lease at `time#SCHEDULE_PORT`, the `provisioning#ROLLOVER_DRAIN` `FleetRoll` conductor election, and the sidecar `companion#PROCESS_MODALITY` write-forward each acquire through this rail; the store fences the token at Persistence/server-tier, aligned to a sibling branch, never coupled.
+- Considerations: the token must be checked by the resource, not merely held — a timeout-only lease is unsafe under a paused holder; a resumed stale holder presents a lower token and the fenced write rejects; the election reuses the existing `CrashStaleness` window as the lease timeout but adds the token as the correctness proof the timeout alone cannot give.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Transcribe the BUILD_ORDER files per `ARCHITECTURE.md` `[SOURCE_TREE]`; the test project `Rasm.AppHost.Tests` node is present and empty | host-profiles#PROFILE_AXIS | QUEUED |
+## [2]-[CLOSED]
+
+[T-CEDAR-BROKER] [DROPPED]: Route the grant-broker through Cedar — dropped with its parent idea. No Cedar .NET binding exists (Cedar ships Rust/WASM/Java/Go/Ruby; the C# binding is an open feature request), so the central manifest cannot admit it; the broker keeps its typed `PermissionShape` × `GrantScope.Covers` value-object predicate, and the auditable-decision goal re-targets to `T-GRANT-ATTESTATION`.
+
+[T-DOC-MIGRATE] [COMPLETE]: Re-homed the 19 design pages into the single `.planning/<sub-domain>/<page>.md` tree, rebuilt `ARCHITECTURE.md` as a codemap, `README.md` as router-plus-package-registry, and authored `IDEAS.md`/`TASKLOG.md`. The per-folder `.api/` stays at the package root.

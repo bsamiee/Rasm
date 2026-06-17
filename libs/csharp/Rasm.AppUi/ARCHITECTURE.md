@@ -1,10 +1,10 @@
 # [RASM_APPUI_ARCHITECTURE]
 
-The professional domain map for the product UI engine. Each sub-domain is a genuine UI capability folder mirroring the eventual source tree under `.planning/`; the codemap names every sub-domain including the planned-but-empty one, each with a one-line charter. Dependency direction across the C# strata is stated once in the branch `ARCHITECTURE.md`; boundaries and wires live on the task cards that build them.
+The professional domain map for the product UI engine. Each sub-domain is a genuine UI capability folder mirroring the eventual source tree under `.planning/`; the codemap names every sub-domain including the planned-but-empty ones, each with a one-line charter. Dependency direction across the C# strata is stated once in the branch `ARCHITECTURE.md`; boundaries and wires live on the task cards that build them.
 
 ## [1]-[DOMAIN_MAP]
 
-The host-mount axis precedes the shell, the shell precedes the screens it routes, and the vocabulary owners (theme, typography, assets, motion) precede every consumer that traces a literal to them. The viewport, drafting, notebook, and animation folders are projections over the settled receipt spine, the visuals codec, and the Compute geometry/field receipts. `realitycapture/` is the one planned-but-empty sub-domain, a visible Viewport sibling gap.
+The host-mount axis precedes the shell, the shell precedes the screens it routes, and the vocabulary owners (theme, typography, assets, motion) precede every consumer that traces a literal to them. The viewport, drafting, notebook, and animation folders are projections over the settled receipt spine, the visuals codec, and the Compute geometry/field receipts. Two planned-but-empty sub-domains mark visible gaps: `realitycapture/` (a Viewport reality-capture sibling) and `coordination/` (an openBIM issue board composing the viewport, notebook, and chart owners over the `Rasm.Bim` BCF topic contract).
 
 ```text codemap
 Rasm.AppUi/
@@ -30,7 +30,8 @@ Rasm.AppUi/
 ├── drafting/           # Sheet drafting: locale-aware sheet sets with ISO/ANSI/JIS title-blocks, 3D-to-2D hidden-line projection sharing the viewport camera basis, ASME Y14.5 dimensioning/GD&T, multi-format emit
 ├── notebook/           # Reproducible computational document: closed cell-kind union with a CapabilityPin per code/chart cell, dependency-DAG dirty-recompute, CRDT op-log co-editing, export-to-replay bundles
 ├── animation/          # Timeline animation: keyframe-track union over params/cameras/visibility/fields/color, frame-indexed playhead with loop/ping-pong, re-entrant scrub with no drift, offline walkthrough render
-└── realitycapture/     # [PLANNED] Gaussian-splat and point-cloud reality-capture visualization projected as a viewport render-pass case, with a LiDAR-anchored measurable overlay and time-based capture playback
+├── realitycapture/     # [PLANNED] Gaussian-splat and point-cloud reality-capture visualization projected as a viewport render-pass case, with a LiDAR-anchored measurable overlay and time-based capture playback
+└── coordination/       # [PLANNED] openBIM issue board composing the Viewpoint view-state, the Rasm.Bim BCF topic/component contract, a CRDT comment thread, and a snapshot tile — the board projection, never a second BCF semantic model
 ```
 
 Each page is one transcription unit per eventual source file. A new capability deepens the owning sub-domain through rows, cases, and policy values rather than a new public surface beside it. The TS_PROJECTION clusters carried inside pages transcribe into the TypeScript workspace at web app-root creation, never as a C# source file.

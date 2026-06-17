@@ -1,38 +1,33 @@
 # [PY_ARTIFACTS]
 
-`artifacts` owns artifact production: one polymorphic document/PDF/Office/structured-text plan, one VisualSpec-to-ExportPlan axis spanning 2D charts and 3D scientific visualization, one report-templating composition owner, one preview owner, and one compression owner. It has zero consumers today and implementation is full-capability. Content identity and the bundle spine are consumed from the runtime `ContentIdentity` owner, never re-minted; the package produces files and receipts for downstream owners without owning UI. Owner state and the axis registry live in `ARCHITECTURE.md`; the realized capability list in `FEATURES.md`; open work in `TASKLOG.md`. The design pages in `.planning/` are decision-complete blueprints an implementation agent transcribes; the package catalogues in `.api/` carry the external-surface evidence each page consumes.
+`artifacts` is the host-free, self-contained artifact-production companion: it turns data, compute, and geometry outputs (and any structured payload) into durable files — documents, reproducible reports, publication tables, 2D charts and 3D scientific visuals, archival signed PDFs, color-managed assets, image previews, and compressed bundles — each keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`. It is a relevant science/data utility valid wherever the monorepo needs a file emitted, not coupled to the AEC pipelines; it owns no UI, no durable store, no IFC/GLB geometry, and no columnar/mesh interchange. This file routes the design pages and registers the external packages.
 
-## [1]-[PAGE_INDEX]
+## [1]-[PAGE_ROUTER]
 
-| [INDEX] | [PAGE]                                      | [OWNS]                                                                            |
-| :-----: | :------------------------------------------ | :------------------------------------------------------------------------------- |
-|   [1]   | [documents](.planning/documents.md)         | the document/PDF/Office/structured-text plan, report templating, artifact receipt |
-|   [2]   | [visual-export](.planning/visual-export.md) | the VisualSpec/ExportPlan axis (2D + 3D), preview, compression                    |
+The design pages under `.planning/`, one sub-domain folder per eventual source sub-tree.
 
-## [2]-[ADMISSIONS_RECORD]
+- `documents/document-plan.md` — the document-mode dispatch axis: PDF authoring/render/raster/assemble/repair, Office, and structured-text on one backend-per-mode table.
+- `reporting/report-plan.md` — the report-composition axis binding figures and sections into a document tree over jinja2 templating and papermill/nbclient notebook execution.
+- `charts/chart-spec.md` — the 2D chart union over altair/plotly/matplotlib with host-free static export (vl-convert-python primary, kaleido gated).
+- `scene3d/scene.md` — the pyvista/VTK offscreen 3D scientific render and glTF/VRML scene export on the gated native floor.
+- `tables/table-plan.md` — the great-tables publication-table owner exporting HTML/LaTeX/PDF.
+- `imaging/preview.md` — the raster/preview owner over pillow, scikit-image, qrcode, and python-magic.
+- `color-management/colorimetry.md` — the colour-science colorimetry, spectral, CAM16, and palette owner feeding the visual sub-domains.
+- `typography/conformance.md` — the fonttools subset/instance and pyhanko PAdES-signing PDF conformance close.
+- `compression/bundle.md` — the algorithm-row compression and bundle owner over zstandard/lz4/brotli/py7zr.
+- `receipt/artifact-receipt.md` — the shared kind-discriminated `ArtifactReceipt` family across every production mode.
 
-The executed admissions ledger maps each package to its consuming page, `.api` catalogue, and admission status. Versions live in the root manifest; this table never carries a pin. `[STATUS]` is one of `admitted`, `catalogue-pending`. The pillow-blocked PDF/Office/visual distributions and the native-floor `pyvista`/`vtk` carry `catalogue-pending` until the image toolchain and the sub-3.13 native floor install and re-reflect.
+## [2]-[PACKAGE_REGISTRY]
 
-| [INDEX] | [PACKAGE]                                                      | [PAGE]        | [CATALOGUE]                                                                                  | [STATUS]          |
-| :-----: | :------------------------------------------------------------ | :------------ | :------------------------------------------------------------------------------------------ | :---------------- |
-|   [1]   | pymupdf, pypdf, pikepdf, pypdfium2, reportlab, weasyprint     | documents     | api-pymupdf.md, api-pypdf.md, api-pikepdf.md, api-pypdfium2.md, api-reportlab.md, api-weasyprint.md | catalogue-pending |
-|   [2]   | python-docx, python-pptx, openpyxl, lxml, ruamel-yaml, tomlkit | documents     | api-python-docx.md, api-python-pptx.md, api-openpyxl.md, api-lxml.md, api-ruamel-yaml.md, api-tomlkit.md | catalogue-pending |
-|   [3]   | jinja2                                                        | documents     | api-jinja2.md                                                                                | admitted          |
-|   [4]   | altair, plotly, matplotlib, vl-convert-python, kaleido       | visual-export | api-altair.md, api-plotly.md, api-matplotlib.md, api-vl-convert-python.md, api-kaleido.md    | catalogue-pending |
-|   [5]   | pyvista, vtk                                                 | visual-export | api-pyvista.md, api-vtk.md                                                                   | catalogue-pending |
-|   [6]   | pillow, qrcode, python-magic                                | visual-export | api-pillow.md, api-qrcode.md, api-python-magic.md                                            | catalogue-pending |
-|   [7]   | zstandard, lz4, brotli, py7zr                               | visual-export | api-zstandard.md, api-lz4.md, api-brotli.md, api-py7zr.md                                    | admitted          |
+Every external library the folder uses, planned or implemented, as a flat list. Versions live in the one Python manifest; new admissions land here from the folder's ideas and tasks.
 
-## [3]-[PROOF_GATES]
-
-Proof runs at the planned phase gate, not after each edit. `[RAIL]` names the owning rail; the executable command lives with that rail owner, never restated here.
-
-| [INDEX] | [GATE]                | [RAIL]      | [EVIDENCE]                                              |
-| :-----: | :-------------------- | :---------- | :----------------------------------------------------- |
-|  [G1]   | locked restore        | uv          | artifacts pins resolve against the root manifest        |
-|  [G2]   | API catalogue resolve | assay api   | every fence member resolves to an `.api` row            |
-|  [G3]   | type check            | ty          | typed-signature transcription resolves clean            |
-|  [G4]   | lint and format       | ruff        | routed closure, zero diagnostics                        |
-|  [G5]   | spec law-matrix       | pytest      | artifacts law-matrix specs pass                         |
-|  [G6]   | toolchain floor       | uv          | pillow and the native VTK floor install before re-reflect |
-|  [G7]   | page diagram render   | mermaid-cli | page diagrams render through the local renderer          |
+- Documents: `reportlab`, `weasyprint`, `pymupdf`, `pypdfium2`, `pypdf`, `pikepdf`, `python-docx`, `python-pptx`, `openpyxl`, `lxml`, `ruamel-yaml`, `tomlkit`.
+- Reporting: `jinja2`, `papermill`, `nbclient`.
+- Charts: `altair`, `plotly`, `matplotlib`, `vl-convert-python`, `kaleido`.
+- Scene3d: `pyvista`, `vtk`.
+- Tables: `great-tables` (planned admission via the publication-table task).
+- Imaging: `pillow`, `scikit-image`, `qrcode`, `python-magic`.
+- Color management: `colour-science`, `numpy`.
+- Typography: `fonttools`, `pyhanko`, `uharfbuzz`.
+- Compression: `zstandard`, `lz4`, `brotli`, `py7zr`.
+- Runtime ports (consumed, never re-minted): `content_identity.ContentKey`/`ContentIdentity`, `faults.RuntimeRail`/`boundary`, `observability.Receipt`/`ReceiptContributor`.

@@ -1,61 +1,42 @@
 # [PERSISTENCE_TASKLOG]
 
-Open work owned by this folder; closed items do not appear. `[STATUS]` is one of `QUEUED`, `ACTIVE`, `BLOCKED`, `SPIKE`; owner state is read at `ARCHITECTURE.md` `[OWNER_REGISTRY]`. Every `SPIKE` row names the probe that flips its owner registry cell to `FINALIZED`. The tier-2 probe battery (Redis 7.4.9, MinIO/Azurite/fake-gcs, PG18.4 + 12 extensions on paradedb + timescaledb-ha) closed every owner whose proof is a live emulator/server roundtrip; the residue below is the native-SQLite host-load class, the live logical-replication/pgaudit-session class, the BIM-currency live-format class, and the unified-image packaging build gated on a first server root.
+The open and closed work for the durable-state spine, distilled from `IDEAS.md`. Each open task carries a status marker and the capability-to-build, packages, integration points/boundaries, and key considerations; one idea spawns one or more tasks across one or more files. Closed cards record already-settled cleanup.
 
-## [1]-[NATIVE_SQLITE_HOST_LOAD]
+## [1]-[OPEN]
 
-The e_sqlite3 host-load class the console probe cannot exercise; the owner member shape is fence-complete.
+[T-DUCKLAKE] [QUEUED]: Promote the analytical lane to a DuckLake lakehouse over object-store Parquet.
+- Capability: add a `LakehouseCatalog` owner block to `modalities/data-lanes.md` `#ANALYTICAL_LANE` that mounts DuckLake with its metadata catalog in the PostgreSQL server tier and its data files in the object store, materializing the changefeed as catalog-tracked Parquet snapshots; the catalog reuses the artifact-blob content-key addressing rather than minting a manifest.
+- Packages: DuckDB.NET.Data.Full, DuckLake extension, Apache.Arrow.
+- Integration: the catalog store rides `stores-server/provisioning.md` PostgreSQL as a settled tier and the data files ride `stores-remote/object-store.md` BlobRemote residence, both internal to the folder; the rollup feed aligns with `provisioning#TIMESCALE_PROVISIONING` continuous aggregates as a sibling analytical tier, never a second engine.
+- Considerations: DuckLake v1.0 catalog-table layout and the snapshot/time-travel SQL surface confirm against the live extension before the catalog DDL pins; parquet-export-only stays the fallback where the extension is absent; the catalog metadata is a server-tier table set, never a JSON manifest beside the data files.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | vec0 sourcing route chosen (package payload vs vendored tarball) and live load verified on osx-arm64 | native-sqlite#EXTENSION_GATES | SPIKE |
-| [2] | SQLCipher provider route with the external dylib confirmed on the target RID; keying surface verified | native-sqlite#EXTENSION_GATES | SPIKE |
-| [3] | sqlean per-RID artifacts land as build content per RID | native-sqlite#EXTENSION_GATES | SPIKE |
-| [4] | Two-process first-open race (racing `MigrateAsync` + busy_timeout, one WAL file) outcome documented; WAL-lock handling and `Claim` arbitration confirmed | store-profiles#CROSS_PROCESS_LAW | SPIKE |
-| [5] | DuckDB `sqlite_scanner` ATTACH snapshot visibility under a concurrent WAL writer confirmed | data-lanes#ANALYTICAL_LANE | SPIKE |
-| [6] | APFS rename durability without directory fsync confirmed; migration-lock holder evidence captured | store-profiles#STORE_LIFECYCLE | SPIKE |
-| [7] | Hardened-runtime dlopen of extension dylibs inside the signed Rhino host (`scenarios/extension-load.verify.csx`) succeeds | native-sqlite#EXTENSION_GATES | SPIKE |
+[T-ARROW-FLIGHT] [QUEUED]: Bind the Arrow plane to an ADBC + Flight SQL zero-copy egress.
+- Capability: extend the `query-rail.md` `#ARROW_PLANE` carrier with a Flight SQL server surface and an ADBC consumer contract that streams the existing `ArrowCarrier` schema as columnar batches, and push incremental standing-query batches over one Flight channel.
+- Packages: Apache.Arrow, Apache.Arrow.Flight, Apache.Arrow.Adbc.
+- Integration: the Flight stream reuses the in-process `ArrowCarrier` schema internal to the folder and the standing-query window at `query-rail#STANDING_QUERY` as the batch source; the Flight transport endpoint binds at the app root that hosts the gRPC listener, never an interior dependency, and outbound resilience rides AppHost, never a second retry owner.
+- Considerations: confirm the Arrow.NET Flight SQL producer member surface and the ADBC statement/result contract against the folder `.api/` catalogue before the egress fence pins; the columnar batch schema is the one `ArrowCarrier` projection, never a parallel result shape; the zero-copy lifetime is bounded to one chunk so peak managed memory stays one batch wide.
 
-## [2]-[LIVE_REPLICATION_AND_AUDIT]
+[T-FASTCDC-DEDUP] [QUEUED]: Replace fixed 64-KiB snapshot framing with FastCDC content-defined chunking.
+- Capability: swap the fixed-window framing in `snapshots/codecs.md` `#SNAPSHOT_PROTOCOL` and the `stores-remote/object-store.md` `#MULTIPART_TRANSFER` window for FastCDC content-defined chunk boundaries, keying each chunk by its `XxHash128` content address so the artifact-blob index dedups identical chunks across snapshots and peers.
+- Packages: System.IO.Hashing, FastCDC.Net.
+- Integration: the opaque-byte FastCDC chunker lands in `snapshots/codecs.md` as a snapshot-frame owner with internal coupling to `cache/indexes.md` `#ARTIFACT_BLOB_INDEX` for the chunk content-key dedup; it aligns with `Compute/interchange#GEOMETRY_DELTA` at the technique level only — Compute owns the geometry-structural delta and this owns the opaque-byte snapshot/blob frame, neither importing the other's chunker; the multipart transfer windows whole chunks rather than fixed frames, never re-declaring a frame width.
+- Considerations: the content-defined boundary parameters (min/avg/max chunk size and the gear-hash mask) trace to one policy table, never free literals; the dedup ratio under edit churn and the cross-snapshot chunk-reuse rate confirm against a real model-history corpus before the chunker replaces the fixed window; the existing 64-KiB Crc32-per-frame integrity stays the in-transfer check.
 
-The live PG18 logical-replication decode-fold and pgaudit session-audit class; the owners are fence-complete and gate on a live PG18 root with a configured publication/subscription.
+[T-IDS-RULES] [QUEUED]: Lift the buildingSMART IDS document model into the federation rule engine.
+- Capability: add an `IdsSpecification` importer to `federation/federation.md` `#RULE_PLAN` that parses an IDS 1.0 document's facets (entity/attribute/classification/property/material/partOf) into `RuleAst` rows and emits IDS-conformant audit receipts from the existing rule planner run against the federated entity graph.
+- Packages: System.Xml.Linq (BCL inbox) for the IDS XSD-validated document parse, LanguageExt.Core.
+- Integration: the importer projects onto the existing `federation#RULE_PLAN` `RuleAst` union internal to the folder and runs through the settled `RulePlan` lowering; the conformance receipt aligns with `annotation/annotation.md` `#BCF_PROTOCOL` as an exportable audit artifact the CDE consumes, never a parallel checker.
+- Considerations: confirm the IDS 1.0 facet schema and the conformance-receipt shape against the published buildingSMART specification before the importer fence pins; an unsupported facet maps to one `RuleAst` case or a typed unsupported-facet rejection, never a second checker; the specification is data authored alongside the descriptor catalog, never C# predicate code.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Live pgoutput stream emits the catalogued leaf set under `PgOutputProtocolVersion.V4` + `PgOutputStreamingMode.Parallel`; `publish_generated_columns`, idle-slot timeout, and subscription conflict-stat columns recorded; `SetReplicationStatus`/`SendStatusUpdate` LSN ack against the live slot | sync-collaboration#TRANSPORT_AXIS | SPIKE |
-| [2] | pgaudit session-audit category semantics under `shared_preload_libraries=pgaudit` against the `Categories` rows; per-tenant `BindTenant` category emission verified against a per-tenant `CREATE POLICY` on a live PG18 server | redaction-retention#AUDIT_BINDING | SPIKE |
+[T-TRANSPARENCY-PROOF] [QUEUED]: Promote the attested ledger to a Merkle transparency log with detached-signed head seals.
+- Capability: add a `TransparencyProof` owner to `provenance/provenance.md` `#ATTESTED_LEDGER` that builds a Merkle tree over the `AttestedEntry` chain, emits an `InclusionProof` for any one entry and a `ConsistencyProof` between two `LedgerHead` seals, and binds a detached signature over each periodic content-addressed head seal so an external auditor verifies one entry in O(log n) without replaying the chain.
+- Packages: System.IO.Hashing for the Merkle node digests, System.Security.Cryptography (BCL inbox) for the detached head-seal signature.
+- Integration: the proof tree is a projection over the existing `AttestedEntry` rows and the periodic seal internal to the folder, riding the `Snapshots.ContentAddress` head-seal anchor; the inclusion/consistency proof exports through the `retention/redaction-retention.md` hash-proved support-bundle as a self-verifying artifact, never a second ledger store.
+- Considerations: the Merkle node hash stays `XxHash128` for tamper-evidence while the head-seal signature is the only cryptographic surface so the non-repudiation claim attaches to the signed seal, not the tree; confirm the RFC 9162 inclusion-and-consistency-proof construction before the proof fence pins; the redaction-preserving entry keeps its pre-redaction leaf digest so a proof verifies after redaction, matching the existing chain invariant.
 
-## [3]-[UNIFIED_IMAGE_PACKAGING]
+## [2]-[CLOSED]
 
-No single off-the-shelf image carries the full admitted extension set (pg_search is AGPL pgrx shipping in paradedb; TSL timescaledb ships in timescaledb-ha; both halves proved on their respective images). The capability is finalized; only the packaging build is open — a deploy-asset deliverable gated on the first server app root.
+[T-LAYER-COMPOSE] [DROPPED]: USD/IFC5 non-destructive layer opinion-composition.
+- Dropped with its `[LAYERED_COMPOSITION]` idea: the `LayerStack` over named op-log partitions duplicated `versioning#COMMIT_DAG` named branches, the `versioning#CRDT_ALGEBRA` `MvRegister` concurrent-keep, and `TimeTravel.BranchFromPast`, which already deliver non-destructive parallel opinions, concurrent-value retention, and per-branch revert over the one op-log; minting a second composition surface broke the closed-CRDT prohibition.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Custom Dockerfile `FROM timescale/timescaledb-ha:pg18` + apt partman/pgaudit/squeeze + build/copy pg_search + pgvectorscale, with the full `shared_preload_libraries` list, builds and boots; the `io_method=io_uring` vs `worker` triple's deploy-image kernel value observed in `pg_settings` | server-tier#CLUSTER_CONFIG | BLOCKED |
-| [2] | Server self-provisioning rows (postgresql.conf preload fragments, pg_hba fragments, role grants, server-side extension enablement) exercised against the first live server root | store-profiles#PROVISIONING_ROWS | BLOCKED |
-
-## [4]-[BIM_CURRENCY_LIVE_PROBES]
-
-The BIM-currency owners ride the existing op-log / content-addressed-snapshot / PostGIS-GiST substrate and admit no new engine. The residue is the live-PG/live-format/host-credential class each owner names in its page RESEARCH cluster.
-
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Tree-edit-distance cost bound over a 10^6-node graph confirmed linear in changed-node count; brep/mesh canonical-adjacency `GeometryHash` distinguishes morph from topology break | version-control#STRUCTURAL_DIFF | SPIKE |
-| [2] | Multi-peer convergence harness proves the join-semilattice LUB holds under permuted op multisets + RGA tombstone-reclamation quiescence horizon | version-control#CRDT_ALGEBRA | SPIKE |
-| [3] | Three-way RRF CTE planner route + cost-model engine selection + `ST_3DIntersects` clash pushdown against live PG18 + pgvectorscale + pg_search | federation#FEDERATED_PLAN · federation#FUSION_RANK | SPIKE |
-| [4] | Lineage slice cost over a 10^7-edge DAG + redaction-preserving chain verify against live PG18 pgaudit | provenance#CAUSAL_DAG · provenance#LINEAGE_CDC | SPIKE |
-| [5] | BCF 2.1/3.0 XML member shapes against the buildingSMART schema + BCF-API OAuth2 PKCE flow against a live CDE | annotation#BCF_PROTOCOL · annotation#CDE_SYNC | SPIKE |
-| [6] | Published Uniclass/OmniClass/MasterFormat ltree load + DuckDB `GROUP BY ROLLUP` formula pushdown | catalog-cost#CLASSIFICATION_CATALOG · catalog-cost#COST_ROLLUP | SPIKE |
-| [7] | P6 XER `%T`/`%F`/`%R` table grammar + MS-Project XML element shape against real exports | schedule-interchange#SCHEDULE_STORE | SPIKE |
-| [8] | `ST_Transform` datum-shift accuracy + IFC `IfcMapConversion` member shapes + survey-point similarity-fit residual against live PG18 + postgis | data-lanes#GEO_LANES | SPIKE |
-| [9] | IVM signed-delta sliding-window maintenance + watermark late-arrival retraction + DuckDB vector-chunk zero-copy carrier lifetime | query-rail#STANDING_QUERY · query-rail#ARROW_PLANE | SPIKE |
-| [10] | AppHost-resolved signing-key handle + op-digest signature + public-key verify confirmed at the integrated host | schema-rail#IDENTITY_POLICY | SPIKE |
-| [11] | `Collect` reachable-set-versus-residence eviction confirmed against a live object-store listing and a live `Closure` union; `LegalHold` exemption holds; eviction-delete round-trips through the residence-axis delete | redaction-retention#RETENTION_SWEEPS | SPIKE |
-
-## [5]-[TRANSCRIPTION]
-
-The implementation sequence is the `ARCHITECTURE.md` `[SOURCE_TREE]` build order (vocabulary owners before consumers, `Stores/Profiles.cs` through `Schedule/ScheduleInterchange.cs`); each file transcribes its page clusters verbatim and resolves the RESEARCH rows those pages carry. Production source is absent.
-
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Transcribe the BUILD_ORDER files per `ARCHITECTURE.md` `[SOURCE_TREE]`; the test project `Rasm.Persistence.Tests` node is present and empty | store-profiles#PROFILE_AXIS | QUEUED |
+[T-DOC-MIGRATE] [COMPLETE]: Re-homed the 17 design pages into the single `.planning/<sub-domain>/<page>.md` tree, rebuilt `ARCHITECTURE.md` as a codemap, `README.md` as router-plus-package-registry, and authored `IDEAS.md`/`TASKLOG.md`. The per-folder `.api/` stays at the package root.

@@ -1,0 +1,202 @@
+# [SERVICES_SAGA]
+
+The durable saga compensation owner: a multi-step durable transaction folded from a closed `SagaStep` chain over the cluster-backed `WorkflowEngine`, never a parallel saga type family. Each step is a forward/compensating pair; rollback rides `Workflow.withCompensation`, the engine-owned reverse-order finalizer, on `Cause` of a later step. The saga's success/error/payload schemas are the workflow's OWN schemas (success encodes `SagaTerminal`), so the start/`Discard`/`Resume` procedures derive over the SAME wire `Schema` through the one `WorkflowProxy`. This page crosses no .NET wire.
+
+## [1]-[INDEX]
+
+One cluster: `[2]-[SAGA]` owns the `SagaStep` chain, the `StepOutcome`/`SagaTerminal` fold, and the engine-compensated saga workflow.
+
+## [2]-[SAGA]
+
+- Owner: `SagaOwner` and `SagaStep`, the saga step chain and the workflow that folds it; `sagaFold`, the total reduction over the closed `StepOutcome` stream to one `SagaTerminal`.
+- Cases: each `SagaStep` is a forward/compensating pair — the forward effect is one `Activity` carrying its own `interruptRetryPolicy`, timeout, and `Activity.idempotencyKey` so a re-attempt after a restart never re-applies a side effect, and the compensating effect is registered with that same activity through `Workflow.withCompensation` so it runs in reverse declaration order ONLY for steps that committed, automatically, on any failure or interruption of a later step. The fold is `sagaFold` over the closed `StepOutcome` union (`Forward`/`Compensating`/`Skipped`), reduced by `StepOutcome.$match`/`SagaTerminal.$match` (the generated total `Data.TaggedEnum` matchers) so the saga's terminal outcome — `committed` when every forward arm succeeds, `rolled-back` when a forward arm fails and the committed prefix compensates, `aborted` when a compensation finalizer itself faults — is total and adding an outcome or terminal without a fold arm is a typecheck failure. The `StepOutcome` stream is a REAL mixed stream: `runStep`'s `Effect.matchCauseEffect` rail emits `Forward` on commit, `Compensating({ name, cause })` for the failing step before the engine unwinds, and the body fills `Skipped` for steps never reached after a prior fault; `sagaFold` then reduces that stream to the `SagaTerminal` the workflow's success `Schema` carries.
+- Entry: the saga's success/error/payload schemas are the workflow's OWN schemas (success encodes `SagaTerminal`), so `WorkflowProxy.toRpcGroup` (messaging/internal-rpc#INTERNAL_RPC) derives the start/`Discard`/`Resume` procedures over the SAME wire `Schema` the saga workflow defines — a second `RpcGroup` or a hand-built saga DTO is the named defect. Every step boundary writes one `AgentJournal` row through `persistence/store-boundary#STORE_BOUNDARY` (`checkpoint` on forward commit, `failed` on compensation) so the saga's progress is durably replayable, never a parallel ledger.
+- Packages: `@effect/workflow` for `Workflow.withCompensation`, `Activity`, and the workflow algebra; `@effect/cluster` for the engine the workflow body resolves; `@effect/sql` and `@effect/sql-pg` for the journal rows through the persistence boundary.
+- Growth: a new saga step lands as one `SagaStep` row appended to the chain (forward `Activity` + compensating finalizer), never a new saga workflow type; a new saga terminal lands as one case on the `StepOutcome` union that `sagaFold` must then handle.
+- Boundary: the saga is one workflow whose compensation rides `Workflow.withCompensation` (the engine-owned reverse-order finalizer), never a hand-rolled try/rollback or a parallel `SagaCoordinator` service; rollback is driven by the engine on `Cause` of a later step, so the fold NEVER catches a defect to ROLL BACK — actual compensation runs as the engine's exit finalizer. `runStep`'s `Effect.matchCauseEffect` only OBSERVES the failing step's `Cause` into a `Compensating` `StepOutcome` (for the journal `failed` row and the `sagaFold` terminal); it re-emits no recovery effect and triggers no compensation, so the engine's exit-finalizer model remains the sole rollback driver. `runStep` is invoked only at the workflow body's TOP LEVEL (`sagaBody`'s `Effect.forEach`), because `Workflow.withCompensation` registers finalizers for top-level effects only — nesting a step inside an outer activity silently voids its rollback guarantee. The saga workflow is callable only through the ONE `WorkflowProxy`-derived `RpcGroup` over its own `Schema`.
+
+```ts contract
+// --- [MODELS] --------------------------------------------------------------------------
+
+// One row on the durable family: a saga step is a forward/compensating pair, never a parallel saga type.
+// `forward` is one Activity with its own retry+timeout+idempotency; `compensate` is the reverse-order finalizer.
+interface SagaStep<S extends Schema.Schema.Any, E extends Schema.Schema.All, R> {
+  readonly name: string;
+  readonly forward: Activity.Activity<S, E, R>;
+  readonly compensate: (value: Schema.Schema.Type<S>, cause: Cause.Cause<Schema.Schema.Type<E>>) => Effect.Effect<void, never, R>;
+  // Keys to the forward Activity's failure value, matching `Effect.retry({ schedule })`'s error-input convention.
+  readonly retryPolicy: Schedule.Schedule<unknown, Schema.Schema.Type<E>>;
+  readonly timeout: Duration.Duration;
+}
+
+// The closed saga step-outcome union: every forward arm resolves to exactly one case, folded by `sagaFold`.
+type StepOutcome = Data.TaggedEnum<{
+  readonly Forward: { readonly name: string; readonly attempt: number };          // committed; compensation is now armed for this prefix
+  readonly Compensating: { readonly name: string; readonly cause: Cause.Cause<unknown> }; // a later step failed; this committed step is rolling back
+  readonly Skipped: { readonly name: string };                                    // not yet reached when a prior forward failed
+}>;
+const StepOutcome = Data.taggedEnum<StepOutcome>();
+
+// The saga terminal: total over the closed StepOutcome stream, no parallel result types.
+type SagaTerminal = Data.TaggedEnum<{
+  readonly Committed: { readonly steps: ReadonlyArray<string> };
+  readonly RolledBack: { readonly failedAt: string; readonly compensated: ReadonlyArray<string> };
+  readonly Aborted: { readonly failedAt: string; readonly compensationFault: DurableFault };
+}>;
+const SagaTerminal = Data.taggedEnum<SagaTerminal>();
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+// The compensation fold: reduce the closed StepOutcome stream to one SagaTerminal via the generated total matchers
+// `StepOutcome.$match`/`SagaTerminal.$match`. Every case is REACHABLE — runStep emits Forward/Compensating and
+// sagaBody fills Skipped — so all three fold arms and the RolledBack/Aborted machinery are live. A new StepOutcome
+// case or SagaTerminal case without an arm is a typecheck failure; no distributed `switch (_tag)`.
+const sagaFold = (outcomes: ReadonlyArray<StepOutcome>): SagaTerminal =>
+  Array.reduce(outcomes, SagaTerminal.Committed({ steps: [] }) as SagaTerminal, (acc, outcome) =>
+    StepOutcome.$match(outcome, {
+      Forward: ({ name }) =>
+        SagaTerminal.$match(acc, {
+          Committed: ({ steps }) => SagaTerminal.Committed({ steps: [...steps, name] }),
+          RolledBack: (t) => SagaTerminal.RolledBack(t),
+          Aborted: (t) => SagaTerminal.Aborted(t),
+        }),
+      Compensating: ({ name, cause }) =>
+        SagaTerminal.$match(acc, {
+          // First failing step: the committed prefix rolls back. If the compensation finalizer itself faulted
+          // (a `Die` in the captured Cause), the prefix cannot be undone cleanly -> Aborted with the fault.
+          Committed: () =>
+            Cause.isDie(cause)
+              ? SagaTerminal.Aborted({ failedAt: name, compensationFault: DurableFault.Compensated({ name }) })
+              : SagaTerminal.RolledBack({ failedAt: name, compensated: [name] }),
+          RolledBack: ({ failedAt, compensated }) => SagaTerminal.RolledBack({ failedAt, compensated: [...compensated, name] }),
+          Aborted: (t) => SagaTerminal.Aborted(t),
+        }),
+      // A step never reached after a prior fault contributes nothing to the terminal but keeps the stream total.
+      Skipped: () => acc,
+    }),
+  );
+
+// Lower one SagaStep into a durable, idempotent, compensation-armed effect that SUCCEEDS with a `Forward`
+// outcome or FAILS on its own Cause. It MUST keep failing (rather than absorbing the Cause) so two contracts
+// hold: `Effect.forEach` short-circuits the chain at the failing step, and the ENGINE observes the workflow
+// failure to run the registered `Workflow.withCompensation` exit finalizers in reverse over the committed prefix.
+// MUST be invoked only at the workflow body's TOP LEVEL: `Workflow.withCompensation` registers finalizers for
+// top-level effects only, so nesting runStep inside an outer Activity silently drops the rollback guarantee.
+// The compensation finalizer's OWN faults are captured via `Effect.catchAllCause` so a fault in undoing a step
+// is logged and surfaced (the `Aborted.compensationFault` the fold derives from a `Die` Cause), never swallowed.
+const runStep = <S extends Schema.Schema.Any, E extends Schema.Schema.All, R>(
+  step: SagaStep<S, E, R>,
+): Effect.Effect<StepOutcome, Schema.Schema.Type<E>, R | WorkflowEngine | WorkflowInstance | Scope.Scope> =>
+  Activity.idempotencyKey(step.name, { includeAttempt: false }).pipe(
+    Effect.zipRight(step.forward),
+    // A timeout is a Cause-level interruption the activity's own interruptRetryPolicy gates; it never invents a
+    // step-error value, so the bound stays in the engine's retry contract rather than an `as never` escape.
+    Effect.timeoutTo({ duration: step.timeout, onTimeout: () => Effect.interrupt, onSuccess: Effect.succeed }),
+    Effect.flatten,
+    Effect.retry({ schedule: step.retryPolicy }),
+    // Compensation's own fault is captured here so `SagaTerminal.Aborted.compensationFault` is observable.
+    Workflow.withCompensation((value, cause) =>
+      step.compensate(value, cause).pipe(
+        Effect.catchAllCause((compCause) => Effect.logError("saga.compensate.fault", compCause)),
+      ),
+    ),
+    // On commit emit Forward; the failure rail propagates unchanged so the engine drives the rollback.
+    Effect.flatMap(() => Activity.CurrentAttempt.pipe(Effect.map((attempt) => StepOutcome.Forward({ name: step.name, attempt })))),
+  );
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+interface SagaOwner {
+  // Build the saga workflow from a non-empty step chain over the saga's OWN payload/success(SagaTerminal)/error Schema.
+  // The forward chain is one Effect.forEach (sequential commit); compensation is engine-owned reverse order.
+  // Returns BOTH the Workflow (for execute/poll/interrupt/resume) and its registration Layer (body wired via toLayer).
+  readonly make: <const Name extends string, P extends Schema.Struct.Fields, S extends Schema.Schema.Any, E extends Schema.Schema.All>(options: {
+    readonly name: Name;
+    readonly payload: P;
+    readonly success: S;
+    readonly error: E;
+    readonly idempotencyKey: (payload: Schema.Struct.Type<P>) => string;
+    readonly steps: (payload: Schema.Struct.Type<P>) => NonEmptyReadonlyArray<SagaStep<Schema.Schema.Any, Schema.Schema.All, never>>;
+  }) => {
+    readonly workflow: Workflow.Workflow<Name, Schema.Struct<P>, S, E>;
+    readonly layer: Layer.Layer<never, never, WorkflowEngine | SqlBoundary>;
+  };
+  // Derive the start/Discard/Resume procedures over the SAME Schema the saga defines — the ONE RpcGroup.
+  // messaging/internal-rpc#INTERNAL_RPC owns the group; this is the single derivation point, not a parallel surface.
+  readonly proxy: <const W extends NonEmptyReadonlyArray<Workflow.Any>>(
+    sagas: W,
+  ) => RpcGroup.RpcGroup<WorkflowProxy.ConvertRpcs<W[number], "">>;
+}
+
+// COMPOSITION: the saga workflow body — forward-commit the chain, journal each step boundary, fold to terminal.
+// On a later-step failure the engine unwinds the registered compensations in reverse; the body never catches it.
+//   producer (runStep) -> journal each boundary -> sagaFold -> SagaTerminal (the workflow's success Schema).
+// The body returns the SagaTerminal directly so the producer -> fold -> terminal path is wired in one place; the
+// `journal` AgentJournal session is the live ledger row each step boundary writes through the SqlBoundary.
+// `Ref<ReadonlyArray<StepOutcome>>` accumulates the committed `Forward` prefix so the failure-observation rail can
+// fold the real mixed stream (committed Forwards + the failing Compensating + the unreached Skipped tail) before
+// re-raising. The success path folds the pure-Forward stream to `Committed`.
+const sagaBody = <E extends Schema.Schema.All>(sessionId: string) =>
+  (steps: NonEmptyReadonlyArray<SagaStep<Schema.Schema.Any, E, never>>): Effect.Effect<SagaTerminal, Schema.Schema.Type<E>, WorkflowEngine | WorkflowInstance | Scope.Scope | SqlBoundary> =>
+    Ref.make<ReadonlyArray<StepOutcome>>([]).pipe(
+      Effect.flatMap((committed) =>
+        // Run the chain sequentially; runStep commits or FAILS so forEach short-circuits and the engine rolls back.
+        Effect.forEach(
+          steps,
+          (step) =>
+            runStep(step).pipe(
+              Effect.zipLeft(Effect.annotateCurrentSpan("saga.step", step.name)),
+              Effect.tap((outcome) => Ref.update(committed, (xs) => [...xs, outcome])),
+              // Commit boundary: one `checkpoint`/`completed` AgentJournal row through the SqlBoundary.
+              Effect.tap(() => SqlBoundary.insert(AgentJournal, { sessionId, kind: "checkpoint", status: "completed", payload: { step: step.name } })),
+            ),
+          { concurrency: 1 },
+        ).pipe(
+          // Success: every forward committed, fold the pure-Forward stream to `Committed`.
+          Effect.map((forwards) => sagaFold(forwards)),
+          // Failure-observation rail: journal the failing step `failed`, fold committed-prefix + Compensating +
+          // Skipped tail to the RolledBack/Aborted terminal (logged), then RE-RAISE so the engine compensates.
+          Effect.tapErrorCause((cause) =>
+            Ref.get(committed).pipe(
+              Effect.flatMap((prefix) => {
+                const failedAt = steps[prefix.length]?.name ?? steps[steps.length - 1].name;
+                const stream: ReadonlyArray<StepOutcome> = [
+                  ...prefix,
+                  StepOutcome.Compensating({ name: failedAt, cause }),
+                  ...Array.drop(steps, prefix.length + 1).map((s) => StepOutcome.Skipped({ name: s.name })),
+                ];
+                return SqlBoundary.insert(AgentJournal, { sessionId, kind: "tool_call", status: "failed", payload: { step: failedAt, cause: Cause.pretty(cause) } }).pipe(
+                  Effect.zipRight(Effect.logWarning("saga.rolled-back", sagaFold(stream))),
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+// The SagaOwner implementation: assemble runStep + sagaBody + sagaFold into the workflow the contract names.
+// `make` builds the durable Workflow over the saga's OWN payload/success(SagaTerminal)/error Schema and registers
+// its body via `Workflow.toLayer`; `proxy` derives the ONE RpcGroup via WorkflowProxy.toRpcGroup — no parallel surface.
+const SagaOwnerLive: SagaOwner = {
+  make: (options) => {
+    const workflow = Workflow.make({
+      name: options.name,
+      payload: options.payload,
+      success: options.success,
+      error: options.error,
+      idempotencyKey: options.idempotencyKey,
+    });
+    // toLayer's body returns Success["Type"]; the saga's success Schema IS the SagaTerminal, so the folded
+    // terminal is the workflow's success value directly. The failure rail re-raises the step error (= the
+    // workflow error Schema) so the engine runs the registered compensation finalizers in reverse.
+    const layer = workflow.toLayer((payload, _executionId) =>
+      sagaBody(_executionId)(options.steps(payload)) as Effect.Effect<Schema.Schema.Type<S>, Schema.Schema.Type<E>, never>,
+    );
+    return { workflow, layer } as ReturnType<SagaOwner["make"]>;
+  },
+  proxy: (sagas) => WorkflowProxy.toRpcGroup(sagas),
+};
+```

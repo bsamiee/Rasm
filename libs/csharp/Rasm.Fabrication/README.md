@@ -1,31 +1,26 @@
-# [FABRICATION]
+# [RASM_FABRICATION]
 
-`Rasm.Fabrication` is the suite's portable fabrication frontier: the polymorphic `Fabrication` owner that closes the 3D-to-fabrication concern over a `FrontierKind` discriminant folded by one `Run` data-table dispatch — exact hidden-line projection, CAM toolpath motion, and 2D true-shape nesting, each an author-kernel because no admitted library carries a CAM/HLR/nesting robustness or license guarantee. The `.planning/` pages are decision-complete blueprints an implementation agent transcribes — never re-designed downstream. The package owns the BSP-visibility + Weiler-Atherton hidden-line removal producing world-space edge sets the AppUi `Viewport2D` consumes, the `ToolpathKind` offset/spiral/drill motion over Denavit-Hartenberg forward kinematics and damped Jacobian-pseudoinverse IK, and the no-fit-polygon nesting with bottom-left + genetic placement; it composes the `Rasm` geometry kernel's `Predicate.Orient2D` exact-orientation floor and `SpatialIndex` broad-phase as settled vocabulary and never re-mints a predicate, an acceleration structure, or a `Viewport2D`. Owner-state and the rails/axes registry live in `ARCHITECTURE.md`; the realized capability list in `FEATURES.md`; open work in `TASKLOG.md`.
+`Rasm.Fabrication` is the host-neutral portable-fabrication frontier over the `Rasm` kernel: the polymorphic `Fabrication` owner closes the 3D-to-fabrication concern over a `FrontierKind` discriminant folded by one `Run` data-table dispatch — exact hidden-line projection, CAM toolpath motion plus serial-chain kinematics, 2D true-shape nesting, and a portable cut-program emitter, all over a shared 2D polygon-algebra floor. The professional domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
 
-## [1]-[PAGE_INDEX]
+## [1]-[PAGES]
 
-| [INDEX] | [PAGE]                                            | [OWNS]                                                                                                                          |
-| :-----: | :------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | [hidden-line](Projection/.planning/hidden-line.md) | One polymorphic `Fabrication` owner (`FrontierKind`/`FrontierPolicy`/`FrontierResult` + `Run` fold); BSP-visibility + Weiler-Atherton hidden-line edge sets for AppUi `Viewport2D` |
-|   [2]   | [toolpath](Cam/.planning/toolpath.md)             | `ToolpathKind` contour-offset/pocket-spiral/drill motion; Denavit-Hartenberg forward kinematics; damped Jacobian-pseudoinverse IK |
-|   [3]   | [nesting](Nesting/.planning/nesting.md)           | Author-kernel no-fit-polygon; bottom-left + genetic placement fold over `Predicate.Orient2D` feasibility |
+The design pages under `.planning/` mirror the eventual source tree, one page per source file.
 
-## [2]-[ADMISSIONS_RECORD]
+- [frontier/owner](.planning/frontier/owner.md): the polymorphic `Fabrication` owner — `FrontierKind`/`FrontierPolicy`/`FrontierResult`, the shared `Loop`/`Edge3`/`Move`/`PartTransform` atoms, one `Run` fold.
+- [geometry2d/clipper](.planning/geometry2d/clipper.md): the one Clipper2 polygon-algebra substrate — offset/inflate, Boolean clip, Minkowski sum, open-path screen clip.
+- [projection/hidden-line](.planning/projection/hidden-line.md): HLR — BSP front-to-back visibility and Weiler-Atherton screen clip; world-space edge sets for the AppUi `Viewport2D`.
+- [toolpath/motion](.planning/toolpath/motion.md): CAM motion — `ToolpathKind` contour/pocket/drill/trochoidal over the Geometry2D offset.
+- [toolpath/skeleton](.planning/toolpath/skeleton.md): the straight-skeleton/medial-axis author-kernel driving trochoidal adaptive clearing.
+- [kinematics/serial-chain](.planning/kinematics/serial-chain.md): DH forward kinematics and the one damped-least-squares Jacobian-pseudoinverse IK solver.
+- [nesting/nfp](.planning/nesting/nfp.md): 2D true-shape nesting — NFP feasibility and bottom-left/genetic placement.
+- [posting/program](.planning/posting/program.md): host-neutral portable cut-program emission — RS-274/ISO-6983 G-code, kerf-comp, lead-in/out, micro-tab, cut-sequencing.
+- [faults/faults](.planning/faults/faults.md): the band-2500 `FabricationFault` cases composing the kernel band-2400 `GeometryFault`, and `FabricationKeyPolicy`.
 
-The admissions ledger maps each package to its consuming page, `.api` catalogue, and admission status. Versions live in `Directory.Packages.props`; this table never carries a pin. The fabrication kernels admit NO external HLR/CAM/nesting library — every kernel is author-kernel; the `Rasm` project reference carries the geometry-kernel predicate floor, the spatial index, and the `Matrix`/`Point3d`/`Vector3d` substrate. `[STATUS]` is `catalogue-pending` until the `.api` catalogue lands; the `[CATALOGUE]` cell holds `—` until then; author-kernel concerns carry no package row.
+## [2]-[PACKAGES]
 
-| [INDEX] | [PACKAGE] | [PAGE]      | [CATALOGUE] | [STATUS]          |
-| :-----: | :-------- | :---------- | :---------: | :---------------- |
-|   [1]   | Rasm      | hidden-line |      —      | catalogue-pending |
+Every external library the folder uses, planned or implemented. Versions are centralized in the one C# manifest.
 
-## [3]-[PROOF_GATES]
-
-Proof runs at the planned phase gate, not after each edit. `[RAIL]` names the owning rail; the executable command lives with that rail owner, never restated here.
-
-| [INDEX] | [GATE]                | [RAIL]                                | [EVIDENCE]                                                                                  |
-| :-----: | :-------------------- | :------------------------------------ | :----------------------------------------------------------------------------------------- |
-|  [G1]   | locked restore        | Assay restore rail                    | clean closure; unchanged `packages.lock.json`                                              |
-|  [G2]   | API catalogue resolve | `assay api` doctor/resolve            | fence members resolve in `.api` or doctrine pages                                          |
-|  [G3]   | static plan + build   | Assay static rail                     | routed closure against the `Rasm` kernel vocabulary, zero `': error '` lines               |
-|  [G4]   | spec law-matrix       | Assay test rail (Fabrication target)  | hidden-line clip exactness, IK convergence through singularities, NFP placement laws pass  |
-|  [G5]   | page diagram render   | local mermaid-cli                     | page diagrams render through the local renderer                                            |
+- Rasm
+- Clipper2
+- Thinktecture.Runtime.Extensions
+- LanguageExt.Core

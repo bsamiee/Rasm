@@ -1,32 +1,47 @@
-# [BIM_TASKLOG]
+# [RASM_BIM_TASKLOG]
 
-Open work owned by this folder; closed items do not appear. `[STATUS]` is one of `QUEUED`, `ACTIVE`, `BLOCKED`, `SPIKE`; owner state is read at `ARCHITECTURE.md` `[OWNER_REGISTRY]`. Every `SPIKE` row names the probe that flips its owner registry cell to `FINALIZED`; every `QUEUED` row names the depth-fill that flips its cell from `QUEUED` to `FINALIZED`.
+Open and closed work distilled from `IDEAS.md`. `[1]-[OPEN]` carries task cards with a `[QUEUED]`/`[ACTIVE]`/`[BLOCKED]` leader; `[2]-[CLOSED]` carries `[COMPLETE]`/`[DROPPED]` cards. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
 
-## [1]-[OBJECT_MODEL_DEPTH_FILL]
+## [1]-[OPEN]
 
-The genuinely-new BIM object-model owners carry transcription-complete cards and growth axes; the signature fences are queued depth-fill. Each row flips its owner registry cell from `QUEUED` to `FINALIZED` when the fence transcribes and resolves its RESEARCH item.
+[QUEUED] Build the IDS validation owner — `validation/ids.md` design page (anchor `[2]-[IDS_FACETS]`) and the `IdsSpecification`/`IdsFacet` owner.
+- The `IdsFacet` `[Union]` (Entity, Attribute, Property, Classification, Material, PartOf) folded into one predicate over `BimModel`, the `IdsSpecification` record parsed from and authored to the IDS XSD, and an `IdsAudit` deterministic receipt.
+- Integrate the IDS v1.0 XSD parse and spec authoring over the BCL `System.Xml`/`System.Xml.Schema` surface; route cross-tool audit execution to the IfcOpenShell ifctester companion (`python:geometry/ifc-companion`) over the same `csharp:Compute/interchange#TWO_HOP_TESSELLATION` companion-rpc pattern the tessellation bridge uses, never a transport minted here.
+- Reuse the `query/element-set#ELEMENT_SET` `ElementPredicate` algebra — the validation predicate IS the query predicate; consume the `classification/systems#CLASSIFICATION_AXIS` axis and the planned `properties/property-sets#PROPERTY_SETS` owner for the Classification and Property facets; never a second selection surface.
+- The in-process `IdsFacet` fold over `BimModel` gives an immediate self-audit; the companion ifctester run gives the deterministic cross-tool audit matching the buildingSMART IDS audit test-suite — the C# owner authors and parses the spec, the companion is the external-conformance oracle.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | `IfcClass` closed buildingSMART element-class row enumeration + `BimElement`/`BimModel` record fence + the `Project` fold over the `IfcSemanticModel` product/property/quantity/material/type rows; grounds against the GeometryGym entity-class surface and the kernel `Rasm` geometry-handle shape | Model/object-model#ELEMENT_MODEL | QUEUED |
-| [2] | `ElementPredicate` `[Union]` arm payloads + the `ElementSet` set-algebraic fold (`Union`/`Intersect`/`Except`/`Where`/`Query`) over the `BimModel` element collection | Model/object-model#ELEMENT_SET | QUEUED |
-| [3] | `Classification` standard-systems row set + `ClassificationCode` code-shape policies (Uniclass2015/OmniClass/MasterFormat/Uniformat) + the `IfcRelAssociatesClassification` round-trip | Model/object-model#CLASSIFICATION | QUEUED |
-| [4] | `SpatialContainer`/`AssemblyRel` `[Union]` + the `BimAssembly.Assemble` fold projecting the IFC spatial hierarchy and the `IfcRel*` decomposition relationships into the host-neutral tree | Model/object-model#ASSEMBLY | QUEUED |
+[QUEUED] Build the BCF coordination owner — `coordination/issue-exchange.md` and `coordination/model-diff.md`.
+- A closed `BcfTopic`/`BcfComment`/`BcfViewpoint` record family anchored on IFC GlobalIds, a `BcfArchive` `.bcfzip` codec and a `BcfApi` REST projection both owned inside `coordination`, and a `ModelDiff` change-set folding two `BimModel` snapshots into added/modified/removed/moved arms.
+- Integrate the `.bcfzip` archive read/write over the BCL `System.IO.Compression` `ZipArchive` surface and the BCF markup XML over the BCL `System.Xml` surface; the BCF-API REST shape rides the `csharp:Compute/remote#TRANSPORT_AXIS` transport, never a transport minted here.
+- Anchor viewpoints on the `model/elements#ELEMENT_MODEL` `GlobalId` and join the diff by `GlobalId` plus the `csharp:Compute/interchange#CONTENT_ADDRESSING` content-key to dedup unchanged elements; the `.bcfzip` codec is self-owned in `coordination` and is NOT a row on the `exchange/interchange#FORMAT_AXIS` geometry-format axis, because BCF carries issues and viewpoints, never a `BimModel` or `ImportedGeometry` import — coupling the issue container to the geometry codec axis is the rejected form.
+- The viewpoint camera and clipping carry IFC-GUID component selection; the diff is incremental so federation re-checks only changed elements; `ModelDiff` consumes two `model/elements#ELEMENT_MODEL` `BimModel` snapshots as settled vocabulary and mints no second element shape.
 
-## [2]-[CROSS_FOLDER_PROBES]
+[QUEUED] Bind the classification axis to the live bSDD dictionary — deepen `classification/systems.md`.
+- Resolve `Classification.DictionaryUri` against the bSDD RESTful/GraphQL service, validate `ClassificationCode` against the dictionary's published class shape, and surface the bSDD class-to-property mapping for the Pset owner.
+- Integrate the bSDD HTTP/GraphQL fetch over the `csharp:Compute/remote#TRANSPORT_AXIS` transport; lookup memoization keyed by dictionary URI rides Compute's transport, never a `Rasm.Persistence` reference — `Rasm.Bim` is AEC-domain and never references the app-platform store (dependency is strictly upward), so a durable cache is the calling app-platform's concern at the seam.
+- Feed the resolved property definitions to the planned `properties/property-sets#PROPERTY_SETS` owner and the planned `validation/ids#IDS_FACETS` Classification facet; the dictionary URI is the single shared source across `classification`, `properties`, and `validation`, never a per-system code-shape table.
+- The dictionary is live and free but networked; the lookup degrades to the row's local code-shape policy when the service is unreachable so ingest never blocks on the dictionary.
 
-Probes whose owner member shape is transcription-complete; the open gate is a cross-folder or cross-branch alignment named in the page RESEARCH cluster.
+[QUEUED] Build the property and quantity owner — `properties/property-sets.md` (anchor `[2]-[PROPERTY_SETS]`).
+- A `PropertySet`/`QuantitySet` keyed vocabulary over the standard `Pset_*`/`Qto_*` definitions, occurrence- vs type-driven quantity semantics, base-quantity derivation, and round-trip through `IfcRelDefinesByProperties`.
+- Integrate the GeometryGym `IfcRelDefinesByProperties`/`IfcRelDefinesByType`/`IfcElementQuantity` surface for the round-trip and the bSDD class-to-property mapping (from `classification/systems`) for the standard-Pset vocabulary.
+- Promote the `exchange/interchange#IMPORT_RAIL` `IfcSemanticModel.PropertyRow`/`QuantityRow` projections and the `model/elements#ELEMENT_MODEL` `BimElement.PropertyBinding`/`QuantityBinding` raw bindings into this typed owner; the `query/element-set#ELEMENT_SET` `ByProperty` predicate, the planned `validation/ids#IDS_FACETS` Property facet, and the bSDD binding all compose this one model, never a second property store.
+- Type-driven quantities override occurrence quantities (the IFC `QTO_TYPEDRIVENOVERRIDE` inheritance rule); base-quantity derivation runs from the kernel `Rasm` geometry the element binds by reference, never re-tessellating.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | `InterchangeIdentity.Key(string formatKey, ReadOnlySpan<byte> bytes, double deflection, double tolerance, double angleTolerance)` content-key public signature confirms against the `csharp:Compute/interchange#CONTENT_ADDRESSING` owner; the `ExportArtifact.ContentKey`/`TessellationRequest.IfcContentKey` slots consume it as settled vocabulary | Exchange/interchange#EXPORT_RAIL · Exchange/interchange#TESSELLATION_BRIDGE | SPIKE |
-| [2] | `TessellationRequest` companion orchestration (issue over the companion rpc, re-import the GLB, content-key cache reuse) lands at `csharp:Compute/interchange#TWO_HOP_TESSELLATION`; the IfcOpenShell companion-daemon protocol lands at `python:geometry/ifc-companion`; Bim's request shape is transcription-complete | Exchange/interchange#TESSELLATION_BRIDGE | SPIKE |
-| [3] | AP242 / native-companion / IFC5 / Draco / Meshopt / 3D-Tiles codec member spellings ground against the STEP, native-companion, GeometryGym IFC5, and SharpGLTF toolkit surfaces; the mesh-text (STL/3MF/OBJ/PLY) decode bodies ground at the admitted reader packages; candidate USD/FBX/COLLADA rows promote in place at admission | Exchange/interchange#FORMAT_AXIS | SPIKE |
+[QUEUED] Build the georeferencing owner — `georeferencing/coordinate-reference.md` (anchor `[2]-[GEO_REFERENCE]`).
+- A host-neutral `GeoReference` record (eastings, northings, orthogonal height, X-axis abscissa/ordinate rotation, scale, EPSG/CRS name) projected from `IfcMapConversion`/`IfcProjectedCRS`/`IfcCoordinateOperation`.
+- Integrate the GeometryGym `IfcMapConversion`/`IfcProjectedCRS`/`IfcCoordinateOperation` surface for the projection; the rigid map-conversion transform composes the kernel `Rasm` transform algebra, never a hand-rolled matrix.
+- Extend `exchange/interchange#FORMAT_AXIS` `FrameNormalization` with a CRS `Georeference` overload carrying the translation/rotation/scale leg distinct from the existing up-axis/handedness `Canonicalize` signature, so the CRS reconciles into the canonical kernel frame at ingest; the `assembly/spatial-structure#ASSEMBLY_TREE` tree root reconciles onto this frame (its `Boundary` already names this seam) so federated assemblies share one origin.
+- Georeferencing is mandatory for IFC4.3 infrastructure and cross-discipline clash; the `GeoReference` leg extends the existing `FrameNormalization` transform surface rather than minting a new transform owner.
 
-## [3]-[TRANSCRIPTION]
+[QUEUED] Build the universal wire projection — `exchange/wire.md` (anchor `[2]-[WIRE_PROJECTION]`, a new page in the existing `exchange` sub-domain) and the generated-owner JSON converters.
+- A JSON wire surface over `BimModel`/`BimElement`/`IfcClass`/`ElementPredicate`/`AssemblyRel`/`InterchangeFormat` serializing each closed family by its key or case discriminant, plus a content-keyed `BimModel` snapshot payload the peer runtimes decode.
+- Integrate `Thinktecture.Runtime.Extensions.Json` for the generated `[Union]`/`[SmartEnum]`/`[ValueObject]` converters and `System.Text.Json` source-generated `JsonSerializerContext` for the record graph; admit no hand-authored DTO mirror.
+- Project `model/elements#ELEMENT_MODEL`, `query/element-set#ELEMENT_SET`, `assembly/spatial-structure#ASSEMBLY_TREE`, and the `exchange/interchange#FORMAT_AXIS` owners onto the wire; join the snapshot to the `csharp:Compute/interchange#CONTENT_ADDRESSING` content-key; the wire is consumed by `python:geometry/ifc-companion` and the TypeScript web peer at the boundary, never re-minted as a parallel BIM shape; C# owns this wire vocabulary and the peers decode it, never mint a parallel.
+- The discriminant is the owner key or case, never a positional DTO; deserialization gates through each value-object/union `Validate` so a malformed wire payload faults at admission rather than minting a half-built owner.
 
-The implementation sequence is the `ARCHITECTURE.md` `[SOURCE_TREE]` build order (`Faults.cs` first, `Exchange/Interchange.cs` before `Model/`); each file transcribes its page clusters verbatim and resolves the RESEARCH rows those pages carry. Production source is absent.
+## [2]-[CLOSED]
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Transcribe the build-order files per `ARCHITECTURE.md` `[SOURCE_TREE]`; `BimFault` (band 2600) and `InterchangeKeyPolicy` land first | Exchange/interchange#FORMAT_AXIS | QUEUED |
+[COMPLETE] Doc-model migration — re-homed `Model/.planning/object-model.md` into the source-mirroring `model/elements.md`, `query/element-set.md`, `classification/systems.md`, and `assembly/spatial-structure.md`, and `Exchange/.planning/interchange.md` into `exchange/interchange.md` under the single `.planning/`; rebuilt `ARCHITECTURE.md` as a codemap, `README.md` as router-plus-package-registry, and authored `IDEAS.md`/`TASKLOG.md`.
+
+[COMPLETE] glTF extension-axis drift — closed the Drako/meshopt manifest-vs-page mismatch (the `KhrExtension` compression rows compose `Openize.Drako` and `Alimer.Bindings.MeshOptimizer`, `GlbBytes` routes the encode through them), fixed the `KHR_meshopt_compression` spelling, and clarified the USD rows as scene-graph coexistence.

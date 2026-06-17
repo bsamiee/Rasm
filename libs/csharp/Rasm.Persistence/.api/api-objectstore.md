@@ -133,5 +133,5 @@ Conditional-write conflict surfaces: S3 `PreconditionFailed`/`412`, Azure `Condi
 
 [PACKAGE_SCOPE]:
 - Package pages carry external package API facts; the `ObjectStore` placement rows and the multipart transfer algebra are owned at `remote-stores`.
-- The frame-law constants (64-KiB frame, Crc32-per-frame, XxHash128 whole-artifact identity) are owned at `Compute/remote-lane#ARTIFACT_FRAMES` and consumed as settled vocabulary.
+- The frame-law constants (64-KiB frame, Crc32-per-frame, XxHash128 whole-artifact identity) are owned at `#ARTIFACT_FRAMES` and consumed as settled vocabulary.
 - Auth credential acquisition (`GoogleCredential`, AWS credential providers, Azure `TokenCredential`) is connection input handed over by app roots, not a Persistence fence member.

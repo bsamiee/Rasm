@@ -1,39 +1,40 @@
 # [PY_COMPUTE]
 
-`compute` owns offline scientific evidence that graduates into managed owner rows: array admission, one polymorphic numeric-intent solver/symbolic dispatch with accelerator rows, units and uncertainty claims, study and experiment-run orchestration, model-asset validation, and the graduation receipt with a geometry handoff case. It has zero consumers today and implementation is full-capability. Owner state and the axis registry live in `ARCHITECTURE.md`; the realized capability list in `FEATURES.md`; open work in `TASKLOG.md`. The design pages in `.planning/` are decision-complete blueprints an implementation agent transcribes; the package catalogues in `.api/` carry the external-surface evidence each page consumes.
+The host-free numeric and scientific companion of the monorepo: array admission, one route-discriminated solver, differentiation, validated numerics, signal processing, symbolics, unit-bearing uncertainty, design-of-experiments, model assets, and Bayesian inference, with the graduation rail that hands offline results across the wire into the C# managed owner system. This router indexes the design pages under `.planning/` and registers every external package the folder uses; `ARCHITECTURE.md` carries the domain map and boundaries, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
-## [1]-[PAGE_INDEX]
+## [1]-[PAGES]
 
-| [INDEX] | [PAGE]                                  | [OWNS]                                                             |
-| :-----: | :-------------------------------------- | :---------------------------------------------------------------- |
-|   [1]   | [array-solver](.planning/array-solver.md) | array admission, the numeric-intent solver, symbolic, accelerators |
-|   [2]   | [units-study](.planning/units-study.md)   | units/uncertainty claims, study + run-history, model assets        |
-|   [3]   | [graduation](.planning/graduation.md)     | the graduation receipt, the inference owner, the typed-stub codegen |
+| [INDEX] | [PAGE]                                                          | [OWNS]                                                            |
+| :-----: | :------------------------------------------------------------- | :--------------------------------------------------------------- |
+|   [1]   | [arrays/payload](.planning/arrays/payload.md)                  | namespace-dispatched array admission over the Array API standard |
+|   [2]   | [solvers/receipt](.planning/solvers/receipt.md)                | the method-discriminated solve receipt over every route          |
+|   [3]   | [solvers/linear](.planning/solvers/linear.md)                  | dense/sparse/eigen over scipy and the Lineax operator tier       |
+|   [4]   | [solvers/nonlinear](.planning/solvers/nonlinear.md)            | root/minimise/fixed-point/least-squares over Optimistix          |
+|   [5]   | [solvers/quadrature](.planning/solvers/quadrature.md)          | 1-D quadrature, spline interpolation, the weak-form FEM fold      |
+|   [6]   | [solvers/differential](.planning/solvers/differential.md)      | ODE/SDE/CDE integration over Diffrax                              |
+|   [7]   | [differentiation/sensitivity](.planning/differentiation/sensitivity.md) | reverse-mode VJP and the implicit-adjoint solver loop   |
+|   [8]   | [validated_numerics/enclosure](.planning/validated_numerics/enclosure.md) | the Arb/mpmath/numpy certified-enclosure floor ladder |
+|   [9]   | [signal/dsp](.planning/signal/dsp.md)                          | IIR/FIR filter design, spectral estimation, resampling           |
+|  [10]   | [symbolics/derivation](.planning/symbolics/derivation.md)      | sympy lambdify and codegen producing the handoff artifact         |
+|  [11]   | [metrology/quantity](.planning/metrology/quantity.md)          | correlated uncertainty through the pint unit algebra              |
+|  [12]   | [experiments/study](.planning/experiments/study.md)            | DOE sampling, SALib sensitivity, surrogate fitting                |
+|  [13]   | [experiments/run_history](.planning/experiments/run_history.md) | run persistence, partial-cell resume, run comparison            |
+|  [14]   | [models/asset](.planning/models/asset.md)                      | ONNX validation and the sklearn-to-ONNX export                    |
+|  [15]   | [inference/bayesian](.planning/inference/bayesian.md)          | the sampler-backend axis and arviz convergence diagnostics        |
+|  [16]   | [graduation/receipt](.planning/graduation/receipt.md)          | the handoff axis moving offline evidence outward                  |
+|  [17]   | [graduation/stub_codegen](.planning/graduation/stub_codegen.md) | the ast-builder stub emitter decoding the C# evidence bundle     |
 
-## [2]-[ADMISSIONS_RECORD]
+## [2]-[PACKAGES]
 
-The executed admissions ledger maps each package to its consuming page, `.api` catalogue, and admission status. Versions live in the root manifest; this table never carries a pin. `[STATUS]` is one of `admitted`, `catalogue-pending`, `deploy-asset-gated`. Distributions carrying a `python_version<'3.15'` marker or a scientific transitive that fails the cp315 source build verify out-of-band on the marker floor.
+Every external library the folder uses, planned or implemented, as a flat list. Versions live in the one root manifest; centralization is absolute, and no per-folder manifest exists.
 
-| [INDEX] | [PACKAGE]                            | [PAGE]       | [CATALOGUE]                                              | [STATUS]           |
-| :-----: | :----------------------------------- | :----------- | :------------------------------------------------------ | :----------------- |
-|   [1]   | numpy                                | array-solver | api-numpy.md                                            | catalogue-pending  |
-|   [2]   | scipy, sympy                         | array-solver | api-scipy.md, api-sympy.md                              | catalogue-pending  |
-|   [3]   | numba, jax                           | array-solver | api-numba.md, api-jax.md                                | catalogue-pending  |
-|   [4]   | scikit-fem, python-flint, optimistix | array-solver | api-scikit-fem.md, api-python-flint.md, api-optimistix.md | deploy-asset-gated |
-|   [5]   | pint, uncertainties                  | units-study  | api-pint.md, api-uncertainties.md                       | catalogue-pending  |
-|   [6]   | onnx, onnxruntime, scikit-learn      | units-study  | api-onnx.md, api-onnxruntime.md, api-scikit-learn.md    | catalogue-pending  |
-|   [7]   | pymc, arviz                          | graduation   | api-pymc.md, api-arviz.md                               | deploy-asset-gated |
-
-## [3]-[PROOF_GATES]
-
-Proof runs at the planned phase gate, not after each edit. `[RAIL]` names the owning rail; the executable command lives with that rail owner, never restated here.
-
-| [INDEX] | [GATE]                | [RAIL]      | [EVIDENCE]                                          |
-| :-----: | :-------------------- | :---------- | :------------------------------------------------- |
-|  [G1]   | locked restore        | uv          | compute pins resolve against the root manifest      |
-|  [G2]   | API catalogue resolve | assay api   | every fence member resolves to an `.api` row        |
-|  [G3]   | type check            | ty          | typed-signature transcription resolves clean        |
-|  [G4]   | lint and format       | ruff        | routed closure, zero diagnostics                    |
-|  [G5]   | spec law-matrix       | pytest      | compute law-matrix specs pass                       |
-|  [G6]   | wheel floor           | uv          | cp315/marker-floor wheels install before re-reflect |
-|  [G7]   | page diagram render   | mermaid-cli | page diagrams render through the local renderer      |
+- Array admission and acceleration: `numpy`, `array-api-compat`, `array-api-extra`, `numba`, `jax`.
+- Solvers and differential equations: `scipy`, `scikit-fem`, `lineax`, `optimistix`, `diffrax`, `equinox`.
+- Spatial geometry and mesh interchange: `scipy` (`scipy.spatial`), `meshio`.
+- Symbolics: `sympy`.
+- Validated numerics: `python-flint`, `mpmath`.
+- Metrology: `pint`, `uncertainties`.
+- Experiments and sensitivity: `SALib`, `scikit-learn`.
+- Model assets: `onnx`, `onnxruntime`, `skl2onnx`.
+- Bayesian inference: `pymc`, `arviz`, `numpyro`, `nutpie`.
+- Encoding and typing: `msgspec`, `expression`, `beartype`.

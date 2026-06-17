@@ -1,24 +1,81 @@
 # [RASM_TASKLOG]
 
-Open work owned by the absorbed robust-geometry domain; closed items do not appear. `[STATUS]` is one of `QUEUED`, `ACTIVE`, `BLOCKED`, `SPIKE`; owner state is read at `ARCHITECTURE.md` `[OWNER_REGISTRY]`. Every `SPIKE` row names the probe that flips its owner registry cell to `FINALIZED`.
+The kernel's open and closed work, distilled from the ideas and the design-page RESEARCH residuals. Each task is a card whose leader carries a status marker — `[QUEUED]`/`[ACTIVE]`/`[BLOCKED]` open, `[COMPLETE]`/`[DROPPED]` closed — plus the capability or file to build, the external packages to integrate, the integration points and boundaries, and the key considerations. `[1]-[OPEN]` carries live work; `[2]-[CLOSED]` records settled or dropped tasks.
 
-## [1]-[PROBES]
+## [1]-[OPEN]
 
-The residual probes the domain pages carry — verification or native-asset gates that hold an owner at SPIKE until they land.
+[QUEUED] Predicate sign-exactness law-matrix (`numerics/predicates#NUMERIC_DETERMINISM`).
+- A `PredicateLaws` CsCheck property suite asserting every `Predicate` member returns the exact sign of the `BigInteger` rational determinant on perturbed near-degenerate input, plus antisymmetry, filter-vs-exact agreement, and translation invariance.
+- Integrate CsCheck and the active repo testkit under `testing-cs`; `System.Numerics.BigInteger` as the exact oracle.
+- Internal to the numerics sub-domain — proves the predicate floor every higher owner rides; no cross-package wire. The FMA-availability assumption (a future FMA-free RID routes the Dekker-split fallback) is the only deferred numeric probe, gating a fallback row, never the FMA-path predicates.
+- The kernel is total by construction; the harness is the law authority, not a structure gate.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | Predicate sign-exactness law-matrix: every member returns the exact sign of the `BigInteger` rational determinant on perturbed near-degenerate input; antisymmetry, filter-vs-exact agreement, translation invariance hold | geometry-kernel#ROBUST_PREDICATES · geometry-kernel#INTERIOR_NUMERICS | SPIKE |
-| [2] | Re-anchor injectivity: `Track` is injective per `EntityKind` across the Survive×Migrate cross-case against the golden rebuild fixture | topology#TOPO_NAMING | SPIKE |
-| [3] | Canonical-adjacency byte identity: `Encode` byte-equality vs the Persistence `GeometryHash` path against the frozen golden fixture; morph re-hashes equal, topology break re-hashes distinct; live-host `Mesh` boundary-cycle winding confirmed | topology#NAMING_HASH | SPIKE |
-| [4] | Clash seam contract: `ToAcceleration` node-link layout reconciled with the Compute `ClashScale` decode (a `solver-and-optimization.md` edit outside Rasm write-scope) before the two-sided golden fixture passes | spatial-index#SPATIAL_INDEX | SPIKE |
-| [5] | B-rep rebuild: the `Boolean` heal case (exact-arithmetic mesh-arrangement classification) flips to FINALIZED only when the tier-3 native manifold-arrangement asset is admitted | healing#HEALING | SPIKE |
+[QUEUED] Re-anchor injectivity harness (`topology/naming#REANCHOR_INJECTIVITY`).
+- A tier-2 property harness driving rebuild-matching: apply a labelled topological operation (rigid move/face split/vertex insert/edge collapse), assert the `TrackOutcome` matches the expected lineage class and the next-generation `NameTable` is injective per `EntityKind`.
+- Integrate CsCheck under `testing-cs`; a golden rebuild fixture frozen against `HashMap` enumeration order.
+- Internal to the topology sub-domain; the `TopoSignature.Subsumes` parent-subset predicate and the deterministic smallest-`TopoName` tiebreak are under test. The OPEN residual is the Survive×Migrate cross-case injectivity the per-`EntityKind` `claimed` set must prove non-colliding.
+- The boundary-storage shape is pinned (`NameEntry.Boundary` + `NameTable.VertexNames`); only the injectivity proof remains.
 
-## [2]-[TOOLING_AND_TRANSCRIPTION]
+[BLOCKED] Canonical-adjacency byte identity vs the Persistence `GeometryHash` (`topology/reconciliation#CANONICAL_BYTE_IDENTITY`).
+- A cross-package byte-equality harness feeding one reference mesh through both `NamingHashOps.Encode` and the Persistence `GeometryHash` path, asserting `XxHash128` equality plus the morph (equal hash) and topology-break (distinct hash) discriminating laws against a frozen golden-bytes fixture.
+- Integrate `System.IO.Hashing` (`XxHash128`); CsCheck and the testkit under `testing-cs`.
+- The seam aligns to `csharp:Persistence/version-control#STRUCTURAL_DIFF` `GeometryHash`/`StructuralMerge` — the geometry domain emits the canonical bytes, Persistence content-addresses them; the byte order is frozen and both packages assert against the one fixture. The live-host `Mesh.TopologyVertices.IndicesFromFace` boundary-cycle winding spelling is confirmed via `Rasm.Vectors`.
+- Blocked on the frozen golden-bytes fixture existing in both packages' test scope; confirm `IndicesFromFace` returns consistent winding before the rotation law finalizes.
 
-The catalogue gap and the implementation sequence.
+[BLOCKED] Clash-seam node-link contract arbitration (`spatial/index#CLASH_SEAM`).
+- Reconcile the `SpatialIndex.ToAcceleration` node-link layout with the Compute `ClashScale.BvhPairs` decode, which currently reads a FLAT per-primitive layout (no internal/leaf distinction, no node-link hierarchy) over an O(N²) all-pairs scan.
+- No new package; the seam is the `Rasm.Compute.Solver` `AccelerationStructure` union the projection returns directly.
+- The seam is a LIVE bidirectional contract conflict aligned to `csharp:Compute/solver#CLASH_AND_TWIN`: the hierarchy this owner builds is not consumed Compute-side, and consuming it requires the Compute owner to expose a node-link decode walking `[FirstChild, FirstChild+ChildCount)` — an edit to `solver/lane.md` OUTSIDE the Rasm write-scope.
+- Blocked on the cross-page arbitration of which owner's node-link contract wins; the projection stays byte-faithful to the present consumer and a two-sided golden-bytes fixture must pass before the seam settles.
 
-| [INDEX] | [ITEM] | [PAGE#CLUSTER] | [STATUS] |
-| :-----: | ------ | -------------- | :------: |
-| [1] | `.api` catalogue gap: author the CSparse, MathNet.Numerics, MathNet.Symbolics, and System.Numerics.Tensors catalogues in the tooling pass; flip the `README.md` `[ADMISSIONS_RECORD]` rows off `catalogue-pending` | constraints#CONSTRAINT_SOLVER | QUEUED |
-| [2] | Transcribe the robust-geometry source per `ARCHITECTURE.md` `[SOURCE_TREE]` build order (numeric floor through `Constraints/ConstraintSolver.cs`, `Geometry/Faults.cs` last); each file transcribes its page clusters verbatim and resolves the RESEARCH rows those pages carry | geometry-kernel#ROBUST_PREDICATES | QUEUED |
+[BLOCKED] Boolean tier-3 native arrangement asset gate (`healing/repair#BOOLEAN_NATIVE_ASSET`).
+- The `HealOp.Boolean` row is fence-complete in shape (the case, the `BooleanOp` discriminant, the `BooleanReceipt`, the `Apply` gate routing `NativeAssetMissing`) but carries no managed CSG kernel; the algorithm contract is exact-arithmetic mesh-arrangement classification with a robust ray-parity inside/outside test grounded on `Predicate.Orient3D`.
+- Integration awaits a robust exact-arithmetic mesh-arrangement native asset (no admissible managed manifold library exists; ManifoldNET alpha rejected); the kept-cell boundary welds through the `DuplicateWeld` kernel.
+- Internal to the healing sub-domain; the row gains its managed body only on a charter package admission with its RID burden assessed, then must pass the repair kernels' post-conditions against a golden boolean fixture.
+- Blocked on the native-asset admission; the `INDIRECT_PREDICATES` idea offers a fully-managed exact path that could retire this dependency for the common cases.
+
+[QUEUED] LM convergence harness (`constraints/solver#LM_CONVERGENCE`).
+- A `ConstraintLaws` CsCheck property suite asserting `Solve` converges on every feasible system, the analytic Jacobian matches a central-finite-difference Jacobian, an over-constrained-inconsistent system routes `GeometryFault.OverConstrained`, rigid-transform invariance, and idempotence.
+- Integrate CsCheck and the testkit under `testing-cs`; MathNet.Numerics (`Cholesky`) as the linear-solve substrate under test.
+- Internal to the constraints sub-domain. The singular-Jacobian path (λ-ladder climbing to `SingularSystem` before the ceiling, including NaN-trial rejection on a numerically-indefinite damped matrix) and the bounded inner reject-chain budget are the convergence-edge probes.
+- The LM iterate is a total damped descent by construction; the harness asserts the worst-case step budget terminates at the λ ceiling.
+
+[QUEUED] Indirect-predicate family extension (idea `INDIRECT_PREDICATES`).
+- Add LPI/TPI implicit-point predicates to `numerics/predicates.md` as new `Predicate` members riding the same `ErrorBound` stage and `Expansion` fold, evaluating the exact sign over constructed intersection points without rounding.
+- Integrate the existing `Expansion`/`ErrorBound` numerics and `System.Numerics.BigInteger` for the law-matrix oracle.
+- Internal to the numerics sub-domain; consumed by the healing self-intersect split and the planned constrained-Delaunay owner. New error bands are `ErrorBound` rows; zero new surface.
+- Each new predicate needs its forward-error coefficient derived once from `Epsilon`; the law-matrix extends to assert exact-sign agreement over implicit points.
+
+[QUEUED] Generalized-winding-number query (idea `GENERALIZED_WINDING`).
+- A fast hierarchical GWN evaluated as a `SpatialQuery` case over the existing `SpatialIndex` BVH (Barill/Jacobson tree-based), returning a robust inside/outside scalar over defective triangle soups.
+- No new external package; composes the spatial BVH and the `Predicate.Orient3D` sign.
+- Internal to the spatial sub-domain as a query case, consumed by the healing boolean-arrangement cell classification and the watertight-repair verdict; reuses the BVH so it is a query, not a new structure.
+- The GWN tree node aggregates per-node solid-angle/dipole moments onto the `NodeStore`; the query is a best-first descent with the standard far-field approximation.
+
+[QUEUED] Witness-configuration DOF analysis (idea `WITNESS_DOF`).
+- Upgrade `DofAnalysis` in `constraints/solver.md` to derive the true numeric DOF and detect over/under/redundant constraints by analyzing the Jacobian rank at a witness configuration, beside the structural row-count verdict.
+- Integrate MathNet.Numerics for the rank/SVD analysis at the witness.
+- Internal to the constraints sub-domain; the verdict gates the same `Solve` rail and feeds UI over-constraint diagnosis. A new verdict refinement is a `DofAnalysis` row or column, never a parallel analyzer.
+- The witness is a known feasible configuration; the numeric rank at the witness distinguishes redundant-but-consistent from structurally-determined systems the row count misclassifies.
+
+[QUEUED] Constrained-Delaunay tessellation owner (idea `CONSTRAINED_DELAUNAY`).
+- Author a new `Geometry/Tessellation/Delaunay.cs` owner: one `Tessellation` `[Union]` (`Triangulation`/`Tetrahedralization`) over a flat vertex/simplex `NodeStore`-style store, the incremental Bowyer-Watson insertion driven by the exact `InCircle`/`InSphere` predicate, and robust constraint-edge/facet recovery by predicate-guarded flips.
+- Integrate the `Rasm.Geometry.Numerics` `Predicate` (`InCircle`/`InSphere`, and the planned LPI/TPI indirect predicates for constructed Steiner points), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Internal to the new `Tessellation` sub-domain; composes the `numerics/predicates` floor, and the `healing/repair` `SelfIntersectResolve` and the `spatial` index ALIGN to it as future consumers through their own owners, never by coupling into the triangulator's interior. Boundary recovery feeds the boolean-arrangement gate the `Tessellation` substrate it needs.
+- Depends on `INDIRECT_PREDICATES` for the constructed-point (Steiner-vertex) flip robustness; the empty-circumcircle restoration after each insertion is the correctness anchor the law-matrix proves against a `BigInteger` Delaunay oracle.
+
+[QUEUED] Degradation-keyed refit and agglomerative builder (idea `DEGRADATION_REFIT`).
+- Extend `spatial/index.md`: add a surface-area-cost degradation field to `Refit` that rebuilds when refitted quality drops past a `BuildPolicy` threshold, and add an agglomerative bottom-up `SpatialKind`/`Builders` row (Morton-presorted nearest-neighbour clustering) writing the same `NodeStore`.
+- No new external package; composes the existing `SpatialIndex` `Build`/`Refit` rail, the SAH cost scan, and the Morton sort already authored.
+- Internal to the spatial sub-domain — a new builder is one `SpatialKind` row plus one `Builders` `FrozenDictionary` row, the degradation trigger is `BuildPolicy` columns; the `csharp:Compute/solver#CLASH_AND_TWIN` consumer ALIGNS to the same `ToAcceleration` projection unchanged (the rebuild is transparent to the seam), never a coupling edit into the Compute owner.
+- The degradation metric is the refitted root surface-area against the last full-build cost; the rebuild trigger must be deterministic so an incremental session is reproducible, and the agglomerative builder's wider nodes ride the existing contiguous `[FirstChild, FirstChild+ChildCount)` child run with no layout change.
+
+[QUEUED] Mature-folder `Geometry` naming reconciliation (`Domain/Geometry.cs` vs the `Geometry` sub-domain).
+- The mature `Domain/Geometry.cs` owner and the greenfield `Geometry/` robust-core sub-domain share the name `Geometry`; reconcile so the `Rasm.Geometry.*` robust-core namespaces do not collide with the `Domain` geometry-normalization owner.
+- No external package; a co-located source rename or namespace re-scope.
+- Internal to the kernel — aligns the mature `Domain` source with the greenfield `Geometry` sub-domain tree before transcription lands `Rasm.Geometry.Numerics`/`Spatial`/`Topology`/`Healing`/`Constraints`/`Faults`.
+- Settle the rename before the transcription task creates the `Geometry/` source tree so no two owners claim the name.
+
+## [2]-[CLOSED]
+
+None.

@@ -1,65 +1,34 @@
 # [PYTHON_IDEAS]
 
-The Python branch forward pool: the big ideas imagined first and distilled into `TASKLOG.md` items, the cross-package concert, and the folder horizons aggregated from the five packages' refinement passes. A concept lands here only if it couples Python packages to each other or deepens a branch owner; a concept that crosses a language boundary stays in the Tier-0 `IDEAS.md` and is referenced as a Tier-0 seam, never restated. Lean rows carry `[PAGE#CLUSTER]` as the sole location key; owner state is read at the owning package `ARCHITECTURE.md` `[OWNER_REGISTRY]`, never marked here.
+The cross-package Python concert: higher-order concepts that couple two or more of the five packages or deepen a shared branch owner, distilled from the folder ideas. A concept grounded in one folder's domain stays on that folder's `IDEAS.md`; a concept crossing a language boundary stays in the cross-`libs/` `IDEAS.md` and is referenced as a wire seam, never restated here. `[1]-[OPEN]` holds the live concert as cards — a bracketed slug, the capability, what it unlocks, and the cross-package gap it draws on; `[2]-[CLOSED]` records dispositions.
 
-## [1]-[BRANCH_CONCERT]
+## [1]-[OPEN]
 
-The flagship is one scientific/AEC workflow authored end-to-end across the five packages, meeting only at the runtime ports and the named seams, never at one another's interiors. The threads:
+[CONTENT_ADDRESSED_REUSE_FABRIC]:
+- Fold the runtime `ContentIdentity` seed into the runtime lane admission so a unit of work admitted as a `(ContentKey, Work[T])` pair short-circuits when the key already carries a result, and key every consumer's most expensive output — a `compute` graduated sub-result, a `geometry` tessellated GLB, a `data` egress bundle, an `artifacts` document — by that same key.
+- Unlocks by-reference reuse across a companion session and across packages: the identity seed becomes an execution-elision key, not only an interchange key, so determinism and cache-hit-by-reference are derivable from the key rather than re-declared per owner.
+- Draws on the gap that identity keys artifacts and lanes drain work as independent runtime owners, with nothing folding the key into the lane admission decision; the four consumers each key their outputs by `ContentIdentity` already, so the elision fabric is one runtime fold the whole branch inherits.
 
-- One runtime foundation, four consumers — `runtime` mints `ContentIdentity`, `BoundaryFault`/`RuntimeRail`, `Retry`, `ResourceRoot`, `LanePolicy`, `ReceiptContributor`, and `ServerHost`/`Credential` once; `compute`, `data`, `geometry`, and `artifacts` compose them as settled vocabulary and never re-mint a second content-identity, receipt, retry, or wire owner.
-- One content address, every artifact — a blob written by any package is fetched by content key; a `compute`-graduated sub-result, a `geometry` GLB, a `data` egress bundle, and an `artifacts` document all key by the one `ContentIdentity`, so determinism and cache-hit-by-reference are derivable, not flags.
-- One evidence rail outward — `compute/graduation#GRADUATION` carries a `HandoffAxis` geometry case so `geometry` registration transforms, reconstructed meshes, topology graphs, and form-finding reach the managed owner system through the single graduation receipt, never a parallel handoff per package.
-- One tessellation companion, served once — the IfcOpenShell `IFC → mesh/GLB` daemon is `geometry`-native, hosted by the runtime `ServerHost` over the existing inbound contract; it mints no transport, and `data` mesh-file shapes feed it as inputs while the IFC-to-GLB rail stays in `geometry`.
+[GEOMETRY_KERNEL_OFFLOAD_LANE]:
+- Add a CPU-bound offload variant to the runtime `LanePolicy` over `anyio.to_interpreter.run_sync` that the geometry and compute siblings hand a caller-supplied numeric kernel to — the open3d/trimesh registration loops, the scipy/JAX solver kernels — executed per-subinterpreter under the same `CapacityLimiter` and `DrainReceipt`, the lane never importing the kernel.
+- Unlocks true-parallel CPU geometry and numeric work on subinterpreter-capable runtimes without a process-pool pickle tax, keeping one lane spine for I/O-bound and CPU-bound work and freeing the companion event loop during heavy tessellation and registration.
+- Draws on PEP 734 subinterpreters and `anyio.to_interpreter` as a lower-overhead isolation seam the lane has not absorbed; the geometry registration stack and the compute solver routes are exactly the heavy CPU kernels that today stall the loop or serialize through `to_process`.
 
-## [2]-[CROSS_PACKAGE_LAWS]
+[ONE_MEASURED_SIGNAL_STREAM]:
+- Build the runtime `observability/metrics` instrument set — companion request-duration histogram, lane drain counters folded from `DrainReceipt`, `psutil` process gauges — against one `MeterProvider`, and route every package's measured-execution signal (graduation latency, tessellation throughput, egress volume, render duration) through that one stream rather than per-package log fields.
+- Unlocks one measured-execution signal stream the host scrapes without per-package metric reinvention; lane saturation, retry exhaustion, and companion latency become first-class observable metrics shared by all five packages.
+- Draws on the gap that runtime receipts emit logs and trace context but mint no metrics, while the companion server and lane spine across every consumer produce exactly the count/duration/gauge signals OTel metrics own, currently lost or stuffed into log fields.
 
-- One owner per axis, one entrypoint family per rail, one fault family per branch — three-or-more parallel types/enums/dispatch arms collapse into one polymorphic owner (a tagged union + `match`, a `StrEnum` with a behavior table, a fold, or a `frozendict` data table); a new capability is a row, a case, or a policy value on an existing owner, never a sibling surface.
-- Runtime owns the shared value shapes the determinism closure must reference without a sibling dependency: the node-edit delta algebra and the canonical mesh contract reside in `runtime` as dependency-free structural shapes (keyed by `ContentIdentity`), lowered into the consuming packages at their own boundary so neither package imports the other's interior.
-- The receipt family is an open `Protocol`-bounded family discriminated by the receipt `tag`, not a single closed union rooted in one package — each owner declares its own arm Struct and the runtime port discriminates by tag, so no cross-package import root is forced.
-- A fence names an external member only after the owning package `.api` catalogue verifies its spelling; a phantom member is the named defect, an admitted capability no owner exploits is a named gap.
+[CROSS_PACKAGE_DRIFT_GUARD]:
+- Extend the runtime `evidence` `Structural` query family into a same-language drift detector locating a re-minted canonical concept — a second content-identity seed, receipt rail, retry owner, or wire-projection name — across the `compute`, `data`, `geometry`, and `artifacts` sources, feeding the `assay code` rail the named drift defect the topology law forbids.
+- Unlocks an automated guard on the one-owner-per-axis law inside the branch: a sibling re-minting a runtime shape is caught at the source before it lands, distinct from the cross-language guard that lives in the cross-`libs/` pool.
+- Draws on the gap that `Structural.query` returns raw byte spans with no semantic over them and the drift defect is defined in law with no detector; tree-sitter S-expression queries over the one Python grammar already in the manifest are the surface to express the intra-branch case.
 
-## [3]-[FORWARD_POOL]
+[ONE_GRADUATION_RAIL_OUTWARD]:
+- Hold the compute `graduation` rail as the single evidence path every package's useful offline result crosses outward, with the `geometry` registration transforms, reconstructed meshes, topology graphs, network graphs, and form-finding reaching the managed owner system through the `HandoffAxis` geometry case rather than a parallel per-package handoff.
+- Unlocks one outward contract: a result graduates the same way regardless of which package produced it, so the C# owner system consumes one rail and the determinism closure references one key, never a handoff family.
+- Draws on the gap that geometry, compute, and the data egress each produce graduatable evidence while only the compute rail is designed to carry it outward; the geometry case on the compute rail already exists as the single crossing, leaving the law to hold the rail singular.
 
-The big ideas distilled into `TASKLOG.md` rows; each rides ONE owner axis (a new owned page or a deepened existing owner), never a sibling surface. Generative/deep-learning AI is out of scope; classical inferential statistics, surrogate/classification model assets, and validated numerics are in scope.
+## [2]-[CLOSED]
 
-| [INDEX] | [CONCEPT]                                                        | [PAGE#CLUSTER]                          |
-| :-----: | :-------------------------------------------------------------- | :-------------------------------------- |
-|   [1]   | per-algorithm typed solver-receipt family + dense/sparse/ODE/optimize/root lanes | `compute/array-solver#SOLVER`           |
-|   [2]   | study DOE generation, global sensitivity, calibration, Pareto, surrogates, queryable receipt lake | `compute/units-study#STUDY`             |
-|   [3]   | dimensioned + dual-path-uncertainty quantity threaded through the solve/study graph | `compute/units-study#QUANTITY`          |
-|   [4]   | signal & spectral workbench over unit-and-coordinate-aware labelled arrays | `compute/array-solver#SIGNAL`           |
-|   [5]   | verified symbolic-to-native codegen with an equivalence-proof gate | `compute/array-solver#SOLVER`           |
-|   [6]   | adjoint-through-solve inverse design (discrete adjoint over the FEM forward) | `compute/differentiable#INVERSE`        |
-|   [7]   | validated-numerics certifier — guaranteed interval/ball enclosures | `compute/rigor#CERTIFY`                  |
-|   [8]   | simulation mesh+field interchange + weak-form FEM assembly + in-situ | `compute/simframe#ASSEMBLY`             |
-|   [9]   | Bayesian inference/posterior owner — MCMC/HMC/VI + convergence diagnostics | `compute/graduation#INFERENCE`          |
-|  [10]   | array-native computational geometry (KD-tree/Voronoi/Delaunay/alpha-shape) | `compute/array-solver#SPATIAL`          |
-|  [11]   | transactional lakehouse table engine — MERGE/time-travel/OPTIMIZE/CDC | `data/columnar-query#LAKEHOUSE`         |
-|  [12]   | versioned tensor datacube + out-of-core array + ragged/CF cube | `data/graph-mesh#TENSOR`                |
-|  [13]   | data-contract statistical firewall — profile/drift/expectations/quarantine | `data/columnar-query#QUALITY`           |
-|  [14]   | federated search + continuous standing-query engine with per-hit lineage | `data/columnar-query#QUERY`             |
-|  [15]   | dataframe-agnostic Arrow zero-copy interchange carrier         | `data/schema-geo#INTEROP`               |
-|  [16]   | accelerated network-science algorithm family (networkx→rustworkx) | `data/graph-mesh#GRAPH`                 |
-|  [17]   | parametric constraint solver + git-for-geometry object-graph diff | `geometry/parametric#CONSTRAIN`         |
-|  [18]   | native CAD/BIM/scan in-process ingest (STEP/AP242/E57/LAS/IFC5) | `geometry/interchange#INGEST`           |
-|  [19]   | semantic DocumentModel + bidirectional extraction + corpus query | `artifacts/docmodel#MODEL`              |
-|  [20]   | conformance grading + physical redaction + PAdES sealing plane | `artifacts/conformance#GRADE`           |
-|  [21]   | print-production color management — ICC/CMYK/wide-gamut + imposition | `artifacts/color#GAMUT`                 |
-|  [22]   | scientific image processing — segmentation/morphology/registration | `artifacts/imaging#IMAGE`               |
-|  [23]   | provider-fingerprint + replay-verify determinism closure       | `runtime/content-identity#IDENTITY`     |
-|  [24]   | orchestration triggers + content-addressed node memo + durable exactly-once queue | `runtime/resources-lanes#LANE`          |
-|  [25]   | typed capability catalog + MCP/SDK/CLI projection             | `runtime/capabilities#CATALOG`          |
-|  [26]   | parametrized headless notebook execution + content-addressed cell outputs | `runtime/notebook#RUN`                  |
-|  [27]   | bounded-memory chunked-streaming iterator over the lane bound  | `runtime/resources-lanes#LANE`          |
-
-## [4]-[FOLDER_HORIZONS]
-
-The next-deepening pass per folder, aggregated from the five packages' refinement horizons. Each row is the residual deepening an existing owner absorbs once its catalogue floor fills.
-
-| [INDEX] | [FOLDER]    | [HORIZON]                                                                                                       |
-| :-----: | :---------- | :------------------------------------------------------------------------------------------------------------ |
-|   [1]   | `artifacts` | pillow-blocked image chain finalizes on toolchain install; pyvista/vtk 3D scene path on the native floor; report-templating composition; strided GLB content-addressing |
-|   [2]   | `compute`   | sympy lambdify-to-managed-owner codegen handoff; geometry `HandoffAxis`; pymc/arviz inference member spellings on cp315 wheel resolve; `StubCodegen` decode of graduation evidence at the Tier-0 seam |
-|   [3]   | `data`      | Arrow C Data Interface zero-copy; ADBC/ConnectorX remote sourcing; GeoParquet/CRS-normalized egress; deepen against real engines |
-|   [4]   | `geometry`  | IFC companion warm-pool cold-start amortization; 64 KiB ArtifactSync frame framing (Crc32 + XxHash128), proven at the Tier-0 companion seam |
-|   [5]   | `runtime`   | the two SPIKE owners (`ServerHost`, `Credential`) finalize on the sub-3.15 companion floor + `grpcio.aio` boot; `ContentIdentity` seed byte-identity at the Tier-0 seam |
+No idea has closed.
