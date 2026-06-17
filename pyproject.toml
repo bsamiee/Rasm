@@ -3,27 +3,28 @@ name = "workspace-foundation-python"
 version = "0.1.0"
 requires-python = ">=3.15"
 dependencies = [
-    "anyio>=4.13.0",
+    "anyio>=4.14.0",
     "beartype>=0.22.2",
-    "cyclopts>=4.16.1",
+    "cyclopts>=4.18.0",
     "msgspec>=0.21.1",
     "opentelemetry-api>=1.41.1",
     "opentelemetry-exporter-otlp-proto-http>=1.41.1",
     "opentelemetry-sdk>=1.41.1",
-    "pydantic>=2.13.3",
-    "pydantic-settings>=2.14.0",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.1",
     "expression>=5.6.0",
     "stamina>=26.1.0",
-    "structlog>=25.5.0",
+    "structlog>=26.1.0",
     "psutil>=7.2.2",
-    "fsspec>=2026.4.0",
-    "s3fs>=2026.4.0",   # SHARED-pull cloud backend: agent reads the same s3 tree the remote tool wrote, zero byte transfer
-    "gcsfs>=2026.4.0",  # SHARED-pull cloud backend: agent reads the same gs/gcs tree the remote tool wrote, zero byte transfer
+    "fsspec>=2026.6.0",
+    "s3fs>=2026.6.0",   # SHARED-pull cloud backend: agent reads the same s3 tree the remote tool wrote, zero byte transfer
+    "gcsfs>=2026.5.0",  # SHARED-pull cloud backend: agent reads the same gs/gcs tree the remote tool wrote, zero byte transfer
+    "obstore>=0.10.1",  # cp315-ready abi3 Rust object_store cloud seam; relieves s3fs/pyarrow cp315 wheel lag
     "httpx>=0.28.1",    # Retain; never remove regardless of consumers existing or not
     "watchfiles>=1.2.0",
-    "aiocron>=2.1",
+    "apscheduler>=3.11.2",  # cron+interval+date Trigger union for the runtime StagePlan orchestration
     "universal-pathlib>=0.3.10",  # UPath 0.3 storage_options/protocol= resolution is load-bearing for the fsspec artifact store
-    "asyncssh>=2.23.0",
+    "asyncssh>=2.23.1",
     "specklepy>=3.2.8",  # runtime TransportResource row: Speckle stream send/receive (remote AEC transport, never a durable store)
     "tree-sitter>=0.25.2",
     "tree-sitter-python>=0.25.0",
@@ -34,47 +35,50 @@ dependencies = [
 dev = [
     "coverage>=7.14.1",
     "dirty-equals",
-    "hypothesis>=6.155.2",
+    "hypothesis>=6.155.3",
     "inline-snapshot",
     "moto[server]>=5.2.2",
     "mypy>=2.1.0",
-    "pytest>=9.0.3",
+    "pytest>=9.1.0",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=7.1.0",
     "pytest-deadfixtures>=3.1.0",
     "pytest-randomly>=4.1.0",
-    "pytest-socket",
-    "pytest-timeout",
+    "pytest-socket>=0.8.0",
+    "pytest-timeout>=2.4.0",
     "pytest-xdist>=3.8.0",
-    "ruff>=0.15.12,<0.16",
-    "ty>=0.0.44",
-    "types-psutil>=7.2.2",
+    "ruff>=0.15.17,<0.16",
+    "ty>=0.0.49",
+    "types-psutil>=7.2.2.20260518",
     "validate-pyproject[all]",
 ]
 mutation = ["mutmut>=3.6.0"]
 scientific = [
     "adbc-driver-manager",  # data ADBC driver-manager (Arrow Flight SQL / DuckDB ADBC); Cython, source-builds on cp315
+    "arro3-core>=0.8.1",  # data cp315-ready abi3 Arrow core; pyarrow-cp315-gap bridge
     "arviz>=1.2.0",  # compute PY_INFER_001 Bayesian diagnostics; pure-Python
     "awkward>=2.9.1",  # data PY_TENSOR_001 ragged/jagged arrays; pure-Python
+    "compas>=2.15.1",  # geometry GeometryAlgebra: AEC computational geometry, networks, form-finding; pure-Python (requires_python>=3.9)
     "connectorx>=0.4.5; python_version<'3.15'",  # data fast SQL->Arrow; Rust/maturin, no cp315 wheel (lock pin 0.2.3 is stale cp39-linux)
     "cubed>=0.28.0",  # data PY_TENSOR_001 bounded-memory distributed arrays; pure-Python
     "dask",
     "deltalake",  # data PY_LAKE_001 lakehouse; abi3 wheel installs on cp315
     "duckdb",  # source-builds on cp315 (~2 min)
-"geopandas",  # source-build via Parametric_Forge scientific toolchain
-"h5py>=3.16.0",  # source-build via Parametric_Forge HDF5 toolchain
+    "geopandas",  # source-build via Parametric_Forge scientific toolchain
+    "h5py>=3.16.0",  # source-build via Parametric_Forge HDF5 toolchain
     "icechunk>=2.0.6; python_version<'3.15'",  # data PY_TENSOR_001 versioned tensor store; Rust pyo3 cp313, no cp315 wheel
+    "ibis-framework>=12.0.0",  # data backend-agnostic SQL-expression IR
     "jax>=0.10.1; python_version<'3.15'",  # compute NumericIntent XLA accelerator row; jaxlib ships no cp315 wheel
     "laspy>=2.7.0",  # geometry PY_INGEST_001 LAS/LAZ point clouds; pure-Python
     "meshio",
-    "nanoarrow>=0.8.0; python_version<'3.15'",  # data PY_INTEROP_001 Arrow C-data zero-copy; C ext cp312, no cp315 wheel
+    "nanoarrow>=0.8.0",  # data PY_INTEROP_001 Arrow C-data zero-copy; meson+Cython source-build
     "narwhals>=2.22.1",  # data PY_INTEROP_001 dataframe-agnostic API; pure-Python
-"netcdf4>=1.7.4",  # compute PY_SIM_001 CFD/field IO; source-build via Parametric_Forge netCDF toolchain
+    "netcdf4>=1.7.4",  # compute PY_SIM_001 CFD/field IO; source-build via Parametric_Forge netCDF toolchain
     "networkx",
     "numba>=0.65.1; python_version<'3.15'",  # compute NumericIntent LLVM JIT accelerator row; numba lags CPython, no cp315 wheel
     "numpy>=2.0",  # compute substrate; 2.x ships cp315 wheels (1.26 forced an sdist build)
     "numpyro>=0.21.0; python_version<'3.15'",  # compute PY_INFER_001 JAX-based NUTS sampler; rides the jaxlib <3.15 floor (pymc+arviz are the cp315 Bayesian path)
-    "onnx>=1.22.0; python_version<'3.15'",  # compute ModelAsset graph IR; no cp315 wheel
+    "onnx>=1.22.0",  # compute ModelAsset graph IR; cp312-abi3 installs on cp315
     "onnxruntime>=1.27.0; python_version<'3.15'",  # compute ModelAsset runtime-check half; no cp315 wheel
     "optimistix>=0.1.0; python_version<'3.15'",  # compute PY_DIFF_001 JAX nonlinear/least-squares + adjoint VJP; rides the jaxlib <3.15 floor
     "pandas",  # source-builds on cp315
@@ -83,21 +87,22 @@ scientific = [
     "pdal>=3.5.3; python_version<'3.15'",  # geometry PY_INGEST_001 point-cloud pipeline; sdist-only, prefer conda; no cp315 wheel
     "pint",
     "polars",  # cp315 wheel available
-"pyarrow>=20.0",  # source-build via Parametric_Forge Arrow C++ toolchain
+    "pyarrow>=24.0.0",  # source-build via Parametric_Forge Arrow C++ toolchain; 24.0 fixes the cp315 PyWeakref_GET_OBJECT build break
     "pye57>=0.4.19; python_version<'3.15'",  # geometry PY_INGEST_001 E57 scan IO; C++ ext cp314, no cp315 wheel
     "pymc>=6.0.1",  # compute PY_INFER_001 probabilistic programming; pure-Python (PyTensor backend)
-"pyogrio>=0.12.1",  # source-build via Parametric_Forge GDAL toolchain
-"pyproj>=3.7.2",  # source-build via Parametric_Forge PROJ toolchain
+    "pyogrio>=0.12.1",  # source-build via Parametric_Forge GDAL toolchain
+    "pyproj>=3.7.2",  # source-build via Parametric_Forge PROJ toolchain
     "python-flint>=0.8.0; python_version<'3.15'",  # compute PY_RIGOR_001 validated/interval numerics (Arb); LGPL-2.1+ runtime, cp314, no cp315 wheel
-"rasterio>=1.5.0",  # data RasterGeoClaim axis; source-build via Parametric_Forge GDAL toolchain
-    "rhino3dm>=8.17.0; python_version<'3.15'",  # geometry mesh IO; CMake C++ ext, no cp315 wheel
+    "rasterio>=1.5.0",  # data RasterGeoClaim axis; source-build via Parametric_Forge GDAL toolchain
+    "rhino3dm>=8.17.0",  # geometry mesh IO; CMake C++ source-build
     "rustworkx>=0.17.1",  # compute/data PY_GRAPH_001 fast graph algorithms; abi3 wheel installs on cp315
     "scikit-fem>=12.0.2",  # compute PY_SIM_001 lightweight FEM assembly; pure-Python
     "scikit-image>=0.26.0; python_version<'3.15'",  # artifacts PY_IMG_001 image processing; C/Cython cp314, no cp315 wheel
     "scikit-learn>=1.9.0; python_version<'3.15'",  # compute ModelAsset classical-ML + sklearn->ONNX export; no cp315 wheel
-"scipy>=1.17.1",  # source-build via Parametric_Forge Fortran/BLAS toolchain
+    "scipy>=1.17.1",  # source-build via Parametric_Forge Fortran/BLAS toolchain
     "scipy-stubs",
-"shapely>=2.1.2",  # source-build via Parametric_Forge GEOS toolchain
+    "shapely>=2.1.2",  # source-build via Parametric_Forge GEOS toolchain
+    "sparse>=0.18.0",  # data PyData sparse n-D arrays
     "sympy",
     "trimesh",
     "uncertainties",
@@ -112,6 +117,7 @@ artifacts = [
     "fonttools>=4.63.0",  # artifacts PY_CONF_001 font subsetting/instancing/shaping metadata; pure-Python
     "jinja2>=3.1.6",  # artifacts ReportPlan: report-templating composition between VisualSpec outputs and DocumentPlan inputs
     "kaleido",
+    "lonboard>=0.16.0; python_version<'3.15'",  # artifacts PY_NB_001 GPU/deck.gl GeoArrow viz; gated: geoarrow-rust-core caps at cp314, no cp315 wheel/sdist yet
     "lxml",
     "lz4",
     "matplotlib",
@@ -144,7 +150,6 @@ artifacts = [
 # open3d/topologicpy/compiled cores cap at cp312; the grpcio trio rides the same floor as the native geometry stack. The
 # isolated companion environment also keeps the LGPL-3.0-or-later ifcopenshell wheel out of the MIT/Apache library lock.
 geometry-companion = [
-    "compas>=2.15.1; python_version<'3.13'",            # geometry GeometryAlgebra: AEC computational geometry, networks, form-finding
     "grpcio>=1.81.1; python_version<'3.13'",            # companion inbound wire speaking the EXISTING C# ComputeService/ArtifactSync gRPC contract
     "grpcio-tools>=1.81.1; python_version<'3.13'",      # compiles the C# proto descriptors into Python server stubs
     "ifcopenshell>=0.8.5; python_version<'3.13'",       # geometry IfcCompanion: the load-bearing IFC->mesh/GLB tessellation daemon (LGPL-3.0-or-later)
@@ -458,7 +463,7 @@ max_stack_depth = -1
 cache-dir =        ".cache/ruff"
 preview =          true
 line-length =      150
-required-version = ">=0.15.12,<0.16"
+required-version = ">=0.15.17,<0.16"
 target-version =   "py315"
 extend-exclude = [
     "**/.approval_tests_temp/**",
