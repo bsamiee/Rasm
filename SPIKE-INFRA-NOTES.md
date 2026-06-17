@@ -33,6 +33,8 @@ Provisioned in Parametric_Forge (deployed `darwin-rebuild switch ...#macbook`):
 
 - `lonboard` -> `geoarrow-rust-core` caps cp314 (no cp315 wheel/sdist) -> gated `python_version<'3.15'`.
 - Keep-gated cp315 blockers: connectorx / icechunk (Rust no-cp315), jax/jaxlib / numba / numpyro / onnxruntime / optimistix / pye57 / python-flint / scikit-image / scikit-learn (CPython/ABI ceiling), pdal (sdist + toolchain). Companion `<3.13`: ifcopenshell / open3d / vtk / pyvista / topologicpy / grpcio / small-gicp.
+- **[NOT TOOLCHAIN — upstream cp315-beta lag] `scipy==1.17.1` cannot build on 3.15.0b2.** Its build runs Pythran, which fails `TypeError: ast.Compare.__init__ missing 1 required positional argument` against CPython 3.15's changed `ast` API. Forge CANNOT fix this — it needs a Pythran release supporting 3.15 (≈ 3.15 GA). Consequence: scipy + its runtime-dependents (geopandas, scikit-fem, ...) stay un-installable on cp315 until then. This is the single biggest reason `uv sync --group scientific` will not complete on the beta interpreter even after every toolchain fix below (the sync is all-or-nothing). RECOMMENDATION: re-gate `scipy` (and scipy-runtime-dependents) `python_version<'3.15'` until Pythran ships cp315, OR accept the non-scipy subset only until GA.
+- **[NOT TOOLCHAIN] `sparse` / `pymc` already re-gated** this turn — they hard-pull `numba`->`llvmlite` (cp314 ceiling). Same upstream-lag class.
 
 ## [5]-[ASSAY_INTEGRATION_IDEATION] — TBD (dedicated ideation pass)
 
@@ -40,4 +42,20 @@ Open question to resolve truthfully with a small ideation pass: should the spike
 
 ## [6]-[OPEN_QUESTIONS_FOR_FORGE]
 
-- (appended as the campaign surfaces them)
+- The scientific stack splits into TOOLCHAIN-FIXABLE (builds once the wrapper is corrected: pyproj, h5py, shapely, pyogrio, rasterio, netcdf4, nanoarrow, rhino3dm, pandas, compas) vs UPSTREAM-cp315-BLOCKED (scipy/Pythran, numba/llvmlite, anything pulling them). Should the latter be re-gated `<'3.15'` until GA so `uv sync --group scientific` completes instead of aborting all-or-nothing on the first upstream-blocked build?
+- Add the artifacts image/PDF/font lib set to the wrapper now, or defer until those packages ship cp315 wheels (most will at GA)?
+- Confirm `eigen` (+ `pdal`/`boost`) addition if `small-gicp`/`pdal` un-gating is wanted.
+
+## [7]-[RECOMMENDED_TOOLCHAIN_REWRITE] — the consolidated fix
+
+Campaign-verified; fold into scientific-tools.nix so `forge-scientific-env` produces it natively:
+1. **Compiler:** `CC`/`CXX` = clang (Nix `llvmPackages.clang` or system `/usr/bin/clang`), NOT gfortran's gcc. Keep `FC="${pkgs.gfortran}/bin/gfortran"` for Fortran only. (gfortran-as-CC dodged a `g++` HM collision but breaks every macOS C-ext build.)
+2. **Drop the per-package include/lib/prefix overrides** that conflict with pkg-config-aware builds: remove `HDF5_DIR`/`HDF5_LIBDIR`/`HDF5_INCLUDEDIR` (keep at most `HDF5_PKGCONFIG_NAME=hdf5`); replace the bare `PROJ_DATA`-only export with either the full `PROJ_DIR`/`PROJ_INCDIR`/`PROJ_LIBDIR` triple (`${pkgs.proj.dev}/include`, `${pkgs.proj}/lib`) or pure `pkg-config proj`. The exact campaign env that built the toolchain-class packages: `CC=/usr/bin/clang CXX=/usr/bin/clang++`; `PROJ_DIR/INCDIR/LIBDIR` from `pkg-config`; `unset HDF5_DIR HDF5_LIBDIR HDF5_INCLUDEDIR`; `HDF5_PKGCONFIG_NAME=hdf5`.
+3. **Keep** `PKG_CONFIG_PATH` (correct, load-bearing), `GDAL_CONFIG`/`GEOS_CONFIG` (the *-config scripts), and the `*_DATA` runtime dirs.
+4. **Optional adds:** `eigen` (small-gicp), `pdal`+`boost` (pdal), the artifacts image/doc lib set (libjpeg-turbo/zlib/libpng/freetype/libtiff/libwebp/openjpeg/cairo/pango/qpdf).
+
+## [8]-[ACCEPTANCE] — how Forge confirms the fix
+
+`forge-scientific-env uv sync --group scientific` exits 0 (after re-gating scipy/numba-pullers per [6]), then:
+`forge-scientific-env uv run python -c "import shapely,pyproj,h5py,netcdf4,rasterio,pyarrow,onnx,rhino3dm,narwhals,duckdb,polars,ibis; print('toolchain-class OK')"`.
+scipy/geopandas remain failing until Pythran ships cp315 — that is upstream, not a toolchain regression.
