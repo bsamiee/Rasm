@@ -1,29 +1,26 @@
 # [RASM_FABRICATION_OWNER]
 
-The polymorphic `Fabrication` owner closes the entire 3D-to-fabrication concern over a `FrontierKind` `[SmartEnum<string>]` (`project`/`toolpath`/`place`) folded by one `Run` data-table dispatch that lowers a per-kind `FrontierPolicy` `[Union]` onto its kernel and returns a per-kind `FrontierResult` `[Union]` (`HiddenLineResult`/`Motion`/`Placement`). The owner holds the shared fabrication atoms every kernel reads — `Loop`, `Edge3`, `Move`, `PartTransform`, `FrontierInput` — and the one `Run` entrypoint that discriminates by `FrontierPolicy` case over a `FrozenDictionary` builder table, never a `policy switch` cascade. A per-concern projector/post/packer class triple is the deleted form: the three concerns differ only in their kernel fold, never in their entrypoint. The owner composes the kernel `Rasm/Geometry/geometry-kernel#ROBUST_PREDICATES` `Predicate.Orient2D` exact orientation as the winding floor and `Rasm`/Vectors `MeshSpace`/`Point3d`/`Vector3d`/`Matrix` primitives as native vocabulary — read public shapes, compose, never re-mint. It computes no hash, mints no second `Viewport2D`, and operates on raw coordinate doubles at the kernel interior because a coordinate is the domain's native scalar, never a unit-bearing quantity.
+The polymorphic `Fabrication` owner closes the entire 3D-to-fabrication concern over the `FrontierPolicy` `[Union]` (`HiddenLine`/`Cam`/`Nest`) — the one discriminant `Run` reads — folded by one `Run` generated total `Switch` that lowers each case onto its kernel and returns a per-case `FrontierResult` `[Union]` (`HiddenLineResult`/`Motion`/`Placement`). The owner holds the shared fabrication atoms every kernel reads — `Loop`, `Edge3`, `Move`, `PartTransform`, `FrontierInput` — and the one `Run` entrypoint that discriminates by `FrontierPolicy` case through the generated `Switch`, never a `policy switch` cascade or a `Type`-keyed dictionary that loses compile-time totality. A per-concern projector/post/packer class triple is the deleted form: the three concerns differ only in their kernel fold, never in their entrypoint. A parallel string `[SmartEnum]` frontier discriminant beside the `FrontierPolicy` union is the deleted form — one axis carries one discriminant, the union case the dispatch already reads, never a second name the union case projects onto. The owner composes the kernel `Rasm.Geometry/numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` exact orientation as the winding floor and `Rasm`/Vectors `MeshSpace`/`Point3d`/`Vector3d`/`Matrix` primitives as native vocabulary — read public shapes, compose, never re-mint. It computes no hash, mints no second `Viewport2D`, and operates on raw coordinate doubles at the kernel interior because a coordinate is the domain's native scalar, never a unit-bearing quantity.
 
-Wire posture: HOST-LOCAL. The fabrication outputs cross only the in-process seam — the world-space `HiddenLineResult` edge sets to the AppUi `Viewport2D` consumer, the `Motion` toolpath/joint stream to the `posting/program#CUT_PROGRAM` emitter, the `Placement` transforms to the same posting owner — never a browser or peer wire. The `FrontierKind` discriminant, the `FrontierPolicy`/`FrontierResult` unions, and the shared atoms are host-local types that never sit between wire and rail.
+Wire posture: HOST-LOCAL. The fabrication outputs cross only the in-process seam — the world-space `HiddenLineResult` edge sets to the AppUi `Viewport2D` consumer, the `Motion` toolpath/joint stream to the `posting/program#CUT_PROGRAM` emitter, the `Placement` transforms to the same posting owner — never a browser or peer wire. The `FrontierPolicy`/`FrontierResult` unions and the shared atoms are host-local types that never sit between wire and rail.
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                                                       |
-| :-----: | :---------------- | :---------------------------------------------------------------------------------------------------------- |
-|   [1]   | FABRICATION_OWNER | `FrontierKind`/`FrontierPolicy`/`FrontierResult` unions, the shared `Loop`/`Edge3`/`Move`/`PartTransform` atoms, and the one `Run` data-table fold to the cluster kernels |
+One cluster: `[2]-[FABRICATION_OWNER]` owns the `FrontierPolicy`/`FrontierResult` unions, the shared `Loop`/`Edge3`/`Move`/`PartTransform`/`FrontierInput` atoms, and the one `Run` generated total `Switch` to the cluster kernels.
 
 ## [2]-[FABRICATION_OWNER]
 
-- Owner: `FrontierKind` `[SmartEnum<string>]` the frontier discriminant (`project`/`toolpath`/`place`); `FrontierPolicy` `[Union]` the per-kind policy (`HiddenLine`/`Cam`/`Nest`) the `Run` fold dispatches on; `FrontierResult` `[Union]` the per-kind result (`HiddenLineResult`/`Motion`/`Placement`); `FrontierInput` the one input carrier every kernel reads; `Fabrication` the static surface whose ONE `Run` entrypoint discriminates by `FrontierPolicy` case onto the cluster kernel. The cluster kernels (`Hlr`, `Cam`, `Nest`) are sibling owners in their own sub-domains, dispatched from the `Builders` table, never sibling public surfaces beside `Run`.
-- Cases: `FrontierKind` rows `project` · `toolpath` · `place` (3); `FrontierPolicy` cases `HiddenLine` · `Cam` · `Nest` (3); `FrontierResult` cases `HiddenLineResult` · `Motion` · `Placement` (3).
+- Owner: `FrontierPolicy` `[Union]` the per-concern policy (`HiddenLine`/`Cam`/`Nest`) — the ONE frontier discriminant the `Run` fold dispatches on; `FrontierResult` `[Union]` the per-case result (`HiddenLineResult`/`Motion`/`Placement`); `FrontierInput` the one input carrier every kernel reads; `Fabrication` the static surface whose ONE `Run` entrypoint discriminates by `FrontierPolicy` case onto the cluster kernel. The cluster kernels (`Hlr`, `Cam`, `Nest`) are sibling owners in their own sub-domains, dispatched from the generated total `Switch`, never sibling public surfaces beside `Run`.
+- Cases: `FrontierPolicy` cases `HiddenLine` · `Cam` · `Nest` (3); `FrontierResult` cases `HiddenLineResult` · `Motion` · `Placement` (3); each policy case pairs one-to-one with its result case across the fold, the union case the sole discriminant, never a parallel string-keyed kind.
 - Entry: `public static Fin<FrontierResult> Run(FrontierPolicy policy, FrontierInput input)` — the ONE fabrication entrypoint; `Fin<T>` routes a `FabricationFault` (`NoFit`, `Unreachable`, `KerfCollision`, `OpenLoop`) or the composed kernel `GeometryFault` band-2400 (`DegenerateInput`), each lowered with `.ToError()` per `faults/faults#FAULT_BAND`; the fold lowers `HiddenLine` to `projection/hidden-line#PROJECTION_HIDDEN_LINE`, `Cam` to `toolpath/motion#CAM_MOTION`, and `Nest` to `nesting/nfp#NESTING`.
-- Auto: `Run` reads a `FrozenDictionary<Type, Func<FrontierPolicy, FrontierInput, Fin<FrontierResult>>>` keyed by the policy case so kernel selection is a data-table row, never a `policy switch` cascade in the body. Each kernel composes the settled `Predicate.Orient2D` for the exact left-turn/segment-intersection floor and the `geometry2d/clipper#POLYGON_ALGEBRA` Clipper2 substrate for offset/clip/Minkowski, so the fabrication owner adds the fabrication ALGORITHM atop the settled exact-geometry and polygon-algebra substance rather than re-deriving either.
+- Auto: `Run` dispatches through the Thinktecture-generated total `Switch(state, hiddenLine, cam, nest)` threading the `FrontierInput` as state into each case-typed arm, so kernel selection is the closed-family dispatch the union owns and a new `FrontierPolicy` case fails the build until its arm lands, never a `policy switch` cascade or a `Type`-keyed lookup that silently misses. Each kernel composes the settled `Predicate.Orient2D` for the exact left-turn/segment-intersection floor and the `geometry2d/clipper#POLYGON_ALGEBRA` Clipper2 substrate for offset/clip/Minkowski, so the fabrication owner adds the fabrication ALGORITHM atop the settled exact-geometry and polygon-algebra substance rather than re-deriving either.
 - Receipt: `FrontierResult` IS the typed evidence — `HiddenLineResult` carries the visible/hidden/silhouette edge partition, `Motion` carries the ordered move list plus the joint-angle stream and the IK convergence residual, `Placement` carries the per-part transform and the sheet utilization scalar; no generic fabrication ledger, each kind carries its own typed result.
 - Packages: `Rasm`/Vectors (`MeshSpace`/`Point3d`/`Vector3d`/`Matrix` — composed), `Rasm.Geometry.Numerics` (`Predicate.Orient2D`/`Sign` — settled kernel), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new frontier is one `FrontierKind` row + one `FrontierPolicy` case + one `FrontierResult` case + one kernel fold arm + one `Builders` row; zero new entrypoint surface.
-- Boundary: the frontier is the ONE polymorphic `Fabrication` owner and a per-concern projector/post/packer class triple is the deleted form — the three concerns differ only in their kernel fold, never in their entrypoint, so `Run` dispatches by `FrontierPolicy` case over the `Builders` table; the shared `Loop`/`Edge3`/`Move`/`PartTransform`/`FrontierInput` atoms live here and every kernel composes them, never re-mints a parallel atom; segment intersection and convex orientation read the settled `Predicate.Orient2D` exact sign and a naive `double` cross-product sign at the call site is the named robustness defect — a sign verdict is exact or it is a defect; the interior coordinate doubles inside every kernel are the sanctioned native-scalar posture and a unit-bearing quantity in a kernel signature is the seam violation.
+- Growth: a new frontier is one `FrontierPolicy` case + one `FrontierResult` case + one `Run` `Switch` arm lowering to its kernel fold; the generated dispatch breaks the build until the arm lands; zero new entrypoint surface.
+- Boundary: the frontier is the ONE polymorphic `Fabrication` owner and a per-concern projector/post/packer class triple is the deleted form — the three concerns differ only in their kernel fold, never in their entrypoint, so `Run` dispatches by `FrontierPolicy` case through the generated total `Switch`; the `FrontierPolicy` union case is the ONE frontier discriminant and a parallel `FrontierKind` string `[SmartEnum]` carrying the same `project`/`toolpath`/`place` axis the union already cases is the deleted form — the generated `Switch` reads the union case directly, never a second key the case projects onto, and a `Type`-keyed `FrozenDictionary` dispatch is the rejected form because it loses the compile-time totality the closed family owns; the shared `Loop`/`Edge3`/`Move`/`PartTransform`/`FrontierInput` atoms live here and every kernel composes them, never re-mints a parallel atom; segment intersection and convex orientation read the settled `Predicate.Orient2D` exact sign and a naive `double` cross-product sign at the call site is the named robustness defect — a sign verdict is exact or it is a defect; the interior coordinate doubles inside every kernel are the sanctioned native-scalar posture and a unit-bearing quantity in a kernel signature is the seam violation.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using System.Collections.Frozen;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Fabrication.Kinematics;
@@ -38,16 +35,6 @@ using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Frontier;
-
-// --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<FabricationKeyPolicy, string>]
-[KeyMemberComparer<FabricationKeyPolicy, string>]
-public sealed partial class FrontierKind {
-    public static readonly FrontierKind Project = new("project");
-    public static readonly FrontierKind Toolpath = new("toolpath");
-    public static readonly FrontierKind Place = new("place");
-}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record Loop(Arr<Point3d> Vertices, bool Closed) {
@@ -95,16 +82,11 @@ public abstract partial record FrontierResult {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Fabrication {
-    static readonly FrozenDictionary<Type, Func<FrontierPolicy, FrontierInput, Fin<FrontierResult>>> Builders =
-        new (Type Case, Func<FrontierPolicy, FrontierInput, Fin<FrontierResult>> Run)[] {
-            (typeof(FrontierPolicy.HiddenLine), static (p, i) => Hlr.Solve((FrontierPolicy.HiddenLine)p, i)),
-            (typeof(FrontierPolicy.Cam), static (p, i) => Cam.Solve((FrontierPolicy.Cam)p, i)),
-            (typeof(FrontierPolicy.Nest), static (p, i) => Nest.Solve((FrontierPolicy.Nest)p, i)),
-        }.ToFrozenDictionary(static row => row.Case, static row => row.Run);
-
     public static Fin<FrontierResult> Run(FrontierPolicy policy, FrontierInput input) =>
-        Builders.TryGetValue(policy.GetType(), out var run)
-            ? run(policy, input)
-            : Fin.Fail<FrontierResult>(GeometryFault.DegenerateInput($"frontier-policy-miss:{policy.GetType().Name}").ToError());
+        policy.Switch(
+            state:      input,
+            hiddenLine: static (i, p) => Hlr.Solve(p, i),
+            cam:        static (i, p) => Cam.Solve(p, i),
+            nest:       static (i, p) => Nest.Solve(p, i));
 }
 ```

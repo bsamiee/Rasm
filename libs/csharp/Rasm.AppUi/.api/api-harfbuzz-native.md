@@ -92,16 +92,16 @@
 - rail: typography
 - no `runtimes/<rid>/native` payload; static `libHarfBuzzSharp.a` archives keyed by Emscripten version and threading/SIMD flavor under `buildTransitive/netstandard1.0/libHarfBuzzSharp.a/`
 
-| [INDEX] | [ASSET]                                                    | [RAIL]            |
-| :-----: | :--------------------------------------------------------- | :---------------- |
-|   [1]   | `libHarfBuzzSharp.a/2.0.23/libHarfBuzzSharp.a`             | static archive    |
-|   [2]   | `libHarfBuzzSharp.a/3.1.7/libHarfBuzzSharp.a`              | static archive    |
-|   [3]   | `libHarfBuzzSharp.a/3.1.12/` `st` `mt` `st,simd` `mt,simd` | flavored archives |
-|   [4]   | `libHarfBuzzSharp.a/3.1.34/` `st` `mt` `st,simd` `mt,simd` | flavored archives |
-|   [5]   | `libHarfBuzzSharp.a/3.1.56/` `st` `mt` `st,simd` `mt,simd` | flavored archives |
-|   [6]   | `HarfBuzzSharp.NativeAssets.WebAssembly.props`             | props import      |
-|   [7]   | `HarfBuzzSharp.NativeAssets.WebAssembly.targets`           | target import     |
-|   [8]   | `lib/net10.0/_._`                                          | compile marker    |
+| [INDEX] | [ASSET]                                                | [RAIL]            |
+| :-----: | :----------------------------------------------------- | :---------------- |
+|   [1]   | `libHarfBuzzSharp.a/2.0.23/libHarfBuzzSharp.a`         | static archive    |
+|   [2]   | `libHarfBuzzSharp.a/3.1.7/libHarfBuzzSharp.a`          | static archive    |
+|   [3]   | `libHarfBuzzSharp.a/3.1.12/{st\|mt\|st,simd\|mt,simd}` | flavored archives |
+|   [4]   | `libHarfBuzzSharp.a/3.1.34/{st\|mt\|st,simd\|mt,simd}` | flavored archives |
+|   [5]   | `libHarfBuzzSharp.a/3.1.56/{st\|mt\|st,simd\|mt,simd}` | flavored archives |
+|   [6]   | `HarfBuzzSharp.NativeAssets.WebAssembly.props`         | props import      |
+|   [7]   | `HarfBuzzSharp.NativeAssets.WebAssembly.targets`       | target import     |
+|   [8]   | `lib/net10.0/_._`                                      | compile marker    |
 
 [TARGET_ASSETS]: buildTransitive target groups
 - rail: typography
@@ -122,7 +122,7 @@
 | [INDEX] | [SURFACE]                  | [SURFACE_ROOT]                             | [RAIL]           |
 | :-----: | :------------------------- | :----------------------------------------- | :--------------- |
 |   [1]   | `native library asset`     | `runtimes/osx`                             | HarfBuzz load    |
-|   [2]   | `runtime identifier asset` | `osx` `win-*` `linux-*`                    | RID selection    |
+|   [2]   | `runtime identifier asset` | `osx\|win-*\|linux-*`                      | RID selection    |
 |   [3]   | `copy-local runtime asset` | build targets                              | output copy      |
 |   [4]   | `static archive asset`     | `libHarfBuzzSharp.a/<emscripten>/<flavor>` | wasm static link |
 |   [5]   | `compile marker`           | `lib/net10.0`                              | no managed API   |

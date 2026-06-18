@@ -4,9 +4,7 @@ One page owns the redial-driven offline-queue drain — `BackgroundSyncReplay`, 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]             | [OWNS]                                                    |
-| :-----: | :-------------------- | :------------------------------------------------------- |
-|   [1]   | BACKGROUND_SYNC_REPLAY | the redial drain of the offline queue into the gateway   |
+[BACKGROUND_SYNC_REPLAY]: the redial drain of the offline queue into the gateway.
 
 ## [2]-[BACKGROUND_SYNC_REPLAY]
 
@@ -20,9 +18,11 @@ One page owns the redial-driven offline-queue drain — `BackgroundSyncReplay`, 
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 import { Effect, Layer, Stream } from "effect";
 import * as BrowserStream from "@effect/platform-browser/BrowserStream";
-import type { AvailabilityStore, FaultDetail } from "../interchange/gateway-and-quarantine.ts";
-import { CommandGatewayLive, type CommandPayloadWire, type ControlVerb } from "../interchange/gateway-and-quarantine.ts";
+import type { AvailabilityStore } from "../projection/availability-gate.ts";
+import type { FaultDetail } from "../interchange/fault-family.ts";
+import { CommandGatewayLive, type CommandPayloadWire, type ControlVerb } from "../interchange/command-gateway.ts";
 import { LocalPersistenceLive } from "./local-persistence.ts";
+import { ServiceWorkerHostLive } from "./service-worker-host.ts";
 
 // --- [SERVICES] ------------------------------------------------------------------------
 interface BackgroundSyncReplay {

@@ -66,7 +66,7 @@ public sealed class SpatialProbeValidationLaws {
 }
 
 public sealed class AnalysisQuerySpatialExecutionLaws {
-    [Fact]
+    [Fact(Skip = "Runtime-owned Rhino RTree execution belongs in bridge scenario rail.")]
     public void SpatialIndexSearchByBoxAndSphereReturnsSortedHitIdsThroughServiceQuery() {
         using SpatialIndex tree = SpatialGens.IndexOf(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0), new Point3d(x: 4.0, y: 0.0, z: 0.0));
         Spec.Valid(
@@ -77,7 +77,7 @@ public sealed class AnalysisQuerySpatialExecutionLaws {
             then: static hits => Assert.Equal(expected: Seq(new SpatialHit(Id: 2)), actual: hits));
     }
 
-    [Fact]
+    [Fact(Skip = "Runtime-owned Rhino RTree execution belongs in bridge scenario rail.")]
     public void SpatialIndexOverlapAndNearestPointPairsReturnSortedPairsThroughServiceQuery() {
         using SpatialIndex left = SpatialGens.IndexOf(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0));
         using SpatialIndex right = SpatialGens.IndexOf(new Point3d(x: 0.1, y: 0.0, z: 0.0), new Point3d(x: 2.2, y: 0.0, z: 0.0));

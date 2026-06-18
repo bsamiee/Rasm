@@ -26,7 +26,6 @@ from rasm.compute.solvers.receipt import SolverReceipt
 from rasm.runtime.faults import RuntimeRail, boundary
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
 class StepControl(StrEnum):
     CONSTANT = "constant"
     PID = "pid"
@@ -37,7 +36,6 @@ class AdjointMode(StrEnum):
     BACKSOLVE = "backsolve"
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class DifferentialIntent:
     tag: Literal["ode", "sde", "cde"] = tag()
@@ -114,4 +112,4 @@ def _dispatch(intent: DifferentialIntent, adjoint: AdjointMode) -> SolverReceipt
 
 ## [3]-[RESEARCH]
 
-- [DIFFRAX_SOLVE]: `diffrax` and `equinox` are NOT yet in the root manifest; the `diffeqsolve`/`ODETerm`/`ControlTerm`/`MultiTerm`/`Tsit5`/`Dopri5`/`Kvaerno5`/`PIDController`/`ConstantStepSize`/`SaveAt`/`VirtualBrownianTree`/`Event`/`RecursiveCheckpointAdjoint`/`BacksolveAdjoint`/`Solution.stats` spellings are admitted to the `scientific` group on the jaxlib `python_version<'3.15'` floor and verified against the branch `.api` catalogue before any fence names them. The Diffrax adjoint solve feeds `differentiation/sensitivity.md#SENSITIVITY` and the parametric-trajectory case of `experiments/study.md#STUDY`.
+- [DIFFRAX_SOLVE]: `diffrax` and `equinox` resolve on the gated `python_version<'3.15'` band riding the jaxlib floor; the `diffeqsolve`/`ODETerm`/`ControlTerm`/`MultiTerm`/`Tsit5`/`Dopri5`/`Kvaerno5`/`PIDController`/`ConstantStepSize`/`SaveAt`/`VirtualBrownianTree`/`Event`/`RecursiveCheckpointAdjoint`/`BacksolveAdjoint`/`Solution.stats` spellings verify against the `.api` catalogue under a uv-sync reflection pass on that band. The Diffrax adjoint solve feeds `differentiation/sensitivity.md#SENSITIVITY` and the parametric-trajectory case of `experiments/study.md#STUDY`.

@@ -10,7 +10,7 @@ One cluster: `[2]-[TEXTURE_UV]` owns the `AddressMode`/`FilterMode`/`NoiseKind`/
 
 - Owner: `TextureUv` static sampling fold; `AddressMode`/`FilterMode`/`NoiseKind`/`NoiseBasis` `[SmartEnum<int>]` bands; `ProceduralNoise` author-kernel; `TextureSource` `[Union]`.
 - Cases: address {repeat, clamp, mirror} · filter {nearest, bilinear, bicubic, trilinear} · noise-kind {perlin, simplex, worley, fbm} · noise-basis {perlin, simplex, worley} (fBm-self excluded) · source {`Noise`, `Checker`, `Gradient`, `Image`, `Triplanar`}.
-- Entry: `public static Fin<Unicolour> Sample(TextureSource source, UvSample point, SamplerState sampler)` — color-bearing texture output is the canonical `graph#MATERIAL_GRAPH` `PortValue.Color` carrier (a scene-linear `Unicolour`), produced once by the `ShadeVec4.AsColor` boundary at the fold tail; the interior algebra threads the raw `ShadeVec4` scalar-field register. `Fin<T>` aborts on a non-finite UV, an undersized image payload, or a mip level outside the pyramid; arity is one — a texture variation discriminates on the `TextureSource` union case, never on a sibling sampler method.
+- Entry: `public static Fin<Unicolour> Sample(TextureSource source, UvSample point, SamplerState sampler, Op key)` — color-bearing texture output is the canonical `graph#MATERIAL_GRAPH` `PortValue.Color` carrier (a scene-linear `Unicolour`), produced once by the `ShadeVec4.AsColor` boundary at the fold tail; the interior algebra threads the raw `ShadeVec4` scalar-field register. `Fin<T>` aborts on a non-finite UV, an undersized image payload, or a mip level outside the pyramid through the `Op key`-correlated `MaterialFault` rail; arity is one — a texture variation discriminates on the `TextureSource` union case, never on a sibling sampler method.
 - Packages: Rasm (project — `UnitInterval`, `Dimension`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new addressing rule is one `AddressMode` row, a new reconstruction filter is one `FilterMode` row, a new leaf noise basis is one `NoiseBasis` row (plus its `NoiseKind` mirror), a new texture is one `TextureSource` case — never a parallel `BilinearSampler`/`PerlinTexture`/`NoiseSampler3D` surface. The noise kernel is the closed FastNoiseLite basis set; a fifth leaf basis (value/cubic) is one `NoiseBasis` row binding one `ProceduralNoise` arm, not a new noise class. The MaterialX-1.39 Worley/color-ramp node parity is the interchange-alignment target framed at `graph#MATERIALX_GRAPH_INTERCHANGE`.
 - Boundary: UV coordinates enter as Rasm/Vectors `UnitInterval` pairs (the `[0,1]` validated value-object), image extents as `Dimension` (the `>=1` validated value-object); the sampler NEVER re-mints a coordinate or extent primitive. Color crosses the axis exactly once: the interior noise/checker/gradient/image/triplanar algebra runs over the raw `ShadeVec4` four-lane scalar-field register, and the single `ShadeVec4.AsColor` adapter constructs the canonical scene-linear `Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, X, Y, Z)` at the fold tail — the sampler NEVER mints a second color register and color literals on `TextureSource` rows (`Low`/`High`, `Even`/`Odd`, gradient `Stops`) enter as `Unicolour` and decompose to `ShadeVec4` through `ShadeVec4.FromColor` for the scalar-field math. `AddressMode.Apply` folds a raw continuous UV into `[0,1)` once before any non-image filter touches a coordinate, and image reconstruction addresses exclusively through the discrete `AddressMode.Texel` companion so the wrap arithmetic is consulted once per axis, not double-applied at the mip seam; `FilterMode` reconstructs through one weight algebra (nearest snaps, bilinear is the unit-square lerp, bicubic is the separable Catmull-Rom 4×4 convolution, trilinear blends two bilinear taps across the mip pyramid by fractional level decomposed by `SampleImage`, so `ReconstructLevel` carries no trilinear arm); the FastNoiseLite gradient/simplex/cellular kernels are author-folds over the hashed-gradient lattice (no managed lib owns 2D/3D coherent noise, the `LIBRARY_DEPTH` NOT_COVERED carve-out) with the published FNL anchors — `PrimeX`/`PrimeY`/`PrimeZ`, the quintic fade `6t⁵−15t⁴+10t³`, the simplex skew `(√3−1)/2` and unskew `(3−√3)/6`, the 8-direction 2D and 12-cube-edge 3D unit-gradient tables — vendored inline as kernel literals, and fBm is the octave-sum over a leaf `NoiseBasis` (the `Fbm` self-base is unrepresentable — `NoiseBasis` excludes it); the `ProceduralNoise` hash-lattice fills and the fixed `3×3` Worley / closed three-corner simplex loops are the page's `[EXPRESSION_SPINE]` kernel exemption, in-place by index over the per-shade hot path; triplanar projects a world point onto the three axis planes and blends by the squared-normal weight so the same `TextureSource` evaluates without a UV unwrap; out-of-gamut or non-finite results rail to `MaterialFault` rather than propagating a sentinel texel.
@@ -88,10 +88,10 @@ public readonly record struct ShadeVec4(double X, double Y, double Z, double W) 
         return new(rgb.R, rgb.G, rgb.B, 1.0);
     }
 
-    public Fin<Unicolour> AsColor() =>
+    public Fin<Unicolour> AsColor(Op key) =>
         double.IsFinite(X) && double.IsFinite(Y) && double.IsFinite(Z)
             ? Fin.Succ(new Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, X, Y, Z))
-            : MaterialFault.Create($"<texture-non-finite-rgb:{X:R},{Y:R},{Z:R}>");
+            : MaterialFault.Gamut(key, $"<texture-non-finite-rgb:{X:R},{Y:R},{Z:R}>");
 }
 
 public readonly record struct UvSample(UnitInterval U, UnitInterval V, Vector3d World, Vector3d Normal, double MipBias) {
@@ -229,20 +229,19 @@ public static class ProceduralNoise {
 }
 
 public static class TextureUv {
-    public static Fin<Unicolour> Sample(TextureSource source, UvSample point, SamplerState sampler) =>
-        Field(source, point, sampler).Bind(static field => field.AsColor());
+    public static Fin<Unicolour> Sample(TextureSource source, UvSample point, SamplerState sampler, Op key) =>
+        Field(source, point, sampler, key).Bind(field => field.AsColor(key));
 
-    private static Fin<ShadeVec4> Field(TextureSource source, UvSample point, SamplerState sampler) {
+    private static Fin<ShadeVec4> Field(TextureSource source, UvSample point, SamplerState sampler, Op key) {
         double u = point.U.Value, v = point.V.Value;
-        if (!double.IsFinite(u) || !double.IsFinite(v)) { return MaterialFault.Create($"<texture-uv-non-finite:{u:R},{v:R}>"); }
-        return source switch {
-            TextureSource.Noise n     => Fin.Succ(SampleNoise(n, sampler.AddressU.Apply(u), sampler.AddressV.Apply(v))),
-            TextureSource.Checker c   => Fin.Succ(SampleChecker(c, sampler.AddressU.Apply(u), sampler.AddressV.Apply(v))),
-            TextureSource.Gradient g  => Fin.Succ(SampleGradient(g, sampler.AddressU.Apply(u), sampler.AddressV.Apply(v))),
-            TextureSource.Image img   => SampleImage(img, point, sampler),
-            TextureSource.Triplanar t => SampleTriplanar(t, point, sampler),
-            _                         => MaterialFault.Create("<texture-source-unmatched>"),
-        };
+        if (!double.IsFinite(u) || !double.IsFinite(v)) { return MaterialFault.Parameter(key, $"<texture-uv-non-finite:{u:R},{v:R}>"); }
+        return source.Switch(
+            state:     (point, sampler, key),
+            noise:     static (s, n) => Fin.Succ(SampleNoise(n, s.sampler.AddressU.Apply(s.point.U.Value), s.sampler.AddressV.Apply(s.point.V.Value))),
+            checker:   static (s, c) => Fin.Succ(SampleChecker(c, s.sampler.AddressU.Apply(s.point.U.Value), s.sampler.AddressV.Apply(s.point.V.Value))),
+            gradient:  static (s, g) => Fin.Succ(SampleGradient(g, s.sampler.AddressU.Apply(s.point.U.Value), s.sampler.AddressV.Apply(s.point.V.Value))),
+            image:     static (s, img) => SampleImage(img, s.point, s.sampler, s.key),
+            triplanar: static (s, t) => SampleTriplanar(t, s.point, s.sampler, s.key));
     }
 
     private static ShadeVec4 SampleNoise(TextureSource.Noise n, double u, double v) {
@@ -272,27 +271,27 @@ public static class TextureUv {
         return ShadeVec4.FromColor(lo.Color);
     }
 
-    private static Fin<ShadeVec4> SampleImage(TextureSource.Image img, UvSample point, SamplerState sampler) {
-        if (img.Levels.IsEmpty) { return MaterialFault.Create("<texture-image-empty>"); }
+    private static Fin<ShadeVec4> SampleImage(TextureSource.Image img, UvSample point, SamplerState sampler, Op key) {
+        if (img.Levels.IsEmpty) { return MaterialFault.Parameter(key, "<texture-image-empty>"); }
         double u = point.U.Value, v = point.V.Value;
         return sampler.Filter.Switch(
-            nearest:   _ => ReconstructLevel(img, 0, u, v, sampler, FilterMode.Nearest),
-            bilinear:  _ => ReconstructLevel(img, 0, u, v, sampler, FilterMode.Bilinear),
-            bicubic:   _ => ReconstructLevel(img, 0, u, v, sampler, FilterMode.Bicubic),
+            nearest:   _ => ReconstructLevel(img, 0, u, v, sampler, FilterMode.Nearest, key),
+            bilinear:  _ => ReconstructLevel(img, 0, u, v, sampler, FilterMode.Bilinear, key),
+            bicubic:   _ => ReconstructLevel(img, 0, u, v, sampler, FilterMode.Bicubic, key),
             trilinear: _ => {
                 double level = Math.Clamp(point.MipBias, 0.0, img.Levels.Count - 1.0);
                 int lo = (int)Math.Floor(level), hi = Math.Min(lo + 1, img.Levels.Count - 1);
                 double f = level - lo;
-                return from a in ReconstructLevel(img, lo, u, v, sampler, FilterMode.Bilinear)
-                       from b in ReconstructLevel(img, hi, u, v, sampler, FilterMode.Bilinear)
+                return from a in ReconstructLevel(img, lo, u, v, sampler, FilterMode.Bilinear, key)
+                       from b in ReconstructLevel(img, hi, u, v, sampler, FilterMode.Bilinear, key)
                        select ShadeVec4.Lerp(a, b, f);
             });
     }
 
-    private static Fin<ShadeVec4> ReconstructLevel(TextureSource.Image img, int level, double u, double v, SamplerState sampler, FilterMode filter) {
+    private static Fin<ShadeVec4> ReconstructLevel(TextureSource.Image img, int level, double u, double v, SamplerState sampler, FilterMode filter, Op key) {
         int w = Math.Max(1, img.Width.Value >> level), h = Math.Max(1, img.Height.Value >> level);
         ReadOnlyMemory<ShadeVec4> texels = img.Levels[level];
-        if (texels.Length < w * h) { return MaterialFault.Create($"<texture-level-undersized:{level}:{texels.Length}<{w * h}>"); }
+        if (texels.Length < w * h) { return MaterialFault.Parameter(key, $"<texture-level-undersized:{level}:{texels.Length}<{w * h}>"); }
         ReadOnlySpan<ShadeVec4> span = texels.Span;
         ShadeVec4 At(int ix, int iy) => span[sampler.AddressV.Texel(iy, h) * w + sampler.AddressU.Texel(ix, w)];
 
@@ -321,23 +320,22 @@ public static class TextureUv {
         return p0 * w0 + p1 * w1 + p2 * w2 + p3 * w3;
     }
 
-    private static Fin<ShadeVec4> SampleTriplanar(TextureSource.Triplanar t, UvSample point, SamplerState sampler) {
+    private static Fin<ShadeVec4> SampleTriplanar(TextureSource.Triplanar t, UvSample point, SamplerState sampler, Op key) {
         Vector3d n = point.Normal;
         double ax = Math.Pow(Math.Abs(n.X), t.BlendSharpness);
         double ay = Math.Pow(Math.Abs(n.Y), t.BlendSharpness);
         double az = Math.Pow(Math.Abs(n.Z), t.BlendSharpness);
         double sum = ax + ay + az;
-        if (sum <= double.Epsilon) { return MaterialFault.Create("<triplanar-degenerate-normal>"); }
+        if (sum <= double.Epsilon) { return MaterialFault.Parameter(key, "<triplanar-degenerate-normal>"); }
         Vector3d p = point.World * t.Scale;
-        UvSample Plane(double a, double b) => point with { U = UnitIntervalUnsafe(Frac(a)), V = UnitIntervalUnsafe(Frac(b)) };
-        return from x in Field(t.Projected, Plane(p.Y, p.Z), sampler)
-               from y in Field(t.Projected, Plane(p.Z, p.X), sampler)
-               from z in Field(t.Projected, Plane(p.X, p.Y), sampler)
+        UvSample Plane(double a, double b) => point with { U = UnitInterval.Create(Frac(a)), V = UnitInterval.Create(Frac(b)) };
+        return from x in Field(t.Projected, Plane(p.Y, p.Z), sampler, key)
+               from y in Field(t.Projected, Plane(p.Z, p.X), sampler, key)
+               from z in Field(t.Projected, Plane(p.X, p.Y), sampler, key)
                select (x * (ax / sum)) + (y * (ay / sum)) + (z * (az / sum));
     }
 
-    private static double Frac(double v) => v - Math.Floor(v);
-    private static UnitInterval UnitIntervalUnsafe(double v) => UnitInterval.Of(Math.Clamp(v, 0.0, 1.0), Context.Default).IfFail(UnitInterval.Of(0.0, Context.Default).ThrowIfFail());
+    private static double Frac(double v) => Math.Clamp(v - Math.Floor(v), 0.0, 1.0);
 }
 ```
 

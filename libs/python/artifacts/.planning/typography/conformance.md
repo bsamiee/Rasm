@@ -45,9 +45,9 @@ class Conformance(Struct, frozen=True):
 
     def _emit(self) -> ContentKey:
         data = _apply(self.step, self.pdf, self.params)
-        return ContentIdentity.key(f"conform-{self.step}", data)
+        return ContentIdentity.of(f"conform-{self.step}", data)
 ```
 
 ## [3]-[RESEARCH]
 
-- [CONFORM_SPELLINGS]: the fontTools `subset.Subsetter`/`varLib.instancer.instantiateVariableFont` spellings and the pyhanko PAdES `B-B`/`B-T`/`B-LT`/`B-LTA` signing-pipeline, timestamp-authority, and PKCS#11 member spellings verify against branch `.api` catalogues authored for `fonttools` and `pyhanko`; the uharfbuzz repacker engagement and the validation-info embedding confirm on the cp315 floor.
+- [CONFORM_SPELLINGS]: the fontTools `subset.Subsetter`/`varLib.instancer.instantiateVariableFont` spellings and the pyhanko PAdES `B-B`/`B-T`/`B-LT`/`B-LTA` signing-pipeline, timestamp-authority, and PKCS#11 member spellings verify against folder `.api` catalogues authored for `fonttools` and `pyhanko`; the uharfbuzz repacker engagement and the validation-info embedding confirm on the cp315 floor.

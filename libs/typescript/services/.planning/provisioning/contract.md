@@ -22,18 +22,15 @@ type DeployMode = Schema.Schema.Type<typeof DeployMode>;
 
 type LifecycleVerb = "up" | "preview" | "refresh" | "destroy";
 
+const TIER_KINDS = ["data", "compute", "observe"] as const;
+type TierKind = (typeof TIER_KINDS)[number];
+
 interface TierStack {
-  readonly data: (mode: DeployMode) => pulumi.ComponentResource;
-  readonly compute: (mode: DeployMode) => pulumi.ComponentResource;
-  readonly observe: (mode: DeployMode) => pulumi.ComponentResource;
+  readonly tier: (kind: TierKind, mode: DeployMode) => pulumi.ComponentResource;
 }
 
-const buildTier = (tier: TierStack, mode: DeployMode): ReadonlyArray<pulumi.ComponentResource> =>
-  Match.value(mode).pipe(
-    Match.when("cloud", () => [tier.data("cloud"), tier.compute("cloud"), tier.observe("cloud")]),
-    Match.when("self-hosted", () => [tier.data("self-hosted"), tier.compute("self-hosted"), tier.observe("self-hosted")]),
-    Match.exhaustive,
-  );
+const buildTier = (stack: TierStack, mode: DeployMode): ReadonlyArray<pulumi.ComponentResource> =>
+  Array.map(TIER_KINDS, (kind) => stack.tier(kind, mode));
 
 interface AutomationDriver {
   readonly workspace: Effect.Effect<LocalWorkspace, never, Scope.Scope>;
@@ -42,14 +39,19 @@ interface AutomationDriver {
   readonly command: Command.Command<"deploy", never, AutomationFault, { readonly verb: LifecycleVerb; readonly stack: string }>;
 }
 
+interface StackOutputShape {
+  readonly postgresDsn: Redacted.Redacted;
+  readonly timescaleDsn: Redacted.Redacted;
+  readonly objectStore: { readonly bucket: string; readonly endpoint: string };
+  readonly redisUrl: Redacted.Redacted;
+  readonly collectorOtlp: string;
+  readonly spaOrigin: string;
+}
+type StackOutputKey = keyof StackOutputShape;
+
 interface StackOutputs {
   readonly reference: StackReference;
-  readonly postgresDsn: Effect.Effect<Redacted.Redacted, ConfigError.ConfigError>;
-  readonly timescaleDsn: Effect.Effect<Redacted.Redacted, ConfigError.ConfigError>;
-  readonly objectStore: Effect.Effect<{ readonly bucket: string; readonly endpoint: string }, ConfigError.ConfigError>;
-  readonly redisUrl: Effect.Effect<Redacted.Redacted, ConfigError.ConfigError>;
-  readonly collectorOtlp: Effect.Effect<string, ConfigError.ConfigError>;
-  readonly spaOrigin: Effect.Effect<string, ConfigError.ConfigError>;
+  readonly output: <K extends StackOutputKey>(key: K) => Effect.Effect<StackOutputShape[K], ConfigError.ConfigError>;
 }
 
 interface SecretResolver {

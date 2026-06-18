@@ -30,7 +30,7 @@ parallel enumeration.
 |   [6]   | `SepTrim`            | trim classifier  | selects trimming      |
 |   [7]   | `SepColNotSetOption` | unset classifier | handles unset columns |
 |   [8]   | `SepToString`        | string pool root | pools column strings  |
-|   [9]   | `SepCreateToString`  | pool factory     | creates string pools  |
+|   [9]   | `SepCreateToString`  | pool delegate    | selects string pool   |
 
 [READER_TYPES]: read surfaces
 - rail: interchange-codec

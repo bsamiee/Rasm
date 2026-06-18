@@ -8,13 +8,13 @@ One cluster: `[2]-[KEYED_FOLD]` owns `foldStream`, the scalar fold primitive, an
 
 ## [2]-[KEYED_FOLD]
 
-- Owner: `foldStream`, the scalar primitive that pipes a `Stream<In>` through `withPolicy`, reduces it into a `SubscriptionRef<S>` under a `step` arm, and forks into the enclosing `Scope`; `keyedFold`, the keyed-map specialization carrying a `key` discriminator and a slot `merge`. Every fold elsewhere in the folder is one application of one of the two; the variation is the state type, the step or merge arm, and the wire union folded.
-- Packages: `effect` for `Stream`, `SubscriptionRef`, `Effect`, `Option`, and `Scope`.
+- Owner: `foldStream`, the scalar primitive that pipes a `Stream<In>` through `withPolicy`, reduces it into a `SubscriptionRef<S>` under a `step` arm, and forks into the enclosing `Scope`; `keyedFold`, the keyed-map specialization carrying a `key` discriminator and a slot `merge` over one persistent `HashMap`. Every fold elsewhere in the folder is one application of one of the two; the variation is the state type, the step or merge arm, and the wire union folded.
+- Packages: `effect` for `Stream`, `SubscriptionRef`, `Effect`, `Option`, `HashMap`, and `Scope`.
 - Growth: a new keyed boundary concept lands as one `keyedFold` row, a new single-accumulator fold as one `foldStream` row; neither combinator grows.
-- Boundary: neither combinator re-validates a value an earlier decode admitted; `keyedFold`'s key reads the discriminant the wire shape carries verbatim; the source pipes through `withPolicy` so reconnect-replay re-folds identically; consumers read the `SubscriptionRef` and the `@effect-atom/atom` bridge binds it at the `ui` boundary, never imported here.
+- Boundary: neither combinator re-validates a value an earlier decode admitted; `keyedFold`'s key reads the discriminant the wire shape carries verbatim; the keyed accumulator is `HashMap.modifyAt` over the persistent `HashMap` — structural sharing under retry, never a `new Map().set` rebuild that breaks referential transparency on reconnect-replay; the source pipes through `withPolicy` so reconnect-replay re-folds identically; consumers read the `SubscriptionRef` over `HashMap.HashMap` and the `@effect-atom/atom` bridge binds it at the `ui` boundary, never imported here.
 
 ```ts contract
-import { Effect, Option, Scope, Stream, SubscriptionRef } from "effect";
+import { Effect, HashMap, Option, Scope, Stream, SubscriptionRef } from "effect";
 import { withPolicy, type StreamPolicy } from "./stream-policy";
 
 const foldStream = <In, S>(
@@ -37,9 +37,7 @@ const keyedFold = <In, K, V>(
   key: (event: In) => K,
   merge: (prior: Option.Option<V>, event: In) => V,
   policy: StreamPolicy,
-): Effect.Effect<SubscriptionRef.SubscriptionRef<ReadonlyMap<K, V>>, never, Scope.Scope> =>
-  foldStream(source, new Map<K, V>() as ReadonlyMap<K, V>, (m, event) => {
-    const k = key(event);
-    return new Map(m).set(k, merge(Option.fromNullable(m.get(k)), event));
-  }, policy);
+): Effect.Effect<SubscriptionRef.SubscriptionRef<HashMap.HashMap<K, V>>, never, Scope.Scope> =>
+  foldStream(source, HashMap.empty<K, V>(), (m, event) =>
+    HashMap.modifyAt(m, key(event), (prior) => Option.some(merge(prior, event))), policy);
 ```

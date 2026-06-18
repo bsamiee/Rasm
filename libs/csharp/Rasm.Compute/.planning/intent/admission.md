@@ -1,11 +1,6 @@
 # [COMPUTE_ADMISSION]
 
-Rasm.Compute admits every execution request through one six-case `ComputeIntent` union with one nested `Spec`
-policy record, routes it over one four-row `Substrate` axis whose availability predicates, cost ranks, payload
-caps, load tie-breaks, and fallback successors are row columns, and dispatches through generated total Switches — selection is a
-fold over row data, never an if-ladder, and every walk lands a `SelectionReceipt`. The page owns the intent
-vocabulary, the substrate axis, the `ComputeFault` family in the 2200 code band, and the dispatch spine over
-Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled AppHost vocabulary.
+Rasm.Compute admits every execution request through one six-case `ComputeIntent` union with one nested `Spec` policy record, routes it over one four-row `Substrate` axis whose availability predicates, cost ranks, payload caps, load tie-breaks, and fallback successors are row columns, and dispatches through generated total Switches — selection is a fold over row data, never an if-ladder, and every walk lands a `SelectionReceipt`. The page owns the intent vocabulary, the substrate axis, the `ComputeFault` family in the 2200 code band, and the dispatch spine over Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled AppHost vocabulary.
 
 ## [1]-[INDEX]
 

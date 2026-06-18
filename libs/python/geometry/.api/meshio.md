@@ -1,31 +1,84 @@
-# [PY_DATA_API_MESHIO]
+# [PY_GEOMETRY_API_MESHIO]
 
-`meshio` API capture placeholder for `data`.
+`meshio` supplies the unstructured-mesh exchange surface for the geometry mesh-io rail: a `Mesh` value of points plus typed `CellBlock` connectivity, the `read`/`write` polymorphic readers, and the per-format submodules that drive read/write across `VTK`/`VTU`/`XDMF`/`GMSH`/`OBJ`/`PLY`/`STL`/`OFF`/`MED`/`Abaqus`/`Nastran` with point/cell data fields. The package owner composes `meshio.read`, `Mesh`, and `meshio.write` into the mesh-io owner; it never re-implements format parsing meshio already owns.
 
 ## [1]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `meshio`
 - package: `meshio`
 - import: `import meshio`
-- owner: `data`
-- rail: aec
-- capability: mesh file exchange
+- owner: `geometry`
+- rail: mesh-io
+- installed: `5.3.5` reflected via `python -c "import meshio"` on cp313
+- entry points: none (library only)
+- capability: read/write of 30-plus mesh formats, points plus typed cell blocks, point/cell/field data arrays, point and cell sets, named cell groups, format auto-detection by extension, and a dynamic format registry
 
-## [2]-[CAPTURE]
+## [2]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPES]:
-- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
+[PUBLIC_TYPE_SCOPE]: mesh value and faults
+- rail: mesh-io
 
-[ENTRYPOINTS]:
-- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
+| [INDEX] | [SYMBOL]     | [PACKAGE_ROLE] | [CAPABILITY]                                                |
+| :-----: | :----------- | :------------- | :---------------------------------------------------------- |
+|   [1]   | `Mesh`       | mesh value     | points plus cell blocks with point/cell/field data and sets |
+|   [2]   | `CellBlock`  | cell block     | one cell type (`triangle`/`tetra`/`quad`) plus connectivity |
+|   [3]   | `ReadError`  | read fault     | unreadable or malformed source                              |
+|   [4]   | `WriteError` | write fault    | unwritable target or unsupported cell type                  |
 
-[IMPLEMENTATION_LAW]:
-- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
+## [3]-[ENTRYPOINTS]
 
-## [3]-[LOCAL_ADMISSION]
+[ENTRYPOINT_SCOPE]: read, write, and build
+- rail: mesh-io
+
+Read and write rows share filename, optional `file_format` (auto-detected from extension when absent), and format-specific keyword options; `Mesh.read`/`Mesh.write` mirror the module functions as bound methods.
+
+| [INDEX] | [SURFACE]                   | [CALL_SHAPE]                    | [CAPABILITY]                      |
+| :-----: | :-------------------------- | :------------------------------ | :-------------------------------- |
+|   [1]   | `meshio.read`               | filename plus format policy     | read any format into a `Mesh`     |
+|   [2]   | `meshio.write`              | filename plus mesh plus format  | write a `Mesh` to any format      |
+|   [3]   | `meshio.write_points_cells` | filename plus points plus cells | write directly from arrays        |
+|   [4]   | `Mesh`                      | points plus cells plus data     | construct a mesh value            |
+|   [5]   | `Mesh.read`                 | filename plus format policy     | bound read constructor            |
+|   [6]   | `Mesh.write`                | filename plus format policy     | bound write                       |
+|   [7]   | `extension_to_filetypes`    | none                            | extension-to-format detection map |
+|   [8]   | `register_format`           | name plus extensions plus io    | add a custom format               |
+|   [9]   | `deregister_format`         | format name                     | remove a registered format        |
+
+[ENTRYPOINT_SCOPE]: mesh projections
+- rail: mesh-io
+
+`Mesh` projection methods reshape connectivity and data between block-list and dict views.
+
+| [INDEX] | [SURFACE]                 | [CALL_SHAPE]   | [CAPABILITY]                       |
+| :-----: | :------------------------ | :------------- | :--------------------------------- |
+|   [1]   | `Mesh.cells_dict`         | property       | cell type to connectivity map      |
+|   [2]   | `Mesh.cell_data_dict`     | property       | cell-data name to per-type arrays  |
+|   [3]   | `Mesh.get_cells_type`     | cell type      | connectivity for one cell type     |
+|   [4]   | `Mesh.get_cell_data`      | name plus type | cell-data array for one type       |
+|   [5]   | `Mesh.cell_sets_dict`     | property       | named cell-set membership map      |
+|   [6]   | `Mesh.cell_sets_to_data`  | optional name  | sets projected to cell data        |
+|   [7]   | `Mesh.cell_data_to_sets`  | data key       | cell data projected to sets        |
+|   [8]   | `Mesh.point_sets_to_data` | optional name  | point sets projected to point data |
+
+## [4]-[IMPLEMENTATION_LAW]
+
+[MESH_IO]:
+- import: `import meshio` at boundary scope only; module-level import is banned by the manifest import policy.
+- read axis: `meshio.read` is the polymorphic intake; `file_format` selects a parser only when the extension is ambiguous, resolved through `extension_to_filetypes`, never a parallel reader function per format.
+- mesh axis: one `Mesh` owns `points`, a list of `CellBlock` connectivity, `point_data`, `cell_data`, `field_data`, and named `point_sets`/`cell_sets`; cell types stay typed strings (`triangle`, `tetra`, `quad`), never positional arrays.
+- write axis: `meshio.write` dispatches on `file_format` or extension; `write_points_cells` is the array shortcut that skips `Mesh` construction.
+- registry axis: `register_format`/`deregister_format` mutate the format table at runtime; a custom format is a registry row, never a subclass hierarchy.
+- evidence: each read/write op captures point count, cell-block count per type, point-data and cell-data field names, and output byte length as a mesh-io receipt.
+- boundary: meshio owns FEM/CAE unstructured-mesh exchange; triangular surface processing routes to `trimesh`, point clouds to `open3d`, Rhino `.3dm` to `rhino3dm`; live UI stays outside this package.
+
+## [5]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `meshio`
-- Owns: mesh file exchange
-- Accept: pending decompile capture once a cp315 wheel admits `meshio`
-- Reject: wrapper-renames and weaker local reimplementation
+- Owns: read/write of 30-plus unstructured-mesh formats, typed cell blocks, point/cell/field data, named sets, and a runtime format registry
+- Accept: FEM/CAE mesh ingestion and export feeding the mesh-io and geometry owners
+- Reject: wrapper-renames of `read`/`write`; a hand-rolled `VTK`/`GMSH`/`XDMF` parser where meshio is admitted; positional cell arrays that drop the typed `CellBlock`; identity minting the runtime owns
+
+[CAPTURE_GAP]:
+- floor: companion interpreter cp313; `meshio==5.3.5` ships pure-Python wheels but rides the `numpy` native floor, and the `>=3.15` project venv carries no scientific companions, so the project-venv `assay api query` resolves no source there
+- members: verified by introspection against the installed cp313 distribution; every documented type, entrypoint, projection method, and format submodule resolves — no phantom

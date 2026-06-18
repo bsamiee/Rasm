@@ -4,19 +4,19 @@ THE HOST-NEUTRAL ELEMENT AND THE IFC MATERIAL-ASSIGNMENT OWNER. One `Element` is
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                                |
-| :-----: | ------------------- | ------------------------------------------------------------------------------------ |
-|   [1]   | ELEMENT_MODEL       | `Element` placed-unit shape; `Placement` scalar tuple; `RunPath` line/arc length algebra; `ConstructionFault` band |
-|   [2]   | MATERIAL_ASSIGNMENT | `MaterialAssignment` `[Union]` (layer-set/profile-set/constituent-set); the element-to-assignment composition; IFC 4.3 alignment |
+The page's two clusters, each owning one disjoint layer of the host-neutral construction model.
+
+- `[2]-[ELEMENT_MODEL]`: the `Element` placed-unit shape, the `Placement` scalar tuple, the `RunPath` line/arc length algebra, and the `ConstructionFault` band-2350 union.
+- `[3]-[MATERIAL_ASSIGNMENT]`: the `MaterialAssignment` `[Union]` layer-set/profile-set/constituent-set trichotomy, the element-to-assignment composition, and the IFC 4.3 alignment.
 
 ## [2]-[ELEMENT_MODEL]
 
-- Owner: `Element` placed-unit shape; `Placement` the host-neutral scalar tuple; `RunPath` `[Union]` the path geometry; `ConstructionFault` `[Union]` band 2350; `ConstructionKeyPolicy` ordinal accessor.
+- Owner: `Element` placed-unit shape; `Placement` the host-neutral scalar tuple; `RunPath` `[Union]` the path geometry; `ConstructionFault` `[Union]` band 2350.
 - Cases: path {line (length), arc (radius, sweep)} — the closed `RunPath` set; an element is a `Profile` placed at a `Placement` carrying one `MaterialAssignment`, never a path subtype.
 - Entry: `public static Fin<double> LengthOf(RunPath path, Op key)` — the line/arc arc-length algebra (`Fin<T>` aborts on a non-positive length/radius/sweep, `ConstructionFault.Path`); `RunPathAlgebra.AngleAt` projects a station onto a path angle so a curved run reads its local rotation without a host curve.
 - Packages: Rasm (project — scalar geometry), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new path geometry is one `RunPath` case (spline/polyline) carrying its arc-length arm; a new fault is one `ConstructionFault` case; a placed-unit attribute shared by all families is one `Placement`/`Element` column — never a per-path placement method, never a per-family element type.
-- Boundary: `Placement` is HOST-NEUTRAL — it carries station/elevation/run/rise/path-angle as raw scalars plus the orientation and cut, NEVER a `Rhino.Geometry.Plane`/`Transform`/curve; the host boundary at the app root materializes the placement stream into geometry, this owner produces only portable data the wire and the appearance engine read; `RunPath` is the closed path geometry and `LengthOf` the one arc-length algebra (a line is its length, an arc is `radius · sweep · π/180`), so a curved run never re-derives arc length per call site; `ConstructionFault` (band 2350) is the one fault every `Fin.Fail` reads (path/joint/course/opening slots) so a layout never throws and never returns a sentinel placement; the orientation/cut vocabulary is the `masonry#PROFILE_FAMILY` `Orientation`/`Cut` algebra composed, never re-minted here.
+- Boundary: `Placement` is HOST-NEUTRAL — it carries station/elevation/run/rise/path-angle as raw scalars plus the orientation and cut, NEVER a `Rhino.Geometry.Plane`/`Transform`/curve; the host boundary at the app root materializes the placement stream into geometry, this owner produces only portable data the wire and the appearance engine read; `RunPath` is the closed path geometry and `LengthOf` the one arc-length algebra (a line is its length, an arc is `radius · sweep · π/180`), so a curved run never re-derives arc length per call site; `ConstructionFault` is the one fault every `Fin.Fail` reads (path/joint/course/opening slots), an `Expected`-derived `Error` (`IValidationError<ConstructionFault>`) whose 2350 band IS the `Expected` `Code` so a bare typed case lifts directly into the `Fin<T>` rail, so a layout never throws and never returns a sentinel placement; the orientation/cut vocabulary is the `masonry#PROFILE_FAMILY` `Orientation`/`Cut` algebra composed, never re-minted here.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -29,18 +29,14 @@ public abstract partial record RunPath {
 
 // --- [ERRORS] ------------------------------------------------------------------------------
 [Union]
-public abstract partial record ConstructionFault {
-    private ConstructionFault() { }
-    public sealed record Path(string Detail) : ConstructionFault;
-    public sealed record Joint(string Detail) : ConstructionFault;
-    public sealed record Course(string Detail) : ConstructionFault;
-    public sealed record Opening(string Detail) : ConstructionFault;
-    public int Band => 2350;
-}
-
-// --- [SERVICES] ----------------------------------------------------------------------------
-public sealed class ConstructionKeyPolicy : IEqualityComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
+public abstract partial record ConstructionFault : Expected, IValidationError<ConstructionFault> {
+    private ConstructionFault(Op key, string detail) : base(detail, 2350, None) => Key = key;
+    public Op Key { get; }
+    public static ConstructionFault Create(string message) => new Path(default, message);
+    public sealed record Path(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Path"; }
+    public sealed record Joint(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Joint"; }
+    public sealed record Course(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Course"; }
+    public sealed record Opening(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Opening"; }
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -60,18 +56,20 @@ public sealed record Element(Profile Profile, Placement Placement, MaterialAssig
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class RunPathAlgebra {
     public static Fin<double> LengthOf(RunPath path, Op key) =>
-        path switch {
-            RunPath.Line line when double.IsFinite(line.LengthMm) && line.LengthMm > 0.0 => Fin.Succ(line.LengthMm),
-            RunPath.Arc arc when double.IsFinite(arc.RadiusMm) && arc.RadiusMm > 0.0 && Math.Abs(arc.SweepDegrees) > 0.0 =>
-                Fin.Succ(arc.RadiusMm * (Math.PI / 180.0) * Math.Abs(arc.SweepDegrees)),
-            _ => Fin.Fail<double>(ConstructionFault.Path("<run-path-degenerate>")),
-        };
+        path.Switch(
+            state: key,
+            line: static (k, line) => double.IsFinite(line.LengthMm) && line.LengthMm > 0.0
+                ? Fin.Succ(line.LengthMm)
+                : Fin.Fail<double>(ConstructionFault.Path(k, "<run-path-degenerate>")),
+            arc: static (k, arc) => double.IsFinite(arc.RadiusMm) && arc.RadiusMm > 0.0 && Math.Abs(arc.SweepDegrees) > 0.0
+                ? Fin.Succ(arc.RadiusMm * (Math.PI / 180.0) * Math.Abs(arc.SweepDegrees))
+                : Fin.Fail<double>(ConstructionFault.Path(k, "<run-path-degenerate>")));
 
     public static double AngleAt(RunPath path, double stationMm) =>
-        path switch {
-            RunPath.Arc arc => Math.Sign(arc.SweepDegrees) * stationMm / arc.RadiusMm * 180.0 / Math.PI,
-            _ => 0.0,
-        };
+        path.Switch(
+            state: stationMm,
+            line: static (_, _) => 0.0,
+            arc: static (station, arc) => Math.Sign(arc.SweepDegrees) * station / arc.RadiusMm * 180.0 / Math.PI);
 }
 ```
 

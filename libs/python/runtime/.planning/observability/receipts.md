@@ -9,15 +9,15 @@ One cluster: `[2]-[RECEIPT]` — the receipt union, the contributor port, redact
 ## [2]-[RECEIPT]
 
 - Owner: `Receipt` — the one evidence union with slot/kind metadata; `ReceiptContributor` the Protocol port the sibling typed receipts implement; `Redaction` the field-classification policy; `Signals` the static surface owning the `structlog` processor chain and the `psutil` process telemetry facts, the trace context riding the processor chain rather than a cached tracer.
-- Cases: `Receipt` cases `Admitted` · `Planned` · `Emitted` carry `(owner, subject, facts)`, `Rejected` carries `(owner, subject, BoundaryFault)`, `Drained` carries `(owner, DrainReceipt)`; correlation flows through `merge_contextvars`, never a per-case field; three-or-more per-bucket constructions collapse into this one fact stream with kind metadata.
-- Entry: a `Receipt` case factory constructs a row from owner/subject/facts; `ReceiptContributor.contribute` is the one method a sibling implements to feed its typed receipt into the stream; `Signals.emit` redacts each fact map through `Redaction.apply` then writes the structlog event, the event carrying its `trace_id`/`span_id` from the active span through the `trace_context` processor.
+- Cases: the three lifecycle phases share one `fact` case carrying `(Phase, owner, subject, facts)` — `admitted`/`planned`/`emitted` are a `Phase` literal value the case routes, not three identical-payload sibling cases; `rejected` carries `(owner, subject, BoundaryFault)` and `drained` carries `(owner, DrainReceipt)` because their payloads differ; correlation flows through `merge_contextvars`, never a per-case field.
+- Entry: `Receipt.of(phase, owner, subject, facts)` is the one phase-keyed factory; `ReceiptContributor.contribute` is the one method a sibling implements to feed its typed receipt into the stream; `Signals.emit` dispatches the three cases by `match` and never probes the union by `getattr`, redacting each fact map through `Redaction.apply` then writing the structlog event under the active span's `trace_id`/`span_id` from the `trace_context` processor.
 - Auto: the `structlog` processor chain binds `merge_contextvars` (carrying the `Correlation`/`RuntimeContext` bound context), a custom `trace_context` processor reading `opentelemetry.trace.get_current_span()` to inject `trace_id`/`span_id` into every event, and a JSON renderer; span creation belongs to the measured operation, not to receipt emission, so `emit` writes the event under whatever span is active; OTLP log egress rides a `LogRecordProcessor`/`OTLPLogExporter` since `structlog` mints no native OTLP log export; `Redaction.apply` classifies each fact so a classified field never reaches a log line; `psutil.Process` rss attaches to a drained receipt; the logger is fetched per emit through `structlog.get_logger`, never cached as a module constant.
 - Packages: `expression` (`tagged_union`/`case`/`tag`), `msgspec`, `structlog` (`get_logger`/`configure`/`contextvars.merge_contextvars`/`processors`), `opentelemetry-api` (`trace.get_current_span`), `opentelemetry-sdk` (`LogRecordProcessor`), `opentelemetry-exporter-otlp-proto-http` (`OTLPLogExporter`), `psutil` (`Process.memory_info`).
-- Growth: a new evidence kind is one `Receipt` case; a new signal target is one branch in `Signals.emit`; a new classified field is one `Redaction` row; a new processor is one entry in the `structlog` chain; zero new surface.
+- Growth: a new lifecycle phase is one `Phase` literal absorbed by the existing `fact` case; a distinct-payload evidence kind is one `Receipt` case with its own match arm; a new classified field is one `Redaction` row; a new processor is one entry in the `structlog` chain; zero new surface.
 - Boundary: no AppHost envelope, health status, support-bundle capture, exporter ownership, or C# receipt minting; the suite classification taxonomy stays AppHost-owned; a per-package parallel receipt rail and a stdlib `logging` call outside the structlog bridge are the deleted forms.
 
 ```python signature
-from typing import Literal, Protocol, runtime_checkable
+from typing import Literal, Protocol, assert_never, runtime_checkable
 
 import psutil
 import structlog
@@ -29,34 +29,19 @@ from rasm.runtime.faults import BoundaryFault
 from rasm.runtime.lanes import DrainReceipt
 
 
+type Phase = Literal["admitted", "planned", "emitted"]
+
+
 @tagged_union(frozen=True)
 class Receipt:
-    tag: Literal["admitted", "planned", "emitted", "rejected", "drained"] = tag()
-    admitted: tuple[str, str, dict[str, str]] = case()
-    planned: tuple[str, str, dict[str, str]] = case()
-    emitted: tuple[str, str, dict[str, str]] = case()
+    tag: Literal["fact", "rejected", "drained"] = tag()
+    fact: tuple[Phase, str, str, dict[str, str]] = case()
     rejected: tuple[str, str, BoundaryFault] = case()
     drained: tuple[str, DrainReceipt] = case()
 
     @staticmethod
-    def Admitted(owner: str, subject: str, facts: dict[str, str]) -> "Receipt":
-        return Receipt(admitted=(owner, subject, facts))
-
-    @staticmethod
-    def Planned(owner: str, subject: str, facts: dict[str, str]) -> "Receipt":
-        return Receipt(planned=(owner, subject, facts))
-
-    @staticmethod
-    def Emitted(owner: str, subject: str, facts: dict[str, str]) -> "Receipt":
-        return Receipt(emitted=(owner, subject, facts))
-
-    @staticmethod
-    def Rejected(owner: str, subject: str, fault: BoundaryFault) -> "Receipt":
-        return Receipt(rejected=(owner, subject, fault))
-
-    @staticmethod
-    def Drained(owner: str, drain: DrainReceipt) -> "Receipt":
-        return Receipt(drained=(owner, drain))
+    def of(phase: Phase, owner: str, subject: str, facts: dict[str, str]) -> "Receipt":
+        return Receipt(fact=(phase, owner, subject, facts))
 
 
 @runtime_checkable
@@ -102,9 +87,10 @@ class Signals:
                 log.info("drained", **redaction.apply({"owner": owner, "completed": str(drain.completed), "rss": str(rss)}))
             case Receipt(tag="rejected", rejected=(owner, subject, fault)):
                 log.warning("rejected", **redaction.apply({"owner": owner, "subject": subject, "fault": fault.tag}))
-            case Receipt(tag=kind) if (facts := getattr(receipt, kind)):
-                owner, subject, fields = facts
-                log.info(kind, owner=owner, subject=subject, **redaction.apply(fields))
+            case Receipt(tag="fact", fact=(phase, owner, subject, fields)):
+                log.info(phase, owner=owner, subject=subject, **redaction.apply(fields))
+            case _ as unreachable:
+                assert_never(unreachable)
 ```
 
 ## [3]-[RESEARCH]

@@ -7,6 +7,10 @@
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
+    <ItemGroup Label="Fabrication">
+        <PackageReference Include="Clipper2" />
+    </ItemGroup>
+
     <ItemGroup>
         <Using Include="System.Collections.Frozen" />
     </ItemGroup>

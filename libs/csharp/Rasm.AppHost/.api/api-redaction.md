@@ -66,11 +66,12 @@ Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor 
 
 [ENTRYPOINT_SCOPE]: HMAC options
 - rail: redaction
+- call shape: `HmacRedactorOptions` property
 
-| [INDEX] | [SURFACE]                   | [CALL_SHAPE]  | [CAPABILITY]                      |
-| :-----: | :-------------------------- | :------------ | :-------------------------------- |
-|   [1]   | `HmacRedactorOptions.KeyId` | options value | key-version discriminator integer |
-|   [2]   | `HmacRedactorOptions.Key`   | options value | base64 HMAC key material          |
+| [INDEX] | [SURFACE]                   | [CAPABILITY]                      |
+| :-----: | :-------------------------- | :-------------------------------- |
+|   [1]   | `HmacRedactorOptions.KeyId` | key-version discriminator integer |
+|   [2]   | `HmacRedactorOptions.Key`   | base64 HMAC key material          |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

@@ -1,9 +1,12 @@
 """Run test, discovery, coverage, and mutation rails."""
 
-from collections.abc import Callable  # noqa: TC003  # _MUTATION_SCOPE binds the projection type at import time
+from collections import Counter
+from collections.abc import Callable, Iterable  # noqa: TC003  # _MUTATION_SCOPE binds the projection type at import time
 from dataclasses import dataclass, replace
-from pathlib import Path
+from enum import StrEnum
+from pathlib import Path, PurePosixPath
 from typing import Annotated, override, TYPE_CHECKING
+import xml.etree.ElementTree as ET  # noqa: S405  # trusted local Workspace.slnx XML from the repo root
 
 from cyclopts import Parameter
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # cyclopts resolves Param-annotated dataclass fields at runtime
@@ -46,7 +49,7 @@ from tools.assay.core.model import (
     Tool,
     ToolGroup,
 )
-from tools.assay.core.routing import expand, resolve_languages, route
+from tools.assay.core.routing import expand, parse_csproj, resolve_languages, route, Scope
 from tools.assay.core.status import RailStatus
 
 
@@ -55,6 +58,22 @@ if TYPE_CHECKING:
 
     from tools.assay.core.model import AnyDetail
     from tools.assay.core.routing import Routed
+
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class _TestProjectLane(StrEnum):
+    MANAGED = "managed"
+    HOST_BOUND = "host_bound"
+    SUPPORT = "support"
+    BENCHMARK = "benchmark"
+    NON_TEST = "non_test"
+
+
+class _DiscoveryLane(StrEnum):
+    LISTED = "listed"
+    EMPTY_OR_FAILED = "empty_or_failed_discovery"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -213,6 +232,77 @@ def _scoped_mutation(tool: Tool, params: TestParams, settings: AssaySettings, fi
             return tool
 
 
+def _relative_project(project: str | Path, settings: AssaySettings) -> str:
+    raw = PurePosixPath(str(project).replace("\\", "/")).as_posix()
+    root = PurePosixPath(str(settings.root).replace("\\", "/")).as_posix().rstrip("/")
+    return raw.removeprefix(f"{root}/") if root and raw.startswith(f"{root}/") else raw
+
+
+def _solution_projects(settings: AssaySettings) -> tuple[str, ...]:
+    try:
+        tree = ET.fromstring(settings.solution.read_bytes() or b"<Solution/>")  # noqa: S314  # trusted local solution XML
+    except (OSError, ET.ParseError):
+        return ()
+    return tuple(
+        PurePosixPath(path.replace("\\", "/")).as_posix()
+        for node in tree.iter()
+        for path in (node.get("Path") or "",)
+        if path.endswith(".csproj")
+    )
+
+
+def _host_bound(project: str, settings: AssaySettings) -> bool:
+    try:
+        raw = (settings.root / project).read_bytes()
+    except OSError:
+        return False
+    return any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound"))
+
+
+def _test_project(project: str, settings: AssaySettings) -> bool:
+    try:
+        raw = (settings.root / project).read_bytes()
+    except OSError:
+        return True
+    return not any(value.casefold() == "false" for value in parse_csproj(raw, "IsTestProject"))
+
+
+def _project_lane(project: str | Path, settings: AssaySettings) -> _TestProjectLane:
+    rel = _relative_project(project, settings)
+    match PurePosixPath(rel).parts:
+        case ("tests", "csharp", "_testkit", *_):
+            return _TestProjectLane.SUPPORT
+        case ("tests", "csharp", "_benchmarks", *_):
+            return _TestProjectLane.BENCHMARK
+        case ("tests", "csharp", *_) if not _test_project(rel, settings):
+            return _TestProjectLane.NON_TEST
+        case ("tests", "csharp", *_):
+            return _TestProjectLane.HOST_BOUND if _host_bound(rel, settings) else _TestProjectLane.MANAGED
+        case _:
+            return _TestProjectLane.NON_TEST
+
+
+def _classified_projects(params: TestParams, routed: Routed, settings: AssaySettings) -> tuple[tuple[str, _TestProjectLane], ...]:
+    match (routed.language, params.target, params.all):
+        case (Language.CSHARP, Path() as target, _):
+            project = _relative_project(target, settings)
+            return ((project, _project_lane(project, settings)),)
+        case (Language.CSHARP, None, True):
+            return tuple((project, _project_lane(project, settings)) for project in _solution_projects(settings))
+        case (Language.CSHARP, None, False):
+            host = frozenset(routed.host_bound)
+            return tuple(
+                (project, _TestProjectLane.HOST_BOUND if project in host else _TestProjectLane.MANAGED) for project in routed.projects
+            )
+        case _:
+            return ()
+
+
+def _lane_counts(rows: Iterable[tuple[str, StrEnum]]) -> tuple[tuple[str, int], ...]:
+    counts = Counter(lane.value for _, lane in rows)
+    return tuple((lane.value, counts[lane.value]) for lane in (*_TestProjectLane, *_DiscoveryLane) if counts[lane.value])
+
+
 def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: Mode) -> tuple[Check, ...]:
     # MTP consumes the filter; non-dotnet rows ignore it. CHANGED mutation rows scope to routed files.
     filt = _filter(params.filter)
@@ -233,7 +323,48 @@ def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: M
     return expand(selected, routed, settings=settings)
 
 
-def _unsupported_scope(routed: Routed, params: TestParams, mode: Mode) -> tuple[Result[Completed, Fault], ...]:
+def _unsupported_scope(routed: Routed, params: TestParams, settings: AssaySettings, mode: Mode) -> tuple[Result[Completed, Fault], ...]:
+    def _host_status() -> RailStatus:
+        managed = any(project not in routed.host_bound for project in routed.projects)
+        return RailStatus.DEGRADED if managed else RailStatus.UNSUPPORTED
+
+    def _target_status() -> tuple[Result[Completed, Fault], ...]:
+        match (routed.language, params.target):
+            case (Language.CSHARP, Path() as target) if (lane := _project_lane(target, settings)) not in {
+                _TestProjectLane.MANAGED,
+                _TestProjectLane.HOST_BOUND,
+            }:
+                project = _relative_project(target, settings)
+                return (
+                    Ok(
+                        receipt(
+                            ("assay", "test", "unsupported-target", project),
+                            RailStatus.UNSUPPORTED.exit_code,
+                            status=RailStatus.UNSUPPORTED,
+                            notes=(f"test-target[{lane.value}]: {project}",),
+                        )
+                    ),
+                )
+            case _:
+                return ()
+
+    def _host_receipt() -> tuple[Result[Completed, Fault], ...]:
+        match (routed.language, mode, routed.host_bound):
+            case (Language.CSHARP, Mode.RUN | Mode.LIST, (*host,)) if host:
+                status = _host_status()
+                return (
+                    Ok(
+                        receipt(
+                            ("assay", "test", "host-bound"),
+                            status.exit_code,
+                            status=status,
+                            notes=(f"host-bound[csharp]: {', '.join(host)}",),
+                        )
+                    ),
+                )
+            case _:
+                return ()
+
     match (mode, params.mutation):
         case (Mode.MUTATION, MutationLane.CHANGED):
             return tuple(
@@ -242,7 +373,7 @@ def _unsupported_scope(routed: Routed, params: TestParams, mode: Mode) -> tuple[
                 if t.name not in _MUTATION_SCOPE
             )
         case _:
-            return ()
+            return (*_target_status(), *_host_receipt())
 
 
 def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: AssaySettings) -> Result[Block[Routed], Fault]:
@@ -250,14 +381,23 @@ def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: A
 
 
 def _select(routed: Routed, params: TestParams, settings: AssaySettings) -> Routed:
-    # C# dotnet rows consume projects; --target pins one project, --all adds the default test target.
+    # C# dotnet rows consume projects; --target pins one project, --all pins the solution-admitted managed/host lanes.
     match (routed.language.strategy, params.target, params.all):
         case ("glob", _, _):
             return routed
         case (_, Path() as target, _):
-            return msgspec.structs.replace(routed, projects=(str(target),))
+            project = _relative_project(target, settings)
+            lane = _project_lane(project, settings)
+            pinned_projects = (project,) if lane in {_TestProjectLane.MANAGED, _TestProjectLane.HOST_BOUND} else ()
+            pinned_host = (project,) if lane is _TestProjectLane.HOST_BOUND else ()
+            return msgspec.structs.replace(routed, projects=pinned_projects, host_bound=pinned_host)
         case (_, None, True):
-            return msgspec.structs.replace(routed, projects=tuple(sorted({str(settings.test_target), *routed.projects})))
+            classified = _classified_projects(params, routed, settings)
+            admitted_projects: tuple[str, ...] = tuple(
+                project for project, lane in classified if lane in {_TestProjectLane.MANAGED, _TestProjectLane.HOST_BOUND}
+            )
+            admitted_host: tuple[str, ...] = tuple(project for project, lane in classified if lane is _TestProjectLane.HOST_BOUND)
+            return msgspec.structs.replace(routed, scope=Scope.FULL, projects=admitted_projects, host_bound=admitted_host)
         case _:
             return routed
 
@@ -266,7 +406,7 @@ def _dispatch(
     routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
 ) -> tuple[Result[Completed, Fault], ...]:
     checks = _checks(routed, params, settings, mode)
-    unsupported = _unsupported_scope(routed, params, mode)
+    unsupported = _unsupported_scope(routed, params, settings, mode)
     match checks:
         case ():
             return unsupported
@@ -287,6 +427,46 @@ def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
                 if name and not _skip(name):
                     rows.append(Match(id=name, kind=ArtifactKind.PROCESS, text=name))
     return tuple(rows)
+
+
+def _status_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
+    return tuple(
+        Match(
+            id=" ".join(c.argv) if c.argv else "test",
+            kind=ArtifactKind.TEST,
+            text=(c.stderr or c.stdout or "\n".join(c.notes).encode())[-4096:].decode(errors="replace").strip(),
+            severity=c.status.value,
+        )
+        for c in outcomes
+        if c.status not in {RailStatus.OK, RailStatus.EMPTY, RailStatus.SKIP, RailStatus.FAILED}
+    )
+
+
+def _discovery_counts(outcomes: tuple[Completed, ...], discovered: tuple[Match, ...]) -> tuple[tuple[str, int], ...]:
+    empty_or_failed = sum(
+        1
+        for c in outcomes
+        if c.status.severity > RailStatus.OK.severity
+        or (c.status.severity <= RailStatus.OK.severity and not _roster_matches((c,)))
+    )
+    return _lane_counts((m.id, _DiscoveryLane.LISTED) for m in discovered) + _lane_counts(
+        tuple((str(index), _DiscoveryLane.EMPTY_OR_FAILED) for index in range(empty_or_failed))
+    )
+
+
+def _run_detail(
+    detail: AnyDetail | None,
+    *,
+    project_counts: tuple[tuple[str, int], ...],
+    discovery_counts: tuple[tuple[str, int], ...] = (),
+) -> TestRun | AnyDetail | None:
+    match (detail, bool(project_counts or discovery_counts)):
+        case (TestRun() as run, _):
+            return msgspec.structs.replace(run, project_counts=project_counts, discovery_counts=discovery_counts)
+        case (None, True):
+            return TestRun(project_counts=project_counts, discovery_counts=discovery_counts)
+        case _:
+            return detail
 
 
 def _test_detail(done: Completed) -> TestRun:
@@ -405,9 +585,12 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
         def _work(_held: object = None) -> Result[Report, Fault]:
             def _settle(done: Block[Completed], selected: tuple[Routed, ...]) -> Report:
                 outcomes = tuple(done)
-                base = fold(claim, verb, outcomes, detail=_detail(outcomes, params, Path(str(settings.root))), promote_empty=True)
+                project_counts = _lane_counts(row for r in selected for row in _classified_projects(params, r, settings))
+                detail = _run_detail(_detail(outcomes, params, Path(str(settings.root))), project_counts=project_counts)
+                base = fold(claim, verb, outcomes, detail=detail, promote_empty=True)
                 return msgspec.structs.replace(
                     base,
+                    results=(*base.results, *_status_matches(outcomes)),
                     artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, scope, outcomes)),
                     notes=(*base.notes, *(note for r in selected for note in r.closure_note()), *((_GAP_NOTE,) if gap else ())),
                 )
@@ -468,30 +651,27 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         outcomes = tuple(done)
         base = fold(Claim.TEST, "list", outcomes, promote_empty=True)
         discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
-        artifacts = (*base.artifacts, _results_artifact(scope), *_roster_artifacts(settings, scope, discovered))
         roster = discovered[: params.limit] if params.limit > 0 else discovered
-        # detail.selected preserves the pre-limit discovery total; registry caps own later clipping notes.
-        detail = TestRun(selected=len(discovered)) if discovered else None
-        note = (f"discovery: total={len(discovered)} returned={len(roster)}",) if discovered else ()
-        diagnostics = tuple(
-            f"discovery {c.status.value}: {' '.join(c.argv)[:120]}{f': {tail}' if tail else ''}"
-            for c in outcomes
-            if c.status.severity > RailStatus.OK.severity
-            for tail in ((c.stderr or c.stdout)[-256:].decode(errors="replace").strip(),)
-        )
-        notes = (*base.notes, *(n for r in selected for n in r.closure_note()), *note, *diagnostics)
-        return (
-            msgspec.structs.replace(
-                base,
-                status=RailStatus.OK,
-                counts=Counts(len(roster), 0, len(roster)),
-                results=roster,
-                artifacts=artifacts,
-                notes=notes,
-                detail=detail,
-            )
-            if roster
-            else msgspec.structs.replace(base, artifacts=artifacts, notes=notes, detail=detail)
+        project_counts = _lane_counts(row for r in selected for row in _classified_projects(params, r, settings))
+        discovery_counts = _discovery_counts(outcomes, discovered)
+        return msgspec.structs.replace(
+            base,
+            status=RailStatus.OK if roster and base.status.severity <= RailStatus.OK.severity else base.status,
+            counts=Counts(len(roster), base.counts.failed, len(roster) + base.counts.failed),
+            results=(*roster, *base.results, *_status_matches(outcomes)),
+            artifacts=(*base.artifacts, _results_artifact(scope), *_roster_artifacts(settings, scope, discovered)),
+            notes=(
+                *base.notes,
+                *(n for r in selected for n in r.closure_note()),
+                *((f"discovery: total={len(discovered)} returned={len(roster)}",) if discovered else ()),
+                *(
+                    f"discovery {c.status.value}: {' '.join(c.argv)[:120]}{f': {tail}' if tail else ''}"
+                    for c in outcomes
+                    if c.status.severity > RailStatus.OK.severity
+                    for tail in ((c.stderr or c.stdout)[-256:].decode(errors="replace").strip(),)
+                ),
+            ),
+            detail=_run_detail(TestRun(selected=len(discovered)), project_counts=project_counts, discovery_counts=discovery_counts),
         )
 
     return resolve_languages(params.language, params.paths, claim=Claim.TEST).bind(

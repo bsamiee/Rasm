@@ -2,33 +2,32 @@
 
 `Rasm.AppUi` is the APP-PLATFORM product-UI engine: one Avalonia shell that mounts host-neutrally onto any admitted substrate — Rhino panel and modal, GH2 companion window, standalone desktop, sidecar shell, headless proof surface — through one abstract `SurfaceHost` axis, consuming AppHost ports, Persistence queries, and Compute receipts as settled vocabulary and never referencing Rhino or GH directly. This README routes the `.planning/` design pages and registers every external package the folder draws on; the domain folder-map lives in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the open work in `TASKLOG.md`.
 
-## [1]-[PAGE_ROUTER]
+## [1]-[ROUTER]
 
-| [INDEX] | [SUB_DOMAIN] | [PAGE]                                                              | [OWNS]                                                              |
-| :-----: | :----------- | :------------------------------------------------------------------ | :----------------------------------------------------------------- |
-|   [1]   | hosts        | [surface-hosts](.planning/hosts/surface-hosts.md)                   | host axis, mount transaction, embed capsule, scheduler, native assets |
-|   [2]   | shell        | [shell-navigation](.planning/shell/shell-navigation.md)             | shell, routing spine, dock layouts, chrome, adaptive breakpoints   |
-|   [3]   | screens      | [screens-activation](.planning/screens/screens-activation.md)       | screen catalog, activation scopes, derived state, validation, snapshots |
-|   [4]   | commands     | [commands-availability](.planning/commands/commands-availability.md) | intent table, availability algebra, execution receipts, projections |
-|   [5]   | livedata     | [live-data](.planning/livedata/live-data.md)                        | data sources, change-set pipelines, binding capsule, aggregation   |
-|   [6]   | tables       | [tables-hierarchy](.planning/tables/tables-hierarchy.md)            | column metadata, view-state snapshots, tree-flatten fold, grid commit |
-|   [7]   | inspector    | [inspector-editing](.planning/inspector/inspector-editing.md)       | editor factories, commit validation, options inspector, conflicts, code panes |
-|   [8]   | charts       | [charts-dashboards](.planning/charts/charts-dashboards.md)          | chart series/axes, stream binding, dashboard tiles, cross-filter brushing |
-|   [9]   | charts       | [custom-visuals](.planning/charts/custom-visuals.md)                | Skia diagram/geo kinds, wide-gamut color-space axis                |
-|  [10]   | visuals      | [visuals-offscreen](.planning/visuals/visuals-offscreen.md)         | draw capsule, thumbnails, previews, encode identity, document export |
-|  [11]   | theme        | [theme-tokens](.planning/theme/theme-tokens.md)                     | token catalog, variant/density axes, control themes, colormaps     |
-|  [12]   | typography   | [typography-shaping](.planning/typography/typography-shaping.md)    | typography roles, font admission, shaping rail, markdown projection, text metrics |
-|  [13]   | assets       | [icons-assets](.planning/assets/icons-assets.md)                    | asset catalog, icon sourcing, SVG pipeline, raster assets          |
-|  [14]   | dialogs      | [dialogs-notifications](.planning/dialogs/dialogs-notifications.md) | dialog intents, session topology, notifications, host-agnostic pickers |
-|  [15]   | input        | [input-interaction](.planning/input/input-interaction.md)           | hotkey derivation, behavior rail, pointer gestures, drag/clipboard, input fabric |
-|  [16]   | motion       | [motion-tokens](.planning/motion/motion-tokens.md)                  | motion axis, application plans, phase mapping, reduced-motion       |
-|  [17]   | access       | [accessibility](.planning/access/accessibility.md)                  | automation peers, keyboard nav, contrast gate, compliance proof, 3D-scene tree |
-|  [18]   | localization | [localization-culture](.planning/localization/localization-culture.md) | locale axis, string tables, culture composition, RTL mirroring     |
-|  [19]   | evidence     | [diagnostics-evidence](.planning/evidence/diagnostics-evidence.md)  | evidence union, correlation join, capture lanes, headless proof, dev loop |
-|  [20]   | viewport     | [viewport-pipeline](.planning/viewport/viewport-pipeline.md)        | render graph, virtualized geometry, residency, path trace, sim, viewpoint codec |
-|  [21]   | drafting     | [drafting-sheets](.planning/drafting/drafting-sheets.md)            | sheet set, projection, dimensioning, GD&T, draft emit              |
-|  [22]   | notebook     | [notebook-document](.planning/notebook/notebook-document.md)        | cell model, dependency graph, CRDT co-edit, replay bundle          |
-|  [23]   | animation    | [animation-timeline](.planning/animation/animation-timeline.md)     | keyframe tracks, timeline playhead, scrub, walkthrough             |
+The design pages under `.planning/`, grouped by sub-domain.
+
+- hosts: [surface-hosts](.planning/hosts/surface-hosts.md)
+- shell: [shell-navigation](.planning/shell/shell-navigation.md)
+- screens: [screens-activation](.planning/screens/screens-activation.md)
+- commands: [commands-availability](.planning/commands/commands-availability.md)
+- livedata: [live-data](.planning/livedata/live-data.md)
+- tables: [tables-hierarchy](.planning/tables/tables-hierarchy.md)
+- inspector: [inspector-editing](.planning/inspector/inspector-editing.md)
+- charts: [charts-dashboards](.planning/charts/charts-dashboards.md), [custom-visuals](.planning/charts/custom-visuals.md)
+- visuals: [visuals-offscreen](.planning/visuals/visuals-offscreen.md)
+- theme: [theme-tokens](.planning/theme/theme-tokens.md)
+- typography: [typography-shaping](.planning/typography/typography-shaping.md)
+- assets: [icons-assets](.planning/assets/icons-assets.md)
+- dialogs: [dialogs-notifications](.planning/dialogs/dialogs-notifications.md)
+- input: [input-interaction](.planning/input/input-interaction.md)
+- motion: [motion-tokens](.planning/motion/motion-tokens.md)
+- access: [accessibility](.planning/access/accessibility.md)
+- localization: [localization-culture](.planning/localization/localization-culture.md)
+- evidence: [diagnostics-evidence](.planning/evidence/diagnostics-evidence.md)
+- viewport: [viewport-pipeline](.planning/viewport/viewport-pipeline.md)
+- drafting: [drafting-sheets](.planning/drafting/drafting-sheets.md)
+- notebook: [notebook-document](.planning/notebook/notebook-document.md)
+- animation: [animation-timeline](.planning/animation/animation-timeline.md)
 
 The `realitycapture/` and `coordination/` sub-domains are planned and carry no design page yet; their charters are in `ARCHITECTURE.md` and their work is queued in `TASKLOG.md`.
 
@@ -80,7 +79,7 @@ Every external library the folder uses, planned or implemented, as one flat regi
 - Svg.Skia
 
 [GPU_BACKEND]:
-- VelloSharp
+- VelloSharp.Avalonia.Vello
 
 [ASSETS_CONTENT]:
 - AsyncImageLoader.Avalonia

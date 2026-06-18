@@ -1,13 +1,25 @@
+using Rasm.Bridge.Contract;
 using Rhino;
 
 namespace Rasm.TestKit.Scenarios;
+
+// --- [MODELS] -----------------------------------------------------------------------------
+
+public sealed record CaptureReceipt(string Path, int Width, int Height, bool OnFailure, ArtifactRef? Artifact = null);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 
 // DocumentScope admits the live document once, clears object state on open/dispose, and registers
 // leak drainage with the context. ViewportRealized feeds the runner's failure-capture trigger.
 public sealed class DocumentScope : IDisposable {
-    private DocumentScope(RhinoDoc doc) => Doc = doc;
+    private readonly ScenarioContext ctx;
+    private readonly int openedWithObjects;
+
+    private DocumentScope(RhinoDoc doc, ScenarioContext ctx, int openedWithObjects) {
+        Doc = doc;
+        this.ctx = ctx;
+        this.openedWithObjects = openedWithObjects;
+    }
 
     public RhinoDoc Doc { get; }
 
@@ -17,10 +29,22 @@ public sealed class DocumentScope : IDisposable {
 
     public static Fin<DocumentScope> Open(ScenarioContext ctx) {
         ArgumentNullException.ThrowIfNull(argument: ctx);
-        DocumentScope scope = new(doc: ctx.Doc);
+        int before = ctx.Doc.Objects.Count;
+        DocumentScope scope = new(doc: ctx.Doc, ctx: ctx, openedWithObjects: before);
         scope.Doc.Objects.Clear();
+        ctx.Fact(key: "document.before.objects", value: before);
         ctx.Register(scope: scope);
         return Fin.Succ(value: scope);
+    }
+
+    public Fin<Unit> Done() {
+        if (!IsLive) {
+            return Fin.Succ(value: unit);
+        }
+        ctx.Fact(key: "document.opened.objects", value: openedWithObjects);
+        ctx.Fact(key: "document.after.objects", value: Doc.Objects.Count);
+        Dispose();
+        return Fin.Succ(value: unit);
     }
 
     public void Dispose() {
@@ -35,12 +59,12 @@ public sealed class DocumentScope : IDisposable {
 // Capture is the green-path SDK seam; the runner binds Hook only for the run bracket and cargo
 // lifetime. Unbound calls fail typed instead of throwing or writing stray files.
 public static class Capture {
-    internal static Func<string, Fin<string>>? Hook { get; set; }
+    internal static Func<string, Fin<CaptureReceipt>>? Hook { get; set; }
 
-    public static Fin<string> Snapshot(string label) {
+    public static Fin<CaptureReceipt> Snapshot(string label) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: label);
         return Hook is { } hook
             ? hook(label)
-            : Fin.Fail<string>(error: Error.New(message: $"Capture.Snapshot('{label}'): no capture surface bound — outside a bridge scenario run"));
+            : Fin.Fail<CaptureReceipt>(error: Error.New(message: $"Capture.Snapshot('{label}'): no capture surface bound — outside a bridge scenario run"));
     }
 }

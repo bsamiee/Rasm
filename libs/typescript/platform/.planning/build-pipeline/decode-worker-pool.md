@@ -4,9 +4,7 @@ One page owns the main-thread-offload decode pool — `DecodeWorkerPool`, the tr
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                            |
-| :-----: | :---------------- | :-------------------------------------------------------------- |
-|   [1]   | DECODE_WORKER_POOL | the transferable-buffer decode pool and the frame reassembly offload |
+[DECODE_WORKER_POOL]: the transferable-buffer decode pool and the frame reassembly offload.
 
 ## [2]-[DECODE_WORKER_POOL]
 
@@ -43,15 +41,15 @@ class DecodeWorkerPoolLive extends Effect.Service<DecodeWorkerPoolLive>()("@rasm
       Stream.runCollect(frames).pipe(
         Effect.flatMap((chunk) => pool.executeEffect(new Reassemble({ frames: Chunk.toReadonlyArray(chunk) }))),
         Effect.catchTags({
-          WorkerError: () => Effect.fail(FaultDetail.HopFault({ code: "worker-reassemble", evidence: {} })),
-          ParseError: () => Effect.fail(FaultDetail.HopFault({ code: "worker-protocol", evidence: {} })),
+          WorkerError: () => Effect.fail(FaultDetail.HopFault({ reason: "worker-reassemble", evidence: {} })),
+          ParseError: () => Effect.fail(FaultDetail.HopFault({ reason: "worker-protocol", evidence: {} })),
         }),
       );
     const decode = (request: DecodeSnapshot) =>
       pool.executeEffect(request).pipe(
         Effect.catchTags({
-          WorkerError: () => Effect.fail(FaultDetail.HopFault({ code: "worker-decode", evidence: {} })),
-          ParseError: () => Effect.fail(FaultDetail.HopFault({ code: "worker-protocol", evidence: {} })),
+          WorkerError: () => Effect.fail(FaultDetail.HopFault({ reason: "worker-decode", evidence: {} })),
+          ParseError: () => Effect.fail(FaultDetail.HopFault({ reason: "worker-protocol", evidence: {} })),
         }),
       );
     return { reassemble, decode } satisfies DecodeWorkerPool;

@@ -1,7 +1,6 @@
 using System.Collections.Frozen;
 using System.Linq.Expressions;
 using Foundation.CSharp.Analyzers.Contracts;
-using Rasm.Vectors;
 
 namespace Rasm.Domain;
 
@@ -11,6 +10,8 @@ public sealed class GenerateUnionOpsAttribute : Attribute;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
 public sealed class SkipUnionOpsAttribute : Attribute;
+
+public interface IValidityEvidence { public bool IsValid { get; } }
 
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -22,6 +23,7 @@ public readonly partial struct Op {
     [BoundaryAdapter] public Error InvalidResult(string? detail = null) => new Fault.InvalidResult(Key: this, Detail: Optional(detail).Filter(static text => !string.IsNullOrWhiteSpace(value: text)));
     [BoundaryAdapter] public Error Unsupported(Type geometryType, Type outputType) => new Fault.Unsupported(Key: this, GeometryType: geometryType, OutputType: outputType);
     [BoundaryAdapter] public Error Caution(string concern) => new Fault.Caution(Key: this, Concern: concern);
+    [BoundaryAdapter] public Fin<T> AcceptInput<T>(T value) => OpAcceptance.AcceptInput(key: this, value: value);
     [BoundaryAdapter] public Fin<T> AcceptValue<T>(T value) => OpAcceptance.AcceptValue(key: this, value: value);
     [BoundaryAdapter] public Fin<string> AcceptText(string value) => AcceptValue(value: value).Map(static text => text.Trim());
     [BoundaryAdapter] public Fin<Unit> Confirm(bool success) => success ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: InvalidResult());
@@ -241,6 +243,8 @@ internal static class OpAcceptance {
         true => key.Accept(values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
         false => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TValue), outputType: typeof(TOut))),
     };
+    internal static Fin<T> AcceptInput<T>(this Op key, T value) =>
+        key.AcceptValue(value: value).MapFail(_ => key.InvalidInput());
     [BoundaryAdapter]
     internal static Validation<Error, TVO> TryCreateValidated<TVO>(this double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> =>
         (TVO.Validate(value: candidate, provider: CultureInfo.InvariantCulture, item: out TVO? value), value) switch {
@@ -283,12 +287,7 @@ internal static class OpAcceptance {
             ComponentIndex c => Some(c is { ComponentIndexType: not ComponentIndexType.InvalidType } ci && ci.Index >= 0),
             ValueTuple<double, double> t => Some(t is (double x, double y) && RhinoMath.IsValidDouble(x) && RhinoMath.IsValidDouble(y)),
             ValueTuple<double, Vector3d> t => Some(t is (double m, Vector3d a) && RhinoMath.IsValidDouble(m) && m >= 0.0 && a.IsValid && a.Length > RhinoMath.ZeroTolerance),
-            CloudAdmissionReceipt r => Some(r.IsValid),
-            CloudNeighborhoodReceipt r => Some(r.IsValid),
-            CloudCurvatureReceipt r => Some(r.IsValid),
-            CloudCurvatureResult r => Some(r.IsValid),
-            VectorCloudShape s => Some(s.IsValid),
-            SymmetricMatrix m => Some(m.IsValid),
+            IValidityEvidence evidence => Some(evidence.IsValid),
             _ => ValueValidity.GetValueOrDefault(source.GetType()) is Func<object, bool> fn ? Some(fn(source)) : Option<bool>.None,
         };
     private static Fin<T> Demand<T>(this Op key, bool condition, T value) =>

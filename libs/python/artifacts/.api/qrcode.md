@@ -54,8 +54,6 @@ The constructor row carries version, error-correction, box-size, border, image-f
 - evidence: each symbol captures version, error-correction level, module count, image factory, and output byte length as an image receipt.
 - boundary: qrcode owns QR generation; raster post-processing routes to `pillow`; the SVG path feeds the document/visuals owners directly; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
-
 [RAIL_LAW]:
 - Package: `qrcode`
 - Owns: QR symbol generation, boolean-matrix output, SVG/raster/ASCII rendering, version and error-correction control

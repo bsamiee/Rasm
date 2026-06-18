@@ -24,9 +24,6 @@ The adaptive-precision exact-predicate floor every higher geometry owner rides, 
 
 ```csharp
 // --- [TYPES] ------------------------------------------------------------------------------
-// [SmartEnum<int>] generates the `int Key` property and the key-taking private constructor; the
-// three field declarations ARE the closed ternary vocabulary. `Switch` arms are the generator's
-// camelCased member parameters; `Key` is the generated key read by `Times`.
 [SmartEnum<int>]
 public sealed partial class Sign {
     public static readonly Sign Negative = new(-1);
@@ -42,7 +39,7 @@ public sealed partial class Sign {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Predicate {
-    // [ORIENT_2D] — exact sign of det[[bx-ax, by-ay],[cx-ax, cy-ay]]: CCW(+) / collinear(0) / CW(-).
+    // --- [ORIENT_2D]
     public static Sign Orient2D(Point3d a, Point3d b, Point3d c) {
         double acx = a.X - c.X, bcx = b.X - c.X, acy = a.Y - c.Y, bcy = b.Y - c.Y;
         double detLeft = acx * bcy, detRight = acy * bcx;
@@ -54,7 +51,7 @@ public static class Predicate {
         };
     }
 
-    // [ORIENT_3D] — exact sign of the 3x3 determinant placing d relative to oriented plane abc.
+    // --- [ORIENT_3D]
     public static Sign Orient3D(Point3d a, Point3d b, Point3d c, Point3d d) {
         double adx = a.X - d.X, bdx = b.X - d.X, cdx = c.X - d.X;
         double ady = a.Y - d.Y, bdy = b.Y - d.Y, cdy = c.Y - d.Y;
@@ -73,7 +70,7 @@ public static class Predicate {
         };
     }
 
-    // [IN_CIRCLE] — exact sign of the 4x4 lifted determinant; positive when d is inside circumcircle(abc).
+    // --- [IN_CIRCLE]
     public static Sign InCircle(Point3d a, Point3d b, Point3d c, Point3d d) {
         double adx = a.X - d.X, bdx = b.X - d.X, cdx = c.X - d.X;
         double ady = a.Y - d.Y, bdy = b.Y - d.Y, cdy = c.Y - d.Y;
@@ -91,7 +88,7 @@ public static class Predicate {
         };
     }
 
-    // [IN_SPHERE] — exact sign of the 5x5 lifted determinant; positive when e is inside circumsphere(abcd).
+    // --- [IN_SPHERE]
     public static Sign InSphere(Point3d a, Point3d b, Point3d c, Point3d d, Point3d e) {
         double aex = a.X - e.X, bex = b.X - e.X, cex = c.X - e.X, dex = d.X - e.X;
         double aey = a.Y - e.Y, bey = b.Y - e.Y, cey = c.Y - e.Y, dey = d.Y - e.Y;
@@ -107,8 +104,6 @@ public static class Predicate {
         double clift = cex * cex + cey * cey + cez * cez;
         double dlift = dex * dex + dey * dey + dez * dez;
         double det = (dlift * abc - clift * dab) + (blift * cda - alift * bcd);
-        // Shewchuk insphere permanent: additive sum-of-products, one term per lifted cofactor, each the
-        // magnitude bound of its 3x3 minor (third-coordinate absolutes times the 2x2-minor magnitude sums).
         double aezAbs = Math.Abs(aez), bezAbs = Math.Abs(bez), cezAbs = Math.Abs(cez), dezAbs = Math.Abs(dez);
         double abAbs = Math.Abs(ab), bcAbs = Math.Abs(bc), cdAbs = Math.Abs(cd);
         double daAbs = Math.Abs(da), acAbs = Math.Abs(ac), bdAbs = Math.Abs(bd);
@@ -123,18 +118,14 @@ public static class Predicate {
         };
     }
 
-    // --- exact-expansion fallbacks (taken only when the filtered interval straddles zero) -----
-    // The expansion sign IS the true sign of the real-arithmetic determinant; no second-stage gate, no
-    // recomputed-zero re-assert, no dead ternary — every member returns Expansion.SignOf directly.
+    // --- [EXACT_FALLBACKS]
     static Sign Orient2DExact(Point3d a, Point3d b, Point3d c) {
-        // det = (ax-cx)(by-cy) - (ay-cy)(bx-cx) as a nonoverlapping expansion, summed exactly.
         Expansion left = Expansion.TwoProduct(a.X - c.X, b.Y - c.Y);
         Expansion right = Expansion.TwoProduct(a.Y - c.Y, b.X - c.X);
         return Expansion.SignOf(Expansion.Difference(left, right));
     }
 
     static Sign Orient3DExact(Point3d a, Point3d b, Point3d c, Point3d d) {
-        // 3x3 cofactor expansion as exact expansions; each 2x2 minor a TwoProduct difference, scaled then summed.
         Expansion bc = Expansion.Difference(Expansion.TwoProduct(b.X - d.X, c.Y - d.Y), Expansion.TwoProduct(c.X - d.X, b.Y - d.Y));
         Expansion ca = Expansion.Difference(Expansion.TwoProduct(c.X - d.X, a.Y - d.Y), Expansion.TwoProduct(a.X - d.X, c.Y - d.Y));
         Expansion ab = Expansion.Difference(Expansion.TwoProduct(a.X - d.X, b.Y - d.Y), Expansion.TwoProduct(b.X - d.X, a.Y - d.Y));
@@ -156,7 +147,6 @@ public static class Predicate {
     }
 
     static Sign InSphereExact(Point3d a, Point3d b, Point3d c, Point3d d, Point3d e) {
-        // 5x5 reduces to four signed Orient3D-lift cofactors; each 3x3 minor an exact expansion, lifted then summed.
         Expansion abc = Minor3(b, c, d_: a, e), bcd = Minor3(c, d, d_: b, e), cda = Minor3(d, a, d_: c, e), dab = Minor3(a, b, d_: d, e);
         Expansion det = Expansion.Sum(
             Expansion.Difference(Expansion.Multiply(Lift3(d.X - e.X, d.Y - e.Y, d.Z - e.Z), abc), Expansion.Multiply(Lift3(c.X - e.X, c.Y - e.Y, c.Z - e.Z), dab)),
@@ -164,7 +154,7 @@ public static class Predicate {
         return Expansion.SignOf(det);
     }
 
-    // [LIFTS_AND_MINORS] — paraboloid lift x^2+y^2(+z^2) and the oriented 3x3 minor as exact expansions.
+    // --- [LIFTS_AND_MINORS]
     static Expansion Lift2(double x, double y) => Expansion.Sum(Expansion.TwoProduct(x, x), Expansion.TwoProduct(y, y));
     static Expansion Lift3(double x, double y, double z) => Expansion.Sum(Expansion.TwoProduct(x, x), Expansion.Sum(Expansion.TwoProduct(y, y), Expansion.TwoProduct(z, z)));
 
@@ -182,7 +172,7 @@ public static class Predicate {
 - Owner: `Expansion` the `readonly struct` nonoverlapping floating-point expansion (a small per-fold-sized component buffer, most significant component last) with the `TwoSum`/`TwoProduct`/`Grow`/`ScaleExpansion`/`ExpansionSum` construction folds and the `Estimate`/`SignOf` projections — the sign-exact arithmetic the predicates' exact branch rides; `ErrorBound` the `record` static-permanence filter-row table (`Orient2D`/`Orient3D`/`InCircle`/`InSphere` rows, each carrying its forward error coefficient derived once from `Epsilon`) with the `Of` → `Stage` projection; `NumericsPolicy` the static owner documenting the filter-then-exact contract and the error-bound constants — the named, scoped sanction for raw interior `double` arithmetic.
 - Cases: `Expansion` construction folds `TwoSum` · `TwoProduct` · `Grow` · `ScaleExpansion` · `ExpansionSum` (5) plus the `Estimate`/`SignOf` projections; `ErrorBound` rows `Orient2D` · `Orient3D` · `InCircle` · `InSphere` (4) — the permanence axis is one row per predicate, never a parallel threshold owner.
 - Entry: `public static Expansion TwoProduct(double a, double b)` returns the exact two-component product `a*b` via `Math.FusedMultiplyAdd` (the error component is `fma(a,b,-(a*b))`, no Dekker split needed on FMA hardware); `public static Expansion TwoSum(double a, double b)` the exact two-component sum with Knuth's branch-free rounding-error recovery; `public static Expansion Sum(Expansion left, Expansion right)` and `public static Expansion Scale(Expansion e, double scalar)` the expansion-sum and scale-expansion folds growing the nonoverlapping sequence; `public static Sign SignOf(Expansion e)` reads the sign of the most-significant nonzero component (exact because the sequence is nonoverlapping and sorted by magnitude); `public ErrorBound.Stage Of(double det, double permanent)` projects `Stage.Filtered`/`Stage.Exact` from whether a `double` determinant clears the permanence-scaled threshold.
-- Auto: `TwoProduct` and `TwoSum` are error-free transforms — they recover the rounding error each IEEE-754 operation discards, so the two returned components sum to the exact real result with no precision loss; `Sum`/`Scale` thread those transforms through Shewchuk's `fast-expansion-sum` and `scale-expansion` algorithms, each maintaining the nonoverlapping invariant by `TwoSum`-merging components in magnitude order so `SignOf` reads the true sign from the top nonzero term; `ErrorBound.Of` compares `|det|` against `coefficient * permanent` where the per-row coefficient is the static-permanence forward error bound computed once from `Epsilon` at type construction — `Stage.Filtered` proves the `double` sign is the exact sign and the predicate skips the `Expansion` fold entirely.
+- Auto: `TwoProduct` and `TwoSum` are error-free transforms — they recover the rounding error each IEEE-754 operation discards, so the two returned components sum to the exact real result with no precision loss; `Sum`/`Scale` thread those transforms through Shewchuk's `fast-expansion-sum` and `scale-expansion` algorithms, each maintaining the nonoverlapping invariant by `TwoSum`-merging components in magnitude order so `SignOf` reads the true sign from the top nonzero term; `ErrorBound.Of` compares `|det|` against `coefficient * permanent` where the per-row coefficient is the static-permanence forward error bound computed once from `Epsilon` (the binary64 unit roundoff `2^-53`) at type construction — `Stage.Filtered` proves the `double` sign is the exact sign and the predicate skips the `Expansion` fold entirely.
 - Receipt: none — `Expansion` is interior arithmetic, `ErrorBound` is a filter, `NumericsPolicy` is a policy owner; none crosses a public signature carrying a residual. The exact result is the `Sign` the predicate returns and the only public artifact.
 - Packages: Thinktecture.Runtime.Extensions, BCL inbox (`System.Math.FusedMultiplyAdd`, `double.Epsilon`/`BitIncrement`), no external geometry or arbitrary-precision dependency
 - Growth: a new predicate's filter is one `ErrorBound` row carrying its forward error coefficient; a longer exact computation grows the `Expansion` component capacity, never a parallel arbitrary-precision type; the interior-double scope widens to a new kernel only by naming it in `NumericsPolicy`, never by leaking interior `double` past a public signature elsewhere; zero new surface.
@@ -191,16 +181,9 @@ public static class Predicate {
 ```csharp
 // --- [CONSTANTS] --------------------------------------------------------------------------
 public static class NumericsPolicy {
-    // Sanctioned interior-double scope: Expansion + ErrorBound + the filter stage are the ONLY
-    // owners that operate on raw IEEE-754 double, because filter-then-exact robust arithmetic is
-    // mathematically defined over doubles, never unit-bearing quantities. double crosses a domain
-    // public signature ONLY as a Sign verdict's absence (a predicate returns Sign) or as a Point3d
-    // coordinate at the seam (the domain's native scalar). Every other interior double is the named defect.
-    public const double Epsilon = 1.1102230246251565e-16;      // 2^-53, IEEE-754 binary64 unit roundoff (machine epsilon / 2).
-    public const double Splitter = 134_217_729.0;              // 2^27 + 1, Dekker-split constant (FMA-free fallback only).
+    public const double Epsilon = 1.1102230246251565e-16;
+    public const double Splitter = 134_217_729.0;
 
-    // Static-permanence forward error coefficients per Shewchuk: |det| > coefficient * permanent proves
-    // the double sign is exact. Each is (k*Epsilon + O(Epsilon^2)) for the predicate's expansion depth.
     public const double Orient2DBound = (3.0 + 16.0 * Epsilon) * Epsilon;
     public const double Orient3DBound = (7.0 + 56.0 * Epsilon) * Epsilon;
     public const double InCircleBound = (10.0 + 96.0 * Epsilon) * Epsilon;
@@ -208,7 +191,6 @@ public static class NumericsPolicy {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// Nonoverlapping floating-point expansion: components ascending by magnitude, sum is the exact real value.
 public readonly struct Expansion {
     private readonly double[] components;
     private readonly int length;
@@ -217,7 +199,7 @@ public readonly struct Expansion {
 
     public static Expansion Single(double value) => new(new[] { value }, value == 0.0 ? 0 : 1);
 
-    // [TWO_SUM] — Knuth: x = fl(a+b), y is the exact rounding error so x+y == a+b in real arithmetic.
+    // --- [TWO_SUM]
     public static Expansion TwoSum(double a, double b) {
         double x = a + b;
         double bv = x - a;
@@ -225,18 +207,17 @@ public readonly struct Expansion {
         return Pair(y, x);
     }
 
-    // [TWO_PRODUCT] — error-free product via FMA: x = fl(a*b), y = fma(a,b,-x) is the exact rounding error.
+    // --- [TWO_PRODUCT]
     public static Expansion TwoProduct(double a, double b) {
         double x = a * b;
         double y = Math.FusedMultiplyAdd(a, b, -x);
         return Pair(y, x);
     }
 
-    // [GROW] — append a scalar to an expansion: the single-component fast-expansion-sum, threading TwoSum
-    // so the result stays nonoverlapping. One Sum over the scalar's singleton — no parallel merge loop.
+    // --- [GROW]
     public static Expansion Grow(Expansion e, double scalar) => Sum(e, Single(scalar));
 
-    // [EXPANSION_SUM] — Shewchuk fast-expansion-sum: merge two nonoverlapping sequences into one.
+    // --- [EXPANSION_SUM]
     public static Expansion Sum(Expansion left, Expansion right) {
         var merged = new double[left.length + right.length];
         int li = 0, ri = 0, written = 0;
@@ -257,7 +238,7 @@ public readonly struct Expansion {
 
     public static Expansion Difference(Expansion left, Expansion right) => Sum(left, Negate(right));
 
-    // [SCALE_EXPANSION] — Shewchuk: multiply every component by a scalar, expanding each product exactly.
+    // --- [SCALE_EXPANSION]
     public static Expansion Scale(Expansion e, double scalar) {
         if (e.length == 0 || scalar == 0.0) return Single(0.0);
         Expansion acc = TwoProduct(e.components[0], scalar);
@@ -265,7 +246,7 @@ public readonly struct Expansion {
         return acc;
     }
 
-    // [MULTIPLY] — exact expansion*expansion via distributed scale-expansion over the right components.
+    // --- [MULTIPLY]
     public static Expansion Multiply(Expansion left, Expansion right) {
         if (left.length == 0 || right.length == 0) return Single(0.0);
         Expansion acc = Scale(left, right.components[0]);
@@ -279,15 +260,14 @@ public readonly struct Expansion {
         return new Expansion(flipped, e.length);
     }
 
-    // [ESTIMATE] — the double nearest the exact value: sum of components (most significant dominates).
+    // --- [ESTIMATE]
     public double Estimate() {
         double acc = 0.0;
         for (int i = 0; i < length; i++) acc += components[i];
         return acc;
     }
 
-    // [SIGN] — exact sign read from the most-significant nonzero component (nonoverlapping invariant guarantees it).
-    // Named SignOf, not Sign, so the projection never shadows the Sign type in this namespace.
+    // --- [SIGN]
     public static Sign SignOf(Expansion e) {
         for (int i = e.length - 1; i >= 0; i--)
             if (e.components[i] != 0.0) return Sign.Of(e.components[i]);
@@ -298,9 +278,6 @@ public readonly struct Expansion {
         small == 0.0 ? Single(large) : new Expansion(new[] { small, large }, 2);
 }
 
-// Static-permanence filter rows: one per predicate, each clearing the double sign when |det| exceeds the bound.
-// The row identity IS the static-member name; no parallel string field. `Stage` is the single projection the
-// predicate members dispatch on — Filtered routes the double sign, Exact routes the Expansion fold.
 public sealed record ErrorBound(double Coefficient) {
     public static readonly ErrorBound Orient2D = new(NumericsPolicy.Orient2DBound);
     public static readonly ErrorBound Orient3D = new(NumericsPolicy.Orient3DBound);
@@ -309,8 +286,6 @@ public sealed record ErrorBound(double Coefficient) {
 
     public enum Stage { Filtered, Exact }
 
-    // The double sign is exact iff |det| exceeds the permanence-scaled forward error bound — Filtered;
-    // otherwise the filtered interval straddles zero and the predicate must take the Exact expansion fold.
     public Stage Of(double det, double permanent) =>
         Math.Abs(det) > Coefficient * permanent ? Stage.Filtered : Stage.Exact;
 }
@@ -330,4 +305,4 @@ One owner per axis; capability is a member, case, or row, never a sibling surfac
 
 ## [5]-[RESEARCH]
 
-- [NUMERIC_DETERMINISM] — the sign-exactness law-matrix the spec rail asserts. The harness is `PredicateLaws` (a CsCheck property suite under `testing-cs`): it generates near-degenerate input by perturbing collinear/cocircular/cospherical configurations at the `Epsilon` scale and asserts (1) every `Predicate` member returns the EXACT sign of the rational-arithmetic determinant computed independently in `System.Numerics.BigInteger` over scaled-integer coordinates — the exact oracle the kernel is proved against; (2) the antisymmetry law `Orient2D(a,b,c) == Orient2D(b,a,c).Flip` and its 3D/incircle/insphere analogues hold under coordinate permutation parity; (3) the filter path and the exact path agree on every input where the filter passes (the filter is conservative, never wrong); (4) the predicates are translation-invariant (a uniform `Point3d` offset never flips a verdict). The harness needs NO live-host probe — `BigInteger`, `Math.FusedMultiplyAdd`, and `Point3d` are stable; the kernel is total by construction. The one residual the harness watches is the FMA-availability assumption: `Math.FusedMultiplyAdd` lowers to a hardware FMA on osx-arm64, but a future FMA-free RID would route `TwoProduct` through the named Dekker-split fallback (`NumericsPolicy.Splitter`, the `2^27+1` constant already seated) — confirming that fallback's bit-exactness against the FMA path on a non-FMA target is the only deferred numeric probe, and it gates a fallback row, never the FMA-path predicates.
+- [NUMERIC_DETERMINISM] — the sign-exactness law-matrix the spec rail asserts. The harness is `PredicateLaws` (a CsCheck property suite under `testing-cs`): it generates near-degenerate input by perturbing collinear/cocircular/cospherical configurations at the `Epsilon` scale and asserts (1) every `Predicate` member returns the EXACT sign of the rational-arithmetic determinant computed independently in `System.Numerics.BigInteger` over scaled-integer coordinates — the exact oracle the kernel is proved against; (2) the antisymmetry law `Orient2D(a,b,c) == Orient2D(b,a,c).Flip` and its 3D/incircle/insphere analogues hold under coordinate permutation parity; (3) the filter path and the exact path agree on every input where the filter passes (the filter is conservative, never wrong); (4) the predicates are translation-invariant (a uniform `Point3d` offset never flips a verdict). The harness needs NO live-host probe — `BigInteger`, `Math.FusedMultiplyAdd`, and `Point3d` are stable; the kernel is total by construction. The one residual the harness watches is the FMA-availability assumption: `Math.FusedMultiplyAdd` lowers to a hardware FMA on osx-arm64; a future FMA-free RID routes `TwoProduct` through the named Dekker-split fallback (`NumericsPolicy.Splitter`, the `2^27+1` constant already seated) — confirming that fallback's bit-exactness against the FMA path on a non-FMA target is the only deferred numeric probe, and it gates a fallback row, never the FMA-path predicates.

@@ -4,15 +4,13 @@ One page owns the browser crash/fault sink — `CrashTelemetry`, the Effect-nati
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                              |
-| :-----: | :-------------- | :---------------------------------------------------------------- |
-|   [1]   | CRASH_TELEMETRY | the global fault capture, the crash fold, and the recovery cell     |
+[CRASH_TELEMETRY]: the global fault capture, the crash fold, and the recovery cell.
 
 ## [2]-[CRASH_TELEMETRY]
 
 - Owner: `CrashTelemetry`, the single crash sink — the global `error`/`unhandledrejection` capture folded into the `interchange` `FaultDetail` family, the breadcrumb ring buffer, the `CrashReport` fold shipped through `SelfTelemetry`, and the recovery-affordance `SubscriptionRef` the `ui` error fallback reads on each fallback render (the binding samples the cell through `SubscriptionRef.get`; the `SubscriptionRef` shape leaves a live `changes` subscription open for a future always-mounted recovery surface). `FaultDetail` is the one fault family and a parallel `CrashError`/`AppError` type is the named const-spam defect.
-- Cases: `CrashTelemetry.installGlobalHandlers` is the one boot effect `composition-root`'s `bootSpa` runs — it merges `BrowserStream.fromEventListenerWindow("error")` (`ErrorEvent`) and `BrowserStream.fromEventListenerWindow("unhandledrejection")` (`PromiseRejectionEvent`) into one capture stream forked `Effect.forkDaemon` so it outlives `bootSpa`'s local scope and lives for the SPA runtime (a `forkScoped` daemon interrupts the listener the instant `bootSpa` returns, the deleted form), and `mapEffect`s each event into `capture` reading the rejection `reason` or the error-event `error`; `capture` reconstructs each uncaught fault as a `FaultDetail` arm through `crashFaultOf` — a thrown `Error` or rejected reason becomes `FaultDetail.HopFault({ code: "uncaught", evidence })` carrying the sanitized message and a stack digest, and a value already shaped as a `FaultDetail` re-surfaces as itself rather than re-wrapping — so the capture path is total and an uncaught fault is never a bare `Error` escaping to the console; the breadcrumb ring buffer is a bounded `Ref`-backed array of the last navigation, command-dispatch, and lifecycle events sliced to the last 32, attached to each `CrashReport`, and `breadcrumb` is the one writer every infra owner (the router transition, the gateway dispatch, the SW lifecycle) feeds.
-- Auto: the `CrashReport` fold sanitizes the exception envelope — it strips the bearer header, query-string secrets, and any `Redacted` field (the route key reads `window.location.pathname` with its query string dropped), retains the `FaultDetail` `code`/`evidence` (and `correlation` where the arm carries it — only the `ComputeFault`/`StoreFault` cases do; the browser-origin `HopFault` this page constructs carries none), the breadcrumb trail, the route key, the build mode read from `RuntimeConfig.buildMode`, and the user-agent, and ships it as one `MetricRegistry.span("crash.report", ...)` through the `SelfTelemetry` export edge, never a third telemetry path and never a direct collector POST; the report ships at most once per distinct `(faultTag, code, stackDigest)` dedupe key held in a session `Ref` set so a render-loop fault does not flood the collector; the `crashFaultOf` guard narrows `_tag` against the closed `FaultTag` set (`interchange` `codec-rails#FAULT_FAMILY`), never a loose structural probe, so a render `ErrorInfo` is not trusted back as a `FaultDetail`.
+- Cases: `CrashTelemetry.installGlobalHandlers` is the one boot effect `composition-root`'s `bootSpa` runs — it merges `BrowserStream.fromEventListenerWindow("error")` (`ErrorEvent`) and `BrowserStream.fromEventListenerWindow("unhandledrejection")` (`PromiseRejectionEvent`) into one capture stream forked `Effect.forkDaemon` so it outlives `bootSpa`'s local scope and lives for the SPA runtime (a `forkScoped` daemon interrupts the listener the instant `bootSpa` returns, the deleted form), and `mapEffect`s each event into `capture` reading the rejection `reason` or the error-event `error`; `capture` reconstructs each uncaught fault as a `FaultDetail` arm through `crashFaultOf` — a thrown `Error` or rejected reason becomes `FaultDetail.HopFault({ reason: "uncaught", evidence })` against the `interchange`-owned closed `HopReason` vocabulary carrying the sanitized message and a stack digest, and a value already shaped as a `FaultDetail` re-surfaces as itself rather than re-wrapping — so the capture path is total, the browser-origin local hop carries a typed `reason` not a numeric `code`, and an uncaught fault is never a bare `Error` escaping to the console; the breadcrumb ring buffer is a bounded `Ref`-backed array of the last navigation, command-dispatch, and lifecycle events sliced to the last 32, attached to each `CrashReport`, and `breadcrumb` is the one writer every infra owner (the router transition, the gateway dispatch, the SW lifecycle) feeds.
+- Auto: the `CrashReport` fold sanitizes the exception envelope — it strips the bearer header, query-string secrets, and any `Redacted` field (the route key reads `window.location.pathname` with its query string dropped), retains the `FaultDetail` `_tag`/`evidence` and the owner-total `renderFault` projection (`correlation` rides only where the arm carries it — only the `ComputeFault`/`StoreFault` cases do; the browser-origin `HopFault` this page constructs carries a typed `reason`, never a numeric `code`), the breadcrumb trail, the route key, the build mode read from `RuntimeConfig.buildMode`, and the user-agent, and ships it as one `MetricRegistry.span("crash.report", ...)` through the `SelfTelemetry` export edge, never a third telemetry path and never a direct collector POST; the report ships at most once per distinct `(renderFault, stackDigest)` dedupe key held in a session `Ref` set so a render-loop fault does not flood the collector — the `renderFault` discriminant is total over the heterogeneous fault payloads where a raw `code` field is not, so the dedupe never assumes a field a `HopFault` lacks; the `crashFaultOf` guard narrows `_tag` against the closed `FaultTag` set (`interchange` `faults/fault-family#FAULT_FAMILY`), never a loose structural probe, so a render `ErrorInfo` is not trusted back as a `FaultDetail`.
 - Packages: `@effect/platform-browser` `BrowserStream.fromEventListenerWindow` for the global `error`/`unhandledrejection` ingress as a `Stream`; `effect` for the `FaultDetail` reconstruction (`Match` over the captured shape), the breadcrumb `Ref` buffer, the recovery `SubscriptionRef`, and the dedupe `Ref` set; the `observability` `MetricRegistry` `span` over the `SelfTelemetry` edge for the collector ship.
 - Growth: a new fault source lands as one arm on the `crashFaultOf` reconstruction, mapping into the existing `FaultDetail` family, never a new error type; a new breadcrumb kind lands as one literal on the breadcrumb event axis; a new sanitization rule lands as one row on the `CrashReport` fold; a new recovery affordance lands as one row on the recovery cell; the trace-correlated replay-window id (`session-replay`) lands as one span attribute on the existing `crash.report` span, never a second telemetry path.
 - Boundary: uncaught faults reconstruct as the `interchange` `FaultDetail` family and never a parallel error type — the exhaustive-fault-family law reaches the crash boundary; the `CrashReport` ships as a `MetricRegistry.span("crash.report", ...)` over the `SelfTelemetry` collector edge, the only telemetry path `observability` fixes, so a direct collector POST or a second crash-reporter SDK is the named defect; the recovery-affordance cell is read by the `ui` error fallback through the one `AtomBinding`, never a second state binding; `CrashTelemetry` emits no command and dials no transport; `ui` reads the recovery cell and never imports `platform`.
@@ -21,7 +19,7 @@ One page owns the browser crash/fault sink — `CrashTelemetry`, the Effect-nati
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 import { Data, Effect, Layer, Match, Predicate, Ref, Stream, SubscriptionRef } from "effect";
 import * as BrowserStream from "@effect/platform-browser/BrowserStream";
-import { type FaultDetail, type FaultTag, FaultDetail as Fault } from "../interchange/codec-rails";
+import { type FaultDetail, type FaultTag, FaultDetail as Fault, renderFault } from "../interchange/fault-family.ts";
 import { MetricRegistry } from "../observability/metric-registry.ts";
 import { RuntimeConfig } from "../runtime-config/runtime-config.ts";
 
@@ -66,13 +64,13 @@ const CrashTelemetry = Effect.Tag("@rasm/ts/platform/CrashTelemetry")<CrashTelem
 // --- [OPERATIONS] ----------------------------------------------------------------------
 const FAULT_TAGS: ReadonlySet<string> = new Set<FaultTag>(["ComputeFault", "StoreFault", "HopFault", "ConfigError", "Quarantine"]);
 const isFaultDetail = (c: unknown): c is FaultDetail =>
-  Predicate.isRecord(c) && "_tag" in c && Predicate.isString(c._tag) && FAULT_TAGS.has(c._tag) && "code" in c && "evidence" in c;
+  Predicate.isRecord(c) && "_tag" in c && Predicate.isString(c._tag) && FAULT_TAGS.has(c._tag) && "evidence" in c;
 
 const crashFaultOf = (cause: unknown): FaultDetail =>
   Match.value(cause).pipe(
     Match.when(isFaultDetail, (c) => c),
-    Match.when(Match.instanceOf(Error), (e) => Fault.HopFault({ code: "uncaught", evidence: { message: e.message, name: e.name } })),
-    Match.orElse((c) => Fault.HopFault({ code: "uncaught", evidence: { message: String(c) } })),
+    Match.when(Match.instanceOf(Error), (e) => Fault.HopFault({ reason: "uncaught", evidence: { message: e.message, name: e.name } })),
+    Match.orElse((c) => Fault.HopFault({ reason: "uncaught", evidence: { message: String(c) } })),
   );
 
 const stackDigestOf = (cause: unknown): string => (cause instanceof Error ? (cause.stack ?? "").slice(0, STACK_DIGEST_BYTES) : "");
@@ -103,7 +101,7 @@ const makeCrashTelemetry: Effect.Effect<CrashTelemetry, never, MetricRegistry | 
           "crash.report",
           Effect.annotateCurrentSpan({
             faultTag: report.fault._tag,
-            code: report.fault.code,
+            faultDetail: renderFault(report.fault),
             stackDigest: report.stackDigest,
             route: report.route,
             buildMode: report.buildMode,
@@ -118,7 +116,7 @@ const makeCrashTelemetry: Effect.Effect<CrashTelemetry, never, MetricRegistry | 
     Effect.suspend(() => {
       const fault = crashFaultOf(cause);
       const stackDigest = stackDigestOf(cause);
-      const key = `${fault._tag}:${fault.code}:${stackDigest}`;
+      const key = `${renderFault(fault)}:${stackDigest}`;
       return Ref.modify(seen, (s) => (s.has(key) ? [true, s] as const : [false, new Set([...s, key])] as const)).pipe(
         Effect.flatMap((dropped) =>
           dropped

@@ -1,22 +1,6 @@
 # [API_CATALOGUE] effect-platform-browser
 
-Grounded from installed `node_modules` type declarations (`@effect/platform-browser` 0.76.0;
-peers `@effect/platform` ^0.96.0, `effect` ^3.21.0). Covers the full public surface of the
-package — ten namespace modules re-exported from the package root. These are the browser-tier
-platform bindings: the runtime entrypoint (`runMain`), the `HttpClient`/`Socket`/`Worker`/
-`KeyValueStore` layer drivers that satisfy the platform-neutral service tags inside the browser
-bundle, the DOM event-stream constructors, and three browser-API service capsules
-(`Clipboard`, `Geolocation`, `Permissions`). Owner-symbol consumers: `CompositionRoot` /
-`BrowserHost` (runtime-host), `WireTransport` (WebSocket leg), `SnapshotFeed` /
-`PreferenceStore` (storage), and the worker-offload and capability-service rows on the
-browser tier. Versions live only in the root `pnpm-workspace.yaml` / lockfile; this page carries
-the reflected version as evidence.
-
-The package root (`index.d.ts`) re-exports each file as a namespace:
-`BrowserHttpClient`, `BrowserKeyValueStore`, `BrowserRuntime`, `BrowserSocket`,
-`BrowserStream`, `BrowserWorker`, `BrowserWorkerRunner`, `Clipboard`, `Geolocation`,
-`Permissions`. All symbols below are accessed namespace-qualified (e.g.
-`BrowserRuntime.runMain`, `BrowserSocket.layerWebSocket`).
+`@effect/platform-browser` supplies the browser-tier platform bindings for the Effect ecosystem: the runtime entrypoint (`runMain`), `HttpClient`/`Socket`/`Worker`/`KeyValueStore` layer drivers that satisfy platform-neutral service tags inside the browser bundle, DOM event-stream constructors, and three browser-API service capsules (`Clipboard`, `Geolocation`, `Permissions`). The package root re-exports ten namespace modules — `BrowserHttpClient`, `BrowserKeyValueStore`, `BrowserRuntime`, `BrowserSocket`, `BrowserStream`, `BrowserWorker`, `BrowserWorkerRunner`, `Clipboard`, `Geolocation`, `Permissions` — all symbols are accessed namespace-qualified (e.g. `BrowserRuntime.runMain`, `BrowserSocket.layerWebSocket`).
 
 ---
 
@@ -485,13 +469,14 @@ Production layer over `navigator.permissions`.
 
 ---
 
-## [ADMISSION]
+## [4]-[IMPLEMENTATION_LAW]
 
-Browser-tier only. Under the Nx `@nx/enforce-module-boundaries` bundle fence,
-`@effect/platform-browser` is a `browser`/`neutral`-tagged dependency and never enters the
-node bundle (the node tier uses `@effect/platform-node`). It satisfies the platform-neutral
-`@effect/platform` service tags (`HttpClient`, `Socket`, `Socket.WebSocketConstructor`,
-`Worker.WorkerManager` / `PlatformWorker` / `Spawner`, `WorkerRunner.PlatformRunner`,
-`KeyValueStore`) with browser-DOM drivers, and adds three browser-only capability tags
-(`Clipboard`, `Geolocation`, `Permissions`). Layers are consumed at `CompositionRoot`; no local
-wrapper re-exports these — planning owners reference the namespace-qualified symbols directly.
+[RAIL_LAW]:
+- Package: `@effect/platform-browser`
+- Owns: browser-tier layer implementations for platform-neutral `@effect/platform` service tags; browser-only capability services (`Clipboard`, `Geolocation`, `Permissions`)
+- Accept: browser-DOM APIs (`XMLHttpRequest`, `WebSocket`, `localStorage`, `navigator.*`, Web Worker globals)
+- Reject: node bundle inclusion — `browser`/`neutral`-tagged; node tier uses `@effect/platform-node`
+
+[LOCAL_ADMISSION]:
+- `@effect/platform-browser` satisfies `HttpClient`, `Socket`, `Socket.WebSocketConstructor`, `Worker.WorkerManager`, `PlatformWorker`, `Spawner`, `WorkerRunner.PlatformRunner`, and `KeyValueStore` with browser-DOM drivers, and adds three browser-only tags: `Clipboard`, `Geolocation`, `Permissions`.
+- Layers are consumed at `CompositionRoot`; no local wrapper re-exports these — planning owners reference namespace-qualified symbols directly.

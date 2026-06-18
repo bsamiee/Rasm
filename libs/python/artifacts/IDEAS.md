@@ -5,9 +5,9 @@ The folder's forward pool of higher-order concepts, each grounded in artifact pr
 ## [1]-[OPEN]
 
 [HOST_FREE_RENDER_FLOOR]
-- Make vl-convert-python the primary chart/Vega export engine and the offscreen software-GL path (osmesa/EGL) the floor for pyvista, so every visual artifact renders with zero browser, display, or GPU; kaleido is a host-Chrome-gated degraded path, never the default.
+- Make vl-convert-python the primary chart/Vega export engine and the offscreen software-GL path (osmesa/EGL) the floor for pyvista, so every visual artifact renders with zero browser, display, or GPU; kaleido is a host-Chrome-gated degraded path, never the default. The gated render engines (matplotlib, pyvista/vtk) never resolve in the cp315-core process and run on the runtime subprocess seam onto their gated band.
 - Unlocks a genuinely host-free, reproducible, server/CI-safe visual rail — charts and 3D scenes render bit-deterministically and key by content, matching the companion charter and the reproducibility law.
-- Draws on kaleido v1 dropping its bundled Chrome for a host Chrome via its Choreographer driver (a host-coupling defect), vl-convert's embedded V8 + bundled Vega emitting SVG/PNG/PDF browser-free, and VTK's offscreen software-GL support.
+- Draws on kaleido v1 dropping its bundled Chrome for a host Chrome via its Choreographer driver (a host-coupling defect), vl-convert's embedded V8 + bundled Vega emitting SVG/PNG/PDF browser-free, VTK's offscreen software-GL support, and the runtime `anyio.to_process.run_sync` seam isolating the gated-band render workers from the cp315 core.
 
 [REPRODUCIBLE_NOTEBOOK_REPORT]
 - A reporting sub-domain where papermill/nbclient execute a parameterized notebook headlessly into an executed-notebook artifact, then render it into the DocumentPlan tree as a signed, content-keyed report.
@@ -32,7 +32,7 @@ The folder's forward pool of higher-order concepts, each grounded in artifact pr
 [SCIENTIFIC_IMAGE_ANALYSIS]
 - Deepen the imaging sub-domain past pillow raster I/O into the scikit-image scientific layer: geometric transforms, segmentation, region measurement, and feature extraction over the array image, so a scan or render output is not just thumbnailed but measured and annotated.
 - Unlocks quantitative image artifacts — segmented overlays, measured region tables, feature-annotated previews — that feed the report tree and the table owner, turning a raster preview into an analytical deliverable rather than a decoration.
-- Draws on scikit-image being the SciPy-ecosystem image-analysis standard (NumPy-array-native, host-free) and the current `Preview` owner stopping at pillow raster operations with no measurement or segmentation arm; scikit-image rides the gated `cp < 3.15` native floor until its wheel lands.
+- Draws on scikit-image being the SciPy-ecosystem image-analysis standard (NumPy-array-native, host-free) and the current `Preview` owner stopping at pillow raster operations with no measurement or segmentation arm; scikit-image rides the gated `python_version<'3.15'` band and runs on the runtime subprocess seam, never resolving in the cp315 core.
 
 ## [2]-[CLOSED]
 

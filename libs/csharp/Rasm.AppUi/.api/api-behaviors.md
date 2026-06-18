@@ -127,7 +127,7 @@ surfaces into the AppUi behavior rail.
 |   [7]   | `Path`            | `FileSystemWatcherTrigger` | file watch       |
 |   [8]   | `Url`             | `HttpRequestAction`        | HTTP request     |
 |   [9]   | `Handler`         | `ContextDragBehavior`      | drag operation   |
-|  [10]   | `Orientation`     | `ItemDragBehavior`         | drag tracking    |
+|  [10]   | `Orientation`     | `ListReorderDragBehavior`  | drag tracking    |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

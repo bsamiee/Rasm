@@ -1,4 +1,4 @@
-# [RASM_APPHOST_API_NODATIME_STJ]
+# [RASM_PERSISTENCE_API_NODATIME_STJ]
 
 `NodaTime.Serialization.SystemTextJson` wires NodaTime types into `JsonSerializerOptions`
 via a per-type converter list. The entry point is the `Extensions.ConfigureForNodaTime`
@@ -32,7 +32,8 @@ and provider-bound factories.
 
 ## [3]-[ENTRYPOINTS]
 
-### Registration
+[ENTRYPOINT_SCOPE]: options registration
+- rail: wire
 
 | [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]     | [RAIL]                                    |
 | :-----: | :----------------------------------------------- | :----------------- | :---------------------------------------- |
@@ -41,30 +42,32 @@ and provider-bound factories.
 |   [3]   | `options.WithIsoIntervalConverter()`             | interval swap      | replaces Interval converters with ISO     |
 |   [4]   | `options.WithIsoDateIntervalConverter()`         | date-interval swap | replaces DateInterval converters with ISO |
 
-### NodaConverters singletons (static, pattern-backed)
+[ENTRYPOINT_SCOPE]: NodaConverters singletons (static, pattern-backed)
+- rail: wire
 
-| [INDEX] | [MEMBER]                        | [BACKING_PATTERN]                | [NOTES]                        |
-| :-----: | :------------------------------ | :------------------------------- | :----------------------------- |
-|   [1]   | `InstantConverter`              | `InstantPattern.ExtendedIso`     |                                |
-|   [2]   | `LocalDateConverter`            | `LocalDatePattern.Iso`           |                                |
-|   [3]   | `LocalDateTimeConverter`        | pattern                          |                                |
-|   [4]   | `LocalTimeConverter`            | pattern                          |                                |
-|   [5]   | `AnnualDateConverter`           | pattern                          |                                |
-|   [6]   | `YearMonthConverter`            | pattern                          |                                |
-|   [7]   | `OffsetConverter`               | `OffsetPattern.GeneralInvariant` |                                |
-|   [8]   | `OffsetDateTimeConverter`       | `OffsetDateTimePattern.Rfc3339`  | ISO calendar validator applied |
-|   [9]   | `OffsetDateConverter`           | `OffsetDatePattern.GeneralIso`   | ISO calendar validator applied |
-|  [10]   | `OffsetTimeConverter`           | `OffsetTimePattern.ExtendedIso`  |                                |
-|  [11]   | `DurationConverter`             | `DurationPattern.JsonRoundtrip`  |                                |
-|  [12]   | `RoundtripDurationConverter`    | `DurationPattern.Roundtrip`      |                                |
-|  [13]   | `RoundtripPeriodConverter`      | `PeriodPattern.Roundtrip`        | default PeriodConverter row    |
-|  [14]   | `NormalizingIsoPeriodConverter` | `PeriodPattern.NormalizingIso`   | lossy: 90m -> 1h30m            |
-|  [15]   | `IntervalConverter`             | `NodaIntervalConverter`          | start/end sub-properties       |
-|  [16]   | `IsoIntervalConverter`          | `NodaIsoIntervalConverter`       | ISO-8601 interval string       |
-|  [17]   | `IsoDateIntervalConverter`      | `NodaIsoDateIntervalConverter`   | ISO-8601 date-interval string  |
-|  [18]   | `DateIntervalConverter`         | `NodaDateIntervalConverter`      |                                |
+| [INDEX] | [MEMBER]                        | [BACKING_PATTERN]                  | [NOTES]                        |
+| :-----: | :------------------------------ | :--------------------------------- | :----------------------------- |
+|   [1]   | `InstantConverter`              | `InstantPattern.ExtendedIso`       | —                              |
+|   [2]   | `LocalDateConverter`            | `LocalDatePattern.Iso`             | —                              |
+|   [3]   | `LocalDateTimeConverter`        | `LocalDateTimePattern.ExtendedIso` | —                              |
+|   [4]   | `LocalTimeConverter`            | `LocalTimePattern.ExtendedIso`     | —                              |
+|   [5]   | `AnnualDateConverter`           | `AnnualDatePattern.Iso`            | —                              |
+|   [6]   | `YearMonthConverter`            | `YearMonthPattern.Iso`             | —                              |
+|   [7]   | `OffsetConverter`               | `OffsetPattern.GeneralInvariant`   | —                              |
+|   [8]   | `OffsetDateTimeConverter`       | `OffsetDateTimePattern.Rfc3339`    | ISO calendar validator applied |
+|   [9]   | `OffsetDateConverter`           | `OffsetDatePattern.GeneralIso`     | ISO calendar validator applied |
+|  [10]   | `OffsetTimeConverter`           | `OffsetTimePattern.ExtendedIso`    | —                              |
+|  [11]   | `DurationConverter`             | `DurationPattern.JsonRoundtrip`    | —                              |
+|  [12]   | `RoundtripDurationConverter`    | `DurationPattern.Roundtrip`        | —                              |
+|  [13]   | `RoundtripPeriodConverter`      | `PeriodPattern.Roundtrip`          | default PeriodConverter row    |
+|  [14]   | `NormalizingIsoPeriodConverter` | `PeriodPattern.NormalizingIso`     | lossy: 90m -> 1h30m            |
+|  [15]   | `IntervalConverter`             | `NodaIntervalConverter`            | start/end sub-properties       |
+|  [16]   | `IsoIntervalConverter`          | `NodaIsoIntervalConverter`         | ISO-8601 interval string       |
+|  [17]   | `IsoDateIntervalConverter`      | `NodaIsoDateIntervalConverter`     | ISO-8601 date-interval string  |
+|  [18]   | `DateIntervalConverter`         | `NodaDateIntervalConverter`        | —                              |
 
-### NodaConverters factories (provider-bound)
+[ENTRYPOINT_SCOPE]: NodaConverters factories (provider-bound)
+- rail: wire
 
 | [INDEX] | [MEMBER]                                              | [RETURNS]                                                         |
 | :-----: | :---------------------------------------------------- | :---------------------------------------------------------------- |

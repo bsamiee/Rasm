@@ -26,7 +26,6 @@ from rasm.compute.solvers.receipt import SolverReceipt
 from rasm.runtime.faults import RuntimeRail, boundary
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
 class SparseScheme(StrEnum):
     SPSOLVE = "spsolve"
     CG = "cg"
@@ -34,7 +33,6 @@ class SparseScheme(StrEnum):
     LSQR = "lsqr"
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class LinearIntent:
     tag: Literal["dense_la", "sparse", "eigen", "operator"] = tag()
@@ -135,5 +133,5 @@ def _operator_receipt(a: np.ndarray, b: np.ndarray, least_squares: bool) -> Solv
 
 ## [3]-[RESEARCH]
 
-- [SCIPY_LINALG]: the `scipy.linalg.{solve,lstsq,eigh}` and `scipy.sparse.linalg.{spsolve,cg,gmres,lsqr,eigsh}` spellings carry the `python_version<'3.15'` marker; the bodies are authored against the documented API and verify against the branch `.api` catalogue once the scipy wheel resolves. The numpy floor (`_dense_receipt`, the `_eigen_receipt` numpy arm) runs unconditionally on cp315.
-- [LINEAX_OPERATOR]: `lineax` is NOT yet in the root manifest; the `MatrixLinearOperator`/`FunctionLinearOperator`/`linear_solve`/`LU`/`QR`/`CG`/`GMRES`/`NormalCG`/`Solution.stats` spellings are admitted to the `scientific` group on the jaxlib `python_version<'3.15'` floor and verified against the branch `.api` catalogue before the Lineax tier names them. The Lineax solve is autodifferentiable, so `differentiation/sensitivity.md#SENSITIVITY` reads the implicit-function-theorem adjoint through it rather than through the iterations.
+- [SCIPY_LINALG]: the `scipy.linalg.{solve,lstsq,eigh}` and `scipy.sparse.linalg.{spsolve,cg,gmres,lsqr,eigsh}` spellings carry the `python_version<'3.15'` marker; the bodies are authored against the documented API and verify against the `.api` catalogue once the scipy wheel resolves. The numpy floor (`_dense_receipt`, the `_eigen_receipt` numpy arm) runs unconditionally on cp315.
+- [LINEAX_OPERATOR]: `lineax` resolves on the gated `python_version<'3.15'` band riding the jaxlib floor; the `MatrixLinearOperator`/`FunctionLinearOperator`/`linear_solve`/`LU`/`QR`/`CG`/`GMRES`/`NormalCG`/`Solution.stats` spellings verify against the `.api` catalogue under a uv-sync reflection pass on that band. The Lineax solve is autodifferentiable, so `differentiation/sensitivity.md#SENSITIVITY` reads the implicit-function-theorem adjoint through it rather than through the iterations.

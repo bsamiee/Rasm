@@ -114,6 +114,19 @@ _PROBE_CACHE_KEY: Final = "probe:%s"
 _PYPROJECT: Final[Path] = Path(__file__).resolve().parents[3] / "pyproject.toml"
 ORPHAN_MIN_AGE_S: Final = 900.0
 _ORPHAN_PROCESS_TOKENS: Final[frozenset[str]] = frozenset(("python", "python3", "uv", "ty"))
+_UV_RUN_VALUE_OPTIONS: Final[frozenset[str]] = frozenset((
+    "--directory",
+    "--env-file",
+    "--extra",
+    "--group",
+    "--index",
+    "--index-url",
+    "--project",
+    "--python",
+    "--with",
+    "--with-editable",
+    "--with-requirements",
+))
 # Prefix order is semantic: MODULE must win the shared `uv run` head before UV.
 _PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
     (Runner.MODULE.prefix, "uv.lock"),
@@ -581,6 +594,21 @@ def parse_fault(tokens: tuple[str, ...], message: str, *, step: Step = Step.PARS
     return _emit_envelope(settings, env, persist=False)
 
 
+def _uv_run_program(argv: tuple[str, ...]) -> str | None:
+    if argv[:2] != ("uv", "run"):
+        return None
+    index = 2
+    while index < len(argv) and argv[index].startswith("-"):
+        option = argv[index]
+        if option == "--":
+            index += 1
+            break
+        index += 2 if option in _UV_RUN_VALUE_OPTIONS else 1
+    if index >= len(argv):
+        return ""
+    return argv[index + 2] if argv[index : index + 2] == ("python", "-m") and index + 2 < len(argv) else argv[index]
+
+
 def _probe_token(argv: tuple[str, ...]) -> str | None:
     import shutil  # noqa: PLC0415  # deferred: avoids module-load cost on non-probe paths
 
@@ -594,6 +622,12 @@ def _probe_token(argv: tuple[str, ...]) -> str | None:
         # Start at the .venv shim so lockfile ancestry follows the workspace, not the Nix-store target.
         bases = Path(sys.executable).parents
         return next((str(base / name) for base in bases if (base / name).exists()), None)
+
+    if argv[:2] == ("uv", "run"):
+        program = _uv_run_program(argv) or ""
+        resolved = shutil.which(program) or (sys.executable if "." in program or not program else None)
+        program_mtime, lock_mtime = mtime(resolved), mtime(lock_path("uv.lock"))
+        return None if program_mtime is None and lock_mtime is None else f"{resolved}|{program_mtime}|uv.lock:{lock_mtime}"
 
     matched = next(((prefix, lock) for prefix, lock in _PROBE_LOCKED if argv[: len(prefix)] == prefix), None) if argv else None
     match matched:
@@ -840,6 +874,8 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.PROVISION, "status", provision_rail.status, ProvisionParams, "Show local provisioning service status."),
     Bind(Claim.PROVISION, "doctor", provision_rail.doctor, ProvisionParams, "Diagnose local Docker, Colima, paths, and ports."),
     Bind(Claim.PROVISION, "ports", provision_rail.ports, ProvisionParams, "Show configured provisioning ports and current listeners."),
+    Bind(Claim.PROVISION, "inventory", provision_rail.inventory, ProvisionParams, "Show owned provisioning resources and Docker diagnostics."),
+    Bind(Claim.PROVISION, "extensions", provision_rail.extensions, ProvisionParams, "Show provisioning extension targets."),
     Bind(Claim.PROVISION, "plan", provision_rail.plan, ProvisionParams, "Render provisioning compose plan without writing assets."),
     Bind(Claim.PROVISION, "env", provision_rail.env, ProvisionParams, "Print generated provisioning paths and DSNs."),
     Bind(Claim.PROVISION, "verify", provision_rail.verify, ProvisionParams, "Verify provisioning extensions and local scientific probes."),

@@ -129,10 +129,10 @@ public sealed class ScopeAndCaptureLaws {
     [Fact]
     public void BoundHookReceivesTheLabelVerbatim() {
         try {
-            Capture.Hook = static label => Fin.Succ(value: $"png:{label}");
+            Capture.Hook = static label => Fin.Succ(value: new CaptureReceipt(Path: $"png:{label}", Width: 1, Height: 2, OnFailure: false));
             Spec.ForAll(gen: EvidenceGens.Label, property: static label =>
-                Spec.Succ(result: Capture.Snapshot(label: label), then: path =>
-                    Assert.Equal(expected: $"png:{label}", actual: path)));
+                Spec.Succ(result: Capture.Snapshot(label: label), then: receipt =>
+                    Assert.Equal(expected: $"png:{label}", actual: receipt.Path)));
         } finally {
             Capture.Hook = null;
         }

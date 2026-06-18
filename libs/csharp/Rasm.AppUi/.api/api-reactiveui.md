@@ -15,10 +15,9 @@
 
 ## [2]-[PUBLIC_TYPES]
 
-[VIEW_MODEL_TYPES]: reactive state and view-model contracts
-- rail: reactive
+[VIEW_MODEL_TYPES]: reactive state and view-model contracts — rail: reactive
 
-| [INDEX] | [SYMBOL]                                     | [RAIL]           |
+| [INDEX] | [SYMBOL]                                     | [KIND]           |
 | :-----: | :------------------------------------------- | :--------------- |
 |   [1]   | `ReactiveObject`                             | reactive state   |
 |   [2]   | `IReactiveObject`                            | state contract   |
@@ -27,10 +26,9 @@
 |   [5]   | `ObservableAsPropertyHelper<T>`              | derived property |
 |   [6]   | `IHandleObservableErrors`                    | error stream     |
 
-[COMMAND_AND_INTERACTION_TYPES]: command and dialog rails
-- rail: reactive
+[COMMAND_AND_INTERACTION_TYPES]: command and dialog rails — rail: reactive
 
-| [INDEX] | [SYMBOL]                                        | [RAIL]               |
+| [INDEX] | [SYMBOL]                                        | [KIND]               |
 | :-----: | :---------------------------------------------- | :------------------- |
 |   [1]   | `ReactiveCommand<TParam,TResult>`               | command execution    |
 |   [2]   | `IReactiveCommand<TParam,TResult>`              | command contract     |
@@ -40,10 +38,9 @@
 |   [6]   | `InteractionContext<TInput,TOutput>`            | interaction context  |
 |   [7]   | `UnhandledInteractionException<TInput,TOutput>` | interaction error    |
 
-[ACTIVATION_AND_ROUTING_TYPES]: screen lifecycle contracts
-- rail: reactive
+[ACTIVATION_AND_ROUTING_TYPES]: screen lifecycle contracts — rail: reactive
 
-| [INDEX] | [SYMBOL]                | [RAIL]                |
+| [INDEX] | [SYMBOL]                | [KIND]                |
 | :-----: | :---------------------- | :-------------------- |
 |   [1]   | `IActivatableView`      | view activation       |
 |   [2]   | `IActivatableViewModel` | view-model activation |
@@ -53,10 +50,9 @@
 |   [6]   | `IScreen`               | routing host          |
 |   [7]   | `IRoutableViewModel`    | routed screen         |
 
-[BUILDER_AND_REGISTRY_TYPES]: registration and binding infrastructure
-- rail: reactive
+[BUILDER_AND_REGISTRY_TYPES]: registration and binding infrastructure — rail: reactive
 
-| [INDEX] | [SYMBOL]                       | [RAIL]             |
+| [INDEX] | [SYMBOL]                       | [KIND]             |
 | :-----: | :----------------------------- | :----------------- |
 |   [1]   | `IReactiveUIBuilder`           | builder contract   |
 |   [2]   | `ReactiveUIBuilder`            | builder runtime    |

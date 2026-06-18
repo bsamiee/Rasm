@@ -3,6 +3,7 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Callable
+import hashlib
 from pathlib import Path
 from typing import Protocol, TYPE_CHECKING
 from unittest.mock import MagicMock
@@ -14,7 +15,7 @@ import pytest
 from tests.python._testkit.laws import register_law, register_laws
 from tests.python._testkit.spec import assert_error_status, assert_ok
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.model import BridgeLifecycle, Claim, Fault, receipt, Report, validate_detail, VerifySummary
+from tools.assay.core.model import Artifact, ArtifactKind, BridgeLifecycle, Claim, Fault, receipt, Report, validate_detail, VerifySummary
 from tools.assay.core.status import RailStatus
 from tools.assay.rails import bridge as _bridge_mod
 from tools.assay.rails.bridge import (
@@ -201,10 +202,57 @@ def test_decode_malformed_stdout_returns_failed_sentinel() -> None:
     assert envelope.first_failure == "raw failure"
 
 
+def test_decode_empty_stdout_reads_process_log(tmp_path: Path) -> None:
+    out_log = tmp_path / "out.log"
+    out_log.write_bytes(_envelope(report_dir=str(tmp_path), scenarios=({"scenario": "analysis.NativeRail", "status": "ok"},)))
+
+    done = receipt(
+        ("rasm-bridge",),
+        0,
+        stdout=b"",
+        artifacts=(Artifact(id="out", kind=ArtifactKind.PROCESS, path=str(out_log), bytes=out_log.stat().st_size),),
+    )
+
+    envelope = _decode_envelope(done)
+    assert envelope.status is RailStatus.OK
+    assert envelope.report_dir == str(tmp_path)
+    assert tuple(scenario.scenario for scenario in envelope.scenarios) == ("analysis.NativeRail",)
+
+
 def test_completed_from_stdout_projects_status_notes_and_artifacts(tmp_path: Path) -> None:
-    (tmp_path / "facts.jsonl").write_text("{}", encoding="utf-8")
-    (tmp_path / "view.png").write_bytes(b"png")
+    (tmp_path / "events").mkdir()
+    (tmp_path / "captures" / "blocks.CoreRail").mkdir(parents=True)
+    facts = tmp_path / "events" / "facts.jsonl"
+    view = tmp_path / "captures" / "blocks.CoreRail" / "view.png"
+    facts.write_text("{}", encoding="utf-8")
+    view.write_bytes(b"png")
     (tmp_path / "ignore.bin").write_bytes(b"bin")
+    (tmp_path / "bridge-certificate.json").write_bytes(
+        msgspec.json.encode({
+            "artifacts": [
+                {
+                    "id": "events/facts.jsonl",
+                    "role": "spool",
+                    "relativePath": "events/facts.jsonl",
+                    "mediaType": "application/x-ndjson",
+                    "bytes": 2,
+                    "hash": {"algorithm": "sha256", "value": hashlib.sha256(facts.read_bytes()).hexdigest()},
+                    "retention": "evidence",
+                    "scenario": "blocks.CoreRail",
+                },
+                {
+                    "id": "captures/blocks.CoreRail/view.png",
+                    "role": "capture",
+                    "relativePath": "captures/blocks.CoreRail/view.png",
+                    "mediaType": "image/png",
+                    "bytes": 3,
+                    "hash": {"algorithm": "sha256", "value": hashlib.sha256(view.read_bytes()).hexdigest()},
+                    "retention": "evidence",
+                    "scenario": "blocks.CoreRail",
+                },
+            ]
+        })
+    )
     done = _completed_from_stdout(receipt(("rasm-bridge",), 0, stdout=_envelope(report_dir=str(tmp_path))))
     assert done.status is RailStatus.OK
     assert done.notes == (f"bridge.reportDir={tmp_path}",)
@@ -344,7 +392,7 @@ def test_verify_folds_session_summary(assay_root: AssayHarness, monkeypatch: pyt
     monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
     monkeypatch.setattr(_bridge_mod, "_build_closure", lambda _settings: Ok(receipt(("rasm-bridge-build",), 0, status=RailStatus.OK)))
     monkeypatch.setattr(_bridge_mod, "_closure_index", lambda _scope: Ok({"Rasm.Rhino.Tests.dll": (closure, _ClosureManifest())}))
-    monkeypatch.setattr(_bridge_mod, "_aggregate_closure", lambda _settings, _scope, _plan, _index: Ok(closure))
+    monkeypatch.setattr(_bridge_mod, "_aggregate_closure", lambda _settings, _scope, _plan, _index, **_kw: Ok(closure))
     monkeypatch.setattr(
         _bridge_mod,
         "client_run",

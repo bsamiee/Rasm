@@ -37,9 +37,10 @@ Tracing depth is configured via `NpgsqlDataSourceBuilder.ConfigureTracing(Action
 [ENTRYPOINT_SCOPE]: tracing wiring
 - rail: telemetry
 
-| [INDEX] | [SURFACE]   | [CALL_SHAPE]                                               | [CAPABILITY]            |
-| :-----: | :---------- | :--------------------------------------------------------- | :---------------------- |
-|   [1]   | `AddNpgsql` | `AddNpgsql(TracerProviderBuilder) : TracerProviderBuilder` | subscribes Npgsql spans |
+[TRACING_WIRING]:
+- Surface: `AddNpgsql`
+- Call shape: `AddNpgsql(TracerProviderBuilder) : TracerProviderBuilder`
+- Capability: subscribes Npgsql spans
 
 [ENTRYPOINT_SCOPE]: metrics wiring
 - rail: telemetry

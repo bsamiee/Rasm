@@ -15,10 +15,9 @@
 
 ## [2]-[PUBLIC_TYPES]
 
-[SHAPING_TYPES]: text shaping extensions
-- rail: typography
+[SHAPING_TYPES]: text shaping extensions — rail: typography
 
-| [INDEX] | [SYMBOL]           | [RAIL]          |
+| [INDEX] | [SYMBOL]           | [KIND]          |
 | :-----: | :----------------- | :-------------- |
 |   [1]   | `SKShaper`         | text shaper     |
 |   [2]   | `SKShaper.Result`  | shape result    |
@@ -26,10 +25,9 @@
 |   [4]   | `FontExtensions`   | font scale      |
 |   [5]   | `BlobExtensions`   | blob conversion |
 
-[DEPENDENCY_TYPES]: admitted shaping substrate
-- rail: typography
+[DEPENDENCY_TYPES]: admitted shaping substrate — rail: typography
 
-| [INDEX] | [SYMBOL]               | [RAIL]            |
+| [INDEX] | [SYMBOL]               | [KIND]            |
 | :-----: | :--------------------- | :---------------- |
 |   [1]   | `HarfBuzzSharp.Blob`   | text data         |
 |   [2]   | `HarfBuzzSharp.Buffer` | shaping buffer    |

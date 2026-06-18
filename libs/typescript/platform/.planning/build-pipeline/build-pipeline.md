@@ -4,9 +4,7 @@ One page owns the build and asset-emit pipeline — `BuildPipeline`, the Vite pl
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                      |
-| :-----: | :------------- | :-------------------------------------------------------- |
-|   [1]   | BUILD_PIPELINE | the Vite plugin set, the styling/PWA emit, and the SW asset |
+[BUILD_PIPELINE]: the Vite plugin set, the styling/PWA emit, and the SW asset.
 
 ## [2]-[BUILD_PIPELINE]
 

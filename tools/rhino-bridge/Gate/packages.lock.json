@@ -4,9 +4,9 @@
     "net10.0": {
       "JetBrains.Annotations": {
         "type": "Direct",
-        "requested": "[2025.2.4, )",
-        "resolved": "2025.2.4",
-        "contentHash": "TwbgxAkXxY+vNEhNVx/QXjJ4vqxmepOjsgRvvImQPbHkHMMb4W+ahL3laMsxXKtNT7iMy+E1B3xkqao2hf1n3A=="
+        "requested": "[2026.2.0, )",
+        "resolved": "2026.2.0",
+        "contentHash": "drvAEaI7Xf4wU6dx4UTB9MoZWXZlraaQ0qoeThPQ411FxNhId7QdUTukIC9I8aUHP0ycAaGwZNKqSvfOZQvUlg=="
       },
       "LanguageExt.Core": {
         "type": "Direct",
@@ -65,14 +65,14 @@
       "csp.contracts": {
         "type": "Project",
         "dependencies": {
-          "JetBrains.Annotations": "[2025.2.4, )"
+          "JetBrains.Annotations": "[2026.2.0, )"
         }
       },
       "Rasm.Bridge.Contract": {
         "type": "Project",
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
-          "JetBrains.Annotations": "[2025.2.4, )",
+          "JetBrains.Annotations": "[2026.2.0, )",
           "StreamJsonRpc": "[2.25.29, )",
           "Thinktecture.Runtime.Extensions": "[10.3.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.3.0, )"
@@ -82,7 +82,7 @@
         "type": "Project",
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
-          "JetBrains.Annotations": "[2025.2.4, )",
+          "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Microsoft.Diagnostics.NETCore.Client": "[0.2.661903, )",
           "Rasm.Bridge.Contract": "[1.0.0, )",

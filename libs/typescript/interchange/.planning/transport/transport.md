@@ -12,7 +12,7 @@ The outbound transport edge of the host-free wire boundary: one polymorphic brow
 
 ## [2]-[TRANSPORT_AND_CLIENTS]
 
-- Owner: `WireTransport`, the single transport `Effect.Service` over a protocol-selection axis, plus `WireClients`, one `Client<typeof GenService>` per browser-dialable service built over it. The `TransportProtocol` axis routes a long-lived server-stream leg over the Connect protocol (`createConnectTransport`, standard HTTP, trailer-free, no roughly-60s server-stream cap) and the binary-frame leg over gRPC-Web (`createGrpcWebTransport`) where the backend dictates. `TransportCapabilityWire` is the two-key method-kind tuple (transcribed verbatim from the C# wire) fixing which method kinds each transport admits — the `grpcWeb` tuple lists the two browser-carried kinds, the `connect` tuple the four.
+- Owner: `WireTransport`, the single transport `Effect.Service` over a protocol-selection axis, plus `WireClients`, one `Client<typeof GenService>` per browser-dialable service built over it. The `TransportProtocol` axis routes a long-lived server-stream leg over the Connect protocol (`createConnectTransport`, standard HTTP, trailer-free, no roughly-60s server-stream cap) and the binary-frame leg over gRPC-Web (`createGrpcWebTransport`) where the backend dictates. `TransportCapabilityWire` is the two-key per-protocol row carrying each protocol's binary framing mode and its admitted method-kind tuple (transcribed verbatim from the C# wire) — the `grpcWeb` row carries its `application/grpc-web` media type and the two browser-carried kinds, the `connect` row the four; framing and capability are the one row, never a parallel framing shape beside the capability tuple.
 - Cases: the four browser-dialable generated services over one transport; a unary call resolves by await, a server-stream consumes by async iteration. The client-stream capture leg (`DocumentServiceShape.captureEvents`) and the bidirectional artifact-sync leg (`ArtifactSyncShape.sync`) are structurally excluded on `grpcWeb`, mirrored from the upstream wire where the capability tuple admits only `unary` and `serverStream` on the `grpcWeb` row while the `connect` row admits all four — the exclusion is read from the wire, never invented branch-side. The connect-es `Client<typeof DocumentService>` STILL surfaces `captureEvents` on its generated type (connect-es projects every service method onto the client face regardless of stream kind), so the clientStream method is present on the client type but faulted by the capability gate at dial time, never absent from the generated client — the structural exclusion is a runtime capability-row gate, not a type-level removal.
 - Entry: outbound calls cross one transport whose interceptor stamp axis is polymorphic over the correlation identifier, the trace parent, and the bearer credential, mirroring the `CallSpine.CorrelationKey`/`TraceparentKey` constants on the upstream wire. The interceptor is a connect-es async interceptor over a captured `Effect.runtime` snapshot taken once at service construction. A single `Runtime.runPromise` per call resolves the live token producer (`AuthSession.tokenHeader`, the `Option<string>` full `Bearer` header value) and the active span in one effect, so a token cached past expiry never ships and the W3C `traceparent` is authored from the runtime-resolved span context, never a per-call double promise round-trip. Per-call cancellation threads interruption into transport cancellation through the call signal; one interceptor stamps all three header rows in one pass, never three parallel interceptors. `ConnectError.from` normalizes a fetch `AbortError` and `TimeoutError` alike to `Code.Canceled`; a server-enforced deadline arrives as a distinct `Code.DeadlineExceeded` on the `ConnectError`, so `faultDetailRail.fromConnect` keys the no-trailer landing by the connect `Code` and a deadline leg lands distinctly from a client-side abort.
 - Packages: `@connectrpc/connect` for `createClient`, `@connectrpc/connect-web` for `createConnectTransport` and `createGrpcWebTransport`, `@bufbuild/protobuf` for the descriptor runtime, and `effect` for the transport-as-`Effect.Service` composition.
@@ -25,8 +25,8 @@ type StreamKind = "unary" | "serverStream" | "clientStream" | "bidi";
 type TransportProtocol = "connect" | "grpcWeb";
 
 const TransportCapabilityWire = Schema.Struct({
-  connect: Schema.Tuple(Schema.Literal("unary"), Schema.Literal("serverStream"), Schema.Literal("clientStream"), Schema.Literal("bidi")),
-  grpcWeb: Schema.Tuple(Schema.Literal("unary"), Schema.Literal("serverStream")),
+  connect: Schema.Struct({ mode: Schema.Literal("binary"), carries: Schema.Tuple(Schema.Literal("unary"), Schema.Literal("serverStream"), Schema.Literal("clientStream"), Schema.Literal("bidi")) }),
+  grpcWeb: Schema.Struct({ mode: Schema.Literal("binary"), mediaType: Schema.Literal("application/grpc-web"), carries: Schema.Tuple(Schema.Literal("unary"), Schema.Literal("serverStream")) }),
 });
 type TransportCapabilityWire = Schema.Schema.Type<typeof TransportCapabilityWire>;
 
@@ -229,7 +229,6 @@ class CapabilitySdkLive extends Effect.Service<CapabilitySdkLive>()("@rasm/ts/in
 - Entry: every proto rpc is one `MethodShape` row inside its `ComputeServiceShape`/`DocumentServiceShape`/`ControlServiceShape`/`HealthShape` alias; `ArtifactSyncShape.sync` (bidi) and `DocumentServiceShape.captureEvents` (clientStream) are the two structurally-excluded browser methods the `grpcWeb` capability row gates; the excluded `sync` method is distinct from the `ArtifactFrameWire` frame TYPE, which is browser-reachable over the server-stream artifact-delivery path and lands on `artifacts/frame-reassembly.md`.
 - Packages: `@bufbuild/protobuf` and `@connectrpc/connect` for the descriptor and method-shape surface.
 - Growth: a new proto rpc lands as one `MethodShape` row; a new transport row lands as one `TransportCapabilityWire` literal.
-- Boundary: the projection transcribes the upstream C# `#TS_PROJECTION` fence verbatim; the branch authors no service shape and no capability literal absent from that fence.
 
 ```ts contract
 type MethodShape<K extends StreamKind, I extends string, O extends string> = {
@@ -237,11 +236,6 @@ type MethodShape<K extends StreamKind, I extends string, O extends string> = {
   readonly request: I;
   readonly response: O;
 };
-
-interface TransportFramingWire {
-  readonly connect: { readonly mode: "binary"; readonly carries: ["unary", "serverStream", "clientStream", "bidi"] };
-  readonly grpcWeb: { readonly mode: "binary"; readonly mediaType: "application/grpc-web"; readonly carries: ["unary", "serverStream"] };
-}
 
 type ComputeServiceShape = {
   readonly infer: MethodShape<"unary", "InferRequest", "InferResponse">;

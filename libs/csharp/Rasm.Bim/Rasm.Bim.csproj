@@ -10,4 +10,19 @@
     <ItemGroup>
         <ProjectReference Include="..\Rasm\Rasm.csproj" />
     </ItemGroup>
+
+    <ItemGroup Label="Interchange">
+        <PackageReference Include="GeometryGymIFC_Core" />
+        <PackageReference Include="SharpGLTF.Core" />
+        <PackageReference Include="SharpGLTF.Runtime" />
+        <PackageReference Include="SharpGLTF.Toolkit" />
+        <PackageReference Include="Openize.Drako" />
+        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
+    </ItemGroup>
+
+    <ItemGroup Label="Domain Foundation">
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
 </Project>

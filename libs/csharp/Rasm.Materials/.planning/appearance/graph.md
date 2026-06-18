@@ -4,10 +4,10 @@ The node-graph appearance engine and the polymorphic library. One `AppearanceNod
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                          |
-| :-----: | ------------------ | ------------------------------------------------------------------------------- |
-|   [1]   | MATERIAL_GRAPH     | `AppearanceNode` node union; `PortValue` channel set; topological evaluation fold; `SurfaceShade` |
-|   [2]   | MATERIAL_LIBRARY   | `MaterialParameters` canonical row; `MaterialId` key; 100-row catalog table; profile-assignment generalization |
+The page's two clusters, each owning one disjoint layer of the appearance engine.
+
+- `[2]-[MATERIAL_GRAPH]`: the `AppearanceNode` node union, the `PortValue` channel set, the topological evaluation fold, and the `SurfaceShade` sink.
+- `[3]-[MATERIAL_LIBRARY]`: the `MaterialParameters` canonical row, the `MaterialId` key, the 100-row catalog table, and the profile-assignment generalization.
 
 ## [2]-[MATERIAL_GRAPH]
 
@@ -16,7 +16,7 @@ The node-graph appearance engine and the polymorphic library. One `AppearanceNod
 - Entry: `public Fin<SurfaceShade> Evaluate(ShadePoint point, MaterialParameters parameters, Op key)` — `Fin<T>` aborts on a cyclic DAG (`MaterialFault.Graph`, key-correlated), an unbound port reference, or a port-type mismatch; `Compile` resolves the topological order once and freezes it, `Shade` is the per-sample re-entry over a compiled order; `MaterialGraph.Default` is the canonical Disney-principled wiring every library row drives through.
 - Packages: Rasm (project — `Direction`/`VectorFrame`/`Vector3d`), Wacton.Unicolour (color/spectral compose), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`)
 - Growth: a new appearance operation is one `AppearanceNode` case (or one `MathOp`/`MixOp` row on the existing `Math`/`Mix` arms); a new port channel is one `PortValue` case carrying its CLR carrier; a new lobe assembled at the sink is one `BsdfLobe` `[Union]` case on the `bsdf` page — never a per-effect graph variant and never a sibling node type. The `AppearanceNode` union and `PortValue` set are the MaterialX 1.39 node-graph alignment target framed at `[4]-[RESEARCH]`.
-- Boundary: the node DAG is the only appearance-program shape — a per-material hand-written shade function is the deleted form; `PortValue` is the only inter-node channel and carries scalar/`Vector3d`/color/`Direction` polarities so a node arm reads typed ports and never `object`; the `Color`→`Scalar` projection is the Rec709 scene-linear luminance dot `0.2126 R + 0.7152 G + 0.0722 B`, never a red-channel read, so a mask pulled from a color is photometrically weighted and cannot silently bias to red; the `Texture` arm composes `texture#TEXTURE_UV` and never re-implements sampling; the `Normal` arm perturbs the composed Rasm/Vectors `VectorFrame` (tangent·bitangent·normal) and never re-mints a basis; the `BsdfOutput` arm composes the `bsdf#LOBE_FAMILY` closed lobe family for the final scattering and the directly-consumed Wacton.Unicolour `RgbConfiguration.Acescg` scene-linear color owner for color resolution — the lobe math lives on the `bsdf` page and is never re-derived here; the `BsdfOutput` sink resolves through `Assemble`, never a port write, so the environment carries no dead entry under the sink id and a downstream node cannot read a phantom `Scalar(1.0)`; the `Math`/`Mix` arms fold over their `MathOp`/`MixOp` SmartEnum by data so a new operation is a row, never a new arm; the `MathOp.Fresnel` row supplies only the Schlick angular weight `(1−cosθ)⁵` for a `Mix` lobe blend and the full Fresnel term lives on `bsdf#MICROFACET_KERNEL`, never re-derived here; the `Mix` color arms blend in scene-linear `Acescg` through `Unicolour.Mix` and the channel composites, never a hand-rolled raw-double channel lerp; `Compile` runs Kahn topological ordering once and `Shade` re-enters over the frozen order so per-sample evaluation never re-sorts; the indegree seed `Distinct()`-deduplicates per-node dependencies so a `Math` node authored with `Lhs == Rhs` counts one edge and a multi-edge DAG sorts correctly instead of stranding a node above zero; the `PortEnvironment` fold projects a new frozen `HashMap` per compiled order and never mutates a dictionary; `MaterialGraph.Default` carries the geometric frame unperturbed through one `Normal` node at `Strength 0` whose identity tangent-space sample `(0.5,0.5,1.0)` decodes to `+Z`, so a library row is parameters evaluated through this one standard graph, never a per-row graph type; a cycle, a dangling port, or a duplicate sink rails `Fin.Fail` and never propagates a NaN shade outward.
+- Boundary: the node DAG is the only appearance-program shape — a per-material hand-written shade function is the deleted form; `PortValue` is the only inter-node channel and carries scalar/`Vector3d`/color/`Direction` polarities so a node arm reads typed ports and never `object`; the `Color`→`Scalar` projection is the Rec709 scene-linear luminance dot `0.2126 R + 0.7152 G + 0.0722 B`, never a red-channel read, so a mask pulled from a color is photometrically weighted and cannot silently bias to red; the `Texture` arm composes `texture#TEXTURE_UV` and never re-implements sampling; the `Normal` arm perturbs the composed Rasm/Vectors `VectorFrame` (tangent·bitangent·normal) and never re-mints a basis; the `BsdfOutput` arm composes the `bsdf#LOBE_FAMILY` closed lobe family for the final scattering and the directly-consumed Wacton.Unicolour `RgbConfiguration.Acescg` scene-linear color owner for color resolution — the lobe math lives on the `bsdf` page and is never re-derived here; the `BsdfOutput` sink resolves through `Assemble`, never a port write, so the environment carries no dead entry under the sink id and a downstream node cannot read a phantom `Scalar(1.0)`; the `Math`/`Mix` arms fold over their `MathOp`/`MixOp` SmartEnum by data so a new operation is a row, never a new arm; the `MathOp.Fresnel` row supplies only the Schlick angular weight `(1−cosθ)⁵` for a `Mix` lobe blend and the full Fresnel term lives on `bsdf#MICROFACET_KERNEL`, never re-derived here; the `Mix` color arms blend in scene-linear `Acescg` through `Unicolour.Mix` and the channel composites, never a hand-rolled raw-double channel lerp; `Compile` runs Kahn topological ordering once and `Shade` re-enters over the frozen order so per-sample evaluation never re-sorts — the Kahn sort is the page's one `[EXPRESSION_SPINE]` kernel exemption, the indegree `Dictionary`, ready `Queue`, and order `List` mutated by index through `CollectionsMarshal.GetValueRefOrNullRef` over the bounded once-per-compile pass, every other surface on the page expression-bodied and the per-sample `Shade` fold immutable; the indegree seed `Distinct()`-deduplicates per-node dependencies so a `Math` node authored with `Lhs == Rhs` counts one edge and a multi-edge DAG sorts correctly instead of stranding a node above zero; the `PortEnvironment` fold projects a new frozen `HashMap` per compiled order and never mutates a dictionary; `MaterialGraph.Default` carries the geometric frame unperturbed through one `Normal` node at `Strength 0` whose identity tangent-space sample `(0.5,0.5,1.0)` decodes to `+Z`, so a library row is parameters evaluated through this one standard graph, never a per-row graph type; a cycle, a dangling port, or a duplicate sink rails `Fin.Fail` and never propagates a NaN shade outward.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -27,23 +27,29 @@ public readonly partial struct PortId;
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<MaterialKeyPolicy, string>]
 public sealed partial class MathOp {
-    public static readonly MathOp Add = new("add");
-    public static readonly MathOp Multiply = new("multiply");
-    public static readonly MathOp Scale = new("scale");
-    public static readonly MathOp Power = new("power");
-    public static readonly MathOp DotProduct = new("dot");
-    public static readonly MathOp Clamp01 = new("clamp01");
-    public static readonly MathOp OneMinus = new("one-minus");
-    public static readonly MathOp Fresnel = new("fresnel-weight");
+    public static readonly MathOp Add = new("add", static (l, r) => new PortValue.Vector(l.AsVector + r.AsVector));
+    public static readonly MathOp Multiply = new("multiply", static (l, r) => new PortValue.Scalar(l.AsScalar * r.AsScalar));
+    public static readonly MathOp Scale = new("scale", static (l, r) => new PortValue.Vector(l.AsVector * r.AsScalar));
+    public static readonly MathOp Power = new("power", static (l, r) => new PortValue.Scalar(System.Math.Pow(l.AsScalar, r.AsScalar)));
+    public static readonly MathOp DotProduct = new("dot", static (l, r) => new PortValue.Scalar(l.AsVector * r.AsVector));
+    public static readonly MathOp Clamp01 = new("clamp01", static (l, _) => new PortValue.Scalar(System.Math.Clamp(l.AsScalar, 0.0, 1.0)));
+    public static readonly MathOp OneMinus = new("one-minus", static (l, _) => new PortValue.Scalar(1.0 - l.AsScalar));
+    public static readonly MathOp Fresnel = new("fresnel-weight", static (l, r) => new PortValue.Scalar(NodeEvaluator.SchlickWeight(System.Math.Clamp(l.AsVector * r.AsVector, 0.0, 1.0))));
+
+    [UseDelegateFromConstructor]
+    public partial PortValue Apply(PortValue lhs, PortValue rhs);
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<MaterialKeyPolicy, string>]
 public sealed partial class MixOp {
-    public static readonly MixOp Lerp = new("lerp");
-    public static readonly MixOp Multiply = new("multiply");
-    public static readonly MixOp Screen = new("screen");
-    public static readonly MixOp Overlay = new("overlay");
+    public static readonly MixOp Lerp = new("lerp", static (a, b, t) => new PortValue.Color(a.AsColor.Mix(b.AsColor, ColourSpace.RgbLinear, t, premultiplyAlpha: false)));
+    public static readonly MixOp Multiply = new("multiply", static (a, b, _) => new PortValue.Color(NodeEvaluator.ChannelCompose(a.AsColor, b.AsColor, static (p, q) => p * q)));
+    public static readonly MixOp Screen = new("screen", static (a, b, _) => new PortValue.Color(NodeEvaluator.ChannelCompose(a.AsColor, b.AsColor, static (p, q) => 1.0 - (1.0 - p) * (1.0 - q))));
+    public static readonly MixOp Overlay = new("overlay", static (a, b, _) => new PortValue.Color(NodeEvaluator.ChannelCompose(a.AsColor, b.AsColor, static (p, q) => p < 0.5 ? 2.0 * p * q : 1.0 - 2.0 * (1.0 - p) * (1.0 - q))));
+
+    [UseDelegateFromConstructor]
+    public partial PortValue Apply(PortValue a, PortValue b, double t);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -103,7 +109,7 @@ public sealed record SurfaceShade(Unicolour BaseColorLinear, double Metalness, d
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public sealed record PortEnvironment(LanguageExt.HashMap<PortId, PortValue> Resolved) {
     public static readonly PortEnvironment Empty = new(LanguageExt.HashMap<PortId, PortValue>.Empty);
-    public Fin<PortValue> Read(PortId id, Op key) => Resolved.Find(id).ToFin(key.InvalidInput());
+    public Fin<PortValue> Read(PortId id, Op key) => Resolved.Find(id).ToFin(MaterialFault.Graph(key, $"<unbound-port:{id.Value}>"));
     public PortEnvironment With(PortId id, PortValue value) => this with { Resolved = Resolved.AddOrUpdate(id, value) };
 }
 
@@ -120,37 +126,17 @@ public static class NodeEvaluator {
     static Fin<PortValue> EvaluateMath(AppearanceNode.Math m, PortEnvironment env, Op key) =>
         from lhs in env.Read(m.Lhs, key)
         from rhs in m.Rhs.Match(Some: r => env.Read(r, key), None: () => Fin.Succ<PortValue>(new PortValue.Scalar(0.0)))
-        select ApplyMath(m.Op, lhs, rhs);
+        select m.Op.Apply(lhs, rhs);
 
-    static PortValue ApplyMath(MathOp op, PortValue lhs, PortValue rhs) =>
-        op switch {
-            _ when op == MathOp.Add => new PortValue.Vector(lhs.AsVector + rhs.AsVector),
-            _ when op == MathOp.Multiply => new PortValue.Scalar(lhs.AsScalar * rhs.AsScalar),
-            _ when op == MathOp.Scale => new PortValue.Vector(lhs.AsVector * rhs.AsScalar),
-            _ when op == MathOp.Power => new PortValue.Scalar(System.Math.Pow(lhs.AsScalar, rhs.AsScalar)),
-            _ when op == MathOp.DotProduct => new PortValue.Scalar(lhs.AsVector * rhs.AsVector),
-            _ when op == MathOp.Clamp01 => new PortValue.Scalar(System.Math.Clamp(lhs.AsScalar, 0.0, 1.0)),
-            _ when op == MathOp.OneMinus => new PortValue.Scalar(1.0 - lhs.AsScalar),
-            _ => new PortValue.Scalar(SchlickWeight(System.Math.Clamp(lhs.AsVector * rhs.AsVector, 0.0, 1.0))),
-        };
-
-    static double SchlickWeight(double cosTheta) { double m = System.Math.Clamp(1.0 - cosTheta, 0.0, 1.0); double m2 = m * m; return m2 * m2 * m; }
+    internal static double SchlickWeight(double cosTheta) { double m = System.Math.Clamp(1.0 - cosTheta, 0.0, 1.0); double m2 = m * m; return m2 * m2 * m; }
 
     static Fin<PortValue> EvaluateMix(AppearanceNode.Mix x, PortEnvironment env, Op key) =>
         from a in env.Read(x.A, key)
         from b in env.Read(x.B, key)
         from f in env.Read(x.Factor, key)
-        select ApplyMix(x.Op, a, b, System.Math.Clamp(f.AsScalar, 0.0, 1.0));
+        select x.Op.Apply(a, b, System.Math.Clamp(f.AsScalar, 0.0, 1.0));
 
-    static PortValue ApplyMix(MixOp op, PortValue a, PortValue b, double t) =>
-        op switch {
-            _ when op == MixOp.Lerp => new PortValue.Color(a.AsColor.Mix(b.AsColor, ColourSpace.RgbLinear, t, premultiplyAlpha: false)),
-            _ when op == MixOp.Multiply => new PortValue.Color(ChannelCompose(a.AsColor, b.AsColor, static (p, q) => p * q)),
-            _ when op == MixOp.Screen => new PortValue.Color(ChannelCompose(a.AsColor, b.AsColor, static (p, q) => 1.0 - (1.0 - p) * (1.0 - q))),
-            _ => new PortValue.Color(ChannelCompose(a.AsColor, b.AsColor, static (p, q) => p < 0.5 ? 2.0 * p * q : 1.0 - 2.0 * (1.0 - p) * (1.0 - q))),
-        };
-
-    static Unicolour ChannelCompose(Unicolour a, Unicolour b, Func<double, double, double> f) =>
+    internal static Unicolour ChannelCompose(Unicolour a, Unicolour b, Func<double, double, double> f) =>
         new(PortValue.SceneLinear, ColourSpace.RgbLinear, f(a.RgbLinear.R, b.RgbLinear.R), f(a.RgbLinear.G, b.RgbLinear.G), f(a.RgbLinear.B, b.RgbLinear.B));
 
     static Fin<PortValue> EvaluateNormal(AppearanceNode.Normal n, ShadePoint point, PortEnvironment env, Op key) =>

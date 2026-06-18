@@ -1,6 +1,6 @@
 # [API_CATALOGUE] effect-cli
 
-Grounded from installed `node_modules` type declarations (`@effect/cli` 0.75.2; peers `@effect/platform` 0.96.1, `effect` 3.21.3, `@effect/printer-ansi` 0.49.0). Covers the typed-command binding surface the TS planning pages consume — `AutomationDriver` (node-deploy/resources.md) is the owner-symbol that internalizes this package: a `Command` tree whose handlers are `Effect`, executed via `Command.run` / `CliApp.run` under a host `Environment` (`FileSystem | Path | Terminal`). Module set re-exported from the package index: `Args`, `AutoCorrect`, `BuiltInOptions`, `CliApp`, `CliConfig`, `Command`, `CommandDescriptor`, `CommandDirective`, `ConfigFile`, `HelpDoc`, `Options`, `Primitive`, `Prompt`, `Usage`, `ValidationError`, `Span`.
+Grounded from installed `node_modules` type declarations (`@effect/cli` 0.75.2; peers `@effect/platform` 0.96.1, `effect` 3.21.3, `@effect/printer-ansi` 0.49.0). Covers the typed-command binding surface the TS planning pages consume — `AutomationDriver` (the `provisioning/contract#PROVISIONING` cluster) is the owner-symbol that internalizes this package: a `Command` tree whose handlers are `Effect`, executed via `Command.run` / `CliApp.run` under a host `Environment` (`FileSystem | Path | Terminal`). Module set re-exported from the package index: `Args`, `AutoCorrect`, `BuiltInOptions`, `CliApp`, `CliConfig`, `Command`, `CommandDescriptor`, `CommandDirective`, `ConfigFile`, `HelpDoc`, `Options`, `Primitive`, `Prompt`, `Usage`, `ValidationError`, `Span`.
 
 ---
 

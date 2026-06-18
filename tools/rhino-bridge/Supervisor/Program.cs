@@ -14,7 +14,7 @@ namespace Rasm.Bridge.Supervisor;
 [Union]
 internal abstract partial record SupervisorVerb {
     private SupervisorVerb() { }
-    internal sealed record Verify(ScenarioSelection Selection, string ClosureManifest) : SupervisorVerb;
+    internal sealed record Verify(ScenarioSelection Selection, string ClosureManifest, string EvidenceMode) : SupervisorVerb;
     internal sealed record Status : SupervisorVerb;
     // The direct supervisor does not own redeploy — Assay owns the stable operator spelling and the real
     // package cycle. The verb is admitted only to report itself UNSUPPORTED (exit 3); PackagePath is no
@@ -66,11 +66,13 @@ internal static class Verbs {
         ArgumentNullException.ThrowIfNull(argument: argv);
         return argv switch {
             ["verify", { } selection, { } manifest] => Selection(raw: selection)
-                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted, ClosureManifest: manifest)),
+                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted, ClosureManifest: manifest, EvidenceMode: "verify")),
+            ["verify", { } selection, { } manifest, { } evidenceMode] when evidenceMode is "verify" or "author" => Selection(raw: selection)
+                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted, ClosureManifest: manifest, EvidenceMode: evidenceMode)),
             ["status"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Status()),
             ["redeploy", { } package] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Redeploy(PackagePath: package)),
             ["quit"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Quit()),
-            _ => Fin.Fail<SupervisorVerb>(error: Error.New(message: "unrecognized invocation: verify <selection-json> <closure-manifest> | status | redeploy <package> | quit")),
+            _ => Fin.Fail<SupervisorVerb>(error: Error.New(message: "unrecognized invocation: verify <selection-json> <closure-manifest> [verify|author] | status | redeploy <package> | quit")),
         };
     }
 

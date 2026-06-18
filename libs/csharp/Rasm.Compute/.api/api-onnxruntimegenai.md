@@ -16,7 +16,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 - namespace: `Microsoft.ML.OnnxRuntimeGenAI`
 - asset: native-only meta-package (`libonnxruntime-genai`) + managed facade via transitive `Microsoft.ML.OnnxRuntimeGenAI.Managed`
 - rail: model
-- decompile-source: `~/.nuget/packages/microsoft.ml.onnxruntimegenai.managed/0.14.1/lib/net8.0/Microsoft.ML.OnnxRuntimeGenAI.dll`
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.AI.Abstractions`
 - package: `Microsoft.Extensions.AI.Abstractions`
@@ -29,7 +28,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 [PUBLIC_TYPE_SCOPE]: handle chain and generation contracts
 - rail: model
-- source: decompile-verified against `Microsoft.ML.OnnxRuntimeGenAI.Managed` 0.14.1
 
 | [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]            | [CAPABILITY]                                           |
 | :-----: | :-------------------------- | :------------------------ | :----------------------------------------------------- |
@@ -66,7 +64,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 [ENTRYPOINT_SCOPE]: process and model lifecycle
 - rail: model
-- source: decompile-verified
 
 | [INDEX] | [SURFACE]                                              | [CALL_SHAPE]                                                                                     | [CAPABILITY]                                     |
 | :-----: | :----------------------------------------------------- | :----------------------------------------------------------------------------------------------- | :----------------------------------------------- |
@@ -90,7 +87,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 [ENTRYPOINT_SCOPE]: tokenization and chat template
 - rail: model
-- source: decompile-verified
 
 | [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                                                               | [CAPABILITY]                           |
 | :-----: | :---------------------------- | :--------------------------------------------------------------------------------------------------------- | :------------------------------------- |
@@ -109,7 +105,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 [ENTRYPOINT_SCOPE]: Sequences token carrier
 - rail: model
-- source: decompile-verified
 
 `Sequences` is created by `Tokenizer.Encode`/`EncodeBatch` or returned by `Generator.GetSequence`; direct construction is internal only.
 
@@ -121,7 +116,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 [ENTRYPOINT_SCOPE]: generation loop and search options
 - rail: model
-- source: decompile-verified
 
 `SetSearchOption` admits numeric (`double`) and bool values only; `SetGuidance` carries type, data, and FFTokens policy. `GetSearchNumber`/`GetSearchBool` read back any previously-set option.
 
@@ -151,7 +145,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 [ENTRYPOINT_SCOPE]: LoRA adapter management
 - rail: model
-- source: decompile-verified
 
 `Adapters : SafeHandle`; created per `Model`, lives for the adapter set's lifetime.
 
@@ -163,7 +156,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 [ENTRYPOINT_SCOPE]: GenAI Tensor and ElementType
 - rail: model
-- source: decompile-verified
 
 `Tensor` in this namespace is `Microsoft.ML.OnnxRuntimeGenAI.Tensor` — a native-handle carrier distinct from `System.Numerics.Tensors.Tensor<T>`. It wraps an OGA-owned buffer with a shape and `ElementType` discriminant.
 
@@ -180,7 +172,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 [ENTRYPOINT_SCOPE]: image and audio media loaders
 - rail: model
-- source: decompile-verified
 
 `Images` and `Audios` are `IDisposable`; both expose only static `Load` factories — no public constructor.
 
@@ -193,7 +184,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 [ENTRYPOINT_SCOPE]: MultiModalProcessor
 - rail: model
-- source: decompile-verified
 
 `MultiModalProcessor : IDisposable` is constructed per `Model`; it encodes prompt+media batches into `NamedTensors` that feed `Generator.SetInputs`. It also exposes a `CreateStream` factory mirroring `Tokenizer.CreateStream`.
 
@@ -211,7 +201,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 
 [ENTRYPOINT_SCOPE]: StreamingProcessor
 - rail: model
-- source: decompile-verified
 
 `StreamingProcessor : IDisposable` handles incremental audio chunk delivery. `Process` returns `null` until enough context is accumulated; `Flush` drains remaining state.
 
@@ -224,7 +213,6 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 |   [5]   | `StreamingProcessor.GetOption`  | `string GetOption(string key)`             | gets a processor option value                         |
 
 [ENTRYPOINT_SCOPE]: recognized `SetSearchOption` key strings
-- source: doc-sourced (ORT-GenAI 0.14.x public documentation); key strings pass through to native `OgaGeneratorParamsSetSearchNumber`/`OgaGeneratorParamsSetSearchBool` without managed validation — no managed string registry exists in the binary
 - rail: model-lane#GENERATIVE_RUN
 
 | [INDEX] | [KEY_STRING]         | [VALUE_TYPE] | [CAPABILITY]                               |
@@ -243,17 +231,11 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 [ENTRYPOINT_SCOPE]: M.E.AI chat client
 - rail: model
 
-| [INDEX] | [SURFACE]                               | [CALL_SHAPE]       | [CAPABILITY]                     |
-| :-----: | :-------------------------------------- | :----------------- | :------------------------------- |
-|   [1]   | `OnnxRuntimeGenAIChatClient`            | model wrapper      | wraps a `Model` as `IChatClient` |
-|   [2]   | `IChatClient.GetResponseAsync`          | async response     | non-streaming response           |
-|   [3]   | `IChatClient.GetStreamingResponseAsync` | streaming response | streaming response               |
-
-```csharp generated
-OnnxRuntimeGenAIChatClient(Model model, OnnxRuntimeGenAIChatClientOptions? options = null)
-Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options, CancellationToken cancellationToken)
-IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options, CancellationToken cancellationToken)
-```
+| [INDEX] | [SURFACE]                               | [CALL_SHAPE]       | [CAPABILITY]                                                                                                                            |
+| :-----: | :-------------------------------------- | :----------------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | `OnnxRuntimeGenAIChatClient`            | model wrapper      | `OnnxRuntimeGenAIChatClient(Model, OnnxRuntimeGenAIChatClientOptions?)` — wraps a `Model` as `IChatClient`                              |
+|   [2]   | `IChatClient.GetResponseAsync`          | async response     | `Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage>, ChatOptions?, CancellationToken)` — non-streaming response               |
+|   [3]   | `IChatClient.GetStreamingResponseAsync` | streaming response | `IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage>, ChatOptions?, CancellationToken)` — streaming |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

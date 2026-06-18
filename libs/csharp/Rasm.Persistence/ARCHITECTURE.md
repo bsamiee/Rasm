@@ -8,7 +8,7 @@ Each sub-domain mirrors one eventual source sub-tree. The charter is the concern
 
 ```text codemap
 Rasm.Persistence/
-├── stores/             Six-row store-profile engine axis, the five-state lifecycle ceremony with typed open/restore/drain receipts, cross-process writer lease and epoch fence, the eight-modality placement fold, and the operator-provisioning manifest.
+├── stores/             Six-row store-profile engine axis, the five-state lifecycle ceremony with typed open/restore/drain receipts, cross-process writer lease and epoch fence, the eight-modality placement fold, the operator-provisioning manifest, and the multi-standard classification + 5D cost catalog (Uniclass/OmniClass/MasterFormat ltree, formula-evaluated rollup over the DuckDB analytical lane).
 │   └── profiles.md
 ├── stores-remote/      Cloud object-store residence (S3/Azure/GCS) behind the settled BlobRemote contract: chunked resumable multipart transfer, content-key descriptor round-trip with conditional-write concurrency, and the content-address artifact-sync feed over the op-log changefeed.
 │   └── object-store.md
@@ -36,15 +36,13 @@ Rasm.Persistence/
 │   └── provenance.md
 ├── annotation/         Anchored-annotation anchor algebra with threads, the BCF 2.1/3.0 coordination protocol with viewpoint lifecycle, and the bidirectional CDE OAuth2 sync.
 │   └── annotation.md
-├── catalog/            Multi-standard classification catalogs (Uniclass/OmniClass/MasterFormat ltree) and the cost-code catalog with formula-evaluated 5D rollup over the DuckDB analytical lane.
-│   └── catalog-cost.md
 ├── schedule/           P6/MS-Project schedule interchange with the activity network, the task-to-ElementSet link, and the 4D construction state with planned/actual variance.
 │   └── schedule-interchange.md
 └── retention/          Classification enforcement at every store egress, the hold-first receipted retention sweep, object-store reachability GC by live closure, the hash-proved support-bundle export, and the classification-to-pgaudit category binding.
     └── redaction-retention.md
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, never a new surface, and a public type outside an owner region is the named defect. One rail per entrypoint, named in the return type — `Validation<StoreFault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects. Receipts stamp NodaTime `Instant`/`Duration`; `ClockPolicy` owns elapsed and semantic time. Provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages. The version-control, federation, provenance, annotation, catalog, and schedule sub-domains ride the existing substrate — the op-log changefeed, the content-addressed snapshots, and the PostGIS GiST + jsonb + ltree lanes — and never admit a new engine.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, never a new surface, and a public type outside an owner region is the named defect. One rail per entrypoint, named in the return type — `Validation<StoreFault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects. Receipts stamp NodaTime `Instant`/`Duration`; `ClockPolicy` owns elapsed and semantic time. Provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages. The version-control, federation, provenance, annotation, and schedule sub-domains plus the classification/cost catalog in stores ride the existing substrate — the op-log changefeed, the content-addressed snapshots, and the PostGIS GiST + jsonb + ltree lanes — and never admit a new engine.
 
 ## [2]-[SPINE]
 
@@ -78,7 +76,7 @@ flowchart LR
 - Typed projection records are the only egress; entity types never cross the package boundary, and provider failure converts into `StoreFault` at exactly one site on the query rail.
 - Provider, codec, and engine types stay implementation material behind axis vocabulary; consumers select rows, never packages.
 - AppHost owns scheduling, drain conduction, hop retry, correlation, classification taxonomy, and the cache port; Persistence contributes rows to each and never reverses the dependency. The database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners.
-- The version-control, federation, provenance, annotation, catalog, and schedule rails ride the existing op-log/content-addressed-snapshot/PostGIS substrate; durability stays here, op execution stays Compute, runtime policy stays AppHost.
+- The version-control, federation, provenance, annotation, and schedule rails plus the in-stores classification/cost catalog ride the existing op-log/content-addressed-snapshot/PostGIS substrate; durability stays here, op execution stays Compute, runtime policy stays AppHost.
 - No store operation runs on a Grasshopper solve hot path.
 
 ## [4]-[PROHIBITIONS]

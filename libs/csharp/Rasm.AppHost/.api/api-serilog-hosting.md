@@ -1,0 +1,74 @@
+# [RASM_APPHOST_API_SERILOG_HOSTING]
+
+`Serilog.Extensions.Hosting` supplies `IHostBuilder` and `IServiceCollection` integration for Serilog, a bootstrap `ReloadableLogger` pattern for two-stage initialization, a `DiagnosticContext` for per-request wide-event property accumulation, and `LoggerConfigurationExtensions.CreateBootstrapLogger` for host-lifecycle-aware logger construction.
+
+## [1]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `Serilog.Extensions.Hosting`
+- package: `Serilog.Extensions.Hosting`
+- assembly: `Serilog.Extensions.Hosting`
+- namespace: `Serilog`
+- asset: runtime library
+- rail: telemetry
+
+## [2]-[PUBLIC_TYPES]
+
+[PUBLIC_TYPE_SCOPE]: hosting integration family
+- rail: telemetry
+
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]            | [RAIL]                                  |
+| :-----: | :----------------------------------- | :----------------------- | :-------------------------------------- |
+|   [1]   | `SerilogHostBuilderExtensions`       | `IHostBuilder` ext       | `UseSerilog` overloads                  |
+|   [2]   | `SerilogServiceCollectionExtensions` | `IServiceCollection` ext | `AddSerilog` overloads                  |
+|   [3]   | `LoggerConfigurationExtensions`      | config ext               | `CreateBootstrapLogger` bootstrap entry |
+|   [4]   | `IDiagnosticContext`                 | context contract         | per-scope property accumulation         |
+
+## [3]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: host builder registration
+- rail: telemetry
+
+| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] | [RAIL]                                  |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------- |
+|   [1]   | `UseSerilog(builder, logger?, dispose?, providers?)`                                          | static logger  | binds a pre-built `ILogger` to the host |
+|   [2]   | `UseSerilog(builder, Action<HostBuilderContext, LoggerConfiguration>, ...)`                   | contextual     | builds logger from host context         |
+|   [3]   | `UseSerilog(builder, Action<HostBuilderContext, IServiceProvider, LoggerConfiguration>, ...)` | service-aware  | resolves services during configuration  |
+
+[ENTRYPOINT_SCOPE]: service collection registration
+- rail: telemetry
+
+| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY] | [RAIL]                                         |
+| :-----: | :------------------------------------------------------------------------------- | :------------- | :--------------------------------------------- |
+|   [1]   | `AddSerilog(collection, logger?, dispose?, providers?)`                          | static logger  | registers `ILoggerFactory` backed by `ILogger` |
+|   [2]   | `AddSerilog(collection, Action<LoggerConfiguration>, preserveStatic?, writeTo?)` | config action  | builds logger from configuration delegate      |
+|   [3]   | `AddSerilog(collection, Action<IServiceProvider, LoggerConfiguration>, ...)`     | service-aware  | resolves services during logger configuration  |
+
+[ENTRYPOINT_SCOPE]: bootstrap and diagnostic context
+- rail: telemetry
+
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [RAIL]                                        |
+| :-----: | :-------------------------------------------------- | :------------- | :-------------------------------------------- |
+|   [1]   | `LoggerConfiguration.CreateBootstrapLogger()`       | bootstrap      | returns `ReloadableLogger` for two-stage init |
+|   [2]   | `IDiagnosticContext.Set(name, value, destructure?)` | property set   | accumulates property into the active context  |
+|   [3]   | `IDiagnosticContext.SetException(exception)`        | exception set  | attaches exception to the active context      |
+
+## [4]-[IMPLEMENTATION_LAW]
+
+[SERILOG_HOSTING_TOPOLOGY]:
+- namespaces: `Serilog` (6 types) plus internal `Serilog.Extensions.Hosting` (`ReloadableLogger`, `DiagnosticContext`)
+- bootstrap pattern: call `LoggerConfiguration.CreateBootstrapLogger()` before `Host.CreateDefaultBuilder`; `UseSerilog` with the service-aware overload detects a `ReloadableLogger` at `Log.Logger` and reconfigures/freezes it in-place rather than replacing it
+- `preserveStaticLogger = true`: leaves `Log.Logger` unchanged; `false` (default): replaces `Log.Logger` with the constructed logger
+- `writeToProviders = true`: wraps `ILoggerProvider` registrations as Serilog sinks via `LoggerProviderCollection`
+- `DiagnosticContext` is registered as both `DiagnosticContext` and `IDiagnosticContext` singletons by `AddSerilog`
+- `dispose = true`: disposes the logger (or calls `Log.CloseAndFlush` for the static logger) when the host disposes the provider
+
+[LOCAL_ADMISSION]:
+- Use `CreateBootstrapLogger` for two-stage host initialization: a lightweight bootstrap logger active during host build, replaced by the fully configured logger after services resolve.
+- Inject `IDiagnosticContext` to accumulate request-scoped properties for wide events such as request completion logs.
+- Choose `UseSerilog(builder, configureLogger, ...)` with the `IServiceProvider` overload when the logger configuration needs resolved services (e.g., metrics sinks, sampler config).
+
+[RAIL_LAW]:
+- Package: `Serilog.Extensions.Hosting`
+- Owns: Serilog integration into `IHostBuilder` and `IServiceCollection`
+- Accept: `UseSerilog` or `AddSerilog` at composition; `CreateBootstrapLogger` for two-stage init
+- Reject: manual `ILoggerFactory` replacement or static `Log.Logger` assignment outside composition bootstrap

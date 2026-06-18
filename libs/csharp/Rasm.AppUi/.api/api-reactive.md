@@ -18,10 +18,9 @@
 
 ## [2]-[PUBLIC_TYPES]
 
-[STREAM_TYPES]: observable and observer contracts
-- rail: streams
+[STREAM_TYPES]: observable and observer contracts — rail: streams
 
-| [INDEX] | [SYMBOL]                   | [RAIL]             |
+| [INDEX] | [SYMBOL]                   | [KIND]             |
 | :-----: | :------------------------- | :----------------- |
 |   [1]   | `IObservable<T>`           | stream contract    |
 |   [2]   | `IObserver<T>`             | observer contract  |
@@ -32,10 +31,9 @@
 |   [7]   | `Timestamped<T>`           | timestamp value    |
 |   [8]   | `TimeInterval<T>`          | interval value     |
 
-[SUBJECT_TYPES]: subject and connection surfaces
-- rail: streams
+[SUBJECT_TYPES]: subject and connection surfaces — rail: streams
 
-| [INDEX] | [SYMBOL]                    | [RAIL]             |
+| [INDEX] | [SYMBOL]                    | [KIND]             |
 | :-----: | :-------------------------- | :----------------- |
 |   [1]   | `Subject<T>`                | multicast subject  |
 |   [2]   | `BehaviorSubject<T>`        | current value      |
@@ -44,10 +42,9 @@
 |   [5]   | `ISubject<T>`               | subject contract   |
 |   [6]   | `IConnectableObservable<T>` | connectable stream |
 
-[SCHEDULER_TYPES]: scheduler and timing surfaces
-- rail: streams
+[SCHEDULER_TYPES]: scheduler and timing surfaces — rail: streams
 
-| [INDEX] | [SYMBOL]                                    | [RAIL]            |
+| [INDEX] | [SYMBOL]                                    | [KIND]            |
 | :-----: | :------------------------------------------ | :---------------- |
 |   [1]   | `IScheduler`                                | schedule contract |
 |   [2]   | `Scheduler`                                 | schedule factory  |
@@ -58,10 +55,9 @@
 |   [7]   | `SynchronizationContextScheduler`           | UI context        |
 |   [8]   | `VirtualTimeScheduler<TAbsolute,TRelative>` | virtual time      |
 
-[DISPOSABLE_TYPES]: lifecycle ownership
-- rail: streams
+[DISPOSABLE_TYPES]: lifecycle ownership — rail: streams
 
-| [INDEX] | [SYMBOL]                       | [RAIL]              |
+| [INDEX] | [SYMBOL]                       | [KIND]              |
 | :-----: | :----------------------------- | :------------------ |
 |   [1]   | `CompositeDisposable`          | grouped disposal    |
 |   [2]   | `SerialDisposable`             | replaceable slot    |
@@ -116,7 +112,7 @@
 |   [5]   | `Finally`     | `Observable`           | termination hook      |
 |   [6]   | `Using`       | `Observable`           | resource scope        |
 |   [7]   | `Subscribe`   | `ObservableExtensions` | subscription          |
-|   [8]   | `DisposeWith` | disposable extensions  | lifecycle ownership   |
+|   [8]   | `DisposeWith` | `DisposableMixins`     | lifecycle ownership   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

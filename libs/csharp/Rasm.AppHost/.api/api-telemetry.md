@@ -45,26 +45,28 @@ sampling, and latency context into the observability rail.
 
 [ENTRYPOINT_SCOPE]: logging operations
 - rail: observability
+- call shape: `ILoggingBuilder` extension
 
-| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY]    | [RAIL]                      |
-| :-----: | :------------------------------ | :---------------- | :-------------------------- |
-|   [1]   | `AddGlobalBuffer`               | logging extension | global log buffering        |
-|   [2]   | `EnableEnrichment`              | logging extension | enriched logging            |
-|   [3]   | `EnableRedaction`               | logging extension | classified redaction        |
-|   [4]   | `AddTraceBasedSampler`          | logging extension | trace-based sampling        |
-|   [5]   | `AddRandomProbabilisticSampler` | logging extension | probability sampling        |
-|   [6]   | `AddSampler<T>`                 | logging extension | custom sampler registration |
+| [INDEX] | [SURFACE]                       | [RAIL]                      |
+| :-----: | :------------------------------ | :-------------------------- |
+|   [1]   | `AddGlobalBuffer`               | global log buffering        |
+|   [2]   | `EnableEnrichment`              | enriched logging            |
+|   [3]   | `EnableRedaction`               | classified redaction        |
+|   [4]   | `AddTraceBasedSampler`          | trace-based sampling        |
+|   [5]   | `AddRandomProbabilisticSampler` | probability sampling        |
+|   [6]   | `AddSampler<T>`                 | custom sampler registration |
 
 [ENTRYPOINT_SCOPE]: service operations
 - rail: observability
+- call shape: `IServiceCollection` extension
 
-| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY]    | [RAIL]                                       |
-| :-----: | :------------------------------ | :---------------- | :------------------------------------------- |
-|   [1]   | `AddApplicationLogEnricher`     | service extension | application dimensions                       |
-|   [2]   | `AddServiceLogEnricher`         | service extension | obsolete predecessor of application enricher |
-|   [3]   | `AddProcessLogEnricher`         | service extension | process dimensions                           |
-|   [4]   | `AddLatencyContext`             | service extension | latency context                              |
-|   [5]   | `AddConsoleLatencyDataExporter` | service extension | latency console export                       |
+| [INDEX] | [SURFACE]                       | [RAIL]                                       |
+| :-----: | :------------------------------ | :------------------------------------------- |
+|   [1]   | `AddApplicationLogEnricher`     | application dimensions                       |
+|   [2]   | `AddServiceLogEnricher`         | obsolete predecessor of application enricher |
+|   [3]   | `AddProcessLogEnricher`         | process dimensions                           |
+|   [4]   | `AddLatencyContext`             | latency context                              |
+|   [5]   | `AddConsoleLatencyDataExporter` | latency console export                       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

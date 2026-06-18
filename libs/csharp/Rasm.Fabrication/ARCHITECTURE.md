@@ -8,11 +8,11 @@ The sub-domain folders mirror the eventual source tree, one folder per professio
 
 ```text codemap
 Rasm.Fabrication/
-├── frontier/                       # The polymorphic Fabrication owner: FrontierKind/FrontierPolicy/FrontierResult, the shared Loop/Edge3/Move/PartTransform atoms, one Run data-table fold
+├── frontier/                       # The polymorphic Fabrication owner: FrontierPolicy/FrontierResult unions, the shared Loop/Edge3/Move/PartTransform atoms, one Run generated total Switch
 │   └── owner.md                    # frontier/owner#FABRICATION_OWNER
 ├── geometry2d/                     # The one 2D polygon-algebra substrate over Clipper2: offset/inflate, Boolean clip, Minkowski sum (NFP), open-path screen clip
 │   └── clipper.md                  # geometry2d/clipper#POLYGON_ALGEBRA
-├── projection/                     # HLR: BSP front-to-back visibility ordering + Weiler-Atherton screen clip over Clipper2; visible/hidden/silhouette edge sets for AppUi Viewport2D
+├── projection/                     # HLR: BSP front-to-back visibility ordering + Clipper2 open-path-Boolean screen clip; visible/hidden/silhouette edge sets for AppUi Viewport2D
 │   └── hidden-line.md              # projection/hidden-line#PROJECTION_HIDDEN_LINE
 ├── toolpath/                       # CAM motion: contour/pocket/drill/trochoidal toolpaths over Geometry2D offset, plus the straight-skeleton/medial-axis primitive driving adaptive clearing
 │   ├── motion.md                   # toolpath/motion#CAM_MOTION
@@ -23,7 +23,7 @@ Rasm.Fabrication/
 │   └── nfp.md                      # nesting/nfp#NESTING
 ├── posting/                        # Host-neutral portable cut-program emission: RS-274/ISO-6983 G-code model plus kerf-comp, lead-in/out, micro-tab/bridge, cut-sequencing over Geometry2D offset
 │   └── program.md                  # posting/program#CUT_PROGRAM
-└── faults/                         # FabricationFault band-2500 for fabrication-specific cases (NoFit, unreachable-IK, kerf-collision, open-loop) composing the kernel band-2400 GeometryFault; the FabricationKeyPolicy accessor
+└── faults/                         # FabricationFault band-2500 for fabrication-specific cases (NoFit, unreachable-IK, kerf-collision, open-loop) composing the kernel band-2400 GeometryFault
     └── faults.md                   # faults/faults#FAULT_BAND
 ```
 

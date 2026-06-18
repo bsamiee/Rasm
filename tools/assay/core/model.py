@@ -591,6 +591,21 @@ class PackageRun(Detail, frozen=True, tag="package"):
     yak_path: str = ""
 
 
+class ProvisionRun(Detail, frozen=True, tag="provision"):
+    """Forge provisioning evidence projected from rasm-provision JSON."""
+
+    verb: str = ""
+    json: bool = False
+    facts: tuple[tuple[str, str], ...] = ()
+    summary: tuple[tuple[str, int], ...] = ()
+    services: tuple[tuple[str, str, str, str, str], ...] = ()
+    ports: tuple[tuple[str, str, str], ...] = ()
+    extensions: tuple[tuple[str, str, str, str, str, str], ...] = ()
+    extension_catalog: tuple[tuple[str, str, str, str, str], ...] = ()
+    local_probes: tuple[tuple[str, str], ...] = ()
+    local_probe_values: tuple[tuple[str, str, str], ...] = ()
+
+
 class RunSnapshot(Base, frozen=True):
     """Persisted run endpoint for delta details."""
 
@@ -631,6 +646,8 @@ class TestRun(Detail, frozen=True, tag="test"):
     killed: int = 0
     survived: int = 0
     selected: int = 0
+    project_counts: tuple[tuple[str, int], ...] = ()
+    discovery_counts: tuple[tuple[str, int], ...] = ()
 
 
 class VerifySummary(Detail, frozen=True, tag="verify"):
@@ -640,11 +657,23 @@ class VerifySummary(Detail, frozen=True, tag="verify"):
     """
 
     exceptions: int = 0
+    scenario_status: str = ""
+    session_status: str = ""
     report_dir: str = ""
     freshness: str = ""
     first_failure: str = ""
+    first_scenario_failure: str = ""
+    first_session_fault: str = ""
     first_fault_phase: str = ""
     first_fault_output: Annotated[str, msgspec.Meta(max_length=256)] = ""
+    scenario_counts: tuple[tuple[str, int], ...] = ()
+    evidence_counts: tuple[tuple[str, int], ...] = ()
+    reference_counts: tuple[tuple[str, int], ...] = ()
+    artifact_count: int = 0
+    capture_count: int = 0
+    manifest_count: int = 0
+    certificate_path: str = ""
+    phase_status: tuple[tuple[str, str], ...] = ()
     facts: tuple[tuple[str, str], ...] = ()
     captures: tuple[tuple[str, str], ...] = ()
 
@@ -664,7 +693,9 @@ class BridgeLifecycle(Detail, frozen=True, tag="bridge"):
     first_fault_output: Annotated[str, msgspec.Meta(max_length=256)] = ""
 
 
-type AnyDetail = ApiSource | ApiSurface | VerifySummary | BridgeLifecycle | TestRun | StaticRun | PackageRun | ApiResolution | Diagnostic | RunDelta
+type AnyDetail = (
+    ApiSource | ApiSurface | VerifySummary | BridgeLifecycle | TestRun | StaticRun | PackageRun | ProvisionRun | ApiResolution | Diagnostic | RunDelta
+)
 
 
 class Report(Base, frozen=True):
@@ -893,15 +924,36 @@ def _sarif_match(result: _SarifResult) -> Match:
     )
 
 
+def _argv_sarif_dir(argv: tuple[str, ...], fallback: Path) -> Path:
+    return next((Path(token.split("=", 1)[1]) for token in argv if token.startswith("-p:CspSarifDir=")), fallback)
+
+
+def _sarif_files(base: Path, argv: tuple[str, ...], stem: str, *, slnx: bool) -> tuple[Path, ...]:
+    active = _argv_sarif_dir(argv, base)
+    match (slnx, bool(stem)):
+        case (True, _):
+            return tuple(sorted(active.glob("*.sarif")))
+        case (False, True):
+            return (active / f"{stem}.sarif",)
+        case _:
+            return tuple(sorted(active.glob("*.sarif")))
+
+
 def _sarif_rows(sarif_dir: str | None, outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
     if not sarif_dir:
         return ()
     base = Path(sarif_dir)
-    targets = tuple(t for done in outcomes if "dotnet" in done.argv and "build" in done.argv for t in _build_targets(done.argv))
-    # A .csproj target keys only its own <stem>.sarif so a dependency project never leaks cross-project findings into a
-    # single-project gate; a .slnx target (or a non-build fold with no target) keys the whole directory.
-    csproj_scoped = bool(targets) and not any(slnx for _, slnx in targets)
-    files = tuple(base / f"{stem}.sarif" for stem, _ in targets) if csproj_scoped else sorted(base.glob("*.sarif"))
+    builds = tuple(done for done in outcomes if "dotnet" in done.argv and "build" in done.argv)
+    files = (
+        tuple(
+            path
+            for done in builds
+            for stem, slnx in (_build_targets(done.argv) or (("", True),))
+            for path in _sarif_files(base, done.argv, stem, slnx=slnx)
+        )
+        if builds
+        else tuple(sorted(base.glob("*.sarif")))
+    )
     return tuple(
         _sarif_match(result) for path in files if path.is_file() for run in _sarif_log(path).runs for result in run.results if not result.suppressions
     )
@@ -916,15 +968,18 @@ def _build_targets(argv: tuple[str, ...]) -> tuple[tuple[str, bool], ...]:
 def _sarif_status(outcomes: tuple[Completed, ...], sarif_dir: str | None) -> tuple[tuple[str, str], ...]:
     base = Path(sarif_dir) if sarif_dir else None
     return tuple(
-        (stem, _classify_sarif(done.status, base, stem, slnx=slnx).token(_sarif_results(base, stem, slnx=slnx)))
+        (
+            stem,
+            _classify_sarif(done.status, base, done.argv, stem, slnx=slnx).token(_sarif_results(base, done.argv, stem, slnx=slnx)),
+        )
         for done in outcomes
         if "dotnet" in done.argv and "build" in done.argv
         for stem, slnx in (_build_targets(done.argv) or (("", False),))
     )
 
 
-def _classify_sarif(status: RailStatus, base: Path | None, stem: str, *, slnx: bool) -> SarifStatus:
-    produced = base is not None and ((slnx and any(base.glob("*.sarif"))) or (bool(stem) and (base / f"{stem}.sarif").is_file()))
+def _classify_sarif(status: RailStatus, base: Path | None, argv: tuple[str, ...], stem: str, *, slnx: bool) -> SarifStatus:
+    produced = base is not None and any(path.is_file() for path in _sarif_files(base, argv, stem, slnx=slnx))
     match (produced, status):
         case (True, _):
             return SarifStatus.PRODUCED
@@ -936,10 +991,10 @@ def _classify_sarif(status: RailStatus, base: Path | None, stem: str, *, slnx: b
             return SarifStatus.BUILD_FAILED
 
 
-def _sarif_results(base: Path | None, stem: str, *, slnx: bool) -> int:
+def _sarif_results(base: Path | None, argv: tuple[str, ...], stem: str, *, slnx: bool) -> int:
     if base is None:
         return 0
-    files = tuple(base.glob("*.sarif")) if slnx else ((base / f"{stem}.sarif"),) if stem else ()
+    files = _sarif_files(base, argv, stem, slnx=slnx)
     return sum(1 for path in files if path.is_file() for run in _sarif_log(path).runs for result in run.results if not result.suppressions)
 
 
@@ -1311,6 +1366,7 @@ __all__ = [
     "Mode",
     "MutationLane",
     "PackageRun",
+    "ProvisionRun",
     "Report",
     "RunDelta",
     "RunSnapshot",

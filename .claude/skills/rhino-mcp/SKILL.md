@@ -27,6 +27,8 @@ Drives McNeel `Rhino-MCP-Platform` through the `mcp__rhino-mcp-platform__*` tool
 
 [IMPORTANT] Keep MCP idle during ANY bridge cycle that holds the session — `build`/`status`/`verify`/`quit`/deploy/publish — not only `verify`. MCP `run_csharp`/`run_python`/`run_command` drive `RhinoApp` command history and inject foreign lines into the same `command.history.tail` / `command.capture.tail` evidence the bridge spools, contaminating per-scenario evidence. Run interactive MCP exploration strictly before or after the bridge holds the session, never concurrently. This rule extends conditionally to `Rasm.AppHost`: its MCP server is host-neutral capability projection and stays outside the contamination hazard, but any AppHost tool that drives a live Rhino host through its `ComputeIntent` acquires the same liability and the same idle-during-bridge-lease discipline.
 
+[IMPORTANT] Promotion path: MCP observation -> typed `[RhinoScenario]` -> authoring certificate -> reviewed `ReferenceEvidence` -> `bridge verify`. MCP is the microscope; the bridge certificate and reviewed references are the proof boundary.
+
 ## [2]-[SLOT_LIFECYCLE]
 
 Every non-router tool accepts an implicit `slot` arg (animal-name ID). Omitting it uses the last-used/open Rhino, auto-spawning one only if none is running. Slot state is lazy and stateful — `list_slots` is what prunes crashed Rhinos and adopts user-started ones since the last call.
@@ -39,7 +41,7 @@ Every non-router tool accepts an implicit `slot` arg (animal-name ID). Omitting 
 
 [IMPORTANT] Poll `list_slots` before assuming a held `slot` is live. Adopted (user-started) slots return `cannot_close_adopted` and are non-disposable — treat them as borrowed, never force-close them.
 
-## [3]-[SCRIPTING]—[RUN_CSHAR/PYTHON/COMMAND]
+## [3]-[SCRIPTING]—[RUN_CSHARP/PYTHON/COMMAND]
 
 The universal escape hatch: full RhinoCommon scoped to the slot's doc, stdout/error captured.
 
@@ -54,7 +56,7 @@ The universal escape hatch: full RhinoCommon scoped to the slot's doc, stdout/er
 
 [IMPORTANT] Both scripting tools inject `__rhino_doc__` (the slot's `RhinoDoc`). Use it directly. In Python do NOT use `scriptcontext.doc` or `rhinoscriptsyntax`'s implicit doc — they bind to the wrong document. In C# operate on `__rhino_doc__`.
 
-[IMPORTANT] `error: null` is necessary but NOT sufficient for success: error detection is heuristic string-matching (`Traceback`, `error CS`, `Compile Error`, `Exception:`) over scraped command-window text, so a silent failure or a no-op can read as success. Assert post-conditions explicitly — re-query `get_canvas_graph` / `list_objects` / the written `.3dm` — rather than trusting a null error. Capture is fire-and-harvest, not streaming: always `print` / `Console.WriteLine` explicit, self-serialized structured results; never rely on return-value capture. `run_command` hard-blocks if a prior command awaits interactive input — prefer scripting over `run_command` for any non-trivial geometry to avoid stranding a slot in an interactive prompt.
+[IMPORTANT] `error: null` is necessary but NOT sufficient for success: error detection is heuristic string-matching (`Traceback`, `error CS`, `Compile Error`, `Exception:`) over scraped command-window text, so a silent failure or a no-op can read as success. Assert post-conditions explicitly — re-query `g2_get_canvas_graph` / `list_objects` / the written `.3dm` — rather than trusting a null error. Capture is fire-and-harvest, not streaming: always `print` / `Console.WriteLine` explicit, self-serialized structured results; never rely on return-value capture. `run_command` hard-blocks if a prior command awaits interactive input — prefer scripting over `run_command` for any non-trivial geometry to avoid stranding a slot in an interactive prompt.
 
 ## [4]-[DOCUMENT_IO]
 

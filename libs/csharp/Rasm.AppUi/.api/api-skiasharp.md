@@ -14,10 +14,9 @@
 
 ## [2]-[PUBLIC_TYPES]
 
-[DRAWING_TYPES]: canvas, paint, and geometry
-- rail: visuals
+[DRAWING_TYPES]: canvas, paint, and geometry — rail: visuals
 
-| [INDEX] | [SYMBOL]        | [RAIL]          |
+| [INDEX] | [SYMBOL]        | [KIND]          |
 | :-----: | :-------------- | :-------------- |
 |   [1]   | `SKCanvas`      | drawing surface |
 |   [2]   | `SKPaint`       | paint state     |
@@ -28,10 +27,9 @@
 |   [7]   | `SKPoint`       | point value     |
 |   [8]   | `SKMatrix`      | transform value |
 
-[SURFACE_AND_IMAGE_TYPES]: pixel and image ownership
-- rail: visuals
+[SURFACE_AND_IMAGE_TYPES]: pixel and image ownership — rail: visuals
 
-| [INDEX] | [SYMBOL]      | [RAIL]          |
+| [INDEX] | [SYMBOL]      | [KIND]          |
 | :-----: | :------------ | :-------------- |
 |   [1]   | `SKSurface`   | draw target     |
 |   [2]   | `SKImage`     | immutable image |
@@ -42,10 +40,9 @@
 |   [7]   | `SKData`      | byte buffer     |
 |   [8]   | `SKDocument`  | document output |
 
-[TEXT_AND_FONT_TYPES]: text and typeface surface
-- rail: visuals
+[TEXT_AND_FONT_TYPES]: text and typeface surface — rail: visuals
 
-| [INDEX] | [SYMBOL]            | [RAIL]          |
+| [INDEX] | [SYMBOL]            | [KIND]          |
 | :-----: | :------------------ | :-------------- |
 |   [1]   | `SKFont`            | font object     |
 |   [2]   | `SKTypeface`        | typeface object |
@@ -54,10 +51,9 @@
 |   [5]   | `SKTextBlob`        | shaped text     |
 |   [6]   | `SKTextBlobBuilder` | text builder    |
 
-[PAINT_PIPELINE_TYPES]: color, shader, filter, and runtime render surfaces
-- rail: visuals
+[PAINT_PIPELINE_TYPES]: color, shader, filter, and runtime render surfaces — rail: visuals
 
-| [INDEX] | [SYMBOL]                 | [RAIL]          |
+| [INDEX] | [SYMBOL]                 | [KIND]          |
 | :-----: | :----------------------- | :-------------- |
 |   [1]   | `SKColor`                | byte color      |
 |   [2]   | `SKColorF`               | float color     |
@@ -73,19 +69,17 @@
 |  [12]   | `SKMaskFilter`           | mask filter     |
 |  [13]   | `SKRuntimeEffect`        | runtime shader  |
 
-[CODEC_AND_FORMAT_TYPES]: encode format, pixel layout, and alpha enums
-- rail: visuals
+[CODEC_AND_FORMAT_TYPES]: encode format, pixel layout, and alpha enums — rail: visuals
 
-| [INDEX] | [SYMBOL]               | [RAIL]        |
+| [INDEX] | [SYMBOL]               | [KIND]        |
 | :-----: | :--------------------- | :------------ |
 |   [1]   | `SKEncodedImageFormat` | encode format |
 |   [2]   | `SKColorType`          | pixel layout  |
 |   [3]   | `SKAlphaType`          | alpha mode    |
 
-[GPU_TYPES]: GPU context and backend surface
-- rail: visuals
+[GPU_TYPES]: GPU context and backend surface — rail: visuals
 
-| [INDEX] | [SYMBOL]                | [RAIL]           |
+| [INDEX] | [SYMBOL]                | [KIND]           |
 | :-----: | :---------------------- | :--------------- |
 |   [1]   | `GRContext`             | GPU context      |
 |   [2]   | `GRRecordingContext`    | GPU recording    |
@@ -152,8 +146,6 @@
 |   [9]   | `CreateRgb`        | `SKColorSpace` | ICC-primary space |
 |  [10]   | `Equal`            | `SKColorSpace` | space identity    |
 |  [11]   | `WithColorSpace`   | `SKImageInfo`  | space retag       |
-
-> `SKColorSpace.CreateRgb(SKColorSpaceTransferFn transferFn, SKColorSpaceXyz toXyzD50)` composes an ICC-primary working space. `SKColorSpaceXyz` carries the static primary matrices `Srgb`, `DisplayP3`, `Rec2020`, `AdobeRgb`; `SKColorSpaceTransferFn` carries the static curves `Srgb`, `Linear`, `TwoDotTwo`, `Hlg`, `Pq`. `SKShader.CreateLinearGradient(SKPoint start, SKPoint end, SKColorF[] colors, SKColorSpace colorspace, SKShaderTileMode mode)` is the float wide-gamut gradient overload; `SKShaderTileMode` carries `Clamp`, `Repeat`, `Mirror`, `Decal`. `SKColorType.RgbaF16` is the half-float surface format for scrgb-float reproject.
 
 [TEXT_AND_PAINT_ENTRYPOINTS]: text, color, shader, and render operations
 - rail: visuals

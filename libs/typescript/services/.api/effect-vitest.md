@@ -1,18 +1,6 @@
 # [API_CATALOGUE] @effect/vitest
 
-Decompile-verified from the installed distribution at `node_modules/@effect/vitest/dist/dts`
-(version `0.29.0`). The package is the Effect-aware Vitest binding: it `export *`-forwards the
-entire `vitest` runtime surface and overlays an Effect test runner (`it.effect`/`scoped`/`live`/
-`scopedLive`), a `Layer`-sharing harness (`layer`/`describeWrapped`), a fast-check property runner
-(`prop`/`it.prop`), an `Equal`-trait-aware Vitest equality tester (`addEqualityTesters`), a
-flaky-retry combinator (`flakyTest`), and a closed family of `Equal`/`Option`/`Either`/`Exit`-aware
-assertion functions under the `utils` entry. Peer/import surface: `effect` (`Duration`, `Effect`,
-`FastCheck`, `Layer`, `Schema`, `Scope`, `TestServices`, `Cause`, `Either`, `Exit`, `Option`) and
-`vitest` (`TestAPI`, `TestFunction`, `TestContext`, `TestOptions`, `SuiteCollector`).
-
-The package root `.` re-exports all of `vitest` plus the named runner/method symbols below; the
-`@effect/vitest/utils` entry carries the assertion family. Every Effect-test combinator hangs off
-the `Vitest.Methods` / `Vitest.Tester` interface tree, not parallel free functions.
+`@effect/vitest` is the Effect-aware Vitest binding: it re-exports the entire `vitest` surface and overlays an Effect test runner (`it.effect`/`scoped`/`live`/`scopedLive`), a `Layer`-sharing harness (`layer`/`describeWrapped`), a fast-check property runner (`prop`/`it.prop`), an `Equal`-trait-aware equality tester (`addEqualityTesters`), a flaky-retry combinator (`flakyTest`), and a closed assertion family under the `utils` entry. Every Effect-test combinator hangs off the `Vitest.Methods` / `Vitest.Tester` interface tree.
 
 ```ts
 // @effect/vitest

@@ -63,8 +63,6 @@ Vega converter rows share allowed-base-url and locale policy; helper rows query 
 - evidence: each render captures spec dialect, output format, scale/ppi, theme, and output byte length as a visuals receipt.
 - boundary: vl-convert owns the headless Vega static render; `altair` produces the input spec; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
-
 [RAIL_LAW]:
 - Package: `vl-convert-python`
 - Owns: headless Vega-Lite/Vega static rendering to SVG/PNG/JPEG/PDF/HTML/scenegraph, font registration, version/theme queries

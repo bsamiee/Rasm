@@ -1,11 +1,6 @@
 # [APPUI_DIAGNOSTICS_EVIDENCE]
 
-Rasm.AppUi evidence is one rail: a seven-case `EvidenceReceipt` union folds every sibling receipt stream into the
-HLC-stamped sink envelope, one correlation join projects per-package envelope streams into causal timelines with
-typed skew bands, host-agnostic capture rows prove pixels by content hash, and a derivation engine generates the
-headless proof matrix from the screen catalog and replays command journals under virtual time. The page owns the
-evidence union with the package wire context, the join fold, the capture and proof row families, the Debug loop
-rows, and the evidence wire contract — composing AppHost ports and the settled sibling receipt records throughout.
+Rasm.AppUi evidence is one rail: a seven-case `EvidenceReceipt` union folds every sibling receipt stream into the HLC-stamped sink envelope, one correlation join projects per-package envelope streams into causal timelines with typed skew bands, host-agnostic capture rows prove pixels by content hash, and a derivation engine generates the headless proof matrix from the screen catalog and replays command journals under virtual time. The page owns the evidence union with the package wire context, the join fold, the capture and proof row families, the Debug loop rows, and the evidence wire contract — composing AppHost ports and the settled sibling receipt records throughout.
 
 ## [1]-[INDEX]
 

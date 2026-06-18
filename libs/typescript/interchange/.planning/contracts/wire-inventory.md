@@ -24,7 +24,7 @@ The canonical contract inventory: every consumed C# wire cluster mapped to its c
 |   [2]   | `csharp:Rasm.AppHost/observability/health-and-degradation` | json-stj  | HealthStore                                       |
 |   [3]   | `csharp:Rasm.AppHost/observability/support-bundles`      | json-stj    | CommandGateway capture-support                    |
 |   [4]   | `csharp:Rasm.AppHost/ports/runtime-ports`                | json-stj    | ReceiptEnvelopeCarrier                            |
-|   [5]   | `csharp:Rasm.Persistence/snapshots/codecs`               | messagepack | GeometryRail + SnapshotFeed                       |
+|   [5]   | `csharp:Rasm.Persistence/snapshots/codecs`               | messagepack | DecodeRail geometry row + SnapshotFeed            |
 |   [6]   | `csharp:Rasm.Persistence/sync/collaboration`             | messagepack | DecodeRail + ConflictPresenceStore                |
 |   [7]   | `csharp:Rasm.Compute/remote/remote`                      | proto       | WireClients + ArtifactFrameRail + FaultDetailRail |
 |   [8]   | `csharp:Rasm.Compute/progress/progress`                  | proto       | ProgressStore                                     |
@@ -36,11 +36,10 @@ Each anchor's `#TS_PROJECTION` cluster is the authoritative wire shape; the code
 
 ## [3]-[TS_PROJECTION]
 
-- Owner: the three suite-anchor shapes the inventory binds cross-cluster — the HLC stamp, the tenant context, and the package literal, transcribed from `csharp:Rasm.AppHost/ports/runtime-ports#TS_PROJECTION`.
+- Owner: the three suite-anchor shapes the inventory binds cross-cluster — the HLC stamp, the tenant context, and the package literal, sourced from `csharp:Rasm.AppHost/ports/runtime-ports#TS_PROJECTION`. This page owns the verbatim-transcription law for the whole branch; every other page's projection cluster carries only its own shape delta.
 - Entry: `HlcStampWire` carries the physical/logical/skew triple every envelope stamps; `TenantContextWire.tenantId` is the `UInt128` decimal-string; `RasmPackage` is the four-package literal gating the fault projection.
 - Packages: `effect` `Schema` for the codec surface.
-- Growth: a new suite anchor lands as one shape row; the branch authors no shape absent from the C# fence.
-- Boundary: every shape transcribes a C# `#TS_PROJECTION` fence verbatim.
+- Growth: a new suite anchor lands as one shape row.
 
 ```ts contract
 const HlcStampWire = Schema.Struct({ physical: Schema.String, logical: Schema.Number, skewBound: Schema.String });

@@ -1,0 +1,90 @@
+# [PY_BRANCH_API_BEARTYPE]
+
+`beartype` supplies O(1) runtime type checking via the `@beartype` decorator, import-hook enforcement via `beartype.claw`, a typed exception hierarchy in `beartype.roar`, and a PEP-compatible extended `beartype.typing` namespace that adds `Protocol`, `TypeVar`, and `Annotated` with beartype-aware semantics.
+
+## [1]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `beartype`
+- package: `beartype`
+- module: `beartype`
+- asset: runtime library
+- rail: type-enforcement
+
+## [2]-[PUBLIC_TYPES]
+
+[PUBLIC_TYPE_SCOPE]: configuration and strategy
+- rail: type-enforcement
+
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [RAIL]                          |
+| :-----: | :--------------------------- | :------------- | :------------------------------ |
+|   [1]   | `BeartypeConf`               | config class   | decorator/hook configuration    |
+|   [2]   | `BeartypeStrategy`           | strategy enum  | check depth / sampling strategy |
+|   [3]   | `BeartypeDecorPlace`         | place enum     | decoration placement flags      |
+|   [4]   | `BeartypeViolationVerbosity` | verbosity enum | error message detail level      |
+|   [5]   | `FrozenDict`                 | immutable dict | hashable dict value object      |
+
+[PUBLIC_TYPE_SCOPE]: claw import hooks
+- rail: type-enforcement
+
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                           |
+| :-----: | :---------------------- | :-------------- | :------------------------------- |
+|   [1]   | `beartyping`            | context manager | transient import-hook scope      |
+|   [2]   | `beartype_this_package` | hook installer  | hook current package at import   |
+|   [3]   | `beartype_package`      | hook installer  | hook one package by name         |
+|   [4]   | `beartype_packages`     | hook installer  | hook multiple packages by name   |
+|   [5]   | `beartype_all`          | hook installer  | hook all future imports globally |
+
+[PUBLIC_TYPE_SCOPE]: roar exception hierarchy (principal types)
+- rail: type-enforcement
+
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]  | [RAIL]                          |
+| :-----: | :-------------------------------- | :------------- | :------------------------------ |
+|   [1]   | `BeartypeException`               | base exception | all beartype exceptions root    |
+|   [2]   | `BeartypeCallHintParamViolation`  | violation      | parameter type check failure    |
+|   [3]   | `BeartypeCallHintReturnViolation` | violation      | return type check failure       |
+|   [4]   | `BeartypeCallHintViolation`       | violation      | general call hint violation     |
+|   [5]   | `BeartypeDecorException`          | decor error    | invalid decoration target       |
+|   [6]   | `BeartypeConfException`           | config error   | invalid BeartypeConf            |
+|   [7]   | `BeartypeClawException`           | hook error     | import hook failure             |
+|   [8]   | `BeartypeDoorHintViolation`       | door violation | isinstance-check hint violation |
+|   [9]   | `BeartypeWarning`                 | base warning   | all beartype warnings root      |
+
+## [3]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: decorator
+- rail: type-enforcement
+
+| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                              |
+| :-----: | :--------------------------------- | :------------- | :---------------------------------- |
+|   [1]   | `beartype(obj=None, *, conf=...)`  | decorator      | type-check callable or class        |
+|   [2]   | `beartype(conf=BeartypeConf(...))` | config mode    | return configured decorator factory |
+
+[ENTRYPOINT_SCOPE]: import hooks
+- rail: type-enforcement
+
+| [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]  | [RAIL]                         |
+| :-----: | :------------------------------------ | :-------------- | :----------------------------- |
+|   [1]   | `beartype_this_package(conf=...)`     | hook installer  | hook calling package at import |
+|   [2]   | `beartype_package(package, conf=...)` | hook installer  | hook named package             |
+|   [3]   | `beartype_packages(*pkgs, conf=...)`  | hook installer  | hook multiple named packages   |
+|   [4]   | `beartype_all(conf=...)`              | hook installer  | hook all future imports        |
+|   [5]   | `beartyping(conf=...)`                | context manager | transient package-scoped hook  |
+
+## [4]-[IMPLEMENTATION_LAW]
+
+[BEARTYPE_TOPOLOGY]:
+- namespaces: `beartype` (decorator + config), `beartype.claw` (import hooks), `beartype.roar` (exceptions + warnings), `beartype.typing` (extended typing namespace)
+- `@beartype` checks types at call boundaries in O(1) time using generated wrapper code, not full traversal
+- `BeartypeConf` is immutable and hashable; create once and reuse across all decorations
+- `beartype.typing` re-exports all `typing` module members with beartype-aware `Protocol`, `TypeVar`, and `Annotated` variants that integrate with the O(1) checking strategy
+
+[LOCAL_ADMISSION]:
+- Apply `@beartype` at service and boundary entry points; use `beartype.claw` hooks for whole-package enforcement at import time.
+- Catch `BeartypeCallHintParamViolation` / `BeartypeCallHintReturnViolation` at boundary adapters to convert to domain error types.
+- Use `beartype.typing.Protocol` instead of `typing.Protocol` when protocols participate in beartype-checked call sites.
+
+[RAIL_LAW]:
+- Package: `beartype`
+- Owns: O(1) runtime type enforcement, import-hook activation, violation exception hierarchy
+- Accept: `@beartype` decorator, `BeartypeConf`, `beartype.claw` hooks, `beartype.typing` namespace
+- Reject: hand-rolled isinstance guards at internal call sites when `@beartype` provides the same check

@@ -27,7 +27,6 @@ from rasm.runtime.content_identity import ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary
 
 
-# --- [TYPES] ---------------------------------------------------------------------------
 type FieldKind = Literal["i32", "i64", "f64", "bool", "string", "key", "array", "nested"]
 
 _ANNOTATION: dict[FieldKind, str] = {
@@ -40,7 +39,6 @@ _ANNOTATION: dict[FieldKind, str] = {
 }
 
 
-# --- [MODELS] --------------------------------------------------------------------------
 class FieldDescriptor(Struct, frozen=True):
     name: str
     kind: FieldKind
@@ -68,7 +66,6 @@ class GeneratedModule(Struct, frozen=True):
 _BUNDLE_DECODER = msgspec.json.Decoder(type=EvidenceBundle)
 
 
-# --- [SERVICES] ------------------------------------------------------------------------
 class StubCodegen:
     @staticmethod
     def emit(raw: bytes) -> "RuntimeRail[GeneratedModule]":

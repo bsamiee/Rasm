@@ -387,7 +387,7 @@ public sealed partial class DenseOutputCoefficientFamily {
     private Fin<Seq<double>> Evaluate(double theta, int stageCount, Op key, Func<double[], double, double> project) {
         double[][] table = Table;
         return MethodSpecific && table.Length == stageCount
-            ? key.AcceptValue(value: toSeq(table.Select(row => project(row, theta))))
+            ? key.Accept(values: table.Select(row => project(row, theta)))
             : Fin.Fail<Seq<double>>(key.InvalidInput());
     }
     private static double Horner(double[] row, double theta) =>

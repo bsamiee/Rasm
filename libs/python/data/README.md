@@ -2,7 +2,7 @@
 
 `data` is the host-free data-interchange companion of the Python branch: typed dataset refs, columnar lazy/streaming scan and egress, the transactional table-format lakehouse, cross-engine relational query, a data-contract gate, dataframe-agnostic interop with a pyarrow-free Arrow carrier, vector and raster geospatial, graph payloads, chunked tensor stores, and mesh-file exchange. It is a peer producer that consumes runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` at the boundary and never re-mints them, integrating with C# only at the wire (content-identity plus GLB) and the companion/offline seams. This file routes the design pages and registers the external packages the folder uses; `ARCHITECTURE.md` carries the domain map, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
-## [1]-[PAGES]
+## [1]-[ROUTER]
 
 The design pages under `.planning/`, one sub-domain folder per eventual source sub-tree. The `cloud-egress` sub-domain is planned and carries no page yet; `ARCHITECTURE.md` shows it as a visible gap.
 
@@ -22,10 +22,17 @@ Every external library the folder uses, planned or implemented, as a flat list; 
 
 - Columnar and frame: `polars`, `pyarrow`, `arro3-core`, `nanoarrow`, `pandas`, `narwhals`, `dask`
 - Query and ingest: `duckdb`, `ibis-framework`, `connectorx`, `adbc-driver-manager`
-- Table formats: `deltalake`, `pyiceberg`, `lance`
+- Table formats: `deltalake`, `pyiceberg`, `pylance`
 - Contracts: `pandera`
 - Geospatial: `geopandas`, `shapely`, `pyproj`, `pyogrio`, `rasterio`
 - Graph: `networkx`, `rustworkx`
-- Tensor: `zarr`, `cubed`, `awkward`, `xarray`, `icechunk`, `virtualizarr`, `h5py`
+- Tensor: `zarr`, `cubed`, `awkward`, `xarray`, `icechunk`, `virtualizarr`, `h5py`, `sparse`
 - Mesh and point cloud: `meshio`, `trimesh`, `rhino3dm`, `laspy`, `pdal`
 - Cloud egress (planned): `obstore`
+
+## [3]-[CROSS_CUTTING]
+
+Branch-wide packages from the Python infrastructure layer that this folder directly consumes.
+
+- Expression and struct: `expression`, `msgspec`
+- Array substrate: `numpy`

@@ -6,9 +6,7 @@ Wire posture: HOST-LOCAL. The joint-angle stream crosses only the in-process sea
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                                          |
-| :-----: | :----------- | :--------------------------------------------------------------------------------------------- |
-|   [1]   | SERIAL_CHAIN | `DhJoint` DH forward kinematics; the one damped-least-squares Jacobian-pseudoinverse IK solver through singularities |
+One cluster: `[2]-[SERIAL_CHAIN]` owns the `DhJoint`/`IkPolicy` records, the `Fk` Denavit-Hartenberg forward-kinematics matrix product, and the one damped-least-squares `Ik` Jacobian-pseudoinverse solver through singularities.
 
 ## [2]-[SERIAL_CHAIN]
 

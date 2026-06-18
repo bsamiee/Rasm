@@ -1,9 +1,6 @@
-# [RASM_APPHOST_API_THINKTECTURE_JSON]
+# [RASM_APPUI_API_THINKTECTURE_JSON]
 
-`Thinktecture.Runtime.Extensions.Json` supplies System.Text.Json converters and
-converter factories that route `[ValueObject]`, `[SmartEnum]`, and `[Union]` owners
-through generated key conversion, static `Validate` rails, span-based zero-allocation
-deserialization, and number-handling-aware key codecs.
+`Thinktecture.Runtime.Extensions.Json` supplies System.Text.Json converters and converter factories that route `[ValueObject]`, `[SmartEnum]`, and `[Union]` owners through generated key conversion, static `Validate` rails, span-based zero-allocation deserialization, and number-handling-aware key codecs.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -52,8 +49,6 @@ deserialization, and number-handling-aware key codecs.
 
 [ENTRYPOINT_SCOPE]: factory registration and selection
 - rail: serialization
-
-Factory constructors optionally receive `skipObjectsWithJsonConverterAttribute` and a `Func<Type, bool>?` span-deserialization opt-out callback.
 
 | [INDEX] | [SURFACE]                          | [CALL_SHAPE]              | [CAPABILITY]                                   |
 | :-----: | :--------------------------------- | :------------------------ | :--------------------------------------------- |

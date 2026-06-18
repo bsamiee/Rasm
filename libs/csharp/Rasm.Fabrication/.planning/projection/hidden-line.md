@@ -1,14 +1,12 @@
 # [RASM_FABRICATION_HIDDEN_LINE]
 
-The hidden-line-removal kernel: a BSP-tree front-to-back visibility solver plus a Weiler-Atherton screen clip producing the world-space visible/hidden/silhouette edge sets the AppUi `drafting-sheets#PROJECTION` `Viewport2D` consumes BELOW its painter sort. The BSP front-to-back ordering and the silhouette extraction are author-kernel — the property a back-to-front painter sort cannot give, so a concave self-occluding solid resolves correctly. The screen clip rides the `geometry2d/clipper#POLYGON_ALGEBRA` Clipper2 substrate: each candidate edge is intersected and differenced against the front-to-back occluder screen polygons, the integer-robust Boolean clip replacing the hand-rolled parameter-interval subtraction. The kernel composes the kernel `Rasm/Geometry/spatial-index#SPATIAL_INDEX` `SpatialIndex` BVH broad-phase for occluder candidate pruning, the kernel `Rasm/Geometry/geometry-kernel#ROBUST_PREDICATES` `Predicate.Orient2D` exact orientation for the silhouette view-dot sign floor, and the `frontier/owner#FABRICATION_OWNER` `Loop`/`Edge3`/`ProjectionDir`/`FrontierResult` shared vocabulary. It is dispatched by the `frontier/owner#FABRICATION_OWNER` `Run` fold's `HiddenLine` policy case; it mints no second `Viewport2D`, no second acceleration structure, and computes no hash.
+The hidden-line-removal kernel: a BSP-tree front-to-back visibility solver plus a Clipper2 open-path-Boolean screen clip producing the world-space visible/hidden/silhouette edge sets the AppUi `drafting-sheets#PROJECTION` `Viewport2D` consumes BELOW its painter sort. The BSP front-to-back ordering and the silhouette extraction are author-kernel — the property a back-to-front painter sort cannot give, so a concave self-occluding solid resolves correctly. The screen clip rides the `geometry2d/clipper#POLYGON_ALGEBRA` Clipper2 substrate: each candidate edge is intersected and differenced against the front-to-back occluder screen polygons, the integer-robust Boolean clip replacing the hand-rolled parameter-interval subtraction. The kernel composes the kernel `Rasm.Geometry/spatial/index#SPATIAL_INDEX` `SpatialIndex` BVH broad-phase for occluder candidate pruning, the kernel `Rasm.Geometry/numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` exact orientation for the silhouette view-dot sign floor, and the `frontier/owner#FABRICATION_OWNER` `Loop`/`Edge3`/`ProjectionDir`/`FrontierResult` shared vocabulary. It is dispatched by the `frontier/owner#FABRICATION_OWNER` `Run` fold's `HiddenLine` policy case; it mints no second `Viewport2D`, no second acceleration structure, and computes no hash.
 
 Wire posture: HOST-LOCAL. The world-space `HiddenLineResult` edge sets cross only the in-process seam to the AppUi `Viewport2D` consumer — a CONSUMPTION seam where AppUi reads and Fabrication produces, the projection-to-sheet owned by AppUi. The `Facet`/`BspNode` interior records are host-local types that never sit between wire and rail.
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]              | [OWNS]                                                                                                  |
-| :-----: | :--------------------- | :----------------------------------------------------------------------------------------------------- |
-|   [1]   | PROJECTION_HIDDEN_LINE | BSP front-to-back visibility ordering + Weiler-Atherton screen clip over Clipper2; world-space visible/hidden/silhouette edge sets for AppUi `Viewport2D` |
+One cluster: `[2]-[PROJECTION_HIDDEN_LINE]` owns the BSP front-to-back visibility ordering plus the Clipper2 open-path-Boolean screen clip, producing the world-space visible/hidden/silhouette edge sets the AppUi `Viewport2D` consumes.
 
 ## [2]-[PROJECTION_HIDDEN_LINE]
 
@@ -141,9 +139,9 @@ public static class Hlr {
         var bound = new BoundingBox(new[] { sa, sb });
         Seq<int> candidates = (index.Query(new SpatialQuery.Range(bound, None)) as QueryResult.Hits)?.Ids ?? Seq<int>();
         Seq<Loop> occluders = candidates.Filter(fi => facets[fi].Depth < edgeDepth).Map(fi => facets[fi].Screen);
-        var (visibleRuns, hiddenRuns) = PolygonAlgebra.ClipOpenPath(new Edge3(sa, sb), occluders);
-        Seq<Edge3> vis = visibleRuns.Map(r => new Edge3(Unproject(edge, sa, sb, r.A), Unproject(edge, sa, sb, r.B)));
-        Seq<Edge3> hid = hiddenRuns.Map(r => new Edge3(Unproject(edge, sa, sb, r.A), Unproject(edge, sa, sb, r.B)));
+        var runs = PolygonAlgebra.ClipOpenPath(new Edge3(sa, sb), occluders);
+        Seq<Edge3> vis = runs.Outside.Map(r => new Edge3(Unproject(edge, sa, sb, r.A), Unproject(edge, sa, sb, r.B)));
+        Seq<Edge3> hid = runs.Inside.Map(r => new Edge3(Unproject(edge, sa, sb, r.A), Unproject(edge, sa, sb, r.B)));
         return (vis, hid);
     }
 

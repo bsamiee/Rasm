@@ -1,6 +1,6 @@
 # [PERSISTENCE_QUERY_RAIL]
 
-Every store operation in Rasm.Persistence executes through one typed dispatch: the eight-case `StoreOp<T>` union runs inside a pooled-context bracket, converts provider failure into the `StoreFault` rail exactly once, and self-emits cache invalidation on the paths SaveChanges interceptors never see. The page owns the operation algebra, the projection and keyset-page shapes, the linq2db bulk lane with its delta projection, and the four-hook interceptor spine; the `StoreProfile` row columns and the AppHost clock, deadline, receipt, cache, and telemetry ports arrive settled and compose as values.
+Every store operation in Rasm.Persistence executes through one typed dispatch: the eight-case `StoreOp<T>` union runs inside a pooled-context bracket, converts provider failure into the `StoreFault` rail exactly once, and self-emits cache invalidation on the paths SaveChanges interceptors never see. The page owns the operation algebra, the projection and keyset-page shapes, the linq2db bulk lane with its delta projection, the four-hook interceptor spine, the standing-query window, the in-process Arrow columnar carrier, and the Arrow Flight SQL plus ADBC zero-copy egress that lifts the carrier across the process boundary; the `StoreProfile` row columns and the AppHost clock, deadline, receipt, cache, and telemetry ports arrive settled and compose as values.
 
 ## [1]-[INDEX]
 
@@ -12,6 +12,7 @@ Every store operation in Rasm.Persistence executes through one typed dispatch: t
 |   [4]   | INTERCEPTOR_SPINE | Four interception hooks; one fact stream; observability registration    |
 |   [5]   | STANDING_QUERY    | Standing queries; tumbling/sliding/session windows; IVM delta; watermarks |
 |   [6]   | ARROW_PLANE       | Columnar Arrow zero-copy carrier across transport/DuckDB/index/export    |
+|   [7]   | ARROW_EGRESS      | Arrow Flight SQL server, ADBC consumer, record-batch projection over the wire |
 
 ## [2]-[OPERATION_ALGEBRA]
 
@@ -567,7 +568,136 @@ public static class ArrowPlane {
 }
 ```
 
-## [8]-[RESEARCH]
+## [8]-[ARROW_EGRESS]
+
+- Owner: `BatchSchema` the `ArrowSchema`-to-`Apache.Arrow.Schema` fold over the `ArrowTypeMap` rows; `BatchProjector` the `ArrowChunk`-to-`RecordBatch` materializer reusing the one carrier layout; `FlightDataset` the `FlightDescriptor`-keyed dataset address with its `FlightInfo` discovery payload; `StoreFlightServer` the `FlightServer` subclass owning `GetFlightInfo`/`GetSchema`/`DoGet`/`DoExchange`; `AdbcEgress` the `AdbcStatement` consumer contract folding `QueryResult.Stream` back to `RecordBatch`; `StoreFlightClient` the `FlightClient`-over-`GrpcChannel` puller; `ArrowEgress` the static surface owning the batch projection, the Flight serve fold, the standing-query push channel, and the ADBC pull.
+- Cases: a `DoGet` redeems one `FlightTicket` into a server-streamed `RecordBatch` sequence; a `DoExchange` threads the standing-query incremental batch stream over one full-duplex channel; an ADBC `ExecuteQuery` yields a `QueryResult` whose `IArrowArrayStream` re-reads the same batch schema — the dataset is `FlightDescriptor.CreateCommandDescriptor` over the canonical query bytes so an identical query addresses one dataset.
+- Entry: `public static RecordBatch Project(in ArrowChunk chunk)` — folds one borrowed carrier quantum into a `RecordBatch` whose columns mirror the `ArrowSchema` ordinals; `public static IO<long> Serve(StoreFlightServer server, FlightTicket ticket, FlightServerRecordBatchStreamWriter writer, Func<FlightTicket, ChunkSink, IO<long>> source, ClockPolicy clocks)` writes one `RecordBatch` per carrier quantum off the streaming source into the Flight response stream; `public static IO<long> PushStanding(FlightServerRecordBatchStreamWriter writer, StandingQuery<RecordBatch> query, ChannelReader<QueryDelta<RecordBatch>> deltas)` pushes incremental standing-query batches over one channel; `public static IO<long> Pull(AdbcConnection connection, string sql, Func<RecordBatch, IO<Unit>> onBatch)` opens an `AdbcStatement`, executes, and folds the `QueryResult.Stream` `RecordBatch` sequence through the batch sink.
+- Auto: the egress reuses the one `ArrowChunk`/`ArrowSchema` carrier layout the in-process plane (`#ARROW_PLANE`) already projects — `BatchProjector` materializes the borrowed DuckDB vector-chunk buffers into an `Apache.Arrow` `RecordBatch` through the typed `*Array.Builder`/`RecordBatch.Builder.Append` surface keyed by the `ArrowTypeMap` row, so the Flight wire and the in-process plane share one schema and a row-to-object materialization never enters; the `StoreFlightServer.DoGet` streams the `RecordBatch` sequence through `FlightServerRecordBatchStreamWriter.WriteAsync` so an analytical consumer pulls columnar batches over gRPC without a re-serialization; the standing-query window (`#STANDING_QUERY`) pushes its incremental delta batches over one `DoExchange` channel so a subscribed client receives the windowed `RecordBatch` deltas live; the ADBC consumer drives `AdbcStatement.ExecuteQuery` and reads `QueryResult.Stream` (`IArrowArrayStream`) so a Python/polars consumer reads the same schema through the native driver; the Flight transport channel and the ADBC driver are host-resolved connection inputs, never fence members.
+- Receipt: a served batch rides `store.arrow.flight.serve` (`ArrowEgress.ServeKind`) carrying the dataset descriptor, the batch count, and the total rows; a standing push rides `store.arrow.flight.push`; an ADBC pull rides `store.arrow.adbc.pull` carrying the `QueryResult.RowCount`.
+- Packages: Apache.Arrow, Apache.Arrow.Flight, Apache.Arrow.Adbc, DuckDB.NET.Data.Full, LanguageExt.Core, NodaTime, BCL inbox.
+- Growth: a new egress verb is one `StoreFlightServer` override or one `AdbcStatement` execution form; a new column type is one row on `#ARROW_PLANE` `ArrowTypeMap` consumed here by `BatchSchema`; a new dataset is one `FlightDescriptor` address; zero new surface — a row-wire egress, a second result shape beside `RecordBatch`, a per-consumer serializer, or a hand-rolled gRPC service is the deleted form because the egress lifts the one carrier schema over the Flight/ADBC transport the packages own.
+- Boundary: the egress projects the one `#ARROW_PLANE` carrier schema and never mints a parallel result shape — `BatchProjector.Project` materializes the borrowed vector-chunk buffers into a `RecordBatch` through `RecordBatch.Builder.Append<TArray>(name, nullable, Func<RecordBatch.ArrayBuilder, TArray>)` keyed by the `ArrowTypeMap` row, so the Flight wire schema and the in-process plane schema are one `Schema`, and a row-to-object materialization or a second columnar result type is the deleted form; the `StoreFlightServer` is a concrete `FlightServer` subclass overriding only the verbs the node serves (`GetFlightInfo`, `GetSchema`, `DoGet`, `DoExchange`) — the base handlers throw `NotImplementedException` and the internal protobuf `FlightService` stub is never touched, the gRPC service binding entering at the app root that hosts the listener, never an interior dependency; the dataset is addressed by `FlightDescriptor.CreateCommandDescriptor(string)` over the canonical query bytes so two consumers issuing the same query redeem one dataset, and the `FlightInfo` discovery payload carries the `Schema`, the `FlightEndpoint` ticket-plus-location set, `TotalRecords`, and `TotalBytes` so a consumer plans before pulling; the `FlightTicket` opaque `ByteString` is the `DoGet` redemption token minted from the dataset content key, never a raw query string; the standing-query push rides one `DoExchange` full-duplex channel so the incremental window deltas stream over one connection — a per-batch unary call or a polling pull is the deleted form, and the `WriteOptions` `CompressionCodec` rides `IpcOptions` `Lz4Frame` so the body compresses on the wire without a second framing; the ADBC consumer drives the `AdbcDriver.Open → AdbcDatabase.Connect → AdbcConnection.CreateStatement → AdbcStatement.ExecuteQuery` spine, reads `QueryResult.Stream` (`IArrowArrayStream`), and lifts every `AdbcException` (carrying `AdbcStatusCode`, `SqlState`) into the `StoreFault` rail at this one edge — the `Apache.Arrow.Adbc.C` driver-manager interop and option keys (`AdbcOptions` constants) stay host-resolved connection policy, never a Persistence surface; the carrier lifetime stays bounded to one batch wide so peak managed memory never exceeds one `RecordBatch`, the same ref-struct discipline `#ARROW_PLANE` holds, and the projection consumes the carrier inside the `ChunkSink` scope before the batch crosses the wire; outbound Flight resilience rides AppHost (`OutboundHop`), never a second retry owner, and the database stays excluded from the hop law.
+
+```csharp signature
+public static class BatchSchema {
+    public static Schema Of(ArrowSchema layout) =>
+        layout.Columns.Fold(new Schema.Builder(), static (builder, column) =>
+            builder.Field(field => field
+                .Name(column.Name)
+                .DataType(ArrowType(column.ArrowType))
+                .Nullable(column.Nullable))).Build();
+
+    public static IArrowType ArrowType(string arrowType) =>
+        arrowType switch {
+            "int64" => Int64Type.Default,
+            "int32" => Int32Type.Default,
+            "double" => DoubleType.Default,
+            "float32" => FloatType.Default,
+            "utf8" => StringType.Default,
+            "binary" => BinaryType.Default,
+            "bool" => BooleanType.Default,
+            "timestamp[us]" => new TimestampType(TimeUnit.Microsecond, timezone: null),
+            _ => BinaryType.Default,
+        };
+}
+
+public sealed record FlightDataset(FlightDescriptor Descriptor, Schema Schema, FlightTicket Ticket, long TotalRecords, long TotalBytes) {
+    public static FlightDataset Of(ArrowSchema layout, UInt128 datasetKey, ReadOnlyMemory<byte> command, long records, long bytes) =>
+        new(
+            FlightDescriptor.CreateCommandDescriptor(command.ToArray()),
+            BatchSchema.Of(layout),
+            new FlightTicket(datasetKey.ToString("x32")),
+            records,
+            bytes);
+
+    public FlightInfo Info(FlightLocation serving) =>
+        new(Schema, Descriptor, [new FlightEndpoint(Ticket, [serving])], TotalRecords, TotalBytes);
+}
+
+public sealed class StoreFlightServer(
+    Func<FlightDescriptor, IO<FlightDataset>> resolve,
+    Func<FlightTicket, ChunkSink, IO<long>> source,
+    FlightLocation serving,
+    ClockPolicy clocks) : FlightServer {
+    public override async Task<FlightInfo> GetFlightInfo(FlightDescriptor request, ServerCallContext context) =>
+        (await resolve(request).RunAsync(EnvIO.New(token: context.CancellationToken))).Info(serving);
+
+    public override async Task<Schema> GetSchema(FlightDescriptor request, ServerCallContext context) =>
+        (await resolve(request).RunAsync(EnvIO.New(token: context.CancellationToken))).Schema;
+
+    public override Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context) =>
+        ArrowEgress.Serve(this, ticket, responseStream, source, clocks).RunAsync(EnvIO.New(token: context.CancellationToken)).AsTask();
+}
+
+public static class ArrowEgress {
+    public const string ServeKind = "store.arrow.flight.serve";
+    public const string PushKind = "store.arrow.flight.push";
+    public const string PullKind = "store.arrow.adbc.pull";
+
+    public static RecordBatch Project(in ArrowChunk chunk) {
+        var builder = new RecordBatch.Builder();
+        var schema = chunk.Schema;
+        for (var ordinal = 0; ordinal < schema.Columns.Count; ordinal++) {
+            var column = schema.Columns[ordinal];
+            var buffer = chunk.Column(ordinal);
+            builder.Append(column.Name, column.Nullable, ColumnArray(column.ArrowType, buffer, chunk.RowCount));
+        }
+        return builder.Build();
+    }
+
+    public static IO<long> Serve(
+        StoreFlightServer server, FlightTicket ticket, FlightServerRecordBatchStreamWriter writer,
+        Func<FlightTicket, ChunkSink, IO<long>> source, ClockPolicy clocks) =>
+        source(ticket, chunk => writer.WriteAsync(Project(chunk)).GetAwaiter().GetResult());
+
+    public static IO<long> PushStanding(
+        FlightServerRecordBatchStreamWriter writer, StandingQuery<RecordBatch> query, ChannelReader<QueryDelta<RecordBatch>> deltas) =>
+        IO.liftVAsync(async env => {
+            var pushed = 0L;
+            await foreach (var delta in deltas.ReadAllAsync(env.Token))
+                foreach (var signed in delta.Entering) {
+                    await writer.WriteAsync(signed.Row);
+                    pushed++;
+                }
+            return pushed;
+        });
+
+    public static IO<long> Pull(AdbcConnection connection, string sql, Func<RecordBatch, IO<Unit>> onBatch) =>
+        IO.liftVAsync(async env => {
+            using var statement = connection.CreateStatement();
+            statement.SqlQuery = sql;
+            var result = statement.ExecuteQuery();
+            var stream = result.Stream ?? throw new AdbcException("<adbc-stream-absent>", AdbcStatusCode.InvalidState);
+            var rows = 0L;
+            while (await stream.ReadNextRecordBatchAsync(env.Token) is { } batch) {
+                await onBatch(batch).RunAsync(env);
+                rows += batch.Length;
+            }
+            return rows;
+        });
+
+    private static IArrowArray ColumnArray(string arrowType, ReadOnlyMemory<byte> buffer, int rowCount) =>
+        arrowType switch {
+            "int64" => new Int64Array(new ArrowBuffer(buffer), ArrowBuffer.Empty, rowCount, nullCount: 0, offset: 0),
+            "int32" => new Int32Array(new ArrowBuffer(buffer), ArrowBuffer.Empty, rowCount, nullCount: 0, offset: 0),
+            "double" => new DoubleArray(new ArrowBuffer(buffer), ArrowBuffer.Empty, rowCount, nullCount: 0, offset: 0),
+            "float32" => new FloatArray(new ArrowBuffer(buffer), ArrowBuffer.Empty, rowCount, nullCount: 0, offset: 0),
+            "utf8" => new StringArray(rowCount, ArrowBuffer.Empty, new ArrowBuffer(buffer), ArrowBuffer.Empty),
+            _ => new Int64Array(new ArrowBuffer(buffer), ArrowBuffer.Empty, rowCount, nullCount: 0, offset: 0),
+        };
+}
+```
+
+| [INDEX] | [VERB]       | [SURFACE]                                             | [LAW]                                                  |
+| :-----: | :----------- | :--------------------------------------------------- | :----------------------------------------------------- |
+|   [1]   | discovery    | `GetFlightInfo` over `FlightDescriptor` command      | one dataset per canonical query bytes                  |
+|   [2]   | server pull  | `DoGet` streams `RecordBatch` per carrier quantum    | zero-copy, one batch wide, no row materialization      |
+|   [3]   | standing push | `DoExchange` full-duplex incremental batch channel   | one channel for the windowed delta stream              |
+|   [4]   | client pull  | ADBC `ExecuteQuery` over `QueryResult.Stream`        | native-driver consumer reads the one carrier schema    |
+|   [5]   | fault lift   | `AdbcException` into `StoreFault` at one edge        | `AdbcStatusCode`/`SqlState` fold, never a per-call catch |
+
+## [9]-[RESEARCH]
 
 - [STANDING_QUERY_IVM]: the incremental-view-maintenance delta-fold over the op-log changefeed for a windowed aggregate — whether a sliding-window count maintains by signed delta (add entering rows, subtract leaving rows) without re-scanning the window, and the late-arrival retraction-plus-restate emission against the watermark allowed-lateness on a live changefeed, beside the TimescaleDB continuous-aggregate server-side analogue.
 - [ARROW_ZERO_COPY]: the DuckDB.NET vector-chunk-reader buffer the `ArrowChunk` borrows zero-copy — the carrier binds the catalogued `IDuckDBDataReader`/`VectorDataReaderBase`/`DuckDBDataReader.UseStreamingMode` vector path with the lifetime tied to the reader `using` scope and the `ColumnInfo`/`CardinalityHint`/`IDuckDBDataWriter[]` reverse registration; the open native probe is whether the in-process chunk reader hands a raw column buffer span without a managed marshal step, and whether DuckDB.NET exposes the Apache Arrow C-data interface (`QueryArrow`/`arrow_scan`/`ArrowArrayStream`) as a faster bulk path than the per-row vector reader — the C-data members are NOT in `api-duckdb.md` and are a noted API-pass gap.
@@ -575,3 +705,5 @@ public static class ArrowPlane {
 - [TRACE_DEPTH]: EF Core 10 native `Activity` emission depth beside `AddNpgsql` spans on a live EF context.
 - [COMPILED_QUERY]: the cached `EF.CompileAsyncQuery` plan lifetime against the pooled-context factory on a live context — whether a compiled async query rebinds the leased context's execution strategy per invocation, beyond the confirmed `Func<TContext, IAsyncEnumerable<TResult>>` delegate shape and `TParam1`..`TParam15` arity.
 - [TEMPORAL_AGGREGATE]: the `NpgsqlNodaTimeDbFunctionsExtensions` aggregate arity for `Sum`, `Average`, and `Distance` over `Duration` and `Period` sequences on a live pg translate — the grouping shape the EF translator requires for the `DurationRollup` projection and whether `Distance` takes a single-column or two-column temporal span.
+- [ARROW_FLIGHT_SERVE]: the live `StoreFlightServer.DoGet`/`DoExchange` round-trip streaming the `#ARROW_PLANE` carrier as `RecordBatch` over a hosted `GrpcChannel` against a Python/polars ADBC consumer — the `FlightServerRecordBatchStreamWriter.WriteAsync` back-pressure under a slow reader, the `DoExchange` standing-push channel completion semantics, and the `IpcOptions.CompressionCodec` `Lz4Frame` body-compression negotiation, proven before the serve fence finalizes; the `Apache.Arrow.Adbc.C` driver-manager native binding and the `AdbcOptions` connection-key surface are settled against the catalogue.
+- [ARROW_COLUMN_BUILD]: the variable-width (`BooleanArray` bit-packed, `BinaryArray` three-buffer) and timestamp/uuid column construction from a borrowed `ArrowBuffer` in `ColumnArray` — the fixed-width `Int*Array`/`Float*Array`/`DoubleArray` value-plus-bitmap ctors and the `StringArray(int, ArrowBuffer, ArrowBuffer, ArrowBuffer)` offsets-plus-data ctor are catalogued; the `BooleanArray` value-buffer ctor, the `BinaryArray` offsets-data-validity triplet ctor, and the `TimestampArray`/`UuidArray` carrier construction are the API-pass gap the column builder binds before the variable-width arm finalizes.

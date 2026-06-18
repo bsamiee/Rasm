@@ -2,6 +2,7 @@
     <PropertyGroup Label="Central Package Management">
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
         <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+        <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
     </PropertyGroup>
 
     <ItemGroup Label="Functional Core">
@@ -75,6 +76,14 @@
         <PackageVersion Include="NodaTime" Version="3.3.2" />
         <PackageVersion Include="NodaTime.Serialization.Protobuf" Version="2.0.2" />
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson" Version="1.4.0" />
+        <PackageVersion Include="Pyroscope.OpenTelemetry" Version="0.5.0" />
+        <PackageVersion Include="ModelContextProtocol" Version="1.4.0" />
+        <PackageVersion Include="ModelContextProtocol.Core" Version="1.4.0" />
+        <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.4.0" />
+        <PackageVersion Include="Wasmtime" Version="44.0.0" />
+        <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua" Version="1.5.378.145" />
+        <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.PubSub" Version="1.5.378.145" />
+        <PackageVersion Include="MQTTnet" Version="5.1.0.1559" />
     </ItemGroup>
 
     <ItemGroup Label="Persistence">
@@ -87,10 +96,10 @@
         <!-- FastCDC content-defined chunking: stable dedup chunk boundaries for the versioning/sync rail. -->
         <PackageVersion Include="FastCDC.Net" Version="1.0.1" />
         <PackageVersion Include="DuckDB.NET.Data.Full" Version="1.5.3" />
-        <PackageVersion Include="AWSSDK.S3" Version="4.0.25" />
+        <PackageVersion Include="AWSSDK.S3" Version="4.0.25.1" />
         <PackageVersion Include="Azure.Storage.Blobs" Version="12.29.0" />
         <PackageVersion Include="Google.Cloud.Storage.V1" Version="4.15.0" />
-        <PackageVersion Include="StackExchange.Redis" Version="2.13.17" />
+        <PackageVersion Include="StackExchange.Redis" Version="3.0.0" />
         <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.9" />
         <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
         <PackageVersion Include="K4os.Compression.LZ4" Version="1.3.8" />
@@ -172,13 +181,21 @@
         <PackageVersion Include="Wacton.Unicolour" Version="7.0.0" />
     </ItemGroup>
 
+    <!-- Fabrication: 2D polygon clipping/offsetting engine (Clipper2, pure-managed, BSL-1.0)
+         backing the toolpath/nesting/offset owners. -->
+    <ItemGroup Label="Fabrication">
+        <PackageVersion Include="Clipper2" Version="2.0.0" />
+    </ItemGroup>
+
     <!-- App-root-only pins: versions are central so app roots stay versionless, but no library
          project references these; companion/standalone app roots compose them at publish time. -->
     <ItemGroup Label="App Roots">
         <PackageVersion Include="Grpc.AspNetCore" Version="2.80.0" />
         <PackageVersion Include="Grpc.AspNetCore.HealthChecks" Version="2.80.0" />
         <PackageVersion Include="Grpc.AspNetCore.Web" Version="2.80.0" />
-        <PackageVersion Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" Version="10.0.3" />
+        <!-- gRPC base API (ServerCallContext, IServerStreamWriter, Metadata) the AppHost ControlService consumes directly; matched to the Grpc.AspNetCore 2.80.0 transitive. -->
+        <PackageVersion Include="Grpc.Core.Api" Version="2.80.0" />
+        <PackageVersion Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" Version="10.0.9" />
         <PackageVersion Include="System.CommandLine" Version="2.0.9" />
     </ItemGroup>
 
@@ -194,6 +211,7 @@
         <PackageVersion Include="Microsoft.NET.StringTools" Version="18.7.1" />
         <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageVersion Include="System.CodeDom" Version="10.0.9" />
+        <PackageVersion Include="System.Management" Version="10.0.9" />
         <PackageVersion Include="System.Composition" Version="10.0.9" />
         <PackageVersion Include="System.Composition.AttributedModel" Version="10.0.9" />
         <PackageVersion Include="System.Composition.Convention" Version="10.0.9" />
@@ -256,6 +274,13 @@
         <PackageVersion Include="System.Reactive" Version="6.1.0" />
         <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.1" />
         <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="12.0.0.1" />
+        <PackageVersion Include="VelloSharp.Avalonia.Vello" Version="0.5.0-alpha.3" />
+        <PackageVersion Include="VelloSharp" Version="0.5.0-alpha.3" />
+        <PackageVersion Include="FluentIcons.Common" Version="2.1.330" />
+        <PackageVersion Include="ACadSharp" Version="3.6.29" />
+        <PackageVersion Include="netDxf" Version="2023.11.10" />
+        <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
+        <PackageVersion Include="Avalonia.Markup.Xaml.Loader" Version="12.0.4" />
     </ItemGroup>
 
     <ItemGroup Label="Bridge">
@@ -310,7 +335,6 @@
         <PackageVersion Include="Microsoft.Testing.Platform" Version="2.2.3" />
         <PackageVersion Include="Microsoft.Testing.Platform.MSBuild" Version="2.2.3" />
         <PackageVersion Include="Verify.XunitV3" Version="31.19.1" />
-        <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3" Version="0.13.3" />
         <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
         <!-- AspNetCore.TestHost rides the Microsoft.Extensions 10.0.9 servicing line:
              the Rasm.Compute RemoteTransport.InProcess TestServer.CreateHandler seam. -->

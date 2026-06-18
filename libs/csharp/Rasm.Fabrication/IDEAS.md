@@ -20,7 +20,7 @@ The forward concept pool for `Rasm.Fabrication`. Each idea is a card — a brack
 - The `Motion` and `Placement` streams dead-end to a downstream post-processor with no owner; a portable cut-program emitter is a real fabrication data contract distinct from the Rhino-native file I/O, and the two coexist.
 
 [DRL_NEST_POLICY]:
-- A deep-reinforcement-learning-guided nesting placement policy as a `NestPolicy` column, aligning to the `Rasm.Compute/models/sessions#INFERENCE_MODES` OrtValue run-mode fold to rank placements over the same NFP primitive.
+- A deep-reinforcement-learning-guided nesting placement policy as a `NestPolicy` column, aligning to the `Rasm.Compute/models/inference#INFERENCE_MODES` OrtValue run-mode fold to rank placements over the same NFP primitive.
 - Unlocks higher utilization on irregular sheet-metal nesting as one `NestPolicy` column, the NFP primitive unchanged, the inference reusing the existing Compute session substrate rather than a second runtime.
 - Bottom-left plus genetic is a deterministic heuristic pair that plateaus on irregular mixed-part sheets; a learned placement-ranking policy over the NFP feasibility set raises utilization on those layouts, and aligning the inference to the Compute session seam composes capability forward rather than minting a parallel inference surface in this folder.
 

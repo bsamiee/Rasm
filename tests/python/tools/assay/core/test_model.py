@@ -33,6 +33,7 @@ from tests.python.tools.assay.kit import (
     fault_st,
     match_st,
     package_run_st,
+    provision_run_st,
     report_st,
     run_delta_st,
     run_snapshot_st,
@@ -72,6 +73,7 @@ from tools.assay.core.model import (
     Mode,
     MutationLane,
     PackageRun,
+    ProvisionRun,
     receipt,
     Report,
     RunDelta,
@@ -115,6 +117,7 @@ _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
     (TestRun, test_run_st),
     (StaticRun, static_run_st),
     (PackageRun, package_run_st),
+    (ProvisionRun, provision_run_st),
     (ApiResolution, api_resolution_st),
     (Diagnostic, diagnostic_st),
     (RunSnapshot, run_snapshot_st),
@@ -315,6 +318,24 @@ def test_fold_sarif_findings_scope_to_built_project_stem(tmp_path: Path) -> None
     )
     report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build", "a.csproj"), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
     assert [m.id for m in report.results] == ["csp0101"]
+
+
+def test_fold_sarif_reads_build_scoped_csp_sarif_dirs(tmp_path: Path) -> None:
+    """Build receipts read their own CspSarifDir, with .csproj rows still scoped to the target project stem."""
+    sarif_dir = tmp_path / "sarif"
+    app_dir, lib_dir = sarif_dir / "App-a1", sarif_dir / "Lib-b2"
+    app_dir.mkdir(parents=True)
+    lib_dir.mkdir()
+    (app_dir / "App.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0101", "error", 3, "target")))
+    (app_dir / "Dep.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0202", "error", 7, "dependency")))
+    (lib_dir / "Lib.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0303", "warning", 11, "second")))
+    outcomes = (
+        receipt(("dotnet", "build", "src/App/App.csproj", f"-p:CspSarifDir={app_dir}"), 0, status=RailStatus.OK),
+        receipt(("dotnet", "build", "src/Lib/Lib.csproj", f"-p:CspSarifDir={lib_dir}"), 0, status=RailStatus.OK),
+    )
+    report = fold(Claim.STATIC, "build", outcomes, sarif_dir=str(sarif_dir))
+    assert [m.id for m in report.results] == ["csp0101", "csp0303"]
+    assert report.status is RailStatus.FAILED
 
 
 def test_fold_static_source_diagnostics_precede_defect_rows(tmp_path: Path) -> None:

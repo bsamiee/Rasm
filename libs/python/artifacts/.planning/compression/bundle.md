@@ -10,25 +10,24 @@ The artifact-bundling and compression owner. `Bundle` packs any emitted artifact
 
 - Owner: `Bundle` the one bundle owner; `CompressionAlgo` the closed `StrEnum` discriminating algorithm; the algorithm package is bound per row, never an `if zstd` branch.
 - Cases: `CompressionAlgo` rows `ZSTD` (zstandard `ZstdCompressor`) · `LZ4` (lz4 `frame`) · `BROTLI` (brotli `compress`) · `SEVEN_Z` (py7zr `SevenZipFile`) — matched by `match`/`case`, each binding its algorithm package.
-- Entry: `Bundle.pack` compresses the payload through the selected algorithm and returns a `RuntimeRail[ContentKey]` keyed by the content key over the compressed bytes; the SEVEN_Z arm writes through an in-memory `SevenZipFile` sink.
+- Entry: `Bundle.pack` is `async` over the runtime `async_boundary`, compresses the payload through the selected algorithm, and returns a `RuntimeRail[ContentKey]` keyed by the content key over the compressed bytes; the SEVEN_Z arm writes through an in-memory `SevenZipFile` sink.
 - Receipt: each pack contributes `receipt/artifact-receipt#RECEIPT` `ArtifactReceipt.Bundle` carrying the content key and the compressed byte count.
-- Packages: `zstandard` (`ZstdCompressor`), `lz4` (`frame.compress`), `brotli` (`compress`/`MODE_GENERIC`), `py7zr` (`SevenZipFile`), runtime (`content_identity.ContentIdentity`, `faults.RuntimeRail`/`boundary`).
+- Packages: `zstandard` (`ZstdCompressor`), `py7zr` (`SevenZipFile`) on the cp315 core; `lz4` (`frame.compress`) and `brotli` (`compress`/`MODE_GENERIC`) gated `python_version<'3.15'`; runtime (`content_identity.ContentIdentity`, `faults.RuntimeRail`/`async_boundary`, `anyio.to_process.run_sync` (the runtime subprocess lane)).
 - Growth: a new algorithm is one `CompressionAlgo` row plus one acceptor arm; zero new surface.
-- Boundary: a per-algorithm compression class family is the deleted form; this owner is content-addressed bundling over already-emitted artifact bytes and owns no artifact production; cp315-reflected backends.
+- Boundary: a per-algorithm compression class family is the deleted form; this owner is content-addressed bundling over already-emitted artifact bytes and owns no artifact production. The cp315-core `ZSTD`/`SEVEN_Z` arms compress in-process; the `LZ4`/`BROTLI` arms ride the gated `python_version<'3.15'` band and never resolve in the cp315-core process, so each dispatches its codec onto the runtime subprocess lane (`anyio.to_process.run_sync`) where the gated-band worker imports the codec at module scope — neither a module-top nor a lazy gated import lands on the core page.
 
 ```python signature
 from enum import StrEnum
 from io import BytesIO
 from typing import assert_never
 
-import brotli
-import lz4.frame
 import py7zr
 import zstandard
+from anyio import to_process
 from msgspec import Struct
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import RuntimeRail, async_boundary
 
 
 class CompressionAlgo(StrEnum):
@@ -38,26 +37,29 @@ class CompressionAlgo(StrEnum):
     SEVEN_Z = "7z"
 
 
+GATED: frozenset[CompressionAlgo] = frozenset({CompressionAlgo.LZ4, CompressionAlgo.BROTLI})
+
+
 class Bundle(Struct, frozen=True):
     payload: bytes
     algo: CompressionAlgo
 
-    def pack(self) -> RuntimeRail[ContentKey]:
-        return boundary(f"bundle.{self.algo}", self._emit)
+    async def pack(self) -> RuntimeRail[ContentKey]:
+        return await async_boundary(f"bundle.{self.algo}", self._emit)
 
-    def _emit(self) -> ContentKey:
-        data = _compress(self.payload, self.algo)
-        return ContentIdentity.key(f"bundle-{self.algo}", data)
+    async def _emit(self) -> ContentKey:
+        data = (
+            await to_process.run_sync(_gated_codec, self.algo.value, self.payload)
+            if self.algo in GATED
+            else _core_codec(self.payload, self.algo)
+        )
+        return ContentIdentity.of(f"bundle-{self.algo}", data)
 
 
-def _compress(payload: bytes, algo: CompressionAlgo) -> bytes:
+def _core_codec(payload: bytes, algo: CompressionAlgo) -> bytes:
     match algo:
         case CompressionAlgo.ZSTD:
             return zstandard.ZstdCompressor().compress(payload)
-        case CompressionAlgo.LZ4:
-            return lz4.frame.compress(payload, content_checksum=1)
-        case CompressionAlgo.BROTLI:
-            return brotli.compress(payload, mode=brotli.MODE_GENERIC, quality=11)
         case CompressionAlgo.SEVEN_Z:
             sink = BytesIO()
             with py7zr.SevenZipFile(sink, mode="w") as archive:
@@ -66,3 +68,7 @@ def _compress(payload: bytes, algo: CompressionAlgo) -> bytes:
         case _:
             assert_never(algo)
 ```
+
+## [3]-[RESEARCH]
+
+- [GATED_WORKER]: `_gated_codec` runs on the `python_version<'3.15'` band through `anyio.to_process.run_sync`, so its `lz4.frame.compress(payload, content_checksum=1)` and `brotli.compress(payload, mode=brotli.MODE_GENERIC, quality=11)` arms import the codecs at module scope inside the gated-band worker module, never on the cp315-core owner. The exact worker-module entrypoint and the `lz4`/`brotli` call spellings verify against the folder `.api` catalogues for `lz4`/`brotli` once the gated band installs.

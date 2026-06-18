@@ -34,23 +34,23 @@ The folder's open and closed work, distilled from `IDEAS.md`. Each task is a car
 - Wires: patches the one `RemoteConfig.flags` cell `remote-config.md` owns (the `FlagSet` shape and the `services`-owned bucket/variant vocabulary stay settled, never re-authored); reuses the branch `projection` `StreamPolicy` reconnect shape rather than a bespoke retry; a flag value still reaches a component only through the `ui` `AtomBinding`.
 - Considerations: the delta decode failure folds to the same `FaultDetail.ConfigError` rail and retains the last-good `FlagSet`, never clearing flags; the poll fallback and the stream feed one fold, so SSE absence is graceful degradation, never a parallel flag source; the deterministic local bucket evaluation is untouched.
 
-[QUEUED] Prove the service-worker lifecycle and redial-drain in a live browser for `offline-cache`.
-- Build: a live-browser probe of `service-worker-host.md` install/activate/`skipWaiting` and the offline-first navigation fallback, plus the `background-sync-replay.md` offline-queue redial-drain convergence into the `interchange` `CommandGateway`.
-- Packages: `workbox-window` registration lifecycle; the native `SyncManager` background wake; the playwright browser provider.
-- Wires: drains the one `local-persistence` `LocalPersistence.offlineQueue` resolved-intent pair into the gateway; re-enqueues over the one `interchange` `FaultDetail` channel.
-- Considerations: the fence is body-complete against the widened resolved-intent element shape owned by `local-persistence`; the probe proves the live install/activate transition and the redial convergence, not the static wiring.
+[QUEUED] Carry the live service-worker-lifecycle and redial-drain acceptance signals on `offline-cache`.
+- Build: the install/activate/`skipWaiting` transition and offline-first navigation-fallback acceptance signal on `service-worker-host.md`, plus the offline-queue redial-drain convergence signal on `background-sync-replay.md`.
+- Packages: `workbox-window` registration lifecycle; the native `SyncManager` background wake — both already on the fences.
+- Wires: the drain reads the one `local-persistence` `LocalPersistence.offlineQueue` resolved-intent pair into the gateway and re-enqueues over the one `interchange` `FaultDetail` channel.
+- Considerations: the fence is body-complete against the widened resolved-intent element shape owned by `local-persistence`; the acceptance signal asserts the live install/activate transition and the redial convergence, not the static wiring.
 
-[QUEUED] Prove global crash capture marshalling in a live browser for `fault-capture`.
-- Build: a live-browser probe that a real uncaught `throw` and a real rejected `Promise` round-trip through `crash-telemetry.md` `crashFaultOf` into a single shipped `MetricRegistry.span("crash.report", ...)` with its breadcrumb trail; the session dedupe and the recovery-cell re-mount affordance prove in the crash-boundary DOM scenario.
-- Packages: `@effect/platform-browser` `BrowserStream` global ingress; `react-error-boundary` render integration; the playwright browser provider.
+[QUEUED] Carry the live global-crash-capture acceptance signals on `fault-capture`.
+- Build: the acceptance signal on `crash-telemetry.md` that a real uncaught `throw` and a real rejected `Promise` round-trip through `crashFaultOf` into a single shipped `MetricRegistry.span("crash.report", ...)` with its breadcrumb trail, the session dedupe, and the recovery-cell re-mount affordance.
+- Packages: `@effect/platform-browser` `BrowserStream` global ingress; `react-error-boundary` render integration — both already on the fences.
 - Wires: reconstructs into the `interchange` `FaultDetail` family; ships over the `observability` `SelfTelemetry` collector edge; the recovery cell surfaces through the `ui` `AtomBinding`.
-- Considerations: the `forkDaemon` global capture must outlive `bootSpa`'s scope; the live residual is the native global-handler attribution, not the projection.
+- Considerations: the `forkDaemon` global capture outlives `bootSpa`'s scope; the live residual is the native global-handler attribution, not the projection.
 
-[QUEUED] Prove Core-Web-Vitals attribution in a live browser for `web-vitals`.
-- Build: a live-browser `PerformanceObserver` probe feeding LCP/INP/CLS/TTFB/FCP attribution into the `MetricRegistry` Core-Web-Vitals instrument rows, including the 40ms INP `durationThreshold` floor and the soft-navigation reset.
-- Packages: native `PerformanceObserver`; `effect` `Stream.asyncScoped` ingress; the playwright browser provider. No `web-vitals` package.
+[QUEUED] Carry the live Core-Web-Vitals-attribution acceptance signals on `web-vitals`.
+- Build: the acceptance signal on `performance-budget.md` that native `PerformanceObserver` LCP/INP/CLS/TTFB/FCP attribution feeds the `MetricRegistry` Core-Web-Vitals instrument rows, including the 40ms INP `durationThreshold` floor and the soft-navigation reset.
+- Packages: native `PerformanceObserver`; `effect` `Stream.asyncScoped` ingress — both already on the fence. No `web-vitals` package.
 - Wires: records into the `observability` `MetricRegistry` gauges; ships the breach span over the `SelfTelemetry` edge; reads the `routing` location cell for per-route attribution.
-- Considerations: Firefox 114 added `interactionId` so native INP is cross-browser-measurable, validating the no-package stance; the probe proves attribution feed, not the threshold table.
+- Considerations: Firefox 114 added `interactionId` so native INP is cross-browser-measurable, validating the no-package stance; the acceptance signal asserts the attribution feed, not the threshold table.
 
 ## [2]-[CLOSED]
 

@@ -29,7 +29,6 @@ interface ActivityOwner {
     readonly success: S;
     readonly error: E;
     readonly prompt: Prompt.RawInput;
-    // Retry schedules key to the effect's FAILURE value (Schema.Schema.Type<E>), not a Cause — one convention page-wide.
     readonly interruptRetryPolicy: Schedule.Schedule<unknown, Schema.Schema.Type<E>>;
     readonly compensate: Effect.Effect<void>;
   }) => Activity.Activity<S, E, LanguageModel.LanguageModel>;

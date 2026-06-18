@@ -1,6 +1,6 @@
 # [PY_COMPUTE_NONLINEAR]
 
-The nonlinear routes of the one numeric solver and the loop-kernel accelerator. `NonlinearIntent` discriminates root-finding, minimisation, fixed-point iteration, and nonlinear least-squares over Optimistix on the JAX floor with a `scipy.optimize` mid-tier and a numpy central-difference floor, every route folding into the one `SolverReceipt`. `accelerate` is the one numba LLVM JIT row that wraps a numpy loop kernel, distinct from the Array-API backend dispatch because numba is a loop-kernel compiler, not an array backend. Optimistix solves are implicit-function-theorem differentiable, so a downstream sensitivity reads the adjoint through the solve.
+The nonlinear routes of the one numeric solver and the loop-kernel accelerator. `NonlinearIntent` discriminates root-finding, minimisation, fixed-point iteration, and nonlinear least-squares over Optimistix on the JAX floor with a numpy central-difference floor reachable for every route, all four sharing one table-driven Optimistix dispatch and every route folding into the one `SolverReceipt`. `accelerate` is the one numba LLVM JIT row that wraps a numpy loop kernel, distinct from the Array-API backend dispatch because numba is a loop-kernel compiler, not an array backend. Optimistix solves are implicit-function-theorem differentiable, so a downstream sensitivity reads the adjoint through the solve.
 
 ## [1]-[INDEX]
 
@@ -11,11 +11,11 @@ The nonlinear routes of the one numeric solver and the loop-kernel accelerator. 
 
 ## [2]-[NONLINEAR]
 
-- Owner: `NonlinearIntent` — the nonlinear-route cases on the one solver; `RootFind(residual_fn, x0)`, `Minimise(objective, x0)`, `FixedPoint(step_fn, x0)`, and `NonlinearLeastSquares(residual_fn, x0)` each discriminate the engine. The Optimistix tier runs `optimistix.root_find`/`optimistix.minimise`/`optimistix.fixed_point`/`optimistix.least_squares` with a `Newton`/`BFGS`/`FixedPointIteration`/`LevenbergMarquardt` solver and reads `optimistix.Solution.stats` (step count, final residual) into `SolverReceipt`. The scipy mid-tier runs `scipy.optimize.minimize`/`scipy.optimize.root`/`scipy.optimize.least_squares`. The numpy floor reports the gradient-norm residual at `x0` over a central-difference Jacobian.
-- Entry: `NonlinearIntent.solve` enters one `boundary(f"solve.{intent.tag}", ...)`; the minimise and root routes fold the final residual and iteration count into `SolverReceipt.Iterative`, and the least-squares route folds the rank and step count into `SolverReceipt.LeastSquares`. The Optimistix solve carries an implicit-function-theorem adjoint, so `differentiation/sensitivity.md#SENSITIVITY` differentiates through the converged solution rather than through the iteration trace.
-- Packages: `optimistix` (`root_find`, `minimise`, `fixed_point`, `least_squares`, `Newton`, `BFGS`, `FixedPointIteration`, `LevenbergMarquardt`, `Solution`), `scipy` (`optimize.minimize`, `optimize.root`, `optimize.least_squares`), `numpy` (`eye`, `linalg.norm`), `solvers/receipt.md#RECEIPT` (`SolverReceipt`), runtime (`RuntimeRail`, `boundary`).
-- Growth: a new nonlinear route is one `NonlinearIntent` case; a new Optimistix solver is one `match` arm; zero new surface, never a parallel root-finder and minimiser owner.
-- Boundary: the numpy gradient floor runs unconditionally on cp315; `optimistix`/`jaxlib` and `scipy` carry no cp315 wheel, so the Optimistix and scipy bodies are authored against the documented API with a reachable numpy floor. A separate root-finding owner beside a minimisation owner, a per-engine method family, and a gradient-descent training loop (out of charter) are the deleted forms.
+- Owner: `NonlinearIntent` — the nonlinear-route cases on the one solver; `RootFind(residual_fn, x0)`, `Minimise(objective, x0)`, `FixedPoint(step_fn, x0)`, and `NonlinearLeastSquares(residual_fn, x0)` each discriminate the engine. The Optimistix tier runs `optimistix.root_find`/`optimistix.minimise`/`optimistix.fixed_point`/`optimistix.least_squares` with a `Newton`/`BFGS`/`FixedPointIteration`/`LevenbergMarquardt` solver and reads `optimistix.Solution.stats` (step count, final residual) into `SolverReceipt`. The four routes share one Optimistix dispatch keyed on the tag inside `_optimistix_receipt` — the operation, the solver, and the residual probe are the row, built behind the gated import because the solver instances reference the resolved `optx` — never four parallel helper bodies. The numpy floor reports the gradient-norm or step residual at `x0` over a central-difference probe and is reachable for every route, so a cp315 run without the optimistix wheel never returns `Error(Import)`.
+- Entry: `NonlinearIntent.solve` enters one `boundary(f"solve.{intent.tag}", ...)`; the minimise, root, and fixed-point routes fold the final residual and iteration count into `SolverReceipt.Iterative`, and the least-squares route folds the rank and step count into `SolverReceipt.LeastSquares`. The Optimistix solve carries an implicit-function-theorem adjoint, so `differentiation/sensitivity.md#SENSITIVITY` differentiates through the converged solution rather than through the iteration trace.
+- Packages: `optimistix` (`root_find`, `minimise`, `fixed_point`, `least_squares`, `Newton`, `BFGS`, `FixedPointIteration`, `LevenbergMarquardt`, `Solution`), `numpy` (`eye`, `linalg.norm`), `solvers/receipt.md#RECEIPT` (`SolverReceipt`), runtime (`RuntimeRail`, `boundary`).
+- Growth: a new nonlinear route is one `NonlinearIntent` case plus one row in the `_optimistix_receipt` route table; a new Optimistix solver is one cell on the row; zero new surface, never a parallel root-finder and minimiser owner, never a per-route helper body.
+- Boundary: the numpy central-difference floor runs unconditionally on cp315; `optimistix`/`jaxlib` carry no cp315 wheel, so the Optimistix body is authored against the documented API behind one gated import with a reachable numpy floor for every route. A separate root-finding owner beside a minimisation owner, a per-engine method family, four parallel `_*_receipt` helper bodies, and a gradient-descent training loop (out of charter) are the deleted forms.
 
 ```python signature
 from collections.abc import Callable
@@ -28,7 +28,6 @@ from rasm.compute.solvers.receipt import SolverReceipt
 from rasm.runtime.faults import RuntimeRail, boundary
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class NonlinearIntent:
     tag: Literal["root_find", "minimise", "fixed_point", "least_squares"] = tag()
@@ -54,58 +53,62 @@ class NonlinearIntent:
         return NonlinearIntent(least_squares=(residual_fn, x0))
 
 
+_TOL = 1e-8
+
+
 def solve(intent: NonlinearIntent) -> "RuntimeRail[SolverReceipt]":
     return boundary(f"solve.{intent.tag}", lambda: _dispatch(intent))
 
 
 def _dispatch(intent: NonlinearIntent) -> SolverReceipt:
     match intent:
-        case NonlinearIntent(tag="minimise", minimise=(objective, x0)):
-            return _minimise_receipt(objective, x0)
         case NonlinearIntent(tag="root_find", root_find=(fn, x0)):
-            return _root_receipt(fn, x0)
-        case NonlinearIntent(tag="fixed_point", fixed_point=(step_fn, x0)):
-            return _fixed_point_receipt(step_fn, x0)
-        case NonlinearIntent(tag="least_squares", least_squares=(residual_fn, x0)):
-            return _least_squares_receipt(residual_fn, x0)
+            pass
+        case NonlinearIntent(tag="minimise", minimise=(fn, x0)):
+            pass
+        case NonlinearIntent(tag="fixed_point", fixed_point=(fn, x0)):
+            pass
+        case NonlinearIntent(tag="least_squares", least_squares=(fn, x0)):
+            pass
         case unreachable:
             assert_never(unreachable)
-
-
-def _minimise_receipt(objective: Callable[[np.ndarray], float], x0: np.ndarray) -> SolverReceipt:
     try:
-        import optimistix as optx
-
-        solution = optx.minimise(lambda x, _: objective(x), optx.BFGS(rtol=1e-8, atol=1e-8), x0)
-        return SolverReceipt.Iterative(float(solution.state.f_val), int(solution.stats["num_steps"]), 1e-8)
+        return _optimistix_receipt(intent.tag, fn, np.asarray(x0))
     except ImportError:
-        grad = np.array([objective(x0 + 1e-6 * e) - objective(x0 - 1e-6 * e) for e in np.eye(x0.size)]) / 2e-6
-        return SolverReceipt.Iterative(float(np.linalg.norm(grad, np.inf)), 0, 1e-8)
+        return _floor_receipt(intent.tag, fn, np.asarray(x0))
 
 
-def _root_receipt(fn: Callable[[np.ndarray], np.ndarray], x0: np.ndarray) -> SolverReceipt:
+def _optimistix_receipt(tag: str, fn: Callable[..., object], x0: np.ndarray) -> SolverReceipt:
     import optimistix as optx
 
-    solution = optx.root_find(lambda x, _: fn(x), optx.Newton(rtol=1e-8, atol=1e-8), x0)
-    residual = float(np.linalg.norm(np.asarray(fn(np.asarray(solution.value)))))
-    return SolverReceipt.Iterative(residual, int(solution.stats["num_steps"]), 1e-8)
+    op, solver, lift = {
+        "root_find": (optx.root_find, optx.Newton(rtol=_TOL, atol=_TOL), lambda v: np.linalg.norm(np.asarray(fn(v)))),
+        "minimise": (optx.minimise, optx.BFGS(rtol=_TOL, atol=_TOL), lambda v: abs(float(fn(v)))),
+        "fixed_point": (optx.fixed_point, optx.FixedPointIteration(rtol=_TOL, atol=_TOL), lambda v: np.linalg.norm(np.asarray(fn(v)) - v)),
+        "least_squares": (optx.least_squares, optx.LevenbergMarquardt(rtol=_TOL, atol=_TOL), lambda v: np.linalg.norm(np.asarray(fn(v)))),
+    }[tag]
+    solution = op(lambda x, _: fn(x), solver, x0)
+    value = np.asarray(solution.value)
+    residual, steps = float(lift(value)), int(solution.stats["num_steps"])
+    return (
+        SolverReceipt.LeastSquares(residual, int(x0.size), steps)
+        if tag == "least_squares"
+        else SolverReceipt.Iterative(residual, steps, _TOL)
+    )
 
 
-def _fixed_point_receipt(step_fn: Callable[[np.ndarray], np.ndarray], x0: np.ndarray) -> SolverReceipt:
-    import optimistix as optx
-
-    solution = optx.fixed_point(lambda x, _: step_fn(x), optx.FixedPointIteration(rtol=1e-8, atol=1e-8), x0)
-    fixed = np.asarray(solution.value)
-    residual = float(np.linalg.norm(np.asarray(step_fn(fixed)) - fixed))
-    return SolverReceipt.Iterative(residual, int(solution.stats["num_steps"]), 1e-8)
-
-
-def _least_squares_receipt(residual_fn: Callable[[np.ndarray], np.ndarray], x0: np.ndarray) -> SolverReceipt:
-    import optimistix as optx
-
-    solution = optx.least_squares(lambda x, _: residual_fn(x), optx.LevenbergMarquardt(rtol=1e-8, atol=1e-8), x0)
-    residual = float(np.linalg.norm(np.asarray(residual_fn(np.asarray(solution.value)))))
-    return SolverReceipt.LeastSquares(residual, int(x0.size), int(solution.stats["num_steps"]))
+def _floor_receipt(tag: str, fn: Callable[..., object], x0: np.ndarray) -> SolverReceipt:
+    basis = np.eye(x0.size)
+    probe = (
+        np.linalg.norm([float(fn(x0 + 1e-6 * e)) - float(fn(x0 - 1e-6 * e)) for e in basis], np.inf) / 2e-6
+        if tag == "minimise"
+        else np.linalg.norm(np.asarray(fn(x0)) - (x0 if tag == "fixed_point" else 0.0), np.inf)
+    )
+    return (
+        SolverReceipt.LeastSquares(float(probe), int(x0.size), 0)
+        if tag == "least_squares"
+        else SolverReceipt.Iterative(float(probe), 0, _TOL)
+    )
 ```
 
 ## [3]-[ACCELERATOR]
@@ -138,5 +141,5 @@ def accelerate(
 
 ## [4]-[RESEARCH]
 
-- [OPTIMISTIX_SOLVE]: `optimistix` is NOT yet in the root manifest; the `root_find`/`minimise`/`fixed_point`/`least_squares`/`Newton`/`BFGS`/`FixedPointIteration`/`LevenbergMarquardt`/`Solution.stats` spellings are admitted to the `scientific` group on the jaxlib `python_version<'3.15'` floor and verified against the branch `.api` catalogue. The Optimistix solve carries an implicit-function-theorem adjoint consumed by `differentiation/sensitivity.md#SENSITIVITY`.
-- [NUMBA_JIT]: `numba`/`llvmlite` carry the `python_version<'3.15'` marker; the `njit(cache=True)` spelling verifies against the branch `.api` catalogue once the numba wheel resolves. The `backend="none"` passthrough runs unconditionally on cp315.
+- [OPTIMISTIX_SOLVE]: `optimistix` resolves on the gated `python_version<'3.15'` band riding the jaxlib floor; the `root_find`/`minimise`/`fixed_point`/`least_squares`/`Newton`/`BFGS`/`FixedPointIteration`/`LevenbergMarquardt`/`Solution.stats` spellings verify against the `.api` catalogue under a uv-sync reflection pass on that band. The Optimistix solve carries an implicit-function-theorem adjoint consumed by `differentiation/sensitivity.md#SENSITIVITY`.
+- [NUMBA_JIT]: `numba`/`llvmlite` carry the `python_version<'3.15'` marker; the `njit(cache=True)` spelling verifies against the `.api` catalogue once the numba wheel resolves. The `backend="none"` passthrough runs unconditionally on cp315.

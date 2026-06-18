@@ -57,4 +57,4 @@ class Colorimetry(Struct, frozen=True):
 
 ## [3]-[RESEARCH]
 
-- [COLOR_SPELLINGS]: the colour-science `convert`/`sd_to_XYZ`/`XYZ_to_sRGB`/`XYZ_to_CIECAM02`/`XYZ_to_CAM16` member spellings and the CAM16 viewing-condition parameter names verify against a branch `.api` catalogue authored for `colour-science`; the perceptually-uniform palette interpolation confirms against the colour-science plotting/notation helpers.
+- [COLOR_SPELLINGS]: the colour-science `convert`/`sd_to_XYZ`/`XYZ_to_sRGB`/`XYZ_to_CIECAM02`/`XYZ_to_CAM16` member spellings and the CAM16 viewing-condition parameter names verify against a folder `.api` catalogue authored for `colour-science`; the perceptually-uniform palette interpolation confirms against the colour-science plotting/notation helpers.

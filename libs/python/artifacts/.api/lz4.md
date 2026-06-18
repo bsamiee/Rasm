@@ -28,7 +28,7 @@
 [PUBLIC_TYPE_SCOPE]: frame constants
 - rail: compression
 
-| [INDEX] | [SYMBOL_FAMILY]      | [PACKAGE_ROLE]  | [CAPABILITY]                  |
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]  | [CAPABILITY]                  |
 | :-----: | :------------------- | :-------------- | :---------------------------- |
 |   [1]   | `BLOCKSIZE_*`        | block-size axis | frame max-block-size selector |
 |   [2]   | `COMPRESSIONLEVEL_*` | level axis      | compression-level bounds      |

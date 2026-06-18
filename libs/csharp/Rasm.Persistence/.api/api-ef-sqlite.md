@@ -71,14 +71,6 @@ query translation, and type mapping into one store-provider rail.
 |   [9]   | `TransactionEndEventData`     | event data       | carries commit duration          |
 |  [10]   | `InterceptionResult<TResult>` | result struct    | round-trips suppressed results   |
 
-```csharp generated
-Task ConnectionOpenedAsync(DbConnection connection, ConnectionEndEventData eventData, CancellationToken cancellationToken)
-ValueTask<DbDataReader> ReaderExecutedAsync(DbCommand command, CommandExecutedEventData eventData, DbDataReader result, CancellationToken cancellationToken)
-ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken)
-ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken)
-Task TransactionCommittedAsync(DbTransaction transaction, TransactionEndEventData eventData, CancellationToken cancellationToken)
-```
-
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider admission

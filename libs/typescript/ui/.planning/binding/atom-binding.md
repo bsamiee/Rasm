@@ -10,21 +10,18 @@ One cluster: `ATOM_BINDING` owns the sanctioned `@effect-atom` hooks, the native
 
 - Owner: `AtomBinding`, the single sanctioned React state binding — the `@effect-atom/atom-react` hook set (`useAtomValue` for a read, `useAtomSet` for a `Atom.Writable` write, `useAtom` for the read-write pair, `useAtomSuspense` for a `Result` atom) consumed with no rename layer — over the native `@effect-atom/atom` constructors: `Atom.searchParam` owns URL-resident state, `Atom.kvs` owns the offline cell, `Atom.family` owns keyed per-entity subscription, `Atom.pull` owns the streamed `projection` feeds, and `Atom.runtime` carries the registry layer. `UndoStack` is the one client-state fold the binding does not own natively — a bounded history over a domain value. The dev-build atom inspector is one row on `Atom.runtime`, stripped at the build edge.
 - Cases: components subscribe at the leaf, not the root; all domain state lives in the owning `projection` fold and reaches the component only through `AtomBinding`; local component state holding domain data is the named defect. URL-resident state is one `Atom.searchParam(name, { schema })` cell whose `Schema` round-trip survives reload through the library's own reactivity — never a hand-rolled query-string parser duplicated into component state. The offline cell is one `Atom.kvs({ runtime, key, schema, defaultValue })` `Writable` over the `platform` `LocalPersistence` `KeyValueStore` — never a bespoke `SubscriptionRef`/`localStorage` fold. A keyed subscription is one `Atom.family((key) => …)` so a per-entity feed memoizes one cell per key. A streamed feed is one `Atom.pull(stream)` accumulating the `projection` `Stream` into a `Result`. `UndoStack` is a bounded `undo`/`redo`/`push` fold over a domain value, never a mutable array. The dev inspector is one `Atom.runtime` row so fold state is inspectable without a second binding, stripped from the production bundle by the `platform` `BuildPipeline`.
-- Entry: leaf surfaces read document, health, progress, conflict, presence, command, and evidence by reading `projection` folds through the atom hooks; the login-logout affordance and the session-status indicator are one leaf reading the `platform` `AuthSession` status through the binding, never a second binding; a `Result`-bearing feed renders through the `Result.builder` chain (`onWaiting`/`onSuccess`/`onFailure`/`render`) so the loading/success/failure arms render uniformly at every leaf.
+- Entry: leaf surfaces read document, health, progress, conflict, presence, command, and evidence by reading `projection` folds through the atom hooks; the login-logout affordance and the session-status indicator are one leaf reading the `platform` `AuthSession` status through the binding, never a second binding; a `Result`-bearing feed renders through the `Result.builder` chain (`onWaiting`/`onSuccess`/`onError`/`render`) so the loading/success/failure arms render uniformly at every leaf.
 - Packages: `react`, `react-dom`, `@effect-atom/atom`, `@effect-atom/atom-react`, `effect`.
 - Growth: a new leaf surface lands as one subscriber component; a new URL-resident surface lands as one `Atom.searchParam` cell; a new offline cell lands as one `Atom.kvs` cell; a new keyed feed lands as one `Atom.family` arg; a new streamed feed lands as one `Atom.pull` source; a new client-state concern lands as one fold under the binding; a new inspector capability lands as one dev-build row on `Atom.runtime`.
 - Boundary: a second state binding beside the atom layer is the named defect; a hand-rolled query-string parser beside `Atom.searchParam`, a bespoke storage fold beside `Atom.kvs`, or a manual stream subscription beside `Atom.pull` is the named defect; the atom inspector is a dev-build-only row stripped by the `platform` `BuildPipeline`; the view emits intents only through the `interchange` `CommandGateway`, never a transport directly; URL-resident state is never duplicated into local component state; the offline cell is read through `LocalPersistence`, never a direct storage read.
 
 ```ts contract
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 import { useAtom, useAtomSet, useAtomSuspense, useAtomValue } from "@effect-atom/atom-react";
 import { Atom, Result } from "@effect-atom/atom";
 import type { KeyValueStore } from "@effect/platform";
 
-// --- [SERVICES] ------------------------------------------------------------------------
 declare const projectionRuntime: Atom.AtomRuntime<KeyValueStore.KeyValueStore, never>;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
 const deepLink = <A, I extends string>(name: string, schema: Schema.Schema<A, I>): Atom.Writable<Option.Option<A>> =>
   Atom.searchParam(name, { schema });
 
@@ -45,7 +42,6 @@ const renderFeed = <A, E>(result: Result.Result<A, E>, on: {
     .onError((e) => on.failure(e))
     .render();
 
-// --- [GROUPS] --------------------------------------------------------------------------
 interface UndoStack<A> {
   readonly current: SubscriptionRef.SubscriptionRef<A>;
   readonly push: (next: A) => Effect.Effect<void>;

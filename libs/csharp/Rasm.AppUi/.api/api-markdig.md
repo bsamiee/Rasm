@@ -72,14 +72,15 @@
 
 [PARSE_ENTRYPOINTS]: parse and render operations
 - rail: markdown
+- surface-root: `Markdown`
 
-| [INDEX] | [SURFACE]     | [SURFACE_ROOT] | [RAIL]             |
-| :-----: | :------------ | :------------- | :----------------- |
-|   [1]   | `Parse`       | `Markdown`     | string-to-AST      |
-|   [2]   | `ToHtml`      | `Markdown`     | HTML render        |
-|   [3]   | `ToPlainText` | `Markdown`     | plain-text render  |
-|   [4]   | `Normalize`   | `Markdown`     | canonical markdown |
-|   [5]   | `Convert`     | `Markdown`     | custom renderer    |
+| [INDEX] | [SURFACE]     | [RAIL]             |
+| :-----: | :------------ | :----------------- |
+|   [1]   | `Parse`       | string-to-AST      |
+|   [2]   | `ToHtml`      | HTML render        |
+|   [3]   | `ToPlainText` | plain-text render  |
+|   [4]   | `Normalize`   | canonical markdown |
+|   [5]   | `Convert`     | custom renderer    |
 
 [BUILDER_ENTRYPOINTS]: pipeline configuration
 - rail: markdown

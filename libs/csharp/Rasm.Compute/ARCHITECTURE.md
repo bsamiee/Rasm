@@ -11,17 +11,30 @@ Rasm.Compute/
 ├── intent/         Typed intent admission (six-case union, one shared Spec), the substrate axis with predicate/rank/cap/load/fallback columns, the ComputeFault family in the 2200 code band, and total dispatch with a selection receipt.
 │   └── admission.md
 ├── tensors/        The CPU tensor execution vocabulary, the dtype map, the OrtValue C-data residency bridge, the layout/reshape algebra, geometry-to-tensor encoding, the op-family table, kernel dispatch, and the Rasm-baseline equivalence proofs.
-│   └── operations.md
+│   ├── vocabulary.md   Tensor shapes/factories/dtype map and the 107-row op-family table over the tolerance band.
+│   ├── residency.md    OrtValue C-data residency lattice, the IoBinding steady-state capsule, and geometry-to-tensor encoding.
+│   ├── layout.md       LayoutForm rows and the ReshapeOp request union over the shape-edit family.
+│   └── dispatch.md     Arity kernel-delegate tables, the partition column, and the equivalence/differentiable-adjoint law.
 ├── numeric/        BLAS-class dense and sparse linear algebra over the MathNet/CSparse stack: the RID-keyed provider table, shape-routed factorization, the criterion-stack iterative solve, kernel lowering, and the owned quadrature/integrator/sampling/spectral builds.
 │   └── algebra.md
 ├── models/         ONNX model identity and provenance, the one shared session capsule with its EP-context warm-start, the execution-provider axis, custom-op admission, the OrtValue-only run-mode fold, the ORT-GenAI token-streaming generative run, and the deterministic result cache.
-│   └── sessions.md
+│   ├── identity.md     Checksum identity, the acquisition union, the schema snapshot, and the shared ordinal-keyvalue fingerprint.
+│   ├── sessions.md     One shared session per model checksum, lifecycle/warmup/drain rows, the shared-device-allocator lease, and the compatibility-gated warm-start.
+│   ├── providers.md    The execution-provider axis with autoEP OrtEpDevice discovery, the ModelPrecision quantization posture, and the one polymorphic register.
+│   ├── extension-ops.md Extension and custom-op registration with asset evidence and the bidirectional string-tensor boundary.
+│   ├── inference.md    The OrtValue-only run-mode fold, the BoundLoop shared-arena hot path, the vectorized reductions, and the deterministic result cache.
+│   └── generative.md   The ORT-GenAI token-streaming owner with EOS oracle, decoder pins, LoRA hot-swap, the tool-call arm, and multimodal/streaming-audio/batched shapes.
 ├── remote/         The suite wire vocabulary: five proto services, the descriptor-diff contract-evolution law, the FaultDetail family, the transport axis, the credential/compression call policy, and the 64 KiB artifact-frame fold with content identity.
 │   └── channels.md
 ├── interchange/    The chunked error-bounded field/result codec, the FastCDC structural geometry-delta codec, the two-hop IFC-to-geometry tessellation bridge, the 3D-Tiles streamable-LOD octree partition, and the content-addressed artifact identity folding deflection and tolerance into one key.
 │   └── codecs.md
 ├── solver/         The physics×BC×element solve contract over the discretized DDG field, the volumetric mesher with adaptive refinement, the design-space optimizer with constraint handling, the N-dim DOE sweep with sensitivity, the frame-budget governor, the acceleration-structure clash compute, and the ROM digital-twin loop.
-│   └── lane.md
+│   ├── index.md           The solver sub-domain page index and the discretize→solve→optimize→sweep/clash spine.
+│   ├── discretization.md  The volumetric MeshKernel, the element/quadrature/metric vocabulary, and adaptive h/p/hp refinement.
+│   ├── solve-contract.md  The physics×BC×element solve fold, the transient/nonlinear/modal march, the adaptive-recovery ladder, and multi-physics coupling.
+│   ├── optimizer.md       The design-space search axis, the constraint-handling feasibility axis, and the ROM/GP/RBF surrogate duality.
+│   ├── sweep.md           The N-dim DOE sweep grid, the frame-budget early-stop governor, and Morris/Sobol sensitivity.
+│   └── clash.md           The acceleration-structure collision compute and the Kalman-banded ROM digital-twin loop.
 ├── staging/        Bounded staging memory between admission and the IO edges: the allocation-class axis with admission predicate and evidence, the bare plane-projection law, and the one-per-process recyclable stream pool with zero-allocation event-fold evidence and zero-copy handoff.
 │   └── memory.md
 ├── scheduling/     Five bounded work-lane channels behind one enqueue capsule, the solve-path handle guard, the one CPU budget the three concurrency axes share, the dependency job-graph scheduler with dirty-subgraph re-solve, and band-200 drain participation.

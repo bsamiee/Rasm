@@ -1,31 +1,129 @@
-# [PY_DATA_API_TRIMESH]
+# [PY_GEOMETRY_API_TRIMESH]
 
-`trimesh` API capture placeholder for `data`.
+`trimesh` supplies the triangle-mesh modeling and exchange surface for the geometry rail: a `Trimesh` body with cached geometric/topological properties, a `Scene` graph of named geometries, a `PointCloud`, the polymorphic `load` reader across `obj`/`ply`/`stl`/`glb`/`off`/`dxf`, primitive `creation` constructors, manifold-backed `boolean` CSG, ICP and non-rigid `registration`, mesh `repair`/`smoothing`/`remesh`, and `proximity`/`sample` queries. The package owner composes `load`, `Trimesh.export`, and the `creation`/`boolean`/`registration` modules into the mesh owner; it never re-implements mesh IO codecs, the manifold boolean kernel, or convex hull.
 
 ## [1]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `trimesh`
 - package: `trimesh`
 - import: `import trimesh`
-- owner: `data`
-- rail: aec
-- capability: mesh inspection and exchange
+- owner: `geometry`
+- rail: mesh
+- installed: `4.12.2` reflected via `python -c "import trimesh"` on cp313
+- entry points: none (library only)
+- capability: mesh and scene IO across `obj`/`ply`/`stl`/`glb`/`gltf`/`off`/`dxf`/`xyz`, primitive creation, convex hull and decomposition, manifold boolean CSG, ICP and non-rigid registration, Laplacian/Taubin/Humphrey smoothing, quadric decimation and subdivision remeshing, hole repair and normal fixing, signed-distance and closest-point proximity, and surface sampling
 
-## [2]-[CAPTURE]
+## [2]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPES]:
-- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
+[PUBLIC_TYPE_SCOPE]: geometry roots (`trimesh`)
+- rail: mesh
 
-[ENTRYPOINTS]:
-- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :----------- | :------------ | :------------------------------------------------------ |
+|   [1]   | `Trimesh`    | triangle mesh | vertices/faces with topology, mass, boolean, repair     |
+|   [2]   | `Scene`      | scene graph   | named geometries, transforms, dump/export/to_mesh       |
+|   [3]   | `PointCloud` | point cloud   | vertices/colors with kdtree query and convex hull       |
+|   [4]   | `Geometry`   | geometry root | abstract base for `Trimesh`/`Scene`/`PointCloud`/`Path` |
 
-[IMPLEMENTATION_LAW]:
-- un-reflectable on this host: no cp315 wheel; distribution absent from the >=3.15 lock
+[PUBLIC_TYPE_SCOPE]: cached mesh property axes (`Trimesh`)
+- rail: mesh
 
-## [3]-[LOCAL_ADMISSION]
+`Trimesh` exposes derived geometry as lazily cached properties keyed off `vertices`/`faces`; each property recomputes on geometry change.
+
+| [INDEX] | [PROPERTY]                                | [PROPERTY_FAMILY] | [CAPABILITY]                            |
+| :-----: | :---------------------------------------- | :---------------- | :-------------------------------------- |
+|   [1]   | `volume` / `area` / `center_mass`         | mass property     | enclosed volume, surface area, centroid |
+|   [2]   | `mass_properties` / `moment_inertia`      | inertia           | full inertia tensor and principal axes  |
+|   [3]   | `is_watertight` / `is_winding_consistent` | validity          | manifold and orientation status         |
+|   [4]   | `is_convex` / `is_volume` / `is_empty`    | validity          | convexity and solidity flags            |
+|   [5]   | `convex_hull` / `bounding_box_oriented`   | derived solid     | convex hull and oriented bound          |
+|   [6]   | `face_normals` / `vertex_normals`         | normals           | per-face and per-vertex normals         |
+|   [7]   | `edges_unique` / `face_adjacency`         | topology          | unique edges and face adjacency graph   |
+|   [8]   | `facets` / `vertex_defects`               | topology          | coplanar facet groups, angle defects    |
+|   [9]   | `kdtree` / `triangles_tree`               | spatial index     | vertex kdtree and triangle R-tree       |
+
+## [3]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: load, export, and primitive creation
+- rail: mesh
+
+`load` dispatches on `file_type` (or file extension) across every registered format; `creation.*` are static constructors returning a `Trimesh`.
+
+| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]             | [CAPABILITY]                        |
+| :-----: | :------------------------------------------ | :----------------------- | :---------------------------------- |
+|   [1]   | `trimesh.load(file_obj, file_type=None)`    | path/bytes plus type     | polymorphic mesh/scene/path read    |
+|   [2]   | `trimesh.load_mesh(file_obj)`               | path plus type           | force a `Trimesh` result            |
+|   [3]   | `trimesh.load_scene(file_obj)`              | path plus type           | force a `Scene` result              |
+|   [4]   | `trimesh.available_formats()`               | none                     | enumerate supported extensions      |
+|   [5]   | `mesh.export(file_obj, file_type)`          | path plus type           | write mesh to any registered format |
+|   [6]   | `scene.export(file_type)`                   | type                     | write scene (e.g. `glb`)            |
+|   [7]   | `creation.box(extents, transform)`          | extents plus transform   | axis-aligned box mesh               |
+|   [8]   | `creation.cylinder(radius, height)`         | radius plus height       | cylinder mesh                       |
+|   [9]   | `creation.icosphere(subdivisions, radius)`  | subdivisions plus radius | geodesic sphere mesh                |
+|  [10]   | `creation.extrude_polygon(polygon, height)` | polygon plus height      | extrude a Shapely polygon           |
+|  [11]   | `creation.revolve(linestring, angle)`       | profile plus angle       | revolve a 2D profile                |
+|  [12]   | `creation.sweep_polygon(polygon, path)`     | polygon plus path        | sweep a profile along a path        |
+
+[ENTRYPOINT_SCOPE]: boolean CSG, repair, smoothing, and remesh
+- rail: mesh
+
+Boolean rows route to the `manifold3d` backend and return a new `Trimesh`; smoothing rows mutate in place; remesh rows return new vertices/faces.
+
+| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]         | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------- | :------------------- | :------------------------------- |
+|   [1]   | `boolean.union(meshes)`                            | mesh sequence        | n-ary watertight union           |
+|   [2]   | `boolean.difference(meshes)`                       | mesh sequence        | n-ary difference                 |
+|   [3]   | `boolean.intersection(meshes)`                     | mesh sequence        | n-ary intersection               |
+|   [4]   | `mesh.convex_decomposition()`                      | none                 | approximate convex decomposition |
+|   [5]   | `repair.fill_holes(mesh)`                          | mesh                 | fill boundary holes              |
+|   [6]   | `repair.fix_normals(mesh)`                         | mesh                 | consistent outward normals       |
+|   [7]   | `repair.fix_winding(mesh)`                         | mesh                 | consistent face winding          |
+|   [8]   | `smoothing.filter_taubin(mesh)`                    | mesh plus lambda/nu  | Taubin shrink-free smoothing     |
+|   [9]   | `smoothing.filter_laplacian(mesh)`                 | mesh plus iterations | Laplacian smoothing              |
+|  [10]   | `smoothing.filter_humphrey(mesh)`                  | mesh plus alpha/beta | Humphrey classes smoothing       |
+|  [11]   | `mesh.simplify_quadric_decimation(face_count)`     | target faces         | quadric decimation               |
+|  [12]   | `remesh.subdivide_to_size(verts, faces, max_edge)` | vertices/faces       | edge-length subdivision          |
+
+[ENTRYPOINT_SCOPE]: registration, proximity, sampling, and section
+- rail: mesh
+
+Registration rows return a transform plus cost; proximity rows return distances/points; section rows return a `Path3D`/`Path2D`.
+
+| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]         | [CAPABILITY]                         |
+| :-----: | :------------------------------------------ | :------------------- | :----------------------------------- |
+|   [1]   | `registration.mesh_other(mesh, other)`      | mesh plus target     | align mesh to mesh by ICP            |
+|   [2]   | `registration.icp(a, b)`                    | point sets plus init | iterative closest point              |
+|   [3]   | `registration.procrustes(a, b)`             | point sets           | rigid Procrustes fit                 |
+|   [4]   | `registration.nricp_amberg(source, target)` | source plus target   | non-rigid Amberg deformation         |
+|   [5]   | `proximity.closest_point(mesh, points)`     | mesh plus points     | closest surface points and distances |
+|   [6]   | `proximity.signed_distance(mesh, points)`   | mesh plus points     | signed distance field samples        |
+|   [7]   | `sample.sample_surface(mesh, count)`        | mesh plus count      | area-weighted surface samples        |
+|   [8]   | `sample.sample_surface_even(mesh, count)`   | mesh plus count      | blue-noise even surface samples      |
+|   [9]   | `mesh.contains(points)`                     | points               | inside/outside test                  |
+|  [10]   | `mesh.section(plane_normal, plane_origin)`  | plane                | planar cross-section path            |
+|  [11]   | `mesh.slice_plane(plane_origin, normal)`    | plane                | half-space clip                      |
+|  [12]   | `mesh.split(only_watertight)`               | flag                 | disconnected-component split         |
+
+## [4]-[IMPLEMENTATION_LAW]
+
+[MESH_TOPOLOGY]:
+- import: `import trimesh` at boundary scope only; module-level import is banned by the manifest import policy.
+- mesh axis: one `Trimesh` owns `vertices`/`faces` plus a cache of derived geometry; mass properties, topology graphs, normals, and spatial indices are lazily cached properties, never parallel mesh subclasses. Mutating `vertices`/`faces` invalidates the cache through `process`.
+- IO axis: `load` dispatches on the resolved `file_type` across every entry in `available_formats()`; the format is an argument, never a `load_obj`/`load_ply` function family. `export` is the symmetric writer over the same format set.
+- boolean axis: `boolean.union`/`difference`/`intersection` and `Trimesh.union`/`difference`/`intersection` route to the `manifold3d` engine; watertight input is required, and the operation kind is the named function, distinct from the CSG owner that `manifold3d` holds.
+- registration axis: `registration.icp`/`mesh_other`/`procrustes` perform rigid alignment and `nricp_amberg`/`nricp_sumner` perform non-rigid deformation; the estimation method is the named function, and small-cloud fine GICP routes to `small_gicp`.
+- repair axis: `repair.fill_holes`/`fix_normals`/`fix_winding` and `smoothing.filter_taubin`/`filter_laplacian`/`filter_humphrey` are in-place mesh-conditioning rows; `process=True` on construction runs the default merge-and-validate pass.
+- evidence: each load captures format, vertex/face count, and `is_watertight`; each boolean and registration captures the operation, input counts, and result validity as a mesh receipt; `mass_properties` carries volume, area, center of mass, and inertia.
+- boundary: trimesh owns triangle-mesh modeling, exchange, and mesh-mesh registration; `.3dm`/OpenNURBS exchange routes to `rhino3dm`, point-cloud scan registration and reconstruction to `open3d`, fine GICP to `small_gicp`, and the watertight CSG kernel to `manifold3d`.
+
+## [5]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `trimesh`
-- Owns: mesh inspection and exchange
-- Accept: pending decompile capture once a cp315 wheel admits `trimesh`
-- Reject: wrapper-renames and weaker local reimplementation
+- Owns: triangle-mesh and scene IO, primitive creation, convex hull and decomposition, manifold boolean CSG, ICP and non-rigid registration, smoothing and remeshing, hole repair, and proximity/sampling queries
+- Accept: triangle-mesh modeling and exchange feeding the geometry and mesh owners
+- Reject: wrapper-renames of `load`/`export`; a hand-rolled mesh IO codec or boolean kernel where trimesh is admitted; a `load_<format>` or `Add<Op>` family over the format/operation argument row; identity minting the runtime owns
+
+[CAPTURE_GAP]:
+- floor: `trimesh` is admitted pure-Python under `>=3.15`; reflection runs on a cp313 companion interpreter where its compiled optional backends (`manifold3d`, `rtree`) resolve, so the full IO/boolean/registration surface enumerates there while the `>=3.15` project venv lacks those compiled backends
+- members: verified by introspection against the installed cp313 distribution; every documented type, cached property, and module entrypoint resolves — no phantom

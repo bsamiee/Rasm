@@ -36,15 +36,12 @@
 |   [3]   | `CenteredDialogPopupPositioner`       | centered popup    |
 |   [4]   | `AlignmentDialogPopupPositioner`      | aligned popup     |
 
-[UTILITY_TYPES]: internal observable and disposal helpers
+[UTILITY_TYPES]: observable state surface
 - rail: dialogs
 
-| [INDEX] | [SYMBOL]              | [RAIL]          |
-| :-----: | :-------------------- | :-------------- |
-|   [1]   | `BehaviorSubject<T>`  | dialog state    |
-|   [2]   | `CompositeDisposable` | lifecycle group |
-|   [3]   | `EmptyDisposable`     | empty lifecycle |
-|   [4]   | `Extensions`          | utility methods |
+| [INDEX] | [SYMBOL]             | [RAIL]       |
+| :-----: | :------------------- | :----------- |
+|   [1]   | `BehaviorSubject<T>` | dialog state |
 
 ## [3]-[ENTRYPOINTS]
 

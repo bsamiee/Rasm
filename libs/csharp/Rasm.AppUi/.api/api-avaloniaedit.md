@@ -78,19 +78,24 @@
 [EDITOR_ENTRYPOINTS]: editor control operations
 - rail: editor
 
-| [INDEX] | [SURFACE]                 | [SURFACE_ROOT] | [RAIL]            |
-| :-----: | :------------------------ | :------------- | :---------------- |
-|   [1]   | `Text`                    | `TextEditor`   | text content      |
-|   [2]   | `Document`                | `TextEditor`   | document binding  |
-|   [3]   | `SyntaxHighlighting`      | `TextEditor`   | xshd highlighting |
-|   [4]   | `Options`                 | `TextEditor`   | behavior options  |
-|   [5]   | `WordWrap` / `IsReadOnly` | `TextEditor`   | edit posture      |
-|   [6]   | `ShowLineNumbers`         | `TextEditor`   | margin toggle     |
-|   [7]   | `Load` / `Save`           | `TextEditor`   | stream round-trip |
-|   [8]   | `AppendText` / `Clear`    | `TextEditor`   | content mutation  |
-|   [9]   | `ScrollTo`                | `TextEditor`   | caret navigation  |
-|  [10]   | `SelectedText`            | `TextEditor`   | selection text    |
-|  [11]   | `Copy` / `Cut` / `Paste`  | `TextEditor`   | clipboard         |
+| [INDEX] | [SURFACE]            | [SURFACE_ROOT] | [RAIL]            |
+| :-----: | :------------------- | :------------- | :---------------- |
+|   [1]   | `Text`               | `TextEditor`   | text content      |
+|   [2]   | `Document`           | `TextEditor`   | document binding  |
+|   [3]   | `SyntaxHighlighting` | `TextEditor`   | xshd highlighting |
+|   [4]   | `Options`            | `TextEditor`   | behavior options  |
+|   [5]   | `WordWrap`           | `TextEditor`   | wrap posture      |
+|   [6]   | `IsReadOnly`         | `TextEditor`   | readonly posture  |
+|   [7]   | `ShowLineNumbers`    | `TextEditor`   | margin toggle     |
+|   [8]   | `Load`               | `TextEditor`   | stream load       |
+|   [9]   | `Save`               | `TextEditor`   | stream save       |
+|  [10]   | `AppendText`         | `TextEditor`   | content append    |
+|  [11]   | `Clear`              | `TextEditor`   | content clear     |
+|  [12]   | `ScrollTo`           | `TextEditor`   | caret navigation  |
+|  [13]   | `SelectedText`       | `TextEditor`   | selection text    |
+|  [14]   | `Copy`               | `TextEditor`   | clipboard copy    |
+|  [15]   | `Cut`                | `TextEditor`   | clipboard cut     |
+|  [16]   | `Paste`              | `TextEditor`   | clipboard paste   |
 
 [FOLDING_ENTRYPOINTS]: folding lifecycle
 - rail: editor

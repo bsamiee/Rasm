@@ -38,12 +38,6 @@ monitoring option policy into the observability rail.
 |   [5]   | `ResourceQuotaProvider`     | quota provider    | current container quota read      |
 |   [6]   | `ResourceMonitoringOptions` | option value      | windows, intervals, metric flags  |
 
-The pull-model contracts in the prior table (`IResourceMonitor`, `IResourceUtilizationPublisher`,
-`ISnapshotProvider`, `ResourceUtilization`, `SystemResources`) are obsolete as of v10.7.0; the
-current observability path reads CPU/memory pressure off OTel observable instruments and reads the
-container quota off `ResourceQuotaProvider`. The obsolete contracts stay catalogued only as the
-migration source the consuming page deletes.
-
 [PUBLIC_TYPE_SCOPE]: registration surfaces
 - rail: observability
 
@@ -72,21 +66,20 @@ migration source the consuming page deletes.
 |   [2]   | `PublishAsync`     | utilization plus cancellation | delivers utilization to a publisher        |
 |   [3]   | `GetResourceQuota` | quota read                    | reads the current container resource quota |
 
-`GetResourceQuota()` returns `ResourceQuota`; the `out ResourceQuota` overload is the try-shape for callers that branch on quota availability.
-
 [ENTRYPOINT_SCOPE]: option policy
 - rail: observability
+- call shape: option property on `ResourceMonitoringOptions`
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]    | [CAPABILITY]                  |
-| :-----: | :--------------------------------- | :-------------- | :---------------------------- |
-|   [1]   | `CollectionWindow`                 | option property | sample retention window       |
-|   [2]   | `SamplingInterval`                 | option property | snapshot cadence              |
-|   [3]   | `PublishingWindow`                 | option property | publisher aggregation window  |
-|   [4]   | `CpuConsumptionRefreshInterval`    | option property | CPU metric refresh cadence    |
-|   [5]   | `MemoryConsumptionRefreshInterval` | option property | memory metric refresh cadence |
-|   [6]   | `UseLinuxCalculationV2`            | option property | cgroup v2 CPU calculation     |
-|   [7]   | `UseZeroToOneRangeForLinuxMetrics` | option property | normalized Linux metric range |
-|   [8]   | `EnableSystemDiskIoMetrics`        | option property | system disk I/O instruments   |
+| [INDEX] | [SURFACE]                          | [CAPABILITY]                  |
+| :-----: | :--------------------------------- | :---------------------------- |
+|   [1]   | `CollectionWindow`                 | sample retention window       |
+|   [2]   | `SamplingInterval`                 | snapshot cadence              |
+|   [3]   | `PublishingWindow`                 | publisher aggregation window  |
+|   [4]   | `CpuConsumptionRefreshInterval`    | CPU metric refresh cadence    |
+|   [5]   | `MemoryConsumptionRefreshInterval` | memory metric refresh cadence |
+|   [6]   | `UseLinuxCalculationV2`            | cgroup v2 CPU calculation     |
+|   [7]   | `UseZeroToOneRangeForLinuxMetrics` | normalized Linux metric range |
+|   [8]   | `EnableSystemDiskIoMetrics`        | system disk I/O instruments   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

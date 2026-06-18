@@ -13,6 +13,7 @@ The mature `Vectors`/`Analysis`/`Domain` source carries no `.planning/`; its des
 - `Geometry/.planning/healing/repair.md` — the repair rail: the `HealOp` closed algebra (six author-kernels + one native-gate boolean) and the `Heal.Repair` session fold composing the predicate floor.
 - `Geometry/.planning/healing/receipts.md` — the typed `RebuildReceipt` family, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold feeding the naming re-anchor.
 - `Geometry/.planning/constraints/solver.md` — one author-kernel geometric constraint solver: the closed `Constraint` residual/Jacobian algebra, the `DofAnalysis` verdict, and the Levenberg-Marquardt `Solve` iterate.
+- `Geometry/.planning/tessellation/delaunay.md` — the author-kernel constrained Delaunay owner: one `Tessellation` (triangulation/tetrahedralization) over a flat `SimplexStore`, the Bowyer-Watson insertion driven by the exact `InCircle`/`InSphere` predicate, and predicate-guarded constraint recovery.
 - `Geometry/.planning/faults/faults.md` — the consolidated band-2400 `GeometryFault` union every geometry rail routes through, and the `GeometryKeyPolicy` ordinal key accessor.
 
 ## [2]-[PACKAGES]
@@ -22,8 +23,10 @@ Every external library the kernel uses, planned or implemented, as a flat list. 
 - Thinktecture.Runtime.Extensions — `[Union]`/`[SmartEnum]`/`[ValueObject]` generated dispatch and value objects.
 - LanguageExt.Core — `Fin`/`Validation`/`Eff` result rails, `Seq`/`Option`/`HashMap`/`Set` immutable collections, `Error`.
 - MathNet.Numerics — dense linear algebra (`Matrix<double>`/`DenseMatrix`/`Cholesky`) for the constraint solver's normal-equations solve.
+- MathNet.Numerics.Providers.MKL / .OpenBLAS — native linear-algebra backends behind the `Control.LinearAlgebraProvider` seam, version-matched to the core line.
+- MathNet.Symbolics — symbolic expression algebra over the dense numeric lane for the constraint Jacobian/residual derivation.
 - CSparse — sparse direct solves for the mature `Vectors` mesh/matrix lane.
-- System.Numerics.Tensors — `TensorPrimitives` SIMD primitives for the mature `Vectors` field/spectral lane (BCL inbox).
+- System.Numerics.Tensors — `TensorPrimitives` SIMD primitives for the mature `Vectors` field/spectral lane.
 - System.IO.Hashing — `XxHash128`, the one content-address hash the topology reconciliation reuses.
 - System.Buffers.Binary — `BinaryPrimitives` for the canonical-adjacency byte encoding (BCL inbox).
 - System.Numerics.BigInteger — the exact rational oracle the predicate law-matrix proves against (BCL inbox).

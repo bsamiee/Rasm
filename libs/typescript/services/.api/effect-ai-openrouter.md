@@ -12,7 +12,7 @@ export * as OpenRouterConfig from "./OpenRouterConfig.js"
 export * as OpenRouterLanguageModel from "./OpenRouterLanguageModel.js"
 ```
 
-Service tags carry the identifiers `@effect/ai-openrouter/OpenRouterClient`, `@effect/ai-openrouter/OpenRouterConfig`, and `@effect/ai-openrouter/OpenRouterLanguageModel/Config`. Cross-package owners (`Effect`, `Layer`, `Schema`, `Stream`, `Config`, `ConfigError`, `Redacted`, `Context`, `HttpClient`, and `@effect/ai` `LanguageModel`/`Model`/`AiError`) resolve against `api-effect-core.md` and the `@effect/ai` core surface. This package carries the `node` tier tag — it requires `HttpClient.HttpClient` from `@effect/platform` (the browser binding is `FetchHttpClient.layer`).
+Service tags carry the identifiers `@effect/ai-openrouter/OpenRouterClient`, `@effect/ai-openrouter/OpenRouterConfig`, and `@effect/ai-openrouter/OpenRouterLanguageModel/Config`. Cross-package owners (`Effect`, `Layer`, `Schema`, `Stream`, `Config`, `ConfigError`, `Redacted`, `Context`, `HttpClient`, and `@effect/ai` `LanguageModel`/`Model`/`AiError`) resolve against `effect.md` and the `@effect/ai` core surface. This package carries the `node` tier tag — it requires `HttpClient.HttpClient` from `@effect/platform` (the browser binding is `FetchHttpClient.layer`).
 
 ---
 

@@ -13,7 +13,7 @@ Persistent topological naming that survives rebuilds: one `TopoName` lineage ref
 ## [2]-[TOPO_NAMING]
 
 - Owner: `EntityKind` `[SmartEnum<int>]` the entity-modality discriminant (`Vertex`/`Edge`/`Face`) carrying the per-kind signature-arity column; `TopoSignature` the rebuild-invariant topological fingerprint a name re-anchors against (boundary-vertex multiset + incident-kind histogram, position-free so a rigid move keeps the signature); `TopoName` `[ValueObject<UInt128>]` the stable lineage reference — one naming algebra over every `EntityKind`, the modality lives in the `Kind` column of the `NameEntry` row, never a `VertexName`/`EdgeName`/`FaceName` parallel triple; `Generation` the monotone rebuild counter; `NameEntry` the lineage record (name + kind + birth generation + last-seen generation + provenance parent name + current signature + stored resolved boundary-name set + canonical bytes); `NameTable` the immutable registry keyed by `TopoName` with the signature index AND a topology-vertex-index→name row (`VertexNames`) that resolves intrinsic incidence to prior names; `Track` the re-anchoring fold that matches names across a rebuild.
-- Cases: `EntityKind` rows `Vertex` (arity 0, signature is its own position bucket) · `Edge` (arity 2, signature is its endpoint-name multiset) · `Face` (arity n, signature is its boundary-edge-name cycle) (3); `Track` outcomes per rebuilt entity are `Survived` (signature match → keep name, bump last-seen) · `Migrated` (parent-signature subset match → new name, parent provenance) · `Born` (no match → fresh name) folded into the next-generation `NameTable`.
+- Cases: `EntityKind` rows `Vertex` (arity 0, signature is its own position bucket) · `Edge` (arity 2, signature is its endpoint-name multiset) · `Face` (`SignatureArity` `-1` sentinel for the variadic boundary cycle) (3); `Track` outcomes per rebuilt entity are `Survived` (signature match → keep name, bump last-seen) · `Migrated` (parent-signature subset match → new name, parent provenance) · `Born` (no match → fresh name) folded into the next-generation `NameTable`.
 - Entry: `public static Fin<NameTable> Track(NameTable prior, CanonicalTopology rebuilt, Generation next)` — `Fin<T>` routes a `GeometryFault.NameCollision` (band 2400) when two rebuilt entities of one kind resolve to the same prior name (a non-injective re-anchor is a defect, never a silent overwrite); the fold walks every rebuilt entity, resolves its `TopoSignature` against the prior signature index, and emits the next-generation table where each entity carries either its surviving prior name, a migrated child name with parent provenance, or a fresh name minted from the entity's canonical bytes. `public static TopoName Mint(EntityKind kind, ReadOnlySpan<byte> canonicalBytes, Generation born)` mints the lineage-root name as `XxHash128`-derived `UInt128` over `(kind ordinal · canonical entity bytes · born generation)` so a fresh name is content-stable but lineage-distinct across generations.
 - Auto: `Track` folds entities in `EntityKind` order (vertices first so `VertexNames` is populated before edges/faces resolve incidence) and reads the prior `NameTable.SignatureIndex` (`HashMap<EntityKind, HashMap<TopoSignature, TopoName>>`) so the exact-match probe is one hash-map lookup per rebuilt entity, never a quadratic cross-product; each entity's intrinsic incident topology-vertex indices resolve to prior `TopoName`s through `NameTable.ResolveBoundary` (the `VertexNames` row), and that resolved set IS the position-free signature input. An exact `TopoSignature` hit is `Survived` (the entity kept its topological neighborhood), a parent-boundary subset hit (the prior entry's stored `Boundary` names are a proper subset of the rebuilt entity's) is `Migrated` with the prior name threaded as `Parent` provenance under a deterministic smallest-`TopoName` tiebreak (a face split inherits the parent face's lineage; the tiebreak makes a split-into-n choose one stable parent), and a miss is `Born`. The single `EntityKind` discriminant means one fold body serves vertex, edge, and face re-anchoring — the signature arity is a row column, not three fold copies.
 - Receipt: `Track` returns the next-generation `NameTable` directly (the registry IS the receipt — birth/last-seen generations and parent provenance are the per-name lineage evidence); no parallel tracking ledger.
@@ -27,7 +27,7 @@ Persistent topological naming that survives rebuilds: one `TopoName` lineage ref
 public sealed partial class EntityKind {
     public static readonly EntityKind Vertex = new(key: 0, signatureArity: 0);
     public static readonly EntityKind Edge   = new(key: 1, signatureArity: 2);
-    public static readonly EntityKind Face   = new(key: 2, signatureArity: -1); // -1 = variadic boundary cycle
+    public static readonly EntityKind Face   = new(key: 2, signatureArity: -1);
 
     public int SignatureArity { get; }
 }
@@ -50,24 +50,17 @@ public readonly partial struct Generation {
     public Generation Next() => From(Value + 1);
 }
 
-// Position-free rebuild-invariant fingerprint: the entity's incident-NAME multiset (sorted, canonical)
-// plus an incident-kind histogram. Built from names + kinds only — never coordinates — so a rigid move
-// preserves the signature and only an adjacency change re-anchors, matching the GeometryHash morph/break law.
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct TopoSignature {
     public static TopoSignature Of(EntityKind kind, ReadOnlySpan<TopoName> incidentNames, ReadOnlySpan<int> kindHistogram) {
         var buffer = new ArrayBufferWriter<byte>((incidentNames.Length + kindHistogram.Length + 1) * 16);
         BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4)[..4], kind.Key); buffer.Advance(4);
-        // canonical order: sort the incident names so neighbor permutation never perturbs the signature
         var sorted = incidentNames.ToArray(); Array.Sort(sorted, static (a, b) => a.Value.CompareTo(b.Value));
         foreach (var name in sorted) { BinaryPrimitives.WriteUInt128LittleEndian(buffer.GetSpan(16)[..16], name.Value); buffer.Advance(16); }
         foreach (int count in kindHistogram) { BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4)[..4], count); buffer.Advance(4); }
         return From(XxHash128.HashToUInt128(buffer.WrittenSpan));
     }
 
-    // Parent-subset test for the Migrated arm: the prior boundary names are a proper sub-neighborhood of the
-    // rebuilt entity (a face split inherits its parent's boundary). Pure set predicate over two sorted name
-    // sets — no signature state participates, so it is static, not an instance method.
     public static bool Subsumes(ReadOnlySpan<TopoName> priorBoundary, ReadOnlySpan<TopoName> rebuiltBoundary) {
         var rebuilt = rebuiltBoundary.ToArray(); Array.Sort(rebuilt, static (a, b) => a.Value.CompareTo(b.Value));
         foreach (var name in priorBoundary)
@@ -78,7 +71,6 @@ public readonly partial struct TopoSignature {
 
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct TopoName {
-    // Lineage-root mint: content-stable over the entity's canonical bytes, lineage-distinct across generations.
     public static TopoName Mint(EntityKind kind, ReadOnlySpan<byte> canonicalBytes, Generation born) {
         var buffer = new ArrayBufferWriter<byte>(canonicalBytes.Length + 8);
         BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4)[..4], kind.Key); buffer.Advance(4);
@@ -88,21 +80,15 @@ public readonly partial struct TopoName {
     }
 }
 
-// One lineage record over every EntityKind — the modality is the Kind column, never a parallel *Entry type.
-// Boundary is the resolved incident-name set stored as a column (not re-derived) so the Migrated re-anchor's
-// parent-subset test reads the prior generation's boundary directly via BoundaryOf.
 public readonly record struct NameEntry(
     TopoName Name, EntityKind Kind, Generation Born, Generation LastSeen, Option<TopoName> Parent, TopoSignature Signature, Seq<TopoName> Boundary, byte[] CanonicalBytes);
 
-// The rebuilt entity the fold consumes: its kind, its canonical bytes, the INTRINSIC incident topology-vertex
-// indices of its neighborhood (resolved to prior TopoNames inside Track via the prior generation's VertexNames
-// row — adjacency is intrinsic to the mesh, names are extrinsic to the generation), and the kind histogram.
 public readonly record struct RebuiltEntity(EntityKind Kind, byte[] CanonicalBytes, int[] IncidentVertices, int[] KindHistogram);
 
 public sealed record NameTable(
     HashMap<TopoName, NameEntry> Entries,
     HashMap<EntityKind, HashMap<TopoSignature, TopoName>> SignatureIndex,
-    HashMap<int, TopoName> VertexNames,   // topology-vertex index → its TopoName, this generation; resolves intrinsic incidence to prior names
+    HashMap<int, TopoName> VertexNames,
     Generation Generation) {
     public static readonly NameTable Empty =
         new(HashMap<TopoName, NameEntry>.Empty, HashMap<EntityKind, HashMap<TopoSignature, TopoName>>.Empty, HashMap<int, TopoName>.Empty, Generation.From(0));
@@ -110,8 +96,6 @@ public sealed record NameTable(
     public Option<TopoName> Resolve(EntityKind kind, TopoSignature signature) =>
         SignatureIndex.Find(kind).Bind(index => index.Find(signature));
 
-    // Resolve intrinsic incident topology-vertex indices to the PRIOR generation's TopoNames; an index with no
-    // prior name (a freshly inserted vertex) drops out, so the boundary set is exactly the surviving neighborhood.
     public Seq<TopoName> ResolveBoundary(ReadOnlySpan<int> incidentVertices) =>
         toSeq(incidentVertices.ToArray()).Map(VertexNames.Find).Somes();
 
@@ -124,9 +108,6 @@ public sealed record NameTable(
 
 // --- [OPERATIONS] --------------------------------------------------------------------------------
 public static class TopoNaming {
-    // Re-anchor every rebuilt entity against the prior table by topological signature; one fold body serves
-    // vertex/edge/face because EntityKind is a discriminant column, not three fold copies. Vertices fold first
-    // (EntityKind.Key order) so the next-generation VertexNames row is populated before edges/faces resolve.
     public static Fin<NameTable> Track(NameTable prior, CanonicalTopology rebuilt, Generation next) =>
         rebuilt.Entities.OrderBy(static e => e.Kind.Key)
             .Fold(Fin.Succ((Table: NameTable.Empty with { Generation = next }, Claimed: HashSet<TopoName>.Empty)),
@@ -136,8 +117,6 @@ public static class TopoNaming {
 
     static Fin<(NameEntry Entry, TrackOutcome Outcome)> Anchor(
         NameTable prior, RebuiltEntity entity, Generation next, HashSet<TopoName> claimed) {
-        // Resolve intrinsic incident topology-vertex indices to the PRIOR generation's names — that resolved set
-        // IS the position-free signature input AND the parent-subset boundary the Migrated arm tests against.
         var boundary = prior.ResolveBoundary(entity.IncidentVertices);
         var signature = TopoSignature.Of(entity.Kind, boundary.ToArray(), entity.KindHistogram);
         return prior.Resolve(entity.Kind, signature).Match(
@@ -156,7 +135,7 @@ public static class TopoNaming {
         var rebuiltBoundary = boundary.ToArray();
         var parent = prior.Entries.Values
             .Filter(prev => prev.Kind == entity.Kind && !claimed.Contains(prev.Name) && TopoSignature.Subsumes(prev.Boundary.ToArray(), rebuiltBoundary))
-            .OrderBy(static prev => prev.Name.Value)   // deterministic parent: smallest TopoName under multi-subsume (face split into n)
+            .OrderBy(static prev => prev.Name.Value)
             .HeadOrNone();
         var name = TopoName.Mint(entity.Kind, entity.CanonicalBytes, next);
         var entry = new NameEntry(name, entity.Kind, next, next, parent.Map(static p => p.Name), signature, boundary, entity.CanonicalBytes);
@@ -181,4 +160,4 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 
 ## [4]-[RESEARCH]
 
-- [REANCHOR_INJECTIVITY] — `TopoNaming.Track` is total over the `Fin` rail and routes `GeometryFault.NameCollision` on a non-injective re-anchor (two rebuilt entities of one kind resolving to one prior name). The tier-2 property harness drives the rebuild-matching validation: generate a mesh, apply a labelled topological operation (rigid move → all names Survive; face split → child Migrates with parent provenance; vertex insert → Born; edge collapse → the collapsed-into name Survives, the collapsed name absent), and assert the `TrackOutcome` matches the operation's expected lineage class and that the next-generation `NameTable` is injective per `EntityKind`; the static `TopoSignature.Subsumes` parent-subset predicate is the migration disambiguator under test (a face split's children each subsume the parent boundary), with a deterministic smallest-`TopoName` tiebreak so a split-into-n parent selection is stable across runs (the golden rebuild fixture would otherwise flake on `HashMap` enumeration order). The boundary-storage shape is pinned — `NameEntry.Boundary` stores the resolved incident-name set as a column (read directly in `MigrateOrBirth`, never re-derived) and `NameTable.VertexNames` resolves intrinsic incident topology-vertex indices to prior names via `ResolveBoundary`; the OPEN residual is the injectivity proof itself, specifically the Survive×Migrate cross-case (a `Survived` name followed by a `Migrated` that mints a child of the same prior parent), which the per-`EntityKind` `claimed` set must prove non-colliding alongside the already-guarded Survive×Survive case — held until the property harness asserts injectivity across both cross-cases against the golden rebuild fixture.
+- [REANCHOR_INJECTIVITY] — `TopoNaming.Track` is total over the `Fin` rail and routes `GeometryFault.NameCollision` on a non-injective re-anchor (two rebuilt entities of one kind resolving to one prior name). The tier-2 property harness drives the rebuild-matching validation: generate a mesh, apply a labelled topological operation (rigid move → all names Survive; face split → child Migrates with parent provenance; vertex insert → Born; edge collapse → the collapsed-into name Survives, the collapsed name absent), and assert the `TrackOutcome` matches the operation's expected lineage class and that the next-generation `NameTable` is injective per `EntityKind`; the static `TopoSignature.Subsumes` parent-subset predicate is the migration disambiguator under test (a face split's children each subsume the parent boundary), with a deterministic smallest-`TopoName` tiebreak so a split-into-n parent selection is stable across runs (an enumeration-order-dependent tiebreak flakes the golden rebuild fixture on `HashMap` order — the smallest-name rule removes that dependence). The boundary-storage shape is pinned — `NameEntry.Boundary` stores the resolved incident-name set as a column (read directly in `MigrateOrBirth`, never re-derived) and `NameTable.VertexNames` resolves intrinsic incident topology-vertex indices to prior names via `ResolveBoundary`; the OPEN residual is the injectivity proof itself, specifically the Survive×Migrate cross-case (a `Survived` name followed by a `Migrated` that mints a child of the same prior parent), which the per-`EntityKind` `claimed` set must prove non-colliding alongside the already-guarded Survive×Survive case — held until the property harness asserts injectivity across both cross-cases against the golden rebuild fixture.

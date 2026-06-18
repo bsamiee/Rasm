@@ -39,30 +39,32 @@
 
 [KNOB_ENTRYPOINTS]: MSBuild gate and injection knobs
 - rail: hot-reload
+- surface-root: `HotAvalonia.targets`
 
-| [INDEX] | [SURFACE]                                                       | [SURFACE_ROOT]        | [RAIL]                         |
-| :-----: | :-------------------------------------------------------------- | :-------------------- | :----------------------------- |
-|   [1]   | `HotAvalonia`                                                   | `HotAvalonia.targets` | master gate (Debug default)    |
-|   [2]   | `HotAvaloniaRemote`                                             | `HotAvalonia.targets` | remote reload (non-desktop)    |
-|   [3]   | `HotAvaloniaLite`                                               | `HotAvalonia.targets` | lite mode                      |
-|   [4]   | `HotAvaloniaIncludeExtensions`                                  | `HotAvalonia.targets` | source injection (exe default) |
-|   [5]   | `HotAvaloniaInjections` / `HotAvaloniaInjectionType`            | `HotAvalonia.targets` | injection mode                 |
-|   [6]   | `HotAvaloniaInitialPatching`                                    | `HotAvalonia.targets` | initial patch gate             |
-|   [7]   | `HotAvaloniaTimeout` / `HotAvaloniaHotkey`                      | `HotAvalonia.targets` | runtime behavior               |
-|   [8]   | `HotAvaloniaAutoEnable`                                         | `HotAvalonia.targets` | auto-enable (exe only)         |
-|   [9]   | `HotAvaloniaRecompileResources`                                 | `HotAvalonia.targets` | resource recompile             |
-|  [10]   | `HotAvaloniaProcessReferences` / `HotAvaloniaExcludeReferences` | `HotAvalonia.targets` | release strip                  |
+| [INDEX] | [SURFACE]                                                       | [RAIL]                         |
+| :-----: | :-------------------------------------------------------------- | :----------------------------- |
+|   [1]   | `HotAvalonia`                                                   | master gate (Debug default)    |
+|   [2]   | `HotAvaloniaRemote`                                             | remote reload (non-desktop)    |
+|   [3]   | `HotAvaloniaLite`                                               | lite mode                      |
+|   [4]   | `HotAvaloniaIncludeExtensions`                                  | source injection (exe default) |
+|   [5]   | `HotAvaloniaInjections` / `HotAvaloniaInjectionType`            | injection mode                 |
+|   [6]   | `HotAvaloniaInitialPatching`                                    | initial patch gate             |
+|   [7]   | `HotAvaloniaTimeout` / `HotAvaloniaHotkey`                      | runtime behavior               |
+|   [8]   | `HotAvaloniaAutoEnable`                                         | auto-enable (exe only)         |
+|   [9]   | `HotAvaloniaRecompileResources`                                 | resource recompile             |
+|  [10]   | `HotAvaloniaProcessReferences` / `HotAvaloniaExcludeReferences` | release strip                  |
 
 [HARFS_ENTRYPOINTS]: remote file-server knobs
 - rail: hot-reload
+- surface-root: `HotAvalonia.targets`
 
-| [INDEX] | [SURFACE]                                | [SURFACE_ROOT]        | [RAIL]          |
-| :-----: | :--------------------------------------- | :-------------------- | :-------------- |
-|   [1]   | `HarfsAddress` / `HarfsFallbackAddress`  | `HotAvalonia.targets` | endpoint        |
-|   [2]   | `HarfsPort`                              | `HotAvalonia.targets` | TCP port        |
-|   [3]   | `HarfsSecret` / `HarfsCertificateFile`   | `HotAvalonia.targets` | transport trust |
-|   [4]   | `HarfsMaxSearchDepth`                    | `HotAvalonia.targets` | read bound      |
-|   [5]   | `HarfsTimeout` / `HarfsExitOnDisconnect` | `HotAvalonia.targets` | lifetime        |
+| [INDEX] | [SURFACE]                                | [RAIL]          |
+| :-----: | :--------------------------------------- | :-------------- |
+|   [1]   | `HarfsAddress` / `HarfsFallbackAddress`  | endpoint        |
+|   [2]   | `HarfsPort`                              | TCP port        |
+|   [3]   | `HarfsSecret` / `HarfsCertificateFile`   | transport trust |
+|   [4]   | `HarfsMaxSearchDepth`                    | read bound      |
+|   [5]   | `HarfsTimeout` / `HarfsExitOnDisconnect` | lifetime        |
 
 [INJECTED_ENTRYPOINTS]: `AvaloniaHotReloadExtensions` injected source surface
 - rail: hot-reload

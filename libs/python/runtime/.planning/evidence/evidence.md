@@ -9,8 +9,8 @@ One cluster: `[2]-[API]` — API and structural-parsing evidence records.
 ## [2]-[API]
 
 - Owner: `ApiPackage` — the distribution/import/owner/capability/entrypoint record over `importlib.metadata`; `ApiMember` the official-surface row a source may later name; `Structural` the static surface over `tree-sitter` parsing Python/TypeScript sources into evidence the `assay code` rail consumes.
-- Entry: `ApiPackage.reflect` reads one distribution's metadata and entry points; `Structural.query` runs a tree-sitter S-expression query over a source returning `(capture-name, start-byte, end-byte)` rows, flattening the capture-name-to-node-list mapping the binding returns.
-- Packages: `importlib.metadata` (stdlib), `tree-sitter` (`Language`/`Parser`/`Query`), `tree-sitter-python`, `tree-sitter-typescript`, `msgspec`.
+- Entry: `ApiPackage.reflect` reads one distribution's metadata and entry points; `Structural.query` runs a tree-sitter S-expression query over a source through `QueryCursor(Query(language, pattern)).captures(...)`, returning `(capture-name, start-byte, end-byte)` rows by flattening the capture-name-to-node-list `dict` the cursor returns.
+- Packages: `importlib.metadata` (stdlib), `tree-sitter` (`Language`/`Parser`/`Query`/`QueryCursor.captures`), `tree-sitter-python`, `tree-sitter-typescript`, `msgspec`.
 - Growth: a new evidence field is one column on `ApiPackage`; a new language is one `tree-sitter` grammar binding; zero new surface.
 - Boundary: no package version tables in planning pages, no guessed environment status; a source cannot name a member absent from the catalogue evidence; the structural-parsing surface emits evidence the `assay code` rail consumes, never a competing search owner.
 
@@ -18,13 +18,12 @@ One cluster: `[2]-[API]` — API and structural-parsing evidence records.
 from importlib import metadata
 
 from msgspec import Struct
-from tree_sitter import Language, Parser, Query
+from tree_sitter import Language, Parser, Query, QueryCursor
 
 
 class ApiMember(Struct, frozen=True):
     symbol: str
     family: str
-    rail: str
 
 
 class ApiPackage(Struct, frozen=True):
@@ -46,7 +45,7 @@ class Structural:
     @staticmethod
     def query(language: Language, source: bytes, pattern: str) -> tuple[tuple[str, int, int], ...]:
         tree = Parser(language).parse(source)
-        captures = Query(language, pattern).captures(tree.root_node)
+        captures = QueryCursor(Query(language, pattern)).captures(tree.root_node)
         return tuple(
             (name, node.start_byte, node.end_byte)
             for name, nodes in captures.items()
@@ -56,4 +55,4 @@ class Structural:
 
 ## [3]-[RESEARCH]
 
-- [TREE_SITTER_QUERY]: the `Query(language, pattern)` constructor versus the `Language.query(pattern)` factory, and the `Parser(language)` versus `Parser(); parser.language = language` construction, confirm against the current `tree-sitter` Python binding at fence transcription; the capture return is the `dict[str, list[Node]]` shape the fence flattens.
+- [TREE_SITTER_QUERY]: the current `tree-sitter` Python binding runs captures through `QueryCursor(Query(language, pattern)).captures(node)`, not a `.captures` method on `Query`; the `Parser(language)` constructor and the `dict[str, list[Node]]` capture-name-to-nodes return the fence flattens confirm against the `tree-sitter` catalogue, and the `Language.query` compile-factory alternative is the catalogue-listed equivalent.

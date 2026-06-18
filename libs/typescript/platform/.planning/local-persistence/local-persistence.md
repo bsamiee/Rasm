@@ -4,9 +4,7 @@ One page owns the single browser-local store — `LocalPersistence`, the Schema-
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                       |
-| :-----: | :---------------- | :--------------------------------------------------------- |
-|   [1]   | LOCAL_PERSISTENCE | the last-good snapshot store and the offline command queue   |
+[LOCAL_PERSISTENCE]: the last-good snapshot store and the offline command queue.
 
 ## [2]-[LOCAL_PERSISTENCE]
 

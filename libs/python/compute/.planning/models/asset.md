@@ -9,14 +9,13 @@ The one classical-ML model-asset validation and export owner. `ModelAsset` carri
 ## [2]-[ASSET]
 
 - Owner: `ModelAsset` — the file-identity, checksum, io-names, preprocessing, model-card, and validation owner over onnx, onnxruntime, and skl2onnx; `ModelAssetManifest` is the io-names, preprocessing, model-card, and validation value object backing the graduation seam, every field carried by the struct. `ValidationCheck` discriminates `Structural` (`onnx.checker.check_model` graph well-formedness), `IoBinding` (declared io-names match the `InferenceSession` graph), and `Smoke` (a zero-tensor inference returns finite output), folded total in `validate`. `ExportSource` discriminates the export entry, currently `Sklearn` (a fitted estimator with its input feature shape).
-- Entry: `ModelAsset.validate` loads the ONNX graph, folds the `ValidationCheck` cases over the declared io-names through an `onnxruntime.InferenceSession`, derives the checksum through `ContentIdentity.key`, and returns `RuntimeRail[ModelAssetManifest]` proving the asset loads and infers before the C# model lane accepts it; `ModelAsset.export` matches an `ExportSource` and runs the skl2onnx export validated before graduation.
-- Receipt: `ModelAssetManifest.contribute` emits one `Receipt.Emitted` row carrying the io-names, opset, preprocessing, model-card, and validation verdict; the manifest graduates through `graduation/receipt.md#GRADUATION` on the model-asset axis only after validation passes.
-- Packages: `onnx` (`load`, `checker.check_model`, `ModelProto`, `opset_import`), `onnxruntime` (`InferenceSession`, `get_inputs`, `get_outputs`, `run`), `skl2onnx` (`convert_sklearn`, `to_onnx`, `FloatTensorType`), `numpy` (`zeros` for the smoke tensor), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`, `ResourceRef`, `ReceiptContributor`).
+- Entry: `ModelAsset.validate` loads the ONNX graph, folds the `ValidationCheck` cases over the declared io-names through an `onnxruntime.InferenceSession`, derives the checksum through `ContentIdentity.of`, and returns `RuntimeRail[ModelAssetManifest]` proving the asset loads and infers before the C# model lane accepts it; `ModelAsset.export` matches an `ExportSource` and runs the skl2onnx export validated before graduation.
+- Receipt: `ModelAssetManifest.contribute` emits one `Receipt.of("emitted", ...)` row carrying the io-names, opset, preprocessing, model-card, and validation verdict; the manifest graduates through `graduation/receipt.md#GRADUATION` on the model-asset axis only after validation passes.
+- Packages: `onnx` (`load`, `checker.check_model`, `ModelProto`, `opset_import`), `onnxruntime` (`InferenceSession`, `get_inputs`, `get_outputs`, `run`), `skl2onnx` (`convert_sklearn`, `to_onnx`, `FloatTensorType`), `numpy` (`zeros` for the smoke tensor), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `ResourceRef`, `Receipt`/`ReceiptContributor`).
 - Growth: a new validation check is one `ValidationCheck` row; a new export source is one `ExportSource` row; zero new surface.
 - Boundary: no production inference-session runtime; production tensor-session authority stays in C#, and an unvalidated graduation is the deleted form. Validating and exporting a classical scikit-learn estimator graph is in-scope; authoring or training a neural or generative model is not. onnx, onnxruntime, and skl2onnx carry no cp315 wheel, so the validate and export bodies are authored against the documented API.
 
-```python
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+```python signature
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,13 +25,12 @@ import numpy as np
 from expression import case, tag, tagged_union
 from msgspec import Struct
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.observability.receipts import Receipt
+from rasm.runtime.content_identity import ContentIdentity, ContentKey, IdentityPolicy
 from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
 
-# --- [TYPES] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class ValidationCheck:
     tag: Literal["structural", "io_binding", "smoke"] = tag()
@@ -63,7 +61,6 @@ class ExportSource:
         return ExportSource(sklearn=(estimator, feature_shape))
 
 
-# --- [MODELS] --------------------------------------------------------------------------
 class ModelAssetManifest(Struct, frozen=True):
     checksum: ContentKey
     input_names: tuple[str, ...]
@@ -74,9 +71,10 @@ class ModelAssetManifest(Struct, frozen=True):
     validated: bool
 
     def contribute(self) -> Receipt:
-        return Receipt.Emitted(
+        return Receipt.of(
+            "emitted",
             "compute.model",
-            self.checksum.value,
+            str(self.checksum.value),
             {
                 "inputs": ",".join(self.input_names),
                 "outputs": ",".join(self.output_names),
@@ -91,7 +89,6 @@ class ModelAssetManifest(Struct, frozen=True):
 class ModelAsset(Struct, frozen=True):
     ref: ResourceRef
 
-    # --- [BOUNDARIES] ------------------------------------------------------------------
     def validate(self) -> RuntimeRail[ModelAssetManifest]:
         return boundary("model.validate", lambda: self._load_and_run(self.ref.path))
 
@@ -102,7 +99,6 @@ class ModelAsset(Struct, frozen=True):
             case unreachable:
                 assert_never(unreachable)
 
-    # --- [OPERATIONS] (private) --------------------------------------------------------
     def _load_and_run(self, path: Path) -> ModelAssetManifest:
         import onnx
         import onnxruntime
@@ -116,7 +112,7 @@ class ModelAsset(Struct, frozen=True):
         result = session.run(list(outputs), feed)
         opset = max(o.version for o in model.opset_import)
         return ModelAssetManifest(
-            checksum=ContentIdentity.key("onnx", path.read_bytes()),
+            checksum=ContentIdentity.of("onnx", path.read_bytes(), IdentityPolicy()),
             input_names=inputs,
             output_names=outputs,
             opset=int(opset),
@@ -136,4 +132,4 @@ class ModelAsset(Struct, frozen=True):
 
 ## [3]-[RESEARCH]
 
-- [ONNX_SESSION]: the `onnx.load`/`checker.check_model`/`ModelProto.opset_import`/`graph.node`, `onnxruntime.InferenceSession`/`get_inputs`/`get_outputs`/`run`, and `skl2onnx.convert_sklearn`/`common.data_types.FloatTensorType` spellings carry the `python_version<'3.15'` marker (no cp315 wheel); the validate and export bodies verify against the branch `.api` catalogue once the onnx, onnxruntime, and skl2onnx wheels resolve.
+- [ONNX_SESSION]: the `onnx.load`/`checker.check_model`/`ModelProto.opset_import`/`graph.node`, `onnxruntime.InferenceSession`/`get_inputs`/`get_outputs`/`run`, and `skl2onnx.convert_sklearn`/`common.data_types.FloatTensorType` spellings carry the `python_version<'3.15'` marker (no cp315 wheel); the validate and export bodies verify against the `.api` catalogue once the onnx, onnxruntime, and skl2onnx wheels resolve.

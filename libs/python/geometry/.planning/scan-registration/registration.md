@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_SCAN_REGISTRATION]
 
-Point-cloud and 3D-scan registration. `ScanRegistration` is one registration owner discriminating by mode row: global RANSAC+FPFH bootstrap, coarse-to-fine `multi_scale_icp` over the open3d tensor backend with robust kernels, the legacy ICP family, and the `small_gicp` VGICP parallel speed path, plus normal/feature estimation and voxel downsampling as the shared pre-step. Registration transforms graduate via the compute `HandoffAxis` geometry case; reconstruction and mesh repair route the `mesh-utility` sub-domain.
+Point-cloud and 3D-scan registration. `ScanRegistration` is one registration owner discriminating by mode row: global RANSAC+FPFH bootstrap, coarse-to-fine `multi_scale_icp` over the open3d tensor backend with robust kernels, colored point-to-plane ICP, the `small_gicp` VGICP parallel speed path, and multiway pose-graph optimization, with the robust point-to-plane estimator and voxel/correspondence schedule as the shared pre-step. Registration transforms graduate via the compute `HandoffAxis` geometry case; reconstruction and mesh repair route the `mesh-utility` sub-domain.
 
 ## [1]-[INDEX]
 
@@ -13,19 +13,19 @@ Point-cloud and 3D-scan registration. `ScanRegistration` is one registration own
 - Cases: `RegistrationMode` rows `GLOBAL` (RANSAC over FPFH features for the initial pose) · `MULTISCALE` (coarse-to-fine `t.pipelines.multi_scale_icp` with a robust point-to-plane estimator) · `COLORED_ICP` (colored point-to-plane over open3d) · `VGICP` (the `small_gicp` voxelized parallel speed path) · `MULTIWAY` (pose-graph optimization over multi-station sessions) — matched by `match`/`case`, each binding the engine and estimator that owns it.
 - Entry: `ScanRegistration.register` admits source/target clouds and a mode, runs the mode's pipeline through one `match`, and returns a `RuntimeRail[RegistrationResult]`; the `GLOBAL` arm threads the private `_bootstrap` RANSAC+FPFH pose that seeds the fine modes, and the `MULTIWAY` arm threads the private `_multiway` that folds pairwise bootstraps into a `PoseGraph` and runs `global_optimization`; the shared robust point-to-plane estimator binds once above the `match`.
 - Auto: the tensor path runs `t.pipelines.registration.multi_scale_icp` with `TransformationEstimationPointToPlane` over a `TukeyLoss` `RobustKernel` across a voxel/iteration schedule reading `.transformation`/`.fitness`/`.inlier_rmse`; the colored path runs the tensor `icp` under `TransformationEstimationForColoredICP`; the global path lowers the tensor clouds to legacy through `to_legacy`, computes `compute_fpfh_feature` over a `KDTreeSearchParamHybrid` radius, then `registration_ransac_based_on_feature_matching`; the VGICP path runs `small_gicp.align` against the target positions reading `RegistrationResult.T_target_source`; the multiway path folds pairwise bootstraps into `PoseGraphNode`/`PoseGraphEdge` and runs `global_optimization`.
-- Receipt: each registration contributes a `Receipt.emitted` row through `ReceiptContributor` carrying the mode, fitness, inlier RMSE, and elapsed; the transform produces a geometry `GraduationReceipt` subject (`registration-transform`).
+- Receipt: each registration contributes an emitted-phase `Receipt.of` row through `ReceiptContributor` carrying the mode, fitness, inlier RMSE, and elapsed; the transform produces a geometry `GraduationReceipt` subject (`registration-transform`).
 - Packages: `open3d` (`t.geometry.PointCloud.to_legacy`/`t.pipelines.registration.multi_scale_icp`/`icp`/`TransformationEstimationPointToPlane`/`TransformationEstimationForColoredICP`/`robust_kernel.RobustKernel`/`RobustKernelMethod.TukeyLoss`/`pipelines.registration.registration_ransac_based_on_feature_matching`/`compute_fpfh_feature`/`PoseGraph`/`PoseGraphNode`/`PoseGraphEdge`/`global_optimization`), `small_gicp` (`align`/`RegistrationResult.T_target_source`), runtime (`RuntimeRail`/`ReceiptContributor`/`LanePolicy`).
 - Growth: a new registration algorithm is one `RegistrationMode` row plus one dispatch arm; a new robust kernel is one estimator bind; zero new surface, no parallel per-algorithm class family.
 - Boundary: no IFC tessellation (that is `tessellation`); robust mesh repair and reconstruction cleanup route `mesh-utility`; no durable store; no Rhino/GH mutation; a `get_icp`/`get_vgicp` family, a stringly-typed mode dispatch, the legacy-only `o3d.pipelines` backend with no global bootstrap, and a weaker local registration reimplementation are the deleted forms.
 
 ```python signature
-import numpy as np
 import open3d as o3d
 import small_gicp
 from enum import StrEnum
+from typing import assert_never
 from msgspec import Struct
 
-from rasm.runtime.observability.receipts import ReceiptContributor
+from rasm.runtime.receipts import ReceiptContributor
 from rasm.runtime.faults import RuntimeRail, boundary
 
 
@@ -77,6 +77,8 @@ class ScanRegistration(Struct, frozen=True):
                 return self._bootstrap(source, target)
             case RegistrationMode.MULTIWAY:
                 return self._multiway((source, target))
+            case unreachable:
+                assert_never(unreachable)
 
     def _bootstrap(self, source: o3d.t.geometry.PointCloud, target: o3d.t.geometry.PointCloud) -> RegistrationResult:
         src, tgt = source.to_legacy(), target.to_legacy()
@@ -92,6 +94,8 @@ class ScanRegistration(Struct, frozen=True):
         return RegistrationResult(RegistrationMode.GLOBAL, tuple(reg.transformation.flatten()), reg.fitness, reg.inlier_rmse)
 
     def _multiway(self, clouds: tuple[o3d.t.geometry.PointCloud, ...]) -> RegistrationResult:
+        import numpy as np  # noqa: PLC0415
+
         graph = o3d.pipelines.registration.PoseGraph()
         graph.nodes.append(o3d.pipelines.registration.PoseGraphNode(np.identity(4)))
         for i, cloud in enumerate(clouds[1:]):

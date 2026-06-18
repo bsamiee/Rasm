@@ -4,9 +4,7 @@ One page owns the React render-tree fault integration — `ErrorBoundaryBinding`
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]              | [OWNS]                                                       |
-| :-----: | :--------------------- | :--------------------------------------------------------- |
-|   [1]   | ERROR_BOUNDARY_BINDING | the react-error-boundary integration and the escalation hook |
+[ERROR_BOUNDARY_BINDING]: the react-error-boundary integration and the escalation hook.
 
 ## [2]-[ERROR_BOUNDARY_BINDING]
 
@@ -23,7 +21,7 @@ import type { FallbackProps } from "react-error-boundary";
 import { Runtime, SubscriptionRef } from "effect";
 import { ErrorBoundary, useErrorBoundary } from "react-error-boundary";
 import { createElement } from "react";
-import { type FaultDetail, FaultDetail as Fault } from "../interchange/codec-rails";
+import { type FaultDetail, FaultDetail as Fault } from "../interchange/fault-family.ts";
 import { type CrashTelemetry, type Recovery, CrashTelemetry as CrashTag } from "./crash-telemetry.ts";
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -37,7 +35,7 @@ const ErrorBoundaryBinding = ({ runtime, fallback, children }: ErrorBoundaryBind
   const telemetry = Runtime.runSync(runtime, CrashTag);
   const fork = Runtime.runFork(runtime);
   const onError = (error: unknown, info: ErrorInfo): void => {
-    fork(telemetry.capture(error instanceof Error ? error : Fault.HopFault({ code: "render", evidence: { componentStack: info.componentStack ?? "" } })));
+    fork(telemetry.capture(error instanceof Error ? error : Fault.HopFault({ reason: "render", evidence: { componentStack: info.componentStack ?? "" } })));
   };
   const onReset = (): void => void fork(telemetry.recover);
   const renderFallback = ({ resetErrorBoundary }: FallbackProps): ReactNode =>

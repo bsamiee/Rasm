@@ -13,20 +13,18 @@
 
 ## [2]-[PUBLIC_TYPES]
 
-[VIEW_TYPES]: typed view and host controls
-- rail: reactive-ui
+[VIEW_TYPES]: typed view and host controls — rail: reactive-ui
 
-| [INDEX] | [SYMBOL]                          | [RAIL]          |
+| [INDEX] | [SYMBOL]                          | [KIND]          |
 | :-----: | :-------------------------------- | :-------------- |
 |   [1]   | `ReactiveUserControl<TViewModel>` | screen control  |
 |   [2]   | `ReactiveWindow<TViewModel>`      | window surface  |
 |   [3]   | `RoutedViewHost`                  | routed host     |
 |   [4]   | `ViewModelViewHost`               | view-model host |
 
-[INFRASTRUCTURE_TYPES]: Avalonia integration infrastructure
-- rail: reactive-ui
+[INFRASTRUCTURE_TYPES]: Avalonia integration infrastructure — rail: reactive-ui
 
-| [INDEX] | [SYMBOL]                              | [RAIL]               |
+| [INDEX] | [SYMBOL]                              | [KIND]               |
 | :-----: | :------------------------------------ | :------------------- |
 |   [1]   | `AppBuilderExtensions`                | builder admission    |
 |   [2]   | `AvaloniaActivationForViewFetcher`    | activation lookup    |

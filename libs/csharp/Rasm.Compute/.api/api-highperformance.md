@@ -91,9 +91,6 @@ for measured staging payloads.
 [ENTRYPOINT_SCOPE]: parallel partition operations
 - rail: staging
 
-Partition helpers carry the partition shape; action contracts carry invocation arity.
-
-[PARTITION_OPERATIONS]:
 | [INDEX] | [SURFACE]                               | [CALL_SHAPE]        | [CAPABILITY]                |
 | :-----: | :-------------------------------------- | :------------------ | :-------------------------- |
 |   [1]   | `ParallelHelper.For<TAction>`           | 1D index range      | partitions index slots      |
@@ -104,7 +101,9 @@ Partition helpers carry the partition shape; action contracts carry invocation a
 |   [6]   | `ParallelHelper.ForEach<TItem,TAction>` | `ReadOnlyMemory<T>` | reads items by reference    |
 |   [7]   | `ParallelHelper.ForEach<TItem,TAction>` | memory plane        | partitions 2D memory planes |
 
-[ACTION_CONTRACTS]:
+[ENTRYPOINT_SCOPE]: action contract invocation
+- rail: staging
+
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]   | [CAPABILITY]             |
 | :-----: | :--------------------- | :------------- | :----------------------- |
 |   [1]   | `IAction.Invoke`       | 1D index       | handles one index slot   |
@@ -116,23 +115,24 @@ Partition helpers carry the partition shape; action contracts carry invocation a
 - source: `CommunityToolkit.HighPerformance` 8.4.2 — `CommunityToolkit.HighPerformance.Helpers.BitHelper` decompile
 - namespace: `CommunityToolkit.HighPerformance.Helpers`
 - rail: staging-and-streams#STREAM_POOL
+- consumer: `staging-and-streams#STREAM_POOL`
 
-| [INDEX] | [MEMBER]                              | [SIGNATURE]                                                                   | [USED_BY]                       | [EVIDENCE]      |
-| :-----: | :------------------------------------ | :---------------------------------------------------------------------------- | :------------------------------ | :-------------- |
-|   [1]   | `HasFlag(uint,int)`                   | `static bool HasFlag(uint value, int n)`                                      | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|   [2]   | `HasFlag(ulong,int)`                  | `static bool HasFlag(ulong value, int n)`                                     | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|   [3]   | `SetFlag(ref uint,int,bool)`          | `static void SetFlag(ref uint value, int n, bool flag)`                       | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|   [4]   | `SetFlag(uint,int,bool)`              | `static uint SetFlag(uint value, int n, bool flag)`                           | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|   [5]   | `SetFlag(ref ulong,int,bool)`         | `static void SetFlag(ref ulong value, int n, bool flag)`                      | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|   [6]   | `SetFlag(ulong,int,bool)`             | `static ulong SetFlag(ulong value, int n, bool flag)`                         | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|   [7]   | `ExtractRange(uint,byte,byte)`        | `static uint ExtractRange(uint value, byte start, byte length)`               | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|   [8]   | `ExtractRange(ulong,byte,byte)`       | `static ulong ExtractRange(ulong value, byte start, byte length)`             | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|   [9]   | `SetRange(ref uint,byte,byte,uint)`   | `static void SetRange(ref uint value, byte start, byte length, uint flags)`   | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|  [10]   | `SetRange(uint,byte,byte,uint)`       | `static uint SetRange(uint value, byte start, byte length, uint flags)`       | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|  [11]   | `SetRange(ref ulong,byte,byte,ulong)` | `static void SetRange(ref ulong value, byte start, byte length, ulong flags)` | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|  [12]   | `SetRange(ulong,byte,byte,ulong)`     | `static ulong SetRange(ulong value, byte start, byte length, ulong flags)`    | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|  [13]   | `HasLookupFlag(uint,int,int)`         | `static bool HasLookupFlag(uint table, int x, int min = 0)`                   | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
-|  [14]   | `HasLookupFlag(ulong,int,int)`        | `static bool HasLookupFlag(ulong table, int x, int min = 0)`                  | staging-and-streams#STREAM_POOL | decompile 8.4.2 |
+| [INDEX] | [MEMBER]                              | [SIGNATURE]                                                                   |
+| :-----: | :------------------------------------ | :---------------------------------------------------------------------------- |
+|   [1]   | `HasFlag(uint,int)`                   | `static bool HasFlag(uint value, int n)`                                      |
+|   [2]   | `HasFlag(ulong,int)`                  | `static bool HasFlag(ulong value, int n)`                                     |
+|   [3]   | `SetFlag(ref uint,int,bool)`          | `static void SetFlag(ref uint value, int n, bool flag)`                       |
+|   [4]   | `SetFlag(uint,int,bool)`              | `static uint SetFlag(uint value, int n, bool flag)`                           |
+|   [5]   | `SetFlag(ref ulong,int,bool)`         | `static void SetFlag(ref ulong value, int n, bool flag)`                      |
+|   [6]   | `SetFlag(ulong,int,bool)`             | `static ulong SetFlag(ulong value, int n, bool flag)`                         |
+|   [7]   | `ExtractRange(uint,byte,byte)`        | `static uint ExtractRange(uint value, byte start, byte length)`               |
+|   [8]   | `ExtractRange(ulong,byte,byte)`       | `static ulong ExtractRange(ulong value, byte start, byte length)`             |
+|   [9]   | `SetRange(ref uint,byte,byte,uint)`   | `static void SetRange(ref uint value, byte start, byte length, uint flags)`   |
+|  [10]   | `SetRange(uint,byte,byte,uint)`       | `static uint SetRange(uint value, byte start, byte length, uint flags)`       |
+|  [11]   | `SetRange(ref ulong,byte,byte,ulong)` | `static void SetRange(ref ulong value, byte start, byte length, ulong flags)` |
+|  [12]   | `SetRange(ulong,byte,byte,ulong)`     | `static ulong SetRange(ulong value, byte start, byte length, ulong flags)`    |
+|  [13]   | `HasLookupFlag(uint,int,int)`         | `static bool HasLookupFlag(uint table, int x, int min = 0)`                   |
+|  [14]   | `HasLookupFlag(ulong,int,int)`        | `static bool HasLookupFlag(ulong table, int x, int min = 0)`                  |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

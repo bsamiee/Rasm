@@ -1,14 +1,6 @@
 # [API_CATALOGUE] @effect/vitest
 
-Decompile-verified from the installed distribution at `node_modules/@effect/vitest/dist/dts`
-(version `0.29.0`). The package is the Effect-aware Vitest binding: it `export *`-forwards the
-entire `vitest` runtime surface and overlays an Effect test runner (`it.effect`/`scoped`/`live`/
-`scopedLive`), a `Layer`-sharing harness (`layer`/`describeWrapped`), a fast-check property runner
-(`prop`/`it.prop`), an `Equal`-trait-aware Vitest equality tester (`addEqualityTesters`), a
-flaky-retry combinator (`flakyTest`), and a closed family of `Equal`/`Option`/`Either`/`Exit`-aware
-assertion functions under the `utils` entry. Peer/import surface: `effect` (`Duration`, `Effect`,
-`FastCheck`, `Layer`, `Schema`, `Scope`, `TestServices`, `Cause`, `Either`, `Exit`, `Option`) and
-`vitest` (`TestAPI`, `TestFunction`, `TestContext`, `TestOptions`, `SuiteCollector`).
+`@effect/vitest` is the Effect-aware Vitest binding: it `export *`-forwards the entire `vitest` runtime surface and overlays an Effect test runner (`it.effect`/`scoped`/`live`/`scopedLive`), a `Layer`-sharing harness (`layer`/`describeWrapped`), a fast-check property runner (`prop`/`it.prop`), an `Equal`-trait-aware Vitest equality tester (`addEqualityTesters`), a flaky-retry combinator (`flakyTest`), and a closed family of `Equal`/`Option`/`Either`/`Exit`-aware assertion functions under the `utils` entry. Peer/import surface: `effect` (`Duration`, `Effect`, `FastCheck`, `Layer`, `Schema`, `Scope`, `TestServices`, `Cause`, `Either`, `Exit`, `Option`) and `vitest` (`TestAPI`, `TestFunction`, `TestContext`, `TestOptions`, `SuiteCollector`).
 
 The package root `.` re-exports all of `vitest` plus the named runner/method symbols below; the
 `@effect/vitest/utils` entry carries the assertion family. Every Effect-test combinator hangs off
@@ -243,7 +235,7 @@ const describeWrapped: (name: string, f: (it: Vitest.Methods) => void) => V.Suit
 - rail: testing / assertion
 - entry: `@effect/vitest/utils`
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]      | [RAIL]                                                                              |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]      | [CAPABILITY]                                                                        |
 | :-----: | :------------------- | :----------------- | :---------------------------------------------------------------------------------- |
 |   [1]   | `fail`               | assert             | throw `AssertionError` with `message`                                               |
 |   [2]   | `strictEqual`        | assert             | `actual === expected` (also covered by `Equal.equals` trait wiring)                 |
@@ -263,7 +255,14 @@ const describeWrapped: (name: string, f: (it: Vitest.Methods) => void) => V.Suit
 |  [16]   | `assertLeft`         | assert (narrows)   | `asserts either is Either.Left<L, never>`; checks `expected`                        |
 |  [17]   | `assertRight`        | assert (narrows)   | `asserts either is Either.Right<never, R>`; checks `expected`                       |
 |  [18]   | `assertFailure`      | assert (narrows)   | `asserts exit is Exit.Failure<never, E>`; checks `Cause.Cause<E>` equals `expected` |
-|  [19]   | `assertSuccess`      | assert (narrows)   | `asserts exit is Exit.Success<A, never>`; checks payload equals `expected`          |
+
+[PUBLIC_TYPE_SCOPE]: assertion functions — exit and success
+- rail: testing / assertion
+- entry: `@effect/vitest/utils`
+
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]    | [CAPABILITY]                                                               |
+| :-----: | :-------------- | :--------------- | :------------------------------------------------------------------------- |
+|   [1]   | `assertSuccess` | assert (narrows) | `asserts exit is Exit.Success<A, never>`; checks payload equals `expected` |
 
 Every two-value assertion takes a trailing `..._: Array<never>` rest parameter — a compile-time
 guard forbidding extra positional arguments (so a stray `expected` cannot be silently dropped).
@@ -303,7 +302,7 @@ function assertFailure<A, E>(exit: Exit.Exit<A, E>, expected: Cause.Cause<E>, ..
 function assertSuccess<A, E>(exit: Exit.Exit<A, E>, expected: A, ..._: Array<never>): asserts exit is Exit.Success<A, never>
 ```
 
-## [3]-[RE_EXPORTED_VITEST_SURFACE]
+## [3]-[ENTRYPOINTS]
 
 The root entry `export * from "vitest"` forwards the entire `vitest` public surface unchanged —
 `describe`, `expect`, `test`, `vi`, `beforeAll`/`afterAll`/`beforeEach`/`afterEach`, `assert`,

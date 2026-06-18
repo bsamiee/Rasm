@@ -36,7 +36,7 @@ from tools.assay.core.model import (
     StaticRun,
     Tool,  # noqa: TC001 - runtime: Tool participates in public check expansion annotations
 )
-from tools.assay.core.routing import expand, infer_languages, route, Routed, Scope, target_files, TargetFiles
+from tools.assay.core.routing import expand, infer_languages, place, route, Routed, Scope, target_files, TargetFiles
 from tools.assay.core.status import RailStatus, Step
 
 
@@ -152,21 +152,31 @@ def _phase(mode: Mode) -> Phase:
     return _PHASE[mode]
 
 
-def _sarif_pin(tool: Tool, scope: ArtifactScope) -> Tool:
-    match (tool.runner, tool.mode):
-        case (Runner.DOTNET, Mode.BUILD):
-            return msgspec.structs.replace(tool, command=(*tool.command, f"-p:CspSarifDir={scope.sarif_dir}"))
+def _dotnet_policy(tool: Tool, settings: AssaySettings) -> Tool:
+    match (tool.runner, tool.mode, any(part.startswith("-maxCpuCount:") for part in tool.command)):
+        case (Runner.DOTNET, Mode.BUILD, False):
+            return msgspec.structs.replace(tool, command=(*tool.command, f"-maxCpuCount:{settings.dotnet_max_cpu}"))
         case _:
             return tool
 
 
-def _dotnet_policy(tool: Tool, settings: AssaySettings, scope: ArtifactScope) -> Tool:
-    pinned = _sarif_pin(tool, scope)
-    match (pinned.runner, pinned.mode, any(part.startswith("-maxCpuCount:") for part in pinned.command)):
-        case (Runner.DOTNET, Mode.BUILD, False):
-            return msgspec.structs.replace(pinned, command=(*pinned.command, f"-maxCpuCount:{settings.dotnet_max_cpu}"))
+def _sarif_key(check: Check, routed: Routed, settings: AssaySettings) -> str:
+    tail = check.tail or next(iter(place(routed, check.tool, settings=settings)), ())
+    seed = "\n".join((*check.tool.command, *tail, *check.paths))
+    stem = next((PurePosixPath(part).stem for part in tail if part.endswith((".csproj", ".slnx"))), check.tool.name)
+    return f"{stem}-{sha256(seed.encode()).hexdigest()[:12]}"
+
+
+def _sarif_pin(check: Check, routed: Routed, settings: AssaySettings, scope: ArtifactScope) -> Check:
+    match (check.tool.runner, check.tool.mode):
+        case (Runner.DOTNET, Mode.BUILD):
+            tool = msgspec.structs.replace(
+                check.tool,
+                command=(*check.tool.command, f"-p:CspSarifDir={scope.sarif_dir}/{_sarif_key(check, routed, settings)}"),
+            )
+            return msgspec.structs.replace(check, tool=tool)
         case _:
-            return pinned
+            return check
 
 
 def _routed_tool(tool: Tool, routed: Routed) -> Tool:
@@ -199,9 +209,13 @@ def _phase_checks(routed: Routed, settings: AssaySettings, scope: ArtifactScope)
         if tool.mode is active
         for projected in (_routed_tool(tool, routed),)
     )
-    selected = tuple((phase, Check(tool=_dotnet_policy(tool, settings, scope), paths=routed.files)) for phase, tool, reason in rows if not reason)
+    selected = tuple((phase, Check(tool=_dotnet_policy(tool, settings), paths=routed.files)) for phase, tool, reason in rows if not reason)
     skipped = tuple((phase, tool.name, reason) for phase, tool, reason in rows if reason)
-    expanded = tuple((phase, clone) for phase, check in selected for clone in expand((check,), routed, settings=settings))
+    expanded = tuple(
+        (phase, _sarif_pin(clone, routed, settings, scope))
+        for phase, check in selected
+        for clone in expand((check,), routed, settings=settings)
+    )
     phases = tuple(dict.fromkeys(_phase(mode) for mode in _MODES))
     return tuple((phase, tuple(check for row_phase, check in expanded if row_phase is phase)) for phase in phases), skipped
 

@@ -88,6 +88,8 @@
         <NoWarn Condition="'$(IsRhinoUiAwareProject)' == 'true'">$(NoWarn);CA1416</NoWarn>
         <!-- CA1724: Microsoft.macOS ships a `Phase` namespace colliding with Rasm's canonical ComponentUi.Phase enum; suppress on projects pulling Microsoft.macOS transitively rather than rename. -->
         <NoWarn Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">$(NoWarn);CA1724</NoWarn>
+        <!-- Microsoft.ML.OnnxRuntime.Extensions ships legacy version-specific OSX RID assets; the owning Compute/AppUi graph keeps the package admitted. -->
+        <NoWarn Condition="'$(MSBuildProjectName)' == 'Rasm.Compute' or '$(MSBuildProjectName)' == 'Rasm.AppUi' or '$(MSBuildProjectName)' == 'Rasm.Compute.Tests' or '$(MSBuildProjectName)' == 'Rasm.AppUi.Tests'">$(NoWarn);NETSDK1206</NoWarn>
         <LocalCSharpAnalyzerRoot>tools/cs-analyzer</LocalCSharpAnalyzerRoot>
         <LocalCSharpAnalyzerProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'Csp.Analyzer.csproj'))</LocalCSharpAnalyzerProject>
         <CspContractsProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'Contracts', 'Csp.Contracts.csproj'))</CspContractsProject>
@@ -131,13 +133,29 @@
         <GrasshopperIoReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll</GrasshopperIoReferencePath>
         <RhinoRuntimeCodeReferencePath>$(RhinoWipResourcesPath)/Rhino.Runtime.Code.dll</RhinoRuntimeCodeReferencePath>
         <RhinoCodePlatformReferencePath>$(RhinoWipResourcesPath)/RhinoCodePlatform.Rhino3D.dll</RhinoCodePlatformReferencePath>
+        <RhinoHostAssemblyNameSet>|RhinoCommon|Rhino.UI|System.Drawing.Common|Grasshopper2|GrasshopperIO|Eto|Eto.macOS|Microsoft.macOS|Rhino.Runtime.Code|RhinoCodePlatform.Rhino3D|</RhinoHostAssemblyNameSet>
     </PropertyGroup>
 
-    <!-- A missing or relocated RhinoWIP.app otherwise fails as opaque MSB3245/CS0246 cascades;
-         this converts it into one named, remediable error on every host-aware project. -->
+    <ItemGroup Label="RhinoWIP Required Host Files">
+        <_RhinoRequiredHostFile Include="$(RhinoCommonReferencePath)" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(RhinoUiReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(SystemDrawingCommonReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(Grasshopper2ReferencePath)" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(GrasshopperIoReferencePath)" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(EtoReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(MicrosoftMacOSReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(RhinoRuntimeCodeReferencePath)" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(RhinoCodePlatformReferencePath)" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'" />
+    </ItemGroup>
+
+    <!-- A missing or relocated RhinoWIP.app otherwise fails as opaque reference cascades. -->
     <Target Name="VerifyRhinoHostBundle" BeforeTargets="ResolveAssemblyReferences"
-            Condition="('$(NeedsRhinoHostUiSurface)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true' or '$(IsRhinoPluginProject)' == 'true') and !Exists('$(RhinoCommonReferencePath)')">
-        <Error Text="RhinoWIP host bundle not found at '$(RhinoWipAppPath)'. Install RhinoWIP or set RHINO_WIP_APP_PATH to the RhinoWIP.app location." />
+            Condition="'@(_RhinoRequiredHostFile)' != ''">
+        <ItemGroup>
+            <_MissingRhinoRequiredHostFile Include="@(_RhinoRequiredHostFile)" Condition="!Exists('%(Identity)')" />
+        </ItemGroup>
+        <Error Condition="'@(_MissingRhinoRequiredHostFile)' != ''"
+               Text="RhinoWIP host bundle missing required assemblies under '$(RhinoWipAppPath)': @(_MissingRhinoRequiredHostFile->'%(Filename)%(Extension)', ', ')." />
     </Target>
 
     <PropertyGroup Label="Yak Packaging">
@@ -205,15 +223,19 @@
     <PropertyGroup Label="Test Runtime Config" Condition="'$(IsTestProject)' == 'true'">
         <OutputType>Exe</OutputType>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
         <_XunitRunnerJsonContent>{"$schema":"https://xunit.net/schema/v3.1/xunit.runner.schema.json","parallelAlgorithm":"conservative","preEnumerateTheories":true,"longRunningTestSeconds":30,"printMaxEnumerableLength":64,"printMaxObjectDepth":4}</_XunitRunnerJsonContent>
     </PropertyGroup>
 
     <ItemDefinitionGroup Label="Test Project Reference Isolation" Condition="'$(IsTestProject)' == 'true'">
         <ProjectReference>
-            <GlobalPropertiesToRemove>IsTestProject;UseMicrosoftTestingPlatformRunner;IsTestingPlatformApplication;TestingPlatformDotnetTestSupport;GenerateTestingPlatformEntryPoint;GenerateSelfRegisteredExtensions</GlobalPropertiesToRemove>
+            <GlobalPropertiesToRemove>IsTestProject;UseMicrosoftTestingPlatformRunner;IsTestingPlatformApplication;GenerateTestingPlatformEntryPoint;GenerateSelfRegisteredExtensions</GlobalPropertiesToRemove>
         </ProjectReference>
     </ItemDefinitionGroup>
+
+    <Target Name="ValidateCentralTestProjectAdmission" BeforeTargets="PrepareForBuild"
+            Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)')) and '$(IsTestKitProject)' != 'true' and '$(IsBenchmarkProject)' != 'true' and '$(IsTestProject)' == 'false'">
+        <Error Text="tests/csharp projects cannot set IsTestProject=false; use IsTestKitProject, IsBenchmarkProject, or AssayHostBound for routing." />
+    </Target>
 
     <ItemGroup Label="Xunit Serializer Registration" Condition="'$(IsTestProject)' == 'true' and '$(IsRhinoCommonAwareProject)' == 'true'">
         <AssemblyAttribute Include="Xunit.Sdk.RegisterXunitSerializerAttribute">

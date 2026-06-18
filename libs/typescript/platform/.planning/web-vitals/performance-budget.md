@@ -4,9 +4,7 @@ One page owns the browser performance-budget and web-vitals observability — `P
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                |
-| :-----: | :----------------- | :------------------------------------------------------------------- |
-|   [1]   | PERFORMANCE_BUDGET | the vital capture, the budget thresholds, and the breach fold |
+[PERFORMANCE_BUDGET]: the vital capture, the budget thresholds, and the breach fold.
 
 ## [2]-[PERFORMANCE_BUDGET]
 
@@ -18,7 +16,7 @@ One page owns the browser performance-budget and web-vitals observability — `P
 - Growth: a new budgeted vital lands as one literal on the `VitalMetric` axis, one `VitalKind` arm, one `BudgetThreshold` `Record` entry, and one `MetricRegistry` instrument row; a new diagnostic performance signal lands as one `VitalKind` arm with a `null` instrument or a new gauge row, never a parallel observer or a second metric construction; a new value projector lands as one `VitalBehavior.project` closure on its arm; the SOFT_NAV_VITALS soft-navigation reset lands as a `routing` location-cell subscription resetting the CLS/INP `Ref`s and the dedupe set on each guard-admitted commit plus a `visibilitychange`-to-hidden terminal flush, never a parallel route tracker.
 - Boundary: the Core Web Vitals instrument rows live on the `observability` `MetricRegistry` and this page owns only the CAPTURE and budget-gating mechanics, so a `Metric.histogram` constructed here outside the registry is the named two-owner-one-concern defect; capture is native `PerformanceObserver` only — the `web-vitals` npm package is a deliberate no-admission recorded at the folder README registry, so its `onLCP`/`onCLS`/`onINP`/`onTTFB`/`onFCP` callback surface is NEVER imported; the `MetricRegistry` `VitalKey`/`GaugeKey`/`SpanName` axes are consumed verbatim from `observability` and never re-declared here; the budget-breach span ships over the `SelfTelemetry` collector edge, the only telemetry path, so a direct collector POST is the named defect; the SOFT_NAV_VITALS reset reads the `routing` location cell and never mutates it; `PerformanceBudget` emits no command, dials no transport, and `ui` never imports `platform`.
 
-```ts owner
+```ts contract
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 import type { VitalKey } from "../observability/metric-registry.ts";
 import type { Scope } from "effect";

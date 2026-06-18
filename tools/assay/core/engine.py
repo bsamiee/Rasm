@@ -373,9 +373,29 @@ def splice_command(
     match (runner, command, scope):
         case (Runner.DOTNET, (verb, *_), ArtifactScope() as s) if verb in scoped_verbs and mode not in {Mode.QUERY, Mode.LIST}:
             cut = command.index("--") if "--" in command else len(command)
-            return (*command[:cut], *s.dotnet_flags, *command[cut:])
+            return (*command[:cut], *_dotnet_scope_flags(command=command, scope=s), *command[cut:])
         case _:
             return command
+
+
+def _dotnet_scope_flags(command: tuple[str, ...], scope: ArtifactScope) -> tuple[str, ...]:
+    match _project_scope(command):
+        case "":
+            return scope.dotnet_flags
+        case segment:
+            return tuple(
+                f"{scope.path.rstrip('/')}/dotnet/{segment}" if prior == "--artifacts-path" else current
+                for prior, current in zip(("", *scope.dotnet_flags[:-1]), scope.dotnet_flags, strict=True)
+            )
+
+
+def _project_scope(command: tuple[str, ...]) -> str:
+    try:
+        project = command[command.index("--project") + 1]
+    except (ValueError, IndexError):
+        return ""
+    stem = PurePosixPath(project.replace("\\", "/")).with_suffix("").as_posix().replace("/", "__")
+    return "".join(ch if ch.isalnum() or ch in "-._" else "_" for ch in stem).strip("._")
 
 
 def _overlay(tool: Tool, settings: AssaySettings, scope: ArtifactScope | None) -> Mapping[str, str]:
@@ -391,7 +411,7 @@ def _overlay(tool: Tool, settings: AssaySettings, scope: ArtifactScope | None) -
 
 def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: ArtifactScope | None) -> Result[tuple[str, ...], Fault]:
     tool = check.tool
-    body = splice_command(tool.runner, tool.command, scope, settings.scoped_verbs, tool.mode)
+    body = tool.command
     body = (*(part for group in tool.uv_groups() for part in ("--group", group)), *body) if tool.runner is Runner.UV else body
     body = ("--project", str(settings.root), *body) if tool.runner is Runner.UV and tool.stage.project else body
     body = ("--locked", *body) if tool.runner is Runner.UV else body
@@ -403,14 +423,18 @@ def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: Artif
         if tool.runner is Runner.DOTNET and tool.stage.project
         else body
     )
+
+    def scoped(pinned: tuple[str, ...]) -> tuple[str, ...]:
+        return splice_command(tool.runner, (*body, *pinned), scope, settings.scoped_verbs, tool.mode)
+
     match check.tail:
         case tuple() as pinned:
-            return Ok((*prefix, *body, *pinned))
+            return Ok((*prefix, *scoped(pinned)))
         case None:
             tails = place(routed, tool, settings=settings)
             match tails:
                 case () | (_,):
-                    return Ok((*prefix, *body, *(part for tail in tails for part in tail)))
+                    return Ok((*prefix, *scoped(tuple(part for tail in tails for part in tail))))
                 case _:
                     return Error(Fault((tool.name,), message=f"incoherent closure: {len(tails)} tails for one check"))
 

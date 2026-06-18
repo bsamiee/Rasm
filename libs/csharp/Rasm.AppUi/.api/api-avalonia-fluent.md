@@ -38,31 +38,33 @@
 
 [THEME_ENTRYPOINTS]: theme operations
 - rail: theme
+- surface: `FluentTheme`
 
-| [INDEX] | [SURFACE]      | [SURFACE_ROOT] | [RAIL]            |
-| :-----: | :------------- | :------------- | :---------------- |
-|   [1]   | constructor    | `FluentTheme`  | theme admission   |
-|   [2]   | `Palettes`     | `FluentTheme`  | palette mapping   |
-|   [3]   | `DensityStyle` | `FluentTheme`  | density selection |
-|   [4]   | `Resources`    | `FluentTheme`  | resource exposure |
+| [INDEX] | [SURFACE]      | [RAIL]            |
+| :-----: | :------------- | :---------------- |
+|   [1]   | constructor    | theme admission   |
+|   [2]   | `Palettes`     | palette mapping   |
+|   [3]   | `DensityStyle` | density selection |
+|   [4]   | `Resources`    | resource exposure |
 
 [PALETTE_ENTRYPOINTS]: color resource properties
 - rail: theme
+- surface: `ColorPaletteResources`
 
-| [INDEX] | [SURFACE]      | [SURFACE_ROOT]          | [RAIL]         |
-| :-----: | :------------- | :---------------------- | :------------- |
-|   [1]   | `Accent`       | `ColorPaletteResources` | accent token   |
-|   [2]   | `BaseHigh`     | `ColorPaletteResources` | base contrast  |
-|   [3]   | `BaseMedium`   | `ColorPaletteResources` | base tone      |
-|   [4]   | `BaseLow`      | `ColorPaletteResources` | base tone      |
-|   [5]   | `AltHigh`      | `ColorPaletteResources` | alternate tone |
-|   [6]   | `AltMedium`    | `ColorPaletteResources` | alternate tone |
-|   [7]   | `ChromeHigh`   | `ColorPaletteResources` | chrome tone    |
-|   [8]   | `ChromeMedium` | `ColorPaletteResources` | chrome tone    |
-|   [9]   | `ChromeLow`    | `ColorPaletteResources` | chrome tone    |
-|  [10]   | `ErrorText`    | `ColorPaletteResources` | error token    |
-|  [11]   | `ListLow`      | `ColorPaletteResources` | list tone      |
-|  [12]   | `RegionColor`  | `ColorPaletteResources` | region token   |
+| [INDEX] | [SURFACE]      | [RAIL]         |
+| :-----: | :------------- | :------------- |
+|   [1]   | `Accent`       | accent token   |
+|   [2]   | `BaseHigh`     | base contrast  |
+|   [3]   | `BaseMedium`   | base tone      |
+|   [4]   | `BaseLow`      | base tone      |
+|   [5]   | `AltHigh`      | alternate tone |
+|   [6]   | `AltMedium`    | alternate tone |
+|   [7]   | `ChromeHigh`   | chrome tone    |
+|   [8]   | `ChromeMedium` | chrome tone    |
+|   [9]   | `ChromeLow`    | chrome tone    |
+|  [10]   | `ErrorText`    | error token    |
+|  [11]   | `ListLow`      | list tone      |
+|  [12]   | `RegionColor`  | region token   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

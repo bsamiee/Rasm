@@ -4,9 +4,7 @@ One page owns the single typed-config boundary — `RuntimeConfig`, one `effect`
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                     |
-| :-----: | :------------- | :-------------------------------------------------------- |
-|   [1]   | RUNTIME_CONFIG | the one Config schema and the one ConfigProvider boundary  |
+[RUNTIME_CONFIG]: the one Config schema and the one ConfigProvider boundary.
 
 ## [2]-[RUNTIME_CONFIG]
 

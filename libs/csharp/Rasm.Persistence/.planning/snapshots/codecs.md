@@ -1,6 +1,6 @@
 # [PERSISTENCE_SNAPSHOT_CODECS]
 
-Rasm.Persistence encodes every durable payload through one three-row `SnapshotCodec` axis paired with the `CompressionPolicy` and `HashPolicy` axes, seals payloads under the snapshot header and atomic-write protocol, catalogs them with classification and retention columns, and projects restore and diff evidence; `PersistenceWireContext` is the package's one JsonSerializerContext partial joining the suite Strict merge. Codec, compression, and hash variance are delegate rows on string-keyed smart enums, the writer fold is the page's single entrypoint family over MessagePack, System.Text.Json source generation, LZ4 block framing, and System.IO.Hashing, and every stamp rides the AppHost clock, correlation, and receipt spine as settled vocabulary.
+Rasm.Persistence encodes every durable payload through one three-row `SnapshotCodec` axis paired with the `CompressionPolicy` and `HashPolicy` axes, seals payloads under the snapshot header and atomic-write protocol, catalogs them with classification and retention columns, splits opaque payload bytes into content-defined chunks for cross-snapshot dedup, and projects restore and diff evidence; `PersistenceWireContext` is the package's one JsonSerializerContext partial joining the suite Strict merge. Codec, compression, and hash variance are delegate rows on string-keyed smart enums, the writer fold is the page's single entrypoint family over MessagePack, System.Text.Json source generation, LZ4 block framing, FastCDC content-defined chunking, and System.IO.Hashing, and every stamp rides the AppHost clock, correlation, and receipt spine as settled vocabulary.
 
 ## [1]-[INDEX]
 
@@ -9,10 +9,11 @@ Rasm.Persistence encodes every durable payload through one three-row `SnapshotCo
 |   [1]   | CODEC_AXIS          | Three codec rows, package wire context, generated converter admission |
 |   [2]   | COMPRESSION_HASHING | Compression rows, hash rows, framing routes and identity values       |
 |   [3]   | SNAPSHOT_PROTOCOL   | Header law, atomic write fold, catalog row, orphan sweep              |
-|   [4]   | RESTORE_AND_DIFF    | Verified read, restore receipt parity, content-addressed diff         |
-|   [5]   | FUZZ_HARNESS        | Out-of-process SharpFuzz over the codec/restore untrusted boundary    |
-|   [6]   | SCHEMA_EVOLUTION    | Content-negotiated wire formats; schema-version registry; codec-as-lineage |
-|   [7]   | TS_PROJECTION       | Wire shapes and msgpack alignment the dashboard consumes              |
+|   [4]   | CONTENT_CHUNKING    | FastCDC content-defined chunk boundaries; per-chunk content-key dedup  |
+|   [5]   | RESTORE_AND_DIFF    | Verified read, restore receipt parity, content-addressed diff         |
+|   [6]   | FUZZ_HARNESS        | Out-of-process SharpFuzz over the codec/restore untrusted boundary    |
+|   [7]   | SCHEMA_EVOLUTION    | Content-negotiated wire formats; schema-version registry; codec-as-lineage |
+|   [8]   | TS_PROJECTION       | Wire shapes and msgpack alignment the dashboard consumes              |
 
 ## [2]-[CODEC_AXIS]
 
@@ -135,7 +136,7 @@ public partial class PersistenceResolver;
 - Entry: `public partial byte[] Pack(ReadOnlyMemory<byte> payload)` — pure byte transform; the row delegate is total over any payload size.
 - Packages: K4os.Compression.LZ4, MessagePack, System.IO.Hashing, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: one compression level or hash algorithm is one row; a Zstandard level lands as one `CompressionPolicy` delegate row carrying its own `HeaderId` so the snapshot header's `CompressionId` keeps every prior LZ4 archive readable across the swap; zero new surface.
-- Boundary: every hash row is non-cryptographic identity — a security or tamper claim on any row is the named defect; compression evidence never obscures redaction or retention receipts; the MessagePackBinary codec pairs with the none row at write because Lz4BlockArray owns compression in-codec — double framing is the deleted pattern; the Frame row belongs to artifact frame checks and never stands in for Identity; `Content` and `Wide` are not one parameterized row because `Content` pins `XxHash3` as the content-address algorithm every snapshot identity, diff, and dedup surface computes, so its algorithm cannot vary, while `Wide` is `XxHash64` for a wide artifact-catalog index whose collision domain stays statistically independent of the content address without the 128-bit cost of Identity; the `FrameWide` row is `Crc64` for whole-archive frame integrity where `Frame`'s 32-bit check is too narrow — every row folds once into the `Bits`/`HexFormat` columns so a tag width is data, never a per-call format string.
+- Boundary: every hash row is non-cryptographic identity — a security or tamper claim on any row is the named defect; compression evidence never obscures redaction or retention receipts; the MessagePackBinary codec pairs with the none row at write because Lz4BlockArray owns compression in-codec — double framing is the deleted pattern; the Frame row belongs to artifact frame checks and never stands in for Identity; `Identity` pins `XxHash128` as the one federation content-address algorithm every snapshot identity, sealed `Hash`, chunk key, diff, and dedup surface computes — `Seal`, `ContentAddress`, `#CONTENT_CHUNKING`, `cache/indexes#ARTIFACT_BLOB_INDEX`, and `version-control#STRUCTURAL_DIFF` all read this one 128-bit address, so its algorithm cannot vary and a 64-bit hash standing in for the content address is the deleted form; `Content`, `Wide`, and `FrameWide` are the narrower 64-bit non-identity tags whose collision domains stay statistically independent of the content address without the 128-bit cost of `Identity` — `Content` is `XxHash3` for a fast short tag where the federation 128-bit address is not consumed, `Wide` is `XxHash64` for a wide artifact-catalog index, and `FrameWide` is `Crc64` for whole-archive frame integrity where `Frame`'s 32-bit check is too narrow — none of the three is the content address; every row folds once into the `Bits`/`HexFormat` columns so a tag width is data, never a per-call format string.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -196,7 +197,7 @@ public sealed partial class HashPolicy {
 - Auto: the write fold derives codec id, compression id, schema fingerprint, identity hash, HLC stamp, classification, and retention class into the catalog row — per-call-site assembly ceremony is the deleted pattern; the schema fingerprint value arrives from the compiled-model fingerprint law and the row identity from the UuidV7Key identity row; the sealed `Hash` is the content address every secondary surface derives from, so a sealed snapshot is automatically catalog-addressable on the artifact-blob index without a parallel key — `ContentAddress` selects the cache tag, the blob lookup, and the diff identity from one value.
 - Receipt: `SnapshotCatalogRow` is the durable evidence; the `SealedSnapshot` payload rides the receipt envelope at the sink edge, so the catalog HLC stamp and the receipt stamp are one value.
 - Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, BCL inbox.
-- Growth: a new header capability is one flag bit row on `Flags`; one artifact kind is one catalog row value; zero new surface.
+- Growth: a new header capability is one flag bit row on `Flags`; one artifact kind is one catalog row value; the chunk-dedup hand-off is one `ContentChunker.Chunk` fold over the packed payload before catalog insertion (`#CONTENT_CHUNKING`), never a second framing; zero new surface.
 - Boundary: `Seal` and the sweep deletion kernel are this fence's boundary capsules — language-owned statement forms stay inside those two bodies; `directory` arrives from the placement law and is never derived here; the durability order is settled — `Flush(flushToDisk: true)` forces the data blocks before `File.Move` performs the atomic rename, so a crash between the two leaves the temp file swept rather than a torn final; temp residue and catalog-orphaned payloads leave only through `Sweep`; catalog insertion enters through the `persist` delegate so the store rail stays the single write path; `ContentAddress` parses the sealed `Hash` so the cache, blob, and diff surfaces share one content key and never mint parallel identities; the magic constant spells RSNP in little-endian byte order.
 
 ```csharp signature
@@ -297,7 +298,68 @@ public static class Snapshots {
 }
 ```
 
-## [5]-[RESTORE_AND_DIFF]
+## [5]-[CONTENT_CHUNKING]
+
+- Owner: `ChunkPolicy` the FastCDC min/avg/max size and eof axis with one named policy row; `ContentChunk` the content-keyed chunk record carrying its `XxHash128` address, source offset, and length; `ChunkManifest` the per-payload ordered chunk-key sequence; `ContentChunker` the static surface owning the FastCDC cut, the per-chunk content-key derivation, the manifest fold, and the cross-payload dedup projection.
+- Cases: a `ChunkPolicy` row sizes the rolling-hash window — the snapshot row at the 64-KiB-class window, a small-artifact row at a tighter window; a `ContentChunk` carries its content-address key plus its `(Offset, Length)` window; a `ChunkManifest` is the ordered chunk-key sequence reconstructing the payload, and a re-store keys each chunk so only changed chunks transfer.
+- Entry: `public static ChunkManifest Chunk(ChunkPolicy policy, ReadOnlyMemory<byte> payload)` — cuts the payload into content-defined chunks through `FastCdc.GetChunks` and keys each by its `XxHash128` content address; `public static Seq<ContentChunk> Novel(ChunkManifest manifest, Func<UInt128, bool> holds)` projects the chunks a peer or the artifact-blob index lacks; `public static ReadOnlyMemory<byte> Reassemble(ChunkManifest manifest, Func<UInt128, ReadOnlyMemory<byte>> fetch)` rebuilds the payload from its chunk keys.
+- Auto: the content-defined boundary is the FastCDC normalized gear-hash cut over `FastCdc(byte[] source, uint minSize, uint avgSize, uint maxSize, bool eof)` so an insertion that shifts every fixed-window boundary leaves the content-defined boundaries stable past the edit, and a small change to a large artifact re-stores only the changed chunks; each chunk's content key is `XxHash128` over the chunk bytes (the `HashPolicy.Identity` row) so an identical chunk across two snapshots or two peers dedups on its key through `cache/indexes#ARTIFACT_BLOB_INDEX`; the min/avg/max size bounds trace to the `ChunkPolicy` row so the gear-hash mask is data, never a free literal, and clear the `FastCdc.MinimumMin`/`AverageMin`/`MaximumMin` package floors; the per-frame `Crc32` and whole-artifact `XxHash128` integrity (`#SNAPSHOT_PROTOCOL`, `sync/collaboration#PRESENCE_AND_BLOB`) stay the in-transfer check beside the content-defined dedup boundary.
+- Receipt: a chunked store rides `store.chunk.split` carrying the chunk count and the novel-chunk count; a dedup hit rides `store.chunk.dedup` carrying the reused-chunk count and the reused bytes.
+- Packages: FastCDC.Net, System.IO.Hashing, LanguageExt.Core, NodaTime, BCL inbox.
+- Growth: a new chunk-size profile is one `ChunkPolicy` row; a new chunk-keyed surface is one consumer of the manifest; zero new surface — a fixed-window framing, a per-edit full re-store, or a second content-defined chunker beside this one is the deleted form because the FastCDC cut is the one opaque-byte boundary and the chunk content key is the one identity the artifact-blob index already dedups on.
+- Boundary: this owner is the opaque-byte chunker for snapshot frames and the blob multipart window — it aligns with `Compute/interchange#GEOMETRY_DELTA` `DeltaCodec` at the technique level only, never importing it as a byte chunker and never re-deriving the geometry-structural delta: Compute owns the geometry-aware structural delta over geometry columns, this owns the opaque-byte content-defined chunk over snapshot and blob bytes, and the two meet at the rolling-hash technique, not the code; the `#SNAPSHOT_PROTOCOL` `Seal` fold chunks the packed payload through `ContentChunker.Chunk` so a sealed snapshot's chunks dedup against the artifact-blob index, and the `stores-remote/object-store#MULTIPART_TRANSFER` window consumes a whole number of content-defined chunks rather than a fixed `PartSize` slice — the chunk-size column on the `ObjectStore` row clears each provider's part floor while spanning whole chunks, so a re-uploaded artifact skips the chunks the index already holds; the `FastCdc` chunker is stateful and one-shot over an in-memory `byte[]` so a re-chunk requires a fresh instance, and a payload above the 4-GiB `uint`-offset window partitions upstream before chunking — the package owns no stream or file IO; the chunk content key is `XxHash128` (`HashPolicy.Identity`), never the `Chunk.Hash` 32-bit gear-hash cut value, because the gear-hash is a boundary marker and the content address is the dedup identity; a chunk's `(Offset, Length)` is a `uint` window the `Chunk` record carries, and the manifest reconstructs the payload in chunk order so a torn or reordered manifest is a typed reassembly rejection.
+
+```csharp signature
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<SnapshotKeyPolicy, string>]
+[KeyMemberComparer<SnapshotKeyPolicy, string>]
+public sealed partial class ChunkPolicy {
+    public static readonly ChunkPolicy Snapshot = new("snapshot", minSize: 16u * 1024, avgSize: 64u * 1024, maxSize: 256u * 1024);
+    public static readonly ChunkPolicy Artifact = new("artifact", minSize: 4u * 1024, avgSize: 16u * 1024, maxSize: 64u * 1024);
+
+    public uint MinSize { get; }
+    public uint AvgSize { get; }
+    public uint MaxSize { get; }
+
+    public FastCdc Over(byte[] source) => new(source, MinSize, AvgSize, MaxSize, eof: true);
+}
+
+public readonly record struct ContentChunk(UInt128 ContentKey, uint Offset, uint Length);
+
+public sealed record ChunkManifest(Seq<ContentChunk> Chunks, UInt128 WholeArtifact, long Length) {
+    public Seq<UInt128> Keys => Chunks.Map(static chunk => chunk.ContentKey);
+}
+
+public static class ContentChunker {
+    public static ChunkManifest Chunk(ChunkPolicy policy, ReadOnlyMemory<byte> payload) {
+        var source = payload.ToArray();
+        var chunks = toSeq(policy.Over(source).GetChunks())
+            .Map(cut => new ContentChunk(
+                XxHash128.HashToUInt128(source.AsSpan((int)cut.Offset, (int)cut.Length)),
+                cut.Offset,
+                cut.Length));
+        return new ChunkManifest(chunks, XxHash128.HashToUInt128(payload.Span), payload.Length);
+    }
+
+    public static Seq<ContentChunk> Novel(ChunkManifest manifest, Func<UInt128, bool> holds) =>
+        manifest.Chunks.Filter(chunk => !holds(chunk.ContentKey)).Distinct();
+
+    public static ReadOnlyMemory<byte> Reassemble(ChunkManifest manifest, Func<UInt128, ReadOnlyMemory<byte>> fetch) {
+        var buffer = new ArrayBufferWriter<byte>((int)manifest.Length);
+        manifest.Chunks.Iter(chunk => buffer.Write(fetch(chunk.ContentKey).Span));
+        return buffer.WrittenMemory;
+    }
+}
+```
+
+| [INDEX] | [POLICY]      | [WINDOW]                                  | [BINDING]                                            |
+| :-----: | :------------ | :---------------------------------------- | :--------------------------------------------------- |
+|   [1]   | snapshot cut  | min 16 KiB, avg 64 KiB, max 256 KiB       | `ChunkPolicy.Snapshot`; snapshot-frame dedup         |
+|   [2]   | artifact cut  | min 4 KiB, avg 16 KiB, max 64 KiB         | `ChunkPolicy.Artifact`; small-artifact blob dedup    |
+|   [3]   | chunk key     | `XxHash128` over chunk bytes              | `HashPolicy.Identity`; the one dedup identity         |
+|   [4]   | dedup index   | `cache/indexes#ARTIFACT_BLOB_INDEX`       | identical chunk across snapshots/peers dedups        |
+
+## [6]-[RESTORE_AND_DIFF]
 
 - Owner: `RestoreReceipt`, `SnapshotDelta`, `SnapshotRestoreOps` — verified read, restore hand-off parity, and content-addressed diff projection.
 - Entry: `public IO<Fin<RestoreReceipt>> Restore(ClockPolicy clocks, CorrelationId correlation, string path, StoreProfile target, Func<string, IO<Fin<Unit>>> repair)` — `Fin` aborts on integrity rejection; `IO` carries the read and hand-off effects.
@@ -345,7 +407,7 @@ public static class SnapshotRestoreOps {
 }
 ```
 
-## [6]-[FUZZ_HARNESS]
+## [7]-[FUZZ_HARNESS]
 
 - Owner: `SnapshotCodecFuzz` — the dedicated `tests/csharp/_fuzz` out-of-process harness project entry point for the snapshot codec and restore-ladder untrusted-data boundary.
 - Entry: `public static void Main()` calling `Fuzzer.OutOfProcess.Run(Action<Stream>)` — the raw-byte stream overload, never the `Action<string>` overload, because the boundary admits binary frames with no UTF-8 assumption.
@@ -353,7 +415,7 @@ public static class SnapshotRestoreOps {
 - Receipt: no receipt — a survived input records a zero exit, an uncaught exception records the AFL FAULT_CRASH return code `2`, and a crashing input persists as a findings-dir artifact under the project artifact root.
 - Packages: SharpFuzz, MessagePack, K4os.Compression.LZ4, System.IO.Hashing, LanguageExt.Core, BCL inbox.
 - Growth: a new untrusted decode surface is one arm on the `Drive` fold, never a second harness project; a new seed shape is one corpus file under the findings root, never a code change.
-- Boundary: the harness asserts the total-rejection law — every malformed byte sequence resolves to a typed `Fin` rejection or a deserializer-internal fault the fold catches, never an unhandled escape past `Drive`, so the codec `Foreign` `UntrustedData` resolver, `CompressionPolicy.Unpack`, `SnapshotHeader.Parse`, and the `HashPolicy.Identity` verify together prove crash-safe under adversarial input; the round-trip-identity arm seeds the corpus with real sealed-snapshot bytes and asserts that a header-valid, hash-matching payload decodes to a value whose re-seal reproduces the same content address, so the fuzzer also exercises the success path that a malformed-only corpus would starve; the `Foreign` resolver (`MessagePackSecurity.UntrustedData`) is the only codec route the harness drives because it is the cross-process payload boundary the restore lane reads — the trusted `Binary` route is never fuzzed because no untrusted byte reaches it; `Drive` swallows only the deserializer and codec fault taxonomy and rethrows any `OutOfMemoryException`/`StackOverflowException`-class fault so an unbounded-allocation defect surfaces as a crash rather than a silent catch; the harness references the package codec owners directly and declares no parallel decode path, so a divergence between the fuzzed decode and the production `Restore` read is impossible by construction; this cluster owns the harness design only — the `tests/csharp/_fuzz` project is the implementation-session transcription deliverable.
+- Boundary: the harness asserts the total-rejection law — every malformed byte sequence resolves to a typed `Fin` rejection or a deserializer-internal fault the fold catches, never an unhandled escape past `Drive`, so the codec `Foreign` `UntrustedData` resolver, `CompressionPolicy.Unpack`, `SnapshotHeader.Parse`, and the `HashPolicy.Identity` verify together prove crash-safe under adversarial input; the round-trip-identity arm seeds the corpus with real sealed-snapshot bytes and asserts that a header-valid, hash-matching payload decodes to a value whose re-seal reproduces the same content address, so the fuzzer also exercises the success path a malformed-only corpus starves; the `Foreign` resolver (`MessagePackSecurity.UntrustedData`) is the only codec route the harness drives because it is the cross-process payload boundary the restore lane reads — the trusted `Binary` route is never fuzzed because no untrusted byte reaches it; `Drive` swallows only the deserializer and codec fault taxonomy and rethrows any `OutOfMemoryException`/`StackOverflowException`-class fault so an unbounded-allocation defect surfaces as a crash rather than a silent catch; the harness references the package codec owners directly and declares no parallel decode path, so a divergence between the fuzzed decode and the production `Restore` read is impossible by construction; this cluster owns the harness design and the `tests/csharp/_fuzz` project is its source home.
 
 ```csharp signature
 public static class SnapshotCodecFuzz {
@@ -393,7 +455,7 @@ public static class SnapshotCodecFuzz {
 }
 ```
 
-## [7]-[SCHEMA_EVOLUTION]
+## [8]-[SCHEMA_EVOLUTION]
 
 - Owner: `SchemaVersion` the unified schema-version registry row; `WireFormat` the content-negotiable wire-format axis; `CodecLineageEdge` the schema/codec-version provenance edge; `SchemaEvolution` the static surface owning the schema-version registration, the content negotiation, and the codec-as-lineage projection.
 - Cases: a schema version registers a `(TypeName, Version, Fingerprint)` triple with its forward/backward compatibility flags; `WireFormat` carries the negotiable formats (json-stj, messagepack, file-raw — the `SnapshotCodec` rows) so a content-negotiation picks the best mutually-supported format; a codec-lineage edge is a `WasDerivedFrom` relating a payload's codec/schema version to its predecessor.
@@ -443,7 +505,7 @@ public static class SchemaEvolution {
 }
 ```
 
-## [8]-[TS_PROJECTION]
+## [9]-[TS_PROJECTION]
 
 - Owner: `SnapshotCodecKey`, `SnapshotCompressionKey`, `DataClassificationKey`, `SnapshotHeaderWire`, `SnapshotCatalogRowWire`, `SnapshotDeltaWire`, `RestoreReceiptWire`, `SnapshotDecodeOptions`, `SnapshotExtensionRows` — the page's wire transcription.
 - Packages: BCL inbox.
@@ -503,9 +565,10 @@ interface SnapshotDecodeOptions {
 type SnapshotExtensionRows = never;
 ```
 
-## [9]-[RESEARCH]
+## [10]-[RESEARCH]
 
 - [SCHEMA_NEGOTIATION]: the content-negotiation wire-format advertisement a peer and a web consumer exchange — whether the negotiation rides the gRPC metadata / HTTP Accept header the AppHost wire law owns or a payload-prefix format byte, and the schema-version-to-`SchemaFingerprint` resolution confirming a payload self-describes its schema version against the live compiled-model fingerprint.
 - [RENAME_DURABILITY]: the data-flush-before-rename order is settled; the residual is directory-entry durability — whether APFS guarantees the rename's directory entry survives a power loss without an explicit parent-directory fsync, and the managed route to that fsync if it does not.
 - [RESOLVER_PRECEDENCE]: `ThinktectureMessageFormatterResolver` coverage over keyed unions and complex value objects composed with `SourceGeneratedFormatterResolver` under Lz4BlockArray; the precedence of the `PersistenceResolver` `[CompositeResolver]`/`[GeneratedMessagePackResolver]` AOT landmark over the runtime `CompositeResolver.Create` chain and over `SourceGeneratedFormatterResolver` when both resolve one generated type; `GeoJsonConverterFactory` precedence over combined source-generated contract metadata for geometry-bearing wire records.
 - [ZSTD_SWAP]: the inbox Zstandard stream surface a future TFM exposes — its managed `Pack`/`Unpack` shape and level vocabulary for the deferred `CompressionPolicy` row, gated on the framework move that admits it.
+- [CDC_DEDUP_RATIO]: the cross-snapshot chunk-reuse rate and the under-edit-churn dedup ratio the FastCDC `ChunkPolicy.Snapshot` window holds against a real model-history corpus — whether the content-defined boundary survives an interior insertion that shifts every fixed window and how the `min/avg/max` window trades dedup ratio against chunk-count overhead, measured before the `ChunkPolicy` window literals finalize; the `FastCdc.GetChunks` cut algorithm and the `Chunk` offset/length/hash record are settled against the catalogue.

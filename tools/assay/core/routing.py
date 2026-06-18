@@ -382,8 +382,6 @@ def routable_files(files: RoutePaths, settings: AssaySettings) -> RoutePaths:
 def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:  # noqa: PLR0912  # one arm per Input member; the axis is closed
     """Project routed inputs into command argument tail groups for one tool.
 
-    ``Input.PROJECT`` falls back to ``settings.test_target`` only for list-mode tools with no routed projects.
-
     Args:
         routed: Resolved routing result for the target language.
         tool: Tool descriptor that determines input placement.
@@ -401,14 +399,13 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
         case Input.PROJECT:
             # Host-bound projects compile managed-safe but cannot execute outside the host runtime.
             kept = routed.projects if tool.mode in {Mode.RESTORE, Mode.BUILD} else tuple(p for p in routed.projects if p not in routed.host_bound)
-            projects = kept or ((str(settings.test_target),) if tool.mode is Mode.LIST and not routed.projects else ())
             return tuple(
                 ("--project", project)
                 if tool.runner is Runner.DOTNET and tool.command[:1] == ("test",)
                 else ("--test-project", str(settings.root / project))
                 if tool.runner is Runner.DOTNET and tool.stage.root
                 else (project,)
-                for project in projects
+                for project in kept
             )
         case Input.SOLUTION:
             return ((str(settings.solution),),)

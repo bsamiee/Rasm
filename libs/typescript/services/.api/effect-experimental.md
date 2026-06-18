@@ -1,17 +1,10 @@
-# [API_CATALOGUE] effect-experimental
+# [API_CATALOGUE] @effect/experimental
 
-Grounded from installed `node_modules` type declarations (`@effect/experimental` 0.60.0, peer
-`@effect/platform` 0.96.1, `effect` 3.21.3). Every surface below is reflected from
-`dist/dts/*.d.ts` with exact spellings. The package barrel `@effect/experimental` re-exports each
-module under its own namespace (`import { Persistence } from "@effect/experimental"`); per-module
-deep imports (`@effect/experimental/Persistence`) resolve the same declarations. Covers the
-durable-substrate, key-value, rate-limit, reactivity, request-batching, and state-machine surfaces
-the TS planning pages consume — the `node-durable` persistence substrate and the `host`
-offline-snapshot / command-queue store. Not an exhaustive re-listing of internal type helpers.
+`@effect/experimental` re-exports each module under its own namespace; the barrel covers durable-substrate persistence (`Persistence`, `PersistedCache`, `PersistedQueue`), rate-limiting, key-scoped reactivity, request-batching, event journal/log/sync, actor state machines, and SSE encoding.
 
 ---
 
-## [1] — index barrel
+## [1]-[INDEX_BARREL]
 
 ```ts
 // @effect/experimental — namespace re-exports (index.d.ts)
@@ -53,7 +46,7 @@ export * as VariantSchema from "./VariantSchema.js"
 
 ---
 
-## [2] — Persistence
+## [2]-[PERSISTENCE]
 
 Backing stores hold raw `unknown` values keyed by string; result stores hold `Exit` values keyed by
 a `Schema.WithResult` + `PrimaryKey` request. `PersistenceError` is the union error rail.
@@ -137,7 +130,7 @@ export const unsafeTtlToExpires: (clock: Clock.Clock, ttl: Option.Option<Duratio
 
 ---
 
-## [3] — PersistedCache
+## [3]-[PERSISTED_CACHE]
 
 ```ts
 // @effect/experimental/PersistedCache
@@ -159,7 +152,7 @@ export const make: <K extends Persistence.ResultPersistence.KeyAny, R>(options: 
 
 ---
 
-## [4] — PersistedQueue
+## [4]-[PERSISTED_QUEUE]
 
 ```ts
 // @effect/experimental/PersistedQueue
@@ -207,7 +200,7 @@ export const layerStoreMemory: Layer.Layer<PersistedQueueStore>
 
 ---
 
-## [5] — RequestResolver
+## [5]-[REQUEST_RESOLVER]
 
 ```ts
 // @effect/experimental/RequestResolver
@@ -236,7 +229,7 @@ export const persisted: {
 
 ---
 
-## [6] — RateLimiter
+## [6]-[RATE_LIMITER]
 
 ```ts
 // @effect/experimental/RateLimiter
@@ -303,7 +296,7 @@ export const layerStoreMemory: Layer.Layer<RateLimiterStore>
 
 ---
 
-## [7] — Reactivity
+## [7]-[REACTIVITY]
 
 ```ts
 // @effect/experimental/Reactivity
@@ -342,7 +335,7 @@ export namespace Reactivity {
 
 ---
 
-## [8] — Event / EventGroup
+## [8]-[EVENT_AND_EVENT_GROUP]
 
 ```ts
 // @effect/experimental/Event
@@ -400,7 +393,7 @@ export const empty: EventGroup<never>
 
 ---
 
-## [9] — EventJournal
+## [9]-[EVENT_JOURNAL]
 
 ```ts
 // @effect/experimental/EventJournal
@@ -457,7 +450,7 @@ export const layerIndexedDb: (options?: { readonly database?: string }) => Layer
 
 ---
 
-## [10] — EventLog
+## [10]-[EVENT_LOG]
 
 ```ts
 // @effect/experimental/EventLog
@@ -529,7 +522,7 @@ export const makeClient: <Groups extends EventGroup.Any>(schema: EventLogSchema<
 
 ---
 
-## [11] — EventLogRemote / EventLogServer / EventLogEncryption
+## [11]-[EVENT_LOG_REMOTE_SERVER_ENCRYPTION]
 
 ```ts
 // @effect/experimental/EventLogRemote — client-side sync
@@ -589,7 +582,7 @@ export const layerSubtle: Layer.Layer<EventLogEncryption>
 
 ---
 
-## [12] — Machine
+## [12]-[MACHINE]
 
 ```ts
 // @effect/experimental/Machine
@@ -665,7 +658,7 @@ export const makeSerializable: <Requests extends TaggedRequest.Any, State>() => 
 
 ---
 
-## [13] — Sse
+## [13]-[SSE]
 
 ```ts
 // @effect/experimental/Sse
@@ -683,7 +676,7 @@ export const encoder: Encoder
 
 ---
 
-## [14] — DevTools
+## [14]-[DEV_TOOLS]
 
 ```ts
 // @effect/experimental/DevTools — tracing client layers
@@ -694,7 +687,7 @@ export const layer: (url?: string) => Layer.Layer<never>
 
 ---
 
-## [15] — VariantSchema
+## [15]-[VARIANT_SCHEMA]
 
 `VariantSchema.make` returns a builder whose `Struct` / `Field` / `Class` / `Union` produce schemas
 that project to a different `Schema.Struct` per declared variant (the same fields encode/decode
@@ -755,7 +748,7 @@ export const Overrideable: <From, IFrom, RFrom, To, ITo, R>(from: Schema.Schema<
 
 ---
 
-## [16] — IMPLEMENTATION_LAW
+## [16]-[IMPLEMENTATION_LAW]
 
 [DURABLE_SUBSTRATE]:
 - `node-durable` builds the persistence substrate on `Persistence.ResultPersistence` (`layerResult` over a `BackingPersistence`); `PersistedCache.make` and `RequestResolver.persisted` are the two memoization rails over it, both keyed by a `Persistable`/`PersistedRequest` schema (`Schema.WithResult` + `PrimaryKey`).

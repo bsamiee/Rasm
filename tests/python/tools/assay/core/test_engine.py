@@ -493,6 +493,16 @@ def test_splice_command_is_passthrough_identity_when_unscoped(assay_root: AssayH
     assert splice_command(Runner.DOTNET, command, None, verbs, Mode.BUILD) is command
 
 
+def test_splice_command_isolates_project_artifact_path(assay_root: AssayHarness) -> None:
+    """Project-scoped dotnet invocations get separate artifact roots under the run scope."""
+    scope = assay_root.scope(Claim.TEST)
+    command = ("test", "--minimum-expected-tests", "1", "--project", "tests/csharp/libs/Shape/Shape.Tests.csproj")
+    spliced = splice_command(Runner.DOTNET, command, scope, assay_root.settings.scoped_verbs, Mode.RUN)
+    artifact_path = spliced[spliced.index("--artifacts-path") + 1]
+    assert artifact_path != scope.path
+    assert artifact_path.endswith("/dotnet/tests__csharp__libs__Shape__Shape.Tests")
+
+
 def test_argv_for_composes_runner_prefix_scope_and_routed_tails(assay_root: AssayHarness) -> None:
     """``argv_for`` prepends the runner prefix, threads the spliced body, and appends routed input tails."""
     scope = assay_root.scope(Claim.STATIC)
@@ -501,6 +511,21 @@ def test_argv_for_composes_runner_prefix_scope_and_routed_tails(assay_root: Assa
     argv = assert_ok(argv_for(Check(tool=tool), routed, settings=assay_root.settings, scope=scope))
     assert argv[:2] == Runner.UV.prefix, f"runner prefix not leading argv: {argv!r}"
     assert {"ruff", "check", "a.py", "b.py"} <= set(argv), f"command body or routed tails lost in {argv!r}"
+
+
+def test_argv_for_scopes_dotnet_project_tail_after_expansion(assay_root: AssayHarness) -> None:
+    """Argv composition injects the per-project scope after routed ``--project`` tails are known."""
+    scope = assay_root.scope(Claim.TEST)
+    tool = Tool("dotnet-test", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=Mode.RUN)
+    routed = Routed(
+        language=Language.CSHARP,
+        scope=Scope.FULL,
+        projects=("tests/csharp/libs/Shape/Shape.Tests.csproj",),
+    )
+    argv = assert_ok(argv_for(Check(tool=tool), routed, settings=assay_root.settings, scope=scope))
+    artifact_path = argv[argv.index("--artifacts-path") + 1]
+    assert artifact_path.endswith("/dotnet/tests__csharp__libs__Shape__Shape.Tests")
+    assert argv[argv.index("--project") + 1] == "tests/csharp/libs/Shape/Shape.Tests.csproj"
 
 
 # --- [SSH_OUTCOME_REMOTE_COMMAND]

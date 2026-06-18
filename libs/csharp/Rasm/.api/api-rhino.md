@@ -18,10 +18,10 @@
 
 ## [2]-[PUBLIC_TYPES]
 
-[DOCUMENT_TYPES]: document, app, and command surface
+[PUBLIC_TYPE_SCOPE]: document, app, and command surface
 - rail: host-rhino
 
-| [INDEX] | [SYMBOL]    | [RAIL]           |
+| [INDEX] | [SYMBOL]    | [CAPABILITY]     |
 | :-----: | :---------- | :--------------- |
 |   [1]   | `RhinoDoc`  | document root    |
 |   [2]   | `RhinoApp`  | application root |
@@ -31,10 +31,10 @@
 |   [6]   | `GetObject` | object selection |
 |   [7]   | `GetPoint`  | point selection  |
 
-[VIEW_DISPLAY_TYPES]: view, viewport, display, and capture surface
+[PUBLIC_TYPE_SCOPE]: view, viewport, display, and capture surface
 - rail: host-rhino
 
-| [INDEX] | [SYMBOL]          | [RAIL]            |
+| [INDEX] | [SYMBOL]          | [CAPABILITY]      |
 | :-----: | :---------------- | :---------------- |
 |   [1]   | `RhinoView`       | viewport control  |
 |   [2]   | `RhinoViewport`   | viewport state    |
@@ -45,10 +45,10 @@
 |   [7]   | `ViewCapture`     | viewport capture  |
 |   [8]   | `ViewportInfo`    | viewport snapshot |
 
-[OBJECT_GEOMETRY_TYPES]: object and geometry surface
+[PUBLIC_TYPE_SCOPE]: object and geometry surface
 - rail: host-rhino
 
-| [INDEX] | [SYMBOL]           | [RAIL]               |
+| [INDEX] | [SYMBOL]           | [CAPABILITY]         |
 | :-----: | :----------------- | :------------------- |
 |   [1]   | `RhinoObject`      | document object      |
 |   [2]   | `ObjRef`           | object reference     |
@@ -63,10 +63,10 @@
 
 ## [3]-[ENTRYPOINTS]
 
-[DOCUMENT_ENTRYPOINTS]: document and command operations
+[ENTRYPOINT_SCOPE]: document and command operations
 - rail: host-rhino
 
-| [INDEX] | [SURFACE]          | [SURFACE_ROOT] | [RAIL]            |
+| [INDEX] | [SURFACE]          | [SURFACE_ROOT] | [CAPABILITY]      |
 | :-----: | :----------------- | :------------- | :---------------- |
 |   [1]   | `ActiveDoc`        | `RhinoDoc`     | active document   |
 |   [2]   | `InvokeOnUiThread` | `RhinoApp`     | UI dispatch       |
@@ -77,10 +77,10 @@
 |   [7]   | `Layers`           | `RhinoDoc`     | layer table       |
 |   [8]   | `Views`            | `RhinoDoc`     | view table        |
 
-[VIEW_ENTRYPOINTS]: view and display operations
+[ENTRYPOINT_SCOPE]: view and display operations
 - rail: host-rhino
 
-| [INDEX] | [SURFACE]              | [SURFACE_ROOT]   | [RAIL]          |
+| [INDEX] | [SURFACE]              | [SURFACE_ROOT]   | [CAPABILITY]    |
 | :-----: | :--------------------- | :--------------- | :-------------- |
 |   [1]   | `Redraw`               | `RhinoView`      | viewport redraw |
 |   [2]   | `ActiveViewport`       | `RhinoView`      | viewport state  |
@@ -89,10 +89,10 @@
 |   [5]   | `CalculateBoundingBox` | `DisplayConduit` | bounds pass     |
 |   [6]   | `CaptureToBitmap`      | `ViewCapture`    | bitmap capture  |
 
-[OBJECT_ENTRYPOINTS]: object and geometry operations
+[ENTRYPOINT_SCOPE]: object and geometry operations
 - rail: host-rhino
 
-| [INDEX] | [SURFACE]           | [SURFACE_ROOT] | [RAIL]            |
+| [INDEX] | [SURFACE]           | [SURFACE_ROOT] | [CAPABILITY]      |
 | :-----: | :------------------ | :------------- | :---------------- |
 |   [1]   | `Find`              | `ObjectTable`  | object lookup     |
 |   [2]   | `Add`               | `ObjectTable`  | object add        |

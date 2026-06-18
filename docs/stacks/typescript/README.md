@@ -51,20 +51,21 @@ Sixteen laws in five groups govern every TypeScript decision in this stack. Conc
 
 Run this scan on every edit. Any signal triggers the move; three or more instances make it mandatory.
 
-| [INDEX] | [SIGNAL]                                            | [MOVE]                                          |
-| :-----: | :-------------------------------------------------- | :---------------------------------------------- |
-|   [1]   | sibling names share a prefix or suffix              | one modality-polymorphic entrypoint             |
-|   [2]   | same return rail, signatures differ only by arity   | input-shape discrimination                      |
-|   [3]   | functions differ only by a literal                  | parameterize; the literal becomes a vocabulary row |
-|   [4]   | boolean parameter selects between two bodies        | one derived body or one vocabulary value        |
-|   [5]   | function calls exactly one other function           | delete the hop                                  |
-|   [6]   | parallel `Match.when`/`if` arms classify into tiers | vocabulary lookup or threshold iteration        |
-|   [7]   | several schemas or types model one concept          | one Schema plus `pick`/`omit`/`partial`         |
-|   [8]   | standalone `type`/`interface` mirrors a runtime shape | derive via `typeof anchor.Type`               |
-|   [9]   | standalone branded-primitive export                 | inline `Schema.brand` as a field modifier       |
-|  [10]   | one-use module-level `const` that is not an anchor  | inline into the owning rail                     |
-|  [11]   | wrapper renames a package API                       | use the package surface directly                |
-|  [12]   | the same 2-4 combinators recur together             | one parameterized rail transformer              |
+| [INDEX] | [SIGNAL]                                              | [MOVE]                                             |
+| :-----: | :---------------------------------------------------- | :------------------------------------------------- |
+|   [1]   | sibling names share a prefix or suffix                | one modality-polymorphic entrypoint                |
+|   [2]   | same return rail, signatures differ only by arity     | input-shape discrimination on a non-empty tuple    |
+|   [3]   | functions differ only by a literal                    | parameterize; the literal becomes a vocabulary row |
+|   [4]   | boolean parameter selects between two bodies          | one derived body or one vocabulary value           |
+|   [5]   | function calls exactly one other function             | delete the hop                                     |
+|   [6]   | parallel `Match.when`/`if` arms classify into tiers   | vocabulary lookup or threshold iteration           |
+|   [7]   | several schemas or types model one concept            | one Schema plus `pick`/`omit`/`partial`/`extend`   |
+|   [8]   | standalone `type`/`interface` mirrors a runtime shape | derive via `typeof anchor.Type`/`keyof typeof`     |
+|   [9]   | standalone branded-primitive export                   | inline `Schema.brand` as a field modifier          |
+|  [10]   | one-use module-level `const` that is not an anchor    | inline into the owning rail                        |
+|  [11]   | wrapper renames or forwards a package API             | use the package surface directly                   |
+|  [12]   | the same 2-4 combinators recur together               | one parameterized rail transformer                 |
+|  [13]   | absence modeled as `null`/`undefined` in domain       | `Option<T>`, decoded by `Schema.optionalWith`      |
 
 ## [4]-[RULE_ENFORCEMENT]
 
@@ -89,7 +90,7 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 - Code names before prose: every member a card or snippet names — combinator, knob, schema constructor, Match terminal — is verified against the installed package implementation before it is written; an unconfirmable claim is not authored, and a nameable surface spelled as prose is a defect — the code span is the instruction.
 - Card economy: cards are few, deep, and evidence-dense; near-peer cards merge until each retained card owns a decision cluster, and a card line carries exactly one decision. A thin card deciding one concept is a sibling line, not an owner.
 - Snippet adherence: snippets obey the card they prove, compose finalized laws as supporting material, and reduce lines and surface through derivation, vocabulary dispatch, and package depth, never by deleting capability.
-- Altitude routing: when two pages touch one fact, the mechanics live at the owning page and the consequence at the consumer; prose re-teaching an owned mechanic is repaired by routing to the owner, while composing owned surfaces inside a snippet is supporting material and owns nothing.
+- Altitude routing: when two pages touch one fact, the ledger records the split — mechanics at the owning page, consequence at the consumer; prose re-teaching an owned mechanic is repaired by routing to the owner, while composing owned surfaces inside a snippet is supporting material and owns nothing.
 - Reject columns are load-bearing: every `Use` names the spelling, wrapper, or local pattern it deletes.
 - Tables enumerate, cards legislate: rows stay atomic and narrow — no prose cramming, no links inside cells; nuance moves to a card.
 - Route scope is README-local: lookup rows and conflict rules live in README files; concept pages carry only the law they own.
@@ -105,5 +106,3 @@ How the corpus accretes. The folder is one cohesive body, not isolated pages; at
 - Snippet stacking: code fully captures the card it proves, then composes on earlier layers' law at full doctrine depth — the new surface in the spotlight, established surfaces as supporting material, every touched concern built at the standard its owning finalized page legislates.
 - Region ledger: the workspace root keeps one ledger of owned regions — page concerns at card altitude, snippet demonstrations at fence altitude. Snippet rows are written before code exists, page rows at finalization, and a duplicated region is repaired by routing to its owner, never by re-teaching — the ledger is what makes ownership checkable without re-reading the corpus.
 - Purpose: the corpus is loaded as the operative standard in place of weaker context; zero-meta, zero-anchor, and stated-as-fact are absolute because any provenance, hedge, or stale claim poisons every downstream generation that loads the page.
-</content>
-</invoke>

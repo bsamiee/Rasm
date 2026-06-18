@@ -17,7 +17,7 @@ The reproducibility kernel for the runtime spine: one determinism context pins t
 
 - Owner: `FloatMode` `[SmartEnum<string>]` the floating-point determinism mode; `DeterminismContext` the pinned-run context record; `EnvFingerprint` the environment-identity record; `DeterminismKernel` the static context-establishment surface.
 - Cases: 3 float modes — strict, fast, cross-platform — strict pins IEEE round-to-nearest with FMA disabled for bit-identity, fast admits vectorized reassociation, cross-platform pins the lowest-common-denominator mode every supported RID reproduces.
-- Entry: `Establish(ulong seed, FloatMode mode, HostFingerprint host)` returns `DeterminismContext` — pins the RNG seed, sets the float mode, and captures the environment fingerprint so a run under the context is reproducible; `Rng(DeterminismContext context, string stream)` returns a stream-keyed deterministic `Random` so each named random stream derives independently from the root seed.
+- Entry: `Establish(ulong seed, FloatMode mode, HostFingerprint host, string runtimeVersion, string rid)` returns `DeterminismContext` — pins the RNG seed, sets the float mode, and captures the environment fingerprint over the host identity, runtime version, and RID so a run under the context is reproducible; `DeterminismContext.Rng(string stream)` returns a stream-keyed deterministic `Random` so each named random stream derives independently from the root seed.
 - Auto: the RNG is seeded from the root seed XOR the stream key's `XxHash3` so two named streams in one run are independent yet both reproduce from the same root seed; the environment fingerprint composes the `HostFingerprint` (the Compute benchmark-claim host identity) with the float mode and the runtime version so a replay on a divergent environment is detected before it produces a wrong result; the float mode binds the process's `System.Runtime` floating-point configuration at context establishment so a strict-mode run disables FMA contraction across the whole run, never per-call; the context stamps every command receipt's correlation so a recorded command carries its determinism context.
 - Receipt: `DeterminismContext` carries the seed, float mode, and environment fingerprint; a determinism mismatch at replay surfaces as a typed replay fault, never a silent wrong result.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, BCL inbox
@@ -69,7 +69,7 @@ public static class DeterminismKernel {
 ## [3]-[EVENT_LOG]
 
 - Owner: `LogEntry` the content-addressed command-log entry; `ContentHash` the chain-hash value object; `EventLog` the static append-and-verify surface.
-- Entry: `Append(EventLog.Chain chain, CommandReceipt receipt, DeterminismContext context)` returns `(EventLog.Chain Chain, LogEntry Entry)` — folds one command receipt into a new content-addressed entry whose hash chains to the predecessor; `VerifyChain(Seq<LogEntry> entries)` returns `Fin<Unit>` — proves every entry's predecessor-hash matches the actual predecessor content hash so a tampered or reordered entry fails the chain.
+- Entry: `Append(EventLog.Chain chain, CommandReceipt receipt, DeterminismContext context, Instant physical, ulong logical)` returns `(EventLog.Chain Chain, LogEntry Entry)` — folds one command receipt into a new content-addressed entry whose hash chains to the predecessor and stamps the HLC physical-and-logical pair onto the entry; `VerifyChain(Seq<LogEntry> entries)` returns `Fin<Unit>` — proves every entry's predecessor-hash matches the actual predecessor content hash so a tampered or reordered entry fails the chain.
 - Auto: each entry's content hash is `XxHash128` over the canonical-serialized command, its arguments digest, the determinism context digest, and the predecessor hash, so the chain is tamper-evident — altering any entry breaks every downstream hash; the entry is content-addressed so an identical command under an identical context produces an identical hash, the dedup and recompute-skip key; the chain root is the genesis hash so a chain proves its own origin; the log appends to the durable `OpLog` changefeed as one `OpLogEntry` per command so the event log rides the existing durable changefeed, never a second store.
 - Receipt: `LogEntry` carries the sequence index, the content hash, the predecessor hash, the command descriptor id, the arguments digest, the determinism digest, and the HLC stamp; the entry is the log's evidence, never a separate receipt.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, System.IO.Hashing, BCL inbox
@@ -116,8 +116,14 @@ public static class EventLog {
                     : Fin.Fail<(ContentHash, long)>(new ReplayFault.ChainBroken($"chain-break:{entry.Sequence}"))))
             .Map(static _ => unit);
 
-    public static OpLogEntry ToOpLog(LogEntry entry, TenantContext tenant) =>
-        OpLog.Entry(SyncOpKind.Insert, entry.Descriptor, entry.Hash.Value, tenant, entry.Physical, entry.Logical);
+    public static OpLogEntry ToOpLog(LogEntry entry, Guid originStoreId) =>
+        new(
+            Sequence: entry.Sequence, EntityKind: "determinism.command", EntityKey: entry.Descriptor,
+            ColumnFamily: "command", Kind: SyncOpKind.Upsert, Codec: SnapshotCodec.JsonStj,
+            Payload: Encoding.UTF8.GetBytes(entry.Hash.Value), Image: ReadOnlyMemory<byte>.Empty,
+            ContentKey: UInt128.Parse(entry.Hash.Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+            Closure: Seq<UInt128>(), Actor: entry.Descriptor, OriginStoreId: originStoreId,
+            Physical: entry.Physical, Logical: entry.Logical);
 }
 ```
 
@@ -315,5 +321,5 @@ type ReplayOutcomeWire =
 ## [8]-[RESEARCH]
 
 - [FLOAT_DETERMINISM]: the cross-platform floating-point determinism guarantee — a `FloatMode.CrossPlatform` run reproducing bit-identically across osx-arm64, linux-x64, and win-x64 — confirms against the runtime's floating-point configuration surface (FMA-contraction and vector-reassociation control) at the integrated host on each RID; the strict-mode FMA-disable and the cross-platform lowest-common-denominator mode carry settled member shapes and stay a tier-2 cross-RID harness probe.
-- [OPLOG_PROJECTION]: the `EventLog.ToOpLog` projection of a `LogEntry` to one `OpLogEntry` and the `OpLog.Entry` constructor arity resolve against the finalized Persistence sync-collaboration#OPLOG_CHANGEFEED surface, so the command log rides the durable changefeed and never a second store; the HLC-ordered cross-process log merge confirms against the existing `ReceiptEnvelope` causal primitive.
+- [OPLOG_PROJECTION]: the `EventLog.ToOpLog` projection of a `LogEntry` to one `OpLogEntry` composes the finalized `Rasm.Persistence/sync/collaboration#OPLOG_CHANGEFEED` `OpLogEntry` record constructor directly — `SyncOpKind.Upsert` on the `command` column family, the entry hash as the `ContentKey`, the `SnapshotCodec.JsonStj` codec — so the command log rides the durable changefeed and never a second store; the residual confirms the `command`-family `EntityKind`/`EntityKey` spelling and the empty-`Closure` projection against the live op-log surface, and the HLC-ordered cross-process log merge confirms against the existing `ReceiptEnvelope` causal primitive.
 - [HOST_FINGERPRINT]: the `HostFingerprint` environment-identity record the determinism context composes resolves against the finalized Compute receipts-and-benchmarks#BENCHMARK_CLAIMS surface, so reproducibility and benchmark-claim gating share one host-identity truth.

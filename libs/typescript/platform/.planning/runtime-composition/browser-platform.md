@@ -4,9 +4,7 @@ One page owns the browser platform bindings layer — `BrowserPlatform`, the one
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                          |
-| :-----: | :--------------- | :------------------------------------------------------------- |
-|   [1]   | BROWSER_PLATFORM | the HTTP client, the key-value store, and the worker-manager binding |
+[BROWSER_PLATFORM]: the HTTP client, the key-value store, and the worker-manager binding.
 
 ## [2]-[BROWSER_PLATFORM]
 

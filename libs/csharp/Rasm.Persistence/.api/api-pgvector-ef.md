@@ -9,10 +9,10 @@ transitive `Pgvector` package; the EF plugin depends on them.
 ## [1]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Pgvector.EntityFrameworkCore`
-- package: `Pgvector.EntityFrameworkCore` `0.3.0`
+- package: `Pgvector.EntityFrameworkCore`
 - assembly: `Pgvector.EntityFrameworkCore`
 - namespace: `Pgvector.EntityFrameworkCore`
-- value package: `Pgvector` `0.3.2` (transitive)
+- value package: `Pgvector` (transitive)
 - value namespace: `Pgvector`, `Npgsql` (wire registration)
 - provider package: `Npgsql.EntityFrameworkCore.PostgreSQL`
 - asset: runtime library
@@ -29,7 +29,7 @@ transitive `Pgvector` package; the EF plugin depends on them.
 |   [2]   | `HalfVector`   | `halfvec`    | `Half` / `Half[]`      | half-precision dense vector |
 |   [3]   | `SparseVector` | `sparsevec`  | `float` indices+values | sparse vector               |
 
-[VECTOR_MEMBERS]: `Pgvector.Vector` — decompiled from `Pgvector.dll` 0.3.2
+[VECTOR_MEMBERS]: `Pgvector.Vector`
 
 | [INDEX] | [MEMBER]                          | [RETURN]                | [CAPABILITY]                    |
 | :-----: | :-------------------------------- | :---------------------- | :------------------------------ |
@@ -39,7 +39,7 @@ transitive `Pgvector` package; the EF plugin depends on them.
 |   [4]   | `ToArray()`                       | `float[]`               | materialises element array      |
 |   [5]   | `Equals(Vector?)`, `==`, `!=`     | `bool`                  | element-wise equality           |
 
-[HALFVECTOR_MEMBERS]: `Pgvector.HalfVector` — decompiled from `Pgvector.dll` 0.3.2
+[HALFVECTOR_MEMBERS]: `Pgvector.HalfVector`
 
 | [INDEX] | [MEMBER]                             | [RETURN]               | [CAPABILITY]                    |
 | :-----: | :----------------------------------- | :--------------------- | :------------------------------ |
@@ -49,7 +49,7 @@ transitive `Pgvector` package; the EF plugin depends on them.
 |   [4]   | `ToArray()`                          | `Half[]`               | materialises element array      |
 |   [5]   | `Equals(HalfVector?)`, `==`, `!=`    | `bool`                 | element-wise equality           |
 
-[SPARSEVECTOR_MEMBERS]: `Pgvector.SparseVector` — decompiled from `Pgvector.dll` 0.3.2
+[SPARSEVECTOR_MEMBERS]: `Pgvector.SparseVector`
 
 | [INDEX] | [MEMBER]                            | [SHAPE]                     | [RETURN]                | [CAPABILITY]                      |
 | :-----: | :---------------------------------- | :-------------------------- | :---------------------- | :-------------------------------- |
@@ -80,7 +80,7 @@ transitive `Pgvector` package; the EF plugin depends on them.
 
 ## [3]-[ENTRYPOINTS]
 
-[WIRE_REGISTRATION]: `Npgsql.VectorExtensions` — decompiled from `Pgvector.dll` 0.3.2, namespace `Npgsql`
+[WIRE_REGISTRATION]: `Npgsql.VectorExtensions` — namespace `Npgsql`
 
 | [INDEX] | [SURFACE]                                       | [CALL_SHAPE]     | [CAPABILITY]                                              |
 | :-----: | :---------------------------------------------- | :--------------- | :-------------------------------------------------------- |
@@ -88,7 +88,7 @@ transitive `Pgvector` package; the EF plugin depends on them.
 
 `NpgsqlDataSourceBuilder` implements `INpgsqlTypeMapper`; call `builder.UseVector()` on the data-source builder when using the driver without the EF plugin. The EF plugin wires this automatically through `VectorDataSourceConfigurationPlugin`.
 
-[EF_PLUGIN_ADMISSION]: `VectorDbContextOptionsBuilderExtensions` — decompiled from `Pgvector.EntityFrameworkCore.dll` 0.3.0
+[EF_PLUGIN_ADMISSION]: `VectorDbContextOptionsBuilderExtensions`
 
 | [INDEX] | [SURFACE]                                                      | [CALL_SHAPE]                              | [CAPABILITY]                    |
 | :-----: | :------------------------------------------------------------- | :---------------------------------------- | :------------------------------ |
@@ -98,7 +98,7 @@ transitive `Pgvector` package; the EF plugin depends on them.
 
 `VectorTypeMappingSourcePlugin` resolves `vector` → `Vector`, `halfvec` → `HalfVector`, and `sparsevec` → `SparseVector` bidirectionally by store-type name and CLR type.
 
-[DISTANCE_FUNCTIONS]: `VectorDbFunctionsExtensions` — decompiled from `Pgvector.EntityFrameworkCore.dll` 0.3.0
+[DISTANCE_FUNCTIONS]: `VectorDbFunctionsExtensions`
 
 | [INDEX] | [CLR_METHOD]      | [SQL_OPERATOR] | [APPLICABLE_TYPES]               | [CAPABILITY]           |
 | :-----: | :---------------- | :------------- | :------------------------------- | :--------------------- |

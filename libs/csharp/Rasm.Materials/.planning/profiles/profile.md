@@ -13,7 +13,7 @@ One cluster: `[2]-[PROFILE_OWNER]` owns the `Profile` canonical unit shape, the 
 - Entry: `public static Fin<Profile> Of(ProfileFamily family, ProfileUnit unit, Coring coring, ProfileStandard standard, MaterialId appearanceId, Op key)` — `Fin<T>` aborts on a non-positive dimension (`ProfileFault.Dimension`, key-correlated), a void-fraction outside `[0,1)` (`ProfileFault.Coring`), or a family/unit mismatch (`ProfileFault.Family`); `ProfileCatalogue.Lookup` resolves a registered `ProfileId` to its catalogue `Profile`, and the same `Of` admits an ad-hoc unit through the row validation a registered row passes — one polymorphic entry, never a `GetById`/`GetByFamily` family.
 - Packages: Rasm (project — `Dimension`/`UnitInterval`/`PositiveMagnitude` value-objects), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`).
 - Growth: a new architectural cross-section is one `Profile` row in the matching `ProfileFamily`; a new family is one `ProfileFamily` case carrying its unit vocabulary (masonry realized, cmu/steel/timber/glazing the named cost depth-filled on a sibling page); a new fault is one `ProfileFault` case — never a `BrickProfile`/`SteelSection` type, never a per-family `Profile` variant. The four un-realized families are the growth axis named on the card Growth line and queued in `TASKLOG.md`: `cmu` adds the cell/face-shell unit columns, `steel` the section-property columns (depth/flange/web/fillet) from the AISC Shapes Database v16.0, `timber` the sawn/glulam/CLT lamella/grade columns, `glazing` the IGU pane/spacer/frame columns — each its own `ProfileFamily` case with its own `ProfileUnit` projection the way masonry carries its vocabulary.
-- Boundary: `Profile` is the ONE cross-section concept — a per-material class is the deleted form; `ProfileUnit` composes the `Rasm` kernel `Dimension` value-object for every length column (width/height/length and the coursing module) so the profile never re-mints a dimension primitive; `ProfileFault` (band 2300) is the one fault every `Fin.Fail` reads (dimension/coring/family/bond slots) so a layout never throws and never returns a sentinel; the `[ValidationError]` dimensional validators are the OOP capsule at the edge, the `Fin`/`Seq`/`Fold` course projection is the FP-ROP internal; the appearance assignment crosses to `appearance/graph#MATERIAL_LIBRARY` as a `MaterialId` row a `Profile.AppearanceId` column carries, never a profile-specific `SurfaceShade`; the layout that turns a `Profile` into a placement stream is `construction/layout#ASSEMBLY_FOLD`, composed not re-derived here; the masonry family vocabulary (`Coring`/`BondName`/`Orientation`/`Cut`/`ClosureRule`/`SpecialShape`) lives on `masonry#PROFILE_FAMILY`, and the `ProfileCatalogue` registered-row table composes the realized family's `BuildRows` so a registered row keys the same way once a steel/timber/glazing family lands.
+- Boundary: `Profile` is the ONE cross-section concept — a per-material class is the deleted form; `ProfileUnit` composes the `Rasm` kernel `Dimension` value-object for every length column (width/height/length and the coursing module) so the profile never re-mints a dimension primitive; `ProfileFault` is the one fault every `Fin.Fail` reads (dimension/coring/family/bond slots), an `Expected`-derived `Error` (`IValidationError<ProfileFault>`) whose 2300 band IS the `Expected` `Code` so a bare typed case lifts directly into the `Fin<T>` rail, so a layout never throws and never returns a sentinel; the `[ValidationError]` dimensional validators are the OOP capsule at the edge, the `Fin`/`Seq`/`Fold` course projection is the FP-ROP internal; the appearance assignment crosses to `appearance/graph#MATERIAL_LIBRARY` as a `MaterialId` row a `Profile.AppearanceId` column carries, never a profile-specific `SurfaceShade`; the layout that turns a `Profile` into a placement stream is `construction/layout#ASSEMBLY_FOLD`, composed not re-derived here; the masonry family vocabulary (`Coring`/`BondName`/`Orientation`/`Cut`/`ClosureRule`/`SpecialShape`) lives on `masonry#PROFILE_FAMILY`, and the `ProfileCatalogue` registered-row table composes the realized family's `BuildRows` so a registered row keys the same way once a steel/timber/glazing family lands.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -38,13 +38,14 @@ public sealed partial class ProfileFamily {
 
 // --- [ERRORS] ------------------------------------------------------------------------------
 [Union]
-public abstract partial record ProfileFault {
-    private ProfileFault() { }
-    public sealed record Dimension(string Detail) : ProfileFault;
-    public sealed record Coring(string Detail) : ProfileFault;
-    public sealed record Family(string Detail) : ProfileFault;
-    public sealed record Bond(string Detail) : ProfileFault;
-    public int Band => 2300;
+public abstract partial record ProfileFault : Expected, IValidationError<ProfileFault> {
+    private ProfileFault(Op key, string detail) : base(detail, 2300, None) => Key = key;
+    public Op Key { get; }
+    public static ProfileFault Create(string message) => new Family(default, message);
+    public sealed record Dimension(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Dimension"; }
+    public sealed record Coring(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Coring"; }
+    public sealed record Family(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Family"; }
+    public sealed record Bond(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Bond"; }
 }
 
 // --- [SERVICES] ----------------------------------------------------------------------------

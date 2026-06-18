@@ -724,21 +724,18 @@ def test_closure_note_names_host_routed() -> None:
     )
 
 
-register_law(place, "place_project_list_fallback_to_test_target")
+register_law(place, "place_project_empty_stays_empty")
 
 
 @pytest.mark.parametrize(
     "mode,projects,expected_fn",
-    [(Mode.LIST, (), "test_target"), (Mode.RUN, (), "empty"), (Mode.LIST, ("src/A/A.csproj",), "projects")],
-    ids=["list-empty-falls-back", "non-list-empty-yields-nothing", "list-with-projects-passthrough"],
+    [(Mode.LIST, (), "empty"), (Mode.RUN, (), "empty"), (Mode.LIST, ("src/A/A.csproj",), "projects")],
+    ids=["list-empty-yields-nothing", "run-empty-yields-nothing", "list-with-projects-passthrough"],
 )
-def test_place_project_list_fallback_to_test_target(mode: Mode, projects: tuple[str, ...], expected_fn: str, assay_root: AssayHarness) -> None:
-    """Input.PROJECT with no routed projects falls back to settings.test_target only when tool.mode is Mode.LIST.
-
-    Non-LIST empty project routes yield no invocations; LIST with projects passes the projects through.
-    """
+def test_place_project_empty_stays_empty(mode: Mode, projects: tuple[str, ...], expected_fn: str, assay_root: AssayHarness) -> None:
+    """Input.PROJECT with no routed projects yields no invocations; test selection owns defaults."""
     tool = Tool("t", Runner.DOTNET, ("dotnet",), Input.PROJECT, Language.CSHARP, Claim.STATIC, mode=mode)
     routed = Routed(Language.CSHARP, Scope.CHANGED, projects=projects)
     result = place(routed, tool, settings=assay_root.settings)
-    expected = {"test_target": ((str(assay_root.settings.test_target),),), "empty": (), "projects": tuple((p,) for p in projects)}[expected_fn]
+    expected = {"empty": (), "projects": tuple((p,) for p in projects)}[expected_fn]
     assert result == expected

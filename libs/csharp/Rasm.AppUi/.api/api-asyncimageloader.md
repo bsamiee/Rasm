@@ -52,12 +52,13 @@
 
 [ATTACHED_ENTRYPOINTS]: attached loading on plain Image controls
 - rail: images
+- surface: `ImageLoader`
 
-| [INDEX] | [SURFACE]                 | [SURFACE_ROOT] | [RAIL]          |
-| :-----: | :------------------------ | :------------- | :-------------- |
-|   [1]   | `SetSource` / `GetSource` | `ImageLoader`  | attached source |
-|   [2]   | `GetIsLoading`            | `ImageLoader`  | load state      |
-|   [3]   | `AsyncImageLoader`        | `ImageLoader`  | global loader   |
+| [INDEX] | [SURFACE]                 | [RAIL]          |
+| :-----: | :------------------------ | :-------------- |
+|   [1]   | `SetSource` / `GetSource` | attached source |
+|   [2]   | `GetIsLoading`            | load state      |
+|   [3]   | `AsyncImageLoader`        | global loader   |
 
 [LOADER_ENTRYPOINTS]: loader operations
 - rail: images

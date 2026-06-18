@@ -63,8 +63,6 @@ The `YAML` row carries typ, pure-Python, output, and plugin policy; load/dump ro
 - evidence: each load/dump captures typ, document count, YAML version, and output byte length as a structured-documents receipt.
 - boundary: ruamel.yaml owns YAML; XML routes to `lxml`, TOML to `tomlkit`; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
-
 [RAIL_LAW]:
 - Package: `ruamel-yaml`
 - Owns: round-trip YAML load/dump preserving comments/order/anchors/styling, typ variants, multi-document streams, class registration

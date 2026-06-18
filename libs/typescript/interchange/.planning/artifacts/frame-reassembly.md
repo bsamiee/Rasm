@@ -1,6 +1,6 @@
 # [INTERCHANGE_FRAME_REASSEMBLY]
 
-Content-addressed artifact-frame reassembly: the framing fold lifted off `transport/transport.md` is stitched into one content-addressed blob through a per-frame Crc32 verify, a single pre-sized sink, and a whole-artifact 128-bit content-key derivation, run off the main thread under the `platform` `DecodeWorkerPool`. `ArtifactFrameRail` is one row on `codecs/decode-rail.md` `DecodeRail` read by the `artifact-frame` codec key; this page owns the reassembly, the owned table-driven Crc32, and the transferable-stream worker boundary. The content key is the one 16-byte `ContentKey` brand byte-identical to the C#-owned `XxHash128` seed; the browser-side 128-bit provider is the `[3]-[RESEARCH]` gate (the admitted `xxhash-wasm` carries only `h32`/`h64`), so the cross-runtime content-addressed cache is blocked on it.
+Content-addressed artifact-frame reassembly: the framing fold lifted off `transport/transport.md` is stitched into one content-addressed blob through a per-frame Crc32 verify, a single pre-sized sink, and a whole-artifact 128-bit content-key derivation, run off the main thread under the `platform` `DecodeWorkerPool`. `ArtifactFrameRail` composes the `codecs/decode-rail.md` `DecodeRail` decode discipline over the frame bytes the `proto` codec row admits — the artifact frame is not a fourth `CodecKey`, it is the reassembly owner of the server-streamed frames the proto row decodes; this page owns the reassembly, the owned table-driven Crc32, and the transferable-stream worker boundary. The content key is the one 16-byte `ContentKey` brand byte-identical to the C#-owned `XxHash128` seed; the browser-side 128-bit provider is the `[3]-[RESEARCH]` gate (the admitted `xxhash-wasm` carries only `h32`/`h64`), so the cross-runtime content-addressed cache is blocked on it.
 
 ## [1]-[INDEX]
 
@@ -57,7 +57,7 @@ const reassemble = (crc: Crc32, xxh: XxHash128, frames: Stream.Stream<ArtifactFr
       { id: "", sink: Option.none<Uint8Array>() } as AssemblyState,
       (state, frame) =>
         crc.of(frame.payload) !== frame.frameCrc
-          ? Effect.fail(FaultDetail.HopFault({ code: "frame-crc-mismatch", evidence: { artifactId: frame.artifactId } }))
+          ? Effect.fail(FaultDetail.HopFault({ reason: "frame-crc-mismatch", evidence: { artifactId: frame.artifactId } }))
           : Effect.sync(() => {
               const sink = Option.getOrElse(state.sink, () => new Uint8Array(frame.artifactBytes));
               sink.set(frame.payload, frame.offset);
@@ -66,7 +66,7 @@ const reassemble = (crc: Crc32, xxh: XxHash128, frames: Stream.Stream<ArtifactFr
     ),
     Effect.flatMap((state) =>
       Option.match(state.sink, {
-        onNone: () => Effect.fail(FaultDetail.HopFault({ code: "empty-artifact", evidence: {} })),
+        onNone: () => Effect.fail(FaultDetail.HopFault({ reason: "empty-artifact", evidence: {} })),
         onSome: (bytes) => Effect.succeed({ artifactId: state.id, contentKey: xxh.h128(bytes), bytes }),
       })),
   );
@@ -74,11 +74,9 @@ const reassemble = (crc: Crc32, xxh: XxHash128, frames: Stream.Stream<ArtifactFr
 
 ## [3]-[TS_PROJECTION]
 
-- Owner: the `ArtifactFrameWire` frame shape the rail reassembles, transcribed verbatim from `csharp:Rasm.Compute/remote/remote#TS_PROJECTION`.
+- Owner: the `ArtifactFrameWire` frame shape the rail reassembles, sourced from `csharp:Rasm.Compute/remote/remote#TS_PROJECTION`.
 - Entry: each frame carries `artifactId`, `artifactBytes` (the FULL original length on every frame), `offset`, the `frameCrc` `fixed32`, and the `payload` `Uint8Array`.
 - Packages: `effect` `Schema` for the frame surface.
-- Growth: a new frame member lands as one field row; the branch authors no shape absent from the C# fence.
-- Boundary: the shape transcribes the upstream `#TS_PROJECTION` fence verbatim.
 
 ```ts contract
 interface ArtifactFrameWire {
@@ -93,4 +91,4 @@ interface ArtifactFrameWire {
 ## [4]-[RESEARCH]
 
 - [CONTENT_HASHING]: the C# content seed is `System.IO.Hashing.XxHash128` (seed=0, fixed endianness, two-64-bit-half byte order); the admitted `xxhash-wasm` exposes only `h32`/`h64`/`h64Raw` and carries no 128-bit digest, so the browser-side `XxHash128` capability has no implementing member yet. The 128-bit content-key derivation is gated on admitting a 128-bit-capable wasm hash (`hash-wasm` `xxhash128`, or an XXH3-128 wasm build feeding the worker) or downgrading the C#-owned shared seed to XXH64 so `h64Raw` carries it; until the package question resolves, the tier-2 byte-identity harness cannot assert browser-to-C# parity. The per-frame Crc32 is a direct compare against the wire `frameCrc fixed32` and needs no probe.
-- [BIGINT_ROUNDTRIP]: the `SnapshotHeaderWire.schemaFingerprint` and the `OpLogEntryWire.logical`/`sequence` bigints crossing `@msgpack/msgpack` `useBigInt64: true` and the `DataView` `getBigUint64` header read round-trip bit-for-bit against the C# `long`/`ulong` HLC encoding — the same tier-2 byte-identity harness asserts the two-64-bit-half order so a half-swap never silently corrupts the conflict-presence fold, since an HLC `logical` off-by-one-half folds a fresh op as stale with no other signal.
+- [BIGINT_ROUNDTRIP]: the `SnapshotHeaderWire.schemaFingerprint` and the `OpLogEntryWire.logical`/`sequence` bigints crossing `@msgpack/msgpack` `useBigInt64: true` and the `DataView` `getBigUint64` header read round-trip bit-for-bit against the C# `long`/`ulong` HLC encoding — the same tier-2 byte-identity harness asserts the two-64-bit-half order so a half-swap never silently corrupts the conflict-presence fold, since an HLC `logical` off-by-one-half folds a fresh op as stale with no other signal. The `OpLogEntryWire.physical` ISO-8601 instant the `projection` event-time fold (`watermark`, `lww-merge`) reads is the C#-owned HLC physical half against `csharp:Rasm.Persistence/sync/collaboration#TS_PROJECTION`; the member spelling and the instant precision (`Date.parse`-admissible extended ISO-8601) resolve against the decoded shape before the convergence-order arms are transcribed.

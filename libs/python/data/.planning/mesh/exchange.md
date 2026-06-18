@@ -23,18 +23,16 @@ import trimesh
 from msgspec import Struct
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.observability.receipts import Receipt
 from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
 
-# --- [TYPES] ----------------------------------------------------------------------------
 type MeshBackend = Literal["meshio", "trimesh"]
 
 _TRIMESH_EXTS: frozenset[str] = frozenset({".stl", ".obj", ".ply", ".glb", ".gltf", ".off", ".3mf"})
 
 
-# --- [MODELS] ---------------------------------------------------------------------------
 class MeshPayload(Struct, frozen=True):
     backend: MeshBackend
     content_key: ContentKey
@@ -53,13 +51,12 @@ class MeshPayload(Struct, frozen=True):
         return boundary("mesh.write", lambda: _export(ref, out, out.path.suffix.lstrip(".")))
 
     def contribute(self) -> Receipt:
-        return Receipt.Emitted(
-            "mesh", self.backend,
+        return Receipt.of(
+            "emitted", "mesh", self.backend,
             {"points": str(self.point_count), "blocks": ",".join(self.cell_blocks), "units": self.units},
         )
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
 def _backend_of(ref: ResourceRef) -> MeshBackend:
     return "trimesh" if ref.path.suffix.lower() in _TRIMESH_EXTS else "meshio"
 
@@ -70,7 +67,7 @@ def _read(ref: ResourceRef) -> MeshPayload:
             mesh = meshio.read(str(ref.path))
             return MeshPayload(
                 backend="meshio",
-                content_key=ContentIdentity.key("mesh", mesh.points.tobytes()),
+                content_key=ContentIdentity.of("mesh", mesh.points.tobytes()),
                 point_count=len(mesh.points),
                 cell_blocks=tuple(block.type for block in mesh.cells),
                 units="m",
@@ -79,7 +76,7 @@ def _read(ref: ResourceRef) -> MeshPayload:
             surface = trimesh.load(str(ref.path), force="mesh")
             return MeshPayload(
                 backend="trimesh",
-                content_key=ContentIdentity.key("mesh", surface.vertices.tobytes()),
+                content_key=ContentIdentity.of("mesh", surface.vertices.tobytes()),
                 point_count=len(surface.vertices),
                 cell_blocks=("triangle",) if len(surface.faces) else (),
                 units=surface.units or "m",
@@ -96,5 +93,5 @@ def _export(ref: ResourceRef, out: ResourceRef, fmt: str) -> ContentKey:
             trimesh.load(str(ref.path), force="mesh").export(str(out.path), file_type=fmt)
         case unreachable:
             assert_never(unreachable)
-    return ContentIdentity.key("mesh.export", out.path.read_bytes())
+    return ContentIdentity.of("mesh.export", out.path.read_bytes())
 ```

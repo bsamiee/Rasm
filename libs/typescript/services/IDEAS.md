@@ -6,7 +6,7 @@ The forward pool of higher-order concepts for the node tier and its hosting IaC.
 
 [TRANSACTIONAL_OUTBOX]
 - A reliable-event-publishing owner: a single outbox table written in the SAME Postgres transaction as the domain mutation, drained by a durable relay using a `FOR UPDATE SKIP LOCKED` claim plus a `LISTEN`/`NOTIFY` wake, publishing to the internal RPC surface and external sinks, with logical replication as the push variant.
-- Closes the dual-write gap so no domain change ever commits without its event eventually publishing; gives `EventJournal` and `Notifications` the atomic-publish contract they lack and a foundation for trustworthy event-driven node flows.
+- Closes the dual-write gap so no domain change commits without its event publishing at-least-once after the same transaction; gives `EventJournal` and `Notifications` the atomic-publish contract they lack and a foundation for trustworthy event-driven node flows.
 - The transactional-outbox-plus-CDC pattern the durable-messaging field treats as the dual-write remedy; current persistence has no atomic domain-write-plus-event guarantee. Net-new `eventing/` sub-domain.
 
 [ENTITY_ACTOR_MODEL]
@@ -28,6 +28,11 @@ The forward pool of higher-order concepts for the node tier and its hosting IaC.
 - Close the one-shot-vs-continuous gap in `StackDrift`: the `previewRefresh` drift fold, the typed `StackDriftSummary` receipt, and the CI `drift` verb are already designed; the net-new is the SCHEDULED sweep — a `runtime-backplane` cluster singleton or shard-pinned cron that re-runs the fold off the deploy CLI and emits the typed receipt into the `ObservabilityStack` collector, plus ESC policy-pack environment resolution at sweep time.
 - Day-2 operations: out-of-band infra changes are detected continuously and self-report a typed receipt to dashboards, not only on a manual CI invocation, so a divergence surfaces between deploys rather than at the next deploy.
 - Pulumi's first-class refresh-preview drift detection and ESC policy-pack environment resolution; the authored fold runs only on the `drift` verb and emits no receipt to observability on a schedule.
+
+[MCP_AGENT_TRANSPORT]
+- A node-tier consumer of the C# MCP serving surface — an agent transport reading the decoded `McpToolWire` tool catalog (the standard `tools/list` JSON with the descriptor JSON Schema and the `readOnlyHint`/`destructiveHint` effect annotations), draining the `ProgressNotificationWire` server-stream off the SSE leg, and reading the `CostPreviewWire` dry-run pricing before a call, with the structured tool result reconstructed through the existing `ReceiptEnvelopeWire`.
+- Unlocks a TS agent that drives the host's capability registry over MCP without re-minting a tool catalog: the catalog, the cost preview, and the progress frames are the host's own projection consumed at the decoded boundary, and the resume token (session/tool/logical/physical tuple) lets the transport reattach by replaying the cursor through the SDK `Last-Event-ID` resumption.
+- Draws on the C# `Rasm.AppHost/agent/mcp-projection#TS_PROJECTION` MCP tool-catalog and progress wire shapes; the node `messaging`/`durable-execution` tier owns no MCP consumer today and the AI activity calls providers directly rather than driving the host's registry-projected tool surface. The wire owner is the C# branch; the transport reads the settled shape and never reconstructs the frame union from the SDK notification.
 
 ## [2]-[CLOSED]
 

@@ -1,4 +1,4 @@
-# [RASM_APPHOST_API_HYBRID_CACHE]
+# [RASM_COMPUTE_API_HYBRID_CACHE]
 
 `Microsoft.Extensions.Caching.Hybrid` admits hybrid cache implementation,
 service registration, keyed cache registration, serializer registration, cache

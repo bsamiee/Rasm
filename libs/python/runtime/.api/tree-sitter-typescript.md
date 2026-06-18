@@ -17,10 +17,7 @@
 
 [PUBLIC_TYPE_SCOPE]: grammar family
 - rail: parsing
-
-| [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [RAIL]                            |
-| :-----: | :--------- | :------------ | :-------------------------------- |
-|   [1]   | `_binding` | extension     | compiled grammar extension module |
+- No named public types; the package surface is two factory functions only.
 
 ## [3]-[ENTRYPOINTS]
 

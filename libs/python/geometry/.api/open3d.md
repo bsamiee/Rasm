@@ -1,42 +1,120 @@
 # [PY_GEOMETRY_API_OPEN3D]
 
-`open3d` API capture placeholder for `geometry`.
+`open3d` supplies the point-cloud and 3D-scan processing surface for the geometry scan rail: a `geometry.PointCloud` and `geometry.TriangleMesh`, the `io` read/write functions, and the `pipelines.registration` module that drives downsampling, normal estimation, plane segmentation, ICP and feature-based registration, pose-graph optimization, and Poisson/ball-pivoting surface reconstruction. The package owner composes `io.read_point_cloud`, `PointCloud.voxel_down_sample`, and `registration.registration_icp` into the scan owner; it never re-implements ICP, FPFH features, or Poisson reconstruction open3d already owns.
 
 ## [1]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `open3d`
 - package: `open3d`
-- import: `open3d`
+- import: `import open3d`
 - owner: `geometry`
-- rail: scan-processing
-- capability: point-cloud/3D-scan ICP registration, surface reconstruction, mesh processing
+- rail: scan
+- installed: `0.19.0` reflected via `python -c "import open3d"` on cp312
+- entry points: none (library only)
+- capability: point-cloud and mesh IO, voxel/uniform/random/farthest downsampling, normal and covariance estimation, statistical and radius outlier removal, plane and DBSCAN segmentation, point-to-point/plane/colored/generalized ICP, RANSAC and fast global registration, FPFH features, multiway pose-graph optimization, and Poisson/ball-pivoting/alpha-shape reconstruction
 
-## [2]-[CAPTURE]
+## [2]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPES]:
-- `open3d.geometry.PointCloud` — `points`, `colors`, `normals`, `covariances`; `voxel_down_sample`, `uniform_down_sample`, `random_down_sample`, `farthest_point_down_sample`, `estimate_normals`, `estimate_covariances`, `orient_normals_consistent_tangent_plane`, `remove_statistical_outlier`, `remove_radius_outlier`, `segment_plane`, `cluster_dbscan`, `compute_point_cloud_distance`, `compute_convex_hull`, `select_by_index`, `crop`, `transform`
-- `open3d.geometry.TriangleMesh` — `vertices`, `triangles`, `vertex_normals`, `triangle_normals`, `vertex_colors`; `compute_vertex_normals`, `simplify_quadric_decimation`, `simplify_vertex_clustering`, `filter_smooth_taubin`/`_laplacian`/`_simple`, `subdivide_loop`/`_midpoint`, `remove_duplicated_vertices`, `remove_non_manifold_edges`, `merge_close_vertices`, `is_watertight`, `is_edge_manifold`, `is_vertex_manifold`, `get_volume`, `get_surface_area`, `sample_points_poisson_disk`, `sample_points_uniformly`; `create_from_point_cloud_poisson`, `create_from_point_cloud_ball_pivoting`, `create_from_point_cloud_alpha_shape`, `create_box`/`sphere`/`cylinder`/`cone`/`torus`/`coordinate_frame`
-- `open3d.geometry`: `VoxelGrid`, `Octree`, `KDTreeFlann`, `AxisAlignedBoundingBox`, `OrientedBoundingBox`, `LineSet`, `RGBDImage`, `Image`, `TetraMesh`, `HalfEdgeTriangleMesh`
-- `open3d.pipelines.registration`: `RegistrationResult`, `ICPConvergenceCriteria`, `RANSACConvergenceCriteria`, `Feature`, `PoseGraph`/`PoseGraphNode`/`PoseGraphEdge`, `TransformationEstimationPointToPoint`, `TransformationEstimationPointToPlane`, `TransformationEstimationForColoredICP`, `TransformationEstimationForGeneralizedICP`, robust kernels (`HuberLoss`, `TukeyLoss`, `CauchyLoss`, `GMLoss`, `L1Loss`, `L2Loss`), correspondence checkers
+[PUBLIC_TYPE_SCOPE]: geometry roots (`open3d.geometry`)
+- rail: scan
 
-[ENTRYPOINTS]:
-- `open3d.pipelines.registration.registration_icp(source, target, max_correspondence_distance, init=eye(4), estimation_method=TransformationEstimationPointToPoint(), criteria=ICPConvergenceCriteria(...)) -> RegistrationResult`
-- `registration_colored_icp`, `registration_generalized_icp`, `registration_ransac_based_on_feature_matching`, `registration_ransac_based_on_correspondence`, `registration_fgr_based_on_feature_matching`, `registration_fgr_based_on_correspondence`, `compute_fpfh_feature`, `evaluate_registration`, `global_optimization`, `get_information_matrix_from_point_clouds`
-- `open3d.io.read_point_cloud`, `write_point_cloud`, `read_point_cloud_from_bytes`, `write_point_cloud_to_bytes`, `read_triangle_mesh`, `write_triangle_mesh`, `read_triangle_model`, `read_voxel_grid`, `read_feature`/`write_feature`, `read_pose_graph`/`write_pose_graph`
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]  | [CAPABILITY]                                             |
+| :-----: | :----------------------------- | :-------------- | :------------------------------------------------------- |
+|   [1]   | `geometry.PointCloud`          | point cloud     | points/colors/normals/covariances with sampling/filter   |
+|   [2]   | `geometry.TriangleMesh`        | triangle mesh   | vertices/triangles with smoothing/decimation/reconstruct |
+|   [3]   | `geometry.VoxelGrid`           | voxel grid      | occupancy voxelization of points or mesh                 |
+|   [4]   | `geometry.Octree`              | octree          | adaptive spatial subdivision                             |
+|   [5]   | `geometry.KDTreeFlann`         | spatial index   | KNN/radius/hybrid nearest-neighbor search                |
+|   [6]   | `geometry.OrientedBoundingBox` | bounding volume | oriented and axis-aligned bounds                         |
+|   [7]   | `geometry.LineSet`             | line set        | edges between points                                     |
+|   [8]   | `geometry.RGBDImage`           | RGBD image      | color-plus-depth source for cloud creation               |
 
-[IMPLEMENTATION_LAW]:
-- Top-level namespaces: `geometry`, `pipelines`, `io`, `core`, `t` (tensor API), `camera`, `data`, `utility`, `visualization`, `ml`.
-- ScanProcessing rail: `io.read_point_cloud` -> `voxel_down_sample` -> `estimate_normals` -> `pipelines.registration.registration_icp`/`registration_generalized_icp` -> `RegistrationResult.transformation`/`.fitness`/`.inlier_rmse`, then `TriangleMesh.create_from_point_cloud_poisson` for reconstruction.
+[PUBLIC_TYPE_SCOPE]: registration types (`open3d.pipelines.registration`)
+- rail: scan
 
-## [3]-[LOCAL_ADMISSION]
+| [INDEX] | [SYMBOL]                                    | [PACKAGE_ROLE]      | [CAPABILITY]                          |
+| :-----: | :------------------------------------------ | :------------------ | :------------------------------------ |
+|   [1]   | `RegistrationResult`                        | registration result | transformation/fitness/inlier-rmse    |
+|   [2]   | `ICPConvergenceCriteria`                    | convergence policy  | ICP iteration and tolerance limits    |
+|   [3]   | `TransformationEstimationPointToPoint`      | estimator           | rigid point-to-point estimation       |
+|   [4]   | `TransformationEstimationPointToPlane`      | estimator           | point-to-plane estimation             |
+|   [5]   | `TransformationEstimationForGeneralizedICP` | estimator           | plane-to-plane generalized ICP        |
+|   [6]   | `Feature`                                   | feature descriptor  | FPFH descriptor for global matching   |
+|   [7]   | `PoseGraph`                                 | pose graph          | multiway registration node/edge graph |
+|   [8]   | `RobustKernel`                              | robust loss         | Huber/Tukey/Cauchy/GM/L1/L2 weighting |
+
+## [3]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: cloud filter, segment, and reconstruct
+- rail: scan
+
+Methods operate on a `geometry.PointCloud` or `geometry.TriangleMesh`; `create_from_*` are static `TriangleMesh` constructors.
+
+| [INDEX] | [SURFACE]                                            | [CALL_SHAPE]             | [CAPABILITY]                           |
+| :-----: | :--------------------------------------------------- | :----------------------- | :------------------------------------- |
+|   [1]   | `PointCloud.voxel_down_sample`                       | voxel size               | voxel-grid downsampling                |
+|   [2]   | `PointCloud.farthest_point_down_sample`              | sample count             | farthest-point downsampling            |
+|   [3]   | `PointCloud.estimate_normals`                        | search param             | normal estimation                      |
+|   [4]   | `PointCloud.orient_normals_consistent_tangent_plane` | k-neighbors              | globally consistent normal orientation |
+|   [5]   | `PointCloud.remove_statistical_outlier`              | neighbors plus std-ratio | statistical outlier removal            |
+|   [6]   | `PointCloud.remove_radius_outlier`                   | points plus radius       | radius outlier removal                 |
+|   [7]   | `PointCloud.segment_plane`                           | distance plus ransac n   | dominant-plane RANSAC fit              |
+|   [8]   | `PointCloud.cluster_dbscan`                          | eps plus min points      | density clustering                     |
+|   [9]   | `PointCloud.compute_point_cloud_distance`            | target cloud             | nearest-neighbor distances             |
+|  [10]   | `PointCloud.select_by_index`                         | index list               | subset extraction                      |
+|  [11]   | `TriangleMesh.create_from_point_cloud_poisson`       | cloud plus depth         | Poisson surface reconstruction         |
+|  [12]   | `TriangleMesh.create_from_point_cloud_ball_pivoting` | cloud plus radii         | ball-pivoting reconstruction           |
+|  [13]   | `TriangleMesh.simplify_quadric_decimation`           | target triangle count    | quadric mesh decimation                |
+|  [14]   | `TriangleMesh.filter_smooth_taubin`                  | iteration count          | Taubin/Laplacian smoothing             |
+
+[ENTRYPOINT_SCOPE]: register and optimize
+- rail: scan
+
+Registration rows return a `RegistrationResult` (or `PoseGraph`); ICP rows take source, target, max correspondence distance, init transform, estimator, and criteria.
+
+| [INDEX] | [SURFACE]                                                    | [CALL_SHAPE]                 | [CAPABILITY]                     |
+| :-----: | :----------------------------------------------------------- | :--------------------------- | :------------------------------- |
+|   [1]   | `registration.registration_icp`                              | source/target plus estimator | point-to-point/plane ICP         |
+|   [2]   | `registration.registration_colored_icp`                      | source/target plus criteria  | color-aware ICP                  |
+|   [3]   | `registration.registration_generalized_icp`                  | source/target plus criteria  | plane-to-plane generalized ICP   |
+|   [4]   | `registration.registration_ransac_based_on_feature_matching` | source/target plus features  | RANSAC feature-based global fit  |
+|   [5]   | `registration.registration_fgr_based_on_feature_matching`    | source/target plus features  | fast global registration         |
+|   [6]   | `registration.compute_fpfh_feature`                          | cloud plus search param      | FPFH descriptor computation      |
+|   [7]   | `registration.evaluate_registration`                         | source/target plus transform | fitness/inlier-rmse evaluation   |
+|   [8]   | `registration.global_optimization`                           | pose graph plus options      | multiway pose-graph optimization |
+
+[ENTRYPOINT_SCOPE]: input and output (`open3d.io`)
+- rail: scan
+
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]         | [CAPABILITY]                       |
+| :-----: | :------------------------------- | :------------------- | :--------------------------------- |
+|   [1]   | `io.read_point_cloud`            | filename plus format | read `PLY`/`PCD`/`XYZ`/`PTS` cloud |
+|   [2]   | `io.write_point_cloud`           | filename plus cloud  | write a point cloud                |
+|   [3]   | `io.read_point_cloud_from_bytes` | bytes plus format    | decode an in-memory cloud          |
+|   [4]   | `io.read_triangle_mesh`          | filename             | read `PLY`/`OBJ`/`STL`/`OFF` mesh  |
+|   [5]   | `io.write_triangle_mesh`         | filename plus mesh   | write a triangle mesh              |
+|   [6]   | `io.read_pose_graph`             | filename             | read a pose graph                  |
+|   [7]   | `io.read_feature`                | filename             | read an FPFH feature               |
+
+## [4]-[IMPLEMENTATION_LAW]
+
+[SCAN_PROCESSING]:
+- import: `import open3d` at boundary scope only; module-level import is banned by the manifest import policy.
+- cloud axis: one `PointCloud` owns points/colors/normals/covariances; downsampling is a method row (`voxel_down_sample`, `uniform_down_sample`, `farthest_point_down_sample`), never parallel cloud subclasses. `KDTreeSearchParamHybrid`/`KNN`/`Radius` parameterize normal estimation and feature search.
+- registration axis: `registration_icp` dispatches on its `TransformationEstimation*` argument (point-to-point, point-to-plane, generalized, colored); the estimation method is an argument row, never a separate ICP function family. Results are `RegistrationResult.transformation`/`.fitness`/`.inlier_rmse`.
+- reconstruction axis: `TriangleMesh.create_from_point_cloud_poisson`/`ball_pivoting`/`alpha_shape` are the reconstruction rows; the algorithm choice is a static constructor, not a runtime mode flag.
+- pipeline: `io.read_point_cloud` -> `voxel_down_sample` -> `estimate_normals` -> `compute_fpfh_feature` -> `registration_ransac_based_on_feature_matching` -> `registration_icp` refinement -> `create_from_point_cloud_poisson`.
+- evidence: each registration captures fitness, inlier rmse, correspondence count, and transformation; each reconstruction captures input point count and output vertex/triangle count as a scan receipt. The `open3d.t` tensor API mirrors this surface for batched GPU work.
+- boundary: open3d owns point-cloud registration and reconstruction; triangular mesh exchange routes to `trimesh`/`meshio`, LAS/LAZ scan IO to `laspy`, E57 to `pye57`; live visualization stays outside the headless boundary.
+
+## [5]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `open3d`
-- Owns: point-cloud/3D-scan ICP registration, surface reconstruction, mesh processing
-- Accept: companion-floor capture on a `python_version<'3.13'` interpreter
-- Reject: wrapper-renames and weaker local reimplementation
+- Owns: point-cloud/mesh IO, downsampling, normal estimation, outlier removal, segmentation, ICP and global registration, pose-graph optimization, and surface reconstruction
+- Accept: 3D-scan processing and registration feeding the scan and geometry owners
+- Reject: wrapper-renames of `registration_icp`/`read_point_cloud`; a hand-rolled ICP, FPFH, or Poisson kernel where open3d is admitted; an ICP function family over the `TransformationEstimation*` argument row; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- floor: companion interpreter `python_version<'3.13'`; compiled core caps at cp312, no cp315 wheel
-- state: `open3d==0.19.0` installs and reflects on a cp312 companion interpreter; the `>=3.15` project venv carries no cp315 wheel, so the project-venv `assay api query` resolves no source there
+- floor: companion interpreter cp312; the compiled core caps at cp312, so neither cp313 nor the `>=3.15` project venv admits a wheel, and the project-venv `assay api query` resolves no source there
 - members: verified by introspection against the installed cp312 distribution; every documented type, method, and entrypoint resolves — no phantom

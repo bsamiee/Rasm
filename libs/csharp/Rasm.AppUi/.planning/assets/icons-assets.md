@@ -205,8 +205,8 @@ public static class RasterAssets {
 - Cases: `AssetKind` = vector | raster | geo.
 - Entry: `public static Fin<Stream> Open(AssetKey key, double scale = 1d)` — `Fin` aborts on unknown key; geo rows feed the chart geo series by key so the chart never loads files.
 - Auto: `Preload` folds preload rows into identity receipts at boot; runtime asset reload is deleted — Debug hot reload rides HotAvalonia and Release assets are immutable avares plus blob-lane content.
-- Receipt: `AssetReceipt` — key, kind, origin, scale, content hash — sinks through `ReceiptSinkPort` into the evidence stream.
-- Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
+- Receipt: `AssetReceipt` — key, kind, origin, scale, and the asset bytes' `XxHash128` content address (the one federation non-cryptographic content-address law, never a cryptographic `SHA256` digest where no tamper claim is made) — sinks through `ReceiptSinkPort` into the evidence stream.
+- Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, BCL inbox
 - Growth: one `AssetRow` — key, kind, avares source, hi-dpi variant, preload flag — admits a new asset with zero new surface.
 - Boundary: avares content is the only Release-time asset origin; remote bytes enter through the raster loader rows and durable artifacts live in the blob lane; the key vocabulary crosses pages as values — sibling catalogs admit their icon and asset columns through `AssetKey` at composition; `Receipt` is this fence's boundary capsule — the probed stream is using-scoped inside the hash fold.
 
@@ -270,7 +270,9 @@ public static class AssetCatalog {
     static Fin<AssetReceipt> Receipt(AssetRow row) =>
         Open(row.Key).Map(payload => {
             using Stream scoped = payload;
-            return new AssetReceipt(row.Key, row.Kind, "avares", 1d, Some(Convert.ToHexString(SHA256.HashData(scoped))));
+            using var buffer = new MemoryStream();
+            scoped.CopyTo(buffer);
+            return new AssetReceipt(row.Key, row.Kind, "avares", 1d, Some(Convert.ToHexStringLower(XxHash128.Hash(buffer.GetBuffer().AsSpan(0, (int)buffer.Length)))));
         });
 }
 ```

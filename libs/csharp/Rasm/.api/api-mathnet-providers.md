@@ -155,7 +155,6 @@ Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC sto
 - façade: `Control` (top-level), `LinearAlgebraControl` (provider-level)
 - selection: `UseManaged`, `TryUseNativeMKL`, `TryUseNativeOpenBLAS` — the `Try*` variants return `false` instead of throwing on missing native assets
 - RID reality: MKL native assets are x64-only (`MathNet.Numerics.MKL.Win-x64` / `.Linux-x64`); no `MathNet.Numerics.MKL.OSX` or `OpenBLAS.OSX` package exists; osx-arm64 falls back to `UseManaged`
-- version track: core `MathNet.Numerics 6.0.0-beta2`, `Providers.MKL 6.0.0-beta2`, `Providers.OpenBLAS 5.0.0` (stable; no beta2), native assets `MKL.Win-x64 3.0.0` / `MKL.Linux-x64 2.0.0` satisfying the provider `>= 5.0.0` floor
 
 [DENSE_ALGEBRA]:
 - namespace: `MathNet.Numerics.LinearAlgebra`, `.LinearAlgebra.Double`, `.LinearAlgebra.Factorization`

@@ -4,6 +4,18 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="../Rasm/Rasm.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Color Spectral">
+        <PackageReference Include="Wacton.Unicolour" />
+    </ItemGroup>
+
+    <ItemGroup Label="Quantities">
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Using Include="System.Collections.Frozen" />
     </ItemGroup>
 </Project>

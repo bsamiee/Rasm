@@ -11,12 +11,11 @@ The one study-spine owner over design-of-experiments sampling, global sensitivit
 - Owner: `Study` — the ONE study-lake owner discriminating by a `StudyMethod` axis over the param-axis, sample-grid, objective-route, and measurement spine; DOE sampling, global sensitivity, and surrogate fitting are cases on one owner. `RunHistory` rides the same spine for persistence and resume in `experiments/run_history.md#RUN_HISTORY`; `BenchmarkData` collapses into a `MeasurementMode` discriminant on the receipt.
 - Cases: `StudyMethod` discriminates the DOE samplers (`Lhs(n)` numpy stratified Latin-hypercube floor, `Factorial(levels)` numpy full-factorial floor, `Sobol(m)` and `Halton(n)` over `scipy.stats.qmc.Sobol`/`Halton` with `qmc.scale`), the SALib sensitivity analyzers (`MorrisScreen(trajectories, levels)` over `SALib.sample.morris`/`SALib.analyze.morris`, `SobolIndices(n)` over `SALib.sample.sobol`/`SALib.analyze.sobol`, `Fast(n)` over `SALib.sample.fast_sampler`/`SALib.analyze.fast`), and the surrogates (`Polynomial(degree)` numpy least-squares Vandermonde floor, `GaussianProcess(length_scale)` over `sklearn.gaussian_process.GaussianProcessRegressor` with an `RBF` kernel). `MeasurementMode` discriminates result, wallclock, and speedup measurement on the receipt.
 - Entry: `Study.run` matches the method, builds the SALib `problem` dict from the param axes, draws the design through the matching SALib sampler or numpy floor, evaluates the objective per design row, runs the matching SALib analyzer for the sensitivity indices, and returns `RuntimeRail[StudyReceipt]` carrying the method, mode, completed and total cells, the per-axis sensitivity indices, and the design `ContentKey`. The SALib sampler-and-analyzer pair is the canonical sensitivity owner, so Morris elementary effects and Saltelli first-and-total-order Sobol indices are read from SALib, never hand-rolled.
-- Packages: `SALib` (`sample.morris`, `sample.sobol`, `sample.fast_sampler`, `analyze.morris`, `analyze.sobol`, `analyze.fast`, the `ProblemSpec`/`problem` dict), `scipy` (`stats.qmc.Sobol`, `stats.qmc.Halton`, `stats.qmc.scale`), `scikit-learn` (`gaussian_process.GaussianProcessRegressor`, `gaussian_process.kernels.RBF`), `numpy` (`random.default_rng`, `argsort`, `linspace`, `meshgrid`, `column_stack`, `vander`, `linalg.lstsq`, `apply_along_axis`), data-branch `xarray`/`dask` shapes for the grid lane, runtime (`RuntimeRail`, `ContentIdentity`, `Receipt`, `ReceiptContributor`).
+- Packages: `SALib` (`sample.morris`, `sample.sobol`, `sample.fast_sampler`, `analyze.morris`, `analyze.sobol`, `analyze.fast`, the `ProblemSpec`/`problem` dict), `scipy` (`stats.qmc.Sobol`, `stats.qmc.Halton`, `stats.qmc.scale`), `scikit-learn` (`gaussian_process.GaussianProcessRegressor`, `gaussian_process.kernels.RBF`), `numpy` (`random.default_rng`, `argsort`, `linspace`, `meshgrid`, `column_stack`, `vander`, `linalg.lstsq`, `apply_along_axis`), data-branch `xarray`/`dask` shapes for the grid lane, runtime (`RuntimeRail`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor`).
 - Growth: a new param axis is one `ParamAxis` coordinate; a new sampler, analyzer, or surrogate is one `StudyMethod` case; a new measurement is one `MeasurementMode` row; zero new surface.
 - Boundary: no job framework, farm scheduler, substrate selection, or C# receipt minting; classical DOE, sensitivity, and surrogate only — a neural surrogate or an acquisition-driven active-learning loop is out of charter. A standalone benchmark owner, a parallel experiment tracker, a hand-rolled Morris or Saltelli implementation, and a `NotImplementedError` sensitivity stub are the deleted forms. SALib is pure-Python over numpy/scipy, so its core runs where numpy resolves; the scipy `qmc` and scikit-learn surrogate rows carry the `python_version<'3.15'` marker, and the numpy LHS, factorial, and polynomial floors run on cp315.
 
-```python
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+```python signature
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -27,11 +26,11 @@ import numpy as np
 from expression import case, tag, tagged_union
 from msgspec import Struct
 
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.observability.receipts import Receipt
+from rasm.runtime.content_identity import ContentIdentity, ContentKey, IdentityPolicy
 from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
 
-# --- [TYPES] ---------------------------------------------------------------------------
+
 type Objective = Callable[[np.ndarray], float]
 
 
@@ -41,7 +40,6 @@ class MeasurementMode(StrEnum):
     SPEEDUP = "speedup"
 
 
-# --- [MODELS] --------------------------------------------------------------------------
 class ParamAxis(Struct, frozen=True):
     name: str
     low: float
@@ -112,7 +110,8 @@ class StudyReceipt(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> Receipt:
-        return Receipt.Emitted(
+        return Receipt.of(
+            "emitted",
             "compute.study",
             self.method,
             {
@@ -139,11 +138,10 @@ class Study(Struct, frozen=True):
         }
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
 def _execute(study: Study, objective: Objective, seed: int) -> StudyReceipt:
     design = _design(study, seed)
     responses = np.apply_along_axis(objective, 1, design)
-    key = ContentIdentity.key("study", design.tobytes())
+    key = ContentIdentity.of("study", design.tobytes(), IdentityPolicy())
     indices = _indices(study, design, responses)
     return StudyReceipt(study.method.tag, study.mode, int(responses.size), int(design.shape[0]), indices, key)
 
@@ -269,6 +267,6 @@ The numpy stratified-LHS row stratifies each axis into `n` equal-probability bin
 
 ## [3]-[RESEARCH]
 
-- [SALIB_SENSITIVITY]: `SALib` is NOT yet in the root manifest; it is pure-Python over numpy/scipy. The `sample.morris`/`sample.sobol`/`sample.fast_sampler`/`analyze.morris`/`analyze.sobol`/`analyze.fast` spellings and the `problem`/`ProblemSpec` dict shape are admitted to the `scientific` group and verified against the branch `.api` catalogue before any fence names them. SALib owns Morris elementary effects and Saltelli Sobol indices, so the owner composes its sampler-and-analyzer pair rather than reimplementing them.
-- [SCIPY_QMC]: the `scipy.stats.qmc.Sobol`/`Halton`/`scale` spellings carry the `python_version<'3.15'` marker; the bodies verify against the branch `.api` catalogue once the scipy wheel resolves.
-- [SKLEARN_SURROGATE]: the `sklearn.gaussian_process.GaussianProcessRegressor`/`kernels.RBF` spellings carry the `python_version<'3.15'` marker; the surrogate row verifies against the branch `.api` catalogue once the scikit-learn wheel resolves. The numpy LHS, factorial, and polynomial floors run unconditionally on cp315.
+- [SALIB_SENSITIVITY]: `SALib` resolves on the cp315 core (pure-Python over numpy/scipy). The `sample.morris`/`sample.sobol`/`sample.fast_sampler`/`analyze.morris`/`analyze.sobol`/`analyze.fast` spellings and the `problem`/`ProblemSpec` dict shape verify against the `.api` catalogue under a uv-sync reflection pass. SALib owns Morris elementary effects and Saltelli Sobol indices, so the owner composes its sampler-and-analyzer pair rather than reimplementing them.
+- [SCIPY_QMC]: the `scipy.stats.qmc.Sobol`/`Halton`/`scale` spellings carry the `python_version<'3.15'` marker; the bodies verify against the `.api` catalogue once the scipy wheel resolves.
+- [SKLEARN_SURROGATE]: the `sklearn.gaussian_process.GaussianProcessRegressor`/`kernels.RBF` spellings carry the `python_version<'3.15'` marker; the surrogate row verifies against the `.api` catalogue once the scikit-learn wheel resolves. The numpy LHS, factorial, and polynomial floors run unconditionally on cp315.

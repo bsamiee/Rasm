@@ -53,7 +53,14 @@ public sealed record Context {
          }).ToValidation())
             .Apply(static (a, r, n, u) => new Context(absolute: a, relative: r, angle: n, units: u))
             .As();
+    internal static Validation<Error, Context> Millimeters() =>
+        Of(
+            absolute: RhinoMath.DefaultDistanceToleranceMillimeters,
+            relative: DefaultFractionalTolerance,
+            angle: RhinoMath.DefaultAngleTolerance,
+            units: UnitSystem.Millimeters);
     public static Validation<Error, Context> Of(UnitSystem units) => units switch {
+        UnitSystem.Millimeters => Millimeters(),
         UnitSystem.CustomUnits => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be explicit when custom")).ToValidation(),
         UnitSystem.Unset or UnitSystem.None => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be a Rhino model unit system")).ToValidation(),
         _ => RhinoMath.UnitScale(from: UnitSystem.Millimeters, to: units) switch {

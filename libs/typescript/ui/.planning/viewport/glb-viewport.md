@@ -8,24 +8,22 @@ One cluster: `GLB_VIEWPORT` owns the mesh render leaf, the renderer backend, and
 
 ## [2]-[GLB_VIEWPORT]
 
-- [BLOCKED] PRECONDITION: the mesh-decode entry point is undone until the C# `interchange` `remote-lane#TS_PROJECTION` cluster promotes `GeometryPayload(mesh)`/`MeshTensor` out of the proto vocabulary into the projection fence; today that cluster carries no mesh wire type, so `decodeMeshView` consumes the generated `GeometryPayload` oneof descriptor BY REFERENCE and a branch-side `MeshTensorWire` re-authoring the proto interior is the named boundary defect. The GLB BYTE layer is unblocked — `interchange` `ArtifactFrameRail` already reassembles the content-addressed `ArtifactBlob`; only the mesh-TENSOR projection over the blob bytes is deferred. The backend/draw/camera owners are authored against the in-memory `MeshView` now, but the decode seam stays a blocked-on-upstream reference until the fence promotes the shape.
-- Owner: `GlbViewport`, the mesh render leaf consuming the content-addressed GLB byte-stream the `interchange` `ArtifactFrameRail` reassembles into one `ArtifactBlob` — the same content-key blob the C# `remote-lane#TS_PROJECTION` server-stream delivers and the Python IFC->GLB companion re-enters over the identical remote lane. `RendererBackend`, the `Schema.Literal` two-row backend axis; `ViewportResource`, the `Effect.acquireRelease`-managed GL context bound under the `platform` `BrowserPlatform`, never a free React ref; `MeshDraw`, the in-memory `MeshView`->draw fold over the generated `GeometryPayload(mesh)` descriptor (`vertices` bytes as Float32 N×3, `faces` bytes as Uint32 F×3). The viewport reads the blob through the rail, decodes the mesh-tensor view, uploads one GPU resource per content key, and disposes on scope exit.
+- [BLOCKED] PRECONDITION: the mesh-decode entry point is undone until the C# `csharp:Rasm.Compute/remote/channels#TS_PROJECTION` cluster promotes `GeometryPayload(mesh)`/`MeshTensor` out of the proto vocabulary into the projection fence; today that cluster carries no mesh wire type, so `decodeMeshView` consumes the generated `GeometryPayload` oneof descriptor BY REFERENCE and a branch-side `MeshTensorWire` re-authoring the proto interior is the named boundary defect. The GLB BYTE layer is unblocked — `interchange` `ArtifactFrameRail` already reassembles the content-addressed `ArtifactBlob`; only the mesh-TENSOR projection over the blob bytes is deferred. The backend/draw/camera owners are authored against the in-memory `MeshView` now, but the decode seam stays a blocked-on-upstream reference until the fence promotes the shape.
+- Owner: `GlbViewport`, the mesh render leaf consuming the content-addressed GLB byte-stream the `interchange` `ArtifactFrameRail` reassembles into one `ArtifactBlob` — the same content-key blob the C# `csharp:Rasm.Compute/remote/channels#TS_PROJECTION` server-stream delivers and the Python IFC->GLB companion re-enters over the identical remote lane. `RendererBackend`, the `Schema.Literal` two-row backend axis; `ViewportResource`, the `Effect.acquireRelease`-managed GL context acquired over the ui-owned `ViewportHost` capability, never a free React ref; `MeshDraw`, the in-memory `MeshView`->draw fold over the generated `GeometryPayload(mesh)` descriptor (`vertices` bytes as Float32 N×3, `faces` bytes as Uint32 F×3). The viewport reads the blob through the rail, decodes the mesh-tensor view, uploads one GPU resource per content key, and disposes on scope exit.
 - Cases: `RendererBackend` dispatches the upload-and-draw total over two rows folded INTO the `acquireBackend` `Match` arms — `three` (the Three.js `WebGPURenderer` whose `init()` auto-detects WebGPU and falls back to WebGL with zero config, whose `draw` sets `BufferGeometry` `position`/`index` attributes over the `MeshView`) and `model-viewer` (the declarative `<model-viewer>` custom element whose `draw` sets the `src` to an object-URL `Blob` over the GLB bytes, the zero-GL-handle read-only row). The engine literal owns acquire AND draw in one arm so a backend swap is one literal value, never a parallel viewport. `MeshDraw` folds the decoded `GeometryPayload(mesh)` into one `MeshView` (`vertices: Float32Array`, `indices: Uint32Array`, `vertexCount`, `faceCount`). `ViewportCamera` is one render-surface-local `RoleBehavior<CameraProps, CameraState>` row on the `component-system/role-behavior.md` `core` leaf whose pointer-gesture intents fold through the `motion/gesture-algebra.md` `CameraGesture` `Data.TaggedEnum` under one `Match.tagsExhaustive` wired INTO the behavior so a `CameraGesture` tag drives `CameraState` through the binding, never an orphaned fold. The meshlet/cluster-LOD ambition rides Three.js TSL compute on the `three` row, never a hand-authored `GPUDevice` path.
-- Entry: `GlbViewport.mount(blob, backend)` acquires the GL context as an `Effect.acquireRelease` scoped resource, decodes the mesh view through the generated `GeometryPayload` descriptor, uploads one GPU buffer set per `contentKey`, and registers the render loop as an `Effect.forkScoped` fiber torn down LIFO on scope exit; the `ArtifactBlob` arrives only through the `interchange` `ArtifactFrameRail`; the camera state reads and writes only through the `binding/atom-binding.md` `AtomBinding`; the heavy mesh-tensor decode and the XxHash128 content-key verify already ran off the main thread under the `platform` `DecodeWorkerPool` at the rail seam, so the viewport receives a verified blob and never re-hashes. The `FaultDetail` fault family is the `interchange` `codec-rails#FAULT_FAMILY` owner imported by reference. A backgrounded viewport stays mounted-but-hidden through the React `<Activity>` surface (the `motion/view-transitions.md` owner), preserving the GL context and uploaded buffers across visibility toggles instead of teardown.
-- Packages: `three`, `@google/model-viewer`, `@webgpu/types`, `react-aria`, `react-stately`, `effect`. Each is admitted-on-precondition: the upload/draw/camera owners are authored against the in-memory `MeshView` now, but the mesh-DECODE seam stays a blocked-on-upstream reference until the C# `remote-lane#TS_PROJECTION` fence promotes the shape — admitting the decode before that fence exists is the named premature-admission defect.
+- Entry: `GlbViewport.mount(blob, backend)` acquires the GL context as an `Effect.acquireRelease` scoped resource, decodes the mesh view through the generated `GeometryPayload` descriptor, uploads one GPU buffer set per `contentKey`, and registers the render loop as an `Effect.forkScoped` fiber torn down LIFO on scope exit; the `ArtifactBlob` arrives only through the `interchange` `ArtifactFrameRail`; the camera state reads and writes only through the `binding/atom-binding.md` `AtomBinding`; the heavy mesh-tensor decode and the XxHash128 content-key verify already ran off the main thread under the `platform` `DecodeWorkerPool` at the rail seam, so the viewport receives a verified blob and never re-hashes. The `FaultDetail` fault family is the `interchange` `fault-family#FAULT_FAMILY` owner imported by reference. A backgrounded viewport stays mounted-but-hidden through the React `<Activity>` surface (the `motion/view-transitions.md` owner), preserving the GL context and uploaded buffers across visibility toggles instead of teardown.
+- Packages: `three`, `@google/model-viewer`, `@webgpu/types`, `react-aria`, `react-stately`, `effect`. Each is admitted-on-precondition: the upload/draw/camera owners are authored against the in-memory `MeshView` now, but the mesh-DECODE seam stays a blocked-on-upstream reference until the C# `csharp:Rasm.Compute/remote/channels#TS_PROJECTION` fence promotes the shape — admitting the decode before that fence exists is the named premature-admission defect.
 - Growth: a new engine lands as one `RendererBackend` literal carrying its acquire arm and draw arm; a new geometry payload kind (the `GeometryPayload` `point_cloud`/`voxel` oneof arms) lands as one `MeshView` sibling case on the same decode fold keyed by the wire `kind` discriminant, never a second viewport surface; a new camera intent lands as one `CameraGesture` tag; a new render mode (wireframe, normals, LOD) lands as one `MeshDraw` parameter row.
-- Boundary: the viewport reads ONLY the generated `GeometryPayload(mesh)` descriptor (consumed by reference once promoted upstream) and the `ArtifactFrameRail` `ArtifactBlob` — re-authoring a branch-side `MeshTensorWire`, reaching a C# geometry interior, or a host projection is the named defect; a second decode of the GLB bytes beside the `ArtifactFrameRail` is the named defect; a GL context held as a free React ref instead of an `Effect.acquireRelease` resource is the named defect — the context, the buffers, and the render-loop fiber all release LIFO on scope exit; the camera is one `RoleBehavior` row and a parallel viewport-gesture handler type is the named defect; `model-viewer` is the zero-GL-handle read-only embed row; the WebGL fallback is the Three.js `WebGPURenderer` auto-detect, never a hand-rolled `navigator.gpu` degrade branch beside it.
+- Boundary: the viewport reads ONLY the generated `GeometryPayload(mesh)` descriptor (consumed by reference once promoted upstream) and the `ArtifactFrameRail` `ArtifactBlob` — re-authoring a branch-side `MeshTensorWire`, reaching a C# geometry interior, or a host projection is the named defect; a second decode of the GLB bytes beside the `ArtifactFrameRail` is the named defect; the canvas and the worker-pool geometry decode arrive only as the ui-owned `ViewportHost` capability the SPA composition root satisfies with the `platform` `BrowserPlatform`/`DecodeWorkerPool` layer — `ui` declares the requirement and never imports `platform`, so a value import of a `platform` symbol into this leaf is the named one-way-direction defect; a GL context held as a free React ref instead of an `Effect.acquireRelease` resource is the named defect — the context, the buffers, and the render-loop fiber all release LIFO on scope exit; the camera is one `RoleBehavior` row and a parallel viewport-gesture handler type is the named defect; `model-viewer` is the zero-GL-handle read-only embed row; the WebGL fallback is the Three.js `WebGPURenderer` auto-detect, never a hand-rolled `navigator.gpu` degrade branch beside it.
 
 ```ts contract
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-import type { ArtifactBlob } from "@rasm/ts/interchange/codec-rails";
+import type { ArtifactBlob } from "@rasm/ts/interchange";
 import type { GeometryPayload } from "@rasm/ts/gen/remote_lane_pb";
 import type { RoleBehavior } from "@rasm/ts/ui/component-system/role-behavior";
 import type { CameraGesture, CameraState } from "@rasm/ts/ui/motion/gesture-algebra";
-import { BrowserPlatform } from "@rasm/ts/platform/host-runtime";
-import { FaultDetail } from "@rasm/ts/interchange/codec-rails";
+import { FaultDetail } from "@rasm/ts/interchange";
+import { Context } from "effect";
 
-// --- [MODELS] --------------------------------------------------------------------------
 const RendererBackend = Schema.Literal("three", "model-viewer");
 type RendererBackend = Schema.Schema.Type<typeof RendererBackend>;
 
@@ -54,21 +52,24 @@ const decodeMeshView = (payload: GeometryPayload): Effect.Effect<MeshView, Fault
       Effect.fail(FaultDetail.HopFault({ code: "geometry-kind-unsupported", evidence: { kind: p.kind.case ?? "none" } }))),
   );
 
-// --- [SERVICES] ------------------------------------------------------------------------
 interface ViewportResource {
   readonly canvas: HTMLCanvasElement;
   readonly draw: (mesh: MeshView) => Effect.Effect<void>;
   readonly resize: (width: number, height: number) => Effect.Effect<void>;
 }
 
+class ViewportHost extends Context.Tag("ui/ViewportHost")<ViewportHost, {
+  readonly canvas: Effect.Effect<HTMLCanvasElement, never, Scope.Scope>;
+  readonly geometryOf: (blob: ArtifactBlob) => Effect.Effect<GeometryPayload, FaultDetail>;
+}>() {}
+
 interface GlbViewport {
   readonly mount: (
     blob: ArtifactBlob,
     backend: RendererBackend,
-  ) => Effect.Effect<ViewportResource, FaultDetail, Scope.Scope | BrowserPlatform>;
+  ) => Effect.Effect<ViewportResource, FaultDetail, Scope.Scope | ViewportHost>;
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
 const acquireBackend = (
   canvas: HTMLCanvasElement,
   blob: ArtifactBlob,
@@ -120,18 +121,17 @@ const acquireBackend = (
     Match.exhaustive,
   );
 
-const mount = (blob: ArtifactBlob, backend: RendererBackend): Effect.Effect<ViewportResource, FaultDetail, Scope.Scope | BrowserPlatform> =>
+const mount = (blob: ArtifactBlob, backend: RendererBackend): Effect.Effect<ViewportResource, FaultDetail, Scope.Scope | ViewportHost> =>
   Effect.gen(function* () {
-    const platform = yield* BrowserPlatform;
-    const canvas = yield* platform.canvas;
+    const host = yield* ViewportHost;
+    const canvas = yield* host.canvas;
     const resource = yield* acquireBackend(canvas, blob, backend);
-    const payload = yield* platform.decodePool.geometryOf(blob);
+    const payload = yield* host.geometryOf(blob);
     const view = yield* decodeMeshView(payload);
     yield* resource.draw(view).pipe(Effect.forkScoped);
     return resource;
   });
 
-// --- [GROUPS] --------------------------------------------------------------------------
 const viewportCamera: RoleBehavior<
   { readonly state: CameraState; readonly dispatch: (next: CameraState) => void },
   { readonly value: CameraState; readonly onGesture: (g: CameraGesture) => void }
@@ -143,7 +143,7 @@ const viewportCamera: RoleBehavior<
       value: props.state,
       onGesture: (g) => props.dispatch(applyGesture(props.state, g)),
     },
-    focus: { focus: () => {}, focusFirst: () => {}, focusLast: () => {} },
+    focus: Option.none(),
   }),
 };
 ```

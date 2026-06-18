@@ -1,6 +1,6 @@
-# [API_EFFECT_CLUSTER]
+# [API_CATALOGUE] @effect/cluster
 
-Dependency catalogue for `@effect/cluster` (v0.59.0), the node-tier distributed sharding, entity, durable-workflow, and runner-backplane surface. Grounded from the installed `node_modules/@effect/cluster/dist/dts/*.d.ts` declarations. The package is a `node`-tagged satellite that never enters the browser bundle. Owner-symbol consumers: `ClusterEngine` (`@rasm/node-durable/durable#DURABLE_WORK` — layers `ClusterWorkflowEngine` over `Sharding`); `RunnerBackplane` + `ScheduledWork` (`@rasm/node-durable/runner#RUNNER_AND_SCHEDULING` — protocol/message-storage/runner-storage/runner-health backplane, snowflake id source, cluster singletons, durable cron); `SqlBoundary` (`@rasm/node-durable/persistence#PERSISTENCE` — the one `SqlClient` surface `SqlMessageStorage` + `SqlRunnerStorage` ride).
+Dependency catalogue for `@effect/cluster` (v0.59.0), the node-tier distributed sharding, entity, durable-workflow, and runner-backplane surface. Grounded from the installed `node_modules/@effect/cluster/dist/dts/*.d.ts` declarations. The package is a `node`-tagged satellite that never enters the browser bundle. Owner-symbol consumers: `ClusterEngine` (`durable-execution/engine#ENGINE` — layers `ClusterWorkflowEngine` over `Sharding`); `RunnerBackplane` + `ScheduledWork` (`runtime-backplane/backplane#RUNNER_AND_SCHEDULING` — protocol/message-storage/runner-storage/runner-health backplane, snowflake id source, cluster singletons, durable cron); `SqlBoundary` (`persistence/store-boundary#STORE_BOUNDARY` — the one `SqlClient` surface `SqlMessageStorage` + `SqlRunnerStorage` ride).
 
 Every namespace is a barrel re-export from `index.d.ts` (`export * as <Namespace> from "./<Module>.js"`); a symbol is reached as `Cluster.<Namespace>.<symbol>` or via deep import `@effect/cluster/<Module>`. Signatures are transcription-complete.
 
@@ -1049,7 +1049,7 @@ export declare const layerWith: (options: { readonly prefix?: string | undefined
 
 ## [ClusterWorkflowEngine]
 
-The cluster-backed `WorkflowEngine` from `@effect/workflow`: register/execute/poll/interrupt/resume workflows, activity execution, durable-deferred + durable-clock plumbing. This is the surface `ClusterEngine` (`@rasm/node-durable/durable`) layers.
+The cluster-backed `WorkflowEngine` from `@effect/workflow`: register/execute/poll/interrupt/resume workflows, activity execution, durable-deferred + durable-clock plumbing. This is the surface `ClusterEngine` (`durable-execution/engine#ENGINE`) layers.
 
 ```ts
 export declare const make: Effect.Effect<{

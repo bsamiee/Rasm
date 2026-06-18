@@ -1,11 +1,6 @@
 # [COMPUTE_MEMORY]
 
-Staging memory for every payload that moves through Rasm.Compute between intent admission and the IO edges.
-The page owns the `AllocationClass` axis with its admission predicate and its bit-pack, in-place-growth, and
-span-tokenizing routes, the `AllocationEvidence` record every staging receipt carries, the bare plane-projection
-law over CommunityToolkit.HighPerformance views, and the one-per-process recyclable stream pool with its policy
-record, zero-allocation event-fold evidence, and zero-copy contiguous and segment handoff to the remote frame
-edge. `CorrelationId`/`ReceiptSinkPort` bind identity and emission; pooled owners are the lifetime boundary.
+Staging memory for every payload that moves through Rasm.Compute between intent admission and the IO edges. The page owns the `AllocationClass` axis with its admission predicate and its bit-pack, in-place-growth, and span-tokenizing routes, the `AllocationEvidence` record every staging receipt carries, the bare plane-projection law over CommunityToolkit.HighPerformance views, and the one-per-process recyclable stream pool with its policy record, zero-allocation event-fold evidence, and zero-copy contiguous and segment handoff to the remote frame edge. `CorrelationId`/`ReceiptSinkPort` bind identity and emission; pooled owners are the lifetime boundary.
 
 ## [1]-[INDEX]
 

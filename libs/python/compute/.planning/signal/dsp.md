@@ -10,8 +10,8 @@ The one classical digital-signal-processing owner. `Signal` discriminates IIR fi
 
 - Owner: `Signal` — the ONE DSP owner over `scipy.signal`; `SignalOp` discriminates `Filter(kind, cutoff, order)` (`scipy.signal.butter` -> `sosfiltfilt` zero-phase IIR; `FilterKind` selects lowpass/highpass/bandpass), `Spectral(nperseg)` (`scipy.signal.welch` power-spectral-density estimate), and `Resample(target_rate)` (`scipy.signal.resample_poly` polyphase rational resample), as rows on the same owner, never a per-transform method family.
 - Entry: `Signal.apply` returns `RuntimeRail[SignalReceipt]` carrying the op, the dominant frequency, the band power, and the output length; the filter path designs the SOS cascade and applies `sosfiltfilt`, the spectral path runs Welch and reads the peak band, and the resample path runs polyphase resampling. Each op normalizes the cutoff against the Nyquist frequency and reads the dominant band from a Welch estimate of the output.
-- Receipt: `SignalReceipt.contribute` emits one `Receipt.Emitted` row; the dominant frequency and band power are the spectral evidence a study run records through `experiments/study.md#STUDY`.
-- Packages: `scipy` (`signal.butter`, `signal.sosfiltfilt`, `signal.welch`, `signal.resample_poly`), `numpy` (`asarray`, `argmax`, `trapezoid`), runtime (`RuntimeRail`, `boundary`, `ReceiptContributor`).
+- Receipt: `SignalReceipt.contribute` emits one `Receipt.of("emitted", ...)` row; the dominant frequency and band power are the spectral evidence a study run records through `experiments/study.md#STUDY`.
+- Packages: `scipy` (`signal.butter`, `signal.sosfiltfilt`, `signal.welch`, `signal.resample_poly`), `numpy` (`asarray`, `argmax`, `trapezoid`), runtime (`RuntimeRail`, `boundary`, `Receipt`/`ReceiptContributor`).
 - Growth: a new transform is one `SignalOp` case; a new filter family is one `FilterKind` row; zero new surface.
 - Boundary: classical DSP only — IIR/FIR design, spectral estimation, and resampling are in-scope; no learned filters and no neural denoising. `scipy` carries no cp315 wheel, so every `Signal` body is authored against the documented `scipy.signal` API; scipy 1.17 makes `scipy.signal` Array-API-aware, so the op admits any backend array from the payload admission.
 
@@ -23,30 +23,27 @@ import numpy as np
 from expression import case, tag, tagged_union
 from msgspec import Struct
 
-from rasm.runtime.observability.receipts import Receipt
 from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
 class FilterKind(StrEnum):
     LOWPASS = "lowpass"
     HIGHPASS = "highpass"
     BANDPASS = "bandpass"
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
 class SignalReceipt(Struct, frozen=True):
     op: str
     dominant_hz: float
     band_power: float
     length: int
 
-    def contribute(self) -> Receipt:  # ReceiptContributor
+    def contribute(self) -> Receipt:
         facts = {"op": self.op, "dominant_hz": f"{self.dominant_hz:.3f}", "band_power": f"{self.band_power:.3e}"}
-        return Receipt.Emitted("compute.signal", self.op, facts)
+        return Receipt.of("emitted", "compute.signal", self.op, facts)
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class SignalOp:
     tag: Literal["filter", "spectral", "resample"] = tag()
@@ -95,4 +92,4 @@ def _apply(samples: np.ndarray, fs: float, op: SignalOp) -> SignalReceipt:
 
 ## [3]-[RESEARCH]
 
-- [SCIPY_SIGNAL]: the `scipy.signal.butter`/`sosfiltfilt`/`welch`/`resample_poly` spellings carry the `python_version<'3.15'` marker; the bodies verify against the branch `.api` catalogue once the scipy wheel resolves. scipy 1.17 makes `scipy.signal` Array-API-aware, so the op admits any backend array resolved through `arrays/payload.md#PAYLOAD`.
+- [SCIPY_SIGNAL]: the `scipy.signal.butter`/`sosfiltfilt`/`welch`/`resample_poly` spellings carry the `python_version<'3.15'` marker; the bodies verify against the `.api` catalogue once the scipy wheel resolves. scipy 1.17 makes `scipy.signal` Array-API-aware, so the op admits any backend array resolved through `arrays/payload.md#PAYLOAD`.

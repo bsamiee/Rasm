@@ -76,8 +76,6 @@ Constructor rows carry level, dictionary, parameter, format, and thread policy; 
 - evidence: each codec call captures level, dictionary id, frame size, input/output byte lengths, and thread count as a compression receipt.
 - boundary: zstandard owns the zstd codec; archive containers route to `py7zr`; web transport codecs route to `brotli`; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
-
 [RAIL_LAW]:
 - Package: `zstandard`
 - Owns: Zstandard one-shot/streaming/incremental/batch compression and decompression, trained dictionaries, frame inspection, tunable parameters

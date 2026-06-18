@@ -54,57 +54,61 @@
 
 [ZOOM_ENTRYPOINTS]: zoom and pan operations
 - rail: viewport
+- surface-root: `ZoomBorder`
 
-| [INDEX] | [SURFACE]                      | [SURFACE_ROOT] | [RAIL]         |
-| :-----: | :----------------------------- | :------------- | :------------- |
-|   [1]   | `ZoomTo`                       | `ZoomBorder`   | ratio zoom     |
-|   [2]   | `ZoomDeltaTo`                  | `ZoomBorder`   | delta zoom     |
-|   [3]   | `ZoomIn` / `ZoomOut`           | `ZoomBorder`   | stepped zoom   |
-|   [4]   | `ZoomToLevel`                  | `ZoomBorder`   | discrete level |
-|   [5]   | `ZoomToRectangle`              | `ZoomBorder`   | rect focus     |
-|   [6]   | `Pan` / `PanDelta`             | `ZoomBorder`   | pan move       |
-|   [7]   | `BeginPanTo` / `ContinuePanTo` | `ZoomBorder`   | drag pan       |
-|   [8]   | `CenterOn`                     | `ZoomBorder`   | center focus   |
+| [INDEX] | [SURFACE]                      | [RAIL]         |
+| :-----: | :----------------------------- | :------------- |
+|   [1]   | `ZoomTo`                       | ratio zoom     |
+|   [2]   | `ZoomDeltaTo`                  | delta zoom     |
+|   [3]   | `ZoomIn` / `ZoomOut`           | stepped zoom   |
+|   [4]   | `ZoomToLevel`                  | discrete level |
+|   [5]   | `ZoomToRectangle`              | rect focus     |
+|   [6]   | `Pan` / `PanDelta`             | pan move       |
+|   [7]   | `BeginPanTo` / `ContinuePanTo` | drag pan       |
+|   [8]   | `CenterOn`                     | center focus   |
 
 [LAYOUT_ENTRYPOINTS]: stretch, matrix, and rotation operations
 - rail: viewport
+- surface-root: `ZoomBorder`
 
-| [INDEX] | [SURFACE]                        | [SURFACE_ROOT] | [RAIL]         |
-| :-----: | :------------------------------- | :------------- | :------------- |
-|   [1]   | `AutoFit`                        | `ZoomBorder`   | fit content    |
-|   [2]   | `Uniform` / `UniformToFill`      | `ZoomBorder`   | stretch apply  |
-|   [3]   | `Fill` / `None`                  | `ZoomBorder`   | stretch apply  |
-|   [4]   | `ToggleStretchMode`              | `ZoomBorder`   | mode cycle     |
-|   [5]   | `SetMatrix` / `ResetMatrix`      | `ZoomBorder`   | matrix control |
-|   [6]   | `Rotate` / `RotateAt`            | `ZoomBorder`   | rotation       |
-|   [7]   | `ResetRotation` / `SnapRotation` | `ZoomBorder`   | rotation snap  |
+| [INDEX] | [SURFACE]                        | [RAIL]         |
+| :-----: | :------------------------------- | :------------- |
+|   [1]   | `AutoFit`                        | fit content    |
+|   [2]   | `Uniform` / `UniformToFill`      | stretch apply  |
+|   [3]   | `Fill` / `None`                  | stretch apply  |
+|   [4]   | `ToggleStretchMode`              | mode cycle     |
+|   [5]   | `SetMatrix` / `ResetMatrix`      | matrix control |
+|   [6]   | `Rotate` / `RotateAt`            | rotation       |
+|   [7]   | `ResetRotation` / `SnapRotation` | rotation snap  |
 
 [STATE_ENTRYPOINTS]: history, saved views, and visibility queries
 - rail: viewport
+- surface-root: `ZoomBorder`
 
-| [INDEX] | [SURFACE]                               | [SURFACE_ROOT] | [RAIL]        |
-| :-----: | :-------------------------------------- | :------------- | :------------ |
-|   [1]   | `SaveView` / `RestoreView`              | `ZoomBorder`   | named views   |
-|   [2]   | `DeleteSavedView` / `ClearSavedViews`   | `ZoomBorder`   | view registry |
-|   [3]   | `NavigateBack` / `NavigateForward`      | `ZoomBorder`   | view history  |
-|   [4]   | `ClearViewHistory`                      | `ZoomBorder`   | history reset |
-|   [5]   | `ImportState`                           | `ZoomBorder`   | state restore |
-|   [6]   | `IsPointVisible` / `IsRectangleVisible` | `ZoomBorder`   | visibility    |
-|   [7]   | `GetNextDiscreteZoomLevel`              | `ZoomBorder`   | level query   |
+| [INDEX] | [SURFACE]                               | [RAIL]        |
+| :-----: | :-------------------------------------- | :------------ |
+|   [1]   | `SaveView` / `RestoreView`              | named views   |
+|   [2]   | `DeleteSavedView` / `ClearSavedViews`   | view registry |
+|   [3]   | `NavigateBack` / `NavigateForward`      | view history  |
+|   [4]   | `ClearViewHistory`                      | history reset |
+|   [5]   | `ImportState`                           | state restore |
+|   [6]   | `IsPointVisible` / `IsRectangleVisible` | visibility    |
+|   [7]   | `GetNextDiscreteZoomLevel`              | level query   |
 
 [PROPERTY_ENTRYPOINTS]: styled behavior properties
 - rail: viewport
+- surface-root: `ZoomBorder`
 
-| [INDEX] | [SURFACE]                                     | [SURFACE_ROOT] | [RAIL]         |
-| :-----: | :-------------------------------------------- | :------------- | :------------- |
-|   [1]   | `Stretch`                                     | `ZoomBorder`   | stretch mode   |
-|   [2]   | `PanButton`                                   | `ZoomBorder`   | pan trigger    |
-|   [3]   | `ZoomSpeed`                                   | `ZoomBorder`   | wheel speed    |
-|   [4]   | `ZoomX` / `ZoomY` / `OffsetX` / `OffsetY`     | `ZoomBorder`   | live transform |
-|   [5]   | `EnablePan` / `EnableZoom` / `EnableGestures` | `ZoomBorder`   | input gates    |
-|   [6]   | `EnableConstrains` + `MinZoomX`..`MaxOffsetY` | `ZoomBorder`   | bounds clamps  |
-|   [7]   | `EnableAnimations` / `AnimationDuration`      | `ZoomBorder`   | transitions    |
-|   [8]   | `ShowZoomIndicator` / `ZoomIndicatorPosition` | `ZoomBorder`   | indicator      |
+| [INDEX] | [SURFACE]                                     | [RAIL]         |
+| :-----: | :-------------------------------------------- | :------------- |
+|   [1]   | `Stretch`                                     | stretch mode   |
+|   [2]   | `PanButton`                                   | pan trigger    |
+|   [3]   | `ZoomSpeed`                                   | wheel speed    |
+|   [4]   | `ZoomX` / `ZoomY` / `OffsetX` / `OffsetY`     | live transform |
+|   [5]   | `EnablePan` / `EnableZoom` / `EnableGestures` | input gates    |
+|   [6]   | `EnableConstrains` + `MinZoomX`..`MaxOffsetY` | bounds clamps  |
+|   [7]   | `EnableAnimations` / `AnimationDuration`      | transitions    |
+|   [8]   | `ShowZoomIndicator` / `ZoomIndicatorPosition` | indicator      |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

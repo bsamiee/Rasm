@@ -12,17 +12,17 @@ projection/
 │   ├── stream-policy.md        #   StreamPolicy + withPolicy — the bounded reconnect/back-pressure vocabulary
 │   └── keyed-fold.md           #   foldStream scalar primitive + keyedFold keyed-map combinator
 ├── feed-stores/                # live-cell stream stores keyed by the verbatim C# discriminant
-│   └── live-cells.md           #   RuntimeFeed/HealthStore/SnapshotFeed/ProgressStore — latest receipt per slot
+│   └── live-cells.md           #   FeedKind vocabulary + feedStore — latest receipt per slot per feed row
 ├── standing-query/             # event-time windowing + incremental-view-maintenance
 │   ├── watermark.md            #   eventNanos projection, the Watermark mark, allowedLateness horizon
-│   └── window-fold.md          #   WindowKind/bucketSet/signOf/windowFold — Z-set signed-delta IVM
+│   └── window-fold.md          #   WindowKind/bucketSet/signTable/windowFold — Z-set signed-delta IVM
 ├── convergence/                # strong-eventual-consistency CRDT fold over the sync op-log
 │   ├── lww-merge.md            #   opMerge LWW-by-HLC, tombstone guard, ConflictOutcomeKind ledger
 │   └── presence.md             #   ConflictPresenceStore + ephemeral-TTL presence row
 ├── envelope/                   # the receipt envelope binding every structured-text payload
 │   └── receipt-envelope.md     #   ReceiptEnvelopeCarrier — the one payload-bound Schema factory
 ├── evidence/                   # the receipt + evidence projection, content-keyed correlation
-│   └── evidence-correlation.md #   ReceiptStore/EvidenceFeed + correlation on the assembled ContentKey
+│   └── evidence-correlation.md #   EvidenceProjection store + correlation on the assembled ContentKey
 ├── availability/               # the command-availability read gate the gateway dials against
 │   └── availability-gate.md    #   AvailabilityStore + isEnabled — disabled command never fires
 ├── clock-uncertainty/          # the HLC skew-band confidence projection as product UI

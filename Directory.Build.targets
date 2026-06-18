@@ -30,7 +30,7 @@
         <ItemGroup>
             <_BridgeClosureDependency Include="@(ReferenceCopyLocalPaths->WithMetadataValue('DestinationSubDirectory','')->WithMetadataValue('Extension','.dll'))" />
             <_BridgeClosureHostDependency Include="@(_BridgeClosureDependency)"
-                                          Condition="'%(_BridgeClosureDependency.Filename)' == 'RhinoCommon' or '%(_BridgeClosureDependency.Filename)' == 'Rhino.UI' or '%(_BridgeClosureDependency.Filename)' == 'System.Drawing.Common' or '%(_BridgeClosureDependency.Filename)' == 'Grasshopper2' or '%(_BridgeClosureDependency.Filename)' == 'GrasshopperIO' or '%(_BridgeClosureDependency.Filename)' == 'Eto' or '%(_BridgeClosureDependency.Filename)' == 'Eto.macOS' or '%(_BridgeClosureDependency.Filename)' == 'Microsoft.macOS' or '%(_BridgeClosureDependency.Filename)' == 'Rhino.Runtime.Code' or '%(_BridgeClosureDependency.Filename)' == 'RhinoCodePlatform.Rhino3D'" />
+                                          Condition="$([System.String]::Copy('$(RhinoHostAssemblyNameSet)').Contains('|%(_BridgeClosureDependency.Filename)|'))" />
             <_BridgeClosureAssembly Include="$(TargetFileName)" />
             <_BridgeClosureAssembly Include="@(_BridgeClosureDependency->'%(Filename)%(Extension)')" Exclude="@(_BridgeClosureHostDependency->'%(Filename)%(Extension)')" />
             <_BridgeHostPlugin Include="8307876d-a461-4daa-bb77-eb3715925513" Condition="'@(_BridgeGh2Identity)' != ''" />

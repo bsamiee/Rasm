@@ -4,9 +4,7 @@ One page owns the browser client routing infrastructure — `AppRouter`, the Eff
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]  | [OWNS]                                                          |
-| :-----: | :--------- | :------------------------------------------------------------ |
-|   [1]   | APP_ROUTER | the route-key axis, the param codec, and the navigation ingress |
+[APP_ROUTER]: the route-key axis, the param codec, and the navigation ingress.
 
 ## [2]-[APP_ROUTER]
 
@@ -87,17 +85,23 @@ const makeAppRouter: Effect.Effect<AppRouter, never, Scope.Scope | AuthSession |
     Effect.forkScoped,
     Effect.asVoid,
   );
-  const transition = (mode: "push" | "replace") => (target: Location) =>
-    guard.resolve(target.key).pipe(
-      Effect.flatMap((outcome) =>
-        outcome._tag === "Admit"
-          ? behavior[target.key].codec.encode(target.params).pipe(
-              Effect.tap(({ pathname, search }) =>
-                Effect.sync(() => window.navigation.navigate(pathname + search, { history: mode === "push" ? "push" : "replace" }))),
-            )
-          : outcome._tag === "Redirect"
-            ? transition("replace")({ key: outcome.to, params: behavior[outcome.to].defaultParams } as Location)
-            : SubscriptionRef.set(pending, Option.some(target)))) as Effect.Effect<void, ParseResult.ParseError, AuthSession | AvailabilityStore>;
+  const transition = (mode: "push" | "replace") =>
+    (target: Location): Effect.Effect<void, ParseResult.ParseError, AuthSession | AvailabilityStore> =>
+      guard.resolve(target.key).pipe(
+        Effect.flatMap((outcome) =>
+          Match.value(outcome).pipe(
+            Match.tagsExhaustive({
+              Admit: () =>
+                behavior[target.key].codec.encode(target.params).pipe(
+                  Effect.tap(({ pathname, search }) =>
+                    Effect.sync(() => window.navigation.navigate(pathname + search, { history: mode }))),
+                  Effect.asVoid,
+                ),
+              Redirect: (redirect) =>
+                transition("replace")({ key: redirect.to, params: behavior[redirect.to].defaultParams } as Location),
+              Pending: () => SubscriptionRef.set(pending, Option.some(target)),
+            }),
+          )));
   return {
     location,
     pending,

@@ -28,10 +28,9 @@
 [ENTRYPOINT_SCOPE]: backend operations
 - rail: resources
 
-| [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [RAIL]                                 |
-| :-----: | :-------------------------- | :------------- | :------------------------------------- |
-|   [1]   | `GCSFileSystem`             | build          | construct via fsspec `storage_options` |
-|   [2]   | `GCSFileSystem.credentials` | auth           | resolved credential surface            |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :----------------------------------- | :------------- | :------------------------------------- |
+|   [1]   | `GCSFileSystem(token, project, ...)` | build          | construct via fsspec `storage_options` |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

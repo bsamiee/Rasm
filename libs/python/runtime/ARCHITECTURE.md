@@ -7,7 +7,7 @@ The professional domain folder-map for `runtime`, the host-free execution founda
 ```text codemap
 runtime/
 ├── identity/            # content-addressing: the one XxHash128 owner reproducing the C# seed bit-identically
-│   └── content-identity   ContentIdentity (key/stream/fold), ContentKey, IdentityPolicy
+│   └── content-identity   ContentIdentity (one input-discriminated `of`), ContentKey, IdentityPolicy
 ├── reliability/         # the one fault family and resilience policy every sibling returns through
 │   ├── faults             BoundaryFault tagged union, RuntimeRail carrier, the one exception-to-fault boundary
 │   └── resilience         Retry stamina-backed policy table, one row per retryable class

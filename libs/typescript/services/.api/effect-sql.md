@@ -1,17 +1,6 @@
 # [API_CATALOGUE] @effect/sql
 
-Decompile-verified from the installed distribution at `node_modules/@effect/sql/dist/dts`
-(version `0.51.1`). This is the dialect-agnostic SQL toolkit: the `SqlClient` query service and
-template DSL (`Statement`), the connection acquirer contract (`SqlConnection`), the typed error
-rail (`SqlError`), the schema-bridged query/resolver layers (`SqlSchema`, `SqlResolver`), the
-`Model` schema-class family with its CRUD repository/data-loader builders, the generic `Migrator`,
-and the durable `SqlEventJournal` / `SqlEventLogServer` / `SqlPersistedQueue` surfaces. Dialect
-packages (`@effect/sql-pg`, `@effect/sql-mssql`, `@effect/sql-sqlite-*`, `@effect/sql-drizzle`)
-specialize `SqlClient` and supply a `Statement.Compiler`; portable query logic depends on the
-abstract symbols catalogued here. Peer surface: `effect ^3.21`, `@effect/experimental ^0.60`,
-`@effect/platform ^0.96`.
-
-The package root `.` re-exports twelve namespaces only — every symbol is reached through one of them.
+`@effect/sql` is the dialect-agnostic SQL toolkit: the `SqlClient` query service and template DSL (`Statement`), the connection acquirer contract (`SqlConnection`), the typed error rail (`SqlError`), schema-bridged query/resolver layers (`SqlSchema`, `SqlResolver`), the `Model` schema-class family with CRUD repository/data-loader builders, the generic `Migrator`, and the durable `SqlEventJournal` / `SqlEventLogServer` / `SqlPersistedQueue` surfaces. The package root re-exports twelve namespaces.
 
 ```ts
 // @effect/sql

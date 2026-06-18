@@ -161,11 +161,12 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> Upper) {
+public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> Upper) : IValidityEvidence {
     public static Fin<SymmetricMatrix> Of(Dimension dim, Arr<double> upper, Op? key = null) =>
         from _ in guard(upper.Count == dim.Value * (dim.Value + 1) / 2, key.OrDefault().InvalidInput()).ToFin()
         from finite in FieldNabla.AllFiniteDoubles(values: upper.AsSpan(), key: key.OrDefault())
         select new SymmetricMatrix(Dimension: dim, Upper: upper);
+    bool IValidityEvidence.IsValid => IsValid;
     public bool IsValid => Upper.Count == (Dimension.Value * (Dimension.Value + 1) / 2) && FieldNabla.AllFiniteSpan(Upper.AsSpan());
     public Matrix ToDense() {
         SymmetricMatrix self = this;
@@ -1014,10 +1015,10 @@ internal static class MatrixKernel {
     private delegate T BasisSample<T>(ref ulong state);
 
     private static double NextSignedUnit(ref ulong state) {
-        state += 0x9E3779B97F4A7C15UL;
+        state = unchecked(state + 0x9E3779B97F4A7C15UL);
         ulong z = state;
-        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
-        z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+        z = unchecked((z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL);
+        z = unchecked((z ^ (z >> 27)) * 0x94D049BB133111EBUL);
         double unitValue = ((z ^ (z >> 31)) >> 11) * (1.0 / 9_007_199_254_740_992.0);
         return (unitValue * 2.0) - 1.0;
     }

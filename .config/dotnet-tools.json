@@ -6,10 +6,6 @@
             "version": "10.0.9",
             "commands": ["dotnet-ef"]
         },
-        "dotnet-outdated-tool": {
-            "version": "4.8.1",
-            "commands": ["dotnet-outdated"]
-        },
         "dotnet-stryker": {
             "version": "4.14.2",
             "commands": ["dotnet-stryker"]
@@ -21,10 +17,6 @@
         "dotnet-gcdump": {
             "version": "9.0.661903",
             "commands": ["dotnet-gcdump"]
-        },
-        "dotnet-counters": {
-            "version": "9.0.661903",
-            "commands": ["dotnet-counters"]
         }
     }
 }

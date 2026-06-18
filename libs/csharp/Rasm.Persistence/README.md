@@ -20,7 +20,6 @@ The design pages under `.planning/`, grouped by sub-domain.
 - federation: [federation](.planning/federation/federation.md)
 - provenance: [provenance](.planning/provenance/provenance.md)
 - annotation: [annotation](.planning/annotation/annotation.md)
-- catalog: [catalog-cost](.planning/catalog/catalog-cost.md)
 - schedule: [schedule-interchange](.planning/schedule/schedule-interchange.md)
 - retention: [redaction-retention](.planning/retention/redaction-retention.md)
 
@@ -82,7 +81,6 @@ Every external library the folder uses, planned or implemented, as a flat list. 
 - Apache.Arrow
 - Apache.Arrow.Flight
 - Apache.Arrow.Adbc
-- DuckLake extension
 
 [CHUNKING]:
 - FastCDC.Net

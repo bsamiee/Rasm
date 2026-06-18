@@ -2,7 +2,7 @@
 
 The host-free node tier of the TypeScript branch (Nx scope `scope:node`) and the deploy-time IaC that hosts it, as one concern. It is lib-grade general and meta capability — durable execution, the TS-owned Postgres store, hybrid search, internal RPC, provisioning — deliberately NOT coupled to the AEC or Rhino pipelines; it consumes the C# wire only through interchange and projection and owns no geometry. This README routes the design pages under `.planning/` and registers every external package the folder uses; the domain folder-map is in `ARCHITECTURE.md`, the forward concepts in `IDEAS.md`, open work in `TASKLOG.md`.
 
-## [1]-[PAGE_ROUTER]
+## [1]-[ROUTER]
 
 The design pages under `.planning/`, grouped by sub-domain in build order; `ARCHITECTURE.md` carries the flat-module mapping and the build-chain rationale.
 
@@ -24,7 +24,7 @@ The `eventing/` sub-domain (transactional-outbox reliable event publishing) is p
 
 Every external package the folder uses, planned or implemented, grouped by concern. Versions are centralized in the one workspace catalog; this registry carries no pin and no `.api` link.
 
-- Effect runtime: `effect`, `@effect/platform-node`
+- Effect runtime: `@effect/platform-node`
 - Durable execution: `@effect/cluster`, `@effect/workflow`, `@effect/experimental`
 - Internal RPC: `@effect/rpc`
 - Persistence: `@effect/sql`, `@effect/sql-pg`
@@ -33,7 +33,15 @@ Every external package the folder uses, planned or implemented, grouped by conce
 - Cache and metrics backplane: `ioredis`
 - Asset transfer codecs: `exceljs`, `papaparse`, `jspdf`, `jszip`, `sharp`
 - Object store and email: `@effect-aws/client-s3`, `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`, `@aws-sdk/client-sesv2`, `nodemailer`
+- Auth verifiers: `@simplewebauthn/server`, `otplib`
 - CLI binding: `@effect/cli`
 - Provisioning IaC: `@pulumi/pulumi`, `@pulumi/aws`, `@pulumi/awsx`, `@pulumi/kubernetes`, `@pulumi/docker`, `@pulumi/command`, `@pulumi/random`, `@pulumi/policy`, `@pulumi/esc-sdk`, `@dopplerhq/node-sdk`
-- Observability: `@effect/opentelemetry`, `@opentelemetry/sdk-trace-node`, `@opentelemetry/sdk-metrics`
-- Test harness: `testcontainers`
+- Observability: `@opentelemetry/sdk-trace-node`, `@opentelemetry/sdk-metrics`
+- Test harness: `testcontainers`, `@effect/vitest`
+
+## [3]-[CROSS_CUTTING]
+
+Branch-level cross-cutting packages consumed by this folder.
+
+- `effect` — the core runtime, `Effect.Service`, `Schema`, `Layer`, `Config`, and `Stream` substrate
+- `@effect/opentelemetry` — the OTel trace/metric exporter edge

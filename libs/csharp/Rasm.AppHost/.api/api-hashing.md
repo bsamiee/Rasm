@@ -1,4 +1,4 @@
-# [RASM_PERSISTENCE_API_HASHING]
+# [RASM_APPHOST_API_HASHING]
 
 `System.IO.Hashing` supplies non-cryptographic hashing algorithms for snapshot
 identity, cache keys, receipt fingerprints, benchmark indexes, and support
@@ -15,7 +15,7 @@ bundle correlation.
 
 ## [2]-[PUBLIC_TYPES]
 
-[HASH_TYPES]: hashing surfaces
+[PUBLIC_TYPE_SCOPE]: hashing surfaces
 - rail: snapshot-identity
 
 | [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]             |

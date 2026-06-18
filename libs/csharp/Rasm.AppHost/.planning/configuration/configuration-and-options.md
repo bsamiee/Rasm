@@ -5,7 +5,7 @@ Configuration admission for the runtime spine: eight ranked `ConfigSource` rows 
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]     | [OWNS]                                                                     |
-| :-----: | ------------- | -------------------------------------------------------------------------- |
+| :-----: | :------------ | :------------------------------------------------------------------------- |
 |   [1]   | SOURCE_AXIS   | Eight ranked source rows with reload class and mount delegate              |
 |   [2]   | TYPED_BINDING | Fail-closed source-generated binding into validated policy records         |
 |   [3]   | POLICY_VALUES | Validate-once frozen publish with reload-class-gated receipted transitions |

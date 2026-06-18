@@ -20,16 +20,36 @@
         <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" />
         <PackageReference Include="Npgsql.OpenTelemetry" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+        <PackageReference Include="Pgvector" />
         <PackageReference Include="Pgvector.EntityFrameworkCore" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10" />
+    </ItemGroup>
+
+    <ItemGroup Label="Cache And Object Store">
+        <PackageReference Include="AWSSDK.S3" />
+        <PackageReference Include="Azure.Storage.Blobs" />
+        <PackageReference Include="Google.Cloud.Storage.V1" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
+        <PackageReference Include="StackExchange.Redis" />
+    </ItemGroup>
+
+    <ItemGroup Label="Analytical Egress And Chunking">
+        <PackageReference Include="Apache.Arrow" />
+        <PackageReference Include="Apache.Arrow.Adbc" />
+        <PackageReference Include="Apache.Arrow.Flight" />
+        <PackageReference Include="FastCDC.Net" />
     </ItemGroup>
 
     <ItemGroup Label="Snapshots And Support">
         <PackageReference Include="K4os.Compression.LZ4" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
         <PackageReference Include="Sep" />

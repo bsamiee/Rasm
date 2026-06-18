@@ -34,6 +34,11 @@ The forward concept pool for the host-free browser UI library. Open ideas are hi
 - Unlocks theme switching, contrast-safe scales, and dark/high-contrast modes as one record swap; design tokens are the single source consumed by both Tailwind utilities and runtime CSS; token generation decouples from the role-behavior vocabulary.
 - Draws on the Tailwind CSS-variable engine exposing every design token as a CSS variable in OKLCH natively, and colorjs.io owning the perceptual ramp generation; the prior component-system page fused tokens into the interaction-role page rather than owning theming as a distinct perceptual-color domain.
 
+[LIVE_BINDING_STUDIO_DASHBOARD]:
+- An `observation` leaf rendering the C# live-wire binding studio over the decoded `BindingStatusWire`/`WriteReceiptWire`/`CoercedValueWire` rows — a per-binding connect/subscribe/stale/fault health surface, the source-versus-canonical unit coercion read off `CoercedValueWire`, and the write-back disposition shown as a literal-discriminated outcome, every binding-status key the smart-enum string verbatim.
+- Unlocks a browser cockpit for the industrial-transport edges (OPC-UA, Modbus, MQTT, serial, REST, GraphQL, spreadsheet, ERP/PLM) the C# `Rasm.AppHost` live-wire spine drives, so a divergence between source-declared and suite-canonical values and a write-back rejection surface in the SPA rather than only in the host log; a subscribe-shaped transport streams its reactive sequence into a live cell and a poll-shaped transport refreshes on its cadence, both rendered uniformly.
+- Draws on the C# `Rasm.AppHost/live-wire#TS_PROJECTION` binding-status and write-receipt wire shapes (the write disposition crosses as a literal-discriminated union; the source timestamp crosses as extended-ISO text for freshness against host time); a read-only leaf over a `projection` live cell and the one `AtomBinding`, never a transport dial and never a second decode. The wire owner is the C# branch; the dashboard decodes the settled shape and never re-mints a binding-status enum.
+
 ## [2]-[CLOSED]
 
 None.

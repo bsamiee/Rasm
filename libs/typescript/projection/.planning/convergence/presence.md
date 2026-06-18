@@ -12,12 +12,12 @@ Two clusters:
 
 - Owner: `ConflictPresenceStore`, the store binding the `lww-merge#LWW_MERGE` converged `state` and the presence `keyedFold` row together; `presenceMerge`, the TTL merge arm that keeps the row with the later `expiresAt`; `conflictPresenceStore`, the constructor that forks both folds into one `Scope`.
 - Cases: a fresh presence row installs its cell; a later row replaces it only when its `expiresAt` is at or beyond the held row's, so a stale heartbeat never resurrects an expired editor; an expired row is read off the cell as inactive by the gate that consumes it.
-- Packages: `effect` for `SubscriptionRef`, `Option`, `Effect`, and `Scope`.
+- Packages: `effect` for `SubscriptionRef`, `Option`, `Effect`, `HashMap`, and `Scope`.
 - Growth: a new presence dimension lands as one `PresenceRowWire` field, never a parallel store; the TTL horizon unifies with the `standing-query/watermark#WATERMARK` frontier once frontier garbage collection lands.
 - Boundary: the row reads `expiresAt` as a decode-admitted instant, never re-validated; presence keys on its own row identity and never on the `ContentKey` convergence identity; both folds pipe through `stream-policy#STREAM_POLICY`.
 
 ```ts contract
-import { Effect, Option, Scope, Stream, SubscriptionRef } from "effect";
+import { Effect, HashMap, Option, Scope, Stream, SubscriptionRef } from "effect";
 import type { ConflictReceiptWire, OpLogEntryWire, PresenceRowWire } from "@rasm/ts";
 import { keyedFold } from "../fold-core/keyed-fold";
 import type { StreamPolicy } from "../fold-core/stream-policy";
@@ -25,7 +25,7 @@ import { conflictPresenceFold, type ConflictPresenceState } from "./lww-merge";
 
 interface ConflictPresenceStore {
   readonly state: SubscriptionRef.SubscriptionRef<ConflictPresenceState>;
-  readonly presence: SubscriptionRef.SubscriptionRef<ReadonlyMap<string, PresenceRowWire>>;
+  readonly presence: SubscriptionRef.SubscriptionRef<HashMap.HashMap<string, PresenceRowWire>>;
 }
 
 const presenceMerge = (prior: Option.Option<PresenceRowWire>, event: PresenceRowWire): PresenceRowWire =>

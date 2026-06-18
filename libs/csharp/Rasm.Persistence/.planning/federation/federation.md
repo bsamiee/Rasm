@@ -139,13 +139,17 @@ public static class ElementSetAlgebra {
     }
 
     public static ElementSet Evaluate(SetExpr expr, Func<SetExpr, Seq<UInt128>> resolve) =>
-        expr switch {
-            SetExpr.Literal lit => ElementSet.Of(lit.Keys),
-            SetExpr.Union u => ElementSet.Of(Evaluate(u.Left, resolve).Keys + Evaluate(u.Right, resolve).Keys),
-            SetExpr.Intersect i => ElementSet.Of(toSeq(Evaluate(i.Left, resolve).Keys.Intersect(Evaluate(i.Right, resolve).Keys))),
-            SetExpr.Difference d => ElementSet.Of(toSeq(Evaluate(d.Left, resolve).Keys.Except(Evaluate(d.Right, resolve).Keys))),
-            _ => ElementSet.Of(resolve(expr)),
-        };
+        expr.Switch(
+            state: resolve,
+            literal:          static (_, lit) => ElementSet.Of(lit.Keys),
+            byClassification: static (r, e) => ElementSet.Of(r(e)),
+            bySpatial:        static (r, e) => ElementSet.Of(r(e)),
+            byProperty:       static (r, e) => ElementSet.Of(r(e)),
+            byRule:           static (r, e) => ElementSet.Of(r(e)),
+            closure:          static (r, e) => ElementSet.Of(r(e)),
+            union:            static (r, u) => ElementSet.Of(Evaluate(u.Left, r).Keys + Evaluate(u.Right, r).Keys),
+            intersect:        static (r, i) => ElementSet.Of(toSeq(Evaluate(i.Left, r).Keys.Intersect(Evaluate(i.Right, r).Keys))),
+            difference:       static (r, d) => ElementSet.Of(toSeq(Evaluate(d.Left, r).Keys.Except(Evaluate(d.Right, r).Keys))));
 }
 ```
 
@@ -348,7 +352,7 @@ public static class FusionRank {
         $"""
         WITH vector_branch AS (SELECT key, ROW_NUMBER() OVER (ORDER BY embedding <=> $probe) AS rank FROM federated_entity ORDER BY embedding <=> $probe LIMIT {k}),
         spatial_branch AS (SELECT key, ROW_NUMBER() OVER (ORDER BY geom <-> $point) AS rank FROM federated_entity WHERE ST_DWithin(geom, $point, $radius) LIMIT {k}),
-        lexical_branch AS (SELECT key, ROW_NUMBER() OVER (ORDER BY paradedb.score(key) DESC) AS rank FROM federated_entity WHERE corpus @@@ $terms LIMIT {k})
+        lexical_branch AS (SELECT key, ROW_NUMBER() OVER (ORDER BY pdb.score(key) DESC) AS rank FROM federated_entity WHERE corpus @@@ $terms LIMIT {k})
         SELECT key, SUM(weight / ({rrfConstant} + rank)) AS fused FROM (
             SELECT key, rank, {weights.Vector} AS weight FROM vector_branch
             UNION ALL SELECT key, rank, {weights.Spatial} FROM spatial_branch

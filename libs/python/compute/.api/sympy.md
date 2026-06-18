@@ -9,8 +9,6 @@
 - import: `sympy` (lint alias `sym`)
 - owner: `compute`
 - rail: symbolic
-- installed: `1.14.0` reflected via `assay api query --key sympy` on cp315
-- entry points: `isympy` console script
 - capability: pure-Python computer algebra system; exact symbolic computation, calculus, solving, simplification, matrix algebra, geometry, numeric evaluation, and code generation
 
 ## [2]-[PUBLIC_TYPES]

@@ -70,6 +70,8 @@ Host-bound work is local by contract. `ASSAY_EXEC_TARGET` moves admitted subproc
 
 Artifact paths emitted by Assay envelopes and bridge `reportDir` are authoritative. Inspect them before assuming layouts; root scratch output is a defect unless routed through the owning store, scope, or state file.
 
+Bridge verification proof is `EvidenceCertificate` plus reviewed `ReferenceEvidence`. MCP exploration may discover invariants, but proof starts only after promotion into typed `[RhinoScenario]` sources and certificate-backed `bridge verify`.
+
 Machine-level scientific and provisioning executables live in `Parametric_Forge`. Rasm campaign work enters through the Assay `provision` rail; direct `rasm-provision` and `forge-scientific-env` calls are Forge-level debugging. Rasm owns the manifests, lockfiles, `.api` catalogues, and assay evidence that consume those tools.
 
 ## [7]-[DOCUMENTATION]

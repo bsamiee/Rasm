@@ -2,4 +2,8 @@
     <ItemGroup>
         <ProjectReference Include="../../../../libs/csharp/Rasm.Compute/Rasm.Compute.csproj" />
     </ItemGroup>
+
+    <ItemGroup Label="InProcess Transport Proof">
+        <PackageReference Include="Microsoft.AspNetCore.TestHost" PrivateAssets="all" />
+    </ItemGroup>
 </Project>

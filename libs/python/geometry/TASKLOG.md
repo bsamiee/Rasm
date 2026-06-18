@@ -4,7 +4,7 @@ Open and closed work for `geometry`, distilled from `IDEAS.md`. Each task card l
 
 ## [1]-[OPEN]
 
-[BLOCKED] Build the `step-bridge/cad.py` `StepBridge` owner — the CAD-STEP tessellation hop. Blocked on the `pythonocc-core` distribution gap (no PyPI artifact, conda-only — honest deferral) or confirming the `ifcopenshell`-bundled OCCT exposes the reader/tesselator surface on the Forge companion lane.
+[BLOCKED] Build the `step-bridge/cad.py` `StepBridge` owner — the CAD-STEP tessellation hop. Blocked on the `pythonocc-core` distribution gap (no PyPI artifact, conda-only) or confirming the `ifcopenshell`-bundled OCCT exposes the reader/tesselator surface on the Forge companion lane.
 - Capability: STEP/IGES B-rep bytes plus tolerance into per-element GLB, riding the same `SourceFormat`-discriminated `TessellationRequest` the IFC daemon already carries, so one daemon serves IFC and CAD-STEP through one content-addressed hop.
 - Packages: `pythonocc-core` (`STEPControl_Reader`/`IGESControl_Reader`/`BRepMesh`/`ShapeTesselator`) admitted to the branch `pyproject.toml` companion floor, or the OCCT the `ifcopenshell` wheel already bundles; the GLB assembly reuses the `tessellation/daemon.md` serializer path.
 - Integration: internal — `tessellation/daemon.md` already routes the STEP/IGES `SourceFormat` rows to `cad#BRIDGE` and composes `StepBridge.model`, so this task supplies that reader returning an iterable B-rep shape the shared GLB assembly drains; aligned cross-language to the C# `StepIso10303` codec at the wire (the codec calls this companion for CAD tessellation), never coupled to a managed interior; content-addressed via the same runtime `ContentIdentity` key and served over the existing gRPC contract.
@@ -32,7 +32,7 @@ Open and closed work for `geometry`, distilled from `IDEAS.md`. Each task card l
 - Capability: IDS model-checking, filtered clash sets, and BCF issue round-trip as `AnalysisKind` rows producing BCF-serializable findings, in place of the bespoke rule-table and OCCT-overlap reimplementations.
 - Packages: `ifctester` (`ids.Ids`/`ids.open`/`reporter`), `ifcclash` (`Clasher`/clash-set query), `bcf` (issue read/write), each provided by the Forge companion lane alongside `ifcopenshell`.
 - Integration: internal to the sub-domain; findings graduate through the compute `HandoffAxis` geometry case as standards-conformant output the C# owner system and the wider toolchain consume at the wire.
-- Considerations: the `ifctester`/`ifcclash`/`bcf` entrypoints confirm against the branch `.api` catalogues once admitted; the standard mandates the native provider APIs end-to-end, so no local IDS rule fold survives.
+- Considerations: the `ifctester`/`ifcclash`/`bcf` entrypoints confirm against the folder `.api` catalogues once admitted; the standard mandates the native provider APIs end-to-end, so no local IDS rule fold survives.
 
 ## [2]-[CLOSED]
 

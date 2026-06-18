@@ -24,7 +24,7 @@ interface FloatingAnchor {
   readonly placement: (open: boolean) => {
     readonly refs: { readonly setReference: (el: Element | null) => void; readonly setFloating: (el: HTMLElement | null) => void };
     readonly floatingStyles: Record<string, string | number>;
-    readonly dismiss: { readonly outsidePress: boolean; readonly escapeKey: boolean };
+    readonly dismiss: { readonly outsidePress: boolean; readonly escapeKey: boolean; readonly ancestorScroll: boolean };
   };
 }
 ```

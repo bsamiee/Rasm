@@ -28,7 +28,6 @@ from rasm.compute.solvers.receipt import SolverReceipt
 from rasm.runtime.faults import RuntimeRail, boundary
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
 class ElementKind(StrEnum):
     P1 = "p1"
     P2 = "p2"
@@ -36,7 +35,6 @@ class ElementKind(StrEnum):
     TET_P1 = "tet_p1"
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
 class FemForm(Struct, frozen=True):
     element: ElementKind
     bilinear: object
@@ -45,7 +43,6 @@ class FemForm(Struct, frozen=True):
     dirichlet: float = 0.0
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class QuadratureIntent:
     tag: Literal["integrate", "interpolate", "fem"] = tag()
@@ -128,5 +125,5 @@ def _fem_receipt(mesh: object, form: FemForm) -> SolverReceipt:
 
 ## [3]-[RESEARCH]
 
-- [SCIPY_QUADRATURE]: the `scipy.integrate.quad` and `scipy.interpolate.interp1d` spellings carry the `python_version<'3.15'` marker; the bodies verify against the branch `.api` catalogue once the scipy wheel resolves. The `np.trapezoid` and `np.interp` floors run unconditionally on cp315.
-- [SKFEM_ASSEMBLE]: the `Basis`/`asm`/`condense`/`solve`/`ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTetP1`/`BilinearForm`/`LinearForm` spellings carry the `python_version<'3.15'` marker; the fold verifies against the branch `.api` catalogue once the scikit-fem wheel resolves.
+- [SCIPY_QUADRATURE]: the `scipy.integrate.quad` and `scipy.interpolate.interp1d` spellings carry the `python_version<'3.15'` marker; the bodies verify against the `.api` catalogue once the scipy wheel resolves. The `np.trapezoid` and `np.interp` floors run unconditionally on cp315.
+- [SKFEM_ASSEMBLE]: the `Basis`/`asm`/`condense`/`solve`/`ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTetP1`/`BilinearForm`/`LinearForm` spellings carry the `python_version<'3.15'` marker; the fold verifies against the `.api` catalogue once the scikit-fem wheel resolves.

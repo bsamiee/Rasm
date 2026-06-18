@@ -15,7 +15,7 @@ and schema metadata collections.
 
 ## [2]-[PUBLIC_TYPES]
 
-[ADO_TYPES]: ADO.NET provider surfaces
+[PUBLIC_TYPE_SCOPE]: ADO.NET provider surfaces
 - rail: store-provider
 
 `DuckDBQueryProgress` carries `Percentage`, `RowsProcessed`, and `TotalRowsToProcess`; `DuckDBErrorType` classifies `DuckDBException.ErrorType` values such as transaction, connection, I/O, interrupt, constraint, catalog, and fatal failures. `DuckDBConnectionStringBuilder` exposes `DataSource` plus the constants `InMemoryDataSource` (`:memory:`), `InMemoryConnectionString`, `InMemorySharedDataSource` (`:memory:?cache=shared`), and `InMemorySharedConnectionString`.
@@ -35,7 +35,7 @@ and schema metadata collections.
 |  [11]   | `DuckDB.NET.Native.DuckDBQueryProgress` | progress value    | reports query progress    |
 |  [12]   | `DuckDB.NET.Native.DuckDBErrorType`     | error classifier  | classifies native failure |
 
-[APPENDER_TYPES]: bulk append surfaces
+[PUBLIC_TYPE_SCOPE]: bulk append surfaces
 - rail: store-provider
 
 | [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]  | [CAPABILITY]           |
@@ -46,7 +46,7 @@ and schema metadata collections.
 |   [4]   | `DuckDB.NET.Data.DuckDBMappedAppender<T, TMap>` | mapped appender | appends mapped objects |
 |   [5]   | `DuckDB.NET.Data.Mapping.DuckDBAppenderMap<T>`  | mapping owner   | maps object properties |
 
-[FUNCTION_TYPES]: user-defined function surfaces
+[PUBLIC_TYPE_SCOPE]: user-defined function surfaces
 - rail: store-provider
 
 `TableFunction` declares columns, data, and optional `DataFactory` (projection-push-down variant); `ScalarFunctionOptions` carries `IsPureFunction` (`bool?`) and `HandlesNulls` (`bool`); `ProjectedColumn` is a record `(int Index, string Name, Type Type)` pushed to the data factory when column projection is active; `IDuckDBValueReader` (from `DuckDB.NET.Native`) delivers typed values from table-function parameter lists.
@@ -63,7 +63,7 @@ and schema metadata collections.
 |   [8]   | `DuckDBConnectionScalarFunctionExtensions` | scalar extension   | extends connection UDFs   |
 |   [9]   | `DuckDBConnectionTableFunctionExtensions`  | table extension    | extends connection UDFs   |
 
-[CHUNK_TYPES]: data-chunk vector surfaces
+[PUBLIC_TYPE_SCOPE]: data-chunk vector surfaces
 - rail: store-provider
 
 | [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]  | [CAPABILITY]          |
@@ -115,19 +115,17 @@ and schema metadata collections.
 |   [9]   | `DuckDBAppender.Clear`                       | appender call   | discards pending rows       |
 |  [10]   | `DuckDBAppender.Close`                       | appender call   | flushes appended rows       |
 
-[APPENDER_MAP_PROTOCOL]: `DuckDB.NET.Data.Mapping.DuckDBAppenderMap<T>` (abstract; base `System.Object`)
+[ENTRYPOINT_SCOPE]: mapped appender protocol — `DuckDBAppenderMap<T>`
 - rail: store-provider
 
-| [INDEX] | [MEMBER]                                                   | [ACCESS]  | [CAPABILITY]                         |
-| :-----: | :--------------------------------------------------------- | :-------- | :----------------------------------- |
-|   [1]   | `protected void Map<TProperty>(Func<T, TProperty> getter)` | protected | maps one column in declaration order |
-|   [2]   | `protected void DefaultValue()`                            | protected | writes the column's engine default   |
-|   [3]   | `protected void NullValue()`                               | protected | writes an explicit null cell         |
+| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]                 | [CAPABILITY]                         |
+| :-----: | :------------------------------------------ | :--------------------------- | :----------------------------------- |
+|   [1]   | `Map<TProperty>(Func<T, TProperty> getter)` | protected; declaration order | maps one column in declaration order |
+|   [2]   | `DefaultValue()`                            | protected                    | writes the column's engine default   |
+|   [3]   | `NullValue()`                               | protected                    | writes an explicit null cell         |
 
 [ENTRYPOINT_SCOPE]: functions and data chunks
 - rail: store-provider
-
-`RegisterScalarFunction` on the connection accepts low-level `Action<IReadOnlyList<IDuckDBDataReader>, IDuckDBDataWriter, ulong>` callbacks (with up to four generic type parameters) or high-level `Func<…, TResult>` delegates through `DuckDBConnectionScalarFunctionExtensions`. `RegisterTableFunction` low-level overloads accept `Func<IReadOnlyList<IDuckDBValueReader>, TableFunction>` result callbacks; high-level overloads through `DuckDBConnectionTableFunctionExtensions` accept a typed `Func<…, IEnumerable<TData>>` plus an `Expression<Func<TData, TProjection>>` projection selector.
 
 | [INDEX] | [SURFACE]                | [CALL_SHAPE]         | [CAPABILITY]                 |
 | :-----: | :----------------------- | :------------------- | :--------------------------- |
@@ -140,12 +138,12 @@ and schema metadata collections.
 |   [7]   | `WriteValue`             | writer call          | writes vector value          |
 |   [8]   | `WriteNull`              | writer call          | writes vector null           |
 
-[LOW_LEVEL_TABLE_FUNCTION]:
-- Surface: `DuckDBConnection.RegisterTableFunction`.
-- Result callback: declares `TableFunction` columns, data, and cardinality; the `DataFactory` overload receives `IReadOnlyList<ProjectedColumn>` for push-down projection.
-- Mapper callback: writes each row's cells through `IDuckDBDataWriter[]`.
-
 ## [4]-[IMPLEMENTATION_LAW]
+
+[UDF_PROTOCOL]:
+- scalar low-level: `RegisterScalarFunction` accepts `Action<IReadOnlyList<IDuckDBDataReader>, IDuckDBDataWriter, ulong>` (up to four generic type parameters); `DuckDBConnectionScalarFunctionExtensions` provides high-level `Func<…, TResult>` overloads
+- table low-level: `RegisterTableFunction` result callback declares `TableFunction` columns, data, and cardinality; the `DataFactory` overload receives `IReadOnlyList<ProjectedColumn>` for push-down projection; mapper callback writes cells through `IDuckDBDataWriter[]`
+- table high-level: `DuckDBConnectionTableFunctionExtensions` accepts `Func<…, IEnumerable<TData>>` plus `Expression<Func<TData, TProjection>>` projection selector
 
 [STORE_PROFILE]:
 - profile: DuckDB is the analytical store provider behind the store-profile algebra

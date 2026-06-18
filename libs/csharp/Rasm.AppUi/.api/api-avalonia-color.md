@@ -70,17 +70,18 @@
 
 [CONTROL_ENTRYPOINTS]: color editor operations
 - rail: controls
+- surface: `ColorView`
 
-| [INDEX] | [SURFACE]               | [SURFACE_ROOT] | [RAIL]          |
-| :-----: | :---------------------- | :------------- | :-------------- |
-|   [1]   | `Color`                 | `ColorView`    | selected color  |
-|   [2]   | `HsvColor`              | `ColorView`    | selected HSV    |
-|   [3]   | `ColorChanged`          | `ColorView`    | change event    |
-|   [4]   | `HexInputAlphaPosition` | `ColorView`    | alpha placement |
-|   [5]   | `IsAlphaEnabled`        | `ColorView`    | alpha toggle    |
-|   [6]   | `IsColorPaletteVisible` | `ColorView`    | palette toggle  |
-|   [7]   | `Palette`               | `ColorView`    | palette source  |
-|   [8]   | `PaletteColumnCount`    | `ColorView`    | palette layout  |
+| [INDEX] | [SURFACE]               | [RAIL]          |
+| :-----: | :---------------------- | :-------------- |
+|   [1]   | `Color`                 | selected color  |
+|   [2]   | `HsvColor`              | selected HSV    |
+|   [3]   | `ColorChanged`          | change event    |
+|   [4]   | `HexInputAlphaPosition` | alpha placement |
+|   [5]   | `IsAlphaEnabled`        | alpha toggle    |
+|   [6]   | `IsColorPaletteVisible` | palette toggle  |
+|   [7]   | `Palette`               | palette source  |
+|   [8]   | `PaletteColumnCount`    | palette layout  |
 
 [PRIMITIVE_ENTRYPOINTS]: primitive and helper operations
 - rail: controls

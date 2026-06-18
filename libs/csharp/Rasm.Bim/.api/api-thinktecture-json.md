@@ -1,4 +1,4 @@
-# [RASM_APPHOST_API_THINKTECTURE_JSON]
+# [RASM_BIM_API_THINKTECTURE_JSON]
 
 `Thinktecture.Runtime.Extensions.Json` supplies System.Text.Json converters and
 converter factories that route `[ValueObject]`, `[SmartEnum]`, and `[Union]` owners

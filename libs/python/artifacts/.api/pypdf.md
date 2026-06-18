@@ -27,7 +27,6 @@
 |   [5]   | `PageRange`           | page selector  | a parsed slice expression over a page index space                                  |
 |   [6]   | `PaperSize`           | size table     | named physical page dimensions                                                     |
 |   [7]   | `DocumentInformation` | metadata view  | the document info dictionary projection                                            |
-|   [8]   | `Transformation`      | affine algebra | composable CTM applied via `add_transformation`                                    |
 
 [PUBLIC_TYPE_SCOPE]: enums and faults
 - rail: pdf

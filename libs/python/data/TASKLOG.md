@@ -18,9 +18,9 @@ Open and closed work for `data`, distilled from `IDEAS.md`. Each task card leads
 
 [QUEUED] Add the Ibis backend-agnostic IR `QuerySpec` case to `query/relational.py`.
 - Capability: a `QuerySpec.Ir` case compiling one Ibis expression to DuckDB/DataFusion/Polars/remote SQL and materializing to the same uniform `pyarrow.Table` the other cases produce.
-- Packages: `ibis-framework` (the lazy expression IR and the 20+ backend compilers), `pyarrow` (the uniform result binding), `adbc-driver-manager`/`connectorx` (the remote-warehouse transport).
+- Packages: `ibis-framework` (the lazy expression IR and the 20+ backend compilers), `pyarrow` (the uniform result binding), `adbc-driver-manager` (cp315 source-build remote transport), `connectorx` (the `<3.15` gated-band fast SQL-to-Arrow transport).
 - Integration: internal to the `query` owner as one more `QuerySpec` row; remote-connection acquisition routes through the runtime `TransportResource`, never a second transport owner; the result folds into the shared `QueryReceipt`.
-- Considerations: Ibis (analytical-intent portability) and narwhals (input-type agnosticism) are distinct axes and both stay on the owner; confirm the Ibis-to-Arrow materialization spelling against the live distribution.
+- Considerations: Ibis (analytical-intent portability) and narwhals (input-type agnosticism) are distinct axes and both stay on the owner; `connectorx` rides the `<3.15` gated band, so its transport arm imports function-local under `# noqa: PLC0415`, never a module-top import on the cp315-core query page; confirm the Ibis-to-Arrow materialization spelling against the live distribution.
 
 [QUEUED] Generalize the `lakehouse/table.py` binding into one `TableFormat` axis.
 - Capability: a `TableFormat` axis on `Lakehouse` dispatching `_apply` to the format provider — Delta now, Iceberg (MERGE plus REST-catalog), Lance (multimodal/AI-asset versioning) — so a new format is one axis row, never a parallel owner.
@@ -36,9 +36,15 @@ Open and closed work for `data`, distilled from `IDEAS.md`. Each task card leads
 
 [QUEUED] Add the VirtualiZarr virtual-reference row to `tensor/store.py`.
 - Capability: a `TensorBackend="virtual"` row building metadata-only chunk-manifest references over archival HDF5/NetCDF/GeoTIFF byte ranges, combined via xarray into one virtual datacube committed to the icechunk transactional store.
-- Packages: `virtualizarr` (the byte-range chunk-manifest virtual reference), `xarray` (combining references into one datacube), `icechunk` (the transactional commit), `zarr` (the virtual-store façade), `h5py` (the archival HDF5 reader).
+- Packages: `virtualizarr` (the cp315-clean byte-range chunk-manifest virtual reference, module-top), `xarray` (combining references into one datacube), `icechunk` (the transactional commit, the one `<3.15` gated arm), `zarr` (the virtual-store façade), `h5py` (the archival HDF5 reader).
 - Integration: internal to the `tensor` owner as one more backend row; the virtual store presents the same `TensorStore` surface and keys by `ContentIdentity`, committing through the existing icechunk session; never a parallel store owner.
-- Considerations: the reference is zero-copy (manifest only), so write paths stay read-through; confirm the `virtualizarr`-to-icechunk commit spelling against the live distribution before treating the row as the archival-access default.
+- Considerations: `virtualizarr`/`zarr`/`xarray`/`h5py` are cp315-clean and import module-top, while only the `icechunk` commit arm rides the `python_version<'3.15'` gated band and imports the dist function-local under `# noqa: PLC0415`, never a module-top import on the cp315-core tensor page; the reference is zero-copy (manifest only), so write paths stay read-through; confirm the `virtualizarr`-to-icechunk commit spelling against the live distribution before treating the row as the archival-access default.
+
+[QUEUED] Author the missing folder `.api` catalogues for the cp315-clean fenced interchange libraries.
+- Capability: a folder `.api/<package>.md` catalogue, decompile/reflection-verified via `assay api`, for every library transcribed as settled fence code that has no catalogue today — `narwhals` (the interop/query/admission agnostic-frame surface), `zarr`/`cubed`/`awkward` (the tensor store/plan/ragged surface), `nanoarrow`/`arro3-core` (the pyarrow-free Arrow C-data carrier) — so each settled member verifies against its catalogue per the one-`.api`-per-library law.
+- Packages: `narwhals`, `zarr`, `cubed`, `awkward`, `nanoarrow`, `arro3-core` (all cp315-clean, installable on the core for reflection); `virtualizarr`/`icechunk`/`xarray` catalogues ride the tensor virtual-reference task.
+- Integration: internal documentation work feeding `interop/frame.md`, `query/relational.md`, `contracts/admission.md`, and `tensor/store.md`, retiring each page's catalogue-pending RESEARCH item as its catalogue lands; the catalogue is the resource the build pass reads to draw the real API without guessing.
+- Considerations: the gated/uninstalled dists (`connectorx`, `pyiceberg`, `lance`, `obstore`, `laspy`, `pdal`, `ibis-framework`) stay marked RESEARCH until their provenance installs — an honest deferral, not a false-done; only the cp315-clean rows above catalogue now.
 
 [QUEUED] Build the planned `cloud-egress/store.py` `ObjectEgress` owner.
 - Capability: native object-store egress (put/get/list/delete) over `obstore` for the Arrow/Parquet/GeoParquet/zarr bundles the other owners emit, keyed by `ContentIdentity`.

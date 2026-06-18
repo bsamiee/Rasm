@@ -93,18 +93,19 @@ clock/time-zone fakes as tests-only seams over the runtime contracts.
 [ENTRYPOINT_SCOPE]: log and metric capture
 - rail: testing seams
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                            | [CAPABILITY]                      |
-| :-----: | :----------------------------- | :-------------------------------------- | :-------------------------------- |
-|   [1]   | `AddFakeLogging`               | service or logging-builder registration | installs fake logger pipeline     |
-|   [2]   | `GetSnapshot`                  | optional clear flag                     | reads captured log records        |
-|   [3]   | `GetLogsAsync`                 | cancellation token                      | streams records asynchronously    |
-|   [4]   | `LatestRecord`                 | collector property                      | reads the newest record           |
-|   [5]   | `ControlLevel`                 | level plus enabled flag                 | toggles logger level response     |
-|   [6]   | `GetMeasurementSnapshot`       | optional clear flag                     | reads captured measurements       |
-|   [7]   | `WaitForMeasurementsAsync`     | min count plus token or timeout         | awaits measurement arrival        |
-|   [8]   | `RecordObservableInstruments`  | collector command                       | polls observable instruments      |
-|   [9]   | `ContainsTags` / `MatchesTags` | tag filters over measurements           | filters measurement sets          |
-|  [10]   | `EvaluateAsCounter<T>`         | measurement aggregation                 | folds deltas into a counter total |
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                            | [CAPABILITY]                      |
+| :-----: | :---------------------------- | :-------------------------------------- | :-------------------------------- |
+|   [1]   | `AddFakeLogging`              | service or logging-builder registration | installs fake logger pipeline     |
+|   [2]   | `GetSnapshot`                 | optional clear flag                     | reads captured log records        |
+|   [3]   | `GetLogsAsync`                | cancellation token                      | streams records asynchronously    |
+|   [4]   | `LatestRecord`                | collector property                      | reads the newest record           |
+|   [5]   | `ControlLevel`                | level plus enabled flag                 | toggles logger level response     |
+|   [6]   | `GetMeasurementSnapshot`      | optional clear flag                     | reads captured measurements       |
+|   [7]   | `WaitForMeasurementsAsync`    | min count plus token or timeout         | awaits measurement arrival        |
+|   [8]   | `RecordObservableInstruments` | collector command                       | polls observable instruments      |
+|   [9]   | `ContainsTags`                | tag filter over measurements            | subset tag filter on measurements |
+|  [10]   | `MatchesTags`                 | tag filter over measurements            | exact tag match on measurements   |
+|  [11]   | `EvaluateAsCounter<T>`        | measurement aggregation                 | folds deltas into a counter total |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

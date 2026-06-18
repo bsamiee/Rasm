@@ -17,10 +17,11 @@ This table selects the owner for a foreign signal; when a signal matches several
 |   [7]   | high-frequency callback | `Queue`/`PubSub` or `SubscriptionRef` | drained `Stream` or latest cell       | blocked/mutating callback    |
 |   [8]   | event or subscription   | scoped `PubSub`/`Queue`               | drained `Stream` of decoded signals   | orphan handler               |
 |   [9]   | isolated-axis lifetime  | derived `Scope`/`Layer.fresh`         | one-axis-isolated instance            | shared cancellation/registry |
-|  [10]   | keyed recomputation     | `Equivalence`-keyed memo              | full-dimension cache key              | path-only/type-only cache    |
-|  [11]   | capability dependency   | `Layer` + `Effect.Service`            | provided context, `R = never` at root | service location             |
-|  [12]   | protocol payload        | `Schema.transform` codec              | decoded owner                         | codec-bearing domain owner   |
-|  [13]   | signed byte field       | raw-bytes-then-hash capture           | canonical octets plus hash            | parse-reserialize            |
+|  [10]   | session/singleton state | `SubscriptionRef` state family        | committed `Data.TaggedEnum` cell      | boolean lifecycle flag       |
+|  [11]   | keyed recomputation     | `Equivalence`-keyed memo / `RcMap`    | full-dimension cache key              | path-only/type-only cache    |
+|  [12]   | capability dependency   | `Layer` + `Effect.Service`            | provided context, `R = never` at root | service location             |
+|  [13]   | protocol payload        | `Schema.transform` codec              | decoded owner                         | codec-bearing domain owner   |
+|  [14]   | signed byte field       | raw-bytes-then-hash capture           | canonical octets plus hash            | parse-reserialize            |
 
 ## [2]-[ADMISSION]
 
@@ -41,20 +42,25 @@ This table selects the owner for a foreign signal; when a signal matches several
 - Reject: a later walk over the results that reinterprets why each probe disappeared.
 
 ```ts conceptual
-import { Data, Effect, Option, Schema as S } from "effect"
+import { Data, Effect, Match, Option, Schema as S } from "effect"
 
 class RowFault extends Data.TaggedError("RowFault")<{ readonly reason: "missing" | "detached" }> {}
 
 const _Row = S.Struct({ state: S.Literal("missing", "detached", "ready"), value: S.OptionFromNullOr(S.NonEmptyString) })
 
+const _route = Match.type<typeof _Row.Type>().pipe(
+  Match.discriminatorsExhaustive("state")({ // closed wire discriminant folds total; a fourth state breaks here
+    missing:  ()         => Effect.succeed(Option.none<_Payload>()),
+    detached: ()         => Effect.fail(new RowFault({ reason: "detached" })),
+    ready:    ({ value }) => Option.match(value, {
+      onNone: () => Effect.fail(new RowFault({ reason: "missing" })),
+      onSome: (v) => Effect.map(_Payload.admit(v), Option.some), // decoded absence rides Option, cause rides the fault
+    }),
+  }),
+)
+
 const admit = (raw: unknown): Effect.Effect<Option.Option<_Payload>, RowFault> =>
-  S.decodeUnknown(_Row)(raw).pipe(
-    Effect.mapError(() => new RowFault({ reason: "missing" })),
-    Effect.flatMap((row) =>
-      row.state === "missing"  ? Effect.succeed(Option.none())
-      : row.state === "detached" ? Effect.fail(new RowFault({ reason: "detached" }))
-      : Option.match(row.value, { onNone: () => Effect.fail(new RowFault({ reason: "missing" })), onSome: (v) => _Payload.admit(v).pipe(Effect.map(Option.some)) })),
-  )
+  S.decodeUnknown(_Row)(raw).pipe(Effect.mapError(() => new RowFault({ reason: "missing" })), Effect.flatMap(_route))
 ```
 
 ## [3]-[LIFETIME]
@@ -133,14 +139,59 @@ const _bridge = <A>(runtime: Runtime.Runtime<never>, scope: Scope.Scope, work: E
 
 [SCOPE_AND_LEASE]:
 - Law: a derived scope isolates exactly one named axis — a forked drain fiber, a per-key lease, a migration pool beside a read pool — and the wrong derivation silently shares the axis the caller meant to isolate; `Layer.fresh(dep)` forces an isolated instance under the default reference-memoized diamond, and `Effect.forkScoped` versus `Effect.forkIn(scope)` selects which scope owns the fiber lifetime.
+- Law: a per-key resource family is `RcMap` (reference-counted, idle-TTL eviction) and a homogeneous fungible pool is `Pool.make`/`makeWithTTL` — `RcMap.get` acquires-or-shares inside a scope and the entry releases when the last borrower's scope closes, so a hand-kept `HashMap<K, Resource>` plus a manual refcount is the retired form; `RcRef` is the single-resource degenerate case.
 - Law: a lease, rental, or pooled permit releases exactly once on every exit path — success, typed failure, and interruption — through `Effect.acquireRelease` keyed on the logical extent, and a throwing release is contained so it never aborts the remaining LIFO sweep.
 - Reject: a parent and child scope both finalizing one connection, subscription set, or abort signal; a pooled buffer or rate permit escaping as public service state; a `Layer` default memoized where two consumers require independent state.
 
 [MEMO_KEY]:
-- Law: a memo key encodes every dimension that changes output — content, decode policy, capability version, and foreign identity feed one structured key compared by `Equivalence`, never a `${a}:${b}` signature string whose collision is silent.
-- Reject: a path-only, type-only, or `Option`-partial cache key that omits a dimension the body reads, and a `HashMap` keyed on a mutable foreign handle whose identity drifts under reconnection.
+- Law: a memo key encodes every dimension that changes output — content, decode policy, capability version, and foreign identity feed one structured key compared by an `Equivalence`, never a `${a}:${b}` signature string nor a `${fault._tag}:${fault.code}:${digest}` dedupe key whose collision is silent.
+- Law: `Effect.cachedFunction(f, eq?)` and `RcMap`/`Effect.cachedInvalidateWithTTL` are the memo owners — the `Equivalence` keys the structured value directly, so a key that is itself a `Data.Class` or tagged value compares by `Equal.equals` with no projection step.
+- Reject: a path-only, type-only, or `Option`-partial cache key that omits a dimension the body reads; a `HashMap` keyed on a mutable foreign handle whose identity drifts under reconnection; a `Set<string>` dedupe ledger where `HashSet` of the tagged value coalesces structurally.
 
-## [5]-[LAYER_COMPOSITION]
+## [5]-[STATE_CELLS]
+
+A boundary lifecycle is a closed state family in one cell, never a boolean ladder; the transition stays pure and replayable, and waiters wake only from committed state.
+
+[TOKEN_LIFECYCLE]:
+- Law: session, singleton, and cross-call boundary lifetime is one `Data.TaggedEnum` family — `Pending`/`Live`/`Failed` — held in a `SubscriptionRef` so every observer reads the committed state through `changes`, never a `boolean` open flag plus a nullable handle that can disagree; a `Ref.modify` returning the transition outcome is the atomic commit and the losing acquisition releases the resource it built.
+- Law: a `Live` case carries the owning token, so a stale teardown succeeds only while its token still owns the cell (`current._tag === "Live" && current.token === mine`); re-opening replaces the whole cell because a `Failed` cell is escaped only by a fresh value carrying typed evidence, never by mutating a flag back.
+- Law: `SubscriptionRef.set` publishes one immutable replacement so multi-field state never tears, and `changes` emits only after the commit — a per-tick consumer (a `ui` recovery fallback) reads the latest through `SubscriptionRef.get`, a must-see-every-transition consumer drains `changes`.
+- Reject: a `boolean` lifecycle flag, a nullable handle beside a state enum, a teardown that can dispose a replacement session, and a waiter woken from an aborted transition.
+
+[DRAIN_COORDINATION]:
+- Law: a quiescence gate reads phase, in-flight count, and deadline as one `STM.commit` snapshot — admission is fenced (`STM.check(phase._tag === "Open")`) while mid-flight work reaches a typed terminal, so a flag-based close that still admits through a second cell is the torn form STM retires.
+- Law: the in-flight counter transitions inside the same transaction that reads the phase, never a `Ref` incremented beside an independent phase `Ref`; settling decrements and a zero count under `Draining` is the drained signal a `TDeferred` publishes once.
+- Reject: closing from one flag while another cell still admits; acting on a change fired from an aborted transition; a poll loop where `STM.check` suspends until the gate opens.
+
+```ts conceptual
+import { Data, Effect, Ref, SubscriptionRef } from "effect"
+
+type Gate = Data.TaggedEnum<{
+  readonly Pending: {}
+  readonly Live: { readonly token: string; readonly session: { readonly close: Effect.Effect<void> } }
+  readonly Failed: { readonly reason: string }
+}>
+const Gate = Data.taggedEnum<Gate>()
+
+const open = (cell: SubscriptionRef.SubscriptionRef<Gate>, acquire: Effect.Effect<{ readonly close: Effect.Effect<void> }, string>) =>
+  Effect.gen(function* () {
+    const token = yield* Effect.sync(() => crypto.randomUUID())
+    const claimed = yield* Ref.modify(cell, (g) => g._tag === "Pending" ? [true, Gate.Live({ token, session: { close: Effect.void } })] : [false, g])
+    return claimed
+      ? yield* acquire.pipe(
+          Effect.matchEffect({
+            onFailure: (reason) => SubscriptionRef.set(cell, Gate.Failed({ reason })).pipe(Effect.zipRight(Effect.fail(reason))),
+            onSuccess: (session) => SubscriptionRef.set(cell, Gate.Live({ token, session })).pipe(Effect.as(session)),
+          }))
+      : yield* SubscriptionRef.get(cell).pipe(Effect.flatMap(Gate.$match({
+          Pending: () => Effect.fail("regressed"),
+          Live: ({ session }) => Effect.succeed(session),
+          Failed: ({ reason }) => Effect.fail(reason),
+        })))
+  })
+```
+
+## [6]-[LAYER_COMPOSITION]
 
 [REQUIREMENT_ELIMINATION]:
 - Law: `Layer.provide(dep)` collapses a requirement edge retaining only consumer output — the provider vanishes; `Layer.provideMerge(dep)` collapses the edge and unions the provider output downstream; misclassifying an edge is a type error or a silent capability leak.
@@ -168,7 +219,7 @@ const sealed = <A, E>(layer: Layer.Layer<A, E, never>): Layer.Layer<A, E> => lay
 const _root = (region: string) => sealed(_collector.pipe(Layer.provide(_transport(region))))
 ```
 
-## [6]-[WIRE_CONTRACTS]
+## [7]-[WIRE_CONTRACTS]
 
 [PROTOCOL_EDGE]:
 - Law: wire shapes stay protocol-shaped at the edge — one `Schema.transform(wire, domain, { decode, encode })` is the only site where protocol and interior schemas meet, and interior owners carry no codec attributes or transport objects.
@@ -184,7 +235,7 @@ const _root = (region: string) => sealed(_collector.pipe(Layer.provide(_transpor
 
 ```ts conceptual
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform"
-import { Effect, Schema as S } from "effect"
+import { Effect, Record as R, Schema as S } from "effect"
 
 const _Policy = {
   unauthorized: { status: 401, retryable: false, log: Effect.logWarning },
@@ -192,8 +243,8 @@ const _Policy = {
   unavailable:  { status: 503, retryable: true,  log: Effect.logError   },
 } as const satisfies Record<string, { status: number; retryable: boolean; log: (...a: ReadonlyArray<unknown>) => Effect.Effect<void> }>
 
-class Fault extends S.TaggedError<Fault>()("Fault", {
-  reason: S.Literal(...(Object.keys(_Policy) as [keyof typeof _Policy, ...Array<keyof typeof _Policy>])),
+class Fault extends S.TaggedError<Fault>()("Fault", { // wire enum derives from the policy anchor; the lone cast is the non-emptiness witness
+  reason: S.Literal(...(R.keys(_Policy) as [keyof typeof _Policy, ...Array<keyof typeof _Policy>])),
 }, HttpApiSchema.annotations({ status: 500 })) {
   get status()    { return _Policy[this.reason].status    }
   get retryable() { return _Policy[this.reason].retryable }
@@ -209,4 +260,3 @@ const _Api = HttpApi.make("tenants").addError(Fault).add(
 - Law: a signed numeric or timestamp field survives only as raw token bytes because decode-then-encode re-spells floats and trims timestamps; the boundary forwards the original bytes through the streaming wire fence.
 - Boundary: a receipt carries coordinates and a hash, never the payload bytes; an artifact frame consumes the server-streamed content-addressed bytes over the existing wire fence.
 - Reject: parse-and-reserialize between two byte-identity operations; choosing the encoder per site where one encoder per byte-identity domain is a composition-time invariant.
-</content>

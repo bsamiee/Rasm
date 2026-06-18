@@ -17,11 +17,13 @@ class RailStatus(StrEnum):
     SKIP = "skip", 0, 0, "skipped"
     EMPTY = "empty", 0, 1
     OK = "ok", 0, 2
-    UNSUPPORTED = "unsupported", 3, 3
-    BUSY = "busy", 5, 4
-    TIMEOUT = "timeout", 5, 5
-    FAILED = "failed", 1, 6
-    FAULTED = "faulted", 2, 7
+    DEGRADED = "degraded", 2, 3
+    CANDIDATE = "candidate", 2, 4
+    UNSUPPORTED = "unsupported", 3, 5
+    BUSY = "busy", 5, 6
+    TIMEOUT = "timeout", 5, 7
+    FAILED = "failed", 1, 8
+    FAULTED = "faulted", 2, 9
 
     def __new__(cls, value: str, exit_code: int, severity: int, *aliases: str) -> Self:
         """Bind the wire token, exit code, severity, and string aliases."""

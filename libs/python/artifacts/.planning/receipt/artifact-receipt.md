@@ -8,10 +8,10 @@ The one kind-discriminated artifact-receipt family shared across every productio
 
 ## [2]-[RECEIPT]
 
-- Owner: `ArtifactReceipt` the one kind-discriminated receipt family satisfying the structural runtime `observability.ReceiptContributor` Protocol through its `contribute` method, keyed by the runtime `content_identity.ContentKey`; the case facts project to the `Receipt.Emitted` string fact map through `ContentKey.hex`.
+- Owner: `ArtifactReceipt` the one kind-discriminated receipt family satisfying the structural runtime `receipts.ReceiptContributor` Protocol through its `contribute` method, keyed by the runtime `content_identity.ContentKey`; the case facts project to an emitted-phase `Receipt.of` string fact map through `ContentKey.hex`.
 - Cases: `ArtifactReceipt` cases `Document` (content key, byte count) · `Pdf` (content key, byte count, page count) · `Office` (content key, byte count) · `Report` (content key, byte count) · `Chart` (content key, format) · `Scene` (content key, target) · `Table` (content key, format) · `Preview` (content key, width, height) · `Bundle` (content key, byte count) — each a frozen `case()` carrying the content key and the mode-specific facts; three-or-more per-bucket constructions collapse into this one stream.
-- Entry: `contribute` folds the active case onto the runtime `Receipt.Emitted` stream under the `artifacts` owner tag, the case tag as subject, and the case-specific facts as the string-valued fact map; the fold is one `match` over the union, never a per-case contributor.
-- Packages: `expression` (`tagged_union`/`tag`/`case`), runtime (`content_identity.ContentKey`, `observability.Receipt`/`ReceiptContributor`).
+- Entry: `contribute` folds the active case onto the runtime `Receipt.of` emitted-phase stream under the `artifacts` owner tag, the case tag as subject, and the case-specific facts as the string-valued fact map; the fold is one `match` over the union, never a per-case contributor.
+- Packages: `expression` (`tagged_union`/`tag`/`case`), runtime (`content_identity.ContentKey`, `receipts.Receipt`/`ReceiptContributor`).
 - Growth: a new artifact kind is one `ArtifactReceipt` case plus one constructor; zero new surface.
 - Boundary: a per-type `DocumentReceipt`/`PdfReceipt`/`ChartReceipt` family is the deleted form; the owner consumes the runtime port and `expression` only and re-mints no content key.
 
@@ -21,7 +21,7 @@ from typing import Literal, assert_never
 from expression import case, tag, tagged_union
 
 from rasm.runtime.content_identity import ContentKey
-from rasm.runtime.observability.receipts import Receipt
+from rasm.runtime.receipts import Receipt
 
 
 @tagged_union(frozen=True)
@@ -74,7 +74,7 @@ class ArtifactReceipt:
         return ArtifactReceipt(bundle=(key, byte_count))
 
     def contribute(self) -> Receipt:
-        return Receipt.Emitted("artifacts", self.tag, _facts(self))
+        return Receipt.of("emitted", "artifacts", self.tag, _facts(self))
 
 
 def _facts(receipt: ArtifactReceipt) -> dict[str, str]:

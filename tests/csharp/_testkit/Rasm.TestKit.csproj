@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <ItemGroup>
         <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
+        <ProjectReference Include="../../../tools/rhino-bridge/Contract/Contract.csproj" />
     </ItemGroup>
     <ItemGroup>
         <!-- Internal access is limited to bridge cargo wiring and SDK law specs

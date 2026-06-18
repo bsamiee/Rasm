@@ -80,27 +80,29 @@
 
 [CAPTURE_ENTRYPOINTS]: frame capture and scaling
 - rail: evidence
+- surface-root: `HeadlessWindowExtensions`
 
-| [INDEX] | [SURFACE]              | [SURFACE_ROOT]             | [RAIL]            |
-| :-----: | :--------------------- | :------------------------- | :---------------- |
-|   [1]   | `CaptureRenderedFrame` | `HeadlessWindowExtensions` | render and grab   |
-|   [2]   | `GetLastRenderedFrame` | `HeadlessWindowExtensions` | last frame bitmap |
-|   [3]   | `SetRenderScaling`     | `HeadlessWindowExtensions` | DPI scaling       |
+| [INDEX] | [SURFACE]              | [RAIL]            |
+| :-----: | :--------------------- | :---------------- |
+|   [1]   | `CaptureRenderedFrame` | render and grab   |
+|   [2]   | `GetLastRenderedFrame` | last frame bitmap |
+|   [3]   | `SetRenderScaling`     | DPI scaling       |
 
 [INPUT_ENTRYPOINTS]: synthetic keyboard, mouse, and drag input
 - rail: evidence
+- surface-root: `HeadlessWindowExtensions`
 
-| [INDEX] | [SURFACE]        | [SURFACE_ROOT]             | [RAIL]       |
-| :-----: | :--------------- | :------------------------- | :----------- |
-|   [1]   | `KeyPress`       | `HeadlessWindowExtensions` | key down     |
-|   [2]   | `KeyRelease`     | `HeadlessWindowExtensions` | key up       |
-|   [3]   | `KeyPressQwerty` | `HeadlessWindowExtensions` | physical key |
-|   [4]   | `KeyTextInput`   | `HeadlessWindowExtensions` | text input   |
-|   [5]   | `MouseDown`      | `HeadlessWindowExtensions` | button down  |
-|   [6]   | `MouseUp`        | `HeadlessWindowExtensions` | button up    |
-|   [7]   | `MouseMove`      | `HeadlessWindowExtensions` | pointer move |
-|   [8]   | `MouseWheel`     | `HeadlessWindowExtensions` | wheel delta  |
-|   [9]   | `DragDrop`       | `HeadlessWindowExtensions` | drag event   |
+| [INDEX] | [SURFACE]        | [RAIL]       |
+| :-----: | :--------------- | :----------- |
+|   [1]   | `KeyPress`       | key down     |
+|   [2]   | `KeyRelease`     | key up       |
+|   [3]   | `KeyPressQwerty` | physical key |
+|   [4]   | `KeyTextInput`   | text input   |
+|   [5]   | `MouseDown`      | button down  |
+|   [6]   | `MouseUp`        | button up    |
+|   [7]   | `MouseMove`      | pointer move |
+|   [8]   | `MouseWheel`     | wheel delta  |
+|   [9]   | `DragDrop`       | drag event   |
 
 [XUNIT_ENTRYPOINTS]: test attribute surfaces
 - rail: evidence

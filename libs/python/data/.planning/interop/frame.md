@@ -16,13 +16,13 @@ The backend-agnostic frame-translation owner: one `FrameInterop` owner over `nar
 - Boundary: no compute (the numeric trio and labelled-array ownership stays in `compute`), no durable store, no engine-specific query rail; `narwhals` owns only the agnostic frame-translation hop. A per-backend adapter trio, a hand-rolled `isinstance` dispatch over native frame types, and a second schema-derivation path are the deleted forms.
 
 ```python
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 from __future__ import annotations
 
 from builtins import frozendict
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Final
 
+import nanoarrow
 import narwhals as nw
 from msgspec import Struct
 
@@ -33,7 +33,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-# --- [TYPES] ---------------------------------------------------------------------------
 class Backend(StrEnum):
     POLARS = "polars"
     PANDAS = "pandas"
@@ -44,7 +43,6 @@ class Backend(StrEnum):
         return nw.Implementation.from_backend(self.value)
 
 
-# --- [MODELS] --------------------------------------------------------------------------
 class FrameInterop(Struct, frozen=True):
     source: Backend
 
@@ -61,7 +59,6 @@ class FrameInterop(Struct, frozen=True):
         return boundary(f"interop.c_stream.{self.source}", lambda: _export_c_stream(frame))
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
 def _shapes(frame: nw.DataFrame[Any]) -> tuple[FieldShape, ...]:
     schema = frame.collect_schema()
     nulls = frame.null_count().to_native()
@@ -83,15 +80,17 @@ def _lower(frame: nw.DataFrame[Any], target: Backend) -> Any:
     return _LOWER[target](frame)
 
 
-# --- [BOUNDARIES] ----------------------------------------------------------------------
 class ArrowCStream(Struct, frozen=True):
     capsule: Any
     schema_repr: str
 
 
 def _export_c_stream(frame: Any) -> ArrowCStream:
-    import nanoarrow  # noqa: PLC0415
-
     stream = nanoarrow.c_array_stream(frame)
     return ArrowCStream(capsule=stream.__arrow_c_stream__(), schema_repr=repr(stream.schema))
 ```
+
+## [3]-[RESEARCH]
+
+- [NARWHALS_SURFACE]: the `narwhals` `from_native(..., eager_only=True)`/`to_native`/`Implementation.from_backend`/`Implementation.name`/`DataFrame.{to_polars,to_pandas,to_arrow,collect_schema,null_count}` member surface the translate and schema folds transcribe confirm against a folder `narwhals` `.api` catalogue authored on admission; the fence treats the agnostic-frame surface as settled until that catalogue lands.
+- [ARROW_C_DATA]: the `nanoarrow` `c_array_stream`/`ArrayStream.__arrow_c_stream__`/`.schema` surface and the `arro3-core` PyCapsule bridge confirm against folder `nanoarrow`/`arro3-core` `.api` catalogues; the zero-copy carrier stays a catalogue-pending settled form until those land.

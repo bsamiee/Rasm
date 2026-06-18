@@ -34,7 +34,10 @@ internal sealed class Gh2Lane : IDisposable {
             if (bitmap is null) {
                 return Fin.Fail<CaptureFile>(error: Error.New(message: "Canvas.DrawToBitmap returned null — GH2 swallowed a paint exception"));
             }
-            File.WriteAllBytes(path: path, bytes: bitmap.ToByteArray(ImageFormat.Png));
+            _ = Directory.CreateDirectory(path: Path.GetDirectoryName(path: path) ?? ".");
+            string temp = path + ".tmp";
+            File.WriteAllBytes(path: temp, bytes: bitmap.ToByteArray(ImageFormat.Png));
+            File.Move(sourceFileName: temp, destFileName: path, overwrite: true);
             return Fin.Succ(value: new CaptureFile(Path: path, Width: width, Height: height));
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
             return Fin.Fail<CaptureFile>(error: Error.New(message: $"canvas capture failed: {error.GetType().Name}: {error.Message}"));

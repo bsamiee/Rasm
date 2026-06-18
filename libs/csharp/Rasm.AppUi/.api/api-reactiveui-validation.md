@@ -18,10 +18,9 @@
 
 ## [2]-[PUBLIC_TYPES]
 
-[CONTEXT_AND_STATE_TYPES]: validation context and state
-- rail: validation-ui
+[CONTEXT_AND_STATE_TYPES]: validation context and state — rail: validation-ui
 
-| [INDEX] | [SYMBOL]                  | [RAIL]              |
+| [INDEX] | [SYMBOL]                  | [KIND]              |
 | :-----: | :------------------------ | :------------------ |
 |   [1]   | `IValidatableViewModel`   | view-model contract |
 |   [2]   | `IValidationContext`      | context contract    |
@@ -30,10 +29,9 @@
 |   [5]   | `ValidationState`         | state value         |
 |   [6]   | `ValidationStateComparer` | state comparer      |
 
-[COMPONENT_TYPES]: validation components
-- rail: validation-ui
+[COMPONENT_TYPES]: validation components — rail: validation-ui
 
-| [INDEX] | [SYMBOL]                                   | [RAIL]             |
+| [INDEX] | [SYMBOL]                                   | [KIND]             |
 | :-----: | :----------------------------------------- | :----------------- |
 |   [1]   | `IValidationComponent`                     | component contract |
 |   [2]   | `IPropertyValidationComponent`             | property component |
@@ -43,10 +41,9 @@
 |   [6]   | `ObservableValidation<T,TValue>`           | observable rule    |
 |   [7]   | `ObservableValidation<T,TValue,TProperty>` | property rule      |
 
-[TEXT_AND_BINDING_TYPES]: validation text, helpers, and bindings
-- rail: validation-ui
+[TEXT_AND_BINDING_TYPES]: validation text, helpers, and bindings — rail: validation-ui
 
-| [INDEX] | [SYMBOL]                      | [RAIL]             |
+| [INDEX] | [SYMBOL]                      | [KIND]             |
 | :-----: | :---------------------------- | :----------------- |
 |   [1]   | `IValidationText`             | text contract      |
 |   [2]   | `ValidationText`              | text factory       |

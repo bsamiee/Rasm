@@ -110,6 +110,8 @@ internal static class SessionKernel {
         private readonly List<BridgeEvent> stream = [];
         private readonly string runId;
         private readonly string reportDir;
+        private ReferenceRoot[] referenceRoots = [];
+        private string evidenceMode = "verify";
         private long sequence;
 
         internal SessionRun(SupervisorVerb verb, SupervisorRuntime runtime) {
@@ -197,6 +199,8 @@ internal static class SessionKernel {
                     Phase(SessionPhase.Stage, fault.Status, fault: fault);
                     return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Stage), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
                 }
+                referenceRoots = manifest.ReferenceRoots;
+                evidenceMode = verify.EvidenceMode;
                 Phase(SessionPhase.Stage, PhaseStatus.Ok);
                 CargoReceipt cargo = await machine.RunPhaseAsync(phase: SessionPhase.Load, phaseState: new SessionState.Loading(Host: negotiated, Peer: peer, Manifest: manifest),
                     rpc: ct => connection.LoadAsync(manifest: manifest, ct: ct)).ConfigureAwait(false);
@@ -353,7 +357,9 @@ internal static class SessionKernel {
         }
 
         private SessionEnvelope Fold(SessionState final, (long Count, long LastSequence) spoolTail) =>
-            SessionFold.Run(runId: runId, verb: verb, final: final, stream: toSeq(stream), spoolTail: spoolTail, reportDir: reportDir);
+            SessionFold.Run(
+                runId: runId, verb: verb, final: final, stream: toSeq(stream), spoolTail: spoolTail, reportDir: reportDir,
+                evidenceMode: evidenceMode, referenceRoots: referenceRoots);
 
         private void Publish(BridgeEvent evt) => stream.Add(item: evt);
 
@@ -667,7 +673,8 @@ internal static class SessionFold {
     }
 
     internal static SessionEnvelope Run(string runId, SupervisorVerb verb, SessionState final,
-        Seq<BridgeEvent> stream, (long Count, long LastSequence) spoolTail, string reportDir) {
+        Seq<BridgeEvent> stream, (long Count, long LastSequence) spoolTail, string reportDir,
+        string evidenceMode = "verify", ReferenceRoot[]? referenceRoots = null) {
         ArgumentNullException.ThrowIfNull(argument: verb);
         ArgumentNullException.ThrowIfNull(argument: final);
         if (final is SessionState.Terminal terminal)
@@ -676,12 +683,17 @@ internal static class SessionFold {
         Seq<ScenarioReceipt> receipts = Receipts(final: final);
         BridgeFault? fault = final is SessionState.Faulted faulted ? faulted.Fault : null;
         Seq<BridgeEvent.PhaseCase> phases = ordered.Choose(selector: static evt => evt is BridgeEvent.PhaseCase phase ? Some(value: phase) : Option<BridgeEvent.PhaseCase>.None);
-        PhaseStatus status = (phases.Map(f: static phase => phase.Status) + receipts.Map(f: static receipt => receipt.Status) + (fault is null ? Seq<PhaseStatus>() : Seq(value: fault.Status)))
-            .Fold(initialState: PhaseStatus.Ok, f: static (accumulator, observed) => accumulator.Worst(other: observed));
-        (string firstFailure, SessionPhase? firstPhase) = FirstNonOk(final: final, fault: fault, phases: phases, receipts: receipts);
+        Seq<BridgeEvent.PhaseCase> sessionPhases = phases.Filter(f: static phase => phase.Stamp.Scenario is null);
         long relayed = ordered.Filter(f: static evt =>
             (evt is BridgeEvent.FactCase or BridgeEvent.CaptureCase)
             && evt.Stamp.Scenario is { Length: > 0 }).Count;
+        SpoolSummary spool = new(DurableEvents: spoolTail.Count, RelayedEvents: relayed, LastSequence: spoolTail.LastSequence, Diverged: spoolTail.Count > relayed, Failures: 0);
+        PhaseStatus sessionStatus = (sessionPhases.Map(f: static phase => phase.Status) + (fault is null ? Seq<PhaseStatus>() : Seq(value: fault.Status)))
+            .Fold(initialState: PhaseStatus.Ok, f: static (accumulator, observed) => accumulator.Worst(other: observed));
+        if (spool.Diverged && sessionStatus == PhaseStatus.Ok) {
+            sessionStatus = PhaseStatus.Degraded;
+        }
+        (string firstSessionFault, SessionPhase? firstPhase) = FirstSessionFault(final: final, fault: fault, phases: sessionPhases);
         Seq<BridgeEvent> evidence = ordered.Filter(f: static evt => evt is BridgeEvent.FactCase or BridgeEvent.CaptureCase);
         // Divergence means durable spool evidence outlived relay delivery.
         Seq<BridgeEvent> carried = spoolTail.Count <= relayed
@@ -690,10 +702,43 @@ internal static class SessionFold {
         double duration = ordered.Head.Case is BridgeEvent head && ordered.Last.Case is BridgeEvent tail
             ? tail.Stamp.AtUnixMs - head.Stamp.AtUnixMs
             : 0.0;
+        ReferenceEvidenceResult[] references = verb is SupervisorVerb.Verify
+            ? Evidence.ReferenceResults(evidenceMode: evidenceMode, roots: referenceRoots ?? [], receipts: receipts, evidence: carried, reportDir: reportDir)
+            : [];
+        receipts = AttachReferences(receipts: receipts, references: references);
+        PhaseStatus scenarioStatus = receipts.Map(f: static receipt => receipt.ScenarioStatus)
+            .Fold(initialState: PhaseStatus.Ok, f: static (accumulator, observed) => accumulator.Worst(other: observed));
+        PhaseStatus status = scenarioStatus.Worst(other: sessionStatus);
+        (string firstScenarioFailure, _) = FirstScenarioFailure(receipts: receipts);
+        string firstFailure = firstScenarioFailure.Length > 0 ? firstScenarioFailure : firstSessionFault;
+        Evidence.EnsureReportFiles(reportDir: reportDir, receipts: receipts);
+        ArtifactRef[] artifacts = Evidence.ArtifactRefs(reportDir: reportDir);
+        EvidenceCounts counts = Counts(evidence: carried, artifacts: artifacts, references: references);
+        ScenarioCounts scenarioCounts = ScenarioCountsOf(receipts: receipts);
+        PhaseReceipt[] phaseReceipts = [.. phases.Map(f: static phase => new PhaseReceipt(Phase: phase.Phase, Status: phase.Status, DurationMs: phase.DurationMs, Fault: phase.Fault))];
+        EvidenceCertificate certificate = new(
+            RunId: runId, Scenario: "session",
+            Status: new StatusBreakdown(ScenarioStatus: scenarioStatus, SessionStatus: sessionStatus, OverallStatus: status),
+            Classes: Classes(counts: counts), Counts: counts, Artifacts: artifacts, References: references,
+            ObjectManifests: [], GeometryManifests: [], ViewportManifests: [], Gh2CanvasManifests: [],
+            ScratchManifests: [], Phases: phaseReceipts,
+            FirstFault: firstFailure.Length > 0 ? new FaultSummary(Phase: firstPhase, Fault: fault, Message: firstFailure) : null);
+        string certificatePath = Evidence.WriteCertificate(reportDir: reportDir, certificate: certificate);
         return new SessionEnvelope(
             RunId: runId, Verb: verb.Key, Status: status, DurationMs: duration, ReportDir: reportDir,
             Host: Host(final: final), Capabilities: Capabilities(final: final), Scenarios: [.. receipts],
-            Evidence: [.. carried], FirstFailure: firstFailure, FirstFaultPhase: firstPhase, Fault: fault);
+            Evidence: [.. carried], FirstFailure: firstFailure, FirstFaultPhase: firstPhase, Fault: fault) {
+            ScenarioStatus = scenarioStatus,
+            SessionStatus = sessionStatus,
+            PhaseReceipts = phaseReceipts,
+            FirstScenarioFailure = firstScenarioFailure,
+            FirstSessionFault = firstSessionFault,
+            CertificatePath = certificatePath,
+            ArtifactRefs = artifacts,
+            EvidenceCounts = counts,
+            ScenarioCounts = scenarioCounts,
+            Spool = spool,
+        };
     }
 
     private static CapabilityEntry[] Capabilities(SessionState final) =>
@@ -723,15 +768,74 @@ internal static class SessionFold {
         };
     }
 
-    private static (string Failure, SessionPhase? Phase) FirstNonOk(SessionState final, BridgeFault? fault,
-        Seq<BridgeEvent.PhaseCase> phases, Seq<ScenarioReceipt> receipts) =>
+    private static (string Failure, SessionPhase? Phase) FirstSessionFault(SessionState final, BridgeFault? fault,
+        Seq<BridgeEvent.PhaseCase> phases) =>
         fault is not null && final is SessionState.Faulted faulted
             ? (Truncate(text: fault.Prescription), faulted.At)
             : phases.Filter(f: static phase => phase.Status.ExitCode != 0).Head.Case is BridgeEvent.PhaseCase firstPhase
                 ? (Truncate(text: firstPhase.Fault?.Prescription ?? $"{firstPhase.Phase.Key} {firstPhase.Status.Key}"), firstPhase.Phase)
-                : receipts.Filter(f: static receipt => receipt.Status.ExitCode != 0).Head.Case is ScenarioReceipt firstReceipt
-                    ? (Truncate(text: firstReceipt.Fault?.Prescription ?? $"{firstReceipt.Scenario} {firstReceipt.Status.Key}"), SessionPhase.Execute)
-                    : (string.Empty, null);
+                : (string.Empty, null);
+
+    private static (string Failure, SessionPhase? Phase) FirstScenarioFailure(Seq<ScenarioReceipt> receipts) =>
+        receipts.Filter(f: static receipt => receipt.ScenarioStatus.ExitCode != 0).Head.Case is ScenarioReceipt firstReceipt
+            ? (Truncate(text: firstReceipt.FirstScenarioFailure.Length > 0
+                ? firstReceipt.FirstScenarioFailure
+                : firstReceipt.Fault?.Prescription ?? $"{firstReceipt.Scenario} {firstReceipt.ScenarioStatus.Key}"), SessionPhase.Execute)
+            : (string.Empty, null);
+
+    private static Seq<ScenarioReceipt> AttachReferences(Seq<ScenarioReceipt> receipts, ReferenceEvidenceResult[] references) =>
+        receipts.Map(f: receipt => {
+            ReferenceEvidenceResult[] rows = [.. references.Where(predicate: result => string.Equals(a: result.Scenario, b: receipt.Scenario, comparisonType: StringComparison.Ordinal))];
+            ReferenceEvidenceResult? firstFailure = rows.FirstOrDefault(predicate: static result =>
+                !result.Matched && result.Admission != ReferenceAdmission.Candidate);
+            return receipt with {
+                ScenarioStatus = firstFailure is null ? receipt.ScenarioStatus : PhaseStatus.Failed,
+                ReferenceResults = rows,
+                FirstScenarioFailure = firstFailure is null ? receipt.FirstScenarioFailure : firstFailure.Detail,
+            };
+        });
+
+    private static EvidenceCounts Counts(Seq<BridgeEvent> evidence, ArtifactRef[] artifacts, ReferenceEvidenceResult[] references) {
+        Seq<BridgeEvent.FactCase> factRows = evidence.Choose(selector: static evt => evt is BridgeEvent.FactCase fact ? Some(value: fact) : Option<BridgeEvent.FactCase>.None);
+        int facts = factRows.Count;
+        int captures = evidence.Filter(f: static evt => evt is BridgeEvent.CaptureCase).Count;
+        int objectManifests = factRows.Filter(f: static fact => fact.Key.StartsWith(value: "manifest.object.", comparisonType: StringComparison.Ordinal)).Count;
+        int geometryManifests = factRows.Filter(f: static fact => fact.Key.StartsWith(value: "manifest.geometry.", comparisonType: StringComparison.Ordinal)).Count;
+        int viewportManifests = factRows.Filter(f: static fact => fact.Key.StartsWith(value: "manifest.viewport.", comparisonType: StringComparison.Ordinal)).Count;
+        int gh2Manifests = factRows.Filter(f: static fact => fact.Key.StartsWith(value: "manifest.gh2.", comparisonType: StringComparison.Ordinal)).Count;
+        int scratchManifests = artifacts.Count(predicate: static artifact => artifact.Role == EvidenceRole.Scratch);
+        return new EvidenceCounts(
+            Facts: facts, Assertions: factRows.Filter(f: static fact => fact.Key.StartsWith(value: "case.", comparisonType: StringComparison.Ordinal)).Count,
+            References: references.Length,
+            ReferenceMatches: references.Count(predicate: static reference => reference.Matched && reference.Admission == ReferenceAdmission.Matched),
+            ReferenceFailures: references.Count(predicate: static reference => !reference.Matched && reference.Admission != ReferenceAdmission.Candidate),
+            Captures: captures, Artifacts: artifacts.Length,
+            ObjectManifests: objectManifests + artifacts.Count(predicate: static artifact => artifact.Role == EvidenceRole.ObjectManifest),
+            GeometryManifests: geometryManifests + artifacts.Count(predicate: static artifact => artifact.Role == EvidenceRole.GeometryManifest),
+            ViewportManifests: viewportManifests + artifacts.Count(predicate: static artifact => artifact.Role == EvidenceRole.ViewportManifest),
+            Gh2CanvasManifests: gh2Manifests + artifacts.Count(predicate: static artifact => artifact.Role == EvidenceRole.Gh2CanvasManifest),
+            ScratchManifests: scratchManifests);
+    }
+
+    private static EvidenceClass[] Classes(EvidenceCounts counts) =>
+        [.. new[] {
+            EvidenceClass.Smoke,
+            counts.Facts > 0 ? EvidenceClass.Semantic : null,
+            counts.ObjectManifests + counts.GeometryManifests > 0 ? EvidenceClass.Geometry : null,
+            counts.Captures > 0 || counts.Gh2CanvasManifests > 0 ? EvidenceClass.Visual : null,
+            counts.References > 0 ? EvidenceClass.CertifiedReference : null,
+        }.OfType<EvidenceClass>()];
+
+    private static ScenarioCounts ScenarioCountsOf(Seq<ScenarioReceipt> receipts) =>
+        new(
+            Total: receipts.Count,
+            Ok: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Ok).Count,
+            Failed: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Failed).Count,
+            Skipped: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Skipped).Count,
+            Unsupported: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Unsupported).Count,
+            Timeout: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Timeout).Count,
+            Busy: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Busy).Count,
+            Degraded: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Degraded).Count);
 
     private static HostFingerprint Host(SessionState final) =>
         final switch {
@@ -747,7 +851,13 @@ internal static class SessionFold {
     private static Seq<ScenarioReceipt> Receipts(SessionState final) =>
         final switch {
             SessionState.Running running => running.Done + running.Remaining.Map(f: static entry =>
-                new ScenarioReceipt(Scenario: entry.Name, Status: PhaseStatus.Skipped, DurationMs: 0.0, Fault: null)),
+                new ScenarioReceipt(Scenario: entry.Name, Status: PhaseStatus.Skipped, DurationMs: 0.0, Fault: null) {
+                    ScenarioStatus = PhaseStatus.Skipped,
+                    CertificatePath = string.Empty,
+                    ArtifactRefs = [],
+                    ReferenceResults = [],
+                    FirstScenarioFailure = string.Empty,
+                }),
             SessionState.Faulted faulted => faulted.Done,
             _ => Seq<ScenarioReceipt>(),
         };

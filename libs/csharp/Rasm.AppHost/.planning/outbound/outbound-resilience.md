@@ -5,7 +5,7 @@ Outbound boundary ownership for the runtime spine: seven `OutboundHop` cases bin
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                             |
-| :-----: | ---------------- | ------------------------------------------------------------------ |
+| :-----: | :--------------- | :----------------------------------------------------------------- |
 |   [1]   | HOP_AXIS         | Seven hop cases bound to frozen policy rows with total dispatch    |
 |   [2]   | HTTP_PIPELINES   | Standard and hedging handlers for SocketsHttpHandler-borne rows    |
 |   [3]   | KEYED_PIPELINES  | One keyed Polly registry and channel policy for non-HTTP hops      |

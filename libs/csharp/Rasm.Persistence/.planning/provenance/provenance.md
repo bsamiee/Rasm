@@ -96,19 +96,22 @@ public static class Provenance {
     }
 
     private static Option<UInt128> Tail(ProvEdge edge) =>
-        edge switch {
-            ProvEdge.WasDerivedFrom d => Some(d.Source),
-            ProvEdge.WasGeneratedBy g => Some(g.Activity),
-            ProvEdge.WasInformedBy i => Some(i.Informant),
-            _ => None,
-        };
+        edge.Switch(
+            wasGeneratedBy:    static g => Some(g.Activity),
+            used:              static _ => Option<UInt128>.None,
+            wasDerivedFrom:    static d => Some(d.Source),
+            wasAttributedTo:   static _ => Option<UInt128>.None,
+            wasAssociatedWith: static _ => Option<UInt128>.None,
+            wasInformedBy:     static i => Some(i.Informant));
 
     private static Option<UInt128> Head(ProvEdge edge) =>
-        edge switch {
-            ProvEdge.WasGeneratedBy g => Some(g.Entity),
-            ProvEdge.Used u => Some(u.Entity),
-            _ => None,
-        };
+        edge.Switch(
+            wasGeneratedBy:    static g => Some(g.Entity),
+            used:              static u => Some(u.Entity),
+            wasDerivedFrom:    static _ => Option<UInt128>.None,
+            wasAttributedTo:   static _ => Option<UInt128>.None,
+            wasAssociatedWith: static _ => Option<UInt128>.None,
+            wasInformedBy:     static _ => Option<UInt128>.None);
 }
 ```
 
@@ -116,7 +119,7 @@ public static class Provenance {
 
 - Owner: `AttestedEntry` the hash-chained ledger row; `LedgerHead` the chain-head proof; `AttestedLedger` the static surface owning the chain-append fold, the head-digest computation, the chain verification, and the redaction-preserving entry projection.
 - Cases: each entry chains `PriorDigest` into its own `Digest` over `XxHash128(PriorDigest || ContentKey || Classification || AuditCategory)`, so the head digest attests every prior entry; a redacted entry preserves its `Digest` while replacing the payload reference so the chain verifies even after a redaction.
-- Entry: `public static AttestedEntry Append(LedgerHead head, OpLogEntry op, string auditCategory)` — pure chain-append linking the prior head digest into the new entry; `public static Fin<LedgerHead> Verify(Seq<AttestedEntry> chain, LedgerHead expected)` recomputes every digest and aborts on the first break.
+- Entry: `public static AttestedEntry Append(LedgerHead head, OpLogEntry op, string auditCategory, DataClassification classification)` — pure chain-append linking the prior head digest into the new entry over the op content key, audit category, and classification; `public static Fin<LedgerHead> Verify(Seq<AttestedEntry> chain, LedgerHead start)` recomputes every digest and aborts on the first break.
 - Auto: every op-log row plus its bound pgaudit category (`AuditBinding.Bind`) appends one `AttestedEntry` whose digest chains the prior digest, so the head digest is a tamper-evident proof of the whole history — a single altered prior row breaks every subsequent digest and `Verify` names the first break; the chain rides the op-log so it carries no second store; redaction is preserving — a redacted entry keeps its original `Digest` (computed over the pre-redaction content key) and replaces the payload reference with the `ExportProof` content hash so the chain still verifies and an auditor proves the row existed without seeing the redacted content; the head digest is periodically sealed as a content-addressed snapshot (`Snapshots.ContentAddress`) so an external witness anchors the chain.
 - Receipt: an append rides `store.ledger.append` carrying the new head digest; a verification rides `store.ledger.verify` carrying the verified count or the first break index; a redaction-preserving projection rides the settled `ExportProof`.
 - Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, Microsoft.Extensions.Compliance.Redaction, Rasm.AppHost (project), BCL inbox.
@@ -231,12 +234,13 @@ public static class LineageCdc {
     }
 
     private static Seq<UInt128> Touched(ProvEdge edge) =>
-        edge switch {
-            ProvEdge.WasGeneratedBy g => Seq(g.Entity),
-            ProvEdge.WasDerivedFrom d => Seq(d.Entity),
-            ProvEdge.Used u => Seq(u.Entity),
-            _ => Seq<UInt128>(),
-        };
+        edge.Switch(
+            wasGeneratedBy:    static g => Seq(g.Entity),
+            used:              static u => Seq(u.Entity),
+            wasDerivedFrom:    static d => Seq(d.Entity),
+            wasAttributedTo:   static _ => Seq<UInt128>(),
+            wasAssociatedWith: static _ => Seq<UInt128>(),
+            wasInformedBy:     static _ => Seq<UInt128>());
 }
 ```
 

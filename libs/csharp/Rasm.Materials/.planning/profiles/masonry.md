@@ -9,7 +9,7 @@ One cluster: `[2]-[PROFILE_FAMILY]` owns the masonry unit/coring/bond/orientatio
 ## [2]-[PROFILE_FAMILY]
 
 - Owner: the masonry unit vocabulary (`Coring`, `CoringClass`, `BondName`, `BondKind`, `Orientation`, `Cut`, `ClosureRule`, `SpecialShape`); `CourseTemplate` the bond course shape; `ProfileCatalogue.BuildMasonryRows` the registered-row seed `profile#PROFILE_OWNER` composes.
-- Cases: coring {solid/cored/perforated/hollow void classes} · bond {template + generated kinds} · orientation {stretcher/header/soldier/sailor/rowlock/shiner} · cut/closure {bat/closer/bevel algebra} · special-shape {bullnose/cownose/plinth/coping/cant/squint/voussoir/...}.
+- Cases: coring {solid/cored/perforated/hollow void classes} · bond {template + generated kinds} · orientation {stretcher/header/soldier/sailor/rowlock/shiner} · cut {whole/three-quarter/half-bat/quarter-bat/queen-closer/king-closer/bevel} · closure {none/queen-closer/king-closer/half-bat} · special-shape {none/bullnose/cownose/plinth/coping/cant/squint/voussoir}.
 - Entry: `public Fin<CourseTemplate> Course(int index, Op key)` on `BondName` and `public bool Fits(Profile profile)` the `[BoundaryAdapter]` bond-fit check — the masonry bond reads its course template by wrapped index; a `BondKind.Generated` bond rails `ProfileFault.Bond` until the generated-bond interpreter algebra lands.
 - Packages: Rasm (project — `Dimension`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`).
 - Growth: the masonry vocabulary grows by data: a new bond is one `BondName` row, a new orientation one `Orientation` case, a new special shape one `SpecialShape.Catalog` entry — never a per-bond layout method. A sibling `ProfileFamily` (cmu/steel/timber/glazing) lands its own vocabulary on its own page the way masonry carries `Coring`/`BondName`/`Orientation`; the named cost is stated at `profile#STRUCTURAL_FAMILY_VOCABULARY` and queued in `TASKLOG.md`.
@@ -53,6 +53,43 @@ public abstract partial record Orientation {
     public sealed record Sailor : Orientation;
     public sealed record Rowlock : Orientation;
     public sealed record Shiner : Orientation;
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+public sealed partial class Cut {
+    public static readonly Cut Whole = new("whole", lengthFraction: 1.000, bevelDegrees: 0.0);
+    public static readonly Cut ThreeQuarter = new("three-quarter", lengthFraction: 0.750, bevelDegrees: 0.0);
+    public static readonly Cut Half = new("half-bat", lengthFraction: 0.500, bevelDegrees: 0.0);
+    public static readonly Cut Quarter = new("quarter-bat", lengthFraction: 0.250, bevelDegrees: 0.0);
+    public static readonly Cut QueenCloser = new("queen-closer", lengthFraction: 0.250, bevelDegrees: 0.0);
+    public static readonly Cut KingCloser = new("king-closer", lengthFraction: 0.750, bevelDegrees: 45.0);
+    public static readonly Cut Bevel = new("bevel", lengthFraction: 1.000, bevelDegrees: 30.0);
+    public double LengthFraction { get; }
+    public double BevelDegrees { get; }
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+public sealed partial class ClosureRule {
+    public static readonly ClosureRule None = new("none", closer: Cut.Whole);
+    public static readonly ClosureRule QueenCloser = new("queen-closer", closer: Cut.QueenCloser);
+    public static readonly ClosureRule KingCloser = new("king-closer", closer: Cut.KingCloser);
+    public static readonly ClosureRule HalfBat = new("half-bat", closer: Cut.Half);
+    public Cut Closer { get; }
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+public sealed partial class SpecialShape {
+    public static readonly SpecialShape None = new("none");
+    public static readonly SpecialShape Bullnose = new("bullnose");
+    public static readonly SpecialShape Cownose = new("cownose");
+    public static readonly SpecialShape Plinth = new("plinth");
+    public static readonly SpecialShape Coping = new("coping");
+    public static readonly SpecialShape Cant = new("cant");
+    public static readonly SpecialShape Squint = new("squint");
+    public static readonly SpecialShape Voussoir = new("voussoir");
 }
 
 [SmartEnum<string>]

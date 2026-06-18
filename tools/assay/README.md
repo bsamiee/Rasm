@@ -2,6 +2,12 @@
 
 `tools.assay` is the Rasm polyglot quality operator over the `static`, `code`, `test`, `bridge`, `package`, `api`, `docs`, and `provision` claims, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces.
 
+## [0][PLANNED_DOTNET_EF]
+
+`dotnet-ef` stays in the local tool manifest for a future Persistence design-time rail. That rail must prove migration metadata and generated SQL under Assay-owned artifacts, not act as general package health.
+
+Package health is SDK-first: use `dotnet package list --outdated|--deprecated|--vulnerable --format json` and `dotnet nuget why`. A `dotnet-outdated` fallback must be an explicit Assay rail before the tool returns to the manifest.
+
 ## [1][SCOPE]
 
 Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr. The programmatic arm is `drive(trigger, action, settings)`.
@@ -65,17 +71,17 @@ Text equivalent: CLI argv resolves through `REGISTRY` into a `Bind`; the rail ow
 
 Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.assay <claim> <verb> ...`); single-verb claims (`static`, `docs`) and root commands omit the verb token. Multi-verb claims (`code`, `test`, `bridge`, `package`, `api`, `provision`) are Cyclopts sub-apps. Exhaustive parameter signatures stay in source and Cyclopts help. The language axis is selected by the mutually-exclusive `--csharp`, `--python`, and `--typescript` flags; an unset selection routes every eligible language. There is no `--language` flag.
 
-| [INDEX] | [SURFACE] | [VERBS]                                       |
-| :-----: | :-------- | :-------------------------------------------- |
-|   [1]   | root      | `self-test`, `delta`                          |
-|   [2]   | `static`  | _(leaf — value-driven targets, no sub-verbs)_ |
-|   [3]   | `code`    | `search`, `query`                             |
-|   [4]   | `test`    | `run`, `list`, `coverage`                     |
-|   [5]   | `bridge`  | `build`, `verify`, `status`, `quit`           |
-|   [6]   | `package` | `publish`, `plan`, `list`                     |
-|   [7]   | `api`     | `resolve`, `query`, `show`, `status`          |
-|   [8]   | `docs`    | `check`                                       |
-|   [9]   | `provision` | `up`, `down`, `status`, `env`, `verify`     |
+| [INDEX] | [SURFACE]   | [VERBS]                                                                                       |
+| :-----: | :---------- | :-------------------------------------------------------------------------------------------- |
+|   [1]   | root        | `self-test`, `delta`                                                                          |
+|   [2]   | `static`    | _(leaf — value-driven targets, no sub-verbs)_                                                 |
+|   [3]   | `code`      | `search`, `query`                                                                             |
+|   [4]   | `test`      | `run`, `list`, `coverage`                                                                     |
+|   [5]   | `bridge`    | `build`, `verify`, `status`, `quit`                                                           |
+|   [6]   | `package`   | `publish`, `plan`, `list`                                                                     |
+|   [7]   | `api`       | `resolve`, `query`, `show`, `status`                                                          |
+|   [8]   | `docs`      | `check`                                                                                       |
+|   [9]   | `provision` | `up`, `down`, `status`, `doctor`, `ports`, `inventory`, `extensions`, `plan`, `env`, `verify` |
 
 [ROOT_COMMANDS]:
 - Verbs: `self-test`, `delta` (registered outside the claim fold).
@@ -110,6 +116,7 @@ Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.as
 - Inputs: `[paths...]`, `--csharp` / `--python` / `--typescript` (mutually exclusive), `--target <path.csproj>`, `--all`, `--mutation <off|changed|full>` (default `off`), `--benchmark`, `--coverage`, `--filter <expr>`, `--limit <n>`, `--grep <s>`.
 - Output: `TestRun` detail; `Match` roster rows for `list`.
 - `run` runs eligible suites (`Mode.RUN`) and folds a `TestRun`. `coverage` re-runs under coverage (forces `coverage=True, benchmark=False`), decodes `totals.percent_covered` from `.artifacts/python/coverage/coverage.json`, and adopts the coverage json/xml/lcov artifacts. `list` discovers tests (`Mode.LIST`) via dotnet list-test and pytest collect, emits `roster.txt`/`roster.json`, and honors `--grep`/`--limit`.
+- C# `--all` selects every solution-admitted managed test project. Host-bound C# projects surface as typed unsupported/degraded test evidence; live Rhino/GH2 proof belongs to `bridge verify`.
 - `--mutation changed` scopes via Stryker `--mutate <glob>` and mutmut module-dotted names; runners with no changed-file scope surface `unsupported`, and `--mutation` with no eligible lane notes the gap. mutmut gets a lease-riding `mutmut-gate` kill-rate floor. Per-language mutation runs hold sorted exclusive `mutation-<lang>` leases.
 - `--filter` is the MTP discriminant for dotnet RUN/LIST: leading `/` = query, `k=v` = trait, `Tests`/`Laws`/`Spec` suffix or `+` = class, else method. `--limit` caps roster rows; `--grep` substring-filters the discovered roster.
 - Example: `assay test run --csharp tests/csharp`
@@ -145,13 +152,13 @@ Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.as
 - Inputs: `[paths...]`, `--strict` (promotes EMPTY/SKIP to a `FaultedPromotion`; real defects keep their status).
 - Output: shared `Report` with one `mmdc <file>: ok|failed` PROCESS `Match` per routed file and `Artifact` rows for the produced `<stem>.md` and `<stem>-<n>.svg` under the per-run scope.
 - `check` validates Mermaid diagrams across routed Markdown files through `mmdc`, one invocation per file as `-i <file> -a <scope_dir> -o <scope_dir>/<stem>.md`. The sink stem is the full relative path joined by `__`, so two same-basename files never clobber a shared sink. Files land under `.artifacts/assay/docs/<run_id>/`.
-- Example: `assay docs check tools/assay/README.md`
+- Example: `assay docs tools/assay/README.md`
 
 [PROVISION_COMMANDS]:
-- Verbs: `up`, `down`, `status`, `doctor`, `ports`, `plan`, `env`, `verify` — all arity 0, delegating to the Forge-owned `rasm-provision` CLI.
+- Verbs: `up`, `down`, `status`, `doctor`, `ports`, `inventory`, `extensions`, `plan`, `env`, `verify` — all arity 0, delegating to the Forge-owned `rasm-provision` CLI.
 - Inputs: none.
-- Output: shared `Report`; stdout/stderr from `rasm-provision` and local tool probes fold into process `Match` rows on failure.
-- `up` starts the Forge provisioning services and verifies extensions (`rasm-provision up`, 300s); `down` stops labelled provisioning services and removes script-owned data; `status`, `doctor`, `ports`, and `plan` are read-only diagnostics; `env` emits generated paths and DSNs; `verify` runs `rasm-provision verify` (180s) plus local `duckdb --version`, `forge-scientific-env` Python ABI and OpenBLAS probes, and an `ONNXRUNTIME_LIB` existence probe.
+- Output: shared `Report` with `ProvisionRun` detail for JSON-backed verbs; `extensions` projects target rows into `extension_catalog`, `verify` projects extension state rows into `extensions`, and local probe stdout rides `local_probe_values` when present. Missing or malformed successful Forge JSON is a provisioning fault; stdout/stderr still fold into process `Match` rows on failure.
+- `up` starts the Forge provisioning services and verifies extensions (`rasm-provision up`, 300s); `down` stops labelled provisioning services, removes generated files, and preserves Docker volumes; `status`, `doctor`, `ports`, `inventory`, `extensions`, and `env` consume Forge JSON evidence; `plan` renders the Compose YAML without writing provisioning assets; `verify` runs `rasm-provision verify --json` (180s) plus local `duckdb --version`, `forge-scientific-env` Python ABI and OpenBLAS probes, and an `ONNXRUNTIME_LIB` existence probe.
 - Boundary: Docker compose generation and native toolchain exports stay in Parametric_Forge; Rasm owns this envelope surface and the manifest markers, lockfile, and `.api` evidence that consume it.
 - Example: `assay provision verify`
 
@@ -226,7 +233,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 [PROVISIONING]:
 - Enables: tier-2 server and native runtime closure proofs through the Forge-owned `rasm-provision` and `forge-scientific-env` executables.
 - Requires: `rasm-provision` and `forge-scientific-env` on `PATH`; Parametric_Forge owns both executables and their version, so assay pins no version and a missing executable surfaces as a process fault rather than an assay defect.
-- Boundary: `provision up|down|status|doctor|ports|plan|env|verify` is the campaign command surface; direct `rasm-provision` use is Forge-level debugging. Forge-side low-level diagnostics remain direct CLI verbs such as `rasm-provision paths|self-test`.
+- Boundary: `provision up|down|status|doctor|ports|inventory|extensions|plan|env|verify` is the campaign command surface; direct `rasm-provision` use is Forge-level debugging. Forge-side cleanup and shell entrypoints remain direct CLI verbs such as `rasm-provision prune --owned|paths|self-test|psql-*`.
 - Failure: docker-unavailable, port-bound, and invalid-root conditions exit `rasm-provision` non-zero and fold to process rows in the verb Envelope through `fan_out`/`fold`, never exceptions. A port collision names the offending service and its `RASM_TIMESCALE_PORT`/`RASM_SEARCH_PORT`/`RASM_PGDUCKDB_PORT` override; public-image pulls are insulated from host credential-store drift.
 
 [TREE_SITTER]:

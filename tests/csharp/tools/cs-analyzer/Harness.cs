@@ -72,7 +72,7 @@ internal static class Harness {
     // Mirror central package pins so rule tests compile against real doctrine-shaped surfaces.
     public static readonly ImmutableArray<PackageIdentity> MirroredPackages = [
         new PackageIdentity(id: "LanguageExt.Core", version: "5.0.0-beta-77"),
-        new PackageIdentity(id: "Thinktecture.Runtime.Extensions", version: "10.2.0"),
+        new PackageIdentity(id: "Thinktecture.Runtime.Extensions", version: "10.3.0"),
     ];
 
     public static readonly ReferenceAssemblies References = new ReferenceAssemblies(

@@ -280,6 +280,28 @@ def test_csharp_workspace_format_uses_solution_placement(assay_root: AssayHarnes
 register_law(static_rail._phase_checks, "csharp_workspace_uses_solution_placement")
 
 
+def test_csharp_build_checks_use_distinct_sarif_dirs(assay_root: AssayHarness) -> None:
+    """Expanded C# build checks write SARIF into per-invocation directories, not one shared project-name path."""
+    scope = assay_root.scope(Claim.STATIC)
+    routed = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"))
+    phases, skipped = static_rail._phase_checks(routed, assay_root.settings, scope)
+    assert skipped == ()
+    sarif_dirs = tuple(
+        part.split("=", 1)[1]
+        for phase, checks in phases
+        if phase is static_rail.Phase.BUILD
+        for check in checks
+        for part in check.tool.command
+        if part.startswith("-p:CspSarifDir=")
+    )
+    assert len(sarif_dirs) == 2
+    assert len(set(sarif_dirs)) == 2
+    assert all(path.startswith(f"{scope.sarif_dir}/") for path in sarif_dirs)
+
+
+register_law(static_rail._phase_checks, "csharp_build_checks_use_distinct_sarif_dirs")
+
+
 # --- [BUILD_PHASE_LAWS]
 
 

@@ -87,7 +87,7 @@
 |   [9]   | `CancelEdit`          | `DataGrid`     | edit cancel       |
 |  [10]   | `ScrollIntoView`      | `DataGrid`     | row reveal        |
 
-[GRID_EVENTS]: table event operations
+[GRID_EVENT_ENTRYPOINTS]: table event operations
 - rail: tables
 
 | [INDEX] | [SURFACE]              | [SURFACE_ROOT] | [RAIL]              |

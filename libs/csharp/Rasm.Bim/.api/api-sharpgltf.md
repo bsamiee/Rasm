@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_SHARPGLTF]
+# [RASM_BIM_API_SHARPGLTF]
 
 `SharpGLTF` supplies glTF 2.0 schema read/write (`SharpGLTF.Core`), high-level
 scene/mesh/material builders (`SharpGLTF.Toolkit`), and runtime decode/instancing
@@ -77,10 +77,18 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |  [16]   | `AnimationChannel`             | geometry | binds an animation sampler to a node property       |
 |  [17]   | `AnimationSampler`             | geometry | timestamps + interpolated output values             |
 |  [18]   | `AnimationChannelTarget`       | geometry | descriptor of the animated node + property path     |
-|  [19]   | `MeshGpuInstancing`            | geometry | KHR_mesh_gpu_instancing extension; instance attrs   |
-|  [20]   | `PunctualLight`                | geometry | KHR_lights_punctual: directional, point, spot       |
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — accessors, memory, and encoding enums
+[PUBLIC_TYPE_SCOPE]: Schema2 — scene graph extensions
+- package: `SharpGLTF.Core`
+- namespace: `SharpGLTF.Schema2`
+- rail: geometry
+
+| [INDEX] | [SYMBOL]            | [RAIL]   | [CAPABILITY]                                      |
+| :-----: | :------------------ | :------- | :------------------------------------------------ |
+|   [1]   | `MeshGpuInstancing` | geometry | KHR_mesh_gpu_instancing extension; instance attrs |
+|   [2]   | `PunctualLight`     | geometry | KHR_lights_punctual: directional, point, spot     |
+
+[PUBLIC_TYPE_SCOPE]: Schema2 — encoding enums and accessor descriptors
 - package: `SharpGLTF.Core`
 - namespace: `SharpGLTF.Schema2`, `SharpGLTF.Memory`
 - rail: geometry
@@ -98,17 +106,25 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |   [9]   | `MemoryAccessor`             | geometry | wraps a `BufferView` memory region; projects typed arrays        |
 |  [10]   | `MemoryAccessInfo`           | geometry | describes item format: name, byte offset, stride, format         |
 |  [11]   | `MemoryImage`                | geometry | in-memory image bytes; detects PNG/JPG/KTX2/DDS/WebP             |
-|  [12]   | `ScalarArray`                | geometry | typed `Memory<byte>` view over scalar accessor data              |
-|  [13]   | `Vector2Array`               | geometry | typed `Memory<byte>` view over Vector2 accessor data             |
-|  [14]   | `Vector3Array`               | geometry | typed `Memory<byte>` view over Vector3 accessor data             |
-|  [15]   | `Vector4Array`               | geometry | typed `Memory<byte>` view over Vector4 accessor data             |
-|  [16]   | `QuaternionArray`            | geometry | typed `Memory<byte>` view over quaternion accessor data          |
-|  [17]   | `Matrix4x4Array`             | geometry | typed `Memory<byte>` view over matrix4x4 accessor data           |
-|  [18]   | `IntegerArray`               | geometry | typed `Memory<byte>` view over index accessor data               |
-|  [19]   | `ColorArray`                 | geometry | typed `Memory<byte>` view over color accessor data               |
-|  [20]   | `AttributeFormat`            | geometry | encoding/decoding descriptor for vertex attribute bytes          |
-|  [21]   | `BufferMode`                 | geometry | `ARRAY_BUFFER`, `ELEMENT_ARRAY_BUFFER` hints                     |
-|  [22]   | `CameraType`                 | geometry | `PERSPECTIVE`, `ORTHOGRAPHIC`                                    |
+|  [12]   | `AttributeFormat`            | geometry | encoding/decoding descriptor for vertex attribute bytes          |
+|  [13]   | `BufferMode`                 | geometry | `ARRAY_BUFFER`, `ELEMENT_ARRAY_BUFFER` hints                     |
+|  [14]   | `CameraType`                 | geometry | `PERSPECTIVE`, `ORTHOGRAPHIC`                                    |
+
+[PUBLIC_TYPE_SCOPE]: Schema2 — typed memory array views
+- package: `SharpGLTF.Core`
+- namespace: `SharpGLTF.Memory`
+- rail: geometry
+
+| [INDEX] | [SYMBOL]          | [RAIL]   | [CAPABILITY]                                            |
+| :-----: | :---------------- | :------- | :------------------------------------------------------ |
+|   [1]   | `ScalarArray`     | geometry | typed `Memory<byte>` view over scalar accessor data     |
+|   [2]   | `Vector2Array`    | geometry | typed `Memory<byte>` view over Vector2 accessor data    |
+|   [3]   | `Vector3Array`    | geometry | typed `Memory<byte>` view over Vector3 accessor data    |
+|   [4]   | `Vector4Array`    | geometry | typed `Memory<byte>` view over Vector4 accessor data    |
+|   [5]   | `QuaternionArray` | geometry | typed `Memory<byte>` view over quaternion accessor data |
+|   [6]   | `Matrix4x4Array`  | geometry | typed `Memory<byte>` view over matrix4x4 accessor data  |
+|   [7]   | `IntegerArray`    | geometry | typed `Memory<byte>` view over index accessor data      |
+|   [8]   | `ColorArray`      | geometry | typed `Memory<byte>` view over color accessor data      |
 
 [PUBLIC_TYPE_SCOPE]: Schema2 — validation
 - package: `SharpGLTF.Core`
@@ -125,7 +141,7 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |   [6]   | `LinkException`     | geometry | invalid inter-object relationships                                     |
 |   [7]   | `DataException`     | geometry | invalid binary data                                                    |
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — KHR material extensions
+[PUBLIC_TYPE_SCOPE]: Schema2 — KHR material extensions (PBR and shading)
 - package: `SharpGLTF.Core`
 - namespace: `SharpGLTF.Schema2`
 - rail: geometry
@@ -145,13 +161,21 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |  [11]   | `MaterialDispersion`            | geometry | KHR_materials_dispersion; spectral dispersion             |
 |  [12]   | `MaterialDiffuseTransmission`   | geometry | KHR_materials_diffuse_transmission; diffuse transmission  |
 |  [13]   | `MaterialPBRSpecularGlossiness` | geometry | KHR_materials_pbrSpecularGlossiness; specular-gloss model |
-|  [14]   | `TextureTransform`              | geometry | KHR_texture_transform; UV shift/scale per texture         |
-|  [15]   | `TextureKTX2`                   | geometry | KHR_texture_basisu; KTX2/Basis compressed texture         |
-|  [16]   | `TextureDDS`                    | geometry | MSFT_texture_dds; DirectDraw Surface texture              |
-|  [17]   | `TextureWEBP`                   | geometry | EXT_texture_webp; WebP texture                            |
-|  [18]   | `AnimationPointer`              | geometry | KHR_animation_pointer; JSON-pointer animation target      |
-|  [19]   | `XmpPackets`                    | geometry | KHR_xmp_json_ld model-level XMP metadata packet list      |
-|  [20]   | `XmpPacketReference`            | geometry | KHR_xmp_json_ld per-entity XMP packet index reference     |
+
+[PUBLIC_TYPE_SCOPE]: Schema2 — KHR texture and metadata extensions
+- package: `SharpGLTF.Core`
+- namespace: `SharpGLTF.Schema2`
+- rail: geometry
+
+| [INDEX] | [SYMBOL]             | [RAIL]   | [CAPABILITY]                                          |
+| :-----: | :------------------- | :------- | :---------------------------------------------------- |
+|   [1]   | `TextureTransform`   | geometry | KHR_texture_transform; UV shift/scale per texture     |
+|   [2]   | `TextureKTX2`        | geometry | KHR_texture_basisu; KTX2/Basis compressed texture     |
+|   [3]   | `TextureDDS`         | geometry | MSFT_texture_dds; DirectDraw Surface texture          |
+|   [4]   | `TextureWEBP`        | geometry | EXT_texture_webp; WebP texture                        |
+|   [5]   | `AnimationPointer`   | geometry | KHR_animation_pointer; JSON-pointer animation target  |
+|   [6]   | `XmpPackets`         | geometry | KHR_xmp_json_ld model-level XMP metadata packet list  |
+|   [7]   | `XmpPacketReference` | geometry | KHR_xmp_json_ld per-entity XMP packet index reference |
 
 [PUBLIC_TYPE_SCOPE]: Toolkit — scene and mesh builders
 - package: `SharpGLTF.Toolkit`
@@ -171,7 +195,7 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |   [9]   | `SceneBuilderSchema2Settings`        | geometry | conversion options: strided buffers, merge, GPU instancing threshold  |
 |  [10]   | `PackedMeshBuilder<TMat>`            | geometry | internal packer; converts `IMeshBuilder` collections to Schema2 mesh  |
 
-[PUBLIC_TYPE_SCOPE]: Toolkit — vertex geometry fragments
+[PUBLIC_TYPE_SCOPE]: Toolkit — vertex geometry and material fragments
 - package: `SharpGLTF.Toolkit`
 - namespace: `SharpGLTF.Geometry.VertexTypes`
 - rail: geometry
@@ -194,10 +218,18 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |  [14]   | `VertexMaterialDelta`         | geometry | morph-target color + UV delta                   |
 |  [15]   | `VertexJoints4`               | geometry | 4-joint skinning fragment                       |
 |  [16]   | `VertexJoints8`               | geometry | 8-joint skinning fragment                       |
-|  [17]   | `IVertexGeometry`             | geometry | interface for geometry fragments                |
-|  [18]   | `IVertexMaterial`             | geometry | interface for material fragments                |
-|  [19]   | `IVertexSkinning`             | geometry | interface for skinning fragments                |
-|  [20]   | `IVertexCustom`               | geometry | interface for custom attribute fragments        |
+
+[PUBLIC_TYPE_SCOPE]: Toolkit — vertex fragment interfaces
+- package: `SharpGLTF.Toolkit`
+- namespace: `SharpGLTF.Geometry.VertexTypes`
+- rail: geometry
+
+| [INDEX] | [SYMBOL]          | [RAIL]   | [CAPABILITY]                             |
+| :-----: | :---------------- | :------- | :--------------------------------------- |
+|   [1]   | `IVertexGeometry` | geometry | interface for geometry fragments         |
+|   [2]   | `IVertexMaterial` | geometry | interface for material fragments         |
+|   [3]   | `IVertexSkinning` | geometry | interface for skinning fragments         |
+|   [4]   | `IVertexCustom`   | geometry | interface for custom attribute fragments |
 
 [PUBLIC_TYPE_SCOPE]: Toolkit — material and morph builders
 - package: `SharpGLTF.Toolkit`

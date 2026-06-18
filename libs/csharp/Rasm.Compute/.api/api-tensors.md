@@ -100,7 +100,6 @@ for measured Compute execution.
 |  [16]   | `Exp`                  | transcendental call | computes exponential op |
 |  [17]   | `Log`                  | transcendental call | computes logarithm op   |
 |  [18]   | `ConvertChecked`       | conversion call     | converts values         |
-|  [19]   | `ConvertSaturating`    | conversion call     | converts values         |
 
 [ENTRYPOINT_SCOPE]: elementwise, rounding, and transcendental primitives
 - rail: tensor
@@ -126,18 +125,19 @@ for measured Compute execution.
 [ENTRYPOINT_SCOPE]: reduction, similarity, bitwise, and conversion primitives
 - rail: tensor
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]                 |
-| :-----: | :--------------------- | :-------------- | :--------------------------- |
-|   [1]   | `Norm`                 | reduction call  | computes Euclidean norm      |
-|   [2]   | `MaxMagnitude`         | reduction call  | reduces by absolute extremum |
-|   [3]   | `Average`              | statistics call | computes mean                |
-|   [4]   | `StdDev`               | statistics call | computes standard deviation  |
-|   [5]   | `Distance`             | similarity call | computes Euclidean distance  |
-|   [6]   | `HammingDistance`      | similarity call | counts differing elements    |
-|   [7]   | `BitwiseAnd`           | bitwise call    | computes bitwise op          |
-|   [8]   | `ShiftLeft`            | bitwise call    | shifts integer values        |
-|   [9]   | `ShiftRightArithmetic` | bitwise call    | shifts with sign extension   |
-|  [10]   | `ConvertTruncating`    | conversion call | converts values              |
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]                    |
+| :-----: | :--------------------- | :-------------- | :------------------------------ |
+|   [1]   | `Norm`                 | reduction call  | computes Euclidean norm         |
+|   [2]   | `MaxMagnitude`         | reduction call  | reduces by absolute extremum    |
+|   [3]   | `Average`              | statistics call | computes mean                   |
+|   [4]   | `StdDev`               | statistics call | computes standard deviation     |
+|   [5]   | `Distance`             | similarity call | computes Euclidean distance     |
+|   [6]   | `HammingDistance`      | similarity call | counts differing elements       |
+|   [7]   | `BitwiseAnd`           | bitwise call    | computes bitwise op             |
+|   [8]   | `ShiftLeft`            | bitwise call    | shifts integer values           |
+|   [9]   | `ShiftRightArithmetic` | bitwise call    | shifts with sign extension      |
+|  [10]   | `ConvertTruncating`    | conversion call | converts values                 |
+|  [11]   | `ConvertSaturating`    | conversion call | converts values with saturation |
 
 [ENTRYPOINT_SCOPE]: interpolation, reciprocal, hypot, and half-conversion primitives
 - rail: tensor

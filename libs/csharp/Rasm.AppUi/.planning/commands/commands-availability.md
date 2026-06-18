@@ -1,11 +1,6 @@
 # [APPUI_COMMANDS_AVAILABILITY]
 
-Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only command vocabulary in the package,
-and menus, toolbars, access keys, hotkeys, tray items, palette entries, deep links, and remote verbs are derivation
-folds over it. The page owns the intent row shape with its payload union, the typed availability algebra over the
-degradation vocabulary, the execution receipt family sealed through the receipt sink, the palette and remote
-invocation folds, and the command wire contract, over ReactiveUI commands, System.Reactive streams, LanguageExt
-rails, NodaTime durations, and the settled AppHost port records.
+Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only command vocabulary in the package, and menus, toolbars, access keys, hotkeys, tray items, palette entries, deep links, and remote verbs are derivation folds over it. The page owns the intent row shape with its payload union, the typed availability algebra over the degradation vocabulary, the execution receipt family sealed through the receipt sink, the palette and remote invocation folds, and the command wire contract, over ReactiveUI commands, System.Reactive streams, LanguageExt rails, NodaTime durations, and the settled AppHost port records.
 
 ## [1]-[INDEX]
 

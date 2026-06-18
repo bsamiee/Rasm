@@ -1,35 +1,50 @@
 # [INTERCHANGE_DECODE_RAIL]
 
-The byte-to-typed decode interior of the wire boundary: the single codec rail family read by codec key, the direction-keyed encode write face, and the embedded-geometry rail. `DecodeRail` is the densest owner of the wire interior — one owner carries every codec and every direction as rows, never a parallel rail per concern. The owning C# `#TS_PROJECTION` fence is the authoritative wire shape; this page names which rail consumes which fence and never re-authors a shape. The brand-and-filter decode-enforcement vocabulary lives at `refinement/schema-refinement.md`, the content-addressed frame rail at `artifacts/frame-reassembly.md`, and the fault rail at `faults/fault-family.md`; each is a row on this owner read from its own page.
+The byte-to-typed decode interior of the wire boundary: one codec-keyed dispatch table owning every byte format and both directions as rows. `DecodeRail` is the densest owner of the wire interior — one `CODEC` vocabulary keys the proto, messagepack, json-stj, and embedded-geometry rows to their decode and encode operations, never a parallel rail per concern and never a per-instance interface re-described at each call site. The artifact-frame reassembly (`artifacts/frame-reassembly.md`), the fault reconstruction (`faults/fault-family.md`), and the brand-and-filter refinement vocabulary (`refinement/schema-refinement.md`) compose this same decode discipline from their own pages over the bytes these codec rows admit; the suite-anchor transcription law is owned once by `contracts/wire-inventory.md`.
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                       |
-| :-----: | :------------ | :---------------------------------------------------------- |
-|   [1]   | DECODE_RAIL   | the codec rail family, the encode mirror, the geometry rail |
-|   [2]   | TS_PROJECTION | the snapshot, sync, and receipt wire shapes the rails decode |
+| [INDEX] | [CLUSTER]     | [OWNS]                                                            |
+| :-----: | :------------ | :--------------------------------------------------------------- |
+|   [1]   | DECODE_RAIL   | the codec dispatch vocabulary, both directions, the geometry row |
+|   [2]   | TS_PROJECTION | the snapshot, sync, and receipt wire shapes the rails decode     |
 
 ## [2]-[DECODE_RAIL]
 
-- Owner: `DecodeRail`, the codec rail family read by codec key — the protobuf-over-transport rail, the binary snapshot rail, the structured-text receipt rail, and `GeometryRail` for embedded geometry. `EncodeRail` is the direction-keyed write face of the same owner. The artifact-frame rail (`artifacts/frame-reassembly.md`), the fault-detail rail (`faults/fault-family.md`), and the refinement vocabulary (`refinement/schema-refinement.md`) are rows on this owner, never a parallel rail.
-- Cases: the protobuf rail decodes unary responses and server-streams against `csharp:Rasm.Compute/remote/remote#TS_PROJECTION` and `csharp:Rasm.Compute/progress/progress#TS_PROJECTION`; the binary rail decodes snapshot frames and the multi-object sync-segment stream against `csharp:Rasm.Persistence/snapshots/codecs#TS_PROJECTION` and `csharp:Rasm.Persistence/sync/collaboration#TS_PROJECTION` with 64-bit integers mapped to bigint through `useBigInt64` and the fixed-width header read through a `DataView` `getBigUint64`, zero registered extension codecs because `SnapshotExtensionRows` is `never` on its owner page; the structured-text rail is `Schema.Class` transcription of the json-stj fences, drift-gated by the app-root-emitted JSON schema set.
-- Entry: `GeometryRail` sources no wire contract of its own; it decodes only embedded geometry fields — invoked on the snapshot-delta payloads whose geometry rides the GeoJSON projection owned by `csharp:Rasm.Persistence/snapshots/codecs#TS_PROJECTION`, and invoked on the geometry embedded inside the evidence envelope payloads — and is never re-authored per cluster. The codec posture is one row per surface: a reused `@msgpack/msgpack` `Decoder` with `useBigInt64: true` and the default `ExtensionCodec` carrying zero `register` rows; a `DataView` reading the fixed-width snapshot header; STJ Strict camelCase for the json-stj rail with instants as ISO-8601 text, durations as round-trip text, smart-enum columns as key scalars, `tenantId` as the `UInt128` decimal-string, and absent evidence as explicit null. `Stream.fromAsyncIterable` gives the proto server-stream pull-based backpressure shared with the framing fold.
-- Encode: `EncodeRail` is the encode mirror keyed by direction — the proto write face constructs through `create` against the generated message descriptor and serializes through `toBinary`, and the json-stj write face is `Schema.encode` against the same `Schema.Class` the decode rail reads, so a `CommandPayloadWire` write and a `DeepLinkBinding` query-string round-trip emit through the identical class their inbound receipts decode through; the messagepack direction is read-only on the browser branch and its encode mirror is empty by contract; a hand-shaped message literal or a hand-serialized JSON body is the deleted form.
-- Packages: `@msgpack/msgpack` for the binary codec, `@bufbuild/protobuf` for `create`/`toBinary`/`fromBinary` and the descriptor registry, `@connectrpc/connect` for `ConnectError.findDetails`, and `effect` for the `Stream`, `Schema.encode`, and `Match` primitives.
-- Growth: a new codec lands as one rail row; a new wire shape on an existing codec lands as one schema row on the owning rail; a new write direction lands as one `EncodeRail` direction key on the same owner; zero new rail.
-- Boundary: the binary rail registers zero extension codecs because `SnapshotExtensionRows` is `never` and an invented extension registration is the named defect; `GeometryRail` provenance is embedded-only and never an invented contract; `EncodeRail` and `DecodeRail` are the write and read faces of one owner; this domain references no telemetry type because telemetry crosses no wire contract.
+- Owner: `DecodeRail`, one `CODEC` vocabulary keyed by `CodecKey` whose rows carry their own byte-format behavior — the proto row decodes unary responses and server-streams, the messagepack row decodes snapshot frames and the sync-segment stream, the json-stj row is `Schema.Class` transcription of the receipt fences, and the geometry row decodes embedded GeoJSON fields. The fold reads a row and returns its `decode`/`encode` pair; a `Match` chain restating the codec→operation knowledge inline is the rejected form, the keyed domain dispatching through the vocabulary lookup the `CODEC` table already maps.
+- Cases: the proto row reads `csharp:Rasm.Compute/remote/remote#TS_PROJECTION` and `csharp:Rasm.Compute/progress/progress#TS_PROJECTION` through `fromBinary` against the generated descriptor with `Stream.fromAsyncIterable` giving the server-stream pull-based backpressure the framing fold shares; the messagepack row reads `csharp:Rasm.Persistence/snapshots/codecs#TS_PROJECTION` and `csharp:Rasm.Persistence/sync/collaboration#TS_PROJECTION` through one reused `Decoder` mapping 64-bit integers to bigint and the fixed-width header through a `DataView` `getBigUint64`, registering zero extension codecs because `SnapshotExtensionRows` is `never`; the json-stj row is STJ Strict camelCase with instants as ISO-8601 text, durations as round-trip text, smart-enum columns as key scalars, `tenantId` as the `UInt128` decimal-string, and absent evidence as explicit null; the geometry row sources no contract of its own, decoding only the GeoJSON embedded in snapshot-delta and evidence-envelope payloads.
+- Entry: `CODEC[key]` is the one polymorphic codec→operation entry keyed by `CodecKey` — the indexed row reads its `decode` and its `Option`-carried `encode` with no forwarding hop, so a new codec lands as one `CODEC` row and a new write direction lands as one `encode` slot, never a sibling rail and never a rename helper restating the index. The messagepack direction is read-only on the browser branch and its `encode` is `Option.none`; the proto and json-stj rows carry the encode mirror — the proto write constructs through `create` and serializes through `toBinary`, the json-stj write is `Schema.encode` against the same `Schema.Class` the row decodes, so a `CommandPayloadWire` write and a `DeepLinkBinding` query-string round-trip emit through the identical class their inbound receipts decode through.
+- Packages: `@bufbuild/protobuf` for `create`/`fromBinary`/`toBinary` and the descriptor registry, `effect` for `Stream.fromAsyncIterable`, `Schema.decodeUnknown`/`Schema.encode`, and the `Record` vocabulary dispatch; the messagepack codec is the workspace-cataloged binary `Decoder` mapping 64-bit integers to bigint.
+- Growth: a new codec lands as one `CODEC` row carrying its decode and encode operations; a new wire shape on an existing codec lands as one `Schema.Class` field row on the owning shape; a new write direction lands as one `encode` slot on the row, never a parallel `EncodeRail` owner.
+- Boundary: the messagepack row registers zero extension codecs because `SnapshotExtensionRows` is `never` and an invented extension registration is the named defect; the geometry row's provenance is embedded-only and never an invented contract; decode and encode are the two slots of one row, never two owners; this domain references no telemetry type because telemetry crosses no wire contract.
 
 ```ts contract
-type CodecKey = "proto" | "messagepack" | "json-stj" | "geometry" | "artifact-frame" | "fault-detail";
-type Direction = "decode" | "encode";
+// --- [TYPES] -------------------------------------------------------------------------
+type CodecKey = "proto" | "messagepack" | "json-stj" | "geometry";
 
-interface DecodeRail<Wire, Domain> {
-  readonly codec: CodecKey;
+interface CodecRow<Wire, Domain> {
   readonly decode: (bytes: Uint8Array) => Effect.Effect<Domain, ParseResult.ParseError>;
   readonly encode: Option.Option<(value: Domain) => Effect.Effect<Wire, ParseResult.ParseError>>;
 }
 
+// --- [OPERATIONS] --------------------------------------------------------------------
 const snapshotDecoder = new Decoder({ useBigInt64: true });
+
+const CODEC = {
+  proto: {
+    decode: (bytes) => Schema.decodeUnknown(ProtoMessageWire)(fromBinary(ProtoMessageSchema, bytes)),
+    encode: Option.some((value) => Schema.encode(ProtoMessageWire)(value).pipe(Effect.map((init) => toBinary(ProtoMessageSchema, create(ProtoMessageSchema, init))))),
+  },
+  messagepack: {
+    decode: (bytes) => Schema.decodeUnknown(SnapshotHeaderWire)(snapshotDecoder.decode(bytes)),
+    encode: Option.none(),
+  },
+  "json-stj": {
+    decode: (bytes) => Schema.decodeUnknown(ComputeReceiptWire)(JSON.parse(new TextDecoder().decode(bytes))),
+    encode: Option.some((value) => Schema.encode(ComputeReceiptWire)(value).pipe(Effect.map((j) => new TextEncoder().encode(JSON.stringify(j))))),
+  },
+  geometry: { decode: (bytes) => Schema.decodeUnknown(GeometryWire)(JSON.parse(new TextDecoder().decode(bytes))), encode: Option.none() },
+} as const satisfies Record<CodecKey, CodecRow<unknown, unknown>>;
 
 const decodeSnapshotHeader = (bytes: Uint8Array): Effect.Effect<SnapshotHeaderRead, ParseResult.ParseError> =>
   Effect.gen(function* () {
@@ -43,17 +58,18 @@ const decodeSnapshotHeader = (bytes: Uint8Array): Effect.Effect<SnapshotHeaderRe
 
 ## [3]-[TS_PROJECTION]
 
-- Owner: the snapshot, sync, and receipt wire shapes the binary and json-stj rails decode — transcribed verbatim from `csharp:Rasm.Persistence/snapshots/codecs#TS_PROJECTION`, `csharp:Rasm.Persistence/sync/collaboration#TS_PROJECTION`, and `csharp:Rasm.Compute/receipts/receipts#TS_PROJECTION`; the artifact-frame and fault-detail shapes ride their own pages.
-- Entry: `SnapshotHeaderWire.schemaFingerprint` decodes as bigint via `DataView` `getBigUint64`; `SnapshotDecodeOptions` carries `useBigInt64: true`; `OpLogEntryWire` content keys cross as 16-byte binary; absent evidence on `ComputeReceiptWire` crosses as explicit null.
-- Packages: `@msgpack/msgpack` and `effect` `Schema` for the codec surface.
-- Growth: a new snapshot/sync/receipt member lands as one `Schema.Class` field row; the branch authors no shape absent from the C# fence.
-- Boundary: every shape transcribes a C# `#TS_PROJECTION` fence; `SnapshotExtensionRows` is `never` and no extension codec is registered.
+- Owner: the snapshot, sync, and receipt wire shapes the messagepack and json-stj rows decode, sourced from `csharp:Rasm.Persistence/snapshots/codecs#TS_PROJECTION`, `csharp:Rasm.Persistence/sync/collaboration#TS_PROJECTION`, and `csharp:Rasm.Compute/receipts/receipts#TS_PROJECTION`; the artifact-frame and fault-detail shapes ride their own pages.
+- Entry: `SnapshotHeaderWire.schemaFingerprint` decodes as bigint via `DataView` `getBigUint64`; the messagepack `Decoder` carries the bigint mapping; `OpLogEntryWire` content keys cross as 16-byte binary and the HLC stamp crosses as the `physical` ISO-8601 instant plus the `logical` bigint half the `projection` event-time fold and convergence order read; absent evidence on `ComputeReceiptWire` crosses as explicit null; `SnapshotExtensionRows` is `never` and no extension codec is registered.
+- Packages: the messagepack `Decoder` and `effect` `Schema` for the codec surface.
 
 ```ts contract
+const SNAPSHOT_CODEC = ["none", "lz4", "zstd"] as const;
+const SNAPSHOT_CLASS = ["public", "internal", "restricted"] as const;
+
 const SnapshotHeaderWire = Schema.Struct({
   schemaFingerprint: Schema.BigIntFromSelf,
-  codec: Schema.Literal("none", "lz4", "zstd"),
-  classification: Schema.Literal("public", "internal", "restricted"),
+  codec: Schema.Literal(...SNAPSHOT_CODEC),
+  classification: Schema.Literal(...SNAPSHOT_CLASS),
 });
 
 const OpLogEntryWire = Schema.Struct({
@@ -61,6 +77,7 @@ const OpLogEntryWire = Schema.Struct({
   payload: Schema.Uint8ArrayFromSelf,
   contentKey: ContentKey,
   sequence: Schema.BigIntFromSelf,
+  physical: Schema.String,
   logical: Schema.BigIntFromSelf,
 });
 ```

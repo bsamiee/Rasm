@@ -6,6 +6,8 @@ The desired-vs-actual reconciliation fold over the Pulumi engine event stream �
 
 One cluster: `[2]-[PROVISIONING]` owns the `previewRefresh` drift fold, the typed `StackDriftSummary` receipt, and the CI drift gate.
 
+RESEARCH: the `@pulumi/pulumi/automation` event-stream surface the fold consumes — `Stack.previewRefresh({ onEvent })`, `EngineEvent.resourcePreEvent.metadata`, `StepEventMetadata.op`/`.detailedDiff`, `OpType`, `PropertyDiff.diffKind`/`.inputDiff`, `DiffKind`, and `PreviewResult.changeSummary` — verifies against the folder `.api/` only as far as `Stack`/`PreviewResult`/`OutputMap`; the refresh-preview and per-URN event members are the open probe for the central automation-API catalogue extraction.
+
 ## [2]-[PROVISIONING]
 
 - Owner: `StackDrift`, the desired-vs-actual reconciliation fold over the engine event stream — `diff` returns the typed `StackDriftSummary` receipt, `gate` is the mandatory arm that fails `divergent` when the summary is not clean.
@@ -16,17 +18,12 @@ One cluster: `[2]-[PROVISIONING]` owns the `previewRefresh` drift fold, the type
 - Boundary: `StackDrift` is no exception to the subpath rule — the `EngineEvent`/`StepEventMetadata`/`PropertyDiff` types it folds are `@pulumi/pulumi/automation` types consumed inside the subpath closure, the `StackDriftSummary` it returns is a domain receipt carrying only primitive URN/type/property-path strings, so no `@pulumi/*` type escapes onto the durable hot path; this is a node-only deploy-time surface, never browser-reachable.
 
 ```ts drift
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 import type { EngineEvent, OpType, PreviewResult, PropertyDiff, StepEventMetadata, Stack } from "@pulumi/pulumi/automation";
 import type { AutomationDriver } from "./contract.js";
 import { DiffKind } from "@pulumi/pulumi/automation";
 import { Command, Options } from "@effect/cli";
 import { Array as Arr, Data, Effect, HashMap, Match, Option, pipe, Schema } from "effect";
 
-// --- [TYPES] ---------------------------------------------------------------------------
-// One closed family for the per-resource verdict; the engine OpType axis re-closes into the
-// domain on fold. Added/Removed/Changed/Unchanged are the four drift verdicts; `$match` is the
-// exhaustive fold and a fifth verdict is a compile-time break across every fold site.
 type DriftResource = Data.TaggedEnum<{
   readonly Added: { readonly urn: string; readonly type: string };
   readonly Removed: { readonly urn: string; readonly type: string };
@@ -34,8 +31,6 @@ type DriftResource = Data.TaggedEnum<{
   readonly Unchanged: { readonly urn: string; readonly type: string };
 }>;
 
-// The detailedDiff Record<string, PropertyDiff> re-closes into a flat property-path row carrying
-// only primitives so no @pulumi/* type escapes the subpath onto the durable hot path.
 type PropertyChange = {
   readonly path: string;
   readonly kind: DiffKind;
@@ -44,9 +39,6 @@ type PropertyChange = {
 
 const DriftResource = Data.taggedEnum<DriftResource>();
 
-// --- [MODELS] --------------------------------------------------------------------------
-// The drift summary IS the receipt: three resource arrays plus a clean predicate, decoded from
-// primitives only. One Model.Class, projections derive — no parallel added/removed/changed schema.
 class StackDriftSummary extends Schema.Class<StackDriftSummary>("StackDriftSummary")({
   stack: Schema.String,
   added: Schema.Array(Schema.Struct({ urn: Schema.String, type: Schema.String })),
@@ -70,33 +62,20 @@ class StackDriftSummary extends Schema.Class<StackDriftSummary>("StackDriftSumma
   }
 }
 
-// --- [ERRORS] --------------------------------------------------------------------------
-// One boundary fault for the deploy-time refresh-preview; the engine-stage cause is the payload,
-// not a parallel error rail. A mandatory divergence is signalled by the dedicated `divergent` stage
-// so the @effect/cli verb fails CI engine-time the way a PolicyGuard rule does.
 class DriftFault extends Schema.TaggedError<DriftFault>()("DriftFault", {
   stack: Schema.String,
   stage: Schema.Literal("refresh", "decode", "divergent"),
   detail: Schema.String,
 }) {}
 
-// --- [SERVICES] ------------------------------------------------------------------------
-// StackDrift is a ROW on the provisioning surface, not a parallel owner: it reuses the
-// AutomationDriver-resolved Stack and returns the typed summary receipt. `gate` is the mandatory
-// arm — it re-runs the diff and fails `divergent` when the summary is not clean.
 interface StackDrift {
   readonly diff: (stack: Stack, stackName: string) => Effect.Effect<StackDriftSummary, DriftFault>;
   readonly gate: (stack: Stack, stackName: string) => Effect.Effect<StackDriftSummary, DriftFault>;
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-// classifyStep: the engine OpType axis -> the domain DriftResource family. `previewRefresh` emits
-// at most one resourcePreEvent per URN; `op:"same"`/`"refresh"` is no drift, the mutating ops are the
-// three drift verdicts. Match.exhaustive guards the full 15-member OpType union at compile time.
 const classifyStep = (m: StepEventMetadata): DriftResource =>
   Match.value(m.op).pipe(
-    Match.when("create", () => DriftResource.Added({ urn: m.urn, type: m.type })),
-    Match.when("import", () => DriftResource.Added({ urn: m.urn, type: m.type })),
+    Match.whenOr("create", "import", () => DriftResource.Added({ urn: m.urn, type: m.type })),
     Match.whenOr("delete", "delete-replaced", "remove-pending-replace", "discard", "discard-replaced", () =>
       DriftResource.Removed({ urn: m.urn, type: m.type }),
     ),
@@ -107,8 +86,6 @@ const classifyStep = (m: StepEventMetadata): DriftResource =>
     Match.exhaustive,
   );
 
-// detailedDiff: Record<string, PropertyDiff> -> flat PropertyChange rows; the optional record folds to
-// an empty array (a `replace` with no detailedDiff is still a Changed verdict carrying zero paths).
 const detailedDiff = (record: Record<string, PropertyDiff> | undefined): ReadonlyArray<PropertyChange> =>
   pipe(
     Option.fromNullable(record),
@@ -121,9 +98,6 @@ const detailedDiff = (record: Record<string, PropertyDiff> | undefined): Readonl
     Option.getOrElse(() => Arr.empty<PropertyChange>()),
   );
 
-// foldVerdicts: the per-URN HashMap accumulator -> the StackDriftSummary via one `$match` fold over
-// the closed family. `Unchanged` contributes to no bucket; the three drift buckets project to the
-// three Model arrays. HashMap.values is the immutable accumulator drained once, no .set mutation.
 const foldVerdicts = (stack: string, verdicts: HashMap.HashMap<string, DriftResource>): StackDriftSummary =>
   pipe(
     HashMap.values(verdicts),
@@ -141,9 +115,6 @@ const foldVerdicts = (stack: string, verdicts: HashMap.HashMap<string, DriftReso
     (buckets) => new StackDriftSummary({ stack, ...buckets }),
   );
 
-// mutatedCount: the authoritative drift cardinality from PreviewResult.changeSummary (the engine's own
-// per-OpType OpMap), summing every mutating OpType and excluding the three no-drift ops. The Match over
-// the closed OpType union decides drift membership; `same`/`refresh`/`read` contribute zero.
 const NO_DRIFT_OPS: ReadonlyArray<OpType> = ["same", "refresh", "read"];
 const mutatedCount = (summary: PreviewResult["changeSummary"]): number =>
   pipe(
@@ -151,24 +122,16 @@ const mutatedCount = (summary: PreviewResult["changeSummary"]): number =>
     Arr.reduce(0, (total, [op, count]) => (Arr.contains(NO_DRIFT_OPS, op) ? total : total + count)),
   );
 
-// computeStackDrift: the transcription-complete drift-diff body. `previewRefresh` re-reads provider
-// state read-only; the structured `onEvent` callback is bridged into an Effect via `Effect.async`, the
-// per-URN verdict accumulated into a HashMap closed over the callback (boundary-local mutable handle,
-// drained into the immutable summary on resolve). The last verdict per URN wins (refresh emits one).
-// `PreviewResult.changeSummary` is captured alongside so the folded buckets reconcile against the
-// engine's own count, making the receipt self-validating and catching any onEvent/promise race.
 const computeStackDrift = (stack: Stack, stackName: string): Effect.Effect<StackDriftSummary, DriftFault> =>
   Effect.async<readonly [HashMap.HashMap<string, DriftResource>, PreviewResult], DriftFault>((resume) => {
     let verdicts = HashMap.empty<string, DriftResource>();
-    const onEvent = (event: EngineEvent): void => {
-      const meta = Option.fromNullable(event.resourcePreEvent?.metadata);
-      Option.match(meta, {
+    const onEvent = (event: EngineEvent): void =>
+      Option.match(Option.fromNullable(event.resourcePreEvent?.metadata), {
         onNone: () => undefined,
         onSome: (m) => {
           verdicts = HashMap.set(verdicts, m.urn, classifyStep(m));
         },
       });
-    };
     stack.previewRefresh({ onEvent }).then(
       (result: PreviewResult) => resume(Effect.succeed([verdicts, result] as const)),
       (cause: unknown) =>
@@ -189,8 +152,6 @@ const computeStackDrift = (stack: Stack, stackName: string): Effect.Effect<Stack
     Effect.map(([summary]) => summary),
   );
 
-// driftGate: the mandatory arm — a clean summary passes through, a divergent summary fails `divergent`
-// so the @effect/cli `drift` verb exits non-zero in CI exactly as a mandatory PolicyGuard rule does.
 const driftGate = (stack: Stack, stackName: string): Effect.Effect<StackDriftSummary, DriftFault> =>
   computeStackDrift(stack, stackName).pipe(
     Effect.filterOrFail(
@@ -204,12 +165,8 @@ const driftGate = (stack: Stack, stackName: string): Effect.Effect<StackDriftSum
     ),
   );
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
 const stackDrift: StackDrift = { diff: computeStackDrift, gate: driftGate };
 
-// AutomationDriver grows one `drift` verb on the SAME command tree (one command on the existing tree,
-// not a parallel CLI): it resolves the Stack via `driver.stack`, runs `gate`, and the DriftFault is the
-// verb's typed failure channel so a divergent stack exits non-zero engine-time.
 const driftVerb = (driver: AutomationDriver): Command.Command<"drift", never, DriftFault, { readonly stack: string }> =>
   Command.make("drift", { stack: Options.text("stack") }, ({ stack }) =>
     driver.stack(stack).pipe(

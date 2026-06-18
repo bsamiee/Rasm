@@ -1,13 +1,6 @@
 # [API_CATALOGUE] @effect/sql-pg
 
-Decompile-verified from the installed distribution at `node_modules/@effect/sql-pg/dist/dts`
-(version `0.52.1`). The package is a thin Postgres dialect over `@effect/sql`: it owns the
-`PgClient` service (a `SqlClient` specialization), its config and pool constructors, the Postgres
-statement compiler, the `PgJson` custom fragment, and a `PgMigrator` that re-exports the generic
-`@effect/sql/Migrator` loaders. Peer surface: `effect ^3.21`, `@effect/sql ^0.51`,
-`@effect/platform ^0.96`, `@effect/experimental ^0.60`, and the host `pg` driver.
-
-The package root `.` re-exports two namespaces only — every symbol is reached through one of them.
+`@effect/sql-pg` is the Postgres dialect over `@effect/sql`: it owns the `PgClient` service (a `SqlClient` specialization), its config and pool constructors, the Postgres statement compiler, the `PgJson` custom fragment, and a `PgMigrator` that re-exports the generic `@effect/sql/Migrator` loaders. The package root re-exports two namespaces only.
 
 ```ts
 // @effect/sql-pg

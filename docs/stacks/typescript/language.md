@@ -148,6 +148,25 @@ type _Accessors   = { +readonly [K in keyof _Entity as `get${Capitalize<string &
 - Law: a `_`-prefixed function exists only as a closure inside a scoped constructor or as a module-level semantic anchor serving two or more call sites; a single-caller private function inlines into the export.
 - Boundary: package topology and the browser/node/neutral publication split belong to the Nx module-boundary tag graph in the workspace manifest; this site owns the per-module export shape.
 
+```ts conceptual
+type _Command = Data.TaggedEnum<{
+  readonly Stage: { readonly id: string; readonly weight: number }
+  readonly Promote: { readonly id: string }
+  readonly Retire: { readonly id: string }
+}>
+const _Command = Data.taggedEnum<_Command>()
+
+export const dispatch = (env: { readonly floor: number }) => {
+  const _weighted = _Command.$match({ // closure captures env.floor; never floated at module level
+    Stage: ({ id, weight }) => `${id}=${Math.max(weight, env.floor)}`,
+    Promote: ({ id }) => `${id}^`,
+    Retire: ({ id }) => `${id}-`,
+  })
+  return (commands: readonly [_Command, ...ReadonlyArray<_Command>]): ReadonlyArray<string> =>
+    Array.map(commands, _weighted) // one entrypoint; arity rides the non-empty tuple, verb rides the tag
+}
+```
+
 [ABSENCE_FORM_SITE]:
 - Use when: a value can be absent, and absence must stay distinct from failure and from a present `null`.
 - Accept: `Option<T>` in domain code with `Option.fromNullable` at the boundary, `Option.match`/`Option.getOrElse` at consumption, `Schema.optionalWith(field, { as: "Option" })` as the only Schema absence form, and `undefined` only as the decoded shape under `exactOptionalPropertyTypes`.
@@ -156,10 +175,30 @@ type _Accessors   = { +readonly [K in keyof _Entity as `get${Capitalize<string &
 - Boundary: cause-bearing absence — unavailable, degraded, pending — is a tagged family owned by `boundaries.md`, never `Option.none`; this site owns the no-cause absence form.
 
 ```ts conceptual
-const _firstActive = (rows: ReadonlyArray<_Entity>): Option.Option<_Entity> =>
-  pipe(
-    Array.findFirst(rows, (row) => row.status === "active"),
-    Option.orElse(() => Array.head(rows)),
+const _Severity = { info: 0, warn: 1, error: 2 } as const satisfies Record<string, number>
+
+const _Row = Schema.Struct({
+  status: Schema.Literal("active", "archived"),
+  label: Schema.optionalWith(Schema.NonEmptyTrimmedString, { as: "Option" }),
+  level: Schema.Literal("info", "warn", "error"),
+})
+
+const _decodeRow = Schema.decodeUnknown(_Row)
+const _summarize = (raw: ReadonlyArray<unknown>): Effect.Effect<string, ParseResult.ParseError> =>
+  Effect.forEach(raw, (row) => _decodeRow(row)).pipe( // decode once at the seam; ParseError rides the channel
+    Effect.map((rows) =>
+      Array.findFirst(rows, (row) => row.status === "active").pipe(
+        Option.orElse(() => Array.head(rows)),
+        Option.match({
+          onNone: () => "<empty>",
+          onSome: (row) =>
+            Option.getOrElse(
+              Option.map(row.label, (label) => `${label}@${_Severity[row.level]}`), // keyof-typed index: total, exempt
+              () => `<unlabeled>@${_Severity[row.level]}`,
+            ),
+        }),
+      ),
+    ),
   )
 ```
 
@@ -216,4 +255,3 @@ Use these tests before keeping a local abstraction beside a language or ecosyste
 - Smell: `new Map()`/`new Set()`/`Array.from`/`Object.entries`/`null` appear in domain code where the Effect ecosystem provides `HashMap`/`HashSet`/`Chunk`/the `Record` module/`Option`.
 - Collapse: use the Effect data structure that carries structural equality and persistent update.
 - Done when: JS stdlib collections and `null` appear only at FFI and serialization boundaries.
-</content>

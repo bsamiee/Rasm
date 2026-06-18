@@ -1,14 +1,12 @@
 # [RASM_FABRICATION_SKELETON]
 
-The straight-skeleton/medial-axis author-kernel: `StraightSkeleton` the static surface computing the medial axis of a closed polygon by the wavefront-propagation construction, the primitive driving the `toolpath/motion#CAM_MOTION` trochoidal adaptive-clearing strategy and the exact constant-offset contour where a naive per-vertex-normal offset self-intersects. This is the one fabrication kernel where the author-kernel posture is correct and forward: no managed straight-skeleton library exists on NuGet (CGAL is C++/GPL, carrying license and per-RID burden), so the primitive is authored from first principles atop the `geometry2d/clipper#POLYGON_ALGEBRA` Clipper2 offset substrate and the kernel `Rasm/Geometry/geometry-kernel#ROBUST_PREDICATES` `Predicate.Orient2D` exact orientation. The skeleton subsumes the self-intersecting `OffsetRing` the old CAM page hand-rolled: a constant-offset wavefront that collapses an edge or splits a reflex vertex is exactly the skeleton event the wavefront propagation resolves. It composes the `frontier/owner#FABRICATION_OWNER` `Loop`/`Edge3` shared vocabulary; it computes no hash and operates on raw coordinate doubles at the interior.
+The straight-skeleton/medial-axis author-kernel: `StraightSkeleton` the static surface computing the medial axis of a closed polygon by the wavefront-propagation construction, the primitive driving the `toolpath/motion#CAM_MOTION` trochoidal adaptive-clearing strategy and the exact constant-offset contour where a naive per-vertex-normal offset self-intersects. This is the one fabrication kernel where the author-kernel posture is correct and forward: no managed straight-skeleton library exists on NuGet (CGAL is C++/GPL, carrying license and per-RID burden), so the primitive is authored from first principles atop the `geometry2d/clipper#POLYGON_ALGEBRA` Clipper2 offset substrate and the kernel `Rasm.Geometry/numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` exact orientation. The skeleton subsumes the self-intersecting `OffsetRing` the old CAM page hand-rolled: a constant-offset wavefront that collapses an edge or splits a reflex vertex is exactly the skeleton event the wavefront propagation resolves. It composes the `frontier/owner#FABRICATION_OWNER` `Loop`/`Edge3` shared vocabulary; it computes no hash and operates on raw coordinate doubles at the interior.
 
 Wire posture: HOST-LOCAL. The medial-axis `Edge3` set crosses only the in-process seam to the `toolpath/motion#CAM_MOTION` trochoidal generator — never a browser or peer wire.
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                                          |
-| :-----: | :----------------- | :--------------------------------------------------------------------------------------------- |
-|   [1]   | STRAIGHT_SKELETON | `StraightSkeleton` wavefront-propagation medial axis of a closed polygon; the trochoidal-clearing primitive |
+One cluster: `[2]-[STRAIGHT_SKELETON]` owns `StraightSkeleton` — the `SkeletonEvent`/`Wavefront` propagation computing the medial axis and the exact constant-offset of a closed polygon; the trochoidal-clearing primitive.
 
 ## [2]-[STRAIGHT_SKELETON]
 
@@ -19,7 +17,7 @@ Wire posture: HOST-LOCAL. The medial-axis `Edge3` set crosses only the in-proces
 - Receipt: `MedialAxis` returns the `Edge3` arc set directly and `OffsetAt` the `Loop` set — the geometry IS the evidence the trochoidal generator reads; no generic skeleton ledger.
 - Packages: `Rasm`/Vectors (`Point3d`/`Vector3d` — composed), `Rasm.Geometry.Numerics` (`Predicate.Orient2D` — settled, the bisector/side verdict), Clipper2 (via `geometry2d/clipper#POLYGON_ALGEBRA` — the convex-inset offset cross-check), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a weighted straight skeleton (per-edge speed for variable-kerf offset) is one speed column on `Wavefront`; a polygon-with-holes medial axis is one hole-edge arm on the propagation; zero new surface.
-- Boundary: `StraightSkeleton` is the ONE medial-axis owner and the trochoidal generator reads it, never a second skeleton routine; the convex-inset offset cross-checks the `geometry2d/clipper#POLYGON_ALGEBRA` `Offset` and never re-mints the Clipper2 polygon offset for the convex case — the skeleton owns only the reflex-split and medial-axis construction Clipper2 does not expose; every bisector turn and opposing-edge side reads `Predicate.Orient2D` exact sign and a `double` cross at the call site is the named robustness defect; a hand-rolled per-vertex-normal `OffsetRing` is the deleted form this kernel subsumes.
+- Boundary: `StraightSkeleton` is the ONE medial-axis owner and the trochoidal generator reads it, never a second skeleton routine; the `SkeletonEvent` time read dispatches through the generated total `Switch(edge:, split:)` and a `ev switch` pattern cascade with a `_` catch-all is the deleted form — a new event case fails the build until its arm lands; the convex-inset offset cross-checks the `geometry2d/clipper#POLYGON_ALGEBRA` `Offset` and never re-mints the Clipper2 polygon offset for the convex case — the skeleton owns only the reflex-split and medial-axis construction Clipper2 does not expose; every bisector turn and opposing-edge side reads `Predicate.Orient2D` exact sign and a `double` cross at the call site is the named robustness defect; a hand-rolled per-vertex-normal `OffsetRing` is the deleted form this kernel subsumes.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -84,11 +82,8 @@ public static class StraightSkeleton {
     static Option<SkeletonEvent> NextEvent(Wavefront front) => throw new NotImplementedException();
     static (Wavefront Advanced, Seq<Edge3> Arcs) Advance(Wavefront front, double time) => throw new NotImplementedException();
     static Wavefront Apply(Wavefront front, SkeletonEvent ev) => throw new NotImplementedException();
-    static double EventTime(SkeletonEvent ev) => ev switch {
-        SkeletonEvent.Edge e => e.Time,
-        SkeletonEvent.Split s => s.Time,
-        _ => double.PositiveInfinity,
-    };
+    static double EventTime(SkeletonEvent ev) =>
+        ev.Switch(edge: static e => e.Time, split: static s => s.Time);
 }
 ```
 

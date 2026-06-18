@@ -17,21 +17,21 @@ dependencies = [
     "structlog>=26.1.0",
     "psutil>=7.2.2",
     "fsspec>=2026.6.0",
-    "s3fs>=2026.6.0",             # SHARED-pull cloud backend: agent reads the same s3 tree the remote tool wrote, zero byte transfer
-    "gcsfs>=2026.5.0",            # SHARED-pull cloud backend: agent reads the same gs/gcs tree the remote tool wrote, zero byte transfer
-    "obstore>=0.10.1",            # cp315-ready abi3 Rust object_store cloud seam; relieves s3fs/pyarrow cp315 wheel lag
-    "httpx>=0.28.1",              # Retain; never remove regardless of consumers existing or not
+    "s3fs>=2026.6.0",             # data: S3 fsspec backend for shared-pull artifact reads
+    "gcsfs>=2026.6.0",            # data: GCS fsspec backend for shared-pull artifact reads
+    "obstore>=0.10.1",            # data: abi3 object_store backend while cloud-storage wheels lag on CPython 3.15
+    "httpx>=0.28.1",              # transport: approved HTTP client surface for typed adapters
     "watchfiles>=1.2.0",
     "aiocron>=2.1",
-    "apscheduler>=3.11.2",        # cron+interval+date Trigger union for the runtime StagePlan orchestration
-    "universal-pathlib>=0.3.10",  # UPath 0.3 storage_options/protocol= resolution is load-bearing for the fsspec artifact store
+    "apscheduler>=3.11.2",        # runtime: cron, interval, and date triggers for StagePlan orchestration
+    "universal-pathlib>=0.3.10",  # data: UPath storage_options/protocol resolution for the fsspec artifact store
     "asyncssh>=2.23.1",
     "zstandard",
-    "specklepy>=3.2.8",           # runtime TransportResource row: Speckle stream send/receive (remote AEC transport, never a durable store)
+    "specklepy>=3.2.8",           # AEC transport: Speckle stream send/receive, not durable storage
     "tree-sitter>=0.25.2",
     "tree-sitter-python>=0.25.0",
     "tree-sitter-typescript>=0.23.2",
-    "keyring",                    # runtime credential/secret retrieval (OS keychain at the boundary; never probed unattended); cp315-clean
+    "keyring",                    # runtime: OS keychain credential boundary; never probe unattended
 ]
 
 [dependency-groups]
@@ -58,100 +58,100 @@ dev = [
 ]
 mutation = ["mutmut>=3.6.0"]
 scientific = [
-    "adbc-driver-manager",                         # data ADBC driver-manager (Arrow Flight SQL / DuckDB ADBC); Cython, source-builds on cp315
-    "arro3-core>=0.8.1",                           # data cp315-ready abi3 Arrow core; pyarrow-cp315-gap bridge
-    "arviz>=1.2.0; python_version<'3.15'",         # compute PY_INFER_001 Bayesian diagnostics; gated: scipy/Pythran cp315 beta lag
-    "awkward>=2.9.1",                              # data PY_TENSOR_001 ragged/jagged arrays; pure-Python
-    "compas>=2.15.1; python_version<'3.15'",       # geometry GeometryAlgebra; gated: scipy-family cp315 beta lag
-    "connectorx>=0.4.5; python_version<'3.15'",    # data fast SQL->Arrow; Rust/maturin, no cp315 wheel (lock pin 0.2.3 is stale cp39-linux)
-    "cubed>=0.28.0",                               # data PY_TENSOR_001 bounded-memory distributed arrays; pure-Python
+    "adbc-driver-manager",                         # data: ADBC driver manager for Arrow Flight SQL and DuckDB; Cython source-build on CPython 3.15
+    "arro3-core>=0.8.1",                           # data: abi3 Arrow core bridge while pyarrow CPython 3.15 support stabilizes
+    "arviz>=1.2.0; python_version<'3.15'",         # compute: Bayesian diagnostics; gated by scipy/Pythran CPython 3.15 lag
+    "awkward>=2.9.1",                              # data: ragged arrays; pure Python
+    "compas>=2.15.1; python_version<'3.15'",       # geometry: algebra toolkit; gated by scipy-family CPython 3.15 lag
+    "connectorx>=0.4.5; python_version<'3.15'",    # data: SQL-to-Arrow loader; Rust/maturin lacks CPython 3.15 wheel
+    "cubed>=0.28.0",                               # data: bounded-memory distributed arrays; pure Python
     "dask",
-    "deltalake",                                   # data PY_LAKE_001 lakehouse; abi3 wheel installs on cp315
-    "duckdb",                                      # source-builds on cp315 (~2 min)
-    "geopandas",                                   # source-build via Parametric_Forge scientific toolchain
-    "h5py>=3.16.0",                                # source-build via Parametric_Forge HDF5 toolchain
-    "icechunk>=2.0.6; python_version<'3.15'",      # data PY_TENSOR_001 versioned tensor store; Rust pyo3 cp313, no cp315 wheel
-    "ibis-framework>=12.0.0",                      # data backend-agnostic SQL-expression IR
-    "jax>=0.10.1; python_version<'3.15'",          # compute NumericIntent XLA accelerator row; jaxlib ships no cp315 wheel
-    "laspy>=2.7.0",                                # geometry PY_INGEST_001 LAS/LAZ point clouds; pure-Python
+    "deltalake",                                   # data: lakehouse tables; abi3 wheel on CPython 3.15
+    "duckdb",                                      # data: analytical SQL engine; source-builds on CPython 3.15
+    "geopandas",                                   # geometry: geospatial frames; source-build via Parametric_Forge scientific toolchain
+    "h5py>=3.16.0",                                # data: HDF5 arrays; source-build via Parametric_Forge HDF5 toolchain
+    "icechunk>=2.0.6; python_version<'3.15'",      # data: versioned tensor store; Rust pyo3 lacks CPython 3.15 wheel
+    "ibis-framework>=12.0.0",                      # data: backend-agnostic SQL-expression IR
+    "jax>=0.10.1; python_version<'3.15'",          # compute: XLA accelerator; jaxlib lacks CPython 3.15 wheel
+    "laspy>=2.7.0",                                # geometry: LAS/LAZ point-cloud IO; pure Python
     "meshio",
-    "nanoarrow>=0.8.0",                            # data PY_INTEROP_001 Arrow C-data zero-copy; meson+Cython source-build
-    "narwhals>=2.22.1",                            # data PY_INTEROP_001 dataframe-agnostic API; pure-Python
-    "netcdf4>=1.7.4",                              # compute PY_SIM_001 CFD/field IO; source-build via Parametric_Forge netCDF toolchain
+    "nanoarrow>=0.8.0",                            # data: Arrow C-data interop; meson/Cython source-build
+    "narwhals>=2.22.1",                            # data: dataframe-agnostic API; pure Python
+    "netcdf4>=1.7.4",                              # compute: CFD and field IO; source-build via Parametric_Forge netCDF toolchain
     "networkx",
-    "numba>=0.65.1; python_version<'3.15'",        # compute NumericIntent LLVM JIT accelerator row; numba lags CPython, no cp315 wheel
-    "numpy>=2.0",                                  # compute substrate; 2.x ships cp315 wheels (1.26 forced an sdist build)
-    "numpyro>=0.21.0; python_version<'3.15'",      # compute PY_INFER_001 JAX-based NUTS sampler; rides the jaxlib <3.15 floor (pymc+arviz are the cp315 Bayesian path)
-    "onnx>=1.22.0",                                # compute ModelAsset graph IR; cp312-abi3 installs on cp315
-    "onnxruntime>=1.27.0; python_version<'3.15'",  # compute ModelAsset runtime-check half; no cp315 wheel
-    "optimistix>=0.1.0; python_version<'3.15'",    # compute PY_DIFF_001 JAX nonlinear/least-squares + adjoint VJP; rides the jaxlib <3.15 floor
-    "pandas",                                      # source-builds on cp315
+    "numba>=0.65.1; python_version<'3.15'",        # compute: LLVM JIT accelerator; numba/llvmlite lacks CPython 3.15 wheel
+    "numpy>=2.0",                                  # compute: array substrate; 2.x ships CPython 3.15 wheels
+    "numpyro>=0.21.0; python_version<'3.15'",      # compute: JAX NUTS sampler; gated by jaxlib CPython 3.15 floor
+    "onnx>=1.22.0",                                # compute: model graph IR; cp312-abi3 wheel on CPython 3.15
+    "onnxruntime>=1.27.0; python_version<'3.15'",  # compute: model runtime; no CPython 3.15 wheel
+    "optimistix>=0.1.0; python_version<'3.15'",    # compute: JAX nonlinear solvers and adjoint VJP; gated by jaxlib CPython 3.15 floor
+    "pandas",                                      # data: dataframe substrate; source-builds on CPython 3.15
     "pandas-stubs",
-    "pandera>=0.31.1",                             # data ContractGate: schema/quality-rule (IDS-style) validation gate SchemaClaim records but does not enforce
-    "pdal>=3.5.3; python_version<'3.15'",          # geometry PY_INGEST_001 point-cloud pipeline; sdist-only, prefer conda; no cp315 wheel
+    "pandera>=0.31.1",                             # data: schema and quality-rule contracts; records validation claims without enforcing
+    "pdal>=3.5.3; python_version<'3.15'",          # geometry: point-cloud pipeline; sdist-only, prefer conda; no CPython 3.15 wheel
     "pint",
-    "polars",                                      # cp315 wheel available
-    "pyarrow>=23.0.0,<24",                         # source-build via Parametric_Forge Arrow C++ 23 toolchain; keep Python and C++ Arrow majors aligned
-    "pye57>=0.4.19; python_version<'3.15'",        # geometry PY_INGEST_001 E57 scan IO; C++ ext cp314, no cp315 wheel
-    "pymc>=6.0.1; python_version<'3.15'",          # compute PY_INFER_001 probabilistic programming; gated: pytensor->numba->llvmlite (cp314 ceiling); arviz is the cp315 Bayesian-diagnostics path
-    "pyogrio>=0.12.1",                             # source-build via Parametric_Forge GDAL toolchain
-    "pyproj>=3.7.2",                               # source-build via Parametric_Forge PROJ toolchain
-    "python-flint>=0.8.0; python_version<'3.15'",  # compute PY_RIGOR_001 validated/interval numerics (Arb); LGPL-2.1+ runtime, cp314, no cp315 wheel
-    "rasterio>=1.5.0",                             # data RasterGeoClaim axis; source-build via Parametric_Forge GDAL toolchain
-    "rhino3dm>=8.17.0",                            # geometry mesh IO; CMake C++ source-build
-    "rustworkx>=0.17.1",                           # compute/data PY_GRAPH_001 fast graph algorithms; abi3 wheel installs on cp315
-    "salib",                                       # compute PY_INFER_001 global sensitivity analysis (Sobol/Morris/FAST); cp315-clean
-    "array-api-compat",                            # compute array-API portability shim across array backends; cp315-clean
-    "array-api-extra",                             # compute array-API supplemental helpers; cp315-clean
-    "mpmath",                                      # compute arbitrary-precision real/complex math; cp315-clean
-    "pylance",                                     # data Lance columnar/vector format; cp315-clean abi3
-    "virtualizarr",                                # data virtual-zarr reference aggregation over archival formats; cp315-clean
-    "compas_dr; python_version<'3.15'",            # geometry COMPAS dynamic relaxation; rides the compas <3.15 floor
-    "compas_tna; python_version<'3.15'",           # geometry COMPAS thrust-network analysis; rides the compas <3.15 floor
-    "diffrax; python_version<'3.15'",              # compute JAX differential-equation solvers; rides the jaxlib <3.15 floor
-    "equinox; python_version<'3.15'",              # compute JAX PyTree modules; rides the jaxlib <3.15 floor
-    "lineax; python_version<'3.15'",               # compute JAX linear solvers; rides the jaxlib <3.15 floor
-    "manifold3d; python_version<'3.15'",           # geometry robust mesh booleans; C++ pybind, no cp315 wheel
-    "nutpie; python_version<'3.15'",               # compute Rust NUTS sampler for pymc; rides the pymc <3.15 floor
-    "pyiceberg; python_version<'3.15'",            # data Apache Iceberg table format; rides the gated arrow/data floor
-    "skl2onnx; python_version<'3.15'",             # compute sklearn->ONNX converter; rides the scikit-learn <3.15 floor
-    "scikit-fem>=12.0.2; python_version<'3.15'",   # compute PY_SIM_001 lightweight FEM assembly; gated: scipy-family cp315 beta lag
-    "scikit-image>=0.26.0; python_version<'3.15'", # artifacts PY_IMG_001 image processing; C/Cython cp314, no cp315 wheel
-    "scikit-learn>=1.9.0; python_version<'3.15'",  # compute ModelAsset classical-ML + sklearn->ONNX export; no cp315 wheel
-    "scipy>=1.17.1; python_version<'3.15'",        # gated: scipy/Pythran has no cp315 beta support yet
+    "polars",                                      # data: dataframe engine; CPython 3.15 wheel
+    "pyarrow>=23.0.0,<24",                         # data: Arrow C++ bridge; source-build via Parametric_Forge Arrow toolchain
+    "pye57>=0.4.19; python_version<'3.15'",        # geometry: E57 scan IO; C++ extension lacks CPython 3.15 wheel
+    "pymc>=6.0.1; python_version<'3.15'",          # compute: probabilistic programming; pytensor/numba/llvmlite gates CPython 3.15
+    "pyogrio>=0.12.1",                             # geometry: GDAL vector IO; source-build via Parametric_Forge GDAL toolchain
+    "pyproj>=3.7.2",                               # geometry: PROJ coordinate transforms; source-build via Parametric_Forge PROJ toolchain
+    "python-flint>=0.8.0; python_version<'3.15'",  # compute: Arb interval numerics; LGPL-2.1+ runtime, no CPython 3.15 wheel
+    "rasterio>=1.5.0",                             # data: raster geospatial IO; source-build via Parametric_Forge GDAL toolchain
+    "rhino3dm>=8.17.0",                            # geometry: Rhino mesh and 3DM IO; CMake C++ source-build
+    "rustworkx>=0.17.1",                           # compute/data: graph algorithms; abi3 wheel on CPython 3.15
+    "salib",                                       # compute: global sensitivity analysis
+    "array-api-compat",                            # compute: array API portability shim
+    "array-api-extra",                             # compute: supplemental array API helpers
+    "mpmath",                                      # compute: arbitrary-precision real and complex math
+    "pylance",                                     # data: Lance columnar/vector format; abi3 wheel on CPython 3.15
+    "virtualizarr",                                # data: archival reference aggregation into virtual Zarr
+    "compas_dr; python_version<'3.15'",            # geometry: COMPAS dynamic relaxation; gated by compas CPython 3.15 floor
+    "compas_tna; python_version<'3.15'",           # geometry: COMPAS thrust-network analysis; gated by compas CPython 3.15 floor
+    "diffrax; python_version<'3.15'",              # compute: JAX differential-equation solvers; gated by jaxlib CPython 3.15 floor
+    "equinox; python_version<'3.15'",              # compute: JAX PyTree modules; gated by jaxlib CPython 3.15 floor
+    "lineax; python_version<'3.15'",               # compute: JAX linear solvers; gated by jaxlib CPython 3.15 floor
+    "manifold3d; python_version<'3.15'",           # geometry: robust mesh booleans; C++ pybind lacks CPython 3.15 wheel
+    "nutpie; python_version<'3.15'",               # compute: Rust NUTS sampler for PyMC; gated by PyMC CPython 3.15 floor
+    "pyiceberg; python_version<'3.15'",            # data: Apache Iceberg tables; gated by Arrow/data CPython 3.15 floor
+    "skl2onnx; python_version<'3.15'",             # compute: sklearn-to-ONNX converter; gated by scikit-learn CPython 3.15 floor
+    "scikit-fem>=12.0.2; python_version<'3.15'",   # compute: FEM assembly; gated by scipy-family CPython 3.15 lag
+    "scikit-image>=0.26.0; python_version<'3.15'", # artifacts: image processing; C/Cython lacks CPython 3.15 wheel
+    "scikit-learn>=1.9.0; python_version<'3.15'",  # compute: classical ML and ONNX export; no CPython 3.15 wheel
+    "scipy>=1.17.1; python_version<'3.15'",        # compute: numerical algorithms; scipy/Pythran lacks CPython 3.15 beta support
     "scipy-stubs",
-    "shapely>=2.1.2",                              # source-build via Parametric_Forge GEOS toolchain
-    "sparse>=0.18.0; python_version<'3.15'",       # data PyData sparse n-D arrays; gated: hard-deps numba->llvmlite (cp314 ceiling); scipy.sparse covers sparse-LA on cp315
+    "shapely>=2.1.2",                              # geometry: planar operations; source-build via Parametric_Forge GEOS toolchain
+    "sparse>=0.18.0; python_version<'3.15'",       # data: sparse n-D arrays; numba/llvmlite gates CPython 3.15, scipy.sparse covers sparse LA
     "sympy",
     "trimesh",
     "uncertainties",
     "xarray",
-    "xxhash>=3.7.0",                               # runtime ContentIdentity: XxHash128/XxHash3_64 byte-identical to C# System.IO.Hashing; abi3 wheel
-    "zarr>=3.2.1",                                 # data PY_TENSOR_001 chunked N-D arrays; pure-Python
+    "xxhash>=3.7.0",                               # runtime: content identity hashes matching C# System.IO.Hashing; abi3 wheel
+    "zarr>=3.2.1",                                 # data: chunked n-D arrays; pure Python
 ]
 artifacts = [
     "altair",
-    "brotli; python_version<'3.15'",               # gated: cp314-bound, no cp315 wheel
-    "colour-science>=0.4.6",                       # artifacts PY_COLOR_001 color science (CIE/spectral/appearance); pure-Python (NumPy)
-    "fonttools>=4.63.0",                           # artifacts PY_CONF_001 font subsetting/instancing/shaping metadata; pure-Python
-    "jinja2>=3.1.6",                               # artifacts ReportPlan: report-templating composition between VisualSpec outputs and DocumentPlan inputs
+    "brotli; python_version<'3.15'",               # artifacts: compression; no CPython 3.15 wheel
+    "colour-science>=0.4.6",                       # artifacts: color science for CIE, spectral, and appearance models; pure Python
+    "fonttools>=4.63.0",                           # artifacts: font subsetting, instancing, and shaping metadata; pure Python
+    "jinja2>=3.1.6",                               # artifacts: report templating between visual and document outputs
     "kaleido",
-    "lonboard>=0.16.0; python_version<'3.15'",     # artifacts PY_NB_001 GPU/deck.gl GeoArrow viz; gated: geoarrow-rust-core caps at cp314, no cp315 wheel/sdist yet
-    "lxml; python_version<'3.15'",                 # gated: cp314-bound, no cp315 wheel
-    "lz4; python_version<'3.15'",                  # gated: cp314-bound, no cp315 wheel
-    "matplotlib; python_version<'3.15'",           # gated: cp314-bound (contourpy/kiwisolver), no cp315 wheel
-    "nbclient>=0.11.0",                            # artifacts PY_NB_001 headless notebook execution client; pure-Python
+    "lonboard>=0.16.0; python_version<'3.15'",     # artifacts: GPU/deck.gl GeoArrow visualization; no CPython 3.15 wheel
+    "lxml; python_version<'3.15'",                 # artifacts: XML processing; no CPython 3.15 wheel
+    "lz4; python_version<'3.15'",                  # artifacts: compression; no CPython 3.15 wheel
+    "matplotlib; python_version<'3.15'",           # artifacts: plotting; contourpy/kiwisolver lack CPython 3.15 wheels
+    "nbclient>=0.11.0",                            # artifacts: headless notebook execution client; pure Python
     "openpyxl",
-    "papermill>=2.7.0",                            # artifacts PY_NB_001 parameterized notebook runs; pure-Python
+    "papermill>=2.7.0",                            # artifacts: parameterized notebook runs; pure Python
     "pikepdf",
-    "pillow; python_version<'3.15'",               # gated: cp314-bound, no cp315 wheel
+    "pillow; python_version<'3.15'",               # artifacts: image IO; no CPython 3.15 wheel
     "plotly",
     "py7zr",
-    "pyhanko>=0.35.1",                             # artifacts PY_CONF_001 PDF digital signing / PAdES; pure-Python
+    "pyhanko>=0.35.1",                             # artifacts: PDF digital signing and PAdES; pure Python
     "pymupdf",
     "pypdf",
     "pypdfium2",
-    "pyvista>=0.48.4; python_version<'3.13'",      # artifacts VisualSpec 3D scientific viz; rides the vtk native interpreter floor
+    "pyvista>=0.48.4; python_version<'3.13'",      # artifacts: 3D scientific visualization; gated by VTK interpreter floor
     "python-docx",
     "python-magic",
     "python-pptx",
@@ -160,10 +160,10 @@ artifacts = [
     "ruamel-yaml",
     "tomlkit",
     "vl-convert-python",
-    "vtk>=9.6.2; python_version<'3.13'",           # artifacts VisualSpec VTK engine backing pyvista; no cp315 wheel
+    "vtk>=9.6.2; python_version<'3.13'",           # artifacts: VTK engine for pyvista; no CPython 3.15 wheel
     "weasyprint",
-    "great-tables",                                # artifacts publication-quality display tables; cp315-clean
-    "uharfbuzz",                                   # artifacts HarfBuzz text-shaping bindings; cp315-clean
+    "great-tables",                                # artifacts: publication-quality display tables
+    "uharfbuzz",                                   # artifacts: HarfBuzz text-shaping bindings
 ]
 # --- [UV] ------------------------------------------------------------------
 
@@ -197,7 +197,7 @@ exclude = [
     "node_modules",
     "test-results",
     "tests/ast-grep/fail/**",
-    "tests/ast-grep/pass/**",  # ast-grep probes; excluded from ty/mypy/ruff — negative verification is the ast-grep VERIFY catalog row
+    "tests/ast-grep/pass/**",  # structural probe corpus; ast-grep verification owns pass/fail semantics
     "tmp",
 ]
 
@@ -209,12 +209,8 @@ error-on-warning = true
 
 # --- [MYPY] ----------------------------------------------------------------
 
-# ADVISORY checker only — `ty` ([tool.ty], all = "error") is the BINDING type gate. mypy diverges on intentional
-# 3.15 / ty-clean idioms (typing.TypeForm absent in mypy; no-for-loop side-effect comprehensions read as
-# func-returns-value; disallow_any_explicit flags Callable[..., R] test signatures; unfollowed-import Any on
-# fsspec). Those divergences are NOT defects: they are scoped in the `[[tool.mypy.overrides]]` stanzas below, never
-# in inline suppressions that ty would reject under respect-type-ignore-comments = false. `files` makes the two
-# disjoint subtrees the canonical bare-`uv run mypy` target. Resolve real type defects through ty.
+# `ty` is the binding type gate; mypy is advisory for `tools/assay` and `tests`.
+# Mypy-only divergences stay in overrides because `ty` rejects inline type-ignore comments.
 [tool.mypy]
 files =                   ["tools/assay", "tests"]
 python_version =          "3.15"
@@ -262,11 +258,7 @@ init_forbid_extra =             true
 warn_required_dynamic_aliases = true
 warn_untyped_fields =           true
 
-# tests/** are ty-clean but diverge from strict mypy on intentional idioms; each relaxation maps to a real divergence,
-# not a defect. disallow_any_*: Callable[..., R] test signatures + TypeForm unfollowed-import Any. warn_unreachable:
-# exhaustive seam match arms ty proves live. disable_error_code: mypy typeshed lag — TypeForm + PEP 661 sentinel
-# (attr-defined), no-for-loop side-effect comprehensions (func-returns-value), test Callable signatures (type-arg),
-# RailProbe.install LSP narrowing (override), **dict-splat into typed ctors + mypy Never-collapse arg propagation (arg-type).
+# `tests/**` stays `ty`-clean; these relaxations isolate strict-mypy lag around TypeForm, sentinel, Callable, match, and ctor narrowing.
 [[tool.mypy.overrides]]
 module =                  "tests.*"
 disallow_any_explicit =   false
@@ -274,23 +266,14 @@ disallow_any_unimported = false
 warn_unreachable =        false
 disable_error_code =      ["func-returns-value", "attr-defined", "type-arg", "override", "arg-type"]
 
-# fsspec ships no py.typed marker (the backend laws import fsspec.implementations.* directly).
 [[tool.mypy.overrides]]
-module =                 ["fsspec", "fsspec.*", "boto3", "boto3.*"]
+module =                 ["fsspec", "fsspec.*", "boto3", "boto3.*"]  # backend imports lack py.typed coverage
 ignore_missing_imports = true
 
 # --- [PYTEST] --------------------------------------------------------------
 
-# Session-separation policy: under `filterwarnings = ["error"]`, loading pytest-benchmark and pytest-xdist in the
-# same session raises an xdist worker INTERNALERROR (re-verified 2026-06-09 with `-n 2` and `-n auto`, both exit 3:
-# `pytest_benchmark.logger.PytestBenchmarkWarning: Benchmarks are automatically disabled because xdist plugin is
-# active...` escalated to error by the filter). `-n` is deliberately NOT in addopts; the main suite runs serially
-# and benchmarks run in their own session via `-m benchmark --benchmark-only`. Keep these invocations separate; do not
-# add `-n` here. Parallel runs must opt in per-invocation AND unload the benchmark PLUGIN — the escalated warning
-# fires at configure time when both plugins load, so `-m "not benchmark"` does NOT help. Bare `-p no:benchmark` also
-# aborts: `required_plugins` still demands the plugin and the addopts `--benchmark-storage` flag has no owner once it
-# unloads. The working opt-in is `-n auto -p no:benchmark -o required_plugins= -o "addopts=<addopts minus --benchmark-*>"`
-# (verified 2026-06-11 while probing the bench hook revival).
+# `pytest-benchmark` and `pytest-xdist` stay in separate sessions under `filterwarnings = ["error"]`.
+# Do not add `-n` to default `addopts`; parallel runs must unload benchmark config explicitly.
 [tool.pytest]
 minversion =               "9.0"
 strict =                   true
@@ -303,7 +286,7 @@ collect_imported_tests =   false
 empty_parameter_set_mark = "fail_at_collect"
 addopts = [
     "-p",
-    "tests.python._testkit.runtime",  # testkit runtime plugin: hypothesis profiles + OTel provider + markers; -p loads it pre-configure for every invocation shape
+    "tests.python._testkit.runtime",  # testkit runtime plugin loads profiles, OTel, and markers before pytest config
     "-x",
     "--tb=short",
     "--import-mode=importlib",
@@ -311,13 +294,11 @@ addopts = [
     "not benchmark",
     "--disable-socket",
     "--allow-unix-socket",
-    "--benchmark-storage=file://.artifacts/python/benchmarks",  # canonical owner: tools.assay.composition.catalog.BENCHMARK_STORAGE_URI
+    "--benchmark-storage=file://.artifacts/python/benchmarks",  # benchmark artifacts route through the Assay catalog URI
     "--hypothesis-profile=rasm",
 ]
 filterwarnings = ["error"]
-# pytest-timeout registers `timeout` via `addini(..., type=<string default>)`; pytest 9 TOML mode strictly enforces
-# the declared option type and raises INTERNALERROR on a native int. The string form is required here.
-timeout = "30"
+timeout = "30"  # pytest-timeout registers this option as a string; pytest 9 TOML mode rejects a native int
 required_plugins = [
     "anyio",
     "hypothesis",
@@ -342,33 +323,20 @@ asyncio_mode = "auto"
 # --- [INLINE_SNAPSHOT] -----------------------------------------------------
 
 [tool.inline-snapshot]
-# CI-safe default (short-report: fails on mismatch, never mutates files); external snapshot storage routed under cache.
-default-flags = ["short-report"]
+default-flags = ["short-report"]  # reports mismatches without mutating snapshots
 storage-dir =   ".cache/inline-snapshot"
 
 # --- [COVERAGE] ------------------------------------------------------------
 
-# Canonical coverage command: `uv run coverage run -m pytest tests/python/tools/assay -q && uv run coverage combine --append && uv run coverage report`.
-# The combine step folds the `cli(isolate=True)` subprocess lane's parallel data files (written under
-# `COVERAGE_PROCESS_START=.config/coverage-subprocess.ini`, gated on the parent's COVERAGE_RUN) into the main data file;
-# `--append` keeps the in-process session's data, which `combine` would otherwise start clean.
-# Per-test contexts are opt-in and xdist-safe via pytest-cov's hook: `uv run pytest tests/python/tools/assay --cov=tools/assay --cov-context=test -q`.
-# `dynamic_context = "test_function"` is intentionally absent: coverage's own dynamic context hard-errors under `pytest --cov`
-# (and blocks `-n auto`), and it mis-attributes property-test lines to the Hypothesis internal frame.
 [tool.coverage.run]
 branch =          true
-relative_files =  true
+relative_files =  true      # subprocess coverage combines through relative repo paths
 source =          ["tools/assay"]
 data_file =       ".cache/coverage/.coverage"
-# CPython 3.15 beta ships no compiled C tracer (`coverage.tracer.CTracer` absent); `sys.monitoring` (PEP 669) is the only
-# working core. Verified to record branch arcs + per-test contexts (coarser than the pure-Python core, but contexts are
-# diagnostic — the law-coverage gate reads the law MANIFEST, not coverage contexts).
-core =            "sysmon"
+core =            "sysmon"  # CPython 3.15 beta lacks coverage's compiled C tracer
 
 [tool.coverage.report]
-# 95 floor: sysmon's PEP 669 core captures slightly fewer arcs than the (absent) C core on this beta interpreter; the
-# line+branch rail is one of three (law-coverage manifest gate + mutation survivors are the compensating rails).
-fail_under =    95
+fail_under =    95  # sysmon captures fewer arcs than the unavailable C core
 show_missing =  true
 skip_covered =  true
 exclude_also = [
@@ -395,46 +363,16 @@ output = ".artifacts/python/coverage/coverage.lcov"
 
 # --- [MUTMUT] --------------------------------------------------------------
 
-# mutmut rides the MAIN venv via the `mutation` dependency group. Historical `.cache/mut-venv` and
-# `.cache/mutation-requirements.txt` fallbacks are retired; do not rebuild them.
-#
-# SUPPORTED RUNNER (one posture only): the RAIL — `uv run python -m tools.assay test run --mutation full|changed`.
-# It stages the project into `.artifacts/python/mutmut/work` (mutmut hard-codes `./mutants` relative to its cwd, so
-# the staged cwd is what keeps the repo root litter-free; the testkit litter law forbids root `mutants/`), splices
-# `--max-children` from `mutation_max_cpu`, injects `COVERAGE_RCFILE` from the catalog row env (see the
-# `mutate_only_covered_lines` note below for why the coverage map is poisoned without it), and rides the kill-rate
-# gate (floor 0.80) on the same lease over the staged cache. Manual fallback (debugging only) runs FROM the staged
-# work dir, never the repo root:
-#   cd .artifacts/python/mutmut/work
-#   COVERAGE_RCFILE=.config/coverage-mutmut.ini uv run --project ../../../.. --locked --group mutation mutmut run
-#   uv run --project ../../../.. --locked --group mutation python -m tools.assay.rails.mutation_gate
-#
-# `-o required_plugins=` below waives the required-plugins guard for the mutation invocation only: mutmut disables
-# pytest-randomly (`-p no:randomly`, its own default) for deterministic kill verdicts, which would otherwise trip the
-# project's `required_plugins` check and abort before any mutant runs.
-#
-# The historical stats-phase exit-4 abort was NOT a cwd/rootdir defect: it was `max_stack_depth != -1` opting into a
-# strict-resolve stack walk that dies on `<frozen importlib._bootstrap>` pseudo-filenames (see the note at that key).
-# With the walk disabled the stats phase passes in full (1045 passed under mutants/, verified 2026-06-09). KNOWN CEILING,
-# local not mutmut: the clean-tests phase still fails because mutmut re-invokes `pytest.main` IN-PROCESS and the session
-# OTel fixture (`tests/conftest.py::_otel_provider`) calls set-once `set_tracer_provider` — the second invocation's
-# provider is silently ignored after the first was shut down, so `otel_spans` tests observe zero spans.
 [tool.mutmut]
-source_paths = ["tools/assay"]
-# Type-check pre-filter DISABLED (tests are the kill mechanism — disabling loses no kill power). Root cause, traced to the
-# installed mutmut 3.6.0: `filter_mutants_with_type_checker` (`mutmut/mutation/file_mutation.py:494`) RAISES on ANY checker
-# diagnostic whose line falls outside a mutated-method span (`mutant is None` -> bare `raise Exception(...)`), aborting the
-# entire run. It is NOT ty failing to resolve the injected `mutmut.mutation.trampoline` import (that line is `# type: ignore`'d
-# and respected). Re-enable only once `ty check tools/assay` is provably zero-diagnostic at HEAD over the `mutants/` copy.
-pytest_add_cli_args_test_selection = ["tests/python/tools/assay"]
+source_paths = ["tools/assay"]                                    # Mutation runs through the Assay-staged workdir; retired `.cache/mut-venv` and requirements fallbacks stay retired.
+pytest_add_cli_args_test_selection = ["tests/python/tools/assay"] # Mutmut's type-check prefilter raises on unrelated checker diagnostics; tests remain the kill mechanism.
 pytest_add_cli_args = [
     "--hypothesis-profile=rasm-mutation",
     "-o",
-    "required_plugins=",
+    "required_plugins=",                                          # mutmut disables pytest-randomly, so this invocation waives the required-plugins guard
     "-m",
     "not benchmark and not network",
-    # subprocess/integration test spawns the real `uv run python -m tools.assay`, which runs the UNMUTATED binary
-    # (and fails inside mutmut's mutants/ copy) — useless for mutation, deselected here.
+    # Subprocess tests execute the unmutated CLI outside mutmut's copied tree; deselect them for mutation.
     "--deselect",
     "tests/python/tools/assay/test_main.py::test_main_subprocess_exit_code",
     "--deselect",
@@ -445,23 +383,8 @@ pytest_add_cli_args = [
     "tests/python/tools/assay/test_main.py::test_main_subprocess_human_renderer_console_stderr",
 ]
 do_not_mutate = ["tools/assay/__init__.py", "tools/assay/rails/mutation_gate.py"]
-# Coverage-to-mutant map (Rank 13/14). With `mutate_only_covered_lines = true`, mutmut's `gather_coverage`
-# (`mutmut/code_coverage.py:54-55`) keys covered lines by the ABSOLUTE mutant path then reads them back via
-# `CoverageData.lines(abs)`. The project's `[tool.coverage.run] relative_files = true` makes coverage store RELATIVE keys,
-# so `lines(abs)` returns `None`, every covered set collapses to empty, and the run aborts at "no covered mutants" before a
-# single mutant is tested (reproduced live on coverage 7.14.x: relative-keyed data yields `lines(abspath)=None`,
-# `lines(rel)=[1,2,3]`). The `COVERAGE_RCFILE=.config/coverage-mutmut.ini` override (`relative_files = false`) restores
-# absolute keys for the mutmut invocation ONLY — it is row-owned (mutation catalog row `env`) and exported by the manual
-# card; the main suite + the coverage gate keep `relative_files = true` untouched. Flipped to `true` 2026-06-11: scopes
-# the mutant population to covered lines and cuts wall-clock; uncovered lines are the coverage gate's jurisdiction, so
-# losing their survivors costs no signal the gates do not already own.
-mutate_only_covered_lines = true
-# -1 (upstream default) disables the trampoline stack walk. Any other value makes `record_trampoline_hit`
-# (`mutmut/__main__.py:130`) call `Path(frame.co_filename).resolve(strict=True)` on every caller frame; module-level calls
-# into mutated code during conftest import put `<frozen importlib._bootstrap>` pseudo-filenames on that stack, the strict
-# resolve raises FileNotFoundError, the conftest import dies, and pytest exits 4 — the stats-phase abort previously
-# misattributed to the changed cwd. Reproduced and cleared empirically 2026-06-09.
-max_stack_depth = -1
+mutate_only_covered_lines = true  # mutation run supplies absolute-keyed coverage data for mutmut's covered-line map
+max_stack_depth = -1              # disables mutmut's strict stack walk over importlib pseudo-filenames
 
 # --- [RUFF] ----------------------------------------------------------------
 
@@ -492,33 +415,33 @@ skip-magic-trailing-comma = true
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    # -- Formatter-handled (redundant with ruff format) ---------------------
-    "COM812",  # trailing-comma (conflicts with formatter)
-    "ISC001",  # implicit-string-concat (conflicts with formatter)
-    # -- Match/case + FP style conflicts ------------------------------------
-    "RET504",  # unnecessary-assign (named intermediates in flow() pipelines)
-    "RET505",  # superfluous-else-return (exhaustive match dispatch)
-    "RET506",  # superfluous-else-raise (explicit else in ROP error handling)
-    "SIM108",  # use-ternary-operator (match/case is sole dispatch mechanism)
-    "SIM114",  # combine-if-arms (no if/else — match/case only)
-    # -- Error messaging (expression Result / TaggedError patterns) ---------
-    "EM101",   # raw-string-in-exception (inline error messages in frozen errors)
-    "EM102",   # f-string-in-exception (f-string error constructors)
-    "TRY003",  # raise-vanilla-args (descriptive domain error messages)
-    "TRY301",  # raise-within-try (ROP @safe boundary patterns)
-    "TRY400",  # error-instead-of-exception (structlog .error() outside handlers)
-    # -- Docstring exception sections (pydoclint) ---------------------------
-    "DOC502",  # extraneous-exception: a propagate-through-helper Raises: documents a callee-raised exception with no in-body raise; documenting every exception the function surfaces is the chosen convention (DOC501 still enforces the inverse)
-    # -- Sorting rules (semantic section ordering preferred) ----------------
-    "RUF022",  # unsorted-dunder-all (semantic > alphabetical)
-    "RUF023",  # unsorted-dunder-slots (semantic > alphabetical)
-    # -- Development workflow -----------------------------------------------
-    "TD003",   # missing-todo-link (git blame provides context)
-    "FIX002",  # todo-found (CI gate, not editor noise)
-    "INP001",  # implicit-namespace-package (monorepo structure)
-    "CPY001",  # missing-copyright-notice (top-level LICENSE)
-    # -- Section-divider convention -----------------------------------------
-    "ERA001",  # bare '# --- [LABEL]' sub-section dividers (CLAUDE.md [6]) read as commented-out code by eradicate
+    # --- [FORMATTER]
+    "COM812",  # ruff format owns trailing commas
+    "ISC001",  # ruff format owns implicit string concatenation
+    # --- [MATCH_DISPATCH]
+    "RET504",  # named intermediates keep flow pipelines readable
+    "RET505",  # explicit match dispatch keeps exhaustive arms visible
+    "RET506",  # explicit error branches keep ROP rails visible
+    "SIM108",  # match/case owns dispatch, not ternaries
+    "SIM114",  # match/case owns dispatch, not merged if arms
+    # --- [ERROR_RAILS]
+    "EM101",   # frozen errors carry inline messages
+    "EM102",   # error constructors carry formatted context
+    "TRY003",  # domain errors carry descriptive messages
+    "TRY301",  # `@safe` ROP boundaries may raise inside the guarded call
+    "TRY400",  # structlog `.error()` is valid outside exception handlers
+    # --- [DOCSTRINGS]
+    "DOC502",  # Raises sections may document propagated helper exceptions; DOC501 still requires direct raises
+    # --- [SEMANTIC_ORDER]
+    "RUF022",  # semantic public-surface order beats alphabetical `__all__`
+    "RUF023",  # semantic slot order beats alphabetical `__slots__`
+    # --- [WORKFLOW]
+    "TD003",   # TODO links are not required for local maintenance notes
+    "FIX002",  # TODO comments are accepted source markers
+    "INP001",  # monorepo packages may be implicit namespaces
+    "CPY001",  # top-level LICENSE owns copyright notice
+    # --- [SECTION_DIVIDERS]
+    "ERA001",  # compact `# --- [LABEL]` subsection dividers are source structure
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -552,10 +475,10 @@ ignore = [
     "TRY300",
 ]
 "tools/py_analyzer/**" = ["PLR0912", "TC003"]
-"tests/**"         = ["S101", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001", "PLC2701"]  # PLC2701: the _testkit package is private-by-design; every spec imports it
+"tests/**"         = ["S101", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001", "PLC2701"]  # PLC2701: specs import the private-by-design _testkit package
 "**/adapters/**"   = ["ANN401"]
 "**/conftest.py"   = ["E402", "F401", "ARG001"]
-"tests/python/_testkit/runtime.py" = ["E402"]  # runtime plugin: hypothesis env gates must precede hypothesis imports
+"tests/python/_testkit/runtime.py" = ["E402"]  # Hypothesis environment gates must precede imports
 
 [tool.ruff.lint.flake8-annotations]
 allow-star-arg-any =      false

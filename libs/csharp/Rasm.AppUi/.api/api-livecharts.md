@@ -138,14 +138,15 @@
 
 [GEO_ENTRYPOINTS]: map chart binding members
 - rail: charts
+- surface-root: `SourceGenMapChart`
 
-| [INDEX] | [SURFACE]       | [SURFACE_ROOT]      | [RAIL]            |
-| :-----: | :-------------- | :------------------ | :---------------- |
-|   [1]   | `ActiveMap`     | `SourceGenMapChart` | active map source |
-|   [2]   | `MapProjection` | `SourceGenMapChart` | projection mode   |
-|   [3]   | `Series`        | `SourceGenMapChart` | geo series        |
-|   [4]   | `Stroke`        | `SourceGenMapChart` | land stroke paint |
-|   [5]   | `Fill`          | `SourceGenMapChart` | land fill paint   |
+| [INDEX] | [SURFACE]       | [RAIL]            |
+| :-----: | :-------------- | :---------------- |
+|   [1]   | `ActiveMap`     | active map source |
+|   [2]   | `MapProjection` | projection mode   |
+|   [3]   | `Series`        | geo series        |
+|   [4]   | `Stroke`        | land stroke paint |
+|   [5]   | `Fill`          | land fill paint   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

@@ -47,10 +47,10 @@ class ReportPlan(Struct, frozen=True):
         match self.kind:
             case ReportKind.TEMPLATE:
                 rendered = env.from_string(self.source).render(sections=self.sections, figures=self.figures)
-                return ContentIdentity.key("report-template", rendered.encode())
+                return ContentIdentity.of("report-template", rendered.encode())
             case ReportKind.NOTEBOOK:
                 executed = _execute_notebook(self.source, self.parameters)
-                return ContentIdentity.key("report-notebook", executed)
+                return ContentIdentity.of("report-notebook", executed)
             case _:
                 assert_never(self.kind)
 
@@ -61,4 +61,4 @@ def report_env() -> Environment:
 
 ## [3]-[RESEARCH]
 
-- [NOTEBOOK_SPELLINGS]: the papermill `execute_notebook(input_path, output_path, parameters=...)` signature and the nbclient `NotebookClient.execute` engine contract verify against the branch `.api` catalogue for `papermill` and `nbclient`; the parameters-tagged cell injection and the executed-notebook serialization to bytes confirm on the cp315 floor.
+- [NOTEBOOK_SPELLINGS]: the papermill `execute_notebook(input_path, output_path, parameters=...)` signature and the nbclient `NotebookClient.execute` engine contract verify against the folder `.api` catalogue for `papermill` and `nbclient`; the parameters-tagged cell injection and the executed-notebook serialization to bytes confirm on the cp315 floor.

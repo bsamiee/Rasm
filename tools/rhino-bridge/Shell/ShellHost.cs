@@ -287,13 +287,18 @@ public sealed class ShellHost : IDisposable {
             Sequence: Interlocked.Increment(location: ref sequence),
             AtUnixMs: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             Scenario: evt.Stamp.Scenario);
-        _ = outbox.Writer.TryWrite(item: evt.Switch(
-            state: stamp,
-            factCase: static (s, f) => (BridgeEvent)(f with { Stamp = s }),
-            captureCase: static (s, c) => c with { Stamp = s },
-            phaseCase: static (s, p) => p with { Stamp = s },
-            progressCase: static (s, p) => p with { Stamp = s },
-            hostExceptionCase: static (s, h) => h with { Stamp = s }));
+        BridgeEvent stamped = evt switch {
+            BridgeEvent.FactCase row => row with { Stamp = stamp },
+            BridgeEvent.CaptureCase row => row with { Stamp = stamp },
+            BridgeEvent.EvidenceCase row => row with { Stamp = stamp },
+            BridgeEvent.ArtifactCase row => row with { Stamp = stamp },
+            BridgeEvent.CertificateCase row => row with { Stamp = stamp },
+            BridgeEvent.PhaseCase row => row with { Stamp = stamp },
+            BridgeEvent.ProgressCase row => row with { Stamp = stamp },
+            BridgeEvent.HostExceptionCase row => row with { Stamp = stamp },
+            _ => evt,
+        };
+        _ = outbox.Writer.TryWrite(item: stamped);
     }
 
     private async Task ForwardLoopAsync(CancellationToken token) {

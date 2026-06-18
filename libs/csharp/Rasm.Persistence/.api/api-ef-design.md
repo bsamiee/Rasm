@@ -15,7 +15,7 @@ operation reporting, and reverse-engineering assets for store-profile tooling.
 
 ## [2]-[PUBLIC_TYPES]
 
-[DESIGN_TYPES]: design-time service surfaces
+[PUBLIC_TYPE_SCOPE]: design-time service surfaces
 - rail: schema-tooling
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]       | [CAPABILITY]               |
@@ -27,7 +27,7 @@ operation reporting, and reverse-engineering assets for store-profile tooling.
 |   [5]   | `MigrationsOperations`                  | migration operations | drives migration tooling   |
 |   [6]   | `OperationReporter`                     | reporter             | emits tool messages        |
 
-[SCAFFOLDING_TYPES]: migration and model outputs
+[PUBLIC_TYPE_SCOPE]: migration and model outputs
 - rail: schema-tooling
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]     | [CAPABILITY]             |
@@ -41,7 +41,7 @@ operation reporting, and reverse-engineering assets for store-profile tooling.
 |   [7]   | `ModelReverseEngineerOptions`     | reverse policy     | configures store inspect |
 |   [8]   | `MigrationsCodeGeneratorSelector` | generator selector | selects code generator   |
 
-[CODEGEN_TYPES]: C# generation surfaces
+[PUBLIC_TYPE_SCOPE]: C# generation surfaces
 - rail: schema-tooling
 
 | [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE] | [CAPABILITY]         |

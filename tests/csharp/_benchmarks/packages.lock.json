@@ -22,9 +22,9 @@
       },
       "JetBrains.Annotations": {
         "type": "Direct",
-        "requested": "[2025.2.4, )",
-        "resolved": "2025.2.4",
-        "contentHash": "TwbgxAkXxY+vNEhNVx/QXjJ4vqxmepOjsgRvvImQPbHkHMMb4W+ahL3laMsxXKtNT7iMy+E1B3xkqao2hf1n3A=="
+        "requested": "[2026.2.0, )",
+        "resolved": "2026.2.0",
+        "contentHash": "drvAEaI7Xf4wU6dx4UTB9MoZWXZlraaQ0qoeThPQ411FxNhId7QdUTukIC9I8aUHP0ycAaGwZNKqSvfOZQvUlg=="
       },
       "LanguageExt.Core": {
         "type": "Direct",
@@ -115,14 +115,6 @@
         "resolved": "3.2.4",
         "contentHash": "I5qFifWw/gaTQT52MhzjZpkm/JPlfjSeO/DTZJjO7+hTKI+0aGRgOgZ3NN6D96dDuuqbIAZSeA5RimtHjqrA2A=="
       },
-      "System.Management": {
-        "type": "Transitive",
-        "resolved": "9.0.5",
-        "contentHash": "n6o9PZm9p25+zAzC3/48K0oHnaPKTInRrxqFq1fi/5TPbMLjuoCm/h//mS3cUmSy+9AO1Z+qsC/Ilt/ZFatv5Q==",
-        "dependencies": {
-          "System.CodeDom": "9.0.5"
-        }
-      },
       "System.Reflection.TypeExtensions": {
         "type": "Transitive",
         "resolved": "4.7.0",
@@ -146,7 +138,7 @@
       "csp.contracts": {
         "type": "Project",
         "dependencies": {
-          "JetBrains.Annotations": "[2025.2.4, )"
+          "JetBrains.Annotations": "[2026.2.0, )"
         }
       },
       "rasm": {
@@ -154,10 +146,13 @@
         "dependencies": {
           "CSparse": "[4.4.0, )",
           "Csp.Contracts": "[1.0.0, )",
-          "JetBrains.Annotations": "[2025.2.4, )",
+          "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
+          "MathNet.Numerics.Providers.MKL": "[6.0.0-beta2, )",
+          "MathNet.Numerics.Providers.OpenBLAS": "[6.0.0-beta2, )",
           "MathNet.Symbolics": "[0.25.0, )",
+          "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.3.0, )"
         }
@@ -196,6 +191,24 @@
         "contentHash": "MqOJVzAjNaVuhitHE4CQa7kRK74janrjYsxjz2VSQwiyl0pIailjnQwoL/RCOUqcQVK+GEtSEKQyIbVgWhL7wg==",
         "dependencies": {
           "FSharp.Core": "8.0.100",
+          "MathNet.Numerics": "6.0.0-beta2"
+        }
+      },
+      "MathNet.Numerics.Providers.MKL": {
+        "type": "CentralTransitive",
+        "requested": "[6.0.0-beta2, )",
+        "resolved": "6.0.0-beta2",
+        "contentHash": "clfQCGFUtT5csP8B8iHEYJnVkW1fhBlW0xvv3hHQM54VbVUYGK2TuRtNvznSBkK7jhj7JjJ6EVw2Bzli/pz+Ug==",
+        "dependencies": {
+          "MathNet.Numerics": "6.0.0-beta2"
+        }
+      },
+      "MathNet.Numerics.Providers.OpenBLAS": {
+        "type": "CentralTransitive",
+        "requested": "[6.0.0-beta2, )",
+        "resolved": "6.0.0-beta2",
+        "contentHash": "IQb4xRyrkwYFd6XQz5pvj1bpHhCrzX09kvBSOcuqcPUFKbZRwUNm7Ht7uhLc0oP6DkWSyJGUuRkgy8/nJp9Z7Q==",
+        "dependencies": {
           "MathNet.Numerics": "6.0.0-beta2"
         }
       },
@@ -260,6 +273,21 @@
         "resolved": "10.0.9",
         "contentHash": "scH7O8oAuOMyZKOEiOQB3ZVz6x9XkrZNKNeWVCxdvkJHSy4SYXyinGK0o2Rn5LiGh+ovezziT2WCdqWKa7WMKA=="
       },
+      "System.IO.Hashing": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "vixglGnKEexAJDeIRhyayZYzxyrgK1K9GU3K/zRZVwDbaDcMkSqj4WDHoVmQMNfsdUtLALfNSJw6mBIpdxie4A=="
+      },
+      "System.Management": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "8mfTzHLlMHCqFE1+iFGzxRCeCb2gDqvRQtZthuksYB+z546QZaFCiagbJ2KXHe7dy5ZpCUg/usaIqc2DxiemPw==",
+        "dependencies": {
+          "System.CodeDom": "10.0.9"
+        }
+      },
       "System.Numerics.Tensors": {
         "type": "CentralTransitive",
         "requested": "[10.0.9, )",
@@ -274,11 +302,12 @@
         "contentHash": "2ap/rYmjtzCOT8hxrnEW/QeiOt+paD8iRrIcdKX0cxVwWLFa1e+JDBNeECakmccXrSFeBQuu5AV8SNkipFMMMw=="
       },
       "System.Management": {
-        "type": "Transitive",
-        "resolved": "9.0.5",
-        "contentHash": "n6o9PZm9p25+zAzC3/48K0oHnaPKTInRrxqFq1fi/5TPbMLjuoCm/h//mS3cUmSy+9AO1Z+qsC/Ilt/ZFatv5Q==",
+        "type": "CentralTransitive",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "8mfTzHLlMHCqFE1+iFGzxRCeCb2gDqvRQtZthuksYB+z546QZaFCiagbJ2KXHe7dy5ZpCUg/usaIqc2DxiemPw==",
         "dependencies": {
-          "System.CodeDom": "9.0.5"
+          "System.CodeDom": "10.0.9"
         }
       }
     }

@@ -55,7 +55,6 @@ internal static class AnalysisAcceptance {
             ResidualSample sample => Some(sample.IsValid),
             SpatialHit hit => Some(hit.IsValid),
             SpatialPair pair => Some(pair.IsValid),
-            RayQuery ray => Some(ray.IsValid),
             _ => OpAcceptance.ValidityOf(source: source),
         };
 }

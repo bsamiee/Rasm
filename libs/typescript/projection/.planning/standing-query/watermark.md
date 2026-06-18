@@ -35,7 +35,7 @@ const advance = (mark: Watermark, at: bigint, lateRow: boolean): Watermark => ({
 });
 
 const isLate = (mark: Watermark, at: bigint, allowed: Duration.Duration): boolean =>
-  at < mark.eventNanos - BigInt(Math.trunc(Duration.toNanos(allowed)));
+  at < mark.eventNanos - Duration.unsafeToNanos(allowed);
 
 const defaultLateness: Duration.Duration = Duration.seconds(30);
 ```

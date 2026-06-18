@@ -5,7 +5,7 @@ Capability health and the usable-failure degradation rail for every Rasm.AppHost
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                              |
-| :-----: | ---------------- | ----------------------------------------------------------------------------------- |
+| :-----: | :--------------- | :---------------------------------------------------------------------------------- |
 |   [1]   | HEALTH_FOLD      | Contributor rows, resource pressure, peer reads, one snapshot fold                  |
 |   [2]   | DEGRADATION_RAIL | Level vocabulary, retained capabilities, derivation fold, hysteresis                |
 |   [3]   | WIRE_HEALTH      | Tag-predicate wire mapping and the inbound set-degradation route                    |
@@ -286,7 +286,7 @@ public sealed class DegradationCell(DegradationPolicy policy, IClock clock, Corr
 - Auto: app roots register the `grpc.health.v1` service behind the app-root pin and feed it the row predicate; healthy and degraded project to the serving wire state, unhealthy to not-serving — degraded keeps serving because the level, not the wire, carries usable failure.
 - Packages: Microsoft.Extensions.Diagnostics.HealthChecks, LanguageExt.Core
 - Growth: one wire row per served service name, zero new surface.
-- Boundary: set-degradation is the service-modality inbound route — the verb admits its level key through `DegradationLevel.Validate` and lands on `Force`; one override rail serves operator config, wire verbs, and release.
+- Boundary: set-degradation is the service-modality inbound route — the verb admits its level key through `DegradationLevel.TryGet`, mapping an unknown key to `None` so `Force` re-derives rather than forcing a phantom level, and lands on `Force`; one override rail serves operator config, wire verbs, and release.
 
 ```csharp signature
 public sealed record WireHealthRow(string Service, Option<string> Tag) {

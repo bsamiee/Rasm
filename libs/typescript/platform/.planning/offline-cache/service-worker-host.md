@@ -4,14 +4,12 @@ One page owns the service-worker runtime lifecycle and the offline-first cache s
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                         |
-| :-----: | :----------------- | :----------------------------------------------------------- |
-|   [1]   | SERVICE_WORKER_HOST | the registration lifecycle and the cache-strategy axis         |
+[SERVICE_WORKER_HOST]: the registration lifecycle and the cache-strategy axis.
 
 ## [2]-[SERVICE_WORKER_HOST]
 
 - Owner: `ServiceWorkerHost`, the single service-worker runtime owner — registration through `workbox-window` `Workbox` held as an `Effect.acquireRelease` resource, the `installing`/`installed`/`waiting`/`activated`/`controlling`/`redundant` lifecycle stream bridged off the `Workbox` event target through `Stream.asyncScoped` and folded into one `SwLifecycle` `SubscriptionRef`, the `messageSkipWaiting` update handshake reloading on the next `controlling` event, the update-available cell the `ui` surfaces a refresh affordance from, the navigation-preload arming for the network-first HTML route, and the offline-first navigation fallback; and `CacheStrategy`, the `Schema.Literal` route-strategy axis with a `StrategyBehavior` `Record` projecting each route row to its verified Workbox `RuntimeCaching` entry. The cache-strategy literal is the one route-strategy vocabulary and a hand-written `caches.open(...)` call outside it is the named defect.
-- Cases: `CacheStrategy` is one `Schema.Literal` union (`cache-first`/`network-first`/`stale-while-revalidate`/`network-only`) folded by `strategyName` to the verified workbox `StrategyName` (`CacheFirst`/`NetworkFirst`/`StaleWhileRevalidate`/`NetworkOnly`), with a `StrategyBehavior` row carrying each route `urlPattern`, cache name, and `maxEntries`/`maxAgeSeconds` expiration and `runtimeCaching` projecting the row to a `workbox-build` `RuntimeCaching` entry, so the static-asset `cache-first` route, the API `network-first` route, and the tile/glb `stale-while-revalidate` route are each one row, never a per-route imperative handler; `ServiceWorkerHost` registers the build-emitted worker through `workbox-window` `Workbox` and folds the lifecycle events into one `SwLifecycle` `SubscriptionRef`, so the `waiting` event flips the update-available cell and the `ui` refresh affordance reads it through the one `AtomBinding`; an accepted refresh sets the `Reloading` transient then messages the waiting worker — the `set`-then-`zipRight(messageSkipWaiting)` order is load-bearing so the `controlling` arm reads `Reloading` and reloads exactly once — so the update handshake is one `Match.value` fold over the Workbox event stream rather than scattered `postMessage` calls; the network-first HTML route arms navigation-preload so the first navigation request races the cache lookup against the network preload rather than blocking on worker startup; the offline-first navigation fallback is the precache-route `NavigationRoute` the worker asset carries, so a reload while offline serves the precached app-shell rather than a browser error page.
+- Cases: `CacheStrategy` is one `Schema.Literal` union (`cache-first`/`network-first`/`stale-while-revalidate`/`network-only`) mapped by the `strategyName` `as const` lookup to the verified workbox `StrategyName` (`CacheFirst`/`NetworkFirst`/`StaleWhileRevalidate`/`NetworkOnly`) — a keyed-domain vocabulary lookup, never a `Match` arm chain over a string axis — with a `StrategyBehavior` row carrying each route `urlPattern`, cache name, and `maxEntries`/`maxAgeSeconds` expiration and `runtimeCaching` projecting the row to a `workbox-build` `RuntimeCaching` entry, so the static-asset `cache-first` route, the API `network-first` route, and the tile/glb `stale-while-revalidate` route are each one row, never a per-route imperative handler; `ServiceWorkerHost` registers the build-emitted worker through `workbox-window` `Workbox` and folds the lifecycle events into one `SwLifecycle` `SubscriptionRef`, so the `waiting` event flips the update-available cell and the `ui` refresh affordance reads it through the one `AtomBinding`; an accepted refresh sets the `Reloading` transient then messages the waiting worker — the `set`-then-`zipRight(messageSkipWaiting)` order is load-bearing so the `controlling` arm reads `Reloading` and reloads exactly once — so the update handshake is one `Match.value` fold over the Workbox event stream rather than scattered `postMessage` calls; the network-first HTML route arms navigation-preload so the first navigation request races the cache lookup against the network preload rather than blocking on worker startup; the offline-first navigation fallback is the precache-route `NavigationRoute` the worker asset carries, so a reload while offline serves the precached app-shell rather than a browser error page.
 - Packages: `workbox-window` for the `Workbox` registration and the lifecycle event target bridged through `Stream.asyncScoped`; `workbox-build` `RuntimeCaching`/`StrategyName` for the `StrategyBehavior` projection; `vite-plugin-pwa` for the build-time precache manifest `BuildPipeline` consumes; `effect` `Schema.Literal` for the strategy axis, `SubscriptionRef` for the lifecycle and update-available cells, `Data.taggedEnum` for `SwLifecycle`, `Match` for the lifecycle fold, and `Stream`/`Effect.acquireRelease`/`Effect.forkScoped` for the registration resource.
 - Growth: a new cache route lands as one literal on `CacheStrategy` and one `StrategyBehavior` `Record` row; a new lifecycle signal lands as one arm on the `SwLifecycle` `Match` fold, never a parallel queue or a second worker.
 - Boundary: `ServiceWorkerHost` owns the SW RUNTIME lifecycle and `BuildPipeline` (`build-pipeline`) EMITS the worker ASSET at build time — distinct altitudes, one concern each, so a strategy or lifecycle row authored on `BuildPipeline` is the named two-owner-one-concern defect; a direct `caches`/`navigator.serviceWorker` call outside `ServiceWorkerHost` is the named defect; `ui` reads the update-available cell through the `AtomBinding` and never imports `platform`.
@@ -20,12 +18,13 @@ One page owns the service-worker runtime lifecycle and the offline-first cache s
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 import type { RuntimeCaching, StrategyName } from "workbox-build";
 import type { WorkboxLifecycleEventMap } from "workbox-window/utils/WorkboxEvent.js";
-import { Data, Effect, Layer, Match, Option, Record as Rec, Stream, SubscriptionRef } from "effect";
+import { Data, Effect, Layer, Match, Option, Record as Rec, Schema, Stream, SubscriptionRef } from "effect";
 import * as BrowserStream from "@effect/platform-browser/BrowserStream";
 import { Workbox } from "workbox-window";
 
 // --- [TYPES] ---------------------------------------------------------------------------
-type CacheStrategy = "cache-first" | "network-first" | "stale-while-revalidate" | "network-only";
+const CacheStrategy = Schema.Literal("cache-first", "network-first", "stale-while-revalidate", "network-only");
+type CacheStrategy = typeof CacheStrategy.Type;
 
 type SwLifecycle = Data.TaggedEnum<{
   readonly Unregistered: object;
@@ -55,17 +54,16 @@ interface ServiceWorkerHost {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-const strategyName: (strategy: CacheStrategy) => StrategyName = Match.type<CacheStrategy>().pipe(
-  Match.when("cache-first", () => "CacheFirst" as const),
-  Match.when("network-first", () => "NetworkFirst" as const),
-  Match.when("stale-while-revalidate", () => "StaleWhileRevalidate" as const),
-  Match.when("network-only", () => "NetworkOnly" as const),
-  Match.exhaustive,
-);
+const strategyName = {
+  "cache-first": "CacheFirst",
+  "network-first": "NetworkFirst",
+  "stale-while-revalidate": "StaleWhileRevalidate",
+  "network-only": "NetworkOnly",
+} as const satisfies Record<CacheStrategy, StrategyName>;
 
 const runtimeCaching = (row: StrategyBehavior): RuntimeCaching => ({
   urlPattern: row.urlPattern,
-  handler: strategyName(row.strategy),
+  handler: strategyName[row.strategy],
   options: {
     cacheName: row.cacheName,
     ...(Option.isSome(row.maxEntries) || Option.isSome(row.maxAgeSeconds)
@@ -144,16 +142,11 @@ class ServiceWorkerHostLive extends Effect.Service<ServiceWorkerHostLive>()("@ra
             )),
           Match.when("controlling", () =>
             SubscriptionRef.get(lifecycle).pipe(
-              Effect.flatMap(
-                SwLifecycle.$match({
-                  Reloading: () => Effect.sync(() => window.location.reload()),
-                  Unregistered: () => Effect.void,
-                  Installing: () => Effect.void,
-                  Installed: () => Effect.void,
-                  Active: () => Effect.void,
-                  UpdateWaiting: () => Effect.void,
-                  Redundant: () => Effect.void,
-                }),
+              Effect.flatMap((phase) =>
+                Match.value(phase).pipe(
+                  Match.tag("Reloading", () => Effect.sync(() => window.location.reload())),
+                  Match.orElse(() => Effect.void),
+                ),
               ),
             )),
           Match.exhaustive,
@@ -174,10 +167,10 @@ class ServiceWorkerHostLive extends Effect.Service<ServiceWorkerHostLive>()("@ra
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 export {
-  type CacheStrategy,
   type ServiceWorkerHost,
   type StrategyBehavior,
   type SwLifecycle,
+  CacheStrategy,
   ServiceWorkerHostLive,
   runtimeCachingManifest,
 };

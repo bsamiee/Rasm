@@ -75,8 +75,6 @@
 - evidence: each parse/dump captures table count, key count, and output byte length as a structured-documents receipt.
 - boundary: tomlkit owns TOML; the stdlib `tomllib` read-only path is not used where styled round-trip is admitted; XML routes to `lxml`, YAML to `ruamel.yaml`; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
-
 [RAIL_LAW]:
 - Package: `tomlkit`
 - Owns: style-preserving TOML parse/dump, programmatic document building, item factories, encoder registration

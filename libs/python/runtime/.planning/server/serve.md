@@ -9,16 +9,16 @@ The inbound companion server-runtime, credential axis, and private daemon entryp
 
 ## [2]-[SERVE]
 
-- Owner: `ServerHost` — the boundary capsule over one `grpc.aio.server` hosting servicers generated from the C# proto descriptors; `Credential` the tagged union over token/keyring resolution and `InsecureLoopback` for the UDS leg.
-- Cases: `Credential` cases `Token(pem)` · `Keyring(service, account)` · `InsecureLoopback` — matched by `match`/`case`; `InsecureLoopback` binds `add_insecure_port` for the UDS/test leg, `Token` and `Keyring` resolve a `(private-key, certificate-chain)` PEM pair into `ssl_server_credentials`, `Keyring` reading the bundle through the OS-native `keyring` backend.
+- Owner: `ServerHost` — the boundary capsule over one `grpc.aio.server` hosting servicers generated from the C# proto descriptors; `Credential` the tagged union over `token`/`keyring` resolution and the `insecure_loopback` UDS leg, its `bundle` fold collapsing all three to one optional PEM string.
+- Cases: `Credential` cases `token=pem` · `keyring=(service, account)` · `insecure_loopback=True` — keyword-constructed and matched by `match`/`case`; `Credential.bundle` folds all three into one `str | None` — `None` for the loopback leg, the inline PEM for `token`, the OS-keyring lookup for `keyring` — so `_listen` dispatches once on presence, binding `add_insecure_port` when absent and `ssl_server_credentials` over the resolved `(private-key, certificate-chain)` pair when present.
 - Entry: `ServerHost.serve` binds the port (or UDS socket), starts the server, and awaits termination under the `anyio` runner; `ServerHost.drain` calls `Server.stop(grace)` participating in the host drain choreography so in-flight calls complete within the grace period.
-- Auto: outcomes map to `grpc.StatusCode` and a domain `Error(BoundaryFault)` from `reliability/faults#FAULT` converts through `ServicerContext.abort`, never a bare exception across the wire; the generated stubs arrive from `grpcio-tools` compiling the C# `.proto` descriptors — the runtime implements servicers over them and converts to canonical shapes at the seam; the `Token` and `Keyring` cases resolve a PEM key/cert bundle (`keyring.get_password` for the keyring case) and never read an environment variable; `_secure` is the one `ssl_server_credentials` call both secure cases share.
+- Auto: outcomes map to `grpc.StatusCode` and a domain `Error(BoundaryFault)` from `reliability/faults#FAULT` converts through `ServicerContext.abort`, never a bare exception across the wire; the generated stubs arrive from `grpcio-tools` compiling the C# `.proto` descriptors — the runtime implements servicers over them and converts to canonical shapes at the seam; `Credential.bundle` is the one credential-resolution fold the two secure cases share, reading the OS-native `keyring` backend for the keyring case and never an environment variable.
 - Packages: `grpcio` (`grpc.aio.server`/`add_secure_port`/`add_insecure_port`/`ssl_server_credentials`/`StatusCode`/`ServicerContext.abort`/`Compression`), `grpcio-tools`, `protobuf`, `keyring` (`get_password`), `anyio`.
 - Growth: a new servicer is one generated stub implementation; a new credential mode is one `Credential` case; zero new surface, no second RPC server.
 - Boundary: the wire contract is the existing C# `ComputeService`/`ArtifactSync` proto — the runtime mints no transport, no channel, and no second wire vocabulary; a hand-rolled message loop, a divergent message shape, a bare exception across the wire, an insecure port in production, and a second RPC server are the deleted forms; the C# host lifecycle, global health, and product telemetry export stay AppHost-owned. The owner rides the sub-3.15 companion floor: the floor/lock-scope decision admits the companion environment before the `grpc.aio` server boots against the descriptors.
 
 ```python signature
-from typing import Literal
+from typing import Literal, assert_never
 
 import anyio
 import grpc
@@ -33,17 +33,16 @@ class Credential:
     keyring: tuple[str, str] = case()
     insecure_loopback: bool = case()
 
-    @staticmethod
-    def Token(value: str) -> "Credential":
-        return Credential(token=value)
-
-    @staticmethod
-    def Keyring(service: str, account: str) -> "Credential":
-        return Credential(keyring=(service, account))
-
-    @staticmethod
-    def InsecureLoopback() -> "Credential":
-        return Credential(insecure_loopback=True)
+    def bundle(self) -> str | None:
+        match self:
+            case Credential(tag="insecure_loopback"):
+                return None
+            case Credential(tag="token", token=pem):
+                return pem
+            case Credential(tag="keyring", keyring=(service, account)):
+                return keyring.get_password(service, account) or ""
+            case _ as unreachable:
+                assert_never(unreachable)
 
 
 class ServerHost:
@@ -51,20 +50,14 @@ class ServerHost:
         self._bind, self._credential, self._grace = bind, credential, grace
         self._server: grpc.aio.Server = grpc.aio.server(compression=grpc.Compression.Gzip)
 
-    def _secure(self, key_pem: str, cert_pem: str) -> None:
-        self._server.add_secure_port(self._bind, grpc.ssl_server_credentials([(key_pem.encode(), cert_pem.encode())]))
-
     def _listen(self) -> None:
-        match self._credential:
-            case Credential(tag="insecure_loopback"):
+        match self._credential.bundle():
+            case None:
                 self._server.add_insecure_port(self._bind)
-            case Credential(tag="token", token=pem):
-                key_pem, cert_pem = pem.split("\n--SEP--\n", 1)
-                self._secure(key_pem, cert_pem)
-            case Credential(tag="keyring", keyring=(service, account)):
-                bundle = keyring.get_password(service, account) or ""
+            case bundle:
                 key_pem, cert_pem = bundle.split("\n--SEP--\n", 1)
-                self._secure(key_pem, cert_pem)
+                creds = grpc.ssl_server_credentials([(key_pem.encode(), cert_pem.encode())])
+                self._server.add_secure_port(self._bind, creds)
 
     async def serve(self) -> None:
         self._listen()
@@ -93,7 +86,7 @@ def companion_app() -> App:
 
     @app.command
     async def serve(bind: str, *, grace: float = 5.0) -> None:
-        host = ServerHost(bind, Credential.InsecureLoopback(), grace)
+        host = ServerHost(bind, Credential(insecure_loopback=True), grace)
         await host.serve()
 
     return app
@@ -102,5 +95,5 @@ def companion_app() -> App:
 ## [4]-[RESEARCH]
 
 - [COMPANION_FLOOR]: `grpcio`/`grpcio-tools`/`protobuf` ride the Forge companion lane (`forge-companion-env`, python312, `<'3.13'`), not the cp315 core manifest. The `grpc.aio.server` boot and the generated-stub servicer shape are proven against the C# `ComputeService`/`ArtifactSync` descriptors once the upstream descriptors land; the `ssl_server_credentials` and `add_secure_port` spellings confirm against the `grpcio` catalogue.
-- [KEYRING_ADMISSION]: `keyring` is the OS-native credential backend the `Keyring` case resolves through; `keyring` is manifest-declared (cp315-clean), and the `get_password` spelling confirms at fence transcription.
-- [CREDENTIAL_PEM]: the exact PEM-bundle encoding the `Token`/`Keyring` secret carries — whether a single concatenated key+cert blob or a structured pair — is fixed against the C# `CredentialPolicy` axis at the wire seam; the `\n--SEP--\n` split is the placeholder the seam decision replaces.
+- [KEYRING_CATALOGUE]: `keyring` is the OS-native credential backend the `keyring` case resolves through; `keyring` is manifest-declared (cp315-clean) and resolves on the core, but carries no `.api/` catalogue; the `keyring.get_password(service, account)` spelling confirms against the `keyring` catalogue at capture.
+- [CREDENTIAL_PEM]: the exact PEM-bundle encoding the `token`/`keyring` secret carries — whether a single concatenated key+cert blob or a structured pair — is fixed against the C# `CredentialPolicy` axis at the wire seam; the `\n--SEP--\n` split is the placeholder the seam decision replaces.

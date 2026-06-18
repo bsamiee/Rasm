@@ -284,7 +284,7 @@ public sealed class PhaseStatusAlgebraLaws {
     [Fact]
     public void RanksFormTheAmendedTotalOrder() =>
         Assert.Equal(
-            expected: [("ok", 1, 0), ("skipped", 1, 0), ("unsupported", 2, 3), ("failed", 3, 1), ("timeout", 4, 5), ("busy", 5, 5)],
+            expected: [("ok", 1, 0), ("skipped", 1, 0), ("degraded", 2, 2), ("unsupported", 3, 3), ("failed", 4, 1), ("timeout", 5, 5), ("busy", 6, 5)],
             actual: PhaseStatus.Items.Select(selector: static status => (status.Key, status.Rank, status.ExitCode)));
 
     [Fact]
@@ -307,7 +307,7 @@ public sealed class PhaseStatusAlgebraLaws {
     [Fact]
     public void OnlySkippedIsIndecisive() =>
         Assert.Equal(
-            expected: [true, false, true, true, true, true],
+            expected: [true, false, true, true, true, true, true],
             actual: PhaseStatus.Items.Select(selector: static status => status.IsDecisive));
 }
 

@@ -1,4 +1,4 @@
-# [TYPESCRIPT_API_EFFECT_WORKFLOW]
+# [API_CATALOGUE] @effect/workflow
 
 `@effect/workflow` is the durable-workflow engine for Effect: a `Workflow` is a named, payload/success/error-schema'd unit whose `execute` body survives process restarts, replays deterministically, and resumes from durable checkpoints. The page owns the full module surface — the `Workflow` definition and its result algebra, run-once `Activity` units with retry/compensation, the `WorkflowEngine`/`WorkflowInstance` durable kernel services, the durable primitives (`DurableClock`, `DurableDeferred`, `DurableQueue`, `DurableRateLimiter`), and the RPC/HTTP proxy derivation (`WorkflowProxy`/`WorkflowProxyServer`). It is the single durable-execution owner; no hand-rolled state machine, saga, or retry loop survives.
 
@@ -7,8 +7,6 @@
 [PACKAGE_SURFACE]: `@effect/workflow`
 - package: `@effect/workflow`
 - import: `@effect/workflow`
-- version: `0.18.2`
-- owner: `effect-core`
 - rail: durable-work
 - peer: `effect` `^3.21.2`, `@effect/experimental` `^0.60.0`, `@effect/platform` `^0.96.1`, `@effect/rpc` `^0.75.1`
 - modules: `Workflow`, `Activity`, `WorkflowEngine`, `DurableClock`, `DurableDeferred`, `DurableQueue`, `DurableRateLimiter`, `WorkflowProxy`, `WorkflowProxyServer`
@@ -565,10 +563,3 @@ export type RpcHandlers<Workflows extends Workflow.Any, Prefix extends string> =
   ? Rpc.Handler<`${Prefix}${_Name}`> | Rpc.Handler<`${Prefix}${_Name}Discard`> | Rpc.Handler<`${Prefix}${_Name}Resume`>
   : never
 ```
-
-## [8]-[ADMISSION]
-
-[PACKAGE_SCOPE]:
-- Surface captured through `uv run python -m tools.assay api query --key @effect/workflow`, with `--symbol`/`--full` for member-level detail; reflected from installed `node_modules/@effect/workflow/dist/dts/*.d.ts` at version `0.18.2`.
-- Version pins live only in the workspace manifest; this page carries the reflected version as evidence.
-- `DurableQueue` and `DurableRateLimiter` require the `@effect/experimental` peer (`PersistedQueueFactory`, `RateLimiter`); those services are provided by the experimental layers, not by `@effect/workflow`.

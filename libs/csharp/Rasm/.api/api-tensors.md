@@ -77,30 +77,36 @@ for measured Compute execution.
 |   [4]   | `Reverse`                | remap call   | reverses element order     |
 |   [5]   | `Resize`                 | remap call   | resizes to a new shape     |
 
-[ENTRYPOINT_SCOPE]: primitive operations
+[ENTRYPOINT_SCOPE]: arithmetic and fused primitive operations
 - rail: tensor
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]        | [CAPABILITY]            |
-| :-----: | :--------------------- | :------------------ | :---------------------- |
-|   [1]   | `TensorPrimitives.Add` | primitive call      | computes elementwise op |
-|   [2]   | `Subtract`             | primitive call      | computes elementwise op |
-|   [3]   | `Multiply`             | primitive call      | computes elementwise op |
-|   [4]   | `Divide`               | primitive call      | computes elementwise op |
-|   [5]   | `MultiplyAdd`          | primitive call      | computes fused op       |
-|   [6]   | `FusedMultiplyAdd`     | primitive call      | computes fused op       |
-|   [7]   | `Dot`                  | reduction call      | computes inner product  |
-|   [8]   | `CosineSimilarity`     | reduction call      | computes similarity     |
-|   [9]   | `Sum`                  | aggregation call    | reduces values          |
-|  [10]   | `Product`              | aggregation call    | reduces values          |
-|  [11]   | `Max`                  | aggregation call    | reduces values          |
-|  [12]   | `Min`                  | aggregation call    | reduces values          |
-|  [13]   | `IndexOfMax`           | search call         | finds extrema index     |
-|  [14]   | `SoftMax` / `Sigmoid`  | activation call     | computes activation     |
-|  [15]   | `Cos`                  | transcendental call | computes trig op        |
-|  [16]   | `Exp`                  | transcendental call | computes exponential op |
-|  [17]   | `Log`                  | transcendental call | computes logarithm op   |
-|  [18]   | `ConvertChecked`       | conversion call     | converts values         |
-|  [19]   | `ConvertSaturating`    | conversion call     | converts values         |
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]     | [CAPABILITY]            |
+| :-----: | :--------------------- | :--------------- | :---------------------- |
+|   [1]   | `TensorPrimitives.Add` | primitive call   | computes elementwise op |
+|   [2]   | `Subtract`             | primitive call   | computes elementwise op |
+|   [3]   | `Multiply`             | primitive call   | computes elementwise op |
+|   [4]   | `Divide`               | primitive call   | computes elementwise op |
+|   [5]   | `MultiplyAdd`          | primitive call   | computes fused op       |
+|   [6]   | `FusedMultiplyAdd`     | primitive call   | computes fused op       |
+|   [7]   | `Dot`                  | reduction call   | computes inner product  |
+|   [8]   | `CosineSimilarity`     | reduction call   | computes similarity     |
+|   [9]   | `Sum`                  | aggregation call | reduces values          |
+
+[ENTRYPOINT_SCOPE]: aggregation, activation, transcendental, and conversion primitives
+- rail: tensor
+
+| [INDEX] | [SURFACE]             | [CALL_SHAPE]        | [CAPABILITY]            |
+| :-----: | :-------------------- | :------------------ | :---------------------- |
+|   [1]   | `Product`             | aggregation call    | reduces values          |
+|   [2]   | `Max`                 | aggregation call    | reduces values          |
+|   [3]   | `Min`                 | aggregation call    | reduces values          |
+|   [4]   | `IndexOfMax`          | search call         | finds extrema index     |
+|   [5]   | `SoftMax` / `Sigmoid` | activation call     | computes activation     |
+|   [6]   | `Cos`                 | transcendental call | computes trig op        |
+|   [7]   | `Exp`                 | transcendental call | computes exponential op |
+|   [8]   | `Log`                 | transcendental call | computes logarithm op   |
+|   [9]   | `ConvertChecked`      | conversion call     | converts values         |
+|  [10]   | `ConvertSaturating`   | conversion call     | converts values         |
 
 [ENTRYPOINT_SCOPE]: elementwise, rounding, and transcendental primitives
 - rail: tensor

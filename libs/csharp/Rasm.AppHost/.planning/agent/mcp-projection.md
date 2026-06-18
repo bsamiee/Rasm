@@ -16,7 +16,7 @@ The Model Context Protocol serving surface for the runtime spine: the official `
 - Owner: `McpMethod` `[SmartEnum<string>]` the MCP method vocabulary under the `CapabilityKeyPolicy` accessor; `ToolProjection` the descriptor-to-tool fold; `McpTool` the projected tool descriptor; `McpResource` the projected resource handle; `McpPrompt` the projected prompt template.
 - Cases: 8 method rows — initialize, tools-list, tools-call, resources-list, resources-read, prompts-list, prompts-get, ping — the closed MCP request surface; tool/resource/prompt projections fold the registry's `DiscoveryResult` rows.
 - Entry: `Project(CapabilityRegistry registry, DegradationLevel level, Func<DiscoveryResult, JsonNode> schemaOf, JsonNode receiptSchema)` returns `McpCatalog` — one fold projects the level-gated discovery result into the MCP tool catalog (each tool carrying its descriptor input schema and the uniform `CommandReceipt` output schema), so an agent sees exactly the tools the host can serve at its current degradation; `Tool(DiscoveryResult descriptor, JsonNode inputSchema, JsonNode outputSchema)` is the single descriptor-to-tool projection.
-- Auto: each `DiscoveryResult` projects to one `Microsoft.Extensions.AI.AIFunction` (the `AIFunction : AIFunctionDeclaration : AITool` chain MEAI 10.x exposes, where `JsonSchema` is a `JsonElement` on `AIFunctionDeclaration` and `Name`/`Description` are virtuals on `AITool`) whose overridden `JsonSchema` is the `JsonSchemaExporter` schema the descriptor's `CommandArguments` resolves through `SuiteContracts.Schema`, so the SDK's `inputSchema` derives from the same schema the codegen and command binder read, never a hand-authored JSON Schema and never the SDK's reflected delegate-parameter schema; the projection adopts a `CommandAIFunction : AIFunction` subclass that closes the host-injected `TenantContext`/`CorrelationId` over the brokered invoker (so only `payload` is the agent-facing input) and overrides `JsonSchema` to the descriptor schema, and `McpServerTool.Create(AIFunction, McpServerToolCreateOptions)` adopts it, with the projection setting the `McpServerToolCreateOptions` annotations from the descriptor's `EffectClass` (`pure`/`read` set `ReadOnly`, `write`/`external`/`irreversible` set `Destructive`) and `Idempotency` so an agent reads the side-effect class from the SDK's tool metadata; the `Destructive` knob is `bool?` and the SDK treats unset/`true` as destructive, meaningful only when `ReadOnly=false`, so the projection always sets both explicitly with `ReadOnly` forcing `Destructive=false`, never inheriting the destructive default on an unset path; `Permitting` gating means a degraded host registers only the still-servable tools with zero parallel catalog.
+- Auto: each `DiscoveryResult` projects to one `Microsoft.Extensions.AI.AIFunction` (the `AIFunction : AIFunctionDeclaration : AITool` chain, where `JsonSchema` is a `JsonElement` on `AIFunctionDeclaration` and `Name`/`Description` are virtuals on `AITool`) whose overridden `JsonSchema` is the `JsonSchemaExporter` schema the descriptor's `CommandArguments` resolves through `SuiteContracts.Schema`, so the SDK's `inputSchema` derives from the same schema the codegen and command binder read, never a hand-authored JSON Schema and never the SDK's reflected delegate-parameter schema; the projection adopts a `CommandAIFunction : AIFunction` subclass that closes the host-injected `TenantContext`/`CorrelationId` over the brokered invoker (so only `payload` is the agent-facing input) and overrides `JsonSchema` to the descriptor schema, and `McpServerTool.Create(AIFunction, McpServerToolCreateOptions)` adopts it, with the projection setting the `McpServerToolCreateOptions` annotations from the descriptor's `EffectClass` (`pure`/`read` set `ReadOnly`, `write`/`external`/`irreversible` set `Destructive`) and `Idempotency` so an agent reads the side-effect class from the SDK's tool metadata; the `Destructive` knob is `bool?` and the SDK treats unset/`true` as destructive, meaningful only when `ReadOnly=false`, so the projection always sets both explicitly with `ReadOnly` forcing `Destructive=false`, never inheriting the destructive default on an unset path; `Permitting` gating means a degraded host registers only the still-servable tools with zero parallel catalog.
 - Receipt: the projection is a pure fold producing the registered `McpServerTool` set; the served-method transition logs through one `SpineLog` event in the 1000-1999 band — no parallel projection receipt.
 - Packages: ModelContextProtocol, ModelContextProtocol.Core, Microsoft.Extensions.AI.Abstractions, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new method row tracks a new MCP request kind the SDK already serves; a new projection target (tool, resource, prompt) is one fold arm; zero new surface — the agent transport is the registry projected onto the SDK, never a parallel command catalog.
@@ -59,9 +59,6 @@ public sealed record McpCatalog(
 }
 
 public static class ToolProjection {
-    // `McpServerToolCreateOptions.Destructive` defaults to `true` and is only meaningful when `ReadOnly=false`; a `ReadOnly`
-    // tool must project `Destructive=false` so an MCP client never surfaces a false danger hint, and the projection always
-    // sets both explicitly so the SDK's destructive-by-default is never inherited on the unset path.
     public static McpTool Tool(DiscoveryResult descriptor, JsonNode inputSchema, JsonNode outputSchema) =>
         new(
             Name: descriptor.Descriptor,
@@ -73,8 +70,6 @@ public static class ToolProjection {
             Idempotent: descriptor.Idempotency is "idempotent" or "keyed",
             EstimatedCost: descriptor.Estimated);
 
-    // `schemaOf` resolves the per-descriptor `CommandArguments` input schema; `receiptSchema` is the uniform `CommandReceipt`
-    // output schema every adopted tool advertises (the structured-content contract), both off `SuiteContracts.Schema`.
     public static McpCatalog Project(CapabilityRegistry registry, DegradationLevel level, Func<DiscoveryResult, JsonNode> schemaOf, JsonNode receiptSchema) =>
         registry.Discover(new DiscoveryQuery.Permitting(level)) is var rows
             ? new McpCatalog(
@@ -83,17 +78,6 @@ public static class ToolProjection {
                 Prompts: rows.Filter(static row => row.Effect is "pure").Map(row => new McpPrompt(row.Descriptor, schemaOf(row))))
             : McpCatalog.Empty;
 
-    // SDK adoption: the page-local `McpTool` is the projected descriptor; the SDK serves `McpServerTool`, which adopts an
-    // `AIFunction`. The adopted function is a `CommandAIFunction` subclass over the brokered invoker rather than a
-    // factory-derived delegate function, because the served `inputSchema` must be the descriptor's `SuiteContracts.Schema`
-    // (carried as `McpTool.InputSchema`), not a schema the SDK reflects off the delegate's parameters. `AIFunctionFactory.Create`
-    // derives `JsonSchema` from the delegate's reflected parameters and exposes no raw-schema hook on its 4-arg overload, and
-    // its default binder only auto-excludes `CancellationToken`/`AIFunctionArguments`/`IServiceProvider` from that schema — so
-    // a delegate carrying `TenantContext`/`CorrelationId` would advertise those host-injected values as agent call arguments.
-    // The subclass closes the host-injected `tenant`/`correlation` over the invoker, overrides `JsonSchema` to the descriptor
-    // schema (the `JsonNode`→`JsonElement` reconciliation happens at this single seam), and routes invocation through the
-    // brokered `McpDispatch.Call` so every adopted tool runs through the command algebra; only `payload` is the agent surface.
-    // `McpServerTool.Create(AIFunction, McpServerToolCreateOptions)` adopts it with the annotations the `McpTool` carries.
     public static McpServerTool Adopt(McpRuntime runtime, McpTool tool, TenantContext tenant, CorrelationId correlation, JsonSerializerOptions wire) =>
         McpServerTool.Create(
             new CommandAIFunction(runtime, tool, tenant, correlation, wire),
@@ -104,18 +88,11 @@ public static class ToolProjection {
                 Destructive = tool.Destructive,
                 Idempotent = tool.Idempotent,
                 UseStructuredContent = true,
-                // `UseStructuredContent = true` alone makes the SDK derive the output schema from the `AIFunction` return
-                // type; to advertise the `CommandReceipt` contract the prose implies, `OutputSchema` (`JsonElement?` on the
-                // options) is set explicitly from the receipt type's `SuiteContracts.Schema` carried as `McpTool.OutputSchema`.
                 OutputSchema = JsonSerializer.SerializeToElement(tool.OutputSchema, wire),
                 SerializerOptions = wire,
             });
 }
 
-// The adopted `AIFunction`: closes the host-injected `tenant`/`correlation` over the brokered invoker so they never reach the
-// served `inputSchema`, and overrides `JsonSchema` to the descriptor's resolved schema (`McpTool.InputSchema`, a `JsonNode`,
-// parsed to the `JsonElement` `AIFunctionDeclaration.JsonSchema` returns). `InvokeCoreAsync` reads the lone `payload` argument
-// the agent supplies and dispatches through `McpDispatch.Call` onto the command algebra.
 public sealed class CommandAIFunction(McpRuntime runtime, McpTool tool, TenantContext tenant, CorrelationId correlation, JsonSerializerOptions wire) : AIFunction {
     public override string Name => tool.Name;
     public override string Description => tool.Title;
@@ -132,7 +109,7 @@ public sealed class CommandAIFunction(McpRuntime runtime, McpTool tool, TenantCo
 - Owner: `McpFault` `[Union]` fault family in the 4640 band (the JSON-RPC error-code band the MCP transport maps); `CostPreview` the dry-run pricing record; `ToolResult` the structured tool-call result; `McpDispatch` the static brokered-dispatch surface.
 - Cases: `McpFault` = Text | UnknownTool | InvalidArguments | CostRejected | Cancelled — each mapping to a JSON-RPC error code at the transport edge.
 - Entry: `Preview(McpRuntime runtime, string tool, CommandArguments arguments)` returns `IO<CostPreview>` — the dry-run cost preview prices the tool call through `GrantBroker.Admit(dryRun: true)` and returns the estimated cost and whether the standing grant covers it, before any execution; `Call(McpRuntime runtime, string tool, CommandArguments arguments)` returns `IO<ToolResult>` — the brokered dispatch routes the tool call through `CommandAlgebra.Run` and projects the `CommandReceipt` onto the MCP structured result.
-- Auto: the preview reuses the broker's admission fold so the previewed price is the exact price the live call charges, never an estimate that drifts from the charge — surfaced to the agent through the SDK's elicitation leg when a call exceeds the standing grant; the dispatch routes through `ControlInbound.DispatchTool` so an agent call on a companion lands through the same audit-and-redaction seam an operator tool call lands through; a `CommandTxn.Refused` projects to the matching `McpFault` whose 4640-band code the SDK maps onto its JSON-RPC `-32xxx` error frame so a denied tool call returns a protocol error, never a thrown exception; `McpFault` (like `CommandFault`/`GrantFault`) deliberately omits the `ConversionFromValue = ConversionOperatorsGeneration.None` knob that `ProgressFrame`/`DiscoveryQuery` carry — a fault union's only ingress is its coded constructors plus the `Expected` base and the `Create` factory, so there is no bare-payload conversion hole to seal and the knob would be inert ceremony, an asymmetry that is correct and must not be "fixed" by adding the knob to the fault unions.
+- Auto: the preview reuses the broker's admission fold so the previewed price is the exact price the live call charges, never an estimate that drifts from the charge — surfaced to the agent through the SDK's elicitation leg when a call exceeds the standing grant; the dispatch routes through `ControlInbound.DispatchTool` so an agent call on a companion lands through the same audit-and-redaction seam an operator tool call lands through; a `CommandTxn.Refused` projects to the matching `McpFault` whose 4640-band code the SDK maps onto its JSON-RPC `-32xxx` error frame so a denied tool call returns a protocol error, never a thrown exception; `McpFault`, `CommandFault`, and `GrantFault` omit the `ConversionFromValue = ConversionOperatorsGeneration.None` knob that `ProgressFrame`/`DiscoveryQuery` carry — a fault union's only ingress is its coded constructors plus the `Expected` base and the `Create` factory, so no bare-payload conversion hole exists to seal and the knob stays absent on every fault union.
 - Receipt: `ToolResult` carries the structured content blocks and the `isError` flag the SDK emits as `CallToolResult`, plus the `CommandReceipt` correlation id so the agent result correlates with the host evidence stream.
 - Packages: ModelContextProtocol.Core, Microsoft.Extensions.AI.Abstractions, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one fault case is one `McpFault` row the SDK maps to a JSON-RPC code; a new content-block kind is one column on `ToolResult`; zero new surface.
@@ -231,11 +208,6 @@ public sealed record AgentSession(
     public static AgentSession Open(PeerCredential agent, CancelScope parent, Instant now) =>
         new(agent, parent.Derive($"agent-{agent.Pid}", TimeProvider.System), Atom(Seq<ProgressFrame>()), Atom(0UL), DrainSpec.ReceiptFanOut.Capacity, now + LeasePolicy.Maintenance.CrashStaleness);
 
-    // Mint the next session-monotone logical stamp and stamp it onto a frame. The cursor advances once per emitted frame
-    // across every concurrent stream the session multiplexes, so the `ResumeToken.LastLogical` pair never collides between
-    // streams — never a per-stream `0UL`/`1UL` literal that resets the cursor on each call. The logical component is the
-    // HLC logical the ports page mints (the same monotone cursor `ReceiptSinkPort` advances); `ResumeToken.Physical` carries
-    // the HLC physical so the reattach cursor is the full HLC stamp, not a bare counter.
     public ProgressFrame Next(Func<ulong, ProgressFrame> stamp) =>
         stamp(Cursor.Swap(static logical => logical + 1UL));
 
@@ -265,16 +237,9 @@ public static class StreamProgress {
             _ => new ToolResult(tool, [], IsError: true, arguments.Correlation),
         };
 
-    // Reattach after a transport bounce: the SDK's SSE `Last-Event-ID` resumption delivers the transport-level replay, and
-    // this fold re-reports only the frames the session buffer holds after the resume cursor through the same SDK reporter.
     public static IO<Unit> Resume(McpRuntime runtime, AgentSession session, ResumeToken token, IProgress<ProgressNotificationValue> reporter) =>
         session.After(token.LastLogical).TraverseM(frame => IO.lift(() => { reporter.Report(ToNotification(frame)); return unit; })).As().Map(static _ => unit);
 
-    // The single `PROTOCOL_EDGE`/`CONVERTER_OWNER` seam: the interior `ProgressFrame` vocabulary projects to the SDK's
-    // `ProgressNotificationValue` wire shape at the reporter boundary and nowhere else. `Progress` is a required non-nullable
-    // `float` on the SDK type, so indeterminate frames (`Started`/`Partial`) report `0f` with `Total` omitted to signal an
-    // unknown denominator; `Progress` reports its fraction and stage; the terminal frames report a full fraction with the
-    // disposition as the message.
     static ProgressNotificationValue ToNotification(ProgressFrame frame) => frame.Switch(
         started: static f => new ProgressNotificationValue { Progress = 0f, Message = $"started:{f.Tool}" },
         progress: static f => new ProgressNotificationValue { Progress = (float)f.Fraction, Total = 1f, Message = f.Stage },
@@ -331,16 +296,12 @@ interface CostPreviewWire {
   readonly shortfallUnit: string | null;
 }
 
-// The wire the SDK transport actually emits over the SSE stream: the standard MCP `notifications/progress` value.
-// `total`/`message` are optional per the SDK's `ProgressNotificationValue` (`Progress` required, `Total`/`Message` nullable).
 interface ProgressNotificationWire {
   readonly progress: number;
   readonly total?: number;
   readonly message?: string;
 }
 
-// The interior frame reconstruction the host buffers and replays; the SDK never serializes this union — it serializes the
-// `ProgressNotificationWire` above. This mirrors the host-side `ProgressFrame` for replay/diagnostics, not the live wire.
 type ProgressFrameWire =
   | { readonly kind: "started"; readonly tool: string; readonly logical: number }
   | { readonly kind: "progress"; readonly fraction: number; readonly stage: string; readonly logical: number }
@@ -359,35 +320,28 @@ interface ResumeTokenWire {
 
 ## [6]-[RESEARCH]
 
-The SDK shapes below are resolved against `ModelContextProtocol` / `ModelContextProtocol.Core` / `ModelContextProtocol.AspNetCore` 1.4.0 (net10.0) and `Microsoft.Extensions.AI.Abstractions` 10.7.0 — fence facts, not deferred-to-integration assumptions.
+The MCP SDK and `Microsoft.Extensions.AI` member spellings the cards compose verify against a `ModelContextProtocol`/`ModelContextProtocol.Core`/`ModelContextProtocol.AspNetCore` and `Microsoft.Extensions.AI.Abstractions` `.api/` catalogue once those packages are admitted to the folder catalogue set; until then each item below is the SDK shape the projection reads.
 
-- [SDK_HOSTING]: the app-root server-builder fold is `services.AddMcpServer()` (returns `IMcpServerBuilder`) then a transport extension — `WithStdioServerTransport()` (no args, `ModelContextProtocol`) for stdio or `WithHttpTransport(o => o.Stateless = false)` + `app.MapMcp()` (`ModelContextProtocol.AspNetCore`) for the SSE/HTTP transport — and the enumerable registration `.WithTools(IEnumerable<McpServerTool>)` over the projected catalog rather than the generic attribute-discovery `.WithTools<T>()` or `.WithToolsFromAssembly()`, because `ToolProjection.Adopt` constructs `McpServerTool` instances programmatically (no `[McpServerToolType]`/`[McpServerTool]` attribute surface for the generic/assembly overloads to scan), so the projected surface reaches the server as a deliberate, reviewable registry. The projected tools are adopted through `ToolProjection.Adopt` (`CommandAIFunction : AIFunction` → `McpServerTool.Create(AIFunction, McpServerToolCreateOptions)`). `McpServerToolCreateOptions` exposes settable `Name`/`Title`/`Description`/`ReadOnly`/`Idempotent`/`Destructive`/`OpenWorld`/`UseStructuredContent`/`OutputSchema`/`SerializerOptions`/`SchemaCreateOptions`/`Metadata`/`Services`, where `ReadOnly`/`Destructive`/`Idempotent` are `bool?`, so the projection sets `ReadOnly`/`Destructive`/`Idempotent` from `EffectClass`/`Idempotency`, `UseStructuredContent = true`, and `OutputSchema` explicitly from the `CommandReceipt` schema (the SDK derives the output schema from the return type when `OutputSchema` is unset, which would not be the receipt shape). The app-root composition shape is fenced below; per `ARCHITECTURE.md:79` and `:102` it is an app-root pin (the MCP HTTP transport rides `ModelContextProtocol.AspNetCore` at the service root), never an interior dependency of this package, and never a hand-rolled JSON-RPC transport beside the SDK.
-- [SDK_FAULT_MAP]: the SDK maps a thrown `McpException` / a returned `JsonRpcError` onto the JSON-RPC `-32xxx` reserved range at the transport edge. The mapping direction is interior 4640-band `McpFault` ⟶ SDK JSON-RPC `-32xxx`: the host emits the 4640-band application code on the `McpFault` and the SDK transport projects it onto its reserved-range frame, so the interior never emits a `-32xxx` code directly and never re-numbers a fault to match the reserved range. `RequestContext<T>.Server` is the abstract `McpServer`, an inherited get/set property on `MessageContext` (the property type is `McpServer`, not the deleted `IMcpServer`).
-- [SDK_PROGRESS]: the `IProgress<ProgressNotificationValue>` fan binds idiomatically by declaring an `IProgress<ProgressNotificationValue>` parameter on the tool method — the SDK auto-binds it from the request's `_meta.progressToken` backed by the internal `TokenProgress(McpSession, ProgressToken)`, which is `internal` and never news up host-side; `ProgressNotificationValue` carries required `float Progress` and optional `float? Total`/`string? Message`. The SSE `Last-Event-ID` resumption, the task primitive's status/poll/result surface (`McpServerOptions.TaskStore`/`SendTaskStatusNotifications`, `RequestContext.EnablePollingAsync`, `McpServer.GetTaskAsync`/`WaitForTaskResultAsync<T>`/`PollTaskUntilCompleteAsync`), and the `notifications/cancelled`-to-`CancelScope` binding are the SDK's long-running-request transport. Server-initiated sampling rides `McpServer.SampleAsync`/`AsSamplingChatClient` (`IChatClient`) and elicitation rides `McpServer.ElicitAsync<T>` — both are server→client legs that force a stateful HTTP transport (`HttpServerTransportOptions.Stateless = false`), because the sampling and elicitation responses must survive across requests on one session; a stateless transport would drop the in-flight server→client leg.
-- [BUILD_ORDER]: `agent/Mcp.cs` has a hard build-order prerequisite. `McpRuntime` embeds `CapabilityRegistry`/`CommandRuntime`/`GrantBroker` by type, which transitively pull the cross-page settled vocabulary (`ComputeIntent`, `IntentAdmission`, `SelectionReceipt`, `DegradationLevel`, `TenantContext`, `ClockPolicy`, `ReceiptSinkPort`, `CancelScope`, `PeerCredential`, `DrainSpec`, `LeasePolicy`, `Interval`, `Correlation`/`CorrelationId`, `TelemetrySource`, et al.); the capability page plus its `ports`/`time`/`hosting` vocabulary and the `Rasm.Compute` intent-and-selection contract (`ComputeIntent`/`IntentAdmission`/`SelectionReceipt`/`AdmittedIntent`) must land before this page transcribes, or the transcription produces an uncompilable file. The `McpServerTool.Create(AIFunction)` adoption requires `Microsoft.Extensions.AI.Abstractions` 10.7.0 (the `AIFunction : AIFunctionDeclaration : AITool` chain, its `virtual JsonElement JsonSchema`/abstract `InvokeCoreAsync` override points, and the `McpServerToolCreateOptions` surface only exist in MEAI 10.x; a fence written against a 9.x `AIFunction.Parameters` shape is wrong). The `CommandAIFunction : AIFunction` subclass the projection adopts subtypes only `.Abstractions` types, so `Microsoft.Extensions.AI.Abstractions` is the sole MEAI admission this page needs — the concrete `Microsoft.Extensions.AI` package (which also carries `AIFunctionFactory` and `AIFunctionFactoryOptions`) is not pulled, because the projection derives the function from the schema-overriding subclass over the brokered invoker rather than from a delegate factory whose reflected-parameter schema would be schema-blind to the descriptor contract.
+- [SDK_HOSTING]: the app-root server-builder fold is `services.AddMcpServer()` (`IMcpServerBuilder`) then a transport extension — `WithStdioServerTransport()` (`ModelContextProtocol`) for stdio, `WithHttpTransport(o => o.Stateless = false)` + `app.MapMcp()` (`ModelContextProtocol.AspNetCore`) for the SSE/HTTP transport — and the enumerable registration `.WithTools(IEnumerable<McpServerTool>)` over the projected catalog, never the generic attribute-discovery `.WithTools<T>()` or `.WithToolsFromAssembly()`: `ToolProjection.Adopt` constructs `McpServerTool` instances programmatically with no `[McpServerToolType]`/`[McpServerTool]` attribute surface for the generic/assembly overloads to scan, so the projected surface reaches the server as one deliberate registry. `McpServerToolCreateOptions` carries settable `Name`/`Title`/`Description`/`ReadOnly`/`Idempotent`/`Destructive`/`OpenWorld`/`UseStructuredContent`/`OutputSchema`/`SerializerOptions`/`SchemaCreateOptions`/`Metadata`/`Services`, with `ReadOnly`/`Destructive`/`Idempotent` typed `bool?`; the projection sets `ReadOnly`/`Destructive`/`Idempotent` from `EffectClass`/`Idempotency`, `UseStructuredContent = true`, and `OutputSchema` explicitly from the `CommandReceipt` schema, because an unset `OutputSchema` defaults to the return-type shape rather than the receipt shape. The MCP HTTP transport is the app-root pin named in `ARCHITECTURE.md`, never an interior dependency of this package and never a hand-rolled JSON-RPC transport beside the SDK.
+- [SDK_FAULT_MAP]: the SDK projects a thrown `McpException` or a returned `JsonRpcError` onto the JSON-RPC `-32xxx` reserved range at the transport edge; the mapping direction is interior 4640-band `McpFault` ⟶ SDK `-32xxx`, so the host emits the 4640-band application code on the `McpFault` and the SDK transport frames it, and the interior never emits a `-32xxx` code directly nor re-numbers a fault to the reserved range. `RequestContext<T>.Server` is the abstract `McpServer`, an inherited get/set property on `MessageContext`, typed `McpServer`.
+- [SDK_PROGRESS]: the progress fan binds by declaring an `IProgress<ProgressNotificationValue>` parameter on the tool method — the SDK auto-binds it from the request's `_meta.progressToken` backed by the `internal` `TokenProgress(McpSession, ProgressToken)`, which never news up host-side; `ProgressNotificationValue` carries required `float Progress` and optional `float? Total`/`string? Message`. The SSE `Last-Event-ID` resumption, the task primitive's status/poll/result surface (`McpServerOptions.TaskStore`/`SendTaskStatusNotifications`, `RequestContext.EnablePollingAsync`, `McpServer.GetTaskAsync`/`WaitForTaskResultAsync<T>`/`PollTaskUntilCompleteAsync`), and the `notifications/cancelled`-to-`CancelScope` binding are the SDK's long-running-request transport. Server-initiated sampling rides `McpServer.SampleAsync`/`AsSamplingChatClient` (`IChatClient`) and elicitation rides `McpServer.ElicitAsync<T>` — both are server→client legs that force `HttpServerTransportOptions.Stateless = false`, because the sampling and elicitation responses survive across requests on one session and a stateless transport drops the in-flight server→client leg.
+- [BUILD_ORDER]: `McpRuntime` embeds `CapabilityRegistry`/`CommandRuntime`/`GrantBroker` by type, which transitively pull the cross-page settled vocabulary (`ComputeIntent`, `IntentAdmission`, `SelectionReceipt`, `DegradationLevel`, `TenantContext`, `ClockPolicy`, `ReceiptSinkPort`, `CancelScope`, `PeerCredential`, `DrainSpec`, `LeasePolicy`, `Interval`, `Correlation`/`CorrelationId`, `TelemetrySource`); the capability page plus its `ports`/`time`/`hosting` vocabulary and the `Rasm.Compute` intent-and-selection contract (`ComputeIntent`/`IntentAdmission`/`SelectionReceipt`/`AdmittedIntent`) settle before this page transcribes. The `CommandAIFunction : AIFunction` subclass subtypes the `AIFunction : AIFunctionDeclaration : AITool` chain — `JsonSchema` is a `JsonElement` on `AIFunctionDeclaration`, `InvokeCoreAsync` the abstract override point — so `Microsoft.Extensions.AI.Abstractions` is the sole `Microsoft.Extensions.AI` admission this page needs; the concrete `Microsoft.Extensions.AI` package carrying `AIFunctionFactory`/`AIFunctionFactoryOptions` stays unpulled, because the projection derives the function from the schema-overriding subclass over the brokered invoker, never a delegate factory whose reflected-parameter schema is blind to the descriptor contract.
+
+The app-root composition is the service-host-root pin named in `ARCHITECTURE.md`, not this package: the interior carries no `AddMcpServer`/transport call. The projected catalog folds to a programmatic `McpServerTool` set once at the composition edge — `ToolProjection.Project` gated to the live degradation level, each row adopted through `ToolProjection.Adopt`. The stdio host routes logging to stderr because stdout is the JSON-RPC channel; the HTTP host pins `Stateless = false` so the server-initiated sampling (`IChatClient`) and elicitation server→client legs survive across requests on one session.
 
 ```csharp signature
-// App-root composition (NOT this package — composed at the service host root, app-root-pinned per ARCHITECTURE.md:79,:102).
-// Reference shape so the implementer sees the full serving picture; the interior carries no `AddMcpServer`/transport call.
-
-// The projected catalog is folded to a programmatic `McpServerTool` set once at the composition edge — the registry
-// projection (`ToolProjection.Project`) gated to the live degradation level, each row adopted via `ToolProjection.Adopt`.
 IEnumerable<McpServerTool> projectedTools =
     ToolProjection.Project(mcpRuntime.Registry, mcpRuntime.Level(), mcpRuntime.SchemaOf, receiptSchema).Tools
         .Map(tool => ToolProjection.Adopt(mcpRuntime, tool, TenantContext.Current, Correlation.Mint(), mcpRuntime.Wire));
 
-// stdio host: stdout is the JSON-RPC channel, so logging is routed to stderr only.
 var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
-builder.Services.AddSingleton(mcpRuntime); // McpRuntime constructed once at the composition edge
+builder.Services.AddSingleton(mcpRuntime);
 builder.Services.AddMcpServer()
     .WithStdioServerTransport()
-    .WithTools(projectedTools); // enumerable overload over the programmatic catalog, never WithTools<T>/WithToolsFromAssembly
+    .WithTools(projectedTools);
 await builder.Build().RunAsync();
 
-// HTTP host: WithHttpTransport + MapMcp from ModelContextProtocol.AspNetCore. Stateless = false is REQUIRED — the
-// server-initiated sampling (IChatClient) and elicitation legs are server->client round-trips that must survive across
-// requests on one session; a stateless transport would drop the in-flight leg.
 var web = WebApplication.CreateBuilder(args);
 web.Services.AddSingleton(mcpRuntime);
 web.Services.AddMcpServer()

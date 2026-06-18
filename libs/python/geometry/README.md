@@ -2,7 +2,7 @@
 
 `geometry` is the host-free geometry and IFC/BIM companion of the Python branch: the IfcOpenShell GLB tessellation daemon (the load-bearing cross-boundary two-hop the C# Bim/Compute rail and the TS viewer consume), IFC analysis and buildingSMART validation, point-cloud/3D-scan registration, non-manifold topology, and AEC computational geometry. It is a peer producer, never a Rasm consumer — it meets C# only at the wire (content-identity plus the GLB tessellation rail over the existing `ComputeService`/`ArtifactSync` gRPC contract) and graduates evidence through the compute `HandoffAxis` geometry case. This file routes the design pages and registers the external packages the folder uses; `ARCHITECTURE.md` carries the domain map, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
-## [1]-[PAGES]
+## [1]-[ROUTER]
 
 The design pages under `.planning/`, one sub-domain folder per eventual source sub-tree. The `step-bridge` and `mesh-utility` sub-domains are planned and carry no page yet; `ARCHITECTURE.md` shows them as visible gaps.
 
@@ -20,5 +20,15 @@ Every external library the folder uses, planned or implemented, as a flat list; 
 - Scan and point cloud: `open3d`, `small-gicp` (Forge companion lane); `laspy`, `pye57`, `pdal` (manifest — `pye57`/`pdal` gated `<'3.15'`)
 - Topology and computational geometry: `topologicpy` (Forge companion lane); `compas`, `compas_dr`, `compas_tna` (manifest, gated `<'3.15'`)
 - Mesh and CAD-STEP: `trimesh`, `rhino3dm`, `meshio` (manifest, cp315-clean); `manifold3d` (manifest, gated `<'3.15'` — robust exact-boolean backend); `pythonocc-core` (admit — the OCCT B-rep reader for the STEP/IGES hop; no PyPI distribution, conda-only, Forge companion lane or deferred)
-- Numerics and typing: `numpy`, `msgspec`, `expression`, `beartype` (manifest, cp315-clean)
-- Wire and runtime: `grpcio`, `grpcio-tools`, `protobuf` (Forge companion lane; also present transitively via `specklepy` on cp315)
+
+## [3]-[CROSS_CUTTING]
+
+Branch-wide infrastructure packages this folder consumes; canonical registry lives at `libs/python/.api/`.
+
+- expression
+- beartype
+- msgspec
+- numpy
+- grpcio
+- grpcio-tools
+- protobuf

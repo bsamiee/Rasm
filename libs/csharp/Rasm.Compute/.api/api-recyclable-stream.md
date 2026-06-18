@@ -59,25 +59,24 @@ events for execution payload staging.
 |   [7]   | `Dispose`             | lifetime call | returns stream to pool |
 
 [ENTRYPOINT_SCOPE]: `GetStream` decompile-verified overloads
-- source: `Microsoft.IO.RecyclableMemoryStream` 3.0.1 — `RecyclableMemoryStreamManager` decompile
 - rail: staging-and-streams#STREAM_POOL
 
-| [INDEX] | [MEMBER]                                     | [SIGNATURE]                                                                                          | [USED_BY]                       | [EVIDENCE]      |
-| :-----: | :------------------------------------------- | :--------------------------------------------------------------------------------------------------- | :------------------------------ | :-------------- |
-|   [1]   | `GetStream()`                                | `RecyclableMemoryStream GetStream()`                                                                 | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [2]   | `GetStream(Guid)`                            | `RecyclableMemoryStream GetStream(Guid id)`                                                          | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [3]   | `GetStream(string?)`                         | `RecyclableMemoryStream GetStream(string? tag)`                                                      | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [4]   | `GetStream(Guid,string?)`                    | `RecyclableMemoryStream GetStream(Guid id, string? tag)`                                             | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [5]   | `GetStream(string?,long)`                    | `RecyclableMemoryStream GetStream(string? tag, long requiredSize)`                                   | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [6]   | `GetStream(Guid,string?,long)`               | `RecyclableMemoryStream GetStream(Guid id, string? tag, long requiredSize)`                          | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [7]   | `GetStream(Guid,string?,long,bool)`          | `RecyclableMemoryStream GetStream(Guid id, string? tag, long requiredSize, bool asContiguousBuffer)` | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [8]   | `GetStream(string?,long,bool)`               | `RecyclableMemoryStream GetStream(string? tag, long requiredSize, bool asContiguousBuffer)`          | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [9]   | `GetStream(Guid,string?,byte[],int,int)`     | `RecyclableMemoryStream GetStream(Guid id, string? tag, byte[] buffer, int offset, int count)`       | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [10]   | `GetStream(byte[])`                          | `RecyclableMemoryStream GetStream(byte[] buffer)`                                                    | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [11]   | `GetStream(string?,byte[],int,int)`          | `RecyclableMemoryStream GetStream(string? tag, byte[] buffer, int offset, int count)`                | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [12]   | `GetStream(Guid,string?,ReadOnlySpan<byte>)` | `RecyclableMemoryStream GetStream(Guid id, string? tag, ReadOnlySpan<byte> buffer)`                  | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [13]   | `GetStream(ReadOnlySpan<byte>)`              | `RecyclableMemoryStream GetStream(ReadOnlySpan<byte> buffer)`                                        | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [14]   | `GetStream(string?,ReadOnlySpan<byte>)`      | `RecyclableMemoryStream GetStream(string? tag, ReadOnlySpan<byte> buffer)`                           | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
+| [INDEX] | [MEMBER]                                     | [SIGNATURE]                                                                                          |
+| :-----: | :------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
+|   [1]   | `GetStream()`                                | `RecyclableMemoryStream GetStream()`                                                                 |
+|   [2]   | `GetStream(Guid)`                            | `RecyclableMemoryStream GetStream(Guid id)`                                                          |
+|   [3]   | `GetStream(string?)`                         | `RecyclableMemoryStream GetStream(string? tag)`                                                      |
+|   [4]   | `GetStream(Guid,string?)`                    | `RecyclableMemoryStream GetStream(Guid id, string? tag)`                                             |
+|   [5]   | `GetStream(string?,long)`                    | `RecyclableMemoryStream GetStream(string? tag, long requiredSize)`                                   |
+|   [6]   | `GetStream(Guid,string?,long)`               | `RecyclableMemoryStream GetStream(Guid id, string? tag, long requiredSize)`                          |
+|   [7]   | `GetStream(Guid,string?,long,bool)`          | `RecyclableMemoryStream GetStream(Guid id, string? tag, long requiredSize, bool asContiguousBuffer)` |
+|   [8]   | `GetStream(string?,long,bool)`               | `RecyclableMemoryStream GetStream(string? tag, long requiredSize, bool asContiguousBuffer)`          |
+|   [9]   | `GetStream(Guid,string?,byte[],int,int)`     | `RecyclableMemoryStream GetStream(Guid id, string? tag, byte[] buffer, int offset, int count)`       |
+|  [10]   | `GetStream(byte[])`                          | `RecyclableMemoryStream GetStream(byte[] buffer)`                                                    |
+|  [11]   | `GetStream(string?,byte[],int,int)`          | `RecyclableMemoryStream GetStream(string? tag, byte[] buffer, int offset, int count)`                |
+|  [12]   | `GetStream(Guid,string?,ReadOnlySpan<byte>)` | `RecyclableMemoryStream GetStream(Guid id, string? tag, ReadOnlySpan<byte> buffer)`                  |
+|  [13]   | `GetStream(ReadOnlySpan<byte>)`              | `RecyclableMemoryStream GetStream(ReadOnlySpan<byte> buffer)`                                        |
+|  [14]   | `GetStream(string?,ReadOnlySpan<byte>)`      | `RecyclableMemoryStream GetStream(string? tag, ReadOnlySpan<byte> buffer)`                           |
 
 [ENTRYPOINT_SCOPE]: pool policy and telemetry
 - rail: staging
@@ -98,44 +97,42 @@ events for execution payload staging.
 |  [12]   | `UsageReport`               | manager event   | reports pool usage         |
 
 [ENTRYPOINT_SCOPE]: `Options` class decompile-verified property signatures
-- source: `Microsoft.IO.RecyclableMemoryStream` 3.0.1 — `RecyclableMemoryStreamManager.Options` decompile
 - rail: staging-and-streams#STREAM_POOL
 
-| [INDEX] | [MEMBER]                              | [SIGNATURE]                                                                                                                              | [USED_BY]                       | [EVIDENCE]      |
-| :-----: | :------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------ | :-------------- |
-|   [1]   | `BlockSize`                           | `int BlockSize { get; set; }` default `131072` (128KB)                                                                                   | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [2]   | `LargeBufferMultiple`                 | `int LargeBufferMultiple { get; set; }` default `1048576` (1MB)                                                                          | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [3]   | `MaximumBufferSize`                   | `int MaximumBufferSize { get; set; }` default `134217728` (128MB)                                                                        | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [4]   | `MaximumSmallPoolFreeBytes`           | `long MaximumSmallPoolFreeBytes { get; set; }` default `0`                                                                               | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [5]   | `MaximumLargePoolFreeBytes`           | `long MaximumLargePoolFreeBytes { get; set; }` default `0`                                                                               | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [6]   | `UseExponentialLargeBuffer`           | `bool UseExponentialLargeBuffer { get; set; }` default `false`                                                                           | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [7]   | `MaximumStreamCapacity`               | `long MaximumStreamCapacity { get; set; }` default `0` (no limit)                                                                        | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [8]   | `GenerateCallStacks`                  | `bool GenerateCallStacks { get; set; }` default `false`                                                                                  | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [9]   | `AggressiveBufferReturn`              | `bool AggressiveBufferReturn { get; set; }` default `false`                                                                              | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [10]   | `ThrowExceptionOnToArray`             | `bool ThrowExceptionOnToArray { get; set; }` default `false`                                                                             | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [11]   | `ZeroOutBuffer`                       | `bool ZeroOutBuffer { get; set; }` default `false`                                                                                       | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [12]   | `Options()` ctor                      | `Options()`                                                                                                                              | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [13]   | `Options(int,int,int,long,long)` ctor | `Options(int blockSize, int largeBufferMultiple, int maximumBufferSize, long maximumSmallPoolFreeBytes, long maximumLargePoolFreeBytes)` | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
+| [INDEX] | [MEMBER]                              | [SIGNATURE]                                                                                                                              |
+| :-----: | :------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | `BlockSize`                           | `int BlockSize { get; set; }` default `131072` (128KB)                                                                                   |
+|   [2]   | `LargeBufferMultiple`                 | `int LargeBufferMultiple { get; set; }` default `1048576` (1MB)                                                                          |
+|   [3]   | `MaximumBufferSize`                   | `int MaximumBufferSize { get; set; }` default `134217728` (128MB)                                                                        |
+|   [4]   | `MaximumSmallPoolFreeBytes`           | `long MaximumSmallPoolFreeBytes { get; set; }` default `0`                                                                               |
+|   [5]   | `MaximumLargePoolFreeBytes`           | `long MaximumLargePoolFreeBytes { get; set; }` default `0`                                                                               |
+|   [6]   | `UseExponentialLargeBuffer`           | `bool UseExponentialLargeBuffer { get; set; }` default `false`                                                                           |
+|   [7]   | `MaximumStreamCapacity`               | `long MaximumStreamCapacity { get; set; }` default `0` (no limit)                                                                        |
+|   [8]   | `GenerateCallStacks`                  | `bool GenerateCallStacks { get; set; }` default `false`                                                                                  |
+|   [9]   | `AggressiveBufferReturn`              | `bool AggressiveBufferReturn { get; set; }` default `false`                                                                              |
+|  [10]   | `ThrowExceptionOnToArray`             | `bool ThrowExceptionOnToArray { get; set; }` default `false`                                                                             |
+|  [11]   | `ZeroOutBuffer`                       | `bool ZeroOutBuffer { get; set; }` default `false`                                                                                       |
+|  [12]   | `Options()` ctor                      | `Options()`                                                                                                                              |
+|  [13]   | `Options(int,int,int,long,long)` ctor | `Options(int blockSize, int largeBufferMultiple, int maximumBufferSize, long maximumSmallPoolFreeBytes, long maximumLargePoolFreeBytes)` |
 
 [ENTRYPOINT_SCOPE]: manager events and ETW counters
-- source: `Microsoft.IO.RecyclableMemoryStream` 3.0.1 — `RecyclableMemoryStreamManager` events decompile
 - rail: staging-and-streams#STREAM_POOL
 
-| [INDEX] | [MEMBER]                 | [SIGNATURE]                                                                              | [USED_BY]                       | [EVIDENCE]      |
-| :-----: | :----------------------- | :--------------------------------------------------------------------------------------- | :------------------------------ | :-------------- |
-|   [1]   | `BlockCreated`           | `event EventHandler<BlockCreatedEventArgs>? BlockCreated`                                | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [2]   | `LargeBufferCreated`     | `event EventHandler<LargeBufferCreatedEventArgs>? LargeBufferCreated`                    | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [3]   | `StreamCreated`          | `event EventHandler<StreamCreatedEventArgs>? StreamCreated`                              | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [4]   | `StreamDisposed`         | `event EventHandler<StreamDisposedEventArgs>? StreamDisposed`                            | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [5]   | `StreamDoubleDisposed`   | `event EventHandler<StreamDoubleDisposedEventArgs>? StreamDoubleDisposed`                | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [6]   | `StreamFinalized`        | `event EventHandler<StreamFinalizedEventArgs>? StreamFinalized`                          | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [7]   | `StreamLength`           | `event EventHandler<StreamLengthEventArgs>? StreamLength`                                | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [8]   | `StreamConvertedToArray` | `event EventHandler<StreamConvertedToArrayEventArgs>? StreamConvertedToArray`            | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|   [9]   | `StreamOverCapacity`     | `event EventHandler<StreamOverCapacityEventArgs>? StreamOverCapacity`                    | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [10]   | `BufferDiscarded`        | `event EventHandler<BufferDiscardedEventArgs>? BufferDiscarded`                          | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [11]   | `UsageReport`            | `event EventHandler<UsageReportEventArgs>? UsageReport`                                  | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [12]   | `Events.Writer`          | `static Events Writer` (ETW `EventSource`, name `"Microsoft-IO-RecyclableMemoryStream"`) | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
-|  [13]   | `Settings`               | `Options Settings { get; }` — exposes live `Options` reference                           | staging-and-streams#STREAM_POOL | decompile 3.0.1 |
+| [INDEX] | [MEMBER]                 | [SIGNATURE]                                                                              |
+| :-----: | :----------------------- | :--------------------------------------------------------------------------------------- |
+|   [1]   | `BlockCreated`           | `event EventHandler<BlockCreatedEventArgs>? BlockCreated`                                |
+|   [2]   | `LargeBufferCreated`     | `event EventHandler<LargeBufferCreatedEventArgs>? LargeBufferCreated`                    |
+|   [3]   | `StreamCreated`          | `event EventHandler<StreamCreatedEventArgs>? StreamCreated`                              |
+|   [4]   | `StreamDisposed`         | `event EventHandler<StreamDisposedEventArgs>? StreamDisposed`                            |
+|   [5]   | `StreamDoubleDisposed`   | `event EventHandler<StreamDoubleDisposedEventArgs>? StreamDoubleDisposed`                |
+|   [6]   | `StreamFinalized`        | `event EventHandler<StreamFinalizedEventArgs>? StreamFinalized`                          |
+|   [7]   | `StreamLength`           | `event EventHandler<StreamLengthEventArgs>? StreamLength`                                |
+|   [8]   | `StreamConvertedToArray` | `event EventHandler<StreamConvertedToArrayEventArgs>? StreamConvertedToArray`            |
+|   [9]   | `StreamOverCapacity`     | `event EventHandler<StreamOverCapacityEventArgs>? StreamOverCapacity`                    |
+|  [10]   | `BufferDiscarded`        | `event EventHandler<BufferDiscardedEventArgs>? BufferDiscarded`                          |
+|  [11]   | `UsageReport`            | `event EventHandler<UsageReportEventArgs>? UsageReport`                                  |
+|  [12]   | `Events.Writer`          | `static Events Writer` (ETW `EventSource`, name `"Microsoft-IO-RecyclableMemoryStream"`) |
+|  [13]   | `Settings`               | `Options Settings { get; }` — exposes live `Options` reference                           |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

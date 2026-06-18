@@ -43,7 +43,6 @@ _PARSE_FAULTS: tuple[_ParseFault, ...] = (
     _ParseFault("bare-test", ("test",), claim=Claim.TEST),
     _ParseFault("bare-code", ("code",), claim=Claim.CODE),
     _ParseFault("numeric-validator", ("code", "query", "(module) @m", "--max-results", "-1"), failing_step="parse"),
-    _ParseFault("retired-spike", ("spike", "status"), message='Unknown command "spike"', also_contains="provision"),
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

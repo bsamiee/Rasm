@@ -1,6 +1,6 @@
 # [PROJECTION_STREAM_POLICY]
 
-`StreamPolicy` is the one bounded reconnect-and-back-pressure vocabulary every fold composes through `withPolicy`, the single `Stream` decorator that applies the full operator set to every fold source. A fold that pipes a source any other way — a bare `Stream.retry`, an improvised reconnect loop, an unbounded buffer — is the deleted form; this page is the one place the policy fields become behavior. The domain dials no transport and depends only on the `interchange` decoded shapes.
+`StreamPolicy` is the one bounded reconnect-and-back-pressure vocabulary every fold composes through `withPolicy`, the single `Stream` decorator that applies the full operator set to every fold source. A fold that pipes a source any other way — a bare `Stream.retry`, an improvised reconnect loop, an unbounded buffer — is the deleted form; `withPolicy` is the one site the policy fields become behavior. The domain dials no transport and depends only on the `interchange` decoded shapes.
 
 ## [1]-[INDEX]
 

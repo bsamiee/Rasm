@@ -12,8 +12,14 @@
   <Folder Name="/libs/csharp/Rasm.AppUi/">
     <Project Path="libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj" />
   </Folder>
+  <Folder Name="/libs/csharp/Rasm.Bim/">
+    <Project Path="libs/csharp/Rasm.Bim/Rasm.Bim.csproj" />
+  </Folder>
   <Folder Name="/libs/csharp/Rasm.Compute/">
     <Project Path="libs/csharp/Rasm.Compute/Rasm.Compute.csproj" />
+  </Folder>
+  <Folder Name="/libs/csharp/Rasm.Fabrication/">
+    <Project Path="libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj" />
   </Folder>
   <Folder Name="/libs/csharp/Rasm/">
     <Project Path="libs/csharp/Rasm/Rasm.csproj" />

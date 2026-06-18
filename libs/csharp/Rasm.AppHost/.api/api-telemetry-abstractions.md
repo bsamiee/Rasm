@@ -49,16 +49,20 @@ generator attributes, and outgoing request metadata into the observability rail.
 [PUBLIC_TYPE_SCOPE]: latency context family
 - rail: observability
 
-| [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]    | [CAPABILITY]                           |
-| :-----: | :---------------------------------------------- | :---------------- | :------------------------------------- |
-|   [1]   | `ILatencyContext`                               | context contract  | checkpoint, measure, and tag recording |
-|   [2]   | `ILatencyContextProvider`                       | provider contract | context creation                       |
-|   [3]   | `ILatencyContextTokenIssuer`                    | issuer contract   | name-to-token resolution               |
-|   [4]   | `ILatencyDataExporter`                          | exporter contract | latency data export                    |
-|   [5]   | `LatencyData`                                   | data value        | tags, checkpoints, measures spans      |
-|   [6]   | `Checkpoint` / `Measure` / `Tag`                | sample values     | named latency samples                  |
-|   [7]   | `CheckpointToken` / `MeasureToken` / `TagToken` | token values      | pre-registered name handles            |
-|   [8]   | `NullLatencyContext`                            | null object       | no-op latency context                  |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]    | [CAPABILITY]                           |
+| :-----: | :--------------------------- | :---------------- | :------------------------------------- |
+|   [1]   | `ILatencyContext`            | context contract  | checkpoint, measure, and tag recording |
+|   [2]   | `ILatencyContextProvider`    | provider contract | context creation                       |
+|   [3]   | `ILatencyContextTokenIssuer` | issuer contract   | name-to-token resolution               |
+|   [4]   | `ILatencyDataExporter`       | exporter contract | latency data export                    |
+|   [5]   | `LatencyData`                | data value        | tags, checkpoints, measures spans      |
+|   [6]   | `Checkpoint`                 | sample value      | named latency checkpoint               |
+|   [7]   | `Measure`                    | sample value      | named latency measure                  |
+|   [8]   | `Tag`                        | sample value      | named latency tag                      |
+|   [9]   | `CheckpointToken`            | token value       | pre-registered checkpoint handle       |
+|  [10]   | `MeasureToken`               | token value       | pre-registered measure handle          |
+|  [11]   | `TagToken`                   | token value       | pre-registered tag handle              |
+|  [12]   | `NullLatencyContext`         | null object       | no-op latency context                  |
 
 [PUBLIC_TYPE_SCOPE]: metrics and request metadata family
 - rail: observability
@@ -87,10 +91,8 @@ generator attributes, and outgoing request metadata into the observability rail.
 |   [5]   | `RegisterTagNames`        | `params string[]` names          | pre-registers tag names        |
 |   [6]   | `AddNullLatencyContext`   | `IServiceCollection` extension   | installs no-op latency context |
 
-[ENTRYPOINT_SCOPE]: runtime operations
+[ENTRYPOINT_SCOPE]: buffering runtime operations
 - rail: observability
-
-Runtime operations split by observability axis; exact request-metadata signatures stay in `ABSTRACTION_TOPOLOGY`.
 
 [BUFFERING_RUNTIME]:
 | [INDEX] | [SURFACE]      | [CALL_SHAPE]          | [CAPABILITY]                |

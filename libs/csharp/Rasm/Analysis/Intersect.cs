@@ -15,9 +15,16 @@ public sealed partial class IntersectionTangency {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) {
+public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) : IValidityEvidence {
     public static RayQuery Of(Ray3d ray, int maxReflections = 1) => new(Ray: ray, MaxReflections: maxReflections);
-    internal bool IsValid => Ray.Position.IsValid && Ray.Direction.IsValid && !Ray.Direction.IsTiny() && MaxReflections is >= 1 and <= 1000;
+    bool IValidityEvidence.IsValid => IsValid;
+    internal bool IsValid =>
+        Ray.Position.IsValid
+        && Ray.Direction.IsValid
+        && Ray.Direction is { SquareLength: double length }
+        && RhinoMath.IsValidDouble(x: length)
+        && length > RhinoMath.ZeroTolerance * RhinoMath.ZeroTolerance
+        && MaxReflections is >= 1 and <= 1000;
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -162,7 +169,7 @@ public static partial class Analyze {
             ? Operation<TGeometry, TOut>.Build(
                 key: key, requiresContext: true, state: (Key: key, Query: query),
                 evaluator: static (state, geometry) => from runtime in Env.EnvAsks
-                                                       from ray in state.Key.AcceptValue(value: state.Query).ToEff()
+                                                       from ray in state.Key.AcceptInput(value: state.Query).ToEff()
                                                        from ready in Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToEff()
                                                        from result in IntersectionOf(left: ray, right: ready, context: runtime.Context, op: state.Key, progress: runtime.Progress, unordered: false, cancel: runtime.Cancellation).ToEff()
                                                        from typed in result.Project<TOut>(key: state.Key).ToEff()
@@ -332,10 +339,10 @@ public static partial class Analyze {
                     from runtime in Env.EnvAsks
                     from resolved in ((pair.A, pair.B) switch {
                         (RayQuery ray, GeometryBase geometry) =>
-                            (state.Key.AcceptValue(value: ray), Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToFin())
+                            (state.Key.AcceptInput(value: ray), Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToFin())
                                 .Apply(static (query, target) => (A: (TA)(object)query, B: (TB)(object)target)).As(),
                         (GeometryBase geometry, RayQuery ray) =>
-                            (Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToFin(), state.Key.AcceptValue(value: ray))
+                            (Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToFin(), state.Key.AcceptInput(value: ray))
                                 .Apply(static (target, query) => (A: (TA)(object)target, B: (TB)(object)query)).As(),
                         _ => runtime.Context.Pair(a: pair.A, b: pair.B, op: state.Key, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation)
                             .ToFin()

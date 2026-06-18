@@ -56,13 +56,12 @@ session-registration material for ONNX execution lanes.
 |   [6]   | native asset copy target               | build target     | places runtime assets                     |
 
 [ENTRYPOINT_SCOPE]: decompile-verified registration facts
-- source: `Microsoft.ML.OnnxRuntime` 1.26.0 managed assembly decompile; `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0 package inspection
 - rail: model-lane#GENERATIVE_RUN
 
-| [INDEX] | [MEMBER]                                       | [SIGNATURE]                                                                                | [USED_BY]                 | [EVIDENCE]           |
-| :-----: | :--------------------------------------------- | :----------------------------------------------------------------------------------------- | :------------------------ | :------------------- |
-|   [1]   | `SessionOptions.RegisterOrtExtensions`         | `void RegisterOrtExtensions()` — defined on `SessionOptions` in `Microsoft.ML.OnnxRuntime` | model-lane#GENERATIVE_RUN | decompile ORT 1.26.0 |
-|   [2]   | `OrtExtensionsNativeMethods.RegisterCustomOps` | internal — invoked by `RegisterOrtExtensions()`; not a public API surface                  | model-lane#GENERATIVE_RUN | decompile ORT 1.26.0 |
+| [INDEX] | [MEMBER]                                       | [SIGNATURE]                                                                                |
+| :-----: | :--------------------------------------------- | :----------------------------------------------------------------------------------------- |
+|   [1]   | `SessionOptions.RegisterOrtExtensions`         | `void RegisterOrtExtensions()` — defined on `SessionOptions` in `Microsoft.ML.OnnxRuntime` |
+|   [2]   | `OrtExtensionsNativeMethods.RegisterCustomOps` | internal — invoked by `RegisterOrtExtensions()`; not a public API surface                  |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

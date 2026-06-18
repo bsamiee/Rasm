@@ -1,6 +1,6 @@
 # [RASM_SPATIAL_INDEX]
 
-ONE polymorphic `SpatialIndex` owner that closes the broad-phase acceleration concern over a `[Union]` of two first-principles author-kernels — a SAH-partitioned bounding-volume hierarchy (`Bvh`) and a Morton-order linear octree (`LinearOctree`) — built over ONE flat `NodeStore` value layout so a query, a refit, and the Compute-seam projection read the same struct-of-arrays node memory regardless of which kernel produced it. The page owns the `SpatialKind` discriminant (binding the sibling-owned `GeometryKeyPolicy` string-key comparer), the `NodeStore` SoA node memory, the `SpatialIndex` `[Union]` with its `Build`/`Refit` rail and `Query` fold, the `SpatialQuery` `[Union]` query algebra (`Nearest`/`Range`/`Ray`/`Overlap`) with the typed `QueryResult` carrier, and the `ToAcceleration` projection that hands the flat node store to the Compute `solver#CLASH_AND_TWIN` `AccelerationStructure` consumer without re-minting a second acceleration structure.
+ONE polymorphic `SpatialIndex` owner that closes the broad-phase acceleration concern over a `[Union]` of two first-principles author-kernels — a SAH-partitioned bounding-volume hierarchy (`Bvh`) and a Morton-order linear octree (`LinearOctree`) — built over ONE flat `NodeStore` value layout so a query, a refit, and the Compute-seam projection read the same struct-of-arrays node memory regardless of which kernel produced it. The page owns the `SpatialKind` discriminant (binding the sibling-owned `GeometryKeyPolicy` string-key comparer), the `NodeStore` SoA node memory, the `SpatialIndex` `[Union]` with its `Build`/`Refit` rail and `Query` fold, the `SpatialQuery` `[Union]` query algebra (`Nearest`/`Range`/`Ray`/`Overlap`) with the typed `QueryResult` carrier, and the `ToAcceleration` projection that hands the flat node store to the `Compute/solver/clash#CLASH_AND_TWIN` `AccelerationStructure` consumer without re-minting a second acceleration structure.
 
 The index composes RhinoCommon `BoundingBox`/`Point3d`/`Vector3d`/`Ray3d`/`Sphere`/`Line` through the `Vectors` substrate as settled vocabulary — read, compose, never re-mint — and operates on raw primitive coordinates because the index is a geometric-coordinate structure, not a unit-bearing quantity surface. The only cross-package egress is `ToAcceleration`, returning the Compute `AccelerationStructure` `[Union]` value directly; a domain-local acceleration-structure record duplicating that union's field shape is the rejected double-owner form. The immutable `NodeStore` is the hash-friendly record the Persistence blob lane content-addresses by reference; the geometry domain computes no hash and mints no second store.
 
@@ -19,15 +19,15 @@ The index composes RhinoCommon `BoundingBox`/`Point3d`/`Vector3d`/`Ray3d`/`Spher
 - Receipt: none on the query rail — a query verdict is the typed `QueryResult` carrier (hit ids, ray `t`, k-NN ordered ids, overlap pairs), not an evidence record; the build/refit rail returns the index itself, and the index's `NodeStore` IS the hash-friendly immutable record the Persistence blob lane content-addresses.
 - Packages: Rhino.Inside / RhinoCommon (`BoundingBox`/`Point3d`/`Vector3d`/`Ray3d`/`Sphere`/`Line` via `Vectors`), Rasm.Compute.Solver (`AccelerationStructure` seam union — composed, never re-minted), `Rasm.Geometry` (`GeometryKeyPolicy` string-key comparer — composed, never re-minted), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`, `PriorityQueue<TElement,TPriority>`, `ReadOnlyMemory<T>`)
 - Growth: a new acceleration kernel is one `SpatialKind` row plus one `Builders` `FrozenDictionary` row plus one `SpatialIndex` union case writing the shared `NodeStore` — never a parallel index class with a duplicated query surface (a third kernel is admitted only by a charter amendment, never widened silently from this leaf page); a new query shape is one `SpatialQuery` case plus one `Query`-fold arm over the same store; a new build knob is one column on `BuildPolicy`; zero new surface.
-- Boundary: the index is the ONE polymorphic `SpatialIndex` `[Union]` and a `BvhTree`/`OctreeIndex` sibling-class family each carrying its own `Intersect`/`Search`/`Nearest` surface is the named density defect collapsed here onto one union over one `NodeStore` — the two kernels differ ONLY in their `Build` partition strategy, never in their traversal, so `Query`/`Refit` live on the union base and read the shared store kernel-agnostically over a uniform child range; the `Builders` `FrozenDictionary` is the single kernel-selection data table and a `SpatialKind kind switch` arm cascade in `Build` is the deleted form; `SpatialQuery` is the closed query algebra and a `QueryBox`/`QuerySphere`/`QueryRay`/`QueryKnn` method family on `SpatialIndex` is the rejected form — one `Query(SpatialQuery)` fold discriminates by case value; the `NodeStore` is struct-of-arrays (`float[] BoundsMin`, `float[] BoundsMax`, `int[] FirstChild`, `int[] ChildCount`, `int[] LeafStart`, `int[] LeafCount`) so a node walk is cache-coherent and every internal node — binary BVH node or up-to-eight-way octree cell — addresses its children as one contiguous `[FirstChild, FirstChild+ChildCount)` run, never two lossy `Left`/`Right` links that would drop an octree's middle octants; `ToAcceleration` returns the Compute `AccelerationStructure` `[Union]` value DIRECTLY (composing the settled cross-lane vocabulary, not minting a parallel `Acceleration` record) and a domain-local re-derivation of the Compute clash structure or a Compute-local re-build of this index is the rejected double-owner form; the Morton kernel spreads each normalized 10-bit axis coordinate through `Expand10` (the portable magic-number bit-interleave) and a hand-rolled per-bit loop where the portable magic-number spread or `Bmi2.X64.ParallelBitDeposit` already owns the operation is the named defect; the index composes RhinoCommon `BoundingBox`/`Ray3d` directly through the `Vectors` substrate and a domain-local `Aabb`/`Ray` re-mint is the deleted form; the slab ray test, the SAH cost scan, and the k-NN heap operate on raw primitive doubles inside the kernel because coordinates are the domain's native scalar (a coordinate is not a unit-bearing quantity), and a unit-carrying type in a traversal signature is the seam violation.
+- Boundary: the index is the ONE polymorphic `SpatialIndex` `[Union]` and a `BvhTree`/`OctreeIndex` sibling-class family each carrying its own `Intersect`/`Search`/`Nearest` surface is the named density defect collapsed here onto one union over one `NodeStore` — the two kernels differ ONLY in their `Build` partition strategy, never in their traversal, so `Query`/`Refit` live on the union base and read the shared store kernel-agnostically over a uniform child range; the `Builders` `FrozenDictionary` is the single kernel-selection data table and a `SpatialKind kind switch` arm cascade in `Build` is the deleted form; `SpatialQuery` is the closed query algebra and a `QueryBox`/`QuerySphere`/`QueryRay`/`QueryKnn` method family on `SpatialIndex` is the rejected form — one `Query(SpatialQuery)` fold discriminates by case value; the `NodeStore` is struct-of-arrays (`float[] BoundsMin`, `float[] BoundsMax`, `int[] FirstChild`, `int[] ChildCount`, `int[] LeafStart`, `int[] LeafCount`) so a node walk is cache-coherent and every internal node — binary BVH node or up-to-eight-way octree cell — addresses its children as one contiguous `[FirstChild, FirstChild+ChildCount)` run, never two lossy `Left`/`Right` links that drop an octree's middle octants; `ToAcceleration` returns the Compute `AccelerationStructure` `[Union]` value DIRECTLY (composing the settled cross-lane vocabulary, not minting a parallel `Acceleration` record) carrying the FROZEN node-link wire the `Compute/solver/clash#CLASH_AND_TWIN` `ClashScale.BvhPairs` traversal decodes — `Bounds` is `6·NodeCount` little-endian `float32` as one interleaved `[minX,minY,minZ,maxX,maxY,maxZ]` AABB per node in node-index order (root = node 0), and `Nodes` is `NodeCount + primitiveCount` little-endian `int64` where `Nodes[node]` for `node < NodeCount` is the per-node descriptor (non-negative internal node packs `(FirstChild << 21) | ChildCount`; negative leaf node packs `-(((LeafStart' << 21) | LeafCount)) - 1` where `LeafStart'` indexes the primitive-id tail) and `Nodes[NodeCount + LeafStart' + s]` for `s ∈ [0, LeafCount)` is the leaf primitive id — so `NodeCount == Bounds.Length/6` and a Compute walk descends the contiguous `[FirstChild, FirstChild+ChildCount)` child range; a domain-local re-derivation of the Compute clash structure or a Compute-local re-build of this index is the rejected double-owner form; the Morton kernel spreads each normalized 10-bit axis coordinate through `Expand10` (the portable magic-number bit-interleave) and a hand-rolled per-bit loop where the portable magic-number spread or `Bmi2.X64.ParallelBitDeposit` already owns the operation is the named defect; the index composes RhinoCommon `BoundingBox`/`Ray3d` directly through the `Vectors` substrate and a domain-local `Aabb`/`Ray` re-mint is the deleted form; the slab ray test, the SAH cost scan, and the k-NN heap operate on raw primitive doubles inside the kernel because coordinates are the domain's native scalar (a coordinate is not a unit-bearing quantity), and a unit-carrying type in a traversal signature is the seam violation.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Compute.Solver;                                          // AccelerationStructure — settled cross-lane seam vocabulary, composed never re-minted
-using Rasm.Geometry;                                                // GeometryKeyPolicy — the one ordinal string-key comparer, owned at faults#FAULT_BAND
+using Rasm.Compute.Solver;
+using Rasm.Geometry;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -49,19 +49,15 @@ public sealed record BuildPolicy(int LeafSize, int MaxDepth, int SahBuckets) {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// Struct-of-arrays flat node memory: one allocation set every kernel writes and every traversal/refit/seam reads.
-// A node is internal when LeafCount[i] == 0 — its children occupy the contiguous run [FirstChild, FirstChild+ChildCount):
-// a binary BVH node has ChildCount==2, an octree cell up to 8, so no middle octant is ever dropped by a two-link scheme.
-// A leaf carries LeafStart/LeafCount into the primitive-order array (FirstChild/ChildCount are 0 on a leaf).
 public sealed record NodeStore(
-    int Count,           // emitted node count; the arrays are over-allocated to the worst case, Count is the live prefix
-    float[] BoundsMin,   // length 3*capacity, axis-major per node
+    int Count,
+    float[] BoundsMin,
     float[] BoundsMax,
     int[] FirstChild,
     int[] ChildCount,
     int[] LeafStart,
     int[] LeafCount,
-    int[] Order) {       // primitive indices in build order; leaves slice [LeafStart, LeafStart+LeafCount)
+    int[] Order) {
     public int NodeCount => Count;
 
     public BoundingBox Bound(int node) =>
@@ -91,16 +87,11 @@ public abstract partial record QueryResult {
 public abstract partial record SpatialQuery {
     private SpatialQuery() { }
 
-    public sealed record Range(BoundingBox Box, Option<Sphere> Ball) : SpatialQuery;       // box descent, optional sphere refinement
-    public sealed record Ray(Ray3d Ray, double MaxT) : SpatialQuery;                       // front-to-back nearest hit
-    public sealed record Nearest(Point3d Query, int K) : SpatialQuery;                     // best-first k-NN
-    public sealed record Overlap(SpatialIndex Other, double Tolerance) : SpatialQuery;     // tandem broad-phase candidate pairs
+    public sealed record Range(BoundingBox Box, Option<Sphere> Ball) : SpatialQuery;
+    public sealed record Ray(Ray3d Ray, double MaxT) : SpatialQuery;
+    public sealed record Nearest(Point3d Query, int K) : SpatialQuery;
+    public sealed record Overlap(SpatialIndex Other, double Tolerance) : SpatialQuery;
 }
-
-// --- [ERRORS] -----------------------------------------------------------------------------
-// The package GeometryFault union (band 2400) is owned at faults#FAULT_BAND; the spatial-index-relevant cases are referenced here by their real shape.
-// GeometryFault.DegenerateInput(string)  -> 2401  (empty/non-finite primitive set)
-// GeometryFault.IndexMismatch(string)    -> 2402  (refit primitive-count mismatch)
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -125,7 +116,7 @@ public abstract partial record SpatialIndex {
             bvh: static b => b.Primitives,
             linearOctree: static o => o.Primitives);
 
-    // --- [BUILD] --------------------------------------------------------------------------
+    // --- [BUILD]
     static readonly FrozenDictionary<SpatialKind, Func<BoundingBox[], Point3d[], BuildPolicy, SpatialIndex>> Builders =
         new (SpatialKind Kind, Func<BoundingBox[], Point3d[], BuildPolicy, SpatialIndex> Build)[] {
             (SpatialKind.Bvh, static (boxes, centroids, policy) => BuildBvh(boxes, centroids, policy)),
@@ -146,13 +137,10 @@ public abstract partial record SpatialIndex {
     static Point3d[] Centroids(BoundingBox[] boxes) =>
         Array.ConvertAll(boxes, static box => 0.5 * (box.Min + box.Max));
 
-    // SAH-BVH: recursive top-down partition minimizing surface-area-heuristic cost over bucketed centroid splits.
-    // An internal node reserves its two child slots contiguously (firstChild, firstChild+1) BEFORE recursing, so the
-    // immediate children are adjacent and the [FirstChild, FirstChild+ChildCount) range the traversal walks is dense.
     static SpatialIndex BuildBvh(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy) {
         var order = Enumerable.Range(0, boxes.Length).ToArray();
         var store = Allocate(boxes.Length);
-        int next = 1;                                              // node 0 is the root, reserved by the first Partition call
+        int next = 1;
         void Partition(int node, int lo, int hi) {
             BoundingBox bound = Union(boxes, order, lo, hi);
             int count = hi - lo;
@@ -162,15 +150,15 @@ public abstract partial record SpatialIndex {
             }
             BoundingBox centroidBound = CentroidBound(centroids, order, lo, hi);
             (int axis, double cost, int splitBucket) = BestSah(boxes, centroids, order, lo, hi, bound, centroidBound, policy.SahBuckets);
-            if (cost >= count) {                                   // leaf cheaper than any split
+            if (cost >= count) {
                 store.Write(node, bound, 0, 0, lo, count);
                 return;
             }
             double extent = Axis(centroidBound.Max, axis) - Axis(centroidBound.Min, axis);
             int mid = StablePartition(order, lo, hi, idx =>
                 (int)(policy.SahBuckets * (Axis(centroids[idx], axis) - Axis(centroidBound.Min, axis)) / Math.Max(extent, double.Epsilon)) <= splitBucket);
-            mid = mid == lo || mid == hi ? (lo + hi) / 2 : mid;     // guard a degenerate all-one-side bucket
-            int firstChild = next;                                  // reserve the two child slots adjacently, then recurse
+            mid = mid == lo || mid == hi ? (lo + hi) / 2 : mid;
+            int firstChild = next;
             next += 2;
             store.Write(node, bound, firstChild, 2, -1, 0);
             Partition(firstChild, lo, mid);
@@ -207,31 +195,29 @@ public abstract partial record SpatialIndex {
         return (box, count);
     }
 
-    // Linear (Morton) octree: sort centroids by 30-bit Z-order code, build the cell hierarchy from sorted radix runs.
-    // Each internal cell reserves a contiguous slot run for ALL its 1–8 octant children (none dropped) before recursing.
     static SpatialIndex BuildOctree(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy) {
         BoundingBox root = Union(boxes, Enumerable.Range(0, boxes.Length).ToArray(), 0, boxes.Length);
         Vector3d span = root.Max - root.Min;
         uint[] codes = Array.ConvertAll(centroids, c => Morton(
             Normalize(c.X, root.Min.X, span.X), Normalize(c.Y, root.Min.Y, span.Y), Normalize(c.Z, root.Min.Z, span.Z)));
         var order = Enumerable.Range(0, boxes.Length).ToArray();
-        Array.Sort(codes, order);                                  // one keyed sort: codes ascending, same permutation applied to order
+        Array.Sort(codes, order);
         var store = Allocate(boxes.Length);
-        int next = 1;                                              // node 0 is the root cell, reserved by the first Cell call
+        int next = 1;
         void Cell(int node, int lo, int hi, int depth, BoundingBox bound) {
             int count = hi - lo;
             if (count <= policy.LeafSize || depth >= Math.Min(policy.MaxDepth, 10)) {
                 store.Write(node, Union(boxes, order, lo, hi), 0, 0, lo, count);
                 return;
             }
-            int shift = 3 * (9 - depth);                            // top octant nibble at this depth (10 levels of 3 bits)
-            var runs = new List<(int Lo, int Hi)>(8);               // one entry per occupied octant — every run is retained
+            int shift = 3 * (9 - depth);
+            var runs = new List<(int Lo, int Hi)>(8);
             int runStart = lo;
             for (int i = lo + 1; i <= hi; i++) {
                 bool boundary = i == hi || ((codes[i] >> shift) & 0x7) != ((codes[runStart] >> shift) & 0x7);
                 if (boundary) { runs.Add((runStart, i)); runStart = i; }
             }
-            int firstChild = next;                                  // reserve a dense slot run for every occupied octant
+            int firstChild = next;
             next += runs.Count;
             store.Write(node, bound, firstChild, runs.Count, -1, 0);
             for (int c = 0; c < runs.Count; c++)
@@ -241,7 +227,7 @@ public abstract partial record SpatialIndex {
         return new LinearOctree(store with { Count = next, Order = order }, boxes, centroids, root, Math.Min(policy.MaxDepth, 10));
     }
 
-    // --- [QUERY] --------------------------------------------------------------------------
+    // --- [QUERY]
     public QueryResult Query(SpatialQuery query) =>
         query switch {
             SpatialQuery.Range range => new QueryResult.Hits(RangeHits(Store, Primitives, range)),
@@ -251,7 +237,6 @@ public abstract partial record SpatialIndex {
             _ => new QueryResult.Hits(Seq<int>()),
         };
 
-    // Box/sphere descent: push the root, pop nodes whose bound intersects the region, collect intersecting leaf primitives.
     static Seq<int> RangeHits(NodeStore store, BoundingBox[] primitives, SpatialQuery.Range range) {
         var hits = Seq<int>();
         var stack = new Stack<int>();
@@ -273,7 +258,6 @@ public abstract partial record SpatialIndex {
         return hits;
     }
 
-    // Front-to-back slab test: descend ordered by entry distance, return the nearest primitive hit parameter.
     static QueryResult.RayHit RayNearest(NodeStore store, BoundingBox[] primitives, SpatialQuery.Ray ray) {
         var stack = new Stack<int>();
         stack.Push(0);
@@ -294,14 +278,11 @@ public abstract partial record SpatialIndex {
         return new QueryResult.RayHit(hit >= 0 ? Some(hit) : None, hit >= 0 ? best : ray.MaxT);
     }
 
-    // Best-first k-NN: a size-K bounded max-heap over centroid distance (PriorityQueue keyed by NEGATED distance, so the
-    // queue head is the current FARTHEST kept neighbour). The worst kept distance is read in O(1) at the head — Worst below
-    // peeks it without ever re-scanning UnorderedItems — and a node prunes when its bound lower-distance exceeds that worst.
     static Seq<int> KNearest(NodeStore store, Point3d[] centroids, SpatialQuery.Nearest knn) {
         var heap = new PriorityQueue<int, double>();
         var stack = new Stack<int>();
         stack.Push(0);
-        double Worst() => heap.TryPeek(out _, out double p) ? -p : double.MaxValue;   // O(1) head read, never an UnorderedItems scan
+        double Worst() => heap.TryPeek(out _, out double p) ? -p : double.MaxValue;
         while (stack.Count > 0) {
             int node = stack.Pop();
             double lower = store.Bound(node).ClosestPoint(knn.Query).DistanceTo(knn.Query);
@@ -311,7 +292,7 @@ public abstract partial record SpatialIndex {
                     int prim = store.Order[store.LeafStart[node] + s];
                     double d = centroids[prim].DistanceTo(knn.Query);
                     if (heap.Count < knn.K) heap.Enqueue(prim, -d);
-                    else heap.EnqueueDequeue(prim, -d);            // bounded insert against the head worst, O(1) read + O(log K)
+                    else heap.EnqueueDequeue(prim, -d);
                 }
                 continue;
             }
@@ -320,7 +301,6 @@ public abstract partial record SpatialIndex {
         return toSeq(heap.UnorderedItems.OrderBy(static e => -e.Priority).Select(static e => e.Element));
     }
 
-    // Tandem broad-phase: walk both node stacks together, collect leaf-pair candidates whose bounds intersect within tolerance.
     static Seq<(int Left, int Right)> OverlapPairs(SpatialIndex left, SpatialIndex right, double tolerance) {
         (NodeStore ls, BoundingBox[] lp) = (left.Store, left.Primitives);
         (NodeStore rs, BoundingBox[] rp) = (right.Store, right.Primitives);
@@ -346,14 +326,13 @@ public abstract partial record SpatialIndex {
         return pairs;
     }
 
-    // --- [REFIT] --------------------------------------------------------------------------
-    // Topology-stable: re-bound leaves from updated primitive AABBs, propagate merged child bounds up the stored child range.
+    // --- [REFIT]
     public Fin<SpatialIndex> Refit(ReadOnlySpan<BoundingBox> updated) {
         if (updated.Length != Primitives.Length)
             return Fin.Fail<SpatialIndex>(GeometryFault.IndexMismatch($"refit:{updated.Length}!={Primitives.Length}"));
         var boxes = updated.ToArray();
         NodeStore store = Store;
-        for (int node = store.NodeCount - 1; node >= 0; node--) {  // children precede parents in build emission order
+        for (int node = store.NodeCount - 1; node >= 0; node--) {
             BoundingBox bound = store.LeafCount[node] > 0
                 ? LeafBound(store, boxes, node)
                 : ChildBound(store, node);
@@ -364,27 +343,15 @@ public abstract partial record SpatialIndex {
             linearOctree: o => o with { Primitives = boxes, Centroids = Centroids(boxes) }));
     }
 
-    // Merge the bounds of every child in the contiguous [FirstChild, FirstChild+ChildCount) range of an internal node.
     static BoundingBox ChildBound(NodeStore store, int node) {
         var box = BoundingBox.Empty;
         for (int c = 0; c < store.ChildCount[node]; c++) box.Union(store.Bound(store.FirstChild[node] + c));
         return box;
     }
 
-    // --- [ACCELERATION_SEAM] --------------------------------------------------------------
-    // ToAcceleration returns the Compute solver#CLASH_AND_TWIN AccelerationStructure union value DIRECTLY
-    // (the settled cross-lane vocabulary, never a parallel local record). The byte layout is dictated by the consumer decode:
-    // ClashScale.BvhPairs reads nodeCount = Bounds.Length/6 and slices Bounds[i*6 .. i*6+6] as one node's [minX,minY,minZ,
-    // maxX,maxY,maxZ], then treats Nodes.Span[i] as a flat PRIMITIVE id (triangles.Slice(Nodes[i]*9, 9)) over an O(N^2)
-    // ALL-PAIRS leaf scan — the consumer carries no internal/leaf distinction and decodes no node-link hierarchy. The only
-    // layout that round-trips against that decode is one entry PER LEAF PRIMITIVE: each primitive's AABB as 6 interleaved
-    // floats and Nodes[i] == the primitive id. This is emitted exactly so; the hierarchy this owner builds is therefore NOT
-    // consumed by the current Compute side, which is the live cross-lane contract conflict the RESEARCH [CLASH_SEAM] item
-    // names (the consumer accelerates nothing). Resolving it requires the Compute owner to expose a node-link decode that
-    // walks [FirstChild, FirstChild+ChildCount) — an edit to solver/lane.md, OUT OF THIS PAGE'S WRITE-SCOPE —
-    // so the projection stays byte-faithful to the present consumer while the seam holds pending that arbitration.
+    // --- [ACCELERATION_SEAM]
     public AccelerationStructure ToAcceleration() {
-        (float[] bounds, long[] nodes) = LeafProjection(Store);
+        (float[] bounds, long[] nodes) = NodeLinkProjection(Store);
         return Switch<AccelerationStructure>(
             bvh: b => new AccelerationStructure.Bvh(bounds.AsMemory(), nodes.AsMemory(), b.LeafSize),
             linearOctree: o => new AccelerationStructure.Octree(
@@ -392,29 +359,30 @@ public abstract partial record SpatialIndex {
                 Diagonal(o.Root), nodes.AsMemory(), o.MaxDepth));
     }
 
-    // One interleaved 6-float AABB and one primitive id per leaf primitive, in Order traversal — the flat per-primitive
-    // stream ClashScale.BvhPairs/OctreePairs decode (Bounds.Length/6 nodes, Nodes[i] the triangle id at triangles[id*9]).
-    static (float[] Bounds, long[] Nodes) LeafProjection(NodeStore store) {
-        int count = store.Order.Length;
-        var bounds = new float[6 * count];
-        var nodes = new long[count];
-        for (int node = 0; node < store.NodeCount; node++) {
-            if (store.LeafCount[node] == 0) continue;
-            for (int s = 0; s < store.LeafCount[node]; s++) {
-                int prim = store.Order[store.LeafStart[node] + s];
-                BoundingBox leaf = store.Bound(node);
-                int b = 6 * prim;
-                (bounds[b], bounds[b + 1], bounds[b + 2]) = ((float)leaf.Min.X, (float)leaf.Min.Y, (float)leaf.Min.Z);
-                (bounds[b + 3], bounds[b + 4], bounds[b + 5]) = ((float)leaf.Max.X, (float)leaf.Max.Y, (float)leaf.Max.Z);
-                nodes[prim] = prim;
+    static (float[] Bounds, long[] Nodes) NodeLinkProjection(NodeStore store) {
+        int nodeCount = store.NodeCount;
+        var bounds = new float[6 * nodeCount];
+        var nodes = new long[nodeCount + store.Order.Length];
+        int tail = nodeCount;
+        for (int node = 0; node < nodeCount; node++) {
+            BoundingBox box = store.Bound(node);
+            int b = 6 * node;
+            (bounds[b], bounds[b + 1], bounds[b + 2]) = ((float)box.Min.X, (float)box.Min.Y, (float)box.Min.Z);
+            (bounds[b + 3], bounds[b + 4], bounds[b + 5]) = ((float)box.Max.X, (float)box.Max.Y, (float)box.Max.Z);
+            if (store.LeafCount[node] > 0) {
+                nodes[node] = -(((long)tail << ChildShift) | (uint)store.LeafCount[node]) - 1;
+                for (int s = 0; s < store.LeafCount[node]; s++)
+                    nodes[tail++] = store.Order[store.LeafStart[node] + s];
+            } else {
+                nodes[node] = ((long)store.FirstChild[node] << ChildShift) | (uint)store.ChildCount[node];
             }
         }
         return (bounds, nodes);
     }
 
-    // --- [KERNELS] ------------------------------------------------------------------------
-    // Worst case bounds every kernel: a binary BVH is 2N-1; a single-child Morton-octree chain adds up to one internal
-    // node per level (capped at 10) per leaf group, so 12N+1 dominates both and the dense child runs never overflow.
+    const int ChildShift = 21;
+
+    // --- [KERNELS]
     static NodeStore Allocate(int primitiveCount) {
         int capacity = Math.Max(1, 12 * primitiveCount + 1);
         return new NodeStore(0, new float[3 * capacity], new float[3 * capacity], new int[capacity], new int[capacity], new int[capacity], new int[capacity], new int[primitiveCount]);
@@ -455,7 +423,6 @@ public abstract partial record SpatialIndex {
 
     static bool SphereHits(BoundingBox box, Sphere ball) => box.ClosestPoint(ball.Center).DistanceTo(ball.Center) <= ball.Radius;
 
-    // Ray/AABB slab intersection: returns the entry parameter t within [0, max].
     static bool Slab(BoundingBox box, Ray3d ray, double max, out double t) {
         double tMin = 0.0, tMax = max;
         for (int axis = 0; axis < 3; axis++) {
@@ -476,10 +443,9 @@ public abstract partial record SpatialIndex {
         return true;
     }
 
-    // 30-bit Morton interleave: spread each normalized 10-bit axis coordinate then weave x|y<<1|z<<2.
     static uint Morton(uint x, uint y, uint z) => Expand10(x) | (Expand10(y) << 1) | (Expand10(z) << 2);
 
-    static uint Expand10(uint v) {                                 // place each of 10 low bits into every third slot
+    static uint Expand10(uint v) {
         v &= 0x3FF;
         v = (v | (v << 16)) & 0x030000FF;
         v = (v | (v << 8)) & 0x0300F00F;
@@ -491,7 +457,6 @@ public abstract partial record SpatialIndex {
     static uint Normalize(double value, double min, double span) =>
         span <= double.Epsilon ? 0u : (uint)Math.Clamp((int)(1023.0 * (value - min) / span), 0, 1023);
 
-    // In-place stable partition by predicate; returns the split index.
     static int StablePartition(int[] order, int lo, int hi, Func<int, bool> onLeft) {
         int write = lo;
         var buffer = new int[hi - lo];
@@ -507,7 +472,8 @@ public abstract partial record SpatialIndex {
 
 - [SAH_PARTITION] — the `BuildBvh` body is the bucketed surface-area-heuristic partition — `BestSah` bins centroids into `BuildPolicy.SahBuckets` buckets per axis, scans the `buckets-1` split planes accumulating left/right bounds and counts, and minimizes `0.125 + (lCount·SA(lBox) + rCount·SA(rBox)) / SA(node)`; a split is taken only when its cost undercuts the leaf cost (`count`), the degenerate all-one-side bucket falls back to the median, internal nodes reserve their two child slots contiguously before recursing so the `[FirstChild, FirstChild+ChildCount)` range is dense, and `RhinoCommon` `BoundingBox.Union`/`SurfaceArea`-equivalent (`(d.X·d.Y + d.Y·d.Z + d.Z·d.X)·2`) are pure-managed — no host probe; the kernel is transcription-complete and pure-managed.
 - [MORTON_OCTREE] — the `BuildOctree` body normalizes each centroid axis to a 10-bit grid, interleaves through the portable magic-number `Expand10` bit-spread (no `Bmi2.X64.ParallelBitDeposit` host dependence so the build is RID-agnostic), does ONE keyed sort (`Array.Sort(codes, order)` permutes `order` by the Morton key in a single pass), and builds the cell hierarchy by splitting each sorted run on the depth-indexed octant nibble (`3·(9-depth)` shift, 10 levels) — every occupied octant (1–8) is retained as a child in a contiguous reserved slot run, so no middle octant is dropped and the traversal walks the full child range; the linear-octree contract — sort-by-Morton then radix-run subdivision into a dense child range — is the entire correctness claim and is pure-managed.
-- [CLASH_SEAM] (LIVE CONTRADICTION, not a byte probe): `ToAcceleration` returns the Compute `solver#CLASH_AND_TWIN` `AccelerationStructure` union value directly. The Compute consumer decodes a FLAT per-primitive layout incompatible with a hierarchy: `ClashScale.BvhPairs` reads `nodeCount = Bounds.Length/6` and slices `Bounds[i*6 .. i*6+6]` as one node's interleaved `[min,max]`, then treats `Nodes.Span[i]` as a PRIMITIVE id (`triangles.Slice(Nodes[i]*9, 9)`) over an O(N²) all-pairs leaf scan with NO internal/leaf distinction and NO node-link decode — the consumer accelerates nothing and cannot walk a `FirstChild`/`ChildCount` hierarchy. The page's projection is therefore emitted in the ONLY layout that round-trips against that decode (one interleaved 6-float AABB and one `Nodes[i] == primitiveId` per leaf primitive, `LeafProjection`), so `Bounds.Length/6 == primitiveCount` and `Slice(i*6,6)` is primitive `i`'s box exactly. The unresolved item is NOT a bit layout — it is a bidirectional contract conflict: the hierarchy this owner builds is not consumed Compute-side, and consuming it requires the Compute owner to expose a node-link decode walking `[FirstChild, FirstChild+ChildCount)`, an edit to `solver/lane.md` OUTSIDE this page's write-scope. The two pages cannot both finalize until one owner's node-link contract wins; flagged for cross-page arbitration. The validation harness is a shared FROZEN golden-bytes fixture both packages assert (the geometry domain's `ToAcceleration` emits, Compute `ClashScale.BvhPairs` decodes, the fixture proves the round-trip), and the fixture must exist and pass before the seam is settled.
+- [CLASH_SEAM] — `ToAcceleration` returns the `Compute/solver/clash#CLASH_AND_TWIN` `AccelerationStructure` union value directly carrying the FROZEN node-link wire `NodeLinkProjection` emits and `ClashScale.BvhPairs` decodes by a proper BVH descent over the contiguous `[FirstChild, FirstChild+ChildCount)` child range — the node-link hierarchy is the canonical contract (O(N log N)-capable), the prior flat per-primitive O(N²) all-pairs decode is the deleted form. Canonical layout: `Bounds` = `6·NodeCount` little-endian `float32`, node `i`'s AABB at `Bounds[i·6 .. i·6+6)` as `[minX,minY,minZ,maxX,maxY,maxZ]`, node-index order with the SAH-BVH/Morton-octree root at node 0; `Nodes` = `NodeCount + primitiveCount` little-endian `int64` split as a `NodeCount`-long descriptor block followed by a primitive-id tail — `Nodes[node]` non-negative is an INTERNAL node packing `(FirstChild << 21) | ChildCount` (binary BVH node is `ChildCount == 2`, octree cell is `ChildCount ∈ [1,8]`), `Nodes[node]` negative is a LEAF packing `-(((LeafStart' << 21) | LeafCount)) - 1` where `LeafStart'` is the zero-based offset into the tail and `Nodes[NodeCount + LeafStart' + s]` for `s ∈ [0, LeafCount)` is the leaf primitive id (the `Order`-permuted primitive index). `NodeCount == Bounds.Length/6`; the 21-bit `ChildShift` field admits up to `2²¹−1` nodes and the same `2²¹−1` tail offset, sufficient for the `12·primitiveCount+1` node-store capacity bound.
+- [CLASH_GOLDEN] (frozen two-sided fixture, both pages assert byte-identical): a single canonical input — a fixed 8-primitive `BoundingBox[]` set built with `BuildPolicy.Canonical` through `SpatialIndex.Build(SpatialKind.Bvh, …)` — projects through `ToAcceleration` to one `AccelerationStructure.Bvh` whose `Bounds`/`Nodes` are serialized little-endian into a frozen golden byte sequence checked into the shared test corpus; the Rasm geometry spec asserts `NodeLinkProjection` emits exactly those bytes, the `Compute/solver/clash#CLASH_GOLDEN` spec asserts `ClashScale.BvhPairs` decodes those same bytes into the agreed clash-pair set, and the round-trip (Rasm emits → Compute decodes → confirmed clash count) is the seam-settled signal; the fixture must exist and pass on BOTH sides before the seam finalizes.
 
 ## [4]-[DENSITY_BAR]
 
@@ -518,4 +484,4 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 |   [2]   | Spatial index    | `SpatialIndex` | `[Union]` (`Bvh`/`LinearOctree`) over one `NodeStore` + `Build`/`Refit`/`ToAcceleration` | `SpatialIndex.Build → Fin<SpatialIndex>`     |    2    |
 |   [2a]  | Spatial query    | `SpatialQuery` | `[Union]` (`Nearest`/`Range`/`Ray`/`Overlap`) folded by one `Query`         | `SpatialIndex.Query → QueryResult` (pure, total) |    4    |
 
-The two build kernels (SAH-BVH, Morton linear octree), the four query bodies (range descent, front-to-back ray slab, best-first k-NN, tandem overlap), and the topology-stable `Refit` are transcription-complete pure-managed fences over one `NodeStore` SoA layout with a contiguous `[FirstChild, FirstChild+ChildCount)` child range that loses no octree octant. The `Query` fold is pure, total, and seam-independent. The `[CLASH_SEAM]` (RESEARCH) is the one open item: a LIVE cross-lane contract conflict requiring a `solver/lane.md` edit OUTSIDE this page's write-scope, resolved only after the cross-page node-link contract is arbitrated and the two-sided golden-bytes fixture passes.
+The two build kernels (SAH-BVH, Morton linear octree), the four query bodies (range descent, front-to-back ray slab, best-first k-NN, tandem overlap), and the topology-stable `Refit` are transcription-complete pure-managed fences over one `NodeStore` SoA layout with a contiguous `[FirstChild, FirstChild+ChildCount)` child range that loses no octree octant. The `Query` fold is pure, total, and seam-independent. The `[CLASH_SEAM]` is settled: `ToAcceleration`/`NodeLinkProjection` emit the FROZEN node-link wire (per-node interleaved AABB + `(FirstChild << 21) | ChildCount` descriptor with a leaf primitive-id tail) the `Compute/solver/clash#CLASH_AND_TWIN` `ClashScale.BvhPairs` traversal descends over the same contiguous child range, and the `[CLASH_GOLDEN]` two-sided frozen golden-bytes fixture is the byte-identical round-trip both pages assert before the seam finalizes.

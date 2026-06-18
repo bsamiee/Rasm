@@ -4,9 +4,7 @@ One page owns the browser SPA composition root and the single boot entry — `Co
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                            |
-| :-----: | :---------------- | :--------------------------------------------------------------- |
-|   [1]   | COMPOSITION_ROOT  | the Layer graph, the one runtime, and the `./web` SPA boot entry  |
+[COMPOSITION_ROOT]: the Layer graph, the one runtime, and the `./web` SPA boot entry.
 
 ## [2]-[COMPOSITION_ROOT]
 

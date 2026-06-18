@@ -71,8 +71,14 @@ and execution-provider selection for Compute model rails.
 |  [16]   | `NnapiFlags`                    | NNAPI flags enum     | `NNAPI_FLAG_USE_NONE` and accelerator-mode bits                                                                                                                                                                                              |
 |  [17]   | `OrtCUDAProviderOptions`        | CUDA options handle  | `UpdateOptions(Dictionary<string,string>)`, `GetOptions()` string                                                                                                                                                                            |
 |  [18]   | `OrtTensorRTProviderOptions`    | TensorRT options     | `UpdateOptions(Dictionary<string,string>)`, `GetDeviceId()`                                                                                                                                                                                  |
-|  [19]   | `OrtROCMProviderOptions`        | ROCm options handle  | `UpdateOptions(Dictionary<string,string>)`                                                                                                                                                                                                   |
-|  [20]   | `ExecutionMode`                 | execution-mode enum  | `ORT_SEQUENTIAL`, `ORT_PARALLEL`                                                                                                                                                                                                             |
+
+[PUBLIC_TYPE_SCOPE]: ROCm, execution-mode, and provider-options contracts
+- rail: model
+
+| [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]      | [CAPABILITY]                               |
+| :-----: | :----------------------- | :------------------ | :----------------------------------------- |
+|   [1]   | `OrtROCMProviderOptions` | ROCm options handle | `UpdateOptions(Dictionary<string,string>)` |
+|   [2]   | `ExecutionMode`          | execution-mode enum | `ORT_SEQUENTIAL`, `ORT_PARALLEL`           |
 
 [PUBLIC_TYPE_SCOPE]: package assets
 - rail: model
@@ -239,7 +245,6 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 ## [4]-[CONFIG_KEYS]
 
 [CONFIG_KEY_SCOPE]: session-options config-entry keys
-- source: `build/native/include/onnxruntime_session_options_config_keys.h`
 - rail: model
 
 | [INDEX] | [KEY_STRING]           | [SETTER]                               | [VALUE_DOMAIN]         |
@@ -249,7 +254,6 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 |   [3]   | `ep.share_ep_contexts` | `SessionOptions.AddSessionConfigEntry` | `0` / `1`              |
 
 [CONFIG_KEY_SCOPE]: run-options config-entry keys
-- source: `build/native/include/onnxruntime_run_options_config_keys.h`
 - rail: model
 
 | [INDEX] | [KEY_STRING]                           | [SETTER]                       | [VALUE_DOMAIN]          |
@@ -257,7 +261,6 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 |   [1]   | `memory.enable_memory_arena_shrinkage` | `RunOptions.AddRunConfigEntry` | allocator device string |
 
 [CONFIG_KEY_SCOPE]: CoreML provider-option keys
-- source: CoreML execution-provider option surface
 - rail: model
 
 | [INDEX] | [KEY_STRING]                         | [VALUE_DOMAIN]                                      |
@@ -318,25 +321,24 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 ## [6]-[REGISTRATION_MEMBERS]
 
 [ENTRYPOINT_SCOPE]: custom-op and extension registration decompile-verified signatures
-- source: `Microsoft.ML.OnnxRuntime` 1.26.0 managed assembly — `SessionOptions` decompile
 - rail: model-lane#GENERATIVE_RUN
 
-| [INDEX] | [MEMBER]                           | [SIGNATURE]                                                                                                                                                                                                | [USED_BY]                 | [EVIDENCE]       |
-| :-----: | :--------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------ | :--------------- |
-|   [1]   | `RegisterCustomOpLibrary`          | `void RegisterCustomOpLibrary(string libraryPath)`                                                                                                                                                         | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|   [2]   | `RegisterCustomOpLibraryV2`        | `void RegisterCustomOpLibraryV2(string libraryPath, out nint libraryHandle)`                                                                                                                               | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|   [3]   | `RegisterOrtExtensions`            | `void RegisterOrtExtensions()` — calls `OrtExtensionsNativeMethods.RegisterCustomOps`; throws `OnnxRuntimeException(ErrorCode.NoSuchFile)` if `Microsoft.ML.OnnxRuntime.Extensions` native asset is absent | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|   [4]   | `SetEpSelectionPolicy`             | `void SetEpSelectionPolicy(ExecutionProviderDevicePolicy policy)`                                                                                                                                          | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|   [5]   | `SetEpSelectionPolicyDelegate`     | `void SetEpSelectionPolicyDelegate(EpSelectionDelegate selectionDelegate = null)`                                                                                                                          | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|   [6]   | `AppendExecutionProvider_CPU`      | `void AppendExecutionProvider_CPU(int useArena = 1)`                                                                                                                                                       | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|   [7]   | `AppendExecutionProvider_CUDA`     | `void AppendExecutionProvider_CUDA(int deviceId = 0)` / `void AppendExecutionProvider_CUDA(OrtCUDAProviderOptions)`                                                                                        | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|   [8]   | `AppendExecutionProvider_DML`      | `void AppendExecutionProvider_DML(int deviceId = 0)`                                                                                                                                                       | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|   [9]   | `AppendExecutionProvider_Tensorrt` | `void AppendExecutionProvider_Tensorrt(int deviceId = 0)` / `void AppendExecutionProvider_Tensorrt(OrtTensorRTProviderOptions)`                                                                            | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|  [10]   | `AppendExecutionProvider_ROCm`     | `void AppendExecutionProvider_ROCm(int deviceId = 0)` / `void AppendExecutionProvider_ROCm(OrtROCMProviderOptions)`                                                                                        | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|  [11]   | `AppendExecutionProvider_CoreML`   | `void AppendExecutionProvider_CoreML(CoreMLFlags coremlFlags = CoreMLFlags.COREML_FLAG_USE_NONE)`                                                                                                          | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|  [12]   | `AppendExecutionProvider`          | `void AppendExecutionProvider(string providerName, Dictionary<string, string> providerOptions = null)`                                                                                                     | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|  [13]   | `AppendExecutionProvider`          | `void AppendExecutionProvider(OrtEnv env, IReadOnlyList<OrtEpDevice> epDevices, IReadOnlyDictionary<string, string> epOptions)`                                                                            | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
-|  [14]   | `OrtEnv.GetEpDevices`              | `IReadOnlyList<OrtEpDevice> GetEpDevices()`                                                                                                                                                                | model-lane#GENERATIVE_RUN | decompile 1.26.0 |
+| [INDEX] | [MEMBER]                           | [SIGNATURE]                                                                                                                                                                                                |
+| :-----: | :--------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | `RegisterCustomOpLibrary`          | `void RegisterCustomOpLibrary(string libraryPath)`                                                                                                                                                         |
+|   [2]   | `RegisterCustomOpLibraryV2`        | `void RegisterCustomOpLibraryV2(string libraryPath, out nint libraryHandle)`                                                                                                                               |
+|   [3]   | `RegisterOrtExtensions`            | `void RegisterOrtExtensions()` — calls `OrtExtensionsNativeMethods.RegisterCustomOps`; throws `OnnxRuntimeException(ErrorCode.NoSuchFile)` if `Microsoft.ML.OnnxRuntime.Extensions` native asset is absent |
+|   [4]   | `SetEpSelectionPolicy`             | `void SetEpSelectionPolicy(ExecutionProviderDevicePolicy policy)`                                                                                                                                          |
+|   [5]   | `SetEpSelectionPolicyDelegate`     | `void SetEpSelectionPolicyDelegate(EpSelectionDelegate selectionDelegate = null)`                                                                                                                          |
+|   [6]   | `AppendExecutionProvider_CPU`      | `void AppendExecutionProvider_CPU(int useArena = 1)`                                                                                                                                                       |
+|   [7]   | `AppendExecutionProvider_CUDA`     | `void AppendExecutionProvider_CUDA(int deviceId = 0)` / `void AppendExecutionProvider_CUDA(OrtCUDAProviderOptions)`                                                                                        |
+|   [8]   | `AppendExecutionProvider_DML`      | `void AppendExecutionProvider_DML(int deviceId = 0)`                                                                                                                                                       |
+|   [9]   | `AppendExecutionProvider_Tensorrt` | `void AppendExecutionProvider_Tensorrt(int deviceId = 0)` / `void AppendExecutionProvider_Tensorrt(OrtTensorRTProviderOptions)`                                                                            |
+|  [10]   | `AppendExecutionProvider_ROCm`     | `void AppendExecutionProvider_ROCm(int deviceId = 0)` / `void AppendExecutionProvider_ROCm(OrtROCMProviderOptions)`                                                                                        |
+|  [11]   | `AppendExecutionProvider_CoreML`   | `void AppendExecutionProvider_CoreML(CoreMLFlags coremlFlags = CoreMLFlags.COREML_FLAG_USE_NONE)`                                                                                                          |
+|  [12]   | `AppendExecutionProvider`          | `void AppendExecutionProvider(string providerName, Dictionary<string, string> providerOptions = null)`                                                                                                     |
+|  [13]   | `AppendExecutionProvider`          | `void AppendExecutionProvider(OrtEnv env, IReadOnlyList<OrtEpDevice> epDevices, IReadOnlyDictionary<string, string> epOptions)`                                                                            |
+|  [14]   | `OrtEnv.GetEpDevices`              | `IReadOnlyList<OrtEpDevice> GetEpDevices()`                                                                                                                                                                |
 
 [REGISTRATION_LAW]:
 - `RegisterCustomOpLibrary(path)` maps to `OrtRegisterCustomOpsLibrary_V2` in the C API (load and register from path, no handle returned).

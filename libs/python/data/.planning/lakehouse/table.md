@@ -12,7 +12,7 @@ The transactional table-format interchange owner: one `LakeOp` axis over one `La
 - Cases: `LakeOp` rows `Write(mode, partition_by, evolve_schema)` (`write_deltalake` with `mode` ∈ `error|append|overwrite|ignore`, `schema_mode="merge"` carrying additive schema evolution) · `Read(version, columns, predicate)` (`load_as_version` + `to_pyarrow_table`, zero-copy Arrow) · `Optimize(target_size, zorder)` (`DeltaTable.optimize.compact`/`z_order`) · `Vacuum(retention_hours, dry_run)` (`DeltaTable.vacuum`) · `ChangeFeed(start, end)` (`load_cdf` Change Data Feed into a `RecordBatchReader`) · `Merge(predicate, updates)` (`DeltaTable.merge` upsert), each binding the exact `deltalake` surface that owns it.
 - Entry: `Lakehouse.open` admits a `DatasetRef` of `DatasetKind.DELTA` and returns the frozen owner over the resolved `table_uri`; `Lakehouse.run` folds one `LakeOp` through `match`/`case` closed by `assert_never` and returns a `RuntimeRail[LakeReceipt]`; time-travel is `LakeOp.Read(version=...)`, never a parallel `read_at_version` entrypoint.
 - Auto: `optimize` is a property exposing `compact()`/`z_order(columns)`; the changefeed rides `load_cdf(starting_version, ending_version)` returning a `pyarrow.RecordBatchReader` with the `_change_type`/`_commit_version`/`_commit_timestamp` CDF columns; schema evolution rides `schema_mode="merge"` on append, with no DDL migration because this is portable interchange.
-- Receipt: the commit contributes a `Receipt.emitted` row through `ReceiptContributor` and produces a `LakeReceipt` keyed by `ContentIdentity` over the snapshot version plus add-action file URIs.
+- Receipt: the commit contributes an emitted-phase `Receipt.of` row through `ReceiptContributor` and produces a `LakeReceipt` keyed by `ContentIdentity` over the snapshot version plus add-action file URIs.
 - Packages: `deltalake` (`DeltaTable`/`write_deltalake`/`load_cdf`/`optimize`/`vacuum`/`merge`), `pyarrow` (`Table`/`RecordBatchReader`), `duckdb` (queries the Delta snapshot via `from_arrow`), runtime (`RuntimeRail`/`ContentIdentity`/`ReceiptContributor`).
 - Growth: a new lake operation is one `LakeOp` case; a new write mode is a `Literal` row on `Write`; a second table format (Iceberg via `pyiceberg`, Lance) is a `TableFormat`-axis row on this same owner dispatching `_apply` to the format provider, never a parallel Iceberg/Hudi owner.
 - Boundary: no durable store, no schema migration, no global Delta connection; a `read_delta`/`write_delta`/`optimize_delta` family and a per-operation class family are the deleted forms.
@@ -28,8 +28,8 @@ from msgspec import Struct
 
 from rasm.data.columnar.dataset import DatasetKind, DatasetRef
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.observability.receipts import Receipt
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
 
 type WriteMode = Literal["error", "append", "overwrite", "ignore"]
 
@@ -78,7 +78,8 @@ class LakeReceipt(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> Receipt:
-        return Receipt.Emitted(
+        return Receipt.of(
+            "emitted",
             "lakehouse",
             self.table_uri,
             {"op": self.operation, "version": str(self.version), "added": str(self.files_added)},
@@ -91,7 +92,7 @@ class Lakehouse(Struct, frozen=True):
     @classmethod
     def open(cls, dataset: DatasetRef) -> "RuntimeRail[Lakehouse]":
         if dataset.kind is not DatasetKind.DELTA:
-            return Error(BoundaryFault.Resource("not-delta", dataset.ref.relative))
+            return Error(BoundaryFault(resource=("not-delta", dataset.ref.relative)))
         return Ok(cls(table_uri=str(dataset.ref.path)))
 
     def run(self, op: LakeOp, data: pa.Table | None = None) -> "RuntimeRail[LakeReceipt]":
@@ -139,7 +140,7 @@ class Lakehouse(Struct, frozen=True):
     def _receipt(self, operation: str, *, snapshot: int = 0, removed: int = 0) -> LakeReceipt:
         table = DeltaTable(self.table_uri)
         actions = table.get_add_actions().to_pydict()
-        key = ContentIdentity.key("delta", f"{self.table_uri}@{table.version()}".encode())
+        key = ContentIdentity.of("delta", f"{self.table_uri}@{table.version()}".encode())
         return LakeReceipt(
             table_uri=self.table_uri,
             operation=operation,

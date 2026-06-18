@@ -199,8 +199,9 @@ public readonly record struct CloudAdmissionPolicy(bool Deduplicate, Option<Posi
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CloudAdmissionReceipt(int InputCount, int OutputCount, int InputDuplicateCoordinateCount, int MergedCoordinateCount, double Tolerance, bool Deduplicated, Arr<int> OriginalToUnique, Option<double> MassInputTotal, Option<double> MassOutputTotal) {
+public readonly record struct CloudAdmissionReceipt(int InputCount, int OutputCount, int InputDuplicateCoordinateCount, int MergedCoordinateCount, double Tolerance, bool Deduplicated, Arr<int> OriginalToUnique, Option<double> MassInputTotal, Option<double> MassOutputTotal) : IValidityEvidence {
     internal const double ConservationEps = 1.0e-8;
+    bool IValidityEvidence.IsValid => IsValid;
     internal static bool MassConserved(double inputTotal, double outputTotal) =>
         Math.Abs(value: inputTotal - outputTotal) <= ConservationEps * Math.Max(val1: 1.0, val2: Math.Abs(value: inputTotal));
     internal bool IsValid {
@@ -246,7 +247,8 @@ public readonly record struct CloudNeighborhoodPolicy(Dimension NeighborCount, O
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CloudNeighborhoodReceipt(int InputCount, int QueryCount, int RequestedNeighborCount, CloudNeighborhoodSearchBackend SearchBackend, bool RadiusLimited, Option<double> Radius, bool NativeIndexRouted, bool SelfNeighborIncluded, int EmptyNeighborhoodCount, int OutOfRangeIndexCount, int DuplicateIndexCount, int DuplicateCoordinateCount, int MinReturnedCount, int MaxReturnedCount, double MeanReturnedCount) {
+public readonly record struct CloudNeighborhoodReceipt(int InputCount, int QueryCount, int RequestedNeighborCount, CloudNeighborhoodSearchBackend SearchBackend, bool RadiusLimited, Option<double> Radius, bool NativeIndexRouted, bool SelfNeighborIncluded, int EmptyNeighborhoodCount, int OutOfRangeIndexCount, int DuplicateIndexCount, int DuplicateCoordinateCount, int MinReturnedCount, int MaxReturnedCount, double MeanReturnedCount) : IValidityEvidence {
+    bool IValidityEvidence.IsValid => IsValid;
     internal bool IsValid {
         get {
             Option<double> radius = Radius;
@@ -333,11 +335,12 @@ public readonly record struct CloudCurvatureRangeReceipt(int AcceptedSampleCount
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CloudCurvatureReceipt(int InputCount, int RequestedNeighborCount, int AcceptedSampleCount, int RejectedSampleCount, int RankRejectedCount, int ResidualRejectedCount, double MeanResidual, double MaxResidual, double EigenGapTolerance, double FitResidualTolerance, CloudNeighborhoodReceipt Neighborhood, CloudCurvatureRangeReceipt Range) {
+public readonly record struct CloudCurvatureReceipt(int InputCount, int RequestedNeighborCount, int AcceptedSampleCount, int RejectedSampleCount, int RankRejectedCount, int ResidualRejectedCount, double MeanResidual, double MaxResidual, double EigenGapTolerance, double FitResidualTolerance, CloudNeighborhoodReceipt Neighborhood, CloudCurvatureRangeReceipt Range) : IValidityEvidence {
     public bool SelfNeighborIncluded => Neighborhood.SelfNeighborIncluded;
     public bool NativeIndexRouted => Neighborhood.NativeIndexRouted;
     public bool RadiusLimited => Neighborhood.RadiusLimited;
     public CloudNeighborhoodSearchBackend SearchBackend => Neighborhood.SearchBackend;
+    bool IValidityEvidence.IsValid => IsValid;
     internal bool IsValid =>
         InputCount >= 0 && RequestedNeighborCount >= 0 && AcceptedSampleCount >= 0 && RejectedSampleCount >= 0 && RankRejectedCount >= 0 && ResidualRejectedCount >= 0
         && AcceptedSampleCount + RejectedSampleCount == InputCount
@@ -352,7 +355,8 @@ public readonly record struct CloudCurvatureReceipt(int InputCount, int Requeste
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CloudCurvatureResult(Seq<CloudCurvatureSample> Samples, CloudCurvatureReceipt Receipt) {
+public readonly record struct CloudCurvatureResult(Seq<CloudCurvatureSample> Samples, CloudCurvatureReceipt Receipt) : IValidityEvidence {
+    bool IValidityEvidence.IsValid => IsValid;
     internal bool IsValid =>
         Receipt.IsValid
         && Samples.Count == Receipt.AcceptedSampleCount
@@ -462,9 +466,10 @@ public readonly record struct CloudCorrespondenceSet(Seq<CloudCorrespondence> It
 public readonly record struct SinkhornReceipt(double Distance, Option<double> RawDistance, Option<double> SourceBiasDistance, Option<double> TargetBiasDistance, double Regularization, Option<double> MassRelaxation, double ConvergenceTolerance, double CouplingCutoff, bool Debiased, SinkhornResidualKind ResidualKind, SinkhornNumericStatus NumericStatus, double SourceConvergenceResidual, double TargetConvergenceResidual, int Iterations, SinkhornStopKind Stop, double CouplingMass, int NonZeroCouplings, Option<double> MinPositiveCoupling, Option<double> MaxCoupling, CloudCorrespondenceSet Correspondences);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct VectorCloudShape(Option<Vector3d> Normal, Option<double> SignedArea, Option<double> Area, Option<double> Perimeter, Option<double> EdgeAspect, Option<double> Skewness, Option<double> PlanarityDeviation, Option<double> Compactness, Option<double> MomentAnisotropy, Option<Vector3d> RadiiOfGyration, Option<double> AreaError, Option<Vector3d> CentroidError, Option<Plane> BestFitPlane, Option<bool> Convex, Option<CurveOrientation> Orientation, Option<double> OpenLength, Option<Vector3d> Spread, Point3d Centroid, Plane PrincipalFrame, Seq<(double Moment, Vector3d Axis)> PrincipalAxes) {
+public readonly record struct VectorCloudShape(Option<Vector3d> Normal, Option<double> SignedArea, Option<double> Area, Option<double> Perimeter, Option<double> EdgeAspect, Option<double> Skewness, Option<double> PlanarityDeviation, Option<double> Compactness, Option<double> MomentAnisotropy, Option<Vector3d> RadiiOfGyration, Option<double> AreaError, Option<Vector3d> CentroidError, Option<Plane> BestFitPlane, Option<bool> Convex, Option<CurveOrientation> Orientation, Option<double> OpenLength, Option<Vector3d> Spread, Point3d Centroid, Plane PrincipalFrame, Seq<(double Moment, Vector3d Axis)> PrincipalAxes) : IValidityEvidence {
     internal VectorCloudShape(Point3d centroid, Plane principalFrame, Seq<(double Moment, Vector3d Axis)> principalAxes)
         : this(Normal: None, SignedArea: None, Area: None, Perimeter: None, EdgeAspect: None, Skewness: None, PlanarityDeviation: None, Compactness: None, MomentAnisotropy: None, RadiiOfGyration: None, AreaError: None, CentroidError: None, BestFitPlane: None, Convex: None, Orientation: None, OpenLength: None, Spread: None, Centroid: centroid, PrincipalFrame: principalFrame, PrincipalAxes: principalAxes) { }
+    bool IValidityEvidence.IsValid => IsValid;
     internal bool IsValid =>
         Centroid.IsValid
         && PrincipalFrame.IsValid

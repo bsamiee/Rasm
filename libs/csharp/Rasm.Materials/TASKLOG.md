@@ -40,6 +40,12 @@ The open and closed work for the host-neutral materials owner, distilled from `I
 - Boundary: internal to `appearance/`; the `.mtlx` wire crosses to any DCC consumer, never coupling the node fold to a tool-specific encoding.
 - Considerations: the node serialization pairs with the OpenPBR slab reshape (the translation graph targets OpenPBR); the `texture` `TextureSource` vocabulary aligns to the MaterialX texture node categories at `texture#MATERIALX_NODE_PARITY`.
 
+[QUEUED] Catalogue the photometric UnitsNet unit enums in `.api/api-unitsnet.md`.
+- The `appearance/photometric.md` fences assert `IlluminanceUnit.Lux`, `LuminanceUnit.CandelaPerSquareMeter`, `LuminousFluxUnit.Lumen`, `LuminousIntensityUnit.Candela`, and `IrradianceUnit.WattPerSquareMeter` as settled fence code, but `.api/api-unitsnet.md` catalogues only the 15 mechanical-quantity unit enums (`LengthUnit`/`PowerUnit`/… ) and omits the photometric/radiometric family, so those five enum members ride as unverified fence code against the planning-standard `.api`-truthfulness rule.
+- Integrate the UnitsNet photometric/radiometric unit-enum surface into `api-unitsnet.md` (`IlluminanceUnit`, `LuminanceUnit`, `LuminousFluxUnit`, `LuminousIntensityUnit`, `IrradianceUnit`, and the `Illuminance`/`Luminance`/`LuminousFlux`/`LuminousIntensity`/`Irradiance` quantity structs) with their SI-base canonical members.
+- Boundary: catalogue-only on the Materials `.api`; the `photometric` fences already name the members, so the catalogue ratifies them rather than changing the page.
+- Considerations: until the catalogue lands, the photometric unit-enum members stay an `.api` verification gap on a finalized-looking page; the `PowerUnit.Watt` member the page also uses is already catalogued.
+
 ## [2]-[CLOSED]
 
 None.

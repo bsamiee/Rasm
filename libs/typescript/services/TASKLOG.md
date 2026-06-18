@@ -34,6 +34,12 @@ Open and closed work for the node tier, distilled from `IDEAS.md`. Each open car
 - Internal: the sweep registers as a `runtime-backplane/backplane#RUNNER_AND_SCHEDULING` singleton or shard-pinned cron; the receipt emits through the `provisioning/contract#PROVISIONING` `ObservabilityStack` collector. The closure stays behind the `./provisioning` subpath off the runtime hot path. No C# wire coupling.
 - Key consideration: the sweep must stay deploy-time-only — the `@pulumi/*` types stay inside the subpath closure and only the primitive-carrying receipt crosses to observability, so no `@pulumi/*` type escapes onto the durable hot path.
 
+[BLOCKED] Add the MCP agent-transport consumer to `messaging/` (from MCP_AGENT_TRANSPORT)
+- Build the node-tier MCP agent transport: read the decoded `McpToolWire` tool catalog, drain the `ProgressNotificationWire` SSE server-stream into a progress fold, read the `CostPreviewWire` dry-run pricing before a call, and reconstruct the structured tool result through the existing `ReceiptEnvelopeWire`, with the resume token replayed through the SDK `Last-Event-ID` cursor.
+- Integrate `@effect/ai` (the agent toolkit consuming the tool catalog), `@effect/rpc` for the in-process edge, `@effect/experimental` for the SSE persistence/replay substrate, `effect` for the progress `Stream` fold and the cost-preview gate.
+- Internal: rides the same `runtime-backplane/backplane#RUNNER_AND_SCHEDULING` substrate; the agent runs as a durable unit on `durable-execution/engine#ENGINE` and journals through `durable-execution/ai-activity#AI_ACTIVITY` `AgentJournal`; the transport consumes the C# `csharp:Rasm.AppHost/agent/mcp-projection#TS_PROJECTION` `McpToolWire`/`ProgressNotificationWire`/`CostPreviewWire` decoded shapes off the `interchange` boundary, never re-minting the tool catalog or the frame union.
+- Blocked on the upstream C# MCP `TS_PROJECTION` fence promoting the `McpToolWire`/`ProgressNotificationWire`/`CostPreviewWire` shapes into the projection fence; reading the notification directly rather than reconstructing the frame union is the contract, and a branch-side MCP tool definition divorced from the host descriptor is the named defect.
+
 ## [2]-[CLOSED]
 
 [DROPPED] Declare the implementation-time subpath `exports`

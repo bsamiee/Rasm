@@ -92,19 +92,20 @@
 
 [QUERY_ENTRYPOINTS]: change-set query operations
 - rail: live-data
+- surface-root: `ObservableCacheEx`
 
-| [INDEX] | [SURFACE]     | [SURFACE_ROOT]      | [RAIL]             |
-| :-----: | :------------ | :------------------ | :----------------- |
-|   [1]   | `Filter`      | `ObservableCacheEx` | predicate filter   |
-|   [2]   | `Sort`        | `ObservableCacheEx` | comparer sort      |
-|   [3]   | `Group`       | `ObservableCacheEx` | key grouping       |
-|   [4]   | `Transform`   | `ObservableCacheEx` | projection         |
-|   [5]   | `AutoRefresh` | `ObservableCacheEx` | refresh stream     |
-|   [6]   | `MergeMany`   | `ObservableCacheEx` | child stream merge |
-|   [7]   | `ExpireAfter` | `ObservableCacheEx` | timed expiry       |
-|   [8]   | `LimitSizeTo` | `ObservableCacheEx` | size bound         |
-|   [9]   | `Page`        | `ObservableCacheEx` | paging             |
-|  [10]   | `Virtualise`  | `ObservableCacheEx` | virtualisation     |
+| [INDEX] | [SURFACE]     | [RAIL]             |
+| :-----: | :------------ | :----------------- |
+|   [1]   | `Filter`      | predicate filter   |
+|   [2]   | `Sort`        | comparer sort      |
+|   [3]   | `Group`       | key grouping       |
+|   [4]   | `Transform`   | projection         |
+|   [5]   | `AutoRefresh` | refresh stream     |
+|   [6]   | `MergeMany`   | child stream merge |
+|   [7]   | `ExpireAfter` | timed expiry       |
+|   [8]   | `LimitSizeTo` | size bound         |
+|   [9]   | `Page`        | paging             |
+|  [10]   | `Virtualise`  | virtualisation     |
 
 [BINDING_ENTRYPOINTS]: UI binding and disposal operations
 - rail: live-data
@@ -122,15 +123,16 @@
 
 [AGGREGATE_ENTRYPOINTS]: computed stream summaries
 - rail: live-data
+- surface-root: `DynamicData.Aggregation`
 
-| [INDEX] | [SURFACE] | [SURFACE_ROOT]            | [RAIL]    |
-| :-----: | :-------- | :------------------------ | :-------- |
-|   [1]   | `Count`   | `DynamicData.Aggregation` | count     |
-|   [2]   | `Sum`     | `DynamicData.Aggregation` | sum       |
-|   [3]   | `Avg`     | `DynamicData.Aggregation` | average   |
-|   [4]   | `Min`     | `DynamicData.Aggregation` | minimum   |
-|   [5]   | `Max`     | `DynamicData.Aggregation` | maximum   |
-|   [6]   | `StdDev`  | `DynamicData.Aggregation` | deviation |
+| [INDEX] | [SURFACE] | [RAIL]    |
+| :-----: | :-------- | :-------- |
+|   [1]   | `Count`   | count     |
+|   [2]   | `Sum`     | sum       |
+|   [3]   | `Avg`     | average   |
+|   [4]   | `Min`     | minimum   |
+|   [5]   | `Max`     | maximum   |
+|   [6]   | `StdDev`  | deviation |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

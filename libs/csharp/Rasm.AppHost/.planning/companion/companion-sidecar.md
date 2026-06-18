@@ -5,7 +5,7 @@ The inbound serving counterpart to the outbound boundary: one `ProcessModality` 
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                     |
-| :-----: | ------------------- | -------------------------------------------------------------------------- |
+| :-----: | :------------------ | :------------------------------------------------------------------------- |
 |   [1]   | PROCESS_MODALITY    | Three modality rows + lease-epoch attached-peer roster on the serving side |
 |   [2]   | CONTROL_SERVICE     | Three wire verbs folded onto degradation, options, support owners          |
 |   [3]   | SERVICE_HOST        | gRPC server registration over a Unix domain socket                         |

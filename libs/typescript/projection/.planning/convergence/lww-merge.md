@@ -11,7 +11,7 @@ Two clusters:
 ## [2]-[LWW_MERGE]
 
 - Owner: `ConflictPresenceState`, the convergent fold state (the live-cell map keyed by `ContentKey`, the tombstone set, the outcome-keyed conflict ledger); `opMerge`, the CmRDT fold body over the closed three-kind wire literal; `conflictMerge`, the adjudication-receipt fold; and `conflictPresenceFold`, the `ConflictPresenceStore` convergence row over the decoded sync changefeed.
-- Cases: `keyHex` is the convergence currency — structural byte equality over the imported `ContentKey` brand drives the live-cell map and the idempotent-replay test; `afterHlc` is the `(physical, logical)` lexicographic order the wire carries, the equal pair resolving to the idempotent-replay case content-key equality settles. `opMerge` installs an upsert only when strictly later than the held entry and the key is not tombstoned, tombstones a delete under the same later-than guard (a tombstoned key never re-lives under an equal-or-earlier write), and leaves the live cell untouched on a presence op. `conflictMerge` appends each receipt under its `ConflictOutcomeKind` bucket so the inspector reads `LocalWin`/`RemoteWin`/`Merged`/`Rejected` evidence off the live cell.
+- Cases: `keyHex` is the convergence currency this cluster owns and exports — the one `ContentKey`-brand-to-hex transcription string-keying every keyed map in the folder, structural byte equality over the imported brand driving the live-cell map and the idempotent-replay test, composed by `evidence/evidence-correlation#EVIDENCE_CORRELATION` rather than re-declared; `afterHlc` is the `(physical, logical)` lexicographic order the wire carries, the equal pair resolving to the idempotent-replay case content-key equality settles. `opMerge` installs an upsert only when strictly later than the held entry and the key is not tombstoned, tombstones a delete under the same later-than guard (a tombstoned key never re-lives under an equal-or-earlier write), and leaves the live cell untouched on a presence op. `conflictMerge` appends each receipt under its `ConflictOutcomeKind` bucket so the inspector reads `LocalWin`/`RemoteWin`/`Merged`/`Rejected` evidence off the live cell.
 - Packages: `effect` for `HashMap`, `HashSet`, `Match`, `Option`, `Stream`, `SubscriptionRef`, `Effect`, and `Scope`; `fast-check` and `@effect/vitest` ground the convergence law harness.
 - Growth: a new conflict outcome lands as one `ConflictOutcomeKind` arm breaking the `conflictMerge` lookup; the GraphFork CRDT op vocabulary lands only after the upstream op-log merge-law amendment carries it on the wire.
 - Boundary: the fold authors no op vocabulary the wire does not carry; every cell keys on the decoded `ContentKey` bytes verbatim; the fold is order-independent so a reconnect replay through `stream-policy#STREAM_POLICY` converges identically; the presence op rides `presence#PRESENCE` as a separate `keyedFold` row, never mutating the live geometry cell.
@@ -22,7 +22,7 @@ import type { ConflictReceiptWire, ContentKey, OpLogEntryWire } from "@rasm/ts";
 import { foldStream } from "../fold-core/keyed-fold";
 import type { StreamPolicy } from "../fold-core/stream-policy";
 
-const keyHex = (key: ContentKey): string =>
+export const keyHex = (key: ContentKey): string =>
   Array.from(key, (b) => b.toString(16).padStart(2, "0")).join("");
 
 const afterHlc = (a: OpLogEntryWire, b: { readonly physical: string; readonly logical: bigint }): boolean => {
@@ -62,7 +62,10 @@ const conflictMerge = (state: ConflictPresenceState, receipt: ConflictReceiptWir
 };
 
 const conflictStep = (state: ConflictPresenceState, event: OpLogEntryWire | ConflictReceiptWire): ConflictPresenceState =>
-  "outcome" in event ? conflictMerge(state, event) : opMerge(state, event);
+  Match.value(event).pipe(
+    Match.when({ outcome: Match.defined }, (receipt) => conflictMerge(state, receipt)),
+    Match.orElse((entry) => opMerge(state, entry)),
+  );
 
 const conflictPresenceFold = (
   changefeed: Stream.Stream<OpLogEntryWire | ConflictReceiptWire>,

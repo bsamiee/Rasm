@@ -27,9 +27,9 @@ Choose the narrowest carrier that preserves the real outcome. A wider rail is ea
 - Boundary: an absence-carrying slot is `Option.none`; a fallible operation is a typed `Effect` failure; cause-bearing absence is a tagged family, never `Option`.
 
 [CARRIER_IDENTITY]:
-- Law: `Data.TaggedError` and `Data.taggedEnum` auto-derive `Equal` and `Hash`, so a `HashSet` of faults or a `HashMap` keyed on a tagged value uses structural equality without a custom comparator.
-- Law: `Order.mapInput(Order.number, projector)` lifts a vocabulary ordinal into an `Order` over the fault, and `Order.max` produces the lattice join that reduces a cause tree to one fault.
-- Use: an `Equivalence.make` for a compound cache key so field-wise comparison replaces delimiter-concatenated signature strings.
+- Law: a tagged fault carries no payload distinction at the rail's identity level — two `IngressFault` values with different `cause` fields are `Equal` only field-wise, so a `HashSet<Fault>` dedupes by structural payload while a coarser dedupe (one slot per `_tag`) is an `Equivalence.mapInput(Equivalence.string, (f) => f._tag)` projection chosen deliberately, never an accident of which fields the carrier happens to expose; `$is`/`$match` are the generated guards a `Predicate.isRecord(x) && "_tag" in x` probe is the rejected re-derivation of.
+- Law: a fault's severity is a vocabulary ordinal, never an ambient rank — `Order.mapInput(Order.number, (f) => SEVERITY[f._tag])` lifts the row into an `Order` over the fault and `Order.max` is the lattice join folding a cause set to its dominant fault, so reduction is the `Order` algebra, never a manual `reduce` comparing tags.
+- Law: a compound rail key is a field-wise `Equivalence` carried into `Effect.cachedFunction(f, eq)`, not a delimiter-joined string — `Equivalence.mapInput(Equivalence.tuple(...), (k) => [k.content, k.policy] as const)` keys the memo so two dimensions never collide the way `` `${a}:${b}` `` does, and the in-flight computation is shared across concurrent callers on one equivalent key rather than raced.
 
 ## [2]-[BOUNDARY_CONVERSION]
 
@@ -55,9 +55,9 @@ const admit = <A, I>(schema: S.Schema<A, I>, dispatch: (a: A, signal: AbortSigna
 ```
 
 [CROSS_RAIL_PROJECTION]:
-- Use: `Effect.either` to migrate a failure into an `Either<E, A>` data value inside a fold; `Effect.option` to discard the failure side into `Option<A>`; `Effect.fromEither`/`Effect.fromOption` to widen back into the carrier.
-- Law: widening supplies the missing structure — `Option → Effect` needs an `onNone` error, `Either → Effect` lifts the left into the error channel.
-- Reject: round trips that stamp a generic error over the original; the diagnostic identity of a typed fault survives every projection.
+- Use: `Effect.either` to migrate a failure into an `Either<E, A>` data value inside a fold; `Effect.option` to discard the failure side into `Option<A>`; `Effect.fromEither`/`Effect.fromOption` to widen back into the carrier; `Effect.flip` when a recovery branch reasons on the error as the success.
+- Law: widening supplies the missing structure exactly once — `Option → Effect` is `Effect.fromOption(o, { onNone })`, `Either → Effect` lifts the left into `E`, and the narrowing arrow (`Effect.option`/`Effect.either`) is the only legal inverse; a second widen-narrow round trip is the rejected churn.
+- Reject: a round trip that stamps a generic error over the original — `Effect.option` then `Effect.fromOption(_, { onNone: () => new GenericFault() })` erases the typed cause the first projection still held; the diagnostic identity of a typed fault survives every projection.
 
 [TERMINAL_COLLAPSE]:
 - Use: `Effect.runPromise`, `Effect.runFork`, `Match`-terminal collapse, or `Effect.runSync` only at the runtime edge — the composition root, a test, or a host callback.
@@ -118,10 +118,10 @@ Apply carrier-qualified failure transforms before collapse; a rail transform nev
 |   [9]   | `Effect.sandbox`/`unsandbox` | lift `Cause<E>` and re-promote     |
 
 [CAUSE_NORMALIZATION]:
-- Law: parallel and sequential composition produce composite cause trees that `catchTag` cannot dispatch; `Cause.match` is the exhaustive catamorphism with `onEmpty`/`onFail`/`onDie`/`onInterrupt`/`onSequential`/`onParallel`, and `onSequential`/`onParallel` receive already-reduced values.
-- Law: `Effect.sandbox` surfaces `Cause<unknown>` into the error channel for cause-aware retry impossible at the `E` level; `Effect.unsandbox` re-elevates, and the sandwich is lossless.
-- Law: `Cause.isInterruptedOnly` is pure cancellation, `Cause.keepDefects` returns `Some` when a defect exists, `Cause.pretty` preserves tree topology where `Cause.squash` is lossy; a commutative fold combiner uses the same callback for both composition modes.
-- Reject: a hand-rolled `_tag` switch over a cause that drops nested causes; `catchAll` absorbing a defect into the success channel.
+- Law: parallel and sequential composition produce composite cause trees that `catchTag` cannot dispatch; `Cause.match` is the exhaustive catamorphism with `onEmpty`/`onFail`/`onDie`/`onInterrupt`/`onSequential`/`onParallel`, and `onSequential`/`onParallel` receive already-reduced children so a commutative combiner shares one callback across both composition modes.
+- Law: `Cause.failures(cause)` is the `Chunk<E>` of every typed failure a `validate`/concurrent fold accumulated — the lattice-join over that chunk (`Order.max` under the severity `Order`) is the one dominant fault, never a first-wins `catchTag` that drops siblings; `Cause.stripFailures` retains defects and interrupts alone for a defect-only postmortem.
+- Law: `Effect.sandbox` surfaces `Cause<E>` into the error channel for cause-aware retry impossible at the `E` level and `Effect.unsandbox` re-elevates losslessly; `Cause.isInterruptedOnly` is pure cancellation, `Cause.keepDefects` is `Some` iff a defect exists, and `Cause.pretty` preserves tree topology where `Cause.squash` collapses it.
+- Reject: a hand-rolled `_tag` switch over a cause that drops nested children; `Cause.squash` where the tree must survive to a sink; `catchAll` absorbing a defect into the success channel.
 
 [FAILURE_VS_DEFECT]:
 - Law: a recoverable failure rides the typed `E` channel; an invariant violation is a defect through `Effect.die`/`Effect.dieMessage`, surfaced only by `sandbox` or `catchAllCause` — laundering a defect into a failure destroys postmortem fidelity.
@@ -203,19 +203,20 @@ State belongs at a boundary or service owner, not inside pure domain accumulatio
 - Reject: a `let` accumulator, a shared `var`, or a hidden global cell disguised as functional flow.
 
 [TRANSACTIONAL_STATE]:
-- Use: `STM` with `TRef`, `TMap`, `TQueue`, `TSemaphore`, and `TDeferred` when two or more cells must transition atomically; `STM.commit` wraps the whole read-update-derive cycle as one linearizable transaction that retries on conflict.
-- Law: a multi-cell transition that must observe a consistent snapshot is STM, not a single `Ref`; a `TMap.getOrElse → STM.tap(TMap.set) → STM.map` pipeline composes with no interleaving between read and write.
+- Use: `STM` with `TRef`, `TMap`, `TQueue`, `TSemaphore`, and `TDeferred` when two or more cells must transition atomically; `STM.commit` wraps the whole read-update-derive cycle as one linearizable transaction that retries on conflict, and `STM.retry`/`STM.check` block the transaction until a watched cell satisfies a guard rather than spinning a poll loop.
+- Law: a multi-cell transition observing a consistent snapshot is STM, never a single `Ref`; `TMap.updateWith` is the atomic read-modify-write over one key — a `TMap.get → STM.tap(TMap.set)` pair reopens the read-write window STM exists to close, and a dedupe `Ref<ReadonlySet<string>>` rebuilt by `Ref.modify(s => new Set([...s, k]))` is the non-atomic, non-structural form `TSet`/`TMap.updateWith` retires.
 - Boundary: contention admission — `Queue.bounded`/`dropping`/`sliding`, `Semaphore.withPermits`/`withPermitsIfAvailable` — is the same admit-or-shed algebra driven by one policy vocabulary; the queue strategy is the data-loss contract.
-- Reject: a lock or a race window where STM composes the atomic commit.
+- Reject: a lock or a race window where STM composes the atomic commit; a poll loop where `STM.check` suspends until the predicate holds.
 
 ```ts conceptual
-import { Effect, Option, STM, TMap, TQueue } from "effect"
+import { Option, STM, TMap, TQueue } from "effect"
 
-const claim = (queue: TQueue.TQueue<string>, state: TMap.TMap<string, "active">) =>
+const claim = (queue: TQueue.TQueue<string>, lease: TMap.TMap<string, number>, cap: number) =>
   STM.commit(
     TQueue.take(queue).pipe(
-      STM.tap((id) => TMap.set(state, id, "active")),
-      STM.flatMap((id) => STM.map(TMap.size(state), (active) => ({ id, active }))),
+      STM.tap(() => TMap.size(lease).pipe(STM.flatMap((held) => STM.check(held < cap)))),
+      STM.tap((id) => TMap.updateWith(lease, id, Option.match({ onNone: () => Option.some(1), onSome: (n) => Option.some(n + 1) }))),
+      STM.flatMap((id) => STM.map(TMap.size(lease), (held) => ({ id, held }))),
     ),
   )
 ```
@@ -226,11 +227,45 @@ const claim = (queue: TQueue.TQueue<string>, state: TMap.TMap<string, "active">)
 - Law: keep a typed receipt when fields carry solver, sampling, route, status, metric, or proof evidence; `Ref<Receipt>` holds the latest, history escalates to `Ref<Chunk<Receipt>>`.
 
 ```ts conceptual
-import { Data, Number as N } from "effect"
+import { Chunk, Data, HashMap, Number as N, Option, Ref } from "effect"
 
-class Receipt extends Data.Class<{ readonly code: string; readonly count: number }> {
-  static readonly empty = new Receipt({ code: "SUM", count: 0 })
-  static readonly combine = (l: Receipt, r: Receipt) => new Receipt({ code: l.code, count: N.sum(l.count, r.count) })
+class Receipt extends Data.TaggedClass("Receipt")<{
+  readonly kind: "added" | "updated" | "removed" | "errored" // one fact stream; slot/kind discriminate, no parallel record per bucket
+  readonly slot: string
+  readonly weight: number
+}> {
+  static readonly tally = (log: Chunk.Chunk<Receipt>): HashMap.HashMap<Receipt["kind"], number> => // pure fold, never four counters
+    Chunk.reduce(log, HashMap.empty<Receipt["kind"], number>(), (acc, r) =>
+      HashMap.modifyAt(acc, r.kind, Option.match({ onNone: () => Option.some(1), onSome: (n) => Option.some(n + 1) })))
+  static readonly mass = (log: Chunk.Chunk<Receipt>) => Chunk.reduce(log, 0, (sum, r) => N.sum(sum, r.weight))
 }
+
+const _emit = (cell: Ref.Ref<Chunk.Chunk<Receipt>>, fact: Receipt) => Ref.update(cell, Chunk.append(fact)) // append-only history cell
 ```
-</content>
+
+## [7]-[CARRIER_INTEROP]
+
+One transform serves the whole carrier family through a generic signature; failure rises through the channel, never a concrete constructor that pins the carrier.
+
+[POLYMORPHIC_ARROW]:
+- Law: a reusable transform is generic in `<A, E, R>` so one body composes over every concrete `Effect` the call sites supply — duplicating a pipeline once for the success rail and once for the fallible rail is the rejected fork; the carrier is the parameter, not a copy.
+- Law: failure inside a polymorphic body rises through the supplied `onX` thunk or the threaded `E`, never a literal `new SomeFault()` that fixes the error type — a boundary combinator typed `(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E2, R>` reshapes the channel for any input carrier and stays composable under `.pipe`.
+- Use: `dual(arity, body)` to publish one operator in both data-first (`f(self, a)`) and data-last (`self.pipe(f(a))`) form from a single definition, so the pipeable spelling and the eager spelling are never two functions.
+- Reject: parallel `Effect`/`Either`/`Option` pipelines for one transform; a body that lifts through `Effect.fail(new Fault())` where `Effect.mapError` at the seam carries the caller's error type.
+
+[VARIANCE_AND_CONTEXT]:
+- Law: the three channels are variance-typed — `A` covariant, `E` covariant, `R` contravariant — so `Effect<A, never, never>` is assignable wherever `Effect<A, E, R>` is expected and a transform that widens `E` to `unknown` or `R` to `any` discards the proof the channels carry; a polymorphic body preserves all three by never annotating its result, letting inference union the failures and intersect the requirements its composed steps introduce.
+- Law: a capability the body reads is a `yield* Tag` accumulating into `R`, not a parameter — the requirement is recoverable from the signature and resolves at the layer edge; a context object threaded as an argument hides the same edge behind a value the type no longer surfaces.
+- Reject: a transform annotated `Effect<A, unknown, any>` that erases channel evidence; a hand-threaded context argument where the `R` channel carries the capability.
+
+```ts conceptual
+import { dual } from "effect/Function"
+import { Effect } from "effect"
+
+const traced: {
+  (label: string): <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
+  <A, E, R>(self: Effect.Effect<A, E, R>, label: string): Effect.Effect<A, E, R>
+} = dual(2, <A, E, R>(self: Effect.Effect<A, E, R>, label: string) =>
+  self.pipe(Effect.withSpan(label), Effect.tapErrorCause((cause) => Effect.annotateCurrentSpan("fault", cause._tag))),
+)
+```

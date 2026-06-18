@@ -13,7 +13,7 @@ contract diagnostics.
 - asset: analyzer package
 - rail: snapshot-codec
 
-## [2]-[PACKAGE_ASSETS]
+## [2]-[PUBLIC_TYPES]
 
 [PACKAGE_ASSET_SCOPE]: analyzer and generator assets
 - rail: snapshot-codec
@@ -40,8 +40,6 @@ contract diagnostics.
 |   [7]   | `GeneratedMessagePackResolverAttribute` | resolver attribute    | marks generated resolver |
 |   [8]   | `CompositeResolverAttribute`            | resolver attribute    | declares resolver inputs |
 
-## [3]-[ANALYZER_CLASSES]
-
 [ANALYZER_CLASS_SCOPE]: diagnostic analyzers
 - rail: snapshot-codec
 
@@ -55,8 +53,6 @@ contract diagnostics.
 |   [6]   | `FormatterCodeFixProvider`             | code-fix provider     | fixes formatter-access issues       |
 |   [7]   | `MessagePackCodeFixProvider`           | code-fix provider     | fixes MsgPack003 and MsgPack004     |
 |   [8]   | `MsgPack015CodeFixProvider`            | code-fix provider     | fixes MsgPack015 AllowPrivate       |
-
-## [4]-[DIAGNOSTIC_SURFACE]
 
 [DIAGNOSTIC_SCOPE]: contract diagnostics
 - rail: snapshot-codec
@@ -84,7 +80,7 @@ All diagnostics are `DiagnosticDescriptor` static fields on `MsgPack00xMessagePa
 |  [17]   | `MsgPack017`    | —          | `AOTInitPropertyId`                                   | init property in AOT mode                                 |
 |  [18]   | `MsgPack018`    | Error      | `CollidingMemberNamesInForceMapMode`                  | duplicate member name in force-map mode                   |
 
-## [5]-[ENTRYPOINTS]
+## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: diagnostics and generated surfaces
 - rail: snapshot-codec
@@ -100,7 +96,7 @@ All diagnostics are `DiagnosticDescriptor` static fields on `MsgPack00xMessagePa
 |   [7]   | generated formatter class                              | generated output   | formats snapshot values                         |
 |   [8]   | generated resolver class                               | generated output   | resolves snapshot values                        |
 
-## [6]-[IMPLEMENTATION_LAW]
+## [4]-[IMPLEMENTATION_LAW]
 
 [ANALYZER_ADMISSION]:
 - dependency role: analyzer-only package (`PrivateAssets="all"`)

@@ -155,13 +155,13 @@ public static class IndexSurface {
 
 ## [4]-[ARTIFACT_BLOB_INDEX]
 
-- Owner: `ArtifactIndexRow` — content-addressed catalog row for execution-provider warm-start contexts, ONNX profiling traces, and IFC semantic-ingest model graphs on the blob lane.
-- Cases: `EpContext`, `OnnxProfile`, `IfcSemantic` kind rows.
+- Owner: `ArtifactIndexRow` — content-addressed catalog row for execution-provider warm-start contexts, ONNX profiling traces, IFC semantic-ingest model graphs, content-defined chunks, and Compute interchange artifacts (tessellated GLB, chunked field, tile content, re-exported glTF) on the blob lane.
+- Cases: `EpContext`, `OnnxProfile`, `IfcSemantic`, `ChunkContent`, `Interchange` kind rows.
 - Entry: `static ArtifactIndexRow Admit(string kind, string path, ReadOnlySpan<byte> payload, DataClassification classification, string retentionClass, Instant at)` — pure value; identity derives from the payload, never from the caller.
 - Auto: `Admit` stamps content hash, byte length, classification, retention class, and instant in one call; reads ride the `ArtifactBlob` lane through the port with the same stampede and tag law as every cache read.
 - Packages: System.IO.Hashing; NodaTime; Rasm.AppHost (project).
-- Growth: a new artifact family is one kind row on `ArtifactIndexRow`; zero new surface.
-- Boundary: every artifact lands on the blob lane under its `ContentHash` and receipts name index rows by path — loose temp files are the deleted form; `Classification` enters typed at admission and the unclassified-write rejection is store-side column law; index rows carry their retention class value while eligibility folds belong to the retention axis; the `IfcSemantic` kind admits the Compute interchange IFC model graph — the `DatabaseIfc`-extracted property sets, spatial hierarchy, quantities, materials, and type objects serialized to the canonical bytes the `Bim/exchange/interchange#IMPORT_RAIL` produces — content-addressed identically to every other kind through `XxHash128.HashToUInt128` over those bytes, so the same model graph re-ingested under the same tolerance dedupes on its content key, and the admission carries the model graph only, never tessellated BRep geometry: the two-hop tessellation rail (`Ifc -> IfcOpenShell -> GLB`) is a Compute companion concern whose GLB artifact rides the `EpContext`/`OnnxProfile`-class blob lane independently, so this kind owns semantic residence and the geometry residence stays a distinct blob row; the model-graph residence projection onto the document and search lanes is owned at `data-lanes#DOCUMENT_LANE` and `data-lanes#SEARCH_LANES` and consumed here as the index identity only.
+- Growth: a new artifact family is one kind row on `ArtifactIndexRow`; a content-defined chunk lands as one `ChunkContent` kind row keyed by its `XxHash128` chunk address (`snapshots#CONTENT_CHUNKING`) so an identical chunk across snapshots and peers dedups on the one content key, never a second chunk store; zero new surface.
+- Boundary: every artifact lands on the blob lane under its `ContentHash` and receipts name index rows by path — loose temp files are the deleted form; `Classification` enters typed at admission and the unclassified-write rejection is store-side column law; index rows carry their retention class value while eligibility folds belong to the retention axis; the `IfcSemantic` kind admits the Compute interchange IFC model graph — the `DatabaseIfc`-extracted property sets, spatial hierarchy, quantities, materials, and type objects serialized to the canonical bytes the `Bim/exchange/import-rail#IMPORT_RAIL` produces — content-addressed identically to every other kind through `XxHash128.HashToUInt128` over those bytes, so the same model graph re-ingested under the same tolerance dedupes on its content key, and the admission carries the model graph only, never tessellated BRep geometry: the two-hop tessellation rail (`Ifc -> IfcOpenShell -> GLB`) is a Compute companion concern whose GLB artifact rides the `Interchange` kind row that `Compute/interchange/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Admit` content-addresses, so this kind owns semantic residence and the geometry residence stays a distinct `Interchange` blob row; the `Interchange` kind admits every Compute interchange artifact — the tessellated GLB, the chunked field artifact, the 3D-Tiles leaf content, and the re-exported glTF — each content-addressed through `XxHash128.HashToUInt128` over its canonical bytes under one identity scheme, so Compute owns the content-key derivation and this owner owns the blob residence, neither re-declaring the other; the model-graph residence projection onto the document and search lanes is owned at `data-lanes#DOCUMENT_LANE` and `data-lanes#SEARCH_LANES` and consumed here as the index identity only.
 
 ```csharp signature
 public readonly record struct ArtifactIndexRow(
@@ -177,6 +177,10 @@ public readonly record struct ArtifactIndexRow(
     public const string OnnxProfile = "onnx-profile";
 
     public const string IfcSemantic = "ifc-semantic";
+
+    public const string ChunkContent = "chunk-content";
+
+    public const string Interchange = "interchange";
 
     public static ArtifactIndexRow Admit(string kind, string path, ReadOnlySpan<byte> payload, DataClassification classification, string retentionClass, Instant at) =>
         new(XxHash128.HashToUInt128(payload), kind, path, payload.Length, classification, retentionClass, at);

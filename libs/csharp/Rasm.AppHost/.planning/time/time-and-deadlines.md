@@ -5,7 +5,7 @@ One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                    |
-| :-----: | ----------------- | ------------------------------------------------------------------------- |
+| :-----: | :---------------- | :------------------------------------------------------------------------ |
 |   [1]   | CLOCK_SPLIT       | One injected clock pair; elapsed versus semantic time; sentinel admission |
 |   [2]   | DEADLINE_TAXONOMY | Nine deadline rows; every suite duration literal traces here              |
 |   [3]   | SCHEDULE_PORT     | The suite scheduler; cron and period rows; lease values                   |

@@ -4,10 +4,6 @@
         <SolutionName>Workspace</SolutionName>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="TngTech.ArchUnitNET.xUnitV3" PrivateAssets="all" />
         <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
-        <ProjectReference Include="../../../libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
-        <ProjectReference Include="../../../libs/csharp/Rasm.Materials/Rasm.Materials.csproj" />
-        <ProjectReference Include="../../../libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 </Project>

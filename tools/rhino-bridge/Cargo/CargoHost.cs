@@ -58,7 +58,7 @@ internal readonly record struct ScratchRedirect(string Root, bool Redirected, st
     internal static ScratchRedirect Open(string reportDir, string scenario) {
         // BOUNDARY ADAPTER: a filesystem fault degrades to an un-redirected scratch rooted at the
         // report dir — the scenario stays live and Dispose is inert, never a raw throw across the rail.
-        string root = Path.Combine(path1: reportDir, path2: "scratch", path3: scenario);
+        string root = Path.Combine(path1: reportDir, path2: Spool.ScratchDirectory, path3: scenario);
         try {
             _ = Directory.CreateDirectory(path: root);
             ScratchRedirect redirect = new(
@@ -174,7 +174,8 @@ public sealed class CargoHost : IBridgeCargo {
 
     internal (PhaseStatus Outcome, string Receipt) ProbeRender() {
         long started = Stopwatch.GetTimestamp();
-        return AcquireLane().Bind(f: live => live.DrawCanvas(path: Path.Combine(path1: manifest.ReportDir, path2: "probe.gh2-render.png"))) switch {
+        string path = Path.Combine(path1: manifest.ReportDir, path2: Spool.Gh2Directory, path3: "probe", path4: "gh2-render.png");
+        return AcquireLane().Bind(f: live => live.DrawCanvas(path: path)) switch {
             Fin<CaptureFile>.Succ(CaptureFile file) => (PhaseStatus.Ok,
                 string.Create(provider: CultureInfo.InvariantCulture, $"DrawToBitmap {file.Width}x{file.Height} in {Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds:F0}ms via the ctor-never-Show editor")),
             Fin<CaptureFile>.Fail(Error error) => (PhaseStatus.Unsupported, $"render lane unavailable: {error.Message}"),
@@ -184,13 +185,22 @@ public sealed class CargoHost : IBridgeCargo {
 
     // --- [BRACKET]
 
+    private static ScenarioReceipt Receipt(ScenarioEntry scenario, PhaseStatus status, double duration, BridgeFault? fault) =>
+        new(Scenario: scenario.Name, Status: status, DurationMs: duration, Fault: fault) {
+            ScenarioStatus = status,
+            CertificatePath = string.Empty,
+            ArtifactRefs = [],
+            ReferenceResults = [],
+            FirstScenarioFailure = string.Empty,
+        };
+
     private ScenarioReceipt Refuse(ScenarioEntry scenario, CapabilityEntry gap, Action<BridgeEvent> publish, long started) {
         // Unmet capability requirements refuse before entrypoint invocation.
         using Spool spool = new(reportDir: manifest.ReportDir, scenario: scenario.Name);
         BridgeFault fault = new BridgeFault.CapabilityAbsent(Capability: gap.Key, ProbeReceipt: gap.Receipt);
         double duration = Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds;
         Emit(spool: spool, publish: publish, evt: new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: PhaseStatus.Unsupported, DurationMs: duration, Fault: fault) { Stamp = NextStamp(scenario: scenario.Name) });
-        return new ScenarioReceipt(Scenario: scenario.Name, Status: PhaseStatus.Unsupported, DurationMs: duration, Fault: fault);
+        return Receipt(scenario: scenario, status: PhaseStatus.Unsupported, duration: duration, fault: fault);
     }
 
     private ScenarioReceipt Vanish(ScenarioEntry scenario, Action<BridgeEvent> publish, long started) {
@@ -198,7 +208,7 @@ public sealed class CargoHost : IBridgeCargo {
         Emit(spool: spool, publish: publish, evt: Fact(key: "scenario.missing", value: $"'{scenario.Name}' not present in staged assemblies carrying [RhinoScenario]", scenario: scenario.Name));
         double duration = Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds;
         Emit(spool: spool, publish: publish, evt: new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: PhaseStatus.Failed, DurationMs: duration, Fault: null) { Stamp = NextStamp(scenario: scenario.Name) });
-        return new ScenarioReceipt(Scenario: scenario.Name, Status: PhaseStatus.Failed, DurationMs: duration, Fault: null);
+        return Receipt(scenario: scenario, status: PhaseStatus.Failed, duration: duration, fault: null);
     }
 
     private ScenarioReceipt Execute(ScenarioEntry scenario, MethodInfo entry, Action<BridgeEvent> publish, long started) {
@@ -233,10 +243,10 @@ public sealed class CargoHost : IBridgeCargo {
                 fact(key: "scenario.doc.source", value: prior is null ? "created" : "active");
                 fact(key: "scratch.root", value: scratch.Root);
                 fact(key: "scratch.redirected", value: scratch.Redirected);
-                context = new ScenarioContext(doc: doc, sink: fact);
+                context = new ScenarioContext(doc: doc, sink: fact, scenario: scenario.Name);
                 Capture.Hook = label => doc.Views.ActiveView is { } view
                     ? Shoot(spool: spool, view: view, scenario: scenario.Name, label: label, onFailure: false, emit: emit, fact: fact)
-                    : Fin.Fail<string>(error: Error.New(message: "Capture.Snapshot: no active viewport"));
+                    : Fin.Fail<CaptureReceipt>(error: Error.New(message: "Capture.Snapshot: no active viewport"));
                 (status, fault) = Invoke(entry: entry, context: context, fact: fact);
                 if (context.FactCount == 0) {
                     fact(key: "facts.empty", value: "scenario emitted zero facts");
@@ -288,7 +298,7 @@ public sealed class CargoHost : IBridgeCargo {
             }
             emit(new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: status, DurationMs: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds, Fault: fault) { Stamp = NextStamp(scenario: scenario.Name) });
         }
-        return new ScenarioReceipt(Scenario: scenario.Name, Status: status, DurationMs: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds, Fault: fault);
+        return Receipt(scenario: scenario, status: status, duration: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds, fault: fault);
     }
 
     private (PhaseStatus Status, BridgeFault? Fault) Invoke(MethodInfo entry, ScenarioContext context, Action<string, object?> fact) {
@@ -316,17 +326,27 @@ public sealed class CargoHost : IBridgeCargo {
             _ = Shoot(spool: spool, view: view, scenario: scenario.Name, label: null, onFailure: true, emit: emit, fact: fact);
         }
         if (scenario.Requires.Any(predicate: static key => key.StartsWith(value: "gh2.", comparisonType: StringComparison.Ordinal))) {
-            string path = Path.Combine(path1: manifest.ReportDir, path2: scenario.Name + ".canvas.png");
+            string path = Path.Combine(path1: manifest.ReportDir, path2: Spool.Gh2Directory, path3: scenario.Name, path4: "failure.png");
             Fin<CaptureFile> shot = AcquireLane().Bind(f: live => live.DrawCanvas(path: path));
             if (shot is Fin<CaptureFile>.Succ(CaptureFile file)) {
-                emit(new BridgeEvent.CaptureCase(Path: file.Path, Width: file.Width, Height: file.Height, OnFailure: true) { Stamp = NextStamp(scenario: scenario.Name) });
+                ArtifactRef artifact = Spool.IndexFile(
+                    reportDir: manifest.ReportDir, path: file.Path, scenario: scenario.Name,
+                    role: EvidenceRole.Gh2CanvasManifest, mediaType: "image/png",
+                    retention: ArtifactRetentionClass.Forensic, onFailure: true);
+                emit(new BridgeEvent.CaptureCase(Path: file.Path, Width: file.Width, Height: file.Height, OnFailure: true) {
+                    Stamp = NextStamp(scenario: scenario.Name),
+                    Artifact = artifact,
+                    Capture = new CaptureArtifact(
+                        Artifact: artifact, Width: file.Width, Height: file.Height, OnFailure: true,
+                        Label: "gh2-failure", Frame: string.Create(provider: CultureInfo.InvariantCulture, $"{file.Width}x{file.Height}"), Camera: "gh2.canvas", NonBlank: true),
+                });
             } else if (shot is Fin<CaptureFile>.Fail(Error error)) {
                 fact("capture.canvas.failed", error.Message);
             }
         }
     }
 
-    private Fin<string> Shoot(Spool spool, RhinoView view, string scenario, string? label, bool onFailure, Action<BridgeEvent> emit, Action<string, object?> fact) {
+    private Fin<CaptureReceipt> Shoot(Spool spool, RhinoView view, string scenario, string? label, bool onFailure, Action<BridgeEvent> emit, Action<string, object?> fact) {
         // Capture metadata travels with the shot so empty images are diagnosable.
         Fin<BridgeEvent.CaptureCase> shot = spool.Capture(view: view, label: label, onFailure: onFailure);
         if (shot is Fin<BridgeEvent.CaptureCase>.Succ(BridgeEvent.CaptureCase capture)) {
@@ -336,13 +356,15 @@ public sealed class CargoHost : IBridgeCargo {
             fact("capture.camera.target", viewport.CameraTarget);
             fact("capture.frame", string.Create(provider: CultureInfo.InvariantCulture, $"{capture.Width}x{capture.Height}"));
             fact("capture.objects", view.Document.Objects.Count);
-            return Fin.Succ(value: capture.Path);
+            return Fin.Succ(value: new CaptureReceipt(
+                Path: capture.Path, Width: capture.Width, Height: capture.Height,
+                OnFailure: capture.OnFailure, Artifact: capture.Artifact));
         }
         if (shot is Fin<BridgeEvent.CaptureCase>.Fail(Error error)) {
             fact("capture.failed", error.Message);
-            return Fin.Fail<string>(error: error);
+            return Fin.Fail<CaptureReceipt>(error: error);
         }
-        return Fin.Fail<string>(error: Error.New(message: "capture unresolved"));
+        return Fin.Fail<CaptureReceipt>(error: Error.New(message: "capture unresolved"));
     }
 
     // --- [DISCOVERY]
@@ -502,13 +524,23 @@ public sealed class CargoHost : IBridgeCargo {
         RuntimeVersion: Environment.Version.ToString());
 
     private static JsonElement Json(object? value) => value switch {
-        null => JsonSerializer.SerializeToElement(value: "null", jsonTypeInfo: BridgeJsonContext.Default.String),
+        null => JsonSerializer.SerializeToElement(value: (string?)null),
+        JsonElement element => element.Clone(),
+        JsonDocument document => document.RootElement.Clone(),
         bool flag => JsonSerializer.SerializeToElement(value: flag, jsonTypeInfo: BridgeJsonContext.Default.Boolean),
         int number => JsonSerializer.SerializeToElement(value: number, jsonTypeInfo: BridgeJsonContext.Default.Int32),
         long number => JsonSerializer.SerializeToElement(value: number, jsonTypeInfo: BridgeJsonContext.Default.Int64),
         double number => JsonSerializer.SerializeToElement(value: number, jsonTypeInfo: BridgeJsonContext.Default.Double),
         string text => JsonSerializer.SerializeToElement(value: text, jsonTypeInfo: BridgeJsonContext.Default.String),
         IFormattable formattable => JsonSerializer.SerializeToElement(value: formattable.ToString(format: null, formatProvider: CultureInfo.InvariantCulture), jsonTypeInfo: BridgeJsonContext.Default.String),
-        _ => JsonSerializer.SerializeToElement(value: value.ToString() ?? string.Empty, jsonTypeInfo: BridgeJsonContext.Default.String),
+        _ => SerializeUnknown(value: value),
     };
+
+    private static JsonElement SerializeUnknown(object value) {
+        try {
+            return JsonSerializer.SerializeToElement(value: value, inputType: value.GetType());
+        } catch (NotSupportedException) {
+            return JsonSerializer.SerializeToElement(value: value.ToString() ?? string.Empty, jsonTypeInfo: BridgeJsonContext.Default.String);
+        }
+    }
 }

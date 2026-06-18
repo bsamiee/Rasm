@@ -18,6 +18,7 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 |   [8]   | one body over success / fail / context       | one Effect pipeline                           | per-channel sibling family           |
 |   [9]   | optional context with identity               | one `Option<ContextRecord>`                   | `a?: T, b?: T, mode?: boolean` tail  |
 |  [10]   | partial classification, absence is valid     | `Match.value(...).pipe(..., Match.option)`    | catch-all `orElse` masking a variant |
+|  [11]   | typestate-carrying verb family               | `Data.TaggedEnum` `WithGenerics`              | per-state request union copy         |
 
 ## [2]-[ENTRYPOINT_LAW]
 
@@ -25,12 +26,14 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 - Law: one concern exposes one entrypoint; a verb family is a `Data.TaggedEnum` with one variant per verb under one `$match`.
 - Law: each sibling's preamble becomes its variant payload and the shared validation becomes the decode prologue before dispatch.
 - Law: exhaustive `$match` is the totality proof — a new variant breaks every dispatch site at compile time, never a runtime-silent fall-through.
+- Law: a request family carrying typestate is one `Data.TaggedEnum<{...}>` declared through `TaggedEnum.WithGenerics`, so one generic owner threads the phase parameter across every verb rather than a per-state union copy; the constructor closes over the parameter and `$match` stays phase-total.
+- Law: the dispatch is the `$match` arms themselves, never a parallel `Record<Verb, (payload) => Effect>` handler table selected by verb — the generated fold owns the verb list, so a handler `Record` that re-keys it is the same parallel-restatement defect as a per-tag constructor table.
 - Use: the request union's constructors (`Request.Open({...})`) as the validated ingress and `$match` as the sole egress, deleting the `run`/`runSafe`/`runV2` family.
-- Reject: a request union modeling success-or-failure; the Effect error channel owns outcome transport.
+- Reject: a request union modeling success-or-failure (the Effect error channel owns outcome transport); a verb-keyed handler `Record` standing in for `$match`.
 - Boundary: programs that must be inspected or re-interpreted reify verbs as a closed instruction `Data.TaggedEnum` under one interpreter `$match`; the request union with exhaustive dispatch is the form when they only run.
 
 ```ts conceptual
-import { Data, Effect, pipe } from "effect"
+import { Data, Effect, Match, ParseResult, Schema as S } from "effect"
 
 type Request = Data.TaggedEnum<{
   Open:  { readonly code: string }
@@ -39,19 +42,24 @@ type Request = Data.TaggedEnum<{
 }>
 const Request = Data.taggedEnum<Request>()
 
-const dispatch = (ledger: _Ledger) =>
+const dispatch = (ledger: _Ledger) => // $match is the sole egress; a new verb breaks every dispatch at compile time
   Request.$match({
     Open:  ({ code })        => ledger.open(code),
     Amend: ({ code, delta }) => ledger.amend(code, delta),
     Close: ({ code })        => ledger.close(code),
   })
 
-const admit = (verb: string, code: string, delta: number): Effect.Effect<_Receipt, _Fault> =>
-  pipe(
-    _Verb.decode(verb),
-    Effect.map((v) => v === "amend" ? Request.Amend({ code, delta }) : v === "close" ? Request.Close({ code }) : Request.Open({ code })),
-    Effect.flatMap(dispatch(_ledger)),
-  )
+const _Wire = S.Struct({ verb: S.Literal("open", "amend", "close"), code: S.NonEmptyString, delta: S.Number })
+const _admit = Match.type<typeof _Wire.Type>().pipe( // reusable matcher built once; wire verb folds total into the union
+  Match.discriminatorsExhaustive("verb")({ // a fourth verb breaks here, never an if-chain over open input
+    open:  ({ code })        => Request.Open({ code }),
+    amend: ({ code, delta }) => Request.Amend({ code, delta }),
+    close: ({ code })        => Request.Close({ code }),
+  }),
+)
+
+const admit = (raw: unknown): Effect.Effect<_Receipt, _Fault | ParseResult.ParseError> =>
+  S.decodeUnknown(_Wire)(raw).pipe(Effect.map(_admit), Effect.flatMap(dispatch(_ledger))) // decode prologue, then one dispatch
 ```
 
 ## [3]-[MODAL_ARITY]
@@ -71,7 +79,7 @@ const admit = (verb: string, code: string, delta: number): Effect.Effect<_Receip
 - Boundary: per-branch concurrency rides `{ concurrency: "inherit" | number | "unbounded" }`, a capability of how work runs, not which case it is.
 
 ```ts conceptual
-import { Array as A, Data, Effect } from "effect"
+import { Array as A, Data, Effect, Number as N, Option } from "effect"
 
 class EntryFault extends Data.TaggedError("EntryFault")<{ readonly reason: "schema" | "quota" }> {}
 
@@ -79,8 +87,8 @@ const ingest = (entries: ReadonlyArray<_Raw>, step: (raw: _Raw) => Effect.Effect
   Effect.partition(entries, step, { concurrency: "inherit" }).pipe(
     Effect.map(([rejected, accepted]) => ({ rejected, accepted, histogram: A.groupBy(rejected, (e) => e.reason) })),
     Effect.filterOrFail(
-      ({ rejected, accepted }) => rejected.length / (accepted.length + rejected.length) <= threshold,
-      ({ rejected }) => new EntryFault({ reason: rejected[0]?.reason ?? "schema" }),
+      ({ rejected, accepted }) => N.divide(rejected.length, accepted.length + rejected.length).pipe(Option.getOrElse(() => 0)) <= threshold,
+      ({ rejected }) => new EntryFault({ reason: A.head(rejected).pipe(Option.map((e) => e.reason), Option.getOrElse(() => "schema" as const)) }),
     ),
   )
 ```
@@ -126,6 +134,8 @@ const _withPolicy = (via: _Via) => {
 
 [TERMINAL_SELECTION]:
 - Law: the completion operator is an explicit architectural decision — `Match.exhaustive` when an unmatched case is a compile error over a closed tagged domain, `Match.option` when it is valid absence yielding `Option<A>`, `Match.either` when it is observable evidence preserving `Left(Remaining)`.
+- Law: the seed is the reuse decision — `Match.value(x)` seeds a one-shot match discharged inline, `Match.type<I>()` seeds a reusable matcher built once and applied across call sites; a `Match.value` rebuilt per call where one `Match.type` matcher serves every site is the rejected re-construction.
+- Law: a fold that is solely a `_tag` table collapses to `Match.valueTags(cases)` (one-shot) or `Match.typeTags<I>()(cases)` (reusable) — no `Match.value(x).pipe(Match.tagsExhaustive(...))` scaffold around a pure-tag fold, and the generated `$match` on the owning `Data.TaggedEnum` is denser still when the family owns the value.
 - Law: `Match.withReturnType<R>()` precedes every arm so a handler returning the wrong shape fails at the arm, not at consumption; placement after any `when` evaluates the constraint against a partial result type and permits heterogeneous widening.
 - Use: `Match.tagsExhaustive` for a `_tag` domain and `Match.discriminatorsExhaustive(field)` for any string-literal discriminant — both are the terminal, no trailing `Match.exhaustive`.
 - Reject: a catch-all `orElse` masking a new variant in a bounded union; an `if`/ternary chain for multi-dimension dispatch where `whenAnd`/`whenOr`/`not` compose additively.
@@ -159,8 +169,9 @@ const projectPolicy = Match.type<Phase>().pipe(
 
 [BRIDGE_CANONICALITY]:
 - Law: a `Match` bridge to an Effect rail exists at exactly one canonical site per boundary type — `HttpClientResponse.matchStatus` for transport, `Cause.match` for concurrency topology — converging into one fault whose `Order`-derived lattice join reduces arbitrary cause trees through vocabulary ordinal comparison.
+- Law: a foreign wire whose discriminant is a string literal rather than a `_tag` bridges through `Match.discriminatorsExhaustive(field)` over the decoded shape, with `discriminators(field)(...).pipe(Match.orElse(quarantine))` when the wire enumerates values the domain has not closed — the open terminal lands the typed quarantine case, so the wire→case hop is total at the boundary and an unmapped wire value is a declared fault, never a throw.
 - Use: the bridge as a `static` method on the fault class so no per-caller projection exists; `Effect.sandbox` surfaces `Cause<unknown>`, `Cause.match` folds with the join, and `Effect.unsandbox` re-promotes to the typed error channel.
-- Reject: a duplicated status-to-error or cause-to-error projection across call sites; `catchAllCause` where re-promotion must preserve the typed rail for downstream retry.
+- Reject: a duplicated status-to-error or cause-to-error projection across call sites; a per-discriminant constructor `Record` standing in for the bridge fold; `catchAllCause` where re-promotion must preserve the typed rail for downstream retry.
 
 ## [6]-[CARRIER_POLYMORPHIC_DISPATCH]
 
@@ -217,4 +228,3 @@ const _backoff = Schedule.exponential(Duration.millis(100)).pipe(
 const guarded = (acquire: Effect.Effect<_Resource, _Fault>, use: (r: _Resource) => Effect.Effect<_Receipt, _Fault>) =>
   Effect.acquireUseRelease(acquire, (r) => use(r).pipe(Effect.retry(_backoff)), (r) => r.release)
 ```
-</content>

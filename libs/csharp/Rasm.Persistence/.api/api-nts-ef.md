@@ -32,7 +32,7 @@ the geometry wire codecs on the ADO data source, and transitive
 
 ## [2]-[PUBLIC_TYPES]
 
-[PLUGIN_TYPES]: EF plugin admission and services
+[PLUGIN_TYPES]: EF plugin admission and translation services
 - rail: store-provider
 
 | [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE]       | [CAPABILITY]                          |
@@ -51,12 +51,18 @@ the geometry wire codecs on the ADO data source, and transitive
 |  [12]   | `NpgsqlNetTopologySuiteAggregateMethodTranslator`           | aggregate translator | implements spatial aggregate SQL      |
 |  [13]   | `NpgsqlGeometryMemberTranslator`                            | member translator    | implements geometry member SQL        |
 |  [14]   | `NpgsqlGeometryMethodTranslator`                            | method translator    | implements geometry method SQL        |
-|  [15]   | `NpgsqlNetTopologySuiteConventionSetPlugin`                 | convention plugin    | adds PostGIS extension convention     |
-|  [16]   | `NpgsqlNetTopologySuiteExtensionAddingConvention`           | convention           | finalizes PostGIS extension on model  |
-|  [17]   | `NpgsqlNetTopologySuiteSingletonOptions`                    | singleton options    | carries resolved geometry options     |
-|  [18]   | `INpgsqlNetTopologySuiteSingletonOptions`                   | singleton contract   | singleton options contract            |
-|  [19]   | `NpgsqlNetTopologySuiteCodeGeneratorPlugin`                 | scaffolding plugin   | emits plugin admission in scaffolding |
-|  [20]   | `NpgsqlNetTopologySuiteDesignTimeServices`                  | design services      | admits design tooling                 |
+
+[PLUGIN_TYPES]: EF plugin conventions and scaffolding
+- rail: store-provider
+
+| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]     | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------ | :----------------- | :------------------------------------ |
+|   [1]   | `NpgsqlNetTopologySuiteConventionSetPlugin`       | convention plugin  | adds PostGIS extension convention     |
+|   [2]   | `NpgsqlNetTopologySuiteExtensionAddingConvention` | convention         | finalizes PostGIS extension on model  |
+|   [3]   | `NpgsqlNetTopologySuiteSingletonOptions`          | singleton options  | carries resolved geometry options     |
+|   [4]   | `INpgsqlNetTopologySuiteSingletonOptions`         | singleton contract | singleton options contract            |
+|   [5]   | `NpgsqlNetTopologySuiteCodeGeneratorPlugin`       | scaffolding plugin | emits plugin admission in scaffolding |
+|   [6]   | `NpgsqlNetTopologySuiteDesignTimeServices`        | design services    | admits design tooling                 |
 
 [WIRE_TYPES]: ADO wire admission
 - rail: store-provider

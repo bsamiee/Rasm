@@ -29,6 +29,11 @@ The forward concept pool for the product UI engine. Open ideas are higher-order 
 - Unlocks a single adaptive-quality control surface — degrade path-trace samples, drop LOD, reduce motion, evict residency — driven by live telemetry, so the viewport holds frame budget on weak hardware without per-pass ad-hoc throttling.
 - Draws on modern real-time renderers treating adaptive quality as one feedback owner over a perf budget; frame budget, VRAM watermark, and layout-elapsed are each enforced locally today with no cross-owner governor turning the evidence telemetry back into a quality policy.
 
+[NOTEBOOK_REPRODUCIBILITY_TO_DETERMINISM]:
+- The `notebook/notebook-document.md#REPLAY_BUNDLE` `Verify` re-derives a per-cell output-hash comparison locally and routes journal replay through `evidence/diagnostics-evidence.md#HEADLESS_DERIVATION` `ProofEngine.Replay`, while the AppHost `determinism-and-replay` owner already legislates reproducibility-proof: `DeterminismKernel.Reproduces` (environment-fingerprint match), `EventLog`/`ContentHash` (the content-addressed chain), and `ReplayVerify.Replay` (re-run a recorded log, prove each step's content hash). The notebook reproducibility model is a second spelling of the same content-hash-identity law.
+- Realizes as: the `CapabilityPin` composes `DeterminismContext`/`EnvFingerprint` as its environment identity rather than a notebook-local checksum tuple, the `ReplayBundle.Verify` output-hash comparison composes `EventLog`/`ReplayVerify` content-hash identity (the `XxHash128` suite identity row both already cite) instead of a local `hash(output)` fold, and the cell DAG `RecomputePlan` aligns to the AppHost `RecomputeGraph` content-address node identity — one reproducibility-proof owner, the notebook a UI projection over it. The cross-language wire that carries the notebook reproducibility receipt then rides the existing `ReceiptEnvelopeWire`/`LogEntryWire` rather than a notebook-only shape.
+- Draws on the AppHost determinism kernel being the suite's single reproducibility owner (`HostFingerprint`/content-hash/`ReplayVerify`); a UI computational document is the natural downstream consumer of that proof, not a parallel re-derivation, so the notebook reproducibility law extends the AppHost owner and lands as a composed pin rather than a second hash-comparison fold.
+
 ## [2]-[CLOSED]
 
 (none)

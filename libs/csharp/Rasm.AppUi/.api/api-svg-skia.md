@@ -18,10 +18,9 @@
 
 ## [2]-[PUBLIC_TYPES]
 
-[AVALONIA_SVG_TYPES]: Avalonia control and image surfaces
-- rail: assets
+[AVALONIA_SVG_TYPES]: Avalonia control and image surfaces — rail: assets
 
-| [INDEX] | [SYMBOL]                       | [RAIL]         |
+| [INDEX] | [SYMBOL]                       | [KIND]         |
 | :-----: | :----------------------------- | :------------- |
 |   [1]   | `Svg`                          | SVG control    |
 |   [2]   | `SvgImage`                     | image surface  |
@@ -32,10 +31,9 @@
 |   [7]   | `SvgCustomDrawOperation`       | draw operation |
 |   [8]   | `SvgSourceCustomDrawOperation` | source draw    |
 
-[SVG_SKIA_TYPES]: document, scene, animation, and rendering surfaces
-- rail: assets
+[SVG_SKIA_TYPES]: document, scene, animation, and rendering surfaces — rail: assets
 
-| [INDEX] | [SYMBOL]                   | [RAIL]                |
+| [INDEX] | [SYMBOL]                   | [KIND]                |
 | :-----: | :------------------------- | :-------------------- |
 |   [1]   | `SKSvg`                    | SVG document          |
 |   [2]   | `SKSvgSettings`            | load settings         |

@@ -1,10 +1,10 @@
-# [TYPESCRIPT_API_EFFECT_AI]
+# [API_CATALOGUE] @effect/ai
 
 Provider-agnostic LLM core for the Effect runtime: the `@effect/ai` package — language models,
 embeddings, stateful chat, tools/toolkits, the prompt and response data algebra, tokenization, GenAI
 telemetry, and the MCP server. This page owns the core package only. The concrete provider adapter
 packages that resolve a provider-tagged `Model` into these core service tags are catalogued on their
-own pages (`api-effect-ai-openai.md`, `api-effect-ai-anthropic.md`, `api-effect-ai-google.md`, and the
+own pages (`effect-ai-openai.md`, `effect-ai-anthropic.md`, `effect-ai-google.md`, and the
 OpenRouter/Amazon-Bedrock adapter pages); see PROVIDER_RESOLUTION below for the seam they bind to. The
 core defines the `LanguageModel`/`EmbeddingModel`/`Tokenizer`/`Chat`/`IdGenerator` service tags and the
 prompt/response/tool data model; all success/failure flows through the `AiError` union; all I/O is
@@ -22,8 +22,7 @@ prompt/response/tool data model; all success/failure flows through the `AiError`
 
 ### @effect/ai — service tags and model entry points
 
-[PUBLIC_TYPE_SCOPE]: language model service
-- rail: ai-core
+[PUBLIC_TYPE_SCOPE]: language model service — rail: ai-core
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]       | [CAPABILITY]                  |
 | :-----: | :-------------------------------------- | :------------------ | :---------------------------- |
@@ -433,13 +432,13 @@ provider-tagged form of the `Model` interface defined in this page's [PUBLIC_TYP
 adapter `model(...)` satisfies the core `LanguageModel.LanguageModel` tag, so provider choice is a
 single composition-root layer swap.
 
-| [INDEX] | [PROVIDER]      | [PAGE]                       | [MODEL_ENTRY]                                                                     |
-| :-----: | :-------------- | :--------------------------- | :-------------------------------------------------------------------------------- |
-|   [1]   | OpenAI          | `api-effect-ai-openai.md`    | `OpenAiLanguageModel.model` / `.modelWithTokenizer`; `OpenAiEmbeddingModel.model` |
-|   [2]   | Anthropic       | `api-effect-ai-anthropic.md` | `AnthropicLanguageModel.model` / `.modelWithTokenizer`                            |
-|   [3]   | Google (Gemini) | `api-effect-ai-google.md`    | `GoogleLanguageModel.model`                                                       |
-|   [4]   | OpenRouter      | (adapter page)               | `OpenRouterLanguageModel.model`                                                   |
-|   [5]   | Amazon Bedrock  | (adapter page)               | `AmazonBedrockLanguageModel.model`                                                |
+| [INDEX] | [PROVIDER]      | [PAGE]                   | [MODEL_ENTRY]                                                                     |
+| :-----: | :-------------- | :----------------------- | :-------------------------------------------------------------------------------- |
+|   [1]   | OpenAI          | `effect-ai-openai.md`    | `OpenAiLanguageModel.model` / `.modelWithTokenizer`; `OpenAiEmbeddingModel.model` |
+|   [2]   | Anthropic       | `effect-ai-anthropic.md` | `AnthropicLanguageModel.model` / `.modelWithTokenizer`                            |
+|   [3]   | Google (Gemini) | `effect-ai-google.md`    | `GoogleLanguageModel.model`                                                       |
+|   [4]   | OpenRouter      | (adapter page)           | `OpenRouterLanguageModel.model`                                                   |
+|   [5]   | Amazon Bedrock  | (adapter page)           | `AmazonBedrockLanguageModel.model`                                                |
 
 ## [3]-[IMPLEMENTATION_LAW]
 

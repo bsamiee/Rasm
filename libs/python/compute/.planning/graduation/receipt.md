@@ -13,7 +13,7 @@ The Python-only graduation rail moving offline evidence outward across the gradu
 
 - Owner: `GraduationReceipt` — the source-package, axis, subject, evidence-key, and residual-limits record wired through runtime `ReceiptContributor`; `HandoffAxis` is the Literal-discriminated union of handoff kinds. The geometry case carries the `GeometrySubject` literal so geometry-package evidence crosses on the one rail. The axis is the wire vocabulary; the C# owner that consumes it is never named in the receipt.
 - Cases: `HandoffAxis` literals `solver`, `symbolic`, `model-asset`, `array-layout`, `unit-law`, `uncertainty-law`, and `geometry`; the geometry axis carries the `GeometrySubject` literals `registration-transform`, `reconstructed-mesh`, `topology-graph`, `network-graph`, and `form-finding`.
-- Entry: `GraduationReceipt.of` builds the receipt from a solver, symbolic, model-asset, study, or geometry evidence carrier and returns the handoff record keyed by axis and evidence. The receipt contributes a `Receipt.Planned` row through `ReceiptContributor` because it is a handoff proposal, never an emitted product receipt, and the planned facts carry the axis and the evidence key — never a C# owner-row spelling.
+- Entry: `GraduationReceipt.of` builds the receipt from a solver, symbolic, model-asset, study, or geometry evidence carrier and returns the handoff record keyed by axis and evidence. The receipt contributes a `Receipt.of("planned", ...)` row through `ReceiptContributor` because it is a handoff proposal, never an emitted product receipt, and the planned facts carry the axis and the evidence key — never a C# owner-row spelling.
 - Packages: `msgspec`, runtime (`ContentKey`, `Receipt`, `ReceiptContributor`).
 - Growth: a new handoff kind is one `HandoffAxis` literal; a new geometry subject is one `GeometrySubject` literal; zero new surface, no external-package member beyond the runtime port and msgspec.
 - Boundary: no C# `ComputeReceipt`, benchmark claim, source generation, or C# interior owner-row spelling; the receipt names the wire axis it crosses on, not the managed owner that receives it. A handoff record claiming production readiness, a graduation without evidence, a Python-only benchmark conclusion, a hard-coded C# package#owner routing literal, and a C# source-shape claim absent from the C# owner planning are the deleted forms.
@@ -24,7 +24,7 @@ from typing import Literal
 from msgspec import Struct
 
 from rasm.runtime.content_identity import ContentKey
-from rasm.runtime.observability.receipts import Receipt
+from rasm.runtime.receipts import Receipt
 
 
 type HandoffAxis = Literal["solver", "symbolic", "model-asset", "array-layout", "unit-law", "uncertainty-law", "geometry"]
@@ -39,10 +39,11 @@ class GraduationReceipt(Struct, frozen=True):
     residual_limits: dict[str, float]
 
     def contribute(self) -> Receipt:
-        return Receipt.Planned(
+        return Receipt.of(
+            "planned",
             self.source_package,
             self.subject,
-            {"axis": self.axis, "evidence_key": self.evidence_key.value, "subject": self.subject},
+            {"axis": self.axis, "evidence_key": str(self.evidence_key.value), "subject": self.subject},
         )
 ```
 

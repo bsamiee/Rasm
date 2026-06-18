@@ -1,6 +1,6 @@
 # [PY_COMPUTE_RECEIPT]
 
-The one method-discriminated solve receipt folded across every solver route. `SolverReceipt` is a single tagged union whose `Literal` tag is backed by the `SolveMethod` vocabulary (direct, iterative, least-squares, eigen) and carries a per-case payload, so the linear, nonlinear, quadrature, and differential routes emit one receipt and the discriminant lives in the case rather than in flat shared fields. The four per-case constructors are the canonical tagged-union factories; there is no single `.of`, and there is never a receipt type per solver. `SolverReceipt.contribute` emits one observability row, and a graduated solve produces a `GraduationReceipt` solver or symbolic subject.
+The one method-discriminated solve receipt folded across every solver route. `SolverReceipt` is a single tagged union whose `Literal` tag is the solve method (direct, iterative, least-squares, eigen) and carries a per-case payload, so the linear, nonlinear, quadrature, and differential routes emit one receipt and the discriminant lives in the case rather than in flat shared fields. The four per-case constructors are the canonical tagged-union factories; there is no single `.of`, and there is never a receipt type per solver. `SolverReceipt.contribute` emits one observability row, and a graduated solve produces a `GraduationReceipt` solver or symbolic subject.
 
 ## [1]-[INDEX]
 
@@ -8,35 +8,28 @@ The one method-discriminated solve receipt folded across every solver route. `So
 
 ## [2]-[RECEIPT]
 
-- Owner: `SolverReceipt` — the ONE `@tagged_union` solve receipt over every route; `SolveMethod` is the backing vocabulary surfaced through `.method`. Each method case carries its own tuple payload, so `direct` carries `(residual, condition, converged)`, `iterative` carries `(residual, iterations, tol, converged)`, `least_squares` carries `(residual, rank, iterations, converged)`, and `eigen` carries `(spectral_residual, k, condition, converged)`. The discriminant lives in the case, never in a flat shared struct.
-- Entry: the four static constructors `Direct`, `Iterative`, `LeastSquares`, and `Eigen` are the canonical factories every solver route folds into; `.converged` is a total `match` over the four cases reading the per-case convergence flag, and `.method` projects the tag back to `SolveMethod`. One `match` folds the scipy, lineax, optimistix, diffrax, and scikit-fem paths into the same receipt.
-- Receipt: `SolverReceipt.contribute` implements `ReceiptContributor`, emitting one `Receipt.Emitted` row carrying the method tag and the convergence verdict; a solve graduating outward routes through `graduation/receipt.md#GRADUATION` on the solver or symbolic `HandoffAxis` case.
+- Owner: `SolverReceipt` — the ONE `@tagged_union` solve receipt over every route; the `Literal` tag is the solve method, read directly through `.method`. Each method case carries its own tuple payload, so `direct` carries `(residual, condition, converged)`, `iterative` carries `(residual, iterations, tol, converged)`, `least_squares` carries `(residual, rank, iterations, converged)`, and `eigen` carries `(spectral_residual, k, condition, converged)`. The discriminant lives in the case, never in a flat shared struct and never in a parallel vocabulary enum beside the tag.
+- Entry: the four static constructors `Direct`, `Iterative`, `LeastSquares`, and `Eigen` are the canonical factories every solver route folds into; `.converged` is a total `match` over the four cases reading the per-case convergence flag, and `.method` reads the tag as the method literal. One `match` folds the scipy, lineax, optimistix, diffrax, and scikit-fem paths into the same receipt.
+- Receipt: `SolverReceipt.contribute` implements `ReceiptContributor`, emitting one `Receipt.of("emitted", ...)` row carrying the method tag and the convergence verdict; a solve graduating outward routes through `graduation/receipt.md#GRADUATION` on the solver or symbolic `HandoffAxis` case.
 - Packages: `expression` (`tag`, `case`, `tagged_union`), `numpy` (`isfinite`, `linalg.norm` floors the converged predicates), runtime (`Receipt`, `ReceiptContributor`).
-- Growth: a new convergence shape is one `SolveMethod` row keying one `SolverReceipt` case; zero new surface, no per-solver receipt struct, no flat shared-field receipt.
-- Boundary: no benchmark authority and no substrate selection on the receipt — it carries the convergence evidence the C# graduation gate reads, never a runtime decision. A per-solver receipt struct, a flat receipt with a stringly-typed method field, and a single `.of` factory hiding the per-case payload are the deleted forms.
+- Growth: a new convergence shape is one `SolverReceipt` case keyed by one tag literal; zero new surface, no per-solver receipt struct, no flat shared-field receipt, no parallel method-vocabulary enum.
+- Boundary: no benchmark authority and no substrate selection on the receipt — it carries the convergence evidence the C# graduation gate reads, never a runtime decision. A per-solver receipt struct, a flat receipt with a stringly-typed method field, a `SolveMethod` enum duplicating the tag, and a single per-case factory collapse hiding the method payload are the deleted forms; the runtime `Receipt.of(phase, owner, subject, facts)` carries the contribution.
 
 ```python signature
-from enum import StrEnum
 from typing import Literal, assert_never
 
 import numpy as np
 from expression import case, tag, tagged_union
 
-from rasm.runtime.observability.receipts import Receipt
+from rasm.runtime.receipts import Receipt
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
-class SolveMethod(StrEnum):
-    DIRECT = "direct"
-    ITERATIVE = "iterative"
-    LEAST_SQUARES = "least_squares"
-    EIGEN = "eigen"
+type SolveMethod = Literal["direct", "iterative", "least_squares", "eigen"]
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class SolverReceipt:
-    tag: Literal["direct", "iterative", "least_squares", "eigen"] = tag()
+    tag: SolveMethod = tag()
     direct: tuple[float, float, bool] = case()
     iterative: tuple[float, int, float, bool] = case()
     least_squares: tuple[float, int, int, bool] = case()
@@ -60,7 +53,7 @@ class SolverReceipt:
 
     @property
     def method(self) -> SolveMethod:
-        return SolveMethod(self.tag)
+        return self.tag
 
     @property
     def converged(self) -> bool:
@@ -76,6 +69,6 @@ class SolverReceipt:
             case unreachable:
                 assert_never(unreachable)
 
-    def contribute(self) -> Receipt:  # ReceiptContributor
-        return Receipt.Emitted("compute.solver", self.tag, {"method": self.tag, "converged": str(self.converged)})
+    def contribute(self) -> Receipt:
+        return Receipt.of("emitted", "compute.solver", self.tag, {"method": self.tag, "converged": str(self.converged)})
 ```

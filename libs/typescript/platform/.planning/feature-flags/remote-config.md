@@ -4,9 +4,7 @@ One page owns the browser feature-flag and remote-config read-side — `RemoteCo
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                          |
-| :-----: | :------------ | :------------------------------------------------------------ |
-|   [1]   | REMOTE_CONFIG | the remote-config fetch, the flag-key dispatch, and the refresh |
+[REMOTE_CONFIG]: the remote-config fetch, the flag-key dispatch, and the refresh.
 
 ## [2]-[REMOTE_CONFIG]
 
@@ -26,16 +24,6 @@ type FlagKey =
   | "benchmark-route"
   | "collector-panel";
 
-type FlagValue =
-  | { readonly _tag: "Boolean"; readonly enabled: boolean }
-  | { readonly _tag: "Bucketed"; readonly rolloutBucket: number }
-  | { readonly _tag: "Variant"; readonly rolloutBucket: number; readonly variants: ReadonlyArray<string> };
-
-interface FlagSet {
-  readonly flags: ReadonlyMap<FlagKey, FlagValue>;
-  readonly fetchedAt: number;
-}
-
 const FlagKeySchema = Schema.Literal("glb-viewport", "geo-series-interleave", "evidence-skew-band", "offline-command-queue", "benchmark-route", "collector-panel");
 
 const FlagValueSchema = Schema.Union(
@@ -43,16 +31,20 @@ const FlagValueSchema = Schema.Union(
   Schema.Struct({ _tag: Schema.Literal("Bucketed"), rolloutBucket: Schema.Number }),
   Schema.Struct({ _tag: Schema.Literal("Variant"), rolloutBucket: Schema.Number, variants: Schema.Array(Schema.String) }),
 );
+type FlagValue = typeof FlagValueSchema.Type;
 
 const FlagSetSchema = Schema.Struct({
   flags: Schema.ReadonlyMapFromRecord({ key: FlagKeySchema, value: FlagValueSchema }),
   fetchedAt: Schema.Number,
 });
+type FlagSet = typeof FlagSetSchema.Type;
 
-type FlagEvaluation =
-  | { readonly _tag: "Off" }
-  | { readonly _tag: "On" }
-  | { readonly _tag: "Variant"; readonly variant: string };
+type FlagEvaluation = Data.TaggedEnum<{
+  readonly Off: object;
+  readonly On: object;
+  readonly Variant: { readonly variant: string };
+}>;
+const FlagEvaluation = Data.taggedEnum<FlagEvaluation>();
 
 interface RemoteConfig {
   readonly flags: SubscriptionRef.SubscriptionRef<FlagSet>;
@@ -66,13 +58,14 @@ const evaluateFlag = (value: FlagValue, subjectKey: string): FlagEvaluation => {
     return hash % 100;
   };
   return Match.value(value).pipe(
-    Match.tag("Boolean", (v) => (v.enabled ? { _tag: "On" } : { _tag: "Off" }) satisfies FlagEvaluation),
-    Match.tag("Bucketed", (v) => (bucket(subjectKey) < v.rolloutBucket ? { _tag: "On" } : { _tag: "Off" }) satisfies FlagEvaluation),
-    Match.tag("Variant", (v) =>
-      bucket(subjectKey) < v.rolloutBucket
-        ? ({ _tag: "Variant", variant: v.variants[bucket(subjectKey) % v.variants.length] ?? v.variants[0]! } satisfies FlagEvaluation)
-        : ({ _tag: "Off" } satisfies FlagEvaluation)),
-    Match.exhaustive,
+    Match.tagsExhaustive({
+      Boolean: (v) => (v.enabled ? FlagEvaluation.On() : FlagEvaluation.Off()),
+      Bucketed: (v) => (bucket(subjectKey) < v.rolloutBucket ? FlagEvaluation.On() : FlagEvaluation.Off()),
+      Variant: (v) =>
+        bucket(subjectKey) < v.rolloutBucket
+          ? FlagEvaluation.Variant({ variant: v.variants[bucket(subjectKey) % v.variants.length] ?? v.variants[0]! })
+          : FlagEvaluation.Off(),
+    }),
   );
 };
 
@@ -81,19 +74,19 @@ const makeRemoteConfig: Effect.Effect<RemoteConfig, never, Scope.Scope | Runtime
   const http = yield* HttpClient.HttpClient;
   const flags = yield* SubscriptionRef.make<FlagSet>({ flags: new Map(), fetchedAt: 0 });
   const refresh = config.apiBaseUrl.pipe(
-    Effect.mapError(() => FaultDetail.ConfigError({ code: "config-endpoint", evidence: {} })),
+    Effect.mapError(() => FaultDetail.ConfigError({ code: 0, evidence: { kind: "config-endpoint" } })),
     Effect.flatMap((base) => http.get(`${base}/config/flags`)),
     Effect.flatMap((res) => res.json),
     Effect.flatMap(Schema.decodeUnknown(FlagSetSchema)),
     Effect.flatMap((next) => SubscriptionRef.set(flags, next)),
-    Effect.catchAll(() => Effect.fail(FaultDetail.ConfigError({ code: "config-decode", evidence: {} }))),
+    Effect.catchAll(() => Effect.fail(FaultDetail.ConfigError({ code: 0, evidence: { kind: "config-decode" } }))),
   );
   yield* refresh.pipe(Effect.ignore, Effect.repeat(Schedule.fixed("5 minutes")), Effect.forkScoped);
   const evaluate = (key: FlagKey, subjectKey: string) =>
     SubscriptionRef.get(flags).pipe(
       Effect.map((set) => {
         const value = set.flags.get(key);
-        return value === undefined ? ({ _tag: "Off" } satisfies FlagEvaluation) : evaluateFlag(value, subjectKey);
+        return value === undefined ? FlagEvaluation.Off() : evaluateFlag(value, subjectKey);
       }),
     );
   return { flags, evaluate, refresh } satisfies RemoteConfig;

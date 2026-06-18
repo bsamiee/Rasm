@@ -48,6 +48,7 @@ from tools.assay.core.model import (
     fold,
     Match,
     PackageRun,
+    ProvisionRun,
     receipt,
     Report,
     RunDelta,
@@ -120,6 +121,7 @@ api_surface_st: st.SearchStrategy[ApiSurface] = resolve(ApiSurface)
 verify_summary_st: st.SearchStrategy[VerifySummary] = resolve(VerifySummary)
 test_run_st: st.SearchStrategy[TestRun] = resolve(TestRun)
 package_run_st: st.SearchStrategy[PackageRun] = resolve(PackageRun)
+provision_run_st: st.SearchStrategy[ProvisionRun] = resolve(ProvisionRun)
 diagnostic_st: st.SearchStrategy[Diagnostic] = resolve(Diagnostic)
 run_delta_st: st.SearchStrategy[RunDelta] = resolve(RunDelta)
 static_run_st: st.SearchStrategy[StaticRun] = resolve(StaticRun)

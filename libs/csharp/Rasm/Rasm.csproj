@@ -4,11 +4,17 @@
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Numerics">
         <PackageReference Include="CSparse" />
         <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="MathNet.Numerics.Providers.MKL" />
+        <PackageReference Include="MathNet.Numerics.Providers.OpenBLAS" />
         <PackageReference Include="MathNet.Symbolics" />
         <PackageReference Include="System.Numerics.Tensors" />
+    </ItemGroup>
+
+    <ItemGroup Label="Content Hash">
+        <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
     <ItemGroup>

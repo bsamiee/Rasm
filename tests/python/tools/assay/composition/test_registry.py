@@ -1227,6 +1227,34 @@ def test_probe_token_returns_none(argv: tuple[str, ...]) -> None:
     assert registry_mod._probe_token(argv) is None
 
 
+def test_probe_token_uv_locked_module_uses_module_boundary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """UV module probes cache against the Python executable plus uv.lock, never --locked."""
+    python = tmp_path / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text("#!/bin/sh\n", encoding="utf-8")
+    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    monkeypatch.setattr(registry_mod.sys, "executable", str(python))
+
+    token = registry_mod._probe_token(("uv", "run", "--locked", "python", "-m", "tools.assay", "--version"))
+
+    assert token is not None
+    assert str(python) in token
+    assert "--locked" not in token
+
+
+def test_probe_token_uv_locked_group_uses_group_program(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """UV group probes skip runner flags before resolving the probed executable."""
+    mutmut = tmp_path / "mutmut"
+    mutmut.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr("shutil.which", lambda program: str(mutmut) if program == "mutmut" else None)
+
+    token = registry_mod._probe_token(("uv", "run", "--locked", "--group", "mutation", "mutmut", "--version"))
+
+    assert token is not None
+    assert token.startswith(f"{mutmut}|")
+    assert "--group" not in token
+
+
 @pytest.mark.parametrize("seed", [None, b"{bad json"], ids=["missing", "corrupt"])
 def test_probe_cache_load_folds_to_empty(assay_root: AssayHarness, seed: bytes | None) -> None:
     """_probe_cache_load returns {} for an absent cache file or corrupt bytes — both are clean misses.

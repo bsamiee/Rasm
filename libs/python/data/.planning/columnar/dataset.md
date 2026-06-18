@@ -51,15 +51,14 @@ class DatasetRef(Struct, frozen=True):
 - Owner: `ScanPlan` — the engine/projection/predicate/partition policy tagged union; `ColumnarEgress` the typed Arrow/Parquet/IPC export; `QueryReceipt` the one typed fault/receipt fold over scan plus transform plus egress.
 - Cases: `ScanPlan` cases `PolarsLazy(projection, predicate)` (Polars `LazyFrame`/`scan_*`/`collect`) · `DuckDb(sql, projection)` (DuckDB relational API) · `ArrowDataset(predicate, columns)` (PyArrow `dataset.Scanner`, the predicate a pre-built `pyarrow.dataset.Expression` policy value the body never re-parses from a string), matched by `match`/`case`, each binding the engine that owns it.
 - Entry: `execute(plan, dataset)` runs the plan and returns a `RuntimeRail[pyarrow.Table]` over the Arrow C Data Interface (zero-copy); `ColumnarEgress.write` emits Arrow/Parquet/IPC keyed by `ContentIdentity`; `QueryReceipt.of` folds the engine/source/columns/predicate-count/row-count/content-key.
-- Auto: the Polars path selects the lazy reader off `dataset.kind` through one `_POLARS_SCAN` table (`scan_csv`/`scan_parquet`/`scan_ipc`/`scan_delta`), then runs `.select(projection).filter(predicate).collect(engine="streaming")` — the reader is the dataset kind, never a hardcoded format; the DuckDB path runs the relational API over `duckdb.connect`; the PyArrow path runs `dataset(source).scanner(columns, filter).to_table()` with a pre-built `Expression` predicate; remote sourcing rides ADBC/ConnectorX where the source is a connection. `engine="streaming"` is the streaming spelling, never the `collect(streaming=True)` flag.
-- Receipt: the scan contributes a `Receipt.emitted` row through `ReceiptContributor` and produces a `QueryReceipt` keyed by `ContentIdentity` over the egress bytes, never a generic receipt.
+- Auto: the Polars path selects the lazy reader off `dataset.kind` through one in-arm `scan` table (`scan_csv`/`scan_parquet`/`scan_ipc`/`scan_delta`), then runs `.select(projection).filter(predicate).collect(engine="streaming")` — the reader is the dataset kind, never a hardcoded format; the DuckDB path runs the relational API over `duckdb.connect`; the PyArrow path runs `dataset(source).scanner(columns, filter).to_table()` with a pre-built `Expression` predicate; remote sourcing rides ADBC where the source is a connection (ConnectorX rides the `<3.15` gated band, never a module-top import). `polars` is on `banned-module-level-imports`, so the reader table builds inside the polars arm under `# noqa: PLC0415`. `engine="streaming"` is the streaming spelling, never the `collect(streaming=True)` flag.
+- Receipt: the scan contributes an emitted-phase `Receipt.of` row through `ReceiptContributor` and produces a `QueryReceipt` keyed by `ContentIdentity` over the egress bytes, never a generic receipt.
 - Packages: `polars` (`scan_parquet`/`LazyFrame.collect`), `duckdb` (`connect`/relational API), `pyarrow` (`dataset`/`Scanner`/`Table`), `adbc-driver-manager`, `connectorx`, `deltalake`, runtime (`RuntimeRail`/`ContentIdentity`/`ReceiptContributor`).
 - Growth: a new engine is one `ScanPlan` case; a new egress format is one `ColumnarEgress` branch; zero new surface.
 - Boundary: no durable query rails, no global DuckDB connection; a generic receipt abstraction and a per-engine egress class family are the deleted forms.
 
 ```python signature
 import duckdb
-import polars as pl
 import pyarrow as pa
 import pyarrow.dataset as pads
 import pyarrow.feather as paf
@@ -70,8 +69,8 @@ from expression import case, tag, tagged_union
 from msgspec import Struct
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.observability.receipts import Receipt
 from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
 
 
 @tagged_union(frozen=True)
@@ -146,19 +145,11 @@ class QueryReceipt(Struct, frozen=True):
             columns=table.num_columns,
             predicate_count=predicate_count,
             row_count=table.num_rows,
-            content_key=ContentIdentity.key("query", f"{engine}:{source}".encode()),
+            content_key=ContentIdentity.of("query", f"{engine}:{source}".encode()),
         )
 
     def contribute(self) -> Receipt:
-        return Receipt.Emitted(self.engine, self.source, {"rows": str(self.row_count)})
-
-
-_POLARS_SCAN: dict[DatasetKind, "object"] = {
-    DatasetKind.CSV: pl.scan_csv,
-    DatasetKind.PARQUET: pl.scan_parquet,
-    DatasetKind.ARROW_IPC: pl.scan_ipc,
-    DatasetKind.DELTA: pl.scan_delta,
-}
+        return Receipt.of("emitted", self.engine, self.source, {"rows": str(self.row_count)})
 
 
 def execute(plan: ScanPlan, dataset: DatasetRef) -> "RuntimeRail[pa.Table]":
@@ -169,7 +160,13 @@ def _run(plan: ScanPlan, dataset: DatasetRef) -> pa.Table:
     source = str(dataset.ref.path)
     match plan:
         case ScanPlan(tag="polars_lazy", polars_lazy=(projection, predicate)):
-            lf = _POLARS_SCAN[dataset.kind](source)
+            import polars as pl  # noqa: PLC0415
+
+            scan = {
+                DatasetKind.CSV: pl.scan_csv, DatasetKind.PARQUET: pl.scan_parquet,
+                DatasetKind.ARROW_IPC: pl.scan_ipc, DatasetKind.DELTA: pl.scan_delta,
+            }
+            lf = scan[dataset.kind](source)
             lf = lf.select(list(projection)) if projection else lf
             lf = lf.filter(pl.sql_expr(predicate)) if predicate else lf
             return lf.collect(engine="streaming").to_arrow()

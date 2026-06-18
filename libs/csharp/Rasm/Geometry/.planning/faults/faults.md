@@ -30,8 +30,6 @@ using Thinktecture;
 namespace Rasm.Geometry;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// The one ordinal string-key comparer every string-keyed geometry smart enum binds through
-// [KeyMemberEqualityComparer]/[KeyMemberComparer] — named once, never a per-enum StringComparer field.
 public sealed class GeometryKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
     private static readonly StringComparer Policy = StringComparer.Ordinal;
 
@@ -40,28 +38,21 @@ public sealed class GeometryKeyPolicy : IEqualityComparerAccessor<string>, IComp
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
-// The one closed Error-derived fault family for the geometry domain, band 2400 sub-banded by sibling cluster
-// (2401-2409 spatial, 2410-2419 topology, 2420-2429 healing, 2430-2439 constraints). One case per reachable
-// domain failure carrying its typed payload; ToError lowers a case into the Fin<T> failure channel with its Code.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GeometryFault {
     private GeometryFault() { }
 
-    // spatial — 2401..2409
-    public sealed record DegenerateInput(string Detail) : GeometryFault;                  // 2401 — empty/non-finite primitive set
-    public sealed record IndexMismatch(string Detail) : GeometryFault;                     // 2402 — refit primitive-count mismatch
+    public sealed record DegenerateInput(string Detail) : GeometryFault;
+    public sealed record IndexMismatch(string Detail) : GeometryFault;
 
-    // topology — 2410..2419
-    public sealed record NameCollision(UInt128 Name, int Kind) : GeometryFault;            // 2410 — non-injective re-anchor
-    public sealed record HashMismatch(UInt128 Name, int Kind) : GeometryFault;             // 2411 — dangling reconciliation reference
+    public sealed record NameCollision(UInt128 Name, int Kind) : GeometryFault;
+    public sealed record HashMismatch(UInt128 Name, int Kind) : GeometryFault;
 
-    // healing — 2420..2429
-    public sealed record UnrepairableMesh(string Detail) : GeometryFault;                  // 2420 — kernel post-condition unmet within budget
-    public sealed record NativeAssetMissing(string Detail) : GeometryFault;                // 2421 — boolean invoked without its tier-3 native asset
+    public sealed record UnrepairableMesh(string Detail) : GeometryFault;
+    public sealed record NativeAssetMissing(string Detail) : GeometryFault;
 
-    // constraints — 2430..2439
-    public sealed record OverConstrained(int RedundantRows, double Residual) : GeometryFault;  // 2430 — redundant + inconsistent system
-    public sealed record SingularSystem(int Rank, int Parameters) : GeometryFault;             // 2431 — damped normal matrix rank-deficient through the ladder
+    public sealed record OverConstrained(int RedundantRows, double Residual) : GeometryFault;
+    public sealed record SingularSystem(int Rank, int Parameters) : GeometryFault;
 
     public int Code =>
         Switch(
@@ -74,8 +65,6 @@ public abstract partial record GeometryFault {
             overConstrained:    static _ => 2430,
             singularSystem:     static _ => 2431);
 
-    // Lower the union value into the Fin<T> failure channel: the band-2400 Code plus the rendered detail.
-    // A sibling routes a failure as GeometryFault.<Case>(...).ToError(); the payload is preserved on the rail.
     public Error ToError() => Error.New(Code, Message);
 
     string Message =>

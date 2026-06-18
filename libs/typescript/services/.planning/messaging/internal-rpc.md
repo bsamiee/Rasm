@@ -22,13 +22,6 @@ interface InternalRpc<Procedures extends Rpc.Any> {
   readonly server: Layer.Layer<never, never, RpcServer.Protocol>;
   readonly client: Effect.Effect<RpcClient.RpcClient<Procedures>, never, RpcServer.Protocol>;
   readonly fromWorkflows: <const W extends NonEmptyReadonlyArray<Workflow.Any>>(workflows: W) => RpcGroup.RpcGroup<WorkflowProxy.ConvertRpcs<W[number], "">>;
-  readonly handlers: <const W extends NonEmptyReadonlyArray<Workflow.Any>>(workflows: W) => Layer.Layer<never, never, WorkflowEngine | Workflow.Requirements<W[number]>>;
+  readonly handlers: <const W extends NonEmptyReadonlyArray<Workflow.Any>>(workflows: W) => Layer.Layer<WorkflowProxyServer.RpcHandlers<W[number], "">, never, WorkflowEngine | Workflow.Requirements<W[number]>>;
 }
-```
-
-```mermaid
-flowchart LR
-  WF[WorkflowOwner.execute] --> PROX[WorkflowProxy.toRpcGroup]
-  PROX --> RPC[InternalRpc.group]
-  RPC --> SRV[WorkflowProxyServer.layerRpcHandlers]
 ```

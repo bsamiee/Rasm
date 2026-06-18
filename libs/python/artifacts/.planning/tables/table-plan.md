@@ -45,9 +45,9 @@ class TablePlan(Struct, frozen=True):
 
     def _emit(self) -> ContentKey:
         data = _build(self.frame, self.spanners, self.formats, self.fmt)
-        return ContentIdentity.key(f"table-{self.fmt}", data)
+        return ContentIdentity.of(f"table-{self.fmt}", data)
 ```
 
 ## [3]-[RESEARCH]
 
-- [TABLE_SPELLINGS]: great-tables is not yet admitted in the manifest; the `GT`/`fmt_currency`/`fmt_percent`/`fmt_date`/`tab_spanner`/`data_color`/`as_raw_html`/`as_latex`/`save` member spellings and the host-coupled Selenium PNG gate require a branch `.api` catalogue authored on admission via the `PUBLICATION_TABLE_OWNER` task.
+- [TABLE_SPELLINGS]: great-tables is not yet admitted in the manifest; the `GT`/`fmt_currency`/`fmt_percent`/`fmt_date`/`tab_spanner`/`data_color`/`as_raw_html`/`as_latex`/`save` member spellings and the host-coupled Selenium PNG gate require a folder `.api` catalogue authored on admission via the `PUBLICATION_TABLE_OWNER` task.

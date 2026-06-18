@@ -1,11 +1,6 @@
-# [TYPESCRIPT_API_EFFECT_RPC]
+# [API_CATALOGUE] @effect/rpc
 
-Dependency catalogue for `@effect/rpc` (0.75.1) — the schema-driven, transport-agnostic RPC surface
-backing `@rasm/node-durable` `InternalRpc` (the `node-durable/internal-rpc.md` `INTERNAL_RPC` cluster)
-and the `WorkflowProxy.toRpcGroup`/`WorkflowProxyServer` projection. Grounded from installed
-`node_modules` `.d.ts` declarations; exact spellings. The internal TypeScript-to-TypeScript RPC surface
-is distinct from the .NET protobuf/msgpack wire. The package re-exports twelve modules as namespaces
-through `index.d.ts`; each section below is one module.
+`@effect/rpc` is the schema-driven, transport-agnostic RPC surface for Effect. The package re-exports twelve modules as namespaces through `index.d.ts`: procedure definition (`Rpc`), group aggregate (`RpcGroup`), typed client (`RpcClient`), server runner (`RpcServer`), wire-message algebra (`RpcMessage`), middleware (`RpcMiddleware`), stream schema (`RpcSchema`), serialization layers (`RpcSerialization`), client error (`RpcClientError`), test client (`RpcTest`), and worker bootstrap (`RpcWorker`).
 
 ## [1]-[PACKAGE_SURFACE]
 

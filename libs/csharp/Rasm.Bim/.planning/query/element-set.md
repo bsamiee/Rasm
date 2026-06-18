@@ -19,7 +19,7 @@ The set-algebraic element query algebra: one polymorphic `ElementSet.Query` over
 public partial record ElementPredicate {
     partial record ByClass(IfcClass Class);
     partial record ByProperty(string SetName, string Name, string Value);
-    partial record ByClassification(Classification System, string Code);
+    partial record ByClassification(Classification System, ClassificationCode Code);
     partial record BySpatialContainer(string ContainerGlobalId);
     partial record ByType(string TypeGlobalId);
     partial record All(Seq<ElementPredicate> Operands);
@@ -40,18 +40,18 @@ public sealed record ElementSet(Seq<BimElement> Elements) {
     public ElementSet Except(ElementSet other) => new(Elements.Filter(e => !other.Elements.Exists(o => o.GlobalId == e.GlobalId)));
     public ElementSet Where(Func<BimElement, bool> predicate) => new(Elements.Filter(predicate));
 
-    static bool Match(BimElement element, ElementPredicate predicate) => predicate switch {
-        ElementPredicate.ByClass byClass => element.Class == byClass.Class,
-        ElementPredicate.ByProperty p => element.Properties.Exists(b => b.SetName == p.SetName && b.Name == p.Name && b.Value == p.Value),
-        ElementPredicate.ByClassification c => element.Classifications.Exists(r => r.System == c.System && r.Code.Value == c.Code),
-        ElementPredicate.BySpatialContainer s => element.SpatialContainerId == s.ContainerGlobalId,
-        ElementPredicate.ByType t => element.TypeGlobalId == t.TypeGlobalId,
-        ElementPredicate.All all => all.Operands.ForAll(operand => Match(element, operand)),
-        ElementPredicate.Any any => any.Operands.Exists(operand => Match(element, operand)),
-    };
+    static bool Match(BimElement element, ElementPredicate predicate) => predicate.Switch(
+        state: element,
+        byClass:            static (e, p) => e.Class == p.Class,
+        byProperty:         static (e, p) => e.Properties.Exists(b => b.SetName == p.SetName && b.Name == p.Name && b.Value == p.Value),
+        byClassification:   static (e, p) => e.Classifications.Exists(r => r.System == p.System && r.Code == p.Code),
+        bySpatialContainer: static (e, p) => e.SpatialContainerId == p.ContainerGlobalId,
+        byType:             static (e, p) => e.TypeGlobalId == p.TypeGlobalId,
+        all:                static (e, p) => p.Operands.ForAll(operand => Match(e, operand)),
+        any:                static (e, p) => p.Operands.Exists(operand => Match(e, operand)));
 }
 ```
 
 ## [3]-[RESEARCH]
 
-- [SET_ALGEBRA]: the `ElementSet` set-algebraic fold (`Union`/`Intersect`/`Except`/`Where` over `ElementPredicate`) and the `ElementPredicate` union-arm payloads ground against the LanguageExt immutable-collection combinator surface and the `BimModel` element-collection shape; the recursive `All`/`Any` composite arms backing `ElementQuery.And`/`Or` confirm against the closed-union case-generation contract and the `Seq<ElementPredicate>.ForAll`/`Exists` fold spelling.
+- [SET_ALGEBRA]: the `ElementSet` set-algebraic fold (`Union`/`Intersect`/`Except`/`Where` over `ElementPredicate`) and the `ElementPredicate` union-arm payloads ground against the LanguageExt immutable-collection combinator surface and the `BimModel` element-collection shape; the recursive `All`/`Any` composite arms backing `ElementQuery.And`/`Or` confirm against the closed-union generated `Switch` total-dispatch contract carrying the `element` state into every arm and the `Seq<ElementPredicate>.ForAll`/`Exists` recursive-fold spelling; the `ByClassification` arm matches the typed `ClassificationRef.Code` `ClassificationCode` value-object by equality, never a stringly-keyed code, so the classification axis stays typed end-to-end.

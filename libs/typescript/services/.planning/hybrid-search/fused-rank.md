@@ -19,16 +19,14 @@ RESEARCH: the `RerankModel.CrossEncoder` arm's `endpoint` is a live off-process 
 - Boundary: the named defects — four parallel search services instead of one fused owner; a second SQL surface beside the one `PgClient` (acquired from the `SqlClient` context tag in the `HybridSearch.Default` Layer); four sequential branch-side queries instead of the one round-trip; a free-floating `set_config` CTE Postgres prunes instead of the non-prunable cross join that pins `efSearch` to the executing connection; a recomputed branch-side staleness heuristic instead of the column flag; a parallel reranker beside the one tagged axis; an unchecked embedding width poisoning the `::vector` cast instead of the pre-query `feature`-stage arity assert. This is a node-only surface, never browser-reachable.
 
 ```ts owner
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 import type { PgClient } from "@effect/sql-pg"
 import type { SqlError } from "@effect/sql"
 import { SqlClient } from "@effect/sql"
 import { Array as A, Data, Effect, Layer, Match, Order, Record as R, Schema as S, Stream } from "effect"
 
-// --- [TYPES] ---------------------------------------------------------------------------
-type SearchSignal = "semantic" | "lexical" | "trigram" | "phonetic"
+const SEARCH_SIGNALS = ["semantic", "lexical", "trigram", "phonetic"] as const
+type SearchSignal = (typeof SEARCH_SIGNALS)[number]
 
-// the `rerank` axis: the post-fusion re-scoring strategy over this owner's OWN fused candidates — Identity passthrough, a linear feature score, or an off-process cross-encoder.
 type RerankModel = Data.TaggedEnum<{
   readonly Identity:     {}
   readonly Linear:       { readonly bias: number; readonly weights: RerankFeatureVector }
@@ -36,10 +34,6 @@ type RerankModel = Data.TaggedEnum<{
 }>
 const RerankModel = Data.taggedEnum<RerankModel>()
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-const SEARCH_SIGNALS = ["semantic", "lexical", "trigram", "phonetic"] as const satisfies ReadonlyArray<SearchSignal>
-
-// --- [MODELS] --------------------------------------------------------------------------
 interface SearchWeights { readonly semantic: number; readonly lexical: number; readonly trigram: number; readonly phonetic: number }
 interface EmbeddingProfile { readonly model: string; readonly dimensions: number; readonly efSearch: number }
 type RerankFeatureVector = Record<SearchSignal, number> & { readonly margin: number; readonly staleness: number }
@@ -52,14 +46,12 @@ interface SearchHit {
   readonly stale: boolean
 }
 
-// --- [ERRORS] --------------------------------------------------------------------------
 class RerankFault extends S.TaggedError<RerankFault>()("RerankFault", {
   stage: S.Literal("feature", "score", "host"),
   model: S.String,
   cause: S.Unknown,
 }) {}
 
-// --- [SERVICES] ------------------------------------------------------------------------
 type QueryOptions = {
   readonly tenant: string
   readonly text: string
@@ -72,7 +64,6 @@ type QueryOptions = {
 
 class HybridSearch extends Effect.Service<HybridSearch>()("services/HybridSearch", {
   accessors: true,
-  // the service acquires the one `SqlClient` from context — the declared `PgClient.PgClient` requirement is satisfied by the persistence Layer that provides it.
   effect: Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const query = (o: QueryOptions): Stream.Stream<SearchHit, SqlError.SqlError | RerankFault, never> =>
@@ -83,14 +74,11 @@ class HybridSearch extends Effect.Service<HybridSearch>()("services/HybridSearch
   }),
 }) {}
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-// the embedding arity is asserted against the profile BEFORE the query so a wrong-width probe fails the `feature`-stage rail rather than poisoning the `::vector` cast.
 const assertArity = (embedding: ReadonlyArray<number>, profile: EmbeddingProfile): Effect.Effect<void, RerankFault> =>
   embedding.length === profile.dimensions
     ? Effect.void
     : Effect.fail(new RerankFault({ stage: "feature", model: profile.model, cause: `embedding arity ${embedding.length} != profile dimensions ${profile.dimensions}` }))
 
-// the per-signal score map ALWAYS carries every SEARCH_SIGNALS key (the SQL COALESCEs missing branches to 0), so the rerank feature read never hits an undefined → NaN.
 const featuresOf = (hit: SearchHit): RerankFeatureVector => ({
   ...R.fromEntries(A.map(SEARCH_SIGNALS, (signal) => [signal, hit.signals[signal] ?? 0] as const)),
   margin:    hit.fusedScore,
@@ -102,7 +90,6 @@ const linearScore = (bias: number, w: RerankFeatureVector) => (f: RerankFeatureV
   f.semantic * w.semantic + f.lexical * w.lexical + f.trigram * w.trigram + f.phonetic * w.phonetic +
   f.margin * w.margin - f.staleness * w.staleness
 
-// the cross-encoder host scores the (query, candidate-text) pairs off-process; the AbortSignal threads fiber interruption into the host call.
 const crossEncoderScore = (text: string, endpoint: string, model: string, batch: number) =>
   (chunk: A.NonEmptyReadonlyArray<SearchHit>): Effect.Effect<ReadonlyArray<number>, RerankFault> =>
     Effect.tryPromise({
@@ -114,7 +101,6 @@ const crossEncoderScore = (text: string, endpoint: string, model: string, batch:
       catch: (cause) => new RerankFault({ stage: "host", model, cause }),
     })
 
-// the `rerank` stage: ONE Match.tagsExhaustive over the RerankModel axis, each arm a collect-then-Order-reorder fold so the sort is GLOBAL over the bounded candidate set, never chunk-local.
 const rerankStage = (text: string, model: RerankModel) =>
   (fused: Stream.Stream<SearchHit, SqlError.SqlError, never>): Stream.Stream<SearchHit, SqlError.SqlError | RerankFault, never> =>
     Match.value(model).pipe(Match.tagsExhaustive({
@@ -134,10 +120,8 @@ const rerankStage = (text: string, model: RerankModel) =>
           })))),
     }))
 
-// `Order.mapInput` lifts the reranked score into a descending order over the hit — the reorder vocabulary, never an ad-hoc compare callback.
 const byReranked: Order.Order<SearchHit> = Order.reverse(Order.mapInput(Order.number, (hit: SearchHit) => hit.rerankedScore))
 
-// the four-signal weighted fusion is owned HERE in SQL (`SUM(score * weight)`); the `keys` scaffold LEFT JOINs every branch so `signals` is a full per-id Record (missing branch → 0), and the `efSearch` set_config binds inline through a non-prunable cross join so the HNSW tuning actually runs on the executing connection — never a free-floating CTE Postgres prunes.
 const hybridQuery = (sql: SqlClient.SqlClient, o: QueryOptions) => sql<SearchHit>`
   SELECT s.id,
          SUM(b.score * b.weight)                                                AS "fusedScore",
@@ -160,7 +144,5 @@ const hybridQuery = (sql: SqlClient.SqlClient, o: QueryOptions) => sql<SearchHit
   LIMIT ${o.limit}
 `
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-// the `HybridSearch.Default` Layer wires the service; its `SqlClient` requirement is satisfied upstream by the persistence PgClient Layer, so the public `query` carries no residual `R` channel.
 const HybridSearchLayer: Layer.Layer<HybridSearch, never, SqlClient.SqlClient | PgClient.PgClient> = HybridSearch.Default
 ```

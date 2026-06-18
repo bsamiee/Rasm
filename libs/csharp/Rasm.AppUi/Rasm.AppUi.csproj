@@ -30,7 +30,19 @@
         <PackageReference Include="SkiaSharp" />
         <PackageReference Include="SkiaSharp.HarfBuzz" />
         <PackageReference Include="Svg.Controls.Skia.Avalonia" />
+        <PackageReference Include="Svg.Skia" />
         <PackageReference Include="System.Reactive" />
+    </ItemGroup>
+
+    <!-- Headless raster backend and platform for server/container render paths. -->
+    <ItemGroup Label="Headless Backend">
+        <PackageReference Include="Avalonia.Skia" />
+        <PackageReference Include="Avalonia.Headless" />
+    </ItemGroup>
+
+    <!-- GPU compositor backend: Vello-accelerated render path behind the SurfaceHost render seam. -->
+    <ItemGroup Label="GPU Backend">
+        <PackageReference Include="VelloSharp.Avalonia.Vello" />
     </ItemGroup>
 
     <!-- Native posture: macOS desktop (live) plus the headless-Linux raster backend
@@ -50,18 +62,38 @@
         <PackageReference Include="PanAndZoom" />
         <PackageReference Include="AvaloniaEdit.TextMate" />
         <PackageReference Include="bodong.Avalonia.PropertyGrid" />
+        <PackageReference Include="bodong.PropertyModels" />
         <PackageReference Include="DialogHost.Avalonia" />
         <PackageReference Include="Dock.Avalonia" />
         <PackageReference Include="Dock.Model.ReactiveUI" />
+        <PackageReference Include="Dock.Serializer.SystemTextJson" />
         <PackageReference Include="FluentIcons.Avalonia" />
+        <PackageReference Include="FluentIcons.Common" />
         <PackageReference Include="Markdig" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+
+    <!-- Color/spectral, time, units, and hashing vocabulary the product-UI owners consume as
+         settled domain types; the Thinktecture/LanguageExt cores arrive by global injection. -->
+    <ItemGroup Label="Domain Runtime">
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="UnitsNet" />
+        <PackageReference Include="Wacton.Unicolour" />
+    </ItemGroup>
+
+    <!-- Drafting/sheet export codecs: DWG/DXF (ACadSharp, netDxf) and OOXML document emit. -->
+    <ItemGroup Label="Drafting Export">
+        <PackageReference Include="ACadSharp" />
+        <PackageReference Include="DocumentFormat.OpenXml" />
+        <PackageReference Include="netDxf" />
     </ItemGroup>
 
     <!-- HotAvalonia self-gates to Debug via its buildTransitive props; the reference stays
          unconditional so packages.lock.json is configuration-independent. -->
     <ItemGroup Label="Dev Loop">
         <PackageReference Include="HotAvalonia" PrivateAssets="all" />
+        <PackageReference Include="Avalonia.Markup.Xaml.Loader" PrivateAssets="all" />
     </ItemGroup>
 
 </Project>

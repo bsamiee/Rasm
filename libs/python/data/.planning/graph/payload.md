@@ -25,14 +25,13 @@ from expression import case, tag, tagged_union
 from msgspec import Struct
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.observability.receipts import Receipt
 from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-# --- [TYPES] ----------------------------------------------------------------------------
 type NodeId = int
 type Weight = float
 type RxGraph = rx.PyGraph | rx.PyDiGraph
@@ -103,7 +102,6 @@ class GraphAlgorithm:
         return GraphAlgorithm(strongly_connected=None)
 
 
-# --- [MODELS] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class GraphResult:
     tag: Literal["order", "path", "scores", "matrix", "partition"] = tag()
@@ -130,10 +128,9 @@ class GraphPayload(Struct, frozen=True):
         return boundary(f"graph.analyze.{algo.tag}", lambda: run(graph, algo))
 
     def contribute(self) -> Receipt:
-        return Receipt.Emitted("graph", self.backend, {"nodes": str(self.node_count), "edges": str(self.edge_count)})
+        return Receipt.of("emitted", "graph", self.backend, {"nodes": str(self.node_count), "edges": str(self.edge_count)})
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
 def _of_rx(g: "RxGraph") -> GraphPayload:
     directed = isinstance(g, rx.PyDiGraph)
     return GraphPayload(
@@ -141,7 +138,7 @@ def _of_rx(g: "RxGraph") -> GraphPayload:
         kind=GraphKind(directed=directed, multigraph=g.multigraph),
         node_count=g.num_nodes(),
         edge_count=g.num_edges(),
-        content_key=ContentIdentity.key("graph", rx.node_link_json(g).encode()),
+        content_key=ContentIdentity.of("graph", rx.node_link_json(g).encode()),
     )
 
 
@@ -151,7 +148,7 @@ def _of_nx(g: "NxGraph") -> GraphPayload:
         kind=GraphKind(directed=g.is_directed(), multigraph=g.is_multigraph()),
         node_count=g.number_of_nodes(),
         edge_count=g.number_of_edges(),
-        content_key=ContentIdentity.key("graph", repr(nx.node_link_data(g)).encode()),
+        content_key=ContentIdentity.of("graph", repr(nx.node_link_data(g)).encode()),
     )
 
 

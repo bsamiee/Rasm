@@ -10,16 +10,48 @@
         <ProjectReference Include="../Rasm.Persistence/Rasm.Persistence.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Execution Lanes">
+    <ItemGroup Label="Tensors Numeric">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="CSparse" />
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="MathNet.Numerics.Providers.MKL" />
+        <PackageReference Include="MathNet.Numerics.Providers.OpenBLAS" />
+        <PackageReference Include="System.Numerics.Tensors" />
+    </ItemGroup>
+
+    <ItemGroup Label="Models">
+        <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+        <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+        <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" />
+        <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" />
+        <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" />
+        <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" />
+    </ItemGroup>
+
+    <ItemGroup Label="Remote Wire">
         <PackageReference Include="Google.Protobuf" />
+        <PackageReference Include="Grpc.AspNetCore" />
         <PackageReference Include="Grpc.Net.Client" />
         <PackageReference Include="Grpc.Net.Client.Web" />
+        <PackageReference Include="Grpc.Net.Common" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
+    </ItemGroup>
+
+    <ItemGroup Label="Interchange Staging">
+        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
         <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
-        <PackageReference Include="Microsoft.ML.OnnxRuntime" />
-        <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" />
-        <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="SharpGLTF.Core" />
+        <PackageReference Include="SharpGLTF.Toolkit" />
+    </ItemGroup>
+
+    <ItemGroup Label="Functional Core">
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+
+    <ItemGroup Label="Units">
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 

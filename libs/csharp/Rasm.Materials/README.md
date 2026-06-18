@@ -21,6 +21,9 @@ Every external library the folder uses, planned or implemented, as a flat list. 
 [COLOR_SPECTRAL]:
 - Wacton.Unicolour
 
+[UNITS]:
+- UnitsNet (the photometric quantity/unit enums — `IlluminanceUnit`/`LuminanceUnit`/`LuminousFluxUnit`/`LuminousIntensityUnit`/`IrradianceUnit` — the `photometric` author-kernel rescales to SI base)
+
 [PROJECTS]:
 - Rasm (kernel — `Vectors` value-objects: `VectorFrame`/`Direction`/`Dimension`/`UnitInterval`/`PositiveMagnitude`; `Domain` `Context`)
 - Rasm.Compute (`QuantityFamily`/`UnitAlgebra`/`UnitPolicy`/`UnitEvidence` unit seam, composing the admitted `UnitsNet` quantity owner)

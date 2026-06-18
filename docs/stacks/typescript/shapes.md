@@ -1,8 +1,8 @@
 # [TYPESCRIPT_SHAPES]
 
-Every concept takes exactly one runtime authority, and five discriminants select it before any field is written: admission (raw material crossing a trust boundary), identity regime (structural, tag, brand, or reference), variant arity (one shape or N alternatives), payload timing (variant data fixed at declaration or constructed per occurrence), and openness (closed vocabulary or foreign extension). One Schema is the single source of truth for a shape — decode, encode, brand, filter, and every projection derive from that one declaration, never from parallel schemas. Every misplaced shape traces to one mis-answered discriminant or to a second authority minted beside the first.
+Every concept takes exactly one runtime authority, and five discriminants select it before any field is written: admission (raw material crossing a trust boundary), identity regime (structural, tag, brand, or reference), variant arity (one shape or N alternatives), payload timing (variant data fixed at declaration or constructed per occurrence), and openness (closed vocabulary or foreign extension). One Schema is the single source of truth for a shape — decode, encode, brand, filter, equality, order, and every projection derive from that one declaration, never from parallel schemas. The selection fixes where change detonates, what equality means, and which capabilities derive; every misplaced shape traces to one mis-answered discriminant or to a second authority minted beside the first.
 
-The named defect class this page refuses: loose-schema spam (a fresh `Schema.Struct` per shape), branded-type nonsense (a standalone `type Id = string & Brand` or a module-level `const _Id = Schema.brand(...)` export), const spam (N parallel one-use `Schema.Literal`/`Schema.brand` consts before a class), parallel projection structs (`TaskInsert`/`TaskUpdate` redeclaring what the model derives), and the standalone `type`/`interface` that mirrors a runtime shape.
+The named defect class this page refuses: loose-schema spam (a fresh `Schema.Struct` per shape), branded-type nonsense (a standalone `type Id = string & Brand` or a module-level `const _Id = Schema.brand(...)` export), const spam (N parallel one-use `Schema.Literal`/`Schema.brand` consts before a class), parallel projection structs (`TaskInsert`/`TaskUpdate` redeclaring what the model derives), the standalone `type`/`interface` that mirrors a runtime shape (`type Wire = typeof Schema.Type`, the single-method `interface` shadowing a service), the per-tag constructor `Record` restating a `Data.TaggedEnum`'s own constructor namespace, and the `Record<string, V>` key whose `string` discards the closed-membership the vocabulary already proves.
 
 ## [1]-[OWNER_CHOOSER]
 
@@ -29,17 +29,23 @@ When a concept matches several signatures, the most specific row wins.
 - `UseTaggedEnum(family)`: closed variants with per-occurrence payload, exhaustive `$match` fold, `$is` narrowing, and stored call modality; never exported, file-internal dispatch.
 - `UseVocabulary(rows)`: a bounded keyed domain whose rows carry behavior columns; `keyof typeof` is the discriminant, indexed access the output, computed getters read the row.
 
+[IDENTITY_REGIME]:
+- `SelectIdentity(regime)`: structural equality rides `Schema.Class`/`Data` value semantics, tag equality rides the `_tag` discriminant, brand identity rides the nominal phantom, and reference identity rides the `Context.Tag` service handle; the regime is fixed at the owner, never re-derived by a hand-written comparator at each site.
+- `DeriveComparison(owner)`: order and equality derive from the owner — `Order.mapInput` projects a row column into a total order, `Equivalence` over the decoded fields replaces a delimiter-concatenated key string, and a fault family's worst-case join is `Order.max` over the policy ordinal column; a bespoke `(a, b) => …` comparator beside the schema is the rejected form.
+
 [COLLAPSE_FUNCTIONS]:
-- `CollapseSchema(family)`: keep one Schema authority and derive every view through `Schema.pick`/`omit`/`partial`/`extend`; delete parallel structs, mirror types, standalone branded exports, and the `Schema.Struct` minted per shape.
-- `CollapseVocabulary(consts)`: a third one-use module-level `const _Status = Schema.Literal(...)` before a class collapses into inline field-position `Schema.Literal(...)`; extract to a const only when two or more sites within the file consume it.
+- `CollapseSchema(family)`: keep one Schema authority and derive every view through `Schema.pick`/`omit`/`partial`/`extend`; delete parallel structs, mirror types (`type X = typeof Schema.Type` consumed nowhere `typeof` could not reach), standalone branded exports, and the `Schema.Struct` minted per shape.
+- `CollapseVocabulary(consts)`: a third one-use module-level `const _Status = Schema.Literal(...)` before a class collapses into inline field-position `Schema.Literal(...)`; extract to a const only when two or more sites within the file consume it, and key the consuming `Record` by `keyof typeof V` so `string` never re-opens the closed membership.
+- `CollapseConstructorTable(tags)`: a per-tag `Record<Tag, (w) => Family.Variant(...)>` selecting a constructor by tag collapses into one `$match` on the source value or `Match.discriminatorsExhaustive(field)` — the generated fold owns the case list, so the parallel ctor table that restates it is deleted.
 - `CollapseDispatch(arms)`: a `Match.when` chain classifying into tiers a vocabulary already maps collapses into vocabulary lookup or threshold iteration.
 
 [BEHAVIOR_FUNCTIONS]:
 - `PlaceBehavior(selector)`: use computed getters on a class for derived semantics over private vocabulary axes, `$match` fold for closed-family projection, vocabulary indexed access for keyed lookup, and `Match` only for structural or predicate dispatch on non-keyed shapes.
-- `RejectExternalDispatch(key)`: collapse a parallel `Match` chain, a sibling decoder family, and repeated full-coverage folds into computed getters, one `$match`, or one vocabulary lookup.
+- `RejectExternalDispatch(key)`: collapse a parallel `Match` chain, a sibling decoder family, a per-tag constructor `Record`, and repeated full-coverage folds into computed getters, one `$match`, or one vocabulary lookup.
 
 [CHANGE_FUNCTIONS]:
 - `PlaceGrowthCost(owner)`: a new `Data.TaggedEnum` variant breaks every `$match` and `tagsExhaustive` site at compile time; a new vocabulary row adds one entry and the `keyof typeof` discriminant absorbs it; a new field adds one Schema field and the projections derive.
+- `TightenInvariant(owner)`: narrowing a `Schema.filter` or brand bound is data migration plus a property test, never a compile signal — an already-decoded value is not re-checked, so the boundary owns the new bound and rehydration re-admits through the same filter.
 
 [EXEMPTION_FUNCTIONS]:
 - `UseManualHierarchy(axis)`: hand-roll an interface or class hierarchy only when foreign code must add variants without editing the owner; otherwise the closed `Data.TaggedEnum` is the family.
@@ -49,20 +55,21 @@ When a concept matches several signatures, the most specific row wins.
 
 [SINGLE_SOURCE]:
 - Law: one `Schema.Class` is the sole authority for a value object — decode through `Schema.decodeUnknown`, encode through `Schema.encode`, cross-field invariants through `Schema.filter` co-located on the struct, and every projection through `Schema.pick`/`omit`/`partial`.
-- Law: a branded primitive is a field-position `Schema.brand(...)` modifier inside the owning class; a standalone module-level branded export is the rejected form.
+- Law: a branded primitive is a field-position `Schema.brand(...)` modifier inside the owning class; a standalone module-level branded export, and an `N`-deep stack of one-use brand consts ahead of the class each restating one identity slot, are the rejected forms.
+- Law: order and equality derive from the same source — `Order.mapInput(base, (v) => v.column)` projects a row column into a total order and `Equivalence` over the decoded fields keys a memo, so no hand-written comparator or `${a}:${b}` signature string exists beside the class.
 - Law: private vocabulary substrate (`_Protocol`, `_Projections`) drives the class but is never imported — consumers read computed getters and call one polymorphic static projection.
-- Use: a polymorphic `static readonly as = <K extends keyof typeof _Projections>(variant: K) => ...` over a private projection map, deleting the exported decoder family.
-- Reject: a parallel `Schema.Struct` plus a separate `type`, a standalone brand export, and a projection map imported by consumers.
+- Use: a polymorphic `static readonly as = <K extends keyof typeof _Projections>(variant: K) => ...` over a private projection map, deleting the exported decoder family; `static readonly byRank` as an `Order` and `static readonly same` as an `Equivalence` so dispatch reads the owner.
+- Reject: a parallel `Schema.Struct` plus a separate `type`, a standalone brand export, a single-method `interface` shadowing the class's projection surface, and a projection map imported by consumers.
 - Boundary: a class crossing to a `TypeLiteral` through `Schema.omit()` strips nominal identity, struct-level filter, and computed getters — an irreversible projection owned at the seam.
 
 ```ts conceptual
-import { Record as R, Schema as S } from "effect"
+import { Equivalence, Order, Record as R, Schema as S } from "effect"
 
 const _Protocol = {
-  h2:   { secure: true,  multiplex: true,  upgrade: false },
-  h2c:  { secure: false, multiplex: true,  upgrade: true  },
-  http: { secure: false, multiplex: false, upgrade: false },
-} as const satisfies Record<string, { secure: boolean; multiplex: boolean; upgrade: boolean }>
+  h2:   { secure: true,  multiplex: true,  upgrade: false, rank: 2 },
+  h2c:  { secure: false, multiplex: true,  upgrade: true,  rank: 1 },
+  http: { secure: false, multiplex: false, upgrade: false, rank: 0 },
+} as const satisfies Record<string, { secure: boolean; multiplex: boolean; upgrade: boolean; rank: number }>
 
 class Target extends S.Class<Target>("Target")(S.Struct({
   host:     S.NonEmptyString,
@@ -75,14 +82,16 @@ class Target extends S.Class<Target>("Target")(S.Struct({
   get transport() { return _Protocol[this.protocol] }
   get secure()    { return this.transport.secure }
   get active()    { return !this.drain && this.weight > 0 }
+  static readonly byRank = Order.mapInput(Order.number, (t: Target) => _Protocol[t.protocol].rank)
+  static readonly same   = Equivalence.mapInput(Equivalence.struct({ host: Equivalence.string, port: Equivalence.number }), (t: Target) => ({ host: t.host, port: t.port }))
   static readonly as = <K extends keyof typeof _Projections>(variant: K) =>
-    S.decodeUnknown(_Projections[variant])
+    S.decodeUnknown(_Projections[variant]) // keyof-typed index: total, exempt from the Option lift
 }
 
 const _Projections = {
-  route:   Target.pipe(S.omit(), S.pick("host", "port", "protocol", "weight")),
-  summary: Target.pipe(S.omit(), S.pick("host", "protocol", "drain")),
-} satisfies Record<string, S.Schema<any, any, never>>
+  route:   Target.pipe(S.pick("host", "port", "protocol", "weight")),
+  summary: Target.pipe(S.pick("host", "protocol", "drain")),
+} satisfies Record<string, S.Schema.Any>
 ```
 
 [MODEL_PROJECTIONS]:
@@ -117,12 +126,14 @@ const _EntityPatch = Entity.pipe(S.omit("id", "tenantId", "createdAt", "updatedA
 [VOCABULARY_DECLARATION]:
 - Law: a bounded keyed domain is one `as const satisfies Record<...>` whose keys fix membership and whose columns carry behavior — status, retryability, schedule, log level, weight — read by indexed access, never re-derived.
 - Law: `keyof typeof V` is the discriminant union, `(typeof V)[keyof typeof V]` the row type, and `R.keys(V)` spreads into a `Schema.Literal(...)` so the wire vocabulary derives from the same anchor.
+- Law: a consuming map keys by `keyof typeof V`, not `string`, and the `satisfies` annotation constrains without widening — `Record<string, X>` discards closed membership and lets an unmapped key compile, while a value position erased to `unknown`/`any` (`satisfies Record<Key, Row<unknown, unknown>>`, `S.Schema<any, any, never>`) discards the per-row payload type the rows prove; `S.Schema.Any` is the row-schema constraint that admits every concrete schema without erasing its `A`/`I`, so the key stays the discriminant, the value stays its proven type, and a missing or mistyped row is a compile error, never a runtime `undefined`.
+- Law: a foreign key the vocabulary does not enumerate resolves through `R.get(V, raw)` to `Option<Row>` with a vocabulary-owned fallback, so the open-world lookup is total and an unknown key lands a declared default case rather than a silent miss.
 - Law: classification iterates or indexes the vocabulary when the vocabulary owns the thresholds; a `Match.when` chain re-encoding the vocabulary's tiers is the rejected form.
 - Accept: a vocabulary whose row holds an `Effect`-valued column (a `log` level) directly, since an `Effect` is lazy and constructing the row constructs no work; a construction-heavy policy value — a `Schedule.exponential(...)`, a built `Layer`, a compiled `Schema` — is a thunked column (`() => Schedule.exponential(...)`) so the cost is paid per use, not for every row at module init.
-- Reject: a hand-listed string-literal union beside the vocabulary, N parallel one-use literal consts, a tier classifier duplicating vocabulary knowledge, and an eagerly-constructed `Schedule`/`Layer` column built for every row whether the row is dispatched or not.
+- Reject: a hand-listed string-literal union beside the vocabulary, N parallel one-use literal consts, a `Record<string, X>` key widening the discriminant, a tier classifier duplicating vocabulary knowledge, and an eagerly-constructed `Schedule`/`Layer` column built for every row whether the row is dispatched or not.
 
 ```ts conceptual
-import { Duration, Effect, Number as N, Option, pipe } from "effect"
+import { Array as A, Duration, Effect, Number as N, Option, Record as R, pipe } from "effect"
 
 const Severity = {
   nominal:  { ceiling: 0.3, weight: 1, log: Effect.logInfo    },
@@ -134,10 +145,14 @@ type _Level = keyof typeof Severity
 
 const _classify = (score: number): _Level =>
   pipe(
-    Object.entries(Severity) as ReadonlyArray<readonly [_Level, (typeof Severity)[_Level]]>,
-    (rows) => rows.find(([, row]) => score < row.ceiling),
-    (hit) => hit?.[0] ?? "critical",
+    R.toEntries(Severity),
+    A.findFirst(([, row]) => score < row.ceiling),
+    Option.map(([level]) => level),
+    Option.getOrElse(() => "critical" as const),
   )
+
+const _resolve = (raw: string): _Level => // the key is recovered as a proven member, never `raw as _Level`
+  A.findFirst(R.keys(Severity), (level) => level === raw).pipe(Option.getOrElse((): _Level => "critical"))
 
 const _backoff = (level: _Level) =>
   pipe(N.divide(Severity[level].weight, Severity.critical.weight), Option.map(Duration.seconds), Option.getOrElse(() => Duration.zero))
@@ -176,8 +191,10 @@ const isOpen = Phase.$is("Open")
 [FAULT_FAMILY]:
 - Law: one `Data.TaggedError` per module surface carries a `reason` discriminant keyed to one `as const satisfies Record` policy table; computed getters (`status`, `retryable`, `retryAfter`, `severity`) project policy from the row, never from inline literals.
 - Law: an internal `Data.TaggedEnum` sub-vocabulary embeds as a payload field, and a `$match` fold inside a getter derives the normalized scalar; `$is` short-circuits the retryability predicate.
+- Law: wire-to-case construction is one fold over the decoded wire shape — a `Record` mapping the wire discriminant to the domain key resolved through `R.get(...).pipe(Option.getOrElse(quarantine))` when the wire `kind` is itself a keyed domain, `Match.discriminatorsExhaustive(field)` when the case shapes diverge structurally, or one `$match` — never a parallel `Record<Tag, (w) => Family.Variant(...)>` constructor table restating the case list the fold already owns and never a `Match.when` chain re-encoding a wire→key map a vocabulary owns; an unmapped wire discriminant lands a typed quarantine case through the open-world fallback, never a throw.
+- Law: policy-bearing payload stays typed on the case — a numeric code is a `number` field and a closed reason is a brand or literal, never coerced into a `Record<string,string>` evidence bag through `String(code)`, since the lossy stringly bag forfeits the order, retry, and render projections the typed field feeds.
 - Law: `Schema.TaggedError` is the form when the fault is wire-carried (an HTTP API error), reusing the same policy-table getters; `HttpApiSchema.annotations` binds the default status and the getter overrides per reason.
-- Reject: a separate error class per method, an inline status/retry/transport literal outside the policy table, and a parallel error type for an auth or transport failure where one `reason` row adds it.
+- Reject: a separate error class per method, an inline status/retry/transport literal outside the policy table, a per-tag constructor `Record`, a `String(numericPayload)` coercion into an evidence bag, and a parallel error type for an auth or transport failure where one `reason` row adds it.
 - Boundary: cause-tree normalization (`Cause.match`), defect-versus-failure, and the rail-level accumulation combinators belong to `rails-and-effects.md`; this site owns the fault family, its policy projection, and the shape-level admission algebra below.
 
 [ADMISSION_ACCUMULATION]:
@@ -186,26 +203,35 @@ const isOpen = Phase.$is("Open")
 - Reject: a fail-fast decode over genuinely independent fields that hides every fault after the first, an applicative product over a dependent chain that validates a step against an antecedent the program has not yet proven, and a post-decode second-pass re-validation that re-reports faults the single decode already owns.
 
 ```ts conceptual
-import { Data, Duration, Effect, Order, Option } from "effect"
+import { Data, Duration, Effect, Option, Order, Record as R } from "effect"
 
 const _Policy = {
   unauthorized: { status: 401, retryable: false, retryAfter: Duration.zero,       ord: 0, log: Effect.logWarning },
   conflict:     { status: 409, retryable: true,  retryAfter: Duration.zero,       ord: 1, log: Effect.logWarning },
   unavailable:  { status: 503, retryable: true,  retryAfter: Duration.seconds(1), ord: 2, log: Effect.logError   },
+  quarantine:   { status: 502, retryable: false, retryAfter: Duration.zero,       ord: 3, log: Effect.logError   },
 } as const satisfies Record<string, { status: number; retryable: boolean; retryAfter: Duration.Duration; ord: number; log: (...a: ReadonlyArray<unknown>) => Effect.Effect<void> }>
+
+const _WireReason = { auth: "unauthorized", race: "conflict", down: "unavailable" } as const satisfies Record<string, keyof typeof _Policy>
 
 class GatewayFault extends Data.TaggedError("GatewayFault")<{
   readonly reason: keyof typeof _Policy
+  readonly code:   number
   readonly detail: string
 }> {
   static readonly ord  = Order.mapInput(Order.number, (f: GatewayFault) => _Policy[f.reason].ord)
-  static readonly join = Order.max(GatewayFault.ord)
+  static readonly join = Order.max(GatewayFault.ord) // worst-case fault folds a cause set through the policy ordinal
+  static readonly from = (wire: { readonly kind: string; readonly code: number; readonly detail: string }) =>
+    new GatewayFault({ // wire→reason rides the vocabulary's open-world lookup, never a Match.when chain restating it
+      code: wire.code, detail: wire.detail,
+      reason: R.get(_WireReason, wire.kind).pipe(Option.getOrElse((): keyof typeof _Policy => "quarantine")),
+    })
   get status()     { return _Policy[this.reason].status     }
   get retryable()  { return _Policy[this.reason].retryable  }
   get retryAfter() { return _Policy[this.reason].retryAfter }
   get body() {
     return {
-      error: this.reason, detail: this.detail, status: this.status, retryable: this.retryable,
+      error: this.reason, code: this.code, detail: this.detail, status: this.status, retryable: this.retryable,
       ...(Duration.greaterThan(this.retryAfter, Duration.zero) && { retryAfterMs: Duration.toMillis(this.retryAfter) }),
     } as const
   }
@@ -222,7 +248,7 @@ class GatewayFault extends Data.TaggedError("GatewayFault")<{
 - Boundary: codec attribute placement, the converter that owns a closed wire family, and byte-identity forwarding belong to `boundaries.md`; this site owns the structural transform.
 
 ```ts conceptual
-import { Record as R, Schema as S } from "effect"
+import { Option, Record as R, Schema as S } from "effect"
 
 const _Encoding = {
   gzip: { id: 1, streamable: true  },
@@ -230,15 +256,16 @@ const _Encoding = {
   none: { id: 0, streamable: false },
 } as const satisfies Record<string, { id: number; streamable: boolean }>
 
-const _ById = R.fromEntries(R.toEntries(_Encoding).map(([k, v]) => [v.id, k])) as Record<number, keyof typeof _Encoding>
+type _Codec = keyof typeof _Encoding
+const _byId = (id: number): _Codec => // open number index resolves through one Option lift, never `as` + `??`
+  R.findFirst(_Encoding, (row) => row.id === id).pipe(Option.map(([key]) => key), Option.getOrElse((): _Codec => "none"))
 
 const Envelope = S.transform(
   S.Struct({ payload: S.Uint8ArrayFromBase64, encodingId: S.Number.pipe(S.int(), S.between(0, 2)), version: S.Number.pipe(S.int(), S.positive()) }),
-  S.Struct({ payload: S.Uint8ArrayFromSelf, encoding: S.Literal("gzip", "zstd", "none"), version: S.Number.pipe(S.int(), S.positive()), streamable: S.Boolean }),
+  S.Struct({ payload: S.Uint8ArrayFromSelf, encoding: S.Literal(...R.keys(_Encoding)), version: S.Number.pipe(S.int(), S.positive()), streamable: S.Boolean }),
   {
-    decode: ({ payload, encodingId, version }) => ({ payload, version, encoding: _ById[encodingId] ?? "none", streamable: _Encoding[_ById[encodingId] ?? "none"].streamable }),
+    decode: ({ payload, encodingId, version }) => ((encoding: _Codec) => ({ payload, version, encoding, streamable: _Encoding[encoding].streamable }))(_byId(encodingId)),
     encode: ({ payload, encoding, version }) => ({ payload, version, encodingId: _Encoding[encoding].id }),
   },
 )
 ```
-</content>

@@ -11,8 +11,8 @@ The one validated-numerics owner producing certified enclosures. `IntervalNumeri
 - Owner: `IntervalNumerics` — the ONE validated-arithmetic owner; `Interval` is the inclusion-monotone `[lo, hi]` value object, `Enclosure` carries the interval plus a `certified` flag, and `IntervalOp` discriminates `Evaluate(expr, box)` (interval extension over an input box), `Certify(enclosure, target)` (does the enclosure provably contain the target), and `Refine(interval, bisections)` (interval bisection to a width tolerance). Every certified operation is a row on this owner, never a parallel rigorous-arithmetic surface.
 - Floor ladder: `_certified_evaluate` resolves the tightest available floor. With the Arb wheel present it lifts each input to a `flint.arb(mid, rad)` ball, evaluates through Arb ball arithmetic at the requested precision, and reads `arb.mid()`/`arb.rad()` back as a certified enclosure. Without Arb but with mpmath it lifts to an `mpmath.mpi` interval at `mpmath.mp.prec`, evaluates through the inclusion-monotone interval arithmetic, and reads the interval endpoints back as a certified enclosure on cp315. Without either it falls to the numpy floor, evaluating at the box midpoint and rounding the bounds outward through `np.nextafter` for a sound but uncertified band. The `evaluate` op always has a reachable floor and never returns `Error(Import)`.
 - Entry: `IntervalNumerics.evaluate` returns `RuntimeRail[Enclosure]`; the `certify` op tightens the certified flag by the containment test, and the `refine` op bisects the interval toward the target width.
-- Receipt: `Enclosure.contribute` emits one `Receipt.Emitted` row carrying the width and the `certified` flag; a certified Arb or mpmath enclosure graduates as a proof the C# gate admits, an uncertified numpy band graduates only as advisory evidence.
-- Packages: `flint` (`arb`, `arb.mid`, `arb.rad`, `ctx.prec` — python-flint Arb ball arithmetic), `mpmath` (`mpi`, `mp.prec`, `mpf` — arbitrary-precision interval floor), `numpy` (`nextafter`, `spacing`, `finfo`), runtime (`RuntimeRail`, `boundary`, `ReceiptContributor`).
+- Receipt: `Enclosure.contribute` emits one `Receipt.of("emitted", ...)` row carrying the width and the `certified` flag; a certified Arb or mpmath enclosure graduates as a proof the C# gate admits, an uncertified numpy band graduates only as advisory evidence.
+- Packages: `flint` (`arb`, `arb.mid`, `arb.rad`, `ctx.prec` — python-flint Arb ball arithmetic), `mpmath` (`mpi`, `mp.prec`, `mpf` — arbitrary-precision interval floor), `numpy` (`nextafter`, `spacing`, `finfo`), runtime (`RuntimeRail`, `boundary`, `Receipt`/`ReceiptContributor`).
 - Growth: a new certified operation is one `IntervalOp` case; a new rounding policy is one branch in the floor ladder; zero new surface.
 - Boundary: classical validated numerics only — interval arithmetic, certified enclosures, and bisection refinement are in-scope. `flint` carries no cp315 wheel, so the Arb branch is authored against the documented API; `mpmath` is pure-Python and cp315-clean, so the mpmath interval floor runs unconditionally on cp315 and gives a tight certified enclosure where Arb is unavailable; the numpy `nextafter` band is the last-resort uncertified floor.
 
@@ -23,11 +23,10 @@ import numpy as np
 from expression import case, tag, tagged_union
 from msgspec import Struct
 
-from rasm.runtime.observability.receipts import Receipt
 from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
 class Interval(Struct, frozen=True):
     lo: float
     hi: float
@@ -48,12 +47,11 @@ class Enclosure(Struct, frozen=True):
     interval: Interval
     certified: bool
 
-    def contribute(self) -> Receipt:  # ReceiptContributor
+    def contribute(self) -> Receipt:
         facts = {"width": f"{self.interval.width:.3e}", "certified": str(self.certified)}
-        return Receipt.Emitted("compute.rigor", "enclosure", facts)
+        return Receipt.of("emitted", "compute.rigor", "enclosure", facts)
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class IntervalOp:
     tag: Literal["evaluate", "certify", "refine"] = tag()
@@ -121,5 +119,5 @@ def _floor_enclosure(mid: float, rad: float) -> Enclosure:
 
 ## [3]-[RESEARCH]
 
-- [FLINT_ARB]: `flint` (python-flint) carries no cp315 wheel; the `flint.arb`/`arb.mid`/`arb.rad`/`flint.ctx.prec` ball-arithmetic spellings are authored against the documented Arb API and verify against the branch `.api` catalogue once the python-flint wheel resolves.
-- [MPMATH_INTERVAL]: `mpmath` is NOT yet in the root manifest; it is pure-Python and cp315-clean. The `mpmath.mpi`/`mpmath.mp.prec`/`mpf` interval spellings are admitted to the `scientific` group and verified against the branch `.api` catalogue before the floor names them. The mpmath interval floor is the always-on tight certified floor on cp315 beneath the gated Arb path.
+- [FLINT_ARB]: `flint` (python-flint) carries no cp315 wheel; the `flint.arb`/`arb.mid`/`arb.rad`/`flint.ctx.prec` ball-arithmetic spellings are authored against the documented Arb API and verify against the `.api` catalogue once the python-flint wheel resolves.
+- [MPMATH_INTERVAL]: `mpmath` resolves on the cp315 core (pure-Python, cp315-clean). The `mpmath.mpi`/`mpmath.mp.prec`/`mpf` interval spellings verify against the `.api` catalogue under a uv-sync reflection pass. The mpmath interval floor is the always-on tight certified floor on cp315 beneath the gated Arb path.

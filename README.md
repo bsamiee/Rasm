@@ -21,7 +21,7 @@ Rasm is one tri-language AEC platform organized into strict strata: the C# branc
 | `libs/csharp`             | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                        |
 | `tests/csharp`            | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                          |
 | `tests/python`            | Python tool proof surface | Assay and repo-tool behavior tests.                                                       |
-| `tools/assay`             | Typed operator            | Static, test, bridge, package, code, docs, and API evidence rails.                        |
+| `tools/assay`             | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.             |
 | `tools/rhino-bridge`      | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.                 |
 | `tools/cs-analyzer`       | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                                  |
 | `tools/yak`               | Package metadata          | Tracked Yak manifests and icons for package roots.                                        |
@@ -35,7 +35,7 @@ The C# library suite is organized into strict strata — the `Rasm` geometry/num
 
 `tools/assay` is the repo operator. Its registry owns public command shape; its envelopes own result interpretation. It returns typed reports, artifacts, faults, routing notes, and evidence rather than relying on stderr or human-scanned logs. Structural search, API catalogs, static analysis, tests, bridge orchestration, package work, and docs checks route through the relevant Assay rail.
 
-`tools/assay provision` is the Rasm campaign surface for local PG18/Timescale/ParadeDB and native runtime closure checks. `Parametric_Forge` owns the installed `rasm-provision` and `forge-scientific-env` executables; Rasm owns the manifests, locks, `.api` catalogues, and evidence that consume them.
+`tools/assay provision` is the Rasm campaign surface for local PG18/Timescale/ParadeDB, the optional pgduckdb analytics probe, and native runtime closure checks. `Parametric_Forge` owns the installed `rasm-provision` and `forge-scientific-env` executables; Rasm owns the manifests, locks, `.api` catalogues, and evidence that consume them.
 
 `tools/rhino-bridge` owns live RhinoWIP execution. Contract owns protocol and fault shapes; Supervisor owns host lifecycle and folds; Stub stays dependency-zero; Shell owns in-host RPC/admission; Cargo owns scenarios and capture evidence. Libraries and prompts do not recreate launch, endpoint, quit, cargo, or spool choreography.
 

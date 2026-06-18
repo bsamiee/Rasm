@@ -11,52 +11,52 @@ The one classical Bayesian-inference owner over an explicit prior/likelihood/pos
 - Owner: `Inference` — the one Bayesian owner over a prior/likelihood/posterior axis. `InferenceSpec` is the frozen request carrying the observed array, the `LatentPrior` family per latent, the `Likelihood` case, the mean latent, and the `SamplerPlan`; `Inference.run` builds the `pymc.Model`, draws the posterior, scores it with arviz diagnostics, and returns an `InferenceReceipt`. Adding a distribution is a `Prior`/`Likelihood` case; adding an engine is a `SamplerBackend` case; the diagnostics are receipt fields.
 - Sampler-backend axis: `SamplerBackend` discriminates the MCMC engine — `PymcNative` runs `pymc.sample` with a `pymc.NUTS` or `pymc.Metropolis` step, `NumpyroJax` runs `pymc.sampling.jax.sample_numpyro_nuts` (the JAX NUTS path), and `NutpieNumba` runs `nutpie.sample` over the compiled PyMC model (the Rust/Numba NUTS path). `SamplerKind` selects the step method for the native backend. arviz reads the posterior and the sample-stats group regardless of which engine sampled, so the diagnostic gate is one fold across backends.
 - Entry: `Inference.run(spec)` returns `RuntimeRail[InferenceReceipt]` through one `boundary`; `InferenceReceipt.graduates` is the hard convergence gate, returning `Ok(GraduationReceipt(...))` on the uncertainty-law axis when `converged` is true and `Error(BoundaryFault)` when it is false, so a non-converged posterior is an admission rejection on the rail.
-- Diagnostics: `arviz.rhat` and `arviz.ess` over the `arviz.InferenceData` trace fill the `r_hat`, `ess_bulk`, and `ess_tail` fields; `converged` is the three-term fold `max(r_hat) < rhat_ceiling and min(ess_bulk) > ess_floor and divergences == 0`. The `model_key` is `ContentIdentity.key` over the full study payload — observed-data bytes, sorted latent specs, likelihood, backend, and `SamplerPlan` — so two studies with the same latent names but different data, backend, or plan key distinctly.
-- Packages: `pymc` (`Model`, `sample`, `NUTS`, `Metropolis`, the distribution classes, `sampling.jax.sample_numpyro_nuts`), `numpyro` (the JAX NUTS backend pymc dispatches to), `nutpie` (`compile_pymc_model`, `sample` — the Rust/Numba NUTS backend), `arviz` (`rhat`, `ess`, `InferenceData`), `numpy`, `msgspec`, `graduation/receipt.md#GRADUATION` (`GraduationReceipt`), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`, `ContentKey`, `Receipt`, `ReceiptContributor`).
+- Diagnostics: `arviz.rhat` and `arviz.ess` over the `arviz.InferenceData` trace fill the `r_hat`, `ess_bulk`, and `ess_tail` fields; `converged` is the three-term fold `max(r_hat) < rhat_ceiling and min(ess_bulk) > ess_floor and divergences == 0`. The `model_key` is `ContentIdentity.of` over the full study payload — observed-data bytes, sorted latent specs, likelihood, backend, and `SamplerPlan` — so two studies with the same latent names but different data, backend, or plan key distinctly.
+- Packages: `pymc` (`Model`, `sample`, `NUTS`, `Metropolis`, the distribution classes, `sampling.jax.sample_numpyro_nuts`), `numpyro` (the JAX NUTS backend pymc dispatches to), `nutpie` (`compile_pymc_model`, `sample` — the Rust/Numba NUTS backend), `arviz` (`rhat`, `ess`, `InferenceData`), `numpy`, `msgspec`, `graduation/receipt.md#GRADUATION` (`GraduationReceipt`), runtime (`RuntimeRail`, `boundary`, `BoundaryFault`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor`).
 - Growth: a new distribution is a `Prior` or `Likelihood` case; a new sampler engine is a `SamplerBackend` case; a new step method is a `SamplerKind` case; the diagnostics are `InferenceReceipt` fields; zero new surface.
 - Boundary: classical Bayesian inference only — conjugate, hierarchical, and GLM-class models via gradient MCMC. Variational, normalizing-flow, and neural-posterior estimation and any deep generative model are out of scope. Inference is offline evidence; production uncertainty propagation stays in the C# quantity owners, reached only through the uncertainty-law graduation row. `pymc` pulls `pytensor` to `numba` to `llvmlite` (no cp315 wheel), `arviz` pulls `scipy` (no cp315 wheel), and the `numpyro`/`nutpie` backends ride the same gate, so every body is authored against the documented API on the marker floor.
 
 ```python signature
-from typing import Literal, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never
 
-import arviz
 import msgspec
 import numpy as np
-import pymc
 from expression import Error, Ok
 from msgspec import Struct
+from builtins import frozendict
 
 from rasm.compute.graduation.receipt import GraduationReceipt
-from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.observability.receipts import Receipt
-from rasm.runtime.faults import BoundaryFault
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.content_identity import ContentIdentity, ContentKey, IdentityPolicy
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
+
+if TYPE_CHECKING:
+    import arviz
+    import pymc
 
 
-# --- [TYPES] ---------------------------------------------------------------------------
 type Prior = Literal["normal", "half_normal", "beta", "gamma", "student_t", "uniform"]
 type Likelihood = Literal["normal", "bernoulli", "poisson", "binomial", "student_t"]
 type SamplerKind = Literal["nuts", "metropolis"]
 type SamplerBackend = Literal["pymc_native", "numpyro_jax", "nutpie_numba"]
 
-_PRIOR_CLS: dict[Prior, type] = {
-    "normal": pymc.Normal,
-    "half_normal": pymc.HalfNormal,
-    "beta": pymc.Beta,
-    "gamma": pymc.Gamma,
-    "student_t": pymc.StudentT,
-    "uniform": pymc.Uniform,
-}
-_LIKELIHOOD_CLS: dict[Likelihood, type] = {
-    "normal": pymc.Normal,
-    "bernoulli": pymc.Bernoulli,
-    "poisson": pymc.Poisson,
-    "binomial": pymc.Binomial,
-    "student_t": pymc.StudentT,
-}
+_PRIOR_CLS: frozendict[Prior, str] = frozendict({
+    "normal": "Normal",
+    "half_normal": "HalfNormal",
+    "beta": "Beta",
+    "gamma": "Gamma",
+    "student_t": "StudentT",
+    "uniform": "Uniform",
+})
+_LIKELIHOOD_CLS: frozendict[Likelihood, str] = frozendict({
+    "normal": "Normal",
+    "bernoulli": "Bernoulli",
+    "poisson": "Poisson",
+    "binomial": "Binomial",
+    "student_t": "StudentT",
+})
 
 
-# --- [MODELS] --------------------------------------------------------------------------
 class LatentPrior(Struct, frozen=True):
     name: str
     prior: Prior
@@ -97,7 +97,8 @@ class InferenceReceipt(Struct, frozen=True):
     model_key: ContentKey
 
     def contribute(self) -> Receipt:
-        return Receipt.Emitted(
+        return Receipt.of(
+            "emitted",
             "compute.inference",
             self.mean_subject(),
             {"likelihood": self.likelihood, "backend": self.backend, "converged": str(self.converged)},
@@ -109,10 +110,12 @@ class InferenceReceipt(Struct, frozen=True):
     def graduates(self) -> "RuntimeRail[GraduationReceipt]":
         if not self.converged:
             return Error(
-                BoundaryFault.Boundary(
-                    "inference.graduate",
-                    f"non-converged posterior: max_rhat={max(self.r_hat.values())}, "
-                    f"min_ess_bulk={min(self.ess_bulk.values())}, divergences={self.divergences}",
+                BoundaryFault(
+                    boundary=(
+                        "inference.graduate",
+                        f"non-converged posterior: max_rhat={max(self.r_hat.values())}, "
+                        f"min_ess_bulk={min(self.ess_bulk.values())}, divergences={self.divergences}",
+                    )
                 )
             )
         return Ok(
@@ -126,7 +129,6 @@ class InferenceReceipt(Struct, frozen=True):
         )
 
 
-# --- [SERVICES] ------------------------------------------------------------------------
 class Inference:
     @staticmethod
     def run(spec: InferenceSpec) -> "RuntimeRail[InferenceReceipt]":
@@ -134,15 +136,19 @@ class Inference:
 
     @staticmethod
     def _fit(spec: InferenceSpec) -> InferenceReceipt:
+        import pymc
+
         with pymc.Model() as model:
-            nodes = {lat.name: _PRIOR_CLS[lat.prior](lat.name, **lat.params) for lat in spec.latents}
+            nodes = {lat.name: getattr(pymc, _PRIOR_CLS[lat.prior])(lat.name, **lat.params) for lat in spec.latents}
             mu = nodes[spec.mean_latent]
-            _LIKELIHOOD_CLS[spec.likelihood]("observation", mu, observed=spec.observed)
+            getattr(pymc, _LIKELIHOOD_CLS[spec.likelihood])("observation", mu, observed=spec.observed)
             trace = _draw(spec.plan, model)
         return Inference._score(spec, trace)
 
     @staticmethod
     def _score(spec: InferenceSpec, trace: "arviz.InferenceData") -> InferenceReceipt:
+        import arviz
+
         names = [lat.name for lat in spec.latents]
         posterior = trace.posterior
         rhat = arviz.rhat(trace, var_names=names)
@@ -163,11 +169,13 @@ class Inference:
             divergences=divergences,
             draws=plan.draws * plan.chains,
             converged=(max(r_hat.values()) < plan.rhat_ceiling and min(ebk.values()) > plan.ess_floor and divergences == 0),
-            model_key=ContentIdentity.key("pymc-model", _study_payload(spec)),
+            model_key=ContentIdentity.of("pymc-model", _study_payload(spec), IdentityPolicy()),
         )
 
 
 def _draw(plan: SamplerPlan, model: "pymc.Model") -> "arviz.InferenceData":
+    import pymc
+
     match plan.backend:
         case "pymc_native":
             step = pymc.NUTS(model=model) if plan.kind == "nuts" else pymc.Metropolis(model=model)
@@ -201,5 +209,5 @@ def _study_payload(spec: InferenceSpec) -> bytes:
 
 ## [3]-[RESEARCH]
 
-- [PYMC_SAMPLE]: `pymc` and `arviz` carry no cp315 wheel (`pymc` pulls `pytensor` to `numba` to `llvmlite`; `arviz` pulls `scipy`); the `pymc.Model`/`sample`/`NUTS`/`Metropolis`/distribution-class and `arviz.rhat`/`ess`/`InferenceData` spellings verify against the branch `.api` catalogue once the wheels resolve. The `arviz.InferenceData` group accessor is `trace.sample_stats`, not `trace["sample_stats"]`.
-- [NUMPYRO_NUTPIE_BACKENDS]: `numpyro` is in the root manifest on the jaxlib `python_version<'3.15'` floor (the JAX NUTS path pymc dispatches to through `pymc.sampling.jax.sample_numpyro_nuts`); `nutpie` is NOT yet in the manifest and is admitted to the `scientific` group on the numba marker floor. The `nutpie.compile_pymc_model`/`sample` spellings and the `sample_numpyro_nuts` signature verify against the branch `.api` catalogue before any fence names them.
+- [PYMC_SAMPLE]: `pymc` and `arviz` carry no cp315 wheel (`pymc` pulls `pytensor` to `numba` to `llvmlite`; `arviz` pulls `scipy`); the `pymc.Model`/`sample`/`NUTS`/`Metropolis`/distribution-class and `arviz.rhat`/`ess`/`InferenceData` spellings verify against the `.api` catalogue once the wheels resolve. The `arviz.InferenceData` group accessor is `trace.sample_stats`, not `trace["sample_stats"]`.
+- [NUMPYRO_NUTPIE_BACKENDS]: `numpyro` resolves on the gated `python_version<'3.15'` jaxlib floor (the JAX NUTS path pymc dispatches to through `pymc.sampling.jax.sample_numpyro_nuts`); `nutpie` resolves on the same gated band riding the pymc/numba floor. The `nutpie.compile_pymc_model`/`sample` spellings and the `sample_numpyro_nuts` signature verify against the `.api` catalogue under a uv-sync reflection pass on that band.

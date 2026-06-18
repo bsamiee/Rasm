@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Thinktecture;
@@ -17,10 +18,11 @@ namespace Rasm.Bridge.Contract;
 public sealed partial class PhaseStatus {
     public static readonly PhaseStatus Ok = new(key: "ok", rank: 1, exitCode: 0);
     public static readonly PhaseStatus Skipped = new(key: "skipped", rank: 1, exitCode: 0);
-    public static readonly PhaseStatus Unsupported = new(key: "unsupported", rank: 2, exitCode: 3);
-    public static readonly PhaseStatus Failed = new(key: "failed", rank: 3, exitCode: 1);
-    public static readonly PhaseStatus Timeout = new(key: "timeout", rank: 4, exitCode: 5);
-    public static readonly PhaseStatus Busy = new(key: "busy", rank: 5, exitCode: 5);
+    public static readonly PhaseStatus Degraded = new(key: "degraded", rank: 2, exitCode: 2);
+    public static readonly PhaseStatus Unsupported = new(key: "unsupported", rank: 3, exitCode: 3);
+    public static readonly PhaseStatus Failed = new(key: "failed", rank: 4, exitCode: 1);
+    public static readonly PhaseStatus Timeout = new(key: "timeout", rank: 5, exitCode: 5);
+    public static readonly PhaseStatus Busy = new(key: "busy", rank: 6, exitCode: 5);
 
     public int Rank { get; }
     public int ExitCode { get; }
@@ -52,6 +54,68 @@ public sealed partial class SessionPhase {
     public static readonly SessionPhase QuitKill = new(key: "quit.kill");
     public static readonly SessionPhase Install = new(key: "install");
     public static readonly SessionPhase Status = new(key: "status");
+}
+
+// Ownership: scenario evidence class. Smoke is admission evidence; CertifiedReference is the
+// mandatory reviewed-reference comparison that turns a run into proof.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<EvidenceClass, ValidationError>))]
+public sealed partial class EvidenceClass {
+    public static readonly EvidenceClass Smoke = new(key: "smoke");
+    public static readonly EvidenceClass Semantic = new(key: "semantic");
+    public static readonly EvidenceClass Geometry = new(key: "geometry");
+    public static readonly EvidenceClass Visual = new(key: "visual");
+    public static readonly EvidenceClass CertifiedReference = new(key: "certified-reference");
+}
+
+// Ownership: evidence role is the bridge artifact index vocabulary. Consumers decide behavior from
+// these rows instead of suffix scans or source-tree placement.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<EvidenceRole, ValidationError>))]
+public sealed partial class EvidenceRole {
+    public static readonly EvidenceRole Fact = new(key: "fact");
+    public static readonly EvidenceRole Assertion = new(key: "assertion");
+    public static readonly EvidenceRole Reference = new(key: "reference");
+    public static readonly EvidenceRole ObjectManifest = new(key: "object-manifest");
+    public static readonly EvidenceRole GeometryManifest = new(key: "geometry-manifest");
+    public static readonly EvidenceRole ViewportManifest = new(key: "viewport-manifest");
+    public static readonly EvidenceRole Gh2CanvasManifest = new(key: "gh2-canvas-manifest");
+    public static readonly EvidenceRole Capture = new(key: "capture");
+    public static readonly EvidenceRole Artifact = new(key: "artifact");
+    public static readonly EvidenceRole Scratch = new(key: "scratch");
+    public static readonly EvidenceRole Certificate = new(key: "certificate");
+    public static readonly EvidenceRole Forensic = new(key: "forensic");
+    public static readonly EvidenceRole Spool = new(key: "spool");
+}
+
+// Ownership: reviewed-reference admission. Candidate exists only in authoring mode; verify mode
+// requires Reviewed plus a Matched result.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<ReferenceAdmission, ValidationError>))]
+public sealed partial class ReferenceAdmission {
+    public static readonly ReferenceAdmission Reviewed = new(key: "reviewed");
+    public static readonly ReferenceAdmission Candidate = new(key: "candidate");
+    public static readonly ReferenceAdmission Missing = new(key: "missing");
+    public static readonly ReferenceAdmission Mismatch = new(key: "mismatch");
+    public static readonly ReferenceAdmission Matched = new(key: "matched");
+}
+
+// Ownership: artifact retention belongs to the bridge certificate, not Assay directory pruning.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<ArtifactRetentionClass, ValidationError>))]
+public sealed partial class ArtifactRetentionClass {
+    public static readonly ArtifactRetentionClass Evidence = new(key: "evidence");
+    public static readonly ArtifactRetentionClass Forensic = new(key: "forensic");
+    public static readonly ArtifactRetentionClass Scratch = new(key: "scratch");
+    public static readonly ArtifactRetentionClass Transient = new(key: "transient");
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
@@ -128,6 +192,9 @@ public readonly record struct EventStamp(Guid SessionId, long Sequence, long AtU
 // Fact keys stay author-open; OnFailure records the trigger and never selects behavior.
 [JsonDerivedType(typeof(FactCase), "fact")]
 [JsonDerivedType(typeof(CaptureCase), "capture")]
+[JsonDerivedType(typeof(EvidenceCase), "evidence")]
+[JsonDerivedType(typeof(ArtifactCase), "artifact")]
+[JsonDerivedType(typeof(CertificateCase), "certificate")]
 [JsonDerivedType(typeof(PhaseCase), "phase")]
 [JsonDerivedType(typeof(ProgressCase), "progress")]
 [JsonDerivedType(typeof(HostExceptionCase), "host-exception")]
@@ -137,7 +204,14 @@ public abstract partial record BridgeEvent {
     public required EventStamp Stamp { get; init; }
 
     public sealed record FactCase(string Key, JsonElement Value) : BridgeEvent;
-    public sealed record CaptureCase(string Path, int Width, int Height, bool OnFailure) : BridgeEvent;
+    public sealed record CaptureCase(string Path, int Width, int Height, bool OnFailure) : BridgeEvent {
+        public ArtifactRef? Artifact { get; init; }
+        public CaptureArtifact? Capture { get; init; }
+        public EvidenceClass Class { get; init; } = EvidenceClass.Visual;
+    }
+    public sealed record EvidenceCase(EvidenceName Name, EvidenceClass Class, EvidenceRole Role, JsonElement Value) : BridgeEvent;
+    public sealed record ArtifactCase(ArtifactRef Artifact) : BridgeEvent;
+    public sealed record CertificateCase(string Path, EvidenceCertificate Certificate) : BridgeEvent;
     public sealed record PhaseCase(SessionPhase Phase, PhaseStatus Status, double DurationMs, BridgeFault? Fault) : BridgeEvent;
     public sealed record ProgressCase(int Done, int Total) : BridgeEvent;
     public sealed record HostExceptionCase(string Report) : BridgeEvent;
@@ -255,7 +329,57 @@ public sealed partial class EndpointRecord {
 public readonly record struct HostFingerprint(string BundleVersion, string RhinoCommonVersion, string Grasshopper2Version, string RuntimeVersion);
 public readonly record struct CapabilityEntry(string Key, PhaseStatus Outcome, string Receipt);
 public readonly record struct ScenarioEntry(string Theme, string Name, string[] Requires, int BudgetMs);
-public readonly record struct ScenarioReceipt(string Scenario, PhaseStatus Status, double DurationMs, BridgeFault? Fault);
+public readonly record struct ReferenceRoot(string Assembly, string Theme, string Path);
+public readonly record struct EvidenceName(string Key);
+public readonly record struct ArtifactHash(string Algorithm, string Value);
+public readonly record struct ReferenceTolerance(string Mode, double Absolute, double Relative);
+public sealed record ArtifactRef(
+    string Id, EvidenceRole Role, string RelativePath, string MediaType, long Bytes,
+    ArtifactHash Hash, ArtifactRetentionClass Retention, string Scenario, bool OnFailure);
+public sealed record CaptureArtifact(
+    ArtifactRef Artifact, int Width, int Height, bool OnFailure, string Label,
+    string Frame, string Camera, bool NonBlank);
+public sealed record ObjectManifest(string Scenario, int Count, JsonElement[] Objects);
+public sealed record GeometryManifest(string Scenario, int Count, JsonElement[] Geometry);
+public sealed record ViewportManifest(string Scenario, string ActiveView, JsonElement[] Viewports);
+public sealed record Gh2CanvasManifest(string Scenario, int ObjectCount, int WireCount, JsonElement[] Objects, JsonElement[] Wires);
+public sealed record ScratchManifest(string Scenario, string Root, string[] Files, ArtifactRef[] Artifacts);
+public sealed record ReferenceEvidence(
+    EvidenceName Name, EvidenceClass Class, JsonElement Expected,
+    ReferenceTolerance Tolerance, ReferenceAdmission Admission, string ReviewedBy, string ReviewedAt);
+public sealed record ReferenceEvidenceResult(
+    EvidenceName Name, EvidenceClass Class, ReferenceAdmission Admission, bool Matched,
+    string ReferencePath, string Detail, ReferenceTolerance Tolerance) {
+    public string Scenario { get; init; } = string.Empty;
+}
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct EvidenceCounts(
+    int Facts, int Assertions, int References, int ReferenceMatches, int ReferenceFailures,
+    int Captures, int Artifacts, int ObjectManifests, int GeometryManifests,
+    int ViewportManifests, int Gh2CanvasManifests, int ScratchManifests);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct ScenarioCounts(int Total, int Ok, int Failed, int Skipped, int Unsupported, int Timeout, int Busy, int Degraded);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct StatusBreakdown(PhaseStatus ScenarioStatus, PhaseStatus SessionStatus, PhaseStatus OverallStatus);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PhaseReceipt(SessionPhase Phase, PhaseStatus Status, double DurationMs, BridgeFault? Fault);
+public sealed record FaultSummary(SessionPhase? Phase, BridgeFault? Fault, string Message);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct SpoolSummary(long DurableEvents, long RelayedEvents, long LastSequence, bool Diverged, int Failures);
+public sealed record EvidenceCertificate(
+    string RunId, string Scenario, StatusBreakdown Status, EvidenceClass[] Classes,
+    EvidenceCounts Counts, ArtifactRef[] Artifacts, ReferenceEvidenceResult[] References,
+    ObjectManifest[] ObjectManifests, GeometryManifest[] GeometryManifests,
+    ViewportManifest[] ViewportManifests, Gh2CanvasManifest[] Gh2CanvasManifests,
+    ScratchManifest[] ScratchManifests, PhaseReceipt[] Phases, FaultSummary? FirstFault);
+public readonly record struct ScenarioReceipt(string Scenario, PhaseStatus Status, double DurationMs, BridgeFault? Fault) {
+    public PhaseStatus ScenarioStatus { get; init; } = Status;
+    public EvidenceCounts EvidenceCounts { get; init; }
+    public string CertificatePath { get; init; } = string.Empty;
+    public ArtifactRef[] ArtifactRefs { get; init; } = [];
+    public ReferenceEvidenceResult[] ReferenceResults { get; init; } = [];
+    public string FirstScenarioFailure { get; init; } = string.Empty;
+}
 public readonly record struct CrashFact(string IpsPath, string CrashThread, string ExceptionType, string Detail);
 public readonly record struct UnloadReceipt(bool Confirmed, bool DebuggerAttached, int GcRetries, double ElapsedMs);
 
@@ -271,7 +395,10 @@ public readonly record struct QuitPrepareReceipt(int Documents, int MarkedClean,
 // artifacts, while content-hash reuse stays inside the shell swap.
 public sealed record CargoManifest(
     Guid SessionId, string ReportDir, string ContentHash, string StagePath,
-    Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies);
+    Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies) {
+    public string EvidenceMode { get; init; } = "verify";
+    public ReferenceRoot[] ReferenceRoots { get; init; } = [];
+}
 public sealed record CargoReceipt(string ContentHash, double SwapMs, ScenarioEntry[] Scenarios, CapabilityEntry[] Capabilities);
 
 // Ownership: the frozen negotiation shape. Directional nulls and capability facts keep handshake
@@ -302,4 +429,15 @@ public abstract partial record ScenarioSelection {
 public sealed record SessionEnvelope(
     string RunId, string Verb, PhaseStatus Status, double DurationMs, string ReportDir,
     HostFingerprint Host, CapabilityEntry[] Capabilities, ScenarioReceipt[] Scenarios,
-    BridgeEvent[] Evidence, string FirstFailure, SessionPhase? FirstFaultPhase, BridgeFault? Fault);
+    BridgeEvent[] Evidence, string FirstFailure, SessionPhase? FirstFaultPhase, BridgeFault? Fault) {
+    public PhaseStatus ScenarioStatus { get; init; } = Status;
+    public PhaseStatus SessionStatus { get; init; } = Status;
+    public PhaseReceipt[] PhaseReceipts { get; init; } = [];
+    public string FirstScenarioFailure { get; init; } = string.Empty;
+    public string FirstSessionFault { get; init; } = string.Empty;
+    public string CertificatePath { get; init; } = string.Empty;
+    public ArtifactRef[] ArtifactRefs { get; init; } = [];
+    public EvidenceCounts EvidenceCounts { get; init; }
+    public ScenarioCounts ScenarioCounts { get; init; }
+    public SpoolSummary Spool { get; init; }
+}

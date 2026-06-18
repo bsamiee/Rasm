@@ -28,6 +28,7 @@ uv run python -m tools.assay bridge verify blocks,ui
 uv run python -m tools.assay bridge verify CoreRail
 uv run python -m tools.assay bridge verify 'blocks.*'
 uv run python -m tools.assay bridge verify tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios
+uv run python -m tools.assay bridge verify --evidence author blocks
 ```
 
 Selection rules:
@@ -36,6 +37,7 @@ Selection rules:
 - A full scenario name, bare scenario method name, or glob selects matching scenario names.
 - A scenario owner path, project path, or theme-local `Scenarios/` path selects that corpus.
 - Script-file scenario discovery is absent. Test-owned typed `[RhinoScenario]` sources own scenario discovery and emit `bridge-closure.json`.
+- Default evidence mode is `verify`: a valid `EvidenceCertificate` and reviewed `ReferenceEvidence` are required. `--evidence author` emits candidate evidence for review and is not proof.
 
 ## [4]-[COMMAND_SURFACE]
 
@@ -62,6 +64,7 @@ The direct supervisor accepts `status`, `quit`, `redeploy <package>`, and `verif
 
 [STATUS]:
 - `ok` and `skipped` exit `0`.
+- `degraded` exits `2`.
 - `unsupported` exits `3`.
 - `failed` exits `1`.
 - `timeout` and `busy` exit `5`.
@@ -69,18 +72,26 @@ The direct supervisor accepts `status`, `quit`, `redeploy <package>`, and `verif
 
 [READ_ORDER]:
 1. Read top-level `status`.
-2. Read `firstFaultPhase` and `firstFailure`.
-3. Read `fault.prescription` when `fault` is present.
-4. Read `scenarios[]` for per-scenario verdicts.
-5. Read `evidence[]` for fact and capture events.
-6. Read `reportDir` for JSONL spool files, PNG captures, references, and forensic artifacts.
+2. Read `scenarioStatus` and `sessionStatus`.
+3. Read `firstScenarioFailure` and `firstSessionFault`.
+4. Read `fault.prescription` when `fault` is present.
+5. Read `certificatePath`, then `bridge-certificate.json`.
+6. Read `scenarios[]` for per-scenario verdicts.
+7. Read `artifactRefs[]`, `referenceResults[]`, and `evidenceCounts`.
+8. Read `reportDir` only through certificate-listed artifacts.
 
 [ARTIFACTS]:
 - `SessionEnvelope.reportDir`: `.artifacts/assay/bridge/<runId>/`.
-- Scenario spool: `<reportDir>/<scenario>.jsonl`.
-- Probe spool: `<reportDir>/probe.jsonl`.
+- Certificate: `<reportDir>/bridge-certificate.json`.
+- Scenario spool: `<reportDir>/events/<scenario>.jsonl`.
+- Probe spool: `<reportDir>/events/probe.jsonl`.
+- View captures: `<reportDir>/captures/<scenario>/<sequence>-<label>.png`.
+- GH2 captures: `<reportDir>/gh2/<scenario>/<sequence>-<label>.png`.
+- Manifests: `<reportDir>/manifests/<scenario>.*.json`.
+- Reference results: `<reportDir>/references/<scenario>.reference-result.json`.
+- Scratch manifest: `<reportDir>/scratch/<scenario>/scratch.manifest.json`.
+- Retention log: `<reportDir>/retention.jsonl`.
 - Reference stage: `<reportDir>/refs/<contentHash>/`.
-- Captures: `<reportDir>/*.png`.
 - Unload leak dump: `<reportDir>/<pid>.gcdump` when available.
 - Endpoint: `~/.rasm/rhino-bridge-rbx.json`.
 - Lease: `~/.rasm/rhino-bridge-rbx.lease`.
@@ -190,11 +201,13 @@ Terminal signals map to one first repair surface. Read `fault`, `probeReceipt`, 
 
 ## [9]-[SCENARIO_CONTRACT]
 
-Typed scenario entrypoints carry `[RhinoScenario("<theme>")]` and accept one `ScenarioContext`. The entrypoint returns `Fin<Unit>`, emits facts through `ScenarioContext.Fact`, asserts through `Require` or `Expect`, and obtains captures through `Capture.Snapshot`.
+Typed scenario entrypoints carry `[RhinoScenario("<theme>")]` and accept one `ScenarioContext`. The entrypoint returns `Fin<Unit>`, emits facts through `ScenarioContext.Fact`/`Note`, asserts through `Require` or `Expect`, certifies reviewed facts through `Certify`/`Reference`, and obtains bridge-indexed captures through `Capture.Snapshot`.
 
 Capability requirements live on the attribute as `Requires`. Cargo probes `cargo.hotswap`, `eventpipe`, `exception.tap`, `gh2.dataflow`, and `gh2.render`, then rejects scenarios whose required capability is not `ok`.
 
-Scenario code does not write `#r`, `#load`, absolute build-output paths, or local report paths. Assay builds the test projects that own typed scenarios, reads each `bridge-closure.json`, aggregates selected closures, and hands the manifest to the supervisor.
+Scenario code does not write `#r`, `#load`, absolute build-output paths, local report paths, direct MCP calls, or direct bitmap/capture files. Assay builds the test projects that own typed scenarios, reads each `bridge-closure.json`, aggregates selected closures, and hands the manifest to the supervisor.
+
+`ReferenceEvidence` lives beside the scenario owner under `Scenarios/_references/<theme>/<method>.reference.json`. Authoring mode may emit candidates; verify mode fails until reviewed references exist and match within declared tolerances. PNGs are forensic artifacts by default; stable object, geometry, viewport, GH2 canvas, scratch, and normalized visual metadata are the reference surface.
 
 ## [10]-[INTEGRATIONS]
 
@@ -235,8 +248,9 @@ The bridge starts no MCP listener of its own. MCP tooling runs through McNeel's 
 [RUN_CSHARP_CONSTRAINT]:
 - The McNeel platform's `run_csharp` tool evaluates a statement body, not an expression: a trailing `return <expr>;` is rejected at the top level. Emit results through `Console.WriteLine(...)` or assign to the ambient `__rhino_doc__`/document handle, then read stdout. Treat the snippet as a script body, never an expression-returning lambda.
 
-[VERIFY_IDLE_RULE]:
-- Keep MCP idle during a formal `bridge verify`. The platform's `run_csharp`, `run_python`, and command tools drive `RhinoApp` command history; an interactive probe interleaved with a verify run injects foreign lines into the same `command.history.tail`/`command.capture.tail` evidence the cargo runner spools, contaminating the per-scenario command-window evidence. Run interactive MCP exploration before or after a verify, never concurrently inside one live session.
+[BRIDGE_IDLE_RULE]:
+- Keep MCP idle during any bridge-held lifecycle: build, status, verify, quit, deploy, and publish. The platform's `run_csharp`, `run_python`, and command tools drive `RhinoApp` command history; an interactive probe interleaved with a bridge-held cycle injects foreign lines into the same `command.history.tail`/`command.capture.tail` evidence the cargo runner spools, contaminating host evidence. Run interactive MCP exploration before or after a bridge cycle, never concurrently inside one live session.
+- Promotion path: MCP observation -> typed `[RhinoScenario]` -> authoring certificate -> reviewed `ReferenceEvidence` -> `bridge verify`.
 - The same contamination rule binds any `Rasm.AppHost` MCP tool that drives a live Rhino host: a host-neutral capability projection stays outside this hazard, but the moment an AppHost tool's `ComputeIntent` reaches `RhinoApp` command history it inherits the idle-during-lease discipline and must not run concurrently with a bridge session.
 
 [VERDICT]:

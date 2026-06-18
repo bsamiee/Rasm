@@ -1,10 +1,10 @@
-# [API_CATALOGUE] effect-platform-node
+# [API_CATALOGUE] @effect/platform-node
 
-Grounded from installed `node_modules` type declarations (`@effect/platform-node` 0.107.0). The package is a barrel of 21 Node-runtime namespaces (`export * as <Namespace>`), each a thin Layer/constructor binding that satisfies an abstract `@effect/platform` service tag with a Node implementation. Every load-bearing public surface is captured with exact spelling; `R`/`E`/`A` channels and `Layer` output unions are transcribed verbatim from the `.d.ts`. Six namespaces (`NodeStream`, `NodeSink`, `NodeSocket`, `NodeSocketServer`, `NodeMultipart`, `NodeClusterSocket`) re-export their bulk surface from `@effect/platform-node-shared` 0.60.0; that package IS installed locally, so the re-export bodies are transcribed verbatim from `@effect/platform-node-shared/dist/dts` and merged into the owning namespace section here.
+`@effect/platform-node` is a barrel of 21 Node-runtime namespaces, each providing a Layer or constructor that satisfies an abstract `@effect/platform` service tag with a Node implementation. Six namespaces re-export their bulk surface from `@effect/platform-node-shared`.
 
 ---
 
-## [1] — index (namespace barrel)
+## [1]-[INDEX_BARREL]
 
 ```ts
 // @effect/platform-node
@@ -35,7 +35,7 @@ Consumption is always namespaced: `import { NodeRuntime, NodeContext } from "@ef
 
 ---
 
-## [2] — NodeContext (composite runtime context)
+## [2]-[NODE_CONTEXT]
 
 ```ts
 // @effect/platform-node/NodeContext
@@ -60,7 +60,7 @@ The all-in-one Node platform layer: one `Layer.provide(NodeContext.layer)` satis
 
 ---
 
-## [3] — NodeRuntime (main entrypoint runner)
+## [3]-[NODE_RUNTIME]
 
 ```ts
 // @effect/platform-node/NodeRuntime
@@ -73,7 +73,7 @@ export declare const runMain: RunMain
 
 ---
 
-## [4] — NodeFileSystem / NodePath / NodeCommandExecutor / NodeTerminal (OS service layers)
+## [4]-[OS_SERVICE_LAYERS]
 
 ```ts
 // @effect/platform-node/NodeFileSystem
@@ -117,7 +117,7 @@ export declare const layer: Layer<Terminal>
 
 ---
 
-## [5] — NodeKeyValueStore (filesystem-backed KV)
+## [5]-[NODE_KEY_VALUE_STORE]
 
 ```ts
 // @effect/platform-node/NodeKeyValueStore
@@ -133,7 +133,7 @@ The only constructor: a directory-rooted `KeyValueStore` whose layer can fail wi
 
 ---
 
-## [6] — NodeHttpClient (HTTP client: agent + undici dispatcher)
+## [6]-[NODE_HTTP_CLIENT]
 
 ```ts
 // @effect/platform-node/NodeHttpClient
@@ -187,7 +187,7 @@ Two client backends. The `node:http`/`node:https` agent backend: `layer` is self
 
 ---
 
-## [7] — NodeHttpServer / NodeHttpPlatform / NodeHttpServerRequest (HTTP server)
+## [7]-[NODE_HTTP_SERVER]
 
 ```ts
 // @effect/platform-node/NodeHttpServer
@@ -281,7 +281,7 @@ export declare const toServerResponse: (self: ServerRequest.HttpServerRequest) =
 
 ---
 
-## [8] — NodeSocket / NodeSocketServer (TCP + WebSocket)
+## [8]-[NODE_SOCKET]
 
 ```ts
 // @effect/platform-node/NodeSocket
@@ -383,7 +383,7 @@ export declare const layerWebSocket: (
 
 ---
 
-## [9] — NodeStream / NodeSink (Node stream <-> Effect bridge)
+## [9]-[NODE_STREAM_AND_SINK]
 
 ```ts
 // @effect/platform-node/NodeStream  (pure re-export from @effect/platform-node-shared/NodeStream)
@@ -502,7 +502,7 @@ Pure shared re-export barrels. `NodeStream` bridges Node `Readable`/`Duplex` int
 
 ---
 
-## [10] — NodeMultipart (multipart/form-data parsing)
+## [10]-[NODE_MULTIPART]
 
 ```ts
 // @effect/platform-node/NodeMultipart  (pure re-export from @effect/platform-node-shared/NodeMultipart)
@@ -532,7 +532,7 @@ Pure shared re-export barrel. `stream` parses a Node `Readable` + `IncomingHttpH
 
 ---
 
-## [11] — NodeWorker / NodeWorkerRunner (worker-thread pool)
+## [11]-[NODE_WORKER]
 
 ```ts
 // @effect/platform-node/NodeWorker
@@ -565,7 +565,7 @@ Host (main-thread) side: `NodeWorker.layer(spawn)` provides `WorkerManager + Spa
 
 ---
 
-## [12] — NodeClusterHttp / NodeClusterSocket (distributed sharding)
+## [12]-[NODE_CLUSTER]
 
 ```ts
 // @effect/platform-node/NodeClusterSocket
@@ -667,7 +667,7 @@ Both `layer` functions are conditional-typed over three const type parameters: `
 
 ---
 
-## [13] — Undici (raw client re-export)
+## [13]-[UNDICI]
 
 ```ts
 // @effect/platform-node/Undici
@@ -677,10 +677,4 @@ export * from "undici"
 
 Full pass-through of the `undici` package surface (`fetch`, `Dispatcher`, `Agent`, `Pool`, `Client`, `request`, `RequestOptions`, etc.). Consumed by `NodeHttpClient` for the undici backend; `Undici.Dispatcher` and `Undici.Dispatcher.RequestOptions<null>` are the types threaded into `NodeHttpClient.Dispatcher`/`UndiciRequestOptions`. Exact undici signatures are owned by the `undici` catalogue, not this page.
 
----
 
-## Gaps
-
-- `undici` (re-exported wholesale by the `Undici` namespace via `export { default } from "undici"` + `export * from "undici"`) is not catalogued here; its `Dispatcher`, `Agent`, `Pool`, `Client`, `request`, and `Dispatcher.RequestOptions<null>` shapes are owned by a future `undici` catalogue page and consumed by reference only (`NodeHttpClient.Dispatcher` is `Context.Tag<Dispatcher, Undici.Dispatcher>`; `UndiciRequestOptions` carries `Undici.Dispatcher.RequestOptions<null>`).
-- `RunMain` (the type of `NodeRuntime.runMain`) and the `Teardown` it references are declared in `@effect/platform/Runtime`, not in this package; the option-bag shape stated on this page is grounded in that abstract module and is authoritative for callers, but the exact `@effect/platform/Runtime` declaration is owned by the `@effect/platform` catalogue (`api-effect-core.md` / `api-effect-platform.md`).
-- The `@effect/cluster` types threaded through `NodeClusterHttp`/`NodeClusterSocket` (`Sharding`, `Runners`, `RunnerStorage`, `MessageStorage`, `ShardingConfig`, `K8sHttpClient`) and the `@effect/sql` `SqlClient` are referenced by exact name in the `Layer` channels but their member shapes are owned by the `@effect/cluster` and `@effect/sql` catalogue pages.

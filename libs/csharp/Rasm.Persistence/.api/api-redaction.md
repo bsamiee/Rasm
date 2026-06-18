@@ -1,4 +1,4 @@
-# [RASM_APPHOST_API_REDACTION]
+# [RASM_PERSISTENCE_API_REDACTION]
 
 `Microsoft.Extensions.Compliance.Redaction` supplies redactors, redactor providers,
 redaction builders, HMAC options, erasing redaction, and dependency-injection

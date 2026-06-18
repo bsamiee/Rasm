@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_GEOMETRYGYM_IFC]
+# [RASM_BIM_API_GEOMETRYGYM_IFC]
 
 `GeometryGymIFC_Core` supplies a pure-managed buildingSMART IFC object model:
 the `DatabaseIfc` repository, schema-versioned read/write across STEP, IFC-XML,
@@ -17,11 +17,6 @@ for the Compute geometry interchange rail.
 - asset: IL-only AnyCPU managed assembly; no `runtimes/` folder, no native binaries
 - asset: zero declared package dependencies on every target framework
 - rail: geometry
-
-[BOUNDARY_FACT]:
-- The package ships a single managed `GeometryGymIFCcore.dll` per target framework; there is no platform-native code, no P/Invoke runtime asset, and no architecture-specific build, so it loads identically on macOS arm64, Linux, and Windows.
-- The model is a STEP/IFC data object graph only. It carries no tessellation, no BREP evaluation, and no geometry kernel; consumers tessellate downstream from the typed geometry entities.
-- I/O is text-format serialization (STEP physical file, IFC-XML, IFC-JSON) over `string`, `Stream`, and `TextReader`/`XmlDocument`; there is no binary IFC and no native parser.
 
 ## [2]-[PUBLIC_TYPES]
 
@@ -140,7 +135,7 @@ for the Compute geometry interchange rail.
 |  [10]   | `IfcRelVoidsElement`                | geometry | subtracts an opening from an element                      |
 |  [11]   | `IfcRelConnectsElements`            | geometry | physical element-to-element connection                    |
 
-[PUBLIC_TYPE_SCOPE]: IFC4.3 infrastructure entities
+[PUBLIC_TYPE_SCOPE]: IFC4.3 infrastructure entities — alignment and facility
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -159,13 +154,21 @@ for the Compute geometry interchange rail.
 |  [10]   | `IfcRailway`                  | geometry | railway facility                                 |
 |  [11]   | `IfcRoad`                     | geometry | road facility                                    |
 |  [12]   | `IfcMarineFacility`           | geometry | marine facility                                  |
-|  [13]   | `IfcCourse`                   | geometry | layered pavement/earthwork course built element  |
-|  [14]   | `IfcPavement`                 | geometry | pavement built element                           |
-|  [15]   | `IfcRail`                     | geometry | rail built element                               |
-|  [16]   | `IfcEarthworksFill`           | geometry | earthworks fill element                          |
-|  [17]   | `IfcEarthworksCut`            | geometry | earthworks excavation element                    |
-|  [18]   | `IfcGeotechnicalStratum`      | geometry | geotechnical soil/rock stratum                   |
-|  [19]   | `IfcBorehole`                 | geometry | geotechnical borehole assembly                   |
+
+[PUBLIC_TYPE_SCOPE]: IFC4.3 infrastructure entities — earthworks and geotechnics
+- package: `GeometryGymIFC_Core`
+- namespace: `GeometryGym.Ifc`
+- rail: geometry
+
+| [INDEX] | [SYMBOL]                 | [RAIL]   | [CAPABILITY]                                    |
+| :-----: | :----------------------- | :------- | :---------------------------------------------- |
+|   [1]   | `IfcCourse`              | geometry | layered pavement/earthwork course built element |
+|   [2]   | `IfcPavement`            | geometry | pavement built element                          |
+|   [3]   | `IfcRail`                | geometry | rail built element                              |
+|   [4]   | `IfcEarthworksFill`      | geometry | earthworks fill element                         |
+|   [5]   | `IfcEarthworksCut`       | geometry | earthworks excavation element                   |
+|   [6]   | `IfcGeotechnicalStratum` | geometry | geotechnical soil/rock stratum                  |
+|   [7]   | `IfcBorehole`            | geometry | geotechnical borehole assembly                  |
 
 [PUBLIC_TYPE_SCOPE]: geometry representation entities
 - package: `GeometryGymIFC_Core`
@@ -348,6 +351,11 @@ for the Compute geometry interchange rail.
 |   [6]   | `ParserIfc.IdentifyIfcClass` | `(string, out string predefinedConstant)` → `string` | splits class name and predefined type     |
 
 ## [4]-[IMPLEMENTATION_LAW]
+
+[PLATFORM_BOUNDARY]:
+- ships a single managed `GeometryGymIFCcore.dll` per target framework; no P/Invoke runtime assets, no architecture-specific native binaries
+- STEP/IFC data object graph only; no tessellation, no BREP evaluation, no geometry kernel
+- I/O is text-format serialization (STEP physical file, IFC-XML, IFC-JSON) over `string`, `Stream`, and `TextReader`/`XmlDocument`; no binary IFC format
 
 [IFC_IO]:
 - read root: `new DatabaseIfc(path)` / `new DatabaseIfc(TextReader)` infer STEP/XML/JSON; `DatabaseIfc.ParseString` reads in-memory STEP/IFC text

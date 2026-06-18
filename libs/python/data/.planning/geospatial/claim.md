@@ -10,13 +10,12 @@ The two-axis geospatial surface and spatial egress. `VectorGeoClaim` carries CRS
 
 - Owner: `VectorGeoClaim` — CRS/units/axis-order/geometry-family/precision/transform-provenance over geopandas/shapely/pyogrio; `RasterGeoClaim` — coverage/band/resampling/nodata/transform/CRS over rasterio; `EgressFormat` the GeoJSON/GeoParquet/flat-vector export as one `StrEnum` whose member value is the OGR driver and whose `write` selects `to_parquet` for GeoParquet and `to_file(driver=value)` otherwise, not a per-format writer family.
 - Cases: `EgressFormat` rows `GEOJSON` (`GeoDataFrame.to_file(driver="GeoJSON")`) · `GEOPARQUET` (`GeoDataFrame.to_parquet`) · `FLATGEOBUF` (`to_file(driver="FlatGeobuf")` over pyogrio). A new egress format is one `EgressFormat` member; a new geometry family is one `GeometryFamily` row; a new resampling mode is one `rasterio.enums.Resampling` row.
-- Entry: `VectorGeoClaim.reproject` reprojects the live geo path through `geopandas.GeoDataFrame.to_crs` (the pyproj-backed CRS engine, axis-order normalized by the geopandas CRS) returning a `RuntimeRail`; `VectorGeoClaim.set_precision` snaps geometry coordinates through `shapely.set_precision(geom, grid_size)` before egress; `RasterGeoClaim.resample` resamples through `rasterio.warp.reproject` keyed by the `rasterio.enums.Resampling` row; `EgressFormat.write` emits the bundle keyed by one `ContentIdentity.key`.
+- Entry: `VectorGeoClaim.reproject` reprojects the live geo path through `geopandas.GeoDataFrame.to_crs` (the pyproj-backed CRS engine, axis-order normalized by the geopandas CRS) returning a `RuntimeRail`; `VectorGeoClaim.set_precision` snaps geometry coordinates through `shapely.set_precision(geom, grid_size)` before egress; `RasterGeoClaim.resample` resamples through `rasterio.warp.reproject` keyed by the `rasterio.enums.Resampling` row; `EgressFormat.write` emits the bundle keyed by one `ContentIdentity.of`.
 - Packages: `geopandas` (`GeoDataFrame`/`to_crs`/`to_parquet`/`to_file`), `shapely` (`set_precision`/`make_valid`/`to_wkb`), `pyogrio` (`write_dataframe` vector I/O), `pyproj` (the CRS engine), `rasterio` (`open`/`warp.reproject`/`enums.Resampling`), `duckdb` (the spatial join/index engine), runtime (`RuntimeRail`/`ContentIdentity`/`boundary`/`BoundaryFault`).
 - Growth: a new geometry family is one column on `VectorGeoClaim`; a new resampling mode is one `rasterio.enums.Resampling` row; a new egress format is one `EgressFormat` member; native GeoArrow `geometry_encoding="geoarrow"` egress and the DuckDB-spatial join/H3 engine land as rows on this surface; zero new surface.
-- Boundary: no host mutation, no durable store; a single `GeoClaim` folding band/resampling and CRS/axis-order into one under-collapsed shape, a tagged union whose case payload only restates its tag, and a per-format writer family are the deleted forms. The content key derives from the written bytes through exactly one canonical `ContentIdentity.key`.
+- Boundary: no host mutation, no durable store; a single `GeoClaim` folding band/resampling and CRS/axis-order into one under-collapsed shape, a tagged union whose case payload only restates its tag, and a per-format writer family are the deleted forms. The content key derives from the written bytes through exactly one canonical `ContentIdentity.of`.
 
 ```python
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 from __future__ import annotations
 
 from enum import StrEnum
@@ -32,7 +31,6 @@ if TYPE_CHECKING:
     from geopandas import GeoDataFrame
 
 
-# --- [TYPES] ---------------------------------------------------------------------------
 class GeometryFamily(StrEnum):
     POINT = "point"
     LINESTRING = "linestring"
@@ -51,10 +49,9 @@ class EgressFormat(StrEnum):
             if self is EgressFormat.GEOPARQUET
             else (lambda: frame.to_file(path, driver=self.value))
         )
-        return boundary(f"geo.egress.{self.value}", lambda: (emit(), ContentIdentity.key(fmt=self.value, payload=Path(path).read_bytes()))[1])
+        return boundary(f"geo.egress.{self.value}", lambda: (emit(), ContentIdentity.of(self.value, Path(path).read_bytes()))[1])
 
 
-# --- [MODELS] --------------------------------------------------------------------------
 class VectorGeoClaim(Struct, frozen=True):
     crs: str
     units: str
@@ -80,7 +77,6 @@ class RasterGeoClaim(Struct, frozen=True):
         return boundary("geo.resample", lambda: _warp(source, self, target_transform, target_crs))
 
 
-# --- [BOUNDARIES] ----------------------------------------------------------------------
 def _snap(frame: GeoDataFrame, precision: int) -> GeoDataFrame:
     import shapely  # noqa: PLC0415
 

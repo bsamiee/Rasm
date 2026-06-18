@@ -12,7 +12,7 @@ item metadata, compiler binaries, import protos, and generated client seams.
 - asset: build tool package
 - rail: remote-contracts
 
-## [2]-[PACKAGE_ASSETS]
+## [2]-[PUBLIC_TYPES]
 
 [PACKAGE_ASSET_SCOPE]: MSBuild assets
 - rail: remote-contracts
@@ -61,19 +61,20 @@ item metadata, compiler binaries, import protos, and generated client seams.
 |   [9]   | `ProtoCompile`              | item metadata | `True`/`False` — compiles or import-only                 |
 
 [ENTRYPOINT_SCOPE]: `Protobuf` item metadata decompile-verified rows
-- source: `Grpc.Tools` 2.81.1 — `Grpc.CSharp.xml` / `Protobuf.CSharp.xml` / `Google.Protobuf.Tools.targets` source
+- source: `Grpc.Tools` 2.81.1 — `Grpc.CSharp.xml` / `Protobuf.CSharp.xml` / `Google.Protobuf.Tools.targets`
 - rail: remote-contracts
+- consumer: `remote-lane#CALL_SPINE`
 
-| [INDEX] | [MEMBER]                    | [SIGNATURE]                                                  | [USED_BY]              | [EVIDENCE]                 |
-| :-----: | :-------------------------- | :----------------------------------------------------------- | :--------------------- | :------------------------- |
-|   [1]   | `GrpcServices`              | enum: `Both` (default), `Client`, `Server`, `None`           | remote-lane#CALL_SPINE | Grpc.CSharp.xml 2.81.1     |
-|   [2]   | `Access`                    | enum: `Public` (default), `Internal`                         | remote-lane#CALL_SPINE | Protobuf.CSharp.xml 2.81.1 |
-|   [3]   | `ProtoCompile`              | bool: `true` (default) — compile vs import-only              | remote-lane#CALL_SPINE | Protobuf.CSharp.xml 2.81.1 |
-|   [4]   | `ProtoRoot`                 | string — import root path; defaults to item relative dir     | remote-lane#CALL_SPINE | targets 2.81.1             |
-|   [5]   | `AdditionalImportDirs`      | string — semicolon-separated extra import directories        | remote-lane#CALL_SPINE | targets 2.81.1             |
-|   [6]   | `OutputDir`                 | string — generated file output directory                     | remote-lane#CALL_SPINE | targets 2.81.1             |
-|   [7]   | `CompileOutputs`            | bool: `True` (default) — adds generated files to compilation | remote-lane#CALL_SPINE | targets 2.81.1             |
-|   [8]   | `AdditionalProtocArguments` | string — extra arguments passed verbatim to `protoc`         | remote-lane#CALL_SPINE | targets 2.81.1             |
+| [INDEX] | [MEMBER]                    | [SIGNATURE]                                                  |
+| :-----: | :-------------------------- | :----------------------------------------------------------- |
+|   [1]   | `GrpcServices`              | enum: `Both` (default), `Client`, `Server`, `None`           |
+|   [2]   | `Access`                    | enum: `Public` (default), `Internal`                         |
+|   [3]   | `ProtoCompile`              | bool: `true` (default) — compile vs import-only              |
+|   [4]   | `ProtoRoot`                 | string — import root path; defaults to item relative dir     |
+|   [5]   | `AdditionalImportDirs`      | string — semicolon-separated extra import directories        |
+|   [6]   | `OutputDir`                 | string — generated file output directory                     |
+|   [7]   | `CompileOutputs`            | bool: `True` (default) — adds generated files to compilation |
+|   [8]   | `AdditionalProtocArguments` | string — extra arguments passed verbatim to `protoc`         |
 
 [ENTRYPOINT_SCOPE]: generated outputs
 - rail: remote-contracts

@@ -34,6 +34,11 @@ The forward pool of higher-order concepts for the host-neutral BIM-and-exchange 
 - Unlocks the cross-runtime contract the architecture names: the host-free Python `ifcopenshell` companion and the TypeScript web consumer decode the same `BimModel` vocabulary the C# branch mints, never re-minting a parallel BIM shape, and the BCF coordination diff and the IDS audit ride the same wire payload.
 - Draws on the monorepo wire law (one canonical concept, one owner, decoded at the boundary) and the Thinktecture `Thinktecture.Runtime.Extensions.Json` generated-owner serialization; today the generated owners carry no wire converter, so a peer runtime cannot consume the semantic model without a second mint.
 
+[BIM_FAULT_OWNER]: a `faults` sub-domain owning the `BimFault` band as a first-class closed `[Union]`.
+- `BimFault.ModelRejected` is constructed on every design page (`model/elements`, `query/element-set`, `classification/systems`, `assembly/spatial-structure`, `exchange/*`) yet no `faults/` sub-domain, no `BimFault` owner page, and no `ARCHITECTURE.md` sub-domain charter declares it — the fault type is an implied owner with no banded home, unlike the sibling `Rasm.Fabrication/faults#FAULT_BAND` `FabricationFault` and `Rasm.Materials` `ProfileFault`/`ConstructionFault`/`MaterialFault` bands.
+- Unlocks a single typed BIM fault band with its own code range, an `Expected`-derived `IValidationError<BimFault>` lift into the `Fin<T>` rail every Bim entrypoint returns, and a closed case family (model-rejected, unmapped-class, dangling-reference, codec-reject, capability-miss) the pages already imply through their `ModelRejected` detail strings, rather than one catch-all case carrying a stringly-typed discriminant.
+- Draws on the band-ownership pattern the AEC-domain siblings already realize (Fabrication band-2500, Materials bands 2300/2350/2400); the Bim band slots into the same scheme so a Bim fault lowers onto the rail identically to a kernel `GeometryFault` and the case is recoverable by code, never by message matching.
+
 ## [2]-[CLOSED]
 
 None.

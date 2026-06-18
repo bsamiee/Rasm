@@ -13,8 +13,8 @@ The data-contract gate plus structural frame admission as one owner: `DataQualit
 - Cases: `CheckKind` rows `cmp(op, v)` folding `ge`/`le`/`gt`/`lt`/`eq` through one `_CMP` `frozendict` (`Check.ge`/`le`/`gt`/`lt`/`equal_to`) so five comparison arms collapse to one table lookup · `in_range(lo, hi)` (`Check.in_range`) · `isin(values)` (`Check.isin`) · `unique`/`monotonic` (column flag / `Check.is_monotonic`), matched by `match`/`case` closed by `assert_never` into the concrete `pandera.Check`, so the IDS-style rule vocabulary is one closed switch over a table, never a per-check builder.
 - Entry: `DataQuality.of` folds a tuple of `QualityRule` into one `DataFrameSchema`; `DataQuality.validate` runs `schema.validate(frame, lazy=lazy)` and returns a `RuntimeRail[SchemaClaim]` — `lazy=True` collects all failure cases (the `SchemaErrors.failure_cases` frame), `lazy=False` short-circuits on the first `SchemaError`. Both land in one `SchemaClaim`; the rail is `Ok` even on validation failure because the claim records but does not enforce.
 - Auto: a passing validation yields `SchemaClaim(status=PASSED, failure_count=0)`; a failing lazy validation captures the `SchemaErrors.failure_cases` row count and the failing column/check pairs into `SchemaClaim.failures`; the polars backend keeps the frame lazy so validation pushes into the scan.
-- Receipt: `SchemaClaim` contributes a `Receipt.emitted` row through `ReceiptContributor` keyed by `ContentIdentity` over the schema fingerprint — it is the data-contract evidence and never replaces the typed `QueryReceipt`.
-- Packages: `pandera` (`pandera.polars.DataFrameSchema`/`Column`/`Check`/`errors.SchemaError`/`SchemaErrors`), `polars` (`LazyFrame`), runtime (`RuntimeRail`/`ContentIdentity`/`ReceiptContributor`).
+- Receipt: `SchemaClaim` contributes an emitted-phase `Receipt.of` row through `ReceiptContributor` keyed by `ContentIdentity` over the schema fingerprint — it is the data-contract evidence and never replaces the typed `QueryReceipt`.
+- Packages: `pandera` (`pandera.polars.DataFrameSchema`/`Column`/`Check`/`errors.SchemaError`/`SchemaErrors`), `polars` (`LazyFrame`, `TYPE_CHECKING`-only since `polars` is on `banned-module-level-imports`; the runtime frame arrives pre-lowered through `narwhals`), runtime (`RuntimeRail`/`ContentIdentity`/`ReceiptContributor`).
 - Growth: a new check is one `CheckKind` row; a new column claim is one `QualityRule`; the narwhals-lazy validation backend and the xarray-validation path are pandera rows on this same owner, never a parallel gate.
 - Boundary: no raising in domain logic, no global schema registry, no coercion side effects (`coerce=False`); a per-check validator family and an exception-driven gate are the deleted forms.
 
@@ -22,18 +22,20 @@ The data-contract gate plus structural frame admission as one owner: `DataQualit
 from builtins import frozendict
 from collections.abc import Callable
 from enum import StrEnum
-from typing import Any, Final, Literal, assert_never
+from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 
 import pandera.polars as pap
-import polars as pl
 from expression import case, tag, tagged_union
 from msgspec import Struct
 from pandera import Check
 from pandera.errors import SchemaError, SchemaErrors
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.observability.receipts import Receipt
 from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
+
+if TYPE_CHECKING:
+    import polars as pl
 
 _CMP: Final[frozendict[str, Callable[[float], Check]]] = frozendict({
     "ge": Check.ge, "le": Check.le, "gt": Check.gt, "lt": Check.lt, "eq": Check.equal_to,
@@ -96,7 +98,8 @@ class SchemaClaim(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> Receipt:
-        return Receipt.Emitted(
+        return Receipt.of(
+            "emitted",
             "data-quality",
             f"schema[{self.columns}]",
             {"status": self.status, "failures": str(self.failure_count)},
@@ -117,17 +120,15 @@ class DataQuality(Struct, frozen=True):
         return boundary("quality.validate", lambda: self._validate(frame, lazy))
 
     def _validate(self, frame: pl.LazyFrame, lazy: bool) -> SchemaClaim:
-        key = ContentIdentity.key("schema", repr(self._schema()).encode())
+        key = ContentIdentity.of("schema", repr(self._schema()).encode())
         try:
             self._schema().validate(frame, lazy=lazy)
             return SchemaClaim(ClaimStatus.PASSED, len(self.rules), 0, (), key)
-        except (SchemaErrors, SchemaError) as fault:
-            cases = getattr(fault, "failure_cases", None)
-            pairs = (
-                tuple((str(c), str(k)) for c, k in cases.select(["column", "check"]).iter_rows())
-                if cases is not None
-                else ((str(getattr(fault, "schema", "?")), str(getattr(fault, "check", "?"))),)
-            )
+        except SchemaErrors as fault:
+            pairs = tuple((str(c), str(k)) for c, k in fault.failure_cases.select(["column", "check"]).iter_rows())
+            return SchemaClaim(ClaimStatus.FAILED, len(self.rules), len(pairs), pairs, key)
+        except SchemaError as fault:
+            pairs = ((str(fault.schema), str(fault.check)),)
             return SchemaClaim(ClaimStatus.FAILED, len(self.rules), len(pairs), pairs, key)
 ```
 
@@ -140,7 +141,6 @@ class DataQuality(Struct, frozen=True):
 - Boundary: no Persistence migration law, no live Rhino/GH mutation; a hand-rolled validation loop, a stringly-typed rule set, a per-backend admission branch, a duplicate `SchemaClaim`, and a second pandera gate are the deleted forms.
 
 ```python
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 from __future__ import annotations
 
 from typing import Any
@@ -152,7 +152,6 @@ from msgspec import Struct
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
 
 
-# --- [MODELS] --------------------------------------------------------------------------
 class FieldShape(Struct, frozen=True):
     field: str
     logical_type: str
@@ -179,9 +178,14 @@ class FrameAdmission(Struct, frozen=True):
         present = set(agnostic.collect_schema().names())
         missing = tuple(s.field for s in self.required if s.field not in present)
         if missing:
-            return Error(BoundaryFault.Boundary("frame.admit", f"missing required fields: {', '.join(missing)}"))
+            return Error(BoundaryFault(boundary=("frame.admit", f"missing required fields: {', '.join(missing)}")))
         return Ok(AdmittedFrame(frame=frame, backend=agnostic.implementation.name.lower(), shapes=self.required))
 
     def enforce(self, admitted: AdmittedFrame) -> RuntimeRail[SchemaClaim]:
         return self.quality.validate(nw.from_native(admitted.frame, eager_only=True).to_polars().lazy())
 ```
+
+## [4]-[RESEARCH]
+
+- [NARWHALS_ADMISSION]: the `narwhals` `from_native(..., eager_only=True)`/`collect_schema().names()`/`implementation.name`/`to_polars().lazy()` surface the `FrameAdmission` admit/enforce path transcribes confirms against a folder `narwhals` `.api` catalogue authored on admission; the agnostic-admission surface stays a catalogue-pending settled form until that catalogue lands. The `pandera.polars.DataFrameSchema`/`Column`/`Check` admission surface is catalogue-confirmed against the folder `pandera` `.api`.
+- [PANDERA_FAULT_SURFACE]: the `errors.SchemaErrors.failure_cases` frame and the `errors.SchemaError.schema`/`.check` attributes the `_validate` failure arms bind directly are catalogue-pending — the folder `pandera` `.api` carries the admission surface but not the exception-attribute surface; the two `except` arms stay settled forms until the catalogue captures the `failure_cases` column set (`column`/`check`) and the eager-error attribute names.

@@ -7,12 +7,12 @@
 The design pages under `.planning/`, grouped by sub-domain.
 
 - intent: [admission](.planning/intent/admission.md)
-- tensors: [operations](.planning/tensors/operations.md)
+- tensors: [vocabulary](.planning/tensors/vocabulary.md), [residency](.planning/tensors/residency.md), [layout](.planning/tensors/layout.md), [dispatch](.planning/tensors/dispatch.md)
 - numeric: [algebra](.planning/numeric/algebra.md)
-- models: [sessions](.planning/models/sessions.md)
+- models: [identity](.planning/models/identity.md), [sessions](.planning/models/sessions.md), [providers](.planning/models/providers.md), [extension-ops](.planning/models/extension-ops.md), [inference](.planning/models/inference.md), [generative](.planning/models/generative.md)
 - remote: [channels](.planning/remote/channels.md)
 - interchange: [codecs](.planning/interchange/codecs.md)
-- solver: [lane](.planning/solver/lane.md)
+- solver: [index](.planning/solver/index.md), [discretization](.planning/solver/discretization.md), [solve-contract](.planning/solver/solve-contract.md), [optimizer](.planning/solver/optimizer.md), [sweep](.planning/solver/sweep.md), [clash](.planning/solver/clash.md)
 - staging: [memory](.planning/staging/memory.md)
 - scheduling: [runtime](.planning/scheduling/runtime.md)
 - progress: [cell](.planning/progress/cell.md)
@@ -54,7 +54,7 @@ Every external library the folder uses, planned or implemented, as a flat list. 
 - Microsoft.IO.RecyclableMemoryStream
 - SharpGLTF.Core
 - SharpGLTF.Toolkit
-- meshoptimizer
+- Alimer.Bindings.MeshOptimizer
 
 [FUNCTIONAL_CORE]:
 - LanguageExt.Core

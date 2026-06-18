@@ -1,6 +1,6 @@
 # [APPHOST_SOLVER_PLUGIN]
 
-The extensibility contract for third-party compute extensions: one solver-kind axis carries the seven extension categories — solvers, meshers, optimizers, CAM post-processors, material models, field codecs — as rows whose typed contract binds a sandboxed plugin to the Compute dispatch rail, one contract record names the input representation, output representation, and capability descriptors a plugin declares, one hosting fold loads a verified solver plugin under the sandbox and projects its declared ops into the capability registry, and one negotiation step proves a plugin's representation contract against the canonical Compute encoding before its first solve. The page owns the solver-kind axis, the plugin contract, the hosting projection, and the representation negotiation; it consumes `SolverContract`-shaped Compute owners, `GeometryEncoding`/`EncodedTensor`, `CapabilityDescriptor`/`DescriptorSurface`, `SandboxIsolation`/`PluginInstance`/`GrantScope`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
+The extensibility contract for third-party compute extensions: one solver-kind axis carries the seven extension categories — solvers, meshers, optimizers, CAM post-processors, material models, field codecs, generative codecs — as rows whose typed contract binds a sandboxed plugin to the Compute dispatch rail, one contract record names the input representation, output representation, and capability descriptors a plugin declares, one hosting fold loads a verified solver plugin under the sandbox and projects its declared ops into the capability registry, and one negotiation step proves a plugin's representation contract against the canonical Compute encoding before its first solve. The page owns the solver-kind axis, the `EncodingKind` representation axis that projects onto the Compute `GeometryEncoding` cases, the plugin contract, the hosting projection, and the representation negotiation; it consumes `SolverContract`-shaped Compute owners, `GeometryEncoding`/`EncodedTensor`, `CapabilityDescriptor`/`DescriptorSurface`, `SandboxIsolation`/`PluginInstance`/`GrantScope`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
 
 ## [1]-[INDEX]
 
@@ -12,10 +12,10 @@ The extensibility contract for third-party compute extensions: one solver-kind a
 
 ## [2]-[SOLVER_KIND]
 
-- Owner: `SolverKind` `[SmartEnum<string>]` the seven extension-category axis under the `CapabilityKeyPolicy` accessor; `KindContract` per-kind contract-shape record; `KindContracts` the frozen row set with the total dispatch; `SolverFault` `[Union]` fault family in the 4700 band.
-- Cases: solver, mesher, optimizer, cam-postprocessor, material-model, field-codec, generative-codec — each carrying the input and output `EncodingChannel` its contract speaks and the `EffectClass` its ops carry; `SolverFault` = Text | ContractRejected | RepresentationMismatch | KindUnsupported.
-- Entry: `KindContract Contract` is the extension property total state-free `Switch` from kind to frozen contract shape; the contract shape names the canonical input and output encoding channel a plugin of that kind must speak.
-- Auto: a solver kind's input and output channels are `EncodingChannel` rows from the Compute geometry-encoding table, so a mesher declares a brep-in tensor-out contract in the same encoding vocabulary the Compute tensor lane reads, never a plugin-private representation; the contract's `EffectClass` defaults to the kind's natural side-effect class — a solver and an optimizer are `pure` over their inputs, a CAM post-processor is `write` because it emits a toolpath artifact, a field codec is `pure` — so the kind axis seats the effect class the capability descriptor carries; the kind's `Streaming` column gates whether a plugin of that kind may emit progress frames, so a long optimization streams while a field codec returns once.
+- Owner: `SolverKind` `[SmartEnum<string>]` the seven extension-category axis under the `CapabilityKeyPolicy` accessor; `EncodingKind` `[SmartEnum<string>]` the representation axis whose four geometry rows project onto the `Compute/tensors/residency#GEOMETRY_ENCODING` `GeometryEncoding` cases and whose `Field`/`Toolpath` rows ride the pending encoding-table extensions; `KindContract` per-kind contract-shape record; `KindContracts` the frozen row set with the total dispatch; `SolverFault` `[Union]` fault family in the 4700 band.
+- Cases: solver, mesher, optimizer, cam-postprocessor, material-model, field-codec, generative-codec — each carrying the input and output `EncodingKind` its contract speaks and the `EffectClass` its ops carry; `SolverFault` = Text | ContractRejected | RepresentationMismatch | KindUnsupported.
+- Entry: `KindContract Contract` is the extension property total state-free `Switch` from kind to frozen contract shape; the contract shape names the canonical input and output `EncodingKind` a plugin of that kind must speak.
+- Auto: a solver kind's input and output representations are `EncodingKind` rows that project onto the finalized `Compute/tensors/residency#GEOMETRY_ENCODING` `GeometryEncoding` case axis, so a mesher declares a brep-in mesh-out contract in the same representation vocabulary the Compute tensor lane reads, never a plugin-private representation; the contract's `EffectClass` defaults to the kind's natural side-effect class — a solver and an optimizer are `pure` over their inputs, a CAM post-processor is `write` because it emits a toolpath artifact, a field codec is `pure` — so the kind axis seats the effect class the capability descriptor carries; the kind's `Streaming` column gates whether a plugin of that kind may emit progress frames, so a long optimization streams while a field codec returns once.
 - Receipt: the contract resolution is a pure fold; a plugin's solve receipt is the `CommandReceipt` the command algebra mints when its projected descriptor dispatches — no parallel solver receipt.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one kind row absorbs a new extension category — a new solver family is one `SolverKind` row carrying its contract shape, never a parallel plugin contract; a new fault is one `SolverFault` case; zero new surface.
@@ -45,21 +45,33 @@ public abstract partial record SolverFault : Expected, IValidationError<SolverFa
     public sealed record KindUnsupported : SolverFault { public KindUnsupported(string detail) : base(detail, 4703) { } }
 }
 
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
+[KeyMemberComparer<CapabilityKeyPolicy, string>]
+public sealed partial class EncodingKind {
+    public static readonly EncodingKind PointCloud = new("point-cloud");
+    public static readonly EncodingKind MeshPatch = new("mesh-patch");
+    public static readonly EncodingKind VoxelGrid = new("voxel-grid");
+    public static readonly EncodingKind BrepPatch = new("brep-patch");
+    public static readonly EncodingKind Field = new("field");
+    public static readonly EncodingKind Toolpath = new("toolpath");
+}
+
 public sealed record KindContract(
     SolverKind Kind,
-    EncodingChannel Input,
-    EncodingChannel Output,
+    EncodingKind Input,
+    EncodingKind Output,
     EffectClass Effect,
     bool Streaming);
 
 public static class KindContracts {
-    public static readonly KindContract Solver = new(SolverKind.Solver, EncodingChannel.Brep, EncodingChannel.Field, EffectClass.Pure, Streaming: true);
-    public static readonly KindContract Mesher = new(SolverKind.Mesher, EncodingChannel.Brep, EncodingChannel.Mesh, EffectClass.Pure, Streaming: true);
-    public static readonly KindContract Optimizer = new(SolverKind.Optimizer, EncodingChannel.Field, EncodingChannel.Field, EffectClass.Pure, Streaming: true);
-    public static readonly KindContract CamPostprocessor = new(SolverKind.CamPostprocessor, EncodingChannel.Mesh, EncodingChannel.Toolpath, EffectClass.Write, Streaming: false);
-    public static readonly KindContract MaterialModel = new(SolverKind.MaterialModel, EncodingChannel.Field, EncodingChannel.Field, EffectClass.Pure, Streaming: false);
-    public static readonly KindContract FieldCodec = new(SolverKind.FieldCodec, EncodingChannel.Field, EncodingChannel.Field, EffectClass.Pure, Streaming: false);
-    public static readonly KindContract GenerativeCodec = new(SolverKind.GenerativeCodec, EncodingChannel.Field, EncodingChannel.Mesh, EffectClass.External, Streaming: true);
+    public static readonly KindContract Solver = new(SolverKind.Solver, EncodingKind.BrepPatch, EncodingKind.Field, EffectClass.Pure, Streaming: true);
+    public static readonly KindContract Mesher = new(SolverKind.Mesher, EncodingKind.BrepPatch, EncodingKind.MeshPatch, EffectClass.Pure, Streaming: true);
+    public static readonly KindContract Optimizer = new(SolverKind.Optimizer, EncodingKind.Field, EncodingKind.Field, EffectClass.Pure, Streaming: true);
+    public static readonly KindContract CamPostprocessor = new(SolverKind.CamPostprocessor, EncodingKind.MeshPatch, EncodingKind.Toolpath, EffectClass.Write, Streaming: false);
+    public static readonly KindContract MaterialModel = new(SolverKind.MaterialModel, EncodingKind.Field, EncodingKind.Field, EffectClass.Pure, Streaming: false);
+    public static readonly KindContract FieldCodec = new(SolverKind.FieldCodec, EncodingKind.Field, EncodingKind.Field, EffectClass.Pure, Streaming: false);
+    public static readonly KindContract GenerativeCodec = new(SolverKind.GenerativeCodec, EncodingKind.Field, EncodingKind.MeshPatch, EffectClass.External, Streaming: true);
 
     extension(SolverKind kind) {
         public KindContract Contract => kind.Switch(
@@ -94,8 +106,8 @@ public sealed record OpDeclaration(
 public sealed record SolverManifest(
     string PluginId,
     SolverKind Kind,
-    EncodingChannel Input,
-    EncodingChannel Output,
+    EncodingKind Input,
+    EncodingKind Output,
     Seq<OpDeclaration> Ops,
     string ContractRange) {
     public bool Speaks(KindContract contract) =>
@@ -128,7 +140,7 @@ public static class SolverPluginContract {
 ## [4]-[SOLVER_HOSTING]
 
 - Owner: `HostedSolver` the loaded-and-projected solver capsule; `Negotiation` the representation-negotiation record; `SolverHosting` the static load-and-project surface.
-- Entry: `Host(SolverHostingRuntime runtime, SolverManifest manifest, GrantScope scope)` returns `IO<HostedSolver>` — the hosting fold validates the contract, negotiates the representation against the canonical Compute encoding, loads the plugin under the sandbox, and projects the plugin's declared ops into the capability registry; `Negotiate(SolverManifest manifest)` returns `Fin<Negotiation>` — the negotiation proves the plugin's input and output channels admit lossless round-trip through the canonical `EncodedTensor` shape.
+- Entry: `Host(SolverHostingRuntime runtime, SolverManifest manifest, GrantScope scope)` returns `IO<HostedSolver>` — the hosting fold validates the contract, negotiates the representation against the canonical Compute encoding, loads the plugin under the sandbox, and projects the plugin's declared ops into the capability registry; `Negotiate(SolverManifest manifest, Func<EncodingKind, EncodingKind, bool> lossless, Func<SolverManifest, string> digestOf)` returns `Fin<Negotiation>` — the negotiation proves the plugin's input and output representations admit lossless round-trip through the canonical `EncodedTensor` shape, and `SolverHostingRuntime.Negotiator` is this body closed over the Compute lossless and digest projections so the hosting fold composes one negotiation surface, never a second predicate.
 - Auto: the hosting fold composes `SolverPluginContract.Validate`, `Negotiate`, `SandboxRows.Load`, and `DescriptorSurface.Describe` in one pass so a hosted solver is contract-proven, representation-negotiated, sandboxed, and registry-projected before its first dispatch; the negotiation reads the Compute `GeometryEncoding` table so the plugin's brep-in channel proves it can decode the canonical brep encoding the suite emits, never a plugin-private decoder; a plugin whose negotiation fails never loads, so a representation mismatch is a load-time rejection, never a runtime decode failure; each projected op's `compile` closure encodes the canonical input into the plugin's declared channel and decodes the plugin's output back, so the encoding boundary lives in the projection and the plugin sees only its declared channel.
 - Receipt: hosting mints one `SandboxReceipt` for the load and one `DescriptorReceipt` per projected op; the solve receipts are the command algebra's `CommandReceipt` rows.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
@@ -137,8 +149,8 @@ public static class SolverPluginContract {
 
 ```csharp signature
 public sealed record Negotiation(
-    EncodingChannel Input,
-    EncodingChannel Output,
+    EncodingKind Input,
+    EncodingKind Output,
     bool LosslessRoundTrip,
     string EncodingDigest);
 
@@ -172,7 +184,7 @@ public static class SolverHosting {
         from _projected in runtime.Project(descriptors)
         select new HostedSolver(manifest, instance, negotiation, descriptors);
 
-    public static Fin<Negotiation> Negotiate(SolverManifest manifest, Func<EncodingChannel, EncodingChannel, bool> lossless, Func<SolverManifest, string> digestOf) =>
+    public static Fin<Negotiation> Negotiate(SolverManifest manifest, Func<EncodingKind, EncodingKind, bool> lossless, Func<SolverManifest, string> digestOf) =>
         lossless(manifest.Input, manifest.Output)
             ? Fin.Succ(new Negotiation(manifest.Input, manifest.Output, LosslessRoundTrip: true, digestOf(manifest)))
             : Fin.Fail<Negotiation>(new SolverFault.RepresentationMismatch(manifest.Input.Key, manifest.Output.Key));
@@ -184,5 +196,5 @@ public static class SolverHosting {
 
 ## [5]-[RESEARCH]
 
-- [ENCODING_CHANNEL]: the `EncodingChannel` rows the kind contracts name (`Brep`, `Mesh`, `Field`, `Toolpath`) resolve against the finalized Compute tensor-lane#GEOMETRY_ENCODING table; the `Toolpath` channel for the CAM post-processor contract confirms against the Compute geometry-encoding vocabulary, and a missing channel surfaces as a Compute encoding-table extension, not a solver-page literal.
+- [ENCODING_KIND]: the `EncodingKind` geometry rows (`PointCloud`/`MeshPatch`/`VoxelGrid`/`BrepPatch`) project one-to-one onto the finalized `Compute/tensors/residency#GEOMETRY_ENCODING` `GeometryEncoding` case axis (the representation a kind contract speaks is the case, never the per-feature `EncodingChannel` rows `Position`/`Normal`/`ColorRgba`/`Curvature`/`Geodesic`/`Intensity`/`Occupancy`/`Weight`), so the kind-contract negotiation reads the case-level encoding the suite emits; the residual is the `Field` and `Toolpath` representations the solver and CAM-post contracts speak — they land as two `GeometryEncoding` case extensions in the Compute encoding table, never solver-page literals, and the `EncodingKind.Field`/`.Toolpath` rows here carry the working spelling until that table extension finalizes; the lossless round-trip rides the canonical `EncodedTensor` shape.
 - [REPRESENTATION_NEGOTIATION]: the lossless-round-trip proof that a plugin's declared input and output channels admit canonical `EncodedTensor` round-trip confirms against the Compute equivalence-interop `EquivalenceLaw` surface, so the negotiation reads the suite's equivalence proof rather than a solver-page heuristic.

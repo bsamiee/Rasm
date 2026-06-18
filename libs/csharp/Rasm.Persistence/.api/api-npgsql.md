@@ -153,7 +153,7 @@ Replication detail rows preserve these members:
 |  [12]   | `ExecuteNonQuery`                   | command/batch call | writes changes                                 |
 |  [13]   | `ExecuteScalar`                     | command/batch call | reads scalar value                             |
 
-[ENTRYPOINT_SCOPE]: binary COPY and replication
+[ENTRYPOINT_SCOPE]: binary COPY
 - rail: store-provider
 
 | [INDEX] | [SURFACE]                                | [CALL_SHAPE]      | [CAPABILITY]                                                           |
@@ -173,11 +173,17 @@ Replication detail rows preserve these members:
 |  [13]   | `NpgsqlBinaryExporter.Read<T>`/`Async`   | exporter call     | reads typed column value (bare or `NpgsqlDbType`)                      |
 |  [14]   | `NpgsqlBinaryExporter.Skip`/`Async`      | exporter call     | skips current column                                                   |
 |  [15]   | `NpgsqlBinaryExporter.IsNull`            | exporter property | true when current column is null                                       |
-|  [16]   | `StartReplication`                       | replication call  | starts replication; returns `IAsyncEnumerable`                         |
-|  [17]   | `CreatePgOutputReplicationSlot`          | replication call  | creates pgoutput slot                                                  |
-|  [18]   | `SetReplicationStatus`                   | replication call  | stamps applied-and-flushed LSN                                         |
-|  [19]   | `SendStatusUpdate`                       | replication call  | sends feedback flush                                                   |
-|  [20]   | `NpgsqlConnection.ReloadTypes`/`Async`   | connection call   | reloads type registry on the connection                                |
+|  [16]   | `NpgsqlConnection.ReloadTypes`/`Async`   | connection call   | reloads type registry on the connection                                |
+
+[ENTRYPOINT_SCOPE]: replication
+- rail: store-provider
+
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]     | [CAPABILITY]                                   |
+| :-----: | :------------------------------ | :--------------- | :--------------------------------------------- |
+|   [1]   | `StartReplication`              | replication call | starts replication; returns `IAsyncEnumerable` |
+|   [2]   | `CreatePgOutputReplicationSlot` | replication call | creates pgoutput slot                          |
+|   [3]   | `SetReplicationStatus`          | replication call | stamps applied-and-flushed LSN                 |
+|   [4]   | `SendStatusUpdate`              | replication call | sends feedback flush                           |
 
 `PgOutputReplicationOptions` accepts publication names, protocol version, binary mode, streaming mode, messages, and two-phase policy. The binary importer commit edge is inverted: `Complete`/`CompleteAsync` commits; disposal without it cancels COPY and discards all buffered rows.
 

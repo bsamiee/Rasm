@@ -43,6 +43,7 @@ from tools.assay.rails.mutation_gate import _tally, gate
 from tools.assay.rails.test import (
     _adopt_coverage,
     _checks,
+    _classified_projects,
     _detail,
     _dispatch,
     _dispatch_all,
@@ -54,6 +55,7 @@ from tools.assay.rails.test import (
     _routed,
     _scoped_mutation,
     _select,
+    _TestProjectLane,
     _thin_rail,
     _unsupported_scope,
     coverage_percent,
@@ -141,6 +143,42 @@ def _stryker_tool() -> Tool:
     )
 
 
+def _seed_solution(assay_root: AssayHarness) -> tuple[str, ...]:
+    projects = (
+        "libs/csharp/Rasm/Rasm.csproj",
+        "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj",
+        "tests/csharp/_benchmarks/Rasm.Benchmarks.csproj",
+        "tests/csharp/_testkit/Rasm.TestKit.csproj",
+        "tests/csharp/libs/Rasm/Rasm.Tests.csproj",
+        "tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj",
+        "tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
+        "tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj",
+        "tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj",
+        "tests/csharp/tools/rhino-bridge/Contract/Contract.csproj",
+        "tests/csharp/tools/rhino-bridge/Scenarios/Scenarios.csproj",
+        "tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj",
+    )
+    assay_root.write(
+        "Workspace.slnx",
+        "<Solution>"
+        + "".join(f'<Folder Name="/{Path(project).parent.as_posix()}/"><Project Path="{project}" /></Folder>' for project in projects)
+        + "</Solution>",
+    )
+    assay_root.write(
+        "tests/csharp/libs/Rasm/Rasm.Tests.csproj",
+        "<Project><PropertyGroup><AssayHostBound>true</AssayHostBound></PropertyGroup></Project>",
+    )
+    assay_root.write(
+        "tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj",
+        "<Project><PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup></Project>",
+    )
+    for project in projects:
+        path = assay_root.root / project
+        if not path.exists():
+            assay_root.write(project, "<Project />")
+    return projects
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 # Law coverage requires every exported symbol to appear in register_law.
 
@@ -159,8 +197,9 @@ register_law(TestParams, "scoped_mutation_governor_caps_max_children")
 register_law(TestParams, "scoped_mutation_mutmut_changed_lane_globs")
 register_law(TestParams, "checks_splice_arms")
 register_law(TestParams, "unsupported_scope_arms")
-register_law(TestParams, "select_arms")
+register_law(TestParams, "select_solution_admission_arms")
 register_law(TestParams, "select_default_arm_routed_closure_untouched")
+register_law(TestParams, "select_classifies_solution_project_lanes")
 register_law(TestParams, "dispatch_empty_checks_returns_unsupported_only")
 register_law(TestParams, "dispatch_non_empty_checks_calls_fan_out")
 register_law(TestParams, "roster_matches_skip_and_kind_arms")
@@ -170,8 +209,8 @@ register_law(test_rail.coverage, "coverage_forces_coverage_flag")
 register_law(test_rail.coverage, "coverage_verb_claim_is_test")
 
 register_law(test_rail.list, "list_report_projection_arms")
-register_law(test_rail.list, "list_discovery_failure_note")
-register_law(test_rail.list, "list_status_ok_even_with_zero_roster")
+register_law(test_rail.list, "list_discovery_failure_changes_status")
+register_law(test_rail.list, "list_empty_discovery_counts_as_unresolved")
 register_law(test_rail.list, "list_roster_artifact_written_to_scope")
 register_law(test_rail.list, "list_detail_selected_is_pre_limit_discovered_total")
 
@@ -433,42 +472,67 @@ def test_checks_splice_arms(assay_root: AssayHarness, monkeypatch: pytest.Monkey
 # --- [LAWS_UNSUPPORTED_SCOPE]
 
 
-def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
     """_unsupported_scope emits only CHANGED unscoped mutation receipts."""
     unscoped = _mutation_tool("vitest-mut")
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=("src/foo.py",))
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (unscoped,))
 
-    results = _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), Mode.MUTATION)
+    results = _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), assay_root.settings, Mode.MUTATION)
     assert len(results) == 1
     completed = assert_ok(results[0])
     assert completed.status is RailStatus.UNSUPPORTED
     assert any("vitest-mut" in n for n in completed.notes)
 
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (_mutation_tool(),))
-    assert _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), Mode.MUTATION) == ()
+    assert _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), assay_root.settings, Mode.MUTATION) == ()
 
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (unscoped,))
-    assert _unsupported_scope(routed, TestParams(mutation=MutationLane.FULL), Mode.MUTATION) == ()
-    assert _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), Mode.RUN) == ()
+    assert _unsupported_scope(routed, TestParams(mutation=MutationLane.FULL), assay_root.settings, Mode.MUTATION) == ()
+    assert _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), assay_root.settings, Mode.RUN) == ()
+
+    host = Routed(
+        Language.CSHARP,
+        Scope.CHANGED,
+        projects=("tests/csharp/libs/Rasm/Rasm.Tests.csproj",),
+        host_bound=("tests/csharp/libs/Rasm/Rasm.Tests.csproj",),
+    )
+    host_receipt = assert_ok(_unsupported_scope(host, TestParams(), assay_root.settings, Mode.RUN)[0])
+    assert host_receipt.status is RailStatus.UNSUPPORTED
 
 
 # --- [LAWS_SELECT]
 
 
-def test_select_arms(assay_root: AssayHarness) -> None:
-    """_select handles passthrough, target narrowing, all-union, and default arms."""
+def test_select_solution_admission_arms(assay_root: AssayHarness) -> None:
+    """_select handles passthrough, target narrowing, and solution-backed all-selection."""
     settings = assay_root.settings
+    _seed_solution(assay_root)
     rasm = "tests/csharp/libs/Rasm/Rasm.Tests.csproj"
     py_routed = Routed(language=_PY, scope=Scope.CHANGED, projects=(rasm,))
     cs_routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=(rasm,))
     target = Path("tests/csharp/libs/Other/Other.Tests.csproj")
+    assay_root.write(target, "<Project />")
 
     assert _select(py_routed, TestParams(), settings) is py_routed
     assert _select(cs_routed, TestParams(), settings) is cs_routed
     assert _select(cs_routed, TestParams(target=target), settings).projects == (str(target),)
-    unioned = _select(cs_routed, TestParams(all=True), settings).projects
-    assert {str(settings.test_target), rasm} <= set(unioned)
+    selected = _select(cs_routed, TestParams(all=True), settings)
+    assert selected.scope is Scope.FULL
+    assert rasm in selected.host_bound
+    assert {
+        "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj",
+        "tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
+        "tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj",
+        "tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj",
+        "tests/csharp/tools/rhino-bridge/Contract/Contract.csproj",
+        "tests/csharp/tools/rhino-bridge/Scenarios/Scenarios.csproj",
+        "tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj",
+    } <= set(selected.projects)
+    assert "tests/csharp/_testkit/Rasm.TestKit.csproj" not in selected.projects
+    assert "tests/csharp/_benchmarks/Rasm.Benchmarks.csproj" not in selected.projects
+    assert "tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj" not in selected.projects
+    assert "libs/csharp/Rasm/Rasm.csproj" not in selected.projects
 
 
 def test_select_default_arm_routed_closure_untouched(assay_root: AssayHarness) -> None:
@@ -481,7 +545,15 @@ def test_select_default_arm_routed_closure_untouched(assay_root: AssayHarness) -
 
     assert selected is routed, "default arm must pass the routed closure through identically"
     assert selected.projects == (new_owner,)
-    assert str(settings.test_target) not in selected.projects, "test_target must not enter via the default arm"
+
+
+def test_select_classifies_solution_project_lanes(assay_root: AssayHarness) -> None:
+    """The solution roster classifies managed, host, support, benchmark, and non-test lanes."""
+    _seed_solution(assay_root)
+    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+    rows = _classified_projects(TestParams(all=True), routed, assay_root.settings)
+    counts = {lane.value: total for lane in _TestProjectLane if (total := sum(1 for _, actual in rows if actual is lane))}
+    assert counts == {"managed": 7, "host_bound": 1, "support": 1, "benchmark": 1, "non_test": 2}
 
 
 # --- [LAWS_DISPATCH]
@@ -614,18 +686,22 @@ def test_list_report_projection_arms(
     assert assertion(report)
 
 
-def test_list_discovery_failure_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """List emits diagnostic notes for failed discovery rows without faulting the report."""
+def test_list_discovery_failure_changes_status(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """List discovery failures affect status and results instead of hiding in notes."""
     failed = receipt(("dotnet", "test", "--list-tests"), 1, stderr=b"no project")
     _wire(monkeypatch, failed)
     report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams()))
+    assert report.status is RailStatus.FAILED
+    assert any(row.severity == "failed" for row in report.results)
     assert any("discovery" in n and "dotnet test" in n for n in report.notes)
 
 
-def test_list_status_ok_even_with_zero_roster(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """List with empty discovery still yields Ok."""
+def test_list_empty_discovery_counts_as_unresolved(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """List with empty discovery stays explicit in TestRun discovery counts."""
     _wire(monkeypatch, _ok(("pytest", "--collect-only")))
-    assert test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams()).is_ok()
+    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams()))
+    assert isinstance(report.detail, TestRun)
+    assert ("empty_or_failed_discovery", 1) in report.detail.discovery_counts
 
 
 def test_list_roster_artifact_written_to_scope(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

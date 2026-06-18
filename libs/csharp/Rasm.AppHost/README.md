@@ -81,6 +81,7 @@ Every external library the folder uses, planned or implemented, as a flat list. 
 - Grpc.AspNetCore
 - Grpc.AspNetCore.Web
 - Grpc.AspNetCore.HealthChecks
+- Grpc.Core.Api
 - Microsoft.AspNetCore.JsonPatch.SystemTextJson
 
 [PROVISIONING]:
@@ -94,7 +95,7 @@ Every external library the folder uses, planned or implemented, as a flat list. 
 - System.IO.Hashing
 
 [SANDBOX_LIVE_WIRE]:
-- wasmtime-dotnet
+- Wasmtime
 - OPCFoundation.NetStandard.Opc.Ua
 - OPCFoundation.NetStandard.Opc.Ua.PubSub
 - MQTTnet

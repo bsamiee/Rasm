@@ -27,7 +27,12 @@ The forward pool of higher-order concepts for the wire boundary. Each idea is a 
 [CONTENT_KEY_PARITY_HARNESS]: a tier-2 byte-identity harness proving the browser content key is bit-identical to the C# digest.
 - Proves the browser 128-bit content key over an assembled blob is bit-identical to the C# `XxHash128` suite hash (seed zero, two-64-bit-half order), and asserts the same two-half order for the `useBigInt64` and `DataView` `getBigUint64` HLC bigint round-trip; shared with the future Python IFC-to-GLB companion.
 - A re-tessellation of identical bytes by any runtime becomes a content-addressed cache hit across the platform, and a bigint HLC half-swap is caught before it folds a fresh op as stale.
-- Content-identity is the one C#-owned seed reproduced bit-identically in all three runtimes; the harness is gated on the `artifacts/frame-reassembly.md` `CONTENT_HASHING` question because the admitted `xxhash-wasm` exposes only `h32`/`h64`, so the 128-bit browser provider (a 128-bit-capable wasm hash, or an XXH64 seed downgrade) must resolve before parity can be asserted.
+- Content-identity is the one C#-owned seed reproduced bit-identically in all three runtimes; the harness is gated on the `artifacts/frame-reassembly.md` `CONTENT_HASHING` question because the admitted `xxhash-wasm` exposes only `h32`/`h64`, so the 128-bit browser provider (a 128-bit-capable wasm hash, or an XXH64 seed downgrade) resolves before the parity assertion holds.
+
+[CAPABILITY_PALETTE_SEAM]: the generated `CapabilitySdk` MCP/command surface has no web/edge consumer, so the C#-minted capability registry reaches no browser surface.
+- The `transport/transport.md` `CODEGEN_TOOLING` `CapabilitySdk` derives a typed `invoke`-by-descriptor command face plus an `mcpTools` projection off the `csharp:Rasm.AppHost/capability/registry#SDK_CODEGEN` catalog, but `platform`/`ui` consume only `WireClients`, `CommandGateway`, and the `projection` folds — nothing surfaces the discovered capability catalog as a command palette or an in-browser MCP host.
+- Records the cross-folder seam: the produced `CapabilitySdk.catalog`/`invoke`/`mcpTools` imply a `ui` command-palette leaf (the descriptor catalog as searchable, effect-class/idempotency/cost-annotated commands) and a `platform` MCP-host edge advertising the same `mcpTools` to a browser-resident agent, both reading the generated surface verbatim, never re-authoring a capability shape.
+- The seam lands at the `ui` and `platform` tiers, gated on `CAPABILITY_SDK_CODEGEN` landing the generated `capabilities_pb.ts`; the producing `CapabilitySdk` owner is settled here, the consumer surfaces are the gap.
 
 ## [2]-[CLOSED]
 
