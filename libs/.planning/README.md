@@ -6,7 +6,7 @@ The authoring standard for the `libs/` planning corpus. It owns the doc-set per 
 
 Three tiers carry the same intent at widening scope: a folder owns one package's planning, a branch aggregates its language, and the cross-`libs/` core binds the three languages. Only the cross-`libs/` core names another language; a branch or folder consumes a peer only through the wire contracts.
 
-- Cross-`libs/` core (`libs/.planning/`): `architecture.md` (the topology law), `campaign-method.md` (the planning loop), `README.md` (this standard), `IDEAS.md`, `TASKLOG.md`.
+- Cross-`libs/` core (`libs/.planning/`): `architecture.md` (the topology law), `campaign-method.md` (the planning loop), `README.md` (this standard), `planning-targets.md` (the target index — every planning surface the campaign edits), `IDEAS.md`, `TASKLOG.md`.
 - Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`.
 - Folder (`<pkg>/`): the four index docs at the package root — `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md` — plus design pages under one `<pkg>/.planning/<sub-domain>/<page>.md` and a `<pkg>/.api/` of generated package catalogues, one per external library the folder uses. No `FEATURES.md`, no `.planning/README.md`. The `.api/` lives per folder, never consolidated to a branch or project-level home: it is the resource a planning pass reads to draw an external package's real API without guessing.
 
