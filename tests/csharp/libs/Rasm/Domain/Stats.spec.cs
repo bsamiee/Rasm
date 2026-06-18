@@ -43,11 +43,11 @@ public sealed class StatComputationLaws {
     [Fact]
     public void MeanLiesBetweenExtrema() =>
         Spec.ForAll(StatGens.NonEmptyFinite, xs => Spec.Succ(Stat.Of(values: xs, key: StatGens.Key), then: static s =>
-            _ = (s.Mean >= s.Minimum - 1.0e-9) && (s.Mean <= s.Maximum + 1.0e-9) ? true : throw new Xunit.Sdk.XunitException($"mean {s.Mean} escaped bounds [{s.Minimum}, {s.Maximum}]")));
+            _ = (s.Mean >= s.Minimum - 1.0e-9) && (s.Mean <= s.Maximum + 1.0e-9) ? true : throw new Xunit.Sdk.XunitException(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"mean {s.Mean} escaped bounds [{s.Minimum}, {s.Maximum}]"))));
     [Fact]
     public void VarianceIsNonNegative() =>
         Spec.ForAll(StatGens.NonEmptyFinite, xs => Spec.Succ(Stat.Of(values: xs, key: StatGens.Key), then: static s =>
-            _ = s.Variance >= 0.0 ? true : throw new Xunit.Sdk.XunitException($"negative variance {s.Variance}")));
+            _ = s.Variance >= 0.0 ? true : throw new Xunit.Sdk.XunitException(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"negative variance {s.Variance}"))));
     [Fact]
     public void CountMatchesInputLength() =>
         Spec.ForAll(StatGens.NonEmptyFinite, xs => Spec.Succ(Stat.Of(values: xs, key: StatGens.Key), then: s => Assert.Equal(expected: xs.Count, actual: s.Count)));

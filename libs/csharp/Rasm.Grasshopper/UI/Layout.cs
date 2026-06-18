@@ -183,7 +183,7 @@ public readonly record struct SnappingPolicy(bool IncludeSelected = true, bool I
                 SnapSetting.WithoutRuleCase rule => acc with { Native = acc.Native.WithoutRules(rules: rule.Rule) },
                 SnapSetting.FeedbackCase feedback => acc with {
                     Native = acc.Native.WithFeedback(drawFeedback: feedback.Enabled, colour: feedback.XStyle.Tint),
-                    FeedbackStyle = acc.FeedbackStyle.IsSome ? acc.FeedbackStyle : (feedback.Enabled ? Some((feedback.XStyle, feedback.YStyle.Equals(default) ? feedback.XStyle : feedback.YStyle)) : acc.FeedbackStyle)
+                    FeedbackStyle = acc.FeedbackStyle.IsSome ? acc.FeedbackStyle : (feedback.Enabled ? Some((feedback.XStyle, feedback.YStyle.Equals(default) ? feedback.XStyle : feedback.YStyle)) : acc.FeedbackStyle),
                 },
                 SnapSetting.RadiiCase radii => acc with { Native = new SnappingSettings(rules: acc.Native.Rules, verticalGap: radii.VerticalGapSize.Map(static value => Math.Max(0, value)).IfNone(acc.Native.VerticalGapSize), horizontalGap: radii.HorizontalGapSize.Map(static value => Math.Max(0, value)).IfNone(acc.Native.HorizontalGapSize), edgeRadius: radii.EdgeRadius.Map(static value => Math.Max(0, value)).IfNone(acc.Native.EdgeRadius), wireRadius: radii.WireRadius.Map(static value => Math.Max(0, value)).IfNone(acc.Native.WireRadius), feedback: acc.Native.Feedback, colour: acc.Native.Colour) },
                 SnapSetting.SpaceCase space => acc with { Spaces = acc.Spaces.Add(space.Space) },

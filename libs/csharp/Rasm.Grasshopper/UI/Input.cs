@@ -437,9 +437,10 @@ public partial record ToolbarItem {
         Optional(surface)
             .ToFin(Fail: UiFault.MissingScope(field: nameof(UiCommandSurface)))
             .Bind(valid => valid.Switch(
-                toolbarCase: toolbar => ApplyToToolbar(bar: toolbar.Bar),
-                menuCase: menu => ApplyToMenu(menu: menu.Target),
-                inputPanelCase: panel => ApplyToPanel(panel: panel.Panel)));
+                state: this,
+                toolbarCase: static (self, toolbar) => self.ApplyToToolbar(bar: toolbar.Bar),
+                menuCase: static (self, menu) => self.ApplyToMenu(menu: menu.Target),
+                inputPanelCase: static (self, panel) => self.ApplyToPanel(panel: panel.Panel)));
 
     private Fin<Unit> ApplyToToolbar(Bar bar) => Switch(
         state: bar,
@@ -796,15 +797,16 @@ public static partial class Input {
                 x: Math.Clamp(value: validLocation.X, min: validScreen.Left, max: validScreen.Right),
                 y: Math.Clamp(value: validLocation.Y, min: validScreen.Top, max: validScreen.Bottom))
             from sub in validContent.Switch(
-                panelCase: c => Optional(c.Populate)
+                state: (validOwner, clamped, validScreen),
+                panelCase: static (s, c) => Optional(c.Populate)
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null populate"))
                     .Bind(valid => {
                         InputPanel panel = new();
-                        return valid(arg: panel).Bind(_ => PopupSubscription(panel: panel, owner: validOwner, location: clamped, screen: validScreen));
+                        return valid(arg: panel).Bind(_ => PopupSubscription(panel: panel, owner: s.validOwner, location: s.clamped, screen: s.validScreen));
                     }),
-                controlContentCase: c => Optional(c.Control)
+                controlContentCase: static (s, c) => Optional(c.Control)
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null control"))
-                    .Bind(control => ControlPopupSubscription(control: control, owner: validOwner, location: clamped)))
+                    .Bind(control => ControlPopupSubscription(control: control, owner: s.validOwner, location: s.clamped)))
             select sub);
 
     private static Fin<Subscription> PopupSubscription(InputPanel panel, Control owner, PointF location, RectangleF screen) {
@@ -944,7 +946,8 @@ public static partial class Input {
             Optional(op)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Transfer)), detail: "transfer op is required"))
                 .Bind(valid => valid.Switch(
-                    clipboardCase: c => Clipboard(op: c.Op).Run(scope: scope).Map(TransferPayload.Of))));
+                    state: scope,
+                    clipboardCase: static (s, c) => Clipboard(op: c.Op).Run(scope: s).Map(TransferPayload.Of))));
 
     public static GrasshopperUiIntent<DragEffects> Drag(Control source, TransferPayload payload, Option<(Image Image, PointF Offset)> dragImage = default) =>
         GhUi.Read(run: _scope =>

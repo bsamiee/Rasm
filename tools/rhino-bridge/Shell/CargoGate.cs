@@ -65,7 +65,7 @@ internal static class HostAssemblyTable {
 // --- [SERVICES] -----------------------------------------------------------------------------
 
 // Ownership: per-swap cargo resolution scope over the assembly ownership table.
-internal sealed class CargoLoadContext(string cargoAssemblyPath, int generation) : AssemblyLoadContext(name: $"Rasm.Bridge.Cargo#{generation}", isCollectible: true) {
+internal sealed class CargoLoadContext(string cargoAssemblyPath, int generation) : AssemblyLoadContext(name: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Rasm.Bridge.Cargo#{generation}"), isCollectible: true) {
     private readonly AssemblyDependencyResolver resolver = new(componentAssemblyPath: cargoAssemblyPath);
     private readonly string stagePath = Path.GetDirectoryName(path: cargoAssemblyPath) ?? ".";
 
@@ -199,7 +199,7 @@ internal sealed class CargoGate : IDisposable {
     }
 
     private static void PublishUnload(UnloadReceipt receipt, Action<BridgeEvent> publish) =>
-        publish(Fact(key: receipt.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked", value: $"gcRetries={receipt.GcRetries} elapsedMs={receipt.ElapsedMs:F0} debugger={receipt.DebuggerAttached}"));
+        publish(Fact(key: receipt.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked", value: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"gcRetries={receipt.GcRetries} elapsedMs={receipt.ElapsedMs:F0} debugger={receipt.DebuggerAttached}")));
 
     private static BridgeEvent.FactCase Fact(string key, string value) =>
         new(Key: key, Value: JsonSerializer.SerializeToElement(value: value, jsonTypeInfo: BridgeJsonContext.Default.String)) { Stamp = default };

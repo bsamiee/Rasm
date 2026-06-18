@@ -2512,6 +2512,9 @@ def test_argv_for_pins_uv_group_project_segments_and_query_passthrough(assay_roo
     assert uv_argv == ("uv", "run", "--locked", "--project", str(settings.root), "--group", "mutation", "ruff", "check"), (
         f"uv argv drifted: {uv_argv!r}"
     )
+    module_tool = Tool("module-argv-law", Runner.MODULE, ("tools.py_analyzer", "check"), Input.NONE, Language.PYTHON, Claim.STATIC)
+    module_argv = assert_ok(argv_for(Check(tool=module_tool), _PY_CHANGED, settings=settings, scope=None))
+    assert module_argv == ("uv", "run", "--locked", "python", "-m", "tools.py_analyzer", "check"), f"module argv drifted: {module_argv!r}"
     direct = msgspec.structs.replace(uv_tool, runner=Runner.DIRECT)
     direct_argv = assert_ok(argv_for(Check(tool=direct), _PY_CHANGED, settings=settings, scope=None))
     assert direct_argv == ("ruff", "check"), f"non-UV runner leaked uv segments: {direct_argv!r}"

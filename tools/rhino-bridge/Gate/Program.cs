@@ -21,7 +21,7 @@ internal static partial class Program {
         try {
             RowBogusBundle();
             RowSigstopDiscrimination(policy);
-            RowKillMidConnect(policy, scratch);
+            RowKillMidConnect(policy);
             RowDeadPidEndpoint();
             RowDeadLeaseReclaim(scratch);
             RowSecondSupervisorBusy(scratch);
@@ -59,7 +59,7 @@ internal static partial class Program {
     private static LiveHost StandIn(int pid) {
         long started = Posix.StartedAtUnixMs(pid).IfNone(0L);
         EndpointRecord endpoint = EndpointRecord.Create(
-            pipeName: $"{EndpointRecord.PipePrefix}gate-{pid}", rhinoPid: pid, rhinoStartedAtUnixMs: started,
+            pipeName: string.Create(CultureInfo.InvariantCulture, $"{EndpointRecord.PipePrefix}gate-{pid}"), rhinoPid: pid, rhinoStartedAtUnixMs: started,
             contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: "gate", fault: "");
         return new LiveHost(Pid: pid, StartedAtUnixMs: started, Endpoint: endpoint, Fingerprint: default);
     }
@@ -110,7 +110,7 @@ internal static partial class Program {
     }
 
     // Mid-connect host exit and connect deadline remain separate launch/connect failures.
-    private static void RowKillMidConnect(SessionPolicy policy, string scratch) {
+    private static void RowKillMidConnect(SessionPolicy policy) {
         int child = Spawn();
         LiveHost host = StandIn(child);
         SessionSignal? seen = null;
@@ -446,7 +446,7 @@ internal static partial class Program {
     private static LiveHost RealHost(int pid, BundleInfo bundle) {
         long started = Posix.StartedAtUnixMs(pid).IfNone(0L);
         EndpointRecord endpoint = EndpointRecord.Create(
-            pipeName: $"{EndpointRecord.PipePrefix}live-{pid}", rhinoPid: pid, rhinoStartedAtUnixMs: started,
+            pipeName: string.Create(CultureInfo.InvariantCulture, $"{EndpointRecord.PipePrefix}live-{pid}"), rhinoPid: pid, rhinoStartedAtUnixMs: started,
             contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: bundle.CFBundleVersion, fault: "");
         return new LiveHost(Pid: pid, StartedAtUnixMs: started, Endpoint: endpoint, Fingerprint: default);
     }

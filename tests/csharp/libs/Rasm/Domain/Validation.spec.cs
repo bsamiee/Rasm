@@ -7,7 +7,7 @@ namespace Rasm.Tests.Domain;
 // --- [MODELS] ----------------------------------------------------------------------------
 internal static class ValidationGens {
     public static readonly Op Key = Op.Of(name: "validation-test");
-    public static readonly Gen<string> Token = Gen.Int[start: 1, finish: 100_000].Select(static value => $"token-{value}");
+    public static readonly Gen<string> Token = Gen.Int[start: 1, finish: 100_000].Select(static value => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"token-{value}"));
     public static readonly (Error Error, string Category)[] FaultRows = [
         (new Fault.MissingOperation(), "Operation"),
         (Key.MissingContext(), "Operation"),

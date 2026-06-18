@@ -3838,7 +3838,7 @@ internal static class MeshKernel {
                 double rx = tx - ox; double ry = ty - oy;
                 return ((rx * cx) + (ry * cy), (-rx * cy) + (ry * cx), face);
             }
-            (int exitLocal, _, _) = RayExitOfFace(px: px, py: py, qx: tx, qy: ty, dx: SourceImageDirX(imesh, field, vid, px, py, tx, ty), dy: SourceImageDirY(imesh, field, vid, px, py, tx, ty));
+            (int exitLocal, _, _) = RayExitOfFace(px: px, py: py, qx: tx, qy: ty, dx: SourceImageDirX(imesh, field, vid, px, py, tx), dy: SourceImageDirY(imesh, field, vid, px, py, ty));
             if (exitLocal < 0) return None;
             int ea = vid[exitLocal]; int eb = vid[(exitLocal + 1) % 3];
             int across = imesh.FaceAcrossEdge(faceIdx: face, i: ea, j: eb);
@@ -3848,9 +3848,9 @@ internal static class MeshKernel {
         }
         return None;
     }
-    private static double SourceImageDirX(IntrinsicMesh imesh, WindowField field, int[] vid, double[] px, double[] py, double tx, double ty) =>
+    private static double SourceImageDirX(IntrinsicMesh imesh, WindowField field, int[] vid, double[] px, double[] py, double tx) =>
         StripSourceImage(imesh, field, vid, px, py).Map(s => s.Ix - tx).IfNone(noneValue: 0.0);
-    private static double SourceImageDirY(IntrinsicMesh imesh, WindowField field, int[] vid, double[] px, double[] py, double tx, double ty) =>
+    private static double SourceImageDirY(IntrinsicMesh imesh, WindowField field, int[] vid, double[] px, double[] py, double ty) =>
         StripSourceImage(imesh, field, vid, px, py).Map(s => s.Iy - ty).IfNone(noneValue: 0.0);
     // Reconstruct the source image inside one strip face from the cheapest shadow-covering window over its three edges, projecting
     // the pseudosource by the forward ProjectPseudosource (sy<=0) into the laid-out edge frame and offsetting by sy on the interior

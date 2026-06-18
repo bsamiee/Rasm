@@ -275,7 +275,7 @@ public sealed record CommandInputPolicy {
         };
     // Text-literal and TransparentCommands are mutually exclusive on one get; construction drops TransparentCommands when Text is requested so the conflicting policy is unrepresentable downstream.
     public static CommandInputPolicy Accept(CommandInputAccept modes, bool acceptZero = true) {
-        CommandInputAccept admitted = (modes & CommandInputAccept.Text) == CommandInputAccept.Text
+        CommandInputAccept admitted = modes.HasFlag(CommandInputAccept.Text)
             ? modes & ~CommandInputAccept.TransparentCommands
             : modes;
         return toSeq(new (CommandInputAccept Mode, Action<GetBaseClass> Apply)[] {
@@ -809,7 +809,7 @@ public static class CommandInputs {
                     _ = Apply(pointEvent: new CommandPointEvent(Phase: phase, Document: document, Getter: getter, Payload: project(arg: args), Gumball: gumball));
                     return Fin.Succ(value: unit);
                 });
-            bool postDraw = (activePhases & CommandPointEventPhase.PostDrawObjects) == CommandPointEventPhase.PostDrawObjects;
+            bool postDraw = activePhases.HasFlag(CommandPointEventPhase.PostDrawObjects);
             getter.FullFrameRedrawDuringGet = postDraw;
             return Fin.Succ(value:
                 Sub<GetPointMouseEventArgs>(h => getter.MouseMove += h, h => getter.MouseMove -= h, CommandPointEventPhase.MouseMove, static args => new CommandPointPayload.Mouse(Value: args))

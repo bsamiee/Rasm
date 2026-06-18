@@ -228,7 +228,7 @@ public readonly record struct CaptureRecipe(
         Op op) {
         CaptureRecipe self = this;
         return from activeView in op.Need(view)
-               from validRewrite in self.Rewrite(op: op)
+               from validRewrite in self.Rewrite()
                from dpi in op.Positive(value: self.Dpi.IfNone(self.policy.FallbackDpi.IfNone(DefaultScreenDpi)))
                from result in UI.RhinoUi.Protect(valid: () => {
                    ViewCaptureSettings? settings = null;
@@ -249,7 +249,7 @@ public readonly record struct CaptureRecipe(
         Op op) {
         CaptureRecipe self = this;
         return from activeView in op.Need(view)
-               from validRewrite in self.Rewrite(op: op)
+               from validRewrite in self.Rewrite()
                from dpi in op.Positive(value: self.Dpi.IfNone(self.policy.FallbackDpi.IfNone(DefaultScreenDpi)))
                from opened in UI.RhinoUi.Protect(valid: () => {
                    ViewCaptureSettings? settings = null;
@@ -275,7 +275,7 @@ public readonly record struct CaptureRecipe(
         CaptureRecipe self = this;
         return op.Need(view).Bind(activeView =>
             op.Need(settings).Bind(activeSettings =>
-                self.Rewrite(op: op).Bind(validRewrite => {
+                self.Rewrite().Bind(validRewrite => {
                     CaptureDecor decor = validRewrite(arg1: self.Decor.IfNone(self.policy.FallbackDecor.IfNone(DefaultScreenDecor)), arg2: activeView);
                     return AcceptTransparent(view: activeView, decor: decor, op: op)
                         .Bind(_ => UI.RhinoUi.Protect(valid: () => Optional(new ViewCapture {
@@ -325,7 +325,7 @@ public readonly record struct CaptureRecipe(
             .Bind(_ => settings.IsValid ? Fin.Succ(value: decor) : Fin.Fail<CaptureDecor>(error: op.InvalidResult()));
     }
 
-    private Fin<Func<CaptureDecor, RhinoView, CaptureDecor>> Rewrite(Op op) =>
+    private Fin<Func<CaptureDecor, RhinoView, CaptureDecor>> Rewrite() =>
         Fin.Succ(value: policy.DecorRewrite.IfNone(static () => static (decor, _) => decor));
 
     private static Fin<Unit> AcceptTransparent(RhinoView view, CaptureDecor decor, Op op) =>

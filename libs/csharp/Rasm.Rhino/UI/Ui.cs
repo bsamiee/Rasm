@@ -244,9 +244,10 @@ public sealed class UiProgress : IDisposable {
         return disposed switch {
             true => Fin.Fail<int>(error: Op.Of().InvalidInput()),
             false => state.Switch(
-                created: c => Owned(serial: c.Serial),
-                foreign: static _ => Fin.Succ(value: 0),   // borrowed meter — no-op, not failure
-                refused: static _ => Fin.Fail<int>(error: Op.Of().InvalidResult())),
+                state: Owned,
+                created: static (owned, c) => owned(arg: c.Serial),
+                foreign: static (_, _) => Fin.Succ(value: 0),   // borrowed meter — no-op, not failure
+                refused: static (_, _) => Fin.Fail<int>(error: Op.Of().InvalidResult())),
         };
     }
 

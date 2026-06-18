@@ -83,13 +83,14 @@ public sealed partial class WireTraversal {
 
     private static IEnumerable<IDocumentObject> Walk(GhObjectList objects, GraphKey key, bool up, bool immediate) =>
         key.Switch(
-            parameterCase: p => Optional(objects.FindParameter(instanceId: p.Id))
-                .Map(param => immediate
-                    ? WalkImmediateParameter(objects: objects, parameter: param, up: up)
-                    : up ? objects.SearchUpstream(parameter: param) : objects.SearchDownstream(parameter: param))
+            state: (objects, up, immediate),
+            parameterCase: static (s, p) => Optional(s.objects.FindParameter(instanceId: p.Id))
+                .Map(param => s.immediate
+                    ? WalkImmediateParameter(objects: s.objects, parameter: param, up: s.up)
+                    : s.up ? s.objects.SearchUpstream(parameter: param) : s.objects.SearchDownstream(parameter: param))
                 .IfNone(noneValue: []),
-            ownerCase: o => OwnerWalk(connectivity: objects.Connectivity, id: o.Id, up: up, immediate: immediate)
-                .Select(co => objects.Find(instanceId: co.Id))
+            ownerCase: static (s, o) => OwnerWalk(connectivity: s.objects.Connectivity, id: o.Id, up: s.up, immediate: s.immediate)
+                .Select(co => s.objects.Find(instanceId: co.Id))
                 .OfType<IDocumentObject>());
 
     // The (up, immediate) quadrant selects the connectivity fetcher; mirrors RewireMode.Of's discard-last idiom.
@@ -1726,8 +1727,9 @@ internal static partial class Wire {
         Seq<WireSnapshot.ConnectedCase> all = SafeWires(source: AllWireEnds(objects: objects), objects: objects, document: Some(document));
         // GraphKey discriminates keying: parameter-keyed requires BOTH endpoints visited; owner-keyed requires EITHER.
         (Seq<Guid> visited, Func<WireSnapshot.ConnectedCase, bool> connects) = anchor.Switch(
-            parameterCase: p => VisitedWith(seed: p.Id, ids: walked.Choose(static obj => Optional(obj as IParameter)).Map(static x => x.InstanceId), bothEndpoints: true),
-            ownerCase: o => VisitedWith(seed: o.Id, ids: walked.Map(static obj => obj.InstanceId), bothEndpoints: false));
+            state: walked,
+            parameterCase: static (w, p) => VisitedWith(seed: p.Id, ids: w.Choose(static obj => Optional(obj as IParameter)).Map(static x => x.InstanceId), bothEndpoints: true),
+            ownerCase: static (w, o) => VisitedWith(seed: o.Id, ids: w.Map(static obj => obj.InstanceId), bothEndpoints: false));
         return new WireGraph(Wires: all.Filter(connects), Visited: visited);
     }
 

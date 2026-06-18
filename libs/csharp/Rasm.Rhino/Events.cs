@@ -168,7 +168,7 @@ public sealed partial class WatchPhase {
                 (Admit(eventDoc: a.RhinoDoc, target: target).IsSome
                     ? Optional(a.Viewport).Bind(vp => Advanced(seen: seen, id: vp.Id, counter: vp.ChangeCounter, document: Optional(a.RhinoDoc), target: target))
                     : Option<WatchEnvelope>.None)
-                .Case switch { WatchEnvelope payload => deliver(arg: payload), _ => Fin.Succ(value: unit) });
+                .Case switch { WatchEnvelope payload => deliver(arg: payload), _ => Fin.Succ(value: unit), });
         };
 
     // DrawForeground/DrawOverlay fire on the display-pipeline thread, not the UI thread. The sink MUST NOT call RhinoUi.Protect

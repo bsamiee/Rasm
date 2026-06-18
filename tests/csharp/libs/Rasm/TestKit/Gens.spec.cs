@@ -18,7 +18,7 @@ public sealed class GeneratorLaws {
         Spec.ForAll(Gens.UnitInterior, value =>
             Spec.Holds(
                 condition: RhinoMath.IsValidDouble(x: value) && value > 0.0 && value < 1.0,
-                label: $"UnitInterior emitted boundary/non-finite value {value:R}"));
+                label: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"UnitInterior emitted boundary/non-finite value {value:R}")));
 
     [Fact]
     public void SimplexConservesMassAndRejectsNegativeComponents() =>

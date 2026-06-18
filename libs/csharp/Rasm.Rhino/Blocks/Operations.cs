@@ -148,7 +148,7 @@ internal static class ContentIndex {
         DefinitionId.FromOption(value: defId)
             .Bind(id => Optional(doc.InstanceDefinitions.Find(
                     instanceId: id.Value, ignoreDeletedInstanceDefinitions: true))
-                .Bind(active => HashEntry(doc: doc, active: active)))
+                .Bind(active => HashEntry(active: active)))
             .Iter(entry => {
                 _ = RemoveDefinition(serial: doc.RuntimeSerialNumber, defId: entry.Value);
                 _ = RegisterIfMissing(doc: doc, hash: BlockContentHash.Create(value: entry.Key), defId: entry.Value);
@@ -185,12 +185,12 @@ internal static class ContentIndex {
 
     private static HashMap<ulong, Seq<DefinitionId>> FoldHashIndex(RhinoDoc doc) =>
         Definition.List(table: doc.InstanceDefinitions)
-            .Choose(d => HashEntry(doc: doc, active: d))
+            .Choose(HashEntry)
             .Fold(HashMap<ulong, Seq<DefinitionId>>(), static (m, kv) => m.AddOrUpdate(
                 key: kv.Key,
                 value: m.Find(key: kv.Key).IfNone(noneValue: Seq<DefinitionId>()).Add(value: kv.Value).Distinct()));
 
-    private static Option<(ulong Key, DefinitionId Value)> HashEntry(RhinoDoc doc, InstanceDefinition active) =>
+    private static Option<(ulong Key, DefinitionId Value)> HashEntry(InstanceDefinition active) =>
         DefinitionId.FromOption(value: active.Id)
             .Bind(id => Operations.ReifyDefinitionMembers(definition: active, key: Op.Of(name: nameof(ContentIndex))).ToOption()
                 .Bind(provided => Op.Of(name: nameof(ContentIndex)).Catch(() => Fin.Succ(value: BlockContentHash.Of(members: provided).Value)).ToOption()
@@ -233,7 +233,7 @@ internal static partial class Operations {
             snapshot: static (owner, x) => OutcomePlan(name: nameof(BlockOp.Snapshot), ui: false, body: k => PerformSnapshot(owner: owner, refer: x.Ref, key: k)),
             duplicate: static (owner, x) => MutPlan(name: nameof(BlockOp.Duplicate), ui: true, body: k => PerformDuplicate(owner: owner, refer: x.Ref, name: x.Name, conflict: x.Conflict ?? ConflictPolicy.Rename, key: k)),
             graph: static (owner, x) => OutcomePlan(name: nameof(BlockOp.Graph), ui: false, body: k => PerformGraph(owner: owner, query: x.Query, key: k)),
-            adoptContent: static (owner, _) => OutcomePlan(name: nameof(BlockOp.AdoptContent), ui: false, body: k => PerformAdoptContent(owner: owner, key: k)),
+            adoptContent: static (owner, _) => OutcomePlan(name: nameof(BlockOp.AdoptContent), ui: false, body: k => PerformAdoptContent(owner: owner)),
             preview: static (owner, x) => OutcomePlan(name: nameof(BlockOp.Preview), ui: false, body: k => PerformPreview(owner: owner, refer: x.Ref, spec: x.Spec, key: k)),
             attributes: static (owner, x) => AttributePlan(owner: owner, task: x.Task));
 
@@ -244,9 +244,9 @@ internal static partial class Operations {
             replaceDefinition: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.ReplaceDefinition), ui: true, body: k => PerformReplaceDefinition(owner: owner, instanceId: x.InstanceId, newRef: x.NewRef, oldRef: x.OldRef, basePoint: x.BasePoint ?? BasePointPolicy.Default, key: k)),
             transform: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.Transform), ui: true, body: k => PerformTransformInstance(owner: owner, instanceId: x.InstanceId, xform: x.Xform, mode: x.Mode ?? TransformPolicy.Copy, key: k)),
             explode: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.Explode), ui: true, body: k => PerformExplodeIntoDocument(owner: owner, instanceId: x.InstanceId, policy: x.Policy, key: k)),
-            inspect: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.Inspect), ui: false, body: k => PerformExplodeInspect(owner: owner, instanceId: x.InstanceId, policy: x.Policy, key: k)),
+            inspect: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.Inspect), ui: false, body: k => PerformExplodeInspect(owner: owner, instanceId: x.InstanceId, key: k)),
             subObject: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.SubObject), ui: false, body: k => PerformUseSubObject(owner: owner, instanceId: x.InstanceId, component: x.Component, key: k)),
-            selectedPart: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.SelectedPart), ui: false, body: k => PerformSelectedPart(owner: owner, refer: x.Ref, key: k)),
+            selectedPart: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.SelectedPart), ui: false, body: k => PerformSelectedPart(refer: x.Ref, key: k)),
             flatten: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.Flatten), ui: false, body: k => PerformFlatten(owner: owner, instanceId: x.InstanceId, policy: x.Policy, key: k)),
             bounds: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.Bounds), ui: false, body: k => PerformBounds(owner: owner, refer: x.Ref, policy: x.Policy ?? BoundsPolicy.Default, key: k)));
 
@@ -602,7 +602,7 @@ internal static partial class Operations {
                     .List(table: owner.Document.InstanceDefinitions)
                     .Filter(d => d?.Name?.StartsWith(value: p.Value, comparisonType: StringComparison.OrdinalIgnoreCase) ?? false)
                     .Choose(d => owner.Document.InstanceDefinitions.Purge(idefIndex: d.Index)
-                        ? Some(value: DocumentResourceKind.Block.Change(name: $"<purged:{d.Index}>"))
+                        ? Some(value: DocumentResourceKind.Block.Change(name: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"<purged:{d.Index}>")))
                         : Option<DocumentResourceChange>.None);
                 _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
                 return Fin.Succ(value: MutationReceipt.Resources(changes: changes));
@@ -610,7 +610,7 @@ internal static partial class Operations {
             _ => key.Catch(() => {
                 int purged = owner.Document.InstanceDefinitions.PurgeUnused();
                 _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
-                return Fin.Succ(value: MutationReceipt.Named(name: $"<purged:{purged}>"));
+                return Fin.Succ(value: MutationReceipt.Named(name: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"<purged:{purged}>")));
             }),
         };
 
@@ -821,7 +821,7 @@ internal static partial class Operations {
                 .Map(visit => new Member(DefId: defId, MemberId: visit.ObjectId, Attrs: Optional(visit.Attributes))),
         };
 
-    private static Fin<BlockOutcome> PerformExplodeInspect(RhinoBlocks owner, Guid instanceId, ExplodePolicy policy, Op key) =>
+    private static Fin<BlockOutcome> PerformExplodeInspect(RhinoBlocks owner, Guid instanceId, Op key) =>
         from instance in AsInstance(objects: owner.Document.Objects, instanceId: instanceId, key: key)
         from live in Optional(instance.InstanceDefinition).ToFin(Fail: key.InvalidResult())
         from defId in DefinitionId.From(value: live.Id, key: key)
@@ -841,7 +841,7 @@ internal static partial class Operations {
                 Composed: instance.InstanceXform,
                 Path: [defId])));
 
-    private static Fin<BlockOutcome> PerformSelectedPart(RhinoBlocks owner, ObjRef refer, Op key) =>
+    private static Fin<BlockOutcome> PerformSelectedPart(ObjRef refer, Op key) =>
         from instance in Optional(refer.Object() as InstanceObject).ToFin(Fail: key.InvalidInput())
         from definition in Optional(instance.InstanceDefinition).ToFin(Fail: key.InvalidResult())
         from member in Optional(refer.InstanceDefinitionPart()).Filter(static part => part.Attributes.IsInstanceDefinitionObject).ToFin(Fail: key.InvalidResult())
@@ -1409,7 +1409,7 @@ internal static partial class Operations {
                     }))),
         };
 
-    private static Fin<BlockOutcome> PerformAdoptContent(RhinoBlocks owner, Op key) =>
+    private static Fin<BlockOutcome> PerformAdoptContent(RhinoBlocks owner) =>
         Fin.Succ(value: (BlockOutcome)new BlockOutcome.Adopted(Count: ContentIndex.Adopt(doc: owner.Document)));
 
     private static Fin<BlockOutcome> PerformPreview(RhinoBlocks owner, DefinitionRef refer, PreviewSpec spec, Op key) =>

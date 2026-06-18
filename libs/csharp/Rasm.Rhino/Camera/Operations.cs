@@ -71,7 +71,7 @@ public sealed partial class StackVerb {
         Op.Side(() => vp.PushConstructionPlane(cplane: plane.Case switch {
             ConstructionPlane cplane => cplane,
             _ => vp.GetConstructionPlane(),
-        })) switch { _ => true });
+        })) switch { _ => true, });
     public static readonly StackVerb CPlanePop = new(key: 5, apply: static (vp, _) => vp.PopConstructionPlane());
     public static readonly StackVerb CPlaneNext = new(key: 6, apply: static (vp, _) => vp.NextConstructionPlane());
     public static readonly StackVerb CPlanePrevious = new(key: 7, apply: static (vp, _) => vp.PreviousConstructionPlane());

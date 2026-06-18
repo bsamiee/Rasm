@@ -142,7 +142,7 @@ public sealed class PointPairsAlgebraLaws {
                 Assert.Equal(expected: rows.Sum(static ids => ids.Length), actual: pairs.Count);
                 _ = toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: pairs.Count - 1))).Iter(i =>
                     Spec.Holds(condition: (pairs[index: i - 1].A, pairs[index: i - 1].B).CompareTo((pairs[index: i].A, pairs[index: i].B)) <= 0,
-                        label: $"PointPairs unsorted at {i}: {pairs[index: i - 1]} > {pairs[index: i]}"));
+                        label: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"PointPairs unsorted at {i}: {pairs[index: i - 1]} > {pairs[index: i]}")));
             }));
     [Fact]
     public void NullSourceCollapsesToResultFault() =>

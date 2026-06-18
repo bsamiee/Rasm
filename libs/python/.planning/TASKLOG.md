@@ -5,7 +5,7 @@ The cross-package Python work, distilled from `IDEAS.md`: tasks that couple two 
 ## [1]-[OPEN]
 
 [BLOCKED] Admit the companion environment floor — from the branch interpreter floor.
-- Admit the `python_version<'3.13'` companion environment in the one root `pyproject.toml` (a `tool.uv.environments` fork or a dedicated companion lock beside the `>=3.15` core) so `assay api` reflects the companion-floor distributions and the geometry daemon and runtime server-host owners resolve their members.
+- Admit the `python_version<'3.13'` companion environment as a dedicated companion project/lock beside the `>=3.15` core so `assay api` reflects the companion-floor distributions and the geometry daemon and runtime server-host owners resolve their members.
 - Integrate `uv` (the environment fork and locked restore), and unblock `grpcio`/`grpcio-tools`/`protobuf` (runtime server-host), `ifcopenshell`/`open3d`/`small-gicp`/`topologicpy`/`compas` (geometry cores), `pythonocc-core`/`manifold3d` (the geometry CAD-STEP and mesh-utility), and `vtk`/`pyvista` (artifacts native render).
 - This is the single branch-altitude environment gate every companion-floor owner waits on; it touches no package interior, only the manifest and lock, and the per-package floor gates (`geometry`, `runtime`, `artifacts`) reference it rather than re-deciding it.
 - The two-distribution split — a core `>=3.15` project shipping an installable wheel and an isolated companion project registering the daemon console entry under its lowered floor — is the packaging consequence resolved with this gate; until it lands every companion-floor task across `geometry`, `runtime`, and `artifacts` stays blocked.

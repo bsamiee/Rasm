@@ -201,7 +201,7 @@ public readonly record struct FileArchiveDiff(
     // structural delta of two archives' resource graphs; changed = same key, different entry value.
     internal static FileArchiveDiff Of(Seq<FileResourceEntry> before, Seq<FileResourceEntry> after) {
         // id-first so duplicate kind+name resources with distinct ids stay distinct slots; kind:name only when no id exists.
-        static string Key(FileResourceEntry entry) => entry.Id.Map(static id => id.ToString()).IfNone($"{entry.Kind}:{entry.Name.IfNone(string.Empty)}");
+        static string Key(FileResourceEntry entry) => entry.Id.Map(static id => id.ToString()).IfNone(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{entry.Kind}:{entry.Name.IfNone(string.Empty)}"));
         // why: Source (free-text provenance tag) and Count (manifest volume) are non-structural drift, excluded so a re-read-path or count-delta yields no spurious Changed entry.
         static bool StructurallyEqual(FileResourceEntry a, FileResourceEntry b) =>
             a.Kind == b.Kind && a.Name == b.Name && a.Path == b.Path && a.Id == b.Id
@@ -504,10 +504,10 @@ internal static class FileArchiveOps {
                 from layouts in Fin.Succ(value: (projection & (FileArchiveProjection.Metadata | FileArchiveProjection.Graph)) != FileArchiveProjection.None
                     ? ReadLayouts(source: source)
                     : Seq<(string Name, Guid Id)>())
-                from metadata in (projection & FileArchiveProjection.Metadata) != FileArchiveProjection.None
+                from metadata in projection.HasFlag(FileArchiveProjection.Metadata)
                     ? Metadata(source: source, model: model, layouts: layouts)
                     : Fin.Succ(value: default(FileArchiveMetadata))
-                from resources in (projection & FileArchiveProjection.Graph) != FileArchiveProjection.None
+                from resources in projection.HasFlag(FileArchiveProjection.Graph)
                     ? Resources(model: model, source: source, layouts: layouts)
                     : Fin.Succ(value: (Graph: default(FileResourceGraph), Issues: Seq<FileIssue>()))
                 select (
@@ -515,9 +515,8 @@ internal static class FileArchiveOps {
                         Source: source,
                         Metadata: metadata,
                         Resources: resources.Graph,
-                        Objects: (projection & FileArchiveProjection.Objects) != FileArchiveProjection.None
+                        Objects: projection.HasFlag(FileArchiveProjection.Objects)
                             ? Objects(
-                                model: model,
                                 objects: Rows(() => model.Objects),
                                 layers: Rows(() => model.AllLayers),
                                 materials: Rows(() => model.AllMaterials)).Strict()
@@ -704,7 +703,7 @@ internal static class FileArchiveOps {
             ? Seq<FileIssue>()
             : Seq(FileIssue.Native(message: "File3dm.ReadPageViews requires a file path; byte archive layout manifests and page-view counts are unavailable through public RhinoCommon.")));
 
-    private static Seq<FileObjectManifest> Objects(File3dmModel model, Seq<File3dmObject> objects, Seq<Layer> layers, Seq<Material> materials) {
+    private static Seq<FileObjectManifest> Objects(Seq<File3dmObject> objects, Seq<Layer> layers, Seq<Material> materials) {
         HashMap<int, Layer> layerIndex = ComponentIndex(source: layers);
         HashMap<int, Material> materialIndex = ComponentIndex(source: materials);
         return objects.Map(fileObject => {

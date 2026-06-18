@@ -622,7 +622,7 @@ internal static class Interaction {
     internal static CanvasChromePlan Plan(InteractionOp op) =>
         op.Switch(
             pushCase: static p => CanvasChromePlan.SubscriptionOf(intent: Push(p.Target)),
-            registerCase: static r => CanvasChromePlan.SubscriptionOf(intent: Register(r.Responsive, r.System)),
+            registerCase: static r => CanvasChromePlan.SubscriptionOf(intent: Register(r.Responsive)),
             hoverCase: static h => CanvasChromePlan.SubscriptionOf(intent: Hover(h.Delay, h.Handler)),
             contextMenuCase: static c => CanvasChromePlan.SubscriptionOf(intent: ContextMenu(c.Handler)),
             resizeCase: static r => CanvasChromePlan.SubscriptionOf(intent: Resize(r.Target, r.Snap, r.Decide)),
@@ -641,7 +641,7 @@ internal static class Interaction {
                 marshalToUi: true)
             select sub);
 
-    internal static GrasshopperUiIntent<Subscription> Register(IResponsive responsive, CoordinateSystem system) =>
+    internal static GrasshopperUiIntent<Subscription> Register(IResponsive responsive) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(responsive).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Register)), detail: "responsive is required"))

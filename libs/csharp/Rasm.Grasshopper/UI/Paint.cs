@@ -247,9 +247,9 @@ public readonly partial struct PaintStyle {
         float miterLimitValue = miterLimit;
         float dashOffsetValue = dashOffset;
         Fin<Unit> valid =
-            from t in op.AcceptFinite(value: thicknessValue, detail: $"Thickness must be finite and >= 0 (got {thicknessValue:R}).", nonNegative: true)
-            from d in op.AcceptFinite(value: dashOffsetValue, detail: $"DashOffset must be finite (got {dashOffsetValue:R}).")
-            from m in op.AcceptFinite(value: miterLimitValue, detail: $"MiterLimit must be finite and >= 1 (got {miterLimitValue:R}).", min: 1f)
+            from t in op.AcceptFinite(value: thicknessValue, detail: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Thickness must be finite and >= 0 (got {thicknessValue:R})."), nonNegative: true)
+            from d in op.AcceptFinite(value: dashOffsetValue, detail: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"DashOffset must be finite (got {dashOffsetValue:R})."))
+            from m in op.AcceptFinite(value: miterLimitValue, detail: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"MiterLimit must be finite and >= 1 (got {miterLimitValue:R})."), min: 1f)
             select unit;
         UiFault? fault = null;
         _ = valid.IfFail(err => { fault = (UiFault)err; return unit; });
@@ -427,10 +427,10 @@ public readonly partial struct CornerRadii {
         float bottomRightValue = bottomRight;
         float bottomLeftValue = bottomLeft;
         Fin<Unit> valid =
-            from tl in op.AcceptFinite(value: topLeftValue, detail: $"TopLeft must be finite and >= 0 (got {topLeftValue:R}).", nonNegative: true)
-            from tr in op.AcceptFinite(value: topRightValue, detail: $"TopRight must be finite and >= 0 (got {topRightValue:R}).", nonNegative: true)
-            from br in op.AcceptFinite(value: bottomRightValue, detail: $"BottomRight must be finite and >= 0 (got {bottomRightValue:R}).", nonNegative: true)
-            from bl in op.AcceptFinite(value: bottomLeftValue, detail: $"BottomLeft must be finite and >= 0 (got {bottomLeftValue:R}).", nonNegative: true)
+            from tl in op.AcceptFinite(value: topLeftValue, detail: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"TopLeft must be finite and >= 0 (got {topLeftValue:R})."), nonNegative: true)
+            from tr in op.AcceptFinite(value: topRightValue, detail: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"TopRight must be finite and >= 0 (got {topRightValue:R})."), nonNegative: true)
+            from br in op.AcceptFinite(value: bottomRightValue, detail: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"BottomRight must be finite and >= 0 (got {bottomRightValue:R})."), nonNegative: true)
+            from bl in op.AcceptFinite(value: bottomLeftValue, detail: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"BottomLeft must be finite and >= 0 (got {bottomLeftValue:R})."), nonNegative: true)
             select unit;
         UiFault? fault = null;
         _ = valid.IfFail(err => { fault = (UiFault)err; return unit; });

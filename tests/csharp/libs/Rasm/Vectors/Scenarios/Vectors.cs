@@ -202,7 +202,7 @@ internal static class VectorsScenarios {
         let directionFact = Note(ctx: ctx, key: "direction", value: Text(value: x.Value))
         let axisFact = Note(ctx: ctx, key: "axis.x", value: Text(value: axisX))
         let frameFact = Note(ctx: ctx, key: "frame.z", value: Text(value: frame.ZAxis))
-        let componentsFact = Note(ctx: ctx, key: "components", value: $"{components.ComponentX:R},{components.ComponentY:R}")
+        let componentsFact = Note(ctx: ctx, key: "components", value: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{components.ComponentX:R},{components.ComponentY:R}"))
         let coneFact = Note(ctx: ctx, key: "cone.axis", value: Text(value: coneAxis))
         let angleFact = Note(ctx: ctx, key: "angle.frameAccepted", value: angleFrameAccepted)
         let contourFact = Note(ctx: ctx, key: "contourPlaneAccepted", value: contourPlaneAccepted)

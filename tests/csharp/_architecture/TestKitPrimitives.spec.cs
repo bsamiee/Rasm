@@ -115,9 +115,9 @@ public sealed class TestKitPrimitiveLaws {
     [Law(typeof(Shape<>), "seam-shape-switch")]
     public void ShapeSwitchDispatchesEveryCase() {
         static string Render(Shape<int> shape) => shape.Switch(
-            sync: static s => $"sync:{s.Value}",
-            async: static s => $"async:{s.Value}",
-            fanOut: static s => $"fan:{s.Values.Count}",
+            sync: static s => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"sync:{s.Value}"),
+            async: static s => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"async:{s.Value}"),
+            fanOut: static s => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"fan:{s.Values.Count}"),
             factory: static s => $"factory:{s.InnerLabel}");
         Assert.Equal(expected: "sync:1", actual: Render(new Shape<int>.Sync(Value: 1)));
         Assert.Equal(expected: "async:2", actual: Render(new Shape<int>.Async(Value: 2)));
@@ -176,7 +176,7 @@ public sealed class TestKitPrimitiveLaws {
     private static GenOperation<Atom<int>, Atom<int>> TrackedAdd() =>
         GenOperation.Create(
             gen: Gen.Int[1, 10],
-            name: static (int delta) => $"add({delta})",
+            name: static (int delta) => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"add({delta})"),
             actual: static (Atom<int> actual, int delta) => _ = actual.Swap(state => state + delta),
             model: static (Atom<int> model, int delta) => _ = model.Swap(state => state + delta));
 }

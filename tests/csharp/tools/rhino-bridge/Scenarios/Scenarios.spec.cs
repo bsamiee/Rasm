@@ -60,7 +60,7 @@ public sealed class ExpectLaws {
         Spec.ForAll(gen: EvidenceGens.Projection, property: static input => {
             List<(string Key, object? Value)> log = [];
             ScenarioContext ctx = EvidenceGens.Context(log: log);
-            string message = $"broken-{input.Payload}";
+            string message = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"broken-{input.Payload}");
             Spec.Fail(result: ctx.Expect(label: input.Label, projection: Fin.Fail<int>(error: Error.New(message: message))), then: error =>
                 Assert.Equal(expected: message, actual: error.Message));
             (string key, object? facted) = Assert.Single(collection: log);

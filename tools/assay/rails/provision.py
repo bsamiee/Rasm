@@ -79,6 +79,33 @@ def status(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionPara
     return _run(settings, scope, "status", (_stack("status"),))
 
 
+def doctor(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+    """Diagnose Docker, Colima, path, and port readiness through Forge.
+
+    Returns:
+        Provision report, or a provisioning fault.
+    """
+    return _run(settings, scope, "doctor", (_stack("doctor"),))
+
+
+def ports(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+    """Report configured provisioning host ports and current listeners.
+
+    Returns:
+        Provision report, or a provisioning fault.
+    """
+    return _run(settings, scope, "ports", (_stack("ports"),))
+
+
+def plan(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+    """Render the Forge compose plan without writing provisioning assets.
+
+    Returns:
+        Provision report, or a provisioning fault.
+    """
+    return _run(settings, scope, "plan", (_stack("plan"),))
+
+
 def env(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
     """Emit generated paths and DSNs for the provisioning services.
 
@@ -104,4 +131,4 @@ def verify(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionPara
     return _run(settings, scope, "verify", probes)
 
 
-__all__ = ["ProvisionParams", "down", "env", "status", "up", "verify"]
+__all__ = ["ProvisionParams", "doctor", "down", "env", "plan", "ports", "status", "up", "verify"]

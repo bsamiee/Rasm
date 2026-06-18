@@ -505,7 +505,7 @@ internal static partial class UiRail {
                     from document in scope.NeedDocument()
                     from objects in scope.NeedObjects()
                     select (CanvasResult)new CanvasResult.SnapshotResult(
-                        Snapshot: SnapshotOf(scope: scope, canvas: canvas, document: document, objects: objects))),
+                        Snapshot: SnapshotOf(scope: scope, canvas: canvas, document: document))),
             pickCase: static p => GhUi.Document(run: scope =>
                 Op.Of(name: nameof(CanvasOp.Pick)).AcceptPoint(value: p.Point, detail: "non-finite point")
                     .Bind(valid => PickAt(scope: scope, point: valid, source: p.Source, policy: p.Policy, tolerance: p.Tolerance)
@@ -547,7 +547,7 @@ internal static partial class UiRail {
                     return Optional(policy)
                         .Filter(static p => p.Width > 0)
                         .Filter(p => p.Width <= limit && p.Height > 0 && p.Height <= limit)
-                        .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: $"dimensions out of [1, {limit}]"))
+                        .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: string.Create(CultureInfo.InvariantCulture, $"dimensions out of [1, {limit}]")))
                         .Bind(valid =>
                             from frame in RenderBitmap(canvas: canvas, policy: valid)
                             from encoded in EncodeBitmap(
@@ -584,12 +584,12 @@ internal static partial class UiRail {
                             body: () => objs.WindowSelect(
                                 window: selection,
                                 mode: ws.Mode.Gh,
-                                considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
-                                considerBackground: (ws.Scope & CanvasWindowScope.Background) == CanvasWindowScope.Background,
-                                considerWires: (ws.Scope & CanvasWindowScope.Wires) == CanvasWindowScope.Wires),
+                                considerForeground: ws.Scope.HasFlag(CanvasWindowScope.Objects),
+                                considerBackground: ws.Scope.HasFlag(CanvasWindowScope.Background),
+                                considerWires: ws.Scope.HasFlag(CanvasWindowScope.Wires)),
                             what: "ObjectList.WindowSelect")
                         select (CanvasResult)new CanvasResult.WindowResult(Window: new CanvasWindowSnapshot(
-                            Canvas: SnapshotOf(scope: scope, canvas: canvas, document: doc, objects: objs),
+                            Canvas: SnapshotOf(scope: scope, canvas: canvas, document: doc),
                             SelectedCount: result.SelectedCount,
                             DeselectedCount: result.DeselectedCount))))))),
             inlineEditCase: static edit => GhUi.Canvas(openEditor: true, run: scope =>
@@ -679,7 +679,7 @@ internal static partial class UiRail {
             policy: policy,
             op: op)
         select (CanvasResult)new CanvasResult.SnapshotResult(
-            Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects));
+            Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document));
 
     private static Fin<CanvasResult> ViewDispatch(GrasshopperUi.Scope scope, CanvasViewOp view) =>
         view.Switch(
@@ -739,17 +739,17 @@ internal static partial class UiRail {
                 from target in NeedViewTarget(scope)
                 from _ in NavigateCanvasPosition(canvas: target.Canvas, document: target.Document, position: pos.Where, policy: pos.Policy)
                 select (CanvasResult)new CanvasResult.SnapshotResult(
-                    Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)),
+                    Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document)),
             zoomAroundCase: static (scope, za) =>
                 from target in NeedViewTarget(scope)
                 from _ in ZoomAround(target: target, controlPoint: za.ControlPoint, factor: za.Factor, policy: za.Policy)
                 select (CanvasResult)new CanvasResult.SnapshotResult(
-                    Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)),
+                    Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document)),
             projectionCase: static (scope, pr) =>
                 from _ in ApplyProjection(scope: scope, policy: new CanvasProjectionPolicy(Centre: Some(pr.Centre), Zoom: Some(pr.Zoom)))
                 from target in NeedViewTarget(scope)
                 select (CanvasResult)new CanvasResult.SnapshotResult(
-                    Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)));
+                    Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document)));
 
     // GH2 mirrors Projection writes back to the document cache; do not write both surfaces.
     private static Fin<Unit> ApplyProjection(GrasshopperUi.Scope scope, CanvasProjectionPolicy policy) =>
@@ -892,7 +892,7 @@ internal static partial class UiRail {
                     FromPaintGraphics: false);
             });
 
-    internal static CanvasSnapshot SnapshotOf(GrasshopperUi.Scope scope, GhCanvas canvas, GhDocument document, GhObjectList objects) {
+    internal static CanvasSnapshot SnapshotOf(GrasshopperUi.Scope scope, GhCanvas canvas, GhDocument document) {
         UiPixelScale pixelScale = PixelScale(canvas: canvas);
         return new(
             HasEditor: scope.Editor.IsSome,
@@ -925,11 +925,11 @@ internal static partial class UiRail {
                 : ProbeLattice(centre: content, radius: radius);
             SelectionResult Resolve(PointF probe) => canvas.ResolvePick(
                 point: probe,
-                includeGrips: (policy & CanvasPickPolicy.Grips) == CanvasPickPolicy.Grips,
-                includeForeground: (policy & CanvasPickPolicy.Foreground) == CanvasPickPolicy.Foreground,
-                includeBackground: (policy & CanvasPickPolicy.Background) == CanvasPickPolicy.Background,
-                includeWires: (policy & CanvasPickPolicy.Wires) == CanvasPickPolicy.Wires,
-                recursive: (policy & CanvasPickPolicy.Recursive) == CanvasPickPolicy.Recursive);
+                includeGrips: policy.HasFlag(CanvasPickPolicy.Grips),
+                includeForeground: policy.HasFlag(CanvasPickPolicy.Foreground),
+                includeBackground: policy.HasFlag(CanvasPickPolicy.Background),
+                includeWires: policy.HasFlag(CanvasPickPolicy.Wires),
+                recursive: policy.HasFlag(CanvasPickPolicy.Recursive));
             return probes
                 .Map(Resolve)
                 .Find(static pick => pick.Kind != Pick.None)
@@ -1057,7 +1057,7 @@ internal static partial class UiRail {
                     Phase: overlayPhase,
                     Graphics: args.Graphics,
                     Skin: args.Skin)).IfFail(error => { _ = overlayFault.Swap(_ => Some(error)); return unit; });
-            EventHandler<CanvasPaintEventArgs>? wireCapture = (layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires
+            EventHandler<CanvasPaintEventArgs>? wireCapture = layers.HasFlag(CanvasBitmapLayers.Wires)
                 ? (_, _) => _ = WireRepositoryRail.CaptureDrawn(canvas: canvas)
                     .Map(snapshot => {
                         _ = WireDrawnCache.Record(canvas: canvas, snapshot: snapshot);
@@ -1073,9 +1073,9 @@ internal static partial class UiRail {
                     Bitmap: canvas.DrawToBitmap(
                         width: Width,
                         height: Height,
-                        drawBackground: (layers & CanvasBitmapLayers.Background) == CanvasBitmapLayers.Background,
-                        drawWires: (layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires,
-                        drawMessages: (layers & CanvasBitmapLayers.Messages) == CanvasBitmapLayers.Messages),
+                        drawBackground: layers.HasFlag(CanvasBitmapLayers.Background),
+                        drawWires: layers.HasFlag(CanvasBitmapLayers.Wires),
+                        drawMessages: layers.HasFlag(CanvasBitmapLayers.Messages)),
                     Wires: wires.Value);
             } finally {
                 _ = Optional(wireCapture).Iter(h => CanvasPaintPhase.AfterWires.Detach(canvas: canvas, handler: h));

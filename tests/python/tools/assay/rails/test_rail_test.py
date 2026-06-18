@@ -870,6 +870,7 @@ def test_gate_tool_groups_splice_not_catalog() -> None:
     assert all(t.name != _GATE_TOOL.name for t in TOOLS)
     assert (_GATE_TOOL.runner, _GATE_TOOL.groups, _GATE_TOOL.mode) == (Runner.UV, (ToolGroup.MUTATION,), Mode.MUTATION)
     assert (_GATE_TOOL.stage.root, _GATE_TOOL.stage.project) == ("", True)
+    assert _GATE_TOOL.input is Input.OWNED
     assert _GATE_TOOL.command == ("python", "-m", "tools.assay.rails.mutation_gate")
 
 

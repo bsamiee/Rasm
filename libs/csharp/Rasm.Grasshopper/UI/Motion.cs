@@ -434,9 +434,9 @@ public readonly partial struct SpringConfig {
         UiFault? fault = null;
         _ = op.AcceptAll(
                 value: unit,
-                o => guard(float.IsFinite(stiffnessValue) && stiffnessValue > 0f, (Error)UiFault.InvalidInput(op: o, detail: $"Stiffness must be finite and > 0 (got {stiffnessValue:R}).")).ToFin(),
-                o => guard(float.IsFinite(dampingValue) && dampingValue >= 0f, (Error)UiFault.InvalidInput(op: o, detail: $"Damping must be finite and >= 0 (got {dampingValue:R}).")).ToFin(),
-                o => guard(float.IsFinite(massValue) && massValue > 0f, (Error)UiFault.InvalidInput(op: o, detail: $"Mass must be finite and > 0 (got {massValue:R}).")).ToFin())
+                o => guard(float.IsFinite(stiffnessValue) && stiffnessValue > 0f, (Error)UiFault.InvalidInput(op: o, detail: string.Create(CultureInfo.InvariantCulture, $"Stiffness must be finite and > 0 (got {stiffnessValue:R})."))).ToFin(),
+                o => guard(float.IsFinite(dampingValue) && dampingValue >= 0f, (Error)UiFault.InvalidInput(op: o, detail: string.Create(CultureInfo.InvariantCulture, $"Damping must be finite and >= 0 (got {dampingValue:R})."))).ToFin(),
+                o => guard(float.IsFinite(massValue) && massValue > 0f, (Error)UiFault.InvalidInput(op: o, detail: string.Create(CultureInfo.InvariantCulture, $"Mass must be finite and > 0 (got {massValue:R})."))).ToFin())
             .IfFail(err => { fault = (UiFault)err; return unit; });
         validationError = fault;
     }
@@ -982,7 +982,7 @@ public static class Motion {
 
     // Clock selection is internal: reduce-motion uses the message loop; DisplayLink failures demote to message loop.
     // DisplayLink rate stays None so PacerOption resolves the panel ceiling; canvas reserves the panel-aware-selection seam.
-    internal static MotionClock ResolveClock(Grasshopper2.UI.Canvas.Canvas canvas) =>
+    internal static MotionClock ResolveClock() =>
         AccessibilityMotionGate.ShouldReduceMotion ? MotionClock.MessageLoop : MotionClock.DisplayLink();
 
     // Shared NeedCanvas + PacerOption + Paint.Hook scaffold; variants provide their own runner state.
@@ -1014,7 +1014,7 @@ public static class Motion {
             from result in AccessibilityMotionGate.ShouldReduceMotion
                 ? from _ in Op.Of(name: nameof(Tween)).Attempt(body: () => { validSink(animated.Value1); return unit; }, what: "tween reduce-motion settle")
                   select Subscription.Empty
-                : Pipeline(opName: nameof(Tween), phase: CanvasPaintPhase.BeforeBackground, clock: ResolveClock(canvas: canvas0),
+                : Pipeline(opName: nameof(Tween), phase: CanvasPaintPhase.BeforeBackground, clock: ResolveClock(),
                     paintFactory: (canvas, pacer) => _ => Try.lift(f: () => {
                         validSink(canvas.Animate(animated: animated));
                         return pacer.PauseWhen(finished: animated.State == GhState.Finished);
@@ -1041,7 +1041,7 @@ public static class Motion {
                 Value: start, Velocity: initialVelocity.IfNone(validVector.Zero), Target: target, Config: config,
                 Vector: validVector, Sink: validSink, Clock: resolvedClock, Timestamp: resolvedClock.GetTimestamp())
             from handle in RunOrSettle(
-                canvas: canvas, opName: nameof(Spring), clock: ResolveClock(canvas: canvas),
+                canvas: canvas, opName: nameof(Spring), clock: ResolveClock(),
                 restState: restState, liveState: liveState, restEmit: () => validSink(target),
                 handle: static (cell, sub, wake, settled) => new SpringHandle<TValue>(cell: cell, subscription: sub, wake: wake, settled: settled)).Run(scope: scope)
             select handle);
@@ -1138,7 +1138,7 @@ public static class Motion {
                 From: start, To: target, Duration: duration, Easing: easing, Repeat: repeat,
                 CyclesRemaining: repeat.RemainingAfterFirst, Vector: validVector, Sink: validSink, Canvas: canvas)
             from handle in RunOrSettle(
-                canvas: canvas, opName: nameof(Pulse), clock: ResolveClock(canvas: canvas),
+                canvas: canvas, opName: nameof(Pulse), clock: ResolveClock(),
                 restState: restState, liveState: liveState, restEmit: () => validSink(rest),
                 handle: static (cell, sub, wake, settled) => new PulseHandle<TValue>(cell: cell, subscription: sub, wake: wake, settled: settled)).Run(scope: scope)
             select handle);
@@ -1169,7 +1169,7 @@ public static class Motion {
             from validScale in Op.Of(name: nameof(Stroke)).AcceptFinite(value: scale, detail: "non-finite scale")
             from validAngle in Op.Of(name: nameof(Stroke)).AcceptFinite(value: angle, detail: "non-finite angle")
             from canvas0 in scope.NeedCanvas()
-            from result in Pipeline(opName: nameof(Stroke), phase: CanvasPaintPhase.AfterObjects, clock: ResolveClock(canvas: canvas0),
+            from result in Pipeline(opName: nameof(Stroke), phase: CanvasPaintPhase.AfterObjects, clock: ResolveClock(),
                 paintFactory: (canvas, pacer) => {
                     Animated<double> progress = Animated<double>.CreateUnfinished(
                         value0: 0.0, value1: 1.0,
@@ -1252,7 +1252,7 @@ public static class Motion {
                         : Op.Side(() => { _ = lastValue.Swap(_ => Some(now)); validSink(now); });
                     return unit;
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ZoomGate)), detail: $"tick threw: {error.Message}")),
-                clock: ResolveClock(canvas: canvas)).Run(scope: scope)
+                clock: ResolveClock()).Run(scope: scope)
             select sub);
 
     public static GrasshopperUiIntent<Subscription> Cosmetic(CosmeticIntent intent) =>
@@ -1404,9 +1404,9 @@ public static class Motion {
                 Op op = Op.Of(name: nameof(CosmeticIntent.FilterCase));
                 return op.AcceptRect(value: f.Bounds, detail: "non-finite filter bounds")
                     .Bind(_ => op.AcceptFinite(value: f.Saturation, detail: "non-finite saturation", nonNegative: true))
-                    .Bind(_ => guard(f.Saturation <= 2f, (Error)UiFault.InvalidInput(op: op, detail: $"CIColorControls saturation must lie in [0,2] (got {f.Saturation:R})")).ToFin())
+                    .Bind(_ => guard(f.Saturation <= 2f, (Error)UiFault.InvalidInput(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"CIColorControls saturation must lie in [0,2] (got {f.Saturation:R})"))).ToFin())
                     .Bind(_ => op.AcceptFinite(value: f.Brightness, detail: "non-finite brightness"))
-                    .Bind(_ => guard(f.Brightness is >= -1f and <= 1f, (Error)UiFault.InvalidInput(op: op, detail: $"CIColorControls brightness must lie in [-1,1] (got {f.Brightness:R})")).ToFin())
+                    .Bind(_ => guard(f.Brightness is >= -1f and <= 1f, (Error)UiFault.InvalidInput(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"CIColorControls brightness must lie in [-1,1] (got {f.Brightness:R})"))).ToFin())
                     .Map<CosmeticIntent>(_ => f with { Bounds = MapCosmeticRect(canvas: c, bounds: f.Bounds) });
             },
             hapticCase: static (_, h) => Fin.Succ<CosmeticIntent>(h),
@@ -1470,16 +1470,16 @@ public static class Motion {
             ? stops
                 .Fold(
                     initialState: Fin.Succ(float.NegativeInfinity),
-                    f: (acc, stop) => acc.Bind(previous => guard(stop is >= 0f and <= 1f && stop >= previous, (Error)UiFault.InvalidInput(op: op, detail: $"gradient stops must ascend through [0,1] (got {stop:R} after {previous:R})")).ToFin().Map(_ => stop)))
+                    f: (acc, stop) => acc.Bind(previous => guard(stop is >= 0f and <= 1f && stop >= previous, (Error)UiFault.InvalidInput(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"gradient stops must ascend through [0,1] (got {stop:R} after {previous:R})"))).ToFin().Map(_ => stop)))
                 .Map(static _ => unit)
-            : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: $"gradient stop count {stops.Count} must equal colour count {colourCount}"));
+            : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"gradient stop count {stops.Count} must equal colour count {colourCount}")));
     }
 
     private static Fin<Unit> AcceptNormalizedGradientPoint(Op op, PointF point, string label) =>
         op.AcceptPoint(value: point, detail: $"non-finite {label}")
             .Bind(valid => valid is { X: >= 0f and <= 1f, Y: >= 0f and <= 1f }
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: $"{label} must lie in [0,1] layer space (got {valid.X:R},{valid.Y:R})")));
+                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"{label} must lie in [0,1] layer space (got {valid.X:R},{valid.Y:R})"))));
 
     private static (CGPoint Start, CGPoint End) ResolveGradientPoints(GradientKind kind, CosmeticGradientPoints points) {
         (_, CGPoint profileStart, CGPoint profileEnd) = CosmeticGradientProfile[kind.ProfileIndex];
@@ -1567,7 +1567,7 @@ public static class Motion {
             _ = CosmeticDelegateStore.Retain(layer: layer, remove: remove);
             animation.WeakDelegate = remove;
             layer.AddAnimation(animation: animation, key: key);
-        }) switch { _ => Fin.Succ(unit) };
+        }) switch { _ => Fin.Succ(unit), };
     }
 
     // Mutual-exclusion claim: TryClaim wins exactly once across explicit-dispose vs AnimationStopped.

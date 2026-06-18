@@ -67,7 +67,7 @@ internal static class CameraScenarios {
         from fitChecked in FitHoldsFov(ctx: ctx, camera: camera, target: target, subject: subject)
         from dollyChecked in DollyFramePair(ctx: ctx, camera: camera, target: target, subject: subject, bounds: bounds)
         from nearFarChecked in NearFarBranches(ctx: ctx, camera: camera, target: target, bounds: bounds)
-        from rigChecked in RigSyncPolicies(ctx: ctx, camera: camera, target: target, subject: subject)
+        from rigChecked in RigSyncPolicies(ctx: ctx, camera: camera, target: target)
         from sectionChecked in SectionViewsPlural(ctx: ctx, camera: camera, target: target, doc: scope.Doc)
         from styleChecked in ArchitecturalRows(ctx: ctx, camera: camera, target: target, subject: subject)
         select Done(scope: scope);
@@ -133,7 +133,7 @@ internal static class CameraScenarios {
     // a failing op short-circuits the whole rail (TraverseM monadic abort). Coordinated is
     // accumulate-then-guard: every member runs and the fold succeeds while at least one op succeeds,
     // tolerating the partial failure.
-    private static Fin<Unit> RigSyncPolicies(ScenarioContext ctx, RhinoCamera camera, ViewportTarget target, CameraSubject subject) {
+    private static Fin<Unit> RigSyncPolicies(ScenarioContext ctx, RhinoCamera camera, ViewportTarget target) {
         CameraOp<CameraChangeReceipt> succeeding = CameraOps.Change(new CameraEdit.Zoom());
         CameraOp<CameraChangeReceipt> failing = CameraOps.Change(new CameraEdit.Fit(Subject: new CameraSubject.InBounds(Value: BoundingBox.Empty), HalfViewAngle: 0.35));
         Seq<(ViewportTarget Target, CameraOp<CameraChangeReceipt> Op)> mixed = Seq((target, failing), (target, succeeding));
@@ -222,7 +222,7 @@ internal static class CameraScenarios {
                 from distanceLaw in ctx.Require(label: "dof distance persisted", observed: Math.Abs(value: dofView.FocalBlurDistance - 42.5) < 1e-9)
                 from readFrame in ctx.Expect(label: "read named camera", projection: camera.RunValue(operation: CameraOps.ReadNamed(name: dofName), target: target))
                 let oracle = dofView.Viewport
-                let locationFact = Note(ctx: ctx, key: "read.location", value: $"{readFrame.Location.X:F3},{readFrame.Location.Y:F3},{readFrame.Location.Z:F3}")
+                let locationFact = Note(ctx: ctx, key: "read.location", value: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{readFrame.Location.X:F3},{readFrame.Location.Y:F3},{readFrame.Location.Z:F3}"))
                 from frameLaw in ctx.Require(label: "read frame valid", observed: readFrame.Frame.IsValid)
                 from locationLaw in ctx.Require(label: "read location matches saved-view oracle", observed: readFrame.Location.DistanceTo(other: oracle.CameraLocation) < 1e-6)
                 select unit)

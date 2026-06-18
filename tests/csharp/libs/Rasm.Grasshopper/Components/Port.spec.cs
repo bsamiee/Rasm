@@ -8,7 +8,7 @@ namespace Rasm.Grasshopper.Tests.Components;
 // --- [MODELS] ----------------------------------------------------------------------------
 internal enum SampleEnum { First = 0, Second = 1 }
 [Flags]
-internal enum SampleFlagsEnum { First = 1, Second = 2 }
+internal enum SampleFlagsEnum { First = 1, Second = 2, }
 internal enum SampleByteEnum : byte { First = 1 }
 
 public sealed class CapabilityCompatibilityLaws {

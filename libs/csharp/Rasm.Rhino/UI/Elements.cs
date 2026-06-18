@@ -207,7 +207,7 @@ public sealed record UiField<TState, T>(
                 ? editor
                 : new StackLayout {
                     Orientation = Orientation.Horizontal, Spacing = 6,
-                    Items = { new Label { Text = Label, VerticalAlignment = VerticalAlignment.Center }, editor }
+                    Items = { new Label { Text = Label, VerticalAlignment = VerticalAlignment.Center }, editor },
                 };
 
         Control WireEvents(Control control, Control editor) {

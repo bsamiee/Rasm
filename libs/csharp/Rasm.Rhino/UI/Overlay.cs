@@ -262,7 +262,7 @@ public readonly record struct UiGradient(Seq<ColorStop> Stops, bool Linear = tru
                     (Span: Math.Abs(d.X), P1: new Point3d(box.Min.X, c.Y, c.Z), P2: new Point3d(box.Max.X, c.Y, c.Z)),
                     (Span: Math.Abs(d.Y), P1: new Point3d(c.X, box.Min.Y, c.Z), P2: new Point3d(c.X, box.Max.Y, c.Z)),
                     (Span: Math.Abs(d.Z), P1: new Point3d(c.X, c.Y, box.Min.Z), P2: new Point3d(c.X, c.Y, box.Max.Z)))
-                .MaxBy(static e => e.Span) switch { var longest => (longest.P1, longest.P2) },
+                .MaxBy(static e => e.Span) switch { var longest => (longest.P1, longest.P2), },
         };
         return pick.P1.DistanceTo(pick.P2) < RhinoMath.ZeroTolerance ? (box.Min, box.Max) : pick;
     }

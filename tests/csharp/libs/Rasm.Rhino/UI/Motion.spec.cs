@@ -28,14 +28,14 @@ internal static class MotionCases {
 public sealed class EasingCurveLaws {
     [Fact]
     public void LinearIsIdentityOnTheUnitInterval() =>
-        Spec.ForAll(MotionCases.Unit, t => Spec.Holds(condition: Math.Abs(Easing.Linear.Apply(t: t) - t) < 1e-12, label: $"Linear({t}) drifted"));
+        Spec.ForAll(MotionCases.Unit, t => Spec.Holds(condition: Math.Abs(Easing.Linear.Apply(t: t) - t) < 1e-12, label: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Linear({t}) drifted")));
 
     // Every Penner curve anchors f(0)=0 and f(1)=1 (overshoot/bounce happens strictly inside the interval).
     [Fact]
     public void EveryEasingAnchorsBothEndpoints() =>
         toSeq(Easing.Items).Iter(static easing => {
-            Spec.Holds(condition: Math.Abs(easing.Apply(t: 0.0)) < MotionCases.EndpointTolerance, label: $"{easing}(0) != 0");
-            Spec.Holds(condition: Math.Abs(easing.Apply(t: 1.0) - 1.0) < MotionCases.EndpointTolerance, label: $"{easing}(1) != 1");
+            Spec.Holds(condition: Math.Abs(easing.Apply(t: 0.0)) < MotionCases.EndpointTolerance, label: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{easing}(0) != 0"));
+            Spec.Holds(condition: Math.Abs(easing.Apply(t: 1.0) - 1.0) < MotionCases.EndpointTolerance, label: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{easing}(1) != 1"));
         });
 }
 
@@ -53,7 +53,7 @@ public sealed class OklabInterpolationLaws {
     public void LerpOfAColourWithItselfIsThatColour() =>
         Spec.ForAll(MotionCases.Color.Select(MotionCases.Unit), ((DrawingColor C, double T) p) => {
             MotionColor c = MotionColor.FromDrawing(p.C);
-            Spec.Holds(condition: MotionCases.ChannelsClose(MotionVector.Color.Lerp(a: c, b: c, t: p.T).Project(), p.C), label: $"Lerp({p.C},{p.C},{p.T}) drifted");
+            Spec.Holds(condition: MotionCases.ChannelsClose(MotionVector.Color.Lerp(a: c, b: c, t: p.T).Project(), p.C), label: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Lerp({p.C},{p.C},{p.T}) drifted"));
         });
 }
 
@@ -133,7 +133,7 @@ public sealed class ColorSpringRestLaws {
         MotionCases.TickClock clock = new(step: TimeSpan.TicksPerSecond / 60);
         SpringRunnerState<MotionColor, MotionColor> stepped = Seed(from: MotionColor.FromDrawing(DrawingColor.White), to: MotionColor.FromDrawing(DrawingColor.Black), clock: clock);
         _ = toSeq(Enumerable.Range(start: 0, count: 1200)).Iter(_ => stepped = stepped.Step());
-        Spec.Holds(condition: !stepped.IsActive, label: $"color spring never rested (dist={MotionVector.Color.Distance(stepped.Value, stepped.Target)}, |v|={MotionVector.Color.Norm(stepped.Velocity)})");
+        Spec.Holds(condition: !stepped.IsActive, label: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"color spring never rested (dist={MotionVector.Color.Distance(stepped.Value, stepped.Target)}, |v|={MotionVector.Color.Norm(stepped.Velocity)})"));
         Spec.Holds(condition: MotionCases.ChannelsClose(stepped.Value.Project(), DrawingColor.Black), label: "rested color is not the target");
     }
 }
@@ -153,7 +153,7 @@ public sealed class DecayRunnerLaws {
             Spec.Holds(condition: Math.Abs(next.Velocity) <= Math.Abs(stepped.Velocity) + 1e-9, label: "decay velocity increased");
             stepped = next;
         });
-        Spec.Holds(condition: !stepped.IsActive, label: $"decay never rested (|v|={Math.Abs(stepped.Velocity)})");
+        Spec.Holds(condition: !stepped.IsActive, label: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"decay never rested (|v|={Math.Abs(stepped.Velocity)})"));
         Spec.Holds(condition: Math.Abs(stepped.Velocity) < MotionVector.Double.RestEpsilon, label: "rest velocity above epsilon");
     }
 

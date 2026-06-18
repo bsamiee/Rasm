@@ -288,6 +288,7 @@ dotnet_diagnostic.VSTHRD111.severity = error                                  # 
 # --- [MEZIANTOU_ANALYZERS] ---------------------------------------------------
 dotnet_diagnostic.MA0003.severity = error                                     # Require parameter names to clarify arguments.
 dotnet_diagnostic.MA0004.severity = none                                      # Covered by VSTHRD111 to avoid duplicate ConfigureAwait diagnostics.
+dotnet_diagnostic.MA0007.severity = error                                     # Require a trailing comma after the last value in multi-line initializers.
 dotnet_diagnostic.MA0020.severity = error                                     # Prefer direct collection APIs over equivalent LINQ.
 dotnet_diagnostic.MA0028.severity = error                                     # Optimize StringBuilder append patterns.
 dotnet_diagnostic.MA0029.severity = error                                     # Combine adjacent LINQ operations.
@@ -296,6 +297,7 @@ dotnet_diagnostic.MA0176.severity = none                                      # 
 dotnet_diagnostic.MA0032.severity = error                                     # Require using overloads with CancellationToken when available.
 dotnet_diagnostic.MA0035.severity = error                                     # Ban dangerous threading APIs.
 dotnet_diagnostic.MA0040.severity = none                                      # Covered by CA2016 to avoid duplicate CancellationToken-forwarding diagnostics.
+dotnet_diagnostic.MA0041.severity = none                                      # Deprecated; covered by CA1822 to avoid duplicate static-member diagnostics.
 dotnet_diagnostic.MA0042.severity = error                                     # Ban blocking calls in async-capable methods.
 dotnet_diagnostic.MA0044.severity = error                                     # Remove redundant ToString calls.
 dotnet_diagnostic.MA0050.severity = error                                     # Validate iterator arguments before enumeration.
@@ -303,6 +305,7 @@ dotnet_diagnostic.MA0052.severity = error                                     # 
 dotnet_diagnostic.MA0053.severity = error                                     # Seal classes and records not designed for inheritance.
 dotnet_diagnostic.MA0063.severity = error                                     # Filter sequences before ordering.
 dotnet_diagnostic.MA0071.severity = error                                     # Remove redundant else branches.
+dotnet_diagnostic.MA0076.severity = error                                     # Thread CultureInfo.InvariantCulture through interpolation; ban implicit culture-sensitive ToString.
 dotnet_diagnostic.MA0078.severity = error                                     # Prefer Cast over Select casts.
 dotnet_diagnostic.MA0079.severity = error                                     # Forward cancellation through WithCancellation.
 dotnet_diagnostic.MA0080.severity = error                                     # Require WithCancellation in async enumeration flows.
@@ -329,6 +332,7 @@ dotnet_diagnostic.MA0179.severity = error                                     # 
 dotnet_diagnostic.MA0185.severity = error                                     # Simplify string.Create when inputs are culture invariant.
 dotnet_diagnostic.MA0190.severity = error                                     # Prefer partial properties for source-generated Regex accessors.
 dotnet_diagnostic.MA0191.severity = error                                     # Ban null-forgiving operators.
+dotnet_diagnostic.MA0192.severity = error                                     # Prefer HasFlag over (value & flag) == flag bitwise enum checks.
 dotnet_diagnostic.MA0193.severity = error                                     # Require explicit midpoint rounding semantics.
 dotnet_diagnostic.MA0194.severity = error                                     # Merge is expressions over the same value.
 dotnet_diagnostic.MA0200.severity = error                                     # Avoid empty property patterns on non-nullable value types.
@@ -346,6 +350,7 @@ dotnet_diagnostic.IDE0005.severity = error                                    # 
 dotnet_diagnostic.IDE0035.severity = error                                    # Remove unreachable code.
 dotnet_diagnostic.IDE0051.severity = error                                    # Remove unused private members.
 dotnet_diagnostic.IDE0052.severity = error                                    # Remove private members that are written but never read.
+dotnet_diagnostic.IDE0060.severity = error                                    # Remove unused parameters; a knob smuggled into a signature is a shape defect.
 dotnet_diagnostic.IDE0064.severity = error                                    # Make struct fields writable when reassignment is intended.
 dotnet_diagnostic.IDE0070.severity = error                                    # Use System.HashCode.Combine for composite hash codes.
 dotnet_diagnostic.IDE0076.severity = error                                    # Remove invalid SuppressMessage attribute targets.
@@ -366,6 +371,9 @@ dotnet_diagnostic.IDE0340.severity = error                                    # 
 dotnet_diagnostic.IDE0360.severity = error                                    # Simplify property accessors to expression-bodied form when trivial.
 dotnet_diagnostic.IDE0380.severity = error                                    # Remove unnecessary unsafe modifiers.
 dotnet_diagnostic.IDE1005.severity = error                                    # Prefer null-conditional delegate invocation (?.Invoke).
+
+# --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
+dotnet_diagnostic.TTRESG1001.severity = error                                 # Prefer static lambdas in Switch/Map arms; thread captured state through the state parameter.
 
 [tests/**/*.cs]
 dotnet_diagnostic.CA1515.severity = none                                      # xUnit discovery requires public test classes; spec-local generators stay non-public.

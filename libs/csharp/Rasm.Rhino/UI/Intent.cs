@@ -248,7 +248,7 @@ public static partial class UiIntent {
             Color4f color = spec.Initial;
             global::Rhino.UI.NamedColorList? named = spec.Named.Case switch { global::Rhino.UI.NamedColorList v => v, _ => null };
             return global::Rhino.UI.Dialogs.ShowColorDialog(parent: parent, color: ref color, allowAlpha: spec.AllowAlpha, namedColorList: named, colorCallback: spec.Changed)
-                switch { true => Fin.Succ(value: color), false => Fin.Fail<Color4f>(error: new Fault.Cancelled()) };
+                switch { true => Fin.Succ(value: color), false => Fin.Fail<Color4f>(error: new Fault.Cancelled()), };
         }));
 
     public static UiIntent<Seq<global::Rhino.UI.NamedColor>> NamedColors(Option<global::Rhino.UI.NamedColorList> source = default) =>

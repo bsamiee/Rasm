@@ -572,17 +572,17 @@ public sealed partial record GrasshopperUi {
                         .Map(_ => scope);
                 });
 
-        internal Fin<GhCanvas> NeedCanvas([CallerMemberName] string name = "") =>
+        internal Fin<GhCanvas> NeedCanvas() =>
             Canvas.ToFin(Fail: UiFault.MissingScope(field: nameof(Canvas)));
-        internal Fin<GhDocument> NeedDocument([CallerMemberName] string name = "") =>
+        internal Fin<GhDocument> NeedDocument() =>
             Document.ToFin(Fail: UiFault.MissingScope(field: nameof(Document)));
-        internal Fin<GhDocumentMethods> NeedMethods([CallerMemberName] string name = "") =>
+        internal Fin<GhDocumentMethods> NeedMethods() =>
             Methods.ToFin(Fail: UiFault.MissingScope(field: nameof(Methods)));
-        internal Fin<GhObjectList> NeedObjects([CallerMemberName] string name = "") =>
+        internal Fin<GhObjectList> NeedObjects() =>
             Objects.ToFin(Fail: UiFault.MissingScope(field: nameof(Objects)));
-        internal Fin<Skin> NeedSkin([CallerMemberName] string name = "") =>
+        internal Fin<Skin> NeedSkin() =>
             Skin.Map(static s => s.Effective).ToFin(Fail: UiFault.MissingScope(field: nameof(Skin)));
-        internal Fin<CanvasSkin> NeedCanvasSkin([CallerMemberName] string name = "") =>
+        internal Fin<CanvasSkin> NeedCanvasSkin() =>
             Skin.ToFin(Fail: UiFault.MissingScope(field: nameof(Skin)));
 
         // ShowEditor always Form.Show()s and can SIGABRT during programmatic plugin load; headless singleton construction builds Canvas without realizing a window.

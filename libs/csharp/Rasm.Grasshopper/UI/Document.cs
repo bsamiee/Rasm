@@ -381,7 +381,7 @@ public partial record GroupOp {
                     scope: s,
                     op: Op.Of(name: nameof(Modify)),
                     mutate: (_, objs, actions) => Op.Of(name: nameof(Modify)).Attempt(
-                        body: () => ModifyGroup(objects: objs, target: grp, label: modify.Label, colour: modify.Colour, add: modify.Add, remove: modify.Remove, actions: actions),
+                        body: () => ModifyGroup(target: grp, label: modify.Label, colour: modify.Colour, add: modify.Add, remove: modify.Remove, actions: actions),
                         what: "GroupObject.Modify"))
                 select (DocumentResult)new DocumentResult.GroupResult(Snapshot: GroupSnapshotOf(target: Some(grp), changed: snapshot.Payload.Changed)),
             dissolveCase: static (s, dissolve) =>
@@ -410,7 +410,7 @@ public partial record GroupOp {
             .Bind(valid => Optional(objects.FindGroup(instanceId: valid))
                 .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"group {valid} not found")));
 
-    private static DocumentMutationReceipt ModifyGroup(GhObjectList objects, GroupObject target, Option<string> label, Option<GhOpenColorFamily> colour, Seq<Guid> add, Seq<Guid> remove, ActionList actions) {
+    private static DocumentMutationReceipt ModifyGroup(GroupObject target, Option<string> label, Option<GhOpenColorFamily> colour, Seq<Guid> add, Seq<Guid> remove, ActionList actions) {
         // BOUNDARY ADAPTER -- label/colour have undo actions; membership uses Add/RemoveContent without a host action.
         _ = label.Iter(text => { actions.Add(new RenameAction(target)); target.UserName = text; });
         _ = colour.Iter(family => { actions.Add(new PropertyAction(target, nameof(GroupObject.GroupColour))); target.GroupColour = family; });
@@ -1350,7 +1350,7 @@ internal static partial class Document {
                 policy: q.Request.QueryPolicy,
                 run: scope => Query(scope: scope, query: q.Request)),
             mutateCase: static m => GhUi.Document(
-                run: scope => Mutate(scope: scope, mutations: m.Mutations, policy: m.Policy),
+                run: scope => Mutate(scope: scope, mutations: m.Mutations),
                 repaint: m.Policy.RepaintOrDefault),
             clipboardCase: static c => new GrasshopperUiIntent<DocumentResult>(
                 policy: c.Op.Switch(
@@ -1494,7 +1494,7 @@ internal static partial class Document {
             what: "History node target")
         select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document));
 
-    private static Fin<DocumentResult> Mutate(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations, DocumentMutationPolicy policy) =>
+    private static Fin<DocumentResult> Mutate(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations) =>
         UiRail.RunDocumentMutation(scope: scope, op: Op.Of(name: nameof(DocumentOp.Mutate)),
             mutate: (methods, objects, actions) => mutations.TraverseM(m => m.Apply(methods: methods, objects: objects, actions: actions))
                 .Map(static receipts => receipts.Fold(initialState: DocumentMutationReceipt.None, f: static (sum, receipt) => sum + receipt)).As()

@@ -122,7 +122,7 @@ internal readonly record struct UnitPolicy(Rhino.UnitSystem System, Fin<double> 
         Fin<double> scale = (access.GetUnitScaling(baseSystem: system, unitSystemScaling: out double factor), factor) switch {
             (true, double valid) when Rhino.RhinoMath.IsValidDouble(x: valid) && valid > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(valid),
             (false, _) => Fin.Succ(1.0),
-            _ => access.Emit(severity: Severity.Warning, text: "UnitScaling", details: $"Invalid unit scaling factor {factor}; using 1.0.") switch { _ => Fin.Succ(1.0) },
+            _ => access.Emit(severity: Severity.Warning, text: "UnitScaling", details: string.Create(global::System.Globalization.CultureInfo.InvariantCulture, $"Invalid unit scaling factor {factor}; using 1.0.")) switch { _ => Fin.Succ(1.0) },
         };
         return new(System: system, Scale: scale);
     }

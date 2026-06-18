@@ -65,10 +65,11 @@ public sealed class SeamProbe {
             return value;
         }
         TResult Canned(Seq<object?> args, FrozenDictionary<string, object?> kwargs) => shape.Switch(
-            sync: s => Record(args, kwargs, member, s.Value),
-            async: s => Record(args, kwargs, member, s.Value),
-            fanOut: s => Record(args.Add(s.Values), kwargs, member, s.Values is [var head, ..] ? head : throw new XunitException($"FanOut seam '{member}' has no values")),
-            factory: s => Record(Seq<object?>(), Empty, s.InnerLabel, s.Value));
+            state: (args, kwargs, member, Record: (Func<Seq<object?>, FrozenDictionary<string, object?>, string, TResult, TResult>)Record),
+            sync: static (st, s) => st.Record(st.args, st.kwargs, st.member, s.Value),
+            async: static (st, s) => st.Record(st.args, st.kwargs, st.member, s.Value),
+            fanOut: static (st, s) => st.Record(st.args.Add(s.Values), st.kwargs, st.member, s.Values is [var head, ..] ? head : throw new XunitException($"FanOut seam '{st.member}' has no values")),
+            factory: static (st, s) => st.Record(Seq<object?>(), Empty, s.InnerLabel, s.Value));
         return new SeamRestore(Restore: bind(Canned));
     }
 
@@ -92,8 +93,9 @@ public sealed record VariantWriter<TVariant>(
         return (Absent.Contains(variant), Payloads.TryGetValue(variant, out VariantPayload? payload)) switch {
             (true, _) => new FileInfo(target),
             (_, true) => Emit(target: target, raw: payload!.Switch(
-                raw: static r => r.Bytes,
-                encoded: encoded => JsonSerializer.SerializeToUtf8Bytes(value: encoded.Value, jsonTypeInfo: Encode))),
+                state: Encode,
+                raw: static (_, r) => r.Bytes,
+                encoded: static (encode, encoded) => JsonSerializer.SerializeToUtf8Bytes(value: encoded.Value, jsonTypeInfo: encode))),
             _ => throw new XunitException($"VariantWriter has no payload for variant '{variant}'"),
         };
     }

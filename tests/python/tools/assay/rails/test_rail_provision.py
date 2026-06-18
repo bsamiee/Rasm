@@ -85,6 +85,45 @@ def test_provision_status_delegates_to_stack_status(assay_root: AssayHarness, mo
 register_law(provision_rail.status, "delegates_to_stack_status")
 
 
+def test_provision_doctor_delegates_to_stack_doctor(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The doctor verb delegates to the Forge-owned diagnostic command."""
+    calls: list[tuple[tuple[str, ...], ...]] = []
+    monkeypatch.setattr(provision_rail, "fan_out", _recording_fan(calls))
+    report = assert_ok(provision_rail.doctor(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    assert report.claim is Claim.PROVISION
+    assert report.verb == "doctor"
+    assert calls == [((("rasm-provision", "doctor")),)]
+
+
+register_law(provision_rail.doctor, "delegates_to_stack_doctor")
+
+
+def test_provision_ports_delegates_to_stack_ports(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The ports verb delegates to the Forge-owned port diagnostic command."""
+    calls: list[tuple[tuple[str, ...], ...]] = []
+    monkeypatch.setattr(provision_rail, "fan_out", _recording_fan(calls))
+    report = assert_ok(provision_rail.ports(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    assert report.claim is Claim.PROVISION
+    assert report.verb == "ports"
+    assert calls == [((("rasm-provision", "ports")),)]
+
+
+register_law(provision_rail.ports, "delegates_to_stack_ports")
+
+
+def test_provision_plan_delegates_to_stack_plan(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The plan verb delegates to the Forge-owned read-only compose renderer."""
+    calls: list[tuple[tuple[str, ...], ...]] = []
+    monkeypatch.setattr(provision_rail, "fan_out", _recording_fan(calls))
+    report = assert_ok(provision_rail.plan(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    assert report.claim is Claim.PROVISION
+    assert report.verb == "plan"
+    assert calls == [((("rasm-provision", "plan")),)]
+
+
+register_law(provision_rail.plan, "delegates_to_stack_plan")
+
+
 def test_provision_env_delegates_to_stack_env(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """The env verb delegates to the Forge-owned stack command."""
     calls: list[tuple[tuple[str, ...], ...]] = []

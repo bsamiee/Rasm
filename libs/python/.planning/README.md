@@ -1,6 +1,6 @@
 # [PYTHON_BRANCH]
 
-The Python branch file router and the cross-cutting package registry: a first-class host-free science/compute/data/geometry/IFC library of five peer packages, held to the cross-language density bar in idiomatic modern Python. The single root `pyproject.toml` is the only Python manifest — no package-local manifest exists, and every package and version lives there. This file routes the branch index docs and registers the packages shared across folders; `ARCHITECTURE.md` carries the package map and dependency direction, `IDEAS.md` the cross-package concert, and `TASKLOG.md` the cross-package work.
+The Python branch file router and the cross-cutting package registry: a first-class host-free science/compute/data/geometry/IFC library of five peer packages, held to the cross-language density bar in idiomatic modern Python. The single root `pyproject.toml` owns the Python `>=3.15` project and dependency groups; lower-floor companion packages stay out of that manifest until a dedicated companion lock/project owns them. This file routes the branch index docs and registers the packages shared across folders; `ARCHITECTURE.md` carries the package map and dependency direction, `IDEAS.md` the cross-package concert, and `TASKLOG.md` the cross-package work.
 
 ## [1]-[ROUTER]
 
@@ -11,12 +11,13 @@ The Python branch file router and the cross-cutting package registry: a first-cl
 
 ## [2]-[CROSS_CUTTING_PACKAGES]
 
-The packages shared across two or more folders, registered once here and trimmed from the per-folder registries. Per-folder-only packages stay on the owning folder `README.md`. Versions live in the one root manifest; this list carries no pin.
+The packages shared across two or more folders, registered once here and trimmed from the per-folder registries. Per-folder-only packages stay on the owning folder `README.md`. Root-compatible package versions live in the root manifest; companion-floor rows carry no pin here.
 
 - Typing and modelling: `msgspec`, `pydantic`, `beartype`, `expression`.
 - Concurrency and process: `anyio`.
 - Observability: `structlog`, `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`, `psutil`.
 - Numeric core: `numpy`.
-- Companion wire: `grpcio`, `grpcio-tools`, `protobuf`.
+- Companion wire: `grpcio`, `grpcio-tools`, `protobuf` — companion-floor only, resolved through the Forge-owned companion environment until a dedicated companion project/lock lands.
+- Companion native geometry: `ifcopenshell`, `open3d`, `small-gicp`, `topologicpy` — companion-floor only, not root `>=3.15` dependencies.
 - Mesh-file interchange (data emits, geometry consumes at the mesh seam): `meshio`, `trimesh`, `rhino3dm`.
 - Object-store transport (runtime owns; data egress composes): `obstore`.

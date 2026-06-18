@@ -109,7 +109,7 @@ public sealed class MatrixCoreLaws {
             _ = toSeq(Enumerable.Range(start: 0, count: design.Cols.Value)).Iter(col => {
                 double normalResidual = toSeq(Enumerable.Range(start: 0, count: design.Rows.Value))
                     .Fold(initialState: 0.0, f: (sum, row) => sum + (design.At(i: row, j: col) * ((design.At(i: row, j: 0) * receipt.Solution[index: 0]) + (design.At(i: row, j: 1) * receipt.Solution[index: 1]) - rhs[index: row])));
-                Spec.Equal(left: normalResidual, right: 0.0, tolerance: 1.0e-10, what: $"normal residual {col}");
+                Spec.Equal(left: normalResidual, right: 0.0, tolerance: 1.0e-10, what: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"normal residual {col}"));
             });
         });
         Spec.FailCategory(design.LeastSquaresDetailed(rhs: [1.0, 2.0], key: MatrixGens.Key), category: "Input");
@@ -119,7 +119,7 @@ public sealed class MatrixCoreLaws {
         MatrixNormKind[] all = [MatrixNormKind.Frobenius, MatrixNormKind.MaxAbs, MatrixNormKind.L1, MatrixNormKind.LInf];
         Spec.SmartEnumKeysUnique(items: all, key: static k => k.Key);
         Spec.ForAll(MatrixGens.TallOrSquare, a =>
-            _ = toSeq(all).Iter(k => Spec.Succ(a.Norm(kind: k, key: MatrixGens.Key), then: n => Assert.True(n >= 0.0, userMessage: $"{k.Key} norm negative: {n:R}"))));
+            _ = toSeq(all).Iter(k => Spec.Succ(a.Norm(kind: k, key: MatrixGens.Key), then: n => Assert.True(n >= 0.0, userMessage: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{k.Key} norm negative: {n:R}")))));
     }
 }
 
@@ -241,7 +241,7 @@ public sealed class DecompositionLaws {
         Spec.ForAll(MatrixGens.TallOrSquare, static a => Spec.Succ(a.DecomposeSvd(key: MatrixGens.Key), then: svd => {
             Arr<double> s = svd.Sigma;
             _ = toSeq(Enumerable.Range(start: 0, count: s.Count)).Iter(i =>
-                Spec.Holds(condition: s[i] >= -1.0e-12 && (i == s.Count - 1 || s[i] >= s[i + 1] - 1.0e-12), label: $"sigma invariant fails at i={i}: {s[i]:R}"));
+                Spec.Holds(condition: s[i] >= -1.0e-12 && (i == s.Count - 1 || s[i] >= s[i + 1] - 1.0e-12), label: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"sigma invariant fails at i={i}: {s[i]:R}")));
         }));
     [Fact]
     public void SpectralMatchesClosedFormDiagonalNorm() {
@@ -291,8 +291,8 @@ public sealed class DecompositionLaws {
         static void AssertDenseSolve(SolveReceipt receipt, SolvePath path) {
             Assert.Equal(expected: path, actual: receipt.Path);
             Assert.Equal(expected: SolveStop.DirectSolved, actual: receipt.Stop);
-            Spec.Equal(left: receipt.Solution[index: 0], right: 1.0 / 11.0, tolerance: 1.0e-10, what: $"{path.Key} x0");
-            Spec.Equal(left: receipt.Solution[index: 1], right: 7.0 / 11.0, tolerance: 1.0e-10, what: $"{path.Key} x1");
+            Spec.Equal(left: receipt.Solution[index: 0], right: 1.0 / 11.0, tolerance: 1.0e-10, what: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{path.Key} x0"));
+            Spec.Equal(left: receipt.Solution[index: 1], right: 7.0 / 11.0, tolerance: 1.0e-10, what: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{path.Key} x1"));
             Assert.True(condition: receipt.Residual < 1.0e-10);
         }
     }

@@ -148,11 +148,11 @@ Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.as
 - Example: `assay docs check tools/assay/README.md`
 
 [PROVISION_COMMANDS]:
-- Verbs: `up`, `down`, `status`, `env`, `verify` — all arity 0, delegating to the Forge-owned `rasm-provision` CLI.
+- Verbs: `up`, `down`, `status`, `doctor`, `ports`, `plan`, `env`, `verify` — all arity 0, delegating to the Forge-owned `rasm-provision` CLI.
 - Inputs: none.
 - Output: shared `Report`; stdout/stderr from `rasm-provision` and local tool probes fold into process `Match` rows on failure.
-- `up` starts the Forge provisioning services and verifies extensions (`rasm-provision up`, 300s); `down` stops labelled provisioning services and removes script-owned data; `status` reports Docker/Compose state; `env` emits generated paths and DSNs; `verify` runs `rasm-provision verify` (180s) plus local `duckdb --version`, `forge-scientific-env` Python ABI and OpenBLAS probes, and an `ONNXRUNTIME_LIB` existence probe.
-- Boundary: Docker compose generation and native toolchain exports stay in Parametric_Forge; Rasm owns this envelope surface and the manifest markers, lockfile, and `.api` evidence that consume it. A missing `rasm-provision`/`forge-scientific-env` surfaces as a process fault, not an assay defect.
+- `up` starts the Forge provisioning services and verifies extensions (`rasm-provision up`, 300s); `down` stops labelled provisioning services and removes script-owned data; `status`, `doctor`, `ports`, and `plan` are read-only diagnostics; `env` emits generated paths and DSNs; `verify` runs `rasm-provision verify` (180s) plus local `duckdb --version`, `forge-scientific-env` Python ABI and OpenBLAS probes, and an `ONNXRUNTIME_LIB` existence probe.
+- Boundary: Docker compose generation and native toolchain exports stay in Parametric_Forge; Rasm owns this envelope surface and the manifest markers, lockfile, and `.api` evidence that consume it.
 - Example: `assay provision verify`
 
 ## [5][OUTPUT_CONTRACT]
@@ -226,7 +226,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 [PROVISIONING]:
 - Enables: tier-2 server and native runtime closure proofs through the Forge-owned `rasm-provision` and `forge-scientific-env` executables.
 - Requires: `rasm-provision` and `forge-scientific-env` on `PATH`; Parametric_Forge owns both executables and their version, so assay pins no version and a missing executable surfaces as a process fault rather than an assay defect.
-- Boundary: `provision up|down|status|env|verify` is the campaign command surface; direct `rasm-provision` use is Forge-level debugging.
+- Boundary: `provision up|down|status|doctor|ports|plan|env|verify` is the campaign command surface; direct `rasm-provision` use is Forge-level debugging. Forge-side low-level diagnostics remain direct CLI verbs such as `rasm-provision paths|self-test`.
 - Failure: docker-unavailable, port-bound, and invalid-root conditions exit `rasm-provision` non-zero and fold to process rows in the verb Envelope through `fan_out`/`fold`, never exceptions. A port collision names the offending service and its `RASM_TIMESCALE_PORT`/`RASM_SEARCH_PORT`/`RASM_PGDUCKDB_PORT` override; public-image pulls are insulated from host credential-store drift.
 
 [TREE_SITTER]:

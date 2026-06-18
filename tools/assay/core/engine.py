@@ -395,6 +395,7 @@ def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: Artif
     body = (*(part for group in tool.uv_groups() for part in ("--group", group)), *body) if tool.runner is Runner.UV else body
     body = ("--project", str(settings.root), *body) if tool.runner is Runner.UV and tool.stage.project else body
     body = ("--locked", *body) if tool.runner is Runner.UV else body
+    prefix = ("uv", "run", "--locked", "python", "-m") if tool.runner is Runner.MODULE else tool.runner.prefix
     # A staged dotnet tool (Stryker) runs from an empty .artifacts cwd; absolute --solution/--output anchor it to the real
     # tree and keep its sandbox + reports under .artifacts. _materialize forces cwd to the same staged work root.
     body = (
@@ -404,12 +405,12 @@ def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: Artif
     )
     match check.tail:
         case tuple() as pinned:
-            return Ok((*tool.runner.prefix, *body, *pinned))
+            return Ok((*prefix, *body, *pinned))
         case None:
             tails = place(routed, tool, settings=settings)
             match tails:
                 case () | (_,):
-                    return Ok((*tool.runner.prefix, *body, *(part for tail in tails for part in tail)))
+                    return Ok((*prefix, *body, *(part for tail in tails for part in tail)))
                 case _:
                     return Error(Fault((tool.name,), message=f"incoherent closure: {len(tails)} tails for one check"))
 

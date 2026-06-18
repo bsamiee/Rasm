@@ -90,6 +90,7 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] `assay api` owns external-artifact decompile/reflection over host DLLs, NuGet packages, installed Python distributions, and `node_modules` declarations.
 - [ALWAYS] `assay code` owns structural/pattern search over ast-grep metavariables, tree-sitter queries, and CI artifacts; prefer LSP for plain single-symbol navigation.
 - [ALWAYS] `assay static/test/bridge/package` own gating quality rails and mutation routes. LSP is read-only.
+- [ALWAYS] `assay provision` owns Rasm campaign provisioning; direct `rasm-provision` and `forge-scientific-env` calls are Forge-level debugging.
 
 ## [7]-[DOCUMENTATION_AND_OUTPUT]
 
