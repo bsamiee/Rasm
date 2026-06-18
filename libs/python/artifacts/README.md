@@ -19,13 +19,13 @@ The design pages under `.planning/`, one sub-domain folder per eventual source s
 
 ## [2]-[PACKAGE_REGISTRY]
 
-Every external library the folder uses, planned or implemented, as a flat list. Versions live in the one Python manifest; new admissions land here from the folder's ideas and tasks.
+Every external library the folder uses, planned or implemented, as a flat list. Versions live in the one Python manifest; new admissions land here from the folder's ideas and tasks. The cp314-bound rows (`pillow`, `matplotlib`, `scikit-image`, `lxml`, `brotli`, `lz4`) are gated `python_version<'3.15'`; `vtk`/`pyvista` are gated `python_version<'3.13'`. All are Rasm-owned and manifest-declared on the gated band, distinct from the Forge companion lane.
 
 - Documents: `reportlab`, `weasyprint`, `pymupdf`, `pypdfium2`, `pypdf`, `pikepdf`, `python-docx`, `python-pptx`, `openpyxl`, `lxml`, `ruamel-yaml`, `tomlkit`.
 - Reporting: `jinja2`, `papermill`, `nbclient`.
 - Charts: `altair`, `plotly`, `matplotlib`, `vl-convert-python`, `kaleido`.
 - Scene3d: `pyvista`, `vtk`.
-- Tables: `great-tables` (planned admission via the publication-table task).
+- Tables: `great-tables` (manifest, cp315-clean).
 - Imaging: `pillow`, `scikit-image`, `qrcode`, `python-magic`.
 - Color management: `colour-science`, `numpy`.
 - Typography: `fonttools`, `pyhanko`, `uharfbuzz`.

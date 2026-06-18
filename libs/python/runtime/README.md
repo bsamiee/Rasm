@@ -18,7 +18,7 @@
 
 ## [2]-[PACKAGES]
 
-Every external library the folder uses, planned or implemented. Versions live in the one root manifest; this list carries no pin.
+Every external library the folder uses, planned or implemented. Versions live in the one root manifest; this list carries no pin. The gRPC wire stack (`grpcio`, `grpcio-tools`, `protobuf`) is provided by the Forge `<'3.13'` companion interpreter (python312) and is NOT declared in the cp315 `pyproject.toml`; every other row is a cp315-clean manifest dependency.
 
 - expression
 - beartype
@@ -47,7 +47,7 @@ Every external library the folder uses, planned or implemented. Versions live in
 - tree-sitter
 - tree-sitter-python
 - tree-sitter-typescript
-- grpcio
-- grpcio-tools
-- protobuf
+- grpcio (Forge companion lane, `<'3.13'` interpreter; also transitive via specklepy on cp315)
+- grpcio-tools (Forge companion lane, `<'3.13'` interpreter)
+- protobuf (Forge companion lane, `<'3.13'` interpreter; also transitive via specklepy on cp315)
 - keyring

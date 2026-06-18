@@ -14,11 +14,11 @@ The design pages under `.planning/`, one sub-domain folder per eventual source s
 
 ## [2]-[PACKAGES]
 
-Every external library the folder uses, planned or implemented, as a flat list; versions live in the one branch manifest. A `(admit)` tag marks a library a forward task draws on that the branch manifest does not yet declare — the task that needs it carries the manifest-admission as an integration step, so the registry never implies a phantom dependency.
+Every external library the folder uses, planned or implemented, as a flat list; versions live in the one branch manifest. Two provenances carry these rows: a **Forge companion lane** row is provided by the Forge `<'3.13'` companion interpreter (python312, source-building the companion native libs) and is NOT declared in the cp315 `pyproject.toml`; every other row is declared in the Python manifest as cp315-clean core or as the `python_version<'3.15'` gated band. A `(admit)` tag marks a library a forward task still draws on that no provenance yet provides — the task carries the admission as an integration step, so the registry never implies a phantom dependency.
 
-- IFC and BIM: `ifcopenshell`; `ifctester`, `ifcclash`, `bcf` (admit — the buildingSMART validation triad, separate PyPI distributions, not bundled with the `ifcopenshell` wheel)
-- Scan and point cloud: `open3d`, `small-gicp`, `laspy`, `pye57`, `pdal`
-- Topology and computational geometry: `topologicpy`, `compas`; `compas_dr`, `compas_tna` (admit — the structural form-finding solvers)
-- Mesh and CAD-STEP: `trimesh`, `rhino3dm`, `meshio`; `manifold3d` (admit — the robust exact-boolean backend), `pythonocc-core` (admit — the OCCT B-rep reader for the STEP/IGES hop)
-- Numerics and typing: `numpy`, `msgspec`, `expression`, `beartype`
-- Wire and runtime: `grpcio`, `grpcio-tools`, `protobuf`
+- IFC and BIM: `ifcopenshell` (Forge companion lane); `ifctester`, `ifcclash`, `bcf` (admit — the buildingSMART validation triad, separate PyPI distributions, Forge companion lane)
+- Scan and point cloud: `open3d`, `small-gicp` (Forge companion lane); `laspy`, `pye57`, `pdal` (manifest — `pye57`/`pdal` gated `<'3.15'`)
+- Topology and computational geometry: `topologicpy` (Forge companion lane); `compas`, `compas_dr`, `compas_tna` (manifest, gated `<'3.15'`)
+- Mesh and CAD-STEP: `trimesh`, `rhino3dm`, `meshio` (manifest, cp315-clean); `manifold3d` (manifest, gated `<'3.15'` — robust exact-boolean backend); `pythonocc-core` (admit — the OCCT B-rep reader for the STEP/IGES hop; no PyPI distribution, conda-only, Forge companion lane or deferred)
+- Numerics and typing: `numpy`, `msgspec`, `expression`, `beartype` (manifest, cp315-clean)
+- Wire and runtime: `grpcio`, `grpcio-tools`, `protobuf` (Forge companion lane; also present transitively via `specklepy` on cp315)

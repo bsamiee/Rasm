@@ -17,7 +17,7 @@ The packages shared across two or more folders, registered once here and trimmed
 - Concurrency and process: `anyio`.
 - Observability: `structlog`, `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`, `psutil`.
 - Numeric core: `numpy`.
-- Companion wire: `grpcio`, `grpcio-tools`, `protobuf` — companion-floor only, resolved through the Forge-owned companion environment until a dedicated companion project/lock lands.
-- Companion native geometry: `ifcopenshell`, `open3d`, `small-gicp`, `topologicpy` — companion-floor only, not root `>=3.15` dependencies.
+- Companion wire: `grpcio`, `grpcio-tools`, `protobuf` — provided by the Forge companion lane (`forge-companion-env`, python312, `<'3.13'`), not the cp315 core manifest.
+- Companion native geometry: `ifcopenshell`, `open3d`, `small-gicp`, `topologicpy` — provided by the Forge companion lane (`<'3.13'`), not cp315 core dependencies.
 - Mesh-file interchange (data emits, geometry consumes at the mesh seam): `meshio`, `trimesh`, `rhino3dm`.
 - Object-store transport (runtime owns; data egress composes): `obstore`.

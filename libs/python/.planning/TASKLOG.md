@@ -4,12 +4,6 @@ The cross-package Python work, distilled from `IDEAS.md`: tasks that couple two 
 
 ## [1]-[OPEN]
 
-[BLOCKED] Admit the companion environment floor — from the branch interpreter floor.
-- Admit the `python_version<'3.13'` companion environment as a dedicated companion project/lock beside the `>=3.15` core so `assay api` reflects the companion-floor distributions and the geometry daemon and runtime server-host owners resolve their members.
-- Integrate `uv` (the environment fork and locked restore), and unblock `grpcio`/`grpcio-tools`/`protobuf` (runtime server-host), `ifcopenshell`/`open3d`/`small-gicp`/`topologicpy`/`compas` (geometry cores), `pythonocc-core`/`manifold3d` (the geometry CAD-STEP and mesh-utility), and `vtk`/`pyvista` (artifacts native render).
-- This is the single branch-altitude environment gate every companion-floor owner waits on; it touches no package interior, only the manifest and lock, and the per-package floor gates (`geometry`, `runtime`, `artifacts`) reference it rather than re-deciding it.
-- The two-distribution split — a core `>=3.15` project shipping an installable wheel and an isolated companion project registering the daemon console entry under its lowered floor — is the packaging consequence resolved with this gate; until it lands every companion-floor task across `geometry`, `runtime`, and `artifacts` stays blocked.
-
 [QUEUED] Fold content identity into lane admission — from `CONTENT_ADDRESSED_REUSE_FABRIC`.
 - Extend the runtime `concurrency/lanes` `LanePolicy.run` to accept work as `(ContentKey, Work[T])` pairs threading a session-local `frozendict[ContentKey, T]` cache, so a unit whose key already carries a result short-circuits, the `DrainReceipt` gaining a `hit` count distinct from `completed`.
 - Integrate `xxhash` (via runtime `identity`), `expression` (`frozendict`/`Result`), `msgspec`.
@@ -36,9 +30,9 @@ The cross-package Python work, distilled from `IDEAS.md`: tasks that couple two 
 
 [BLOCKED] Serve the C# wire and consume the generated SDK — wire touchpoint for `libs/.planning` PYTHON_COMPANION_SERVES_WIRE / CAPABILITY_SDK_CODEGEN / CRDT_OPLOG_WIRE_AMENDMENT.
 - Stand up the runtime `server/serve` companion serving the C# `ComputeService`/`ArtifactSync` gRPC over the UDS/InProcess leg and deriving its command surface from the upstream `csharp:Rasm.AppHost/capability/registry#SDK_CODEGEN` descriptor, decoding the amended CRDT op payload as the one wire vocabulary — never a hand-written client and never a second op kind the wire does not carry.
-- Integrate `grpcio`/`grpcio-tools`/`protobuf` (the companion server-runtime, unblocked by the companion-floor gate).
+- Integrate `grpcio`/`grpcio-tools`/`protobuf` (the companion server-runtime, provided by the Forge companion lane).
 - The companion reaches no C# interior; it decodes the one C#-owned wire vocabulary and consumes the generated descriptor as settled command metadata; this is the Python anchor the cross-`libs/` PYTHON_COMPANION_SERVES_WIRE, CAPABILITY_SDK_CODEGEN, and CRDT_OPLOG_WIRE_AMENDMENT seams consume, never restated cross-language.
-- Blocked on the companion-floor gate and on the upstream descriptor source and the CRDT op landing on the wire.
+- Blocked on the upstream descriptor source and the CRDT op landing on the wire.
 
 [QUEUED] Prove the content and causal identity parity inbound — wire touchpoint for `libs/.planning` CONTENT_IDENTITY_PARITY / CAUSAL_TENANT_IDENTITY_WIRE.
 - Reproduce the C#-owned `XxHash128` content seed (seed zero, two-half order) bit-identically in the runtime `identity/content-identity` owner via `xxh3_128_intdigest`, and propagate the same HLC two-half causal stamp and tenant frame on the receipt inbound, asserting both against the multi-runtime golden fixture.
@@ -54,4 +48,4 @@ The cross-package Python work, distilled from `IDEAS.md`: tasks that couple two 
 
 ## [2]-[CLOSED]
 
-No task has closed.
+[COMPLETE] Admit the companion environment floor — resolved by Forge. The `python_version<'3.13'` companion environment is provided by the Forge companion lane (`forge-companion-env`, python312) for the gRPC wire (`grpcio`/`grpcio-tools`/`protobuf`) and the native geometry/IFC cores (`ifcopenshell`/`open3d`/`small-gicp`/`topologicpy`); `compas`/`compas_dr`/`compas_tna`/`manifold3d` are manifest-declared on the `<'3.15'` gated band and `vtk`/`pyvista` are manifest-gated `<'3.13'` (both Rasm-owned, distinct from the lane); `pythonocc-core` has no PyPI distribution (honest deferral). The residual is documentation ownership — keeping each folder registry's provenance honest — not an environment gate.

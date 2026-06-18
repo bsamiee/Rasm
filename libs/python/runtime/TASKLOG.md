@@ -28,23 +28,23 @@ Open and closed work for `runtime`, distilled from `IDEAS.md`. Each task card ca
 - Internal to `evidence/`; the output feeds the `assay code` rail and the cross-`libs/` drift law — it consumes the shared canonical-name set, never minting a parallel registry.
 - The query family is the named cross-language drift detector; a false positive on a legitimately distinct same-named concept in a distinct namespace must be distinguishable by the query's namespace scope, never a blanket name match.
 
-[BLOCKED] [COMPANION_FLOOR]:
+[BLOCKED] [SERVE_HOST]:
 - Boot the `grpc.aio` `ServerHost` against the C# `ComputeService`/`ArtifactSync` descriptors under the `anyio` runner and gate the connecting peer on the `Credential` intake, resolving the PEM-bundle encoding, in `server/serve#SERVE`.
 - Integrate `grpcio`, `grpcio-tools`, `protobuf`, `keyring` (the `Keyring` credential case), `anyio`.
 - The wire is the existing C# `ComputeService`/`ArtifactSync` proto consumed at the seam — the runtime mints no second wire vocabulary; the companion serves over the UDS/InProcess leg.
-- Blocked on the sub-3.15 companion floor/lock-scope decision: `grpcio`/`grpcio-tools`/`protobuf` ride `python_version<'3.13'` and are pruned from the lock until the companion environment is admitted; `keyring` admission and the `CREDENTIAL_PEM` resolution land with this task.
+- The companion floor is provided by the Forge companion lane (`forge-companion-env`, python312); `grpcio`/`grpcio-tools`/`protobuf` ride that lane and `keyring` is manifest-declared. Blocked on the upstream C# `ComputeService`/`ArtifactSync` descriptors landing on the wire and the `CREDENTIAL_PEM` resolution.
 
 [BLOCKED] [CRDT_OPLOG_DECODE]:
 - Decode the op-log CRDT-op union (the breaking wire amendment, LWW surviving only as the register arm) in `server/serve#SERVE` as one more case on the existing C# companion proto — the companion never authors an op kind the wire does not carry.
 - Integrate `grpcio`/`protobuf` (the companion proto), `msgspec`; no new wire vocabulary.
 - The producer is `csharp:Rasm.Persistence/versioning#CRDT_ALGEBRA` + `sync/collaboration#TS_PROJECTION`; the companion decodes the amended payload at the same seam the base services cross, never a second decoder. The cross-`libs/` `CRDT_OPLOG_WIRE_AMENDMENT` task carries the tri-language scope.
-- Blocked on `[COMPANION_FLOOR]` (the companion-floor admission and the base proto) and on the upstream op vocabulary landing on the wire.
+- Blocked on `[SERVE_HOST]` (the server-host and the base proto) and on the upstream op vocabulary landing on the wire.
 
 [BLOCKED] [CAPABILITY_SDK_CONSUME]:
 - Consume the C#-generated capability-descriptor SDK in `server/serve#SERVE`, deriving the companion command surface from the generated descriptor — one polymorphic invoke keyed by descriptor id, the `inputSchema` the generated per-descriptor JSON Schema, never a hand-written per-service client.
 - Integrate `grpcio`/`protobuf` (the generated SDK), `msgspec`; no per-service hand client.
 - The producer is `csharp:Rasm.AppHost/capability/registry#SDK_CODEGEN`; the companion reads the generated descriptor and never re-authors a capability shape. The cross-`libs/` `CAPABILITY_SDK_CODEGEN` task carries the tri-language scope.
-- Blocked on `[COMPANION_FLOOR]` and on the upstream descriptor source landing.
+- Blocked on `[SERVE_HOST]` and on the upstream descriptor source landing.
 
 ## [2]-[CLOSED]
 
