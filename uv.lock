@@ -3143,6 +3143,20 @@ wheels = [
 ]
 
 [[package]]
+name = "squawk-cli"
+version = "2.58.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/b4/b7ab724deff6171f4df700ddb43914faa1675172db9be859c8d542086e8c/squawk_cli-2.58.0.tar.gz", hash = "sha256:da81fbde2dcfc535a0a1009d295bd4be587cca5b3f90882dfb85143292d4695e", size = 854086, upload-time = "2026-06-14T01:30:44.579Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1d/ca/2cee6e23788ce39eb22b1fb9635c7bf253002f2083189bb530749b3266ce/squawk_cli-2.58.0-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:bfae9a54f9d271da3db66cea9e3a2104ff4b9b5ac42fa85dc8c06dab1eae6bd3", size = 4665198, upload-time = "2026-06-14T01:30:42.872Z" },
+    { url = "https://files.pythonhosted.org/packages/40/53/af9efb0a19657035264ca0fe5ee0e69d2bd2f214ddac4a452c3016b1f8a7/squawk_cli-2.58.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:c7766adad854d7635be59f0225de4164a16bbdfa9646d4a051a1b3715f4924af", size = 4514498, upload-time = "2026-06-14T01:30:40.903Z" },
+    { url = "https://files.pythonhosted.org/packages/86/e9/ba47e9ab97a24d31feb4833d60080cd05f784c6d3f0f80279d216a6c7531/squawk_cli-2.58.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bf3531ce191460a10a7526f6cb6230544f97965e7bc6c8a7e348706b7718f86b", size = 6027512, upload-time = "2026-06-14T01:30:36.535Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/c9/0d7f7e4d8691f6874d4f46c12bbf789a1b5cd900dd48d5711d7e2fe246c4/squawk_cli-2.58.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:1f1f86db6ab6d74631bedcd15de3cf74bf25876150f52169f2b514119d1c101c", size = 6798687, upload-time = "2026-06-14T01:30:38.868Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/8d/5bd8f4aac4e247f6255213e7f1cad58789b3dfa42c21da745b602bc5a104/squawk_cli-2.58.0-py3-none-win32.whl", hash = "sha256:08fdf003cbd06d98a33c7c4cd9784dea199ee4540b931760e2e988d25dc39be8", size = 3797538, upload-time = "2026-06-14T01:30:48.307Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/d0/7c6b3cbcf71dfff2a7780f50a2677ae813656b3a75f00481e569b39b7758/squawk_cli-2.58.0-py3-none-win_amd64.whl", hash = "sha256:3ce15e05db28889887d83006db7f9f61aecc4fa9ce03ff2674354e26bbe76bad", size = 4140569, upload-time = "2026-06-14T01:30:46.261Z" },
+]
+
+[[package]]
 name = "stamina"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3689,6 +3703,7 @@ dev = [
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
     { name = "ruff" },
+    { name = "squawk-cli" },
     { name = "ty" },
     { name = "types-psutil" },
     { name = "validate-pyproject", extra = ["all"] },
@@ -3819,18 +3834,10 @@ dev = [
     { name = "pytest-timeout", specifier = ">=2.4.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "ruff", specifier = ">=0.15.17,<0.16" },
+    { name = "squawk-cli", specifier = ">=2.58.0" },
     { name = "ty", specifier = ">=0.0.49" },
     { name = "types-psutil", specifier = ">=7.2.2.20260518" },
     { name = "validate-pyproject", extras = ["all"] },
-]
-geometry-companion = [
-    { name = "grpcio", marker = "python_full_version < '3.13'", specifier = ">=1.81.1" },
-    { name = "grpcio-tools", marker = "python_full_version < '3.13'", specifier = ">=1.81.1" },
-    { name = "ifcopenshell", marker = "python_full_version < '3.13'", specifier = ">=0.8.5" },
-    { name = "open3d", marker = "python_full_version < '3.13'", specifier = ">=0.19.0" },
-    { name = "protobuf", marker = "python_full_version < '3.13'", specifier = ">=7.35.1" },
-    { name = "small-gicp", marker = "python_full_version < '3.13'", specifier = ">=1.0.1" },
-    { name = "topologicpy", marker = "python_full_version < '3.13'", specifier = ">=0.9.43" },
 ]
 mutation = [{ name = "mutmut", specifier = ">=3.6.0" }]
 scientific = [

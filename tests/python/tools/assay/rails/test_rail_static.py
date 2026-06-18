@@ -313,47 +313,12 @@ register_law(static_rail._build_fan, "restore_failure_skips_build_phase")
 
 def _csharp_closure_phases() -> static_rail.PhaseChecks:
     fmt_write = Check(
-        Tool(
-            "dotnet-format",
-            Runner.DOTNET,
-            ("format", "--severity", "error"),
-            Input.INCLUDE,
-            Language.CSHARP,
-            Claim.STATIC,
-            mode=Mode.WRITE,
-        )
+        Tool("dotnet-format", Runner.DOTNET, ("format", "--severity", "error"), Input.INCLUDE, Language.CSHARP, Claim.STATIC, mode=Mode.WRITE)
     )
-    fmt_check = Check(
-        Tool(
-            "dotnet-format",
-            Runner.DOTNET,
-            ("format", "--verify-no-changes"),
-            Input.INCLUDE,
-            Language.CSHARP,
-            Claim.STATIC,
-        )
-    )
-    restore = Check(
-        Tool(
-            "dotnet-restore",
-            Runner.DOTNET,
-            ("restore",),
-            Input.PROJECT,
-            Language.CSHARP,
-            Claim.STATIC,
-            mode=Mode.RESTORE,
-        )
-    )
+    fmt_check = Check(Tool("dotnet-format", Runner.DOTNET, ("format", "--verify-no-changes"), Input.INCLUDE, Language.CSHARP, Claim.STATIC))
+    restore = Check(Tool("dotnet-restore", Runner.DOTNET, ("restore",), Input.PROJECT, Language.CSHARP, Claim.STATIC, mode=Mode.RESTORE))
     build = Check(
-        Tool(
-            "dotnet-build",
-            Runner.DOTNET,
-            ("build", "--no-restore"),
-            Input.PROJECT,
-            Language.CSHARP,
-            Claim.STATIC,
-            mode=Mode.BUILD,
-        ),
+        Tool("dotnet-build", Runner.DOTNET, ("build", "--no-restore"), Input.PROJECT, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD),
         tail=("src/App/App.csproj",),
     )
     return (

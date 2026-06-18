@@ -1284,9 +1284,9 @@ def test_staged_tool_requires_local_execution(assay_root: AssayHarness) -> None:
     assert "staged tools require local execution" in fault.message, f"wrong stage-remote message: {fault!r}"
 
 
-@pytest.mark.parametrize("claim", [Claim.BRIDGE, Claim.PACKAGE], ids=["bridge", "package"])
+@pytest.mark.parametrize("claim", [Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION], ids=["bridge", "package", "provision"])
 def test_host_bound_tool_requires_local_execution(assay_root: AssayHarness, claim: Claim) -> None:
-    """A host-bound (bridge/package) tool against a remote ``exec_target`` faults ``UNSUPPORTED`` before argv composition."""
+    """A host-bound tool against a remote ``exec_target`` faults ``UNSUPPORTED`` before argv composition."""
     remote = assay_root.remote("ssh://x@127.0.0.1:2222")
     tool = Tool("host-bound-remote-law", Runner.DOTNET, ("run", "--", "verify"), Input.NONE, Language.CSHARP, claim, mode=Mode.VERIFY)
     fault = assert_error_status(run_check(Check(tool=tool), settings=remote, scope=None, routed=_PY_CHANGED), RailStatus.UNSUPPORTED)
@@ -2509,7 +2509,9 @@ def test_argv_for_pins_uv_group_project_segments_and_query_passthrough(assay_roo
         "uv-argv-law", Runner.UV, ("ruff", "check"), Input.NONE, Language.PYTHON, Claim.TEST, groups=(ToolGroup.MUTATION,), stage=Stage(project=True)
     )
     uv_argv = assert_ok(argv_for(Check(tool=uv_tool), _PY_CHANGED, settings=settings, scope=None))
-    assert uv_argv == ("uv", "run", "--project", str(settings.root), "--group", "mutation", "ruff", "check"), f"uv argv drifted: {uv_argv!r}"
+    assert uv_argv == ("uv", "run", "--locked", "--project", str(settings.root), "--group", "mutation", "ruff", "check"), (
+        f"uv argv drifted: {uv_argv!r}"
+    )
     direct = msgspec.structs.replace(uv_tool, runner=Runner.DIRECT)
     direct_argv = assert_ok(argv_for(Check(tool=direct), _PY_CHANGED, settings=settings, scope=None))
     assert direct_argv == ("ruff", "check"), f"non-UV runner leaked uv segments: {direct_argv!r}"

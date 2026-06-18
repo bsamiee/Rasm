@@ -656,7 +656,11 @@ internal static class QuitPrepare {
                 : string.Create(provider: CultureInfo.InvariantCulture, $"scrub left {receipt.ResidualDirty} doc(s) modified; savedPaths={string.Join(separator: ',', values: receipt.SavedPaths)}; gh2={receipt.Gh2}"));
         } catch (OperationCanceledException) {
             return (Option<QuitPrepareReceipt>.None, string.Create(provider: CultureInfo.InvariantCulture, $"scrub exceeded its {deadline.TotalMilliseconds:F0}ms bound"));
-        } catch (Exception error) when (error is RemoteInvocationException or ConnectionLostException or IOException or ObjectDisposedException) {
+        } catch (Exception error) when (error is RemoteRpcException or JsonException or IOException or ObjectDisposedException) {
+            // A shell that returns an unparseable or faulted quit receipt is an incomplete quit-prepare, not a
+            // session fault: fold to None so the quit ladder still terminates the host. StreamJsonRpc surfaces a
+            // result that will not bind to the receipt type as a raw System.Text.Json.JsonException (the wrapper
+            // is not a RemoteRpcException), and RemoteRpcException covers the connection/invocation/method family.
             return (Option<QuitPrepareReceipt>.None, $"{error.GetType().Name}: {error.Message}");
         }
     }

@@ -195,6 +195,8 @@ PY_ARTIFACT_ROOTS: Final[dict[str, str]] = {
     "mutmut": f"{_ARTIFACTS}/python/mutmut/work",
 }
 PY_COVERAGE_FILES: Final[dict[str, str]] = {fmt: f"{PY_ARTIFACT_ROOTS['coverage']}/coverage.{fmt}" for fmt in ("json", "xml", "lcov")}
+# Stryker writes a sandbox (`.stryker-tmp`, cwd-relative) and reports; the staged work root keeps both under `.artifacts`.
+CS_ARTIFACT_ROOTS: Final[dict[str, str]] = {"stryker": f"{_ARTIFACTS}/csharp/stryker/work"}
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
@@ -588,7 +590,7 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
     trigger_prefixes: tuple[str, ...] = ("tools/cs-analyzer/",)
     probe_fixture_prefixes: tuple[str, ...] = ("tests/ast-grep/", "tests/python/tools/py_analyzer/")
     test_target: ExpandedPath = UPath("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
-    mutation_python: str = "3.14.5"
+    mutation_python: str = "3.15"
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)
     log_level: Literal["debug", "info", "warning", "error", "critical"] = "info"
     run_id: RunId = Field(default_factory=_host_unique_run_id)
@@ -1242,6 +1244,7 @@ __all__ = [
     "ArtifactScope",
     "ArtifactStore",
     "AssaySettings",
+    "CS_ARTIFACT_ROOTS",
     "Configuration",
     "Local",
     "LogFormat",

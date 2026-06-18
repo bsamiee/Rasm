@@ -19,6 +19,7 @@ import msgspec
 from pydantic import ValidationError
 import pytest
 from upath import UPath
+import zstandard
 
 from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_none, assert_some, idempotent, model_based, roundtrip, validity_matrix
@@ -36,6 +37,7 @@ from tools.assay.composition.settings import (
     AssaySettings,
     backend_capability,
     Configuration,
+    CS_ARTIFACT_ROOTS,
     Local,
     LogFormat,
     mtime_from_info,
@@ -49,6 +51,7 @@ from tools.assay.composition.settings import (
     run_id_host_token,
     size_from_info,
     Ssh,
+    unframe,
 )
 from tools.assay.core.model import Artifact, ArtifactKind, Claim
 
@@ -613,6 +616,24 @@ def test_ssh_resolve_home_rebinds_tilde_to_absolute_workroot() -> None:
 
 
 register_law(Ssh, "ssh_resolve_home_rebinds_tilde_to_absolute_workroot")
+register_law(resolve_tilde, "ssh_resolve_home_rebinds_tilde_to_absolute_workroot")
+register_law(remote_path, "ssh_resolve_home_rebinds_tilde_to_absolute_workroot")
+
+
+def test_unframe_inflates_zstd_frame_and_passes_plain_bytes_through() -> None:
+    """The store read boundary inflates a zstd-framed payload and passes a non-framed payload through unchanged.
+
+    The frame magic discriminates compressed history frames from plain SARIF/coverage artifacts, so one boundary
+    serves both kinds with no per-consumer codec knowledge.
+    """
+    payload = b'{"run": "envelope", "status": "ok"}' * 8
+    framed = zstandard.ZstdCompressor(level=10).compress(payload)
+    assert framed[:4] == zstandard.FRAME_HEADER, "a zstd frame must carry the magic prefix unframe sniffs"
+    assert unframe(framed) == payload, "a framed payload must inflate to the original bytes"
+    assert unframe(payload) == payload, "a non-framed payload (no magic prefix) must pass through unchanged"
+
+
+register_law(unframe, "unframe_inflates_zstd_frame_and_passes_plain_bytes_through")
 
 
 @pytest.mark.parametrize(
@@ -1273,6 +1294,15 @@ def test_py_artifact_roots_own_python_tree() -> None:
 
 register_law("PY_ARTIFACT_ROOTS", "py_artifact_roots_own_python_tree")
 register_law("PY_COVERAGE_FILES", "py_artifact_roots_own_python_tree")
+
+
+def test_cs_artifact_roots_own_csharp_tree() -> None:
+    """CS_ARTIFACT_ROOTS owns the .artifacts/csharp staged roots that keep Stryker's sandbox and reports off the repo root."""
+    assert set(CS_ARTIFACT_ROOTS) == {"stryker"}
+    assert all(root.startswith(".artifacts/csharp/") for root in CS_ARTIFACT_ROOTS.values())
+
+
+register_law("CS_ARTIFACT_ROOTS", "cs_artifact_roots_own_csharp_tree")
 
 
 def test_prune_python_artifacts_bounds_benchmark_autosaves(assay_root: AssayHarness) -> None:

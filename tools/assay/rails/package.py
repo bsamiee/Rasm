@@ -138,19 +138,28 @@ class PackageParams(BaseParams):
 
     @override
     def bound(self, verb: str) -> Self | Fault:
-        """Validate package params at the boundary: ``publish``/``plan`` require a non-empty ``--slug``.
+        """Validate package params at the boundary: ``publish``/``plan`` require a non-empty ``--slug``, and
+        ``publish`` additionally requires a non-empty ``--version``.
 
         An empty slug identifies a non-yak project, so resolving ``publish``/``plan`` against it would target the
-        wrong project; ``list`` rosters every project and stays slug-agnostic.
+        wrong project; ``list`` rosters every project and stays slug-agnostic. An empty ``--version`` reaches the
+        staged ``dotnet build`` as ``-p:Version=`` and breaks ``GetAssemblyVersion`` (MSB4044) before any package
+        is produced, so ``publish`` rejects it at the boundary; ``plan`` only evaluates metadata and stays version-agnostic.
 
         Returns:
-            Validated params, or a parse fault for a surplus token or a missing required slug.
+            Validated params, or a parse fault for a surplus token, a missing slug, or a missing publish version.
         """
         match super().bound(verb):
             case Fault() as projected:
                 return projected
             case bound_params if verb in {"publish", "plan"} and not bound_params.slug.strip():
                 return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: --slug is required and must be non-empty")
+            case bound_params if verb == "publish" and not bound_params.version.strip():
+                return Fault(
+                    (),
+                    RailStatus.FAULTED,
+                    f"{Step.PARSE}: publish: --version is required and must be non-empty (an empty version breaks the staged build with MSB4044)",
+                )
             case bound_params:
                 return bound_params
 

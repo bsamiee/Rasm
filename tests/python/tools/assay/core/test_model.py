@@ -345,7 +345,7 @@ def test_fold_static_green_executed_rows_are_ok() -> None:
 
 def test_fold_promote_empty_is_opt_in_per_claim() -> None:
     """``promote_empty`` gates the promotion: an eligible claim stays empty by default and folds to ok only on opt-in."""
-    for claim in (Claim.STATIC, Claim.BRIDGE, Claim.PACKAGE, Claim.TEST):
+    for claim in (Claim.STATIC, Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.TEST):
         outcomes = (receipt((claim.value,), 0, status=RailStatus.EMPTY),)
         assert fold(claim, "check", outcomes).status is RailStatus.EMPTY
         promoted = fold(claim, "check", outcomes, promote_empty=True)

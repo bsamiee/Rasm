@@ -122,9 +122,7 @@ def _fake_awatch(batches: tuple[tuple[tuple[str, str], ...], ...]) -> object:
 
 
 @pytest.mark.parametrize(
-    "threshold,cpu,expected",
-    _GOVERNOR_CASES,
-    ids=["t0.9-skip", "t0.95-run", "tNone-run", "t0.0-run", "t1.0-100-skip", "t1.0-99.9-run", "t0.91-skip"],
+    "threshold,cpu,expected", _GOVERNOR_CASES, ids=["t0.9-skip", "t0.95-run", "tNone-run", "t0.0-run", "t1.0-100-skip", "t1.0-99.9-run", "t0.91-skip"]
 )
 def test_is_governed_boundary(threshold: float | None, cpu: float, *, expected: bool, cpu_double: CpuDoubleInstaller) -> None:
     """``is_governed`` returns True iff a positive ceiling trips (``cpu_percent >= threshold * 100``); ``None`` and ``0.0`` disable it.

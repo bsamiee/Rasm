@@ -72,7 +72,7 @@ from tools.assay.rails import (
     code as code_rail,
     docs as docs_rail,
     package as package_rail,
-    spike as spike_rail,
+    provision as provision_rail,
     static as static_rail,
     test as test_rail,
 )
@@ -81,7 +81,7 @@ from tools.assay.rails.bridge import BridgeParams
 from tools.assay.rails.code import _cap_note, CodeParams  # noqa: PLC2701  # _cap_note: single truncation-note grammar owner
 from tools.assay.rails.docs import DocsParams, FaultedPromotion
 from tools.assay.rails.package import PackageParams
-from tools.assay.rails.spike import SpikeParams
+from tools.assay.rails.provision import ProvisionParams
 from tools.assay.rails.static import StaticParams
 from tools.assay.rails.test import TestParams
 
@@ -129,7 +129,7 @@ _CLAIM_SLOTS: Final[dict[Claim, str]] = {
     Claim.PACKAGE: "",
     Claim.API: "",
     Claim.DOCS: "[PATHS]...",
-    Claim.SPIKE: "",
+    Claim.PROVISION: "",
 }
 _VERB_SLOTS: Final[dict[tuple[Claim, str], str]] = {
     (Claim.BRIDGE, "verify"): "[PATTERN]",
@@ -695,7 +695,13 @@ def _tool_probes() -> tuple[Check, ...]:
                 return "dotnet", ("dotnet", "--version")
             case Runner.UV if uv := tool.uv_groups():
                 group_flags = tuple(part for group in uv for part in ("--group", group))
-                return f"{tool.runner.value}:{tool.command[0]}:{','.join(uv)}", (*tool.runner.prefix, *group_flags, tool.command[0], "--version")
+                return f"{tool.runner.value}:{tool.command[0]}:{','.join(uv)}", ("uv", "run", "--locked", *group_flags, tool.command[0], "--version")
+            case Runner.UV:
+                return f"{tool.runner.value}:{tool.command[0]}", ("uv", "run", "--locked", tool.command[0], "--version")
+            case Runner.MODULE if tool.command[0] == "tools.py_analyzer":
+                return f"{tool.runner.value}:{tool.command[0]}", ("uv", "run", "--locked", "python", "-m", tool.command[0], "--help")
+            case Runner.MODULE:
+                return f"{tool.runner.value}:{tool.command[0]}", ("uv", "run", "--locked", "python", "-m", tool.command[0], "--version")
             case _:
                 return f"{tool.runner.value}:{tool.command[0]}", (*tool.runner.prefix, tool.command[0], "--version")
 
@@ -829,11 +835,11 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
     Bind(Claim.API, "status", api_rail.status, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
     Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown + Mermaid validation."),
-    Bind(Claim.SPIKE, "up", spike_rail.up, SpikeParams, "Start disposable PG18 spike services."),
-    Bind(Claim.SPIKE, "down", spike_rail.down, SpikeParams, "Stop labelled spike services and remove script-owned data."),
-    Bind(Claim.SPIKE, "status", spike_rail.status, SpikeParams, "Show disposable spike service status."),
-    Bind(Claim.SPIKE, "env", spike_rail.env, SpikeParams, "Print generated spike paths and DSNs."),
-    Bind(Claim.SPIKE, "verify", spike_rail.verify, SpikeParams, "Verify spike extensions and local scientific probes."),
+    Bind(Claim.PROVISION, "up", provision_rail.up, ProvisionParams, "Start local PG18 provisioning services."),
+    Bind(Claim.PROVISION, "down", provision_rail.down, ProvisionParams, "Stop labelled provisioning services and remove script-owned data."),
+    Bind(Claim.PROVISION, "status", provision_rail.status, ProvisionParams, "Show local provisioning service status."),
+    Bind(Claim.PROVISION, "env", provision_rail.env, ProvisionParams, "Print generated provisioning paths and DSNs."),
+    Bind(Claim.PROVISION, "verify", provision_rail.verify, ProvisionParams, "Verify provisioning extensions and local scientific probes."),
 )
 
 

@@ -63,7 +63,7 @@ def _place_subject(payload: tuple[object, ...]) -> object:
         return place(routed, tool, settings=settings)
 
 
-# --- [TABLES]
+# --- [TABLES] ---------------------------------------------------------------------------
 
 _ROWS: tuple[BenchCase, ...] = (
     BenchCase(

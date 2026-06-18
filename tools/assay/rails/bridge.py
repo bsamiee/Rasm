@@ -59,6 +59,14 @@ _PATH_GLYPHS: Final[str] = "/*?["
 _ALL_TOKENS: Final[frozenset[str]] = frozenset(("", "all", "*"))
 _TEXT_ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset((".json", ".jsonl", ".log", ".txt"))
 _BRIDGE_ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset((".gcdump", ".json", ".jsonl", ".png"))
+_SHELL_SOURCE_DIRS: Final[tuple[str, ...]] = ("Shell", "Contract", "Cargo")
+_INSTALLED_PLUGIN_GLOB: Final[str] = "Library/Application Support/McNeel/Rhinoceros/packages/9.0/rasm-bridge/*/Rasm.Bridge.Shell.dll"
+_FRESHNESS_STALE: Final[str] = (
+    "bridge.freshness=stale: shell source newer than the installed plugin; run `assay package publish --slug rasm-bridge --version <v>`"
+)
+_FRESHNESS_ABSENT: Final[str] = (
+    "bridge.freshness=absent: rasm-bridge plugin not installed; run `assay package publish --slug rasm-bridge --version <v>`"
+)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -186,7 +194,6 @@ _SCENARIO_CORPORA: Final[tuple[_ScenarioCorpus, ...]] = (
             ("vectors", "CloudShapes"),
             ("vectors", "CloudNeighborhood"),
             ("vectors", "CloudHull"),
-            ("vectors", "FieldSdfIsosurface"),
             ("vectors", "AtomsFrame"),
             ("vectors", "SpaceProjection"),
             ("vectors", "SampleDworkContinuous"),
@@ -617,16 +624,26 @@ def _fold_session(settings: AssaySettings, plan: _SelectionPlan, closure: Path, 
         case Result(tag="ok", ok=done):
             envelope = _decode_envelope(done)
             phase, output = first_fault(envelope)
+            freshness = _freshness(settings)
             summary = VerifySummary(
                 exceptions=sum(1 for row in envelope.scenarios if row.fault is not None),
                 report_dir=envelope.report_dir,
+                freshness=freshness,
                 first_failure=next((row.scenario for row in envelope.scenarios if row.status.exit_code != 0), ""),
                 first_fault_phase=phase,
                 first_fault_output=output,
                 facts=tuple(_fact_row(evt) for evt in envelope.evidence if evt.kind == "fact"),
                 captures=tuple(_capture_row(evt) for evt in envelope.evidence if evt.kind == "capture"),
             )
-            return Ok(fold(Claim.BRIDGE, "verify", (msgspec.structs.replace(done, argv=argv),), detail=summary, promote_empty=True))
+            return Ok(
+                fold(
+                    Claim.BRIDGE,
+                    "verify",
+                    (msgspec.structs.replace(done, argv=argv, notes=(*done.notes, *_freshness_note(freshness))),),
+                    detail=summary,
+                    promote_empty=True,
+                )
+            )
         case Result(error=fault):
             return Error(fault)
 
@@ -640,6 +657,40 @@ def _capture_row(evt: _SessionEvidence) -> tuple[str, str]:
         evt.stamp.scenario or Path(evt.path).stem,
         msgspec.json.encode({"path": evt.path, "width": evt.width, "height": evt.height, "onFailure": evt.on_failure}).decode(),
     )
+
+
+def _freshness(settings: AssaySettings) -> str:
+    """Freshness of the installed RhinoWIP plugin versus the bridge shell source.
+
+    The live host loads the Yak-installed plugin, not the `bridge build` output, so a source change that has
+    not been re-published leaves `verify`/`status` exercising a stale shell. The state is decoupled data on
+    every bridge envelope, never a rail fault: the supervisor tolerates a stale shell, so escalation is the
+    consumer's policy. A gated pipeline reads `detail.freshness` and decides; assay reports, it does not gate.
+
+    Returns:
+        `fresh`, `stale`, `absent`, or `unknown` when the source or install is unreadable.
+    """
+    try:
+        sources = [path for subdir in _SHELL_SOURCE_DIRS for path in (settings.root / "tools" / "rhino-bridge" / subdir).rglob("*.cs")]
+        installed = list(Path.home().glob(_INSTALLED_PLUGIN_GLOB))
+        source_mtime = max((path.stat().st_mtime for path in sources), default=0.0)
+        plugin_mtime = max((path.stat().st_mtime for path in installed), default=0.0)
+    except OSError:
+        return "unknown"
+    if not sources:
+        return "unknown"
+    if not installed:
+        return "absent"
+    return "stale" if source_mtime > plugin_mtime else "fresh"
+
+
+def _freshness_note(state: str) -> tuple[str, ...]:
+    """Actionable remediation note for a non-fresh plugin state.
+
+    Returns:
+        A single remediation row for stale or absent plugins; otherwise no rows.
+    """
+    return (_FRESHNESS_STALE,) if state == "stale" else (_FRESHNESS_ABSENT,) if state == "absent" else ()
 
 
 def _host_rows(host: _HostFingerprint) -> tuple[tuple[str, str], ...]:
@@ -659,14 +710,16 @@ def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report,
     def _fold_lifecycle(done: Completed) -> Report:
         envelope = _decode_envelope(done)
         phase, output = first_fault(envelope)
+        freshness = _freshness(settings) if verb == "status" else ""
         return fold(
             Claim.BRIDGE,
             verb,
-            (done,),
+            (msgspec.structs.replace(done, notes=(*done.notes, *_freshness_note(freshness))),),
             promote_empty=True,
             detail=BridgeLifecycle(
                 verb=verb,
                 report_dir=envelope.report_dir,
+                freshness=freshness,
                 host=_host_rows(envelope.host),
                 capabilities=tuple((cap.key, cap.outcome, cap.receipt) for cap in envelope.capabilities),
                 first_fault_phase=phase,

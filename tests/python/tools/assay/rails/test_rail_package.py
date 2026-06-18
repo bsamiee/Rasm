@@ -91,6 +91,7 @@ _VERBS: tuple[tuple[_VerbFn, str], ...] = ((publish, "publish"),)
 
 register_law(PackageParams, "defaults_are_blank")
 register_law(PackageParams, "arity_is_zero")
+register_law(PackageParams, "bound_requires_slug_and_publish_version")
 
 
 def test_packageparams_defaults() -> None:
@@ -115,6 +116,19 @@ def test_package_arity_is_zero() -> None:
     surplus = PackageParams(paths=("extra",)).bound("publish")
     assert isinstance(surplus, Fault)
     assert "unexpected positional" in surplus.message
+
+
+def test_package_bound_requires_slug_and_publish_version() -> None:
+    """bound() requires --slug for publish/plan and additionally --version for publish; plan stays version-agnostic."""
+    for verb in ("publish", "plan"):
+        missing_slug = PackageParams().bound(verb)
+        assert isinstance(missing_slug, Fault)
+        assert "--slug is required" in missing_slug.message
+    missing_version = PackageParams(slug="rasm-bridge").bound("publish")
+    assert isinstance(missing_version, Fault)
+    assert "--version is required" in missing_version.message
+    assert isinstance(PackageParams(slug="rasm-bridge").bound("plan"), PackageParams)
+    assert isinstance(PackageParams(slug="rasm-bridge", version="1.0.3").bound("publish"), PackageParams)
 
 
 # --- [SAFE_PACKAGE_PATTERN]

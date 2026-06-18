@@ -24,6 +24,10 @@ from tools.assay.rails.bridge import (
     _completed_from_stdout,
     _decode_envelope,
     _faulted,
+    _freshness,
+    _FRESHNESS_ABSENT,
+    _freshness_note,
+    _FRESHNESS_STALE,
     _HostFingerprint,
     _plan,
     _scenario_artifacts,
@@ -121,6 +125,19 @@ def test_bridge_params_pattern_and_arity() -> None:
 def test_bridge_module_public_surface() -> None:
     expected = frozenset(("BridgeParams", "bridge_lease", "build", "client_run", "first_fault", "quit", "status", "verify"))
     assert frozenset(_bridge_mod.__all__) == expected
+
+
+def test_freshness_note_maps_state_to_remediation() -> None:
+    """_freshness_note emits a remediation note only for stale/absent; fresh and unknown stay silent."""
+    assert _freshness_note("stale") == (_FRESHNESS_STALE,)
+    assert _freshness_note("absent") == (_FRESHNESS_ABSENT,)
+    assert _freshness_note("fresh") == ()
+    assert _freshness_note("unknown") == ()
+
+
+def test_freshness_reports_bounded_state(assay_root: AssayHarness) -> None:
+    """_freshness reports one of the four bounded states over the real tree, never raising."""
+    assert _freshness(assay_root.settings) in {"fresh", "stale", "absent", "unknown"}
 
 
 # --- [SELECTION_PLAN]

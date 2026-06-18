@@ -237,6 +237,7 @@ The bridge starts no MCP listener of its own. MCP tooling runs through McNeel's 
 
 [VERIFY_IDLE_RULE]:
 - Keep MCP idle during a formal `bridge verify`. The platform's `run_csharp`, `run_python`, and command tools drive `RhinoApp` command history; an interactive probe interleaved with a verify run injects foreign lines into the same `command.history.tail`/`command.capture.tail` evidence the cargo runner spools, contaminating the per-scenario command-window evidence. Run interactive MCP exploration before or after a verify, never concurrently inside one live session.
+- The same contamination rule binds any `Rasm.AppHost` MCP tool that drives a live Rhino host: a host-neutral capability projection stays outside this hazard, but the moment an AppHost tool's `ComputeIntent` reaches `RhinoApp` command history it inherits the idle-during-lease discipline and must not run concurrently with a bridge session.
 
 [VERDICT]:
 - The relationship is `additive_external`. The McNeel platform is interactive and conversational; the bridge is deterministic typed verification.

@@ -403,7 +403,12 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
             kept = routed.projects if tool.mode in {Mode.RESTORE, Mode.BUILD} else tuple(p for p in routed.projects if p not in routed.host_bound)
             projects = kept or ((str(settings.test_target),) if tool.mode is Mode.LIST and not routed.projects else ())
             return tuple(
-                ("--project", project) if tool.runner is Runner.DOTNET and tool.command[:1] == ("test",) else (project,) for project in projects
+                ("--project", project)
+                if tool.runner is Runner.DOTNET and tool.command[:1] == ("test",)
+                else ("--test-project", str(settings.root / project))
+                if tool.runner is Runner.DOTNET and tool.stage.root
+                else (project,)
+                for project in projects
             )
         case Input.SOLUTION:
             return ((str(settings.solution),),)

@@ -47,7 +47,7 @@ class Claim(StrEnum):
     PACKAGE = "package"
     API = "api"
     DOCS = "docs"
-    SPIKE = "spike"
+    PROVISION = "provision"
 
 
 class Input(StrEnum):
@@ -209,9 +209,9 @@ _DEFECT_TAIL: int = 4096
 # SARIF 2.1 result levels -> assay severities; analyzer notes (e.g. CSP0903) surface as info-grade evidence.
 _SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
 _DIAGNOSTIC_SEVERITY_RANK: dict[str, int] = {"error": 0, "warning": 1, "info": 2, "failed": 3}
-_PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE, Claim.SPIKE)
+_PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE, Claim.PROVISION)
 # host-bound claims cannot run off-host; remote execution rejects them before argv composition.
-_HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE))
+_HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION))
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 _HEADER_DIAGNOSTIC = re.compile(r"^(?P<severity>error|warning|warn|info|note)(?:\[(?P<rule>[^\]]+)])?:\s*(?P<message>.+)$", re.IGNORECASE)
 _ARROW_LOCATION = re.compile(r"^\s*-->\s*(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)$")
@@ -641,6 +641,7 @@ class VerifySummary(Detail, frozen=True, tag="verify"):
 
     exceptions: int = 0
     report_dir: str = ""
+    freshness: str = ""
     first_failure: str = ""
     first_fault_phase: str = ""
     first_fault_output: Annotated[str, msgspec.Meta(max_length=256)] = ""
@@ -656,6 +657,7 @@ class BridgeLifecycle(Detail, frozen=True, tag="bridge"):
 
     verb: str = ""
     report_dir: str = ""
+    freshness: str = ""
     host: tuple[tuple[str, str], ...] = ()
     capabilities: tuple[tuple[str, str, str], ...] = ()
     first_fault_phase: str = ""

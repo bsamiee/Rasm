@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 _FAULTED_EXIT: int = RailStatus.FAULTED.exit_code
 
-# --- [TABLES]
+# --- [TABLES] ---------------------------------------------------------------------------
 
 
 class _ParseFault(msgspec.Struct, frozen=True, gc=False):
@@ -33,6 +33,7 @@ class _ParseFault(msgspec.Struct, frozen=True, gc=False):
     argv: tuple[str, ...]
     claim: Claim | None = None
     message: str | None = None
+    also_contains: str | None = None
     failing_step: str | None = None
 
 
@@ -42,6 +43,7 @@ _PARSE_FAULTS: tuple[_ParseFault, ...] = (
     _ParseFault("bare-test", ("test",), claim=Claim.TEST),
     _ParseFault("bare-code", ("code",), claim=Claim.CODE),
     _ParseFault("numeric-validator", ("code", "query", "(module) @m", "--max-results", "-1"), failing_step="parse"),
+    _ParseFault("retired-spike", ("spike", "status"), message='Unknown command "spike"', also_contains="provision"),
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -57,6 +59,12 @@ def test_main_parse_fault_matrix(cli: VerbRunner, row: _ParseFault) -> None:
     assert res.envelope.status is RailStatus.FAULTED
     assert row.claim is None or res.envelope.claim is row.claim
     match row.message:
+        case None:
+            pass
+        case substring:
+            assert res.envelope.error is not None
+            assert substring in res.envelope.error.message
+    match row.also_contains:
         case None:
             pass
         case substring:
@@ -370,7 +378,9 @@ def test_extract_exec_splits_global_flag(argv: tuple[str, ...], stripped: tuple[
 )
 def test_admit_exec_routes_flag_through_validated_env_path(flag_value: str, expected_env: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """``_admit_exec`` admits the flag value through ASSAY_EXEC_TARGET so settings validate it; ``local`` normalizes to empty."""
-    monkeypatch.delenv("ASSAY_EXEC_TARGET", raising=False)
+    # _admit_exec writes os.environ directly; anchor the var via setenv so teardown
+    # reverts it when the variable was initially absent.
+    monkeypatch.setenv("ASSAY_EXEC_TARGET", "")
     stripped = _main_mod._admit_exec(("--exec", flag_value, "static"))
     assert stripped == ("static",)
     assert _main_mod.os.environ["ASSAY_EXEC_TARGET"] == expected_env

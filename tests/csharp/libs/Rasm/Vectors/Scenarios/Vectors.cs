@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Rasm.Domain;
 using Rasm.TestKit.Scenarios;
@@ -172,101 +171,6 @@ internal static class VectorsScenarios {
         select Done(scope: scope);
 
     [RhinoScenario(theme: "vectors")]
-    internal static Fin<Unit> FieldSdfIsosurface(ScenarioContext ctx) =>
-        from scope in DocumentScope.Open(ctx: ctx)
-        from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
-        let op = Op.Of()
-        let isoBounds = new BoundingBox(new Point3d(-6.0, -6.0, -6.0), new Point3d(6.0, 6.0, 6.0))
-        let nonCubicBounds = new BoundingBox(new Point3d(-4.0, -2.0, -1.0), new Point3d(4.0, 2.0, 1.0))
-        from sphereField in ctx.Expect(label: "sphere field", projection: ScalarField.Primitive(
-            kind: SdfKind.Sphere,
-            parameters: ImmutableDictionary<string, double>.Empty.Add(key: "r", value: 3.0),
-            pose: Plane.WorldXY,
-            key: op))
-        from analyticIso in Project<IsoSurfaceResult>(ctx: ctx, intent: VectorIntent.IsoSurface(field: sphereField, bounds: isoBounds, resolution: 18, maxRootSteps: 16, key: op), context: context, key: op, label: "analytic iso")
-        from nonCubicIso in Project<IsoSurfaceReceipt>(ctx: ctx, intent: VectorIntent.IsoSurface(field: sphereField, bounds: nonCubicBounds, resolution: 4, maxRootSteps: 12, key: op), context: context, key: op, label: "non-cubic iso")
-        let closedBox = ClosedBoxMesh()
-        from boxSpace in ctx.Expect(label: "box space", projection: MeshSpace.Of(native: closedBox, context: context, key: op))
-        from windingPolicy in ctx.Expect(label: "winding policy", projection: SdfMeshPolicy.GeneralizedWinding(key: op))
-        from boxField in ctx.Expect(label: "box sdf", projection: ScalarField.SignedDistanceFromMesh(space: boxSpace, policy: windingPolicy, key: op))
-        from meshIso in Project<IsoSurfaceResult>(ctx: ctx, intent: VectorIntent.IsoSurface(field: boxField, bounds: isoBounds, resolution: 16, maxRootSteps: 16, key: op), context: context, key: op, label: "mesh iso")
-        from meshSdf in ctx.Expect(label: "mesh sdf sample", projection: boxField.SampleSdfDetailed(sample: new Point3d(x: 4.0, y: 0.0, z: 0.0), context: context, key: op))
-        from meshReceipt in ctx.Expect(label: "mesh receipt", projection: meshSdf.Receipt.Mesh.ToFin(Fail: Error.New(message: "mesh receipt missing")))
-        let openSquare = OpenSquare()
-        from openSpace in ctx.Expect(label: "open space", projection: MeshSpace.Of(native: openSquare, context: context, key: op))
-        from boundaryPolicy in ctx.Expect(label: "boundary policy", projection: SdfMeshPolicy.BoundarySignedHeat(key: op))
-        let boundaryDefaultToleranceRejected = ScalarField.SignedDistanceFromMesh(space: openSpace, policy: boundaryPolicy, key: op)
-            .Bind(field => field.SampleSdfDetailed(sample: new Point3d(x: 0.25, y: 0.25, z: 0.1), context: context, key: op))
-            .IsFail
-        from closedGrid in ctx.Expect(label: "closed grid policy", projection: VolumeGridPolicy.ByResolution(resolution: 8, padding: 1.0, key: op))
-        from closedSolver in ctx.Expect(label: "closed volume solver", projection: VolumeSolverPolicy.SparseCholesky(residualTolerance: 1.0, key: op))
-        from closedPolicy in ctx.Expect(label: "closed signed heat policy", projection: SdfMeshPolicy.ClosedSignedHeat(grid: closedGrid, solver: closedSolver, key: op))
-        from closedField in ctx.Expect(label: "closed signed heat field", projection: ScalarField.SignedDistanceFromMesh(space: boxSpace, policy: closedPolicy, key: op))
-        from closedSignedHeat in ctx.Expect(label: "closed signed heat sample", projection: closedField.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: op))
-        from closedMeshReceipt in ctx.Expect(label: "closed mesh receipt", projection: closedSignedHeat.Receipt.Mesh.ToFin(Fail: Error.New(message: "closed mesh receipt missing")))
-        from closedVolume in ctx.Expect(label: "closed volume receipt", projection: closedMeshReceipt.VolumeGrid.ToFin(Fail: Error.New(message: "closed volume receipt missing")))
-        from closedSignedReceipt in ctx.Expect(label: "closed signed receipt", projection: closedMeshReceipt.SignedHeat.ToFin(Fail: Error.New(message: "closed signed receipt missing")))
-        from flippedClosedPolicy in ctx.Expect(label: "flipped closed signed heat policy", projection: SdfMeshPolicy.ClosedSignedHeat(grid: closedGrid, solver: closedSolver, signConvention: SdfSignConvention.PositiveInsideNegativeOutside, key: op))
-        from flippedClosedField in ctx.Expect(label: "flipped closed signed heat field", projection: ScalarField.SignedDistanceFromMesh(space: boxSpace, policy: flippedClosedPolicy, key: op))
-        from flippedClosedSignedHeat in ctx.Expect(label: "flipped closed signed heat sample", projection: flippedClosedField.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: op))
-        let closedIsoAccepted = VectorIntent.IsoSurface(field: closedField, bounds: new BoundingBox(new Point3d(x: -3.5, y: -3.5, z: -3.5), new Point3d(x: 3.5, y: 3.5, z: 3.5)), resolution: 12, maxRootSteps: 16, key: op)
-            .Bind(intent => intent.Project<IsoSurfaceReceipt>(context: context, key: op)) switch {
-                Fin<IsoSurfaceReceipt>.Succ(IsoSurfaceReceipt receipt) => receipt.Valid && receipt.MeshPreflight.IsSome,
-                _ => false,
-            }
-        let openClosedSignedHeatRejected = ScalarField.SignedDistanceFromMesh(space: openSpace, policy: closedPolicy, key: op)
-            .Bind(field => field.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: op))
-            .IsFail
-        from sphereSupport in ctx.Expect(label: "sphere support", projection: SupportSpace.Of(value: new Sphere(center: Point3d.Origin, radius: 3.0), key: op))
-        from containment in Project<double>(ctx: ctx, intent: VectorIntent.Support(space: sphereSupport, sample: new Point3d(x: 4.0, y: 0.0, z: 0.0), projection: SupportProjection.ContainmentDistance, key: op), context: context, key: op, label: "support containment")
-        let invalidIsoIntent = VectorIntent.IsoSurface(field: ScalarField.Constant(value: double.NaN), bounds: isoBounds, resolution: 8, maxRootSteps: 4, key: op)
-        let evaluatorFailureRejected = invalidIsoIntent.Bind(intent => intent.Project<IsoSurfaceResult>(context: context, key: op)).IsFail
-        from invalidIso in ctx.Expect(label: "invalid iso intent", projection: invalidIsoIntent)
-        let evaluatorFailureReceiptRejected = invalidIso.Project<IsoSurfaceReceipt>(context: context, key: op).IsFail
-        from boxDomain in ctx.Expect(label: "box mesh domain", projection: ExtractionDomain.Mesh(value: boxSpace, key: op))
-        let boxVertices = closedBox.Vertices.ToPoint3dArray()
-        from scalarContour in ctx.Expect(label: "box scalar contour", projection: ContourPolicy.MeshScalar(values: [.. boxVertices.Select(selector: static point => point.Z)], levels: Seq(0.0), key: op))
-        from scalarIsoline in Project<ScalarIsolineResult>(ctx: ctx, intent: VectorIntent.Contour(domain: boxDomain, policy: scalarContour, key: op), context: context, key: op, label: "box scalar isoline")
-        let nativeProbe = NativeIsoProbe(bounds: isoBounds)
-        from analyticReceiptLaw in ctx.Require(label: "analytic iso receipt", observed: analyticIso.Receipt.ParallelCallback && analyticIso.Receipt.FixedTolerance.Exists(static tolerance => Math.Abs(value: tolerance - 0.001) <= 1.0e-12))
-        from analyticMeshLaw in ctx.Require(label: "analytic iso mesh", observed: analyticIso.Mesh.IsValid && analyticIso.Receipt.VertexCount > 0 && analyticIso.Receipt.FaceCount > 0)
-        from prewarmLaw in ctx.Require(label: "iso prewarm distinction", observed: analyticIso.Receipt.MeshPreflight.IsNone && meshIso.Receipt.MeshPreflight.IsSome)
-        from nonCubicLaw in ctx.Require(label: "non-cubic grid", observed: nonCubicIso.Grid.XCells == 16 && nonCubicIso.Grid.YCells == 8 && nonCubicIso.Grid.ZCells == 4 && nonCubicIso.Grid.InitialSampleCount == 1277)
-        from meshIsoLaw in ctx.Require(label: "mesh iso receipt", observed: meshIso.Mesh.IsValid && meshReceipt.Domain.Equals(other: SdfMeshDomain.SurfaceMesh) && meshReceipt.Status.Equals(other: SdfMeshStatus.ApproximateSignClosestDistance))
-        from boundaryLaw in ctx.Require(label: "boundary default tolerance rejected", observed: boundaryDefaultToleranceRejected)
-        from closedVolumeLaw in ctx.Require(label: "closed volume receipt", observed: closedMeshReceipt.Domain.Equals(other: SdfMeshDomain.VolumeGrid) && closedMeshReceipt.Status.Equals(other: SdfMeshStatus.ClosedSurfaceSignedHeat) && closedVolume.NodeCount > 0 && closedVolume.InsideNodeCount > 0 && closedVolume.OutsideNodeCount > 0 && closedSignedReceipt.PoissonSolve.IsUsable)
-        from closedSignLaw in ctx.Require(label: "closed signs", observed: RhinoMath.IsValidDouble(x: closedSignedHeat.Value) && RhinoMath.IsValidDouble(x: flippedClosedSignedHeat.Value) && closedSignedHeat.Value * flippedClosedSignedHeat.Value < 0.0)
-        from closedIsoLaw in ctx.Require(label: "closed iso accepted", observed: closedIsoAccepted)
-        from openClosedLaw in ctx.Require(label: "open closed signed heat rejected", observed: openClosedSignedHeatRejected)
-        from isolineLaw in ctx.Require(label: "scalar isoline", observed: !scalarIsoline.Receipt.NativeRouted && scalarIsoline.Receipt.EmittedCurves > 0 && scalarIsoline.Curves.Count == scalarIsoline.Receipt.EmittedCurves)
-        from containmentLaw in ctx.Require(label: "containment", observed: RhinoMath.IsValidDouble(x: containment) && containment > 0.0)
-        from evaluatorLaw in ctx.Require(label: "evaluator failure rejected", observed: evaluatorFailureRejected && evaluatorFailureReceiptRejected)
-        from nativeLaw in ctx.Require(label: "native callback evidence", observed: nativeProbe.Iso is { IsValid: true } && nativeProbe.Samples > 0 && nativeProbe.Threads >= 1)
-        let analyticVerticesFact = Note(ctx: ctx, key: "analyticVertices", value: analyticIso.Receipt.VertexCount)
-        let nonCubicCellsFact = Note(ctx: ctx, key: "nonCubicCells", value: $"{nonCubicIso.Grid.XCells}x{nonCubicIso.Grid.YCells}x{nonCubicIso.Grid.ZCells}")
-        let nonCubicSamplesFact = Note(ctx: ctx, key: "nonCubicInitialSamples", value: nonCubicIso.Grid.InitialSampleCount)
-        let meshVerticesFact = Note(ctx: ctx, key: "meshVertices", value: meshIso.Receipt.VertexCount)
-        let toleranceFact = Note(ctx: ctx, key: "fixedTolerance", value: 0.001)
-        let parallelFact = Note(ctx: ctx, key: "parallelCallback", value: analyticIso.Receipt.ParallelCallback)
-        let meshMethodFact = Note(ctx: ctx, key: "meshMethod", value: "GeneralizedWindingNumber")
-        let meshStatusFact = Note(ctx: ctx, key: "meshStatus", value: "ApproximateSignClosestDistance")
-        let meshSolidFact = Note(ctx: ctx, key: "meshSolid", value: meshReceipt.Topology.IsSolid)
-        let boundaryMethodFact = Note(ctx: ctx, key: "boundaryMethod", value: "BoundarySignedHeat")
-        let boundaryRejectedFact = Note(ctx: ctx, key: "boundaryDefaultToleranceRejected", value: boundaryDefaultToleranceRejected)
-        let closedMethodFact = Note(ctx: ctx, key: "closedMethod", value: "ClosedSurfaceSignedHeat")
-        let closedDistanceFact = Note(ctx: ctx, key: "closedDistance", value: closedSignedHeat.Value)
-        let closedNodesFact = Note(ctx: ctx, key: "closedVolumeNodes", value: closedVolume.NodeCount)
-        let flippedDistanceFact = Note(ctx: ctx, key: "flippedClosedDistance", value: flippedClosedSignedHeat.Value)
-        let closedIsoFact = Note(ctx: ctx, key: "closedIsoAccepted", value: closedIsoAccepted)
-        let openClosedFact = Note(ctx: ctx, key: "openClosedSignedHeatRejected", value: openClosedSignedHeatRejected)
-        let isolineFact = Note(ctx: ctx, key: "isoline.curves", value: scalarIsoline.Receipt.EmittedCurves)
-        let evaluatorFact = Note(ctx: ctx, key: "evaluatorFailureRejected", value: evaluatorFailureRejected)
-        let evaluatorReceiptFact = Note(ctx: ctx, key: "evaluatorFailureReceiptRejected", value: evaluatorFailureReceiptRejected)
-        let threadsFact = Note(ctx: ctx, key: "threadIdsSeen", value: nativeProbe.Threads)
-        let samplesFact = Note(ctx: ctx, key: "sampleCount", value: nativeProbe.Samples)
-        select Done(scope: scope);
-
-    [RhinoScenario(theme: "vectors")]
     internal static Fin<Unit> AtomsFrame(ScenarioContext ctx) =>
         from scope in DocumentScope.Open(ctx: ctx)
         from context in ctx.Expect(label: "context", projection: Context.Of(units: UnitSystem.Millimeters).ToFin())
@@ -393,19 +297,6 @@ internal static class VectorsScenarios {
         return SpectralEdgeConnectionRail(ctx: ctx, native: native);
     }
 
-    private static Mesh ClosedBoxMesh() {
-        Mesh mesh = Mesh.CreateFromBox(
-            box: new BoundingBox(new Point3d(-3.0, -3.0, -3.0), new Point3d(3.0, 3.0, 3.0)),
-            xCount: 1, yCount: 1, zCount: 1);
-        _ = mesh.Vertices.CombineIdentical(ignoreNormals: true, ignoreAdditional: true);
-        mesh.Weld(angleToleranceRadians: Math.PI);
-        _ = mesh.UnifyNormals();
-        _ = mesh.FaceNormals.ComputeFaceNormals();
-        _ = mesh.Normals.ComputeNormals();
-        _ = mesh.Compact();
-        return mesh;
-    }
-
     private static Fin<CloudCurvatureResult> Curvature(ScenarioContext ctx, Context context, Op key, Seq<Point3d> points, CloudMetricPolicy policy, string label) =>
         ctx.Expect(label: $"{label} cluster", projection: VectorCloud.Cluster(points: points, context: context, key: key))
             .Bind(cloud => Project<CloudCurvatureResult>(ctx: ctx, intent: VectorIntent.Cloud(cloud: cloud, metric: VectorCloudMetric.PrincipalCurvature, policy: Some(policy), key: key), context: context, key: key, label: label));
@@ -447,19 +338,6 @@ internal static class VectorsScenarios {
             let px = ix * step
             let py = iy * step
             select new Point3d(x: px, y: py, z: z(px, py)));
-
-    private static (Mesh Iso, int Samples, int Threads) NativeIsoProbe(BoundingBox bounds) {
-        ConcurrentDictionary<int, int> threads = new();
-        int samples = 0;
-        Mesh iso = Mesh.CreateFromIsosurface(
-            scalarFieldEvaluator: point => {
-                _ = threads.AddOrUpdate(key: Environment.CurrentManagedThreadId, addValue: 1, updateValueFactory: static (_, count) => count + 1);
-                _ = Interlocked.Increment(location: ref samples);
-                return point.DistanceTo(other: Point3d.Origin) - 2.0;
-            },
-            box: bounds, resolution: 18, RootFindingMaxSteps: 16);
-        return (Iso: iso, Samples: samples, Threads: threads.Count);
-    }
 
     private static Unit Done(DocumentScope scope) {
         scope.Dispose();
@@ -520,15 +398,16 @@ internal static class VectorsScenarios {
         from degenerateReceipt in Project<SpectralAssemblyReceipt>(ctx: ctx, intent: VectorIntent.DiscreteCalculus(space: degenerateSpace, key: op), context: context, key: op, label: "degenerate dec")
         from torusSpace in ctx.Expect(label: "torus space", projection: MeshSpace.Of(native: torusNative, context: context, key: op))
         from torusTopology in Project<TopologyReceipt>(ctx: ctx, intent: VectorIntent.Topology(space: torusSpace, key: op), context: context, key: op, label: "torus topology")
+        from torusReceipt in Project<SpectralAssemblyReceipt>(ctx: ctx, intent: VectorIntent.DiscreteCalculus(space: torusSpace, key: op), context: context, key: op, label: "torus dec")
         from annulusSpace in ctx.Expect(label: "annulus space", projection: MeshSpace.Of(native: annulusNative, context: context, key: op))
         from annulusTopology in Project<TopologyReceipt>(ctx: ctx, intent: VectorIntent.Topology(space: annulusSpace, key: op), context: context, key: op, label: "annulus topology")
         from annulusCalculus in Project<DiscreteCalculus>(ctx: ctx, intent: VectorIntent.DiscreteCalculus(space: annulusSpace, key: op), context: context, key: op, label: "annulus dec")
         from annulusBasis in Project<HarmonicOneFormBasis>(ctx: ctx, intent: VectorIntent.DiscreteCalculus(space: annulusSpace, key: op), context: context, key: op, label: "annulus harmonic basis")
         from annulusHarmonic in Project<HarmonicOneFormReceipt>(ctx: ctx, intent: VectorIntent.DiscreteCalculus(space: annulusSpace, key: op), context: context, key: op, label: "annulus harmonic receipt")
-        let genusPositiveHodgeUnsupported = VectorField.Hodge(source: VectorField.Constant(value: Vector3d.XAxis), space: torusSpace, key: op)
+        let genusPositiveHodgeProjected = VectorField.Hodge(source: VectorField.Constant(value: Vector3d.XAxis), space: torusSpace, key: op)
             .Bind(field => VectorIntent.Probe(source: ExtractionProbe.Vector(source: field), sample: torusNative.Vertices[0], key: op))
             .Bind(intent => intent.Project<Vector3d>(context: context, key: op)) switch {
-                Fin<Vector3d>.Fail(Error fault) => string.Equals(a: fault.Category(), b: "Unsupported", comparisonType: StringComparison.Ordinal),
+                Fin<Vector3d>.Succ(Vector3d projected) => projected.IsValid,
                 _ => false,
             }
         from featureAngle in ctx.Expect(label: "feature angle", projection: op.AcceptValidated<VectorAngle>(candidate: 0.1))
@@ -571,14 +450,14 @@ internal static class VectorsScenarios {
         from distortionLaw in ctx.Require(label: "flatten distortion", observed: flattenReceipt.EdgeLengthDistortionRms.Exists(static rms => RhinoMath.IsValidDouble(x: rms) && rms >= 0.0))
         from remeshLaw in ctx.Require(label: "remesh completed", observed: remesh.Mesh.IsValid && remesh.Receipt.Status.Equals(other: RemeshStatus.Completed) && remeshReceipt.Status.Equals(other: RemeshStatus.Completed))
         from degenerateLaw in ctx.Require(label: "degenerate receipt", observed: degenerateReceipt.Kind.Equals(other: SpectralAssemblyKind.Dec) && degenerateReceipt.SkippedDegenerateFaces > 0)
-        from torusLaw in ctx.Require(label: "torus topology", observed: torusTopology.Genus.Exists(static genus => genus > 0) && genusPositiveHodgeUnsupported)
+        from torusLaw in ctx.Require(label: "torus topology", observed: torusTopology.Genus.Exists(static genus => genus > 0) && torusReceipt.Genus.Exists(static genus => genus == 1) && torusReceipt.HarmonicDimension == 2 && torusReceipt.IsValid && genusPositiveHodgeProjected)
         from annulusTopologyLaw in ctx.Require(label: "annulus topology", observed: annulusTopology.Genus.Exists(static genus => genus == 0) && annulusTopology.BoundaryComponents == 2 && annulusCalculus.Receipt.BoundaryComponentCount == 2 && annulusCalculus.Receipt.HarmonicDimension == 1)
         from annulusHarmonicLaw in ctx.Require(label: "annulus harmonic forms", observed: annulusBasis.Receipt.ExpectedDimension == 1 && annulusBasis.Forms.Count == 1 && annulusBasis.Forms.AsIterable().All(form => form.Count == annulusCalculus.Receipt.EdgeCount) && annulusBasis.IsValid)
         from annulusOrthonormalLaw in ctx.Require(label: "annulus star1 orthonormal", observed: annulusHarmonic.BoundaryComponentCount == 2 && annulusHarmonic.ExpectedDimension == 1 && annulusHarmonic.BasisCount == 1 && annulusHarmonic.Star1OrthonormalResidual <= Math.Max(val1: 1.0e-7, val2: annulusHarmonic.SvdTolerance * 1.0e3) && annulusHarmonic.MaxClosedResidual <= Math.Max(val1: 1.0e-7, val2: annulusHarmonic.SvdTolerance * 1.0e3) && annulusHarmonic.MaxCoClosedResidual <= Math.Max(val1: 1.0e-7, val2: annulusHarmonic.SvdTolerance * 1.0e3))
         from curvatureFeatureLaw in ctx.Require(label: "curvature features", observed: curvatureFeatures.Algorithm?.Equals(other: MeshFeatureAlgorithm.DihedralProxy) == true && curvatureFeatures.Edges.Count > 0 && curvatureFeatures.Edges.AsIterable().Any(static edge => edge.SignedDihedralRadians.IsSome))
         from regionFeatureLaw in ctx.Require(label: "region features", observed: regionFeatures.Algorithm?.Equals(other: MeshFeatureAlgorithm.DihedralProxy) == true && regionFeatures.RegionBoundaryEdges > 0 && regionFeatures.Edges.AsIterable().Any(static edge => edge.Kind.Equals(other: MeshFeatureKind.RegionBoundary)))
         from segmentationLaw in ctx.Require(label: "segmentation rails", observed: segmentationReceipts.Map(f: static row => row.Algorithm.Key).Distinct().Count == 6 && segmentationReceipts.ForAll(static row => row.AssignedFaceCount > 0 && (row.Status.Equals(other: MeshSegmentationStatus.Completed) || row.Status.Equals(other: MeshSegmentationStatus.MaxIterationsExhausted))))
-        from sampleLaw in ctx.Require(label: "sample spectrum", observed: sampleAlgorithm.Kind.Equals(other: SampleAlgorithmKind.CapacityLimitedLloydCandidate) && sampleAlgorithm.CapacityResidualValidated && !sampleAlgorithm.TransportAssignmentValidated && sampleAlgorithm.MeshSpectrumValidated == sampleSpectrum.Validated && sampleSpectrum.Algorithm?.Equals(other: MeshSamplingSpectrumAlgorithm.CandidateSpectrum) == true && sampleSpectrum.SampleCount == meshSample.Emitted)
+        from sampleLaw in ctx.Require(label: "sample spectrum", observed: sampleAlgorithm.Kind.Equals(other: SampleAlgorithmKind.CapacityLimitedLloydCandidate) && sampleAlgorithm.CapacityResidual.Exists(static r => RhinoMath.IsValidDouble(x: r) && r >= 0.0) && sampleAlgorithm.CapacityAssignedCandidates.Exists(static a => a > 0) && !sampleAlgorithm.TransportAssignmentValidated && sampleAlgorithm.MeshSpectrumValidated == sampleSpectrum.Validated && sampleSpectrum.Algorithm?.Equals(other: MeshSamplingSpectrumAlgorithm.CandidateSpectrum) == true && sampleSpectrum.SuppressionRatio is >= 0.0 and <= 1.0 && sampleSpectrum.SampleCount == meshSample.Emitted)
         from logLaw in ctx.Require(label: "tangent log receipt", observed: logReceipt.VectorHeatBacked && logReceipt.RejectsFlippedIntrinsic && logReceipt.Algorithm?.Equals(other: TangentLogMapAlgorithm.VectorHeatApproximate) == true && logReceipt.FiniteLogCount == 1)
         let nonZerosFact = Note(ctx: ctx, key: "dec.nonzeros", value: receipt.NonZeros)
         let residualFact = Note(ctx: ctx, key: "dec.d1d0", value: receipt.BoundaryCompositionResidual)

@@ -1,21 +1,16 @@
 # [ASSAY_OPERATOR]
 
-`tools.assay` is the Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, API, and spike proof.
+`tools.assay` is the Rasm polyglot quality operator over the `static`, `code`, `test`, `bridge`, `package`, `api`, `docs`, and `provision` claims, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces.
 
-## [1][STATUS]
+## [1][SCOPE]
 
-[KNOWN_DEFECTS] (surfaces fewer/divergent errors than raw `dotnet build`/`format`; fix these):
-- `static` runs `dotnet format` in the fix phase before build, mutating source — `IDE0053` strips single-statement-block lambda braces (flips `Action`/`Func` overload binding), `IDE0001` simplifies names — introducing compile breaks and making the error set non-deterministic vs a clean `dotnet build`; skip/gate the fix phase (or add a diagnose-only mode) when the target does not already compile.
-- `static` under-reports the compile-error surface vs `dotnet build` (~13 reported where `dotnet build` showed ~40 across more files): the failing/short-circuiting format phase plus the SARIF/stderr extraction caps and dedups, hiding cascade layers and whole-file clusters; surface the build's full diagnostic set.
-- `api query` serves a stale/partial fingerprint cache (~13ms cache hits): truncated index (only generated display-class types for `gh2`), cannot resolve real types (e.g. `Grasshopper2.Doc.Document`), and `--grep` without a positional symbol returns the cached scope index regardless of pattern — a no-match is not proof of absence; invalidate/rebuild the per-source ilspy cache.
+Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr. The programmatic arm is `drive(trigger, action, settings)`.
 
-[STATUS]:
-- Status: active replacement operator.
-- Use: repository quality, API, bridge, package, static, test, code, docs, spike, and automation validation.
-- Machine contract: normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr.
-- Automation: programmatic arm through `drive(trigger, action, settings)`; no registered root `watch` CLI.
-- Compatibility: no stale command aliases or shim surfaces.
-- Mutation: staged gate (multi-hour) — run `cd .artifacts/python/mutmut/work && COVERAGE_RCFILE=.config/coverage-mutmut.ini uv run mutmut run`, then score the completed cache against the 0.80 kill-floor with `rails/mutation_gate.py` (`[tool.mutmut]` pins `source_paths = ["tools/assay"]`).
+`static` never rewrites a C# target that does not compile, and its reported diagnostics match `dotnet build`.
+
+`api query` reports provable absence: a no-match reflects the current artifact, never a stale cache.
+
+The Python mutation lane is a staged `python -m` gate scored against an 0.80 kill-floor; it is not a CLI verb.
 
 ## [2][FIRST_COMMAND]
 
@@ -23,7 +18,7 @@
 uv run python -m tools.assay self-test
 ```
 
-Verify: stdout contains one JSON `Envelope`; `status`/`exit_code` are the only process-result source; stderr may contain structlog events or tool diagnostics. Use `--rhino` only when the local Rhino bridge lane is intentionally part of the smoke.
+Verify: stdout contains one JSON `Envelope`; `Envelope.status`/`exit_code` are the only process-result source; stderr carries structlog events and tool diagnostics. `--rhino` opts the local Rhino bridge lane into the smoke.
 
 ## [3][FLOW]
 
@@ -64,13 +59,11 @@ flowchart LR
   engine -.-> engineAspect["engine seam\nretry + deadline + transport"]
 ```
 
-Text equivalent: CLI argv resolves through `REGISTRY` into a `Bind`; the rail owns settings, scope, routing, check construction, engine dispatch, and fold. The engine runs `Check` rows and returns either `Completed` receipts for a `Report` or a `Fault` for an error `Envelope`. Automation uses the same engine and registry rails but emits NDJSON per fire or sequence leaf.
+Text equivalent: CLI argv resolves through `REGISTRY` into a `Bind`; the rail owns settings, scope, routing, check construction, engine dispatch, and fold. The engine runs `Check` rows and returns either a `Completed` receipt for a `Report` or a `Fault` for an error `Envelope`. Automation uses the same engine and registry rails and emits NDJSON per fire or sequence leaf.
 
 ## [4][COMMANDS]
 
-Command rows are the curated operator surface, not generated help. Run nested commands as `uv run python -m tools.assay <family> <verb> ...`; root commands omit `<family>`. Exhaustive parameter signatures stay in source and Cyclopts help. Cyclopts `--help` hides the `--language` default; the upstream Enum-default branch (`cyclopts/help/help.py`) reads `default_val.name` before consulting any `show_default` callable, so a `None` default would crash `--help`. The flag still accepts every language choice.
-
-This table is a lookup by command surface and verb set:
+Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.assay <claim> <verb> ...`); single-verb claims (`static`, `docs`) and root commands omit the verb token. Multi-verb claims (`code`, `test`, `bridge`, `package`, `api`, `provision`) are Cyclopts sub-apps. Exhaustive parameter signatures stay in source and Cyclopts help. The language axis is selected by the mutually-exclusive `--csharp`, `--python`, and `--typescript` flags; an unset selection routes every eligible language. There is no `--language` flag.
 
 | [INDEX] | [SURFACE] | [VERBS]                                       |
 | :-----: | :-------- | :-------------------------------------------- |
@@ -82,130 +75,124 @@ This table is a lookup by command surface and verb set:
 |   [6]   | `package` | `publish`, `plan`, `list`                     |
 |   [7]   | `api`     | `resolve`, `query`, `show`, `status`          |
 |   [8]   | `docs`    | `check`                                       |
-|   [9]   | `spike`   | `up`, `down`, `status`, `env`, `verify`       |
+|   [9]   | `provision` | `up`, `down`, `status`, `env`, `verify`     |
 
 [ROOT_COMMANDS]:
-- Verbs: `self-test`, `delta`
-- Inputs: `self-test` accepts `--rhino`; `delta` accepts `<run_id>` and `--against <run_id>`.
-- Output: `Envelope.report`; `delta` carries `RunDelta` detail, including `drift` rows `(host-fact key, before, after)` for changed cross-session host facts (`rhinoVersion`, `mcp.platform.version`, `mcp.listener`, `rpc.streamjsonrpc`) when both sides are bridge runs.
-- Use: `self-test` runs composition/catalog census; `--rhino` opts into bridge-aware smoke. `delta` compares retained history under `.artifacts/assay/history` and surfaces host drift across sessions.
-- Example: `uv run python -m tools.assay delta <run_id> --against <run_id>`
+- Verbs: `self-test`, `delta` (registered outside the claim fold).
+- Inputs: `self-test` accepts `--rhino`; `delta` takes positional `<run_id>` and `--against <run_id>`.
+- Output: `Envelope.report`; `delta` carries `RunDelta` detail with `drift` rows `(host-fact key, before, after)` for changed cross-session host facts (`rhinoVersion`, `mcp.platform.version`, `mcp.listener`, `rpc.streamjsonrpc`) when both sides are bridge runs.
+- `self-test` runs the composition/catalog census; `--rhino` opts into bridge-aware smoke. `delta` compares retained history under `.artifacts/assay/history`; host-fact drift rows populate only when both compared runs are bridge runs, so non-bridge pairs report empty `drift`.
+- Example: `assay delta <run_id> --against <run_id>`
 
 [STATIC_COMMANDS]:
-- Verb: `static` is a single root leaf — there is no `check`/`build`/`fix` split.
-- Inputs: `--all`, `--project <project.csproj>`, `--folder <path>...`, `--file <path>...`, or no target (changed-default); `--plan` is an orthogonal modifier. At most one of `--all`, `--project`, or folder/file targets.
-- `--all`: fans every detected language at full scope (whole-workspace Python, TypeScript, Bash, plus the C# solution build), not a C#-only target.
-- `--plan`: dry-run preflight — emits a `StaticRun` with populated per-phase `detail.planned` argv and runs no tool, so the git tree stays clean (the fix-always CI "what would change" probe).
-- Target binding: each flag consumes space-separated values until the next option; the flag may also be repeated. Commas are literal path characters.
-- Output: shared `Report`; `StaticRun` detail carries targets, routes, planned checks, skipped checks, phase order, resource telemetry, and artifact scopes.
-- Use: for every language the resolved targets touch, `static` runs the full lane in fixed order — auto-fix (formatters + fixers) -> diagnose (non-fixable analyzers) -> restore -> build. Fix-always: a CI gate runs `static` then asserts a clean git tree and empty diagnostics.
-- Example: `uv run python -m tools.assay static --folder tools/assay tests/python --file tools/assay/rails/static.py`
-- Project example: `uv run python -m tools.assay static --project tools/rhino-bridge/Supervisor/Supervisor.csproj`
+- Verb: `static` is a single root leaf — no `check`/`build`/`fix` split.
+- Inputs: `--all`, `--project <project.csproj>`, `--folder <path>...`, `--file <path>...`, or no target (changed-files default); `--plan` is an orthogonal modifier. Choosing more than one of `--all`, `--project`, or folder/file targets is an `unsupported` parse fault.
+- `--all` fans every detected language at full scope (whole-workspace Python, TypeScript, Bash, plus the C# solution build).
+- `--project <path.csproj>` pins one C# project; a non-`.csproj` or missing path is `unsupported`.
+- `--plan` is a dry-run that emits planned argv per phase in `StaticRun.detail`, spawns no tool, and leaves the git tree clean.
+- Target binding: each flag consumes space-separated values until the next option and is repeatable. Commas are literal path characters.
+- Output: shared `Report`; `StaticRun` detail carries targets, routes, planned argv triples, skipped rows, phase order, resource projection, `sarif_status`, and artifact scopes.
+- For every language the resolved targets touch, `static` runs the full lane in fixed order — FIX (`Mode.WRITE` formatters and fixers) -> DIAGNOSTIC (`Mode.CHECK` analyzers) -> RESTORE -> BUILD. The C# FIX phase is gated on an analyzer-free compile probe (`-p:RunAnalyzers=false`, throwaway scope): a non-compiling target drops both its WRITE fix and CHECK twin, so neither rewrites unbuildable source. C# closure builds run under an exclusive build lease over restored output; RESTORE failure forces BUILD checks to SKIP. dotnet build tools pin `-p:CspSarifDir=...` and `-maxCpuCount:`; SARIF folds into the report, so the reported set matches `dotnet build`.
+- Example: `assay static --folder tools/assay tests/python --file tools/assay/rails/static.py`
+- Project example: `assay static --project tools/rhino-bridge/Supervisor/Supervisor.csproj`
 
 [CODE_COMMANDS]:
 - Verbs: `search`, `query`
-- Inputs: `[paths...]`, `--csharp`, `--python`, `--typescript`, `--pattern`, `--max-results`
-- Output: `Match` rows and rail artifacts.
-- Use: literal patterns route to ripgrep content search; `$NAME` metavar patterns route to ast-grep structural search; `query` runs an in-process tree-sitter AST query.
-- Grep overlap: the content sub-arm intentionally overlaps the harness Grep tool. It is kept deliberately so a content search produces the same one-`Envelope`, artifact-backed result contract as every other rail rather than raw matcher output.
-- LSP boundary: prefer the native LSP ops for live single declared-symbol navigation — definition, implementation, references, hover, call hierarchy — and for post-edit diagnostics; reach for `code search`/`code query` for arbitrary tree-sitter patterns, `$NAME` metavar and predicate-filtered captures, structural search, and the one-`Envelope` artifact contract; `api` owns external compiled-artifact decompile/reflection, which has no LSP substitute. The rails are orthogonal — nothing here forwards to or is replaced by the LSP tool.
-- Example: `uv run python -m tools.assay code search --pattern run_check --python tools/assay`
+- Inputs: leading positional or `--pattern <p>` (blank = parse fault), trailing `[paths...]` (default `.`), `--csharp`, `--python`, `--typescript`, `--max-results <n>` (default 1000).
+- Output: ranked `Match` rows capped by `--max-results` plus a complete `matches.txt` artifact listing; a cap note fires when rows are cut. The emit layer applies an independent defect-preserving 1000-row ceiling, so `--max-results` above 1000 still clips at emit.
+- `search <pattern>`: a `$NAME` metavar pattern routes to ast-grep structural search; every other pattern routes to ripgrep content search.
+- `query <pattern>`: in-process tree-sitter query over grammar-backed Python and TypeScript files (`.tsx` uses the tsx grammar). Capture rows carry name, ordinal, pattern, and line; parse and query errors surface as `failed`-severity rows; match-limit saturation marks rows truncated.
+- Routing: use LSP for single declared-symbol navigation and post-edit diagnostics; `code search`/`code query` own `$NAME` metavar, predicate-filtered captures, and structural search; `api` owns external compiled-artifact decompile.
+- Example: `assay code search --pattern run_check --python tools/assay`
 
 [TEST_COMMANDS]:
-- Verbs: `run`, `list`, `coverage`
-- Inputs: `[paths...]`, `--csharp`, `--python`, `--typescript`, `--mutation`, `--benchmark`, `--coverage`
-- Source-exposed params: `--target`, `--all`, `--filter`, `--limit`, `--grep`
-- Output: `TestRun` detail, or `Match` rows for `list`.
-- Use: mutation is `off`, `changed`, or `full`; `target` and `all` constrain mutation eligibility, while `filter` narrows .NET list/run invocations. `list` emits direct test identity rows and keeps discovery diagnostics separate.
-- List truth: `list` carries `detail.selected` = the pre-limit discovered total (the structured surface an agent reads); the `discovery: total=… returned=…` note tracks discovered vs roster after `--limit`. Any further clip to the wire rows is owned by the result cap and its in-band truncation note (see [5]).
-- Example: `uv run python -m tools.assay test run --csharp tests/csharp`
+- Verbs: `run`, `coverage`, `list`
+- Inputs: `[paths...]`, `--csharp` / `--python` / `--typescript` (mutually exclusive), `--target <path.csproj>`, `--all`, `--mutation <off|changed|full>` (default `off`), `--benchmark`, `--coverage`, `--filter <expr>`, `--limit <n>`, `--grep <s>`.
+- Output: `TestRun` detail; `Match` roster rows for `list`.
+- `run` runs eligible suites (`Mode.RUN`) and folds a `TestRun`. `coverage` re-runs under coverage (forces `coverage=True, benchmark=False`), decodes `totals.percent_covered` from `.artifacts/python/coverage/coverage.json`, and adopts the coverage json/xml/lcov artifacts. `list` discovers tests (`Mode.LIST`) via dotnet list-test and pytest collect, emits `roster.txt`/`roster.json`, and honors `--grep`/`--limit`.
+- `--mutation changed` scopes via Stryker `--mutate <glob>` and mutmut module-dotted names; runners with no changed-file scope surface `unsupported`, and `--mutation` with no eligible lane notes the gap. mutmut gets a lease-riding `mutmut-gate` kill-rate floor. Per-language mutation runs hold sorted exclusive `mutation-<lang>` leases.
+- `--filter` is the MTP discriminant for dotnet RUN/LIST: leading `/` = query, `k=v` = trait, `Tests`/`Laws`/`Spec` suffix or `+` = class, else method. `--limit` caps roster rows; `--grep` substring-filters the discovered roster.
+- Example: `assay test run --csharp tests/csharp`
 
 [BRIDGE_COMMANDS]:
-- Verbs: `build`, `verify`, `status`, `quit`
-- Inputs: `--pattern`
-- Output: `VerifySummary` detail where applicable.
-- Use: `build` compiles bridge projects and typed scenario closures; `status` launches or reuses RhinoWIP and reports host facts; `quit` runs the document-cleanup quit ladder; `verify` discovers direct file, directory, then worktree glob, and no matched scenario returns `unsupported`.
-- Example: `uv run python -m tools.assay bridge verify --pattern tests/csharp/libs/Rasm.Rhino`
+- Verbs: `build`, `verify`, `status`, `quit` — all arity 0 except `verify`, all serialized through the process-global `bridge` exclusive lease (the live Rhino host is a per-machine singleton).
+- Inputs: `verify [pattern]` (positional, arity 1).
+- Output: `VerifySummary` for `verify`; `BridgeLifecycle` for `status`/`quit`; a build report for `build`.
+- `build` compiles supervisor, shell, stub, cargo, contract, and typed scenario closures sequentially (RESTORE/build gated, first-error short-circuit) and folds `bridge.firstDiagnostic` plus SARIF artifacts. `verify` builds the closures, aggregates `bridge-closure.assay.json`, then runs typed scenarios under the live host lease; it first expires report dirs older than 300s (`_VERIFY_TTL_S`). `status` probes bridge host health; `quit` terminates the host under the lease.
+- `verify` pattern selection: empty / `all` / `*` = every corpus; comma-separated theme tokens; scenario names; or glob/path tokens against the scenario corpora. No match = `unsupported` fault. Scenario timeout is 600s.
+- `verify` and `status` carry `detail.freshness` (`fresh` / `stale` / `absent` / `unknown`): the installed Yak plugin against the shell source. It is decoupled data, never a rail fault — a stale install still passes (the supervisor tolerates it and scenarios load fresh cargo), so a gated pipeline reads `detail.freshness` to decide escalation. A non-`fresh` state also rides a remediation note.
+- Example: `assay bridge verify tests/csharp/libs/Rasm.Rhino`
 
 [PACKAGE_COMMANDS]:
 - Verbs: `publish`, `plan`, `list`
-- Inputs: `--slug`, `--version`
-- Output: `PackageRun` detail.
-- Use: slug and version are flags, not positionals; `publish` is the Yak/Rhino-package operation, `plan` dry-runs the closure, and `list` enumerates discovered package targets.
-- Version routing: the root app declares no global `--version` flag, so `package plan --version <v>` routes the token into `PackageParams.version` rather than printing the app version on bare stdout (which would break the one-`Envelope` contract). Version reporting lives in `self-test`.
-- Example: `uv run python -m tools.assay package plan --slug <yak-slug> --version <version>`
+- Inputs: `--slug <s>`, `--version <v>` (both flags, no positionals). `publish` requires both non-empty (an empty slug identifies a non-yak project; an empty version reaches the staged build as `-p:Version=` and breaks `GetAssemblyVersion` with MSB4044, so both reject at the boundary). `plan` requires `--slug` and is version-agnostic; `list` is slug-agnostic.
+- Output: `PackageRun` detail (stage/package dir, project, pattern, version, dirs, platform, push source).
+- `publish` runs the full yak pipeline under an exclusive `package-<slug>` lease: evaluate and validate MSBuild yak metadata, build with `-p:Version=<version>`, stage (host assemblies excluded), `yak build`, atomic same-filesystem commit, then policy-driven post-stage steps — non-bridge slug = INSTALL+PUSH; the `rasm-bridge` slug = QUIT, INSTALL, REFRESH, PUSH under the `bridge` lease. `plan` evaluates and validates yak metadata only with no staging. `list` rosters every package project as `Match` rows `id=slug, text=project`.
+- Example: `assay package plan --slug <yak-slug> --version <version>`
 
 [API_COMMANDS]:
 - Verbs: `resolve`, `query`, `show`, `status`
-- Inputs: `--key`, `--symbol`, `--kind`, `--token`, `--max-lines`, `--lines`, `--grep`, `--full`, `--strict`
-- Output: `ApiSurface` or `ApiResolution` detail.
-- Flag-only: the verbs are driven by flags, not positionals — `resolve` keys on `--key`/`--kind`, `query` on `--symbol`, `show` on `--token`. A surplus positional (e.g. the reflexive `api resolve rhino-common all`) is a parse fault whose message names the exact flags that own the slots and the verb's resolved positional arity, so the corrected `--key`/`--kind` form is in the error itself.
-- Use: sources include host assemblies, NuGet packages, Python distributions, and TypeScript declarations; `show latest` resolves through artifact-store root priority rather than a workspace scan.
-- Row text: each `status` inventory `Match.text` is the stable key=value health grammar `<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->` (fixed key order, single-space-separated) so downstream parsers key off names, not positions.
-- Example: `uv run python -m tools.assay api query --key rhino-common --symbol Rhino.Geometry.Mesh`
+- Inputs: `--key` (default `rhino-common`), `--symbol`, `--kind` (default `all`), `--token`, `--max-lines <n>` (default 120), `--lines <start:end>`, `--grep`, `--full`, `--strict`, `--sources <prefix...>`. Positional slots alias the flags: `resolve <key> [kind]`, `query <symbol>`, `show <token>`.
+- Output: `ApiResolution` for `resolve`, `ApiSurface` for `query`, `ApiSource` for `status`; ranked candidate previews ride `results`, full path or body lists ride a `<kind>.paths.txt` / `decompile.cs` artifact only when the cap saturates.
+- Resolution precedence: host bundle (ASSEMBLY) > NuGet (`Directory.Packages.props`) > installed Python dist (PYDIST) > node_modules `.d.ts` (TSDECL); first hit wins. C#/NuGet decompile through `ilspycmd`; Python/TS through in-process thunks.
+- `query <symbol>` dispatches on symbol shape (index roster, namespace roster, or `ilspycmd -t <fqn>` type/member decompile) and windows output to `--max-lines` unless `--full`. `resolve <key> [kind]` resolves a key to asset paths; `--kind` in `{all, assembly, xml, nuspec, deps, package-root}` (unknown = `unsupported`). `show <token>` previews a written artifact (`latest` selects newest), sliceable by `--lines`/`--grep`/`--max-lines`/`--full`. `status` inventories source health, narrowable by `--sources`; `--strict` faults when required core sources (`rhino-app`, `ilspycmd`, host specs) are absent.
+- `query` results are content-fingerprint cached and self-invalidating: a truncated or corrupt cache fails `_cache_valid` and rebuilds, so a no-match reflects the current artifact rather than a stale hit.
+- Row text: each `status` inventory `Match.text` is the fixed-order, single-space health grammar `<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->`. Envelope rows compact to ASSEMBLY, NuGet, and TOOL source kinds plus the `python-dists` and `ts-decls` summary rows; per-distribution PYDIST and TSDECL rows never ride the envelope and read from the full `status-inventory.json` artifact instead.
+- Example: `assay api query --key rhino-common --symbol Rhino.Geometry.Mesh`
 
 [DOCS_COMMANDS]:
-- Verbs: `check`
-- Inputs: `[paths...]`, `--strict`
-- Output: shared `Report`
-- Use: Mermaid render validation through `mmdc`; not full Markdown standards, links, or anchor validation.
-- Worked-run envelope: a successful `check` reports `status: ok` with one `source:<file>:1` result row per routed file and `Artifact` rows for the produced SVG/MD under the per-run scope, so an agent reads artifact paths from the envelope. `mmdc` runs once per routed file with `-i <file> -a <scope_dir> -o <scope_dir>/<slug>.md`; the `-o` sink stem is the slugged full relative path, so two same-basename files never clobber a shared sink. Files land under `.artifacts/assay/docs/<run_id>/`.
-- Example: `uv run python -m tools.assay docs check tools/assay/README.md`
+- Verb: `check`
+- Inputs: `[paths...]`, `--strict` (promotes EMPTY/SKIP to a `FaultedPromotion`; real defects keep their status).
+- Output: shared `Report` with one `mmdc <file>: ok|failed` PROCESS `Match` per routed file and `Artifact` rows for the produced `<stem>.md` and `<stem>-<n>.svg` under the per-run scope.
+- `check` validates Mermaid diagrams across routed Markdown files through `mmdc`, one invocation per file as `-i <file> -a <scope_dir> -o <scope_dir>/<stem>.md`. The sink stem is the full relative path joined by `__`, so two same-basename files never clobber a shared sink. Files land under `.artifacts/assay/docs/<run_id>/`.
+- Example: `assay docs check tools/assay/README.md`
 
-[SPIKE_COMMANDS]:
-- Verbs: `up`, `down`, `status`, `env`, `verify`
+[PROVISION_COMMANDS]:
+- Verbs: `up`, `down`, `status`, `env`, `verify` — all arity 0, delegating to the Forge-owned `rasm-provision` CLI.
 - Inputs: none.
-- Output: shared `Report`; stdout/stderr from the Forge-owned provisioning CLI and local tool probes fold into process `Match` rows on failure.
-- Use: `spike` is the Rasm-owned campaign surface over Forge machine provisioning. `up` starts the disposable PG18 Timescale and ParadeDB services, `down` tears down only labelled spike-owned containers and data, `status` reports Compose state, `env` prints generated paths and DSNs, and `verify` runs PostgreSQL extension probes plus local DuckDB, Python ABI, OpenBLAS, and ONNX Runtime checks.
-- Boundary: Docker compose generation and native toolchain exports stay in Parametric_Forge; Rasm owns this envelope surface, manifest markers, lockfile, and `.api` evidence that consume it.
-- Example: `uv run python -m tools.assay spike verify`
+- Output: shared `Report`; stdout/stderr from `rasm-provision` and local tool probes fold into process `Match` rows on failure.
+- `up` starts the Forge provisioning services and verifies extensions (`rasm-provision up`, 300s); `down` stops labelled provisioning services and removes script-owned data; `status` reports Docker/Compose state; `env` emits generated paths and DSNs; `verify` runs `rasm-provision verify` (180s) plus local `duckdb --version`, `forge-scientific-env` Python ABI and OpenBLAS probes, and an `ONNXRUNTIME_LIB` existence probe.
+- Boundary: Docker compose generation and native toolchain exports stay in Parametric_Forge; Rasm owns this envelope surface and the manifest markers, lockfile, and `.api` evidence that consume it. A missing `rasm-provision`/`forge-scientific-env` surfaces as a process fault, not an assay defect.
+- Example: `assay provision verify`
 
 ## [5][OUTPUT_CONTRACT]
 
-Assay output is machine-first. The stable consumer rule is simple: parse stdout for results, use stderr for diagnosis, and treat the process exit as a projection of the emitted status.
+Parse stdout for results, read stderr for diagnosis, and treat the process exit as a projection of `Envelope.status`.
 
 [WIRE_INVARIANT]:
-- Normal invocation: exactly one JSON `Envelope` line on stdout.
+- Normal invocation: exactly one JSON `Envelope` line on stdout, newline-framed and flushed; a second emit on one invocation is suppressed to stderr as a FAULTED invariant-violation envelope.
 - Automation exception: NDJSON, one `Envelope` per fire or sequence leaf.
-- Failure split: `Completed(FAILED)` means a tool ran and found defects; `Fault` means assay could not run or complete the operation.
-- Schema route: full field-by-field schema lives in `core/model.py`; full status algebra lives in `core/status.py`.
+- Failure split: `Completed(FAILED)` means a tool ran and found defects; non-zero tool exits stay on `Completed`. A `Fault` means routing, spawn, lease, timeout, or a precondition failed.
+- Schema route: the field-by-field `Envelope` schema lives in `core/model.py`; the status algebra lives in `core/status.py`.
 
 [STDOUT]:
-- Carries: one JSON `Envelope` per normal CLI invocation.
-- Consumer rule: decode this for status, exit, report, artifacts, results, detail, and diagnostics.
-- Do not parse: stderr for result data.
+- Carries one JSON `Envelope` per normal CLI invocation.
+- Decode it for `status`, `exit_code`, `report`, `artifacts`, `results`, `detail`, and diagnostics.
 
 [STDERR]:
-- Carries: structlog events, structured phase/process/resource progress records, subprocess stderr, and operator diagnostics.
-- Consumer rule: read for operational progress and human diagnosis.
-- Do not parse: stderr as the machine result channel.
+- Carries structlog events, structured phase/process/resource progress records, subprocess stderr, and operator diagnostics.
+- Read it for operational progress and human diagnosis only; it is never the machine result channel.
 
 [AUTOMATION_STDOUT]:
-- Carries: NDJSON, one `Envelope` per fire or sequence leaf.
-- Consumer rule: consume line-by-line.
-- Do not expect: one aggregate sequence envelope.
+- Carries NDJSON, one `Envelope` per fire or sequence leaf; consume it line-by-line. A sequence emits no aggregate envelope.
 
 [PROCESS_EXIT]:
-- Carries: `Envelope.exit_code` through the Cyclopts return-code hook.
-- Consumer rule: treat exit as a projection of `RailStatus`.
-- Do not model: a separate process-status system.
+- Carries `Envelope.exit_code` through the Cyclopts return-code hook; treat it as a projection of `RailStatus`.
 
 [STATUS_MODEL]:
-- Status tokens: `skip`, `empty`, `ok`, `unsupported`, `busy`, `timeout`, `failed`, `faulted`.
+- Tokens and exit codes (`core/status.py`): `skip`/`empty`/`ok` -> 0, `failed` -> 1, `faulted` -> 2, `unsupported` -> 3, `busy`/`timeout` -> 5. Severity-ranked fold via `join`/`fold`.
 - Completed channel: process success, skip, empty, unsupported, or tool-found defects.
-- Fault channel: operational failure under `Envelope.error` with diagnostic context.
-- Strictness: flags such as `--strict` can promote otherwise non-error states into a fault for that invocation.
+- Fault channel: operational failure under `Envelope.error` with `Envelope.error_context` diagnostic.
+- `--strict` promotes otherwise non-error states into a fault for that invocation.
 
 [PAYLOAD_MAP]:
-- Report detail: rail-specific evidence under `report.detail`.
+- Report detail: rail-specific evidence under `report.detail` (tagged `AnyDetail` union).
 - Rows: bounded row output under `report.results`.
 - Artifacts: durable files under `report.artifacts`.
-- Truncation: when a result or artifact cap fires, the envelope sets `truncated=true`, clips the rows, attaches the unclipped report as a full-report artifact, and appends one in-band note to `report.notes`. The note is the unified `results: {shown} of {total} (cap={cap}); full report artifact under {run_id}` N-of-M shape — the same grammar the `code` rail uses; there is no stderr truncation side-channel.
-- Result locations are the Assay contract; older tool payload shapes do not define this operator.
+- Remote facts: target URL, host, exit status, and pushed/pulled counts ride `report.exec` / `Envelope.exec` (`ExecReceipt`, threaded from `Completed.exec`), populated by `fold` and the emit layer — not by the `envelope()` constructor.
+- Truncation: when a result or artifact cap fires the emit layer sets `Envelope.truncated=true`, clips the rows, attaches the unclipped report as a full-report artifact, and appends one note to `report.notes` in the unified `results: {shown} of {total} (cap={cap}); full report artifact under {run_id}` shape. There is no stderr truncation side-channel.
 
 ## [6][INTEGRATIONS]
-
-Integrations are grouped by the reader action they change. They are capability notes, not a dependency catalog.
 
 [DOTNET]:
 - Enables: C# restore, build, test, API, bridge, and package rails.
@@ -226,7 +213,7 @@ Integrations are grouped by the reader action they change. They are capability n
 
 [MERMAID_CLI]:
 - Enables: `docs check` render validation on Markdown inputs.
-- Boundary: `mmdc` only; no generic Markdown validation. One `mmdc` invocation per routed file carries its own input placement (`-i <file> -a <scope_dir> -o <scope_dir>/<slug>.md`); the slugged `-o` sink keeps concurrent fan-out writes collision-free.
+- Boundary: `mmdc` only; no generic Markdown validation. One `mmdc` invocation per routed file carries its own input placement (`-i <file> -a <scope_dir> -o <scope_dir>/<stem>.md`); the `__`-joined relative-path stem keeps concurrent fan-out writes collision-free.
 
 [RHINO_BRIDGE_YAK]:
 - Enables: live scenario verification and package publish.
@@ -236,9 +223,11 @@ Integrations are grouped by the reader action they change. They are capability n
 - Enables: host assembly, NuGet, Python distribution, and TypeScript declaration lookup.
 - Boundary: `api resolve`, `api query`, and `api show` expose the operator surface.
 
-[SPIKE_PROVISIONING]:
-- Enables: tier-2 server and native runtime closure proofs through the Forge-owned `rasm-spike-stack` and `forge-scientific-env` executables.
-- Boundary: `spike up|down|status|env|verify` is the campaign command surface; direct `rasm-spike-stack` use is Forge-level debugging.
+[PROVISIONING]:
+- Enables: tier-2 server and native runtime closure proofs through the Forge-owned `rasm-provision` and `forge-scientific-env` executables.
+- Requires: `rasm-provision` and `forge-scientific-env` on `PATH`; Parametric_Forge owns both executables and their version, so assay pins no version and a missing executable surfaces as a process fault rather than an assay defect.
+- Boundary: `provision up|down|status|env|verify` is the campaign command surface; direct `rasm-provision` use is Forge-level debugging.
+- Failure: docker-unavailable, port-bound, and invalid-root conditions exit `rasm-provision` non-zero and fold to process rows in the verb Envelope through `fan_out`/`fold`, never exceptions. A port collision names the offending service and its `RASM_TIMESCALE_PORT`/`RASM_SEARCH_PORT`/`RASM_PGDUCKDB_PORT` override; public-image pulls are insulated from host credential-store drift.
 
 [TREE_SITTER]:
 - Enables: in-process `code query` for Python and TypeScript AST shapes.
@@ -254,7 +243,7 @@ Integrations are grouped by the reader action they change. They are capability n
 
 [FSSPEC_UPATH]:
 - Enables: artifact-store shape and local file default.
-- Boundary: most CLI operation still assumes local or shared paths.
+- Boundary: routing, leases, and the push manifest require real local paths; only the artifact store is fsspec-routed.
 
 [ASYNCSSH]:
 - Enables: remote process execution through the `--exec ssh://...` flag (or the `ASSAY_EXEC_TARGET` env fallback).
@@ -286,8 +275,6 @@ Automation is a programmatic arm, not a root CLI command. `drive(trigger, action
 
 ## [8][ARTIFACTS_OBSERVABILITY_REMOTE]
 
-Artifacts, logs, tracing, and remote execution are operator surfaces. They do not imply that every rail persists every byte or that Assay is a cloud-native workspace.
-
 [ARTIFACT_ROOT]:
 - Default local root: `.artifacts/assay`.
 - Owner: `ArtifactStore` owns read, write, list, find, show, cache, history, and full-report artifact behavior.
@@ -302,8 +289,8 @@ Artifacts, logs, tracing, and remote execution are operator surfaces. They do no
 [RUN_SCOPES]:
 - Layout: per-run scopes live under the claim/run id; stable build scopes exist for build-like closures.
 - Lazy ensure: opening a scope computes its path without materializing the directory; a rail that writes its own files into the scope calls `ArtifactScope.ensure()` once, which routes the `makedirs` through the store boundary. An opened-but-unused scope leaves no empty directory, and `.NET` builds create their own `--artifacts-path`.
-- Retention: per-claim scope run-dirs are pruned oldest-first by `ArtifactStore.retain_scopes(claim, keep)` after each rail run, bounded by `ASSAY_ARTIFACT_RETENTION` (default 50), mirroring history retention. This bounds the per-claim scope pile-up.
-- Trust rule: emitted artifact paths over inferred directory shapes.
+- Retention: `ArtifactStore.retain_scopes(claim, keep)` prunes per-claim scope run-dirs oldest-first after each rail run, bounded by `ASSAY_ARTIFACT_RETENTION` (default 50), mirroring history retention.
+- Trust rule: trust emitted artifact paths over inferred directory shapes.
 
 [LOGS]:
 - Sink: structlog writes stderr; stdout remains the machine contract.
@@ -314,23 +301,23 @@ Artifacts, logs, tracing, and remote execution are operator surfaces. They do no
 - Absent endpoint: no tracing export.
 
 [ENVIRONMENT]:
-- README-worthy vars: `ASSAY_RUN_ID`, `ASSAY_AGENT_TASK_ID`, `ASSAY_ARTIFACT_RETENTION`, `ASSAY_ARTIFACT_BACKEND__PROTOCOL`, `ASSAY_ARTIFACT_BACKEND__ROOT`, `ASSAY_EXEC_TARGET`, `ASSAY_EXEC_KNOWN_HOSTS`, `ASSAY_SFTP_PUSH_CONCURRENCY`, and `ASSAY_SFTP_MAX_REQUESTS`.
-- Use: correlation, retention, execution target, and SFTP push throttle control only where settings expose the behavior. `--exec` is the primary execution-target surface; `ASSAY_EXEC_TARGET` is its env fallback.
+- Vars (`ASSAY_` prefix, `__` nested delimiter): `ASSAY_RUN_ID`, `ASSAY_AGENT_TASK_ID`, `ASSAY_ARTIFACT_RETENTION`, `ASSAY_ARTIFACT_BACKEND__PROTOCOL`, `ASSAY_ARTIFACT_BACKEND__ROOT`, `ASSAY_EXEC_TARGET`, `ASSAY_EXEC_KNOWN_HOSTS`, `ASSAY_SFTP_PUSH_CONCURRENCY`, `ASSAY_SFTP_MAX_REQUESTS`.
+- They control correlation, retention, backend selection, execution target, and SFTP push throttle. `--exec` is the primary execution-target surface; `ASSAY_EXEC_TARGET` is its env fallback.
 
 [REMOTE_EXECUTION]:
-- Target switch: the `--exec` global flag is the primary, `--help`-visible offload surface so an agent discovers offload from the root usage line; `--exec local` (the default) keeps execution local, `--exec ssh://[user@]host[:port]` offloads process execution over SSH. The flag is admitted through the same validated path as `ASSAY_EXEC_TARGET`, which stays a fallback override (the flag wins when both are present); the scheme, host, and port are validated at settings load, so a malformed target fails before any spawn. Both forms take a raw, unquoted URL — `--exec ssh://root@host` or `ASSAY_EXEC_TARGET=ssh://root@host` — admitted directly through the modal value object without JSON quoting; a missing port defaults to 22 at connect time while the canonical URL keeps the no-`:22` rendering. Remote is never implicit: only an explicit flag or env value selects it.
-- Offload-capable lanes: heavy closures — mutation `full`, the full `static` lane, and `.NET` build graphs — run on the remote host. The calling agent always receives the same one-`Envelope` result locally: the engine streams stdout/stderr into the agent-local store, resolves the remote exit status (signalled kills synthesize exit 255 with an `ssh.signal=<name>` note), and returns a normal `Completed` receipt with full status, diagnostics, and artifact rows. The remote-execution facts (target URL, host, exit status, signal, pushed/pulled file counts) ride a dedicated `exec` `ExecReceipt` carrier threaded `Completed` → `Report` → `Envelope.exec`. Remote runs carry no process-stall telemetry — `psutil` cannot inspect remote pids across the SSH boundary.
-- Host-bound reject: `bridge` and `package` claims are host-bound by definition (live Rhino/Yak resources, leases) and are rejected under `exec_target` with status `unsupported` and `host-bound tools require local execution`. Copy-staged tools reject the same way. The reject is a typed receipt, not a fault.
-- Home resolution: the remote `~` in `ASSAY_EXEC_WORKROOT` (default `~/.assay-work`) is resolved to an absolute path once per connection via `sftp.realpath('.')`. The same absolute workroot anchors the SFTP push/makedirs, the derived offload backend root, the exec `cd`, and the injected `PATH` — no literal `~` reaches SFTP, so the pushed tree and the login-shell `cd` land in the same dir. An already-absolute workroot resolves to itself.
-- Working-tree push: before the remote exec, the engine pushes the build closure to `<workroot>/<run_id>` (the remote `cwd`) over the same pooled SFTP connection. `git ls-files` is the set-algebraic source universe — gitignored roots (`.git`, `.cache`, `.artifacts`, `bin`, `obj`, `node_modules`, `.venv`) never cross — and the manifest is then lane-scoped to the build closure rather than the whole tree: a C# lane derives the transitive `<ProjectReference>` closure (seeded from the build's project tokens, walked forward through the reference graph so cross-directory refs survive — naive subtree-scope is rejected) plus the root build-config anchors (`Directory.Build.*`, `Directory.Packages.props`, `global.json`, `.config/dotnet-tools.json`, `Workspace.slnx`, `.editorconfig`, `nuget.config`); a Python lane is package source + tests + dependency/config anchors; any lane with no project graph keeps the full universe. Per-file upload failures fold into receipt notes; the push and the pull each run under their own shielded budget — guaranteeing both transfer legs complete atomically — while the bracketed remote exec between them stays cancellable by the check deadline, so a large transfer degrades to a note rather than reclassifying a completed run as timeout, yet a wedged remote tool is still reclaimed on deadline. The push budget scales with manifest size (`max(transfer_budget_s, file_count × transfer_per_file_s)`, both operator-tunable); per-directory put concurrency and per-put request pipelining are operator-tunable (`sftp_push_concurrency`/`sftp_max_requests`) for throttled or low-`MaxSessions` servers. Scope paths the local store seeded into the build argv (`CspSarifDir`, `--artifacts-path`) are rebased from their host-absolute form to `<workroot>/<run_id>/…` before remote argv composition, so a remote Linux build never sees a macOS-absolute path (CS0016).
-- Remote retention: the remote workroot accumulates one source closure per offloaded run; the local backend prunes itself but the remote orphans. A once-per-fan sweep, hoisted to the pooled-ssh teardown, lists `<workroot>` a single time and `rmtree`s all but `artifact_retention` newest of this host's own run dirs — never another host's, because the run-id host token partitions a shared workroot into disjoint per-host namespaces.
-- Toolchain pre-flight: the engine probes the remote `PATH` for the runner's leading tool (e.g. `uv`, `dotnet`) before committing to the exec; the probe runs under the same injected toolchain `PATH` the exec exports, so a tool reachable only on the injected `PATH` (uv at `~/.local/bin`, dotnet at `/usr/local/dotnet`) is never falsely `UNSUPPORTED`. An absent tool returns a typed `UNSUPPORTED` receipt naming the missing tool, never an opaque non-zero `cd && exec`. The injected `PATH` is a fixed Linux toolchain prefix — the agent's local `PATH` never crosses to the remote host.
-- Artifact pull-back: `sftp` is the default — and currently only — admitted remote backend, derived from the SSH host as the per-run store pinned under `<workroot>/<run_id>/.artifacts/assay` (host/backend inconsistency is unrepresentable, never separately configured). The remote tool writes its scope artifacts (SARIF, coverage, results) there; after the process exits, a shielded SFTP download under the transfer budget lands them in the agent-local file store, degrading to a `remote.artifacts.degraded` note rather than reclassifying a completed run as timeout.
-- Uniform path semantics: scope paths are root-down across local and SSH — the store root is stripped so the parts agree on every backend. `Artifact.path` never carries an absolute host path; landed remote artifacts are recorded at agent-local, scope-relative paths.
-- Cloud posture: `s3`, `gs`, and `gcs` are carried in the backend-capability table as explicit `(reachable, admitted=False, SHARED)` not-admitted rows. Re-admitting a shared object store is a one-row `admitted=True` flip plus a `SHARED` pull arm; until the `s3fs`/`gcsfs` backend and its test law land, `sftp` is the sole admitted remote-exec backend.
-- Local/shared requirement: routing, locks, package staging, bridge discovery, API discovery, and history still need local or shared paths; remote execution moves command execution only.
+- Target switch: the `--help`-visible `--exec` global flag selects offload. `--exec local` (default) keeps execution local; `--exec ssh://[user@]host[:port]` offloads process execution over SSH. The flag wins over its `ASSAY_EXEC_TARGET` env fallback when both are present, and both admit a raw unquoted URL through the modal value object. Scheme, host, and port validate at settings load, so a malformed target fails before any spawn; a missing port defaults to 22 at connect while the canonical URL keeps the no-`:22` rendering. Remote selects only on an explicit flag or env value.
+- Offload-capable lanes: heavy closures — mutation `full`, the full `static` lane, and `.NET` build graphs — run on the remote host and return the same one-`Envelope` result locally. The engine streams stdout/stderr into the agent-local store, resolves the remote exit status (signalled kills synthesize exit 255 with an `ssh.signal=<name>` note), and returns a normal `Completed` receipt. Remote facts (target URL, host, exit status, signal, pushed/pulled counts) ride the `ExecReceipt` threaded `Completed` -> `Report.exec` -> `Envelope.exec`. Remote runs carry no process-stall telemetry; `psutil` cannot inspect remote pids.
+- Host-bound reject: `bridge`, `package`, and `provision` claims and copy-staged tools reject under `exec_target` as an `UNSUPPORTED` fault (`host-bound tools require local execution`) before argv composition.
+- Home resolution: the remote `~` in the workroot (default `~/.assay-work`) resolves to an absolute path once per connection via `sftp.realpath('.')`. That absolute workroot anchors the SFTP push, the derived offload backend root, the exec `cd`, and the injected `PATH`. An already-absolute workroot resolves to itself.
+- Working-tree push: before the remote exec the engine pushes the lane-scoped build closure to `<workroot>/<run_id>` (the remote `cwd`) over the pooled SFTP connection. `git ls-files` is the source universe; gitignored roots (`.git`, `.cache`, `.artifacts`, `bin`, `obj`, `node_modules`, `.venv`) never cross. A C# lane derives the transitive `<ProjectReference>` closure plus root build-config anchors (`Directory.Build.*`, `Directory.Packages.props`, `global.json`, `.config/dotnet-tools.json`, `Workspace.slnx`, `.editorconfig`, `nuget.config`); a Python lane is package source plus tests plus dependency/config anchors; a lane with no project graph keeps the full universe. Push and pull each run under their own shielded budget while the bracketed exec stays cancellable by the check deadline, so a large transfer degrades to a note while a wedged tool reclaims on deadline. The push budget is `max(transfer_budget_s, file_count × transfer_per_file_s)`; put concurrency and request pipelining are tunable via `sftp_push_concurrency`/`sftp_max_requests`. Build argv scope paths (`CspSarifDir`, `--artifacts-path`) rebase from host-absolute to `<workroot>/<run_id>/...` before remote argv composition.
+- Remote retention: a once-per-fan sweep hoisted to the pooled-ssh teardown lists `<workroot>` once and `rmtree`s all but `artifact_retention` newest of this host's own run dirs. The run-id host token partitions a shared workroot into disjoint per-host namespaces.
+- Toolchain pre-flight: the engine probes the remote `PATH` for the runner's leading tool (`uv`, `dotnet`) under the same injected toolchain `PATH` the exec exports. An absent tool returns a typed `unsupported` receipt naming the missing tool. The injected `PATH` is a fixed Linux toolchain prefix; the agent's local `PATH` never crosses.
+- Artifact pull-back: `sftp` is the sole admitted remote backend, derived from the SSH host and pinned under `<workroot>/<run_id>/.artifacts/assay`. After the process exits a shielded SFTP download under the transfer budget lands scope artifacts (SARIF, coverage, results) in the agent-local store, degrading to a `remote.artifacts.degraded` note rather than reclassifying a completed run as timeout.
+- Uniform path semantics: scope paths are root-down across local and SSH; the store root is stripped so parts agree on every backend. `Artifact.path` carries scope-relative, agent-local paths, never an absolute host path.
+- Cloud posture: `s3`, `gs`, and `gcs` sit in the backend-capability table as `(reachable, admitted=False, SHARED)` rows. Re-admission is a one-row `admitted=True` flip plus a `SHARED` pull arm.
+- Local/shared requirement: routing, locks, package staging, bridge discovery, API discovery, and history require local or shared paths; remote execution moves command execution only.
 
 [FSSPEC_STORE]:
-- Shape: `ArtifactStore` is fsspec-shaped; `UPath` (`universal-pathlib`) routes the artifact root, and the `storage_options`/`protocol=` resolution the store relies on is load-bearing for the memory/object-store backends.
+- Shape: `ArtifactStore` is fsspec-shaped; `UPath` (`universal-pathlib`) routes the artifact root, and its `storage_options`/`protocol=` resolution is load-bearing for the memory and object-store backends.
 - Default: normal CLI use is local file storage.
-- Intentional asymmetry: the artifact store is the only fsspec/`UPath`-routed surface — source enumeration (`git ls-files`) and check staging stay git/local-fs by design, because routing, leases, and the push manifest need real local paths. This split is deliberate, not a gap; no abstraction layer unifies them.
+- Asymmetry: the artifact store is the only fsspec/`UPath`-routed surface. Source enumeration (`git ls-files`) and check staging stay git/local-fs because routing, leases, and the push manifest require real local paths.

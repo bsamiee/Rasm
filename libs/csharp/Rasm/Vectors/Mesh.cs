@@ -2217,8 +2217,10 @@ internal static class MeshKernel {
         Dictionary<int, List<(int Face, int Prev, int Next, double Corner)>> ring = BuildVertexRing(imesh: imesh);
         foreach ((int vertex, List<(int Face, int Prev, int Next, double Corner)> fan) in ring) {
             if (fan.Count == 0) continue;
+            List<(int Next, double Corner)> ordered = OrderFan(imesh: imesh, vertex: vertex, fan: fan);
+            // A non-closing fan leaves its neighbors unset (NaN) for the witnessed chord fallback; rescaling a partial sum would corrupt them.
+            if (ordered.Count == 0) continue;
             bool interior = imesh.IsInteriorVertex(vertex: vertex);
-            List<(int Next, double Corner)> ordered = OrderFan(fan: fan);
             double angleSum = ordered.Sum(static corner => corner.Corner);
             double span = interior ? RhinoMath.TwoPI : Math.PI;
             double rescale = angleSum > rescaleFloor ? span / angleSum : 1.0;
@@ -2260,19 +2262,33 @@ internal static class MeshKernel {
         double cos = denom > RhinoMath.ZeroTolerance ? ((adjacent1 * adjacent1) + (adjacent2 * adjacent2) - (opposite * opposite)) / denom : 1.0;
         return Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: cos)));
     }
-    private static List<(int Next, double Corner)> OrderFan(List<(int Face, int Prev, int Next, double Corner)> fan) {
-        Dictionary<int, (int Next, double Corner)> byPrev = fan.ToDictionary(static corner => corner.Prev, static corner => (corner.Next, corner.Corner));
-        System.Collections.Generic.HashSet<int> incoming = [.. fan.Select(static corner => corner.Next)];
-        int start = fan.Select(static corner => corner.Prev).FirstOrDefault(predicate: prev => !incoming.Contains(item: prev), defaultValue: fan[index: 0].Prev);
-        List<(int Next, double Corner)> ordered = new(capacity: fan.Count);
-        System.Collections.Generic.HashSet<int> visited = [];
-        int cursor = start;
-        while (byPrev.TryGetValue(key: cursor, value: out (int Next, double Corner) step) && visited.Add(item: cursor)) {
-            ordered.Add(item: (Next: cursor, step.Corner));
-            cursor = step.Next;
+    // The one-ring is ordered by face adjacency, not by the Prev-keyed chain: an IDT flip emits its two new triangles
+    // co-oriented around the shared diagonal, so two corners collide on Prev while every face stays unique per vertex.
+    // Walking face-to-face through FaceAcrossEdge crosses the live exit edge, so the gauge edges land in true angular
+    // order for flipped fans too. A fan that does not close into one manifold ring returns empty, leaving its neighbors
+    // unset so ConnectionEntriesOf routes them to the witnessed chord fallback instead of rescaling a partial angle sum.
+    private static List<(int Next, double Corner)> OrderFan(IntrinsicMesh imesh, int vertex, List<(int Face, int Prev, int Next, double Corner)> fan) {
+        Dictionary<int, (int Prev, int Next, double Corner)> byFace = fan.ToDictionary(static corner => corner.Face, static corner => (corner.Prev, corner.Next, corner.Corner));
+        bool LiveAcross(int face, int neighbor) => imesh.FaceAcrossEdge(faceIdx: face, i: vertex, j: neighbor) is int across && across >= 0 && byFace.ContainsKey(key: across);
+        // A boundary fan opens at the ring edge with no live face across it; enter from that edge so the open chain walks
+        // end-to-end. An interior fan closes, so any seed face works and SelectGauge fixes the reference downstream.
+        int startFace = fan[index: 0].Face, entry = fan[index: 0].Prev;
+        foreach ((int face, int prev, int next, double _) in fan) {
+            if (!LiveAcross(face: face, neighbor: prev)) { (startFace, entry) = (face, prev); break; }
+            if (!LiveAcross(face: face, neighbor: next)) { (startFace, entry) = (face, next); break; }
         }
-        if (ordered.Count > 0 && cursor != start) ordered.Add(item: (Next: cursor, Corner: 0.0));
-        return ordered.Count == fan.Count + (cursor != start ? 1 : 0) ? ordered : [.. fan.Select(static corner => (Next: corner.Prev, corner.Corner))];
+        List<(int Next, double Corner)> ordered = new(capacity: fan.Count + 1);
+        System.Collections.Generic.HashSet<int> visited = [];
+        int faceCursor = startFace;
+        while (byFace.TryGetValue(key: faceCursor, value: out (int Prev, int Next, double Corner) corner) && visited.Add(item: faceCursor)) {
+            int exit = entry == corner.Prev ? corner.Next : corner.Prev;
+            ordered.Add(item: (Next: entry, corner.Corner));
+            int nextFace = imesh.FaceAcrossEdge(faceIdx: faceCursor, i: vertex, j: exit);
+            if (nextFace == startFace) break;
+            if (nextFace < 0 || !byFace.ContainsKey(key: nextFace)) { ordered.Add(item: (Next: exit, Corner: 0.0)); break; }
+            (faceCursor, entry) = (nextFace, exit);
+        }
+        return visited.Count == fan.Count ? ordered : [];
     }
     private static int SelectGauge(List<(int Next, double Corner)> ordered, SignpostGauge gauge) =>
         gauge.Equals(SignpostGauge.LowestVertexNeighbor)
@@ -4222,7 +4238,7 @@ internal static class MeshKernel {
         from sources in VolumeSourcesOf(mesh: space.Native, normalSign: admitted.NormalSign, key: key)
         from vectors in VolumeGridVectorsOf(mesh: space.Native, domain: domain, sources: sources, heatTime: heatTime, tolerance: space.Tolerance.Absolute.Value, key: key)
         from system in AssembleVolumeGridPoisson(domain: domain, vectors: vectors, key: key)
-        from solve in system.Operator.SingularSolveDetailed(rhs: system.Rhs, gauge: GaugePolicy.PinConstant(index: vectors.InteriorIndex, shift: GaugeShift.MinZero), context: space.Tolerance, key: key)
+        from solve in system.Operator.SingularSolveDetailed(rhs: system.Rhs, gauge: GaugePolicy.MeanZeroConstant(dimension: domain.NodeCount, shift: GaugeShift.MinZero), context: space.Tolerance, key: key)
         from __ in solve.Residual <= policy.Solver.ResidualTolerance.Value ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
         from calibrated in CalibrateClosedSignedHeat(domain: domain, raw: solve.Solution, sources: sources, interiorIndex: vectors.InteriorIndex, key: key)
         let receipt = new VolumeGridReceipt(Bounds: domain.Bounds, Resolution: domain.Resolution, XNodes: domain.XNodes, YNodes: domain.YNodes, ZNodes: domain.ZNodes, CellSize: domain.CellSize, Padding: domain.Padding, NodeCount: domain.NodeCount, CellCount: domain.CellCount, SourceTriangleCount: sources.Sources.Length, DegenerateTriangleCount: sources.Degenerate, SourceArea: sources.Area, InsideNodeCount: vectors.Inside, OutsideNodeCount: vectors.Outside, NearSurfaceNodeCount: vectors.NearSurface, RejectedVectorCount: vectors.Rejected, HeatTime: heatTime, GaugeNode: solve.Gauge.Bind(static gauge => gauge.PinnedIndex).IfNone(noneValue: 0), SurfaceShift: calibrated.Shift, Interpolation: policy.Interpolation, BoundaryCondition: policy.BoundaryCondition, Solver: policy.Solver, OperatorNonZeros: system.Operator.NonZeros, FactorNonZeros: solve.FactorNonZeros, Residual: solve.Residual)

@@ -6,7 +6,7 @@ constants parse ast-grep, tree-sitter, and ripgrep output into stable wire model
 
 import msgspec
 
-from tools.assay.composition.settings import PY_ARTIFACT_ROOTS, PY_COVERAGE_FILES
+from tools.assay.composition.settings import CS_ARTIFACT_ROOTS, PY_ARTIFACT_ROOTS, PY_COVERAGE_FILES
 from tools.assay.core.model import Claim, Input, Language, Mode, Runner, Stage, Tool, ToolGroup
 
 
@@ -206,6 +206,7 @@ TOOLS: tuple[Tool, ...] = (
         Claim.TEST,
         mode=Mode.MUTATION,
         timeout=3600.0,
+        stage=Stage(root=CS_ARTIFACT_ROOTS["stryker"], project=True),
     ),
     Tool("rasm-bridge", DOTNET, ("run", "--no-build", "--", "verify"), PROJECT, CS, Claim.BRIDGE, mode=Mode.VERIFY),
     Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "-l", "cisde"), NONE, CS, Claim.API, mode=Mode.QUERY),

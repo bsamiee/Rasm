@@ -1,4 +1,4 @@
-"""Run disposable spike infrastructure through the Forge-owned provisioning CLI."""
+"""Run local provisioning infrastructure through the Forge-owned CLI."""
 
 from dataclasses import dataclass
 from typing import override
@@ -17,8 +17,8 @@ from tools.assay.core.routing import Routed, Scope
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class SpikeParams(BaseParams):
-    """Parameters for Forge-owned Rasm spike provisioning commands."""
+class ProvisionParams(BaseParams):
+    """Parameters for Forge-owned Rasm provisioning commands."""
 
     @override
     def _arity(self, verb: str) -> int:
@@ -29,10 +29,7 @@ class SpikeParams(BaseParams):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
-_PYTHON_ABI_PROBE: str = (
-    "import sys, sysconfig; "
-    "print(sys.implementation.cache_tag, sysconfig.get_config_var('Py_GIL_DISABLED') or 0)"
-)
+_PYTHON_ABI_PROBE: str = "import sys, sysconfig; print(sys.implementation.cache_tag, sysconfig.get_config_var('Py_GIL_DISABLED') or 0)"
 _ONNXRUNTIME_LIB_PROBE: str = 'test -n "${ONNXRUNTIME_LIB:-}" && test -e "$ONNXRUNTIME_LIB" && printf "%s\\n" "$ONNXRUNTIME_LIB"'
 
 
@@ -41,71 +38,64 @@ _ONNXRUNTIME_LIB_PROBE: str = 'test -n "${ONNXRUNTIME_LIB:-}" && test -e "$ONNXR
 
 def _tool(name: str, argv: tuple[str, ...], *, mode: Mode = Mode.RUN, timeout: float = 120.0) -> Tool:
     return Tool(
-        name=name,
-        runner=Runner.DIRECT,
-        command=argv,
-        input=Input.NONE,
-        language=Language.PYTHON,
-        claim=Claim.SPIKE,
-        mode=mode,
-        timeout=timeout,
+        name=name, runner=Runner.DIRECT, command=argv, input=Input.NONE, language=Language.PYTHON, claim=Claim.PROVISION, mode=mode, timeout=timeout
     )
 
 
 def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, tools: tuple[Tool, ...]) -> Result[Report, Fault]:
     outcomes = sequence(block.of_seq(fan_out(tuple(Check(tool=tool) for tool in tools), settings=settings, scope=scope, routed=_ROUTED)))
-    return outcomes.map(lambda done: fold(Claim.SPIKE, verb, tuple(done), promote_empty=True))
+    return outcomes.map(lambda done: fold(Claim.PROVISION, verb, tuple(done), promote_empty=True))
 
 
 def _stack(command: str, *, timeout: float = 120.0) -> Tool:
     mode = Mode.VERIFY if command.startswith("verify") else Mode.RUN
-    return _tool(f"rasm-spike-stack-{command}", ("rasm-spike-stack", command), mode=mode, timeout=timeout)
+    return _tool(f"rasm-provision-{command}", ("rasm-provision", command), mode=mode, timeout=timeout)
 
 
-def up(settings: AssaySettings, scope: ArtifactScope, _params: SpikeParams) -> Result[Report, Fault]:
-    """Start the Forge-owned spike services and verify their extensions.
+def up(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+    """Start the Forge-owned provisioning services and verify their extensions.
 
     Returns:
-        Spike report, or a provisioning fault.
+        Provision report, or a provisioning fault.
     """
     return _run(settings, scope, "up", (_stack("up", timeout=300.0),))
 
 
-def down(settings: AssaySettings, scope: ArtifactScope, _params: SpikeParams) -> Result[Report, Fault]:
-    """Stop labelled spike services and remove script-owned data.
+def down(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+    """Stop labelled provisioning services and remove script-owned data.
 
     Returns:
-        Spike report, or a provisioning fault.
+        Provision report, or a provisioning fault.
     """
     return _run(settings, scope, "down", (_stack("down"),))
 
 
-def status(settings: AssaySettings, scope: ArtifactScope, _params: SpikeParams) -> Result[Report, Fault]:
-    """Report Docker Compose status for the spike services.
+def status(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+    """Report Docker Compose status for the provisioning services.
 
     Returns:
-        Spike report, or a provisioning fault.
+        Provision report, or a provisioning fault.
     """
     return _run(settings, scope, "status", (_stack("status"),))
 
 
-def env(settings: AssaySettings, scope: ArtifactScope, _params: SpikeParams) -> Result[Report, Fault]:
-    """Emit generated paths and DSNs for the spike services.
+def env(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+    """Emit generated paths and DSNs for the provisioning services.
 
     Returns:
-        Spike report, or a provisioning fault.
+        Provision report, or a provisioning fault.
     """
     return _run(settings, scope, "env", (_stack("env"),))
 
 
-def verify(settings: AssaySettings, scope: ArtifactScope, _params: SpikeParams) -> Result[Report, Fault]:
-    """Verify spike extensions and local scientific runtime probes.
+def verify(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+    """Verify provisioning extensions and local scientific runtime probes.
 
     Returns:
-        Spike report, or a provisioning fault.
+        Provision report, or a provisioning fault.
     """
     probes = (
-        _stack("verify-extensions", timeout=180.0),
+        _stack("verify", timeout=180.0),
         _tool("duckdb-version", ("duckdb", "--version")),
         _tool("forge-python-abi", ("forge-scientific-env", "python3", "-c", _PYTHON_ABI_PROBE)),
         _tool("forge-openblas", ("forge-scientific-env", "pkg-config", "--modversion", "openblas")),
@@ -114,4 +104,4 @@ def verify(settings: AssaySettings, scope: ArtifactScope, _params: SpikeParams) 
     return _run(settings, scope, "verify", probes)
 
 
-__all__ = ["SpikeParams", "down", "env", "status", "up", "verify"]
+__all__ = ["ProvisionParams", "down", "env", "status", "up", "verify"]

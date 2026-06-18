@@ -394,6 +394,14 @@ def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: Artif
     body = splice_command(tool.runner, tool.command, scope, settings.scoped_verbs, tool.mode)
     body = (*(part for group in tool.uv_groups() for part in ("--group", group)), *body) if tool.runner is Runner.UV else body
     body = ("--project", str(settings.root), *body) if tool.runner is Runner.UV and tool.stage.project else body
+    body = ("--locked", *body) if tool.runner is Runner.UV else body
+    # A staged dotnet tool (Stryker) runs from an empty .artifacts cwd; absolute --solution/--output anchor it to the real
+    # tree and keep its sandbox + reports under .artifacts. _materialize forces cwd to the same staged work root.
+    body = (
+        (*body, "--solution", str(settings.solution), "--output", str(Path(str(settings.root)).resolve() / tool.stage.root))
+        if tool.runner is Runner.DOTNET and tool.stage.project
+        else body
+    )
     match check.tail:
         case tuple() as pinned:
             return Ok((*tool.runner.prefix, *body, *pinned))
@@ -650,8 +658,8 @@ async def _drain_pair(
                             recv, tail_cap=plan.tail_cap, spill_cap=plan.spill_cap, kind=name, sink=sink, path=path, notes=notes
                         )
 
-                    _ = tg.start_soon(_tee, "out", out)
-                    _ = tg.start_soon(_tee, "err", err)
+        _ = tg.start_soon(_tee, "out", out)
+        _ = tg.start_soon(_tee, "err", err)
         await wait()
     return streams
 

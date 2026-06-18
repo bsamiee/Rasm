@@ -338,7 +338,7 @@ internal static class SessionKernel {
             } catch (SessionMachine.PhaseFaulted faulted) {
                 Phase(faulted.At, faulted.Fault.Status, fault: faulted.Fault);
                 projection = new SessionProjection(Final: Faulted(fault: faulted.Fault, at: faulted.At), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
-            } catch (Exception error) when (error is RemoteMethodNotFoundException or RemoteInvocationException or ConnectionLostException
+            } catch (Exception error) when (error is RemoteRpcException or JsonException
                 or IOException or TimeoutException or ObjectDisposedException) {
                 BridgeFault fault = FaultOf(error: error);
                 Phase(connectPhase, fault.Status, fault: fault);
@@ -412,6 +412,7 @@ internal static class SessionKernel {
                 TimeoutException timeout => new BridgeFault.ConnectFailed(Detail: timeout.Message, ElapsedMs: 0.0),
                 IOException io => new BridgeFault.ConnectFailed(Detail: io.Message, ElapsedMs: 0.0),
                 ObjectDisposedException disposed => new BridgeFault.ConnectFailed(Detail: disposed.Message, ElapsedMs: 0.0),
+                JsonException malformed => new BridgeFault.ConnectFailed(Detail: malformed.Message, ElapsedMs: 0.0),
                 _ => new BridgeFault.LaunchFailed(Detail: error.Message),
             };
 

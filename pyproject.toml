@@ -50,6 +50,7 @@ dev = [
     "pytest-timeout>=2.4.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.15.17,<0.16",
+    "squawk-cli>=2.58.0",
     "ty>=0.0.49",
     "types-psutil>=7.2.2.20260518",
     "validate-pyproject[all]",
@@ -146,20 +147,6 @@ artifacts = [
     "vtk>=9.6.2; python_version<'3.13'",  # artifacts VisualSpec VTK engine backing pyvista; no cp315 wheel
     "weasyprint",
 ]
-# Marker-gated native + companion-server stack on its own interpreter floor (python_version<'3.13'), the one sanctioned
-# divergence from the >=3.15 pure-Python runtime/data/artifacts floor. ifcopenshell hard-requires <3.15 and bundles OCCT;
-# open3d/topologicpy/compiled cores cap at cp312; the grpcio trio rides the same floor as the native geometry stack. The
-# isolated companion environment also keeps the LGPL-3.0-or-later ifcopenshell wheel out of the MIT/Apache library lock.
-geometry-companion = [
-    "grpcio>=1.81.1; python_version<'3.13'",            # companion inbound wire speaking the EXISTING C# ComputeService/ArtifactSync gRPC contract
-    "grpcio-tools>=1.81.1; python_version<'3.13'",      # compiles the C# proto descriptors into Python server stubs
-    "ifcopenshell>=0.8.5; python_version<'3.13'",       # geometry IfcCompanion: the load-bearing IFC->mesh/GLB tessellation daemon (LGPL-3.0-or-later)
-    "open3d>=0.19.0; python_version<'3.13'",            # geometry ScanProcessing: point-cloud/3D-scan ICP registration, reconstruction
-    "protobuf>=7.35.1; python_version<'3.13'",          # protobuf runtime backing the companion gRPC server
-    "small-gicp>=1.0.1; python_version<'3.13'",         # geometry ScanProcessing speed-path: parallel GICP/VGICP fine registration
-    "topologicpy>=0.9.43; python_version<'3.13'",       # geometry GeometryAlgebra: non-manifold cell/aperture topology (gated against C# IfcSemanticModel)
-]
-
 # --- [UV] ------------------------------------------------------------------
 
 [tool.uv]
@@ -355,7 +342,7 @@ branch =          true
 relative_files =  true
 source =          ["tools/assay"]
 data_file =       ".cache/coverage/.coverage"
-# CPython 3.15.0b1 ships no compiled C tracer (`coverage.tracer.CTracer` absent); `sys.monitoring` (PEP 669) is the only
+# CPython 3.15 beta ships no compiled C tracer (`coverage.tracer.CTracer` absent); `sys.monitoring` (PEP 669) is the only
 # working core. Verified to record branch arcs + per-test contexts (coarser than the pure-Python core, but contexts are
 # diagnostic — the law-coverage gate reads the law MANIFEST, not coverage contexts).
 core =            "sysmon"
@@ -390,9 +377,8 @@ output = ".artifacts/python/coverage/coverage.lcov"
 
 # --- [MUTMUT] --------------------------------------------------------------
 
-# mutmut rides the MAIN venv via the `mutation` dependency group (verified live 2026-06-12: the full staged rail run used
-# `uv run mutmut`). The historical `.cache/mut-venv` (libcst no-cp315-wheel era) is a stale artifact scheduled for deletion
-# in roadmap phase R3 (tools/assay/BACKLOG.md) along with `.cache/mutation-requirements.txt` — do not rebuild it.
+# mutmut rides the MAIN venv via the `mutation` dependency group. Historical `.cache/mut-venv` and
+# `.cache/mutation-requirements.txt` fallbacks are retired; do not rebuild them.
 #
 # SUPPORTED RUNNER (one posture only): the RAIL — `uv run python -m tools.assay test run --mutation full|changed`.
 # It stages the project into `.artifacts/python/mutmut/work` (mutmut hard-codes `./mutants` relative to its cwd, so
@@ -401,8 +387,9 @@ output = ".artifacts/python/coverage/coverage.lcov"
 # `mutate_only_covered_lines` note below for why the coverage map is poisoned without it), and rides the kill-rate
 # gate (floor 0.80) on the same lease over the staged cache. Manual fallback (debugging only) runs FROM the staged
 # work dir, never the repo root:
-#   cd .artifacts/python/mutmut/work && COVERAGE_RCFILE=.config/coverage-mutmut.ini uv run mutmut run
-#   cd .artifacts/python/mutmut/work && uv run python -m tools.assay.rails.mutation_gate
+#   cd .artifacts/python/mutmut/work
+#   COVERAGE_RCFILE=.config/coverage-mutmut.ini uv run --project ../../../.. --locked --group mutation mutmut run
+#   uv run --project ../../../.. --locked --group mutation python -m tools.assay.rails.mutation_gate
 #
 # `-o required_plugins=` below waives the required-plugins guard for the mutation invocation only: mutmut disables
 # pytest-randomly (`-p no:randomly`, its own default) for deterministic kill verdicts, which would otherwise trip the
