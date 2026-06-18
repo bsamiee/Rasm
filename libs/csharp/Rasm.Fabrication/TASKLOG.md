@@ -8,7 +8,7 @@ The open and closed work for `Rasm.Fabrication`, distilled from `IDEAS.md`. Each
 - Build `geometry2d/clipper#POLYGON_ALGEBRA`: the one `PolygonAlgebra` owner over Clipper2 with `Offset`/`Clip`/`MinkowskiSum`/`ClipOpenPath`, the `ClipOp`/`OffsetEnds` axes, and the `Loop`/`Edge3` boundary map.
 - Integrate Clipper2 (`Clipper2Lib` — the `Clipper` facade `BooleanOp`/`InflatePaths`, the `Minkowski` facade `Sum` carrying the `decimalPlaces` precision the `Clipper.MinkowskiSum` shorthand fixes at the package default, and the `ClipperD` engine `AddOpenSubject`/`AddClip`/`Execute(ClipType, FillRule, PolyTreeD, PathsD openPaths)` for the open-path clip; `ClipType`/`FillRule`/`JoinType`/`EndType`/`PathD`/`PathsD`/`PointD`/`PolyTreeD`); register it in the language manifest as the folder's first admission; compose the kernel `Predicate.Orient2D` for the fold-back winding verdict.
 - Boundaries: the one Clipper2 owner; the `ToPath`/`FromPaths` boundary map is the only place `double` crosses into the Clipper2 `PathD`/`PathsD` domain, and no `PathsD`/`Path64`/`PolyTreeD` type escapes the owner into a sibling kernel signature; the decimal `Precision.Digits` count is the one robustness knob the facade and engine read.
-- Key consideration: every fold-back re-imposes the `Predicate.Orient2D` winding sign, Clipper2's inferred orientation is never the domain verdict; constrained triangulation is NOT a Clipper2 public surface (its `Delaunay` is an internal demo type), so the owner carries no `Triangulate` arm and a 2D-meshing need is a separate library admission.
+- Key consideration: every fold-back re-imposes the `Predicate.Orient2D` winding sign, Clipper2's inferred orientation is never the domain verdict; Clipper2 exposes a public `Triangulate`/`TriangulateResult` but the author flags it buggy (a regretted release with open infinite-loop bugs), so the owner carries no `Triangulate` arm and a 2D-meshing need is a separate library admission.
 
 [QUEUED] PROJECTION_CLIP_ONTO_CLIPPER2 — from [CLIPPER2_GEOMETRY2D]:
 - Refit `projection/hidden-line#PROJECTION_HIDDEN_LINE` `ClipEdge` to the `geometry2d/clipper#POLYGON_ALGEBRA` `ClipOpenPath` open-path Boolean, dropping the hand-rolled `SpanInside`/`Subtract`/`Complement` parameter-interval subtraction.
@@ -21,12 +21,6 @@ The open and closed work for `Rasm.Fabrication`, distilled from `IDEAS.md`. Each
 - Integrate Clipper2 via `geometry2d/clipper#POLYGON_ALGEBRA` for the convex-inset offset cross-check; compose the kernel `Predicate.Orient2D` for the bisector/side verdict; the wavefront-event resolution itself is the genuine forward author-kernel (no managed library).
 - Boundaries: internal to `toolpath`; the convex-inset offset cross-checks Geometry2D `Offset` and the skeleton owns only the reflex-split and medial-axis construction Clipper2 does not expose.
 - Key consideration: the `SKELETON_EVENTS` RESEARCH item names the earliest-event scheduling, edge-collapse merge, and reflex-split — ground against the Aichholzer-Aurenhammer construction with the convex offset agreement as the correctness witness.
-
-[QUEUED] KINEMATICS_SPLIT — from [TROCHOIDAL_SKELETON] (the CAM rebuild that lands `toolpath/skeleton` is the seam at which kinematics separates into its own domain owner):
-- Build `kinematics/serial-chain#SERIAL_CHAIN` as its own owner: `DhJoint` DH forward kinematics over the `Rasm`/Vectors `Matrix` rail and the one damped-least-squares `Ik.Solve` Jacobian-pseudoinverse fold, split out of the old CAM page.
-- Integrate `Rasm`/Vectors `Matrix`/`Dimension` (no `operator *`; `Multiply → Fin<Matrix>`, `Identity(Dimension)`); LanguageExt `Fin`.
-- Boundaries: internal to `kinematics`; driven by the `toolpath/motion#CAM_MOTION` `Cam` fold which warm-starts each IK solve and reads the `IkPolicy.ReachStrict` flag to decide the reach contract; never a CAM-local kinematics re-mint and never a reach verdict inside the solver.
-- Key consideration: `Ik.Solve` stays total — the damping λ keeps the `JJᵀ + λ²I` system SPD through singularities and a non-converged target stamps the residual and a false reached flag, never a thrown divergence; the `Unreachable` fault is the caller's (`Cam.Solve`) policy verdict, not the solver's.
 
 [QUEUED] PORTABLE_CUT_PROGRAM — from [PORTABLE_POSTING]:
 - Build `posting/program#CUT_PROGRAM`: the `CutProgram` RS-274/ISO-6983 `GWord` AST over the `GCommand`/`LeadStyle` axes, the `Posting.Post` fold from `Motion`/`Placement`, and the `Kerf`/`Lead`/`Tabs`/`Sequence` cut-conditioning.
@@ -46,13 +40,29 @@ The open and closed work for `Rasm.Fabrication`, distilled from `IDEAS.md`. Each
 - Boundaries: gated forward so the per-facet HLR kernel stays pure-managed; no in-folder CSG author-kernel.
 - Key consideration: blocked on a branch-level CSG-library admission decision outside this folder's write-scope — no pure-managed CSG kernel trusted for robustness exists, and the native/GPL alternatives carry license plus per-RID deploy burden; until that admission lands the per-facet HLR kernel stays the only silhouette owner.
 
-[QUEUED] CLIPPER2_API_CATALOGUE — from [CLIPPER2_GEOMETRY2D]:
-- Build the folder `.api/api-clipper2.md` catalogue for the `Clipper2Lib` surface the `geometry2d/clipper#POLYGON_ALGEBRA` owner composes — the folder carries no `.api/` directory, yet `geometry2d/clipper`, `projection/hidden-line`, `toolpath/motion`, `nesting/nfp`, `toolpath/skeleton`, and `posting/program` assert `Clipper.InflatePaths`/`Clipper.BooleanOp`, `Minkowski.Sum(..., decimalPlaces)`, the `ClipperD` `AddOpenSubject`/`AddClip`/`Execute(ClipType, FillRule, PolyTreeD, PathsD)` open-path overload, and the `ClipType`/`FillRule`/`JoinType`/`EndType`/`PathD`/`PathsD`/`PointD`/`PolyTreeD` types as settled fence code with no `.api/` verification.
-- Integrate the `Clipper2Lib` decompile/reflection surface into the new catalogue with the member spellings the pages name; the kernel `Rasm`/`Rasm.Geometry` members (`Predicate.Orient2D`, `Sign.Of`, `SpatialIndex.Build`, `Matrix.Multiply`/`Identity`/`Entries`, `GeometryFault`) are in-repo live source consumed as design pressure, not an external `.api` concern.
-- Boundary: catalogue-only; the pages already name the members, so the catalogue ratifies the `Clipper2` spellings rather than changing a fence.
-- Considerations: until the catalogue lands, the `Clipper2` member spellings are an `.api` verification gap on otherwise-settled fences; the `Minkowski.Sum` `decimalPlaces` parameter the page distinguishes from the `Clipper.MinkowskiSum` shorthand is the precise spelling the catalogue confirms.
+[QUEUED] FIXTURING_EXCLUSION — from [FIXTURING_WORKHOLDING]:
+- Build `fixturing/workholding#WORKHOLDING`: a typed `Fixture`/`Clamp`/`ExclusionZone` placement model that conditions the cut sequence and toolpath against fixture keep-out volumes.
+- Integrate Clipper2 via `geometry2d/clipper#POLYGON_ALGEBRA` for the exclusion-zone offset/clip; compose the `posting/program#CUT_PROGRAM` `Sequence` fold and the `frontier/owner#FABRICATION_OWNER` `PartTransform` atoms.
+- Boundaries: internal to `fixturing`; the exclusion geometry rides the one Geometry2D owner and the sequence conditioning composes the posting owner, never a second collision surface.
+- Key consideration: the `FIXTURE_COLLISION` RESEARCH item names the keep-out test against the toolpath and the inner-before-outer sequence under fixture constraints; a clamp crash is a planned exclusion, never a runtime collision.
+
+[QUEUED] CUT_PARAMETER_TABLE — from [PROCESS_PHYSICS_CUT_PARAMETER]:
+- Build `process-physics/cut-parameter#CUT_PARAMETER`: a UnitsNet-quantified `CutParameter` policy table — material × tool × operation rows projecting to `RotationalSpeed`/`Speed`/`Length` (spindle speed, feed, depth-of-cut) quantities the toolpath generators read.
+- Integrate UnitsNet (the quantity owner the Compute units boundary composes); compose `toolpath/motion#CAM_MOTION` and `toolpath/skeleton#STRAIGHT_SKELETON` as quantity consumers.
+- Boundaries: internal to `process-physics`; the table is one `[SmartEnum]`/policy-row owner read as settled quantities, never a per-generator magic number.
+- Key consideration: the material-removal-rate budget feeds the trochoidal generator in real quantities; a new material or tool is one policy row, the generators unchanged.
+
+[QUEUED] STOCK_REMNANT_ARM — from [STOCK_REMNANT_NESTING]:
+- Add a stock-remnant arm on `nesting/nfp#NESTING`: a `Remnant`/`StockSource` row carrying leftover-stock geometry forward as a reusable nesting input keyed by the one content identity.
+- Integrate Clipper2 via `geometry2d/clipper#POLYGON_ALGEBRA` `MinkowskiSum` for the remnant NFP; content-address the remnant through the kernel `XxHash128` identity.
+- Boundaries: one arm on the existing NFP owner internal to `nesting`; the remnant re-enters the NFP feasibility set, never a second nesting owner.
+- Key consideration: a partially-consumed sheet's remnant polygon re-enters as stock so the next nest packs onto real remnants; the remnant identity is the one content key, never a second tag.
 
 ## [2]-[CLOSED]
+
+[COMPLETE] CLIPPER2_API_CATALOGUE — the `.api/api-clipper2.md` catalogue exists and ratifies the `Clipper2Lib` member spellings the `geometry2d`/`projection`/`toolpath`/`nesting`/`posting` fences name; the residual Triangulate prose re-grounds on the author's buggy caveat under the registry-truth sweep, not a re-open.
+
+[COMPLETE] KINEMATICS_SPLIT — `kinematics/serial-chain#SERIAL_CHAIN` (`DhJoint` DH forward kinematics + the damped-least-squares `Ik.Solve` over the `Rasm`/Vectors `Matrix` rail) is authored as its own owner split from the CAM page; the `toolpath/motion#CAM_MOTION` `Cam` fold drives it.
 
 [COMPLETE] FAULT_BAND_OWNERSHIP — resolved the band-ownership question:
 - Resolved that `faults/faults#FAULT_BAND` `FabricationFault` (band 2500) mints ONLY the fabrication-specific cases (`NoFit`, `Unreachable`, `KerfCollision`, `OpenLoop`) and composes the kernel band-2400 `Rasm/Geometry` `GeometryFault` for the one shared failure the kernel union declares (`DegenerateInput`); the kernel union carries no `OpenLoop`, so a non-closed boundary is a fabrication contract that mints `FabricationFault.OpenLoop`, never a synthesized kernel case.

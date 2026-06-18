@@ -46,6 +46,30 @@ The open and closed work for the host-neutral materials owner, distilled from `I
 - Boundary: catalogue-only on the Materials `.api`; the `photometric` fences already name the members, so the catalogue ratifies them rather than changing the page.
 - Considerations: until the catalogue lands, the photometric unit-enum members stay an `.api` verification gap on a finalized-looking page; the `PowerUnit.Watt` member the page also uses is already catalogued.
 
+[QUEUED] Admit Wacton.Unicolour.Datasets for ColorChecker validation.
+- Admit Wacton.Unicolour.Datasets as the named-colour/ColorChecker/Macbeth validation-set source on `bsdf#SPECTRAL_UPSAMPLE` and `graph#MATERIAL_LIBRARY`; author `.api/api-unicolour-datasets.md`.
+- Integrate Wacton.Unicolour.Datasets (narrowed — named-colour lists, ColorChecker/Macbeth, perceptual colourmaps, academic reference sets); the observer CMFs, illuminant SPDs, and reflectance stay on the main `Wacton.Unicolour 7.0.0` owner.
+- Boundary: the Datasets package is a validation/reference-data source internal to `appearance/`; the white-furnace and gamut sweep at `bsdf#WHITE_FURNACE_HARNESS` validate against the ColorChecker set, never a second color owner.
+- Considerations: the Datasets surface carries no CMFs/illuminants/reflectance, so a measured-spectral row grounds on the EPFL RGL route while ColorChecker validates the round-trip; the manifest row and the README registry entry land with the catalogue.
+
+[QUEUED] Physical-property model in `physical-properties`.
+- Build `physical-properties#MATERIAL_PROPERTY`: a typed `MaterialProperty` `[Union]` (mechanical/thermal/acoustic/fire) keyed by `MaterialId` over the IFC `IfcMaterialProperties` set.
+- Integrate UnitsNet for every property quantity; compose `assembly#MATERIAL_ASSIGNMENT` `MaterialId` and the `Rasm.Bim` IFC property-set wire; align to `IfcMaterialProperties`/`IfcMaterialConstituentSet`.
+- Boundary: internal to `physical-properties`, a sibling of `appearance`/`construction`; the property model crosses to `Rasm.Bim` federation by `MaterialId`, never re-deriving a BIM property surface.
+- Key consideration: the property family is data-driven dispatch keyed by `MaterialId`, never a per-discipline material; the `IfcMaterialProperties` alignment is the wire shape.
+
+[QUEUED] Weathering-aging operator in `appearance/weathering`.
+- Build `appearance/weathering#WEATHERING`: a parameterized aging operator (patina/oxidation/soiling/UV-fade) over the OpenPBR slab stack driven by an age parameter.
+- Integrate the MaterialX node-graph aging operators; compose the `appearance/graph#MATERIAL_GRAPH` node fold and the OpenPBR slab operators (paired with the OpenPBR reshape task).
+- Boundary: internal to `appearance/`; the aging rides the node graph and slab operators, never a second appearance surface.
+- Key consideration: the `WEATHERING_TRAJECTORY` RESEARCH item names the per-effect aging curves; a library row carries its weathering trajectory, the age parameter the graph driver.
+
+[QUEUED] Material-acquisition import in `appearance/acquisition`.
+- Build `appearance/acquisition#ACQUISITION`: the SVBRDF/measured-material import path producing `MaterialParameters` rows from acquired capture data.
+- Integrate the EPFL RGL brdf-loader path and the SVBRDF capture format; compose `bsdf#SPECTRAL_UPSAMPLE` `Spd` construction.
+- Boundary: internal to `appearance/`; the acquisition is a data-import concern producing `MaterialParameters`, never a second material surface.
+- Key consideration: an acquired material lands with measured provenance and round-trips in-gamut through `bsdf#WHITE_FURNACE_HARNESS`; the import is distinct from the measured-spectral grounding of existing library rows.
+
 ## [2]-[CLOSED]
 
 None.

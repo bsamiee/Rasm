@@ -7,7 +7,7 @@ The forward concept pool for `Rasm.Fabrication`. Each idea is a card — a brack
 [CLIPPER2_GEOMETRY2D]:
 - Admit Clipper2 (Boost-1.0, dependency-free, integer-robust) as the one 2D polygon-algebra substrate in a `geometry2d` sub-domain owning offset/inflate, Boolean clip, Minkowski sum, and the open-path screen clip.
 - Collapses three fragile hand-rolled kernels onto one library — the CAM contour `OffsetRing`, the NFP Minkowski merge, and the HLR screen-clip parameter-interval subtraction — at integer-robust precision, freeing author-kernel budget for the BSP visibility, the FK/IK, and the straight skeleton.
-- The pages hand-rolled all three against the `algorithms.md` rule that a hand-rolled kernel waits for a benchmark to defeat the library; Clipper2's `Clipper` facade owns the offset, the Boolean, and the Minkowski sum, and its `ClipperD` engine owns the open-path Boolean, and the kerf/lead/tab geometry the `posting` emitter needs rides the same offset owner. Constrained triangulation is outside Clipper2's public surface (its `Delaunay` is an internal demo type), so no 2D-meshing arm is claimed here. The orientation verdict stays the kernel `Predicate.Orient2D` exact sign.
+- The pages hand-rolled all three against the `algorithms.md` rule that a hand-rolled kernel waits for a benchmark to defeat the library; Clipper2's `Clipper` facade owns the offset, the Boolean, and the Minkowski sum, and its `ClipperD` engine owns the open-path Boolean, and the kerf/lead/tab geometry the `posting` emitter needs rides the same offset owner. Clipper2 exposes a public `Triangulate`/`TriangulateResult`, but the author flags it buggy (a regretted release with open infinite-loop bugs), so it stays out of the algebra and no 2D-meshing arm is claimed here — constrained triangulation is a separate library admission. The orientation verdict stays the kernel `Predicate.Orient2D` exact sign.
 
 [TROCHOIDAL_SKELETON]:
 - A straight-skeleton/medial-axis author-kernel in `toolpath/skeleton` driving a trochoidal/adaptive-clearing `ToolpathKind` row — adaptive arc radius plus radial step holding constant material-removal rate and radial engagement.
@@ -28,6 +28,21 @@ The forward concept pool for `Rasm.Fabrication`. Each idea is a card — a brack
 - A watertight-solid silhouette path — the exact outline of a boolean-combined solid rather than the per-facet silhouette the HLR kernel extracts — gated behind a stable managed CSG admission or a native-asset/RID deploy decision.
 - Unlocks exact drafted outlines of boolean-assembled solids (the true profile a mesh-facet silhouette only approximates); held forward and gated so the per-facet HLR kernel stays pure-managed and the folder carries no native asset.
 - Exact CSG silhouette is the one fabrication-drafting capability no robust pure-managed library fills today: a managed CSG kernel mature enough to trust for robustness is the missing admission, and the native/GPL alternatives carry license and per-RID deploy burden, so the admission is a branch-level decision outside this folder's write-scope and the idea stays a held boundary, not an in-folder author-kernel.
+
+[FIXTURING_WORKHOLDING]:
+- A `fixturing/workholding` sub-domain owning a typed `Fixture`/`Clamp`/`ExclusionZone` placement model that conditions the cut sequence and toolpath against fixture keep-out volumes.
+- Unlocks collision-aware posting and nesting — the cut-program sequence and the part-retention tabs respect fixture exclusion zones, so a crash against a clamp is a planned exclusion rather than a runtime collision.
+- Draws on the workholding-as-first-class-geometry shift in 2025 CAM; the exclusion geometry rides the one `geometry2d/clipper#POLYGON_ALGEBRA` offset/clip substrate and the sequence conditioning composes the `posting/program#CUT_PROGRAM` `Sequence` fold, never a second collision owner.
+
+[PROCESS_PHYSICS_CUT_PARAMETER]:
+- A `process-physics/cut-parameter` sub-domain owning a UnitsNet-quantified feeds-and-speeds policy table — material × tool × operation rows projecting to spindle-speed, feed-rate, and depth-of-cut quantities the toolpath generators read.
+- Unlocks physically-grounded toolpaths — the trochoidal/adaptive-clearing generator reads a material-removal-rate budget in real quantities instead of a dimensionless constant, and a new material or tool is one policy row.
+- Draws on the UnitsNet quantity owner the Compute units boundary already composes; the table is data-driven dispatch feeding `toolpath/motion#CAM_MOTION` and `toolpath/skeleton#STRAIGHT_SKELETON` as settled quantities, never a per-generator magic number.
+
+[STOCK_REMNANT_NESTING]:
+- A stock-remnant arm on `nesting/nfp#NESTING` carrying leftover-stock geometry forward as a reusable nesting input keyed by the one content identity.
+- Unlocks material-yield optimization across jobs — a partially-consumed sheet's remnant polygon re-enters the NFP feasibility set as stock, so the next nest packs onto real remnants rather than only virgin sheets.
+- Draws on the remnant-tracking discipline in sheet-metal yield optimization; the remnant rides the existing NFP `MinkowskiSum` primitive over `geometry2d/clipper#POLYGON_ALGEBRA` and content-addresses through the kernel identity, never a second nesting owner.
 
 ## [2]-[CLOSED]
 
