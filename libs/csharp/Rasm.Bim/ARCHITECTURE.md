@@ -1,20 +1,28 @@
 # [RASM_BIM_ARCHITECTURE]
 
-The professional domain folder structure of `Rasm.Bim`, including the planned-but-empty sub-domains, each with a one-line charter. Mechanics live on the `.planning/` design pages and forward work on `IDEAS.md` and `TASKLOG.md`.
+The professional domain folder structure of `Rasm.Bim`, each sub-domain with a one-line charter. Mechanics live on the `.planning/` design pages and forward work on `IDEAS.md` and `TASKLOG.md`.
 
 ## [1]-[DOMAIN_MAP]
 
-The sub-domains mirror the eventual source tree. Designed sub-domains carry a `.planning/` page; planned sub-domains hold a charter and a visible gap that fuels the ideas and tasks. Every sub-domain composes the one `BimModel` the `exchange` import rail produces rather than minting a parallel model surface.
+The sub-domains mirror the eventual source tree, each carrying a `.planning/` design page. Every sub-domain composes the one `BimModel` the `exchange` import rail produces rather than minting a parallel model surface, lowers its rejection onto the one `faults#FAULT_BAND` `BimFault` band, and consumes the `query/element-set#ELEMENT_SET` `ElementPredicate` algebra and the `classification/systems#CLASSIFICATION_AXIS` axis as settled vocabulary rather than a parallel selection or classification surface.
 
 ```text codemap
 Rasm.Bim/
+├── faults/           # BimFault closed [Union] band-2600 (ModelRejected/UnmappedClass/DanglingReference/CodecReject/CapabilityMiss) every entrypoint lowers onto the Fin<T> rail, composing the kernel GeometryFault for shared degenerate-geometry.
 ├── model/            # Host-neutral BIM object model: BimElement record discriminated by an IfcClass row, BimModel collection, the Project fold.
 ├── query/            # ElementSet set-algebraic query over a closed ElementPredicate union folded by Union/Intersect/Except/Where.
-├── classification/   # bSDD-bound standard-systems classification axis: Classification vocabulary, ClassificationCode, ClassificationRef.
+├── classification/   # bSDD-bound standard-systems classification axis: Classification vocabulary, ClassificationCode, ClassificationRef, plus the BsddResolution live dictionary resolution degrading to the row's local code-shape policy.
 ├── assembly/         # Host-neutral spatial-structure tree plus the closed AssemblyRel decomposition union over the IFC IfcRel* relationships.
-├── exchange/         # Universal interchange codec across four file owners: the format/codec/extension axis plus FrameNormalization, the BimIo import fold, the BimExport emit fold, the TessellationRequest companion bridge, and the planned host-free wire projection the Python and TypeScript peers decode.
-├── properties/       # First-class Pset/Qto owner over the standard Pset_*/Qto_* sets, round-tripped through IfcRelDefinesByProperties. [planned]
-├── validation/       # IDS v1.0 model-validation owner folding the IDS facets into one predicate algebra over BimModel. [planned]
-├── coordination/     # BCF 3.0 issue exchange and the GlobalId-stable model-diff federation change-set. [planned]
-└── georeferencing/   # IFC4.3 coordinate-reference owner projecting the CRS surface onto a host-neutral GeoReference record. [planned]
+├── properties/       # First-class Pset/Qto owner: typed PropertySet/QuantitySet over the standard Pset_*/Qto_* sets, type-vs-occurrence inheritance, round-tripped through IfcRelDefinesByProperties.
+├── validation/       # IDS v1.0 model-validation owner folding the six IdsFacet arms onto the ElementPredicate algebra over BimModel, routing cross-tool audit to the ifctester companion.
+├── coordination/     # BCF 3.0 issue exchange (BcfTopic/BcfComment/BcfViewpoint, the .bcfzip codec, the BcfApi REST projection) and the GlobalId-plus-content-key ModelDiff federation change-set.
+├── georeferencing/   # IFC4.3 coordinate-reference owner projecting IfcMapConversion/IfcProjectedCRS onto a host-neutral GeoReference record reconciled by the FrameNormalization.Georeference CRS overload, plus the ProjNET datum-to-datum reprojection bridging the rigid map-conversion offset onto a true geodetic transform.
+├── material/         # PLANNED — host-neutral construction-material composition: BimMaterial owning the IfcMaterialLayerSet (thickness-keyed wall/slab/roof layer build-up), IfcMaterialProfileSet (linear-member section material), IfcMaterialConstituentSet (composite constituent fractions), and the IfcSurfaceStyleRendering appearance reconciled with Rasm.Materials at the seam — never a single material-name string.
+├── systems/          # PLANNED — IFC distribution-system connectivity graph: DistributionSystem carrying its IfcDistributionSystemEnum kind, its member element set, and the IfcDistributionPort/IfcRelConnectsPorts port-to-port connection edges the query traversal folds into a system trace.
+├── zoning/           # PLANNED — cross-cutting spatial-zone/program grouping overlay: BimZone carrying its IfcZoneTypeEnum kind, a many-to-many element/space assignment distinct from the single-parent containment tree, and the IfcRelAssignsToGroup/IfcRelReferencedInSpatialStructure cross-references a fire-compartment/thermal-zone/program-area query folds.
+├── cost/             # PLANNED — 5D cost-and-resource network: CostItem joining an IfcCostValue rate to the QuantitySet quantity by element, the IfcConstructionResource labor/material/equipment assignment joined to the sequencing ConstructionTask, and the IfcCostSchedule rollup the persistence cost catalog and the AppUi estimate report consume.
+├── analysis/         # PLANNED — IFC structural-analysis-domain projection: a host-neutral analysis-element/load/support graph (IfcStructuralCurveMember/IfcStructuralSurfaceMember/IfcStructuralPointConnection/IfcStructuralLoadGroup) the Compute solver reads by (GeometryHash, PropertyHash), the idealized member binding the physical BimElement by GlobalId.
+├── sequencing/       # PLANNED — IFC4.3 4D construction-scheduling network: ConstructionTask carrying its IfcTaskTime as a NodaTime Interval, its IfcRelSequence dependency lag as a Period, and its IfcRelAssignsToProcess element assignment, so a construction-state snapshot at any instant reads the task-interval-bounded element set.
+├── reconstruction/   # PLANNED — scan-to-BIM primitive fitting: a ReconstructionPrimitive closed union folding the kernel-registered segmented cloud into BimElement rows with an ElementPredicate-classified IfcClass, a confidence band on the Pset, and a source-cloud lineage key — registration is the kernel's, the splat payload is Compute's, the BIM semantics are Bim's.
+└── exchange/         # Universal interchange codec across the format/codec/extension axis plus FrameNormalization, the BimIo import fold, the BimExport emit fold with the per-tile TileMetadata EXT_structural_metadata author, the TessellationRequest companion bridge, and the host-free BimWire projection the Python and TypeScript peers decode.
 ```

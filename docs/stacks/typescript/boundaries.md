@@ -44,23 +44,26 @@ This table selects the owner for a foreign signal; when a signal matches several
 ```ts conceptual
 import { Data, Effect, Match, Option, Schema as S } from "effect"
 
-class RowFault extends Data.TaggedError("RowFault")<{ readonly reason: "missing" | "detached" }> {}
+const Payload = S.NonEmptyString.pipe(S.brand("Payload")) // decoded owner; interior never re-validates
+type Payload = typeof Payload.Type
+class RowFault extends Data.TaggedError("RowFault")<{ readonly reason: "absent" | "unavailable"; readonly detail: string }> {} // cause carries its axis
 
-const _Row = S.Struct({ state: S.Literal("missing", "detached", "ready"), value: S.OptionFromNullOr(S.NonEmptyString) })
+const _Row = S.Struct({ state: S.Literal("missing", "detached", "ready"), value: S.OptionFromNullOr(Payload) })
 
-const _route = Match.type<typeof _Row.Type>().pipe(
-  Match.discriminatorsExhaustive("state")({ // closed wire discriminant folds total; a fourth state breaks here
-    missing:  ()         => Effect.succeed(Option.none<_Payload>()),
-    detached: ()         => Effect.fail(new RowFault({ reason: "detached" })),
-    ready:    ({ value }) => Option.match(value, {
-      onNone: () => Effect.fail(new RowFault({ reason: "missing" })),
-      onSome: (v) => Effect.map(_Payload.admit(v), Option.some), // decoded absence rides Option, cause rides the fault
+const _route = (row: typeof _Row.Type): Effect.Effect<Option.Option<Payload>, RowFault> => // explicit channel pins E = RowFault; the curried matcher would widen it to unknown
+  Match.value(row).pipe(
+    Match.discriminatorsExhaustive("state")({ // closed wire discriminant folds total; a fourth state breaks here, never a silent default
+      missing:  ()         => Effect.succeed(Option.none<Payload>()), // structural absence, no cause: rides Option
+      detached: ()         => Effect.fail(new RowFault({ reason: "unavailable", detail: "detached" })), // cause-bearing: rides the fault
+      ready:    ({ value }) => Option.match(value, {
+        onNone: () => Effect.fail(new RowFault({ reason: "absent", detail: "value" })), // present-but-null is a fault, never Some(null)
+        onSome: (v) => Effect.succeed(Option.some(v)),
+      }),
     }),
-  }),
-)
+  )
 
-const admit = (raw: unknown): Effect.Effect<Option.Option<_Payload>, RowFault> =>
-  S.decodeUnknown(_Row)(raw).pipe(Effect.mapError(() => new RowFault({ reason: "missing" })), Effect.flatMap(_route))
+const admit = (raw: unknown): Effect.Effect<Option.Option<Payload>, RowFault> => // one inbound funnel admits every shape at one seam
+  S.decodeUnknown(_Row)(raw).pipe(Effect.mapError((e) => new RowFault({ reason: "absent", detail: e.message })), Effect.flatMap(_route))
 ```
 
 ## [3]-[LIFETIME]
@@ -211,12 +214,17 @@ import { Context, Duration, Effect, Layer } from "effect"
 
 const _Transport = Context.GenericTag<{ readonly endpoint: string }>("Cmp/Transport")
 const _Collector = Context.GenericTag<{ readonly endpoint: string; readonly window: Duration.Duration }>("Cmp/Collector")
+const _Pool = Context.GenericTag<{ readonly endpoint: string; readonly slot: string }>("Cmp/Pool")
 
-const _collector = Layer.effect(_Collector, _Transport.pipe(Effect.map((t) => ({ endpoint: t.endpoint, window: Duration.seconds(30) }))))
 const _transport = (region: string) => Layer.succeed(_Transport, { endpoint: `otlp://${region}.collector:4317` })
+const _collector = Layer.effect(_Collector, _Transport.pipe(Effect.map((t) => ({ endpoint: t.endpoint, window: Duration.seconds(30) }))))
+const _pool = (slot: string) => Layer.effect(_Pool, _Transport.pipe(Effect.map((t) => ({ endpoint: t.endpoint, slot })))) // both consume _Transport: a diamond
 
-const sealed = <A, E>(layer: Layer.Layer<A, E, never>): Layer.Layer<A, E> => layer
-const _root = (region: string) => sealed(_collector.pipe(Layer.provide(_transport(region))))
+const _root = (region: string): Layer.Layer<typeof _Collector.Identifier | typeof _Pool.Identifier> => // RIn = never proves the graph is closed
+  _collector.pipe(
+    Layer.provideMerge(_pool("read").pipe(Layer.fresh)), // provideMerge unions _Pool downstream; Layer.fresh forces an isolated instance the memoized diamond would otherwise share
+    Layer.provide(_transport(region)), // provide collapses the _Transport edge: the provider vanishes from the output
+  )
 ```
 
 ## [7]-[WIRE_CONTRACTS]

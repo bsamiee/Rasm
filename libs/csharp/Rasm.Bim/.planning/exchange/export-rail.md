@@ -5,12 +5,13 @@ The artifact-emit rail: one `BimExport` export fold over the `format-axis#FORMAT
 ## [1]-[INDEX]
 
 - [2]-[EXPORT_RAIL]: artifact emit — GLB mesh-and-scene with Draco/meshopt encode, IFC STEP/XML/JSON serialization.
+- [3]-[TILE_METADATA]: per-tile `EXT_structural_metadata` schema/class/property-table over the `BimElement` semantic, bound to the GLB primitive through `EXT_mesh_features` feature IDs.
 
 ## [2]-[EXPORT_RAIL]
 
 - Owner: `BimExport` — the export fold over `InterchangeFormat`, dispatching mesh-and-scene to GLB through the SharpGLTF `SceneBuilder`/`MeshBuilder` path with Draco/meshopt encode, and a model graph to IFC STEP/XML/JSON through GeometryGym `DatabaseIfc` serialization; `ExportArtifact` the emitted-bytes carrier feeding the Compute content-addressing seam.
-- Entry: `BimExport.Export(InterchangeFormat format, ImportedGeometry geometry, InterchangePolicy policy, ClockPolicy clocks)` for the GLB geometry path; `BimExport.ExportIfc(InterchangeFormat format, IfcSemanticModel model, InterchangePolicy policy, ClockPolicy clocks)` for the IFC model serialization — `Fin<T>` aborts on a write-capability miss or a codec fault projected onto `BimFault.ModelRejected`.
-- Auto: the `GlbBytes` fold switches on `InterchangePolicy.Compression` — the `KhrEncoder.None` arm assembles a `SceneBuilder` from `MeshBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty>` primitives through `PrimitiveBuilder.AddTriangle`, attaches through `SceneBuilder.AddRigidMesh`, converts through `SceneBuilder.ToGltf2(SceneBuilderSchema2Settings)`, and writes through `ModelRoot.WriteGLB` to bytes; the `KhrEncoder.Draco` arm bypasses the GLB container and quantizes the geometry into a `DracoMesh` (`PointAttribute.Wrap(AttributeType.Position, …)`, `DracoMesh.Indices.AddRange`), emitting the Draco byte stream through `Draco.Encode(mesh, DracoEncodeOptions)`; the `KhrEncoder.Meshopt` arm bounds the destination through `Meshopt.EncodeVertexBufferBound`/`EncodeIndexBufferBound` and emits the meshopt bufferView payloads through `Meshopt.EncodeVertexBuffer`/`EncodeIndexBuffer` over the interleaved vertex stream — neither codec takes a glTF `ModelRoot` and neither arm writes the GLB container, so the compression leg replaces the GLB write rather than post-processing it; IFC export selects the format through `DatabaseIfc.ToString(FormatIfcSerialization)` mapping the `ifc`/`ifc-xml`/`ifc-json` row to `STEP`/`XML`/`JSON`, with the model graph re-authored into a `DatabaseIfc` at the row's `ReleaseVersion` through the `FactoryIfc` canonical placements.
+- Entry: `BimExport.Export(InterchangeFormat format, ImportedGeometry geometry, InterchangePolicy policy, ClockPolicy clocks)` for the GLB geometry path; `BimExport.ExportIfc(InterchangeFormat format, IfcSemanticModel model, InterchangePolicy policy, ClockPolicy clocks)` for the IFC model serialization — `Fin<T>` aborts on a write-capability miss (`faults#FAULT_BAND` `BimFault.CodecReject`) or a captured GeometryGym serialization fault (`BimFault.ModelRejected`), each lowered with `.ToError()`.
+- Auto: the `GlbBytes` fold switches on `InterchangePolicy.Compression` — the `KhrEncoder.None` arm assembles a `SceneBuilder` from `MeshBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty>` primitives through `PrimitiveBuilder.AddTriangle`, attaches through `SceneBuilder.AddRigidMesh`, converts through `SceneBuilder.ToGltf2(SceneBuilderSchema2Settings)`, and writes through `ModelRoot.WriteGLB` to bytes; the `KhrEncoder.Draco` arm bypasses the GLB container and quantizes the geometry into a `DracoMesh` (`PointAttribute.Wrap(AttributeType.Position, …)` per-attribute wrap, `DracoMesh.AddFace(int[])` per triangle), emitting the Draco byte stream through `Draco.Encode(mesh, DracoEncodeOptions)`; the `KhrEncoder.Meshopt` arm first runs the catalogued meshopt optimization pipeline — `GenerateVertexRemap` deduplicates the exploded triangle-soup into a unique-vertex set, `RemapVertexBuffer`/`RemapIndexBuffer` apply the remap, then `OptimizeVertexCache`/`OptimizeOverdraw`/`OptimizeVertexFetch` reorder for GPU cache, overdraw, and fetch locality — bounds the destination through `EncodeVertexBufferBound`/`EncodeIndexBufferBound`, and emits the meshopt bufferView payloads through the pinned-pointer `Meshopt.EncodeVertexBuffer`/`EncodeIndexBuffer` over the optimized indexed buffers; neither codec takes a glTF `ModelRoot` and neither arm writes the GLB container, so the compression leg replaces the GLB write rather than post-processing it; IFC export selects the format through `DatabaseIfc.ToString(FormatIfcSerialization)` mapping the `ifc`/`ifc-xml`/`ifc-json` row to `STEP`/`XML`/`JSON`, with the model graph re-authored into a `DatabaseIfc` at the row's `ReleaseVersion` through the `FactoryIfc` canonical placements.
 - Receipt: the `ModelEmit` receipt case carries the format key, codec key, emitted byte count, and the `ExportArtifact.ContentKey` the Compute addressing seam computes, symmetric to the import `ModelLoad` case; emission rides the sink port at the composition edge.
 - Packages: SharpGLTF.Core, SharpGLTF.Toolkit, GeometryGymIFC_Core, Openize.Drako, Alimer.Bindings.MeshOptimizer, NodaTime, LanguageExt.Core
 - Growth: a new managed export is one codec arm on the export fold; a new IFC serialization format is one `InterchangeFormat` row mapping to a `FormatIfcSerialization` value; a new glTF KHR/EXT capability the exporter attaches is one `KhrExtension` row registered through `KhrExtension.Register` before write; a new compression encoder is one `KhrEncoder` arm on the `GlbBytes` fold.
@@ -51,15 +52,15 @@ public sealed record ExportArtifact(
 
 public static class BimExport {
     public static Fin<ExportArtifact> Export(InterchangeFormat format, ImportedGeometry geometry, InterchangePolicy policy, ClockPolicy clocks) =>
-        !format.CanExport ? Fin.Fail<ExportArtifact>(new BimFault.ModelRejected($"<export-unsupported:{format.Key}>"))
+        !format.CanExport ? Fin.Fail<ExportArtifact>(new BimFault.CodecReject($"export-unsupported:{format.Key}").ToError())
         : format.Codec == InterchangeCodec.SharpGltf
             ? GlbBytes(geometry, policy).Map(bytes => Sealed(format, bytes, policy, clocks.Now))
-            : Fin.Fail<ExportArtifact>(new BimFault.ModelRejected($"<export-codec-miss:{format.Key}>"));
+            : Fin.Fail<ExportArtifact>(new BimFault.CodecReject($"export-codec-miss:{format.Key}").ToError());
 
     public static Fin<ExportArtifact> ExportIfc(InterchangeFormat format, IfcSemanticModel model, InterchangePolicy policy, ClockPolicy clocks) =>
         format.Codec == InterchangeCodec.GeometryGym
-            ? Try.lift(() => Sealed(format, IfcBytes(format, model, policy), policy, clocks.Now)).Run().MapFail(static error => (Error)new BimFault.ModelRejected(error.Message))
-            : Fin.Fail<ExportArtifact>(new BimFault.ModelRejected($"<ifc-export-codec-miss:{format.Key}>"));
+            ? Try.lift(() => Sealed(format, IfcBytes(format, model, policy), policy, clocks.Now)).Run().MapFail(static error => new BimFault.ModelRejected(error.Message).ToError())
+            : Fin.Fail<ExportArtifact>(new BimFault.CodecReject($"ifc-export-codec-miss:{format.Key}").ToError());
 
     static FormatIfcSerialization SerializationOf(InterchangeFormat format) =>
         format == InterchangeFormat.IfcXml ? FormatIfcSerialization.XML
@@ -105,27 +106,62 @@ public static class BimExport {
         var mesh = new DracoMesh { NumPoints = geometry.VertexCount };
         mesh.AddAttribute(PointAttribute.Wrap(AttributeType.Position, 3, geometry.Vertices.ToArray()));
         mesh.AddAttribute(PointAttribute.Wrap(AttributeType.Normal, 3, geometry.Normals.ToArray()));
-        mesh.Indices.AddRange(geometry.Indices.Span.ToArray().Map(static i => (int)i).ToArray());
+        var indices = geometry.Indices.Span;
+        for (int tri = 0; tri < geometry.TriangleCount; tri++) {
+            mesh.AddFace([(int)indices[tri * 3], (int)indices[tri * 3 + 1], (int)indices[tri * 3 + 2]]);
+        }
         return Draco.Encode(mesh, new DracoEncodeOptions {
             PositionBits = policy.QuantizationBits, NormalBits = policy.QuantizationBits,
             CompressionLevel = DracoCompressionLevel.Optimal,
         });
     }
 
-    static byte[] MeshoptBytes(ImportedGeometry geometry, InterchangePolicy policy) {
+    static unsafe byte[] MeshoptBytes(ImportedGeometry geometry, InterchangePolicy policy) {
         var verts = geometry.Vertices.Span;
         var normals = geometry.Normals.Span;
-        var interleaved = new VertexPositionNormal[geometry.VertexCount];
+        var soup = new VertexPositionNormal[geometry.VertexCount];
         for (int v = 0; v < geometry.VertexCount; v++) {
             int o = v * 3;
-            interleaved[v] = new VertexPositionNormal(verts[o], verts[o + 1], verts[o + 2], normals[o], normals[o + 1], normals[o + 2]);
+            soup[v] = new VertexPositionNormal(verts[o], verts[o + 1], verts[o + 2], normals[o], normals[o + 1], normals[o + 2]);
         }
-        var indices = geometry.Indices.Span.ToArray().Map(static i => (uint)i).ToArray();
-        var vBuffer = new byte[(int)Meshopt.EncodeVertexBufferBound((nuint)interleaved.Length, (nuint)Unsafe.SizeOf<VertexPositionNormal>())];
-        var iBuffer = new byte[(int)Meshopt.EncodeIndexBufferBound((nuint)indices.Length, (nuint)geometry.VertexCount)];
-        int vLen = (int)Meshopt.EncodeVertexBuffer(vBuffer, interleaved.AsSpan());
-        int iLen = (int)Meshopt.EncodeIndexBuffer(iBuffer, indices);
-        return [.. BitConverter.GetBytes(vLen), .. vBuffer.AsSpan(0, vLen), .. iBuffer.AsSpan(0, iLen)];
+        var soupIndices = new uint[geometry.TriangleCount * 3];
+        for (int i = 0; i < soupIndices.Length; i++) { soupIndices[i] = (uint)geometry.Indices.Span[i]; }
+        nuint vertSize = (nuint)Unsafe.SizeOf<VertexPositionNormal>();
+        nuint soupCount = (nuint)soup.Length;
+        nuint indexCount = (nuint)soupIndices.Length;
+        var remap = new uint[soup.Length];
+        nuint uniqueCount;
+        fixed (uint* remapPtr = remap)
+        fixed (uint* idxPtr = soupIndices)
+        fixed (VertexPositionNormal* vSoup = soup) {
+            uniqueCount = Meshopt.GenerateVertexRemap(remapPtr, idxPtr, indexCount, vSoup, soupCount, vertSize);
+        }
+        var remapped = new VertexPositionNormal[(int)uniqueCount];
+        var interleaved = new VertexPositionNormal[(int)uniqueCount];
+        var indices = new uint[(int)indexCount];
+        fixed (uint* remapPtr = remap)
+        fixed (uint* idxSrc = soupIndices)
+        fixed (uint* idxDst = indices)
+        fixed (VertexPositionNormal* vSoup = soup)
+        fixed (VertexPositionNormal* vRemap = remapped)
+        fixed (VertexPositionNormal* vDstI = interleaved) {
+            Meshopt.RemapVertexBuffer(vRemap, vSoup, soupCount, vertSize, remapPtr);
+            Meshopt.RemapIndexBuffer(idxDst, idxSrc, indexCount, remapPtr);
+            Meshopt.OptimizeVertexCache(idxDst, idxDst, indexCount, uniqueCount);
+            Meshopt.OptimizeOverdraw(idxDst, idxDst, indexCount, (float*)vRemap, uniqueCount, vertSize, 1.05f);
+            Meshopt.OptimizeVertexFetch(vDstI, idxDst, indexCount, vRemap, uniqueCount, vertSize);
+        }
+        var vBuffer = new byte[(int)Meshopt.EncodeVertexBufferBound(uniqueCount, vertSize)];
+        var iBuffer = new byte[(int)Meshopt.EncodeIndexBufferBound(indexCount, uniqueCount)];
+        nuint vLen, iLen;
+        fixed (byte* vDst = vBuffer)
+        fixed (byte* iDst = iBuffer)
+        fixed (VertexPositionNormal* vSrc = interleaved)
+        fixed (uint* iSrc = indices) {
+            vLen = Meshopt.EncodeVertexBuffer(vDst, (nuint)vBuffer.Length, vSrc, uniqueCount, vertSize);
+            iLen = Meshopt.EncodeIndexBuffer(iDst, (nuint)iBuffer.Length, iSrc, indexCount);
+        }
+        return [.. BitConverter.GetBytes((int)uniqueCount), .. BitConverter.GetBytes((int)vLen), .. vBuffer.AsSpan(0, (int)vLen), .. iBuffer.AsSpan(0, (int)iLen)];
     }
 
     static byte[] IfcBytes(InterchangeFormat format, IfcSemanticModel model, InterchangePolicy policy) {
@@ -150,6 +186,44 @@ public static class BimExport {
 }
 ```
 
-## [3]-[RESEARCH]
+## [3]-[TILE_METADATA]
+
+- Owner: `TileMetadata` the per-tile `EXT_structural_metadata` author over the `model/elements#ELEMENT_MODEL` `BimElement` semantic — one embedded schema carrying the canonical BIM class, GlobalId, name, and the property/quantity/classification columns, one `PropertyTable` per-feature value store, and the `EXT_mesh_features` feature-ID binding tying each GLB primitive vertex span to its element row so the Cesium 3D Tiles web peer resolves per-element metadata at pick time.
+- Entry: `TileMetadata.Attach(ModelRoot tile, Seq<BimElement> elements)` authors the structural-metadata schema/class/property-table on the GLB the `EXPORT_RAIL` `SceneOf` builds and binds the feature IDs to the tile primitives — `Fin<T>` aborts on a registration fault captured at the boundary (`faults#FAULT_BAND` `BimFault.ModelRejected`) lowered with `.ToError()`; the per-tile metadata emit composes through the `Rasm.Compute` interchange codec `TILE_PARTITION` at the seam and `Rasm.Bim` authors the canonical schema shape and the extension surface.
+- Auto: `Attach` runs `Tiles3DExtensions.RegisterExtensions()` once, opens the schema through `tile.UseStructuralMetadata().UseEmbeddedSchema(id)`, defines the `BimElement` class through `UseClassMetadata("BimElement")` with one `UseProperty(name).With<Type>(...)` per canonical column (`GlobalId` string, `Class` enumeration over the `IfcClass` vocabulary through `UseEnumMetadata`, `Name` string, and the per-Pset property columns), adds the per-feature `PropertyTable` through `AddPropertyTable(class, featureCount, name)` encoding each element row through `UseProperty(key).SetValues<T>(...)`, and binds the GLB primitive feature IDs through `new FeatureIDBuilder(featureCount, attributeIndex, propertyTable, ...)` then `primitive.AddMeshFeatureIds(builder)` so the `EXT_mesh_features` feature-ID attribute indexes each vertex span to its `PropertyTable` row.
+- Receipt: the authored `EXT_structural_metadata` schema and `PropertyTable` are the per-tile semantic the web peer reads — the same `BimElement` vocabulary the `exchange/wire#WIRE_PROJECTION` JSON carries, projected onto the binary tile metadata so a Cesium consumer resolves per-element BIM semantics at pick without a second metadata mint.
+- Packages: SharpGLTF.Core, SharpGLTF.Ext.3DTiles, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
+- Growth: a new metadata column is one `UseProperty(name).With<Type>(...)` row on the embedded class; a new feature-ID binding is one `FeatureIDBuilder` over the primitive; the `IfcClass` enumeration is one `UseEnumMetadata` row tracking the `IfcClass` vocabulary; never a hand-authored JSON metadata block and never a second per-tile metadata mint.
+- Boundary: the per-tile metadata authors through the `SharpGLTF.Ext.3DTiles` `EXT_structural_metadata`/`EXT_mesh_features` surface — a hand-authored JSON `EXT_structural_metadata` block is the deleted form, the `StructuralMetadataClassProperty.With<Type>` selectors and the `PropertyTableProperty.SetValues<T>` binary encode own the schema and value storage; `Tiles3DExtensions.RegisterExtensions()` runs once before any author and the call is idempotent at the factory level; the `IfcClass` column rides `UseEnumMetadata` so the closed BIM class vocabulary serializes by its enumeration rather than a free string; the tile-pyramid partitioning and streaming stay at `Rasm.Compute/interchange/codecs#TILE_PARTITION` consumed at the seam — `Rasm.Bim` admits the extension surface and the canonical schema shape, never the tile pyramid; the `OneOf<int, Texture>` feature-ID attribute selector is a transitive `OneOf` dependency consumed only by `FeatureIDBuilder` and no Bim code references it directly; the per-tile `BimElement` semantic is the same vocabulary the `exchange/wire#WIRE_PROJECTION` carries, never a second metadata vocabulary.
+
+```csharp signature
+public static class TileMetadata {
+    public static Fin<ModelRoot> Attach(ModelRoot tile, Seq<BimElement> elements) =>
+        Try.lift(() => Author(tile, elements)).Run().MapFail(static error => new BimFault.ModelRejected($"tile-metadata:{error.Message}").ToError());
+
+    static ModelRoot Author(ModelRoot tile, Seq<BimElement> elements) {
+        Tiles3DExtensions.RegisterExtensions();
+        var root = tile.UseStructuralMetadata();
+        var schema = root.UseEmbeddedSchema("rasm-bim");
+        var classKinds = schema.UseEnumMetadata("IfcClass", [.. IfcClass.Items.Map(static (row, i) => (row.Key, i))]);
+        var element = schema.UseClassMetadata("BimElement");
+        element.UseProperty("GlobalId").WithStringType(noData: null, defaultValue: null);
+        element.UseProperty("Class").WithEnumeration(classKinds, noData: null);
+        element.UseProperty("Name").WithStringType(noData: null, defaultValue: null);
+        var table = root.AddPropertyTable(element, elements.Count, "elements");
+        table.UseProperty("GlobalId").SetValues([.. elements.Map(static e => e.GlobalId)]);
+        table.UseProperty("Class").SetValues([.. elements.Map(static e => IfcClass.Items.ToSeq().FindIndex(r => r == e.Class))]);
+        table.UseProperty("Name").SetValues([.. elements.Map(static e => e.Name)]);
+        tile.LogicalMeshes
+            .SelectMany(static mesh => mesh.Primitives)
+            .Iter((primitive, index) => primitive.AddMeshFeatureIds(
+                new FeatureIDBuilder(elements.Count, attributeOrTexture: 0, propertyTable: table, channels: null, label: "elements", nullFeatureId: null)));
+        return tile;
+    }
+}
+```
+
+## [4]-[RESEARCH]
 
 - [CONTENT_IDENTITY_CONSUME]: the `InterchangeIdentity.Key(string formatKey, ReadOnlySpan<byte> bytes, double deflection, double tolerance, double angleTolerance)` content-key derivation is owned at `Rasm.Compute/interchange/codecs#CONTENT_ADDRESSING` and consumed here for the `ExportArtifact.ContentKey` slot; the public signature confirms against the Compute `InterchangeIdentity` owner at cross-folder alignment, and the artifact lands content-addressed on the Persistence blob lane through the Compute `InterchangeIdentity.Admit` path — Bim mints no second identity scheme and no second blob owner.
+- [TILE_FEATURE_BINDING]: the `SharpGLTF.Ext.3DTiles` per-tile metadata author members the `TileMetadata.Attach` fold composes — `Tiles3DExtensions.RegisterExtensions`/`UseStructuralMetadata`, `EXTStructuralMetadataRoot.UseEmbeddedSchema`/`AddPropertyTable`, `StructuralMetadataSchema.UseClassMetadata`/`UseEnumMetadata`, `StructuralMetadataClass.UseProperty`, `StructuralMetadataClassProperty.WithStringType`/`WithEnumeration`, `PropertyTable.UseProperty`, `PropertyTableProperty.SetValues<T>`, `new FeatureIDBuilder(...)`, and `MeshPrimitive.AddMeshFeatureIds` — are decompile-verified in the `Rasm.Bim/.api/api-sharpgltf-3dtiles` catalogue; the per-vertex feature-ID attribute index that binds each primitive vertex span to its element `PropertyTable` row (the `EXT_mesh_features` attribute accessor the `SceneOf` mesh build emits) grounds at the codec admission gate where the GLB primitive vertex-to-element mapping is settled against the `EXPORT_RAIL` triangle-soup layout, and the tile-pyramid partitioning rides `Rasm.Compute/interchange/codecs#TILE_PARTITION` consumed at the seam.

@@ -28,6 +28,7 @@
 
 [PUBLIC_TYPE_SCOPE]: result and data types
 - rail: object-storage
+- `Bytes` is a top-level runtime export; `GetResult`/`ObjectMeta`/`PutResult`/`ListResult` are typing return-types carried by the operation signatures, imported for annotation, not constructed as top-level names.
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [RAIL]                                                                                  |
 | :-----: | :----------- | :------------ | :-------------------------------------------------------------------------------------- |

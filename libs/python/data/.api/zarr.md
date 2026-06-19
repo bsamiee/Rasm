@@ -149,7 +149,7 @@
 - Zarr v3 is the default (`zarr_format=3`); v2 is supported via `zarr_format=2` on all open/create paths
 - `ShardingCodec` is Zarr v3 only; it enables sub-chunk sharding to reduce small-file counts on object stores
 - `consolidate_metadata` merges all `.zarray`/`.zgroup` keys into a single consolidated metadata document at the root
-- `config` is a global `zarr.Config` object; per-array configuration uses `Array.with_config()`
+- `zarr.config` is the global config object (a `zarr.core.config.Config` instance); per-array configuration uses `Array.with_config()`
 
 [LOCAL_ADMISSION]:
 - Use `create_array` for typed arrays and `create_group` for hierarchies; use `open` for existing stores.

@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `gcsfs`
 - package: `gcsfs`
 - import: `gcsfs`
-- version: `2026.4.0`
 - owner: `runtime`
 - rail: resources
 - namespaces: `gcsfs`, `gcsfs.core`, `gcsfs.credentials`, `gcsfs.mapping`
@@ -40,7 +39,7 @@
 - credential law: GCS credentials arrive as `storage_options` (token/project/anon) from the caller-owned settings model, resolved through the gcsfs credential surface, never a global default client.
 
 [LOCAL_ADMISSION]:
-- gcsfs is a fsspec backend row reached by protocol; the filesystem surface and dispatch law arrive settled from `.api/api-fsspec.md`.
+- gcsfs is a fsspec backend row reached by protocol; the filesystem surface and dispatch law arrive settled from `.api/fsspec.md`.
 - The runtime owns no durable store; GCS is a transport-and-read resource root, never a product store engine.
 
 [RAIL_LAW]:

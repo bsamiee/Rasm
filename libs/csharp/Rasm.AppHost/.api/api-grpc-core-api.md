@@ -15,116 +15,122 @@
 
 [PUBLIC_TYPE_SCOPE]: call context and streaming interfaces
 
-| [INDEX] | [SYMBOL]                       | [KIND]           | [ROLE]                                          |
-| :-----: | :----------------------------- | :--------------- | :---------------------------------------------- |
-|   [1]   | `ServerCallContext`            | abstract class   | per-call server context: headers, deadline, CT  |
-|   [2]   | `IServerStreamWriter<T>`       | interface        | server-side outbound stream; extends `IAsyncStreamWriter<T>` |
-|   [3]   | `IAsyncStreamReader<T>`        | interface        | server-side inbound stream; `Current`+`MoveNext` |
-|   [4]   | `IAsyncStreamWriter<T>`        | interface        | `WriteAsync(T)`, `WriteOptions` property        |
+| [INDEX] | [SYMBOL]                 | [KIND]         | [ROLE]                                                       |
+| :-----: | :----------------------- | :------------- | :----------------------------------------------------------- |
+|   [1]   | `ServerCallContext`      | abstract class | per-call server context: headers, deadline, CT               |
+|   [2]   | `IServerStreamWriter<T>` | interface      | server-side outbound stream; extends `IAsyncStreamWriter<T>` |
+|   [3]   | `IAsyncStreamReader<T>`  | interface      | server-side inbound stream; `Current`+`MoveNext`             |
+|   [4]   | `IAsyncStreamWriter<T>`  | interface      | `WriteAsync(T)`, `WriteOptions` property                     |
 
 [PUBLIC_TYPE_SCOPE]: metadata and status
 
-| [INDEX] | [SYMBOL]          | [KIND]  | [ROLE]                                                    |
-| :-----: | :---------------- | :------ | :-------------------------------------------------------- |
-|   [1]   | `Metadata`        | class   | `IList<Metadata.Entry>`; request headers and trailers     |
-|   [2]   | `Metadata.Entry`  | class   | single key/value or key/binary pair; key lowercased       |
-|   [3]   | `Status`          | struct  | `StatusCode` + `Detail` string result carrier             |
-|   [4]   | `StatusCode`      | enum    | 17 gRPC status codes (OK=0 … DataLoss=15)                 |
-|   [5]   | `RpcException`    | class   | `Exception` subtype carrying `Status` and trailing `Metadata` |
+| [INDEX] | [SYMBOL]         | [KIND] | [ROLE]                                                        |
+| :-----: | :--------------- | :----- | :------------------------------------------------------------ |
+|   [1]   | `Metadata`       | class  | `IList<Metadata.Entry>`; request headers and trailers         |
+|   [2]   | `Metadata.Entry` | class  | single key/value or key/binary pair; key lowercased           |
+|   [3]   | `Status`         | struct | `StatusCode` + `Detail` string result carrier                 |
+|   [4]   | `StatusCode`     | enum   | 17 gRPC status codes (OK=0 … DataLoss=15)                     |
+|   [5]   | `RpcException`   | class  | `Exception` subtype carrying `Status` and trailing `Metadata` |
 
 [PUBLIC_TYPE_SCOPE]: method descriptor and service definition
 
-| [INDEX] | [SYMBOL]                   | [KIND]  | [ROLE]                                                         |
-| :-----: | :------------------------- | :------ | :------------------------------------------------------------- |
-|   [1]   | `Marshaller<T>`            | class   | serializer + deserializer pair for a single message type       |
-|   [2]   | `Marshallers`              | class   | static helpers: `Create<T>(ser,des)`, built-in `StringMarshaller` |
-|   [3]   | `Method<TReq,TResp>`       | class   | `MethodType`, `ServiceName`, `Name`, `FullName`, marshallers   |
-|   [4]   | `MethodType`               | enum    | `Unary`, `ClientStreaming`, `ServerStreaming`, `DuplexStreaming` |
-|   [5]   | `ServerServiceDefinition`  | class   | method-to-handler registry; `Builder` + `BindService`          |
-|   [6]   | `CallOptions`              | struct  | client-side call options: headers, deadline, CT, credentials   |
+| [INDEX] | [SYMBOL]                  | [KIND] | [ROLE]                                                            |
+| :-----: | :------------------------ | :----- | :---------------------------------------------------------------- |
+|   [1]   | `Marshaller<T>`           | class  | serializer + deserializer pair for a single message type          |
+|   [2]   | `Marshallers`             | class  | static helpers: `Create<T>(ser,des)`, built-in `StringMarshaller` |
+|   [3]   | `Method<TReq,TResp>`      | class  | `MethodType`, `ServiceName`, `Name`, `FullName`, marshallers      |
+|   [4]   | `MethodType`              | enum   | `Unary`, `ClientStreaming`, `ServerStreaming`, `DuplexStreaming`  |
+|   [5]   | `ServerServiceDefinition` | class  | method-to-handler registry; `Builder` + `BindService`             |
+|   [6]   | `CallOptions`             | struct | client-side call options: headers, deadline, CT, credentials      |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `ServerCallContext` — call properties
 
-| [INDEX] | [SURFACE]                                      | [KIND]     | [RAIL]                              |
-| :-----: | :--------------------------------------------- | :--------- | :---------------------------------- |
-|   [1]   | `Method`                                       | property   | method name string                  |
-|   [2]   | `Host`                                         | property   | host name string                    |
-|   [3]   | `Peer`                                         | property   | remote endpoint URI string          |
-|   [4]   | `Deadline`                                     | property   | `DateTime` (UTC)                    |
-|   [5]   | `RequestHeaders`                               | property   | inbound `Metadata`                  |
-|   [6]   | `CancellationToken`                            | property   | call and deadline cancellation      |
-|   [7]   | `ResponseTrailers`                             | property   | mutable outbound `Metadata`         |
-|   [8]   | `Status`                                       | property   | get/set outbound `Status`           |
-|   [9]   | `WriteOptions`                                 | property   | get/set write behaviour flags       |
-|  [10]   | `AuthContext`                                  | property   | auth metadata (experimental)        |
-|  [11]   | `UserState`                                    | property   | `IDictionary<object,object>` slot   |
-|  [12]   | `WriteResponseHeadersAsync(Metadata)`          | method     | send response headers before first write |
-|  [13]   | `CreatePropagationToken(options?)`             | method     | context propagation to child calls  |
+| [INDEX] | [SURFACE]                             | [KIND]   | [RAIL]                                   |
+| :-----: | :------------------------------------ | :------- | :--------------------------------------- |
+|   [1]   | `Method`                              | property | method name string                       |
+|   [2]   | `Host`                                | property | host name string                         |
+|   [3]   | `Peer`                                | property | remote endpoint URI string               |
+|   [4]   | `Deadline`                            | property | `DateTime` (UTC)                         |
+|   [5]   | `RequestHeaders`                      | property | inbound `Metadata`                       |
+|   [6]   | `CancellationToken`                   | property | call and deadline cancellation           |
+|   [7]   | `ResponseTrailers`                    | property | mutable outbound `Metadata`              |
+|   [8]   | `Status`                              | property | get/set outbound `Status`                |
+|   [9]   | `WriteOptions`                        | property | get/set write behaviour flags            |
+|  [10]   | `AuthContext`                         | property | auth metadata (experimental)             |
+|  [11]   | `UserState`                           | property | `IDictionary<object,object>` slot        |
+|  [12]   | `WriteResponseHeadersAsync(Metadata)` | method   | send response headers before first write |
+|  [13]   | `CreatePropagationToken(options?)`    | method   | context propagation to child calls       |
 
 [ENTRYPOINT_SCOPE]: `Metadata` — collection operations
 
-| [INDEX] | [SURFACE]                          | [KIND]   | [RAIL]                              |
-| :-----: | :--------------------------------- | :------- | :---------------------------------- |
-|   [1]   | `Metadata()`                       | ctor     | empty mutable collection            |
-|   [2]   | `Metadata.Empty`                   | static   | frozen empty singleton              |
-|   [3]   | `Add(key, value)` / `Add(key, bytes)` | method | ASCII or binary entry append      |
-|   [4]   | `Get(key)`                         | method   | last entry by key or `null`         |
-|   [5]   | `GetValue(key)`                    | method   | string value of last ASCII entry    |
-|   [6]   | `GetValueBytes(key)`               | method   | bytes value of last entry           |
-|   [7]   | `GetAll(key)`                      | method   | all entries with matching key       |
-|   [8]   | `Count` / `IsReadOnly`             | property | list state                          |
+| [INDEX] | [SURFACE]                             | [KIND]   | [RAIL]                           |
+| :-----: | :------------------------------------ | :------- | :------------------------------- |
+|   [1]   | `Metadata()`                          | ctor     | empty mutable collection         |
+|   [2]   | `Metadata.Empty`                      | static   | frozen empty singleton           |
+|   [3]   | `Add(key, value)` / `Add(key, bytes)` | method   | ASCII or binary entry append     |
+|   [4]   | `Get(key)`                            | method   | last entry by key or `null`      |
+|   [5]   | `GetValue(key)`                       | method   | string value of last ASCII entry |
+|   [6]   | `GetValueBytes(key)`                  | method   | bytes value of last entry        |
+|   [7]   | `GetAll(key)`                         | method   | all entries with matching key    |
+|   [8]   | `Count` / `IsReadOnly`                | property | list state                       |
 
 [ENTRYPOINT_SCOPE]: `Status` construction and `StatusCode` cases
 
-| [INDEX] | [SURFACE]                          | [KIND]   | [RAIL]                        |
-| :-----: | :--------------------------------- | :------- | :---------------------------- |
-|   [1]   | `Status(statusCode, detail)`       | ctor     | primary result constructor    |
-|   [2]   | `Status.DefaultSuccess`            | static   | `OK` + empty detail           |
-|   [3]   | `Status.DefaultCancelled`          | static   | `Cancelled` + empty detail    |
-|   [4]   | `StatusCode.OK` = 0                | case     | success                       |
-|   [5]   | `StatusCode.Cancelled` = 1         | case     | caller-cancelled              |
-|   [6]   | `StatusCode.DeadlineExceeded` = 4  | case     | deadline expired              |
-|   [7]   | `StatusCode.InvalidArgument` = 3   | case     | bad request input             |
-|   [8]   | `StatusCode.NotFound` = 5          | case     | entity absent                 |
-|   [9]   | `StatusCode.PermissionDenied` = 7  | case     | authorization failure         |
-|  [10]   | `StatusCode.Unauthenticated` = 16  | case     | missing credentials           |
-|  [11]   | `StatusCode.Internal` = 13         | case     | invariant broken              |
-|  [12]   | `StatusCode.Unavailable` = 14      | case     | transient service failure     |
-|  [13]   | `StatusCode.Unimplemented` = 12    | case     | method not supported          |
-|  [14]   | remaining codes                    | cases    | `Unknown`, `ResourceExhausted`, `FailedPrecondition`, `Aborted`, `OutOfRange`, `DataLoss`, `AlreadyExists` |
+| [INDEX] | [SURFACE]                           | [KIND] | [RAIL]                     |
+| :-----: | :---------------------------------- | :----- | :------------------------- |
+|   [1]   | `Status(statusCode, detail)`        | ctor   | primary result constructor |
+|   [2]   | `Status.DefaultSuccess`             | static | `OK` + empty detail        |
+|   [3]   | `Status.DefaultCancelled`           | static | `Cancelled` + empty detail |
+|   [4]   | `StatusCode.OK` = 0                 | case   | success                    |
+|   [5]   | `StatusCode.Cancelled` = 1          | case   | caller-cancelled           |
+|   [6]   | `StatusCode.Unknown` = 2            | case   | unknown failure            |
+|   [7]   | `StatusCode.InvalidArgument` = 3    | case   | bad request input          |
+|   [8]   | `StatusCode.DeadlineExceeded` = 4   | case   | deadline expired           |
+|   [9]   | `StatusCode.NotFound` = 5           | case   | entity absent              |
+|  [10]   | `StatusCode.AlreadyExists` = 6      | case   | entity already present     |
+|  [11]   | `StatusCode.PermissionDenied` = 7   | case   | authorization failure      |
+|  [12]   | `StatusCode.ResourceExhausted` = 8  | case   | quota or resource depleted |
+|  [13]   | `StatusCode.FailedPrecondition` = 9 | case   | required state absent      |
+|  [14]   | `StatusCode.Aborted` = 10           | case   | concurrency conflict       |
+|  [15]   | `StatusCode.OutOfRange` = 11        | case   | value outside range        |
+|  [16]   | `StatusCode.Unimplemented` = 12     | case   | method not supported       |
+|  [17]   | `StatusCode.Internal` = 13          | case   | invariant broken           |
+|  [18]   | `StatusCode.Unavailable` = 14       | case   | transient service failure  |
+|  [19]   | `StatusCode.DataLoss` = 15          | case   | unrecoverable data loss    |
+|  [20]   | `StatusCode.Unauthenticated` = 16   | case   | missing credentials        |
 
 [ENTRYPOINT_SCOPE]: `RpcException` construction
 
-| [INDEX] | [SURFACE]                                    | [KIND] | [RAIL]                             |
-| :-----: | :------------------------------------------- | :----- | :--------------------------------- |
-|   [1]   | `RpcException(Status)`                       | ctor   | status-only; trailers = `Empty`    |
-|   [2]   | `RpcException(Status, string message)`       | ctor   | custom local message               |
-|   [3]   | `RpcException(Status, Metadata trailers)`    | ctor   | with trailing metadata             |
-|   [4]   | `RpcException(Status, Metadata, string)`     | ctor   | full form                          |
-|   [5]   | `.Status`, `.StatusCode`, `.Trailers`        | props  | read-back of constructed values    |
+| [INDEX] | [SURFACE]                                 | [KIND] | [RAIL]                          |
+| :-----: | :---------------------------------------- | :----- | :------------------------------ |
+|   [1]   | `RpcException(Status)`                    | ctor   | status-only; trailers = `Empty` |
+|   [2]   | `RpcException(Status, string message)`    | ctor   | custom local message            |
+|   [3]   | `RpcException(Status, Metadata trailers)` | ctor   | with trailing metadata          |
+|   [4]   | `RpcException(Status, Metadata, string)`  | ctor   | full form                       |
+|   [5]   | `.Status`, `.StatusCode`, `.Trailers`     | props  | read-back of constructed values |
 
 [ENTRYPOINT_SCOPE]: method descriptor and service definition
 
-| [INDEX] | [SURFACE]                                                              | [KIND]   | [RAIL]                                  |
-| :-----: | :--------------------------------------------------------------------- | :------- | :-------------------------------------- |
-|   [1]   | `new Marshaller<T>(serializer, deserializer)`                          | ctor     | byte-array codec pair                   |
-|   [2]   | `Marshallers.Create<T>(Func<T,byte[]>, Func<byte[],T>)`               | factory  | shorthand marshaller construction       |
-|   [3]   | `new Method<TReq,TResp>(MethodType, serviceName, name, reqM, respM)`  | ctor     | method descriptor                       |
-|   [4]   | `ServerServiceDefinition.CreateBuilder()`                             | factory  | begins a definition builder             |
-|   [5]   | `Builder.AddMethod(method, handler)` (×4 streaming variants)          | method   | registers a handler by method type      |
-|   [6]   | `Builder.Build()`                                                     | method   | produces immutable `ServerServiceDefinition` |
-|   [7]   | `ServerServiceDefinition.BindService(ServiceBinderBase)`              | method   | replays registrations into a binder     |
+| [INDEX] | [SURFACE]                                                            | [KIND]  | [RAIL]                                       |
+| :-----: | :------------------------------------------------------------------- | :------ | :------------------------------------------- |
+|   [1]   | `new Marshaller<T>(serializer, deserializer)`                        | ctor    | byte-array codec pair                        |
+|   [2]   | `Marshallers.Create<T>(Func<T,byte[]>, Func<byte[],T>)`              | factory | shorthand marshaller construction            |
+|   [3]   | `new Method<TReq,TResp>(MethodType, serviceName, name, reqM, respM)` | ctor    | method descriptor                            |
+|   [4]   | `ServerServiceDefinition.CreateBuilder()`                            | factory | begins a definition builder                  |
+|   [5]   | `Builder.AddMethod(method, handler)` (×4 streaming variants)         | method  | registers a handler by method type           |
+|   [6]   | `Builder.Build()`                                                    | method  | produces immutable `ServerServiceDefinition` |
+|   [7]   | `ServerServiceDefinition.BindService(ServiceBinderBase)`             | method  | replays registrations into a binder          |
 
 [ENTRYPOINT_SCOPE]: `CallOptions` — client-side configuration
 
-| [INDEX] | [SURFACE]                                   | [KIND]   | [RAIL]                              |
-| :-----: | :------------------------------------------ | :------- | :---------------------------------- |
-|   [1]   | `CallOptions(headers?, deadline?, ct?, ...)` | ctor    | full options struct                 |
-|   [2]   | `WithHeaders(Metadata)` / `WithDeadline(DateTime)` | method | immutable update pattern   |
-|   [3]   | `WithCancellationToken(CT)` / `WithCredentials(CallCredentials)` | method | immutable update |
-|   [4]   | `WithWaitForReady(bool)` / `IsWaitForReady` | method/prop | `TransientFailure` retry flag  |
+| [INDEX] | [SURFACE]                                                        | [KIND]      | [RAIL]                        |
+| :-----: | :--------------------------------------------------------------- | :---------- | :---------------------------- |
+|   [1]   | `CallOptions(headers?, deadline?, ct?, ...)`                     | ctor        | full options struct           |
+|   [2]   | `WithHeaders(Metadata)` / `WithDeadline(DateTime)`               | method      | immutable update pattern      |
+|   [3]   | `WithCancellationToken(CT)` / `WithCredentials(CallCredentials)` | method      | immutable update              |
+|   [4]   | `WithWaitForReady(bool)` / `IsWaitForReady`                      | method/prop | `TransientFailure` retry flag |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

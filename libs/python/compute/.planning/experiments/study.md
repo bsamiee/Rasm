@@ -1,6 +1,6 @@
 # [PY_COMPUTE_STUDY]
 
-The one study-spine owner over design-of-experiments sampling, global sensitivity analysis, and surrogate fitting. `Study` discriminates by a `StudyMethod` axis over one param-axis and sample-grid spine: low-discrepancy and stratified sampling over `scipy.stats.qmc`, Sobol/Morris/FAST sensitivity over SALib, and polynomial or Gaussian-process surrogates over scikit-learn are cases on one owner. `BenchmarkData` collapses into a `MeasurementMode` discriminant on the receipt rather than a parallel benchmark owner. SALib owns sensitivity analysis, so the owner composes its sampler-and-analyzer pair rather than reimplementing Morris or Saltelli; the numpy stratified-LHS and factorial floors run on cp315.
+The one study-spine owner over design-of-experiments sampling, global sensitivity analysis, and surrogate fitting. `Study` discriminates by a `StudyMethod` axis over one param-axis and sample-grid spine: low-discrepancy and stratified sampling over `scipy.stats.qmc`, the full SALib sensitivity family over Sobol, Morris, FAST, PAWN, DGSM, and HDMR, and polynomial or Gaussian-process surrogates over scikit-learn are cases on one owner. `BenchmarkData` collapses into a `MeasurementMode` discriminant on the receipt rather than a parallel benchmark owner. SALib owns sensitivity analysis, so the owner composes its sampler-and-analyzer pair across every method rather than reimplementing variance-based, moment-independent, derivative-based, or component sensitivity; the numpy stratified-LHS and factorial floors run on cp315.
 
 ## [1]-[INDEX]
 
@@ -9,9 +9,9 @@ The one study-spine owner over design-of-experiments sampling, global sensitivit
 ## [2]-[STUDY]
 
 - Owner: `Study` — the ONE study-lake owner discriminating by a `StudyMethod` axis over the param-axis, sample-grid, objective-route, and measurement spine; DOE sampling, global sensitivity, and surrogate fitting are cases on one owner. `RunHistory` rides the same spine for persistence and resume in `experiments/run_history.md#RUN_HISTORY`; `BenchmarkData` collapses into a `MeasurementMode` discriminant on the receipt.
-- Cases: `StudyMethod` discriminates the DOE samplers (`Lhs(n)` numpy stratified Latin-hypercube floor, `Factorial(levels)` numpy full-factorial floor, `Sobol(m)` and `Halton(n)` over `scipy.stats.qmc.Sobol`/`Halton` with `qmc.scale`), the SALib sensitivity analyzers (`MorrisScreen(trajectories, levels)` over `SALib.sample.morris`/`SALib.analyze.morris`, `SobolIndices(n)` over `SALib.sample.sobol`/`SALib.analyze.sobol`, `Fast(n)` over `SALib.sample.fast_sampler`/`SALib.analyze.fast`), and the surrogates (`Polynomial(degree)` numpy least-squares Vandermonde floor, `GaussianProcess(length_scale)` over `sklearn.gaussian_process.GaussianProcessRegressor` with an `RBF` kernel). `MeasurementMode` discriminates result, wallclock, and speedup measurement on the receipt.
+- Cases: `StudyMethod` discriminates the DOE samplers (`Lhs(n)` numpy stratified Latin-hypercube floor, `Factorial(levels)` numpy full-factorial floor, `Sobol(m)` and `Halton(n)` over `scipy.stats.qmc.Sobol`/`Halton` with `qmc.scale`), the SALib sensitivity analyzers (`MorrisScreen(trajectories, levels)` over `SALib.sample.morris`/`SALib.analyze.morris` reading `mu_star`, `SobolIndices(n)` over `SALib.sample.sobol`/`SALib.analyze.sobol` reading `ST`, `Fast(n)` over `SALib.sample.fast_sampler`/`SALib.analyze.fast` reading `ST`, `Pawn(n)` over `SALib.sample.sobol`/`SALib.analyze.pawn` reading the moment-independent `median`, `Dgsm(n)` over `SALib.sample.finite_diff`/`SALib.analyze.dgsm` reading the derivative-based `dgsm` index, `Hdmr(n)` over `SALib.sample.latin`/`SALib.analyze.hdmr` reading the component `Sa`), and the surrogates (`Polynomial(degree)` numpy least-squares Vandermonde floor, `GaussianProcess(length_scale)` over `sklearn.gaussian_process.GaussianProcessRegressor` with an `RBF` kernel). The SALib `X`-and-`Y` analyzers (Morris, DGSM, HDMR) read the design matrix and the responses; the `Y`-only analyzers (Sobol, FAST, PAWN) read the responses against the structured Saltelli/FAST design. `MeasurementMode` discriminates result, wallclock, and speedup measurement on the receipt.
 - Entry: `Study.run` matches the method, builds the SALib `problem` dict from the param axes, draws the design through the matching SALib sampler or numpy floor, evaluates the objective per design row, runs the matching SALib analyzer for the sensitivity indices, and returns `RuntimeRail[StudyReceipt]` carrying the method, mode, completed and total cells, the per-axis sensitivity indices, and the design `ContentKey`. The SALib sampler-and-analyzer pair is the canonical sensitivity owner, so Morris elementary effects and Saltelli first-and-total-order Sobol indices are read from SALib, never hand-rolled.
-- Packages: `SALib` (`sample.morris`, `sample.sobol`, `sample.fast_sampler`, `analyze.morris`, `analyze.sobol`, `analyze.fast`, the `ProblemSpec`/`problem` dict), `scipy` (`stats.qmc.Sobol`, `stats.qmc.Halton`, `stats.qmc.scale`), `scikit-learn` (`gaussian_process.GaussianProcessRegressor`, `gaussian_process.kernels.RBF`), `numpy` (`random.default_rng`, `argsort`, `linspace`, `meshgrid`, `column_stack`, `vander`, `linalg.lstsq`, `apply_along_axis`), data-branch `xarray`/`dask` shapes for the grid lane, runtime (`RuntimeRail`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor`).
+- Packages: `SALib` (`sample.morris`, `sample.sobol`, `sample.fast_sampler`, `sample.finite_diff`, `sample.latin`, `analyze.morris`, `analyze.sobol`, `analyze.fast`, `analyze.pawn`, `analyze.dgsm`, `analyze.hdmr`, the `ProblemSpec`/`problem` dict), `scipy` (`stats.qmc.Sobol`, `stats.qmc.Halton`, `stats.qmc.scale`), `scikit-learn` (`gaussian_process.GaussianProcessRegressor`, `gaussian_process.kernels.RBF`), `numpy` (`random.default_rng`, `argsort`, `linspace`, `meshgrid`, `column_stack`, `vander`, `linalg.lstsq`, `apply_along_axis`), data-branch `xarray`/`dask` shapes for the grid lane, runtime (`RuntimeRail`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor`).
 - Growth: a new param axis is one `ParamAxis` coordinate; a new sampler, analyzer, or surrogate is one `StudyMethod` case; a new measurement is one `MeasurementMode` row; zero new surface.
 - Boundary: no job framework, farm scheduler, substrate selection, or C# receipt minting; classical DOE, sensitivity, and surrogate only — a neural surrogate or an acquisition-driven active-learning loop is out of charter. A standalone benchmark owner, a parallel experiment tracker, a hand-rolled Morris or Saltelli implementation, and a `NotImplementedError` sensitivity stub are the deleted forms. SALib is pure-Python over numpy/scipy, so its core runs where numpy resolves; the scipy `qmc` and scikit-learn surrogate rows carry the `python_version<'3.15'` marker, and the numpy LHS, factorial, and polynomial floors run on cp315.
 
@@ -52,7 +52,9 @@ class ParamAxis(Struct, frozen=True):
 @tagged_union(frozen=True)
 class StudyMethod:
     tag: Literal[
-        "lhs", "factorial", "sobol", "halton", "morris_screen", "sobol_indices", "fast", "polynomial", "gaussian_process"
+        "lhs", "factorial", "sobol", "halton",
+        "morris_screen", "sobol_indices", "fast", "pawn", "dgsm", "hdmr",
+        "polynomial", "gaussian_process",
     ] = tag()
     lhs: int = case()
     factorial: tuple[int, ...] = case()
@@ -61,6 +63,9 @@ class StudyMethod:
     morris_screen: tuple[int, int] = case()
     sobol_indices: int = case()
     fast: int = case()
+    pawn: int = case()
+    dgsm: int = case()
+    hdmr: int = case()
     polynomial: int = case()
     gaussian_process: float = case()
 
@@ -91,6 +96,18 @@ class StudyMethod:
     @staticmethod
     def Fast(n: int) -> StudyMethod:
         return StudyMethod(fast=n)
+
+    @staticmethod
+    def Pawn(n: int) -> StudyMethod:
+        return StudyMethod(pawn=n)
+
+    @staticmethod
+    def Dgsm(n: int) -> StudyMethod:
+        return StudyMethod(dgsm=n)
+
+    @staticmethod
+    def Hdmr(n: int) -> StudyMethod:
+        return StudyMethod(hdmr=n)
 
     @staticmethod
     def Polynomial(degree: int) -> StudyMethod:
@@ -158,7 +175,7 @@ def _design(study: Study, seed: int) -> np.ndarray:
             unit = _latin_hypercube(rng, max(8, dim * 4), dim)
         case StudyMethod(tag="sobol" | "halton"):
             return _qmc_design(study, seed)
-        case StudyMethod(tag="morris_screen" | "sobol_indices" | "fast" | "gaussian_process"):
+        case StudyMethod(tag="morris_screen" | "sobol_indices" | "fast" | "pawn" | "dgsm" | "hdmr" | "gaussian_process"):
             return _salib_or_sklearn_design(study, seed)
         case unreachable:
             assert_never(unreachable)
@@ -208,6 +225,18 @@ def _salib_or_sklearn_design(study: Study, seed: int) -> np.ndarray:
             from SALib.sample import fast_sampler
 
             return fast_sampler.sample(problem, n, seed=seed)
+        case StudyMethod(tag="pawn", pawn=n):
+            from SALib.sample import sobol
+
+            return sobol.sample(problem, n, seed=seed)
+        case StudyMethod(tag="dgsm", dgsm=n):
+            from SALib.sample import finite_diff
+
+            return finite_diff.sample(problem, n, seed=seed)
+        case StudyMethod(tag="hdmr", hdmr=n):
+            from SALib.sample import latin
+
+            return latin.sample(problem, n, seed=seed)
         case StudyMethod(tag="gaussian_process"):
             rng = np.random.default_rng(seed)
             unit = _latin_hypercube(rng, max(16, len(study.axes) * 8), len(study.axes))
@@ -235,6 +264,21 @@ def _indices(study: Study, design: np.ndarray, responses: np.ndarray) -> dict[st
 
             result = fast.analyze(problem, responses)
             return {n: float(v) for n, v in zip(names, result["ST"], strict=True)}
+        case StudyMethod(tag="pawn"):
+            from SALib.analyze import pawn
+
+            result = pawn.analyze(problem, design, responses)
+            return {n: float(v) for n, v in zip(names, result["median"], strict=True)}
+        case StudyMethod(tag="dgsm"):
+            from SALib.analyze import dgsm
+
+            result = dgsm.analyze(problem, design, responses)
+            return {n: float(v) for n, v in zip(names, result["dgsm"], strict=True)}
+        case StudyMethod(tag="hdmr"):
+            from SALib.analyze import hdmr
+
+            result = hdmr.analyze(problem, design, responses)
+            return {n: float(v) for n, v in zip(names, result["Sa"], strict=True)}
         case StudyMethod(tag="polynomial", polynomial=degree):
             return _polynomial_r2(study, design, responses, degree)
         case StudyMethod(tag="gaussian_process", gaussian_process=length_scale):
@@ -263,10 +307,11 @@ def _gaussian_process_score(design: np.ndarray, responses: np.ndarray, length_sc
     return {"r2": float(model.score(design, responses))}
 ```
 
-The numpy stratified-LHS row stratifies each axis into `n` equal-probability bins, places one jittered sample per bin, and independently permutes the per-axis column order; the factorial row builds the full grid; the polynomial row fits a univariate Vandermonde least-squares model per axis and reports `R^2`. SALib owns the sensitivity domain: the Morris row reads `mu_star` from `SALib.analyze.morris`, the Sobol row reads first-and-total-order indices from `SALib.analyze.sobol` over a Saltelli design, and the FAST row reads `ST` from `SALib.analyze.fast`. The Gaussian-process surrogate fits a `GaussianProcessRegressor` with an `RBF` kernel and reports the fit score. The charter boundary holds at the surrogate seam: classical GP and polynomial regression are in-scope; a neural surrogate or an acquisition-driven active-learning loop is not.
+The numpy stratified-LHS row stratifies each axis into `n` equal-probability bins, places one jittered sample per bin, and independently permutes the per-axis column order; the factorial row builds the full grid; the polynomial row fits a univariate Vandermonde least-squares model per axis and reports `R^2`. SALib owns the sensitivity domain across every method: the Morris row reads `mu_star` from `SALib.analyze.morris`, the Sobol row reads first-and-total-order indices from `SALib.analyze.sobol` over a Saltelli design, the FAST row reads `ST` from `SALib.analyze.fast`, the PAWN row reads the moment-independent `median` from `SALib.analyze.pawn` over a Sobol design, the DGSM row reads the derivative-based `dgsm` index from `SALib.analyze.dgsm` over a `finite_diff` design, and the HDMR row reads the component `Sa` from `SALib.analyze.hdmr` over a Latin-hypercube design. The Gaussian-process surrogate fits a `GaussianProcessRegressor` with an `RBF` kernel and reports the fit score. The charter boundary holds at the surrogate seam: classical GP and polynomial regression are in-scope; a neural surrogate or an acquisition-driven active-learning loop is not.
 
 ## [3]-[RESEARCH]
 
-- [SALIB_SENSITIVITY]: `SALib` resolves on the cp315 core (pure-Python over numpy/scipy). The `sample.morris`/`sample.sobol`/`sample.fast_sampler`/`analyze.morris`/`analyze.sobol`/`analyze.fast` spellings and the `problem`/`ProblemSpec` dict shape verify against the `.api` catalogue under a uv-sync reflection pass. SALib owns Morris elementary effects and Saltelli Sobol indices, so the owner composes its sampler-and-analyzer pair rather than reimplementing them.
-- [SCIPY_QMC]: the `scipy.stats.qmc.Sobol`/`Halton`/`scale` spellings carry the `python_version<'3.15'` marker; the bodies verify against the `.api` catalogue once the scipy wheel resolves.
+- [SALIB_SENSITIVITY]: `SALib` resolves on the cp315 core (pure-Python over numpy/scipy). The `sample.morris`/`sample.sobol`/`sample.fast_sampler`/`sample.finite_diff`/`sample.latin`/`analyze.morris`/`analyze.sobol`/`analyze.fast`/`analyze.pawn`/`analyze.dgsm`/`analyze.hdmr` spellings and the `problem`/`ProblemSpec` dict shape verify against the `.api` catalogue under a uv-sync reflection pass. SALib owns variance-based, moment-independent, derivative-based, and component sensitivity, so the owner composes its sampler-and-analyzer pair across every method rather than reimplementing them.
+- [SALIB_RESULT_KEYS]: the `analyze.pawn` `median`, `analyze.dgsm` `dgsm`, and `analyze.hdmr` `Sa` `ResultDict` keys read in `_indices` verify against the `.api` catalogue under a uv-sync reflection pass; PAWN and DGSM analyze over the `X`-and-`Y` form (`pawn.analyze(problem, X, Y, S)`, `dgsm.analyze(problem, X, Y)`), HDMR over `hdmr.analyze(problem, X, Y)`, each keyed by axis name so a `RunHistory` compare join lands on matching rows.
+- [SCIPY_QMC]: the `scipy.stats.qmc.Sobol`/`Halton`/`scale` spellings carry the `python_version<'3.15'` marker and are not yet captured in `compute/.api/scipy.md` (which catalogues `scipy.linalg`/`sparse`/`optimize`/`integrate`/`interpolate`); they verify against the catalogue under a uv-sync reflection pass once `scipy.stats` is captured and the scipy wheel resolves.
 - [SKLEARN_SURROGATE]: the `sklearn.gaussian_process.GaussianProcessRegressor`/`kernels.RBF` spellings carry the `python_version<'3.15'` marker; the surrogate row verifies against the `.api` catalogue once the scikit-learn wheel resolves. The numpy LHS, factorial, and polynomial floors run unconditionally on cp315.

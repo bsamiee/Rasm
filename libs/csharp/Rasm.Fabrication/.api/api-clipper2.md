@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_API_CLIPPER2]
 
-`Clipper2Lib` supplies 2D polygon Boolean operations, path offsetting, rectangle clipping, Minkowski sum/difference, point-in-polygon testing, path simplification, triangulation, and coordinate-conversion utilities for the fabrication toolpath, nesting, and offset owners. The primary entry points are the static `Clipper` facade, the stateful `Clipper64` and `ClipperD` engines for subject/clip workflow, and `ClipperOffset` for inward/outward path inflation with configurable join and end styles. Coordinate geometry resolves through `int64`-native `Point64`/`Path64`/`Rect64` types and `double`-native `PointD`/`PathD`/`RectD` types; `ClipperD` scales doubles to int64 internally at caller-specified decimal precision.
+`Clipper2Lib` supplies 2D polygon Boolean operations, path offsetting, rectangle clipping, Minkowski sum/difference, point-in-polygon testing, path simplification, and coordinate-conversion utilities for the fabrication toolpath, nesting, and offset owners; the public `Triangulate`/`TriangulateResult` surface is author-flagged buggy and stays out of `PolygonAlgebra`. The primary entry points are the static `Clipper` facade, the stateful `Clipper64` and `ClipperD` engines for subject/clip workflow, and `ClipperOffset` for inward/outward path inflation with configurable join and end styles. Coordinate geometry resolves through `int64`-native `Point64`/`Path64`/`Rect64` types and `double`-native `PointD`/`PathD`/`RectD` types; `ClipperD` scales doubles to int64 internally at caller-specified decimal precision.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -54,6 +54,7 @@
 |   [3]   | `ClipperD`      | stateful engine | double subject/clip workflow           |
 |   [4]   | `ClipperOffset` | offset engine   | polygon and open-path inflation        |
 |   [5]   | `ClipperBase`   | abstract base   | shared scan-line engine state          |
+|   [6]   | `Minkowski`     | static facade   | precision-bearing Minkowski sum/diff   |
 
 [PUBLIC_TYPE_SCOPE]: poly-tree result carriers
 - rail: fabrication
@@ -100,43 +101,55 @@
 [ENTRYPOINT_SCOPE]: static offset and geometry — `Clipper` facade
 - rail: fabrication
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                       |
-| :-----: | :-------------------------------------------------------- | :------------- | :--------------------------------- |
-|   [1]   | `InflatePaths(Paths64, delta, JoinType, EndType, …)`      | offset         | int64 polygon/open-path inflation  |
-|   [2]   | `InflatePaths(PathsD, delta, JoinType, EndType, …)`       | offset         | double polygon/open-path inflation |
-|   [3]   | `RectClip(Rect64, Paths64)`                               | rect clip      | int64 paths clipped to rect        |
-|   [4]   | `RectClip(Rect64, Path64)`                                | rect clip      | int64 single path clipped to rect  |
-|   [5]   | `RectClip(RectD, PathsD, precision)`                      | rect clip      | double paths clipped to rect       |
-|   [6]   | `RectClipLines(Rect64, Paths64)`                          | rect clip      | int64 open paths clipped to rect   |
-|   [7]   | `RectClipLines(RectD, PathsD, precision)`                 | rect clip      | double open paths clipped to rect  |
-|   [8]   | `MinkowskiSum(Path64, Path64, isClosed)`                  | morphology     | int64 Minkowski sum                |
-|   [9]   | `MinkowskiSum(PathD, PathD, isClosed)`                    | morphology     | double Minkowski sum               |
-|  [10]   | `MinkowskiDiff(Path64, Path64, isClosed)`                 | morphology     | int64 Minkowski difference         |
-|  [11]   | `MinkowskiDiff(PathD, PathD, isClosed)`                   | morphology     | double Minkowski difference        |
-|  [12]   | `Ellipse(Point64, radiusX, radiusY, steps)`               | geometry       | int64 ellipse/circle path          |
-|  [13]   | `Ellipse(PointD, radiusX, radiusY, steps)`                | geometry       | double ellipse/circle path         |
-|  [14]   | `Triangulate(Paths64, out Paths64, useDelaunay)`          | triangulation  | int64 Delaunay triangulation       |
-|  [15]   | `Triangulate(PathsD, decPlaces, out PathsD, useDelaunay)` | triangulation  | double Delaunay triangulation      |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :-------------------------------------------------------- | :------------- | :-------------------------------------------------- |
+|   [1]   | `InflatePaths(Paths64, delta, JoinType, EndType, …)`      | offset         | int64 polygon/open-path inflation                   |
+|   [2]   | `InflatePaths(PathsD, delta, JoinType, EndType, …)`       | offset         | double polygon/open-path inflation                  |
+|   [3]   | `RectClip(Rect64, Paths64)`                               | rect clip      | int64 paths clipped to rect                         |
+|   [4]   | `RectClip(Rect64, Path64)`                                | rect clip      | int64 single path clipped to rect                   |
+|   [5]   | `RectClip(RectD, PathsD, precision)`                      | rect clip      | double paths clipped to rect                        |
+|   [6]   | `RectClipLines(Rect64, Paths64)`                          | rect clip      | int64 open paths clipped to rect                    |
+|   [7]   | `RectClipLines(RectD, PathsD, precision)`                 | rect clip      | double open paths clipped to rect                   |
+|   [8]   | `MinkowskiSum(Path64, Path64, isClosed)`                  | morphology     | int64 Minkowski sum                                 |
+|   [9]   | `MinkowskiSum(PathD, PathD, isClosed)`                    | morphology     | double Minkowski sum (precision fixed at 2)         |
+|  [10]   | `MinkowskiDiff(Path64, Path64, isClosed)`                 | morphology     | int64 Minkowski difference                          |
+|  [11]   | `MinkowskiDiff(PathD, PathD, isClosed)`                   | morphology     | double Minkowski difference (precision fixed at 2)  |
+|  [12]   | `Ellipse(Point64, radiusX, radiusY, steps)`               | geometry       | int64 ellipse/circle path                           |
+|  [13]   | `Ellipse(PointD, radiusX, radiusY, steps)`                | geometry       | double ellipse/circle path                          |
+|  [14]   | `Triangulate(Paths64, out Paths64, useDelaunay)`          | triangulation  | int64 Delaunay triangulation `[!]` buggy, kept out  |
+|  [15]   | `Triangulate(PathsD, decPlaces, out PathsD, useDelaunay)` | triangulation  | double Delaunay triangulation `[!]` buggy, kept out |
+
+[ENTRYPOINT_SCOPE]: precision-bearing Minkowski — `Minkowski` facade
+- rail: fabrication
+
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                    |
+| :-----: | :--------------------------------------------------------- | :------------- | :---------------------------------------------- |
+|   [1]   | `Sum(Path64 pattern, Path64 path, isClosed)`               | morphology     | int64 Minkowski sum                             |
+|   [2]   | `Sum(PathD pattern, PathD path, isClosed, decimalPlaces)`  | morphology     | double Minkowski sum at caller precision        |
+|   [3]   | `Diff(Path64 pattern, Path64 path, isClosed)`              | morphology     | int64 Minkowski difference                      |
+|   [4]   | `Diff(PathD pattern, PathD path, isClosed, decimalPlaces)` | morphology     | double Minkowski difference at caller precision |
 
 [ENTRYPOINT_SCOPE]: static path measurement and analysis — `Clipper` facade
 - rail: fabrication
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CAPABILITY]                     |
-| :-----: | :-------------------------------------------- | :------------- | :------------------------------- |
-|   [1]   | `Area(Path64)` / `Area(Paths64)`              | measurement    | signed area (positive = CCW)     |
-|   [2]   | `Area(PathD)` / `Area(PathsD)`                | measurement    | signed area (double)             |
-|   [3]   | `IsPositive(Path64)` / `IsPositive(PathD)`    | orientation    | CCW winding test                 |
-|   [4]   | `GetBounds(Path64)` / `GetBounds(Paths64)`    | bounds         | int64 axis-aligned bounding box  |
-|   [5]   | `GetBounds(PathD)` / `GetBounds(PathsD)`      | bounds         | double axis-aligned bounding box |
-|   [6]   | `PointInPolygon(Point64, Path64)`             | containment    | inside / on / outside test       |
-|   [7]   | `PointInPolygon(PointD, PathD, precision)`    | containment    | double containment test          |
-|   [8]   | `RamerDouglasPeucker(Path64, epsilon)`        | simplification | int64 polyline simplification    |
-|   [9]   | `RamerDouglasPeucker(PathD, epsilon)`         | simplification | double polyline simplification   |
-|  [10]   | `SimplifyPath(Path64, epsilon, isClosedPath)` | simplification | int64 collinear simplification   |
-|  [11]   | `SimplifyPath(PathD, epsilon, isClosedPath)`  | simplification | double collinear simplification  |
-|  [12]   | `TrimCollinear(Path64, isOpen)`               | cleanup        | int64 collinear point removal    |
-|  [13]   | `TrimCollinear(PathD, precision, isOpen)`     | cleanup        | double collinear point removal   |
-|  [14]   | `StripDuplicates(Path64, isClosedPath)`       | cleanup        | consecutive duplicate removal    |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CAPABILITY]                     |
+| :-----: | :---------------------------------------------- | :------------- | :------------------------------- |
+|   [1]   | `Area(Path64)` / `Area(Paths64)`                | measurement    | signed area (positive = CCW)     |
+|   [2]   | `Area(PathD)` / `Area(PathsD)`                  | measurement    | signed area (double)             |
+|   [3]   | `IsPositive(Path64)` / `IsPositive(PathD)`      | orientation    | CCW winding test                 |
+|   [4]   | `GetBounds(Path64)` / `GetBounds(Paths64)`      | bounds         | int64 axis-aligned bounding box  |
+|   [5]   | `GetBounds(PathD)` / `GetBounds(PathsD)`        | bounds         | double axis-aligned bounding box |
+|   [6]   | `PointInPolygon(Point64, Path64)`               | containment    | inside / on / outside test       |
+|   [7]   | `PointInPolygon(PointD, PathD, precision)`      | containment    | double containment test          |
+|   [8]   | `RamerDouglasPeucker(Path64, epsilon)`          | simplification | int64 polyline simplification    |
+|   [9]   | `RamerDouglasPeucker(PathD, epsilon)`           | simplification | double polyline simplification   |
+|  [10]   | `SimplifyPath(Path64, epsilon, isClosedPath)`   | simplification | int64 collinear simplification   |
+|  [11]   | `SimplifyPath(PathD, epsilon, isClosedPath)`    | simplification | double collinear simplification  |
+|  [12]   | `SimplifyPaths(Paths64, epsilon, isClosedPath)` | simplification | int64 path-set simplification    |
+|  [13]   | `SimplifyPaths(PathsD, epsilon, isClosedPath)`  | simplification | double path-set simplification   |
+|  [14]   | `TrimCollinear(Path64, isOpen)`                 | cleanup        | int64 collinear point removal    |
+|  [15]   | `TrimCollinear(PathD, precision, isOpen)`       | cleanup        | double collinear point removal   |
+|  [16]   | `StripDuplicates(Path64, isClosedPath)`         | cleanup        | consecutive duplicate removal    |
 
 [ENTRYPOINT_SCOPE]: static path conversion and transform — `Clipper` facade
 - rail: fabrication
@@ -215,9 +228,11 @@
 - `ClipperOffset.Execute` writes directly into the caller-supplied `Paths64` or `PolyTree64`; clear or allocate a fresh container before each call
 - `PolyTree64` / `PolyTreeD` carry outer/hole nesting; flatten to `Paths64`/`PathsD` via `Clipper.PolyTreeToPaths64` / `Clipper.PolyTreeToPathsD` when nesting structure is not required
 - `DeltaCallback64` receives the current path, path normals, current vertex index, and previous vertex index; return the signed offset delta for that vertex
+- The `Clipper.MinkowskiSum`/`MinkowskiDiff` `PathD` overloads fix `decimalPlaces` at the package default `2`; route NFP construction through the deeper `Minkowski.Sum`/`Diff(PathD, PathD, isClosed, decimalPlaces)` facade to scale at the owner's `Precision.Digits`, never the shorthand that drops the precision knob
+- `Clipper.Triangulate` and `TriangulateResult` are public surface but stay OUT of `PolygonAlgebra`: the `2.0.0` triangulation module the author flags as buggy, with open infinite-loop defects in the internal `Delaunay` kernel; route fabrication triangulation through the kernel triangulation owner instead
 
 [RAIL_LAW]:
 - Package: `Clipper2`
-- Owns: 2D polygon Boolean operations, path offsetting, rect clipping, Minkowski operations, triangulation, and path utilities
+- Owns: 2D polygon Boolean operations, path offsetting, rect clipping, Minkowski operations, and path utilities (the buggy `Triangulate` surface is excluded)
 - Accept: `Path64`/`Paths64` for int64 geometry; `PathD`/`PathsD` with explicit precision for double geometry
 - Reject: hand-rolled polygon clipping, manual coordinate scaling without using `Clipper.ScalePaths64`/`ScalePathsD`, and direct manipulation of `ClipperBase` internals

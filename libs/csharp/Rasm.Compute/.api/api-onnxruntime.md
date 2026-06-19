@@ -8,7 +8,7 @@ and execution-provider selection for Compute model rails.
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime`
 - package: `Microsoft.ML.OnnxRuntime`
-- assembly: `Microsoft.ML.OnnxRuntime` (managed: `Microsoft.ML.OnnxRuntime.Managed` 1.26.0)
+- assembly: `Microsoft.ML.OnnxRuntime` (managed: `Microsoft.ML.OnnxRuntime.Managed` 1.27.0)
 - namespace: `Microsoft.ML.OnnxRuntime`
 - asset: runtime library and native assets
 - rail: model
@@ -75,10 +75,12 @@ and execution-provider selection for Compute model rails.
 [PUBLIC_TYPE_SCOPE]: ROCm, execution-mode, and provider-options contracts
 - rail: model
 
-| [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]      | [CAPABILITY]                               |
-| :-----: | :----------------------- | :------------------ | :----------------------------------------- |
-|   [1]   | `OrtROCMProviderOptions` | ROCm options handle | `UpdateOptions(Dictionary<string,string>)` |
-|   [2]   | `ExecutionMode`          | execution-mode enum | `ORT_SEQUENTIAL`, `ORT_PARALLEL`           |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]         | [CAPABILITY]                                                        |
+| :-----: | :--------------------------- | :--------------------- | :------------------------------------------------------------------ |
+|   [1]   | `OrtROCMProviderOptions`     | ROCm options handle    | `UpdateOptions(Dictionary<string,string>)`                          |
+|   [2]   | `ExecutionMode`              | execution-mode enum    | `ORT_SEQUENTIAL`, `ORT_PARALLEL`                                    |
+|   [3]   | `OrtModelCompilationOptions` | compile options handle | drives the EP-context model compile pipeline                        |
+|   [4]   | `OrtCompileApiFlags`         | compile flags enum     | `NONE`, `ERROR_IF_NO_NODES_COMPILED`, `ERROR_IF_OUTPUT_FILE_EXISTS` |
 
 [PUBLIC_TYPE_SCOPE]: package assets
 - rail: model
@@ -345,5 +347,50 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 - `RegisterCustomOpLibraryV2(path, out nint)` maps to `OrtRegisterCustomOpsLibrary` (load and register, returning a native handle for explicit unloading).
 - `RegisterOrtExtensions()` is a convenience wrapper that loads the `libortextensions` native asset shipped by `Microsoft.ML.OnnxRuntime.Extensions`; there is no separate public `OrtExtensions` class — `OrtExtensionsNativeMethods` is internal.
 - `OrtExtensions.RegisterCustomOps` does not exist as a public API in either the ORT managed assembly or the Extensions package; the correct entry point is `SessionOptions.RegisterOrtExtensions()`.
-- `UseModel` does not exist on `SessionOptions` or `InferenceSession` in 1.26.0; it is not part of this package's public surface.
+- `UseModel` does not exist on `SessionOptions` or `InferenceSession` in 1.27.0; it is not part of this package's public surface.
 - `DisposableNamedOnnxValue.CreateFromOrtValue` is internal; it is not a callable public factory — callers consume `DisposableNamedOnnxValue` from `InferenceSession.Run` result collections only.
+
+## [7]-[COMPILE_API]
+
+`OrtModelCompilationOptions` drives the EP-context compile pipeline: it builds a compiled model whose execution-provider partitions are embedded or written to disk so a later session loads the precompiled graph instead of recompiling. The `ep.context_*` session-config keys in section 4 enable the EP-context path; this type configures and runs the compile.
+
+[ENTRYPOINT_SCOPE]: compile-API delegate contracts
+- rail: model
+
+| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]       | [CAPABILITY]                                           |
+| :-----: | :--------------------------------- | :------------------- | :----------------------------------------------------- |
+|   [1]   | `WriteBufferToDestinationDelegate` | write delegate       | streams compiled output buffer to a caller destination |
+|   [2]   | `GetInitializerLocationDelegate`   | initializer delegate | maps an initializer to an external storage location    |
+
+[ENTRYPOINT_SCOPE]: `OrtModelCompilationOptions` decompile-verified signatures
+- source: `Microsoft.ML.OnnxRuntime.Managed` 1.27.0 decompile
+- rail: model-lane#COMPILED_EP_CONTEXT
+- consumer: `model-lane#COMPILED_EP_CONTEXT`
+
+| [INDEX] | [MEMBER]                                                                  | [SIGNATURE]                                                                                                                                                                                    |
+| :-----: | :------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | `OrtModelCompilationOptions.ctor`                                         | `OrtModelCompilationOptions(SessionOptions sessionOptions)`                                                                                                                                    |
+|   [2]   | `OrtModelCompilationOptions.CompileModel`                                 | `void CompileModel()`                                                                                                                                                                          |
+|   [3]   | `OrtModelCompilationOptions.SetInputModelPath`                            | `void SetInputModelPath(string path)`                                                                                                                                                          |
+|   [4]   | `OrtModelCompilationOptions.SetInputModelFromBuffer`                      | `void SetInputModelFromBuffer(byte[] buffer)`                                                                                                                                                  |
+|   [5]   | `OrtModelCompilationOptions.SetOutputModelPath`                           | `void SetOutputModelPath(string path)`                                                                                                                                                         |
+|   [6]   | `OrtModelCompilationOptions.SetOutputModelExternalInitializersFile`       | `void SetOutputModelExternalInitializersFile(string filePath, ulong threshold)`                                                                                                                |
+|   [7]   | `OrtModelCompilationOptions.SetEpContextEmbedMode`                        | `void SetEpContextEmbedMode(bool embed)`                                                                                                                                                       |
+|   [8]   | `OrtModelCompilationOptions.SetFlags`                                     | `void SetFlags(OrtCompileApiFlags flags)`                                                                                                                                                      |
+|   [9]   | `OrtModelCompilationOptions.SetEpContextBinaryInformation`                | `void SetEpContextBinaryInformation(string outputDirectory, string modelName)`                                                                                                                 |
+|  [10]   | `OrtModelCompilationOptions.SetGraphOptimizationLevel`                    | `void SetGraphOptimizationLevel(GraphOptimizationLevel graphOptimizationLevel)`                                                                                                                |
+|  [11]   | `OrtModelCompilationOptions.SetOutputModelWriteDelegate`                  | `void SetOutputModelWriteDelegate(WriteBufferToDestinationDelegate writeBufferDelegate)`                                                                                                       |
+|  [12]   | `OrtModelCompilationOptions.SetOutputModelGetInitializerLocationDelegate` | `void SetOutputModelGetInitializerLocationDelegate(GetInitializerLocationDelegate getInitializerLocationDelegate)`                                                                             |
+|  [13]   | `OrtModelCompilationOptions.Dispose`                                      | `void Dispose()`                                                                                                                                                                               |
+|  [14]   | `WriteBufferToDestinationDelegate`                                        | `delegate void WriteBufferToDestinationDelegate(ReadOnlySpan<byte> buffer)`                                                                                                                    |
+|  [15]   | `GetInitializerLocationDelegate`                                          | `delegate OrtExternalInitializerInfo GetInitializerLocationDelegate(string initializerName, IReadOnlyOrtValue initializerValue, IReadOnlyExternalInitializerInfo originalInitializerLocation)` |
+|  [16]   | `OrtCompileApiFlags`                                                      | `enum OrtCompileApiFlags : uint { NONE = 0, ERROR_IF_NO_NODES_COMPILED = 1, ERROR_IF_OUTPUT_FILE_EXISTS = 2 }`                                                                                 |
+
+[COMPILE_LAW]:
+- `OrtModelCompilationOptions(SessionOptions)` binds the compile to a configured session whose EP append order determines which provider claims each subgraph; `CompileModel()` runs the partition and write.
+- input source is exclusive: `SetInputModelPath(string)` reads from disk and `SetInputModelFromBuffer(byte[])` reads from memory.
+- output destination is exclusive: `SetOutputModelPath(string)` writes to disk, `SetOutputModelWriteDelegate` streams the buffer to a caller sink, and `SetOutputModelExternalInitializersFile(string, ulong)` spills initializers over the byte threshold to a side file.
+- `SetEpContextEmbedMode(bool)` embeds the EP-context binary inside the compiled model when `true`, or writes it beside the model when `false`; `SetEpContextBinaryInformation(string, string)` names the output directory and model for the external EP-context binary.
+- `SetFlags(OrtCompileApiFlags)` controls compile strictness: `ERROR_IF_NO_NODES_COMPILED` fails when no subgraph is EP-claimed, and `ERROR_IF_OUTPUT_FILE_EXISTS` fails rather than overwriting.
+- `SetGraphOptimizationLevel(GraphOptimizationLevel)` applies graph optimization before partitioning; `SetOutputModelGetInitializerLocationDelegate` routes each initializer to an external storage location.
+- the compile handle is native; `Dispose()` releases it and the registered delegate state deterministically.

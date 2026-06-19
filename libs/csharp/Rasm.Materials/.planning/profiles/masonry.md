@@ -11,9 +11,9 @@ One cluster: `[2]-[PROFILE_FAMILY]` owns the masonry unit/coring/bond/orientatio
 - Owner: the masonry unit vocabulary (`Coring`, `CoringClass`, `BondName`, `BondKind`, `Orientation`, `Cut`, `ClosureRule`, `SpecialShape`); `CourseTemplate` the bond course shape; `ProfileCatalogue.BuildMasonryRows` the registered-row seed `profile#PROFILE_OWNER` composes.
 - Cases: coring {solid/cored/perforated/hollow void classes} · bond {template + generated kinds} · orientation {stretcher/header/soldier/sailor/rowlock/shiner} · cut {whole/three-quarter/half-bat/quarter-bat/queen-closer/king-closer/bevel} · closure {none/queen-closer/king-closer/half-bat} · special-shape {none/bullnose/cownose/plinth/coping/cant/squint/voussoir}.
 - Entry: `public Fin<CourseTemplate> Course(int index, Op key)` on `BondName` and `public bool Fits(Profile profile)` the `[BoundaryAdapter]` bond-fit check — the masonry bond reads its course template by wrapped index; a `BondKind.Generated` bond rails `ProfileFault.Bond` until the generated-bond interpreter algebra lands.
-- Packages: Rasm (project — `Dimension`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`).
+- Packages: Rasm (project — `PositiveMagnitude` for the `ProfileUnit` length columns), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`).
 - Growth: the masonry vocabulary grows by data: a new bond is one `BondName` row, a new orientation one `Orientation` case, a new special shape one `SpecialShape.Catalog` entry — never a per-bond layout method. A sibling `ProfileFamily` (cmu/steel/timber/glazing) lands its own vocabulary on its own page the way masonry carries `Coring`/`BondName`/`Orientation`; the named cost is stated at `profile#STRUCTURAL_FAMILY_VOCABULARY` and queued in `TASKLOG.md`.
-- Boundary: the masonry vocabulary is the realized first `ProfileFamily` — a per-material masonry class is the deleted form; `BondName.Course` is the OOP capsule reading the template course set, `BondName.Fits` the `[BoundaryAdapter]` aspect-ratio gate, both at the edge; the course-placement projection (the station/elevation fold) is `construction/layout#ASSEMBLY_FOLD`, composed not re-shown here; a `BondKind.Generated` bond is structurally distinct — the generated interpreter is the named probe, and until it lands a generated bond rails `ProfileFault.Bond`; `ProfileCatalogue.BuildMasonryRows` seeds the `profile#PROFILE_OWNER` `ProfileCatalogue.Rows` table with the regional masonry `Profile` rows (us/uk/din/au/is), the `ProfileUnit` width/height/length/coursing columns composing the kernel `Dimension` value-object so the masonry unit never re-mints a length primitive.
+- Boundary: the masonry vocabulary is the realized first `ProfileFamily` — a per-material masonry class is the deleted form; `BondName.Course` is the OOP capsule reading the template course set, `BondName.Fits` the `[BoundaryAdapter]` aspect-ratio gate, both at the edge; the course-placement projection (the station/elevation fold) is `construction/layout#ASSEMBLY_FOLD`, composed not re-shown here; a `BondKind.Generated` bond is structurally distinct — the generated interpreter is the named probe, and until it lands a generated bond rails `ProfileFault.Bond`; `ProfileCatalogue.BuildMasonryRows(context)` seeds the `profile#PROFILE_OWNER` `ProfileCatalogue.Rows` table with the regional masonry `Profile` rows (us/uk/din/au/is), the `ProfileUnit` width/height/length/coursing columns admitting through `ProfileUnit.Of` into the kernel `PositiveMagnitude` value-object so the masonry unit never re-mints a length primitive and a malformed row drops through `Choose`.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -116,13 +116,30 @@ public sealed partial class BondName {
 // --- [MODELS] ------------------------------------------------------------------------------
 public sealed record CourseTemplate(Seq<Orientation> Sequence, double OffsetFraction);
 
+public readonly record struct MasonryRow(string Designation, double WMm, double HMm, double LMm, double CourseMm, double JointMm, string Region, string Authority, Coring Coring);
+
 // --- [TABLES] ------------------------------------------------------------------------------
 public static class ProfileCatalogue {
-    public static FrozenDictionary<ProfileId, Profile> BuildMasonryRows() => FrozenDictionary<ProfileId, Profile>.Empty;
+    static readonly Seq<MasonryRow> RegionalRows = Seq(
+        new MasonryRow("masonry.us-modular",   92.0,  57.0,  194.0, 67.0,  9.5,  "us",  "ASTM C216", Coring.Cored3Hole),
+        new MasonryRow("masonry.uk-standard",  102.5, 65.0,  215.0, 75.0,  10.0, "uk",  "BS EN 771-1", Coring.Perforated10Cell),
+        new MasonryRow("masonry.din-nf",       115.0, 71.0,  240.0, 83.5,  12.5, "din", "DIN 105", Coring.None),
+        new MasonryRow("masonry.au-standard",  110.0, 76.0,  230.0, 86.0,  10.0, "au",  "AS 4773", Coring.Cored3Hole),
+        new MasonryRow("masonry.is-standard",  100.0, 70.0,  200.0, 80.0,  10.0, "is",  "IS 1077", Coring.None));
+
+    static Fin<(ProfileId Id, Profile Profile)> MasonryOf(MasonryRow r, Context context, Op key) =>
+        from unit in ProfileUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, context, key)
+        let standard = new ProfileStandard(r.Region, r.JointMm, r.Authority)
+        select (ProfileId.Of(r.Designation), new Profile(ProfileFamily.Masonry, unit, r.Coring, standard, MaterialId.Of("ceramic.glazed")));
+
+    public static FrozenDictionary<ProfileId, Profile> BuildMasonryRows(Context context) =>
+        RegionalRows
+            .Choose(row => MasonryOf(row, context, default).ToOption())
+            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ProfileKeyPolicy.EqualityComparer);
 }
 ```
 
 ## [3]-[RESEARCH]
 
 - [GENERATED_BOND_INTERPRETER]: the typed generated-bond interpreter algebra `BondName` owns — `BondKind.Generated` rows (herringbone/basket-weave/pinwheel/diaper/quetta) carry no template course set and require a geometric interpreter that derives course placement from the bond geometry rather than a wrapped template index. Until it lands, a generated bond rails `ProfileFault.Bond`; the probe is the interpreter, not a re-architecture of the catalogue.
-- [MASONRY_ROW_TRANSCRIPTION]: the regional masonry cross-section catalogue (the us/uk/din/au/is regional rows) seeds through `ProfileCatalogue.BuildMasonryRows`, the dimension/coursing/aspect-ratio value-objects re-expressed as kernel-`Dimension`-composed `ProfileUnit` columns and the `BondName`/`Orientation`/`Cut`/`ClosureRule`/`SpecialShape` algebra realized as masonry rows; the transcription seeds the table the `construction/layout#ASSEMBLY_FOLD` course fold consumes.
+- [MASONRY_ROW_TRANSCRIPTION]: REALIZED — the regional masonry cross-section catalogue (the us/uk/din/au/is regional rows) seeds through `ProfileCatalogue.BuildMasonryRows(context)` over the `MasonryRow` raw-double table, the dimension/coursing/joint columns admitting once through `ProfileUnit.Of` into the kernel-`PositiveMagnitude`-composed `ProfileUnit` and the `BondName`/`Orientation`/`Cut`/`ClosureRule`/`SpecialShape` algebra realized as the masonry vocabulary; the five regional rows are the seed the `construction/layout#ASSEMBLY_FOLD` course fold consumes and a new region is one `MasonryRow` data addition. The standard module/joint values transcribe the ASTM C216 / BS EN 771-1 / DIN 105 / AS 4773 / IS 1077 published dimensions; a non-positive column rails the `ProfileUnit.Of` `Fin` so a malformed row drops through `Choose` rather than seeding a degenerate `Profile`.

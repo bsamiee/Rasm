@@ -16,7 +16,7 @@ One cluster: `[2]-[EVIDENCE_CORRELATION]` owns `EvidenceProjection`, its receipt
 
 ```ts contract
 import { Effect, HashMap, Option, Order, Scope, Schema, Stream, SubscriptionRef } from "effect";
-import type { ComputeReceiptWire, ContentKey, EvidenceRowWire } from "@rasm/ts";
+import type { ComputeReceiptWire, ContentKey, EvidenceRowWire } from "@rasm/interchange";
 import { foldStream, keyedFold } from "../fold-core/keyed-fold";
 import type { StreamPolicy } from "../fold-core/stream-policy";
 import { ReceiptEnvelopeCarrier } from "../envelope/receipt-envelope";

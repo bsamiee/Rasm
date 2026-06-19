@@ -125,7 +125,7 @@ static `Draco` facade for Bim mesh interchange rails.
 ## [4]-[IMPLEMENTATION_LAW]
 
 [DRACO_TOPOLOGY]:
-- namespace: `Openize.Drako`; 156 types across 5 internal namespaces; public surface is 14 types
+- namespace: `Openize.Drako`; 141 types across 5 namespaces (`Openize.Drako`, `.Utils`, `.Encoder`, `.Decoder`, `.Compression`); the public surface is the 13 root-namespace types catalogued here
 - `DracoMesh` inherits `DracoPointCloud`; triangulated meshes are still point clouds with indexed faces
 - `Draco.Decode` returns `DracoPointCloud` for point clouds and `DracoMesh` for triangulated meshes; callers discriminate by `is DracoMesh`
 - `DracoEncodingMethod` and `EncodedGeometryType` are internal; encoder selection is automatic based on geometry type and compression level

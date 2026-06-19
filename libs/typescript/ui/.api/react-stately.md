@@ -145,15 +145,18 @@
 [ENTRYPOINT_SCOPE]: collection primitives and toast queue
 - rail: state
 
-| [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY]  | [RETURNS]                                           |
-| :-----: | :---------------------------------------- | :-------------- | :-------------------------------------------------- |
-|   [1]   | `Item`                                    | collection node | item descriptor for `CollectionStateBase` consumers |
-|   [2]   | `Section`                                 | collection node | section descriptor                                  |
-|   [3]   | `useCollection(props, factory, context?)` | hook            | `Collection<Node<T>>`                               |
-|   [4]   | `useToastState(props?)`                   | state hook      | `ToastState<T>`                                     |
-|   [5]   | `ToastQueue`                              | class           | global singleton toast queue                        |
-|   [6]   | `useToastQueue(queue)`                    | hook            | subscribes to a `ToastQueue`                        |
-|   [7]   | `useVirtualizerState(props)`              | state hook      | `VirtualizerState`                                  |
+| [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY]  | [RETURNS]                                                                                                     |
+| :-----: | :---------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------ |
+|   [1]   | `Item`                                    | collection node | item descriptor for `CollectionStateBase` consumers                                                           |
+|   [2]   | `Section`                                 | collection node | section descriptor                                                                                            |
+|   [3]   | `useCollection(props, factory, context?)` | hook            | `Collection<Node<T>>`                                                                                         |
+|   [4]   | `useToastState(props?)`                   | state hook      | `ToastState<T>`                                                                                               |
+|   [5]   | `ToastQueue`                              | class           | global singleton toast queue                                                                                  |
+|   [6]   | `new ToastQueue<T>(options?)`             | constructor     | `{ maxVisibleToasts?: number; hasExitAnimation?: boolean; wrapUpdate?: (fn) => void }`                        |
+|   [7]   | `ToastQueue.add(content, options?)`       | method          | `(content: T, options?: { timeout?: number; onClose?: () => void; priority?: number }) => string` (queue key) |
+|   [8]   | `ToastQueue.close(key)`                   | method          | `(key: string) => void` — dismiss a queued toast by key                                                       |
+|   [9]   | `useToastQueue(queue)`                    | hook            | subscribes to a `ToastQueue`                                                                                  |
+|  [10]   | `useVirtualizerState(props)`              | state hook      | `VirtualizerState`                                                                                            |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

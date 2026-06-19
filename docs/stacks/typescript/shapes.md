@@ -88,10 +88,10 @@ class Target extends S.Class<Target>("Target")(S.Struct({
     S.decodeUnknown(_Projections[variant]) // keyof-typed index: total, exempt from the Option lift
 }
 
-const _Projections = {
+const _Projections: { readonly route: S.Schema.Any; readonly summary: S.Schema.Any } = { // homogeneous value type collapses the keyed index to one schema, so `as` decodes without an `as`-cast
   route:   Target.pipe(S.pick("host", "port", "protocol", "weight")),
   summary: Target.pipe(S.pick("host", "protocol", "drain")),
-} satisfies Record<string, S.Schema.Any>
+}
 ```
 
 [MODEL_PROJECTIONS]:
@@ -106,7 +106,7 @@ import { Model } from "@effect/sql"
 import { Schema as S } from "effect"
 
 class Entity extends Model.Class<Entity>("Entity")({
-  id:        Model.Generated(Model.GeneratedByApp(S.UUID)),
+  id:        Model.GeneratedByApp(S.UUID),
   tenantId:  Model.FieldExcept("update", "jsonUpdate")(S.String.pipe(S.brand("TenantId"))),
   name:      S.NonEmptyTrimmedString,
   payload:   S.optionalWith(S.Unknown, { as: "Option" }),
@@ -212,7 +212,7 @@ const _Policy = {
   quarantine:   { status: 502, retryable: false, retryAfter: Duration.zero,       ord: 3, log: Effect.logError   },
 } as const satisfies Record<string, { status: number; retryable: boolean; retryAfter: Duration.Duration; ord: number; log: (...a: ReadonlyArray<unknown>) => Effect.Effect<void> }>
 
-const _WireReason = { auth: "unauthorized", race: "conflict", down: "unavailable" } as const satisfies Record<string, keyof typeof _Policy>
+const _WireReason: Record<string, keyof typeof _Policy> = { auth: "unauthorized", race: "conflict", down: "unavailable" } // open `string` key: an unenumerated wire kind resolves through R.get to the quarantine fallback
 
 class GatewayFault extends Data.TaggedError("GatewayFault")<{
   readonly reason: keyof typeof _Policy

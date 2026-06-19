@@ -73,7 +73,7 @@ session-registration material for ONNX execution lanes.
 
 [PHANTOM_CORRECTIONS]:
 - `OrtExtensions.RegisterCustomOps` — PHANTOM. No public `OrtExtensions` class exists in `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0. The package contains only native assets and MSBuild targets; there is no managed public assembly. The correct entry point is `SessionOptions.RegisterOrtExtensions()` defined in `Microsoft.ML.OnnxRuntime`.
-- `OrtOperators` — PHANTOM. No `OrtOperators` type exists in `Microsoft.ML.OnnxRuntime` 1.26.0 or in `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0. Extension op registration has no CLR type owner; it is fully native and entered through `SessionOptions.RegisterOrtExtensions()`.
+- `OrtOperators` — PHANTOM. No `OrtOperators` type exists in `Microsoft.ML.OnnxRuntime` 1.27.0 or in `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0. Extension op registration has no CLR type owner; it is fully native and entered through `SessionOptions.RegisterOrtExtensions()`.
 - `RegisterCustomOpLibraryV2` on `SessionOptions` — is a separate method for loading arbitrary custom op libraries by path; it is distinct from the Extensions package registration path.
 
 [LOCAL_ADMISSION]:

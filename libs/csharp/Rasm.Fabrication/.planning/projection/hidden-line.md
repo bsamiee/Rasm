@@ -115,7 +115,7 @@ public static class Hlr {
             Point3d pa = view.Project(a), pb = view.Project(b), pc = view.Project(c);
             var screen = new Loop(Arr(pa, pb, pc), Closed: true).AsCcw();
             return new Facet(a, b, c, face.A, face.B, face.C, n, screen, (pa.Z + pb.Z + pc.Z) / 3.0);
-        }).Filter(f => f.Screen.Bound().Diagonal > tolerance);
+        }).Filter(f => f.Screen.Bound().Diagonal.Length > tolerance);
     }
 
     static Seq<Edge3> Silhouette(Seq<Facet> facets, Vector3d forward) =>

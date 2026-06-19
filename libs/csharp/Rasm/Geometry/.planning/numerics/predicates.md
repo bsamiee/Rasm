@@ -6,20 +6,20 @@ The adaptive-precision exact-predicate floor every higher geometry owner rides, 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                       |
-| :-----: | :----------------- | :--------------------------------------------------------------------------- |
-|   [1]   | ROBUST_PREDICATES  | Closed `Predicate` family — Orient2D/Orient3D/InCircle/InSphere — filter-then-exact two-stage adaptive evaluation returning an exact `Sign` |
-|   [2]   | INTERIOR_NUMERICS  | `Expansion` sign-exact expansion arithmetic; `ErrorBound` static-permanence filter rows; `NumericsPolicy` the interior-double scope owner |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                                                                                                                                                |
+| :-----: | :---------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | ROBUST_PREDICATES | Closed `Predicate` family — Orient2D/Orient3D/InCircle/InSphere direct + OrientLPI/OrientTPI implicit-point — filter-then-exact two-stage adaptive evaluation returning an exact `Sign`               |
+|   [2]   | INTERIOR_NUMERICS | `Expansion` sign-exact expansion arithmetic; `ErrorBound` static-permanence filter rows; `Lpi`/`Tpi` exact implicit-point homogeneous constructions; `NumericsPolicy` the interior-double scope owner |
 
 ## [2]-[ROBUST_PREDICATES]
 
 - Owner: `Sign` `[SmartEnum<int>]` the closed ternary verdict (`Negative`/`Zero`/`Positive`, key `-1`/`0`/`+1`) every predicate returns; `Predicate` the static surface whose four members `Orient2D`/`Orient3D`/`InCircle`/`InSphere` each run the two-stage `ErrorBound`-gated fold — a fast `double` determinant filter, then an `Expansion` exact fallback only where the filtered interval straddles zero; coordinates arrive as `Vectors` `Point3d` and the predicate reads `.X`/`.Y`/`.Z` once at the seam.
-- Cases: `Sign` rows `Negative` · `Zero` · `Positive` (3); `Predicate` members `Orient2D` (2D left-turn) · `Orient3D` (3D above-plane) · `InCircle` (2D Delaunay in-circle) · `InSphere` (3D in-sphere) (4); each member is one filter-then-exact fold, never a sibling fast/exact pair.
+- Cases: `Sign` rows `Negative` · `Zero` · `Positive` (3); `Predicate` members `Orient2D` (2D left-turn) · `Orient3D` (3D above-plane) · `InCircle` (2D Delaunay in-circle) · `InSphere` (3D in-sphere) · `OrientLPI` (2D orientation against a line-line implicit intersection point) · `OrientTPI` (2D orientation against a three-plane implicit intersection point) (6); the four direct members are each one filter-then-exact fold, never a sibling fast/exact pair; the two implicit-point members are exact-only — they evaluate the sign over a CONSTRUCTED intersection point (its homogeneous numerator/denominator carried in `Lpi`/`Tpi` as `Expansion`s) without ever materializing a rounded coordinate, so no `double` filter applies (a filter would require the very rounded coordinate the construction forbids) and the member runs the `Expansion` fold directly.
 - Entry: `public static Sign Orient2D(Point3d a, Point3d b, Point3d c)` returns the exact sign of the `(b-a)×(c-a)` 2D cross-product determinant — positive for a counter-clockwise turn; `public static Sign Orient3D(Point3d a, Point3d b, Point3d c, Point3d d)` the exact sign of the `3×3` determinant placing `d` relative to the oriented plane `abc`; `public static Sign InCircle(Point3d a, Point3d b, Point3d c, Point3d d)` the exact sign of the `4×4` lifted determinant testing `d` inside the circumcircle of `abc`; `public static Sign InSphere(Point3d a, Point3d b, Point3d c, Point3d d, Point3d e)` the exact sign of the `5×5` lifted determinant testing `e` inside the circumsphere of `abcd` — every member total, pure, exact, no rail.
 - Auto: each predicate computes the approximate determinant and its permanence magnitude in one `double` expression each, then dispatches on `ErrorBound.Of(det, permanent)` — a total `switch` over the `Stage` projection; `Stage.Filtered` proves `|det|` clears the permanence-scaled threshold and the sign is the `double` sign by `Sign.Of(det)` with zero exact work (the common fast path), `Stage.Exact` falls to the `Expansion` fold via `TwoProduct`/`TwoSum`/`ExpansionSum`/`ScaleExpansion` read through `Expansion.SignOf`, so the exact branch runs solely on near-degenerate input and the verdict is always the true sign of the real-arithmetic determinant.
 - Receipt: none — a predicate returns a `Sign` verdict, the most refined receipt a total exact test admits; the prior notion of a per-predicate evidence record is the deleted form because a sign carries no residual.
 - Packages: Thinktecture.Runtime.Extensions, Rasm.Vectors (project, `Point3d`/`Direction` vocabulary), BCL inbox (`System.Math` FMA/IEEE)
-- Growth: a new predicate (`ParallelOrder`, `CompareDistance`, segment-segment intersection sign, Delaunay-flip sign) is one `Predicate` member riding the same `ErrorBound` stage table and `Expansion` fold; a new error band is one `ErrorBound` row; zero new surface, no sibling fast/exact predicate types.
+- Growth: a new predicate (`ParallelOrder`, `CompareDistance`, segment-segment intersection sign, Delaunay-flip sign, the `InCircleLPI`/`InSphereTPI` implicit-point in-circum extensions the constrained-Delaunay Steiner recovery composes) is one `Predicate` member riding the same `ErrorBound` stage table and `Expansion` fold; a new implicit-point construction is one `Lpi`/`Tpi`-style homogeneous-coordinate struct carrying its numerator/denominator `Expansion`s (exact-only, no filter row, because its coordinate is never rounded); a new direct-predicate error band is one `ErrorBound` row; zero new surface, no sibling fast/exact predicate types.
 - Boundary: the four predicates are members on ONE `Predicate` static owner and a per-predicate class or a separate `FastOrient2D`/`ExactOrient2D` pair is the deleted form — the two stages are branches inside one member, gated by `ErrorBound.Stage`, never two surfaces; the verdict union is the closed `Sign` SmartEnum and a raw `int`/`double` sign leaking across a public signature is the named defect, callers match on `Sign.Negative`/`Sign.Zero`/`Sign.Positive`; coordinates are `Vectors` `Point3d` read at the seam and a domain-local point struct is the deleted form; the fast filter is the IEEE-754 `double` determinant gated by `ErrorBound`, the exact fallback is the `Expansion` fold, and loosening a predicate to pass a near-degenerate case by widening the filter band instead of taking the exact branch is the named correctness defect — a sign verdict is exact or it is a defect; the interior `double` arithmetic inside the filter and the `Expansion` fold is the sanctioned scope owned by `NumericsPolicy`, and an interior `double` escaping a public predicate signature is the named seam violation.
 
 ```csharp
@@ -153,6 +153,31 @@ public static class Predicate {
             Expansion.Difference(Expansion.Multiply(Lift3(b.X - e.X, b.Y - e.Y, b.Z - e.Z), cda), Expansion.Multiply(Lift3(a.X - e.X, a.Y - e.Y, a.Z - e.Z), bcd)));
         return Expansion.SignOf(det);
     }
+
+    // --- [IMPLICIT_POINTS]
+    public static Sign OrientLPI(Point3d a, Point3d b, Point3d p, Point3d q, Point3d r, Point3d s) {
+        Lpi point = Lpi.Of(p, q, r, s);
+        Expansion det = Expansion.Difference(
+            Expansion.Multiply(point.Lambda, OrientHomogeneous(a, b, point.Numerator)),
+            Expansion.Scale(OrientExplicit(a, b), point.Denominator));
+        return Expansion.SignOf(det);
+    }
+
+    public static Sign OrientTPI(Point3d a, Point3d b, Plane p, Plane q, Plane r) {
+        Tpi point = Tpi.Of(p, q, r);
+        Expansion det = Expansion.Difference(
+            Expansion.Multiply(point.Lambda, OrientHomogeneous(a, b, point.Numerator)),
+            Expansion.Scale(OrientExplicit(a, b), point.Denominator));
+        return Expansion.SignOf(det);
+    }
+
+    static Expansion OrientExplicit(Point3d a, Point3d b) =>
+        Expansion.Difference(Expansion.TwoProduct(b.X, a.Y), Expansion.TwoProduct(a.X, b.Y));
+
+    static Expansion OrientHomogeneous(Point3d a, Point3d b, (Expansion X, Expansion Y) numerator) =>
+        Expansion.Sum(
+            Expansion.Difference(Expansion.Scale(numerator.Y, b.X - a.X), Expansion.Scale(numerator.X, b.Y - a.Y)),
+            Expansion.Difference(Expansion.TwoProduct(a.X, b.Y), Expansion.TwoProduct(b.X, a.Y)));
 
     // --- [LIFTS_AND_MINORS]
     static Expansion Lift2(double x, double y) => Expansion.Sum(Expansion.TwoProduct(x, x), Expansion.TwoProduct(y, y));
@@ -289,20 +314,53 @@ public sealed record ErrorBound(double Coefficient) {
     public Stage Of(double det, double permanent) =>
         Math.Abs(det) > Coefficient * permanent ? Stage.Filtered : Stage.Exact;
 }
+
+public readonly record struct Lpi((Expansion X, Expansion Y) Numerator, Expansion Lambda, double Denominator) {
+    public static Lpi Of(Point3d p, Point3d q, Point3d r, Point3d s) {
+        Expansion d1 = Expansion.Difference(Expansion.TwoProduct(s.X - r.X, q.Y - p.Y), Expansion.TwoProduct(s.Y - r.Y, q.X - p.X));
+        Expansion n = Expansion.Difference(Expansion.TwoProduct(s.X - p.X, q.Y - p.Y), Expansion.TwoProduct(s.Y - p.Y, q.X - p.X));
+        return new Lpi(
+            (Expansion.Sum(Expansion.Scale(d1, p.X), Expansion.Multiply(n, Expansion.Single(q.X - p.X))),
+             Expansion.Sum(Expansion.Scale(d1, p.Y), Expansion.Multiply(n, Expansion.Single(q.Y - p.Y)))),
+            d1, d1.Estimate());
+    }
+}
+
+public readonly record struct Tpi((Expansion X, Expansion Y) Numerator, Expansion Lambda, double Denominator) {
+    public static Tpi Of(Plane p, Plane q, Plane r) {
+        Vector3d np = p.Normal, nq = q.Normal, nr = r.Normal;
+        double dp = (np.X * p.Origin.X) + (np.Y * p.Origin.Y) + (np.Z * p.Origin.Z);
+        double dq = (nq.X * q.Origin.X) + (nq.Y * q.Origin.Y) + (nq.Z * q.Origin.Z);
+        double dr = (nr.X * r.Origin.X) + (nr.Y * r.Origin.Y) + (nr.Z * r.Origin.Z);
+        Vector3d qr = Vector3d.CrossProduct(nq, nr), rp = Vector3d.CrossProduct(nr, np), pq = Vector3d.CrossProduct(np, nq);
+        Expansion lambda = Expansion.Sum(
+            Expansion.TwoProduct(np.X, qr.X),
+            Expansion.Sum(Expansion.TwoProduct(np.Y, qr.Y), Expansion.TwoProduct(np.Z, qr.Z)));
+        Expansion numX = Expansion.Sum(
+            Expansion.TwoProduct(dp, qr.X),
+            Expansion.Sum(Expansion.TwoProduct(dq, rp.X), Expansion.TwoProduct(dr, pq.X)));
+        Expansion numY = Expansion.Sum(
+            Expansion.TwoProduct(dp, qr.Y),
+            Expansion.Sum(Expansion.TwoProduct(dq, rp.Y), Expansion.TwoProduct(dr, pq.Y)));
+        return new Tpi((numX, numY), lambda, lambda.Estimate());
+    }
+}
 ```
 
 ## [4]-[DENSITY_BAR]
 
 One owner per axis; capability is a member, case, or row, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure verdicts because every predicate result is total and exact; no `GeometryFault` routes here (a sign is always defined, even for coincident input where the verdict is `Zero`).
 
-| [INDEX] | [AXIS/CONCERN]            | [OWNER]          | [KIND]                                                                        | [RAIL]                                          | [CASES] |
-| :-----: | :------------------------ | :--------------- | :--------------------------------------------------------------------------- | :--------------------------------------------- | :-----: |
-|   [1]   | Sign verdict              | `Sign`           | `[SmartEnum<int>]` ternary (`Negative`/`Zero`/`Positive`) + `Of`/`Flip`/`Times` | `Sign.Of → Sign` (pure, total)                  |    3    |
-|   [2]   | Exact predicates          | `Predicate`      | static surface + `Orient2D`/`Orient3D`/`InCircle`/`InSphere` filter-then-exact members | `Predicate.Orient2D → Sign` (pure, total, exact) |    4    |
-|  [2a]   | Expansion arithmetic      | `Expansion`      | `readonly struct` + `TwoSum`/`TwoProduct`/`Grow`/`Sum`/`Scale`/`Multiply`/`SignOf` fold | `Expansion.SignOf → Sign` (pure, exact)          |    7    |
-|  [2b]   | Filter stage              | `ErrorBound`     | static-permanence `record` rows + `Of → Stage` projection                     | `ErrorBound.Of → Stage` (pure)                  |    4    |
-|  [2c]   | Interior-double policy     | `NumericsPolicy` | static const owner — the interior-double scope + error-bound coefficients     | constants (read by `Predicate`/`Expansion`)     |    —    |
+| [INDEX] | [AXIS/CONCERN]              | [OWNER]          | [KIND]                                                                                                                          | [RAIL]                                           | [CASES] |
+| :-----: | :-------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------- | :-----: |
+|   [1]   | Sign verdict                | `Sign`           | `[SmartEnum<int>]` ternary (`Negative`/`Zero`/`Positive`) + `Of`/`Flip`/`Times`                                                 | `Sign.Of → Sign` (pure, total)                   |    3    |
+|   [2]   | Exact predicates            | `Predicate`      | static surface + `Orient2D`/`Orient3D`/`InCircle`/`InSphere` filter-then-exact + `OrientLPI`/`OrientTPI` implicit-point members | `Predicate.Orient2D → Sign` (pure, total, exact) |    6    |
+|  [2a]   | Expansion arithmetic        | `Expansion`      | `readonly struct` + `TwoSum`/`TwoProduct`/`Grow`/`Sum`/`Scale`/`Multiply`/`SignOf` fold                                         | `Expansion.SignOf → Sign` (pure, exact)          |    7    |
+|  [2b]   | Filter stage                | `ErrorBound`     | static-permanence `record` rows (the four direct predicates) + `Of → Stage` projection                                          | `ErrorBound.Of → Stage` (pure)                   |    4    |
+|  [2c]   | Implicit-point construction | `Lpi`/`Tpi`      | `readonly record struct` homogeneous numerator/denominator `Expansion`s for line-line / three-plane intersection points         | `Lpi.Of → Lpi` (pure, exact, no rounding)        |    —    |
+|  [2d]   | Interior-double policy      | `NumericsPolicy` | static const owner — the interior-double scope + error-bound coefficients                                                       | constants (read by `Predicate`/`Expansion`)      |    —    |
 
 ## [5]-[RESEARCH]
 
 - [NUMERIC_DETERMINISM] — the sign-exactness law-matrix the spec rail asserts. The harness is `PredicateLaws` (a CsCheck property suite under `testing-cs`): it generates near-degenerate input by perturbing collinear/cocircular/cospherical configurations at the `Epsilon` scale and asserts (1) every `Predicate` member returns the EXACT sign of the rational-arithmetic determinant computed independently in `System.Numerics.BigInteger` over scaled-integer coordinates — the exact oracle the kernel is proved against; (2) the antisymmetry law `Orient2D(a,b,c) == Orient2D(b,a,c).Flip` and its 3D/incircle/insphere analogues hold under coordinate permutation parity; (3) the filter path and the exact path agree on every input where the filter passes (the filter is conservative, never wrong); (4) the predicates are translation-invariant (a uniform `Point3d` offset never flips a verdict). The harness needs NO live-host probe — `BigInteger`, `Math.FusedMultiplyAdd`, and `Point3d` are stable; the kernel is total by construction. The one residual the harness watches is the FMA-availability assumption: `Math.FusedMultiplyAdd` lowers to a hardware FMA on osx-arm64; a future FMA-free RID routes `TwoProduct` through the named Dekker-split fallback (`NumericsPolicy.Splitter`, the `2^27+1` constant already seated) — confirming that fallback's bit-exactness against the FMA path on a non-FMA target is the only deferred numeric probe, and it gates a fallback row, never the FMA-path predicates.
+- [INDIRECT_PREDICATES] — `OrientLPI`/`OrientTPI` extend the floor from explicit-coordinate predicates to the implicit-point family (Attene/Cherchi indirect predicates): they evaluate the exact orientation sign against a CONSTRUCTED intersection point (a line-line `Lpi` or three-plane `Tpi` crossing) whose coordinates are NEVER materialized as a rounded `double` — `Lpi.Of`/`Tpi.Of` carry the intersection point's homogeneous numerator and denominator as `Expansion`s (the rational point `(Numerator.X/Denominator, Numerator.Y/Denominator)`), and the orientation determinant is evaluated by `Expansion.Multiply`/`Scale` over those homogeneous coordinates so the sign is exact without a division or a rounding. The two members ride the SAME `Expansion` fold and `Sign` verdict the direct predicates use, but they carry NO `double` filter row — a filter would have to materialize the rounded constructed coordinate the homogeneous form exists to avoid, so the implicit-point members are exact-only by construction. This is the realized `INDIRECT_PREDICATES` idea: it unlocks the exact-arithmetic constructed-point pipelines the `healing/repair#HEALING` `SelfIntersectResolve` split and the `tessellation/delaunay#CONSTRAINT_RECOVERY` Steiner-point flip compose — the self-intersect crossing point and the Delaunay Steiner vertex feed the next predicate exactly without rounding, exactly where a rounded materialized coordinate loses the robustness guarantee. The law-matrix extends to assert exact-sign agreement of `OrientLPI`/`OrientTPI` against the `BigInteger` rational oracle over the constructed point, no host probe.

@@ -18,7 +18,7 @@ One self-describing operation catalog for the whole suite: every canonical op su
 - Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `CapabilityKeyPolicy` ordinal accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
 - Cases: 5 effect rows — pure, read, write, external, irreversible — in escalating side-effect severity; 4 idempotency rows — idempotent, keyed, single-shot, non-idempotent; cost units cpu-millis, wall-millis, bytes-egress, model-tokens, calls.
 - Entry: `CapabilityDescriptor.Of(string surface, string op, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Func<CommandArguments, Fin<ComputeIntent>> compile)` materializes one row whose id is the `{surface}.{op}` join, binding the descriptor to the `ComputeIntent` it compiles to; `Describe(IServiceCollection services, params ReadOnlySpan<CapabilityDescriptor> rows)` admits descriptor rows through one `Contributors` fan-in registration.
-- Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverContract` — projects its rows into descriptors at composition so the catalog is generated from the op surfaces, never hand-listed; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves.
+- Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverPluginContract` — projects its rows into descriptors at composition through one `Project` fold per surface so the catalog is generated from the op surfaces, never hand-listed, and a hand-authored op divorced from a descriptor (a free command method, a per-op MCP tool definition, a hand-written SDK client method) is the deleted form — the worked `TensorProjection.Project` fence is the one shape every surface follows, the sandbox `SolverPluginContract.Descriptors` projection the plugin-contract instance; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves.
 - Receipt: `DescriptorReceipt` — descriptor id, effect key, idempotency key, estimated cost vector, permission scope hash, `Instant`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one descriptor row absorbs a new op — the effect, idempotency, cost, and permission are column values on the row, never a parallel op-metadata table; a new effect class is one `EffectClass` row, a new metered resource one `CostUnit` row, a new cost shape one `CostModel` field; zero new surface.
@@ -114,6 +114,25 @@ public static class DescriptorSurface {
     public static IServiceCollection Describe(IServiceCollection services, params ReadOnlySpan<CapabilityDescriptor> rows) =>
         Iterable<CapabilityDescriptor>.FromSpan(rows).Fold(services, static (current, row) =>
             (current.TryAddEnumerable(ServiceDescriptor.Singleton(typeof(CapabilityDescriptor), row)), current).Item2);
+}
+
+public static class TensorProjection {
+    public static IServiceCollection Project(IServiceCollection services, Func<TensorOpFamily, JsonElement, Fin<ComputeIntent>> compileOf) =>
+        TensorOpFamily.Items.Fold(services, (current, family) =>
+            DescriptorSurface.Describe(current, Row(family, compileOf)));
+
+    static CapabilityDescriptor Row(TensorOpFamily family, Func<TensorOpFamily, JsonElement, Fin<ComputeIntent>> compileOf) =>
+        CapabilityDescriptor.Of(
+            surface: nameof(TensorOpFamily),
+            op: family.Key,
+            effect: EffectClass.Pure,
+            idempotency: Idempotency.Idempotent,
+            cost: new CostModel(
+                Fixed: new CostVector(HashMap((CostUnit.Calls, 1L))),
+                Variable: static args => new CostVector(HashMap(
+                    (CostUnit.CpuMillis, args.Payload.GetProperty("elements").GetInt64())))),
+            permission: new PermissionShape(FrozenSet<string>.Empty, EffectClass.Pure, DataClassification.Operational),
+            compile: args => compileOf(family, args.Payload));
 }
 ```
 
@@ -403,7 +422,7 @@ public sealed record GrantBroker(
 - Receipt: `SdkArtifact` — target key, emitted source text, descriptor count, schema digest.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one target row absorbs a new language; a new call form is one renderer column on the row; zero new surface.
-- Boundary: the codegen is the only polyglot SDK owner — a hand-written client in any language is the deleted form, the same deletion the `connect-es` and `schema-derived TS` tooling rows carry at runtime-ports#TS_PROJECTION; the C# target emits the same `CommandArguments`/`CommandReceipt` shapes the command algebra runs, the TS target binds through the existing `ReceiptEnvelopeWire`, and the Python target binds through the companion seam the suite already owns, so codegen rides the existing wire contracts and mints no fourth wire shape; the emitted source is a build artifact, never a runtime surface, so the codegen runs at SDK-bootstrap and the registry stays the single descriptor source for all three branches.
+- Boundary: the codegen is the only polyglot SDK owner — a hand-written client in any language is the deleted form, the same deletion the `connect-es` and `schema-derived TS` tooling rows carry at runtime-ports#TS_PROJECTION; the C# target emits the same `CommandArguments`/`CommandReceipt` shapes the command algebra runs, the TS target binds through the existing `ReceiptEnvelopeWire`, and the Python target binds through the companion seam the suite already owns, so codegen rides the existing wire contracts and mints no fourth wire shape; the emitted source is a build artifact, never a runtime surface, so the codegen runs at SDK-bootstrap and the registry stays the single descriptor source for all three branches; the TS schema export the codegen reads is the same `SuiteContracts.Schema`/`JsonSchemaExporter` projection at runtime-ports#WIRE_LAW, so the descriptor-diff evolution gate is one verdict across the suite — `Rasm.Compute/remote/channels#FAULT_PROJECTION` `ContractGuard.AdditiveOnly` gates peer-attach (the discovery `Compatible` delegate), store-open, and this SDK schema export identically, an additive descriptor field admits on every consumer while a breaking field reshape rejects on all three through the one classifier, never a per-surface compatibility check beside it.
 
 ```csharp signature
 [SmartEnum<string>]

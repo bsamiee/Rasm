@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `fsspec`
 - package: `fsspec`
 - import: `fsspec`
-- version: `2026.4.0`
 - owner: `runtime`
 - rail: resources
 - namespaces: `fsspec`, `fsspec.asyn`, `fsspec.caching`, `fsspec.registry`, `fsspec.callbacks`

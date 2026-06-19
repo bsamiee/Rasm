@@ -29,10 +29,10 @@ and `Microsoft.AspNetCore.TestHost` (admitted directly).
 [PUBLIC_TYPE_SCOPE]: test server handler — source: `Microsoft.AspNetCore.TestHost`
 - rail: grpc
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]      | [RAIL]                                      |
-| :-----: | :---------------- | :----------------- | :------------------------------------------ |
-|   [1]   | `TestServer`      | in-process server  | owns `CreateHandler()` and `CreateClient()` |
-|   [2]   | `TestApplication` | hosted-app wrapper | `TestServer` factory from `IHostBuilder`    |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]     | [RAIL]                                             |
+| :-----: | :-------------- | :---------------- | :------------------------------------------------- |
+|   [1]   | `TestServer`    | in-process server | owns `CreateHandler()` and `CreateClient()`        |
+|   [2]   | `ClientHandler` | message handler   | `HttpMessageHandler` returned by `CreateHandler()` |
 
 ## [3]-[ENTRYPOINTS]
 

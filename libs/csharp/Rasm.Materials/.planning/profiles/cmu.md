@@ -1,0 +1,101 @@
+# [MATERIALS_CMU]
+
+THE CMU PROFILEFAMILY. The concrete-masonry-unit cross-section vocabulary — the ASTM C90 cell / face-shell / web dimensional columns (face-shell thickness, web thickness, cell count, the nominal-to-actual width/height/length module) and the hollow/solid grade discriminant — is a realized cross-section vocabulary one `profile#PROFILE_OWNER` `Profile` carries in the `ProfileFamily.Cmu` case. A concrete block is a `Profile` row, never a `ConcreteBlock` type: the cell geometry, the face-shell/web thickness columns, the void class, and the regional standard are cmu-`Profile` columns, and the `CmuSection` projection feeds the same `construction/layout#ASSEMBLY_FOLD` `Resolve` fold the masonry family drives — a CMU run is the same station-stepped course fold over one `Profile`, never a per-family layout. The cmu vocabulary grows by data — a new unit is one `CmuRow` catalogue row, a new grade one `CmuGrade` case — never a per-block type. The page composes `profile#PROFILE_OWNER` for the `Profile`/`ProfileUnit`/`ProfileStandard` shape, `masonry#PROFILE_FAMILY` `Coring`/`BondName`/`Orientation` for the course algebra, and the `Rasm` kernel `PositiveMagnitude` for every length column; timber/glazing land their own sibling vocabularies on their own pages.
+
+## [1]-[INDEX]
+
+One cluster: `[2]-[CMU_FAMILY]` owns the `CmuGrade` solid/hollow discriminant, the `CmuSection` cell/face-shell record, the `CmuSection.ToUnit` projection that flows a CMU through the masonry-shaped `Resolve` fold, and the `ProfileCatalogue.BuildCmuRows` ASTM C90 row table.
+
+## [2]-[CMU_FAMILY]
+
+- Owner: the cmu unit vocabulary (`CmuGrade` the solid/hollow discriminant, `CmuSection` the ASTM C90 cell/face-shell record); `ProfileCatalogue.BuildCmuRows` the registered-row seed `profile#PROFILE_OWNER` composes; the `CmuSection.ToUnit` projection bridging a section to the canonical `ProfileUnit`.
+- Cases: grade {hollow-load-bearing, hollow-non-load-bearing, solid-load-bearing} — the ASTM C90 unit-grade set; a section is a `CmuSection` row over one `CmuGrade`, never a section subtype.
+- Entry: `public Fin<ProfileUnit> ToUnit(Context context, Op key)` on `CmuSection` — the section→`ProfileUnit` projection (`WidthMm` = actual unit width, `HeightMm`/`CourseHeightMm` = actual unit height plus the standard bed joint, `LengthMm` = actual unit length) so a CMU member flows through the SAME `construction/layout#ASSEMBLY_FOLD` `Resolve` fold; `public double SolidFraction()` the `[BoundaryAdapter]` net-area ratio the structural seam reads, and `public Coring ToCoring()` the masonry void-class bridge.
+- Packages: Rasm (project — `PositiveMagnitude` for every fractional-millimeter section column), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`).
+- Growth: the cmu vocabulary grows by data — a new ASTM C90 unit is one `CmuRow` catalogue row keyed by its nominal designation, a new grade one `CmuGrade` case — never a per-block type, never a per-family `Profile` variant. A timber/glazing family lands its own vocabulary on its own page the way cmu carries `CmuGrade`/`CmuSection`; the named cost is stated at `profile#STRUCTURAL_FAMILY_VOCABULARY`.
+- Boundary: the cmu vocabulary is a realized `ProfileFamily` — a per-block class is the deleted form; `CmuSection` composes the `Rasm` kernel `PositiveMagnitude` (double-backed `> 0` finite) for every length column so the section never re-mints a length primitive, the ASTM C90 minimum face-shell (19/25/32 mm by nominal width) and 19 mm web thickness admitting as fractional millimeters; `CmuSection.ToUnit` is the ONE bridge from the cell/face-shell vocabulary to the canonical `ProfileUnit` the `Resolve` fold consumes, and `CmuSection.ToCoring` maps the net-area solid fraction to the `masonry#PROFILE_FAMILY` `Coring` void class (a hollow two-cell unit reads `Coring.Hollow2Cell`) so the cmu unit shares the masonry course algebra; a CMU run is a `LayerSet`/`ProfileSet` assignment along the `RunPath` extruded through one `Profile`, never a masonry-special-case; the `CmuGrade` carries the load-bearing/non-load-bearing discriminant the design seam reads and the `IfcRectangleProfileDef` rectangle subtype the cmu maps to on the wire (a hollow unit's cell voids cross as the `Coring` void fraction, the wire profile the outer rectangle); `ProfileCatalogue.BuildCmuRows` seeds the `profile#PROFILE_OWNER` `ProfileCatalogue.Rows` table with the ASTM C90 rows keyed `cmu.<designation>`, the realized cross-section grounded in the published ASTM C90 dimensional values.
+
+```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+public sealed partial class CmuGrade {
+    public static readonly CmuGrade HollowLoadBearing    = new("hollow-load-bearing", loadBearing: true,  hollow: true);
+    public static readonly CmuGrade HollowNonLoadBearing = new("hollow-non-load-bearing", loadBearing: false, hollow: true);
+    public static readonly CmuGrade SolidLoadBearing     = new("solid-load-bearing", loadBearing: true,  hollow: false);
+    public bool LoadBearing { get; }
+    public bool Hollow { get; }
+}
+
+// --- [MODELS] ------------------------------------------------------------------------------
+public readonly record struct CmuSection(
+    CmuGrade Grade,
+    PositiveMagnitude ActualWidthMm,
+    PositiveMagnitude ActualHeightMm,
+    PositiveMagnitude ActualLengthMm,
+    PositiveMagnitude FaceShellMm,
+    PositiveMagnitude WebThicknessMm,
+    int CellCount,
+    double BedJointMm) {
+
+    public double GrossAreaMm2 => ActualWidthMm.Value * ActualLengthMm.Value;
+    public double NetAreaMm2 => Grade.Hollow
+        ? GrossAreaMm2 - Math.Max(0, CellCount) * CellAreaMm2()
+        : GrossAreaMm2;
+    public double SolidFraction() => GrossAreaMm2 > 0.0 ? Math.Clamp(NetAreaMm2 / GrossAreaMm2, 0.0, 1.0) : 1.0;
+
+    private double CellAreaMm2() {
+        double cellWidth = ActualWidthMm.Value - 2.0 * FaceShellMm.Value;
+        double webSpan = Math.Max(0, CellCount + 1) * WebThicknessMm.Value;
+        double cellLength = (ActualLengthMm.Value - webSpan) / Math.Max(1, CellCount);
+        return Math.Max(0.0, cellWidth) * Math.Max(0.0, cellLength);
+    }
+
+    public Coring ToCoring() => SolidFraction() switch {
+        >= 0.95 => Coring.None,
+        >= 0.70 => Coring.Cored3Hole,
+        >= 0.55 => Coring.Perforated10Cell,
+        _       => Coring.Hollow2Cell,
+    };
+
+    public Fin<ProfileUnit> ToUnit(Context context, Op key) =>
+        ProfileUnit.Of(ActualWidthMm.Value, ActualHeightMm.Value, ActualLengthMm.Value, ActualHeightMm.Value + BedJointMm, context, key);
+}
+
+public readonly record struct CmuRow(string Designation, double WMm, double HMm, double LMm, double FaceShellMm, double WebMm, int Cells, bool Hollow);
+
+public sealed record CmuShape(ProfileId Id, CmuSection Section, ProfileStandard Standard);
+
+// --- [TABLES] ------------------------------------------------------------------------------
+public static class ProfileCatalogue {
+    static readonly ProfileStandard AstmC90 = new("us", StandardJointThicknessMm: 9.5, Authority: "ASTM C90");
+
+    static readonly Seq<CmuRow> AstmRows = Seq(
+        new CmuRow("cmu.6in-hollow",  140.0, 190.0, 390.0, 25.0, 19.0, 2, true),
+        new CmuRow("cmu.8in-hollow",  190.0, 190.0, 390.0, 32.0, 19.0, 2, true),
+        new CmuRow("cmu.10in-hollow", 240.0, 190.0, 390.0, 32.0, 19.0, 2, true),
+        new CmuRow("cmu.12in-hollow", 290.0, 190.0, 390.0, 32.0, 19.0, 3, true),
+        new CmuRow("cmu.8in-solid",   190.0, 190.0, 390.0, 95.0, 19.0, 0, false));
+
+    static Fin<CmuShape> CmuOf(CmuRow r, Context context, Op key) =>
+        from w in key.AcceptValidated<PositiveMagnitude>(candidate: r.WMm)
+        from h in key.AcceptValidated<PositiveMagnitude>(candidate: r.HMm)
+        from l in key.AcceptValidated<PositiveMagnitude>(candidate: r.LMm)
+        from fs in key.AcceptValidated<PositiveMagnitude>(candidate: r.FaceShellMm)
+        from web in key.AcceptValidated<PositiveMagnitude>(candidate: r.WebMm)
+        let grade = r.Hollow ? CmuGrade.HollowLoadBearing : CmuGrade.SolidLoadBearing
+        select new CmuShape(ProfileId.Of(r.Designation), new CmuSection(grade, w, h, l, fs, web, r.Cells, AstmC90.StandardJointThicknessMm), AstmC90);
+
+    public static FrozenDictionary<ProfileId, Profile> BuildCmuRows(Context context) =>
+        AstmRows
+            .Choose(row => CmuOf(row, context, default).ToOption())
+            .Choose(shape => shape.Section.ToUnit(context, default).ToOption()
+                .Map(unit => (shape.Id, Profile: new Profile(ProfileFamily.Cmu, unit, shape.Section.ToCoring(), shape.Standard, MaterialId.Of("ceramic.porcelain")))))
+            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ProfileKeyPolicy.EqualityComparer);
+}
+```
+
+## [3]-[RESEARCH]
+
+- [CMU_ROW_TRANSCRIPTION]: the ASTM C90 standard carries the hollow/solid load-bearing concrete-masonry-unit grades with the actual 190×190×390 mm 8-inch module, the minimum face-shell thickness by nominal width (19 mm at 3/4 in, 25 mm at 6 in, 32 mm at 8 in and above), and the 19 mm minimum web thickness; the five rows are the realized seed and the remaining nominal widths and the splitface/ground-face architectural finishes are pure `CmuRow` data additions, each one row, never a new type. The raw `CmuRow` carries plain doubles and admits once through `CmuOf` into the kernel value-objects so the catalogue seed validates every column.
+- [CMU_CELL_GEOMETRY]: the `CmuSection.NetAreaMm2` net-area solid fraction drives the `ToCoring` void-class bridge and the structural net-section design; a precise per-cell taper geometry (the cell draft for de-molding) is a `CmuSection` column growth, never a parallel section owner — the face-shell/web/cell-count columns already carry the net-area receipt the masonry course algebra and the `IfcRectangleProfileDef` wire read. The hollow-unit cell voids cross the IFC wire as the rectangle outer profile plus the `Coring` void fraction, never a per-cell profile.

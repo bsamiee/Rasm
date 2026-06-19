@@ -188,6 +188,37 @@
           "Google.Apis.Auth": "1.74.0"
         }
       },
+      "GraphQL.Client": {
+        "type": "Transitive",
+        "resolved": "6.1.0",
+        "contentHash": "oKliAxtNuZDMxO9079mjSbwA0YwhjXBzVnVPuNZ3HI4OllO++CcOLT30l90mM/fxCAMaa8GU4ZYMwD9YjLkyiw==",
+        "dependencies": {
+          "GraphQL.Client.Abstractions": "6.1.0",
+          "GraphQL.Client.Abstractions.Websocket": "6.1.0",
+          "System.Reactive": "6.0.0"
+        }
+      },
+      "GraphQL.Client.Abstractions": {
+        "type": "Transitive",
+        "resolved": "6.1.0",
+        "contentHash": "Za31wjKLEeROZYJmp0Lmj/TLQ1Yw6x6QM0JHABcuyMC3OSopr34ufayrtdxtbL1a3129FTVFKOFC0hcooSQoJQ==",
+        "dependencies": {
+          "GraphQL.Primitives": "6.1.0"
+        }
+      },
+      "GraphQL.Client.Abstractions.Websocket": {
+        "type": "Transitive",
+        "resolved": "6.1.0",
+        "contentHash": "PjdG3q4MzPsa5NiBOBhuIRMRTo59der5bFmX2r1gSS3RIjytwpooxF2RffFCBh16sqbwuH1/dllDcNG+EJt1qA==",
+        "dependencies": {
+          "GraphQL.Client.Abstractions": "6.1.0"
+        }
+      },
+      "GraphQL.Primitives": {
+        "type": "Transitive",
+        "resolved": "6.1.0",
+        "contentHash": "L8yQ70Wd9p8hMJvnmpgyZfr2R6Q7S0/lPyEBI1tacJa5XzsoJSVtHdmfsMaHyufwk03hlUsBXgNerAs66kxHdA=="
+      },
       "Grpc.AspNetCore.Server": {
         "type": "Transitive",
         "resolved": "2.80.0",
@@ -711,6 +742,109 @@
         "resolved": "3.0.0",
         "contentHash": "RLUe1U5VzdY0gZxXIFAWy8YS6ChUPpcnQkdMg5KkITaSO4YkVdK4Vvq0zsmXeqx/q5rhaIjCUgxnKH4j+6r/RA=="
       },
+      "runtime.android-arm.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "7QwWCqZ4hRpmSySAFslZD5oFhV8ib/FhO2eGgPrImEI3V8U5P1FtIc5M4pB+5xOBfzW5VzjmItKFezkB8MGDqw=="
+      },
+      "runtime.android-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "mOZanUMgwxreyyoZRHaeLbfaevCgaadM4RafsRclY0I+cwV/QbYhzjELYc6C68acd+4z/Fj9zh66u6nu3evP0A=="
+      },
+      "runtime.android-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "rUvnhurQfEkaduyDlESUgttOjAjMniC38B9IMVfx2480OvBWzhy5vzvcg2WIlTCJErb4sCN+QTzhHBpOYFRoxw=="
+      },
+      "runtime.android-x86.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "ykG02K8zQqj8VcWfyjsvG9+lT2ODaqjF17Sid2/s7Kgp+ugn9eh4V2FZpzV0qa+JfVH5eohB4JaF7K/XpdTHCQ=="
+      },
+      "runtime.linux-arm.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "DHRGpEI+51UCQR74jrkA30s7luDaUw3NC4Jp3MNLTnseuCVTRQ5ocbjpApt7mM9quoP7YZKMG+iUA+xJ6yJW8Q=="
+      },
+      "runtime.linux-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "G67fx6Vv/z5DFvfa5MiqAa9lONQv0d+WGxICW+Nvp+LNA6iJvv4j6/GTjGXtK44T/n+8sYk9dho7pKtuCoMZWQ=="
+      },
+      "runtime.linux-bionic-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "E08Eipi4Iiq3+JV/mpNxS+loN68ZJlrlaHCfiXmUL3Qlcpq9slGXyw5N97v4nL9dzpCIBnLstQEFC32HTpCduw=="
+      },
+      "runtime.linux-bionic-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "FaATvKgabe3xHU9aYnj2h4Pp4DeY91SwMmHdv4/+Wmzp6fqwGT25xCNBzJ2FOHEdJLNO52raXcL3Xwo2/eLXKg=="
+      },
+      "runtime.linux-musl-arm.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "OsROr3mGvkb4U/cizz5s3y+Oa8OBjGCCo8QWEmuUEdM40wp0JbWMEwaqOmScxVCZNzobHHfHeuX/o3oTGj3OmA=="
+      },
+      "runtime.linux-musl-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "vDGYpx/8dAAMlJccGLCWLaJ20AzASKax33suoHw7s/alEjwYp1mpD6Vso4qbX5QJLonE+lnx3vfB+maKV4CtAA=="
+      },
+      "runtime.linux-musl-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "JwGn9azjl7+AuwzgEdeJLghTcK8nCqKCf7h/gq7Pzi2HMuv6D2EBzDZpl95qKkdBCT6bsWdv3flZQJZf2uY2ew=="
+      },
+      "runtime.linux-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "01ppayPym92n42VR74iSt/MNw5UoltX0tQOVvA5P0bUszvtDRPkAM5SEkujIVBs6+kERZ2OgZN8mMDPJKTfh2Q=="
+      },
+      "runtime.maccatalyst-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "z9OvFgFoV9jScx7pmjasXvmixG8qK8QdN3fcsP2TptMbfU+/4bz/SKjpgw3MRROJcfiTQWdJE4Cdx4vG86bulA=="
+      },
+      "runtime.maccatalyst-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "45LNikgDcVaFWkVxUr1h5ZaM6o0LT05TdKzmFI1OnZIEaT4/yWJukrouzsEZfm2kyN05EA/U686HSnuqMS7+6A=="
+      },
+      "runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "PoZf6+MaLVHqj37ozGdAc98w+UtwGLJGqQ4QeKT+qvQaX9EqpKmrhmImoGI68wrkJkRbwGCP1jIsFKpMu4iBKg==",
+        "dependencies": {
+          "runtime.android-arm.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.android-arm64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.android-x64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.android-x86.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.linux-arm.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.linux-arm64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.linux-bionic-arm64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.linux-bionic-x64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.linux-musl-arm.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.linux-musl-arm64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.linux-musl-x64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.linux-x64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.maccatalyst-arm64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.maccatalyst-x64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.osx-arm64.runtime.native.System.IO.Ports": "10.0.9",
+          "runtime.osx-x64.runtime.native.System.IO.Ports": "10.0.9"
+        }
+      },
+      "runtime.osx-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "fW857DfzCX6QsEuVH1/WohiHh1BphhHcGsjpLX5h3sgm0Y67QVWijykrJSZC4Ct9Gfm40pfmSo+L53deIQ9MZQ=="
+      },
+      "runtime.osx-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "Ugf+Hlb6dJB1tXLZqU/q4iXclQ/lojiJWtLCFqmRiE2bXA8fOnUHz9U40dJxHdqPO9BEyfzWEliRCUtZCblNmQ=="
+      },
       "Serilog.Extensions.Logging": {
         "type": "Transitive",
         "resolved": "10.0.0",
@@ -724,6 +858,21 @@
         "type": "Transitive",
         "resolved": "3.50.4.5",
         "contentHash": "UtnipXhJYZKQOQIfpws/msLK7IRhMplE1CZCaZLIQXRnGD474QVpO/J9nMlQQY8NZueGz1aidjoxDRnrC1NT3Q=="
+      },
+      "Speckle.DoubleNumerics": {
+        "type": "Transitive",
+        "resolved": "4.1.0",
+        "contentHash": "20DtS+FsDRsOD9+AU3TwNFZ0qrKo5f6f7B5ZR9wStsIHHHC9k7DpjbCvuNtmnSjx54MD+TJC7wV2f5iyGVPj1A=="
+      },
+      "Speckle.Newtonsoft.Json": {
+        "type": "Transitive",
+        "resolved": "13.0.2",
+        "contentHash": "g1BejUZwax5PRfL6xHgLEK23sqHWOgOj9hE7RvfRRlN00AGt8GnPYt8HedSK7UB3HiRW8zCA9Pn0iiYxCK24BA=="
+      },
+      "Speckle.Sdk.Dependencies": {
+        "type": "Transitive",
+        "resolved": "3.21.1",
+        "contentHash": "H1T6w0agNDUn9HZt6T6AroCvSv85EJ/ZGn1GDaz6EUATVDUvJOCkrWI4FMa+kBMls+f+gaUqgcA1OrpClguW0w=="
       },
       "SQLitePCLRaw.config.e_sqlite3": {
         "type": "Transitive",
@@ -856,7 +1005,6 @@
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "MathNet.Numerics.Providers.MKL": "[6.0.0-beta2, )",
           "MathNet.Numerics.Providers.OpenBLAS": "[6.0.0-beta2, )",
-          "MathNet.Symbolics": "[0.25.0, )",
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.3.0, )"
@@ -867,6 +1015,7 @@
         "dependencies": {
           "Cronos": "[0.13.0, )",
           "Csp.Contracts": "[1.0.0, )",
+          "FluentModbus": "[5.3.2, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Grpc.AspNetCore": "[2.80.0, )",
@@ -878,6 +1027,7 @@
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MQTTnet": "[5.1.0.1559, )",
           "Microsoft.AspNetCore.JsonPatch.SystemTextJson": "[10.0.9, )",
+          "Microsoft.Extensions.AI": "[10.7.0, )",
           "Microsoft.Extensions.AI.Abstractions": "[10.7.0, )",
           "Microsoft.Extensions.Caching.Hybrid": "[10.7.0, )",
           "Microsoft.Extensions.Compliance.Redaction": "[10.7.0, )",
@@ -920,6 +1070,7 @@
           "Serilog.Extensions.Hosting": "[10.0.0, )",
           "System.CommandLine": "[2.0.9, )",
           "System.IO.Hashing": "[10.0.9, )",
+          "System.IO.Ports": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.3.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.3.0, )",
           "Velopack": "[1.2.0, )",
@@ -973,6 +1124,8 @@
           "Rasm.AppHost": "[1.0.0, )",
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.3, )",
           "Sep": "[0.15.0, )",
+          "Speckle.Objects": "[3.21.1, )",
+          "Speckle.Sdk": "[3.21.1, )",
           "StackExchange.Redis": "[3.0.0, )",
           "System.IO.Hashing": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.3.0, )",
@@ -1080,6 +1233,16 @@
         "resolved": "1.0.1",
         "contentHash": "ncsxjAuFyKkepEiHOoDBYOpmF8s4yWLpXlil2iKjV5oIr57gPJ9YqsqYKwxQuS1xJT7r9tu/Db1XDX0KUyMQuQ=="
       },
+      "FluentModbus": {
+        "type": "CentralTransitive",
+        "requested": "[5.3.2, )",
+        "resolved": "5.3.2",
+        "contentHash": "uAX793yttHSH5vdbOTg8+QnLDuqWCuuBDbtEBrlXNLNXh+J1AqPo6vxd77OTxInoLayEBvI2k6UaYVeBjROrvg==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "5.0.0",
+          "System.IO.Ports": "5.0.0"
+        }
+      },
       "FluentValidation": {
         "type": "CentralTransitive",
         "requested": "[12.1.1, )",
@@ -1095,21 +1258,6 @@
           "FluentValidation": "12.1.1",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "2.1.0"
         }
-      },
-      "FParsec": {
-        "type": "CentralTransitive",
-        "requested": "[2.0.0-beta2, )",
-        "resolved": "2.0.0-beta2",
-        "contentHash": "bNoeKNYoLBg1oQttwAZFnhXJKxX6vtYBApbVHJlYa6SyGcuxwewJemwmO6eh7tD49vTzhAVjZo1SDGZ0o7RxxA==",
-        "dependencies": {
-          "FSharp.Core": "4.3.4"
-        }
-      },
-      "FSharp.Core": {
-        "type": "CentralTransitive",
-        "requested": "[10.1.301, )",
-        "resolved": "10.1.301",
-        "contentHash": "excLf2zM/qUB3WhRUfI0xvOOaPwcRAEdYT/BXe9eiTKySnWVuIKMQTf5+6ETy5nsb1dpLp1s2j2yAM/XcRgFMg=="
       },
       "Google.Cloud.Storage.V1": {
         "type": "CentralTransitive",
@@ -1207,16 +1355,6 @@
         "resolved": "6.0.0-beta2",
         "contentHash": "ew55vr5MqCEokG0jRsndoRSPNxdDvSgGwhWyxEFhzc8EuGn3TNtSGKRppCcpHnwXtjFiUvFBN+BBo75yrdKOrQ=="
       },
-      "MathNet.Numerics.FSharp": {
-        "type": "CentralTransitive",
-        "requested": "[6.0.0-beta2, )",
-        "resolved": "6.0.0-beta2",
-        "contentHash": "MqOJVzAjNaVuhitHE4CQa7kRK74janrjYsxjz2VSQwiyl0pIailjnQwoL/RCOUqcQVK+GEtSEKQyIbVgWhL7wg==",
-        "dependencies": {
-          "FSharp.Core": "8.0.100",
-          "MathNet.Numerics": "6.0.0-beta2"
-        }
-      },
       "MathNet.Numerics.Providers.MKL": {
         "type": "CentralTransitive",
         "requested": "[6.0.0-beta2, )",
@@ -1233,18 +1371,6 @@
         "contentHash": "IQb4xRyrkwYFd6XQz5pvj1bpHhCrzX09kvBSOcuqcPUFKbZRwUNm7Ht7uhLc0oP6DkWSyJGUuRkgy8/nJp9Z7Q==",
         "dependencies": {
           "MathNet.Numerics": "6.0.0-beta2"
-        }
-      },
-      "MathNet.Symbolics": {
-        "type": "CentralTransitive",
-        "requested": "[0.25.0, )",
-        "resolved": "0.25.0",
-        "contentHash": "sbeoi0wLoTY46GuOtZRSc03GhMFj/7fkgYvN0j2dDcFJVjAzGMnVWAByQOG5bgCESmd1u/c09Sbpm/N+QhL+gQ==",
-        "dependencies": {
-          "FParsec": "2.0.0-beta2",
-          "FSharp.Core": "8.0.100",
-          "MathNet.Numerics": "6.0.0-beta1",
-          "MathNet.Numerics.FSharp": "6.0.0-beta1"
         }
       },
       "MessagePack": {
@@ -1303,6 +1429,19 @@
           "Microsoft.Extensions.Logging": "10.0.9",
           "SQLitePCLRaw.bundle_e_sqlite3": "2.1.11",
           "SQLitePCLRaw.core": "2.1.11"
+        }
+      },
+      "Microsoft.Extensions.AI": {
+        "type": "CentralTransitive",
+        "requested": "[10.7.0, )",
+        "resolved": "10.7.0",
+        "contentHash": "r8z4uyPq0kTk4+jH92/hPshf3HNUXKOQ9axJwp57QFz43G45BG4DNYpVE0vuSan1dI69LtWx9ttF0Z2ibnghNg==",
+        "dependencies": {
+          "Microsoft.Extensions.AI.Abstractions": "10.7.0",
+          "Microsoft.Extensions.Caching.Abstractions": "10.0.9",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.9",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.9",
+          "System.Numerics.Tensors": "10.0.9"
         }
       },
       "Microsoft.Extensions.AI.Abstractions": {
@@ -1954,6 +2093,30 @@
           "Serilog.Extensions.Logging": "10.0.0"
         }
       },
+      "Speckle.Objects": {
+        "type": "CentralTransitive",
+        "requested": "[3.21.1, )",
+        "resolved": "3.21.1",
+        "contentHash": "D+iGMjouVr1TlS3B4Pr7PUHn5N889DwJNqmaf1tl9fQxpi+NAre/vfGun0JMQla3qnrd8PHHfbMTfXzjbgcUcQ==",
+        "dependencies": {
+          "Speckle.Sdk": "3.21.1"
+        }
+      },
+      "Speckle.Sdk": {
+        "type": "CentralTransitive",
+        "requested": "[3.21.1, )",
+        "resolved": "3.21.1",
+        "contentHash": "qG/t+9F4APR61J2I3iWc5DtIy6KSBn6QHlzMkS1SysjuNoj2SIwlufP3XiHzOj9nSq0JF8L6bQnvqONz7H2F8Q==",
+        "dependencies": {
+          "GraphQL.Client": "6.1.0",
+          "Microsoft.Data.Sqlite": "10.0.0",
+          "Microsoft.Extensions.Logging": "10.0.0",
+          "Microsoft.Extensions.ObjectPool": "10.0.0",
+          "Speckle.DoubleNumerics": "4.1.0",
+          "Speckle.Newtonsoft.Json": "13.0.2",
+          "Speckle.Sdk.Dependencies": "3.21.1"
+        }
+      },
       "SQLitePCLRaw.bundle_e_sqlite3": {
         "type": "CentralTransitive",
         "requested": "[3.0.3, )",
@@ -2016,6 +2179,15 @@
         "resolved": "10.0.9",
         "contentHash": "vixglGnKEexAJDeIRhyayZYzxyrgK1K9GU3K/zRZVwDbaDcMkSqj4WDHoVmQMNfsdUtLALfNSJw6mBIpdxie4A=="
       },
+      "System.IO.Ports": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "JHijtblIg7c1wCxBtuPjqWK+BxTlO0qTE3Y5PSety2NGkZRL5LFL6JoabbGebmO1PuOtUqlvAc+6hbLvlLSTqQ==",
+        "dependencies": {
+          "runtime.native.System.IO.Ports": "10.0.9"
+        }
+      },
       "System.Management": {
         "type": "CentralTransitive",
         "requested": "[10.0.9, )",
@@ -2030,6 +2202,12 @@
         "requested": "[10.0.9, )",
         "resolved": "10.0.9",
         "contentHash": "Rb71S3gggYVwEce9ugNw91vbr4vC4gThtx/imSJtLBW3AupEKujJPPQL6xF9q0DcNm6+z7hnYk7XqXaUpA4wDg=="
+      },
+      "System.Reactive": {
+        "type": "CentralTransitive",
+        "requested": "[6.1.0, )",
+        "resolved": "6.1.0",
+        "contentHash": "M5cCC1ZMkZr9jbSQGTHnVkb5TDN67qWCV7AP8TAHdGkvDlu0puT5NzemESNn9+HkYIDpWpocP68/i+/ame2/2w=="
       },
       "System.Threading.RateLimiting": {
         "type": "CentralTransitive",
@@ -2119,6 +2297,86 @@
         "resolved": "10.0.9",
         "contentHash": "dk5HKolAR9bBxlL4dl6Koaf0s/Q47QApog+/o341LSuvWGW6ig4q5fTsgYG0MrK//l2Slv6mygncMK/8lgXVDg=="
       },
+      "runtime.android-arm.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "7QwWCqZ4hRpmSySAFslZD5oFhV8ib/FhO2eGgPrImEI3V8U5P1FtIc5M4pB+5xOBfzW5VzjmItKFezkB8MGDqw=="
+      },
+      "runtime.android-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "mOZanUMgwxreyyoZRHaeLbfaevCgaadM4RafsRclY0I+cwV/QbYhzjELYc6C68acd+4z/Fj9zh66u6nu3evP0A=="
+      },
+      "runtime.android-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "rUvnhurQfEkaduyDlESUgttOjAjMniC38B9IMVfx2480OvBWzhy5vzvcg2WIlTCJErb4sCN+QTzhHBpOYFRoxw=="
+      },
+      "runtime.android-x86.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "ykG02K8zQqj8VcWfyjsvG9+lT2ODaqjF17Sid2/s7Kgp+ugn9eh4V2FZpzV0qa+JfVH5eohB4JaF7K/XpdTHCQ=="
+      },
+      "runtime.linux-arm.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "DHRGpEI+51UCQR74jrkA30s7luDaUw3NC4Jp3MNLTnseuCVTRQ5ocbjpApt7mM9quoP7YZKMG+iUA+xJ6yJW8Q=="
+      },
+      "runtime.linux-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "G67fx6Vv/z5DFvfa5MiqAa9lONQv0d+WGxICW+Nvp+LNA6iJvv4j6/GTjGXtK44T/n+8sYk9dho7pKtuCoMZWQ=="
+      },
+      "runtime.linux-bionic-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "E08Eipi4Iiq3+JV/mpNxS+loN68ZJlrlaHCfiXmUL3Qlcpq9slGXyw5N97v4nL9dzpCIBnLstQEFC32HTpCduw=="
+      },
+      "runtime.linux-bionic-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "FaATvKgabe3xHU9aYnj2h4Pp4DeY91SwMmHdv4/+Wmzp6fqwGT25xCNBzJ2FOHEdJLNO52raXcL3Xwo2/eLXKg=="
+      },
+      "runtime.linux-musl-arm.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "OsROr3mGvkb4U/cizz5s3y+Oa8OBjGCCo8QWEmuUEdM40wp0JbWMEwaqOmScxVCZNzobHHfHeuX/o3oTGj3OmA=="
+      },
+      "runtime.linux-musl-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "vDGYpx/8dAAMlJccGLCWLaJ20AzASKax33suoHw7s/alEjwYp1mpD6Vso4qbX5QJLonE+lnx3vfB+maKV4CtAA=="
+      },
+      "runtime.linux-musl-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "JwGn9azjl7+AuwzgEdeJLghTcK8nCqKCf7h/gq7Pzi2HMuv6D2EBzDZpl95qKkdBCT6bsWdv3flZQJZf2uY2ew=="
+      },
+      "runtime.linux-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "01ppayPym92n42VR74iSt/MNw5UoltX0tQOVvA5P0bUszvtDRPkAM5SEkujIVBs6+kERZ2OgZN8mMDPJKTfh2Q=="
+      },
+      "runtime.maccatalyst-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "z9OvFgFoV9jScx7pmjasXvmixG8qK8QdN3fcsP2TptMbfU+/4bz/SKjpgw3MRROJcfiTQWdJE4Cdx4vG86bulA=="
+      },
+      "runtime.maccatalyst-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "45LNikgDcVaFWkVxUr1h5ZaM6o0LT05TdKzmFI1OnZIEaT4/yWJukrouzsEZfm2kyN05EA/U686HSnuqMS7+6A=="
+      },
+      "runtime.osx-arm64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "fW857DfzCX6QsEuVH1/WohiHh1BphhHcGsjpLX5h3sgm0Y67QVWijykrJSZC4Ct9Gfm40pfmSo+L53deIQ9MZQ=="
+      },
+      "runtime.osx-x64.runtime.native.System.IO.Ports": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "Ugf+Hlb6dJB1tXLZqU/q4iXclQ/lojiJWtLCFqmRiE2bXA8fOnUHz9U40dJxHdqPO9BEyfzWEliRCUtZCblNmQ=="
+      },
       "SourceGear.sqlite3": {
         "type": "Transitive",
         "resolved": "3.50.4.5",
@@ -2135,6 +2393,15 @@
         "contentHash": "brTyfKYxhpaXyh244XpQZ6vDUtT+fEOUjYlJxZVhkiPLBPzutDCfkIkClsdEbOlv0wLH/YSeq0rMUHGGcdWK9Q==",
         "dependencies": {
           "System.Configuration.ConfigurationManager": "10.0.9"
+        }
+      },
+      "System.IO.Ports": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "JHijtblIg7c1wCxBtuPjqWK+BxTlO0qTE3Y5PSety2NGkZRL5LFL6JoabbGebmO1PuOtUqlvAc+6hbLvlLSTqQ==",
+        "dependencies": {
+          "runtime.native.System.IO.Ports": "10.0.9"
         }
       },
       "System.Management": {

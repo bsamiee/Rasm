@@ -42,6 +42,7 @@
         <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
         <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
         <PackageReference Include="SharpGLTF.Core" />
+        <PackageReference Include="SharpGLTF.Ext.3DTiles" />
         <PackageReference Include="SharpGLTF.Toolkit" />
     </ItemGroup>
 

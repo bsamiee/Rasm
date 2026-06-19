@@ -72,27 +72,27 @@
 [ENTRYPOINT_SCOPE]: DI registration — `Microsoft.Extensions.DependencyInjection`
 - rail: grpc-server
 
-| [INDEX] | [SURFACE]                                                                                                           | [ENTRY_FAMILY]  | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------------------------------------------------------------------------ | :-------------- | :---------------------------------------------------- |
-|   [1]   | `GrpcServicesExtensions.AddGrpc(this IServiceCollection)`                                                           | DI registration | registers gRPC services, returns `IGrpcServerBuilder` |
-|   [2]   | `GrpcServicesExtensions.AddGrpc(this IServiceCollection, Action<GrpcServiceOptions>)`                               | DI registration | registers gRPC with global options                    |
-|   [3]   | `GrpcServicesExtensions.AddServiceOptions<TService>(this IGrpcServerBuilder, Action<GrpcServiceOptions<TService>>)` | builder fluent  | per-service options                                   |
-|   [4]   | `GrpcHealthChecksServiceExtensions.AddGrpcHealthChecks(this IServiceCollection)`                                    | DI registration | registers gRPC health service                         |
-|   [5]   | `GrpcHealthChecksServiceExtensions.AddGrpcHealthChecks(this IServiceCollection, Action<GrpcHealthChecksOptions>)`   | DI registration | with options                                          |
+| [INDEX] | [TARGET]             | [SURFACE]                                | [ENTRY_FAMILY]  | [CAPABILITY]                                          |
+| :-----: | :------------------- | :--------------------------------------- | :-------------- | :---------------------------------------------------- |
+|   [1]   | `IServiceCollection` | `AddGrpc()`                              | DI registration | registers gRPC services, returns `IGrpcServerBuilder` |
+|   [2]   | `IServiceCollection` | `AddGrpc(configure)`                     | DI registration | registers gRPC with global options                    |
+|   [3]   | `IGrpcServerBuilder` | `AddServiceOptions<TService>(configure)` | builder fluent  | per-service options                                   |
+|   [4]   | `IServiceCollection` | `AddGrpcHealthChecks()`                  | DI registration | registers gRPC health service                         |
+|   [5]   | `IServiceCollection` | `AddGrpcHealthChecks(configure)`         | DI registration | configures health-check service                       |
 
 [ENTRYPOINT_SCOPE]: routing — `Microsoft.AspNetCore.Builder`
 - rail: grpc-server
 
-| [INDEX] | [SURFACE]                                                                                                                        | [ENTRY_FAMILY] | [CAPABILITY]                   |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------- |
-|   [1]   | `GrpcEndpointRouteBuilderExtensions.MapGrpcService<TService>(this IEndpointRouteBuilder)`                                        | routing        | maps generated service         |
-|   [2]   | `GrpcEndpointRouteBuilderExtensions.MapGrpcService(this IEndpointRouteBuilder, Func<IServiceProvider, ServerServiceDefinition>)` | routing        | dynamic mapping                |
-|   [3]   | `GrpcEndpointRouteBuilderExtensions.MapGrpcService(this IEndpointRouteBuilder, ServerServiceDefinition)`                         | routing        | static definition              |
-|   [4]   | `GrpcHealthChecksEndpointRouteBuilderExtensions.MapGrpcHealthChecksService(this IEndpointRouteBuilder)`                          | routing        | maps health-checks endpoint    |
-|   [5]   | `GrpcWebApplicationBuilderExtensions.UseGrpcWeb(this IApplicationBuilder)`                                                       | middleware     | enables gRPC-Web middleware    |
-|   [6]   | `GrpcWebApplicationBuilderExtensions.UseGrpcWeb(this IApplicationBuilder, GrpcWebOptions)`                                       | middleware     | with options                   |
-|   [7]   | `GrpcWebEndpointConventionBuilderExtensions.EnableGrpcWeb<TBuilder>(this TBuilder)`                                              | convention     | enables gRPC-Web per endpoint  |
-|   [8]   | `GrpcWebEndpointConventionBuilderExtensions.DisableGrpcWeb<TBuilder>(this TBuilder)`                                             | convention     | disables gRPC-Web per endpoint |
+| [INDEX] | [TARGET]                | [SURFACE]                      | [ENTRY_FAMILY] | [CAPABILITY]                   |
+| :-----: | :---------------------- | :----------------------------- | :------------- | :----------------------------- |
+|   [1]   | `IEndpointRouteBuilder` | `MapGrpcService<TService>()`   | routing        | maps generated service         |
+|   [2]   | `IEndpointRouteBuilder` | `MapGrpcService(factory)`      | routing        | dynamic mapping                |
+|   [3]   | `IEndpointRouteBuilder` | `MapGrpcService(definition)`   | routing        | static definition              |
+|   [4]   | `IEndpointRouteBuilder` | `MapGrpcHealthChecksService()` | routing        | maps health-checks endpoint    |
+|   [5]   | `IApplicationBuilder`   | `UseGrpcWeb()`                 | middleware     | enables gRPC-Web middleware    |
+|   [6]   | `IApplicationBuilder`   | `UseGrpcWeb(options)`          | middleware     | configures gRPC-Web middleware |
+|   [7]   | endpoint convention     | `EnableGrpcWeb<TBuilder>()`    | convention     | enables gRPC-Web per endpoint  |
+|   [8]   | endpoint convention     | `DisableGrpcWeb<TBuilder>()`   | convention     | disables gRPC-Web per endpoint |
 
 [ENTRYPOINT_SCOPE]: service options surface
 - rail: grpc-server

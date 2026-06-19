@@ -149,7 +149,7 @@ coupling to a specific AI provider.
 | :-----: | :------------------------------------------------- | :------------- | :------------------------------- |
 |   [1]   | `AIJsonUtilities.CreateJsonSchema(type, options?)` | schema call    | generates JSON schema for a type |
 |   [2]   | `AIJsonUtilities.DefaultOptions`                   | property       | shared `JsonSerializerOptions`   |
-|   [3]   | `DataUriParser.TryParse(dataUri, out DataUri?)`    | parse call     | parses a data URI string         |
+|   [3]   | `DataContent(string dataUri, mediaType?)`          | ctor call      | ingests a data-URI content part  |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

@@ -44,18 +44,6 @@
           "MathNet.Numerics": "6.0.0-beta2"
         }
       },
-      "MathNet.Symbolics": {
-        "type": "Direct",
-        "requested": "[0.25.0, )",
-        "resolved": "0.25.0",
-        "contentHash": "sbeoi0wLoTY46GuOtZRSc03GhMFj/7fkgYvN0j2dDcFJVjAzGMnVWAByQOG5bgCESmd1u/c09Sbpm/N+QhL+gQ==",
-        "dependencies": {
-          "FParsec": "2.0.0-beta2",
-          "FSharp.Core": "8.0.100",
-          "MathNet.Numerics": "6.0.0-beta1",
-          "MathNet.Numerics.FSharp": "6.0.0-beta1"
-        }
-      },
       "Meziantou.Analyzer": {
         "type": "Direct",
         "requested": "[3.0.104, )",
@@ -110,31 +98,6 @@
         "type": "Project",
         "dependencies": {
           "JetBrains.Annotations": "[2026.2.0, )"
-        }
-      },
-      "FParsec": {
-        "type": "CentralTransitive",
-        "requested": "[2.0.0-beta2, )",
-        "resolved": "2.0.0-beta2",
-        "contentHash": "bNoeKNYoLBg1oQttwAZFnhXJKxX6vtYBApbVHJlYa6SyGcuxwewJemwmO6eh7tD49vTzhAVjZo1SDGZ0o7RxxA==",
-        "dependencies": {
-          "FSharp.Core": "4.3.4"
-        }
-      },
-      "FSharp.Core": {
-        "type": "CentralTransitive",
-        "requested": "[10.1.301, )",
-        "resolved": "10.1.301",
-        "contentHash": "excLf2zM/qUB3WhRUfI0xvOOaPwcRAEdYT/BXe9eiTKySnWVuIKMQTf5+6ETy5nsb1dpLp1s2j2yAM/XcRgFMg=="
-      },
-      "MathNet.Numerics.FSharp": {
-        "type": "CentralTransitive",
-        "requested": "[6.0.0-beta2, )",
-        "resolved": "6.0.0-beta2",
-        "contentHash": "MqOJVzAjNaVuhitHE4CQa7kRK74janrjYsxjz2VSQwiyl0pIailjnQwoL/RCOUqcQVK+GEtSEKQyIbVgWhL7wg==",
-        "dependencies": {
-          "FSharp.Core": "8.0.100",
-          "MathNet.Numerics": "6.0.0-beta2"
         }
       }
     },

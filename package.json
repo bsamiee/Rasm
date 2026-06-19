@@ -28,7 +28,6 @@
         "@effect/platform": "catalog:",
         "@effect/platform-browser": "catalog:",
         "@effect/platform-node": "catalog:",
-        "@effect/printer": "catalog:",
         "@effect/rpc": "catalog:",
         "@effect/sql": "catalog:",
         "@effect/sql-pg": "catalog:",
@@ -83,11 +82,11 @@
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "@typescript/native-preview": "catalog:",
-        "@webgpu/types": "catalog:",
         "@vitejs/plugin-react": "catalog:",
         "@vitest/browser-playwright": "catalog:",
         "@vitest/coverage-v8": "catalog:",
         "@vitest/ui": "catalog:",
+        "@webgpu/types": "catalog:",
         "babel-plugin-react-compiler": "catalog:",
         "browserslist": "catalog:",
         "class-variance-authority": "catalog:",
@@ -135,5 +134,5 @@
     "engines": {
         "node": ">=24"
     },
-    "packageManager": "pnpm@11.7.0"
+    "packageManager": "pnpm@11.8.0"
 }

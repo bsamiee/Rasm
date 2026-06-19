@@ -95,4 +95,4 @@ class Signals:
 
 ## [3]-[RESEARCH]
 
-- [OTLP_LOG_EGRESS]: the `LogRecordProcessor`/`OTLPLogExporter` log-egress wiring (no native `structlog` OTLP export) and the `structlog.contextvars.merge_contextvars` processor spelling are verified against the `structlog` and `opentelemetry-sdk` catalogues; the `OTLPLogExporter` constructor arity confirms at fence transcription.
+- [OTLP_LOG_EGRESS]: reflection-confirmed — the `opentelemetry-sdk` `_logs.LogRecordProcessor`/`_logs.export.BatchLogRecordProcessor` log-egress wiring (no native `structlog` OTLP export) pairs with the `opentelemetry-exporter-otlp-proto-http` `OTLPLogExporter(endpoint, headers, timeout, compression, ...)` constructor, and `structlog.contextvars.merge_contextvars` is the bound-context processor; the metric egress is the sibling `observability/metrics#METRIC` `MeterProvider` over the same OTLP exporter family. The log-egress wiring is settled. No open RESEARCH seam remains on this page.

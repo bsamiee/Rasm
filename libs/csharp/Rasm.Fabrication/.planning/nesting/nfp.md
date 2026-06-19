@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_NFP]
 
-The 2D true-shape nesting owner: `Nest` the static placement fold packing part outlines onto a stock sheet through a no-fit-polygon (NFP) feasibility test, with a bottom-left greedy and a genetic placement heuristic over the same NFP primitive. The NFP construction routes the `geometry2d/clipper#POLYGON_ALGEBRA` `MinkowskiSum` — the Minkowski sum of the fixed part with the reflected orbiting part — never a hand-rolled angle-sorted edge merge; Clipper2 owns the polygon construction at integer-robust precision, and the irregular/non-convex NFP (convex decomposition + per-piece Minkowski union) is one arm on the same Geometry2D owner. The feasibility verdict — whether a reference point lies inside or outside the NFP — stays the kernel `Rasm.Geometry/numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` exact point-in-polygon sign. The bottom-left and genetic modes are ONE fold over the placement discriminant, never two packer classes. A DRL-guided placement policy is a forward `NestPolicy` column composing the `Rasm.Compute/models/inference#INFERENCE_MODES` ONNX lane, the NFP primitive unchanged. The kernel composes the `frontier/owner#FABRICATION_OWNER` `Loop`/`PartTransform`/`FrontierPolicy.Nest`/`FrontierResult.Placement` shared vocabulary; it computes no hash and operates on raw coordinate doubles at the interior.
+The 2D true-shape nesting owner: `Nest` the static placement fold packing part outlines onto a stock sheet through a no-fit-polygon (NFP) feasibility test, with a bottom-left greedy and a genetic placement heuristic over the same NFP primitive. The NFP construction routes the `geometry2d/clipper#POLYGON_ALGEBRA` `MinkowskiSum` — the Minkowski sum of the fixed part with the reflected orbiting part — never a hand-rolled angle-sorted edge merge; Clipper2 owns the polygon construction at integer-robust precision, and the irregular/non-convex NFP (convex decomposition + per-piece Minkowski union) is one arm on the same Geometry2D owner. The feasibility verdict — whether a reference point lies inside or outside the NFP — stays the kernel `Rasm.Geometry/numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` exact point-in-polygon sign. The bottom-left and genetic modes are ONE fold over the placement discriminant, never two packer classes. A DRL-guided placement policy is a forward `NestPolicy` column carrying an injected `Func<NoFitPolygon, PartTransform, double>` placement-score delegate the app-platform consumer wires from the `Rasm.Compute/models/inference#INFERENCE_MODES` ONNX lane (Fabrication is AEC-domain and never references the app-platform `Rasm.Compute`; the strata law forbids the downward edge), the NFP primitive unchanged. The kernel composes the `frontier/owner#FABRICATION_OWNER` `Loop`/`PartTransform`/`FrontierPolicy.Nest`/`FrontierResult.Placement` shared vocabulary; it computes no hash and operates on raw coordinate doubles at the interior.
 
 Wire posture: HOST-LOCAL. The `Placement` transforms cross only the in-process seam to the `posting/program#CUT_PROGRAM` emitter — never a browser or peer wire. The `SheetBounds`/`NestPolicy`/`NoFitPolygon` records are host-local types that never sit between wire and rail.
 
@@ -10,33 +10,63 @@ One cluster: `[2]-[NESTING]` owns the `SheetBounds`/`NestPolicy`/`NoFitPolygon` 
 
 ## [2]-[NESTING]
 
-- Owner: `SheetBounds` the stock sheet extents the parts pack onto; `NestPolicy` the placement knobs (rotation step count, GA population, generations, mutation rate, the bottom-left-vs-genetic discriminant); `NoFitPolygon` the sliding-locus polygon — the set of reference positions where the orbiting part touches but never overlaps the fixed part, the canonical primitive every 2D true-shape nesting heuristic reads, its boundary built through the Geometry2D Minkowski sum; `Nest` the static placement fold building each part-pair NFP and folding the parts onto the sheet by the bottom-left or genetic-ordered heuristic.
-- Cases: placement modes `bottom-left` (a deterministic greedy lowest-then-leftmost feasible position per part) and `genetic` (a GA over the part ordering + rotation, the bottom-left decode scoring each chromosome by utilization) (2); the NFP here is the convex Minkowski merge through Geometry2D, the irregular/non-convex NFP (convex decomposition + per-piece union) the one widening arm on the same `NoFitPolygon.Of` owner.
+- Owner: `Remnant` the leftover-stock polygon carrying its boundary `Loop` and its `XxHash128`-derived `UInt128` content identity, the `Holds` exact point-in-polygon containment, and the `Of` content-address mint over the kernel `System.IO.Hashing` `XxHash128`; `SheetBounds` the stock extents the parts pack onto — a virgin rectangle (`Sheet`) OR a `Remnant` (`FromRemnant`), the `Contains` test discriminating the rectangle bounds from the remnant polygon containment over the one `Option<Remnant> Stock` discriminant, never a parallel remnant-nesting owner; `NestPolicy` the placement knobs (rotation step count, GA population, generations, mutation rate, the bottom-left-vs-genetic discriminant); `NoFitPolygon` the sliding-locus polygon — the set of reference positions where the orbiting part touches but never overlaps the fixed part, the canonical primitive every 2D true-shape nesting heuristic reads, its boundary built through the Geometry2D Minkowski sum; `Nest` the static placement fold building each part-pair NFP and folding the parts onto the sheet by the bottom-left or genetic-ordered heuristic.
+- Cases: placement modes `bottom-left` (a deterministic greedy lowest-then-leftmost feasible position per part) and `genetic` (a GA over the part ordering + rotation, the bottom-left decode scoring each chromosome by utilization) (2); the stock source is a virgin rectangle OR a `Remnant` polygon (2), the `SheetBounds.Stock` `Option<Remnant>` the one discriminant the `Contains` test and the `Area` denominator read, the remnant re-entering the same NFP feasibility set as a virgin sheet; the NFP here is the convex Minkowski merge through Geometry2D, the irregular/non-convex NFP (convex decomposition + per-piece union) the one widening arm on the same `NoFitPolygon.Of` owner.
 - Entry: `public static Fin<FrontierResult> Solve(FrontierPolicy.Nest policy, FrontierInput input)` — `Fin<T>` routes `FabricationFault.OpenLoop` on a non-closed part outline and `FabricationFault.NoFit` when a part cannot be placed within the sheet under every rotation, each lowered with `.ToError()`; the body builds the pairwise NFPs, then runs the bottom-left or GA placement fold emitting the `Placement` transforms and the utilization scalar.
-- Auto: `NoFitPolygon.Of` reflects the orbiting part through the origin and runs the `geometry2d/clipper#POLYGON_ALGEBRA` `MinkowskiSum` of the fixed part and the reflected orbiting part, taking the result boundary as the NFP; the irregular/non-convex NFP (convex decomposition into sub-pieces, per-piece Minkowski sum, locus union) is the one widening arm on this owner over the same Geometry2D substrate. `Nest.Solve` precomputes every ordered pairwise NFP into a frozen memo, then a candidate placement is feasible when the part reference point lies OUTSIDE every already-placed part's NFP (no overlap) and inside the sheet, the inside/outside test the exact `Orient2D` point-in-polygon; `bottom-left` mode folds the parts in descending-area order, sliding each to its lowest feasible NFP-boundary position; `genetic` mode evolves a population of (order, rotation) chromosomes, decoding each through the same bottom-left placement and scoring by packed-area utilization, the GA fold running tournament selection, order crossover, and swap mutation for `Generations` and returning the best decode.
+- Auto: `NoFitPolygon.Of` reflects the orbiting part through the origin and runs the `geometry2d/clipper#POLYGON_ALGEBRA` `MinkowskiSum` of the fixed part and the reflected orbiting part, taking the result boundary as the NFP; the irregular/non-convex NFP (convex decomposition into sub-pieces, per-piece Minkowski sum, locus union) is the one widening arm on this owner over the same Geometry2D substrate. `Nest.Solve` precomputes every ordered pairwise NFP into a frozen memo, then a candidate placement is feasible when the part reference point lies OUTSIDE every already-placed part's NFP (no overlap) and `SheetBounds.Contains` holds — for a virgin rectangle the axis-aligned bounds, for a `Remnant` the exact `Remnant.Holds` polygon containment over the same `Orient2D` point-in-polygon — so a partially-consumed sheet's remnant re-enters the feasibility set as stock and the next nest packs onto the real remnant rather than a virgin sheet; `bottom-left` mode folds the parts in descending-area order, sliding each to its lowest feasible NFP-boundary position; `genetic` mode evolves a population of (order, rotation) chromosomes, decoding each through the same bottom-left placement and scoring by packed-area utilization against `SheetBounds.Area` (the remnant polygon area when stock is a remnant), the GA fold running tournament selection, order crossover, and swap mutation for `Generations` and returning the best decode. `Remnant.Of` content-addresses the remnant boundary through the kernel `XxHash128` so a remnant is keyed by the one content identity, never a second tag.
 - Receipt: the `Placement` carries the per-part `PartTransform` (translation + rotation), the sheet utilization fraction, and the unplaced count — the typed nesting evidence the posting emitter consumes; no generic nesting ledger.
-- Packages: `Rasm`/Vectors (`Point3d`/`Vector3d`/`BoundingBox` — composed), `Rasm.Geometry.Numerics` (`Predicate.Orient2D` — settled, point-in-polygon feasibility), Clipper2 (via `geometry2d/clipper#POLYGON_ALGEBRA` — the NFP Minkowski sum), LanguageExt.Core, BCL inbox.
-- Growth: a full irregular-shape NFP with rotation search is one decomposition arm on `NoFitPolygon.Of` over the same Geometry2D Minkowski owner; a DRL-guided placement is one `NestPolicy` column composing the `Rasm.Compute/models/inference#INFERENCE_MODES` ONNX lane, the NFP unchanged; a new heuristic is one column on `NestPolicy`; zero new surface.
-- Boundary: nesting is the ONE author-kernel placement owner and the NFP construction routes the one `geometry2d/clipper#POLYGON_ALGEBRA` Minkowski owner — a hand-rolled angle-sorted edge merge is the deleted form; the NFP is the canonical placement primitive and a per-heuristic bespoke overlap test is the deleted form, every feasibility check reading the same NFP and the exact `Orient2D` inside/outside; the bottom-left and genetic modes are ONE fold over the placement discriminant, never two packer classes; the point-in-polygon side test reads `Predicate.Orient2D` exact sign and a naive `double` cross is the named robustness defect; the per-generation GA population evolution and the in-place `Crossover`/`Shuffle` chromosome scratch are the named measured-kernel statement exemption — the order-crossover and Fisher-Yates index permutation over `int[]` arrays below the dense-collection crossover, never an immutable rebuild per swap.
+- Packages: `Rasm`/Vectors (`Point3d`/`Vector3d`/`BoundingBox` — composed), the `frontier/owner#FABRICATION_OWNER` `Loop.Covers` (point-in-polygon feasibility, composing the kernel `Predicate.Orient2D` transitively), Clipper2 (via `geometry2d/clipper#POLYGON_ALGEBRA` — the NFP Minkowski sum), `System.IO.Hashing` (`XxHash128` — the remnant content identity, the same federation hash the kernel `Rasm.Geometry/topology/reconciliation#NAMING_HASH` reads), `System.Buffers.Binary` (`BinaryPrimitives`), LanguageExt.Core, BCL inbox.
+- Growth: a full irregular-shape NFP with rotation search is one decomposition arm on `NoFitPolygon.Of` over the same Geometry2D Minkowski owner; a stock remnant is one `SheetBounds.Stock` `Option<Remnant>` value re-entering the same NFP feasibility set, never a second nesting owner; a DRL-guided placement is one `NestPolicy` column carrying an injected `Func<NoFitPolygon, PartTransform, double>` placement-score delegate the app-platform consumer wires from the `Rasm.Compute/models/inference#INFERENCE_MODES` ONNX lane (never a Fabrication-side `Rasm.Compute` reference — the AEC→app-platform edge is forbidden), the NFP unchanged; a new heuristic is one column on `NestPolicy`; zero new surface.
+- Boundary: nesting is the ONE author-kernel placement owner and the NFP construction routes the one `geometry2d/clipper#POLYGON_ALGEBRA` Minkowski owner — a hand-rolled angle-sorted edge merge is the deleted form; the NFP is the canonical placement primitive and a per-heuristic bespoke overlap test is the deleted form, every feasibility check reading the same NFP and the exact `Orient2D` inside/outside; the bottom-left and genetic modes are ONE fold over the placement discriminant, never two packer classes; the stock source rides the one `SheetBounds.Stock` discriminant and a virgin-sheet vs remnant nesting split into two packer entrypoints is the deleted form — the `Contains` test discriminates the rectangle bounds from the remnant `Holds` polygon containment over one owner; the remnant identity is the kernel `XxHash128` content address (one federation hash, never a second tag) and the geometry domain mints no parallel digest; the point-in-polygon side test reads the shared `frontier/owner#FABRICATION_OWNER` `Loop.Covers` exact-`Orient2D` containment (`Remnant.Holds` and `NoFitPolygon.Feasible` compose it, never a per-page re-rolled containment loop) and a naive `double` cross is the named robustness defect; the per-generation GA population evolution and the in-place `Crossover`/`Shuffle` chromosome scratch are the named measured-kernel statement exemption — the order-crossover and Fisher-Yates index permutation over `int[]` arrays below the dense-collection crossover, never an immutable rebuild per swap.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Frozen;
+using System.IO.Hashing;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Fabrication.Frontier;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Geometry;
-using Rasm.Geometry.Numerics;
 using Rhino.Geometry;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Nesting;
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct SheetBounds(double Width, double Height) {
+public sealed record Remnant(Loop Boundary, UInt128 Identity) {
+    public static Remnant Of(Loop boundary) {
+        Loop ccw = boundary.AsCcw();
+        var buffer = new ArrayBufferWriter<byte>();
+        foreach (Point3d v in ccw.Vertices) {
+            Span<byte> slot = buffer.GetSpan(16);
+            BinaryPrimitives.WriteDoubleLittleEndian(slot[..8], v.X);
+            BinaryPrimitives.WriteDoubleLittleEndian(slot[8..16], v.Y);
+            buffer.Advance(16);
+        }
+        return new Remnant(ccw, XxHash128.HashToUInt128(buffer.WrittenSpan));
+    }
+
+    public bool Holds(Loop part, double tx, double ty) =>
+        part.Vertices.ForAll(v => Boundary.Covers(new Point3d(v.X + tx, v.Y + ty, 0.0)));
+}
+
+public readonly record struct SheetBounds(double Width, double Height, Option<Remnant> Stock) {
+    public static SheetBounds Sheet(double width, double height) => new(width, height, None);
+    public static SheetBounds FromRemnant(Remnant remnant) =>
+        new(remnant.Boundary.Bound().Diagonal.X, remnant.Boundary.Bound().Diagonal.Y, Some(remnant));
+
+    public double Area =>
+        Stock.Match(
+            Some: r => Math.Abs(0.5 * Enumerable.Range(0, r.Boundary.Count).Sum(i => r.Boundary.At(i).X * r.Boundary.At(i + 1).Y - r.Boundary.At(i + 1).X * r.Boundary.At(i).Y)),
+            None: () => Width * Height);
+
     public bool Contains(Loop part, double tx, double ty) =>
-        part.Vertices.ForAll(v => v.X + tx >= 0.0 && v.X + tx <= Width && v.Y + ty >= 0.0 && v.Y + ty <= Height);
+        Stock.Match(
+            Some: r => r.Holds(part, tx, ty),
+            None: () => part.Vertices.ForAll(v => v.X + tx >= 0.0 && v.X + tx <= Width && v.Y + ty >= 0.0 && v.Y + ty <= Height));
 }
 
 public sealed record NestPolicy(bool Genetic, int Rotations, int Population, int Generations, double MutationRate, int Seed) {
@@ -51,12 +81,7 @@ public sealed record NoFitPolygon(Loop Boundary) {
         return PolygonAlgebra.MinkowskiSum(a, b).Map(loops => new NoFitPolygon(loops.Head.AsCcw()));
     }
 
-    public bool Feasible(double tx, double ty) {
-        var p = new Point3d(tx, ty, 0.0);
-        for (int i = 0; i < Boundary.Count; i++)
-            if (Predicate.Orient2D(Boundary.At(i), Boundary.At(i + 1), p) == Sign.Negative) return true;
-        return false;
-    }
+    public bool Feasible(double tx, double ty) => !Boundary.Covers(new Point3d(tx, ty, 0.0));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -111,7 +136,7 @@ public static class Nest {
     }
 
     static double Utilization(Seq<PartTransform> placed, Arr<Loop> parts, SheetBounds sheet) =>
-        placed.Sum(pt => Math.Abs(SignedArea(parts[pt.PartId]))) / Math.Max(1e-9, sheet.Width * sheet.Height);
+        placed.Sum(pt => Math.Abs(SignedArea(parts[pt.PartId]))) / Math.Max(1e-9, sheet.Area);
 
     static double SignedArea(Loop loop) =>
         0.5 * Enumerable.Range(0, loop.Count).Sum(i => loop.At(i).X * loop.At(i + 1).Y - loop.At(i + 1).X * loop.At(i).Y);

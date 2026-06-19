@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `cyclopts`
 - package: `cyclopts`
 - import: `cyclopts`
-- version: `4.16.1`
 - owner: `runtime`
 - rail: entry
 - namespaces: `cyclopts`, `cyclopts.config`, `cyclopts.types`, `cyclopts.validators`

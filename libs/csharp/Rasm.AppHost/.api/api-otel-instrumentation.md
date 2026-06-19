@@ -48,14 +48,16 @@ recording policy.
 [ENTRYPOINT_SCOPE]: provider registration
 - rail: observability
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                  | [CAPABILITY]                                                        |
-| :-----: | :----------------------------- | :------------------------------------------------------------ | :------------------------------------------------------------------ |
-|   [1]   | `AddRuntimeInstrumentation`    | `MeterProviderBuilder` extension                              | subscribes `System.Runtime` meter on .NET 9+                        |
-|   [2]   | `AddRuntimeInstrumentation`    | `Action<RuntimeInstrumentationOptions>?` configurator         | pre-9 internal `RuntimeMetrics` registration                        |
-|   [3]   | `AddHttpClientInstrumentation` | `TracerProviderBuilder` extension                             | subscribes `System.Net.Http` activity source                        |
-|   [4]   | `AddHttpClientInstrumentation` | `Action<HttpClientTraceInstrumentationOptions>?` configurator | options-configured trace admission                                  |
-|   [5]   | `AddHttpClientInstrumentation` | name plus options configurator                                | named-options trace admission                                       |
-|   [6]   | `AddHttpClientInstrumentation` | `MeterProviderBuilder` extension                              | subscribes `System.Net.Http` and `System.Net.NameResolution` meters |
+Runtime instrumentation subscribes the runtime-emitted `System.Runtime` meter on .NET 9+; earlier runtimes use the package-local `RuntimeMetrics` path when options are supplied.
+
+| [INDEX] | [SURFACE]                      | [BUILDER_SIGNAL]     | [OPTIONS]                               | [CAPABILITY]                           |
+| :-----: | :----------------------------- | :------------------- | :-------------------------------------- | :------------------------------------- |
+|   [1]   | `AddRuntimeInstrumentation`    | metrics runtime      | —                                       | sub: `System.Runtime` meter            |
+|   [2]   | `AddRuntimeInstrumentation`    | metrics runtime      | `RuntimeInstrumentationOptions`         | configures pre-9 `RuntimeMetrics`      |
+|   [3]   | `AddHttpClientInstrumentation` | tracing `HttpClient` | —                                       | sub: `System.Net.Http` activity source |
+|   [4]   | `AddHttpClientInstrumentation` | tracing `HttpClient` | `HttpClientTraceInstrumentationOptions` | filter and enrichment policy           |
+|   [5]   | `AddHttpClientInstrumentation` | tracing `HttpClient` | name + trace options                    | named-options trace policy             |
+|   [6]   | `AddHttpClientInstrumentation` | metrics HTTP + DNS   | —                                       | sub: HTTP and name-resolution meters   |
 
 [ENTRYPOINT_SCOPE]: HttpClient trace options
 - rail: observability

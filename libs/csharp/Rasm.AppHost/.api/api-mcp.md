@@ -30,38 +30,48 @@
 [PUBLIC_TYPE_SCOPE]: session and protocol primitives — `ModelContextProtocol.Core`
 - rail: mcp-protocol
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]       | [CAPABILITY]                               |
-| :-----: | :--------------------- | :------------------ | :----------------------------------------- |
-|   [1]   | `McpSession`           | abstract base class | shared session lifecycle for client+server |
-|   [2]   | `McpServer`            | abstract class      | server-side session, extends `McpSession`  |
-|   [3]   | `McpClient`            | abstract class      | client-side session, extends `McpSession`  |
-|   [4]   | `McpException`         | exception           | typed protocol failure                     |
-|   [5]   | `McpErrorCode`         | enum                | JSON-RPC error code vocabulary             |
-|   [6]   | `RequestOptions`       | options class       | per-request timeout and cancellation       |
-|   [7]   | `IMcpTaskStore`        | interface           | task-result persistence contract           |
-|   [8]   | `InMemoryMcpTaskStore` | class               | in-process `IMcpTaskStore` implementation  |
-|   [9]   | `McpJsonUtilities`     | static class        | `JsonSerializerOptions` and type-info      |
-|  [10]   | `AIContentExtensions`  | static class        | `AIContent` ↔ MCP content conversions      |
-|  [11]   | `NullProgress`         | class               | no-op `IProgress<T>` implementation        |
-|  [12]   | `UriTemplate`          | class               | RFC 6570 URI template evaluation           |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]       | [CAPABILITY]                                                                            |
+| :-----: | :-------------------------- | :------------------ | :-------------------------------------------------------------------------------------- |
+|   [1]   | `McpSession`                | abstract base class | shared session lifecycle for client+server                                              |
+|   [2]   | `McpServer`                 | abstract class      | server-side session, extends `McpSession`                                               |
+|   [3]   | `McpClient`                 | abstract class      | client-side session, extends `McpSession`                                               |
+|   [4]   | `McpException`              | exception           | typed protocol failure                                                                  |
+|   [5]   | `McpErrorCode`              | enum                | JSON-RPC error code vocabulary                                                          |
+|   [6]   | `RequestOptions`            | options class       | per-request timeout and cancellation                                                    |
+|   [7]   | `IMcpTaskStore`             | interface           | task-result persistence contract                                                        |
+|   [8]   | `InMemoryMcpTaskStore`      | class               | in-process `IMcpTaskStore` implementation                                               |
+|   [9]   | `McpJsonUtilities`          | static class        | `JsonSerializerOptions` and type-info                                                   |
+|  [10]   | `AIContentExtensions`       | static class        | `AIContent` ↔ MCP content conversions                                                   |
+|  [11]   | `NullProgress`              | class               | no-op `IProgress<T>` implementation                                                     |
+|  [12]   | `ProgressNotificationValue` | sealed class        | progress payload: `required float Progress`, `float? Total`, `string? Message` (`init`) |
+|  [13]   | `UriTemplate`               | class               | RFC 6570 URI template evaluation                                                        |
 
 [PUBLIC_TYPE_SCOPE]: server primitives — `ModelContextProtocol.Server`
 - rail: mcp-protocol
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]    | [CAPABILITY]                                          |
-| :-----: | :------------------------ | :--------------- | :---------------------------------------------------- |
-|   [1]   | `McpServerTool`           | abstract class   | tool primitive base, implements `IMcpServerPrimitive` |
-|   [2]   | `McpServerPrompt`         | abstract class   | prompt primitive base                                 |
-|   [3]   | `McpServerResource`       | abstract class   | resource primitive base                               |
-|   [4]   | `AIFunctionMcpServerTool` | sealed class     | `AIFunction`-backed tool adapter                      |
-|   [5]   | `DelegatingMcpServerTool` | class            | delegate-wrapping tool                                |
-|   [6]   | `McpServerOptions`        | sealed class     | server configuration root                             |
-|   [7]   | `McpServerHandlers`       | class            | server request-handler registry                       |
-|   [8]   | `McpServerFilters`        | class            | server message and request filter registry            |
-|   [9]   | `McpServerToolAttribute`  | sealed attribute | marks a method as an MCP tool                         |
-|  [10]   | `McpMetaAttribute`        | sealed attribute | attaches metadata to server primitives                |
-|  [11]   | `StdioServerTransport`    | class            | stdio-backed server transport                         |
-|  [12]   | `StreamServerTransport`   | class            | stream-backed server transport                        |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]    | [CAPABILITY]                                          |
+| :-----: | :--------------------------- | :--------------- | :---------------------------------------------------- |
+|   [1]   | `McpServerTool`              | abstract class   | tool primitive base, implements `IMcpServerPrimitive` |
+|   [2]   | `McpServerPrompt`            | abstract class   | prompt primitive base                                 |
+|   [3]   | `McpServerResource`          | abstract class   | resource primitive base                               |
+|   [4]   | `AIFunctionMcpServerTool`    | sealed class     | `AIFunction`-backed tool adapter                      |
+|   [5]   | `DelegatingMcpServerTool`    | class            | delegate-wrapping tool                                |
+|   [6]   | `McpServerToolCreateOptions` | sealed class     | tool create policy bag                                |
+|   [7]   | `McpServerOptions`           | sealed class     | server configuration root                             |
+|   [8]   | `McpServerHandlers`          | class            | server request-handler registry                       |
+|   [9]   | `McpServerFilters`           | class            | server message and request filter registry            |
+|  [10]   | `McpServerToolAttribute`     | sealed attribute | marks a method as an MCP tool                         |
+|  [11]   | `McpMetaAttribute`           | sealed attribute | attaches metadata to server primitives                |
+|  [12]   | `StdioServerTransport`       | class            | stdio-backed server transport                         |
+|  [13]   | `StreamServerTransport`      | class            | stream-backed server transport                        |
+
+[TOOL_CREATE_OPTIONS]:
+- Identity: `Name`, `Title`, and `Description`.
+- Safety annotations: `ReadOnly`, `Destructive`, `Idempotent`, and `OpenWorld`.
+- Structured output: `UseStructuredContent` and `OutputSchema`.
+- Serializer and schema policy: `SerializerOptions` and `SchemaCreateOptions`.
+- Metadata: `Metadata`.
+- Services: `Services`.
 
 [PUBLIC_TYPE_SCOPE]: client primitives — `ModelContextProtocol.Client`
 - rail: mcp-protocol
@@ -119,14 +129,17 @@
 | :-----: | :-------------------------------------------------------------------- | :-------------- | :-------------------------------------------- |
 |   [1]   | `AddMcpServer(this IServiceCollection)`                               | DI registration | registers server, returns `IMcpServerBuilder` |
 |   [2]   | `WithTools<TToolType>(this IMcpServerBuilder)`                        | builder fluent  | discovers `[McpServerTool]` on type           |
-|   [3]   | `WithPrompts<TPromptType>(this IMcpServerBuilder)`                    | builder fluent  | discovers prompts on type                     |
-|   [4]   | `WithResources<TResourceType>(this IMcpServerBuilder)`                | builder fluent  | discovers resources on type                   |
-|   [5]   | `WithToolsFromAssembly(this IMcpServerBuilder, Assembly?)`            | builder fluent  | assembly-scan tool discovery                  |
-|   [6]   | `WithListToolsHandler(this IMcpServerBuilder, McpRequestHandler<..>)` | builder fluent  | registers explicit list-tools handler         |
-|   [7]   | `WithCallToolHandler(this IMcpServerBuilder, McpRequestHandler<..>)`  | builder fluent  | registers explicit call-tool handler          |
-|   [8]   | `WithHttpTransport(this IMcpServerBuilder, ...)`                      | builder fluent  | attaches HTTP/SSE server transport            |
-|   [9]   | `MapMcp(this IEndpointRouteBuilder, pattern)`                         | routing         | maps MCP endpoint at given route pattern      |
-|  [10]   | `AddMcp(this AuthenticationBuilder, ...)`                             | auth            | registers MCP authentication scheme           |
+|   [3]   | `WithTools(this IMcpServerBuilder, IEnumerable<McpServerTool>)`       | builder fluent  | registers a programmatic tool set             |
+|   [4]   | `WithPrompts<TPromptType>(this IMcpServerBuilder)`                    | builder fluent  | discovers prompts on type                     |
+|   [5]   | `WithResources<TResourceType>(this IMcpServerBuilder)`                | builder fluent  | discovers resources on type                   |
+|   [6]   | `WithToolsFromAssembly(this IMcpServerBuilder, Assembly?)`            | builder fluent  | assembly-scan tool discovery                  |
+|   [7]   | `WithListToolsHandler(this IMcpServerBuilder, McpRequestHandler<..>)` | builder fluent  | registers explicit list-tools handler         |
+|   [8]   | `WithCallToolHandler(this IMcpServerBuilder, McpRequestHandler<..>)`  | builder fluent  | registers explicit call-tool handler          |
+|   [9]   | `WithHttpTransport(this IMcpServerBuilder, ...)`                      | builder fluent  | attaches HTTP/SSE server transport            |
+|  [10]   | `MapMcp(this IEndpointRouteBuilder, pattern)`                         | routing         | maps MCP endpoint at given route pattern      |
+|  [11]   | `AddMcp(this AuthenticationBuilder, ...)`                             | auth            | registers MCP authentication scheme           |
+|  [12]   | `McpServerTool.Create(AIFunction, McpServerToolCreateOptions?)`       | static factory  | adopts an `AIFunction` as a programmatic tool |
+|  [13]   | `McpServerTool.Create(Delegate, McpServerToolCreateOptions?)`         | static factory  | builds a tool from a delegate                 |
 
 [ENTRYPOINT_SCOPE]: client construction
 - rail: mcp-protocol

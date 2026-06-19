@@ -17,8 +17,9 @@ One cluster: `ATOM_BINDING` owns the sanctioned `@effect-atom` hooks, the native
 
 ```ts contract
 import { useAtom, useAtomSet, useAtomSuspense, useAtomValue } from "@effect-atom/atom-react";
-import { Atom, Result } from "@effect-atom/atom";
+import { Atom } from "@effect-atom/atom";
 import type { KeyValueStore } from "@effect/platform";
+import { Array, Effect, Option, Ref, Schema, Stream, SubscriptionRef } from "effect";
 
 declare const projectionRuntime: Atom.AtomRuntime<KeyValueStore.KeyValueStore, never>;
 
@@ -28,19 +29,12 @@ const deepLink = <A, I extends string>(name: string, schema: Schema.Schema<A, I>
 const offlineCell = <A>(key: string, schema: Schema.Schema<A>, defaultValue: () => A): Atom.Writable<A> =>
   Atom.kvs({ runtime: projectionRuntime, key, schema, defaultValue });
 
-const feedFamily = <Arg, A, E>(create: (arg: Arg) => Stream.Stream<A, E>): (arg: Arg) => Atom.Writable<Result.PullResult<A, E>, void> =>
+const feedFamily = <Arg, A, E>(create: (arg: Arg) => Stream.Stream<A, E>): (arg: Arg) => Atom.Writable<Atom.PullResult<A, E>, void> =>
   Atom.family((arg: Arg) => Atom.pull(create(arg)));
 
-const renderFeed = <A, E>(result: Result.Result<A, E>, on: {
-  readonly waiting: () => React.ReactElement;
-  readonly success: (value: A) => React.ReactElement;
-  readonly failure: (error: E) => React.ReactElement;
-}): React.ReactElement | null =>
-  Result.builder(result)
-    .onWaiting(on.waiting)
-    .onSuccess((s) => on.success(s.value))
-    .onError((e) => on.failure(e))
-    .render();
+// Leaves compose the native `Result.builder` chain directly — no re-shape wrapper:
+//   Result.builder(result).onWaiting(...).onSuccess((s) => render(s.value)).onError((e) => fail(e)).render()
+// The `onWaiting`/`onSuccess`/`onError`/`render` arms own the three-state match so no leaf re-implements it.
 
 interface UndoStack<A> {
   readonly current: SubscriptionRef.SubscriptionRef<A>;

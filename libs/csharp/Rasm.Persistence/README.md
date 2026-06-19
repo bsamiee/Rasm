@@ -40,8 +40,21 @@ Every external library the folder uses, planned or implemented, as a flat list. 
 - Microsoft.Data.Sqlite
 - SQLitePCLRaw.bundle_e_sqlite3
 - Npgsql
+- Npgsql.NetTopologySuite
 - Npgsql.OpenTelemetry
 - DuckDB.NET.Data.Full
+- DuckLake (DuckDB loadable extension)
+
+[SERVER_EXTENSIONS]:
+PostgreSQL 18 server-tier extensions: no managed assembly, provisioned through raw SQL, preload-gated or type/index-registered per the `provisioning#CLUSTER_CONFIG` row. Each carries a folder `.api/` catalogue of its SQL surface.
+- timescaledb (hypertable, continuous-aggregate, retention, columnstore; bgworker scheduler)
+- pgvectorscale (diskann access method over a pgvector column)
+- pg_search (ParadeDB bm25 access method; pdb query-builder schema)
+- pg_cron (database-local cron for SQL maintenance jobs)
+- pg_partman (declarative range/list partition maintenance)
+- pg_squeeze (lock-light table-bloat reclamation)
+- pg_jsonschema (server-side JSON Schema CHECK validation)
+- pgaudit (session/object audit logging)
 
 [SPATIAL_VECTOR_TEMPORAL]:
 - Pgvector
@@ -73,6 +86,10 @@ Every external library the folder uses, planned or implemented, as a flat list. 
 [COMPLIANCE_SYNC]:
 - Microsoft.Extensions.Compliance.Redaction
 - Microsoft.AspNetCore.JsonPatch.SystemTextJson
+
+[SYNC_TRANSPORTS]:
+- Speckle.Sdk
+- Speckle.Objects
 
 [FUNCTIONAL_CORE]:
 - LanguageExt.Core

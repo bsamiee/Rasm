@@ -25,11 +25,14 @@ The design pages under `.planning/`, grouped by sub-domain.
 - localization: [localization-culture](.planning/localization/localization-culture.md)
 - evidence: [diagnostics-evidence](.planning/evidence/diagnostics-evidence.md)
 - viewport: [viewport-pipeline](.planning/viewport/viewport-pipeline.md)
+- shading: [shader-pipeline](.planning/shading/shader-pipeline.md)
+- immersive: [xr-review](.planning/immersive/xr-review.md)
+- presentation: [review-tour](.planning/presentation/review-tour.md)
 - drafting: [drafting-sheets](.planning/drafting/drafting-sheets.md)
 - notebook: [notebook-document](.planning/notebook/notebook-document.md)
 - animation: [animation-timeline](.planning/animation/animation-timeline.md)
-
-The `realitycapture/` and `coordination/` sub-domains are planned and carry no design page yet; their charters are in `ARCHITECTURE.md` and their work is queued in `TASKLOG.md`.
+- realitycapture: [reality-capture](.planning/realitycapture/reality-capture.md)
+- coordination: [issue-board](.planning/coordination/issue-board.md)
 
 ## [2]-[PACKAGES]
 
@@ -79,7 +82,16 @@ Every external library the folder uses, planned or implemented, as one flat regi
 - Svg.Skia
 
 [GPU_BACKEND]:
-- VelloSharp.Avalonia.Vello
+- Silk.NET.WebGPU
+- Silk.NET.WebGPU.Native.WGPU
+- Silk.NET.WebGPU.Extensions.WGPU
+- Silk.NET.OpenXR
+- Silk.NET.OpenXR.Extensions.KHR
+- Silk.NET.OpenXR.Extensions.EXT
+- Silk.NET.OpenXR.Extensions.FB
+
+> [!NOTE]
+> The `Wgpu` GPU family is owned by the .NET Foundation `Silk.NET.WebGPU` binding (stable, MIT) over the bundled `Silk.NET.WebGPU.Native.WGPU` wgpu/Dawn runtime, presenting into the Avalonia 12 compositor through `ICompositionGpuInterop` texture import (`.api/api-avalonia-gpu-interop.md`). `Silk.NET.WebGPU.Extensions.WGPU` adds the wgpu-native vendor surface the standard `webgpu.h` binding omits — non-blocking `DevicePoll`, native log routing, full-adapter enumeration for the compositor-LUID match, and indirect multi-draw for GPU-driven meshlet rendering (`.api/api-silk-webgpu-wgpu.md`). `Silk.NET.OpenXR` owns the immersive design-review surface — the stereo swapchain, the predicted-display-time frame loop, and the action-set controller model share the one `Wgpu` device through the OpenXR graphics binding, folding to the flat viewport where the host OpenXR loader is absent (`.api/api-silk-openxr.md`); `Silk.NET.OpenXR.Extensions.FB` adds the `XR_FB_passthrough` environment-blend layer the on-site mixed-reality review composites under the rendered scene against the one session (`.api/api-silk-openxr-fb.md`), riding the same `2.23.0` line as the core families since Silk.NET publishes its whole core-plus-extension set from one monorepo release. `Avalonia.Skia` (Ganesh) is the shippable `Software`/`Metal`/`Vulkan`/`OpenGl` floor behind the `SurfaceHost` render seam. The archived `VelloSharp`/`VelloSharp.Avalonia.Vello` rows are fully retired — no Vello identity survives in the manifest, this registry, or `.api/`; SkiaSharp Graphite carries no pinnable identity yet (targeted `4.150.0-preview.2`, unshipped), so no Graphite row is admitted until it ships.
 
 [ASSETS_CONTENT]:
 - AsyncImageLoader.Avalonia

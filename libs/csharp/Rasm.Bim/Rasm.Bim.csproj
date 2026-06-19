@@ -16,12 +16,19 @@
         <PackageReference Include="SharpGLTF.Core" />
         <PackageReference Include="SharpGLTF.Runtime" />
         <PackageReference Include="SharpGLTF.Toolkit" />
+        <PackageReference Include="SharpGLTF.Ext.3DTiles" />
         <PackageReference Include="Openize.Drako" />
         <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
     </ItemGroup>
 
+    <ItemGroup Label="Speckle Sync Seam">
+        <PackageReference Include="Speckle.Sdk" />
+        <PackageReference Include="Speckle.Objects" />
+    </ItemGroup>
+
     <ItemGroup Label="Domain Foundation">
         <PackageReference Include="NodaTime" />
+        <PackageReference Include="ProjNET" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>

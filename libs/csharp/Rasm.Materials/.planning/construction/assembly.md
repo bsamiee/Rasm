@@ -16,7 +16,7 @@ The page's two clusters, each owning one disjoint layer of the host-neutral cons
 - Entry: `public static Fin<double> LengthOf(RunPath path, Op key)` — the line/arc arc-length algebra (`Fin<T>` aborts on a non-positive length/radius/sweep, `ConstructionFault.Path`); `RunPathAlgebra.AngleAt` projects a station onto a path angle so a curved run reads its local rotation without a host curve.
 - Packages: Rasm (project — scalar geometry), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new path geometry is one `RunPath` case (spline/polyline) carrying its arc-length arm; a new fault is one `ConstructionFault` case; a placed-unit attribute shared by all families is one `Placement`/`Element` column — never a per-path placement method, never a per-family element type.
-- Boundary: `Placement` is HOST-NEUTRAL — it carries station/elevation/run/rise/path-angle as raw scalars plus the orientation and cut, NEVER a `Rhino.Geometry.Plane`/`Transform`/curve; the host boundary at the app root materializes the placement stream into geometry, this owner produces only portable data the wire and the appearance engine read; `RunPath` is the closed path geometry and `LengthOf` the one arc-length algebra (a line is its length, an arc is `radius · sweep · π/180`), so a curved run never re-derives arc length per call site; `ConstructionFault` is the one fault every `Fin.Fail` reads (path/joint/course/opening slots), an `Expected`-derived `Error` (`IValidationError<ConstructionFault>`) whose 2350 band IS the `Expected` `Code` so a bare typed case lifts directly into the `Fin<T>` rail, so a layout never throws and never returns a sentinel placement; the orientation/cut vocabulary is the `masonry#PROFILE_FAMILY` `Orientation`/`Cut` algebra composed, never re-minted here.
+- Boundary: `Placement` is HOST-NEUTRAL — it carries station/elevation/run/rise/path-angle plus the `NormalOffsetMm` layer-buildup offset along the path normal as raw scalars, plus the orientation and cut, NEVER a `Rhino.Geometry.Plane`/`Transform`/curve; the `NormalOffsetMm` defaults to zero for a single-ply run and carries the cumulative layer offset for a `construction/layout#ASSEMBLY_FOLD` `LayerSet` buildup so the host materializes each ply at its depth without a second placement owner; the host boundary at the app root materializes the placement stream into geometry, this owner produces only portable data the wire and the appearance engine read; `RunPath` is the closed path geometry and `LengthOf` the one arc-length algebra (a line is its length, an arc is `radius · sweep · π/180`), so a curved run never re-derives arc length per call site; `ConstructionFault` is the one fault every `Fin.Fail` reads (path/joint/course/opening slots), an `Expected`-derived `Error` (`IValidationError<ConstructionFault>`) whose 2350 band IS the `Expected` `Code` so a bare typed case lifts directly into the `Fin<T>` rail, so a layout never throws and never returns a sentinel placement; the orientation/cut vocabulary is the `masonry#PROFILE_FAMILY` `Orientation`/`Cut` algebra composed, never re-minted here.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -49,7 +49,8 @@ public readonly record struct Placement(
     double RiseMm,
     double PathAngleDegrees,
     Orientation Orientation,
-    Cut Cut);
+    Cut Cut,
+    double NormalOffsetMm = 0.0);
 
 public sealed record Element(Profile Profile, Placement Placement, MaterialAssignment Assignment);
 

@@ -11,6 +11,7 @@ The solver lane sub-domain index: the physics-solve concern fans out across five
 |   [3]   | [optimizer](optimizer.md)               | Design-var/link/conditional search; constraint axis; ROM/GP surrogate duality |
 |   [4]   | [sweep](sweep.md)                       | N-dim DOE sweep grid; frame-budgeted early-stop; Morris/Sobol sensitivity     |
 |   [5]   | [clash](clash.md)                       | Acceleration-structure collision compute; Kalman-banded ROM digital-twin loop |
+|   [6]   | `uncertainty` (planned)                 | Forward-UQ propagation; PCE/MC/reliability; Sobol variance; failure-probability β |
 
 ## [2]-[SPINE]
 

@@ -8,14 +8,19 @@ One cluster: `GESTURE_ALGEBRA` owns the shared pointer-gesture fold and the came
 
 ## [2]-[GESTURE_ALGEBRA]
 
-- Owner: `CameraGesture`, the one `Data.TaggedEnum` over the pointer intents (`orbit`/`pan`/`dolly`/`frame`); `applyGesture`, the total fold from an intent onto `CameraState`; and `GestureFold`, the `@use-gesture/react` recognizer binding that maps raw drag/pinch/wheel pointer events onto the `CameraGesture` tags. The algebra is shared, not per-surface.
-- Cases: `GestureFold` maps a drag onto `orbit` or `pan` by modifier, a pinch or wheel onto `dolly`, and a frame action onto `frame`; `applyGesture` folds each tag onto `CameraState` total under `Match.tagsExhaustive` — `orbit` advances azimuth/elevation, `pan` shifts the target, `dolly` scales the distance with a floor, `frame` recomputes the camera from the mesh centroid and radius. A draggable surface composes the same `GestureFold` keyed to its own intent set.
-- Entry: a surface binds the `GestureFold` recognizer to its pointer events; each recognized `CameraGesture` tag folds through `applyGesture` and the result drives the surface state through the `binding/atom-binding.md` `AtomBinding`, closing the gesture→state→binding loop; the viewport camera `RoleBehavior` row composes this fold by reference.
+- Owner: `CameraGesture`, the one `Data.TaggedEnum` over the pointer intents (`orbit`/`pan`/`dolly`/`frame`); `applyGesture`, the total fold from an intent onto `CameraState`; and `useGestureFold`, the `@use-gesture/react` `useGesture` recognizer binding that maps the raw `FullGestureState` drag/pinch/wheel events onto the `CameraGesture` tags through `recognizeDrag`, bound to a target ref so the canvas captures events directly. The algebra is shared, not per-surface.
+- Cases: `useGestureFold` maps a drag onto `orbit` or `pan` by the `shiftKey` modifier read off the `FullGestureState`, a pinch `offset[0]` scale onto `dolly`, and a wheel `delta[1]` onto `dolly`; `applyGesture` folds each tag onto `CameraState` total under `Match.tagsExhaustive` — `orbit` advances azimuth/elevation, `pan` shifts the target, `dolly` scales the distance with a floor, `frame` recomputes the camera from the mesh centroid and radius. A draggable surface composes the same `useGesture` recognizer keyed to its own intent set.
+- Entry: a surface binds the `useGestureFold` recognizer to its target ref; each recognized `CameraGesture` tag folds through `applyGesture` and the result drives the surface state through the `binding/atom-binding.md` `AtomBinding`, closing the gesture→state→binding loop; the viewport camera `RoleBehavior` row composes this fold by reference.
 - Packages: `@use-gesture/react`, `effect`.
-- Growth: a new pointer intent lands as one `CameraGesture` tag carrying its payload and one `applyGesture` arm; a new draggable surface composes the same `GestureFold`, never a parallel pointer-handler type.
-- Boundary: a per-surface pointer handler beside the shared `GestureFold` is the named defect; the camera fold is owned here, not on the `viewport/glb-viewport.md` leaf, and a `CameraGesture`/`applyGesture` re-declaration on the viewport is the named defect; the fold is pure and a state mutation inside `applyGesture` is the named defect.
+- Growth: a new pointer intent lands as one `CameraGesture` tag carrying its payload and one `applyGesture` arm; a new draggable surface composes the same `useGesture` recognizer, never a parallel pointer-handler type.
+- Boundary: a per-surface pointer handler beside the shared `useGestureFold` is the named defect; the camera fold is owned here, not on the `viewport/glb-viewport.md` leaf, and a `CameraGesture`/`applyGesture` re-declaration on the viewport is the named defect; the fold is pure and a state mutation inside `applyGesture` is the named defect; a raw `onPointerDown`/`onWheel` handler beside the `useGesture` recognizer is the named defect the catalogue forbids.
 
 ```ts contract
+import type { FullGestureState } from "@use-gesture/react";
+import type { MeshView } from "@rasm/ts/ui/viewport/glb-viewport";
+import { useGesture } from "@use-gesture/react";
+import { Array, Data, Match } from "effect";
+
 type CameraGesture = Data.TaggedEnum<{
   readonly orbit: { readonly dx: number; readonly dy: number };
   readonly pan: { readonly dx: number; readonly dy: number };
@@ -32,16 +37,19 @@ interface CameraState {
 }
 
 const centroidOf = (bounds: MeshView): readonly [number, number, number] =>
-  Array.range(0, bounds.vertexCount - 1).pipe(
-    Array.reduce([0, 0, 0] as const, (acc, i) => [
-      acc[0] + bounds.vertices[i * 3],
-      acc[1] + bounds.vertices[i * 3 + 1],
-      acc[2] + bounds.vertices[i * 3 + 2],
-    ] as const),
-    (sum) => [sum[0] / bounds.vertexCount, sum[1] / bounds.vertexCount, sum[2] / bounds.vertexCount] as const,
-  );
+  bounds.vertexCount === 0
+    ? [0, 0, 0]
+    : Array.range(0, bounds.vertexCount - 1).pipe(
+        Array.reduce([0, 0, 0] as const, (acc, i) => [
+          acc[0] + bounds.vertices[i * 3],
+          acc[1] + bounds.vertices[i * 3 + 1],
+          acc[2] + bounds.vertices[i * 3 + 2],
+        ] as const),
+        (sum) => [sum[0] / bounds.vertexCount, sum[1] / bounds.vertexCount, sum[2] / bounds.vertexCount] as const,
+      );
 
 const radiusOf = (bounds: MeshView): number => {
+  if (bounds.vertexCount === 0) return 1;
   const c = centroidOf(bounds);
   return Array.range(0, bounds.vertexCount - 1).pipe(
     Array.reduce(0, (max, i) =>
@@ -62,6 +70,22 @@ const applyGesture = (state: CameraState, gesture: CameraGesture): CameraState =
       frame: (g) => ({ azimuth: 0, elevation: 0.6, distance: radiusOf(g.bounds) * 2.5, target: centroidOf(g.bounds) }),
     }),
   );
-```
 
-RESEARCH [USE_GESTURE]: the `@use-gesture/react` `useGesture`/`useDrag`/`usePinch`/`useWheel` recognizer hooks and the gesture-state shape are unverified; the recognizer-binding member spellings stay RESEARCH until the folder `.api/` catalogue carries the `@use-gesture/react` rows.
+const recognizeDrag = (shift: boolean) => (s: FullGestureState<"drag">): CameraGesture =>
+  shift
+    ? CameraGesture.pan({ dx: s.delta[0], dy: s.delta[1] })
+    : CameraGesture.orbit({ dx: s.delta[0], dy: s.delta[1] });
+
+const useGestureFold = (
+  target: React.RefObject<HTMLElement>,
+  onGesture: (g: CameraGesture) => void,
+): void =>
+  useGesture(
+    {
+      onDrag: (s) => onGesture(recognizeDrag(s.shiftKey)(s)),
+      onPinch: (s) => onGesture(CameraGesture.dolly({ delta: s.offset[0] - 1 })),
+      onWheel: (s) => onGesture(CameraGesture.dolly({ delta: s.delta[1] / 1000 })),
+    },
+    { target, eventOptions: { passive: false } },
+  );
+```

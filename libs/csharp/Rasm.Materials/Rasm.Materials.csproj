@@ -9,6 +9,7 @@
 
     <ItemGroup Label="Color Spectral">
         <PackageReference Include="Wacton.Unicolour" />
+        <PackageReference Include="Wacton.Unicolour.Datasets" />
     </ItemGroup>
 
     <ItemGroup Label="Quantities">

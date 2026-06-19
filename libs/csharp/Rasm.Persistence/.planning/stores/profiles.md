@@ -404,15 +404,9 @@ public sealed record ExtensionRequirement(string Name, bool PreloadRequired, boo
 - Boundary: the classification standard is one axis, never a per-standard model — Uniclass tables (Ss, Pr, EF, Ac), OmniClass tables (11-49), MasterFormat divisions, and IfcClassification references are all `ClassificationCode` rows differentiated by the `Standard` column, so a cross-standard rollup is one query over the one catalog; the code hierarchy is an ltree path so a roll-up-to-parent or a drill-to-children rides the `lquery` operators the data-lanes ltree row owns, never a recursive code-string parse; cross-standard equivalence is a mapping table so a Uniclass-classified takeoff reports MasterFormat cost divisions through one join, and a hardcoded code-to-code map is the deleted form; the entity classification reads the federated entity's IFC classification psets and a classification rule so it rides the federated graph and the element-set algebra, never a per-entity classification column duplicated across sources; the catalog is content-addressed per published edition so a standard revision is a new content key and a takeoff pins the edition it classified against, so a rate-base change is traceable.
 
 ```csharp signature
-public sealed class CatalogKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
-
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CatalogKeyPolicy, string>]
-[KeyMemberComparer<CatalogKeyPolicy, string>]
+[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
+[KeyMemberComparer<StoreKeyPolicy, string>]
 public sealed partial class ClassificationStandard {
     public static readonly ClassificationStandard Uniclass = new("uniclass", separator: "_");
     public static readonly ClassificationStandard OmniClass = new("omniclass", separator: " ");

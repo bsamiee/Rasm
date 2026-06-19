@@ -64,6 +64,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Capability Agent">
+        <PackageReference Include="Microsoft.Extensions.AI" />
         <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
         <PackageReference Include="ModelContextProtocol" />
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
@@ -72,9 +73,11 @@
     </ItemGroup>
 
     <ItemGroup Label="Sandbox Live Wire">
+        <PackageReference Include="FluentModbus" />
         <PackageReference Include="MQTTnet" />
         <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua" />
         <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.PubSub" />
+        <PackageReference Include="System.IO.Ports" />
         <PackageReference Include="Wasmtime" />
     </ItemGroup>
 

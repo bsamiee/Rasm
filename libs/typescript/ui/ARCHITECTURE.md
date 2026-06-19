@@ -9,13 +9,16 @@ The binding spine precedes every surface that subscribes through it; the vocabul
 ```text codemap
 ui/
 ├── binding/            # The single sanctioned reactive-binding spine over the effect-atom React hooks and native state constructors
-├── component-system/   # The headless interaction-role vocabulary and the live-region accessibility-broadcast path every role reuses
-├── theming/            # The OKLCH design-token engine and the CSS-variable runtime sync, distinct from interaction behavior
-├── observation/        # The read-only dashboard routes over the projection folds — leaves that read and never emit
-├── cartography/        # The 2D geospatial surface over the interchange GeometryRail GeoJSON projection
-├── viewport/           # The 3D mesh render leaf over the interchange ArtifactFrameRail GLB blob
-├── motion/             # The route/layout transition and activity-preservation owner and the shared pointer-gesture algebra
-└── overlay/            # The floating-surface positioning, anchor-bridge, and focus-trap/dismiss owner
+├── component-system/   # The headless interaction-role vocabulary, the live-region accessibility-broadcast path, the schema-driven FormBinding validity fold, and the perceptual color/date/file PickerBehavior family
+├── content/            # The CommandAction AEC action-lexicon vocabulary, the cmdk palette and vaul drawer surfaces, the lucide-react icon vocabulary, and the one cva+twMerge variant-recipe owner
+├── theming/            # The OKLCH design-token engine, the CSS-variable runtime sync, and the tw-animate-css enter/exit utility layer, distinct from interaction behavior
+├── observation/        # The read-only dashboard routes over the projection folds — leaves that read and never emit, including the HLC skew-band confidence-interval render
+├── cartography/        # The 2D geospatial surface over the interchange GeometryRail, with the GeoArrow/TileLayer out-of-core and cell-index aggregation arms
+├── viewport/           # The 3D mesh render leaf over the interchange ArtifactFrameRail GLB blob, consuming the residency manifest by content key
+├── motion/             # The route/layout transition and activity-preservation owner, the reduced-motion gate, and the shared pointer-gesture algebra
+└── overlay/            # The floating-surface positioning/anchor-bridge/dismiss owner and the collaborator-presence cohort over the convergence changefeed
 ```
+
+The `content` sub-domain is a genuine higher-order capability folder, not a top-level candidate: it owns the in-app command and styling-recipe surface (`cmdk`/`vaul`/`lucide-react`/`cva`/`twMerge`) at the same browser-library stratum as the other sub-domains, dialing only through the `interchange` `CommandGateway` and holding no domain state.
 
 Each page is one transcription unit per eventual source file. A new capability deepens the owning sub-domain through rows, cases, and policy values rather than a new public surface beside it. The page clusters transcribe into the TypeScript workspace at web app-root creation; `ui/**` never imports `platform/**`.

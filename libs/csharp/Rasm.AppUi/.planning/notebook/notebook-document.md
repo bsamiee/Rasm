@@ -16,15 +16,24 @@ The notebook rail is the reproducible computational-document model: `NotebookCel
 - Owner: `CapabilityPin` the pinned-capability fingerprint; `NotebookCell` `[Union]` the cell-kind family; `CellOutput` `[Union]` the materialized output; `Notebook` the cell sequence.
 - Cases: `NotebookCell` = Code | Markdown | Chart | Render | Viewpoint | Parameter under the locked kind literals; `CellOutput` = Receipt | Rows | Image | Timeline | Empty under the locked kind literals.
 - Entry: `public Fin<CellOutput> Evaluate(NotebookRuntime runtime, HashMap<string, CellOutput> upstream)` — `Fin` aborts on an unpinned capability or a missing upstream output; a code cell runs through the Compute dispatch under its pin.
-- Auto: every code and chart cell carries a `CapabilityPin` — the Compute capability key, the model or kernel checksum, the substrate, and the deterministic seed — so a cell records exactly the capability version it ran against and a re-run under a drifted capability is a detectable mismatch, never a silent re-result; markdown cells project through the typography `MarkdownProjection` so a documentation cell rides the one markdown vocabulary; chart and render cells bind their output to the chart and visual owners so a notebook output cell mints no second chart; parameter cells expose a typed binding the downstream cells read so a notebook is a live parameterized document.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Compute (project)
+- Auto: every code and chart cell carries a `CapabilityPin` composing the AppHost `DeterminismContext`/`EnvFingerprint` as its environment identity plus the Compute capability key and the model-or-kernel checksum — so a cell records exactly the determinism context (seed, float mode, host fingerprint) and the capability version it ran against, and a re-run under a drifted environment or capability is a detectable mismatch through `DeterminismKernel.Reproduces`, never a notebook-local checksum tuple and never a silent re-result; the notebook reproducibility-proof is one owner with the runtime determinism kernel — the pin's environment identity is the `EnvFingerprint.Digest` and a notebook-local environment hash is the deleted form; markdown cells project through the typography `MarkdownProjection` so a documentation cell rides the one markdown vocabulary; chart and render cells bind their output to the chart and visual owners so a notebook output cell mints no second chart; parameter cells expose a typed binding the downstream cells read so a notebook is a live parameterized document.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Compute (project), Rasm.AppHost (project)
 - Growth: a new cell kind is one `NotebookCell` case; a new output kind is one `CellOutput` case; a new pin field is one `CapabilityPin` member; zero new surface.
-- Boundary: the capability pin is the reproducibility law — a code or chart cell with no pin faults at evaluate so an unpinned cell can never enter the document, and the pin's checksum is the Compute model-or-kernel checksum so the notebook reproducibility rides the settled Compute determinism rather than a notebook-local hash; markdown cells route to the typography projection and chart/render cells to the chart and visual owners so the notebook composes existing output owners and a notebook-local renderer is the deleted form; code cells edit through the AvaloniaEdit `CodePane` so the notebook mints no second editor; the cell output is the typed `CellOutput` union and a stringly-typed output blob is the rejected form.
+- Boundary: the capability pin is the reproducibility law — a code or chart cell with no pin faults at evaluate so an unpinned cell can never enter the document, and the pin composes the `Rasm.AppHost/determinism/determinism-and-replay.md#DETERMINISM_KERNEL` `DeterminismContext`/`EnvFingerprint` as its environment identity plus the Compute model-or-kernel checksum, so the notebook reproducibility rides the settled runtime determinism kernel rather than a notebook-local hash — the `CapabilityPin.Matches` composes `DeterminismKernel.Reproduces` so a re-run under a divergent environment is detected before it produces a wrong result, and a parallel notebook-local checksum tuple is the rejected form; markdown cells route to the typography projection and chart/render cells to the chart and visual owners so the notebook composes existing output owners and a notebook-local renderer is the deleted form; code cells edit through the AvaloniaEdit `CodePane` so the notebook mints no second editor; the cell output is the typed `CellOutput` union and a stringly-typed output blob is the rejected form.
 
 ```csharp signature
-public readonly record struct CapabilityPin(string Capability, string Checksum, string Substrate, long Seed) {
+public readonly record struct CapabilityPin(
+    string Capability,
+    string Checksum,
+    string Substrate,
+    Rasm.AppHost.Determinism.DeterminismContext Context) {
+    public long Seed => unchecked((long)Context.Seed);
+
     public bool Matches(CapabilityPin other) =>
-        Capability == other.Capability && Checksum == other.Checksum && Substrate == other.Substrate;
+        Capability == other.Capability
+        && Checksum == other.Checksum
+        && Substrate == other.Substrate
+        && Rasm.AppHost.Determinism.DeterminismKernel.Reproduces(Context, other.Context);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -227,11 +236,11 @@ public sealed record NotebookCrdt(
 
 - Owner: `ReplayManifest` the pinned-input-and-capability manifest; `ReplayBundle` the export-to-replay artifact; `NotebookReplay` the bit-identity check.
 - Entry: `public static Fin<ReplayBundle> Export(Notebook notebook, HashMap<string, CellOutput> outputs, Func<string, IO<ReadOnlyMemory<byte>>> blob)` — `Fin` aborts when a code or chart cell carries no pin; the bundle packs the cells, the pinned capabilities, the input blobs, and the recorded outputs; `public static IO<Fin<bool>> Verify(ReplayBundle bundle, NotebookRuntime runtime)` — re-runs the notebook and compares each cell's output hash to the recorded hash.
-- Auto: the manifest records every cell's `CapabilityPin` and the content hash of every input blob so the bundle is self-contained — a replay resolves its capabilities from the manifest and its inputs from the packed blobs, never the live environment; `Verify` re-runs the dependency graph under the manifest's pins and asserts each output hash equals the recorded hash so a reproducibility regression surfaces as a named cell mismatch; the bundle is a versioned Persistence artifact so it crosses the blob lane as an opaque payload.
+- Auto: the manifest records every cell's `CapabilityPin` (carrying the AppHost `DeterminismContext`/`EnvFingerprint` environment identity) and the content hash of every input blob through the suite `XxHash128` identity row so the bundle is self-contained — a replay resolves its capabilities and determinism context from the manifest and its inputs from the packed blobs, never the live environment; `Verify` composes the AppHost `EventLog`/`ContentHash`/`ReplayVerify` content-hash identity rather than a notebook-local `hash(output)` fold — it re-runs the dependency graph under the manifest's pins through the one `evidence/diagnostics-evidence.md#HEADLESS_DERIVATION` `ProofEngine.Replay` route and proves each cell's output content hash matches the recorded hash so a reproducibility regression surfaces as a named cell mismatch, the notebook reproducibility receipt riding the existing `ReceiptEnvelopeWire`/`LogEntryWire` rather than a notebook-only wire shape; the bundle is a versioned Persistence artifact so it crosses the blob lane as an opaque payload.
 - Receipt: `Verify` seals a render or evidence receipt per re-run cell; a mismatch folds the cell id into the replay-mismatch instrument.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, NodaTime, Rasm.Persistence (project)
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, NodaTime, Rasm.Persistence (project), Rasm.AppHost (project)
 - Growth: a new manifest field is one `ReplayManifest` member; zero new surface.
-- Boundary: the bundle is self-contained — replay resolves capabilities and inputs from the manifest and packed blobs so a notebook reproduces independent of the live environment, and a replay that reaches the live store is the rejected form; the output identity is the content hash through the suite XxHash128 identity row so bit-identity is the verification law and a fuzzy float compare is the deleted form; the bundle crosses the Persistence blob lane as a versioned opaque artifact so the notebook mints no second store; the journal-replay determinism rides the diagnostics `ProofEngine.Replay` under virtual time so the replay reproducibility shares the settled deterministic-replay law and a notebook-local replay engine is the deleted form.
+- Boundary: the bundle is self-contained — replay resolves capabilities, the determinism context, and inputs from the manifest and packed blobs so a notebook reproduces independent of the live environment, and a replay that reaches the live store is the rejected form; the output identity is the content hash through the suite XxHash128 identity row composed as the AppHost `EventLog`/`ContentHash` content-addressed chain so bit-identity is the verification law and a fuzzy float compare is the deleted form; the bundle crosses the Persistence blob lane as a versioned opaque artifact so the notebook mints no second store; the notebook is a UI projection over the runtime determinism owner — the `Verify` composes `Rasm.AppHost/determinism/determinism-and-replay.md#REPLAY_VERIFY` `ReplayVerify.Replay` content-hash identity and the journal-replay determinism rides the diagnostics `ProofEngine.Replay` under virtual time so the replay reproducibility shares the settled deterministic-replay law, and a parallel reproducibility-hash fold or a notebook-local replay engine inside `notebook/` is the rejected form; the `RecomputePlan` cell DAG aligns to the `Rasm.AppHost/determinism/determinism-and-replay.md#RECOMPUTE_GRAPH` `RecomputeGraph` content-address node identity so the incremental-recompute law is one owner across the runtime and the document — a cell's content-address node identity is its command plus its upstream node hashes exactly as the runtime recompute graph keys it, and a second incremental-recompute owner is the deleted form.
 
 ```csharp signature
 public readonly record struct ReplayInput(string Key, string ContentHash, long Bytes);
@@ -239,21 +248,33 @@ public readonly record struct ReplayInput(string Key, string ContentHash, long B
 public sealed record ReplayManifest(
     string NotebookKey,
     int Version,
+    Rasm.AppHost.Determinism.DeterminismContext Context,
     Seq<CapabilityPin> Pins,
     Seq<ReplayInput> Inputs,
-    Seq<(string CellId, string OutputHash)> Outputs,
-    Instant At);
+    Seq<(string CellId, Rasm.AppHost.Determinism.ContentHash OutputHash, Seq<string> Inputs)> Outputs,
+    Instant At) {
+    public Rasm.AppHost.Determinism.RecomputeNode NodeOf(string cellId) =>
+        Outputs.Find(row => row.CellId == cellId).Match(
+            Some: row => new Rasm.AppHost.Determinism.RecomputeNode(row.OutputHash, cellId, row.Inputs.Bind(input => Outputs.Find(r => r.CellId == input).Map(static r => r.OutputHash).ToSeq())),
+            None: () => new Rasm.AppHost.Determinism.RecomputeNode(Rasm.AppHost.Determinism.ContentHash.Genesis, cellId, Seq<Rasm.AppHost.Determinism.ContentHash>()));
+}
 
 public sealed record ReplayBundle(ReplayManifest Manifest, Notebook Notebook, HashMap<string, ReadOnlyMemory<byte>> Blobs) {
-    public static Fin<ReplayBundle> Export(Notebook notebook, HashMap<string, CellOutput> outputs, HashMap<string, ReadOnlyMemory<byte>> blobs, Func<CellOutput, string> hash, ClockPolicy clocks) =>
+    public static Fin<ReplayBundle> Export(
+        Notebook notebook,
+        Rasm.AppHost.Determinism.DeterminismContext context,
+        HashMap<string, CellOutput> outputs,
+        HashMap<string, ReadOnlyMemory<byte>> blobs,
+        Func<CellOutput, Rasm.AppHost.Determinism.ContentHash> hash,
+        ClockPolicy clocks) =>
         notebook.Cells.Find(cell => cell.Inputs.Count > 0 && cell.Pin.IsNone) is { IsSome: true, Case: NotebookCell unpinned }
             ? Fin.Fail<ReplayBundle>(new NotebookFault.CapabilityDrift($"{unpinned.Id}: code cell carries no capability pin"))
             : Fin.Succ(new ReplayBundle(
                 new ReplayManifest(
-                    notebook.Key, notebook.Version,
+                    notebook.Key, notebook.Version, context,
                     notebook.Cells.Bind(cell => cell.Pin.ToSeq()),
                     toSeq(blobs).Map(entry => new ReplayInput(entry.Key, Convert.ToHexStringLower(XxHash128.Hash(entry.Value.Span)), entry.Value.Length)),
-                    toSeq(outputs).Map(entry => (entry.Key, hash(entry.Value))),
+                    notebook.Cells.Filter(cell => outputs.ContainsKey(cell.Id)).Map(cell => (cell.Id, hash(outputs[cell.Id]), cell.Inputs)),
                     clocks.Now),
                 notebook, blobs));
 }
@@ -264,13 +285,20 @@ public static class NotebookReplay {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, MismatchInstrument);
 
-    public static IO<Fin<Seq<string>>> Verify(ReplayBundle bundle, NotebookRuntime runtime, Func<CellOutput, string> hash) =>
-        IO.lift(() => DependencyGraph.Build(bundle.Notebook).Bind(graph => graph.Dirty(bundle.Notebook.Cells.Head.Id)))
-            .Bind(plan => plan.Match(
-                Succ: order => Recompute(bundle, runtime, hash, order),
-                Fail: error => IO.pure(Fin.Fail<Seq<string>>(error))));
+    public static IO<Fin<Seq<string>>> Verify(
+        ReplayBundle bundle,
+        NotebookRuntime runtime,
+        Rasm.AppHost.Determinism.DeterminismContext live,
+        Func<CellOutput, Rasm.AppHost.Determinism.ContentHash> hash) =>
+        Rasm.AppHost.Determinism.DeterminismKernel.Reproduces(bundle.Manifest.Context, live)
+            ? IO.lift(() => DependencyGraph.Build(bundle.Notebook).Bind(graph => graph.Dirty(bundle.Notebook.Cells.Head.Id)))
+                .Bind(plan => plan.Match(
+                    Succ: order => Recompute(bundle, runtime, hash, order),
+                    Fail: error => IO.pure(Fin.Fail<Seq<string>>(error))))
+            : IO.pure(Fin.Fail<Seq<string>>(new NotebookFault.CapabilityDrift(
+                $"replay/environment-mismatch:{bundle.Manifest.Context.Fingerprint.Digest}!={live.Fingerprint.Digest}")));
 
-    static IO<Fin<Seq<string>>> Recompute(ReplayBundle bundle, NotebookRuntime runtime, Func<CellOutput, string> hash, RecomputePlan plan) =>
+    static IO<Fin<Seq<string>>> Recompute(ReplayBundle bundle, NotebookRuntime runtime, Func<CellOutput, Rasm.AppHost.Determinism.ContentHash> hash, RecomputePlan plan) =>
         IO.lift(() => DependencyGraph.Build(bundle.Notebook)
             .Bind(graph => graph.Recompute(bundle.Notebook, runtime, plan, HashMap<string, CellOutput>()))
             .Map(outputs => bundle.Manifest.Outputs
@@ -294,3 +322,4 @@ flowchart LR
 ## [6]-[RESEARCH]
 
 - [NOTEBOOK_CAPABILITY]: the Compute capability-registry key and checksum surface the `CapabilityPin` records — the capability identity (kernel/model checksum, substrate, opset) the pin matches against, resolved at implementation against the settled Compute model-lane and intent-selection vocabulary; the cell union, the dependency-graph dirty fold, the CRDT merge, and the replay bundle are settled, the exact capability-registry member shape the `VerifyPin` delegate reads is the unverified surface.
+- [NOTEBOOK_DETERMINISM]: the `CapabilityPin` composes the `Rasm.AppHost/determinism/determinism-and-replay.md#DETERMINISM_KERNEL` `DeterminismContext`/`EnvFingerprint` and `DeterminismKernel.Reproduces` as its environment identity, the `ReplayManifest`/`NotebookReplay.Verify` composes the `#EVENT_LOG` `ContentHash` content-addressed identity and the `#REPLAY_VERIFY` `ReplayVerify.Replay` per-step proof through the diagnostics `ProofEngine.Replay` route, and the `RecomputePlan` cell DAG aligns to the `#RECOMPUTE_GRAPH` `RecomputeNode` content-address node identity — these AppHost determinism members arrive as settled finalized vocabulary consumed at the package edge, so the notebook reproducibility-proof is one owner with the runtime determinism kernel and the `Rasm.AppHost.Determinism` namespace and exact member spellings resolve against the finalized determinism surface, never re-minted.

@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `stamina`
 - package: `stamina`
 - import: `stamina`
-- version: `26.1.0`
 - owner: `runtime`
 - rail: resilience
 - namespaces: `stamina`, `stamina.instrumentation`, `stamina.typing`

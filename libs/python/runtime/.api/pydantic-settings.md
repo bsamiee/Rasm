@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `pydantic-settings`
 - package: `pydantic-settings`
 - import: `pydantic_settings`
-- version: `2.14.1`
 - owner: `runtime`
 - rail: validation
 - namespaces: `pydantic_settings`, `pydantic_settings.sources`
@@ -78,7 +77,7 @@
 
 [LOCAL_ADMISSION]:
 - The context-admission surface receives the validated settings model as a caller-owned value; the runtime resolves no host profile or global clock from it.
-- Model and validator semantics arrive settled from `.api/api-pydantic.md`; this page owns only the source-chain surface.
+- Model and validator semantics arrive settled from `.api/pydantic.md`; this page owns only the source-chain surface.
 - Cloud secret-manager sources are admitted rows on the priority chain, never separate credential fetchers.
 
 [RAIL_LAW]:

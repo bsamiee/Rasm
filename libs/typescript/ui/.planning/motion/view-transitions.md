@@ -16,6 +16,11 @@ One cluster: `VIEW_TRANSITIONS` owns the `SurfaceTransition` lifecycle union and
 - Boundary: a `RouteTransition`/`ActivitySurface` pair of sibling components beside the one `SurfaceTransition` union is the named defect the fold deletes; a manual FLIP or a hand-rolled animation-frame transition beside the `swap` case is the named defect; a teardown/rebuild of a heavy surface on route or tab switch instead of the `preserve` case is the named defect; the gesture algebra is the `motion/gesture-algebra.md` owner, not this page, and a pointer handler here is the named defect.
 
 ```ts contract
+import * as React from "react";
+import { Data } from "effect";
+// `ViewTransition`/`Activity` are the React 19.2 exotics absent from the branch `react.md`
+// catalogue — admitted-on-precondition, named below as the target import, not yet verified.
+
 type SurfaceTransition = Data.TaggedEnum<{
   readonly swap: { readonly route: string; readonly children: React.ReactNode };
   readonly preserve: { readonly visible: boolean; readonly children: React.ReactNode };
@@ -30,4 +35,6 @@ const mountSurface = (transition: SurfaceTransition): React.ReactElement =>
   });
 ```
 
-RESEARCH [VIEW_TRANSITION_ACTIVITY]: the React `<ViewTransition>` and `<Activity>` component import paths and props (`name`/`mode`/`enter`/`exit`/`update`), the `useEffectEvent` hook signature, and the native `document.startViewTransition` contract are unverified; the component props and the View Transitions API binding stay RESEARCH until the folder `.api/` catalogue carries the `<Activity>`/`<ViewTransition>`/`useEffectEvent` rows.
+The `useEffectEvent<T extends Function>(callback)` non-reactive event hook is verified on the branch `react.md` catalogue (entrypoint row [18]) — the transition callback rides it so the effect dependency set stays minimal.
+
+RESEARCH [VIEW_TRANSITION_ACTIVITY]: the React `<ViewTransition>` and `<Activity>` component exotics and their props (`name`/`mode`/`enter`/`exit`/`update`) and the `react-dom` `addTransitionType`/native `document.startViewTransition` binding are absent from the branch `react.md`/`react-dom.md` catalogues; the component symbols stay RESEARCH until the catalogue carries the `<Activity>`/`<ViewTransition>` rows — the React 19.2 exotics are admitted-on-precondition and the fence above names them as the target shape, not a verified import. The `mountSurface` `$match` fold and the `SurfaceTransition` union are the settled owner regardless of the final component import path.

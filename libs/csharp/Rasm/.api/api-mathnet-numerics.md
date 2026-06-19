@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_MATHNET_NUMERICS]
+# [RASM_API_MATHNET_NUMERICS]
 
 `MathNet.Numerics` supplies continuous and discrete probability distributions over
 `IContinuousDistribution` / `IDiscreteDistribution`, numerical quadrature via

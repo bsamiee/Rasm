@@ -1,6 +1,6 @@
 # [PLATFORM_BUILD_PIPELINE]
 
-One page owns the build and asset-emit pipeline — `BuildPipeline`, the Vite plugin set, the styling and PWA-asset emit, and the production stripping of the development atom inspector. `BuildPipeline` produces the co-hosted same-origin bundle and EMITS the service-worker asset; `offline-cache`'s `ServiceWorkerHost` owns the worker's runtime lifecycle, never re-emitting the asset — the two are distinct altitudes over one concern. The page holds no domain state and authors no decode.
+One page owns the build and asset-emit pipeline — `BuildPipeline`, the Vite plugin set, the styling and PWA-asset emit, and the production stripping of the development atom inspector. `BuildPipeline` produces the co-hosted same-origin bundle and EMITS the service-worker asset; `offline-cache`'s `ServiceWorkerHost` owns the worker's runtime lifecycle, never re-emitting the asset — the two are distinct altitudes over one concern. `BuildPipeline` is BUILD-TIME-ONLY — the main-thread-offload decode pool relocated to the operator-named `worker/` top-level leg, so `build-pipeline/` owns no worker runtime and the `decode.worker.ts` entry the bundle resolves is the `worker/` leg the `runtime-composition` `BrowserPlatform` spawner constructs. The page holds no domain state and authors no decode.
 
 ## [1]-[INDEX]
 

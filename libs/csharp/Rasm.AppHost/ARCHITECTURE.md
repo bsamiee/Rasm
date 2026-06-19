@@ -16,10 +16,10 @@ Rasm.AppHost/
 ├── configuration/       Ranked config-source chain, fail-closed source-gen binding to frozen policy, reload-class-gated publish, operator kill-switch, and the one composition root that folds and freezes the service graph.
 │   ├── configuration-and-options.md
 │   └── composition-and-modules.md
-├── coordination/        [PLANNED] Distributed single-writer election with monotone fencing tokens over the HLC cursor and roster epoch; the fenced-lease owner the maintenance lease, fleet-roll conductor, and write-forward seam acquire.
+│                         coordination: single-writer election with monotone fencing tokens is the `time/time-and-deadlines.md` `[FENCING_TOKEN]` row cluster over `SchedulePort`/`LeasePolicy.Maintenance`, never a sub-domain — identity/coordination concerns land as ROWS on the temporal owner.
 ├── resources/           Bounded runtime resource lanes: lane-keyed hybrid cache with stampede single-flight, delegate-row object pools, and bounded drainable queues with receipted loss.
 │   └── resource-lanes.md
-├── secrets/             [PLANNED] Credential lifecycle: short-lived-credential acquisition, deadline-class lease renewal, drain-time zeroization, and rotation receipts over the config, schedule, and redaction owners.
+│                         secrets: the credential lifecycle (acquisition, deadline-class lease renewal, drain-time zeroization, rotation receipts) is the `configuration/configuration-and-options.md` `[SECRET_LEASE]` row cluster extending `ConfigSource.SecretsStore`, never a sub-domain — credential concerns land as ROWS on the configuration owner.
 ├── observability/       Unified four-signal telemetry (traces/metrics/logs/profiles) through minted identities, redaction at every egress, the resource-pressure health fold, the degradation/alert rails, and bounded redacted support capture.
 │   ├── diagnostics-and-telemetry.md
 │   ├── health-and-degradation.md
@@ -34,12 +34,14 @@ Rasm.AppHost/
 │   └── companion-sidecar.md
 ├── capability/          The self-describing op catalog: typed CapabilityDescriptor rows projecting effect/idempotency/cost/permission, the shape-discriminated discovery fold, the commit-or-rollback command algebra, the grant/cost broker metering a typed permission × scope × ceiling × window predicate with a signed grant attestation, and polyglot C#/TS/Python SDK codegen off one descriptor source.
 │   └── registry.md
-├── agent/               The agent-facing projection of the capability registry onto the official MCP C# SDK: descriptor-to-AIFunction tools/resources/prompts, brokered dry-run dispatch, sampling, elicitation, and SSE-resumable long-running streaming.
-│   └── mcp-projection.md
+├── agent/               The bidirectional agent surface over the capability registry: the MCP-server projection (descriptor-to-AIFunction tools/resources/prompts, brokered dry-run dispatch, sampling, elicitation, SSE-resumable streaming), the MCP-client federation that folds external servers' tools into the one registry as brokered descriptors, and the in-process reasoning runtime (IChatClient function-calling, embedding-ranked intent discovery, replayable transcript).
+│   ├── mcp-projection.md
+│   ├── tool-federation.md       (planned — consumes external MCP servers, folding peer tools/resources/prompts; T-AGENT-TOOL-FEDERATION)
+│   └── reasoning-runtime.md     (planned — in-process agent loop + model governance: metered/cached/replayable IChatClient middleware; T-AGENT-REASONING-RUNTIME, T-GENAI-MODEL-GOVERNANCE)
 ├── sandbox/             Capability-brokered plugin isolation (wasmtime-dotnet WASM component-model + process), no-ambient-authority grant handles, per-plugin quota/kill/quarantine, fail-closed supply-chain attestation gate, and the seven-kind solver-plugin contract with canonical-representation negotiation.
 │   ├── sandbox-host.md
 │   └── solver-plugin.md
-├── live-wire/           The reactive bidirectional external-binding studio: industrial-transport axis (OPC-UA/Modbus/MQTT/serial) over the certified OPC-UA + MQTTnet stack, edge unit coercion through the Compute unit algebra, and transactional write-back with acknowledgement/rollback.
+├── live-wire/           The reactive bidirectional external-binding studio: industrial-transport axis (OPC-UA/Modbus/MQTT/serial/REST/GraphQL/spreadsheet/ERP-PLM) over the certified OPC-UA + MQTTnet stack, the FluentModbus managed Modbus client, and the System.IO.Ports serial line, edge unit coercion through the Compute unit algebra, and transactional write-back with acknowledgement/rollback.
 │   └── live-wire.md
 └── determinism/         The reproducibility kernel: pinned RNG/float-mode/environment-fingerprint, the hash-chained content-addressed command log over the durable op-log, replay-verify with per-step content-hash proof, macro record/replay, and partial content-address recompute.
     └── determinism-and-replay.md
@@ -99,7 +101,8 @@ The closed NEVER list — the deleted patterns the owner regions foreclose.
 - NEVER a process-static `Meter` or `ActivitySource` outliving its provider; never Serilog types below composition roots; never OTLP exporter pins below service app roots.
 - NEVER a hand-written STJ converter beside the generated Thinktecture and NodaTime converters; never an unredacted classified value at an exporter or bundle seam.
 - NEVER posix traps or single-instance enforcement on plugin rows; host-attach injection drives phases there.
-- NEVER a hand-rolled MCP JSON-RPC transport beside the official SDK, or a hand-rolled OPC-UA/MQTT/WASM client beside the certified stack.
+- NEVER a hand-rolled MCP JSON-RPC transport beside the official SDK, or a hand-rolled OPC-UA/MQTT/Modbus/serial/WASM client beside the certified stack (OPC-UA + MQTTnet + FluentModbus + System.IO.Ports + wasmtime-dotnet); a federated external MCP server's tools, resources, and prompts enter only as brokered `CapabilityDescriptor` rows through the one registry, never as an unbrokered side channel or a second tool catalog, and the in-process reasoning loop reuses the one brokered `CommandAIFunction` tool-adoption seam, never a second tool projection.
+- NEVER an opaque model call: every `IChatClient` invocation (the in-process reasoning loop and the MCP server-sampling leg) composes the one `Microsoft.Extensions.AI` middleware pipeline — a model call is metered in `CostUnit.ModelTokens` through the `GrantBroker`, content-cached over the resources-lane `HybridCache`, traced through the GenAI span, and content-addressed into the `EventLog`; a second model cache, a per-call OTel span beside the decorators, or an unmetered un-ledgered model draw is the deleted form.
 - NEVER a second op-metadata owner beside `CapabilityDescriptor`, a second permission-and-cost owner beside `GrantBroker`, an in-process third-party plugin outside the WASM/process isolation boundary, or a plugin-private geometry representation; a plugin speaks the Compute canonical `EncodedTensor` and dispatches through the command algebra.
 - NEVER a second RNG or non-chained event log: `DeterminismContext` owns the seed and float mode, `EventLog` is the single hash-chained content-addressed command log riding the durable `OpLog`.
 - NEVER a second notification sender, external-binding poller, alerting owner, or power monitor: `DeliveryFanout`, `ExternalTransport`/`LiveWire`, `AlertEngine`, and `FidelityScale` are read consumers of the existing hop/health/power signals, never parallel state machines.

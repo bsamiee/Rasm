@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_CSPARSE]
+# [RASM_API_CSPARSE]
 
 `CSparse` supplies direct sparse Cholesky, LDL', LU, and QR factorizations over
 CSC-backed `CompressedColumnStorage<T>`, COO ingestion via `CoordinateStorage<T>`,

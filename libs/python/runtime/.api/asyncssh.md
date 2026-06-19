@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `asyncssh`
 - package: `asyncssh`
 - import: `asyncssh`
-- version: `2.23.1`
 - owner: `runtime`
 - rail: transport
 - namespaces: `asyncssh`, `asyncssh.connection`, `asyncssh.sftp`, `asyncssh.process`, `asyncssh.public_key`

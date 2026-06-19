@@ -82,12 +82,21 @@ Traversal is rail policy: the collection shape and the sequencing combinator tog
 - Reject: `Effect.allSuccesses` where a discarded failure is a silent correctness loss; an index-threaded fold unless the fold carries algorithm state.
 
 ```ts conceptual
-import { Array as A, Effect } from "effect"
+import { Array as A, Data, Effect, Equal, Schema as S } from "effect"
 
-const traverseRaw = (raw: ReadonlyArray<string>) =>
-  Effect.forEach(raw, (value, index) => _admitCode(value).pipe(Effect.map((code) => ({ code, score: index + 1 }))), { concurrency: "inherit" }).pipe(
-    Effect.flatMap((inputs) => Effect.forEach(inputs, (input) => _strict(input))),
-    Effect.map((receipts) => A.dedupeWith(receipts, (l, r) => l.code === r.code)),
+const Code = S.NonEmptyString.pipe(S.brand("Code"))
+class Input extends S.Class<Input>("Input")({ code: Code, score: S.Positive }) {} // Schema.Class: Equal/Hash auto-derived for structural dedupe
+class AdmitFault extends Data.TaggedError("AdmitFault")<{ readonly stage: "code" | "strict"; readonly at: number }> {}
+
+const _admit = (value: string, at: number) => // decode-once: brand + position fused, ParseError lifts to the typed fault at one seam
+  S.decodeUnknown(Input)({ code: value, score: at + 1 }).pipe(Effect.mapError(() => new AdmitFault({ stage: "code", at })))
+const _strict = (input: Input) => // admitted owner in, typed receipt out; filterOrFail is the mid-pipeline guard, not a throwing branch
+  Effect.succeed(input).pipe(Effect.filterOrFail((i) => i.score <= 64, (i) => new AdmitFault({ stage: "strict", at: i.score })))
+
+const traverseRaw = (raw: ReadonlyArray<string>) => // forEach is the abort-on-first sequencing policy; concurrency is parallelism, not failure semantics
+  Effect.forEach(raw, _admit, { concurrency: "inherit" }).pipe(
+    Effect.flatMap((inputs) => Effect.forEach(inputs, _strict, { concurrency: "inherit" })),
+    Effect.map((receipts) => A.dedupeWith(receipts, Equal.equals)), // structural dedupe over branded owners, never a delimiter-joined key
   )
 ```
 
@@ -142,7 +151,6 @@ const boundaryClose = (op: StoreFault["op"]) =>
         Schedule.whileInput((cause: Cause.Cause<E>) => !Cause.isInterruptedOnly(cause) && Option.isNone(Cause.keepDefects(cause))),
       )),
       Effect.mapError((cause) => new StoreFault({ op, origin: Cause.isInterruptedOnly(cause) ? "interrupt" : Option.isSome(Cause.keepDefects(cause)) ? "defect" : "fail" })),
-      Effect.unsandbox,
       Effect.withSpan(`boundary.${op}`),
     )
 ```
@@ -166,8 +174,10 @@ An Effect carries its required context `R`; the runtime resolves it once at the 
 - Reject: resource lifetime hidden behind ordinary domain state; a finalizer running long token-aware work.
 
 ```ts conceptual
-import { Duration, Effect, Queue, Schedule } from "effect"
+import { Data, Duration, Effect, Queue, Schedule } from "effect"
 import { SqlClient } from "@effect/sql"
+
+class _StoreFault extends Data.TaggedError("StoreFault")<{ readonly op: "query" }> {} // timeout collapses to a typed fault, never a bare rejection
 
 class StoreService extends Effect.Service<StoreService>()("domain/Store", {
   scoped: Effect.gen(function* () {
@@ -214,7 +224,7 @@ import { Option, STM, TMap, TQueue } from "effect"
 const claim = (queue: TQueue.TQueue<string>, lease: TMap.TMap<string, number>, cap: number) =>
   STM.commit(
     TQueue.take(queue).pipe(
-      STM.tap(() => TMap.size(lease).pipe(STM.flatMap((held) => STM.check(held < cap)))),
+      STM.tap(() => TMap.size(lease).pipe(STM.flatMap((held) => STM.check(() => held < cap)))),
       STM.tap((id) => TMap.updateWith(lease, id, Option.match({ onNone: () => Option.some(1), onSome: (n) => Option.some(n + 1) }))),
       STM.flatMap((id) => STM.map(TMap.size(lease), (held) => ({ id, held }))),
     ),
@@ -227,20 +237,24 @@ const claim = (queue: TQueue.TQueue<string>, lease: TMap.TMap<string, number>, c
 - Law: keep a typed receipt when fields carry solver, sampling, route, status, metric, or proof evidence; `Ref<Receipt>` holds the latest, history escalates to `Ref<Chunk<Receipt>>`.
 
 ```ts conceptual
-import { Chunk, Data, HashMap, Number as N, Option, Ref } from "effect"
+import { Chunk, Data, HashMap, Number as N, Option, Order, Ref } from "effect"
 
-class Receipt extends Data.TaggedClass("Receipt")<{
-  readonly kind: "added" | "updated" | "removed" | "errored" // one fact stream; slot/kind discriminate, no parallel record per bucket
+const KIND = { added: 1, updated: 1, removed: 1, errored: 3 } as const // one vocabulary row carries the dominance weight; no ambient rank
+class Receipt extends Data.TaggedClass("Receipt")<{ // one fact stream; the kind+slot discriminant retires a parallel record per bucket
+  readonly kind: keyof typeof KIND
   readonly slot: string
   readonly weight: number
 }> {
-  static readonly tally = (log: Chunk.Chunk<Receipt>): HashMap.HashMap<Receipt["kind"], number> => // pure fold, never four counters
+  static readonly bySeverity: Order.Order<Receipt> = Order.mapInput(Order.number, (r) => KIND[r.kind]) // vocabulary ordinal lifted into an Order
+  static readonly tally = (log: Chunk.Chunk<Receipt>): HashMap.HashMap<Receipt["kind"], number> => // one keyed fold retires four counters
     Chunk.reduce(log, HashMap.empty<Receipt["kind"], number>(), (acc, r) =>
       HashMap.modifyAt(acc, r.kind, Option.match({ onNone: () => Option.some(1), onSome: (n) => Option.some(n + 1) })))
-  static readonly mass = (log: Chunk.Chunk<Receipt>) => Chunk.reduce(log, 0, (sum, r) => N.sum(sum, r.weight))
+  static readonly dominant = (log: Chunk.Chunk<Receipt>): Option.Option<Receipt> => // lattice-join is the Order.max fold, never a first-wins scan
+    Chunk.reduce(log, Option.none<Receipt>(), (top, r) => Option.some(Option.match(top, { onNone: () => r, onSome: (m) => Order.max(Receipt.bySeverity)(m, r) })))
+  static readonly mass = (log: Chunk.Chunk<Receipt>): number => Chunk.reduce(log, 0, (sum, r) => N.sum(sum, r.weight))
 }
 
-const _emit = (cell: Ref.Ref<Chunk.Chunk<Receipt>>, fact: Receipt) => Ref.update(cell, Chunk.append(fact)) // append-only history cell
+const _emit = (cell: Ref.Ref<Chunk.Chunk<Receipt>>, fact: Receipt) => Ref.update(cell, Chunk.append(fact)) // append-only history cell, one swap per fact
 ```
 
 ## [7]-[CARRIER_INTEROP]

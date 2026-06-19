@@ -6,8 +6,8 @@ Persistent topological naming that survives rebuilds: one `TopoName` lineage ref
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]   | [OWNS]                                                                                          |
-| :-----: | :---------- | :--------------------------------------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]   | [OWNS]                                                                                               |
+| :-----: | :---------- | :--------------------------------------------------------------------------------------------------- |
 |   [1]   | TOPO_NAMING | One `TopoName` lineage algebra; `NameTable` generation registry; `Track` re-anchor-by-signature fold |
 
 ## [2]-[TOPO_NAMING]
@@ -19,7 +19,7 @@ Persistent topological naming that survives rebuilds: one `TopoName` lineage ref
 - Receipt: `Track` returns the next-generation `NameTable` directly (the registry IS the receipt — birth/last-seen generations and parent provenance are the per-name lineage evidence); no parallel tracking ledger.
 - Packages: `Rasm`/Vectors (`MeshSpace`, native `Mesh` topology — composed), Thinktecture.Runtime.Extensions, LanguageExt.Core, `System.IO.Hashing` (`XxHash128`), BCL inbox.
 - Growth: a new entity modality is one `EntityKind` row with its signature-arity column and one signature-builder arm; a new lineage outcome (e.g. `Merged` for a face-merge re-bind) is one `TrackOutcome` case on the existing fold; zero new surface — never a fourth `*Name` value object.
-- Boundary: `TopoName` is the ONE naming value object over all entity kinds and a `VertexName`/`EdgeName`/`FaceName` triple is the deleted form — the modality is the `Kind` column; `TopoSignature` is position-free (built from incident NAMES and kind histograms, never coordinates) so a rigid transform preserves every name and only an adjacency change re-anchors, which is exactly the `GeometryHash` morph-vs-topology-break distinction read from the same canonical adjacency; the re-anchor reads the prior `SignatureIndex` and a per-rebuild O(n·m) signature cross-scan is the named defect; `Track` is total over the `Fin` rail and a thrown collision is forbidden — a non-injective name resolution routes `GeometryFault.NameCollision`, where the sibling-owned `GeometryFault` (`faults/faults.md`, band 2400) is an `Error`-derived union so `GeometryFault.NameCollision(...).ToError()` is the `Fin<T>` failure channel and no separate error type sits in the rail; the name is a content-address-derived `UInt128` but it is a REFERENCE identity (which entity, lineage-stable across generations), orthogonal to the `GeometryHash` CONTENT identity (what shape, change-sensitive) — minting a second content hash here is the deleted form, and `TopoName.Value` is NEVER equality-tested against a `NameAddress.ContentHash` even though both are raw `UInt128` (the reference and content axes never compare cross-axis); the `Migrated` parent is resolved by the stored `NameEntry.Boundary` column (never re-derived) with a deterministic smallest-`TopoName` tiebreak so a face split into n children selects one stable lineage parent; the `NameTable` is immutable and `Track` returns the next generation, never an in-place mutation of the prior table.
+- Boundary: `TopoName` is the ONE naming value object over all entity kinds and a `VertexName`/`EdgeName`/`FaceName` triple is the deleted form — the modality is the `Kind` column; `TopoSignature` is position-free (built from incident NAMES and kind histograms, never coordinates) so a rigid transform preserves every name and only an adjacency change re-anchors, which is exactly the `GeometryHash` morph-vs-topology-break distinction read from the same canonical adjacency; the re-anchor reads the prior `SignatureIndex` and a per-rebuild O(n·m) signature cross-scan is the named defect; `Track` is total over the `Fin` rail and a thrown collision is forbidden — a non-injective name resolution routes `GeometryFault.NameCollision`, where the sibling-owned `GeometryFault` (`faults/faults.md`, band 2400) lowers into the `Error` rail through `ToError()` so `GeometryFault.NameCollision(...).ToError()` is the `Fin<T>` failure channel and no separate error type sits in the rail; the name is a content-address-derived `UInt128` but it is a REFERENCE identity (which entity, lineage-stable across generations), orthogonal to the `GeometryHash` CONTENT identity (what shape, change-sensitive) — minting a second content hash here is the deleted form, and `TopoName.Value` is NEVER equality-tested against a `NameAddress.ContentHash` even though both are raw `UInt128` (the reference and content axes never compare cross-axis); the `Migrated` parent is resolved by the stored `NameEntry.Boundary` column (never re-derived) with a deterministic smallest-`TopoName` tiebreak so a face split into n children selects one stable lineage parent; the `NameTable` is immutable and `Track` returns the next generation, never an in-place mutation of the prior table.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------------
@@ -150,13 +150,13 @@ public static class TopoNaming {
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS/CONCERN]            | [OWNER]            | [KIND]                                                                | [RAIL]                                          | [CASES] |
-| :-----: | :------------------------ | :---------------- | :------------------------------------------------------------------- | :--------------------------------------------- | :-----: |
-|   [1]   | Entity modality           | `EntityKind`      | `[SmartEnum<int>]` Vertex/Edge/Face + signature-arity column          | discriminant (pure)                            |    3    |
-|   [2]   | Re-anchor outcome         | `TrackOutcome`    | `[Union]` Survived/Migrated/Born                                      | carrier (returned in `Track` rail)             |    3    |
-|   [3]   | Topological fingerprint   | `TopoSignature`   | `[ValueObject<UInt128>]` position-free incident-name/kind digest + `Subsumes` | `TopoSignature.Of → TopoSignature` (pure)      |    —    |
-|   [4]   | Stable lineage reference  | `TopoName`        | `[ValueObject<UInt128>]` one naming algebra over all kinds + `Mint`   | `TopoName.Mint → TopoName` (pure)              |    —    |
-|   [5]   | Naming registry + re-anchor | `NameTable`/`TopoNaming` | immutable registry + signature index + `VertexNames` row + `Track` fold | `TopoNaming.Track → Fin<NameTable>`            |    3    |
+| [INDEX] | [AXIS/CONCERN]              | [OWNER]                  | [KIND]                                                                        | [RAIL]                                    | [CASES] |
+| :-----: | :-------------------------- | :----------------------- | :---------------------------------------------------------------------------- | :---------------------------------------- | :-----: |
+|   [1]   | Entity modality             | `EntityKind`             | `[SmartEnum<int>]` Vertex/Edge/Face + signature-arity column                  | discriminant (pure)                       |    3    |
+|   [2]   | Re-anchor outcome           | `TrackOutcome`           | `[Union]` Survived/Migrated/Born                                              | carrier (returned in `Track` rail)        |    3    |
+|   [3]   | Topological fingerprint     | `TopoSignature`          | `[ValueObject<UInt128>]` position-free incident-name/kind digest + `Subsumes` | `TopoSignature.Of → TopoSignature` (pure) |    —    |
+|   [4]   | Stable lineage reference    | `TopoName`               | `[ValueObject<UInt128>]` one naming algebra over all kinds + `Mint`           | `TopoName.Mint → TopoName` (pure)         |    —    |
+|   [5]   | Naming registry + re-anchor | `NameTable`/`TopoNaming` | immutable registry + signature index + `VertexNames` row + `Track` fold       | `TopoNaming.Track → Fin<NameTable>`       |    3    |
 
 ## [4]-[RESEARCH]
 

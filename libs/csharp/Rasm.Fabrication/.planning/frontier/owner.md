@@ -17,7 +17,7 @@ One cluster: `[2]-[FABRICATION_OWNER]` owns the `FrontierPolicy`/`FrontierResult
 - Receipt: `FrontierResult` IS the typed evidence — `HiddenLineResult` carries the visible/hidden/silhouette edge partition, `Motion` carries the ordered move list plus the joint-angle stream and the IK convergence residual, `Placement` carries the per-part transform and the sheet utilization scalar; no generic fabrication ledger, each kind carries its own typed result.
 - Packages: `Rasm`/Vectors (`MeshSpace`/`Point3d`/`Vector3d`/`Matrix` — composed), `Rasm.Geometry.Numerics` (`Predicate.Orient2D`/`Sign` — settled kernel), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new frontier is one `FrontierPolicy` case + one `FrontierResult` case + one `Run` `Switch` arm lowering to its kernel fold; the generated dispatch breaks the build until the arm lands; zero new entrypoint surface.
-- Boundary: the frontier is the ONE polymorphic `Fabrication` owner and a per-concern projector/post/packer class triple is the deleted form — the three concerns differ only in their kernel fold, never in their entrypoint, so `Run` dispatches by `FrontierPolicy` case through the generated total `Switch`; the `FrontierPolicy` union case is the ONE frontier discriminant and a parallel `FrontierKind` string `[SmartEnum]` carrying the same `project`/`toolpath`/`place` axis the union already cases is the deleted form — the generated `Switch` reads the union case directly, never a second key the case projects onto, and a `Type`-keyed `FrozenDictionary` dispatch is the rejected form because it loses the compile-time totality the closed family owns; the shared `Loop`/`Edge3`/`Move`/`PartTransform`/`FrontierInput` atoms live here and every kernel composes them, never re-mints a parallel atom; segment intersection and convex orientation read the settled `Predicate.Orient2D` exact sign and a naive `double` cross-product sign at the call site is the named robustness defect — a sign verdict is exact or it is a defect; the interior coordinate doubles inside every kernel are the sanctioned native-scalar posture and a unit-bearing quantity in a kernel signature is the seam violation.
+- Boundary: the frontier is the ONE polymorphic `Fabrication` owner and a per-concern projector/post/packer class triple is the deleted form — the three concerns differ only in their kernel fold, never in their entrypoint, so `Run` dispatches by `FrontierPolicy` case through the generated total `Switch`; the `FrontierPolicy` union case is the ONE frontier discriminant and a parallel `FrontierKind` string `[SmartEnum]` carrying the same `project`/`toolpath`/`place` axis the union already cases is the deleted form — the generated `Switch` reads the union case directly, never a second key the case projects onto, and a `Type`-keyed `FrozenDictionary` dispatch is the rejected form because it loses the compile-time totality the closed family owns; the shared `Loop`/`Edge3`/`Move`/`PartTransform`/`FrontierInput` atoms live here and every kernel composes them, never re-mints a parallel atom — the `Loop.Covers` exact point-in-CCW-polygon containment is the ONE owner the nesting `Remnant.Holds`/`NoFitPolygon.Feasible`, the posting `Encloses`, and the fixturing `ExclusionZone.Covers` all read, never a per-page hand-rolled `Orient2D` containment loop; segment intersection and convex orientation read the settled `Predicate.Orient2D` exact sign and a naive `double` cross-product sign at the call site is the named robustness defect — a sign verdict is exact or it is a defect; the interior coordinate doubles inside every kernel are the sanctioned native-scalar posture and a unit-bearing quantity in a kernel signature is the seam violation.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -46,6 +46,13 @@ public sealed record Loop(Arr<Point3d> Vertices, bool Closed) {
 
     public Loop AsCcw() => Winding() == Sign.Negative ? this with { Vertices = Vertices.Rev().ToArr() } : this;
     public BoundingBox Bound() => new(Vertices);
+
+    public bool Covers(Point3d p) {
+        Loop ccw = AsCcw();
+        for (int i = 0; i < ccw.Count; i++)
+            if (Predicate.Orient2D(ccw.At(i), ccw.At(i + 1), p) == Sign.Negative) return false;
+        return true;
+    }
 }
 
 public readonly record struct Edge3(Point3d A, Point3d B);

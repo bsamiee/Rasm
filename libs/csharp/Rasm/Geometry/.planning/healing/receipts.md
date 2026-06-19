@@ -6,9 +6,9 @@ The `RebuildReceipt` chain on the `HealSession` crosses only the in-process seam
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                                              |
-| :-----: | :---------------- | :------------------------------------------------------------------------------------------------- |
-|   [1]   | REBUILD_RECEIPTS  | `RebuildReceipt` `[Union]` typed per-op evidence; `ManifoldStatus` projection; `HealSession` carrier; the `Fold` that threads receipts across a heal session for the naming `Track` re-anchor |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                                                                                                                                        |
+| :-----: | :--------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | REBUILD_RECEIPTS | `RebuildReceipt` `[Union]` typed per-op evidence; `ManifoldStatus` projection; `HealSession` carrier; the `Fold` that threads receipts across a heal session for the naming `Track` re-anchor |
 
 ## [2]-[REBUILD_RECEIPTS]
 
@@ -112,11 +112,11 @@ public sealed record RebuildLog(Set<int> Vertices, Set<int> Edges, Set<int> Face
 
 One owner per axis; capability is a case or column, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure carriers, the receipts are returned in the `Heal.Repair` rail (`repair.md`).
 
-| [INDEX] | [AXIS/CONCERN]            | [OWNER]            | [KIND]                                                                          | [RAIL]                                          | [CASES] |
-| :-----: | :------------------------ | :---------------- | :----------------------------------------------------------------------------- | :--------------------------------------------- | :-----: |
-|  [4c]   | Rebuild receipt           | `RebuildReceipt`  | `[Union]` 7 typed per-op evidence cases + `Of` mint + `Affected` re-anchor seed | carrier (returned in `Heal.Repair` rail)       |    7    |
-|  [4d]   | Topological status        | `ManifoldStatus`  | record projected from `Vectors` `TopologyReceipt` via the public `(Euler, Genus, BoundaryComponents)` seam | `ManifoldStatus.Of → ManifoldStatus` (pure)    |    —    |
-|  [4e]   | Heal session + re-anchor  | `HealSession`/`RebuildLog` | session carrier + `ToLog` fold into the naming `Track` re-anchor seed   | `HealSession.ToLog → RebuildLog` (pure)         |    —    |
+| [INDEX] | [AXIS/CONCERN]           | [OWNER]                    | [KIND]                                                                                                     | [RAIL]                                      | [CASES] |
+| :-----: | :----------------------- | :------------------------- | :--------------------------------------------------------------------------------------------------------- | :------------------------------------------ | :-----: |
+|  [4c]   | Rebuild receipt          | `RebuildReceipt`           | `[Union]` 7 typed per-op evidence cases + `Of` mint + `Affected` re-anchor seed                            | carrier (returned in `Heal.Repair` rail)    |    7    |
+|  [4d]   | Topological status       | `ManifoldStatus`           | record projected from `Vectors` `TopologyReceipt` via the public `(Euler, Genus, BoundaryComponents)` seam | `ManifoldStatus.Of → ManifoldStatus` (pure) |    —    |
+|  [4e]   | Heal session + re-anchor | `HealSession`/`RebuildLog` | session carrier + `ToLog` fold into the naming `Track` re-anchor seed                                      | `HealSession.ToLog → RebuildLog` (pure)     |    —    |
 
 The typed `RebuildReceipt` family, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold are transcription-complete pure-managed fences composing the `Vectors` `TopologyReceipt` projection seam, none depending on a live-host member spelling beyond the stable native `Mesh` surface the topology sibling pins.
 

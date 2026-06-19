@@ -141,31 +141,28 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |   [6]   | `LinkException`     | invalid inter-object relationships                                     |
 |   [7]   | `DataException`     | invalid binary data                                                    |
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — KHR material extensions
+[PUBLIC_TYPE_SCOPE]: Schema2 — material channel surface and extension capability
 - package: `SharpGLTF.Core`
 - namespace: `SharpGLTF.Schema2`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                        | [CAPABILITY]                                              |
-| :-----: | :------------------------------ | :-------------------------------------------------------- |
-|   [1]   | `MaterialUnlit`                 | KHR_materials_unlit; unlit shading                        |
-|   [2]   | `MaterialClearCoat`             | KHR_materials_clearcoat; clear-coat layer                 |
-|   [3]   | `MaterialTransmission`          | KHR_materials_transmission; optical transmission          |
-|   [4]   | `MaterialVolume`                | KHR_materials_volume; sub-surface volume                  |
-|   [5]   | `MaterialSpecular`              | KHR_materials_specular; specular reflectance strength     |
-|   [6]   | `MaterialIOR`                   | KHR_materials_ior; index of refraction                    |
-|   [7]   | `MaterialIridescence`           | KHR_materials_iridescence; thin-film iridescence          |
-|   [8]   | `MaterialSheen`                 | KHR_materials_sheen; fabric sheen layer                   |
-|   [9]   | `MaterialAnisotropy`            | KHR_materials_anisotropy; anisotropic reflections         |
-|  [10]   | `MaterialEmissiveStrength`      | KHR_materials_emissive_strength; HDR emissive scale       |
-|  [11]   | `MaterialDispersion`            | KHR_materials_dispersion; spectral dispersion             |
-|  [12]   | `MaterialDiffuseTransmission`   | KHR_materials_diffuse_transmission; diffuse transmission  |
-|  [13]   | `MaterialPBRSpecularGlossiness` | KHR_materials_pbrSpecularGlossiness; specular-gloss model |
-|  [14]   | `TextureTransform`              | KHR_texture_transform; UV shift/scale per texture         |
-|  [15]   | `TextureKTX2`                   | KHR_texture_basisu; KTX2/Basis compressed texture         |
-|  [16]   | `TextureDDS`                    | MSFT_texture_dds; DirectDraw Surface texture              |
-|  [17]   | `TextureWEBP`                   | EXT_texture_webp; WebP texture                            |
-|  [18]   | `AnimationPointer`              | KHR_animation_pointer; JSON-pointer animation target      |
+The KHR material extension classes (`MaterialClearCoat`, `MaterialSheen`, `MaterialVolume`, etc.) are `internal` in SharpGLTF.Core; the public surface for every PBR extension is the channel API. `Material.FindChannel(string)` and `Material.Channels` project `MaterialChannel` rows keyed by the `KnownChannel` enum, whose values carry each extension capability.
+
+| [INDEX] | [SYMBOL]                                | [CAPABILITY]                                                                          |
+| :-----: | :-------------------------------------- | :------------------------------------------------------------------------------------ |
+|   [1]   | `Material.Channels`                     | public `IReadOnlyList<MaterialChannel>` of all active channels on the material        |
+|   [2]   | `Material.FindChannel`                  | resolves one `MaterialChannel?` by channel key string                                 |
+|   [3]   | `MaterialChannel`                       | struct carrying texture, parameter values, and channel key for one channel            |
+|   [4]   | `KnownChannel`                          | channel-key enum: `BaseColor`, `MetallicRoughness`, `Normal`, `Occlusion`, `Emissive` |
+|   [5]   | `KnownChannel.ClearCoat`                | KHR_materials_clearcoat (`ClearCoat`, `ClearCoatNormal`, `ClearCoatRoughness`)        |
+|   [6]   | `KnownChannel.Transmission`             | KHR_materials_transmission; optical transmission                                      |
+|   [7]   | `KnownChannel.SheenColor`               | KHR_materials_sheen (`SheenColor`, `SheenRoughness`)                                  |
+|   [8]   | `KnownChannel.SpecularColor`            | KHR_materials_specular (`SpecularColor`, `SpecularFactor`)                            |
+|   [9]   | `KnownChannel.VolumeThickness`          | KHR_materials_volume (`VolumeThickness`, `VolumeAttenuation`)                         |
+|  [10]   | `KnownChannel.Iridescence`              | KHR_materials_iridescence (`Iridescence`, `IridescenceThickness`)                     |
+|  [11]   | `KnownChannel.Anisotropy`               | KHR_materials_anisotropy; anisotropic reflections                                     |
+|  [12]   | `KnownChannel.DiffuseTransmissionColor` | KHR_materials_diffuse_transmission                                                    |
+|  [13]   | `TextureTransform`                      | KHR_texture_transform; public `ExtraProperties` UV shift/scale per texture            |
 
 [PUBLIC_TYPE_SCOPE]: Schema2 — XMP metadata extensions
 - package: `SharpGLTF.Core`
@@ -193,7 +190,6 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |   [7]   | `VertexBuilder<TvG,TvM,TvS>`         | typed vertex struct: geometry + material + skinning fragments         |
 |   [8]   | `VertexBufferColumns`                | column-per-attribute vertex buffer; transpose layout                  |
 |   [9]   | `SceneBuilderSchema2Settings`        | conversion options: strided buffers, merge, GPU instancing threshold  |
-|  [10]   | `PackedMeshBuilder<TMat>`            | internal packer; converts `IMeshBuilder` collections to Schema2 mesh  |
 
 [PUBLIC_TYPE_SCOPE]: Toolkit — vertex geometry fragments
 - package: `SharpGLTF.Toolkit`
@@ -236,53 +232,46 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 - namespace: `SharpGLTF.Materials`, `SharpGLTF.Geometry`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                          |
-| :-----: | :---------------------------- | :-------------------------------------------------------------------- |
-|   [1]   | `MaterialBuilder`             | root material; sets shader, alpha mode, double-sided, fallback        |
-|   [2]   | `ChannelBuilder`              | material channel; holds `TextureBuilder` and scalar parameter values  |
-|   [3]   | `TextureBuilder`              | texture reference; primary + fallback images, transform, coord set    |
-|   [4]   | `ImageBuilder`                | in-memory image content with optional alternate write file name       |
-|   [5]   | `AlphaMode`                   | `Opaque`, `Mask`, `Blend` (Toolkit-local mirror of Schema2 enum)      |
-|   [6]   | `KnownProperty`               | enumeration of channel parameter keys (BaseColor, Metallic, etc.)     |
-|   [7]   | `IMorphTargetBuilder`         | interface for setting per-vertex morph target deltas                  |
-|   [8]   | `PrimitiveMorphTargetBuilder` | per-primitive morph target; `SetVertexDelta` by index                 |
-|   [9]   | `MorphTargetBuilder`          | mesh-level morph target; `SetVertexDelta` by position or geometry key |
-|  [10]   | `CameraBuilder`               | perspective or orthographic camera; `ZNear`, `ZFar`, `VerticalFOV`    |
-|  [11]   | `LightBuilder`                | directional, point, or spot light with `Color`, `Intensity`, `Range`  |
+| [INDEX] | [SYMBOL]              | [CAPABILITY]                                                          |
+| :-----: | :-------------------- | :-------------------------------------------------------------------- |
+|   [1]   | `MaterialBuilder`     | root material; sets shader, alpha mode, double-sided, fallback        |
+|   [2]   | `ChannelBuilder`      | material channel; holds `TextureBuilder` and scalar parameter values  |
+|   [3]   | `TextureBuilder`      | texture reference; primary + fallback images, transform, coord set    |
+|   [4]   | `ImageBuilder`        | in-memory image content with optional alternate write file name       |
+|   [5]   | `AlphaMode`           | `Opaque`, `Mask`, `Blend` (Toolkit-local mirror of Schema2 enum)      |
+|   [6]   | `KnownProperty`       | enumeration of channel parameter keys (BaseColor, Metallic, etc.)     |
+|   [7]   | `IMorphTargetBuilder` | interface for setting per-vertex morph target deltas                  |
+|   [8]   | `MorphTargetBuilder`  | mesh-level morph target; `SetVertexDelta` by position or geometry key |
+|   [9]   | `CameraBuilder`       | perspective or orthographic camera; `ZNear`, `ZFar`, `VerticalFOV`    |
+|  [10]   | `LightBuilder`        | directional, point, or spot light with `Color`, `Intensity`, `Range`  |
 
 [PUBLIC_TYPE_SCOPE]: Runtime — scene template and instancing
 - package: `SharpGLTF.Runtime`
 - namespace: `SharpGLTF.Runtime`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                  | [CAPABILITY]                                                                |
-| :-----: | :------------------------ | :-------------------------------------------------------------------------- |
-|   [1]   | `SceneTemplate`           | templatized scene from a `Schema2.Scene`; creates `SceneInstance` copies    |
-|   [2]   | `SceneInstance`           | independent mutable state of a `SceneTemplate`; owns `ArmatureInstance`     |
-|   [3]   | `ArmatureTemplate`        | flattened ordered node/joint list; animation track metadata                 |
-|   [4]   | `ArmatureInstance`        | per-instance bone transform state; `SetAnimationFrame`, `SetPoseTransforms` |
-|   [5]   | `NodeTemplate`            | hierarchical node definition: logical index, parent index, child indices    |
-|   [6]   | `NodeInstance`            | per-instance node transform state; `LocalMatrix`, `ModelMatrix`             |
-|   [7]   | `DrawableTemplate`        | reference to a logical mesh within a node; rigid, skinned, or instanced     |
-|   [8]   | `RigidDrawableTemplate`   | drawable with a single world transform                                      |
-|   [9]   | `SkinnedDrawableTemplate` | drawable with a skin joint array                                            |
-|  [10]   | `DrawableInstance`        | struct: `Template` (what) + `Transform` (where) + `InstanceCount`           |
-|  [11]   | `MaterialTemplate`        | material reference; `IsAnimated`, `LogicalNodeIndex`                        |
-|  [12]   | `RuntimeOptions`          | `IsolateMemory`, `GpuMeshInstancing`, `ExtrasConverterCallback`             |
+The `*Template` classes (`SceneTemplate` excepted), `ArmatureTemplate`, `NodeTemplate`, `DrawableTemplate`, and `MaterialTemplate` are `internal`; the public runtime surface is `SceneTemplate` plus the `*Instance` mutable-state types and `RuntimeOptions`.
+
+| [INDEX] | [SYMBOL]           | [CAPABILITY]                                                                            |
+| :-----: | :----------------- | :-------------------------------------------------------------------------------------- |
+|   [1]   | `SceneTemplate`    | templatized scene from a `Schema2.Scene`; `CreateInstance` makes `SceneInstance` copies |
+|   [2]   | `SceneInstance`    | independent mutable state of a `SceneTemplate`; owns `ArmatureInstance`                 |
+|   [3]   | `ArmatureInstance` | per-instance bone transform state; `SetAnimationFrame`, `SetPoseTransforms`             |
+|   [4]   | `NodeInstance`     | per-instance node transform state; `LocalMatrix`, `ModelMatrix`                         |
+|   [5]   | `DrawableInstance` | struct: `Template` (what) + `Transform` (where) + `InstanceCount`                       |
+|   [6]   | `RuntimeOptions`   | `IsolateMemory`, `GpuMeshInstancing`, `ExtrasConverterCallback`                         |
 
 [PUBLIC_TYPE_SCOPE]: Runtime — mesh decode contracts
 - package: `SharpGLTF.Runtime`
 - namespace: `SharpGLTF.Runtime`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                      |
-| :-----: | :---------------------------- | :---------------------------------------------------------------- |
-|   [1]   | `IMeshDecoder<TMat>`          | mesh decode interface; name, extras, logical index, primitives    |
-|   [2]   | `IMeshPrimitiveDecoder`       | primitive decode interface; positions, normals, UVs, colors, skin |
-|   [3]   | `IMeshPrimitiveDecoder<TMat>` | typed variant carrying material reference                         |
-|   [4]   | `MeshDecoder`                 | static utility; `Decode()` extension on `IEnumerable<Mesh>`       |
-|   [5]   | `VertexNormalsFactory`        | computes smooth normals via `IMeshPrimitive` adapter interface    |
-|   [6]   | `VertexTangentsFactory`       | computes tangents via MikkTSpace from `IMeshPrimitive` adapter    |
+| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                           |
+| :-----: | :---------------------------- | :--------------------------------------------------------------------- |
+|   [1]   | `IMeshDecoder<TMat>`          | mesh decode interface; name, extras, logical index, primitives         |
+|   [2]   | `IMeshPrimitiveDecoder`       | primitive decode interface; positions, normals, UVs, colors, skin      |
+|   [3]   | `IMeshPrimitiveDecoder<TMat>` | typed variant carrying material reference                              |
+|   [4]   | `MeshDecoder`                 | static utility; `Decode()` extension on `Mesh` / `IReadOnlyList<Mesh>` |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -449,7 +438,7 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 - instancing path: `SceneTemplate.Create(schema2Scene)` → `SceneTemplate.CreateInstance()` → drive `SetAnimationFrame` per tick
 - draw loop: iterate `SceneInstance.DrawableInstances` → each `DrawableInstance.Template.LogicalMeshIndex` selects mesh, `DrawableInstance.Transform` carries `IGeometryTransform`
 - mesh decode: `model.LogicalMeshes.Decode()` returns `IMeshDecoder<Material>[]`; each primitive exposes typed vertex accessors
-- normal/tangent generation: `VertexNormalsFactory` and `VertexTangentsFactory` accept an `IMeshPrimitive` adapter
+- normal/tangent generation: `VertexBufferColumns.CalculateSmoothNormals` and `VertexBufferColumns.CalculateTangents` operate over primitive vertex/index pairs (the `VertexNormalsFactory`/`VertexTangentsFactory` helpers are internal)
 
 [LOCAL_ADMISSION]:
 - geometry export enters through `SceneBuilder` → `ToGltf2()` → `ModelRoot.Save*` or `WriteGLB`.

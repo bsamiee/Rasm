@@ -6,7 +6,7 @@ The GPU render pipeline for the infinite viewport: one `RenderGraph` pass-DAG dr
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                     |
 | :-----: | :--------------- | :------------------------------------------------------------------------- |
-|   [1]   | RENDER_GRAPH     | Frame pass-DAG, shared-`GRContext` lease, frame-budget invariant, fallback |
+|   [1]   | RENDER_GRAPH     | Frame pass-DAG, per-backend `RenderTargetFactory`, frame-budget invariant, fallback |
 |   [2]   | GEOMETRY_VIRTUAL | Meshlet cluster-LOD, GPU-driven culling, bindless residency, instancing    |
 |   [3]   | RESIDENCY_BUDGET | VRAM-budget residency, predictive prefetch, out-of-core streaming          |
 |   [4]   | PATH_TRACE       | BVH build/refit, ReSTIR reservoirs, progressive accumulation, denoise      |
@@ -18,11 +18,12 @@ The GPU render pipeline for the infinite viewport: one `RenderGraph` pass-DAG dr
 - Owner: `RenderPass` `[Union]` frame-pass vocabulary; `RenderGraph` pass-DAG executor; `RenderTarget` the lease-bound GPU surface; `FrameReceipt` per-frame evidence; `ViewportFault` the fault family.
 - Cases: `RenderPass` = Cull | Geometry | PathTrace | Composite | Sim | Overlay under the locked kind literals cull, geometry, path-trace, composite, sim, overlay; `ViewportFault` = Text | ContextUnavailable | BackendUnsupported | BudgetExceeded | LeaseRejected in the 4500 code band.
 - Entry: `public IO<FrameReceipt> Frame(RenderGraph graph, ViewportClock clock, FrameBudget budget)` — `IO` rail; the pass-DAG executes topologically and the frame seals one receipt carrying the per-pass elapsed and the GPU-time fold.
-- Auto: `Lease` opens the host-shared GPU context through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` and folds `GrContext` to the `RenderTarget`, so the embedded viewport composites into the Rhino-owned context and never mints a second `GRContext`; when the platform lease yields no GPU context the graph folds to the `Composite`-only 2D-Skia raster pass so the viewport ships a deterministic CPU frame today; the frame-budget invariant gates the pass list — a pass whose accumulated GPU-time projection overruns `FrameBudget.Frame` defers to the next frame and the deferral folds onto the budget-overrun instrument, so frame budget is an invariant the graph enforces, never a hope.
+- Auto: `Lease` opens the host-shared GPU context through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` and folds the leased context to the `RenderTarget` through the `GpuBackend`'s own `RenderTargetFactory` column, so a pass-emit body binds a backend-provided target factory rather than the single `GRContext`-plus-`SKRuntimeEffect` emit path and the embedded viewport composites into the Rhino-owned context and never mints a second `GRContext`; when the platform lease yields no GPU context the graph folds to the `Software` backend's CPU 2D-Skia factory and the `Composite`-only raster pass so the viewport ships a deterministic CPU frame today; the frame-budget invariant gates the pass list — a pass whose accumulated GPU-time projection overruns `FrameBudget.Frame` defers to the next frame and the deferral folds onto the budget-overrun instrument, so frame budget is an invariant the graph enforces, never a hope.
+- Backend: `GpuBackend` carries the `RenderTargetFactory` delegate column per backend row — `Metal`, `Vulkan`, `OpenGl`, and `Software` bind the SkiaSharp Ganesh `GRContext` target factory, `Wgpu` binds the `Silk.NET.WebGPU` wgpu/Dawn target factory (D3D12/Metal/Vulkan auto-negotiated through `BackendType`) acquiring an `Adapter` matched to the compositor adapter LUID/UUID, requesting a `Device`+`Queue`, configuring a `Surface` swapchain, and presenting the rendered `Texture` into the Avalonia compositor through `ICompositionGpuInterop.ImportImage` — the wgpu mesh-shader/compute passes record through `CommandEncoder`/`RenderPassEncoder` and submit through `QueueSubmit`, never a managed scene wrapper — and `WebGpu` binds the in-browser WebGPU factory the TS web leg consumes — so the `Lease` and every `RenderPass`/`CapturePass`/`CustomVisual` emit body binds a backend-provided target factory and a substrate swap is one backend row, the render-graph pass algebra staying backend-agnostic above the factory; the per-backend emit path (wgpu pipeline submit versus `SKRuntimeEffect` shader) diverges below the `RenderTargetFactory`, so the factory column owns the divergence and the CPU 2D-Skia fallback stays the today-shipping floor.
 - Receipt: `FrameReceipt` — frame ordinal, per-pass `Duration` seq, GPU `Duration`, triangles drawn, budget verdict, `Instant`, `CorrelationId`; sealed through `ReceiptSinkPort` as a `Render`-family fact; `TelemetryRow` contributes the frame-elapsed, gpu-elapsed, and budget-overrun instruments inward through `TelemetryContributorPort`.
-- Packages: SkiaSharp, Avalonia.Skia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: a new frame stage is one `RenderPass` case breaking the topological dispatch at compile time; a new backend is one `GpuBackend` row; zero new surface.
-- Boundary: `RenderGraph` is the named boundary capsule — the lease open-and-dispose pair and the topological pass walk carry the only statement bodies; the shared GPU context arrives as one `SurfaceSeam`-bound platform-lease delegate so no pass body names a `GRContext.CreateMetal`/`CreateVulkan` factory at a call site, deferring to the surface-hosts `EMBED_CAPSULE` shared-context law — a direct GPU-backend construction inside a pass arm is the rejected form (PROHIBITION host-API-in-arm); the GPU surface is `SKSurface.Create(GRRecordingContext, GRBackendRenderTarget, ...)` over the leased context and disposed with the frame; the architecturally-excluded GPU passes (`Geometry` cluster draw, `PathTrace`, `Sim` volume) carry their fence now and the `Composite` 2D-Skia raster is the today-shipping fallback so the page is fence-complete and SPIKE-gated on the live host-shared context, never a deferred surface; `ViewportClock` rides the AppHost `ClockPolicy` so frame timing is the one clock seam and a stopwatch is the rejected form; every frame sinks one `FrameReceipt` through the one envelope and a per-pass meter is the deleted form.
+- Packages: SkiaSharp, Avalonia.Skia, Avalonia (compositor GPU interop), Silk.NET.WebGPU, Silk.NET.WebGPU.Native.WGPU, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
+- Growth: a new frame stage is one `RenderPass` case breaking the topological dispatch at compile time; a new backend is one `GpuBackend` row carrying its `RenderTargetFactory` column — Skia Graphite re-admits as one `SkiaGraphite` row the moment SkiaSharp ships its Recorder/Context surface; zero new surface.
+- Boundary: `RenderGraph` is the named boundary capsule — the lease open-and-dispose pair and the topological pass walk carry the only statement bodies; the shared GPU context arrives as one `SurfaceSeam`-bound platform-lease delegate so no pass body names a `GRContext.CreateMetal`/`CreateVulkan` factory at a call site, deferring to the surface-hosts `EMBED_CAPSULE` shared-context law — a direct GPU-backend construction inside a pass arm is the rejected form (PROHIBITION host-API-in-arm); the per-backend target construction is the `GpuBackend` `RenderTargetFactory` column so the `Metal`/`Vulkan`/`OpenGl`/`Software` rows fold the leased `GRContext` to `SKSurface.Create(GRRecordingContext, GRBackendRenderTarget, ...)`, the `Wgpu` row folds the `Silk.NET.WebGPU` `Device`/`Queue`/`Surface` wgpu swapchain presenting through the compositor `ICompositionGpuInterop.ImportImage` seam, and the `WebGpu` row folds the browser surface, so a pass-emit body never names a backend target factory at a call site and a substrate swap is one backend row; the GPU passes (`Geometry` cluster draw through the wgpu mesh-shader pipeline, `PathTrace` through the wgpu compute pass, `Sim` volume ray-march, the reality-capture `Splat`/`Point` composites) carry their fence now and the `Composite` 2D-Skia raster is the today-shipping fallback so the page is fence-complete and SPIKE-gated on the live host-shared context, never a deferred surface; `ViewportClock` rides the AppHost `ClockPolicy` so frame timing is the one clock seam and a stopwatch is the rejected form; the frame ordinal is a monotone `Interlocked.Increment` over the graph-local counter so each `FrameReceipt` carries a distinct ordinal the correlation join and the render-hash lane key on, and a hardcoded zero ordinal is the deleted form; the receipt carries the folded per-pass list and the fold's `Budget` verdict so an overrun frame seals `WithinBudget: false` rather than an unconditional true, and every frame sinks one `FrameReceipt` through the one envelope and a per-pass meter is the deleted form.
 
 ```csharp signature
 [Union]
@@ -38,13 +39,25 @@ public abstract partial record ViewportFault : Expected, IValidationError<Viewpo
     public sealed record LeaseRejected : ViewportFault { public LeaseRejected(string detail) : base(detail, 4504) { } }
 }
 
+public sealed record RenderTargetFactory(GpuBackend Backend, Func<SKImageInfo, Fin<RenderTarget>> Target) {
+    public Fin<RenderTarget> Lease(SKImageInfo info) => Target(info);
+}
+
 [SmartEnum<string>]
 public sealed partial class GpuBackend {
-    public static readonly GpuBackend Metal = new("metal");
-    public static readonly GpuBackend Vulkan = new("vulkan");
-    public static readonly GpuBackend OpenGl = new("opengl");
-    public static readonly GpuBackend Software = new("software");
+    public static readonly GpuBackend Metal = new("metal", GpuFamily.SkiaGanesh);
+    public static readonly GpuBackend Vulkan = new("vulkan", GpuFamily.SkiaGanesh);
+    public static readonly GpuBackend OpenGl = new("opengl", GpuFamily.SkiaGanesh);
+    public static readonly GpuBackend Software = new("software", GpuFamily.SkiaRaster);
+    public static readonly GpuBackend Wgpu = new("wgpu", GpuFamily.Wgpu);
+    public static readonly GpuBackend WebGpu = new("webgpu", GpuFamily.WebGpu);
+
+    public GpuFamily Family { get; }
+
+    public bool IsGpu => Family != GpuFamily.SkiaRaster;
 }
+
+public enum GpuFamily { SkiaGanesh, SkiaRaster, Wgpu, WebGpu }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RenderPass {
@@ -61,8 +74,8 @@ public abstract partial record RenderPass {
         sim: static s => s.Key, composite: static c => c.Key, overlay: static o => o.Key);
 }
 
-public sealed record RenderTarget(GpuBackend Backend, SKSurface Surface, Option<GRContext> Context, SKImageInfo Info) : IDisposable {
-    public void Dispose() => Surface.Dispose();
+public sealed record RenderTarget(GpuBackend Backend, Option<SKSurface> Surface, Option<GRContext> Context, SKImageInfo Info, IDisposable Native) : IDisposable {
+    public void Dispose() => Native.Dispose();
 }
 
 public sealed record FrameBudget(Duration Frame, long VramBytes, int MaxTriangles) {
@@ -87,25 +100,28 @@ public sealed record FrameReceipt(
 public sealed record RenderGraph(
     Seq<RenderPass> Passes,
     MeshletCluster Cluster,
+    RenderTargetFactory Factory,
+    RenderTargetFactory Fallback,
     Func<Func<RenderTarget, Fin<Unit>>, Fin<Unit>> Lease,
-    Func<SKImageInfo, Fin<RenderTarget>> Fallback,
     Func<FrameReceipt, IO<Unit>> Sink) {
+    private long ordinal;
+
     public IO<FrameReceipt> Frame(ViewportClock clock, FrameBudget budget) =>
         from start in IO.lift(clock.Clocks.Mark)
+        from next in IO.lift(() => Interlocked.Increment(ref ordinal))
         from frame in IO.lift(() => Render(budget).IfFail(fault => Empty(clock, fault)))
-        from receipt in IO.pure(frame with { Ordinal = frame.Ordinal, At = clock.Clocks.Now, Correlation = clock.Correlation })
+        from receipt in IO.pure(frame with { Ordinal = next, At = clock.Clocks.Now, Correlation = clock.Correlation })
         from _ in Sink(receipt)
         select receipt;
 
-    private Fin<FrameReceipt> Render(FrameBudget budget) =>
-        Lease(target => Passes.Fold(
-            Fin.Succ((Passes: Seq<(string, Duration)>(), Triangles: 0L, Budget: true)),
-            (rail, pass) => rail.Bind(state => Execute(pass, target, budget, state)))
-            .Map(_ => unit))
-        switch {
-            { IsSucc: true } => Fin.Succ(new FrameReceipt(0L, Cluster.Backend, Seq<(string, Duration)>(), Duration.Zero, Cluster.Triangles, true, default, default)),
-            var failed => failed.Map(static _ => default(FrameReceipt)!),
-        };
+    private Fin<FrameReceipt> Render(FrameBudget budget) {
+        var walked = Fin.Fail<(Seq<(string, Duration)> Passes, long Triangles, bool Budget)>(new ViewportFault.LeaseRejected(nameof(Frame)));
+        return Lease(target => (walked = Passes.Fold(
+                Fin.Succ((Passes: Seq<(string, Duration)>(), Triangles: 0L, Budget: true)),
+                (rail, pass) => rail.Bind(state => Execute(pass, target, budget, state)))).Map(static _ => unit))
+            .Bind(_ => walked.Map(folded =>
+                new FrameReceipt(0L, Factory.Backend, folded.Passes, Duration.Zero, Cluster.Triangles, folded.Budget, default, default)));
+    }
 
     private static Fin<(Seq<(string, Duration)> Passes, long Triangles, bool Budget)> Execute(
         RenderPass pass, RenderTarget target, FrameBudget budget, (Seq<(string, Duration)> Passes, long Triangles, bool Budget) state) =>
@@ -474,10 +490,10 @@ public sealed record BcfViewpoint(BcfCamera Camera, Seq<string> Selection, Seq<(
 
 ## [8]-[TS_PROJECTION]
 
-- Owner: `ViewpointWire`, `ViewCameraWire`, `SectionBoxWire`, `VisibilityOverrideWire`, `FrameReceiptWire` — the viewpoint and frame-evidence wire contract a web viewer and a cross-process coordination tool consume; the GPU pass internals never cross the wire.
-- Packages: BCL inbox
-- Growth: one wire member row per new viewpoint field or frame-receipt field; zero new surface.
-- Boundary: shapes transcribe the camelCase Strict emission — the camera crosses as its scalar fields, the section box as its min-max bounds plus the enabled flag, each visibility override as its element id, visible flag, optional color, and transparency, the selection as an ordinal-string array, instants as ISO-8601 text, and durations as round-trip text; the frame receipt crosses for the live performance HUD so a web dashboard reads frame budget without the GPU pass internals; the viewpoint is the one portable shape so a BCF tool, a web viewer, and the desktop share it.
+- Owner: `ViewpointWire`, `ViewCameraWire`, `SectionBoxWire`, `VisibilityOverrideWire`, `FrameReceiptWire`, `GeometryResidencyWire`, `ResidencyTileWire`, `MeshletWire`, `MeshletClusterWire`, `SplatTileWire` — the viewpoint, frame-evidence, and content-keyed geometry-residency wire contract a WebGPU web viewer and a cross-process coordination tool consume; `ContentKey` the suite `XxHash128` content-address value object; `ResidencyManifest` the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` portable scene-graph plus meshlet/splat residency manifest; `ResidencyMarshal` the projection algebra folding every desktop owner into its wire row; the GPU pass internals never cross the wire.
+- Packages: System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: one wire member row per new viewpoint field, frame-receipt field, or residency-tile field; one `ResidencyMarshal` projection arm per new manifest member; zero new surface.
+- Boundary: shapes transcribe the camelCase Strict emission — the camera crosses as its `eye`/`target`/`up` three-axis tuples plus the field-of-view and ortho-scale scalars, the section box as its min/max three-axis tuples plus the enabled flag, each visibility override as its element id, visible flag, `number | null` color (the desktop `Option<uint>` projected through `ToNullable`), and transparency, the selection as an ordinal-string array, each tile/splat bounds as the `[x, y, z, radius]` four-tuple, the content key as the `:x32` 32-hex string (the desktop `UInt128` rendered through `KeyHex`, never the raw `UInt128` STJ would emit as a JSON number), instants as `InstantPattern.ExtendedIso` text, and durations as round-trip text; the frame receipt crosses for the live performance HUD so a web dashboard reads frame budget without the GPU pass internals; the viewpoint crosses as the projected `ViewpointWire`, never the desktop `Viewpoint` (whose flat camera scalars, `Option<uint>` color, and `Instant` do not serialize to the consumed wire shape), so a BCF tool, a web viewer, and the desktop share one portable view-state; `ResidencyMarshal` carries every desktop-to-wire projection as one fold so a wire member never marshals at a call site, `ResidencyManifest.Encode` serializes through the source-generated `ResidencyWireContext` (camelCase, disallow-unmapped, nullable-respecting) so the emission is exactly the shape the TS `GeometryResidencyWireSchema` decodes, and `ResidencyManifest.Mint` is the single producer of the `WEB_GEOMETRY_RESIDENCY_WIRE` — the desktop `MeshletCluster`, the `ResidencyBudget` resident set, and the reality-capture `SplatSource` content-keyed tiles project through one residency manifest the TypeScript worker consumes to drive a WebGPU viewport, so desktop and web share one geometry residency and one `Viewpoint`/`FrameReceipt` contract off the same Compute `GeometryPayload` residency keying; each tile and splat keys by the `ContentKey` fold of its geometry bytes through `XxHash128.HashToUInt128` under the suite `interchange#CONTENT_ADDRESSING` law exactly as the Persistence residency and `realitycapture/reality-capture#SPLAT_SOURCE` `SplatEllipsoid.ContentKey` key it, the raw `UInt128` rendered to the `:x32` wire string at the marshal seam — a name-addressed string-key hash is the rejected content key because the worker fetches tile bytes by the content-addressed blob key, never by the scene-cell name, so `ResidencyTileWire.contentKey` folds the `MeshSource.Positions` span and `ResidencyTileWire.blobKey` carries the Persistence content-addressed blob key distinct from the scene-cell `key`; the manifest crosses the cross-language wire only and no desktop owner reverses onto the web leg, so a second residency manifest on the TS side is the rejected form (the single-mint invariant graded at the cross-`libs/` master); the meshlet/triangulated residency arm resolves now off the present `MeshletCluster`/`ResidencyBudget`, the splat-tile arm projects a present `SplatSource` now, and only the upstream Compute splat-payload decode that feeds `SplatSource` stays honestly `[UPSTREAM-BLOCKED]` on the Python SOG/PLY/LAZ two-hop; depends on `T-BACKEND-PORT` (the `WebGpu` `GpuBackend` row the web viewport binds) and the `realitycapture/reality-capture#SPLAT_SOURCE` `SplatSource` residency keying so the splat tile and the meshlet tile share one content key across the wire.
 
 ```ts contract
 interface ViewCameraWire {
@@ -522,9 +538,163 @@ interface FrameReceiptWire {
   readonly at: string;
   readonly correlation: string;
 }
+
+interface MeshletWire {
+  readonly vertexOffset: number;
+  readonly vertexCount: number;
+  readonly triangleOffset: number;
+  readonly triangleCount: number;
+  readonly center: readonly [number, number, number];
+  readonly radius: number;
+  readonly coneAxis: readonly [number, number, number];
+  readonly coneCutoff: number;
+  readonly screenSpaceError: number;
+}
+
+interface MeshletClusterWire {
+  readonly backend: string;
+  readonly meshlets: readonly MeshletWire[];
+  readonly bindless: readonly string[];
+  readonly triangles: number;
+}
+
+interface ResidencyTileWire {
+  readonly key: string;
+  readonly contentKey: string;
+  readonly bytes: number;
+  readonly bounds: readonly [number, number, number, number];
+  readonly blobKey: string;
+}
+
+interface SplatTileWire {
+  readonly key: string;
+  readonly contentKey: string;
+  readonly count: number;
+  readonly harmonicDegree: number;
+  readonly bounds: readonly [number, number, number, number];
+  readonly blobKey: string;
+}
+
+interface GeometryResidencyWire {
+  readonly version: number;
+  readonly viewpoint: ViewpointWire;
+  readonly cluster: MeshletClusterWire;
+  readonly tiles: readonly ResidencyTileWire[];
+  readonly splats: readonly SplatTileWire[];
+  readonly vramBudget: number;
+}
+```
+
+The C# `ResidencyManifest` is the single mint of the `WEB_GEOMETRY_RESIDENCY_WIRE`; the TypeScript worker consumes the manifest by content key and never re-mints it. The content key is the suite raw `UInt128` owned at `csharp:Compute/interchange/codecs#CONTENT_ADDRESSING` and folded here through the same `XxHash128.HashToUInt128` law — AppUi mints no second content-identity value object, the `:x32` form is the shared wire spelling, and `ResidencyMarshal` carries every projection body as the law; the splat-tile arm projects a present `SplatSource`, while the upstream Compute splat-payload decode that produces a `SplatSource` stays honestly `[UPSTREAM-BLOCKED]`.
+
+```csharp signature
+public readonly record struct ViewCameraWire(bool Perspective, double[] Eye, double[] Target, double[] Up, double FieldOfView, double OrthoScale);
+
+public readonly record struct SectionBoxWire(double[] Min, double[] Max, bool Enabled);
+
+public readonly record struct VisibilityOverrideWire(string ElementId, bool Visible, uint? ColorArgb, double Transparency);
+
+public sealed record ViewpointWire(string Key, int Version, ViewCameraWire Camera, SectionBoxWire Section, Seq<VisibilityOverrideWire> Overrides, Seq<string> Selection, string At);
+
+public readonly record struct ResidencyTileRef(string Key, string ContentKey, long Bytes, double[] Bounds, string BlobKey);
+
+public readonly record struct SplatTileRef(string Key, string ContentKey, int Count, int HarmonicDegree, double[] Bounds, string BlobKey);
+
+public sealed record MeshletWire(
+    int VertexOffset, int VertexCount, int TriangleOffset, int TriangleCount,
+    double[] Center, double Radius, double[] ConeAxis, double ConeCutoff, double ScreenSpaceError);
+
+public sealed record MeshletClusterWire(string Backend, Seq<MeshletWire> Meshlets, Seq<string> Bindless, long Triangles);
+
+public static class ResidencyMarshal {
+    public static UInt128 ContentKeyOf(ReadOnlySpan<byte> content) =>
+        System.IO.Hashing.XxHash128.HashToUInt128(content);
+
+    public static string KeyHex(UInt128 content) => $"{content:x32}";
+
+    public static string BlobKeyOf(UInt128 content) => $"geo/{content:x32}";
+
+    private static double[] Bounds4(BoundingSphere bounds) => [bounds.X, bounds.Y, bounds.Z, bounds.Radius];
+
+    public static ViewpointWire ViewpointOf(Viewpoint view) =>
+        new(view.Key, view.Version,
+            new ViewCameraWire(view.Camera.Perspective,
+                [view.Camera.EyeX, view.Camera.EyeY, view.Camera.EyeZ],
+                [view.Camera.TargetX, view.Camera.TargetY, view.Camera.TargetZ],
+                [view.Camera.UpX, view.Camera.UpY, view.Camera.UpZ],
+                view.Camera.FieldOfView, view.Camera.OrthoScale),
+            new SectionBoxWire(
+                [view.Section.MinX, view.Section.MinY, view.Section.MinZ],
+                [view.Section.MaxX, view.Section.MaxY, view.Section.MaxZ],
+                view.Section.Enabled),
+            view.Overrides.Map(static o => new VisibilityOverrideWire(o.ElementId, o.Visible, o.ColorArgb.ToNullable(), o.Transparency)),
+            view.Selection,
+            InstantPattern.ExtendedIso.Format(view.At));
+
+    public static MeshletClusterWire ClusterWire(MeshletCluster cluster) =>
+        new(cluster.Backend.Key,
+            cluster.Meshlets.Map(static m => new MeshletWire(
+                m.VertexOffset, m.VertexCount, m.TriangleOffset, m.TriangleCount,
+                [m.Bounds.X, m.Bounds.Y, m.Bounds.Z], m.Bounds.Radius,
+                [m.Cone.X, m.Cone.Y, m.Cone.Z], m.Cone.CosAngle, m.ScreenSpaceError)),
+            toSeq(cluster.Bindless.Slots.OrderBy(static slot => slot.Value).Select(static slot => slot.Key)),
+            cluster.Triangles);
+
+    public static ResidencyTileRef TileRef(ResidencyTile tile, Option<MeshSource> source) =>
+        source.Match(
+            Some: mesh => ContentKeyOf(MemoryMarshal.AsBytes(mesh.Positions.Span)) switch {
+                var key => new ResidencyTileRef(tile.Key, KeyHex(key), tile.Bytes, Bounds4(tile.Bounds), BlobKeyOf(key)),
+            },
+            None: () => ContentKeyOf(System.Text.Encoding.UTF8.GetBytes(tile.Key)) switch {
+                var key => new ResidencyTileRef(tile.Key, KeyHex(key), tile.Bytes, Bounds4(tile.Bounds), BlobKeyOf(key)),
+            });
+
+    public static SplatTileRef SplatRef(SplatSource splat) =>
+        ContentKeyOf(MemoryMarshal.AsBytes<SplatEllipsoid>(splat.Ellipsoids.ToArray())) switch {
+            var key => new SplatTileRef(
+                $"splat/{splat.Bounds.X:R}:{splat.Bounds.Y:R}:{splat.Bounds.Z:R}",
+                KeyHex(key), splat.Ellipsoids.Count, splat.HarmonicDegree, Bounds4(splat.Bounds), BlobKeyOf(key)),
+        };
+}
+
+public sealed record ResidencyManifest(
+    int Version,
+    ViewpointWire Viewpoint,
+    MeshletClusterWire Cluster,
+    Seq<ResidencyTileRef> Tiles,
+    Seq<SplatTileRef> Splats,
+    long VramBudget) {
+    public const int Schema = 1;
+
+    public static ResidencyManifest Mint(
+        Viewpoint viewpoint,
+        MeshletCluster cluster,
+        ResidencyPlan plan,
+        HashMap<string, MeshSource> sources,
+        Seq<ResidencyTile> tiles,
+        Seq<SplatSource> splats,
+        long vramBudget) =>
+        new(Schema, ResidencyMarshal.ViewpointOf(viewpoint), ResidencyMarshal.ClusterWire(cluster),
+            tiles.Filter(tile => plan.Resident.Exists(resident => resident.Key == tile.Key))
+                .Map(tile => ResidencyMarshal.TileRef(tile, sources.Find(tile.Key))),
+            splats.Map(static splat => ResidencyMarshal.SplatRef(splat)),
+            vramBudget);
+
+    public string Encode() => JsonSerializer.Serialize(this, ResidencyWireContext.Default.ResidencyManifest);
+}
+
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+    RespectNullableAnnotations = true,
+    RespectRequiredConstructorParameters = true)]
+[JsonSerializable(typeof(ResidencyManifest))]
+public partial class ResidencyWireContext : JsonSerializerContext;
 ```
 
 ## [9]-[RESEARCH]
 
 - [VIEWPORT_GEOMETRY]: the projection from the canonical Compute `GeometryPayload` proto oneof into the `MeshSource` vertex-and-index run is the cross-package wire boundary the meshlet build never re-mints; the proto mesh-primitive member set (position/index/normal accessors) resolves at implementation against the settled Compute interchange wire contract, and the `MeshSource` shape and the meshlet partition fold are settled — the proto accessor spellings are the unverified surface.
-- [VIEWPORT_GPU]: the host-shared `GRContext` acquisition through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` against the Rhino-owned Metal pipeline, the `GRMtlBackendContext`/`GRVkBackendContext` backend-context construction, the `SKSurface.Create(GRRecordingContext, GRBackendRenderTarget, ...)` GPU-target spelling, the `SKRuntimeEffect` compute-and-mesh-shader emit path for the meshlet draw and the path-trace ray-generation, the per-backend bindless descriptor-table and acceleration-structure spellings (Metal argument buffers and ray-tracing, Vulkan descriptor indexing and ray-query), and the WebGPU backend reach for the designed-only web viewport — the render-graph pass algebra, the meshlet cluster build and screen-space-error cull, the SAH BVH and ReSTIR reservoir, the residency plan and prefetch fold, the CPU marching-cubes and ray-march oracles, and the viewpoint codec are settled and ship as the CPU/2D-Skia fallback; the GPU dispatch, the shared-context lease, and the backend acceleration structures are the unverified surface gated on the live host-owned GPU context, de-risked standalone against a windowed `GRContext` and confirmed in-host against the embedded panel.
+- [VIEWPORT_GPU]: the host-shared `GRContext` acquisition through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` against the Rhino-owned Metal pipeline, the `GRMtlBackendContext`/`GRVkBackendContext` backend-context construction, the `SKSurface.Create(GRRecordingContext, GRBackendRenderTarget, ...)` GPU-target spelling the `Metal`/`Vulkan`/`OpenGl` `RenderTargetFactory` rows fold, the `SKRuntimeEffect` compute-and-mesh-shader emit path for the meshlet draw and the path-trace ray-generation, the per-backend bindless descriptor-table and acceleration-structure spellings (Metal argument buffers and ray-tracing, Vulkan descriptor indexing and ray-query), and the WebGPU backend reach for the designed-only web viewport — the render-graph pass algebra, the `GpuBackend` `RenderTargetFactory` column, the meshlet cluster build and screen-space-error cull, the SAH BVH and ReSTIR reservoir, the residency plan and prefetch fold, the CPU marching-cubes and ray-march oracles, and the viewpoint codec are settled and ship as the CPU/2D-Skia fallback; the GPU dispatch, the shared-context lease, and the backend acceleration structures are the unverified surface gated on the live host-owned GPU context, de-risked standalone against a windowed `GRContext` and confirmed in-host against the embedded panel.
+- [WGPU_BACKEND]: the `Wgpu` `RenderTargetFactory` row binding the `Silk.NET.WebGPU` wgpu/Dawn surface — `WebGPU.GetApi()`, `CreateInstance`, `InstanceRequestAdapter` on the compositor adapter (LUID/UUID matched through `ICompositionGpuInterop.DeviceLuid`/`DeviceUuid`), `AdapterRequestDevice`+`DeviceGetQueue`, `SurfaceConfigure`/`SurfaceGetCurrentTexture` for the swapchain, the `CommandEncoder`/`RenderPassEncoder`/`ComputePassEncoder` recording, `QueueSubmit`, and the `CompositionDrawingSurface.UpdateWithExternalImageAsync` import of the rendered shared texture — resolve against the admitted `Silk.NET.WebGPU` 2.23 surface (`.api/api-silk-webgpu.md`) and the Avalonia 12 compositor interop (`.api/api-avalonia-gpu-interop.md`); the backend rows, the `RenderTargetFactory` column shape, and the factory-bound pass algebra are settled, the wgpu device acquisition, the shared-texture export-and-import handshake (D3D11 keyed-mutex / Vulkan external-memory / Metal `IOSurface`), and the wgpu-versus-Skia present-path divergence below the factory are the unverified surface gated on the live GPU device, with `Silk.NET.WebGPU` a stable pinnable .NET Foundation identity and the `Software` Skia Ganesh raster row the shippable floor. Skia Graphite is not yet shipped (SkiaSharp targets it at `4.150.0-preview.2`); no `SkiaGraphite` row is admitted until SkiaSharp exposes the Recorder/Context surface, at which point the row re-admits with no other change.
+- [WEB_RESIDENCY]: the `ResidencyManifest` is the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` and the TypeScript `libs/typescript/ui` worker is its sole consumer — the manifest, the `ResidencyMarshal` projection algebra, the `ContentKeyOf`/`BlobKeyOf` `XxHash128.HashToUInt128` content keying over the `MeshSource.Positions` span, and the meshlet/triangulated residency arm are built and settled now, so the worker drives a WebGPU viewport off the content-keyed meshlet and splat tiles resolving the `GeometryPayload` residency on the web leg against the same Compute `interchange#CONTENT_ADDRESSING` keying the desktop reads; the single-mint invariant (one producer, no TS-side re-mint) is graded at the cross-libs master against the `typescript:ui/viewport/glb-viewport#GLB_VIEWPORT` consume-only manifest row, and the `:x32` content-key spelling is the shared wire form. The splat-tile manifest arm projects a present `SplatSource` now; only the upstream Compute splat-payload decode that produces a `SplatSource` stays `[UPSTREAM-BLOCKED]` on the Python SOG/PLY/LAZ scan-decode two-hop, and the Python content-key reproduction of the `:x32` form stays `[UPSTREAM-BLOCKED]` on the `xxhash` cp315/abi3 wheel the companion lacks below 3.15. The WebGPU cluster-LOD upload on the browser device is the remaining `[HOST-PROBE-DEFERRED]` surface gated on the live WebGPU device — depends on the `WebGpu` `GpuBackend` row and the `realitycapture/reality-capture#SPLAT_SOURCE` residency keying.

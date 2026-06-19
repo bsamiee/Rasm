@@ -175,14 +175,14 @@ public static class CommitGraph {
 
 ## [3]-[CRDT_ALGEBRA]
 
-- Owner: `CrdtField` `[Union]` — the convergent op-based/delta-state field family carrying the five replicated data types; `CrdtOp` the delta payload an `OpLogEntry` carries; `Crdt` the merge-fold surface whose `Merge` is commutative, associative, and idempotent over the op multiset, plus the version-vector-gated tombstone compaction.
-- Cases: `LwwRegister` (last-write-wins-by-HLC scalar), `MvRegister` (concurrent-keep multi-value register), `OrSet` (add-wins observed-remove set with per-element unique tags), `PnCounter` (positive-negative per-origin counter), `RgaSequence` (replicated growable array with tombstone-stable ordering) on `CrdtField`; `Set | Write | Add | Remove | Increment | InsertAfter | Delete | Maintain` on `CrdtOp`.
-- Entry: `public static CrdtField Merge(CrdtField left, CrdtField right)` — the join-semilattice least-upper-bound over two field states, total over the five cases and idempotent so replaying the same op converges; `public static CrdtField Apply(CrdtField state, CrdtOp op)` folds one delta op into the state carrying its HLC cell; `public static CrdtField Compact(CrdtField state, VersionVector quiescent)` reclaims tombstones the quiescence horizon proves every peer has observed.
-- Auto: a CRDT mutation appends one `OpLogEntry` carrying the `CrdtOp` delta as `Payload` so the convergent merge rides the existing changefeed and the existing `Closure` content-key manifest, and a peer's `SyncMerge.Apply` dispatches the `column-family=crdt` op-log row into `Crdt.Apply` rather than the LWW `Adjudicate` scalar — the op-based CRDT supersedes LWW so a concurrent edit converges by merge rather than discarding the loser; the OR-set tags are `(Guid Origin, ulong Logical)` HLC pairs so an add and a concurrent remove of the same element resolve add-wins by tag-set difference; the RGA insert position is the causal predecessor element id plus the inserting origin's HLC so two concurrent inserts after the same predecessor order deterministically by `(Logical, Origin)`; the PN-counter folds per-origin increment maps so a counter converges by per-origin max of monotone partial counts; the MV-register keeps every causally-concurrent write and collapses a dominated write so a later causal write supersedes but a concurrent pair survives for caller resolution.
-- Receipt: a converged merge rides the settled `SyncApplyReceipt`; a tombstone count, a live-element count, and a compacted-tombstone count fold into the `store.crdt.merge` fact on the interceptor stream.
+- Owner: `CrdtField` `[Union]` — the convergent op-based/delta-state field family carrying the six replicated data types; `CrdtOp` the delta payload an `OpLogEntry` carries; `Crdt` the merge-fold surface whose `Merge` is commutative, associative, and idempotent over the op multiset, plus the version-vector-gated tombstone compaction.
+- Cases: `LwwRegister` (last-write-wins-by-HLC scalar), `MvRegister` (concurrent-keep multi-value register), `OrSet` (add-wins observed-remove set with per-element unique tags), `PnCounter` (positive-negative per-origin counter), `RgaSequence` (replicated growable array with tombstone-stable ordering), `EphemeralMap` (the convergent presence type — an add-wins observed-remove map of `(Guid Origin) → (ReadOnlyMemory<byte> State, Hlc Cell)` whose entries self-evict at the liveness horizon so a live-multiplayer cursor/selection/camera/follow surface converges and a departed peer drops without a tombstone) on `CrdtField`; `Set | Write | Add | Remove | Increment | InsertAfter | Delete | Maintain | Beat | Leave` on `CrdtOp`.
+- Entry: `public static CrdtField Merge(CrdtField left, CrdtField right)` — the join-semilattice least-upper-bound over two field states, total over the six cases and idempotent so replaying the same op converges; `public static CrdtField Apply(CrdtField state, CrdtOp op)` folds one delta op into the state carrying its HLC cell; `public static CrdtField Compact(CrdtField state, VersionVector quiescent)` reclaims tombstones and evicts `EphemeralMap` entries the quiescence horizon proves stale.
+- Auto: a CRDT mutation appends one `OpLogEntry` carrying the `CrdtOp` delta as `Payload` so the convergent merge rides the existing changefeed and the existing `Closure` content-key manifest, and a peer's `SyncMerge.Apply` dispatches the `column-family=crdt` op-log row into `Crdt.Apply` rather than the LWW `Adjudicate` scalar — the op-based CRDT supersedes LWW so a concurrent edit converges by merge rather than discarding the loser; the OR-set tags are `(Guid Origin, ulong Logical)` HLC pairs so an add and a concurrent remove of the same element resolve add-wins by tag-set difference; the RGA insert position is the causal predecessor element id plus the inserting origin's HLC so two concurrent inserts after the same predecessor order deterministically by `(Logical, Origin)`; the PN-counter folds per-origin increment maps so a counter converges by per-origin max of monotone partial counts; the MV-register keeps every causally-concurrent write and collapses a dominated write so a later causal write supersedes but a concurrent pair survives for caller resolution; the `EphemeralMap` keeps one entry per origin, an incoming `Beat` supersedes the held entry for that origin only when its `Hlc` cell strictly dominates so a stale reorder never rewinds a peer's live state, a `Leave` evicts the origin's entry add-wins-loses against a strictly-later `Beat`, and the version-vector-gated `Compact` evicts every entry whose `Hlc` the quiescence horizon dominates so a crashed peer that stops beating drops at the liveness horizon without a durable tombstone — the presence type is the one CRDT arm that converges live-multiplayer state on the wire vocabulary rather than the lossy awareness lane.
+- Receipt: a converged merge rides the settled `SyncApplyReceipt`; a tombstone count, a live-element count, a compacted-tombstone count, and a live-presence count fold into the `store.crdt.merge` fact on the interceptor stream.
 - Packages: NodaTime, System.IO.Hashing, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new replicated type is one `CrdtField` case plus one `CrdtOp` arm plus one `Merge`/`Apply` arm; zero new surface — a per-type merge service, a second convergence engine, or an op-transform (OT) rebase is the deleted form because the join-semilattice subsumes idempotency, commutativity, and reorder tolerance.
-- Boundary: `Merge` is a join-semilattice least-upper-bound so any partition of any permutation of the op multiset applied any number of times converges to identical state — this is the strict superset of the `collaboration#MERGE_LAW` LWW `Adjudicate`, which survives only as the `LwwRegister` arm; the `RgaSequence` carries tombstones so a deleted element's position stays stable for later concurrent inserts and `Compact` reclaims a tombstone only when the supplied `VersionVector` quiescence horizon dominates the tombstone's HLC for every peer — the [CRDT_COMPACTION] proof harness replays permuted op multisets and confirms the LUB holds under tombstone removal; the `OrSet` is add-wins so a concurrent add-remove keeps the element and a remove only erases observed add-tags, never a later add; the `MvRegister` is a causal anti-chain — a write supersedes only writes its `VersionVector` dominates and keeps every concurrent value, so the register never silently discards a divergent edit; the `PnCounter` is two grow-only per-origin maps whose value is positive-minus-negative, monotone under merge so no decrement is ever lost; the RGA element id is `(Guid Origin, ulong Logical)` so identity is HLC-stable across peers and never positional; `Crdt.Merge` reads no wall clock — the HLC `Hlc` cell from the op-log stamp is the only ordering input, so convergence is deterministic; the CROSS_PACKAGE_LAW amendment this carries is owned at `#CRDT_WIRE`.
+- Boundary: `Merge` is a join-semilattice least-upper-bound so any partition of any permutation of the op multiset applied any number of times converges to identical state — this is the strict superset of the `collaboration#MERGE_LAW` LWW `Adjudicate`, which survives only as the `LwwRegister` arm; the `RgaSequence` carries tombstones so a deleted element's position stays stable for later concurrent inserts and `Compact` reclaims a tombstone only when the supplied `VersionVector` quiescence horizon dominates the tombstone's HLC for every peer — the [CRDT_COMPACTION] proof harness replays permuted op multisets and confirms the LUB holds under tombstone removal; the `OrSet` is add-wins so a concurrent add-remove keeps the element and a remove only erases observed add-tags, never a later add; the `MvRegister` is a causal anti-chain — a write supersedes only writes its `VersionVector` dominates and keeps every concurrent value, so the register never silently discards a divergent edit; the `PnCounter` is two grow-only per-origin maps whose value is positive-minus-negative, monotone under merge so no decrement is ever lost; the RGA element id is `(Guid Origin, ulong Logical)` so identity is HLC-stable across peers and never positional; the `EphemeralMap` is per-origin-LWW-by-HLC under add-wins liveness — `Merge` keeps the strictly-later `(State, Cell)` per origin so two peers observing each other's beats converge to identical live state, `Leave` carries the departing `Hlc` so a `Leave` erases an entry only when no strictly-later `Beat` survives, and `Compact` is the durable-presence distinction from the lossy awareness lane: an entry whose `Hlc` the quiescence horizon dominates is a peer the whole fleet has stopped observing, so eviction is convergence-correct, never a dropped beat — the lossy `collaboration#PRESENCE_AND_BLOB` `Awareness` lane stays the 60-Hz fire-and-forget cursor stream while this is the converging self-expiring presence map a late-joining peer reconstructs from the op-log prefix; `Crdt.Merge` reads no wall clock — the HLC `Hlc` cell from the op-log stamp is the only ordering input, so convergence is deterministic; the CROSS_PACKAGE_LAW amendment this carries is owned at `#CRDT_WIRE`.
 
 ```csharp signature
 public readonly record struct ElementId(Guid Origin, ulong Logical) : IComparable<ElementId> {
@@ -190,7 +190,7 @@ public readonly record struct ElementId(Guid Origin, ulong Logical) : IComparabl
         Logical.CompareTo(other.Logical) is var byLogical && byLogical != 0 ? byLogical : Origin.CompareTo(other.Origin);
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record CrdtOp {
     private CrdtOp() { }
 
@@ -202,6 +202,8 @@ public abstract partial record CrdtOp {
     public sealed record InsertAfter(string Field, ElementId Predecessor, ElementId Id, ReadOnlyMemory<byte> Value) : CrdtOp;
     public sealed record Delete(string Field, ElementId Id) : CrdtOp;
     public sealed record Maintain(string Field, VersionVector Quiescent) : CrdtOp;
+    public sealed record Beat(string Field, Guid Origin, ReadOnlyMemory<byte> State, Hlc Cell) : CrdtOp;
+    public sealed record Leave(string Field, Guid Origin, Hlc Cell) : CrdtOp;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -213,6 +215,7 @@ public abstract partial record CrdtField {
     public sealed record OrSet(HashMap<UInt128, Set<ElementId>> Live, Set<ElementId> Tombstoned) : CrdtField;
     public sealed record PnCounter(HashMap<Guid, long> Positive, HashMap<Guid, long> Negative) : CrdtField;
     public sealed record RgaSequence(Seq<(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone, Hlc Cell)> Cells) : CrdtField;
+    public sealed record EphemeralMap(HashMap<Guid, (ReadOnlyMemory<byte> State, Hlc Cell)> Live) : CrdtField;
 }
 
 public static class Crdt {
@@ -231,6 +234,9 @@ public static class Crdt {
             (CrdtField.PnCounter l, CrdtField.PnCounter r) => new CrdtField.PnCounter(
                 MergeMax(l.Positive, r.Positive), MergeMax(l.Negative, r.Negative)),
             (CrdtField.RgaSequence l, CrdtField.RgaSequence r) => new CrdtField.RgaSequence(Weave(l.Cells, r.Cells)),
+            (CrdtField.EphemeralMap l, CrdtField.EphemeralMap r) => new CrdtField.EphemeralMap(
+                r.Live.Fold(l.Live, static (acc, slot) =>
+                    acc.AddOrUpdate(slot.Key, held => held.Cell.CompareTo(slot.Value.Cell) >= 0 ? held : slot.Value, slot.Value))),
             _ => left,
         };
 
@@ -256,20 +262,31 @@ public static class Crdt {
             (CrdtField.RgaSequence seq, CrdtOp.Delete del) => new CrdtField.RgaSequence(
                 seq.Cells.Map(cell => cell.Id == del.Id ? cell with { Tombstone = true } : cell)),
             (CrdtField.RgaSequence seq, CrdtOp.Maintain m) => Compact(seq, m.Quiescent),
+            (CrdtField.EphemeralMap map, CrdtOp.Beat beat) => new CrdtField.EphemeralMap(
+                map.Live.AddOrUpdate(beat.Origin, held => held.Cell.CompareTo(beat.Cell) >= 0 ? held : (beat.State, beat.Cell), (beat.State, beat.Cell))),
+            (CrdtField.EphemeralMap map, CrdtOp.Leave leave) => new CrdtField.EphemeralMap(
+                map.Live.Find(leave.Origin).Filter(held => held.Cell.CompareTo(leave.Cell) > 0).IsSome ? map.Live : map.Live.Remove(leave.Origin)),
+            (CrdtField.EphemeralMap map, CrdtOp.Maintain m) => Compact(map, m.Quiescent),
             _ => state,
         };
 
     public static CrdtField Compact(CrdtField state, VersionVector quiescent) =>
-        state is CrdtField.RgaSequence seq
-            ? new CrdtField.RgaSequence(seq.Cells.Filter(cell =>
-                !cell.Tombstone || quiescent.At(cell.Id.Origin) < (long)cell.Id.Logical))
-            : state;
+        state switch {
+            CrdtField.RgaSequence seq => new CrdtField.RgaSequence(seq.Cells.Filter(cell =>
+                !cell.Tombstone || quiescent.At(cell.Id.Origin) < (long)cell.Id.Logical)),
+            CrdtField.EphemeralMap map => new CrdtField.EphemeralMap(map.Live.Filter((origin, slot) =>
+                quiescent.At(origin) < (long)slot.Cell.Logical)),
+            _ => state,
+        };
 
     public static long Value(CrdtField.PnCounter counter) =>
         counter.Positive.Values.Sum() - counter.Negative.Values.Sum();
 
     public static Seq<ReadOnlyMemory<byte>> Materialize(CrdtField.RgaSequence seq) =>
         seq.Cells.Filter(static cell => !cell.Tombstone).Map(static cell => cell.Value);
+
+    public static Seq<(Guid Origin, ReadOnlyMemory<byte> State)> Live(CrdtField.EphemeralMap map) =>
+        toSeq(map.Live.Map(static (origin, slot) => (origin, slot.State)));
 
     private static HashMap<Guid, long> MergeMax(HashMap<Guid, long> left, HashMap<Guid, long> right) =>
         right.Fold(left, static (acc, slot) => acc.AddOrUpdate(slot.Key, held => long.Max(held, slot.Value), slot.Value));
@@ -296,16 +313,17 @@ public static class Crdt {
 |   [3]   | OrSet         | add-wins observed-remove set        | per-element tag-set union minus observed removes |
 |   [4]   | PnCounter     | positive-negative per-origin        | per-origin max of monotone partial counts      |
 |   [5]   | RgaSequence   | replicated growable array           | tombstone-stable causal order; `Compact` reclaims at quiescence |
+|   [6]   | EphemeralMap  | add-wins observed-remove presence map | per-origin LWW-by-HLC; `Beat` supersedes, `Leave` evicts, `Compact` self-expires at the liveness horizon |
 
 ## [4]-[CRDT_WIRE]
 
 - Owner: `Hlc` the hybrid-logical-clock stamp value — the one causal-ordering primitive the op-log stamp, the CRDT merge, the commit cell, and the wire all read; `CrdtOpWire` the `[MessagePack.Union]` op/CRDT encoding the `OpLogEntry.Payload` carries for `column-family=crdt` rows; `CrdtWire` the static codec surface owning the byte-canonical content key, the `Encode`/`Decode` pair through the settled `ThinktectureMessageFormatterResolver`+`GeneratedMessagePackResolver` chain, and the `UntrustedData` restore-lane decode.
-- Cases: 8 op rows — `set | write | add | remove | increment | insertAfter | delete | maintain` on `CrdtOpWire`; the `[Key]` sequence IS the wire schema, dense and append-only, a retired key never reassigned.
+- Cases: 10 op rows — `set | write | add | remove | increment | insertAfter | delete | maintain | beat | leave` on `CrdtOpWire`; the `[Key]` sequence IS the wire schema, dense and append-only, a retired key never reassigned; the `beat`/`leave` arms carry the `EphemeralMap` presence delta so the TS projection version-vector and the UI presence surface decode live-multiplayer state on the one wire vocabulary, and the Python CRDT decode reconstructs the same self-expiring presence map.
 - Entry: `public static UInt128 ContentKey(CrdtOpWire op)` — the byte-canonical content key over the MessagePack-encoded delta so an identical op on two peers shares one identity; `public static ReadOnlyMemory<byte> Encode(CrdtOp op)` writes the delta through the version-control resolver under `Lz4BlockArray`; `public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload)` reads the delta under `MessagePackSecurity.UntrustedData` with the depth ceiling because a synced payload crossed a rest boundary.
 - Auto: `Hlc.Advance` swaps the local cell forward past both the wall clock and the observed remote cell so a received op never rewinds the local logical counter — the same `ReceiptSinkPort.Advance` algebra the op-log stamp and every receipt envelope ride; `CrdtWire.Encode` rides the durability codec profile so a `CrdtOp` delta crosses as `OpLogEntry.Payload` bytes that the restore ladder and the snapshot codec already verify, never a second framing; the wire union and the `CrdtOp` union share one case vocabulary so a new op arm is one wire row plus one `CrdtOp` arm plus one map case, zero schema fork.
 - Receipt: an encoded delta carries no receipt (the `OpLogEntry` carries the codec, content key, and HLC cell); a decode failure folds into the `store.crdt.decode` fault on the interceptor stream as a typed contract-drift rejection.
 - Packages: MessagePack, Thinktecture.Runtime.Extensions.MessagePack, System.IO.Hashing, NodaTime, LanguageExt.Core, BCL inbox.
-- Growth: a new op is one `CrdtOpWire` `[MessagePack.Union]` tag plus one `[Key]` member plus one `Map`/`Lift` arm; a retired tag is never reassigned because reuse silently re-types history; zero new surface — a typeless payload, a JSON-array delta, or a per-type formatter beside the resolver chain is the deleted form.
+- Growth: a new op is one `CrdtOpWire` `[MessagePack.Union]` tag plus one `[Key]` member plus one `Map`/`Lift` arm; `Lift` over the owned `CrdtOp` `[Union]` is the generated total `Switch` so a new `CrdtOp` case breaks the build rather than throwing the `<crdt-op-unmapped>` default, while `Map` over the foreign `[MessagePack.Union]` `CrdtOpWire` stays a language `switch` whose `_ => throw` is the contract-drift guard at the wire-decode boundary, not a lossy owned-union default; a retired tag is never reassigned because reuse silently re-types history; zero new surface — a typeless payload, a JSON-array delta, or a per-type formatter beside the resolver chain is the deleted form.
 - Boundary: this is the FLAGSHIP CrdtOpWire amendment to the one-wire-vocabulary law — `OpLogEntry.Payload` now carries a `CrdtOpWire` discriminated union for `column-family=crdt` rows, LWW `Adjudicate` survives only as the `set` arm reconstructing `LwwRegister`, and the breaking descriptor change is owned at `AppHost/runtime-ports#WIRE_LAW` with the TS-web `wire-consumption` leg and the Python `runtime/ServerHost` companion decoding the amended payload — recorded as a seam-split at the suite CROSS_PACKAGE_LAWS, never an additive parallel surface; the `Hlc` is one packed `(Instant Physical, ulong Logical)` whose ordering is `Physical` then `Logical` so two peers compare causality without a wall clock, and `WriteTo` emits the canonical 16-byte cell the commit content key and the op content key both hash; the wire `[Key]` sequence and the `[MessagePack.Union]` tags obey the durability retirement law so contract drift is a build diagnostic through the `MessagePackAnalyzer`, never a first-restore discovery; the restore lane reads under `UntrustedData` plus the object-graph depth ceiling because a synced delta's provenance is unprovable, while the write lane keeps the trusted default; `ContentKey` hashes the encoded canonical bytes so the op content key the `OpLogEntry` carries is reproducible across peers and is the same `XxHash128` identity the structural diff and the federation keys consume.
 
 ```csharp signature
@@ -341,6 +359,8 @@ public readonly record struct Hlc(Instant Physical, ulong Logical) : IComparable
 [MessagePack.Union(5, typeof(InsertAfter))]
 [MessagePack.Union(6, typeof(Delete))]
 [MessagePack.Union(7, typeof(Maintain))]
+[MessagePack.Union(8, typeof(Beat))]
+[MessagePack.Union(9, typeof(Leave))]
 public abstract record CrdtOpWire {
     [MessagePackObject]
     public sealed record Set([property: Key(0)] string Field, [property: Key(1)] ReadOnlyMemory<byte> Value, [property: Key(2)] long PhysicalTicks, [property: Key(3)] ulong Logical, [property: Key(4)] Guid Origin) : CrdtOpWire;
@@ -358,6 +378,10 @@ public abstract record CrdtOpWire {
     public sealed record Delete([property: Key(0)] string Field, [property: Key(1)] Guid IdOrigin, [property: Key(2)] ulong IdLogical) : CrdtOpWire;
     [MessagePackObject]
     public sealed record Maintain([property: Key(0)] string Field, [property: Key(1)] (Guid Origin, long Seq)[] Quiescent) : CrdtOpWire;
+    [MessagePackObject]
+    public sealed record Beat([property: Key(0)] string Field, [property: Key(1)] Guid Origin, [property: Key(2)] ReadOnlyMemory<byte> State, [property: Key(3)] long PhysicalTicks, [property: Key(4)] ulong Logical) : CrdtOpWire;
+    [MessagePackObject]
+    public sealed record Leave([property: Key(0)] string Field, [property: Key(1)] Guid Origin, [property: Key(2)] long PhysicalTicks, [property: Key(3)] ulong Logical) : CrdtOpWire;
 }
 
 [GeneratedMessagePackResolver]
@@ -375,17 +399,17 @@ public static class CrdtWire {
         Write.WithSecurity(MessagePackSecurity.UntrustedData.WithMaximumObjectGraphDepth(64));
 
     public static CrdtOpWire Lift(CrdtOp op) =>
-        op switch {
-            CrdtOp.Set s => new CrdtOpWire.Set(s.Field, s.Value, s.Cell.Physical.ToUnixTimeTicks(), s.Cell.Logical, s.Origin),
-            CrdtOp.Write w => new CrdtOpWire.Write(w.Field, w.Value, [.. w.Context.Slots.Map(static (k, v) => (k, v))], w.Cell.Physical.ToUnixTimeTicks(), w.Cell.Logical, w.Origin),
-            CrdtOp.Add a => new CrdtOpWire.Add(a.Field, a.Element, a.Tag.Origin, a.Tag.Logical),
-            CrdtOp.Remove r => new CrdtOpWire.Remove(r.Field, r.Element, [.. r.ObservedTags.Map(static t => (t.Origin, t.Logical))]),
-            CrdtOp.Increment i => new CrdtOpWire.Increment(i.Field, i.Origin, i.Delta),
-            CrdtOp.InsertAfter ins => new CrdtOpWire.InsertAfter(ins.Field, ins.Predecessor.Origin, ins.Predecessor.Logical, ins.Id.Origin, ins.Id.Logical, ins.Value),
-            CrdtOp.Delete d => new CrdtOpWire.Delete(d.Field, d.Id.Origin, d.Id.Logical),
-            CrdtOp.Maintain m => new CrdtOpWire.Maintain(m.Field, [.. m.Quiescent.Slots.Map(static (k, v) => (k, v))]),
-            _ => throw new MessagePack.MessagePackSerializationException("<crdt-op-unmapped>"),
-        };
+        op.Switch<CrdtOpWire>(
+            set:         static s => new CrdtOpWire.Set(s.Field, s.Value, s.Cell.Physical.ToUnixTimeTicks(), s.Cell.Logical, s.Origin),
+            write:       static w => new CrdtOpWire.Write(w.Field, w.Value, [.. w.Context.Slots.Map(static (k, v) => (k, v))], w.Cell.Physical.ToUnixTimeTicks(), w.Cell.Logical, w.Origin),
+            add:         static a => new CrdtOpWire.Add(a.Field, a.Element, a.Tag.Origin, a.Tag.Logical),
+            remove:      static r => new CrdtOpWire.Remove(r.Field, r.Element, [.. r.ObservedTags.Map(static t => (t.Origin, t.Logical))]),
+            increment:   static i => new CrdtOpWire.Increment(i.Field, i.Origin, i.Delta),
+            insertAfter: static ins => new CrdtOpWire.InsertAfter(ins.Field, ins.Predecessor.Origin, ins.Predecessor.Logical, ins.Id.Origin, ins.Id.Logical, ins.Value),
+            delete:      static d => new CrdtOpWire.Delete(d.Field, d.Id.Origin, d.Id.Logical),
+            maintain:    static m => new CrdtOpWire.Maintain(m.Field, [.. m.Quiescent.Slots.Map(static (k, v) => (k, v))]),
+            beat:        static b => new CrdtOpWire.Beat(b.Field, b.Origin, b.State, b.Cell.Physical.ToUnixTimeTicks(), b.Cell.Logical),
+            leave:       static l => new CrdtOpWire.Leave(l.Field, l.Origin, l.Cell.Physical.ToUnixTimeTicks(), l.Cell.Logical));
 
     public static CrdtOp Map(CrdtOpWire op) =>
         op switch {
@@ -397,6 +421,8 @@ public static class CrdtWire {
             CrdtOpWire.InsertAfter ins => new CrdtOp.InsertAfter(ins.Field, new ElementId(ins.PredOrigin, ins.PredLogical), new ElementId(ins.IdOrigin, ins.IdLogical), ins.Value),
             CrdtOpWire.Delete d => new CrdtOp.Delete(d.Field, new ElementId(d.IdOrigin, d.IdLogical)),
             CrdtOpWire.Maintain m => new CrdtOp.Maintain(m.Field, new VersionVector(toHashMap(m.Quiescent))),
+            CrdtOpWire.Beat b => new CrdtOp.Beat(b.Field, b.Origin, b.State, new Hlc(Instant.FromUnixTimeTicks(b.PhysicalTicks), b.Logical)),
+            CrdtOpWire.Leave l => new CrdtOp.Leave(l.Field, l.Origin, new Hlc(Instant.FromUnixTimeTicks(l.PhysicalTicks), l.Logical)),
             _ => throw new MessagePack.MessagePackSerializationException("<crdt-wire-unmapped>"),
         };
 
@@ -419,6 +445,7 @@ public static class CrdtWire {
 |   [2]   | wire-law owner         | `AppHost/runtime-ports#WIRE_LAW` | breaking descriptor change; LWW survives as `set`    |
 |   [3]   | restore decode lane    | `UntrustedData` depth 64         | synced delta crossed a rest boundary                 |
 |   [4]   | op content key         | `XxHash128` over canonical bytes | reproducible across peers; one identity              |
+|   [5]   | presence union tags    | `beat`=8, `leave`=9              | `EphemeralMap` delta; append-only `[MessagePack.Union]` |
 
 ## [5]-[TIME_TRAVEL]
 
@@ -625,7 +652,7 @@ public static class StructuralMerge {
 - Owner: `CommitNodeWire`, `BranchRefWire`, `VersionVectorWire`, `HlcWire`, `VectorOrderKind`, `CrdtOpWire`, `MerkleRangeWire`, `MergeConflictWire`, `BlameRowWire`, `RangeDiffWire` — the version-control wire surface the dashboard and peers decode.
 - Packages: BCL inbox.
 - Growth: a new wire payload is one interface decoded through the same options, zero new surface.
-- Boundary: 64-bit fields decode as bigint under useBigInt64; content keys cross as 16-byte binary; instants cross as ISO-8601 extended strings; the `Hlc` crosses as `{ physical: string; logical: bigint }` so the TS leg compares causality without a wall clock; the `VersionVector` slots cross as a string-keyed bigint map (origin GUID string to sequence); the `CrdtOpWire` is the breaking wire-vocabulary amendment — it is a literal-discriminated union the TS-web and Python legs decode for `column-family=crdt` op-log rows, replacing the prior scalar payload assumption and adding the `write`/`increment`/`maintain` arms for the multi-value register, PN-counter, and tombstone compaction; `MergeConflictWire` and `BlameRowWire` reconstruct as literal unions from the case names; `MerkleRangeWire` carries the anti-entropy descent digest.
+- Boundary: 64-bit fields decode as bigint under useBigInt64; content keys cross as 16-byte binary; instants cross as ISO-8601 extended strings; the `Hlc` crosses as `{ physical: string; logical: bigint }` so the TS leg compares causality without a wall clock; the `VersionVector` slots cross as a string-keyed bigint map (origin GUID string to sequence); the `CrdtOpWire` is the breaking wire-vocabulary amendment — it is a literal-discriminated union the TS-web and Python legs decode for `column-family=crdt` op-log rows, replacing the prior scalar payload assumption and adding the `write`/`increment`/`maintain` arms for the multi-value register, PN-counter, and tombstone compaction, plus the `beat`/`leave` arms for the `EphemeralMap` presence type so the TS projection version-vector reconstructs the live-peer set and the UI presence surface renders each origin's converged cursor/selection/camera/follow state, a beat superseded by a strictly-later `cell` and an entry self-expiring when the quiescence horizon dominates its `cell`, so a late-joining peer materializes presence from the op-log prefix rather than the lossy awareness lane; `MergeConflictWire` and `BlameRowWire` reconstruct as literal unions from the case names; `MerkleRangeWire` carries the anti-entropy descent digest.
 
 ```ts contract
 type VectorOrderKind = "Before" | "After" | "Concurrent" | "Equal";
@@ -675,7 +702,9 @@ type CrdtOpWire =
   | { op: "increment"; field: string; origin: string; delta: bigint }
   | { op: "insertAfter"; field: string; predecessor: { origin: string; logical: bigint }; id: { origin: string; logical: bigint }; value: Uint8Array }
   | { op: "delete"; field: string; id: { origin: string; logical: bigint } }
-  | { op: "maintain"; field: string; quiescent: Record<string, bigint> };
+  | { op: "maintain"; field: string; quiescent: Record<string, bigint> }
+  | { op: "beat"; field: string; origin: string; state: Uint8Array; cell: HlcWire }
+  | { op: "leave"; field: string; origin: string; cell: HlcWire };
 
 type MergeConflictWire =
   | { kind: "ParallelEdit"; id: string }

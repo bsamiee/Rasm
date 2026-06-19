@@ -12,7 +12,7 @@ One cluster: `[2]-[LIVE_CELLS]` owns `FeedKind`, the four feed rows, and the `fe
 - Cases: each row's `key` is one `Match.value(event).pipe(...)` over the verbatim C# discriminant field. `runtime` and `health` terminate `Match.exhaustive` so a fourth wire case breaks at compile time rather than aliasing into a silent else; `snapshot` terminates `Match.orElse` only because `SnapshotDeltaWire` is the genuine residual (no `id`, no `source`), not a masked new variant. `latestWrite` is the polymorphic merge the `runtime`, `health`, and `snapshot` rows share; the `progress` row carries the monotonic-rank merge where a mark below the held rank never regresses the cell. The `runtime` row folds the `PhaseReceiptWire`/`BootMarkerWire`/`FaultRecordWire`/`DrainReceiptWire` union against `csharp:Rasm.AppHost/hosting/lifecycle-and-drain#TS_PROJECTION`; the `health` row folds `HealthSnapshotWire`/`DegradationWire`/`AlertReceiptWire` against `csharp:Rasm.AppHost/observability/health-and-degradation#TS_PROJECTION`, the retained-capability set on the degradation cell gating which web surfaces are reachable; the `snapshot` row folds `SnapshotCatalogRowWire`/`SnapshotDeltaWire`/`RestoreReceiptWire` against `csharp:Rasm.Persistence/snapshots/codecs#TS_PROJECTION`; the `progress` row folds `ProgressMarkWire` against `csharp:Rasm.Compute/progress/progress#TS_PROJECTION`.
 - Packages: `effect` for `Match`, `Option`, `Stream`, `SubscriptionRef`, `Effect`, `HashMap`, and `Scope`.
 - Growth: a new boundary concept lands as one `FeedKind` row carrying its union, key, and merge; a new event kind lands as one `Match.when` arm breaking the exhaustive terminal on that row's key projection. The `feedStore` entrypoint never grows.
-- Boundary: no row re-validates a value an earlier decode admitted; the discriminant is imported from `@rasm/ts` verbatim and never re-authored; ordering is borrowed from the wire — monotonic rank for `progress`, latest-write per slot for the rest; reconnect, buffer, throttle, and batch are owned once by `stream-policy#STREAM_POLICY`; consumers read the `SubscriptionRef` and the `@effect-atom/atom` bridge binds it at the `ui` boundary, never imported here.
+- Boundary: no row re-validates a value an earlier decode admitted; the discriminant is imported from `@rasm/interchange` verbatim and never re-authored; ordering is borrowed from the wire — monotonic rank for `progress`, latest-write per slot for the rest; reconnect, buffer, throttle, and batch are owned once by `stream-policy#STREAM_POLICY`; consumers read the `SubscriptionRef` and the `@effect-atom/atom` bridge binds it at the `ui` boundary, never imported here.
 
 ```ts contract
 import { Effect, HashMap, Match, Option, Scope, Stream, SubscriptionRef } from "effect";
@@ -20,7 +20,7 @@ import type {
   AlertReceiptWire, BootMarkerWire, DegradationWire, DrainReceiptWire,
   FaultRecordWire, HealthSnapshotWire, PhaseReceiptWire, ProgressMarkWire,
   RestoreReceiptWire, SnapshotCatalogRowWire, SnapshotDeltaWire,
-} from "@rasm/ts";
+} from "@rasm/interchange";
 import { keyedFold } from "../fold-core/keyed-fold";
 import type { StreamPolicy } from "../fold-core/stream-policy";
 

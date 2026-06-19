@@ -89,6 +89,7 @@ Every external library the folder uses, planned or implemented, as a flat list. 
 
 [CAPABILITY_AGENT]:
 - Microsoft.Extensions.AI.Abstractions
+- Microsoft.Extensions.AI
 - ModelContextProtocol
 - ModelContextProtocol.Core
 - ModelContextProtocol.AspNetCore
@@ -99,6 +100,8 @@ Every external library the folder uses, planned or implemented, as a flat list. 
 - OPCFoundation.NetStandard.Opc.Ua
 - OPCFoundation.NetStandard.Opc.Ua.PubSub
 - MQTTnet
+- FluentModbus
+- System.IO.Ports
 
 [FUNCTIONAL_CORE]:
 - LanguageExt.Core

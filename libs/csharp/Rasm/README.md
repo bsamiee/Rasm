@@ -14,7 +14,11 @@ The mature `Vectors`/`Analysis`/`Domain` source carries no `.planning/`; its des
 - `Geometry/.planning/healing/receipts.md` — the typed `RebuildReceipt` family, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold feeding the naming re-anchor.
 - `Geometry/.planning/constraints/solver.md` — one author-kernel geometric constraint solver: the closed `Constraint` residual/Jacobian algebra, the `DofAnalysis` verdict, and the Levenberg-Marquardt `Solve` iterate.
 - `Geometry/.planning/tessellation/delaunay.md` — the author-kernel constrained Delaunay owner: one `Tessellation` (triangulation/tetrahedralization) over a flat `SimplexStore`, the Bowyer-Watson insertion driven by the exact `InCircle`/`InSphere` predicate, and predicate-guarded constraint recovery.
-- `Geometry/.planning/faults/faults.md` — the consolidated band-2400 `GeometryFault` union every geometry rail routes through, and the `GeometryKeyPolicy` ordinal key accessor.
+- `Geometry/.planning/offsetting/offset.md` — the predicate-exact offsetting owner: one `OffsetOp` (skeleton/medial/minkowski/offset) over a flat `WavefrontStore`, the Aichholzer-Aurenhammer wavefront event queue driven by the exact `Orient2D` turn sign, the medial-axis read-off over the `Tessellation` Voronoi dual, and the Minkowski edge-normal convolution.
+- `Geometry/.planning/projection/view.md` — the predicate-exact hidden-line/silhouette projection owner: one `ViewOp` (silhouette/hidden-line/section/outline) over a Newell-Newell-Sancha BSP visibility kernel, the silhouette locus decided by the exact `Orient3D` view-dot sign, the section cut one `IntersectOp.Apply`, and the `DrawingProjection` visible/hidden 2D-segment carrier.
+- `Geometry/.planning/simplification/decimate.md` — the predicate-guarded mesh decimation / LOD owner: one `SimplifyOp` (quadric-collapse/progressive-mesh/voxel-remesh/feature-preserve) over a Garland-Heckbert QEM edge-collapse queue gated by the exact `Orient3D` sign, and the `DecimationReceipt` per-LOD budget / Hausdorff bound / reversible vsplit carrier.
+- `Geometry/.planning/encoding/pack.md` — the canonical geometry-encoding / packing owner: one `PackOp` (point-cloud/mesh-patch/voxel-grid/brep-patch) over the eight-row `EncodingChannel` feature lattice composing the live `Vectors` mesh/cloud/SDF/curvature/geodesic readers, and the `EncodedGeometry` per-channel-payload / lossless-round-trip-witness carrier.
+- `Geometry/.planning/faults/faults.md` — the consolidated band-2400 `GeometryFault` union every geometry rail routes through (spatial 2401–, topology 2410–, healing 2420–, constraints 2430–, offsetting 2440–, arrangement 2450–, intersection 2460–, fitting 2470–, parameterization 2480–, projection 2490–, decimation 2500–, encoding 2510–), and the `GeometryKeyPolicy` ordinal key accessor.
 
 ## [2]-[PACKAGES]
 
@@ -24,7 +28,6 @@ Every external library the kernel uses, planned or implemented, as a flat list. 
 - LanguageExt.Core — `Fin`/`Validation`/`Eff` result rails, `Seq`/`Option`/`HashMap`/`Set` immutable collections, `Error`.
 - MathNet.Numerics — dense linear algebra (`Matrix<double>`/`DenseMatrix`/`Cholesky`) for the constraint solver's normal-equations solve.
 - MathNet.Numerics.Providers.MKL / .OpenBLAS — native linear-algebra backends behind the `Control.LinearAlgebraProvider` seam, version-matched to the core line.
-- MathNet.Symbolics — symbolic expression algebra over the dense numeric lane for the constraint Jacobian/residual derivation.
 - CSparse — sparse direct solves for the mature `Vectors` mesh/matrix lane.
 - System.Numerics.Tensors — `TensorPrimitives` SIMD primitives for the mature `Vectors` field/spectral lane.
 - System.IO.Hashing — `XxHash128`, the one content-address hash the topology reconciliation reuses.

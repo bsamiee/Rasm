@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_MATHNET_PROVIDERS]
+# [RASM_API_MATHNET_PROVIDERS]
 
 `MathNet.Numerics` supplies dense and sparse linear algebra, the RID-keyed
 native-provider selection façade over MKL and OpenBLAS, the CSR sparse storage

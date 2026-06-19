@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `tree-sitter`
 - package: `tree-sitter`
 - import: `tree_sitter`
-- version: `0.25.2`
 - owner: `runtime`
 - rail: parsing
 - namespaces: `tree_sitter`
@@ -55,7 +54,7 @@
 |   [8]   | `Node.children` / `Node.named_children` | navigate       | child enumeration              |
 |   [9]   | `Node.child_by_field_name`              | navigate       | field-named child              |
 |  [10]   | `Node.descendant_for_byte_range`        | navigate       | node covering a byte span      |
-|  [11]   | `Language.query`                        | build          | compile a query                |
+|  [11]   | `Query(language, pattern)`              | build          | compile a query                |
 |  [12]   | `QueryCursor.captures`                  | match          | capture-name to nodes          |
 |  [13]   | `QueryCursor.matches`                   | match          | full pattern matches           |
 
@@ -65,12 +64,12 @@
 - parser law: a `Parser` is constructed once per grammar and reused; reparsing edited source passes `old_tree` for incremental parse, never a full re-parse where an edit is known.
 - grammar law: grammars are admitted as `Language` rows from the `tree-sitter-python`/`tree-sitter-typescript` grammar packages; a new language is one grammar row, never a new parser class.
 - traversal law: structural walks use `TreeCursor` (`walk`) for efficiency or field-named access (`child_by_field_name`); index-based child guessing is deleted.
-- query law: structural extraction uses a compiled `Query` run through a `QueryCursor` with named captures; manual node-type string matching in a recursion is replaced by a query.
+- query law: structural extraction compiles a `Query(language, pattern)` and runs it through a `QueryCursor` with named captures; the deprecated `Language.query(pattern)` shim and manual node-type string matching in a recursion are replaced by the constructor + query.
 - edit law: incremental updates call `Tree.edit` with the byte/point delta then reparse with `old_tree`; `changed_ranges` drives downstream re-processing.
 - range law: positions are byte offsets and `Point` row/columns from the node, never recomputed from the source string.
 
 [LOCAL_ADMISSION]:
-- The structural-parsing surface composes one reusable `Parser` per grammar; grammar `Language` objects arrive from the grammar packages (`.api/api-tree-sitter-python.md`, `.api/api-tree-sitter-typescript.md`).
+- The structural-parsing surface composes one reusable `Parser` per grammar; grammar `Language` objects arrive from the grammar packages (`.api/tree-sitter-python.md`, `.api/tree-sitter-typescript.md`).
 - This is structural source parsing for the companion seam, never a full language server or type checker.
 
 [RAIL_LAW]:

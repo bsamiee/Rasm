@@ -155,6 +155,7 @@ _LAWS: tuple[tuple[object, str], ...] = (
     (engine_mod._dotnet_root, "dotnet_root_probe_precedence"),
     (engine_mod._apphost, "apphost_overlays_tool_run_heads_only"),
     (run_check, "run_check_executes_direct_tool"),
+    (run_check, "provision_process_suppresses_raw_artifacts"),
     (engine_mod._overlay, "overlay_merges_row_env_into_spawned_process"),
     (run_check, "spawned_children_detach_into_own_session"),
     (discover, "discover_detaches_child_session"),
@@ -733,8 +734,9 @@ def test_run_check_executes_direct_tool(assay_root: AssayHarness) -> None:
     assert b"hello" in assert_ok(_run(Check(tool=_ECHO_TOOL), assay_root)).stdout
 
 
-def test_run_check_injects_traceparent_into_subprocess_env(assay_root: AssayHarness) -> None:
+def test_run_check_injects_traceparent_into_subprocess_env(assay_root: AssayHarness, otel_spans: InMemorySpanExporter) -> None:
     """W3C trace context crosses the spawn boundary as a lowercase ``traceparent`` env entry."""
+    _ = otel_spans
     tool = msgspec.structs.replace(_ECHO_TOOL, name="env-dump", command=("/usr/bin/env",))
     done = assert_ok(_run(Check(tool=tool), assay_root))
     assert b"traceparent=00-" in done.stdout, f"traceparent missing from subprocess env: {done.stdout[:400]!r}"
@@ -1070,6 +1072,17 @@ def test_nonstreaming_scoped_process_persists_output_artifacts(assay_root: Assay
     # The non-streaming receipt carries the unified _measure key set, child-tree rows included, matching the streaming path.
     keys = {name for name, _ in done.resources}
     assert {"proc.children", "proc.children_rss_bytes", "process.duration_ms"} <= keys, f"non-streaming receipt key set drifted: {sorted(keys)!r}"
+
+
+@pytest.mark.parametrize("mode", [Mode.RUN, Mode.VERIFY], ids=["nonstream", "stream"])
+def test_provision_process_suppresses_raw_artifacts(mode: Mode, assay_root: AssayHarness) -> None:
+    """Provision claim output remains in the receipt for parsing but never persists raw PROCESS artifacts."""
+    payload = b'{"schemaVersion":2,"command":"status","ok":true}\n'
+    script = f"import sys; sys.stdout.buffer.write({payload!r}); sys.stderr.buffer.write(b'raw-log')"
+    tool = Tool("provision-redaction-law", Runner.DIRECT, (sys.executable, "-c", script), Input.NONE, Language.PYTHON, Claim.PROVISION, mode=mode)
+    done = assert_ok(_run(Check(tool=tool), assay_root, scope=assay_root.scope(Claim.PROVISION)))
+    assert done.stdout == payload
+    assert done.artifacts == ()
 
 
 def _spill_plan(assay_root: AssayHarness, scope: ArtifactScope, spill_cap: int) -> engine_mod._ExecPlan:

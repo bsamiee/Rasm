@@ -1,0 +1,89 @@
+# [API_CATALOGUE] @opentelemetry/core
+
+`@opentelemetry/core` supplies the OpenTelemetry SDK utility layer: the W3C Trace Context and Baggage `TextMapPropagator` implementations (`W3CTraceContextPropagator`, `W3CBaggagePropagator`), the `CompositePropagator` that runs an ordered list of propagators as one, the `traceparent` parse helper (`parseTraceParent`), and the `TRACE_PARENT_HEADER`/`TRACE_STATE_HEADER` header-name constants. The propagators implement the `@opentelemetry/api` `TextMapPropagator` contract (`inject`/`extract`/`fields`) and plug into the WebSDK provider registration as the `DefaultTextMapPropagator`.
+
+## [1]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `@opentelemetry/core`
+- package: `@opentelemetry/core`
+- module: `@opentelemetry/core` (barrel re-export from `build/src/index.d.ts`)
+- asset: runtime library
+- rail: observability
+
+## [2]-[PUBLIC_TYPES]
+
+[PUBLIC_TYPE_SCOPE]: propagator types and config
+- rail: observability
+
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                                  |
+| :-----: | :-------------------------- | :------------ | :------------------------------------------------------ |
+|   [1]   | `W3CTraceContextPropagator` | class         | `TextMapPropagator` for `traceparent`/`tracestate`      |
+|   [2]   | `W3CBaggagePropagator`      | class         | `TextMapPropagator` for the W3C `baggage` header        |
+|   [3]   | `CompositePropagator`       | class         | ordered fan-out of a `TextMapPropagator[]` as one       |
+|   [4]   | `CompositePropagatorConfig` | interface     | `{ propagators?: TextMapPropagator[] }` constructor arg |
+
+## [3]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: W3C trace-context propagator
+- rail: observability
+
+```ts
+// build/src/trace/W3CTraceContextPropagator.d.ts
+export declare const TRACE_PARENT_HEADER = "traceparent";
+export declare const TRACE_STATE_HEADER = "tracestate";
+
+export declare function parseTraceParent(traceParent: string): SpanContext | null;
+
+export declare class W3CTraceContextPropagator implements TextMapPropagator {
+  inject(context: Context, carrier: unknown, setter: TextMapSetter): void;
+  extract(context: Context, carrier: unknown, getter: TextMapGetter): Context;
+  fields(): string[];
+}
+```
+
+[ENTRYPOINT_SCOPE]: W3C baggage propagator
+- rail: observability
+
+```ts
+// build/src/baggage/propagation/W3CBaggagePropagator.d.ts
+export declare class W3CBaggagePropagator implements TextMapPropagator {
+  inject(context: Context, carrier: unknown, setter: TextMapSetter): void;
+  extract(context: Context, carrier: unknown, getter: TextMapGetter): Context;
+  fields(): string[];
+}
+```
+
+[ENTRYPOINT_SCOPE]: composite propagator
+- rail: observability
+
+```ts
+// build/src/propagation/composite.d.ts
+export interface CompositePropagatorConfig {
+  propagators?: TextMapPropagator[];
+}
+
+export declare class CompositePropagator implements TextMapPropagator {
+  constructor(config?: CompositePropagatorConfig);
+  inject(context: Context, carrier: unknown, setter: TextMapSetter): void;
+  extract(context: Context, carrier: unknown, getter: TextMapGetter): Context;
+  fields(): string[];
+}
+```
+
+## [4]-[IMPLEMENTATION_LAW]
+
+[PROPAGATION_TOPOLOGY]:
+- a propagator implements the `@opentelemetry/api` `TextMapPropagator` triple — `inject` writes the active `Context` onto an outbound carrier, `extract` reads an inbound carrier into a `Context`, `fields` lists the header names it owns
+- `CompositePropagator` runs its `propagators` list in order; a later propagator writing the same context/carrier key wins, so a `[W3CTraceContextPropagator, W3CBaggagePropagator]` composite injects both `traceparent`/`tracestate` and `baggage` headers from one propagator handle
+- `parseTraceParent` decodes a `traceparent` header string to a `SpanContext` or `null` on a malformed value; it never throws
+
+[LOCAL_ADMISSION]:
+- the composite is registered as the SDK's `DefaultTextMapPropagator` so every outbound request injects `traceparent`/`tracestate` and every inbound carrier seeds the span from the extracted parent rather than a fresh root
+- `TRACE_PARENT_HEADER`/`TRACE_STATE_HEADER` are the canonical header names a transport interceptor injects under, never a hand-written `"traceparent"` literal
+- the propagator is paired with a `ParentBasedSampler` so the extracted parent's sampling decision is honored and a root span samples at the configured ratio
+
+[RAIL_LAW]:
+- Package: `@opentelemetry/core`
+- Owns: W3C trace-context and baggage propagation, the composite propagator fan-out, and the `traceparent` parse/header constants
+- Accept: `W3CTraceContextPropagator`/`W3CBaggagePropagator` composed in a `CompositePropagator`, registered as the SDK `DefaultTextMapPropagator`
+- Reject: a hand-rolled `traceparent` header build/parse, a per-request fresh root span where an inbound parent context exists, a `"traceparent"` string literal in place of `TRACE_PARENT_HEADER`

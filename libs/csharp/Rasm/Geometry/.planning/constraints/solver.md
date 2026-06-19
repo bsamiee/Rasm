@@ -6,19 +6,19 @@ The solver composes `Vectors` `Point3d`/`Vector3d` coordinates as settled vocabu
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                                                                  |
-| :-----: | :---------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                                                                                                                                                            |
+| :-----: | :---------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 |   [1]   | CONSTRAINT_SOLVER | Closed `Constraint` `[Union]` residual+Jacobian algebra over `Entity` parameters; `DofAnalysis` rank/DOF verdict; `ConstraintSystem` graph; author-kernel Levenberg-Marquardt `Solve` fold returning a `Solution` |
 
 ## [2]-[CONSTRAINT_SOLVER]
 
 - Owner: `SketchEntityKind` `[SmartEnum<int>]` the parametric-primitive discriminant (`Point`/`Line`/`Circle`) carrying the per-kind parameter arity (a point is 2 params in 2D, a line is its two endpoints' 4 params, a circle is center+radius 3 params) — concept-specific so it never collides with the topology `EntityKind` (Vertex/Edge/Face) discriminant in the sibling `Rasm.Geometry.Topology` namespace; `Entity` the parametric primitive carrying its kind and its slice `[Offset, Offset+Arity)` into the system's flat `double[]` parameter vector — one entity algebra over every kind, the modality is the `Kind` column, never a `PointEntity`/`LineEntity`/`CircleEntity` triple; `Constraint` the closed `[Union]` constraint algebra (one case per geometric relation) whose ONE `Residual` member returns the constraint's scalar residual rows and whose ONE `Partials` member returns the analytic Jacobian entries for the parameters it touches — the constraint kind is a case, never a per-constraint solver; `ConstraintSystem` the immutable graph binding entities to their parameter offsets and carrying the constraint sequence plus the packed parameter vector; `DofAnalysis` the structural verdict (`free DOF = parameter count − independent constraint rows`) routing `WellConstrained`/`UnderConstrained`/`OverConstrained`; `LmState` the per-iterate carrier (parameters, residual norm, damping `lambda`); `Solution` the converged-parameter + `SolveReceipt` result carrier; `ConstraintSolver` the static surface owning the `Analyze` DOF fold and the `Solve` LM iterate.
-- Cases: `SketchEntityKind` rows `Point` (arity 2) · `Line` (arity 4) · `Circle` (arity 3) (3); `Constraint` cases `Distance` · `Angle` · `Coincident` · `Parallel` · `Perpendicular` · `Tangent` · `Axis` (horizontal/vertical, one case with an axis flag) · `Equal` · `Symmetric` (9); `DofAnalysis` verdicts `WellConstrained` · `UnderConstrained` · `OverConstrained` (3); `SolveStatus` rows `Converged` · `Stalled` (2) — the singular outcome lives on the `Fin` failure rail as `GeometryFault.SingularSystem`, never a success-carrier status.
+- Cases: `SketchEntityKind` rows `Point` (arity 2) · `Line` (arity 4) · `Circle` (arity 3) (3); `Constraint` cases `Distance` · `Angle` · `Coincident` · `Parallel` · `Perpendicular` · `Tangent` · `Axis` (horizontal/vertical, one case with an axis flag) · `Equal` · `Symmetric` (9); `DofAnalysis` verdicts `WellConstrained` · `UnderConstrained` · `OverConstrained` · `RedundantConsistent` (4 — the witness method's numeric-rank refinement adds `RedundantConsistent`, the redundant-but-consistent system the structural row count misclassifies as over-constrained); `SolveStatus` rows `Converged` · `Stalled` (2) — the singular outcome lives on the `Fin` failure rail as `GeometryFault.SingularSystem`, never a success-carrier status.
 - Entry: `public static Fin<Solution> Solve(ConstraintSystem system, SolvePolicy policy)` — the ONE solve entrypoint; `Fin<T>` routes a band-2400 `GeometryFault.OverConstrained` when the DOF verdict is over-determined past the residual tolerance (a redundant-and-inconsistent system has no configuration and is a defect, never a silently-truncated solve) and `GeometryFault.SingularSystem` when the damped normal-equations matrix stays rank-deficient through the lambda ladder; a well- or under-constrained system always solves (an under-constrained system has a valid configuration manifold — LM finds the nearest one to the seed, never a fault). `public static DofAnalysis Analyze(ConstraintSystem system)` is the ONE pure total structural verdict folding the constraint rows against the free-parameter count. Both members are polymorphic over the `Constraint` union — no `SolveDistance`/`SolveAngle` sibling entrypoints.
 - Auto: `Solve` assembles the residual vector `r(p)` by folding every `Constraint.Residual` over the current parameter vector and the analytic Jacobian `J(p)` by folding every `Constraint.Partials` into a dense `Matrix<double>` (rows = stacked constraint residual rows, columns = system parameters), then runs the author-kernel Levenberg-Marquardt iterate: each step forms the damped normal equations `(JᵀJ + λ·diag(JᵀJ))·δ = −Jᵀr`, solves for the step `δ` through the admitted MathNet `Cholesky` (the SPD damped normal matrix factorizes directly — the same MathNet the numeric lane composes, never a re-minted dense solve), and accepts the step when it reduces `‖r‖₂` — accepting divides `λ` by the down-factor (toward Gauss-Newton, fast quadratic convergence near the solution), rejecting multiplies `λ` by the up-factor (toward gradient descent, robust far from it) and re-solves without recomputing `J`; convergence is `‖r‖₂ < tolerance` or `‖δ‖₂` below the step floor (a stationary configuration), and the iterate stops at the policy cap with `Stalled`. Each `Constraint.Partials` writes only the columns its entities own, so the Jacobian is assembled by sparse scatter into the dense matrix and a constraint never touches a parameter outside its entities' slices; the scatter ACCUMULATES rather than overwrites because a constraint arm legitimately emits one column twice for a shared or self-aliased entity, so the sparse sum into the column never drops a partial. `Distance` and `Tangent` carry their residual in SQUARED form (`Δx²+Δy²−Target²`, `dist(center,line)²−radius²`) so the partials stay C¹ at coincident/zero-length configurations where the √-form Jacobian is undefined, and the LM step absorbs the scale. The `Constraint` union's `Residual`/`Partials` are ONE `Switch` fold each — the nine geometric relations are nine arms, never nine solver classes.
 - Receipt: `Solve` returns the `Solution` carrying the converged parameter vector and the typed `SolveReceipt` (final residual norm, iteration count, terminal `lambda`, the `SolveStatus`, the `DofAnalysis` verdict, and the per-constraint residual-row count) — the receipt is the solve evidence, never a generic `IReceipt`/ledger; a residual norm and an iteration count are the refined facts an LM run admits and the receipt carries exactly those, typed.
 - Packages: `Rasm`/Vectors (`Point3d`/`Vector3d` — composed for entity geometry), MathNet.Numerics (`Matrix<double>`/`DenseMatrix`/`Cholesky` — the admitted numeric-lane dense linear solve, composed never re-minted), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`), LanguageExt.Core (`Fin`/`Seq`/`Option`), BCL inbox.
-- Growth: a new geometric relation (concentric, point-on-line, midpoint, the full parametric-sketch set) is ONE `Constraint` case carrying its `Residual` arm and its `Partials` arm over the same LM iterate — never a sibling solver; a new parametric primitive (arc, ellipse, spline control point) is ONE `SketchEntityKind` row with its parameter arity and one geometry accessor arm; a new convergence strategy (trust-region beside LM) is a `SolvePolicy` column on the same `Solve` fold, never a parallel `Solve` surface; zero new surface.
+- Growth: a new geometric relation (concentric, point-on-line, midpoint, the full parametric-sketch set) is ONE `Constraint` case carrying its `Residual` arm and its `Partials` arm over the same LM iterate — never a sibling solver; a new parametric primitive (arc, ellipse, spline control point) is ONE `SketchEntityKind` row with its parameter arity and one geometry accessor arm; a new convergence strategy (trust-region beside LM) is a `SolvePolicy` column on the same `Solve` fold, never a parallel `Solve` surface; a new DOF refinement (incremental DOF-based graph decomposition beside the witness rank verdict) is a `DofAnalysis` row or a `WitnessAnalyze` column, never a parallel analyzer; zero new surface.
 - Boundary: the constraint set is ONE closed `Constraint` `[Union]` and a `DistanceConstraint`/`AngleConstraint`/`TangentConstraint` sibling-class family each carrying its own `Solve`/`Apply` is the named density defect collapsed here onto one union with one `Residual` fold and one `Partials` fold — the nine relations differ ONLY in their residual expression and their analytic partials, never in the iterate, so one LM `Solve` drives every kind; a per-constraint-type solver is the deleted form. The entity is ONE `Entity` over the `SketchEntityKind` discriminant and a `PointEntity`/`LineEntity`/`CircleEntity` triple is the deleted form — the modality is the `Kind` column and the parameter arity is its row value. The Jacobian is ANALYTIC (every `Partials` arm returns closed-form derivatives) and a finite-difference numerical Jacobian is the rejected form — a finite-difference perturbation loses precision and doubles the residual-eval count, so the analytic partials are mandatory and a numerically-differentiated constraint is the named defect. The linear solve composes the admitted MathNet `Cholesky` over the SPD damped normal matrix and a hand-rolled Gaussian-elimination or LU beside MathNet is the deleted form; the normal-equations formulation `(JᵀJ + λD)` is chosen over a QR-on-J solve because the LM damping is naturally expressed on the normal matrix diagonal and the damped matrix is always SPD (factorizable by Cholesky without pivoting). The DOF analysis is structural-rank-based (independent constraint rows vs free parameters) and gates the rail: an over-determined-and-inconsistent system routes `GeometryFault.OverConstrained` rather than returning a meaningless least-squares fit silently, while an under-determined system solves to the nearest configuration on its solution manifold (LM's Gauss-Newton step is the minimum-norm step under rank deficiency damped by `lambda`); a thrown solver exception is forbidden — every failure routes the `Fin` rail over the band-2400 `GeometryFault` union (`SingularSystem`, `OverConstrained` — the only two reachable solve faults, since the accept-only λ-ladder never grows the residual, so no divergence case exists), where `GeometryFault.SingularSystem(...).ToError()` is the `Fin<T>` failure channel and no separate error type sits in the rail. The parameters are raw `double` inside the iterate because a sketch coordinate is the domain's native scalar carried at the seam by `Point3d`, and a unit-bearing quantity in a residual or Jacobian signature is the named seam violation; the `ConstraintSystem` is immutable and `Solve` returns the converged parameter vector as a new packed array, never an in-place mutation of the seed.
 
 ```csharp signature
@@ -45,9 +45,10 @@ public sealed partial class SketchEntityKind {
 
 [SmartEnum<int>]
 public sealed partial class DofAnalysis {
-    public static readonly DofAnalysis WellConstrained  = new(key: 0);
-    public static readonly DofAnalysis UnderConstrained = new(key: 1);
-    public static readonly DofAnalysis OverConstrained  = new(key: 2);
+    public static readonly DofAnalysis WellConstrained     = new(key: 0);
+    public static readonly DofAnalysis UnderConstrained    = new(key: 1);
+    public static readonly DofAnalysis OverConstrained     = new(key: 2);
+    public static readonly DofAnalysis RedundantConsistent = new(key: 3);
 }
 
 [SmartEnum<int>]
@@ -104,6 +105,8 @@ public sealed record ConstraintSystem(
 }
 
 public readonly record struct LmState(double[] Parameters, double ResidualNorm, double Lambda);
+
+public readonly record struct LmResult(double[] Parameters, double Norm, int Iterations, double Lambda, SolveStatus Status);
 
 public sealed record SolveReceipt(
     SolveStatus Status,
@@ -255,6 +258,25 @@ public static class ConstraintSolver {
         : residualRows < system.ParameterCount ? DofAnalysis.UnderConstrained
         : DofAnalysis.WellConstrained;
 
+    public static DofAnalysis WitnessAnalyze(ConstraintSystem system) {
+        (Matrix<double> j, Vector<double> r) = Linearize(system, system.Seed);
+        int numericRank = j.Rank();
+        int dof = system.ParameterCount - numericRank;
+        int rows = j.RowCount;
+        return rows <= numericRank
+            ? dof > 0 ? DofAnalysis.UnderConstrained : DofAnalysis.WellConstrained
+            : ConsistentAtWitness(j, r, numericRank)
+                ? DofAnalysis.RedundantConsistent
+                : DofAnalysis.OverConstrained;
+    }
+
+    static bool ConsistentAtWitness(Matrix<double> j, Vector<double> r, int numericRank) {
+        var svd = j.Svd(computeVectors: true);
+        Vector<double> projected = svd.U.SubMatrix(0, j.RowCount, numericRank, j.RowCount - numericRank).TransposeThisAndMultiply(r);
+        double rNorm = r.L2Norm();
+        return projected.L2Norm() <= 1e-9 * Math.Max(rNorm, 1.0);
+    }
+
     static int ResidualRowCount(ConstraintSystem system) {
         var span = system.Seed.AsSpan();
         return system.Constraints.Fold(0, (n, c) => n + c.Residual(span).Count);
@@ -262,7 +284,7 @@ public static class ConstraintSolver {
 
     public static Fin<Solution> Solve(ConstraintSystem system, SolvePolicy policy) {
         int rows = ResidualRowCount(system);
-        DofAnalysis dof = Analyze(system, rows);
+        DofAnalysis dof = WitnessAnalyze(system);
         var seed = (double[])system.Seed.Clone();
         var initial = new LmState(seed, ResidualNorm(system, seed), policy.InitialLambda);
         return Iterate(system, policy, initial, 0).Match(
@@ -272,12 +294,12 @@ public static class ConstraintSolver {
             Fail: error => Fin.Fail<Solution>(error));
     }
 
-    static Fin<(double[] Parameters, double Norm, int Iterations, double Lambda, SolveStatus Status)> Iterate(
+    static Fin<LmResult> Iterate(
         ConstraintSystem system, SolvePolicy policy, LmState state, int iteration) {
         if (state.ResidualNorm < policy.ResidualTolerance.Value)
-            return Fin.Succ((state.Parameters, state.ResidualNorm, iteration, state.Lambda, SolveStatus.Converged));
+            return Fin.Succ(new LmResult(state.Parameters, state.ResidualNorm, iteration, state.Lambda, SolveStatus.Converged));
         if (iteration >= policy.MaxIterations)
-            return Fin.Succ((state.Parameters, state.ResidualNorm, iteration, state.Lambda, SolveStatus.Stalled));
+            return Fin.Succ(new LmResult(state.Parameters, state.ResidualNorm, iteration, state.Lambda, SolveStatus.Stalled));
 
         (Matrix<double> j, Vector<double> r) = Linearize(system, state.Parameters);
         Matrix<double> jt = j.Transpose();
@@ -288,11 +310,11 @@ public static class ConstraintSolver {
         return Step(system, policy, state, normal, diag, gradient, iteration);
     }
 
-    static Fin<(double[] Parameters, double Norm, int Iterations, double Lambda, SolveStatus Status)> Step(
+    static Fin<LmResult> Step(
         ConstraintSystem system, SolvePolicy policy, LmState state,
         Matrix<double> normal, Matrix<double> diag, Vector<double> gradient, int iteration) {
         if (state.Lambda > 1e12)
-            return Fin.Fail<(double[] Parameters, double Norm, int Iterations, double Lambda, SolveStatus Status)>(GeometryFault.SingularSystem(normal.Rank(), system.ParameterCount).ToError());
+            return Fin.Fail<LmResult>(GeometryFault.SingularSystem(normal.Rank(), system.ParameterCount).ToError());
 
         Matrix<double> damped = normal + state.Lambda * diag;
         var solve = SolveCholesky(damped, -gradient);
@@ -303,7 +325,7 @@ public static class ConstraintSolver {
                 double stepNorm = delta.L2Norm();
                 return trialNorm < state.ResidualNorm
                     ? stepNorm < policy.StepFloor
-                        ? Fin.Succ((trial, trialNorm, iteration + 1, state.Lambda, SolveStatus.Converged))
+                        ? Fin.Succ(new LmResult(trial, trialNorm, iteration + 1, state.Lambda, SolveStatus.Converged))
                         : Iterate(system, policy, new LmState(trial, trialNorm, state.Lambda / policy.LambdaDown), iteration + 1)
                     : Step(system, policy, state with { Lambda = state.Lambda * policy.LambdaUp }, normal, diag, gradient, iteration);
             },
@@ -356,16 +378,17 @@ flowchart LR
 
 One owner per axis; capability is a case or row, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure verdicts where the result is total (`Analyze`, `Residual`/`Partials`), `Fin` where a `GeometryFault` (band 2400) can route (`Solve`).
 
-| [INDEX] | [AXIS/CONCERN]          | [OWNER]            | [KIND]                                                                                  | [RAIL]                                          | [CASES] |
-| :-----: | :---------------------- | :---------------- | :-------------------------------------------------------------------------------------- | :--------------------------------------------- | :-----: |
-|   [1]   | Parametric primitive    | `Entity`          | `record` over `SketchEntityKind` `[SmartEnum<int>]` (Point/Line/Circle) + slice accessors | `Entity.Origin → Point3d` (pure)               |    3    |
-|   [2]   | Constraint algebra      | `Constraint`      | `[Union]` (9 cases) + one `Residual` fold + analytic `Partials` per arm                  | `Constraint.Residual → Seq<ResidualRow>` (pure)|    9    |
-|   [3]   | DOF verdict             | `DofAnalysis`     | `[SmartEnum<int>]` Well/Under/Over + structural-rank `Analyze` fold                       | `ConstraintSolver.Analyze → DofAnalysis` (pure)|    3    |
-|   [4]   | Constraint graph        | `ConstraintSystem`| immutable entity↔constraint graph + packed parameter vector + `Build`                    | `ConstraintSystem.Build → ConstraintSystem` (pure) |   —   |
-|   [5]   | LM solver               | `ConstraintSolver`| static surface + `Solve` Levenberg-Marquardt iterate (damped normal eqns, λ ladder)      | `ConstraintSolver.Solve → Fin<Solution>`       |    2    |
+| [INDEX] | [AXIS/CONCERN]       | [OWNER]            | [KIND]                                                                                                        | [RAIL]                                                 | [CASES] |
+| :-----: | :------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------- | :-----: |
+|   [1]   | Parametric primitive | `Entity`           | `record` over `SketchEntityKind` `[SmartEnum<int>]` (Point/Line/Circle) + slice accessors                     | `Entity.Origin → Point3d` (pure)                       |    3    |
+|   [2]   | Constraint algebra   | `Constraint`       | `[Union]` (9 cases) + one `Residual` fold + analytic `Partials` per arm                                       | `Constraint.Residual → Seq<ResidualRow>` (pure)        |    9    |
+|   [3]   | DOF verdict          | `DofAnalysis`      | `[SmartEnum<int>]` Well/Under/Over/RedundantConsistent + structural `Analyze` + numeric-rank `WitnessAnalyze` | `ConstraintSolver.WitnessAnalyze → DofAnalysis` (pure) |    4    |
+|   [4]   | Constraint graph     | `ConstraintSystem` | immutable entity↔constraint graph + packed parameter vector + `Build`                                         | `ConstraintSystem.Build → ConstraintSystem` (pure)     |    —    |
+|   [5]   | LM solver            | `ConstraintSolver` | static surface + `Solve` Levenberg-Marquardt iterate (damped normal eqns, λ ladder)                           | `ConstraintSolver.Solve → Fin<Solution>`               |    2    |
 
 The closed `Constraint` union, the analytic residual+Jacobian algebra, the structural DOF verdict, and the Levenberg-Marquardt iterate are pure-managed author-kernel, fully transcribed and depending on no live-host member spelling (`Point3d.X/Y`, `Vector3d`, and MathNet `Matrix<double>`/`Cholesky` are stable Vectors/numeric-lane vocabulary). No tier-3 native gate: the solver is pure-managed, the linear solve composes the admitted MathNet dense lane, and the entire iterate is mathematically defined over IEEE-754 doubles.
 
 ## [4]-[RESEARCH]
 
 - [LM_CONVERGENCE] — the configuration-reachability law-matrix the spec rail asserts. The harness is `ConstraintLaws` (a CsCheck property suite under `testing-cs`): it generates random well- and under-constrained sketches (entity sets plus a constraint graph whose residual-row count is ≤ parameter count) from a perturbed feasible seed and asserts (1) `Solve` returns `SolveStatus.Converged` with `‖r‖₂ < tolerance` for every feasible system — every analytic constraint residual reaches zero from the seed under the LM ladder; (2) the analytic Jacobian matches a central-finite-difference Jacobian at random parameter vectors to within the FD truncation bound (the analytic `Partials` are the correctness anchor — a drifted partial is caught here, never in production); (3) an over-constrained-inconsistent system (a distance and an axis constraint that cannot both hold) routes `GeometryFault.OverConstrained` rather than returning a meaningless fit; (4) the solve is invariant under a rigid transform of the seed (translating every entity offsets the converged solution by the same transform, never flips convergence); (5) idempotence — re-solving a converged system returns it unchanged at iteration 0. The harness needs NO live-host probe — `Point3d`, `Vector3d`, and MathNet `Cholesky` are stable. The one residual the harness watches is the singular-Jacobian path: a degenerate constraint graph (e.g. a zero-length line in a `Parallel` constraint) makes `JᵀJ` rank-deficient, and the λ-ladder must climb to `SingularSystem` rather than loop — confirming the ladder terminates on the rank-deficient damped matrix before the `λ > 1e12` ceiling is the sole convergence-edge probe, and it gates the singular row, never the feasible-system path. The reject recursion in `Step` does NOT increment `iteration` (an LM reject is not an outer iteration), so the inner reject chain is bounded ONLY by the λ ceiling: the harness asserts an explicit worst-case step budget of `MaxIterations × ⌈log_{LambdaUp}(1e12 / InitialLambda)⌉` (≈ 100 × 15 inner solves under `Canonical`) and that the reject chain always terminates at the ceiling, never unbounded. The singular-recovery mechanism the harness must exercise is the NaN-trial rejection, not only the `Try` catch: MathNet `Cholesky` on a numerically-indefinite (not merely throwing) damped matrix returns NaN-laden solutions without throwing, and the `trialNorm < state.ResidualNorm` accept test rejects a NaN trial (NaN comparisons are false ⇒ reject ⇒ climb λ), so the probe perturbs toward an indefinite damped matrix — not a throwing one — to confirm the λ-climb recovers it before the ceiling.
+- [WITNESS_DOF] — `WitnessAnalyze` is the witness-configuration DOF refinement beside the structural `Analyze` row count: it linearizes the system at the seed (the witness — a known feasible configuration), reads the NUMERIC Jacobian rank `J(p₀).Rank()`, and computes the true DOF as `ParameterCount − numericRank`, then distinguishes the structurally-over-determined system the row count misclassifies — when the row count exceeds the parameter count but the numeric rank is full and the residual lies in the column space of `J` (`ConsistentAtWitness` projects the residual onto the left-null space via the `Svd` `U` tail and checks it vanishes), the system is `RedundantConsistent` (redundant constraints that all hold — solvable, not a fault), otherwise it is genuinely `OverConstrained`. The witness rank distinguishes redundant-but-consistent from structurally-determined exactly where the structural count is blind (a distance constraint that duplicates a coincidence-implied distance is redundant-consistent; a distance that contradicts an axis is over-constrained-inconsistent). The `Solve` rail reads `WitnessAnalyze` so a `RedundantConsistent` system solves rather than routing `OverConstrained`, and the verdict feeds the UI over-constraint diagnosis (the specific over-constraining constraint is the one whose removal restores full rank — a future `DofAnalysis` column). The tier-2 law-matrix asserts `WitnessAnalyze` returns `RedundantConsistent` on a redundant-but-consistent system, `OverConstrained` on a redundant-and-inconsistent one, and agrees with the structural `Analyze` on full-rank well/under systems; the witness rank composes the admitted MathNet `Svd`/`Rank`, no host probe.

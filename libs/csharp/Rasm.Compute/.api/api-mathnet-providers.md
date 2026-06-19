@@ -2,9 +2,11 @@
 
 `MathNet.Numerics` supplies dense and sparse linear algebra, the RID-keyed
 native-provider selection façade over MKL and OpenBLAS, the CSR sparse storage
-surface with its CSC/COO/indexed ingestion conversions, and the matrix
-factorization family; `CSparse` supplies direct sparse Cholesky, LU, and QR
-factorizations beside the MathNet iterative solvers for the numeric lane.
+surface with its CSC/COO/indexed ingestion conversions, the matrix
+factorization family, and the in-assembly probability `Distributions` and
+descriptive `Statistics` surfaces the uncertainty lane samples and reduces;
+`CSparse` supplies direct sparse Cholesky, LU, and QR factorizations beside the
+MathNet iterative solvers for the numeric lane.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -148,6 +150,27 @@ Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC sto
 |   [9]   | `ISparseFactorization<T>.Solve`                                      | factorization call | solves `Ax=b` in place          |
 |  [10]   | `IIterativeSolver<T>.Solve`                                          | solver call        | iterative solve with `Iterator` |
 
+[ENTRYPOINT_SCOPE]: probability distributions + descriptive statistics
+- rail: numeric
+
+The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.Numerics` assembly (no separate package); the uncertainty lane consumes them for forward-UQ random-variable sampling, moment reduction, and quantile estimation. Each `IContinuousDistribution` carries a `RandomSource` `System.Random` for seeded draws.
+
+| [INDEX] | [SYMBOL]                                                 | [NAMESPACE]                     | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------------------- | :------------------------------ | :--------------------------------------------------- |
+|   [1]   | `Normal(mean, stddev)`                                   | `MathNet.Numerics.Distributions` | Gaussian continuous distribution                     |
+|   [2]   | `LogNormal(mu, sigma)`                                   | `MathNet.Numerics.Distributions` | log-normal continuous distribution                   |
+|   [3]   | `ContinuousUniform(lower, upper)`                        | `MathNet.Numerics.Distributions` | uniform continuous distribution                      |
+|   [4]   | `Weibull(shape, scale)`                                  | `MathNet.Numerics.Distributions` | Weibull reliability distribution                     |
+|   [5]   | `Beta(a, b)`                                             | `MathNet.Numerics.Distributions` | Beta continuous distribution                         |
+|   [6]   | `IContinuousDistribution.Sample()`                       | `MathNet.Numerics.Distributions` | one draw; `Samples()` is the lazy `IEnumerable<double>` stream |
+|   [7]   | `IContinuousDistribution.InverseCumulativeDistribution(p)` | `MathNet.Numerics.Distributions` | quantile / PPF for inverse-transform sampling        |
+|   [8]   | `IContinuousDistribution.CumulativeDistribution(x)`      | `MathNet.Numerics.Distributions` | CDF for reliability / failure-probability scoring    |
+|   [9]   | `{Mean, Variance, StdDev, Median}`                       | `MathNet.Numerics.Distributions` | closed-form distribution moments                     |
+|  [10]   | `Statistics.Mean` / `Variance` / `StandardDeviation`    | `MathNet.Numerics.Statistics`   | sample moments over an `IEnumerable<double>`         |
+|  [11]   | `Statistics.Quantile(data, tau)` / `Percentile`         | `MathNet.Numerics.Statistics`   | sample quantile / percentile estimate                |
+|  [12]   | `Statistics.Covariance` / `Correlation.Pearson`         | `MathNet.Numerics.Statistics`   | pairwise covariance / Pearson correlation            |
+|  [13]   | `DescriptiveStatistics(data)`                           | `MathNet.Numerics.Statistics`   | one-pass mean/variance/skewness/kurtosis carrier     |
+
 ## [4]-[IMPLEMENTATION_LAW]
 
 [PROVIDER_SELECTION]:
@@ -155,7 +178,7 @@ Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC sto
 - façade: `Control` (top-level), `LinearAlgebraControl` (provider-level)
 - selection: `UseManaged`, `TryUseNativeMKL`, `TryUseNativeOpenBLAS` — the `Try*` variants return `false` instead of throwing on missing native assets
 - RID reality: MKL native assets are x64-only (`MathNet.Numerics.MKL.Win-x64` / `.Linux-x64`); no `MathNet.Numerics.MKL.OSX` or `OpenBLAS.OSX` package exists; osx-arm64 falls back to `UseManaged`
-- version track: core `MathNet.Numerics 6.0.0-beta2`, `Providers.MKL 6.0.0-beta2`, `Providers.OpenBLAS 5.0.0` (stable; no beta2), native assets `MKL.Win-x64 3.0.0` / `MKL.Linux-x64 2.0.0` satisfying the provider `>= 5.0.0` floor
+- version track: core `MathNet.Numerics 6.0.0-beta2`, `Providers.MKL 6.0.0-beta2`, `Providers.OpenBLAS 6.0.0-beta2`, native asset packages ship the MKL/OpenBLAS binaries on x64 RIDs
 
 [DENSE_ALGEBRA]:
 - namespace: `MathNet.Numerics.LinearAlgebra`, `.LinearAlgebra.Double`, `.LinearAlgebra.Factorization`
@@ -174,8 +197,15 @@ Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC sto
 - Dense and sparse solves emit the `Factorization` `ComputeReceipt` case; provider rank is claim-gated through `BenchmarkRow.Claim`, never a static default.
 - The sparse format axis is an ingestion discriminant over CSR-backed storage, not four storage types.
 
+[UNCERTAINTY_LAW]:
+- namespace: `MathNet.Numerics.Distributions`, `MathNet.Numerics.Statistics`
+- random variables: each `RandomVariable` union case lowers onto one `IContinuousDistribution` (`Normal`/`LogNormal`/`ContinuousUniform`/`Weibull`/`Beta`); the `empirical` case samples its provided CDF through inverse-transform over the owned `LowDiscrepancy` draw
+- propagation: Monte-Carlo and LHS draw through `Sample()`/`Samples()` seeded from the owned `LowDiscrepancy` low-discrepancy sequence (never a per-call fresh `System.Random`); PCE fits the orthogonal-polynomial coefficients through the `numeric#DENSE_ALGEBRA` least-squares/QR route
+- reduction: response moments fold through `Statistics.Mean`/`Variance` and `Statistics.Quantile`, never a hand-rolled accumulator; the failure probability is `CumulativeDistribution` over the limit-state response and the reliability index β is `Normal.InvCDF(1 - pf)`
+- Reject: a per-call fresh `System.Random` seed beside the owned sampler, a hand-rolled moment accumulator beside `Statistics`, an in-process distribution-learning loop (the learned input distribution is the offline-science companion's)
+
 [RAIL_LAW]:
 - Package: `MathNet.Numerics` (+ `.Providers.MKL`, `.Providers.OpenBLAS`), `CSparse`
-- Owns: dense + sparse BLAS-class algebra, native-provider selection, matrix factorization
-- Accept: `Matrix<double>`/`Vector<double>` dense work, CSR/CSC/COO/DOK sparse ingestion, direct + iterative solve
-- Reject: a package-local matrix wrapper face, a second provider selector beside `LinearProvider`, per-call-site provider switches
+- Owns: dense + sparse BLAS-class algebra, native-provider selection, matrix factorization, probability distributions + descriptive statistics
+- Accept: `Matrix<double>`/`Vector<double>` dense work, CSR/CSC/COO/DOK sparse ingestion, direct + iterative solve, `IContinuousDistribution` sampling + `Statistics` moment/quantile reduction
+- Reject: a package-local matrix wrapper face, a second provider selector beside `LinearProvider`, per-call-site provider switches, a hand-rolled distribution sampler or moment accumulator beside the `Distributions`/`Statistics` surface

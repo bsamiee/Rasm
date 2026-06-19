@@ -596,12 +596,27 @@ class ProvisionRun(Detail, frozen=True, tag="provision"):
 
     verb: str = ""
     json: bool = False
+    schema_version: int = 0
+    ok: bool = True
+    error: tuple[tuple[str, str], ...] = ()
+    auth_mode: str = ""
+    auth_risk: str = ""
+    port_policy: tuple[tuple[str, str], ...] = ()
+    provision_scope: tuple[tuple[str, str], ...] = ()
+    local_service_topology: tuple[tuple[str, str, str, str, str, str, str], ...] = ()
+    service_roles: tuple[tuple[str, str], ...] = ()
+    resource_counts: tuple[tuple[str, int], ...] = ()
     facts: tuple[tuple[str, str], ...] = ()
     summary: tuple[tuple[str, int], ...] = ()
     services: tuple[tuple[str, str, str, str, str], ...] = ()
-    ports: tuple[tuple[str, str, str], ...] = ()
+    service_connections: tuple[tuple[str, str, str, str, str, str, str, str, str], ...] = ()
+    ports: tuple[tuple[str, str, str, str, str, str, str], ...] = ()
     extensions: tuple[tuple[str, str, str, str, str, str], ...] = ()
-    extension_catalog: tuple[tuple[str, str, str, str, str], ...] = ()
+    extension_catalog: tuple[tuple[str, str, str, str, str, str, str, str], ...] = ()
+    extension_metadata: tuple[tuple[str, str, str, str, str, str, str, str, str, str, str, str], ...] = ()
+    extension_requirements: tuple[tuple[str, str, str, str, str, str, str], ...] = ()
+    tool_surface_extensions: tuple[tuple[str, str, str, str, str, str, str, str, str, str, str, str, str], ...] = ()
+    doctor: tuple[tuple[str, str], ...] = ()
     local_probes: tuple[tuple[str, str], ...] = ()
     local_probe_values: tuple[tuple[str, str, str], ...] = ()
 

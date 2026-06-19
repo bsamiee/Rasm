@@ -6,9 +6,9 @@ The page composes `Vectors` `MeshSpace`, the native `Mesh` topology surface, and
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                                              |
-| :-----: | :---------------- | :------------------------------------------------------------------------------------------------- |
-|   [1]   | HEALING           | `HealKind` discriminant; `HealOp` `[Union]` (6 author-kernel repair cases + 1 native-gate boolean case); `RepairPolicy`; `Heal.Repair` session fold composing the predicate floor |
+| [INDEX] | [CLUSTER] | [OWNS]                                                                                                                                                                            |
+| :-----: | :-------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | HEALING   | `HealKind` discriminant; `HealOp` `[Union]` (6 author-kernel repair cases + 1 native-gate boolean case); `RepairPolicy`; `Heal.Repair` session fold composing the predicate floor |
 
 ## [2]-[HEALING]
 
@@ -417,11 +417,11 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or column, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — `Fin`/`GeometryFault` where a kernel can fail its post-condition, pure carriers for the receipts.
 
-| [INDEX] | [AXIS/CONCERN]            | [OWNER]            | [KIND]                                                                          | [RAIL]                                          | [CASES] |
-| :-----: | :------------------------ | :---------------- | :----------------------------------------------------------------------------- | :--------------------------------------------- | :-----: |
-|   [4]   | Healing rail              | `Heal`/`HealOp`   | static surface + `HealKind` `[SmartEnum<string>]` + `HealOp` `[Union]` (6 author-kernel + 1 native-gate) + `RepairPolicy` + `Kernels` bodies | `Heal.Repair → Fin<HealSession>`                |    7    |
-|  [4a]   | Repair modality           | `HealKind`        | `[SmartEnum<string>]` degenerate/gap/weld/manifold/self-intersect/orient/boolean + `RebuildsTopology`/`Tier` columns | discriminant (pure)                            |    7    |
-|  [4b]   | Working set               | `MeshEdit`        | immutable record (vertices/faces/affected sets) + `OfMesh`/`ToSpace`/`Touch`    | `MeshEdit.ToSpace → Fin<MeshSpace>`             |    —    |
+| [INDEX] | [AXIS/CONCERN]  | [OWNER]         | [KIND]                                                                                                                                       | [RAIL]                              | [CASES] |
+| :-----: | :-------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------- | :-----: |
+|   [4]   | Healing rail    | `Heal`/`HealOp` | static surface + `HealKind` `[SmartEnum<string>]` + `HealOp` `[Union]` (6 author-kernel + 1 native-gate) + `RepairPolicy` + `Kernels` bodies | `Heal.Repair → Fin<HealSession>`    |    7    |
+|  [4a]   | Repair modality | `HealKind`      | `[SmartEnum<string>]` degenerate/gap/weld/manifold/self-intersect/orient/boolean + `RebuildsTopology`/`Tier` columns                         | discriminant (pure)                 |    7    |
+|  [4b]   | Working set     | `MeshEdit`      | immutable record (vertices/faces/affected sets) + `OfMesh`/`ToSpace`/`Touch`                                                                 | `MeshEdit.ToSpace → Fin<MeshSpace>` |    —    |
 
 The six author-kernel repair ops (`DuplicateWeld`, `DegenerateCollapse`, `GapClose`, `ManifoldRepair`, `SelfIntersectResolve`, `OrientNormals`) are pure-managed first-principles kernels composing the `Predicate` exact-sign floor, the `SpatialIndex` broad-phase, and the `Vectors` `TopologyReceipt`, none depending on a live-host member spelling beyond the stable native `Mesh`/`MeshFace` surface the topology sibling already pins. The `Boolean` row is fence-complete in shape (the `HealOp.Boolean` case, the `BooleanOp` discriminant, the `Apply` gate routing `NativeAssetMissing`) but its repair body is a tier-3 native deploy-asset gate, not a managed kernel — no admissible managed manifold library exists, so the row is fully shaped and honestly gated, never an invented half-correct CSG.
 

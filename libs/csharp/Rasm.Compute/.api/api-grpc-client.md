@@ -18,17 +18,17 @@ execution clients.
 [PUBLIC_TYPE_SCOPE]: channel and call contracts
 - rail: remote-client
 
-| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]   | [CAPABILITY]            |
-| :-----: | :---------------------- | :--------------- | :---------------------- |
-|   [1]   | `GrpcChannel`           | channel root     | owns remote channel     |
-|   [2]   | `GrpcChannelOptions`    | channel policy   | configures channel      |
-|   [3]   | `HttpHandlerType`       | handler selector | classifies HTTP handler |
-|   [4]   | `ServiceConfig`         | service policy   | configures calls        |
-|   [5]   | `MethodConfig`          | method policy    | configures method calls |
-|   [6]   | `MethodName`            | method selector  | selects service methods |
-|   [7]   | `RetryPolicy`           | retry policy     | controls retry attempts |
-|   [8]   | `HedgingPolicy`         | hedging policy   | controls parallel calls |
-|   [9]   | `RetryThrottlingPolicy` | retry policy     | throttles retries       |
+| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]  | [CAPABILITY]            |
+| :-----: | :---------------------- | :-------------- | :---------------------- |
+|   [1]   | `GrpcChannel`           | channel root    | owns remote channel     |
+|   [2]   | `GrpcChannelOptions`    | channel policy  | configures channel      |
+|   [3]   | `ConfigObject`          | config base     | base of service config  |
+|   [4]   | `ServiceConfig`         | service policy  | configures calls        |
+|   [5]   | `MethodConfig`          | method policy   | configures method calls |
+|   [6]   | `MethodName`            | method selector | selects service methods |
+|   [7]   | `RetryPolicy`           | retry policy    | controls retry attempts |
+|   [8]   | `HedgingPolicy`         | hedging policy  | controls parallel calls |
+|   [9]   | `RetryThrottlingPolicy` | retry policy    | throttles retries       |
 
 [PUBLIC_TYPE_SCOPE]: resolver and balancer contracts
 - rail: remote-client

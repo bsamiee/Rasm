@@ -4,51 +4,42 @@ The forward pool of higher-order folder concepts grounded in the numeric-science
 
 ## [1]-[OPEN]
 
-[ARRAY_API_ADMISSION]: rebuild `ArrayPayload` admission on the Array API standard.
-- Admit any conformant backend through `array_namespace(x)` namespace dispatch, so a numpy floor, a JAX array, a Dask graph, or a Sparse matrix admit through one path and every solver route dispatches through the resolved `xp`.
-- Unlocks backend-portable solver dispatch and a clean accelerator story: JAX is a backend resolved at admission, not a JIT wrap, and numba stays a distinct loop-kernel compiler on the nonlinear route.
-- Draws on `array-api-compat` and `array-api-extra` (both pure-Python and cp315-clean, resolving on the cp315 core), the write-once technique scipy 1.17 and scikit-learn now vendor, replacing the numpy-only admission plus a per-accelerator JIT wrap.
+[GRADIENT_DRIVEN_INVERSE_DESIGN]: the `optimization` sub-domain owning the gradient-driven inverse-design loop the autodifferentiable solver chain enables but no owner closes.
+- One `DesignProblem`-discriminated optimizer drives an Equinox-parameterized objective — a field problem over the `simframe` assembly, a parametric mesh, a material-distribution density — to a stationary point through Optimistix `minimise`/`least_squares`, reading the `differentiation/sensitivity#SENSITIVITY` implicit-function-theorem gradient pulled back through the converged solve, folding one `OptimizationReceipt` over iterates, the objective trace, and the KKT/first-order residual keyed by `ContentIdentity`.
+- Unlocks PDE-constrained optimal design and inverse identification as a first-class offline-science capability — topology/shape/size optimization, parameter recovery from sparse observations, DOE-seeded warm starts — composed from admitted primitives (`optimistix`/`equinox`/`jax`/`scikit-fem`/`diffrax`), each converged design graduating as the `solver` `HandoffAxis` case on the one graduation rail, never a parallel optimizer surface beside the solve, never a training loop.
+- Draws on the gap that the package owns autodifferentiable solves (`solvers/linear`/`nonlinear`/`differential`), the implicit-adjoint VJP (`differentiation/sensitivity`), DOE sampling (`experiments/study`), and FEM assembly (`simframe/mesh_field`) yet no owner drives a parameterized objective to optimality — the apex the JAX-FEM/JAX-SSO frontier composes from exactly these pieces; the only optional admission is `optax` as a first-order-descent axis row beside the Optimistix core, carried as an integration step, never a phantom dependency.
 
-[JAX_SOLVER_FAMILY]: adopt the patrick-kidger JAX scientific family as the gated high-accuracy solver tier.
-- Lineax unifies dense, sparse, and iterative linear solves and least-squares over a general linear operator as one autodifferentiable surface; Optimistix owns root-finding, minimisation, fixed-points, and nonlinear least-squares; Equinox is the PyTree foundation both compose.
-- Unlocks autodifferentiable linear and nonlinear solves that close the loop with the differentiation owner through implicit-function-theorem adjoints, and one operator abstraction across dense, sparse, and iterative solves instead of four separate scipy entry points.
-- Draws on the patrick-kidger JAX scientific family; `lineax`, `optimistix`, `diffrax`, and `equinox` all resolve on the gated jaxlib `python_version<'3.15'` floor.
+[CONSTRAINED_DISCRETE_PROGRAM]: the `optimization` sub-domain's second owner closing the constrained, global, and discrete optimization the gradient-descent loop structurally cannot reach.
+- One `ProgramIntent` owner discriminates a linear program (`scipy.optimize.linprog` over the HiGHS backend), a mixed-integer program (`scipy.optimize.milp` with an integrality and bounds vector), a derivative-free global minimum (`scipy.optimize.differential_evolution`), a bounded/constrained smooth minimum (`scipy.optimize.minimize` threading `Bounds`/`LinearConstraint`/`NonlinearConstraint`), and an assignment (`scipy.optimize.linear_sum_assignment`), every route folding the `OptimizeResult` success flag, objective, and constraint-violation residual into one typed `ProgramReceipt` keyed by `ContentIdentity` over the canonical problem data.
+- Unlocks the AEC offline-optimization vocabulary the gradient owner cannot express — cutting-stock and nesting as an MILP, member-sizing under stress/buckling inequality constraints, panel-to-mounting assignment as an optimal-assignment program, layout placement as a global stochastic search — and graduates each certified optimum as the `solver` `HandoffAxis` case, the discrete/constrained counterpart of the differentiable design loop on the one graduation rail.
+- Draws on the gap that `compute/.api/scipy.md` catalogues `linprog`/`milp`/`differential_evolution`/`linear_sum_assignment`/`Bounds`/`LinearConstraint`/`NonlinearConstraint` yet no design page reaches a single one — a named `LIBRARY_DEPTH` gap where the admitted package owns constrained and discrete optimization the folder leaves unexploited; the gradient loop and the math-program loop are sibling cases on the one `optimization` sub-domain, not a duplicated optimizer surface, because the discriminant (differentiable objective versus constraint-and-integrality structure) is recoverable from the problem value itself.
 
-[DIFFERENTIAL_EQUATIONS]: add a differential-equations solver sub-domain over Diffrax.
-- A new solver route beside the 1-D quadrature: ODE, SDE, and CDE integration with adaptive step control, event handling, and adjoint-differentiable integration over Diffrax in JAX and Equinox.
-- Unlocks offline ODE and dynamics evidence — relaxation, transient field decay, parametric trajectory studies — that graduates with adjoint sensitivities, feeding the study spine and the geometry form-finding handoff case.
-- Draws on the genuine capability gap that the existing `Integrate` case is scalar quadrature only with no initial-value owner; Diffrax resolves on the gated jaxlib floor.
+[CONVEX_CONIC_CERTIFICATE]: a distinct validated-optimization owner producing a dual-certificate proof of optimality for the disciplined-convex programs the AEC structural frontier admits.
+- One `ConvexProgram` owner builds a disciplined-convex problem over `cvxpy` variables/parameters/constraints, solves through a conic backend (`CLARABEL`/`ECOS`/`SCS`), and reads the primal-dual solution, the optimal value, the per-constraint dual variables, and the solver status into one `ConvexReceipt` carrying the optimality certificate — the duality gap and the dual multipliers that prove the returned point is the global optimum, evidence the local gradient and stochastic global owners cannot mint.
+- Unlocks provably-optimal convex structural and design programs as certified offline evidence — minimum-compliance topology under a volume constraint, least-norm force/flow distribution, support-reaction balancing, robust worst-case sizing — each graduating on a `convex-program` handoff axis with the dual certificate as the admission proof, the convex-optimization analogue of the `validated_numerics` certified-enclosure ladder.
+- Draws on the gap that the folder's optimization story is entirely local (Optimistix gradient descent) or heuristic (`differential_evolution`), with no owner that returns a global-optimality certificate; `cvxpy` owns disciplined convex programming and the conic-solver dispatch, and the dual variables it exposes are the certificate a structural engineer admits a design against — a genuinely new mathematical owner, not a row on the gradient loop, because convex certificate evidence is a different proof object from a first-order residual. `cvxpy` and its conic backend (`clarabel`) are a NEW admission the owner-to-extend-first analysis routes here.
 
-[SALIB_SENSITIVITY]: make SALib the canonical global-sensitivity owner on the study spine.
-- Replace the hand-rolled numpy Morris elementary effects and the stubbed Saltelli Sobol indices with SALib's sampler-and-analyzer pair for Sobol, Morris, and FAST, keeping `scipy.stats.qmc` for low-discrepancy sampling and scikit-learn for surrogates.
-- Unlocks full first-and-total-order Sobol indices, FAST, and grouped or optimal-trajectory Morris without local reinvention, a real sensitivity capability on the cp315 floor where SALib's numpy and scipy core runs.
-- Draws on the ecosystem-first law: SALib owns sensitivity analysis and is pure-Python over numpy and scipy, resolving on the cp315 core.
-
-[BAYESIAN_BACKEND_AXIS]: generalise the inference sampler into a backend discriminant.
-- The one `Inference` owner selects the MCMC engine by case — PyMC-native NUTS or Metropolis, NumPyro JAX NUTS, Nutpie Rust or Numba NUTS — with arviz as the single cross-backend rhat-and-ess diagnostic owner.
-- Unlocks GPU and JAX-accelerated NUTS and Rust/Numba NUTS as case rows on one owner with a single diagnostic gate, so a posterior graduates regardless of which engine sampled it.
-- Draws on the documented PyMC multi-backend story: `numpyro` is already manifest-admitted on the jaxlib floor, and `nutpie` is the missing Numba-marker-floor backend.
-
-[MPMATH_ENCLOSURE_FLOOR]: add an mpmath arbitrary-precision floor beneath the gated Arb path.
-- An always-on cp315-clean interval floor in the validated-numerics owner beneath the python-flint Arb ball-arithmetic path, replacing the coarse `np.nextafter` double-precision outward-rounding band.
-- Unlocks a tight certified-enclosure floor on the cp315 interpreter, so validated-numerics evidence graduates with a usable enclosure even before the Arb deploy asset lands.
-- Draws on `mpmath` (pure-Python, cp315-clean, arbitrary-precision interval arithmetic, resolving on the cp315 core), sound where the Arb wheel is unavailable.
-
-[SPATIAL_GEOMETRY_QUERIES]: open the `spatial` sub-domain as the array-native computational-geometry owner over `scipy.spatial`.
-- One `SpatialQuery` owner discriminating nearest-neighbour and radius search over a `cKDTree`, convex hull and Delaunay triangulation over `Qhull`, Voronoi tessellation, and the alpha-shape boundary extraction folded from the Delaunay simplices, every query keyed by the `ArrayPayload` content key.
-- Unlocks point-cloud and sample-set neighbourhood evidence — proximity graphs, mesh-free interpolation stencils, and boundary reconstruction — that the study spine reads and that aligns to the geometry-branch scan companion at the wire, distinct from the geometry branch's own `open3d` mesh owner.
-- Draws on `scipy.spatial` (`cKDTree`, `ConvexHull`, `Delaunay`, `Voronoi`) which the manifest already admits through scipy, closing the visible `spatial` gap with no new package and the alpha-shape circumradius fold as the one local algorithm.
-
-[SIMFRAME_MESH_FIELD]: open the `simframe` sub-domain as the simulation mesh-and-field interchange and weak-form assembly owner beside the FEM solver route.
-- One `MeshField` interchange owner carrying the mesh topology, the per-node and per-cell field arrays, and the reusable `assemble` that lowers a weak form to the sparse stiffness/load pair the `solvers/quadrature.md#QUADRATURE` FEM route and a Diffrax field problem both consume, never re-owning the solve.
-- Unlocks reusable field interchange across the FEM and differential-equations routes — a discretized field assembled once feeds the stiffness solve, the transient integration, and the study spine — and aligns the mesh shape to the geometry-branch tessellation at the wire rather than coupling to it.
-- Draws on `scikit-fem` (`Mesh`, `Basis`, `asm`) for assembly and `meshio` for the mesh-and-field file interchange, separating the assembly-and-interchange concern the quadrature FEM route currently inlines from the solve it keeps.
-
-[RUNTIME_BOUNDARY_PARITY]: pin every compute-to-runtime composition against the exact runtime owner spelling.
-- Every page composing the runtime boundary names the real owner entry: `Receipt.of(phase, owner, subject, facts)` with `phase` in the `runtime/observability/receipts.md` `Phase` literal, `BoundaryFault(<case>=payload)` keyword case-construction from `runtime/reliability/faults.md`, and `ContentIdentity.of(fmt, source, policy)` with an `IdentityPolicy` from `runtime/identity/content-identity.md` — never a fabricated PascalCase factory (`Receipt.Emitted`, `BoundaryFault.Boundary`) or a non-existent shorthand (`ContentIdentity.key`).
-- Unlocks zero-guess transcription of the consumer boundary: the four runtime-composing packages (`compute`, `data`, `geometry`, `artifacts`) read one authoritative owner spelling and re-mint nothing, so the boundary-fault, receipt, and content-identity owners stay single-minted across the branch.
-- Draws on the topology law that the four consumers compose runtime shapes at the boundary and never re-mint; the drift was a missing runtime owner-spelling reference, the same gap a `runtime/.api`-equivalent owner card closes for every consumer.
+[MULTIRESOLUTION_SIGNAL]: the time-frequency and multiresolution depth the one DSP owner lacks beside its single stationary-spectrum estimate.
+- The `Signal` owner gains a multiresolution case family — discrete wavelet transform and inverse (`pywt.wavedec`/`waverec`), continuous wavelet transform for a time-frequency scalogram (`pywt.cwt`), and a wavelet-packet decomposition (`pywt.WaveletPacket`) — folding the per-level energy distribution, the dominant scale, and a denoised-reconstruction residual into the `SignalReceipt` beside the Welch band power, so a transient, a localized discontinuity, or a non-stationary mode the Welch estimate averages away becomes first-class signal evidence.
+- Unlocks transient and non-stationary signal evidence the AEC companion's sensor and simulation streams demand — structural-health vibration transients, edge/discontinuity localization, multiscale energy budgeting, wavelet-threshold denoising — as cases on the one `Signal` owner rather than a second signal-processing surface, the multiresolution counterpart of the stationary Welch spectral row.
+- Draws on the gap that the DSP owner discriminates only IIR/FIR design, a single Welch power-spectral estimate, and polyphase resampling — a stationary-spectrum-only owner with no time-frequency or multiresolution branch — while `pywt` (PyWavelets) owns the DWT/CWT/wavelet-packet family with ~100 wavelet bases and is pure-C-over-numpy, cp315-resolvable beside the gated scipy.signal path; the multiresolution case is one `SignalOp` family extension on the existing owner, a NEW admission the owner-to-extend-first analysis routes onto the `signal` owner.
 
 ## [2]-[CLOSED]
 
-No idea has closed.
+[ARRAY_API_ADMISSION]: REALIZED in `arrays/payload.md` — `ArrayPayload.admit` over `array_namespace` namespace dispatch keying through `ContentIdentity.of`; JAX rides the namespace as a backend, numba stays a distinct nonlinear-route loop-kernel.
+
+[JAX_SOLVER_FAMILY]: REALIZED in `solvers/linear.md` (`LinearIntent.Operator` over Lineax) and `solvers/nonlinear.md` (`NonlinearIntent` over Optimistix); both fold `Solution.stats` into the one `SolverReceipt`, both autodifferentiable through the implicit-function-theorem adjoint consumed by `sensitivity`.
+
+[DIFFERENTIAL_EQUATIONS]: REALIZED in `solvers/differential.md` — `DifferentialIntent` ODE/SDE/CDE over `diffrax.diffeqsolve` with adjoint modes; the gated capability itself, no numpy floor, feeds the study parametric-trajectory case.
+
+[SALIB_SENSITIVITY]: REALIZED in `experiments/study.md` — the SALib sampler-and-analyzer pair across Morris/Sobol/FAST plus the mined PAWN/DGSM/HDMR rows; the hand-rolled Morris and the Saltelli stub are deleted.
+
+[BAYESIAN_BACKEND_AXIS]: REALIZED in `inference/bayesian.md` — `SamplerBackend` dispatches PyMC-native/NumPyro/Nutpie plus the mined BlackJAX JAX NUTS (`sample_blackjax_nuts`) as the fourth backend, arviz scoring all four through one diagnostic fold.
+
+[MPMATH_ENCLOSURE_FLOOR]: REALIZED in `validated_numerics/enclosure.md` — the `mpmath.mpi` interval floor at `mp.prec` beneath the gated Arb path, the numpy `nextafter` band the uncertified last resort.
+
+[SPATIAL_GEOMETRY_QUERIES]: REALIZED in `spatial/query.md` — `SpatialQuery` folds KD-tree neighbour/radius, hull, Delaunay, Voronoi, and the alpha-shape circumradius boundary into one content-keyed `SpatialReceipt`; numpy brute-force neighbour floor on cp315.
+
+[SIMFRAME_MESH_FIELD]: REALIZED in `simframe/mesh_field.md` — `MeshField` lowers a weak form to the sparse stiffness/load pair through `skfem.Basis`/`asm`, `MeshExchange` rounds through meshio; assembly-and-interchange only, the solve stays on the quadrature route.
+
+[RUNTIME_BOUNDARY_PARITY]: REALIZED across every sub-domain — `Receipt.of`/`BoundaryFault(<case>=...)`/`ContentIdentity.of` over the flat `rasm.runtime.{receipts,faults,content_identity}` imports, audited against the runtime owner pages with no fabricated factory.

@@ -117,14 +117,14 @@ public static class Provenance {
 
 ## [3]-[ATTESTED_LEDGER]
 
-- Owner: `AttestedEntry` the hash-chained ledger row; `LedgerHead` the chain-head proof; `AttestedLedger` the static surface owning the chain-append fold, the head-digest computation, the chain verification, and the redaction-preserving entry projection.
-- Cases: each entry chains `PriorDigest` into its own `Digest` over `XxHash128(PriorDigest || ContentKey || Classification || AuditCategory)`, so the head digest attests every prior entry; a redacted entry preserves its `Digest` while replacing the payload reference so the chain verifies even after a redaction.
+- Owner: `AttestedEntry` the hash-chained ledger row; `LedgerHead` the chain-head proof; `AttestedLedger` the static surface owning the chain-append fold, the head-digest computation, the chain verification, and the redaction-preserving entry projection; `TransparencyProof` the RFC 9162 Merkle transparency-log surface owning the leaf/node digest, the `InclusionProof` for one entry, the `ConsistencyProof` between two `LedgerHead` seals, and the detached-signed `HeadSeal` an external auditor verifies in O(log n) without replaying the chain.
+- Cases: each entry chains `PriorDigest` into its own `Digest` over `XxHash128(PriorDigest || ContentKey || Classification || AuditCategory)`, so the head digest attests every prior entry; a redacted entry preserves its `Digest` while replacing the payload reference so the chain verifies even after a redaction; `TransparencyProof` builds a Merkle tree over the `AttestedEntry` leaf digests so an `InclusionProof` proves one entry was logged in O(log n), a `ConsistencyProof` proves the new tree extends the old append-only between two `HeadSeal` sizes, and the `HeadSeal` binds an `ECDsa` detached signature over the periodic `(Root, At)` so non-repudiation attaches to the signed seal, not the tree.
 - Entry: `public static AttestedEntry Append(LedgerHead head, OpLogEntry op, string auditCategory, DataClassification classification)` — pure chain-append linking the prior head digest into the new entry over the op content key, audit category, and classification; `public static Fin<LedgerHead> Verify(Seq<AttestedEntry> chain, LedgerHead start)` recomputes every digest and aborts on the first break.
 - Auto: every op-log row plus its bound pgaudit category (`AuditBinding.Bind`) appends one `AttestedEntry` whose digest chains the prior digest, so the head digest is a tamper-evident proof of the whole history — a single altered prior row breaks every subsequent digest and `Verify` names the first break; the chain rides the op-log so it carries no second store; redaction is preserving — a redacted entry keeps its original `Digest` (computed over the pre-redaction content key) and replaces the payload reference with the `ExportProof` content hash so the chain still verifies and an auditor proves the row existed without seeing the redacted content; the head digest is periodically sealed as a content-addressed snapshot (`Snapshots.ContentAddress`) so an external witness anchors the chain.
 - Receipt: an append rides `store.ledger.append` carrying the new head digest; a verification rides `store.ledger.verify` carrying the verified count or the first break index; a redaction-preserving projection rides the settled `ExportProof`.
-- Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, Microsoft.Extensions.Compliance.Redaction, Rasm.AppHost (project), BCL inbox.
-- Growth: a new attestation field is one term in the digest tuple; a new seal cadence is one schedule policy value; zero new surface — a Merkle-tree audit store, a blockchain ledger, or a second tamper-evident log is the deleted form because the chain is one hash-chained projection over the op-log and the pgaudit binding, and the head digest is the one proof; the existing pgaudit/legal-hold/RLS/CDC machinery (`redaction-retention`, `server-tier`) stays the substrate and this owner adds the hash-chain attestation plus the lineage scoping net-new.
-- Boundary: the chain is hash-linked so tamper-evidence is structural — `Digest_n = XxHash128(Digest_{n-1} || ContentKey || Classification || AuditCategory)` so altering any entry invalidates every later digest and `Verify` returns the first break index, never a silent pass; the attestation is non-cryptographic (XxHash128) so it is a tamper-evidence proof, not a signature — a cryptographic-signature claim is the named defect, and external non-repudiation rides the periodic content-addressed seal an outside witness anchors; redaction is preserving — a redacted entry keeps its pre-redaction digest and swaps the payload reference for the `ExportProof` content hash, so the chain verifies after redaction and the redacted row's existence and classification stay provable while its content is erased; the pgaudit category per entry comes from the settled `AuditBinding.Bind` (`redaction-retention#AUDIT_BINDING`) so the attested ledger and the server-side audit log carry the same category; legal hold reads the lineage subtree (`#CAUSAL_DAG`) so a held entry's whole derivation chain is retained; the chain rides the op-log changefeed so it converges across peers and a fork in the chain (two entries claiming the same prior digest) is a typed conflict the merge surfaces, never a silent overwrite.
+- Packages: System.IO.Hashing, System.Security.Cryptography (BCL inbox), NodaTime, LanguageExt.Core, Microsoft.Extensions.Compliance.Redaction, Rasm.AppHost (project), BCL inbox.
+- Growth: a new attestation field is one term in the digest tuple; a new seal cadence is one schedule policy value; the transparency log is a projection over the existing `AttestedEntry` rows so an inclusion or consistency proof is one `TransparencyProof` fold, never a second ledger store; zero new surface — a separate Merkle-tree audit store, a blockchain ledger, or a second tamper-evident log is the deleted form because the chain is one hash-chained projection over the op-log and the pgaudit binding, the Merkle tree is one projection over the same leaf digests, and the head digest plus the detached-signed seal is the one external proof; the existing pgaudit/legal-hold/RLS/CDC machinery (`redaction-retention`, `server-tier`) stays the substrate and this owner adds the hash-chain attestation, the lineage scoping, and the RFC 9162 transparency proof net-new.
+- Boundary: the chain is hash-linked so tamper-evidence is structural — `Digest_n = XxHash128(Digest_{n-1} || ContentKey || Classification || AuditCategory)` so altering any entry invalidates every later digest and `Verify` returns the first break index, never a silent pass; the Merkle node hash stays `XxHash128` for tamper-evidence (the `0x00` leaf-prefix and `0x01` node-prefix domain-separate the RFC 9162 tree so a leaf digest can never collide with an interior node) while the `HeadSeal` `ECDsa` detached signature is the only cryptographic surface — so the non-repudiation claim attaches to the signed seal, not the tree, and a cryptographic-signature claim on the chain digests themselves is the named defect; `TransparencyProof.Prove` emits an `InclusionProof` whose `AuditPath` an auditor walks in O(log n) to recompute the `Root` without the chain, `Consistent` emits a `ConsistencyProof` so a split-history attack surfaces as a failed extension proof between two `HeadSeal` sizes, and the support-bundle export carries the proof through `retention/redaction-retention.md#EXPORT_PROOF` as a self-verifying artifact rather than a server-trusted digest, never a second ledger store; the redaction-preserving leaf keeps its pre-redaction `Digest` and folds the `RedactedPayloadProof` content hash into the `LeafDigest` so an inclusion proof still verifies after a redaction, matching the existing chain invariant; external non-repudiation rides the periodic detached-signed `HeadSeal` (its `Root` is the Merkle root and its `At` rides `Snapshots.ContentAddress` as the content-addressed head-seal anchor) an outside witness anchors; redaction is preserving — a redacted entry keeps its pre-redaction digest and swaps the payload reference for the `ExportProof` content hash, so the chain verifies after redaction and the redacted row's existence and classification stay provable while its content is erased; the pgaudit category per entry comes from the settled `AuditBinding.Bind` (`redaction-retention#AUDIT_BINDING`) so the attested ledger and the server-side audit log carry the same category; legal hold reads the lineage subtree (`#CAUSAL_DAG`) so a held entry's whole derivation chain is retained; the chain rides the op-log changefeed so it converges across peers and a fork in the chain (two entries claiming the same prior digest) is a typed conflict the merge surfaces, never a silent overwrite.
 
 ```csharp signature
 public readonly record struct AttestedEntry(
@@ -179,6 +179,123 @@ public static class AttestedLedger {
         return XxHash128.HashToUInt128(tuple[..written]);
     }
 }
+
+public readonly record struct InclusionProof(int LeafIndex, int TreeSize, UInt128 LeafDigest, Seq<UInt128> AuditPath, UInt128 Root);
+
+public readonly record struct ConsistencyProof(int OldSize, int NewSize, Seq<UInt128> Path, UInt128 OldRoot, UInt128 NewRoot);
+
+public readonly record struct HeadSeal(int TreeSize, UInt128 Root, Instant At, byte[] Signature);
+
+public static class TransparencyProof {
+    private static readonly byte[] LeafPrefix = [0x00];
+
+    private static readonly byte[] NodePrefix = [0x01];
+
+    public static UInt128 LeafDigest(AttestedEntry entry) {
+        Span<byte> span = stackalloc byte[33];
+        LeafPrefix.CopyTo(span);
+        BinaryPrimitives.WriteUInt128LittleEndian(span[1..], entry.Digest);
+        BinaryPrimitives.WriteUInt128LittleEndian(span[17..], entry.RedactedPayloadProof.IfNone(entry.ContentKey));
+        return XxHash128.HashToUInt128(span);
+    }
+
+    public static UInt128 Root(Seq<AttestedEntry> chain) =>
+        MerkleRoot(toSeq(chain.Map(LeafDigest)));
+
+    public static InclusionProof Prove(Seq<AttestedEntry> chain, int leafIndex) {
+        var leaves = toSeq(chain.Map(LeafDigest));
+        return new InclusionProof(leafIndex, leaves.Count, leaves[leafIndex], AuditPath(leaves, leafIndex), MerkleRoot(leaves));
+    }
+
+    public static bool Verify(InclusionProof proof) {
+        var node = proof.LeafDigest;
+        var index = proof.LeafIndex;
+        var size = proof.TreeSize;
+        foreach (var sibling in proof.AuditPath) {
+            (node, index, size) = SiblingFold(node, sibling, index, size);
+        }
+        return index == 0 && node == proof.Root;
+    }
+
+    private static (UInt128 Node, int Index, int Size) SiblingFold(UInt128 node, UInt128 sibling, int index, int size) {
+        while ((index & 1) == 0 && index != size - 1) {
+            index >>= 1;
+            size = (size + 1) >> 1;
+        }
+        var folded = (index & 1) == 1 ? Node(sibling, node) : Node(node, sibling);
+        return (folded, index >> 1, (size + 1) >> 1);
+    }
+
+    public static ConsistencyProof Consistent(Seq<AttestedEntry> chain, int oldSize) {
+        var leaves = toSeq(chain.Map(LeafDigest));
+        return new ConsistencyProof(
+            oldSize, leaves.Count,
+            ConsistencyPath(leaves, oldSize),
+            MerkleRoot(toSeq(leaves.Take(oldSize))),
+            MerkleRoot(leaves));
+    }
+
+    public static HeadSeal Seal(Seq<AttestedEntry> chain, Instant at, ECDsa key) {
+        var root = Root(chain);
+        Span<byte> message = stackalloc byte[24];
+        BinaryPrimitives.WriteUInt128LittleEndian(message, root);
+        BinaryPrimitives.WriteInt64LittleEndian(message[16..], at.ToUnixTimeTicks());
+        return new HeadSeal(chain.Count, root, at, key.SignData(message, HashAlgorithmName.SHA256));
+    }
+
+    public static bool VerifySeal(HeadSeal seal, ECDsa key) {
+        Span<byte> message = stackalloc byte[24];
+        BinaryPrimitives.WriteUInt128LittleEndian(message, seal.Root);
+        BinaryPrimitives.WriteInt64LittleEndian(message[16..], seal.At.ToUnixTimeTicks());
+        return key.VerifyData(message, seal.Signature, HashAlgorithmName.SHA256);
+    }
+
+    private static UInt128 MerkleRoot(Seq<UInt128> leaves) =>
+        leaves.Count switch {
+            0 => XxHash128.HashToUInt128(ReadOnlySpan<byte>.Empty),
+            1 => leaves[0],
+            var n => Node(MerkleRoot(toSeq(leaves.Take(Split(n)))), MerkleRoot(toSeq(leaves.Skip(Split(n))))),
+        };
+
+    private static Seq<UInt128> AuditPath(Seq<UInt128> leaves, int index) {
+        if (leaves.Count <= 1)
+            return Seq<UInt128>();
+        var k = Split(leaves.Count);
+        return index < k
+            ? AuditPath(toSeq(leaves.Take(k)), index).Add(MerkleRoot(toSeq(leaves.Skip(k))))
+            : AuditPath(toSeq(leaves.Skip(k)), index - k).Add(MerkleRoot(toSeq(leaves.Take(k))));
+    }
+
+    private static Seq<UInt128> ConsistencyPath(Seq<UInt128> leaves, int oldSize) =>
+        oldSize == 0 || oldSize == leaves.Count
+            ? Seq<UInt128>()
+            : Subproof(leaves, oldSize, true);
+
+    private static Seq<UInt128> Subproof(Seq<UInt128> leaves, int m, bool onPath) {
+        var n = leaves.Count;
+        if (m == n)
+            return onPath ? Seq<UInt128>() : Seq(MerkleRoot(leaves));
+        var k = Split(n);
+        return m <= k
+            ? Subproof(toSeq(leaves.Take(k)), m, onPath).Add(MerkleRoot(toSeq(leaves.Skip(k))))
+            : Subproof(toSeq(leaves.Skip(k)), m - k, false).Add(MerkleRoot(toSeq(leaves.Take(k))));
+    }
+
+    private static UInt128 Node(UInt128 left, UInt128 right) {
+        Span<byte> span = stackalloc byte[33];
+        NodePrefix.CopyTo(span);
+        BinaryPrimitives.WriteUInt128LittleEndian(span[1..], left);
+        BinaryPrimitives.WriteUInt128LittleEndian(span[17..], right);
+        return XxHash128.HashToUInt128(span);
+    }
+
+    private static int Split(int n) {
+        var k = 1;
+        while (k << 1 < n)
+            k <<= 1;
+        return k;
+    }
+}
 ```
 
 | [INDEX] | [POLICY]            | [VALUE]                          | [BINDING]                                       |
@@ -186,6 +303,10 @@ public static class AttestedLedger {
 |   [1]   | digest algorithm    | `XxHash128` tamper-evidence       | non-cryptographic; signature claim is rejected  |
 |   [2]   | seal cadence        | content-addressed snapshot seal   | external-witness anchor on the schedule lease   |
 |   [3]   | audit category      | `AuditBinding.Bind` result        | one category vocabulary, never a second         |
+|   [4]   | merkle tree         | `XxHash128` `0x00`/`0x01`-prefixed | RFC 9162 leaf/node domain separation; `TransparencyProof.Root` |
+|   [5]   | inclusion proof     | O(log n) `AuditPath` recompute    | one entry proven without the chain; export-bundle artifact |
+|   [6]   | consistency proof   | append-only extension between seals | split-history attack is a failed `ConsistencyProof` |
+|   [7]   | head-seal signature | `ECDsa` detached over `(Root, At)` | the one cryptographic surface; non-repudiation on the seal |
 
 ## [4]-[LINEAGE_CDC]
 
@@ -306,3 +427,4 @@ interface CdcEnvelopeWire {
 
 - [LINEAGE_SLICE_COST]: the bounded backward/forward slice cost over a 10^7-edge causal DAG projected from the op-log — whether the projected adjacency index (a content-key-to-edge GIN index on the op-log `Closure` column) keeps a depth-bounded slice linear in the reachable-edge count, and whether the derivation source resolution reads the `Closure` manifest without a recursive CTE on the hot path.
 - [REDACTION_PRESERVING_VERIFY]: the attested-chain verification after a redaction — confirming that a redacted entry keeping its pre-redaction `Digest` and swapping the payload reference for the `ExportProof` content hash leaves `Verify` green, and the periodic content-addressed seal an external witness anchors against the live PG18 pgaudit category record.
+- [MERKLE_PROOF_CONSTRUCTION]: the RFC 9162 inclusion-and-consistency-proof construction the `TransparencyProof.AuditPath`/`Subproof` folds emit — confirming the audit-path sibling ordering and the consistency-proof subproof recursion verify against the reference RFC 9162 test vectors, the `ECDsa` curve and `HashAlgorithmName` the `HeadSeal` signs under (the key arrives from the AppHost identity seam, never minted here), and the `o.IsExact` tree-size boundary where `n` is not a power of two so the `Split` largest-power-of-two split matches the spec; the redaction-preserving `LeafDigest` folding `RedactedPayloadProof` confirms an inclusion proof verifies before and after a redaction over a real chain.

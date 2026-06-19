@@ -2,7 +2,7 @@
 
 THE PLANNING MODE CANNOT BE LEFT UNLESS IT IS EXHAUSTIVE, DETAILED, ADVANCED, COMPLEX/RICH, NO FLUFF/CHAFF, ALL CONSIDERATIONS/TASKS FULLY INVESTIGATED, RESOLVED, CRITIQUED/REFINED + RED-TEAMED
 
-[IMPORTANT]: Read `tools/assay/README.md`, understand all capabilities, especially `provision` and the ability to create an env to ideate/refine on ideas to ensure we never leave a concept at a "spike" level, that we see it through from A to Z, especially important for `libs/csharp/Rasm.Persistence`, various ts lib folders, and some py folders.
+[IMPORTANT]: Server and native closure evidence comes from Assay `provision` reports. Planning prompts consume that evidence when a task needs live PG18, extension, DuckDB, or scientific-native facts. Read `tools/assay/README.md` for provison tool usage, ensure agents that need it are aware of it and how to use it.
 
 [IMPORTANT]: For all workflows, it is 1-2 agents PER folder, the per folder pass, language-wide pass (not 1 agent for multiple folders), lib-wide pass (multiple agents per language) with synthesis and orchestration handled properly, never overload any agent to read more than 1 planning folder. Never burst a workflow, scope properly to have a phase slowly unroll agents (mainly a concern for lib-wide pass)
 

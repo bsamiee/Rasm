@@ -26,7 +26,7 @@
 [CROSS_CUTTING_SURFACES]:
 - Central manifests: `Directory.Packages.props`, `Directory.Build.props`, `Directory.Build.targets`, `global.json`, `NuGet.config`, `pyproject.toml`, `pnpm-workspace.yaml`, `.config`
 - Per-folder catalogues: every `<pkg>/.api/` catalogue set
-- Toolchain: the Nix toolchain — Forge wrappers, provisioning, and the native floors `assay provision verify` keeps honest
+- Toolchain evidence: Assay provision reports and per-folder `.api` catalogues verify Forge-provided server/native floors.
 - Pass-prompts: `.claude/prompts/1-ideate-pass.md`, `.claude/prompts/2-refine-pass.md`, `.claude/prompts/3-implement-pass.md`
 - Code doctrine: `docs/stacks/<lang>/`, with `docs/stacks/csharp/` the universal floor
 - Form standards: `docs/standards/information-structure.md`, `docs/standards/formatting.md`, `docs/standards/style-guide.md`

@@ -40,9 +40,15 @@
         <PackageReference Include="Avalonia.Headless" />
     </ItemGroup>
 
-    <!-- GPU compositor backend: Vello-accelerated render path behind the SurfaceHost render seam. -->
+    <!-- GPU compositor backend: wgpu/Dawn render path behind the SurfaceHost render seam, presenting through Avalonia 12 ICompositionGpuInterop. -->
     <ItemGroup Label="GPU Backend">
-        <PackageReference Include="VelloSharp.Avalonia.Vello" />
+        <PackageReference Include="Silk.NET.WebGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
+        <PackageReference Include="Silk.NET.OpenXR" />
+        <PackageReference Include="Silk.NET.OpenXR.Extensions.KHR" />
+        <PackageReference Include="Silk.NET.OpenXR.Extensions.EXT" />
+        <PackageReference Include="Silk.NET.OpenXR.Extensions.FB" />
     </ItemGroup>
 
     <!-- Native posture: macOS desktop (live) plus the headless-Linux raster backend

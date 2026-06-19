@@ -32,67 +32,67 @@
 [REACTIVE_TYPES]: reactive base objects — `PropertyModels.ComponentModel`
 - rail: inspectors
 
-| [INDEX] | [SYMBOL]                  | [KIND]               | [RAIL]                             |
-| :-----: | :------------------------ | :------------------- | :--------------------------------- |
-|   [1]   | `IReactiveObject`         | contract             | `PropertyChanged` + batch + raise  |
-|   [2]   | `MiniReactiveObject`      | base class           | `IReactiveObject` without dependency tracking |
-|   [3]   | `ReactiveObject`          | base class           | `MiniReactiveObject` + `[DependsOnProperty]` propagation |
-|   [4]   | `ReactiveObjectExtensions`| static extensions    | `RaisePropertyChanged` helpers     |
+| [INDEX] | [SYMBOL]                   | [KIND]            | [RAIL]                                                   |
+| :-----: | :------------------------- | :---------------- | :------------------------------------------------------- |
+|   [1]   | `IReactiveObject`          | contract          | `PropertyChanged` + batch + raise                        |
+|   [2]   | `MiniReactiveObject`       | base class        | `IReactiveObject` without dependency tracking            |
+|   [3]   | `ReactiveObject`           | base class        | `MiniReactiveObject` + `[DependsOnProperty]` propagation |
+|   [4]   | `ReactiveObjectExtensions` | static extensions | `RaisePropertyChanged` helpers                           |
 
 [COMMAND_TYPES]: command and undo infrastructure — `PropertyModels.ComponentModel`
 - rail: inspectors
 
-| [INDEX] | [SYMBOL]                     | [KIND]            | [RAIL]                            |
-| :-----: | :--------------------------- | :---------------- | :-------------------------------- |
-|   [1]   | `IBaseCommand`               | contract          | `Name`, `CanExecute`, `Execute`   |
-|   [2]   | `ICancelableCommand`         | contract          | cancelable command contract       |
-|   [3]   | `AbstractBaseCommand`        | abstract base     | `IBaseCommand` base               |
-|   [4]   | `AbstractCancelableCommand`  | abstract base     | `ICancelableCommand` base         |
-|   [5]   | `GenericCommand`             | concrete command  | delegate-backed command           |
-|   [6]   | `GenericCancelableCommand`   | concrete command  | delegate-backed cancelable        |
-|   [7]   | `ReactiveCommand`            | reactive command  | `INotifyCommandExecuting` command |
-|   [8]   | `CancelableCommandRecorder`  | undo recorder     | undo/redo queue, `MaxCommand=20`  |
-|   [9]   | `CommandHistoryViewModel`    | undo view model   | `CanUndo`, `CanRedo`, queue views |
+| [INDEX] | [SYMBOL]                    | [KIND]           | [RAIL]                            |
+| :-----: | :-------------------------- | :--------------- | :-------------------------------- |
+|   [1]   | `IBaseCommand`              | contract         | `Name`, `CanExecute`, `Execute`   |
+|   [2]   | `ICancelableCommand`        | contract         | cancelable command contract       |
+|   [3]   | `AbstractBaseCommand`       | abstract base    | `IBaseCommand` base               |
+|   [4]   | `AbstractCancelableCommand` | abstract base    | `ICancelableCommand` base         |
+|   [5]   | `GenericCommand`            | concrete command | delegate-backed command           |
+|   [6]   | `GenericCancelableCommand`  | concrete command | delegate-backed cancelable        |
+|   [7]   | `ReactiveCommand`           | reactive command | `INotifyCommandExecuting` command |
+|   [8]   | `CancelableCommandRecorder` | undo recorder    | undo/redo queue, `MaxCommand=20`  |
+|   [9]   | `CommandHistoryViewModel`   | undo view model  | `CanUndo`, `CanRedo`, queue views |
 
 [COLLECTION_TYPES]: checked and selectable list collections — `PropertyModels.Collections`
 - rail: inspectors
 
-| [INDEX] | [SYMBOL]           | [KIND]            | [RAIL]                               |
-| :-----: | :----------------- | :---------------- | :----------------------------------- |
-|   [1]   | `ICheckedList`     | contract          | checked selection over `ICollection` |
-|   [2]   | `CheckedList`      | concrete list     | typed checked multi-select list      |
-|   [3]   | `ISelectableList`  | contract          | single/multi selectable list         |
-|   [4]   | `SelectableList`   | concrete list     | typed selectable list                |
+| [INDEX] | [SYMBOL]          | [KIND]        | [RAIL]                               |
+| :-----: | :---------------- | :------------ | :----------------------------------- |
+|   [1]   | `ICheckedList`    | contract      | checked selection over `ICollection` |
+|   [2]   | `CheckedList`     | concrete list | typed checked multi-select list      |
+|   [3]   | `ISelectableList` | contract      | single/multi selectable list         |
+|   [4]   | `SelectableList`  | concrete list | typed selectable list                |
 
 [ANNOTATION_TYPES]: data annotation attributes — `PropertyModels.ComponentModel.DataAnnotations`
 - rail: inspectors
 
-| [INDEX] | [SYMBOL]                              | [RAIL]                              |
-| :-----: | :------------------------------------ | :---------------------------------- |
-|   [1]   | `ConditionTargetAttribute`            | marks property as condition target  |
-|   [2]   | `PropertyVisibilityConditionAttribute`| conditional property visibility     |
-|   [3]   | `DependsOnPropertyAttribute`          | reactive dependency declaration     |
-|   [4]   | `PathBrowsableAttribute`              | path browse mode                    |
-|   [5]   | `EnumPermitNamesAttribute`            | enum filter by name                 |
-|   [6]   | `EnumPermitValuesAttribute`           | enum filter by value                |
-|   [7]   | `EnumProhibitNamesAttribute`          | enum exclusion by name              |
-|   [8]   | `EnumProhibitValuesAttribute`         | enum exclusion by value             |
-|   [9]   | `FloatPrecisionAttribute`             | float display precision             |
-|  [10]   | `IntegerIncrementAttribute`           | integer editor increment            |
-|  [11]   | `ProgressAttribute`                   | progress bar editor hint            |
-|  [12]   | `WatermarkAttribute`                  | editor watermark text               |
-|  [13]   | `TrackableAttribute`                  | change tracking marker              |
-|  [14]   | `MultilineTextAttribute`              | multiline string editor             |
-|  [15]   | `UnitAttribute`                       | unit label display                  |
+| [INDEX] | [SYMBOL]                               | [RAIL]                             |
+| :-----: | :------------------------------------- | :--------------------------------- |
+|   [1]   | `ConditionTargetAttribute`             | marks property as condition target |
+|   [2]   | `PropertyVisibilityConditionAttribute` | conditional property visibility    |
+|   [3]   | `DependsOnPropertyAttribute`           | reactive dependency declaration    |
+|   [4]   | `PathBrowsableAttribute`               | path browse mode                   |
+|   [5]   | `EnumPermitNamesAttribute`             | enum filter by name                |
+|   [6]   | `EnumPermitValuesAttribute`            | enum filter by value               |
+|   [7]   | `EnumProhibitNamesAttribute`           | enum exclusion by name             |
+|   [8]   | `EnumProhibitValuesAttribute`          | enum exclusion by value            |
+|   [9]   | `FloatPrecisionAttribute`              | float display precision            |
+|  [10]   | `IntegerIncrementAttribute`            | integer editor increment           |
+|  [11]   | `ProgressAttribute`                    | progress bar editor hint           |
+|  [12]   | `WatermarkAttribute`                   | editor watermark text              |
+|  [13]   | `TrackableAttribute`                   | change tracking marker             |
+|  [14]   | `MultilineTextAttribute`               | multiline string editor            |
+|  [15]   | `UnitAttribute`                        | unit label display                 |
 
 [LOCALIZATION_TYPES]: localization contracts — `PropertyModels.Localization`
 - rail: inspectors
 
-| [INDEX] | [SYMBOL]                  | [KIND]           | [RAIL]                               |
-| :-----: | :------------------------ | :--------------- | :----------------------------------- |
-|   [1]   | `ILocalizationService`    | contract         | key lookup, culture change, extras   |
-|   [2]   | `ICultureData`            | contract         | culture metadata                     |
-|   [3]   | `AbstractCultureData`     | abstract base    | `ICultureData` base                  |
+| [INDEX] | [SYMBOL]               | [KIND]        | [RAIL]                             |
+| :-----: | :--------------------- | :------------ | :--------------------------------- |
+|   [1]   | `ILocalizationService` | contract      | key lookup, culture change, extras |
+|   [2]   | `ICultureData`         | contract      | culture metadata                   |
+|   [3]   | `AbstractCultureData`  | abstract base | `ICultureData` base                |
 
 [INSPECTOR_TYPES]: grid, context, and view model surfaces — `bodong.Avalonia.PropertyGrid` — rail: inspectors
 
@@ -157,38 +157,38 @@
 [REACTIVE_ENTRYPOINTS]: `PropertyModels.ComponentModel` reactive surfaces
 - rail: inspectors
 
-| [INDEX] | [SURFACE]                                   | [SURFACE_ROOT]       | [RAIL]                   |
-| :-----: | :------------------------------------------ | :------------------- | :----------------------- |
-|   [1]   | `RaisePropertyChanged(string)`              | `MiniReactiveObject` | property change notify   |
-|   [2]   | `SetProperty<T>(ref T, T, string?)`         | `MiniReactiveObject` | set + notify helper      |
-|   [3]   | `BeginBatchUpdate()` / `EndBatchUpdate()`   | `MiniReactiveObject` | suppress intermediate notifications |
-|   [4]   | `CanExecute()` / `Execute()`                | `IBaseCommand`       | command gate and execute |
-|   [5]   | `CanUndo` / `CanRedo`                       | `CancelableCommandRecorder` | undo/redo state   |
-|   [6]   | `GetUndoQueue()` / `GetRedoQueue()`         | `CancelableCommandRecorder` | queue snapshots   |
-|   [7]   | `UndoCommand` / `RedoCommand` / `ClearCommand` | `CommandHistoryViewModel` | bindable commands |
+| [INDEX] | [SURFACE]                                      | [SURFACE_ROOT]              | [RAIL]                              |
+| :-----: | :--------------------------------------------- | :-------------------------- | :---------------------------------- |
+|   [1]   | `RaisePropertyChanged(string)`                 | `MiniReactiveObject`        | property change notify              |
+|   [2]   | `SetProperty<T>(ref T, T, string?)`            | `MiniReactiveObject`        | set + notify helper                 |
+|   [3]   | `BeginBatchUpdate()` / `EndBatchUpdate()`      | `MiniReactiveObject`        | suppress intermediate notifications |
+|   [4]   | `CanExecute()` / `Execute()`                   | `IBaseCommand`              | command gate and execute            |
+|   [5]   | `CanUndo` / `CanRedo`                          | `CancelableCommandRecorder` | undo/redo state                     |
+|   [6]   | `GetUndoQueue()` / `GetRedoQueue()`            | `CancelableCommandRecorder` | queue snapshots                     |
+|   [7]   | `UndoCommand` / `RedoCommand` / `ClearCommand` | `CommandHistoryViewModel`   | bindable commands                   |
 
 [COLLECTION_ENTRYPOINTS]: checked list operations — `PropertyModels.Collections`
 - rail: inspectors
 
-| [INDEX] | [SURFACE]                               | [SURFACE_ROOT] | [RAIL]              |
-| :-----: | :-------------------------------------- | :------------- | :------------------ |
-|   [1]   | `IsChecked(object)`                     | `ICheckedList` | check state query   |
-|   [2]   | `SetChecked(object, bool)`              | `ICheckedList` | check state write   |
-|   [3]   | `SetRangeChecked(IEnumerable<object>, bool)` | `ICheckedList` | batch check    |
-|   [4]   | `Select(object)` / `SelectRange(...)`   | `ICheckedList` | selection set       |
-|   [5]   | `SelectionChanged`                      | `ICheckedList` | change event        |
-|   [6]   | `Items` / `SourceItems`                 | `ICheckedList` | selected / all items |
+| [INDEX] | [SURFACE]                                    | [SURFACE_ROOT] | [RAIL]               |
+| :-----: | :------------------------------------------- | :------------- | :------------------- |
+|   [1]   | `IsChecked(object)`                          | `ICheckedList` | check state query    |
+|   [2]   | `SetChecked(object, bool)`                   | `ICheckedList` | check state write    |
+|   [3]   | `SetRangeChecked(IEnumerable<object>, bool)` | `ICheckedList` | batch check          |
+|   [4]   | `Select(object)` / `SelectRange(...)`        | `ICheckedList` | selection set        |
+|   [5]   | `SelectionChanged`                           | `ICheckedList` | change event         |
+|   [6]   | `Items` / `SourceItems`                      | `ICheckedList` | selected / all items |
 
 [LOCALIZATION_ENTRYPOINTS]: `ILocalizationService` culture management
 - rail: inspectors
 
-| [INDEX] | [SURFACE]                           | [SURFACE_ROOT]         | [RAIL]               |
-| :-----: | :---------------------------------- | :--------------------- | :------------------- |
-|   [1]   | `this[string]`                      | `ILocalizationService` | key translation      |
-|   [2]   | `SelectCulture(string)`             | `ILocalizationService` | culture switch       |
-|   [3]   | `GetCultures()`                     | `ILocalizationService` | available cultures   |
+| [INDEX] | [SURFACE]                                | [SURFACE_ROOT]         | [RAIL]                 |
+| :-----: | :--------------------------------------- | :--------------------- | :--------------------- |
+|   [1]   | `this[string]`                           | `ILocalizationService` | key translation        |
+|   [2]   | `SelectCulture(string)`                  | `ILocalizationService` | culture switch         |
+|   [3]   | `GetCultures()`                          | `ILocalizationService` | available cultures     |
 |   [4]   | `AddExtraService` / `RemoveExtraService` | `ILocalizationService` | composite localization |
-|   [5]   | `OnCultureChanged`                  | `ILocalizationService` | culture change event |
+|   [5]   | `OnCultureChanged`                       | `ILocalizationService` | culture change event   |
 
 [GRID_ENTRYPOINTS]: property grid state and layout — `bodong.Avalonia.PropertyGrid`
 - rail: inspectors

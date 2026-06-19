@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_TENSORS]
+# [RASM_API_TENSORS]
 
 `System.Numerics.Tensors` supplies tensor owners, tensor spans, dimension
 spans, native-sized indexing, marshalling, and vectorized numeric primitives

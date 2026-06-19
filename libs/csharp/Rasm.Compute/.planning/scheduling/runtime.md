@@ -1,6 +1,6 @@
 # [COMPUTE_RUNTIME]
 
-Rasm.Compute schedules every admitted intent through five bounded `WorkLane` channel rows behind one `LaneRuntime` enqueue capsule: lane choice is an intent field, full-mode and backpressure are row data, drops emit a correlated `Backpressure` receipt, queue depth reads `ChannelReader.Count`, and solve-path dispatch structurally returns a `LaneHandle` instead of executing work. The page owns the `WorkLane` axis, the work-item and handle shapes, the GH2 async-result ceiling, the `CpuBudget` record the three concurrency axes share, the `JobGraph` dependency-DAG scheduler layering speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store orchestration over the bounded lanes, and band-200 drain participation — over bounded System.Threading.Channels pipes, Thinktecture vocabulary, LanguageExt rails, NodaTime instants, and the AppHost drain, cancellation, clock, and schedule spine.
+Rasm.Compute schedules every admitted intent through five bounded `WorkLane` channel rows behind one `LaneRuntime` enqueue capsule: lane choice is an intent field, full-mode and backpressure are row data, drops emit a correlated `Backpressure` receipt, queue depth reads `ChannelReader.Count`, and solve-path dispatch structurally returns a `LaneHandle` instead of executing work. The page owns the `WorkLane` axis, the work-item and handle shapes, the GH2 async-result ceiling, the `CpuBudget` record the three concurrency axes share, the `JobGraph` dependency-DAG scheduler layering speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store orchestration over the bounded lanes and keying every node on the content digest of its inputs so a re-run reconciles digests and recomputes only the moved subgraph while clean nodes replay cached receipts, and band-200 drain participation — over bounded System.Threading.Channels pipes, Thinktecture vocabulary, LanguageExt rails, NodaTime instants, and the AppHost drain, cancellation, clock, and schedule spine.
 
 ## [1]-[INDEX]
 
@@ -182,14 +182,14 @@ The posture row supplies `hostReserve` per host-profile row at composition:
 
 ## [5]-[JOB_GRAPH]
 
-- Owner: `JobNode` the dependency-graph node record carrying its `AdmittedIntent`, upstream dependency set, and scheduling columns; `JobState` `[SmartEnum<string>]` node-lifecycle rows; `JobGraph` the topological dependency-graph scheduler that admits a DAG of compute jobs, runs ready nodes onto the `LaneRuntime`, and reconciles speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store columns; `JobCheckpoint` the resume-state carrier the spill writes.
+- Owner: `JobNode` the dependency-graph node record carrying its `AdmittedIntent`, upstream dependency set, input-bytes content seed, and scheduling columns; `JobState` `[SmartEnum<string>]` node-lifecycle rows; `JobGraph` the topological dependency-graph scheduler that admits a DAG of compute jobs, runs ready nodes onto the `LaneRuntime`, reconciles speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store columns, and keys every node on the `interchange#CONTENT_ADDRESSING` digest of its inputs so a re-run diffs digests and recomputes only the moved subgraph; `JobCheckpoint` the resume-state carrier the spill writes.
 - Cases: `JobState` rows pending · ready · running · speculative · preempted · completed · spilled · faulted.
 - Entry: `public IO<Fin<HashMap<string, JobState>>> Run(Seq<JobNode> nodes, LaneRuntime lanes, ClockPolicy clocks)` — `IO<Fin<...>>` carries the schedule effect; a cyclic dependency aborts `ComputeFault` before any node runs, and the topological frontier enqueues every ready node onto its declared `WorkLane` returning the final state map.
 - Auto: `Run` computes the ready frontier (nodes whose upstream set is all `completed`), enqueues each onto the `LaneRuntime` by its node-declared lane, and advances the state map as handles complete — a node marked speculative runs ahead of its confirmation and its result is discarded on a mispredict, a preemptible node yields its lane slot to a higher-fair-share tenant and resumes from its `JobCheckpoint`, and a node past its memory budget spills its intermediate state to the Persistence blob lane keyed by the node content-hash; accelerator affinity reorders the ready frontier so a node whose EP-context blob is warm on a node routes there through the same `Substrate` warm-affinity column the selection fold reads, never a second router; fair-share reads the per-tenant in-flight count off the `TenantContext` so no tenant starves the frontier.
 - Receipt: the `Sweep` `ComputeReceipt` case carries the graph node count, the completed/spilled/faulted split, and elapsed; each node's own execution rides its lane's existing receipts, so the graph adds the orchestration fact and never a per-node receipt union.
-- Packages: BCL inbox, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
-- Growth: a new node lifecycle is one `JobState` row; a new scheduling policy (speculation, preemption, fair-share, affinity, spill) is one column on `JobNode`; zero new surface — a `JobScheduler`/`WorkflowEngine`/`DagRunner` sibling surface is the rejected form collapsed onto the one `JobGraph` over the existing lanes.
-- Boundary: the job graph is the dependency-DAG layer over the existing bounded lanes — it enqueues `AdmittedIntent`s onto the `LaneRuntime` and never executes work itself, so the solve-path guard and backpressure the lanes own hold for graph nodes exactly as for direct enqueues, and a graph node that runs work outside a lane is the rejected form; speculative execution discards mispredicted results before they emit a receipt so a speculative node's side effects are receipt-gated, preemption resumes from the `JobCheckpoint` the spill wrote so a preempted long solve never restarts from zero, and spill-to-store rides the Persistence blob lane content-addressed by the node hash so a re-run reuses the spilled intermediate — a second checkpoint store is the rejected form; accelerator affinity and fair-share are `JobNode` columns the ready-frontier ordering reads, so distributed solve orchestration (the dependency scheduler the farm lacked) lands without a `FarmRouter`, reusing the `Substrate` warm-affinity and the AppHost `PeerRoster` load the selection fold already consumes; the cycle check runs once at admission and a cyclic graph faults before any node runs, never mid-schedule; `MarkDirty` is the real-time incremental parametric re-solve primitive — a changed input node transitively marks its downstream cone `Pending` and `Run` recomputes only the dirty subgraph against the still-`Completed` clean nodes, so a server-side headless merge-preview solve re-runs the touched parametric subgraph rather than the whole model, the dirty-set propagation reuses the same dependency edges the scheduler already walks, and a full recompute on a single-input change is the named defect this layer deletes.
+- Packages: BCL inbox, System.IO.Hashing, LanguageExt.Core, Microsoft.Extensions.Caching.Hybrid, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
+- Growth: a new node lifecycle is one `JobState` row; a new scheduling policy (speculation, preemption, fair-share, affinity, spill) is one column on `JobNode`; the reactive recompute is the one `Reconcile` digest-diff over the existing edges, never a second memoization or dependency tracker; zero new surface — a `JobScheduler`/`WorkflowEngine`/`DagRunner`/`IncrementalEngine` sibling surface is the rejected form collapsed onto the one `JobGraph` over the existing lanes.
+- Boundary: the job graph is the dependency-DAG layer over the existing bounded lanes — it enqueues `AdmittedIntent`s onto the `LaneRuntime` and never executes work itself, so the solve-path guard and backpressure the lanes own hold for graph nodes exactly as for direct enqueues, and a graph node that runs work outside a lane is the rejected form; speculative execution discards mispredicted results before they emit a receipt so a speculative node's side effects are receipt-gated, preemption resumes from the `JobCheckpoint` the spill wrote so a preempted long solve never restarts from zero, and spill-to-store rides the Persistence blob lane content-addressed by the node hash so a re-run reuses the spilled intermediate — a second checkpoint store is the rejected form; accelerator affinity and fair-share are `JobNode` columns the ready-frontier ordering reads, so distributed solve orchestration (the dependency scheduler the farm lacked) lands without a `FarmRouter`, reusing the `Substrate` warm-affinity and the AppHost `PeerRoster` load the selection fold already consumes; the cycle check runs once at admission and a cyclic graph faults before any node runs, never mid-schedule; `MarkDirty` is the real-time incremental parametric re-solve primitive — a changed input node transitively marks its downstream cone `Pending` and `Run` recomputes only the dirty subgraph against the still-`Completed` clean nodes, so a server-side headless merge-preview solve re-runs the touched parametric subgraph rather than the whole model, the dirty-set propagation reuses the same dependency edges the scheduler already walks, and a full recompute on a single-input change is the named defect this layer deletes; `Reconcile` is the content-keyed reactive engine over that primitive — `Keys` walks the topological order and folds each node's `InputBytes` content seed under its upstream-key ancestry through the one `interchange#CONTENT_ADDRESSING` `XxHash128` law (never a hand-tracked mutation flag and never a per-node version stamp beside the content key), the moved set is the content-key inequality against the prior key map, `MarkDirty` propagates the transitive dirty closure, and every clean node whose key did not move stays `Completed` and replays from the `models#RESULT_CACHE` deterministic cache hit without re-execution — the clean-node short-circuit is the existing cache hit so no second memoization owner appears, the dirty closure rides the `solver#SWEEP_AND_BUDGET` `FrameBudget` per frame, the AppUi twin and Persistence federation receive only the moved nodes' receipts, and the whole package becomes one incremental compute engine over the existing identity and receipt rails rather than a parallel dependency tracker.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -219,9 +219,17 @@ public sealed record JobNode(
     bool Preemptible,
     int FairShareWeight,
     Option<string> AcceleratorAffinity,
-    long MemoryBudgetBytes) {
+    long MemoryBudgetBytes,
+    ReadOnlyMemory<byte> InputBytes) {
     public bool Ready(HashMap<string, JobState> states) =>
         DependsOn.ForAll(dep => states.Find(dep).Map(static state => state == JobState.Completed).IfNone(false));
+
+    public UInt128 NodeKey(HashMap<string, UInt128> upstreamKeys) {
+        Span<byte> seed = stackalloc byte[16];
+        UInt128 ancestry = DependsOn.Fold(UInt128.Zero, (acc, dep) => acc ^ upstreamKeys.Find(dep).IfNone(UInt128.Zero));
+        MemoryMarshal.Write(seed, in ancestry);
+        return XxHash128.HashToUInt128(InputBytes.Span, unchecked((long)XxHash3.HashToUInt64(seed)));
+    }
 }
 
 public sealed class JobGraph(Func<string, IO<Option<JobCheckpoint>>> spill) {
@@ -251,6 +259,34 @@ public sealed class JobGraph(Func<string, IO<Option<JobCheckpoint>>> spill) {
             }
         }
         return dirty.Fold(states, static (acc, id) => acc.SetItem(id, JobState.Pending));
+    }
+
+    public static HashMap<string, UInt128> Keys(Seq<JobNode> nodes) =>
+        Topological(nodes).Fold(HashMap<string, UInt128>(), static (acc, node) => acc.Add(node.Id, node.NodeKey(acc)));
+
+    public IO<Fin<HashMap<string, JobState>>> Reconcile(Seq<JobNode> nodes, HashMap<string, UInt128> prior, HashMap<string, JobState> priorStates, LaneRuntime lanes, ClockPolicy clocks) {
+        var current = Keys(nodes);
+        var moved = toSeq(current.Filter((id, key) => prior.Find(id).Map(was => was != key).IfNone(true)).Keys);
+        var states = MarkDirty(nodes, priorStates, moved);
+        return Cyclic(nodes)
+            ? IO.pure(Fin.Fail<HashMap<string, JobState>>(ComputeFault.Create("<job-graph-cycle>")))
+            : Schedule(nodes.Filter(node => states.Find(node.Id).Map(static s => !s.Terminal).IfNone(true)), lanes, clocks, states);
+    }
+
+    static Seq<JobNode> Topological(Seq<JobNode> nodes) {
+        var indegree = nodes.Fold(HashMap<string, int>(), static (acc, node) => acc.Add(node.Id, node.DependsOn.Count));
+        var byId = nodes.Fold(HashMap<string, JobNode>(), static (acc, node) => acc.Add(node.Id, node));
+        var queue = toSeq(indegree.Filter(static degree => degree == 0).Keys);
+        var ordered = Seq<JobNode>();
+        while (queue.HeadOrNone().Case is string head) {
+            queue = queue.Tail;
+            ordered = ordered.Add(byId[head]);
+            foreach (var node in nodes.Filter(n => n.DependsOn.Contains(head))) {
+                indegree = indegree.SetItem(node.Id, indegree[node.Id] - 1);
+                if (indegree[node.Id] == 0) { queue = queue.Add(node.Id); }
+            }
+        }
+        return ordered;
     }
 
     static Seq<JobNode> Frontier(Seq<JobNode> nodes, HashMap<string, JobState> states) =>

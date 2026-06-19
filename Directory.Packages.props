@@ -84,6 +84,13 @@
         <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua" Version="1.5.378.145" />
         <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.PubSub" Version="1.5.378.145" />
         <PackageVersion Include="MQTTnet" Version="5.1.0.1559" />
+        <!-- Live-wire fieldbus owners: FluentModbus (managed Modbus TCP/RTU/ASCII client+server)
+             and the System.IO.Ports BCL serial line the RTU carrier rides, behind the one TransportRow. -->
+        <PackageVersion Include="FluentModbus" Version="5.3.2" />
+        <PackageVersion Include="System.IO.Ports" Version="10.0.9" />
+        <!-- Concrete model-governance middleware over the Microsoft.Extensions.AI.Abstractions
+             contracts; rides the same 10.7.0 line as the admitted abstractions surface. -->
+        <PackageVersion Include="Microsoft.Extensions.AI" Version="10.7.0" />
     </ItemGroup>
 
     <ItemGroup Label="Persistence">
@@ -117,6 +124,9 @@
         <PackageVersion Include="Npgsql.NetTopologySuite" Version="10.0.3" />
         <PackageVersion Include="NetTopologySuite.IO.GeoJSON4STJ" Version="4.0.0" />
         <PackageVersion Include="NetTopologySuite.IO.GeoPackage" Version="2.0.0" />
+        <!-- ProjNet4GeoAPI: pure-managed spatial-reference + projection engine backing the
+             Rasm.Bim georeferencing GEODETIC_CRS_TRANSFORM datum/projection reprojection seam. -->
+        <PackageVersion Include="ProjNET" Version="2.1.0" />
         <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.3" />
         <PackageVersion Include="Pgvector" Version="0.3.2" />
         <PackageVersion Include="Pgvector.EntityFrameworkCore" Version="0.3.0" />
@@ -146,9 +156,10 @@
         <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.7.0" />
         <PackageVersion Include="System.Numerics.Tensors" Version="10.0.9" />
         <PackageVersion Include="UnitsNet" Version="5.75.0" />
-        <!-- Speckle object-graph sync (remote-lane / Speckle-gRPC keystone). COMPANION / OUTSIDE-RHINO ONLY:
-             heavy transitive closure (Microsoft.Data.Sqlite native e_sqlite3, GraphQL.Client, STJ) — never referenced
-             by an in-Rhino plugin assembly; Speckle.Sdk ILRepacks its own dependency closure. -->
+        <!-- Speckle object-graph sync, bound as the Persistence SyncTransport.SpeckleLikeDiff case (SpeckleSend/
+             SpeckleReceive marshal delegates on SyncSession over instance IOperations.Send/Receive, DI via AddSpeckleSdk).
+             COMPANION / OUTSIDE-RHINO ONLY: heavy transitive closure (Microsoft.Data.Sqlite native e_sqlite3,
+             GraphQL.Client, STJ) — never referenced by an in-Rhino plugin assembly; Speckle.Sdk ILRepacks its closure. -->
         <PackageVersion Include="Speckle.Sdk" Version="3.21.1" />
         <PackageVersion Include="Speckle.Objects" Version="3.21.1" />
     </ItemGroup>
@@ -167,6 +178,12 @@
         <PackageVersion Include="SharpGLTF.Core" Version="1.0.6" />
         <PackageVersion Include="SharpGLTF.Runtime" Version="1.0.6" />
         <PackageVersion Include="SharpGLTF.Toolkit" Version="1.0.6" />
+        <!-- 3D Tiles 1.1 structural-metadata builders (FeatureIDBuilder, PropertyTable, EXTStructuralMetadataRoot,
+             ns SharpGLTF.Schema2.Tiles3D) ship in this separate package, NOT SharpGLTF.Core. Bim admits the per-tile
+             EXT_structural_metadata/EXT_mesh_features emit; Compute composes at interchange/codecs#TILE_PARTITION.
+             OneOf is the transitive dependency (>= 3.0.271), pinned explicitly. -->
+        <PackageVersion Include="SharpGLTF.Ext.3DTiles" Version="1.0.6" />
+        <PackageVersion Include="OneOf" Version="3.0.271" />
         <!-- glTF mesh-compression encode: SharpGLTF.Core ships no Draco/meshopt encoder (decompile-verified absence).
              Openize.Drako = KHR_draco_mesh_compression encode+decode (pure-managed; commercial Openize license accepted).
              Alimer.Bindings.MeshOptimizer = EXT_meshopt_compression encode (MIT; universal osx arm64+x64; net10-only,
@@ -176,9 +193,12 @@
     </ItemGroup>
 
     <!-- Materials: color/spectral engine. Wacton.Unicolour (pure-managed netstandard2.0, zero deps, ALC-safe) is a
-         hard dependency of the finalized appearance-graph/bsdf/texture-photometric pages + the AppUi color owner. -->
+         hard dependency of the finalized appearance-graph/bsdf/texture-photometric pages + the AppUi color owner.
+         Wacton.Unicolour.Datasets adds named-colour/ColorChecker/Macbeth reference sets, perceptual colourmaps, and
+         academic reference data for MEASURED_SPECTRAL validation — CMFs/illuminants/reflectance stay on the main owner. -->
     <ItemGroup Label="Materials">
         <PackageVersion Include="Wacton.Unicolour" Version="7.0.0" />
+        <PackageVersion Include="Wacton.Unicolour.Datasets" Version="4.0.0" />
     </ItemGroup>
 
     <!-- Fabrication: 2D polygon clipping/offsetting engine (Clipper2, pure-managed, BSL-1.0)
@@ -274,8 +294,15 @@
         <PackageVersion Include="System.Reactive" Version="6.1.0" />
         <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.1" />
         <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="12.0.0.1" />
-        <PackageVersion Include="VelloSharp.Avalonia.Vello" Version="0.5.0-alpha.3" />
-        <PackageVersion Include="VelloSharp" Version="0.5.0-alpha.3" />
+        <PackageVersion Include="Silk.NET.WebGPU" Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.WebGPU.Native.WGPU" Version="2.23.0" />
+        <!-- wgpu-native vendor surface + immersive OpenXR family ride the same 2.23.0 monorepo
+             release as the core WebGPU binding; Silk.NET publishes core-plus-extensions in lockstep. -->
+        <PackageVersion Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.OpenXR" Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.OpenXR.Extensions.KHR" Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.OpenXR.Extensions.EXT" Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.OpenXR.Extensions.FB" Version="2.23.0" />
         <PackageVersion Include="FluentIcons.Common" Version="2.1.330" />
         <PackageVersion Include="ACadSharp" Version="3.6.29" />
         <PackageVersion Include="netDxf" Version="2023.11.10" />

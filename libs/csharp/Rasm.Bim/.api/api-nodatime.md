@@ -10,6 +10,9 @@ health snapshots, support windows, and persisted clock facts.
 - package: `NodaTime`
 - assembly: `NodaTime`
 - namespace: `NodaTime`
+- namespace: `NodaTime.Text`
+- namespace: `NodaTime.TimeZones`
+- namespace: `NodaTime.HighPerformance`
 - asset: runtime library
 - rail: time
 
@@ -151,7 +154,7 @@ health snapshots, support windows, and persisted clock facts.
 ## [4]-[IMPLEMENTATION_LAW]
 
 [TIME_TOPOLOGY]:
-- namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`
+- namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`, `NodaTime.HighPerformance`
 - instant types: `Instant`, `OffsetDateTime`, `ZonedDateTime`
 - local types: `LocalDate`, `LocalTime`, `LocalDateTime`, `AnnualDate`
 - calendar types: `CalendarSystem`, `YearMonth`, `IsoDayOfWeek`, calendar eras

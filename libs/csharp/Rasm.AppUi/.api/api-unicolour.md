@@ -155,39 +155,58 @@ Called via `unicolour.Difference(reference, DeltaE.X)`.
 [PUBLIC_TYPE_SCOPE]: Configuration, RgbConfiguration, XyzConfiguration, DynamicRange
 - rail: colour
 
-| [INDEX] | [SYMBOL]                       | [SIGNATURE]                                                                                                                               | [USED_BY]                   |
-| :-----: | :----------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------- |
-|   [1]   | `Configuration.Default`        | `static Configuration` — sRGB/D65/Rec601/StandardRgb CAM                                                                                  | baseline                    |
-|   [2]   | `Configuration..ctor`          | `(RgbConfiguration?, XyzConfiguration?, YbrConfiguration?, CamConfiguration?, DynamicRange?, IccConfiguration?)`                          | custom working space        |
-|   [3]   | `RgbConfiguration.StandardRgb` | `static RgbConfiguration`                                                                                                                 | sRGB                        |
-|   [4]   | `RgbConfiguration.DisplayP3`   | `static RgbConfiguration`                                                                                                                 | COLOR_SPACE_AXIS.display-p3 |
-|   [5]   | `RgbConfiguration.Rec2020`     | `static RgbConfiguration`                                                                                                                 | COLOR_SPACE_AXIS.rec2020    |
-|   [6]   | `RgbConfiguration.Rec2100Pq`   | `static RgbConfiguration`                                                                                                                 | #PHOTOMETRIC PQ transfer    |
-|   [7]   | `RgbConfiguration.A98`         | `static RgbConfiguration`                                                                                                                 | Adobe RGB                   |
-|   [8]   | `RgbConfiguration.ProPhoto`    | `static RgbConfiguration`                                                                                                                 | ProPhoto / ROMM RGB         |
-|   [9]   | `RgbConfiguration.Aces20651`   | `static RgbConfiguration`                                                                                                                 | ACES 2065-1                 |
-|  [10]   | `RgbConfiguration.Acescg`      | `static RgbConfiguration`                                                                                                                 | ACEScg scene-linear AP1     |
-|  [11]   | `RgbConfiguration..ctor`       | `(Chromaticity r, Chromaticity g, Chromaticity b, WhitePoint, Func<double,double> fromLinear, Func<double,double> toLinear, string name)` | custom primaries            |
-|  [12]   | `XyzConfiguration.D65`         | `static XyzConfiguration` — Illuminant.D65, Observer.Degree2, Bradford                                                                    | default                     |
-|  [13]   | `XyzConfiguration.D50`         | `static XyzConfiguration` — Illuminant.D50, Observer.Degree2, Bradford                                                                    | ICC profile                 |
-|  [14]   | `DynamicRange.Standard`        | `static DynamicRange` — white 100 cd/m², max 100, min 0.1                                                                                 | SDR                         |
-|  [15]   | `DynamicRange.High`            | `static DynamicRange` — white 203 cd/m², max 1000, min 0                                                                                  | HDR default                 |
-|  [16]   | `DynamicRange..ctor`           | `(double whiteLuminance, double maxLuminance, double minLuminance, double hlgWhiteLevel = 0.75, string name)`                             | custom HDR range            |
+`Configuration` carries RGB, XYZ, YBR, CAM, dynamic-range, and ICC working-space policy. RGB custom construction uses chromaticity primaries, a white point, transfer delegates, and a name; dynamic-range custom construction carries white, maximum, minimum, HLG white-level, and name values.
+
+| [INDEX] | [SURFACE]               | [CALL_SHAPE]       | [CAPABILITY]         |
+| :-----: | :---------------------- | :----------------- | :------------------- |
+|   [1]   | `Configuration.Default` | static preset      | baseline sRGB/D65    |
+|   [2]   | `Configuration..ctor`   | configuration ctor | custom working space |
+
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]     | [CAPABILITY]              |
+| :-----: | :----------------------------- | :--------------- | :------------------------ |
+|   [1]   | `RgbConfiguration.StandardRgb` | static preset    | sRGB                      |
+|   [2]   | `RgbConfiguration.DisplayP3`   | static preset    | COLOR_SPACE_AXIS display  |
+|   [3]   | `RgbConfiguration.Rec2020`     | static preset    | COLOR_SPACE_AXIS wide RGB |
+|   [4]   | `RgbConfiguration.Rec2100Pq`   | static preset    | #PHOTOMETRIC PQ transfer  |
+|   [5]   | `RgbConfiguration.A98`         | static preset    | Adobe RGB                 |
+|   [6]   | `RgbConfiguration.ProPhoto`    | static preset    | ProPhoto / ROMM RGB       |
+|   [7]   | `RgbConfiguration.Aces20651`   | static preset    | ACES 2065-1               |
+|   [8]   | `RgbConfiguration.Acescg`      | static preset    | ACEScg scene-linear AP1   |
+|   [9]   | `RgbConfiguration..ctor`       | custom primaries | RGB working space         |
+
+| [INDEX] | [SURFACE]              | [CALL_SHAPE] | [CAPABILITY]      |
+| :-----: | :--------------------- | :----------- | :---------------- |
+|   [1]   | `XyzConfiguration.D65` | D65 preset   | default white     |
+|   [2]   | `XyzConfiguration.D50` | D50 preset   | ICC profile white |
+
+| [INDEX] | [SURFACE]               | [CALL_SHAPE] | [CAPABILITY]    |
+| :-----: | :---------------------- | :----------- | :-------------- |
+|   [1]   | `DynamicRange.Standard` | SDR preset   | standard range  |
+|   [2]   | `DynamicRange.High`     | HDR preset   | HDR default     |
+|   [3]   | `DynamicRange..ctor`    | range ctor   | custom HDR span |
 
 [PUBLIC_TYPE_SCOPE]: Spd, GamutMap, Chromaticity, WhitePoint
 - rail: colour
 
-| [INDEX] | [SYMBOL]                        | [SIGNATURE]                                                                                | [USED_BY]                        |
-| :-----: | :------------------------------ | :----------------------------------------------------------------------------------------- | :------------------------------- |
-|   [1]   | `Spd..ctor`                     | `(int start, int interval, params double[] coefficients)` — interval must be 0, 1, or 5 nm | #PHOTOMETRIC custom SPD          |
-|   [2]   | `Spd.D65`                       | `static Spd` — 300–830 nm, 1 nm interval                                                   | D65 reference illuminant         |
-|   [3]   | `GamutMap.RgbClipping`          | clip each channel to [0, 1]                                                                | fast                             |
-|   [4]   | `GamutMap.OklchChromaReduction` | reduce Oklch chroma until in gamut                                                         | perceptual quality               |
-|   [5]   | `GamutMap.WxyPurityReduction`   | reduce excitation purity toward white                                                      | spectral                         |
-|   [6]   | `Unicolour.Mix`                 | `(other, ColourSpace, amount, HueSpan, premultiplyAlpha)` → `Unicolour`                    | interpolation in any space       |
-|   [7]   | `Unicolour.Palette`             | `(other, ColourSpace, count, HueSpan, premultiplyAlpha)` → `IEnumerable<Unicolour>`        |                                  |
-|   [8]   | `Chromaticity`                  | `record(double X, double Y)` with `.U`, `.V`, `.Uv`, `.Xy`                                 | white-point, dominant-wavelength |
-|   [9]   | `Chromaticity.FromUv(u, v)`     | `static Chromaticity`                                                                      | UCS conversion                   |
+`Spd` construction accepts measured coefficients at 0, 1, or 5 nm intervals. `Chromaticity` is the `record(double X, double Y)` value with `.U`, `.V`, `.Uv`, and `.Xy` projections.
+
+| [INDEX] | [SURFACE]   | [CALL_SHAPE]         | [CAPABILITY]             |
+| :-----: | :---------- | :------------------- | :----------------------- |
+|   [1]   | `Spd..ctor` | coefficient ctor     | #PHOTOMETRIC custom SPD  |
+|   [2]   | `Spd.D65`   | static SPD reference | D65 reference illuminant |
+
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]      | [CAPABILITY]              |
+| :-----: | :------------------------------ | :---------------- | :------------------------ |
+|   [1]   | `GamutMap.RgbClipping`          | channel clipping  | fast gamut clamp          |
+|   [2]   | `GamutMap.OklchChromaReduction` | chroma reduction  | perceptual gamut mapping  |
+|   [3]   | `GamutMap.WxyPurityReduction`   | purity reduction  | spectral gamut mapping    |
+|   [4]   | `Unicolour.Mix`                 | interpolation     | single mixed colour       |
+|   [5]   | `Unicolour.Palette`             | interpolation set | generated colour sequence |
+
+| [INDEX] | [SURFACE]                   | [CALL_SHAPE]       | [CAPABILITY]                        |
+| :-----: | :-------------------------- | :----------------- | :---------------------------------- |
+|   [1]   | `Chromaticity`              | chromaticity value | white point and wavelength geometry |
+|   [2]   | `Chromaticity.FromUv(u, v)` | static conversion  | UCS conversion                      |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -233,23 +252,22 @@ Called via `unicolour.Difference(reference, DeltaE.X)`.
 
 ## [CONSTRUCTION]
 
-All `Unicolour` construction routes verified from `Wacton.Unicolour.Unicolour`.
+All `Unicolour` construction routes are on `Wacton.Unicolour.Unicolour`. Alpha defaults to `1.0` where the overload exposes it, and configuration variants select the working RGB/XYZ/dynamic-range policy before conversion.
 
-| [MEMBER]                       | [SIGNATURE]                                                                                   | [USED_BY]                                         | [EVIDENCE]    |
-| ------------------------------ | --------------------------------------------------------------------------------------------- | ------------------------------------------------- | ------------- |
-| ctor (space + triple)          | `new Unicolour(ColourSpace, double, double, double, double alpha = 1.0)`                      | COLOR_SPACE_AXIS                                  | ilspycmd ctor |
-| ctor (space + tuple3)          | `new Unicolour(ColourSpace, (double first, double second, double third), double alpha = 1.0)` |                                                   | ilspycmd      |
-| ctor (space + tuple4 w/ alpha) | `new Unicolour(ColourSpace, (double first, double second, double third, double alpha))`       |                                                   | ilspycmd      |
-| ctor (config + space + triple) | `new Unicolour(Configuration, ColourSpace, double, double, double, double alpha = 1.0)`       | COLOR_SPACE_AXIS with Display P3 / Rec2020 config | ilspycmd      |
-| ctor (hex)                     | `new Unicolour(string hex)`                                                                   |                                                   | ilspycmd      |
-| ctor (config + hex)            | `new Unicolour(Configuration, string hex)`                                                    |                                                   | ilspycmd      |
-| ctor (grey)                    | `new Unicolour(ColourSpace, double grey, double alpha = 1.0)`                                 |                                                   | ilspycmd      |
-| ctor (chromaticity)            | `new Unicolour(Chromaticity, double luminance = 1.0)`                                         | #PHOTOMETRIC white-point construction             | ilspycmd      |
-| ctor (config + chromaticity)   | `new Unicolour(Configuration, Chromaticity, double luminance = 1.0)`                          |                                                   | ilspycmd      |
-| ctor (CCT)                     | `new Unicolour(double cct, Locus locus = Locus.Blackbody, double luminance = 1.0)`            | #PHOTOMETRIC blackbody                            | ilspycmd      |
-| ctor (Spd)                     | `new Unicolour(Spd)`                                                                          | #PHOTOMETRIC spectral power distribution → XYZ    | ilspycmd      |
-| ctor (config + Spd)            | `new Unicolour(Configuration, Spd)`                                                           |                                                   | ilspycmd      |
-| ctor (Pigment[] + weights)     | `new Unicolour(Pigment[], double[])`                                                          | Kubelka-Munk pigment mixing                       | ilspycmd      |
+| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]                 | [CAPABILITY]                          |
+| :-----: | :------------------------------------------ | :--------------------------- | :------------------------------------ |
+|   [1]   | `Unicolour(ColourSpace, …)`                 | space triple ctor            | COLOR_SPACE_AXIS construction         |
+|   [2]   | `Unicolour(ColourSpace, …)`                 | space tuple ctor             | tuple-based colour construction       |
+|   [3]   | `Unicolour(Configuration, ColourSpace, …)`  | configured space ctor        | custom working-space construction     |
+|   [4]   | `Unicolour(string hex)`                     | hex ctor                     | hex intake                            |
+|   [5]   | `Unicolour(Configuration, string hex)`      | configured hex ctor          | hex intake in a custom working space  |
+|   [6]   | `Unicolour(ColourSpace, double grey, …)`    | grey ctor                    | single-channel construction           |
+|   [7]   | `Unicolour(Chromaticity, …)`                | chromaticity ctor            | #PHOTOMETRIC white-point construction |
+|   [8]   | `Unicolour(Configuration, Chromaticity, …)` | configured chromaticity ctor | custom white-point construction       |
+|   [9]   | `Unicolour(double cct, Locus, …)`           | CCT ctor                     | #PHOTOMETRIC blackbody                |
+|  [10]   | `Unicolour(Spd)`                            | SPD ctor                     | spectral power distribution to XYZ    |
+|  [11]   | `Unicolour(Configuration, Spd)`             | configured SPD ctor          | custom spectral intake                |
+|  [12]   | `Unicolour(Pigment[], double[])`            | pigment mix ctor             | Kubelka-Munk pigment mixing           |
 
 ---
 
@@ -300,7 +318,7 @@ Lazy-evaluated properties on `Unicolour`; all spelled exactly as below.
 | `Cie76`             | `DeltaE.Cie76`                          | baseline perceptual diff          | ilspycmd                     |
 | `Cie94`             | `DeltaE.Cie94`                          | graphic-arts weighting            | ilspycmd                     |
 | `Cie94Textiles`     | `DeltaE.Cie94Textiles`                  |                                   | ilspycmd                     |
-| `Ciede2000`         | `DeltaE.Ciede2000`                      | industry-standard appearance diff | #BSDF_MODEL appearance match | ilspycmd |
+| `Ciede2000`         | `DeltaE.Ciede2000`                      | industry-standard appearance diff | #BSDF_MODEL appearance match |
 | `CmcAcceptability`  | `DeltaE.CmcAcceptability`               |                                   | ilspycmd                     |
 | `CmcPerceptibility` | `DeltaE.CmcPerceptibility`              |                                   | ilspycmd                     |
 | `Itp`               | `DeltaE.Itp` — DeltaEItp × 720 on ICtCp | HDR perceptual diff               | ilspycmd                     |
@@ -316,59 +334,65 @@ Entry point: `double Unicolour.Difference(Unicolour reference, DeltaE deltaE)` a
 
 ## [CONFIGURATION]
 
-| [MEMBER]                     | [SIGNATURE]                                                                                                      | [USED_BY]            | [EVIDENCE] |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------- | ---------- |
-| `Configuration.Default`      | `static Configuration` — sRGB/D65/Rec601/StandardRgb CAM                                                         | baseline             | ilspycmd   |
-| `Configuration..ctor`        | `(RgbConfiguration?, XyzConfiguration?, YbrConfiguration?, CamConfiguration?, DynamicRange?, IccConfiguration?)` | custom working space | ilspycmd   |
-| `Configuration.Rgb`          | `RgbConfiguration`                                                                                               |                      | ilspycmd   |
-| `Configuration.Xyz`          | `XyzConfiguration`                                                                                               |                      | ilspycmd   |
-| `Configuration.DynamicRange` | `DynamicRange`                                                                                                   | HDR/SDR tone policy  | ilspycmd   |
+`Configuration` carries RGB, XYZ, YBR, CAM, dynamic-range, and ICC policy for the working space.
+
+| [INDEX] | [SURFACE]                    | [TYPE_FAMILY]      | [CAPABILITY]         |
+| :-----: | :--------------------------- | :----------------- | :------------------- |
+|   [1]   | `Configuration.Default`      | static preset      | baseline policy      |
+|   [2]   | `Configuration..ctor`        | configuration ctor | custom working space |
+|   [3]   | `Configuration.Rgb`          | property           | RGB working space    |
+|   [4]   | `Configuration.Xyz`          | property           | XYZ working space    |
+|   [5]   | `Configuration.DynamicRange` | property           | HDR/SDR tone policy  |
 
 ---
 
 ## [RGB_CONFIGURATION]
 
-Static presets on `RgbConfiguration`. All names verified — note exact capitalization.
+Static presets on `RgbConfiguration` keep exact capitalization. The custom constructor carries red, green, and blue chromaticities, a white point, transfer delegates, and a name.
 
-| [MEMBER]                 | [SIGNATURE]                                                                                                                               | [USED_BY]                    | [EVIDENCE]             |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------- |
-| `StandardRgb`            | `static RgbConfiguration`                                                                                                                 | sRGB / COLOR_SPACE_AXIS.srgb | ilspycmd               |
-| `DisplayP3`              | `static RgbConfiguration`                                                                                                                 | COLOR_SPACE_AXIS.display-p3  | ilspycmd               |
-| `Rec2020`                | `static RgbConfiguration`                                                                                                                 | COLOR_SPACE_AXIS.rec2020     | ilspycmd               |
-| `Rec2100Pq`              | `static RgbConfiguration`                                                                                                                 | #PHOTOMETRIC PQ transfer     | ilspycmd               |
-| `Rec2100Hlg`             | `static RgbConfiguration`                                                                                                                 | #PHOTOMETRIC HLG transfer    | ilspycmd               |
-| `A98`                    | `static RgbConfiguration`                                                                                                                 | Adobe RGB (a98-rgb)          | ilspycmd               |
-| `ProPhoto`               | `static RgbConfiguration`                                                                                                                 | ProPhoto / ROMM RGB          | ilspycmd               |
-| `Aces20651`              | `static RgbConfiguration`                                                                                                                 | ACES 2065-1 (scene-linear)   | #BSDF_MODEL ACES scene | ilspycmd |
-| `Acescg`                 | `static RgbConfiguration`                                                                                                                 | ACEScg (scene-linear AP1)    | #BSDF_MODEL shading    | ilspycmd |
-| `Acescct`                | `static RgbConfiguration`                                                                                                                 | ACEScct log                  | ilspycmd               |
-| `Acescc`                 | `static RgbConfiguration`                                                                                                                 | ACEScc log                   | ilspycmd               |
-| `Rec709`                 | `static RgbConfiguration`                                                                                                                 |                              | ilspycmd               |
-| `RgbConfiguration..ctor` | `(Chromaticity r, Chromaticity g, Chromaticity b, WhitePoint, Func<double,double> fromLinear, Func<double,double> toLinear, string name)` | custom primaries             | ilspycmd               |
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]     | [CAPABILITY]                |
+| :-----: | :----------------------- | :--------------- | :-------------------------- |
+|   [1]   | `StandardRgb`            | static preset    | sRGB / COLOR_SPACE_AXIS     |
+|   [2]   | `DisplayP3`              | static preset    | COLOR_SPACE_AXIS display-p3 |
+|   [3]   | `Rec2020`                | static preset    | COLOR_SPACE_AXIS rec2020    |
+|   [4]   | `Rec2100Pq`              | static preset    | #PHOTOMETRIC PQ transfer    |
+|   [5]   | `Rec2100Hlg`             | static preset    | #PHOTOMETRIC HLG transfer   |
+|   [6]   | `A98`                    | static preset    | Adobe RGB                   |
+|   [7]   | `ProPhoto`               | static preset    | ProPhoto / ROMM RGB         |
+|   [8]   | `Aces20651`              | static preset    | ACES 2065-1 scene-linear    |
+|   [9]   | `Acescg`                 | static preset    | ACEScg scene-linear AP1     |
+|  [10]   | `Acescct`                | static preset    | ACEScct log                 |
+|  [11]   | `Acescc`                 | static preset    | ACEScc log                  |
+|  [12]   | `Rec709`                 | static preset    | Rec.709 RGB                 |
+|  [13]   | `RgbConfiguration..ctor` | custom primaries | custom RGB working space    |
 
 ---
 
 ## [XYZ_CONFIGURATION]
 
-| [MEMBER]                                            | [SIGNATURE]                                                            | [USED_BY]                 | [EVIDENCE] |
-| --------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------- | ---------- |
-| `XyzConfiguration.D65`                              | `static XyzConfiguration` — Illuminant.D65, Observer.Degree2, Bradford | default                   | ilspycmd   |
-| `XyzConfiguration.D50`                              | `static XyzConfiguration` — Illuminant.D50, Observer.Degree2, Bradford | ICC profile               | ilspycmd   |
-| `XyzConfiguration..ctor(Illuminant, Observer, ...)` | custom illuminant/observer                                             | #PHOTOMETRIC custom white | ilspycmd   |
-| `XyzConfiguration.WhitePoint`                       | `WhitePoint`                                                           |                           | ilspycmd   |
-| `XyzConfiguration.Observer`                         | `Observer`                                                             |                           | ilspycmd   |
+`XyzConfiguration.D65` and `XyzConfiguration.D50` use the degree-2 observer and Bradford adaptation for the standard working whites.
+
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]         | [CAPABILITY]              |
+| :-----: | :---------------------------- | :------------------- | :------------------------ |
+|   [1]   | `XyzConfiguration.D65`        | static preset        | default white             |
+|   [2]   | `XyzConfiguration.D50`        | static preset        | ICC profile white         |
+|   [3]   | `XyzConfiguration..ctor`      | custom configuration | #PHOTOMETRIC custom white |
+|   [4]   | `XyzConfiguration.WhitePoint` | property             | white-point policy        |
+|   [5]   | `XyzConfiguration.Observer`   | property             | CIE observer policy       |
 
 ---
 
 ## [DYNAMIC_RANGE]
 
-| [MEMBER]                      | [SIGNATURE]                                                                                                   | [USED_BY]        | [EVIDENCE] |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------- | ---------- |
-| `DynamicRange.Standard`       | `static DynamicRange` — white 100 cd/m², max 100, min 0.1                                                     | SDR              | ilspycmd   |
-| `DynamicRange.High`           | `static DynamicRange` — white 203 cd/m², max 1000, min 0                                                      | HDR default      | ilspycmd   |
-| `DynamicRange..ctor`          | `(double whiteLuminance, double maxLuminance, double minLuminance, double hlgWhiteLevel = 0.75, string name)` | custom HDR range | ilspycmd   |
-| `DynamicRange.WhiteLuminance` | `double`                                                                                                      |                  | ilspycmd   |
-| `DynamicRange.MaxLuminance`   | `double`                                                                                                      |                  | ilspycmd   |
+`DynamicRange` presets carry white, maximum, and minimum luminance values; the custom constructor also accepts HLG white-level and name values.
+
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]  | [CAPABILITY]      |
+| :-----: | :---------------------------- | :------------ | :---------------- |
+|   [1]   | `DynamicRange.Standard`       | static preset | SDR range         |
+|   [2]   | `DynamicRange.High`           | static preset | HDR default range |
+|   [3]   | `DynamicRange..ctor`          | range ctor    | custom HDR range  |
+|   [4]   | `DynamicRange.WhiteLuminance` | property      | reference white   |
+|   [5]   | `DynamicRange.MaxLuminance`   | property      | maximum luminance |
 
 `Rec2100Pq` and `Rec2100Hlg` use the `FromLinear`/`ToLinear` delegates that call into internal `Pq` and `Hlg` OETF/EOTF kernels, scaled by `DynamicRange.WhiteLuminance / 203` at construction. The tone-curve math is inside the library; the consumer sets `DynamicRange` in `Configuration` only.
 
@@ -376,14 +400,14 @@ Static presets on `RgbConfiguration`. All names verified — note exact capitali
 
 ## [SPECTRAL_SPD]
 
-`Spd` extends `SpectralCoefficients` — power distribution → XYZ via `new Unicolour(config, Spd)`.
+`Spd` extends `SpectralCoefficients`; power distributions convert to XYZ through `new Unicolour(config, Spd)`. Valid intervals are 0, 1, or 5 nm, and `Spd.D65` spans 300-830 nm at 1 nm.
 
-| [MEMBER]      | [SIGNATURE]                                                                                | [USED_BY]                          | [EVIDENCE]              |
-| ------------- | ------------------------------------------------------------------------------------------ | ---------------------------------- | ----------------------- |
-| `Spd..ctor`   | `(int start, int interval, params double[] coefficients)` — interval must be 0, 1, or 5 nm | #PHOTOMETRIC custom illuminant SPD | ilspycmd                |
-| `Spd.D65`     | `static Spd` — 300–830 nm, 1 nm interval                                                   | D65 reference illuminant           | ilspycmd                |
-| `Spd.IsValid` | `bool` — interval ∈ {0, 1, 5}                                                              | validation                         | ilspycmd                |
-| `Xyz.FromSpd` | internal; called by `Unicolour(config, Spd)` ctor                                          |                                    | ilspycmd Unicolour ctor |
+| [INDEX] | [SURFACE]     | [CALL_SHAPE]        | [CAPABILITY]                       |
+| :-----: | :------------ | :------------------ | :--------------------------------- |
+|   [1]   | `Spd..ctor`   | coefficient ctor    | #PHOTOMETRIC custom illuminant SPD |
+|   [2]   | `Spd.D65`     | static SPD          | D65 reference illuminant           |
+|   [3]   | `Spd.IsValid` | property            | interval validation                |
+|   [4]   | `Xyz.FromSpd` | internal conversion | SPD-to-XYZ projection              |
 
 **SPD construction path:** `new Unicolour(Configuration, Spd)` → internal `SpdToXyzTuple` → `Xyz.FromSpd(spd, xyzConfig.Observer, xyzConfig.WhitePoint)` → XYZ triplet. The reflectance → XYZ path uses `Pigment[]`/`KubelkaMunk` with `Spd` illuminant, not the `Spd` ctor directly.
 
@@ -391,13 +415,18 @@ Static presets on `RgbConfiguration`. All names verified — note exact capitali
 
 ## [GAMUT_MAP]
 
-| [MEMBER]                                                                  | [SIGNATURE]                           | [USED_BY]                  | [EVIDENCE]       |
-| ------------------------------------------------------------------------- | ------------------------------------- | -------------------------- | ---------------- |
-| `GamutMap.RgbClipping`                                                    | clip each channel to [0, 1]           | fast                       | ilspycmd         |
-| `GamutMap.OklchChromaReduction`                                           | reduce Oklch chroma until in gamut    | perceptual quality         | COLOR_SPACE_AXIS | ilspycmd |
-| `GamutMap.WxyPurityReduction`                                             | reduce excitation purity toward white | spectral                   | ilspycmd         |
-| `Unicolour.Mix(other, ColourSpace, amount, HueSpan, premultiplyAlpha)`    | `Unicolour`                           | interpolation in any space | ilspycmd         |
-| `Unicolour.Palette(other, ColourSpace, count, HueSpan, premultiplyAlpha)` | `IEnumerable<Unicolour>`              |                            | ilspycmd         |
+`GamutMap` enum rows select the internal gamut kernel. Public interpolation uses `Unicolour.Mix` for one colour and `Unicolour.Palette` for a generated sequence.
+
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]     | [CAPABILITY]             |
+| :-----: | :------------------------------ | :--------------- | :----------------------- |
+|   [1]   | `GamutMap.RgbClipping`          | channel clipping | fast clamp               |
+|   [2]   | `GamutMap.OklchChromaReduction` | chroma reduction | perceptual quality       |
+|   [3]   | `GamutMap.WxyPurityReduction`   | purity reduction | spectral gamut reduction |
+
+| [INDEX] | [SURFACE]           | [CALL_SHAPE]      | [CAPABILITY]              |
+| :-----: | :------------------ | :---------------- | :------------------------ |
+|   [1]   | `Unicolour.Mix`     | interpolation     | single colour output      |
+|   [2]   | `Unicolour.Palette` | interpolation set | generated colour sequence |
 
 Gamut mapping is exposed only through `GamutMapping.ToRgbGamut` (internal static). Public access is via `Unicolour.IsInRgbGamut` check + `Mix`/`Palette` for interpolated output, or by constructing with a mapped space. No public `MapToGamut` instance method exists — the three `GamutMap` rows feed only the internal `GamutMapping` kernel.
 
@@ -405,24 +434,12 @@ Gamut mapping is exposed only through `GamutMapping.ToRgbGamut` (internal static
 
 ## [CHROMATICITY_WHITE_POINT]
 
-| [MEMBER]                                 | [SIGNATURE]                                                | [USED_BY]                           | [EVIDENCE]                |
-| ---------------------------------------- | ---------------------------------------------------------- | ----------------------------------- | ------------------------- |
-| `Chromaticity`                           | `record(double X, double Y)` with `.U`, `.V`, `.Uv`, `.Xy` | white-point and dominant-wavelength | ilspycmd                  |
-| `Chromaticity.FromUv(u, v)`              | `static Chromaticity`                                      | UCS conversion                      | ilspycmd                  |
-| `WhitePoint`                             | class — wraps `Chromaticity`                               | illuminant white point              | ilspycmd                  |
-| `Illuminant.D65` / `Illuminant.D50`      | `static Illuminant`                                        | standard illuminants                | ilspycmd XyzConfiguration |
-| `Observer.Degree2` / `Observer.Degree10` | `static Observer`                                          | CIE observer                        | ilspycmd XyzConfiguration |
+`Chromaticity` is the `record(double X, double Y)` value and exposes `.U`, `.V`, `.Uv`, and `.Xy` projections. Standard white-point construction uses D65/D50 illuminants and degree-2/degree-10 observers.
 
----
-
-## [NOT_COVERED]
-
-The following concerns fall outside Wacton.Unicolour 7.0.0 and must be authored as local kernels or routed through another admitted package:
-
-| [CONCERN]                                                | [REASON]                                                                                                                                                                                                                                                         | [OWNER_ACTION]                                                                                         |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| RGB → SPD spectral upsampling                            | No upsampling kernel; `Spd` only accepts measured/tabulated coefficients. The Pigment path does Kubelka-Munk reflectance mixing, not scene radiance upsampling.                                                                                                  | Author-kernel: Smits (1999) or Jakob-Hanika (2019) coefficient table for appearance engine upsampling. |
-| ICC profile parsing and PCS round-trip                   | `IccConfiguration` is present but the internal `Icc` namespace parses ICC v2/v4 profiles — the public API surface for `IccConfiguration` is limited to passing a profile path; full PCS transform inspection is internal. Not suitable as a general ICC library. | Admit `Cms.Net` or `lcms2` P/Invoke for full ICC PCS pipeline if needed.                               |
-| ACES RRT / ODT tone-map operators                        | `Aces20651` and `Acescg` are primaries + linear transfer only. No RRT (Reference Rendering Transform) or Output Device Transform is implemented. The ACES pipeline (IDT → RRT → ODT) is entirely absent.                                                         | Author-kernel: ACES CTL-equivalent RRT/ODT math or admit a dedicated tone-mapping package.             |
-| Scene-referred HDR tone mapping (ACES, Reinhard, Filmic) | `DynamicRange` controls PQ/HLG OETF/EOTF parameters only; no tone-mapping curve (exposure, filmic shoulder, global-operator) is provided.                                                                                                                        | Author-kernel in the appearance engine.                                                                |
-| Spectral rendering CMFs beyond CIE 1931/1964             | Only `Observer.Degree2` (CIE 1931) and `Observer.Degree10` (CIE 1964) are provided. No physiologically-based `Observer` (e.g., Stockman-Sharpe 2°) or custom CMF injection.                                                                                      | Author-kernel if physiological primaries are required for the rendering observer.                      |
+| [INDEX] | [SURFACE]                                | [CALL_SHAPE]       | [CAPABILITY]                        |
+| :-----: | :--------------------------------------- | :----------------- | :---------------------------------- |
+|   [1]   | `Chromaticity`                           | chromaticity value | white-point and wavelength geometry |
+|   [2]   | `Chromaticity.FromUv(u, v)`              | static conversion  | UCS conversion                      |
+|   [3]   | `WhitePoint`                             | wrapper class      | illuminant white point              |
+|   [4]   | `Illuminant.D65` / `Illuminant.D50`      | static illuminants | standard white points               |
+|   [5]   | `Observer.Degree2` / `Observer.Degree10` | static observers   | CIE observer selection              |

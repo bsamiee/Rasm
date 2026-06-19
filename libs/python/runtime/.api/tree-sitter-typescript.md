@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `tree-sitter-typescript`
 - package: `tree-sitter-typescript`
 - import: `tree_sitter_typescript`
-- version: `0.23.2`
 - owner: `runtime`
 - rail: parsing
 - namespaces: `tree_sitter_typescript`
@@ -36,7 +35,7 @@
 - selection law: source dialect selects the grammar row; the parser is rebound to the chosen `Language`, never duplicated per dialect.
 
 [LOCAL_ADMISSION]:
-- This package supplies grammar pointers only; all parser, tree, and query mechanics arrive settled from `.api/api-tree-sitter.md`.
+- This package supplies grammar pointers only; all parser, tree, and query mechanics arrive settled from `.api/tree-sitter.md`.
 - The two grammars are parsing rows, never standalone owners.
 
 [RAIL_LAW]:

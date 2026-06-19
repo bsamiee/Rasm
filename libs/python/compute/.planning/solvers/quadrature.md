@@ -10,7 +10,7 @@ The quadrature, interpolation, and finite-element routes of the one numeric solv
 
 - Owner: `QuadratureIntent` — the integral/interpolation/FEM cases on the one solver; `Integrate(fn, span)` over `scipy.integrate.quad` with a `np.trapezoid` floor, `Interpolate(points, values)` over `scipy.interpolate.interp1d` with a `np.interp` floor, and `Fem(mesh, form)` over the scikit-fem `Basis`/`asm`/`condense`/`solve` fold. `FemForm` is the element/basis/form axis; `ElementKind` selects the scikit-fem `Element*`, the bilinear and linear forms carry the integrand thunks, and the boundary facets carry the Dirichlet condition.
 - Entry: `QuadratureIntent.solve` enters one `boundary(f"solve.{intent.tag}", ...)`; the integrate route reports the absolute-error estimate against the quadrature value, the interpolate route reports the residual of the spline against the linear baseline at the sample midpoints, and the FEM route assembles `K` and `f`, condenses the Dirichlet dofs, solves the system, and folds the stiffness residual into the sparse receipt through `solvers/linear.md#LINEAR`.
-- Packages: `scipy` (`integrate.quad`, `interpolate.interp1d`), `skfem` (`Basis`, `asm`, `condense`, `solve`, `ElementLineP1`, `ElementLineP2`, `ElementTriP1`, `ElementTetP1`, `BilinearForm`, `LinearForm`), `numpy` (`trapezoid`, `interp`, `linspace`, `linalg.norm`), `solvers/receipt.md#RECEIPT` (`SolverReceipt`), `solvers/linear.md#LINEAR` (`_sparse_receipt`, `SparseScheme`), runtime (`RuntimeRail`, `boundary`).
+- Packages: `scipy` (`integrate.quad`, `interpolate.interp1d`), `skfem` (`Basis`, `asm`, `condense`, `solve`, `ElementLineP1`, `ElementLineP2`, `ElementTriP1`, `ElementTriP2`, `ElementTetP1`, `ElementTetP2`, `ElementQuad1`, `ElementHex1`, `BilinearForm`, `LinearForm`), `numpy` (`trapezoid`, `interp`, `linspace`, `linalg.norm`), `solvers/receipt.md#RECEIPT` (`SolverReceipt`), `solvers/linear.md#LINEAR` (`_sparse_receipt`, `SparseScheme`), runtime (`RuntimeRail`, `boundary`).
 - Growth: a new element is one `ElementKind` row; a new quadrature or interpolation route is one `QuadratureIntent` case; zero new surface.
 - Boundary: the `np.trapezoid` and `np.interp` floors run unconditionally on cp315; `scipy` and `skfem` carry no cp315 wheel, so the scipy quadrature/interpolation bodies and the scikit-fem fold are authored against the documented API with reachable numpy floors. A separate FEM-receipt struct and a multidimensional ODE integrator on this route (which lives in `solvers/differential.md#DIFFERENTIAL`) are the deleted forms.
 
@@ -32,7 +32,11 @@ class ElementKind(StrEnum):
     P1 = "p1"
     P2 = "p2"
     TRI_P1 = "tri_p1"
+    TRI_P2 = "tri_p2"
     TET_P1 = "tet_p1"
+    TET_P2 = "tet_p2"
+    QUAD_P1 = "quad_p1"
+    HEX_P1 = "hex_p1"
 
 
 class FemForm(Struct, frozen=True):
@@ -112,7 +116,11 @@ def _fem_receipt(mesh: object, form: FemForm) -> SolverReceipt:
         ElementKind.P1: skfem.ElementLineP1,
         ElementKind.P2: skfem.ElementLineP2,
         ElementKind.TRI_P1: skfem.ElementTriP1,
+        ElementKind.TRI_P2: skfem.ElementTriP2,
         ElementKind.TET_P1: skfem.ElementTetP1,
+        ElementKind.TET_P2: skfem.ElementTetP2,
+        ElementKind.QUAD_P1: skfem.ElementQuad1,
+        ElementKind.HEX_P1: skfem.ElementHex1,
     }[form.element]()
     basis = skfem.Basis(mesh, element)
     stiffness = skfem.asm(form.bilinear, basis)
@@ -126,4 +134,4 @@ def _fem_receipt(mesh: object, form: FemForm) -> SolverReceipt:
 ## [3]-[RESEARCH]
 
 - [SCIPY_QUADRATURE]: the `scipy.integrate.quad` and `scipy.interpolate.interp1d` spellings carry the `python_version<'3.15'` marker; the bodies verify against the `.api` catalogue once the scipy wheel resolves. The `np.trapezoid` and `np.interp` floors run unconditionally on cp315.
-- [SKFEM_ASSEMBLE]: the `Basis`/`asm`/`condense`/`solve`/`ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTetP1`/`BilinearForm`/`LinearForm` spellings carry the `python_version<'3.15'` marker; the fold verifies against the `.api` catalogue once the scikit-fem wheel resolves.
+- [SKFEM_ASSEMBLE]: the `Basis`/`asm`/`condense`/`solve`/`ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTriP2`/`ElementTetP1`/`ElementTetP2`/`ElementQuad1`/`ElementHex1`/`BilinearForm`/`LinearForm` spellings carry the `python_version<'3.15'` marker and verify against `compute/.api/scikit-fem.md`; the eight `ElementKind` rows reach the full P1/P2 line/tri/tet plus the bilinear-quad and trilinear-hex elements the catalogue lists, so the element axis spans the catalogued skfem element family once the scikit-fem wheel resolves.

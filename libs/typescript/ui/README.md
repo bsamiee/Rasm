@@ -7,21 +7,20 @@
 The design pages under `.planning/`, grouped by sub-domain in build order; each page is one transcription unit per eventual source file, and `ARCHITECTURE.md` carries the per-folder charter.
 
 - binding: [atom-binding](.planning/binding/atom-binding.md) — the `AtomBinding` spine over `Atom.searchParam`/`kvs`/`family`/`pull`, the `UndoStack` fold, the `Result.builder` render chain.
-- component-system: [role-behavior](.planning/component-system/role-behavior.md) — the behavior-bearing `_Roles`/`InteractionRole` vocabulary owner-block and the `RoleBehavior` contract; [accessibility-broadcast](.planning/component-system/accessibility-broadcast.md) — the live-region announce path over the role `politeness` column and the external-store toast queue.
-- theming: [theme-tokens](.planning/theming/theme-tokens.md) — the `ThemeTokens` OKLCH scale and the `CssVarSync` Tailwind CSS-variable sync.
-- observation: [observation-routes](.planning/observation/observation-routes.md) — `EvidenceTimelineRoute`, `BenchmarkRoute`, `CollectorPanel`.
-- cartography: [geo-series-layer](.planning/cartography/geo-series-layer.md) — the `GeoSeriesLayer` union over maplibre and deck.gl.
+- component-system: [role-behavior](.planning/component-system/role-behavior.md) — the behavior-bearing `_Roles`/`InteractionRole` vocabulary owner-block and the `RoleBehavior` contract; [accessibility-broadcast](.planning/component-system/accessibility-broadcast.md) — the live-region announce path over the role `politeness` column and the `ToastQueue` external-store queue; [form-binding](.planning/component-system/form-binding.md) — the headless `FormBinding` folding `Schema.decodeUnknownEither` validation into the `Form` `validationBehavior: "aria"` error map; [picker-behavior](.planning/component-system/picker-behavior.md) — the headless `PickerBehavior` family realizing the `pickers` role's color/date/file behaviors over the react-stately color state and react-aria-components calendar/date/file widgets, the color channels projected through the OKLCH token space.
+- content: [command-surface](.planning/content/command-surface.md) — the `CommandAction` AEC action-lexicon vocabulary rendered through the `cmdk` palette and the `vaul` drawer, the `lucide-react` icon vocabulary keyed by action, the one `cva`+`twMerge` variant-recipe owner, and the `useFilter`/`UNSTABLE_useFilteredListState` filtering surface, dialing only through the `interchange` `CommandGateway`.
+- theming: [theme-tokens](.planning/theming/theme-tokens.md) — the `ThemeTokens` OKLCH scale, the `CssVarSync` Tailwind CSS-variable sync, and the `tw-animate-css` enter/exit utility layer.
+- observation: [observation-routes](.planning/observation/observation-routes.md) — `EvidenceTimelineRoute`, `BenchmarkRoute`, `CollectorPanel`; [live-binding-dashboard](.planning/observation/live-binding-dashboard.md) — the live-wire binding-studio cockpit over the decoded `BindingStatusWire`/`WriteReceiptWire`/`CoercedValueWire` rows, the `@tanstack/react-table`+`react-virtual` health table and the `WriteBackWire` `kind`-discriminated disposition.
+- cartography: [geo-series-layer](.planning/cartography/geo-series-layer.md) — the `GeoSeriesLayer` `$match` over the maplibre base substrate and the deck.gl overlay set, where the `tile` arm streams `TileLayer`/`MVTLayer` and the `geoarrow` arm renders the `@geoarrow/deck.gl-geoarrow` `RecordBatch` layers out of core.
 - viewport: [glb-viewport](.planning/viewport/glb-viewport.md) — `GlbViewport`, `RendererBackend`, `ViewportResource`, the camera row.
 - motion: [gesture-algebra](.planning/motion/gesture-algebra.md) — the shared `CameraGesture`/`GestureFold` pointer-gesture algebra; [view-transitions](.planning/motion/view-transitions.md) — the `SurfaceTransition` union over `<ViewTransition>` swap and `<Activity>` preserve.
-- overlay: [floating-anchor](.planning/overlay/floating-anchor.md) — `FloatingAnchor` placement, the CSS Anchor bridge, the dismiss law.
+- overlay: [floating-anchor](.planning/overlay/floating-anchor.md) — `useFloatingAnchor` placement over `useFloating`/`useInteractions`, the CSS Anchor bridge, the dismiss law; [presence-overlay](.planning/overlay/presence-overlay.md) — the `PresenceOverlay` collaborator-cursor cohort over the `projection` convergence changefeed (honest `[BEAT_PAYLOAD]` residual on the producer `Awareness` beat byte-encoding pin); [bcf-anchor](.planning/overlay/bcf-anchor.md) — the BCF viewpoint/issue-anchored observation overlay decoding the `BcfTopicWire`/`BcfViewpointWire` rows, the `BcfStatusKey` vocabulary and the `anchorViewpoint` camera-and-GlobalId projection.
 
 ## [2]-[PACKAGES]
 
 Every external library the folder uses, planned or implemented, as one flat registry. Versions are centralized in the one TypeScript manifest (`pnpm-workspace.yaml` `catalog:`) and never pinned here.
 
 [REACT]:
-- react
-- react-dom
 - @types/react
 - @types/react-dom
 - babel-plugin-react-compiler
@@ -48,6 +47,7 @@ Every external library the folder uses, planned or implemented, as one flat regi
 - tailwindcss
 - tailwind-merge
 - class-variance-authority
+- tw-animate-css
 
 [CONTENT]:
 - lucide-react
@@ -60,7 +60,9 @@ Every external library the folder uses, planned or implemented, as one flat regi
 - maplibre-gl
 - @deck.gl/core
 - @deck.gl/layers
+- @deck.gl/geo-layers
 - @deck.gl/mapbox
+- @geoarrow/deck.gl-geoarrow
 
 [VIEWPORT]:
 - three
@@ -71,6 +73,8 @@ Every external library the folder uses, planned or implemented, as one flat regi
 
 Branch-level cross-cutting packages consumed by this folder.
 
+- `react` — the React 19 core render substrate (`ReactNode`, hooks, context, suspense) for every component owner on the stack
+- `react-dom` — the browser DOM portals and form-status hooks (`createPortal`, `useFormStatus`) the component surfaces consume
 - `effect` — the `Effect.Service` and `Schema` substrate underlying the `AtomBinding` spine and result carriers
 - `@effect-atom/atom` — the reactive-store primitives (`Atom.subscriptionRef`, `Atom.subscribable`, `Atom.kvs`, `Atom.family`)
 - `@effect-atom/atom-react` — the React binding layer (`useAtom`, `useAtomValue`) over the atom store

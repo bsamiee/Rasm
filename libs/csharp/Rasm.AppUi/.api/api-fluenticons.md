@@ -24,14 +24,14 @@
 [COMMON_TYPES]: shared vocabulary — `FluentIcons.Common`
 - rail: icons
 
-| [INDEX] | [SYMBOL]             | [KIND]                          | [RAIL]                         |
-| :-----: | :------------------- | :------------------------------ | :----------------------------- |
-|   [1]   | `Symbol`             | int-backed enum, 2785 members   | icon identity by name          |
-|   [2]   | `Icon`               | int-backed enum (alias surface) | resizable icon identity        |
-|   [3]   | `IconVariant`        | byte enum (4 cases)             | rendering variant axis         |
-|   [4]   | `IconSize`           | byte enum (9 sizes)             | discrete size axis             |
-|   [5]   | `IconSizeValues`     | static enumeration helper       | all `IconSize` cases as `IEnumerable` |
-|   [6]   | `IconVariantValues`  | static enumeration helper       | all `IconVariant` cases as `IEnumerable` |
+| [INDEX] | [SYMBOL]            | [KIND]                          | [RAIL]                                   |
+| :-----: | :------------------ | :------------------------------ | :--------------------------------------- |
+|   [1]   | `Symbol`            | int-backed enum, 2785 members   | icon identity by name                    |
+|   [2]   | `Icon`              | int-backed enum (alias surface) | resizable icon identity                  |
+|   [3]   | `IconVariant`       | byte enum (4 cases)             | rendering variant axis                   |
+|   [4]   | `IconSize`          | byte enum (9 sizes)             | discrete size axis                       |
+|   [5]   | `IconSizeValues`    | static enumeration helper       | all `IconSize` cases as `IEnumerable`    |
+|   [6]   | `IconVariantValues` | static enumeration helper       | all `IconVariant` cases as `IEnumerable` |
 
 [ICON_TYPES]: icon controls and image sources — `FluentIcons.Avalonia`
 - rail: icons
@@ -60,16 +60,16 @@
 [COMMON_ENTRYPOINTS]: `FluentIcons.Common` vocabulary surfaces
 - rail: icons
 
-| [INDEX] | [SURFACE]                    | [SURFACE_ROOT]      | [RAIL]                          |
-| :-----: | :--------------------------- | :------------------ | :------------------------------ |
-|   [1]   | `Symbol.<member>`            | `Symbol`            | icon identity selection         |
-|   [2]   | `Icon.<member>`              | `Icon`              | resizable icon identity         |
-|   [3]   | `IconVariant.Regular`        | `IconVariant`       | regular variant                 |
-|   [4]   | `IconVariant.Filled`         | `IconVariant`       | filled variant                  |
-|   [5]   | `IconVariant.Color`          | `IconVariant`       | color variant                   |
-|   [6]   | `IconVariant.Light`          | `IconVariant`       | light variant                   |
-|   [7]   | `IconSize.Resizable`..`Size48` | `IconSize`        | discrete size cases             |
-|   [8]   | `IconSizeValues.Enumerable`  | `IconSizeValues`    | all sizes as `IEnumerable<IconSize>` |
+| [INDEX] | [SURFACE]                      | [SURFACE_ROOT]      | [RAIL]                                     |
+| :-----: | :----------------------------- | :------------------ | :----------------------------------------- |
+|   [1]   | `Symbol.<member>`              | `Symbol`            | icon identity selection                    |
+|   [2]   | `Icon.<member>`                | `Icon`              | resizable icon identity                    |
+|   [3]   | `IconVariant.Regular`          | `IconVariant`       | regular variant                            |
+|   [4]   | `IconVariant.Filled`           | `IconVariant`       | filled variant                             |
+|   [5]   | `IconVariant.Color`            | `IconVariant`       | color variant                              |
+|   [6]   | `IconVariant.Light`            | `IconVariant`       | light variant                              |
+|   [7]   | `IconSize.Resizable`..`Size48` | `IconSize`          | discrete size cases                        |
+|   [8]   | `IconSizeValues.Enumerable`    | `IconSizeValues`    | all sizes as `IEnumerable<IconSize>`       |
 |   [9]   | `IconVariantValues.Enumerable` | `IconVariantValues` | all variants as `IEnumerable<IconVariant>` |
 
 [ICON_ENTRYPOINTS]: icon control properties — `FluentIcons.Avalonia`

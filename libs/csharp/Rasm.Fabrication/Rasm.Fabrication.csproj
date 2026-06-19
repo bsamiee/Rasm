@@ -9,6 +9,7 @@
 
     <ItemGroup Label="Fabrication">
         <PackageReference Include="Clipper2" />
+        <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
     <ItemGroup>

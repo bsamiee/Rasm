@@ -32,6 +32,12 @@
         "resolved": "17.14.15",
         "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
       },
+      "System.IO.Hashing": {
+        "type": "Direct",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "vixglGnKEexAJDeIRhyayZYzxyrgK1K9GU3K/zRZVwDbaDcMkSqj4WDHoVmQMNfsdUtLALfNSJw6mBIpdxie4A=="
+      },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
         "requested": "[10.3.0, )",
@@ -74,7 +80,6 @@
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "MathNet.Numerics.Providers.MKL": "[6.0.0-beta2, )",
           "MathNet.Numerics.Providers.OpenBLAS": "[6.0.0-beta2, )",
-          "MathNet.Symbolics": "[0.25.0, )",
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.3.0, )"
@@ -86,36 +91,11 @@
         "resolved": "4.4.0",
         "contentHash": "MgiHddgPDkcFr9KtYK3mJFUBEsjcCblGmEGlSvXVT1999EIOyH6XO6vVeuw9YFmYb7JyR8U+/++vZyhgVxDWbg=="
       },
-      "FParsec": {
-        "type": "CentralTransitive",
-        "requested": "[2.0.0-beta2, )",
-        "resolved": "2.0.0-beta2",
-        "contentHash": "bNoeKNYoLBg1oQttwAZFnhXJKxX6vtYBApbVHJlYa6SyGcuxwewJemwmO6eh7tD49vTzhAVjZo1SDGZ0o7RxxA==",
-        "dependencies": {
-          "FSharp.Core": "4.3.4"
-        }
-      },
-      "FSharp.Core": {
-        "type": "CentralTransitive",
-        "requested": "[10.1.301, )",
-        "resolved": "10.1.301",
-        "contentHash": "excLf2zM/qUB3WhRUfI0xvOOaPwcRAEdYT/BXe9eiTKySnWVuIKMQTf5+6ETy5nsb1dpLp1s2j2yAM/XcRgFMg=="
-      },
       "MathNet.Numerics": {
         "type": "CentralTransitive",
         "requested": "[6.0.0-beta2, )",
         "resolved": "6.0.0-beta2",
         "contentHash": "ew55vr5MqCEokG0jRsndoRSPNxdDvSgGwhWyxEFhzc8EuGn3TNtSGKRppCcpHnwXtjFiUvFBN+BBo75yrdKOrQ=="
-      },
-      "MathNet.Numerics.FSharp": {
-        "type": "CentralTransitive",
-        "requested": "[6.0.0-beta2, )",
-        "resolved": "6.0.0-beta2",
-        "contentHash": "MqOJVzAjNaVuhitHE4CQa7kRK74janrjYsxjz2VSQwiyl0pIailjnQwoL/RCOUqcQVK+GEtSEKQyIbVgWhL7wg==",
-        "dependencies": {
-          "FSharp.Core": "8.0.100",
-          "MathNet.Numerics": "6.0.0-beta2"
-        }
       },
       "MathNet.Numerics.Providers.MKL": {
         "type": "CentralTransitive",
@@ -134,24 +114,6 @@
         "dependencies": {
           "MathNet.Numerics": "6.0.0-beta2"
         }
-      },
-      "MathNet.Symbolics": {
-        "type": "CentralTransitive",
-        "requested": "[0.25.0, )",
-        "resolved": "0.25.0",
-        "contentHash": "sbeoi0wLoTY46GuOtZRSc03GhMFj/7fkgYvN0j2dDcFJVjAzGMnVWAByQOG5bgCESmd1u/c09Sbpm/N+QhL+gQ==",
-        "dependencies": {
-          "FParsec": "2.0.0-beta2",
-          "FSharp.Core": "8.0.100",
-          "MathNet.Numerics": "6.0.0-beta1",
-          "MathNet.Numerics.FSharp": "6.0.0-beta1"
-        }
-      },
-      "System.IO.Hashing": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.9, )",
-        "resolved": "10.0.9",
-        "contentHash": "vixglGnKEexAJDeIRhyayZYzxyrgK1K9GU3K/zRZVwDbaDcMkSqj4WDHoVmQMNfsdUtLALfNSJw6mBIpdxie4A=="
       },
       "System.Numerics.Tensors": {
         "type": "CentralTransitive",

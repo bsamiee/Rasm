@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_HASHING]
+# [RASM_API_HASHING]
 
 `System.IO.Hashing` supplies non-cryptographic hashing algorithms for snapshot
 identity, cache keys, receipt fingerprints, benchmark indexes, and support

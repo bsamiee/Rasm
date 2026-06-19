@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `httpx`
 - package: `httpx`
 - import: `httpx`
-- version: `0.28.1`
 - owner: `runtime`
 - rail: transport
 - namespaces: `httpx`

@@ -193,13 +193,24 @@ const projectPolicy = Match.type<Phase>().pipe(
 - Boundary: layer changes are one `Layer.provide`, never a match-and-rebuild bridge; mid-pipeline concretization through `Effect.runSync` inside a transform defeats the polymorphism.
 
 ```ts conceptual
-import { Effect } from "effect"
+import { Array as A, Data, Effect, Order, Record as R } from "effect"
 
-const assemble = (source: _Source, band: _Band, tag: _Tag): Effect.Effect<_Composite, _Fault, _Caps> =>
+class Composite extends Data.Class<{ readonly code: string; readonly rank: number; readonly key: string }> {}
+
+class JoinFault extends Data.TaggedError("JoinFault")<{ readonly slot: "code" | "rank" | "key" | "none"; readonly ord: number }> {
+  static readonly clean = new JoinFault({ slot: "none", ord: -1 }) // identity seed: dominated by every real fault, so the fold is total
+  static readonly join  = Order.max(Order.mapInput(Order.number, (f: JoinFault) => f.ord)) // pairwise lattice join over the ordinal column
+  static readonly worst = (faults: ReadonlyArray<JoinFault>) => A.reduce(faults, JoinFault.clean, JoinFault.join) // dominant fault, no non-empty obligation
+}
+
+const assemble = (source: _Source, band: _Band, tag: _Tag): Effect.Effect<Composite, JoinFault> => // independent arms; one error channel decides failure semantics once
   Effect.all(
-    { code: source.resolve, rank: band.rank, key: tag.key },
-    { concurrency: "unbounded" },
-  ).pipe(Effect.map(({ code, rank, key }) => new _Composite({ code, rank, key })))
+    { code: source.resolve, rank: band.rank, key: tag.key }, // a flatMap chain here would drop every failure after the first
+    { concurrency: "unbounded", mode: "validate" },          // mode is the accumulate-vs-abort policy; concurrency is orthogonal capability
+  ).pipe(
+    Effect.mapError((slots) => JoinFault.worst(A.getSomes(R.values(slots)))), // {[K]: Option<E>} accumulates every independent failure; the join folds the set to its dominant fault, never a first-wins drop
+    Effect.map(({ code, rank, key }) => new Composite({ code, rank, key })),  // total construction over already-resolved values, never a fourth dispatch
+  )
 ```
 
 ## [7]-[ASPECTS]

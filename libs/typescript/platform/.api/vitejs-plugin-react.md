@@ -61,7 +61,7 @@ declare namespace viteReact { var preambleCode: string }
 export default viteReact
 
 declare const reactCompilerPreset: (
-  options?: Pick<ReactCompilerBabelPluginOptions, 'compilationMode' | 'target'>
+  options?: ReactCompilerBabelPluginOptions
 ) => RolldownBabelPreset
 ```
 
@@ -73,7 +73,7 @@ declare const reactCompilerPreset: (
 - `jsxRuntime: 'classic'` cannot skip the React import; classic-runtime import skipping is removed from v4 onward.
 - `reactRefreshHost` points a module-federation remote at the host application URL so Fast Refresh resolves a single runtime.
 - `preambleCode` is the runtime-initialization string exposed for custom Fast Refresh injection scenarios.
-- `reactCompilerPreset(options)` accepts only `compilationMode` and `target` from `ReactCompilerBabelPluginOptions`; pass the returned preset to the `@rolldown/plugin-babel` bridge.
+- `reactCompilerPreset(options?)` accepts the full `ReactCompilerBabelPluginOptions` (the `babel-plugin-react-compiler` `PluginOptions`); it reads `compilationMode` to scope the `rolldown.filter` and forwards every option to the compiler plugin. Pass the returned preset to the `@rolldown/plugin-babel` bridge.
 
 [LOCAL_ADMISSION]:
 - React Compiler integration is opt-in; admit `babel-plugin-react-compiler` and `@rolldown/plugin-babel` before consuming `reactCompilerPreset`.

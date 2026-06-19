@@ -381,9 +381,10 @@ public static class CustomVisuals {
         if (remaining.IsEmpty)
             return row.IsEmpty ? placed : placed + LayoutRow(row, box, side).Rects;
         double head = remaining.Head;
-        return Worst(row, side, 0d) >= Worst(row, side, head) || row.IsEmpty
-            ? Pack(remaining.Tail, row.Add(head), box, placed)
-            : Pack(remaining, Seq<double>(), LayoutRow(row, box, side).Rest, placed + LayoutRow(row, box, side).Rects);
+        if (Worst(row, side, 0d) >= Worst(row, side, head) || row.IsEmpty)
+            return Pack(remaining.Tail, row.Add(head), box, placed);
+        var laid = LayoutRow(row, box, side);
+        return Pack(remaining, Seq<double>(), laid.Rest, placed + laid.Rects);
     }
 
     static (Seq<SKRect> Rects, SKRect Rest) LayoutRow(Seq<double> row, SKRect box, float side) {

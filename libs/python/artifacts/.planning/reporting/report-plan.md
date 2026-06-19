@@ -19,6 +19,7 @@ The reproducible-report composition layer binding data and visual outputs into a
 
 ```python signature
 from enum import StrEnum
+from io import BytesIO
 from typing import assert_never
 
 from jinja2 import Environment, select_autoescape
@@ -57,8 +58,20 @@ class ReportPlan(Struct, frozen=True):
 
 def report_env() -> Environment:
     return Environment(autoescape=select_autoescape(("html", "xml")), trim_blocks=True, lstrip_blocks=True)
+
+
+def _execute_notebook(source: str, parameters: dict[str, object]) -> bytes:
+    import nbformat
+    import papermill
+
+    executed = papermill.execute_notebook(
+        source, None, parameters=parameters, engine_name=None, progress_bar=False, log_output=False
+    )
+    sink = BytesIO()
+    nbformat.write(executed, sink, version=nbformat.NO_CONVERT)
+    return sink.getvalue()
 ```
 
 ## [3]-[RESEARCH]
 
-- [NOTEBOOK_SPELLINGS]: the papermill `execute_notebook(input_path, output_path, parameters=...)` signature and the nbclient `NotebookClient.execute` engine contract verify against the folder `.api` catalogue for `papermill` and `nbclient`; the parameters-tagged cell injection and the executed-notebook serialization to bytes confirm on the cp315 floor.
+No open items. The papermill `execute_notebook(input_path, output_path, parameters, engine_name, progress_bar, log_output)` signature returns the mutated `NotebookNode` and defaults to the nbclient `NBClientEngine` when `engine_name=None`; both verify against the folder `.api` catalogues for `papermill` and `nbclient`. The executed `NotebookNode` serializes to the audit-artifact bytes through `nbformat.write(version=NO_CONVERT)` on the cp315 core; `output_path=None` runs the notebook without writing a side file, so the in-memory mutated node `execute_notebook` returns is the only emitted artifact and `nbformat.write` keys it under the content owner.

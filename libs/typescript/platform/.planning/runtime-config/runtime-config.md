@@ -23,6 +23,8 @@ interface RuntimeConfig {
   readonly collectorOtlpEndpoint: Effect.Effect<string, ConfigError.ConfigError>;
   readonly remoteConfigUrl: Effect.Effect<string, ConfigError.ConfigError>;
   readonly buildMode: Effect.Effect<"development" | "production", ConfigError.ConfigError>;
+  readonly replaySampleRate: Effect.Effect<number, ConfigError.ConfigError>;
+  readonly traceSampleRatio: Effect.Effect<number, ConfigError.ConfigError>;
   readonly provider: Layer.Layer<RuntimeConfig>;
 }
 ```

@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `tree-sitter-python`
 - package: `tree-sitter-python`
 - import: `tree_sitter_python`
-- version: `0.25.0`
 - owner: `runtime`
 - rail: parsing
 - namespaces: `tree_sitter_python`
@@ -39,7 +38,7 @@
 - query law: highlight/tags extraction compiles `HIGHLIGHTS_QUERY`/`TAGS_QUERY` through the `tree-sitter` `Query` surface; the runtime does not author parallel query text where the bundled source suffices.
 
 [LOCAL_ADMISSION]:
-- This package supplies a grammar pointer only; all parser, tree, and query mechanics arrive settled from `.api/api-tree-sitter.md`.
+- This package supplies a grammar pointer only; all parser, tree, and query mechanics arrive settled from `.api/tree-sitter.md`.
 - The grammar is a parsing row, never a standalone owner.
 
 [RAIL_LAW]:

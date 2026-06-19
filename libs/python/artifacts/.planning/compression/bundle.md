@@ -67,8 +67,22 @@ def _core_codec(payload: bytes, algo: CompressionAlgo) -> bytes:
             return sink.getvalue()
         case _:
             assert_never(algo)
+
+
+def _gated_codec(algo: str, payload: bytes) -> bytes:
+    match CompressionAlgo(algo):
+        case CompressionAlgo.LZ4:
+            import lz4.frame
+
+            return lz4.frame.compress(payload, content_checksum=True)
+        case CompressionAlgo.BROTLI:
+            import brotli
+
+            return brotli.compress(payload, mode=brotli.MODE_GENERIC, quality=11)
+        case _:
+            assert_never(algo)
 ```
 
 ## [3]-[RESEARCH]
 
-- [GATED_WORKER]: `_gated_codec` runs on the `python_version<'3.15'` band through `anyio.to_process.run_sync`, so its `lz4.frame.compress(payload, content_checksum=1)` and `brotli.compress(payload, mode=brotli.MODE_GENERIC, quality=11)` arms import the codecs at module scope inside the gated-band worker module, never on the cp315-core owner. The exact worker-module entrypoint and the `lz4`/`brotli` call spellings verify against the folder `.api` catalogues for `lz4`/`brotli` once the gated band installs.
+No open items. `_gated_codec` runs on the `python_version<'3.15'` band through `anyio.to_process.run_sync`, importing `lz4.frame`/`brotli` at boundary scope inside the gated-band worker, never on the cp315-core owner; the `lz4.frame.compress` and `brotli.compress(mode=MODE_GENERIC, quality=11)` spellings verify against the folder `.api` catalogues for `lz4`/`brotli`. The cp315-core `zstandard.ZstdCompressor().compress` and `py7zr.SevenZipFile`/`writef` spellings resolve in-process.

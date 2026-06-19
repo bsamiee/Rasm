@@ -6,6 +6,7 @@ The dataset-reference identity owner: one polymorphic owner discriminating by so
 
 - `[2]-[DATASET]`: the dataset-ref owner discriminating by source shape.
 - `[3]-[SCAN]`: engine scan plans, columnar egress, the content-keyed query receipt.
+- `[4]-[MATERIALIZE]`: the incremental CDC-materialization owner — partition-delta recompute keyed by content identity.
 
 ## [2]-[DATASET]
 
@@ -179,3 +180,76 @@ def _run(plan: ScanPlan, dataset: DatasetRef) -> pa.Table:
         case unreachable:
             assert_never(unreachable)
 ```
+
+## [4]-[MATERIALIZE]
+
+- Owner: `DerivedSnapshot` — the one incremental CDC-materialization owner folding the `lakehouse` change feed, the `query` engine, and `ContentIdentity` into a partition-delta recompute; `PartitionBundle` the per-partition content-keyed Arrow bundle. The derived view composes the `lakehouse#LAKEHOUSE` `Lakehouse` owner for the source `table_uri` identity and reads the Change Data Feed between two snapshot versions through the same `deltalake.load_cdf` surface the `lakehouse` `ChangeFeed` op binds, derives the changed-partition set from the CDF `_commit_version` range, routes only the changed rows through the `query/relational#QUERY` `QueryEngine`, and re-keys only the touched partition bundles — an unchanged partition's content-key is reused untouched. A full re-scan is the deleted form.
+- Entry: `DerivedSnapshot.refresh` admits the source `Lakehouse`, a `start`/`end` version range, a `QuerySpec` transform (carried on the owner), and the prior `tuple[PartitionBundle, ...]`; it reads the CDF over the `Lakehouse.table_uri`, partitions the CDF frame by the `partition_by` keys, recomputes each changed partition through `QueryEngine.run` over the changed rows, and folds one `tuple[PartitionBundle, ...]` where every untouched partition carries its prior `ContentKey` by reference; the return is a `RuntimeRail[tuple[PartitionBundle, ...]]`.
+- Auto: the changed-partition set is exactly the distinct partition values present in the CDF `_change_type`-filtered frame over the `_commit_version` range, so an unchanged partition never re-keys; the recompute stays lazy — the `QueryEngine.Rel`/`Sql` path pushes the delta predicate into the DuckDB relation rather than materializing the full table; each recomputed partition keys by `ContentIdentity.of` over its Arrow bytes, and the parent snapshot key folds the partition `ContentKey`s through the Merkle `tuple[ContentKey, ...]` `ContentIdentity.of` source so a single changed partition flips the snapshot key while the unchanged children stay byte-stable.
+- Receipt: the refresh folds the shared `QueryReceipt` over the recomputed delta and contributes an emitted-phase `Receipt.of` through `ReceiptContributor`; no new receipt rail.
+- Packages: `deltalake` (the `load_cdf` change feed with `_change_type`/`_commit_version`, composed through `lakehouse`), `duckdb` (the partition-delta recompute, composed through `query`), `pyarrow` (`Table`/`RecordBatchReader`/`compute` partition grouping), runtime (`ContentIdentity`/`ContentKey`/`RuntimeRail`/`ReceiptContributor`).
+- Growth: a new transform is a different `QuerySpec`; a new partition strategy is one `partition_by` tuple; a second source format is the `lakehouse` `TableFormat` axis with zero change here; zero new surface.
+- Boundary: composes the `lakehouse` `ChangeFeed` op and the `query` `QueryEngine`, never re-minting either; no full re-scan, no parallel materialization module, no durable derived store, no second CDF reader; a per-partition recompute class family and a re-derived change feed are the deleted forms.
+
+```python signature
+import pyarrow as pa
+import pyarrow.compute as pc
+from deltalake import DeltaTable
+from msgspec import Struct
+
+from rasm.data.lakehouse.table import Lakehouse
+from rasm.data.query.relational import QueryEngine, QuerySpec
+from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.receipts import Receipt
+
+
+class PartitionBundle(Struct, frozen=True):
+    partition: str
+    rows: int
+    content_key: ContentKey
+
+    def contribute(self) -> Receipt:
+        return Receipt.of("emitted", "derived-snapshot", self.partition, {"rows": str(self.rows)})
+
+
+class DerivedSnapshot(Struct, frozen=True):
+    partition_by: tuple[str, ...]
+    transform: QuerySpec
+
+    def refresh(
+        self, source: Lakehouse, start: int, end: int | None, prior: tuple[PartitionBundle, ...],
+    ) -> "RuntimeRail[tuple[PartitionBundle, ...]]":
+        return boundary("derived.refresh", lambda: self._materialize(source, start, end, prior))
+
+    def _materialize(
+        self, source: Lakehouse, start: int, end: int | None, prior: tuple[PartitionBundle, ...],
+    ) -> tuple[PartitionBundle, ...]:
+        reader = DeltaTable(source.table_uri).load_cdf(starting_version=start, ending_version=end)
+        cdf = reader.read_all()
+        key_col = self.partition_by[0]
+        changed = pc.unique(cdf.column(key_col)).to_pylist()
+        prior_by_key = {b.partition: b for b in prior}
+        recomputed = {
+            str(value): self._recompute(cdf.filter(pc.equal(cdf.column(key_col), value)), str(value))
+            for value in changed
+        }
+        return tuple(
+            recomputed.get(b.partition, b) for b in prior
+        ) + tuple(recomputed[k] for k in recomputed if k not in prior_by_key)
+
+    def _recompute(self, delta: pa.Table, partition: str) -> PartitionBundle:
+        result = QueryEngine.of({"delta": delta}).run(self.transform).default_value(delta)
+        return PartitionBundle(
+            partition=partition, rows=result.num_rows,
+            content_key=ContentIdentity.of("partition", result.to_batches()[0].serialize() if result.num_rows else b""),
+        )
+
+
+def snapshot_key(bundles: tuple[PartitionBundle, ...]) -> ContentKey:
+    return ContentIdentity.of("derived-snapshot", tuple(b.content_key for b in bundles))
+```
+
+## [5]-[RESEARCH]
+
+- [CDF_PARTITION_GROUP]: the `deltalake` `DeltaTable.load_cdf(starting_version=, ending_version=)` reader and its `_change_type`/`_commit_version` CDF columns the `_materialize` partition-grouping reads are catalogue-confirmed against the folder `deltalake` `.api`; the `pyarrow.compute` `unique`/`equal` partition-grouping and the `RecordBatch.serialize` content-key source are stdlib-Arrow members, so the one open seam is the `QueryEngine.run` rail unwrap (`Result.default_value`) the `_recompute` uses to lower the delta-query rail into the partition bundle — the unwrap reuses the prior delta on a query fault rather than propagating, an intentional reuse-on-empty-delta policy the refresh boundary owns.

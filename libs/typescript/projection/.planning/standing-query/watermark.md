@@ -9,17 +9,19 @@ One cluster: `[2]-[WATERMARK]` owns `eventNanos`, the `Watermark` mark, `advance
 ## [2]-[WATERMARK]
 
 - Owner: `eventNanos`, the event-time projection from the wire HLC pair; `Watermark`, the monotonic `(eventNanos, processed, late)` progress mark mirroring the C# `Watermark(EventTime, Processed)`; `advance`, the merge step that lifts the mark and tallies a late correction; and `isLate`, the `allowedLateness` horizon test. `defaultLateness` is the one lateness default the window engine inherits.
-- Cases: `eventNanos` reconstructs event time as the wire `physical` instant (ISO-8601 extended) scaled to nanos plus the HLC `logical` half as a sub-millisecond tiebreak; `advance` raises `eventNanos` monotonically (never regresses), increments `processed` per folded row, and increments `late` only on an out-of-order correction; `isLate` is the test against the held mark minus `allowedLateness`.
+- Cases: `eventNanos` reconstructs event time as the wire `physical` instant (ISO-8601 extended) scaled to nanos plus the HLC `logical` half as a sub-millisecond tiebreak, flooring an unparseable instant to the zero epoch so the projection is total and a malformed stamp sorts as oldest rather than throwing `RangeError` off `BigInt(NaN)` and tearing down the fold fiber; `advance` raises `eventNanos` monotonically (never regresses), increments `processed` per folded row, and increments `late` only on an out-of-order correction; `isLate` is the test against the held mark minus `allowedLateness`.
 - Packages: `effect` for `Duration`.
 - Growth: a new event-time field lands as one `eventNanos` projection arm; a new lateness posture lands as one `WindowSpec.allowedLateness` value.
 - Boundary: the decode gate already admitted `physical` and `logical`, so this is projection, never re-validation; `processed` is the per-bucket throughput the `ui` reads off the cell, and `late` is the observable out-of-order count so a retraction is never silent.
 
 ```ts contract
 import { Duration } from "effect";
-import type { OpLogEntryWire } from "@rasm/ts";
+import type { OpLogEntryWire } from "@rasm/interchange";
 
-const eventNanos = (entry: OpLogEntryWire): bigint =>
-  BigInt(new Date(entry.physical).getTime()) * 1_000_000n + entry.logical;
+const eventNanos = (entry: OpLogEntryWire): bigint => {
+  const ms = Date.parse(entry.physical);
+  return (Number.isNaN(ms) ? 0n : BigInt(ms)) * 1_000_000n + entry.logical;
+};
 
 interface Watermark {
   readonly eventNanos: bigint;

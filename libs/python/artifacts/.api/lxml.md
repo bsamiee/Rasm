@@ -9,7 +9,7 @@
 - import: `from lxml import etree`
 - owner: `artifacts`
 - rail: structured documents
-- installed: `6.1.1` reflected via `python -c "from lxml import etree"` on cp315
+- installed: `6.1.1` reflected via `python -c "from lxml import etree"` on the gated `python_version<'3.15'` band (no CPython 3.15 wheel; dispatched onto the runtime subprocess lane, never the cp315 core)
 - entry points: none (library only)
 - capability: libxml2/libxslt XML and HTML parse/serialize, element building, XPath, XSLT, XML Schema/RelaxNG/Schematron validation, namespace cleanup, incremental parsing
 

@@ -9,7 +9,6 @@
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="MathNet.Numerics.Providers.MKL" />
         <PackageReference Include="MathNet.Numerics.Providers.OpenBLAS" />
-        <PackageReference Include="MathNet.Symbolics" />
         <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 

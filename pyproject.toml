@@ -10,6 +10,7 @@ dependencies = [
     "opentelemetry-api>=1.41.1",
     "opentelemetry-exporter-otlp-proto-http>=1.41.1",
     "opentelemetry-sdk>=1.41.1",
+    "opentelemetry-instrumentation-grpc>=0.62b0",  # runtime: gRPC server/client span instrumentation for server/serve
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.1",
     "expression>=5.6.0",
@@ -22,11 +23,9 @@ dependencies = [
     "obstore>=0.10.1",            # data: abi3 object_store backend while cloud-storage wheels lag on CPython 3.15
     "httpx>=0.28.1",              # transport: approved HTTP client surface for typed adapters
     "watchfiles>=1.2.0",
-    "aiocron>=2.1",
-    "apscheduler>=3.11.2",        # runtime: cron, interval, and date triggers for StagePlan orchestration
+    "apscheduler>=3.11.2",        # runtime: cron, interval, and date triggers (sole cron owner; aiocron purged)
     "universal-pathlib>=0.3.10",  # data: UPath storage_options/protocol resolution for the fsspec artifact store
     "asyncssh>=2.23.1",
-    "zstandard",
     "specklepy>=3.2.8",           # AEC transport: Speckle stream send/receive, not durable storage
     "tree-sitter>=0.25.2",
     "tree-sitter-python>=0.25.0",
@@ -100,7 +99,13 @@ scientific = [
     "rasterio>=1.5.0",                             # data: raster geospatial IO; source-build via Parametric_Forge GDAL toolchain
     "rhino3dm>=8.17.0",                            # geometry: Rhino mesh and 3DM IO; CMake C++ source-build
     "rustworkx>=0.17.1",                           # compute/data: graph algorithms; abi3 wheel on CPython 3.15
-    "salib",                                       # compute: global sensitivity analysis
+    "salib; python_version<'3.15'",                # compute: global sensitivity analysis; transitively pulls scipy (gast/pythran lack CPython 3.15 support), companion-band until the scientific stack ships 3.15
+    "clarabel; python_version<'3.15'",             # compute: Clarabel conic solver / cvxpy backend; transitively pulls scipy (gast/pythran lack CPython 3.15 support), companion-band until the scientific stack ships 3.15
+    "pywavelets>=1.9.0; python_version<'3.15'",    # compute: discrete/continuous wavelet transforms; C/Cython lacks CPython 3.15 wheel
+    "lark",                                        # geometry: IDS/selector parsing-grammar engine; pure Python, cp315-clean
+    "pystac",                                      # data: STAC item/collection object model; pure Python
+    "pystac-client",                               # data: STAC API search/discovery client; pure Python
+    "stac-geoparquet",                             # data: STAC item GeoParquet table interchange; pure Python
     "array-api-compat",                            # compute: array API portability shim
     "array-api-extra",                             # compute: supplemental array API helpers
     "mpmath",                                      # compute: arbitrary-precision real and complex math
@@ -111,6 +116,8 @@ scientific = [
     "diffrax; python_version<'3.15'",              # compute: JAX differential-equation solvers; gated by jaxlib CPython 3.15 floor
     "equinox; python_version<'3.15'",              # compute: JAX PyTree modules; gated by jaxlib CPython 3.15 floor
     "lineax; python_version<'3.15'",               # compute: JAX linear solvers; gated by jaxlib CPython 3.15 floor
+    "optax; python_version<'3.15'",                # compute: first-order JAX optimizers threaded through optimistix.OptaxMinimiser; gated by jaxlib CPython 3.15 floor
+    "cvxpy>=1.9.1; python_version<'3.15'",         # compute: disciplined convex optimization; cp311-cp314 wheels only, no CPython 3.15 wheel
     "manifold3d; python_version<'3.15'",           # geometry: robust mesh booleans; C++ pybind lacks CPython 3.15 wheel
     "nutpie; python_version<'3.15'",               # compute: Rust NUTS sampler for PyMC; gated by PyMC CPython 3.15 floor
     "pyiceberg; python_version<'3.15'",            # data: Apache Iceberg tables; gated by Arrow/data CPython 3.15 floor
@@ -126,8 +133,12 @@ scientific = [
     "trimesh",
     "uncertainties",
     "xarray",
-    "xxhash>=3.7.0",                               # runtime: content identity hashes matching C# System.IO.Hashing; abi3 wheel
+    "xxhash>=3.7.0",                               # runtime: content identity hashes matching C# System.IO.Hashing; cp38-cp314 per-version wheels, NO abi3/cp315 (companion <3.15)
     "zarr>=3.2.1",                                 # data: chunked n-D arrays; pure Python
+    "blackjax; python_version<'3.15'",             # compute: JAX NUTS/HMC samplers; gated by jaxlib CPython 3.15 floor
+    "cadquery-ocp; python_version<'3.15'",         # geometry: OpenCASCADE STEP/AP242 kernel; requires_python <3.15, companion-side
+    "kiss-matcher; python_version<'3.13'",         # geometry: global point-cloud registration; cp38-cp312 wheels only
+    "bcf-client; python_version<'3.15'",           # geometry: BCF 3.0 coordination XML (imports bcfxml/bcfapi); lxml-dependent, companion-side
 ]
 artifacts = [
     "altair",
@@ -136,7 +147,6 @@ artifacts = [
     "fonttools>=4.63.0",                           # artifacts: font subsetting, instancing, and shaping metadata; pure Python
     "jinja2>=3.1.6",                               # artifacts: report templating between visual and document outputs
     "kaleido",
-    "lonboard>=0.16.0; python_version<'3.15'",     # artifacts: GPU/deck.gl GeoArrow visualization; no CPython 3.15 wheel
     "lxml; python_version<'3.15'",                 # artifacts: XML processing; no CPython 3.15 wheel
     "lz4; python_version<'3.15'",                  # artifacts: compression; no CPython 3.15 wheel
     "matplotlib; python_version<'3.15'",           # artifacts: plotting; contourpy/kiwisolver lack CPython 3.15 wheels
@@ -152,10 +162,12 @@ artifacts = [
     "pypdf",
     "pypdfium2",
     "pyvista>=0.48.4; python_version<'3.13'",      # artifacts: 3D scientific visualization; gated by VTK interpreter floor
+    "python-barcode",                              # artifacts: linear/2D barcode symbologies beside the segno QR arm; pure Python
     "python-docx",
     "python-magic",
     "python-pptx",
-    "qrcode",
+    "segno",                                       # artifacts: QR/Micro-QR vector codes; pure Python (replaces qrcode, removes Pillow leak)
+    "svgelements",                                 # artifacts: pure-Python SVG geometry/transform/parse for figure scale-to-fit/n-up/crop/bounds; cp315-clean
     "reportlab",
     "ruamel-yaml",
     "tomlkit",
@@ -164,7 +176,11 @@ artifacts = [
     "weasyprint",
     "great-tables",                                # artifacts: publication-quality display tables
     "uharfbuzz",                                   # artifacts: HarfBuzz text-shaping bindings
+    "typst",                                       # artifacts: Typst PDF typesetting; cp38-abi3 wheel (installs on 3.15)
+    "vegafusion; python_version<'3.15'",           # artifacts: server-side Vega transform/pre-transform export; Rust, gated
+    "zstandard",                                   # artifacts: zstd compression (moved from core; runtime uses stdlib compression.zstd)
 ]
+
 # --- [UV] ------------------------------------------------------------------
 
 [tool.uv]

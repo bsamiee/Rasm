@@ -123,4 +123,4 @@ class SettingsAdmission(BaseSettings):
 
 ## [4]-[RESEARCH]
 
-- [SETTINGS_SOURCE_ORDER]: the `settings_customise_sources` precedence (init over env over dotenv over secret-file) and the `secrets_dir` source-class spelling are verified against `pydantic-settings`; the source-class parameter spellings confirm at fence transcription.
+- [SETTINGS_SOURCE_ORDER]: the `settings_customise_sources` precedence (init over env over dotenv over secret-file), the `file_secret_settings` source class, and the `secrets_dir` `SettingsConfigDict` key are verified against the `pydantic-settings` catalogue; the source-class parameter spellings are settled.

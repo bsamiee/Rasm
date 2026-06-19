@@ -16,7 +16,7 @@ One cluster: `[2]-[WINDOW_FOLD]` owns `WindowKind`, `WindowSpec`, `bucketSet`, t
 
 ```ts contract
 import { Array as A, Data, Duration, Effect, HashMap, Option, Scope, Stream, SubscriptionRef } from "effect";
-import type { OpLogEntryWire } from "@rasm/ts";
+import type { OpLogEntryWire } from "@rasm/interchange";
 import { keyedFold } from "../fold-core/keyed-fold";
 import type { StreamPolicy } from "../fold-core/stream-policy";
 import { advance, eventNanos, isLate, watermarkZero, type Watermark } from "./watermark";

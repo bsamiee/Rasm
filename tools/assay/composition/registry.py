@@ -870,15 +870,15 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.API, "status", api_rail.status, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
     Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown + Mermaid validation."),
     Bind(Claim.PROVISION, "up", provision_rail.up, ProvisionParams, "Start local PG18 provisioning services."),
-    Bind(Claim.PROVISION, "down", provision_rail.down, ProvisionParams, "Stop labelled provisioning services and remove script-owned data."),
+    Bind(Claim.PROVISION, "down", provision_rail.down, ProvisionParams, "Stop labelled provisioning services while preserving owned volumes."),
     Bind(Claim.PROVISION, "status", provision_rail.status, ProvisionParams, "Show local provisioning service status."),
     Bind(Claim.PROVISION, "doctor", provision_rail.doctor, ProvisionParams, "Diagnose local Docker, Colima, paths, and ports."),
     Bind(Claim.PROVISION, "ports", provision_rail.ports, ProvisionParams, "Show configured provisioning ports and current listeners."),
     Bind(Claim.PROVISION, "inventory", provision_rail.inventory, ProvisionParams, "Show owned provisioning resources and Docker diagnostics."),
     Bind(Claim.PROVISION, "extensions", provision_rail.extensions, ProvisionParams, "Show provisioning extension targets."),
     Bind(Claim.PROVISION, "plan", provision_rail.plan, ProvisionParams, "Render provisioning compose plan without writing assets."),
-    Bind(Claim.PROVISION, "env", provision_rail.env, ProvisionParams, "Print generated provisioning paths and DSNs."),
-    Bind(Claim.PROVISION, "verify", provision_rail.verify, ProvisionParams, "Verify provisioning extensions and local scientific probes."),
+    Bind(Claim.PROVISION, "env", provision_rail.env, ProvisionParams, "Report redacted provisioning connection metadata."),
+    Bind(Claim.PROVISION, "verify", provision_rail.verify, ProvisionParams, "Create required extensions and verify provisioning probes."),
 )
 
 

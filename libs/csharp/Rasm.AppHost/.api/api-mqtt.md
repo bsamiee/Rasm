@@ -169,16 +169,21 @@
 [ENTRYPOINT_SCOPE]: subscribe and topic-filter assembly
 - rail: outbound
 
-| [INDEX] | [SURFACE]                                                                                                   | [ENTRY_FAMILY] | [RAIL]                  |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :------------- | :---------------------- |
-|   [1]   | `MqttClientSubscribeOptionsBuilder.WithTopicFilter(topic, qos, noLocal, retainAsPublished, retainHandling)` | filter         | typed topic filter      |
-|   [2]   | `MqttClientSubscribeOptionsBuilder.WithTopicFilter(builder)`                                                | filter         | builder-composed filter |
-|   [3]   | `MqttClientSubscribeOptionsBuilder.WithSubscriptionIdentifier(id)`                                          | filter         | v5 subscription id      |
-|   [4]   | `MqttTopicFilterBuilder.WithTopic(topic)`                                                                   | filter         | filter topic            |
-|   [5]   | `MqttTopicFilterBuilder.WithAtLeastOnceQoS()`                                                               | filter         | QoS-1 shorthand         |
-|   [6]   | `MqttTopicFilterBuilder.WithNoLocal(value)`                                                                 | filter         | v5 no-local flag        |
-|   [7]   | `MqttTopicFilterBuilder.WithRetainHandling(value)`                                                          | filter         | retain-handling mode    |
-|   [8]   | `MqttTopicFilterBuilder.Build()`                                                                            | terminal       | `MqttTopicFilter` value |
+| [INDEX] | [BUILDER]                           | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                  |
+| :-----: | :---------------------------------- | :----------------------------------- | :------------- | :---------------------- |
+|   [1]   | `MqttClientSubscribeOptionsBuilder` | `WithTopicFilter(topic, qos, flags)` | filter         | typed topic filter      |
+|   [2]   | `MqttClientSubscribeOptionsBuilder` | `WithTopicFilter(builder)`           | filter         | builder-composed filter |
+|   [3]   | `MqttClientSubscribeOptionsBuilder` | `WithSubscriptionIdentifier(id)`     | filter         | v5 subscription id      |
+|   [4]   | `MqttTopicFilterBuilder`            | `WithTopic(topic)`                   | filter         | filter topic            |
+|   [5]   | `MqttTopicFilterBuilder`            | `WithAtLeastOnceQoS()`               | filter         | QoS-1 shorthand         |
+|   [6]   | `MqttTopicFilterBuilder`            | `WithNoLocal(value)`                 | filter         | v5 no-local flag        |
+|   [7]   | `MqttTopicFilterBuilder`            | `WithRetainHandling(value)`          | filter         | retain-handling mode    |
+|   [8]   | `MqttTopicFilterBuilder`            | `Build()`                            | terminal       | `MqttTopicFilter` value |
+
+[TOPIC_FILTER_FLAGS]:
+- `noLocal`: suppresses messages published by the same client.
+- `retainAsPublished`: preserves the retained flag on forwarded messages.
+- `retainHandling`: selects retained-message delivery behavior.
 
 ## [4]-[IMPLEMENTATION_LAW]
 

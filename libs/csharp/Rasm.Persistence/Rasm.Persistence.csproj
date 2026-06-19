@@ -57,4 +57,9 @@
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
     </ItemGroup>
+
+    <ItemGroup Label="Sync Outside-Rhino">
+        <PackageReference Include="Speckle.Sdk" />
+        <PackageReference Include="Speckle.Objects" />
+    </ItemGroup>
 </Project>

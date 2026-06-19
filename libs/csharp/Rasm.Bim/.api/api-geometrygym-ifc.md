@@ -25,20 +25,18 @@ for the Compute geometry interchange rail.
 - namespace: `GeometryGym.Ifc`, `GeometryGym.STEP`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]               | [RAIL]   | [CAPABILITY]                                                                                 |
-| :-----: | :--------------------- | :------- | :------------------------------------------------------------------------------------------- |
-|   [1]   | `DatabaseIfc`          | geometry | IFC model repository; owns all entities, schema, units, tolerance, and I/O                   |
-|   [2]   | `DatabaseSTEP<T>`      | geometry | generic STEP record store; `IEnumerable<T>`, `this[int stepId]`, `NextObjectRecord`          |
-|   [3]   | `BaseClassIfc`         | geometry | abstract root of every IFC entity; carries `Database`, `Extract<T>`, STEP/JSON serialization |
-|   [4]   | `STEPEntity`           | geometry | base STEP record carrier under `BaseClassIfc`                                                |
-|   [5]   | `FactoryIfc`           | geometry | per-database factory; canonical axes, origins, placements, application, owner history        |
-|   [6]   | `ParserIfc`            | geometry | static STEP/enum/GUID codec; `ParseEnum<T>`, `DecodeGlobalID`, `EncodeGuid`                  |
-|   [7]   | `ParserSTEP`           | geometry | static low-level STEP token parser                                                           |
-|   [8]   | `SerializationIfc`     | geometry | serialization base for the IFC formats                                                       |
-|   [9]   | `SerializationIfcSTEP` | geometry | STEP physical-file serialization implementation                                              |
-|  [10]   | `STEPFileInformation`  | geometry | originating-file header metadata on the database                                             |
-|  [11]   | `DuplicateOptions`     | geometry | options carrier for cross-database entity duplication                                        |
-|  [12]   | `DuplicateMapping`     | geometry | source-to-target entity map during duplication                                               |
+| [INDEX] | [SYMBOL]              | [RAIL]   | [CAPABILITY]                                                                                 |
+| :-----: | :-------------------- | :------- | :------------------------------------------------------------------------------------------- |
+|   [1]   | `DatabaseIfc`         | geometry | IFC model repository; owns all entities, schema, units, tolerance, and I/O                   |
+|   [2]   | `DatabaseSTEP<T>`     | geometry | generic STEP record store; `IEnumerable<T>`, `this[int stepId]`, `NextObjectRecord`          |
+|   [3]   | `BaseClassIfc`        | geometry | abstract root of every IFC entity; carries `Database`, `Extract<T>`, STEP/JSON serialization |
+|   [4]   | `STEPEntity`          | geometry | base STEP record carrier under `BaseClassIfc`                                                |
+|   [5]   | `FactoryIfc`          | geometry | per-database factory; canonical axes, origins, placements, application, owner history        |
+|   [6]   | `ParserIfc`           | geometry | static STEP/enum/GUID codec; `ParseEnum<T>`, `DecodeGlobalID`, `EncodeGuid`                  |
+|   [7]   | `ParserSTEP`          | geometry | static low-level STEP token parser                                                           |
+|   [8]   | `STEPFileInformation` | geometry | originating-file header metadata on the database                                             |
+|   [9]   | `DuplicateOptions`    | geometry | options carrier for cross-database entity duplication                                        |
+|  [10]   | `DuplicateMapping`    | geometry | source-to-target entity map during duplication                                               |
 
 [PUBLIC_TYPE_SCOPE]: IFC schema vocabulary enums
 - package: `GeometryGymIFC_Core`

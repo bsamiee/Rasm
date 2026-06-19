@@ -30,7 +30,7 @@ interface TierStack {
 }
 
 const buildTier = (stack: TierStack, mode: DeployMode): ReadonlyArray<pulumi.ComponentResource> =>
-  Array.map(TIER_KINDS, (kind) => stack.tier(kind, mode));
+  Arr.map(TIER_KINDS, (kind) => stack.tier(kind, mode));
 
 interface AutomationDriver {
   readonly workspace: Effect.Effect<LocalWorkspace, never, Scope.Scope>;
@@ -66,5 +66,11 @@ interface PolicyGuard {
   readonly pack: policy.PolicyPack;
   readonly resourceRule: (name: string, level: PolicyLevel, validate: (args: policy.ResourceValidationArgs) => void) => policy.ResourceValidationPolicy;
   readonly enforce: (mode: DeployMode) => ReadonlyArray<policy.ResourceValidationPolicy>;
+}
+
+interface ObservabilityStack {
+  readonly tier: (mode: DeployMode) => pulumi.ComponentResource;
+  readonly collectorOtlp: Effect.Effect<string, ConfigError.ConfigError>;
+  readonly emit: <A>(receipt: A) => Effect.Effect<void>;
 }
 ```

@@ -4,14 +4,15 @@ Rasm.AppUi evidence is one rail: a seven-case `EvidenceReceipt` union folds ever
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                             |
-| :-----: | :------------------ | :----------------------------------------------------------------- |
-|   [1]   | RECEIPT_UNION       | Seven-case evidence union sealed through the HLC sink envelope     |
-|   [2]   | CORRELATION_JOIN    | Causal timeline join keyed correlation plus HLC with skew bands    |
-|   [3]   | CAPTURE_LANES       | Host-agnostic frame capture rows; render-hash regression proof     |
-|   [4]   | HEADLESS_DERIVATION | Catalog-derived proof matrix; deterministic command-journal replay |
-|   [5]   | DEV_LOOP            | Debug hot-reload knob rows; dispatcher starvation probe            |
-|   [6]   | TS_PROJECTION       | Evidence and timeline wire shapes for dashboard ingestion          |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                  |
+| :-----: | :------------------ | :---------------------------------------------------------------------- |
+|   [1]   | RECEIPT_UNION       | Seven-case evidence union sealed through the HLC sink envelope          |
+|   [2]   | CORRELATION_JOIN    | Causal timeline join keyed correlation plus HLC with skew bands         |
+|   [3]   | CAPTURE_LANES       | Host-agnostic frame capture rows; render-hash regression proof          |
+|   [4]   | HEADLESS_DERIVATION | Catalog-derived proof matrix; deterministic command-journal replay      |
+|   [5]   | DEV_LOOP            | Debug hot-reload knob rows; dispatcher starvation probe                 |
+|   [6]   | PERF_BUDGET         | Declarative quality governor folding telemetry into one degrade verdict |
+|   [7]   | TS_PROJECTION       | Evidence and timeline wire shapes for dashboard ingestion               |
 
 ## [2]-[RECEIPT_UNION]
 
@@ -334,7 +335,82 @@ public static class DevLoop {
 |   [8]   | HotAvaloniaHotkey            | runtime default    | manual-reload key chord                 |
 |   [9]   | HarfsAddress / HarfsPort     | remote endpoint    | HARFS file-server endpoint              |
 
-## [7]-[TS_PROJECTION]
+## [7]-[PERF_BUDGET]
+
+- Owner: `QualityTier` `[SmartEnum<string>]` the descending quality grades; `PerfSample` the folded telemetry observation; `QualityVerdict` the one degrade verdict; `PerfBudget` the declarative quality governor.
+- Cases: `QualityTier` = ultra, high, balanced, conservative, floor — ultra runs the full pass list and motion catalog, floor runs the `Composite`-only fallback with reduced motion and the tightest residency watermark.
+- Entry: `public static QualityVerdict Govern(PerfBudget governor, PerfSample sample)` — folds one telemetry sample into a quality verdict degrading render passes, the residency watermark, and the motion tokens together; the governor reads the existing evidence receipt envelopes and the `FrameBudget`/`ResidencyBudget` instruments, never a second meter.
+- Auto: `PerfSample` folds the viewport `FrameReceipt` frame-elapsed and GPU-elapsed, the residency-evict count, the VRAM watermark, and the layout-elapsed into one observation off the receipt stream the timeline already ingests, so the governor reads the settled evidence and mints no new instrument; `Govern` compares the sample against the budget thresholds and selects the lowest `QualityTier` whose budget the sample holds, so a frame-budget breach steps the tier down deterministically and a recovered budget steps it up under a hysteresis band so the tier never oscillates per frame; the verdict carries the degraded pass mask (path-trace samples capped, sim volume dropped to isosurface, the meshlet LOD pixel-threshold raised), the residency watermark factor, and the motion reduce flag so one verdict degrades the three owners together; the governor degrades deterministically so the render-hash lanes stay attributable under a budget breach — a given tier produces a given pass list.
+- Receipt: `QualityVerdict` rides the evidence stream as a `Render`-family fact carrying the active tier and the degrade mask so a tier transition is attributable; the verdict folds the tier-transition count onto the governor instrument.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: a new quality grade is one `QualityTier` row carrying its pass-mask and watermark column; a new degrade axis is one `QualityVerdict` field; zero new surface.
+- Boundary: the governor is the one adaptive-quality owner — the per-owner frame/VRAM/layout-elapsed instruments are enforced locally today with no cross-owner governor, and the `PerfBudget` folds that evidence telemetry back into one quality policy so a second meter or a per-pass ad-hoc throttle is the deleted form; the governor consumes the settled `viewport-pipeline.md#RENDER_GRAPH` `FrameReceipt`, the `viewport-pipeline.md#RESIDENCY_BUDGET` evict and prefetch instruments, the `motion-tokens.md#REDUCED_MOTION` switch, and the `evidence/diagnostics-evidence.md#DEV_LOOP` HUD samples, and emits one `QualityVerdict` that degrades render passes (the pass mask the render graph reads at frame head), the residency watermark (the factor the `ResidencyBudget` scales its watermark by), and the motion tokens (the reduce flag the `ReducedMotion.Observe` swaps) together — the governor consumes evidence and emits one quality verdict, never a second meter; the tier transition rides a hysteresis band so the tier degrades deterministically and the render-hash lane pins a tier so a budget-breach frame is reproducible; the verdict is the only quality authority so a per-pass throttle, a per-screen quality flag, or a second residency watermark owner is the rejected form.
+
+```csharp signature
+[SmartEnum<string>]
+public sealed partial class QualityTier {
+    public static readonly QualityTier Ultra = new("ultra", rank: 4, pathTraceSamples: 256, simVolume: true, lodPixelScale: 1.0, watermarkFactor: 1.0, reduceMotion: false);
+    public static readonly QualityTier High = new("high", rank: 3, pathTraceSamples: 128, simVolume: true, lodPixelScale: 1.0, watermarkFactor: 1.0, reduceMotion: false);
+    public static readonly QualityTier Balanced = new("balanced", rank: 2, pathTraceSamples: 64, simVolume: true, lodPixelScale: 1.5, watermarkFactor: 0.8, reduceMotion: false);
+    public static readonly QualityTier Conservative = new("conservative", rank: 1, pathTraceSamples: 16, simVolume: false, lodPixelScale: 2.5, watermarkFactor: 0.6, reduceMotion: true);
+    public static readonly QualityTier Floor = new("floor", rank: 0, pathTraceSamples: 0, simVolume: false, lodPixelScale: 4.0, watermarkFactor: 0.4, reduceMotion: true);
+
+    public int Rank { get; }
+    public int PathTraceSamples { get; }
+    public bool SimVolume { get; }
+    public double LodPixelScale { get; }
+    public double WatermarkFactor { get; }
+    public bool ReduceMotion { get; }
+
+    private static readonly Lazy<FrozenDictionary<int, QualityTier>> ByRank =
+        new(static () => Items.ToFrozenDictionary(static row => row.Rank));
+
+    public static Option<QualityTier> Ranked(int rank) =>
+        ByRank.Value.TryGetValue(Math.Clamp(rank, 0, 4), out var row) ? Optional(row) : None;
+}
+
+public readonly record struct PerfSample(Duration FrameElapsed, Duration GpuElapsed, long VramBytes, long ResidencyEvicts, Duration LayoutElapsed, Instant At) {
+    public static PerfSample Of(HudSample hud, long evicts, Duration layout, Instant at) =>
+        new(hud.FrameElapsed, hud.GpuElapsed, hud.VramBytes, evicts, layout, at);
+}
+
+public readonly record struct QualityVerdict(QualityTier Tier, int PathTraceSamples, bool SimVolume, double LodPixelScale, double WatermarkFactor, bool ReduceMotion, Instant At) {
+    public static QualityVerdict Of(QualityTier tier, Instant at) =>
+        new(tier, tier.PathTraceSamples, tier.SimVolume, tier.LodPixelScale, tier.WatermarkFactor, tier.ReduceMotion, at);
+}
+
+public sealed record PerfBudget(FrameBudget Budget, double HysteresisFraction, QualityTier Active) {
+    public const string TierInstrument = "rasm.appui.evidence.quality-tier";
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, TierInstrument);
+
+    public QualityVerdict Govern(PerfSample sample) =>
+        sample.FrameElapsed > Budget.Frame || sample.VramBytes > Budget.VramBytes
+            ? Step(Active.Rank - 1, sample.At)
+            : sample.FrameElapsed < Budget.Frame * (1.0 - HysteresisFraction) && sample.VramBytes < (long)(Budget.VramBytes * (1.0 - HysteresisFraction))
+                ? Step(Active.Rank + 1, sample.At)
+                : QualityVerdict.Of(Active, sample.At);
+
+    private static QualityVerdict Step(int rank, Instant at) =>
+        QualityTier.Ranked(rank).Match(
+            Some: tier => QualityVerdict.Of(tier, at),
+            None: () => QualityVerdict.Of(QualityTier.Floor, at));
+}
+```
+
+```mermaid
+flowchart LR
+    FrameReceipt --> PerfSample
+    HudSample --> PerfSample
+    PerfSample --> PerfBudget
+    PerfBudget --> QualityVerdict
+    QualityVerdict -->|pass mask| RenderGraph
+    QualityVerdict -->|watermark factor| ResidencyBudget
+    QualityVerdict -->|reduce flag| ReducedMotion
+```
+
+## [8]-[TS_PROJECTION]
 
 - Owner: `EvidenceReceiptWire`, `SurfaceReceiptWire`, `NativeAssetFactWire`, `SkewBandWire`, `EvidenceRowWire`, `EvidenceTimelineWire` — the evidence wire contract; the command case composes the settled command receipt wire shape.
 - Packages: BCL inbox
@@ -384,6 +460,6 @@ interface EvidenceTimelineWire {
 }
 ```
 
-## [8]-[RESEARCH]
+## [9]-[RESEARCH]
 
 - [DEV_LOOP_STRIP]: HotAvalonia Release closure strip and markup-loader floor resolution against the central Avalonia pin, verified against the built project MSBuild closure at implementation.

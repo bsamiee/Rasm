@@ -38,13 +38,17 @@
 [PUBLIC_TYPE_SCOPE]: floating UI hook options family
 - rail: position + interaction
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]   | [RAIL]                                                                             |
-| :-----: | :------------------------------ | :-------------- | :--------------------------------------------------------------------------------- |
-|   [1]   | `UseFloatingOptions<RT>`        | hook config     | extends `@floating-ui/react-dom` options + `rootContext`, `onOpenChange`, `nodeId` |
-|   [2]   | `UseFloatingReturn<RT>`         | hook result     | extends react-dom return + `context: FloatingContext<RT>`                          |
-|   [3]   | `UseFloatingRootContextOptions` | root config     | `open?`, `onOpenChange?`, `elements`                                               |
-|   [4]   | `UseFloatingData`               | position data   | `Prettify<UseFloatingReturn>`                                                      |
-|   [5]   | `UseInteractionsReturn`         | merged prop fns | `getReferenceProps`, `getFloatingProps`, `getItemProps`                            |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]   | [RAIL]                                                                                                                                      |
+| :-----: | :------------------------------ | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
+|   [1]   | `UseFloatingOptions<RT>`        | hook config     | extends `@floating-ui/react-dom` options + `rootContext`, `onOpenChange`, `nodeId`                                                          |
+|   [2]   | `UseFloatingReturn<RT>`         | hook result     | extends react-dom return + `context: FloatingContext<RT>`                                                                                   |
+|   [3]   | `UseFloatingRootContextOptions` | root config     | `open?`, `onOpenChange?`, `elements`                                                                                                        |
+|   [4]   | `UseFloatingData`               | position data   | `Prettify<UseFloatingReturn>`                                                                                                               |
+|   [5]   | `UseInteractionsReturn`         | merged prop fns | `getReferenceProps`, `getFloatingProps`, `getItemProps`                                                                                     |
+|   [6]   | `UseClickProps`                 | hook config     | `enabled?`, `event?: 'click' \| 'mousedown'`, `toggle?`, `ignoreMouse?`, `keyboardHandlers?`                                                |
+|   [7]   | `UseFocusProps`                 | hook config     | `enabled?`, `visibleOnly?`                                                                                                                  |
+|   [8]   | `UseRoleProps`                  | hook config     | `enabled?`, `role?: 'dialog' \| 'alertdialog' \| 'tooltip' \| 'menu' \| 'listbox' \| 'grid' \| 'tree' \| 'select' \| 'label' \| 'combobox'` |
+|   [9]   | `UseDismissProps`               | hook config     | `enabled?`, `escapeKey?`, `outsidePress?`, `referencePress?`, `ancestorScroll?`, `bubbles?`                                                 |
 
 [PUBLIC_TYPE_SCOPE]: component props family
 - rail: render

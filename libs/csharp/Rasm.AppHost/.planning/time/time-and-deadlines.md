@@ -1,6 +1,6 @@
 # [APPHOST_TIME_AND_DEADLINES]
 
-One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement, NodaTime `IClock` owns semantic instants, and one injected `ClockPolicy` record pairs them — consumer capsules bind the pair at construction. `DeadlineClass` is the nine-row bound vocabulary that every duration literal in the four packages traces to, and `SchedulePort` is the suite's single scheduler — Cronos cron rows and fixed-period rows carry every scheduled concern, with maintenance-lease policy values deciding cross-process ownership. BCL temporal shapes cross only at the admission seam, receipts stamp `Instant` and `Duration`, and the test row swaps deterministic fakes through the same record.
+One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement, NodaTime `IClock` owns semantic instants, and one injected `ClockPolicy` record pairs them — consumer capsules bind the pair at construction. `DeadlineClass` is the nine-row bound vocabulary that every duration literal in the four packages traces to, `SchedulePort` is the suite's single scheduler — Cronos cron rows and fixed-period rows carry every scheduled concern, with maintenance-lease policy values deciding cross-process ownership — and `FencingToken` rides that maintenance lease as the monotone single-writer correctness proof a timeout alone cannot give. BCL temporal shapes cross only at the admission seam, receipts stamp `Instant` and `Duration`, and the test row swaps deterministic fakes through the same record.
 
 ## [1]-[INDEX]
 
@@ -9,6 +9,7 @@ One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement
 |   [1]   | CLOCK_SPLIT       | One injected clock pair; elapsed versus semantic time; sentinel admission |
 |   [2]   | DEADLINE_TAXONOMY | Nine deadline rows; every suite duration literal traces here              |
 |   [3]   | SCHEDULE_PORT     | The suite scheduler; cron and period rows; lease values                   |
+|   [4]   | FENCING_TOKEN     | Monotone single-writer token; Kleppmann reject-lower over the lease       |
 
 ## [2]-[CLOCK_SPLIT]
 
@@ -134,7 +135,7 @@ public static class DeadlineOps {
 - Receipt: every occurrence run yields its `DeadlineReceipt` paired with the work outcome, and `Heartbeat` folds a not-met receipt into `SupportTrigger.WatchdogTimeout` carrying the firing `ScheduleEntry` — the watchdog signal the support owner consumes, composed from the receipt with no watchdog service type.
 - Packages: Cronos, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing
 - Growth: a new scheduled concern is one `ScheduleEntry` row registered by its consumer, a new occurrence grammar is one case on `OccurrenceSpec`, a new fleet cadence is one `CronCadence` row, and a fleet-spread concern is one `ScheduleEntry.Spread` call; zero new surface.
-- Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary; second-resolution rows admit through `CronFormat.IncludeSeconds` and a fleet-spread cron row admits through `OccurrenceSpec.Fleet`, which routes the cadence keyword to the matching `{Yearly,Weekly,Monthly,Daily,Hourly,EveryMinute}WithJitter(int jitterSeed)` template and falls through to the four-arg `CronExpression.TryParse(expression, format, jitterSeed, out)` for a literal expression carrying an `H` field, while `EverySecond` carries no jitter template so a second-resolution fleet row is the rejected case; `ScheduleEntry.Spread` derives that `jitterSeed` from the schedule key through `XxHash3.HashToUInt64` over the UTF-8 key bytes, folded to `int`, so fleet spreading of a shared cron row is one cross-process-stable schedule-key-derived seed value rather than the per-process-randomized `string.GetHashCode`, and a process restart re-parses the identical spread expression, never a hand-edited expression; the `Annual` case carries a calendar-recurring `AnnualDate` resolved through `InYear(...).At(...).InZoneStrictly` so a once-a-year rollup row maps its local wall-time to a UTC instant under the strict resolver, never a hand-built leap-day branch; `Missed` detects a skipped occurrence through `GetPreviousOccurrence` against the last-fired stamp, `Window` audits a bounded ascending backfill through `GetOccurrences`, and `WindowDescending` reads the most-recent-first audit through `GetOccurrencesDescending`, so a missed-occurrence sweep reads occurrence history rather than tracking a running counter; `Span` reports the calendar gap between two stamps through `Period.Between` over zoned local date-times — the only calendar-difference surface a retention or lease-age report reads, never a `Duration`-to-days division; `OccurrenceSpec.Identical` compares two specs through `CronExpression.Equals` on the cron arm so a reload that re-parses an unchanged expression text is recognized as the same schedule and never re-registers; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `CrashStaleness` exceeds the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain; a watchdog is a heartbeat row plus a deadline class, never a service type.
+- Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary; second-resolution rows admit through `CronFormat.IncludeSeconds` and a fleet-spread cron row admits through `OccurrenceSpec.Fleet`, which routes the cadence keyword to the matching `{Yearly,Weekly,Monthly,Daily,Hourly,EveryMinute}WithJitter(int jitterSeed)` template and falls through to the four-arg `CronExpression.TryParse(expression, format, jitterSeed, out)` for a literal expression carrying an `H` field, while `EverySecond` carries no jitter template so a second-resolution fleet row is the rejected case; `ScheduleEntry.Spread` derives that `jitterSeed` from the schedule key through `XxHash3.HashToUInt64` over the UTF-8 key bytes, folded to `int`, so fleet spreading of a shared cron row is one cross-process-stable schedule-key-derived seed value rather than the per-process-randomized `string.GetHashCode`, and a process restart re-parses the identical spread expression, never a hand-edited expression; the `Annual` case carries a calendar-recurring `AnnualDate` resolved through `InYear(...).At(...).InZoneStrictly` so a once-a-year rollup row maps its local wall-time to a UTC instant under the strict resolver, never a hand-built leap-day branch; `Missed` detects a skipped occurrence through `GetPreviousOccurrence` against the last-fired stamp, `Window` audits a bounded ascending backfill through `GetOccurrences`, and `WindowDescending` reads the most-recent-first audit through `GetOccurrencesDescending`, so a missed-occurrence sweep reads occurrence history rather than tracking a running counter; `Span` reports the calendar gap between two stamps through `Period.Between` over zoned local date-times — the only calendar-difference surface a retention or lease-age report reads, never a `Duration`-to-days division; `OccurrenceSpec.Identical` compares two specs through `CronExpression.Equals` on the cron arm so a reload that re-parses an unchanged expression text is recognized as the same schedule and never re-registers; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `CrashStaleness` exceeds the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain; a watchdog is a heartbeat row plus a deadline class, never a service type; the `Heartbeat` crossing into observability#SUPPORT_CAPTURE binds the wire-stable schedule `Key` and `DeadlineReceipt` as the cross-owner contract — the live `ScheduleEntry` with its `Func<IO<Unit>> Work` closure stays process-local and never rides into the support owner's manifest or any serialized trigger, so the seam couples to the schedule-key contract, not the scheduler's delegate-bearing interior.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -300,3 +301,40 @@ Consumers register rows, never ports — the registered set at composition:
 |   [6]   | fleet-rollup              | `@yearly`+jitter          | support-window    | none              |
 
 The heartbeat period is one policy value fixed at 3 × the health-probe row; one heartbeat row exists per watched child or peer. Maintenance work executes only while the registering process holds the maintenance lease; `LeasePolicy.Maintenance` carries the reclamation value both release routes share. The fleet-rollup row registers through `ScheduleEntry.Spread` so its `@yearly`+jitter occurrence carries a deterministic `XxHash3`-derived seed off the row key — every fleet node computes the identical seed from the shared key, the `H` field distributes the nodes across the cadence window, and each rollup run emits its `DeadlineReceipt` through the same `Run` path under the support-window deadline with no fleet-specific instrument; a not-met rollup folds through `Heartbeat` into `SupportTrigger.WatchdogTimeout` like every other watched row.
+
+## [5]-[FENCING_TOKEN]
+
+- Owner: `FencingToken` `[ValueObject<ulong>]` monotone single-writer token; `LeaseElection` static acquire-and-fence surface extending `LeasePolicy.Maintenance`.
+- Entry: `Admits(FencingToken incoming)` is the Kleppmann reject-lower predicate the resource enforces — a write carrying a token strictly below the latest accepted one is rejected; `Acquire(LeaseElection.Runtime runtime)` returns `Fin<FencingToken>` minting one strictly-increasing token per maintenance-lease acquisition.
+- Packages: Thinktecture.Runtime.Extensions, NodaTime, System.IO.Hashing, LanguageExt.Core, BCL inbox
+- Growth: a new fenced resource reads the same `Admits` predicate, never a second token type; a new election driver acquires through the same maintenance-lease `Acquire`; zero new surface.
+- Boundary: the token must be checked by the resource, not merely held — a timeout-only lease is unsafe under a paused holder, and a resumed stale holder presents a lower token the fenced write rejects through `Admits`; the election reuses the `LeasePolicy.Maintenance` `CrashStaleness` window as the lease timeout but the token is the correctness proof the timeout alone cannot give; the token is monotone by `ulong` increment, value-keyed so `>`/`>=` compare on the owner under the generated key operators, and crosses the wire as the same decimal-string width as the HLC `Logical` half so the op-log cursor and the fence read one monotone identity; the maintenance-lease election at SCHEDULE_PORT, the provisioning#ROLLOVER_DRAIN `FleetRoll` conductor election, and the sidecar companion#PROCESS_MODALITY write-forward each acquire through this one rail and the store fences the token at Persistence/server-tier, aligned to a sibling branch, never coupled; a held lease without a fenced token is the rejected form.
+
+```csharp signature
+[ValueObject<ulong>(
+    ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
+    EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
+public readonly partial struct FencingToken {
+    public static readonly FencingToken Zero = Create(0UL);
+
+    public FencingToken Next() => Create((ulong)this + 1UL);
+
+    public bool Admits(FencingToken incoming) => incoming >= this;
+}
+
+public static class LeaseElection {
+    public sealed record Runtime(
+        Atom<FencingToken> Latest,
+        Func<LeasePolicy, Fin<Unit>> AcquireLease,
+        LeasePolicy Lease);
+
+    public static Fin<FencingToken> Acquire(Runtime runtime) =>
+        runtime.AcquireLease(runtime.Lease)
+            .Map(_ => runtime.Latest.Swap(static current => current.Next()));
+
+    public static Fin<Unit> Fence(Runtime runtime, FencingToken incoming) =>
+        runtime.Latest.Value.Admits(incoming)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(Error.New($"<fenced-stale-token:{(ulong)incoming}<{(ulong)runtime.Latest.Value}>"));
+}
+```

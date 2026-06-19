@@ -51,6 +51,7 @@ from tools.assay.core.model import (  # noqa: TC001  # beartype resolves the Too
     Artifact,
     ArtifactKind,
     Check,
+    Claim,
     Completed,
     ExecReceipt,
     Fault,
@@ -942,6 +943,8 @@ def _captured_outputs(plan: _ExecPlan, stdout: bytes, stderr: bytes) -> dict[str
 
 def _capture_payload(plan: _ExecPlan, name: str, payload: bytes) -> Captured:
     path = ""
+    if plan.check.tool.claim is Claim.PROVISION:
+        return Captured(full=payload, preview=payload[-plan.tail_cap :], size=len(payload), lines=_line_count(payload))
     match plan.scope:
         case ArtifactScope(store=store):
             path = store.write_bytes(payload, *_process_parts(plan, name))
@@ -968,6 +971,8 @@ def _process_parts(plan: _ExecPlan, name: str) -> tuple[str, str, str, str, str]
 
 
 def _stream_writer(plan: _ExecPlan, name: str) -> tuple[str, _WriteContext | None]:
+    if plan.check.tool.claim is Claim.PROVISION:
+        return "", None
     match plan.scope:
         case None:
             return "", None

@@ -17,18 +17,18 @@
 - rail: graph
 - payloads are arbitrary Python objects; integer indices are stable and never recycled
 
-| [INDEX] | [SYMBOL]              | [GRAPH_KIND]     | [ADDED_MEMBERS]                                                                    |
-| :-----: | :-------------------- | :--------------- | :--------------------------------------------------------------------------------- |
-|   [1]   | `rustworkx.PyGraph`   | undirected       | `multigraph` gate on parallel edges                                                |
-|   [2]   | `rustworkx.PyDiGraph` | directed         | `in_degree`, `out_degree`, `predecessors`, `successors`, `reverse`, `is_symmetric` |
-|   [3]   | `rustworkx.PyDAG`     | directed acyclic | `check_cycle` guard plus the full `PyDiGraph` surface                              |
+| [INDEX] | [SYMBOL]              | [GRAPH_KIND]     | [ADDED_MEMBERS]                                                                                                                 |
+| :-----: | :-------------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------ |
+|   [1]   | `rustworkx.PyGraph`   | undirected       | `multigraph` gate on parallel edges                                                                                             |
+|   [2]   | `rustworkx.PyDiGraph` | directed         | `in_degree`, `out_degree`, `predecessors`, `successors`, `reverse`, `is_symmetric`, `merge_nodes`, `can_contract_without_cycle` |
+|   [3]   | `rustworkx.PyDAG`     | directed acyclic | `check_cycle` guard plus the full `PyDiGraph` surface                                                                           |
 
 [PUBLIC_TYPE_SCOPE]: shared graph members
 - rail: graph
 
 | [INDEX] | [MEMBER_FAMILY] | [MEMBERS]                                                                                                                                 |
 | :-----: | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | mutation        | `add_node`, `add_nodes_from`, `add_edge`, `add_edges_from`, `remove_node`, `remove_edge`, `contract_nodes`, `merge_nodes`, `clear`        |
+|   [1]   | mutation        | `add_node`, `add_nodes_from`, `add_edge`, `add_edges_from`, `remove_node`, `remove_edge`, `contract_nodes`, `clear`                       |
 |   [2]   | query           | `get_node_data`, `get_edge_data`, `has_node`, `has_edge`, `num_nodes`, `num_edges`, `node_indices`, `edge_indices`, `neighbors`, `degree` |
 |   [3]   | derivation      | `subgraph`, `subgraph_with_nodemap`, `edge_subgraph`, `copy`, `filter_nodes`, `filter_edges`, `compose`, `substitute_node_with_subgraph`  |
 |   [4]   | IO/export       | `to_dot`, `read_edge_list`, `write_edge_list`, `extend_from_edge_list`, `extend_from_weighted_edge_list`                                  |

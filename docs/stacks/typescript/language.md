@@ -84,22 +84,25 @@ Use these contracts when the chooser names the form but code still needs a place
 - Boundary: a vocabulary whose rows carry runtime behavior — schedule, status, log level — is a policy owner read by `surfaces-and-dispatch.md`; this site owns the type-level derivation algebra.
 
 ```ts conceptual
-const _Handlers = {
-  create: { method: "POST"   as const, idempotent: false, returns: "entity" as const },
-  read:   { method: "GET"    as const, idempotent: true,  returns: "option" as const },
-  remove: { method: "DELETE" as const, idempotent: true,  returns: "void"   as const },
-} as const satisfies Record<string, { method: string; idempotent: boolean; returns: string }>
+import { Effect, Option } from "effect"
 
-type _Action = keyof typeof _Handlers
-type _ActionResult<K extends _Action> =
-  (typeof _Handlers)[K]["returns"] extends "entity" ? Effect.Effect<_Entity, _NotFound>
-  : (typeof _Handlers)[K]["returns"] extends "option" ? Effect.Effect<Option.Option<_Entity>, never>
-  : Effect.Effect<void, _NotFound>
+const _Verbs = {
+  read:   { idempotent: true,  returns: "option" as const },
+  open:   { idempotent: false, returns: "row"    as const },
+  retire: { idempotent: true,  returns: "void"   as const },
+} as const satisfies Record<string, { idempotent: boolean; returns: "row" | "option" | "void" }>
 
-declare const _dispatch: <K extends _Action>(
-  action: K,
-  payload: NoInfer<{ readonly tenantId: string }>,
-) => _ActionResult<K>
+type _Verb = keyof typeof _Verbs
+type _Key<K extends _Verb> = string & { readonly verb: K } // per-verb key so NoInfer is load-bearing, not inert
+type _Result<K extends _Verb> = // one conditional return carries the per-key polymorphism; an overload family is the rejected form
+  (typeof _Verbs)[K]["returns"] extends "row"    ? Effect.Effect<Row, Missing>
+  : (typeof _Verbs)[K]["returns"] extends "option" ? Effect.Effect<Option.Option<Row>, never>
+  : Effect.Effect<void, Missing>
+
+const _dispatch = <K extends _Verb>(verb: K, key: NoInfer<_Key<K>>): _Result<K> => // NoInfer pins K from verb alone, so key conforms and never widens the union
+  (_Verbs[verb].returns === "row"    ? _store.row(key)
+  : _Verbs[verb].returns === "option" ? _store.find(key)
+  :                                     _store.retire(key)) as _Result<K>
 ```
 
 [TYPE_PARAMETER_SITE]:
@@ -110,17 +113,23 @@ declare const _dispatch: <K extends _Action>(
 - Boundary: recursion past the instantiation depth limit uses a tuple-accumulator budget; a deeper transform is quarantined, never left to hit the cap.
 
 ```ts conceptual
-type _Decompose<T> = T extends Effect.Effect<infer A, infer E, infer R>
+import { Effect } from "effect"
+
+type _Channels<T> = [T] extends [Effect.Effect<infer A, infer E, infer R>] // [T] unit-wraps so a carrier union never distributes; one infer pass decomposes all three channels
   ? { readonly success: A; readonly error: E; readonly context: R }
   : never
 
-type _Paths<T, Depth extends ReadonlyArray<unknown> = []> =
-  Depth["length"] extends 8 ? never
+type _Paths<T, Trail extends ReadonlyArray<unknown> = []> = // tuple accumulator budgets recursion below the instantiation-depth cap
+  Trail["length"] extends 8 ? never
+  : T extends ReadonlyArray<unknown> ? never
   : T extends object
-    ? { [K in keyof T & string]: K | `${K}.${_Paths<T[K], [...Depth, unknown]>}` }[keyof T & string]
+    ? { [K in keyof T & string]: K | `${K}.${_Paths<T[K], [...Trail, unknown]>}` }[keyof T & string]
     : never
 
-type _ServiceOf<out A, out E, in R> = { readonly run: (deps: R) => Effect.Effect<A, E> }
+interface _Resolver<out A, out E, in R> { // declaration-site variance: A/E produced, R consumed, so assignability is pinned at the type, never lazily inferred
+  readonly run: (deps: R) => Effect.Effect<A, E>
+  readonly at: <P extends _Paths<A>>(path: NoInfer<P>) => (deps: R) => Effect.Effect<A, E> // NoInfer forces P to conform to the derived path family; R stays input-only, so `in R` holds
+}
 ```
 
 [PROJECTION_ALGEBRA_SITE]:
@@ -131,14 +140,15 @@ type _ServiceOf<out A, out E, in R> = { readonly run: (deps: R) => Effect.Effect
 - Boundary: a homomorphic mapped type (`keyof T`) preserves source modifiers; a non-homomorphic one starts fresh — modifier inheritance is the selection axis, not a style choice.
 
 ```ts conceptual
-type _Entity = {
-  readonly id: string; readonly tenantId: string; readonly name: string
-  readonly status: "active" | "archived" | "purging"; readonly createdAt: Date
+type Row = { // pure structural anchor, no runtime authority; a Schema-anchored row routes projection to Schema.pick/omit instead
+  readonly id: string; readonly owner: string; readonly label: string
+  readonly state: "active" | "archived" | "purging"; readonly stamped: Date
 }
-type _EntityKey   = Pick<_Entity, "id" | "tenantId">
-type _EntityPatch = Partial<Pick<_Entity, "name" | "status">>
-type _Terminal    = Exclude<_Entity["status"], "active" | "archived">
-type _Accessors   = { +readonly [K in keyof _Entity as `get${Capitalize<string & K>}`]-?: () => _Entity[K] }
+type _Key      = Pick<Row, "id" | "owner">                    // projection by membership
+type _Patch    = Partial<Pick<Row, "label" | "state">>        // optional lift over a projection
+type _Terminal = Exclude<Row["state"], "active" | "archived"> // union filter by assignability narrows to "purging"
+type _Frozen   = { readonly [K in keyof Row]: Row[K] }        // homomorphic: keyof Row inherits source readonly modifiers
+type _Probes   = { +readonly [K in keyof Row as `peek${Capitalize<K & string>}`]-?: () => Row[K] } // non-homomorphic remap: modifiers start fresh, set explicitly
 ```
 
 [MODULE_SURFACE_SITE]:
@@ -149,21 +159,22 @@ type _Accessors   = { +readonly [K in keyof _Entity as `get${Capitalize<string &
 - Boundary: package topology and the browser/node/neutral publication split belong to the Nx module-boundary tag graph in the workspace manifest; this site owns the per-module export shape.
 
 ```ts conceptual
+import { Array as A, Data, Number as N } from "effect"
+
 type _Command = Data.TaggedEnum<{
-  readonly Stage: { readonly id: string; readonly weight: number }
-  readonly Promote: { readonly id: string }
+  readonly Stage:  { readonly id: string; readonly weight: number }
+  readonly Hold:   { readonly id: string }
   readonly Retire: { readonly id: string }
 }>
-const _Command = Data.taggedEnum<_Command>()
+const _Command: Data.TaggedEnum.Constructor<_Command> = Data.taggedEnum<_Command>() // explicit type: an exported surface is isolatedDeclarations-emittable
 
-export const dispatch = (env: { readonly floor: number }) => {
-  const _weighted = _Command.$match({ // closure captures env.floor; never floated at module level
-    Stage: ({ id, weight }) => `${id}=${Math.max(weight, env.floor)}`,
-    Promote: ({ id }) => `${id}^`,
+export const dispatch = (env: { readonly floor: number }): (commands: readonly [_Command, ...ReadonlyArray<_Command>]) => ReadonlyArray<string> => { // floor is captured once, so _render is a module-semantic anchor, not a per-call rebuild
+  const _render = _Command.$match({ // $match is the sole egress; a fourth verb breaks here at compile time
+    Stage:  ({ id, weight }) => `${id}=${N.max(weight, env.floor)}`,
+    Hold:   ({ id }) => `${id}~`,
     Retire: ({ id }) => `${id}-`,
   })
-  return (commands: readonly [_Command, ...ReadonlyArray<_Command>]): ReadonlyArray<string> =>
-    Array.map(commands, _weighted) // one entrypoint; arity rides the non-empty tuple, verb rides the tag
+  return (commands) => A.map(commands, _render) // one entrypoint; arity rides the non-empty tuple, verb rides the tag, no batch flag
 }
 ```
 
@@ -175,6 +186,8 @@ export const dispatch = (env: { readonly floor: number }) => {
 - Boundary: cause-bearing absence — unavailable, degraded, pending — is a tagged family owned by `boundaries.md`, never `Option.none`; this site owns the no-cause absence form.
 
 ```ts conceptual
+import { Array, Effect, Option, ParseResult, Schema } from "effect"
+
 const _Severity = { info: 0, warn: 1, error: 2 } as const satisfies Record<string, number>
 
 const _Row = Schema.Struct({
@@ -210,6 +223,8 @@ const _summarize = (raw: ReadonlyArray<unknown>): Effect.Effect<string, ParseRes
 - Boundary: the worker/marshal and event-callback statement seams are owned by `boundaries.md`; this site owns the in-process compute kernel exemption.
 
 ```ts conceptual
+import { ParseResult, Schema } from "effect"
+
 const _scanFrames = (bytes: Uint8Array): ReadonlyArray<number> => {
   const offsets: Array<number> = [] // BOUNDARY ADAPTER: measured parse kernel, result detaches as readonly
   for (let i = 0; i + 4 <= bytes.length; i += 4) {

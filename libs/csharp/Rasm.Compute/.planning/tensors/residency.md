@@ -65,7 +65,7 @@ public static class TensorBridge {
                 count != destination.FlattenedLength
                     ? TensorFault.Fail<Unit>("egress-undersized", row.Key, $"{count}!={destination.FlattenedLength}")
                 : row.Quantized
-                    ? Effects.ToFin(() => value.GetTensorMutableRawData())
+                    ? Effects.ToFin(() => value.GetTensorDataAsSpan<T>().CopyTo(MemoryMarshal.CreateSpan(ref destination.GetPinnableReference(), checked((int)destination.FlattenedLength))))
                     : Effects.ToFin(() => value.GetTensorDataAsTensorSpan<T>().CopyTo(destination))));
 
     public static Fin<Unit> EgressFlat<T>(OrtValue value, Span<T> destination) where T : unmanaged =>

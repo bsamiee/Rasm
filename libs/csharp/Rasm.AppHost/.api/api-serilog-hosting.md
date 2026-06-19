@@ -28,11 +28,13 @@
 [ENTRYPOINT_SCOPE]: host builder registration
 - rail: telemetry
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] | [RAIL]                                  |
-| :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------- |
-|   [1]   | `UseSerilog(builder, logger?, dispose?, providers?)`                                          | static logger  | binds a pre-built `ILogger` to the host |
-|   [2]   | `UseSerilog(builder, Action<HostBuilderContext, LoggerConfiguration>, ...)`                   | contextual     | builds logger from host context         |
-|   [3]   | `UseSerilog(builder, Action<HostBuilderContext, IServiceProvider, LoggerConfiguration>, ...)` | service-aware  | resolves services during configuration  |
+Host-builder registration has three overload families: static logger, host-context logger, and service-aware logger.
+
+| [INDEX] | [SURFACE]    | [ENTRY_FAMILY] | [CONFIG_INPUT]                                           | [RAIL]                                  |
+| :-----: | :----------- | :------------- | :------------------------------------------------------- | :-------------------------------------- |
+|   [1]   | `UseSerilog` | static logger  | pre-built `ILogger`                                      | binds a pre-built `ILogger` to the host |
+|   [2]   | `UseSerilog` | host-context   | `HostBuilderContext` + `LoggerConfiguration`             | builds logger from host context         |
+|   [3]   | `UseSerilog` | service-aware  | `HostBuilderContext` + `IServiceProvider` + config       | resolves services during configuration  |
 
 [ENTRYPOINT_SCOPE]: service collection registration
 - rail: telemetry

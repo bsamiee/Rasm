@@ -10,14 +10,14 @@ One cluster: `[2]-[CUT_PROGRAM]` owns the `GCommand`/`LeadStyle` axes, the `GWor
 
 ## [2]-[CUT_PROGRAM]
 
-- Owner: `GCommand` `[SmartEnum<string>]` the closed RS-274 command axis (`rapid`/`feed`/`arc-cw`/`arc-ccw`/`dwell`/`spindle`/`coolant`/`program-end`) carrying its G/M code; `GWord` the one program block (the command plus its word-addressed parameters X/Y/Z/I/J/F); `LeadStyle` `[SmartEnum<string>]` the lead-in/out geometry axis (`none`/`line`/`arc`); `CutProgram` the typed G-code AST plus the `Emit` fold to RS-274 text; `Posting` the static surface owning `Post` (the `Motion`/`Placement`-to-`CutProgram` fold), `Kerf` (the half-width offset), `Lead` (the lead-in/out arc), `Tabs` (the micro-bridge gaps), and `Sequence` (the crash-safe cut order).
+- Owner: `GCommand` `[SmartEnum<string>]` the closed RS-274 command axis (`rapid`/`feed`/`arc-cw`/`arc-ccw`/`dwell`/`spindle`/`coolant`/`program-end`) carrying its G/M code; `GWord` the one program block (the command plus its word-addressed parameters X/Y/Z/I/J/F); `LeadStyle` `[SmartEnum<string>]` the lead-in/out geometry axis (`none`/`line`/`arc`); `PostPolicy` the conditioning knobs carrying the kerf width, lead style and radius, tab width and spacing, and the `Profiles` part library plus the `Placed` part-transform resolver; `CutProgram` the typed G-code AST plus the `Emit` fold to RS-274 text; `Posting` the static surface owning `Post` (the `Motion`/`Placement`-to-`CutProgram` fold), `Kerf` (the half-width offset), `Simplify` (the collinear-run collapse over the `geometry2d/clipper#POLYGON_ALGEBRA` `SimplifyPaths` before the ring walk), `CutPath`/`LeadArc`/`TabbedRing` (the lead-in/out arc and micro-bridge gaps), and `Sequence` (the crash-safe cut order over the `Encloses` containment depth).
 - Cases: `GCommand` rows `rapid` (G0) · `feed` (G1) · `arc-cw` (G2) · `arc-ccw` (G3) · `dwell` (G4) · `spindle` (M3/M5) · `coolant` (M8/M9) · `program-end` (M2/M30) (8); `LeadStyle` rows `none` · `line` · `arc` (3).
 - Entry: `public static Fin<CutProgram> Posting.Post(FrontierResult result, PostPolicy policy)` — `Fin<T>` routes `FabricationFault.OpenLoop` on a non-closed cut contour and `FabricationFault.KerfCollision` when a kerf offset self-intersects (a feature narrower than the kerf), each lowered with `.ToError()`; the body conditions the cut geometry (kerf, lead, tabs, sequence) and folds the conditioned moves into the typed `CutProgram` AST.
-- Auto: `Posting.Post` reads the `FrontierResult` — a `Motion` lowers its `Move` stream directly, a `Placement` lowers each placed part's contour at its `PartTransform`; `Kerf` offsets each closed cut contour inward or outward by half the cut width through the `geometry2d/clipper#POLYGON_ALGEBRA` `Offset` (inside for a hole, outside for an outline), routing `FabricationFault.KerfCollision` when the offset collapses; `Lead` prepends a lead-in and appends a lead-out arc per `LeadStyle` so the pierce point sits off the finished edge; `Tabs` inserts micro-bridge gaps at regular arc-length intervals on the contour so the cut part stays retained in the stock until removal; `Sequence` orders the cuts inner-contour-before-outline (the crash-safe ordering a flat move list lacks); the conditioned moves fold into `GWord` blocks under the `GCommand` axis, and `CutProgram.Emit` renders the word-addressed RS-274 text.
+- Auto: `Posting.Post` reads the `FrontierResult` — a `Motion` lowers its `Move` stream directly, a `Placement` resolves each `PartTransform.PartId` to its `PostPolicy.Profiles` contour and transforms it through `PostPolicy.Placed` (rotation + translation); `Sequence` orders the parts inner-contour-before-outline by the `Encloses` containment depth (a part fully inside another cuts first), the crash-safe ordering a flat move list lacks; `Condition` folds each ordered contour through `Kerf` — the half-width `geometry2d/clipper#POLYGON_ALGEBRA` `Offset` (inward for a `Winding == Negative` hole, outward for an outline), routing `FabricationFault.KerfCollision` when the offset collapses to no ring — then `Simplify` collapses the kerfed contour's collinear runs through the `geometry2d/clipper#POLYGON_ALGEBRA` `SimplifyPaths` at the `SimplifyEpsilon` tolerance (so the emitted G-code carries no redundant collinear `Feed` blocks), then `CutPath` rapids to the `LeadIn` pierce point off the finished edge, runs the `LeadArc` lead-in per `LeadStyle`, walks the `TabbedRing` (cutting `Feed` blocks interrupted by `Rapid` micro-bridge gaps at every `TabSpacing` arc-length interval so the part stays retained in the stock), and runs the lead-out arc back to the pierce point; the conditioned blocks wrap in a `Spindle` prologue and a `ProgramEnd` epilogue under the `GCommand` axis, and `CutProgram.Emit` renders the word-addressed RS-274 text.
 - Receipt: the `CutProgram` carries the typed `GWord` block list, the per-block command and parameters, and the rendered RS-274 text — the typed portable cut-program evidence a downstream consumer writes; no generic post-processor ledger.
-- Packages: `Rasm`/Vectors (`Point3d`/`Vector3d` — composed), `Rasm.Geometry.Numerics` (`Predicate.Orient2D` — settled, the cut-sequence containment verdict), Clipper2 (via `geometry2d/clipper#POLYGON_ALGEBRA` — kerf and lead offset), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Packages: `Rasm`/Vectors (`Point3d`/`Vector3d` — composed), `Rasm.Geometry.Numerics` (`Predicate.Orient2D` — settled, the cut-sequence containment verdict via the shared `frontier/owner#FABRICATION_OWNER` `Loop.Covers`), Clipper2 (via `geometry2d/clipper#POLYGON_ALGEBRA` — kerf and lead offset), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new controller dialect is one `Emit` arm over the same `CutProgram` AST (the AST is dialect-neutral, the text fold is dialect-specific); a 5-axis word set is one parameter column on `GWord`; a torch-height-control word is one `GCommand` row; zero new surface.
-- Boundary: `Posting` is the ONE portable cut-program owner and a per-controller string-builder family is the deleted form — the `CutProgram` AST is dialect-neutral and a new controller dialect lands as one `Emit` arm over the same AST, never a parallel emitter class; the `Emit` `StringBuilder` fold is the named text-rendering boundary — the BCL text-accumulation owner the dialect-neutral word-address render writes through, never a domain mutation; `Post` reads the `FrontierResult` through the generated total `Switch` and a `result switch` pattern cascade with a `_` catch-all is the deleted form — the `HiddenLineResult` arm is a named total case routing `DegenerateInput`, never a default that swallows a new union case; kerf and lead geometry route the one `geometry2d/clipper#POLYGON_ALGEBRA` offset owner and a hand-rolled offset is the deleted form; the portable cut-program is distinct from the Rhino-native file I/O and coexists with it at the data contract, never thinned to feed it; the G-code is a typed `GWord` AST folded to text and a raw string concatenation is the named defect.
+- Boundary: `Posting` is the ONE portable cut-program owner and a per-controller string-builder family is the deleted form — the `CutProgram` AST is dialect-neutral and a new controller dialect lands as one `Emit` arm over the same AST, never a parallel emitter class; the `Emit` `StringBuilder` fold is the named text-rendering boundary — the BCL text-accumulation owner the dialect-neutral word-address render writes through, never a domain mutation; `Post` reads the `FrontierResult` through the generated total `Switch` and a `result switch` pattern cascade with a `_` catch-all is the deleted form — the `HiddenLineResult` arm is a named total case routing `DegenerateInput`, never a default that swallows a new union case; kerf, lead, and collinear-simplification geometry route the one `geometry2d/clipper#POLYGON_ALGEBRA` owner (`Offset` for kerf/lead, `Simplify` over `SimplifyPaths` for the collinear collapse) and a hand-rolled offset or a hand-rolled Douglas-Peucker is the deleted form; the portable cut-program is distinct from the Rhino-native file I/O and coexists with it at the data contract, never thinned to feed it; the G-code is a typed `GWord` AST folded to text and a raw string concatenation is the named defect.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -57,8 +57,14 @@ public sealed partial class LeadStyle {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record PostPolicy(double KerfWidth, LeadStyle Lead, double LeadRadius, double TabWidth, double TabSpacing) {
-    public static readonly PostPolicy Canonical = new(KerfWidth: 0.2, Lead: LeadStyle.Arc, LeadRadius: 3.0, TabWidth: 0.5, TabSpacing: 50.0);
+public sealed record PostPolicy(double KerfWidth, LeadStyle Lead, double LeadRadius, double TabWidth, double TabSpacing, double SimplifyEpsilon, Arr<Loop> Profiles) {
+    public static readonly PostPolicy Canonical = new(KerfWidth: 0.2, Lead: LeadStyle.Arc, LeadRadius: 3.0, TabWidth: 0.5, TabSpacing: 50.0, SimplifyEpsilon: 0.01, Profiles: Arr<Loop>.Empty);
+
+    public Loop Placed(PartTransform t) {
+        double ct = Math.Cos(t.RotationRadians), st = Math.Sin(t.RotationRadians);
+        return new Loop(Profiles[t.PartId].Vertices.Map(v =>
+            new Point3d(v.X * ct - v.Y * st + t.Tx, v.X * st + v.Y * ct + t.Ty, v.Z)).ToArr(), Closed: true);
+    }
 }
 
 public readonly record struct GWord(GCommand Command, Option<double> X, Option<double> Y, Option<double> Z, Option<double> I, Option<double> J, Option<double> F);
@@ -80,16 +86,85 @@ public static class Posting {
             state:            policy,
             hiddenLineResult: static (_, _) => Fin.Fail<CutProgram>(GeometryFault.DegenerateInput("post:hidden-line-result").ToError()),
             motion:           static (_, m) => Fin.Succ(new CutProgram(m.Moves.Map(ToBlock))),
-            placement:        static (pol, p) => Sequence(p.Parts).Bind(ordered => Condition(ordered, pol)));
+            placement:        static (pol, p) => Sequence(p.Parts, pol).Bind(ordered => Condition(ordered, pol)));
 
     static GWord ToBlock(Move m) =>
         new(m.Rapid ? GCommand.Rapid : GCommand.Feed, Some(m.To.X), Some(m.To.Y), Some(m.To.Z), None, None, m.Rapid ? None : Some(m.Feed));
 
-    static Fin<CutProgram> Condition(Seq<PartTransform> ordered, PostPolicy policy) => throw new NotImplementedException();
-    static Fin<Seq<PartTransform>> Sequence(Seq<PartTransform> parts) => throw new NotImplementedException();
+    static Fin<CutProgram> Condition(Seq<PartTransform> ordered, PostPolicy policy) =>
+        ordered.Map(t => policy.Placed(t))
+            .Find(static l => !l.Closed).Match(
+                Some: _ => Fin.Fail<CutProgram>(FabricationFault.OpenLoop("post:open-contour").ToError()),
+                None: () => ordered.Map(t => Kerf(policy.Placed(t), policy).Bind(r => Simplify(r, policy)))
+                    .TraverseM(identity).As()
+                    .Map(kerfed => new CutProgram(Spindle().Concat(kerfed.Bind(loop => CutPath(loop, policy))).Add(End()))));
+
+    static Fin<Loop> Simplify(Loop contour, PostPolicy policy) =>
+        policy.SimplifyEpsilon <= 0.0
+            ? Fin.Succ(contour)
+            : PolygonAlgebra.Simplify(Seq(contour), policy.SimplifyEpsilon)
+                .Bind(rings => rings.HeadOrNone().Match(
+                    Some: r => Fin.Succ(r.AsCcw()),
+                    None: () => Fin.Succ(contour)));
+
+    static Fin<Loop> Kerf(Loop contour, PostPolicy policy) {
+        bool hole = contour.Winding() == Sign.Negative;
+        return PolygonAlgebra.Offset(Seq(contour.AsCcw()), hole ? -0.5 * policy.KerfWidth : 0.5 * policy.KerfWidth, OffsetEnds.Polygon)
+            .Bind(rings => rings.HeadOrNone().Match(
+                Some: r => Fin.Succ(r),
+                None: () => Fin.Fail<Loop>(FabricationFault.KerfCollision($"post:kerf-collapse:{policy.KerfWidth:0.###}").ToError())));
+    }
+
+    static Seq<GWord> CutPath(Loop loop, PostPolicy policy) {
+        Point3d pierce = LeadIn(loop, policy);
+        Seq<GWord> body = TabbedRing(loop, policy);
+        return Seq(new GWord(GCommand.Rapid, Some(pierce.X), Some(pierce.Y), None, None, None, None))
+            .Concat(LeadArc(pierce, loop.At(0), policy))
+            .Concat(body)
+            .Concat(LeadArc(loop.At(0), pierce, policy));
+    }
+
+    static Point3d LeadIn(Loop loop, PostPolicy policy) {
+        Vector3d edge = loop.At(1) - loop.At(0); edge.Unitize();
+        Vector3d nrm = new(-edge.Y, edge.X, 0.0);
+        return loop.At(0) + policy.LeadRadius * nrm;
+    }
+
+    static Seq<GWord> LeadArc(Point3d from, Point3d to, PostPolicy policy) =>
+        policy.Lead.Switch(
+            none: _ => Seq<GWord>(),
+            line: _ => Seq(new GWord(GCommand.Feed, Some(to.X), Some(to.Y), None, None, None, Some(1.0))),
+            arc:  _ => {
+                Point3d center = from + 0.5 * (to - from);
+                return Seq(new GWord(GCommand.ArcCcw, Some(to.X), Some(to.Y), None,
+                    Some(center.X - from.X), Some(center.Y - from.Y), Some(1.0)));
+            });
+
+    static Seq<GWord> TabbedRing(Loop loop, PostPolicy policy) {
+        double acc = 0.0; bool cutting = true;
+        return toSeq(Enumerable.Range(0, loop.Count + 1)).Map(i => {
+            Point3d p = loop.At(i);
+            if (i > 0) acc += loop.At(i - 1).DistanceTo(p);
+            bool inTab = policy.TabSpacing > 1e-9 && acc % policy.TabSpacing < policy.TabWidth;
+            cutting = !inTab;
+            return new GWord(cutting ? GCommand.Feed : GCommand.Rapid, Some(p.X), Some(p.Y), None, None, None, cutting ? Some(1.0) : None);
+        });
+    }
+
+    static Seq<GWord> Spindle() => Seq(new GWord(GCommand.Spindle, None, None, None, None, None, None));
+    static GWord End() => new(GCommand.ProgramEnd, None, None, None, None, None, None);
+
+    static Fin<Seq<PartTransform>> Sequence(Seq<PartTransform> parts, PostPolicy policy) =>
+        Fin.Succ(parts.OrderByDescending(t => Encloses(t, parts, policy)).ToSeq());
+
+    static int Encloses(PartTransform t, Seq<PartTransform> parts, PostPolicy policy) {
+        Loop self = policy.Placed(t);
+        Point3d c = self.Vertices.Fold(Point3d.Origin, static (a, v) => a + v) / Math.Max(1, self.Count);
+        return parts.Count(other => other.PartId != t.PartId && policy.Placed(other).Covers(c));
+    }
 }
 ```
 
 ## [3]-[RESEARCH]
 
-- [CUT_CONDITIONING] The `Condition`/`Sequence` cut-geometry fold is the author depth the portable emitter requires: kerf compensation routes the `geometry2d/clipper#POLYGON_ALGEBRA` `Offset` (half-width inward for a hole, outward for an outline, `FabricationFault.KerfCollision` on a collapsed offset), the lead-in/out arc grounds against the `LeadStyle` geometry over the same Geometry2D open-path offset, the micro-tab gaps insert at `TabSpacing` arc-length intervals, and the crash-safe sequence orders inner contours before their enclosing outline through the exact `Predicate.Orient2D` point-in-polygon containment verdict — the kerf and lead offsets over the settled Geometry2D substrate, the containment over the settled kernel predicate, no second offset owner and no Clipper2 containment re-mint.
+- [CUT_CONDITIONING] The cut-geometry fold is realized as the `Condition`/`Sequence`/`Kerf`/`CutPath`/`TabbedRing` author-kernel: kerf compensation routes the `geometry2d/clipper#POLYGON_ALGEBRA` `Offset` (half-width inward for a `Winding == Negative` hole, outward for an outline, `FabricationFault.KerfCollision` on a collapsed ring), the lead-in/out arc grounds against the `LeadStyle` geometry as an `ArcCcw`/`Feed` `GWord` off the pierce point, the micro-tab gaps interrupt the `Feed` ring with `Rapid` blocks at every `TabSpacing` arc-length interval, and the crash-safe `Sequence` orders parts by the `Encloses` containment depth through the shared `frontier/owner#FABRICATION_OWNER` `Loop.Covers` exact-`Orient2D` containment so an inner contour cuts before its enclosing outline. The settled assumption is the constant `Feed: 1.0` cut-feed scalar and the tab modulo-arc-length gate; the kerf and lead offsets ride the settled Geometry2D substrate and the containment the settled kernel predicate, no second offset owner and no Clipper2 containment re-mint.

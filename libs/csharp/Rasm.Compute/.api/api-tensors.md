@@ -32,13 +32,12 @@ for measured Compute execution.
 [PUBLIC_TYPE_SCOPE]: indexing and marshalling
 - rail: tensor
 
-| [INDEX] | [SYMBOL]           | [NAMESPACE]                      | [CAPABILITY]             |
-| :-----: | :----------------- | :------------------------------- | :----------------------- |
-|   [1]   | `NIndex`           | `System.Buffers`                 | addresses dimensions     |
-|   [2]   | `NRange`           | `System.Buffers`                 | slices dimensions        |
-|   [3]   | `TensorShape`      | `System.Numerics.Tensors`        | carries rank and strides |
-|   [4]   | `TensorMarshal`    | `System.Runtime.InteropServices` | bridges raw tensor refs  |
-|   [5]   | `TensorPrimitives` | `System.Numerics.Tensors`        | executes vectorized ops  |
+| [INDEX] | [SYMBOL]           | [NAMESPACE]                      | [CAPABILITY]            |
+| :-----: | :----------------- | :------------------------------- | :---------------------- |
+|   [1]   | `NIndex`           | `System.Buffers`                 | addresses dimensions    |
+|   [2]   | `NRange`           | `System.Buffers`                 | slices dimensions       |
+|   [3]   | `TensorMarshal`    | `System.Runtime.InteropServices` | bridges raw tensor refs |
+|   [4]   | `TensorPrimitives` | `System.Numerics.Tensors`        | executes vectorized ops |
 
 ## [3]-[ENTRYPOINTS]
 

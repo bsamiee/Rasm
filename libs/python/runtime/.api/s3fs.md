@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `s3fs`
 - package: `s3fs`
 - import: `s3fs`
-- version: `2026.4.0`
 - owner: `runtime`
 - rail: resources
 - namespaces: `s3fs`, `s3fs.core`, `s3fs.mapping`, `s3fs.errors`, `s3fs.utils`
@@ -44,7 +43,7 @@
 - resilience law: transient S3 faults extend through `add_retryable_error`; retry scheduling is the `stamina` owner, not a hand-rolled loop.
 
 [LOCAL_ADMISSION]:
-- s3fs is a fsspec backend row reached by protocol; the filesystem surface and dispatch law arrive settled from `.api/api-fsspec.md`.
+- s3fs is a fsspec backend row reached by protocol; the filesystem surface and dispatch law arrive settled from `.api/fsspec.md`.
 - The runtime owns no durable store; S3 is a transport-and-read resource root, never a product store engine.
 
 [RAIL_LAW]:

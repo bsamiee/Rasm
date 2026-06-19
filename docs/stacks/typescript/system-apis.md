@@ -45,11 +45,16 @@ This table is a lookup by repeated local smell; the owner deletes the smell, nev
 - Law: `Record.keys(vocabulary)` returns the keys typed `Array<keyof typeof vocabulary & string>`, retiring the `Object.keys(v) as ReadonlyArray<K>` widening cast — the `as` that recovers a discriminant the value already proves is the defect; the wire enum derives from the same anchor that drives indexed-access dispatch through `S.Literal(...R.keys(V) as [keyof typeof V, ...Array<keyof typeof V>])`, where the lone surviving cast asserts cardinality (`R.keys` is `Array`, `S.Literal` demands `NonEmptyReadonlyArray`), never membership — a non-emptiness witness on a closed `as const` is a proof the empty-vocabulary case is unreachable, distinct from the banned identity recovery, and never a parallel key list beside the anchor.
 
 ```ts conceptual
-import { Array as A, HashMap, Option } from "effect"
+import { Array as A, Data, HashMap, HashSet, Option } from "effect"
 
-const tally = (rows: ReadonlyArray<{ readonly key: string; readonly count: number }>): HashMap.HashMap<string, number> =>
-  A.reduce(rows, HashMap.empty<string, number>(), (acc, { key, count }) =>
-    HashMap.modifyAt(acc, key, Option.match({ onNone: () => Option.some(count), onSome: (prior) => Option.some(prior + count) })))
+class Row extends Data.Class<{ readonly key: string; readonly count: number }> {} // Equal/Hash auto-derived: structural keying with zero comparator
+
+const tally = (rows: ReadonlyArray<Row>): HashMap.HashMap<string, number> =>      // one structural-sharing transaction lands every write, not a persistent op per row
+  HashMap.mutate(HashMap.empty<string, number>(), (draft) =>
+    A.forEach(rows, ({ key, count }) =>
+      HashMap.set(draft, key, count + Option.getOrElse(HashMap.get(draft, key), () => 0)))) // in-draft set mutates; modifyAt would discard its new map
+
+const seen = (rows: ReadonlyArray<Row>): HashSet.HashSet<Row> => HashSet.fromIterable(rows) // dedupe rides Equal/Hash, never JSON.stringify
 
 const project = (tallies: HashMap.HashMap<string, number>): ReadonlyArray<readonly [string, number]> =>
   A.map(HashMap.toEntries(tallies), ([key, count]) => [key, count] as const)
@@ -116,7 +121,10 @@ const byRank = Order.combineAll<{ readonly priority: number; readonly weight: nu
   Order.mapInput(Order.number, (r) => r.weight),
 ])
 
-const admissible = Predicate.and((r: { readonly active: boolean }) => r.active, (r: { readonly weight: number }) => r.weight > 0)
+const admissible = Predicate.and(
+  (r: { readonly active: boolean; readonly weight: number }) => r.active,
+  (r: { readonly active: boolean; readonly weight: number }) => r.weight > 0,
+)
 
 const saturation = (k: number, cap: number): number =>
   pipe(N.divide(k, cap), Option.map((r) => 1 - N.min(r, 1)), Option.getOrElse(() => 1))

@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `universal-pathlib`
 - package: `universal-pathlib`
 - import: `upath`
-- version: `0.3.10`
 - owner: `runtime`
 - rail: resources
 - namespaces: `upath`, `upath.implementations`, `upath.registry`
@@ -44,7 +43,7 @@
 
 [RESOURCES_TOPOLOGY]:
 - path law: a resource reference is one `UPath` carrying its protocol and `storage_options`; path arithmetic (`/`, `joinpath`, `glob`) is backend-agnostic and the same code serves local and cloud roots.
-- resolution law: `UPath.fs` exposes the fsspec filesystem; the filesystem surface and dispatch law arrive settled from `.api/api-fsspec.md`. `UPath` is the path face, fsspec is the filesystem face — one backend, two views.
+- resolution law: `UPath.fs` exposes the fsspec filesystem; the filesystem surface and dispatch law arrive settled from `.api/fsspec.md`. `UPath` is the path face, fsspec is the filesystem face — one backend, two views.
 - option law: `storage_options`/`protocol=` resolution at construction is load-bearing; credentials and endpoints travel with the path value, never a separate global filesystem handle.
 
 [LOCAL_ADMISSION]:

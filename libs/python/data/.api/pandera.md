@@ -15,20 +15,21 @@
 [PUBLIC_TYPE_SCOPE]: schema, component, and check types
 - rail: dataframe contract validation
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [ROLE]                                  |
-| :-----: | :---------------- | :------------ | :-------------------------------------- |
-|   [1]   | `DataFrameSchema` | object schema | column/index/check contract for a frame |
-|   [2]   | `SeriesSchema`    | object schema | contract for a single series            |
-|   [3]   | `DataFrameModel`  | class schema  | declarative class-based schema          |
-|   [4]   | `Column`          | component     | typed column with checks and parsers    |
-|   [5]   | `Index`           | component     | typed index with checks                 |
-|   [6]   | `MultiIndex`      | component     | hierarchical index contract             |
-|   [7]   | `Check`           | predicate     | column/frame validation predicate       |
-|   [8]   | `Hypothesis`      | predicate     | statistical-test validation predicate   |
-|   [9]   | `Parser`          | transform     | pre-validation column/frame transform   |
-|  [10]   | `DataType`        | dtype         | pandera logical dtype base              |
-|  [11]   | `SchemaError`     | failure       | single validation failure               |
-|  [12]   | `SchemaErrors`    | failure       | aggregated lazy-validation failures     |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]  | [ROLE]                                                                                                         |
+| :-----: | :---------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------- |
+|   [1]   | `DataFrameSchema`                         | object schema  | column/index/check contract for a frame                                                                        |
+|   [2]   | `SeriesSchema`                            | object schema  | contract for a single series                                                                                   |
+|   [3]   | `DataFrameModel`                          | class schema   | declarative class-based schema                                                                                 |
+|   [4]   | `Column`                                  | component      | typed column with checks and parsers                                                                           |
+|   [5]   | `Index`                                   | component      | typed index with checks                                                                                        |
+|   [6]   | `MultiIndex`                              | component      | hierarchical index contract                                                                                    |
+|   [7]   | `Check`                                   | predicate      | column/frame validation predicate                                                                              |
+|   [8]   | `Hypothesis`                              | predicate      | statistical-test validation predicate                                                                          |
+|   [9]   | `Parser`                                  | transform      | pre-validation column/frame transform                                                                          |
+|  [10]   | `DataType`                                | dtype          | pandera logical dtype base                                                                                     |
+|  [11]   | `pandera.errors.SchemaError`              | failure        | single validation failure; `.schema`/`.check` attrs                                                            |
+|  [12]   | `pandera.errors.SchemaErrors`             | failure        | aggregated lazy-validation failures; `.failure_cases` frame (`column`/`check` columns)                         |
+|  [13]   | `pandera.polars.{DataFrameSchema,Column}` | polars backend | native polars `LazyFrame`/`DataFrame` schema (`pandera.api.polars.container`), pushes validation into the scan |
 
 [PUBLIC_TYPE_SCOPE]: dtype vocabulary
 - rail: dataframe contract validation

@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `effect`
 - package: `effect`
-- module: `effect/Effect`, `effect/Layer`, `effect/Runtime`, `effect/ManagedRuntime`, `effect/Scope`, `effect/Fiber`, `effect/Ref`, `effect/SubscriptionRef`, `effect/Schedule`, `effect/Stream`, `effect/Schema`, `effect/Metric`, `effect/Logger`, `effect/Tracer`, `effect/Data`, `effect/Match`, `effect/Option`, `effect/Either`, `effect/Exit`, `effect/Cause`, `effect/Config`, `effect/Duration`, `effect/Context`
+- module: `effect/Effect`, `effect/Layer`, `effect/Runtime`, `effect/ManagedRuntime`, `effect/Scope`, `effect/Fiber`, `effect/Ref`, `effect/SubscriptionRef`, `effect/Schedule`, `effect/Stream`, `effect/Schema`, `effect/Metric`, `effect/Logger`, `effect/Tracer`, `effect/Data`, `effect/Match`, `effect/Array`, `effect/Order`, `effect/Option`, `effect/Either`, `effect/Exit`, `effect/Cause`, `effect/Config`, `effect/Duration`, `effect/Context`
 - asset: runtime library
 - rail: computation, dependency-injection, stream, schema, observability, value-algebra
 
@@ -329,9 +329,15 @@ export declare function Union<Members extends AST.Members<Schema.All>>(...member
 export declare const Array:    <Value extends Schema.Any>(value: Value) => Array$<Value>  // declared as Array$; re-exported as Array
 export declare const Record:   <K extends Schema.All, V extends Schema.All>(options: { readonly key: K; readonly value: V }) => Record$<K, V>
 export declare const optional: <S extends Schema.All>(self: S) => optional<S>
+
+// effect/ParseResult — the decode-failure projection family
+export type ParseError = ParseResult.ParseError                            // YieldableError carrying the issue tree
+export interface ArrayFormatterIssue { readonly _tag: ParseIssueTag; readonly path: ReadonlyArray<PropertyKey>; readonly message: string }
+export declare const ArrayFormatter: { readonly formatError: (error: ParseError) => Effect.Effect<Array<ArrayFormatterIssue>>; readonly formatErrorSync: (error: ParseError) => Array<ArrayFormatterIssue> }
+export declare const TreeFormatter:  { readonly formatError: (error: ParseError) => Effect.Effect<string>; readonly formatErrorSync: (error: ParseError) => string }
 ```
 
-`Schema.Class` is the one domain-shape pattern; `Schema.TaggedError` is the one error-rail pattern; decode entry is `Schema.decodeUnknown*` at the wire edge.
+`Schema.Class` is the one domain-shape pattern; `Schema.TaggedError` is the one error-rail pattern; decode entry is `Schema.decodeUnknown*` at the wire edge. `ParseResult.ArrayFormatter.formatErrorSync` projects a `ParseError` into per-path `{ path, message }` issues — the one fold a per-field error map composes; `ParseResult.TreeFormatter` renders the single human-readable tree.
 
 ---
 
@@ -417,6 +423,28 @@ export declare const either:                  <…>(self) => (input: I) => Eithe
 
 `Match.tagsExhaustive` is the total fold over a `Data.TaggedEnum` `_tag` union; a missing arm is a typecheck failure. `discriminatorsExhaustive` covers totality over a non-`_tag` wire discriminant. `tags`/`discriminators` are partial arms paired with `orElse`.
 
+### Array / Order
+
+```ts
+// effect/Array — the immutable ReadonlyArray combinator module (declared as ReadonlyArray, re-exported as Array)
+export declare const fromIterable: <A>(collection: Iterable<A>) => Array<A>
+export declare const range:        (start: number, end: number) => NonEmptyArray<number>
+export declare const map:          <A, B>(self: ReadonlyArray<A>, f: (a: A, i: number) => B) => Array<B>
+export declare const reduce:       <A, B>(self: ReadonlyArray<A>, b: B, f: (b: B, a: A, i: number) => B) => B
+export declare const sort:         <A>(O: Order.Order<A>) => (self: ReadonlyArray<A>) => Array<A>
+export declare const join:         (sep: string) => (self: ReadonlyArray<string>) => string
+export declare const matchLeft:    <A, B, C>(self: ReadonlyArray<A>, options: { readonly onEmpty: LazyArg<B>; readonly onNonEmpty: (head: A, tail: Array<A>) => C }) => B | C
+export declare const matchRight:   <A, B, C>(self: ReadonlyArray<A>, options: { readonly onEmpty: LazyArg<B>; readonly onNonEmpty: (init: Array<A>, last: A) => C }) => B | C
+
+// effect/Order
+export interface Order<in A> { (self: A, that: A): -1 | 0 | 1 }
+export declare const string:   Order<string>
+export declare const number:   Order<number>
+export declare const mapInput:  <A, B>(self: Order<A>, f: (b: B) => A) => Order<B>
+```
+
+`Array` is the curried/uncurried `ReadonlyArray` combinator owner used by every pure list fold; `matchLeft`/`matchRight` are the head/init pattern-matches that own bounded-history and last-element folds. `Order.mapInput` projects an `Order` onto a derived key for `Array.sort`.
+
 ### Option / Either / Exit / Cause
 
 ```ts
@@ -429,6 +457,9 @@ export interface Some<out A> extends Pipeable, Inspectable { readonly _tag: "Som
 export type Either<A, E = never> = Left<E, A> | Right<E, A>
 export interface Left<out E, out A>  extends Pipeable, Inspectable { readonly _tag: "Left";  readonly left: E }
 export interface Right<out E, out A> extends Pipeable, Inspectable { readonly _tag: "Right"; readonly right: A }
+export declare const right:  <A, E = never>(a: A) => Either<A, E>
+export declare const left:   <E, A = never>(e: E) => Either<A, E>
+export declare const match:  <E, A, B, C = B>(self: Either<A, E>, options: { readonly onLeft: (left: E) => B; readonly onRight: (right: A) => C }) => B | C
 
 // effect/Exit
 export type Exit<A, E = never> = Success<A, E> | Failure<A, E>

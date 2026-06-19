@@ -19,9 +19,9 @@ AEC computational and numerical geometry. `ComputationalGeometry` is one dispatc
 - Boundary: non-manifold cell/aperture topology is the `topology` sibling over `topologicpy`, never folded here; robust mesh repair/boolean is the `mesh-utility` sibling over `trimesh`/`manifold3d`, not the compas datastructure algebra; raw mesh-file exchange stays at the data seam; form-finding routes `compas_dr`/`compas_tna`, and `compas_cem` (constrained-equilibrium form-finding) admits as a fourth `FormFinding` engine once it ships `compas>=2.0` support — a RESEARCH-gated growth axis, not a present fence.
 
 ```python signature
-from builtins import frozendict
 from collections.abc import Callable
-from typing import Final, Literal, assert_never
+from types import MappingProxyType
+from typing import Final, Literal, Mapping, assert_never
 import compas.geometry
 from compas import json_dumps
 from compas.datastructures import Mesh, Network
@@ -41,7 +41,7 @@ class NumericalOp(StrEnum):
     BBOX = "bbox"
 
 
-NUMERICAL: Final[frozendict[NumericalOp, Callable[[list[list[float]]], object]]] = frozendict({
+NUMERICAL: Final[Mapping[NumericalOp, Callable[[list[list[float]]], object]]] = MappingProxyType({
     NumericalOp.BESTFIT_PLANE: compas.geometry.bestfit_plane,
     NumericalOp.BBOX: compas.geometry.bbox_numpy,
 })

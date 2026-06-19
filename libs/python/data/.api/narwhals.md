@@ -46,6 +46,17 @@
 |  [15]   | `Decimal(precision, scale)`    | decimal dtype  | decimal dtype                   |
 |  [16]   | `Implementation`               | enum           | backend identifier vocabulary   |
 
+[PUBLIC_TYPE_SCOPE]: backend implementation enum
+- rail: dataframe-agnostic
+
+| [INDEX] | [SYMBOL]                                                                                      | [TYPE_FAMILY] | [ROLE]                                                                  |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------------ | :---------------------------------------------------------------------- |
+|   [1]   | `Implementation.{PANDAS,POLARS,PYARROW,MODIN,CUDF,DASK,DUCKDB,IBIS,PYSPARK,SQLFRAME,UNKNOWN}` | enum member   | backend identity; `PYARROW.value == 'pyarrow'`, never an `ARROW` member |
+|   [2]   | `Implementation.from_backend(backend)`                                                        | classmethod   | build from native namespace module, string, or `Implementation`         |
+|   [3]   | `Implementation.from_native_namespace(ns)`                                                    | classmethod   | build from an imported native namespace module                          |
+|   [4]   | `Implementation.to_native_namespace()`                                                        | method        | return the native namespace module for the backend                      |
+|   [5]   | `Implementation.name`                                                                         | enum attr     | member name; `PYARROW.name.lower() == 'pyarrow'`                        |
+
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: frame and series construction
@@ -69,26 +80,31 @@
 [ENTRYPOINT_SCOPE]: DataFrame operations
 - rail: dataframe-agnostic
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                         |
-| :-----: | :--------------------------------------------------- | :------------- | :----------------------------- |
-|   [1]   | `DataFrame.select(*exprs, **named_exprs)`            | projection     | select and transform columns   |
-|   [2]   | `DataFrame.with_columns(*exprs, **named_exprs)`      | mutation       | add or replace columns         |
-|   [3]   | `DataFrame.filter(*predicates, **constraints)`       | filter         | row filter by expression       |
-|   [4]   | `DataFrame.group_by(*keys, drop_null_keys)`          | aggregation    | grouped aggregation builder    |
-|   [5]   | `DataFrame.join(other, on, how, ...)`                | join           | hash join with strategy        |
-|   [6]   | `DataFrame.join_asof(other, left_on, right_on, ...)` | join           | asof (sorted) join             |
-|   [7]   | `DataFrame.sort(by, *more_by, descending, ...)`      | sort           | sort by one or more columns    |
-|   [8]   | `DataFrame.rename(mapping)`                          | mutation       | rename columns                 |
-|   [9]   | `DataFrame.drop(*columns, strict)`                   | projection     | drop named columns             |
-|  [10]   | `DataFrame.drop_nulls(subset)`                       | filter         | drop rows with nulls in subset |
-|  [11]   | `DataFrame.unique(subset, keep, ...)`                | dedup          | deduplicate rows               |
-|  [12]   | `DataFrame.collect_schema()`                         | metadata       | retrieve `Schema`              |
-|  [13]   | `DataFrame.get_column(name)`                         | column access  | extract named `Series`         |
-|  [14]   | `DataFrame.lazy(backend, session)`                   | deferred       | convert to `LazyFrame`         |
-|  [15]   | `DataFrame.head(n)` / `.tail(n)`                     | window         | first or last n rows           |
-|  [16]   | `DataFrame.pivot(on, index, values, ...)`            | reshape        | pivot to wide format           |
-|  [17]   | `DataFrame.unpivot(on, index)`                       | reshape        | melt to long format            |
-|  [18]   | `DataFrame.iter_rows(named, buffer_size)`            | iteration      | row-by-row iterator            |
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                  |
+| :-----: | :--------------------------------------------------- | :------------- | :-------------------------------------- |
+|   [1]   | `DataFrame.select(*exprs, **named_exprs)`            | projection     | select and transform columns            |
+|   [2]   | `DataFrame.with_columns(*exprs, **named_exprs)`      | mutation       | add or replace columns                  |
+|   [3]   | `DataFrame.filter(*predicates, **constraints)`       | filter         | row filter by expression                |
+|   [4]   | `DataFrame.group_by(*keys, drop_null_keys)`          | aggregation    | grouped aggregation builder             |
+|   [5]   | `DataFrame.join(other, on, how, ...)`                | join           | hash join with strategy                 |
+|   [6]   | `DataFrame.join_asof(other, left_on, right_on, ...)` | join           | asof (sorted) join                      |
+|   [7]   | `DataFrame.sort(by, *more_by, descending, ...)`      | sort           | sort by one or more columns             |
+|   [8]   | `DataFrame.rename(mapping)`                          | mutation       | rename columns                          |
+|   [9]   | `DataFrame.drop(*columns, strict)`                   | projection     | drop named columns                      |
+|  [10]   | `DataFrame.drop_nulls(subset)`                       | filter         | drop rows with nulls in subset          |
+|  [11]   | `DataFrame.unique(subset, keep, ...)`                | dedup          | deduplicate rows                        |
+|  [12]   | `DataFrame.collect_schema()`                         | metadata       | retrieve `Schema`                       |
+|  [13]   | `DataFrame.get_column(name)`                         | column access  | extract named `Series`                  |
+|  [14]   | `DataFrame.lazy(backend, session)`                   | deferred       | convert to `LazyFrame`                  |
+|  [15]   | `DataFrame.head(n)` / `.tail(n)`                     | window         | first or last n rows                    |
+|  [16]   | `DataFrame.pivot(on, index, values, ...)`            | reshape        | pivot to wide format                    |
+|  [17]   | `DataFrame.unpivot(on, index)`                       | reshape        | melt to long format                     |
+|  [18]   | `DataFrame.iter_rows(named, buffer_size)`            | iteration      | row-by-row iterator                     |
+|  [19]   | `DataFrame.null_count()`                             | metadata       | per-column null counts as one-row frame |
+|  [20]   | `DataFrame.to_native()`                              | export         | unwrap to backend-native frame          |
+|  [21]   | `DataFrame.to_polars()`                              | export         | lower to a `polars.DataFrame`           |
+|  [22]   | `DataFrame.to_pandas()`                              | export         | lower to a `pandas.DataFrame`           |
+|  [23]   | `DataFrame.to_arrow()`                               | export         | lower to a `pyarrow.Table`              |
 
 [ENTRYPOINT_SCOPE]: LazyFrame operations
 - rail: dataframe-agnostic
@@ -138,7 +154,7 @@
 - `to_native` is the sole export; it strips the narwhals wrapper and returns the backend's own type
 - `DataFrame` and `LazyFrame` mirror each other's transformation API; `LazyFrame.collect()` materialises
 - dtype objects are value-equal by class identity: `nw.Int32() == nw.Int32()` is `True`
-- `Implementation` enum carries `PANDAS`, `POLARS`, `MODIN`, `CUDF`, `ARROW`; check at feature-fork points
+- `Implementation` enum carries `PANDAS`, `POLARS`, `PYARROW`, `MODIN`, `CUDF`, `DASK`, `DUCKDB`, `IBIS`, `PYSPARK`, `SQLFRAME`, `UNKNOWN`; the pyarrow member is `PYARROW` (value `'pyarrow'`), never `ARROW`; check at feature-fork points
 
 [LOCAL_ADMISSION]:
 - Apply `@narwhalify` at function boundaries to accept any backend frame and return the same backend type.

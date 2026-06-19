@@ -10,8 +10,8 @@ The chunked N-D tensor store over one `TensorBackend` axis. `TensorStore` owns t
 
 - Owner: `TensorStore` — one chunked N-D tensor store over a `TensorBackend` axis: the dense `zarr` store, the bounded-memory `cubed` plan, the ragged `awkward` row, the transactional `icechunk` versioned-store row, and the `virtualizarr` virtual-reference row. `TensorChunking` carries the chunk grid; `TensorCodec` the compression pipeline; `TensorRegion` the slice; `TensorReceipt` the typed write receipt.
 - Entry: `TensorStore.create` opens a `zarr` array/group rooted at a `ResourceRef` with a `TensorChunking` grid and `TensorCodec` pipeline; `TensorStore.write_region` writes a `TensorRegion` slice (orthogonal/block selection) and folds a `TensorReceipt` keyed by `ContentIdentity`; `TensorStore.plan` lifts the same store into a `cubed.Array` under a `Spec(allowed_mem=...)` for bounded-memory blockwise reductions that materialize back through `cubed.to_zarr`; `TensorStore.ragged` admits an `awkward.Array` and round-trips through `ak.to_parquet`/`ak.from_parquet`.
-- Auto: the `zarr` v3 pipeline splits into role-typed slots — `serializer=` takes an `ArrayBytesCodec` (`BytesCodec`/`ShardingCodec`), `compressors=` takes `BytesBytesCodec` rows (`BloscCodec`/`ZstdCodec`/`GzipCodec`); `TensorCodec.pipeline` returns the `(serializer, compressors)` pair fed straight into `create_array`, and conflating the slots fails the `ArrayBytesCodec` type check. `zarr`/`cubed`/`awkward` are cp315-clean and import module-top. The `icechunk` row routes `create`/`write_region` through the icechunk session store instead of `LocalStore`, adding git-like snapshot identity on top of the zarr chunk grid without a parallel store owner; `icechunk` alone rides the `python_version<'3.15'` gated band, so its arm imports the dist function-local under `# noqa: PLC0415`, never a module-top import on this cp315-core page. The cp315-clean `virtualizarr` `virtual` row imports module-top and combines byte-range chunk manifests through `xarray` — but `xarray` is on `banned-module-level-imports`, so the `xarray` combine call binds function-local under `# noqa: PLC0415` inside the virtual arm, alongside the gated `icechunk` commit that lands the assembled datacube.
-- Packages: `zarr` (`create_array(serializer=, compressors=)`/`open_array`/`open_group`/`Array.set_orthogonal_selection`/`Array.blocks`/`codecs.{BytesCodec,ShardingCodec,BloscCodec,ZstdCodec,GzipCodec}`/`storage.LocalStore`/`consolidate_metadata`), `cubed` (`from_zarr`/`to_zarr`/`Spec`/`compute`/`sum`/`mean`/`nansum`/`std`/`rechunk`/`map_blocks`), `awkward` (`Array`/`from_iter`/`to_parquet`/`from_parquet`/`num`/`flatten`/`to_regular`), `icechunk` (`Repository`/`Storage`/`Session.commit`, the one `<3.15` gated arm), `virtualizarr` (the cp315-clean byte-range chunk-manifest virtual reference, module-top), `xarray` (combining virtual references into one datacube), runtime (`ResourceRef`/`ContentIdentity`/`RuntimeRail`/`ReceiptContributor`).
+- Auto: the `zarr` v3 pipeline splits into role-typed slots — `serializer=` takes an `ArrayBytesCodec` (`BytesCodec`/`ShardingCodec`), `compressors=` takes `BytesBytesCodec` rows (`BloscCodec`/`ZstdCodec`/`GzipCodec`); `TensorCodec.pipeline` returns the `(serializer, compressors)` pair fed straight into `create_array`, and conflating the slots fails the `ArrayBytesCodec` type check. `zarr`/`cubed`/`awkward` are cp315-clean and import module-top. The `icechunk` row routes `create`/`write_region` through the icechunk session store instead of `LocalStore`, adding git-like snapshot identity on top of the zarr chunk grid without a parallel store owner; `icechunk` alone rides the `python_version<'3.15'` gated band, so its arm imports the dist function-local under `# noqa: PLC0415`, never a module-top import on this cp315-core page. The cp315-clean `virtualizarr` `virtual` row imports module-top and combines byte-range chunk manifests through `xarray` — but `xarray` is on `banned-module-level-imports`, so the `xarray` combine call binds function-local under `# noqa: PLC0415` inside the virtual arm, alongside the gated `icechunk` commit that lands the assembled datacube. `open_virtual_dataset` mandates a per-source `ObjectStoreRegistry` keyed by URL prefix onto `obstore` `from_url` backends — the registry is the virtualizarr-to-obstore seam, never an optional knob, so the virtual arm builds one registry over the source URLs and passes it alongside the `HDFParser` on every `open_virtual_dataset` call.
+- Packages: `zarr` (`create_array(serializer=, compressors=)`/`open_array`/`open_group`/`Array.set_orthogonal_selection`/`Array.blocks`/`codecs.{BytesCodec,ShardingCodec,BloscCodec,ZstdCodec,GzipCodec}`/`storage.LocalStore`/`consolidate_metadata`), `cubed` (`from_zarr`/`to_zarr`/`Spec`/`compute`/`sum`/`mean`/`nansum`/`std`/`rechunk`/`map_blocks`), `awkward` (`Array`/`from_iter`/`to_parquet`/`from_parquet`/`num`/`flatten`/`to_regular`), `icechunk` (`Repository`/`Storage`/`Session.commit`, the one `<3.15` gated arm), `virtualizarr` (the cp315-clean byte-range chunk-manifest virtual reference, module-top; `registry.ObjectStoreRegistry` the mandatory URL-to-`obstore` backend map on `open_virtual_dataset`), `obstore` (`store.from_url` backing the per-source registry entries), `xarray` (combining virtual references into one datacube), runtime (`ResourceRef`/`ContentIdentity`/`RuntimeRail`/`ReceiptContributor`).
 - Growth: a new codec is one `TensorCodec` case; a new chunk strategy is one `TensorChunking` field; a new backend (`tensorstore`/`n5`) is one `TensorBackend` tag plus one `_open` dispatch arm; the versioned-store dimension is one `icechunk` row and the virtual-reference dimension is one `virtualizarr` row, never a parallel store owner.
 - Boundary: no compute-package numeric trio (NumPy/SciPy/labelled-array compute is `compute`), no production tensor session, no durable product store; `data` emits a portable content-addressed chunked store and a bounded-memory plan, not a runtime compute graph. The `icechunk` versioned row rides the `<3.15` gated band and imports function-local; a module-top `icechunk` import on this cp315-core page is the floor-violating form. A parallel `ZarrStore`/`CubedStore`/`AwkwardStore` family, an `xarray` re-derivation of the dense store, and a hand-rolled chunk codec are the deleted forms.
 
@@ -20,9 +20,11 @@ from typing import TYPE_CHECKING, Literal, assert_never
 
 import awkward as ak
 import cubed
+import virtualizarr as vz
 import zarr
 from expression import case, tag, tagged_union
 from msgspec import Struct
+from virtualizarr.parsers import HDFParser
 from zarr import codecs as zc
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
@@ -126,6 +128,10 @@ class TensorStore(Struct, frozen=True):
     def ragged(values: "Sequence[Sequence[object]]") -> "RuntimeRail[ak.Array]":
         return boundary("tensor.ragged", lambda: ak.from_iter(values))
 
+    @staticmethod
+    def virtual(sources: "tuple[str, ...]", ref: ResourceRef, *, concat_dim: str = "time") -> "RuntimeRail[TensorReceipt]":
+        return boundary("tensor.virtual", lambda: _virtual_cube(sources, ref, concat_dim))
+
 
 def _create_zarr(
     ref: ResourceRef, shape: Shape, dtype: DType, chunking: TensorChunking, codec: TensorCodec,
@@ -158,10 +164,32 @@ def ragged_egress(ref: ResourceRef, array: "ak.Array") -> "RuntimeRail[ContentKe
         ak.to_parquet(array, str(ref.path))
         return ContentIdentity.of("tensor.ragged", ref.path.read_bytes())
     return boundary("tensor.ragged.egress", _write)
+
+
+def _virtual_cube(sources: "tuple[str, ...]", ref: ResourceRef, concat_dim: str) -> TensorReceipt:
+    import xarray as xr  # noqa: PLC0415
+    from icechunk import Repository, local_filesystem_storage  # noqa: PLC0415
+    from obstore.store import from_url  # noqa: PLC0415
+    from virtualizarr.registry import ObjectStoreRegistry  # noqa: PLC0415
+
+    parser = HDFParser()
+    registry = ObjectStoreRegistry({url: from_url(url) for url in sources})
+    refs = [vz.open_virtual_dataset(url, parser=parser, registry=registry) for url in sources]
+    cube = xr.combine_by_coords(refs, combine_attrs="drop_conflicts") if len(refs) > 1 else refs[0]
+    repo = Repository.open_or_create(local_filesystem_storage(str(ref.path)))
+    session = repo.writable_session("main")
+    cube.virtualize.to_icechunk(session.store)
+    snapshot = session.commit("virtual-reference cube")
+    return TensorReceipt(
+        backend="virtual", shape=tuple(cube.sizes.values()), chunks=(),
+        dtype=str(next(iter(cube.data_vars.values())).dtype), codec="manifest",
+        bytes_stored=int(cube.virtualize.nbytes),
+        content_key=ContentIdentity.of("tensor.virtual", snapshot.encode()),
+    )
 ```
 
 ## [3]-[RESEARCH]
 
-- [ZARR_PIPELINE]: the `zarr` v3 `create_array(serializer=, compressors=)` slot arity, the `codecs.{BytesCodec,ShardingCodec,BloscCodec,ZstdCodec,GzipCodec}` constructor keyword names, the `Array.set_orthogonal_selection`/`nbytes_stored`/`storage.LocalStore` surface, and the `ArrayBytesCodec`/`BytesBytesCodec` ABC split confirm against a folder `zarr` `.api` catalogue authored on admission; the fence treats them as the settled v3 pipeline until that catalogue lands.
-- [CUBED_AWKWARD]: the `cubed` `from_zarr`/`to_zarr`/`Spec(allowed_mem=...)`/`sum`/`mean`/`nansum`/`std` bounded-plan surface and the `awkward` `from_iter`/`to_parquet`/`Array` ragged surface confirm against folder `cubed`/`awkward` `.api` catalogues authored on admission; neither dist carries a catalogue yet, so the members stay catalogue-pending settled forms.
-- [VIRTUAL_REFERENCE]: the `virtualizarr` byte-range chunk-manifest constructor, the `xarray` virtual-combine entrypoint, and the `icechunk` `Repository`/`Storage`/`Session.commit` transactional surface confirm against folder `.api` catalogues for `virtualizarr`/`xarray`/`icechunk`; the `<3.15`-gated `icechunk` arm and the banned-module-level `xarray` combine bind function-local.
+- [ZARR_PIPELINE]: the `zarr` v3 `create_array(store=, shape=, dtype=, chunks=, shards=, serializer=, compressors=)` slot arity, the `codecs.{BytesCodec,ShardingCodec,BloscCodec,ZstdCodec,GzipCodec}` constructor names, the `Array.set_orthogonal_selection`/`storage.LocalStore`/`open_array` surface are catalogue-confirmed against the folder `zarr` `.api`; the one open seam is the `Array.nbytes_stored()` byte-count method and the `ArrayBytesCodec`/`BytesBytesCodec` ABC split the `pipeline()` return annotates — the catalogue captures the codec types but not the `nbytes_stored` accessor, confirmed against the live v3 distribution.
+- [CUBED_AWKWARD]: the `cubed` `from_zarr`/`to_zarr`/`Spec(allowed_mem=...)`/`sum`/`mean`/`nansum`/`std` bounded-plan surface and the `awkward` `from_iter`/`to_parquet`/`Array` ragged surface are catalogue-confirmed against the folder `cubed`/`awkward` `.api`; both are settled fence code.
+- [VIRTUAL_REFERENCE]: the `virtualizarr` `open_virtual_dataset(url, registry=, parser=)`/`parsers.HDFParser`/`VirtualiZarrDatasetAccessor.{to_icechunk,nbytes}` surface, the `xarray` `combine_by_coords(data_objects=[], ...)` entrypoint, and the `icechunk` `Repository.open_or_create`/`local_filesystem_storage`/`writable_session`/`Session.{store,commit}` transactional surface are catalogue-confirmed against the folder `virtualizarr`/`xarray`/`icechunk` `.api`. `open_virtual_dataset` requires the `registry` positional (an `ObjectStoreRegistry` mapping URL prefix to an `obstore` `from_url` backend) — a `registry`-less call is the catalogue-violating form the virtual arm never emits. The open seams confirmed against the live distribution before the receipt settles: the `ObjectStoreRegistry` import module (the live spelling is `virtualizarr.registry`, version-sensitive — `obspec_utils.registry` on the obspec-split build), the `xr.combine_by_coords` `combine_attrs=` keyword and its `"drop_conflicts"` value (the `xarray` catalogue enumerates `combine_by_coords` but truncates its keyword arity), and the `cube.virtualize.nbytes` accessor return shape. `virtualizarr` is cp315-clean and imports module-top; the `<3.15`-gated `icechunk` arm, the banned-module-level `xarray` combine, and the `obstore`/`ObjectStoreRegistry` registry build bind function-local under `# noqa: PLC0415`.

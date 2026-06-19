@@ -32,44 +32,68 @@ measured execution inputs and receipts.
 [PUBLIC_TYPE_SCOPE]: admitted quantity families
 - rail: units
 
-| [INDEX] | [SYMBOL]       | [PACKAGE_ROLE] | [CAPABILITY]            |
-| :-----: | :------------- | :------------- | :---------------------- |
-|   [1]   | `Length`       | quantity       | carries length values   |
-|   [2]   | `Area`         | quantity       | carries area values     |
-|   [3]   | `Volume`       | quantity       | carries volume values   |
-|   [4]   | `Mass`         | quantity       | carries mass values     |
-|   [5]   | `Duration`     | quantity       | carries duration values |
-|   [6]   | `Speed`        | quantity       | carries speed values    |
-|   [7]   | `Acceleration` | quantity       | carries acceleration    |
-|   [8]   | `Force`        | quantity       | carries force values    |
-|   [9]   | `Pressure`     | quantity       | carries pressure values |
-|  [10]   | `Energy`       | quantity       | carries energy values   |
-|  [11]   | `Power`        | quantity       | carries power values    |
-|  [12]   | `Temperature`  | quantity       | carries temperature     |
-|  [13]   | `Angle`        | quantity       | carries angular values  |
-|  [14]   | `Torque`       | quantity       | carries torque values   |
-|  [15]   | `Ratio`        | quantity       | carries ratio values    |
+| [INDEX] | [SYMBOL]       | [PACKAGE_ROLE] | [CAPABILITY]                |
+| :-----: | :------------- | :------------- | :-------------------------- |
+|   [1]   | `Length`       | quantity       | carries length values       |
+|   [2]   | `Area`         | quantity       | carries area values         |
+|   [3]   | `Volume`       | quantity       | carries volume values       |
+|   [4]   | `Mass`         | quantity       | carries mass values         |
+|   [5]   | `Duration`     | quantity       | carries duration values     |
+|   [6]   | `Speed`        | quantity       | carries speed values        |
+|   [7]   | `Acceleration` | quantity       | carries acceleration        |
+|   [8]   | `Force`        | quantity       | carries force values        |
+|   [9]   | `Pressure`     | quantity       | carries pressure values     |
+|  [10]   | `Energy`       | quantity       | carries energy values       |
+|  [11]   | `Power`        | quantity       | carries power values        |
+|  [12]   | `Temperature`  | quantity       | carries temperature         |
+|  [13]   | `Angle`        | quantity       | carries angular values      |
+|  [14]   | `Torque`       | quantity       | carries torque values       |
+|  [15]   | `Ratio`        | quantity       | carries ratio values        |
+|  [16]   | `Density`      | quantity       | carries mass-density values |
+
+[PUBLIC_TYPE_SCOPE]: admitted photometric and radiometric quantity families
+- rail: units
+
+| [INDEX] | [SYMBOL]            | [PACKAGE_ROLE] | [CAPABILITY]                                  |
+| :-----: | :------------------ | :------------- | :-------------------------------------------- |
+|   [1]   | `Illuminance`       | quantity       | `IlluminanceUnit.Lux` SI base                 |
+|   [2]   | `Luminance`         | quantity       | `LuminanceUnit.CandelaPerSquareMeter` SI base |
+|   [3]   | `LuminousFlux`      | quantity       | `LuminousFluxUnit.Lumen` SI base              |
+|   [4]   | `LuminousIntensity` | quantity       | `LuminousIntensityUnit.Candela` SI base       |
+|   [5]   | `Irradiance`        | quantity       | `IrradianceUnit.WattPerSquareMeter` SI base   |
 
 [PUBLIC_TYPE_SCOPE]: admitted unit enum families (`UnitsNet.Units`)
 - rail: units
 
-| [INDEX] | [SYMBOL]           | [PACKAGE_ROLE] | [CAPABILITY]                                   |
-| :-----: | :----------------- | :------------- | :--------------------------------------------- |
-|   [1]   | `LengthUnit`       | unit enum      | `Meter` canonical, `Millimeter` display        |
-|   [2]   | `AreaUnit`         | unit enum      | `SquareMeter` canonical and display            |
-|   [3]   | `VolumeUnit`       | unit enum      | `CubicMeter` canonical and display             |
-|   [4]   | `MassUnit`         | unit enum      | `Kilogram` canonical and display               |
-|   [5]   | `DurationUnit`     | unit enum      | `Second` canonical and display                 |
-|   [6]   | `SpeedUnit`        | unit enum      | `MeterPerSecond` canonical and display         |
-|   [7]   | `AccelerationUnit` | unit enum      | `MeterPerSecondSquared` canonical and display  |
-|   [8]   | `ForceUnit`        | unit enum      | `Newton` canonical and display                 |
-|   [9]   | `PressureUnit`     | unit enum      | `Pascal` canonical, `Kilopascal` display       |
-|  [10]   | `EnergyUnit`       | unit enum      | `Joule` canonical, `KilowattHour` display      |
-|  [11]   | `PowerUnit`        | unit enum      | `Watt` canonical and display                   |
-|  [12]   | `TemperatureUnit`  | unit enum      | `Kelvin` canonical, `DegreeCelsius` display    |
-|  [13]   | `AngleUnit`        | unit enum      | `Radian` canonical, `Degree` display           |
-|  [14]   | `TorqueUnit`       | unit enum      | `NewtonMeter` canonical and display            |
-|  [15]   | `RatioUnit`        | unit enum      | `DecimalFraction` canonical, `Percent` display |
+| [INDEX] | [SYMBOL]           | [PACKAGE_ROLE] | [CAPABILITY]                                            |
+| :-----: | :----------------- | :------------- | :------------------------------------------------------ |
+|   [1]   | `LengthUnit`       | unit enum      | `Meter` canonical, `Millimeter` display                 |
+|   [2]   | `AreaUnit`         | unit enum      | `SquareMeter` canonical and display                     |
+|   [3]   | `VolumeUnit`       | unit enum      | `CubicMeter` canonical and display                      |
+|   [4]   | `MassUnit`         | unit enum      | `Kilogram` canonical and display                        |
+|   [5]   | `DurationUnit`     | unit enum      | `Second` canonical and display                          |
+|   [6]   | `SpeedUnit`        | unit enum      | `MeterPerSecond` canonical and display                  |
+|   [7]   | `AccelerationUnit` | unit enum      | `MeterPerSecondSquared` canonical and display           |
+|   [8]   | `ForceUnit`        | unit enum      | `Newton` canonical and display                          |
+|   [9]   | `PressureUnit`     | unit enum      | `Pascal` canonical, `Kilopascal` / `Megapascal` display |
+|  [10]   | `EnergyUnit`       | unit enum      | `Joule` canonical, `KilowattHour` display               |
+|  [11]   | `PowerUnit`        | unit enum      | `Watt` canonical and display                            |
+|  [12]   | `TemperatureUnit`  | unit enum      | `Kelvin` canonical, `DegreeCelsius` display             |
+|  [13]   | `AngleUnit`        | unit enum      | `Radian` canonical, `Degree` display                    |
+|  [14]   | `TorqueUnit`       | unit enum      | `NewtonMeter` canonical and display                     |
+|  [15]   | `RatioUnit`        | unit enum      | `DecimalFraction` canonical, `Percent` display          |
+|  [16]   | `DensityUnit`      | unit enum      | `KilogramPerCubicMeter` canonical and display           |
+
+[PUBLIC_TYPE_SCOPE]: admitted photometric and radiometric unit enum families (`UnitsNet.Units`)
+- rail: units
+
+| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE] | [CAPABILITY]                                                     |
+| :-----: | :---------------------- | :------------- | :--------------------------------------------------------------- |
+|   [1]   | `IlluminanceUnit`       | unit enum      | `Lux` canonical, `Kilolux` / `Millilux` display                  |
+|   [2]   | `LuminanceUnit`         | unit enum      | `CandelaPerSquareMeter` canonical, `Nit` display                 |
+|   [3]   | `LuminousFluxUnit`      | unit enum      | `Lumen` canonical and display                                    |
+|   [4]   | `LuminousIntensityUnit` | unit enum      | `Candela` canonical and display                                  |
+|   [5]   | `IrradianceUnit`        | unit enum      | `WattPerSquareMeter` canonical, `KilowattPerSquareMeter` display |
 
 [PUBLIC_TYPE_SCOPE]: parsing, metadata, and units
 - rail: units
@@ -112,16 +136,16 @@ measured execution inputs and receipts.
 [ENTRYPOINT_SCOPE]: setup and metadata
 - rail: units
 
-| [INDEX] | [SURFACE]                        | [CALL_SHAPE]      | [CAPABILITY]            |
-| :-----: | :------------------------------- | :---------------- | :---------------------- |
-|   [1]   | `UnitsNetSetup.Default`          | setup property    | provides setup root     |
-|   [2]   | `UnitAbbreviationsCache.Default` | cache property    | provides abbreviations  |
-|   [3]   | `Quantity.Infos`                 | metadata property | lists quantity metadata |
-|   [4]   | `UnitConverter.Convert`          | converter call    | converts numeric values |
-|   [5]   | `UnitParser.Parse`               | parser call       | resolves unit enum      |
-|   [6]   | `QuantityFormatter.Format`       | formatter call    | writes quantity text    |
-|   [7]   | `GenericMathExtensions`          | extension surface | applies generic math    |
-|   [8]   | `DecimalGenericMathExtensions`   | extension surface | applies decimal math    |
+| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]      | [CAPABILITY]                   |
+| :-----: | :----------------------------------------- | :---------------- | :----------------------------- |
+|   [1]   | `UnitsNetSetup.Default`                    | setup property    | provides setup root            |
+|   [2]   | `UnitAbbreviationsCache.Default`           | cache property    | provides abbreviations         |
+|   [3]   | `Quantity.Infos`                           | metadata property | lists quantity metadata        |
+|   [4]   | `UnitConverter.Convert`                    | converter call    | converts numeric values        |
+|   [5]   | `UnitParser.Default.Parse`                 | parser call       | resolves unit enum             |
+|   [6]   | `QuantityFormatter.Format`                 | formatter call    | writes quantity text           |
+|   [7]   | `GenericMath.GenericMathExtensions`        | extension surface | applies generic math (net8.0+) |
+|   [8]   | `GenericMath.DecimalGenericMathExtensions` | extension surface | applies decimal math (net8.0+) |
 
 [ENTRYPOINT_SCOPE]: metadata, dimensions, and unit-system policy
 - rail: units
@@ -149,6 +173,14 @@ measured execution inputs and receipts.
 - unit root: `UnitsNet.Units` enum families
 - metadata root: `QuantityInfo` and `UnitInfo`
 - conversion root: `UnitConverter`, quantity `As`, and quantity `ToUnit`
+
+[PHOTOMETRIC_BASE_UNITS]:
+- `Illuminance.BaseUnit` is `IlluminanceUnit.Lux`.
+- `Luminance.BaseUnit` is `LuminanceUnit.CandelaPerSquareMeter`.
+- `LuminousFlux.BaseUnit` is `LuminousFluxUnit.Lumen`.
+- `LuminousIntensity.BaseUnit` is `LuminousIntensityUnit.Candela`.
+- `Irradiance.BaseUnit` is `IrradianceUnit.WattPerSquareMeter`.
+- The `photometric` author-kernel rescales measured photometric and radiometric inputs to these SI base units.
 
 [QUANTITY_POLICY]:
 - parsing: `QuantityParser` and `UnitParser`

@@ -100,13 +100,15 @@ execution clients.
 [ENTRYPOINT_SCOPE]: interceptor override signatures
 - rail: remote-client#CALL_SPINE
 
-| [INDEX] | [MEMBER]                   | [SIGNATURE]                                                                                                                                                                                                                                      |
-| :-----: | :------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `BlockingUnaryCall`        | `virtual TResponse BlockingUnaryCall<TReq,TResp>(TReq request, ClientInterceptorContext<TReq,TResp> context, BlockingUnaryCallContinuation<TReq,TResp> continuation) where TReq : class where TResp : class`                                     |
-|   [2]   | `AsyncUnaryCall`           | `virtual AsyncUnaryCall<TResp> AsyncUnaryCall<TReq,TResp>(TReq request, ClientInterceptorContext<TReq,TResp> context, AsyncUnaryCallContinuation<TReq,TResp> continuation) where TReq : class where TResp : class`                               |
-|   [3]   | `AsyncServerStreamingCall` | `virtual AsyncServerStreamingCall<TResp> AsyncServerStreamingCall<TReq,TResp>(TReq request, ClientInterceptorContext<TReq,TResp> context, AsyncServerStreamingCallContinuation<TReq,TResp> continuation) where TReq : class where TResp : class` |
-|   [4]   | `AsyncClientStreamingCall` | `virtual AsyncClientStreamingCall<TReq,TResp> AsyncClientStreamingCall<TReq,TResp>(ClientInterceptorContext<TReq,TResp> context, AsyncClientStreamingCallContinuation<TReq,TResp> continuation) where TReq : class where TResp : class`          |
-|   [5]   | `AsyncDuplexStreamingCall` | `virtual AsyncDuplexStreamingCall<TReq,TResp> AsyncDuplexStreamingCall<TReq,TResp>(ClientInterceptorContext<TReq,TResp> context, AsyncDuplexStreamingCallContinuation<TReq,TResp> continuation) where TReq : class where TResp : class`          |
+Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `ClientInterceptorContext<TReq,TResp>`, and constrains both generic arguments to `class`.
+
+| [INDEX] | [MEMBER]                   | [CALL_KIND]            | [CONTINUATION]                                     | [REQUEST_ARG]  |
+| :-----: | :------------------------- | :--------------------- | :------------------------------------------------- | :------------- |
+|   [1]   | `BlockingUnaryCall`        | blocking unary         | `BlockingUnaryCallContinuation<TReq,TResp>`        | `TReq request` |
+|   [2]   | `AsyncUnaryCall`           | async unary            | `AsyncUnaryCallContinuation<TReq,TResp>`           | `TReq request` |
+|   [3]   | `AsyncServerStreamingCall` | async server-streaming | `AsyncServerStreamingCallContinuation<TReq,TResp>` | `TReq request` |
+|   [4]   | `AsyncClientStreamingCall` | async client-streaming | `AsyncClientStreamingCallContinuation<TReq,TResp>` | —              |
+|   [5]   | `AsyncDuplexStreamingCall` | async duplex-streaming | `AsyncDuplexStreamingCallContinuation<TReq,TResp>` | —              |
 
 [ENTRYPOINT_SCOPE]: `ClientInterceptorContext` struct members
 - rail: remote-client#CALL_SPINE

@@ -1,6 +1,6 @@
 # [PY_DATA_API_VIRTUALIZARR]
 
-`virtualizarr` supplies virtual Zarr dataset construction over remote files for the data virtual-dataset rail. The package owner builds `ManifestArray`-backed xarray `Dataset` objects that reference existing HDF5, NetCDF, Zarr, FITS, DMRPP, and kerchunk files without copying data, and writes the resulting reference manifests to Zarr, Kerchunk, or Icechunk stores; it never re-implements the manifest reference model or the underlying parsers.
+`virtualizarr` supplies virtual Zarr dataset construction over remote files for the data virtual-dataset rail. The package owner builds `ManifestArray`-backed xarray `Dataset` objects that reference existing HDF5, NetCDF, Zarr, FITS, DMRPP, and kerchunk files without copying data, and writes the resulting reference manifests to Kerchunk or Icechunk stores through the registered `virtualize` accessor; it never re-implements the manifest reference model or the underlying parsers.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - import: `import virtualizarr as vz; from virtualizarr import open_virtual_dataset, open_virtual_datatree, open_virtual_mfdataset`
 - owner: `data`
 - rail: virtual-dataset
-- capability: virtual Zarr reference datasets — manifest construction from HDF5/NetCDF/Zarr/FITS/DMRPP/kerchunk/icechunk, multi-file concatenation, and export to Zarr/Kerchunk/Icechunk
+- capability: virtual Zarr reference datasets — manifest construction from HDF5/NetCDF/Zarr/FITS/DMRPP/kerchunk/icechunk, multi-file concatenation, and accessor export to Kerchunk and Icechunk reference stores
 
 ## [2]-[PUBLIC_TYPES]
 
@@ -38,14 +38,14 @@
 [PUBLIC_TYPE_SCOPE]: ManifestArray properties
 - rail: virtual-dataset
 
-| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE] | [CAPABILITY]                           |
-| :-----: | :-------------------------------------- | :------------- | :------------------------------------- |
-|   [1]   | `ManifestArray.manifest`                | property       | underlying `ChunkManifest`             |
-|   [2]   | `ManifestArray.metadata`                | property       | Zarr v3 `ArrayV3Metadata`              |
-|   [3]   | `ManifestArray.chunks`                  | property       | chunk shape tuple                      |
-|   [4]   | `ManifestArray.dtype`                   | property       | array dtype                            |
-|   [5]   | `ManifestArray.shape`                   | property       | array shape tuple                      |
-|   [6]   | `ManifestArray.rename_paths(new_paths)` | mutate         | return copy with rewritten chunk paths |
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE] | [CAPABILITY]                           |
+| :-----: | :-------------------------------- | :------------- | :------------------------------------- |
+|   [1]   | `ManifestArray.manifest`          | property       | underlying `ChunkManifest`             |
+|   [2]   | `ManifestArray.metadata`          | property       | Zarr v3 `ArrayV3Metadata`              |
+|   [3]   | `ManifestArray.chunks`            | property       | chunk shape tuple                      |
+|   [4]   | `ManifestArray.dtype`             | property       | array dtype                            |
+|   [5]   | `ManifestArray.shape`             | property       | array shape tuple                      |
+|   [6]   | `ManifestArray.rename_paths(new)` | mutate         | return copy with rewritten chunk paths |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -61,20 +61,19 @@
 [ENTRYPOINT_SCOPE]: xarray accessor exports
 - rail: virtual-dataset
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [RAIL]                        |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :---------------------------- |
-|   [1]   | `VirtualiZarrDatasetAccessor.to_zarr(store, *, consolidated, encoding, mode)`                   | export         | write manifest to Zarr store  |
-|   [2]   | `VirtualiZarrDatasetAccessor.to_icechunk(store, *, group, append_dim, region, last_updated_at)` | export         | write to Icechunk store       |
-|   [3]   | `VirtualiZarrDatasetAccessor.to_kerchunk(filepath, format, record_size, categorical_threshold)` | export         | write kerchunk reference file |
-|   [4]   | `VirtualiZarrDatasetAccessor.rename_paths(new_paths)`                                           | mutate         | rewrite chunk reference paths |
-|   [5]   | `VirtualiZarrDatasetAccessor.nbytes`                                                            | metadata       | virtual dataset size in bytes |
-|   [6]   | `VirtualiZarrDataTreeAccessor.to_icechunk(store, *, group, ...)`                                | export         | write data tree to Icechunk   |
+| [INDEX] | [SURFACE]                                                                                                            | [ENTRY_FAMILY] | [RAIL]                        |
+| :-----: | :------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------- |
+|   [1]   | `VirtualiZarrDatasetAccessor.to_icechunk(store, *, group, append_dim, region, validate_containers, last_updated_at)` | export         | write to Icechunk store       |
+|   [2]   | `VirtualiZarrDatasetAccessor.to_kerchunk(filepath, format, record_size, categorical_threshold)`                      | export         | write kerchunk reference file |
+|   [3]   | `VirtualiZarrDatasetAccessor.rename_paths(new)`                                                                      | mutate         | rewrite chunk reference paths |
+|   [4]   | `VirtualiZarrDatasetAccessor.nbytes`                                                                                 | metadata       | virtual dataset size in bytes |
+|   [5]   | `VirtualiZarrDataTreeAccessor.to_icechunk(store, *, group, ...)`                                                     | export         | write data tree to Icechunk   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
 [VIRTUAL_DATASET_TOPOLOGY]:
 - no data copy: `ManifestArray` stores only chunk reference dicts (`path`, `offset`, `length`); actual bytes remain in the source files
-- accessor: virtual datasets expose `ds.virtualizarr.to_zarr(...)`, `ds.virtualizarr.to_icechunk(...)`, and `ds.virtualizarr.to_kerchunk(...)` via the registered xarray accessor
+- accessor: virtual datasets expose `ds.virtualize.to_icechunk(...)` and `ds.virtualize.to_kerchunk(...)` via the registered xarray accessor (`VirtualiZarrDatasetAccessor` bound to the `virtualize` name); there is no accessor `to_zarr` method
 - parsers accept an `ObjectStoreRegistry` via `open_virtual_dataset`; the registry maps URL schemes to obstore backends
 - `open_virtual_mfdataset` `parallel` accepts `False`, `"dask"`, `"lithops"`, or a custom `Executor` subclass
 - `to_kerchunk` `format` values: `"dict"`, `"json"`, `"parquet"`
@@ -82,6 +81,6 @@
 
 [RAIL_LAW]:
 - Package: `virtualizarr`
-- Owns: virtual Zarr manifest construction, multi-format parser dispatch, and export to Zarr/Kerchunk/Icechunk reference stores
+- Owns: virtual Zarr manifest construction, multi-format parser dispatch, and accessor export to Kerchunk and Icechunk reference stores
 - Accept: remote files referenced by URL with an explicit parser and ObjectStoreRegistry; manifests exported via accessor methods
 - Reject: data-copying ingest where virtual reference applies; hand-rolled kerchunk reference builders; direct parser internals

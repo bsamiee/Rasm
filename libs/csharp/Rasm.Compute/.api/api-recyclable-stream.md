@@ -23,8 +23,7 @@ events for execution payload staging.
 |   [1]   | `RecyclableMemoryStreamManager`         | manager        | owns stream pool         |
 |   [2]   | `RecyclableMemoryStream`                | pooled stream  | carries staged bytes     |
 |   [3]   | `RecyclableMemoryStreamManager.Options` | policy object  | configures pool behavior |
-|   [4]   | `BlockAndOffset`                        | position shape | addresses pooled blocks  |
-|   [5]   | `BlockSegment`                          | segment shape  | exposes stream segment   |
+|   [4]   | `RecyclableMemoryStreamManager.Events`  | ETW source     | emits pool counters      |
 
 [PUBLIC_TYPE_SCOPE]: event contracts
 - rail: staging

@@ -15,10 +15,10 @@
 [PUBLIC_TYPE_SCOPE]: top-level and utility types
 - rail: sensitivity-analysis
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]         | [ROLE]                                          |
-| :-----: | :------------ | :-------------------- | :---------------------------------------------- |
-|   [1]   | `ProblemSpec` | class (dict subclass) | fluent problem definition and pipeline runner   |
-|   [2]   | `ResultDict`  | class                 | analysis result container with `to_df()` method |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]         | [ROLE]                                          |
+| :-----: | :---------------------- | :-------------------- | :---------------------------------------------- |
+|   [1]   | `ProblemSpec`           | class (dict subclass) | fluent problem definition and pipeline runner   |
+|   [2]   | `SALib.util.ResultDict` | class                 | analysis result container with `to_df()` method |
 
 [PUBLIC_TYPE_SCOPE]: sample submodules
 - rail: sensitivity-analysis

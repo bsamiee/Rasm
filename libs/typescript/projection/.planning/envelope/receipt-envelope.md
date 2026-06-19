@@ -16,7 +16,7 @@ One cluster: `[2]-[RECEIPT_ENVELOPE]` owns the `ReceiptEnvelopeCarrier` payload-
 
 ```ts contract
 import { Schema } from "effect";
-import { HlcStampWire, RasmPackage, TenantContextWire } from "@rasm/ts";
+import { HlcStampWire, RasmPackage, TenantContextWire } from "@rasm/interchange";
 
 const ReceiptEnvelopeCarrier = <Payload extends Schema.Schema.Any>(payload: Payload) =>
   Schema.Struct({

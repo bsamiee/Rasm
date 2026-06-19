@@ -58,6 +58,7 @@
 |   [8]   | `ElementQuad1`   | H1 quad bilinear | bilinear quadrilateral    |
 |   [9]   | `ElementHex1`    | H1 hex trilinear | trilinear hexahedron      |
 |  [10]   | `ElementLineP1`  | H1 line P1       | linear line element       |
+|  [11]   | `ElementLineP2`  | H1 line P2       | quadratic line element    |
 
 [PUBLIC_TYPE_SCOPE]: element types (mixed/DG/vector)
 - rail: FEM assembly
@@ -143,9 +144,9 @@
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                            |
 | :-----: | :-------------------------------------------- | :------------- | :-------------------------------- |
 |   [1]   | `MeshTri1.load(path)` / `MeshTet1.load(path)` | IO             | load mesh from file (Gmsh, VTK)   |
-|   [2]   | `mesh.refine(times=1)`                        | refinement     | uniform mesh refinement           |
+|   [2]   | `mesh.refined(times_or_ix=1)`                 | refinement     | uniform or marked mesh refinement |
 |   [3]   | `mesh.boundary_facets()`                      | query          | boundary facet index array        |
-|   [4]   | `mesh.define_boundary(name, fn)`              | boundary label | label boundary by predicate       |
+|   [4]   | `mesh.with_boundaries({name: fn})`            | boundary label | label boundary by predicate       |
 |   [5]   | `mesh.p` / `mesh.t` / `mesh.facets`           | data access    | nodes, connectivity, facet arrays |
 |   [6]   | `mesh.element_finder()`                       | query          | element-index lookup callable     |
 

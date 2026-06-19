@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `watchfiles`
 - package: `watchfiles`
 - import: `watchfiles`
-- version: `1.2.0`
 - owner: `runtime`
 - rail: automation
 - namespaces: `watchfiles`, `watchfiles.filters`, `watchfiles.run`

@@ -49,6 +49,15 @@
         "resolved": "7.0.0",
         "contentHash": "5otnmBDAIugnZpJrcS/NB8B5yfl6/OuII3/hvlZCgLzbpxJb0+UnMkwZ/bMp54Qkjpoo7Rzl+x6EFsnpjTE6XQ=="
       },
+      "Wacton.Unicolour.Datasets": {
+        "type": "Direct",
+        "requested": "[4.0.0, )",
+        "resolved": "4.0.0",
+        "contentHash": "Vk3NbKe9U7F4AwaBfqEecfMvmD1PC3M9CH8ei51aGWfqzc1mPaClQPCbhnLbvWpaP0oj0VWfsOgK4G76VfQr3A==",
+        "dependencies": {
+          "Wacton.Unicolour": "7.0.0"
+        }
+      },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",
         "resolved": "10.3.0",

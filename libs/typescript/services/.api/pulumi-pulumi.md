@@ -1,6 +1,6 @@
 # [API_CATALOGUE] @pulumi/pulumi
 
-`@pulumi/pulumi` supplies the core Pulumi SDK: the `Output<T>` / `Input<T>` algebra, `Resource`, `CustomResource`, `ComponentResource`, `StackReference`, `Config`, typed error classes, module namespaces for `asset`, `automation`, `log`, `runtime`, and `provider`, and the full Automation API (`LocalWorkspace`, `Stack`) for programmatic up/preview/destroy/refresh lifecycle drives in the services deploy tier.
+`@pulumi/pulumi` supplies the core Pulumi SDK: the `Output<T>` / `Input<T>` algebra, `Resource`, `CustomResource`, `ComponentResource`, `StackReference`, `Config`, typed error classes, module namespaces for `asset`, `automation`, `log`, `runtime`, and `provider`, the full Automation API (`LocalWorkspace`, `Stack`) for programmatic up/preview/destroy/refresh lifecycle drives, and the automation engine-event stream (`EngineEvent`, `StepEventMetadata`, `OpType`, `OpMap`, `DiffKind`, `PropertyDiff`, `previewRefresh`) the deploy and drift drivers fold in the services deploy tier.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -154,7 +154,176 @@
 |  [13]   | `Stack.setConfig(key, value, path?): Promise<void>`               | config method    | set config key-value               |
 |  [14]   | `Stack.getAllConfig(): Promise<ConfigMap>`                        | config method    | full config map                    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [4]-[AUTOMATION_EVENT_STREAM]
+
+The `@pulumi/pulumi/automation` engine-event surface the deploy and drift drivers fold. A lifecycle method's `onEvent` callback (on `UpOptions`, `PreviewOptions`, `RefreshOptions`, `DestroyOptions`) delivers a discriminated `EngineEvent` per engine step; `previewRefresh({ onEvent })` re-reads provider state read-only and streams `resourcePreEvent` steps without mutating the stack, the source the desired-vs-actual drift fold consumes. `EngineEvent` is a sum where exactly one event field is non-nil; the per-step `StepEventMetadata` carries the `OpType` operation and the optional `detailedDiff` property delta. The `PreviewResult.changeSummary` `OpMap` is the engine's own per-`OpType` count, reconciled against a folded bucket count.
+
+[PUBLIC_TYPE_SCOPE]: engine-event union and step metadata
+- rail: deployment
+- module: `@pulumi/pulumi/automation`
+
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                                                  |
+| :-----: | :----------------------- | :------------ | :------------------------------------------------------ |
+|   [1]   | `EngineEvent`            | interface     | event sum; exactly one event field non-nil              |
+|   [2]   | `ResourcePreEvent`       | interface     | `metadata: StepEventMetadata`; emitted before a step    |
+|   [3]   | `ResOutputsEvent`        | interface     | `metadata: StepEventMetadata`; emitted after a step     |
+|   [4]   | `ResOpFailedEvent`       | interface     | `metadata` + `status`/`steps`; step failure             |
+|   [5]   | `StepEventMetadata`      | interface     | `op`/`urn`/`type`/`detailedDiff`/`old`/`new`/`provider` |
+|   [6]   | `StepEventStateMetadata` | interface     | per-resource old/new state detail                       |
+|   [7]   | `OpType`                 | string union  | 15-member CRUD operation vocabulary                     |
+|   [8]   | `OpMap`                  | mapped type   | `{ [op in OpType]?: number }` per-op count              |
+|   [9]   | `DiffKind`               | enum          | property-diff kind (6 members)                          |
+|  [10]   | `PropertyDiff`           | interface     | `diffKind: DiffKind`; `inputDiff: boolean`              |
+|  [11]   | `SummaryEvent`           | interface     | `resourceChanges: OpMap`; end-of-update summary         |
+|  [12]   | `DiagnosticEvent`        | interface     | provider diagnostic message + severity                  |
+|  [13]   | `PolicyEvent`            | interface     | CrossGuard policy-violation event                       |
+
+```ts contract
+// @pulumi/pulumi/automation — events.d.ts
+export declare type OpType =
+  | "same" | "create" | "update" | "delete" | "replace"
+  | "create-replacement" | "delete-replaced" | "read" | "read-replacement"
+  | "refresh" | "discard" | "discard-replaced" | "remove-pending-replace"
+  | "import" | "import-replacement"
+
+export declare type OpMap = { [key in OpType]?: number }
+
+export declare enum DiffKind {
+  add = "add",
+  addReplace = "add-replace",
+  delete = "delete",
+  deleteReplace = "delete-replace",
+  update = "update",
+  updateReplace = "update-replace"
+}
+
+export interface PropertyDiff {
+  diffKind: DiffKind
+  inputDiff: boolean
+}
+
+export interface StepEventMetadata {
+  op: OpType
+  urn: string
+  type: string
+  old?: StepEventStateMetadata
+  new?: StepEventStateMetadata
+  keys?: string[]
+  diffs?: string[]
+  detailedDiff?: Record<string, PropertyDiff>
+  logical?: boolean
+  provider: string
+}
+
+export interface StepEventStateMetadata {
+  type: string
+  urn: string
+  custom?: boolean
+  delete?: boolean
+  id: string
+  parent: string
+  protect?: boolean
+  taint?: boolean
+  retainOnDelete?: boolean
+  inputs: Record<string, any>
+  outputs: Record<string, any>
+  provider: string
+  initErrors?: string[]
+}
+
+export interface ResourcePreEvent {
+  metadata: StepEventMetadata
+  planning?: boolean
+}
+export interface ResOutputsEvent {
+  metadata: StepEventMetadata
+  planning?: boolean
+}
+export interface ResOpFailedEvent {
+  metadata: StepEventMetadata
+  status: number
+  steps: number
+}
+
+export interface SummaryEvent {
+  maybeCorrupt: boolean
+  durationSeconds: number
+  resourceChanges: OpMap
+  policyPacks: Record<string, string>
+}
+
+export interface DiagnosticEvent {
+  urn?: string
+  prefix?: string
+  message: string
+  color: string
+  severity: "info" | "info#err" | "warning" | "error"
+  streamID?: number
+  ephemeral?: boolean
+}
+
+export interface PolicyEvent {
+  resourceUrn?: string
+  message: string
+  color: string
+  policyName: string
+  policyPackName: string
+  policyPackVersion: string
+  policyPackVersionTag: string
+  enforcementLevel: "warning" | "mandatory"
+}
+
+export interface EngineEvent {
+  sequence: number
+  timestamp: number
+  cancelEvent?: {}
+  stdoutEvent?: { message: string; color: string }
+  diagnosticEvent?: DiagnosticEvent
+  preludeEvent?: { config: Record<string, string> }
+  summaryEvent?: SummaryEvent
+  resourcePreEvent?: ResourcePreEvent
+  resOutputsEvent?: ResOutputsEvent
+  resOpFailedEvent?: ResOpFailedEvent
+  policyEvent?: PolicyEvent
+  startDebuggingEvent?: { config: Record<string, any> }
+}
+```
+
+[ENTRYPOINT_SCOPE]: refresh-preview drift driver
+- rail: deployment
+- module: `@pulumi/pulumi/automation`
+
+| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]   | [RAIL]                                         |
+| :-----: | :---------------------------------------------------- | :--------------- | :--------------------------------------------- |
+|   [1]   | `Stack.previewRefresh(opts?): Promise<PreviewResult>` | lifecycle method | read-only refresh-preview; no state mutation   |
+|   [2]   | `Stack.refresh(opts?): Promise<RefreshResult>`        | lifecycle method | reconcile state with provider (mutating)       |
+|   [3]   | `RefreshOptions.onEvent`                              | callback         | `(event: EngineEvent) => void` per-step stream |
+|   [4]   | `PreviewResult.changeSummary: OpMap`                  | result field     | engine's own per-`OpType` change count         |
+
+```ts contract
+// @pulumi/pulumi/automation — Stack (refresh-preview leg)
+export interface PreviewResult {
+  stdout: string
+  stderr: string
+  changeSummary: OpMap
+}
+
+interface RefreshOptions {
+  onEvent?: (event: EngineEvent) => void
+  onOutput?: (out: string) => void
+  // plus parallel/message/target/expectNoChanges/userAgent/color (shared option fields)
+}
+
+declare class Stack {
+  preview(opts?: PreviewOptions): Promise<PreviewResult>
+  previewRefresh(opts?: RefreshOptions): Promise<PreviewResult>
+  refresh(opts?: RefreshOptions): Promise<RefreshResult>
+}
+```
+
+`previewRefresh` is the non-mutating refresh-preview: it re-reads provider state and reports the drift each resource carries as a stream of `resourcePreEvent` steps, where `StepEventMetadata.op` classifies the divergence and `detailedDiff` carries the per-property delta, without writing the refreshed state back. Drive it with an `onEvent` accumulator and reconcile the folded bucket count against `PreviewResult.changeSummary`.
+
+## [5]-[IMPLEMENTATION_LAW]
 
 [OUTPUT_TOPOLOGY]:
 - `Output<T>` is `OutputInstance<T> & Lifted<T>`; property access on an `Output<{a: string}>` returns `Output<string>` directly without `.apply`

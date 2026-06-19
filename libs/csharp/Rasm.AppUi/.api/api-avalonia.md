@@ -192,14 +192,17 @@
 | :-----: | :------------------------------ | :-------------------- | :--------------- |
 |   [1]   | `SetDataAsync`                  | `IClipboard`          | clipboard write  |
 |   [2]   | `TryGetDataAsync`               | `IClipboard`          | clipboard read   |
-|   [3]   | `GetDataFormatsAsync`           | `ClipboardExtensions` | format probe     |
-|   [4]   | `Add`                           | `DataTransfer`        | item compose     |
-|   [5]   | `Create<T>`                     | `DataTransferItem`    | per-format item  |
-|   [6]   | `Set<T>`                        | `DataTransferItem`    | per-format set   |
-|   [7]   | `TryGetRaw`                     | `DataTransferItem`    | per-format read  |
-|   [8]   | `CreateBytesApplicationFormat`  | `DataFormat`          | byte format      |
-|   [9]   | `CreateStringApplicationFormat` | `DataFormat`          | string format    |
-|  [10]   | `Formats`                       | `IDataTransfer`       | format inventory |
+|   [3]   | `TryGetDataAsync<T>`            | `ClipboardExtensions` | typed clip read  |
+|   [4]   | `TryGetTextAsync`               | `ClipboardExtensions` | text clip read   |
+|   [5]   | `GetDataFormatsAsync`           | `ClipboardExtensions` | format probe     |
+|   [6]   | `Add`                           | `DataTransfer`        | item compose     |
+|   [7]   | `Create<T>`                     | `DataTransferItem`    | per-format item  |
+|   [8]   | `CreateText`                    | `DataTransferItem`    | text item make   |
+|   [9]   | `Set<T>`                        | `DataTransferItem`    | per-format set   |
+|  [10]   | `TryGetRaw`                     | `DataTransferItem`    | per-format read  |
+|  [11]   | `CreateBytesApplicationFormat`  | `DataFormat`          | byte format      |
+|  [12]   | `CreateStringApplicationFormat` | `DataFormat`          | string format    |
+|  [13]   | `Formats`                       | `IDataTransfer`       | format inventory |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

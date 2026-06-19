@@ -152,7 +152,7 @@ public static class HttpLane {
 
 ## [4]-[KEYED_PIPELINES]
 
-- Owner: `KeyedLane` — the one keyed registry registration fold for every non-HTTP hop; `GrpcChannelPolicy` canonical channel-policy record.
+- Owner: `KeyedLane` — the one keyed registry registration fold for every non-HTTP hop; the channel-policy record is the canonical `Rasm.Compute/remote/channels#TRANSPORT_AXIS` `GrpcChannelPolicy` consumed by reference — this page reads `GrpcChannelPolicy.Canonical` and never re-declares the record.
 - Entry: `Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, Func<HopPolicy, Func<FallbackActionArguments<HopOutcome>, ValueTask<Outcome<HopOutcome>>>> redial, Action<OnRateLimiterRejectedArguments> onRejected, params ReadOnlySpan<HopPolicy> rows)` — one `AddResiliencePipeline` entry per row, the `redial` projection seats the per-row fallback action and `onRejected` fans every rate-limiter rejection onto the meter.
 - Auto: `ConfigureTelemetry` inserts the telemetry strategy at pipeline head; resilience events land under the pipeline key in the package meter and logger; each pipeline binds a `CircuitBreakerStateProvider` so the breaker state reads from Polly's own observation surface, never a parallel state delegate; the pipeline-head limiter is `AutoReplenishment` true on every replenishing shape so the sliding-window and token-bucket rows self-refill without a parallel timer.
 - Packages: Polly.Core, Polly.Extensions, Polly.RateLimiting, System.Threading.RateLimiting, LanguageExt.Core, BCL inbox
@@ -160,21 +160,12 @@ public static class HttpLane {
 - Boundary: gRPC-native retry is rejected — the channel `ServiceConfig` retry and hedging are experimental and a second retry owner; admission is one `RateLimiterStrategyOptions` row at the pipeline head whose `RateLimiter` lease-producer delegate is the `KeyedLane.Limiter` projection over the row's `HopRateLimit Admission` column — `Concurrency` keeps the `DefaultRateLimiterOptions` typed `System.Threading.RateLimiting.ConcurrencyLimiterOptions` path (the `int PermitLimit`/`int QueueLimit` settable members bound to `RateLimitPermits` 128, `RateLimitQueue` 64), `SlidingWindow` leases from a `SlidingWindowRateLimiter` over `SlidingWindowRateLimiterOptions{Window,SegmentsPerWindow,PermitLimit,QueueLimit,QueueProcessingOrder}` and `TokenBucket` from a `TokenBucketRateLimiter` over `TokenBucketRateLimiterOptions{ReplenishmentPeriod,TokensPerPeriod,TokenLimit,QueueLimit}`, the generic `AddRateLimiter<TBuilder>(TBuilder, RateLimiterStrategyOptions)` of `Polly.RateLimiterResiliencePipelineBuilderExtensions` taking the builder by its own type; its `OnRejected` delegate fans the rejection onto the resilience meter, and a `RateLimiterRejectedException.RetryAfter` projection feeds the retry `DelayGenerator` so a server-advised back-pressure window is honored verbatim while every other fault keeps the exponential-jitter seed; the `LocalIpc` redial is one `AddFallback` strategy whose `FallbackStrategyOptions<HopOutcome>.FallbackAction` re-reads the peer manifest and reconnects, a hop-keyed policy value, never a coded retry loop — `FallbackAction` is typed `Func<FallbackActionArguments<HopOutcome>, ValueTask<Outcome<HopOutcome>>>`, and the `readonly struct FallbackActionArguments<HopOutcome>` carrier exposes `ResilienceContext Context` and the inbound `Outcome<HopOutcome> Outcome` the redial action reads to reconnect the peer; `CircuitBreakerManualControl` keyed per hop is the kill-switch write surface and `CircuitBreakerStateProvider` keyed per hop is the read-side state the receipt projects; the `allotted` projection is the deadline-row read so no duration literal lives in a strategy; the canonical channel record carries keepalive 60s/30s, infinite pooled-connection idle, multiplexed HTTP/2, and 4 MiB caps in both directions.
 
 ```csharp signature
-public sealed record GrpcChannelPolicy(
-    TimeSpan PooledConnectionIdle,
-    TimeSpan KeepAlivePingDelay,
-    TimeSpan KeepAlivePingTimeout,
-    bool EnableMultipleHttp2Connections,
-    int MaxSendBytes,
-    int MaxReceiveBytes) {
-    public static readonly GrpcChannelPolicy Canonical = new(
-        PooledConnectionIdle: Timeout.InfiniteTimeSpan,
-        KeepAlivePingDelay: TimeSpan.FromSeconds(60),
-        KeepAlivePingTimeout: TimeSpan.FromSeconds(30),
-        EnableMultipleHttp2Connections: true,
-        MaxSendBytes: 4 * 1024 * 1024,
-        MaxReceiveBytes: 4 * 1024 * 1024);
-}
+// GrpcChannelPolicy is OWNED by Rasm.Compute/remote/channels#TRANSPORT_AXIS (the canonical 9-field
+// record: PooledConnectionIdle, KeepAlivePingDelay, KeepAlivePingTimeout, EnableMultipleHttp2Connections,
+// MaxSendBytes, MaxReceiveBytes, InitialReconnectBackoff, MaxReconnectBackoff, HttpVersionPosture Version).
+// This page consumes GrpcChannelPolicy.Canonical by reference and never re-declares the record — a local
+// re-declaration (especially the stale 6-field subset that drops the reconnect-backoff and HTTP-version-posture
+// fields) is the rejected second-owner form.
 
 public static class KeyedLane {
     public const int PermitLimit = 64;

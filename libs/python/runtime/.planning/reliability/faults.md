@@ -73,7 +73,7 @@ async def async_boundary[T](subject: str, thunk: Callable[[], Awaitable[T]], *, 
 def traversed[T](rails: Block[RuntimeRail[T]], *, accumulate: bool) -> RuntimeRail[Block[T]]:
     if not accumulate:
         seed: RuntimeRail[Block[T]] = Ok(Block.empty())
-        return rails.fold(lambda acc, rail: acc.bind(lambda done: rail.map(done.append)), seed)
+        return rails.fold(lambda acc, rail: acc.bind(lambda done: rail.map(lambda value: done.append(Block.singleton(value)))), seed)
     faults = rails.choose(lambda rail: rail.swap().to_option())
     oks = rails.choose(lambda rail: rail.to_option())
     return Ok(oks) if faults.is_empty() else Error(faults.reduce(BoundaryFault.combine))

@@ -1,6 +1,6 @@
 # [COMPUTE_CODECS]
 
-Rasm.Compute interchange lane: the compute-and-transport half of artifact interchange, owning the chunked error-bounded field/result codec over the simulation-field carrier, the FastCDC structural geometry-delta codec over meshes, B-reps, point clouds, and NURBS, the two-hop IFC-to-geometry tessellation bridge that crosses geometry evaluation to the IfcOpenShell companion and re-imports the GLB, the 3D-Tiles streamable-LOD octree partition over the imported geometry carrier, and the content-addressed artifact identity that folds the format key plus the deflection and tolerance policy into one `XxHash128` key. The page owns the `FieldCodec` and `DeltaCodec` codecs, the `TessellationRequest` companion bridge, the `TileSet` octree partition, and the `InterchangeIdentity` content-key — composing the suite `XxHash128` hash law, the `ArtifactIndexRow` blob owner, the model-lane `ModelIdentity` identity precedent, the `solver#DISCRETIZATION_MESH` `FieldSpace` shape, and the `Substrate.RemoteGrpc` companion hop as settled vocabulary. The IFC/glTF/STEP semantic object model and its format/codec/frame import-export surface are owned by `Rasm.Bim` and reached at the companion seam; this page is HOST-LOCAL and carries no TS_PROJECTION.
+Rasm.Compute interchange lane: the compute-and-transport half of artifact interchange, owning the chunked error-bounded field/result codec over the simulation-field carrier, the FastCDC structural geometry-delta codec over meshes, B-reps, point clouds, and NURBS, the two-hop IFC-to-geometry tessellation bridge that crosses geometry evaluation to the IfcOpenShell companion and re-imports the GLB, the 3D-Tiles streamable-LOD octree partition over the imported geometry carrier with its `EXT_structural_metadata` semantic layer joining the IFC classification and the solver field values at the content-key, and the content-addressed artifact identity that folds the format key plus the deflection and tolerance policy into one `XxHash128` key. The page owns the `FieldCodec` and `DeltaCodec` codecs, the `TessellationRequest` companion bridge, the `TileSet` octree partition with its `MetadataProperty`/`PropertyTable`/`TileMetadata`/`FeatureBand` metadata family, and the `InterchangeIdentity` content-key — composing the suite `XxHash128` hash law, the `ArtifactIndexRow` blob owner, the model-lane `ModelIdentity` identity precedent, the `solver#DISCRETIZATION_MESH` `FieldSpace` shape, the SharpGLTF raw glTF-extension write surface, the meshoptimizer LOD kernels, and the `Substrate.RemoteGrpc` companion hop as settled vocabulary. The IFC/glTF/STEP semantic object model and its format/codec/frame import-export surface are owned by `Rasm.Bim` and reached at the companion seam; this page is HOST-LOCAL and carries no TS_PROJECTION.
 
 ## [1]-[INDEX]
 
@@ -52,18 +52,38 @@ public sealed record TessellationRequest(
 
 ## [3]-[FIELD_RESULT_CODEC]
 
-- Owner: `FieldCodecPolicy` the chunked-layout and error-bound policy record; `FieldArtifact` the chunked simulation-field carrier over CGNS/EnSight/VTK/Zarr; `PointScan` the point-cloud carrier over E57/LAS/LAZ/PTS; `FieldCodec` the static encode/decode surface projecting a `FieldSpace`-shaped result into a Zarr/VTK-class chunked layout with error-bounded lossy or exact lossless residence and a zero-copy solver↔store↔viz handoff; `InterchangeIo` the scientific-data ingest surface dispatching the chunked field decode and the point-scan ingest, the geometry and IFC import arms owned by `Rasm.Bim`.
+- Owner: `FieldCodecPolicy` the chunked-layout and error-bound policy record carrying the residual-predict column; `ResidualPredictor` the content-keyed model-lane chunk predictor; `FieldArtifact` the chunked simulation-field carrier over CGNS/EnSight/VTK/Zarr; `PointScan` the point-cloud carrier over E57/LAS/LAZ/PTS; `FieldCodec` the static encode/decode surface projecting a `FieldSpace`-shaped result into a Zarr/VTK-class chunked layout with error-bounded lossy, learned-residual-predicted, or exact lossless residence and a zero-copy solver↔store↔viz handoff; `InterchangeIo` the scientific-data ingest surface dispatching the chunked field decode and the point-scan ingest, the geometry and IFC import arms owned by `Rasm.Bim`.
 - Entry: `public static Fin<FieldArtifact> ImportField(string formatKey, string codecKey, ReadOnlyMemory<byte> bytes, FieldCodecPolicy policy, ClockPolicy clocks)` reads a chunked field through `FieldCodec.FieldDecode`; `public static Fin<PointScan> ImportPoints(string formatKey, string codecKey, ReadOnlyMemory<byte> bytes, ClockPolicy clocks)` reads a point-cloud scan; `public static Fin<FieldArtifact> FieldDecode(string formatKey, ReadOnlyMemory<byte> bytes, FieldCodecPolicy policy, Instant at)` reads a chunked field artifact into the integration-point/nodal field carrier; `public static Fin<ExportArtifact> FieldEncode(FieldArtifact field, string formatKey, FieldCodecPolicy policy, Instant at)` emits the chunked layout with the policy error bound; `Fin<T>` aborts on a chunk-shape mismatch or an error bound the lossy quantizer cannot meet.
-- Auto: the codec chunks the field by the policy chunk shape so a large solve result streams chunk-by-chunk through the `staging#STREAM_POOL` `GetReadOnlySequence` zero-copy read, never a flattened array; the lossy column quantizes each chunk to the policy bit budget and the residual stays below the relative error bound (a chunk whose quantization exceeds the bound falls back to lossless), the lossless column deflates the raw bytes, and the zero-copy handoff wraps the chunk window with `UnsafeByteOperations.UnsafeWrap` so the solver field, the store blob, and the viz upload are one buffer; the chunk index keys each chunk by its grid coordinate so a viewport reads only the chunks its frustum intersects.
-- Receipt: the `StreamSegment` receipt carries the field artifact id, the chunk count, and the emitted bytes; a lossy encode stamps the achieved max-residual against the bound on the `Cache` receipt so an error-bounded compression is auditable.
-- Packages: System.IO.Hashing, CommunityToolkit.HighPerformance, Microsoft.IO.RecyclableMemoryStream, System.Numerics.Tensors, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
-- Growth: a new chunked field format is one row on the `field-chunk` codec owned by the Bim format axis; a new point-scan format is one row on the `point-cloud` codec owned by the Bim format axis; a new error-bound policy is one column on `FieldCodecPolicy`; zero new surface.
-- Boundary: the field codec is the result-specific layout the generic blob/snapshot codecs never owned — a scalar/vector/tensor solve field rides the `solver#DISCRETIZATION_MESH` `FieldSpace` shape, so the codec chunks by station and component, never a generic byte blob; the chunked layout composes the suite `XxHash128` chunk identity and the Persistence blob lane content-addressed, so a re-emitted identical chunk dedups and a re-read warms from the store — a second field store is the rejected form; the lossy quantizer's error bound is a typed policy column the receipt records, so an error-bounded compression never silently exceeds its bound; the zero-copy edge is the same `GetReadOnlySequence`/`UnsafeWrap` path the remote frame law owns, so a field chunk crosses solver→store→viz without a managed copy — a `ToArray` flatten on the field path is the named defect; the `PointScan` ingest carries the `point-cloud` codec discriminant the Bim format axis names and faults `point-catalogue-pending` until the E57/LAS/LAZ/PTS reader package is admitted; the geometry mesh decode and the IFC semantic ingest are the `Rasm.Bim` import rail, never re-derived here — an `ImportGeometry`/`ImportIfc` arm in this surface is the deleted form.
+- Auto: the codec chunks the field by the policy chunk shape so a large solve result streams chunk-by-chunk through the `staging#STREAM_POOL` `GetReadOnlySequence` zero-copy read, never a flattened array; the lossy column quantizes each chunk to the policy bit budget and the residual stays below the relative error bound (a chunk whose quantization exceeds the bound falls back to lossless), the residual column predicts each grid-coordinate-indexed chunk from its grid neighbours through the `ResidualPredictor` model-lane ONNX field model and quantizes only the residual against the prediction (a smooth converged field stores far past the per-chunk quantizer at the same bound, and a chunk whose residual exceeds the bound falls through to the lossless deflate with no new failure mode), the lossless column deflates the raw bytes, and the zero-copy handoff wraps the chunk window with `UnsafeByteOperations.UnsafeWrap` so the solver field, the store blob, and the viz upload are one buffer; the chunk index keys each chunk by its grid coordinate so a viewport reads only the chunks its frustum intersects and the residual predictor sees true spatial neighbours.
+- Receipt: the `StreamSegment` receipt carries the field artifact id, the chunk count, and the emitted bytes; a lossy or residual-predicted encode stamps the achieved max-residual against the bound on the `Cache` receipt so an error-bounded compression is auditable.
+- Packages: System.IO.Hashing, CommunityToolkit.HighPerformance, Microsoft.IO.RecyclableMemoryStream, System.Numerics.Tensors, Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
+- Growth: a new chunked field format is one row on the `field-chunk` codec owned by the Bim format axis; a new point-scan format is one row on the `point-cloud` codec owned by the Bim format axis; a new error-bound policy is one column on `FieldCodecPolicy`; a learned predictor is one `ResidualPredictor` content-keyed ONNX session reused across chunks; zero new surface — a `ResidualCoder`/`NeuralFieldCompressor` sibling is collapsed onto the `FieldCodecPolicy.ResidualPredict` column and the one `ResidualEncode` fold.
+- Boundary: the field codec is the result-specific layout the generic blob/snapshot codecs never owned — a scalar/vector/tensor solve field rides the `solver#DISCRETIZATION_MESH` `FieldSpace` shape, so the codec chunks by station and component, never a generic byte blob; the chunked layout composes the suite `XxHash128` chunk identity and the Persistence blob lane content-addressed, so a re-emitted identical chunk dedups and a re-read warms from the store — a second field store is the rejected form; the lossy quantizer's error bound is a typed policy column the receipt records, so an error-bounded compression never silently exceeds its bound; the zero-copy edge is the same `GetReadOnlySequence`/`UnsafeWrap` path the remote frame law owns, so a field chunk crosses solver→store→viz without a managed copy — a `ToArray` flatten on the field path is the named defect; the residual row is the learned-compression terminal — the `ResidualPredictor` is one model-lane `inference#INFERENCE_MODES` ONNX session content-keyed by the parametric-family digest and shared across every chunk so the codec composes the model lane it sits beside rather than minting a second inference path, the grid-coordinate chunk index is preserved (never reduced to content-defined byte chunking, which destroys the grid-coordinate locality the predictor depends on — the FastCDC `#GEOMETRY_DELTA` chunker is the rejected rewrite of this codec) so the predictor sees true spatial neighbours, only the bounded residual against the prediction stores and a chunk whose residual exceeds the bound falls back to the lossless deflate (no new failure mode), the predictor weights are one content-addressed ONNX artifact the Python offline-science companion fits and returns over the same offline-training seam the optimizer surrogate uses (never an in-proc fit), and the achieved residual stays auditable on the `Cache` receipt; the `PointScan` ingest carries the `point-cloud` codec discriminant the Bim format axis names and faults `point-catalogue-pending` until the E57/LAS/LAZ/PTS reader package is admitted; the geometry mesh decode and the IFC semantic ingest are the `Rasm.Bim` import rail, never re-derived here — an `ImportGeometry`/`ImportIfc` arm in this surface is the deleted form.
 
 ```csharp signature
-public sealed record FieldCodecPolicy(int[] ChunkShape, bool Lossy, int QuantizationBits, double RelativeErrorBound, bool Deflate) {
-    public static readonly FieldCodecPolicy Lossless = new(ChunkShape: [64, 64, 64], Lossy: false, QuantizationBits: 0, RelativeErrorBound: 0.0, Deflate: true);
-    public static readonly FieldCodecPolicy Bounded = new(ChunkShape: [64, 64, 64], Lossy: true, QuantizationBits: 12, RelativeErrorBound: 1e-3, Deflate: true);
+public sealed record FieldCodecPolicy(int[] ChunkShape, bool Lossy, int QuantizationBits, double RelativeErrorBound, bool Deflate, bool ResidualPredict) {
+    public static readonly FieldCodecPolicy Lossless = new(ChunkShape: [64, 64, 64], Lossy: false, QuantizationBits: 0, RelativeErrorBound: 0.0, Deflate: true, ResidualPredict: false);
+    public static readonly FieldCodecPolicy Bounded = new(ChunkShape: [64, 64, 64], Lossy: true, QuantizationBits: 12, RelativeErrorBound: 1e-3, Deflate: true, ResidualPredict: false);
+    public static readonly FieldCodecPolicy Residual = Bounded with { ResidualPredict = true };
+}
+
+public sealed record ResidualPredictor(
+    UInt128 FamilyDigest,
+    ModelIdentity Model,
+    string InputName,
+    string OutputName,
+    int NeighbourStencil,
+    InferenceSession Session,
+    RunOptions Options,
+    CancelScope Scope) {
+    public Fin<float[]> Predict(ReadOnlySpan<float> neighbours, int chunkElements) {
+        float[] stencil = neighbours.ToArray();
+        return Session.Infer(Options, Scope, RunOps.Bind(new RunInput.Managed<float>(InputName, stencil, [1, stencil.Length])), Seq(OutputName),
+            results => {
+                ReadOnlySpan<float> predicted = results.First().GetTensorDataAsSpan<float>();
+                return predicted.Length >= chunkElements ? Fin.Succ(predicted[..chunkElements].ToArray()) : Fin.Fail<float[]>(new ComputeFault.ModelRejected($"<residual-predict-undersized:{predicted.Length}<{chunkElements}>"));
+            });
+    }
 }
 
 public sealed record FieldArtifact(
@@ -102,12 +122,37 @@ public static class FieldCodec {
     public static Fin<FieldArtifact> FieldDecode(string formatKey, ReadOnlyMemory<byte> bytes, FieldCodecPolicy policy, Instant at) =>
         Try.lift(() => Decode(formatKey, bytes, policy, at)).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected(error.Message));
 
-    public static Fin<ExportArtifact> FieldEncode(FieldArtifact field, string formatKey, FieldCodecPolicy policy, Instant at) {
-        var encoded = policy.Lossy ? Quantize(field, policy) : Raw(field, policy);
+    public static Fin<ExportArtifact> FieldEncode(FieldArtifact field, string formatKey, FieldCodecPolicy policy, Instant at, Option<ResidualPredictor> predictor = default) {
+        var encoded = policy.ResidualPredict && predictor.Case is ResidualPredictor net
+            ? ResidualEncode(field, policy, net)
+            : policy.Lossy ? Quantize(field, policy) : Raw(field, policy);
         var packed = Pack(encoded, policy);
         return encoded.MaxResidual <= policy.RelativeErrorBound || !policy.Lossy
             ? Fin.Succ(new ExportArtifact(formatKey, packed, InterchangeIdentity.Key(formatKey, packed, InterchangePolicy.Canonical.Deflection, InterchangePolicy.Canonical.Tolerance, InterchangePolicy.Canonical.AngleTolerance), packed.LongLength, at))
             : Fin.Fail<ExportArtifact>(new ComputeFault.ModelRejected($"<field-error-bound:{encoded.MaxResidual:R}>{policy.RelativeErrorBound:R}"));
+    }
+
+    static FieldArtifact ResidualEncode(FieldArtifact field, FieldCodecPolicy policy, ResidualPredictor predictor) {
+        var source = MemoryMarshal.Cast<byte, float>(field.Chunks.Span);
+        int chunkElements = policy.ChunkShape.Aggregate(1, static (acc, dim) => acc * dim) * field.Components;
+        if (chunkElements <= 0 || source.Length < chunkElements) { return policy.Lossy ? Quantize(field, policy) : Raw(field, policy); }
+        var residual = new float[source.Length];
+        float scale = MathF.Max(MathF.Abs(TensorPrimitives.Max(source)), MathF.Abs(TensorPrimitives.Min(source)));
+        float step = scale / ((1 << policy.QuantizationBits) - 1);
+        double worst = 0.0;
+        for (int chunk = 0; chunk * chunkElements < source.Length; chunk++) {
+            int start = chunk * chunkElements, length = Math.Min(chunkElements, source.Length - start);
+            ReadOnlySpan<float> stencil = source.Slice(Math.Max(0, start - predictor.NeighbourStencil), Math.Min(predictor.NeighbourStencil + length, source.Length - Math.Max(0, start - predictor.NeighbourStencil)));
+            float[] prediction = predictor.Predict(stencil, length).IfFail(static () => Array.Empty<float>());
+            for (int index = 0; index < length; index++) {
+                float predicted = index < prediction.Length ? prediction[index] : 0f;
+                float delta = source[start + index] - predicted;
+                float coded = step == 0f ? delta : MathF.Round(delta / step) * step;
+                residual[start + index] = coded;
+                worst = Math.Max(worst, scale == 0f ? 0.0 : Math.Abs(delta - coded) / scale);
+            }
+        }
+        return field with { Chunks = MemoryMarshal.AsBytes(residual.AsSpan()).ToArray(), MaxResidual = worst };
     }
 
     public static ReadOnlySequence<byte> ChunkSequence(FieldArtifact field) =>
@@ -292,13 +337,13 @@ public static class DeltaCodec {
 
 ## [5]-[TILE_PARTITION]
 
-- Owner: `TileSet` the 3D-Tiles octree partition over the imported geometry carrier; `TileNode` the per-node bounding-volume/geometric-error/content-key record; `ExportTiles` the leaf-tile emit fold riding the content-key and the field/tile compute lane; the partition consumes the deflection/tolerance and tile-depth/error/split scalars from `InterchangePolicy` and the `InterchangeIdentity.Key` content-key, never the Bim format/codec/KHR surface.
-- Entry: `public static Fin<Seq<ExportArtifact>> ExportTiles(ImportedGeometry geometry, InterchangePolicy policy, ClockPolicy clocks)` builds the octree and emits the leaf tiles; `public static TileSet Build(ImportedGeometry geometry, InterchangePolicy policy, ClockPolicy clocks)` partitions the geometry into the depth-bounded octree; `Fin<T>` aborts on a tile-content emit miss projected onto `ComputeFault.ModelRejected`.
-- Auto: `Build` partitions the geometry octant-by-octant to the policy max depth or the triangle split threshold, computing the geometric error as the root error halved per depth and the per-node content-key over the node geometry through `InterchangeIdentity.Key` so a re-partition of identical geometry at identical settings keys identically; `ExportTiles` flattens the octree, filters to the leaves, and emits each leaf tile content keyed on its node content-key.
-- Receipt: the `StreamSegment` receipt carries the leaf-tile count, the root geometric error, the max depth, and the node count; emission rides the sink port.
-- Packages: System.IO.Hashing, CommunityToolkit.HighPerformance, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
-- Growth: a new tile-partition parameter is one column on `InterchangePolicy` folded into the partition; a new leaf-tile content format is one row on the Bim format axis the leaf emit reads; zero new surface.
-- Boundary: the 3D-Tiles partition is the streamable-LOD octree over the content-keyed geometry the field/tile compute lane owns — it rides `InterchangeIdentity.Key` and the imported-geometry carrier, so the partition stays a compute concern while the b3dm/glTF tile content encode is the Bim glTF codec the leaf emit composes; the leaf-tile content emit faults `tile-content-catalogue-pending` until the Bim tile-emit codec is admitted, the row, octree, and quantization-bit policy owned here; a tile partition that re-derives the glTF tile content body in-place is the rejected form.
+- Owner: `TileSet` the 3D-Tiles octree partition over the imported geometry carrier; `TileNode` the per-node bounding-volume/geometric-error/content-key record carrying its `Option<TileMetadata>` semantic layer; `MetadataProperty` `[Union]` the `EXT_structural_metadata` typed property-column cases; `PropertyTable` the per-tile feature-keyed property-table carrier; `TileMetadata` the per-leaf metadata layer joining the IFC classification column and the solver field-value columns under one feature-id mapping; `FeatureBand` `[SmartEnum<string>]` the solved-field styling-band rows; `ExportTiles` the leaf-tile emit fold riding the content-key, the metadata layer, and the field/tile compute lane; the partition consumes the deflection/tolerance and tile-depth/error/split scalars from `InterchangePolicy` and the `InterchangeIdentity.Key` content-key, never the Bim format/codec/KHR surface.
+- Entry: `public static Fin<Seq<ExportArtifact>> ExportTiles(ImportedGeometry geometry, Func<UInt128, Option<TileMetadata>> metadata, InterchangePolicy policy, ClockPolicy clocks)` builds the octree, attaches the per-leaf metadata read at the node content-key, and emits the leaf tiles; `public static TileSet Build(ImportedGeometry geometry, Func<UInt128, Option<TileMetadata>> metadata, InterchangePolicy policy, ClockPolicy clocks)` partitions the geometry into the depth-bounded octree; `Fin<T>` aborts on a tile-content emit miss projected onto `ComputeFault.ModelRejected`.
+- Auto: `Build` partitions the geometry octant-by-octant to the policy max depth or the triangle split threshold, computing the geometric error as the root error halved per depth and the per-node content-key over the node geometry through `InterchangeIdentity.Key` so a re-partition of identical geometry at identical settings keys identically, then reads the per-leaf `TileMetadata` at the node content-key so the same key addresses geometry and metadata; `ExportTiles` flattens the octree, filters to the leaves, and emits each leaf tile content keyed on its node content-key with the attached `EXT_structural_metadata` property table and `EXT_mesh_features` feature-id mapping; `TileMetadata.Join` folds the `Rasm.Bim` IFC classification projection and the `solver#DISCRETIZATION_MESH` `FieldSpace` per-element field values read at the shared content-key into one feature-keyed property table, and `PropertyTable.Pack` lays each `MetadataProperty` column out as a contiguous buffer-view body the leaf-tile emit references; `FeatureBand.Of` classifies an achieved per-element field value onto its styling band so the viewer styles by solved field without recomputing the metric.
+- Receipt: the `StreamSegment` receipt carries the leaf-tile count, the root geometric error, the max depth, the node count, and the per-leaf property-column count; emission rides the sink port.
+- Packages: System.IO.Hashing, CommunityToolkit.HighPerformance, SharpGLTF.Core, SharpGLTF.Toolkit, meshoptimizer, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
+- Growth: a new tile-partition parameter is one column on `InterchangePolicy` folded into the partition; a new metadata property is one `MetadataProperty` case folded into the property table; a new styling band is one `FeatureBand` row; a new leaf-tile content format is one row on the Bim format axis the leaf emit reads; zero new surface — a `TileMetadataStore`/`FeatureAttributeTable` sibling owner is collapsed onto the one `TileMetadata`/`PropertyTable` family on the leaf-tile content emit.
+- Boundary: the 3D-Tiles partition is the streamable-LOD octree over the content-keyed geometry the field/tile compute lane owns — it rides `InterchangeIdentity.Key` and the imported-geometry carrier, so the partition stays a compute concern while the b3dm/glTF tile content encode is the Bim glTF codec the leaf emit composes; the metadata layer is one schema column on the leaf-tile content emit, never a parallel attribute store or a second tiling owner — the IFC classification reads the `Rasm.Bim` IFC semantic graph at the shared content-key (the companion seam aligned to a named boundary, never reaching into the Bim interior) and the per-element field values read the `solver#DISCRETIZATION_MESH` `FieldSpace` achieved value (never a recomputed metric), so the IFC semantic graph and the tessellated geometry stay two projections of the one content-keyed IFC artifact joined at the tile boundary and a re-tessellation at a new deflection re-keys geometry and metadata together; the `EXT_structural_metadata` property tables and the `EXT_mesh_features` feature-id attribute are vendor glTF extensions SharpGLTF does not model natively (the in-box `KnownChannel` extension surface and `ExtensionsFactory.RegisterExtension<TParent,TExt>(name)` carry only the material-PBR and registered-extension framework), so the schema, the property-table buffer-view columns, and the feature-id vertex attribute emit through the raw glTF-extension write surface against a `JsonSerializable`-derived extension class registered before write — the binary layout (property-table column buffer views, feature-id `_FEATURE_ID_0` attribute) is the `[EXT_STRUCTURAL_METADATA]` RESEARCH leaf against the SharpGLTF extension API and the 3D-Tiles 1.1 spec, never an assumed SharpGLTF helper; meshoptimizer owns the leaf-tile `Meshopt.Simplify`/`OptimizeVertexCache` LOD optimization the octree leaf geometry rides, never a hand-rolled simplifier; the leaf-tile content body emit faults `tile-content-catalogue-pending` until the Bim tile-emit codec is admitted, the row, octree, metadata schema, and quantization-bit policy owned here; a tile partition that re-derives the glTF tile content body in-place or a metadata layer that re-reads the IFC parser is the rejected form.
 
 ```csharp signature
 public sealed record InterchangePolicy(
@@ -313,22 +358,92 @@ public sealed record InterchangePolicy(
         TileMaxDepth: 16, TileGeometricErrorRoot: 512.0, TileSplitThreshold: 8192.0);
 }
 
-public sealed record TileNode(int Depth, float[] BoundingVolume, double GeometricError, UInt128 ContentKey, Seq<TileNode> Children);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
+[KeyMemberComparer<InterchangeKeyPolicy, string>]
+public sealed partial class FeatureBand {
+    public static readonly FeatureBand Nominal = new("nominal", upperFraction: 0.5);
+    public static readonly FeatureBand Elevated = new("elevated", upperFraction: 0.8);
+    public static readonly FeatureBand Critical = new("critical", upperFraction: 1.0);
+
+    public double UpperFraction { get; }
+
+    public static FeatureBand Of(double value, double minimum, double maximum) {
+        double span = Math.Max(1e-12, maximum - minimum);
+        double fraction = Math.Clamp((value - minimum) / span, 0.0, 1.0);
+        return Items.Filter(row => fraction <= row.UpperFraction).HeadOrNone().IfNone(Critical);
+    }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record MetadataProperty {
+    private MetadataProperty() { }
+
+    public sealed record Classification(string Name, Seq<string> Values) : MetadataProperty;
+    public sealed record Scalar(string Name, string Unit, ReadOnlyMemory<float> Values) : MetadataProperty;
+    public sealed record Banded(string Name, ReadOnlyMemory<float> Values, Seq<string> Bands) : MetadataProperty;
+
+    public string PropertyName =>
+        Switch(classification: static c => c.Name, scalar: static s => s.Name, banded: static b => b.Name);
+
+    public int Count =>
+        Switch(classification: static c => c.Values.Count, scalar: static s => s.Values.Length, banded: static b => b.Values.Length);
+
+    public string ComponentType =>
+        Switch(classification: static _ => "STRING", scalar: static _ => "FLOAT32", banded: static _ => "FLOAT32");
+
+    public ReadOnlyMemory<byte> ColumnBytes =>
+        Switch(
+            classification: static c => (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(string.Join('\0', c.Values)),
+            scalar: static s => MemoryMarshal.AsBytes(s.Values.Span).ToArray(),
+            banded: static b => MemoryMarshal.AsBytes(b.Values.Span).ToArray());
+}
+
+public sealed record PropertyTable(string Class, int FeatureCount, Seq<MetadataProperty> Columns) {
+    public (ReadOnlyMemory<byte> Buffer, Seq<(string Name, int Offset, int ByteLength, string ComponentType)> Views) Pack() {
+        var views = Seq<(string, int, int, string)>();
+        int cursor = 0;
+        var segments = new List<byte[]>();
+        foreach (var column in Columns) {
+            byte[] bytes = column.ColumnBytes.ToArray();
+            views = views.Add((column.PropertyName, cursor, bytes.Length, column.ComponentType));
+            segments.Add(bytes);
+            cursor += bytes.Length;
+        }
+        var buffer = new byte[cursor];
+        int slot = 0;
+        foreach (var segment in segments) { segment.CopyTo(buffer.AsSpan(slot)); slot += segment.Length; }
+        return (buffer, views);
+    }
+}
+
+public sealed record TileMetadata(UInt128 ContentKey, PropertyTable Table, ReadOnlyMemory<int> FeatureIds) {
+    public static TileMetadata Join(UInt128 contentKey, string ifcClass, Seq<string> classification, ReadOnlyMemory<float> fieldValues, string fieldUnit, double minimum, double maximum, ReadOnlyMemory<int> featureIds) {
+        var bands = toSeq(fieldValues.ToArray().Select(value => FeatureBand.Of(value, minimum, maximum).Key));
+        var columns = Seq<MetadataProperty>(
+            new MetadataProperty.Classification("ifc-class", classification),
+            new MetadataProperty.Scalar("field-value", fieldUnit, fieldValues),
+            new MetadataProperty.Banded("field-band", fieldValues, bands));
+        return new TileMetadata(contentKey, new PropertyTable(ifcClass, classification.Count, columns), featureIds);
+    }
+}
+
+public sealed record TileNode(int Depth, float[] BoundingVolume, double GeometricError, UInt128 ContentKey, Option<TileMetadata> Metadata, Seq<TileNode> Children);
 
 public sealed record TileSet(TileNode Root, double GeometricErrorRoot, int MaxDepth, int NodeCount, Instant At) {
-    public static TileSet Build(ImportedGeometry geometry, InterchangePolicy policy, ClockPolicy clocks) {
-        var root = Partition(geometry, policy, depth: 0);
+    public static TileSet Build(ImportedGeometry geometry, Func<UInt128, Option<TileMetadata>> metadata, InterchangePolicy policy, ClockPolicy clocks) {
+        var root = Partition(geometry, metadata, policy, depth: 0);
         return new TileSet(root, policy.TileGeometricErrorRoot, policy.TileMaxDepth, Count(root), clocks.Now);
     }
 
-    static TileNode Partition(ImportedGeometry geometry, InterchangePolicy policy, int depth) {
+    static TileNode Partition(ImportedGeometry geometry, Func<UInt128, Option<TileMetadata>> metadata, InterchangePolicy policy, int depth) {
         var bounds = Bounds(geometry);
         double error = policy.TileGeometricErrorRoot / Math.Pow(2, depth);
         var contentKey = InterchangeIdentity.Key(geometry.FormatKey, MemoryMarshal.AsBytes(geometry.Vertices.Span), policy.Deflection, policy.Tolerance, policy.AngleTolerance);
         return depth >= policy.TileMaxDepth || geometry.TriangleCount <= policy.TileSplitThreshold
-            ? new TileNode(depth, bounds, error, contentKey, Seq<TileNode>())
-            : new TileNode(depth, bounds, error, contentKey,
-                Split(geometry, bounds).Map(child => Partition(child, policy, depth + 1)));
+            ? new TileNode(depth, bounds, error, contentKey, metadata(contentKey), Seq<TileNode>())
+            : new TileNode(depth, bounds, error, contentKey, None,
+                Split(geometry, bounds).Map(child => Partition(child, metadata, policy, depth + 1)));
     }
 
     static int Count(TileNode node) => 1 + node.Children.Sum(Count);
@@ -375,13 +490,16 @@ public sealed record TileSet(TileNode Root, double GeometricErrorRoot, int MaxDe
 }
 
 public static class TilePartition {
-    public static Fin<Seq<ExportArtifact>> ExportTiles(ImportedGeometry geometry, InterchangePolicy policy, ClockPolicy clocks) =>
-        Tiled(TileSet.Build(geometry, policy, clocks)).Traverse(static result => result);
+    public static Fin<Seq<ExportArtifact>> ExportTiles(ImportedGeometry geometry, Func<UInt128, Option<TileMetadata>> metadata, InterchangePolicy policy, ClockPolicy clocks) =>
+        Tiled(TileSet.Build(geometry, metadata, policy, clocks)).Traverse(static result => result);
 
     static Seq<Fin<ExportArtifact>> Tiled(TileSet tiles) =>
         Flatten(tiles.Root)
             .Filter(static node => node.Children.IsEmpty)
-            .Map(static node => Fin.Fail<ExportArtifact>(new ComputeFault.ModelRejected($"<tile-content-catalogue-pending:{node.ContentKey:x32}:b3dm-glb-tile-emit-unadmitted>")));
+            .Map(static node => {
+                int columns = node.Metadata.Map(static meta => meta.Table.Columns.Count).IfNone(0);
+                return Fin.Fail<ExportArtifact>(new ComputeFault.ModelRejected($"<tile-content-catalogue-pending:{node.ContentKey:x32}:ext-structural-metadata-cols={columns}:b3dm-glb-tile-emit-unadmitted>"));
+            });
 
     static Seq<TileNode> Flatten(TileNode node) =>
         node.Cons(node.Children.Bind(Flatten));
@@ -429,5 +547,7 @@ public static class InterchangeIdentity {
 
 - [COMPANION_PROTOCOL]: the IfcOpenShell companion-daemon request/response protocol for the two-hop tessellation hop — the `IfcConvert`-to-GLB invocation shape, the deflection/tolerance argument mapping, and the GLB streaming-back contract — is owned by the Python geometry companion and rides the remote-lane companion rpc; the `TessellationRequest` shape and the content-key cache-reuse are authored here.
 - [FIELD_FORMAT]: the CGNS/EnSight/VTK/Zarr chunked-field decode member spellings ground against the admitted field-format library surface, the field-format row vocabulary is owned by the Bim format axis, and the decode body grounds at the field-codec admission gate.
-- [TILE_CONTENT]: the 3D-Tiles tileset b3dm/glTF tile content schema and the leaf-tile content encode ride the Bim glTF codec; the `TileSet` octree partition, the per-node content-key, and the quantization-bit policy are owned here and the leaf-tile content emit grounds against the Bim tile-emit codec at cross-package alignment.
+- [RESIDUAL_PREDICTOR]: the `ResidualPredictor` neighbour-stencil-to-chunk ONNX field model is fit offline by the Python geometry-science companion and arrives as one content-addressed ONNX artifact keyed by the field-family digest over the `remote#PROTO_VOCABULARY` artifact transport — C# owns only the per-chunk `RunOps.Infer` inference and the residual fold; the stencil shape (neighbour count, component interleave) and the trained model's input/output tensor names ground against the companion-published model signature at the residual-codec admission gate, and the predictor warms from the same `inference#RESULT_CACHE` model-lane cache the optimizer neural-field surrogate uses.
+- [TILE_CONTENT]: the 3D-Tiles tileset b3dm/glTF tile content schema and the leaf-tile content encode ride the Bim glTF codec; the `TileSet` octree partition, the per-node content-key, the `MetadataProperty`/`PropertyTable`/`TileMetadata` semantic-layer schema, the `FeatureBand` styling rows, and the quantization-bit policy are owned here and the leaf-tile content emit grounds against the Bim tile-emit codec at cross-package alignment.
+- [EXT_STRUCTURAL_METADATA]: the `EXT_structural_metadata` property-table buffer-view layout and the `EXT_mesh_features` `_FEATURE_ID_0` vertex-attribute emit ride the SharpGLTF raw glTF-extension write surface — SharpGLTF.Core 1.0.6 models neither vendor extension natively (the in-box extension surface is the `KnownChannel` material-PBR projection and `ExtensionsFactory.RegisterExtension<TParent,TExt>(string name)` for a caller-supplied `JsonSerializable`-derived extension class registered before write), so the schema-class declaration, the property-table class/property JSON, and the feature-id accessor binding ground against the SharpGLTF `ExtensionsFactory`/`JsonSerializable` extension API and the 3D-Tiles 1.1 / glTF `EXT_structural_metadata` spec at the leaf-emit admission gate; the `PropertyTable.Pack` column buffer and the `MetadataProperty` typed columns are authored here. The leaf-tile geometry LOD rides `Meshopt.Simplify(destination, indices, index_count, positions, vertex_count, stride, target, error, options, out error_out)` and `Meshopt.OptimizeVertexCache(destination, indices, index_count, vertex_count)` over the per-octant geometry, the simplification target and `SimplificationOptions` band owned by the octree depth.
 - [ARTIFACT_INDEX_ROW]: the `ArtifactIndexRow.Interchange` kind row on the Persistence artifact-blob index carries every interchange artifact (tessellated GLB, chunked field, tile content, re-exported glTF) beside `EpContext`, `OnnxProfile`, `IfcSemantic`, and `ChunkContent` — the row is settled on the `Persistence/cache/indexes#ARTIFACT_BLOB_INDEX` owner and Compute consumes the `interchange` kind constant as settled vocabulary; the residual is the classification/retention column values the interchange artifact carries at `InterchangeIdentity.Admit`, confirmed against the Persistence retention axis at cross-folder alignment.

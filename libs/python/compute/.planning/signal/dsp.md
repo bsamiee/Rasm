@@ -92,4 +92,4 @@ def _apply(samples: np.ndarray, fs: float, op: SignalOp) -> SignalReceipt:
 
 ## [3]-[RESEARCH]
 
-- [SCIPY_SIGNAL]: the `scipy.signal.butter`/`sosfiltfilt`/`welch`/`resample_poly` spellings carry the `python_version<'3.15'` marker; the bodies verify against the `.api` catalogue once the scipy wheel resolves. scipy 1.17 makes `scipy.signal` Array-API-aware, so the op admits any backend array resolved through `arrays/payload.md#PAYLOAD`.
+- [SCIPY_SIGNAL]: the `scipy.signal.butter`/`sosfiltfilt`/`welch`/`resample_poly` spellings carry the `python_version<'3.15'` marker and are not yet captured in `compute/.api/scipy.md` (which catalogues `scipy.linalg`/`sparse`/`optimize`/`integrate`/`interpolate`); they verify against the catalogue under a uv-sync reflection pass once `scipy.signal` is captured and the scipy wheel resolves. scipy 1.17 makes `scipy.signal` Array-API-aware, so the op admits any backend array resolved through `arrays/payload.md#PAYLOAD`.

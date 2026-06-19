@@ -12,9 +12,9 @@ IFC property/quantity/relationship analysis and standards-conformant validation 
 - Owner: `IfcAnalysis` — the static surface dispatching the analysis verbs over the IfcOpenShell ecosystem; `AnalysisKind` the closed `StrEnum` selecting the verb; `AnalysisResult` the typed receipt carrying the kind, the subject element set, and the BCF-serializable result rows.
 - Cases: `AnalysisKind` rows `QUANTITY` (quantity takeoff over `util.element`) · `PSET` (property-set queries) · `IDS` (model-checking over `ifctester.ids`) · `CLASH` (clash sets over `ifcclash`) · `SPACE_PROGRAM` (`IfcSpace` area validation against a program table) · `BCF` (issue authoring/round-trip over the `bcf` library) — matched by `match`/`case`, each dispatching to the ecosystem tool that owns it.
 - Entry: `IfcAnalysis.run` takes an `ifcopenshell.file`, an `AnalysisKind`, and a `query` whose meaning is fixed by the kind — an element selector for `QUANTITY`/`PSET`, an IDS spec path for `IDS`, a JSON program table keyed by space long-name for `SPACE_PROGRAM`, a BCF title for `BCF`, ignored for `CLASH` — and returns a `RuntimeRail[AnalysisResult]`. Each arm derives its own `subjects` from the verb's true subject set: `filter_elements` GlobalIds for the selecting arms, `IfcSpace` GlobalIds for `SPACE_PROGRAM`, spec names for `IDS`, clash a-side GlobalIds for `CLASH`, topic guids for `BCF` — so the subject field never carries a meaningless selector run for a non-selecting verb.
-- Auto: quantity takeoff folds `util.element.get_psets(element, qtos_only=True)` over the selected set; IDS validation runs an `Ids` specification against the model and exports a BCF report; clash detection runs the `ifcclash` clash-set query and returns overlap pairs; space-program validation decodes the `query` program table and joins each `IfcSpace` net floor area from its QTO pset against the target, emitting a per-space target/actual/compliant row; BCF round-trip authors and reads conformant issue markup over the `bcf` library.
+- Auto: quantity takeoff folds `util.element.get_psets(element, qtos_only=True)` over the selected set; IDS validation runs an `Ids` specification against the model and collects the structured per-spec result through `ifctester.reporter.Json`, with `ifctester.reporter.Bcf` the standards-conformant BCF export the graduation leg writes; clash detection runs the `ifcclash` clash-set query and returns overlap pairs; space-program validation decodes the `query` program table and joins each `IfcSpace` net floor area from its QTO pset against the target, emitting a per-space target/actual/compliant row; BCF round-trip authors a topic through `add_topic` and reads it back through `get_topics` over the `bcf` library.
 - Receipt: each run contributes an emitted-phase `Receipt.of` row through `ReceiptContributor` and produces a geometry `GraduationReceipt` subject, so IDS results, clash sets, and BCF findings reach the C# owner system through the one graduation rail as standards-conformant output the toolchain consumes directly.
-- Packages: `ifcopenshell` (`util.element.get_psets`/`util.selector.filter_elements`/`util.placement.get_local_placement`/`util.unit`/`api`), `ifctester` (`ids.Ids`/`ids.open`/`reporter`), `ifcclash` (`ifcclash.Clasher`/clash-set query), `bcf` (issue read/write), runtime (`RuntimeRail`/`ReceiptContributor`).
+- Packages: `ifcopenshell` (`util.element.get_psets`/`util.selector.filter_elements`/`util.placement.get_local_placement`/`util.unit`/`api`), `ifctester` (`ids.open`/`Ids.validate`/`Specification.name`/`Specification.status`/`reporter.Json`/`reporter.Bcf`), `ifcclash` (`ifcclash.Clasher`/`ifcclash.ClashSettings`/`ClashSet`/`ClashResult.a_global_id`/`b_global_id`), `bcf-client` (import `bcf`; `bcf.v3.bcfxml.BcfXml.create_new`/`add_topic`/`get_topics`/`TopicHandler.topic`/`TopicHandler.guid`), runtime (`RuntimeRail`/`ReceiptContributor`).
 - Growth: a new analysis verb is one `AnalysisKind` row plus one dispatch arm; a new IDS specification is authored through `ifctester`, never a local rule fold; zero new surface.
 - Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy (projected in-process); no durable store; no Rhino/GH mutation; a hand-rolled IFC parser, a bespoke non-portable IDS rule fold, an OCCT bounding-overlap clash reimplementation, and a parallel per-verb class family are the deleted forms — IDS, clash, and BCF compose the provider tools end-to-end.
 
@@ -23,8 +23,9 @@ import ifcopenshell
 import ifcopenshell.util.element
 import ifcopenshell.util.selector
 import ifctester.ids
+import ifctester.reporter
 from bcf.v3.bcfxml import BcfXml
-from ifcclash.ifcclash import Clasher
+from ifcclash.ifcclash import Clasher, ClashSettings
 from enum import StrEnum
 from typing import assert_never
 from msgspec import Struct
@@ -80,17 +81,27 @@ class IfcAnalysis:
             case AnalysisKind.IDS:
                 spec = ifctester.ids.open(query)
                 spec.validate(model)
+                report = ifctester.reporter.Json(spec)
+                report.report()
                 rows = tuple({"spec": s.name, "status": str(s.status)} for s in spec.specifications)
                 return AnalysisResult(kind, tuple(r["spec"] for r in rows), rows)
             case AnalysisKind.CLASH:
-                clasher = Clasher({"name": "ifc.clash"})
-                clasher.clash_sets = [{"a": [{"file": model}], "b": [{"file": model}], "mode": "intersection"}]
+                clasher = Clasher(ClashSettings())
+                clasher.clash_sets = [
+                    {"name": "ifc.clash", "a": [{"ifc": model, "mode": "a"}], "b": [{"ifc": model, "mode": "a"}], "mode": "intersection"}
+                ]
                 clasher.clash()
-                rows = tuple({"a": c["a_global_id"], "b": c["b_global_id"]} for s in clasher.clash_sets for c in s["clashes"].values())
+                rows = tuple(
+                    {"a": c["a_global_id"], "b": c["b_global_id"]}
+                    for s in clasher.clash_sets
+                    for c in s.get("clashes", {}).values()
+                )
                 return AnalysisResult(kind, tuple(r["a"] for r in rows), rows)
             case AnalysisKind.BCF:
                 bcf = BcfXml.create_new(query)
-                rows = tuple({"topic": t.title, "guid": t.guid} for t in bcf.topics.values())
+                bcf.add_topic(query, query, "rasm")
+                topics = bcf.get_topics()
+                rows = tuple({"topic": h.topic.title, "guid": h.guid} for h in topics.values())
                 return AnalysisResult(kind, tuple(r["guid"] for r in rows), rows)
             case unreachable:
                 assert_never(unreachable)
@@ -106,7 +117,7 @@ class IfcAnalysis:
 
 ## [3]-[RESEARCH]
 
-- [CLASH_SET_SHAPE]: the `ifcclash.ifcclash.Clasher` constructor arity, the `clash_sets` element dict shape (`a`/`b` file selectors and `mode`), and the per-clash overlap-pair return (`a_global_id`/`b_global_id`) confirm against the branch `ifcclash` catalogue on the companion interpreter; the clash arm composes the verified `Clasher` class until the internal dict shape is catalogue-confirmed.
-- [BCF_TOPIC_ROUNDTRIP]: the `bcf.v3.bcfxml.BcfXml` create/load entrypoints, the `topics` accessor, and the topic `title`/`guid` fields confirm against the branch `bcf` catalogue; the BCF arm composes the verified `BcfXml` class until the topic-collection shape is catalogue-confirmed.
-- [IDS_SELECTOR_GRAMMAR]: the `ifctester.ids.open`/`Ids.validate`/`specifications[].status` surface, the `util.selector.filter_elements` query grammar, and the `get_psets(qtos_only=True)` return shape confirm against the branch `ifctester`/`ifcopenshell` catalogues.
+- [CLASH_SET_INTERNAL]: the branch `ifcclash` catalogue confirms `Clasher(ClashSettings())`, the `ClashSet` TypedDict (`name`/`a`/`b`/`mode`), the `ClashSource` TypedDict (`ifc`/`mode` `'a'`-all selector), the in-place `clashes: dict[str, ClashResult]` result accumulation, and the `ClashResult.a_global_id`/`b_global_id` pair; the `Clasher.clash()` populate-versus-`process_clash_set` single-set entry and whether `clash_sets[i]["clashes"]` is keyed before or after `clash()` is the remaining internal-shape detail the live run confirms.
+- [BCF_TOPIC_ROUNDTRIP]: the branch `bcf-client` catalogue confirms `bcf.v3.bcfxml.BcfXml.create_new(project_name)`, `BcfXml.add_topic(title, description, author) -> TopicHandler`, `BcfXml.get_topics() -> dict[str, TopicHandler]`, and `TopicHandler.topic`/`TopicHandler.guid`; the `TopicHandler.topic.title` markup field spelling (the `v3.model.markup.Topic.title` attribute) is the remaining field-name detail the live run confirms. The `BCF` arm realizes the author leg — `add_topic(title, description, author)` mints the topic before `get_topics` returns the populated map — so the round-trip is fenced, not prose; the IDS `reporter.Json`/`reporter.Bcf` exporter is the standards-conformant export the graduation leg writes.
+- [IDS_SELECTOR_GRAMMAR]: the branch `ifctester` catalogue confirms `ids.open(filepath, validate=False) -> Ids`, `Ids.validate(ifc_file)`, `Ids.specifications`, and `Specification.name`/`Specification.status`; the `util.selector.filter_elements` query grammar and the `get_psets(qtos_only=True)` return shape confirm against the branch `ifcopenshell` catalogue.
 - [SPACE_QUANTITY_KEY]: the `Qto_SpaceBaseQuantities` `NetFloorArea` quantity key the `_net_area` fold reads from the `get_psets(qtos_only=True)` return, and the `IfcSpace` `LongName`/`Name` program-table join key, confirm against the branch `ifcopenshell` catalogue.

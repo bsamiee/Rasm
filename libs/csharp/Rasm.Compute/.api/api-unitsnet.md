@@ -80,13 +80,13 @@ measured execution inputs and receipts.
 |   [2]   | `QuantityParser`         | parser             | parses quantities        |
 |   [3]   | `UnitParser`             | parser             | parses units             |
 |   [4]   | `QuantityFormatter`      | formatter          | formats quantities       |
-|   [5]   | `UnitFormatter`          | formatter          | formats units            |
-|   [6]   | `UnitConverter`          | converter          | converts units           |
-|   [7]   | `UnitAbbreviationsCache` | abbreviation store | resolves abbreviations   |
-|   [8]   | `QuantityInfo`           | metadata           | describes quantities     |
-|   [9]   | `UnitInfo`               | metadata           | describes units          |
-|  [10]   | `UnitSystem`             | unit policy        | groups unit policy       |
-|  [11]   | `UnitsNetSetup`          | configuration root | configures unit services |
+|   [5]   | `UnitConverter`          | converter          | converts units           |
+|   [6]   | `UnitAbbreviationsCache` | abbreviation store | resolves abbreviations   |
+|   [7]   | `QuantityInfo`           | metadata           | describes quantities     |
+|   [8]   | `UnitInfo`               | metadata           | describes units          |
+|   [9]   | `UnitSystem`             | unit policy        | groups unit policy       |
+|  [10]   | `UnitsNetSetup`          | configuration root | configures unit services |
+|  [11]   | `UnitMath`               | quantity math      | sums and aggregates      |
 |  [12]   | `DefaultUnitAttribute`   | attribute          | declares default units   |
 |  [13]   | `ConvertToUnitAttribute` | attribute          | declares conversion unit |
 |  [14]   | `DisplayAsUnitAttribute` | attribute          | declares display unit    |
@@ -112,16 +112,16 @@ measured execution inputs and receipts.
 [ENTRYPOINT_SCOPE]: setup and metadata
 - rail: units
 
-| [INDEX] | [SURFACE]                        | [CALL_SHAPE]      | [CAPABILITY]            |
-| :-----: | :------------------------------- | :---------------- | :---------------------- |
-|   [1]   | `UnitsNetSetup.Default`          | setup property    | provides setup root     |
-|   [2]   | `UnitAbbreviationsCache.Default` | cache property    | provides abbreviations  |
-|   [3]   | `Quantity.Infos`                 | metadata property | lists quantity metadata |
-|   [4]   | `UnitConverter.Convert`          | converter call    | converts numeric values |
-|   [5]   | `UnitParser.Parse`               | parser call       | resolves unit enum      |
-|   [6]   | `QuantityFormatter.Format`       | formatter call    | writes quantity text    |
-|   [7]   | `GenericMathExtensions`          | extension surface | applies generic math    |
-|   [8]   | `DecimalGenericMathExtensions`   | extension surface | applies decimal math    |
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]      | [CAPABILITY]             |
+| :-----: | :------------------------------- | :---------------- | :----------------------- |
+|   [1]   | `UnitsNetSetup.Default`          | setup property    | provides setup root      |
+|   [2]   | `UnitAbbreviationsCache.Default` | cache property    | provides abbreviations   |
+|   [3]   | `Quantity.Infos`                 | metadata property | lists quantity metadata  |
+|   [4]   | `UnitConverter.Convert`          | converter call    | converts numeric values  |
+|   [5]   | `UnitParser.Parse`               | parser call       | resolves unit enum       |
+|   [6]   | `QuantityFormatter.Format`       | formatter call    | writes quantity text     |
+|   [7]   | `UnitMath.Sum`                   | aggregation call  | sums a quantity sequence |
+|   [8]   | `IArithmeticQuantity` operators  | operator surface  | applies generic math     |
 
 [ENTRYPOINT_SCOPE]: metadata, dimensions, and unit-system policy
 - rail: units
@@ -155,7 +155,7 @@ measured execution inputs and receipts.
 - formatting: `QuantityFormatter` and `UnitFormatter`
 - abbreviation policy: `UnitAbbreviationsCache`
 - setup policy: `UnitsNetSetup`
-- generic math: `UnitsNet.GenericMath`
+- generic math: `IArithmeticQuantity<TSelf, TUnit, TValue>` operators per quantity struct, plus `UnitMath.Sum`
 
 [LOCAL_ADMISSION]:
 - Compute numeric inputs and receipts carry explicit quantities when units affect meaning.

@@ -62,6 +62,18 @@
 |   [2]   | `MutableRegistry` | mutable registry | add/remove descriptors at runtime   |
 |   [3]   | `FileRegistry`    | file registry    | registry plus file lookup by name   |
 
+[PUBLIC_TYPE_SCOPE]: well-known types (`@bufbuild/protobuf/wkt`)
+- rail: wire
+
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [RAIL]                                                                  |
+| :-----: | :---------------- | :------------ | :---------------------------------------------------------------------- |
+|   [1]   | `FieldMask`       | WKT message   | `paths: string[]` repeated dotted-path set; `google.protobuf.FieldMask` |
+|   [2]   | `FieldMaskSchema` | `GenMessage`  | descriptor for `create`/`fromBinary`/`fromJson` of `FieldMask`          |
+|   [3]   | `Timestamp`       | WKT message   | `seconds: bigint`, `nanos: number`; `google.protobuf.Timestamp`         |
+|   [4]   | `TimestampSchema` | `GenMessage`  | descriptor for `Timestamp` instantiation                                |
+|   [5]   | `Duration`        | WKT message   | `seconds: bigint`, `nanos: number`; `google.protobuf.Duration`          |
+|   [6]   | `Any`             | WKT message   | `typeUrl: string`, `value: Uint8Array`; `google.protobuf.Any`           |
+
 [PUBLIC_TYPE_SCOPE]: scalar types
 - rail: wire
 
@@ -110,6 +122,15 @@
 |   [3]   | `createFileRegistry(fileDescriptorSet)` | file registry    | `FileRegistry` from `FileDescriptorSet`     |
 |   [4]   | `createFileRegistry(proto, resolve)`    | file registry    | `FileRegistry` from single proto + resolver |
 |   [5]   | `createFileRegistry(...registries)`     | file registry    | merged `FileRegistry` from registries       |
+
+[ENTRYPOINT_SCOPE]: well-known-type helpers (`@bufbuild/protobuf/wkt`)
+- rail: wire
+
+| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                                              |
+| :-----: | :--------------------------------- | :------------- | :-------------------------------------------------- |
+|   [1]   | `anyPack(schema, message)`         | Any pack       | wrap a typed message into `Any` (`typeUrl`+`value`) |
+|   [2]   | `anyUnpack(any, registryOrSchema)` | Any unpack     | unwrap `Any` by registry or descriptor schema       |
+|   [3]   | `anyUnpackTo(any, schema, target)` | Any unpack     | unwrap `Any` into an existing target message        |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
